@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net48</TargetFramework>
+        <LangVersion>12</LangVersion>
+        <ImplicitUsings>disable</ImplicitUsings>
+        <Nullable>disable</Nullable>
+        <OutputType>Library</OutputType>
+        <RootNamespace>Cultiway</RootNamespace>
+        <DefineConstants>DEBUG;TRACE</DefineConstants>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <DisableHandlePackageFileConflicts>true</DisableHandlePackageFileConflicts>
+    </PropertyGroup>
+    <ItemGroup>
+        <Content Include="icon.png"/>
+        <Content Include="mod.json"/>
+    </ItemGroup>
+    <ItemGroup>
+        <Reference Include="0Harmony">
+            <HintPath>..\..\worldbox_Data\StreamingAssets\mods\NML\Assemblies\0Harmony.dll</HintPath>
+        </Reference>
+        <Reference Include="Assembly-CSharp">
+            <HintPath>..\..\worldbox_Data\StreamingAssets\mods\NML\Assembly-CSharp-Publicized.dll</HintPath>
+        </Reference>
+        <Reference Include="DOTween">
+            <HintPath>..\..\worldbox_Data\Managed\DOTween.dll</HintPath>
+        </Reference>
+        <Reference Include="Friflo.Engine.ECS">
+            <HintPath>Assemblies\Friflo.Engine.ECS.dll</HintPath>
+        </Reference>
+        <Reference Include="Friflo.Json.Burst">
+            <HintPath>Assemblies\Friflo.Json.Burst.dll</HintPath>
+        </Reference>
+        <Reference Include="Friflo.Json.Fliox">
+            <HintPath>Assemblies\Friflo.Json.Fliox.dll</HintPath>
+        </Reference>
+        <Reference Include="Friflo.Json.Fliox.Annotation">
+            <HintPath>Assemblies\Friflo.Json.Fliox.Annotation.dll</HintPath>
+        </Reference>
+        <Reference Include="NeoModLoader">
+            <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader_memload.dll')">..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader_memload.dll</HintPath>
+            <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll')">..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll</HintPath>
+        </Reference>
+        <Reference Include="System.ComponentModel.Annotations">
+            <HintPath>Assemblies\System.ComponentModel.Annotations.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine">
+            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine.CoreModule">
+            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine.TextCoreModule">
+            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TextCoreModule.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine.TextRenderingModule">
+            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine.UI">
+            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.UI.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+    <ItemGroup>
+        <Compile Remove="Jenny\**"/>
+    </ItemGroup>
+    <ItemGroup>
+        <EmbeddedResource Remove="Jenny\**"/>
+    </ItemGroup>
+    <ItemGroup>
+        <None Remove="Jenny\**"/>
+    </ItemGroup>
+    <ItemGroup>
+        <Folder Include="Source\Core\GeoLib\Components\"/>
+      <Folder Include="Source\Core\SkillLibV2\Components\TrajectoryParams\"/>
+    </ItemGroup>
+</Project>
