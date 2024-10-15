@@ -403,8 +403,6 @@ FodyWeavers.xsd
 *.sln.iml
 
 .*
-Assemblies
 Doc
-GameResources
 !.gitignore
 !.gitattribute

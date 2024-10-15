@@ -1,0 +1,14 @@
+{
+    "Specific": [
+        {
+            "Path": "clouds.png",
+            "Alias": "small",
+            "RectX": 130,
+            "RectY": 487,
+            "RectW": 96,
+            "RectH": 62,
+            "PivotX": 0.5,
+            "PivotY": 0.5
+        }
+    ]
+}
