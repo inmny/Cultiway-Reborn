@@ -7,25 +7,30 @@ namespace Cultiway.Core.SkillLibV2.Components;
 [StructLayout(LayoutKind.Explicit)]
 public struct Rotation : IComponent
 {
-    [FieldOffset(0)]  public Quaternion value;
-    [FieldOffset(0)]  public float      x;
-    [FieldOffset(4)]  public float      y;
-    [FieldOffset(8)]  public float      z;
-    [FieldOffset(12)] public float      w;
+    [FieldOffset(0)] public Vector3 value;
+    [FieldOffset(0)] public Vector2 in_plane;
+    [FieldOffset(0)] public float   x;
+    [FieldOffset(4)] public float   y;
+    [FieldOffset(8)] public float   z;
 
     public Rotation()
     {
     }
 
-    public Rotation(float x, float y, float z, float w)
+    public Rotation(Vector2 plane_value, float z)
+    {
+        in_plane = plane_value;
+        this.z = z;
+    }
+
+    public Rotation(float x, float y, float z)
     {
         this.x = x;
         this.y = y;
         this.z = z;
-        this.w = w;
     }
 
-    public Rotation(Quaternion value)
+    public Rotation(Vector3 value)
     {
         this.value = value;
     }

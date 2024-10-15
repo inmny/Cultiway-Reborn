@@ -3,6 +3,7 @@ using Cultiway.Const;
 using Cultiway.Core.SkillLibV2.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 using Position = Cultiway.Core.SkillLibV2.Components.Position;
 using Rotation = Cultiway.Core.SkillLibV2.Components.Rotation;
@@ -55,12 +56,28 @@ public class RenderAnimFrameSystem : BaseSystem
                 bind_renderer.value.sprite = sprite;
             });
         _pool.ClearUnsed();
-        pos_query.ForEachComponents((ref Position pos, ref AnimBindRenderer bind_renderer) =>
-            bind_renderer.value.transform.localPosition = pos.value);
-        rot_query.ForEachComponents((ref Rotation rot, ref AnimBindRenderer bind_renderer) =>
-            bind_renderer.value.transform.localRotation = rot.value);
+        pos_query.ForEachComponents([Hotfixable](ref Position pos, ref AnimBindRenderer bind_renderer) =>
+        {
+            if (bind_renderer.value == null) return;
+            bind_renderer.value.transform.localPosition = new Vector3(pos.x, pos.y + pos.z);
+        });
         scale_query.ForEachComponents((ref Scale scale, ref AnimBindRenderer bind_renderer) =>
-            bind_renderer.value.transform.localScale = scale.value);
+        {
+            if (bind_renderer.value == null) return;
+            bind_renderer.value.transform.localScale = scale.value;
+        });
+        rot_query.ForEachComponents((ref Rotation rot, ref AnimBindRenderer bind_renderer) =>
+        {
+            if (bind_renderer.value == null) return;
+            bind_renderer.value.transform.localRotation =
+                Quaternion.Euler(0, 0, Vector2.SignedAngle(Vector2.right, rot.in_plane));
+        });
+        rot_query.ForEachComponents((ref Rotation rot, ref AnimBindRenderer bind_renderer) =>
+        {
+            if (bind_renderer.value == null) return;
+            bind_renderer.value.transform.localScale = Vector3.Scale(bind_renderer.value.transform.localScale,
+                new Vector3(0.5f + 1 / Mathf.Max(rot.z / Mathf.Max(0.01f, rot.in_plane.magnitude) + 1, 1), 1, 1));
+        });
     }
 
     private bool NeedRender(Sprite sprite, ref Position pos, ref Scale scale)

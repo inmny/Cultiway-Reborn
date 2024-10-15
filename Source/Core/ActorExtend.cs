@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Const;
-using Cultiway.Content.Skills;
-using Cultiway.Content.Skills.Modifiers;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
-using Cultiway.Core.SkillLib.Components.Triggers;
+using Cultiway.Core.SkillLibV2;
+using Cultiway.Core.SkillLibV2.Api;
+using Cultiway.Core.SkillLibV2.Examples;
 using Cultiway.Patch;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
@@ -42,47 +42,28 @@ public class ActorExtend : ExtendComponent<Actor>
         return $"{e.GetComponent<ActorBinder>().id}: {e}";
     }
 
-    public void CastSkill(string id, BaseSimObject target_obj)
+    public void AddSkillModifier<TModifier, TValue>(string action_id, TModifier modifier)
+        where TModifier : struct, IModifier<TValue>
     {
-        if (!_skill_actions.TryGetValue(id, out var start_action_entity))
+        if (!_skill_actions.TryGetValue(action_id, out Entity action_entity))
         {
-            return;
+            action_entity = TriggerActionBaseMeta.AllDict[action_id].NewModifierContainer();
+            _skill_actions[action_id] = action_entity;
         }
 
-        ref var start_action = ref start_action_entity.GetComponent<StartObjActionContainerInfo>();
-        StartObjTrigger trigger = new()
-        {
-            target = target_obj
-        };
-        Entity skill_entity = ModClass.I.Skill.RequestSkillEntity(this, target_obj, target_obj.currentTile, 1);
-        start_action.Meta.action(ref trigger, ref skill_entity, ref start_action_entity);
+        action_entity.AddComponent(modifier);
     }
 
     public void CastSkillV2(string id, BaseSimObject target_obj)
     {
+        ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, 100);
     }
 
-    public Entity GetSkillActionEntity(string action_id, Entity default_action = default)
+    public Entity GetSkillActionEntity(string action_id, Entity default_action)
     {
         return _skill_actions.TryGetValue(action_id, out var res) ? res : default_action;
     }
 
-    private void TestAddSkill()
-    {
-        _skill_actions[nameof(SkillTriggerActions.FireballStarter)] = SkillTriggerActions.FireballStarter.NewEntity();
-    }
-
-    [Hotfixable]
-    private void TestAddCastNumMod(int num)
-    {
-        if (!_skill_actions.TryGetValue(nameof(SkillTriggerActions.FireballStarter), out var action_entity))
-        {
-            action_entity = SkillTriggerActions.FireballStarter.NewEntity();
-            _skill_actions[nameof(SkillTriggerActions.FireballStarter)] = action_entity;
-        }
-
-        action_entity.GetComponent<CastNum>().Value = num;
-    }
 
     [Hotfixable]
     private void TestCastSkill()
@@ -93,7 +74,7 @@ public class ActorExtend : ExtendComponent<Actor>
             target = World.world.units.GetRandom();
         } while (!Base.kingdom.isEnemy(target.kingdom));
 
-        CastSkill(nameof(SkillTriggerActions.FireballStarter), target);
+        CastSkillV2(ExampleTriggerActions.StartSkillFireball.id, target);
         ModClass.LogInfo($"{Base.data.id} cast skill to {target.data.id}");
     }
 

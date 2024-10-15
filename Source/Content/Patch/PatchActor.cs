@@ -59,7 +59,7 @@ internal static class PatchActor
             new(OpCodes.Br, end_label)
         ]);
 
-        ModClass.LogInfo($"\n{list.Join(x => x.ToString(), "\n")}");
+        //ModClass.LogInfo($"\n{list.Join(x => x.ToString(), "\n")}");
         return list;
     }
 

@@ -71,6 +71,5 @@
     </ItemGroup>
     <ItemGroup>
         <Folder Include="Source\Core\GeoLib\Components\"/>
-      <Folder Include="Source\Core\SkillLibV2\Components\TrajectoryParams\"/>
     </ItemGroup>
 </Project>

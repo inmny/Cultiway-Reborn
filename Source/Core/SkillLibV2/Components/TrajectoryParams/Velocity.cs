@@ -1,7 +1,7 @@
 using Friflo.Engine.ECS;
 using UnityEngine;
 
-namespace Cultiway.Core.SkillLib.Components;
+namespace Cultiway.Core.SkillLibV2.Components.TrajectoryParams;
 
 public struct Velocity : IComponent
 {

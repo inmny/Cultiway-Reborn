@@ -4,5 +4,5 @@ namespace Cultiway.Core.SkillLibV2.Components.Triggers;
 
 public struct StartSkillTrigger : IEventTrigger<StartSkillTrigger, StartSkillContext>
 {
-    public TriggerActionMeta<StartSkillTrigger, StartSkillContext> TriggerActionMeta { get; }
+    public TriggerActionMeta<StartSkillTrigger, StartSkillContext> TriggerActionMeta { get; set; }
 }

@@ -1,5 +1,4 @@
 using Cultiway.Const;
-using Cultiway.Core.SkillLib.Components;
 using Cultiway.Core.SkillLibV2.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -10,7 +9,7 @@ public class LogicObserverRecycleTimerSystem : QuerySystem<RecycleTimer>
 {
     public LogicObserverRecycleTimerSystem()
     {
-        Filter.WithoutAnyTags(Tags.Get<PrefabTag>());
+        Filter.WithoutAnyTags(Tags.Get<TagPrefab>());
         Filter.AllTags(Tags.Get<TagReadyRecycle>());
     }
 

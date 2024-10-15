@@ -8,7 +8,7 @@ public class LogicRecycleSkillEntitySystem : QuerySystem<SkillEntity>
 {
     public LogicRecycleSkillEntitySystem()
     {
-        Filter.WithoutAnyTags(Tags.Get<TagRecycle>());
+        Filter.AllTags(Tags.Get<TagRecycle>());
     }
 
     protected override void OnUpdate()

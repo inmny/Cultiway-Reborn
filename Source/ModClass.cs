@@ -3,6 +3,7 @@ using System.IO;
 using System.Reflection;
 using Cultiway.Content;
 using Cultiway.Core;
+using Cultiway.Core.SkillLibV2.Examples;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api;
@@ -15,8 +16,8 @@ namespace Cultiway
 {
     public class ModClass : BasicMod<ModClass>, IReloadable
     {
-        private Manager _content;
-        private Patch.Manager   _patch;
+        private Manager       _content;
+        private Patch.Manager _patch;
 
         private       UI.Manager             _ui;
         public static Assembly               A                    { get; private set; }
@@ -29,8 +30,7 @@ namespace Cultiway
         public SystemRoot              LogicSystems  { get; private set; }
         public EntityStore             W             { get; private set; }
         public WorldRecord             WorldRecord   { get; private set; }
-        public Core.SkillLib.Manager                 Skill         { get; private set; }
-        public Core.SkillLibV2.Manager SkillV2       { get; }
+        public Core.SkillLibV2.Manager SkillV2 { get; private set; }
         public Core.GeoLib.Manager     Geo           { get; private set; }
 
         private void Start()
@@ -38,16 +38,15 @@ namespace Cultiway
             L.PostInit();
         }
 
+        [Hotfixable]
         private void Update()
         {
-            var update_tick = new UpdateTick(Time.deltaTime, (float)World.world.mapStats.worldTime);
+            var update_tick = new UpdateTick(Time.deltaTime, (float)World.world.getCurSessionTime());
             LogicSystems.Update(update_tick);
-            Skill.UpdateLogic(update_tick);
             SkillV2.UpdateLogic(update_tick);
             Geo.UpdateLogic(update_tick);
 
             RenderSystems.Update(update_tick);
-            Skill.UpdateRender(update_tick);
             SkillV2.UpdateRender(update_tick);
         }
 
@@ -101,7 +100,7 @@ namespace Cultiway
             CustomMapModeManager = new();
             CustomMapModeManager.Initialize();
 
-            Skill = new();
+            SkillV2 = new Core.SkillLibV2.Manager();
             Geo = new();
             _ui = new UI.Manager();
             _patch = new Patch.Manager();
@@ -110,6 +109,10 @@ namespace Cultiway
             _ui.Init();
             _patch.Init();
             _content.Init();
+
+            ExampleTriggerActions.Init();
+            ExampleTrajectories.Init();
+            ExampleSkillEntities.Init();
         }
 
         private void LoadLocales()

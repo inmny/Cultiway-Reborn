@@ -23,17 +23,17 @@ public class LogicTrajectorySystem : QuerySystem<Position, Trajectory>
 
     protected override void OnUpdate()
     {
+        var dt = Tick.deltaTime;
         Query.ForEachEntity((ref Position pos, ref Trajectory traj, Entity e) =>
         {
-            pos.value += traj.meta.calc(ref pos, ref traj, e);
+            pos.value += traj.meta.calc(dt, ref pos, ref traj, e);
         });
         with_rot_query.ForEachEntity((ref Position pos, ref Trajectory traj, ref Rotation rot, Entity e) =>
         {
-            Vector3 dp = traj.meta.calc(ref pos, ref traj, e);
+            Vector3 dp = traj.meta.calc(dt, ref pos, ref traj, e);
             pos.value += dp;
             if (traj.meta.towards_velocity)
-                // TODO: recalculate
-                rot.value = Quaternion.Euler(dp);
+                rot.value = dp;
         });
     }
 }

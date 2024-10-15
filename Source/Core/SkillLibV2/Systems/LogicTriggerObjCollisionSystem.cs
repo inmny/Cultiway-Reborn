@@ -39,7 +39,7 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
             lb_fixed.Clamp(world_min, world_max);
             rt_fixed.Clamp(world_min, world_max);
 
-            Kingdom caster_kingdom = skill_entity.GetComponent<SkillCaster>().AsActor.Actor.kingdom;
+            Kingdom caster_kingdom = skill_entity.GetComponent<SkillCaster>().AsActor.kingdom;
             var triggered = false;
 
             if (trigger.actor)
@@ -109,7 +109,7 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
             lb_fixed.Clamp(world_min, world_max);
             rt_fixed.Clamp(world_min, world_max);
 
-            Kingdom caster_kingdom = skill_entity.GetComponent<SkillCaster>().AsActor.Actor.kingdom;
+            Kingdom caster_kingdom = skill_entity.GetComponent<SkillCaster>().AsActor.kingdom;
             var triggered = false;
 
             if (trigger.actor)

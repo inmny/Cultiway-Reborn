@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using Cultiway.Core.SkillLibV2.Api;
+using Cultiway.Core.SkillLibV2.Components.Triggers;
 using Cultiway.Core.SkillLibV2.Systems;
 using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
+using NeoModLoader.api.attributes;
 
 namespace Cultiway.Core.SkillLibV2;
 
@@ -11,26 +14,31 @@ public class Manager
 {
     private readonly SystemRoot    _logic;
     private readonly SystemRoot    _observer_logic;
-    private          EntityStore[] _observer_worlds;
     private readonly SystemRoot    _render;
+    private readonly SystemGroup   _trigger_logic;
+    private          EntityStore[] _observer_worlds;
+
+    private readonly HashSet<string> _registered_custom_value_reach_systems = new();
 
     internal Manager()
     {
         World = new EntityStore();
-        _logic = new SystemRoot(World,          "SkillLibV2.Logic");
-        _observer_logic = new SystemRoot(World, "SkillLibV2.Logic.Observer");
-        _render = new SystemRoot(World,         "SkillLibV2.Render");
+        _logic = new SystemRoot(World, "SkillLibV2.Logic");
+        _observer_logic = new SystemRoot("SkillLibV2.Logic.Observer");
+        _trigger_logic = new SystemGroup("SkillLibV2.Logic.Trigger");
+        _render = new SystemRoot(World, "SkillLibV2.Render");
 
         _observer_worlds = [];
 
-        _logic.Add(new LogicTriggerStartSkillSystem());
-        _logic.Add(new LogicTriggerTimeIntervalSystem());
-        _logic.Add(new LogicTriggerObjCollisionSystem(World));
+        _logic.Add(_trigger_logic);
         _logic.Add(new LogicSkillEntityAliveTimeSystem());
         _logic.Add(new LogicRecycleSkillEntitySystem());
         _logic.Add(new LogicTrajectorySystem(World));
         _logic.Add(new LogicAnimFrameUpdateSystem(World));
-        _logic.Add(_observer_logic);
+
+        _trigger_logic.Add(new LogicTriggerStartSkillSystem());
+        _trigger_logic.Add(new LogicTriggerTimeIntervalSystem());
+        _trigger_logic.Add(new LogicTriggerObjCollisionSystem(World));
 
         _observer_logic.Add(new LogicObserverUnuseCheckSystem());
         _observer_logic.Add(new LogicObserverReuseCheckSystem());
@@ -42,14 +50,36 @@ public class Manager
 
     public EntityStore World { get; }
 
+    public void RegisterCustomValueReachSystem<TTrigger, TContext, TValue>()
+        where TValue : IComparable<TValue>
+        where TContext : struct, ICustomValueReachContext<TValue>
+        where TTrigger : struct, ICustomValueReachTrigger<TTrigger, TContext, TValue>
+    {
+        if (!_registered_custom_value_reach_systems.Add($"{typeof(TTrigger)}-{typeof(TContext)}-{typeof(TValue)}"))
+            return;
+
+        _trigger_logic.Add(new LogicTriggerCustomValueReachSystem<TTrigger, TContext, TValue>());
+    }
+
+    [Hotfixable]
     internal void UpdateLogic(UpdateTick update_tick)
     {
         _logic.Update(update_tick);
+        _observer_logic.Update(update_tick);
     }
 
-    public void NewStartSkill(string id, ActorExtend user, BaseSimObject init_target)
+    public void NewSkillStarter(string id, ActorExtend user, BaseSimObject init_target, float strength)
     {
-        throw new NotImplementedException();
+        World.CreateEntity(new StartSkillTrigger
+        {
+            TriggerActionMeta =
+                TriggerActionBaseMeta.AllDict[id] as TriggerActionMeta<StartSkillTrigger, StartSkillContext>
+        }, new StartSkillContext
+        {
+            user = user,
+            target = init_target,
+            strength = strength
+        });
     }
 
     public ref TObserver GetObserver<TObserver>(int observer_code)

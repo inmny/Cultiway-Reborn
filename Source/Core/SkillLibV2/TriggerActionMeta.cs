@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
-using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV2.Api;
 using Cultiway.Core.SkillLibV2.Components;
 using Friflo.Engine.ECS;
@@ -26,6 +25,15 @@ public class TriggerActionBaseMeta
         this.id = id;
         this.default_modifier_container = default_modifier_container;
     }
+
+    public Entity NewModifierContainer()
+    {
+        EntityStore world = default_modifier_container.Store;
+        Entity entity = world.CloneEntitySimply(default_modifier_container);
+        entity.RemoveTag<TagPrefab>();
+
+        return entity;
+    }
 }
 
 public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
@@ -35,23 +43,23 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
     public delegate void ActionType(ref TTrigger trigger, ref TContext context, Entity skill_entity,
                                     Entity       modifier_container);
 
-    private ActionType _action;
-
     private TriggerActionMeta(string id, Entity default_modifier_container) : base(id, default_modifier_container)
     {
     }
 
+    internal ActionType Action { get; private set; }
+
     public void Invoke(ref TTrigger trigger, ref TContext context, Entity trigger_entity)
     {
         Entity skill_entity = trigger_entity.Parent;
-        ref Entity skill_caster = ref skill_entity.GetComponent<SkillCaster>().value;
-        Entity modifier_container = default_modifier_container;
+        Action(ref trigger, ref context, skill_entity,
+            skill_entity.GetComponent<SkillCaster>().value
+                .GetSkillActionEntity(trigger.TriggerActionMeta.id, default_modifier_container));
+    }
 
-        if (!skill_caster.IsNull)
-            modifier_container = skill_caster.GetComponent<ActorBinder>().AE
-                .GetSkillActionEntity(trigger.TriggerActionMeta.id, default_modifier_container);
-
-        _action(ref trigger, ref context, skill_entity, modifier_container);
+    public static MetaBuilder StartBuild(string id)
+    {
+        return new MetaBuilder(id);
     }
 
     public class ActionBuilder
@@ -93,7 +101,7 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
 
         public MetaBuilder AppendAction(ActionType action)
         {
-            _under_build._action += action;
+            _under_build.Action += action;
             return this;
         }
 
@@ -106,7 +114,7 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
 
         public MetaBuilder CombineWith(BuiltAction built_action)
         {
-            _under_build._action += built_action.action;
+            _under_build.Action += built_action.action;
             foreach (IComponent mod in built_action.modifiers)
                 _under_build.default_modifier_container.AddNonGeneric(mod);
 
@@ -116,7 +124,7 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
         public MetaBuilder CombineWith(TriggerActionMeta<TTrigger, TContext> another_action_meta,
                                        bool                                  overwrite_modifiers = false)
         {
-            _under_build._action += another_action_meta._action;
+            _under_build.Action += another_action_meta.Action;
 
             foreach (EntityComponent mod in another_action_meta.default_modifier_container.Components)
             {

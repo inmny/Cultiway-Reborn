@@ -24,9 +24,11 @@ public class LogicAnimFrameUpdateSystem : QuerySystem<AnimData, AnimController>
 
     protected override void OnUpdate()
     {
+        var i = 0;
+        var time = Tick.time;
         Query.ForEachComponents((ref AnimData anim_data, ref AnimController controller) =>
         {
-            var delta_time = Tick.time - anim_data.next_frame_time;
+            var delta_time = time - anim_data.next_frame_time;
             if (delta_time < 0) return;
             AnimControllerMeta meta = controller.meta;
             var delta_frame_nr = Mathf.FloorToInt(delta_time / meta.frame_interval) + 1;
@@ -40,7 +42,7 @@ public class LogicAnimFrameUpdateSystem : QuerySystem<AnimData, AnimController>
         });
         interval_query.ForEachComponents((ref AnimData anim_data, ref AnimFrameInterval interval) =>
         {
-            var delta_time = Tick.time - anim_data.next_frame_time;
+            var delta_time = time - anim_data.next_frame_time;
             if (delta_time < 0) return;
             var delta_frame_nr = Mathf.FloorToInt(delta_time / interval.value) + 1;
 
