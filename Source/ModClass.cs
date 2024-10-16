@@ -4,6 +4,7 @@ using System.Reflection;
 using Cultiway.Content;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV2.Examples;
+using Cultiway.Core.SkillLibV2.Predefined;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api;
@@ -110,8 +111,11 @@ namespace Cultiway
             _patch.Init();
             _content.Init();
 
+            TriggerActions.Init();
+            Trajectories.Init();
+            SkillEntities.Init();
+
             ExampleTriggerActions.Init();
-            ExampleTrajectories.Init();
             ExampleSkillEntities.Init();
         }
 

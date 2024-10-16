@@ -1,5 +1,8 @@
 using Cultiway.Core.SkillLibV2.Components;
 using Cultiway.Core.SkillLibV2.Components.Triggers;
+using Cultiway.Core.SkillLibV2.Extensions;
+using Cultiway.Core.SkillLibV2.Predefined.Modifiers;
+using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Position = Cultiway.Core.SkillLibV2.Components.Position;
@@ -18,12 +21,6 @@ public static class ExampleTriggerActions
         private set;
     }
 
-    public static TriggerActionMeta<CastCountReachTrigger, CastCountReachContext> CastCountReachRecycleFireballCaster
-    {
-        get;
-        private set;
-    }
-
     public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> ObjCollisionDamageAndExplosion
     {
         get;
@@ -35,26 +32,14 @@ public static class ExampleTriggerActions
         StartSkillFireball = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
             .StartBuild(nameof(StartSkillFireball))
             .AppendAction(spawn_fireball_caster)
-            .AllowModifier<CastSpeedModifier, float>(new CastSpeedModifier
-            {
-                Value = 1
-            })
-            .AllowModifier<CastNumModifier, int>(new CastNumModifier
-            {
-                Value = 1
-            })
+            .AllowModifier<CastSpeedModifier, float>(new CastSpeedModifier(1))
+            .AllowModifier<CastNumberModifier, int>(new CastNumberModifier(1))
             .Build();
         TimeIntervalSpawnFireball = TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext>
             .StartBuild(nameof(TimeIntervalSpawnFireball))
             .AppendAction(spawn_fireball)
-            .AllowModifier<AutoAimModifier, bool>(new AutoAimModifier
-            {
-                Value = false
-            })
-            .Build();
-        CastCountReachRecycleFireballCaster = TriggerActionMeta<CastCountReachTrigger, CastCountReachContext>
-            .StartBuild(nameof(CastCountReachRecycleFireballCaster))
-            .AppendAction(cast_count_reach_recycle)
+            .AddCastCountIncrease()
+            .AllowModifier<AutoAimModifier, bool>(new AutoAimModifier(false))
             .Build();
         ObjCollisionDamageAndExplosion = TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>
             .StartBuild(nameof(ObjCollisionDamageAndExplosion))
@@ -72,6 +57,8 @@ public static class ExampleTriggerActions
             target.GetHit(skill_entity.GetComponent<SkillStrength>().value, ref fireball_damage_composition,
                 skill_entity.GetComponent<SkillCaster>().value.Base);
         }
+
+        if (context.JustTriggered) skill_entity.AddTag<TagRecycle>();
     }
 
     private static void spawn_fireball(ref TimeIntervalTrigger trigger,      ref TimeIntervalContext context,
@@ -91,8 +78,7 @@ public static class ExampleTriggerActions
         var auto_aim = modifier_data.Get<AutoAimModifier>().Value;
         if (auto_aim)
         {
-            caster_rot.in_plane = target.currentPosition - user.currentPosition;
-            caster_rot.z = target.getZ()                 - user.getZ();
+            caster_rot.Setup(user, target);
         }
 
         fireball_data.Get<Rotation>().value = caster_rot.value;
@@ -103,12 +89,6 @@ public static class ExampleTriggerActions
         foreach (Entity trigger_entity in skill_entity.ChildEntities)
             if (trigger_entity.HasComponent<CastCountReachContext>())
                 trigger_entity.GetComponent<CastCountReachContext>().Value++;
-    }
-
-    private static void cast_count_reach_recycle(ref CastCountReachTrigger trigger, ref CastCountReachContext context,
-                                                 Entity                    skill_entity, Entity _)
-    {
-        skill_entity.AddTag<TagRecycle>();
     }
 
     private static void spawn_fireball_caster(ref StartSkillTrigger trigger, ref StartSkillContext context, Entity _,
@@ -124,14 +104,13 @@ public static class ExampleTriggerActions
         data.Get<SkillTargetObj>().value = target;
         data.Get<SkillStrength>().value = context.strength;
         data.Get<Position>().value = user.currentPosition;
-        data.Get<Rotation>().in_plane = target.currentPosition - user.currentPosition;
-        data.Get<Rotation>().z = target.getZ()                 - user.getZ();
+        data.Get<Rotation>().Setup(user, target);
         EntityData modifier_data = modifier_container.Data;
         ChildEntities triggers = fireball_caster.ChildEntities;
         foreach (Entity trigger_entity in triggers)
             if (trigger_entity.HasComponent<CastCountReachTrigger>())
                 trigger_entity.GetComponent<CastCountReachTrigger>().TargetValue =
-                    modifier_data.Get<CastNumModifier>().Value;
+                    modifier_data.Get<CastNumberModifier>().Value;
             else if (trigger_entity.HasComponent<TimeIntervalTrigger>())
                 trigger_entity.GetComponent<TimeIntervalTrigger>().interval_time /=
                     modifier_data.Get<CastSpeedModifier>().Value;

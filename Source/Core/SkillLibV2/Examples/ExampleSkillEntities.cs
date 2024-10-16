@@ -1,11 +1,11 @@
 using System;
 using Cultiway.Core.SkillLibV2.Api;
 using Cultiway.Core.SkillLibV2.Components;
-using Cultiway.Core.SkillLibV2.Components.TrajectoryParams;
 using Cultiway.Core.SkillLibV2.Components.Triggers;
+using Cultiway.Core.SkillLibV2.Extensions;
+using Cultiway.Core.SkillLibV2.Predefined;
+using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Utils.Extension;
-using Position = Cultiway.Core.SkillLibV2.Components.Position;
-using Rotation = Cultiway.Core.SkillLibV2.Components.Rotation;
 
 namespace Cultiway.Core.SkillLibV2.Examples;
 
@@ -18,71 +18,28 @@ public static class ExampleSkillEntities
     public static void Init()
     {
         FireballCaster = new SkillEntityMeta.MetaBuilder()
-            .AddComponent(new Position())
-            .AddComponent(new Rotation())
-            .AddComponent(new Scale(0.1f))
-            .AddComponent(new SkillCaster())
+            .AddAnim(SpriteTextureLoader.getSpriteList("cultiway/effect/preparing_fireball"), 0.1f)
             .AddComponent(new SkillTargetObj())
-            .AddComponent(new AnimData
-            {
-                frames = SpriteTextureLoader.getSpriteList("cultiway/effect/preparing_fireball")
-            })
-            .AddComponent(new AnimController
-            {
-                meta = new AnimControllerMeta
-                {
-                    frame_interval = 0.1f,
-                    loop = true
-                }
-            })
-            .AddComponent(new AnimBindRenderer())
-            .NewTrigger(new TimeIntervalTrigger
+            .NewTrigger<TimeIntervalTrigger, TimeIntervalContext>(new TimeIntervalTrigger
             {
                 interval_time = 0.5f,
                 TriggerActionMeta = ExampleTriggerActions.TimeIntervalSpawnFireball
-            }, new TimeIntervalContext(), out var time_interval_trigger_id)
-            .NewTrigger(new CastCountReachTrigger
+            }, out _)
+            .NewTrigger<CastCountReachTrigger, CastCountReachContext>(new CastCountReachTrigger
             {
                 TargetValue = 1,
                 ExpectedResult = CompareResult.GreaterThanTarget,
-                TriggerActionMeta = ExampleTriggerActions.CastCountReachRecycleFireballCaster
-            }, new CastCountReachContext(), out var cast_count_reach_trigger_id)
+                TriggerActionMeta = TriggerActions.GetRecycleActionMeta<CastCountReachTrigger, CastCountReachContext>()
+            }, out _)
             .Build();
         Fireball = new SkillEntityMeta.MetaBuilder()
-            .AddComponent(new Position())
-            .AddComponent(new Rotation())
-            .AddComponent(new Scale(0.1f))
-            .AddComponent(new Velocity(20))
-            .AddComponent(new AnimData
-            {
-                frames = SpriteTextureLoader.getSpriteList("cultiway/effect/flying_fireball")
-            })
-            .AddComponent(new AnimController
-            {
-                meta = new AnimControllerMeta
-                {
-                    frame_interval = 0.1f,
-                    loop = true
-                }
-            })
-            .AddComponent(new AnimBindRenderer())
-            .AddComponent(new Trajectory
-            {
-                meta = ExampleTrajectories.OnlyTowards
-            })
-            .NewTrigger(new ObjCollisionTrigger
+            .AddAnim(SpriteTextureLoader.getSpriteList("cultiway/effect/flying_fireball"), 0.1f)
+            .SetTrajectory(Trajectories.GoForward, 20)
+            .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
                 actor = true, enemy = true,
                 TriggerActionMeta = ExampleTriggerActions.ObjCollisionDamageAndExplosion
-            }, new ObjCollisionContext(), out var collision_trigger_id)
-            .AddTriggerComponent(collision_trigger_id, new Collider
-            {
-                type = ColliderType.Sphere
-            })
-            .AddTriggerComponent(collision_trigger_id, new ColliderSphere
-            {
-                radius = 2
-            })
+            }, 2)
             .Build();
         Array.Sort(SpriteTextureLoader.getSpriteList("cultiway/effect/explosion_fireball"),
             (a, b) => a.name.LeaveDigit().ToInt().CompareTo(b.name.LeaveDigit().ToInt()));

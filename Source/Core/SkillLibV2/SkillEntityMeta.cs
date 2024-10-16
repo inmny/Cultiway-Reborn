@@ -47,7 +47,8 @@ public class SkillEntityMeta
             }, new SkillCaster(), new SkillStrength(), new AliveTimer(), Tags.Get<TagPrefab>());
         }
 
-        public MetaBuilder NewTrigger<TTrigger, TContext>(TTrigger trigger, TContext context, out int trigger_id)
+        public MetaBuilder NewTrigger<TTrigger, TContext>(TTrigger trigger, out int trigger_id,
+                                                          TContext context = default)
             where TContext : struct, IEventContext
             where TTrigger : struct, IEventTrigger<TTrigger, TContext>
         {

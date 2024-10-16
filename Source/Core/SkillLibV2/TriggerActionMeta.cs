@@ -62,27 +62,6 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
         return new MetaBuilder(id);
     }
 
-    public class ActionBuilder
-    {
-        protected BuiltAction under_build_action;
-
-        public ActionBuilder()
-        {
-            under_build_action = new BuiltAction();
-        }
-
-        public virtual BuiltAction Build()
-        {
-            return under_build_action;
-        }
-    }
-
-    public class BuiltAction
-    {
-        internal ActionType       action;
-        internal List<IComponent> modifiers = new();
-    }
-
     public class MetaBuilder
     {
         private static readonly HashSet<string>                       _registries = new();
@@ -105,19 +84,10 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
             return this;
         }
 
-        public MetaBuilder AllowModifier<TModifier, TValue>(TModifier default_modifier)
+        public MetaBuilder AllowModifier<TModifier, TValue>(TModifier default_modifier = default)
             where TModifier : struct, IModifier<TValue>
         {
             _under_build.default_modifier_container.AddComponent(default_modifier);
-            return this;
-        }
-
-        public MetaBuilder CombineWith(BuiltAction built_action)
-        {
-            _under_build.Action += built_action.action;
-            foreach (IComponent mod in built_action.modifiers)
-                _under_build.default_modifier_container.AddNonGeneric(mod);
-
             return this;
         }
 
@@ -139,6 +109,7 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
 
         public TriggerActionMeta<TTrigger, TContext> Build()
         {
+            if (AllDict.ContainsKey(_under_build.id)) throw new DuplicateNameException(_under_build.id);
             dict.Add(_under_build.id, _under_build);
             return _under_build;
         }

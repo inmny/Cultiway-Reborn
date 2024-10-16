@@ -1,12 +1,6 @@
 using Cultiway.Core.SkillLibV2.Api;
 
-namespace Cultiway.Core.SkillLibV2.Examples;
-
-public struct CastCountReachContext : ICustomValueReachContext<int>
-{
-    public bool JustTriggered { get; set; }
-    public int  Value         { get; set; }
-}
+namespace Cultiway.Core.SkillLibV2.Predefined.Triggers;
 
 public struct CastCountReachTrigger : ICustomValueReachTrigger<CastCountReachTrigger, CastCountReachContext, int>
 {

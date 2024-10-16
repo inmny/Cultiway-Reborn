@@ -17,6 +17,12 @@ public struct Rotation : IComponent
     {
     }
 
+    public void Setup(BaseSimObject start, BaseSimObject end)
+    {
+        in_plane = end.currentPosition - start.currentPosition;
+        z = end.getZ()                 - start.getZ();
+    }
+
     public Rotation(Vector2 plane_value, float z)
     {
         in_plane = plane_value;
