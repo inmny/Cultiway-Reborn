@@ -16,8 +16,8 @@ internal class Manager
     {
         var ns = GetType().Namespace;
         var library_ts = ModClass.A.GetTypes()
-                                 .Where(t => t.Namespace != null && t.BaseType != null && t.Namespace.StartsWith(ns) &&
-                                             t.BaseType.Name.Contains("ExtendLibrary")).ToList();
+            .Where(t => t.Namespace != null && t.Namespace.StartsWith(ns) &&
+                        t.GetInterfaces().Contains(typeof(ICanInit))).ToList();
         SortManagerTypes(library_ts);
         foreach (var t in library_ts)
         {

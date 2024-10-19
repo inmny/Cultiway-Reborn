@@ -7,13 +7,26 @@ namespace Cultiway.Core.SkillLibV2.Extensions;
 
 public static class SkillEntityMetaBuilderTools
 {
+    public static SkillEntityMeta.MetaBuilder SetTrail(this SkillEntityMeta.MetaBuilder builder, TrailMeta trail_meta)
+    {
+        return builder.AddComponent(new Trail
+        {
+            meta = trail_meta
+        });
+    }
+
     public static SkillEntityMeta.MetaBuilder SetTrajectory(this SkillEntityMeta.MetaBuilder builder,
                                                             TrajectoryMeta                   trajectory_meta,
-                                                            float                            velocity)
+                                                            float velocity       = 1,
+                                                            float angle_velocity = 1)
     {
         builder.AddComponent(new Trajectory { meta = trajectory_meta })
             .AddComponent(new Velocity(velocity));
         if (trajectory_meta.towards_velocity) builder.AddComponent(new Rotation());
+        if (trajectory_meta.get_delta_position != null) builder.AddComponent(new Velocity(velocity));
+
+        if (trajectory_meta.get_delta_rotation != null)
+            builder.AddComponent(new Rotation()).AddComponent(new AngleVelocity(angle_velocity));
 
         return builder;
     }
@@ -22,7 +35,7 @@ public static class SkillEntityMetaBuilderTools
         this SkillEntityMeta.MetaBuilder builder, ObjCollisionTrigger trigger_config, float radius)
     {
         return builder.NewTrigger(trigger_config, out var collision_trigger_id, new ObjCollisionContext())
-            .AddTriggerComponent(collision_trigger_id, new Collider
+            .AddTriggerComponent(collision_trigger_id, new ColliderComponent
             {
                 type = ColliderType.Sphere
             }).AddTriggerComponent(collision_trigger_id, new ColliderSphere

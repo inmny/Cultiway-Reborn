@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Core.SkillLibV2.Api;
 using Cultiway.Core.SkillLibV2.Components.Triggers;
+using Cultiway.Core.SkillLibV2.Predefined;
 using Cultiway.Core.SkillLibV2.Systems;
 using Cultiway.Utils;
 using Friflo.Engine.ECS;
@@ -12,13 +13,13 @@ namespace Cultiway.Core.SkillLibV2;
 
 public class Manager
 {
-    private readonly SystemRoot    _logic;
-    private readonly SystemRoot    _observer_logic;
-    private readonly SystemRoot    _render;
-    private readonly SystemGroup   _trigger_logic;
-    private          EntityStore[] _observer_worlds;
+    private readonly SystemRoot _logic;
+    private readonly SystemRoot _observer_logic;
 
     private readonly HashSet<string> _registered_custom_value_reach_systems = new();
+    private readonly SystemRoot      _render;
+    private readonly SystemGroup     _trigger_logic;
+    private          EntityStore[]   _observer_worlds;
 
     internal Manager()
     {
@@ -32,6 +33,7 @@ public class Manager
 
         _logic.Add(_trigger_logic);
         _logic.Add(new LogicSkillEntityAliveTimeSystem());
+        _logic.Add(new LogicRecycleAnimRendererSystem());
         _logic.Add(new LogicRecycleSkillEntitySystem());
         _logic.Add(new LogicTrajectorySystem(World));
         _logic.Add(new LogicAnimFrameUpdateSystem(World));
@@ -46,9 +48,17 @@ public class Manager
         _observer_logic.Add(new LogicObserverRecycleSystem());
 
         _render.Add(new RenderAnimFrameSystem(World));
+        _render.Add(new RenderTrailSystem(World));
     }
 
     public EntityStore World { get; }
+
+    internal void Init()
+    {
+        TriggerActions.Init();
+        Trajectories.Init();
+        SkillEntities.Init();
+    }
 
     public void RegisterCustomValueReachSystem<TTrigger, TContext, TValue>()
         where TValue : IComparable<TValue>

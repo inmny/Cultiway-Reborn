@@ -26,14 +26,16 @@ public class LogicTrajectorySystem : QuerySystem<Position, Trajectory>
         var dt = Tick.deltaTime;
         Query.ForEachEntity((ref Position pos, ref Trajectory traj, Entity e) =>
         {
-            pos.value += traj.meta.calc(dt, ref pos, ref traj, e);
+            pos.value += traj.meta.get_delta_position(dt, ref pos, ref traj, e);
         });
         with_rot_query.ForEachEntity((ref Position pos, ref Trajectory traj, ref Rotation rot, Entity e) =>
         {
-            Vector3 dp = traj.meta.calc(dt, ref pos, ref traj, e);
+            Vector3 dp = traj.meta.get_delta_position(dt, ref pos, ref traj, e);
             pos.value += dp;
             if (traj.meta.towards_velocity)
                 rot.value = dp;
+            if (traj.meta.get_delta_rotation != null)
+                rot.value += traj.meta.get_delta_rotation(dt, ref rot, ref traj, e);
         });
     }
 }

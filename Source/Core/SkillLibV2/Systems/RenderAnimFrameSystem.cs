@@ -27,9 +27,9 @@ public class RenderAnimFrameSystem : BaseSystem
         obj.transform.localScale = Vector3.one;
 
         var prefab = ModClass.NewPrefab("SkillRenderer").AddComponent<SkillRenderer>();
-        prefab.sprite_renderer = prefab.GetComponent<SpriteRenderer>();
-        prefab.sprite_renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
-        _pool = new MonoObjPool<SkillRenderer>(prefab, obj.transform);
+        prefab.bind = prefab.GetComponent<SpriteRenderer>();
+        prefab.bind.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        _pool = new MonoObjPool<SkillRenderer>(prefab, obj.transform, s => s.pool = _pool);
 
 
         var filter = new QueryFilter();
@@ -44,18 +44,23 @@ public class RenderAnimFrameSystem : BaseSystem
 
     protected override void OnUpdateGroup()
     {
-        single_query.ForEachComponents((ref AnimBindRenderer bind_renderer) => bind_renderer.value = null);
-        _pool.ResetToStart();
         init_query.ForEachComponents(
             (ref Position pos, ref Scale scale, ref AnimData anim_data, ref AnimBindRenderer bind_renderer) =>
             {
                 Sprite sprite = anim_data.CurrentFrame;
                 if (!NeedRender(sprite, ref pos, ref scale)) return;
 
-                bind_renderer.value = _pool.GetNext().sprite_renderer;
-                bind_renderer.value.sprite = sprite;
+                if (bind_renderer.value != null)
+                {
+                    bind_renderer.value.bind.sprite = sprite;
+                }
+                else
+                {
+                    SkillRenderer renderer = _pool.GetNext();
+                    renderer.bind.sprite = sprite;
+                    bind_renderer.value = renderer;
+                }
             });
-        _pool.ClearUnsed();
         pos_query.ForEachComponents([Hotfixable](ref Position pos, ref AnimBindRenderer bind_renderer) =>
         {
             if (bind_renderer.value == null) return;
@@ -86,8 +91,14 @@ public class RenderAnimFrameSystem : BaseSystem
     }
 
     [RequireComponent(typeof(SpriteRenderer))]
-    private class SkillRenderer : MonoBehaviour
+    internal class SkillRenderer : MonoBehaviour
     {
-        public SpriteRenderer sprite_renderer;
+        public SpriteRenderer             bind;
+        public MonoObjPool<SkillRenderer> pool;
+
+        public void Return()
+        {
+            pool.Return(this);
+        }
     }
 }

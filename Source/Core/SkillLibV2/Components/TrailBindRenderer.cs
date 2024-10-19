@@ -3,7 +3,7 @@ using Friflo.Engine.ECS;
 
 namespace Cultiway.Core.SkillLibV2.Components;
 
-internal struct AnimBindRenderer : IComponent
+internal struct TrailBindRenderer : IComponent
 {
-    public RenderAnimFrameSystem.SkillRenderer value;
+    public RenderTrailSystem.CustomTrailRenderer value;
 }

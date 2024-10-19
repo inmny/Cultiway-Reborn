@@ -19,9 +19,9 @@
             </summary>
             <remarks>
                 E.g. all entities with a
-                <see cref="T:Friflo.Engine.ECS.Position"/>
+                <see cref="T:Friflo.Engine.ECS.Predefined.Position"/>
                 and
-                <see cref="T:Friflo.Engine.ECS.Rotation"/>
+                <see cref="T:Friflo.Engine.ECS.Predefined.Rotation"/>
                 component are store in the same archetype.
                 <br/>
                 In case of removing one of these components or adding a new one from / to an
@@ -3744,7 +3744,7 @@
         <member name="F:Friflo.Engine.ECS.EntityName.value">
             <summary>Descriptive entity name for debugging or in an editor.</summary>
         </member>
-        <member name="T:Friflo.Engine.ECS.Rotation">
+        <member name="T:Friflo.Engine.ECS.Predefined.Rotation">
             <summary>
                 Rotation encoded as a
                 <a href="https://en.wikipedia.org/wiki/Quaternion">Quaternion</a>
@@ -4354,7 +4354,7 @@
         </member>
         <member name="P:Friflo.Engine.ECS.Entity.Position">
             <summary>Returns the
-                <see cref="T:Friflo.Engine.ECS.Position"/>
+                <see cref="T:Friflo.Engine.ECS.Predefined.Position"/>
                 reference of an entity.
             </summary>
             <exception cref="T:System.NullReferenceException">if entity has no
@@ -4363,7 +4363,7 @@
         </member>
         <member name="P:Friflo.Engine.ECS.Entity.Rotation">
             <summary>Returns the
-                <see cref="T:Friflo.Engine.ECS.Rotation"/>
+                <see cref="T:Friflo.Engine.ECS.Predefined.Rotation"/>
                 reference of an entity.
             </summary>
             <exception cref="T:System.NullReferenceException">if entity has no
@@ -4372,7 +4372,7 @@
         </member>
         <member name="P:Friflo.Engine.ECS.Entity.Scale3">
             <summary>Returns the
-                <see cref="T:Friflo.Engine.ECS.Scale3"/>
+                <see cref="T:Friflo.Engine.ECS.Predefined.Scale3"/>
                 reference of an entity.
             </summary>
             <exception cref="T:System.NullReferenceException">if entity has no
@@ -4384,15 +4384,15 @@
             </summary>
         </member>
         <member name="P:Friflo.Engine.ECS.Entity.HasPosition">
-            <summary>Returns true if the entity has a<see cref="T:Friflo.Engine.ECS.Position"/>.
+            <summary>Returns true if the entity has a<see cref="T:Friflo.Engine.ECS.Predefined.Position"/>.
             </summary>
         </member>
         <member name="P:Friflo.Engine.ECS.Entity.HasRotation">
-            <summary>Returns true if the entity has a<see cref="T:Friflo.Engine.ECS.Rotation"/>.
+            <summary>Returns true if the entity has a<see cref="T:Friflo.Engine.ECS.Predefined.Rotation"/>.
             </summary>
         </member>
         <member name="P:Friflo.Engine.ECS.Entity.HasScale3">
-            <summary>Returns true if the entity has a<see cref="T:Friflo.Engine.ECS.Scale3"/>.
+            <summary>Returns true if the entity has a<see cref="T:Friflo.Engine.ECS.Predefined.Scale3"/>.
             </summary>
         </member>
         <member name="P:Friflo.Engine.ECS.Entity.ChildCount">
@@ -6361,16 +6361,16 @@
                         <see cref="T:Friflo.Engine.ECS.UniqueEntity"/>
                     </item>
                     <item>
-                        <see cref="T:Friflo.Engine.ECS.Position"/>
+                        <see cref="!:Position"/>
                     </item>
                     <item>
-                        <see cref="T:Friflo.Engine.ECS.Rotation"/>
+                        <see cref="!:Rotation"/>
                     </item>
                     <item>
-                        <see cref="T:Friflo.Engine.ECS.Scale3"/>
+                        <see cref="!:Scale3"/>
                     </item>
                     <item>
-                        <see cref="T:Friflo.Engine.ECS.Transform"/>
+                        <see cref="!:Transform"/>
                     </item>
                 </list>
             </remarks>

@@ -33,9 +33,24 @@ public class SkillEntityMeta
         return entity;
     }
 
+    public static MetaBuilder StartBuild()
+    {
+        return new MetaBuilder();
+    }
+
+    public MetaBuilder StartModify()
+    {
+        return new MetaBuilder(this);
+    }
+
     public class MetaBuilder
     {
         private readonly SkillEntityMeta _under_build;
+
+        internal MetaBuilder(SkillEntityMeta meta)
+        {
+            _under_build = meta;
+        }
 
         public MetaBuilder()
         {

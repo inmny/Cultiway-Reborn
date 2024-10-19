@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content.Skills;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV2;
@@ -39,7 +40,7 @@ public class ActorExtend : ExtendComponent<Actor>
 
     public override string ToString()
     {
-        return $"{e.GetComponent<ActorBinder>().id}: {e}";
+        return $"[{e.GetComponent<ActorBinder>().id}] {Base.getName()}: {e}";
     }
 
     public void AddSkillModifier<TModifier, TValue>(string action_id, TModifier modifier)
@@ -66,7 +67,7 @@ public class ActorExtend : ExtendComponent<Actor>
 
 
     [Hotfixable]
-    private void TestCastSkill()
+    private void TestCastFireball()
     {
         Actor target = null;
         do
@@ -75,7 +76,19 @@ public class ActorExtend : ExtendComponent<Actor>
         } while (!Base.kingdom.isEnemy(target.kingdom));
 
         CastSkillV2(ExampleTriggerActions.StartSkillFireball.id, target);
-        ModClass.LogInfo($"{Base.data.id} cast skill to {target.data.id}");
+        ModClass.LogInfo($"{Base.data.id} cast fireball to {target.data.id}");
+    }
+
+    private void TestCastCommonWeapon()
+    {
+        Actor target = null;
+        do
+        {
+            target = World.world.units.GetRandom();
+        } while (!Base.kingdom.isEnemy(target.kingdom));
+
+        CastSkillV2(CommonWeaponSkills.StartWeaponSkill.id, target);
+        ModClass.LogInfo($"{Base.data.id} cast weapon to {target.data.id}");
     }
 
     internal void ExtendNewCreature()
