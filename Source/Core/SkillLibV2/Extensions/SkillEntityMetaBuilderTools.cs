@@ -1,6 +1,6 @@
 using Cultiway.Core.SkillLibV2.Components;
 using Cultiway.Core.SkillLibV2.Components.TrajectoryParams;
-using Cultiway.Core.SkillLibV2.Components.Triggers;
+using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV2.Extensions;
@@ -17,8 +17,8 @@ public static class SkillEntityMetaBuilderTools
 
     public static SkillEntityMeta.MetaBuilder SetTrajectory(this SkillEntityMeta.MetaBuilder builder,
                                                             TrajectoryMeta                   trajectory_meta,
-                                                            float velocity       = 1,
-                                                            float angle_velocity = 1)
+                                                            float velocity         = 1,
+                                                            float angle_per_second = 1)
     {
         builder.AddComponent(new Trajectory { meta = trajectory_meta })
             .AddComponent(new Velocity(velocity));
@@ -26,7 +26,7 @@ public static class SkillEntityMetaBuilderTools
         if (trajectory_meta.get_delta_position != null) builder.AddComponent(new Velocity(velocity));
 
         if (trajectory_meta.get_delta_rotation != null)
-            builder.AddComponent(new Rotation()).AddComponent(new AngleVelocity(angle_velocity));
+            builder.AddComponent(new Rotation()).AddComponent(new AngleVelocity(angle_per_second));
 
         return builder;
     }
@@ -42,6 +42,18 @@ public static class SkillEntityMetaBuilderTools
             {
                 radius = radius
             });
+    }
+
+    public static SkillEntityMeta.MetaBuilder AddTimeReachTrigger(this SkillEntityMeta.MetaBuilder builder, float time,
+                                                                  TriggerActionMeta<TimeReachTrigger, TimeReachContext>
+                                                                      on_time_reach, bool loop = false)
+    {
+        return builder.NewTrigger(new TimeReachTrigger
+        {
+            target_time = time,
+            loop = loop,
+            TriggerActionMeta = on_time_reach
+        }, out var _, new TimeReachContext());
     }
 
     public static SkillEntityMeta.MetaBuilder AddAnim(this SkillEntityMeta.MetaBuilder builder, Sprite[] frames,

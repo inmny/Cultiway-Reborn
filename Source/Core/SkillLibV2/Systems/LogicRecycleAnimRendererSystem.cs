@@ -15,8 +15,11 @@ internal class LogicRecycleAnimRendererSystem : QuerySystem<AnimBindRenderer>
     {
         Query.ForEachComponents((ref AnimBindRenderer binder) =>
         {
-            binder.value.Return();
-            binder.value = null;
+            if (binder.value != null)
+            {
+                binder.value.Return();
+                binder.value = null;
+            }
         });
     }
 }

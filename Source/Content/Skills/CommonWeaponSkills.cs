@@ -2,12 +2,12 @@ using Cultiway.Abstract;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV2;
 using Cultiway.Core.SkillLibV2.Components;
-using Cultiway.Core.SkillLibV2.Components.Triggers;
 using Cultiway.Core.SkillLibV2.Extensions;
 using Cultiway.Core.SkillLibV2.Predefined;
+using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
-using UnityEngine;
+using NeoModLoader.api.attributes;
 using Position = Cultiway.Core.SkillLibV2.Components.Position;
 
 namespace Cultiway.Content.Skills;
@@ -16,6 +16,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
 {
     public static  SkillEntityMeta RotateForwardWeaponEntity;
     public static  TriggerActionMeta<StartSkillTrigger, StartSkillContext> StartWeaponSkill;
+    public static TriggerActionMeta<TimeReachTrigger, TimeReachContext> TimeReachWeaponReturn;
     public static  TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> ObjCollisionDamage;
     private static DamageComposition weapon_damage_composition = new([100, 0, 0, 0, 0, 0]);
 
@@ -24,6 +25,10 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
         StartWeaponSkill = TriggerActionMeta<StartSkillTrigger, StartSkillContext>.StartBuild(nameof(StartWeaponSkill))
             .AppendAction(spawn_weapon_entity)
             .Build();
+        TimeReachWeaponReturn = TriggerActionMeta<TimeReachTrigger, TimeReachContext>
+            .StartBuild(nameof(TimeReachWeaponReturn))
+            .AppendAction(switch_trajectory_back)
+            .Build();
         ObjCollisionDamage = TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>
             .StartBuild($"{nameof(CommonWeaponSkills)}.{nameof(ObjCollisionDamage)}")
             .AppendAction(single_damage)
@@ -31,18 +36,37 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
         RotateForwardWeaponEntity = SkillEntityMeta.StartBuild()
             .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.2f, 1f, false)
             .AddComponent(new SkillTargetPos())
-            .SetTrajectory(Trajectories.GoTowardsTargetPosWithRotation, 20, Mathf.PI)
+            .SetTrajectory(Trajectories.GoTowardsTargetPosWithRotation, 20, 1440)
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
                 actor = true,
                 enemy = true,
                 TriggerActionMeta = ObjCollisionDamage
             }, 1)
+            .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
+            {
+                actor = true,
+                friend = true,
+                Enabled = false,
+                TriggerActionMeta = TriggerActions.GetRecycleActionMeta<ObjCollisionTrigger, ObjCollisionContext>()
+            }, 1)
+            .AddTimeReachTrigger(10, TimeReachWeaponReturn)
             .Build();
     }
 
+    [Hotfixable]
     public void OnReload()
     {
+    }
+
+    private void switch_trajectory_back(ref TimeReachTrigger trigger, ref TimeReachContext context, Entity skill_entity,
+                                        Entity               modifier_container)
+    {
+        skill_entity.GetComponent<Trajectory>().meta = Trajectories.GoForward;
+
+        foreach (Entity trigger_entity in skill_entity.ChildEntities)
+            if (trigger_entity.HasComponent<ObjCollisionTrigger>())
+                trigger_entity.GetComponent<ObjCollisionTrigger>().Enabled = true;
     }
 
     private void single_damage(ref ObjCollisionTrigger trigger, ref ObjCollisionContext context, Entity skill_entity,

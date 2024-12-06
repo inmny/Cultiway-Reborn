@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Cultiway.Core.SkillLibV2;
 
 public class TrailMeta
@@ -5,6 +7,8 @@ public class TrailMeta
     private TrailMeta()
     {
     }
+
+    public Color Color { get; private set; }
 
     public MetaBuilder StartBuild()
     {
@@ -18,6 +22,12 @@ public class TrailMeta
         public MetaBuilder()
         {
             _under_build = new TrailMeta();
+        }
+
+        public MetaBuilder SetColor(Color color)
+        {
+            _under_build.Color = color;
+            return this;
         }
 
         public TrailMeta Build()

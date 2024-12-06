@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
+using Cultiway.AbstractGame;
+using Cultiway.AbstractGame.AbstractEngine;
 using Cultiway.Content;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV2.Examples;
@@ -10,7 +12,6 @@ using NeoModLoader.api;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
 using NeoModLoader.utils;
-using UnityEngine;
 
 namespace Cultiway
 {
@@ -19,19 +20,20 @@ namespace Cultiway
         private Manager       _content;
         private Patch.Manager _patch;
 
-        private       UI.Manager             _ui;
-        public static Assembly               A                    { get; private set; }
-        public static Core.Libraries.Manager L                    { get; private set; }
-        public        ActorExtendManager     ActorExtendManager   { get; private set; }
-        public        TileExtendManager      TileExtendManager    { get; private set; }
-        public        CustomMapModeManager   CustomMapModeManager { get; private set; }
-
-        public SystemRoot              RenderSystems { get; private set; }
-        public SystemRoot              LogicSystems  { get; private set; }
-        public EntityStore             W             { get; private set; }
-        public WorldRecord             WorldRecord   { get; private set; }
-        public Core.SkillLibV2.Manager SkillV2 { get; private set; }
-        public Core.GeoLib.Manager     Geo           { get; private set; }
+        private       UI.Manager              _ui;
+        public static Assembly                A                    { get; private set; }
+        public static Core.Libraries.Manager  L                    { get; private set; }
+        public        ActorExtendManager      ActorExtendManager   { get; private set; }
+        public        TileExtendManager       TileExtendManager    { get; private set; }
+        public        CustomMapModeManager    CustomMapModeManager { get; private set; }
+        public        AGame                   Game                 { get; private set; }
+        public        AEngine                 Engine               { get; }
+        public        SystemRoot              RenderSystems        { get; private set; }
+        public        SystemRoot              LogicSystems         { get; private set; }
+        public        EntityStore             W                    { get; private set; }
+        public        WorldRecord             WorldRecord          { get; private set; }
+        public        Core.SkillLibV2.Manager SkillV2              { get; private set; }
+        public        Core.GeoLib.Manager     Geo                  { get; private set; }
 
         private void Start()
         {
@@ -41,7 +43,8 @@ namespace Cultiway
         [Hotfixable]
         private void Update()
         {
-            var update_tick = new UpdateTick(Time.deltaTime, (float)World.world.getCurSessionTime());
+            if (Game.IsPaused()) return;
+            var update_tick = new UpdateTick(Game.GetLogicDeltaTime(), Game.GetGameTime());
             LogicSystems.Update(update_tick);
             SkillV2.UpdateLogic(update_tick);
             Geo.UpdateLogic(update_tick);
@@ -66,6 +69,7 @@ namespace Cultiway
         {
             A = Assembly.GetExecutingAssembly();
             PrefabLibrary.gameObject.SetActive(false);
+            Game = new WorldboxGame();
             try
             {
                 W = new EntityStore();
@@ -100,8 +104,8 @@ namespace Cultiway
             CustomMapModeManager = new();
             CustomMapModeManager.Initialize();
 
-            SkillV2 = new Core.SkillLibV2.Manager();
-            Geo = new();
+            SkillV2 = new Core.SkillLibV2.Manager(Game);
+            Geo = new Core.GeoLib.Manager(Game);
             _ui = new UI.Manager();
             _patch = new Patch.Manager();
             _content = new Manager();

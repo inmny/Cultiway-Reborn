@@ -86,7 +86,7 @@ public class MonoObjPool<T> where T : MonoBehaviour
     public T GetNext(int slibing_idx = -1, Transform parent = null)
     {
         T obj;
-        var len = _parent.childCount;
+        var len = (parent ?? _parent).childCount;
         if (_pool.Count == 0 || _unused_first_idx == _pool.Count)
         {
             obj = Object.Instantiate(_prefab, parent ?? _parent);

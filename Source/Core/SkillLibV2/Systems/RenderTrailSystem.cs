@@ -44,17 +44,23 @@ internal class RenderTrailSystem : QuerySystem<AnimBindRenderer, TrailBindRender
             trail_binder.value = _pool.GetNext(parent: anim_binder.value.transform);
             trail_binder.value.parentRenderer = anim_binder.value.bind;
         });
-        _trail_query.ForEachComponents((ref Trail trail, ref TrailBindRenderer trail_binder) => { });
+        _trail_query.ForEachComponents((ref Trail trail, ref TrailBindRenderer trail_binder) =>
+        {
+            if (trail_binder.value == null) return;
+            trail_binder.value.Build();
+            //trail_binder.value.renderer.color = trail.meta.Color;
+        });
     }
 
     [RequireComponent(typeof(SpriteRenderer))]
     internal class CustomTrailRenderer : MonoBehaviour
     {
-        public SpriteRenderer parentRenderer;
-        public SpriteRenderer renderer;
-        public TrailDirection direction;
-        public float          trailLength = 100;
-        public float          trailBend   = 0.25f;
+        private static Dictionary<string, Sprite> trail_sprite_dict = new();
+        public         SpriteRenderer             parentRenderer;
+        public         SpriteRenderer             renderer;
+        public         TrailDirection             direction   = TrailDirection.Right;
+        public         float                      trailLength = 100;
+        public         float                      trailBend   = 0.25f;
 
         public AnimationCurve trailCurve = new(new Keyframe(0f, 0f, 0f, 1f), new Keyframe(1f, 1f, 1f, 0f));
 
@@ -124,25 +130,25 @@ internal class RenderTrailSystem : QuerySystem<AnimBindRenderer, TrailBindRender
                 case TrailDirection.Left:
                     for (var y = 0; y < width; y++)
                     for (var x = 0; x < height; x++)
-                        if (FindEdge(trail, pixels, x, y, width, color, line))
+                        if (FindEdge(trail, pixels, x, y, width, pixels[x + y * width], line))
                             break;
                     break;
                 case TrailDirection.Right:
                     for (var y = 0; y < height; y++)
                     for (var x = width - 1; x >= 0; x--)
-                        if (FindEdge(trail, pixels, x, y, width, color, line))
+                        if (FindEdge(trail, pixels, x, y, width, pixels[x + y * width], line))
                             break;
                     break;
                 case TrailDirection.Up:
                     for (var x = 0; x < width; x++)
                     for (var y = height - 1; y >= 0; y--)
-                        if (FindEdge(trail, pixels, x, y, width, color, line))
+                        if (FindEdge(trail, pixels, x, y, width, pixels[x + y * width], line))
                             break;
                     break;
                 case TrailDirection.Down:
                     for (var x = 0; x < width; x++)
                     for (var y = 0; y < height; y++)
-                        if (FindEdge(trail, pixels, x, y, width, color, line))
+                        if (FindEdge(trail, pixels, x, y, width, pixels[x + y * width], line))
                             break;
                     break;
             }

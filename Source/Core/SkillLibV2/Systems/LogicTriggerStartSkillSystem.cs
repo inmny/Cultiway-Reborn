@@ -1,6 +1,6 @@
 using System;
 using Cultiway.Core.SkillLibV2.Components;
-using Cultiway.Core.SkillLibV2.Components.Triggers;
+using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;

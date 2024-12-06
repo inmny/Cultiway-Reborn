@@ -1,5 +1,5 @@
 using Cultiway.Core.SkillLibV2.Components;
-using Cultiway.Core.SkillLibV2.Components.Triggers;
+using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 
@@ -17,6 +17,7 @@ public class LogicTriggerTimeIntervalSystem : QuerySystem<TimeIntervalTrigger, T
         var curr_time = Tick.time;
         Query.ForEachComponents((ref TimeIntervalTrigger trigger, ref TimeIntervalContext context) =>
         {
+            if (!trigger.Enabled) return;
             var target_time = context.next_trigger_time;
             if (target_time >= curr_time) return;
 
@@ -29,6 +30,7 @@ public class LogicTriggerTimeIntervalSystem : QuerySystem<TimeIntervalTrigger, T
         Query.ForEachEntity(
             (ref TimeIntervalTrigger trigger, ref TimeIntervalContext context, Entity trigger_entity) =>
             {
+                if (!trigger.Enabled) return;
                 if (!context.JustTriggered) return;
 
                 trigger.TriggerActionMeta.Invoke(ref trigger, ref context, trigger_entity);

@@ -20,6 +20,7 @@ public class LogicTriggerCustomValueReachSystem<TTrigger, TContext, TValue> : Qu
     {
         Query.ForEachEntity((ref TTrigger trigger, ref TContext context, Entity trigger_entity) =>
         {
+            if (!trigger.Enabled) return;
             var compare_result = context.Value.CompareTo(trigger.TargetValue);
             switch (trigger.ExpectedResult)
             {

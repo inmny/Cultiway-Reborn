@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.AbstractGame;
 using Cultiway.Core.SkillLibV2.Api;
-using Cultiway.Core.SkillLibV2.Components.Triggers;
 using Cultiway.Core.SkillLibV2.Predefined;
+using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Core.SkillLibV2.Systems;
 using Cultiway.Utils;
 using Friflo.Engine.ECS;
@@ -21,8 +22,9 @@ public class Manager
     private readonly SystemGroup     _trigger_logic;
     private          EntityStore[]   _observer_worlds;
 
-    internal Manager()
+    internal Manager(AGame game)
     {
+        Game = game;
         World = new EntityStore();
         _logic = new SystemRoot(World, "SkillLibV2.Logic");
         _observer_logic = new SystemRoot("SkillLibV2.Logic.Observer");
@@ -50,6 +52,8 @@ public class Manager
         _render.Add(new RenderAnimFrameSystem(World));
         _render.Add(new RenderTrailSystem(World));
     }
+
+    public AGame Game { get; private set; }
 
     public EntityStore World { get; }
 

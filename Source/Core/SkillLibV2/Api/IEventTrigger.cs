@@ -6,5 +6,6 @@ public interface IEventTrigger<TEventTrigger, TEventContext> : IComponent
     where TEventContext : struct, IEventContext
     where TEventTrigger : struct, IEventTrigger<TEventTrigger, TEventContext>
 {
+    public bool Enabled { get; }
     public TriggerActionMeta<TEventTrigger, TEventContext> TriggerActionMeta { get; }
 }

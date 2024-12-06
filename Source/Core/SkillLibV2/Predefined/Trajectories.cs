@@ -11,6 +11,7 @@ namespace Cultiway.Core.SkillLibV2.Predefined;
 public static class Trajectories
 {
     public static TrajectoryMeta GoForward                      { get; private set; }
+    public static TrajectoryMeta GoTowardsTargetObj { get; private set; }
     public static TrajectoryMeta GoTowardsTargetPosWithRotation { get; private set; }
 
     internal static void Init()
@@ -20,6 +21,11 @@ public static class Trajectories
             towards_velocity = true,
             get_delta_position = go_forward
         };
+        GoTowardsTargetObj = new TrajectoryMeta
+        {
+            towards_velocity = true,
+            get_delta_position = go_towards_target_obj
+        };
         GoTowardsTargetPosWithRotation = new TrajectoryMeta
         {
             get_delta_position = go_towards_target_pos,
@@ -27,11 +33,23 @@ public static class Trajectories
         };
     }
 
+    private static Vector3 go_towards_target_obj(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)
+    {
+        EntityData data = skill_entity.Data;
+        BaseSimObject obj = data.Get<SkillTargetObj>().value;
+        var vel = data.Get<Velocity>();
+        if (obj == null) return Vector3.Scale(data.Get<Rotation>().value.normalized * dt, vel.scale);
+
+        Vector3 dir = data.Get<SkillTargetObj>().value.curTransformPosition - pos.value;
+        return Vector3.Scale(dir.normalized * dt, vel.scale);
+    }
+
     [Hotfixable]
     private static Vector3 self_rotate(float dt, ref Rotation rot, ref Trajectory traj, Entity skill_entity)
     {
         var angle = Vector2.SignedAngle(Vector2.right, rot.in_plane) +
                     skill_entity.GetComponent<AngleVelocity>().value * dt;
+        angle *= Mathf.Deg2Rad;
         var magnitude = rot.in_plane.magnitude;
         if (magnitude >= 0.5f) return magnitude * new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) - rot.in_plane;
 

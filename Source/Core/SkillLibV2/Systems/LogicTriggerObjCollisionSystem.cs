@@ -1,5 +1,5 @@
 using Cultiway.Core.SkillLibV2.Components;
-using Cultiway.Core.SkillLibV2.Components.Triggers;
+using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -28,6 +28,7 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
         box_query.ForEachEntity((ref ColliderBox         collider, ref ObjCollisionTrigger trigger,
                                  ref ObjCollisionContext context,  Entity                  trigger_entity) =>
         {
+            if (!trigger.Enabled) return;
             Entity skill_entity = trigger_entity.Parent;
             var pos = skill_entity.GetComponent<Position>();
             Vector2 lb = pos.v2 - collider.v2;
@@ -97,6 +98,7 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
         sphere_query.ForEachEntity((ref ColliderSphere      collider, ref ObjCollisionTrigger trigger,
                                     ref ObjCollisionContext context,  Entity                  trigger_entity) =>
         {
+            if (!trigger.Enabled) return;
             Entity skill_entity = trigger_entity.Parent;
             var pos = skill_entity.GetComponent<Position>();
             var radius = collider.radius;

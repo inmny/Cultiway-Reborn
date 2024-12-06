@@ -1,6 +1,6 @@
 using Cultiway.Core.SkillLibV2.Api;
 
-namespace Cultiway.Core.SkillLibV2.Components.Triggers;
+namespace Cultiway.Core.SkillLibV2.Predefined.Triggers;
 
 public struct EntityCollisionContext : IEventContext
 {
