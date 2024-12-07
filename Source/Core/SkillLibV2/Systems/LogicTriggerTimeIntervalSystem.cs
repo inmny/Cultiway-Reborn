@@ -18,16 +18,13 @@ public class LogicTriggerTimeIntervalSystem : QuerySystem<TimeIntervalTrigger, T
         Query.ForEachComponents((ref TimeIntervalTrigger trigger, ref TimeIntervalContext context) =>
         {
             if (!trigger.Enabled) return;
-            context.timer += dt;
-            var curr_time = context.timer;
-            var target_time = context.next_trigger_time;
-            if (target_time >= curr_time) return;
+            context.next_trigger_time -= dt;
+            if (context.next_trigger_time >= 0) return;
 
             var interval_time = trigger.interval_time;
             context.JustTriggered = true;
             context.trigger_times++;
-            context.next_trigger_time += interval_time *
-                                         (1 + (int)((curr_time - target_time) / interval_time));
+            context.next_trigger_time = interval_time;
         });
         Query.ForEachEntity(
             (ref TimeIntervalTrigger trigger, ref TimeIntervalContext context, Entity trigger_entity) =>

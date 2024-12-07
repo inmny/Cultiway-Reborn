@@ -19,7 +19,7 @@ public class LogicTriggerTimeReachSystem : QuerySystem<TimeReachTrigger, TimeRea
         {
             if (!trigger.Enabled) return;
             context.timer += dt;
-            if (context.next_trigger_time >= context.timer) return;
+            if (trigger.target_time >= context.timer) return;
             context.JustTriggered = true;
         });
         Query.ForEachEntity(
