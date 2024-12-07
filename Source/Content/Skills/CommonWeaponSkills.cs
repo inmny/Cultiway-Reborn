@@ -33,9 +33,11 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
             .StartBuild($"{nameof(CommonWeaponSkills)}.{nameof(ObjCollisionDamage)}")
             .AppendAction(single_damage)
             .Build();
+
         RotateForwardWeaponEntity = SkillEntityMeta.StartBuild()
             .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.2f, 1f, false)
             .AddComponent(new SkillTargetPos())
+            .AddComponent(new SkillTargetObj())
             .SetTrajectory(Trajectories.GoTowardsTargetPosWithRotation, 20, 1440)
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
@@ -48,7 +50,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
                 actor = true,
                 friend = true,
                 Enabled = false,
-                TriggerActionMeta = TriggerActions.GetRecycleActionMeta<ObjCollisionTrigger, ObjCollisionContext>()
+                TriggerActionMeta = TriggerActions.GetRecycleActionMetaOnCollideCaster()
             }, 1)
             .AddTimeReachTrigger(10, TimeReachWeaponReturn)
             .Build();
@@ -62,7 +64,8 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
     private void switch_trajectory_back(ref TimeReachTrigger trigger, ref TimeReachContext context, Entity skill_entity,
                                         Entity               modifier_container)
     {
-        skill_entity.GetComponent<Trajectory>().meta = Trajectories.GoForward;
+        skill_entity.GetComponent<Trajectory>().meta = Trajectories.GoTowardsTargetObj;
+        skill_entity.GetComponent<SkillTargetObj>().value = skill_entity.GetComponent<SkillCaster>().value.Base;
 
         foreach (Entity trigger_entity in skill_entity.ChildEntities)
             if (trigger_entity.HasComponent<ObjCollisionTrigger>())

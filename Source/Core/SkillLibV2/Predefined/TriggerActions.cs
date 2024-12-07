@@ -8,6 +8,21 @@ namespace Cultiway.Core.SkillLibV2.Predefined;
 
 public static class TriggerActions
 {
+    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> GetRecycleActionMetaOnCollideCaster()
+    {
+        try
+        {
+            return TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>.StartBuild("RecycleOnCollideCaster")
+                .AppendAction(recycle_on_collide_caster)
+                .Build();
+        }
+        catch (DuplicateNameException e)
+        {
+            return TriggerActionBaseMeta.AllDict[e.Message] as
+                TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>;
+        }
+    }
+
     public static TriggerActionMeta<TTrigger, TContext> GetRecycleActionMeta<TTrigger, TContext>()
         where TContext : struct, IEventContext
         where TTrigger : struct, IEventTrigger<TTrigger, TContext>
@@ -22,6 +37,13 @@ public static class TriggerActions
         {
             return TriggerActionBaseMeta.AllDict[e.Message] as TriggerActionMeta<TTrigger, TContext>;
         }
+    }
+
+    private static void recycle_on_collide_caster(ref ObjCollisionTrigger trigger,      ref ObjCollisionContext context,
+                                                  Entity                  skill_entity, Entity modifier_container)
+    {
+        if (context.obj == skill_entity.GetComponent<SkillCaster>().AsActor)
+            skill_entity.AddTag<TagRecycle>();
     }
 
     private static void simple_recycle<TTrigger, TContext>(ref TTrigger trigger,      ref TContext context,
