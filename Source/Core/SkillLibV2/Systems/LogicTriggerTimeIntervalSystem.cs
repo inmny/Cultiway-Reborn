@@ -14,10 +14,12 @@ public class LogicTriggerTimeIntervalSystem : QuerySystem<TimeIntervalTrigger, T
 
     protected override void OnUpdate()
     {
-        var curr_time = Tick.time;
+        var dt = Tick.deltaTime;
         Query.ForEachComponents((ref TimeIntervalTrigger trigger, ref TimeIntervalContext context) =>
         {
             if (!trigger.Enabled) return;
+            context.timer += dt;
+            var curr_time = context.timer;
             var target_time = context.next_trigger_time;
             if (target_time >= curr_time) return;
 
