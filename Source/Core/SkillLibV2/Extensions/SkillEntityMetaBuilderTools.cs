@@ -1,6 +1,7 @@
 using Cultiway.Core.SkillLibV2.Components;
 using Cultiway.Core.SkillLibV2.Components.TrajectoryParams;
 using Cultiway.Core.SkillLibV2.Predefined.Triggers;
+using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV2.Extensions;
@@ -32,13 +33,15 @@ public static class SkillEntityMetaBuilderTools
     }
 
     public static SkillEntityMeta.MetaBuilder AddSphereObjCollisionTrigger(
-        this SkillEntityMeta.MetaBuilder builder, ObjCollisionTrigger trigger_config, float radius)
+        this SkillEntityMeta.MetaBuilder builder, ObjCollisionTrigger trigger_config, float radius,
+        Tags                             trigger_tags = default)
     {
-        return builder.NewTrigger(trigger_config, out var collision_trigger_id, new ObjCollisionContext())
+        return builder.NewTrigger(trigger_config, out var collision_trigger_id, new ObjCollisionContext(), trigger_tags)
             .AddTriggerComponent(collision_trigger_id, new ColliderComponent
             {
                 type = ColliderType.Sphere
-            }).AddTriggerComponent(collision_trigger_id, new ColliderSphere
+            })
+            .AddTriggerComponent(collision_trigger_id, new ColliderSphere
             {
                 radius = radius
             });
@@ -46,14 +49,30 @@ public static class SkillEntityMetaBuilderTools
 
     public static SkillEntityMeta.MetaBuilder AddTimeReachTrigger(this SkillEntityMeta.MetaBuilder builder, float time,
                                                                   TriggerActionMeta<TimeReachTrigger, TimeReachContext>
-                                                                      on_time_reach, bool loop = false)
+                                                                      on_time_reach, bool loop = false,
+                                                                  Tags trigger_tags = default)
     {
         return builder.NewTrigger(new TimeReachTrigger
         {
             target_time = time,
             loop = loop,
             TriggerActionMeta = on_time_reach
-        }, out var _, new TimeReachContext());
+        }, out var _, new TimeReachContext(), trigger_tags);
+    }
+
+    public static SkillEntityMeta.MetaBuilder AddPositionReachTrigger(this SkillEntityMeta.MetaBuilder builder,
+                                                                      float                            distance,
+                                                                      TriggerActionMeta<PositionReachTrigger,
+                                                                          PositionReachContext> on_pos_reach,
+                                                                      bool disabled     = false,
+                                                                      Tags trigger_tags = default)
+    {
+        return builder.NewTrigger(new PositionReachTrigger
+        {
+            distance = distance,
+            TriggerActionMeta = on_pos_reach,
+            Enabled = !disabled
+        }, out var _, new PositionReachContext(), trigger_tags);
     }
 
     public static SkillEntityMeta.MetaBuilder AddAnim(this SkillEntityMeta.MetaBuilder builder, Sprite[] frames,

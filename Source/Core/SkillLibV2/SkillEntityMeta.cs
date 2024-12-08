@@ -62,12 +62,13 @@ public class SkillEntityMeta
             }, new SkillCaster(), new SkillStrength(), new AliveTimer(), Tags.Get<TagPrefab>());
         }
 
-        public MetaBuilder NewTrigger<TTrigger, TContext>(TTrigger trigger, out int trigger_id,
-                                                          TContext context = default)
+        public MetaBuilder NewTrigger<TTrigger, TContext>(TTrigger trigger,           out int trigger_id,
+                                                          TContext context = default, Tags    trigger_tags = default)
             where TContext : struct, IEventContext
             where TTrigger : struct, IEventTrigger<TTrigger, TContext>
         {
-            Entity trigger_entity = _under_build._world.CreateEntity(trigger, context, Tags.Get<TagPrefab>());
+            trigger_tags.Add<TagPrefab>();
+            Entity trigger_entity = _under_build._world.CreateEntity(trigger, context, trigger_tags);
             _under_build._prefab.AddChild(trigger_entity);
             trigger_id = trigger_entity.Id;
             return this;

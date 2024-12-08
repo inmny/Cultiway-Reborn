@@ -70,7 +70,7 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
         public MetaBuilder(string id)
         {
             var actual_id = $"{typeof(TTrigger)}-{typeof(TContext)}.{id}";
-            if (AllDict.ContainsKey(actual_id)) throw new DuplicateNameException(id);
+            if (AllDict.ContainsKey(actual_id)) throw new DuplicateNameException(actual_id);
 
             _under_build = new TriggerActionMeta<TTrigger, TContext>(actual_id, ModClass.I.SkillV2.World.CreateEntity(
                 new ModifierContainerEntity(),

@@ -12,7 +12,9 @@ public static class Trajectories
 {
     public static TrajectoryMeta GoForward                      { get; private set; }
     public static TrajectoryMeta GoTowardsTargetObj { get; private set; }
+    public static TrajectoryMeta GoTowardsTargetPos { get; private set; }
     public static TrajectoryMeta GoTowardsTargetPosWithRotation { get; private set; }
+    public static TrajectoryMeta FallToGround { get; private set; }
 
     internal static void Init()
     {
@@ -20,6 +22,11 @@ public static class Trajectories
         {
             towards_velocity = true,
             get_delta_position = go_forward
+        };
+        GoTowardsTargetPos = new TrajectoryMeta
+        {
+            towards_velocity = true,
+            get_delta_position = go_towards_target_pos
         };
         GoTowardsTargetObj = new TrajectoryMeta
         {
@@ -31,6 +38,30 @@ public static class Trajectories
             get_delta_position = go_towards_target_pos,
             get_delta_rotation = self_rotate
         };
+        FallToGround = new TrajectoryMeta
+        {
+            towards_velocity = true,
+            get_delta_position = fall_to_ground
+        };
+    }
+
+    public static TrajectoryMeta.GetDeltaScale GetLinearScale(Vector3 k, Vector3 final_scale = default)
+    {
+        return (float dt, ref Scale scale, ref Trajectory traj, Entity entity) =>
+        {
+            if (final_scale == default)
+                return k * dt;
+            Vector3 new_scale = scale.value + k * dt;
+            return final_scale - new_scale;
+        };
+    }
+
+    private static Vector3 fall_to_ground(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)
+    {
+        var vel = skill_entity.Data.Get<Velocity>();
+        ModClass.LogInfo(
+            $"{skill_entity.Id}: fall_to_ground ({pos.value}, {Vector3.Scale(Vector3.back * dt, vel.scale)})");
+        return Vector3.Scale(Vector3.back * dt, vel.scale);
     }
 
     private static Vector3 go_towards_target_obj(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)

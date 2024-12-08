@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.AbstractGame;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 
 namespace Cultiway;
@@ -10,9 +11,12 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
 {
     internal WorldboxGame()
     {
+        I = this;
         var library_ts = GetType().GetNestedTypes().Where(t => t.GetInterfaces().Contains(typeof(ICanInit))).ToList();
         foreach (Type t in library_ts) (Activator.CreateInstance(t) as ICanInit)?.Init();
     }
+
+    public static WorldboxGame I { get; private set; }
 
     public override float GetLogicDeltaTime()
     {
@@ -29,8 +33,14 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
         return World.world.isPaused();
     }
 
+    [Hotfixable]
     public override void DamageWorld(WorldTile tile, int radius, TerraformOptions terraform, BaseSimObject source)
     {
         MapAction.damageWorld(tile, radius, terraform, source);
+    }
+
+    public override WorldTile GetTile(int x, int y)
+    {
+        return World.world.GetTile(x, y);
     }
 }
