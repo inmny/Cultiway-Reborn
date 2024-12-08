@@ -1,4 +1,3 @@
-using Cultiway.AbstractGame;
 using Cultiway.Core.GeoLib.Systems;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -9,7 +8,7 @@ public class Manager
 {
     private SystemRoot _system_root;
 
-    internal Manager(AGame game)
+    internal Manager(WorldboxGame game)
     {
         Game = game;
         _system_root = new SystemRoot(ModClass.I.TileExtendManager.World, "GeoLib.Logic");
@@ -19,7 +18,7 @@ public class Manager
         _system_root.Add(new RiverTrackSystem());
     }
 
-    public AGame Game { get; private set; }
+    public WorldboxGame Game { get; private set; }
 
     public void UpdateLogic(UpdateTick update_tick)
     {

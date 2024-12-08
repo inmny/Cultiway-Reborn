@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Reflection;
-using Cultiway.AbstractGame;
 using Cultiway.AbstractGame.AbstractEngine;
 using Cultiway.Content;
 using Cultiway.Core;
@@ -26,7 +25,7 @@ namespace Cultiway
         public        ActorExtendManager      ActorExtendManager   { get; private set; }
         public        TileExtendManager       TileExtendManager    { get; private set; }
         public        CustomMapModeManager    CustomMapModeManager { get; private set; }
-        public        AGame                   Game                 { get; private set; }
+        public WorldboxGame Game { get; private set; }
         public        AEngine                 Engine               { get; }
         public        SystemRoot              RenderSystems        { get; private set; }
         public        SystemRoot              LogicSystems         { get; private set; }

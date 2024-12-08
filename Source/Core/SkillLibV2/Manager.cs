@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Cultiway.AbstractGame;
 using Cultiway.Core.SkillLibV2.Api;
 using Cultiway.Core.SkillLibV2.Predefined;
 using Cultiway.Core.SkillLibV2.Predefined.Triggers;
@@ -22,7 +21,7 @@ public class Manager
     private readonly SystemGroup     _trigger_logic;
     private          EntityStore[]   _observer_worlds;
 
-    internal Manager(AGame game)
+    internal Manager(WorldboxGame game)
     {
         Game = game;
         World = new EntityStore();
@@ -43,6 +42,7 @@ public class Manager
         _trigger_logic.Add(new LogicTriggerStartSkillSystem());
         _trigger_logic.Add(new LogicTriggerTimeIntervalSystem());
         _trigger_logic.Add(new LogicTriggerTimeReachSystem());
+        _trigger_logic.Add(new LogicTriggerPositionReachSystem());
         _trigger_logic.Add(new LogicTriggerObjCollisionSystem(World));
 
         _observer_logic.Add(new LogicObserverUnuseCheckSystem());
@@ -54,7 +54,7 @@ public class Manager
         _render.Add(new RenderTrailSystem(World));
     }
 
-    public AGame Game { get; private set; }
+    public WorldboxGame Game { get; private set; }
 
     public EntityStore World { get; }
 
