@@ -59,8 +59,6 @@ public static class Trajectories
     private static Vector3 fall_to_ground(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)
     {
         var vel = skill_entity.Data.Get<Velocity>();
-        ModClass.LogInfo(
-            $"{skill_entity.Id}: fall_to_ground ({pos.value}, {Vector3.Scale(Vector3.back * dt, vel.scale)})");
         return Vector3.Scale(Vector3.back * dt, vel.scale);
     }
 
