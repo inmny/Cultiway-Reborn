@@ -2,6 +2,7 @@ using System.IO;
 using Cultiway.Abstract;
 using Cultiway.Content.Const;
 using Cultiway.Content.CultisysComponents;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Patch;
@@ -11,7 +12,7 @@ using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(BaseStatses))]
+[Dependency(typeof(BaseStatses), typeof(CommonWeaponSkills))]
 public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
 {
     public static CultisysAsset<Xian> Xian { get; private set; }
@@ -36,6 +37,12 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 null, null,
                 null, null, null, null, null, null, null, null,
                 null, null,
+            ],
+            [
+                null, [CommonWeaponSkills.StartWeaponSkill.id], null, null, null, null, null, null,
+                null, null,
+                null, null, null, null, null, null, null, null,
+                null, null
             ]));
         LoadStatsForXian();
 
@@ -51,7 +58,9 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         ActorExtend.RegisterActionOnUpdateStats([Hotfixable](ae) =>
         {
             if (!ae.HasCultisys<Xian>()) return;
-            ae.Base.stats.mergeStats(Xian.LevelAccumBaseStats[ae.GetCultisys<Xian>().CurrLevel]);
+            var curr_level = ae.GetCultisys<Xian>().CurrLevel;
+            ae.Base.stats.mergeStats(Xian.LevelAccumBaseStats[curr_level]);
+            ae.tmp_all_skills.UnionWith(Xian.Skills[curr_level]);
         });
         PatchWindowCreatureInfo.RegisterInfoDisplay((a, sb) =>
         {

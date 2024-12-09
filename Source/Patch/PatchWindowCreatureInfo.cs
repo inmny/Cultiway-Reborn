@@ -59,6 +59,10 @@ internal static class PatchWindowCreatureInfo
 
         info_display_func?.Invoke(actor_extend, sb);
 
+        var idx = 0;
+        foreach (var skill_id in actor_extend.tmp_all_skills)
+            sb.AppendLine($"技能[{idx++}]: " + skill_id.Split('.').Last());
+
         info_text.text = sb.ToString();
     }
 }

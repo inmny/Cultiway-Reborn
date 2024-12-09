@@ -21,9 +21,11 @@ public class ActorExtend : ExtendComponent<Actor>
 
     private static   Action<ActorExtend> action_on_update_stats;
     private readonly Entity              e;
+    private readonly HashSet<string> _learned_skills = new();
 
     private  Dictionary<string, Entity> _skill_actions = new();
     internal float[]                    s_damage_ratio = new float[7];
+    public HashSet<string> tmp_all_skills = new();
 
     public ActorExtend(Entity e)
     {
@@ -53,6 +55,11 @@ public class ActorExtend : ExtendComponent<Actor>
         }
 
         action_entity.AddComponent(modifier);
+    }
+
+    public void LearnSkill(string id)
+    {
+        _learned_skills.Add(id);
     }
 
     public void CastSkillV2(string id, BaseSimObject target_obj)
@@ -128,6 +135,9 @@ public class ActorExtend : ExtendComponent<Actor>
         {
             Base.stats.mergeStats(GetElementRoot().Stats);
         }
+
+        tmp_all_skills.Clear();
+        tmp_all_skills.UnionWith(_learned_skills);
 
         action_on_update_stats?.Invoke(this);
     }
