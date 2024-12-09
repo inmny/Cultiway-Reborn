@@ -27,8 +27,10 @@ namespace Cultiway
         public        CustomMapModeManager    CustomMapModeManager { get; private set; }
         public WorldboxGame Game { get; private set; }
         public        AEngine                 Engine               { get; }
-        public        SystemRoot              RenderSystems        { get; private set; }
-        public        SystemRoot              LogicSystems         { get; private set; }
+        public SystemRoot ActorLogicSystems  { get; private set; }
+        public SystemRoot ActorRenderSystems { get; private set; }
+        public SystemRoot TileLogicSystems   { get; private set; }
+        public SystemRoot TileRenderSystems  { get; private set; }
         public        EntityStore             W                    { get; private set; }
         public        WorldRecord             WorldRecord          { get; private set; }
         public        Core.SkillLibV2.Manager SkillV2              { get; private set; }
@@ -44,11 +46,13 @@ namespace Cultiway
         {
             if (Game.IsPaused()) return;
             var update_tick = new UpdateTick(Game.GetLogicDeltaTime(), Game.GetGameTime());
-            LogicSystems.Update(update_tick);
+            ActorLogicSystems.Update(update_tick);
+            TileLogicSystems.Update(update_tick);
             SkillV2.UpdateLogic(update_tick);
             Geo.UpdateLogic(update_tick);
 
-            RenderSystems.Update(update_tick);
+            ActorRenderSystems.Update(update_tick);
+            TileRenderSystems.Update(update_tick);
             SkillV2.UpdateRender(update_tick);
         }
 
@@ -92,13 +96,15 @@ namespace Cultiway
             L = new Core.Libraries.Manager();
             L.Init();
 
-            LogicSystems = new SystemRoot(nameof(LogicSystems));
-            RenderSystems = new SystemRoot(nameof(RenderSystems));
+            ActorLogicSystems = new SystemRoot(nameof(ActorLogicSystems));
+            ActorRenderSystems = new SystemRoot(nameof(ActorRenderSystems));
+            TileLogicSystems = new SystemRoot(nameof(TileLogicSystems));
+            TileRenderSystems = new SystemRoot(nameof(TileRenderSystems));
 
-            LogicSystems.AddStore(ActorExtendManager.World);
-            LogicSystems.AddStore(TileExtendManager.World);
-            RenderSystems.AddStore(ActorExtendManager.World);
-            RenderSystems.AddStore(TileExtendManager.World);
+            ActorLogicSystems.AddStore(ActorExtendManager.World);
+            ActorRenderSystems.AddStore(ActorExtendManager.World);
+            TileLogicSystems.AddStore(TileExtendManager.World);
+            TileRenderSystems.AddStore(TileExtendManager.World);
 
             CustomMapModeManager = new();
             CustomMapModeManager.Initialize();

@@ -29,6 +29,7 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
             active_action: [Hotfixable](cloud) => { cloud.transform.localScale = Vector3.one * 0.01f; });
     }
 
+    [Hotfixable]
     protected override void OnUpdate()
     {
         _pool.ResetToStart();
@@ -38,6 +39,7 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
             if (!a.data.hasFlag(ContentActorDataKeys.IsFlying_flag)) return;
             var cloud = _pool.GetNext();
             cloud.transform.localPosition = actor_binder.Actor.transform.localPosition;
+            cloud.transform.localScale = Vector3.one * 0.1f * a.stats[S.scale];
             cloud.sprite_renderer.flipX = a.flip;
         });
         _pool.ClearUnsed();
