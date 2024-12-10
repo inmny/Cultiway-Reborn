@@ -11,7 +11,7 @@ public class ElementRootLibrary : AssetLibrary<ElementRootAsset>
     {
         Common = add(new ElementRootAsset(
             id: nameof(Common),
-            composition: new ElementComposition([0.2f, 0.2f, 0.2f, 0.2f, 0.2f])
+            new ElementComposition([0.2f, 0.2f, 0.2f, 0.2f, 0.2f, 0.5f, 0.5f, 0])
         ));
     }
 

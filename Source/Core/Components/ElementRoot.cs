@@ -8,17 +8,20 @@ namespace Cultiway.Core.Components;
 
 public struct ElementRoot : IComponent
 {
-    public float            Iron  { get; private set; }
-    public float            Wood  { get; private set; }
-    public float            Water { get; private set; }
-    public float            Fire  { get; private set; }
-    public float            Earth { get; private set; }
-    public ElementRootAsset Type  { get; private set; }
-    public BaseStats        Stats { get; private set; }
+    public float            Iron    { get; private set; }
+    public float            Wood    { get; private set; }
+    public float            Water   { get; private set; }
+    public float            Fire    { get; private set; }
+    public float            Earth   { get; private set; }
+    public float            Neg     { get; private set; }
+    public float            Pos     { get; private set; }
+    public float            Entropy { get; private set; }
+    public ElementRootAsset Type    { get; private set; }
+    public BaseStats        Stats   { get; }
 
     public ElementRoot(float[] composition)
     {
-        for (int i = 0; i < 5; i++)
+        for (var i = 0; i < 8; i++)
         {
             var value = composition[i];
             switch (i)
@@ -38,6 +41,15 @@ public struct ElementRoot : IComponent
                 case ElementIndex.Earth:
                     Earth = value;
                     break;
+                case ElementIndex.Neg:
+                    Neg = value;
+                    break;
+                case ElementIndex.Pos:
+                    Pos = value;
+                    break;
+                case ElementIndex.Entropy:
+                    Entropy = value;
+                    break;
             }
         }
 
@@ -47,26 +59,30 @@ public struct ElementRoot : IComponent
 
     private void Update()
     {
-        Type = ModClass.L.ElementRootLibrary.GetRootType([Iron, Wood, Water, Fire, Earth], out var sim);
+        Type = ModClass.L.ElementRootLibrary.GetRootType([Iron, Wood, Water, Fire, Earth, Neg, Pos, Entropy],
+            out var sim);
         Stats.clear();
         Stats.MergeStats(Type.base_stats, sim);
     }
 
     public override string ToString()
     {
-        return $"[{Type}]: {Iron}, {Wood}, {Water}, {Fire}, {Earth}";
+        return $"[{Type}]: {Iron}, {Wood}, {Water}, {Fire}, {Earth}, ({Neg}, {Pos}), [{Entropy}]";
     }
 
     public float this[int idx]
     {
         get => idx switch
         {
-            ElementIndex.Iron  => Iron,
-            ElementIndex.Wood  => Wood,
-            ElementIndex.Water => Water,
-            ElementIndex.Fire  => Fire,
-            ElementIndex.Earth => Earth,
-            _                  => throw new ArgumentOutOfRangeException(nameof(idx), idx, null)
+            ElementIndex.Iron    => Iron,
+            ElementIndex.Wood    => Wood,
+            ElementIndex.Water   => Water,
+            ElementIndex.Fire    => Fire,
+            ElementIndex.Earth   => Earth,
+            ElementIndex.Neg     => Neg,
+            ElementIndex.Pos     => Pos,
+            ElementIndex.Entropy => Entropy,
+            _                    => throw new ArgumentOutOfRangeException(nameof(idx), idx, null)
         };
         private set
         {
@@ -86,6 +102,15 @@ public struct ElementRoot : IComponent
                     break;
                 case ElementIndex.Earth:
                     Earth = value;
+                    break;
+                case ElementIndex.Neg:
+                    Neg = value;
+                    break;
+                case ElementIndex.Pos:
+                    Pos = value;
+                    break;
+                case ElementIndex.Entropy:
+                    Entropy = value;
                     break;
             }
 

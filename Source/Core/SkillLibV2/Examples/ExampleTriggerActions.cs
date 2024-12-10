@@ -11,7 +11,7 @@ namespace Cultiway.Core.SkillLibV2.Examples;
 
 public static class ExampleTriggerActions
 {
-    private static DamageComposition fireball_damage_composition = new([0, 0, 0, 100, 0, 0]);
+    private static ElementComposition fireball_damage_composition = new([0, 0, 0, 100, 0, 0, 1, 0]);
     public static  TriggerActionMeta<StartSkillTrigger, StartSkillContext> StartSkillFireball { get; private set; }
 
     public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> TimeIntervalSpawnFireball

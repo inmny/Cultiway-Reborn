@@ -20,12 +20,12 @@ public class ActorExtend : ExtendComponent<Actor>
     private static Action<ActorExtend> action_on_new_creature;
 
     private static   Action<ActorExtend> action_on_update_stats;
-    private readonly Entity              e;
     private readonly HashSet<string> _learned_skills = new();
+    private readonly Entity          e;
 
     private  Dictionary<string, Entity> _skill_actions = new();
-    internal float[]                    s_damage_ratio = new float[7];
-    public HashSet<string> tmp_all_skills = new();
+    internal float[]         s_damage_ratio = new float[9];
+    public   HashSet<string> tmp_all_skills = new();
 
     public ActorExtend(Entity e)
     {
@@ -104,15 +104,15 @@ public class ActorExtend : ExtendComponent<Actor>
         bool has_element_root = Toolbox.randomChance(ModClass.L.ElementRootLibrary.base_prob);
         if (has_element_root)
         {
-            var composition = new float[5];
+            var composition = new float[8];
             float sum = 0;
-            for (int i = 0; i < 5; i++)
+            for (var i = 0; i < 8; i++)
             {
                 composition[i] = Toolbox.randomFloat(0, 1);
                 sum += composition[i];
             }
 
-            for (int i = 0; i < 5; i++)
+            for (var i = 0; i < 8; i++)
             {
                 composition[i] /= sum;
             }
@@ -147,19 +147,23 @@ public class ActorExtend : ExtendComponent<Actor>
         var stats = Base.stats;
 
         var armor = stats[S.armor];
-        s_damage_ratio[0] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+        s_damage_ratio[ElementIndex.Entropy + 1] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
         armor = stats[nameof(CoreBaseStats.IronArmor)];
-        s_damage_ratio[DamageIndex.Iron] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+        s_damage_ratio[ElementIndex.Iron] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
         armor = stats[nameof(CoreBaseStats.WoodArmor)];
-        s_damage_ratio[DamageIndex.Wood] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+        s_damage_ratio[ElementIndex.Wood] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
         armor = stats[nameof(CoreBaseStats.WaterArmor)];
-        s_damage_ratio[DamageIndex.Water] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+        s_damage_ratio[ElementIndex.Water] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
         armor = stats[nameof(CoreBaseStats.FireArmor)];
-        s_damage_ratio[DamageIndex.Fire] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+        s_damage_ratio[ElementIndex.Fire] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
         armor = stats[nameof(CoreBaseStats.EarthArmor)];
-        s_damage_ratio[DamageIndex.Earth] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(CoreBaseStats.SoulArmor)];
-        s_damage_ratio[DamageIndex.Soul] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+        s_damage_ratio[ElementIndex.Earth] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+        armor = stats[nameof(CoreBaseStats.NegArmor)];
+        s_damage_ratio[ElementIndex.Neg] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+        armor = stats[nameof(CoreBaseStats.PosArmor)];
+        s_damage_ratio[ElementIndex.Pos] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+        armor = stats[nameof(CoreBaseStats.EntropyArmor)];
+        s_damage_ratio[ElementIndex.Entropy] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
     }
 
     public void NewCultisys<T>(CultisysAsset<T> cultisys) where T : struct, ICultisysComponent
@@ -168,18 +172,29 @@ public class ActorExtend : ExtendComponent<Actor>
         cultisys.OnGetAction?.Invoke(this, cultisys, ref e.GetComponent<T>());
     }
 
-    public void GetHit(float damage, ref DamageComposition damage_composition, BaseSimObject attacker)
+    public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker)
     {
-        damage *= 1 - s_damage_ratio[0];
+        damage *= 1 - s_damage_ratio[ElementIndex.Entropy + 1];
         var total_ratio = 0f;
         var sum = 0f;
-        for (int i = 0; i < 6; i++)
+        for (var i = ElementIndex.Iron; i <= ElementIndex.Earth; i++)
         {
-            total_ratio += damage_composition[i] * (1 - s_damage_ratio[i + 1]);
+            total_ratio += damage_composition[i] * (1 - s_damage_ratio[i]);
             sum += damage_composition[i];
         }
 
         damage *= total_ratio / sum;
+
+        total_ratio = 0f;
+        sum = 0f;
+        for (var i = ElementIndex.Neg; i <= ElementIndex.Pos; i++)
+        {
+            total_ratio += damage_composition[i] * (1 - s_damage_ratio[i]);
+            sum += damage_composition[i];
+        }
+
+        damage *= total_ratio / sum;
+        damage *= 1 - s_damage_ratio[ElementIndex.Entropy];
 
         damage = Mathf.Clamp(damage, 0, int.MaxValue >> 2);
 

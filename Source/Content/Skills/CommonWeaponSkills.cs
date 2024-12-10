@@ -24,7 +24,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
 
     public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> SingleObjCollisionDamage;
     public static  TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> ObjCollisionDamage;
-    private static DamageComposition weapon_damage_composition = new([100, 0, 0, 0, 0, 0]);
+    private static ElementComposition weapon_damage_composition = new([100, 0, 0, 0, 0, 0, 1, 0]);
 
     public void Init()
     {

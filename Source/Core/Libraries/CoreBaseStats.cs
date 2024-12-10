@@ -4,21 +4,25 @@ namespace Cultiway.Core.Libraries;
 
 public class CoreBaseStats : ExtendLibrary<BaseStatAsset, CoreBaseStats>
 {
-    public static BaseStatAsset IronArmor   { get; private set; }
-    public static BaseStatAsset WoodArmor   { get; private set; }
-    public static BaseStatAsset WaterArmor  { get; private set; }
-    public static BaseStatAsset FireArmor   { get; private set; }
-    public static BaseStatAsset EarthArmor  { get; private set; }
-    public static BaseStatAsset SoulArmor   { get; private set; }
-    public static BaseStatAsset IronMaster  { get; private set; }
-    public static BaseStatAsset WoodMaster  { get; private set; }
-    public static BaseStatAsset WaterMaster { get; private set; }
-    public static BaseStatAsset FireMaster  { get; private set; }
-    public static BaseStatAsset EarthMaster { get; private set; }
-    public static BaseStatAsset SoulMaster  { get; private set; }
-    public static BaseStatAsset HealthRegen { get; private set; }
-    public static BaseStatAsset WakanRegen  { get; private set; }
-    public static BaseStatAsset MaxSoul     { get; private set; }
+    public static BaseStatAsset IronArmor     { get; private set; }
+    public static BaseStatAsset WoodArmor     { get; private set; }
+    public static BaseStatAsset WaterArmor    { get; private set; }
+    public static BaseStatAsset FireArmor     { get; private set; }
+    public static BaseStatAsset EarthArmor    { get; private set; }
+    public static BaseStatAsset NegArmor      { get; private set; }
+    public static BaseStatAsset PosArmor      { get; private set; }
+    public static BaseStatAsset EntropyArmor  { get; private set; }
+    public static BaseStatAsset IronMaster    { get; private set; }
+    public static BaseStatAsset WoodMaster    { get; private set; }
+    public static BaseStatAsset WaterMaster   { get; private set; }
+    public static BaseStatAsset FireMaster    { get; private set; }
+    public static BaseStatAsset EarthMaster   { get; private set; }
+    public static BaseStatAsset NegMaster     { get; private set; }
+    public static BaseStatAsset PosMaster     { get; private set; }
+    public static BaseStatAsset EntropyMaster { get; private set; }
+    public static BaseStatAsset HealthRegen   { get; private set; }
+    public static BaseStatAsset WakanRegen    { get; private set; }
+    public static BaseStatAsset MaxSoul       { get; private set; }
 
     protected override void OnInit()
     {
@@ -42,9 +46,17 @@ public class CoreBaseStats : ExtendLibrary<BaseStatAsset, CoreBaseStats>
         {
             id = nameof(EarthArmor)
         });
-        SoulArmor = AddWithMod(new BaseStatAsset()
+        NegArmor = AddWithMod(new BaseStatAsset
         {
-            id = nameof(SoulArmor)
+            id = nameof(NegArmor)
+        });
+        PosArmor = AddWithMod(new BaseStatAsset
+        {
+            id = nameof(PosArmor)
+        });
+        EntropyArmor = AddWithMod(new BaseStatAsset
+        {
+            id = nameof(EntropyArmor)
         });
         IronMaster = AddWithMod(new BaseStatAsset()
         {
@@ -66,9 +78,17 @@ public class CoreBaseStats : ExtendLibrary<BaseStatAsset, CoreBaseStats>
         {
             id = nameof(EarthMaster)
         });
-        SoulMaster = AddWithMod(new BaseStatAsset()
+        NegMaster = AddWithMod(new BaseStatAsset
         {
-            id = nameof(SoulMaster)
+            id = nameof(NegMaster)
+        });
+        PosMaster = AddWithMod(new BaseStatAsset
+        {
+            id = nameof(PosMaster)
+        });
+        EntropyMaster = AddWithMod(new BaseStatAsset
+        {
+            id = nameof(EntropyMaster)
         });
 
         HealthRegen = AddWithMod(new BaseStatAsset()
