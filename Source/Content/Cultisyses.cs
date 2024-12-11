@@ -8,6 +8,7 @@ using Cultiway.Core.Libraries;
 using Cultiway.Patch;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content;
@@ -21,13 +22,13 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     {
         Xian = (CultisysAsset<Xian>)Add(new CultisysAsset<Xian>(nameof(Xian), 20, new Xian(),
             [
-                null, XianPreCheckUpgrade, null, null, null, null, null, null,
+                null, XianPreCheckUpgrade, XianPreCheckUpgrade, null, null, null, null, null,
                 null, null,
                 null, null, null, null, null, null, null, null,
                 null, null,
             ],
             [
-                null, XianCheckUpgrade, null, null, null, null, null, null,
+                null, XianCheckUpgrade, CheckUpgradeToJindan, null, null, null, null, null,
                 null, null,
                 null, null, null, null, null, null, null, null,
                 null, null,
@@ -109,5 +110,17 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     private static bool XianCheckUpgrade(ActorExtend ae, CultisysAsset<Xian> cultisys, ref Xian component)
     {
         return component.wakan >= ae.Base.stats[BaseStatses.MaxWakan.id] - 0.1f;
+    }
+
+    private static bool CheckUpgradeToJindan(ActorExtend ae, CultisysAsset<Xian> cultisys, ref Xian component)
+    {
+        if (component.wakan < ae.Base.stats[BaseStatses.MaxWakan.id] - 0.1f) return false;
+
+        Entity e = ae.E;
+        if (!e.HasComponent<Jindan>()) e.AddComponent<Jindan>();
+
+        ref Jindan jindan = ref e.GetComponent<Jindan>();
+
+        return true;
     }
 }

@@ -33,6 +33,8 @@ public class ActorExtend : ExtendComponent<Actor>
         e.GetComponent<ActorBinder>()._ae = this;
     }
 
+    public Entity E => e;
+
     public override Actor Base => e.HasComponent<ActorBinder>() ? e.GetComponent<ActorBinder>().Actor : null;
 
     public static void RegisterActionOnNewCreature(Action<ActorExtend> action)
