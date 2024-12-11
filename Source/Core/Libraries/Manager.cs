@@ -2,9 +2,9 @@ namespace Cultiway.Core.Libraries;
 
 public class Manager
 {
-    public CultisysLibrary      CultisysLibrary      = new();
-    public CustomMapModeLibrary CustomMapModeLibrary = new();
-    public ElementRootLibrary   ElementRootLibrary   = new();
+    public CultisysLibrary      CultisysLibrary      { get; } = new();
+    public CustomMapModeLibrary CustomMapModeLibrary { get; } = new();
+    public ElementRootLibrary   ElementRootLibrary   { get; } = new();
 
     public void Init()
     {
