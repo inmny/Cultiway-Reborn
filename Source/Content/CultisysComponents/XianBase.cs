@@ -13,4 +13,19 @@ public struct XianBase : IComponent
     public float water;
     public float fire;
     public float earth;
+
+    public float GetStrength()
+    {
+        return (GetThreeHuaStrength() + GetFiveQiStrength()) / 2;
+    }
+
+    public float GetThreeHuaStrength()
+    {
+        return (jing + qi + shen) / 3;
+    }
+
+    public float GetFiveQiStrength()
+    {
+        return (iron + wood + water + fire + earth) / 5;
+    }
 }

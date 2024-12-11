@@ -13,6 +13,8 @@ internal class Manager
 
     public void Init()
     {
+        Libraries.Manager.Init();
+
         var ns = GetType().Namespace;
         var library_ts = ModClass.A.GetTypes()
             .Where(t => t.Namespace != null && t.Namespace.StartsWith(ns) &&

@@ -230,6 +230,17 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         }
         else
         {
+            var strength = xian_base.GetFiveQiStrength() * xian_base.GetThreeHuaStrength();
+            if (RdUtils.NextNormal_0_6() > strength)
+            {
+                component.wakan = 0;
+                return false;
+            }
+
+            e.AddComponent(new Jindan
+            {
+                jindan_type = Libraries.Manager.JindanLibrary.GetJindan(ae, ref xian_base).id
+            });
             return true;
         }
 
