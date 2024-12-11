@@ -51,6 +51,7 @@ internal static class PatchWindowCreatureInfo
         if (actor_extend.HasElementRoot())
         {
             sb.AppendLine($"灵根: {actor_extend.GetElementRoot().ToString()}");
+            sb.AppendLine($"期望修炼倍率: {actor_extend.GetElementRoot().GetStrength()}");
         }
         else
         {

@@ -1,3 +1,4 @@
+using Cultiway.Const;
 using Cultiway.Utils;
 
 namespace Cultiway.Core.Libraries;
@@ -21,7 +22,7 @@ public class ElementRootLibrary : AssetLibrary<ElementRootAsset>
         float best_sim = 0;
         foreach (var type in list)
         {
-            var sim = MathUtils.CosineSimilarity(composition, type.composition.AsArray());
+            var sim = MathUtils.CosineSimilarity(composition, type.composition.AsArray(), ElementIndex.Entropy);
             if (sim >= best_sim)
             {
                 best_sim = sim;

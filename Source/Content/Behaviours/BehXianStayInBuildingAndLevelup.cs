@@ -27,7 +27,8 @@ public class BehXianStayInBuildingAndLevelup : BehCity
         // 获取修炼收益
         var tile_pos = pObject.currentTile.pos;
         var to_take = Mathf.Log10(WakanMap.I.map[tile_pos.x, tile_pos.y] + 1);
-        xian.wakan = Mathf.Min(xian.wakan + to_take, pObject.stats[BaseStatses.MaxWakan.id]);
+        xian.wakan = Mathf.Min(xian.wakan + to_take * actor_extend.GetElementRoot().GetStrength(),
+            pObject.stats[BaseStatses.MaxWakan.id]);
         WakanMap.I.map[tile_pos.x, tile_pos.y] -= to_take;
 
         if (Cultisyses.Xian.AllowUpgrade(actor_extend))

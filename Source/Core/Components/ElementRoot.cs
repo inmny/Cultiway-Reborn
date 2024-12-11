@@ -1,8 +1,10 @@
 using System;
 using Cultiway.Const;
 using Cultiway.Core.Libraries;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
+using UnityEngine;
 
 namespace Cultiway.Core.Components;
 
@@ -55,6 +57,25 @@ public struct ElementRoot : IComponent
 
         Stats = new();
         Update();
+    }
+
+    public static ElementRoot Roll()
+    {
+        var composition = new float[8];
+        for (var i = 0; i < 8; i++) composition[i] = Mathf.Abs(RdUtils.NextStdNormal());
+
+        return new ElementRoot(composition);
+    }
+
+    public float GetStrength()
+    {
+        return Mathf.Exp(
+            (
+                (Iron  + Wood + Water + Fire + Earth) / 5
+                + (Neg + Pos)                         / 2
+                + Entropy
+            ) / 3
+        );
     }
 
     private void Update()

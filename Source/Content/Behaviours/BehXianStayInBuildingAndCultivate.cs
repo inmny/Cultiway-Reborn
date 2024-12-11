@@ -43,7 +43,7 @@ public class BehXianStayInBuildingAndCultivate : BehCity
             var to_take = Mathf.Log10(WakanMap.I.map[tile_pos.x, tile_pos.y] + 1);
 
             var max_wakan = pObject.stats[BaseStatses.MaxWakan.id];
-            xian.wakan = Mathf.Min(xian.wakan + to_take, max_wakan);
+            xian.wakan = Mathf.Min(xian.wakan + to_take * actor_extend.GetElementRoot().GetStrength(), max_wakan);
             WakanMap.I.map[tile_pos.x, tile_pos.y] -= to_take;
             if (xian.wakan < max_wakan)
             {

@@ -104,20 +104,7 @@ public class ActorExtend : ExtendComponent<Actor>
         bool has_element_root = Toolbox.randomChance(ModClass.L.ElementRootLibrary.base_prob);
         if (has_element_root)
         {
-            var composition = new float[8];
-            float sum = 0;
-            for (var i = 0; i < 8; i++)
-            {
-                composition[i] = Toolbox.randomFloat(0, 1);
-                sum += composition[i];
-            }
-
-            for (var i = 0; i < 8; i++)
-            {
-                composition[i] /= sum;
-            }
-
-            e.AddComponent(new ElementRoot(composition));
+            e.AddComponent(ElementRoot.Roll());
         }
 
         action_on_new_creature?.Invoke(this);
