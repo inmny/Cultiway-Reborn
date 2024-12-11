@@ -10,6 +10,7 @@ using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
+using UnityEngine;
 
 namespace Cultiway.Content;
 
@@ -100,6 +101,16 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     public override void OnReload()
     {
         LoadStatsForXian();
+    }
+
+    internal static void TakeWakanAndCultivate(ActorExtend actor_extend, ref Xian xian)
+    {
+        Vector2Int tile_pos = actor_extend.Base.currentTile.pos;
+        var to_take = Mathf.Log10(WakanMap.I.map[tile_pos.x, tile_pos.y] + 1);
+
+        var max_wakan = actor_extend.Base.stats[BaseStatses.MaxWakan.id];
+        xian.wakan = Mathf.Min(xian.wakan + to_take * actor_extend.GetElementRoot().GetStrength(), max_wakan);
+        WakanMap.I.map[tile_pos.x, tile_pos.y] -= to_take;
     }
 
     private static bool XianPreCheckUpgrade(ActorExtend ae, CultisysAsset<Xian> cultisys, ref Xian component)

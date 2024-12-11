@@ -4,7 +4,6 @@ using Cultiway.Content.Const;
 using Cultiway.Content.CultisysComponents;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
-using UnityEngine;
 
 namespace Cultiway.Content.Behaviours;
 
@@ -39,13 +38,8 @@ public class BehXianStayInBuildingAndCultivate : BehCity
 
             // 获取修炼收益
             // TODO: 考虑天赋以及其他因素的影响
-            var tile_pos = pObject.currentTile.pos;
-            var to_take = Mathf.Log10(WakanMap.I.map[tile_pos.x, tile_pos.y] + 1);
-
-            var max_wakan = pObject.stats[BaseStatses.MaxWakan.id];
-            xian.wakan = Mathf.Min(xian.wakan + to_take * actor_extend.GetElementRoot().GetStrength(), max_wakan);
-            WakanMap.I.map[tile_pos.x, tile_pos.y] -= to_take;
-            if (xian.wakan < max_wakan)
+            Cultisyses.TakeWakanAndCultivate(actor_extend, ref xian);
+            if (xian.wakan < pObject.stats[BaseStatses.MaxWakan.id])
             {
                 pObject.data.set(ContentActorDataKeys.CultivateTime_float, time);
                 return BehResult.RepeatStep;

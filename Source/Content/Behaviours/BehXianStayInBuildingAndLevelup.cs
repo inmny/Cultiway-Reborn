@@ -2,7 +2,6 @@ using ai.behaviours;
 using Cultiway.Const;
 using Cultiway.Content.CultisysComponents;
 using Cultiway.Utils.Extension;
-using UnityEngine;
 
 namespace Cultiway.Content.Behaviours;
 
@@ -25,11 +24,7 @@ public class BehXianStayInBuildingAndLevelup : BehCity
         ref var xian = ref actor_extend.GetCultisys<Xian>();
 
         // 获取修炼收益
-        var tile_pos = pObject.currentTile.pos;
-        var to_take = Mathf.Log10(WakanMap.I.map[tile_pos.x, tile_pos.y] + 1);
-        xian.wakan = Mathf.Min(xian.wakan + to_take * actor_extend.GetElementRoot().GetStrength(),
-            pObject.stats[BaseStatses.MaxWakan.id]);
-        WakanMap.I.map[tile_pos.x, tile_pos.y] -= to_take;
+        Cultisyses.TakeWakanAndCultivate(actor_extend, ref xian);
 
         if (Cultisyses.Xian.AllowUpgrade(actor_extend))
         {
