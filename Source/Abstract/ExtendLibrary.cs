@@ -31,7 +31,7 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
     {
     }
 
-    protected void RegisterAssets(string prefix = "")
+    protected void RegisterAssets(string prefix = "Cultiway")
     {
         if (typeof(TAsset).GetConstructors().All(x => x.GetParameters().Length > 0)) return;
 
