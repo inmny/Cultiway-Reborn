@@ -24,6 +24,7 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
     public void Init()
     {
         OnInit();
+        foreach (TAsset asset in assets_added) PostInit(asset);
     }
 
     public virtual void OnReload()
@@ -60,7 +61,6 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
                     }
 
                     ModClass.LogInfo($"({typeof(T).Name}) Initializes {item_id}");
-                    ;
                 }
 
                 prop.SetValue(null, item);
@@ -72,12 +72,18 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
     protected virtual TAsset Add(TAsset asset)
     {
         t = cached_library.add(asset);
+        _assets_added.Add(t);
         return t;
+    }
+
+    protected virtual void PostInit(TAsset asset)
+    {
     }
 
     protected virtual TAsset Clone(string new_id, string from_id)
     {
         t = cached_library.clone(new_id, from_id);
+        _assets_added.Add(t);
         return t;
     }
 
