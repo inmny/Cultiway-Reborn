@@ -20,4 +20,9 @@ public static class MathUtils
 
         return ab / Mathf.Sqrt(a_v * b_v);
     }
+
+    public static float Normal(float x, float mean, float std)
+    {
+        return Mathf.Exp(-(x - mean) * (x - mean) / (2 * std * std)) / (std * Mathf.Sqrt(2 * Mathf.PI));
+    }
 }

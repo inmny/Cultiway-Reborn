@@ -30,10 +30,11 @@ internal static class PatchWindowCreatureInfo
         if (!_initialized)
         {
             _initialized = true;
-            var obj = new GameObject("TempInfo", typeof(Text));
+            var obj = new GameObject("TempInfo", typeof(Text), typeof(ContentSizeFitter));
             obj.transform.SetParent(__instance.transform.Find("Background"));
             obj.transform.localPosition = new(250, 0);
             obj.transform.localScale = Vector3.one;
+            obj.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             info_text = obj.GetComponent<Text>();
             info_text.font = LocalizedTextManager.currentFont;
             info_text.resizeTextForBestFit = true;
