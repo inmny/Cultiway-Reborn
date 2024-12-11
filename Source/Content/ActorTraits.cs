@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.CultisysComponents;
@@ -28,5 +29,20 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
 
             return true;
         };
+    }
+
+    protected override void PostInit(ActorTrait asset)
+    {
+        if (asset.group_id == ActorTraitGroups.System.id)
+        {
+            var list = new List<string>();
+            foreach (ActorTrait trait in cached_library.list)
+            {
+                if (trait.id       == asset.id) continue;
+                if (trait.group_id == ActorTraitGroups.System.id) list.Add(trait.id);
+            }
+
+            asset.oppositeArr = list.ToArray();
+        }
     }
 }
