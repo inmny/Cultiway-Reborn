@@ -117,9 +117,9 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         if (component.wakan < ae.Base.stats[BaseStatses.MaxWakan.id] - 0.1f) return false;
 
         Entity e = ae.E;
-        if (!e.HasComponent<Jindan>()) e.AddComponent<Jindan>();
+        if (!e.HasComponent<XianBase>()) e.AddComponent<XianBase>();
 
-        ref Jindan jindan = ref e.GetComponent<Jindan>();
+        ref XianBase xian_base = ref e.GetComponent<XianBase>();
 
         return true;
     }
