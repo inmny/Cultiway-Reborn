@@ -86,6 +86,12 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 sb.AppendLine($"\t金: {xian_base.iron}");
                 sb.AppendLine($"\t水: {xian_base.water}");
             }
+
+            if (a.E.HasComponent<Jindan>())
+            {
+                ref Jindan jindan = ref a.E.GetComponent<Jindan>();
+                sb.AppendLine($"金丹: {jindan.Type.GetName()}");
+            }
         });
     }
 
@@ -238,9 +244,9 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             }
 
             e.AddComponent(new Jindan
-            {
-                jindan_type = Libraries.Manager.JindanLibrary.GetJindan(ae, ref xian_base).id
-            });
+            (
+                Libraries.Manager.JindanLibrary.GetJindan(ae, ref xian_base).id
+            ));
             return true;
         }
 

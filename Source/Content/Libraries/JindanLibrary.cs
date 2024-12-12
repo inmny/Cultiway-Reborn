@@ -11,7 +11,7 @@ public class JindanLibrary : AssetLibrary<JindanAsset>
     {
         Common = add(new JindanAsset
         {
-            id = nameof(Common)
+            id = "Cultiway.Jindan.Common"
         });
     }
 
