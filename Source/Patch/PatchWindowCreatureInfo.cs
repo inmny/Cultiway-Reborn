@@ -1,11 +1,14 @@
 using System;
 using System.Text;
 using Cultiway.Core;
+using Cultiway.UI;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
+using NeoModLoader.General.UI.Prefabs;
 using UnityEngine;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace Cultiway.Patch;
 
@@ -25,6 +28,10 @@ internal static class PatchWindowCreatureInfo
     private static void OnEnable_prefix(WindowCreatureInfo __instance)
     {
         if (!(__instance.actor?.isAlive() ?? false)) return;
+        SimpleButton button = Object.Instantiate(SimpleButton.Prefab, __instance.transform.Find("Background"));
+        button.transform.localPosition = new Vector3(-250, 0);
+        button.transform.localScale = Vector3.one;
+        button.Setup(WindowNewCreatureInfo.Show, SpriteTextureLoader.getSprite("cultiway/icons/iconCultivation"));
 
         Text info_text = null;
         if (!_initialized)
