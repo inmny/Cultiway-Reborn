@@ -5,6 +5,8 @@ using Cultiway.AbstractGame.AbstractEngine;
 using Cultiway.Content;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV2.Examples;
+using Cultiway.Debug;
+using Cultiway.LocaleKeys;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api;
@@ -70,21 +72,11 @@ namespace Cultiway
 
         protected override void OnModLoad()
         {
+            Try.Start(() => { _ = LK.Root; });
             A = Assembly.GetExecutingAssembly();
             PrefabLibrary.gameObject.SetActive(false);
             Game = new WorldboxGame();
-            try
-            {
-                W = new EntityStore();
-            }
-            catch (Exception e)
-            {
-                do
-                {
-                    LogError($"{e.GetType()}: {e.Message}\n{e.StackTrace}");
-                    e = e.InnerException;
-                } while (e != null);
-            }
+            Try.Start(() => { W = new EntityStore(); });
 
             WorldRecord = new(W);
 
