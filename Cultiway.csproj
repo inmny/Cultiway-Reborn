@@ -74,6 +74,5 @@
     </ItemGroup>
     <ItemGroup>
         <Folder Include="Source\Core\GeoLib\Components\"/>
-        <Folder Include="Source\UI\Prefab\"/>
     </ItemGroup>
 </Project>

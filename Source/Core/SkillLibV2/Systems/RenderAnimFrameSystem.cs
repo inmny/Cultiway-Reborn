@@ -26,7 +26,7 @@ public class RenderAnimFrameSystem : BaseSystem
         obj.transform.localPosition = Vector3.zero;
         obj.transform.localScale = Vector3.one;
 
-        var prefab = ModClass.NewPrefab("SkillRenderer").AddComponent<SkillRenderer>();
+        var prefab = ModClass.NewPrefabPreview("SkillRenderer").AddComponent<SkillRenderer>();
         prefab.bind = prefab.GetComponent<SpriteRenderer>();
         prefab.bind.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
         _pool = new MonoObjPool<SkillRenderer>(prefab, obj.transform, s => s.pool = _pool);

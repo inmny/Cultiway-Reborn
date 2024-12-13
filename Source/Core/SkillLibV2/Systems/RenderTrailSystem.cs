@@ -24,7 +24,7 @@ internal class RenderTrailSystem : QuerySystem<AnimBindRenderer, TrailBindRender
 
     public RenderTrailSystem(EntityStore world)
     {
-        var prefab = ModClass.NewPrefab("CustomTrailRenderer").AddComponent<CustomTrailRenderer>();
+        var prefab = ModClass.NewPrefabPreview("CustomTrailRenderer").AddComponent<CustomTrailRenderer>();
         prefab.renderer = prefab.GetComponent<SpriteRenderer>();
         prefab.renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
         _pool = new MonoObjPool<CustomTrailRenderer>(prefab, null, active_action: r => r.disabled = false,

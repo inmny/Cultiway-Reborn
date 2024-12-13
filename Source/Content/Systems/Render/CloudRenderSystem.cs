@@ -21,7 +21,7 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
         obj.transform.localPosition = Vector3.zero;
         obj.transform.localScale = Vector3.one;
 
-        var prefab = ModClass.NewPrefab("XianCloud").AddComponent<Cloud>();
+        var prefab = ModClass.NewPrefabPreview("XianCloud").AddComponent<Cloud>();
         prefab.sprite_renderer = prefab.GetComponent<SpriteRenderer>();
         prefab.sprite_renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
         prefab.sprite_renderer.sprite = SpriteTextureLoader.getSprite("cultiway/special_effects/clouds/clouds");

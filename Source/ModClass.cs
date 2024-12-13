@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Reflection;
 using Cultiway.AbstractGame.AbstractEngine;
@@ -13,6 +13,7 @@ using NeoModLoader.api;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
 using NeoModLoader.utils;
+using UnityEngine;
 
 namespace Cultiway
 {
@@ -68,6 +69,13 @@ namespace Cultiway
             _content.OnReload();
 
             ActorExtendManager.AllStatsDirty();
+        }
+
+        public static GameObject NewPrefabPreview(string name, params Type[] types)
+        {
+            var obj = new GameObject(name, types);
+            obj.transform.SetParent(Instance.PrefabLibrary);
+            return obj;
         }
 
         protected override void OnModLoad()
