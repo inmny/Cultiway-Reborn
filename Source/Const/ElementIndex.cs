@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace Cultiway.Const;
 
 public static class ElementIndex
@@ -10,4 +12,16 @@ public static class ElementIndex
     public const int Neg     = 5;
     public const int Pos     = 6;
     public const int Entropy = 7;
+
+    public static readonly ReadOnlyCollection<string> ElementNames = new(new[]
+    {
+        $"{nameof(Cultiway)}.{nameof(Iron)}",
+        $"{nameof(Cultiway)}.{nameof(Wood)}",
+        $"{nameof(Cultiway)}.{nameof(Water)}",
+        $"{nameof(Cultiway)}.{nameof(Fire)}",
+        $"{nameof(Cultiway)}.{nameof(Earth)}",
+        $"{nameof(Cultiway)}.{nameof(Neg)}",
+        $"{nameof(Cultiway)}.{nameof(Pos)}",
+        $"{nameof(Cultiway)}.{nameof(Entropy)}"
+    });
 }

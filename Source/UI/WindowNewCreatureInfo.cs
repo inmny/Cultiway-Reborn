@@ -15,17 +15,17 @@ namespace Cultiway.UI;
 public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 {
     private static readonly List<PageRegistration> _page_registrations = new();
+    private readonly List<CreatureInfoPage> _available_pages = new();
+
+    private readonly Dictionary<string, CreatureInfoPage> _pages = new();
 
     private readonly List<Tuple<string, StatValue>> _stat_values = new();
-    private          Actor                  _actor;
-    private readonly List<CreatureInfoPage> _available_pages = new();
-    private          string                 _current_page;
+    private Actor  _actor;
+    private string _current_page;
 
     private Transform               _page_container;
     private Transform               _page_entry_container;
     private MonoObjPool<TextButton> _page_entry_pool;
-
-    private readonly Dictionary<string, CreatureInfoPage> _pages = new();
 
     public static void Show()
     {
@@ -102,8 +102,10 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
         page_bg.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
         page_bg.type = Image.Type.Sliced;
         _page_container.GetComponent<RectTransform>().sizeDelta = new Vector2(258, 220);
+        _page_container.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(6, 6, 5, 5);
 
-        RegisterPage(nameof(ElementRootPage), a => a.GetExtend().HasElementRoot(), p => { }, ElementRootPage.Show);
+        RegisterPage(nameof(ElementRootPage), a => a.GetExtend().HasElementRoot(), ElementRootPage.Setup,
+            ElementRootPage.Show);
 
         create_pages();
     }

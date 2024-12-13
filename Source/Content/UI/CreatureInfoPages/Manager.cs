@@ -9,7 +9,7 @@ public class Manager : ICanInit
 {
     public void Init()
     {
-        WindowNewCreatureInfo.RegisterPage(nameof(XianBasePage), a => true || a.GetExtend().E.HasComponent<XianBase>(),
-            p => { }, XianBasePage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(XianBasePage), a => a.GetExtend().E.HasComponent<XianBase>(),
+            XianBasePage.Setup, XianBasePage.Show);
     }
 }
