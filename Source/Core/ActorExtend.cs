@@ -137,21 +137,21 @@ public class ActorExtend : ExtendComponent<Actor>
 
         var armor = stats[S.armor];
         s_damage_ratio[ElementIndex.Entropy + 1] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(CoreBaseStats.IronArmor)];
+        armor = stats[nameof(WorldboxGame.BaseStats.IronArmor)];
         s_damage_ratio[ElementIndex.Iron] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(CoreBaseStats.WoodArmor)];
+        armor = stats[nameof(WorldboxGame.BaseStats.WoodArmor)];
         s_damage_ratio[ElementIndex.Wood] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(CoreBaseStats.WaterArmor)];
+        armor = stats[nameof(WorldboxGame.BaseStats.WaterArmor)];
         s_damage_ratio[ElementIndex.Water] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(CoreBaseStats.FireArmor)];
+        armor = stats[nameof(WorldboxGame.BaseStats.FireArmor)];
         s_damage_ratio[ElementIndex.Fire] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(CoreBaseStats.EarthArmor)];
+        armor = stats[nameof(WorldboxGame.BaseStats.EarthArmor)];
         s_damage_ratio[ElementIndex.Earth] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(CoreBaseStats.NegArmor)];
+        armor = stats[nameof(WorldboxGame.BaseStats.NegArmor)];
         s_damage_ratio[ElementIndex.Neg] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(CoreBaseStats.PosArmor)];
+        armor = stats[nameof(WorldboxGame.BaseStats.PosArmor)];
         s_damage_ratio[ElementIndex.Pos] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(CoreBaseStats.EntropyArmor)];
+        armor = stats[nameof(WorldboxGame.BaseStats.EntropyArmor)];
         s_damage_ratio[ElementIndex.Entropy] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
     }
 

@@ -12,4 +12,15 @@ public abstract class APrefabPreview<T> : APrefab<T> where T : APrefabPreview<T>
             t.name = pName;
         return t;
     }
+
+    protected sealed override void Init()
+    {
+        if (Initialized) return;
+        base.Init();
+        OnInit();
+    }
+
+    protected virtual void OnInit()
+    {
+    }
 }
