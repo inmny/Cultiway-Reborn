@@ -24,6 +24,7 @@ internal class Manager
         {
             var library = Activator.CreateInstance(t) as ICanInit;
             library?.Init();
+            ModClass.LogInfo($"({nameof(Content)}) initializes {t}");
             libraries.Add(library);
         }
 

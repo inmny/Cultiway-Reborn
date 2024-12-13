@@ -14,7 +14,11 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
         I = this;
         var library_ts = GetType().GetNestedTypes().Where(t => t.GetInterfaces().Contains(typeof(ICanInit))).ToList();
         library_ts = DependencyAttribute.SortManagerTypes(library_ts);
-        foreach (Type t in library_ts) (Activator.CreateInstance(t) as ICanInit)?.Init();
+        foreach (Type t in library_ts)
+        {
+            (Activator.CreateInstance(t) as ICanInit)?.Init();
+            ModClass.LogInfo($"({nameof(WorldboxGame)}) initializes {t.Name}");
+        }
     }
 
     public static WorldboxGame I { get; private set; }

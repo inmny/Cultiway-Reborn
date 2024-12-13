@@ -25,6 +25,7 @@ public class StatValue : APrefabPreview<StatValue>
         Init();
         _value = value;
         _asset = asset;
+        name = asset.id;
 
         Setup(value);
         Icon.sprite = icon;
