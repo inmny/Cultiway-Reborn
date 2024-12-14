@@ -84,6 +84,33 @@ public struct ElementRoot : IComponent
             out var sim);
         Stats.clear();
         Stats.MergeStats(Type.base_stats, sim);
+        Stats[nameof(WorldboxGame.BaseStats.IronArmor)] = Iron;
+        Stats[nameof(WorldboxGame.BaseStats.WoodArmor)] = Wood;
+        Stats[nameof(WorldboxGame.BaseStats.WaterArmor)] = Water;
+        Stats[nameof(WorldboxGame.BaseStats.FireArmor)] = Fire;
+        Stats[nameof(WorldboxGame.BaseStats.EarthArmor)] = Earth;
+        Stats[nameof(WorldboxGame.BaseStats.NegArmor)] = Neg;
+        Stats[nameof(WorldboxGame.BaseStats.PosArmor)] = Pos;
+        Stats[nameof(WorldboxGame.BaseStats.EntropyArmor)] = Entropy;
+
+        Stats[nameof(WorldboxGame.BaseStats.IronMaster)] = Iron;
+        Stats[nameof(WorldboxGame.BaseStats.WoodMaster)] = Wood;
+        Stats[nameof(WorldboxGame.BaseStats.WaterMaster)] = Water;
+        Stats[nameof(WorldboxGame.BaseStats.FireMaster)] = Fire;
+        Stats[nameof(WorldboxGame.BaseStats.EarthMaster)] = Earth;
+        Stats[nameof(WorldboxGame.BaseStats.NegMaster)] = Neg;
+        Stats[nameof(WorldboxGame.BaseStats.PosMaster)] = Pos;
+        Stats[nameof(WorldboxGame.BaseStats.EntropyMaster)] = Entropy;
+
+
+        Stats["Mod" + nameof(WorldboxGame.BaseStats.IronMaster)] = Mathf.Exp(Iron);
+        Stats["Mod" + nameof(WorldboxGame.BaseStats.WoodMaster)] = Mathf.Exp(Wood);
+        Stats["Mod" + nameof(WorldboxGame.BaseStats.WaterMaster)] = Mathf.Exp(Water);
+        Stats["Mod" + nameof(WorldboxGame.BaseStats.FireMaster)] = Mathf.Exp(Fire);
+        Stats["Mod" + nameof(WorldboxGame.BaseStats.EarthMaster)] = Mathf.Exp(Earth);
+        Stats["Mod" + nameof(WorldboxGame.BaseStats.NegMaster)] = Mathf.Exp(Neg);
+        Stats["Mod" + nameof(WorldboxGame.BaseStats.PosMaster)] = Mathf.Exp(Pos);
+        Stats["Mod" + nameof(WorldboxGame.BaseStats.EntropyMaster)] = Mathf.Exp(Entropy);
     }
 
     public override string ToString()
