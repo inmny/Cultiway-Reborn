@@ -5,12 +5,14 @@ public class Manager
     public CultisysLibrary      CultisysLibrary      { get; } = new();
     public CustomMapModeLibrary CustomMapModeLibrary { get; } = new();
     public ElementRootLibrary   ElementRootLibrary   { get; } = new();
+    public MaterialShapeLibrary MaterialShapeLibrary { get; } = new();
 
     public void Init()
     {
         AssetManager.instance.add(CultisysLibrary,      "cultisyses");
         AssetManager.instance.add(ElementRootLibrary,   "element_roots");
         AssetManager.instance.add(CustomMapModeLibrary, "custom_map_modes");
+        AssetManager.instance.add(MaterialShapeLibrary, "material_shapes");
     }
 
     public void PostInit()
@@ -18,5 +20,6 @@ public class Manager
         CultisysLibrary.post_init();
         ElementRootLibrary.post_init();
         CustomMapModeLibrary.post_init();
+        MaterialShapeLibrary.post_init();
     }
 }
