@@ -29,7 +29,7 @@ public class TriggerActionBaseMeta
     public Entity NewModifierContainer()
     {
         EntityStore world = default_modifier_container.Store;
-        Entity entity = world.CloneEntitySimply(default_modifier_container);
+        Entity entity = world.CloneEntity(default_modifier_container);
         entity.RemoveTag<TagPrefab>();
 
         return entity;
@@ -88,22 +88,6 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
             where TModifier : struct, IModifier<TValue>
         {
             _under_build.default_modifier_container.AddComponent(default_modifier);
-            return this;
-        }
-
-        public MetaBuilder CombineWith(TriggerActionMeta<TTrigger, TContext> another_action_meta,
-                                       bool                                  overwrite_modifiers = false)
-        {
-            _under_build.Action += another_action_meta.Action;
-
-            foreach (EntityComponent mod in another_action_meta.default_modifier_container.Components)
-            {
-#pragma warning disable CS0618
-                if (overwrite_modifiers || !_under_build.default_modifier_container.HasComponent(mod.GetType()))
-                    _under_build.default_modifier_container.AddNonGeneric(mod.Value);
-#pragma warning restore CS0618
-            }
-
             return this;
         }
 

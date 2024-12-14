@@ -18,8 +18,8 @@ public class SkillEntityMeta
     [Hotfixable]
     public Entity NewEntity()
     {
-        Entity entity = _world.CloneEntitySimply(_prefab);
-        foreach (Entity child in _prefab.ChildEntities) entity.AddChild(_world.CloneEntitySimply(child));
+        Entity entity = _world.CloneEntity(_prefab);
+        foreach (Entity child in _prefab.ChildEntities) entity.AddChild(_world.CloneEntity(child));
 
         var list = new EntityList(_world);
         list.AddTree(entity);

@@ -15,7 +15,7 @@
                 types.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#archetype">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity#archetype">Example.</a>
             </summary>
             <remarks>
                 E.g. all entities with a
@@ -130,7 +130,7 @@
         </member>
         <member name="M:Friflo.Engine.ECS.Archetype.#ctor(Friflo.Engine.ECS.ArchetypeConfig@,Friflo.Engine.ECS.StructHeap)">
             <summary>used by
-                <see cref="T:Friflo.Engine.ECS.Relations.EntityRelations"/>
+                <see cref="T:Friflo.Engine.ECS.Relations.AbstractEntityRelations"/>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.Archetype.#ctor(Friflo.Engine.ECS.ArchetypeConfig@,Friflo.Engine.ECS.StructHeap[],Friflo.Engine.ECS.Tags@)">
@@ -144,7 +144,7 @@
                 <paramref name="targetArch"/>
             </returns>
         </member>
-        <member name="M:Friflo.Engine.ECS.Archetype.CopyComponents(Friflo.Engine.ECS.Archetype,System.Int32,System.Int32)">
+        <member name="M:Friflo.Engine.ECS.Archetype.CloneComponents(Friflo.Engine.ECS.Archetype,Friflo.Engine.ECS.CopyContext)">
             <remarks>Must be used only on case all
                 <see cref="P:Friflo.Engine.ECS.Archetype.ComponentTypes"/>
                 are
@@ -162,7 +162,7 @@
                 to support padding for vectorization.
             </summary>
             <remarks>Could be less than 64 if using
-                <see cref="F:Friflo.Engine.ECS.ComponentType`1.ByteSize"/>
+                <see cref="F:Friflo.Engine.ECS.StructPadding`1.ByteSize"/>
                 for
                 <see cref="F:Friflo.Engine.ECS.StructHeap`1.components"/>
             </remarks>
@@ -529,9 +529,7 @@
                 used to create entities with components and tags added to the batch.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#batch---create-entity">
-                    Example.
-                </a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/batch">Example.</a>
             </summary>
             <remarks>
                 The returned batch creates an entity with previously added components and tags when calling
@@ -574,7 +572,7 @@
                 ==<paramref name="uid"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#unique-entity">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity#unique-entity">Example.</a>
             </summary>
             <exception cref="T:System.InvalidOperationException">
                 In case none or more than one
@@ -588,6 +586,23 @@
                     cref="P:Friflo.Engine.ECS.EntityStoreBase.UniqueEntities"/>.
             </remarks>
         </member>
+        <member name="M:Friflo.Engine.ECS.EntityStoreBase.QueryRelation``1">
+            <summary>
+                Create a reusable
+                <see cref="T:Friflo.Engine.ECS.ArchetypeQuery"/>
+                for the given relation type.
+                <br/>
+            </summary>
+        </member>
+        <member name="M:Friflo.Engine.ECS.EntityStoreBase.QueryRelation``1(Friflo.Engine.ECS.QueryFilter)">
+            <summary>
+                Create a reusable
+                <see cref="T:Friflo.Engine.ECS.ArchetypeQuery"/>
+                with given query<paramref name="filter"/>.
+                <br/>
+                The filter attached to the query can be modified subsequently.
+            </summary>
+        </member>
         <member name="M:Friflo.Engine.ECS.EntityStoreBase.Query">
             <summary>
                 Create a reusable
@@ -595,7 +610,7 @@
                 for the entity store.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#query-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.EntityStoreBase.Query(Friflo.Engine.ECS.QueryFilter)">
@@ -621,7 +636,7 @@
                 for the given component type.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#query-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.EntityStoreBase.Query``1(Friflo.Engine.ECS.QueryFilter)">
@@ -647,7 +662,7 @@
                 for the given component types.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#query-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.EntityStoreBase.Query``2(Friflo.Engine.ECS.QueryFilter)">
@@ -673,7 +688,7 @@
                 for the given component types.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#query-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.EntityStoreBase.Query``3(Friflo.Engine.ECS.QueryFilter)">
@@ -699,7 +714,7 @@
                 for the given component types.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#query-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.EntityStoreBase.Query``4(Friflo.Engine.ECS.QueryFilter)">
@@ -725,7 +740,7 @@
                 for the given component types.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#query-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.EntityStoreBase.Query``5(Friflo.Engine.ECS.QueryFilter)">
@@ -874,7 +889,7 @@
                 - it allows only reading struct values
             </summary>
         </member>
-        <member name="M:Friflo.Engine.ECS.StructHeap`1.CopyComponent(System.Int32,System.Int32)">
+        <member name="M:Friflo.Engine.ECS.StructHeap`1.CloneComponent(System.Int32,System.Int32,Friflo.Engine.ECS.CopyContext@)">
             <remarks>
                 Copying a component using an assignment can only be done for
                 <see cref="F:Friflo.Engine.ECS.ComponentType.IsBlittable"/>
@@ -896,7 +911,7 @@
         </member>
         <member name="F:Friflo.Engine.ECS.StructInfo.ChunkSize">
             <summary>Is a multiple of 64. See
-                <see cref="F:Friflo.Engine.ECS.ComponentType`1.PadCount512"/>
+                <see cref="F:Friflo.Engine.ECS.StructPadding`1.PadCount512"/>
             </summary>
         </member>
         <member name="T:Friflo.Engine.ECS.Tags">
@@ -1407,7 +1422,8 @@
             <summary>
                 Enables serialization of entities to / from JSON.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#json-serialization">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity#json-serialization">Example.
+                </a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.Serialize.EntitySerializer.WriteStoreAsync(Friflo.Engine.ECS.EntityStore,System.IO.Stream)">
@@ -2168,11 +2184,11 @@
         <member name="T:Friflo.Engine.ECS.Index.ComponentIndexAttribute">
             <summary>
                 Assigns a custom
-                <see cref="T:Friflo.Engine.ECS.Index.ComponentIndex"/>
+                <see cref="T:Friflo.Engine.ECS.Index.AbstractComponentIndex"/>
                 to an attributed component type.
             </summary>
         </member>
-        <member name="T:Friflo.Engine.ECS.Index.ComponentIndex">
+        <member name="T:Friflo.Engine.ECS.Index.AbstractComponentIndex">
             <summary>
                 Base class to enable implementing a custom component index.
                 <br/>
@@ -2180,14 +2196,14 @@
                 component type.
             </summary>
         </member>
-        <member name="M:Friflo.Engine.ECS.Index.ComponentIndex.RemoveEntityFromIndex(System.Int32,Friflo.Engine.ECS.Archetype,System.Int32)">
+        <member name="M:Friflo.Engine.ECS.Index.AbstractComponentIndex.RemoveEntityFromIndex(System.Int32,Friflo.Engine.ECS.Archetype,System.Int32)">
             Remove entity id from indexed component value.
             <br/>
             The component is removed by
             <see cref="M:Friflo.Engine.ECS.Entity.DeleteEntity"/>
             shortly after.
         </member>
-        <member name="T:Friflo.Engine.ECS.Index.ComponentIndex`1">
+        <member name="T:Friflo.Engine.ECS.Index.GenericComponentIndex`1">
             <summary>
                 Generic base class required to implement a custom component index.
             </summary>
@@ -2386,40 +2402,7 @@
                 </list>
             </remarks>
         </member>
-        <member name="T:Friflo.Engine.ECS.ComponentType">
-            <summary>
-                Provide meta data for an
-                <see cref="T:Friflo.Engine.ECS.IComponent"/>
-                struct.
-            </summary>
-        </member>
-        <member name="F:Friflo.Engine.ECS.ComponentType.StructIndex">
-            <summary>The index in<see cref="T:Friflo.Engine.ECS.EntitySchema"/>.<see
-                    cref="P:Friflo.Engine.ECS.EntitySchema.Components"/>.
-            </summary>
-        </member>
-        <member name="F:Friflo.Engine.ECS.ComponentType.IsBlittable">
-            <summary>Return true if<see cref="T:Friflo.Engine.ECS.IComponent"/>'s of this type can be copied.
-            </summary>
-        </member>
-        <member name="F:Friflo.Engine.ECS.ComponentType.StructSize">
-            <summary>The size in bytes of the
-                <see cref="T:Friflo.Engine.ECS.IComponent"/>
-                struct.
-            </summary>
-        </member>
-        <member name="P:Friflo.Engine.ECS.ComponentType`1.TypeMapper">
-            <summary>
-                Create
-                <see cref="P:Friflo.Engine.ECS.ComponentType`1.TypeMapper"/>
-                on demand.
-                <br/>
-                So possible exceptions in
-                <see cref="M:Friflo.Json.Fliox.Mapper.TypeStore.GetTypeMapper``1"/>
-                thrown only when using JSON serialization.
-            </summary>
-        </member>
-        <member name="F:Friflo.Engine.ECS.ComponentType`1.PadCount512">
+        <member name="F:Friflo.Engine.ECS.StructPadding`1.PadCount512">
             <summary>
                 The returned padding enables using Vector128, Vector256 and Vector512 (512 bits = 64 bytes) operations
                 <br/>
@@ -2429,13 +2412,13 @@
                     cref="T:System.Span`1"/>.
             </summary>
         </member>
-        <member name="F:Friflo.Engine.ECS.ComponentType`1.PadCount256">
+        <member name="F:Friflo.Engine.ECS.StructPadding`1.PadCount256">
             <summary>256 bits = 32 bytes</summary>
         </member>
-        <member name="F:Friflo.Engine.ECS.ComponentType`1.PadCount128">
+        <member name="F:Friflo.Engine.ECS.StructPadding`1.PadCount128">
             <summary>128 bits = 16 bytes</summary>
         </member>
-        <member name="F:Friflo.Engine.ECS.ComponentType`1.ComponentMultiple">
+        <member name="F:Friflo.Engine.ECS.StructPadding`1.ComponentMultiple">
             <summary>
                 Return the number of components in a
                 <see cref="T:Friflo.Engine.ECS.Chunk`1"/>
@@ -2457,6 +2440,28 @@
                 It also enables to apply vectorization without a remainder loop.
                 <br/>
             </remarks>
+        </member>
+        <member name="T:Friflo.Engine.ECS.ComponentType">
+            <summary>
+                Provide meta data for an
+                <see cref="T:Friflo.Engine.ECS.IComponent"/>
+                struct.
+            </summary>
+        </member>
+        <member name="F:Friflo.Engine.ECS.ComponentType.StructIndex">
+            <summary>The index in<see cref="T:Friflo.Engine.ECS.EntitySchema"/>.<see
+                    cref="P:Friflo.Engine.ECS.EntitySchema.Components"/>.
+            </summary>
+        </member>
+        <member name="F:Friflo.Engine.ECS.ComponentType.IsBlittable">
+            <summary>Return true if<see cref="T:Friflo.Engine.ECS.IComponent"/>'s of this type can be copied.
+            </summary>
+        </member>
+        <member name="F:Friflo.Engine.ECS.ComponentType.StructSize">
+            <summary>The size in bytes of the
+                <see cref="T:Friflo.Engine.ECS.IComponent"/>
+                struct.
+            </summary>
         </member>
         <member name="T:Friflo.Engine.ECS.ScriptType">
             <summary>
@@ -2486,17 +2491,6 @@
                 <br/>
                 Unity initializes static fields of generic types already when creating an instance of that type.
             </remarks>
-        </member>
-        <member name="P:Friflo.Engine.ECS.ScriptType`1.TypeMapper">
-            <summary>
-                Create
-                <see cref="P:Friflo.Engine.ECS.ScriptType`1.TypeMapper"/>
-                on demand.
-                <br/>
-                So possible exceptions in
-                <see cref="M:Friflo.Json.Fliox.Mapper.TypeStore.GetTypeMapper``1"/>
-                thrown only when using JSON serialization.
-            </summary>
         </member>
         <member name="T:Friflo.Engine.ECS.TagType">
             <summary>
@@ -2533,9 +2527,7 @@
                     cref="M:Friflo.Engine.ECS.CreateEntityBatch.CreateEntity"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#batch---create-entity">
-                    Example.
-                </a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/batch">Example.</a>
             </summary>
             <remarks>
                 Multiple entities can be created using the same batch.
@@ -2680,9 +2672,7 @@
                 <see cref="T:Friflo.Engine.ECS.ArchetypeQuery"/>
                 using<see cref="P:Friflo.Engine.ECS.ArchetypeQuery.Entities"/>.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#entitybatch---query">
-                    Example.
-                </a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/batch">Example.</a>
                 <br/>
                 - all entities of an
                 <see cref="T:Friflo.Engine.ECS.EntityStore"/>
@@ -2696,9 +2686,7 @@
                 <see cref="T:Friflo.Engine.ECS.EntityList"/>
                 you can use<see cref="M:Friflo.Engine.ECS.EntityList.ApplyBatch(Friflo.Engine.ECS.EntityBatch)"/>.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#entitybatch---entitylist">
-                    Example.
-                </a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/batch">Example.</a>
                 <br/>
             </remarks>
         </member>
@@ -2847,9 +2835,7 @@
                 It's recommended to reuse instances of this class to avoid unnecessary allocations.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#entitybatch---entitylist">
-                    Example.
-                </a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/batch">Example.</a>
             </summary>
         </member>
         <member name="P:Friflo.Engine.ECS.EntityList.Count">
@@ -3029,7 +3015,7 @@
                     cref="P:Friflo.Engine.ECS.CommandBuffer.Synced"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#commandbuffer">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query#commandbuffer">Example.</a>
             </summary>
         </member>
         <member name="P:Friflo.Engine.ECS.CommandBuffer.ComponentCommandsCount">
@@ -3069,7 +3055,7 @@
                 must be called on the <b>main</b> thread.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#commandbuffer">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query#commandbuffer">Example.</a>
             </summary>
             <exception cref="T:System.InvalidOperationException">
                 When recording commands after calling<see cref="M:Friflo.Engine.ECS.CommandBuffer.Playback"/>.
@@ -3108,11 +3094,7 @@
         </member>
         <member name="M:Friflo.Engine.ECS.CommandBuffer.SetComponent``1(System.Int32,``0@)">
             <summary>
-                Set the given
-                <paramref name="component"/>
-                with type
-                <typeparamref name="T"/>
-                of the entity with the passed<paramref name="entityId"/>.
+                Obsolete. Same behavior as <c>AddComponent(int,T)</c>.
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.CommandBuffer.RemoveComponent``1(System.Int32)">
@@ -3217,7 +3199,7 @@
                 must be called on the <b>main</b> thread.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#commandbuffer">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query#commandbuffer">Example.</a>
             </summary>
             <exception cref="T:System.InvalidOperationException">
                 When recording commands after calling<see cref="M:Friflo.Engine.ECS.CommandBufferSynced.Playback"/>.
@@ -3344,7 +3326,7 @@
                 and the tree structure.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#entitystore">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity#entitystore">Example.</a>
             </summary>
             <remarks>
                 The
@@ -3563,6 +3545,14 @@
                 invalid (id >=<see cref="P:Friflo.Engine.ECS.EntityStore.Capacity"/>).
             </exception>
         </member>
+        <member name="M:Friflo.Engine.ECS.EntityStore.CreateEntityReference(System.Int64)">
+            <summary>
+                If referenced entity is not alive it will use same revision used in
+                <see
+                        cref="M:Friflo.Engine.ECS.EntityStore.CreateEntityNode(Friflo.Engine.ECS.Archetype,System.Int32,System.Int16@)"/>
+                .
+            </summary>
+        </member>
         <member name="M:Friflo.Engine.ECS.EntityStore.TryGetEntityById(System.Int32,Friflo.Engine.ECS.Entity@)">
             <summary>
                 Get the
@@ -3612,7 +3602,7 @@
                 in the entity store.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#entity">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity">Example.</a>
             </summary>
             <returns>An
                 <see cref="F:Friflo.Engine.ECS.StoreOwnership.attached"/>
@@ -3640,16 +3630,6 @@
             <returns>compIndex to access
                 <see cref="F:Friflo.Engine.ECS.StructHeap`1.components"/>
             </returns>
-        </member>
-        <member name="M:Friflo.Engine.ECS.EntityStore.CloneEntitySimply(Friflo.Engine.ECS.Entity)">
-            <summary>
-                Create and return a simple clone of the passed
-                <paramref name="entity"/>
-                in the store
-            </summary>
-            <remarks>
-                Clone components simply no matter whether component type is blittable or not.
-            </remarks>
         </member>
         <member name="M:Friflo.Engine.ECS.EntityStore.CloneEntity(Friflo.Engine.ECS.Entity)">
             <summary>
@@ -3933,7 +3913,7 @@
                 It is the <b>main API</b> to deal with entities in the engine.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#entity">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity">Example.</a>
             </summary>
             <remarks>
                 <para>
@@ -4459,7 +4439,7 @@
                 to the entity.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#component">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity#component">Example.</a>
                 <br/>
                 If the entity contains a component of the same type it is updated.
             </summary>
@@ -4510,7 +4490,7 @@
                 it is replaced.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#script">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity#script">Example.</a>
             </summary>
             <returns>
                 The script with the passed
@@ -4555,7 +4535,7 @@
                 to the entity.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#tag">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity#tag">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.Entity.AddTags(Friflo.Engine.ECS.Tags@)">
@@ -4591,7 +4571,7 @@
                 as a child to this entity.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#child-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity#hierarchy">Example.</a>
             </summary>
             <remarks>
                 Executes in O(1) in case the child has no parent.
@@ -4705,7 +4685,7 @@
                 to add/remove components or tags to/from this entity using the batch.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#batch---entity">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/batch">Example.</a>
             </summary>
             <remarks>
                 The returned batch is used to add/removed components and tags.
@@ -4745,7 +4725,7 @@
                 <see cref="M:Friflo.Engine.ECS.Entity.RemoveTags(Friflo.Engine.ECS.Tags@)"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#event">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/events">Example.</a>
             </summary>
         </member>
         <member name="E:Friflo.Engine.ECS.Entity.OnComponentChanged">
@@ -4759,7 +4739,7 @@
                 <see cref="M:Friflo.Engine.ECS.Entity.RemoveComponent``1"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#event">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/events">Example.</a>
             </summary>
         </member>
         <member name="E:Friflo.Engine.ECS.Entity.OnScriptChanged">
@@ -4773,7 +4753,7 @@
                 <see cref="M:Friflo.Engine.ECS.Entity.RemoveScript``1"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#event">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/events">Example.</a>
             </summary>
         </member>
         <member name="E:Friflo.Engine.ECS.Entity.OnChildEntitiesChanged">
@@ -4789,7 +4769,7 @@
                 <see cref="M:Friflo.Engine.ECS.Entity.RemoveChild(Friflo.Engine.ECS.Entity)"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#event">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/events">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.Entity.AddSignalHandler``1(System.Action{Friflo.Engine.ECS.Signal{``0}})">
@@ -4799,9 +4779,9 @@
                 handler to the entity.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#signal">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/events#signals">Example.</a>
             </summary>
-            <returns>The the signal handler added to the entity.
+            <returns>The signal handler added to the entity.
                 <br/>
                 Practical when passing a lambda that can be removed later with
                 <see
@@ -4827,7 +4807,7 @@
                 .
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#signal">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/events#signals">Example.</a>
             </summary>
             <remarks>It executes in ~10 nano seconds per signal handler.</remarks>
         </member>
@@ -4850,7 +4830,7 @@
                 If the entity contains a component of the same type it is updated.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#component">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity#component">Example.</a>
             </summary>
             <returns>true - component is newly added to the entity.
                 <br/>
@@ -5112,12 +5092,15 @@
                     cref="M:Friflo.Engine.ECS.EntityStore.DeleteNode(Friflo.Engine.ECS.Entity)"/>.
             </remarks>
         </member>
+        <member name="F:Friflo.Engine.ECS.EntityNode.revision">
+            revision is incremented if entity id deleted
+        </member>
         <member name="F:Friflo.Engine.ECS.EntityNode.isOwner">
             <summary>
                 Bit mask for all
-                <see cref="T:Friflo.Engine.ECS.Relations.EntityRelations"/>
+                <see cref="T:Friflo.Engine.ECS.Relations.AbstractEntityRelations"/>
                 and all
-                <see cref="T:Friflo.Engine.ECS.Index.ComponentIndex"/>
+                <see cref="T:Friflo.Engine.ECS.Index.AbstractComponentIndex"/>
                 instances.
                 <br/>
                 A bit is set if the entity is an owner of either an entity relation set or an indexed component value.
@@ -5132,9 +5115,9 @@
                 This masks prevents the insane cost when deleting an entity.
                 <br/>
                 Otherwise, all
-                <see cref="T:Friflo.Engine.ECS.Relations.EntityRelations"/>
+                <see cref="T:Friflo.Engine.ECS.Relations.AbstractEntityRelations"/>
                 and
-                <see cref="T:Friflo.Engine.ECS.Index.ComponentIndex"/>
+                <see cref="T:Friflo.Engine.ECS.Index.AbstractComponentIndex"/>
                 instances need to be iterated
                 to check if the entity is a key in their Dictionary's and perform required cleanup.
             </remarks>
@@ -5144,7 +5127,7 @@
                 Bit mask for all
                 <see cref="T:Friflo.Engine.ECS.Index.EntityIndex"/>
                 and all
-                <see cref="T:Friflo.Engine.ECS.Relations.EntityRelationLinks`1"/>
+                <see cref="T:Friflo.Engine.ECS.Relations.EntityLinkRelations`1"/>
                 instances.
                 <br/>
                 A bit is set if the entity is linked by either a
@@ -5163,7 +5146,7 @@
                 Otherwise, all
                 <see cref="T:Friflo.Engine.ECS.Index.EntityIndex"/>
                 and
-                <see cref="T:Friflo.Engine.ECS.Relations.EntityRelationLinks`1"/>
+                <see cref="T:Friflo.Engine.ECS.Relations.EntityLinkRelations`1"/>
                 instances need to be iterated
                 to check if the entity is a key in their Dictionary's and perform required cleanup.
             </remarks>
@@ -5680,7 +5663,7 @@
                 must be enabled to get add / remove events.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#eventfilter">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/events#eventrecorder">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.EventFilter.#ctor(Friflo.Engine.ECS.EventRecorder)">
@@ -6199,7 +6182,7 @@
                 handlers.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#signal">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/events#signals">Example.</a>
             </summary>
             <remarks>
                 <see cref="T:Friflo.Engine.ECS.Signal`1"/>
@@ -6336,7 +6319,7 @@
                 types are <b>struct</b>s which only contains data <b>but no</b> script / methods.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#component">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity#component">Example.</a>
             </summary>
             <remarks>
                 An
@@ -6375,6 +6358,52 @@
                 </list>
             </remarks>
         </member>
+        <member name="T:Friflo.Engine.ECS.ComponentIndex`2">
+            <summary>
+                The index for
+                <see cref="T:Friflo.Engine.ECS.IIndexedComponent`1"/>
+                struct's to search entities with a specific component value in O(1).
+                <br/>
+                An instance is returned via<see
+                    cref="M:Friflo.Engine.ECS.IndexExtensions.ComponentIndex``2(Friflo.Engine.ECS.EntityStore)"/>.
+            </summary>
+        </member>
+        <member name="P:Friflo.Engine.ECS.ComponentIndex`2.Item(`1)">
+            <summary>
+                Return the entities having a component with the passed component value.
+                <br/>
+                Executes in O(1) with default index.
+            </summary>
+        </member>
+        <member name="P:Friflo.Engine.ECS.ComponentIndex`2.Values">
+            <summary>
+                Returns all indexed component values of the passed
+                <typeparamref name="TIndexedComponent"/>
+                type.
+                <br/>
+                Executes in O(1). Each value in the returned list is unique. See remarks for additional infos.
+            </summary>
+            <remarks>
+                <list type="bullet">
+                    <item>
+                        The returned collection changes when indexed component values are updated, removed or added.
+                    </item>
+                    <item>
+                        To get the entities having a specific component value use<see
+                            cref="P:Friflo.Engine.ECS.ComponentIndex`2.Item(`1)"/>.
+                    </item>
+                    <item>
+                        If
+                        <typeparamref name="TValue"/>
+                        is a class all collection values are not null.
+                        <br/>
+                        Use
+                        <see cref="P:Friflo.Engine.ECS.ComponentIndex`2.Item(`1)"/>
+                        to check if null is indexed.
+                    </item>
+                </list>
+            </remarks>
+        </member>
         <member name="T:Friflo.Engine.ECS.IIndexedComponent`1">
             <summary>
                 Is used to define a component type having a single indexed field / property.
@@ -6392,18 +6421,12 @@
                     <item>
                         Return all entities with a component field of a specific value.
                         <br/>
-                        See
-                        <see
-                                cref="M:Friflo.Engine.ECS.IndexExtensions.GetEntitiesWithComponentValue``2(Friflo.Engine.ECS.EntityStore,``1)"/>
-                        .
+                        See<see cref="P:Friflo.Engine.ECS.ComponentIndex`2.Item(`1)"/>.
                     </item>
                     <item>
                         Return a collection of all unique component values.
                         <br/>
-                        See
-                        <see
-                                cref="M:Friflo.Engine.ECS.IndexExtensions.GetAllIndexedComponentValues``2(Friflo.Engine.ECS.EntityStore)"/>
-                        .
+                        See<see cref="P:Friflo.Engine.ECS.ComponentIndex`2.Values"/>.
                     </item>
                     <item>
                         Filter entities in a query having a specific component value.
@@ -6449,7 +6472,7 @@
                         type.
                         <br/>
                         See
-                        <see cref="M:Friflo.Engine.ECS.IndexExtensions.GetAllLinkedEntities``1(Friflo.Engine.ECS.EntityStore)"/>
+                        <see cref="P:Friflo.Engine.ECS.LinkComponentIndex`1.Values"/>
                     </item>
                     <item>
                         Filter entities in a query having a
@@ -6480,8 +6503,25 @@
             </summary>
             <exception cref="T:System.NullReferenceException">If the entity is null.</exception>
         </member>
+        <member name="M:Friflo.Engine.ECS.IndexExtensions.ComponentIndex``2(Friflo.Engine.ECS.EntityStore)">
+            <summary>
+                Returns the index for indexed components to search entities with a specific component value in O(1).
+                <br/>
+                Executes in O(1).
+            </summary>
+        </member>
+        <member name="M:Friflo.Engine.ECS.IndexExtensions.LinkComponentIndex``1(Friflo.Engine.ECS.EntityStore)">
+            <summary>
+                Returns the index for link components to search entities with a specific entity in O(1).
+                <br/>
+                Executes in O(1).
+            </summary>
+        </member>
         <member name="M:Friflo.Engine.ECS.IndexExtensions.GetEntitiesWithComponentValue``2(Friflo.Engine.ECS.EntityStore,``1)">
             <summary>
+                Obsolete: Use
+                <see cref="P:Friflo.Engine.ECS.ComponentIndex`2.Item(`1)"/>
+                <br/>
                 Return the entities with the passed component value.
                 <br/>
                 Executes in O(1) with default index.
@@ -6489,6 +6529,9 @@
         </member>
         <member name="M:Friflo.Engine.ECS.IndexExtensions.GetAllIndexedComponentValues``2(Friflo.Engine.ECS.EntityStore)">
             <summary>
+                Obsolete: Use
+                <see cref="P:Friflo.Engine.ECS.ComponentIndex`2.Values"/>
+                <br/>
                 Returns all indexed component values of the passed
                 <typeparamref name="TComponent"/>
                 type.
@@ -6501,10 +6544,8 @@
                         The returned collection changes when indexed component values are updated, removed or added.
                     </item>
                     <item>
-                        To get the entities having a specific component value use
-                        <see
-                                cref="M:Friflo.Engine.ECS.IndexExtensions.GetEntitiesWithComponentValue``2(Friflo.Engine.ECS.EntityStore,``1)"/>
-                        .
+                        To get the entities having a specific component value use<see
+                            cref="P:Friflo.Engine.ECS.ComponentIndex`2.Item(`1)"/>.
                     </item>
                     <item>
                         If
@@ -6512,7 +6553,7 @@
                         is a class all collection values are not null.
                         <br/>
                         Use
-                        <see cref="M:Friflo.Engine.ECS.IndexExtensions.GetEntitiesWithComponentValue``2(Friflo.Engine.ECS.EntityStore,``1)"/>
+                        <see cref="P:Friflo.Engine.ECS.ComponentIndex`2.Item(`1)"/>
                         to check if null is referenced.
                     </item>
                 </list>
@@ -6520,6 +6561,9 @@
         </member>
         <member name="M:Friflo.Engine.ECS.IndexExtensions.GetAllLinkedEntities``1(Friflo.Engine.ECS.EntityStore)">
             <summary>
+                Obsolete: Use
+                <see cref="P:Friflo.Engine.ECS.LinkComponentIndex`1.Values"/>
+                <br/>
                 Returns all entities linked by the specified
                 <see cref="T:Friflo.Engine.ECS.ILinkComponent"/>
                 type.
@@ -6538,9 +6582,43 @@
                     </item>
                     <item>
                         The method is a specialized version of
-                        <see cref="M:Friflo.Engine.ECS.IndexExtensions.GetAllIndexedComponentValues``2(Friflo.Engine.ECS.EntityStore)"/>
+                        <see cref="P:Friflo.Engine.ECS.ComponentIndex`2.Values"/>
                         <br/>
-                        using <c>TComponent = ILinkComponent</c> and <c>TValue = Entity</c>.
+                        using <c>TIndexedComponent = ILinkComponent</c> and <c>TValue = Entity</c>.
+                    </item>
+                </list>
+            </remarks>
+        </member>
+        <member name="T:Friflo.Engine.ECS.LinkComponentIndex`1">
+            <summary>
+                The index for
+                <see cref="T:Friflo.Engine.ECS.ILinkComponent"/>
+                struct's to search entities with a specific entity in O(1).
+            </summary>
+        </member>
+        <member name="P:Friflo.Engine.ECS.LinkComponentIndex`1.Item(Friflo.Engine.ECS.Entity)">
+            <summary>
+                Return the entities having a link component with the passed component value.
+                <br/>
+                Executes in O(1) with default index.
+            </summary>
+        </member>
+        <member name="P:Friflo.Engine.ECS.LinkComponentIndex`1.Values">
+            <summary>
+                Returns all indexed link component values of the passed
+                <see cref="T:Friflo.Engine.ECS.Entity"/>
+                type.
+                <br/>
+                Executes in O(1). Each value in the returned list is unique. See remarks for additional infos.
+            </summary>
+            <remarks>
+                <list type="bullet">
+                    <item>
+                        The returned collection changes when indexed component values are updated, removed or added.
+                    </item>
+                    <item>
+                        To get the entities having a specific component value use<see
+                            cref="P:Friflo.Engine.ECS.LinkComponentIndex`1.Item(Friflo.Engine.ECS.Entity)"/>.
                     </item>
                 </list>
             </remarks>
@@ -6556,7 +6634,7 @@
                 should be used to tag a group of multiple entities.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#tag">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity#tag">Example.</a>
             </summary>
             <remarks>
                 In case you want to find a unique entity add the component
@@ -6596,7 +6674,7 @@
                 if needed.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#query-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query">Example.</a>
             </summary>
         </member>
         <member name="P:Friflo.Engine.ECS.ArchetypeQuery.Count">
@@ -6645,7 +6723,7 @@
                 used to filter the query result for added/removed components/tags.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#eventfilter">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/events#eventrecorder">Example.</a>
             </summary>
         </member>
         <member name="P:Friflo.Engine.ECS.ArchetypeQuery.ComponentTypes">
@@ -6762,7 +6840,7 @@
                 cannot be changed anymore.
             </summary>
         </member>
-        <member name="M:Friflo.Engine.ECS.ArchetypeQuery.#ctor(Friflo.Engine.ECS.EntityStoreBase,Friflo.Engine.ECS.SignatureIndexes@,Friflo.Engine.ECS.QueryFilter)">
+        <member name="M:Friflo.Engine.ECS.ArchetypeQuery.#ctor(Friflo.Engine.ECS.EntityStoreBase,Friflo.Engine.ECS.SignatureIndexes@,Friflo.Engine.ECS.QueryFilter,Friflo.Engine.ECS.ComponentType)">
             <summary>
                 Called by generic ArchetypeQuery constructors.
                 <br/>
@@ -6801,7 +6879,7 @@
             <summary>
                 Contains the components returned by a component query.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -6810,7 +6888,7 @@
             <summary>
                 Contains the component chunks returned by a component query.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -6840,7 +6918,7 @@
             <summary>
                 A query instance use to retrieve the given component types.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#query-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`1.AllTags(Friflo.Engine.ECS.Tags@)">
@@ -6887,7 +6965,7 @@
                     cref="T:Friflo.Engine.ECS.ArchetypeQuery`1"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -6921,14 +6999,14 @@
                 <see cref="F:Friflo.Engine.ECS.JobExecution.Parallel"/>
                 query execution returning the specified components.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#parallel-query-job">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#parallel-query-job">
                     Example.
                 </a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.QueryJob`1.RunParallel">
             <summary>Execute the query.
-                See <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#parallel-query-job">
+                See <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#parallel-query-job">
                     Example.</a>.
                 <br/>
                 All chunks having at least
@@ -6942,7 +7020,7 @@
             <summary>
                 Contains the components returned by a component query.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -6951,7 +7029,7 @@
             <summary>
                 Contains the component chunks returned by a component query.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -6983,7 +7061,7 @@
             <summary>
                 A query instance use to retrieve the given component types.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#query-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`2.AllTags(Friflo.Engine.ECS.Tags@)">
@@ -7030,7 +7108,7 @@
                     cref="T:Friflo.Engine.ECS.ArchetypeQuery`2"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -7064,14 +7142,14 @@
                 <see cref="F:Friflo.Engine.ECS.JobExecution.Parallel"/>
                 query execution returning the specified components.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#parallel-query-job">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#parallel-query-job">
                     Example.
                 </a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.QueryJob`2.RunParallel">
             <summary>Execute the query.
-                See <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#parallel-query-job">
+                See <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#parallel-query-job">
                     Example.</a>.
                 <br/>
                 All chunks having at least
@@ -7085,7 +7163,7 @@
             <summary>
                 Contains the components returned by a component query.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -7094,7 +7172,7 @@
             <summary>
                 Contains the component chunks returned by a component query.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -7128,7 +7206,7 @@
             <summary>
                 A query instance use to retrieve the given component types.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#query-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.AllTags(Friflo.Engine.ECS.Tags@)">
@@ -7175,7 +7253,7 @@
                     cref="T:Friflo.Engine.ECS.ArchetypeQuery`3"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -7209,14 +7287,14 @@
                 <see cref="F:Friflo.Engine.ECS.JobExecution.Parallel"/>
                 query execution returning the specified components.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#parallel-query-job">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#parallel-query-job">
                     Example.
                 </a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.QueryJob`3.RunParallel">
             <summary>Execute the query.
-                See <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#parallel-query-job">
+                See <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#parallel-query-job">
                     Example.</a>.
                 <br/>
                 All chunks having at least
@@ -7230,7 +7308,7 @@
             <summary>
                 Contains the components returned by a component query.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -7239,7 +7317,7 @@
             <summary>
                 Contains the component chunks returned by a component query.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -7273,7 +7351,7 @@
             <summary>
                 A query instance use to retrieve the given component types.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#query-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.AllTags(Friflo.Engine.ECS.Tags@)">
@@ -7320,7 +7398,7 @@
                     cref="T:Friflo.Engine.ECS.ArchetypeQuery`4"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -7354,14 +7432,14 @@
                 <see cref="F:Friflo.Engine.ECS.JobExecution.Parallel"/>
                 query execution returning the specified components.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#parallel-query-job">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#parallel-query-job">
                     Example.
                 </a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.QueryJob`4.RunParallel">
             <summary>Execute the query.
-                See <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#parallel-query-job">
+                See <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#parallel-query-job">
                     Example.</a>.
                 <br/>
                 All chunks having at least
@@ -7375,7 +7453,7 @@
             <summary>
                 Contains the components returned by a component query.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -7384,7 +7462,7 @@
             <summary>
                 Contains the component chunks returned by a component query.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -7418,7 +7496,7 @@
             <summary>
                 A query instance use to retrieve the given component types.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#query-entities">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query">Example.</a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.AllTags(Friflo.Engine.ECS.Tags@)">
@@ -7465,7 +7543,7 @@
                     cref="T:Friflo.Engine.ECS.ArchetypeQuery`5"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#enumerate-query-chunks">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">
                     Example.
                 </a>
             </summary>
@@ -7499,14 +7577,14 @@
                 <see cref="F:Friflo.Engine.ECS.JobExecution.Parallel"/>
                 query execution returning the specified components.
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#parallel-query-job">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#parallel-query-job">
                     Example.
                 </a>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.QueryJob`5.RunParallel">
             <summary>Execute the query.
-                See <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#parallel-query-job">
+                See <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#parallel-query-job">
                     Example.</a>.
                 <br/>
                 All chunks having at least
@@ -7578,7 +7656,7 @@
                 contains padding elements on its tail to enable safe conversion to a Vector256{TTo}.
                 <br/>
                 See <a
-                    href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#query-vectorization---simd">
+                    href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#query-vectorization-simd">
                 Example.</a>.
             </summary>
             <remarks>
@@ -7620,7 +7698,7 @@
                 contains padding elements on its tail to enable assignment to Vector128{TTo}.
                 <br/>
                 See <a
-                    href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#query-vectorization---simd">
+                    href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#query-vectorization-simd">
                 Example.</a>.
             </summary>
         </member>
@@ -7635,7 +7713,7 @@
                 contains padding elements on its tail to enable assignment to Vector512.
                 <br/>
                 See <a
-                    href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#query-vectorization---simd">
+                    href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#query-vectorization-simd">
                 Example.</a>.
             </summary>
         </member>
@@ -7792,7 +7870,7 @@
                     cref="M:Friflo.Engine.ECS.QueryJob.RunParallel"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#parallel-query-job">
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#parallel-query-job">
                     Example.
                 </a>
             </summary>
@@ -7862,9 +7940,7 @@
                 to all entities in this set.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#entitybatch---query">
-                    Example.
-                </a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/batch">Example.</a>
             </summary>
         </member>
         <member name="T:Friflo.Engine.ECS.EntitiesEnumerator">
@@ -8059,7 +8135,7 @@
         </member>
         <member name="M:Friflo.Engine.ECS.QueryJob.RunParallel">
             <summary>Execute the query.
-                See <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/optimization#parallel-query-job">
+                See <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#parallel-query-job">
                     Example.</a>.
                 <br/>
                 All chunks having at least
@@ -8336,6 +8412,50 @@
                 <paramref name="archetype"/>
             </summary>
         </member>
+        <member name="T:Friflo.Engine.ECS.EntityRelations`1">
+            <summary>
+                Storage for all entity relations of the specified
+                <typeparamref name="TRelation"/>
+                type.
+                <br/>
+                An instance is returned via<see
+                    cref="M:Friflo.Engine.ECS.RelationExtensions.EntityRelations``1(Friflo.Engine.ECS.EntityStore)"/>.
+            </summary>
+        </member>
+        <member name="P:Friflo.Engine.ECS.EntityRelations`1.Entities">
+            <summary>
+                Returns a collection of entities having one or more relation.
+                <br/>
+                Executes in O(1).
+            </summary>
+            <remarks>
+                <list type="bullet">
+                    <item>
+                        The returned collection changes when relations are updated, removed or added.
+                    </item>
+                    <item>
+                        To get all entities including their relations (the cartesian product aka CROSS JOIN) use
+                        <br/>
+                        <see cref="P:Friflo.Engine.ECS.EntityRelations`1.Pairs"/>
+                    </item>
+                </list>
+            </remarks>
+        </member>
+        <member name="M:Friflo.Engine.ECS.EntityRelations`1.For(Friflo.Engine.ECS.ForEachEntity{`0})">
+            <summary>
+                Iterates all entity relations.
+                <br/>
+                Executes in O(N) N: number of all entity relations.
+            </summary>
+        </member>
+        <member name="P:Friflo.Engine.ECS.EntityRelations`1.Pairs">
+            <summary>
+                Return all entity relations as pairs. A pair is
+                <c>(entities[i], relations[i])</c>
+                <br/>
+                Executes in O(1). Most efficient way to iterate all entity relations.
+            </summary>
+        </member>
         <member name="T:Friflo.Engine.ECS.ILinkRelation">
             <summary>
                 A link relation is a component type used to create multiple links from one entity to other entities.
@@ -8360,110 +8480,110 @@
                 </list>
             </remarks>
         </member>
-        <member name="F:Friflo.Engine.ECS.Relations.EntityRelations.archetype">
+        <member name="F:Friflo.Engine.ECS.Relations.AbstractEntityRelations.archetype">
             Single
             <see cref="T:Friflo.Engine.ECS.Archetype"/>
             containing all relations of a specific
-            <see cref="T:Friflo.Engine.ECS.IRelationComponent`1"/>
+            <see cref="T:Friflo.Engine.ECS.IRelation`1"/>
         </member>
-        <member name="F:Friflo.Engine.ECS.Relations.EntityRelations.heap">
+        <member name="F:Friflo.Engine.ECS.Relations.AbstractEntityRelations.heap">
             Single
             <see cref="T:Friflo.Engine.ECS.StructHeap"/>
-            stored in the<see cref="F:Friflo.Engine.ECS.Relations.EntityRelations.archetype"/>.
+            stored in the<see cref="F:Friflo.Engine.ECS.Relations.AbstractEntityRelations.archetype"/>.
         </member>
-        <member name="F:Friflo.Engine.ECS.Relations.EntityRelations.positionMap">
-            map: entity id -> relation component positions in
-            <see cref="F:Friflo.Engine.ECS.Relations.EntityRelations.archetype"/>
+        <member name="F:Friflo.Engine.ECS.Relations.AbstractEntityRelations.positionMap">
+            map: entity id -> relation positions in
+            <see cref="F:Friflo.Engine.ECS.Relations.AbstractEntityRelations.archetype"/>
         </member>
-        <member name="F:Friflo.Engine.ECS.Relations.EntityRelations.linkEntityMap">
+        <member name="F:Friflo.Engine.ECS.Relations.AbstractEntityRelations.linkEntityMap">
             map: indexed / linked entity (id) -> entities (ids) containing a
             <see cref="T:Friflo.Engine.ECS.ILinkRelation"/>
             referencing the indexed / linked entity.
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.EntityRelations.RemoveEntityRelation(System.Int32,System.Int32,Friflo.Engine.ECS.Collections.IdArray,System.Int32)">
+        <member name="M:Friflo.Engine.ECS.Relations.AbstractEntityRelations.RemoveEntityRelation(System.Int32,System.Int32,Friflo.Engine.ECS.Collections.IdArray,System.Int32)">
             Executes in O(M) M: max(number of entity relations)
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.EntityRelations.RemoveEntityRelations(System.Int32)">
+        <member name="M:Friflo.Engine.ECS.Relations.AbstractEntityRelations.RemoveEntityRelations(System.Int32)">
             remove all entity relations
         </member>
-        <member name="T:Friflo.Engine.ECS.Relations.EntityRelations`2">
+        <member name="T:Friflo.Engine.ECS.Relations.GenericEntityRelations`2">
             Contains a single
             <see cref="T:Friflo.Engine.ECS.Archetype"/>
             with a single
             <see cref="T:Friflo.Engine.ECS.StructHeap`1"/>
             <br/>
         </member>
-        <member name="F:Friflo.Engine.ECS.Relations.EntityRelations`2.heapGeneric">
+        <member name="F:Friflo.Engine.ECS.Relations.GenericEntityRelations`2.heapGeneric">
             Single
             <see cref="T:Friflo.Engine.ECS.StructHeap"/>
-            stored in the<see cref="F:Friflo.Engine.ECS.Relations.EntityRelations.archetype"/>.
+            stored in the<see cref="F:Friflo.Engine.ECS.Relations.AbstractEntityRelations.archetype"/>.
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.EntityRelations`2.#ctor(Friflo.Engine.ECS.ComponentType,Friflo.Engine.ECS.Archetype,Friflo.Engine.ECS.StructHeap)">
+        <member name="M:Friflo.Engine.ECS.Relations.GenericEntityRelations`2.#ctor(Friflo.Engine.ECS.ComponentType,Friflo.Engine.ECS.Archetype,Friflo.Engine.ECS.StructHeap)">
             Instance created at
-            <see cref="M:Friflo.Engine.ECS.Relations.EntityRelations.GetEntityRelations(Friflo.Engine.ECS.EntityStoreBase,System.Int32)"/>
+            <see cref="M:Friflo.Engine.ECS.Relations.AbstractEntityRelations.GetEntityRelations(Friflo.Engine.ECS.EntityStoreBase,System.Int32)"/>
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.EntityRelations`2.FindRelationPosition(System.Int32,`1,Friflo.Engine.ECS.Collections.IdArray@,System.Int32@)">
+        <member name="M:Friflo.Engine.ECS.Relations.GenericEntityRelations`2.FindRelationPosition(System.Int32,`1,Friflo.Engine.ECS.Collections.IdArray@,System.Int32@)">
             Executes in O(M) M: number of entity relations
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.EntityRelations`2.AddComponent``1(System.Int32,``0@)">
+        <member name="M:Friflo.Engine.ECS.Relations.GenericEntityRelations`2.AddComponent``1(System.Int32,``0@)">
             <returns>true - component is newly added to the entity.
                 <br/>
                 false - component is updated.
             </returns>
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.EntityRelations`2.RemoveRelation(System.Int32,`1)">
+        <member name="M:Friflo.Engine.ECS.Relations.GenericEntityRelations`2.RemoveRelation(System.Int32,`1)">
             <returns>true if entity contained a relation of the given type before</returns>
         </member>
         <member name="F:Friflo.Engine.ECS.Relations.RelationUtils`2.GetRelationKey">
             <summary>Returns the component value without boxing.</summary>
         </member>
-        <member name="T:Friflo.Engine.ECS.Relations.EntityRelationLinks`1">
+        <member name="T:Friflo.Engine.ECS.Relations.EntityLinkRelations`1">
             Contains a single
             <see cref="T:Friflo.Engine.ECS.Archetype"/>
             with a single
             <see cref="T:Friflo.Engine.ECS.StructHeap`1"/>
             <br/>
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.EntityRelationLinks`1.#ctor(Friflo.Engine.ECS.ComponentType,Friflo.Engine.ECS.Archetype,Friflo.Engine.ECS.StructHeap)">
+        <member name="M:Friflo.Engine.ECS.Relations.EntityLinkRelations`1.#ctor(Friflo.Engine.ECS.ComponentType,Friflo.Engine.ECS.Archetype,Friflo.Engine.ECS.StructHeap)">
             Instance created at
-            <see cref="M:Friflo.Engine.ECS.Relations.EntityRelations.GetEntityRelations(Friflo.Engine.ECS.EntityStoreBase,System.Int32)"/>
+            <see cref="M:Friflo.Engine.ECS.Relations.AbstractEntityRelations.GetEntityRelations(Friflo.Engine.ECS.EntityStoreBase,System.Int32)"/>
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.EntityRelationLinks`1.GetEntityRelation``1(System.Int32,System.Int32)">
+        <member name="M:Friflo.Engine.ECS.Relations.EntityLinkRelations`1.GetEntityRelation``1(System.Int32,System.Int32)">
             Expect: component is present
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.EntityRelationLinks`1.AddComponent``1(System.Int32,``0@)">
+        <member name="M:Friflo.Engine.ECS.Relations.EntityLinkRelations`1.AddComponent``1(System.Int32,``0@)">
             <returns>true - component is newly added to the entity.
                 <br/>
                 false - component is updated.
             </returns>
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.EntityRelationLinks`1.RemoveRelation(System.Int32,Friflo.Engine.ECS.Entity)">
+        <member name="M:Friflo.Engine.ECS.Relations.EntityLinkRelations`1.RemoveRelation(System.Int32,Friflo.Engine.ECS.Entity)">
             Executes in O(M) M: number of entity relations
             <returns>true if entity contained a relation of the given type before</returns>
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.EntityRelationLinks`1.RemoveLinksWithTarget(System.Int32)">
+        <member name="M:Friflo.Engine.ECS.Relations.EntityLinkRelations`1.RemoveLinksWithTarget(System.Int32)">
             Executes in O(N * M). N: number link relations M: RemoveRelation() executes in O(M)
         </member>
-        <member name="T:Friflo.Engine.ECS.IRelationComponent`1">
+        <member name="T:Friflo.Engine.ECS.IRelation`1">
             <summary>
-                A relation component enables adding multiple components of the same type to an entity.
+                A relation enables adding multiple components of the same type to an entity.
                 <br/>
                 The components added to a single entity build a set of components using the relation
                 <typeparamref name="TKey"/>
                 as unique identifier.
             </summary>
-            <typeparam name="TKey">The key defining a unique relation component.</typeparam>
+            <typeparam name="TKey">The key defining a unique relation.</typeparam>
             <remarks>
-                A relation component enables:
+                A relation enables:
                 <list type="bullet">
                     <item>
-                        Add multiple relation components to an entity using
+                        Add multiple relations to an entity using
                         <see
                                 cref="M:Friflo.Engine.ECS.RelationExtensions.AddRelation``1(Friflo.Engine.ECS.Entity,``0@)"/>
                         .
                     </item>
                     <item>
-                        Return all relation components of an entity using<see
+                        Return all relations of an entity using<see
                             cref="M:Friflo.Engine.ECS.RelationExtensions.GetRelations``1(Friflo.Engine.ECS.Entity)"/>.
                     </item>
                     <item>
@@ -8476,7 +8596,7 @@
                         .
                     </item>
                     <item>
-                        Remove a specific relation component by key using
+                        Remove a specific relation by key using
                         <see
                                 cref="M:Friflo.Engine.ECS.RelationExtensions.RemoveRelation``2(Friflo.Engine.ECS.Entity,``1)"/>
                         .
@@ -8484,35 +8604,9 @@
                 </list>
             </remarks>
         </member>
-        <member name="M:Friflo.Engine.ECS.IRelationComponent`1.GetRelationKey">
+        <member name="M:Friflo.Engine.ECS.IRelation`1.GetRelationKey">
             <summary>
-                Returns the key of a unique relation component.
-            </summary>
-        </member>
-        <member name="T:Friflo.Engine.ECS.RelationComponents`1">
-            <summary>
-                Contains the relation components of a specific entity returned by<see
-                    cref="M:Friflo.Engine.ECS.RelationExtensions.GetRelations``1(Friflo.Engine.ECS.Entity)"/>.
-            </summary>
-        </member>
-        <member name="F:Friflo.Engine.ECS.RelationComponents`1.Length">
-            <summary>
-                Return the number of relation components.
-                <br/>
-                Executes in O(1).
-            </summary>
-        </member>
-        <member name="M:Friflo.Engine.ECS.RelationComponents`1.Debug">
-            <summary>
-                Returns a string containing the relation keys.<br/>E.g
-                <c>"{ 1, 3, 7 }"</c>
-            </summary>
-        </member>
-        <member name="P:Friflo.Engine.ECS.RelationComponents`1.Item(System.Int32)">
-            <summary>
-                Return the relation component at the given<paramref name="index"/>.
-                <br/>
-                Executes in O(1).
+                Returns the key of a unique relation.
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.RelationExtensions.GetRelation``2(Friflo.Engine.ECS.Entity,``1)">
@@ -8540,10 +8634,10 @@
         </member>
         <member name="M:Friflo.Engine.ECS.RelationExtensions.GetRelations``1(Friflo.Engine.ECS.Entity)">
             <summary>
-                Returns all unique relation components of the passed<paramref name="entity"/>.
+                Returns all unique relations of the passed<paramref name="entity"/>.
                 <br/>
                 Executes in O(1). In case
-                <typeparamref name="TComponent"/>
+                <typeparamref name="TRelation"/>
                 is a
                 <see cref="T:Friflo.Engine.ECS.ILinkRelation"/>
                 it returns all linked entities.
@@ -8552,8 +8646,8 @@
         </member>
         <member name="M:Friflo.Engine.ECS.RelationExtensions.AddRelation``1(Friflo.Engine.ECS.Entity,``0@)">
             <summary>
-                Add the relation component with the specified
-                <typeparamref name="TComponent"/>
+                Add the relation with the specified
+                <typeparamref name="TRelation"/>
                 type to the entity.
                 <br/>
                 Executes in O(1)
@@ -8566,7 +8660,7 @@
         </member>
         <member name="M:Friflo.Engine.ECS.RelationExtensions.RemoveRelation``2(Friflo.Engine.ECS.Entity,``1)">
             <summary>
-                Removes the relation component with the specified
+                Removes the relation with the specified
                 <paramref name="key"/>
                 from an entity.
                 <br/>
@@ -8591,17 +8685,27 @@
                 Return the entities with a link relation referencing the
                 <paramref name="target"/>
                 entity of the passed
-                <see cref="T:Friflo.Engine.ECS.IRelationComponent"/>
+                <see cref="T:Friflo.Engine.ECS.IRelation"/>
                 type.
                 <br/>
                 Executes in O(1).
             </summary>
             <exception cref="T:System.NullReferenceException">If the entity is null.</exception>
         </member>
+        <member name="M:Friflo.Engine.ECS.RelationExtensions.EntityRelations``1(Friflo.Engine.ECS.EntityStore)">
+            <summary>
+                Return the storage for all entity relations of the specified
+                <typeparamref name="TRelation"/>
+                type.
+            </summary>
+        </member>
         <member name="M:Friflo.Engine.ECS.RelationExtensions.GetAllEntitiesWithRelations``1(Friflo.Engine.ECS.EntityStore)">
             <summary>
+                Obsolete: Use
+                <see cref="P:Friflo.Engine.ECS.EntityRelations`1.Entities"/>
+                <br/>
                 Returns a collection of entities having one or more relations of the specified
-                <typeparamref name="TComponent"/>
+                <typeparamref name="TRelation"/>
                 type.
                 <br/>
                 Executes in O(1).
@@ -8614,15 +8718,18 @@
                     <item>
                         To get all entities including their relations (the cartesian product aka CROSS JOIN) use
                         <br/>
-                        <see cref="M:Friflo.Engine.ECS.RelationExtensions.GetAllEntityRelations``1(Friflo.Engine.ECS.EntityStore)"/>
+                        <see cref="P:Friflo.Engine.ECS.EntityRelations`1.Pairs"/>
                     </item>
                 </list>
             </remarks>
         </member>
         <member name="M:Friflo.Engine.ECS.RelationExtensions.ForAllEntityRelations``1(Friflo.Engine.ECS.EntityStore,Friflo.Engine.ECS.ForEachEntity{``0})">
             <summary>
+                Obsolete: Use
+                <see cref="M:Friflo.Engine.ECS.EntityRelations`1.For(Friflo.Engine.ECS.ForEachEntity{`0})"/>
+                <br/>
                 Iterates all entity relations of the specified
-                <typeparamref name="TComponent"/>
+                <typeparamref name="TRelation"/>
                 type.
                 <br/>
                 Executes in O(N) N: number of all entity relations.
@@ -8630,11 +8737,40 @@
         </member>
         <member name="M:Friflo.Engine.ECS.RelationExtensions.GetAllEntityRelations``1(Friflo.Engine.ECS.EntityStore)">
             <summary>
+                Obsolete: Use
+                <see cref="P:Friflo.Engine.ECS.EntityRelations`1.Pairs"/>
+                <br/>
                 Return all entity relations of the specified
-                <typeparamref name="TComponent"/>
+                <typeparamref name="TRelation"/>
                 type.
                 <br/>
                 Executes in O(1). Most efficient way to iterate all entity relations.
+            </summary>
+        </member>
+        <member name="T:Friflo.Engine.ECS.Relations`1">
+            <summary>
+                Contains the relations of a specific entity returned by<see
+                    cref="M:Friflo.Engine.ECS.RelationExtensions.GetRelations``1(Friflo.Engine.ECS.Entity)"/>.
+            </summary>
+        </member>
+        <member name="F:Friflo.Engine.ECS.Relations`1.Length">
+            <summary>
+                Return the number of relations.
+                <br/>
+                Executes in O(1).
+            </summary>
+        </member>
+        <member name="M:Friflo.Engine.ECS.Relations`1.Debug">
+            <summary>
+                Returns a string containing the relation keys.<br/>E.g
+                <c>"{ 1, 3, 7 }"</c>
+            </summary>
+        </member>
+        <member name="P:Friflo.Engine.ECS.Relations`1.Item(System.Int32)">
+            <summary>
+                Return the relation at the given<paramref name="index"/>.
+                <br/>
+                Executes in O(1).
             </summary>
         </member>
         <member name="T:Friflo.Engine.ECS.Script">
@@ -8644,7 +8780,7 @@
                 it need to extend<see cref="T:Friflo.Engine.ECS.Script"/>.
                 <br/>
                 See
-                <a href="https://friflo.gitbook.io/friflo.engine.ecs/examples/general#script">Example.</a>
+                <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/entity#script">Example.</a>
             </summary>
             <remarks>
                 A
