@@ -8,12 +8,12 @@ namespace Cultiway.Utils.Extension;
 
 public static class FunctionalInterfaceTools
 {
-    public static T DeepCopy<T>(this T obj) where T : ICanCopy, new()
+    public static T ShallowCopy<T>(this T obj) where T : ICanCopy, new()
     {
-        return DeepCopier<T>.Copy(obj, true);
+        return ShallowCopier<T>.Copy(obj, true);
     }
 
-    private static class DeepCopier<T>
+    private static class ShallowCopier<T>
     {
         private static Func<T, bool, T> cache;
 

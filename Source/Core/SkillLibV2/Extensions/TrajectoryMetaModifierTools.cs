@@ -6,7 +6,7 @@ public static class TrajectoryMetaModifierTools
 {
     public static TrajectoryMeta WithDeltaScale(this TrajectoryMeta meta, TrajectoryMeta.GetDeltaScale delta_scale)
     {
-        meta = meta.DeepCopy();
+        meta = meta.ShallowCopy();
         meta.get_delta_scale = delta_scale;
         return meta;
     }
