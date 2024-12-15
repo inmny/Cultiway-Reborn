@@ -5,6 +5,8 @@ using System.Reflection.Emit;
 using ai;
 using Cultiway.Content.Const;
 using Cultiway.Content.CultisysComponents;
+using Cultiway.Core;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
@@ -30,6 +32,29 @@ internal static class PatchActor
             {
                 __result = ActorJobs.XianCultivator.id;
             }
+        }
+    }
+
+    [Hotfixable]
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Actor), nameof(Actor.killHimself))]
+    private static void killHimself_postfix(Actor __instance)
+    {
+        if (!__instance.isAlive()) return;
+        BaseSimObject receiver = __instance.attackedBy ?? __instance;
+        ActorExtend dead_ae = __instance.GetExtend();
+        if (receiver.city != null && dead_ae.E.HasComponent<Jindan>() && dead_ae.E.HasComponent<XianBase>())
+        {
+            var xian_base = dead_ae.E.GetComponent<XianBase>();
+            var jindan = dead_ae.E.GetComponent<Jindan>();
+
+            CityExtend ce = receiver.city.GetExtend();
+            ce.AddSpecialItem(
+                SpecialItemUtils.StartBuild(ItemShapes.Ball.id)
+                    .AddComponent(jindan)
+                    .AddComponent(xian_base)
+                    .Build()
+            );
         }
     }
 

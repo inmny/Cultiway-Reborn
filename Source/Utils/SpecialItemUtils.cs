@@ -20,6 +20,12 @@ public static class SpecialItemUtils
             entity.GetComponent<SpecialItem>().self = entity;
         }
 
+        public Builder AddComponent<T>(T component) where T : struct, IComponent
+        {
+            entity.AddComponent(component);
+            return this;
+        }
+
         public Entity Build()
         {
             return entity;
