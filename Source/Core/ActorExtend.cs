@@ -196,6 +196,16 @@ public class ActorExtend : ExtendComponent<Actor>
         return ref e.GetComponent<T>();
     }
 
+    public bool HasComponent<T>() where T : struct, IComponent
+    {
+        return e.HasComponent<T>();
+    }
+
+    public ref T GetComponent<T>() where T : struct, IComponent
+    {
+        return ref e.GetComponent<T>();
+    }
+
     internal void SelfDestroy()
     {
         e.DeleteEntity();

@@ -73,9 +73,9 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 sb.AppendLine($"{xian_info.Asset.GetName()}: {xian_info.Asset.GetLevelName(xian_info.CurrLevel)}");
             }
 
-            if (a.E.HasComponent<XianBase>())
+            if (a.HasComponent<XianBase>())
             {
-                ref XianBase xian_base = ref a.E.GetComponent<XianBase>();
+                ref XianBase xian_base = ref a.GetComponent<XianBase>();
                 sb.AppendLine("筑基情况:");
                 sb.AppendLine($"\t精: {xian_base.jing}");
                 sb.AppendLine($"\t气: {xian_base.qi}");
@@ -87,9 +87,9 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 sb.AppendLine($"\t水: {xian_base.water}");
             }
 
-            if (a.E.HasComponent<Jindan>())
+            if (a.HasComponent<Jindan>())
             {
-                ref Jindan jindan = ref a.E.GetComponent<Jindan>();
+                ref Jindan jindan = ref a.GetComponent<Jindan>();
                 sb.AppendLine($"金丹: {jindan.Type.GetName()}");
             }
         });
