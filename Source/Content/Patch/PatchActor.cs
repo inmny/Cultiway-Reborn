@@ -6,6 +6,7 @@ using ai;
 using Cultiway.Content.Const;
 using Cultiway.Content.CultisysComponents;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -43,19 +44,15 @@ internal static class PatchActor
         if (!__instance.isAlive()) return;
         BaseSimObject receiver = __instance.attackedBy ?? __instance;
         ActorExtend dead_ae = __instance.GetExtend();
-        if (receiver.city != null && dead_ae.E.HasComponent<Jindan>() && dead_ae.E.HasComponent<XianBase>())
-        {
-            var xian_base = dead_ae.E.GetComponent<XianBase>();
-            var jindan = dead_ae.E.GetComponent<Jindan>();
+        if (receiver.city == null) return;
+        CityExtend ce = receiver.city.GetExtend();
 
-            CityExtend ce = receiver.city.GetExtend();
-            ce.AddSpecialItem(
-                SpecialItemUtils.StartBuild(ItemShapes.Ball.id)
-                    .AddComponent(jindan)
-                    .AddComponent(xian_base)
-                    .Build()
-            );
-        }
+        SpecialItemUtils.Builder item_builder = SpecialItemUtils.StartBuild(ItemShapes.Ball.id);
+        if (dead_ae.E.HasComponent<Jindan>()) item_builder.AddComponent(dead_ae.E.GetComponent<Jindan>());
+        if (dead_ae.E.HasComponent<XianBase>()) item_builder.AddComponent(dead_ae.E.GetComponent<XianBase>());
+        if (dead_ae.E.HasComponent<ElementRoot>()) item_builder.AddComponent(dead_ae.E.GetComponent<ElementRoot>());
+
+        ce.AddSpecialItem(item_builder.Build());
     }
 
     #region 飞行
