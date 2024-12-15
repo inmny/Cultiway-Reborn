@@ -3,9 +3,9 @@ using Cultiway.Core.Libraries;
 
 namespace Cultiway.Content;
 
-public class MaterialShapes : ExtendLibrary<MaterialShapeAsset, MaterialShapes>
+public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
 {
-    public static MaterialShapeAsset Ball { get; private set; }
+    public static ItemShapeAsset Ball { get; private set; }
 
     protected override void OnInit()
     {

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Cultiway.Core.Libraries;
 
-public class MaterialShapeAsset : Asset
+public class ItemShapeAsset : Asset
 {
     public string       major_texture_folder;
     public List<Sprite> major_textures = new();
@@ -17,5 +17,10 @@ public class MaterialShapeAsset : Asset
     public Sprite GetSprite(int idx)
     {
         return major_textures[idx % major_textures.Count];
+    }
+
+    public int GetRandomTextureIdx()
+    {
+        return Toolbox.randomInt(0, major_textures.Count);
     }
 }

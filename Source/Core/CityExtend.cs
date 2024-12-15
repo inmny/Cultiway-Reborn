@@ -1,6 +1,11 @@
+using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Abstract;
+using Cultiway.Content;
 using Cultiway.Core.Components;
+using Cultiway.Utils;
 using Friflo.Engine.ECS;
+using HarmonyLib;
 
 namespace Cultiway.Core;
 
@@ -20,5 +25,22 @@ public class CityExtend : ExtendComponent<City>
     public override string ToString()
     {
         return $"[{e.GetComponent<CityBinder>().id}] {Base.getCityName()}: {e}";
+    }
+
+    public void TestAddSpecialItem()
+    {
+        AddSpecialItem(SpecialItemUtils.StartBuild(ItemShapes.Ball.id).Build());
+    }
+
+    public void AddSpecialItem(Entity item_entity)
+    {
+        item_entity.GetIncomingLinks<InventoryRelation>().Entities
+            .Do(owner => owner.RemoveRelation<InventoryRelation>(item_entity));
+        e.AddRelation(new InventoryRelation { item = item_entity });
+    }
+
+    public List<SpecialItem> GetSpecialItems()
+    {
+        return e.GetRelations<InventoryRelation>().Select(x => x.item.GetComponent<SpecialItem>()).ToList();
     }
 }

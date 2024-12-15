@@ -1,5 +1,5 @@
 namespace Cultiway.Core.Libraries;
 
-public class MaterialShapeLibrary : AssetLibrary<MaterialShapeAsset>
+public class MaterialShapeLibrary : AssetLibrary<ItemShapeAsset>
 {
 }

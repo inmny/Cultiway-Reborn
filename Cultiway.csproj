@@ -73,7 +73,6 @@
         <None Remove="Jenny\**"/>
     </ItemGroup>
     <ItemGroup>
-        <Folder Include="GameResources\cultiway\icons\material_shapes\ball\"/>
         <Folder Include="GameResources\cultiway\icons\stats\"/>
         <Folder Include="Source\Core\GeoLib\Components\"/>
     </ItemGroup>
