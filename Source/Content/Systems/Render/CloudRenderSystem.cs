@@ -33,15 +33,17 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
     protected override void OnUpdate()
     {
         _pool.ResetToStart();
-        Query.ForEachEntity([Hotfixable](ref ActorBinder actor_binder, ref Xian xian, Entity e) =>
-        {
-            var a = actor_binder.Actor;
-            if (!a.data.hasFlag(ContentActorDataKeys.IsFlying_flag)) return;
-            var cloud = _pool.GetNext();
-            cloud.transform.localPosition = actor_binder.Actor.transform.localPosition;
-            cloud.transform.localScale = Vector3.one * 0.1f * a.stats[S.scale];
-            cloud.sprite_renderer.flipX = a.flip;
-        });
+        if (!MapBox.isRenderMiniMap())
+            Query.ForEachEntity([Hotfixable](ref ActorBinder actor_binder, ref Xian xian, Entity e) =>
+            {
+                Actor a = actor_binder.Actor;
+                if (!a.data.hasFlag(ContentActorDataKeys.IsFlying_flag)) return;
+                Cloud cloud = _pool.GetNext();
+                cloud.transform.localPosition = actor_binder.Actor.transform.localPosition;
+                cloud.transform.localScale = Vector3.one * 0.1f * a.stats[S.scale];
+                cloud.sprite_renderer.flipX = a.flip;
+            });
+
         _pool.ClearUnsed();
     }
 
