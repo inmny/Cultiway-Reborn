@@ -137,22 +137,11 @@ public class ActorExtend : ExtendComponent<Actor>
 
         var armor = stats[S.armor];
         s_armor[ElementIndex.Entropy + 1] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(WorldboxGame.BaseStats.IronArmor)];
-        s_armor[ElementIndex.Iron] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(WorldboxGame.BaseStats.WoodArmor)];
-        s_armor[ElementIndex.Wood] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(WorldboxGame.BaseStats.WaterArmor)];
-        s_armor[ElementIndex.Water] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(WorldboxGame.BaseStats.FireArmor)];
-        s_armor[ElementIndex.Fire] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(WorldboxGame.BaseStats.EarthArmor)];
-        s_armor[ElementIndex.Earth] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(WorldboxGame.BaseStats.NegArmor)];
-        s_armor[ElementIndex.Neg] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(WorldboxGame.BaseStats.PosArmor)];
-        s_armor[ElementIndex.Pos] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
-        armor = stats[nameof(WorldboxGame.BaseStats.EntropyArmor)];
-        s_armor[ElementIndex.Entropy] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+        for (var i = 0; i < 8; i++)
+        {
+            armor = stats[WorldboxGame.BaseStats.ArmorStats[i]];
+            s_armor[i] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+        }
     }
 
     public void NewCultisys<T>(CultisysAsset<T> cultisys) where T : struct, ICultisysComponent
@@ -166,24 +155,13 @@ public class ActorExtend : ExtendComponent<Actor>
         damage *= 1 - s_armor[ElementIndex.Entropy + 1];
         var total_ratio = 0f;
         var sum = 0f;
-        for (var i = ElementIndex.Iron; i <= ElementIndex.Earth; i++)
+        for (var i = 0; i <= 8; i++)
         {
             total_ratio += damage_composition[i] * (1 - s_armor[i]);
             sum += damage_composition[i];
         }
 
         damage *= total_ratio / sum;
-
-        total_ratio = 0f;
-        sum = 0f;
-        for (var i = ElementIndex.Neg; i <= ElementIndex.Pos; i++)
-        {
-            total_ratio += damage_composition[i] * (1 - s_armor[i]);
-            sum += damage_composition[i];
-        }
-
-        damage *= total_ratio / sum;
-        damage *= 1 - s_armor[ElementIndex.Entropy];
 
         damage = Mathf.Clamp(damage, 0, int.MaxValue >> 2);
 

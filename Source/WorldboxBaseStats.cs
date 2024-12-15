@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Cultiway.Abstract;
 
 namespace Cultiway;
@@ -6,25 +8,27 @@ public partial class WorldboxGame
 {
     public class BaseStats : ExtendLibrary<BaseStatAsset, BaseStats>
     {
-        public static BaseStatAsset IronArmor     { get; private set; }
-        public static BaseStatAsset WoodArmor     { get; private set; }
-        public static BaseStatAsset WaterArmor    { get; private set; }
-        public static BaseStatAsset FireArmor     { get; private set; }
-        public static BaseStatAsset EarthArmor    { get; private set; }
-        public static BaseStatAsset NegArmor      { get; private set; }
-        public static BaseStatAsset PosArmor      { get; private set; }
-        public static BaseStatAsset EntropyArmor  { get; private set; }
-        public static BaseStatAsset IronMaster    { get; private set; }
-        public static BaseStatAsset WoodMaster    { get; private set; }
-        public static BaseStatAsset WaterMaster   { get; private set; }
-        public static BaseStatAsset FireMaster    { get; private set; }
-        public static BaseStatAsset EarthMaster   { get; private set; }
-        public static BaseStatAsset NegMaster     { get; private set; }
-        public static BaseStatAsset PosMaster     { get; private set; }
-        public static BaseStatAsset EntropyMaster { get; private set; }
-        public static BaseStatAsset HealthRegen   { get; private set; }
-        public static BaseStatAsset WakanRegen    { get; private set; }
-        public static BaseStatAsset MaxSoul       { get; private set; }
+        public static BaseStatAsset              IronArmor     { get; private set; }
+        public static BaseStatAsset              WoodArmor     { get; private set; }
+        public static BaseStatAsset              WaterArmor    { get; private set; }
+        public static BaseStatAsset              FireArmor     { get; private set; }
+        public static BaseStatAsset              EarthArmor    { get; private set; }
+        public static BaseStatAsset              NegArmor      { get; private set; }
+        public static BaseStatAsset              PosArmor      { get; private set; }
+        public static BaseStatAsset              EntropyArmor  { get; private set; }
+        public static BaseStatAsset              IronMaster    { get; private set; }
+        public static BaseStatAsset              WoodMaster    { get; private set; }
+        public static BaseStatAsset              WaterMaster   { get; private set; }
+        public static BaseStatAsset              FireMaster    { get; private set; }
+        public static BaseStatAsset              EarthMaster   { get; private set; }
+        public static BaseStatAsset              NegMaster     { get; private set; }
+        public static BaseStatAsset              PosMaster     { get; private set; }
+        public static BaseStatAsset              EntropyMaster { get; private set; }
+        public static BaseStatAsset              HealthRegen   { get; private set; }
+        public static BaseStatAsset              WakanRegen    { get; private set; }
+        public static BaseStatAsset              MaxSoul       { get; private set; }
+        public static ReadOnlyCollection<string> ArmorStats    { get; private set; }
+        public static ReadOnlyCollection<string> MasterStats   { get; private set; }
 
         protected override void OnInit()
         {
@@ -104,6 +108,29 @@ public partial class WorldboxGame
             MaxSoul = AddWithMod(new BaseStatAsset
             {
                 id = nameof(MaxSoul)
+            });
+
+            ArmorStats = new ReadOnlyCollection<string>(new List<string>
+            {
+                IronArmor.id,
+                WoodArmor.id,
+                WaterArmor.id,
+                FireArmor.id,
+                EarthArmor.id,
+                NegArmor.id,
+                PosArmor.id,
+                EntropyArmor.id
+            });
+            MasterStats = new ReadOnlyCollection<string>(new List<string>
+            {
+                IronMaster.id,
+                WoodMaster.id,
+                WaterMaster.id,
+                FireMaster.id,
+                EarthMaster.id,
+                NegMaster.id,
+                PosMaster.id,
+                EntropyMaster.id
             });
         }
 

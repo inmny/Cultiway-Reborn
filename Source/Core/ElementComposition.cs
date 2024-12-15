@@ -23,33 +23,25 @@ public struct ElementComposition
     {
         float sum = 0;
         int i;
-        for (i = ElementIndex.Iron; i <= ElementIndex.Earth; i++) sum += this[i];
+        for (i = 0; i <= 8; i++) sum += this[i];
 
         if (sum == 0)
-            for (i = ElementIndex.Iron; i <= ElementIndex.Earth; i++)
-                this[i] = 0.2f;
+            for (i = 0; i <= 8; i++)
+                this[i] = 0.125f;
         else
-            for (i = ElementIndex.Iron; i <= ElementIndex.Earth; i++)
+            for (i = 0; i <= 8; i++)
                 this[i] /= sum;
-
-        sum = neg + pos;
-        if (sum == 0)
-        {
-            neg = pos = 0.5f;
-        }
-        else
-        {
-            neg /= sum;
-            pos /= sum;
-        }
     }
 
-    public ElementComposition(float[] composition)
+    public ElementComposition(float[] composition, bool normalize = false)
     {
         for (var i = 0; i < 8; i++)
         {
             this[i] = composition[i];
         }
+
+        if (normalize)
+            Normalize();
     }
 
     public override string ToString()
