@@ -10,14 +10,18 @@ namespace Cultiway.Content;
 [Dependency(typeof(ActorTraitGroups))]
 public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
 {
+    public static ActorTrait Cultivator { get; private set; }
     public static ActorTrait PassiveXianCultivate { get; private set; }
 
     protected override void OnInit()
     {
         RegisterAssets();
 
+        Cultivator.group_id = ActorTraitGroups.Mind.id;
+        Cultivator.path_icon = "cultiway/icons/traits/iconCultivator";
+
         PassiveXianCultivate.group_id = ActorTraitGroups.System.id;
-        PassiveXianCultivate.path_icon = "cultiway/icons/traits/iconCultivating";
+        PassiveXianCultivate.path_icon = "cultiway/icons/traits/iconPassiveXianCultivate";
         PassiveXianCultivate.special_effect_interval = TimeScales.SecPerMonth;
         PassiveXianCultivate.action_special_effect = (actor, tile) =>
         {

@@ -19,7 +19,10 @@ internal static class PatchActor
     {
         if (pActor.asset.unit && pActor.city != null && !pActor.isProfession(UnitProfession.Warrior))
         {
-            if (Toolbox.randomChance(0.8f)) return;
+            var chance = 0.2f;
+            if (pActor.hasTrait(ActorTraits.Cultivator.id)) chance = 0.8f;
+
+            if (Toolbox.randomChance(1 - chance)) return;
 
             var ae = (pActor as Actor).GetExtend();
 
@@ -29,6 +32,8 @@ internal static class PatchActor
             }
         }
     }
+
+    #region 飞行
 
     [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.checkSpriteToRender))]
     private static IEnumerable<CodeInstruction> checkSpriteToRender_transpiler(IEnumerable<CodeInstruction> codes)
@@ -199,4 +204,6 @@ internal static class PatchActor
     {
         return actor.data.hasFlag(ContentActorDataKeys.IsFlying_flag) ? ContentSetting.FlySpeedMod : 1;
     }
+
+    #endregion
 }
