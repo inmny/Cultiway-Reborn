@@ -245,7 +245,8 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
 
             e.AddComponent(new Jindan
             (
-                Libraries.Manager.JindanLibrary.GetJindan(ae, ref xian_base).id
+                Libraries.Manager.JindanLibrary.GetJindan(ae, ref xian_base).id,
+                strength
             ));
             return true;
         }

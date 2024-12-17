@@ -5,18 +5,16 @@ namespace Cultiway.Content.Libraries;
 
 public class JindanLibrary : AssetLibrary<JindanAsset>
 {
-    public static JindanAsset Common { get; private set; }
-
     public override void init()
     {
-        Common = add(new JindanAsset
-        {
-            id = "Cultiway.Jindan.Common"
-        });
     }
 
     public JindanAsset GetJindan(ActorExtend ae, ref XianBase xian_base)
     {
-        return Common;
+        foreach (JindanGroupAsset group in Manager.JindanGroupLibrary.jindanGroups)
+            if (group.jindans.Count > 0 && (group.check?.Invoke(ae, ref xian_base) ?? false))
+                return group.jindans.GetRandom();
+
+        return Jindans.Common;
     }
 }

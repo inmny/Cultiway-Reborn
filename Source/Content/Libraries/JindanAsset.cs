@@ -4,15 +4,18 @@ namespace Cultiway.Content.Libraries;
 
 public class JindanAsset : Asset
 {
-    public enum Type
-    {
-        None,
-        Element,
-        Special,
-        External
-    }
+    private JindanGroupAsset _group;
 
-    public Type type = Type.None;
+    public JindanGroupAsset Group
+    {
+        get => _group;
+        set
+        {
+            _group?.jindans.Remove(this);
+            _group = value;
+            _group.jindans.Add(this);
+        }
+    }
 
     public string GetName()
     {

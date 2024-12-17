@@ -3,9 +3,10 @@ using Friflo.Engine.ECS;
 
 namespace Cultiway.Content.CultisysComponents;
 
-public struct Jindan(string type) : IComponent
+public struct Jindan(string type, float strength) : IComponent
 {
     public readonly string jindan_type = type;
+    public float strength = strength;
 
     public JindanAsset Type
     {
