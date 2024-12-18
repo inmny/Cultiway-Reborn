@@ -23,13 +23,13 @@ public struct ElementComposition
     {
         float sum = 0;
         int i;
-        for (i = 0; i <= 8; i++) sum += this[i];
+        for (i = 0; i < 8; i++) sum += this[i];
 
         if (sum == 0)
-            for (i = 0; i <= 8; i++)
+            for (i = 0; i < 8; i++)
                 this[i] = 0.125f;
         else
-            for (i = 0; i <= 8; i++)
+            for (i = 0; i < 8; i++)
                 this[i] /= sum;
     }
 
