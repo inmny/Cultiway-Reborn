@@ -157,7 +157,7 @@ public class ActorExtend : ExtendComponent<Actor>
         damage *= 1 - s_armor[ElementIndex.Entropy + 1];
         var total_ratio = 0f;
         var sum = 0f;
-        for (var i = 0; i <= 8; i++)
+        for (var i = 0; i < 8; i++)
         {
             total_ratio += damage_composition[i] * (1 - s_armor[i]);
             sum += damage_composition[i];
