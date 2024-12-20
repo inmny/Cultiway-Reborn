@@ -48,6 +48,9 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
                 else
                 {
                     var item_id = $"{prefix}.{prop.Name}";
+                    var asset_id_attr = prop.GetCustomAttribute<AssetIdAttribute>();
+                    if (asset_id_attr != null && !string.IsNullOrEmpty(asset_id_attr.Id)) item_id = asset_id_attr.Id;
+
                     var clone_source_attr = prop.GetCustomAttribute<CloneSourceAttribute>();
                     if (clone_source_attr != null)
                     {
