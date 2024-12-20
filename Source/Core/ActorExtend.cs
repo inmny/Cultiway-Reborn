@@ -9,6 +9,7 @@ using Cultiway.Core.SkillLibV2;
 using Cultiway.Core.SkillLibV2.Api;
 using Cultiway.Core.SkillLibV2.Examples;
 using Cultiway.Patch;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
 using UnityEngine;
@@ -103,7 +104,8 @@ public class ActorExtend : ExtendComponent<Actor>
     internal void ExtendNewCreature()
     {
         // 灵根
-        bool has_element_root = Toolbox.randomChance(ModClass.L.ElementRootLibrary.base_prob);
+        var has_element_root = Base.asset.GetExtend<ActorAssetExtend>().must_have_element_root ||
+                               Toolbox.randomChance(ModClass.L.ElementRootLibrary.base_prob);
         if (has_element_root)
         {
             e.AddComponent(ElementRoot.Roll());
