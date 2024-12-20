@@ -56,7 +56,6 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             ref var element_root = ref ae.GetElementRoot();
             if (!ContentSetting.AllXian && element_root.Type == ModClass.L.ElementRootLibrary.Common) return;
             ae.NewCultisys(Xian);
-            ae.Base.data.favorite = true;
         });
         ActorExtend.RegisterActionOnUpdateStats([Hotfixable](ae) =>
         {

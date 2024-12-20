@@ -48,7 +48,7 @@ internal static class PatchMapBox
 
         ElementComposition damage_composition = EnumUtils.DamageCompositionFromDamageType(attack_type);
         for (var i = 0; i < 8; i++)
-            damage += damage_composition[i] * attacker.stats[WorldboxGame.BaseStats.MasterStats[i]];
+            damage += (0.125f + damage_composition[i]) * attacker.stats[WorldboxGame.BaseStats.MasterStats[i]];
 
         return damage;
     }

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content.CultisysComponents;
 using Cultiway.Content.Skills;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
@@ -137,12 +139,15 @@ public class ActorExtend : ExtendComponent<Actor>
     {
         var stats = Base.stats;
 
-        var armor = stats[S.armor];
+        var armor = Mathf.Max(stats[S.armor], 0);
         s_armor[ElementIndex.Entropy + 1] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+        float master = 0;
         for (var i = 0; i < 8; i++)
         {
             armor = stats[WorldboxGame.BaseStats.ArmorStats[i]];
-            s_armor[i] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay);
+            master = stats[WorldboxGame.BaseStats.MasterStats[i]];
+            s_armor[i] = armor / (armor + DamageCalcHyperParameters.ArmorEffectDecay) * master /
+                         (master + DamageCalcHyperParameters.MasterEffectDecay);
         }
     }
 
@@ -152,20 +157,41 @@ public class ActorExtend : ExtendComponent<Actor>
         cultisys.OnGetAction?.Invoke(this, cultisys, ref e.GetComponent<T>());
     }
 
+    [Hotfixable]
     public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker)
     {
-        damage *= 1 - s_armor[ElementIndex.Entropy + 1];
+        var damage_ratio = 1 - s_armor[ElementIndex.Entropy + 1];
         var total_ratio = 0f;
         var sum = 0f;
-        for (var i = 0; i < 8; i++)
+        for (var i = 0; i < 5; i++)
         {
             total_ratio += damage_composition[i] * (1 - s_armor[i]);
             sum += damage_composition[i];
         }
 
-        damage *= total_ratio / sum;
+        damage_ratio *= total_ratio / sum;
+        total_ratio = 0f;
+        sum = 0f;
+        for (var i = 5; i < 7; i++)
+        {
+            total_ratio += damage_composition[i] * (1 - s_armor[i]);
+            sum += damage_composition[i];
+        }
 
-        damage = Mathf.Clamp(damage, 0, int.MaxValue >> 2);
+        damage_ratio *= total_ratio / sum * (1 - s_armor[ElementIndex.Entropy]);
+
+        StringBuilder sb = new();
+        var attacker_exist = attacker != null && attacker.isActor() && attacker.a.GetExtend().HasCultisys<Xian>();
+        sb.Append(
+            $"{Base.data.id} get hit by {attacker?.base_data.id ?? "null"}(from Xian: {attacker_exist}) with {damage} damage, ");
+        damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
+        sb.Append($"after armor {damage} damage\n");
+        for (var i = 0; i < 8; i++)
+            sb.AppendLine($"{ElementIndex.ElementNames[i]}: {damage_composition[i]}, {s_armor[i]}");
+
+        sb.AppendLine($"Armor: {s_armor[ElementIndex.Entropy + 1]}");
+
+        if (HasCultisys<Xian>()) ModClass.LogInfo(sb.ToString());
 
         Base.data.health -= (int)damage;
 
