@@ -1,33 +1,36 @@
 using ai.behaviours;
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Content.Behaviours;
 
 namespace Cultiway.Content;
 
 public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
 {
-    public static BehaviourTaskActor DailyXianCultivate   { get; private set; }
-    public static BehaviourTaskActor LevelupXianCultivate { get; private set; }
+    public static BehaviourTaskActor DailyXianCultivate        { get; private set; }
+    public static BehaviourTaskActor LevelupXianCultivate      { get; private set; }
+    public static BehaviourTaskActor DailyPlantXianCultivate   { get; private set; }
+    public static BehaviourTaskActor LevelupPlantXianCultivate { get; private set; }
 
     protected override void OnInit()
     {
-        DailyXianCultivate = Add(new BehaviourTaskActor()
-        {
-            id = nameof(DailyXianCultivate)
-        });
-        t.addBeh(new BehCityFindBuilding("random_house_building"));
-        t.addBeh(new BehFindRandomFrontBuildingTile());
-        t.addBeh(new BehGoToTileTarget());
-        t.addBeh(new BehXianStayInBuildingAndCultivate());
-        t.addBeh(new BehExitBuilding());
-        LevelupXianCultivate = Add(new BehaviourTaskActor()
-        {
-            id = nameof(LevelupXianCultivate)
-        });
-        t.addBeh(new BehCityFindBuilding("random_house_building"));
-        t.addBeh(new BehFindRandomFrontBuildingTile());
-        t.addBeh(new BehGoToTileTarget());
-        t.addBeh(new BehXianStayInBuildingAndLevelup());
-        t.addBeh(new BehExitBuilding());
+        RegisterAssets("Cultiway.ActorTasks");
+        DailyXianCultivate.addBeh(new BehCityFindBuilding("random_house_building"));
+        DailyXianCultivate.addBeh(new BehFindRandomFrontBuildingTile());
+        DailyXianCultivate.addBeh(new BehGoToTileTarget());
+        DailyXianCultivate.addBeh(new BehXianStayInBuildingAndCultivate());
+        DailyXianCultivate.addBeh(new BehExitBuilding());
+
+        LevelupXianCultivate.addBeh(new BehCityFindBuilding("random_house_building"));
+        LevelupXianCultivate.addBeh(new BehFindRandomFrontBuildingTile());
+        LevelupXianCultivate.addBeh(new BehGoToTileTarget());
+        LevelupXianCultivate.addBeh(new BehXianStayInBuildingAndLevelup());
+        LevelupXianCultivate.addBeh(new BehExitBuilding());
+
+        DailyPlantXianCultivate.addBeh(new BehRandomWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
+        DailyPlantXianCultivate.addBeh(new BehPlantXianCultivate());
+
+        LevelupPlantXianCultivate.addBeh(new BehRandomWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
+        LevelupPlantXianCultivate.addBeh(new BehPlantXianCultivate());
     }
 }
