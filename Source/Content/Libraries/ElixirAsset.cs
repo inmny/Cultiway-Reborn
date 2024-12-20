@@ -1,3 +1,7 @@
+using Cultiway.Content.CultisysComponents;
+using Cultiway.Core;
+using Friflo.Engine.ECS;
+
 namespace Cultiway.Content.Libraries;
 
 public struct ElixirIngrediantCheck
@@ -9,8 +13,11 @@ public struct ElixirIngrediantCheck
     public int    count;
 }
 
+public delegate void ElixirConsumedDelegate(ActorExtend ae, Entity elixir_entity, ref Elixir elixir);
+
 public class ElixirAsset : Asset
 {
+    public ElixirConsumedDelegate consumed_action;
     public ElixirIngrediantCheck[] ingrediants;
     public string                  name_key;
 }

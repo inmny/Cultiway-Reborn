@@ -3,6 +3,7 @@ using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content;
 using Cultiway.Content.CultisysComponents;
+using Cultiway.Content.Extensions;
 using Cultiway.Core.Components;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -63,9 +64,7 @@ public class CityExtend : ExtendComponent<City>
         if (lucky_dog == null) return;
         SpecialItem elixir = open_element_root_elixirs.GetRandom();
 
-        lucky_dog.E.AddComponent(elixir.self.GetComponent<ElementRoot>());
-
-        ExtractSpecialItem(elixir.self);
+        lucky_dog.ConsumeElixir(elixir.self);
         ModClass.LogInfo(lucky_dog.Base.getName());
     }
 

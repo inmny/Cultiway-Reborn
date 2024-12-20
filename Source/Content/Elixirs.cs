@@ -1,5 +1,9 @@
 using Cultiway.Abstract;
+using Cultiway.Content.CultisysComponents;
 using Cultiway.Content.Libraries;
+using Cultiway.Core;
+using Cultiway.Core.Components;
+using Friflo.Engine.ECS;
 
 namespace Cultiway.Content;
 
@@ -13,6 +17,10 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
     {
         RegisterAssets(prefix);
         OpenElementRootElixir.name_key = $"{prefix}.OpenElementRootElixir";
+        OpenElementRootElixir.consumed_action = (ActorExtend ae, Entity elixir_entity, ref Elixir _) =>
+        {
+            ae.AddComponent(elixir_entity.GetComponent<ElementRoot>());
+        };
         OpenElementRootElixir.ingrediants = new ElixirIngrediantCheck[]
         {
             new()
