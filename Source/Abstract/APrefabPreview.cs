@@ -25,8 +25,8 @@ public abstract class APrefabPreview<T> : APrefab<T> where T : APrefabPreview<T>
     {
     }
 
-    public static void PatchTo(string pPath)
+    public static void PatchTo<TComponentType>(string pPath) where TComponentType : Component
     {
-        ResourcesPatch.PatchResource(pPath, Prefab);
+        ResourcesPatch.PatchResource(pPath, Prefab.GetComponent<TComponentType>());
     }
 }

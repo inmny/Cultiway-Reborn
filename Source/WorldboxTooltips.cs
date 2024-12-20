@@ -17,7 +17,7 @@ public partial class WorldboxGame
             RegisterAssets("Cultiway.Tooltip");
             SpecialItem.prefab_id = "tooltips/tooltip_cultiway_special_item";
             SpecialItem.callback = ShowSpecialItem;
-            SpecialItemTooltip.PatchTo(SpecialItem.prefab_id);
+            SpecialItemTooltip.PatchTo<Tooltip>(SpecialItem.prefab_id);
         }
 
         private static void ShowSpecialItem(Tooltip tooltip, string type, TooltipData data = default)
