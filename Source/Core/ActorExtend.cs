@@ -208,6 +208,11 @@ public class ActorExtend : ExtendComponent<Actor>
         return ref e.GetComponent<T>();
     }
 
+    public void AddComponent<T>(T component = default) where T : struct, IComponent
+    {
+        e.AddComponent(component);
+    }
+
     internal void SelfDestroy()
     {
         e.DeleteEntity();
