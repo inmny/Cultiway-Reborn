@@ -11,6 +11,11 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor LevelupXianCultivate      { get; private set; }
     public static BehaviourTaskActor DailyPlantXianCultivate   { get; private set; }
     public static BehaviourTaskActor LevelupPlantXianCultivate { get; private set; }
+    public static BehaviourTaskActor LookForHerbs { get; private set; }
+
+    [GetOnly("random_move")] public static BehaviourTaskActor RandomMove { get; private set; }
+
+    [GetOnly("end_job")] public static BehaviourTaskActor EndJob { get; private set; }
 
     protected override void OnInit()
     {
@@ -31,6 +36,10 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         DailyPlantXianCultivate.addBeh(new BehPlantXianCultivate());
 
         LevelupPlantXianCultivate.addBeh(new BehRandomWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
-        LevelupPlantXianCultivate.addBeh(new BehPlantXianCultivate());
+        LevelupPlantXianCultivate.addBeh(new BehPlantXianLevelup());
+
+        LookForHerbs.addBeh(new BehFindTargetForCollector());
+        LookForHerbs.addBeh(new BehGoToActorTarget());
+        LookForHerbs.addBeh(new BehHarvestHerb());
     }
 }

@@ -1,9 +1,12 @@
 using System;
 using System.Text;
+using Cultiway.Content.CultisysComponents;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using HarmonyLib;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -20,7 +23,7 @@ internal static class PatchCityWindow
         info_display_func += func;
     }
 
-    [HarmonyPrefix]
+    [HarmonyPrefix, Hotfixable]
     [HarmonyPatch(typeof(CityWindow), nameof(CityWindow.OnEnable))]
     private static void OnEnable_prefix(CityWindow __instance)
     {
@@ -45,7 +48,34 @@ internal static class PatchCityWindow
         var items = city_extend.GetSpecialItems();
         sb.AppendLine("Special Items:");
         var idx = 0;
-        foreach (SpecialItem item in items) sb.AppendLine($"[{idx++}] \"{item.self}\"");
+        foreach (SpecialItem item in items)
+        {
+            Entity item_entity = item.self;
+            sb.Append($"[{idx++}] {item_entity}: ");
+            if (item_entity.TryGetComponent(out ItemShape shape))
+            {
+                sb.Append(shape.shape_id);
+                sb.Append('\t');
+            }
+
+            if (item_entity.TryGetComponent(out Jindan jindan))
+            {
+                sb.Append(jindan.jindan_type);
+                sb.Append('\t');
+            }
+
+            if (item_entity.TryGetComponent(out XianBase xian_base))
+            {
+                sb.Append(xian_base);
+                sb.Append('\t');
+            }
+
+            if (item_entity.TryGetComponent(out ElementRoot element_root))
+            {
+                sb.Append(element_root.Type.id);
+                sb.Append('\n');
+            }
+        }
 
         info_display_func?.Invoke(city_extend, sb);
         info_text.text = sb.ToString();

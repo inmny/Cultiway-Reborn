@@ -191,7 +191,7 @@ public class ActorExtend : ExtendComponent<Actor>
 
         sb.AppendLine($"Armor: {s_armor[ElementIndex.Entropy + 1]}");
 
-        if (HasCultisys<Xian>()) ModClass.LogInfo(sb.ToString());
+        //if (HasCultisys<Xian>()) ModClass.LogInfo(sb.ToString());
 
         Base.data.health -= (int)damage;
 

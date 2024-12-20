@@ -29,7 +29,7 @@ public class Actors : ExtendLibrary<ActorAsset, Actors>
         Plant.job = ActorJobs.PlantXianCultivator.id;
         Plant.actorSize = ActorSize.S0_Bug;
         Plant.shadowTexture = "unitShadow_2";
-        Plant.maxRandomAmount = 100;
+        Plant.maxRandomAmount = 1000;
         Plant.prefab = "p_unit";
         Plant.nameLocale = "Cultiway.Actor.Plant";
         Plant.texture_path = "t_grasshopper";
