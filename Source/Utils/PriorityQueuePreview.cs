@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using NeoModLoader.api.attributes;
 
 namespace Cultiway.Utils;
 
@@ -43,9 +44,10 @@ public class PriorityQueuePreview<T> : IEnumerable<T>
         }
     }
 
+    [Hotfixable]
     public IEnumerator<T> GetEnumerator()
     {
-        return (IEnumerator<T>)(heap.GetEnumerator() as IEnumerator<T> ?? Array.Empty<T>().GetEnumerator());
+        for (var i = 0; i < Count; i++) yield return heap[i];
     }
 
     IEnumerator IEnumerable.GetEnumerator()

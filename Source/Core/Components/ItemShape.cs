@@ -6,7 +6,7 @@ namespace Cultiway.Core.Components;
 
 public struct ItemShape(string shape_id) : IComponent
 {
-    public  string         shape_id;
+    public string shape_id = shape_id;
     private ItemShapeAsset _type;
     public  int            texture_idx = -1;
 
