@@ -1,4 +1,5 @@
 using NeoModLoader.General.UI.Prefabs;
+using NeoModLoader.utils;
 using UnityEngine;
 
 namespace Cultiway.Abstract;
@@ -22,5 +23,10 @@ public abstract class APrefabPreview<T> : APrefab<T> where T : APrefabPreview<T>
 
     protected virtual void OnInit()
     {
+    }
+
+    public static void PatchTo(string pPath)
+    {
+        ResourcesPatch.PatchResource(pPath, Prefab);
     }
 }

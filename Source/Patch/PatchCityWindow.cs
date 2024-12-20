@@ -3,6 +3,7 @@ using System.Text;
 using Cultiway.Content.CultisysComponents;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.UI;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using HarmonyLib;
@@ -39,6 +40,9 @@ internal static class PatchCityWindow
             info_text = obj.GetComponent<Text>();
             info_text.font = LocalizedTextManager.currentFont;
             info_text.fontSize = 6;
+
+            if (__instance.GetComponent<AdditionCityWindow>() == null)
+                __instance.gameObject.AddComponent<AdditionCityWindow>();
         }
 
         StringBuilder sb = new();
