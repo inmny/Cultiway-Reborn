@@ -42,8 +42,9 @@ internal static class PatchActor
     private static void killHimself_postfix(Actor __instance)
     {
         if (!__instance.isAlive()) return;
-        BaseSimObject receiver = __instance.attackedBy ?? __instance;
         ActorExtend dead_ae = __instance.GetExtend();
+        if (!dead_ae.HasCultisys<Xian>()) return;
+        BaseSimObject receiver = __instance.attackedBy ?? __instance;
         if (receiver.city == null) return;
         CityExtend ce = receiver.city.GetExtend();
 
