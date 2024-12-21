@@ -1,5 +1,7 @@
 using Cultiway.Abstract;
+using Cultiway.Content.Const;
 using Cultiway.Content.CultisysComponents;
+using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -12,6 +14,7 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
 {
     private const string      prefix = "Cultiway.Elixir";
     public static ElixirAsset OpenElementRootElixir { get; private set; }
+    public static ElixirAsset WakanRestoreElixir { get; private set; }
 
     protected override void OnInit()
     {
@@ -21,6 +24,8 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
         {
             ae.AddComponent(elixir_entity.GetComponent<ElementRoot>());
         };
+        OpenElementRootElixir.consumable_check_action =
+            (ActorExtend ae, Entity elixir_entity, ref Elixir _) => !ae.HasElementRoot();
         OpenElementRootElixir.ingrediants = new ElixirIngrediantCheck[]
         {
             new()
@@ -39,6 +44,22 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
             {
                 count = 1,
                 need_element_root = true
+            }
+        };
+        WakanRestoreElixir.name_key = $"{prefix}.WakanRestoreElixir";
+        WakanRestoreElixir.consumed_action = (ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
+        {
+            ae.RestoreWakan(elixir.value);
+        };
+        WakanRestoreElixir.consumable_check_action = (ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
+            ae.HasCultisys<Xian>() && ae.GetCultisys<Xian>().wakan <
+            ae.Base.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit;
+        WakanRestoreElixir.ingrediants = new ElixirIngrediantCheck[]
+        {
+            new()
+            {
+                count = 1,
+                element_root_id = ModClass.L.ElementRootLibrary.Common.id
             }
         };
     }

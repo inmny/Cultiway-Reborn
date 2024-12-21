@@ -6,6 +6,7 @@ namespace Cultiway.Content.CultisysComponents;
 public struct Elixir : IComponent
 {
     public string elixir_id;
+    public float value;
 
     public ElixirAsset Type
     {

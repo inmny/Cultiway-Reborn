@@ -1,8 +1,10 @@
 using System;
+using Cultiway.Content.Const;
 using Cultiway.Content.CultisysComponents;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Friflo.Engine.ECS;
+using UnityEngine;
 
 namespace Cultiway.Content.Extensions;
 
@@ -19,7 +21,10 @@ public static class ActorExtendTools
         ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.get(elixir.elixir_id);
         try
         {
-            elixir_asset.consumed_action?.Invoke(ae, elixir_entity, ref elixir);
+            if (elixir_asset.consumable_check_action?.Invoke(ae, elixir_entity, ref elixir) ?? true)
+                elixir_asset.consumed_action?.Invoke(ae, elixir_entity, ref elixir);
+            else
+                return false;
         }
         catch (Exception e)
         {
@@ -28,6 +33,16 @@ public static class ActorExtendTools
         }
 
         elixir_entity.DeleteEntity();
+        return true;
+    }
+
+    public static bool RestoreWakan(this ActorExtend ae, float value)
+    {
+        if (value <= 0) return false;
+        if (!ae.HasCultisys<Xian>()) return false;
+        ref Xian xian = ref ae.GetCultisys<Xian>();
+        xian.wakan = Mathf.Min(xian.wakan + value,
+            Mathf.Max(xian.wakan, ae.Base.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit));
         return true;
     }
 }
