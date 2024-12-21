@@ -25,7 +25,7 @@ public partial class WorldboxGame
             if (string.IsNullOrEmpty(data.tip_name)) return;
             Entity entity = ModClass.I.ActorExtendManager.World.GetEntityById(int.Parse(data.tip_name));
             if (entity.IsNull) return;
-            tooltip.name.text = entity.Id.ToString();
+            tooltip.GetComponent<SpecialItemTooltip>()?.Setup(type, entity);
         }
     }
 }

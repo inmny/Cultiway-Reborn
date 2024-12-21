@@ -9,8 +9,8 @@ public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
 
     protected override void OnInit()
     {
-        RegisterAssets("Cultiway.MaterialShape");
-        Ball.major_texture_folder = "cultiway/icons/material_shapes/ball";
+        RegisterAssets("Cultiway.ItemShape");
+        Ball.major_texture_folder = "cultiway/icons/item_shapes/ball";
     }
 
     protected override void PostInit(ItemShapeAsset asset)

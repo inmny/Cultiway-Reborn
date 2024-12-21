@@ -17,8 +17,8 @@ public class ElementRootAsset : Asset
         this.composition = composition;
     }
 
-    private string desc_key => f_desc_key ??= $"Cultiway.ER.{id}";
-    private string name_key => f_name_key ??= $"Cultiway.ER.{id}.Info";
+    private string name_key => f_name_key ??= $"Cultiway.ER.{id}";
+    private string desc_key => f_desc_key ??= $"Cultiway.ER.{id}.Info";
 
     public override string ToString()
     {
