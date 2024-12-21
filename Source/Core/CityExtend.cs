@@ -12,7 +12,7 @@ using HarmonyLib;
 
 namespace Cultiway.Core;
 
-public class CityExtend : ExtendComponent<City>
+public class CityExtend : ExtendComponent<City>, IHasInventory
 {
     private readonly Entity e;
 
@@ -24,6 +24,23 @@ public class CityExtend : ExtendComponent<City>
 
     public          Entity E    => e;
     public override City   Base => e.HasComponent<CityBinder>() ? e.GetComponent<CityBinder>().City : null;
+
+    public void AddSpecialItem(Entity item_entity)
+    {
+        item_entity.GetIncomingLinks<InventoryRelation>().Entities
+            .Do(owner => owner.RemoveRelation<InventoryRelation>(item_entity));
+        e.AddRelation(new InventoryRelation { item = item_entity });
+    }
+
+    public void ExtractSpecialItem(Entity item_entity)
+    {
+        e.RemoveRelation<InventoryRelation>(item_entity);
+    }
+
+    public List<Entity> GetItems()
+    {
+        return e.GetRelations<InventoryRelation>().Select(x => x.item).ToList();
+    }
 
     public override string ToString()
     {
@@ -66,18 +83,6 @@ public class CityExtend : ExtendComponent<City>
 
         lucky_dog.ConsumeElixir(elixir.self);
         ModClass.LogInfo(lucky_dog.Base.getName());
-    }
-
-    public void AddSpecialItem(Entity item_entity)
-    {
-        item_entity.GetIncomingLinks<InventoryRelation>().Entities
-            .Do(owner => owner.RemoveRelation<InventoryRelation>(item_entity));
-        e.AddRelation(new InventoryRelation { item = item_entity });
-    }
-
-    public void ExtractSpecialItem(Entity item_entity)
-    {
-        e.RemoveRelation<InventoryRelation>(item_entity);
     }
 
     public List<SpecialItem> GetSpecialItems()
