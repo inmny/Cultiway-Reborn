@@ -4,6 +4,7 @@ using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
+using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content.Libraries;
 
@@ -65,8 +66,13 @@ public class ElixirAsset : Asset
     public ElixirIngrediantCheck[] ingrediants;
     public string                  name_key;
 
+    [Hotfixable]
     public void Craft(ActorExtend ae, Entity crafting_elixir_entity, IHasInventory receiver, Entity[] corr_ingrediants)
     {
+        crafting_elixir_entity.AddComponent(new Elixir
+        {
+            elixir_id = id
+        });
         craft_action?.Invoke(ae, crafting_elixir_entity, corr_ingrediants);
         for (var i = 0; i < corr_ingrediants.Length; i++) corr_ingrediants[i].DeleteEntity();
         crafting_elixir_entity.RemoveComponent<CraftingElixir>();
