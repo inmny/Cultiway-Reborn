@@ -9,6 +9,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob XianCultivator      { get; private set; }
     public static ActorJob PlantXianCultivator { get; private set; }
     public static ActorJob HerbCollector { get; private set; }
+    public static ActorJob ElixirCrafter { get; private set; }
 
     protected override void OnInit()
     {
@@ -28,5 +29,9 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         HerbCollector.addTask(ActorTasks.RandomMove.id);
         HerbCollector.addTask(ActorTasks.LookForHerbs.id);
         HerbCollector.addTask(ActorTasks.EndJob.id);
+
+        ElixirCrafter.addTask(ActorTasks.CraftElixir.id);
+        ElixirCrafter.addCondition(new CondHasJindan());
+        ElixirCrafter.addTask(ActorTasks.EndJob.id);
     }
 }

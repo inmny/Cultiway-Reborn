@@ -1,6 +1,6 @@
 using System;
 using System.Text;
-using Cultiway.Content.CultisysComponents;
+using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.UI;

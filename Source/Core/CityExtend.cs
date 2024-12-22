@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content;
-using Cultiway.Content.CultisysComponents;
+using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Core.Components;
 using Cultiway.Utils;
@@ -40,6 +40,11 @@ public class CityExtend : ExtendComponent<City>, IHasInventory
     public List<Entity> GetItems()
     {
         return e.GetRelations<InventoryRelation>().Select(x => x.item).ToList();
+    }
+
+    public bool HasItem<TComponent>() where TComponent : struct, IComponent
+    {
+        return e.GetRelations<InventoryRelation>().Select(x => x.item).Any(e => e.HasComponent<TComponent>());
     }
 
     public override string ToString()

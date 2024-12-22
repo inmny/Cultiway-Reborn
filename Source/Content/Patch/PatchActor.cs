@@ -3,8 +3,8 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using ai;
+using Cultiway.Content.Components;
 using Cultiway.Content.Const;
-using Cultiway.Content.CultisysComponents;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Utils;
@@ -25,9 +25,14 @@ internal static class PatchActor
             var chance = 0.2f;
             if (pActor.hasTrait(ActorTraits.Cultivator.id)) chance = 0.8f;
 
-            if (Toolbox.randomChance(1 - chance)) return;
-
             var ae = (pActor as Actor).GetExtend();
+
+            if (Toolbox.randomChance(1 - chance))
+            {
+                if (ae.HasComponent<Jindan>() && Toolbox.randomChance(0.4f)) __result = ActorJobs.ElixirCrafter.id;
+
+                return;
+            }
 
             if (ae.HasCultisys<Xian>())
             {

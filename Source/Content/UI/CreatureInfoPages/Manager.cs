@@ -1,5 +1,5 @@
 using Cultiway.Abstract;
-using Cultiway.Content.CultisysComponents;
+using Cultiway.Content.Components;
 using Cultiway.UI;
 using Cultiway.Utils.Extension;
 

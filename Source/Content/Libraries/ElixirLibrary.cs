@@ -1,6 +1,6 @@
 using System;
 using Cultiway.Abstract;
-using Cultiway.Content.CultisysComponents;
+using Cultiway.Content.Components;
 using Cultiway.UI.Prefab;
 using NeoModLoader.General;
 
@@ -29,5 +29,10 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
             add(asset);
 
         return asset;
+    }
+
+    public ElixirAsset GetRandom()
+    {
+        return list.GetRandom();
     }
 }

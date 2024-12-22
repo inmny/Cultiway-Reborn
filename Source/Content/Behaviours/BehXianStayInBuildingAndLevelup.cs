@@ -1,6 +1,6 @@
 using ai.behaviours;
 using Cultiway.Const;
-using Cultiway.Content.CultisysComponents;
+using Cultiway.Content.Components;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content.Behaviours;

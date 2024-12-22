@@ -1,7 +1,7 @@
 using System.IO;
 using Cultiway.Abstract;
+using Cultiway.Content.Components;
 using Cultiway.Content.Const;
-using Cultiway.Content.CultisysComponents;
 using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Components;

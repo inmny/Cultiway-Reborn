@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Cultiway.Abstract;
 using Cultiway.Const;
-using Cultiway.Content.CultisysComponents;
+using Cultiway.Content.Components;
 using Cultiway.Content.Skills;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
@@ -13,12 +14,13 @@ using Cultiway.Core.SkillLibV2.Examples;
 using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
+using HarmonyLib;
 using NeoModLoader.api.attributes;
 using UnityEngine;
 
 namespace Cultiway.Core;
 
-public class ActorExtend : ExtendComponent<Actor>
+public class ActorExtend : ExtendComponent<Actor>, IHasInventory
 {
     private static Action<ActorExtend> action_on_new_creature;
 
@@ -39,6 +41,23 @@ public class ActorExtend : ExtendComponent<Actor>
     public Entity E => e;
 
     public override Actor Base => e.HasComponent<ActorBinder>() ? e.GetComponent<ActorBinder>().Actor : null;
+
+    public void AddSpecialItem(Entity item)
+    {
+        item.GetIncomingLinks<InventoryRelation>().Entities
+            .Do(owner => owner.RemoveRelation<InventoryRelation>(item));
+        e.AddRelation(new InventoryRelation { item = item });
+    }
+
+    public void ExtractSpecialItem(Entity item)
+    {
+        e.RemoveRelation<InventoryRelation>(item);
+    }
+
+    public List<Entity> GetItems()
+    {
+        return e.GetRelations<InventoryRelation>().Select(x => x.item).ToList();
+    }
 
     public static void RegisterActionOnNewCreature(Action<ActorExtend> action)
     {
@@ -247,5 +266,16 @@ public class ActorExtend : ExtendComponent<Actor>
         {
             skill_action.DeleteEntity();
         }
+    }
+
+    public Entity GetFirstItemWithComponent<TComponent>() where TComponent : struct, IComponent
+    {
+        return e.GetRelations<InventoryRelation>().Select(x => x.item)
+            .FirstOrDefault(x => x.HasComponent<TComponent>());
+    }
+
+    public bool HasItem<TComponent>() where TComponent : struct, IComponent
+    {
+        return e.GetRelations<InventoryRelation>().Select(x => x.item).Any(x => x.HasComponent<TComponent>());
     }
 }

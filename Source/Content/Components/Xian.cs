@@ -1,7 +1,7 @@
 using Cultiway.Abstract;
 using Cultiway.Core.Libraries;
 
-namespace Cultiway.Content.CultisysComponents;
+namespace Cultiway.Content.Components;
 
 public struct Xian : ICultisysComponent
 {

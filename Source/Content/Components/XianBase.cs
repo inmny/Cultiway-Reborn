@@ -1,6 +1,6 @@
 using Friflo.Engine.ECS;
 
-namespace Cultiway.Content.CultisysComponents;
+namespace Cultiway.Content.Components;
 
 public struct XianBase : IComponent
 {

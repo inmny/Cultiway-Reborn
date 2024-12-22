@@ -1,9 +1,8 @@
 using System.Linq;
 using Cultiway.Abstract;
-using Cultiway.Content.CultisysComponents;
+using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
-using Cultiway.Utils;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Content.Libraries;
@@ -66,18 +65,13 @@ public class ElixirAsset : Asset
     public ElixirIngrediantCheck[] ingrediants;
     public string                  name_key;
 
-    public void Craft(ActorExtend ae, IHasInventory receiver, Entity[] corr_ingrediants)
+    public void Craft(ActorExtend ae, Entity crafting_elixir_entity, IHasInventory receiver, Entity[] corr_ingrediants)
     {
-        Entity elixir_entity = SpecialItemUtils.StartBuild(ItemShapes.Ball.id)
-            .AddComponent(new Elixir
-            {
-                elixir_id = id
-            })
-            .Build();
-        craft_action?.Invoke(ae, elixir_entity, corr_ingrediants);
+        craft_action?.Invoke(ae, crafting_elixir_entity, corr_ingrediants);
         for (var i = 0; i < corr_ingrediants.Length; i++) corr_ingrediants[i].DeleteEntity();
+        crafting_elixir_entity.RemoveComponent<CraftingElixir>();
 
-        receiver.AddSpecialItem(elixir_entity);
+        receiver.AddSpecialItem(crafting_elixir_entity);
     }
 
     public bool QueryInventoryForIngrediants(IHasInventory inv, out Entity[] corr_ingrediants)
@@ -85,6 +79,8 @@ public class ElixirAsset : Asset
         var check_result = new Entity[ingrediants.Length];
         var items = inv.GetItems();
         foreach (Entity item in items)
+        {
+            if (item.GetIncomingLinks<CraftOccupyingRelation>().Count > 0) continue;
             for (var i = 0; i < ingrediants.Length; i++)
             {
                 if (!check_result[i].IsNull) continue;
@@ -94,6 +90,7 @@ public class ElixirAsset : Asset
                     break;
                 }
             }
+        }
 
         var res = check_result.All(x => !x.IsNull);
         corr_ingrediants = res ? check_result : null;

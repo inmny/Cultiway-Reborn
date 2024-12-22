@@ -1,5 +1,5 @@
+using Cultiway.Content.Components;
 using Cultiway.Content.Const;
-using Cultiway.Content.CultisysComponents;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;

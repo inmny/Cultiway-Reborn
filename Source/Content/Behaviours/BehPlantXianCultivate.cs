@@ -1,5 +1,5 @@
 using ai.behaviours;
-using Cultiway.Content.CultisysComponents;
+using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;

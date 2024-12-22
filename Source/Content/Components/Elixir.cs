@@ -1,7 +1,7 @@
 using Cultiway.Content.Libraries;
 using Friflo.Engine.ECS;
 
-namespace Cultiway.Content.CultisysComponents;
+namespace Cultiway.Content.Components;
 
 public struct Elixir : IComponent
 {

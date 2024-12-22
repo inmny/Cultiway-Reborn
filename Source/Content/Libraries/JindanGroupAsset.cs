@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Cultiway.Content.CultisysComponents;
+using Cultiway.Content.Components;
 using Cultiway.Core;
 
 namespace Cultiway.Content.Libraries;
