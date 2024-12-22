@@ -10,9 +10,9 @@ public class ActorExtendManager : ExtendComponentManager<ActorExtend>
     public readonly EntityStore                     World;
     private         Dictionary<string, ActorExtend> _data = new();
 
-    internal ActorExtendManager()
+    internal ActorExtendManager(EntityStore world)
     {
-        World = new EntityStore();
+        World = world;
     }
 
     public ActorExtend Get(string id, bool new_when_null = false)

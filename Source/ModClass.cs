@@ -91,8 +91,8 @@ namespace Cultiway
 
             LoadLocales();
 
-            ActorExtendManager = new();
-            CityExtendManager = new CityExtendManager(ActorExtendManager.World);
+            ActorExtendManager = new ActorExtendManager(W);
+            CityExtendManager = new CityExtendManager(W);
             TileExtendManager = new();
 
             L = new Core.Libraries.Manager();
@@ -103,8 +103,8 @@ namespace Cultiway
             TileLogicSystems = new SystemRoot(nameof(TileLogicSystems));
             TileRenderSystems = new SystemRoot(nameof(TileRenderSystems));
 
-            ActorLogicSystems.AddStore(ActorExtendManager.World);
-            ActorRenderSystems.AddStore(ActorExtendManager.World);
+            ActorLogicSystems.AddStore(W);
+            ActorRenderSystems.AddStore(W);
             TileLogicSystems.AddStore(TileExtendManager.World);
             TileRenderSystems.AddStore(TileExtendManager.World);
 
