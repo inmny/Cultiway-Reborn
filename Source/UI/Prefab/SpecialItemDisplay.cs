@@ -9,14 +9,16 @@ namespace Cultiway.UI.Prefab;
 
 public class SpecialItemDisplay : APrefabPreview<SpecialItemDisplay>
 {
-    private SpecialItem _item;
-    public  Button      Button { get; private set; }
-    public  Image       Icon   { get; private set; }
+    private SpecialItem    _item;
+    public  Button         Button        { get; private set; }
+    public  MultiLayerIcon Icon          { get; private set; }
+    public  RectTransform  RectTransform { get; private set; }
 
     protected override void OnInit()
     {
-        Icon = GetComponent<Image>();
+        Icon = GetComponent<MultiLayerIcon>();
         Button = GetComponent<Button>();
+        RectTransform = GetComponent<RectTransform>();
         GetComponent<TipButton>().hoverAction = HoverAction;
     }
 
@@ -25,13 +27,15 @@ public class SpecialItemDisplay : APrefabPreview<SpecialItemDisplay>
     {
         Init();
         _item = item;
-        Icon.sprite = item.GetSprite();
+        Icon.Setup(RectTransform.sizeDelta, (item.GetSprite(), new Rect(0, 0, 1, 1)));
     }
 
     private static void _init()
     {
-        GameObject obj = ModClass.NewPrefabPreview(nameof(SpecialItemDisplay), typeof(Image), typeof(Button),
-            typeof(TipButton));
+        GameObject obj = MultiLayerIcon.Instantiate(ModClass.I.PrefabLibrary, pName: nameof(SpecialItemDisplay))
+            .gameObject;
+        obj.AddComponent<Button>();
+        obj.AddComponent<TipButton>();
 
         Prefab = obj.AddComponent<SpecialItemDisplay>();
         Prefab.GetComponent<TipButton>().hoverAction = Prefab.HoverAction;
