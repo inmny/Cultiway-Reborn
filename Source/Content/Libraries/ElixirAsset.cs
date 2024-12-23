@@ -1,6 +1,8 @@
+using System;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
+using Cultiway.Content.Const;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
@@ -54,27 +56,47 @@ public struct ElixirIngrediantCheck
 
 public delegate void ElixirCraftDelegate(ActorExtend ae, Entity elixir_entity, Entity[] ingrediants);
 
-public delegate void ElixirConsumedDelegate(ActorExtend ae, Entity elixir_entity, ref Elixir elixir);
+public delegate void ElixirEffectDelegate(ActorExtend ae, Entity elixir_entity, ref Elixir elixir);
 
 public delegate bool ElixirCheckDelegate(ActorExtend ae, Entity elixir_entity, ref Elixir elixir);
 
 public class ElixirAsset : Asset
 {
-    public ElixirCheckDelegate    consumable_check_action;
-    public ElixirConsumedDelegate consumed_action;
-    public ElixirCraftDelegate    craft_action;
+    public ElixirCheckDelegate  consumable_check_action;
+    public ElixirCraftDelegate  craft_action;
+    public ElixirEffectDelegate effect_action;
+    public ElixirEffectType     effect_type;
     public ElixirIngrediantCheck[] ingrediants;
     public string                  name_key;
 
     [Hotfixable]
     public void Craft(ActorExtend ae, Entity crafting_elixir_entity, IHasInventory receiver, Entity[] corr_ingrediants)
     {
-        crafting_elixir_entity.AddComponent(new Elixir
+        var elixir_component = new Elixir
         {
             elixir_id = id
-        });
+        };
+        switch (effect_type)
+        {
+            case ElixirEffectType.Restore:
+                crafting_elixir_entity.Add(elixir_component, Tags.Get<TagElixirRestore>());
+                break;
+            case ElixirEffectType.DataChange:
+                crafting_elixir_entity.Add(elixir_component, Tags.Get<TagElixirDataChange>());
+                break;
+            case ElixirEffectType.StatusGain:
+                crafting_elixir_entity.Add(elixir_component, Tags.Get<TagElixirStatusGain>());
+                break;
+            case ElixirEffectType.DataGain:
+                crafting_elixir_entity.Add(elixir_component, Tags.Get<TagElixirDataGain>());
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+
         craft_action?.Invoke(ae, crafting_elixir_entity, corr_ingrediants);
         for (var i = 0; i < corr_ingrediants.Length; i++) corr_ingrediants[i].DeleteEntity();
+
         crafting_elixir_entity.RemoveComponent<CraftingElixir>();
 
         receiver.AddSpecialItem(crafting_elixir_entity);

@@ -22,7 +22,7 @@ public static class ActorExtendTools
         try
         {
             if (elixir_asset.consumable_check_action?.Invoke(ae, elixir_entity, ref elixir) ?? true)
-                elixir_asset.consumed_action?.Invoke(ae, elixir_entity, ref elixir);
+                elixir_asset.effect_action?.Invoke(ae, elixir_entity, ref elixir);
             else
                 return false;
         }

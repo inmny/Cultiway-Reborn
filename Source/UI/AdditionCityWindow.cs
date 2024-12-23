@@ -3,6 +3,7 @@ using Cultiway.Core.Components;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Cultiway.UI;
 
@@ -34,6 +35,9 @@ public class AdditionCityWindow : MonoBehaviour
             SpecialItemDisplay display = _special_item_pool.GetNext();
             display.Setup(item);
         }
+
+        GetComponent<ScrollWindow>().transform_content.GetComponent<VerticalLayoutGroup>()
+            .CalculateLayoutInputVertical();
     }
 
     private void TryInit()

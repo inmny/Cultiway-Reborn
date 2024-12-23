@@ -48,7 +48,8 @@ public class ContentGrid : APrefabPreview<ContentGrid>
     private static void _init()
     {
         GameObject obj = ModClass.NewPrefabPreview(nameof(ContentGrid), typeof(Image), typeof(ContentSizeFitter),
-            typeof(VerticalLayoutGroup));
+            typeof(VerticalLayoutGroup), typeof(LayoutElement));
+        obj.GetComponent<RectTransform>().pivot = new Vector2(0.5f, 1);
         var vert_layout = obj.GetComponent<VerticalLayoutGroup>();
         vert_layout.padding = new RectOffset(0, 0, 4, 4);
         vert_layout.childAlignment = TextAnchor.UpperCenter;
@@ -59,6 +60,8 @@ public class ContentGrid : APrefabPreview<ContentGrid>
         var bg = obj.GetComponent<Image>();
         bg.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
         bg.type = Image.Type.Sliced;
+
+        obj.GetComponent<LayoutElement>().minHeight = 30;
 
         var title_obj = new GameObject(nameof(Title), typeof(Text), typeof(LocalizedText), typeof(LayoutElement));
         title_obj.transform.SetParent(obj.transform);

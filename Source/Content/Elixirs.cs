@@ -25,7 +25,8 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
             ref ElementRoot er = ref ingrediants[2].GetComponent<ElementRoot>();
             elixir_entity.AddComponent(er);
         };
-        OpenElementRootElixir.consumed_action = (ActorExtend ae, Entity elixir_entity, ref Elixir _) =>
+        OpenElementRootElixir.effect_type = ElixirEffectType.DataChange;
+        OpenElementRootElixir.effect_action = (ActorExtend ae, Entity elixir_entity, ref Elixir _) =>
         {
             ae.AddComponent(elixir_entity.GetComponent<ElementRoot>());
         };
@@ -57,7 +58,8 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
             ref ElementRoot er = ref ingrediants[0].GetComponent<ElementRoot>();
             elixir_entity.GetComponent<Elixir>().value = er.GetStrength();
         };
-        WakanRestoreElixir.consumed_action = (ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
+        WakanRestoreElixir.effect_type = ElixirEffectType.Restore;
+        WakanRestoreElixir.effect_action = (ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
         {
             ae.RestoreWakan(elixir.value);
         };
