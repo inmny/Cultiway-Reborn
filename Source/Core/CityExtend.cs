@@ -54,13 +54,13 @@ public class CityExtend : ExtendComponent<City>, IHasInventory
 
     public void TestAddSpecialItem()
     {
-        AddSpecialItem(SpecialItemUtils.StartBuild(ItemShapes.Ball.id).Build());
+        AddSpecialItem(SpecialItemUtils.StartBuild(ItemShapes.Ball.id, World.world.getCurWorldTime()).Build());
     }
 
     public void TestAddOpenElementRootElixir()
     {
         AddSpecialItem(
-            SpecialItemUtils.StartBuild(ItemShapes.Ball.id)
+            SpecialItemUtils.StartBuild(ItemShapes.Ball.id, World.world.getCurWorldTime())
                 .AddComponent(ElementRoot.Roll())
                 .AddComponent(new Elixir
                 {

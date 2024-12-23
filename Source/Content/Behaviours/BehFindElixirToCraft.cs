@@ -20,7 +20,8 @@ public class BehFindElixirToCraft : BehCity
         ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.GetRandom();
         if (elixir_asset.QueryInventoryForIngrediants(pObject.city.GetExtend(), out var ingredients))
         {
-            Entity crafting_elixir = SpecialItemUtils.StartBuild(ItemShapes.Ball.id)
+            Entity crafting_elixir = SpecialItemUtils
+                .StartBuild(ItemShapes.Ball.id, World.world.getCurWorldTime(), pObject.getName())
                 .AddComponent(new CraftingElixir
                 {
                     elixir_id = elixir_asset.id

@@ -53,7 +53,8 @@ internal static class PatchActor
         if (receiver.city == null) return;
         CityExtend ce = receiver.city.GetExtend();
 
-        SpecialItemUtils.Builder item_builder = SpecialItemUtils.StartBuild(ItemShapes.Ball.id);
+        SpecialItemUtils.Builder item_builder =
+            SpecialItemUtils.StartBuild(ItemShapes.Ball.id, __instance.data.created_time, __instance.getName());
         if (dead_ae.HasComponent<Jindan>()) item_builder.AddComponent(dead_ae.GetComponent<Jindan>());
         if (dead_ae.HasComponent<XianBase>()) item_builder.AddComponent(dead_ae.GetComponent<XianBase>());
         if (dead_ae.HasComponent<ElementRoot>()) item_builder.AddComponent(dead_ae.GetComponent<ElementRoot>());
