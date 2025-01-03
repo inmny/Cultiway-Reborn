@@ -15,7 +15,7 @@ public static class ActorExtendTools
     /// </summary>
     /// <remarks>一旦使用成功，丹药实体将被删除</remarks>
     /// <returns>是否使用成功 </returns>
-    public static bool ConsumeElixir(this ActorExtend ae, Entity elixir_entity)
+    public static bool TryConsumeElixir(this ActorExtend ae, Entity elixir_entity)
     {
         ref Elixir elixir = ref elixir_entity.GetComponent<Elixir>();
         ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.get(elixir.elixir_id);

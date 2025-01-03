@@ -86,7 +86,7 @@ public class CityExtend : ExtendComponent<City>, IHasInventory
         if (lucky_dog == null) return;
         SpecialItem elixir = open_element_root_elixirs.GetRandom();
 
-        lucky_dog.ConsumeElixir(elixir.self);
+        lucky_dog.TryConsumeElixir(elixir.self);
         ModClass.LogInfo(lucky_dog.Base.getName());
     }
 
