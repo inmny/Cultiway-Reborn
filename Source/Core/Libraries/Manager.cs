@@ -7,6 +7,7 @@ public class Manager
     public ElementRootLibrary   ElementRootLibrary   { get; } = new();
     public ItemShapeLibrary   ItemShapeLibrary   { get; } = new();
     public RandomEventLibrary RandomEventLibrary { get; } = new();
+    public StatusEffectLibrary StatusEffectLibrary { get; } = new();
 
     public void Init()
     {
@@ -15,6 +16,7 @@ public class Manager
         AssetManager.instance.add(CustomMapModeLibrary, "custom_map_modes");
         AssetManager.instance.add(ItemShapeLibrary,   "item_shapes");
         AssetManager.instance.add(RandomEventLibrary, "random_events");
+        AssetManager.instance.add(StatusEffectLibrary, "status_effects");
     }
 
     public void PostInit()
@@ -24,5 +26,6 @@ public class Manager
         CustomMapModeLibrary.post_init();
         ItemShapeLibrary.post_init();
         RandomEventLibrary.post_init();
+        StatusEffectLibrary.post_init();
     }
 }

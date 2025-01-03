@@ -20,7 +20,7 @@ using UnityEngine;
 
 namespace Cultiway.Core;
 
-public class ActorExtend : ExtendComponent<Actor>, IHasInventory
+public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
 {
     private static Action<ActorExtend> action_on_new_creature;
 
@@ -52,6 +52,16 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory
     public void ExtractSpecialItem(Entity item)
     {
         e.RemoveRelation<InventoryRelation>(item);
+    }
+
+    public void AddSharedStatus(Entity item)
+    {
+        e.AddRelation(new StatusRelation { status = item });
+    }
+
+    public List<Entity> GetStatuses()
+    {
+        return e.GetRelations<StatusRelation>().Select(x => x.status).ToList();
     }
 
     public List<Entity> GetItems()
@@ -156,6 +166,19 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory
         if (HasElementRoot())
         {
             Base.stats.mergeStats(GetElementRoot().Stats);
+        }
+        foreach (var status_entity in GetStatuses())
+        {
+            if (status_entity.HasComponent<StatusOverwriteStats>())
+            {
+                ref var status_stats = ref status_entity.GetComponent<StatusOverwriteStats>().stats;
+                if (status_stats != null)
+                    Base.stats.mergeStats(status_entity.GetComponent<StatusOverwriteStats>().stats);
+            }
+            else
+            {
+                Base.stats.mergeStats(status_entity.GetComponent<StatusComponent>().Type.stats);
+            }
         }
 
         tmp_all_skills.Clear();
