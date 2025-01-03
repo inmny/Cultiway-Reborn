@@ -29,8 +29,8 @@ internal class Manager
         }
 
         new Patch.Manager().Init();
-        ModClass.I.ActorLogicSystems.Add(new FlyCancelSystem());
-        ModClass.I.ActorRenderSystems.Add(new CloudRenderSystem());
+        ModClass.I.GeneralLogicSystems.Add(new FlyCancelSystem());
+        ModClass.I.GeneralRenderSystems.Add(new CloudRenderSystem());
     }
 
     public void OnReload()

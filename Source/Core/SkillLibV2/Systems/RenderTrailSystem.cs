@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV2.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;

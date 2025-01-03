@@ -1,6 +1,6 @@
 using Friflo.Engine.ECS;
 
-namespace Cultiway.Core.SkillLibV2.Components;
+namespace Cultiway.Core.Components;
 
 public struct TagReadyRecycle : ITag
 {

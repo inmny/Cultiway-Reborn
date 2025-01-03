@@ -121,7 +121,17 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory
         CastSkillV2(CommonWeaponSkills.StartWeaponSkill.id, target);
         ModClass.LogInfo($"{Base.data.id} cast weapon to {target.data.id}");
     }
+    public static void RegisterActionOnGetStats(Action<ActorExtend> action)
+    {
+        action_on_get_stats += action;
+    }
 
+    private static Action<ActorExtend> action_on_get_stats;
+    public float GetStat(string stat_id)
+    {
+        action_on_get_stats?.Invoke(this);
+        return Base.stats[stat_id];
+    }
     internal void ExtendNewCreature()
     {
         // 灵根
@@ -198,19 +208,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory
         }
 
         damage_ratio *= total_ratio / sum * (1 - s_armor[ElementIndex.Entropy]);
-
-        StringBuilder sb = new();
-        var attacker_exist = attacker != null && attacker.isActor() && attacker.a.GetExtend().HasCultisys<Xian>();
-        sb.Append(
-            $"{Base.data.id} get hit by {attacker?.base_data.id ?? "null"}(from Xian: {attacker_exist}) with {damage} damage, ");
         damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
-        sb.Append($"after armor {damage} damage\n");
-        for (var i = 0; i < 8; i++)
-            sb.AppendLine($"{ElementIndex.ElementNames[i]}: {damage_composition[i]}, {s_armor[i]}");
-
-        sb.AppendLine($"Armor: {s_armor[ElementIndex.Entropy + 1]}");
-
-        //if (HasCultisys<Xian>()) ModClass.LogInfo(sb.ToString());
 
         Base.data.health -= (int)damage;
 

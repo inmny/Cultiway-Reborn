@@ -152,9 +152,9 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
 
         ref XianBase xian_base = ref e.GetComponent<XianBase>();
         ElementRoot er = ae.GetElementRoot();
-        var intelligence = ae.Base.stats[S.intelligence];
         if (xian_base.jing == 0)
         {
+            var intelligence = ae.GetStat(S.intelligence);
             if (!allow_first(intelligence))
             {
                 component.wakan = 0;
@@ -165,6 +165,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         }
         else if (xian_base.qi == 0)
         {
+            var intelligence = ae.GetStat(S.intelligence);
             if (!allow_first(intelligence))
             {
                 component.wakan = 0;
@@ -175,6 +176,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         }
         else if (xian_base.shen == 0)
         {
+            var intelligence = ae.GetStat(S.intelligence);
             if (!allow_first(intelligence))
             {
                 component.wakan = 0;

@@ -1,3 +1,5 @@
+using Cultiway.Const;
+using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV2.Api;
 using Cultiway.Core.SkillLibV2.Components;
 using Friflo.Engine.ECS;
@@ -90,6 +92,13 @@ public class SkillEntityMeta
 
         public SkillEntityMeta Build()
         {
+            if (!_under_build._prefab.HasComponent<AliveTimeLimit>())
+            {
+                _under_build._prefab.AddComponent(new AliveTimeLimit()
+                {
+                    value = SkillConst.recycle_time
+                });
+            }
             return _under_build;
         }
     }

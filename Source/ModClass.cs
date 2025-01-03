@@ -5,6 +5,7 @@ using Cultiway.AbstractGame.AbstractEngine;
 using Cultiway.Content;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV2.Examples;
+using Cultiway.Core.Systems.Logic;
 using Cultiway.Debug;
 using Cultiway.LocaleKeys;
 using Friflo.Engine.ECS;
@@ -31,8 +32,8 @@ namespace Cultiway
         public        CustomMapModeManager    CustomMapModeManager { get; private set; }
         public WorldboxGame Game { get; private set; }
         public        AEngine                 Engine               { get; }
-        public SystemRoot ActorLogicSystems  { get; private set; }
-        public SystemRoot ActorRenderSystems { get; private set; }
+        public SystemRoot GeneralLogicSystems  { get; private set; }
+        public SystemRoot GeneralRenderSystems { get; private set; }
         public SystemRoot TileLogicSystems   { get; private set; }
         public SystemRoot TileRenderSystems  { get; private set; }
         public        EntityStore             W                    { get; private set; }
@@ -50,12 +51,12 @@ namespace Cultiway
         {
             if (Game.IsPaused()) return;
             var update_tick = new UpdateTick(Game.GetLogicDeltaTime(), Game.GetGameTime());
-            ActorLogicSystems.Update(update_tick);
+            GeneralLogicSystems.Update(update_tick);
             TileLogicSystems.Update(update_tick);
             SkillV2.UpdateLogic(update_tick);
             Geo.UpdateLogic(update_tick);
 
-            ActorRenderSystems.Update(update_tick);
+            GeneralRenderSystems.Update(update_tick);
             TileRenderSystems.Update(update_tick);
             SkillV2.UpdateRender(update_tick);
         }
@@ -98,15 +99,19 @@ namespace Cultiway
             L = new Core.Libraries.Manager();
             L.Init();
 
-            ActorLogicSystems = new SystemRoot(nameof(ActorLogicSystems));
-            ActorRenderSystems = new SystemRoot(nameof(ActorRenderSystems));
+            GeneralLogicSystems = new SystemRoot(nameof(GeneralLogicSystems));
+            GeneralRenderSystems = new SystemRoot(nameof(GeneralRenderSystems));
             TileLogicSystems = new SystemRoot(nameof(TileLogicSystems));
             TileRenderSystems = new SystemRoot(nameof(TileRenderSystems));
 
-            ActorLogicSystems.AddStore(W);
-            ActorRenderSystems.AddStore(W);
+            GeneralLogicSystems.AddStore(W);
+            GeneralRenderSystems.AddStore(W);
             TileLogicSystems.AddStore(TileExtendManager.World);
             TileRenderSystems.AddStore(TileExtendManager.World);
+            
+            GeneralLogicSystems.Add(new AliveTimerSystem());
+            GeneralLogicSystems.Add(new AliveTimerCheckSystem());
+            GeneralLogicSystems.Add(new EntityRecycleSystem());
 
             CustomMapModeManager = new();
             CustomMapModeManager.Initialize();

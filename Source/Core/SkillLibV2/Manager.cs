@@ -4,6 +4,7 @@ using Cultiway.Core.SkillLibV2.Api;
 using Cultiway.Core.SkillLibV2.Predefined;
 using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Core.SkillLibV2.Systems;
+using Cultiway.Core.Systems.Logic;
 using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -33,9 +34,10 @@ public class Manager
         _observer_worlds = [];
 
         _logic.Add(_trigger_logic);
-        _logic.Add(new LogicSkillEntityAliveTimeSystem());
+        _logic.Add(new AliveTimerSystem());
+        _logic.Add(new AliveTimerCheckSystem());
+        _logic.Add(new EntityRecycleSystem());
         _logic.Add(new LogicRecycleAnimRendererSystem());
-        _logic.Add(new LogicRecycleSkillEntitySystem());
         _logic.Add(new LogicTrajectorySystem(World));
         _logic.Add(new LogicAnimFrameUpdateSystem(World));
 

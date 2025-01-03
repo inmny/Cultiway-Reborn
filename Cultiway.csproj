@@ -66,5 +66,6 @@
     <ItemGroup>
         <Folder Include="GameResources\cultiway\icons\stats\"/>
         <Folder Include="Source\Core\GeoLib\Components\"/>
+        <Folder Include="Source\Core\Systems\Render\" />
     </ItemGroup>
 </Project>
