@@ -64,15 +64,6 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
-        <Compile Remove="Jenny\**"/>
-    </ItemGroup>
-    <ItemGroup>
-        <EmbeddedResource Remove="Jenny\**"/>
-    </ItemGroup>
-    <ItemGroup>
-        <None Remove="Jenny\**"/>
-    </ItemGroup>
-    <ItemGroup>
         <Folder Include="GameResources\cultiway\icons\stats\"/>
         <Folder Include="Source\Core\GeoLib\Components\"/>
     </ItemGroup>
