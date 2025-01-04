@@ -117,6 +117,7 @@ namespace Cultiway
             GeneralLogicSystems.Add(new AliveTimerCheckSystem());
             
             GeneralLogicSystems.Add(new RecycleAnimRendererSystem());
+            GeneralLogicSystems.Add(new RecycleStatusEffectSystem());
             GeneralLogicSystems.Add(new RecycleDefaultEntitySystem());
             
             GeneralRenderSystems.Add(new RenderAnimFrameSystem(W));

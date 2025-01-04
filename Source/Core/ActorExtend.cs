@@ -4,7 +4,9 @@ using System.Linq;
 using System.Text;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content;
 using Cultiway.Content.Components;
+using Cultiway.Content.Extensions;
 using Cultiway.Content.Skills;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
@@ -12,6 +14,7 @@ using Cultiway.Core.SkillLibV2;
 using Cultiway.Core.SkillLibV2.Api;
 using Cultiway.Core.SkillLibV2.Examples;
 using Cultiway.Patch;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using HarmonyLib;
@@ -57,6 +60,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     public void AddSharedStatus(Entity item)
     {
         e.AddRelation(new StatusRelation { status = item });
+        Base.setStatsDirty();
+    }
+
+    public void RemoveSharedStatus(Entity item)
+    {
+        e.RemoveRelation<StatusRelation>(item);
+        Base.setStatsDirty();
     }
 
     public List<Entity> GetStatuses()
@@ -130,6 +140,17 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
 
         CastSkillV2(CommonWeaponSkills.StartWeaponSkill.id, target);
         ModClass.LogInfo($"{Base.data.id} cast weapon to {target.data.id}");
+    }
+
+    private void TestConsumeEnlightenElixir()
+    {
+        var elixir = SpecialItemUtils.StartBuild(ItemShapes.Ball.id, World.world.getCurWorldTime(), Base.getName())
+            .AddComponent(new Elixir()
+            {
+                elixir_id = Elixirs.EnlightenElixir.id
+            })
+            .Build();
+        this.TryConsumeElixir(elixir);
     }
     public static void RegisterActionOnGetStats(Action<ActorExtend> action)
     {

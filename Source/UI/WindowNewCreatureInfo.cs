@@ -111,6 +111,8 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 
         RegisterPage(nameof(ElementRootPage), a => a.GetExtend().HasElementRoot(), ElementRootPage.Setup,
             ElementRootPage.Show);
+        RegisterPage(nameof(StatusEffectPage), a => a.GetExtend().GetStatuses().Count > 0, StatusEffectPage.Setup,
+            StatusEffectPage.Show);
 
         create_pages();
 

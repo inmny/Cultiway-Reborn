@@ -68,6 +68,39 @@ public class ElixirAsset : Asset
     public ElixirEffectType     effect_type;
     public ElixirIngrediantCheck[] ingrediants;
     public string                  name_key;
+    public void SetupDataGain(ElixirEffectDelegate effect_action)
+    {
+        this.effect_action = effect_action;
+        effect_type = ElixirEffectType.DataGain;
+    }
+    public void SetupDataChange(ElixirEffectDelegate effect_action)
+    {
+        this.effect_action = effect_action;
+        effect_type = ElixirEffectType.DataChange;
+    }
+    public void SetupRestore(ElixirEffectDelegate effect_action)
+    {
+        this.effect_action = effect_action;
+        effect_type = ElixirEffectType.Restore;
+    }
+    public void SetupStatusGain(StatusComponent status_given, StatusOverwriteStats overwrite_stats = default)
+    {
+        effect_action = (ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
+        {
+            var status = status_given.Type.NewEntity();
+            if (overwrite_stats != default)
+            {
+                status.AddComponent(overwrite_stats);
+            }
+            ae.AddSharedStatus(status_given.Type.NewEntity());
+        };
+        effect_type = ElixirEffectType.StatusGain;
+    }
+    public void SetupStatusGain(ElixirEffectDelegate effect_action)
+    {
+        this.effect_action = effect_action;
+        effect_type = ElixirEffectType.StatusGain;
+    }
 
     [Hotfixable]
     public void Craft(ActorExtend ae, Entity crafting_elixir_entity, IHasInventory receiver, Entity[] corr_ingrediants)

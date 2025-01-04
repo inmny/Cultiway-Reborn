@@ -25,7 +25,7 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
 
     public override float GetLogicDeltaTime()
     {
-        return Time.deltaTime;
+        return World.world.getCurElapsed();
     }
 
     public override float GetGameTime()

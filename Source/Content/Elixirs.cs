@@ -15,6 +15,7 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
     private const string      prefix = "Cultiway.Elixir";
     public static ElixirAsset OpenElementRootElixir { get; private set; }
     public static ElixirAsset WakanRestoreElixir { get; private set; }
+    public static ElixirAsset EnlightenElixir { get; private set; }
 
     protected override void OnInit()
     {
@@ -25,11 +26,10 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
             ref ElementRoot er = ref ingrediants[2].GetComponent<ElementRoot>();
             elixir_entity.AddComponent(er);
         };
-        OpenElementRootElixir.effect_type = ElixirEffectType.DataChange;
-        OpenElementRootElixir.effect_action = (ActorExtend ae, Entity elixir_entity, ref Elixir _) =>
+        OpenElementRootElixir.SetupDataChange((ActorExtend ae, Entity elixir_entity, ref Elixir _) =>
         {
             ae.AddComponent(elixir_entity.GetComponent<ElementRoot>());
-        };
+        });
         OpenElementRootElixir.consumable_check_action =
             (ActorExtend ae, Entity elixir_entity, ref Elixir _) => !ae.HasElementRoot();
         OpenElementRootElixir.ingrediants = new ElixirIngrediantCheck[]
@@ -58,11 +58,10 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
             ref ElementRoot er = ref ingrediants[0].GetComponent<ElementRoot>();
             elixir_entity.GetComponent<Elixir>().value = er.GetStrength();
         };
-        WakanRestoreElixir.effect_type = ElixirEffectType.Restore;
-        WakanRestoreElixir.effect_action = (ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
+        WakanRestoreElixir.SetupRestore((ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
         {
             ae.RestoreWakan(elixir.value);
-        };
+        });
         WakanRestoreElixir.consumable_check_action = (ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
             ae.HasCultisys<Xian>() && ae.GetCultisys<Xian>().wakan <
             ae.Base.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit;
@@ -74,5 +73,20 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
                 element_root_id = ModClass.L.ElementRootLibrary.Common.id
             }
         };
+        EnlightenElixir.name_key = $"{prefix}.EnlightenElixir";
+        EnlightenElixir.SetupStatusGain((ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
+        {
+            var value = Toolbox.randomFloat(10, 60);// elixir.value;
+            var status = StatusEffects.Enlighten.NewEntity();
+            status.AddComponent(new StatusOverwriteStats(){stats = new BaseStats()
+            {
+                [S.intelligence] = value
+            }});
+            status.AddComponent(new AliveTimeLimit()
+            {
+                value = value
+            });
+            ae.AddSharedStatus(status);
+        });
     }
 }

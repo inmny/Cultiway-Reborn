@@ -15,7 +15,7 @@ public class AliveTimerCheckSystem : QuerySystem<AliveTimer, AliveTimeLimit>
         var cmd_buf = CommandBuffer;
         Query.ForEachEntity(((ref AliveTimer timer, ref AliveTimeLimit limit, Entity e) =>
         {
-            if (timer.value >= limit.value) cmd_buf.AddTag<TagPrefab>(e.Id);
+            if (timer.value >= limit.value) cmd_buf.AddTag<TagRecycle>(e.Id);
         }));
         cmd_buf.Playback();
     }

@@ -20,4 +20,29 @@ public struct StatusOverwriteStats : IComponent
         }
         target.stats.mergeStats(source.stats);
     }
+
+    public override bool Equals(object obj)
+    {
+        return obj is StatusOverwriteStats other && Equals(other);
+    }
+
+    public bool Equals(StatusOverwriteStats other)
+    {
+        return Equals(stats, other.stats);
+    }
+
+    public override int GetHashCode()
+    {
+        return (stats != null ? stats.GetHashCode() : 0);
+    }
+
+    public static bool operator ==(StatusOverwriteStats left, StatusOverwriteStats right)
+    {
+        return left.Equals(right);
+    }
+
+    public static bool operator !=(StatusOverwriteStats left, StatusOverwriteStats right)
+    {
+        return !left.Equals(right);
+    }
 }
