@@ -5,8 +5,6 @@ using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
 using UnityEngine;
-using Position = Cultiway.Core.Components.Position;
-using Rotation = Cultiway.Core.Components.Rotation;
 
 namespace Cultiway.Core.Systems.Render;
 
@@ -26,10 +24,7 @@ public class RenderAnimFrameSystem : BaseSystem
         obj.transform.localPosition = Vector3.zero;
         obj.transform.localScale = Vector3.one;
 
-        var prefab = ModClass.NewPrefabPreview(nameof(AnimRenderer)).AddComponent<AnimRenderer>();
-        prefab.bind = prefab.GetComponent<SpriteRenderer>();
-        prefab.bind.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
-        _pool = new MonoObjPool<AnimRenderer>(prefab, obj.transform, s => s.pool = _pool);
+        _pool = AnimRenderer.NewPool(obj.transform);
 
 
         var filter = new QueryFilter();
@@ -61,7 +56,7 @@ public class RenderAnimFrameSystem : BaseSystem
                     bind_renderer.value = renderer;
                 }
             });
-        pos_query.ForEachComponents([Hotfixable](ref Position pos, ref AnimBindRenderer bind_renderer) =>
+        pos_query.ForEachComponents((ref Position pos, ref AnimBindRenderer bind_renderer) =>
         {
             if (bind_renderer.value == null) return;
             bind_renderer.value.transform.localPosition = new Vector3(pos.x, pos.y + pos.z);
@@ -90,17 +85,5 @@ public class RenderAnimFrameSystem : BaseSystem
     private bool NeedRender(Sprite sprite, ref Position pos, ref Scale scale)
     {
         return true;
-    }
-
-    [RequireComponent(typeof(SpriteRenderer))]
-    internal class AnimRenderer : MonoBehaviour
-    {
-        public SpriteRenderer             bind;
-        public MonoObjPool<AnimRenderer> pool;
-
-        public void Return()
-        {
-            pool.Return(this);
-        }
     }
 }

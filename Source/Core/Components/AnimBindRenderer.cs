@@ -6,5 +6,5 @@ namespace Cultiway.Core.Components;
 
 internal struct AnimBindRenderer : IComponent
 {
-    public RenderAnimFrameSystem.AnimRenderer value;
+    public AnimRenderer value;
 }
