@@ -137,6 +137,11 @@ public class ElixirAsset : Asset
 
     public bool QueryInventoryForIngrediants(IHasInventory inv, out Entity[] corr_ingrediants)
     {
+        if (ingrediants == null || ingrediants.Length == 0)
+        {
+            corr_ingrediants = null;
+            return false;
+        }
         var check_result = new Entity[ingrediants.Length];
         var items = inv.GetItems();
         foreach (Entity item in items)

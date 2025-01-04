@@ -6,6 +6,7 @@ using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
+using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content;
 
