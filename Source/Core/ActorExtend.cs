@@ -45,6 +45,23 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
 
     public override Actor Base => e.HasComponent<ActorBinder>() ? e.GetComponent<ActorBinder>().Actor : null;
 
+    public float GetPowerLevel()
+    {
+        return E.TryGetComponent(out PowerLevel power_level) ? power_level.value : 0;
+    }
+
+    public void UpgradePowerLevel(float min_level)
+    {
+        if (E.HasComponent<PowerLevel>())
+        {
+            ref var power_level = ref E.GetComponent<PowerLevel>();
+            power_level.value = Mathf.Max(power_level.value, min_level);
+        }
+        else
+        {
+            E.AddComponent(new PowerLevel { value = min_level });
+        }
+    }
     public void AddSpecialItem(Entity item)
     {
         item.GetIncomingLinks<InventoryRelation>().Entities
@@ -233,35 +250,46 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     [Hotfixable]
     public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker)
     {
-        var damage_ratio = 1 - s_armor[ElementIndex.Entropy + 1];
-        var total_ratio = 0f;
-        var sum = 0f;
-        for (var i = 0; i < 5; i++)
+        var attacker_power_level = (attacker?.isActor() ?? false) ? attacker.a.GetExtend().GetPowerLevel() : 0;
+        var power_level = GetPowerLevel();
+        if (power_level > attacker_power_level)
         {
-            total_ratio += damage_composition[i] * (1 - s_armor[i]);
-            sum += damage_composition[i];
+            damage = Mathf.Log(Mathf.Max(damage, 1),
+                Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - attacker_power_level));
         }
 
-        damage_ratio *= total_ratio / sum;
-        total_ratio = 0f;
-        sum = 0f;
-        for (var i = 5; i < 7; i++)
+        if (damage >= 1)
         {
-            total_ratio += damage_composition[i] * (1 - s_armor[i]);
-            sum += damage_composition[i];
+            var damage_ratio = 1 - s_armor[ElementIndex.Entropy + 1];
+            var total_ratio = 0f;
+            var sum = 0f;
+            for (var i = 0; i < 5; i++)
+            {
+                total_ratio += damage_composition[i] * (1 - s_armor[i]);
+                sum += damage_composition[i];
+            }
+
+            damage_ratio *= total_ratio / sum;
+            total_ratio = 0f;
+            sum = 0f;
+            for (var i = 5; i < 7; i++)
+            {
+                total_ratio += damage_composition[i] * (1 - s_armor[i]);
+                sum += damage_composition[i];
+            }
+
+            damage_ratio *= total_ratio / sum * (1 - s_armor[ElementIndex.Entropy]);
+            damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
+
+            Base.data.health -= (int)damage;
         }
 
-        damage_ratio *= total_ratio / sum * (1 - s_armor[ElementIndex.Entropy]);
-        damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
-
-        Base.data.health -= (int)damage;
-
-        // 补齐原版的一些效果
+        // 补齐原版的一些效果// 补齐原版的一些效果
         int health_before = Base.data.health;
 
         if (Base.data.health <= 0) Base.data.health = 1;
         PatchActor.getHit_snapshot(Base, 0, pAttacker: attacker);
-
+        
         Base.data.health = health_before; // 防止强制扣血
     }
 

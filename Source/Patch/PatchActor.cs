@@ -6,6 +6,7 @@ using System.Reflection.Emit;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
+using NeoModLoader.api.attributes;
 
 namespace Cultiway.Patch;
 
@@ -17,6 +18,26 @@ internal static class PatchActor
                                        bool       pSkipIfShake = true,             bool pMetallicWeapon = false)
     {
         throw new NotImplementedException();
+    }
+    [Hotfixable]
+    [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
+    public static IEnumerable<CodeInstruction> getHit_transpiler(IEnumerable<CodeInstruction> codes)
+    {
+        var list = codes.ToList();
+        // 取消受击僵直
+        for (var i = 0; i < list.Count - 1; i++)
+        {
+            CodeInstruction ldc = list[i];
+            CodeInstruction stfld = list[i + 1];
+            if (ldc.opcode                          == OpCodes.Ldc_R4 && stfld.opcode == OpCodes.Stfld &&
+                (stfld.operand as MemberInfo)?.Name == nameof(ActorBase.timer_action))
+            {
+                ldc.operand = 0.0f;
+                break;
+            }
+        }
+
+        return list;
     }
 
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]

@@ -102,19 +102,22 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
     private         Upgrade[]      _upgrade_actions;
     private         CheckUpgrade[] _upgrade_checkers;
     private         CheckUpgrade[] _upgrade_pre_checkers;
+    private float[] _power_levels;
 
     public CultisysAsset(string id, int level_nr, T default_component, CheckUpgrade[] upgrade_pre_checkers = null,
                          CheckUpgrade[] upgrade_checkers = null, Upgrade[] upgrade_actions = null,
-                         List<string>[] skills           = null) : base(id, level_nr)
+                         List<string>[] skills           = null, float[] power_levels = null) : base(id, level_nr)
     {
         _upgrade_actions = upgrade_actions           ?? new Upgrade[level_nr];
         _upgrade_pre_checkers = upgrade_pre_checkers ?? new CheckUpgrade[level_nr];
         _upgrade_checkers = upgrade_checkers         ?? new CheckUpgrade[level_nr];
+        _power_levels = power_levels                 ?? new float[level_nr];
         _skills = new List<string>[level_nr];
 
         Assert.Equals(_upgrade_actions.Length,      level_nr);
         Assert.Equals(_upgrade_checkers.Length,     level_nr);
         Assert.Equals(_upgrade_pre_checkers.Length, level_nr);
+        Assert.Equals(_power_levels.Length,         level_nr);
         if (skills != null)
         {
             Assert.Equals(skills.Length, level_nr);
@@ -122,16 +125,23 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
             for (var i = 1; i < level_nr; i++) _skills[i] = _skills[i - 1].Concat(skills[i] ?? []).ToList();
         }
 
+        if (power_levels == null)
+        {
+            for (var i = 0; i < level_nr; i++) _power_levels[i] = i + 1;
+        }
+
         DefaultComponent = default_component;
         UpgradePreCheckers = Array.AsReadOnly(_upgrade_pre_checkers);
         UpgradeCheckers = Array.AsReadOnly(_upgrade_checkers);
         UpgradeActions = Array.AsReadOnly(_upgrade_actions);
+        PowerLevels = Array.AsReadOnly(_power_levels);
         Skills = Array.AsReadOnly(_skills.Select(x => x.AsReadOnly()).ToArray());
     }
 
     public ReadOnlyCollection<CheckUpgrade>               UpgradePreCheckers { get; private set; }
     public ReadOnlyCollection<CheckUpgrade>               UpgradeCheckers    { get; private set; }
     public ReadOnlyCollection<Upgrade>                    UpgradeActions     { get; private set; }
+    public ReadOnlyCollection<float>                      PowerLevels        { get; private set; }
     public ReadOnlyCollection<ReadOnlyCollection<string>> Skills             { get; private set; }
     public OnGet                                          OnGetAction        { get; private set; }
 
@@ -161,6 +171,7 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
         if (upgrade_action == null)
         {
             c.CurrLevel++;
+            ae.UpgradePowerLevel(PowerLevels[c.CurrLevel]);
             ae.Base.setStatsDirty();
 
             ModClass.I.WorldRecord.CheckAndLogFirstLevelup(id, c.CurrLevel, ae, ref c);
