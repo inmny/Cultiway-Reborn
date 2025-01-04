@@ -55,6 +55,22 @@ public partial class WorldboxGame
         {
             RegisterAssets("Cultiway.BaseStats");
             Armor.normalize = false;
+            IronArmor.icon = $"cultiway/icons/stats/{nameof(IronArmor)}";
+            WoodArmor.icon = $"cultiway/icons/stats/{nameof(WoodArmor)}";
+            WaterArmor.icon = $"cultiway/icons/stats/{nameof(WaterArmor)}";
+            FireArmor.icon = $"cultiway/icons/stats/{nameof(FireArmor)}";
+            EarthArmor.icon = $"cultiway/icons/stats/{nameof(EarthArmor)}";
+            NegArmor.icon = $"cultiway/icons/stats/{nameof(NegArmor)}";
+            PosArmor.icon = $"cultiway/icons/stats/{nameof(PosArmor)}";
+            EntropyArmor.icon = $"cultiway/icons/stats/{nameof(EntropyArmor)}";
+            IronMaster.icon = $"cultiway/icons/stats/{nameof(IronMaster)}";
+            WoodMaster.icon = $"cultiway/icons/stats/{nameof(WoodMaster)}";
+            WaterMaster.icon = $"cultiway/icons/stats/{nameof(WaterMaster)}";
+            FireMaster.icon = $"cultiway/icons/stats/{nameof(FireMaster)}";
+            EarthMaster.icon = $"cultiway/icons/stats/{nameof(EarthMaster)}";
+            NegMaster.icon = $"cultiway/icons/stats/{nameof(NegMaster)}";
+            PosMaster.icon = $"cultiway/icons/stats/{nameof(PosMaster)}";
+            EntropyMaster.icon = $"cultiway/icons/stats/{nameof(EntropyMaster)}";
 
             ArmorStats = new ReadOnlyCollection<string>(new List<string>
             {
@@ -82,6 +98,7 @@ public partial class WorldboxGame
 
         protected override BaseStatAsset Add(BaseStatAsset asset)
         {
+            asset.translation_key = asset.id;
             if (asset.mod) return base.Add(asset);
             Add(new BaseStatAsset
             {

@@ -120,13 +120,25 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
         _armor_graph.SetSize(new Vector2(100, 120));
         _armor_graph.transform.localPosition = new Vector3(-30, -60);
         _armor_graph.Setup("Cultiway.UI.ArmorGraph", 8, 0, new Color(0, 1, 1, 0.5f),
-            SpriteTextureLoader.getSprite("cultiway/special/Polygon8Background"));
+            SpriteTextureLoader.getSprite("cultiway/special/Polygon8Background"),
+            WorldboxGame.BaseStats.ArmorStats
+                .Select(id => AssetManager.base_stats_library.get(id))
+                .Select(x => new Tuple<Sprite, TooltipData>(SpriteTextureLoader.getSprite(x.icon), new TooltipData()
+                {
+                    tip_name = x.translation_key
+                })).ToList());
 
         _master_graph = PolygonGraph.Instantiate(BackgroundTransform, pName: "Master Graph");
         _master_graph.SetSize(new Vector2(100, 120));
         _master_graph.transform.localPosition = new Vector3(-220, -60);
         _master_graph.Setup("Cultiway.UI.MasterGraph", 8, 0, new Color(0, 1, 1, 0.5f),
-            SpriteTextureLoader.getSprite("cultiway/special/Polygon8Background"));
+            SpriteTextureLoader.getSprite("cultiway/special/Polygon8Background"),
+            WorldboxGame.BaseStats.MasterStats
+                .Select(id => AssetManager.base_stats_library.get(id))
+                .Select(x => new Tuple<Sprite, TooltipData>(SpriteTextureLoader.getSprite(x.icon), new TooltipData()
+                {
+                    tip_name = x.translation_key
+                })).ToList());
     }
 
     public static void RegisterPage(string id, Func<Actor, bool> condition, Action<CreatureInfoPage> setup_action,
@@ -192,36 +204,14 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
     [Hotfixable]
     private void DrawGraphs(BaseStats stats)
     {
-        var armor_values =
-            new List<float>
-            {
-                stats[nameof(WorldboxGame.BaseStats.IronArmor)],
-                stats[nameof(WorldboxGame.BaseStats.WoodArmor)],
-                stats[nameof(WorldboxGame.BaseStats.WaterArmor)],
-                stats[nameof(WorldboxGame.BaseStats.FireArmor)],
-                stats[nameof(WorldboxGame.BaseStats.EarthArmor)],
-                stats[nameof(WorldboxGame.BaseStats.NegArmor)],
-                stats[nameof(WorldboxGame.BaseStats.EntropyArmor)],
-                stats[nameof(WorldboxGame.BaseStats.PosArmor)]
-            };
+        var armor_values = WorldboxGame.BaseStats.ArmorStats.Select(id => stats[id]).ToList();
         for (var i = 0; i < armor_values.Count; i++)
             armor_values[i] = -Mathf.Log10(Mathf.Min(1,
                 1 - armor_values[i] / (armor_values[i] + DamageCalcHyperParameters.ArmorEffectDecay)));
 
         _armor_graph.Draw(armor_values, Mathf.Max(armor_values.Max(), 5));
 
-        var master_values =
-            new List<float>
-            {
-                stats[nameof(WorldboxGame.BaseStats.IronMaster)],
-                stats[nameof(WorldboxGame.BaseStats.WoodMaster)],
-                stats[nameof(WorldboxGame.BaseStats.WaterMaster)],
-                stats[nameof(WorldboxGame.BaseStats.FireMaster)],
-                stats[nameof(WorldboxGame.BaseStats.EarthMaster)],
-                stats[nameof(WorldboxGame.BaseStats.NegMaster)],
-                stats[nameof(WorldboxGame.BaseStats.EntropyMaster)],
-                stats[nameof(WorldboxGame.BaseStats.PosMaster)]
-            };
+        var master_values = WorldboxGame.BaseStats.MasterStats.Select(id => stats[id]).ToList();
         for (var i = 0; i < master_values.Count; i++) master_values[i] = Mathf.Log10(Mathf.Max(1, master_values[i]));
 
         _master_graph.Draw(master_values, Mathf.Max(master_values.Max(), 5));

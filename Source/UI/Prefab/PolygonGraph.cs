@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
@@ -14,6 +15,7 @@ public class PolygonGraph : APrefabPreview<PolygonGraph>
     public PolygonComponent    Polygon    { get; private set; }
     public Image               Background { get; private set; }
     public VerticalLayoutGroup Layout     { get; private set; }
+    private MonoObjPool<TipIcon> _icon_pool;
 
     protected override void OnInit()
     {
@@ -21,6 +23,7 @@ public class PolygonGraph : APrefabPreview<PolygonGraph>
         Title = transform.Find(nameof(Title)).GetComponent<Text>();
         Background = transform.Find(nameof(Background)).GetComponent<Image>();
         Polygon = transform.Find(nameof(Background)).Find(nameof(Polygon)).GetComponent<PolygonComponent>();
+        _icon_pool = new MonoObjPool<TipIcon>(TipIcon.Prefab, transform, x => x.gameObject.AddComponent<LayoutElement>().ignoreLayout = true);
     }
 
     public override void SetSize(Vector2 pSize)
@@ -35,7 +38,7 @@ public class PolygonGraph : APrefabPreview<PolygonGraph>
     }
 
     public void Setup(string       title_key, int sides, float rotation, Color color, Sprite background,
-                      List<Sprite> icons = null)
+                      List<Tuple<Sprite, TooltipData>> icons = null)
     {
         Init();
         Title.GetComponent<LocalizedText>().setKeyAndUpdate(title_key);
@@ -43,6 +46,27 @@ public class PolygonGraph : APrefabPreview<PolygonGraph>
         Polygon.rotation = rotation;
         Polygon.color = color;
         Polygon.DrawPolygon(sides);
+        
+        _icon_pool.Clear();
+        if (icons != null)
+        {
+            var degrees = 360f / sides;
+            var i = 0;
+            var icon_size = new Vector2(16, 16);
+            foreach (var icon in icons)
+            {
+                var tip_icon = _icon_pool.GetNext();
+                tip_icon.Setup(icon.Item1, icon.Item2, icon_size);
+                
+                var rad = (degrees * i + rotation-180) * Mathf.Deg2Rad;
+                var pos = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * (Polygon.rectTransform.sizeDelta.x / 2) -
+                    new Vector2(0, 10);
+                
+                tip_icon.transform.localPosition = pos;
+                
+                ++i;
+            }
+        }
     }
 
     public void Draw(List<float> data, float max_value)
