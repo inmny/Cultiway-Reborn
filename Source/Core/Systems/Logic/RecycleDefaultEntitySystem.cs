@@ -4,13 +4,14 @@ using Friflo.Engine.ECS.Systems;
 
 namespace Cultiway.Core.Systems.Logic;
 
-public class EntityRecycleSystem : QuerySystem
+public class RecycleDefaultEntitySystem : QuerySystem
 {
-    public EntityRecycleSystem()
+    public RecycleDefaultEntitySystem()
     {
         Filter.AllTags(Tags.Get<TagRecycle>());
         Filter.WithoutAllTags(Tags.Get<TagPrefab>());
     }
+
     protected override void OnUpdate()
     {
         foreach (Entity e in Query.Entities)

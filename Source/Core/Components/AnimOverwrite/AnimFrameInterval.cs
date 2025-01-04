@@ -1,6 +1,6 @@
 using Friflo.Engine.ECS;
 
-namespace Cultiway.Core.SkillLibV2.Components.AnimOverwrite;
+namespace Cultiway.Core.Components.AnimOverwrite;
 
 public struct AnimFrameInterval : IComponent
 {

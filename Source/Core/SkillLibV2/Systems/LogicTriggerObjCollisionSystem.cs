@@ -5,7 +5,7 @@ using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
-using Position = Cultiway.Core.SkillLibV2.Components.Position;
+using Position = Cultiway.Core.Components.Position;
 
 namespace Cultiway.Core.SkillLibV2.Systems;
 

@@ -1,18 +1,18 @@
 using Cultiway.Core.Components;
+using Cultiway.Core.Components.AnimOverwrite;
 using Cultiway.Core.SkillLibV2.Components;
-using Cultiway.Core.SkillLibV2.Components.AnimOverwrite;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV2.Systems;
 
-public class LogicAnimFrameUpdateSystem : QuerySystem<AnimData, AnimController>
+public class AnimFrameUpdateSystem : QuerySystem<AnimData, AnimController>
 {
     private readonly ArchetypeQuery<AnimData, AnimFrameInterval> interval_query;
     private readonly ArchetypeQuery<AnimData, AnimLoop>          loop_query;
 
-    public LogicAnimFrameUpdateSystem(EntityStore world)
+    public AnimFrameUpdateSystem(EntityStore world)
     {
         Filter.WithoutAnyTags(Tags.Get<TagPrefab>());
         Filter.WithoutAnyComponents(ComponentTypes.Get<AnimFrameInterval, AnimLoop>());

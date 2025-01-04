@@ -5,8 +5,8 @@ using Cultiway.Core.SkillLibV2.Predefined.Modifiers;
 using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
-using Position = Cultiway.Core.SkillLibV2.Components.Position;
-using Rotation = Cultiway.Core.SkillLibV2.Components.Rotation;
+using Position = Cultiway.Core.Components.Position;
+using Rotation = Cultiway.Core.Components.Rotation;
 
 namespace Cultiway.Core.SkillLibV2.Examples;
 

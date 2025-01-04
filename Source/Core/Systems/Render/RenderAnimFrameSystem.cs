@@ -1,19 +1,18 @@
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core.Components;
-using Cultiway.Core.SkillLibV2.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
 using UnityEngine;
-using Position = Cultiway.Core.SkillLibV2.Components.Position;
-using Rotation = Cultiway.Core.SkillLibV2.Components.Rotation;
+using Position = Cultiway.Core.Components.Position;
+using Rotation = Cultiway.Core.Components.Rotation;
 
-namespace Cultiway.Core.SkillLibV2.Systems;
+namespace Cultiway.Core.Systems.Render;
 
 public class RenderAnimFrameSystem : BaseSystem
 {
-    private readonly MonoObjPool<SkillRenderer>                                  _pool;
+    private readonly MonoObjPool<AnimRenderer>                                  _pool;
     private readonly ArchetypeQuery<Position, Scale, AnimData, AnimBindRenderer> init_query;
     private readonly ArchetypeQuery<Position, AnimBindRenderer>                  pos_query;
     private readonly ArchetypeQuery<Rotation, AnimBindRenderer>                  rot_query;
@@ -22,15 +21,15 @@ public class RenderAnimFrameSystem : BaseSystem
 
     public RenderAnimFrameSystem(EntityStore world)
     {
-        var obj = new GameObject("skill_anims");
+        var obj = new GameObject("general_anims");
         obj.transform.SetParent(World.world.transform);
         obj.transform.localPosition = Vector3.zero;
         obj.transform.localScale = Vector3.one;
 
-        var prefab = ModClass.NewPrefabPreview("SkillRenderer").AddComponent<SkillRenderer>();
+        var prefab = ModClass.NewPrefabPreview(nameof(AnimRenderer)).AddComponent<AnimRenderer>();
         prefab.bind = prefab.GetComponent<SpriteRenderer>();
         prefab.bind.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
-        _pool = new MonoObjPool<SkillRenderer>(prefab, obj.transform, s => s.pool = _pool);
+        _pool = new MonoObjPool<AnimRenderer>(prefab, obj.transform, s => s.pool = _pool);
 
 
         var filter = new QueryFilter();
@@ -57,7 +56,7 @@ public class RenderAnimFrameSystem : BaseSystem
                 }
                 else
                 {
-                    SkillRenderer renderer = _pool.GetNext();
+                    AnimRenderer renderer = _pool.GetNext();
                     renderer.bind.sprite = sprite;
                     bind_renderer.value = renderer;
                 }
@@ -94,10 +93,10 @@ public class RenderAnimFrameSystem : BaseSystem
     }
 
     [RequireComponent(typeof(SpriteRenderer))]
-    internal class SkillRenderer : MonoBehaviour
+    internal class AnimRenderer : MonoBehaviour
     {
         public SpriteRenderer             bind;
-        public MonoObjPool<SkillRenderer> pool;
+        public MonoObjPool<AnimRenderer> pool;
 
         public void Return()
         {

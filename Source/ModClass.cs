@@ -5,7 +5,9 @@ using Cultiway.AbstractGame.AbstractEngine;
 using Cultiway.Content;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV2.Examples;
+using Cultiway.Core.SkillLibV2.Systems;
 using Cultiway.Core.Systems.Logic;
+using Cultiway.Core.Systems.Render;
 using Cultiway.Debug;
 using Cultiway.LocaleKeys;
 using Friflo.Engine.ECS;
@@ -109,9 +111,15 @@ namespace Cultiway
             TileLogicSystems.AddStore(TileExtendManager.World);
             TileRenderSystems.AddStore(TileExtendManager.World);
             
+            GeneralLogicSystems.Add(new AnimFrameUpdateSystem(W));
+            
             GeneralLogicSystems.Add(new AliveTimerSystem());
             GeneralLogicSystems.Add(new AliveTimerCheckSystem());
-            GeneralLogicSystems.Add(new EntityRecycleSystem());
+            
+            GeneralLogicSystems.Add(new RecycleAnimRendererSystem());
+            GeneralLogicSystems.Add(new RecycleDefaultEntitySystem());
+            
+            GeneralRenderSystems.Add(new RenderAnimFrameSystem(W));
 
             CustomMapModeManager = new();
             CustomMapModeManager.Initialize();

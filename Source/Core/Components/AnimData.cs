@@ -1,7 +1,7 @@
 using Friflo.Engine.ECS;
 using UnityEngine;
 
-namespace Cultiway.Core.SkillLibV2.Components;
+namespace Cultiway.Core.Components;
 
 public struct AnimData : IComponent
 {

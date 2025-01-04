@@ -1,9 +1,10 @@
 using Cultiway.Abstract;
+using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV2.Components;
 using Friflo.Engine.ECS;
 using UnityEngine;
-using Position = Cultiway.Core.SkillLibV2.Components.Position;
-using Rotation = Cultiway.Core.SkillLibV2.Components.Rotation;
+using Position = Cultiway.Core.Components.Position;
+using Rotation = Cultiway.Core.Components.Rotation;
 
 namespace Cultiway.Core.SkillLibV2;
 

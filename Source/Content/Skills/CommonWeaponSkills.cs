@@ -10,7 +10,7 @@ using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
 using UnityEngine;
-using Position = Cultiway.Core.SkillLibV2.Components.Position;
+using Position = Cultiway.Core.Components.Position;
 
 namespace Cultiway.Content.Skills;
 
