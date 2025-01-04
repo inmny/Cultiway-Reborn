@@ -24,7 +24,7 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
         var prefab = ModClass.NewPrefabPreview("XianCloud").AddComponent<Cloud>();
         prefab.sprite_renderer = prefab.GetComponent<SpriteRenderer>();
         prefab.sprite_renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
-        prefab.sprite_renderer.sprite = SpriteTextureLoader.getSprite("cultiway/special_effects/clouds/clouds");
+        prefab.sprite_renderer.sprite = SpriteTextureLoader.getSprite("cultiway/special_effects/clouds/simple_cloud");
         _pool = new(prefab, obj.transform,
             active_action: [Hotfixable](cloud) => { cloud.transform.localScale = Vector3.one * 0.01f; });
     }
@@ -40,7 +40,7 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
                 if (!a.data.hasFlag(ContentActorDataKeys.IsFlying_flag)) return;
                 Cloud cloud = _pool.GetNext();
                 cloud.transform.localPosition = actor_binder.Actor.transform.localPosition;
-                cloud.transform.localScale = Vector3.one * 0.1f * a.stats[S.scale];
+                cloud.transform.localScale = Vector3.one * a.stats[S.scale];
                 cloud.sprite_renderer.flipX = a.flip;
             });
 
