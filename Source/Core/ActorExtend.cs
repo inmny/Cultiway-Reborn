@@ -152,15 +152,15 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
             .Build();
         this.TryConsumeElixir(elixir);
     }
-    public static void RegisterActionOnGetStats(Action<ActorExtend> action)
+    public static void RegisterActionOnGetStats(Action<ActorExtend, string> action)
     {
         action_on_get_stats += action;
     }
 
-    private static Action<ActorExtend> action_on_get_stats;
+    private static Action<ActorExtend, string> action_on_get_stats;
     public float GetStat(string stat_id)
     {
-        action_on_get_stats?.Invoke(this);
+        action_on_get_stats?.Invoke(this, stat_id);
         return Base.stats[stat_id];
     }
     internal void ExtendNewCreature()
