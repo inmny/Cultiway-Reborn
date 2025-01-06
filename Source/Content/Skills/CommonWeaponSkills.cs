@@ -60,7 +60,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
             .Build();
 
         RotateForwardWeaponEntity = SkillEntityMeta.StartBuild()
-            .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.4f, 1f, false)
+            .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.2f, 1f, false)
             .AddComponent(new SkillTargetPos())
             .AddComponent(new SkillTargetObj())
             .SetTrajectory(Trajectories.GoTowardsTargetPosWithRotation, 20, 1440)
@@ -80,7 +80,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
             .AddTimeReachTrigger(10, TimeReachWeaponReturn)
             .Build();
         BangWeaponEntity = SkillEntityMeta.StartBuild()
-            .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.4f, 1f, false)
+            .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.2f, 1f, false)
             .AddComponent(new SkillTargetPos())
             .AddComponent(new SkillTargetObj())
             .SetTrajectory(
@@ -95,7 +95,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
                 enemy = true,
                 Enabled = false,
                 TriggerActionMeta = SingleObjCollisionDamage
-            }, 3)
+            }, 2)
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
                 actor = true,
@@ -198,7 +198,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
         data.Get<SkillTargetPos>().Setup(target, bang_or_rotate ? new Vector3(0, 0, 10) : Vector3.zero);
         data.Get<SkillStrength>().value = bang_or_rotate ? context.strength * 8 : context.strength;
         data.Get<Position>().value = user.currentPosition;
-        data.Get<AnimData>().frames[0] = ActorAnimationLoader.getItem(user.getWeaponTextureId());
+        data.Get<AnimData>().frames[0] = user.getWeaponAsset().getSprite(user.getWeapon());//ActorAnimationLoader.getItem(user.getWeaponTextureId());
         // data.Get<Rotation>().Setup(user, target);
         var modifier_data = modifier_container.Data;
         
