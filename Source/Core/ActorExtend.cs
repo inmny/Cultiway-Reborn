@@ -372,10 +372,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker)
     {
 
-        if (!Base.isAlive() || Base.hasStatus("invincible"))
+        if (!Base.isAlive() || Base.hasStatus("invincible") || Base.data.health <= 0)
         {
             return;
         }
+
+        if (Base == attacker) return;
+
 
         var attacker_power_level = (attacker?.isActor() ?? false) ? attacker.a.GetExtend().GetPowerLevel() : 0;
         var power_level = GetPowerLevel();
@@ -412,9 +415,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
 
         // 补齐原版的一些效果
         int health_before = Base.data.health;
-
+        
         if (Base.data.health <= 0) Base.data.health = 1;
-        PatchActor.getHit_snapshot(Base, 0, pAttacker: attacker);
+        PatchActor.getHit_snapshot(Base, 0, pAttacker: attacker, pSkipIfShake: false);
         
         Base.data.health = health_before; // 防止强制扣血
     }
