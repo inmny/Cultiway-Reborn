@@ -6,6 +6,7 @@ using Cultiway.Core.SkillLibV2;
 using Cultiway.Core.SkillLibV2.Components;
 using Cultiway.Core.SkillLibV2.Extensions;
 using Cultiway.Core.SkillLibV2.Predefined;
+using Cultiway.Core.SkillLibV2.Predefined.Modifiers;
 using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -32,6 +33,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
     {
         StartWeaponSkill = TriggerActionMeta<StartSkillTrigger, StartSkillContext>.StartBuild(nameof(StartWeaponSkill))
             .AppendAction(spawn_weapon_entity)
+            .AllowModifier<ScaleModifier, float>(new ScaleModifier(1))
             .Build();
         TimeReachWeaponReturn = TriggerActionMeta<TimeReachTrigger, TimeReachContext>
             .StartBuild(nameof(TimeReachWeaponReturn))
@@ -58,7 +60,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
             .Build();
 
         RotateForwardWeaponEntity = SkillEntityMeta.StartBuild()
-            .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.2f, 1f, false)
+            .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.4f, 1f, false)
             .AddComponent(new SkillTargetPos())
             .AddComponent(new SkillTargetObj())
             .SetTrajectory(Trajectories.GoTowardsTargetPosWithRotation, 20, 1440)
@@ -78,7 +80,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
             .AddTimeReachTrigger(10, TimeReachWeaponReturn)
             .Build();
         BangWeaponEntity = SkillEntityMeta.StartBuild()
-            .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.2f, 1f, false)
+            .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.4f, 1f, false)
             .AddComponent(new SkillTargetPos())
             .AddComponent(new SkillTargetObj())
             .SetTrajectory(
@@ -179,7 +181,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
                 skill_entity.GetComponent<SkillCaster>().value.Base);
         }
     }
-
+    [Hotfixable]
     private void spawn_weapon_entity(ref StartSkillTrigger trigger, ref StartSkillContext context, Entity skill_entity,
                                      Entity                modifier_container)
     {
@@ -198,5 +200,13 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
         data.Get<Position>().value = user.currentPosition;
         data.Get<AnimData>().frames[0] = ActorAnimationLoader.getItem(user.getWeaponTextureId());
         // data.Get<Rotation>().Setup(user, target);
+        var modifier_data = modifier_container.Data;
+        
+        var scale = modifier_data.Get<ScaleModifier>().Value;
+        data.Get<Scale>().value *= scale;
+        
+        foreach (Entity trigger_entity in weapon_entity.ChildEntities)
+            if (trigger_entity.HasComponent<ColliderSphere>())
+                trigger_entity.GetComponent<ColliderSphere>().radius *= scale;
     }
 }

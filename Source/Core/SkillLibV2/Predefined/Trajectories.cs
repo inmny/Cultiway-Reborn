@@ -52,8 +52,9 @@ public static class Trajectories
         {
             if (final_scale == default)
                 return k * dt;
-            Vector3 new_scale = scale.value + k * dt;
-            return final_scale - new_scale;
+            var ds = (final_scale - scale.value);
+            ds.Scale(k);
+            return ds * dt;
         };
     }
 

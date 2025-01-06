@@ -6,6 +6,7 @@ using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.SkillLibV2.Predefined.Modifiers;
 using Cultiway.Patch;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -249,6 +250,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 Libraries.Manager.JindanLibrary.GetJindan(ae, ref xian_base).id,
                 strength
             ));
+            ae.AddSkillModifier<ScaleModifier, float>(CommonWeaponSkills.StartWeaponSkill.id, new ScaleModifier(Toolbox.randomFloat(1, 4)));
             return true;
         }
 
