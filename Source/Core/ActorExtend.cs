@@ -198,7 +198,22 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     {
         return $"[{e.GetComponent<ActorBinder>().id}] {Base.getName()}: {e}";
     }
-
+    public bool HasSkillModifier<TModifier, TValue>(string action_id)
+        where TModifier : struct, IModifier<TValue>
+    {
+        return _skill_actions.TryGetValue(action_id, out Entity action_entity) && action_entity.HasComponent<TModifier>();
+    }
+    public ref TModifier GetSkillModifier<TModifier, TValue>(string action_id)
+        where TModifier : struct, IModifier<TValue>
+    {
+        return ref _skill_actions[action_id].GetComponent<TModifier>();
+    }
+    internal Entity NewSkillModifierContainer(string action_id)
+    {
+        var container = TriggerActionBaseMeta.AllDict[action_id].NewModifierContainer();
+        _skill_actions[action_id] = container;
+        return container;
+    }
     public void AddSkillModifier<TModifier, TValue>(string action_id, TModifier modifier)
         where TModifier : struct, IModifier<TValue>
     {
@@ -239,7 +254,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         return false;
     }
 
-    public Entity GetSkillActionEntity(string action_id, Entity default_action)
+    public Entity GetSkillActionModifierContainer(string action_id, Entity default_action)
     {
         return _skill_actions.TryGetValue(action_id, out var res) ? res : default_action;
     }

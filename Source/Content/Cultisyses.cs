@@ -1,7 +1,9 @@
 using System.IO;
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
+using Cultiway.Content.Extensions;
 using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -159,6 +161,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (!allow_first(intelligence))
             {
                 component.wakan = 0;
+                ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeFailed);
                 return false;
             }
 
@@ -170,6 +173,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (!allow_first(intelligence))
             {
                 component.wakan = 0;
+                ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeFailed);
                 return false;
             }
 
@@ -181,6 +185,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (!allow_first(intelligence))
             {
                 component.wakan = 0;
+                ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeFailed);
                 return false;
             }
 
@@ -191,6 +196,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (!allow_second(er.Fire))
             {
                 component.wakan = 0;
+                ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeFailed);
                 return false;
             }
 
@@ -201,6 +207,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (!allow_second(er.Wood))
             {
                 component.wakan = 0;
+                ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeFailed);
                 return false;
             }
 
@@ -211,6 +218,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (!allow_second(er.Earth))
             {
                 component.wakan = 0;
+                ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeFailed);
                 return false;
             }
 
@@ -221,6 +229,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (!allow_second(er.Iron))
             {
                 component.wakan = 0;
+                ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeFailed);
                 return false;
             }
 
@@ -231,6 +240,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (!allow_second(er.Water))
             {
                 component.wakan = 0;
+                ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeFailed);
                 return false;
             }
 
@@ -242,6 +252,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (RdUtils.NextNormal_0_6() > strength)
             {
                 component.wakan = 0;
+                ae.EnhanceSkillRandomly(SkillEnhanceSources.LargeUpgradeFailed);
                 return false;
             }
 

@@ -23,7 +23,7 @@ public class LogicTriggerStartSkillSystem : QuerySystem<StartSkillTrigger, Start
             {
                 var action_meta = trigger.TriggerActionMeta;
                 action_meta.Action(ref trigger, ref context, default,
-                    context.user.GetSkillActionEntity(action_meta.id, action_meta.default_modifier_container));
+                    context.user.GetSkillActionModifierContainer(action_meta.id, action_meta.default_modifier_container));
             });
         }
         catch (Exception e)

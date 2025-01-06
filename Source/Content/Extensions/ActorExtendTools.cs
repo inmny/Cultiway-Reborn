@@ -35,7 +35,12 @@ public static class ActorExtendTools
         elixir_entity.DeleteEntity();
         return true;
     }
-
+    public static void EnhanceSkillRandomly(this ActorExtend ae, string source)
+    {
+        if (ae.tmp_all_skills.Count == 0) return;
+        var skill = ae.tmp_all_skills.GetRandom();
+        ModClass.L.WrappedSkillLibrary.get(skill).Enhance(ae, source);
+    }
     public static bool RestoreWakan(this ActorExtend ae, float value)
     {
         if (value <= 0) return false;

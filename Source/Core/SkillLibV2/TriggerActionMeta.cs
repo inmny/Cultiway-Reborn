@@ -55,7 +55,7 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
         Entity skill_entity = trigger_entity.Parent;
         Action(ref trigger, ref context, skill_entity,
             skill_entity.GetComponent<SkillCaster>().value
-                .GetSkillActionEntity(trigger.TriggerActionMeta.id, default_modifier_container));
+                .GetSkillActionModifierContainer(trigger.TriggerActionMeta.id, default_modifier_container));
     }
 
     public static MetaBuilder StartBuild(string id)

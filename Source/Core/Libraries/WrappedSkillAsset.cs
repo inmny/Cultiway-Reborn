@@ -3,12 +3,20 @@ using Friflo.Engine.ECS;
 
 namespace Cultiway.Core.Libraries;
 
-public delegate bool CostCheck(ActorExtend actor, out float strength);
+public delegate bool CostCheck(ActorExtend ae, out float strength);
+public delegate void EnhanceSkill(ActorExtend ae, Entity modifier_container, string source);
 public class WrappedSkillAsset : Asset
 {
     public bool[] skill_type = [];
     public CostCheck cost_check;
+    public EnhanceSkill enhance;
     public float default_strength = 100;
+    public void Enhance(ActorExtend ae, string source)
+    {
+        if (enhance == null) return;
+        var modifier_container = ae.NewSkillModifierContainer(id);
+        enhance.Invoke(ae, modifier_container, source);
+    }
     public bool HasSkillType(WrappedSkillType type)
     {
         if ((int) type >= skill_type.Length)
