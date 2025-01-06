@@ -1,4 +1,8 @@
 using System.Collections.Generic;
+using Cultiway.Content.Const;
+using Cultiway.Core.Libraries;
+using Cultiway.Core.SkillLibV2;
+using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 
 namespace Cultiway.Utils.Extension;
 
@@ -25,11 +29,30 @@ public static class AssetTools
         }
     }
 
-    public static void AddToPool(this CombatActionAsset asset, ListPool<CombatActionAsset> pool)
+    public static void AddToPool(this CombatActionAsset asset, ListPool<CombatActionAsset> pool, int rate = -1)
     {
-        for (int i = 0; i < asset.rate; i++)
+        if (rate == -1)
+        {
+            rate = asset.rate;
+        }
+        for (int i = 0; i < rate; i++)
         {
             pool.Add(asset);
         }
+    }
+
+    public static WrappedSkillAsset SelfWrap(this TriggerActionMeta<StartSkillTrigger, StartSkillContext> start_skill_meta, params WrappedSkillType[] types)
+    {
+        var asset = new WrappedSkillAsset()
+        {
+            id = start_skill_meta.id,
+        };
+        ModClass.L.WrappedSkillLibrary.add(asset);
+        foreach (WrappedSkillType type in types)
+        {
+            asset.SetSkillType(type);
+        }
+
+        return asset;
     }
 }

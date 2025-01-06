@@ -1,3 +1,4 @@
+using System.Text;
 using Cultiway.Abstract;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -167,11 +168,11 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
             if (trigger_entity.HasComponent<ObjCollisionTrigger>())
                 trigger_entity.GetComponent<ObjCollisionTrigger>().Enabled = true;
     }
-
+    [Hotfixable]
     private void single_damage(ref ObjCollisionTrigger trigger, ref ObjCollisionContext context, Entity skill_entity,
                                Entity                  modifier_container)
     {
-        if (context.obj.isActor())
+        if (context.obj.isActor() && context.obj.isAlive())
         {
             ActorExtend target = context.obj.a.GetExtend();
             target.GetHit(skill_entity.GetComponent<SkillStrength>().value, ref weapon_damage_composition,

@@ -6,6 +6,7 @@ using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content;
 using Cultiway.Content.Components;
+using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Skills;
 using Cultiway.Core.Components;
@@ -33,7 +34,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
 
     private  Dictionary<string, Entity> _skill_actions = new();
     internal float[]         s_armor        = new float[9];
+    
     public   HashSet<string> tmp_all_skills = new();
+    public List<string> tmp_all_attack_skills = new();
 
     public ActorExtend(Entity e)
     {
@@ -42,9 +45,12 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     }
 
     public Entity E => e;
-
     public override Actor Base => e.HasComponent<ActorBinder>() ? e.GetComponent<ActorBinder>().Actor : null;
-
+    public bool TryGetComponent<TComponent>(out TComponent component) where TComponent : struct, IComponent
+    {
+        return e.TryGetComponent(out component);
+    }
+    [Hotfixable]
     public bool TryToAttack(BaseSimObject target)
     {
         var actor = Base;
@@ -54,7 +60,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         CombatActionAsset basic_attack_action = null;
         
         using var attack_action_pool = new ListPool<CombatActionAsset>();
-        if (!attack_action_pool.Any()) return false;
         // 加入普攻
         if (actor.s_attackType == WeaponType.Melee)
         {
@@ -71,10 +76,21 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         {
             WorldboxGame.CombatActions.CastVanillaSpell.AddToPool(attack_action_pool);
         }
-        // TODO: 加入技能
+        // 加入自定义技能
+        WorldboxGame.CombatActions.CastSkill.AddToPool(attack_action_pool, tmp_all_attack_skills.Count);
         
 
-        AttackData attack_data = new(actor, target.currentTile, default, target);
+        float target_size = target.stats[S.size];
+        Vector3 target_pos = new Vector3(target.currentPosition.x, target.currentPosition.y);
+        if (target.isActor() && target.a.is_moving && target.isFlying())
+        {
+            target_pos = Vector3.MoveTowards(target_pos, target.a.nextStepPosition, target_size * 3f);
+        }
+        float dist = Vector2.Distance(actor.currentPosition, target.currentPosition) + target.getZ();
+        Vector3 new_point = Toolbox.getNewPoint(actor.currentPosition.x, actor.currentPosition.y, target_pos.x, target_pos.y, dist - target_size, true);
+
+        AttackData attack_data = new(actor, target.currentTile, new_point, target, AttackType.Weapon,
+            actor.haveMetallicWeapon());
         
         if (attack_action_pool.Any())
         {
@@ -106,10 +122,12 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         
         return false;
 
+        [Hotfixable]
         void attack_succeed(CombatActionAsset combat_action)
         {
             actor.timer_action = actor.s_attackSpeed_seconds;
             actor.attackTimer = actor.s_attackSpeed_seconds;
+            actor.punchTargetAnimation(target.currentPosition, true, actor.s_attackType == WeaponType.Range);
             if (combat_action.play_unit_attack_sounds && !string.IsNullOrEmpty(actor.asset.fmod_attack))
             {
                 MusicBox.playSound(actor.asset.fmod_attack, actor.currentTile.x, actor.currentTile.y);
@@ -198,9 +216,27 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         _learned_skills.Add(id);
     }
 
-    public void CastSkillV2(string id, BaseSimObject target_obj)
+    public bool CastSkillV2(string id, BaseSimObject target_obj)
     {
-        ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, 100);
+        var wrapped_asset = ModClass.L.WrappedSkillLibrary.get(id);
+        if (wrapped_asset == null)
+        {
+            ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, 100);
+            return true;
+        }
+
+        if (wrapped_asset.cost_check == null)
+        {
+            ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, wrapped_asset.default_strength);
+            return true;
+        }
+        if (wrapped_asset.cost_check(this, out var strength))
+        {
+            ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, strength);
+            return true;
+        }
+
+        return false;
     }
 
     public Entity GetSkillActionEntity(string action_id, Entity default_action)
@@ -298,6 +334,16 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         tmp_all_skills.UnionWith(_learned_skills);
 
         action_on_update_stats?.Invoke(this);
+        
+        tmp_all_attack_skills.Clear();
+        var library = ModClass.L.WrappedSkillLibrary;
+        foreach (var skill in tmp_all_skills)
+        {
+            if (library.get(skill)?.HasSkillType(WrappedSkillType.Attack) ?? false)
+            {
+                tmp_all_attack_skills.Add(skill);
+            }
+        }
     }
 
     internal void PostUpdateStats()
@@ -325,6 +371,12 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     [Hotfixable]
     public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker)
     {
+
+        if (!Base.isAlive() || Base.hasStatus("invincible"))
+        {
+            return;
+        }
+
         var attacker_power_level = (attacker?.isActor() ?? false) ? attacker.a.GetExtend().GetPowerLevel() : 0;
         var power_level = GetPowerLevel();
         if (power_level > attacker_power_level)
@@ -355,11 +407,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
 
             damage_ratio *= total_ratio / sum * (1 - s_armor[ElementIndex.Entropy]);
             damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
-
             Base.data.health -= (int)damage;
         }
 
-        // 补齐原版的一些效果// 补齐原版的一些效果
+        // 补齐原版的一些效果
         int health_before = Base.data.health;
 
         if (Base.data.health <= 0) Base.data.health = 1;

@@ -48,4 +48,9 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
     {
         return World.world.GetTile(x, y);
     }
+
+    public void Pause()
+    {
+        Config.paused = true;
+    }
 }

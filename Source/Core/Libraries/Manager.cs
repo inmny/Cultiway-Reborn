@@ -8,6 +8,7 @@ public class Manager
     public ItemShapeLibrary   ItemShapeLibrary   { get; } = new();
     public RandomEventLibrary RandomEventLibrary { get; } = new();
     public StatusEffectLibrary StatusEffectLibrary { get; } = new();
+    public WrappedSkillLibrary WrappedSkillLibrary { get; } = new();
 
     public void Init()
     {
@@ -17,6 +18,7 @@ public class Manager
         AssetManager.instance.add(ItemShapeLibrary,   "item_shapes");
         AssetManager.instance.add(RandomEventLibrary, "random_events");
         AssetManager.instance.add(StatusEffectLibrary, "status_effects");
+        AssetManager.instance.add(WrappedSkillLibrary, "wrapped_skills");
     }
 
     public void PostInit()
@@ -27,5 +29,6 @@ public class Manager
         ItemShapeLibrary.post_init();
         RandomEventLibrary.post_init();
         StatusEffectLibrary.post_init();
+        WrappedSkillLibrary.post_init();
     }
 }

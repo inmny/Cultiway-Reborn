@@ -20,6 +20,7 @@ public class AnimRenderer : MonoBehaviour
         var prefab = ModClass.NewPrefabPreview(nameof(AnimRenderer)).AddComponent<AnimRenderer>();
         prefab.bind = prefab.GetComponent<SpriteRenderer>();
         prefab.bind.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
-        return new MonoObjPool<AnimRenderer>(prefab, parent, s => s.pool = prefab.pool);
+        prefab.pool = new MonoObjPool<AnimRenderer>(prefab, parent, s => s.pool = prefab.pool);
+        return prefab.pool;
     }
 }

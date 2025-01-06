@@ -4,6 +4,7 @@ using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 using Position = Cultiway.Core.Components.Position;
 
@@ -67,10 +68,11 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
                 }
 
             return;
-
+            [Hotfixable]
             void check_obj(BaseSimObject obj, ref ObjCollisionTrigger trigger, ref ObjCollisionContext context)
             {
                 if (!ShapeUtils.InRect(obj.currentPosition, lb, rt)) return;
+                if (!obj.isAlive()) return;
 
                 var enemy = caster_kingdom.isEnemy(obj.kingdom);
                 if (enemy && trigger.enemy)

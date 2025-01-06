@@ -91,6 +91,7 @@ public class Manager
 
     public void NewSkillStarter(string id, ActorExtend user, BaseSimObject init_target, float strength)
     {
+        ModClass.LogInfo($"{user.Base.data.id} cast skill to {init_target.base_data.id}");
         World.CreateEntity(new StartSkillTrigger
         {
             TriggerActionMeta =

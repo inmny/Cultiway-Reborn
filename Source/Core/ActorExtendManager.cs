@@ -34,6 +34,6 @@ public class ActorExtendManager : ExtendComponentManager<ActorExtend>
 
     public void AllStatsDirty()
     {
-        World.Query<ActorBinder>().ForEachEntity((ref ActorBinder ab, Entity e) => ab.Actor.setStatsDirty());
+        World.Query<ActorBinder>().ForEachEntity((ref ActorBinder ab, Entity e) => ab.Actor?.setStatsDirty());
     }
 }

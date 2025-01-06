@@ -53,14 +53,22 @@ namespace Cultiway
         {
             if (Game.IsPaused()) return;
             var update_tick = new UpdateTick(Game.GetLogicDeltaTime(), Game.GetGameTime());
-            GeneralLogicSystems.Update(update_tick);
-            TileLogicSystems.Update(update_tick);
-            SkillV2.UpdateLogic(update_tick);
-            Geo.UpdateLogic(update_tick);
+            try
+            {
+                GeneralLogicSystems.Update(update_tick);
+                TileLogicSystems.Update(update_tick);
+                SkillV2.UpdateLogic(update_tick);
+                Geo.UpdateLogic(update_tick);
 
-            GeneralRenderSystems.Update(update_tick);
-            TileRenderSystems.Update(update_tick);
-            SkillV2.UpdateRender(update_tick);
+                GeneralRenderSystems.Update(update_tick);
+                TileRenderSystems.Update(update_tick);
+                SkillV2.UpdateRender(update_tick);
+            }
+            catch (Exception e)
+            {
+                LogError(e.ToString());
+                Game.Pause();
+            }
         }
 
         [Hotfixable]
@@ -138,6 +146,15 @@ namespace Cultiway
 
             ExampleTriggerActions.Init();
             ExampleSkillEntities.Init();
+
+            if (Environment.UserName == "Inmny")
+            {
+                Config.isEditor = true;
+                DebugConfig.setOption(DebugOption.FastCultures, true);
+                DebugConfig.setOption(DebugOption.CityInfiniteResources, true);
+                DebugConfig.setOption(DebugOption.CityFastConstruction, true);
+                DebugConfig.setOption(DebugOption.CityFastUpgrades, true);
+            }
         }
 
         private void LoadLocales()

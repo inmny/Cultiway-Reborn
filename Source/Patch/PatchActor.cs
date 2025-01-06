@@ -45,7 +45,7 @@ internal static class PatchActor
 
         return list;
     }
-
+    [Hotfixable]
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
     private static bool getHit_prefix(Actor      __instance,                      float pDamage, bool pFlash = true,
                                       AttackType pAttackType  = AttackType.Other, BaseSimObject pAttacker = null,
@@ -55,17 +55,6 @@ internal static class PatchActor
         {
             return true;
         }
-
-        if (__instance.data.health <= 0)
-        {
-            return true;
-        }
-
-        if (__instance.hasStatus("invincible"))
-        {
-            return true;
-        }
-
         __instance.GetExtend().GetHit(pDamage, ref EnumUtils.DamageCompositionFromDamageType(pAttackType), pAttacker);
         return false;
     }
