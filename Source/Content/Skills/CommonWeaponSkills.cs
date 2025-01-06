@@ -74,7 +74,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
                 friend = true,
                 Enabled = false,
                 TriggerActionMeta = TriggerActions.GetRecycleActionMetaOnCollideCaster()
-            }, 1)
+            }, 3)
             .AddTimeReachTrigger(10, TimeReachWeaponReturn)
             .Build();
         BangWeaponEntity = SkillEntityMeta.StartBuild()
@@ -100,7 +100,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
                 friend = true,
                 Enabled = false,
                 TriggerActionMeta = TriggerActions.GetRecycleActionMetaOnCollideCaster()
-            }, 1, Tags.Get<TagOrder1>())
+            }, 3, Tags.Get<TagOrder1>())
             .Build();
     }
 
