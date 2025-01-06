@@ -45,6 +45,81 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
 
     public override Actor Base => e.HasComponent<ActorBinder>() ? e.GetComponent<ActorBinder>().Actor : null;
 
+    public bool TryToAttack(BaseSimObject target)
+    {
+        var actor = Base;
+        if (actor.isInLiquid() && !actor.asset.oceanCreature) return false;
+        if (!actor.isAttackReady()) return false;
+
+        CombatActionAsset basic_attack_action = null;
+        
+        using var attack_action_pool = new ListPool<CombatActionAsset>();
+        if (!attack_action_pool.Any()) return false;
+        // 加入普攻
+        if (actor.s_attackType == WeaponType.Melee)
+        {
+            basic_attack_action = WorldboxGame.CombatActions.AttackMelee;
+        }
+        else if (actor.isInAttackRange(target))
+        {
+            basic_attack_action = WorldboxGame.CombatActions.AttackRange;
+        }
+        
+        if (basic_attack_action != null) basic_attack_action.AddToPool(attack_action_pool);
+        // 加入原版技能
+        if (actor.asset.attack_spells?.Count > 0)
+        {
+            WorldboxGame.CombatActions.CastVanillaSpell.AddToPool(attack_action_pool);
+        }
+        // TODO: 加入技能
+        
+
+        AttackData attack_data = new(actor, target.currentTile, default, target);
+        
+        if (attack_action_pool.Any())
+        {
+            // 随机选择一个攻击动作
+            var attack_action = attack_action_pool.GetRandom();
+            if (attack_action.action(attack_data))
+            {
+                // 结算攻击动作/饥饿/声效/攻击间隔
+                attack_succeed(attack_action);
+                return true;
+            }
+            if (!attack_action.basic)
+            {
+                // 如果不是普攻且失败了，那就尝试普攻
+                goto BASIC_ATTACK;
+            }
+
+            // 如果是普攻且失败了，那就退出
+            return false;
+        }
+        BASIC_ATTACK:
+        if (basic_attack_action == null) return false;
+        if (basic_attack_action.action(attack_data))
+        {
+            // 结算攻击动作/饥饿/声效/攻击间隔
+            attack_succeed(basic_attack_action);
+            return true;
+        }
+        
+        return false;
+
+        void attack_succeed(CombatActionAsset combat_action)
+        {
+            actor.timer_action = actor.s_attackSpeed_seconds;
+            actor.attackTimer = actor.s_attackSpeed_seconds;
+            if (combat_action.play_unit_attack_sounds && !string.IsNullOrEmpty(actor.asset.fmod_attack))
+            {
+                MusicBox.playSound(actor.asset.fmod_attack, actor.currentTile.x, actor.currentTile.y);
+            }
+            if (actor.asset.needFood && Toolbox.randomBool())
+            {
+                actor.decreaseHunger();
+            }
+        }
+    }
     public float GetPowerLevel()
     {
         return E.TryGetComponent(out PowerLevel power_level) ? power_level.value : 0;

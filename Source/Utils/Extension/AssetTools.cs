@@ -24,4 +24,12 @@ public static class AssetTools
             return extend;
         }
     }
+
+    public static void AddToPool(this CombatActionAsset asset, ListPool<CombatActionAsset> pool)
+    {
+        for (int i = 0; i < asset.rate; i++)
+        {
+            pool.Add(asset);
+        }
+    }
 }

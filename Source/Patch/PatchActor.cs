@@ -12,6 +12,12 @@ namespace Cultiway.Patch;
 
 internal static class PatchActor
 {
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.tryToAttack))]
+    private static bool tryToAttack_prefix(Actor __instance, BaseSimObject pTarget, ref bool __result)
+    {
+        __result = __instance.GetExtend().TryToAttack(pTarget);
+        return false;
+    }
     [HarmonyReversePatch(HarmonyReversePatchType.Snapshot), HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
     public static void getHit_snapshot(Actor      __instance,                      float pDamage, bool pFlash = true,
                                        AttackType pAttackType  = AttackType.Other, BaseSimObject pAttacker = null,

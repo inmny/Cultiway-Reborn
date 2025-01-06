@@ -4,6 +4,7 @@ using Cultiway.Core.Libraries;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
+using NeoModLoader.services;
 using UnityEngine;
 
 namespace Cultiway.Core.Components;
