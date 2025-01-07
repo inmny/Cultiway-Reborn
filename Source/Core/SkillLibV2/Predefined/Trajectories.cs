@@ -15,6 +15,7 @@ public static class Trajectories
     public static TrajectoryMeta GoTowardsTargetObj { get; private set; }
     public static TrajectoryMeta GoTowardsTargetPos { get; private set; }
     public static TrajectoryMeta GoTowardsTargetPosWithRotation { get; private set; }
+    public static TrajectoryMeta GoTowardsTargetObjWithRotation { get; private set; }
     public static TrajectoryMeta FallToGround { get; private set; }
     public static TrajectoryMeta SelfSurround { get; private set; }
 
@@ -38,6 +39,11 @@ public static class Trajectories
         GoTowardsTargetPosWithRotation = new TrajectoryMeta
         {
             get_delta_position = go_towards_target_pos,
+            get_delta_rotation = self_rotate
+        };
+        GoTowardsTargetObjWithRotation = new TrajectoryMeta
+        {
+            get_delta_position = go_towards_target_obj,
             get_delta_rotation = self_rotate
         };
         FallToGround = new TrajectoryMeta
