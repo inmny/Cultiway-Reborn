@@ -34,7 +34,7 @@ public class CommonBladeSkills : ICanInit
                 enemy = true,
                 TriggerActionMeta = FireBladeCollisionActionMeta
             }, 1)
-            .SetTrajectory(Trajectories.GoForward, 20, 1440)
+            .SetTrajectory(Trajectories.GoForward, 20, 360)
             .AddTimeReachTrigger(1, TriggerActions.GetRecycleActionMeta<TimeReachTrigger, TimeReachContext>())
             .Build();
         FireBladeCollisionActionMeta.StartModify()

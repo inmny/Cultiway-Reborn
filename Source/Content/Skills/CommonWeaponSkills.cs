@@ -22,7 +22,6 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
     public static SkillEntityMeta                                               BangWeaponEntity;
     public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>       StartWeaponSkill;
     public static TriggerActionMeta<TimeReachTrigger, TimeReachContext>         TimeReachWeaponReturn;
-    public static TriggerActionMeta<PositionReachTrigger, PositionReachContext> PositionReachWeaponStartFall;
     public static TriggerActionMeta<PositionReachTrigger, PositionReachContext> PositionReachWeaponEndFall;
 
     private static ElementComposition weapon_damage_composition = new([100, 0, 0, 0, 0, 0, 0, 0]);
@@ -37,28 +36,22 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
             .StartBuild(nameof(TimeReachWeaponReturn))
             .AppendAction(switch_trajectory_back)
             .Build();
-        PositionReachWeaponStartFall = TriggerActionMeta<PositionReachTrigger, PositionReachContext>
-            .StartBuild(nameof(PositionReachWeaponStartFall))
-            .AppendAction(switch_trajectory_fall)
-            .Build();
         PositionReachWeaponEndFall = TriggerActionMeta<PositionReachTrigger, PositionReachContext>
             .StartBuild(nameof(PositionReachWeaponEndFall))
-            .AppendAction(switch_trajectory_back)
             .AppendAction(bang_tiles)
-            .AppendAction(enable_collision)
             .Build();
 
         RotateForwardWeaponEntity = SkillEntityMeta.StartBuild()
             .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.2f, 1f, false)
             .AddComponent(new SkillTargetPos())
             .AddComponent(new SkillTargetObj())
-            .SetTrajectory(Trajectories.GoTowardsTargetPosWithRotation, 20, 1440)
+            .SetTrajectory(Trajectories.GoTowardsTargetPosWithRotation, 20, 360)
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
                 actor = true,
                 enemy = true,
                 TriggerActionMeta = TriggerActions.GetCollisionDamageActionMeta(weapon_damage_composition)
-            }, 2)
+            }, 2.5f)
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
                 actor = true,
@@ -71,27 +64,14 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
         BangWeaponEntity = SkillEntityMeta.StartBuild()
             .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.2f, 1f, false)
             .AddComponent(new SkillTargetPos())
-            .AddComponent(new SkillTargetObj())
-            .SetTrajectory(
-                Trajectories.GoTowardsTargetPos
-                    .WithDeltaScale(Trajectories.GetLinearScale(Vector3.one, Vector3.one))
-                , 20, 1440)
-            .AddPositionReachTrigger(1, PositionReachWeaponStartFall)
-            .AddPositionReachTrigger(1, PositionReachWeaponEndFall, true, Tags.Get<TagOrder1>())
+            .SetTrajectory(Trajectories.FallToGround, 80, 1440)
+            .AddPositionReachTrigger(1, PositionReachWeaponEndFall)
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
                 actor = true,
                 enemy = true,
-                Enabled = false,
-                TriggerActionMeta = TriggerActions.GetSingleCollisionDamageActionMeta(weapon_damage_composition)
-            }, 2)
-            .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
-            {
-                actor = true,
-                friend = true,
-                Enabled = false,
-                TriggerActionMeta = TriggerActions.GetRecycleActionMetaOnCollideCaster()
-            }, 3, Tags.Get<TagOrder1>())
+                TriggerActionMeta = TriggerActions.GetCollisionDamageActionMeta(weapon_damage_composition)
+            }, 3)
             .Build();
     }
 
@@ -106,42 +86,21 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
         var pos = skill_entity.GetComponent<Position>();
         WorldTile tile = WorldboxGame.I.GetTile((int)pos.x, (int)pos.y);
         if (tile != null)
-            WorldboxGame.I.DamageWorld(tile, 3, WorldboxGame.Terraforms.EarthquakeBurn,
+        {
+            var radius = 3f;
+            foreach (Entity trigger_entity in skill_entity.ChildEntities)
+            {
+                if (trigger_entity.HasComponent<ObjCollisionTrigger>())
+                {
+                    trigger_entity.GetComponent<ObjCollisionTrigger>().Enabled = true;
+                    radius = trigger_entity.GetComponent<ColliderSphere>().radius;
+                }
+            }
+                
+            WorldboxGame.I.DamageWorld(tile, (int)radius, WorldboxGame.Terraforms.EarthquakeBurn,
                 skill_entity.GetComponent<SkillCaster>().AsActor);
-    }
-
-    private void enable_collision(ref PositionReachTrigger trigger,      ref PositionReachContext context,
-                                  Entity                   skill_entity, Entity                   modifier_container)
-    {
-        foreach (Entity trigger_entity in skill_entity.ChildEntities)
-            if (trigger_entity.HasComponent<ObjCollisionTrigger>())
-                trigger_entity.GetComponent<ObjCollisionTrigger>().Enabled = true;
-    }
-
-
-    [Hotfixable]
-    private void switch_trajectory_fall(ref PositionReachTrigger trigger,      ref PositionReachContext context,
-                                        Entity                   skill_entity, Entity modifier_container)
-    {
-        skill_entity.GetComponent<Trajectory>().meta = Trajectories.FallToGround;
-        skill_entity.GetComponent<SkillTargetPos>().z = 0;
-
-
-        foreach (Entity trigger_entity in skill_entity.ChildEntities)
-            if (trigger_entity.HasComponent<PositionReachTrigger>() && trigger_entity.Tags.Has<TagOrder1>())
-                trigger_entity.GetComponent<PositionReachTrigger>().Enabled = true;
-    }
-
-    private void switch_trajectory_back(ref PositionReachTrigger trigger, ref PositionReachContext context,
-                                        Entity                   skill_entity,
-                                        Entity                   modifier_container)
-    {
-        skill_entity.GetComponent<Trajectory>().meta = Trajectories.GoTowardsTargetObj;
-        skill_entity.GetComponent<SkillTargetObj>().value = skill_entity.GetComponent<SkillCaster>().value.Base;
-
-        foreach (Entity trigger_entity in skill_entity.ChildEntities)
-            if (trigger_entity.HasComponent<ObjCollisionTrigger>())
-                trigger_entity.GetComponent<ObjCollisionTrigger>().Enabled = true;
+        }
+        skill_entity.AddTag<TagRecycle>();
     }
 
     private void switch_trajectory_back(ref TimeReachTrigger trigger, ref TimeReachContext context, Entity skill_entity,
@@ -168,9 +127,9 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
         Actor user = user_ae.Base;
         BaseSimObject target = context.target;
         data.Get<SkillCaster>().value = user_ae;
-        data.Get<SkillTargetPos>().Setup(target, bang_or_rotate ? new Vector3(0, 0, 10) : Vector3.zero);
+        data.Get<SkillTargetPos>().Setup(target, new(0,0,-target.getZ()));
         data.Get<SkillStrength>().value = bang_or_rotate ? context.strength * 8 : context.strength;
-        data.Get<Position>().value = user.currentPosition;
+        data.Get<Position>().value = bang_or_rotate ? new Vector3(target.currentPosition.x, target.currentPosition.y, target.getZ()+10) : user.currentPosition;
         data.Get<AnimData>().frames[0] = user.getWeaponAsset().getSprite(user.getWeapon());//ActorAnimationLoader.getItem(user.getWeaponTextureId());
         // data.Get<Rotation>().Setup(user, target);
         var modifier_data = modifier_container.Data;

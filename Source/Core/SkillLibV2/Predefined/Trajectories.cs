@@ -83,13 +83,19 @@ public static class Trajectories
             return ds * dt;
         };
     }
-
+    [Hotfixable]
     private static Vector3 fall_to_ground(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)
     {
-        var vel = skill_entity.Data.Get<Velocity>();
-        return Vector3.Scale(Vector3.back * dt, vel.scale);
+        var data = skill_entity.Data;
+        ref var vel = ref data.Get<Velocity>();
+        var dir = new Vector3(pos.x, pos.y, 0) - pos.value;
+        
+        var dp = Vector3.Scale(dir.normalized * dt, vel.scale);
+        if (dp.sqrMagnitude >= dir.sqrMagnitude)
+            return dir;
+        return dp;
     }
-
+    [Hotfixable]
     private static Vector3 go_towards_target_obj(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)
     {
         EntityData data = skill_entity.Data;
@@ -98,7 +104,11 @@ public static class Trajectories
         if (obj == null) return vel.scale * dt;
 
         Vector3 dir = data.Get<SkillTargetObj>().value.curTransformPosition - pos.value;
-        return Vector3.Scale(dir.normalized * dt, vel.scale);
+        
+        var dp = Vector3.Scale(dir.normalized * dt, vel.scale);
+        if (dp.sqrMagnitude >= dir.sqrMagnitude)
+            return dir;
+        return dp;
     }
 
     [Hotfixable]
@@ -112,13 +122,17 @@ public static class Trajectories
 
         return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
     }
-
+    [Hotfixable]
     private static Vector3 go_towards_target_pos(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)
     {
         EntityData data = skill_entity.Data;
         Vector3 dir = data.Get<SkillTargetPos>().v3 - pos.value;
         var vel = data.Get<Velocity>();
-        return Vector3.Scale(dir.normalized * dt, vel.scale);
+        
+        var dp = Vector3.Scale(dir.normalized * dt, vel.scale);
+        if (dp.sqrMagnitude >= dir.sqrMagnitude)
+            return dir;
+        return dp;
     }
 
     private static Vector3 go_forward(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)
