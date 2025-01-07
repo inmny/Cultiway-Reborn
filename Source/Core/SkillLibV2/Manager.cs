@@ -34,7 +34,6 @@ public class Manager
 
         _observer_worlds = [];
 
-        _logic.Add(_trigger_logic);
         
         _logic.Add(new AliveTimerSystem());
         _logic.Add(new AliveTimerCheckSystem());
@@ -45,6 +44,7 @@ public class Manager
 
         _logic.Add(new LogicTrajectorySystem(World));
         _logic.Add(new AnimFrameUpdateSystem(World));
+        _logic.Add(_trigger_logic);
         _trigger_logic.Add(new LogicTriggerStartSkillSystem());
         _trigger_logic.Add(new LogicTriggerTimeIntervalSystem());
         _trigger_logic.Add(new LogicTriggerTimeReachSystem());
