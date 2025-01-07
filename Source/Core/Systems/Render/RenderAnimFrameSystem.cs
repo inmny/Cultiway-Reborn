@@ -49,7 +49,7 @@ public class RenderAnimFrameSystem : BaseSystem
                     {
                         if (bind_renderer.value != null && bind_renderer.value.gameObject.activeSelf)
                         {
-                            bind_renderer.value.enabled = false;
+                            bind_renderer.value.gameObject.SetActive(false);
                         }
                         return;
                     }
