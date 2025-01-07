@@ -118,7 +118,11 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             var jindan = ae.GetJindan();
             if (!string.IsNullOrEmpty(jindan.Type.wrapped_skill_id))
             {
-                ModClass.L.WrappedSkillLibrary.get(jindan.Type.wrapped_skill_id).Enhance(ae, SkillEnhanceSources.SmallUpgradeSuccess);
+                ae.EnhanceSkill(jindan.Type.wrapped_skill_id, SkillEnhanceSources.SmallUpgradeSuccess);
+            }
+            else
+            {
+                ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeSuccess);
             }
             
             return false;
@@ -130,7 +134,6 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             return Mathf.Abs(sample) * (stage+1) < p;
         }
     }
-
     private void LoadStatsForXian()
     {
         var csv = CSVUtils.ReadCSV(File.ReadAllText(Path.Combine(ModClass.I.GetDeclaration().FolderPath,

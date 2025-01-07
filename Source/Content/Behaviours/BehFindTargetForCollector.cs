@@ -1,4 +1,5 @@
 using ai.behaviours;
+using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content.Behaviours;
 
@@ -14,14 +15,14 @@ public class BehFindTargetForCollector : BehCity
         return BehResult.Stop;
     }
 
-    private Actor GetClosestPlantActor(Actor collector, int min_age = 0)
+    private Actor GetClosestPlantActor(Actor collector, int min_level = 2)
     {
         temp_actors.Clear();
         world.getObjectsInChunks(collector.currentTile, 10, MapObjectType.Actor);
         for (var i = 0; i < world.temp_map_objects.Count; i++)
         {
             var actor = (Actor)world.temp_map_objects[i];
-            if (isTargetOk(collector, actor) && actor.asset == Actors.Plant && actor.getAge() >= min_age)
+            if (isTargetOk(collector, actor) && actor.asset == Actors.Plant && actor.GetExtend().GetPowerLevel() >= min_level)
                 temp_actors.Add(actor);
         }
 
