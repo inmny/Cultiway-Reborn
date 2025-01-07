@@ -16,6 +16,7 @@ public static class Trajectories
     public static TrajectoryMeta GoTowardsTargetPos { get; private set; }
     public static TrajectoryMeta GoTowardsTargetPosWithRotation { get; private set; }
     public static TrajectoryMeta FallToGround { get; private set; }
+    public static TrajectoryMeta SelfSurround { get; private set; }
 
     internal static void Init()
     {
@@ -44,6 +45,31 @@ public static class Trajectories
             towards_velocity = true,
             get_delta_position = fall_to_ground
         };
+        SelfSurround = new TrajectoryMeta
+        {
+            towards_velocity = true,
+            get_delta_position = self_surround
+        };
+    }
+    [Hotfixable]
+    private static Vector3 self_surround(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)
+    {
+        var data = skill_entity.Data;
+        var center = data.Get<SkillCaster>().AsActor.currentPosition;
+        var curr_angle_deg = Vector2.SignedAngle(Vector2.right, pos.v2 - center);
+        
+        var curr_angle_rad = curr_angle_deg * Mathf.Deg2Rad;
+        
+        var radius = data.Get<SurroundRadius>().value;
+        var velocity = data.Get<Velocity>();
+        
+        var target_angle_rad = curr_angle_rad + velocity.scale2.magnitude * dt / radius;
+        var target_pos = new Vector3(Mathf.Cos(target_angle_rad) * radius + center.x, Mathf.Sin(target_angle_rad) * radius + center.y);
+        Vector3 dir = target_pos - pos.value;
+        var dp = Vector3.Scale(dir.normalized * dt, velocity.scale);
+        if (dp.sqrMagnitude >= dir.sqrMagnitude)
+            return dir;
+        return dp;
     }
 
     public static TrajectoryMeta.GetDeltaScale GetLinearScale(Vector3 k, Vector3 final_scale = default)
@@ -69,7 +95,7 @@ public static class Trajectories
         EntityData data = skill_entity.Data;
         BaseSimObject obj = data.Get<SkillTargetObj>().value;
         var vel = data.Get<Velocity>();
-        if (obj == null) return Vector3.Scale(data.Get<Rotation>().value.normalized * dt, vel.scale);
+        if (obj == null) return vel.scale * dt;
 
         Vector3 dir = data.Get<SkillTargetObj>().value.curTransformPosition - pos.value;
         return Vector3.Scale(dir.normalized * dt, vel.scale);

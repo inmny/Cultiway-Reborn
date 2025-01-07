@@ -7,13 +7,15 @@ using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV2;
 using Cultiway.Core.SkillLibV2.Predefined.Modifiers;
 using Cultiway.Utils.Extension;
+using Cultiway.Utils.Predefined;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Content;
-[Dependency(typeof(CommonWeaponSkills))]
+[Dependency(typeof(CommonWeaponSkills), typeof(CommonBladeSkills))]
 public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
 {
     public static WrappedSkillAsset StartWeaponSkill { get; private set; }
+    public static WrappedSkillAsset StartSelfSurroundFireBlade { get; private set; }
     protected override void OnInit()
     {
         StartWeaponSkill = CommonWeaponSkills.StartWeaponSkill.SelfWrap(WrappedSkillType.Attack);
@@ -27,23 +29,9 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
                     break;
             }
         };
-        StartWeaponSkill.cost_check = (ActorExtend ae, out float strength) =>
-        {
-            strength = 0;
-            if (!ae.TryGetComponent(out Xian xian))
-            {
-                return false;
-            }
+        StartWeaponSkill.cost_check = WrappedSkillCostChecks.DefaultWakanCost(0.01f);
 
-            strength = ae.Base.stats[BaseStatses.MaxWakan.id] * 0.01f;
-            if (xian.wakan < strength)
-            {
-                return false;
-            }
-
-            strength *= 10;
-            
-            return true;
-        };
+        StartSelfSurroundFireBlade = CommonBladeSkills.StartSelfSurroundFireBlade.SelfWrap(WrappedSkillType.Attack);
+        StartSelfSurroundFireBlade.cost_check = WrappedSkillCostChecks.DefaultWakanCost(0.01f);
     }
 }

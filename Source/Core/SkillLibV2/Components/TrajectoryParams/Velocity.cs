@@ -1,12 +1,15 @@
+using System.Runtime.InteropServices;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV2.Components.TrajectoryParams;
-
+[StructLayout(LayoutKind.Explicit)]
 public struct Velocity : IComponent
 {
+    [FieldOffset(0)]
     public Vector3 scale = Vector3.one;
-
+    [FieldOffset(0)]
+    public Vector2 scale2 = Vector2.one;
     public Velocity()
     {
     }

@@ -2,6 +2,8 @@ using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV2.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
+using HarmonyLib;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 using Position = Cultiway.Core.Components.Position;
 using Rotation = Cultiway.Core.Components.Rotation;
@@ -25,11 +27,11 @@ public class LogicTrajectorySystem : QuerySystem<Position, Trajectory>
     protected override void OnUpdate()
     {
         var dt = Tick.deltaTime;
-        Query.ForEachEntity((ref Position pos, ref Trajectory traj, Entity e) =>
+        Query.ForEachEntity([Hotfixable](ref Position pos, ref Trajectory traj, Entity e) =>
         {
             pos.value += traj.meta.get_delta_position(dt, ref pos, ref traj, e);
         });
-        with_rot_query.ForEachEntity((ref Position pos, ref Trajectory traj, ref Rotation rot, Entity e) =>
+        with_rot_query.ForEachEntity([Hotfixable](ref Position pos, ref Trajectory traj, ref Rotation rot, Entity e) =>
         {
             Vector3 dp = traj.meta.get_delta_position(dt, ref pos, ref traj, e);
             pos.value += dp;

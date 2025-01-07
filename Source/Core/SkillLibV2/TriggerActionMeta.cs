@@ -42,7 +42,7 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
     where TTrigger : struct, IEventTrigger<TTrigger, TContext>
 {
     public delegate void ActionType(ref TTrigger trigger, ref TContext context, Entity skill_entity,
-                                    Entity       modifier_container);
+                                    Entity       modifiers);
 
     private TriggerActionMeta(string id, Entity default_modifier_container) : base(id, default_modifier_container)
     {
@@ -63,9 +63,13 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
         return new MetaBuilder(id);
     }
 
+    public MetaBuilder StartModify()
+    {
+        return new MetaBuilder(this);
+    }
+
     public class MetaBuilder
     {
-        private static readonly HashSet<string>                       _registries = new();
         private readonly        TriggerActionMeta<TTrigger, TContext> _under_build;
 
         public MetaBuilder(string id)
@@ -77,6 +81,11 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
                 new ModifierContainerEntity(),
                 Tags.Get<TagPrefab>()
             ));
+        }
+
+        public MetaBuilder(TriggerActionMeta<TTrigger, TContext> meta)
+        {
+            _under_build = meta;
         }
 
         public MetaBuilder AppendAction(ActionType action)
@@ -94,8 +103,7 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
 
         public TriggerActionMeta<TTrigger, TContext> Build()
         {
-            if (AllDict.ContainsKey(_under_build.id)) throw new DuplicateNameException(_under_build.id);
-            dict.Add(_under_build.id, _under_build);
+            dict[_under_build.id] = _under_build;
             return _under_build;
         }
     }

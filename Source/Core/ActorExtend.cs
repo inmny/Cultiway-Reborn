@@ -231,7 +231,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         _learned_skills.Add(id);
     }
 
-    public bool CastSkillV2(string id, BaseSimObject target_obj)
+    public bool CastSkillV2(string id, BaseSimObject target_obj, bool ignore_cost = false)
     {
         var wrapped_asset = ModClass.L.WrappedSkillLibrary.get(id);
         if (wrapped_asset == null)
@@ -240,7 +240,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
             return true;
         }
 
-        if (wrapped_asset.cost_check == null)
+        if (wrapped_asset.cost_check == null || ignore_cost)
         {
             ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, wrapped_asset.default_strength);
             return true;
@@ -269,7 +269,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
             target = World.world.units.GetRandom();
         } while (!Base.kingdom.isEnemy(target.kingdom));
 
-        CastSkillV2(ExampleTriggerActions.StartSkillFireball.id, target);
+        CastSkillV2(ExampleTriggerActions.StartSkillFireball.id, target, true);
         ModClass.LogInfo($"{Base.data.id} cast fireball to {target.data.id}");
     }
 
@@ -281,8 +281,19 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
             target = World.world.units.GetRandom();
         } while (!Base.kingdom.isEnemy(target.kingdom));
 
-        CastSkillV2(CommonWeaponSkills.StartWeaponSkill.id, target);
+        CastSkillV2(WrappedSkills.StartWeaponSkill.id, target, true);
         ModClass.LogInfo($"{Base.data.id} cast weapon to {target.data.id}");
+    }
+    private void TestCastSelfSurroundFireBlade()
+    {
+        Actor target = null;
+        do
+        {
+            target = World.world.units.GetRandom();
+        } while (!Base.kingdom.isEnemy(target.kingdom));
+
+        CastSkillV2(WrappedSkills.StartSelfSurroundFireBlade.id, target, true);
+        ModClass.LogInfo($"{Base.data.id} cast self surround fire blade to {target.data.id}");
     }
 
     private void TestConsumeEnlightenElixir()

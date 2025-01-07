@@ -25,9 +25,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
     public static TriggerActionMeta<PositionReachTrigger, PositionReachContext> PositionReachWeaponStartFall;
     public static TriggerActionMeta<PositionReachTrigger, PositionReachContext> PositionReachWeaponEndFall;
 
-    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> SingleObjCollisionDamage;
-    public static  TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> ObjCollisionDamage;
-    private static ElementComposition weapon_damage_composition = new([100, 0, 0, 0, 0, 0, 1, 0]);
+    private static ElementComposition weapon_damage_composition = new([100, 0, 0, 0, 0, 0, 0, 0]);
 
     public void Init()
     {
@@ -49,15 +47,6 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
             .AppendAction(bang_tiles)
             .AppendAction(enable_collision)
             .Build();
-        ObjCollisionDamage = TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>
-            .StartBuild($"{nameof(CommonWeaponSkills)}.{nameof(ObjCollisionDamage)}")
-            .AppendAction(single_damage)
-            .Build();
-        SingleObjCollisionDamage = TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>
-            .StartBuild($"{nameof(CommonWeaponSkills)}.{nameof(SingleObjCollisionDamage)}")
-            .AppendAction(single_damage)
-            .AppendAction(disable_trigger)
-            .Build();
 
         RotateForwardWeaponEntity = SkillEntityMeta.StartBuild()
             .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.2f, 1f, false)
@@ -68,7 +57,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
             {
                 actor = true,
                 enemy = true,
-                TriggerActionMeta = ObjCollisionDamage
+                TriggerActionMeta = TriggerActions.GetCollisionDamageActionMeta(weapon_damage_composition)
             }, 2)
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
@@ -94,7 +83,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
                 actor = true,
                 enemy = true,
                 Enabled = false,
-                TriggerActionMeta = SingleObjCollisionDamage
+                TriggerActionMeta = TriggerActions.GetSingleCollisionDamageActionMeta(weapon_damage_composition)
             }, 2)
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
@@ -129,11 +118,6 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
                 trigger_entity.GetComponent<ObjCollisionTrigger>().Enabled = true;
     }
 
-    private void disable_trigger(ref ObjCollisionTrigger trigger, ref ObjCollisionContext context, Entity skill_entity,
-                                 Entity                  modifier_container)
-    {
-        trigger.Enabled = false;
-    }
 
     [Hotfixable]
     private void switch_trajectory_fall(ref PositionReachTrigger trigger,      ref PositionReachContext context,
@@ -169,17 +153,6 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
         foreach (Entity trigger_entity in skill_entity.ChildEntities)
             if (trigger_entity.HasComponent<ObjCollisionTrigger>())
                 trigger_entity.GetComponent<ObjCollisionTrigger>().Enabled = true;
-    }
-    [Hotfixable]
-    private void single_damage(ref ObjCollisionTrigger trigger, ref ObjCollisionContext context, Entity skill_entity,
-                               Entity                  modifier_container)
-    {
-        if (context.obj.isActor() && context.obj.isAlive())
-        {
-            ActorExtend target = context.obj.a.GetExtend();
-            target.GetHit(skill_entity.GetComponent<SkillStrength>().value, ref weapon_damage_composition,
-                skill_entity.GetComponent<SkillCaster>().value.Base);
-        }
     }
     [Hotfixable]
     private void spawn_weapon_entity(ref StartSkillTrigger trigger, ref StartSkillContext context, Entity skill_entity,

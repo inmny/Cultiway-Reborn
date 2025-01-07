@@ -19,16 +19,17 @@ public static class SkillEntityMetaBuilderTools
 
     public static SkillEntityMeta.MetaBuilder SetTrajectory(this SkillEntityMeta.MetaBuilder builder,
                                                             TrajectoryMeta                   trajectory_meta,
-                                                            float velocity         = 1,
-                                                            float angle_per_second = 1)
+                                                            float velocity         = 0,
+                                                            float angle_per_second = 0)
     {
         builder.AddComponent(new Trajectory { meta = trajectory_meta })
-            .AddComponent(new Velocity(velocity));
+            .AddComponent(new Velocity(velocity))
+            .AddComponent(new AngleVelocity(angle_per_second));
         if (trajectory_meta.towards_velocity) builder.AddComponent(new Rotation());
         if (trajectory_meta.get_delta_position != null) builder.AddComponent(new Velocity(velocity));
 
         if (trajectory_meta.get_delta_rotation != null)
-            builder.AddComponent(new Rotation()).AddComponent(new AngleVelocity(angle_per_second));
+            builder.AddComponent(new Rotation());
 
         return builder;
     }
@@ -89,7 +90,7 @@ public static class SkillEntityMetaBuilderTools
                 meta = new AnimControllerMeta
                 {
                     frame_interval = frame_interval,
-                    loop = true
+                    loop = loop
                 }
             })
             .AddComponent(new AnimBindRenderer())
