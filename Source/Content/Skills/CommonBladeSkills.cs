@@ -27,7 +27,7 @@ public class CommonBladeSkills : ICanInit
 
     public void Init()
     {
-        UntrajedFireBladeEntity = SkillEntityMeta.StartBuild()
+        UntrajedFireBladeEntity = SkillEntityMeta.StartBuild(nameof(UntrajedFireBladeEntity))
             .AddAnim(SpriteTextureLoader.getSpriteList("cultiway/effect/fire_blade"), 0.1f, 0.2f, false)
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
@@ -38,6 +38,8 @@ public class CommonBladeSkills : ICanInit
             }, 1)
             .SetTrajectory(Trajectories.GoForward, 20, 360)
             .AddTimeReachTrigger(1, TriggerActions.GetRecycleActionMeta<TimeReachTrigger, TimeReachContext>())
+            .AllowModifier<ScaleModifier, float>(new ScaleModifier(1))
+            .AppendModifierApplication(fire_blade_modifiers_application)
             .Build();
         FireBladeCollisionActionMeta.StartModify()
             .AppendAction(((ref ObjCollisionTrigger trigger, ref ObjCollisionContext context, Entity entity,
@@ -50,13 +52,25 @@ public class CommonBladeSkills : ICanInit
         StartSelfSurroundFireBlade = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
             .StartBuild(nameof(StartSelfSurroundFireBlade))
             .AppendAction(spawn_self_surround_fire_blade)
-            .AllowModifier<ScaleModifier, float>(new ScaleModifier(1))
             .Build();
         StartForwardFireBlade = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
             .StartBuild(nameof(StartForwardFireBlade))
             .AppendAction(spawn_forward_fire_blade)
-            .AllowModifier<ScaleModifier, float>(new ScaleModifier(1))
             .Build();
+    }
+
+    private void fire_blade_modifiers_application(Entity entity, Entity modifiers)
+    {
+        var data = entity.Data;
+        var modifiers_data = modifiers.Data;
+        
+        var scale_mod = modifiers_data.Get<ScaleModifier>().Value;
+        data.Get<Scale>().value *= scale_mod;
+        foreach (Entity trigger_entity in entity.ChildEntities)
+        {
+            if (trigger_entity.HasComponent<ColliderSphere>())
+                trigger_entity.GetComponent<ColliderSphere>().radius *= scale_mod;
+        }
     }
     [Hotfixable]
     private void spawn_forward_fire_blade(ref StartSkillTrigger trigger, ref StartSkillContext context, Entity skill_entity, Entity modifiers)
@@ -79,16 +93,13 @@ public class CommonBladeSkills : ICanInit
         }
 
         var modifiers_data = modifiers.Data;
-        var scale = modifiers_data.Get<ScaleModifier>().Value;
-        data.Get<Scale>().value *= scale;
 
         foreach (Entity trigger_entity in entity.ChildEntities)
         {
-            if (trigger_entity.HasComponent<ColliderSphere>())
-                trigger_entity.GetComponent<ColliderSphere>().radius *= scale;
             if (trigger_entity.HasComponent<TimeReachTrigger>())
                 trigger_entity.GetComponent<TimeReachTrigger>().target_time *= 4;
         }
+        UntrajedFireBladeEntity.ApplyModifiers(entity, context.user.GetSkillEntityModifiers(UntrajedFireBladeEntity.id, UntrajedFireBladeEntity.default_modifier_container));
     }
 
     [Hotfixable]
@@ -113,15 +124,12 @@ public class CommonBladeSkills : ICanInit
         data.Get<Velocity>().scale.Scale(Vector3.one * Mathf.Sqrt(radius));
 
         var modifiers_data = modifiers.Data;
-        var scale = modifiers_data.Get<ScaleModifier>().Value;
-        data.Get<Scale>().value *= scale;
 
         foreach (Entity trigger_entity in entity.ChildEntities)
         {
-            if (trigger_entity.HasComponent<ColliderSphere>())
-                trigger_entity.GetComponent<ColliderSphere>().radius *= scale;
             if (trigger_entity.HasComponent<TimeReachTrigger>())
                 trigger_entity.GetComponent<TimeReachTrigger>().target_time *= radius * Mathf.PI * data.Get<Velocity>().scale.magnitude;
         }
+        UntrajedFireBladeEntity.ApplyModifiers(entity, context.user.GetSkillEntityModifiers(UntrajedFireBladeEntity.id, UntrajedFireBladeEntity.default_modifier_container));
     }
 }

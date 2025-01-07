@@ -41,7 +41,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
             .AppendAction(bang_tiles)
             .Build();
 
-        RotateForwardWeaponEntity = SkillEntityMeta.StartBuild()
+        RotateForwardWeaponEntity = SkillEntityMeta.StartBuild(nameof(RotateForwardWeaponEntity))
             .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.2f, 1f, false)
             .AddComponent(new SkillTargetPos())
             .AddComponent(new SkillTargetObj())
@@ -66,7 +66,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
                 value = 20
             })
             .Build();
-        BangWeaponEntity = SkillEntityMeta.StartBuild()
+        BangWeaponEntity = SkillEntityMeta.StartBuild(nameof(BangWeaponEntity))
             .AddAnim([SpriteTextureLoader.getSprite("actors/races/items/w_flame_sword_base")], 0.2f, 1f, false)
             .AddComponent(new SkillTargetPos())
             .SetTrajectory(Trajectories.FallToGround, 80, 1440)

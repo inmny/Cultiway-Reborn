@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Data;
 using Cultiway.Const;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV2.Api;
@@ -7,14 +11,24 @@ using NeoModLoader.api.attributes;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV2;
-
+public delegate void ModifierApplicationAction(Entity entity, Entity modifiers);
 public class SkillEntityMeta
 {
     private Entity      _prefab;
+    public Entity default_modifier_container;
     private EntityStore _world;
-
-    private SkillEntityMeta()
+    public readonly string id;
+    public static readonly            ReadOnlyDictionary<string, SkillEntityMeta> AllDict;
+    private protected static readonly Dictionary<string, SkillEntityMeta>         dict;
+    private ModifierApplicationAction _apply_modifiers;
+    static SkillEntityMeta()
     {
+        dict = new();
+        AllDict = new(dict);
+    }
+    private SkillEntityMeta(string id)
+    {
+        this.id = id;
     }
 
     [Hotfixable]
@@ -34,10 +48,22 @@ public class SkillEntityMeta
 
         return entity;
     }
-
-    public static MetaBuilder StartBuild()
+    public Entity NewModifierContainer()
     {
-        return new MetaBuilder();
+        Entity entity = _world.CloneEntity(default_modifier_container);
+        entity.RemoveTag<TagPrefab>();
+
+        return entity;
+    }
+
+    public void ApplyModifiers(Entity entity, Entity modifiers)
+    {
+        _apply_modifiers?.Invoke(entity, modifiers);
+    }
+
+    public static MetaBuilder StartBuild(string id)
+    {
+        return new MetaBuilder(id);
     }
 
     public MetaBuilder StartModify()
@@ -54,14 +80,16 @@ public class SkillEntityMeta
             _under_build = meta;
         }
 
-        public MetaBuilder()
+        public MetaBuilder(string id)
         {
-            _under_build = new SkillEntityMeta();
+            if (AllDict.ContainsKey(id)) throw new DuplicateNameException(id);
+            _under_build = new SkillEntityMeta(id);
             _under_build._world = ModClass.I.SkillV2.World;
             _under_build._prefab = _under_build._world.CreateEntity(new SkillEntity
             {
                 Meta = _under_build
             }, new SkillCaster(), new SkillStrength(), new AliveTimer(), Tags.Get<TagPrefab>());
+            _under_build.default_modifier_container = _under_build._world.CreateEntity(Tags.Get<TagPrefab>());
         }
 
         public MetaBuilder NewTrigger<TTrigger, TContext>(TTrigger trigger,           out int trigger_id,
@@ -89,9 +117,21 @@ public class SkillEntityMeta
             _under_build._prefab.AddComponent(component);
             return this;
         }
+        public MetaBuilder AllowModifier<TModifier, TValue>(TModifier modifier)
+            where TModifier : struct, IModifier<TValue>
+        {
+            _under_build.default_modifier_container.AddComponent(modifier);
+            return this;
+        }
+        public MetaBuilder AppendModifierApplication(ModifierApplicationAction action)
+        {
+            _under_build._apply_modifiers += action;
+            return this;
+        }
 
         public SkillEntityMeta Build()
         {
+            dict[_under_build.id] = _under_build;
             if (!_under_build._prefab.HasComponent<AliveTimeLimit>())
             {
                 _under_build._prefab.AddComponent(new AliveTimeLimit()
@@ -102,4 +142,5 @@ public class SkillEntityMeta
             return _under_build;
         }
     }
+
 }

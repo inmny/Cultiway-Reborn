@@ -50,9 +50,9 @@ public static class SkillEntityMetaBuilderTools
     }
 
     public static SkillEntityMeta.MetaBuilder AddTimeReachTrigger(this SkillEntityMeta.MetaBuilder builder, float time,
-                                                                  TriggerActionMeta<TimeReachTrigger, TimeReachContext>
-                                                                      on_time_reach, bool loop = false,
-                                                                  Tags trigger_tags = default)
+        TriggerActionMeta<TimeReachTrigger, TimeReachContext>
+            on_time_reach, bool loop = false,
+        Tags trigger_tags = default)
     {
         return builder.NewTrigger(new TimeReachTrigger
         {
@@ -60,6 +60,17 @@ public static class SkillEntityMetaBuilderTools
             loop = loop,
             TriggerActionMeta = on_time_reach
         }, out var _, new TimeReachContext(), trigger_tags);
+    }
+    public static SkillEntityMeta.MetaBuilder AddTimeIntervalTrigger(this SkillEntityMeta.MetaBuilder builder, float interval,
+        TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext>
+            interval_action,
+        Tags trigger_tags = default)
+    {
+        return builder.NewTrigger(new TimeIntervalTrigger()
+        {
+            interval_time = interval,
+            TriggerActionMeta = interval_action
+        }, out var _, new TimeIntervalContext(), trigger_tags);
     }
 
     public static SkillEntityMeta.MetaBuilder AddPositionReachTrigger(this SkillEntityMeta.MetaBuilder builder,

@@ -16,7 +16,7 @@ public static class ExampleSkillEntities
 
     public static void Init()
     {
-        FireballCaster = new SkillEntityMeta.MetaBuilder()
+        FireballCaster = SkillEntityMeta.StartBuild(nameof(FireballCaster))
             .AddAnim(SpriteTextureLoader.getSpriteList("cultiway/effect/preparing_fireball"), 0.1f)
             .AddComponent(new SkillTargetObj())
             .NewTrigger<TimeIntervalTrigger, TimeIntervalContext>(new TimeIntervalTrigger
@@ -31,7 +31,7 @@ public static class ExampleSkillEntities
                 TriggerActionMeta = TriggerActions.GetRecycleActionMeta<CastCountReachTrigger, CastCountReachContext>()
             }, out _)
             .Build();
-        Fireball = new SkillEntityMeta.MetaBuilder()
+        Fireball = SkillEntityMeta.StartBuild(nameof(Fireball))
             .AddAnim(SpriteTextureLoader.getSpriteList("cultiway/effect/flying_fireball"), 0.1f)
             .SetTrajectory(Trajectories.GoForward, 20)
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger

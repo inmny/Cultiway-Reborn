@@ -32,7 +32,8 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     private readonly HashSet<string> _learned_skills = new();
     private readonly Entity          e;
 
-    private  Dictionary<string, Entity> _skill_actions = new();
+    private  Dictionary<string, Entity> _skill_action_modifiers = new();
+    private  Dictionary<string, Entity> _skill_entity_modifiers = new();
     internal float[]         s_armor        = new float[9];
     
     public   HashSet<string> tmp_all_skills = new();
@@ -201,29 +202,56 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     public bool HasSkillModifier<TModifier, TValue>(string action_id)
         where TModifier : struct, IModifier<TValue>
     {
-        return _skill_actions.TryGetValue(action_id, out Entity action_entity) && action_entity.HasComponent<TModifier>();
+        return _skill_action_modifiers.TryGetValue(action_id, out Entity action_modifiers) && action_modifiers.HasComponent<TModifier>();
+    }
+    public bool HasSkillEntityModifier<TModifier, TValue>(string entity_id)
+        where TModifier : struct, IModifier<TValue>
+    {
+        return _skill_entity_modifiers.TryGetValue(entity_id, out Entity entity_modifiers) && entity_modifiers.HasComponent<TModifier>();
     }
     public ref TModifier GetSkillModifier<TModifier, TValue>(string action_id)
         where TModifier : struct, IModifier<TValue>
     {
-        return ref _skill_actions[action_id].GetComponent<TModifier>();
+        return ref _skill_action_modifiers[action_id].GetComponent<TModifier>();
+    }
+    public ref TModifier GetSkillEntityModifier<TModifier, TValue>(string entity_id)
+        where TModifier : struct, IModifier<TValue>
+    {
+        return ref _skill_entity_modifiers[entity_id].GetComponent<TModifier>();
     }
     internal Entity NewSkillModifierContainer(string action_id)
     {
         var container = TriggerActionBaseMeta.AllDict[action_id].NewModifierContainer();
-        _skill_actions[action_id] = container;
+        _skill_action_modifiers[action_id] = container;
+        return container;
+    }
+    internal Entity NewSkillEntityModifierContainer(string entity_id)
+    {
+        var container = SkillEntityMeta.AllDict[entity_id].NewModifierContainer();
+        _skill_entity_modifiers[entity_id] = container;
         return container;
     }
     public void AddSkillModifier<TModifier, TValue>(string action_id, TModifier modifier)
         where TModifier : struct, IModifier<TValue>
     {
-        if (!_skill_actions.TryGetValue(action_id, out Entity action_entity))
+        if (!_skill_action_modifiers.TryGetValue(action_id, out Entity modifiers))
         {
-            action_entity = TriggerActionBaseMeta.AllDict[action_id].NewModifierContainer();
-            _skill_actions[action_id] = action_entity;
+            modifiers = TriggerActionBaseMeta.AllDict[action_id].NewModifierContainer();
+            _skill_action_modifiers[action_id] = modifiers;
         }
 
-        action_entity.AddComponent(modifier);
+        modifiers.AddComponent(modifier);
+    }
+    public void AddSkillEntityModifier<TModifier, TValue>(string entity_id, TModifier modifier)
+        where TModifier : struct, IModifier<TValue>
+    {
+        if (!_skill_entity_modifiers.TryGetValue(entity_id, out Entity modifiers))
+        {
+            modifiers = SkillEntityMeta.AllDict[entity_id].NewModifierContainer();
+            _skill_entity_modifiers[entity_id] = modifiers;
+        }
+
+        modifiers.AddComponent(modifier);
     }
 
     public void LearnSkill(string id)
@@ -254,9 +282,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         return false;
     }
 
-    public Entity GetSkillActionModifierContainer(string action_id, Entity default_action)
+    public Entity GetSkillActionModifiers(string action_id, Entity default_modifiers)
     {
-        return _skill_actions.TryGetValue(action_id, out var res) ? res : default_action;
+        return _skill_action_modifiers.TryGetValue(action_id, out var res) ? res : default_modifiers;
+    }
+    public Entity GetSkillEntityModifiers(string entity_id, Entity default_modifiers)
+    {
+        return _skill_entity_modifiers.TryGetValue(entity_id, out var res) ? res : default_modifiers;
     }
 
 
@@ -487,7 +519,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     {
         e.DeleteEntity();
 
-        foreach (var skill_action in _skill_actions.Values)
+        foreach (var skill_action in _skill_action_modifiers.Values)
         {
             skill_action.DeleteEntity();
         }
@@ -495,7 +527,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     internal void PrepareDestroy()
     {
         e.AddTag<TagRecycle>();
-        foreach (var skill_action in _skill_actions.Values)
+        foreach (var skill_action in _skill_action_modifiers.Values)
         {
             skill_action.DeleteEntity();
         }
