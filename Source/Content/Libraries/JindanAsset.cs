@@ -26,4 +26,9 @@ public class JindanAsset : Asset
     {
         return LM.Get(id);
     }
+
+    public string GetDescription()
+    {
+        return LM.Get($"{id}.Info");
+    }
 }

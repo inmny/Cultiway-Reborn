@@ -50,4 +50,13 @@ public static class ActorExtendTools
             Mathf.Max(xian.wakan, ae.Base.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit));
         return true;
     }
+
+    public static ref Jindan GetJindan(this ActorExtend ae)
+    {
+        return ref ae.GetComponent<Jindan>();
+    }
+    public static ref XianBase GetXianBase(this ActorExtend ae)
+    {
+        return ref ae.GetComponent<XianBase>();
+    }
 }

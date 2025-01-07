@@ -1,5 +1,6 @@
 using Cultiway.Content.Components;
 using Cultiway.Core;
+using Cultiway.UI.Prefab;
 using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content.Libraries;
@@ -15,6 +16,11 @@ public class JindanLibrary : AssetLibrary<JindanAsset>
             if (string.IsNullOrEmpty(jindan.Type.wrapped_skill_id)) return;
             ae.tmp_all_skills.Add(jindan.Type.wrapped_skill_id);
         });
+        SpecialItemTooltip.RegisterSetupAction(((tooltip, type, entity) =>
+        {
+            if (!entity.HasComponent<Jindan>()) return;
+            tooltip.Tooltip.addDescription($"\n{entity.GetComponent<Jindan>().Type.GetName()}");
+        }));
     }
     [Hotfixable]
     public JindanAsset GetJindan(ActorExtend ae, ref XianBase xian_base)
