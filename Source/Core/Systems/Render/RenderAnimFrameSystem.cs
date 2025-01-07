@@ -39,39 +39,63 @@ public class RenderAnimFrameSystem : BaseSystem
 
     protected override void OnUpdateGroup()
     {
-        init_query.ForEachComponents(
-            (ref Position pos, ref Scale scale, ref AnimData anim_data, ref AnimBindRenderer bind_renderer) =>
-            {
-                Sprite sprite = anim_data.CurrentFrame;
-                if (!NeedRender(sprite, ref pos, ref scale)) return;
+        if (!MapBox.isRenderMiniMap())
+        {
+            init_query.ForEachComponents(
+                (ref Position pos, ref Scale scale, ref AnimData anim_data, ref AnimBindRenderer bind_renderer) =>
+                {
+                    Sprite sprite = anim_data.CurrentFrame;
+                    if (!NeedRender(sprite, ref pos, ref scale))
+                    {
+                        if (bind_renderer.value != null && bind_renderer.value.gameObject.activeSelf)
+                        {
+                            bind_renderer.value.enabled = false;
+                        }
+                        return;
+                    }
 
-                if (bind_renderer.value != null)
+                    if (bind_renderer.value != null)
+                    {
+                        bind_renderer.value.bind.sprite = sprite;
+                        if (!bind_renderer.value.gameObject.activeSelf)
+                        {
+                            bind_renderer.value.gameObject.SetActive(true);
+                        }
+                    }
+                    else
+                    {
+                        AnimRenderer renderer = _pool.GetNext();
+                        renderer.bind.sprite = sprite;
+                        bind_renderer.value = renderer;
+                    }
+                });
+            pos_query.ForEachComponents((ref Position pos, ref AnimBindRenderer bind_renderer) =>
+            {
+                if (bind_renderer.value == null) return;
+                bind_renderer.value.transform.localPosition = new Vector3(pos.x, pos.y + pos.z);
+            });
+            scale_query.ForEachComponents((ref Scale scale, ref AnimBindRenderer bind_renderer) =>
+            {
+                if (bind_renderer.value == null) return;
+                bind_renderer.value.transform.localScale = scale.value;
+            });
+            rot_query.ForEachComponents((ref Rotation rot, ref AnimBindRenderer bind_renderer) =>
+            {
+                if (bind_renderer.value == null) return;
+                bind_renderer.value.transform.localRotation =
+                    Quaternion.Euler(0, 0, Vector2.SignedAngle(Vector2.right, rot.in_plane + new Vector2(0, rot.z)));
+            });
+        }
+        else
+        {
+            single_query.ForEachComponents((ref AnimBindRenderer bind_renderer) =>
+            {
+                if (bind_renderer.value!= null && bind_renderer.value.gameObject.activeSelf)
                 {
-                    bind_renderer.value.bind.sprite = sprite;
-                }
-                else
-                {
-                    AnimRenderer renderer = _pool.GetNext();
-                    renderer.bind.sprite = sprite;
-                    bind_renderer.value = renderer;
+                    bind_renderer.value.gameObject.SetActive(false);
                 }
             });
-        pos_query.ForEachComponents((ref Position pos, ref AnimBindRenderer bind_renderer) =>
-        {
-            if (bind_renderer.value == null) return;
-            bind_renderer.value.transform.localPosition = new Vector3(pos.x, pos.y + pos.z);
-        });
-        scale_query.ForEachComponents((ref Scale scale, ref AnimBindRenderer bind_renderer) =>
-        {
-            if (bind_renderer.value == null) return;
-            bind_renderer.value.transform.localScale = scale.value;
-        });
-        rot_query.ForEachComponents((ref Rotation rot, ref AnimBindRenderer bind_renderer) =>
-        {
-            if (bind_renderer.value == null) return;
-            bind_renderer.value.transform.localRotation =
-                Quaternion.Euler(0, 0, Vector2.SignedAngle(Vector2.right, rot.in_plane + new Vector2(0, rot.z)));
-        });
+        }
         /*
         rot_query.ForEachComponents((ref Rotation rot, ref AnimBindRenderer bind_renderer) =>
         {
