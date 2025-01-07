@@ -31,6 +31,7 @@ public class CommonBladeSkills : ICanInit
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
                 actor = true,
+                building = true,
                 enemy = true,
                 TriggerActionMeta = FireBladeCollisionActionMeta
             }, 1)

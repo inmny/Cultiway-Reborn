@@ -49,6 +49,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
                 actor = true,
+                building = true,
                 enemy = true,
                 TriggerActionMeta = TriggerActions.GetCollisionDamageActionMeta(weapon_damage_composition)
             }, 2.5f)
@@ -73,6 +74,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
                 actor = true,
+                building = true,
                 enemy = true,
                 TriggerActionMeta = TriggerActions.GetCollisionDamageActionMeta(weapon_damage_composition)
             }, 3)
