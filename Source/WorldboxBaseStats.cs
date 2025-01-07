@@ -44,8 +44,6 @@ public partial class WorldboxGame
 
         [AssetId(nameof(HealthRegen))] public static BaseStatAsset HealthRegen { get; private set; }
 
-        [AssetId(nameof(WakanRegen))] public static BaseStatAsset WakanRegen { get; private set; }
-
         [AssetId(nameof(MaxSoul))] public static BaseStatAsset MaxSoul { get; private set; }
 
         public static ReadOnlyCollection<string> ArmorStats  { get; private set; }

@@ -7,14 +7,12 @@ namespace Cultiway.Content;
 // 虽然没有这么拼的，但是方便
 public class BaseStatses : ExtendLibrary<BaseStatAsset, BaseStatses>
 {
-    public static BaseStatAsset MaxWakan { get; private set; }
+    [AssetId(nameof(MaxWakan))]public static BaseStatAsset MaxWakan { get; private set; }
+    [AssetId(nameof(WakanRegen))] public static BaseStatAsset WakanRegen { get; private set; }
 
     protected override void OnInit()
     {
-        MaxWakan = Add(new BaseStatAsset()
-        {
-            id = nameof(MaxWakan)
-        });
+        RegisterAssets("Cultiway.BaseStats");
         PatchWindowCreatureInfo.RegisterInfoDisplay((ae, sb) =>
         {
             if (!ae.HasCultisys<Xian>()) return;
