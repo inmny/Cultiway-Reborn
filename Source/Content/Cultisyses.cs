@@ -27,13 +27,13 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     {
         Xian = (CultisysAsset<Xian>)Add(new CultisysAsset<Xian>(nameof(Xian), 20, new Xian(),
             [
-                null, XianPreCheckUpgrade, XianPreCheckUpgrade, null, null, null, null, null,
+                null, XianPreCheckUpgrade, XianPreCheckUpgrade, XianPreCheckUpgrade, null, null, null, null,
                 null, null,
                 null, null, null, null, null, null, null, null,
                 null, null,
             ],
             [
-                null, XianCheckUpgrade, CheckUpgradeToJindan, null, null, null, null, null,
+                null, XianCheckUpgrade, CheckUpgradeToJindan, CheckUpgradeToYuanying, null, null, null, null,
                 null, null,
                 null, null, null, null, null, null, null, null,
                 null, null,
@@ -95,6 +95,40 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 sb.AppendLine($"金丹: {jindan.Type.GetName()}");
             }
         });
+    }
+
+    private bool CheckUpgradeToYuanying(ActorExtend ae, CultisysAsset<Xian> cultisys, ref Xian component)
+    {
+        if (component.wakan < ae.Base.stats[BaseStatses.MaxWakan.id] - 0.1f) return false;
+
+        Entity e = ae.E;
+        if (!e.HasComponent<JindanCultivation>()) e.AddComponent<JindanCultivation>();
+        
+        ref var jindan_cultivation = ref e.GetComponent<JindanCultivation>();
+        var intelligence = ae.GetStat(S.intelligence);
+        if (jindan_cultivation.stage >= 9)
+        {
+            if (!allow_first(intelligence, jindan_cultivation.stage))
+            {
+                component.wakan = 0;
+                ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeFailed);
+                return false;
+            }
+            
+            var jindan = ae.GetJindan();
+            if (!string.IsNullOrEmpty(jindan.Type.wrapped_skill_id))
+            {
+                ModClass.L.WrappedSkillLibrary.get(jindan.Type.wrapped_skill_id).Enhance(ae, SkillEnhanceSources.SmallUpgradeSuccess);
+            }
+            
+            return false;
+        }
+        return false;
+        bool allow_first(float p,int stage)
+        {
+            var sample = RdUtils.NextNormal_0_6();
+            return Mathf.Abs(sample) * (stage+1) < p;
+        }
     }
 
     private void LoadStatsForXian()

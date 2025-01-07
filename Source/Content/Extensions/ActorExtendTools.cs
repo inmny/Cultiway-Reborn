@@ -4,6 +4,7 @@ using Cultiway.Content.Const;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Friflo.Engine.ECS;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 
 namespace Cultiway.Content.Extensions;
@@ -15,6 +16,7 @@ public static class ActorExtendTools
     /// </summary>
     /// <remarks>一旦使用成功，丹药实体将被删除</remarks>
     /// <returns>是否使用成功 </returns>
+    [Hotfixable]
     public static bool TryConsumeElixir(this ActorExtend ae, Entity elixir_entity)
     {
         ref Elixir elixir = ref elixir_entity.GetComponent<Elixir>();
@@ -32,6 +34,7 @@ public static class ActorExtendTools
             return false;
         }
 
+        ModClass.LogInfo($"[{ae}] consumes {elixir_entity.Id}({elixir.elixir_id})");
         elixir_entity.DeleteEntity();
         return true;
     }
