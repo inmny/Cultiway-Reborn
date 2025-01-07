@@ -25,7 +25,7 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
 
     public override float GetLogicDeltaTime()
     {
-        return World.world.getCurElapsed();
+        return World.world.getCurElapsed() / Mathf.Max(0.01f, Config.timeScale);
     }
 
     public override float GetGameTime()
@@ -52,5 +52,10 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
     public void Pause()
     {
         Config.paused = true;
+    }
+
+    public float GetRenderDeltaTime()
+    {
+        return World.world.getCurElapsed();
     }
 }

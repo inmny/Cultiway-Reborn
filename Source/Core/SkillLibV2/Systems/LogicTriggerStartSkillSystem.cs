@@ -5,6 +5,7 @@ using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
+using NeoModLoader.api.attributes;
 
 namespace Cultiway.Core.SkillLibV2.Systems;
 
@@ -19,8 +20,12 @@ public class LogicTriggerStartSkillSystem : QuerySystem<StartSkillTrigger, Start
     {
         try
         {
-            Query.ForEachComponents((ref StartSkillTrigger trigger, ref StartSkillContext context) =>
+            Query.ForEachComponents([Hotfixable](ref StartSkillTrigger trigger, ref StartSkillContext context) =>
             {
+                if (context.user== null || context.user.E.IsNull || context.user.Base == null || !context.user.Base.isAlive())
+                {
+                    return;
+                }
                 var action_meta = trigger.TriggerActionMeta;
                 action_meta.Action(ref trigger, ref context, default,
                     context.user.GetSkillActionModifierContainer(action_meta.id, action_meta.default_modifier_container));

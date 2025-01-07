@@ -17,7 +17,7 @@ public class JindanGroupLibrary : AssetLibrary<JindanGroupAsset>
     {
         public int Compare(JindanGroupAsset x, JindanGroupAsset y)
         {
-            return x.prior - y.prior;
+            return y.prior - x.prior;
         }
     }
 }

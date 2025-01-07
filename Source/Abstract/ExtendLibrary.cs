@@ -31,6 +31,10 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
     {
     }
 
+    protected virtual void ActionAfterCreation(PropertyInfo prop, TAsset asset)
+    {
+        
+    }
     protected void RegisterAssets(string prefix = "Cultiway")
     {
         if (typeof(TAsset).GetConstructors().All(x => x.GetParameters().Length > 0)) return;
@@ -60,6 +64,7 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
                     {
                         item = Activator.CreateInstance<TAsset>();
                         item.id = item_id;
+                        ActionAfterCreation(prop, item);
                         item = Add(item);
                     }
 

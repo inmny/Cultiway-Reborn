@@ -2,8 +2,11 @@ using System;
 using System.IO;
 using System.Reflection;
 using Cultiway.AbstractGame.AbstractEngine;
+using Cultiway.Const;
 using Cultiway.Content;
+using Cultiway.Content.Components;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV2.Examples;
 using Cultiway.Core.SkillLibV2.Systems;
 using Cultiway.Core.Systems.Logic;
@@ -17,6 +20,7 @@ using NeoModLoader.api.attributes;
 using NeoModLoader.General;
 using NeoModLoader.utils;
 using UnityEngine;
+using SystemUtils = Cultiway.Utils.SystemUtils;
 
 namespace Cultiway
 {
@@ -48,25 +52,43 @@ namespace Cultiway
             L.PostInit();
         }
 
+        private float accum_time = 0;
         [Hotfixable]
         private void Update()
         {
             if (Game.IsPaused()) return;
-            var update_tick = new UpdateTick(Game.GetLogicDeltaTime(), Game.GetGameTime());
+            if (TimeScales.precise_simulate)
+                accum_time += Mathf.Sqrt(Config.timeScale);
+            var logic_update_tick = new UpdateTick(Game.GetLogicDeltaTime(), Game.GetGameTime());
+            var render_update_tick = new UpdateTick(Game.GetRenderDeltaTime(), Game.GetGameTime());
             try
             {
-                GeneralLogicSystems.Update(update_tick);
-                TileLogicSystems.Update(update_tick);
-                SkillV2.UpdateLogic(update_tick);
-                Geo.UpdateLogic(update_tick);
+                if (TimeScales.precise_simulate)
+                {
+                    while (accum_time > 1)
+                    {
+                        accum_time -= 1;
+                        GeneralLogicSystems.Update(logic_update_tick);
+                        TileLogicSystems.Update(logic_update_tick);
+                        SkillV2.UpdateLogic(logic_update_tick);
+                        Geo.UpdateLogic(logic_update_tick);
+                    }
+                }
+                else
+                {
+                    GeneralLogicSystems.Update(render_update_tick);
+                    TileLogicSystems.Update(render_update_tick);
+                    SkillV2.UpdateLogic(render_update_tick);
+                    Geo.UpdateLogic(render_update_tick);
+                }
 
-                GeneralRenderSystems.Update(update_tick);
-                TileRenderSystems.Update(update_tick);
-                SkillV2.UpdateRender(update_tick);
+                GeneralRenderSystems.Update(render_update_tick);
+                TileRenderSystems.Update(render_update_tick);
+                SkillV2.UpdateRender(render_update_tick);
             }
             catch (Exception e)
             {
-                LogError(e.ToString());
+                LogError(SystemUtils.GetFullExceptionMessage(e));
                 Game.Pause();
             }
         }
@@ -81,6 +103,21 @@ namespace Cultiway
             _content.OnReload();
 
             ActorExtendManager.AllStatsDirty();
+            
+            W.Query<ActorBinder>().ForEachComponents(
+                [Hotfixable]
+                (ref ActorBinder x)=>
+            {
+                var ae = x.AE;
+                if (ae == null) return;
+                if (ae.TryGetComponent(out Jindan jindan))
+                {
+                    if (jindan.Type == Jindans.Blaze)
+                    {
+                        ae.Base.data.favorite = true;
+                    }
+                }
+            });
         }
 
         public static GameObject NewPrefabPreview(string name, params Type[] types)

@@ -18,7 +18,7 @@ using UnityEngine;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(BaseStatses), typeof(CommonWeaponSkills))]
+[Dependency(typeof(BaseStatses), typeof(WrappedSkills))]
 public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
 {
     public static CultisysAsset<Xian> Xian { get; private set; }
@@ -45,7 +45,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 null, null,
             ],
             [
-                null, [CommonWeaponSkills.StartWeaponSkill.id], null, null, null, null, null, null,
+                null, [WrappedSkills.StartWeaponSkill.id], null, null, null, null, null, null,
                 null, null,
                 null, null, null, null, null, null, null, null,
                 null, null
