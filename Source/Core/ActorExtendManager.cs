@@ -29,7 +29,7 @@ public class ActorExtendManager : ExtendComponentManager<ActorExtend>
     internal void Destroy(string id)
     {
         if (!_data.Remove(id, out var val)) return;
-        val.SelfDestroy();
+        val.PrepareDestroy();
     }
 
     public void AllStatsDirty()

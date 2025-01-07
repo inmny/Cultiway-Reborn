@@ -98,7 +98,7 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
             }
         });
 
-        sphere_query.ForEachEntity((ref ColliderSphere      collider, ref ObjCollisionTrigger trigger,
+        sphere_query.ForEachEntity([Hotfixable](ref ColliderSphere      collider, ref ObjCollisionTrigger trigger,
                                     ref ObjCollisionContext context,  Entity                  trigger_entity) =>
         {
             if (!trigger.Enabled) return;
@@ -113,7 +113,10 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
 
             lb_fixed.Clamp(world_min, world_max);
             rt_fixed.Clamp(world_min, world_max);
-
+            if (skill_entity.GetComponent<SkillCaster>().value.E.IsNull)
+            {
+                ModClass.LogInfo($"null skill caster: {skill_entity}, {trigger_entity.Id}, {skill_entity.GetComponent<AnimData>().CurrentFrame.name}");
+            }
             Kingdom caster_kingdom = skill_entity.GetComponent<SkillCaster>().AsActor.kingdom;
             var triggered = false;
 

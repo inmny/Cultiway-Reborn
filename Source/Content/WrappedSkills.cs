@@ -16,6 +16,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
 {
     public static WrappedSkillAsset StartWeaponSkill { get; private set; }
     public static WrappedSkillAsset StartSelfSurroundFireBlade { get; private set; }
+    public static WrappedSkillAsset StartForwardFireBlade { get; private set; }
     protected override void OnInit()
     {
         StartWeaponSkill = CommonWeaponSkills.StartWeaponSkill.SelfWrap(WrappedSkillType.Attack);
@@ -33,5 +34,8 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
 
         StartSelfSurroundFireBlade = CommonBladeSkills.StartSelfSurroundFireBlade.SelfWrap(WrappedSkillType.Attack);
         StartSelfSurroundFireBlade.cost_check = WrappedSkillCostChecks.DefaultWakanCost(0.01f);
+        
+        StartForwardFireBlade = CommonBladeSkills.StartForwardFireBlade.SelfWrap(WrappedSkillType.Attack);
+        StartForwardFireBlade.cost_check = WrappedSkillCostChecks.DefaultWakanCost(0.01f);
     }
 }

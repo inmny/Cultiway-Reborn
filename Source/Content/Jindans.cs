@@ -63,11 +63,11 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
     [Hotfixable]
     private void AddEffects()
     {
-        JinHwang.wrapped_skill_id = WrappedSkills.StartSelfSurroundFireBlade.id;
-        Aoki.wrapped_skill_id = WrappedSkills.StartSelfSurroundFireBlade.id;
-        Frost.wrapped_skill_id = WrappedSkills.StartSelfSurroundFireBlade.id;
-        Blaze.wrapped_skill_id = WrappedSkills.StartSelfSurroundFireBlade.id;
-        Bentonite.wrapped_skill_id = WrappedSkills.StartSelfSurroundFireBlade.id;
+        JinHwang.wrapped_skill_id = WrappedSkills.StartForwardFireBlade.id;
+        Aoki.wrapped_skill_id = WrappedSkills.StartForwardFireBlade.id;
+        Frost.wrapped_skill_id = WrappedSkills.StartForwardFireBlade.id;
+        Blaze.wrapped_skill_id = WrappedSkills.StartForwardFireBlade.id;
+        Bentonite.wrapped_skill_id = WrappedSkills.StartForwardFireBlade.id;
     }
 
     public override void OnReload()

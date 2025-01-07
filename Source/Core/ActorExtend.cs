@@ -492,6 +492,14 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
             skill_action.DeleteEntity();
         }
     }
+    internal void PrepareDestroy()
+    {
+        e.AddTag<TagRecycle>();
+        foreach (var skill_action in _skill_actions.Values)
+        {
+            skill_action.DeleteEntity();
+        }
+    }
 
     public Entity GetFirstItemWithComponent<TComponent>() where TComponent : struct, IComponent
     {

@@ -22,6 +22,7 @@ public class CommonBladeSkills : ICanInit
         TriggerActions.GetCollisionDamageActionMeta(new([0, 0, 0, 100, 0, 0, 0, 0]));
 
     public static TriggerActionMeta<StartSkillTrigger, StartSkillContext> StartSelfSurroundFireBlade;
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext> StartForwardFireBlade;
     public static TriggerActionMeta<StartSkillTrigger, StartSkillContext> StartAllFireBlade;
 
     public void Init()
@@ -51,7 +52,45 @@ public class CommonBladeSkills : ICanInit
             .AppendAction(spawn_self_surround_fire_blade)
             .AllowModifier<ScaleModifier, float>(new ScaleModifier(1))
             .Build();
+        StartForwardFireBlade = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
+            .StartBuild(nameof(StartForwardFireBlade))
+            .AppendAction(spawn_forward_fire_blade)
+            .AllowModifier<ScaleModifier, float>(new ScaleModifier(1))
+            .Build();
     }
+    [Hotfixable]
+    private void spawn_forward_fire_blade(ref StartSkillTrigger trigger, ref StartSkillContext context, Entity skill_entity, Entity modifiers)
+    {
+        Entity entity = UntrajedFireBladeEntity.NewEntity();
+        
+        ActorExtend user_ae = context.user;
+        Actor user = user_ae.Base;
+        
+        var data = entity.Data;
+        data.Get<SkillCaster>().value = user_ae;
+        data.Get<SkillStrength>().value = context.strength;
+        data.Get<Position>().value = user.currentPosition;
+        data.Get<Trajectory>().meta = Trajectories.GoForward;
+        if (!skill_entity.IsNull && skill_entity.TryGetComponent(out Rotation rot))
+            data.Get<Rotation>().value = rot.value;
+        else
+        {
+            data.Get<Rotation>().Setup(user, context.target);
+        }
+
+        var modifiers_data = modifiers.Data;
+        var scale = modifiers_data.Get<ScaleModifier>().Value;
+        data.Get<Scale>().value *= scale;
+
+        foreach (Entity trigger_entity in entity.ChildEntities)
+        {
+            if (trigger_entity.HasComponent<ColliderSphere>())
+                trigger_entity.GetComponent<ColliderSphere>().radius *= scale;
+            if (trigger_entity.HasComponent<TimeReachTrigger>())
+                trigger_entity.GetComponent<TimeReachTrigger>().target_time *= 4;
+        }
+    }
+
     [Hotfixable]
     private void spawn_self_surround_fire_blade(
         ref StartSkillTrigger trigger,
