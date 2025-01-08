@@ -46,8 +46,8 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
             var triggered = false;
 
             if (trigger.actor)
-                for (var x = lb_fixed.x; x < rt_fixed.x; x++)
-                for (var y = lb_fixed.y; y < rt_fixed.y; y++)
+                for (var x = lb_fixed.x; x <= rt_fixed.x; x++)
+                for (var y = lb_fixed.y; y <= rt_fixed.y; y++)
                 {
                     WorldTile tile = World.world.GetTileSimple(x, y);
                     for (var i = 0; i < tile._units.Count; i++)
@@ -58,8 +58,8 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
                 }
 
             if (trigger.building)
-                for (var x = lb_fixed.x; x < rt_fixed.x; x++)
-                for (var y = lb_fixed.y; y < rt_fixed.y; y++)
+                for (var x = lb_fixed.x; x <= rt_fixed.x; x++)
+                for (var y = lb_fixed.y; y <= rt_fixed.y; y++)
                 {
                     WorldTile tile = World.world.GetTileSimple(x, y);
                     Building obj = tile.building;
@@ -121,8 +121,8 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
             var triggered = false;
 
             if (trigger.actor)
-                for (var x = lb_fixed.x; x < rt_fixed.x; x++)
-                for (var y = lb_fixed.y; y < rt_fixed.y; y++)
+                for (var x = lb_fixed.x; x <= rt_fixed.x; x++)
+                for (var y = lb_fixed.y; y <= rt_fixed.y; y++)
                 {
                     WorldTile tile = World.world.GetTileSimple(x, y);
                     if (Vector2.Distance(pos.v2, tile.pos) >= radius + 1) continue;
@@ -134,8 +134,8 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
                 }
 
             if (trigger.building)
-                for (var x = lb_fixed.x; x < rt_fixed.x; x++)
-                for (var y = lb_fixed.y; y < rt_fixed.y; y++)
+                for (var x = lb_fixed.x; x <= rt_fixed.x; x++)
+                for (var y = lb_fixed.y; y <= rt_fixed.y; y++)
                 {
                     WorldTile tile = World.world.GetTileSimple(x, y);
                     if (Vector2.Distance(pos.v2, tile.pos) >= radius + 1) continue;
