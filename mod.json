@@ -1,9 +1,9 @@
 {
-    "name": "修仙[Reborn]",
-    "author": "Inmny",
-    "version": "1.0.0",
-    "description": "",
+    "name": "修仙[重制]",
+    "author": "一米&吃鱼(其余待添加)",
+    "version": "0.0.1",
+    "description": "预览版，存档无效，无优化",
     "GUID": "CULTIWAY",
-    "RepoUrl": "https://github.com/author/name",
+    "RepoUrl": "https://github.com/inmny/Cultiway-Reborn",
     "iconPath": "icon.png"
 }
