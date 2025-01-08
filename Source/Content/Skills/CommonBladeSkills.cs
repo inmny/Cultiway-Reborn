@@ -17,53 +17,53 @@ namespace Cultiway.Content.Skills;
 
 public class CommonBladeSkills : ICanInit, ICanReload
 {
-    public static SkillEntityMeta UntrajedFireBladeEntity;
-    public static SkillEntityMeta FireBladeCasterEntity;
+    public static SkillEntityMeta UntrajedFireBladeEntity { get; private set; }
+    public static SkillEntityMeta FireBladeCasterEntity { get; private set; }
 
-    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> FireBladeCollisionActionMeta =
+    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> FireBladeCollisionActionMeta { get; private set; } =
         TriggerActions.GetCollisionDamageActionMeta(new([0, 0, 0, 100, 0, 0, 0, 0]));
 
-    public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnFireBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartSelfSurroundFireBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartOutSurroundFireBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartForwardFireBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartAllFireBlade;
+    public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnFireBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartSelfSurroundFireBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartOutSurroundFireBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartForwardFireBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartAllFireBlade { get; private set; }
 
-    public static SkillEntityMeta UntrajedGoldBladeEntity;
-    public static SkillEntityMeta GoldBladeCasterEntity;
+    public static SkillEntityMeta UntrajedGoldBladeEntity { get; private set; }
+    public static SkillEntityMeta GoldBladeCasterEntity { get; private set; }
 
-    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> GoldBladeCollisionActionMeta =
+    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> GoldBladeCollisionActionMeta { get; private set; } =
         TriggerActions.GetCollisionDamageActionMeta(new([100, 0, 0, 0, 0, 0, 0, 0]));
 
-    public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnGoldBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartSelfSurroundGoldBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartOutSurroundGoldBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartForwardGoldBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartAllGoldBlade;
+    public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnGoldBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartSelfSurroundGoldBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartOutSurroundGoldBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartForwardGoldBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartAllGoldBlade { get; private set; }
 
-    public static SkillEntityMeta UntrajedWaterBladeEntity;
-    public static SkillEntityMeta WaterBladeCasterEntity;
+    public static SkillEntityMeta UntrajedWaterBladeEntity { get; private set; }
+    public static SkillEntityMeta WaterBladeCasterEntity { get; private set; }
 
-    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> WaterBladeCollisionActionMeta =
+    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> WaterBladeCollisionActionMeta { get; private set; } =
         TriggerActions.GetCollisionDamageActionMeta(new([0, 0, 100, 0, 0, 0, 0, 0]));
 
-    public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnWaterBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartSelfSurroundWaterBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartOutSurroundWaterBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartForwardWaterBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartAllWaterBlade;
+    public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnWaterBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartSelfSurroundWaterBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartOutSurroundWaterBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartForwardWaterBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartAllWaterBlade { get; private set; }
 
-    public static SkillEntityMeta UntrajedWindBladeEntity;
-    public static SkillEntityMeta WindBladeCasterEntity;
+    public static SkillEntityMeta UntrajedWindBladeEntity { get; private set; }
+    public static SkillEntityMeta WindBladeCasterEntity { get; private set; }
 
-    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> WindBladeCollisionActionMeta =
+    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> WindBladeCollisionActionMeta { get; private set; } =
         TriggerActions.GetCollisionDamageActionMeta(new([0, 20, 40, 40, 0, 0, 0, 0]));
 
-    public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnWindBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartSelfSurroundWindBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartOutSurroundWindBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartForwardWindBlade;
-    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartAllWindBlade;
+    public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnWindBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartSelfSurroundWindBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartOutSurroundWindBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartForwardWindBlade { get; private set; }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartAllWindBlade { get; private set; }
 
     public void Init()
     {
