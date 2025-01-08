@@ -22,11 +22,11 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
         box_query = world.Query<ColliderBox, ObjCollisionTrigger, ObjCollisionContext>(Filter);
         sphere_query = world.Query<ColliderSphere, ObjCollisionTrigger, ObjCollisionContext>(Filter);
     }
-
+    [Hotfixable]
     protected override void OnUpdate()
     {
         var world_min = new Vector2Int(0,            0);
-        var world_max = new Vector2Int(MapBox.width, MapBox.height);
+        var world_max = new Vector2Int(MapBox.width-1, MapBox.height-1);
         box_query.ForEachEntity((ref ColliderBox         collider, ref ObjCollisionTrigger trigger,
                                  ref ObjCollisionContext context,  Entity                  trigger_entity) =>
         {
