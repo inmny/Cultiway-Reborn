@@ -6,6 +6,7 @@ using ai;
 using ai.behaviours;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
@@ -23,7 +24,36 @@ internal static class PatchAboutFly
         {
             return true;
         }
-        var tile = World.world.islandsCalculator.getRandomGround();
+
+        WorldTile tile = null;
+        var island_calculator = World.world.islandsCalculator;
+        if (island_calculator.islands.Any())
+        {
+            TileIsland ground_island = null;
+
+            if (island_calculator.islands_ground.Count != 0)
+            {
+                int[] weights = new int[island_calculator.islands_ground.Count];
+                var last_weight = 0;
+                for (int i = 0; i < weights.Length; i++)
+                {
+                    weights[i] = last_weight + island_calculator.islands_ground[i].getTileCount();
+                    last_weight = weights[i];
+                }
+
+                ground_island = island_calculator.islands_ground[RdUtils.RandomIndexWithAccumWeight(weights)];
+            }
+
+            if (ground_island != null && ground_island.regions.Count > 0)
+            {
+                tile = ground_island.getRandomTile();
+            }
+        }
+
+        if (tile == null)
+        {
+            tile = World.world.tilesList.GetRandom();
+        }
         pActor.beh_tile_target = tile;
         __result = BehResult.Continue;
         return false;
