@@ -24,6 +24,7 @@ public class CommonBladeSkills : ICanInit, ICanReload
         TriggerActions.GetCollisionDamageActionMeta(new([0, 0, 0, 100, 0, 0, 0, 0]));
     public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnFireBlade;
     public static TriggerActionMeta<StartSkillTrigger, StartSkillContext> StartSelfSurroundFireBlade;
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext> StartOutSurroundFireBlade;
     public static TriggerActionMeta<StartSkillTrigger, StartSkillContext> StartForwardFireBlade;
     public static TriggerActionMeta<StartSkillTrigger, StartSkillContext> StartAllFireBlade;
 
@@ -61,6 +62,11 @@ public class CommonBladeSkills : ICanInit, ICanReload
             .AppendAction(spawn_self_surround_fire_blade)
             .AllowModifier<SalvoCountModifier,int>(new SalvoCountModifier(4))
             .Build();
+        StartOutSurroundFireBlade = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
+            .StartBuild(nameof(StartOutSurroundFireBlade))
+            .AppendAction(spawn_out_surround_fire_blade)
+            .AllowModifier<SalvoCountModifier,int>(new SalvoCountModifier(8))
+            .Build();
         StartForwardFireBlade = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
             .StartBuild(nameof(StartForwardFireBlade))
             .AppendAction(spawn_forward_fire_blade)
@@ -83,6 +89,38 @@ public class CommonBladeSkills : ICanInit, ICanReload
             .AllowModifier<CastCountModifier, int>(new CastCountModifier(3))
             .AppendModifierApplication(fire_blade_caster_modifiers_application)
             .Build();
+    }
+    [Hotfixable]
+    private void spawn_out_surround_fire_blade(ref StartSkillTrigger trigger, ref StartSkillContext context, Entity skill_entity, Entity action_modifiers, Entity entity_modifiers)
+    {
+        var salvo_count = action_modifiers.GetComponent<SalvoCountModifier>().Value;
+
+        for (int i = 0; i < salvo_count; i++)
+        {
+            var rad = i * 360f / salvo_count * Mathf.Deg2Rad;
+            Entity entity = UntrajedFireBladeEntity.NewEntity();
+
+            ActorExtend user_ae = context.user;
+            Actor user = user_ae.Base;
+            float radius = Toolbox.randomFloat(user.stats[S.range], user.stats[S.range] * 2);
+            entity.AddComponent(new OutVelocity(radius));
+
+            var data = entity.Data;
+            data.Get<SkillCaster>().value = user_ae;
+            data.Get<SkillStrength>().value = context.strength;
+            data.Get<Position>().value = user.currentPosition + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * Mathf.Min(radius, 1);
+            data.Get<Trajectory>().meta = Trajectories.OutSurround;
+
+            foreach (Entity trigger_entity in entity.ChildEntities)
+            {
+                if (trigger_entity.HasComponent<TimeReachTrigger>())
+                    trigger_entity.GetComponent<TimeReachTrigger>().target_time *= 4;
+            }
+
+            UntrajedFireBladeEntity.ApplyModifiers(entity,
+                context.user.GetSkillEntityModifiers(UntrajedFireBladeEntity.id,
+                    UntrajedFireBladeEntity.default_modifier_container));
+        }
     }
 
     private void fire_blade_caster_modifiers_application(Entity entity, Entity modifiers)
@@ -130,13 +168,16 @@ public class CommonBladeSkills : ICanInit, ICanReload
         Entity modifiers, Entity entity_modifiers)
     {
         string id = "";
-        switch (Toolbox.randomInt(0, 2))
+        switch (Toolbox.randomInt(0, 3))
         {
             case 0:
                 id = StartSelfSurroundFireBlade.id;
                 break;
             case 1:
                 id = StartForwardFireBlade.id;
+                break;
+            case 2:
+                id = StartOutSurroundFireBlade.id;
                 break;
         }
 
@@ -220,9 +261,8 @@ public class CommonBladeSkills : ICanInit, ICanReload
                     UntrajedFireBladeEntity.default_modifier_container));
         }
     }
-
+    [Hotfixable]
     public void OnReload()
     {
-        
     }
 }

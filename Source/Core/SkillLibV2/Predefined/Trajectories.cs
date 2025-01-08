@@ -18,6 +18,7 @@ public static class Trajectories
     public static TrajectoryMeta GoTowardsTargetObjWithRotation { get; private set; }
     public static TrajectoryMeta FallToGround { get; private set; }
     public static TrajectoryMeta SelfSurround { get; private set; }
+    public static TrajectoryMeta OutSurround { get; private set; }
 
     internal static void Init()
     {
@@ -56,7 +57,37 @@ public static class Trajectories
             towards_velocity = true,
             get_delta_position = self_surround
         };
+        OutSurround = new TrajectoryMeta
+        {
+            towards_velocity = true,
+            get_delta_position = out_surround
+        };
     }
+    [Hotfixable]
+    private static Vector3 out_surround(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)
+    {
+        var data = skill_entity.Data;
+        var center = data.Get<SkillCaster>().AsActor.currentPosition;
+        var curr_angle_deg = Vector2.SignedAngle(Vector2.right, pos.v2 - center);
+        
+        var curr_angle_rad = curr_angle_deg * Mathf.Deg2Rad;
+
+        var old_radius = (pos.v2 - center).magnitude;
+        var radius = old_radius + data.Get<OutVelocity>().value * dt;
+        //ModClass.LogInfo($"[{skill_entity.Id}] outvelo: {data.Get<OutVelocity>().value}, radius: {(pos.v2 - center).magnitude}->{radius}");
+        var velocity = data.Get<Velocity>();
+        velocity.scale *= Mathf.Sqrt(old_radius);
+        
+        var target_angle_rad = curr_angle_rad + velocity.scale2.magnitude * dt / radius;
+        var target_pos = new Vector3(Mathf.Cos(target_angle_rad) * radius + center.x, Mathf.Sin(target_angle_rad) * radius + center.y);
+        Vector3 dir = target_pos - pos.value;
+        var dp = Vector3.Scale(dir.normalized * dt, velocity.scale);
+        
+        if (dp.sqrMagnitude >= dir.sqrMagnitude)
+            return dir;
+        return dp;
+    }
+
     [Hotfixable]
     private static Vector3 self_surround(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)
     {

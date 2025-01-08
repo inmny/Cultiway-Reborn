@@ -88,10 +88,10 @@ public class Manager
         _logic.Update(update_tick);
         _observer_logic.Update(update_tick);
     }
-
+    [Hotfixable]
     public void NewSkillStarter(string id, ActorExtend user, BaseSimObject init_target, float strength)
     {
-        ModClass.LogInfo($"{user.Base.data.id} cast skill to {init_target.base_data.id}");
+        ModClass.LogInfo($"{user.Base.data.id} cast skill to {init_target?.base_data?.id}");
         World.CreateEntity(new StartSkillTrigger
         {
             TriggerActionMeta =
