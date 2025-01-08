@@ -3,6 +3,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS.Systems;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 
 namespace Cultiway.Content.Systems.Logic;
@@ -15,7 +16,7 @@ public class WakanRestoreSystem : QuerySystem<Xian, ActorBinder>
         _restore_timer -= Tick.deltaTime;
         if (_restore_timer > 0) return;
         _restore_timer = TimeScales.SecPerMonth;
-        Query.ForEachComponents(((ref Xian xian, ref ActorBinder binder) =>
+        Query.ForEachComponents(([Hotfixable](ref Xian xian, ref ActorBinder binder) =>
         {
             var a = binder.Actor;
             if (a == null) return;
@@ -23,7 +24,7 @@ public class WakanRestoreSystem : QuerySystem<Xian, ActorBinder>
             if (xian.wakan >= max_wakan) return;
             Vector2Int tile_pos = a.currentTile.pos;
             var to_take = Mathf.Log10(WakanMap.I.map[tile_pos.x, tile_pos.y] + 1);
-            to_take = Mathf.Min(max_wakan - (xian.wakan + a.stats[BaseStatses.WakanRegen.id] * to_take), WakanMap.I.map[tile_pos.x, tile_pos.y]);
+            to_take = Mathf.Min(max_wakan - xian.wakan, WakanMap.I.map[tile_pos.x, tile_pos.y], to_take * a.stats[BaseStatses.WakanRegen.id]);
             WakanMap.I.map[tile_pos.x, tile_pos.y] -= to_take;
             xian.wakan += to_take;
         }));

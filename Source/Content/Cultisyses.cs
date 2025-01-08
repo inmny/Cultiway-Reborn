@@ -162,15 +162,16 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     {
         LoadStatsForXian();
     }
-
+    [Hotfixable]
     internal static void TakeWakanAndCultivate(ActorExtend actor_extend, ref Xian xian)
     {
+        var max_wakan = actor_extend.Base.stats[BaseStatses.MaxWakan.id];
+        if (xian.wakan >= max_wakan) return;
         Vector2Int tile_pos = actor_extend.Base.currentTile.pos;
         var total = WakanMap.I.map[tile_pos.x, tile_pos.y];
         var to_take = Mathf.Log10(total + 1);
 
-        var max_wakan = actor_extend.Base.stats[BaseStatses.MaxWakan.id];
-        to_take = Mathf.Min(max_wakan - (xian.wakan + to_take * actor_extend.GetElementRoot().GetStrength()), total);
+        to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * actor_extend.GetElementRoot().GetStrength());
         xian.wakan += to_take;
         WakanMap.I.map[tile_pos.x, tile_pos.y] -= to_take;
     }
