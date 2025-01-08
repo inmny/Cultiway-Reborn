@@ -106,7 +106,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         
         ref var jindan_cultivation = ref e.GetComponent<JindanCultivation>();
         var intelligence = ae.GetStat(S.intelligence);
-        if (jindan_cultivation.stage < 9)
+        if (jindan_cultivation.stage < 10000)
         {
             if (!allow_first(intelligence, jindan_cultivation.stage))
             {
@@ -125,6 +125,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeSuccess);
             }
             jindan_cultivation.stage++;
+            component.wakan *= 0.8f;
             
             return false;
         }
