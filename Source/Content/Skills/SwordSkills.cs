@@ -10,6 +10,7 @@ using Cultiway.Core.SkillLibV2.Predefined;
 using Cultiway.Core.SkillLibV2.Predefined.Modifiers;
 using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Friflo.Engine.ECS;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 
 namespace Cultiway.Content.Skills;
@@ -28,6 +29,7 @@ public class SwordSkills : ICanInit, ICanReload
     public static TriggerActionMeta<StartSkillTrigger, StartSkillContext> StartSelfSurroundGoldSword { get;
         private set;
     }
+    public static TriggerActionMeta<StartSkillTrigger, StartSkillContext> StartSuperGoldSword { get; private set; }
     public static TriggerActionMeta<StartSkillTrigger, StartSkillContext> StartAllGoldSword { get; private set; }
     public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnGoldSword { get; private set; }
     public void Init()
@@ -56,6 +58,9 @@ public class SwordSkills : ICanInit, ICanReload
             .StartBuild(nameof(StartSelfSurroundGoldSword))
             .AppendAction(spawn_self_surround_gold_sword)
             .AllowModifier<SalvoCountModifier, int>(new SalvoCountModifier(1))
+            .Build();
+        StartSuperGoldSword = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
+            .StartBuild(nameof(StartSuperGoldSword))
             .Build();
         RandomSpawnGoldSword = TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext>
             .StartBuild(nameof(RandomSpawnGoldSword))
@@ -103,17 +108,16 @@ public class SwordSkills : ICanInit, ICanReload
     }
 
     private static string[] starters;
+    [Hotfixable]
     private void gold_sword_caster_modifiers_application(Entity entity, Entity modifiers)
     {
-        var data = entity.Data;
-        var modifiers_data = modifiers.Data;
-
-        var scale_mod = modifiers_data.Get<ScaleModifier>().Value;
-        data.Get<Scale>().value *= scale_mod;
-        foreach (Entity trigger_entity in entity.ChildEntities)
+        foreach (var trigger in entity.ChildEntities)
         {
-            if (trigger_entity.HasComponent<ColliderSphere>())
-                trigger_entity.GetComponent<ColliderSphere>().radius *= scale_mod;
+            if (trigger.HasComponent<CastCountReachTrigger>())
+            {
+                trigger.GetComponent<CastCountReachTrigger>().TargetValue =
+                    modifiers.GetComponent<CastCountModifier>().Value;
+            }
         }
     }
 
