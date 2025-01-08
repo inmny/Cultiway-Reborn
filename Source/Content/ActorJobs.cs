@@ -10,7 +10,10 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob PlantXianCultivator { get; private set; }
     public static ActorJob HerbCollector { get; private set; }
     public static ActorJob ElixirCrafter { get; private set; }
-
+    [GetOnly("attacker")]
+    public static ActorJob Attacker { get; private set; }
+    [GetOnly("defender")]
+    public static ActorJob Defender { get; private set; }
     protected override void OnInit()
     {
         RegisterAssets("Cultiway.ActorJob");
@@ -33,5 +36,20 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         ElixirCrafter.addTask(ActorTasks.CraftElixir.id);
         ElixirCrafter.addCondition(new CondHasJindan());
         ElixirCrafter.addTask(ActorTasks.EndJob.id);
+        
+        
+        Attacker.addTask(ActorTasks.DailyXianCultivate.id);;
+        Attacker.addCondition(new CondXianReadyLevelup(), false);;
+        Attacker.addCondition(new CondProb(0.4f));
+        Attacker.addTask(ActorTasks.LevelupXianCultivate.id);
+        Attacker.addCondition(new CondXianReadyLevelup());
+        
+        Defender.addTask(ActorTasks.DailyXianCultivate.id);;
+        Defender.addCondition(new CondXianReadyLevelup(), false);;
+        Defender.addCondition(new CondProb(0.4f));
+        Defender.addTask(ActorTasks.LevelupXianCultivate.id);
+        Defender.addCondition(new CondXianReadyLevelup());
+        
+        
     }
 }
