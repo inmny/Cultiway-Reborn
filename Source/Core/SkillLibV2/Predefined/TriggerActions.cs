@@ -26,11 +26,11 @@ public static class TriggerActions
         }
     }
 
-    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> GetCollisionDamageActionMeta(ElementComposition damage_composition, bool unique = false)
+    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> GetCollisionDamageActionMeta(ElementComposition damage_composition, string post_action_id = "")
     {
         try
         {
-            string id = unique ? $"ObjCollisionDamage.{damage_composition}.{Guid.NewGuid()}" : $"ObjCollisionDamage.{damage_composition}";
+            string id =  $"ObjCollisionDamage.{damage_composition}.{post_action_id}";
             return TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>.StartBuild(id)
                 .AppendAction(single_damage)
                 .Build();
@@ -57,11 +57,11 @@ public static class TriggerActions
                 TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>;
         }
     }
-    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> GetSingleCollisionDamageActionMeta(ElementComposition damage_composition)
+    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> GetSingleCollisionDamageActionMeta(ElementComposition damage_composition, string post_action_id = "")
     {
         try
         {
-            return TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>.StartBuild($"SingleObjCollisionDamage.{damage_composition}")
+            return TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>.StartBuild($"SingleObjCollisionDamage.{damage_composition}.{post_action_id}")
                 .AppendAction(single_damage)
                 .Build();
             void single_damage(ref ObjCollisionTrigger trigger, ref ObjCollisionContext context, Entity skill_entity,
@@ -90,16 +90,12 @@ public static class TriggerActions
         }
     }
 
-    public static TriggerActionMeta<TTrigger, TContext> GetRecycleActionMeta<TTrigger, TContext>(bool unique = false)
+    public static TriggerActionMeta<TTrigger, TContext> GetRecycleActionMeta<TTrigger, TContext>()
         where TContext : struct, IEventContext
         where TTrigger : struct, IEventTrigger<TTrigger, TContext>
     {
         try
         {
-            if (unique)
-                return TriggerActionMeta<TTrigger, TContext>.StartBuild($"SimpleRecycle.{Guid.NewGuid()}")
-                    .AppendAction(simple_recycle)
-                    .Build();
             return TriggerActionMeta<TTrigger, TContext>.StartBuild("SimpleRecycle")
                 .AppendAction(simple_recycle)
                 .Build();

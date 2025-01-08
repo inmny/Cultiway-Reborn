@@ -21,7 +21,7 @@ public class CommonBladeSkills : ICanInit, ICanReload
     public static SkillEntityMeta FireBladeCasterEntity { get; private set; }
 
     public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> FireBladeCollisionActionMeta { get; private set; } =
-        TriggerActions.GetCollisionDamageActionMeta(new([0, 0, 0, 100, 0, 0, 0, 0]));
+        TriggerActions.GetCollisionDamageActionMeta(new([0, 0, 0, 100, 0, 0, 0, 0]), nameof(FireBladeCasterEntity));
 
     public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnFireBlade { get; private set; }
     public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartSelfSurroundFireBlade { get; private set; }
@@ -33,7 +33,7 @@ public class CommonBladeSkills : ICanInit, ICanReload
     public static SkillEntityMeta GoldBladeCasterEntity { get; private set; }
 
     public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> GoldBladeCollisionActionMeta { get; private set; } =
-        TriggerActions.GetCollisionDamageActionMeta(new([100, 0, 0, 0, 0, 0, 0, 0]));
+        TriggerActions.GetCollisionDamageActionMeta(new([100, 0, 0, 0, 0, 0, 0, 0]), nameof(UntrajedGoldBladeEntity));
 
     public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnGoldBlade { get; private set; }
     public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartSelfSurroundGoldBlade { get; private set; }
@@ -45,7 +45,7 @@ public class CommonBladeSkills : ICanInit, ICanReload
     public static SkillEntityMeta WaterBladeCasterEntity { get; private set; }
 
     public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> WaterBladeCollisionActionMeta { get; private set; } =
-        TriggerActions.GetCollisionDamageActionMeta(new([0, 0, 100, 0, 0, 0, 0, 0]));
+        TriggerActions.GetCollisionDamageActionMeta(new([0, 0, 100, 0, 0, 0, 0, 0]),nameof(UntrajedWaterBladeEntity));
 
     public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnWaterBlade { get; private set; }
     public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartSelfSurroundWaterBlade { get; private set; }
@@ -57,7 +57,7 @@ public class CommonBladeSkills : ICanInit, ICanReload
     public static SkillEntityMeta WindBladeCasterEntity { get; private set; }
 
     public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> WindBladeCollisionActionMeta { get; private set; } =
-        TriggerActions.GetCollisionDamageActionMeta(new([0, 20, 40, 40, 0, 0, 0, 0]));
+        TriggerActions.GetCollisionDamageActionMeta(new([0, 20, 40, 40, 0, 0, 0, 0]),nameof(UntrajedWindBladeEntity));
 
     public static TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext> RandomSpawnWindBlade { get; private set; }
     public static TriggerActionMeta<StartSkillTrigger, StartSkillContext>     StartSelfSurroundWindBlade { get; private set; }

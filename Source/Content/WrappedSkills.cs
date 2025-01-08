@@ -13,7 +13,7 @@ using Cultiway.Utils.Predefined;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Content;
-[Dependency(typeof(CommonWeaponSkills), typeof(CommonBladeSkills))]
+[Dependency(typeof(CommonWeaponSkills), typeof(CommonBladeSkills), typeof(SwordSkills))]
 public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
 {
     public static WrappedSkillAsset StartWeaponSkill { get; private set; }
@@ -33,6 +33,9 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
     public static WrappedSkillAsset StartOutSurroundWindBlade  { get; private set; }
     public static WrappedSkillAsset StartForwardWindBlade      { get; private set; }
     public static WrappedSkillAsset StartAllWindBlade          { get; private set; }
+    public static WrappedSkillAsset StartSelfSurroundGoldSword { get; private set; }
+    public static WrappedSkillAsset StartForwardGoldSword      { get; private set; }
+    public static WrappedSkillAsset StartAllGoldSword          { get; private set; }
     protected override void OnInit()
     {
         StartWeaponSkill = WrapAttackSkill(CommonWeaponSkills.StartWeaponSkill);
@@ -51,7 +54,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartOutSurroundFireBlade = WrapAttackSkill(CommonBladeSkills.StartOutSurroundFireBlade);
         StartForwardFireBlade = WrapAttackSkill(CommonBladeSkills.StartForwardFireBlade);
         StartAllFireBlade = WrapAttackSkill(CommonBladeSkills.StartAllFireBlade);
-        StartAllFireBlade.enhance = GetAllBladeEnhanceAction(
+        StartAllFireBlade.enhance = GetMultiStageProjectionEnhanceAction(
             CommonBladeSkills.UntrajedFireBladeEntity.id,
             CommonBladeSkills.FireBladeCasterEntity.id,
             StartForwardFireBlade.id,
@@ -62,7 +65,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartOutSurroundWindBlade = WrapAttackSkill(CommonBladeSkills.StartOutSurroundWindBlade);
         StartForwardWindBlade = WrapAttackSkill(CommonBladeSkills.StartForwardWindBlade);
         StartAllWindBlade = WrapAttackSkill(CommonBladeSkills.StartAllWindBlade);
-        StartAllWindBlade.enhance = GetAllBladeEnhanceAction(
+        StartAllWindBlade.enhance = GetMultiStageProjectionEnhanceAction(
             CommonBladeSkills.UntrajedWindBladeEntity.id,
             CommonBladeSkills.WindBladeCasterEntity.id,
             StartForwardWindBlade.id,
@@ -73,7 +76,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartOutSurroundWaterBlade = WrapAttackSkill(CommonBladeSkills.StartOutSurroundWaterBlade);
         StartForwardWaterBlade = WrapAttackSkill(CommonBladeSkills.StartForwardWaterBlade);
         StartAllWaterBlade = WrapAttackSkill(CommonBladeSkills.StartAllWaterBlade);
-        StartAllWaterBlade.enhance = GetAllBladeEnhanceAction(
+        StartAllWaterBlade.enhance = GetMultiStageProjectionEnhanceAction(
             CommonBladeSkills.UntrajedWaterBladeEntity.id,
             CommonBladeSkills.WaterBladeCasterEntity.id,
             StartForwardWaterBlade.id,
@@ -84,16 +87,25 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartOutSurroundGoldBlade = WrapAttackSkill(CommonBladeSkills.StartOutSurroundGoldBlade);
         StartForwardGoldBlade = WrapAttackSkill(CommonBladeSkills.StartForwardGoldBlade);
         StartAllGoldBlade = WrapAttackSkill(CommonBladeSkills.StartAllGoldBlade);
-        StartAllGoldBlade.enhance = GetAllBladeEnhanceAction(
+        StartAllGoldBlade.enhance = GetMultiStageProjectionEnhanceAction(
             CommonBladeSkills.UntrajedGoldBladeEntity.id,
             CommonBladeSkills.GoldBladeCasterEntity.id,
             StartForwardGoldBlade.id,
             StartSelfSurroundGoldBlade.id,
             StartOutSurroundGoldBlade.id
         );
+        StartSelfSurroundGoldSword = WrapAttackSkill(SwordSkills.StartSelfSurroundGoldSword);
+        StartForwardGoldSword = WrapAttackSkill(SwordSkills.StartForwardGoldSword);
+        StartAllGoldSword = WrapAttackSkill(SwordSkills.StartAllGoldSword);
+        StartAllGoldBlade.enhance = GetMultiStageProjectionEnhanceAction(
+            SwordSkills.UntrajedGoldSwordEntity.id,
+            SwordSkills.GoldSwordCasterEntity.id,
+            StartForwardGoldSword.id,
+            StartSelfSurroundGoldSword.id
+        );
     }
 
-    private EnhanceSkill GetAllBladeEnhanceAction(string blade_entity_id, string all_caster_id, params string[] blade_skill_ids)
+    private EnhanceSkill GetMultiStageProjectionEnhanceAction(string proj_entity_id, string all_caster_id, params string[] blade_skill_ids)
     {
         return (ActorExtend ae, string source) =>
         {
@@ -102,7 +114,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
                 0, 1, 2, 3
             };
             var caster_modifiers = ae.GetOrNewSkillEntityModifiers(all_caster_id).Data;
-            if (caster_modifiers.Get<StageModifier>().Value >= 3)
+            if (caster_modifiers.Get<StageModifier>().Value >= blade_skill_ids.Length)
             {
                 available_enhancements.RemoveAll(x => x == 3);
             }
@@ -112,7 +124,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
             {
                 case 0:
                     // 火斩实体扩大
-                    ae.GetOrNewSkillEntityModifiers(blade_entity_id)
+                    ae.GetOrNewSkillEntityModifiers(proj_entity_id)
                         .GetComponent<ScaleModifier>().Value += 0.1f;
                     break;
                 case 1:

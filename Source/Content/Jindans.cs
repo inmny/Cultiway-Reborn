@@ -12,6 +12,10 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
     /// </summary>
     public static JindanAsset JinHwang  { get; private set; }
     /// <summary>
+    /// 剑煌金丹
+    /// </summary>
+    public static JindanAsset SwordHwang { get; private set; }
+    /// <summary>
     /// 青木金丹
     /// </summary>
     public static JindanAsset Aoki  { get; private set; }
@@ -48,6 +52,7 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
         Common.Group = JindanGroups.Common;
 
         JinHwang.Group = JindanGroups.Element;
+        SwordHwang.Group = JindanGroups.Element;
         Aoki.Group = JindanGroups.Element;
         Frost.Group = JindanGroups.Element;
         Blaze.Group = JindanGroups.Element;
@@ -64,6 +69,7 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
     private void AddEffects()
     {
         JinHwang.wrapped_skill_id = WrappedSkills.StartAllGoldBlade.id;
+        SwordHwang.wrapped_skill_id = WrappedSkills.StartAllGoldSword.id;
         Aoki.wrapped_skill_id = WrappedSkills.StartAllWindBlade.id;
         Frost.wrapped_skill_id = WrappedSkills.StartAllWaterBlade.id;
         Blaze.wrapped_skill_id = WrappedSkills.StartAllFireBlade.id;

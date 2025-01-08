@@ -51,7 +51,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
                 actor = true,
                 building = true,
                 enemy = true,
-                TriggerActionMeta = TriggerActions.GetCollisionDamageActionMeta(weapon_damage_composition)
+                TriggerActionMeta = TriggerActions.GetCollisionDamageActionMeta(weapon_damage_composition, nameof(RotateForwardWeaponEntity))
             }, 2.5f)
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger
             {
@@ -76,7 +76,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
                 actor = true,
                 building = true,
                 enemy = true,
-                TriggerActionMeta = TriggerActions.GetCollisionDamageActionMeta(weapon_damage_composition)
+                TriggerActionMeta = TriggerActions.GetCollisionDamageActionMeta(weapon_damage_composition, nameof(BangWeaponEntity))
             }, 3)
             .Build();
     }
