@@ -24,7 +24,7 @@ internal static class PatchWorldLogMessage
                 if (Regex.IsMatch(key, @"cultisys_.*_\d*_msg"))
                 {
                     text = text.Replace("$actor$", pMessage.coloredText(pMessage.special1, pColorTags, 1));
-                    pMessage.icon = "iconCrown";
+                    pMessage.icon = "../cultiway/icons/iconCultivation";
                 }
                 else
                 {
