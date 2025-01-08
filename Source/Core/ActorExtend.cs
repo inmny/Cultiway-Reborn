@@ -353,6 +353,23 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         CastSkillV2(WrappedSkills.StartAllFireBlade.id, target, true);
         ModClass.LogInfo($"{Base.data.id} cast all fire blade to {target.data.id}");
     }
+    private void TestCastAllGoldSword()
+    {
+        Actor target = null;
+        int count = 0;
+        do
+        {
+            target = World.world.units.GetRandom();
+            if (++count > 100)
+            {
+                ModClass.LogInfo($"{Base.data.id} failed to find enemy");
+                return;
+            }
+        } while (!Base.kingdom.isEnemy(target.kingdom));
+
+        CastSkillV2(WrappedSkills.StartAllGoldSword.id, target, true);
+        ModClass.LogInfo($"{Base.data.id} cast all gold sword to {target.data.id}");
+    }
 
     private void TestConsumeEnlightenElixir()
     {

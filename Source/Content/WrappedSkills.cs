@@ -33,6 +33,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
     public static WrappedSkillAsset StartOutSurroundWindBlade  { get; private set; }
     public static WrappedSkillAsset StartForwardWindBlade      { get; private set; }
     public static WrappedSkillAsset StartAllWindBlade          { get; private set; }
+    public static WrappedSkillAsset StartSpecialGoldSword { get; private set; }
     public static WrappedSkillAsset StartSelfSurroundGoldSword { get; private set; }
     public static WrappedSkillAsset StartForwardGoldSword      { get; private set; }
     public static WrappedSkillAsset StartAllGoldSword          { get; private set; }
@@ -94,15 +95,46 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
             StartSelfSurroundGoldBlade.id,
             StartOutSurroundGoldBlade.id
         );
+        StartSpecialGoldSword = WrapAttackSkill(SwordSkills.StartSpecialGoldSword);
         StartSelfSurroundGoldSword = WrapAttackSkill(SwordSkills.StartSelfSurroundGoldSword);
         StartForwardGoldSword = WrapAttackSkill(SwordSkills.StartForwardGoldSword);
         StartAllGoldSword = WrapAttackSkill(SwordSkills.StartAllGoldSword);
-        StartAllGoldBlade.enhance = GetMultiStageProjectionEnhanceAction(
-            SwordSkills.UntrajedGoldSwordEntity.id,
-            SwordSkills.GoldSwordCasterEntity.id,
-            StartForwardGoldSword.id,
-            StartSelfSurroundGoldSword.id
-        );
+        StartAllGoldBlade.enhance = (ActorExtend ae, string source) =>
+        {
+            var available_enhancements = new List<int>()
+            {
+                0, 1, 2, 3
+            };
+            var caster_modifiers = ae.GetOrNewSkillEntityModifiers(SwordSkills.GoldSwordCasterEntity.id).Data;
+            if (caster_modifiers.Get<StageModifier>().Value >= SwordSkills.starters.Length)
+            {
+                available_enhancements.RemoveAll(x => x == 3);
+            }
+
+            if (available_enhancements.Count == 0) return;
+            switch (available_enhancements.GetRandom())
+            {
+                case 0:
+                    // 火斩实体扩大
+                    ae.GetOrNewSkillEntityModifiers(SwordSkills.UntrajedGoldSwordEntity.id)
+                        .GetComponent<ScaleModifier>().Value += 0.1f;
+                    break;
+                case 1:
+                    // 连发数量增加
+                    caster_modifiers.Get<CastCountModifier>().Value++;
+                    break;
+                case 2:
+                    // 某一子技能的齐射数量增加
+                    ae.GetOrNewSkillActionModifiers(
+                            SwordSkills.starters[Toolbox.randomInt(0, caster_modifiers.Get<StageModifier>().Value)])
+                        .GetComponent<SalvoCountModifier>().Value+=8;
+                    break;
+                case 3:
+                    // 添加新的子技能
+                    caster_modifiers.Get<StageModifier>().Value++;
+                    break;
+            }
+        };
     }
 
     private EnhanceSkill GetMultiStageProjectionEnhanceAction(string proj_entity_id, string all_caster_id, params string[] blade_skill_ids)
