@@ -232,7 +232,7 @@ public class CommonBladeSkills : ICanInit, ICanReload
             .Build();
         StartOutSurroundGoldBlade = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
             .StartBuild(nameof(StartOutSurroundGoldBlade))
-            .AppendAction(GetSpawnOutSurroundBladeAction(UntrajedWaterBladeEntity))
+            .AppendAction(GetSpawnOutSurroundBladeAction(UntrajedGoldBladeEntity))
             .AllowModifier<SalvoCountModifier, int>(new SalvoCountModifier(1))
             .Build();
         StartForwardGoldBlade = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
