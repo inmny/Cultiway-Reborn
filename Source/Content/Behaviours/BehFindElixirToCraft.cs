@@ -34,7 +34,7 @@ public class BehFindElixirToCraft : BehCity
                 crafting_elixir.AddRelation(new CraftOccupyingRelation { item = ing });
             }
 
-            ModClass.LogInfo($"{pObject.data.id} 开始制作 {elixir_asset.id}");
+            //ModClass.LogInfo($"{pObject.data.id} 开始制作 {elixir_asset.id}");
             return BehResult.Continue;
         }
 

@@ -33,8 +33,8 @@ public class BehCraftElixir : BehCity
 
         CraftOccupyingRelation ing_to_show = ingredients[crafting_elixir.progress];
         crafting_elixir.progress++;
-        ModClass.LogInfo(
-            $"{pObject.data.id} 正在制作({crafting_elixir.progress}/{ingredients.Length}) {crafting_elixir.elixir_id}");
+        //ModClass.LogInfo(
+        //    $"{pObject.data.id} 正在制作({crafting_elixir.progress}/{ingredients.Length}) {crafting_elixir.elixir_id}");
         pObject.timer_action = Toolbox.randomFloat(1, 3);
 
         return BehResult.Continue;
