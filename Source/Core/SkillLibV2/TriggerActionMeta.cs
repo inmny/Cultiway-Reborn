@@ -42,7 +42,7 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
     where TTrigger : struct, IEventTrigger<TTrigger, TContext>
 {
     public delegate void ActionType(ref TTrigger trigger, ref TContext context, Entity skill_entity,
-                                    Entity       modifiers);
+                                    Entity       action_modifiers, Entity entity_modifiers);
 
     private TriggerActionMeta(string id, Entity default_modifier_container) : base(id, default_modifier_container)
     {
@@ -53,9 +53,12 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
     public void Invoke(ref TTrigger trigger, ref TContext context, Entity trigger_entity)
     {
         Entity skill_entity = trigger_entity.Parent;
+        var entity_meta = skill_entity.GetComponent<SkillEntity>().Meta;
         Action(ref trigger, ref context, skill_entity,
             skill_entity.GetComponent<SkillCaster>().value
-                .GetSkillActionModifiers(trigger.TriggerActionMeta.id, default_modifier_container));
+                .GetSkillActionModifiers(trigger.TriggerActionMeta.id, default_modifier_container),
+            skill_entity.GetComponent<SkillCaster>().value
+                .GetSkillEntityModifiers(entity_meta.id, entity_meta.default_modifier_container));
     }
 
     public static MetaBuilder StartBuild(string id)

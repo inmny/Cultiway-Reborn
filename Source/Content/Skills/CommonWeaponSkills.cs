@@ -87,7 +87,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
     }
 
     private void bang_tiles(ref PositionReachTrigger trigger, ref PositionReachContext context, Entity skill_entity,
-                            Entity                   modifier_container)
+                            Entity                   modifier_container, Entity entity_modifiers)
     {
         var pos = skill_entity.GetComponent<Position>();
         WorldTile tile = WorldboxGame.I.GetTile((int)pos.x, (int)pos.y);
@@ -110,7 +110,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
     }
 
     private void switch_trajectory_back(ref TimeReachTrigger trigger, ref TimeReachContext context, Entity skill_entity,
-                                        Entity               modifier_container)
+                                        Entity               modifier_container, Entity entity_modifiers)
     {
         skill_entity.GetComponent<Trajectory>().meta = Trajectories.GoTowardsTargetObjWithRotation;
         skill_entity.GetComponent<SkillTargetObj>().value = skill_entity.GetComponent<SkillCaster>().value.Base;
@@ -121,7 +121,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
     }
     [Hotfixable]
     private void spawn_weapon_entity(ref StartSkillTrigger trigger, ref StartSkillContext context, Entity skill_entity,
-                                     Entity                modifier_container)
+                                     Entity                modifier_container, Entity entity_modifiers)
     {
         if (!context.user.Base.hasWeapon()) return;
         var bang_or_rotate = Toolbox.randomBool();

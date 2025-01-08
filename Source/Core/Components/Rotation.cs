@@ -17,10 +17,11 @@ public struct Rotation : IComponent
     {
     }
 
-    public void Setup(BaseSimObject start, BaseSimObject end)
+    public void Setup(BaseSimObject start, BaseSimObject end, Vector3 offset = default)
     {
         in_plane = end.currentPosition - start.currentPosition;
         z = end.getZ()                 - start.getZ();
+        value += offset;
     }
 
     public Rotation(Vector2 plane_value, float z)

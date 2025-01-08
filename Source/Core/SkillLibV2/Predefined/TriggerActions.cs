@@ -35,7 +35,7 @@ public static class TriggerActions
                 .AppendAction(single_damage)
                 .Build();
             void single_damage(ref ObjCollisionTrigger trigger, ref ObjCollisionContext context, Entity skill_entity,
-                Entity                                 modifier_container)
+                Entity                                 modifier_container, Entity entity_modifiers)
             {
                 if (!context.obj.isAlive()) return;
                 if (context.obj.isActor())
@@ -65,7 +65,7 @@ public static class TriggerActions
                 .AppendAction(single_damage)
                 .Build();
             void single_damage(ref ObjCollisionTrigger trigger, ref ObjCollisionContext context, Entity skill_entity,
-                Entity                                 modifier_container)
+                Entity                                 modifier_container, Entity entity_modifiers)
             {
                 if (!context.obj.isAlive()) return;
                 if (context.obj.isActor())
@@ -111,20 +111,20 @@ public static class TriggerActions
     }
 
     private static void recycle_on_collide_caster(ref ObjCollisionTrigger trigger,      ref ObjCollisionContext context,
-                                                  Entity                  skill_entity, Entity modifier_container)
+                                                  Entity                  skill_entity, Entity modifier_container, Entity entity_modifiers)
     {
         if (context.obj == skill_entity.GetComponent<SkillCaster>().AsActor)
             skill_entity.AddTag<TagRecycle>();
     }
 
     private static void simple_recycle<TTrigger, TContext>(ref TTrigger trigger,      ref TContext context,
-                                                           Entity       skill_entity, Entity       modifier_container)
+                                                           Entity       skill_entity, Entity       modifier_container, Entity entity_modifiers)
     {
         skill_entity.AddTag<TagRecycle>();
     }
 
     internal static void cast_count_increase<TTrigger, TContext>(ref TTrigger trigger,      ref TContext context,
-                                                                 Entity       skill_entity, Entity modifier_container)
+                                                                 Entity       skill_entity, Entity modifier_container, Entity entity_modifiers)
     {
         foreach (Entity trigger_entity in skill_entity.ChildEntities)
             if (trigger_entity.HasComponent<CastCountReachContext>())

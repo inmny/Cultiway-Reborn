@@ -33,7 +33,7 @@ public static class ExampleTriggerActions
             .StartBuild(nameof(StartSkillFireball))
             .AppendAction(spawn_fireball_caster)
             .AllowModifier<CastSpeedModifier, float>(new CastSpeedModifier(1))
-            .AllowModifier<CastNumberModifier, int>(new CastNumberModifier(1))
+            .AllowModifier<CastCountModifier, int>(new CastCountModifier(1))
             .Build();
         TimeIntervalSpawnFireball = TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext>
             .StartBuild(nameof(TimeIntervalSpawnFireball))
@@ -49,7 +49,7 @@ public static class ExampleTriggerActions
     }
 
     private static void damage_and_explosion(ref ObjCollisionTrigger trigger,      ref ObjCollisionContext context,
-                                             Entity                  skill_entity, Entity modifier_container)
+                                             Entity                  skill_entity, Entity modifier_container, Entity entity_modifiers)
     {
         if (context.obj.isActor())
         {
@@ -62,7 +62,7 @@ public static class ExampleTriggerActions
     }
 
     private static void spawn_fireball(ref TimeIntervalTrigger trigger,      ref TimeIntervalContext context,
-                                       Entity                  skill_entity, Entity                  modifier_container)
+                                       Entity                  skill_entity, Entity                  modifier_container, Entity entity_modifiers)
     {
         Entity fireball = ExampleSkillEntities.Fireball.NewEntity();
         EntityData fireball_data = fireball.Data;
@@ -92,7 +92,7 @@ public static class ExampleTriggerActions
     }
 
     private static void spawn_fireball_caster(ref StartSkillTrigger trigger, ref StartSkillContext context, Entity _,
-                                              Entity                modifier_container)
+                                              Entity                modifier_container, Entity entity_modifiers)
     {
         Entity fireball_caster = ExampleSkillEntities.FireballCaster.NewEntity();
         EntityData data = fireball_caster.Data;
@@ -110,7 +110,7 @@ public static class ExampleTriggerActions
         foreach (Entity trigger_entity in triggers)
             if (trigger_entity.HasComponent<CastCountReachTrigger>())
                 trigger_entity.GetComponent<CastCountReachTrigger>().TargetValue =
-                    modifier_data.Get<CastNumberModifier>().Value;
+                    modifier_data.Get<CastCountModifier>().Value;
             else if (trigger_entity.HasComponent<TimeIntervalTrigger>())
                 trigger_entity.GetComponent<TimeIntervalTrigger>().interval_time /=
                     modifier_data.Get<CastSpeedModifier>().Value;
