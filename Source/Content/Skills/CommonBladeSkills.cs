@@ -60,17 +60,17 @@ public class CommonBladeSkills : ICanInit, ICanReload
         StartSelfSurroundFireBlade = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
             .StartBuild(nameof(StartSelfSurroundFireBlade))
             .AppendAction(spawn_self_surround_fire_blade)
-            .AllowModifier<SalvoCountModifier,int>(new SalvoCountModifier(4))
+            .AllowModifier<SalvoCountModifier,int>(new SalvoCountModifier(1))
             .Build();
         StartOutSurroundFireBlade = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
             .StartBuild(nameof(StartOutSurroundFireBlade))
             .AppendAction(spawn_out_surround_fire_blade)
-            .AllowModifier<SalvoCountModifier,int>(new SalvoCountModifier(8))
+            .AllowModifier<SalvoCountModifier,int>(new SalvoCountModifier(1))
             .Build();
         StartForwardFireBlade = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
             .StartBuild(nameof(StartForwardFireBlade))
             .AppendAction(spawn_forward_fire_blade)
-            .AllowModifier<SalvoCountModifier,int>(new SalvoCountModifier(4))
+            .AllowModifier<SalvoCountModifier,int>(new SalvoCountModifier(1))
             .Build();
         StartAllFireBlade = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
             .StartBuild(nameof(StartAllFireBlade))
@@ -86,7 +86,8 @@ public class CommonBladeSkills : ICanInit, ICanReload
                 ExpectedResult = CompareResult.GreaterThanTarget,
                 TriggerActionMeta = TriggerActions.GetRecycleActionMeta<CastCountReachTrigger, CastCountReachContext>()
             }, out _, new CastCountReachContext())
-            .AllowModifier<CastCountModifier, int>(new CastCountModifier(3))
+            .AllowModifier<CastCountModifier, int>(new CastCountModifier(1))
+            .AllowModifier<StageModifier, int>(new StageModifier(1))
             .AppendModifierApplication(fire_blade_caster_modifiers_application)
             .Build();
     }
@@ -168,13 +169,13 @@ public class CommonBladeSkills : ICanInit, ICanReload
         Entity modifiers, Entity entity_modifiers)
     {
         string id = "";
-        switch (Toolbox.randomInt(0, 3))
+        switch (Toolbox.randomInt(0, entity_modifiers.GetComponent<StageModifier>().Value))
         {
             case 0:
-                id = StartSelfSurroundFireBlade.id;
+                id = StartForwardFireBlade.id;
                 break;
             case 1:
-                id = StartForwardFireBlade.id;
+                id = StartSelfSurroundFireBlade.id;
                 break;
             case 2:
                 id = StartOutSurroundFireBlade.id;

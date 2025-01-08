@@ -219,15 +219,23 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     {
         return ref _skill_entity_modifiers[entity_id].GetComponent<TModifier>();
     }
-    internal Entity NewSkillModifierContainer(string action_id)
+    public Entity GetOrNewSkillActionModifiers(string action_id)
     {
-        var container = TriggerActionBaseMeta.AllDict[action_id].NewModifierContainer();
+        if (_skill_action_modifiers.TryGetValue(action_id, out var container))
+        {
+            return container;
+        }
+        container = TriggerActionBaseMeta.AllDict[action_id].NewModifierContainer();
         _skill_action_modifiers[action_id] = container;
         return container;
     }
-    internal Entity NewSkillEntityModifierContainer(string entity_id)
+    public Entity GetOrNewSkillEntityModifiers(string entity_id)
     {
-        var container = SkillEntityMeta.AllDict[entity_id].NewModifierContainer();
+        if (_skill_entity_modifiers.TryGetValue(entity_id, out var container))
+        {
+            return container;
+        }
+        container = SkillEntityMeta.AllDict[entity_id].NewModifierContainer();
         _skill_entity_modifiers[entity_id] = container;
         return container;
     }
