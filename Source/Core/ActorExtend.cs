@@ -20,6 +20,7 @@ using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
+using NeoModLoader.services;
 using UnityEngine;
 
 namespace Cultiway.Core;
@@ -467,8 +468,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         var power_level = GetPowerLevel();
         if (power_level > attacker_power_level)
         {
+            var old_damage = damage;
             damage = Mathf.Log(Mathf.Max(damage, 1),
                 Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - attacker_power_level));
+            if (damage > 1)
+            {
+                LogService.LogInfoConcurrent($"{Base.data.id}({power_level}) 被攻击，伤害{old_damage}({attacker_power_level})，最终伤害{damage}");
+            }
         }
 
         if (damage >= 1)

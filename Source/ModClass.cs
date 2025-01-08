@@ -165,6 +165,8 @@ namespace Cultiway
             GeneralLogicSystems.Add(new RecycleStatusEffectSystem());
             GeneralLogicSystems.Add(new RecycleDefaultEntitySystem());
             
+            GeneralLogicSystems.Add(new HealthRestoreSystem());
+            
             GeneralRenderSystems.Add(new RenderAnimFrameSystem(W));
 
             CustomMapModeManager = new();
