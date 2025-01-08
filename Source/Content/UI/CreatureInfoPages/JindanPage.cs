@@ -37,6 +37,11 @@ public class JindanPage : MonoBehaviour
         sb.AppendLine($"\t{jindan.Type.GetDescription()}");
         sb.AppendLine($"金丹强度: {jindan.strength}");
         sb.AppendLine($"自带法术: \n\t{jindan.Type.wrapped_skill_id}");
+        if (ae.HasComponent<JindanCultivation>())
+        {
+            var cultivation = ae.GetComponent<JindanCultivation>();
+            sb.AppendLine($"金丹修为: {cultivation.stage}转金丹");
+        }
 
         var this_page = page.GetComponent<JindanPage>();
         this_page.Text.text = sb.ToString();

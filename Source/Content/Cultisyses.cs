@@ -96,7 +96,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             }
         });
     }
-
+    [Hotfixable]
     private bool CheckUpgradeToYuanying(ActorExtend ae, CultisysAsset<Xian> cultisys, ref Xian component)
     {
         if (component.wakan < ae.Base.stats[BaseStatses.MaxWakan.id] - 0.1f) return false;
@@ -106,7 +106,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         
         ref var jindan_cultivation = ref e.GetComponent<JindanCultivation>();
         var intelligence = ae.GetStat(S.intelligence);
-        if (jindan_cultivation.stage >= 9)
+        if (jindan_cultivation.stage < 9)
         {
             if (!allow_first(intelligence, jindan_cultivation.stage))
             {
@@ -124,9 +124,12 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             {
                 ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeSuccess);
             }
+            jindan_cultivation.stage++;
             
             return false;
         }
+        component.wakan *= 0.6f;
+        
         return false;
         bool allow_first(float p,int stage)
         {
