@@ -136,7 +136,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
         data.Get<SkillTargetPos>().Setup(target, new(0,0,-target.getZ()));
         data.Get<SkillStrength>().value = bang_or_rotate ? context.strength * 8 : context.strength;
         data.Get<Position>().value = bang_or_rotate ? new Vector3(target.currentPosition.x, target.currentPosition.y, target.getZ()+10) : user.currentPosition;
-        data.Get<AnimData>().frames[0] = user.getWeaponAsset().getSprite(user.getWeapon());//ActorAnimationLoader.getItem(user.getWeaponTextureId());
+        data.Get<AnimData>().frames = [user.getWeaponAsset().getSprite(user.getWeapon())];//ActorAnimationLoader.getItem(user.getWeaponTextureId());
         // data.Get<Rotation>().Setup(user, target);
         var modifier_data = modifier_container.Data;
         
