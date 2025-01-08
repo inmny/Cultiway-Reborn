@@ -36,3 +36,9 @@
 ## Long-term Working Roadmap
 
 - [ ] 简化优化技能框架
+
+# 感谢名单(按时间排序)
+
+- [星曜](https://space.bilibili.com/628041521)
+- 沧州赵玖
+- [行也](https://space.bilibili.com/1697805417)
