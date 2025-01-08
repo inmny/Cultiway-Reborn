@@ -39,12 +39,14 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         
         
         Attacker.addTask(ActorTasks.DailyXianCultivate.id);;
+        Attacker.addCondition(new CondXianCanCultivate());
         Attacker.addCondition(new CondXianReadyLevelup(), false);;
         Attacker.addCondition(new CondProb(0.4f));
         Attacker.addTask(ActorTasks.LevelupXianCultivate.id);
         Attacker.addCondition(new CondXianReadyLevelup());
         
         Defender.addTask(ActorTasks.DailyXianCultivate.id);;
+        Attacker.addCondition(new CondXianCanCultivate());
         Defender.addCondition(new CondXianReadyLevelup(), false);;
         Defender.addCondition(new CondProb(0.4f));
         Defender.addTask(ActorTasks.LevelupXianCultivate.id);
