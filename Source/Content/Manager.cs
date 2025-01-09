@@ -31,6 +31,7 @@ internal class Manager
         new Patch.Manager().Init();
         ModClass.I.GeneralLogicSystems.Add(new FlyCancelSystem());
         ModClass.I.GeneralLogicSystems.Add(new WakanRestoreSystem());
+        ModClass.I.GeneralLogicSystems.Add(new WakanSpreadSystem());
         ModClass.I.GeneralRenderSystems.Add(new CloudRenderSystem());
     }
 

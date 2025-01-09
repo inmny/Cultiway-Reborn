@@ -21,14 +21,6 @@ public class WorldBehs : ExtendLibrary<WorldBehaviourAsset, WorldBehs>
             interval_random = 0,
             action = UpdateWakanTide
         });
-        WakanSpread = Add(new WorldBehaviourAsset()
-        {
-            id = nameof(WakanSpread),
-            interval = 0.05f,
-            interval_random = 0,
-            action = WorldBehaviourActionWakanSpread.Update,
-            action_clear = WorldBehaviourActionWakanSpread.Clear
-        });
     }
 
     protected override WorldBehaviourAsset Add(WorldBehaviourAsset asset)
