@@ -7,7 +7,7 @@ namespace Cultiway.Core.GeoLib.Systems;
 public class AntiErosionSystem : BaseSystem
 {
     private const int frame_per_year             = 60 * 5 * 12;
-    private const int check_tile_count_per_frame = 1024;
+    private const int check_tile_count_per_frame = 64;
 
     private readonly Dictionary<string, int> _available_tile_types = new Dictionary<string, int>()
     {
