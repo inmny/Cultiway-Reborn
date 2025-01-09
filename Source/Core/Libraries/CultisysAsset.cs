@@ -8,7 +8,7 @@ using Cultiway.Utils.Extension;
 using NeoModLoader.General;
 
 namespace Cultiway.Core.Libraries;
-
+public delegate float GetDetailedLevel(ActorExtend actor_extend);
 public abstract class BaseCultisysAsset : Asset
 {
     private BaseStats[]                _level_accum_stats;
@@ -18,6 +18,7 @@ public abstract class BaseCultisysAsset : Asset
     private int                        _level_nr;
     private string[]                   _levelup_msg_keys;
     private string                     _name_key;
+    protected GetDetailedLevel[]        _detailed_levels;
     public  ReadOnlyCollection<string> LevelDescKeys;
     public  ReadOnlyCollection<string> LevelNameKeys;
     public  ReadOnlyCollection<string> LevelupMsgKeys;
@@ -87,6 +88,11 @@ public abstract class BaseCultisysAsset : Asset
         var key = _levelup_msg_keys[level];
         return LMTools.Has(key) ? LM.Get(key) : "";
     }
+
+    public float GetLevelForSort(ActorExtend actor_extend, int base_level)
+    {
+        return base_level + _detailed_levels[base_level]?.Invoke(actor_extend) ?? 0;
+    }
 }
 
 public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysComponent
@@ -106,12 +112,13 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
 
     public CultisysAsset(string id, int level_nr, T default_component, CheckUpgrade[] upgrade_pre_checkers = null,
                          CheckUpgrade[] upgrade_checkers = null, Upgrade[] upgrade_actions = null,
-                         List<string>[] skills           = null, float[] power_levels = null) : base(id, level_nr)
+                         List<string>[] skills           = null, float[] power_levels = null, GetDetailedLevel[] detailed_levels=null) : base(id, level_nr)
     {
         _upgrade_actions = upgrade_actions           ?? new Upgrade[level_nr];
         _upgrade_pre_checkers = upgrade_pre_checkers ?? new CheckUpgrade[level_nr];
         _upgrade_checkers = upgrade_checkers         ?? new CheckUpgrade[level_nr];
         _power_levels = power_levels                 ?? new float[level_nr];
+        _detailed_levels = detailed_levels           ?? new GetDetailedLevel[level_nr];
         _skills = new List<string>[level_nr];
 
         Assert.Equals(_upgrade_actions.Length,      level_nr);
