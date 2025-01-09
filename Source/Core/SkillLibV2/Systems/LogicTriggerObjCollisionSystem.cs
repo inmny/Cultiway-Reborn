@@ -78,7 +78,6 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
                 if (enemy && trigger.enemy)
                 {
                     context.obj = obj;
-                    context.dist = Toolbox.DistVec2Float(pos.v2, obj.currentPosition);
                     context.JustTriggered = !triggered;
 
                     trigger.TriggerActionMeta.Invoke(ref trigger, ref context, trigger_entity);
@@ -88,7 +87,6 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
                 else if (!enemy && trigger.friend)
                 {
                     context.obj = obj;
-                    context.dist = Toolbox.DistVec2Float(pos.v2, obj.currentPosition);
                     context.JustTriggered = !triggered;
 
                     trigger.TriggerActionMeta.Invoke(ref trigger, ref context, trigger_entity);
@@ -148,13 +146,10 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
 
             void check_obj(BaseSimObject obj, ref ObjCollisionTrigger trigger, ref ObjCollisionContext context)
             {
-                if (!ShapeUtils.InRect(obj.currentPosition, lb, rt)) return;
-
                 var enemy = caster_kingdom.isEnemy(obj.kingdom);
                 if (enemy && trigger.enemy)
                 {
                     context.obj = obj;
-                    context.dist = Toolbox.DistVec2Float(pos.v2, obj.currentPosition);
                     context.JustTriggered = !triggered;
 
                     trigger.TriggerActionMeta.Invoke(ref trigger, ref context, trigger_entity);
@@ -164,7 +159,6 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
                 else if (!enemy && trigger.friend)
                 {
                     context.obj = obj;
-                    context.dist = Toolbox.DistVec2Float(pos.v2, obj.currentPosition);
                     context.JustTriggered = !triggered;
 
                     trigger.TriggerActionMeta.Invoke(ref trigger, ref context, trigger_entity);
