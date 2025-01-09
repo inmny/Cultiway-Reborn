@@ -572,7 +572,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         PatchActor.getHit_snapshot(Base, 0, pAttacker: attacker, pSkipIfShake: false);
         
         Base.data.health = health_before; // 防止强制扣血
-        if (Base.data.favorite)
+        if (Base.data.favorite && Base.data.health != old_health)
             LogService.LogInfoConcurrent($"{Base.data.id}({power_level}) 被攻击，伤害{old_damage}({attacker_power_level})，最终伤害{damage}. 血量{old_health}->{Base.data.health}");
     }
 
