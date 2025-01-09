@@ -22,7 +22,9 @@ public class BehFindTargetForCollector : BehCity
         for (var i = 0; i < world.temp_map_objects.Count; i++)
         {
             var actor = (Actor)world.temp_map_objects[i];
-            if (isTargetOk(collector, actor) && actor.asset == Actors.Plant && actor.GetExtend().GetPowerLevel() >= min_level)
+            if (isTargetOk(collector, actor) && actor.asset == Actors.Plant &&
+                actor.GetExtend().GetPowerLevel() >= min_level &&
+                collector.GetExtend().GetPowerLevel() >= actor.GetExtend().GetPowerLevel())
                 temp_actors.Add(actor);
         }
 
