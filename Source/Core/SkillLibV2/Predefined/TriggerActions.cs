@@ -26,11 +26,22 @@ public static class TriggerActions
         }
     }
 
-    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> GetCollisionDamageActionMeta(ElementComposition damage_composition, string post_action_id = "")
+    public static TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext> GetCollisionDamageActionMeta(ElementComposition damage_composition, string post_action_id = "", TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>.ActionType addition_action = null)
     {
         try
         {
             string id =  $"ObjCollisionDamage.{damage_composition}.{post_action_id}";
+            if (string.IsNullOrEmpty(post_action_id) && addition_action != null)
+            {
+                id  += "-"+addition_action.Method.Name;
+            }
+            if (addition_action != null)
+            {
+                return TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>.StartBuild(id)
+                    .AppendAction(single_damage)
+                    .AppendAction(addition_action)
+                    .Build();
+            }
             return TriggerActionMeta<ObjCollisionTrigger, ObjCollisionContext>.StartBuild(id)
                 .AppendAction(single_damage)
                 .Build();

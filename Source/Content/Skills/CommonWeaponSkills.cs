@@ -103,7 +103,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
                 }
             }
                 
-            WorldboxGame.I.DamageWorld(tile, (int)radius, WorldboxGame.Terraforms.EarthquakeBurn,
+            WorldboxGame.I.DamageWorld(tile, (int)radius, WorldboxGame.Terraforms.HitGround,
                 skill_entity.GetComponent<SkillCaster>().AsActor);
         }
         skill_entity.AddTag<TagRecycle>();
