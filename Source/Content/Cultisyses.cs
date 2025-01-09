@@ -52,27 +52,33 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             ],
             null,
             [
-                null, ae =>
+                null, [Hotfixable](ae) =>
                 {
                     var res = 0f;
-                    if (ae.HasComponent<XianBase>()) res += 0.01f;
-                    var xian_base = ae.GetComponent<XianBase>();
-                    if (xian_base.jing > 0) res += 0.01f;
-                    if (xian_base.qi > 0) res += 0.01f;
-                    if (xian_base.shen > 0) res += 0.01f;
-                    if (xian_base.fire > 0) res += 0.01f;
-                    if (xian_base.wood > 0) res += 0.01f;
-                    if (xian_base.earth > 0) res += 0.01f;
-                    if (xian_base.iron > 0) res += 0.01f;
-                    if (xian_base.water > 0) res += 0.01f;
+                    if (ae.HasComponent<XianBase>())
+                    {
+                        res += 0.01f;
+                        var xian_base = ae.GetComponent<XianBase>();
+                        if (xian_base.jing > 0) res += 0.01f;
+                        if (xian_base.qi > 0) res += 0.01f;
+                        if (xian_base.shen > 0) res += 0.01f;
+                        if (xian_base.fire > 0) res += 0.01f;
+                        if (xian_base.wood > 0) res += 0.01f;
+                        if (xian_base.earth > 0) res += 0.01f;
+                        if (xian_base.iron > 0) res += 0.01f;
+                        if (xian_base.water > 0) res += 0.01f;
+                    }
                     return res;
                 },
-                ae =>
+                [Hotfixable](ae) =>
                 {
                     var res = 0f;
-                    if (ae.HasComponent<JindanCultivation>()) res += 0.01f;
-                    var jindan_cultivation = ae.GetComponent<JindanCultivation>();
-                    res += 0.9f * (1 - 1f / (jindan_cultivation.stage + 1));
+                    if (ae.HasComponent<JindanCultivation>())
+                    {
+                        res += 0.01f;
+                        var jindan_cultivation = ae.GetComponent<JindanCultivation>();
+                        res += 0.9f * (1 - 1f / (jindan_cultivation.stage + 1));
+                    }
                     return res;
                 }, null, null, null, null, null,
                 null, null,
