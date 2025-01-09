@@ -13,7 +13,7 @@ public class BehPlantXianCultivate : BehaviourActionActor
     {
         ActorExtend actor_extend = pObject.GetExtend();
         ref Xian xian = ref actor_extend.GetCultisys<Xian>();
-        Cultisyses.TakeWakanAndCultivate(actor_extend, ref xian);
+        Cultisyses.OutWakanAndCultivate(actor_extend, ref xian);
         return BehResult.Continue;
     }
 }

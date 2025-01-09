@@ -13,7 +13,7 @@ public class BehPlantXianLevelup : BehaviourActionActor
         ref Xian xian = ref actor_extend.GetCultisys<Xian>();
 
         // 获取修炼收益
-        Cultisyses.TakeWakanAndCultivate(actor_extend, ref xian);
+        Cultisyses.OutWakanAndCultivate(actor_extend, ref xian);
 
         if (Cultisyses.Xian.AllowUpgrade(actor_extend)) Cultisyses.Xian.TryPerformUpgrade(actor_extend);
 
