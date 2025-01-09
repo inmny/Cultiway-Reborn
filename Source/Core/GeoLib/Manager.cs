@@ -1,3 +1,4 @@
+using System.Text;
 using Cultiway.Core.GeoLib.Systems;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -24,5 +25,15 @@ public class Manager
     {
         if (!ModClass.I.TileExtendManager.Ready()) return;
         _system_root.Update(update_tick);
+    }
+    public void SetMonitorPerf(bool monitor_perf)
+    {
+        _system_root.SetMonitorPerf(monitor_perf);
+    }
+    public void AppendPerfLog(StringBuilder sb)
+    {
+        sb.Append('\n');
+        _system_root.AppendPerfLog(sb);
+        sb.Append('\n');
     }
 }

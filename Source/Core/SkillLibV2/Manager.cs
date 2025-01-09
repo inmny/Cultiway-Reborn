@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Cultiway.Core.SkillLibV2.Api;
 using Cultiway.Core.SkillLibV2.Predefined;
 using Cultiway.Core.SkillLibV2.Predefined.Triggers;
@@ -69,6 +70,19 @@ public class Manager
         TriggerActions.Init();
         Trajectories.Init();
         SkillEntities.Init();
+    }
+    public void SetMonitorPerf(bool enable)
+    {
+        _logic.SetMonitorPerf(enable);
+        _render.SetMonitorPerf(enable);
+    }
+    public void AppendPerfLog(StringBuilder sb)
+    {
+        sb.Append('\n');
+        _logic.AppendPerfLog(sb);
+        sb.Append('\n');
+        _render.AppendPerfLog(sb);
+        sb.Append('\n');
     }
 
     public void RegisterCustomValueReachSystem<TTrigger, TContext, TValue>()

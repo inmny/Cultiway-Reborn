@@ -58,4 +58,9 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
     {
         return World.world.getCurElapsed();
     }
+
+    public bool IsLoaded()
+    {
+        return Config.LOAD_TIME_GENERATE > 0;
+    }
 }

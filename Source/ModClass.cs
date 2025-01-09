@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using Cultiway.AbstractGame.AbstractEngine;
 using Cultiway.Const;
 using Cultiway.Content;
@@ -53,10 +54,19 @@ namespace Cultiway
         }
 
         private float accum_time = 0;
+        private float time_for_log_perf = 0;
         [Hotfixable]
         private void Update()
         {
+            if (!Game.IsLoaded()) return;
             if (Game.IsPaused()) return;
+            time_for_log_perf += Time.deltaTime;
+            if (time_for_log_perf > 600)
+            {
+                time_for_log_perf = 0;
+                LogPerf();
+            }
+
             if (TimeScales.precise_simulate)
                 accum_time += Mathf.Sqrt(Config.timeScale);
             var logic_update_tick = new UpdateTick(Game.GetLogicDeltaTime(), Game.GetGameTime());
@@ -91,6 +101,21 @@ namespace Cultiway
                 LogError(SystemUtils.GetFullExceptionMessage(e));
                 Game.Pause();
             }
+        }
+
+        private void LogPerf()
+        {
+            if (Environment.UserName != "Inmny") return;
+            StringBuilder sb = new();
+            sb.Append('\n');
+            GeneralLogicSystems.AppendPerfLog(sb);
+            sb.Append('\n');
+            GeneralRenderSystems.AppendPerfLog(sb);
+            sb.Append('\n');
+            SkillV2.AppendPerfLog(sb);
+            sb.Append('\n');
+            Geo.AppendPerfLog(sb);
+            LogInfo($"{sb}");
         }
 
         [Hotfixable]
@@ -193,6 +218,11 @@ namespace Cultiway
                 DebugConfig.setOption(DebugOption.CityInfiniteResources, true);
                 DebugConfig.setOption(DebugOption.CityFastConstruction, true);
                 DebugConfig.setOption(DebugOption.CityFastUpgrades, true);
+                
+                GeneralLogicSystems.SetMonitorPerf(true);
+                GeneralRenderSystems.SetMonitorPerf(true);
+                SkillV2.SetMonitorPerf(true);
+                Geo.SetMonitorPerf(true);
             }
         }
 
