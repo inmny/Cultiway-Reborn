@@ -140,6 +140,54 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
             }
         }
     }
+
+    public void GetForce(BaseSimObject source, float x, float y, float z)
+    {
+        var actor = Base;
+        if (!actor.asset.canBeMovedByPowers)
+        {
+            return;
+        }
+        if (actor.zPosition.y > 0f)
+        {
+            return;
+        }
+        var power_level = GetPowerLevel();
+        var source_power_level = (source?.isActor()??false) ? source.a.GetExtend().GetPowerLevel() : 0;
+        if (power_level > source_power_level)
+        {
+            x /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - source_power_level);
+            y /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - source_power_level);
+            z /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - source_power_level);
+        }
+        var reduction = Base.stats[S.knockback_reduction];
+        if (reduction >= 0)
+        {
+            var ratio = 1 / (1 + reduction);
+            x *= ratio;
+            y *= ratio;
+            z *= ratio;
+        }
+        else
+        {
+            var ratio = 1 - reduction;
+            x *= ratio;
+            y *= ratio;
+            z *= ratio;
+        }
+
+        if (x * x + y * y + z * z > 1)
+        {
+            actor.forceVector.x = x * 0.6f;
+            actor.forceVector.y = y * 0.6f;
+            actor.forceVector.z = z * 2f;
+            actor.under_force = true;
+        }
+    }
+    public float GetCultisysLevelForSort<T>() where T : struct, ICultisysComponent
+    {
+        return e.TryGetComponent(out T cultisys) ? cultisys.Asset.GetLevelForSort(this, cultisys.CurrLevel) : -1;
+    }
     public float GetPowerLevel()
     {
         return E.TryGetComponent(out PowerLevel power_level) ? power_level.value : 0;
