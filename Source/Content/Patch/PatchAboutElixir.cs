@@ -5,11 +5,13 @@ using Cultiway.Content.Extensions;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using HarmonyLib;
+using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content.Patch;
 
 internal static class PatchAboutElixir
 {
+    [Hotfixable]
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.updateAge))]
     private static void Actor_updateAge_postfix(Actor __instance)
     {
@@ -21,6 +23,21 @@ internal static class PatchAboutElixir
             {
                 var elixir_to_consume = elixirs.GetRandom();
                 ae.TryConsumeElixir(elixir_to_consume);
+            }
+            else
+            {
+                var city = ae.Base.city;
+                if (city != null)
+                {
+                    var elixirs_in_city = city.GetExtend().GetItems().Where(x =>
+                            x.HasComponent<Elixir>() && x.Tags.Has<TagElixirRestore>())
+                        .ToList();
+                    if (elixirs_in_city.Any())
+                    {
+                        var elixir_to_consume = elixirs_in_city.GetRandom();
+                        ae.TryConsumeElixir(elixir_to_consume);
+                    }
+                }
             }
         }
     }
