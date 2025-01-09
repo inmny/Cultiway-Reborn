@@ -500,8 +500,8 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
                 total_ratio += damage_composition[i] * (1 - s_armor[i]);
                 sum += damage_composition[i];
             }
-
-            damage_ratio *= total_ratio / sum;
+            if (sum > 0)
+                damage_ratio *= total_ratio / sum;
             total_ratio = 0f;
             sum = 0f;
             for (var i = 5; i < 7; i++)
@@ -509,8 +509,11 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
                 total_ratio += damage_composition[i] * (1 - s_armor[i]);
                 sum += damage_composition[i];
             }
-
-            damage_ratio *= total_ratio / sum * (1 - s_armor[ElementIndex.Entropy]);
+            
+            if (sum > 0)
+                damage_ratio *= total_ratio / sum * (1 - s_armor[ElementIndex.Entropy]);
+            
+            damage_ratio *= (1 - s_armor[ElementIndex.Entropy]);
             damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
             Base.data.health -= (int)damage;
         }
