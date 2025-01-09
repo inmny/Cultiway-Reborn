@@ -479,19 +479,15 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         }
 
         if (Base == attacker) return;
-
+        var old_damage = damage;
+        var old_health = Base.data.health;
 
         var attacker_power_level = (attacker?.isActor() ?? false) ? attacker.a.GetExtend().GetPowerLevel() : 0;
         var power_level = GetPowerLevel();
         if (power_level > attacker_power_level)
         {
-            var old_damage = damage;
             damage = Mathf.Log(Mathf.Max(damage, 1),
                 Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - attacker_power_level));
-            if (damage > 1)
-            {
-                LogService.LogInfoConcurrent($"{Base.data.id}({power_level}) 被攻击，伤害{old_damage}({attacker_power_level})，最终伤害{damage}");
-            }
         }
 
         if (damage >= 1)
@@ -518,7 +514,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
             damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
             Base.data.health -= (int)damage;
         }
-
         // 补齐原版的一些效果
         int health_before = Base.data.health;
         
@@ -526,6 +521,8 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         PatchActor.getHit_snapshot(Base, 0, pAttacker: attacker, pSkipIfShake: false);
         
         Base.data.health = health_before; // 防止强制扣血
+        if (Base.data.favorite)
+            LogService.LogInfoConcurrent($"{Base.data.id}({power_level}) 被攻击，伤害{old_damage}({attacker_power_level})，最终伤害{damage}. 血量{old_health}->{Base.data.health}");
     }
 
     public bool HasElementRoot()
