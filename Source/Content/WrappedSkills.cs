@@ -99,11 +99,11 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartSelfSurroundGoldSword = WrapAttackSkill(SwordSkills.StartSelfSurroundGoldSword);
         StartForwardGoldSword = WrapAttackSkill(SwordSkills.StartForwardGoldSword);
         StartAllGoldSword = WrapAttackSkill(SwordSkills.StartAllGoldSword);
-        StartAllGoldBlade.enhance = (ActorExtend ae, string source) =>
+        StartAllGoldSword.enhance = (ActorExtend ae, string source) =>
         {
             var available_enhancements = new List<int>()
             {
-                0, 1, 2, 3
+                0, 1, 1, 1, 2, 2, 3, 3, 3
             };
             var caster_modifiers = ae.GetOrNewSkillEntityModifiers(SwordSkills.GoldSwordCasterEntity.id).Data;
             if (caster_modifiers.Get<StageModifier>().Value >= SwordSkills.starters.Length)
@@ -115,7 +115,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
             switch (available_enhancements.GetRandom())
             {
                 case 0:
-                    // 火斩实体扩大
+                    // 实体扩大
                     ae.GetOrNewSkillEntityModifiers(SwordSkills.UntrajedGoldSwordEntity.id)
                         .GetComponent<ScaleModifier>().Value += 0.1f;
                     break;
