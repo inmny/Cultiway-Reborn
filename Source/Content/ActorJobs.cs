@@ -18,12 +18,14 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     {
         RegisterAssets("Cultiway.ActorJob");
         XianCultivator.addTask(ActorTasks.DailyXianCultivate.id);
+        XianCultivator.addCondition(new CondXianCanCultivate());
         XianCultivator.addCondition(new CondXianReadyLevelup(), false);
         XianCultivator.addTask(ActorTasks.LevelupXianCultivate.id);
         XianCultivator.addCondition(new CondXianReadyLevelup());
         XianCultivator.addTask(ActorTasks.EndJob.id);
 
         PlantXianCultivator.addTask(ActorTasks.DailyPlantXianCultivate.id);
+        PlantXianCultivator.addCondition(new CondXianCanCultivate());
         PlantXianCultivator.addCondition(new CondXianReadyLevelup(), false);
         PlantXianCultivator.addTask(ActorTasks.LevelupPlantXianCultivate.id);
         PlantXianCultivator.addCondition(new CondXianReadyLevelup());
