@@ -1,5 +1,6 @@
 using Cultiway.Core.Libraries;
 using Friflo.Engine.ECS;
+using Friflo.Json.Fliox;
 using UnityEngine;
 
 namespace Cultiway.Core.Components;
@@ -10,6 +11,7 @@ public struct ItemShape(string shape_id) : IComponent
     private ItemShapeAsset _type;
     public  int            texture_idx = -1;
 
+    [Ignore]
     public ItemShapeAsset Type
     {
         get

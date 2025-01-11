@@ -4,6 +4,7 @@ using Cultiway.Core.Libraries;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
+using Friflo.Json.Fliox;
 using NeoModLoader.services;
 using UnityEngine;
 
@@ -19,7 +20,9 @@ public struct ElementRoot : IComponent
     public float            Neg     { get; private set; }
     public float            Pos     { get; private set; }
     public float            Entropy { get; private set; }
+    [Ignore]
     public ElementRootAsset Type    { get; private set; }
+    [Ignore]
     public BaseStats        Stats   { get; }
 
     public ElementRoot(float[] composition)

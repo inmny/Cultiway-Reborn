@@ -1,4 +1,5 @@
 using Friflo.Engine.ECS;
+using Friflo.Json.Fliox;
 
 namespace Cultiway.Core.Components;
 
@@ -6,6 +7,7 @@ public struct CityBinder(string id) : IComponent
 {
     public readonly string id = id;
 
+    [Ignore]
     public City City
     {
         get
@@ -16,7 +18,9 @@ public struct CityBinder(string id) : IComponent
         }
     }
 
+    [Ignore]
     public   CityExtend CE => _ce;
+    [Ignore]
     internal CityExtend _ce;
     private  City       _city;
 }

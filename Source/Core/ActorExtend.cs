@@ -246,7 +246,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
 
     public override string ToString()
     {
-        return $"[{e.GetComponent<ActorBinder>().id}] {Base.getName()}: {e}";
+        return $"[{e.GetComponent<ActorBinder>().ID}] {Base.getName()}: {e}";
     }
     public bool HasSkillModifier<TModifier, TValue>(string action_id)
         where TModifier : struct, IModifier<TValue>
