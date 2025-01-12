@@ -33,7 +33,7 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
         });
         OpenElementRootElixir.consumable_check_action =
             (ActorExtend ae, Entity elixir_entity, ref Elixir _) => !ae.HasElementRoot();
-        OpenElementRootElixir.ingrediants = new ElixirIngrediantCheck[]
+        OpenElementRootElixir.ingredients = new ElixirIngredientCheck[]
         {
             new()
             {
@@ -66,7 +66,7 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
         WakanRestoreElixir.consumable_check_action = (ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
             ae.HasCultisys<Xian>() && ae.GetCultisys<Xian>().wakan <
             ae.Base.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit;
-        WakanRestoreElixir.ingrediants = new ElixirIngrediantCheck[]
+        WakanRestoreElixir.ingredients = new ElixirIngredientCheck[]
         {
             new()
             {

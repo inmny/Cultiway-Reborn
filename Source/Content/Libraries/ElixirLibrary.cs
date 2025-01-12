@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
+using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -64,6 +65,51 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
         else
             add(asset);
 
+        return asset;
+    }
+
+    public ElixirAsset NewElixir(ElixirAsset reference, Entity[] ingredients, ActorExtend creator)
+    {
+        var asset = NewElixir();
+        
+        var type = Toolbox.randomChance(0.1f) ? ElixirEffectType.DataGain : ElixirEffectType.StatusGain;
+
+        asset.effect_type = type;
+        asset.ingredients = new ElixirIngredientCheck[ingredients.Length];
+        for (int i = 0; i < ingredients.Length; i++)
+        {
+            var ing_check = new ElixirIngredientCheck();
+
+            var ing = ingredients[i];
+            if (ing.TryGetComponent(out Jindan jindan) && Toolbox.randomBool())
+            {
+                if (Toolbox.randomBool())
+                {
+                    ing_check.jindan_id = jindan.jindan_type;
+                }
+                else
+                {
+                    ing_check.need_jindan = true;
+                }
+            }
+            
+            if (ing.TryGetComponent(out ElementRoot element_root) && Toolbox.randomBool())
+            {
+                if (Toolbox.randomBool())
+                {
+                    ing_check.element_root_id = element_root.Type.id;
+                }
+                else
+                {
+                    ing_check.need_element_root = true;
+                }
+            }
+
+            asset.ingredients[i] = ing_check;
+        }
+        // 生成丹药的服用检查和效果
+        asset.seed_for_random_effect = Toolbox.randomInt(0, int.MaxValue);
+        ElixirEffectGenerator.GenerateElixirActions(asset);
         return asset;
     }
 

@@ -10,7 +10,7 @@ using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content.Libraries;
 
-public struct ElixirIngrediantCheck
+public struct ElixirIngredientCheck
 {
     public bool   need_element_root;
     public string element_root_id;
@@ -66,7 +66,11 @@ public class ElixirAsset : Asset
     public ElixirCraftDelegate  craft_action;
     public ElixirEffectDelegate effect_action;
     public ElixirEffectType     effect_type;
-    public ElixirIngrediantCheck[] ingrediants;
+    public ElixirIngredientCheck[] ingredients;
+    /// <summary>
+    /// 仅用于动态生成的丹药, 用于保证随机效果的一致性（存读档）
+    /// </summary>
+    public int seed_for_random_effect;
     public string                  name_key;
     public void SetupDataGain(ElixirEffectDelegate effect_action)
     {
@@ -135,22 +139,22 @@ public class ElixirAsset : Asset
         receiver.AddSpecialItem(crafting_elixir_entity);
     }
 
-    public bool QueryInventoryForIngrediants(IHasInventory inv, out Entity[] corr_ingrediants)
+    public bool QueryInventoryForIngredients(IHasInventory inv, out Entity[] corr_ingredients)
     {
-        if (ingrediants == null || ingrediants.Length == 0)
+        if (ingredients == null || ingredients.Length == 0)
         {
-            corr_ingrediants = null;
+            corr_ingredients = null;
             return false;
         }
-        var check_result = new Entity[ingrediants.Length];
+        var check_result = new Entity[ingredients.Length];
         var items = inv.GetItems();
         foreach (Entity item in items)
         {
             if (item.GetIncomingLinks<CraftOccupyingRelation>().Count > 0) continue;
-            for (var i = 0; i < ingrediants.Length; i++)
+            for (var i = 0; i < ingredients.Length; i++)
             {
                 if (!check_result[i].IsNull) continue;
-                if (ingrediants[i].Check(item))
+                if (ingredients[i].Check(item))
                 {
                     check_result[i] = item;
                     break;
@@ -159,7 +163,7 @@ public class ElixirAsset : Asset
         }
 
         var res = check_result.All(x => !x.IsNull);
-        corr_ingrediants = res ? check_result : null;
+        corr_ingredients = res ? check_result : null;
         return res;
     }
 }
