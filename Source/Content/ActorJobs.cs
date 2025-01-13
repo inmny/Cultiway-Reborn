@@ -10,6 +10,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob PlantXianCultivator { get; private set; }
     public static ActorJob HerbCollector { get; private set; }
     public static ActorJob ElixirCrafter { get; private set; }
+    public static ActorJob TalismanCrafter { get; private set; }
     [GetOnly("attacker")]
     public static ActorJob Attacker { get; private set; }
     [GetOnly("defender")]
@@ -18,14 +19,14 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     {
         RegisterAssets("Cultiway.ActorJob");
         XianCultivator.addTask(ActorTasks.DailyXianCultivate.id);
-        XianCultivator.addCondition(new CondXianCanCultivate());
+        XianCultivator.addCondition(new CondHasXian());
         XianCultivator.addCondition(new CondXianReadyLevelup(), false);
         XianCultivator.addTask(ActorTasks.LevelupXianCultivate.id);
         XianCultivator.addCondition(new CondXianReadyLevelup());
         XianCultivator.addTask(ActorTasks.EndJob.id);
 
         PlantXianCultivator.addTask(ActorTasks.DailyPlantXianCultivate.id);
-        PlantXianCultivator.addCondition(new CondXianCanCultivate());
+        PlantXianCultivator.addCondition(new CondHasXian());
         PlantXianCultivator.addCondition(new CondXianReadyLevelup(), false);
         PlantXianCultivator.addTask(ActorTasks.LevelupPlantXianCultivate.id);
         PlantXianCultivator.addCondition(new CondXianReadyLevelup());
@@ -39,16 +40,22 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         ElixirCrafter.addCondition(new CondHasJindan());
         ElixirCrafter.addTask(ActorTasks.EndJob.id);
         
+        TalismanCrafter.addTask(ActorTasks.CraftTalisman.id);
+        TalismanCrafter.addCondition(new CondHasXian());
+        TalismanCrafter.addCondition(new CondHasXianBase());
+        TalismanCrafter.addCondition(new CondHasEnoughWakan());
+        TalismanCrafter.addTask(ActorTasks.EndJob.id);
+        
         
         Attacker.addTask(ActorTasks.DailyXianCultivate.id);;
-        Attacker.addCondition(new CondXianCanCultivate());
+        Attacker.addCondition(new CondHasXian());
         Attacker.addCondition(new CondXianReadyLevelup(), false);;
         Attacker.addCondition(new CondProb(0.4f));
         Attacker.addTask(ActorTasks.LevelupXianCultivate.id);
         Attacker.addCondition(new CondXianReadyLevelup());
         
         Defender.addTask(ActorTasks.DailyXianCultivate.id);;
-        Attacker.addCondition(new CondXianCanCultivate());
+        Attacker.addCondition(new CondHasXian());
         Defender.addCondition(new CondXianReadyLevelup(), false);;
         Defender.addCondition(new CondProb(0.4f));
         Defender.addTask(ActorTasks.LevelupXianCultivate.id);

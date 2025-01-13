@@ -30,6 +30,7 @@ internal static class PatchActor
             if (Toolbox.randomChance(1 - chance))
             {
                 if (ae.HasComponent<Jindan>() && Toolbox.randomChance(0.4f)) __result = ActorJobs.ElixirCrafter.id;
+                if (ae.HasComponent<XianBase>() && Toolbox.randomChance(0.4f)) __result = ActorJobs.TalismanCrafter.id;
 
                 return;
             }

@@ -13,6 +13,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor LevelupPlantXianCultivate { get; private set; }
     public static BehaviourTaskActor LookForHerbs { get; private set; }
     public static BehaviourTaskActor CraftElixir  { get; private set; }
+    public static BehaviourTaskActor CraftTalisman { get; private set; }
 
     [GetOnly("random_move")] public static BehaviourTaskActor RandomMove { get; private set; }
 
@@ -49,5 +50,8 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         CraftElixir.addBeh(new BehFindElixirToCraft());
         CraftElixir.addBeh(new BehCraftElixir());
         CraftElixir.addBeh(new BehExitBuilding());
+        
+        CraftTalisman.addBeh(new BehRandomWait(3, 10));
+        CraftTalisman.addBeh(new BehCraftTalisman());
     }
 }

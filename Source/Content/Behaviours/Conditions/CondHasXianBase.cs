@@ -1,12 +1,13 @@
 using Cultiway.Content.Components;
+using Cultiway.Core;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content.Behaviours.Conditions;
 
-public class CondXianCanCultivate : BehaviourActorCondition
+public class CondHasXianBase : BehaviourActorCondition
 {
     public override bool check(Actor pActor)
     {
-        return pActor.GetExtend().HasCultisys<Xian>();
+        return pActor.GetExtend().HasComponent<XianBase>();
     }
 }
