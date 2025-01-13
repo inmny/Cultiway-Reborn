@@ -37,7 +37,7 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
             Query.ForEachEntity([Hotfixable](ref ActorBinder actor_binder, ref Xian xian, Entity e) =>
             {
                 Actor a = actor_binder.Actor;
-                if (!a.data.hasFlag(ContentActorDataKeys.IsFlying_flag)) return;
+                if (!a.is_visible || !a.data.hasFlag(ContentActorDataKeys.IsFlying_flag)) return;
                 Cloud cloud = _pool.GetNext();
                 cloud.transform.localPosition = actor_binder.Actor.transform.localPosition;
                 cloud.transform.localScale = Vector3.one * a.stats[S.scale];
