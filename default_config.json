@@ -1,0 +1,14 @@
+{
+    "AIGCSettings": [
+        {
+            "Id": "BASE_URL",
+            "Type": "TEXT",
+            "TextVal": "https://api.deepseek.com"
+        },
+        {
+            "Id": "API_KEY",
+            "Type": "TEXT",
+            "TextVal": ""
+        }
+    ]
+}
