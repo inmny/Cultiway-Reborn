@@ -31,7 +31,13 @@ public class Manager : ICanInit
         SpecialItemTooltip.RegisterSetupAction((tooltip, type, entity) =>
         {
             if (entity.TryGetComponent(out Elixir elixir)) tooltip.Tooltip.name.text = LM.Get(elixir.Type.name_key);
-            if (entity.TryGetComponent(out Talisman talisman)) tooltip.Tooltip.name.text = LM.Get(talisman.SkillID);
+            if (entity.TryGetComponent(out Talisman talisman))
+            {
+                var skill_asset = ModClass.L.WrappedSkillLibrary.get(talisman.SkillID);
+                tooltip.Tooltip.name.text = skill_asset.GetName();
+                tooltip.Tooltip.addDescription("\n");
+                tooltip.Tooltip.addDescription(skill_asset.GetDescription());
+            }
         });
     }
 }

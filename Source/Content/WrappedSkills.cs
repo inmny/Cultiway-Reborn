@@ -179,8 +179,10 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
 
     private WrappedSkillAsset WrapAttackSkill(TriggerActionMeta<StartSkillTrigger, StartSkillContext> skill_starter, float cost=0.01f)
     {
-        var wrapped_skill_asset = skill_starter.SelfWrap(WrappedSkillType.Attack);
-        wrapped_skill_asset.cost_check = WrappedSkillCostChecks.DefaultWakanCost(0.01f);
-        return wrapped_skill_asset;
+        return WrappedSkillAsset.StartWrap(skill_starter)
+            .WithSkillType(WrappedSkillType.Attack)
+            .SetDefaultWakanCost(cost)
+            .SetLocaleID(skill_starter.id.Split('.').Last())
+            .Build();
     }
 }
