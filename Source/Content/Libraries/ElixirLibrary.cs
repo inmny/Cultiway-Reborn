@@ -17,10 +17,6 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
     public override void init()
     {
         base.init();
-        SpecialItemTooltip.RegisterSetupAction((tooltip, type, entity) =>
-        {
-            if (entity.TryGetComponent(out Elixir elixir)) tooltip.Tooltip.name.text = LM.Get(elixir.Type.name_key);
-        });
         ActorExtend.RegisterActionOnGetStats((ae, stat_id) =>
         {
             var items = ae.GetItems().Where(x => x.HasComponent<Elixir>() && x.Tags.Has<TagElixirStatusGain>());

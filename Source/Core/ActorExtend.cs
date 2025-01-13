@@ -52,6 +52,11 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     {
         return e.TryGetComponent(out component);
     }
+    public static void RegisterCombatActionOnAttack(Action<ActorExtend, BaseSimObject, ListPool<CombatActionAsset>> action)
+    {
+        action_on_attack += action;
+    }
+    private static Action<ActorExtend, BaseSimObject, ListPool<CombatActionAsset>> action_on_attack;
     [Hotfixable]
     public bool TryToAttack(BaseSimObject target)
     {
@@ -80,6 +85,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         }
         // 加入自定义技能
         WorldboxGame.CombatActions.CastSkill.AddToPool(attack_action_pool, tmp_all_attack_skills.Count);
+        action_on_attack?.Invoke(this, target, attack_action_pool);
         
 
         float target_size = target.stats[S.size];
@@ -316,23 +322,23 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         _learned_skills.Add(id);
     }
 
-    public bool CastSkillV2(string id, BaseSimObject target_obj, bool ignore_cost = false)
+    public bool CastSkillV2(string id, BaseSimObject target_obj, bool ignore_cost = false, float addition_strength = 0)
     {
         var wrapped_asset = ModClass.L.WrappedSkillLibrary.get(id);
         if (wrapped_asset == null)
         {
-            ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, 100);
+            ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, 100 + addition_strength);
             return true;
         }
 
         if (wrapped_asset.cost_check == null || ignore_cost)
         {
-            ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, wrapped_asset.default_strength);
+            ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, wrapped_asset.default_strength + addition_strength);
             return true;
         }
         if (wrapped_asset.cost_check(this, out var strength))
         {
-            ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, strength);
+            ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, strength + addition_strength);
             return true;
         }
 

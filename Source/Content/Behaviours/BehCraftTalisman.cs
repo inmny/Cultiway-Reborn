@@ -28,7 +28,7 @@ public class BehCraftTalisman : BehaviourActionActor
                 Strength = wakan_to_take
             })
             .Build();
-        if (pObject.city != null)
+        if (pObject.city != null && Toolbox.randomChance(0.6f))
         {
             pObject.city.GetExtend().AddSpecialItem(item);
         }

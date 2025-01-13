@@ -2,6 +2,7 @@ using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.UI.CreatureInfoPages;
 using Cultiway.UI;
+using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General;
 
@@ -24,5 +25,13 @@ public class Manager : ICanInit
                 SpriteTextureLoader.getSprite("cultiway/icons/iconWakan")
             )
         );
+        
+        
+        
+        SpecialItemTooltip.RegisterSetupAction((tooltip, type, entity) =>
+        {
+            if (entity.TryGetComponent(out Elixir elixir)) tooltip.Tooltip.name.text = LM.Get(elixir.Type.name_key);
+            if (entity.TryGetComponent(out Talisman talisman)) tooltip.Tooltip.name.text = LM.Get(talisman.SkillID);
+        });
     }
 }
