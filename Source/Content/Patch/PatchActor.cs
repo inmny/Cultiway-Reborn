@@ -17,7 +17,7 @@ namespace Cultiway.Content.Patch;
 
 internal static class PatchActor
 {
-    [HarmonyPostfix, HarmonyPatch(typeof(ActorBase), nameof(ActorBase.nextJobActor))]
+    [Hotfixable, HarmonyPostfix, HarmonyPatch(typeof(ActorBase), nameof(ActorBase.nextJobActor))]
     private static void nextJobActor_postfix(ref string __result, ActorBase pActor)
     {
         if (pActor.asset.unit && pActor.city != null && !pActor.isProfession(UnitProfession.Warrior))
@@ -34,7 +34,7 @@ internal static class PatchActor
                     using var pool = new ListPool<string>();
                     if (ae.HasComponent<Jindan>()) pool.Add(ActorJobs.ElixirCrafter.id);
                     if (ae.HasComponent<XianBase>()) pool.Add(ActorJobs.TalismanCrafter.id);
-                    if (pool._items.Length > 0)
+                    if (pool.Any())
                     {
                         __result = pool.GetRandom();
                     }
