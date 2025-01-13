@@ -2,6 +2,7 @@ using Cultiway.Abstract;
 using Cultiway.Core.Components;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -25,7 +26,7 @@ public class AdditionCityWindow : MonoBehaviour
 
         LoadItems();
     }
-
+    [Hotfixable]
     private void LoadItems()
     {
         _special_item_pool.Clear();
@@ -36,8 +37,7 @@ public class AdditionCityWindow : MonoBehaviour
             display.Setup(item);
         }
 
-        GetComponent<ScrollWindow>().transform_content.GetComponent<VerticalLayoutGroup>()
-            .CalculateLayoutInputVertical();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(GetComponent<ScrollWindow>().transform_content);
     }
 
     private void TryInit()
