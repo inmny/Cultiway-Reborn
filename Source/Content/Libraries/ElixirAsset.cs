@@ -54,7 +54,7 @@ public struct ElixirIngredientCheck
     }
 }
 
-public delegate void ElixirCraftDelegate(ActorExtend ae, Entity elixir_entity, Entity[] ingrediants);
+public delegate void ElixirCraftDelegate(ActorExtend ae, Entity elixir_entity, Entity[] ingredients);
 
 public delegate void ElixirEffectDelegate(ActorExtend ae, Entity elixir_entity, ref Elixir elixir);
 

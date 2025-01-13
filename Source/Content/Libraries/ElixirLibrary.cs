@@ -81,28 +81,14 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
             var ing_check = new ElixirIngredientCheck();
 
             var ing = ingredients[i];
-            if (ing.TryGetComponent(out Jindan jindan) && Toolbox.randomBool())
+            if (ing.TryGetComponent(out Jindan jindan))
             {
-                if (Toolbox.randomBool())
-                {
-                    ing_check.jindan_id = jindan.jindan_type;
-                }
-                else
-                {
-                    ing_check.need_jindan = true;
-                }
+                ing_check.jindan_id = jindan.jindan_type;
             }
             
-            if (ing.TryGetComponent(out ElementRoot element_root) && Toolbox.randomBool())
+            if (ing.TryGetComponent(out ElementRoot element_root))
             {
-                if (Toolbox.randomBool())
-                {
-                    ing_check.element_root_id = element_root.Type.id;
-                }
-                else
-                {
-                    ing_check.need_element_root = true;
-                }
+                ing_check.element_root_id = element_root.Type.id;
             }
 
             asset.ingredients[i] = ing_check;
