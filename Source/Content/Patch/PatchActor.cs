@@ -29,8 +29,16 @@ internal static class PatchActor
 
             if (Toolbox.randomChance(1 - chance))
             {
-                if (ae.HasComponent<Jindan>() && Toolbox.randomChance(0.4f)) __result = ActorJobs.ElixirCrafter.id;
-                if (ae.HasComponent<XianBase>() && Toolbox.randomChance(0.4f)) __result = ActorJobs.TalismanCrafter.id;
+                if (Toolbox.randomChance(0.6f))
+                {
+                    using var pool = new ListPool<string>();
+                    if (ae.HasComponent<Jindan>()) pool.Add(ActorJobs.ElixirCrafter.id);
+                    if (ae.HasComponent<XianBase>()) pool.Add(ActorJobs.TalismanCrafter.id);
+                    if (pool._items.Length > 0)
+                    {
+                        __result = pool.GetRandom();
+                    }
+                }
 
                 return;
             }
