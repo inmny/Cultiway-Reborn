@@ -51,7 +51,7 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
 
             if (ae.CastSkillV2(talisman_component.SkillID, data.target, false, addition_strength))
             {
-                ModClass.LogInfo($"Use talisman {talisman_to_use.Id} with strength {addition_strength}");
+                //ModClass.LogInfo($"Use talisman {talisman_to_use.Id} with strength {addition_strength}");
                 talisman_to_use.DeleteEntity();
                 return true;
             }
