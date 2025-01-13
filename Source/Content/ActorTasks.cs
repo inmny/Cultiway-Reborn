@@ -51,7 +51,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         CraftElixir.addBeh(new BehCraftElixir());
         CraftElixir.addBeh(new BehExitBuilding());
         
-        CraftTalisman.addBeh(new BehRandomWait(3, 10));
+        CraftTalisman.addBeh(new BehRandomWait(3 * TimeScales.SecPerMonth, 12 * TimeScales.SecPerMonth));
         CraftTalisman.addBeh(new BehCraftTalisman());
     }
 }
