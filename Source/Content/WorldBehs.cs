@@ -7,6 +7,13 @@ using UnityEngine;
 
 namespace Cultiway.Content;
 
+public struct WakanTideStatus : IComponent
+{
+    public float            switch_timer;
+    public bool             rise;
+    public int              next_zone_id;
+    public List<Vector2Int> action_positions;
+}
 public class WorldBehs : ExtendLibrary<WorldBehaviourAsset, WorldBehs>
 {
     public static WorldBehaviourAsset WakanTide   { get; private set; }
@@ -17,8 +24,8 @@ public class WorldBehs : ExtendLibrary<WorldBehaviourAsset, WorldBehs>
         WakanTide = Add(new WorldBehaviourAsset()
         {
             id = nameof(WakanTide),
-            interval = 0.1f,
-            interval_random = 0,
+            interval = 1f,
+            interval_random = 0.5f,
             action = UpdateWakanTide
         });
     }
@@ -96,11 +103,4 @@ public class WorldBehs : ExtendLibrary<WorldBehaviourAsset, WorldBehs>
         }
     }
 
-    struct WakanTideStatus : IComponent
-    {
-        public float            switch_timer;
-        public bool             rise;
-        public int              next_zone_id;
-        public List<Vector2Int> action_positions;
-    }
 }

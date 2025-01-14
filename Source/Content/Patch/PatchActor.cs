@@ -57,6 +57,9 @@ internal static class PatchActor
     {
         if (!__instance.isAlive()) return;
         ActorExtend dead_ae = __instance.GetExtend();
+        var tile_pos = __instance.currentTile.pos;
+        DirtyWakanMap.I.map[tile_pos.x, tile_pos.y] += 100;
+        
         if (!dead_ae.HasCultisys<Xian>()) return;
         if (!dead_ae.HasComponent<XianBase>()) return;
         BaseSimObject receiver = __instance.attackedBy ?? __instance;

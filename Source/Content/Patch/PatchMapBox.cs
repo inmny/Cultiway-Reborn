@@ -8,5 +8,6 @@ internal static class PatchMapBox
     private static void setMapSize_postfix()
     {
         WakanMap.I.Resize(MapBox.width, MapBox.height);
+        DirtyWakanMap.I.Resize(MapBox.width, MapBox.height);
     }
 }

@@ -1,6 +1,8 @@
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.UI.Prefab;
 using NeoModLoader.api;
+using NeoModLoader.api.attributes;
 using NeoModLoader.General.UI.Window;
 using UnityEngine;
 using UnityEngine.UI;
@@ -39,14 +41,26 @@ public class WindowWorldWakan : AbstractWindow<WindowWorldWakan>
         line.Setup(title, value);
 
     }
-
-    public override void OnNormalEnable()
+    [Hotfixable]
+    public override void OnNormalEnable()   
     {
         _line_pool.Clear();
         
-        AddLineValue("世界灵气总量", $"{(int)WakanMap.I.Sum():g2}");
+        AddLineValue("世界灵气总量", $"{WakanMap.I.Sum():g2}");
         AddLineValue("世界灵气均值", $"{(int)WakanMap.I.Avg()}");
         AddLineValue("世界灵气最大值", $"{(int)WakanMap.I.Max()}");
         AddLineValue("世界灵气最小值", $"{(int)WakanMap.I.Min()}");
+        AddLineValue("世界浊气总量", $"{DirtyWakanMap.I.Sum():g2}");
+        AddLineValue("世界浊气均值", $"{(int)DirtyWakanMap.I.Avg()}");
+        AddLineValue("世界浊气最大值", $"{(int)DirtyWakanMap.I.Max()}");
+        AddLineValue("世界浊气最小值", $"{(int)DirtyWakanMap.I.Min()}");
+
+        var record_e = ModClass.I.WorldRecord.E;
+        if (record_e.HasComponent<WakanTideStatus>())
+        {
+            var status = record_e.GetComponent<WakanTideStatus>();
+            AddLineValue("灵气潮汐状态", status.rise ? "涨潮" : "落潮");
+            AddLineValue("灵气潮汐切换时间", $"{status.switch_timer / TimeScales.SecPerYear:N0}年");
+        }
     }
 }
