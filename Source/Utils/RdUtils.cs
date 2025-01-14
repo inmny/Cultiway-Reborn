@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using MathNet.Numerics.Distributions;
 
 namespace Cultiway.Utils;
@@ -30,6 +33,20 @@ public static class RdUtils
         {
             if (rand < accum_weights[i])
                 return i;
+        }
+
+        return 0;
+    }
+    [SuppressMessage("ReSharper", "PossibleMultipleEnumeration")]
+    public static int RandomIndexWithAccumWeight(IEnumerable<float> accum_weights)
+    {
+        var rand = UnityEngine.Random.Range(0, accum_weights.Last());
+        int i = 0;
+        foreach (var weight in accum_weights)
+        {
+            if (rand < weight)
+                return i;
+            i++;
         }
 
         return 0;
