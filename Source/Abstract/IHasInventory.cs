@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Friflo.Engine.ECS;
 
@@ -7,5 +8,5 @@ public interface IHasInventory
 {
     public void         AddSpecialItem(Entity     item);
     public void         ExtractSpecialItem(Entity item);
-    public List<Entity> GetItems();
+    public IEnumerable<Entity> GetItems();
 }

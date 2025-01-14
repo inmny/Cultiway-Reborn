@@ -25,4 +25,9 @@ public class CityExtendManager : ExtendComponentManager<CityExtend>
 
         return val;
     }
+    internal void Destroy(string id)
+    {
+        if (!_data.Remove(id, out var val)) return;
+        val.PrepareDestroy();
+    }
 }

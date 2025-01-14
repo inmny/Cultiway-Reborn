@@ -113,7 +113,7 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
             ElementRootPage.Show);
         RegisterPage(nameof(StatusEffectPage), a => a.GetExtend().GetStatuses().Count > 0, StatusEffectPage.Setup,
             StatusEffectPage.Show);
-        RegisterPage(nameof(InventoryPage), a => a.GetExtend().GetItems().Count > 0, InventoryPage.Setup, InventoryPage.Show);
+        RegisterPage(nameof(InventoryPage), a => a.GetExtend().GetItems().Any(), InventoryPage.Setup, InventoryPage.Show);
 
         create_pages();
 

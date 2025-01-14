@@ -240,9 +240,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
         return e.GetRelations<StatusRelation>().Select(x => x.status).ToList();
     }
 
-    public List<Entity> GetItems()
+    public IEnumerable<Entity> GetItems()
     {
-        return e.GetRelations<InventoryRelation>().Select(x => x.item).ToList();
+        return e.GetRelations<InventoryRelation>().Select(x => x.item);
     }
 
     public static void RegisterActionOnNewCreature(Action<ActorExtend> action)
@@ -622,22 +622,17 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     {
         e.AddComponent(component);
     }
-
-    internal void SelfDestroy()
-    {
-        e.DeleteEntity();
-
-        foreach (var skill_action in _skill_action_modifiers.Values)
-        {
-            skill_action.DeleteEntity();
-        }
-    }
     internal void PrepareDestroy()
     {
         e.AddTag<TagRecycle>();
         foreach (var skill_action in _skill_action_modifiers.Values)
         {
             skill_action.DeleteEntity();
+        }
+
+        foreach (var item in GetItems())
+        {
+            item.AddTag<TagRecycle>();
         }
     }
 

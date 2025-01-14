@@ -38,9 +38,9 @@ public class CityExtend : ExtendComponent<City>, IHasInventory
         e.RemoveRelation<InventoryRelation>(item_entity);
     }
 
-    public List<Entity> GetItems()
+    public IEnumerable<Entity> GetItems()
     {
-        return e.GetRelations<InventoryRelation>().Select(x => x.item).ToList();
+        return e.GetRelations<InventoryRelation>().Select(x => x.item);
     }
 
     public bool HasItem<TComponent>() where TComponent : struct, IComponent
@@ -118,5 +118,15 @@ public class CityExtend : ExtendComponent<City>, IHasInventory
         return e.GetRelations<InventoryRelation>()
             .Where(x => x.item.HasComponent<TComponent1>() && x.item.HasComponent<TComponent2>())
             .Select(x => x.item.GetComponent<SpecialItem>()).ToList();
+    }
+
+    internal void PrepareDestroy()
+    {
+        e.AddTag<TagRecycle>();
+
+        foreach (var item in GetItems())
+        {
+            item.AddTag<TagRecycle>();
+        }
     }
 }

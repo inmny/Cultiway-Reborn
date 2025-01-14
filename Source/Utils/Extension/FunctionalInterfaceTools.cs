@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Cultiway.Abstract;
+using Friflo.Engine.ECS;
 
 namespace Cultiway.Utils.Extension;
 
@@ -11,6 +13,11 @@ public static class FunctionalInterfaceTools
     public static T ShallowCopy<T>(this T obj) where T : ICanCopy, new()
     {
         return ShallowCopier<T>.Copy(obj, true);
+    }
+
+    public static Entity GetFirstItem(this IHasInventory has_inv, Func<Entity, bool> predicate)
+    {
+        return has_inv.GetItems().FirstOrDefault(predicate);
     }
 
     private static class ShallowCopier<T>
