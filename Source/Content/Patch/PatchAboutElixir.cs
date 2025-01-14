@@ -18,24 +18,20 @@ internal static class PatchAboutElixir
         if (Toolbox.randomChance(XianSetting.TakenRestoreElixirProb))
         {
             var ae = __instance.GetExtend();
-            var elixirs = ae.GetItems().Where(x => x.HasComponent<Elixir>() && x.Tags.Has<TagElixirRestore>()).ToList();
-            if (elixirs.Any())
+            var elixir_to_consume = ae.GetRandomSpecialItem(x=>x.HasComponent<Elixir>() && x.Tags.Has<TagElixirRestore>());
+            if (!elixir_to_consume.self.IsNull)
             {
-                var elixir_to_consume = elixirs.GetRandom();
-                ae.TryConsumeElixir(elixir_to_consume);
+                ae.TryConsumeElixir(elixir_to_consume.self);
             }
             else
             {
                 var city = ae.Base.city;
                 if (city != null)
                 {
-                    var elixirs_in_city = city.GetExtend().GetItems().Where(x =>
-                            x.HasComponent<Elixir>() && x.Tags.Has<TagElixirRestore>())
-                        .ToList();
-                    if (elixirs_in_city.Any())
+                    elixir_to_consume = city.GetExtend().GetRandomSpecialItem(x=>x.HasComponent<Elixir>() && x.Tags.Has<TagElixirRestore>());
+                    if (!elixir_to_consume.self.IsNull)
                     {
-                        var elixir_to_consume = elixirs_in_city.GetRandom();
-                        ae.TryConsumeElixir(elixir_to_consume);
+                        ae.TryConsumeElixir(elixir_to_consume.self);
                     }
                 }
             }
@@ -51,13 +47,10 @@ internal static class PatchAboutElixir
             if (units.Count == 0) return;
             var actor_to_consume = units.GetRandom();
             if (actor_to_consume == null || !actor_to_consume.isAlive()) return;
-            var elixirs = __instance.GetExtend().GetItems().Where(x =>
-                    x.HasComponent<Elixir>() && x.Tags.HasAny(data_gain_or_change))
-                .ToList();
-            if (elixirs.Any())
+            var elixir_to_consume = __instance.GetExtend().GetRandomSpecialItem(x=>x.HasComponent<Elixir>() && x.Tags.HasAny(data_gain_or_change));
+            if (!elixir_to_consume.self.IsNull)
             {
-                var elixir_to_consume = elixirs.GetRandom();
-                actor_to_consume.GetExtend().TryConsumeElixir(elixir_to_consume);
+                actor_to_consume.GetExtend().TryConsumeElixir(elixir_to_consume.self);
             }
         }
     }

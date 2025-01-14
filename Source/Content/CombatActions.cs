@@ -20,20 +20,10 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
         {
             var ae = data.initiator.a.GetExtend();
 
-            var talisman = ae.GetItems().Where(x => x.HasComponent<Talisman>()).ToList();
-
-            Entity talisman_to_use = default;
-            if (talisman.Count > 0)
+            Entity talisman_to_use = ae.GetRandomSpecialItem(x => x.HasComponent<Talisman>()).self;
+            if (talisman_to_use.IsNull && ae.Base.city != null)
             {
-                talisman_to_use = talisman.GetRandom();
-            }
-            else if (ae.Base.city != null)
-            {
-                talisman = ae.Base.city.GetExtend().GetItems().Where(x => x.HasComponent<Talisman>()).ToList();
-                if (talisman.Count > 0)
-                {
-                    talisman_to_use = talisman.GetRandom();
-                }
+                talisman_to_use = ae.Base.city.GetExtend().GetRandomSpecialItem(x => x.HasComponent<Talisman>()).self;
             }
 
             if (talisman_to_use.IsNull)

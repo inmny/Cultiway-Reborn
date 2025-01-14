@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
@@ -93,6 +94,14 @@ public class CityExtend : ExtendComponent<City>, IHasInventory
     public List<SpecialItem> GetSpecialItems()
     {
         return e.GetRelations<InventoryRelation>().Select(x => x.item.GetComponent<SpecialItem>()).ToList();
+    }
+    public SpecialItem GetRandomSpecialItem(Func<Entity, bool> filter)
+    {
+        using var pool = new ListPool<SpecialItem>(e.GetRelations<InventoryRelation>()
+            .Select(x => x.item.GetComponent<SpecialItem>()).Where(x => filter(x.self)));
+        if (pool.Any())
+            return pool.GetRandom();
+        return default;
     }
 
     public List<SpecialItem> GetSpecialItems<TComponent>() where TComponent : struct, IComponent
