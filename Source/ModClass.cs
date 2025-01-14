@@ -158,7 +158,13 @@ namespace Cultiway
             A = Assembly.GetExecutingAssembly();
             PrefabLibrary.gameObject.SetActive(false);
             Game = new WorldboxGame();
-            Try.Start(() => { W = new EntityStore(); });
+            Try.Start(() =>
+            {
+                W = new EntityStore()
+                {
+                    JobRunner = new ParallelJobRunner(Environment.ProcessorCount)
+                };
+            });
 
             WorldRecord = new(W);
 

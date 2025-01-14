@@ -348,7 +348,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     {
         using var pool = new ListPool<SpecialItem>(e.GetRelations<InventoryRelation>()
             .Select(x => x.item.GetComponent<SpecialItem>()).Where(x => filter(x.self)));
-        return pool.GetRandom();
+        if (pool.Any())
+            return pool.GetRandom();
+        return default;
     }
 
     public Entity GetSkillActionModifiers(string action_id, Entity default_modifiers)

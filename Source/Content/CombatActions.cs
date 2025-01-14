@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Runtime.Remoting.Channels;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Core;
@@ -20,30 +21,35 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
         {
             var ae = data.initiator.a.GetExtend();
 
-            Entity talisman_to_use = ae.GetRandomSpecialItem(x => x.HasComponent<Talisman>()).self;
-            if (talisman_to_use.IsNull && ae.Base.city != null)
-            {
-                talisman_to_use = ae.Base.city.GetExtend().GetRandomSpecialItem(x => x.HasComponent<Talisman>()).self;
-            }
+            using var talisman_pool = new ListPool<Entity>(ae.GetItems().Where(x => x.HasComponent<Talisman>()));
 
-            if (talisman_to_use.IsNull)
-            {
-                return false;
-            }
-            
-            ref var talisman_component = ref talisman_to_use.GetComponent<Talisman>();
-            var addition_strength = talisman_component.Strength;
-            var ae_power_level = ae.GetPowerLevel();
-            if (talisman_component.PowerLevel > ae_power_level)
-            {
-                addition_strength *= Mathf.Pow(talisman_component.PowerLevel - ae_power_level, 2);
-            }
+            bool has_casted = false;
 
-            if (ae.CastSkillV2(talisman_component.SkillID, data.target, false, addition_strength))
+            while (talisman_pool.Any())
             {
-                //ModClass.LogInfo($"Use talisman {talisman_to_use.Id} with strength {addition_strength}");
-                talisman_to_use.DeleteEntity();
-                return true;
+                var talisman_to_use = talisman_pool.GetRandom();
+                if (talisman_to_use.IsNull)
+                {
+                    return has_casted;
+                }
+                ref var talisman_component = ref talisman_to_use.GetComponent<Talisman>();
+                var addition_strength = talisman_component.Strength;
+                var ae_power_level = ae.GetPowerLevel();
+                if (talisman_component.PowerLevel > ae_power_level)
+                {
+                    addition_strength *= Mathf.Pow(talisman_component.PowerLevel - ae_power_level, 2);
+                }
+
+                if (ae.CastSkillV2(talisman_component.SkillID, data.target, false, addition_strength))
+                {
+                    //ModClass.LogInfo($"Use talisman {talisman_to_use.Id} with strength {addition_strength}");
+                    talisman_to_use.DeleteEntity();
+                    has_casted = true;
+                }
+                else
+                {
+                    break;
+                }
             }
             return false;
         };
