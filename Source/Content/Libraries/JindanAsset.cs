@@ -11,6 +11,7 @@ public class JindanAsset : Asset
     public JindanCheck check;
     public JindanScore score;
     public string wrapped_skill_id;
+    public BaseStats Stats = new();
     public JindanGroupAsset Group
     {
         get => _group;

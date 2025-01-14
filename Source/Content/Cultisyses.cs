@@ -97,9 +97,25 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         });
         ActorExtend.RegisterActionOnUpdateStats([Hotfixable](ae) =>
         {
-            if (!ae.HasCultisys<Xian>()) return;
-            var curr_level = ae.GetCultisys<Xian>().CurrLevel;
+            if (!ae.TryGetComponent(out Xian xian)) return;
+            var curr_level = xian.CurrLevel;
             ae.Base.stats.mergeStats(Xian.LevelAccumBaseStats[curr_level]);
+            if (ae.TryGetComponent(out XianBase xian_base))
+            {
+                
+            }
+            if (ae.TryGetComponent(out Jindan jindan))
+            {
+                var jindan_asset = jindan.Type;
+                ae.Base.stats.MergeStats(jindan_asset.Stats, jindan.strength);
+                if (!string.IsNullOrEmpty(jindan_asset.wrapped_skill_id))
+                {
+                    ae.tmp_all_skills.Add(jindan_asset.wrapped_skill_id);
+                    return;
+                }
+            }
+            
+            
             ae.tmp_all_skills.UnionWith(Xian.Skills[curr_level]);
         });
         PatchWindowCreatureInfo.RegisterInfoDisplay((a, sb) =>
