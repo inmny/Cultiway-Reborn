@@ -240,7 +240,10 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
 
         to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * actor_extend.GetElementRoot().GetStrength());
         xian.wakan += to_take;
-        WakanMap.I.map[tile_pos.x, tile_pos.y] += to_take;
+        var dirty_wakan_to_take = Mathf.Min(DirtyWakanMap.I.map[tile_pos.x, tile_pos.y],
+            to_take * ContentSetting.DirtyWakanToWakanRatio);
+        WakanMap.I.map[tile_pos.x, tile_pos.y] += dirty_wakan_to_take;
+        DirtyWakanMap.I.map[tile_pos.x, tile_pos.y] -= dirty_wakan_to_take;
     }
 
     private static bool XianPreCheckUpgrade(ActorExtend ae, CultisysAsset<Xian> cultisys, ref Xian component)
