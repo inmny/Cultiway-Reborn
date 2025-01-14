@@ -39,6 +39,9 @@ public class SpecialItemTooltip : APrefabPreview<SpecialItemTooltip>
         }
 
         _setup_actions?.Invoke(this, type, entity);
+        if (entity.HasComponent<AliveTimer>() && entity.HasComponent<AliveTimeLimit>())
+            Tooltip.addBottomDescription(
+                $"离消失还剩:{(int)((entity.GetComponent<AliveTimeLimit>().value - entity.GetComponent<AliveTimer>().value) / TimeScales.SecPerYear)}年");
     }
 
     private static void _init()

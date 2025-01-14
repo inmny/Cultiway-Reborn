@@ -2,6 +2,7 @@ using ai.behaviours;
 using Cultiway.Content.Components;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
+using UnityEngine;
 
 namespace Cultiway.Content.Behaviours;
 
@@ -20,10 +21,11 @@ public class BehCraftTalisman : BehaviourActionActor
             return BehResult.Continue;
         }
         xian.wakan -= wakan_to_take;
-        var item = SpecialItemUtils.StartBuild(ItemShapes.Talisman.id, World.world.getCreationTime(), pObject.getName())
+        var power_level = ae.GetPowerLevel();
+        var item = SpecialItemUtils.StartBuild(ItemShapes.Talisman.id, World.world.getCreationTime(), pObject.getName(), Mathf.Pow(power_level, 2)*10)
             .AddComponent(new Talisman()
             {
-                PowerLevel = ae.GetPowerLevel() - 1,
+                PowerLevel = power_level - 1,
                 SkillID = ae.tmp_all_skills.GetRandom(),
                 Strength = wakan_to_take
             })
