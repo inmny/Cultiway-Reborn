@@ -33,4 +33,8 @@ public static class ShapeUtils
     {
         return point.x >= lb.x && point.x <= rt.x && point.y >= lb.y && point.y <= rt.y;
     }
+    public static bool OverlapRect(Rect a, Rect b)
+    {
+        return a.xMax > b.xMin && a.xMin < b.xMax && a.yMax > b.yMin && a.yMin < b.yMax;
+    }
 }

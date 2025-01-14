@@ -1,6 +1,7 @@
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core.Components;
+using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
@@ -105,9 +106,17 @@ public class RenderAnimFrameSystem : BaseSystem
         });
         */
     }
-
+    [Hotfixable]
     private bool NeedRender(Sprite sprite, ref Position pos, ref Scale scale)
     {
+        if (sprite == null) return false;
+        var size = sprite.rect.size;
+        // 先转换到屏幕坐标
+        var screen_pos = World.world.camera.WorldToScreenPoint(new Vector3(pos.x, pos.y + pos.z));
+        var screen_rect = new Rect(screen_pos.x - size.x * scale.value.x / 2, screen_pos.y - size.y * scale.value.y / 2, size.x * scale.value.x, size.y * scale.value.y);
+        // 如果和屏幕有交集
+        var screen = new Rect(0, 0, Screen.width, Screen.height);
+        if (!ShapeUtils.OverlapRect(screen, screen_rect)) return false;
         return true;
     }
 }
