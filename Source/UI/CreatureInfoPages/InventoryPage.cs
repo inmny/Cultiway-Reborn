@@ -20,17 +20,25 @@ public class InventoryPage : MonoBehaviour
         grid.spacing = new(2, 2);
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
         
-        var size = page.GetComponent<RectTransform>().sizeDelta;
-        grid.constraintCount = (int)(size.x / (grid.cellSize.x + grid.spacing.x));
-        var padding = (int)((size.x - grid.constraintCount * (grid.cellSize.x + grid.spacing.x) + grid.spacing.x) / 2);
-        grid.padding = new(padding, padding, 0, 0);
         
         this_page._special_item_pool = new MonoObjPool<SpecialItemDisplay>(SpecialItemDisplay.Prefab, page.transform);
     }
     private MonoObjPool<SpecialItemDisplay> _special_item_pool;
-
+    private static Vector2 _size;
     public static void Show(CreatureInfoPage page, Actor actor)
     {
+        var size = page.GetComponent<RectTransform>().sizeDelta;
+        if (size != _size)
+        {
+            _size = size;
+            var grid = page.GetComponent<GridLayoutGroup>();
+            grid.constraintCount = (int)(size.x / (grid.cellSize.x + grid.spacing.x));
+            var padding = (int)((size.x - grid.constraintCount * (grid.cellSize.x + grid.spacing.x) + grid.spacing.x) / 2);
+            grid.padding = new(padding, padding, 0, 0);
+        }
+        
+        
+        
         var this_page = page.GetComponent<InventoryPage>();
         this_page._special_item_pool.Clear();
         var items = actor.GetExtend().GetItems();
