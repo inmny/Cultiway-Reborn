@@ -29,6 +29,7 @@ public class CityDistributeItemsSystem : QuerySystem<CityBinder>
                 }
 
                 var units = ce.Base.units.getSimpleList();
+                if (units.Count == 0) continue;
                 foreach (var item in pool)
                 {
                     var unit = units.GetRandom();
