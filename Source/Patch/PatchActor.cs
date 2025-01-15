@@ -123,9 +123,9 @@ internal static class PatchActor
     {
         ModClass.I.ActorExtendManager.Destroy(pActor.data.id);
     }
-
-    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.killHimself))]
-    private static void killHimself_prefix(ref bool pDestroy)
+    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.newKillAction))]
+    private static void newKillAction_postfix(Actor __instance, Actor pDeadUnit, Kingdom pPrevKingdom)
     {
+        __instance.GetExtend().NewKillAction(pDeadUnit, pPrevKingdom);
     }
 }

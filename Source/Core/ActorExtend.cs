@@ -449,6 +449,8 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     }
 
     private static Action<ActorExtend, string> action_on_get_stats;
+    private static Action<ActorExtend, Actor, Kingdom> action_on_kill;
+
     public float GetStat(string stat_id)
     {
         action_on_get_stats?.Invoke(this, stat_id);
@@ -647,5 +649,19 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     public bool HasItem<TComponent>() where TComponent : struct, IComponent
     {
         return e.GetRelations<InventoryRelation>().Select(x => x.item).Any(x => x.HasComponent<TComponent>());
+    }
+    public static void RegisterActionOnKill(Action<ActorExtend, Actor, Kingdom> action)
+    {
+        action_on_kill += action;
+    }
+    
+    public void NewKillAction(Actor dead_unit, Kingdom dead_kingdom)
+    {
+        using var pool = new ListPool<Entity>(dead_unit.GetExtend().GetItems());
+        foreach (var item in pool)
+        {
+            AddSpecialItem(item);
+        }
+        action_on_kill?.Invoke(this, dead_unit, dead_kingdom);
     }
 }
