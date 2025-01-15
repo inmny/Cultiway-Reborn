@@ -9,16 +9,20 @@ namespace Cultiway.Core.Systems.Logic;
 public class HealthRestoreSystem : QuerySystem<ActorBinder>
 {
     private float _restore_timer = TimeScales.SecPerMonth;
+    [Hotfixable]
     protected override void OnUpdate()
     {
         _restore_timer -= Tick.deltaTime;
         if (_restore_timer > 0) return;
         _restore_timer = TimeScales.SecPerMonth;
-        Query.ForEachComponents(([Hotfixable](ref ActorBinder binder) =>
+        Query.ForEach([Hotfixable](binders, entities) =>
         {
-            var a = binder.Actor;
-            if (a == null || !a.isAlive()) return;
-            a.restoreHealth((int)a.stats[WorldboxGame.BaseStats.HealthRegen.id]);
-        }));
+            for (int i = 0; i < entities.Length; i++)
+            {
+                var a = binders[i].Actor;
+                if (a == null || !a.isAlive()) return;
+                a.restoreHealth((int)a.stats[WorldboxGame.BaseStats.HealthRegen.id]);
+            }
+        }).RunParallel();
     }
 }
