@@ -11,7 +11,22 @@ public class JindanAsset : Asset
     public JindanCheck check;
     public JindanScore score;
     public string wrapped_skill_id;
-    public BaseStats Stats = new();
+
+    public BaseStats Stats = new()
+    {
+        [S.mod_health] = 0.2f,
+        [S.mod_damage] = 0.2f,
+        [nameof(WorldboxGame.BaseStats.IronArmor)] = 1,
+        [nameof(WorldboxGame.BaseStats.WoodArmor)] = 1,
+        [nameof(WorldboxGame.BaseStats.WaterArmor)] = 1,
+        [nameof(WorldboxGame.BaseStats.FireArmor)] = 1,
+        [nameof(WorldboxGame.BaseStats.EarthArmor)] = 1,
+        [nameof(WorldboxGame.BaseStats.IronMaster)] = 1,
+        [nameof(WorldboxGame.BaseStats.WoodMaster)] = 1,
+        [nameof(WorldboxGame.BaseStats.WaterMaster)] = 1,
+        [nameof(WorldboxGame.BaseStats.FireMaster)] = 1,
+        [nameof(WorldboxGame.BaseStats.EarthMaster)] = 1,
+    };
     public JindanGroupAsset Group
     {
         get => _group;

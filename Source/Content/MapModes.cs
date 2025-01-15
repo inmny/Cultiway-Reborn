@@ -34,10 +34,10 @@ public class MapModes : ExtendLibrary<CustomMapModeAsset, MapModes>
             {
                 var v = Mathf.Log10(DirtyWakanMap.I.map[x, y]);
                 var p = 1 / (1 + Mathf.Exp(4f - v));
-                out_color.r = byte.MaxValue;
-                out_color.g = byte.MaxValue;
-                out_color.b = byte.MaxValue;
-                out_color.a = (byte)(byte.MaxValue * p);
+                out_color.r = (byte)(127 * (1-p));
+                out_color.g = (byte)(127 * (1-p));
+                out_color.b = (byte)(127 * (1-p));
+                out_color.a = byte.MaxValue;
             }
         });
     }

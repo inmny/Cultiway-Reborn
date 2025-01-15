@@ -166,7 +166,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 return false;
             }
             
-            var jindan = ae.GetJindan();
+            ref var jindan = ref ae.GetJindan();
             if (!string.IsNullOrEmpty(jindan.Type.wrapped_skill_id))
             {
                 ae.EnhanceSkill(jindan.Type.wrapped_skill_id, SkillEnhanceSources.SmallUpgradeSuccess);
@@ -176,6 +176,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeSuccess);
             }
             jindan_cultivation.stage++;
+            jindan.strength *= (1f + 0.2f * Toolbox.randomFloat(intelligence / (10 + intelligence), 1));
             component.wakan *= 0.8f;
             
             return false;
