@@ -7,18 +7,27 @@ using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content.Systems.Logic;
 
-public class FlyCancelSystem : QuerySystem<ActorBinder, Xian>
+public class FlyCancelSystem : QuerySystem<ActorBinder>
 {
+    public FlyCancelSystem()
+    {
+        Filter.AllComponents(ComponentTypes.Get<Xian>());
+    }
     protected override void OnUpdate()
     {
-        Query.ForEachEntity([Hotfixable](ref ActorBinder actor_binder, ref Xian xian, Entity e) =>
+        Query.ForEach(((binders, entities) =>
         {
-            if (!actor_binder.Actor.isFollowingLocalPath() && !actor_binder.Actor.is_moving &&
-                actor_binder.Actor.data.hasFlag(ContentActorDataKeys.IsFlying_flag))
+            for (int i = 0; i < entities.Length; i++)
             {
-                actor_binder.Actor.data.removeFlag(ContentActorDataKeys.IsFlying_flag);
-                actor_binder.Actor.flying = false;
+                var a = binders[i].Actor;
+                if (a == null || !a.isAlive()) continue;
+                if (a.is_moving || a.isFollowingLocalPath()) continue;
+                if (a.data.hasFlag(ContentActorDataKeys.IsFlying_flag))
+                {
+                    a.data.removeFlag(ContentActorDataKeys.IsFlying_flag);
+                    a.flying = false;
+                }
             }
-        });
+        })).RunParallel();
     }
 }
