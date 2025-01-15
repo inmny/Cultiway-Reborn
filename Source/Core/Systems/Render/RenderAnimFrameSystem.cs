@@ -40,7 +40,7 @@ public class RenderAnimFrameSystem : BaseSystem
 
     protected override void OnUpdateGroup()
     {
-        if (!MapBox.isRenderMiniMap())
+        if (WorldboxGame.I.IsPaused() || !MapBox.isRenderMiniMap())
         {
             init_query.ForEachComponents(
                 (ref Position pos, ref Scale scale, ref AnimData anim_data, ref AnimBindRenderer bind_renderer) =>

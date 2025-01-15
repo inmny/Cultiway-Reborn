@@ -55,41 +55,42 @@ namespace Cultiway
 
         private float accum_time = 0;
         private float time_for_log_perf = 0;
-        [Hotfixable]
         private void Update()
         {
             if (!Game.IsLoaded()) return;
-            if (Game.IsPaused()) return;
-            time_for_log_perf += Time.deltaTime;
-            if (time_for_log_perf > 600)
-            {
-                time_for_log_perf = 0;
-                LogPerf();
-            }
-
-            if (TimeScales.precise_simulate)
-                accum_time += Mathf.Sqrt(Config.timeScale);
-            var logic_update_tick = new UpdateTick(Game.GetLogicDeltaTime(), Game.GetGameTime());
             var render_update_tick = new UpdateTick(Game.GetRenderDeltaTime(), Game.GetGameTime());
             try
             {
-                if (TimeScales.precise_simulate)
+                if (!Game.IsPaused())
                 {
-                    while (accum_time > 1)
+                    time_for_log_perf += Time.deltaTime;
+                    if (time_for_log_perf > 600)
                     {
-                        accum_time -= 1;
-                        GeneralLogicSystems.Update(logic_update_tick);
-                        TileLogicSystems.Update(logic_update_tick);
-                        SkillV2.UpdateLogic(logic_update_tick);
-                        Geo.UpdateLogic(logic_update_tick);
+                        time_for_log_perf = 0;
+                        LogPerf();
                     }
-                }
-                else
-                {
-                    GeneralLogicSystems.Update(render_update_tick);
-                    TileLogicSystems.Update(render_update_tick);
-                    SkillV2.UpdateLogic(render_update_tick);
-                    Geo.UpdateLogic(render_update_tick);
+
+                    if (TimeScales.precise_simulate)
+                        accum_time += Mathf.Sqrt(Config.timeScale);
+                    var logic_update_tick = new UpdateTick(Game.GetLogicDeltaTime(), Game.GetGameTime());
+                    if (TimeScales.precise_simulate)
+                    {
+                        while (accum_time > 1)
+                        {
+                            accum_time -= 1;
+                            GeneralLogicSystems.Update(logic_update_tick);
+                            TileLogicSystems.Update(logic_update_tick);
+                            SkillV2.UpdateLogic(logic_update_tick);
+                            Geo.UpdateLogic(logic_update_tick);
+                        }
+                    }
+                    else
+                    {
+                        GeneralLogicSystems.Update(render_update_tick);
+                        TileLogicSystems.Update(render_update_tick);
+                        SkillV2.UpdateLogic(render_update_tick);
+                        Geo.UpdateLogic(render_update_tick);
+                    }
                 }
 
                 GeneralRenderSystems.Update(render_update_tick);
