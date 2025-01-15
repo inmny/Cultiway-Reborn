@@ -34,7 +34,7 @@ public class Manager : ICanInit
             if (entity.TryGetComponent(out Talisman talisman))
             {
                 var skill_asset = ModClass.L.WrappedSkillLibrary.get(talisman.SkillID);
-                tooltip.Tooltip.name.text = skill_asset.GetName();
+                //tooltip.Tooltip.name.text = skill_asset.GetName();
                 tooltip.Tooltip.addDescription("\n");
                 tooltip.Tooltip.addDescription(skill_asset.GetDescription());
             }

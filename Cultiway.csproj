@@ -47,6 +47,12 @@
         <Reference Include="System.ComponentModel.Annotations">
             <HintPath>Assemblies\System.ComponentModel.Annotations.dll</HintPath>
         </Reference>
+        <Reference Include="System.Net.Http">
+            <HintPath>..\..\worldbox_Data\Managed\System.Net.Http.dll</HintPath>
+        </Reference>
+        <Reference Include="Newtonsoft.Json">
+            <HintPath>..\..\worldbox_Data\Managed\Newtonsoft.Json.dll</HintPath>
+        </Reference>
         <Reference Include="UnityEngine">
             <HintPath>..\..\worldbox_Data\Managed\UnityEngine.dll</HintPath>
         </Reference>
