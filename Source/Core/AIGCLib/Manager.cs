@@ -24,6 +24,10 @@ public class Manager
     }
     public static async Task<string> RequestResponseContent(string prompt, int index = 0, float temperature = 1.5f)
     {
+        if (string.IsNullOrEmpty(BaseURL) || string.IsNullOrEmpty(APIKey))
+        {
+            return string.Empty;
+        }
         var client = new HttpClient();
         var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseURL}/chat/completions");
         request.Headers.Add("Accept", "application/json");

@@ -50,18 +50,19 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
             {
                 var prompt = GetPrompt(param);
                 var res = Manager.RequestResponseContent(prompt, temperature: 2).GetAwaiter().GetResult();
-                lock (NameDict)
-                {
-                    if (NameDict.TryGetValue(key, out var names))
+                if (!string.IsNullOrEmpty(res))
+                    lock (NameDict)
                     {
-                        names.Add(res);
+                        if (NameDict.TryGetValue(key, out var names))
+                        {
+                            names.Add(res);
+                        }
+                        else
+                        {
+                            NameDict[key] = new List<string> { res };
+                        }
+                        Save();
                     }
-                    else
-                    {
-                        NameDict[key] = new List<string> { res };
-                    }
-                    Save();
-                }
                 _isRequestingNewName = false;
             });
         }
