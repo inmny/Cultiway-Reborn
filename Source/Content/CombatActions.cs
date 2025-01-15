@@ -37,7 +37,7 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
                 var ae_power_level = ae.GetPowerLevel();
                 if (talisman_component.PowerLevel > ae_power_level)
                 {
-                    addition_strength *= Mathf.Pow(talisman_component.PowerLevel - ae_power_level, 2);
+                    addition_strength *= Mathf.Pow(2, talisman_component.PowerLevel - ae_power_level);
                 }
 
                 if (ae.CastSkillV2(talisman_component.SkillID, data.target, false, addition_strength))

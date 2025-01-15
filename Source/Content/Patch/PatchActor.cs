@@ -84,7 +84,7 @@ internal static class PatchActor
 
         SpecialItemUtils.Builder item_builder =
             SpecialItemUtils.StartBuild(ItemShapes.Ball.id, __instance.data.created_time, __instance.getName(),
-                Mathf.Pow(Mathf.Min(dead_ae.GetPowerLevel(), 6), 10));
+                Mathf.Pow(10, Mathf.Min(dead_ae.GetPowerLevel(), 6)));
         if (dead_ae.HasComponent<Jindan>()) item_builder.AddComponent(dead_ae.GetComponent<Jindan>());
         if (dead_ae.HasComponent<XianBase>()) item_builder.AddComponent(dead_ae.GetComponent<XianBase>());
         if (dead_ae.HasComponent<ElementRoot>()) item_builder.AddComponent(dead_ae.GetComponent<ElementRoot>());
