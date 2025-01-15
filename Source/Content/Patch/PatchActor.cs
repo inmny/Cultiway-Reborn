@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using ai;
+using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core;
@@ -62,9 +63,24 @@ internal static class PatchActor
         
         if (!dead_ae.HasCultisys<Xian>()) return;
         if (!dead_ae.HasComponent<XianBase>()) return;
-        BaseSimObject receiver = __instance.attackedBy ?? __instance;
-        if (receiver.city == null) return;
-        CityExtend ce = receiver.city.GetExtend();
+
+        IHasInventory receiver = null;
+        if (__instance.attackedBy != null)
+        {
+            if (__instance.attackedBy.isActor())
+            {
+                receiver = __instance.attackedBy.a.GetExtend();
+            }
+            else if (__instance.attackedBy.city != null)
+            {
+                receiver = __instance.attackedBy.city.GetExtend();
+            }
+        }
+        else if (__instance.city != null)
+        {
+            receiver = __instance.city.GetExtend();
+        }
+        if (receiver == null) return;
 
         SpecialItemUtils.Builder item_builder =
             SpecialItemUtils.StartBuild(ItemShapes.Ball.id, __instance.data.created_time, __instance.getName(),
@@ -73,7 +89,7 @@ internal static class PatchActor
         if (dead_ae.HasComponent<XianBase>()) item_builder.AddComponent(dead_ae.GetComponent<XianBase>());
         if (dead_ae.HasComponent<ElementRoot>()) item_builder.AddComponent(dead_ae.GetComponent<ElementRoot>());
 
-        ce.AddSpecialItem(item_builder.Build());
+        receiver.AddSpecialItem(item_builder.Build());
     }
 
 }
