@@ -2,3 +2,5 @@ key,cz
 AIGCSettings,AI生成内容相关设置
 BASE_URL,模型供应Base URL
 API_KEY,API密钥
+AnimSettings,动画相关设置
+ALL_RENDER,始终渲染所有

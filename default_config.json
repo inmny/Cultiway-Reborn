@@ -10,5 +10,12 @@
             "Type": "TEXT",
             "TextVal": ""
         }
+    ],
+    "AnimSettings": [
+        {
+            "Id": "ALL_RENDER",
+            "Type": "SWITCH",
+            "BoolVal": false
+        }
     ]
 }

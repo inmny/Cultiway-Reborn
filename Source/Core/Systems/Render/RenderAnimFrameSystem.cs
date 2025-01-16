@@ -37,10 +37,10 @@ public class RenderAnimFrameSystem : BaseSystem
         rot_query = world.Query<Rotation, AnimBindRenderer>(filter);
         scale_query = world.Query<Scale, AnimBindRenderer>(filter);
     }
-
+    [Hotfixable]
     protected override void OnUpdateGroup()
     {
-        if (WorldboxGame.I.IsPaused() || !MapBox.isRenderMiniMap())
+        if (!MapBox.isRenderMiniMap() || ModClass.I.GetConfig()["AnimSettings"]["ALL_RENDER"].BoolVal)
         {
             init_query.ForEachComponents(
                 (ref Position pos, ref Scale scale, ref AnimData anim_data, ref AnimBindRenderer bind_renderer) =>
