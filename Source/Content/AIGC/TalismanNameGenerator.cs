@@ -27,6 +27,6 @@ public class TalismanNameGenerator : PromptNameGenerator<TalismanNameGenerator>
     [Hotfixable]
     protected override string GetPrompt(string[] param)
     {
-        return $"为能够释放名为“{param[0]}”的法术的符箓命名，仅给出一个答案，不要有任何符号";
+        return $"为能够释放名为“{param[0]}”的法术的符箓命名，仅给出一个答案(比如落雷符)，不要有任何符号";
     }
 }

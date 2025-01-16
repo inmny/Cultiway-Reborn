@@ -34,9 +34,10 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
     protected Dictionary<string, List<string>> NameDict { get; set; } = new();
 
     protected abstract string GetDefaultName(string[] param);
-    protected abstract bool RequestNewName(string prompt);
+    protected abstract bool RequestNewName(string key);
     protected abstract string GetStoreKey(string[] param);
     protected abstract string GetPrompt(string[] param);
+    protected virtual float Temperature { get; } = 2;
     
     private bool _isRequestingNewName = false;
     [Hotfixable]
@@ -49,7 +50,7 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
             Task.Run(() =>
             {
                 var prompt = GetPrompt(param);
-                var res = Manager.RequestResponseContent(prompt, temperature: 2).GetAwaiter().GetResult();
+                var res = Manager.RequestResponseContent(prompt, temperature: Temperature).GetAwaiter().GetResult();
                 if (!string.IsNullOrEmpty(res))
                     lock (NameDict)
                     {

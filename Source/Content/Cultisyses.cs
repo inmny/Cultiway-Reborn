@@ -1,6 +1,7 @@
 using System.IO;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
@@ -94,6 +95,10 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             ref var element_root = ref ae.GetElementRoot();
             if (!ContentSetting.AllXian && element_root.Type == ModClass.L.ElementRootLibrary.Common) return;
             ae.NewCultisys(Xian);
+            if (ae.Base.asset == Actors.Plant)
+            {
+                ae.Base.data.setName(PlantNameGenerator.Instance.GenerateName([element_root.Type.GetName()]));
+            }
         });
         ActorExtend.RegisterActionOnUpdateStats([Hotfixable](ae) =>
         {
@@ -366,12 +371,16 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 ae.EnhanceSkillRandomly(SkillEnhanceSources.LargeUpgradeFailed);
                 return false;
             }
-
+            var jindan = Libraries.Manager.JindanLibrary.GetJindan(ae, ref xian_base);
             e.AddComponent(new Jindan
             (
-                Libraries.Manager.JindanLibrary.GetJindan(ae, ref xian_base).id,
+                jindan.id,
                 strength
             ));
+            if (ae.Base.asset == Actors.Plant)
+            {
+                ae.Base.data.setName(PlantNameGenerator.Instance.GenerateName([er.Type.GetName(), jindan.GetName()]));
+            }
             ae.AddSkillModifier<ScaleModifier, float>(CommonWeaponSkills.StartWeaponSkill.id, new ScaleModifier(Toolbox.randomFloat(1, 4)));
             return true;
         }
