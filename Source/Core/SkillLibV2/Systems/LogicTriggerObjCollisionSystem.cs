@@ -118,12 +118,14 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
             Kingdom caster_kingdom = skill_entity.GetComponent<SkillCaster>().AsActor.kingdom;
             var triggered = false;
 
+            var pos_x = pos.x;
+            var pos_y = pos.y;
             if (trigger.actor)
                 for (var x = lb_fixed.x; x <= rt_fixed.x; x++)
                 for (var y = lb_fixed.y; y <= rt_fixed.y; y++)
                 {
+                    if (((pos_x - x)*(pos_x-x) + (pos_y-y)*(pos_y-y)) >= (radius + 1)*(radius+1)) continue;
                     WorldTile tile = World.world.GetTileSimple(x, y);
-                    if (Vector2.Distance(pos.v2, tile.pos) >= radius + 1) continue;
                     for (var i = 0; i < tile._units.Count; i++)
                     {
                         Actor obj = tile._units[i];
@@ -135,8 +137,8 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
                 for (var x = lb_fixed.x; x <= rt_fixed.x; x++)
                 for (var y = lb_fixed.y; y <= rt_fixed.y; y++)
                 {
+                    if (((pos_x - x)*(pos_x-x) + (pos_y-y)*(pos_y-y)) >= (radius + 1)*(radius+1)) continue;
                     WorldTile tile = World.world.GetTileSimple(x, y);
-                    if (Vector2.Distance(pos.v2, tile.pos) >= radius + 1) continue;
                     Building obj = tile.building;
                     if (obj == null) continue;
                     check_obj(obj, ref trigger, ref context);
