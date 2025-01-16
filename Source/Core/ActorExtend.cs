@@ -459,11 +459,14 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
     internal void ExtendNewCreature()
     {
         // 灵根
-        var has_element_root = Base.asset.GetExtend<ActorAssetExtend>().must_have_element_root ||
-                               Toolbox.randomChance(ModClass.L.ElementRootLibrary.base_prob);
-        if (has_element_root)
+        if (GeneralSettings.SpawnNaturally)
         {
-            e.AddComponent(ElementRoot.Roll());
+            var has_element_root = Base.asset.GetExtend<ActorAssetExtend>().must_have_element_root ||
+                                   Toolbox.randomChance(ModClass.L.ElementRootLibrary.base_prob);
+            if (has_element_root)
+            {
+                e.AddComponent(ElementRoot.Roll());
+            }
         }
 
         action_on_new_creature?.Invoke(this);

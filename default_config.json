@@ -1,4 +1,12 @@
 {
+    "GeneralSettings": [
+        {
+            "Id": "SPAWN_ELEMENT_ROOT_NATURALLY",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchElementRootSpawnNaturally"
+        }
+    ],
     "AIGCSettings": [
         {
             "Id": "BASE_URL",

@@ -1,4 +1,6 @@
 key,cz
+GeneralSettings,一般设置
+SPAWN_ELEMENT_ROOT_NATURALLY,自然诞生灵根
 AIGCSettings,AI生成内容相关设置
 BASE_URL,模型供应Base URL
 API_KEY,API密钥

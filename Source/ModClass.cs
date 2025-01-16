@@ -175,8 +175,11 @@ namespace Cultiway
             CityExtendManager = new CityExtendManager(W);
             TileExtendManager = new();
 
-            L = new Core.Libraries.Manager();
-            L.Init();
+            Try.Start(() =>
+            {
+                L = new Core.Libraries.Manager();
+                L.Init();
+            });
 
             GeneralLogicSystems = new SystemRoot(nameof(GeneralLogicSystems));
             GeneralRenderSystems = new SystemRoot(nameof(GeneralRenderSystems));
