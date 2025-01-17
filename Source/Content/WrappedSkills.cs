@@ -43,6 +43,9 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
     public static WrappedSkillAsset StartForwardGoldSword      { get; private set; }
     public static WrappedSkillAsset StartAllGoldSword          { get; private set; }
     public static WrappedSkillAsset StartSingleGroundThorn { get; private set; }
+    public static WrappedSkillAsset StartLineGroundThorn { get; private set; }
+    public static WrappedSkillAsset StartCircleGroundThorn { get; private set; }
+    public static WrappedSkillAsset StartAllGroundThorn { get; private set; }
     protected override void OnInit()
     {
         StartWeaponSkill = WrapAttackSkill(CommonWeaponSkills.StartWeaponSkill);
@@ -142,6 +145,45 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
             }
         };
         StartSingleGroundThorn = WrapAttackSkill(GroundThornSkills.StartSingleGroundThorn);
+        StartLineGroundThorn = WrapAttackSkill(GroundThornSkills.StartLineGroundThorn);
+        StartCircleGroundThorn = WrapAttackSkill(GroundThornSkills.StartCircleGroundThorn);
+        StartAllGroundThorn = WrapAttackSkill(GroundThornSkills.StartAllGroundThorn);
+        StartAllGroundThorn.enhance = (ae, source) =>
+        {
+            var available_enhancements = new List<int>()
+            {
+                0, 1, 1, 2, 2, 3, 3, 3
+            };
+            var caster_modifiers = ae.GetOrNewSkillEntityModifiers(GroundThornSkills.GroundThornCasterEntity.id).Data;
+            if (caster_modifiers.Get<StageModifier>().Value >= GroundThornSkills.starters.Length)
+            {
+                available_enhancements.RemoveAll(x => x == 3);
+            }
+            
+            if (available_enhancements.Count == 0) return;
+            switch (available_enhancements.GetRandom())
+            {
+                case 0:
+                    // 实体扩大
+                    ae.GetOrNewSkillEntityModifiers(GroundThornSkills.SingleGroundThornEntity.id)
+                        .GetComponent<ScaleModifier>().Value += 0.1f;
+                    break;
+                case 1:
+                    // 连发数量增加
+                    caster_modifiers.Get<CastCountModifier>().Value++;
+                    break;
+                case 2:
+                    // 某一子技能的齐射数量增加
+                    ae.GetOrNewSkillActionModifiers(
+                            GroundThornSkills.starters[Toolbox.randomInt(0, caster_modifiers.Get<StageModifier>().Value)])
+                        .GetComponent<SalvoCountModifier>().Value+=1;
+                    break;
+                case 3:
+                    // 添加新的子技能
+                    caster_modifiers.Get<StageModifier>().Value++;
+                    break;
+            }
+        };
     }
 
     private EnhanceSkill GetMultiStageProjectionEnhanceAction(string proj_entity_id, string all_caster_id, params string[] blade_skill_ids)

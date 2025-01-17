@@ -73,7 +73,7 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
         Aoki.wrapped_skill_id = WrappedSkills.StartAllWindBlade.id;
         Frost.wrapped_skill_id = WrappedSkills.StartAllWaterBlade.id;
         Blaze.wrapped_skill_id = WrappedSkills.StartAllFireBlade.id;
-        Bentonite.wrapped_skill_id = WrappedSkills.StartAllGoldBlade.id;
+        Bentonite.wrapped_skill_id = WrappedSkills.StartAllGroundThorn.id;
     }
 
     public override void OnReload()

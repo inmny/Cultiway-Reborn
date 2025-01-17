@@ -74,7 +74,6 @@ public class SwordSkills : ICanInit, ICanReload
         GoldSwordCasterEntity = SkillEntityMeta.StartBuild(nameof(GoldSwordCasterEntity))
             .AddTimeIntervalTrigger(0.5f, RandomSpawnGoldSword)
             .AddComponent(new SkillTargetObj())
-            .AddComponent(new Position())
             .NewTrigger(new CastCountReachTrigger()
             {
                 TargetValue = 1,
@@ -172,7 +171,6 @@ public class SwordSkills : ICanInit, ICanReload
         var data = entity.Data;
         data.Get<SkillCaster>().value = user_ae;
         data.Get<SkillStrength>().value = context.strength;
-        data.Get<Position>().value = user.currentPosition;
         data.Get<SkillTargetObj>().value = context.target;
 
         GoldSwordCasterEntity.ApplyModifiers(entity,
