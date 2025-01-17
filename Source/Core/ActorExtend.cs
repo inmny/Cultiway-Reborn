@@ -685,4 +685,15 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     {
         E.RemoveRelation<TRelation>(force);
     }
+
+    private static Action<ActorExtend> action_on_death;
+
+    public static void RegisterActionOnDeath(Action<ActorExtend> action)
+    {
+        action_on_death += action;
+    }
+    public void OnDeath()
+    {
+        action_on_death?.Invoke(this);
+    }
 }

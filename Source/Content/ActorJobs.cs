@@ -15,6 +15,8 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob Attacker { get; private set; }
     [GetOnly("defender")]
     public static ActorJob Defender { get; private set; }
+    [GetOnly("random_move")]
+    public static ActorJob RandomMove { get; private set; }
     protected override void OnInit()
     {
         RegisterAssets("Cultiway.ActorJob");

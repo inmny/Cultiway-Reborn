@@ -6,13 +6,19 @@ using NeoModLoader.General.Game.extensions;
 namespace Cultiway.Content;
 
 [Dependency(typeof(ActorJobs))]
-public class Actors : ExtendLibrary<ActorAsset, Actors>
+public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 {
     [CloneSource("_mob")] public static ActorAsset Plant { get; private set; }
 
     protected override void OnInit()
     {
         RegisterAssets("Cultiway.Actor");
+        SetupPlant();
+        SetupConstraintSpirit();
+    }
+
+    private void SetupPlant()
+    {
         Plant.canTurnIntoMush = false;
         Plant.canTurnIntoZombie = false;
         Plant.canTurnIntoIceOne = false;
@@ -43,6 +49,7 @@ public class Actors : ExtendLibrary<ActorAsset, Actors>
         Plant.GetExtend<ActorAssetExtend>().must_have_element_root = true;
 
         AssetManager.biome_library.ForEach<BiomeAsset, BiomeLibrary>(biome => biome.addUnit(Plant.id));
+
     }
 
     protected override void PostInit(ActorAsset asset)

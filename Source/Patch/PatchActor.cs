@@ -128,4 +128,12 @@ internal static class PatchActor
     {
         __instance.GetExtend().NewKillAction(pDeadUnit, pPrevKingdom);
     }
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.killHimself))]
+    private static void killHimself_prefix(Actor __instance)
+    {
+        if (__instance.isAlive())
+        {
+            __instance.GetExtend().OnDeath();
+        }
+    }
 }
