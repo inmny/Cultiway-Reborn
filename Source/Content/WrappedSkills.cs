@@ -13,7 +13,12 @@ using Cultiway.Utils.Predefined;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Content;
-[Dependency(typeof(CommonWeaponSkills), typeof(CommonBladeSkills), typeof(SwordSkills))]
+[Dependency(
+    typeof(CommonWeaponSkills), 
+    typeof(CommonBladeSkills), 
+    typeof(SwordSkills), 
+    typeof(GroundThornSkills)
+)]
 public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
 {
     public static WrappedSkillAsset StartWeaponSkill { get; private set; }
@@ -37,6 +42,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
     public static WrappedSkillAsset StartSelfSurroundGoldSword { get; private set; }
     public static WrappedSkillAsset StartForwardGoldSword      { get; private set; }
     public static WrappedSkillAsset StartAllGoldSword          { get; private set; }
+    public static WrappedSkillAsset StartSingleGroundThorn { get; private set; }
     protected override void OnInit()
     {
         StartWeaponSkill = WrapAttackSkill(CommonWeaponSkills.StartWeaponSkill);
@@ -135,6 +141,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
                     break;
             }
         };
+        StartSingleGroundThorn = WrapAttackSkill(GroundThornSkills.StartSingleGroundThorn);
     }
 
     private EnhanceSkill GetMultiStageProjectionEnhanceAction(string proj_entity_id, string all_caster_id, params string[] blade_skill_ids)
