@@ -25,4 +25,9 @@ public struct ActorBinder(string id) : IComponent
     internal ActorExtend _ae;
     [Ignore]
     private  Actor       _actor;
+
+    public void Update()
+    {
+        _actor = null;
+    }
 }

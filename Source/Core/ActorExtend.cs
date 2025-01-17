@@ -31,7 +31,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
     private static   Action<ActorExtend> action_on_update_stats;
     private readonly HashSet<string> _learned_skills = new();
-    private readonly Entity          e;
+    private Entity          e;
 
     private  Dictionary<string, Entity> _skill_action_modifiers = new();
     private  Dictionary<string, Entity> _skill_entity_modifiers = new();
@@ -695,5 +695,135 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     public void OnDeath()
     {
         action_on_death?.Invoke(this);
+    }
+    /// <summary>
+    /// 复制修仙里头所有的数据
+    /// </summary>
+    /// <param name="clone_source"></param>
+    public void CloneAllFrom(ActorExtend clone_source)
+    {
+        var self = Base;
+        var source = clone_source.Base;
+
+        #region 原版复制
+        
+        self.currentPosition = source.currentPosition;
+        self.transform.position = source.transform.position;
+        self.curAngle = source.transform.localEulerAngles;
+        self.transform.localEulerAngles = self.curAngle;
+        self.data.setName(source.data.name);
+        self.data.created_time = source.data.created_time;
+        self.data.age_overgrowth = source.data.age_overgrowth;
+        self.data.kills = source.data.kills;
+        self.data.children = source.data.children;
+        self.data.favorite = source.data.favorite;
+        self.takeItems(source, self.asset.take_items_ignore_range_weapons);
+        for (int i = 0; i < source.data.traits.Count; i++)
+        {
+            string text = source.data.traits[i];
+            self.addTrait(text, false);
+        }
+
+        #endregion
+
+        #region 一般数据复制
+
+        source.data.save();
+        if (source.data.custom_data_bool != null)
+        {
+            self.data.custom_data_bool = new()
+            {
+                dict = new(source.data.custom_data_bool.dict)
+            };
+        }
+
+        if (source.data.custom_data_float != null)
+        {
+            self.data.custom_data_float = new()
+            {
+                dict = new(source.data.custom_data_float.dict)
+            };
+        }
+
+        if (source.data.custom_data_int != null)
+        {
+            self.data.custom_data_int = new()
+            {
+                dict = new(source.data.custom_data_int.dict)
+            };
+        }
+
+        if (source.data.custom_data_string != null)
+        {
+            self.data.custom_data_string = new()
+            {
+                dict = new(source.data.custom_data_string.dict)
+            };
+        }
+
+        if (source.data.custom_data_flags != null)
+        {
+            self.data.custom_data_flags = new(source.data.custom_data_flags);
+        }
+
+        #endregion
+
+        #region 原版势力相关复制
+
+        self.data.culture = source.data.culture;
+        if (!string.IsNullOrEmpty(source.data.clan))
+        {
+            var clan = World.world.clans.get(source.data.clan);
+            clan.addUnit(self);
+        }
+
+        if (source.city != null)
+        {
+            self.joinCity(source.city);
+        }
+        else
+        {
+            self.setKingdom(source.kingdom);
+        }
+
+        #endregion
+
+        #region 实体复制
+
+        var cloned_entity = E.Store.CloneEntity(clone_source.E);
+        ref var binder = ref cloned_entity.GetComponent<ActorBinder>();
+        binder._ae = this;
+        binder.ID = self.data.id;
+        binder.Update();
+        
+        E.DeleteEntity();
+        e = cloned_entity;
+        #endregion
+
+        // TODO: 各种Relation复制(比如背包/自制势力)
+
+        #region 技能相关复制
+
+        _learned_skills.Clear();
+        _learned_skills.UnionWith(clone_source._learned_skills);
+        
+        _skill_action_modifiers.Clear();
+        _skill_entity_modifiers.Clear();
+
+        foreach (var item in clone_source._skill_action_modifiers)
+        {
+            _skill_action_modifiers[item.Key] = item.Value.Store.CloneEntity(item.Value);
+        }
+
+        foreach (var item in clone_source._skill_entity_modifiers)
+        {
+            _skill_entity_modifiers[item.Key] = item.Value.Store.CloneEntity(item.Value);
+        }
+
+        #endregion
+        
+        
+        self.setStatsDirty();
+        self.setPosDirty();
     }
 }

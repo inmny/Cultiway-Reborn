@@ -40,16 +40,17 @@ public partial class Actors
         
         ActorExtend.RegisterActionOnDeath(ae =>
         {
-            if (Toolbox.randomChance(ContentSetting.ConstraintSpiritSpawnChance))
+            if (
+                ae.Base.asset == ConstraintSpirit ||
+                Toolbox.randomChance(ContentSetting.ConstraintSpiritSpawnChance))
             {
                 var actor = ae.Base;
                 var cs = World.world.units.spawnNewUnit(ConstraintSpirit.id, actor.currentTile);
-                
-                cs.setKingdom(actor.kingdom);
-                if (actor.city != null)
-                    cs.joinCity(actor.city);
 
-                cs.data.set(ContentActorDataKeys.ConstraintSpiritJob_string, actor.ai?.job.id ?? ActorJobs.RandomMove.id);
+                cs.GetExtend().CloneAllFrom(ae);
+
+                cs.data.set(ContentActorDataKeys.ConstraintSpiritJob_string,
+                    actor.ai?.job.id ?? ActorJobs.RandomMove.id);
             }
         });
     }
