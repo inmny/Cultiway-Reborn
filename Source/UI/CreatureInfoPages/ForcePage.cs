@@ -29,7 +29,7 @@ public class ForcePage : MonoBehaviour
 
         foreach (var force_entity in ae.GetForces<ForceCityBelongRelation>())
         {
-            sb.AppendLine($"{force_entity}");
+            sb.AppendLine($"所属城市: {force_entity.GetComponent<CityBinder>().City.getCityName()}");
         }
 
         var this_page = page.GetComponent<ForcePage>();

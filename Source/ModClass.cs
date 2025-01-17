@@ -202,6 +202,8 @@ namespace Cultiway
             
             GeneralLogicSystems.Add(new HealthRestoreSystem());
             
+            GeneralLogicSystems.Add(new SyncCityRelationSystem());
+            
             GeneralRenderSystems.Add(new RenderAnimFrameSystem(W));
 
             CustomMapModeManager = new();

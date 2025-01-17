@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Cultiway.Abstract;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
@@ -14,7 +15,7 @@ public class ActorExtendManager : ExtendComponentManager<ActorExtend>
     {
         World = world;
     }
-
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public ActorExtend Get(string id, bool new_when_null = false)
     {
         if (!_data.TryGetValue(id, out var val) && new_when_null)
