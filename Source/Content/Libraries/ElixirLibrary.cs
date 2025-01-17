@@ -66,7 +66,10 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
 
     public ElixirAsset NewElixir(ElixirAsset reference, Entity[] ingredients, ActorExtend creator)
     {
-        var asset = NewElixir();
+        var asset = new ElixirAsset()
+        {
+            id = Guid.NewGuid().ToString()
+        };
         
         var type = Toolbox.randomChance(0.1f) ? ElixirEffectType.DataGain : ElixirEffectType.StatusGain;
 
@@ -77,22 +80,21 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
             var ing_check = new ElixirIngredientCheck();
 
             var ing = ingredients[i];
-            if (ing.TryGetComponent(out Jindan jindan))
+            if (ing.TryGetComponent(out EntityName name))
             {
-                ing_check.jindan_id = jindan.jindan_type;
-            }
-            
-            if (ing.TryGetComponent(out ElementRoot element_root))
-            {
-                ing_check.element_root_id = element_root.Type.id;
+                ing_check.ingredient_name = name.value;
             }
 
             asset.ingredients[i] = ing_check;
         }
         // 生成丹药的服用检查和效果
         asset.seed_for_random_effect = Toolbox.randomInt(0, int.MaxValue);
-        ElixirEffectGenerator.GenerateElixirActions(asset);
-        return asset;
+        if (ElixirEffectGenerator.GenerateElixirActions(asset))
+        {
+            add_dynamic(asset);
+            return asset;
+        }
+        return null;
     }
 
     public ElixirAsset GetRandom()

@@ -12,6 +12,7 @@ namespace Cultiway.Content.Libraries;
 
 public struct ElixirIngredientCheck
 {
+    public string ingredient_name;
     public bool   need_element_root;
     public string element_root_id;
     public bool   need_jindan;
@@ -25,6 +26,11 @@ public struct ElixirIngredientCheck
     public bool NeedJindan()
     {
         return need_jindan || !string.IsNullOrEmpty(jindan_id);
+    }
+
+    public bool NeedIngredientName()
+    {
+        return !string.IsNullOrEmpty(ingredient_name);
     }
 
     /// <summary>
@@ -48,6 +54,12 @@ public struct ElixirIngredientCheck
             if (!string.IsNullOrEmpty(jindan_id))
                 if (item_entity.GetComponent<Jindan>().Type.id != jindan_id)
                     return false;
+        }
+
+        if (NeedIngredientName())
+        {
+            if (!item_entity.TryGetComponent(out EntityName name)) return false;
+            if (name.value != ingredient_name) return false;
         }
 
         return true;
