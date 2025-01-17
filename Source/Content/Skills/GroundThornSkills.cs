@@ -6,6 +6,7 @@ using Cultiway.Core.SkillLibV2.Extensions;
 using Cultiway.Core.SkillLibV2.Predefined;
 using Cultiway.Core.SkillLibV2.Predefined.Modifiers;
 using Cultiway.Core.SkillLibV2.Predefined.Triggers;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -36,12 +37,29 @@ public class GroundThornSkills : ICanInit
             .AddTimeReachTrigger(1, TriggerActions.GetRecycleActionMeta<TimeReachTrigger, TimeReachContext>())
             .AllowModifier<ScaleModifier, float>(new ScaleModifier(1))
             .Build();
+        GroundThornDamageActionMeta.StartModify()
+            .AppendAction(ground_thorn_apply_force);
 
         StartSingleGroundThorn = TriggerActionMeta<StartSkillTrigger, StartSkillContext>
             .StartBuild(nameof(StartSingleGroundThorn))
             .AppendAction(spawn_single_ground_thorn)
             .AllowModifier<SalvoCountModifier, int>(new SalvoCountModifier(1))
             .Build();
+    }
+
+    private void ground_thorn_apply_force(ref ObjCollisionTrigger trigger, ref ObjCollisionContext context, Entity skill_entity, Entity action_modifiers, Entity entity_modifiers)
+    {
+        var target = context.obj;
+        if (!target.isAlive()) return;
+        if (!target.isActor()) return;
+        var a = target.a;
+        var dp = target.currentPosition - skill_entity.GetComponent<Position>().v2;
+
+        var dist = dp.sqrMagnitude;
+        float force = 1f / Mathf.Exp(dist);
+        var norm_dp = dp.normalized;
+        a.GetExtend().GetForce(skill_entity.GetComponent<SkillCaster>().AsActor, norm_dp.x * force, norm_dp.y * force,
+            force);
     }
 
     private void spawn_single_ground_thorn(ref StartSkillTrigger trigger, ref StartSkillContext context, Entity skill_entity, Entity action_modifiers, Entity entity_modifiers)
