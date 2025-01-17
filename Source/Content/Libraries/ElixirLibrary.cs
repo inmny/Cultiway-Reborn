@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Cultiway.Abstract;
+using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;

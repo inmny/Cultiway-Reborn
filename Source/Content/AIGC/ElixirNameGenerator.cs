@@ -6,13 +6,13 @@ using UnityEngine;
 
 namespace Cultiway.Content.AIGC;
 
-public class ElixirEffectJsonGenerator : PromptNameGenerator<ElixirEffectJsonGenerator>
+public class ElixirNameGenerator : PromptNameGenerator<ElixirNameGenerator>
 {
     protected override string NameDictPath { get; } =
-        Path.Combine(Application.persistentDataPath, "Cultiway_ElixirEffectJsonDict.json");
+        Path.Combine(Application.persistentDataPath, "Cultiway_ElixirNameDict.json");
     protected override string GetDefaultName(string[] param)
     {
-        return string.Empty;
+        return "未名丹药";
     }
 
     protected override bool RequestNewName(string key)
@@ -28,20 +28,23 @@ public class ElixirEffectJsonGenerator : PromptNameGenerator<ElixirEffectJsonGen
     protected override string GetPrompt(string[] param)
     {
         StringBuilder sb = new();
-        sb.Append("为由");
-        for (int i=0;i<param.Length;i++)
+
+        sb.Append("为具有\"");
+        sb.Append(param[0]);
+        sb.Append("\"效果的丹药命名，该丹药由");
+        for (int i = 1; i < param.Length; i++)
         {
             sb.Append('\"');
             sb.Append(param[i]);
             sb.Append('\"');
             if (i < param.Length - 1)
             {
-                sb.Append(',');
+                sb.Append('，');
             }
         }
 
-        sb.Append("制成的丹药生成药效，");
-        // TODO: 填写更完善的prompt使得其
+        sb.Append("炼制得到，仅给出一个答案(比如凝元丹)，不要有任何符号");
+        
         return sb.ToString();
     }
 }

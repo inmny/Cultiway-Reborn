@@ -7,6 +7,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
+using NeoModLoader.General;
 
 namespace Cultiway.Content.Libraries;
 
@@ -119,7 +120,7 @@ public class ElixirAsset : Asset
     }
 
     [Hotfixable]
-    public void Craft(ActorExtend ae, Entity crafting_elixir_entity, IHasInventory receiver, Entity[] corr_ingrediants)
+    public void Craft(ActorExtend ae, Entity crafting_elixir_entity, IHasInventory receiver, Entity[] corr_ingredients)
     {
         var elixir_component = new Elixir
         {
@@ -143,10 +144,11 @@ public class ElixirAsset : Asset
                 throw new ArgumentOutOfRangeException();
         }
 
-        craft_action?.Invoke(ae, crafting_elixir_entity, corr_ingrediants);
-        for (var i = 0; i < corr_ingrediants.Length; i++) corr_ingrediants[i].DeleteEntity();
+        craft_action?.Invoke(ae, crafting_elixir_entity, corr_ingredients);
+        for (var i = 0; i < corr_ingredients.Length; i++) corr_ingredients[i].DeleteEntity();
 
         crafting_elixir_entity.RemoveComponent<CraftingElixir>();
+        crafting_elixir_entity.AddComponent(new EntityName(LM.Has(name_key) ? LM.Get(name_key) : name_key));
 
         receiver.AddSpecialItem(crafting_elixir_entity);
     }
