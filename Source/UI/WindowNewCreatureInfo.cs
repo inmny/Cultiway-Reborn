@@ -114,7 +114,8 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
         RegisterPage(nameof(StatusEffectPage), a => a.GetExtend().GetStatuses().Count > 0, StatusEffectPage.Setup,
             StatusEffectPage.Show);
         RegisterPage(nameof(InventoryPage), a => a.GetExtend().GetItems().Any(), InventoryPage.Setup, InventoryPage.Show);
-
+        RegisterPage(nameof(ForcePage), a=>a.isAlive(), ForcePage.Setup, ForcePage.Show);
+        
         create_pages();
 
         _armor_graph = PolygonGraph.Instantiate(BackgroundTransform, pName: "Armor Graph");

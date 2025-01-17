@@ -25,7 +25,7 @@ using UnityEngine;
 
 namespace Cultiway.Core;
 
-public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
+public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IHasForce
 {
     private static Action<ActorExtend> action_on_new_creature;
 
@@ -666,5 +666,23 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus
             AddSpecialItem(item);
         }
         action_on_kill?.Invoke(this, dead_unit, dead_kingdom);
+    }
+
+    public bool HasRelatedForce<TRelation>() where TRelation : struct, IForceRelation
+    {
+        return E.GetRelations<TRelation>().Length > 0;
+    }
+    public IEnumerable<Entity> GetForces<TRelation>() where TRelation : struct, IForceRelation
+    {
+        return E.GetRelations<TRelation>().Select(x => x.GetRelationKey());
+    }
+
+    public void JoinForce<TRelation>(Entity force) where TRelation : struct, IForceRelation
+    {
+        E.AddRelation(new TRelation { ForceEntity = force });
+    }
+    public void ExitForce<TRelation>(Entity force) where TRelation : struct, IForceRelation
+    {
+        E.RemoveRelation<TRelation>(force);
     }
 }
