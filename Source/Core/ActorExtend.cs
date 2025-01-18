@@ -362,15 +362,26 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         return _skill_entity_modifiers.TryGetValue(entity_id, out var res) ? res : default_modifiers;
     }
 
-
-    [Hotfixable]
-    private void TestCastFireball()
+    private Actor FindTestTarget()
     {
         Actor target = null;
+        int count = 0;
         do
         {
             target = World.world.units.GetRandom();
+            if (++count > 100)
+            {
+                ModClass.LogInfo($"{Base.data.id} failed to find enemy");
+                throw new Exception();
+            }
         } while (!Base.kingdom.isEnemy(target.kingdom));
+
+        return target;
+    }
+    [Hotfixable]
+    private void TestCastFireball()
+    {
+        Actor target = FindTestTarget();
 
         CastSkillV2(ExampleTriggerActions.StartSkillFireball.id, target, true);
         ModClass.LogInfo($"{Base.data.id} cast fireball to {target.data.id}");
@@ -378,61 +389,40 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
     private void TestCastCommonWeapon()
     {
-        Actor target = null;
-        do
-        {
-            target = World.world.units.GetRandom();
-        } while (!Base.kingdom.isEnemy(target.kingdom));
+        Actor target = FindTestTarget();
 
         CastSkillV2(WrappedSkills.StartWeaponSkill.id, target, true);
         ModClass.LogInfo($"{Base.data.id} cast weapon to {target.data.id}");
     }
     private void TestCastSelfSurroundFireBlade()
     {
-        Actor target = null;
-        do
-        {
-            target = World.world.units.GetRandom();
-        } while (!Base.kingdom.isEnemy(target.kingdom));
+        Actor target = FindTestTarget();
 
         CastSkillV2(WrappedSkills.StartSelfSurroundFireBlade.id, target, true);
         ModClass.LogInfo($"{Base.data.id} cast self surround fire blade to {target.data.id}");
     }
     private void TestCastAllFireBlade()
     {
-        Actor target = null;
-        int count = 0;
-        do
-        {
-            target = World.world.units.GetRandom();
-            if (++count > 100)
-            {
-                ModClass.LogInfo($"{Base.data.id} failed to find enemy");
-                return;
-            }
-        } while (!Base.kingdom.isEnemy(target.kingdom));
+        Actor target = FindTestTarget();
 
         CastSkillV2(WrappedSkills.StartAllFireBlade.id, target, true);
         ModClass.LogInfo($"{Base.data.id} cast all fire blade to {target.data.id}");
     }
     private void TestCastAllGoldSword()
     {
-        Actor target = null;
-        int count = 0;
-        do
-        {
-            target = World.world.units.GetRandom();
-            if (++count > 100)
-            {
-                ModClass.LogInfo($"{Base.data.id} failed to find enemy");
-                return;
-            }
-        } while (!Base.kingdom.isEnemy(target.kingdom));
+        Actor target = FindTestTarget();
 
         CastSkillV2(WrappedSkills.StartAllGoldSword.id, target, true);
         ModClass.LogInfo($"{Base.data.id} cast all gold sword to {target.data.id}");
     }
 
+    private void TestCastAllGroundThorn()
+    {
+        Actor target = FindTestTarget();
+
+        CastSkillV2(WrappedSkills.StartAllGroundThorn.id, target, true);
+        ModClass.LogInfo($"{Base.data.id} cast all ground thorn to {target.data.id}");
+    }
     private void TestConsumeEnlightenElixir()
     {
         var elixir = SpecialItemUtils.StartBuild(ItemShapes.Ball.id, World.world.getCurWorldTime(), Base.getName())

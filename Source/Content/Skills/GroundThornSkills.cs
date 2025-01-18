@@ -9,6 +9,7 @@ using Cultiway.Core.SkillLibV2.Predefined.Modifiers;
 using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 
 namespace Cultiway.Content.Skills;
@@ -42,7 +43,7 @@ public class GroundThornSkills : ICanInit
     public void Init()
     {
         SingleGroundThornEntity = SkillEntityMeta.StartBuild(nameof(SingleGroundThornEntity))
-            .AddAnim(SpriteTextureLoader.getSpriteList("cultiway/effect/ground_thorn"), 0.3f, 0.2f, false)
+            .AddAnim(SpriteTextureLoader.getSpriteList("cultiway/effect/ground_thorn"), 0.3f, 0.3f, false)
             .AddSphereObjCollisionTrigger(new ObjCollisionTrigger()
             {
                 actor = true,
@@ -52,9 +53,10 @@ public class GroundThornSkills : ICanInit
             }, 0.5f)
             .AddTimeReachTrigger(1, TriggerActions.GetRecycleActionMeta<TimeReachTrigger, TimeReachContext>())
             .AllowModifier<ScaleModifier, float>(new ScaleModifier(1))
+            .AppendModifierApplication(ground_thorn_modifiers_application)
             .Build();
         GroundThornDamageActionMeta.StartModify()
-            .AppendAction(ground_thorn_apply_force);
+            .PrependAction(ground_thorn_apply_force);
         LineGroundThornSpawnActionMeta = TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext>
             .StartBuild(nameof(LineGroundThornSpawnActionMeta))
             .AppendAction(spawn_single_ground_thorn)
@@ -62,7 +64,7 @@ public class GroundThornSkills : ICanInit
         LineGroundThornCasterEntity = SkillEntityMeta.StartBuild(nameof(LineGroundThornCasterEntity))
             .AddTimeIntervalTrigger(0.3f, LineGroundThornSpawnActionMeta)
             .AddTimeReachTrigger(3, TriggerActions.GetRecycleActionMeta<TimeReachTrigger, TimeReachContext>())
-            .SetTrajectory(Trajectories.GoForward, 20)
+            .SetTrajectory(Trajectories.GoForward, 5)
             .Build();
 
         CircleGroundThornSpawnActionMeta = TriggerActionMeta<TimeIntervalTrigger, TimeIntervalContext>
@@ -71,6 +73,10 @@ public class GroundThornSkills : ICanInit
             .Build();
         CircleGroundThornCasterEntity = SkillEntityMeta.StartBuild(nameof(CircleGroundThornCasterEntity))
             .AddTimeIntervalTrigger(0.3f, CircleGroundThornSpawnActionMeta)
+            .AddComponent(new Radius()
+            {
+                Value = 1
+            })
             .AllowModifier<SalvoCountModifier, int>(new SalvoCountModifier(1))
             .Build();
 
@@ -107,7 +113,22 @@ public class GroundThornSkills : ICanInit
         starters = [StartSingleGroundThorn.id, StartLineGroundThorn.id, StartCircleGroundThorn.id];
     }
 
+    private void ground_thorn_modifiers_application(Entity entity, Entity modifiers)
+    {
+        var data = entity.Data;
+        var modifiers_data = modifiers.Data;
+        var collider_scale = modifiers_data.Get<ScaleModifier>().Value;
+        
+        data.Get<Scale>().value *= collider_scale;
+        foreach (Entity trigger_entity in entity.ChildEntities)
+        {
+            if (trigger_entity.HasComponent<ColliderSphere>())
+                trigger_entity.GetComponent<ColliderSphere>().radius *= collider_scale;
+        }
+    }
+
     internal static string[] starters;
+    [Hotfixable]
     private void random_spawn_ground_thorn(ref TimeIntervalTrigger trigger, ref TimeIntervalContext context, Entity skill_entity, Entity action_modifiers, Entity entity_modifiers)
     {
         string id = starters[Toolbox.randomInt(0, entity_modifiers.GetComponent<StageModifier>().Value)];
@@ -118,7 +139,7 @@ public class GroundThornSkills : ICanInit
             data.Get<SkillTargetObj>().value,
             data.Get<SkillStrength>().value
         );
-        if (context.trigger_times >= data.Get<CastCountModifier>().Value)
+        if (context.trigger_times >= entity_modifiers.GetComponent<CastCountModifier>().Value)
         {
             skill_entity.AddTag<TagRecycle>();
         }
@@ -139,7 +160,7 @@ public class GroundThornSkills : ICanInit
             user_ae.GetSkillEntityModifiers(GroundThornCasterEntity.id,
                 GroundThornCasterEntity.default_modifier_container));
     }
-
+    [Hotfixable]
     private void spawn_circle_ground_thorn(ref TimeIntervalTrigger trigger, ref TimeIntervalContext context, Entity skill_entity, Entity action_modifiers, Entity entity_modifiers)
     {
         var caster_data = skill_entity.Data;
@@ -158,7 +179,7 @@ public class GroundThornSkills : ICanInit
             var data = entity.Data;
             data.Get<SkillCaster>().value = user_ae;
             data.Get<SkillStrength>().value = caster_data.Get<SkillStrength>().value;
-            data.Get<Position>().value = caster_data.Get<Position>().v2 + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
+            data.Get<Position>().value = user_ae.Base.currentPosition + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * radius;
 
             SingleGroundThornEntity.ApplyModifiers(entity,
                 user_ae.GetSkillEntityModifiers(SingleGroundThornEntity.id,
@@ -169,7 +190,6 @@ public class GroundThornSkills : ICanInit
             skill_entity.AddTag<TagRecycle>();
         }
     }
-
     private void spawn_circle_ground_thorn_caster(ref StartSkillTrigger trigger, ref StartSkillContext context, Entity skill_entity, Entity action_modifiers, Entity entity_modifiers)
     {
         var entity = CircleGroundThornCasterEntity.NewEntity();
@@ -185,7 +205,7 @@ public class GroundThornSkills : ICanInit
             user_ae.GetSkillEntityModifiers(CircleGroundThornCasterEntity.id,
                 CircleGroundThornCasterEntity.default_modifier_container));
     }
-
+    [Hotfixable]
     private void spawn_single_ground_thorn(ref TimeIntervalTrigger trigger, ref TimeIntervalContext context, Entity skill_entity, Entity action_modifiers, Entity entity_modifiers)
     {
         var entity = SingleGroundThornEntity.NewEntity();
@@ -197,6 +217,7 @@ public class GroundThornSkills : ICanInit
         var data = entity.Data;
         data.Get<SkillCaster>().value =caster;
         data.Get<SkillStrength>().value = ground_thorn_caster_data.Get<SkillStrength>().value;
+        ModClass.LogInfo($"entity: {entity}, caster: {skill_entity}");
         data.Get<Position>().value = ground_thorn_caster_data.Get<Position>().value;
 
         SingleGroundThornEntity.ApplyModifiers(entity,

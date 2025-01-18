@@ -96,6 +96,11 @@ public class TriggerActionMeta<TTrigger, TContext> : TriggerActionBaseMeta
             _under_build.Action += action;
             return this;
         }
+        public MetaBuilder PrependAction(ActionType action)
+        {
+            _under_build.Action = action + _under_build.Action;
+            return this;
+        }
 
         public MetaBuilder AllowModifier<TModifier, TValue>(TModifier default_modifier = default)
             where TModifier : struct, IModifier<TValue>
