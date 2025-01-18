@@ -2,6 +2,7 @@ using Cultiway.Abstract;
 using Cultiway.Content.Const;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
+using NeoModLoader.api.attributes;
 using NeoModLoader.General.Game.extensions;
 
 namespace Cultiway.Content;
@@ -38,7 +39,7 @@ public partial class Actors
         ConstraintSpirit.race = SK.undead;
         ConstraintSpirit.kingdom = SK.undead;
         
-        ActorExtend.RegisterActionOnDeath(ae =>
+        ActorExtend.RegisterActionOnDeath([Hotfixable](ae) =>
         {
             if (
                 ae.Base.asset == ConstraintSpirit ||
@@ -50,7 +51,7 @@ public partial class Actors
                 cs.GetExtend().CloneAllFrom(ae);
 
                 cs.data.set(ContentActorDataKeys.ConstraintSpiritJob_string,
-                    actor.ai?.job.id ?? ActorJobs.RandomMove.id);
+                    actor.ai?.job?.id ?? ActorJobs.RandomMove.id);
             }
         });
     }
