@@ -14,4 +14,5 @@ public static class ContentActorDataKeys
     /// 地缚灵的行为
     /// </summary>
     public const string ConstraintSpiritJob_string = "cw.content.constraint_spirit_job";
+    public const string ConstraintSpiritCitizenJob_string = "cw.content.constraint_spirit_citizen_job";
 }

@@ -10,6 +10,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
 using UnityEngine;
@@ -24,6 +25,16 @@ internal static class PatchActor
         if (pActor.asset == Actors.ConstraintSpirit)
         {
             pActor.data.get(ContentActorDataKeys.ConstraintSpiritJob_string, out __result);
+            pActor.data.get(ContentActorDataKeys.ConstraintSpiritCitizenJob_string, out var citizen_job_id, "");
+            if (!string.IsNullOrEmpty(citizen_job_id))
+            {
+                var citizen_job = AssetManager.citizen_job_library.get(citizen_job_id);
+                if (citizen_job != null)
+                {
+                    pActor.city.jobs.takeJob(citizen_job);
+                    pActor.citizen_job = citizen_job;
+                }
+            }
             return;
         }
         if (pActor.asset.unit && pActor.city != null && !pActor.isProfession(UnitProfession.Warrior))
@@ -59,7 +70,7 @@ internal static class PatchActor
     [Hotfixable]
     [HarmonyPrefix]
     [HarmonyPatch(typeof(Actor), nameof(Actor.killHimself))]
-    private static void killHimself_postfix(Actor __instance)
+    private static void killHimself_prefix(Actor __instance)
     {
         if (!__instance.isAlive()) return;
         ActorExtend dead_ae = __instance.GetExtend();
@@ -93,6 +104,14 @@ internal static class PatchActor
         if (dead_ae.HasComponent<Jindan>()) item_builder.AddComponent(dead_ae.GetComponent<Jindan>());
         if (dead_ae.HasComponent<XianBase>()) item_builder.AddComponent(dead_ae.GetComponent<XianBase>());
         if (dead_ae.HasComponent<ElementRoot>()) item_builder.AddComponent(dead_ae.GetComponent<ElementRoot>());
+        if (dead_ae.Base.asset == Actors.Plant)
+        {
+            item_builder.AddComponent(new EntityName(dead_ae.Base.getName()));
+        }
+        else
+        {
+            item_builder.AddComponent(new EntityName($"{dead_ae.Base.getName()}遗"));
+        }
 
         receiver.AddSpecialItem(item_builder.Build());
     }

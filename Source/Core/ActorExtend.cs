@@ -690,6 +690,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// 复制修仙里头所有的数据
     /// </summary>
     /// <param name="clone_source"></param>
+    [Hotfixable]
     public void CloneAllFrom(ActorExtend clone_source)
     {
         var self = Base;
@@ -697,11 +698,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         #region 原版复制
         
-        self.currentPosition = source.currentPosition;
-        self.transform.position = source.transform.position;
         self.curAngle = source.transform.localEulerAngles;
         self.transform.localEulerAngles = self.curAngle;
-        self.data.setName(source.data.name);
+        self.data.setName(source.getName());
         self.data.created_time = source.data.created_time;
         self.data.age_overgrowth = source.data.age_overgrowth;
         self.data.kills = source.data.kills;
@@ -769,12 +768,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         if (source.city != null)
         {
-            self.joinCity(source.city);
+            self.setCity(source.city);
         }
-        else
-        {
-            self.setKingdom(source.kingdom);
-        }
+        self.setKingdom(source.kingdom);
 
         #endregion
 
