@@ -49,22 +49,32 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
             _isRequestingNewName = true;
             Task.Run(() =>
             {
-                var prompt = GetPrompt(param);
-                var res = Manager.RequestResponseContent(prompt, temperature: Temperature).GetAwaiter().GetResult();
-                if (!string.IsNullOrEmpty(res))
-                    lock (NameDict)
-                    {
-                        if (NameDict.TryGetValue(key, out var names))
+                try
+                {
+                    var prompt = GetPrompt(param);
+                    var res = Manager.RequestResponseContent(prompt, temperature: Temperature).GetAwaiter().GetResult();
+                    if (!string.IsNullOrEmpty(res))
+                        lock (NameDict)
                         {
-                            names.Add(res);
+                            if (NameDict.TryGetValue(key, out var names))
+                            {
+                                names.Add(res);
+                            }
+                            else
+                            {
+                                NameDict[key] = new List<string> { res };
+                            }
+                            Save();
                         }
-                        else
-                        {
-                            NameDict[key] = new List<string> { res };
-                        }
-                        Save();
-                    }
-                _isRequestingNewName = false;
+                }
+                catch (Exception e)
+                {
+                    LogService.LogErrorConcurrent(SystemUtils.GetFullExceptionMessage(e));
+                }
+                finally
+                {
+                    _isRequestingNewName = false;
+                }
             });
         }
 
