@@ -18,7 +18,7 @@ public class BehFindElixirToCraft : BehCity
         if (ae.HasItem<CraftingElixir>()) return BehResult.Continue;
         // 找配方以及材料，把材料都放到背包里，并开启一个CraftingElixir的实体，并添加到人物的背包里，并标记占用
         ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.GetRandom();
-        if (elixir_asset.QueryInventoryForIngredients(pObject.city.GetExtend(), out var ingredients))
+        if (elixir_asset.QueryInventoryForIngredients(ae, out var ingredients))
         {
             Entity crafting_elixir = SpecialItemUtils
                 .StartBuild(ItemShapes.Ball.id, World.world.getCurWorldTime(), pObject.getName())
@@ -30,7 +30,6 @@ public class BehFindElixirToCraft : BehCity
             ae.AddSpecialItem(crafting_elixir);
             foreach (Entity ing in ingredients)
             {
-                ae.AddSpecialItem(ing);
                 crafting_elixir.AddRelation(new CraftOccupyingRelation { item = ing });
             }
 

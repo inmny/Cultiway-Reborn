@@ -10,6 +10,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob PlantXianCultivator { get; private set; }
     public static ActorJob HerbCollector { get; private set; }
     public static ActorJob ElixirCrafter { get; private set; }
+    public static ActorJob ElixirFinder { get; private set; }
     public static ActorJob TalismanCrafter { get; private set; }
     [GetOnly("attacker")]
     public static ActorJob Attacker { get; private set; }
@@ -41,6 +42,10 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         ElixirCrafter.addTask(ActorTasks.CraftElixir.id);
         ElixirCrafter.addCondition(new CondHasJindan());
         ElixirCrafter.addTask(ActorTasks.EndJob.id);
+        
+        ElixirFinder.addTask(ActorTasks.FindNewElixir.id);
+        ElixirFinder.addCondition(new CondHasJindan());
+        ElixirFinder.addTask(ActorTasks.EndJob.id);
         
         TalismanCrafter.addTask(ActorTasks.CraftTalisman.id);
         TalismanCrafter.addCondition(new CondHasXian());
