@@ -47,6 +47,12 @@ public static class SpecialItemUtils
             return this;
         }
 
+        public Builder AddTag<T>() where T : struct, ITag
+        {
+            entity.AddTag<T>();
+            return this;
+        }
+
         public Entity Build()
         {
             return entity;

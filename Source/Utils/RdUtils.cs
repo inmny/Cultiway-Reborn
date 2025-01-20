@@ -51,4 +51,20 @@ public static class RdUtils
 
         return 0;
     }
+
+    public static T[] SampleOut<T>(this IList<T> list, int count)
+    {
+        var indices = new T[count];
+
+        if (list.Count < count) return null;
+        
+        for (int i = 0; i < count; i++)
+        {
+            var index = UnityEngine.Random.Range(0, list.Count);
+            indices[i] = list[index];
+            list.RemoveAt(index);
+        }
+
+        return indices;
+    }
 }

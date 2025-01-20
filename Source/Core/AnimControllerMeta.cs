@@ -1,4 +1,4 @@
-namespace Cultiway.Core.SkillLibV2;
+namespace Cultiway.Core;
 
 public class AnimControllerMeta
 {

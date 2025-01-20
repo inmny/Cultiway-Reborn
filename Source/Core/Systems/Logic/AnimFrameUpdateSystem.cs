@@ -1,11 +1,10 @@
 using Cultiway.Core.Components;
 using Cultiway.Core.Components.AnimOverwrite;
-using Cultiway.Core.SkillLibV2.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
 
-namespace Cultiway.Core.SkillLibV2.Systems;
+namespace Cultiway.Core.Systems.Logic;
 
 public class AnimFrameUpdateSystem : QuerySystem<AnimData, AnimController>
 {

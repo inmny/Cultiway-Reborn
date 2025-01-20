@@ -65,7 +65,7 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
         return asset;
     }
 
-    public ElixirAsset NewElixir(ElixirAsset reference, Entity[] ingredients, ActorExtend creator)
+    public ElixirAsset NewElixir(Entity[] ingredients, ActorExtend creator)
     {
         var asset = new ElixirAsset()
         {
