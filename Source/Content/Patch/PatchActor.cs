@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using ai;
 using Cultiway.Abstract;
+using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core;
@@ -49,7 +50,14 @@ internal static class PatchActor
                 if (Toolbox.randomChance(0.6f))
                 {
                     using var pool = new ListPool<string>();
-                    if (ae.HasComponent<Jindan>()) pool.Add(ActorJobs.ElixirCrafter.id);
+                    if (ae.HasComponent<Jindan>())
+                    {
+                        pool.Add(ActorJobs.ElixirCrafter.id);
+                        if (Toolbox.randomChance(0.1f))
+                        {
+                            pool.Add(ActorJobs.ElixirFinder.id);
+                        }
+                    }
                     if (ae.HasComponent<XianBase>()) pool.Add(ActorJobs.TalismanCrafter.id);
                     if (pool.Any())
                     {
@@ -101,16 +109,29 @@ internal static class PatchActor
         SpecialItemUtils.Builder item_builder =
             SpecialItemUtils.StartBuild(ItemShapes.Ball.id, __instance.data.created_time, __instance.getName(),
                 Mathf.Pow(10, Mathf.Min(dead_ae.GetPowerLevel(), 6)));
-        if (dead_ae.HasComponent<Jindan>()) item_builder.AddComponent(dead_ae.GetComponent<Jindan>());
-        if (dead_ae.HasComponent<XianBase>()) item_builder.AddComponent(dead_ae.GetComponent<XianBase>());
-        if (dead_ae.HasComponent<ElementRoot>()) item_builder.AddComponent(dead_ae.GetComponent<ElementRoot>());
+        List<string> param = new();
+        if (dead_ae.TryGetComponent(out ElementRoot er))
+        {
+            item_builder.AddComponent(er);
+            param.Add(er.Type.GetName());
+        }
+        if (dead_ae.TryGetComponent(out XianBase xian_base))
+        {
+            item_builder.AddComponent(xian_base);
+        }
+        if (dead_ae.TryGetComponent(out Jindan jindan))
+        {
+            item_builder.AddComponent(jindan);
+            param.Add(jindan.Type.GetName());
+        }
         if (dead_ae.Base.asset == Actors.Plant)
         {
             item_builder.AddComponent(new EntityName(dead_ae.Base.getName()));
         }
         else
         {
-            item_builder.AddComponent(new EntityName($"{dead_ae.Base.getName()}遗"));
+
+            item_builder.AddComponent(new EntityName(IngredientNameGenerator.Instance.GenerateName(param.ToArray())));
         }
 
         receiver.AddSpecialItem(item_builder.Build());
