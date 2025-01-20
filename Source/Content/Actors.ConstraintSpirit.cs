@@ -27,6 +27,7 @@ public partial class Actors
         ConstraintSpirit.source_meat = false;
         ConstraintSpirit.base_stats[S.max_age] = 10000;
         ConstraintSpirit.job = ActorJobs.RandomMove.id;
+        ConstraintSpirit.canBeCitizen = true;
         ConstraintSpirit.actorSize = ActorSize.S0_Bug;
         ConstraintSpirit.shadowTexture = "unitShadow_2";
         ConstraintSpirit.prefab = "p_unit";

@@ -775,7 +775,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         if (source.city != null)
         {
-            self.setCity(source.city);
+            self.joinCity(source.city);
         }
         self.setKingdom(source.kingdom);
 
@@ -783,13 +783,11 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         #region 实体复制
 
+        var old_binder = E.GetComponent<ActorBinder>();
         var cloned_entity = E.Store.CloneEntity(clone_source.E);
-        ref var binder = ref cloned_entity.GetComponent<ActorBinder>();
-        binder._ae = this;
-        binder.ID = self.data.id;
-        binder.Update();
-        
-        E.DeleteEntity();
+        cloned_entity.AddComponent(old_binder);
+
+        E.AddTag<TagRecycle>();
         e = cloned_entity;
         #endregion
 
