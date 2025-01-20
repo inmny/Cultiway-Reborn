@@ -37,6 +37,10 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
 
     protected abstract string GetDefaultName(string[] param);
 
+    protected virtual bool IsValid(string name)
+    {
+        return true;
+    }
     protected virtual bool RequestNewName(string key)
     {
         return !NameDict.TryGetValue(key, out var names) || Toolbox.randomChance(1 / Mathf.Exp(names.Count));
@@ -63,7 +67,7 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
                 {
                     var prompt = GetPrompt(param);
                     var res = Manager.RequestResponseContent(prompt, temperature: Temperature).GetAwaiter().GetResult();
-                    if (!string.IsNullOrEmpty(res))
+                    if (!string.IsNullOrEmpty(res) && IsValid(res))
                         lock (NameDict)
                         {
                             if (NameDict.TryGetValue(key, out var names))

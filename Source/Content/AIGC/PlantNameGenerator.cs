@@ -16,6 +16,11 @@ public class PlantNameGenerator : PromptNameGenerator<PlantNameGenerator>
             .Replace("金丹", "灵草");
     }
 
+    protected override bool IsValid(string name)
+    {
+        return name.Length < 10;
+    }
+
     protected override string GetPrompt(string[] param)
     {
         StringBuilder sb = new();
