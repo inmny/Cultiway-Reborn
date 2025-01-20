@@ -1,3 +1,4 @@
+using Cultiway.Content.Components;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -10,7 +11,7 @@ public class RecycleDefaultEntitySystem : QuerySystem
     public RecycleDefaultEntitySystem()
     {
         Filter.AllTags(Tags.Get<TagRecycle>());
-        Filter.WithoutAllTags(Tags.Get<TagPrefab>());
+        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagOccupied>());
     }
 
     protected override void OnUpdate()

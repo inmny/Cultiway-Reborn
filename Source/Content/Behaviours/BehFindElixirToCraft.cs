@@ -31,6 +31,7 @@ public class BehFindElixirToCraft : BehCity
             foreach (Entity ing in ingredients)
             {
                 crafting_elixir.AddRelation(new CraftOccupyingRelation { item = ing });
+                ing.AddTag<TagOccupied>();
             }
 
             //ModClass.LogInfo($"{pObject.data.id} 开始制作 {elixir_asset.id}");

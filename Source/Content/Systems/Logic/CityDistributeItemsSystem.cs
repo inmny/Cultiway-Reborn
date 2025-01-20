@@ -1,5 +1,6 @@
 using System.Linq;
 using Cultiway.Const;
+using Cultiway.Content.Components;
 using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -28,6 +29,7 @@ public class CityDistributeItemsSystem : QuerySystem<CityBinder>
                     if (item.IsNull) continue;
                     
                     var data = item.Data;
+                    if (data.Tags.Has<TagOccupied>()) continue;
                     if (data.TryGet(out AliveTimeLimit limit))
                     {
                         var left_years = limit.value - data.Get<AliveTimer>().value;
