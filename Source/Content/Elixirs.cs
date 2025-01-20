@@ -22,9 +22,10 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
     {
         RegisterAssets(prefix);
         OpenElementRootElixir.name_key = $"{prefix}.OpenElementRootElixir";
-        OpenElementRootElixir.craft_action = (ae, elixir_entity, ingrediants) =>
+        OpenElementRootElixir.description_key = $"{prefix}.OpenElementRootElixir.Info";
+        OpenElementRootElixir.craft_action = (ae, elixir_entity, ingredients) =>
         {
-            ref ElementRoot er = ref ingrediants[2].GetComponent<ElementRoot>();
+            ref ElementRoot er = ref ingredients[2].GetComponent<ElementRoot>();
             elixir_entity.AddComponent(er);
         };
         OpenElementRootElixir.SetupDataChange((ActorExtend ae, Entity elixir_entity, ref Elixir _) =>
@@ -54,9 +55,10 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
             }
         };
         WakanRestoreElixir.name_key = $"{prefix}.WakanRestoreElixir";
-        WakanRestoreElixir.craft_action = (ae, elixir_entity, ingrediants) =>
+        WakanRestoreElixir.description_key = $"{prefix}.WakanRestoreElixir.Info";
+        WakanRestoreElixir.craft_action = (ae, elixir_entity, ingredients) =>
         {
-            ref ElementRoot er = ref ingrediants[0].GetComponent<ElementRoot>();
+            ref ElementRoot er = ref ingredients[0].GetComponent<ElementRoot>();
             elixir_entity.GetComponent<Elixir>().value = er.GetStrength();
         };
         WakanRestoreElixir.SetupRestore((ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
@@ -75,6 +77,7 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
             }
         };
         EnlightenElixir.name_key = $"{prefix}.EnlightenElixir";
+        EnlightenElixir.description_key = $"{prefix}.EnlightenElixir.Info";
         EnlightenElixir.SetupStatusGain((ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
         {
             var value = Toolbox.randomFloat(10, 60);// elixir.value;

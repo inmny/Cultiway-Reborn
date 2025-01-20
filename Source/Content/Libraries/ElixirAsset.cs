@@ -85,6 +85,7 @@ public class ElixirAsset : Asset
     /// </summary>
     public int seed_for_random_effect;
     public string                  name_key;
+    public string description_key;
     public void SetupDataGain(ElixirEffectDelegate effect_action)
     {
         this.effect_action = effect_action;
