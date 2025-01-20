@@ -2,6 +2,7 @@ using System.IO;
 using System.Text;
 using Cultiway.Core.AIGCLib;
 using HarmonyLib;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 
 namespace Cultiway.Content.AIGC;
@@ -18,21 +19,21 @@ public class ElixirNameGenerator : PromptNameGenerator<ElixirNameGenerator>
 
     protected override string GetDefaultName(string[] param)
     {
-        return "未名丹药";
+        return string.Empty;
     }
-
+    [Hotfixable]
     protected override string GetPrompt(string[] param)
     {
         StringBuilder sb = new();
 
-        sb.Append("为具有\"");
+        sb.Append("药效:");
         sb.Append(param[0]);
-        sb.Append("\"效果的丹药命名，该丹药由");
+        sb.Append("，该丹药由");
         for (int i = 1; i < param.Length; i++)
         {
-            sb.Append('\"');
+            sb.Append('“');
             sb.Append(param[i]);
-            sb.Append('\"');
+            sb.Append('”');
             if (i < param.Length - 1)
             {
                 sb.Append('，');

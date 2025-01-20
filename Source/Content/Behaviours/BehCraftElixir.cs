@@ -27,7 +27,7 @@ public class BehCraftElixir : BehCity
             ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.get(crafting_elixir.elixir_id);
             elixir_asset.Craft(ae, crafting_elixir_entity, pObject.city.GetExtend(),
                 ingredients.Select(x => x.item).ToArray());
-            ModClass.LogInfo($"{pObject.data.id} 完成制作 {elixir_asset.id} 送与 {pObject.city.getCityName()}");
+            ModClass.LogInfo($"{pObject.data.id} 完成制作 {elixir_asset.GetName()} 送与 {pObject.city.getCityName()}");
             return BehResult.Continue;
         }
 

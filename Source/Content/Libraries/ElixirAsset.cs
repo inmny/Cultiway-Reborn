@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Cultiway.Abstract;
+using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core;
@@ -86,6 +87,27 @@ public class ElixirAsset : Asset
     public int seed_for_random_effect;
     public string                  name_key;
     public string description_key;
+
+    public string GetName()
+    {
+        if (string.IsNullOrEmpty(name_key))
+        {
+            var param = new string[ingredients.Length + 1];
+            param[0] = description_key;
+            for (int i=0;i<ingredients.Length;i++)
+            {
+                param[i+1] = ingredients[i].ingredient_name;
+            }
+
+            name_key = ElixirNameGenerator.Instance.GenerateName(param);
+        }
+        if (LM.Has(name_key))
+        {
+            return LM.Get(name_key);
+        }
+
+        return name_key;
+    }
     public void SetupDataGain(ElixirEffectDelegate effect_action)
     {
         this.effect_action = effect_action;
@@ -149,7 +171,7 @@ public class ElixirAsset : Asset
         for (var i = 0; i < corr_ingredients.Length; i++) corr_ingredients[i].DeleteEntity();
 
         crafting_elixir_entity.RemoveComponent<CraftingElixir>();
-        crafting_elixir_entity.AddComponent(new EntityName(LM.Has(name_key) ? LM.Get(name_key) : name_key));
+        crafting_elixir_entity.AddComponent(new EntityName(GetName()));
 
         receiver.AddSpecialItem(crafting_elixir_entity);
     }

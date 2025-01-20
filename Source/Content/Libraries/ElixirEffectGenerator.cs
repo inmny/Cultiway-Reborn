@@ -75,7 +75,6 @@ public static class ElixirEffectGenerator
         ElixirEffect effect = JsonConvert.DeserializeObject<ElixirEffect>(content);
         if (effect == null) return false;
         var name = ElixirNameGenerator.Instance.GenerateName(param.Prepend(effect.effect_description).ToArray());
-        if (string.IsNullOrEmpty(name)) return false;
         elixir.name_key = name;
         elixir.description_key = effect.effect_description;
 
