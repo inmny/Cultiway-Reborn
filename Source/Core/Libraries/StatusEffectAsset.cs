@@ -19,6 +19,8 @@ public class StatusEffectAsset : Asset
     private string f_name_key;
     private string name_key => f_name_key ??= $"Cultiway.StatusEffect.{id}";
     private string desc_key => f_desc_key ??= $"Cultiway.StatusEffect.{id}.Info";
+    private string given_name;
+    private string given_desc;
 
     public override string ToString()
     {
@@ -27,12 +29,12 @@ public class StatusEffectAsset : Asset
 
     public string GetName()
     {
-        return LM.Get(name_key);
+        return string.IsNullOrEmpty(given_name) ?LM.Get(name_key) : given_name;
     }
 
     public string GetDescription()
     {
-        return LM.Get(desc_key);
+        return string.IsNullOrEmpty(given_desc) ? LM.Get(desc_key) : given_desc;
     }
     public Entity NewEntity()
     {
@@ -82,6 +84,16 @@ public class StatusEffectAsset : Asset
             {
                 value = duration
             });
+            return this;
+        }
+        public Builder SetName(string name)
+        {
+            _under_build.given_name = name;
+            return this;
+        }
+        public Builder SetDescription(string desc)
+        {
+            _under_build.given_desc = desc;
             return this;
         }
         public StatusEffectAsset Build()

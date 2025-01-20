@@ -2,7 +2,7 @@ using Cultiway.Abstract;
 
 namespace Cultiway.Core.Libraries;
 
-public class StatusEffectLibrary : AssetLibrary<StatusEffectAsset>
+public class StatusEffectLibrary : DynamicAssetLibrary<StatusEffectAsset>
 {
     
 }
