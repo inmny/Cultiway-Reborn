@@ -10,6 +10,12 @@ public class ElixirNameGenerator : PromptNameGenerator<ElixirNameGenerator>
 {
     protected override string NameDictPath { get; } =
         Path.Combine(Application.persistentDataPath, "Cultiway_ElixirNameDict.json");
+
+    protected override string GetSystemPrompt()
+    {
+        return "为用户提供的丹药根据其药效和药材命名，仅给出一个答案(比如凝元丹)，不要有任何符号。比如具有凝元效果的丹药，可以命名为凝元丹";
+    }
+
     protected override string GetDefaultName(string[] param)
     {
         return "未名丹药";
@@ -33,7 +39,7 @@ public class ElixirNameGenerator : PromptNameGenerator<ElixirNameGenerator>
             }
         }
 
-        sb.Append("炼制得到，仅给出一个答案(比如凝元丹)，不要有任何符号");
+        sb.Append("炼制得到");
         
         return sb.ToString();
     }

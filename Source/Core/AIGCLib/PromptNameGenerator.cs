@@ -34,6 +34,7 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
 
     protected abstract string NameDictPath { get; }
     protected Dictionary<string, List<string>> NameDict { get; set; } = new();
+    protected abstract string GetSystemPrompt();
 
     protected abstract string GetDefaultName(string[] param);
 
@@ -66,7 +67,7 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
                 try
                 {
                     var prompt = GetPrompt(param);
-                    var res = Manager.RequestResponseContent(prompt, temperature: Temperature).GetAwaiter().GetResult();
+                    var res = Manager.RequestResponseContent(prompt, GetSystemPrompt(), temperature: Temperature).GetAwaiter().GetResult();
                     if (!string.IsNullOrEmpty(res) && IsValid(res))
                         lock (NameDict)
                         {

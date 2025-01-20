@@ -22,7 +22,7 @@ public class Manager
     {
         public string content;
     }
-    public static async Task<string> RequestResponseContent(string prompt, int index = 0, float temperature = 1.5f)
+    public static async Task<string> RequestResponseContent(string prompt, string system_prompt="You are a helpful assistant", int index = 0, float temperature = 1.5f)
     {
         if (string.IsNullOrEmpty(BaseURL) || string.IsNullOrEmpty(APIKey))
         {
@@ -37,11 +37,11 @@ public class Manager
                 {
                   "messages": [
                     {
-                      "content": "You are a helpful assistant",
+                      "content": "<system_prompt>",
                       "role": "system"
                     },
                     {
-                      "content": "prompt",
+                      "content": "<prompt>",
                       "role": "user"
                     }
                   ],
@@ -55,7 +55,7 @@ public class Manager
                   "stop": null,
                   "stream": false,
                   "stream_options": null,
-                  "temperature": temp_value,
+                  "temperature": <temp_value>,
                   "top_p": 1,
                   "tools": null,
                   "tool_choice": "none",
@@ -63,8 +63,9 @@ public class Manager
                   "top_logprobs": null
                 }
                 """
-                .Replace("prompt", prompt)
-                .Replace("temp_value", $"{temperature:F1}"),
+                .Replace("<temp_value>", $"{temperature:F1}")
+                .Replace("<prompt>", prompt)
+                .Replace("<system_prompt>", system_prompt),
             null,
             "application/json");
         request.Content = content;
