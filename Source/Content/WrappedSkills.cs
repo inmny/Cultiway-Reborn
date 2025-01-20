@@ -11,6 +11,7 @@ using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Cultiway.Utils.Extension;
 using Cultiway.Utils.Predefined;
 using Friflo.Engine.ECS;
+using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content;
 [Dependency(
@@ -148,7 +149,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartLineGroundThorn = WrapAttackSkill(GroundThornSkills.StartLineGroundThorn);
         StartCircleGroundThorn = WrapAttackSkill(GroundThornSkills.StartCircleGroundThorn);
         StartAllGroundThorn = WrapAttackSkill(GroundThornSkills.StartAllGroundThorn);
-        StartAllGroundThorn.enhance = (ae, source) =>
+        StartAllGroundThorn.enhance = [Hotfixable](ae, source) =>
         {
             var available_enhancements = new List<int>()
             {
@@ -174,9 +175,18 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
                     break;
                 case 2:
                     // 某一子技能的齐射数量增加
-                    ae.GetOrNewSkillActionModifiers(
-                            GroundThornSkills.starters[Toolbox.randomInt(0, caster_modifiers.Get<StageModifier>().Value)])
-                        .GetComponent<SalvoCountModifier>().Value+=1;
+                    var stage = Toolbox.randomInt(0, caster_modifiers.Get<StageModifier>().Value);
+                    if (stage != 2)
+                    {
+                        ae.GetOrNewSkillActionModifiers(
+                                GroundThornSkills.starters[stage])
+                            .GetComponent<SalvoCountModifier>().Value+=1;
+                    }
+                    else
+                    {
+                        ae.GetOrNewSkillEntityModifiers(GroundThornSkills.CircleGroundThornCasterEntity.id)
+                            .GetComponent<SalvoCountModifier>().Value += 1;
+                    }
                     break;
                 case 3:
                     // 添加新的子技能

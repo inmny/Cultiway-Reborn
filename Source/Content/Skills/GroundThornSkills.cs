@@ -217,7 +217,6 @@ public class GroundThornSkills : ICanInit
         var data = entity.Data;
         data.Get<SkillCaster>().value =caster;
         data.Get<SkillStrength>().value = ground_thorn_caster_data.Get<SkillStrength>().value;
-        ModClass.LogInfo($"entity: {entity}, caster: {skill_entity}");
         data.Get<Position>().value = ground_thorn_caster_data.Get<Position>().value;
 
         SingleGroundThornEntity.ApplyModifiers(entity,
