@@ -5,7 +5,7 @@ using NeoModLoader.General.Game.extensions;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(ActorJobs))]
+[Dependency(typeof(ActorJobs), typeof(Races))]
 public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 {
     [CloneSource("_mob")] public static ActorAsset Plant { get; private set; }

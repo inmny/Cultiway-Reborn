@@ -32,6 +32,7 @@ public partial class Actors
         ConstraintSpirit.shadowTexture = "unitShadow_2";
         ConstraintSpirit.prefab = "p_unit";
         ConstraintSpirit.nameLocale = "Cultiway.Actor.ConstraintSpirit";
+        ConstraintSpirit.race = Races.ConstraintSpirit.id;
         ConstraintSpirit.has_override_sprite = true;
         ConstraintSpirit.get_override_sprite = [Hotfixable](actor) =>
         {
@@ -41,7 +42,6 @@ public partial class Actors
             return SpriteTextureLoader.getSprite("actors/default_constraint_spirit/walk_0");
         };
 
-        ConstraintSpirit.race = SK.undead;
         ConstraintSpirit.kingdom = SK.undead;
         
         ActorExtend.RegisterActionOnDeath([Hotfixable](ae) =>

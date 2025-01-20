@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using Cultiway.AbstractGame.AbstractEngine;
@@ -129,21 +130,14 @@ namespace Cultiway
             _content.OnReload();
 
             ActorExtendManager.AllStatsDirty();
-            
-            W.Query<ActorBinder>().ForEachComponents(
-                [Hotfixable]
-                (ref ActorBinder x)=>
+
+            foreach (var city in World.world.cities.list)
             {
-                var ae = x.AE;
-                if (ae == null) return;
-                if (ae.TryGetComponent(out Jindan jindan))
+                if (city.units.getSimpleList().Any(x => x == null))
                 {
-                    if (jindan.Type == Jindans.Blaze)
-                    {
-                        ae.Base.data.favorite = true;
-                    }
+                    LogError($"City {city.name} has null units");
                 }
-            });
+            }
         }
 
         public static GameObject NewPrefabPreview(string name, params Type[] types)

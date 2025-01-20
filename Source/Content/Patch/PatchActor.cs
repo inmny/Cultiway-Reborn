@@ -14,6 +14,7 @@ using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
+using NeoModLoader.General;
 using UnityEngine;
 
 namespace Cultiway.Content.Patch;
@@ -32,7 +33,10 @@ internal static class PatchActor
                 var citizen_job = AssetManager.citizen_job_library.get(citizen_job_id);
                 if (citizen_job != null)
                 {
-                    pActor.city.jobs.takeJob(citizen_job);
+                    if (pActor.city != null)
+                    {
+                        pActor.city.jobs.takeJob(citizen_job);
+                    }
                     pActor.citizen_job = citizen_job;
                 }
             }
@@ -53,7 +57,7 @@ internal static class PatchActor
                     if (ae.HasComponent<Jindan>())
                     {
                         pool.Add(ActorJobs.ElixirCrafter.id);
-                        if (Toolbox.randomChance(0.1f))
+                        if (Toolbox.randomChance(0.9f))
                         {
                             pool.Add(ActorJobs.ElixirFinder.id);
                         }
@@ -109,7 +113,15 @@ internal static class PatchActor
         SpecialItemUtils.Builder item_builder =
             SpecialItemUtils.StartBuild(ItemShapes.Ball.id, __instance.data.created_time, __instance.getName(),
                 Mathf.Pow(10, Mathf.Min(dead_ae.GetPowerLevel(), 6)));
+
+        item_builder.AddTag<TagIngredient>();
         List<string> param = new();
+        var type = "修士";
+        if (LM.Has(dead_ae.Base.asset.nameLocale))
+        {
+            type = LM.Get(dead_ae.Base.asset.nameLocale);
+        }
+        param.Add(type);
         if (dead_ae.TryGetComponent(out ElementRoot er))
         {
             item_builder.AddComponent(er);
