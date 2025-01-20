@@ -484,7 +484,14 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             }
             else
             {
-                Base.stats.mergeStats(status_entity.GetComponent<StatusComponent>().Type.stats);
+                if (status_entity.TryGetComponent(out StatusStatsMultiplier mul))
+                {
+                    Base.stats.MergeStats(status_entity.GetComponent<StatusComponent>().Type.stats, mul.Value);
+                }
+                else
+                {
+                    Base.stats.mergeStats(status_entity.GetComponent<StatusComponent>().Type.stats);
+                }
             }
         }
 
