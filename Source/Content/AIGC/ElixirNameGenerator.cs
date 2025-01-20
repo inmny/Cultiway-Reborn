@@ -15,16 +15,6 @@ public class ElixirNameGenerator : PromptNameGenerator<ElixirNameGenerator>
         return "未名丹药";
     }
 
-    protected override bool RequestNewName(string key)
-    {
-        return !NameDict.TryGetValue(key, out var names) || Toolbox.randomChance(1 / Mathf.Exp(names.Count));
-    }
-
-    protected override string GetStoreKey(string[] param)
-    {
-        return param.Join();
-    }
-
     protected override string GetPrompt(string[] param)
     {
         StringBuilder sb = new();

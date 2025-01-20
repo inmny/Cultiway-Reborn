@@ -13,16 +13,6 @@ public class TalismanNameGenerator : PromptNameGenerator<TalismanNameGenerator>
     {
         return param[0] + "符";
     }
-    [Hotfixable]
-    protected override bool RequestNewName(string key)
-    {
-        return !NameDict.TryGetValue(key, out var names) || Toolbox.randomChance(1 / Mathf.Exp(names.Count));
-    }
-
-    protected override string GetStoreKey(string[] param)
-    {
-        return param[0];
-    }
 
     [Hotfixable]
     protected override string GetPrompt(string[] param)

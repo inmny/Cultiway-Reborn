@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Cultiway.Utils;
+using HarmonyLib;
 using NeoModLoader.api.attributes;
 using NeoModLoader.services;
 using Newtonsoft.Json;
+using UnityEngine;
 
 namespace Cultiway.Core.AIGCLib;
 
@@ -34,8 +36,16 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
     protected Dictionary<string, List<string>> NameDict { get; set; } = new();
 
     protected abstract string GetDefaultName(string[] param);
-    protected abstract bool RequestNewName(string key);
-    protected abstract string GetStoreKey(string[] param);
+
+    protected virtual bool RequestNewName(string key)
+    {
+        return !NameDict.TryGetValue(key, out var names) || Toolbox.randomChance(1 / Mathf.Exp(names.Count));
+    }
+
+    protected virtual string GetStoreKey(string[] param)
+    {
+        return param.Join();
+    }
     protected abstract string GetPrompt(string[] param);
     protected virtual float Temperature { get; } = 2;
     

@@ -16,16 +16,6 @@ public class ElixirEffectJsonGenerator : PromptNameGenerator<ElixirEffectJsonGen
         return string.Empty;
     }
     [Hotfixable]
-    protected override bool RequestNewName(string key)
-    {
-        return !NameDict.TryGetValue(key, out var names) || Toolbox.randomChance(1 / Mathf.Exp(names.Count));
-    }
-
-    protected override string GetStoreKey(string[] param)
-    {
-        return param.Join();
-    }
-    [Hotfixable]
     protected override string GetPrompt(string[] param)
     {
         StringBuilder sb = new();
