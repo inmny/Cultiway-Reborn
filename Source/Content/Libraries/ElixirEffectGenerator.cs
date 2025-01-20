@@ -7,7 +7,9 @@ using Cultiway.Content.Const;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
+using Cultiway.Utils;
 using Friflo.Engine.ECS;
+using NeoModLoader.api.attributes;
 using Newtonsoft.Json;
 using UnityEngine;
 using Random = System.Random;
@@ -53,12 +55,13 @@ public static class ElixirEffectGenerator
         }
     }
 
-    class ElixirEffect
+    internal class ElixirEffect
     {
         public ElixirEffectType effect_type;
         public string effect_description;
         public Dictionary<string, float> bonus_stats;
     }
+    [Hotfixable]
     private static bool GenerateStatusGainElixirActions(ElixirAsset elixir)
     {
         string[] param = new string[elixir.ingredients.Length];
@@ -69,7 +72,7 @@ public static class ElixirEffectGenerator
 
         var content = ElixirEffectJsonGenerator.Instance.GenerateName(param);
         if (string.IsNullOrEmpty(content)) return false;
-        var effect = JsonConvert.DeserializeObject<ElixirEffect>(content);
+        ElixirEffect effect = JsonConvert.DeserializeObject<ElixirEffect>(content);
         if (effect == null) return false;
         var name = ElixirNameGenerator.Instance.GenerateName(param.Prepend(effect.effect_description).ToArray());
         if (string.IsNullOrEmpty(name)) return false;
