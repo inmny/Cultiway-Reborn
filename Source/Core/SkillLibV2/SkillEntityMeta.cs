@@ -44,7 +44,7 @@ public class SkillEntityMeta
         list.ApplyBatch(batch);
 
         if (entity.HasComponent<AnimData>())
-            entity.GetComponent<AnimData>().next_frame_time = (float)(World.world.mapStats.worldTime + Time.deltaTime);
+            entity.GetComponent<AnimData>().next_frame_time = (float)(WorldboxGame.I.GetGameTime() + Time.deltaTime);
 
         return entity;
     }
