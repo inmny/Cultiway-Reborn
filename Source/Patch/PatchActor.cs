@@ -118,11 +118,6 @@ internal static class PatchActor
         ((Actor)actor).GetExtend().ExtendUpdateStats();
     }
 
-    [HarmonyPostfix, HarmonyPatch(typeof(ActorManager), nameof(ActorManager.destroyObject))]
-    private static void destroy_postfix(Actor pActor)
-    {
-        ModClass.I.ActorExtendManager.Destroy(pActor.data.id);
-    }
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.newKillAction))]
     private static void newKillAction_postfix(Actor __instance, Actor pDeadUnit, Kingdom pPrevKingdom)
     {

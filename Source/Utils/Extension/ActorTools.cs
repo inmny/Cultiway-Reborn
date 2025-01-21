@@ -4,8 +4,9 @@ namespace Cultiway.Utils.Extension;
 
 public static class ActorTools
 {
+    private static readonly ActorExtendManager ActorExtendManager = ModClass.I.ActorExtendManager;
     public static ActorExtend GetExtend(this Actor actor)
     {
-        return ModClass.I.ActorExtendManager.Get(actor.data.id, true);
+        return ActorExtendManager.Get(actor);
     }
 }

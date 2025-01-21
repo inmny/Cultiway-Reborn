@@ -4,8 +4,9 @@ namespace Cultiway.Utils.Extension;
 
 public static class CityTools
 {
+    private static readonly CityExtendManager CityExtendManager = ModClass.I.CityExtendManager;
     public static CityExtend GetExtend(this City city)
     {
-        return ModClass.I.CityExtendManager.Get(city.data.id, true);
+        return CityExtendManager.Get(city);
     }
 }

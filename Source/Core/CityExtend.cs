@@ -13,7 +13,7 @@ using HarmonyLib;
 
 namespace Cultiway.Core;
 
-public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce
+public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce, IDisposable
 {
     private readonly Entity e;
 
@@ -122,12 +122,6 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce
 
     internal void PrepareDestroy()
     {
-        e.AddTag<TagRecycle>();
-
-        foreach (var item in GetItems())
-        {
-            item.AddTag<TagRecycle>();
-        }
     }
 
     public bool HasRelatedForce<TRelation>() where TRelation : struct, IForceRelation
@@ -148,5 +142,18 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce
     public Entity GetSelf()
     {
         return E;
+    }
+
+    public void Dispose()
+    {
+        if (!e.IsNull)
+        {
+            e.AddTag<TagRecycle>();
+
+            foreach (var item in GetItems())
+            {
+                item.AddTag<TagRecycle>();
+            }
+        }
     }
 }

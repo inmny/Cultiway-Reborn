@@ -193,6 +193,8 @@ namespace Cultiway
             GeneralLogicSystems.Add(new AliveTimerSystem());
             GeneralLogicSystems.Add(new AliveTimerCheckSystem());
             
+            GeneralLogicSystems.Add(new DisposeActorExtendSystem());
+            GeneralLogicSystems.Add(new DisposeCityExtendSystem());
             GeneralLogicSystems.Add(new RecycleAnimRendererSystem());
             GeneralLogicSystems.Add(new RecycleStatusEffectSystem());
             GeneralLogicSystems.Add(new RecycleDefaultEntitySystem());

@@ -18,9 +18,4 @@ internal static class PatchCity
             ce.AddSpecialItem(item);
         }
     }
-    [HarmonyPostfix, HarmonyPatch(typeof(City), nameof(City.destroyCity))]
-    private static void destroyCity_postfix(City __instance)
-    {
-        ModClass.I.CityExtendManager.Destroy(__instance.data.id);
-    }
 }

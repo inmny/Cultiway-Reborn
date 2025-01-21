@@ -1,3 +1,4 @@
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Json.Fliox;
 
@@ -26,8 +27,4 @@ public struct ActorBinder(string id) : IComponent
     [Ignore]
     private  Actor       _actor;
 
-    public void Update()
-    {
-        _actor = null;
-    }
 }

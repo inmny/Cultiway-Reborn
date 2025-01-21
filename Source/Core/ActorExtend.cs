@@ -26,7 +26,7 @@ using UnityEngine;
 
 namespace Cultiway.Core;
 
-public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IHasForce
+public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IHasForce, IDisposable
 {
     private static Action<ActorExtend> action_on_new_creature;
 
@@ -45,6 +45,36 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     {
         this.e = e;
         e.GetComponent<ActorBinder>()._ae = this;
+    }
+
+    public void Dispose()
+    {
+        if (!e.IsNull)
+        {
+            e.AddTag<TagRecycle>();
+            foreach (var item in GetItems())
+            {
+                item.AddTag<TagRecycle>();
+            }
+        }
+        if (_skill_action_modifiers != null)
+        {
+            foreach (var skill_action in _skill_action_modifiers.Values)
+            {
+                skill_action.AddTag<TagRecycle>();
+            }
+
+            _skill_action_modifiers = null;
+        }
+        if (_skill_entity_modifiers != null)
+        {
+            foreach (var skill_entity in _skill_entity_modifiers.Values)
+            {
+                skill_entity.AddTag<TagRecycle>();
+            }
+
+            _skill_entity_modifiers = null;
+        }
     }
 
     public Entity E => e;
