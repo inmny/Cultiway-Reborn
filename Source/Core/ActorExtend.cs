@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Cultiway.Abstract;
 using Cultiway.Const;
@@ -302,7 +303,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             modifiers = TriggerActionBaseMeta.AllDict[action_id].NewModifierContainer();
             _skill_action_modifiers[action_id] = modifiers;
         }
-
+        
         modifiers.AddComponent(modifier);
     }
     public void AddSkillEntityModifier<TModifier, TValue>(string entity_id, TModifier modifier)
@@ -481,6 +482,11 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         if (HasElementRoot())
         {
             Base.stats.mergeStats(GetElementRoot().Stats);
+        }
+
+        if (E.TryGetComponent(out Qiyun qiyun))
+        {
+            Base.stats[nameof(WorldboxGame.BaseStats.MaxQiyun)] += qiyun.MaxValue;
         }
         foreach (var status_entity in GetStatuses())
         {

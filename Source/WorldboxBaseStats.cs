@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Cultiway.Abstract;
+using NeoModLoader.General.Game.extensions;
 
 namespace Cultiway;
 
@@ -45,6 +46,7 @@ public partial class WorldboxGame
         [AssetId(nameof(HealthRegen))] public static BaseStatAsset HealthRegen { get; private set; }
 
         [AssetId(nameof(MaxSoul))] public static BaseStatAsset MaxSoul { get; private set; }
+        [AssetId(nameof(MaxQiyun))] public static BaseStatAsset MaxQiyun { get; private set; }
 
         public static ReadOnlyCollection<string> ArmorStats  { get; private set; }
         public static ReadOnlyCollection<string> MasterStats { get; private set; }
