@@ -6,7 +6,7 @@ using NeoModLoader.api.attributes;
 
 namespace Cultiway.Core.Systems.Logic;
 
-public class HealthRestoreSystem : QuerySystem<ActorBinder>
+public class RestoreHealthSystem : QuerySystem<ActorBinder>
 {
     private float _restore_timer = TimeScales.SecPerMonth;
     [Hotfixable]

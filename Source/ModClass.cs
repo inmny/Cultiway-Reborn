@@ -199,7 +199,8 @@ namespace Cultiway
             GeneralLogicSystems.Add(new RecycleStatusEffectSystem());
             GeneralLogicSystems.Add(new RecycleDefaultEntitySystem());
             
-            GeneralLogicSystems.Add(new HealthRestoreSystem());
+            GeneralLogicSystems.Add(new RestoreHealthSystem());
+            GeneralLogicSystems.Add(new RestoreQiyunSystem());
             
             GeneralLogicSystems.Add(new SyncCityRelationSystem());
             

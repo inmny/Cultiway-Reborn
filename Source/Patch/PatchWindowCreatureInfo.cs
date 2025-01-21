@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.UI;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -64,6 +65,11 @@ internal static class PatchWindowCreatureInfo
         else
         {
             sb.AppendLine("无灵根");
+        }
+
+        if (actor_extend.TryGetComponent(out Qiyun qiyun))
+        {
+            sb.AppendLine($"气运: {qiyun.Value:F1}/{qiyun.MaxValue:F1}");
         }
 
         info_display_func?.Invoke(actor_extend, sb);

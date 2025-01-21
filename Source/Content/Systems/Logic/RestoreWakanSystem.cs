@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.Systems.Logic;
 
-public class WakanRestoreSystem : QuerySystem<Xian, ActorBinder>
+public class RestoreWakanSystem : QuerySystem<Xian, ActorBinder>
 {
     private float _restore_timer = TimeScales.SecPerMonth;
     protected override void OnUpdate()
