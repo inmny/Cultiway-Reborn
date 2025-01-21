@@ -74,11 +74,11 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 [Hotfixable](ae) =>
                 {
                     var res = 0f;
-                    if (ae.HasComponent<JindanCultivation>())
+                    if (ae.HasComponent<Jindan>())
                     {
                         res += 0.01f;
-                        var jindan_cultivation = ae.GetComponent<JindanCultivation>();
-                        res += 0.9f * (1 - 1f / (jindan_cultivation.stage + 1));
+                        var jindan = ae.GetComponent<Jindan>();
+                        res += 0.9f * (1 - 1f / (jindan.stage + 1));
                     }
                     return res;
                 }, null, null, null, null, null,
@@ -155,23 +155,39 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     [Hotfixable]
     private bool CheckUpgradeToYuanying(ActorExtend ae, CultisysAsset<Xian> cultisys, ref Xian component)
     {
-        if (component.wakan < ae.Base.stats[BaseStatses.MaxWakan.id] - 0.1f) return false;
+        var a = ae.Base;
+        if (component.wakan < a.stats[BaseStatses.MaxWakan.id] - 0.1f) return false;
 
         Entity e = ae.E;
-        if (!e.HasComponent<JindanCultivation>()) e.AddComponent<JindanCultivation>();
         
-        ref var jindan_cultivation = ref e.GetComponent<JindanCultivation>();
+        ref var jindan = ref e.GetComponent<Jindan>();
         var intelligence = ae.GetStat(S.intelligence);
-        if (jindan_cultivation.stage < 10000)
+        if (jindan.stage >= 9 || (!a.hasTrait(ActorTraits.Immortal.id) && a.data.getAge() / a.stats[S.max_age] > 0.9f))
         {
-            if (!allow_first(intelligence, jindan_cultivation.stage))
+            if (jindan.stage < 9)
+            {
+                // 未满九转金丹可能会死
+                
+            }
+            var yuanying = Libraries.Manager.YuanyingLibrary.GetRandomYuanying(jindan.Type);
+
+            e.AddComponent(new Yuanying
+            (
+                yuanying.id,
+                jindan.strength
+            ));
+            // e.RemoveComponent<Jindan>();
+            return true;
+        }
+        if (jindan.stage < 10000)
+        {
+            if (!allow_first(intelligence, jindan.stage))
             {
                 component.wakan = 0;
                 ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeFailed);
                 return false;
             }
             
-            ref var jindan = ref ae.GetJindan();
             if (!string.IsNullOrEmpty(jindan.Type.wrapped_skill_id))
             {
                 ae.EnhanceSkill(jindan.Type.wrapped_skill_id, SkillEnhanceSources.SmallUpgradeSuccess);
@@ -180,7 +196,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             {
                 ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeSuccess);
             }
-            jindan_cultivation.stage++;
+            jindan.stage++;
             jindan.strength *= (1f + 0.2f * Toolbox.randomFloat(intelligence / (10 + intelligence), 1));
             component.wakan *= 0.8f;
             

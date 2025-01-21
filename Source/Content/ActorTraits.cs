@@ -12,6 +12,8 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
 {
     public static ActorTrait Cultivator { get; private set; }
     public static ActorTrait PassiveXianCultivate { get; private set; }
+    [GetOnly("immortal")]
+    public  static ActorTrait Immortal { get; private set; }
 
     protected override void OnInit()
     {
