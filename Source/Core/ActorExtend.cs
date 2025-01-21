@@ -378,6 +378,14 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         return target;
     }
+
+    private void TestCastNewFireball()
+    {
+        Actor target = FindTestTarget();
+
+        CastSkillV2(WrappedSkills.StartFireballCaster.id, target, true);
+        ModClass.LogInfo($"{Base.data.id} cast fireball to {target.data.id}");
+    }
     [Hotfixable]
     private void TestCastFireball()
     {

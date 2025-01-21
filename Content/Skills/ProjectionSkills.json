@@ -1,0 +1,27 @@
+{
+  "Fireball": {
+    "Triggers": [
+      {
+        "Type": "ObjCollision",
+        "BaseScale": 2
+      }
+    ],
+    "Trajectories": [
+      {
+        "Id": "LineForward"
+      },
+      {
+        "Id": "SurroundCaster"
+      },
+      {
+        "Id": ""
+      }
+    ],
+    "Animation": {
+      "Path": "cultiway/flying_fireball",
+      "FrameInterval": 0.3,
+      "Loop": true,
+      "BaseScale": 0.2
+    }
+  }
+}

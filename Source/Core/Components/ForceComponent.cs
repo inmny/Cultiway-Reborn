@@ -12,3 +12,4 @@ public interface IForceRelation : ILinkRelation
 {
     public Entity ForceEntity { get; set; }
 }
+public interface IForceZoneLayer : ITag;

@@ -7,9 +7,12 @@ using Cultiway.AbstractGame.AbstractEngine;
 using Cultiway.Const;
 using Cultiway.Content;
 using Cultiway.Content.Components;
+using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV2.Components;
 using Cultiway.Core.SkillLibV2.Examples;
+using Cultiway.Core.SkillLibV2.Extensions;
 using Cultiway.Core.SkillLibV2.Systems;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
@@ -130,7 +133,7 @@ namespace Cultiway
             _content.OnReload();
 
             ActorExtendManager.AllStatsDirty();
-
+            
             foreach (var city in World.world.cities.list)
             {
                 if (city.units.getSimpleList().Any(x => x == null))
