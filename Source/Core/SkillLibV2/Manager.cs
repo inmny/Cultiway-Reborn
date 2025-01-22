@@ -51,6 +51,7 @@ public class Manager
         _trigger_logic.Add(new LogicTriggerTimeReachSystem());
         _trigger_logic.Add(new LogicTriggerPositionReachSystem());
         _trigger_logic.Add(new LogicTriggerObjCollisionSystem(World));
+        _trigger_logic.Add(new LogicTriggerTileCollisionSystem(World));
 
         _observer_logic.Add(new LogicObserverUnuseCheckSystem());
         _observer_logic.Add(new LogicObserverReuseCheckSystem());
