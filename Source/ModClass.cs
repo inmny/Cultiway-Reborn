@@ -141,6 +141,7 @@ namespace Cultiway
                     LogError($"City {city.name} has null units");
                 }
             }
+            LogPerf();
         }
 
         public static GameObject NewPrefabPreview(string name, params Type[] types)

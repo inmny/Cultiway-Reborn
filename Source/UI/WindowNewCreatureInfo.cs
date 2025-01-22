@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Core;
 using Cultiway.UI.CreatureInfoPages;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
@@ -22,6 +23,7 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 
     private readonly List<Tuple<string, StatValue>> _stat_values = new();
     private Actor        _actor;
+    private ActorExtend _ae;
     private PolygonGraph _armor_graph;
     private string       _current_page;
 
@@ -165,10 +167,17 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
         }
     }
 
+    public override void OnNormalDisable()
+    {
+        _actor = null;
+        _ae = null;
+    }
+
     [Hotfixable]
     public override void OnNormalEnable()
     {
         _actor = Config.selectedUnit;
+        _ae = _actor.GetExtend();
         _page_entry_pool.Clear();
         _available_pages.Clear();
 
