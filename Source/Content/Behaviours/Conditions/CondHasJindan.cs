@@ -7,6 +7,6 @@ public class CondHasJindan : BehaviourActorCondition
 {
     public override bool check(Actor pActor)
     {
-        return pActor.GetExtend().HasComponent<Jindan>();
+        return pActor.GetExtend().TryGetComponent(out Xian xian) && xian.CurrLevel >= 2;
     }
 }

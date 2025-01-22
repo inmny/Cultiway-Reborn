@@ -150,6 +150,12 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 ref Jindan jindan = ref a.GetComponent<Jindan>();
                 sb.AppendLine($"金丹: {jindan.Type.GetName()}");
             }
+
+            if (a.HasComponent<Yuanying>())
+            {
+                ref Yuanying yuanying = ref a.GetComponent<Yuanying>();
+                sb.AppendLine($"元婴: {yuanying.Type.GetName()}");
+            }
         });
     }
     [Hotfixable]
@@ -162,15 +168,26 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         
         ref var jindan = ref e.GetComponent<Jindan>();
         var intelligence = ae.GetStat(S.intelligence);
-        if (jindan.stage >= 9 || (!a.hasTrait(ActorTraits.Immortal.id) && a.data.getAge() / a.stats[S.max_age] > 0.9f))
+        if (
+            // 达到九转有概率选择突破元婴，有野心的会倾向于打磨金丹
+            (jindan.stage >= 9 && Toolbox.randomChance(a.hasTrait(WorldboxGame.ActorTraits.Ambitious.id) ? 0.13f : 0.5f))
+            // 当寿元不足时，必定会选择突破元婴
+            || (!a.hasTrait(ActorTraits.Immortal.id) && a.data.getAge() / a.stats[S.max_age] > 0.9f))
         {
+            var xian_base = e.GetComponent<XianBase>();
             if (jindan.stage < 9)
             {
                 // 未满九转金丹可能会死
-                
+            }
+
+            if (!a.hasTrait(WorldboxGame.ActorTraits.ScarOfDivinity.id))
+            {
+                PersistentLogger.Get("JindanStats.log").Log($"{jindan.stage}, {xian_base.GetStrength()}, {jindan.strength}");
             }
             var yuanying = Libraries.Manager.YuanyingLibrary.GetRandomYuanying(jindan.Type);
 
+            if (!string.IsNullOrEmpty(jindan.Type.wrapped_skill_id))
+                ae.LearnSkill(jindan.Type.wrapped_skill_id);
             e.AddComponent(new Yuanying
             (
                 yuanying.id,

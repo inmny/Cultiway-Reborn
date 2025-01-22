@@ -18,6 +18,7 @@ using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
 using Cultiway.Debug;
 using Cultiway.LocaleKeys;
+using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api;
@@ -59,12 +60,19 @@ namespace Cultiway
 
         private float accum_time = 0;
         private float time_for_log_perf = 0;
+        private float time_for_save_loggers = 0;
         private void Update()
         {
             if (!Game.IsLoaded()) return;
             var render_update_tick = new UpdateTick(Game.GetRenderDeltaTime(), Game.GetGameTime());
             try
             {
+                time_for_save_loggers += Time.deltaTime;
+                if (time_for_save_loggers > 60)
+                {
+                    time_for_save_loggers = 0;
+                    PersistentLogger.Save();
+                }
                 if (!Game.IsPaused())
                 {
                     time_for_log_perf += Time.deltaTime;
@@ -108,9 +116,9 @@ namespace Cultiway
             }
         }
 
-        private void LogPerf()
+        public void LogPerf(bool force = false)
         {
-            if (Environment.UserName != "Inmny") return;
+            if (Environment.UserName != "Inmny" && !force) return;
             StringBuilder sb = new();
             sb.Append('\n');
             GeneralLogicSystems.AppendPerfLog(sb);

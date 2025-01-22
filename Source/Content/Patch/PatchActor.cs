@@ -44,17 +44,18 @@ internal static class PatchActor
         }
         if (pActor.asset.unit && pActor.city != null && !pActor.isProfession(UnitProfession.Warrior))
         {
+            var ae = (pActor as Actor).GetExtend();
+            if (!ae.TryGetComponent(out Xian xian)) return;
+            
             var chance = 0.2f;
             if (pActor.hasTrait(ActorTraits.Cultivator.id)) chance = 0.8f;
-
-            var ae = (pActor as Actor).GetExtend();
 
             if (Toolbox.randomChance(1 - chance))
             {
                 if (Toolbox.randomChance(0.6f))
                 {
                     using var pool = new ListPool<string>();
-                    if (ae.HasComponent<Jindan>())
+                    if (xian.CurrLevel >= XianLevels.Jindan)
                     {
                         pool.Add(ActorJobs.ElixirCrafter.id);
                         if (Toolbox.randomChance(0.9f))
@@ -62,7 +63,7 @@ internal static class PatchActor
                             pool.Add(ActorJobs.ElixirFinder.id);
                         }
                     }
-                    if (ae.HasComponent<XianBase>()) pool.Add(ActorJobs.TalismanCrafter.id);
+                    if (xian.CurrLevel >= XianLevels.XianBase) pool.Add(ActorJobs.TalismanCrafter.id);
                     if (pool.Any())
                     {
                         __result = pool.GetRandom();

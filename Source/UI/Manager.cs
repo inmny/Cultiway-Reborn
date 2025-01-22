@@ -44,9 +44,17 @@ public class Manager
         ConstructTabContainer(TabButtonType.CREATURE, SpriteTextureLoader.getSprite("ui/icons/iconSheep"));
         ConstructTabContainer(TabButtonType.DEBUG,    SpriteTextureLoader.getSprite("ui/icons/iconDebug"));
 
+
+        AddButtonsForDebug();
+
         powers_tab.UpdateLayout();
 
         SwitchTab(TabButtonType.INFO);
+    }
+
+    private void AddButtonsForDebug()
+    {
+        AddButton(TabButtonType.DEBUG, PowerButtonCreator.CreateSimpleButton("Cultiway.UI.Buttons.LogPerf", () => { ModClass.I.LogPerf(true);}, null));
     }
 
     public static void AddButton(TabButtonType type, PowerButton button)

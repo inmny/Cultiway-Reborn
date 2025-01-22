@@ -10,6 +10,7 @@ Cultiway.UI.WindowNewCreatureInfo Title,生物详细信息
 Cultiway.UI.ArmorGraph,各元素抗性
 Cultiway.UI.MasterGraph,各元素精通
 Cultiway.UI.ContentItem,材丹符器阵傀
+Cultiway.UI.Buttons.LogPerf,性能分析日志
 ElementRootPage,灵根详解
 InventoryPage,背包
 ForcePage,相关势力
