@@ -51,6 +51,9 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
     
     public static WrappedSkillAsset StartFireball { get; private set; }
     public static WrappedSkillAsset StartFireballCaster { get; private set; }
+    
+    
+    public static WrappedSkillAsset StartHugeSwordQi { get; private set; }
     protected override void OnInit()
     {
         StartWeaponSkill = WrapAttackSkill(CommonWeaponSkills.StartWeaponSkill);
@@ -201,6 +204,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
 
         StartFireball = WrapAttackSkill(FireballSkills.StartFireball);
         StartFireballCaster = WrapAttackSkill(FireballSkills.StartFireballCaster);
+        StartHugeSwordQi = WrapAttackSkill(HugeSwordQiSkills.StartSwordQiCaster, 0.5f);
     }
 
     private EnhanceSkill GetMultiStageProjectionEnhanceAction(string proj_entity_id, string all_caster_id, params string[] blade_skill_ids)

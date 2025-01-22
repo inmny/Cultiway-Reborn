@@ -4,6 +4,23 @@ namespace Cultiway.Utils;
 
 public static class ShapeUtils
 {
+    /// <summary>
+    /// 从<paramref name="line_start"/>开始沿着<paramref name="direction"/>方向，找到与<paramref name="rect"/>相交的点
+    /// </summary>
+    /// <remarks>
+    /// 假设<paramref name="direction"/>是单位向量, <paramref name="line_start"/>在<paramref name="rect"/>内
+    /// </remarks>
+    public static Vector2 FindIntersectPoint(Vector2 line_start, Vector2 direction, Rect rect)
+    {
+        var lb = new Vector2(rect.xMin, rect.yMin);
+        var rt = new Vector2(rect.xMax, rect.yMax);
+
+        var x = direction.x > 0 ? rt.x : lb.x;
+        var y = direction.y > 0 ? rt.y : lb.y;
+
+        var t = Mathf.Min((x - line_start.x) / direction.x, (y - line_start.y) / direction.y);
+        return line_start + direction * t;
+    } 
     public static ListPool<Vector2Int> CircleOffsets(Vector2Int center, float radius)
     {
         var list = new ListPool<Vector2Int>();

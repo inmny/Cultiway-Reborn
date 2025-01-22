@@ -49,6 +49,20 @@ public static class SkillEntityMetaBuilderTools
                 radius = radius
             });
     }
+    public static SkillEntityMeta.MetaBuilder AddSphereTileCollisionTrigger(
+        this SkillEntityMeta.MetaBuilder builder, TileCollisionTrigger trigger_config, float radius,
+        Tags                             trigger_tags = default)
+    {
+        return builder.NewTrigger(trigger_config, out var collision_trigger_id, new TileCollisionContext(), trigger_tags)
+            .AddTriggerComponent(collision_trigger_id, new ColliderComponent
+            {
+                type = ColliderType.Sphere
+            })
+            .AddTriggerComponent(collision_trigger_id, new ColliderSphere
+            {
+                radius = radius
+            });
+    }
 
     public static SkillEntityMeta.MetaBuilder AddTimeReachTrigger(this SkillEntityMeta.MetaBuilder builder, float time,
         TriggerActionMeta<TimeReachTrigger, TimeReachContext>

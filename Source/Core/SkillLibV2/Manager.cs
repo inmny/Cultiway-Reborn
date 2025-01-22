@@ -27,7 +27,10 @@ public class Manager
     internal Manager(WorldboxGame game)
     {
         Game = game;
-        World = new EntityStore();
+        World = new EntityStore()
+        {
+            JobRunner = new ParallelJobRunner(Environment.ProcessorCount)
+        };
         _logic = new SystemRoot(World, "SkillLibV2.Logic");
         _observer_logic = new SystemRoot("SkillLibV2.Logic.Observer");
         _trigger_logic = new SystemGroup("SkillLibV2.Logic.Trigger");

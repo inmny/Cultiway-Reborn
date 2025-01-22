@@ -410,6 +410,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         return target;
     }
 
+    private void TestHugeSwordQi()
+    {
+        Actor target = FindTestTarget();
+        
+        CastSkillV2(WrappedSkills.StartHugeSwordQi.id, target, true);
+        ModClass.LogInfo($"{Base.data.id} cast huge sword qi to {target.data.id}");
+    }
     private void TestCastNewFireball()
     {
         Actor target = FindTestTarget();
