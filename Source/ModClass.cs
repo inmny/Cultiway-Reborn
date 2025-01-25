@@ -141,6 +141,18 @@ namespace Cultiway
             _content.OnReload();
 
             ActorExtendManager.AllStatsDirty();
+
+            foreach (var actor in World.world.units)
+            {
+                if (actor.kingdom == null)
+                {
+                    LogError($"Actor {actor.data.id} has null kingdom");
+                }
+                else if (actor.kingdom.asset == null)
+                {
+                    LogError($"Actor {actor.data.id} has null kingdom({actor.kingdom.id}) asset");
+                }
+            }
             
             foreach (var city in World.world.cities.list)
             {

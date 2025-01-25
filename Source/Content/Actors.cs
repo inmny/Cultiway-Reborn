@@ -14,6 +14,7 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
     {
         RegisterAssets("Cultiway.Actor");
         SetupPlant();
+        SetupMing();
         SetupConstraintSpirit();
     }
 

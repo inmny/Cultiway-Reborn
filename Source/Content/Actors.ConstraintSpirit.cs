@@ -32,13 +32,13 @@ public partial class Actors
         ConstraintSpirit.shadowTexture = "unitShadow_2";
         ConstraintSpirit.prefab = "p_unit";
         ConstraintSpirit.nameLocale = "Cultiway.Actor.ConstraintSpirit";
-        ConstraintSpirit.race = Races.ConstraintSpirit.id;
+        ConstraintSpirit.race = Races.Ming.id;
         ConstraintSpirit.texture_path = "default_constraint_spirit";
         ConstraintSpirit.animation_walk = "walk_0,walk_1,walk_2,walk_3";
         ConstraintSpirit.animation_swim = "walk_0,walk_1,walk_2,walk_3";
         ConstraintSpirit.animation_idle = "walk_0";
 
-        ConstraintSpirit.kingdom = SK.undead;
+        //ConstraintSpirit.kingdom = KingdomAssets.Ming.id;
         
         ActorExtend.RegisterActionOnDeath([Hotfixable](ae) =>
         {
