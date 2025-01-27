@@ -15,6 +15,8 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor CraftElixir  { get; private set; }
     public static BehaviourTaskActor FindNewElixir { get; private set; }
     public static BehaviourTaskActor CraftTalisman { get; private set; }
+    public static BehaviourTaskActor CreateCultibook { get; private set; }
+    public static BehaviourTaskActor ImproveCultibook { get; private set; }
 
     [GetOnly("random_move")] public static BehaviourTaskActor RandomMove { get; private set; }
 

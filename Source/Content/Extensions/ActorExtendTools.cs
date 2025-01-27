@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Libraries;
@@ -58,6 +59,15 @@ public static class ActorExtendTools
         return true;
     }
 
+    public static bool HasCultibook(this ActorExtend ae)
+    {
+        return ae.E.GetRelations<CultibookMasterRelation>().Any();
+    }
+
+    public static CultibookMasterRelation GetCultibookMasterRelation(this ActorExtend ae)
+    {
+        return ae.E.GetRelations<CultibookMasterRelation>().First();
+    }
     public static ref Jindan GetJindan(this ActorExtend ae)
     {
         return ref ae.GetComponent<Jindan>();

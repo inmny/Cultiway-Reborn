@@ -6,6 +6,7 @@ public class Manager
     public static JindanGroupLibrary JindanGroupLibrary { get; } = new();
     public static ElixirLibrary ElixirLibrary { get; } = new();
     public static YuanyingLibrary YuanyingLibrary { get; } = new();
+    public static CultibookLibrary CultibookLibrary { get; } = new();
 
     internal static void Init()
     {
@@ -13,7 +14,7 @@ public class Manager
         AssetManager.instance.add(JindanLibrary,      "jindan_types");
         AssetManager.instance.add(ElixirLibrary, "elixirs");
         AssetManager.instance.add(YuanyingLibrary, "yuanying_types");
-        
+        AssetManager.instance.add(CultibookLibrary, "cultibooks");
         
         PostInit();
     }
@@ -24,5 +25,6 @@ public class Manager
         JindanGroupLibrary.post_init();
         ElixirLibrary.post_init();
         YuanyingLibrary.post_init();
+        CultibookLibrary.post_init();
     }
 }
