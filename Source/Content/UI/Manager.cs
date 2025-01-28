@@ -1,5 +1,6 @@
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
+using Cultiway.Content.Extensions;
 using Cultiway.Content.UI.CreatureInfoPages;
 using Cultiway.UI;
 using Cultiway.UI.Prefab;
@@ -18,6 +19,7 @@ public class Manager : ICanInit
             JindanPage.Setup, JindanPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(YuanyingPage), a => a.GetExtend().HasComponent<Yuanying>(),
             YuanyingPage.Setup, YuanyingPage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(CultibookPage), a=>a.GetExtend().HasCultibook(), CultibookPage.Setup, CultibookPage.Show);
 
         WindowWorldWakan.CreateAndInit($"Cultiway.UI.{nameof(WindowWorldWakan)}");
         Cultiway.UI.Manager.AddButton(TabButtonType.WORLD,
