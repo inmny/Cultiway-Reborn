@@ -65,6 +65,13 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         FindNewElixir.addBeh(new BehCraftElixir());
         FindNewElixir.addBeh(new BehExitBuilding());
         
+        CreateCultibook.addBeh(new BehCityFindBuilding("random_house_building"));
+        CreateCultibook.addBeh(new BehFindRandomFrontBuildingTile());
+        CreateCultibook.addBeh(new BehGoToTileTarget());
+        CreateCultibook.addBeh(new BehStayInBuildingTarget());
+        CreateCultibook.addBeh(new BehCreateCultibook());
+        CreateCultibook.addBeh(new BehExitBuilding());
+        
         CraftTalisman.addBeh(new BehRandomWait(3 * TimeScales.SecPerMonth, 12 * TimeScales.SecPerMonth));
         CraftTalisman.addBeh(new BehCraftTalisman());
     }

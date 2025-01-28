@@ -68,6 +68,22 @@ public static class ActorExtendTools
     {
         return ae.E.GetRelations<CultibookMasterRelation>().First();
     }
+
+    public static void SetCultibookMasterRelation(this ActorExtend ae, ref Entity cultibook, float master_value)
+    {
+        if (ae.E.GetRelations<CultibookMasterRelation>().Any())
+        {
+            ae.E.GetRelation<CultibookMasterRelation, Entity>(cultibook).MasterValue = master_value;
+        }
+        else
+        {
+            ae.E.AddRelation(new CultibookMasterRelation()
+            {
+                Cultibook = cultibook,
+                MasterValue = master_value
+            });
+        }
+    }
     public static ref Jindan GetJindan(this ActorExtend ae)
     {
         return ref ae.GetComponent<Jindan>();
