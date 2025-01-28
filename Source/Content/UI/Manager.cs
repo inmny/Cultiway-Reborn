@@ -16,6 +16,8 @@ public class Manager : ICanInit
             XianBasePage.Setup, XianBasePage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(JindanPage), a => a.GetExtend().HasComponent<Jindan>(),
             JindanPage.Setup, JindanPage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(YuanyingPage), a => a.GetExtend().HasComponent<Yuanying>(),
+            YuanyingPage.Setup, YuanyingPage.Show);
 
         WindowWorldWakan.CreateAndInit($"Cultiway.UI.{nameof(WindowWorldWakan)}");
         Cultiway.UI.Manager.AddButton(TabButtonType.WORLD,

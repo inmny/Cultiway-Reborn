@@ -84,6 +84,11 @@ public static class ActorExtendTools
             });
         }
     }
+
+    public static ref Yuanying GetYuanying(this ActorExtend ae)
+    {
+        return ref ae.GetComponent<Yuanying>();
+    }
     public static ref Jindan GetJindan(this ActorExtend ae)
     {
         return ref ae.GetComponent<Jindan>();
