@@ -5,21 +5,10 @@ using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content.Behaviours;
 
-public class BehXianStayInBuildingAndLevelup : BehCity
+public class BehXianLevelup : BehCity
 {
-    public override void create()
-    {
-        base.create();
-        special_inside_object = true;
-        check_building_target_non_usable = true;
-        null_check_building_target = true;
-    }
-
     public override BehResult execute(Actor pObject)
     {
-        pObject.timer_action = TimeScales.SecPerMonth;
-        pObject.stayInBuilding(pObject.beh_building_target);
-
         var actor_extend = pObject.GetExtend();
         ref var xian = ref actor_extend.GetCultisys<Xian>();
 

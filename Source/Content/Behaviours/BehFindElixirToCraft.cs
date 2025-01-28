@@ -12,17 +12,8 @@ namespace Cultiway.Content.Behaviours;
 
 public class BehFindElixirToCraft : BehCity
 {
-    public override void create()
-    {
-        base.create();
-        special_inside_object = true;
-        check_building_target_non_usable = true;
-        null_check_building_target = true;
-    }
     public override BehResult execute(Actor pObject)
     {
-        pObject.timer_action = TimeScales.SecPerMonth;
-        pObject.stayInBuilding(pObject.beh_building_target);
         // 如果人物的背包里有CraftingElixir的实体，那么直接返回BehResult.Continue
         ActorExtend ae = pObject.GetExtend();
         if (ae.HasItem<CraftingElixir>()) return BehResult.Continue;

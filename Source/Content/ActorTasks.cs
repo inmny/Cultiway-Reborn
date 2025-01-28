@@ -28,13 +28,15 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         DailyXianCultivate.addBeh(new BehCityFindBuilding("random_house_building"));
         DailyXianCultivate.addBeh(new BehFindRandomFrontBuildingTile());
         DailyXianCultivate.addBeh(new BehGoToTileTarget());
-        DailyXianCultivate.addBeh(new BehXianStayInBuildingAndCultivate());
+        DailyXianCultivate.addBeh(new BehStayInBuildingTarget());
+        DailyXianCultivate.addBeh(new BehXianCultivate());
         DailyXianCultivate.addBeh(new BehExitBuilding());
 
         LevelupXianCultivate.addBeh(new BehCityFindBuilding("random_house_building"));
         LevelupXianCultivate.addBeh(new BehFindRandomFrontBuildingTile());
         LevelupXianCultivate.addBeh(new BehGoToTileTarget());
-        LevelupXianCultivate.addBeh(new BehXianStayInBuildingAndLevelup());
+        LevelupXianCultivate.addBeh(new BehStayInBuildingTarget());
+        LevelupXianCultivate.addBeh(new BehXianLevelup());
         LevelupXianCultivate.addBeh(new BehExitBuilding());
 
         DailyPlantXianCultivate.addBeh(new BehRandomWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
@@ -50,6 +52,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         CraftElixir.addBeh(new BehCityFindBuilding("random_house_building"));
         CraftElixir.addBeh(new BehFindRandomFrontBuildingTile());
         CraftElixir.addBeh(new BehGoToTileTarget());
+        CraftElixir.addBeh(new BehStayInBuildingTarget());
         CraftElixir.addBeh(new BehFindElixirToCraft());
         CraftElixir.addBeh(new BehCraftElixir());
         CraftElixir.addBeh(new BehExitBuilding());
@@ -57,6 +60,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         FindNewElixir.addBeh(new BehCityFindBuilding("random_house_building"));
         FindNewElixir.addBeh(new BehFindRandomFrontBuildingTile());
         FindNewElixir.addBeh(new BehGoToTileTarget());
+        FindNewElixir.addBeh(new BehStayInBuildingTarget());
         FindNewElixir.addBeh(new BehFindNewElixir());
         FindNewElixir.addBeh(new BehCraftElixir());
         FindNewElixir.addBeh(new BehExitBuilding());
