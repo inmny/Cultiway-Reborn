@@ -29,6 +29,11 @@ public class SpecialItemTooltip : APrefabPreview<SpecialItemTooltip>
         else
             Tooltip.name.text = entity.Id.ToString();
 
+        if (entity.TryGetComponent(out ItemLevel level))
+        {
+            Tooltip.addDescription(level.GetName());
+            Tooltip.addDescription("\n");
+        }
         Tooltip.addDescription(LM.Get(entity.GetComponent<ItemShape>().shape_id));
         if (entity.TryGetComponent(out ElementRoot element_root))
         {
