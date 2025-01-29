@@ -4,7 +4,9 @@ using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
+using UnityEngine;
 
 namespace Cultiway.Content;
 
@@ -48,12 +50,14 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
             if (!ae.HasElementRoot())
             {
                 ae.AddComponent(ElementRoot.Roll());
+                a.setStatsDirty();
                 return true;
             }
 
             if (!ae.HasCultisys<Xian>())
             {
                 ae.NewCultisys(Cultisyses.Xian);
+                a.setStatsDirty();
                 return true;
             }
 
@@ -62,12 +66,23 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
                 a.addStatusEffect(WorldboxGame.StatusEffects.Caffeinated.id, TimeScales.SecPerYear * 100);
                 return true;
             }
-            
-            ref var xian = ref ae.GetCultisys<Xian>();
-            xian.wakan = a.stats[BaseStatses.MaxWakan.id];
-            if (Cultisyses.Xian.AllowUpgrade(ae))
+
+            if (Toolbox.randomBool())
             {
-                Cultisyses.Xian.TryPerformUpgrade(ae);
+                ref var er = ref ae.GetComponent<ElementRoot>();
+                var composition = new float[8];
+                for (var i = 0; i < 8; i++) composition[i] = Mathf.Max(er[i], Mathf.Abs(RdUtils.NextStdNormal()));
+                er = new ElementRoot(composition);
+                a.setStatsDirty();
+            }
+            else
+            {
+                ref var xian = ref ae.GetCultisys<Xian>();
+                xian.wakan = a.stats[BaseStatses.MaxWakan.id];
+                if (Cultisyses.Xian.AllowUpgrade(ae))
+                {
+                    Cultisyses.Xian.TryPerformUpgrade(ae);
+                }
             }
 
             return true;
