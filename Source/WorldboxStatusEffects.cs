@@ -9,6 +9,7 @@ public partial class WorldboxGame
     public class StatusEffects : ExtendLibrary<StatusEffect, StatusEffects>
     {
         [GetOnly("burning")] public static StatusEffect Burning { get; private set; }
+        [GetOnly("caffeinated")]public static StatusEffect Caffeinated { get; private set; }
 
         protected override void OnInit()
         {

@@ -3,6 +3,7 @@ using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content;
@@ -12,6 +13,7 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
 {
     public static ActorTrait Cultivator { get; private set; }
     public static ActorTrait PassiveXianCultivate { get; private set; }
+    public static ActorTrait SignIn { get; private set; }
     [GetOnly("immortal")]
     public  static ActorTrait Immortal { get; private set; }
 
@@ -32,6 +34,41 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
             ref Xian xian = ref ae.GetCultisys<Xian>();
             Cultisyses.TakeWakanAndCultivate(ae, ref xian);
             if (Cultisyses.Xian.AllowUpgrade(ae)) Cultisyses.Xian.TryPerformUpgrade(ae);
+
+            return true;
+        };
+
+        SignIn.group_id = ActorTraitGroups.System.id;
+        SignIn.path_icon = "cultiway/icons/traits/iconPassiveXianCultivate";
+        SignIn.special_effect_interval = TimeScales.SecPerYear;
+        SignIn.action_special_effect = (actor, tile) =>
+        {
+            var a = actor.a;
+            var ae = a.GetExtend();
+            if (!ae.HasElementRoot())
+            {
+                ae.AddComponent(ElementRoot.Roll());
+                return true;
+            }
+
+            if (!ae.HasCultisys<Xian>())
+            {
+                ae.NewCultisys(Cultisyses.Xian);
+                return true;
+            }
+
+            if (!a.hasStatus(WorldboxGame.StatusEffects.Caffeinated.id))
+            {
+                a.addStatusEffect(WorldboxGame.StatusEffects.Caffeinated.id, TimeScales.SecPerYear * 100);
+                return true;
+            }
+            
+            ref var xian = ref ae.GetCultisys<Xian>();
+            xian.wakan = a.stats[BaseStatses.MaxWakan.id];
+            if (Cultisyses.Xian.AllowUpgrade(ae))
+            {
+                Cultisyses.Xian.TryPerformUpgrade(ae);
+            }
 
             return true;
         };
