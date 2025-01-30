@@ -193,7 +193,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 yuanying.id,
                 jindan.strength
             ));
-            // e.RemoveComponent<Jindan>();
+            e.RemoveComponent<Jindan>();
             return true;
         }
         if (jindan.stage < 10000)

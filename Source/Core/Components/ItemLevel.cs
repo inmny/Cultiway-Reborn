@@ -13,6 +13,6 @@ public struct ItemLevel : IComponent
     {
         var stage = Math.Max(0, Math.Min(Stage, 3));
         var level = Math.Max(0, Math.Min(Level, 8));
-        return LM.Get($"Cultiway.Stage.{stage}") + LM.Get($"Cultiway.Level.{level}");
+        return LM.Get($"Cultiway.Stage.{stage}") + "阶" + LM.Get($"Cultiway.Level.{level}");
     }
 }
