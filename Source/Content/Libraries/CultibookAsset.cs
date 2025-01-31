@@ -8,11 +8,7 @@ namespace Cultiway.Content.Libraries;
 public class CultibookAsset : Asset
 {
     public Entity CultibookEntity;
+    public CultibookBaseAsset BaseAsset;
     public BaseStats FinalStats = new();
     public List<string> Contributors = new();
-
-    public Cultibook GetEntity()
-    {
-        throw new NotImplementedException();
-    }
 }

@@ -104,7 +104,8 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         {
             if (!ae.TryGetComponent(out Xian xian)) return;
             var curr_level = xian.CurrLevel;
-            ae.Base.stats.mergeStats(Xian.LevelAccumBaseStats[curr_level]);
+            var stats = ae.Base.stats;
+            stats.mergeStats(Xian.LevelAccumBaseStats[curr_level]);
             if (ae.TryGetComponent(out XianBase xian_base))
             {
                 
@@ -112,12 +113,18 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (ae.TryGetComponent(out Jindan jindan))
             {
                 var jindan_asset = jindan.Type;
-                ae.Base.stats.MergeStats(jindan_asset.Stats, jindan.strength);
+                stats.MergeStats(jindan_asset.Stats, jindan.strength);
                 if (!string.IsNullOrEmpty(jindan_asset.wrapped_skill_id))
                 {
                     ae.tmp_all_skills.Add(jindan_asset.wrapped_skill_id);
                     return;
                 }
+            }
+
+            if (ae.HasCultibook())
+            {
+                var cultibook_master = ae.GetCultibookMasterRelation();
+                stats.MergeStats(cultibook_master.Cultibook.GetComponent<Cultibook>().Asset.FinalStats, cultibook_master.MasterValue / 100f);
             }
             
             

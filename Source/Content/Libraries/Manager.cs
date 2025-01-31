@@ -7,6 +7,7 @@ public class Manager
     public static ElixirLibrary ElixirLibrary { get; } = new();
     public static YuanyingLibrary YuanyingLibrary { get; } = new();
     public static CultibookLibrary CultibookLibrary { get; } = new();
+    public static CultibookBaseLibrary CultibookBaseLibrary { get; } = new();
 
     internal static void Init()
     {
@@ -15,6 +16,7 @@ public class Manager
         AssetManager.instance.add(ElixirLibrary, "elixirs");
         AssetManager.instance.add(YuanyingLibrary, "yuanying_types");
         AssetManager.instance.add(CultibookLibrary, "cultibooks");
+        AssetManager.instance.add(CultibookBaseLibrary, "cultibook_bases");
         
         PostInit();
     }
@@ -26,5 +28,6 @@ public class Manager
         ElixirLibrary.post_init();
         YuanyingLibrary.post_init();
         CultibookLibrary.post_init();
+        CultibookBaseLibrary.post_init();
     }
 }
