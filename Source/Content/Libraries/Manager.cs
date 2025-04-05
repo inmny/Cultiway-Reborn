@@ -11,12 +11,12 @@ public class Manager
 
     internal static void Init()
     {
-        AssetManager.instance.add(JindanGroupLibrary, "jindan_groups");
-        AssetManager.instance.add(JindanLibrary,      "jindan_types");
-        AssetManager.instance.add(ElixirLibrary, "elixirs");
-        AssetManager.instance.add(YuanyingLibrary, "yuanying_types");
-        AssetManager.instance.add(CultibookLibrary, "cultibooks");
-        AssetManager.instance.add(CultibookBaseLibrary, "cultibook_bases");
+        AssetManager._instance.add(JindanGroupLibrary, "jindan_groups");
+        AssetManager._instance.add(JindanLibrary,      "jindan_types");
+        AssetManager._instance.add(ElixirLibrary, "elixirs");
+        AssetManager._instance.add(YuanyingLibrary, "yuanying_types");
+        AssetManager._instance.add(CultibookLibrary, "cultibooks");
+        AssetManager._instance.add(CultibookBaseLibrary, "cultibook_bases");
         
         PostInit();
     }

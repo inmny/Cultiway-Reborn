@@ -60,7 +60,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartWeaponSkill.enhance = (ActorExtend ae, string source) =>
         {
             var modifier_data = ae.GetOrNewSkillActionModifiers(StartWeaponSkill.id).Data;
-            switch (Toolbox.randomInt(0, 1))
+            switch (Randy.randomInt(0, 1))
             {
                 case 0:
                     modifier_data.Get<ScaleModifier>().Value += 0.1f;
@@ -143,7 +143,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
                 case 2:
                     // 某一子技能的齐射数量增加
                     ae.GetOrNewSkillActionModifiers(
-                            SwordSkills.starters[Toolbox.randomInt(0, caster_modifiers.Get<StageModifier>().Value)])
+                            SwordSkills.starters[Randy.randomInt(0, caster_modifiers.Get<StageModifier>().Value)])
                         .GetComponent<SalvoCountModifier>().Value+=8;
                     break;
                 case 3:
@@ -182,7 +182,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
                     break;
                 case 2:
                     // 某一子技能的齐射数量增加
-                    var stage = Toolbox.randomInt(0, caster_modifiers.Get<StageModifier>().Value);
+                    var stage = Randy.randomInt(0, caster_modifiers.Get<StageModifier>().Value);
                     if (stage != 2)
                     {
                         ae.GetOrNewSkillActionModifiers(
@@ -236,7 +236,7 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
                 case 2:
                     // 某一子技能的齐射数量增加
                     ae.GetOrNewSkillActionModifiers(
-                            blade_skill_ids[Toolbox.randomInt(0, caster_modifiers.Get<StageModifier>().Value)])
+                            blade_skill_ids[Randy.randomInt(0, caster_modifiers.Get<StageModifier>().Value)])
                         .GetComponent<SalvoCountModifier>().Value++;
                     break;
                 case 3:

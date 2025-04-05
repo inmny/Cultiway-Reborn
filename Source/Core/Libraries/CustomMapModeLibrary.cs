@@ -15,7 +15,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
         {
             id = pAsset.toggle_name,
             name = pAsset.toggle_name,
-            unselectWhenWindow = true,
+            unselect_when_window = true,
             map_modes_switch = true,
             toggle_name = pAsset.toggle_name,
             toggle_action = _ => ModClass.I.CustomMapModeManager.SetAllDirty()

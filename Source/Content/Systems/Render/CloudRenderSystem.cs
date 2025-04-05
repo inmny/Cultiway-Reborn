@@ -40,7 +40,7 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
                 if (a == null || !a.isAlive()) return;
                 if (!a.is_visible || !a.data.hasFlag(ContentActorDataKeys.IsFlying_flag)) return;
                 Cloud cloud = _pool.GetNext();
-                cloud.transform.localPosition = actor_binder.Actor.transform.localPosition;
+                cloud.transform.localPosition = actor_binder.Actor.cur_transform_position;
                 cloud.transform.localScale = Vector3.one * a.stats[S.scale];
                 cloud.sprite_renderer.flipX = a.flip;
             });

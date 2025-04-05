@@ -15,7 +15,7 @@ internal static class PatchAboutElixir
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.updateAge))]
     private static void Actor_updateAge_postfix(Actor __instance)
     {
-        if (Toolbox.randomChance(XianSetting.TakenElixirProb))
+        if (Randy.randomChance(XianSetting.TakenElixirProb))
         {
             var ae = __instance.GetExtend();
             var elixir_to_consume = ae.GetRandomSpecialItem(x=>x.HasComponent<Elixir>() && !x.Tags.Has<TagElixirStatusGain>());

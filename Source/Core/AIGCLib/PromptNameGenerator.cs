@@ -44,7 +44,7 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
     }
     protected virtual bool RequestNewName(string key)
     {
-        return !NameDict.TryGetValue(key, out var names) || Toolbox.randomChance(1 / Mathf.Exp(names.Count));
+        return !NameDict.TryGetValue(key, out var names) || Randy.randomChance(1 / Mathf.Exp(names.Count));
     }
 
     protected virtual string GetStoreKey(string[] param)

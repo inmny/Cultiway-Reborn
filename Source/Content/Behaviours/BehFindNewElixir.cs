@@ -14,7 +14,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.Behaviours;
 
-public class BehFindNewElixir : BehCity
+public class BehFindNewElixir : BehCityActor
 {
     [Hotfixable]
     public override BehResult execute(Actor pObject)
@@ -28,7 +28,7 @@ public class BehFindNewElixir : BehCity
         if (!list.Any()) return BehResult.Stop;
         var count = ((IList<Entity>)list).Count;
 
-        var ing_count = Math.Min(Toolbox.randomInt(1, (int)Mathf.Log(count) + 2), count);
+        var ing_count = Math.Min(Randy.randomInt(1, (int)Mathf.Log(count) + 2), count);
         
         var ingredients = list.SampleOut(ing_count);
         var new_asset = Libraries.Manager.ElixirLibrary.NewElixir(ingredients, ae);
@@ -50,7 +50,7 @@ public class BehFindNewElixir : BehCity
             crafting_elixir.AddRelation(new CraftOccupyingRelation { item = ing });
             ing.AddTag<TagOccupied>();
         }
-        pObject.timer_action = Toolbox.randomFloat(TimeScales.SecPerMonth, TimeScales.SecPerYear);
+        pObject.timer_action = Randy.randomFloat(TimeScales.SecPerMonth, TimeScales.SecPerYear);
 
         return BehResult.Continue;
     }

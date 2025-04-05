@@ -73,8 +73,8 @@ public class HugeSwordQiSkills : ICanInit
         var entity = SwordQiCaster.NewEntity();
 
         var user_ae = context.user;
-        var user_pos = user_ae.Base.currentPosition;
-        var target_pos = context.target.currentPosition;
+        var user_pos = user_ae.Base.current_position;
+        var target_pos = context.target.current_position;
 
         var world_rect = new Rect(0, 0, MapBox.width - 1, MapBox.height - 1);
         

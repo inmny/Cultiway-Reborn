@@ -4,9 +4,9 @@ using Friflo.Json.Fliox;
 
 namespace Cultiway.Core.Components;
 
-public struct ActorBinder(string id) : IComponent
+public struct ActorBinder(long id) : IComponent
 {
-    public string ID = id;
+    public long ID = id;
     [Ignore]
     public Actor Actor
     {

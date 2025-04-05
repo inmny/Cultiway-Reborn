@@ -53,7 +53,7 @@ public partial class WorldboxGame
 
         protected override void OnInit()
         {
-            RegisterAssets("Cultiway.BaseStats");
+            RegisterAssets();
             Armor.normalize = false;
             IronArmor.icon = $"cultiway/icons/stats/{nameof(IronArmor)}";
             WoodArmor.icon = $"cultiway/icons/stats/{nameof(WoodArmor)}";
@@ -99,12 +99,12 @@ public partial class WorldboxGame
         protected override BaseStatAsset Add(BaseStatAsset asset)
         {
             asset.translation_key = asset.id;
-            if (asset.mod) return base.Add(asset);
+            if (asset.multiplier) return base.Add(asset);
             Add(new BaseStatAsset
             {
                 id = $"Mod{asset.id}",
-                main_stat_to_mod = asset.id,
-                mod = true
+                main_stat_to_multiply = asset.id,
+                multiplier = true
             });
             return base.Add(asset);
         }

@@ -72,7 +72,7 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
             id = Guid.NewGuid().ToString()
         };
         
-        var type = Toolbox.randomChance(0.1f) ? ElixirEffectType.DataGain : ElixirEffectType.StatusGain;
+        var type = Randy.randomChance(0.1f) ? ElixirEffectType.DataGain : ElixirEffectType.StatusGain;
 
         asset.effect_type = type;
         asset.ingredients = new ElixirIngredientCheck[ingredients.Length];
@@ -89,7 +89,7 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
             asset.ingredients[i] = ing_check;
         }
         // 生成丹药的服用检查和效果
-        asset.seed_for_random_effect = Toolbox.randomInt(0, int.MaxValue);
+        asset.seed_for_random_effect = Randy.randomInt(0, int.MaxValue);
         if (ElixirEffectGenerator.GenerateElixirActions(asset))
         {
             add_dynamic(asset);

@@ -71,7 +71,7 @@ public class LogicTriggerObjCollisionSystem : QuerySystem<ObjCollisionTrigger, O
             [Hotfixable]
             void check_obj(BaseSimObject obj, ref ObjCollisionTrigger trigger, ref ObjCollisionContext context)
             {
-                if (!ShapeUtils.InRect(obj.currentPosition, lb, rt)) return;
+                if (!ShapeUtils.InRect(obj.current_position, lb, rt)) return;
                 if (!obj.isAlive()) return;
 
                 var enemy = caster_kingdom.isEnemy(obj.kingdom);

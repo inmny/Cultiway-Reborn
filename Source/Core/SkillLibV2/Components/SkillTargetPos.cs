@@ -16,8 +16,8 @@ public struct SkillTargetPos : IComponent
 
     public void Setup(BaseSimObject target, Vector3 offset = default)
     {
-        v2 = target.currentPosition;
-        z = target.getZ();
+        v2 = target.current_position;
+        z = target.getHeight();
         v3 += offset;
     }
 

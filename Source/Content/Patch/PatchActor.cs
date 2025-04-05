@@ -21,8 +21,8 @@ namespace Cultiway.Content.Patch;
 
 internal static class PatchActor
 {
-    [Hotfixable, HarmonyPostfix, HarmonyPatch(typeof(ActorBase), nameof(ActorBase.nextJobActor))]
-    private static void nextJobActor_postfix(ref string __result, ActorBase pActor)
+    [Hotfixable, HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.nextJobActor))]
+    private static void nextJobActor_postfix(ref string __result, Actor pActor)
     {
         if (pActor.asset == Actors.ConstraintSpirit)
         {
@@ -42,7 +42,7 @@ internal static class PatchActor
             }
             return;
         }
-        if (pActor.asset.unit && pActor.city != null && !pActor.isProfession(UnitProfession.Warrior))
+        if (pActor.isSapient() && pActor.city != null && !pActor.isProfession(UnitProfession.Warrior))
         {
             var ae = (pActor as Actor).GetExtend();
             if (!ae.TryGetComponent(out Xian xian)) return;
@@ -50,15 +50,15 @@ internal static class PatchActor
             var chance = 0.2f;
             if (pActor.hasTrait(ActorTraits.Cultivator.id)) chance = 0.8f;
 
-            if (Toolbox.randomChance(1 - chance))
+            if (Randy.randomChance(1 - chance))
             {
-                if (Toolbox.randomChance(0.6f))
+                if (Randy.randomChance(0.6f))
                 {
                     using var pool = new ListPool<string>();
                     if (xian.CurrLevel >= XianLevels.Jindan)
                     {
                         pool.Add(ActorJobs.ElixirCrafter.id);
-                        if (Toolbox.randomChance(0.9f))
+                        if (Randy.randomChance(0.9f))
                         {
                             pool.Add(ActorJobs.ElixirFinder.id);
                         }
@@ -83,12 +83,12 @@ internal static class PatchActor
 
     [Hotfixable]
     [HarmonyPrefix]
-    [HarmonyPatch(typeof(Actor), nameof(Actor.killHimself))]
+    [HarmonyPatch(typeof(Actor), nameof(Actor.die))]
     private static void killHimself_prefix(Actor __instance)
     {
         if (!__instance.isAlive()) return;
         ActorExtend dead_ae = __instance.GetExtend();
-        var tile_pos = __instance.currentTile.pos;
+        var tile_pos = __instance.current_tile.pos;
         DirtyWakanMap.I.map[tile_pos.x, tile_pos.y] += 100;
         
         if (!dead_ae.HasCultisys<Xian>()) return;
@@ -101,9 +101,9 @@ internal static class PatchActor
             {
                 receiver = __instance.attackedBy.a.GetExtend();
             }
-            else if (__instance.attackedBy.city != null)
+            else if (__instance.attackedBy.hasCity())
             {
-                receiver = __instance.attackedBy.city.GetExtend();
+                receiver = __instance.attackedBy.getCity().GetExtend();
             }
         }
         else if (__instance.city != null)
@@ -119,9 +119,9 @@ internal static class PatchActor
         item_builder.AddTag<TagIngredient>();
         List<string> param = new();
         var type = "修士";
-        if (LM.Has(dead_ae.Base.asset.nameLocale))
+        if (LM.Has(dead_ae.Base.asset.name_locale))
         {
-            type = LM.Get(dead_ae.Base.asset.nameLocale);
+            type = LM.Get(dead_ae.Base.asset.name_locale);
         }
         param.Add(type);
         if (dead_ae.TryGetComponent(out ElementRoot er))

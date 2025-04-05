@@ -70,7 +70,7 @@ public class ContentGrid : APrefabPreview<ContentGrid>
         title_obj.GetComponent<LayoutElement>().ignoreLayout = true;
 
         var title_text = title_obj.GetComponent<Text>();
-        title_text.font = LocalizedTextManager.currentFont;
+        title_text.font = LocalizedTextManager.current_font;
         title_text.fontSize = 12;
         title_text.alignment = TextAnchor.MiddleCenter;
         title_text.color = UIColors.BackgroundTextColor;

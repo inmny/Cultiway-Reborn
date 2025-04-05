@@ -10,7 +10,7 @@ public partial class WorldboxGame
         public static TileType PitDeepOcean { get; private set; }
         protected override void OnInit()
         {
-            RegisterAssets("Cultiway.TileTypes");
+            RegisterAssets();
 
         }
     }

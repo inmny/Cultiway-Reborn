@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -26,7 +27,7 @@ internal static class PatchAboutFly
         }
 
         WorldTile tile = null;
-        var island_calculator = World.world.islandsCalculator;
+        var island_calculator = World.world.islands_calculator;
         if (island_calculator.islands.Any())
         {
             TileIsland ground_island = null;
@@ -52,25 +53,24 @@ internal static class PatchAboutFly
 
         if (tile == null)
         {
-            tile = World.world.tilesList.GetRandom();
+            tile = World.world.tiles_list.GetRandom();
         }
         pActor.beh_tile_target = tile;
         __result = BehResult.Continue;
         return false;
     }
-    [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.checkSpriteToRender))]
+    [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.calculateMainSprite))]
     private static IEnumerable<CodeInstruction> checkSpriteToRender_transpiler(IEnumerable<CodeInstruction> codes)
     {
         var list = codes.ToList();
 
-        var insert_idx = list.FindIndex(x => x.opcode == OpCodes.Ldfld &&
-                                             (x.operand as FieldInfo)?.Name ==
-                                             nameof(ActorBase.is_moving)) - 1;
+        var insert_idx = list.FindIndex(x => x.opcode == OpCodes.Call &&
+                                             (x.operand as MethodInfo)?.Name == "get_is_moving") - 1;
         var jmp_idx = insert_idx;
         var jmp_label = new Label();
         list[jmp_idx].labels.Add(jmp_label);
 
-        var end_idx = list.FindIndex(x => x.opcode == OpCodes.Ldloc_S && (x.operand as LocalBuilder)?.LocalIndex == 4);
+        var end_idx = list.FindIndex(x => x.opcode == OpCodes.Ldloc_2);
         var end_label = list[end_idx].labels.First();
 
         list.InsertRange(insert_idx, [
@@ -81,9 +81,9 @@ internal static class PatchAboutFly
             new(OpCodes.Brfalse, jmp_label),
             // actorAnimation = this.animationContainer.idle;
             new(OpCodes.Ldarg_0),
-            new(OpCodes.Ldfld, AccessTools.Field(typeof(ActorBase),              nameof(ActorBase.animationContainer))),
+            new(OpCodes.Ldfld, AccessTools.Field(typeof(Actor),              nameof(Actor.animation_container))),
             new(OpCodes.Ldfld, AccessTools.Field(typeof(AnimationContainerUnit), nameof(AnimationContainerUnit.idle))),
-            new(OpCodes.Stloc_S, 4),
+            new(OpCodes.Stloc_2),
             new(OpCodes.Br, end_label)
         ]);
 
@@ -91,10 +91,10 @@ internal static class PatchAboutFly
         return list;
     }
 
-    [HarmonyPrefix, HarmonyPatch(typeof(ActorBase), nameof(ActorBase.goTo))]
-    private static bool goTo_prefix(ref ExecuteEvent __result, ActorBase __instance, WorldTile pTile)
+    //[HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.goTo))]
+    private static bool goTo_prefix(ref ExecuteEvent __result, Actor __instance, WorldTile pTile)
     {
-        if (Toolbox.DistTile(__instance.currentTile, pTile) < ContentSetting.MinFlyDist) return true;
+        if (Toolbox.DistTile(__instance.current_tile, pTile) < ContentSetting.MinFlyDist) return true;
         if (try_goTo_fast((Actor)__instance, pTile))
         {
             __result = ExecuteEvent.True;
@@ -104,13 +104,13 @@ internal static class PatchAboutFly
         return true;
     }
 
-    [HarmonyPostfix, HarmonyPatch(typeof(ActorBase), nameof(ActorBase.goTo))]
-    private static void goTo_postfix(ref ExecuteEvent __result, ActorBase __instance, WorldTile pTile)
+    //[HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.goTo))]
+    private static void goTo_postfix(ref ExecuteEvent __result, Actor __instance, WorldTile pTile)
     {
         if (__result == ExecuteEvent.True)
         {
             var len = 0f;
-            var last_tile = __instance.currentTile;
+            var last_tile = __instance.current_tile;
             for (int i = __instance.current_path_index; i < __instance.current_path.Count; i++)
             {
                 var tile = __instance.current_path[i];
@@ -145,9 +145,10 @@ internal static class PatchAboutFly
         if (xian.CurrLevel >= XianSetting.FlyLevel)
         {
             actor.data.addFlag(ContentActorDataKeys.IsFlying_flag);
-            actor.flying = true;
+            actor.setFlying(true);
+            actor.precalcMovementSpeed(true);
 
-            return ActorMove.goTo(actor, tile, true, true) == ExecuteEvent.True;
+            return ActorMove.goTo(actor, tile, true, true, true) == ExecuteEvent.True;
         }
 
         return false;
@@ -173,26 +174,25 @@ internal static class PatchAboutFly
     }
 
     [Hotfixable]
-    [HarmonyPrefix, HarmonyPatch(typeof(ActorBase), nameof(ActorBase.updateFall))]
-    private static bool updateFall_prefix(ActorBase __instance, float pElapsed)
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.updateFall))]
+    private static bool updateFall_prefix(Actor __instance)
     {
         var actor = (Actor)__instance;
         if (!check_is_flying(actor)) return true;
 
-        var delta = ContentSetting.FlyHeight - actor.zPosition.y;
-        actor.zPosition.y += Mathf.Min(Mathf.Abs(delta), pElapsed * 20f) * Mathf.Sign(delta);
-        actor.setPosDirty();
+        var delta = ContentSetting.FlyHeight - actor.position_height;
+        actor.position_height += Mathf.Min(Mathf.Abs(delta), World.world.elapsed * 20f) * Mathf.Sign(delta);
 
         return false;
     }
-
+/*
     [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.updateParallelChecks))]
     private static IEnumerable<CodeInstruction> updateParallelChecks_transpiler(IEnumerable<CodeInstruction> codes)
     {
         var list = codes.ToList();
 
         var insert_idx = list.FindLastIndex(x =>
-            x.opcode == OpCodes.Ldflda && (x.operand as FieldInfo)?.Name == nameof(Actor.zPosition)) - 1;
+            x.opcode == OpCodes.Ldflda && (x.operand as FieldInfo)?.Name == nameof(Actor.position_height)) - 1;
         var jmp_idx = list.FindLastIndex(x =>
             x.opcode == OpCodes.Callvirt && (x.operand as MethodInfo)?.Name == nameof(Actor.updateFall)) - 2;
 
@@ -205,25 +205,25 @@ internal static class PatchAboutFly
         ]);
         return list;
     }
-
-    [HarmonyTranspiler, HarmonyPatch(typeof(ActorBase), nameof(ActorBase.precalcMovementSpeed))]
+*/
+    [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.precalcMovementSpeed))]
     private static IEnumerable<CodeInstruction> precalcMovementSpeed_transpiler(IEnumerable<CodeInstruction> codes)
     {
         var list = codes.ToList();
 
-        var insert_idx = list.FindIndex(x => x.opcode == OpCodes.Stloc_0) + 1;
+        var insert_idx = list.FindIndex(x => x.opcode == OpCodes.Stloc_3) + 1;
         list.InsertRange(insert_idx, [
-            new(OpCodes.Ldloc_0),
+            new(OpCodes.Ldloc_3),
             new(OpCodes.Ldarg_0),
             new(OpCodes.Call, AccessTools.Method(typeof(PatchAboutFly), nameof(get_fly_speed_mod))),
             new(OpCodes.Mul),
-            new(OpCodes.Stloc_0)
+            new(OpCodes.Stloc_3)
         ]);
         return list;
     }
 
     [Hotfixable]
-    private static float get_fly_speed_mod(ActorBase actor)
+    private static float get_fly_speed_mod(Actor actor)
     {
         return actor.data.hasFlag(ContentActorDataKeys.IsFlying_flag) ? ContentSetting.FlySpeedMod : 1;
     }

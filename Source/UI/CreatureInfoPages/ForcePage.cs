@@ -16,7 +16,7 @@ public class ForcePage : MonoBehaviour
         var this_page = page.gameObject.AddComponent<ForcePage>();
         var text = page.gameObject.AddComponent<Text>();
 
-        text.font = LocalizedTextManager.currentFont;
+        text.font = LocalizedTextManager.current_font;
         text.fontSize = 8;
 
         this_page.Text = text;
@@ -29,7 +29,7 @@ public class ForcePage : MonoBehaviour
 
         foreach (var force_entity in ae.GetForces<ForceCityBelongRelation>())
         {
-            sb.AppendLine($"所属城市: {force_entity.GetComponent<CityBinder>().City.getCityName()}");
+            sb.AppendLine($"所属城市: {force_entity.GetComponent<CityBinder>().City.name}");
         }
 
         var this_page = page.GetComponent<ForcePage>();

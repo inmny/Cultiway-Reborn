@@ -7,7 +7,7 @@ namespace Cultiway.Patch;
 
 internal static class PatchCity
 {
-    [HarmonyPostfix, HarmonyPatch(typeof(City), nameof(City.takeAllItemsFromActor))]
+    [HarmonyPostfix, HarmonyPatch(typeof(City), nameof(City.takeAllItemsFromActorOnDeath))]
     private static void takeAllItemsFromActor_postfix(City __instance, Actor pActor)
     {
         var ae = pActor.GetExtend();

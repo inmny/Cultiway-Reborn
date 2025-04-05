@@ -103,7 +103,7 @@ public static class ExampleTriggerActions
         data.Get<SkillCaster>().value = user_ae;
         data.Get<SkillTargetObj>().value = target;
         data.Get<SkillStrength>().value = context.strength;
-        data.Get<Position>().value = user.currentPosition;
+        data.Get<Position>().value = user.current_position;
         data.Get<Rotation>().Setup(user, target);
         EntityData modifier_data = modifier_container.Data;
         ChildEntities triggers = fireball_caster.ChildEntities;

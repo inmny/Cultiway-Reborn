@@ -17,7 +17,7 @@ public class DirtyWakanSpreadSystem : BaseSystem
     protected override void OnUpdateGroup()
     {
         if (MapGenerator._tilesMap != null) return;
-        if (_check_tile_ids == null || _check_tile_ids.Length != World.world.tilesList.Length)
+        if (_check_tile_ids == null || _check_tile_ids.Length != World.world.tiles_list.Length)
         {
             RegenerateCheckIDs(true);
         }
@@ -33,7 +33,7 @@ public class DirtyWakanSpreadSystem : BaseSystem
                 check_idx = 0;
             }
 
-            CheckSingleTile(World.world.tilesList[_check_tile_ids[check_idx]]);
+            CheckSingleTile(World.world.tiles_list[_check_tile_ids[check_idx]]);
             _last_check_idx = check_idx;
         }
     }
@@ -42,7 +42,7 @@ public class DirtyWakanSpreadSystem : BaseSystem
     {
         if (new_array)
         {
-            _check_tile_ids = new int[World.world.tilesList.Length];
+            _check_tile_ids = new int[World.world.tiles_list.Length];
             for (int i = 0; i < _check_tile_ids.Length; i++)
             {
                 _check_tile_ids[i] = i;

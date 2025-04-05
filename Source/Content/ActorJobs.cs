@@ -15,8 +15,6 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob CultibookResearcher { get; private set; }
     [GetOnly("attacker")]
     public static ActorJob Attacker { get; private set; }
-    [GetOnly("defender")]
-    public static ActorJob Defender { get; private set; }
     [GetOnly("random_move")]
     public static ActorJob RandomMove { get; private set; }
     protected override void OnInit()
@@ -69,14 +67,5 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         Attacker.addCondition(new CondProb(0.4f));
         Attacker.addTask(ActorTasks.LevelupXianCultivate.id);
         Attacker.addCondition(new CondXianReadyLevelup());
-        
-        Defender.addTask(ActorTasks.DailyXianCultivate.id);;
-        Attacker.addCondition(new CondHasXian());
-        Defender.addCondition(new CondXianReadyLevelup(), false);;
-        Defender.addCondition(new CondProb(0.4f));
-        Defender.addTask(ActorTasks.LevelupXianCultivate.id);
-        Defender.addCondition(new CondXianReadyLevelup());
-        
-        
     }
 }

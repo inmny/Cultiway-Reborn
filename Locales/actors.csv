@@ -1,4 +1,5 @@
 key,cz
-Cultiway.Actor.Plant,植物
-Cultiway.Actor.ConstraintSpirit,地缚灵
-Cultiway.Actor.Ming,冥族
+Cultiway.Plant,植物
+Cultiway.Plant Description,能够吸收浊气产生灵气并进行修炼的灵植
+Cultiway.ConstraintSpirit,地缚灵
+Cultiway.Ming,冥族

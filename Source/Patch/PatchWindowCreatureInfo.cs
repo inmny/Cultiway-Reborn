@@ -25,8 +25,8 @@ internal static class PatchWindowCreatureInfo
     }
 
     [Hotfixable]
-    [HarmonyPrefix, HarmonyPatch(typeof(WindowCreatureInfo), nameof(WindowCreatureInfo.OnEnable))]
-    private static void OnEnable_prefix(WindowCreatureInfo __instance)
+    [HarmonyPrefix, HarmonyPatch(typeof(UnitWindow), nameof(UnitWindow.OnEnable))]
+    private static void OnEnable_prefix(UnitWindow __instance)
     {
         if (!(__instance.actor?.isAlive() ?? false)) return;
         SimpleButton button = Object.Instantiate(SimpleButton.Prefab, __instance.transform.Find("Background"));
@@ -44,7 +44,7 @@ internal static class PatchWindowCreatureInfo
             obj.transform.localScale = Vector3.one;
             obj.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             info_text = obj.GetComponent<Text>();
-            info_text.font = LocalizedTextManager.currentFont;
+            info_text.font = LocalizedTextManager.current_font;
             info_text.resizeTextForBestFit = true;
             info_text.resizeTextMinSize = 1;
             info_text.resizeTextMaxSize = 8;
@@ -55,7 +55,7 @@ internal static class PatchWindowCreatureInfo
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine(__instance.actor.data.id);
+        sb.AppendLine(__instance.actor.data.id.ToString());
         var actor_extend = __instance.actor.GetExtend();
         if (actor_extend.HasElementRoot())
         {

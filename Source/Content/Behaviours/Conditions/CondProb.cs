@@ -10,6 +10,6 @@ public class CondProb : BehaviourActorCondition
     private float chance;
     public override bool check(Actor pActor)
     {
-        return Toolbox.randomChance(chance);
+        return Randy.randomChance(chance);
     }
 }

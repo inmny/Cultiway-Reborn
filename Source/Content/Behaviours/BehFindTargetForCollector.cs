@@ -3,7 +3,7 @@ using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content.Behaviours;
 
-public class BehFindTargetForCollector : BehCity
+public class BehFindTargetForCollector : BehCityActor
 {
     public override BehResult execute(Actor pActor)
     {
@@ -18,22 +18,20 @@ public class BehFindTargetForCollector : BehCity
     private Actor GetClosestPlantActor(Actor collector, int min_level = 2)
     {
         temp_actors.Clear();
-        world.getObjectsInChunks(collector.currentTile, 10, MapObjectType.Actor);
-        for (var i = 0; i < world.temp_map_objects.Count; i++)
+        foreach (var actor in Finder.getUnitsFromChunk(collector.current_tile, 3))
         {
-            var actor = (Actor)world.temp_map_objects[i];
             if (isTargetOk(collector, actor) && actor.asset == Actors.Plant &&
                 actor.GetExtend().GetPowerLevel() >= min_level &&
                 collector.GetExtend().GetPowerLevel() >= actor.GetExtend().GetPowerLevel())
                 temp_actors.Add(actor);
         }
 
-        return Toolbox.getClosestActor(temp_actors, collector.currentTile);
+        return Toolbox.getClosestActor(temp_actors, collector.current_tile);
     }
 
     private bool isTargetOk(Actor pActor, Actor pTarget)
     {
         return !(pTarget == pActor) && pActor.canAttackTarget(pTarget) &&
-               pTarget.currentTile.isSameIsland(pActor.currentTile);
+               pTarget.current_tile.isSameIsland(pActor.current_tile);
     }
 }

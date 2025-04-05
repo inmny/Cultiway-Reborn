@@ -14,9 +14,10 @@ public static class Try
         }
         catch (Exception e)
         {
+            StringBuilder sb = new();
+            sb.AppendLine($"Meet error when trying to run action {action}. Exceptions show below:");
             do
             {
-                StringBuilder sb = new();
                 sb.AppendLine($"{e.GetType()}: {e.Message}");
                 sb.AppendLine(e.StackTrace);
                 if (e is ReflectionTypeLoadException rtle)
@@ -26,9 +27,9 @@ public static class Try
                         sb.AppendLine(le.StackTrace);
                     }
 
-                ModClass.LogError(sb.ToString());
                 e = e.InnerException;
             } while (e != null);
+            ModClass.LogError(sb.ToString());
         }
     }
 }

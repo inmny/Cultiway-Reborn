@@ -11,6 +11,7 @@ public class WakanMap
 
     private WakanMap()
     {
+        Resize(MapBox.width, MapBox.height);
     }
 
     public static WakanMap I

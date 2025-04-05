@@ -67,7 +67,7 @@ public static class Trajectories
     private static Vector3 out_surround(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)
     {
         var data = skill_entity.Data;
-        var center = data.Get<SkillCaster>().AsActor.currentPosition;
+        var center = data.Get<SkillCaster>().AsActor.current_position;
         var curr_angle_deg = Vector2.SignedAngle(Vector2.right, pos.v2 - center);
         
         var curr_angle_rad = curr_angle_deg * Mathf.Deg2Rad;
@@ -92,7 +92,7 @@ public static class Trajectories
     private static Vector3 self_surround(float dt, ref Position pos, ref Trajectory traj, Entity skill_entity)
     {
         var data = skill_entity.Data;
-        var center = data.Get<SkillCaster>().AsActor.currentPosition;
+        var center = data.Get<SkillCaster>().AsActor.current_position;
         var curr_angle_deg = Vector2.SignedAngle(Vector2.right, pos.v2 - center);
         
         var curr_angle_rad = curr_angle_deg * Mathf.Deg2Rad;
@@ -140,7 +140,7 @@ public static class Trajectories
         var vel = data.Get<Velocity>();
         if (obj == null) return vel.scale * dt;
 
-        Vector3 dir = data.Get<SkillTargetObj>().value.curTransformPosition - pos.value;
+        Vector3 dir = data.Get<SkillTargetObj>().value.cur_transform_position - pos.value;
         
         var dp = Vector3.Scale(dir.normalized * dt, vel.scale);
         if (dp.sqrMagnitude >= dir.sqrMagnitude)

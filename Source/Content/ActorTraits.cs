@@ -16,7 +16,7 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
     public static ActorTrait Cultivator { get; private set; }
     public static ActorTrait PassiveXianCultivate { get; private set; }
     public static ActorTrait SignIn { get; private set; }
-    [GetOnly("immortal")]
+    [GetOnly(S_Trait.immortal)]
     public  static ActorTrait Immortal { get; private set; }
 
     protected override void OnInit()
@@ -67,7 +67,7 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
                 return true;
             }
 
-            if (Toolbox.randomBool())
+            if (Randy.randomBool())
             {
                 ref var er = ref ae.GetComponent<ElementRoot>();
                 var composition = new float[8];
@@ -100,7 +100,7 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
                 if (trait.group_id == ActorTraitGroups.System.id) list.Add(trait.id);
             }
 
-            asset.oppositeArr = list.ToArray();
+            asset.addOpposites(list);
         }
     }
 }

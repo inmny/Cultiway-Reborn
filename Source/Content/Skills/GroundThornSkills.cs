@@ -131,7 +131,7 @@ public class GroundThornSkills : ICanInit
     [Hotfixable]
     private void random_spawn_ground_thorn(ref TimeIntervalTrigger trigger, ref TimeIntervalContext context, Entity skill_entity, Entity action_modifiers, Entity entity_modifiers)
     {
-        string id = starters[Toolbox.randomInt(0, entity_modifiers.GetComponent<StageModifier>().Value)];
+        string id = starters[Randy.randomInt(0, entity_modifiers.GetComponent<StageModifier>().Value)];
         var data = skill_entity.Data;
 
         ModClass.I.SkillV2.NewSkillStarter(id,
@@ -179,7 +179,7 @@ public class GroundThornSkills : ICanInit
             var data = entity.Data;
             data.Get<SkillCaster>().value = user_ae;
             data.Get<SkillStrength>().value = caster_data.Get<SkillStrength>().value;
-            data.Get<Position>().value = user_ae.Base.currentPosition + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * radius;
+            data.Get<Position>().value = user_ae.Base.current_position + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * radius;
 
             SingleGroundThornEntity.ApplyModifiers(entity,
                 user_ae.GetSkillEntityModifiers(SingleGroundThornEntity.id,
@@ -199,7 +199,7 @@ public class GroundThornSkills : ICanInit
 
         data.Get<SkillCaster>().value = user_ae;
         data.Get<SkillStrength>().value = context.strength;
-        data.Get<Radius>().Value = (user_ae.Base.currentPosition - context.target.currentPosition).sqrMagnitude;
+        data.Get<Radius>().Value = (user_ae.Base.current_position - context.target.current_position).sqrMagnitude;
 
         CircleGroundThornCasterEntity.ApplyModifiers(entity,
             user_ae.GetSkillEntityModifiers(CircleGroundThornCasterEntity.id,
@@ -236,12 +236,12 @@ public class GroundThornSkills : ICanInit
 
             data.Get<SkillCaster>().value = user_ae;
             data.Get<SkillStrength>().value = context.strength;
-            data.Get<Position>().value = user_ae.Base.currentPosition;
+            data.Get<Position>().value = user_ae.Base.current_position;
 
-            var dir = (context.target.currentPosition - user_ae.Base.currentPosition)
+            var dir = (context.target.current_position - user_ae.Base.current_position)
                       + new Vector2(
-                          Toolbox.randomFloat(1-salvo_count, salvo_count-1),
-                          Toolbox.randomFloat(1-salvo_count, salvo_count-1)
+                          Randy.randomFloat(1-salvo_count, salvo_count-1),
+                          Randy.randomFloat(1-salvo_count, salvo_count-1)
                       );
             data.Get<Rotation>().value = dir;
 
@@ -257,7 +257,7 @@ public class GroundThornSkills : ICanInit
         if (!target.isAlive()) return;
         if (!target.isActor()) return;
         var a = target.a;
-        var dp = target.currentPosition - skill_entity.GetComponent<Position>().v2;
+        var dp = target.current_position - skill_entity.GetComponent<Position>().v2;
 
         var dist = dp.sqrMagnitude;
         float force = 1f / Mathf.Exp(dist);
@@ -278,11 +278,11 @@ public class GroundThornSkills : ICanInit
             var data = entity.Data;
             data.Get<SkillCaster>().value = user_ae;
             data.Get<SkillStrength>().value = context.strength;
-            data.Get<Position>().value = context.target.currentPosition;
+            data.Get<Position>().value = context.target.current_position;
             if (i != 0)
             {
                 var edge = Mathf.Sqrt(salvo_count);
-                data.Get<Position>().v2 += Toolbox.randomPointOnCircle(0, edge);
+                data.Get<Position>().v2 += Randy.randomPointOnCircle(0, edge);
             }
 
             SingleGroundThornEntity.ApplyModifiers(entity,

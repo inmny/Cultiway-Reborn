@@ -58,7 +58,7 @@ public class StatValue : APrefabPreview<StatValue>
         text_obj.GetComponent<RectTransform>().sizeDelta = new Vector2(0, 10);
         var text = text_obj.GetComponent<Text>();
         text.alignment = TextAnchor.MiddleCenter;
-        text.font = LocalizedTextManager.currentFont;
+        text.font = LocalizedTextManager.current_font;
         text.resizeTextForBestFit = true;
         text.resizeTextMinSize = 1;
         text.horizontalOverflow = HorizontalWrapMode.Overflow;

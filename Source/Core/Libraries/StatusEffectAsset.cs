@@ -48,7 +48,7 @@ public class StatusEffectAsset : Asset
         list.ApplyBatch(batch);
 
         if (entity.HasComponent<AnimData>())
-            entity.GetComponent<AnimData>().next_frame_time = (float)(World.world.mapStats.worldTime + Time.deltaTime);
+            entity.GetComponent<AnimData>().next_frame_time = (float)(World.world.map_stats.world_time + Time.deltaTime);
 
         return entity;
     }

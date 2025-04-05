@@ -344,14 +344,14 @@ public class CommonBladeSkills : ICanInit, ICanReload
 
                 ActorExtend user_ae = context.user;
                 Actor user = user_ae.Base;
-                float radius = Toolbox.randomFloat(user.stats[S.range], user.stats[S.range] * 2);
+                float radius = Randy.randomFloat(user.stats[S.range], user.stats[S.range] * 2);
                 entity.AddComponent(new OutVelocity(radius));
 
                 var data = entity.Data;
                 data.Get<SkillCaster>().value = user_ae;
                 data.Get<SkillStrength>().value = context.strength;
                 data.Get<Position>().value =
-                    user.currentPosition + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * Mathf.Min(radius, 1);
+                    user.current_position + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * Mathf.Min(radius, 1);
                 data.Get<Trajectory>().meta = Trajectories.OutSurround;
 
                 foreach (Entity trigger_entity in entity.ChildEntities)
@@ -405,7 +405,7 @@ public class CommonBladeSkills : ICanInit, ICanReload
             var data = entity.Data;
             data.Get<SkillCaster>().value = user_ae;
             data.Get<SkillStrength>().value = context.strength;
-            data.Get<Position>().value = user.currentPosition;
+            data.Get<Position>().value = user.current_position;
             data.Get<SkillTargetObj>().value = context.target;
 
             blade_caster_entity_meta.ApplyModifiers(entity,
@@ -421,7 +421,7 @@ public class CommonBladeSkills : ICanInit, ICanReload
             Entity                      skill_entity,
             Entity                      modifiers, Entity entity_modifiers) =>
         {
-            string id = starters[Toolbox.randomInt(0, entity_modifiers.GetComponent<StageModifier>().Value)].id;
+            string id = starters[Randy.randomInt(0, entity_modifiers.GetComponent<StageModifier>().Value)].id;
 
             var data = skill_entity.Data;
 
@@ -451,11 +451,11 @@ public class CommonBladeSkills : ICanInit, ICanReload
                 var data = entity.Data;
                 data.Get<SkillCaster>().value = user_ae;
                 data.Get<SkillStrength>().value = context.strength;
-                data.Get<Position>().value = user.currentPosition;
+                data.Get<Position>().value = user.current_position;
                 data.Get<Trajectory>().meta = Trajectories.GoForward;
                 data.Get<Rotation>().Setup(user, context.target ?? user,
-                    new Vector3(Toolbox.randomFloat(-salvo_count, salvo_count),
-                        Toolbox.randomFloat(-salvo_count, salvo_count)));
+                    new Vector3(Randy.randomFloat(-salvo_count, salvo_count),
+                        Randy.randomFloat(-salvo_count, salvo_count)));
 
                 foreach (Entity trigger_entity in entity.ChildEntities)
                 {
@@ -491,16 +491,16 @@ public class CommonBladeSkills : ICanInit, ICanReload
                 Actor user = user_ae.Base;
                 float radius;
                 if (context.target != null)
-                    radius = Toolbox.DistVec2Float(user.currentPosition, context.target.currentPosition);
+                    radius = Toolbox.DistVec2Float(user.current_position, context.target.current_position);
                 else
-                    radius = Toolbox.randomFloat(1, user.stats[S.range]);
+                    radius = Randy.randomFloat(1, user.stats[S.range]);
                 entity.AddComponent(new SurroundRadius(radius));
 
                 var data = entity.Data;
                 data.Get<SkillCaster>().value = user_ae;
                 data.Get<SkillStrength>().value = context.strength;
                 data.Get<Position>().value =
-                    user.currentPosition + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * Mathf.Min(radius, 1);
+                    user.current_position + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * Mathf.Min(radius, 1);
                 data.Get<Trajectory>().meta = Trajectories.SelfSurround;
                 data.Get<Velocity>().scale.Scale(Vector3.one * Mathf.Sqrt(radius));
 

@@ -177,9 +177,9 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         var intelligence = ae.GetStat(S.intelligence);
         if (
             // 达到九转有概率选择突破元婴，有野心的会倾向于打磨金丹
-            (jindan.stage >= 9 && Toolbox.randomChance(a.hasTrait(WorldboxGame.ActorTraits.Ambitious.id) ? 0.13f : 0.5f))
+            (jindan.stage >= 9 && Randy.randomChance(a.hasTrait(WorldboxGame.ActorTraits.Ambitious.id) ? 0.13f : 0.5f))
             // 当寿元不足时，必定会选择突破元婴
-            || (!a.hasTrait(ActorTraits.Immortal.id) && a.data.getAge() / a.stats[S.max_age] > 0.9f))
+            || (!a.hasTrait(ActorTraits.Immortal.id) && a.data.getAge() / a.stats[S.lifespan] > 0.9f))
         {
             var xian_base = e.GetComponent<XianBase>();
             if (jindan.stage < 9)
@@ -221,7 +221,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 ae.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeSuccess);
             }
             jindan.stage++;
-            jindan.strength *= (1f + 0.2f * Toolbox.randomFloat(intelligence / (10 + intelligence), 1));
+            jindan.strength *= (1f + 0.2f * Randy.randomFloat(intelligence / (10 + intelligence), 1));
             component.wakan *= 0.8f;
             
             return false;
@@ -268,7 +268,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     {
         var max_wakan = actor_extend.Base.stats[BaseStatses.MaxWakan.id];
         if (xian.wakan >= max_wakan) return;
-        Vector2Int tile_pos = actor_extend.Base.currentTile.pos;
+        Vector2Int tile_pos = actor_extend.Base.current_tile.pos;
         var total = WakanMap.I.map[tile_pos.x, tile_pos.y];
         var to_take = Mathf.Log10(total + 1);
 
@@ -280,7 +280,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     {
         var max_wakan = actor_extend.Base.stats[BaseStatses.MaxWakan.id];
         if (xian.wakan >= max_wakan) return;
-        Vector2Int tile_pos = actor_extend.Base.currentTile.pos;
+        Vector2Int tile_pos = actor_extend.Base.current_tile.pos;
         var total = WakanMap.I.map[tile_pos.x, tile_pos.y];
         var to_take = Mathf.Log10(total + 1);
 
@@ -421,7 +421,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             {
                 ae.Base.data.setName(PlantNameGenerator.Instance.GenerateName([er.Type.GetName(), jindan.GetName()]));
             }
-            ae.AddSkillModifier<ScaleModifier, float>(CommonWeaponSkills.StartWeaponSkill.id, new ScaleModifier(Toolbox.randomFloat(1, 4)));
+            ae.AddSkillModifier<ScaleModifier, float>(CommonWeaponSkills.StartWeaponSkill.id, new ScaleModifier(Randy.randomFloat(1, 4)));
             return true;
         }
 

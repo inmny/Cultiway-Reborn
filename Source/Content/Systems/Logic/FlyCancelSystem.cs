@@ -25,7 +25,8 @@ public class FlyCancelSystem : QuerySystem<ActorBinder>
                 if (a.data.hasFlag(ContentActorDataKeys.IsFlying_flag))
                 {
                     a.data.removeFlag(ContentActorDataKeys.IsFlying_flag);
-                    a.flying = false;
+                    a.setFlying(false);
+                    a.precalcMovementSpeed(true);
                 }
             }
         })).RunParallel();

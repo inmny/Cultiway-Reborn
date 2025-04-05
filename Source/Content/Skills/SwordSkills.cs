@@ -106,9 +106,9 @@ public class SwordSkills : ICanInit, ICanReload
         if (velo.scale2.sqrMagnitude * dt> delta_pos.sqrMagnitude)
         {
             var user = data.Get<SkillCaster>().AsActor;
-            var angle_rad = Toolbox.randomFloat(0, 360)* Mathf.Deg2Rad;
-            var radius = Toolbox.randomFloat(0, data.Get<SurroundRadius>().value);
-            target_pos.v2 = user.currentPosition + new Vector2(Mathf.Cos(angle_rad), Mathf.Sin(angle_rad)) * radius;
+            var angle_rad = Randy.randomFloat(0, 360)* Mathf.Deg2Rad;
+            var radius = Randy.randomFloat(0, data.Get<SurroundRadius>().value);
+            target_pos.v2 = user.current_position + new Vector2(Mathf.Cos(angle_rad), Mathf.Sin(angle_rad)) * radius;
             delta_pos = target_pos.v2 - pos.v2;
         }
         //ModClass.LogInfo($"[{skill_entity.Id}]: {velo.scale2}, {delta_pos.normalized}, {delta_pos.normalized * velo.scale2.magnitude * dt}");
@@ -128,23 +128,23 @@ public class SwordSkills : ICanInit, ICanReload
             Actor user = user_ae.Base;
             float radius;
             if (context.target != null)
-                radius = Toolbox.DistVec2Float(user.currentPosition, context.target.currentPosition);
+                radius = Toolbox.DistVec2Float(user.current_position, context.target.current_position);
             else
-                radius = Toolbox.randomFloat(4, user.stats[S.range]);
+                radius = Randy.randomFloat(4, user.stats[S.range]);
 
-            var angle_rad = Toolbox.randomFloat(0, 360)* Mathf.Deg2Rad;
+            var angle_rad = Randy.randomFloat(0, 360)* Mathf.Deg2Rad;
             entity.AddComponent(new SurroundRadius(radius));
             entity.AddComponent(new SkillTargetPos()
             {
-                v2 = user.currentPosition + new Vector2(Mathf.Cos(angle_rad), Mathf.Sin(angle_rad)) * radius
+                v2 = user.current_position + new Vector2(Mathf.Cos(angle_rad), Mathf.Sin(angle_rad)) * radius
             });
-            angle_rad = Toolbox.randomFloat(0, 360)* Mathf.Deg2Rad;
+            angle_rad = Randy.randomFloat(0, 360)* Mathf.Deg2Rad;
 
             var data = entity.Data;
             data.Get<SkillCaster>().value = user_ae;
             data.Get<SkillStrength>().value = context.strength;
             data.Get<Position>().value =
-                user.currentPosition + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * Mathf.Min(radius, 1);
+                user.current_position + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * Mathf.Min(radius, 1);
             data.Get<Trajectory>().meta = SpecialGoldSwordTraj;
             data.Get<Velocity>().scale.Scale(new Vector3(Mathf.Cos(angle_rad), Mathf.Sin(angle_rad)) * Mathf.Sqrt(radius));
 
@@ -195,7 +195,7 @@ public class SwordSkills : ICanInit, ICanReload
     private void random_spawn_gold_sword(ref TimeIntervalTrigger trigger, ref TimeIntervalContext context, Entity skill_entity, Entity action_modifiers, Entity entity_modifiers)
     {
         
-        string id = starters[Toolbox.randomInt(0, entity_modifiers.GetComponent<StageModifier>().Value)];
+        string id = starters[Randy.randomInt(0, entity_modifiers.GetComponent<StageModifier>().Value)];
         //ModClass.LogInfo($"{starters.ToList().FindIndex(x=>x==id)}/{entity_modifiers.GetComponent<StageModifier>().Value}/{starters.Length}");
         var data = skill_entity.Data;
 
@@ -219,16 +219,16 @@ public class SwordSkills : ICanInit, ICanReload
             Actor user = user_ae.Base;
             float radius;
             if (context.target != null)
-                radius = Toolbox.DistVec2Float(user.currentPosition, context.target.currentPosition);
+                radius = Toolbox.DistVec2Float(user.current_position, context.target.current_position);
             else
-                radius = Toolbox.randomFloat(4, user.stats[S.range]);
+                radius = Randy.randomFloat(4, user.stats[S.range]);
             entity.AddComponent(new SurroundRadius(radius));
 
             var data = entity.Data;
             data.Get<SkillCaster>().value = user_ae;
             data.Get<SkillStrength>().value = context.strength;
             data.Get<Position>().value =
-                user.currentPosition + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * Mathf.Min(radius, 1);
+                user.current_position + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * Mathf.Min(radius, 1);
             data.Get<Trajectory>().meta = Trajectories.SelfSurround;
             data.Get<Velocity>().scale.Scale(Vector3.one * Mathf.Sqrt(radius));
 
@@ -259,12 +259,12 @@ public class SwordSkills : ICanInit, ICanReload
             var data = entity.Data;
             data.Get<SkillCaster>().value = user_ae;
             data.Get<SkillStrength>().value = context.strength * 8;
-            data.Get<Position>().value = user.currentPosition;
+            data.Get<Position>().value = user.current_position;
             data.Get<Velocity>().scale *= 4;
             data.Get<Trajectory>().meta = Trajectories.GoForward;
             data.Get<Rotation>().Setup(user, context.target ?? user,
-                new Vector3(Toolbox.randomFloat(-salvo_count, salvo_count),
-                    Toolbox.randomFloat(-salvo_count, salvo_count)));
+                new Vector3(Randy.randomFloat(-salvo_count, salvo_count),
+                    Randy.randomFloat(-salvo_count, salvo_count)));
 
             UntrajedGoldSwordEntity.ApplyModifiers(entity,
                 context.user.GetSkillEntityModifiers(UntrajedGoldSwordEntity.id,

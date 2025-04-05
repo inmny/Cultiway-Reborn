@@ -31,7 +31,7 @@ public class AntiErosionSystem : BaseSystem
     protected override void OnUpdateGroup()
     {
         if (MapGenerator._tilesMap != null) return;
-        if (check_tile_ids == null || check_tile_ids.Length != World.world.tilesList.Length)
+        if (check_tile_ids == null || check_tile_ids.Length != World.world.tiles_list.Length)
         {
             RegenerateCheckIDs(true);
         }
@@ -46,7 +46,7 @@ public class AntiErosionSystem : BaseSystem
                 check_idx = 0;
             }
 
-            CheckSingleTile(World.world.tilesList[check_tile_ids[check_idx]]);
+            CheckSingleTile(World.world.tiles_list[check_tile_ids[check_idx]]);
             last_check_idx = check_idx;
         }
     }
@@ -55,7 +55,7 @@ public class AntiErosionSystem : BaseSystem
     {
         if (new_array)
         {
-            check_tile_ids = new int[World.world.tilesList.Length];
+            check_tile_ids = new int[World.world.tiles_list.Length];
             for (int i = 0; i < check_tile_ids.Length; i++)
             {
                 check_tile_ids[i] = i;
@@ -83,9 +83,9 @@ public class AntiErosionSystem : BaseSystem
         {
             var prob = total_tile_count /
                        (check_tile_count_per_frame * frame_per_year * (10f / exposion_count));
-            if (Toolbox.randomChance(prob))
+            if (Randy.randomChance(prob))
             {
-                MapAction.increaseTile(tile);
+                MapAction.increaseTile(tile, false);
             }
         }
     }

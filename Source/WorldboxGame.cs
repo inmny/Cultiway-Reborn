@@ -22,15 +22,20 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
     }
 
     public static WorldboxGame I { get; private set; }
-
+    public Font CurrentFont => LocalizedTextManager.current_font;
     public override float GetLogicDeltaTime()
     {
-        return World.world.getCurElapsed() / Mathf.Max(0.01f, Config.timeScale);
+        return World.world.elapsed / Mathf.Max(0.01f, Config.time_scale_asset.multiplier);
     }
 
     public override float GetGameTime()
     {
         return (float)World.world.getCurSessionTime();
+    }
+
+    public float GetWorldTime()
+    {
+        return (float)World.world.getCurWorldTime();
     }
 
     public override bool IsPaused()
@@ -56,7 +61,7 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
 
     public float GetRenderDeltaTime()
     {
-        return World.world.getCurElapsed();
+        return World.world.elapsed;
     }
 
     public bool IsLoaded()

@@ -1,4 +1,5 @@
 using Cultiway.Abstract;
+using Cultiway.Content;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 
@@ -11,10 +12,10 @@ public static class WorldLogUtils
         var msg_key = component.Asset.LevelupMsgKeys[component.CurrLevel];
         if (!LMTools.Has(msg_key)) return;
 
-        var world_log = new WorldLogMessage(msg_key, ae.Base.getName())
+        var world_log = new WorldLogMessage(WorldLogs.LogCultisysLevelup, ae.Base.getName(), component.Asset.LevelupMsgKeys[component.CurrLevel])
         {
             unit = ae.Base,
-            location = ae.Base.currentPosition
+            location = ae.Base.current_position
         };
         if (ae.Base.kingdom?.kingdomColor != null)
         {

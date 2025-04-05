@@ -22,7 +22,7 @@ public class RestoreWakanSystem : QuerySystem<Xian, ActorBinder>
             if (a == null) return;
             var max_wakan = a.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit;
             if (xian.wakan >= max_wakan) return;
-            Vector2Int tile_pos = a.currentTile.pos;
+            Vector2Int tile_pos = a.current_tile.pos;
             var to_take = Mathf.Log10(WakanMap.I.map[tile_pos.x, tile_pos.y] + 1);
             to_take = Mathf.Min(max_wakan - xian.wakan, WakanMap.I.map[tile_pos.x, tile_pos.y], to_take * a.stats[BaseStatses.WakanRegen.id]);
             WakanMap.I.map[tile_pos.x, tile_pos.y] -= to_take;

@@ -44,10 +44,10 @@ public class WorldBehs : ExtendLibrary<WorldBehaviourAsset, WorldBehs>
         if (!record_e.HasComponent<WakanTideStatus>())
         {
             var positions = new List<Vector2Int>();
-            var len = Toolbox.randomInt(1, (int)Mathf.Sqrt(Config.ZONE_AMOUNT_X * Config.ZONE_AMOUNT_Y));
+            var len = Randy.randomInt(1, (int)Mathf.Sqrt(Config.ZONE_AMOUNT_X * Config.ZONE_AMOUNT_Y));
             for (int i = 0; i < len; i++)
             {
-                positions.Add(new Vector2Int(Toolbox.randomInt(0, MapBox.width), Toolbox.randomInt(0, MapBox.height)));
+                positions.Add(new Vector2Int(Randy.randomInt(0, MapBox.width), Randy.randomInt(0, MapBox.height)));
             }
 
             record_e.AddComponent(new WakanTideStatus()
@@ -68,11 +68,11 @@ public class WorldBehs : ExtendLibrary<WorldBehaviourAsset, WorldBehs>
             {
                 var positions = status.action_positions;
                 positions.Clear();
-                var len = Toolbox.randomInt(1, (int)Mathf.Sqrt(Config.ZONE_AMOUNT_X * Config.ZONE_AMOUNT_Y));
+                var len = Randy.randomInt(1, (int)Mathf.Sqrt(Config.ZONE_AMOUNT_X * Config.ZONE_AMOUNT_Y));
                 for (int i = 0; i < len; i++)
                 {
-                    positions.Add(new Vector2Int(Toolbox.randomInt(0, MapBox.width),
-                        Toolbox.randomInt(0,                          MapBox.height)));
+                    positions.Add(new Vector2Int(Randy.randomInt(0, MapBox.width),
+                        Randy.randomInt(0,                          MapBox.height)));
                 }
             }
             else
@@ -92,8 +92,8 @@ public class WorldBehs : ExtendLibrary<WorldBehaviourAsset, WorldBehs>
         }
         else
         {
-            var zone = World.world.zoneCalculator.zones[status.next_zone_id];
-            for (int i = 0; i < zone.tiles.Count; i++)
+            var zone = World.world.zone_calculator.zones[status.next_zone_id];
+            for (int i = 0; i < zone.tiles.Length; i++)
             {
                 var pos = zone.tiles[i].pos;
                 WakanMap.I.map[pos.x, pos.y] = Mathf.Clamp(WakanMap.I.map[pos.x, pos.y] * 0.99f - 1, 0, 1e8f);

@@ -24,49 +24,54 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
 
     protected override void OnInit()
     {
-        RegisterAssets("Cultiway.ActorTasks");
-        DailyXianCultivate.addBeh(new BehCityFindBuilding("random_house_building"));
-        DailyXianCultivate.addBeh(new BehFindRandomFrontBuildingTile());
+        RegisterAssets();
+        DailyXianCultivate.addBeh(new BehBuildingTargetHome());
+        DailyXianCultivate.addBeh(new BehGetTargetBuildingMainTile());
         DailyXianCultivate.addBeh(new BehGoToTileTarget());
         DailyXianCultivate.addBeh(new BehStayInBuildingTarget());
         DailyXianCultivate.addBeh(new BehXianCultivate());
         DailyXianCultivate.addBeh(new BehExitBuilding());
+        DailyXianCultivate.setIcon("cultiway/icons/iconCultivation");
 
-        LevelupXianCultivate.addBeh(new BehCityFindBuilding("random_house_building"));
-        LevelupXianCultivate.addBeh(new BehFindRandomFrontBuildingTile());
+        LevelupXianCultivate.addBeh(new BehBuildingTargetHome());
+        LevelupXianCultivate.addBeh(new BehGetTargetBuildingMainTile());
         LevelupXianCultivate.addBeh(new BehGoToTileTarget());
         LevelupXianCultivate.addBeh(new BehStayInBuildingTarget());
         LevelupXianCultivate.addBeh(new BehXianLevelup());
         LevelupXianCultivate.addBeh(new BehExitBuilding());
+        LevelupXianCultivate.setIcon("cultiway/icons/iconCultivation");
 
         DailyPlantXianCultivate.addBeh(new BehRandomWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
         DailyPlantXianCultivate.addBeh(new BehPlantXianCultivate());
+        DailyPlantXianCultivate.setIcon("cultiway/icons/iconCultivation");
 
         LevelupPlantXianCultivate.addBeh(new BehRandomWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
         LevelupPlantXianCultivate.addBeh(new BehPlantXianLevelup());
-
+        LevelupPlantXianCultivate.setIcon("cultiway/icons/iconCultivation");
+        
         LookForHerbs.addBeh(new BehFindTargetForCollector());
         LookForHerbs.addBeh(new BehGoToActorTarget());
         LookForHerbs.addBeh(new BehHarvestHerb());
 
-        CraftElixir.addBeh(new BehCityFindBuilding("random_house_building"));
-        CraftElixir.addBeh(new BehFindRandomFrontBuildingTile());
+        // TODO: 设置图标
+        CraftElixir.addBeh(new BehBuildingTargetHome());
+        CraftElixir.addBeh(new BehGetTargetBuildingMainTile());
         CraftElixir.addBeh(new BehGoToTileTarget());
         CraftElixir.addBeh(new BehStayInBuildingTarget());
         CraftElixir.addBeh(new BehFindElixirToCraft());
         CraftElixir.addBeh(new BehCraftElixir());
         CraftElixir.addBeh(new BehExitBuilding());
         
-        FindNewElixir.addBeh(new BehCityFindBuilding("random_house_building"));
-        FindNewElixir.addBeh(new BehFindRandomFrontBuildingTile());
+        FindNewElixir.addBeh(new BehBuildingTargetHome());
+        FindNewElixir.addBeh(new BehGetTargetBuildingMainTile());
         FindNewElixir.addBeh(new BehGoToTileTarget());
         FindNewElixir.addBeh(new BehStayInBuildingTarget());
         FindNewElixir.addBeh(new BehFindNewElixir());
         FindNewElixir.addBeh(new BehCraftElixir());
         FindNewElixir.addBeh(new BehExitBuilding());
         
-        CreateCultibook.addBeh(new BehCityFindBuilding("random_house_building"));
-        CreateCultibook.addBeh(new BehFindRandomFrontBuildingTile());
+        CreateCultibook.addBeh(new BehBuildingTargetHome());
+        CreateCultibook.addBeh(new BehGetTargetBuildingMainTile());
         CreateCultibook.addBeh(new BehGoToTileTarget());
         CreateCultibook.addBeh(new BehStayInBuildingTarget());
         CreateCultibook.addBeh(new BehCreateCultibook());

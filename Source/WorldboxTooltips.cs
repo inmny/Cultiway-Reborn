@@ -16,7 +16,7 @@ public partial class WorldboxGame
 
         protected override void OnInit()
         {
-            RegisterAssets("Cultiway.Tooltip");
+            RegisterAssets();
             SpecialItem.prefab_id = "tooltips/tooltip_cultiway_special_item";
             SpecialItem.callback = ShowSpecialItem;
             SpecialItemTooltip.PatchTo<Tooltip>(SpecialItem.prefab_id);

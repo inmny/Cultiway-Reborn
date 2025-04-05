@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using ai;
 using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Utils;
@@ -14,29 +15,8 @@ namespace Cultiway.Patch;
 internal static class PatchMapBox
 {
     [HarmonyTranspiler]
-    [HarmonyPatch(typeof(MapBox), nameof(MapBox.applyForce))]
-    private static IEnumerable<CodeInstruction> applyForce_transpiler(IEnumerable<CodeInstruction> codes)
-    {
-        var list = codes.ToList();
-
-        var add_force_idx = list.FindIndex(x =>
-            x.opcode == OpCodes.Callvirt && (x.operand as MemberInfo)?.Name == nameof(ActorBase.addForce));
-        
-        list[add_force_idx].opcode = OpCodes.Call;
-        list[add_force_idx].operand = AccessTools.Method(typeof(PatchMapBox), nameof(add_force_from));
-        
-        list.Insert(add_force_idx, new (OpCodes.Ldarg_S, 8));
-
-        return list;
-    }
-
-    private static void add_force_from(Actor target, float x, float y, float z, BaseSimObject attacker)
-    {
-        target.GetExtend().GetForce(attacker, x, y, z);
-    }
-    [HarmonyTranspiler]
     [HarmonyPatch(typeof(MapBox), nameof(MapBox.applyAttack))]
-    private static IEnumerable<CodeInstruction> applyAttack_transpiler(IEnumerable<CodeInstruction> codes)
+    private static IEnumerable<CodeInstruction> applyAttack_transpiler(IEnumerable<CodeInstruction> codes, ILGenerator il)
     {
         var list = new List<CodeInstruction>(codes);
 
@@ -44,95 +24,26 @@ internal static class PatchMapBox
             x.opcode == OpCodes.Callvirt && (x.operand as MemberInfo)?.Name == nameof(Actor.addExperience));
 
         CodeInstruction start_call_gethit = list[add_exp_idx + 1];
+        var float_local = il.DeclareLocal(typeof(float));
 
-        list[add_exp_idx + 2].opcode = OpCodes.Ldloc_2;
+        list[add_exp_idx + 2].operand = float_local.LocalIndex;
         list[add_exp_idx + 3].opcode = OpCodes.Nop;
 
         list.InsertRange(add_exp_idx + 1, new CodeInstruction[]
         {
             new(OpCodes.Ldarg_0),
             new(OpCodes.Ldfld, AccessTools.Field(typeof(AttackData), nameof(AttackData.initiator))),
-            new(OpCodes.Ldloc_1),
+            new(OpCodes.Ldloc_S, 5),
             new(OpCodes.Conv_R4),
             new(OpCodes.Ldarg_0),
             new(OpCodes.Ldfld, AccessTools.Field(typeof(AttackData), nameof(AttackData.attack_type))),
             new(OpCodes.Call, AccessTools.Method(typeof(PatchMapBox), nameof(recalc_damage))),
-            new(OpCodes.Stloc_2)
+            new(OpCodes.Stloc_S, float_local.LocalIndex)
         });
 
         start_call_gethit.MoveLabelsTo(list[add_exp_idx + 1]);
 
-        var ldsfld_knockback_reduction_idx = list.FindIndex(x =>
-            x.opcode == OpCodes.Ldsfld && (x.operand as FieldInfo)?.Name == nameof(S.knockback_reduction));
-        var start_calc_knockback_idx = ldsfld_knockback_reduction_idx - 4;
-        CodeInstruction start_calc_knockback = list[start_calc_knockback_idx];
-
-        list.InsertRange(start_calc_knockback_idx, new CodeInstruction[]
-        {
-            new(OpCodes.Ldarg_0),
-            new(OpCodes.Ldfld, AccessTools.Field(typeof(AttackData), nameof(AttackData.initiator))),
-            new(OpCodes.Ldarg_1),
-            new(OpCodes.Ldloc_2),
-            new (OpCodes.Ldarg_0),
-            new(OpCodes.Ldfld, AccessTools.Field(typeof(AttackData), nameof(AttackData.attack_vector))),
-            new(OpCodes.Call, AccessTools.Method(typeof(PatchMapBox), nameof(apply_force_to_target))),
-            new(OpCodes.Ret)
-        });
-        start_calc_knockback.MoveLabelsTo(list[start_calc_knockback_idx]);
         return list;
-        
-        
-        
-        list.RemoveRange(start_calc_knockback_idx,
-            list.FindIndex(start_calc_knockback_idx, x => x.opcode == OpCodes.Stloc_2)-start_calc_knockback_idx+1);
-        list.InsertRange(start_calc_knockback_idx, new CodeInstruction[]
-        {
-            new(OpCodes.Ldloc_2),
-            new(OpCodes.Ldarg_0),
-            new(OpCodes.Ldfld, AccessTools.Field(typeof(AttackData), nameof(AttackData.initiator))),
-            new(OpCodes.Ldarg_1),
-            new(OpCodes.Call, AccessTools.Method(typeof(PatchMapBox), nameof(calc_knockback_reduction))),
-            new(OpCodes.Stloc_2)
-        });
-        start_calc_knockback.MoveLabelsTo(list[start_calc_knockback_idx]);
-        
-
-        return list;
-    }
-
-    private static void apply_force_to_target(BaseSimObject attacker, BaseSimObject target, float knockback, Vector3 attack_vector)
-    {
-        if (!target.isActor()) return;
-        var a = target.a;
-        float angle = Toolbox.getAngle(a.curTransformPosition.x, a.curTransformPosition.y, attack_vector.x, attack_vector.y);
-        a.GetExtend().GetForce(attacker, -Mathf.Cos(angle) * knockback, -Mathf.Sin(angle) * knockback, knockback);
-    }
-
-    private static float calc_knockback_reduction(float knockback, BaseSimObject attacker, BaseSimObject target)
-    {
-        var reduction = target.stats[S.knockback_reduction];
-        
-        var attacker_power_level = attacker.isActor() ? attacker.a.GetExtend().GetPowerLevel() : 0;
-        var power_level = target.isActor() ? target.a.GetExtend().GetPowerLevel() : 0;
-        if (power_level > attacker_power_level)
-        {
-            reduction += (power_level - attacker_power_level) * 1000f;
-        }
-        if (reduction >= 0)
-        {
-            knockback *= (1 / (1 + reduction));
-        }
-        else
-        {
-            knockback *= (1 - reduction);
-        }
-
-        if (knockback < 0.01f)
-        {
-            return 0;
-        }
-
-        return knockback;
     }
     private static float recalc_damage(BaseSimObject attacker, float damage, AttackType attack_type)
     {

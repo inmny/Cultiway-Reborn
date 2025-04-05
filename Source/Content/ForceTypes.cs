@@ -8,6 +8,6 @@ public class ForceTypes : ExtendLibrary<ForceTypeAsset, ForceTypes>
     public static ForceTypeAsset Sect { get; private set; }
     protected override void OnInit()
     {
-        RegisterAssets("Cultiway.ForceTypes");
+        RegisterAssets();
     }
 }

@@ -13,14 +13,14 @@ public class Manager
 
     public void Init()
     {
-        AssetManager.instance.add(CultisysLibrary,      "cultisyses");
-        AssetManager.instance.add(ElementRootLibrary,   "element_roots");
-        AssetManager.instance.add(CustomMapModeLibrary, "custom_map_modes");
-        AssetManager.instance.add(ItemShapeLibrary,   "item_shapes");
-        AssetManager.instance.add(RandomEventLibrary, "random_events");
-        AssetManager.instance.add(StatusEffectLibrary, "status_effects");
-        AssetManager.instance.add(WrappedSkillLibrary, "wrapped_skills");
-        AssetManager.instance.add(ForceTypeLibrary, "force_types");
+        AssetManager._instance.add(CultisysLibrary,      "cultisyses");
+        AssetManager._instance.add(ElementRootLibrary,   "element_roots");
+        AssetManager._instance.add(CustomMapModeLibrary, "custom_map_modes");
+        AssetManager._instance.add(ItemShapeLibrary,   "item_shapes");
+        AssetManager._instance.add(RandomEventLibrary, "random_events");
+        AssetManager._instance.add(StatusEffectLibrary, "status_effects");
+        AssetManager._instance.add(WrappedSkillLibrary, "wrapped_skills");
+        AssetManager._instance.add(ForceTypeLibrary, "force_types");
     }
 
     public void PostInit()

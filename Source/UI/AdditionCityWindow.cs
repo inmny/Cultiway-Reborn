@@ -24,13 +24,13 @@ public class AdditionCityWindow : MonoBehaviour
     {
         TryInit();
 
-        LoadItems();
+        //LoadItems();
     }
     [Hotfixable]
     private void LoadItems()
     {
         _special_item_pool.Clear();
-        var items = _city_window.city.GetExtend().GetSpecialItems();
+        var items = _city_window.meta_object.GetExtend().GetSpecialItems();
         foreach (SpecialItem item in items)
         {
             SpecialItemDisplay display = _special_item_pool.GetNext();
@@ -43,7 +43,7 @@ public class AdditionCityWindow : MonoBehaviour
     private void TryInit()
     {
         if (_initialized) return;
-        _initialized = true;
+        _initialized = true;/*
         _city_window = GetComponent<CityWindow>();
         GetComponent<ScrollWindow>().scrollRect.enabled = true;
 
@@ -53,6 +53,6 @@ public class AdditionCityWindow : MonoBehaviour
         _city_window.list_content.Add(_item_grid.transform);
         _city_window._list_inventory_containers.Add(_item_grid.transform);
 
-        _special_item_pool = new MonoObjPool<SpecialItemDisplay>(SpecialItemDisplay.Prefab, _item_grid.Grid.transform);
+        _special_item_pool = new MonoObjPool<SpecialItemDisplay>(SpecialItemDisplay.Prefab, _item_grid.Grid.transform);*/
     }
 }

@@ -8,11 +8,11 @@ public partial class WorldboxGame
 {
     public class WorldBehaviours : ExtendLibrary<WorldBehaviourAsset, WorldBehaviours>
     {
-        [GetOnly("erosion")] public static WorldBehaviourAsset Erosion { get; private set; }
+        [GetOnly("wb_erosion")] public static WorldBehaviourAsset Erosion { get; private set; }
 
         protected override void OnInit()
         {
-            RegisterAssets("Cultiway.WorldBehaviours");
+            RegisterAssets();
             Erosion.interval = 9999;
         }
     }

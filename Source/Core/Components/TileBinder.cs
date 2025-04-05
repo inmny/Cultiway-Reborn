@@ -7,5 +7,5 @@ public struct TileBinder(int idx) : IComponent
 {
     public int       tile_idx = idx;
     [Ignore]
-    public WorldTile Tile => World.world.tilesList[tile_idx];
+    public WorldTile Tile => World.world.tiles_list[tile_idx];
 }

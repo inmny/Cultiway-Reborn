@@ -19,7 +19,7 @@ public partial class WorldboxGame
 
         protected override void OnInit()
         {
-            RegisterAssets("Cultiway.ActorTraits");
+            RegisterAssets();
         }
     }
 }

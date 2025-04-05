@@ -18,7 +18,7 @@ public partial class WorldboxGame
         public static CombatActionAsset CastSkill { get; private set; }
         protected override void OnInit()
         {
-            RegisterAssets("Cultiway.CombatActions");
+            RegisterAssets();
             CastSkill.rate = 10;
             CastSkill.action = data =>
             {

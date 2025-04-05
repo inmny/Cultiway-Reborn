@@ -6,36 +6,36 @@ public partial class WorldboxGame
 {
     public class Terraforms : ExtendLibrary<TerraformOptions, Terraforms>
     {
-        [GetOnly("earthquake")]     public static TerraformOptions Earthquake     { get; private set; }
-        [CloneSource("earthquake")] public static TerraformOptions EarthquakeBurn { get; private set; }
+        [GetOnly(S_Terraform.earthquake)]     public static TerraformOptions Earthquake     { get; private set; }
+        [CloneSource(S_Terraform.earthquake)] public static TerraformOptions EarthquakeBurn { get; private set; }
         public static TerraformOptions HitGround { get; private set; }
         public static TerraformOptions RemoveAll { get; private set; }
 
         protected override void OnInit()
         {
-            RegisterAssets("Cultiway.Terraforms");
+            RegisterAssets();
 
-            EarthquakeBurn.addBurned = true;
+            EarthquakeBurn.add_burned = true;
 
-            HitGround.addBurned = true;
-            HitGround.applyForce = true;
-            HitGround.removeFrozen = true;
+            HitGround.add_burned = true;
+            HitGround.apply_force = true;
+            HitGround.remove_frozen = true;
             HitGround.damage = 20;
-            HitGround.lightningEffect = true;
+            HitGround.lightning_effect = true;
 
 
-            RemoveAll.removeFrozen = true;
-            RemoveAll.removeBorders = true;
-            RemoveAll.removeBurned = true;
-            RemoveAll.removeFire = true;
-            RemoveAll.removeTopTile = true;
-            RemoveAll.removeRoads = true;
-            RemoveAll.removeTornado = true;
-            RemoveAll.removeLava = true;
-            RemoveAll.removeWater = true;
-            RemoveAll.removeRuins = true;
-            RemoveAll.removeTreesFully = true;
-            RemoveAll.destroyBuildings = true;
+            RemoveAll.remove_frozen = true;
+            RemoveAll.remove_borders = true;
+            RemoveAll.remove_burned = true;
+            RemoveAll.remove_fire = true;
+            RemoveAll.remove_top_tile = true;
+            RemoveAll.remove_roads = true;
+            RemoveAll.remove_tornado = true;
+            RemoveAll.remove_lava = true;
+            RemoveAll.remove_water = true;
+            RemoveAll.remove_ruins = true;
+            RemoveAll.remove_trees_fully = true;
+            RemoveAll.destroy_buildings = true;
 
         }
     }

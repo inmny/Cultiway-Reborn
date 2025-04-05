@@ -21,13 +21,13 @@ public class TileExtendManager : ExtendComponentManager<TileExtend>
 
     public bool Ready()
     {
-        return _tile_extends != null && _tile_extends.Length == global::World.world.tilesList.Length;
+        return _tile_extends != null && _tile_extends.Length == global::World.world.tiles_list.Length;
     }
 
     internal void FitNewWorld()
     {
         World.Query<TileBinder>().ForEachEntity((ref TileBinder _, Entity e) => e.DeleteEntity());
-        var tiles = global::World.world.tilesList;
+        var tiles = global::World.world.tiles_list;
         _tile_extends = new TileExtend[tiles.Length];
 
         for (int i = 0; i < tiles.Length; i++)

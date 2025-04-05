@@ -21,6 +21,6 @@ public class ItemShapeAsset : Asset
 
     public int GetRandomTextureIdx()
     {
-        return Toolbox.randomInt(0, major_textures.Count);
+        return Randy.randomInt(0, major_textures.Count);
     }
 }

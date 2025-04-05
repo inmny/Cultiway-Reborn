@@ -32,8 +32,8 @@ public class LineTitleValue : APrefabPreview<LineTitleValue>
         var title = title_obj.GetComponent<Text>();
         var value = value_obj.GetComponent<Text>();
 
-        title.font = LocalizedTextManager.currentFont;
-        value.font = LocalizedTextManager.currentFont;
+        title.font = LocalizedTextManager.current_font;
+        value.font = LocalizedTextManager.current_font;
         
         title.alignment = TextAnchor.MiddleLeft;
         value.alignment = TextAnchor.MiddleRight;

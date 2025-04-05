@@ -15,7 +15,7 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
     public static CombatActionAsset UseTalisman { get; private set; }
     protected override void OnInit()
     {
-        RegisterAssets("Cultiway.CombatActions");
+        RegisterAssets();
         UseTalisman.rate = 10;
         UseTalisman.action = [Hotfixable] (data) =>
         {

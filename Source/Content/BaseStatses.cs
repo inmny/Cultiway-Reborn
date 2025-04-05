@@ -16,7 +16,7 @@ public class BaseStatses : ExtendLibrary<BaseStatAsset, BaseStatses>
 
     protected override void OnInit()
     {
-        RegisterAssets("Cultiway.BaseStats");
+        RegisterAssets();
         PatchWindowCreatureInfo.RegisterInfoDisplay((ae, sb) =>
         {
             if (!ae.HasCultisys<Xian>()) return;

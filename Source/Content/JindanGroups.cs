@@ -27,8 +27,8 @@ public class JindanGroups : ExtendLibrary<JindanGroupAsset, JindanGroups>
     {
         RegisterAssets("Cultiway.JindanGroup");
         Common.check = (ActorExtend ae, ref XianBase @base) => true;
-        Element.check = (ActorExtend ae, ref XianBase @base) => Toolbox.randomChance(@base.GetFiveQiStrength());
-        Special.check = (ActorExtend ae, ref XianBase @base) => Toolbox.randomChance(@base.GetStrength() / 20);
+        Element.check = (ActorExtend ae, ref XianBase @base) => Randy.randomChance(@base.GetFiveQiStrength());
+        Special.check = (ActorExtend ae, ref XianBase @base) => Randy.randomChance(@base.GetStrength() / 20);
     }
 
     protected override void ActionAfterCreation(PropertyInfo prop, JindanGroupAsset asset)

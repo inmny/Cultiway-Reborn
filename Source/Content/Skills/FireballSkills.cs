@@ -147,7 +147,7 @@ public class FireballSkills : ICanInit
             var data = entity.Data;
             data.Get<SkillCaster>().value = user_ae;
             data.Get<SkillStrength>().value = context.strength;
-            data.Get<Position>().v2 = user_ae.Base.currentPosition;
+            data.Get<Position>().v2 = user_ae.Base.current_position;
             
             // 单发的时候，直接朝向目标
             // 多发的时候，第一发朝向目标，其他的就往目标附近发射，角度范围取决于齐射数量
@@ -155,12 +155,12 @@ public class FireballSkills : ICanInit
             {
                 var offset_range = salvo_count * salvo_count;
                 data.Get<Rotation>().Setup(user_ae.Base, context.target,
-                    new Vector3(Toolbox.randomFloat(-offset_range, offset_range),
-                        Toolbox.randomFloat(-offset_range, offset_range), -context.target.getZ()));
+                    new Vector3(Randy.randomFloat(-offset_range, offset_range),
+                        Randy.randomFloat(-offset_range, offset_range), -context.target.getHeight()));
             }
             else
             {
-                data.Get<Rotation>().Setup(user_ae.Base, context.target, new Vector3(0,0,1) * context.target.getZ());
+                data.Get<Rotation>().Setup(user_ae.Base, context.target, new Vector3(0,0,1) * context.target.getHeight());
             }
         
         

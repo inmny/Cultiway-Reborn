@@ -124,7 +124,7 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
                                      Entity                modifier_container, Entity entity_modifiers)
     {
         if (!context.user.Base.hasWeapon()) return;
-        var bang_or_rotate = Toolbox.randomBool();
+        var bang_or_rotate = Randy.randomBool();
         Entity weapon_entity = bang_or_rotate ? BangWeaponEntity.NewEntity() : RotateForwardWeaponEntity.NewEntity();
         EntityData data = weapon_entity.Data;
 
@@ -133,10 +133,10 @@ internal class CommonWeaponSkills : ICanInit, ICanReload
         Actor user = user_ae.Base;
         BaseSimObject target = context.target;
         data.Get<SkillCaster>().value = user_ae;
-        data.Get<SkillTargetPos>().Setup(target, new(0,0,-target.getZ()));
+        data.Get<SkillTargetPos>().Setup(target, new(0,0,-target.getHeight()));
         data.Get<SkillStrength>().value = bang_or_rotate ? context.strength * 8 : context.strength;
-        data.Get<Position>().value = bang_or_rotate ? new Vector3(target.currentPosition.x, target.currentPosition.y, target.getZ()+10) : user.currentPosition;
-        data.Get<AnimData>().frames = [user.getWeaponAsset().getSprite(user.getWeapon())];//ActorAnimationLoader.getItem(user.getWeaponTextureId());
+        data.Get<Position>().value = bang_or_rotate ? new Vector3(target.current_position.x, target.current_position.y, target.getHeight()+10) : user.current_position;
+        data.Get<AnimData>().frames = [user.getWeaponAsset().getSprite()];//ActorAnimationLoader.getItem(user.getWeaponTextureId());
         // data.Get<Rotation>().Setup(user, target);
         var modifier_data = modifier_container.Data;
         

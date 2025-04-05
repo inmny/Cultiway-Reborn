@@ -1,18 +1,20 @@
+using System;
 using Cultiway.Abstract;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General.Game.extensions;
+using UnityEngine;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(ActorJobs), typeof(Races))]
+[Dependency(typeof(ActorJobs), typeof(Architectures), typeof(KingdomAssets))]
 public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 {
-    [CloneSource("_mob")] public static ActorAsset Plant { get; private set; }
+    [CloneSource("$mob$")] public static ActorAsset Plant { get; private set; }
 
     protected override void OnInit()
     {
-        RegisterAssets("Cultiway.Actor");
+        RegisterAssets();
         SetupPlant();
         SetupMing();
         SetupConstraintSpirit();
@@ -20,34 +22,39 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 
     private void SetupPlant()
     {
-        Plant.canTurnIntoMush = false;
-        Plant.canTurnIntoZombie = false;
-        Plant.canTurnIntoIceOne = false;
-        Plant.canTurnIntoTumorMonster = false;
+        Plant.can_turn_into_mush = false;
+        Plant.can_turn_into_zombie = false;
+        Plant.can_turn_into_ice_one = false;
+        Plant.can_turn_into_tumor = false;
         Plant.can_turn_into_demon_in_age_of_chaos = false;
         Plant.run_to_water_when_on_fire = false;
         Plant.inspect_children = false;
-        Plant.needFood = false;
-        Plant.animal = false;
-        Plant.procreate = false;
         Plant.source_meat = false;
-        Plant.base_stats[S.max_age] = 1000;
+        Plant.color_hex = "#00FF00";
+        Plant.base_stats[S.lifespan] = 1000;
         Plant.base_stats[S.speed] = -999999;
-        Plant.job = ActorJobs.PlantXianCultivator.id;
-        Plant.actorSize = ActorSize.S0_Bug;
-        Plant.shadowTexture = "unitShadow_2";
-        Plant.maxRandomAmount = 1000;
-        Plant.prefab = "p_unit";
-        Plant.nameLocale = "Cultiway.Actor.Plant";
-        Plant.texture_path = "t_grasshopper";
-        Plant.animation_idle = "walk_0,walk_1,walk_2";
-        Plant.animation_walk = "walk_0,walk_1,walk_2";
-        Plant.animation_swim = "walk_0,walk_1,walk_2";
+        Plant.base_stats._tags?.Remove(S_Tag.needs_food);
+        Plant.job = [ActorJobs.PlantXianCultivator.id];
+        Plant.actor_size = ActorSize.S0_Bug;
+        Plant.shadow_texture = "unitShadow_2";
+        Plant.max_random_amount = 1000;
+        Plant.name_locale = Plant.id;
+        Plant.texture_id = "plant";
+        Plant.default_animal = false;
+        Plant.civ = false;
+        Plant.unit_other = true;
+        Plant.has_advanced_textures = false;
+        Plant.animation_idle = "walk_0,walk_1,walk_2".Split(',');
+        Plant.animation_walk = "walk_0,walk_1,walk_2".Split(',');
+        Plant.animation_swim = "walk_0,walk_1,walk_2".Split(',');
 
-        Plant.race = SK.nature;
-        Plant.kingdom = SK.nature;
+        Plant.kingdom_id_wild = SK.nature;
 
         Plant.GetExtend<ActorAssetExtend>().must_have_element_root = true;
+        t = Plant;
+        AddPhenotype("skin_light", "default_color");
+        AddPhenotype("skin_dark", "default_color");
+        AddPhenotype("skin_mixed", "default_color");
 
         AssetManager.biome_library.ForEach<BiomeAsset, BiomeLibrary>(biome => biome.addUnit(Plant.id));
 
@@ -55,6 +62,20 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 
     protected override void PostInit(ActorAsset asset)
     {
+        if (asset.avatar_prefab != string.Empty) asset.has_avatar_prefab = true;
+        if (asset.get_override_sprite != null) asset.has_override_sprite = true;
+        if (asset.get_override_avatar_frames != null) asset.has_override_avatar_frames = true;
+        if (!string.IsNullOrEmpty(asset.architecture_id))
+            asset.architecture_asset = AssetManager.architecture_library.get(asset.architecture_id);
+        if (asset.spell_ids?.Count > 0)
+        {
+            asset.spells = new();
+            asset.spells.mergeWith(asset.spell_ids);
+        }
+        if (asset.is_boat) AssetManager.actor_library.list_only_boat_assets.Add(asset);
+        if (asset.color_hex != null) asset.color = new Color32?(Toolbox.makeColor(asset.color_hex));
+        if (asset.check_flip == null) asset.check_flip = (_, _) => true;
         if (asset.shadow) AssetManager.actor_library.loadShadow(asset);
+        if (!asset.isTemplateAsset()) AssetManager.actor_library.loadTexturesAndSprites(asset);
     }
 }

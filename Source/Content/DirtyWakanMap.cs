@@ -11,6 +11,7 @@ public class DirtyWakanMap
 
     private DirtyWakanMap()
     {
+        Resize(MapBox.width, MapBox.height);
     }
 
     public static DirtyWakanMap I

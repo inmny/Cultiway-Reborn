@@ -3,9 +3,9 @@ using Friflo.Json.Fliox;
 
 namespace Cultiway.Core.Components;
 
-public struct CityBinder(string id) : IComponent
+public struct CityBinder(long id) : IComponent
 {
-    public readonly string id = id;
+    public readonly long id = id;
 
     [Ignore]
     public City City

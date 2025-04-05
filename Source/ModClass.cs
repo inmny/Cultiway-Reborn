@@ -21,6 +21,7 @@ using Cultiway.LocaleKeys;
 using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
+using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
@@ -83,7 +84,7 @@ namespace Cultiway
                     }
 
                     if (TimeScales.precise_simulate)
-                        accum_time += Mathf.Sqrt(Config.timeScale);
+                        accum_time += Mathf.Sqrt(Config.time_scale_asset.multiplier);
                     var logic_update_tick = new UpdateTick(Game.GetLogicDeltaTime(), Game.GetGameTime());
                     if (TimeScales.precise_simulate)
                     {
@@ -156,7 +157,7 @@ namespace Cultiway
             
             foreach (var city in World.world.cities.list)
             {
-                if (city.units.getSimpleList().Any(x => x == null))
+                if (city.units.Any(x => x == null))
                 {
                     LogError($"City {city.name} has null units");
                 }
@@ -173,6 +174,7 @@ namespace Cultiway
 
         protected override void OnModLoad()
         {
+            Harmony.CreateAndPatchAll(typeof(FinalizerPatch));
             Try.Start(() => { _ = LK.Root; });
             A = Assembly.GetExecutingAssembly();
             PrefabLibrary.gameObject.SetActive(false);

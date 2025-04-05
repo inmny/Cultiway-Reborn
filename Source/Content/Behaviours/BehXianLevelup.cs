@@ -5,7 +5,7 @@ using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content.Behaviours;
 
-public class BehXianLevelup : BehCity
+public class BehXianLevelup : BehCityActor
 {
     public override BehResult execute(Actor pObject)
     {

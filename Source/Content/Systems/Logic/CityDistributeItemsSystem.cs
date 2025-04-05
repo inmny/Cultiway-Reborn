@@ -33,7 +33,7 @@ public class CityDistributeItemsSystem : QuerySystem<CityBinder>
                     if (data.TryGet(out AliveTimeLimit limit))
                     {
                         var left_years = limit.value - data.Get<AliveTimer>().value;
-                        if (Toolbox.randomChance(left_years / limit.value))
+                        if (Randy.randomChance(left_years / limit.value))
                         {
                             continue;
                         }
@@ -41,7 +41,7 @@ public class CityDistributeItemsSystem : QuerySystem<CityBinder>
                     pool.Add(item);
                 }
 
-                var units = ce.Base.units.getSimpleList();
+                var units = ce.Base.units;
                 if (units.Count == 0) continue;
                 foreach (var item in pool)
                 {

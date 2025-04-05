@@ -37,7 +37,8 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
     {
         if (Instance == null) CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
 
-        ScrollWindow.showWindow(WindowId);
+        Instance.GetComponent<ScrollWindow>().clickShow();
+        //ScrollWindow.showWindow(WindowId);
     }
 
     protected override void Init()
@@ -86,7 +87,7 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 
         Transform scroll_view_transform = BackgroundTransform.Find("Scroll View");
         scroll_view_transform.localPosition = new Vector3(158, 111);
-        scroll_view_transform.GetComponent<RectTransform>().sizeDelta = new Vector2(258, 30);
+        scroll_view_transform.GetComponent<RectTransform>().sizeDelta = new Vector2(230, 30);
         _page_entry_container = scroll_view_transform.Find("Viewport/Content");
         _page_entry_container.GetComponent<RectTransform>().sizeDelta = new Vector2(0, 30);
         var fitter = _page_entry_container.gameObject.AddComponent<ContentSizeFitter>();
@@ -176,7 +177,7 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
     [Hotfixable]
     public override void OnNormalEnable()
     {
-        _actor = Config.selectedUnit;
+        _actor = SelectedUnit.unit;
         _ae = _actor.GetExtend();
         _page_entry_pool.Clear();
         _available_pages.Clear();

@@ -36,7 +36,7 @@ public class CustomMapModeManager
         custom_map_layer_obj.transform.localScale = Vector3.one;
         custom_map_layer_obj.GetComponent<SpriteRenderer>().sortingOrder = 1;
         MapLayer = custom_map_layer_obj.GetComponent<CustomMapLayer>();
-        World.world.mapLayers.Add(MapLayer);
+        World.world._map_layers.Add(MapLayer);
 
         StartUpdate();
     }

@@ -4,12 +4,12 @@ namespace Cultiway.Content;
 
 public class CitizenJobs : ExtendLibrary<CitizenJobAsset, CitizenJobs>
 {
-    [CloneSource(nameof(S.gatherer_herbs))]
+    [CloneSource(nameof(S_ActorJob.gatherer_herbs))]
     public static CitizenJobAsset HerbCollector { get; private set; }
 
     protected override void OnInit()
     {
-        RegisterAssets("Cultiway.ActorJob");
+        RegisterAssets();
     }
 
     protected override void PostInit(CitizenJobAsset asset)

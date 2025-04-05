@@ -22,8 +22,8 @@ public struct Rotation : IComponent
 
     public void Setup(BaseSimObject start, BaseSimObject end, Vector3 offset = default)
     {
-        in_plane = end.currentPosition - start.currentPosition;
-        z = end.getZ()                 - start.getZ();
+        in_plane = end.current_position - start.current_position;
+        z = end.getHeight()                 - start.getHeight();
         value += offset;
     }
 

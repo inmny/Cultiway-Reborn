@@ -89,7 +89,7 @@ public class PolygonGraph : APrefabPreview<PolygonGraph>
         GameObject title_obj = obj.NewChild(nameof(Title), typeof(Text), typeof(LocalizedText));
         var text = title_obj.GetComponent<Text>();
         text.alignment = TextAnchor.MiddleCenter;
-        text.font = LocalizedTextManager.currentFont;
+        text.font = WorldboxGame.I.CurrentFont;
         text.resizeTextMinSize = 1;
         text.resizeTextForBestFit = true;
         var localization = title_obj.GetComponent<LocalizedText>();

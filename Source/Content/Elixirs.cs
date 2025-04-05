@@ -80,7 +80,7 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
         EnlightenElixir.description_key = $"{prefix}.EnlightenElixir.Info";
         EnlightenElixir.SetupStatusGain((ActorExtend ae, Entity elixir_entity, ref Elixir elixir) =>
         {
-            var value = Toolbox.randomFloat(10, 60);// elixir.value;
+            var value = Randy.randomFloat(10, 60);// elixir.value;
             var status = StatusEffects.Enlighten.NewEntity();
             status.AddComponent(new StatusOverwriteStats(){stats = new BaseStats()
             {

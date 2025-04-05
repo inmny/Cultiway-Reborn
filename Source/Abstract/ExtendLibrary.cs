@@ -17,7 +17,7 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
     protected ExtendLibrary()
     {
         cached_library =
-            AssetManager.instance.list.Find(x => x is (AssetLibrary<TAsset>)) as AssetLibrary<TAsset>;
+            AssetManager._instance._list.Find(x => x is (AssetLibrary<TAsset>)) as AssetLibrary<TAsset>;
         assets_added = _assets_added.AsReadOnly();
     }
 

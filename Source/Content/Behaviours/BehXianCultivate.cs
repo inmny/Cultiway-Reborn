@@ -7,7 +7,7 @@ using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content.Behaviours;
 
-public class BehXianCultivate : BehCity
+public class BehXianCultivate : BehCityActor
 {
     [Hotfixable]
     public override BehResult execute(Actor pObject)

@@ -1,4 +1,6 @@
+using System;
 using System.Linq;
+using Cultiway.Debug;
 using HarmonyLib;
 
 namespace Cultiway.Patch;
@@ -10,7 +12,10 @@ internal class Manager
         var ns = GetType().Namespace;
         foreach (var t in ModClass.A.GetTypes().Where(t => t.Name.StartsWith("Patch") && t.Namespace == ns))
         {
-            Harmony.CreateAndPatchAll(t, "inmny.cultiway");
+            Try.Start(() =>
+            {                
+                Harmony.CreateAndPatchAll(t, "inmny.cultiway");
+            });
         }
     }
 }

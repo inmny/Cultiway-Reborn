@@ -10,7 +10,7 @@ using Friflo.Engine.ECS;
 
 namespace Cultiway.Content.Behaviours;
 
-public class BehFindElixirToCraft : BehCity
+public class BehFindElixirToCraft : BehCityActor
 {
     public override BehResult execute(Actor pObject)
     {

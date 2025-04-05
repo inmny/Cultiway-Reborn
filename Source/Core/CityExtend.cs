@@ -50,7 +50,7 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce, IDispo
 
     public override string ToString()
     {
-        return $"[{e.GetComponent<CityBinder>().id}] {Base.getCityName()}: {e}";
+        return $"[{e.GetComponent<CityBinder>().id}] {Base.name}: {e}";
     }
 
     public void TestAddSpecialItem()
@@ -77,7 +77,7 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce, IDispo
             .Where(item => item.self.GetComponent<Elixir>().elixir_id == Elixirs.OpenElementRootElixir.id).ToList();
         if (open_element_root_elixirs.Count == 0) return;
         ActorExtend lucky_dog = null;
-        foreach (Actor actor in Base.units.getSimpleList())
+        foreach (Actor actor in Base.units)
         {
             ActorExtend ae = actor.GetExtend();
             if (ae.HasElementRoot()) continue;

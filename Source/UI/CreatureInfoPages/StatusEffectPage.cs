@@ -16,7 +16,7 @@ public class StatusEffectPage : MonoBehaviour
         var this_page = page.gameObject.AddComponent<StatusEffectPage>();
         var text = page.gameObject.AddComponent<Text>();
 
-        text.font = LocalizedTextManager.currentFont;
+        text.font = LocalizedTextManager.current_font;
         text.fontSize = 8;
 
         this_page.Text = text;

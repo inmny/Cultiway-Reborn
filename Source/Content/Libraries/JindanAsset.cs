@@ -14,8 +14,8 @@ public class JindanAsset : Asset
 
     public BaseStats Stats = new()
     {
-        [S.mod_health] = 0.2f,
-        [S.mod_damage] = 0.2f,
+        [S.multiplier_health] = 0.2f,
+        [S.multiplier_damage] = 0.2f,
         [nameof(WorldboxGame.BaseStats.IronArmor)] = 1,
         [nameof(WorldboxGame.BaseStats.WoodArmor)] = 1,
         [nameof(WorldboxGame.BaseStats.WaterArmor)] = 1,

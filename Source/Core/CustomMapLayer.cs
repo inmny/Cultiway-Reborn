@@ -54,8 +54,8 @@ public class CustomMapLayer : MapLayer
 
         Show();
 
-        spr_color.a = World.world.zoneCalculator._night_mod * (MapBox.isRenderMiniMap()
-            ? World.world.zoneCalculator.minimap_opacity
+        spr_color.a = World.world.zone_calculator._night_multiplier * (MapBox.isRenderMiniMap()
+            ? World.world.zone_calculator.minimap_opacity
             : Mathf.Clamp(ZoneCalculator.getCameraScaleZoom() * 0.3f, 0f, 0.7f));
 
         sprRnd.enabled = true;
@@ -120,7 +120,7 @@ public class CustomMapLayer : MapLayer
         for (int i = 0; i < pPixels.Length; i++)
             pPixels[i] = Color.clear;
         return;
-        foreach (TileZone zone in World.world.zoneCalculator.zones) ClearZone(pPixels, zone);
+        foreach (TileZone zone in World.world.zone_calculator.zones) ClearZone(pPixels, zone);
         _last_drawn_zones.Clear();
     }
 

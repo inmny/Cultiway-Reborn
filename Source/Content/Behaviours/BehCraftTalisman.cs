@@ -28,7 +28,7 @@ public class BehCraftTalisman : BehaviourActionActor
         xian.wakan -= wakan_to_take;
         var power_level = ae.GetPowerLevel();
         var skill = ae.tmp_all_skills.GetRandom();
-        var item = SpecialItemUtils.StartBuild(ItemShapes.Talisman.id, World.world.getCreationTime(), pObject.getName(), Mathf.Pow(power_level, 2)*10)
+        var item = SpecialItemUtils.StartBuild(ItemShapes.Talisman.id, WorldboxGame.I.GetWorldTime(), pObject.getName(), Mathf.Pow(power_level, 2)*10)
             .AddComponent(new Talisman()
             {
                 PowerLevel = power_level - 1,
@@ -37,7 +37,7 @@ public class BehCraftTalisman : BehaviourActionActor
             })
             .AddComponent(new EntityName(TalismanNameGenerator.Instance.GenerateName([ModClass.L.WrappedSkillLibrary.get(skill).GetName()])))
             .Build();
-        if (pObject.city != null && Toolbox.randomChance(0.6f))
+        if (pObject.city != null && Randy.randomChance(0.6f))
         {
             pObject.city.GetExtend().AddSpecialItem(item);
         }

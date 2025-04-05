@@ -6,14 +6,14 @@ namespace Cultiway;
 
 public partial class WorldboxGame
 {
-    public class StatusEffects : ExtendLibrary<StatusEffect, StatusEffects>
+    public class StatusEffects : ExtendLibrary<StatusAsset, StatusEffects>
     {
-        [GetOnly("burning")] public static StatusEffect Burning { get; private set; }
-        [GetOnly("caffeinated")]public static StatusEffect Caffeinated { get; private set; }
+        [GetOnly(S_Status.burning)] public static StatusAsset Burning { get; private set; }
+        [GetOnly(S_Status.caffeinated)]public static StatusAsset Caffeinated { get; private set; }
 
         protected override void OnInit()
         {
-            RegisterAssets("Cultiway.StatusEffects");
+            RegisterAssets();
         }
     }
 }

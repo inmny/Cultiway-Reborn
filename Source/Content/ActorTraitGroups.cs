@@ -14,6 +14,6 @@ public class ActorTraitGroups : ExtendLibrary<ActorTraitGroupAsset, ActorTraitGr
         RegisterAssets();
 
         System.name = System.id;
-        System.color = Color.white;
+        System.color = Toolbox.colorToHex(Color.white);
     }
 }

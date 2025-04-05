@@ -89,17 +89,17 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     }
     private static Action<ActorExtend, BaseSimObject, ListPool<CombatActionAsset>> action_on_attack;
     [Hotfixable]
-    public bool TryToAttack(BaseSimObject target)
+    public bool TryToAttack(BaseSimObject target, Action kill_action = null, float bonus_area_effect = 0)
     {
         var actor = Base;
-        if (actor.isInLiquid() && !actor.asset.oceanCreature) return false;
+        if (actor.isInLiquid() && !actor.asset.force_ocean_creature) return false;
         if (!actor.isAttackReady()) return false;
 
         CombatActionAsset basic_attack_action = null;
         
         using var attack_action_pool = new ListPool<CombatActionAsset>();
         // 加入普攻
-        if (actor.s_attackType == WeaponType.Melee)
+        if (actor.s_type_attack == WeaponType.Melee)
         {
             basic_attack_action = WorldboxGame.CombatActions.AttackMelee;
         }
@@ -110,7 +110,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         
         if (basic_attack_action != null) basic_attack_action.AddToPool(attack_action_pool);
         // 加入原版技能
-        if (actor.asset.attack_spells?.Count > 0)
+        if (actor._spells.hasAny())
         {
             WorldboxGame.CombatActions.CastVanillaSpell.AddToPool(attack_action_pool);
         }
@@ -120,16 +120,16 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         
 
         float target_size = target.stats[S.size];
-        Vector3 target_pos = new Vector3(target.currentPosition.x, target.currentPosition.y);
+        Vector3 target_pos = new Vector3(target.current_position.x, target.current_position.y);
         if (target.isActor() && target.a.is_moving && target.isFlying())
         {
-            target_pos = Vector3.MoveTowards(target_pos, target.a.nextStepPosition, target_size * 3f);
+            target_pos = Vector3.MoveTowards(target_pos, target.a.next_step_position, target_size * 3f);
         }
-        float dist = Vector2.Distance(actor.currentPosition, target.currentPosition) + target.getZ();
-        Vector3 new_point = Toolbox.getNewPoint(actor.currentPosition.x, actor.currentPosition.y, target_pos.x, target_pos.y, dist - target_size, true);
+        float dist = Vector2.Distance(actor.current_position, target.current_position) + target.getHeight();
+        Vector3 new_point = Toolbox.getNewPoint(actor.current_position.x, actor.current_position.y, target_pos.x, target_pos.y, dist - target_size, true);
 
-        AttackData attack_data = new(actor, target.currentTile, new_point, target, AttackType.Weapon,
-            actor.haveMetallicWeapon());
+        AttackData attack_data = new(actor, target.current_tile, new_point, actor.current_position, target, actor.kingdom, AttackType.Weapon,
+            actor.haveMetallicWeapon(), true, actor.hasRangeAttack(), actor.getWeaponAsset().projectile, kill_action, bonus_area_effect);
         
         if (attack_action_pool.Any())
         {
@@ -164,28 +164,30 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         [Hotfixable]
         void attack_succeed(CombatActionAsset combat_action)
         {
-            actor.timer_action = actor.s_attackSpeed_seconds;
-            actor.attackTimer = actor.s_attackSpeed_seconds;
-            actor.punchTargetAnimation(target.currentPosition, true, actor.s_attackType == WeaponType.Range);
-            if (combat_action.play_unit_attack_sounds && !string.IsNullOrEmpty(actor.asset.fmod_attack))
+            actor.startAttackCooldown();
+            actor.punchTargetAnimation(target.current_position, true, actor.hasRangeAttack());
+            actor.spendStamina(combat_action.cost_stamina);
+            actor.spendMana(combat_action.cost_mana);
+            if (combat_action.play_unit_attack_sounds && actor.asset.has_sound_attack)
             {
-                MusicBox.playSound(actor.asset.fmod_attack, actor.currentTile.x, actor.currentTile.y);
+                MusicBox.playSound(actor.asset.sound_attack, actor.current_tile.x, actor.current_tile.y);
             }
-            if (actor.asset.needFood && Toolbox.randomBool())
+            if (actor.needsFood() && Randy.randomBool())
             {
-                actor.decreaseHunger();
+                actor.decreaseNutrition();
             }
+            // TODO: 后坐力
         }
     }
 
     public void GetForce(BaseSimObject source, float x, float y, float z)
     {
         var actor = Base;
-        if (!actor.asset.canBeMovedByPowers)
+        if (!actor.asset.can_be_moved_by_powers)
         {
             return;
         }
-        if (actor.zPosition.y > 0f)
+        if (actor.position_height > 0f)
         {
             return;
         }
@@ -215,10 +217,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         if (x * x + y * y + z * z > 1)
         {
-            actor.forceVector.x = x * 0.6f;
-            actor.forceVector.y = y * 0.6f;
-            actor.forceVector.z = z * 2f;
-            actor.under_force = true;
+            actor.velocity.x = x * 0.6f;
+            actor.velocity.y = y * 0.6f;
+            actor.velocity.z = z * 2f;
+            actor.under_forces = true;
         }
     }
     public float GetCultisysLevelForSort<T>() where T : struct, ICultisysComponent
@@ -498,7 +500,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         if (GeneralSettings.SpawnNaturally)
         {
             var has_element_root = Base.asset.GetExtend<ActorAssetExtend>().must_have_element_root ||
-                                   Toolbox.randomChance(ModClass.L.ElementRootLibrary.base_prob);
+                                   Randy.randomChance(ModClass.L.ElementRootLibrary.base_prob);
             if (has_element_root)
             {
                 e.AddComponent(ElementRoot.Roll());
@@ -749,29 +751,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// </summary>
     /// <param name="clone_source"></param>
     [Hotfixable]
-    public void CloneAllFrom(ActorExtend clone_source)
+    public void CloneLeftFrom(ActorExtend clone_source)
     {
         var self = Base;
         var source = clone_source.Base;
-
-        #region 原版复制
-        
-        self.curAngle = source.transform.localEulerAngles;
-        self.transform.localEulerAngles = self.curAngle;
-        self.data.setName(source.getName());
-        self.data.created_time = source.data.created_time;
-        self.data.age_overgrowth = source.data.age_overgrowth;
-        self.data.kills = source.data.kills;
-        self.data.children = source.data.children;
-        self.data.favorite = source.data.favorite;
-        self.takeItems(source, self.asset.take_items_ignore_range_weapons);
-        for (int i = 0; i < source.data.traits.Count; i++)
-        {
-            string text = source.data.traits[i];
-            self.addTrait(text, false);
-        }
-
-        #endregion
 
         #region 一般数据复制
 
@@ -815,23 +798,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         #endregion
 
-        #region 原版势力相关复制
-
-        self.data.culture = source.data.culture;
-        if (!string.IsNullOrEmpty(source.data.clan))
-        {
-            var clan = World.world.clans.get(source.data.clan);
-            clan.addUnit(self);
-        }
-
-        if (source.city != null)
-        {
-            self.joinCity(source.city);
-        }
-        self.setKingdom(source.kingdom);
-
-        #endregion
-
         #region 实体复制
 
         var old_binder = E.GetComponent<ActorBinder>();
@@ -864,8 +830,5 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         #endregion
         
-        
-        self.setStatsDirty();
-        self.setPosDirty();
     }
 }

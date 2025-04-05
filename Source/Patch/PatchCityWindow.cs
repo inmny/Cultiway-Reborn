@@ -18,11 +18,11 @@ internal static class PatchCityWindow
     private static bool                              _initialized;
     private static Text                              info_text;
 
-    [HarmonyPrefix, Hotfixable]
-    [HarmonyPatch(typeof(CityWindow), nameof(CityWindow.OnEnable))]
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(CityWindow), nameof(CityWindow.startShowingWindow))]
     private static void OnEnable_prefix(CityWindow __instance)
     {
-        if (__instance.city == null) return;
+        if (__instance.meta_object == null) return;
         if (!_initialized)
         {
             _initialized = true;
@@ -32,7 +32,7 @@ internal static class PatchCityWindow
             obj.transform.localScale = Vector3.one;
             obj.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             info_text = obj.GetComponent<Text>();
-            info_text.font = LocalizedTextManager.currentFont;
+            info_text.font = LocalizedTextManager.current_font;
             info_text.fontSize = 6;
 
             if (__instance.GetComponent<AdditionCityWindow>() == null)
@@ -40,7 +40,7 @@ internal static class PatchCityWindow
         }
 
         StringBuilder sb = new();
-        sb.AppendLine(__instance.city.data.id);
+        sb.AppendLine(__instance.meta_object.id.ToString());
         info_text.text = sb.ToString();
     }
 }

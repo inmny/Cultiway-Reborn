@@ -18,7 +18,7 @@ public class BehHarvestHerb : BehaviourActionActor
 
         if (pActor.beh_actor_target.isAlive()) return BehResult.RestartTask;
 
-        ModClass.LogInfo($"[{pActor.city?.getCityName()}] Harvested herb");
+        ModClass.LogInfo($"[{pActor.city?.name}] Harvested herb");
         return BehResult.Continue;
     }
 }
