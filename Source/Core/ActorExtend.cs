@@ -636,11 +636,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         }
         // 补齐原版的一些效果
         int health_before = Base.data.health;
+        Base.data.health += 1;
+        PatchActor.getHit_snapshot(Base, 0, pAttackType: AttackType.None, pAttacker: attacker, pSkipIfShake: false);
+        if (health_before > 0 && Base.isAlive())
+        {
+            Base.data.health -= 1;
+        }
         
-        if (Base.data.health <= 0) Base.data.health = 1;
-        PatchActor.getHit_snapshot(Base, 0, pAttacker: attacker, pSkipIfShake: false);
-        
-        Base.data.health = health_before; // 防止强制扣血
         if (Base.data.favorite && Base.data.health != old_health)
             LogService.LogInfoConcurrent($"{Base.data.id}({power_level}) 被攻击，伤害{old_damage}({attacker_power_level})，最终伤害{damage}. 血量{old_health}->{Base.data.health}");
     }
