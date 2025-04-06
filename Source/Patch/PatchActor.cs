@@ -117,10 +117,6 @@ internal static class PatchActor
         new_inst = list[idx_post_update];
         old_inst.MoveLabelsTo(new_inst);
 
-        foreach (var item in list)
-        {
-            ModClass.LogInfo($"{item} [{item.labels.Select(x=>x.ToString()).Join()}]");
-        }
         return list;
     }
     private static void _post_update_stats(Actor actor)
