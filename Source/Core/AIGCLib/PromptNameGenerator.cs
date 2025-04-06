@@ -51,6 +51,11 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
     {
         return param.Join();
     }
+
+    protected virtual string PostProcess(string name)
+    {
+        return name;
+    }
     protected abstract string GetPrompt(string[] param);
     protected virtual float Temperature { get; } = 2;
     
@@ -68,6 +73,7 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
                 {
                     var prompt = GetPrompt(param);
                     var res = Manager.RequestResponseContent(prompt, GetSystemPrompt(), temperature: Temperature).GetAwaiter().GetResult();
+                    res = PostProcess(res);
                     if (!string.IsNullOrEmpty(res) && IsValid(res))
                         lock (NameDict)
                         {
