@@ -19,7 +19,7 @@ public class CultibookLibrary : DynamicAssetLibrary<CultibookAsset>
         {
             ID = asset.id
         }, new ItemLevel());
-        
+        add_dynamic(asset);
         return asset;
     }
     public CultibookAsset NewCopy(CultibookAsset asset, string contributor)
