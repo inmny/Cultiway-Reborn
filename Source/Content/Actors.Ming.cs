@@ -40,8 +40,8 @@ public partial class Actors
         t.can_turn_into_mush = false;
         t.can_turn_into_tumor = false;
         t.disable_jump_animation = true;
-        t.actor_asset_id_trading = MingBoatTrading.id;
-        t.actor_asset_id_transport = MingBoatTransport.id;
+        //t.actor_asset_id_trading = MingBoatTrading.id;
+        //t.actor_asset_id_transport = MingBoatTransport.id;
         t.base_stats[S.mass_2] = 65;
         t.addGenome(new ValueTuple<string, float>[]
         {

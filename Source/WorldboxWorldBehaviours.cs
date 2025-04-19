@@ -8,7 +8,7 @@ public partial class WorldboxGame
 {
     public class WorldBehaviours : ExtendLibrary<WorldBehaviourAsset, WorldBehaviours>
     {
-        [GetOnly("wb_erosion")] public static WorldBehaviourAsset Erosion { get; private set; }
+        [GetOnly(S_WorldBehaviour.erosion)] public static WorldBehaviourAsset Erosion { get; private set; }
 
         protected override void OnInit()
         {
