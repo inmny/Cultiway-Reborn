@@ -294,7 +294,14 @@ namespace Cultiway
                 }
             }
 
-            LM.ApplyLocale();
+            LM.ApplyLocale(false);
+            
+            var dict = LocalizedTextManager.instance._localized_text;
+            foreach (var k in dict.Keys.ToList())
+            {
+                dict[k.Underscore()] = dict[k];
+            }
+            LocalizedTextManager.updateTexts();
         }
     }
 }
