@@ -3,16 +3,49 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using Cultiway.Const;
+using Cultiway.Core;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
+using UnityEngine;
 
 namespace Cultiway.Patch;
 
 internal static class PatchActor
 {
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.addStatusEffect))]
+    private static bool addStatusEffect_prefix(Actor __instance, StatusAsset pStatusAsset, ref float pOverrideTimer,
+        ref bool __result)
+    {
+        if (pStatusAsset.affects_mind && __instance.hasTag("strong_mind"))
+        {
+            __result = false;
+            return false;
+        }
+
+        if (!pStatusAsset.GetExtend<StatusAssetExtend>().negative)
+        {
+            return true;
+        }
+        var ae = __instance.GetExtend();
+
+        var level = ae.GetPowerLevel();
+        if (level == 0f) return true;
+        var time = Mathf.Log(pStatusAsset.duration, Mathf.Pow(DamageCalcHyperParameters.PowerBase, level));
+
+        if (time < 0.02f)
+        {
+            __result = false;
+            return false;
+        }
+
+        pOverrideTimer = time;
+
+        return true;
+    }
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.tryToAttack))]
     private static bool tryToAttack_prefix(Actor __instance, BaseSimObject pTarget, Action pKillAction, float pBonusAreOfEffect, ref bool __result)
     {
