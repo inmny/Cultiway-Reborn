@@ -3,6 +3,7 @@ using Cultiway.Abstract;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General.Game.extensions;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;

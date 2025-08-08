@@ -1,4 +1,5 @@
 using Cultiway.Abstract;
+using strings;
 
 namespace Cultiway;
 
@@ -21,7 +22,7 @@ public partial class WorldboxGame
             HitGround.apply_force = true;
             HitGround.remove_frozen = true;
             HitGround.damage = 20;
-            HitGround.lightning_effect = true;
+            //HitGround.lightning_effect = true;
 
 
             RemoveAll.remove_frozen = true;

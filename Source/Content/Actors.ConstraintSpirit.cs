@@ -5,15 +5,16 @@ using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General.Game.extensions;
+using strings;
 
 namespace Cultiway.Content;
 
 public partial class Actors 
 {
-    [CloneSource("$mob$")] public static ActorAsset ConstraintSpirit { get; private set; }
+    //[CloneSource("$mob$")] public static ActorAsset ConstraintSpirit { get; private set; }
 
     private void SetupConstraintSpirit()
-    {
+    {/*
         ConstraintSpirit.can_turn_into_mush = false;
         ConstraintSpirit.can_turn_into_zombie = false;
         ConstraintSpirit.can_turn_into_ice_one = false;
@@ -33,9 +34,9 @@ public partial class Actors
         ConstraintSpirit.animation_walk = "walk_0,walk_1,walk_2,walk_3".Split(',');
         ConstraintSpirit.animation_swim = "walk_0,walk_1,walk_2,walk_3".Split(',');
         ConstraintSpirit.animation_idle = "walk_0".Split(',');
-
+*/
         //ConstraintSpirit.kingdom = KingdomAssets.Ming.id;
-        
+        /*
         ActorExtend.RegisterActionOnDeath([Hotfixable](ae) =>
         {
             var actor = ae.Base;
@@ -74,6 +75,6 @@ public partial class Actors
                 }
             
             }
-        });
+        });*/
     }
 }

@@ -1,6 +1,7 @@
 using ai;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
+using strings;
 
 namespace Cultiway.Patch;
 

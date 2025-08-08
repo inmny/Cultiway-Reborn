@@ -44,6 +44,9 @@
             <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader_memload.dll')">..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader_memload.dll</HintPath>
             <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll')">..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll</HintPath>
         </Reference>
+        <Reference Include="strings">
+          <HintPath>..\..\worldbox_Data\Managed\strings.dll</HintPath>
+        </Reference>
         <Reference Include="System.ComponentModel.Annotations">
             <HintPath>Assemblies\System.ComponentModel.Annotations.dll</HintPath>
         </Reference>

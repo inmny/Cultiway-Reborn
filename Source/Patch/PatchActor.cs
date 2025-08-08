@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
 
@@ -18,10 +19,11 @@ internal static class PatchActor
         __result = __instance.GetExtend().TryToAttack(pTarget, pKillAction, pBonusAreOfEffect);
         return false;
     }
+    
     [HarmonyReversePatch(HarmonyReversePatchType.Snapshot), HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
     public static void getHit_snapshot(Actor      __instance,                      float pDamage, bool pFlash = true,
                                        AttackType pAttackType  = AttackType.Other, BaseSimObject pAttacker = null,
-                                       bool       pSkipIfShake = true,             bool pMetallicWeapon = false)
+                                       bool       pSkipIfShake = true,             bool pMetallicWeapon = false, bool pCheckDamageReduction = true)
     {
         throw new NotImplementedException();
     }
@@ -135,11 +137,22 @@ internal static class PatchActor
         __instance.GetExtend().NewKillAction(pDeadUnit, pPrevKingdom);
     }
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.die))]
-    private static void killHimself_prefix(Actor __instance)
+    private static void killHimself_prefix(Actor __instance, bool pDestroy)
     {
-        if (__instance.isAlive())
+        if (__instance.isAlive() || pDestroy)
         {
             __instance.GetExtend().OnDeath();
+
+            if (__instance.hasCity())
+            {
+                var ae = __instance.GetExtend();
+                var ce =__instance.GetExtend();
+                using var pool = new ListPool<Entity>(ae.GetItems());
+                foreach (var item in pool)
+                {
+                    ce.AddSpecialItem(item);
+                }
+            }
         }
     }
 }

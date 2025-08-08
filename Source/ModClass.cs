@@ -261,6 +261,12 @@ namespace Cultiway
             }
         }
 
+        public override void PostInit()
+        {
+            base.PostInit();
+            _ui.PostInit();
+        }
+
         private void LoadLocales()
         {
             var folder = GetLocaleFilesDirectory(GetDeclaration());

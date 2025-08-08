@@ -99,4 +99,9 @@ public class Manager
     {
         foreach (var pair in button_groups) pair.Value.gameObject.SetActive(pair.Key == type);
     }
+
+    public void PostInit()
+    {
+        WindowNewCreatureInfo.CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
+    }
 }

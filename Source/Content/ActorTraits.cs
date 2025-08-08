@@ -6,6 +6,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;

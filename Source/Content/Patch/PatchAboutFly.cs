@@ -91,7 +91,7 @@ internal static class PatchAboutFly
         return list;
     }
 
-    //[HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.goTo))]
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.goTo))]
     private static bool goTo_prefix(ref ExecuteEvent __result, Actor __instance, WorldTile pTile)
     {
         if (Toolbox.DistTile(__instance.current_tile, pTile) < ContentSetting.MinFlyDist) return true;
@@ -104,7 +104,7 @@ internal static class PatchAboutFly
         return true;
     }
 
-    //[HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.goTo))]
+    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.goTo))]
     private static void goTo_postfix(ref ExecuteEvent __result, Actor __instance, WorldTile pTile)
     {
         if (__result == ExecuteEvent.True)
@@ -148,6 +148,10 @@ internal static class PatchAboutFly
             actor.setFlying(true);
             actor.precalcMovementSpeed(true);
 
+            actor.clearOldPath();
+            actor.setTileTarget(tile);
+            actor.current_path.Add(tile);
+            return true;
             return ActorMove.goTo(actor, tile, true, true, true) == ExecuteEvent.True;
         }
 

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
 using NeoModLoader.General.Game.extensions;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;
@@ -11,13 +12,13 @@ public class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     protected override void OnInit()
     {
         RegisterAssets();
-        SetupMingRaceBuildings();
+        //SetupMingRaceBuildings();
     }
 
     protected override void PostInit(BuildingAsset asset)
     {
         base.PostInit(asset);
-        AssetManager.buildings.loadSprites(asset);
+        asset.atlas_asset = AssetManager.dynamic_sprites_library.get(asset.atlas_id);
         
         if (asset.step_action != null)
         {
@@ -26,7 +27,7 @@ public class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         asset.has_biome_tags = asset.biome_tags_growth is { Count: > 0 };
         asset.has_biome_tags_spread = asset.biome_tags_spread is { Count: > 0 };
     }
-
+/*
     private void SetupMingRaceBuildings()
     {
         Clone($"bonfire_{Actors.Ming.id}", SB.bonfire);
@@ -71,6 +72,6 @@ public class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         AssetManager.buildings.get($"barracks_{Races.Ming.id}").fundament = new BuildingFundament(3,    3, 7,  0);
         AssetManager.buildings.get($"windmill_{Races.Ming.id}_0").fundament = new BuildingFundament(2,  1, 2,  0);
         AssetManager.buildings.get($"windmill_{Races.Ming.id}_1").fundament = new BuildingFundament(2,  2, 2,  0);
-        AssetManager.buildings.get($"watch_tower_{Races.Ming.id}").fundament = new BuildingFundament(2, 2, 3,  0);*/
-    }
+        AssetManager.buildings.get($"watch_tower_{Races.Ming.id}").fundament = new BuildingFundament(2, 2, 3,  0);
+    }*/
 }

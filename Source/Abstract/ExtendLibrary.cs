@@ -11,8 +11,19 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
 {
     private   List<TAsset>               _assets_added = new();
     protected ReadOnlyCollection<TAsset> assets_added;
-    protected AssetLibrary<TAsset>       cached_library;
+
+    protected AssetLibrary<TAsset> cached_library
+    {
+        get => _cached_library;
+        private set
+        {
+            _cached_library = value;
+            AssetList = cached_library?.list;
+        }
+    }
+    private AssetLibrary<TAsset> _cached_library;
     protected TAsset                     t;
+    protected List<TAsset> AssetList;
 
     protected ExtendLibrary()
     {

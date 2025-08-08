@@ -35,9 +35,10 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 
     public static void Show()
     {
-        if (Instance == null) CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
+        //if (Instance == null) CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
 
-        Instance.GetComponent<ScrollWindow>().clickShow();
+        ScrollWindow.showWindow(WindowId);
+        //Instance.GetComponent<ScrollWindow>().clickShow();
         //ScrollWindow.showWindow(WindowId);
     }
 

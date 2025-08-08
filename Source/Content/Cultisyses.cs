@@ -15,6 +15,7 @@ using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;

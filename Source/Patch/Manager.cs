@@ -13,8 +13,16 @@ internal class Manager
         foreach (var t in ModClass.A.GetTypes().Where(t => t.Name.StartsWith("Patch") && t.Namespace == ns))
         {
             Try.Start(() =>
-            {                
-                Harmony.CreateAndPatchAll(t, "inmny.cultiway");
+            {
+                try
+                {
+                    Harmony.CreateAndPatchAll(t, "inmny.cultiway");
+                }
+                catch (Exception e)
+                {
+                    ModClass.LogError($"Failed to patch {t.Name}");
+                    throw;
+                }
             });
         }
     }

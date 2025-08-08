@@ -23,7 +23,7 @@ internal static class PatchActor
 {
     [Hotfixable, HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.nextJobActor))]
     private static void nextJobActor_postfix(ref string __result, Actor pActor)
-    {
+    {/*
         if (pActor.asset == Actors.ConstraintSpirit)
         {
             pActor.data.get(ContentActorDataKeys.ConstraintSpiritJob_string, out __result);
@@ -41,7 +41,7 @@ internal static class PatchActor
                 }
             }
             return;
-        }
+        }*/
         if (pActor.isSapient() && pActor.city != null && !pActor.isProfession(UnitProfession.Warrior))
         {
             var ae = (pActor as Actor).GetExtend();

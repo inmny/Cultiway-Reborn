@@ -1,6 +1,7 @@
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using NeoModLoader.General;
+using strings;
 
 namespace Cultiway.Content.Libraries;
 public delegate bool JindanCheck(ActorExtend ae, ref XianBase xian_base);

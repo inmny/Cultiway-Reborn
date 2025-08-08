@@ -22,6 +22,7 @@ using Friflo.Engine.ECS;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
 using NeoModLoader.services;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Core;
@@ -587,7 +588,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     }
 
     [Hotfixable]
-    public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker)
+    public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker, AttackType attack_type_for_vanilla = AttackType.Other)
     {
 
         if (!Base.isAlive() || Base.hasStatus("invincible") || Base.data.health <= 0)
@@ -632,16 +633,8 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             
             damage_ratio *= (1 - s_armor[ElementIndex.Entropy]);
             damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
-            Base.data.health -= (int)damage;
         }
-        // 补齐原版的一些效果
-        int health_before = Base.data.health;
-        Base.data.health += 1;
-        PatchActor.getHit_snapshot(Base, 0, pAttackType: AttackType.None, pAttacker: attacker, pSkipIfShake: false);
-        if (health_before > 0 && Base.isAlive())
-        {
-            Base.data.health -= 1;
-        }
+        PatchActor.getHit_snapshot(Base, damage, pAttackType: attack_type_for_vanilla, pAttacker: attacker, pSkipIfShake: false, pCheckDamageReduction: false);
         
         if (Base.data.favorite && Base.data.health != old_health)
             LogService.LogInfoConcurrent($"{Base.data.id}({power_level}) 被攻击，伤害{old_damage}({attacker_power_level})，最终伤害{damage}. 血量{old_health}->{Base.data.health}");

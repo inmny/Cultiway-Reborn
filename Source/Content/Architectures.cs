@@ -1,4 +1,5 @@
 using Cultiway.Abstract;
+using strings;
 
 namespace Cultiway.Content;
 [Dependency(typeof(BuildingOrders))]

@@ -8,16 +8,17 @@ using Cultiway.Utils.Extension;
 using MathNet.Numerics;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General.Game.extensions;
+using strings;
 
 namespace Cultiway.Content;
 
 public partial class Actors 
-{
+{/*
     [CloneSource("$civ_advanced_unit$")] public static ActorAsset Ming { get; private set; }
     [CloneSource(SA.boat_trading_human)] public static ActorAsset MingBoatTrading { get; private set; }
-    [CloneSource(SA.boat_transport_human)] public static ActorAsset MingBoatTransport { get; private set; }
+    [CloneSource(SA.boat_transport_human)] public static ActorAsset MingBoatTransport { get; private set; }*/
     private void SetupMing()
-    {
+    {/*
         t = Ming;
         t.name_template_sets = [S_NameSet.human_default_set];
         t.build_order_template_id = BuildingOrders.Classic.id;
@@ -26,7 +27,7 @@ public partial class Actors
         t.kingdom_id_wild = KingdomAssets.Ming.id;
         t.kingdom_id_civilization = KingdomAssets.NoMadsMing.id;
         t.name_locale = Ming.id;
-        t.texture_asset = new ActorTextureSubAsset("actors/species/civs/Cultiway.Ming/")
+        t.texture_asset = new ActorTextureSubAsset("actors/species/civs/Cultiway.Ming/", true)
         {
             render_heads_for_children = false
         };
@@ -85,7 +86,7 @@ public partial class Actors
         t.production = new string[] { "bread", "pie" };
         AddPhenotype("skin_light", "default_color");
         AddPhenotype("skin_dark", "default_color");
-        AddPhenotype("skin_mixed", "default_color");
+        AddPhenotype("skin_mixed", "default_color");*/
     }
 
     private void AddPhenotype(string phenotype, string color)

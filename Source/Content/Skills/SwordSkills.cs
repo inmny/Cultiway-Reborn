@@ -12,6 +12,7 @@ using Cultiway.Core.SkillLibV2.Predefined.Modifiers;
 using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Content.Skills;
