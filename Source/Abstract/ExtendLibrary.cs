@@ -36,8 +36,13 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
     {
         OnInit();
         foreach (TAsset asset in assets_added) PostInit(asset);
+        GlobalPostInit();
     }
 
+    protected virtual void GlobalPostInit()
+    {
+        
+    }
     public virtual void OnReload()
     {
     }
@@ -70,6 +75,7 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
                     if (clone_source_attr != null)
                     {
                         item = Clone(item_id, clone_source_attr.clone_source_id);
+                        ActionAfterCreation(prop, item);
                     }
                     else
                     {

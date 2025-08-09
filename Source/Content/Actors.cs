@@ -1,7 +1,10 @@
 using System;
+using System.Reflection;
 using Cultiway.Abstract;
 using Cultiway.Core;
+using Cultiway.UI;
 using Cultiway.Utils.Extension;
+using NeoModLoader.General;
 using NeoModLoader.General.Game.extensions;
 using strings;
 using UnityEngine;
@@ -11,6 +14,14 @@ namespace Cultiway.Content;
 [Dependency(typeof(ActorJobs), typeof(Architectures), typeof(KingdomAssets))]
 public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 {
+    public class SetupButtonAttribute : Attribute
+    {
+    }
+
+    class CommonCreatureSetupAttribute : Attribute
+    {
+        
+    }
     [CloneSource("$mob$")] public static ActorAsset Plant { get; private set; }
 
     protected override void OnInit()
@@ -19,6 +30,31 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         SetupPlant();
         SetupMing();
         SetupConstraintSpirit();
+        SetupFantasyCreatures();
+    }
+
+    protected override void GlobalPostInit()
+    {
+    }
+
+    protected override void ActionAfterCreation(PropertyInfo prop, ActorAsset asset)
+    {
+        if (prop.GetCustomAttribute<CommonCreatureSetupAttribute>() != null)
+        {
+            asset.name_locale = asset.id;
+            asset.texture_id = asset.id.Replace(".", "/");
+            asset.has_advanced_textures = false;
+            asset.has_baby_form = false;
+            asset.can_turn_into_zombie = false;
+            asset.need_colored_sprite = false;
+            asset.name_template_sets = [S_NameSet.default_set];
+            if (!asset.default_animal && !asset.civ)
+            {
+                asset.unit_other = true;
+            }
+
+            asset.use_phenotypes = false;
+        }
     }
 
     private void SetupPlant()

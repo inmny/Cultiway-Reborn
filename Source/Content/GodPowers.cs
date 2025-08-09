@@ -1,16 +1,44 @@
+using System.Reflection;
 using Cultiway.Abstract;
+using Cultiway.UI;
+using NeoModLoader.General;
+using strings;
 
 namespace Cultiway.Content;
 [Dependency(typeof(Actors))]
 public class GodPowers : ExtendLibrary<GodPower, GodPowers>
 {
-    [CloneSource("$template_spawn_actor$")]
+    [CloneSource(PowerLibrary.TEMPLATE_SPAWN_ACTOR)]
     public static GodPower Plant { get; private set; }
     protected override void OnInit()
     {
         RegisterAssets();
         Plant.name = Actors.Plant.getLocaleID();
         Plant.actor_asset_id = Actors.Plant.id;
+        SetupCommonCreaturePlacePower();
+    }
+
+    private void SetupCommonCreaturePlacePower()
+    {
+        var props = typeof(Actors).GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
+        foreach (PropertyInfo prop in props)
+            if (prop.PropertyType == typeof(ActorAsset))
+            {
+                ActorAsset item = prop.GetValue(null) as ActorAsset;
+                if (item == null) continue;
+                if (prop.GetCustomAttribute<Actors.SetupButtonAttribute>() != null)
+                {
+                    var power_id = item.id;
+
+                    Clone(power_id, PowerLibrary.TEMPLATE_SPAWN_ACTOR);
+                    t.name = item.getLocaleID();
+                    t.actor_asset_id = power_id;
+                    
+                    Cultiway.UI.Manager.AddButton(TabButtonType.CREATURE, PowerButtonCreator.CreateGodPowerButton(
+                        power_id, item.getSpriteIcon()
+                    ));
+                }
+            }
     }
 
     protected override void PostInit(GodPower asset)
