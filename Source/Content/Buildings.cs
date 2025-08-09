@@ -1,18 +1,32 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Cultiway.Abstract;
 using NeoModLoader.General.Game.extensions;
 using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;
-[Dependency(typeof(Actors))]
-public class Buildings : ExtendLibrary<BuildingAsset, Buildings>
+[Dependency(typeof(Actors), typeof(KingdomAssets))]
+public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
 {
+    class CommonBuildingSetupAttribute : Attribute
+    {
+    }
+
     protected override void OnInit()
     {
         RegisterAssets();
+        SetupFantasyBuildings();
         //SetupMingRaceBuildings();
+    }
+
+    protected override void ActionAfterCreation(PropertyInfo prop, BuildingAsset asset)
+    {
+        if (prop.GetCustomAttribute<CommonBuildingSetupAttribute>() != null)
+        {
+        }
     }
 
     protected override void PostInit(BuildingAsset asset)

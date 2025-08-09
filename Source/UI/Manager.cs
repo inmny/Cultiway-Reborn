@@ -36,12 +36,13 @@ public class Manager
         {
             "Controller", "Container"
         });
-        powers_tab.PutElement("Container", top_container, new Vector2(0, -16));
+        powers_tab.PutElement("Container", top_container, new Vector2(-13, -19));
 
         ConstructTabContainer(TabButtonType.INFO,     SpriteTextureLoader.getSprite("ui/icons/iconAbout"));
         ConstructTabContainer(TabButtonType.WORLD,    SpriteTextureLoader.getSprite("ui/icons/iconWorldInfo"));
         ConstructTabContainer(TabButtonType.RACE,     SpriteTextureLoader.getSprite("ui/icons/iconHumans"));
         ConstructTabContainer(TabButtonType.CREATURE, SpriteTextureLoader.getSprite("ui/icons/iconSheep"));
+        ConstructTabContainer(TabButtonType.BUILDING, SpriteTextureLoader.getSprite("ui/icons/iconBuildings"));
         ConstructTabContainer(TabButtonType.DEBUG,    SpriteTextureLoader.getSprite("ui/icons/iconDebug"));
 
 

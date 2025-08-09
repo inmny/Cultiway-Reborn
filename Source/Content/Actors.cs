@@ -14,9 +14,6 @@ namespace Cultiway.Content;
 [Dependency(typeof(ActorJobs), typeof(Architectures), typeof(KingdomAssets))]
 public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 {
-    public class SetupButtonAttribute : Attribute
-    {
-    }
 
     class CommonCreatureSetupAttribute : Attribute
     {

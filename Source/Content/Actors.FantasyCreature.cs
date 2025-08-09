@@ -1,5 +1,6 @@
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content.Attributes;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;

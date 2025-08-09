@@ -1,11 +1,13 @@
+using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
+using Cultiway.Content.Attributes;
 using Cultiway.UI;
 using NeoModLoader.General;
 using strings;
 
 namespace Cultiway.Content;
-[Dependency(typeof(Actors))]
+[Dependency(typeof(Actors), typeof(Buildings), typeof(Drops))]
 public class GodPowers : ExtendLibrary<GodPower, GodPowers>
 {
     [CloneSource(PowerLibrary.TEMPLATE_SPAWN_ACTOR)]
@@ -16,6 +18,32 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         Plant.name = Actors.Plant.getLocaleID();
         Plant.actor_asset_id = Actors.Plant.id;
         SetupCommonCreaturePlacePower();
+        SetupCommonBuildingPlacePower();
+    }
+
+    private void SetupCommonBuildingPlacePower()
+    {
+        var props = typeof(Buildings).GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
+        foreach (PropertyInfo prop in props)
+            if (prop.PropertyType == typeof(BuildingAsset))
+            {
+                BuildingAsset item = prop.GetValue(null) as BuildingAsset;
+                if (item == null) continue;
+                if (prop.GetCustomAttribute<SetupButtonAttribute>() != null)
+                {
+                    var power_id = item.id;
+
+                    Clone(power_id, PowerLibrary.TEMPLATE_DROP_BUILDING);
+                    t.name = item.id.Underscore();
+                    t.drop_id = item.id;
+
+                    var all_sprites = item.loadBuildingSpriteList();
+                    var icon = all_sprites.First(x => x.name.Contains("main"));
+                    Cultiway.UI.Manager.AddButton(TabButtonType.BUILDING, PowerButtonCreator.CreateGodPowerButton(
+                        power_id, icon
+                    ));
+                }
+            }
     }
 
     private void SetupCommonCreaturePlacePower()
@@ -26,7 +54,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
             {
                 ActorAsset item = prop.GetValue(null) as ActorAsset;
                 if (item == null) continue;
-                if (prop.GetCustomAttribute<Actors.SetupButtonAttribute>() != null)
+                if (prop.GetCustomAttribute<SetupButtonAttribute>() != null)
                 {
                     var power_id = item.id;
 
