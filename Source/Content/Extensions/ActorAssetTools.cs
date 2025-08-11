@@ -1,6 +1,6 @@
 namespace Cultiway.Content.Extensions;
 
-public static class ActorAssetExtendTools
+public static class ActorAssetTools
 {
     /// <summary>
     /// 设置默认所属阵营

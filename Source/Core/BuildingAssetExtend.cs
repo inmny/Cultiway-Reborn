@@ -37,9 +37,9 @@ public class AdvancedUnitSpawnerConfig
     public class CentralizedConfig : SpawnConfig
     {
         public List<SingleConfig> single_configs;
-        public int total_count;
-        public float spawn_interval;
-        public int spawn_count_per_interval;
+        public int total_count = 5;
+        public float spawn_interval = 3;
+        public int spawn_count_per_interval = 1;
         public class SingleConfig
         {
             public string unit_asset_id;
