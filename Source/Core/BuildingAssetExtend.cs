@@ -24,7 +24,7 @@ public class AdvancedUnitSpawnerConfig
     }
     public class DistributedConfig : SpawnConfig
     {
-        public List<SingleConfig> single_configs;
+        public List<SingleConfig> single_configs = new();
         public class SingleConfig
         {
             public string unit_asset_id;
@@ -36,7 +36,7 @@ public class AdvancedUnitSpawnerConfig
 
     public class CentralizedConfig : SpawnConfig
     {
-        public List<SingleConfig> single_configs;
+        public List<SingleConfig> single_configs = new();
         public int total_count = 5;
         public float spawn_interval = 3;
         public int spawn_count_per_interval = 1;

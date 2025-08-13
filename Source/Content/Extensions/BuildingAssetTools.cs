@@ -6,31 +6,36 @@ namespace Cultiway.Content.Extensions;
 
 public static class BuildingAssetTools
 {
-    public static BuildingAsset SetAdvanceSpawnerStrategy(this BuildingAsset asset,
-        AdvancedUnitSpawnerConfig.SpawnStrategy strategy)
+    /// <summary>
+    /// 设置属性，属性id从"S."下面找
+    /// </summary>
+    /// <param name="asset"></param>
+    /// <param name="id"></param>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    public static BuildingAsset Stats(this BuildingAsset asset, string id, float value)
     {
-        var bae = asset.GetExtend<BuildingAssetExtend>();
-        bae.advanced_unit_spawner = true;
-        bae.advanced_unit_spawner_config = new AdvancedUnitSpawnerConfig()
-        {
-            strategy = strategy,
-            spawn_config = strategy switch
-            {
-                AdvancedUnitSpawnerConfig.SpawnStrategy.Centralized =>
-                    new AdvancedUnitSpawnerConfig.CentralizedConfig(),
-                AdvancedUnitSpawnerConfig.SpawnStrategy.Distributed =>
-                    new AdvancedUnitSpawnerConfig.DistributedConfig(),
-            }
-        };
+        asset.base_stats[id] = value;
         return asset;
     }
-
-    public static BuildingAsset SetAdvancedSpawnerConfig(this BuildingAsset asset, float interval = 3.0f, int max_count = 5, int count_per_spawn = 1)
+    /// <summary>
+    /// 高级召唤中心化整体配置
+    /// </summary>
+    /// <param name="interval">召唤间隔</param>
+    /// <param name="max_count">总召唤物上限</param>
+    /// <param name="count_per_spawn">每次召唤的数量</param>
+    /// <returns></returns>
+    public static BuildingAsset SetAdvancedSpawnerCentralizedConfig(this BuildingAsset asset, float interval = 3.0f, int max_count = 5, int count_per_spawn = 1)
     {
         var bae = asset.GetExtend<BuildingAssetExtend>();
         if (!bae.advanced_unit_spawner)
         {
             bae.advanced_unit_spawner = true;
+            bae.advanced_unit_spawner_config = new AdvancedUnitSpawnerConfig()
+            {
+                strategy = AdvancedUnitSpawnerConfig.SpawnStrategy.Centralized,
+                spawn_config = new AdvancedUnitSpawnerConfig.CentralizedConfig()
+            };
         }
         else if (bae.advanced_unit_spawner_config.strategy != AdvancedUnitSpawnerConfig.SpawnStrategy.Centralized)
         {
@@ -45,12 +50,23 @@ public static class BuildingAssetTools
         cfg.spawn_count_per_interval = count_per_spawn;
         return asset;
     }
+    /// <summary>
+    /// 添加一种召唤物(仅限中心化的召唤塔)
+    /// </summary>
+    /// <param name="unit_asset">目标生物的asset</param>
+    /// <param name="weight">权重</param>
+    /// <returns></returns>
     public static BuildingAsset AddAdvancedSpawnerCentralizedConfig(this BuildingAsset asset, ActorAsset unit_asset, float weight = 1.0f)
     {
         var bae = asset.GetExtend<BuildingAssetExtend>();
         if (!bae.advanced_unit_spawner)
         {
             bae.advanced_unit_spawner = true;
+            bae.advanced_unit_spawner_config = new AdvancedUnitSpawnerConfig()
+            {
+                strategy = AdvancedUnitSpawnerConfig.SpawnStrategy.Centralized,
+                spawn_config = new AdvancedUnitSpawnerConfig.CentralizedConfig()
+            };
         }
         else if (bae.advanced_unit_spawner_config.strategy != AdvancedUnitSpawnerConfig.SpawnStrategy.Centralized)
         {
@@ -59,11 +75,19 @@ public static class BuildingAssetTools
         }
         ((AdvancedUnitSpawnerConfig.CentralizedConfig)bae.advanced_unit_spawner_config.spawn_config).single_configs.Add(new AdvancedUnitSpawnerConfig.CentralizedConfig.SingleConfig()
         {
-            unit_asset_id = unit_asset.id, spawn_weight = weight
+            unit_asset_id = unit_asset.id,
+            spawn_weight = weight
         });
         return asset;
     }
-
+    /// <summary>
+    /// 添加一种召唤物(仅限分布化)
+    /// </summary>
+    /// <param name="unit_asset">召唤物asset</param>
+    /// <param name="max_count">该生物召唤上限</param>
+    /// <param name="spawn_interval">召唤间隔</param>
+    /// <param name="count_per_spawn">单次召唤数量</param>
+    /// <returns></returns>
     public static BuildingAsset AddAdvancedSpawnerDistributedConfig(this BuildingAsset asset, ActorAsset unit_asset,
         int max_count = 5, float spawn_interval = 3.0f, int count_per_spawn = 1)
     {
@@ -71,6 +95,11 @@ public static class BuildingAssetTools
         if (!bae.advanced_unit_spawner)
         {
             bae.advanced_unit_spawner = true;
+            bae.advanced_unit_spawner_config = new AdvancedUnitSpawnerConfig()
+            {
+                strategy = AdvancedUnitSpawnerConfig.SpawnStrategy.Distributed,
+                spawn_config = new AdvancedUnitSpawnerConfig.DistributedConfig()
+            };
         }
         else if (bae.advanced_unit_spawner_config.strategy != AdvancedUnitSpawnerConfig.SpawnStrategy.Distributed)
         {

@@ -14,7 +14,7 @@ public class AdvancedUnitSpawner : BaseBuildingComponent
 
     private int CheckCentralizedAliveCount()
     {
-        building.data.get(BuildingDataKeys.AdvancedSpawnerCentralizedAliveList_str, out string list);
+        building.data.get(BuildingDataKeys.AdvancedSpawnerCentralizedAliveList_str, out string list, string.Empty);
         var sb = new StringBuilder();
         int count = 0;
         int old_count = 0;
@@ -54,7 +54,7 @@ public class AdvancedUnitSpawner : BaseBuildingComponent
     private int CheckDistributedAliveCount(int idx)
     {
         var key = BuildingDataKeys.AdvancedSpawnerDistributedAliveListPrefix_str + idx;
-        building.data.get(key, out string list);
+        building.data.get(key, out string list, string.Empty);
         var sb = new StringBuilder();
         int count = 0;
         int old_count = 0;
@@ -81,7 +81,7 @@ public class AdvancedUnitSpawner : BaseBuildingComponent
     private void CentralizedSpawnUnit(string id)
     {
         var unit = World.world.units.spawnNewUnit(id, building.door_tile);
-        building.data.get(BuildingDataKeys.AdvancedSpawnerCentralizedAliveList_str, out string list);
+        building.data.get(BuildingDataKeys.AdvancedSpawnerCentralizedAliveList_str, out string list, string.Empty);
         list += unit.data.id.ToString() + ',';
         building.data.set(BuildingDataKeys.AdvancedSpawnerCentralizedAliveList_str, list);
     }
@@ -89,7 +89,7 @@ public class AdvancedUnitSpawner : BaseBuildingComponent
     {
         var key = BuildingDataKeys.AdvancedSpawnerDistributedAliveListPrefix_str + idx;
         var unit = World.world.units.spawnNewUnit(id, building.door_tile);
-        building.data.get(key, out string list);
+        building.data.get(key, out string list, string.Empty);
         list += unit.data.id.ToString() + ',';
         building.data.set(key, list);
     }
