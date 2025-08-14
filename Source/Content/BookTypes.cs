@@ -17,7 +17,8 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         {
             return actor.GetExtend().HasCultisys<Xian>();
         };
-        Cultibook.path_icons = "cultibook";
+        Cultibook.name_template = WorldboxGame.NameGenerators.Cultibook.id;
+        Cultibook.path_icons = "cultibook/";
         Cultibook.GetExtend<BookTypeAssetExtend>().custom_cover_name = "cultibook";
         Skillbook.requirement_check = (_, _) => false;
     }
