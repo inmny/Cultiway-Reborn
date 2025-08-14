@@ -1,4 +1,7 @@
 using Cultiway.Abstract;
+using Cultiway.Content.Components;
+using Cultiway.Core;
+using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content;
 
@@ -10,7 +13,12 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
     {
         RegisterAssets();
 
-        Cultibook.requirement_check = (_, _) => false;
+        Cultibook.requirement_check = (actor, _) =>
+        {
+            return actor.GetExtend().HasCultisys<Xian>();
+        };
+        Cultibook.path_icons = "cultibook";
+        Cultibook.GetExtend<BookTypeAssetExtend>().custom_cover_name = "cultibook";
         Skillbook.requirement_check = (_, _) => false;
     }
 }
