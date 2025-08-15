@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using Cultiway.Abstract;
+using Cultiway.Content.Extensions;
 using Cultiway.Core;
 using Cultiway.UI;
 using Cultiway.Utils.Extension;
@@ -45,6 +46,9 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
             asset.can_turn_into_zombie = false;
             asset.need_colored_sprite = false;
             asset.name_template_sets = [S_NameSet.default_set];
+            // 这边设置默认数值, 自己看着调
+            asset.Stats(S.health, 100)
+                .Stats(S.speed, 20);
             if (!asset.default_animal && !asset.civ)
             {
                 asset.unit_other = true;
