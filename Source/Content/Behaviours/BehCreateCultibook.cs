@@ -2,6 +2,7 @@ using ai.behaviours;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
+using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content.Behaviours;
@@ -18,6 +19,10 @@ public class BehCreateCultibook : BehCityActor
         }
         var be = raw_cultibook.GetExtend();
         be.AddComponent(new Cultibook()
+        {
+            
+        });
+        be.AddComponent(new ItemLevel()
         {
             
         });

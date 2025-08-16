@@ -32,8 +32,9 @@ public class CultibookPage : MonoBehaviour
 
         var cultibook_master = ae.GetCultibookMasterRelation();
         var cultibook = cultibook_master.Cultibook.GetComponent<Cultibook>();
+        var book = cultibook_master.Cultibook.GetComponent<BookBinder>().Book;
         var level = cultibook_master.Cultibook.GetComponent<ItemLevel>();
-        sb.AppendLine($"功法: {cultibook}");
+        sb.AppendLine($"功法: {book.name}");
         sb.AppendLine($"\t{level.GetName()}");
         sb.AppendLine($"掌握程度: {cultibook_master.MasterValue}");
 
