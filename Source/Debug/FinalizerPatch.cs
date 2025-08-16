@@ -19,4 +19,14 @@ internal static class FinalizerPatch
 
         return __exception;
     }
+    [HarmonyFinalizer, HarmonyPatch(typeof(Book), nameof(Book.newBook))]
+    private static Exception Book_newBook_Finalizer(Exception __exception, Book __instance, Actor pByActor)
+    {
+        if (__exception != null)
+        {
+            ModClass.LogInfo($"language==null? {pByActor.language == null}");
+        }
+
+        return __exception;
+    }
 }

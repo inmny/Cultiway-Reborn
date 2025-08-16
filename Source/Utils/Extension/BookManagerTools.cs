@@ -4,6 +4,7 @@ public static class BookManagerTools
 {
     public static Book GenerateNewBook(this BookManager manager, Actor actor, BookTypeAsset book_type)
     {
+        if (actor.language == null) return null;
         City city = actor.getCity();
         Building building = city.getBuildingWithBookSlot();
         if (building == null)

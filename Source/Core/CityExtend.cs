@@ -23,7 +23,7 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce, IDispo
         e.GetComponent<CityBinder>()._ce = this;
     }
 
-    public          Entity E    => e;
+    public override Entity E    => e;
     public override City   Base => e.HasComponent<CityBinder>() ? e.GetComponent<CityBinder>().City : null;
 
     public void AddSpecialItem(Entity item_entity)

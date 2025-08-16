@@ -13,7 +13,7 @@ public class DisposeActorExtendSystem : QuerySystem<ActorBinder>
             {
                 if (binders[i].Actor == null)
                 {
-                    binders[i].AE.Dispose();
+                    //binders[i].AE.Dispose();
                 }
             }
         })).RunParallel();

@@ -78,7 +78,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         }
     }
 
-    public Entity E => e;
+    public override Entity E => e;
     public override Actor Base => e.HasComponent<ActorBinder>() ? e.GetComponent<ActorBinder>().Actor : null;
     public bool TryGetComponent<TComponent>(out TComponent component) where TComponent : struct, IComponent
     {
@@ -660,20 +660,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         return ref e.GetComponent<T>();
     }
 
-    public bool HasComponent<T>() where T : struct, IComponent
-    {
-        return e.HasComponent<T>();
-    }
-
-    public ref T GetComponent<T>() where T : struct, IComponent
-    {
-        return ref e.GetComponent<T>();
-    }
-
-    public void AddComponent<T>(T component = default) where T : struct, IComponent
-    {
-        e.AddComponent(component);
-    }
     internal void PrepareDestroy()
     {
         e.AddTag<TagRecycle>();
