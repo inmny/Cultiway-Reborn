@@ -588,7 +588,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     }
 
     [Hotfixable]
-    public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker, AttackType attack_type_for_vanilla = AttackType.Other)
+    public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker, AttackType attack_type_for_vanilla = AttackType.Other, bool ignore_damage_reduction = false)
     {
 
         if (!Base.isAlive() || Base.hasStatus("invincible") || Base.data.health <= 0)
@@ -597,47 +597,44 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         }
 
         if (Base == attacker) return;
-        var old_damage = damage;
-        var old_health = Base.data.health;
-
-        var attacker_power_level = (attacker?.isActor() ?? false) ? attacker.a.GetExtend().GetPowerLevel() : 0;
-        var power_level = GetPowerLevel();
-        if (power_level > attacker_power_level)
+        if (!ignore_damage_reduction)
         {
-            damage = Mathf.Log(Mathf.Max(damage, 1),
-                Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - attacker_power_level));
-        }
+            var attacker_power_level = (attacker?.isActor() ?? false) ? attacker.a.GetExtend().GetPowerLevel() : 0;
+            var power_level = GetPowerLevel();
+            if (power_level > attacker_power_level)
+            {
+                damage = Mathf.Log(Mathf.Max(damage, 1),
+                    Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - attacker_power_level));
+            }
 
-        if (damage >= 1)
-        {
-            var damage_ratio = 1 - s_armor[ElementIndex.Entropy + 1];
-            var total_ratio = 0f;
-            var sum = 0f;
-            for (var i = 0; i < 5; i++)
+            if (damage >= 1)
             {
-                total_ratio += damage_composition[i] * (1 - s_armor[i]);
-                sum += damage_composition[i];
-            }
-            if (sum > 0)
-                damage_ratio *= total_ratio / sum;
-            total_ratio = 0f;
-            sum = 0f;
-            for (var i = 5; i < 7; i++)
-            {
-                total_ratio += damage_composition[i] * (1 - s_armor[i]);
-                sum += damage_composition[i];
-            }
+                var damage_ratio = 1 - s_armor[ElementIndex.Entropy + 1];
+                var total_ratio = 0f;
+                var sum = 0f;
+                for (var i = 0; i < 5; i++)
+                {
+                    total_ratio += damage_composition[i] * (1 - s_armor[i]);
+                    sum += damage_composition[i];
+                }
+                if (sum > 0)
+                    damage_ratio *= total_ratio / sum;
+                total_ratio = 0f;
+                sum = 0f;
+                for (var i = 5; i < 7; i++)
+                {
+                    total_ratio += damage_composition[i] * (1 - s_armor[i]);
+                    sum += damage_composition[i];
+                }
             
-            if (sum > 0)
-                damage_ratio *= total_ratio / sum * (1 - s_armor[ElementIndex.Entropy]);
+                if (sum > 0)
+                    damage_ratio *= total_ratio / sum * (1 - s_armor[ElementIndex.Entropy]);
             
-            damage_ratio *= (1 - s_armor[ElementIndex.Entropy]);
-            damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
+                damage_ratio *= (1 - s_armor[ElementIndex.Entropy]);
+                damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
+            }
         }
         PatchActor.getHit_snapshot(Base, damage, pAttackType: attack_type_for_vanilla, pAttacker: attacker, pSkipIfShake: false, pCheckDamageReduction: false);
-        
-        if (Base.data.favorite && Base.data.health != old_health)
-            LogService.LogInfoConcurrent($"{Base.data.id}({power_level}) 被攻击，伤害{old_damage}({attacker_power_level})，最终伤害{damage}. 血量{old_health}->{Base.data.health}");
     }
 
     public bool HasElementRoot()

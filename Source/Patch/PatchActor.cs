@@ -86,12 +86,11 @@ internal static class PatchActor
                                       bool       pSkipIfShake = true, bool pCheckDamageReduction = false)
     {
         if (__instance == pAttacker) return false;
-        if (pCheckDamageReduction) return true;
         if (pSkipIfShake && __instance.shake_active)
         {
             return true;
         }
-        __instance.GetExtend().GetHit(pDamage, ref EnumUtils.DamageCompositionFromDamageType(pAttackType), pAttacker);
+        __instance.GetExtend().GetHit(pDamage, ref EnumUtils.DamageCompositionFromDamageType(pAttackType), pAttacker, ignore_damage_reduction: !pCheckDamageReduction);
         return false;
     }
 
