@@ -40,6 +40,7 @@ namespace Cultiway
         public static Assembly                A                    { get; private set; }
         public static Core.Libraries.Manager  L                    { get; private set; }
         public        ActorExtendManager      ActorExtendManager   { get; private set; }
+        public BookExtendManager BookExtendManager { get; private set; }
         public CityExtendManager CityExtendManager { get; private set; }
         public        TileExtendManager       TileExtendManager    { get; private set; }
         public        CustomMapModeManager    CustomMapModeManager { get; private set; }
@@ -192,6 +193,7 @@ namespace Cultiway
             LoadLocales();
 
             ActorExtendManager = new ActorExtendManager(W);
+            BookExtendManager = new BookExtendManager(W);
             CityExtendManager = new CityExtendManager(W);
             TileExtendManager = new();
 

@@ -69,7 +69,7 @@ public static class ActorExtendTools
         return ae.E.GetRelations<CultibookMasterRelation>().First();
     }
 
-    public static void SetCultibookMasterRelation(this ActorExtend ae, ref Entity cultibook, float master_value)
+    public static void SetCultibookMasterRelation(this ActorExtend ae, Entity cultibook, float master_value)
     {
         if (ae.E.GetRelations<CultibookMasterRelation>().Any())
         {

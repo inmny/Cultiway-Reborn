@@ -1,4 +1,5 @@
 using System.Text;
+using Cultiway.Const;
 using Cultiway.Core.GeoLib.Systems;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -24,6 +25,7 @@ public class Manager
     public void UpdateLogic(UpdateTick update_tick)
     {
         if (!ModClass.I.TileExtendManager.Ready()) return;
+        if (!GeneralSettings.EnableGeoSystems) return;
         _system_root.Update(update_tick);
     }
     public void SetMonitorPerf(bool monitor_perf)

@@ -30,4 +30,11 @@ internal static class PatchBook
         return $"../custom_book_covers/{custom_cover_name}/{names.GetRandom()}";
     }
     private static Dictionary<string, List<string>> _cache_custom_covers = new();
+    [HarmonyPostfix, HarmonyPatch(typeof(BehFinishReading), nameof(BehFinishReading.checkBookAssetAction))]
+    private static void onRead_postfix(Actor pActor, Book pBook)
+    {
+        var bt_asset = pBook.getAsset();
+        var bte = bt_asset.GetExtend<BookTypeAssetExtend>();
+        bte.instance_read_action?.Invoke(pActor, pBook, bt_asset);
+    }
 }

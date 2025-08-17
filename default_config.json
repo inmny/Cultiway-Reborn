@@ -5,6 +5,12 @@
             "Type": "SWITCH",
             "BoolVal": true,
             "Callback": "GeneralSettings:SwitchElementRootSpawnNaturally"
+        },
+        {
+            "Id": "ENABLE_GEO_SYSTEMS",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchGeoSystems"
         }
     ],
     "AIGCSettings": [
