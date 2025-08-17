@@ -83,8 +83,10 @@ internal static class PatchActor
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
     private static bool getHit_prefix(Actor      __instance,                      float pDamage, bool pFlash = true,
                                       AttackType pAttackType  = AttackType.Other, BaseSimObject pAttacker = null,
-                                      bool       pSkipIfShake = true)
+                                      bool       pSkipIfShake = true, bool pCheckDamageReduction = false)
     {
+        if (__instance == pAttacker) return false;
+        if (pCheckDamageReduction) return true;
         if (pSkipIfShake && __instance.shake_active)
         {
             return true;
