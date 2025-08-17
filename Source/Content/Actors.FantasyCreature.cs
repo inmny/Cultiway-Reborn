@@ -22,6 +22,7 @@ public partial class Actors
     private void SetupFantasyCreatures()
     {
         Bloodsucker.SetCamp(KingdomAssets.Vampire)
+            .SetAnimIdle(S_Anim.walk_0)
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3)
             .SetAnimSwim(ActorAnimationSequences.swim_0_3)
             .SetIcon("cultiway/icons/races/iconBloodsucker")

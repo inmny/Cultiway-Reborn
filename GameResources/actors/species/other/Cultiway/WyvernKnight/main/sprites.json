@@ -1,0 +1,33 @@
+﻿{
+  "Default": {
+    "PivotX": 0.5,
+    "PivotY": 0.04
+  },
+  "Specific": [
+    {
+      "Path": "walk_0_item.png",
+      "PivotX": 21.6,
+      "PivotY": 5.4
+    },
+    {
+      "Path": "walk_1_item.png",
+      "PivotX": 12.3,
+      "PivotY": 11.8
+    },
+    {
+      "Path": "walk_2_item.png",
+      "PivotX": 12.3,
+      "PivotY": 12.2
+    },
+    {
+      "Path": "walk_3_item.png",
+      "PivotX": 12.3,
+      "PivotY": 12.2
+    },
+    {
+      "Path": "walk_4_item.png",
+      "PivotX": 12.3,
+      "PivotY": 11.8
+    }
+  ]
+}
