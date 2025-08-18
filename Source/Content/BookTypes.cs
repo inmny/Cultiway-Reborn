@@ -21,23 +21,25 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         Cultibook.name_template = WorldboxGame.NameGenerators.Cultibook.id;
         Cultibook.path_icons = "cultibook/";
         Cultibook.GetExtend<BookTypeAssetExtend>().custom_cover_name = "cultibook";
-        Cultibook.GetExtend<BookTypeAssetExtend>().instance_read_action = (actor, book, asset) =>
-        {
-            var ae = actor.GetExtend();
-            var be = book.GetExtend();
-            if (!ae.HasCultibook())
-            {
-                ae.SetCultibookMasterRelation(be.E, 0);
-            }
-            else
-            {
-                var cultibook_master = ae.GetCultibookMasterRelation();
-                if (cultibook_master.Cultibook == be.E)
-                {
-                    ae.SetCultibookMasterRelation(be.E, cultibook_master.MasterValue + 1);
-                }
-            }
-        };
+        Cultibook.GetExtend<BookTypeAssetExtend>().instance_read_action = LearnCultibook;
         Skillbook.requirement_check = (_, _) => false;
+    }
+
+    private static void LearnCultibook(Actor actor, Book book, BookTypeAsset asset)
+    {
+        var ae = actor.GetExtend();
+        var be = book.GetExtend();
+        if (!ae.HasCultibook())
+        {
+            ae.SetCultibookMasterRelation(be.E, 0);
+        }
+        else
+        {
+            var cultibook_master = ae.GetCultibookMasterRelation();
+            if (cultibook_master.Cultibook == be.E)
+            {
+                ae.SetCultibookMasterRelation(be.E, cultibook_master.MasterValue + 1);
+            }
+        }
     }
 }

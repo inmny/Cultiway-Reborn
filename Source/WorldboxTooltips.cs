@@ -1,7 +1,10 @@
 using Cultiway.Abstract;
+using Cultiway.Core;
 using Cultiway.UI.Prefab;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
+using strings;
 
 namespace Cultiway;
 
@@ -10,6 +13,7 @@ public partial class WorldboxGame
     public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
     {
         [GetOnly("tip")] public static TooltipAsset Tip { get; private set; }
+        [GetOnly(S_Tooltip.book)] public static TooltipAsset Book { get; private set; }
         public static TooltipAsset RawTip { get; private set; }
 
         public static TooltipAsset SpecialItem { get; private set; }
@@ -20,8 +24,20 @@ public partial class WorldboxGame
             SpecialItem.prefab_id = "tooltips/tooltip_cultiway_special_item";
             SpecialItem.callback = ShowSpecialItem;
             SpecialItemTooltip.PatchTo<Tooltip>(SpecialItem.prefab_id);
+
+            Book.callback += ShowCustomBookReadAction;
             
             RawTip.callback = ShowRawTip;
+        }
+
+        private void ShowCustomBookReadAction(Tooltip tooltip, string type, TooltipData data)
+        {
+            var book = data.book;
+            var bte = book.getAsset().GetExtend<BookTypeAssetExtend>();
+            if (bte.instance_read_action != null)
+            {
+                tooltip.addLineText($"Cultiway.Book.ReadAction.{bte.instance_read_action.Method.Name}", "");
+            }
         }
 
         private void ShowRawTip(Tooltip tooltip, string type, TooltipData data)
