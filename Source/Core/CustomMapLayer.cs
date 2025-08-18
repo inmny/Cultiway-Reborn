@@ -103,7 +103,7 @@ public class CustomMapLayer : MapLayer
         for (int i = 0; i < mirror_pixels.Length; i++)
         {
             int x = i % textureWidth;
-            int y = i / textureHeight;
+            int y = i / textureWidth;
             map_mode.kernel_func(x, y, ref mirror_pixels[i]);
         }
 
