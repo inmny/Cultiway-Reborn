@@ -1,0 +1,18 @@
+﻿{
+  "Default": {
+    "PivotX": 0.5,
+    "PivotY": 0.12
+  },
+  "Specific": [
+    {
+      "Path": "walk_0_item.png",
+      "PivotX": 0.6,
+      "PivotY": 2
+    },
+    {
+      "Path": "walk_1_item.png",
+      "PivotX": 0.6,
+      "PivotY": 3
+    }
+  ]
+}
