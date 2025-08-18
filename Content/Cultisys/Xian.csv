@@ -1,4 +1,4 @@
-﻿level,health,MaxWakan,MaxSoul,max_age,armor,IronArmor,WoodArmor,WaterArmor,FireArmor,EarthArmor,SoulArmor,HealthRegen,WakanRegen,SoulRegen,IronMaster,WoodMaster,WaterMaster,FireMaster,EarthMaster,SoulMaster,range
+﻿level,health,MaxWakan,MaxSoul,lifespan,armor,IronArmor,WoodArmor,WaterArmor,FireArmor,EarthArmor,SoulArmor,HealthRegen,WakanRegen,SoulRegen,IronMaster,WoodMaster,WaterMaster,FireMaster,EarthMaster,SoulMaster,range
 等级,生命,灵气,元神,寿命加成,通用减免,金抗,木抗,水抗,火抗,土抗,魂抗,回血/月,回灵/月,回神/月,金精通,木精通,水精通,火精通,土精通,魂精通,攻击范围
 0,100,100,100,100,1,4,4,4,4,4,4,1,0.1,0.1,10,10,10,10,10,10,11
 1,300,300,300,200,4,9,9,9,9,9,9,3,0.3,0.3,20,20,20,20,20,20,11
