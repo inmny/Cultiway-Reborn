@@ -12,7 +12,6 @@
         <DisableHandlePackageFileConflicts>true</DisableHandlePackageFileConflicts>
     </PropertyGroup>
     <ItemGroup>
-        <Content Include="icon.png"/>
         <Content Include="mod.json"/>
     </ItemGroup>
     <ItemGroup>

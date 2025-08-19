@@ -15,4 +15,9 @@ public struct ItemLevel : IComponent
         var level = Math.Max(0, Math.Min(Level, 8));
         return LM.Get($"Cultiway.Stage.{stage}") + "阶" + LM.Get($"Cultiway.Level.{level}");
     }
+
+    public static implicit operator int(ItemLevel level)
+    {
+        return level.Stage * 9 + level.Level;
+    }
 }

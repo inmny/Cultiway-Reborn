@@ -125,6 +125,9 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (ae.HasCultibook())
             {
                 var cultibook_master = ae.GetCultibookMasterRelation();
+                var cultibook = cultibook_master.Cultibook.GetComponent<Cultibook>();
+                
+                stats.MergeStats(cultibook.FinalStats, cultibook_master.MasterValue / 100f);
                 //stats.MergeStats(cultibook_master.Cultibook.GetComponent<Cultibook>().Book.FinalStats, cultibook_master.MasterValue / 100f);
             }
             

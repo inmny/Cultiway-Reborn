@@ -1,5 +1,6 @@
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
+using Cultiway.Content.Extensions;
 using Cultiway.Utils.Extension;
 using strings;
 
@@ -28,8 +29,8 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 return false;
             }
 
-            World.world.books.GenerateNewBook(actor, BookTypes.Cultibook);
-            return true;
+            var book = World.world.books.CreateNewCultibook(actor);
+            return book != null;
         };
     }
 }

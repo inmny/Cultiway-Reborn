@@ -2,3 +2,4 @@ key,cz
 book_type_Cultiway.Cultibook,功法
 book_type_info_Cultiway.Cultibook,玄之又玄，众妙之门
 Cultiway.Book.ReadAction.LearnCultibook,学会功法
+Cultiway.Book.ReadAction.FullyMaster,当完全掌握时:
