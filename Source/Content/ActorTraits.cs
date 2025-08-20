@@ -30,6 +30,7 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
         PassiveXianCultivate.group_id = ActorTraitGroups.System.id;
         PassiveXianCultivate.path_icon = "cultiway/icons/traits/iconPassiveXianCultivate";
         PassiveXianCultivate.special_effect_interval = TimeScales.SecPerMonth;
+        PassiveXianCultivate.rarity = Rarity.R3_Legendary;
         PassiveXianCultivate.action_special_effect = (actor, tile) =>
         {
             ActorExtend ae = actor.a.GetExtend();
@@ -44,6 +45,7 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
         SignIn.group_id = ActorTraitGroups.System.id;
         SignIn.path_icon = "cultiway/icons/traits/iconPassiveXianCultivate";
         SignIn.special_effect_interval = TimeScales.SecPerYear;
+        SignIn.rarity = Rarity.R3_Legendary;
         SignIn.action_special_effect = (actor, tile) =>
         {
             var a = actor.a;
