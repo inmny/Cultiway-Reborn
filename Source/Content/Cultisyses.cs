@@ -96,6 +96,8 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             ref var element_root = ref ae.GetElementRoot();
             if (!ContentSetting.AllXian && element_root.Type == ModClass.L.ElementRootLibrary.Common) return;
             ae.NewCultisys(Xian);
+            
+            ModClass.I.WorldRecord.CheckAndLogFirstLevelup(Xian.id, ae, ref ae.GetCultisys<Xian>());
             if (ae.Base.asset == Actors.Plant)
             {
                 ae.Base.data.setName(PlantNameGenerator.Instance.GenerateName([element_root.Type.GetName()]));

@@ -16,10 +16,10 @@ public class WorldRecord
 
     public Entity E { get; private set; }
 
-    public void CheckAndLogFirstLevelup<T>(string cultisys, int level, ActorExtend ae, ref T component)
+    public void CheckAndLogFirstLevelup<T>(string cultisys, ActorExtend ae, ref T component)
         where T : ICultisysComponent
     {
-        string key = $"{cultisys}_{level}";
+        string key = $"{cultisys}_{component.CurrLevel}";
         if (!_tags.Add(key)) return;
 
         WorldLogUtils.LogCultisysLevelup(ae, ref component);

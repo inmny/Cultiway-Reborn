@@ -180,8 +180,8 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
             c.CurrLevel++;
             ae.UpgradePowerLevel(PowerLevels[c.CurrLevel]);
             ae.Base.setStatsDirty();
-
-            ModClass.I.WorldRecord.CheckAndLogFirstLevelup(id, c.CurrLevel, ae, ref c);
+            
+            ModClass.I.WorldRecord.CheckAndLogFirstLevelup(id, ae, ref ae.GetCultisys<T>());
         }
         else
         {
