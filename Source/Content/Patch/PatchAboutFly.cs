@@ -172,7 +172,34 @@ internal static class PatchAboutFly
         ]);
         return list;
     }
+    [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.updateParallelChecks))]
+    private static IEnumerable<CodeInstruction> updateParallelChecks(IEnumerable<CodeInstruction> codes)
+    {
+        var list = codes.ToList();
 
+        var insert_idx = list.FindIndex(x =>
+            x.opcode == OpCodes.Ldfld && (x.operand as FieldInfo)?.Name == nameof(ActorAsset.update_z)) - 2;
+        var jump_target_idx = list.FindIndex(x =>
+            x.opcode == OpCodes.Callvirt && (x.operand as MethodInfo)?.Name == nameof(Actor.updateFall)) - 1;
+        Label label;
+        if (list[jump_target_idx].labels.Count > 0)
+        {
+            label = list[jump_target_idx].labels[0];
+        }
+        else
+        {
+            label = new Label();
+            list[jump_target_idx].labels.Add(label);
+        }
+        list.InsertRange(insert_idx, new []
+        {
+            new CodeInstruction(OpCodes.Ldarg_0),
+            new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PatchAboutFly), nameof(check_is_flying))),
+            new CodeInstruction(OpCodes.Brtrue, label)
+        });
+
+        return list;
+    }
     private static bool check_is_flying(Actor actor)
     {
         return actor.isAlive() && actor.data.hasFlag(ContentActorDataKeys.IsFlying_flag);
