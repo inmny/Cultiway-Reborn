@@ -21,7 +21,7 @@ internal static class PatchAboutFly
     private static bool BehFindRandomTile_execute_prefix(Actor pActor, ref BehResult __result)
     {
         var ae = pActor.GetExtend();
-        if (!ae.TryGetComponent(out Xian xian) || xian.CurrLevel < XianSetting.FlyLevel)
+        if (!ae.TryGetComponent(out Xian xian) || xian.CurrLevel < XianSetting.WeaponFlyLevel)
         {
             return true;
         }
@@ -142,8 +142,9 @@ internal static class PatchAboutFly
             return true;
         }
 
-        if (xian.CurrLevel >= XianSetting.FlyLevel)
+        if (xian.CurrLevel >= XianSetting.WeaponFlyLevel)
         {
+            if (!actor.hasWeapon() && xian.CurrLevel < XianSetting.CloudFlyLevel) return false;
             actor.data.addFlag(ContentActorDataKeys.IsFlying_flag);
             actor.setFlying(true);
             actor.precalcMovementSpeed(true);
