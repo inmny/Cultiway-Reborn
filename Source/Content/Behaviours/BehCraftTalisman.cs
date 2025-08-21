@@ -25,9 +25,13 @@ public class BehCraftTalisman : BehaviourActionActor
         {
             return BehResult.Continue;
         }
+        var skill = ae.tmp_all_skills.GetRandom();
+        if (string.IsNullOrEmpty(skill))
+        {
+            return BehResult.Continue;
+        }
         xian.wakan -= wakan_to_take;
         var power_level = ae.GetPowerLevel();
-        var skill = ae.tmp_all_skills.GetRandom();
         var item = SpecialItemUtils.StartBuild(ItemShapes.Talisman.id, WorldboxGame.I.GetWorldTime(), pObject.getName(), Mathf.Pow(power_level, 2)*10)
             .AddComponent(new Talisman()
             {
