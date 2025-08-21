@@ -14,6 +14,7 @@ public partial class WorldboxGame
     {
         [GetOnly("tip")] public static TooltipAsset Tip { get; private set; }
         [GetOnly(S_Tooltip.book)] public static TooltipAsset Book { get; private set; }
+        public static TooltipAsset Sect { get; private set; }
         public static TooltipAsset RawTip { get; private set; }
 
         public static TooltipAsset SpecialItem { get; private set; }
@@ -24,10 +25,26 @@ public partial class WorldboxGame
             SpecialItem.prefab_id = "tooltips/tooltip_cultiway_special_item";
             SpecialItem.callback = ShowSpecialItem;
             SpecialItemTooltip.PatchTo<Tooltip>(SpecialItem.prefab_id);
+            Sect.prefab_id = "tooltips/tooltip_cultiway_sect";
+            Sect.callback = ShowSect;
+            SectTooltip.PatchTo<Tooltip>(Sect.prefab_id);
 
             Book.callback += ShowCustomBookReadAction;
             
             RawTip.callback = ShowRawTip;
+        }
+
+        private void ShowSect(Tooltip tooltip, string type, TooltipData data)
+        {
+            var sect = I.Sects.get(long.Parse(data.tip_name));
+            if (sect == null)
+            {
+                tooltip.setTitle("ERROR");
+                return;
+            }
+            tooltip.setTitle(sect.name, "sect", sect.getColor().color_text);
+            tooltip.addLineIntText("adults", sect.countAdults());
+            tooltip.addLineIntText("children", sect.countChildren());
         }
 
         private void ShowCustomBookReadAction(Tooltip tooltip, string type, TooltipData data)
