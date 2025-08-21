@@ -1,3 +1,6 @@
 key,cz
 plot_Cultiway.NewCultibook,编纂功法
 plot_Cultiway.NewCultibook_info_base,典籍蕴秘，新功初成
+plot_Cultiway.NewSect,创建宗门
+plot_Cultiway.NewSect_info_base,宗门肇建，基业初立
+plot_group_Cultiway.Sect,宗门

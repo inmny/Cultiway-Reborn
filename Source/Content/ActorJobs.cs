@@ -13,6 +13,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob ElixirFinder { get; private set; }
     public static ActorJob TalismanCrafter { get; private set; }
     public static ActorJob CultibookResearcher { get; private set; }
+    public static ActorJob SectBuilder { get; private set; }
     [GetOnly("attacker")]
     public static ActorJob Attacker { get; private set; }
     [GetOnly("random_move")]
@@ -59,6 +60,12 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         CultibookResearcher.addCondition(new CondHasCultibook(), false);
         CultibookResearcher.addCondition(new CondHasYuanying());
         CultibookResearcher.addTask(ActorTasks.EndJob.id);
+        
+        SectBuilder.addTask(ActorTasks.BuildSect.id);
+        SectBuilder.addCondition(new CondHasSect(), false);
+        SectBuilder.addCondition(new CondHasCultibook());
+        SectBuilder.addCondition(new CondHasYuanying());
+        SectBuilder.addTask(ActorTasks.EndJob.id);
         
         
         Attacker.addTask(ActorTasks.DailyXianCultivate.id);;

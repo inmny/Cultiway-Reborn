@@ -9,4 +9,9 @@ public static class ActorTools
     {
         return ActorExtendManager.Get(actor);
     }
+
+    public static bool HasSect(this Actor actor)
+    {
+        return actor.GetExtend().sect != null;
+    }
 }

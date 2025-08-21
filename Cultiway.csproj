@@ -21,6 +21,9 @@
         <Reference Include="Assembly-CSharp">
             <HintPath>..\..\worldbox_Data\StreamingAssets\mods\NML\Assembly-CSharp-Publicized.dll</HintPath>
         </Reference>
+        <Reference Include="db.tables">
+          <HintPath>..\..\worldbox_Data\Managed\db.tables.dll</HintPath>
+        </Reference>
         <Reference Include="DOTween">
             <HintPath>..\..\worldbox_Data\Managed\DOTween.dll</HintPath>
         </Reference>
@@ -42,6 +45,9 @@
         <Reference Include="NeoModLoader">
             <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader_memload.dll')">..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader_memload.dll</HintPath>
             <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll')">..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll</HintPath>
+        </Reference>
+        <Reference Include="SQLite">
+          <HintPath>..\..\worldbox_Data\Managed\SQLite.dll</HintPath>
         </Reference>
         <Reference Include="strings">
           <HintPath>..\..\worldbox_Data\Managed\strings.dll</HintPath>

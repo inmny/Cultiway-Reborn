@@ -17,6 +17,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor CraftTalisman { get; private set; }
     public static BehaviourTaskActor CreateCultibook { get; private set; }
     public static BehaviourTaskActor ImproveCultibook { get; private set; }
+    public static BehaviourTaskActor BuildSect { get; private set; }
 
     [GetOnly("random_move")] public static BehaviourTaskActor RandomMove { get; private set; }
 
@@ -76,6 +77,8 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         CreateCultibook.addBeh(new BehStayInBuildingTarget());
         CreateCultibook.addBeh(new BehCreateCultibook());
         CreateCultibook.addBeh(new BehExitBuilding());
+        
+        BuildSect.addBeh(new BehBuildSect());
         
         CraftTalisman.addBeh(new BehRandomWait(3 * TimeScales.SecPerMonth, 12 * TimeScales.SecPerMonth));
         CraftTalisman.addBeh(new BehCraftTalisman());

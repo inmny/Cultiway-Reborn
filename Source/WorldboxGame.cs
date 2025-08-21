@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.AbstractGame;
+using Cultiway.Core;
 using NeoModLoader.api.attributes;
 using UnityEngine;
 
@@ -19,10 +20,28 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
             (Activator.CreateInstance(t) as ICanInit)?.Init();
             ModClass.LogInfo($"({nameof(WorldboxGame)}) initializes {t.Name}");
         }
+
+        Sects = AddMetaMainManager(new SectManager());
+    }
+
+    public T AddMetaMainManager<T>(T manager) where T : BaseSystemManager
+    {
+        World.world._list_meta_main_managers.Add(manager);
+        World.world.list_all_sim_managers.Add(manager);
+        return manager;
+    }
+
+    public T AddMetaOtherManager<T>(T manager) where T : BaseSystemManager
+    {
+        World.world._list_meta_other_managers.Add(manager);
+        World.world.list_all_sim_managers.Add(manager);
+        return manager;
     }
 
     public static WorldboxGame I { get; private set; }
     public Font CurrentFont => LocalizedTextManager.current_font;
+    public Sect SelectedSect;
+    public SectManager Sects;
     public override float GetLogicDeltaTime()
     {
         return World.world.elapsed / Mathf.Max(0.01f, Config.time_scale_asset.multiplier);

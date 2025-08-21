@@ -10,6 +10,7 @@ public class Manager
     public StatusEffectLibrary StatusEffectLibrary { get; } = new();
     public WrappedSkillLibrary WrappedSkillLibrary { get; } = new();
     public ForceTypeLibrary ForceTypeLibrary { get; } = new();
+    public SectBannerLibrary SectBannerLibrary { get; } = new();
 
     public void Init()
     {
@@ -21,6 +22,7 @@ public class Manager
         AssetManager._instance.add(StatusEffectLibrary, "status_effects");
         AssetManager._instance.add(WrappedSkillLibrary, "wrapped_skills");
         AssetManager._instance.add(ForceTypeLibrary, "force_types");
+        AssetManager._instance.add(SectBannerLibrary, "sect_banners");
     }
 
     public void PostInit()
@@ -33,5 +35,6 @@ public class Manager
         StatusEffectLibrary.post_init();
         WrappedSkillLibrary.post_init();
         ForceTypeLibrary.post_init();
+        SectBannerLibrary.post_init();
     }
 }

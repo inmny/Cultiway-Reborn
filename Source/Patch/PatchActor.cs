@@ -164,7 +164,16 @@ internal static class PatchActor
     {
         actor.GetExtend().ExtendUpdateStats();
     }
-
+    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.clearManagers))]
+    private static void clearManagers_postfix(Actor __instance)
+    {
+        var ae = __instance.GetExtend();
+        if (__instance.HasSect())
+        {
+            WorldboxGame.I.Sects.unitDied(ae.sect);
+            ae.sect = null;
+        }
+    }
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.newKillAction))]
     private static void newKillAction_postfix(Actor __instance, Actor pDeadUnit, Kingdom pPrevKingdom)
     {

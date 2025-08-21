@@ -38,7 +38,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     private  Dictionary<string, Entity> _skill_action_modifiers = new();
     private  Dictionary<string, Entity> _skill_entity_modifiers = new();
     internal float[]         s_armor        = new float[9];
-    
+    public Sect sect;
     public   HashSet<string> tmp_all_skills = new();
     public List<string> tmp_all_attack_skills = new();
 
@@ -808,5 +808,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         #endregion
         
+    }
+
+    public void SetSect(Sect new_sect)
+    {
+        WorldboxGame.I.Sects.setDirtyUnits(sect);
+        sect = new_sect;
+        WorldboxGame.I.Sects.unitAdded(new_sect);
+        Base.setStatsDirty();
     }
 }
