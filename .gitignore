@@ -406,3 +406,4 @@ Doc
 !.gitignore
 !.gitattribute
 !Source/Debug
+Content/PreparedLLMResults/*

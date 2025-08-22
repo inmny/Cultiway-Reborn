@@ -117,12 +117,18 @@ public abstract class PromptNameGenerator<T> where T : PromptNameGenerator<T>
 
     public void Load()
     {
-        if (File.Exists(NameDictPath))
+        var path = NameDictPath;
+        if (!File.Exists(path))
+        {
+            path = Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content/PreparedLLMResults",
+                Path.GetFileName(path));
+        }
+        if (File.Exists(path))
         {
             try
             {
                 NameDict =
-                    JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(File.ReadAllText(NameDictPath)) ??
+                    JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(File.ReadAllText(path)) ??
                     new();
             }
             catch
