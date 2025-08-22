@@ -12,20 +12,12 @@ public class BehCreateCultibook : BehCityActor
     public override BehResult execute(Actor pObject)
     {
         var ae = pObject.GetExtend();
-        var raw_cultibook = World.world.books.GenerateNewBook(pObject, BookTypes.Cultibook);
+        var raw_cultibook = World.world.books.CreateNewCultibook(pObject);
         if (raw_cultibook == null)
         {
             return BehResult.Stop;
         }
         var be = raw_cultibook.GetExtend();
-        be.AddComponent(new Cultibook()
-        {
-            
-        });
-        be.AddComponent(new ItemLevel()
-        {
-            
-        });
         ae.SetCultibookMasterRelation(be.E, 100);
         pObject.timer_action = Randy.randomFloat(TimeScales.SecPerYear, TimeScales.SecPerYear * 3);
         return BehResult.Continue;
