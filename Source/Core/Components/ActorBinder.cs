@@ -25,6 +25,6 @@ public struct ActorBinder(long id) : IComponent
     [Ignore]
     internal ActorExtend _ae;
     [Ignore]
-    private  Actor       _actor;
+    internal  Actor       _actor;
 
 }

@@ -22,6 +22,16 @@ public class ActorExtendManager : ExtendComponentManager<ActorExtend>
         _actor_to_extend.Add(actor, val);
         return val;
     }
+
+    public bool Has(Actor actor)
+    {
+        return _actor_to_extend.TryGetValue(actor, out _);
+    }
+
+    public void Remove(Actor actor)
+    {
+        _actor_to_extend.Remove(actor);
+    }
     public void AllStatsDirty()
     {
         World.Query<ActorBinder>().ForEachEntity((ref ActorBinder ab, Entity e) => ab.Actor?.setStatsDirty());
