@@ -702,20 +702,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         return ref e.GetComponent<T>();
     }
 
-    internal void PrepareDestroy()
-    {
-        e.AddTag<TagRecycle>();
-        foreach (var skill_action in _skill_action_modifiers.Values)
-        {
-            skill_action.DeleteEntity();
-        }
-
-        foreach (var item in GetItems())
-        {
-            item.AddTag<TagRecycle>();
-        }
-    }
-
     public Entity GetFirstItemWithComponent<TComponent>() where TComponent : struct, IComponent
     {
         return e.GetRelations<InventoryRelation>().Select(x => x.item)
