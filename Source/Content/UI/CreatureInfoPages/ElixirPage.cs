@@ -12,12 +12,12 @@ using UnityEngine.UI;
 
 namespace Cultiway.Content.UI.CreatureInfoPages;
 
-public class CultibookPage : MonoBehaviour
+public class ElixirPage : MonoBehaviour
 {
     public Text Text { get; private set; }
     public static void Setup(CreatureInfoPage page)
     {
-        var this_page = page.gameObject.AddComponent<CultibookPage>();
+        var this_page = page.gameObject.AddComponent<ElixirPage>();
         var text = page.gameObject.AddComponent<Text>();
 
         text.font = LocalizedTextManager.current_font;
@@ -31,15 +31,14 @@ public class CultibookPage : MonoBehaviour
         ActorExtend ae = actor.GetExtend();
         var sb = new StringBuilder();
 
-        foreach (var cultibook_master in ae.GetAllMaster<CultibookAsset>())
+        foreach (var elixir_master in ae.GetAllMaster<ElixirAsset>())
         {
-            var cultibook = cultibook_master.Item1;
-            sb.AppendLine($"功法: {cultibook.Name}");
-            sb.AppendLine($"\t{cultibook.Level.GetName()}");
-            sb.AppendLine($"\t掌握程度: {cultibook_master.Item2}");
+            var elixir_asset = elixir_master.Item1;
+            sb.AppendLine($"丹方: {elixir_asset.GetName()}");
+            sb.AppendLine($"\t掌握程度: {elixir_master.Item2}");
         }
 
-        var this_page = page.GetComponent<CultibookPage>();
+        var this_page = page.GetComponent<ElixirPage>();
         this_page.Text.text = sb.ToString();
     }
 }

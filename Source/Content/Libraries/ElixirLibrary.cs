@@ -58,7 +58,7 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
             id = Guid.NewGuid().ToString()
         };
         if (dynamic)
-            add_dynamic(asset);
+            AddDynamic(asset);
         else
             add(asset);
 
@@ -92,7 +92,7 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
         asset.seed_for_random_effect = Randy.randomInt(0, int.MaxValue);
         if (ElixirEffectGenerator.GenerateElixirActions(asset))
         {
-            add_dynamic(asset);
+            AddDynamic(asset);
             return asset;
         }
         return null;

@@ -5,6 +5,7 @@ using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Libraries;
 using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -126,11 +127,10 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
 
             if (ae.HasCultibook())
             {
-                var cultibook_master = ae.GetCultibookMasterRelation();
-                var cultibook = cultibook_master.Cultibook.GetComponent<Cultibook>();
-                
-                stats.MergeStats(cultibook.FinalStats, cultibook_master.MasterValue / 100f);
-                //stats.MergeStats(cultibook_master.Cultibook.GetComponent<Cultibook>().Book.FinalStats, cultibook_master.MasterValue / 100f);
+                foreach (var cultibook_master in ae.GetAllMaster<CultibookAsset>())
+                {
+                    stats.MergeStats(cultibook_master.Item1.FinalStats, cultibook_master.Item2 / 100f);
+                }
             }
             
             

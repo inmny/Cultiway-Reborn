@@ -17,8 +17,6 @@ public class BehCreateCultibook : BehCityActor
         {
             return BehResult.Stop;
         }
-        var be = raw_cultibook.GetExtend();
-        ae.SetCultibookMasterRelation(be.E, 100);
         pObject.timer_action = Randy.randomFloat(TimeScales.SecPerYear, TimeScales.SecPerYear * 3);
         return BehResult.Continue;
     }

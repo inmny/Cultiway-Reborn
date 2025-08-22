@@ -223,6 +223,7 @@ namespace Cultiway
             GeneralLogicSystems.Add(new RecycleAnimRendererSystem());
             GeneralLogicSystems.Add(new RecycleStatusEffectSystem());
             GeneralLogicSystems.Add(new RecycleDefaultEntitySystem());
+            GeneralLogicSystems.Add(new RecycleUnknownAssetsSystem());
             
             GeneralLogicSystems.Add(new RestoreHealthSystem());
             GeneralLogicSystems.Add(new RestoreQiyunSystem());

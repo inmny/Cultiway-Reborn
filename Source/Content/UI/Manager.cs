@@ -1,6 +1,7 @@
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Libraries;
 using Cultiway.Content.UI.CreatureInfoPages;
 using Cultiway.UI;
 using Cultiway.UI.Prefab;
@@ -20,6 +21,7 @@ public class Manager : ICanInit
         WindowNewCreatureInfo.RegisterPage(nameof(YuanyingPage), a => a.GetExtend().HasComponent<Yuanying>(),
             YuanyingPage.Setup, YuanyingPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(CultibookPage), a=>a.GetExtend().HasCultibook(), CultibookPage.Setup, CultibookPage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(ElixirPage), a=> a.GetExtend().HasMaster<ElixirAsset>(), ElixirPage.Setup, ElixirPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(SectPage), a=> a.GetExtend().sect !=null, SectPage.Setup, SectPage.Show);
 
         WindowWorldWakan.CreateAndInit($"Cultiway.UI.{nameof(WindowWorldWakan)}");

@@ -2,6 +2,7 @@ using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content;
@@ -9,6 +10,7 @@ namespace Cultiway.Content;
 public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
 {
     public static BookTypeAsset Cultibook { get; private set; }
+    public static BookTypeAsset Elixirbook { get; private set; }
     public static BookTypeAsset Skillbook { get; private set; }
     protected override void OnInit()
     {
@@ -22,6 +24,10 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         Cultibook.path_icons = "cultibook/";
         Cultibook.GetExtend<BookTypeAssetExtend>().custom_cover_name = "cultibook";
         Cultibook.GetExtend<BookTypeAssetExtend>().instance_read_action = LearnCultibook;
+        Elixirbook.requirement_check = (actor, _) =>
+        {
+            return false;
+        };
         Skillbook.requirement_check = (_, _) => false;
     }
 
@@ -29,17 +35,15 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
     {
         var ae = actor.GetExtend();
         var be = book.GetExtend();
+        var cultibook_asset = be.GetComponent<Cultibook>().Asset;
         if (!ae.HasCultibook())
         {
-            ae.SetCultibookMasterRelation(be.E, 0);
+            ae.Master(cultibook_asset, 1);
         }
         else
         {
-            var cultibook_master = ae.GetCultibookMasterRelation();
-            if (cultibook_master.Cultibook == be.E)
-            {
-                ae.SetCultibookMasterRelation(be.E, cultibook_master.MasterValue + 1);
-            }
+            var master = ae.GetMaster(cultibook_asset);
+            ae.Master(cultibook_asset, master + 1);
         }
     }
 }

@@ -61,9 +61,9 @@ public static class ActorExtendTools
 
     public static bool HasCultibook(this ActorExtend ae)
     {
-        return ae.E.GetRelations<CultibookMasterRelation>().Any();
+        return ae.HasMaster<CultibookAsset>();
     }
-
+/*
     public static CultibookMasterRelation GetCultibookMasterRelation(this ActorExtend ae)
     {
         return ae.E.GetRelations<CultibookMasterRelation>().First();
@@ -84,7 +84,7 @@ public static class ActorExtendTools
             });
         }
     }
-
+*/
     public static ref Yuanying GetYuanying(this ActorExtend ae)
     {
         return ref ae.GetComponent<Yuanying>();

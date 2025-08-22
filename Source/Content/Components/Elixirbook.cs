@@ -1,25 +1,24 @@
 using Cultiway.Content.Libraries;
 using Friflo.Engine.ECS;
+using Friflo.Json.Fliox;
 
 namespace Cultiway.Content.Components;
 
-public struct Cultibook(string id) : IComponent
+public struct Elixirbook(string id) : IComponent
 {
+    [Ignore]
     public string ID => id;
-
-    public CultibookAsset Asset
-    {
+    public ElixirAsset Asset {
         get
         {
             if (_asset == null)
             {
-                _asset = Libraries.Manager.CultibookLibrary.get(id);
+                _asset = Libraries.Manager.ElixirLibrary.get(id);
             }
 
             return _asset;
         }
     }
-
-    private CultibookAsset _asset;
-    //public BaseStats FinalStats;
+    [Ignore]
+    private ElixirAsset _asset;
 }

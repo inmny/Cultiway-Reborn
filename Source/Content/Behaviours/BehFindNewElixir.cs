@@ -36,6 +36,7 @@ public class BehFindNewElixir : BehCityActor
         {
             return BehResult.Stop;
         }
+        ae.Master(new_asset, 1);
         ModClass.LogInfo($"{ae} creates new elixir {new_asset.name_key}");
         Entity crafting_elixir = SpecialItemUtils
             .StartBuild(ItemShapes.Ball.id, World.world.getCurWorldTime(), pObject.getName())

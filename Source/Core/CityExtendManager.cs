@@ -9,7 +9,7 @@ namespace Cultiway.Core;
 public class CityExtendManager : ExtendComponentManager<CityExtend>
 {
     public readonly  EntityStore                    World;
-    private readonly ConditionalWeakTable<City, CityExtend> _city_to_extend = new();
+    private readonly ConditionalWeakTable<CityData, CityExtend> _city_to_extend = new();
 
     internal CityExtendManager(EntityStore world)
     {
@@ -17,9 +17,9 @@ public class CityExtendManager : ExtendComponentManager<CityExtend>
     }
     public CityExtend Get(City city)
     {
-        if (_city_to_extend.TryGetValue(city, out var val)) return val;
+        if (_city_to_extend.TryGetValue(city.data, out var val)) return val;
         val = new CityExtend(World.CreateEntity(new CityBinder(city.data.id)));
-        _city_to_extend.Add(city, val);
+        _city_to_extend.Add(city.data, val);
         return val;
     }
 }

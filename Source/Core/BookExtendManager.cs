@@ -8,7 +8,7 @@ namespace Cultiway.Core;
 public class BookExtendManager : ExtendComponentManager<BookExtend>
 {
     public readonly EntityStore                     World;
-    private ConditionalWeakTable<Book, BookExtend> _book_to_extend = new();
+    private ConditionalWeakTable<BookData, BookExtend> _book_to_extend = new();
 
     internal BookExtendManager(EntityStore world)
     {
@@ -16,9 +16,9 @@ public class BookExtendManager : ExtendComponentManager<BookExtend>
     }
     public BookExtend Get(Book book)
     {
-        if (_book_to_extend.TryGetValue(book, out var val)) return val;
+        if (_book_to_extend.TryGetValue(book.data, out var val)) return val;
         val = new BookExtend(World.CreateEntity(new BookBinder(book.data.id)));
-        _book_to_extend.Add(book, val);
+        _book_to_extend.Add(book.data, val);
         return val;
     }
 }

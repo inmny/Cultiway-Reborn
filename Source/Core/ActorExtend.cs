@@ -42,6 +42,36 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     public   HashSet<string> tmp_all_skills = new();
     public List<string> tmp_all_attack_skills = new();
 
+    private Dictionary<Type, Dictionary<IDeleteWhenUnknown, float>>  _master_items = new();
+    public void Master<T>(T item, float value) where T : Asset, IDeleteWhenUnknown
+    {
+        if (!_master_items.TryGetValue(typeof(T), out var dict))
+        {
+            dict = new Dictionary<IDeleteWhenUnknown, float>();
+            _master_items.Add(typeof(T), dict);
+        }
+
+        if (!dict.ContainsKey(item))
+        {
+            item.Current++;
+        }
+        dict[item] = value;
+    }
+
+    public bool HasMaster<T>() where T : Asset, IDeleteWhenUnknown
+    {
+        return _master_items.TryGetValue(typeof(T), out var dict) && dict.Count > 0;
+    }
+
+    public float GetMaster<T>(T item) where T : Asset, IDeleteWhenUnknown
+    {
+        return _master_items.TryGetValue(typeof(T), out var dict) ? (dict.TryGetValue(item, out var value) ? value : 0) : 0;
+    }
+
+    public IEnumerable<(T, float)> GetAllMaster<T>() where T : Asset, IDeleteWhenUnknown
+    {
+        return _master_items.TryGetValue(typeof(T), out var dict) ? dict.Select(x => ((T)x.Key, x.Value)) : Array.Empty<(T, float)>();
+    }
     public ActorExtend(Entity e)
     {
         this.e = e;
@@ -57,6 +87,22 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             {
                 item.AddTag<TagRecycle>();
             }
+        }
+
+        if (_master_items != null)
+        {
+            foreach (var items in _master_items.Values)
+            {
+                if (items != null)
+                {
+                    foreach (var item in items.Keys)
+                    {
+                        item.Current--;
+                        ModClass.LogInfo($"Unmaster {((Asset)item).id}");
+                    }
+                }
+            }
+            _master_items = null;
         }
         if (_skill_action_modifiers != null)
         {

@@ -74,7 +74,7 @@ public delegate void ElixirEffectDelegate(ActorExtend ae, Entity elixir_entity, 
 
 public delegate bool ElixirCheckDelegate(ActorExtend ae, Entity elixir_entity, ref Elixir elixir);
 
-public class ElixirAsset : Asset
+public class ElixirAsset : Asset, IDeleteWhenUnknown
 {
     public ElixirCheckDelegate  consumable_check_action;
     public ElixirCraftDelegate  craft_action;
@@ -87,7 +87,7 @@ public class ElixirAsset : Asset
     public int seed_for_random_effect;
     public string                  name_key;
     public string description_key;
-
+    
     public string GetName()
     {
         if (string.IsNullOrEmpty(name_key))
@@ -203,4 +203,6 @@ public class ElixirAsset : Asset
         corr_ingredients = res ? check_result : null;
         return res;
     }
+
+    public int Current { get; set; } = 0;
 }

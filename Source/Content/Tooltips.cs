@@ -18,6 +18,6 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
         var be = book.GetExtend();
         var cultibook = be.GetComponent<Cultibook>();
         tooltip.addLineText("Cultiway.Book.ReadAction.FullyMaster", "", "#FFFFFF");
-        BaseStatsHelper.showBaseStats(tooltip.stats_description, tooltip.stats_values, cultibook.FinalStats);
+        BaseStatsHelper.showBaseStats(tooltip.stats_description, tooltip.stats_values, cultibook.Asset.FinalStats);
     }
 }

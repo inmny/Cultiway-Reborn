@@ -9,7 +9,7 @@ namespace Cultiway.Core;
 public class ActorExtendManager : ExtendComponentManager<ActorExtend>
 {
     public readonly EntityStore                     World;
-    private ConditionalWeakTable<Actor, ActorExtend> _actor_to_extend = new();
+    private ConditionalWeakTable<ActorData, ActorExtend> _actor_to_extend = new();
 
     internal ActorExtendManager(EntityStore world)
     {
@@ -17,20 +17,10 @@ public class ActorExtendManager : ExtendComponentManager<ActorExtend>
     }
     public ActorExtend Get(Actor actor)
     {
-        if (_actor_to_extend.TryGetValue(actor, out var val)) return val;
+        if (_actor_to_extend.TryGetValue(actor.data, out var val)) return val;
         val = new ActorExtend(World.CreateEntity(new ActorBinder(actor.data.id)));
-        _actor_to_extend.Add(actor, val);
+        _actor_to_extend.Add(actor.data, val);
         return val;
-    }
-
-    public bool Has(Actor actor)
-    {
-        return _actor_to_extend.TryGetValue(actor, out _);
-    }
-
-    public void Remove(Actor actor)
-    {
-        _actor_to_extend.Remove(actor);
     }
     public void AllStatsDirty()
     {

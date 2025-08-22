@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Content.Components;
+using Cultiway.Content.Libraries;
 using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
 using UnityEngine;
@@ -9,6 +10,7 @@ namespace Cultiway.Content.Extensions;
 
 public static class BookManagerTools
 {
+    private static CultibookLibrary _cultibookLibrary = Libraries.Manager.CultibookLibrary;
     public static Book CreateNewCultibook(this BookManager manager, Actor creator)
     {
         var ae = creator.GetExtend();
@@ -63,15 +65,18 @@ public static class BookManagerTools
         }
         SoftmaxStats(WorldboxGame.BaseStats.ArmorStats);
         SoftmaxStats(WorldboxGame.BaseStats.MasterStats);
-        be.AddComponent(new Cultibook()
+        var cultibook = _cultibookLibrary.AddDynamic(new CultibookAsset()
         {
-            FinalStats = stats
+            id = Guid.NewGuid().ToString(),
+            FinalStats = stats,
+            Level = new ItemLevel(),
+            Name = raw_cultibook.name
         });
-        be.AddComponent(new ItemLevel()
+        be.AddComponent(new Cultibook(cultibook.id)
         {
-            
         });
-        ae.SetCultibookMasterRelation(be.E, 100);
+        be.AddComponent(cultibook.Level);
+        ae.Master(cultibook, 100);
         return raw_cultibook;
     }
 }

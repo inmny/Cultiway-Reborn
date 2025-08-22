@@ -184,13 +184,12 @@ internal static class PatchActor
     {
         if (__instance.isAlive() || pDestroy)
         {
-            if (__instance.HasExtend())
+            var ae = __instance.GetExtend();
+            if (ae != null)
             {
-                __instance.GetExtend().OnDeath();
-
+                ae.OnDeath();
                 if (__instance.hasCity())
                 {
-                    var ae = __instance.GetExtend();
                     var ce =__instance.GetExtend();
                     using var pool = new ListPool<Entity>(ae.GetItems());
                     foreach (var item in pool)
@@ -198,8 +197,6 @@ internal static class PatchActor
                         ce.AddSpecialItem(item);
                     }
                 }
-                
-                ModClass.I.ActorExtendManager.Remove(__instance);
             }
         }
     }
