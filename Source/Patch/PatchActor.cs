@@ -185,19 +185,22 @@ internal static class PatchActor
         if (__instance.isAlive() || pDestroy)
         {
             var ae = __instance.GetExtend();
-            if (ae != null)
+            ae.OnDeath();
+            if (__instance.hasCity())
             {
-                ae.OnDeath();
-                if (__instance.hasCity())
+                var ce =__instance.GetExtend();
+                using var pool = new ListPool<Entity>(ae.GetItems());
+                foreach (var item in pool)
                 {
-                    var ce =__instance.GetExtend();
-                    using var pool = new ListPool<Entity>(ae.GetItems());
-                    foreach (var item in pool)
-                    {
-                        ce.AddSpecialItem(item);
-                    }
+                    ce.AddSpecialItem(item);
                 }
             }
         }
+    }
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.Dispose))]
+    private static void Dispose_prefix(Actor __instance)
+    {
+        var ae = __instance.GetExtend();
+        ae.Dispose();
     }
 }

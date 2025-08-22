@@ -98,7 +98,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
                     foreach (var item in items.Keys)
                     {
                         item.Current--;
-                        ModClass.LogInfo($"Unmaster {((Asset)item).id}");
                     }
                 }
             }
