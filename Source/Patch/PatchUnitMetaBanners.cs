@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -27,9 +28,14 @@ internal static class PatchUnitMetaBanners
 
         return list;
     }
-
+    [HarmonyPrefix, HarmonyPatch(typeof(ActorSelectedMetaBanners), nameof(ActorSelectedMetaBanners.update))]
+    private static void update_prefix(ActorSelectedMetaBanners __instance)
+    {
+        AddBanners(__instance);
+    }
     private static void AddBanners(UnitMetaBanners container)
     {
+        if (container._banners.Any(x => x.banner.HasComponent<SectBanner>())) return;
         container._banners.Add(new MetaBannerElement()
         {
             banner = Object.Instantiate(SectBanner.Prefab, container._banners[0].banner.transform.parent),
