@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using ai;
+using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Utils;
@@ -60,5 +61,16 @@ internal static class PatchMapBox
     private static void finishMakingWorld_postfix()
     {
         ModClass.I.TileExtendManager.FitNewWorld();
+    }
+    [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.clearWorld))]
+    private static void clearWorld_postfix()
+    {
+        foreach (var library in AssetManager._instance._list)
+        {
+            if (library is IDynamicAssetLibrary dynamic_asset_library)
+            {
+                dynamic_asset_library.ClearDynamicAssets();
+            }
+        }
     }
 }
