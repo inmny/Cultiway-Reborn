@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using Cultiway.Debug;
 using HarmonyLib;
 
@@ -17,6 +18,13 @@ internal class Manager
                 try
                 {
                     Harmony.CreateAndPatchAll(t, "inmny.cultiway");
+                    ModClass.LogInfo($"Patch {t.Name}");
+                    var special_patch_method = t.GetMethod("SpecialPatch", BindingFlags.Static | BindingFlags.Public);
+                    if (special_patch_method != null)
+                    {
+                        special_patch_method.Invoke(null, null);
+                        ModClass.LogInfo($"Patch {t.Name} specially");
+                    }
                 }
                 catch (Exception e)
                 {

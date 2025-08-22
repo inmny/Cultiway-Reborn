@@ -14,8 +14,7 @@ public class Sect : MetaObject<SectData>
         generateNewMetaObject();
         data.FounderActorName = founder.getName();
         data.FounderActorID = founder.data.id;
-        // TODO: 调整命名
-        data.name = founder.generateName(MetaTypeExtend.Family.Back(), getID());
+        data.name = founder.generateName(meta_type, getID());
     }
 
     public override void generateBanner()

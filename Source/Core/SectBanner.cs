@@ -67,6 +67,7 @@ public class SectBanner : BannerGeneric<Sect, SectData>
         _prefab = go.AddComponent<SectBanner>();
         _prefab.AddComponent<DraggableLayoutElement>();
         _prefab.name = "PrefabBannerSect";
+        _prefab.transform.localScale = Vector3.one * 0.75f;
     }
     private static SectBanner _prefab;
 }
