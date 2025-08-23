@@ -25,6 +25,7 @@ using HarmonyLib;
 using NeoModLoader.api;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
+using NeoModLoader.services;
 using NeoModLoader.utils;
 using UnityEngine;
 using SystemUtils = Cultiway.Utils.SystemUtils;
@@ -131,6 +132,20 @@ namespace Cultiway
             sb.Append('\n');
             Geo.AppendPerfLog(sb);
             LogInfo($"{sb}");
+        }
+        public static void LogInfoConcurrent(string message)
+        {
+            LogService.LogInfoConcurrent("[" + Instance.GetDeclaration().Name + "]: " + message);
+        }
+
+        public static void LogWarningConcurrent(string message)
+        {
+            LogService.LogWarningConcurrent("[" + Instance.GetDeclaration().Name + "]: " + message);
+        }
+
+        public static void LogErrorConcurrent(string message)
+        {
+            LogService.LogErrorConcurrent("[" + Instance.GetDeclaration().Name + "]: " + message);
         }
 
         [Hotfixable]

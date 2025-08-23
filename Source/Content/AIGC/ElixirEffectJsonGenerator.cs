@@ -23,7 +23,7 @@ public class ElixirEffectJsonGenerator : PromptNameGenerator<ElixirEffectJsonGen
 
     protected override string PostProcess(string name)
     {
-        return name.Remove('`');
+        return name.Replace("`", "");
     }
 
     protected override bool IsValid(string name)
@@ -36,8 +36,8 @@ public class ElixirEffectJsonGenerator : PromptNameGenerator<ElixirEffectJsonGen
         {
             if (Config.isEditor)
             {
-                ModClass.LogError(SystemUtils.GetFullExceptionMessage(e));
-                ModClass.LogWarning("Failed to parse elixir effect json: " + name);
+                ModClass.LogErrorConcurrent(SystemUtils.GetFullExceptionMessage(e));
+                ModClass.LogWarningConcurrent("Failed to parse elixir effect json: " + name);
             }
             return false;
         }
