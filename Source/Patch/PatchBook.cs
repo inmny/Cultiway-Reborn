@@ -37,4 +37,10 @@ internal static class PatchBook
         var bte = bt_asset.GetExtend<BookTypeAssetExtend>();
         bte.instance_read_action?.Invoke(pActor, pBook, bt_asset);
     }
+    [HarmonyPrefix, HarmonyPatch(typeof(Book), nameof(Book.Dispose))]
+    private static void Dispose_prefix(Book __instance)
+    {
+        var be = __instance.GetExtend();
+        be.Dispose();
+    }
 }

@@ -74,6 +74,7 @@ public static class BookManagerTools
         });
         be.AddComponent(new Cultibook(cultibook.id));
         be.AddComponent(cultibook.Level);
+        be.Master(cultibook, 100);
         ae.Master(cultibook, 100);
         return raw_cultibook;
     }
