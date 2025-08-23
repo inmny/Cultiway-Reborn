@@ -24,26 +24,37 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         Cultibook.path_icons = "cultibook/";
         Cultibook.GetExtend<BookTypeAssetExtend>().custom_cover_name = "cultibook";
         Cultibook.GetExtend<BookTypeAssetExtend>().instance_read_action = LearnCultibook;
+        
+        
         Elixirbook.requirement_check = (actor, _) =>
         {
             return false;
         };
+        Elixirbook.name_template = WorldboxGame.NameGenerators.Cultibook.id;
+        Elixirbook.path_icons = "cultibook/";
+        Elixirbook.GetExtend<BookTypeAssetExtend>().custom_cover_name = "cultibook";
+        Elixirbook.GetExtend<BookTypeAssetExtend>().instance_read_action = LearnElixirbook;
+        
+        
         Skillbook.requirement_check = (_, _) => false;
     }
 
+    private static void LearnElixirbook(Actor actor, Book book, BookTypeAsset asset)
+    {
+        var ae = actor.GetExtend();
+        if (!ae.HasCultisys<Xian>()) return;
+        var be = book.GetExtend();
+        var elixir_asset = be.GetComponent<Elixirbook>().Asset;
+        var master = ae.GetMaster(elixir_asset);
+        ae.Master(elixir_asset, master + 1);
+    }
     private static void LearnCultibook(Actor actor, Book book, BookTypeAsset asset)
     {
         var ae = actor.GetExtend();
+        if (!ae.HasCultisys<Xian>()) return;
         var be = book.GetExtend();
         var cultibook_asset = be.GetComponent<Cultibook>().Asset;
-        if (!ae.HasCultibook())
-        {
-            ae.Master(cultibook_asset, 1);
-        }
-        else
-        {
-            var master = ae.GetMaster(cultibook_asset);
-            ae.Master(cultibook_asset, master + 1);
-        }
+        var master = ae.GetMaster(cultibook_asset);
+        ae.Master(cultibook_asset, master + 1);
     }
 }

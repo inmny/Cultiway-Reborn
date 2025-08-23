@@ -1,3 +1,4 @@
+using System.Linq;
 using ai.behaviours;
 using Cultiway.Const;
 using Cultiway.Content.Components;
@@ -17,8 +18,9 @@ public class BehFindElixirToCraft : BehCityActor
         // 如果人物的背包里有CraftingElixir的实体，那么直接返回BehResult.Continue
         ActorExtend ae = pObject.GetExtend();
         if (ae.HasItem<CraftingElixir>()) return BehResult.Continue;
+        //if (!ae.HasMaster<ElixirAsset>()) return BehResult.Stop;
         // 找配方以及材料，把材料都放到背包里，并开启一个CraftingElixir的实体，并添加到人物的背包里，并标记占用
-        ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.GetRandom();
+        ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.GetRandom();//ae.GetAllMaster<ElixirAsset>().ToList().GetRandom().Item1;
         if (elixir_asset.QueryInventoryForIngredients(ae, out var ingredients))
         {
             Entity crafting_elixir = SpecialItemUtils

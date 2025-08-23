@@ -14,6 +14,7 @@ namespace Cultiway.Content;
 [Dependency(typeof(ActorTraitGroups))]
 public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
 {
+    public static ActorTrait OpenSource { get; private set; }
     public static ActorTrait Cultivator { get; private set; }
     public static ActorTrait PassiveXianCultivate { get; private set; }
     public static ActorTrait SignIn { get; private set; }
@@ -23,6 +24,9 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
     protected override void OnInit()
     {
         RegisterAssets();
+
+        OpenSource.group_id = ActorTraitGroups.Mind.id;
+        OpenSource.path_icon = "cultiway/icons/traits/iconOpenSource";
 
         Cultivator.group_id = ActorTraitGroups.Mind.id;
         Cultivator.path_icon = "cultiway/icons/traits/iconCultivator";

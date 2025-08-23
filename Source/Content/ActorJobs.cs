@@ -14,6 +14,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob TalismanCrafter { get; private set; }
     public static ActorJob CultibookResearcher { get; private set; }
     public static ActorJob SectBuilder { get; private set; }
+    public static ActorJob BookWriter { get; private set; }
     [GetOnly("attacker")]
     public static ActorJob Attacker { get; private set; }
     [GetOnly("random_move")]
@@ -60,6 +61,12 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         CultibookResearcher.addCondition(new CondHasCultibook(), false);
         CultibookResearcher.addCondition(new CondHasYuanying());
         CultibookResearcher.addTask(ActorTasks.EndJob.id);
+
+        BookWriter.addTask(ActorTasks.WriteCultibook.id);
+        BookWriter.addCondition(new CondHasCultibook());
+        BookWriter.addTask(ActorTasks.WriteElixirbook.id);
+        BookWriter.addCondition(new CondHasElixirRecipe());
+        BookWriter.addTask(ActorTasks.EndJob.id);
         
         SectBuilder.addTask(ActorTasks.BuildSect.id);
         SectBuilder.addCondition(new CondHasSect(), false);

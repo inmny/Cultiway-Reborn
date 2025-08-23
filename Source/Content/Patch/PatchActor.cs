@@ -15,6 +15,7 @@ using Friflo.Engine.ECS;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Content.Patch;
@@ -55,6 +56,10 @@ internal static class PatchActor
                 if (Randy.randomChance(0.6f))
                 {
                     using var pool = new ListPool<string>();
+                    if (Randy.randomChance(pActor.hasTrait(ActorTraits.OpenSource) ? 0.5f : 0.1f))
+                    {
+                        pool.Add(ActorJobs.BookWriter.id);
+                    }
                     if (xian.CurrLevel >= XianLevels.Jindan)
                     {
                         pool.Add(ActorJobs.ElixirCrafter.id);
