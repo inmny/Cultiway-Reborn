@@ -26,7 +26,8 @@ public class BehWriteElixirRecipe : BehCityActor
         var new_book = World.world.books.GenerateNewBook(pObject, BookTypes.Elixirbook);
         if (new_book != null)
         {
-            new_book.GetExtend().AddComponent(new Cultibook(elixirbook_to_share.Item1.id));
+            new_book.GetExtend().AddComponent(new Elixirbook(elixirbook_to_share.Item1.id));
+            new_book.GetExtend().Master(elixirbook_to_share.Item1, elixirbook_to_share.Item2);
             new_book.data.name = elixirbook_to_share.Item1.GetName() + "丹方";
         }
 

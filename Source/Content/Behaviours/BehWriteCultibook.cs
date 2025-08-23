@@ -26,8 +26,10 @@ public class BehWriteCultibook : BehCityActor
         var new_book = World.world.books.GenerateNewBook(pObject, BookTypes.Cultibook);
         if (new_book != null)
         {
-            new_book.GetExtend().AddComponent(new Cultibook(cultibook_to_share.Item1.id));
-            new_book.GetExtend().AddComponent(cultibook_to_share.Item1.Level);
+            var new_be = new_book.GetExtend();
+            new_be.AddComponent(new Cultibook(cultibook_to_share.Item1.id));
+            new_be.AddComponent(cultibook_to_share.Item1.Level);
+            new_be.Master(cultibook_to_share.Item1, cultibook_to_share.Item2);
             new_book.data.name = cultibook_to_share.Item1.Name;
         }
 
