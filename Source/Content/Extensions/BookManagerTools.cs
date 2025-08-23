@@ -72,9 +72,7 @@ public static class BookManagerTools
             Level = new ItemLevel(),
             Name = raw_cultibook.name
         });
-        be.AddComponent(new Cultibook(cultibook.id)
-        {
-        });
+        be.AddComponent(new Cultibook(cultibook.id));
         be.AddComponent(cultibook.Level);
         ae.Master(cultibook, 100);
         return raw_cultibook;

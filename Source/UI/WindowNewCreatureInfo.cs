@@ -210,6 +210,7 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
             });
             entry.name = registration.id;
         }
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_page_entry_container.GetComponent<RectTransform>());
 
         UpdatePage();
     }
