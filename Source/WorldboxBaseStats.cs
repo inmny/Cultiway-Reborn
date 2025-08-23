@@ -103,13 +103,15 @@ public partial class WorldboxGame
         {
             asset.translation_key = asset.id;
             if (asset.multiplier) return base.Add(asset);
-            Add(new BaseStatAsset
+            var mod_asset = Add(new BaseStatAsset
             {
                 id = $"Mod{asset.id}",
                 main_stat_to_multiply = asset.id,
-                multiplier = true
+                multiplier = true,
+                show_as_percents = true,
+                tooltip_multiply_for_visual_number = 100
             });
-            _statsToModStats[asset.id] = asset.id;
+            _statsToModStats[asset.id] = mod_asset.id;
             return base.Add(asset);
         }
     }
