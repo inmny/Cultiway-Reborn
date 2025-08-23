@@ -24,7 +24,7 @@ public static class BookManagerTools
 
         void SoftmaxStats(IList<string> stat_ids)
         {
-            (string, float, float)[] armor_stats = new (string, float, float)[stat_ids.Count];
+            (string, float)[] armor_stats = new (string, float)[stat_ids.Count];
             var exp_sum = 0f;
             var max_val = 0f;
             for (int i = 0; i < armor_stats.Length; i++)
@@ -32,34 +32,40 @@ public static class BookManagerTools
                 var stat_id = stat_ids[i];
                 var stat_value = creator.stats[stat_id];
                 max_val = Mathf.Max(max_val, stat_value);
-                armor_stats[i] = (stat_id, stat_value, 0f);
+                armor_stats[i] = (stat_id, stat_value);
             }
 
             for (int i = 0; i < armor_stats.Length; i++)
             {
                 var stat_value = armor_stats[i].Item2;
                 var exp_value = Mathf.Exp(stat_value - max_val);
-                armor_stats[i].Item3 = exp_value;
+                armor_stats[i].Item2 = exp_value;
                 exp_sum += exp_value;
             }
 
             for (int i = 0; i < armor_stats.Length; i++)
             {
-                armor_stats[i].Item3 /= exp_sum;
+                armor_stats[i].Item2 /= exp_sum;
             }
-            Array.Sort(armor_stats, (a, b) => b.Item3.CompareTo(a.Item3));
+            Array.Sort(armor_stats, (a, b) => b.Item2.CompareTo(a.Item2));
             var accum_prob = 0f;
+            var stop_idx = 0;
             for (int i = 0; i < armor_stats.Length; i++)
             {
-                var prob = armor_stats[i].Item3;
+                var prob = armor_stats[i].Item2;
                 accum_prob += prob;
-                var stat_id = armor_stats[i].Item1;
-                var stat_value = armor_stats[i].Item2;
-                stats[stat_id] = stat_value;
                 if (accum_prob > 0.9f)
                 {
+                    stop_idx = i;
                     break;
                 }
+            }
+
+            for (int i = 0; i <= stop_idx; i++)
+            {
+                var stat_id = armor_stats[i].Item1;
+                var stat_value = armor_stats[i].Item2 / accum_prob;
+                stats[WorldboxGame.BaseStats.StatsToModStats[stat_id]] = stat_value;
             }
 
         }

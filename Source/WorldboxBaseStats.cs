@@ -50,7 +50,10 @@ public partial class WorldboxGame
 
         public static ReadOnlyCollection<string> ArmorStats  { get; private set; }
         public static ReadOnlyCollection<string> MasterStats { get; private set; }
+        private static Dictionary<string, string> _statsToModStats = new();
 
+        public static ReadOnlyDictionary<string, string> StatsToModStats { get; private set; } =
+            new(_statsToModStats);
         protected override void OnInit()
         {
             RegisterAssets();
@@ -106,6 +109,7 @@ public partial class WorldboxGame
                 main_stat_to_multiply = asset.id,
                 multiplier = true
             });
+            _statsToModStats[asset.id] = asset.id;
             return base.Add(asset);
         }
     }
