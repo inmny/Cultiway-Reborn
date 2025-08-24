@@ -11,6 +11,7 @@ public class Manager
     public WrappedSkillLibrary WrappedSkillLibrary { get; } = new();
     public ForceTypeLibrary ForceTypeLibrary { get; } = new();
     public SectBannerLibrary SectBannerLibrary { get; } = new();
+    public ImageTemplateLibrary ImageTemplateLibrary { get; } = new();
 
     public void Init()
     {
@@ -23,6 +24,7 @@ public class Manager
         AssetManager._instance.add(WrappedSkillLibrary, "wrapped_skills");
         AssetManager._instance.add(ForceTypeLibrary, "force_types");
         AssetManager._instance.add(SectBannerLibrary, "sect_banners");
+        AssetManager._instance.add(ImageTemplateLibrary, "image_templates");
     }
 
     public void PostInit()
@@ -36,5 +38,6 @@ public class Manager
         WrappedSkillLibrary.post_init();
         ForceTypeLibrary.post_init();
         SectBannerLibrary.post_init();
+        ImageTemplateLibrary.post_init();
     }
 }
