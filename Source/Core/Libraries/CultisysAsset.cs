@@ -91,7 +91,7 @@ public abstract class BaseCultisysAsset : Asset
 
     public float GetLevelForSort(ActorExtend actor_extend, int base_level)
     {
-        return base_level + _detailed_levels[base_level]?.Invoke(actor_extend) ?? 0;
+        return base_level + (_detailed_levels[base_level]?.Invoke(actor_extend) ?? 0);
     }
 }
 
