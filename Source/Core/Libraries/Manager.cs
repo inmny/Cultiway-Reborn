@@ -27,6 +27,19 @@ public class Manager
         AssetManager._instance.add(ImageTemplateLibrary, "image_templates");
     }
 
+    public void LinkAssets()
+    {
+        CultisysLibrary.linkAssets();
+        ElementRootLibrary.linkAssets();
+        CustomMapModeLibrary.linkAssets();
+        ItemShapeLibrary.linkAssets();
+        RandomEventLibrary.linkAssets();
+        StatusEffectLibrary.post_init();
+        WrappedSkillLibrary.post_init();
+        ForceTypeLibrary.post_init();
+        SectBannerLibrary.post_init();
+        ImageTemplateLibrary.post_init();
+    }
     public void PostInit()
     {
         CultisysLibrary.post_init();

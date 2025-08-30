@@ -72,6 +72,8 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartOutSurroundFireBlade = WrapAttackSkill(CommonBladeSkills.StartOutSurroundFireBlade);
         StartForwardFireBlade = WrapAttackSkill(CommonBladeSkills.StartForwardFireBlade);
         StartAllFireBlade = WrapAttackSkill(CommonBladeSkills.StartAllFireBlade);
+        StartAllFireBlade.ContinueWrap()
+            .WithSubSkills(StartSelfSurroundFireBlade, StartOutSurroundFireBlade, StartForwardFireBlade);
         StartAllFireBlade.enhance = GetMultiStageProjectionEnhanceAction(
             CommonBladeSkills.UntrajedFireBladeEntity.id,
             CommonBladeSkills.FireBladeCasterEntity.id,
@@ -83,6 +85,8 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartOutSurroundWindBlade = WrapAttackSkill(CommonBladeSkills.StartOutSurroundWindBlade);
         StartForwardWindBlade = WrapAttackSkill(CommonBladeSkills.StartForwardWindBlade);
         StartAllWindBlade = WrapAttackSkill(CommonBladeSkills.StartAllWindBlade);
+        StartAllWindBlade.ContinueWrap()
+            .WithSubSkills(StartSelfSurroundWindBlade, StartOutSurroundWindBlade, StartForwardWindBlade);
         StartAllWindBlade.enhance = GetMultiStageProjectionEnhanceAction(
             CommonBladeSkills.UntrajedWindBladeEntity.id,
             CommonBladeSkills.WindBladeCasterEntity.id,
@@ -94,6 +98,8 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartOutSurroundWaterBlade = WrapAttackSkill(CommonBladeSkills.StartOutSurroundWaterBlade);
         StartForwardWaterBlade = WrapAttackSkill(CommonBladeSkills.StartForwardWaterBlade);
         StartAllWaterBlade = WrapAttackSkill(CommonBladeSkills.StartAllWaterBlade);
+        StartAllWaterBlade.ContinueWrap().WithSubSkills(StartSelfSurroundWaterBlade, StartOutSurroundWaterBlade,
+            StartForwardWaterBlade);
         StartAllWaterBlade.enhance = GetMultiStageProjectionEnhanceAction(
             CommonBladeSkills.UntrajedWaterBladeEntity.id,
             CommonBladeSkills.WaterBladeCasterEntity.id,
@@ -105,6 +111,8 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartOutSurroundGoldBlade = WrapAttackSkill(CommonBladeSkills.StartOutSurroundGoldBlade);
         StartForwardGoldBlade = WrapAttackSkill(CommonBladeSkills.StartForwardGoldBlade);
         StartAllGoldBlade = WrapAttackSkill(CommonBladeSkills.StartAllGoldBlade);
+        StartAllGoldBlade.ContinueWrap()
+            .WithSubSkills(StartSelfSurroundGoldBlade, StartOutSurroundGoldBlade, StartForwardGoldBlade);
         StartAllGoldBlade.enhance = GetMultiStageProjectionEnhanceAction(
             CommonBladeSkills.UntrajedGoldBladeEntity.id,
             CommonBladeSkills.GoldBladeCasterEntity.id,
@@ -116,6 +124,8 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartSelfSurroundGoldSword = WrapAttackSkill(SwordSkills.StartSelfSurroundGoldSword);
         StartForwardGoldSword = WrapAttackSkill(SwordSkills.StartForwardGoldSword);
         StartAllGoldSword = WrapAttackSkill(SwordSkills.StartAllGoldSword);
+        StartAllGoldSword.ContinueWrap()
+            .WithSubSkills(StartSpecialGoldSword, StartSelfSurroundGoldSword, StartForwardGoldSword);
         StartAllGoldSword.enhance = (ActorExtend ae, string source) =>
         {
             var available_enhancements = new List<int>()
@@ -156,6 +166,8 @@ public class WrappedSkills : ExtendLibrary<WrappedSkillAsset, WrappedSkills>
         StartLineGroundThorn = WrapAttackSkill(GroundThornSkills.StartLineGroundThorn);
         StartCircleGroundThorn = WrapAttackSkill(GroundThornSkills.StartCircleGroundThorn);
         StartAllGroundThorn = WrapAttackSkill(GroundThornSkills.StartAllGroundThorn);
+        StartAllGroundThorn.ContinueWrap()
+            .WithSubSkills(StartSingleGroundThorn, StartLineGroundThorn, StartCircleGroundThorn);
         StartAllGroundThorn.enhance = [Hotfixable](ae, source) =>
         {
             var available_enhancements = new List<int>()

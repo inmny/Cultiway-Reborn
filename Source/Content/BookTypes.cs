@@ -37,8 +37,19 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         
         
         Skillbook.requirement_check = (_, _) => false;
+        Skillbook.name_template = WorldboxGame.NameGenerators.Cultibook.id;
+        Skillbook.path_icons = "cultibook/";
+        Skillbook.GetExtend<BookTypeAssetExtend>().custom_cover_name = "cultibook";
+        Skillbook.GetExtend<BookTypeAssetExtend>().instance_read_action = LearnSkillbook;
     }
 
+    private static void LearnSkillbook(Actor actor, Book book, BookTypeAsset asset)
+    {
+        var ae = actor.GetExtend();
+        if (!ae.HasCultisys<Xian>()) return;
+        var be = book.GetExtend();
+        
+    }
     private static void LearnElixirbook(Actor actor, Book book, BookTypeAsset asset)
     {
         var ae = actor.GetExtend();

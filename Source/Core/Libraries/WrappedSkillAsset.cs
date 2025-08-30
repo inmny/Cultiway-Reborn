@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using Cultiway.Content.Const;
 using Cultiway.Core.SkillLibV2;
 using Cultiway.Core.SkillLibV2.Predefined.Triggers;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
 
@@ -13,6 +15,8 @@ public class WrappedSkillAsset : Asset
     public bool[] skill_type = [];
     public CostCheck cost_check;
     public EnhanceSkill enhance;
+    public List<WrappedSkillAsset> sub_skills = [];
+    public List<string> related_metas = [];
     public float default_strength = 100;
     public string LocaleID;
     public void Enhance(ActorExtend ae, string source)
@@ -34,9 +38,19 @@ public class WrappedSkillAsset : Asset
     {
         return new Wrapper(meta);
     }
+
+    public Wrapper ContinueWrap()
+    {
+        return new Wrapper(this);
+    }
     public class Wrapper
     {
         private readonly WrappedSkillAsset _asset;
+
+        internal Wrapper(WrappedSkillAsset asset)
+        {
+            _asset = asset;
+        }
         internal Wrapper(TriggerActionMeta<StartSkillTrigger, StartSkillContext> meta)
         {
             _asset = new WrappedSkillAsset();
@@ -70,11 +84,27 @@ public class WrappedSkillAsset : Asset
             }
             return this;
         }
+
+        public Wrapper WithSubSkills(params WrappedSkillAsset[] skills)
+        {
+            foreach (var skill in skills)
+            {
+                _asset.AddSubSkill(skill);
+            }
+
+            return this;
+        }
         public WrappedSkillAsset Build()
         {
-            ModClass.L.WrappedSkillLibrary.add(_asset);
+            if (!ModClass.L.WrappedSkillLibrary.Contains(_asset.id))
+                ModClass.L.WrappedSkillLibrary.add(_asset);
             return _asset;
         }
+    }
+
+    public void AddSubSkill(WrappedSkillAsset skill)
+    {
+        sub_skills.Add(skill);
     }
     public bool HasSkillType(WrappedSkillType type)
     {
