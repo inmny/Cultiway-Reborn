@@ -54,6 +54,7 @@ namespace Cultiway
         public        EntityStore             W                    { get; private set; }
         public        WorldRecord             WorldRecord          { get; private set; }
         public        Core.SkillLibV2.Manager SkillV2              { get; private set; }
+        public Core.SkillLibV3.Manager SkillV3 { get; private set; }
         public        Core.GeoLib.Manager     Geo                  { get; private set; }
 
         private void Start()
@@ -96,6 +97,7 @@ namespace Cultiway
                             GeneralLogicSystems.Update(logic_update_tick);
                             TileLogicSystems.Update(logic_update_tick);
                             SkillV2.UpdateLogic(logic_update_tick);
+                            SkillV3.UpdateLogic(logic_update_tick);
                             Geo.UpdateLogic(logic_update_tick);
                         }
                     }
@@ -104,6 +106,7 @@ namespace Cultiway
                         GeneralLogicSystems.Update(render_update_tick);
                         TileLogicSystems.Update(render_update_tick);
                         SkillV2.UpdateLogic(render_update_tick);
+                        SkillV3.UpdateLogic(render_update_tick);
                         Geo.UpdateLogic(render_update_tick);
                     }
                 }
@@ -111,6 +114,7 @@ namespace Cultiway
                 GeneralRenderSystems.Update(render_update_tick);
                 TileRenderSystems.Update(render_update_tick);
                 SkillV2.UpdateRender(render_update_tick);
+                SkillV3.UpdateRender(render_update_tick);
             }
             catch (Exception e)
             {
@@ -129,6 +133,8 @@ namespace Cultiway
             GeneralRenderSystems.AppendPerfLog(sb);
             sb.Append('\n');
             SkillV2.AppendPerfLog(sb);
+            sb.Append('\n');
+            SkillV3.AppendPerfLog(sb);
             sb.Append('\n');
             Geo.AppendPerfLog(sb);
             LogInfo($"{sb}");
@@ -251,6 +257,7 @@ namespace Cultiway
             CustomMapModeManager.Initialize();
 
             SkillV2 = new Core.SkillLibV2.Manager(Game);
+            SkillV3 = new Core.SkillLibV3.Manager(Game);
             Geo = new Core.GeoLib.Manager(Game);
             _ui = new UI.Manager();
             _patch = new Patch.Manager();
@@ -259,6 +266,7 @@ namespace Cultiway
             _ui.Init();
             _patch.Init();
             SkillV2.Init();
+            SkillV3.Init();
             _content.Init();
 
             ExampleTriggerActions.Init();
@@ -275,6 +283,7 @@ namespace Cultiway
                 GeneralLogicSystems.SetMonitorPerf(true);
                 GeneralRenderSystems.SetMonitorPerf(true);
                 SkillV2.SetMonitorPerf(true);
+                SkillV3.SetMonitorPerf(true);
                 Geo.SetMonitorPerf(true);
             }
         }
