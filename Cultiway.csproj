@@ -84,5 +84,6 @@
         <Folder Include="GameResources\cultiway\icons\debug\" />
         <Folder Include="GameResources\cultiway\icons\stats\"/>
         <Folder Include="Source\Core\GeoLib\Components\"/>
+        <Folder Include="Source\Core\SkillLibV3\Systems\" />
     </ItemGroup>
 </Project>

@@ -33,6 +33,20 @@ public struct ElementComposition
                 this[i] /= sum;
     }
 
+    public ElementComposition(float iron = 0, float wood = 0, float water = 0, float fire = 0, float earth = 0, float neg = 0, float pos = 0,
+        float entropy = 0, bool normalize = false)
+    {
+        this.iron = iron;
+        this.wood = wood;
+        this.water = water;
+        this.fire = fire;
+        this.earth = earth;
+        this.neg = neg;
+        this.pos = pos;
+        this.entropy = entropy;
+        if (normalize)
+            Normalize();
+    }
     public ElementComposition(float[] composition, bool normalize = false)
     {
         for (var i = 0; i < 8; i++)

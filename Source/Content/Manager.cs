@@ -23,8 +23,15 @@ internal class Manager
         foreach (var t in library_ts)
         {
             var library = Activator.CreateInstance(t) as ICanInit;
-            library?.Init();
-            ModClass.LogInfo($"({nameof(Content)}) initializes {t}");
+            try
+            {
+                library?.Init();
+                ModClass.LogInfo($"({nameof(Content)}) initializes {t}");
+            }
+            catch (Exception e)
+            {
+                ModClass.LogError($"({nameof(Content)}) failed to initialize {t}\n{e.Message}\n{e.StackTrace}");
+            }
             libraries.Add(library);
         }
 

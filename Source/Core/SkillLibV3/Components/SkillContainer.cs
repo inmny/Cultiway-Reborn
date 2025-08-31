@@ -9,5 +9,15 @@ public struct SkillContainer : IComponent
     /// <summary>
     /// 会召唤出一个什么样的技能实体（大部分就是一个投掷物，比如说剑,火球等）
     /// </summary>
-    public string SkillEntityPrefabID;
+    public string SkillEntityAssetID;
+
+    public SkillEntityAsset Asset
+    {
+        get
+        {
+            _asset ??= ModClass.I.SkillV3.SkillLib.get(SkillEntityAssetID);
+            return _asset;
+        }
+    }
+    private SkillEntityAsset _asset;
 }

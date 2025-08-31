@@ -15,6 +15,7 @@ using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV2;
 using Cultiway.Core.SkillLibV2.Api;
 using Cultiway.Core.SkillLibV2.Examples;
+using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Patch;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -471,6 +472,17 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         CastSkillV2(WrappedSkills.StartFireballCaster.id, target, true);
         ModClass.LogInfo($"{Base.data.id} cast fireball to {target.data.id}");
+    }
+
+    private void TestCastFireballV3()
+    {
+        var target = FindTestTarget();
+
+        var skill_container = ModClass.I.W.CreateEntity(new SkillContainer()
+        {
+            SkillEntityAssetID = SkillEntities.Fireball.id
+        });
+        ModClass.I.SkillV3.SpawnSkill(skill_container, Base, target, 1);
     }
     [Hotfixable]
     private void TestCastFireball()

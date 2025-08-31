@@ -1,5 +1,9 @@
 using System;
 using System.Text;
+using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.Systems.Logic;
+using Cultiway.Core.Systems.Render;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 
@@ -11,6 +15,8 @@ public class Manager
     public WorldboxGame Game { get; private set; }
 
     public EntityStore World { get; }
+    public SkillEntityLibrary SkillLib { get; } = new SkillEntityLibrary();
+    public TrajectoryLibrary TrajLib { get; } = new TrajectoryLibrary();
     private readonly SystemRoot _logic;
     private readonly SystemRoot _render;
     internal Manager(WorldboxGame game)
@@ -22,11 +28,37 @@ public class Manager
         };
         _logic = new SystemRoot(World, "SkillLibV3.Logic");
         _render = new SystemRoot(World, "SkillLibV3.Render");
+        AssetManager._instance.add(SkillLib, "cultiway.skills");
+        AssetManager._instance.add(TrajLib, "cultiway.trajectories");
+        
+        
+        _logic.Add(new AliveTimerSystem());
+        _logic.Add(new AliveTimerCheckSystem());
+        
+        _logic.Add(new RecycleAnimRendererSystem());
+        _logic.Add(new RecycleDefaultEntitySystem());
+
+        _logic.Add(new AnimFrameUpdateSystem(World));
+        
+        
+        _render.Add(new RenderAnimFrameSystem(World));
     }
 
     internal void Init()
     {
         
+    }
+
+    public void SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength)
+    {
+        var entity = skill_container.GetComponent<SkillContainer>().Asset.NewEntity();
+        var data = entity.Data;
+        ref var context = ref data.Get<SkillContext>();
+        context.Strength = strength;
+        context.SourceObj = source;
+        context.TargetObj = target;
+        ref var pos = ref data.Get<Position>();
+        pos.value = source.current_position;
     }
 
     internal void UpdateLogic(UpdateTick update_tick)
