@@ -8,6 +8,6 @@ public struct SkillContext : IComponent
     public float Strength;
     public BaseSimObject SourceObj;
     public BaseSimObject TargetObj;
-    public Vector2 TargetPos;
-    public Vector2 TargetDir;
+    public Vector3 TargetPos;
+    public Vector3 TargetDir;
 }

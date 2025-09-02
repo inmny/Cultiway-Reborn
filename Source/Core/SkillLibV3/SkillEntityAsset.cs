@@ -1,14 +1,16 @@
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Components;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3;
-
+public delegate bool OnObjCollision(ref SkillContext context, Entity skill_container, Entity skill_entity, BaseSimObject target);
 public class SkillEntityAsset : Asset
 {
     public Entity PrefabEntity;
     public ElementComposition Element;
     public EntityStore World => ModClass.I.SkillV3.World;
+    public OnObjCollision OnObjCollision;
     public Entity NewEntity()
     {
         Entity entity = World.CloneEntity(PrefabEntity);

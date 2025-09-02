@@ -6,5 +6,6 @@ namespace Cultiway.Core.SkillLibV3.Components;
 /// </summary>
 public struct SkillEntity : IComponent
 {
+    public SkillEntityAsset Asset;
     public Entity SkillContainer;
 }

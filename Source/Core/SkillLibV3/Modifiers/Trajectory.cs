@@ -1,6 +1,8 @@
+using Friflo.Engine.ECS;
+
 namespace Cultiway.Core.SkillLibV3.Modifiers;
 
-public struct Trajectory : IModifier
+public struct Trajectory : IModifier, IComponent
 {
     public string ID;
 

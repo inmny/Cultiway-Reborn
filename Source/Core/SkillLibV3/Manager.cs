@@ -2,8 +2,10 @@ using System;
 using System.Text;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 
@@ -38,7 +40,10 @@ public class Manager
         _logic.Add(new RecycleAnimRendererSystem());
         _logic.Add(new RecycleDefaultEntitySystem());
 
+        _logic.Add(new LogicTrajectorySystem());
         _logic.Add(new AnimFrameUpdateSystem(World));
+        
+        _logic.Add(new LogicActorCollisionSystem());
         
         
         _render.Add(new RenderAnimFrameSystem(World));
@@ -57,6 +62,9 @@ public class Manager
         context.Strength = strength;
         context.SourceObj = source;
         context.TargetObj = target;
+        var target_pos = target.GetSimPos();
+        context.TargetPos = target_pos;
+        context.TargetDir = (target_pos - source.GetSimPos()).normalized;
         ref var pos = ref data.Get<Position>();
         pos.value = source.current_position;
     }

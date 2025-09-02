@@ -3,10 +3,12 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Components.TrajParams;
+using Cultiway.Core.SkillLibV3.Modifiers;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Content;
-
+[Dependency(typeof(SkillTrajectories))]
 public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 {
     public static SkillEntityAsset Fireball { get; private set; }
@@ -17,14 +19,22 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
         Fireball.PrefabEntity = Fireball.World.CreateEntity(
             new SkillEntity()
             {
-                SkillContainer = default
+                SkillContainer = default,
+                Asset = Fireball
             }, 
             new SkillContext(),
             new Position(),
+            new Rotation(),
             new Scale(0.1f),
             new ColliderSphere()
             {
                 Radius = 1f
+            },
+            new ColliderConfig()
+            {
+                  Enabled = true,
+                  Enemy = true,
+                  Actor = true
             },
             new AnimBindRenderer(),
             new AnimController()
@@ -39,5 +49,19 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             {
                 frames = SpriteTextureLoader.getSpriteList("cultiway/effect/flying_fireball")
             }, Tags.Get<TagPrefab>());
+        Fireball.PrefabEntity.Add(new Velocity()
+        {
+            Value = 10
+        }, new Trajectory()
+        {
+            ID = SkillTrajectories.TowardsDirection.id
+        });
+        Fireball.OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
+            BaseSimObject target) =>
+        {
+            ModClass.LogInfo($"{entity.Id} hit {target.getData().id}");
+            entity.AddTag<TagRecycle>();
+            return false;
+        };
     }
 }
