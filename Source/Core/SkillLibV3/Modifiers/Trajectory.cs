@@ -16,5 +16,5 @@ public struct Trajectory : IModifier, IComponent
     }
 
     private TrajectoryAsset _asset;
-    public SkillModifierAsset ModifierAsset { get; }
+    public SkillModifierAsset ModifierAsset => SkillModifierLibrary.SetTrajectory;
 }

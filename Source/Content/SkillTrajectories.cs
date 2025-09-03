@@ -21,6 +21,13 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             pos.value += rot.value.normalized * dt * e.GetComponent<Velocity>().Value;
             rot.value = context.TargetDir;
         };
+        TowardsDirection.OnInit = e =>
+        {
+            e.AddComponent(new Velocity()
+            {
+                Value = 10
+            });
+        };
         TowardsPosition.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
         {
             var delta = context.TargetPos - pos.value;
@@ -45,6 +52,13 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
 
             pos.value += actual_to_move;
             rot.value = actual_to_move.normalized;
+        };
+        TowardsPosition.OnInit = e =>
+        {
+            e.AddComponent(new Velocity()
+            {
+                Value = 10
+            });
         };
         TowardsTarget.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
         {
@@ -71,6 +85,13 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
 
             pos.value += actual_to_move;
             rot.value = actual_to_move.normalized;
+        };
+        TowardsTarget.OnInit = e =>
+        {
+            e.AddComponent(new Velocity()
+            {
+                Value = 10
+            });
         };
     }
 }
