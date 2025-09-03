@@ -8,6 +8,7 @@ using Cultiway.Core.Systems.Render;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
+using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3;
 
@@ -18,6 +19,7 @@ public class Manager
 
     public EntityStore World { get; }
     public SkillEntityLibrary SkillLib { get; } = new SkillEntityLibrary();
+    public SkillModifierLibrary ModifierLib { get; } = new();
     public TrajectoryLibrary TrajLib { get; } = new TrajectoryLibrary();
     private readonly SystemRoot _logic;
     private readonly SystemRoot _render;
@@ -31,6 +33,7 @@ public class Manager
         _logic = new SystemRoot(World, "SkillLibV3.Logic");
         _render = new SystemRoot(World, "SkillLibV3.Render");
         AssetManager._instance.add(SkillLib, "cultiway.skills");
+        AssetManager._instance.add(ModifierLib, "cultiway.skill_modifiers");
         AssetManager._instance.add(TrajLib, "cultiway.trajectories");
         
         
@@ -54,9 +57,20 @@ public class Manager
         
     }
 
+    public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f)
+    {
+        var entity = SkillEntityLibrary.RawAnim.NewEntity();
+        var data = entity.Data;
+        data.Get<Position>().value = pos;
+        data.Get<Rotation>().value = rot;
+        data.Get<Scale>().value = scale * Vector3.one;
+        data.Get<AnimData>().frames = SpriteTextureLoader.getSpriteList(path);
+    }
     public void SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength)
     {
-        var entity = skill_container.GetComponent<SkillContainer>().Asset.NewEntity();
+        ref var container = ref skill_container.GetComponent<SkillContainer>();
+        
+        var entity = container.Asset.NewEntity();
         var data = entity.Data;
         ref var context = ref data.Get<SkillContext>();
         context.Strength = strength;
@@ -67,6 +81,8 @@ public class Manager
         context.TargetDir = (target_pos - source.GetSimPos()).normalized;
         ref var pos = ref data.Get<Position>();
         pos.value = source.current_position;
+        
+        container.OnSetup?.Invoke(entity);
     }
 
     internal void UpdateLogic(UpdateTick update_tick)

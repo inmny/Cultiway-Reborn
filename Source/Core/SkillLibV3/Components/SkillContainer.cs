@@ -11,6 +11,8 @@ public struct SkillContainer : IComponent
     /// </summary>
     public string SkillEntityAssetID;
 
+    public SetupAction OnSetup;
+    public EffectObjAction OnEffectObj;
     public SkillEntityAsset Asset
     {
         get

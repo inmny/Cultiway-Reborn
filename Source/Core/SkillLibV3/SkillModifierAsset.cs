@@ -1,0 +1,12 @@
+using Friflo.Engine.ECS;
+
+namespace Cultiway.Core.SkillLibV3;
+
+
+public delegate void SetupAction(Entity skill_entity);
+public delegate void EffectObjAction(Entity skill_entity, BaseSimObject obj);
+public class SkillModifierAsset : Asset
+{
+    public SetupAction OnSetup;
+    public EffectObjAction OnEffectObj;
+}
