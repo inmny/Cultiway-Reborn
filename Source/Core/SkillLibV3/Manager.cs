@@ -32,9 +32,6 @@ public class Manager
         };
         _logic = new SystemRoot(World, "SkillLibV3.Logic");
         _render = new SystemRoot(World, "SkillLibV3.Render");
-        AssetManager._instance.add(SkillLib, "cultiway.skills");
-        AssetManager._instance.add(ModifierLib, "cultiway.skill_modifiers");
-        AssetManager._instance.add(TrajLib, "cultiway.trajectories");
         
         
         _logic.Add(new AliveTimerSystem());
@@ -54,7 +51,9 @@ public class Manager
 
     internal void Init()
     {
-        
+        AssetManager._instance.add(SkillLib, "cultiway.skills");
+        AssetManager._instance.add(ModifierLib, "cultiway.skill_modifiers");
+        AssetManager._instance.add(TrajLib, "cultiway.trajectories");
     }
 
     public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f)
