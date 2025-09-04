@@ -2,7 +2,7 @@ using Friflo.Engine.ECS;
 
 namespace Cultiway.Core.SkillLibV3.Modifiers;
 
-public struct Trajectory : IModifier, IComponent
+public struct Trajectory : IModifier
 {
     public string ID;
 

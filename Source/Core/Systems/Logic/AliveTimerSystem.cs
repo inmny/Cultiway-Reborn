@@ -8,7 +8,7 @@ public class AliveTimerSystem : QuerySystem<AliveTimer>
 {
     public AliveTimerSystem()
     {
-        Filter.WithoutAllTags(Tags.Get<TagPrefab>());
+        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
     }
     protected override void OnUpdate()
     {
