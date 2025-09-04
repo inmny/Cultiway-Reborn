@@ -57,6 +57,10 @@ public class SkillEntityAsset : Asset
             {
                 frames = SpriteTextureLoader.getSpriteList(effect_path)
             },
+            new AliveTimer()
+            {
+                value = 5f  
+            },
             Tags.Get<TagPrefab>());
         return this;
     }
