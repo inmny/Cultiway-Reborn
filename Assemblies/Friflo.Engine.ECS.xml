@@ -2934,10 +2934,6 @@
             <summary> Note: Not implemented to avoid excessive boxing. </summary>
             <remarks> Use <see cref="M:Friflo.Engine.ECS.Entity.op_Equality(Friflo.Engine.ECS.Entity,Friflo.Engine.ECS.Entity)"/> or <see cref="F:Friflo.Engine.ECS.EntityUtils.EqualityComparer"/> </remarks>
         </member>
-        <member name="M:Friflo.Engine.ECS.Entity.GetHashCode">
-            <summary> Note: Not implemented to avoid excessive boxing. </summary>
-            <remarks> Use <see cref="F:Friflo.Engine.ECS.Entity.Id"/> or <see cref="F:Friflo.Engine.ECS.EntityUtils.EqualityComparer"/> </remarks>
-        </member>
         <member name="M:Friflo.Engine.ECS.Entity.Batch">
             <summary>
             Returns an <see cref="T:Friflo.Engine.ECS.EntityBatch"/> to add/remove components or tags to/from this entity using the batch.<br/>
