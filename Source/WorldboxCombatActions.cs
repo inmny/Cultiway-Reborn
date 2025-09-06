@@ -16,6 +16,7 @@ public partial class WorldboxGame
         [GetOnly(nameof(CombatActionLibrary.combat_cast_spell))]
         public static CombatActionAsset CastVanillaSpell { get; private set; }
         public static CombatActionAsset CastSkill { get; private set; }
+        public static CombatActionAsset CastSkillV3 {get; private set; }
         protected override void OnInit()
         {
             RegisterAssets();
@@ -25,7 +26,14 @@ public partial class WorldboxGame
                 var ae = data.initiator.a.GetExtend();
 
                 var skill = ae.tmp_all_attack_skills.GetRandom();
-                return data.initiator.a.GetExtend().CastSkillV2(skill, data.target);
+                return ae.CastSkillV2(skill, data.target);
+            };
+            CastSkillV3.rate = 10;
+            CastSkillV3.action = data =>
+            {
+                var ae = data.initiator.a.GetExtend();
+                var skill = ae.all_attack_skills.GetRandom();
+                return ae.CastSkillV3(skill, data.target);
             };
         }
     }

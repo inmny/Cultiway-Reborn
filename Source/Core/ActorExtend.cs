@@ -15,6 +15,7 @@ using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV2;
 using Cultiway.Core.SkillLibV2.Api;
 using Cultiway.Core.SkillLibV2.Examples;
+using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Patch;
 using Cultiway.Utils;
@@ -34,8 +35,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
     private static   Action<ActorExtend> action_on_update_stats;
     private readonly HashSet<string> _learned_skills = new();
+    private readonly HashSet<Entity> _learned_skills_v3 = new();
     private Entity          e;
-
+    public HashSet<Entity> all_skills = new();
+    public List<Entity> all_attack_skills = new();
     private  Dictionary<string, Entity> _skill_action_modifiers = new();
     private  Dictionary<string, Entity> _skill_entity_modifiers = new();
     internal float[]         s_armor        = new float[9];
@@ -104,6 +107,18 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             }
             _master_items = null;
         }
+
+        if (_learned_skills_v3 != null && _learned_skills_v3.Count > 0)
+        {
+            foreach (var skill in _learned_skills_v3)
+            {
+                skill.AddTag<TagRecycle>();
+            }
+            _learned_skills_v3.Clear();
+        }
+        all_skills = null;
+        all_attack_skills = null;
+
         if (_skill_action_modifiers != null)
         {
             foreach (var skill_action in _skill_action_modifiers.Values)
@@ -163,6 +178,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         }
         // 加入自定义技能
         WorldboxGame.CombatActions.CastSkill.AddToPool(attack_action_pool, tmp_all_attack_skills.Count);
+        WorldboxGame.CombatActions.CastSkillV3.AddToPool(attack_action_pool, all_attack_skills.Count);
         action_on_attack?.Invoke(this, target, attack_action_pool);
         
 
@@ -402,6 +418,16 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         _learned_skills.Add(id);
     }
 
+    public void LearnSkillV3(Entity skill_container, bool clone = false)
+    {
+        if (clone)
+        {
+            skill_container = skill_container.Store.CloneEntity(skill_container);
+        }
+
+        _learned_skills_v3.Add(skill_container);
+    }
+
     public bool CastSkillV2(string id, BaseSimObject target_obj, bool ignore_cost = false, float addition_strength = 0)
     {
         var wrapped_asset = ModClass.L.WrappedSkillLibrary.get(id);
@@ -608,16 +634,28 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         tmp_all_skills.Clear();
         tmp_all_skills.UnionWith(_learned_skills);
+        
+        all_skills.Clear();
+        all_skills.UnionWith(_learned_skills_v3);
 
         action_on_update_stats?.Invoke(this);
         
         tmp_all_attack_skills.Clear();
+        all_attack_skills.Clear();
         var library = ModClass.L.WrappedSkillLibrary;
         foreach (var skill in tmp_all_skills)
         {
             if (library.get(skill)?.HasSkillType(WrappedSkillType.Attack) ?? false)
             {
                 tmp_all_attack_skills.Add(skill);
+            }
+        }
+
+        foreach (var skill in all_skills)
+        {
+            if (skill.GetComponent<SkillContainer>().Asset.Type == SkillEntityType.Attack)
+            {
+                all_attack_skills.Add(skill);
             }
         }
     }
@@ -859,5 +897,17 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         sect = new_sect;
         WorldboxGame.I.Sects.unitAdded(new_sect);
         Base.setStatsDirty();
+    }
+
+    public bool CastSkillV3(Entity skill, BaseSimObject target)
+    {
+        // TODO: 添加消耗检查，技能消耗由技能实体和所有词缀组合决定（存在SkillContainer里头）
+        if (!skill.HasComponent<SkillContainer>())
+        {
+            ModClass.LogError($"技能实体{skill}不包含技能");
+            return false;
+        }
+        ModClass.I.SkillV3.SpawnSkill(skill, Base, target, 100);
+        return true;
     }
 }
