@@ -27,10 +27,7 @@ public class Manager
     internal Manager(WorldboxGame game)
     {
         Game = game;
-        World = new EntityStore()
-        {
-            JobRunner = new ParallelJobRunner(Environment.ProcessorCount)
-        };
+        World = ModClass.I.W;
         _logic = new SystemRoot(World, "SkillLibV3.Logic");
         _render = new SystemRoot(World, "SkillLibV3.Render");
         
@@ -39,6 +36,7 @@ public class Manager
         _logic.Add(new AliveTimerCheckSystem());
         _logic.Add(new DelayActiveCheckSystem());
         
+        _logic.Add(new RecycleSkillContainerSystem());
         _logic.Add(new RecycleAnimRendererSystem());
         _logic.Add(new RecycleDefaultEntitySystem());
 
@@ -79,6 +77,10 @@ public class Manager
             for (int j = 0; j < burst_count; j++)
             {
                 var entity = container.Asset.NewEntity();
+                entity.AddRelation(new SkillMasterRelation()
+                {
+                    SkillContainer = skill_container
+                });
                 var data = entity.Data;
                 ref var context = ref data.Get<SkillContext>();
                 context.Strength = strength;

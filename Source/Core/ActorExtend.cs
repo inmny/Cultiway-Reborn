@@ -110,10 +110,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         if (_learned_skills_v3 != null && _learned_skills_v3.Count > 0)
         {
-            foreach (var skill in _learned_skills_v3)
-            {
-                skill.AddTag<TagRecycle>();
-            }
             _learned_skills_v3.Clear();
         }
         all_skills = null;
@@ -425,6 +421,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             skill_container = skill_container.Store.CloneEntity(skill_container);
         }
 
+        E.AddRelation(new SkillMasterRelation()
+        {
+            SkillContainer = skill_container
+        });
         _learned_skills_v3.Add(skill_container);
     }
 
