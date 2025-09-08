@@ -6,5 +6,5 @@ public struct Talisman : IComponent
 {
     public float Strength;
     public float PowerLevel;
-    public string SkillID;
+    public Entity SkillContainer;
 }

@@ -48,10 +48,10 @@ public class Manager : ICanInit
             }
             if (entity.TryGetComponent(out Talisman talisman))
             {
-                var skill_asset = ModClass.L.WrappedSkillLibrary.get(talisman.SkillID);
+                var skill_container = talisman.SkillContainer;
                 //tooltip.Tooltip.name.text = skill_asset.GetName();
                 tooltip.Tooltip.addDescription("\n");
-                tooltip.Tooltip.addDescription(skill_asset.GetDescription());
+                tooltip.Tooltip.addDescription(skill_container.ToString());
             }
         });
     }
