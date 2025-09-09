@@ -4,6 +4,8 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
+using Unity.IO.LowLevel.Unsafe;
 using UnityEngine;
 
 namespace Cultiway.Content.Extensions;
@@ -11,6 +13,26 @@ namespace Cultiway.Content.Extensions;
 public static class BookManagerTools
 {
     private static CultibookLibrary _cultibookLibrary = Libraries.Manager.CultibookLibrary;
+
+    public static Book CreateNewSkillbook(this BookManager manager, Actor creator, Entity skill_container)
+    {
+        var ae = creator.GetExtend();
+        var raw_skillbook = manager.GenerateNewBook(creator, BookTypes.Skillbook);
+        if (raw_skillbook == null) return null;
+        var be = raw_skillbook.GetExtend();
+
+        skill_container = skill_container.Store.CloneEntity(skill_container);
+        var skillbook = new Skillbook()
+        {
+            SkillContainer = skill_container
+        };
+        be.AddComponent(skillbook);
+        be.E.AddRelation(new SkillMasterRelation()
+        {
+            SkillContainer = skill_container
+        });
+        return raw_skillbook;
+    }
     public static Book CreateNewCultibook(this BookManager manager, Actor creator)
     {
         var ae = creator.GetExtend();

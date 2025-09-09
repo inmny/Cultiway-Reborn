@@ -24,18 +24,14 @@ public class BehCraftTalisman : BehaviourActionActor
         var wakan_to_take = pObject.stats[BaseStatses.MaxWakan.id] * percent;
         if (xian.wakan < wakan_to_take)
         {
-            return BehResult.Continue;
+            return BehResult.Stop;
         }
 
         if (ae.all_skills.Count == 0)
         {
-            return BehResult.Continue;
+            return BehResult.Stop;
         }
         var skill_v3 = ae.all_skills.GetRandom();
-        if (skill_v3.IsNull)
-        {
-            return BehResult.Continue;
-        }
 
         skill_v3 = skill_v3.Store.CloneEntity(skill_v3);
         xian.wakan -= wakan_to_take;

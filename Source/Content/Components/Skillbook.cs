@@ -4,5 +4,5 @@ namespace Cultiway.Content.Components;
 
 public struct Skillbook : IComponent
 {
-    
+    public Entity SkillContainer;
 }

@@ -48,7 +48,7 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         var ae = actor.GetExtend();
         if (!ae.HasCultisys<Xian>()) return;
         var be = book.GetExtend();
-        
+        ae.LearnSkillV3(be.GetComponent<Skillbook>().SkillContainer, true);
     }
     private static void LearnElixirbook(Actor actor, Book book, BookTypeAsset asset)
     {
