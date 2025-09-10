@@ -5,6 +5,11 @@ using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3;
+
+public enum SkillEntityType
+{
+    Attack
+}
 public delegate bool OnObjCollision(ref SkillContext context, Entity skill_container, Entity skill_entity, BaseSimObject target);
 public class SkillEntityAsset : Asset
 {
@@ -12,6 +17,7 @@ public class SkillEntityAsset : Asset
     public ElementComposition Element;
     public EntityStore World => ModClass.I.SkillV3.World;
     public OnObjCollision OnObjCollision;
+    public SkillEntityType Type;
 
     public SkillEntityAsset SetupColliderSphere(float radius, ColliderConfig config)
     {
@@ -56,6 +62,10 @@ public class SkillEntityAsset : Asset
             new AnimData()
             {
                 frames = SpriteTextureLoader.getSpriteList(effect_path)
+            },
+            new AliveTimer()
+            {
+                value = 5f  
             },
             Tags.Get<TagPrefab>());
         return this;

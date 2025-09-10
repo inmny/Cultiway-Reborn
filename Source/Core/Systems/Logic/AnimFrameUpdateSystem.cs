@@ -13,7 +13,7 @@ public class AnimFrameUpdateSystem : QuerySystem<AnimData, AnimController>
 
     public AnimFrameUpdateSystem(EntityStore world)
     {
-        Filter.WithoutAnyTags(Tags.Get<TagPrefab>());
+        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
         Filter.WithoutAnyComponents(ComponentTypes.Get<AnimFrameInterval, AnimLoop>());
 
         var single_filter = new QueryFilter();

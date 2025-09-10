@@ -40,10 +40,9 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
                     addition_strength *= Mathf.Pow(2, talisman_component.PowerLevel - ae_power_level);
                 }
 
-                if (ae.CastSkillV2(talisman_component.SkillID, data.target, false, addition_strength))
+                if (ae.CastSkillV3(talisman_component.SkillContainer, data.target))
                 {
-                    //ModClass.LogInfo($"Use talisman {talisman_to_use.Id} with strength {addition_strength}");
-                    talisman_to_use.DeleteEntity();
+                    talisman_to_use.DeleteEntity(); 
                     has_casted = true;
                 }
                 else

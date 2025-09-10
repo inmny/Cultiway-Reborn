@@ -29,7 +29,7 @@ public class RenderAnimFrameSystem : BaseSystem
 
 
         var filter = new QueryFilter();
-        filter.WithoutAnyTags(Tags.Get<TagPrefab>());
+        filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
 
         single_query = world.Query<AnimBindRenderer>(filter);
         init_query = world.Query<Position, Scale, AnimData, AnimBindRenderer>(filter);

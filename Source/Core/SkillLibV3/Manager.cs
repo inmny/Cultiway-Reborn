@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
@@ -26,17 +27,16 @@ public class Manager
     internal Manager(WorldboxGame game)
     {
         Game = game;
-        World = new EntityStore()
-        {
-            JobRunner = new ParallelJobRunner(Environment.ProcessorCount)
-        };
+        World = ModClass.I.W;
         _logic = new SystemRoot(World, "SkillLibV3.Logic");
         _render = new SystemRoot(World, "SkillLibV3.Render");
         
         
         _logic.Add(new AliveTimerSystem());
         _logic.Add(new AliveTimerCheckSystem());
+        _logic.Add(new DelayActiveCheckSystem());
         
+        _logic.Add(new RecycleSkillContainerSystem());
         _logic.Add(new RecycleAnimRendererSystem());
         _logic.Add(new RecycleDefaultEntitySystem());
 
@@ -68,20 +68,41 @@ public class Manager
     public void SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength)
     {
         ref var container = ref skill_container.GetComponent<SkillContainer>();
+        var salvo_count = skill_container.TryGetComponent(out SalvoCount salvo_modifier) ? salvo_modifier.Value : 1;
+        var burst_count = skill_container.TryGetComponent(out BurstCount burst_modifier) ? burst_modifier.Value : 1;
+
+        for (int i = 0; i < salvo_count; i++)
+        {
+            var delay = i * 0.5f;
+            for (int j = 0; j < burst_count; j++)
+            {
+                var entity = container.Asset.NewEntity();
+                entity.AddRelation(new SkillMasterRelation()
+                {
+                    SkillContainer = skill_container
+                });
+                var data = entity.Data;
+                ref var context = ref data.Get<SkillContext>();
+                context.Strength = strength;
+                context.SourceObj = source;
+                context.TargetObj = target;
+                var target_pos = target.GetSimPos();
+                context.TargetPos = target_pos;
+                context.TargetDir = (target_pos - source.GetSimPos()).normalized;
+                ref var pos = ref data.Get<Position>();
+                pos.value = source.current_position;
+
+                if (delay > 0)
+                {
+                    entity.Add(new DelayActive()
+                    {
+                        LeftTime = delay
+                    }, Tags.Get<TagInactive>());
+                }
         
-        var entity = container.Asset.NewEntity();
-        var data = entity.Data;
-        ref var context = ref data.Get<SkillContext>();
-        context.Strength = strength;
-        context.SourceObj = source;
-        context.TargetObj = target;
-        var target_pos = target.GetSimPos();
-        context.TargetPos = target_pos;
-        context.TargetDir = (target_pos - source.GetSimPos()).normalized;
-        ref var pos = ref data.Get<Position>();
-        pos.value = source.current_position;
-        
-        container.OnSetup?.Invoke(entity);
+                container.OnSetup?.Invoke(entity);
+            }
+        }
     }
 
     internal void UpdateLogic(UpdateTick update_tick)
