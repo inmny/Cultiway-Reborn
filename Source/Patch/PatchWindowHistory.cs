@@ -79,7 +79,7 @@ internal static class PatchWindowHistory
             current_idx = store_history_idx + 1;
         }
 
-        var insert_idx = list.FindIndex(x => x.opcode == OpCodes.Call && (x.operand as MethodInfo)?.Name == "get_Current")+1;
+        var insert_idx = list.FindIndex(x => x.opcode == OpCodes.Ldfld && (x.operand as FieldInfo)?.Name == nameof(MetaTypeAsset.window_history_action_restore))+1;
         list.InsertRange(insert_idx, [
             new (OpCodes.Dup),
             new (OpCodes.Ldloc, extend_history.LocalIndex),

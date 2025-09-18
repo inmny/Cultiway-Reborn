@@ -157,7 +157,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         
         using var attack_action_pool = new ListPool<CombatActionAsset>();
         // 加入普攻
-        if (actor.s_type_attack == WeaponType.Melee)
+        if (actor.hasMeleeAttack())
         {
             basic_attack_action = WorldboxGame.CombatActions.AttackMelee;
         }

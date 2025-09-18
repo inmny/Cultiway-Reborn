@@ -86,7 +86,7 @@ internal static class PatchActor
                                       bool       pSkipIfShake = true, bool pCheckDamageReduction = false)
     {
         if (__instance == pAttacker) return false;
-        if (pSkipIfShake && __instance.shake_active)
+        if (pSkipIfShake && __instance._shake_active)
         {
             return true;
         }
@@ -108,7 +108,7 @@ internal static class PatchActor
         return list;
     }
 
-    [HarmonyTranspiler, HarmonyPatch(typeof(ActorManager), nameof(ActorManager.createActorFromData))]
+    [HarmonyTranspiler, HarmonyPatch(typeof(ActorManager), nameof(ActorManager.createBabyActorFromData))]
     private static IEnumerable<CodeInstruction> spawnPopPoint_transpiler(IEnumerable<CodeInstruction> codes)
     {
         var list = codes.ToList();

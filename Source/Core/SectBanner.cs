@@ -22,7 +22,7 @@ public class SectBanner : BannerGeneric<Sect, SectData>
         base.setupBanner();
         part_background.sprite = meta_object.getBannerBackground();
         part_icon.sprite = meta_object.getBannerIcon();
-        part_background.color = meta_object.getColor().getColorMain2();
+        part_background.color = meta_object.getColor().getColorMainSecond();
         part_icon.color = meta_object.getColor().getColorBanner();
     }
 

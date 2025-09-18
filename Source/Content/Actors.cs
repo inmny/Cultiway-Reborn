@@ -113,7 +113,21 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         if (asset.is_boat) AssetManager.actor_library.list_only_boat_assets.Add(asset);
         if (asset.color_hex != null) asset.color = new Color32?(Toolbox.makeColor(asset.color_hex));
         if (asset.check_flip == null) asset.check_flip = (_, _) => true;
-        if (asset.shadow) AssetManager.actor_library.loadShadow(asset);
         if (!asset.isTemplateAsset()) AssetManager.actor_library.loadTexturesAndSprites(asset);
+        if (asset.shadow) asset.texture_asset?.loadShadow();
+        // if (!asset.is_boat) asset.generateFmodPaths(asset.id);
+        
+        if (asset.action_dead_animation != null)
+        {
+            asset.special_dead_animation = true;
+        }
+        if (!string.IsNullOrEmpty(asset.base_asset_id))
+        {
+            asset.units = Get(asset.base_asset_id).units;
+        }
+        if (asset.is_humanoid && !asset.unit_zombie)
+        {
+            ((ActorAssetLibrary)cached_library)._humanoids_amount++;
+        }
     }
 }

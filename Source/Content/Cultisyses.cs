@@ -101,7 +101,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             ModClass.I.WorldRecord.CheckAndLogFirstLevelup(Xian.id, ae, ref ae.GetCultisys<Xian>());
             if (ae.Base.asset == Actors.Plant)
             {
-                ae.Base.data.setName(PlantNameGenerator.Instance.GenerateName([element_root.Type.GetName()]));
+                ae.Base.setName(PlantNameGenerator.Instance.GenerateName([element_root.Type.GetName()]));
             }
         });
         ActorExtend.RegisterActionOnUpdateStats([Hotfixable](ae) =>
@@ -425,7 +425,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             ));
             if (ae.Base.asset == Actors.Plant)
             {
-                ae.Base.data.setName(PlantNameGenerator.Instance.GenerateName([er.Type.GetName(), jindan.GetName()]));
+                ae.Base.setName(PlantNameGenerator.Instance.GenerateName([er.Type.GetName(), jindan.GetName()]));
             }
             ae.AddSkillModifier<ScaleModifier, float>(CommonWeaponSkills.StartWeaponSkill.id, new ScaleModifier(Randy.randomFloat(1, 4)));
             return true;
