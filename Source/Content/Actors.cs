@@ -77,6 +77,7 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         Plant.shadow_texture = "unitShadow_2";
         Plant.max_random_amount = 1000;
         Plant.name_locale = Plant.id;
+        Plant.name_template_sets = [S_NameSet.default_set];
         Plant.texture_id = "plant";
         Plant.default_animal = false;
         Plant.civ = false;
