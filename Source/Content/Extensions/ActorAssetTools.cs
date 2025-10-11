@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using Cultiway.Core;
+using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content.Extensions;
 
@@ -18,6 +20,14 @@ public static class ActorAssetTools
     public static ActorAsset SetAnimWalk(this ActorAsset asset, params string[] anims)
     {
         asset.animation_walk = anims;
+        return asset;
+    }
+    /// <summary>
+    /// 设置是否站着睡觉
+    /// </summary>
+    public static ActorAsset SetStandWhileSleeping(this ActorAsset asset, bool value)
+    {
+        asset.GetExtend<ActorAssetExtend>().sleep_standing_up = value;
         return asset;
     }
     /// <summary>

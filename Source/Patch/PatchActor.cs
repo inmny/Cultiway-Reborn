@@ -16,6 +16,13 @@ namespace Cultiway.Patch;
 
 internal static class PatchActor
 {
+    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.isLying))]
+    private static void isLying_postfix(Actor __instance, ref bool __result)
+    {
+        if (!__result) return;
+        if (!__instance._has_status_sleeping) return;
+        __result = !__instance.getActorAsset().GetExtend<ActorAssetExtend>().sleep_standing_up;
+    }
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.addStatusEffect))]
     private static bool addStatusEffect_prefix(Actor __instance, StatusAsset pStatusAsset, ref float pOverrideTimer,
         ref bool __result)
