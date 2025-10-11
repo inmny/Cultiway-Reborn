@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Cultiway.Content.Extensions;
 
 public static class ActorAssetTools
@@ -81,6 +83,22 @@ public static class ActorAssetTools
     {
         asset.base_stats[stats_id] = stats_value;
         return asset;
+    }
+    /// <summary>
+    /// 添加特质
+    /// </summary>
+    public static ActorAsset AddTrait(this ActorAsset asset, string trait_id)
+    {
+        asset.traits ??= new List<string>();
+        asset.traits.Add(trait_id);
+        return asset;
+    }
+    /// <summary>
+    /// 添加特质
+    /// </summary>
+    public static ActorAsset AddTrait(this ActorAsset asset, ActorTrait trait)
+    {
+        return asset.AddTrait(trait.id);
     }
     /// <summary>
     /// 设置图标路径
