@@ -6,4 +6,8 @@ public class ActorAssetExtend
     ///     是否必然有灵根
     /// </summary>
     public bool must_have_element_root;
+    /// <summary>
+    ///     是否站着睡觉
+    /// </summary>
+    public bool sleep_standing_up;
 }
