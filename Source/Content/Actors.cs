@@ -12,7 +12,7 @@ using UnityEngine;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(ActorJobs), typeof(Architectures), typeof(KingdomAssets))]
+[Dependency(typeof(ActorJobs), typeof(Architectures), typeof(KingdomAssets), typeof(ActorTraits))]
 public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 {
 
