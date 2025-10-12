@@ -22,31 +22,18 @@ public class Manager
     public SkillEntityLibrary SkillLib { get; } = new SkillEntityLibrary();
     public SkillModifierLibrary ModifierLib { get; } = new();
     public TrajectoryLibrary TrajLib { get; } = new TrajectoryLibrary();
-    private readonly SystemRoot _logic;
-    private readonly SystemRoot _render;
+    public SystemGroup SkillLogicSystemGroup { get; } = new SystemGroup("SkillLibV3");
     internal Manager(WorldboxGame game)
     {
         Game = game;
         World = ModClass.I.W;
-        _logic = new SystemRoot(World, "SkillLibV3.Logic");
-        _render = new SystemRoot(World, "SkillLibV3.Render");
         
+        ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleSkillContainerSystem());
+        ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleNonMasteredSkillContainerSystem());
+        ModClass.I.GeneralLogicSystems.Add(SkillLogicSystemGroup);
         
-        _logic.Add(new AliveTimerSystem());
-        _logic.Add(new AliveTimerCheckSystem());
-        _logic.Add(new DelayActiveCheckSystem());
-        
-        _logic.Add(new RecycleSkillContainerSystem());
-        _logic.Add(new RecycleAnimRendererSystem());
-        _logic.Add(new RecycleDefaultEntitySystem());
-
-        _logic.Add(new LogicTrajectorySystem());
-        _logic.Add(new AnimFrameUpdateSystem(World));
-        
-        _logic.Add(new LogicActorCollisionSystem());
-        
-        
-        _render.Add(new RenderAnimFrameSystem(World));
+        SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
+        SkillLogicSystemGroup.Add(new LogicActorCollisionSystem());
     }
 
     internal void Init()
@@ -103,28 +90,5 @@ public class Manager
                 container.OnSetup?.Invoke(entity);
             }
         }
-    }
-
-    internal void UpdateLogic(UpdateTick update_tick)
-    {
-        _logic.Update(update_tick);
-    }
-
-    internal void UpdateRender(UpdateTick update_tick)
-    {
-        _render.Update(update_tick);
-    }
-    public void SetMonitorPerf(bool enable)
-    {
-        _logic.SetMonitorPerf(enable);
-        _render.SetMonitorPerf(enable);
-    }
-    public void AppendPerfLog(StringBuilder sb)
-    {
-        sb.Append('\n');
-        _logic.AppendPerfLog(sb);
-        sb.Append('\n');
-        _render.AppendPerfLog(sb);
-        sb.Append('\n');
     }
 }

@@ -23,6 +23,7 @@ public class Manager : ICanInit
         WindowNewCreatureInfo.RegisterPage(nameof(CultibookPage), a=>a.GetExtend().HasCultibook(), CultibookPage.Setup, CultibookPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(ElixirPage), a=> a.GetExtend().HasMaster<ElixirAsset>(), ElixirPage.Setup, ElixirPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(SectPage), a=> a.GetExtend().sect !=null, SectPage.Setup, SectPage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(SkillPage), a=> a.GetExtend().all_skills.Count > 0, SkillPage.Setup, SkillPage.Show);
 
         WindowWorldWakan.CreateAndInit($"Cultiway.UI.{nameof(WindowWorldWakan)}");
         Cultiway.UI.Manager.AddButton(TabButtonType.WORLD,

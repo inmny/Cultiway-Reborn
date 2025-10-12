@@ -3311,6 +3311,10 @@
         <member name="M:Friflo.Engine.ECS.EntityExtensions.Add``10(Friflo.Engine.ECS.Entity,``0@,``1@,``2@,``3@,``4@,``5@,``6@,``7@,``8@,``9@,Friflo.Engine.ECS.Tags@)">
             <summary> Add the passed components and tags to the entity. </summary>
         </member>
+        <member name="M:Friflo.Engine.ECS.EntityExtensions.RemoveNonGeneric(Friflo.Engine.ECS.Entity,System.Type@,Friflo.Engine.ECS.Tags@)">
+            <summary> Remove the passed component and tags to the entity. </summary>
+            <remarks> DO NOT USE IT FREQUENTLY</remarks>
+        </member>
         <member name="M:Friflo.Engine.ECS.EntityExtensions.Remove``1(Friflo.Engine.ECS.Entity,Friflo.Engine.ECS.Tags@)">
             <summary> Remove the specified component and tags from the entity. </summary>
         </member>

@@ -11,6 +11,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV2.Predefined.Modifiers;
+using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Patch;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -428,6 +429,12 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 ae.Base.setName(PlantNameGenerator.Instance.GenerateName([er.Type.GetName(), jindan.GetName()]));
             }
             ae.AddSkillModifier<ScaleModifier, float>(CommonWeaponSkills.StartWeaponSkill.id, new ScaleModifier(Randy.randomFloat(1, 4)));
+            if (jindan.skills.Count > 0)
+            {
+                var skill_entity_asset = jindan.skills.GetRandom();
+                
+                ae.LearnSkillV3(new SkillContainerBuilder(skill_entity_asset).Build());
+            }
             return true;
         }
 

@@ -49,6 +49,8 @@ namespace Cultiway
         public        AEngine                 Engine               { get; }
         public SystemRoot GeneralLogicSystems  { get; private set; }
         public SystemRoot GeneralRenderSystems { get; private set; }
+        public SystemGroup LogicPrepareRecycleSystemGroup { get; private set; }
+        public SystemGroup LogicRestoreStatusSystemGroup { get; private set; }
         public SystemRoot TileLogicSystems   { get; private set; }
         public SystemRoot TileRenderSystems  { get; private set; }
         public        EntityStore             W                    { get; private set; }
@@ -97,7 +99,6 @@ namespace Cultiway
                             GeneralLogicSystems.Update(logic_update_tick);
                             TileLogicSystems.Update(logic_update_tick);
                             SkillV2.UpdateLogic(logic_update_tick);
-                            SkillV3.UpdateLogic(logic_update_tick);
                             Geo.UpdateLogic(logic_update_tick);
                         }
                     }
@@ -106,7 +107,6 @@ namespace Cultiway
                         GeneralLogicSystems.Update(render_update_tick);
                         TileLogicSystems.Update(render_update_tick);
                         SkillV2.UpdateLogic(render_update_tick);
-                        SkillV3.UpdateLogic(render_update_tick);
                         Geo.UpdateLogic(render_update_tick);
                     }
                 }
@@ -114,7 +114,6 @@ namespace Cultiway
                 GeneralRenderSystems.Update(render_update_tick);
                 TileRenderSystems.Update(render_update_tick);
                 SkillV2.UpdateRender(render_update_tick);
-                SkillV3.UpdateRender(render_update_tick);
             }
             catch (Exception e)
             {
@@ -133,8 +132,6 @@ namespace Cultiway
             GeneralRenderSystems.AppendPerfLog(sb);
             sb.Append('\n');
             SkillV2.AppendPerfLog(sb);
-            sb.Append('\n');
-            SkillV3.AppendPerfLog(sb);
             sb.Append('\n');
             Geo.AppendPerfLog(sb);
             LogInfo($"{sb}");
@@ -226,6 +223,9 @@ namespace Cultiway
 
             GeneralLogicSystems = new SystemRoot(nameof(GeneralLogicSystems));
             GeneralRenderSystems = new SystemRoot(nameof(GeneralRenderSystems));
+            LogicPrepareRecycleSystemGroup = new SystemGroup(nameof(LogicPrepareRecycleSystemGroup));
+            LogicRestoreStatusSystemGroup = new SystemGroup(nameof(LogicRestoreStatusSystemGroup));
+            
             TileLogicSystems = new SystemRoot(nameof(TileLogicSystems));
             TileRenderSystems = new SystemRoot(nameof(TileRenderSystems));
 
@@ -238,16 +238,19 @@ namespace Cultiway
             
             GeneralLogicSystems.Add(new AliveTimerSystem());
             GeneralLogicSystems.Add(new AliveTimerCheckSystem());
+            GeneralLogicSystems.Add(new DelayActiveCheckSystem());
             
-            GeneralLogicSystems.Add(new DisposeActorExtendSystem());
-            GeneralLogicSystems.Add(new DisposeCityExtendSystem());
-            GeneralLogicSystems.Add(new RecycleAnimRendererSystem());
-            GeneralLogicSystems.Add(new RecycleStatusEffectSystem());
+            GeneralLogicSystems.Add(LogicPrepareRecycleSystemGroup);
+            LogicPrepareRecycleSystemGroup.Add(new DisposeActorExtendSystem());
+            LogicPrepareRecycleSystemGroup.Add(new DisposeCityExtendSystem());
+            LogicPrepareRecycleSystemGroup.Add(new RecycleAnimRendererSystem());
+            LogicPrepareRecycleSystemGroup.Add(new RecycleStatusEffectSystem());
+            LogicPrepareRecycleSystemGroup.Add(new RecycleUnknownAssetsSystem());
             GeneralLogicSystems.Add(new RecycleDefaultEntitySystem());
-            GeneralLogicSystems.Add(new RecycleUnknownAssetsSystem());
             
-            GeneralLogicSystems.Add(new RestoreHealthSystem());
-            GeneralLogicSystems.Add(new RestoreQiyunSystem());
+            GeneralLogicSystems.Add(LogicRestoreStatusSystemGroup);
+            LogicRestoreStatusSystemGroup.Add(new RestoreHealthSystem());
+            LogicRestoreStatusSystemGroup.Add(new RestoreQiyunSystem());
             
             GeneralLogicSystems.Add(new SyncCityRelationSystem());
             
@@ -268,6 +271,7 @@ namespace Cultiway
             SkillV2.Init();
             SkillV3.Init();
             _content.Init();
+            GeneralLogicSystems.Add(new RemoveDirtyTagSystem());
 
             ExampleTriggerActions.Init();
             ExampleSkillEntities.Init();
@@ -283,7 +287,6 @@ namespace Cultiway
                 GeneralLogicSystems.SetMonitorPerf(true);
                 GeneralRenderSystems.SetMonitorPerf(true);
                 SkillV2.SetMonitorPerf(true);
-                SkillV3.SetMonitorPerf(true);
                 Geo.SetMonitorPerf(true);
             }
         }

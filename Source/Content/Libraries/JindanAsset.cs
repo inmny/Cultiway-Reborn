@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using Cultiway.Content.Components;
 using Cultiway.Core;
+using Cultiway.Core.SkillLibV3;
 using NeoModLoader.General;
 using strings;
 
@@ -11,6 +13,7 @@ public class JindanAsset : Asset
     private JindanGroupAsset _group;
     public JindanCheck check;
     public JindanScore score;
+    public List<SkillEntityAsset> skills = new();
     public string wrapped_skill_id;
 
     public BaseStats Stats = new()
