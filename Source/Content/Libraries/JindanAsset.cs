@@ -13,6 +13,7 @@ public class JindanAsset : Asset
     private JindanGroupAsset _group;
     public JindanCheck check;
     public JindanScore score;
+    public ElementComposition composition;
     public List<SkillEntityAsset> skills = new();
     public string wrapped_skill_id;
 
