@@ -2,6 +2,7 @@ using ai.behaviours;
 using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -36,6 +37,8 @@ public class BehCraftTalisman : BehaviourActionActor
         skill_v3 = skill_v3.Store.CloneEntity(skill_v3);
         xian.wakan -= wakan_to_take;
         var power_level = ae.GetPowerLevel();
+
+        string skill_name = skill_v3.HasName ? skill_v3.Name.value : skill_v3.GetComponent<SkillContainer>().Asset.id;
         var item = SpecialItemUtils.StartBuild(ItemShapes.Talisman.id, WorldboxGame.I.GetWorldTime(), pObject.getName(), Mathf.Pow(power_level, 2)*10)
             .AddComponent(new Talisman()
             {
@@ -43,7 +46,7 @@ public class BehCraftTalisman : BehaviourActionActor
                 Strength = wakan_to_take,
                 SkillContainer = skill_v3
             })
-            .AddComponent(new EntityName(TalismanNameGenerator.Instance.GenerateName([skill_v3.Name.value])))
+            .AddComponent(new EntityName(TalismanNameGenerator.Instance.GenerateName([skill_name])))
             .Build();
         item.AddRelation(new SkillMasterRelation()
         {
