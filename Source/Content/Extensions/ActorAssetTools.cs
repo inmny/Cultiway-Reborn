@@ -99,8 +99,7 @@ public static class ActorAssetTools
     /// </summary>
     public static ActorAsset AddTrait(this ActorAsset asset, string trait_id)
     {
-        asset.traits ??= new List<string>();
-        asset.traits.Add(trait_id);
+        asset.addTrait(trait_id);
         return asset;
     }
     /// <summary>
@@ -109,6 +108,22 @@ public static class ActorAssetTools
     public static ActorAsset AddTrait(this ActorAsset asset, ActorTrait trait)
     {
         return asset.AddTrait(trait.id);
+    }
+    /// <summary>
+    /// 添加亚种栏特质
+    /// </summary>
+    public static ActorAsset AddSubspeciesTrait(this ActorAsset asset, string trait_id)
+    {
+        asset.addSubspeciesTrait(trait_id);
+        return asset;
+    }
+    /// <summary>
+    /// 添加亚种栏特质
+    /// </summary>
+    public static ActorAsset AddSubspeciesTrait(this ActorAsset asset, SubspeciesTrait trait)
+    {
+        asset.AddSubspeciesTrait(trait.id);
+        return asset;
     }
     /// <summary>
     /// 设置图标路径
