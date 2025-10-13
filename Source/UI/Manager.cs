@@ -27,8 +27,15 @@ public class Manager
 
     public void Init()
     {
-        top_container = new GameObject("TopContainer", typeof(RectTransform)).GetComponent<RectTransform>();
+        top_container = new GameObject("TopContainer", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter)).GetComponent<RectTransform>();
         top_container.pivot = new Vector2(0, 0.5f);
+        var fitter = top_container.GetComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        var layout_group = top_container.GetComponent<HorizontalLayoutGroup>();
+        layout_group.childControlHeight = false;
+        layout_group.childControlWidth = false;
+        layout_group.childForceExpandWidth = false;
+        layout_group.childForceExpandHeight = false;
 
         powers_tab = TabManager.CreateTab("Cultiway", "Cultiway", "Cultiway Description",
             SpriteTextureLoader.getSprite("cultiway/icons/iconTab"));
@@ -98,7 +105,19 @@ public class Manager
 
     private static void SwitchTab(TabButtonType type)
     {
-        foreach (var pair in button_groups) pair.Value.gameObject.SetActive(pair.Key == type);
+        foreach (var pair in button_groups)
+        {
+            pair.Value.gameObject.SetActive(pair.Key == type);
+            if (pair.Key == type)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(pair.Value.GetComponent<RectTransform>());
+            }
+        }
+        
+        if (powers_tab.parentObj == null) return;
+        
+        LayoutRebuilder.ForceRebuildLayoutImmediate(top_container);
+        powers_tab.setNewWidth();
     }
 
     public void PostInit()
