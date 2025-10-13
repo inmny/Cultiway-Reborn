@@ -841,8 +841,6 @@ public partial class Actors
             .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/GriffinKnight/main/walk_0")
             .SetJumpAnimation(true)
-            .AddTrait(S_Trait.fire_proof)//火抗
-            .AddTrait(S_Trait.freeze_proof)//冰抗
             .AddTrait(S_SubspeciesTrait.hovering)//悬浮
             .SetDefaultWeapons(S_Item.bow_mythril)//弓
             .Stats(S.damage, 38)//伤害
@@ -859,8 +857,11 @@ public partial class Actors
             .SetJumpAnimation(true)
             .AddTrait(S_Trait.fire_proof)//火抗
             .AddTrait(S_Trait.freeze_proof)//冰抗
-            .AddTrait(S_SubspeciesTrait.hovering)//悬浮
-            .SetDefaultWeapons(S_Item.bow_mythril)//弓
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.wise)//智慧
+            .AddTrait(S_Trait.heart_of_wizard)//魔力心
+            .AddSubspeciesTrait(S_SubspeciesTrait.gift_of_harmony)//谐心
+            .SetDefaultWeapons(S_Item.white_staff)//白杖
             .Stats(S.damage, 45)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 14)//速度
@@ -873,10 +874,7 @@ public partial class Actors
             .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/GuardKnight/main/walk_0")
             .SetJumpAnimation(true)
-            .AddTrait(S_Trait.fire_proof)//火抗
-            .AddTrait(S_Trait.freeze_proof)//冰抗
-            .AddTrait(S_SubspeciesTrait.hovering)//悬浮
-            .SetDefaultWeapons(S_Item.bow_mythril)//弓
+            .SetDefaultWeapons(S_Item.spear_iron)//矛
             .Stats(S.damage, 30)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 10)//速度
@@ -890,9 +888,8 @@ public partial class Actors
             .SetIcon("actors/species/other/Cultiway/WyvernKnight/main/walk_0")
             .SetJumpAnimation(true)
             .AddTrait(S_Trait.fire_proof)//火抗
-            .AddTrait(S_Trait.freeze_proof)//冰抗
             .AddTrait(S_SubspeciesTrait.hovering)//悬浮
-            .SetDefaultWeapons(S_Item.bow_mythril)//弓
+            .SetDefaultWeapons(S_Item.evil_staff)//法杖
             .Stats(S.damage, 48)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 26)//速度
@@ -907,8 +904,7 @@ public partial class Actors
             .SetJumpAnimation(true)
             .AddTrait(S_Trait.fire_proof)//火抗
             .AddTrait(S_Trait.freeze_proof)//冰抗
-            .AddTrait(S_SubspeciesTrait.hovering)//悬浮
-            .SetDefaultWeapons(S_Item.bow_mythril)//弓
+            .SetDefaultWeapons(S_Item.shotgun)//霰弹枪
             .Stats(S.damage, 40)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 18)//速度
