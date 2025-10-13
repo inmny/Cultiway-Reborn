@@ -48,7 +48,8 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
             asset.name_template_sets = [S_NameSet.default_set];
             // 这边设置默认数值, 自己看着调
             asset.Stats(S.health, 100)
-                .Stats(S.speed, 20);
+                .Stats(S.speed, 20)
+                .Stats(S.stamina, 50);
             if (!asset.default_animal && !asset.civ)
             {
                 asset.unit_other = true;
