@@ -16,6 +16,19 @@ namespace Cultiway.Patch;
 
 internal static class PatchActor
 {
+    /// <summary>
+    /// 实现<see cref="ActorAssetExtend.hide_hand_item"/>
+    /// </summary>
+    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.getHandRendererAsset))]
+    private static void getHandRendererAsset_postfix(Actor __instance, ref IHandRenderer __result)
+    {
+        if (__result == null) return;
+        if (!__instance.asset.GetExtend<ActorAssetExtend>().hide_hand_item) return;
+        __result = null;
+    }
+    /// <summary>
+    /// 实现<see cref="ActorAssetExtend.sleep_standing_up"/>
+    /// </summary>
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.isLying))]
     private static void isLying_postfix(Actor __instance, ref bool __result)
     {

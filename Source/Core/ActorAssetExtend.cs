@@ -10,4 +10,8 @@ public class ActorAssetExtend
     ///     是否站着睡觉
     /// </summary>
     public bool sleep_standing_up;
+    /// <summary>
+    ///     隐藏手上物品
+    /// </summary>
+    public bool hide_hand_item;
 }
