@@ -84,7 +84,13 @@ public partial class Buildings
         Pyramid.spawn_units_asset = null;
         Pyramid.kingdom = KingdomAssets.Undead.id;
         Pyramid.AddAdvancedSpawnerDistributedConfig(Actors.Pharaoh, 1, 6, 1)
-                   .AddAdvancedSpawnerDistributedConfig(Actors.SkeletonKnight, 4, 4, 1) 
+                   .AddAdvancedSpawnerDistributedConfig(Actors.SkeletonKnight, 4, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.Mummy, 6, 2, 2);
+        MagicTower.tower = false;
+        MagicTower.spawn_units_asset = null;
+        MagicTower.kingdom = KingdomAssets.Superman.id;
+        MagicTower.AddAdvancedSpawnerDistributedConfig(Actors.Sorcerer, 1, 6, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.GriffinKnight, 4, 4, 1) 
+                   .AddAdvancedSpawnerDistributedConfig(Actors.GuardKnight, 6, 2, 2);
     }
 }
