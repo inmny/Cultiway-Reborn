@@ -6,18 +6,18 @@
   "Specific": [
     {
       "Path": "walk_0_item.png",
-      "PivotX": 3.5,
-      "PivotY": 3.2
+      "PivotX": 0.25,
+      "PivotY": 0.79
     },
     {
       "Path": "walk_1_item.png",
-      "PivotX": 3.5,
-      "PivotY": 7.4
+      "PivotX": 0.25,
+      "PivotY": 0.93
     },
     {
       "Path": "walk_2_item.png",
-      "PivotX": 3.5,
-      "PivotY": 7.2
+      "PivotX": 0.25,
+      "PivotY": 0.93
     }
   ]
 }

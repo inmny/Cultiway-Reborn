@@ -117,6 +117,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.flower_prints)//花印
             .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
             .Stats(S.damage, 28)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 6)//速度
@@ -133,6 +134,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.flower_prints)//花印
             .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
             .Stats(S.damage, 25)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 4)//速度
@@ -148,6 +150,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.flower_prints)//花印
             .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
             .Stats(S.damage, 30)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 7)//速度
@@ -163,6 +166,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.flower_prints)//花印
             .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
             .Stats(S.damage, 32)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 5)//速度
@@ -178,6 +182,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.flower_prints)//花印
             .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
             .Stats(S.damage, 22)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 9)//速度
@@ -361,7 +366,7 @@ public partial class Actors
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("cultiway/icons/races/iconFish_People_Shaman")
             .SetJumpAnimation(false)
-            .SetDefaultWeapons(S_Item.druid_staff)
+            .SetDefaultWeapons(S_Item.white_staff)
             .AddTrait(S_Trait.arcane_reflexes)//魔力反射
             .AddTrait(S_Trait.deceitful)//欺诈
             .AddTrait(S_Trait.savage)//野蛮
@@ -433,6 +438,7 @@ public partial class Actors
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_florivore)//eat_florivore
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_frugivore)//eat_frugivore
             .AddSubspeciesTrait(S_SubspeciesTrait.annoying_fireworks)//彩火
+            .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_plant)//死亡长草
             .Stats(S.damage, 14)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 16)//速度
@@ -457,6 +463,7 @@ public partial class Actors
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_florivore)//eat_florivore
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_frugivore)//eat_frugivore
             .AddSubspeciesTrait(S_SubspeciesTrait.annoying_fireworks)//彩火
+            .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_plant)//死亡长草
             .Stats(S.damage, 23)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 18)//速度
@@ -481,6 +488,7 @@ public partial class Actors
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_florivore)//eat_florivore
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_frugivore)//eat_frugivore
             .AddSubspeciesTrait(S_SubspeciesTrait.annoying_fireworks)//彩火
+            .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_plant)//死亡长草
             .Stats(S.damage, 23)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 18)//速度
@@ -771,7 +779,7 @@ public partial class Actors
             .Stats(S.lifespan, 65);//寿命
         IceGiant.SetCamp(KingdomAssets.Titan)//冰石泰坦
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
-            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/IceGiant/main/walk_0")
             .SetJumpAnimation(true)
             .SetStandWhileSleeping(true)
@@ -787,7 +795,7 @@ public partial class Actors
             .Stats(S.lifespan, 2000);//寿命
         LavaGiant.SetCamp(KingdomAssets.Titan)//熔岩泰坦
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
-            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/LavaGiant/main/walk_0")
             .SetJumpAnimation(true)
             .SetStandWhileSleeping(true)
@@ -805,7 +813,7 @@ public partial class Actors
             .Stats(S.lifespan, 1800);//寿命
         RockGiant.SetCamp(KingdomAssets.Titan)//岩石泰坦
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
-            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/RockGiant/main/walk_0")
             .SetJumpAnimation(true)
             .SetStandWhileSleeping(true)
@@ -819,7 +827,7 @@ public partial class Actors
             .Stats(S.lifespan, 2500);//寿命
         VolcanicGiant.SetCamp(KingdomAssets.Titan)//火山泰坦
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
-            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/VolcanicGiant/main/walk_0")
             .SetJumpAnimation(true)
             .SetStandWhileSleeping(true)
