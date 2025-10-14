@@ -17,6 +17,7 @@ public class BehXianLevelup : BehCityActor
 
         if (Cultisyses.Xian.AllowUpgrade(actor_extend))
         {
+            pObject.changeHappiness(HappinessAssets.LevelUp.id);
             Cultisyses.Xian.TryPerformUpgrade(actor_extend);
             return BehResult.Continue;
         }

@@ -36,7 +36,10 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         Elixirbook.GetExtend<BookTypeAssetExtend>().instance_read_action = LearnElixirbook;
         
         
-        Skillbook.requirement_check = (_, _) => false;
+        Skillbook.requirement_check = (actor, _) =>
+        {
+            return actor.GetExtend().HasCultisys<Xian>();
+        };
         Skillbook.name_template = WorldboxGame.NameGenerators.Cultibook.id;
         Skillbook.path_icons = "cultibook/";
         Skillbook.GetExtend<BookTypeAssetExtend>().custom_cover_name = "cultibook";

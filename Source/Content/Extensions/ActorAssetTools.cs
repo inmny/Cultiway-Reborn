@@ -31,6 +31,14 @@ public static class ActorAssetTools
         return asset;
     }
     /// <summary>
+    /// 设置是否隐藏手上物品
+    /// </summary>
+    public static ActorAsset SetHideHandItem(this ActorAsset asset, bool value)
+    {
+        asset.GetExtend<ActorAssetExtend>().hide_hand_item = value;
+        return asset;
+    }
+    /// <summary>
     /// 同样设置移动动画，输入格式为"walk_0,walk_1,walk_2,walk_3,walk_4,walk_5,walk_6,walk_7"
     /// </summary>
     public static ActorAsset SetAnimWalkRaw(this ActorAsset asset, string anims)
