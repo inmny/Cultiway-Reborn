@@ -66,6 +66,12 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         BookWriter.addCondition(new CondHasCultibook());
         BookWriter.addTask(ActorTasks.WriteElixirbook.id);
         BookWriter.addCondition(new CondHasElixirRecipe());
+        BookWriter.addTask(ActorTasks.WriteSkillbook.id);
+        BookWriter.addCondition(new CondHasSkill());
+        for (int i = 0; i < BookWriter.tasks.Count; i++)
+        {
+            BookWriter.tasks[i].addCondition(new CondProb(1 - (i + 1f) / BookWriter.tasks.Count), true);
+        }
         BookWriter.addTask(ActorTasks.EndJob.id);
         
         SectBuilder.addTask(ActorTasks.BuildSect.id);

@@ -20,6 +20,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor BuildSect { get; private set; }
     public static BehaviourTaskActor WriteCultibook { get; private set; }
     public static BehaviourTaskActor WriteElixirbook { get; private set; }
+    public static BehaviourTaskActor WriteSkillbook { get; private set; }
     [GetOnly("random_move")] public static BehaviourTaskActor RandomMove { get; private set; }
 
     [GetOnly("end_job")] public static BehaviourTaskActor EndJob { get; private set; }
@@ -83,5 +84,29 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         
         CraftTalisman.addBeh(new BehRandomWait(3 * TimeScales.SecPerMonth, 12 * TimeScales.SecPerMonth));
         CraftTalisman.addBeh(new BehCraftTalisman());
+        
+        WriteCultibook.addBeh(new BehBuildingTargetHome());
+        WriteCultibook.addBeh(new BehGetTargetBuildingMainTile());
+        WriteCultibook.addBeh(new BehGoToTileTarget());
+        WriteCultibook.addBeh(new BehStayInBuildingTarget());
+        WriteCultibook.addBeh(new BehWriteCultibook());
+        WriteCultibook.addBeh(new BehExitBuilding());
+        WriteCultibook.addBeh(new BehEndJob());
+        
+        WriteElixirbook.addBeh(new BehBuildingTargetHome());
+        WriteElixirbook.addBeh(new BehGetTargetBuildingMainTile());
+        WriteElixirbook.addBeh(new BehGoToTileTarget());
+        WriteElixirbook.addBeh(new BehStayInBuildingTarget());
+        WriteElixirbook.addBeh(new BehWriteElixirRecipe());
+        WriteElixirbook.addBeh(new BehExitBuilding());
+        WriteElixirbook.addBeh(new BehEndJob());
+        
+        WriteSkillbook.addBeh(new BehBuildingTargetHome());
+        WriteSkillbook.addBeh(new BehGetTargetBuildingMainTile());
+        WriteSkillbook.addBeh(new BehGoToTileTarget());
+        WriteSkillbook.addBeh(new BehStayInBuildingTarget());
+        WriteSkillbook.addBeh(new BehWriteSkillbook());
+        WriteSkillbook.addBeh(new BehExitBuilding());
+        WriteSkillbook.addBeh(new BehEndJob());
     }
 }
