@@ -32,46 +32,56 @@ public class Manager
         var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseURL}/chat/completions");
         request.Headers.Add("Accept", "application/json");
         request.Headers.Add("Authorization", $"Bearer {APIKey}");
-        var content = new StringContent(
-            """
+        var content_str = """
+            {
+              "messages": [
                 {
-                  "messages": [
-                    {
-                      "content": "<system_prompt>",
-                      "role": "system"
-                    },
-                    {
-                      "content": "<prompt>",
-                      "role": "user"
-                    }
-                  ],
-                  "model": "deepseek-chat",
-                  "frequency_penalty": 0,
-                  "max_tokens": 2048,
-                  "presence_penalty": 0,
-                  "response_format": {
-                    "type": "text"
-                  },
-                  "stop": null,
-                  "stream": false,
-                  "stream_options": null,
-                  "temperature": <temp_value>,
-                  "top_p": 1,
-                  "tools": null,
-                  "tool_choice": "none",
-                  "logprobs": false,
-                  "top_logprobs": null
+                  "content": "<system_prompt>",
+                  "role": "system"
+                },
+                {
+                  "content": "<prompt>",
+                  "role": "user"
                 }
-                """
-                .Replace("<temp_value>", $"{temperature:F1}")
-                .Replace("<prompt>", prompt)
-                .Replace("<system_prompt>", system_prompt),
+              ],
+              "model": "deepseek-chat",
+              "frequency_penalty": 0,
+              "max_tokens": 2048,
+              "presence_penalty": 0,
+              "response_format": {
+                "type": "text"
+              },
+              "stop": null,
+              "stream": false,
+              "stream_options": null,
+              "temperature": <temp_value>,
+              "top_p": 1,
+              "tools": null,
+              "tool_choice": "none",
+              "logprobs": false,
+              "top_logprobs": null
+            }
+            """
+            .Replace("<temp_value>", $"{temperature:F1}")
+            .Replace("<prompt>", prompt)
+            .Replace("<system_prompt>", system_prompt);
+        var content = new StringContent(
+            content_str,
             null,
             "application/json");
         request.Content = content;
         var response = await client.SendAsync(request);
-        response.EnsureSuccessStatusCode();
         var res = await response.Content.ReadAsStringAsync();
+        try
+        {
+            response.EnsureSuccessStatusCode();
+        }
+        catch (Exception e)
+        {
+            ModClass.LogErrorConcurrent(res);
+            ModClass.LogErrorConcurrent($"Content: {content_str}");
+            throw;
+        }
         var response_obj = JsonConvert.DeserializeObject<ChatResponse>(res);
         return response_obj.choices[Math.Min(index, response_obj.choices.Length)].message.content;
     }

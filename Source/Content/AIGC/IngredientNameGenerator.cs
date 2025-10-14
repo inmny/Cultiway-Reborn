@@ -14,7 +14,7 @@ public class IngredientNameGenerator : PromptNameGenerator<IngredientNameGenerat
     [Hotfixable]
     protected override string GetSystemPrompt()
     {
-        return "你需要为用户给出的材料命名，并且要符合材料来源的特性，不要有任何符号，不要给出思考过程，仅给出一个答案。\nInput example:\n为拥有火灵根，金煌金丹的龙掉落的材料命名。\nOutput example:\n赤金龙鳞";
+        return "你需要为用户给出的材料命名，并且要符合材料来源的特性，不要有任何符号，不要给出思考过程，仅给出一个答案。\\nInput example:\\n为拥有火灵根，金煌金丹的龙掉落的材料命名。\\nOutput example:\\n赤金龙鳞";
     }
 
     protected override string GetDefaultName(string[] param)

@@ -14,7 +14,7 @@ public class ElixirNameGenerator : PromptNameGenerator<ElixirNameGenerator>
 
     protected override string GetSystemPrompt()
     {
-        return "为用户提供的丹药根据其药效和药材命名，仅给出一个答案(比如凝元丹)，不要有任何符号。\nInput example:\n药效:此丹药由幻梦灵藤与幻影灵草带来虚幻力量，结合烈火灵草的炽热之力，能够使人在战斗中如幻影般难以捉摸，同时速度与攻击速度得到显著提升，该丹药由幻影金丹炼制得到\nOutput example:\n幻速丹";
+        return "为用户提供的丹药根据其药效和药材命名，仅给出一个答案(比如凝元丹)，不要有任何符号。\\nInput example:\\n药效:此丹药由幻梦灵藤与幻影灵草带来虚幻力量，结合烈火灵草的炽热之力，能够使人在战斗中如幻影般难以捉摸，同时速度与攻击速度得到显著提升，该丹药由幻影金丹炼制得到\\nOutput example:\\n幻速丹";
     }
 
     protected override string GetDefaultName(string[] param)

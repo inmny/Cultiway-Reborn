@@ -13,7 +13,7 @@ public class PlantNameGenerator : PromptNameGenerator<PlantNameGenerator>
     [Hotfixable]
     protected override string GetSystemPrompt()
     {
-        return "你需要为用户给出的灵植命名，不要有任何符号，不要给出思考过程，仅给出一个答案。\nInput example:\n为具有雷灵根的灵植命名\nOutput example:\n惊雷草";
+        return "你需要为用户给出的灵植命名，不要有任何符号，不要给出思考过程，仅给出一个答案。\\nInput example:\\n为具有雷灵根的灵植命名\\nOutput example:\\n惊雷草";
     }
 
     protected override string GetDefaultName(string[] param)

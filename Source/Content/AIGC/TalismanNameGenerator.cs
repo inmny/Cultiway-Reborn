@@ -11,7 +11,7 @@ public class TalismanNameGenerator : PromptNameGenerator<TalismanNameGenerator>
 
     protected override string GetSystemPrompt()
     {
-        return "为用户提供的法术生成符箓名称，仅给出一个答案，不要有任何符号。\nInput example:\n雷击术\nOutput example:\n落雷符";
+        return "为用户提供的法术生成符箓名称，仅给出一个答案，不要有任何符号。\\nInput example:\\n雷击术\\nOutput example:\\n落雷符";
     }
 
     protected override string GetDefaultName(string[] param)
