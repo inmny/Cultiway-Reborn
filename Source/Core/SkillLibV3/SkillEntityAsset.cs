@@ -65,7 +65,11 @@ public class SkillEntityAsset : Asset
             },
             new AliveTimer()
             {
-                value = 5f  
+                value = 0f  
+            },
+            new AliveTimeLimit()
+            {
+                value  = 5f
             },
             Tags.Get<TagPrefab>());
         return this;
