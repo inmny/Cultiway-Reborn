@@ -104,8 +104,30 @@ public partial class Actors
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset GuardKnight { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
-    public static ActorAsset WyvernKnight { get; private set; }
+    public static ActorAsset FairyFox { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset FengHuang { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset JinWu { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset QingLong { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset QiLin { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset NineColoredDeer { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset WhiteTiger { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset XuanWu { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset YuChan { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset YueTu { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset ZhuQue { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    //public static ActorAsset WyvernKnight { get; private set; }
+    //[SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset VampireHunter { get; private set; }
     private void SetupFantasyCreatures()
     {
@@ -117,6 +139,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.flower_prints)//花印
             .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddTrait(S_Trait.regeneration)//回复
             .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
             .Stats(S.damage, 28)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -134,6 +157,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.flower_prints)//花印
             .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddTrait(S_Trait.regeneration)//回复
             .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
             .Stats(S.damage, 25)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -150,6 +174,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.flower_prints)//花印
             .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddTrait(S_Trait.regeneration)//回复
             .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
             .Stats(S.damage, 30)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -166,6 +191,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.flower_prints)//花印
             .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddTrait(S_Trait.regeneration)//回复
             .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
             .Stats(S.damage, 32)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -182,6 +208,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.flower_prints)//花印
             .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddTrait(S_Trait.regeneration)//回复
             .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
             .Stats(S.damage, 22)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -201,6 +228,7 @@ public partial class Actors
             .AddTrait(S_Trait.venomous)//剧毒
             .AddTrait(S_Trait.poisonous)//剧毒
             .AddTrait(S_Trait.poison_immune)//剧毒免疫
+            .AddTrait(S_Trait.regeneration)//回复
             .Stats(S.damage, 38)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 8)//速度
@@ -221,6 +249,7 @@ public partial class Actors
             .AddTrait(S_Trait.fire_blood)//火血
             .AddTrait(S_Trait.fire_proof)//火抗
             .AddTrait(S_Trait.light_lamp)//光 lamp
+            .AddTrait(S_Trait.regeneration)//回复
             .Stats(S.damage, 45)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 10)//速度
@@ -308,6 +337,7 @@ public partial class Actors
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("cultiway/icons/races/iconDestroy_Robot")
             .SetJumpAnimation(true)
+            .SetStandWhileSleeping(true)
             .SetDefaultWeapons(S_Item.evil_staff)
             .AddTrait(S_Trait.evil)//邪恶
             .AddTrait(S_Trait.bubble_defense)//泡泡防御
@@ -328,6 +358,7 @@ public partial class Actors
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("cultiway/icons/races/iconFort_Robot")
             .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
             .SetDefaultWeapons(S_Item.shotgun)
             .AddTrait(S_Trait.evil)//邪恶
             .AddTrait(S_Trait.bubble_defense)//泡泡防御
@@ -347,6 +378,7 @@ public partial class Actors
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("cultiway/icons/races/iconTank_Robot")
             .SetJumpAnimation(true)
+            .SetStandWhileSleeping(true)
             .SetDefaultWeapons(S_Item.alien_blaster)
             .AddTrait(S_Trait.evil)//邪恶
             .AddTrait(S_Trait.bubble_defense)//泡泡防御
@@ -501,6 +533,7 @@ public partial class Actors
             .SetAnimIdleRaw("walk_0_0,walk_0_1,walk_0_2,walk_0_3")
             .SetIcon("cultiway/icons/races/iconGhost_Fire")
             .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.sunblessed)//阳光祝福
             .AddTrait(S_Trait.light_lamp)//光 lamp
             .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
@@ -518,9 +551,9 @@ public partial class Actors
             .SetAnimIdleRaw("walk_0_0,walk_0_1,walk_0_2,walk_0_3")
             .SetIcon("cultiway/icons/races/iconCandle_Genie")
             .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.sunblessed)//阳光祝福
             .AddTrait(S_Trait.light_lamp)//光 lamp
-            .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
             .AddSubspeciesTrait(S_SubspeciesTrait.bioluminescence)//亮光
             .AddSubspeciesTrait(S_SubspeciesTrait.annoying_fireworks)//彩火
             .Stats(S.damage, 12)//伤害
@@ -669,11 +702,15 @@ public partial class Actors
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/Ossaurus/main/walk_0")
             .SetJumpAnimation(false)
+            .SetHideHandItem(true)
             .SetDefaultWeapons(S_Item.evil_staff)//法术法杖
             .AddTrait(S_Trait.arcane_reflexes)//魔力反射
             .AddTrait(S_Trait.wise)//智慧
+            .AddTrait(S_Trait.pyromaniac)//魔力狂热
             .AddTrait(S_Trait.heart_of_wizard)//魔力心
             .AddSubspeciesTrait(S_SubspeciesTrait.gift_of_death)//死亡ift
+            .AddSubspeciesTrait(S_SubspeciesTrait.gift_of_air)//
+            .AddSubspeciesTrait(S_SubspeciesTrait.gift_of_fire)//
             .Stats(S.scale, 0.25f)//大小
             .Stats(S.damage, 52)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -716,6 +753,7 @@ public partial class Actors
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("cultiway/icons/races/iconDiplodocus")
             .SetJumpAnimation(true)
+            .SetStandWhileSleeping(true)
             .Stats(S.damage, 35)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 10)//速度
@@ -727,6 +765,7 @@ public partial class Actors
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("cultiway/icons/races/iconDreadnoughtus")
             .SetJumpAnimation(true)
+            .SetStandWhileSleeping(true)
             .Stats(S.damage, 55)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 7)//速度
@@ -738,6 +777,7 @@ public partial class Actors
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("cultiway/icons/races/iconTriceratops")
             .SetJumpAnimation(true)
+            .SetStandWhileSleeping(true)
             .Stats(S.damage, 45)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 8)//速度
@@ -848,12 +888,13 @@ public partial class Actors
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/GriffinKnight/main/walk_0")
-            .SetJumpAnimation(true)
+            .SetJumpAnimation(false)
             .AddTrait(S_SubspeciesTrait.hovering)//悬浮
+            .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
             .SetDefaultWeapons(S_Item.bow_mythril)//弓
             .Stats(S.damage, 38)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
-            .Stats(S.speed, 25)//速度
+            .Stats(S.speed, 10)//速度
             .Stats(S.health, 280)//血量
             .Stats(S.armor, 8)//防御
             .Stats(S.stamina, 100)//耐力
@@ -862,7 +903,7 @@ public partial class Actors
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/Sorcerer/main/walk_0")
-            .SetJumpAnimation(true)
+            .SetJumpAnimation(false)
             .AddTrait(S_Trait.fire_proof)//火抗
             .AddTrait(S_Trait.freeze_proof)//冰抗
             .AddTrait(S_Trait.arcane_reflexes)//魔力反射
@@ -881,7 +922,7 @@ public partial class Actors
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/GuardKnight/main/walk_0")
-            .SetJumpAnimation(true)
+            .SetJumpAnimation(false)
             .SetDefaultWeapons(S_Item.spear_iron)//矛
             .Stats(S.damage, 30)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -890,26 +931,27 @@ public partial class Actors
             .Stats(S.armor, 18)//防御
             .Stats(S.stamina, 100)//耐力
             .Stats(S.lifespan, 90);//寿命
-        WyvernKnight.SetCamp(KingdomAssets.Superman)//飞龙骑士
-            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
-            .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
-            .SetIcon("actors/species/other/Cultiway/WyvernKnight/main/walk_0")
-            .SetJumpAnimation(true)
-            .AddTrait(S_Trait.fire_proof)//火抗
-            .AddTrait(S_SubspeciesTrait.hovering)//悬浮
-            .SetDefaultWeapons(S_Item.evil_staff)//法杖
-            .Stats(S.damage, 48)//伤害
-            .Stats(S.damage_range, 0.12f)//伤害范围
-            .Stats(S.speed, 26)//速度
-            .Stats(S.health, 330)//血量
-            .Stats(S.armor, 10)//防御
-            .Stats(S.stamina, 220)//耐力
-            .Stats(S.lifespan, 85);//寿命
+        //WyvernKnight.SetCamp(KingdomAssets.Superman)//飞龙骑士
+            //.SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            //.SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            //.SetIcon("actors/species/other/Cultiway/WyvernKnight/main/walk_0")
+            //.SetJumpAnimation(true)
+           // .SetStandWhileSleeping(true)
+            //.AddTrait(S_Trait.fire_proof)//火抗
+            //.AddTrait(S_SubspeciesTrait.hovering)//悬浮
+           // .SetDefaultWeapons(S_Item.evil_staff)//法杖
+           // .Stats(S.damage, 48)//伤害
+           //.Stats(S.damage_range, 0.12f)//伤害范围
+           // .Stats(S.speed, 26)//速度
+           // .Stats(S.health, 330)//血量
+            //.Stats(S.armor, 10)//防御
+           // .Stats(S.stamina, 220)//耐力
+            //.Stats(S.lifespan, 85);//寿命
         VampireHunter.SetCamp(KingdomAssets.Superman)//猎魔人
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/VampireHunter/main/walk_0")
-            .SetJumpAnimation(true)
+            .SetJumpAnimation(false)
             .AddTrait(S_Trait.fire_proof)//火抗
             .AddTrait(S_Trait.freeze_proof)//冰抗
             .SetDefaultWeapons(S_Item.shotgun)//霰弹枪
@@ -920,7 +962,177 @@ public partial class Actors
             .Stats(S.armor, 6)//防御
             .Stats(S.stamina, 220)//耐力
             .Stats(S.lifespan, 120);//寿命
-            
+        FairyFox.SetCamp(KingdomAssets.Divine)//九尾狐
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconFairy_Fox")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(false)
+            .AddTrait(S_Trait.genius)//天才
+            .AddTrait(S_Trait.moonchild)//月之孩子
+            .AddTrait(S_Trait.attractive)// attractive
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.regeneration)//回复
+            .Stats(S.damage, 35)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 9)//速度
+            .Stats(S.health, 320)//血量
+            .Stats(S.armor, 8)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 999);//寿命
+        FengHuang.SetCamp(KingdomAssets.Divine)//凤凰
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconFeng_Huang")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(false)
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.regeneration)//回复
+            .Stats(S.damage, 50)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 10)//速度
+            .Stats(S.health, 400)//血量
+            .Stats(S.armor, 10)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 4500);//寿命
+        JinWu.SetCamp(KingdomAssets.Divine)//金乌
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconJin_Wu")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(false)
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.regeneration)//回复
+            .Stats(S.damage, 55)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 10)//速度
+            .Stats(S.health, 350)//血量
+            .Stats(S.armor, 7)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 3000);//寿命
+        QingLong.SetCamp(KingdomAssets.Divine)//青龙
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconQing_Long")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.flower_prints)//花印
+            .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
+            .Stats(S.damage, 60)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 18)//速度
+            .Stats(S.health, 550)//血量
+            .Stats(S.armor, 15)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 5000);//寿命
+        QiLin.SetCamp(KingdomAssets.Divine)//麒麟
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconQi_Lin")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.regeneration)//回复
+            .Stats(S.damage, 45)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 18)//速度
+            .Stats(S.health, 500)//血量
+            .Stats(S.armor, 20)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 4000);//寿命
+        NineColoredDeer.SetCamp(KingdomAssets.Divine)//九色鹿
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconNine_Colored_Deer")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.regeneration)//回复
+            .Stats(S.damage, 20)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 18)//速度
+            .Stats(S.health, 500)//血量
+            .Stats(S.armor, 12)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 3000);//寿命
+        WhiteTiger.SetCamp(KingdomAssets.Divine)//白虎
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconWhite_Tiger")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.regeneration)//回复
+            .Stats(S.damage, 65)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 18)//速度
+            .Stats(S.health, 380)//血量
+            .Stats(S.armor, 13)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 3500);//寿命
+        XuanWu.SetCamp(KingdomAssets.Divine)//玄武
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconXuan_Wu")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.regeneration)//回复
+            .Stats(S.damage, 38)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 8)//速度
+            .Stats(S.health, 480)//血量
+            .Stats(S.armor, 30)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 10000);//寿命
+        YuChan.SetCamp(KingdomAssets.Divine)//玉蟾
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconYu_Chan")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.regeneration)//回复
+            .Stats(S.damage, 32)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 10)//速度
+            .Stats(S.health, 420)//血量
+            .Stats(S.armor, 16)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 2800);//寿命
+        YueTu.SetCamp(KingdomAssets.Divine)//月兔
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconYue_Tu")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.regeneration)//回复
+            .Stats(S.damage, 10)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 20)//速度
+            .Stats(S.health, 200)//血量
+            .Stats(S.armor, 5)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 1500);//寿命
+        ZhuQue.SetCamp(KingdomAssets.Divine)//朱雀
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconZhu_Que")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.regeneration)//回复
+            .Stats(S.damage, 52)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 18)//速度
+            .Stats(S.health, 370)//血量
+            .Stats(S.armor, 9)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 3200);//寿命
             
             
             

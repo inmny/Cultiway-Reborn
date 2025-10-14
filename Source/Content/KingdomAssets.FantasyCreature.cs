@@ -75,7 +75,10 @@ public partial class KingdomAssets
         Fairy.addFriendlyTag(nameof(Fairy));     //对妖精标签友好
         Fairy.setIcon("cultiway/icons/races/iconFairy_Druid");
         Fairy.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#02714cff");
-        AllEnemyWith(nameof(Fairy), SK.civ); // 所有文明阵营都会主动攻击妖精，civ（公民）
+        AllFriendWith(nameof(Fairy), SK.elf);//所有文明阵营都会主动攻击妖精，elf（精灵）
+        AllEnemyWith(nameof(Fairy), SK.orc); //所有文明阵营都会主动攻击妖精，orc（兽人）
+        AllEnemyWith(nameof(Fairy), SK.dwarf);//所有文明阵营都会主动攻击妖精，dwarf（矮人）
+        AllEnemyWith(nameof(Fairy), SK.human);//所有文明阵营都会主动攻击妖精，human（人类）
                         
         Spirit.addTag(nameof(Spirit));             //灵族标签
         Spirit.addFriendlyTag(nameof(Spirit));     //对灵族标签友好

@@ -1,23 +1,23 @@
 ﻿{
   "Default": {
     "PivotX": 0.5,
-    "PivotY": -0.02
+    "PivotY": 0.12
   },
   "Specific": [
     {
       "Path": "walk_0_item.png",
-      "PivotX": 0.25,
-      "PivotY": 0.79
+      "PivotX": 2.8,
+      "PivotY": 3
     },
     {
       "Path": "walk_1_item.png",
-      "PivotX": 0.25,
-      "PivotY": 0.93
+      "PivotX": 2.8,
+      "PivotY": 3.4
     },
     {
       "Path": "walk_2_item.png",
-      "PivotX": 0.25,
-      "PivotY": 0.93
+      "PivotX": 2.8,
+      "PivotY": 3.2
     }
   ]
 }
