@@ -11,6 +11,7 @@ namespace Cultiway.Content;
 public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectories>
 {
     public static TrajectoryAsset TowardsDirection { get; private set; }
+    public static TrajectoryAsset TowardsDirectionNoRot { get; private set; }
     public static TrajectoryAsset TowardsPosition { get; private set; }
     public static TrajectoryAsset TowardsTarget { get; private set; }
     protected override void OnInit()
@@ -22,6 +23,17 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             rot.value = context.TargetDir;
         };
         TowardsDirection.OnInit = e =>
+        {
+            e.AddComponent(new Velocity()
+            {
+                Value = 10
+            });
+        };
+        TowardsDirectionNoRot.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            pos.value += rot.value.normalized * dt * e.GetComponent<Velocity>().Value;
+        };
+        TowardsDirectionNoRot.OnInit = e =>
         {
             e.AddComponent(new Velocity()
             {

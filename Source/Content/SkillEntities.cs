@@ -404,7 +404,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                 Enemy = true,
                 Actor = true
             })
-            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
+            .SetupDefaultTraj(SkillTrajectories.TowardsDirectionNoRot)
             .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
             BaseSimObject target) =>
         {
