@@ -44,7 +44,7 @@ public class SkillEntityAsset : Asset
             new SkillEntity()
             {
                 SkillContainer = default,
-                Asset =  this
+                Asset = this
             },
             new SkillContext(),
             new Position(),

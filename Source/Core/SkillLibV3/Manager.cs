@@ -73,6 +73,8 @@ public class Manager
                 context.Strength = strength;
                 context.SourceObj = source;
                 context.TargetObj = target;
+                ref var skill_entity = ref data.Get<SkillEntity>();
+                skill_entity.SkillContainer = skill_container;
                 var target_pos = target.GetSimPos();
                 context.TargetPos = target_pos;
                 context.TargetDir = (target_pos - source.GetSimPos()).normalized;

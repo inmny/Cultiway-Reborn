@@ -694,7 +694,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         if (Base == attacker) return;
         if (!ignore_damage_reduction)
         {
-            var attacker_power_level = (attacker?.isActor() ?? false) ? attacker.a.GetExtend().GetPowerLevel() : 0;
+            var attacker_power_level = ((attacker?.isActor() ?? false) && !attacker.isRekt()) ? attacker.a.GetExtend().GetPowerLevel() : 0;
             var power_level = GetPowerLevel();
             if (power_level > attacker_power_level)
             {
