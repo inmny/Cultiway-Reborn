@@ -17,7 +17,7 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
         if (book.getAsset() != BookTypes.Cultibook) return;
         var be = book.GetExtend();
         var cultibook = be.GetComponent<Cultibook>();
-        tooltip.addLineText(Toolbox.coloredText("Cultiway.Book.ReadAction.FullyMaster", "#FFFFFF", true), "");
+        tooltip.addLineText(Toolbox.coloredText("Cultiway.Book.ReadAction.FullyMaster", "#FFFFFF", true), "", pLocalize:false);
         BaseStatsHelper.showBaseStats(tooltip.stats_description, tooltip.stats_values, cultibook.Asset.FinalStats);
     }
 }
