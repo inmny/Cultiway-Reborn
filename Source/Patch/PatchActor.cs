@@ -19,12 +19,12 @@ internal static class PatchActor
     /// <summary>
     /// 实现<see cref="ActorAssetExtend.hide_hand_item"/>
     /// </summary>
-    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.getHandRendererAsset))]
-    private static void getHandRendererAsset_postfix(Actor __instance, ref IHandRenderer __result)
+    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.checkHasRenderedItem))]
+    private static void getHandRendererAsset_postfix(Actor __instance, ref bool __result)
     {
-        if (__result == null) return;
+        if (__result == false) return;
         if (!__instance.asset.GetExtend<ActorAssetExtend>().hide_hand_item) return;
-        __result = null;
+        __result = false;
     }
     /// <summary>
     /// 实现<see cref="ActorAssetExtend.sleep_standing_up"/>
