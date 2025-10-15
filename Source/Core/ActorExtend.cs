@@ -150,8 +150,8 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     public bool TryToAttack(BaseSimObject target, Action kill_action = null, float bonus_area_effect = 0)
     {
         var actor = Base;
-        if (actor.isInLiquid() && !actor.asset.force_ocean_creature) return false;
-        if (!actor.isAttackReady()) return false;
+        if (actor.isInWaterAndCantAttack()) return false;
+        if (!actor.isAttackPossible()) return false;
 
         CombatActionAsset basic_attack_action = null;
         
