@@ -735,8 +735,8 @@ public partial class Actors
             .SetIcon("actors/species/other/Cultiway/Ossaurus/main/walk_0")
             .SetJumpAnimation(false)
             .SetHideHandItem(true)
-            .AddTrait(S_Trait.light_lamp)
             .SetDefaultWeapons(S_Item.evil_staff)//法术法杖
+            .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.arcane_reflexes)//魔力反射
             .AddTrait(S_Trait.wise)//智慧
             .AddTrait(S_Trait.pyromaniac)//魔力狂热
@@ -1038,6 +1038,8 @@ public partial class Actors
             .SetIcon("cultiway/icons/races/iconJin_Wu")
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(false)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.evil_staff)//法术法杖
             .AddTrait(S_Trait.shiny)//闪亮
             .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.regeneration)//回复
@@ -1181,6 +1183,8 @@ public partial class Actors
             .SetIcon("cultiway/icons/races/iconZhu_Que")
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(true)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.evil_staff)//法术法杖
             .AddTrait(S_Trait.shiny)//闪亮
             .AddTrait(S_Trait.regeneration)//回复
             .AddTrait(S_Trait.burning_feet)//着火脚
