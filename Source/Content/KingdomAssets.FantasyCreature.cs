@@ -40,6 +40,10 @@ public partial class KingdomAssets
     public static KingdomAsset DemiHuman { get; private set; }
     [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
     public static KingdomAsset Monster { get; private set; }
+    [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
+    public static KingdomAsset Herbivore { get; private set; }
+    [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
+    public static KingdomAsset Carnivorous { get; private set; }
     private void SetupFantasyCreatureKingdoms()
     {
         Vampire.addTag(nameof(Vampire));             //血族标签
@@ -52,6 +56,11 @@ public partial class KingdomAssets
         TreantsGood.addFriendlyTag(nameof(TreantsGood));     //对树人-善标签友好
         TreantsGood.setIcon("cultiway/icons/races/iconOak_Treants");
         TreantsGood.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#027109ff");
+        TreantsGood.addFriendlyTag(SK.elf);//妖精对精灵友好
+        AllFriendWith(nameof(TreantsGood), SK.elf);//所有文明阵营都会主动攻击妖精，elf（精灵）
+        AllEnemyWith(nameof(TreantsGood), SK.orc); //所有文明阵营都会主动攻击妖精，orc（兽人）
+        AllEnemyWith(nameof(TreantsGood), SK.dwarf);//所有文明阵营都会主动攻击妖精，dwarf（矮人）
+        AllEnemyWith(nameof(TreantsGood), SK.human);//所有文明阵营都会主动攻击妖精，human（人类）
 
         TreantsEvil.addTag(nameof(TreantsEvil));             //树人-恶标签
         TreantsEvil.addFriendlyTag(nameof(TreantsEvil));     //对树人-恶标签友好
@@ -63,7 +72,11 @@ public partial class KingdomAssets
         Robot.addFriendlyTag(nameof(Robot));     //对机器人标签友好
         Robot.setIcon("cultiway/icons/races/iconDestroy_Robot");
         Robot.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#710206ff");
-        AllEnemyWith(nameof(Robot), SK.civ); // 所有文明阵营都会主动攻击机器人，civ（公民）
+        Robot.addFriendlyTag(SK.dwarf);//机器人对矮人友好
+        AllFriendWith(nameof(Robot), SK.dwarf);//所有文明阵营都会主动攻击机器人，dwarf（矮人）
+        AllEnemyWith(nameof(Robot), SK.orc); //所有文明阵营都会主动攻击妖精，orc（兽人）
+        AllEnemyWith(nameof(Robot), SK.elf);//所有文明阵营都会主动攻击机器人，elf（精灵）
+        AllEnemyWith(nameof(Robot), SK.human);//所有文明阵营都会主动攻击妖精，human（人类）
                 
         FishPeople.addTag(nameof(FishPeople));             //鱼人标签
         FishPeople.addFriendlyTag(nameof(FishPeople));     //对鱼人标签友好
@@ -75,6 +88,7 @@ public partial class KingdomAssets
         Fairy.addFriendlyTag(nameof(Fairy));     //对妖精标签友好
         Fairy.setIcon("cultiway/icons/races/iconFairy_Druid");
         Fairy.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#02714cff");
+        Fairy.addFriendlyTag(SK.elf);//妖精对精灵友好
         AllFriendWith(nameof(Fairy), SK.elf);//所有文明阵营都会主动攻击妖精，elf（精灵）
         AllEnemyWith(nameof(Fairy), SK.orc); //所有文明阵营都会主动攻击妖精，orc（兽人）
         AllEnemyWith(nameof(Fairy), SK.dwarf);//所有文明阵营都会主动攻击妖精，dwarf（矮人）
@@ -90,7 +104,11 @@ public partial class KingdomAssets
         Goblin.addFriendlyTag(nameof(Goblin));     //对哥布林标签友好
         Goblin.setIcon("cultiway/icons/races/iconGoblin_Warrior");
         Goblin.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#117102ff");
-        AllEnemyWith(nameof(Goblin), SK.civ); // 所有文明阵营都会主动攻击哥布林，civ（公民）
+        Goblin.addFriendlyTag(SK.orc);//哥布林对兽人友好
+        AllFriendWith(nameof(Goblin), SK.orc);//所有文明阵营都会主动攻击哥布林，orc（兽人）
+        AllEnemyWith(nameof(Goblin), SK.human); //所有文明阵营都会主动攻击哥布林，human（人类）
+        AllEnemyWith(nameof(Goblin), SK.dwarf);//所有文明阵营都会主动攻击妖精，dwarf（矮人）
+        AllEnemyWith(nameof(Goblin), SK.elf);//所有文明阵营都会主动攻击妖精，elf（精灵）
                         
         VegetarianDinosaur.addTag(nameof(VegetarianDinosaur));             //素食恐龙标签
         VegetarianDinosaur.addFriendlyTag(nameof(VegetarianDinosaur));     //对素食恐龙标签友好
@@ -120,7 +138,11 @@ public partial class KingdomAssets
         Superman.addFriendlyTag(nameof(Superman));     //对超人标签友好
         Superman.setIcon("cultiway/icons/races/iconGriffin_Knight");
         Superman.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#8e08dbff");
-        AllEnemyWith(nameof(Superman), SK.civ); // 所有文明阵营都会主动攻击超人，civ（公民）
+        Superman.addFriendlyTag(SK.human);//超人对人类友好
+        AllFriendWith(nameof(Superman), SK.human);//所有文明阵营都会主动攻击超人，human（人类）
+        AllEnemyWith(nameof(Superman), SK.orc); //所有文明阵营都会主动攻击妖精，orc（兽人）
+        AllEnemyWith(nameof(Superman), SK.dwarf);//所有文明阵营都会主动攻击妖精，dwarf（矮人）
+        AllEnemyWith(nameof(Superman), SK.elf);//所有文明阵营都会主动攻击妖精，elf（精灵）
                                 
         DemiHuman.addTag(nameof(DemiHuman));             //亚人标签
         DemiHuman.addFriendlyTag(nameof(DemiHuman));     //对亚人标签友好
@@ -133,6 +155,18 @@ public partial class KingdomAssets
         Monster.setIcon("cultiway/icons/races/iconWerewolf");
         Monster.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#027109ff");
         AllEnemyWith(nameof(Monster), SK.civ); // 所有文明阵营都会主动攻击怪物，civ（公民）
+                                        
+        Herbivore.addTag(nameof(Herbivore));             //食草标签
+        Herbivore.addFriendlyTag(nameof(Herbivore));     //对食草标签友好
+        Herbivore.setIcon("cultiway/icons/races/iconWerewolf");
+        Herbivore.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#027109ff");
+        AllEnemyWith(nameof(Herbivore), SK.civ); // 所有文明阵营都会主动攻击食草，civ（公民）
+                                        
+        Carnivorous.addTag(nameof(Carnivorous));             //食肉标签
+        Carnivorous.addFriendlyTag(nameof(Carnivorous));     //对食肉标签友好
+        Carnivorous.setIcon("cultiway/icons/races/iconWerewolf");
+        Carnivorous.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#027109ff");
+        AllEnemyWith(nameof(Carnivorous), SK.civ); // 所有文明阵营都会主动攻击食肉，civ（公民）
     }
     
 }

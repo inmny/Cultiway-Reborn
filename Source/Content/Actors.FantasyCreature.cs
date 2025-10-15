@@ -128,6 +128,34 @@ public partial class Actors
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     //public static ActorAsset WyvernKnight { get; private set; }
     //[SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset HalfDeerMan { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Mermaid { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Centaur { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset KingSlime { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset GiantOctopus { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Werewolf { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Deer { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Horse { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Panda { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Pig { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset WildBoar { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Rooster { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Lion { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Tiger { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset VampireHunter { get; private set; }
     private void SetupFantasyCreatures()
     {
@@ -242,6 +270,7 @@ public partial class Actors
             .SetIcon("actors/species/other/Cultiway/FireTreants/main/walk_0")
             .SetJumpAnimation(true)
             .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.evil)//邪恶
             .AddTrait(S_Trait.pyromaniac)//火魔
             .AddTrait(S_Trait.hotheaded)//bold
@@ -341,6 +370,7 @@ public partial class Actors
             .SetDefaultWeapons(S_Item.evil_staff)
             .AddTrait(S_Trait.evil)//邪恶
             .AddTrait(S_Trait.bubble_defense)//泡泡防御
+            .AddTrait(S_Trait.light_lamp)
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_lithotroph)//吸光
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_fission)//分离
@@ -362,6 +392,7 @@ public partial class Actors
             .SetDefaultWeapons(S_Item.shotgun)
             .AddTrait(S_Trait.evil)//邪恶
             .AddTrait(S_Trait.bubble_defense)//泡泡防御
+            .AddTrait(S_Trait.light_lamp)
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_lithotroph)//吸光
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_fission)//分离
@@ -382,6 +413,7 @@ public partial class Actors
             .SetDefaultWeapons(S_Item.alien_blaster)
             .AddTrait(S_Trait.evil)//邪恶
             .AddTrait(S_Trait.bubble_defense)//泡泡防御
+            .AddTrait(S_Trait.light_lamp)
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_lithotroph)//吸光
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_fission)//分离
@@ -698,11 +730,12 @@ public partial class Actors
             .Stats(S.armor, 15)//防御
             .Stats(S.lifespan, 999);//寿命
         Ossaurus.SetCamp(KingdomAssets.Undead)//灵火骨龙
-            .SetAnimWalk(S_Anim.walk_0, S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
-            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5")
             .SetIcon("actors/species/other/Cultiway/Ossaurus/main/walk_0")
             .SetJumpAnimation(false)
             .SetHideHandItem(true)
+            .AddTrait(S_Trait.light_lamp)
             .SetDefaultWeapons(S_Item.evil_staff)//法术法杖
             .AddTrait(S_Trait.arcane_reflexes)//魔力反射
             .AddTrait(S_Trait.wise)//智慧
@@ -839,6 +872,7 @@ public partial class Actors
             .SetIcon("actors/species/other/Cultiway/LavaGiant/main/walk_0")
             .SetJumpAnimation(true)
             .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.pyromaniac)//火魔
             .AddTrait(S_Trait.burning_feet)//燃烧脚
             .AddTrait(S_Trait.fire_blood)//火血
@@ -871,6 +905,7 @@ public partial class Actors
             .SetIcon("actors/species/other/Cultiway/VolcanicGiant/main/walk_0")
             .SetJumpAnimation(true)
             .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.pyromaniac)//火魔
             .AddTrait(S_Trait.hotheaded)//bold
             .AddTrait(S_Trait.burning_feet)//燃烧脚
@@ -972,6 +1007,7 @@ public partial class Actors
             .AddTrait(S_Trait.moonchild)//月之孩子
             .AddTrait(S_Trait.attractive)// attractive
             .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.regeneration)//回复
             .Stats(S.damage, 35)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -987,6 +1023,7 @@ public partial class Actors
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(false)
             .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.regeneration)//回复
             .Stats(S.damage, 50)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -1002,6 +1039,7 @@ public partial class Actors
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(false)
             .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.regeneration)//回复
             .Stats(S.damage, 55)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -1017,9 +1055,11 @@ public partial class Actors
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.regeneration)//回复
             .AddTrait(S_Trait.flower_prints)//花印
             .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddTrait(S_Trait.poison_immune)//毒抗
             .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
             .Stats(S.damage, 60)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -1035,7 +1075,12 @@ public partial class Actors
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.tough)// toughen
+            .AddTrait(S_Trait.thorns)//荆棘
+            .AddTrait(S_Trait.hard_skin)//硬皮
+            .AddTrait(S_Trait.acid_proof)//酸抗
             .Stats(S.damage, 45)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 18)//速度
@@ -1050,6 +1095,7 @@ public partial class Actors
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.regeneration)//回复
             .Stats(S.damage, 20)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -1065,7 +1111,10 @@ public partial class Actors
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.agile)//硬皮
             .Stats(S.damage, 65)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 18)//速度
@@ -1080,7 +1129,13 @@ public partial class Actors
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.freeze_proof)//冻结抗
+            .AddTrait(S_Trait.hard_skin)//硬皮
+            .AddTrait(S_Trait.tough)//toughen
+            .AddTrait(S_Trait.titan_lungs)//巨肺
+            .AddTrait(S_Trait.cold_aura)//硬皮
             .Stats(S.damage, 38)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 8)//速度
@@ -1096,6 +1151,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.shiny)//闪亮
             .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.light_lamp)
             .Stats(S.damage, 32)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 10)//速度
@@ -1111,6 +1167,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.shiny)//闪亮
             .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.light_lamp)
             .Stats(S.damage, 10)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 20)//速度
@@ -1126,6 +1183,10 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.shiny)//闪亮
             .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.burning_feet)//着火脚
+            .AddTrait(S_Trait.light_lamp)
+            .AddTrait(S_Trait.fire_blood)
+            .AddTrait(S_Trait.fire_proof)
             .Stats(S.damage, 52)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 18)//速度
@@ -1133,6 +1194,218 @@ public partial class Actors
             .Stats(S.armor, 9)//防御
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 3200);//寿命
+        HalfDeerMan.SetCamp(KingdomAssets.DemiHuman)//半人鹿
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconHalf_Deer_Man")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .SetDefaultWeapons(S_Item.bow_wood)
+            .Stats(S.damage, 25)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 16)//速度
+            .Stats(S.health, 240)//血量
+            .Stats(S.armor, 4)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 150);//寿命
+        Mermaid.SetCamp(KingdomAssets.DemiHuman)//美人鱼
+            .SetAnimWalk(S_Anim.walk_0, S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconMermaid")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .SetDefaultWeapons(S_Item.spear_silver)
+            .AddTrait(S_Trait.deceitful)//欺诈
+            .AddTrait(S_Trait.lustful)
+            .AddTrait(S_Trait.attractive)// attractive
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddSubspeciesTrait(S_SubspeciesTrait.fins)//鳍
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_piscivore)//eat_piscivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.aquatic)//水
+            .AddSubspeciesTrait(S_SubspeciesTrait.gift_of_water)//水份
+            .Stats(S.damage, 18)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 8)//速度
+            .Stats(S.health, 180)//血量
+            .Stats(S.armor, 2)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 300);//寿命
+        Centaur.SetCamp(KingdomAssets.DemiHuman)//半人马
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconCentaur")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .SetDefaultWeapons(S_Item.spear_stone)// spear_stone
+            .Stats(S.damage, 34)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 18)//速度
+            .Stats(S.health, 290)//血量
+            .Stats(S.armor, 7)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 100);//寿命
+        KingSlime.SetCamp(KingdomAssets.Monster)//史莱姆王
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetAnimIdleRaw("walk_0_0,walk_0_1,walk_0_2,walk_0_3")
+            .SetIcon("cultiway/icons/races/iconKing_Slime")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.mega_heartbeat)//跳动
+            .Stats(S.damage, 30)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 5)//速度
+            .Stats(S.health, 600)//血量
+            .Stats(S.armor, 5)//防御
+            .Stats(S.scale, 0.25f)//大小
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 500);//寿命
+        GiantOctopus.SetCamp(KingdomAssets.Monster)//巨型章鱼
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconGiant_Octopus")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddSubspeciesTrait(S_SubspeciesTrait.fins)//鳍
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_piscivore)//eat_piscivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.aquatic)//水
+            .AddSubspeciesTrait(S_SubspeciesTrait.gift_of_water)//水份
+            .Stats(S.damage, 55)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 15)//速度
+            .Stats(S.health, 580)//血量
+            .Stats(S.armor, 12)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 180);//寿命
+        Werewolf.SetCamp(KingdomAssets.Monster)//狼人
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconWerewolf")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.moonchild)//狼人
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.greedy)//贪婪
+            .AddTrait(S_Trait.savage)//野蛮
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.agile)//硬皮
+            .Stats(S.damage, 48)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 22)//速度
+            .Stats(S.health, 350)//血量
+            .Stats(S.armor, 6)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 130);//寿命
+        Deer.SetCamp(KingdomAssets.Herbivore)//鹿
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconDeer")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .Stats(S.damage, 8)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 28)//速度
+            .Stats(S.health, 120)//血量
+            .Stats(S.armor, 0)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 20);//寿命
+        Horse.SetCamp(KingdomAssets.Herbivore)//马
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconHorse")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .Stats(S.damage, 10)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 30)//速度
+            .Stats(S.health, 160)//血量
+            .Stats(S.armor, 2)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 35);//寿命
+        Panda.SetCamp(KingdomAssets.Herbivore)//熊猫
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconPanda")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .Stats(S.damage, 35)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 8)//速度
+            .Stats(S.health, 300)//血量
+            .Stats(S.armor, 10)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 60);//寿命
+        Pig.SetCamp(KingdomAssets.Herbivore)//猪
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconPig")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .Stats(S.damage, 6)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 10)//速度
+            .Stats(S.health, 150)//血量
+            .Stats(S.armor, 1)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 25);//寿命
+        WildBoar.SetCamp(KingdomAssets.Herbivore)//野猪
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconWild_Boar")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .Stats(S.damage, 26)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 16)//速度
+            .Stats(S.health, 240)//血量
+            .Stats(S.armor, 8)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 30);//寿命
+        Rooster.SetCamp(KingdomAssets.Herbivore)//公鸡
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconRooster")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .Stats(S.damage, 7)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 14)//速度
+            .Stats(S.health, 80)//血量
+            .Stats(S.armor, 0)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 25);//寿命
+        Lion.SetCamp(KingdomAssets.Carnivorous)//狮子
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconLion")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .Stats(S.damage, 40)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 20)//速度
+            .Stats(S.health, 280)//血量
+            .Stats(S.armor, 5)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 40);//寿命
+        Tiger.SetCamp(KingdomAssets.Carnivorous)//老虎
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconTiger")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .Stats(S.damage, 45)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 24)//速度
+            .Stats(S.health, 300)//血量
+            .Stats(S.armor, 6)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 45);//寿命
+            
+            
+            
             
             
             
