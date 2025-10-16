@@ -2814,6 +2814,11 @@
             <exception cref="T:System.NullReferenceException"> if entity has no component of Type <typeparamref name="T"/></exception>
             <remarks>Executes in O(1)</remarks>
         </member>
+        <member name="M:Friflo.Engine.ECS.Entity.GetComponent(System.Type)">
+            <summary>
+            Return the boxed component of the given type.
+            </summary>
+        </member>
         <member name="M:Friflo.Engine.ECS.Entity.TryGetComponent``1(``0@)">
             <remarks>Executes in O(1)</remarks>
         </member>
@@ -3344,6 +3349,10 @@
         </member>
         <member name="M:Friflo.Engine.ECS.EntityExtensions.Remove``10(Friflo.Engine.ECS.Entity,Friflo.Engine.ECS.Tags@)">
             <summary> Remove the specified components and tags from the entity. </summary>
+        </member>
+        <member name="M:Friflo.Engine.ECS.EntityExtensions.SetNonGeneric(Friflo.Engine.ECS.Entity,Friflo.Engine.ECS.IComponent@)">
+            <summary> Set the passed component to the entity. </summary>
+            <remarks> DO NOT USE IT FREQUENTLY</remarks>
         </member>
         <member name="M:Friflo.Engine.ECS.EntityExtensions.Set``1(Friflo.Engine.ECS.Entity,``0@)">
             <summary> Set the passed component on the entity. </summary>

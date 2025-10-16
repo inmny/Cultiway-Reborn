@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Core.AIGCLib;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Friflo.Engine.ECS;
@@ -57,6 +58,7 @@ public class SkillContainerBuilder
             skill_container.OnSetup -= modifier.Value.ModifierAsset.OnSetup;
             skill_container.OnEffectObj -= modifier.Value.ModifierAsset.OnEffectObj;
         }
+        SkillNameGenerator.Instance.GenerateFor(_containerEntity);
         return _containerEntity;
     }
 }
