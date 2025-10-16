@@ -52,4 +52,9 @@ public class JindanAsset : Asset
     {
         return LM.Get($"{id}.Info");
     }
+
+    public override string ToString()
+    {
+        return id;
+    }
 }

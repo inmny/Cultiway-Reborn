@@ -13,4 +13,9 @@ public class YuanyingAsset : Asset
     {
         return LM.Get($"{id}.Info");
     }
+
+    public override string ToString()
+    {
+        return id;
+    }
 }
