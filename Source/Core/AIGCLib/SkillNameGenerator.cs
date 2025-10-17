@@ -14,7 +14,7 @@ public class SkillNameGenerator : EntityNameGenerator<SkillNameGenerator>
     Path.Combine(Application.persistentDataPath, "Cultiway_SkillNameDict.json");
     protected override string GetSystemPrompt()
     {
-        return "为用户提供的法术生成名称，用户会提供一个法术实体名字以及附加在这个法术上的一系列词条，仅给出一个答案，不要有任何符号。\\nInput example:\\n为产生“雷”的法术，请生成一个名称。这个法术有以下词条：连射:5;放大:2;冰冻:3\\nOutput example:\\n极冻雷瀑";
+        return "为用户提供的法术生成名称，要求符合玄幻风格，并且简短，用户会提供一个法术实体名字以及附加在这个法术上的一系列词条，仅给出一个答案，不要有任何符号。\\nInput example:\\n为产生“雷”的法术，请生成一个名称。这个法术有以下词条：连射:5;放大:2;冰冻:3\\nOutput example:\\n极冻雷瀑";
     }
 
     protected override string GetDefaultName(string[] param)
