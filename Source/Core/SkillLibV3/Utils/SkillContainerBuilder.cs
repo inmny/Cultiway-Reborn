@@ -20,6 +20,29 @@ public class SkillContainerBuilder
         this._containerEntity = container_entity;
     }
 
+    public bool HasModifier<TModifier>() where TModifier : struct, IModifier
+    {
+        if (_modifiersToAdd.ContainsKey(typeof(TModifier))) return true;
+        if (_modifiersToRemove.ContainsKey(typeof(TModifier))) return false;
+        return !_containerEntity.IsNull && _containerEntity.HasComponent<TModifier>();
+    }
+
+    public TModifier GetModifier<TModifier>() where TModifier : struct, IModifier
+    {
+        if (_modifiersToAdd.TryGetValue(typeof(TModifier), out var modifier))
+        {
+            return (TModifier)modifier;
+        }
+        if (_containerEntity.IsNull) return default(TModifier);
+        return _containerEntity.GetComponent<TModifier>();
+    }
+
+    public void SetModifier<TModifier>(TModifier modifier) where TModifier : struct, IModifier
+    {
+        _modifiersToRemove.Remove(typeof(TModifier));
+        _modifiersToSet[typeof(TModifier)] = modifier;
+    }
+    private readonly Dictionary<Type, IModifier> _modifiersToSet = new Dictionary<Type, IModifier>();
     private readonly Dictionary<Type, IModifier> _modifiersToAdd = new Dictionary<Type, IModifier>();
     private readonly Dictionary<Type, IModifier> _modifiersToRemove = new Dictionary<Type, IModifier>();
     public void AddModifier<TModifier>(TModifier modifier) where TModifier : struct, IModifier
@@ -31,6 +54,7 @@ public class SkillContainerBuilder
     public void RemoveModifier<TModifier>() where TModifier : struct, IModifier
     {
         _modifiersToAdd.Remove(typeof(TModifier));
+        _modifiersToSet.Remove(typeof(TModifier));
         _modifiersToRemove.Add(typeof(TModifier), default(TModifier));
     }
 
@@ -57,6 +81,11 @@ public class SkillContainerBuilder
             _containerEntity.RemoveNonGeneric(modifier.Key);
             skill_container.OnSetup -= modifier.Value.ModifierAsset.OnSetup;
             skill_container.OnEffectObj -= modifier.Value.ModifierAsset.OnEffectObj;
+        }
+
+        foreach (var modifier in _modifiersToSet)
+        {
+            _containerEntity.SetNonGeneric(modifier.Value);
         }
         SkillNameGenerator.Instance.GenerateFor(_containerEntity);
         return _containerEntity;

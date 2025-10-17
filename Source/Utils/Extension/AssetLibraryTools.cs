@@ -6,4 +6,13 @@ public static class AssetLibraryTools
     {
         return library?.dict.ContainsKey(id) ?? false;
     }
+
+    public static T GetRandom<T>(this AssetLibrary<T> library) where T : Asset
+    {
+        if (library.list.Count == 0)
+        {
+            return null;
+        }
+        return library.list.GetRandom();
+    }
 }
