@@ -156,7 +156,15 @@ public partial class Actors
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset Tiger { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset UncleanCreature { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset NurgleSpirit { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset VampireHunter { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset NurgleDiseaseCarrier { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset PlagueBringer { get; private set; }
     private void SetupFantasyCreatures()
     {
         AcaciaTreants.SetCamp(KingdomAssets.TreantsGood)//金合欢树人
@@ -369,12 +377,12 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .SetDefaultWeapons(S_Item.evil_staff)
             .AddTrait(S_Trait.evil)//邪恶
+            .AddTrait(S_Trait.death_nuke)//毁灭核
             .AddTrait(S_Trait.bubble_defense)//泡泡防御
             .AddTrait(S_Trait.light_lamp)
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_lithotroph)//吸光
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_fission)//分离
-            .AddSubspeciesTrait(S_SubspeciesTrait.antimatter_essence)//暗物质
             .AddSubspeciesTrait(S_SubspeciesTrait.hydrophobia)//恐水
             .AddSubspeciesTrait(S_SubspeciesTrait.cold_resistance)//冷抗
             .Stats(S.damage, 60)//伤害
@@ -391,6 +399,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .SetDefaultWeapons(S_Item.shotgun)
             .AddTrait(S_Trait.evil)//邪恶
+            .AddTrait(S_Trait.death_bomb)//死亡炸弹
             .AddTrait(S_Trait.bubble_defense)//泡泡防御
             .AddTrait(S_Trait.light_lamp)
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
@@ -412,6 +421,7 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .SetDefaultWeapons(S_Item.alien_blaster)
             .AddTrait(S_Trait.evil)//邪恶
+            .AddTrait(S_Trait.death_bomb)//死亡炸弹
             .AddTrait(S_Trait.bubble_defense)//泡泡防御
             .AddTrait(S_Trait.light_lamp)
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
@@ -1407,6 +1417,106 @@ public partial class Actors
             .Stats(S.armor, 6)//防御
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 45);//寿命
+        UncleanCreature.SetCamp(KingdomAssets.Nurgle)//不洁生物
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/UncleanCreature/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.sword_iron)//武器
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.contagious)//传染
+            .AddTrait(S_Trait.acid_blood)//酸血
+            .AddTrait(S_Trait.acid_proof)//酸性
+            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 20)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 8)//速度
+            .Stats(S.health, 220)//血量
+            .Stats(S.armor, 9)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 150);//寿命
+        NurgleSpirit.SetCamp(KingdomAssets.Nurgle)//纳垢灵
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/NurgleSpirit/main/walk_0")
+            .SetJumpAnimation(false)
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.contagious)//传染
+            .AddTrait(S_Trait.acid_blood)//酸血
+            .AddTrait(S_Trait.acid_proof)//酸性
+            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddTrait(S_Trait.immortal)//不死
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 10)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 14)//速度
+            .Stats(S.health, 80)//血量
+            .Stats(S.armor, 2)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 100);//寿命
+        NurgleDiseaseCarrier.SetCamp(KingdomAssets.Nurgle)//纳垢携疫者
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/NurgleDiseaseCarrier/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.hammer_iron)//武器
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.contagious)//传染
+            .AddTrait(S_Trait.acid_blood)//酸血
+            .AddTrait(S_Trait.acid_proof)//酸性
+            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddTrait(S_Trait.immortal)//不死
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 35)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 6)//速度
+            .Stats(S.health, 400)//血量
+            .Stats(S.armor, 15)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 500);//寿命
+        PlagueBringer.SetCamp(KingdomAssets.Nurgle)//瘟疫使者
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetAnimIdleRaw("walk_0_0,walk_0_1")
+            .SetIcon("actors/species/other/Cultiway/PlagueBringer/main/walk_0_0")
+            .SetJumpAnimation(false)
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.plague)//瘟疫
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.acid_blood)//酸血
+            .AddTrait(S_Trait.acid_proof)//酸性
+            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_hematophagy)//hematophagy
+            .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 25)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 17)//速度
+            .Stats(S.health, 1000)//血量
+            .Stats(S.armor, 5)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 200);//寿命
             
             
             

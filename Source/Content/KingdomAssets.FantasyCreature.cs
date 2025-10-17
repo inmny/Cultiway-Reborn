@@ -44,6 +44,8 @@ public partial class KingdomAssets
     public static KingdomAsset Herbivore { get; private set; }
     [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
     public static KingdomAsset Carnivorous { get; private set; }
+    [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
+    public static KingdomAsset Nurgle { get; private set; }
     private void SetupFantasyCreatureKingdoms()
     {
         Vampire.addTag(nameof(Vampire));             //血族标签
@@ -167,6 +169,12 @@ public partial class KingdomAssets
         Carnivorous.setIcon("cultiway/icons/races/iconWerewolf");
         Carnivorous.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#027109ff");
         AllEnemyWith(nameof(Carnivorous), SK.civ); // 所有文明阵营都会主动攻击食肉，civ（公民）
+                                                
+        Nurgle.addTag(nameof(Nurgle));             //纳垢标签
+        Nurgle.addFriendlyTag(nameof(Nurgle));     //对纳垢标签友好
+        Nurgle.setIcon("cultiway/icons/races/iconWerewolf");
+        Nurgle.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#027109ff");
+        AllEnemyWith(nameof(Nurgle), SK.civ); // 所有文明阵营都会主动攻击纳垢，civ（公民）
     }
     
 }
