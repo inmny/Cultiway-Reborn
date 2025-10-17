@@ -32,7 +32,14 @@ public class SkillPage : MonoBehaviour
         foreach (var skill_container_entity in ae.all_skills)
         {
             var skill_container = skill_container_entity.GetComponent<SkillContainer>();
-            sb.AppendLine(skill_container.Asset.id);
+            if (skill_container_entity.HasName)
+            {
+                sb.AppendLine(skill_container_entity.Name.value);
+            }
+            else
+            {
+                sb.AppendLine(skill_container.Asset.id.Localize());
+            }
             sb.AppendLine("\t" + skill_container_entity);
         }
 

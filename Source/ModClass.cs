@@ -51,6 +51,7 @@ namespace Cultiway
         public SystemRoot GeneralRenderSystems { get; private set; }
         public SystemGroup LogicPrepareRecycleSystemGroup { get; private set; }
         public SystemGroup LogicRestoreStatusSystemGroup { get; private set; }
+        public SystemGroup LogicEventProcessSystemGroup { get; private set; }
         public SystemRoot TileLogicSystems   { get; private set; }
         public SystemRoot TileRenderSystems  { get; private set; }
         public        EntityStore             W                    { get; private set; }
@@ -225,6 +226,7 @@ namespace Cultiway
             GeneralRenderSystems = new SystemRoot(nameof(GeneralRenderSystems));
             LogicPrepareRecycleSystemGroup = new SystemGroup(nameof(LogicPrepareRecycleSystemGroup));
             LogicRestoreStatusSystemGroup = new SystemGroup(nameof(LogicRestoreStatusSystemGroup));
+            LogicEventProcessSystemGroup = new SystemGroup(nameof(LogicEventProcessSystemGroup));
             
             TileLogicSystems = new SystemRoot(nameof(TileLogicSystems));
             TileRenderSystems = new SystemRoot(nameof(TileRenderSystems));
@@ -251,6 +253,9 @@ namespace Cultiway
             GeneralLogicSystems.Add(LogicRestoreStatusSystemGroup);
             LogicRestoreStatusSystemGroup.Add(new RestoreHealthSystem());
             LogicRestoreStatusSystemGroup.Add(new RestoreQiyunSystem());
+            
+            GeneralLogicSystems.Add(LogicEventProcessSystemGroup);
+            LogicEventProcessSystemGroup.Add(new EventNameEntitySystem());
             
             GeneralLogicSystems.Add(new SyncCityRelationSystem());
             

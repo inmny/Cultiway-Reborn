@@ -104,10 +104,17 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
                 skill_similarities[skill_entity] =
                     MathUtils.CosineSimilarity(composition_array, skill_entity.Element.AsArray());
             }
-            jindan.skills.AddRange(skill_similarities
+
+            var sorted = skill_similarities
                 .OrderByDescending(pair => pair.Value)
-                .Take(3)
-                .Select(pair => pair.Key));
+                .ToList();
+            var acc = 0f;
+            foreach (var pair in sorted)
+            {
+                acc += pair.Value;
+                jindan.skill_acc_weight.Add(acc);
+                jindan.skills.Add(pair.Key);
+            }
         }
     }
 

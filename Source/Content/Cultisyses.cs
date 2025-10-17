@@ -431,7 +431,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             ae.AddSkillModifier<ScaleModifier, float>(CommonWeaponSkills.StartWeaponSkill.id, new ScaleModifier(Randy.randomFloat(1, 4)));
             if (jindan.skills.Count > 0)
             {
-                var skill_entity_asset = jindan.skills.GetRandom();
+                var skill_entity_asset = jindan.skills[RdUtils.RandomIndexWithAccumWeight(jindan.skill_acc_weight)];
                 
                 ae.LearnSkillV3(new SkillContainerBuilder(skill_entity_asset).Build());
             }

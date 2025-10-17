@@ -23,5 +23,6 @@ public class DelayActiveCheckSystem : QuerySystem<DelayActive>
                 CommandBuffer.RemoveComponent<DelayActive>(entity.Id);
             }
         }));
+        CommandBuffer.Playback();
     }
 }

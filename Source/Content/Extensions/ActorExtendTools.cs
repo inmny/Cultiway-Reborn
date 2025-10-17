@@ -4,6 +4,9 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
 using UnityEngine;
@@ -41,6 +44,18 @@ public static class ActorExtendTools
     }
     public static void EnhanceSkillRandomly(this ActorExtend ae, string source)
     {
+        if (ae.all_skills.Count > 0)
+        {
+            var skill_container_entity = ae.all_skills.GetRandom();
+
+            var builder = new SkillContainerBuilder(skill_container_entity);
+
+            if (ModClass.I.SkillV3.ModifierLib.GetRandom()?.OnAddOrUpgrade?.Invoke(builder) ?? false)
+            {
+                ModClass.LogInfo($"[{ae}] enhanced {skill_container_entity.Id}({skill_container_entity.GetComponent<SkillContainer>().Asset})");
+                builder.Build();
+            }
+        }
         if (ae.tmp_all_skills.Count == 0) return;
         var skill = ae.tmp_all_skills.GetRandom();
         ModClass.L.WrappedSkillLibrary.get(skill).Enhance(ae, source);

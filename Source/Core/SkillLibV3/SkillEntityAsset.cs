@@ -90,4 +90,9 @@ public class SkillEntityAsset : Asset
 
         return entity;
     }
+
+    public override string ToString()
+    {
+        return id;
+    }
 }

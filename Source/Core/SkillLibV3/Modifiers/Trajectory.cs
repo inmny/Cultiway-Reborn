@@ -17,4 +17,13 @@ public struct Trajectory : IModifier
 
     private TrajectoryAsset _asset;
     public SkillModifierAsset ModifierAsset => SkillModifierLibrary.SetTrajectory;
+    public string GetKey()
+    {
+        return ModifierAsset.id.Localize();
+    }
+
+    public string GetValue()
+    {
+        return ID.Localize();
+    }
 }
