@@ -15,6 +15,7 @@ public class JindanAsset : Asset
     public JindanScore score;
     public ElementComposition composition;
     public List<SkillEntityAsset> skills = new();
+    public List<float> skill_acc_weight = new();
     public string wrapped_skill_id;
 
     public BaseStats Stats = new()
