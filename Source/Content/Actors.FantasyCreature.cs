@@ -169,6 +169,10 @@ public partial class Actors
     public static ActorAsset GreatUncleanOneButcher { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset PlagueToad { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset GreatUncleanOneBellRinger { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset GreatUncleanOneRainFather { get; private set; }
     private void SetupFantasyCreatures()
     {
         AcaciaTreants.SetCamp(KingdomAssets.TreantsGood)//金合欢树人
@@ -1576,11 +1580,77 @@ public partial class Actors
             .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
-            .Stats(S.damage, 75)//伤害
+            .Stats(S.damage, 80)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 3)//速度
             .Stats(S.health, 1200)//血量
             .Stats(S.armor, 30)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 777);//寿命
+        GreatUncleanOneBellRinger.SetCamp(KingdomAssets.Nurgle)//大不净者-丧钟
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/GreatUncleanOneBellRinger/main/walk_0")
+            .SetJumpAnimation(true)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.axe_iron)
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.giant)//大人
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.contagious)//传染
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.acid_blood)//酸血
+            .AddTrait(S_Trait.acid_proof)//酸性
+            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddTrait(S_Trait.venomous)//剧毒
+            .AddTrait(S_Trait.mega_heartbeat)//巨心
+            .AddTrait(S_Trait.poisonous)//剧毒
+            .AddTrait(S_Trait.poison_immune)//毒抗
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 70)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 3)//速度
+            .Stats(S.health, 1100)//血量
+            .Stats(S.armor, 25)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 777);//寿命
+        GreatUncleanOneRainFather.SetCamp(KingdomAssets.Nurgle)//大不净者-雨父
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/GreatUncleanOneRainFather/main/walk_0")
+            .SetJumpAnimation(true)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.white_staff)
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.wise)//智慧
+            .AddTrait(S_Trait.heart_of_wizard)//魔力心
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.giant)//大人
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.contagious)//传染
+            .AddTrait(S_Trait.healing_aura)//回合治疗
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.acid_blood)//酸血
+            .AddTrait(S_Trait.acid_proof)//酸性
+            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddTrait(S_Trait.venomous)//剧毒
+            .AddTrait(S_Trait.poisonous)//剧毒
+            .AddTrait(S_Trait.poison_immune)//毒抗
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 60)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 3)//速度
+            .Stats(S.health, 1000)//血量
+            .Stats(S.armor, 20)//防御
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 777);//寿命
             

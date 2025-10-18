@@ -102,6 +102,8 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.PlagueToad, 21, 4, 1) 
                    .AddAdvancedSpawnerDistributedConfig(Actors.PlagueBringer, 14, 4, 1) 
                    .AddAdvancedSpawnerDistributedConfig(Actors.GreatUncleanOneButcher, 1, 7, 1) 
+                   .AddAdvancedSpawnerDistributedConfig(Actors.GreatUncleanOneBellRinger, 1, 7, 1) 
+                   .AddAdvancedSpawnerDistributedConfig(Actors.GreatUncleanOneRainFather, 1, 7, 1) 
                    .AddAdvancedSpawnerDistributedConfig(Actors.NurgleSpirit, 35, 2, 2);
     }
 }
