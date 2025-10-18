@@ -99,7 +99,9 @@ public partial class Buildings
         NurgleTower.kingdom = KingdomAssets.Nurgle.id;
         NurgleTower.AddAdvancedSpawnerDistributedConfig(Actors.UncleanCreature, 7, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.NurgleDiseaseCarrier, 28, 4, 1) 
+                   .AddAdvancedSpawnerDistributedConfig(Actors.PlagueToad, 21, 4, 1) 
                    .AddAdvancedSpawnerDistributedConfig(Actors.PlagueBringer, 14, 4, 1) 
-                   .AddAdvancedSpawnerDistributedConfig(Actors.NurgleSpirit, 42, 2, 2);
+                   .AddAdvancedSpawnerDistributedConfig(Actors.GreatUncleanOneButcher, 1, 7, 1) 
+                   .AddAdvancedSpawnerDistributedConfig(Actors.NurgleSpirit, 35, 2, 2);
     }
 }
