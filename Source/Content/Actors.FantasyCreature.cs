@@ -9,6 +9,7 @@ using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General.Game.extensions;
 using strings;
+using UnityEngine;
 
 namespace Cultiway.Content;
 
@@ -173,6 +174,14 @@ public partial class Actors
     public static ActorAsset GreatUncleanOneBellRinger { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset GreatUncleanOneRainFather { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Daemonette { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Hellflayer { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset SlaaneshSeeker { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset SlaaneshMistress { get; private set; }
     private void SetupFantasyCreatures()
     {
         AcaciaTreants.SetCamp(KingdomAssets.TreantsGood)//金合欢树人
@@ -1446,10 +1455,10 @@ public partial class Actors
             .Stats(S.damage, 20)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 8)//速度
-            .Stats(S.health, 220)//血量
+            .Stats(S.health, 2200)//血量
             .Stats(S.armor, 9)//防御
             .Stats(S.stamina, 120)//耐力
-            .Stats(S.lifespan, 150);//寿命
+            .Stats(S.lifespan, 77);//寿命
         NurgleSpirit.SetCamp(KingdomAssets.Nurgle)//纳垢灵
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
@@ -1469,10 +1478,10 @@ public partial class Actors
             .Stats(S.damage, 10)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 14)//速度
-            .Stats(S.health, 80)//血量
+            .Stats(S.health, 800)//血量
             .Stats(S.armor, 2)//防御
             .Stats(S.stamina, 120)//耐力
-            .Stats(S.lifespan, 100);//寿命
+            .Stats(S.lifespan, 77);//寿命
         NurgleDiseaseCarrier.SetCamp(KingdomAssets.Nurgle)//纳垢携疫者
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
@@ -1496,10 +1505,10 @@ public partial class Actors
             .Stats(S.damage, 35)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 6)//速度
-            .Stats(S.health, 400)//血量
+            .Stats(S.health, 4000)//血量
             .Stats(S.armor, 15)//防御
             .Stats(S.stamina, 120)//耐力
-            .Stats(S.lifespan, 500);//寿命
+            .Stats(S.lifespan, 77);//寿命
         PlagueBringer.SetCamp(KingdomAssets.Nurgle)//瘟疫使者
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
@@ -1522,11 +1531,11 @@ public partial class Actors
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
             .Stats(S.damage, 25)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
-            .Stats(S.speed, 17)//速度
-            .Stats(S.health, 1000)//血量
+            .Stats(S.speed, 22)//速度
+            .Stats(S.health, 10000)//血量
             .Stats(S.armor, 5)//防御
             .Stats(S.stamina, 120)//耐力
-            .Stats(S.lifespan, 200);//寿命
+            .Stats(S.lifespan, 77);//寿命
         PlagueToad.SetCamp(KingdomAssets.Nurgle)//瘟疫蟾蜍
             .SetAnimWalk(S_Anim.walk_0, S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
@@ -1543,19 +1552,17 @@ public partial class Actors
             .AddTrait(S_Trait.acid_blood)//酸血
             .AddTrait(S_Trait.acid_proof)//酸性
             .AddTrait(S_Trait.acid_touch)//酸性
-            .AddTrait(S_Trait.venomous)//剧毒
-            .AddTrait(S_Trait.poisonous)//剧毒
-            .AddTrait(S_Trait.poison_immune)//毒抗
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
             .Stats(S.damage, 40)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 5)//速度
-            .Stats(S.health, 350)//血量
+            .Stats(S.attack_speed, 7)//攻击速度
+            .Stats(S.health, 3500)//血量
             .Stats(S.armor, 12)//防御
             .Stats(S.stamina, 120)//耐力
-            .Stats(S.lifespan, 300);//寿命
+            .Stats(S.lifespan, 77);//寿命
         GreatUncleanOneButcher.SetCamp(KingdomAssets.Nurgle)//大不净者-屠夫
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
@@ -1573,9 +1580,6 @@ public partial class Actors
             .AddTrait(S_Trait.acid_blood)//酸血
             .AddTrait(S_Trait.acid_proof)//酸性
             .AddTrait(S_Trait.acid_touch)//酸性
-            .AddTrait(S_Trait.venomous)//剧毒
-            .AddTrait(S_Trait.poisonous)//剧毒
-            .AddTrait(S_Trait.poison_immune)//毒抗
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
@@ -1583,7 +1587,7 @@ public partial class Actors
             .Stats(S.damage, 80)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 3)//速度
-            .Stats(S.health, 1200)//血量
+            .Stats(S.health, 12000)//血量
             .Stats(S.armor, 30)//防御
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 777);//寿命
@@ -1604,10 +1608,7 @@ public partial class Actors
             .AddTrait(S_Trait.acid_blood)//酸血
             .AddTrait(S_Trait.acid_proof)//酸性
             .AddTrait(S_Trait.acid_touch)//酸性
-            .AddTrait(S_Trait.venomous)//剧毒
             .AddTrait(S_Trait.mega_heartbeat)//巨心
-            .AddTrait(S_Trait.poisonous)//剧毒
-            .AddTrait(S_Trait.poison_immune)//毒抗
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
@@ -1615,7 +1616,7 @@ public partial class Actors
             .Stats(S.damage, 70)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 3)//速度
-            .Stats(S.health, 1100)//血量
+            .Stats(S.health, 11000)//血量
             .Stats(S.armor, 25)//防御
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 777);//寿命
@@ -1639,9 +1640,6 @@ public partial class Actors
             .AddTrait(S_Trait.acid_blood)//酸血
             .AddTrait(S_Trait.acid_proof)//酸性
             .AddTrait(S_Trait.acid_touch)//酸性
-            .AddTrait(S_Trait.venomous)//剧毒
-            .AddTrait(S_Trait.poisonous)//剧毒
-            .AddTrait(S_Trait.poison_immune)//毒抗
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
@@ -1649,10 +1647,140 @@ public partial class Actors
             .Stats(S.damage, 60)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 3)//速度
-            .Stats(S.health, 1000)//血量
+            .Stats(S.attack_speed, 4)//攻击速度
+            .Stats(S.health, 10000)//血量
             .Stats(S.armor, 20)//防御
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 777);//寿命
+        Daemonette.SetCamp(KingdomAssets.Slaanesh)//色孽欲魔
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/Daemonette/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.sword_adamantine)
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.fast)//敏捷
+            .AddTrait(S_Trait.fertile)//生长
+            .AddTrait(S_Trait.thorns)//荆棘
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.attractive)//吸引
+            .AddTrait(S_Trait.lustful)// lustful
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.thief)//偷窃
+            .AddTrait(S_Trait.venomous)//剧毒
+            .AddTrait(S_Trait.poisonous)//剧毒
+            .AddTrait(S_Trait.poison_immune)//毒抗
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 35)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 28)//速度
+            .Stats(S.health, 150)//血量
+            .Stats(S.armor, 3)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 66);//寿命
+        Hellflayer.SetCamp(KingdomAssets.Slaanesh)//色孽磨魂者 
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/Hellflayer/main/walk_0")
+            .SetJumpAnimation(true)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.shotgun)
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.fertile)//生长
+            .AddTrait(S_Trait.thorns)//荆棘
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.attractive)//吸引
+            .AddTrait(S_Trait.lustful)// lustful
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.thief)//偷窃
+            .AddTrait(S_Trait.venomous)//剧毒
+            .AddTrait(S_Trait.poisonous)//剧毒
+            .AddTrait(S_Trait.poison_immune)//毒抗
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 50)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 6)//速度
+            .Stats(S.attack_speed, 2)//攻击速度
+            .Stats(S.health, 320)//血量
+            .Stats(S.armor, 10)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 66);//寿命
+        SlaaneshSeeker.SetCamp(KingdomAssets.Slaanesh)//色孽寻觅者
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/SlaaneshSeeker/main/walk_0")
+            .SetJumpAnimation(true)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.spear_adamantine)
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.fast)//敏捷
+            .AddTrait(S_Trait.fertile)//生长
+            .AddTrait(S_Trait.thorns)//荆棘
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.attractive)//吸引
+            .AddTrait(S_Trait.lustful)// lustful
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.thief)//偷窃
+            .AddTrait(S_Trait.venomous)//剧毒
+            .AddTrait(S_Trait.poisonous)//剧毒
+            .AddTrait(S_Trait.poison_immune)//毒抗
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 40)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 18)//速度
+            .Stats(S.health, 180)//血量
+            .Stats(S.armor, 2)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 66);//寿命
+        SlaaneshMistress.SetCamp(KingdomAssets.Slaanesh)//色孽女术士
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/SlaaneshMistress/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.necromancer_staff)//法术法杖
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.wise)//智慧
+            .AddTrait(S_Trait.heart_of_wizard)//魔力心
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.fertile)//生长
+            .AddTrait(S_Trait.thorns)//荆棘
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.attractive)//吸引
+            .AddTrait(S_Trait.lustful)// lustful
+            .AddTrait(S_Trait.thief)//偷窃
+            .AddTrait(S_Trait.venomous)//剧毒
+            .AddTrait(S_Trait.poisonous)//剧毒
+            .AddTrait(S_Trait.poison_immune)//毒抗
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 55)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 12)//速度
+            .Stats(S.attack_speed, 3)//攻击速度
+            .Stats(S.health, 200)//血量
+            .Stats(S.armor, 1)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 66);//寿命
             
             
             

@@ -46,6 +46,8 @@ public partial class KingdomAssets
     public static KingdomAsset Carnivorous { get; private set; }
     [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
     public static KingdomAsset Nurgle { get; private set; }
+    [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
+    public static KingdomAsset Slaanesh { get; private set; }
     private void SetupFantasyCreatureKingdoms()
     {
         Vampire.addTag(nameof(Vampire));             //血族标签
@@ -175,6 +177,14 @@ public partial class KingdomAssets
         Nurgle.setIcon("cultiway/icons/races/iconWerewolf");
         Nurgle.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#027109ff");
         AllEnemyWith(nameof(Nurgle), SK.civ); // 所有文明阵营都会主动攻击纳垢，civ（公民）
+                                                
+        Slaanesh.addTag(nameof(Slaanesh));             //色孽标签
+        Slaanesh.addFriendlyTag(nameof(Slaanesh));     //对色孽标签友好
+        Slaanesh.setIcon("cultiway/icons/races/iconWerewolf");
+        Slaanesh.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#c2088bff");
+        Slaanesh.addFriendlyTag(SK.undead);//色孽对亡灵友好
+        AllFriendWith(nameof(Slaanesh), SK.undead);//所有文明阵营都会主动攻击色孽，undead（亡灵）
+        AllEnemyWith(nameof(Slaanesh), SK.civ); // 所有文明阵营都会主动攻击色孽，civ（公民）
     }
     
 }

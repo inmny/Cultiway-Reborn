@@ -31,6 +31,8 @@ public partial class Buildings
     public static BuildingAsset SpriteTower { get; private set; }
     [SetupButton, CloneSource(SB.flame_tower)]
     public static BuildingAsset NurgleTower { get; private set; }
+    [SetupButton, CloneSource(SB.flame_tower)]
+    public static BuildingAsset SlaaneshTower { get; private set; }
     private void SetupFantasyBuildings()
     {
         //VampireTower.tower = false;
@@ -97,13 +99,20 @@ public partial class Buildings
         NurgleTower.tower = false;
         NurgleTower.spawn_units_asset = null;
         NurgleTower.kingdom = KingdomAssets.Nurgle.id;
-        NurgleTower.AddAdvancedSpawnerDistributedConfig(Actors.UncleanCreature, 7, 6, 1)
-                   .AddAdvancedSpawnerDistributedConfig(Actors.NurgleDiseaseCarrier, 28, 4, 1) 
-                   .AddAdvancedSpawnerDistributedConfig(Actors.PlagueToad, 21, 4, 1) 
-                   .AddAdvancedSpawnerDistributedConfig(Actors.PlagueBringer, 14, 4, 1) 
-                   .AddAdvancedSpawnerDistributedConfig(Actors.GreatUncleanOneButcher, 1, 7, 1) 
-                   .AddAdvancedSpawnerDistributedConfig(Actors.GreatUncleanOneBellRinger, 1, 7, 1) 
-                   .AddAdvancedSpawnerDistributedConfig(Actors.GreatUncleanOneRainFather, 1, 7, 1) 
+        NurgleTower.AddAdvancedSpawnerDistributedConfig(Actors.UncleanCreature, 21, 6, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.NurgleDiseaseCarrier, 28, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.PlagueToad, 7, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.PlagueBringer, 14, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.GreatUncleanOneButcher, 1, 7, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.GreatUncleanOneBellRinger, 1, 7, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.GreatUncleanOneRainFather, 1, 7, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.NurgleSpirit, 35, 2, 2);
+        SlaaneshTower.tower = false;
+        SlaaneshTower.spawn_units_asset = null;
+        SlaaneshTower.kingdom = KingdomAssets.Slaanesh.id;
+        SlaaneshTower.AddAdvancedSpawnerDistributedConfig(Actors.Daemonette, 24, 6, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.Hellflayer, 6, 4, 1) 
+                   .AddAdvancedSpawnerDistributedConfig(Actors.SlaaneshSeeker, 18, 4, 1) 
+                   .AddAdvancedSpawnerDistributedConfig(Actors.SlaaneshMistress, 12, 4, 1) ;
     }
 }
