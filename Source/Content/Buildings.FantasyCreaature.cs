@@ -111,8 +111,12 @@ public partial class Buildings
         SlaaneshTower.spawn_units_asset = null;
         SlaaneshTower.kingdom = KingdomAssets.Slaanesh.id;
         SlaaneshTower.AddAdvancedSpawnerDistributedConfig(Actors.Daemonette, 24, 6, 1)
-                   .AddAdvancedSpawnerDistributedConfig(Actors.Hellflayer, 6, 4, 1) 
-                   .AddAdvancedSpawnerDistributedConfig(Actors.SlaaneshSeeker, 18, 4, 1) 
-                   .AddAdvancedSpawnerDistributedConfig(Actors.SlaaneshMistress, 12, 4, 1) ;
+                   .AddAdvancedSpawnerDistributedConfig(Actors.Hellflayer, 6, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.SlaaneshSeeker, 18, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.SlaaneshMistress, 12, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.SlaaneshFiend, 30, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.KeeperSecrets, 1, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.KeeperSecretsNakari, 1, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedKeeperSecrets, 1, 4, 1);
     }
 }

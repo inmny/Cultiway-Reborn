@@ -57,9 +57,13 @@ public partial class KingdomAssets
         AllEnemyWith(nameof(Vampire), SK.civ); // 所有文明阵营都会主动攻击吸血鬼，civ（公民）
 
         TreantsGood.addTag(nameof(TreantsGood));             //树人-善标签
+        TreantsGood.addTag(SK.neutral);//树人-善对中立友好
         TreantsGood.addFriendlyTag(nameof(TreantsGood));     //对树人-善标签友好
+        TreantsGood.addFriendlyTag(SK.neutral);//树人-善对中立友好
         TreantsGood.setIcon("cultiway/icons/races/iconOak_Treants");
         TreantsGood.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#027109ff");
+        TreantsGood.addFriendlyTag(SK.civ);//Superman对公民友好
+        AllFriendWith(nameof(TreantsGood), SK.civ);//所有文明阵营都会主动攻击食草，civ（公民）
         TreantsGood.addFriendlyTag(SK.elf);//妖精对精灵友好
         AllFriendWith(nameof(TreantsGood), SK.elf);//所有文明阵营都会主动攻击妖精，elf（精灵）
         AllEnemyWith(nameof(TreantsGood), SK.orc); //所有文明阵营都会主动攻击妖精，orc（兽人）
@@ -92,6 +96,8 @@ public partial class KingdomAssets
         Fairy.addFriendlyTag(nameof(Fairy));     //对妖精标签友好
         Fairy.setIcon("cultiway/icons/races/iconFairy_Druid");
         Fairy.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#02714cff");
+        Fairy.addFriendlyTag(SK.neutral);//食草对中立友好
+        AllFriendWith(nameof(Fairy), SK.neutral);//所有文明阵营都会主动攻击食草，neutral（中立）
         Fairy.addFriendlyTag(SK.elf);//妖精对精灵友好
         AllFriendWith(nameof(Fairy), SK.elf);//所有文明阵营都会主动攻击妖精，elf（精灵）
         AllEnemyWith(nameof(Fairy), SK.orc); //所有文明阵营都会主动攻击妖精，orc（兽人）
@@ -102,7 +108,10 @@ public partial class KingdomAssets
         Spirit.addFriendlyTag(nameof(Spirit));     //对灵族标签友好
         Spirit.setIcon("cultiway/icons/races/iconKnowledge_Genie");
         Spirit.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#0bdfd8ff");
-        AllEnemyWith(nameof(Spirit), SK.civ); // 所有文明阵营都会主动攻击灵族，civ（公民）
+        Spirit.addFriendlyTag(SK.neutral);//食草对中立友好
+        Spirit.addFriendlyTag(SK.civ);//Superman对公民友好
+        AllFriendWith(nameof(Spirit), SK.civ);//所有文明阵营都会主动攻击食草，civ（公民）
+        AllFriendWith(nameof(Spirit), SK.neutral);//所有文明阵营都会主动攻击食草，neutral（中立）
                         
         Goblin.addTag(nameof(Goblin));             //哥布林标签
         Goblin.addFriendlyTag(nameof(Goblin));     //对哥布林标签友好
@@ -118,7 +127,10 @@ public partial class KingdomAssets
         VegetarianDinosaur.addFriendlyTag(nameof(VegetarianDinosaur));     //对素食恐龙标签友好
         VegetarianDinosaur.setIcon("cultiway/icons/races/iconTriceratops");
         VegetarianDinosaur.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#027130ff");
-        AllEnemyWith(nameof(VegetarianDinosaur), SK.civ); // 所有文明阵营都会主动攻击素食恐龙，civ（公民）
+        VegetarianDinosaur.addFriendlyTag(SK.neutral);//食草对中立友好
+        VegetarianDinosaur.addFriendlyTag(SK.civ);//Superman对公民友好
+        AllFriendWith(nameof(VegetarianDinosaur), SK.civ);//所有文明阵营都会主动攻击食草，civ（公民）
+        AllFriendWith(nameof(VegetarianDinosaur), SK.neutral);//所有文明阵营都会主动攻击食草，neutral（中立）
                         
         CarnivorousDinosaur.addTag(nameof(CarnivorousDinosaur));             //食肉恐龙标签
         CarnivorousDinosaur.addFriendlyTag(nameof(CarnivorousDinosaur));     //对食肉恐龙标签友好
@@ -130,13 +142,18 @@ public partial class KingdomAssets
         Titan.addFriendlyTag(nameof(Titan));     //对泰坦标签友好
         Titan.setIcon("cultiway/icons/races/iconVolcanic_Giant");
         Titan.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#667102ff");
+        Titan.addFriendlyTag(SK.neutral);//食草对中立友好
+        AllFriendWith(nameof(Titan), SK.neutral);//所有文明阵营都会主动攻击食草，neutral（中立）
         AllEnemyWith(nameof(Titan), SK.civ); // 所有文明阵营都会主动攻击泰坦，civ（公民）
                                 
         Divine.addTag(nameof(Divine));             //神圣标签
         Divine.addFriendlyTag(nameof(Divine));     //对神圣标签友好
         Divine.setIcon("cultiway/icons/races/iconFairy_Fox");
         Divine.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#e9ec0aff");
-        AllEnemyWith(nameof(Divine), SK.civ); // 所有文明阵营都会主动攻击神圣，civ（公民）
+        Divine.addFriendlyTag(SK.neutral);//食草对中立友好
+        Divine.addFriendlyTag(SK.civ);//Superman对公民友好
+        AllFriendWith(nameof(Divine), SK.civ);//所有文明阵营都会主动攻击食草，civ（公民）
+        AllFriendWith(nameof(Divine), SK.neutral);//所有文明阵营都会主动攻击食草，neutral（中立）
                                 
         Superman.addTag(nameof(Superman));             //超人标签
         Superman.addFriendlyTag(nameof(Superman));     //对超人标签友好
@@ -164,7 +181,10 @@ public partial class KingdomAssets
         Herbivore.addFriendlyTag(nameof(Herbivore));     //对食草标签友好
         Herbivore.setIcon("cultiway/icons/races/iconWerewolf");
         Herbivore.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#027109ff");
-        AllEnemyWith(nameof(Herbivore), SK.civ); // 所有文明阵营都会主动攻击食草，civ（公民）
+        Herbivore.addFriendlyTag(SK.neutral);//食草对中立友好
+        Herbivore.addFriendlyTag(SK.civ);//Superman对公民友好
+        AllFriendWith(nameof(Herbivore), SK.civ);//所有文明阵营都会主动攻击食草，civ（公民）
+        AllFriendWith(nameof(Herbivore), SK.neutral);//所有文明阵营都会主动攻击食草，neutral（中立）
                                         
         Carnivorous.addTag(nameof(Carnivorous));             //食肉标签
         Carnivorous.addFriendlyTag(nameof(Carnivorous));     //对食肉标签友好

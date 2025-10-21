@@ -126,9 +126,11 @@ public partial class Actors
     public static ActorAsset YueTu { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset ZhuQue { get; private set; }
-    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
-    //public static ActorAsset WyvernKnight { get; private set; }
     //[SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    //public static ActorAsset WyvernKnight { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset VampireHunter { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset HalfDeerMan { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset Mermaid { get; private set; }
@@ -153,6 +155,8 @@ public partial class Actors
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset Rooster { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Sparrow { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset Lion { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset Tiger { get; private set; }
@@ -160,8 +164,6 @@ public partial class Actors
     public static ActorAsset UncleanCreature { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset NurgleSpirit { get; private set; }
-    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
-    public static ActorAsset VampireHunter { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset NurgleDiseaseCarrier { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
@@ -182,6 +184,15 @@ public partial class Actors
     public static ActorAsset SlaaneshSeeker { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset SlaaneshMistress { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset SlaaneshFiend { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset KeeperSecrets { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset KeeperSecretsNakari { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset ExaltedKeeperSecrets { get; private set; }
+    
     private void SetupFantasyCreatures()
     {
         AcaciaTreants.SetCamp(KingdomAssets.TreantsGood)//金合欢树人
@@ -194,6 +205,9 @@ public partial class Actors
             .AddTrait(S_Trait.sunblessed)//阳光祝福
             .AddTrait(S_Trait.regeneration)//回复
             .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
+            .AddSubspeciesTrait(S_SubspeciesTrait.photosynthetic_skin)//photosynthetic_skin
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_vegetative)//生长性 reproduce_vegetative
+            .AddSubspeciesTrait(S_SubspeciesTrait.accelerated_healing)//回复
             .Stats(S.damage, 28)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 6)//速度
@@ -212,6 +226,9 @@ public partial class Actors
             .AddTrait(S_Trait.sunblessed)//阳光祝福
             .AddTrait(S_Trait.regeneration)//回复
             .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
+            .AddSubspeciesTrait(S_SubspeciesTrait.photosynthetic_skin)//photosynthetic_skin
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_vegetative)//生长性 reproduce_vegetative
+            .AddSubspeciesTrait(S_SubspeciesTrait.accelerated_healing)//回复
             .Stats(S.damage, 25)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 4)//速度
@@ -229,6 +246,9 @@ public partial class Actors
             .AddTrait(S_Trait.sunblessed)//阳光祝福
             .AddTrait(S_Trait.regeneration)//回复
             .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
+            .AddSubspeciesTrait(S_SubspeciesTrait.photosynthetic_skin)//photosynthetic_skin
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_vegetative)//生长性 reproduce_vegetative
+            .AddSubspeciesTrait(S_SubspeciesTrait.accelerated_healing)//回复
             .Stats(S.damage, 30)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 7)//速度
@@ -246,6 +266,9 @@ public partial class Actors
             .AddTrait(S_Trait.sunblessed)//阳光祝福
             .AddTrait(S_Trait.regeneration)//回复
             .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
+            .AddSubspeciesTrait(S_SubspeciesTrait.photosynthetic_skin)//photosynthetic_skin
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_vegetative)//生长性 reproduce_vegetative
+            .AddSubspeciesTrait(S_SubspeciesTrait.accelerated_healing)//回复
             .Stats(S.damage, 32)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 5)//速度
@@ -263,6 +286,9 @@ public partial class Actors
             .AddTrait(S_Trait.sunblessed)//阳光祝福
             .AddTrait(S_Trait.regeneration)//回复
             .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
+            .AddSubspeciesTrait(S_SubspeciesTrait.photosynthetic_skin)//photosynthetic_skin
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_vegetative)//生长性 reproduce_vegetative
+            .AddSubspeciesTrait(S_SubspeciesTrait.accelerated_healing)//回复
             .Stats(S.damage, 22)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 9)//速度
@@ -282,6 +308,9 @@ public partial class Actors
             .AddTrait(S_Trait.poisonous)//剧毒
             .AddTrait(S_Trait.poison_immune)//剧毒免疫
             .AddTrait(S_Trait.regeneration)//回复
+            .AddSubspeciesTrait(S_SubspeciesTrait.photosynthetic_skin)//photosynthetic_skin
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_vegetative)//生长性 reproduce_vegetative
+            .AddSubspeciesTrait(S_SubspeciesTrait.accelerated_healing)//回复
             .Stats(S.damage, 38)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 8)//速度
@@ -304,6 +333,9 @@ public partial class Actors
             .AddTrait(S_Trait.fire_proof)//火抗
             .AddTrait(S_Trait.light_lamp)//光 lamp
             .AddTrait(S_Trait.regeneration)//回复
+            .AddSubspeciesTrait(S_SubspeciesTrait.photosynthetic_skin)//photosynthetic_skin
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_vegetative)//生长性 reproduce_vegetative
+            .AddSubspeciesTrait(S_SubspeciesTrait.accelerated_healing)//回复
             .Stats(S.damage, 45)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 10)//速度
@@ -1408,6 +1440,30 @@ public partial class Actors
             .Stats(S.armor, 0)//防御
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 25);//寿命
+        Sparrow.SetCamp(KingdomAssets.Herbivore)//麻雀
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimIdleRaw("walk_0_0,walk_0_1")
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/Sparrow/main/walk_0_0")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.tiny)//小
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_sexual)//性别 reproduction_sexual
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_strategy_oviparity)//Strategy_oviparity
+            .AddSubspeciesTrait(S_SubspeciesTrait.nocturnal_dormancy)//暗睡
+            .AddSubspeciesTrait(S_SubspeciesTrait.polyphasic_sleep)//暗睡
+            .AddSubspeciesTrait(S_SubspeciesTrait.high_fecundity)// fecundity
+            .AddSubspeciesTrait(S_Egg.egg_shell_spotted)//蛋壳
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_carnivore)//食肉
+            .Stats(S.damage, 4)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 20)//速度
+            .Stats(S.health, 80)//血量
+            .Stats(S.armor, 0)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 15);//寿命
         Lion.SetCamp(KingdomAssets.Carnivorous)//狮子
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
@@ -1422,7 +1478,7 @@ public partial class Actors
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 40);//寿命
         Tiger.SetCamp(KingdomAssets.Carnivorous)//老虎
-            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7, S_Anim.walk_8)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("cultiway/icons/races/iconTiger")
             .SetJumpAnimation(false)
@@ -1710,7 +1766,7 @@ public partial class Actors
             .Stats(S.damage, 50)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 6)//速度
-            .Stats(S.attack_speed, 2)//攻击速度
+            .Stats(S.attack_speed, 3)//攻击速度
             .Stats(S.health, 320)//血量
             .Stats(S.armor, 10)//防御
             .Stats(S.stamina, 120)//耐力
@@ -1776,11 +1832,148 @@ public partial class Actors
             .Stats(S.damage, 55)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 12)//速度
-            .Stats(S.attack_speed, 3)//攻击速度
+            .Stats(S.attack_speed, 4)//攻击速度
             .Stats(S.health, 200)//血量
             .Stats(S.armor, 1)//防御
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 66);//寿命
+        SlaaneshFiend.SetCamp(KingdomAssets.Slaanesh)//色孽兽
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/SlaaneshFiend/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.axe_adamantine)
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.fast)//敏捷
+            .AddTrait(S_Trait.fertile)//生长
+            .AddTrait(S_Trait.thorns)//荆棘
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.attractive)//吸引
+            .AddTrait(S_Trait.lustful)// lustful
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.thief)//偷窃
+            .AddTrait(S_Trait.venomous)//剧毒
+            .AddTrait(S_Trait.poisonous)//剧毒
+            .AddTrait(S_Trait.poison_immune)//毒抗
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 45)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 18)//速度
+            .Stats(S.health, 240)//血量
+            .Stats(S.armor, 6)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 66);//寿命
+        KeeperSecrets.SetCamp(KingdomAssets.Slaanesh)//守密者
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/KeeperSecrets/main/walk_0")
+            .SetJumpAnimation(true)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.sword_adamantine)//剑
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.wise)//智慧
+            .AddTrait(S_Trait.giant)//大人
+            .AddTrait(S_Trait.heart_of_wizard)//魔力心
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.fertile)//生长
+            .AddTrait(S_Trait.thorns)//荆棘
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.attractive)//吸引
+            .AddTrait(S_Trait.lustful)// lustful
+            .AddTrait(S_Trait.thief)//偷窃
+            .AddTrait(S_Trait.venomous)//剧毒
+            .AddTrait(S_Trait.poisonous)//剧毒
+            .AddTrait(S_Trait.poison_immune)//毒抗
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 75)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 6)//速度
+            .Stats(S.attack_speed, 4)//攻击速度
+            .Stats(S.health, 6000)//血量
+            .Stats(S.armor, 15)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 666);//寿命
+        KeeperSecretsNakari.SetCamp(KingdomAssets.Slaanesh)//守密者纳卡里
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/KeeperSecretsNakari/main/walk_0")
+            .SetJumpAnimation(true)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.sword_adamantine)//剑
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.wise)//智慧
+            .AddTrait(S_Trait.giant)//大人
+            .AddTrait(S_Trait.heart_of_wizard)//魔力心
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.fertile)//生长
+            .AddTrait(S_Trait.thorns)//荆棘
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.attractive)//吸引
+            .AddTrait(S_Trait.lustful)// lustful
+            .AddTrait(S_Trait.thief)//偷窃
+            .AddTrait(S_Trait.venomous)//剧毒
+            .AddTrait(S_Trait.poisonous)//剧毒
+            .AddTrait(S_Trait.poison_immune)//毒抗
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 80)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 6)//速度
+            .Stats(S.attack_speed, 4)//攻击速度
+            .Stats(S.health, 7000)//血量
+            .Stats(S.armor, 16)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 666);//寿命
+        ExaltedKeeperSecrets.SetCamp(KingdomAssets.Slaanesh)//神尊守密者
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/ExaltedKeeperSecrets/main/walk_0")
+            .SetJumpAnimation(true)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.sword_adamantine)//剑
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.wise)//智慧
+            .AddTrait(S_Trait.giant)//大人
+            .AddTrait(S_Trait.heart_of_wizard)//魔力心
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.fertile)//生长
+            .AddTrait(S_Trait.thorns)//荆棘
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.attractive)//吸引
+            .AddTrait(S_Trait.lustful)// lustful
+            .AddTrait(S_Trait.thief)//偷窃
+            .AddTrait(S_Trait.venomous)//剧毒
+            .AddTrait(S_Trait.poisonous)//剧毒
+            .AddTrait(S_Trait.poison_immune)//毒抗
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
+            .Stats(S.damage, 90)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 6)//速度
+            .Stats(S.attack_speed, 4)//攻击速度
+            .Stats(S.health, 8500)//血量
+            .Stats(S.armor, 18)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 666);//寿命
             
             
             
