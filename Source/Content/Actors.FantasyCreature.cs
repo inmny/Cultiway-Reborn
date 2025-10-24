@@ -155,7 +155,9 @@ public partial class Actors
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset Rooster { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
-    public static ActorAsset Sparrow { get; private set; }
+    public static ActorAsset Eagle { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Mallard { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset Lion { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
@@ -1440,15 +1442,13 @@ public partial class Actors
             .Stats(S.armor, 0)//防御
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 25);//寿命
-        Sparrow.SetCamp(KingdomAssets.Herbivore)//麻雀
+        Mallard.SetCamp(KingdomAssets.Herbivore)//绿头鸭
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
-            .SetAnimIdleRaw("walk_0_0,walk_0_1")
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
-            .SetIcon("actors/species/other/Cultiway/Sparrow/main/walk_0_0")
+            .SetIcon("actors/species/other/Cultiway/Mallard/main/walk_0")
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.agile)//敏捷
-            .AddTrait(S_Trait.tiny)//小
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_sexual)//性别 reproduction_sexual
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_strategy_oviparity)//Strategy_oviparity
@@ -1457,13 +1457,13 @@ public partial class Actors
             .AddSubspeciesTrait(S_SubspeciesTrait.high_fecundity)// fecundity
             .AddSubspeciesTrait(S_Egg.egg_shell_spotted)//蛋壳
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_carnivore)//食肉
-            .Stats(S.damage, 4)//伤害
+            .Stats(S.damage, 6)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
-            .Stats(S.speed, 20)//速度
+            .Stats(S.speed, 10)//速度
             .Stats(S.health, 80)//血量
             .Stats(S.armor, 0)//防御
             .Stats(S.stamina, 120)//耐力
-            .Stats(S.lifespan, 15);//寿命
+            .Stats(S.lifespan, 25);//寿命
         Lion.SetCamp(KingdomAssets.Carnivorous)//狮子
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
@@ -1477,6 +1477,29 @@ public partial class Actors
             .Stats(S.armor, 5)//防御
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 40);//寿命
+            Eagle.SetCamp(KingdomAssets.Carnivorous)//雕
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            //.SetAnimIdleRaw("walk_0_0,walk_0_1,walk_0_2,walk_0_3")
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/Eagle/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_sexual)//性别 reproduction_sexual
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_strategy_oviparity)//Strategy_oviparity
+            .AddSubspeciesTrait(S_SubspeciesTrait.nocturnal_dormancy)//暗睡
+            .AddSubspeciesTrait(S_SubspeciesTrait.polyphasic_sleep)//暗睡
+            .AddSubspeciesTrait(S_SubspeciesTrait.high_fecundity)// fecundity
+            .AddSubspeciesTrait(S_Egg.egg_shell_spotted)//蛋壳
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_carnivore)//食肉
+            .Stats(S.damage, 8)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 20)//速度
+            .Stats(S.health, 80)//血量
+            .Stats(S.armor, 0)//防御
+            .Stats(S.stamina, 120)//耐力
+            .Stats(S.lifespan, 30);//寿命
         Tiger.SetCamp(KingdomAssets.Carnivorous)//老虎
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7, S_Anim.walk_8)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
