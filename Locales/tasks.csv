@@ -12,3 +12,4 @@ Task.Unit.Cultiway.BuildSect,建立宗门
 Task.Unit.Cultiway.WriteCultibook,誊抄功法
 Task.Unit.Cultiway.WriteElixirbook,誊抄丹方
 Task.Unit.Cultiway.WriteSkillbook,誊抄术法
+Task.Unit.Cultiway.CallSourceSpawner,召唤仪式

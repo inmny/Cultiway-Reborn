@@ -39,3 +39,7 @@ Cultiway.LightningPolo,雷丸
 Cultiway.SetTrajectory,调整轨迹
 Cultiway.SalvoCount,连射数量
 Cultiway.BurstCount,齐射数量
+Cultiway.TowardsPosition,朝向指定坐标
+Cultiway.TowardsTarget,朝向指定目标
+Cultiway.TowardsDirection,朝向指定方向
+Cultiway.TowardsDirectionNoRot,朝向指定方向

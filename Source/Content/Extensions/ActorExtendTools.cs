@@ -52,7 +52,7 @@ public static class ActorExtendTools
 
             if (ModClass.I.SkillV3.ModifierLib.GetRandom()?.OnAddOrUpgrade?.Invoke(builder) ?? false)
             {
-                ModClass.LogInfo($"[{ae}] enhanced {skill_container_entity.Id}({skill_container_entity.GetComponent<SkillContainer>().Asset})");
+                //ModClass.LogInfo($"[{ae}] enhanced {skill_container_entity.Id}({skill_container_entity.GetComponent<SkillContainer>().Asset})");
                 builder.Build();
             }
         }

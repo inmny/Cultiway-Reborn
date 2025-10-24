@@ -25,4 +25,12 @@ public static class MathUtils
     {
         return Mathf.Exp(-(x - mean) * (x - mean) / (2 * std * std)) / (std * Mathf.Sqrt(2 * Mathf.PI));
     }
+
+    public static Vector2Int NextGrid(Vector2 pos, Vector2 dir)
+    {
+        return new Vector2Int(
+            Mathf.RoundToInt(pos.x + dir.x),
+            Mathf.RoundToInt(pos.y + dir.y)
+        );
+    }
 }
