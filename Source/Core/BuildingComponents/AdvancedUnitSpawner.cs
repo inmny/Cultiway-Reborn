@@ -1,6 +1,7 @@
 using System;
 using System.Text;
 using Cultiway.Const;
+using Cultiway.Utils.Extension;
 
 namespace Cultiway.Core.BuildingComponents;
 
@@ -84,6 +85,8 @@ public class AdvancedUnitSpawner : BaseBuildingComponent
         building.data.get(BuildingDataKeys.AdvancedSpawnerCentralizedAliveList_str, out string list, string.Empty);
         list += unit.data.id.ToString() + ',';
         building.data.set(BuildingDataKeys.AdvancedSpawnerCentralizedAliveList_str, list);
+        unit.SetSourceSpawnerId(building.id);
+        unit.SetSourceSpawnerAssetId(building.asset.id);
     }
     private void DistributedSpawnUnit(int idx, string id)
     {
@@ -92,6 +95,8 @@ public class AdvancedUnitSpawner : BaseBuildingComponent
         building.data.get(key, out string list, string.Empty);
         list += unit.data.id.ToString() + ',';
         building.data.set(key, list);
+        unit.SetSourceSpawnerId(building.id);
+        unit.SetSourceSpawnerAssetId(building.asset.id);
     }
     public override void update(float pElapsed)
     {
@@ -152,6 +157,32 @@ public class AdvancedUnitSpawner : BaseBuildingComponent
                 }
                 break;
             }
+        }
+    }
+
+    public void InsertUnit(Actor unit)
+    {
+        switch (_config.strategy)
+        {
+            case AdvancedUnitSpawnerConfig.SpawnStrategy.Centralized:
+                building.data.get(BuildingDataKeys.AdvancedSpawnerCentralizedAliveList_str, out string list_centralized, string.Empty);
+                list_centralized += unit.data.id.ToString() + ',';
+                building.data.set(BuildingDataKeys.AdvancedSpawnerCentralizedAliveList_str, list_centralized);
+                break;
+            case AdvancedUnitSpawnerConfig.SpawnStrategy.Distributed:
+                var spawn_config = (AdvancedUnitSpawnerConfig.DistributedConfig)_config.spawn_config;
+                for (int i = 0; i < spawn_config.single_configs.Count; i++)
+                {
+                    if (spawn_config.single_configs[i].unit_asset_id == unit.data.asset_id)
+                    {
+                        var key = BuildingDataKeys.AdvancedSpawnerDistributedAliveListPrefix_str + i;
+                        building.data.get(key, out string list, string.Empty);
+                        list += unit.data.id.ToString() + ',';
+                        building.data.set(key, list);
+                        break;
+                    }
+                }
+                break;
         }
     }
 }

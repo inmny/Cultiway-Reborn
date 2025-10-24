@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
+using HarmonyLib;
 
 namespace Cultiway.Content.Extensions;
 
@@ -12,6 +13,24 @@ public static class ActorAssetTools
     public static ActorAsset SetCamp(this ActorAsset asset, KingdomAsset kingdom)
     {
         asset.kingdom_id_wild = kingdom.id;
+        return asset;
+    }
+    /// <summary>
+    /// 设置ai
+    /// </summary>
+    public static ActorAsset AddJob(this ActorAsset asset, ActorJob job)
+    {
+        asset.job ??= [];
+        asset.job = asset.job.AddToArray(job.id);
+        return asset;
+    }
+    /// <summary>
+    /// 设置ai
+    /// </summary>
+    public static ActorAsset AddJob(this ActorAsset asset, string job_id)
+    {
+        asset.job ??= [];
+        asset.job = asset.job.AddToArray(job_id);
         return asset;
     }
     /// <summary>

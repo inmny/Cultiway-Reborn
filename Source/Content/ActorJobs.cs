@@ -1,4 +1,5 @@
 using Cultiway.Abstract;
+using Cultiway.Content.Behaviours;
 using Cultiway.Content.Behaviours.Conditions;
 
 namespace Cultiway.Content;
@@ -15,6 +16,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob CultibookResearcher { get; private set; }
     public static ActorJob SectBuilder { get; private set; }
     public static ActorJob BookWriter { get; private set; }
+    public static ActorJob SpawnedUnit { get; private set; }
     [GetOnly("attacker")]
     public static ActorJob Attacker { get; private set; }
     [GetOnly("random_move")]
@@ -87,5 +89,10 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         Attacker.addCondition(new CondProb(0.4f));
         Attacker.addTask(ActorTasks.LevelupXianCultivate.id);
         Attacker.addCondition(new CondXianReadyLevelup());
+        
+        SpawnedUnit.addTask(ActorTasks.RandomMove.id);
+        SpawnedUnit.addTask(ActorTasks.CallSourceSpawner.id);
+        SpawnedUnit.addCondition(new CondHasAliveSourceSpawner(), false);
+        SpawnedUnit.addTask(ActorTasks.EndJob.id);
     }
 }
