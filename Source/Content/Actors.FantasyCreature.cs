@@ -126,8 +126,8 @@ public partial class Actors
     public static ActorAsset YueTu { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset ZhuQue { get; private set; }
-    //[SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
-    //public static ActorAsset WyvernKnight { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset FireWyvern { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset VampireHunter { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
@@ -382,6 +382,7 @@ public partial class Actors
             .AddTrait(S_Trait.weightless)//无重
             .AddTrait(S_SubspeciesTrait.hovering)//悬浮
             .AddTrait(S_Trait.heliophobia)// 恐光
+            .AddJob(ActorJobs.SpawnedUnit)//召唤单位
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_hematophagy)//hematophagy
             .AddSubspeciesTrait(S_SubspeciesTrait.gift_of_blood)//吸血
@@ -431,6 +432,7 @@ public partial class Actors
             .AddTrait(S_Trait.death_nuke)//毁灭核
             .AddTrait(S_Trait.bubble_defense)//泡泡防御
             .AddTrait(S_Trait.light_lamp)
+            .AddJob(ActorJobs.SpawnedUnit)//召唤单位
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_lithotroph)//吸光
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_fission)//分离
@@ -496,6 +498,7 @@ public partial class Actors
             .AddTrait(S_Trait.deceitful)//欺诈
             .AddTrait(S_Trait.savage)//野蛮
             .AddTrait(S_Trait.greedy)//贪婪
+            .AddJob(ActorJobs.SpawnedUnit)//召唤单位
             .AddSubspeciesTrait(S_SubspeciesTrait.fins)//鳍
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_piscivore)//eat_piscivore
@@ -556,6 +559,7 @@ public partial class Actors
             .AddTrait(S_Trait.flower_prints)//花印
             .AddTrait(S_Trait.sunblessed)//阳光祝福
             .AddTrait(S_Trait.light_lamp)//光 lamp
+            .AddJob(ActorJobs.SpawnedUnit)//召唤单位
             .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
             .AddSubspeciesTrait(S_SubspeciesTrait.bioluminescence)//亮光
             .AddSubspeciesTrait(S_SubspeciesTrait.pollinating)//flower_pollination
@@ -682,6 +686,7 @@ public partial class Actors
             .AddTrait(S_Trait.heart_of_wizard)//魔力心
             .AddTrait(S_Trait.greedy)//贪婪
             .AddTrait(S_Trait.savage)//野蛮
+            .AddJob(ActorJobs.SpawnedUnit)//召唤单位
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
             .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
@@ -766,6 +771,7 @@ public partial class Actors
             .AddTrait(S_Trait.arcane_reflexes)//魔力反射
             .AddTrait(S_Trait.wise)//智慧
             .AddTrait(S_Trait.heart_of_wizard)//魔力心
+            .AddJob(ActorJobs.SpawnedUnit)//召唤单位
             .AddSubspeciesTrait(S_SubspeciesTrait.gift_of_death)//死亡ift
             .Stats(S.damage, 28)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
@@ -1005,6 +1011,7 @@ public partial class Actors
             .AddTrait(S_Trait.arcane_reflexes)//魔力反射
             .AddTrait(S_Trait.wise)//智慧
             .AddTrait(S_Trait.heart_of_wizard)//魔力心
+            .AddJob(ActorJobs.SpawnedUnit)//召唤单位
             .AddSubspeciesTrait(S_SubspeciesTrait.gift_of_harmony)//谐心
             .SetDefaultWeapons(S_Item.white_staff)//白杖
             .Stats(S.damage, 45)//伤害
@@ -1027,22 +1034,27 @@ public partial class Actors
             .Stats(S.armor, 18)//防御
             .Stats(S.stamina, 100)//耐力
             .Stats(S.lifespan, 90);//寿命
-        //WyvernKnight.SetCamp(KingdomAssets.Superman)//飞龙骑士
-            //.SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
-            //.SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
-            //.SetIcon("actors/species/other/Cultiway/WyvernKnight/main/walk_0")
-            //.SetJumpAnimation(true)
-           // .SetStandWhileSleeping(true)
-            //.AddTrait(S_Trait.fire_proof)//火抗
-            //.AddTrait(S_SubspeciesTrait.hovering)//悬浮
-           // .SetDefaultWeapons(S_Item.evil_staff)//法杖
-           // .Stats(S.damage, 48)//伤害
-           //.Stats(S.damage_range, 0.12f)//伤害范围
-           // .Stats(S.speed, 26)//速度
-           // .Stats(S.health, 330)//血量
-            //.Stats(S.armor, 10)//防御
-           // .Stats(S.stamina, 220)//耐力
-            //.Stats(S.lifespan, 85);//寿命
+        FireWyvern.SetCamp(KingdomAssets.Superman)//烈焰飞龙
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("cultiway/icons/races/iconFire_Wyvern")
+            .SetJumpAnimation(true)
+            .SetStandWhileSleeping(true)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.evil_staff)//法术法杖
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.burning_feet)//着火脚
+            .AddTrait(S_Trait.light_lamp)
+            .AddTrait(S_Trait.fire_blood)
+            .AddTrait(S_Trait.fire_proof)
+            .Stats(S.damage, 28)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 14)//速度
+            .Stats(S.health, 3300)//血量
+            .Stats(S.scale, 0.25f)//大小
+            .Stats(S.armor, 20)//防御
+            .Stats(S.stamina, 1220)//耐力
+            .Stats(S.lifespan, 285);//寿命
         VampireHunter.SetCamp(KingdomAssets.Superman)//猎魔人
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
@@ -1719,6 +1731,7 @@ public partial class Actors
             .AddTrait(S_Trait.acid_blood)//酸血
             .AddTrait(S_Trait.acid_proof)//酸性
             .AddTrait(S_Trait.acid_touch)//酸性
+            .AddJob(ActorJobs.SpawnedUnit)//召唤单位
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
@@ -1986,6 +1999,7 @@ public partial class Actors
             .AddTrait(S_Trait.poisonous)//剧毒
             .AddTrait(S_Trait.poison_immune)//毒抗
             .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddJob(ActorJobs.SpawnedUnit)//召唤单位
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
