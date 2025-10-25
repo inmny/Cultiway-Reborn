@@ -42,6 +42,30 @@ public static class ActorAssetTools
         return asset;
     }
     /// <summary>
+    /// 设置移动动画速度，默认值为10
+    /// </summary>
+    public static ActorAsset SetAnimWalkSpeed(this ActorAsset asset, float speed)
+    {
+        asset.animation_walk_speed = speed;
+        return asset;
+    }
+    /// <summary>
+    /// 设置游动动画速度，默认值为10
+    /// </summary>
+    public static ActorAsset SetAnimSwimSpeed(this ActorAsset asset, float speed)
+    {
+        asset.animation_swim_speed = speed;
+        return asset;
+    }
+    /// <summary>
+    /// 设置待机动画速度，默认值为10
+    /// </summary>
+    public static ActorAsset SetAnimIdleSpeed(this ActorAsset asset, float speed)
+    {
+        asset.animation_idle_speed = speed;
+        return asset;
+    }
+    /// <summary>
     /// 设置是否站着睡觉
     /// </summary>
     public static ActorAsset SetStandWhileSleeping(this ActorAsset asset, bool value)
