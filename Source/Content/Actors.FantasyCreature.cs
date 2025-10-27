@@ -194,6 +194,12 @@ public partial class Actors
     public static ActorAsset KeeperSecretsNakari { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset ExaltedKeeperSecrets { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset  CravingManifestation { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset CrimsonScion { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset CrimsonArbiter { get; private set; }
     
     private void SetupFantasyCreatures()
     {
@@ -889,6 +895,9 @@ public partial class Actors
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("cultiway/icons/races/iconTyrannosaurus_Rex")
             .SetJumpAnimation(true)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
             .Stats(S.damage, 65)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 16)//速度
@@ -900,9 +909,12 @@ public partial class Actors
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("cultiway/icons/races/iconPterodactyl")
             .SetJumpAnimation(true)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
             .Stats(S.damage, 25)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
-            .Stats(S.speed, 8)//速度
+            .Stats(S.speed, 26)//速度
             .Stats(S.health, 160)//血量
             .Stats(S.armor, 1)//防御
             .Stats(S.lifespan, 70);//寿命
@@ -911,6 +923,9 @@ public partial class Actors
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("cultiway/icons/races/iconVelociraptor")
             .SetJumpAnimation(false)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
             .Stats(S.damage, 30)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 30)//速度
@@ -1042,6 +1057,9 @@ public partial class Actors
             .SetStandWhileSleeping(true)
             .SetHideHandItem(true)
             .SetDefaultWeapons(S_Item.evil_staff)//法术法杖
+            .SetAnimWalkSpeed(1f)//移动速度
+            .SetAnimIdleSpeed(1.5f)//待机速度
+            .SetAnimSwimSpeed(1.5f)//游动速度
             .AddTrait(S_Trait.regeneration)//回复
             .AddTrait(S_Trait.burning_feet)//着火脚
             .AddTrait(S_Trait.light_lamp)
@@ -1049,7 +1067,8 @@ public partial class Actors
             .AddTrait(S_Trait.fire_proof)
             .Stats(S.damage, 28)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
-            .Stats(S.speed, 14)//速度
+            .Stats(S.speed, 28)//速度
+            .Stats(S.lifespan, 120)
             .Stats(S.health, 3300)//血量
             .Stats(S.scale, 0.25f)//大小
             .Stats(S.armor, 20)//防御
@@ -1095,6 +1114,9 @@ public partial class Actors
             .SetIcon("cultiway/icons/races/iconFeng_Huang")
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(false)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
             .AddTrait(S_Trait.shiny)//闪亮
             .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.regeneration)//回复
@@ -1129,6 +1151,9 @@ public partial class Actors
             .SetIcon("cultiway/icons/races/iconQing_Long")
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(true)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
             .AddTrait(S_Trait.shiny)//闪亮
             .AddTrait(S_Trait.light_lamp)
             .AddTrait(S_Trait.regeneration)//回复
@@ -1257,6 +1282,9 @@ public partial class Actors
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(true)
             .SetHideHandItem(true)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
             .SetDefaultWeapons(S_Item.evil_staff)//法术法杖
             .AddTrait(S_Trait.shiny)//闪亮
             .AddTrait(S_Trait.regeneration)//回复
@@ -1344,6 +1372,9 @@ public partial class Actors
             .SetIcon("cultiway/icons/races/iconGiant_Octopus")
             .SetJumpAnimation(false)
             .SetStandWhileSleeping(true)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
             .AddSubspeciesTrait(S_SubspeciesTrait.fins)//鳍
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_piscivore)//eat_piscivore
@@ -1813,6 +1844,9 @@ public partial class Actors
             .SetIcon("actors/species/other/Cultiway/SlaaneshSeeker/main/walk_0")
             .SetJumpAnimation(true)
             .SetHideHandItem(true)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
             .SetDefaultWeapons(S_Item.spear_adamantine)
             .AddTrait(S_Trait.regeneration)//回复
             .AddTrait(S_Trait.agile)//敏捷
@@ -1879,6 +1913,9 @@ public partial class Actors
             .SetIcon("actors/species/other/Cultiway/SlaaneshFiend/main/walk_0")
             .SetJumpAnimation(false)
             .SetHideHandItem(true)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
             .SetDefaultWeapons(S_Item.axe_adamantine)
             .AddTrait(S_Trait.regeneration)//回复
             .AddTrait(S_Trait.agile)//敏捷
@@ -1911,6 +1948,9 @@ public partial class Actors
             .SetIcon("actors/species/other/Cultiway/KeeperSecrets/main/walk_0")
             .SetJumpAnimation(true)
             .SetHideHandItem(true)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
             .SetDefaultWeapons(S_Item.sword_adamantine)//剑
             .AddTrait(S_Trait.battle_reflexes)//战斗反射
             .AddTrait(S_Trait.wise)//智慧
@@ -2011,6 +2051,62 @@ public partial class Actors
             .Stats(S.armor, 18)//防御
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 666);//寿命
+        CravingManifestation.SetCamp(KingdomAssets.Crimson)//  渴求具象体
+               .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+               .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+               .SetIcon("actors/species/other/Cultiway/CravingManifestation/main/walk_0")
+               .SetJumpAnimation(true)
+               .AddTrait(S_Trait.bloodlust)//嗜血
+               .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+               .AddSubspeciesTrait(S_SubspeciesTrait.diet_hematophagy)//hematophagy
+               .AddSubspeciesTrait(S_SubspeciesTrait.gift_of_blood)//吸血
+               .AddSubspeciesTrait(S_SubspeciesTrait.circadian_drift)//循环
+               .AddSubspeciesTrait(S_SubspeciesTrait.energy_preserver)//保护
+               .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_metamorph)//蜕变
+               .Stats(S.damage, 30)//伤害
+               .Stats(S.damage_range, 0.12f)//伤害范围
+               .Stats(S.speed, 18)//速度
+               .Stats(S.health, 220)//血量
+               .Stats(S.armor, 0)//防御
+               .Stats(S.lifespan, 110);//寿命
+        CrimsonScion.SetCamp(KingdomAssets.Crimson)//  猩红衍生物
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/CrimsonScion/main/walk_0")
+            .SetJumpAnimation(true)
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_hematophagy)//hematophagy
+            .AddSubspeciesTrait(S_SubspeciesTrait.gift_of_blood)//吸血
+            .AddSubspeciesTrait(S_SubspeciesTrait.circadian_drift)//循环
+            .AddSubspeciesTrait(S_SubspeciesTrait.energy_preserver)//保护
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_metamorph)//蜕变
+            .Stats(S.damage, 45)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 12)//速度
+            .Stats(S.health, 400)//血量
+            .Stats(S.armor, 5)//防御
+            .Stats(S.lifespan, 150);//寿命
+        CrimsonArbiter.SetCamp(KingdomAssets.Crimson)//  猩红判罚者
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/CrimsonArbiter/main/walk_0")
+            .SetJumpAnimation(false)
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
+            .AddSubspeciesTrait(S_SubspeciesTrait.diet_hematophagy)//hematophagy
+            .AddSubspeciesTrait(S_SubspeciesTrait.gift_of_blood)//吸血
+            .AddSubspeciesTrait(S_SubspeciesTrait.circadian_drift)//循环
+            .AddSubspeciesTrait(S_SubspeciesTrait.energy_preserver)//保护
+            .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_metamorph)//蜕变
+            .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
+            .AddJob(ActorJobs.SpawnedUnit)//召唤单位
+            .Stats(S.damage, 70)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 14)//速度
+            .Stats(S.health, 6500)//血量
+            .Stats(S.armor, 20)//防御
+            .Stats(S.lifespan, 120);//寿命
             
             
             

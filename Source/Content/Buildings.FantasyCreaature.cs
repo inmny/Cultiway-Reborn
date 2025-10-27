@@ -30,6 +30,8 @@ public partial class Buildings
     [SetupButton, CloneSource(SB.flame_tower)]
     public static BuildingAsset SpriteTower { get; private set; }
     [SetupButton, CloneSource(SB.flame_tower)]
+    public static BuildingAsset CrimsonCore { get; private set; }
+    [SetupButton, CloneSource(SB.flame_tower)]
     public static BuildingAsset NurgleTower { get; private set; }
     [SetupButton, CloneSource(SB.flame_tower)]
     public static BuildingAsset SlaaneshTower { get; private set; }
@@ -96,6 +98,12 @@ public partial class Buildings
         MagicTower.AddAdvancedSpawnerDistributedConfig(Actors.Sorcerer, 1, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.GriffinKnight, 4, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.GuardKnight, 6, 2, 2);
+        CrimsonCore.tower = false;
+        CrimsonCore.spawn_units_asset = null;
+        CrimsonCore.kingdom = KingdomAssets.Crimson.id;
+        CrimsonCore.AddAdvancedSpawnerDistributedConfig(Actors.CrimsonArbiter, 1, 6, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors. CrimsonScion, 6, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors. CravingManifestation, 12, 2, 2);
         NurgleTower.tower = false;
         NurgleTower.spawn_units_asset = null;
         NurgleTower.kingdom = KingdomAssets.Nurgle.id;

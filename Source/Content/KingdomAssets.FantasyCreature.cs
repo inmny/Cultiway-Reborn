@@ -48,6 +48,8 @@ public partial class KingdomAssets
     public static KingdomAsset Nurgle { get; private set; }
     [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
     public static KingdomAsset Slaanesh { get; private set; }
+        [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
+    public static KingdomAsset Crimson { get; private set; }
     private void SetupFantasyCreatureKingdoms()
     {
         Vampire.addTag(nameof(Vampire));             //血族标签
@@ -205,6 +207,12 @@ public partial class KingdomAssets
         Slaanesh.addFriendlyTag(SK.undead);//色孽对亡灵友好
         AllFriendWith(nameof(Slaanesh), SK.undead);//所有文明阵营都会主动攻击色孽，undead（亡灵）
         AllEnemyWith(nameof(Slaanesh), SK.civ); // 所有文明阵营都会主动攻击色孽，civ（公民）
+
+        Crimson.addTag(nameof(Crimson));             //猩红标签
+        Crimson.addFriendlyTag(nameof(Crimson));     //对猩红标签友好
+        Crimson.setIcon("cultiway/icons/races/iconBloodsucker");
+        Crimson.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#770505ff");
+        AllEnemyWith(nameof(Crimson), SK.civ); // 所有文明阵营都会主动攻击猩红，civ（公民）
     }
     
 }
