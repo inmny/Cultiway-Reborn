@@ -2056,6 +2056,7 @@ public partial class Actors
                .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
                .SetIcon("actors/species/other/Cultiway/CravingManifestation/main/walk_0")
                .SetJumpAnimation(true)
+               .SetStandWhileSleeping(true)
                .AddTrait(S_Trait.bloodlust)//嗜血
                .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
                .AddSubspeciesTrait(S_SubspeciesTrait.diet_hematophagy)//hematophagy
@@ -2091,7 +2092,8 @@ public partial class Actors
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/CrimsonArbiter/main/walk_0")
-            .SetJumpAnimation(false)
+            .SetJumpAnimation(true)
+            .SetStandWhileSleeping(true)
             .AddTrait(S_Trait.bloodlust)//嗜血
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_hematophagy)//hematophagy
