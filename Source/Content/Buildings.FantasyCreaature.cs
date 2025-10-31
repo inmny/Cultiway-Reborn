@@ -35,6 +35,8 @@ public partial class Buildings
     public static BuildingAsset NurgleTower { get; private set; }
     [SetupButton, CloneSource(SB.flame_tower)]
     public static BuildingAsset SlaaneshTower { get; private set; }
+    [SetupButton, CloneSource(SB.flame_tower)]
+    public static BuildingAsset VivisomaticArbor { get; private set; }
     private void SetupFantasyBuildings()
     {
         //VampireTower.tower = false;
@@ -96,6 +98,12 @@ public partial class Buildings
         MagicTower.spawn_units_asset = null;
         MagicTower.kingdom = KingdomAssets.Superman.id;
         MagicTower.AddAdvancedSpawnerDistributedConfig(Actors.Sorcerer, 1, 6, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.GriffinKnight, 4, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.GuardKnight, 6, 2, 2);
+        VivisomaticArbor.tower = false;
+        VivisomaticArbor.spawn_units_asset = null;
+        VivisomaticArbor.kingdom = KingdomAssets.Superman.id;
+        VivisomaticArbor.AddAdvancedSpawnerDistributedConfig(Actors.Sorcerer, 1, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.GriffinKnight, 4, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.GuardKnight, 6, 2, 2);
         CrimsonCore.tower = false;
