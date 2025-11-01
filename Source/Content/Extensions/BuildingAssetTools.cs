@@ -23,7 +23,7 @@ public static class BuildingAssetTools
     /// </summary>
     public static BuildingAsset ActionOnDestroyed(this BuildingAsset asset, WorldAction action)
     {
-        asset.GetExtend<BuildingAssetExtend>().action_on_destroyed = action;
+        asset.GetExtend<BuildingAssetExtend>().action_on_destroyed += action;
         return asset;
     }
     /// <summary>
