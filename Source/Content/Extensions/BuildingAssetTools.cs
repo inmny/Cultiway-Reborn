@@ -19,6 +19,14 @@ public static class BuildingAssetTools
         return asset;
     }
     /// <summary>
+    /// 建筑被销毁时执行的动作
+    /// </summary>
+    public static BuildingAsset ActionOnDestroyed(this BuildingAsset asset, WorldAction action)
+    {
+        asset.GetExtend<BuildingAssetExtend>().action_on_destroyed = action;
+        return asset;
+    }
+    /// <summary>
     /// 高级召唤中心化整体配置
     /// </summary>
     /// <param name="interval">召唤间隔</param>
