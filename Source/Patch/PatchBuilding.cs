@@ -40,4 +40,11 @@ internal static class PatchBuilding
             building.addComponent<AdvancedUnitSpawner>().Setup(bae.advanced_unit_spawner_config);
         }
     }
+    [HarmonyPrefix, HarmonyPatch(typeof(Building), nameof(Building.startRemove))]
+    private static void startRemove_prefix(Building __instance)
+    {
+        if (__instance.isOnRemove()) return;
+        __instance.asset.GetExtend<BuildingAssetExtend>().action_on_destroyed
+            ?.Invoke(__instance, __instance.current_tile);
+    }
 }

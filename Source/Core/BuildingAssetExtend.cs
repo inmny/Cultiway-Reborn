@@ -6,6 +6,7 @@ public class BuildingAssetExtend
 {
     public bool advanced_unit_spawner;
     public AdvancedUnitSpawnerConfig advanced_unit_spawner_config;
+    public WorldAction action_on_destroyed;
 }
 
 public class AdvancedUnitSpawnerConfig
