@@ -6,6 +6,7 @@ using Cultiway.Content.Extensions;
 using NeoModLoader.General.Game.extensions;
 using strings;
 using UnityEngine;
+using Cultiway.Utils;
 
 namespace Cultiway.Content;
 
@@ -113,7 +114,8 @@ public partial class Buildings
         GoldenThrone.kingdom = KingdomAssets.Superman.id;
         GoldenThrone.AddAdvancedSpawnerDistributedConfig(Actors.TechPriests, 26, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.Cherub, 13, 4, 1)
-                   .AddAdvancedSpawnerDistributedConfig(Actors.ServoSkull, 39, 2, 2);
+                   .AddAdvancedSpawnerDistributedConfig(Actors.ServoSkull, 39, 2, 2)
+                   .ActionOnDestroyed(WorldActionUtils.GetSpawnUnitAction(Actors.Emperor, 1));
         CrimsonCore.tower = false;
         CrimsonCore.spawn_units_asset = null;
         CrimsonCore.kingdom = KingdomAssets.Crimson.id;

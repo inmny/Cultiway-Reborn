@@ -2172,12 +2172,13 @@ public partial class Actors
             .SetJumpAnimation(false)
             .SetHideHandItem(true)
             .SetDefaultWeapons(S_Item.axe_adamantine)
-            .Stats(S.damage, 80)//伤害
+            .Stats(S.damage, 100)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
-            .Stats(S.speed, 20)//速度
-            .Stats(S.health, 3200)//血量
-            .Stats(S.armor, 12)//防御
+            .Stats(S.speed, 30)//速度
+            .Stats(S.health, 10000)//血量
+            .Stats(S.armor, 50)//防御
             .Stats(S.stamina, 100)//耐力
+            .Stats(S.scale, 0.25f)//大小
             .Stats(S.lifespan, 999);//寿命
             
             
