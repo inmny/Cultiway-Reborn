@@ -19,13 +19,22 @@ public static class BuildingAssetTools
         return asset;
     }
     /// <summary>
-    /// 建筑被销毁时执行的动作
+    /// 建筑被完全移除时执行的动作
     /// </summary>
-    public static BuildingAsset ActionOnDestroyed(this BuildingAsset asset, WorldAction action)
+    public static BuildingAsset ActionOnRemoved(this BuildingAsset asset, WorldAction action)
     {
-        asset.GetExtend<BuildingAssetExtend>().action_on_destroyed += action;
+        asset.GetExtend<BuildingAssetExtend>().action_on_removed += action;
         return asset;
     }
+    /// <summary>
+    /// 建筑变成废墟时执行的动作
+    /// </summary>
+    public static BuildingAsset ActionOnRuins(this BuildingAsset asset, WorldAction action)
+    {
+        asset.GetExtend<BuildingAssetExtend>().action_on_ruins += action;
+        return asset;
+    }
+
     /// <summary>
     /// 高级召唤中心化整体配置
     /// </summary>

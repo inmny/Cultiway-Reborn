@@ -44,7 +44,12 @@ internal static class PatchBuilding
     private static void startRemove_prefix(Building __instance)
     {
         if (__instance.isOnRemove()) return;
-        __instance.asset.GetExtend<BuildingAssetExtend>().action_on_destroyed
+        __instance.asset.GetExtend<BuildingAssetExtend>().action_on_removed
             ?.Invoke(__instance, __instance.current_tile);
+    }
+    [HarmonyPrefix, HarmonyPatch(typeof(Building), nameof(Building.makeRuins))]
+    private static void makeRuins_prefix(Building __instance)
+    {
+        __instance.asset.GetExtend<BuildingAssetExtend>().action_on_ruins?.Invoke(__instance, __instance.current_tile);
     }
 }
