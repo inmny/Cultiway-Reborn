@@ -200,6 +200,14 @@ public partial class Actors
     public static ActorAsset CrimsonScion { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset CrimsonArbiter { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Cherub { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset ServoSkull { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset TechPriests { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Emperor { get; private set; }
     
     private void SetupFantasyCreatures()
     {
@@ -2109,6 +2117,68 @@ public partial class Actors
             .Stats(S.health, 6500)//血量
             .Stats(S.armor, 20)//防御
             .Stats(S.lifespan, 120);//寿命
+        ServoSkull.SetCamp(KingdomAssets.Superman)//伺服颅骨
+            .SetAnimWalk(S_Anim.walk_0, S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/ServoSkull/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetHideHandItem(true)
+            .AddTrait(S_SubspeciesTrait.hovering)//悬浮
+            .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
+            .SetDefaultWeapons(S_Item.spear_adamantine)//武器
+            .Stats(S.damage, 10)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 22)//速度
+            .Stats(S.health, 60)//血量
+            .Stats(S.armor, 0)//防御
+            .Stats(S.stamina, 100)//耐力
+            .Stats(S.lifespan, 999);//寿命
+        Cherub.SetCamp(KingdomAssets.Superman)//智天使
+            .SetAnimWalk(S_Anim.walk_0, S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/Cherub/main/walk_5")
+            .SetJumpAnimation(false)
+            .SetHideHandItem(true)
+            .AddTrait(S_SubspeciesTrait.hovering)//悬浮
+            .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
+            .SetDefaultWeapons(S_Item.bow_bronze)//弓
+            .SetAnimWalkSpeed(1f)//移动速度
+            .SetAnimIdleSpeed(1.5f)//待机速度
+            .SetAnimSwimSpeed(1.5f)//游动速度
+            .Stats(S.damage, 52)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 18)//速度
+            .Stats(S.health, 280)//血量
+            .Stats(S.armor, 8)//防御
+            .Stats(S.stamina, 100)//耐力
+            .Stats(S.lifespan, 999);//寿命
+        TechPriests.SetCamp(KingdomAssets.Superman)//技术神甫
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/TechPriests/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.plague_doctor_staff)
+            .Stats(S.damage, 35)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 10)//速度
+            .Stats(S.health, 320)//血量
+            .Stats(S.armor, 12)//防御
+            .Stats(S.stamina, 100)//耐力
+            .Stats(S.lifespan, 300);//寿命
+        Emperor.SetCamp(KingdomAssets.Superman)//泰拉帝皇化身
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/Emperor/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.axe_adamantine)
+            .Stats(S.damage, 80)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 20)//速度
+            .Stats(S.health, 3200)//血量
+            .Stats(S.armor, 12)//防御
+            .Stats(S.stamina, 100)//耐力
+            .Stats(S.lifespan, 999);//寿命
             
             
             

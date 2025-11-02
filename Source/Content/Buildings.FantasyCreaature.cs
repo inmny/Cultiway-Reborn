@@ -38,6 +38,8 @@ public partial class Buildings
     public static BuildingAsset SlaaneshTower { get; private set; }
     [SetupButton, CloneSource(SB.flame_tower)]
     public static BuildingAsset VivisomaticArbor { get; private set; }
+    [SetupButton, CloneSource(SB.flame_tower)]
+    public static BuildingAsset GoldenThrone { get; private set; }
     private void SetupFantasyBuildings()
     {
         //VampireTower.tower = false;
@@ -107,6 +109,12 @@ public partial class Buildings
         VivisomaticArbor.AddAdvancedSpawnerDistributedConfig(Actors.Sorcerer, 1, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.GriffinKnight, 4, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.GuardKnight, 6, 2, 2);
+        GoldenThrone.tower = false;
+        GoldenThrone.spawn_units_asset = null;
+        GoldenThrone.kingdom = KingdomAssets.Superman.id;
+        GoldenThrone.AddAdvancedSpawnerDistributedConfig(Actors.TechPriests, 26, 6, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.Cherub, 13, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.ServoSkull, 39, 2, 2);
         CrimsonCore.tower = false;
         CrimsonCore.spawn_units_asset = null;
         CrimsonCore.kingdom = KingdomAssets.Crimson.id;
