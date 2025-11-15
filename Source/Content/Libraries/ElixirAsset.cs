@@ -66,6 +66,26 @@ public struct ElixirIngredientCheck
 
         return true;
     }
+
+    public string GetName()
+    {
+        if (NeedElementRoot())
+        {
+            return element_root_id.Localize();
+        }
+
+        if (NeedJindan())
+        {
+            return jindan_id.Localize();
+        }
+
+        if (NeedIngredientName())
+        {
+            return ingredient_name;
+        }
+
+        return null;
+    }
 }
 
 public delegate void ElixirCraftDelegate(ActorExtend ae, Entity elixir_entity, Entity[] ingredients);

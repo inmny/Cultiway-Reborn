@@ -30,6 +30,15 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
 
             return true;
         };
+        SetTrajectory.GetDescription = entity =>
+        {
+            if (entity.HasComponent<Trajectory>())
+            {
+                return $"{SetTrajectory.id.Localize()}: {entity.GetComponent<Trajectory>().Asset.id.Localize()}";
+            }
+
+            return null;
+        };
         SalvoCount = add(new SkillModifierAsset()
         {
             id = "Cultiway."+nameof(SalvoCount)
@@ -52,6 +61,15 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
 
             return true;
         };
+        SalvoCount.GetDescription = entity =>
+        {
+            if (entity.HasComponent<SalvoCount>())
+            {
+                return $"{SalvoCount.id.Localize()}: {entity.GetComponent<SalvoCount>().Value}";
+            }
+
+            return null;
+        };
         BurstCount = add(new SkillModifierAsset()
         {
             id = "Cultiway."+nameof(BurstCount)
@@ -73,6 +91,15 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             }
 
             return true;
+        };
+        BurstCount.GetDescription = entity =>
+        {
+            if (entity.HasComponent<BurstCount>())
+            {
+                return $"{BurstCount.id.Localize()}: {entity.GetComponent<BurstCount>().Value}";
+            }
+
+            return null;
         };
     }
 }

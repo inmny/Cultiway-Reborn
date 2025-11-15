@@ -1,3 +1,4 @@
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
@@ -35,6 +36,12 @@ public class ElixirPage : MonoBehaviour
         {
             var elixir_asset = elixir_master.Item1;
             sb.AppendLine($"丹方: {elixir_asset.GetName()}");
+            sb.AppendLine($"\t{elixir_asset.description_key}");
+            sb.AppendLine($"\t配方:");
+            foreach (var ingredient in elixir_asset.ingredients)
+            {
+                sb.AppendLine($"\t\t{ingredient.GetName()}");
+            }
             sb.AppendLine($"\t掌握程度: {elixir_master.Item2}");
         }
 
