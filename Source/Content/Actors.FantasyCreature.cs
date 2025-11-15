@@ -208,6 +208,12 @@ public partial class Actors
     public static ActorAsset TechPriests { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset Emperor { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Astartes { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset AdeptusCustodes { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset SistersSilence { get; private set; }
     
     private void SetupFantasyCreatures()
     {
@@ -2126,13 +2132,17 @@ public partial class Actors
             .AddTrait(S_SubspeciesTrait.hovering)//悬浮
             .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
             .SetDefaultWeapons(S_Item.spear_adamantine)//武器
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.blessed)//祝福
             .Stats(S.damage, 10)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 22)//速度
             .Stats(S.health, 60)//血量
             .Stats(S.armor, 0)//防御
             .Stats(S.stamina, 100)//耐力
-            .Stats(S.lifespan, 999);//寿命
+            .Stats(S.lifespan, 130);//寿命
         Cherub.SetCamp(KingdomAssets.Superman)//智天使
             .SetAnimWalk(S_Anim.walk_0, S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
@@ -2141,7 +2151,11 @@ public partial class Actors
             .SetHideHandItem(true)
             .AddTrait(S_SubspeciesTrait.hovering)//悬浮
             .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
-            .SetDefaultWeapons(S_Item.bow_bronze)//弓
+            .SetDefaultWeapons(S_Item.bow_adamantine)//弓
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.blessed)//祝福
             .SetAnimWalkSpeed(1f)//移动速度
             .SetAnimIdleSpeed(1.5f)//待机速度
             .SetAnimSwimSpeed(1.5f)//游动速度
@@ -2151,35 +2165,113 @@ public partial class Actors
             .Stats(S.health, 280)//血量
             .Stats(S.armor, 8)//防御
             .Stats(S.stamina, 100)//耐力
-            .Stats(S.lifespan, 999);//寿命
+            .Stats(S.lifespan, 130);//寿命
         TechPriests.SetCamp(KingdomAssets.Superman)//技术神甫
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/TechPriests/main/walk_0")
             .SetJumpAnimation(false)
             .SetDefaultWeapons(S_Item.plague_doctor_staff)
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.blessed)//祝福
             .Stats(S.damage, 35)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 10)//速度
             .Stats(S.health, 320)//血量
             .Stats(S.armor, 12)//防御
             .Stats(S.stamina, 100)//耐力
-            .Stats(S.lifespan, 300);//寿命
+            .Stats(S.lifespan, 130);//寿命
         Emperor.SetCamp(KingdomAssets.Superman)//泰拉帝皇化身
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/Emperor/main/walk_0")
             .SetJumpAnimation(false)
             .SetHideHandItem(true)
-            .SetDefaultWeapons(S_Item.axe_adamantine)
+            .SetDefaultWeapons(S_Item.sword_adamantine)
+            .AddTrait(S_Trait.bubble_defense)//泡泡防御
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.blessed)//祝福
+            .AddTrait(S_Trait.tough)// tougth
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.fast)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.heart_of_wizard)//法术心
+            .AddTrait(S_Trait.wise)//智慧
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.genius)//天才
+            .AddTrait(S_Trait.ambitious)// ambitious
+            .AddTrait(S_Trait.boosted_vitality)//法力回复
+            .AddTrait(S_Trait.death_nuke)//死亡核弹
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.immortal)//不死
             .Stats(S.damage, 100)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 30)//速度
             .Stats(S.health, 10000)//血量
             .Stats(S.armor, 50)//防御
-            .Stats(S.stamina, 100)//耐力
+            .Stats(S.stamina, 1000)//耐力
             .Stats(S.scale, 0.25f)//大小
             .Stats(S.lifespan, 999);//寿命
+        Astartes.SetCamp(KingdomAssets.Superman)//阿斯塔特
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/Astartes/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.alien_blaster)
+            .AddTrait(S_Trait.bubble_defense)//泡泡防御
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.blessed)//祝福
+            .Stats(S.damage, 65)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 16)//速度
+            .Stats(S.health, 450)//血量
+            .Stats(S.armor, 20)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 130);//寿命
+        AdeptusCustodes.SetCamp(KingdomAssets.Superman)//帝皇禁军
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/AdeptusCustodes/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.axe_adamantine)
+            .AddTrait(S_Trait.bubble_defense)//泡泡防御
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.blessed)//祝福
+            .Stats(S.damage, 85)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 18)//速度
+            .Stats(S.health, 700)//血量
+            .Stats(S.armor, 25)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 130);//寿命
+        SistersSilence.SetCamp(KingdomAssets.Superman)//静默修女
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/SistersSilence/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.shotgun)//霰弹枪
+            .AddTrait(S_Trait.bubble_defense)//泡泡防御
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.blessed)//祝福
+            .Stats(S.damage, 58)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 20)//速度
+            .Stats(S.health, 280)//血量
+            .Stats(S.armor, 10)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 130);//寿命
             
             
             

@@ -48,8 +48,14 @@ public partial class KingdomAssets
     public static KingdomAsset Nurgle { get; private set; }
     [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
     public static KingdomAsset Slaanesh { get; private set; }
-        [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
+    [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
+    public static KingdomAsset Khorne { get; private set; }
+    [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
+    public static KingdomAsset Tzeentch { get; private set; }
+    [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
     public static KingdomAsset Crimson { get; private set; }
+    [CloneSource(KingdomLibrary.TEMPLATE_MOB)]
+    public static KingdomAsset Skaven { get; private set; }
     private void SetupFantasyCreatureKingdoms()
     {
         Vampire.addTag(nameof(Vampire));             //血族标签
@@ -207,12 +213,32 @@ public partial class KingdomAssets
         Slaanesh.addFriendlyTag(SK.undead);//色孽对亡灵友好
         AllFriendWith(nameof(Slaanesh), SK.undead);//所有文明阵营都会主动攻击色孽，undead（亡灵）
         AllEnemyWith(nameof(Slaanesh), SK.civ); // 所有文明阵营都会主动攻击色孽，civ（公民）
+                                                        
+        Khorne.addTag(nameof(Khorne));             //恐虐标签
+        Khorne.addFriendlyTag(nameof(Khorne));     //对恐虐标签友好
+        Khorne.setIcon("cultiway/icons/races/iconWerewolf");
+        Khorne.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#c20808ff");
+        AllFriendWith(nameof(Khorne), SK.undead);//所有文明阵营都会主动攻击恐虐，undead（亡灵）
+        AllEnemyWith(nameof(Khorne), SK.civ); // 所有文明阵营都会主动攻击恐虐，civ（公民）
+                                                                
+        Tzeentch.addTag(nameof(Tzeentch));             //奸奇标签
+        Tzeentch.addFriendlyTag(nameof(Tzeentch));     //对奸奇标签友好
+        Tzeentch.setIcon("cultiway/icons/races/iconWerewolf");
+        Tzeentch.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#06a6bfff");
+        AllFriendWith(nameof(Tzeentch), SK.undead);//所有文明阵营都会主动攻击奸奇，undead（亡灵）
+        AllEnemyWith(nameof(Tzeentch), SK.civ); // 所有文明阵营都会主动攻击奸奇，civ（公民）
 
         Crimson.addTag(nameof(Crimson));             //猩红标签
         Crimson.addFriendlyTag(nameof(Crimson));     //对猩红标签友好
         Crimson.setIcon("cultiway/icons/races/iconBloodsucker");
         Crimson.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#770505ff");
         AllEnemyWith(nameof(Crimson), SK.civ); // 所有文明阵营都会主动攻击猩红，civ（公民）
+        
+        Skaven.addTag(nameof(Skaven));             //斯卡文标签
+        Skaven.addFriendlyTag(nameof(Skaven));     //对斯卡文标签友好
+        Skaven.setIcon("cultiway/icons/races/iconBloodsucker");
+        Skaven.default_kingdom_color = ColorAsset.tryMakeNewColorAsset("#0dff00ff");
+        AllEnemyWith(nameof(Skaven), SK.civ); // 所有文明阵营都会主动攻击斯卡文，civ（公民）
     }
     
 }

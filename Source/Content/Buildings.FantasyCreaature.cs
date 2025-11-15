@@ -38,9 +38,15 @@ public partial class Buildings
     [SetupButton, CloneSource(SB.flame_tower)]
     public static BuildingAsset SlaaneshTower { get; private set; }
     [SetupButton, CloneSource(SB.flame_tower)]
+    public static BuildingAsset KhorneTower { get; private set; }
+    [SetupButton, CloneSource(SB.flame_tower)]
+    public static BuildingAsset TzeentchTower { get; private set; }
+    [SetupButton, CloneSource(SB.flame_tower)]
     public static BuildingAsset VivisomaticArbor { get; private set; }
     [SetupButton, CloneSource(SB.flame_tower)]
     public static BuildingAsset GoldenThrone { get; private set; }
+    [SetupButton, CloneSource(SB.flame_tower)]
+    public static BuildingAsset SkavenBlight { get; private set; }
     private void SetupFantasyBuildings()
     {
         //VampireTower.tower = false;
@@ -107,16 +113,24 @@ public partial class Buildings
         VivisomaticArbor.tower = false;
         VivisomaticArbor.spawn_units_asset = null;
         VivisomaticArbor.kingdom = KingdomAssets.Superman.id;
-        VivisomaticArbor.AddAdvancedSpawnerDistributedConfig(Actors.Sorcerer, 1, 6, 1)
-                   .AddAdvancedSpawnerDistributedConfig(Actors.GriffinKnight, 4, 4, 1)
-                   .AddAdvancedSpawnerDistributedConfig(Actors.GuardKnight, 6, 2, 2);
+
         GoldenThrone.tower = false;
         GoldenThrone.spawn_units_asset = null;
         GoldenThrone.kingdom = KingdomAssets.Superman.id;
-        GoldenThrone.AddAdvancedSpawnerDistributedConfig(Actors.TechPriests, 26, 6, 1)
+        GoldenThrone.AddAdvancedSpawnerDistributedConfig(Actors.TechPriests, 13, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.Cherub, 13, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.ServoSkull, 39, 2, 2)
-                   .ActionOnDestroyed(WorldActionUtils.GetSpawnUnitAction(Actors.Emperor, 1));
+                   .AddAdvancedSpawnerDistributedConfig(Actors.Astartes, 26, 2, 2)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.AdeptusCustodes, 26, 2, 2)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.SistersSilence, 26, 2, 2)
+                   //.ActionOnRemoved(WorldActionUtils.GetSpawnUnitAction(Actors.Emperor, 1))// 金王
+                   .ActionOnRuins(WorldActionUtils.GetSpawnUnitAction(Actors.UncleanCreature, 3))
+                   .ActionOnRuins(WorldActionUtils.GetSpawnUnitAction(Actors.NurgleDiseaseCarrier, 3))
+                   .ActionOnRuins(WorldActionUtils.GetSpawnUnitAction(Actors.PlagueBringer, 3))
+                   .ActionOnRuins(WorldActionUtils.GetSpawnUnitAction(Actors.Daemonette, 3))
+                   .ActionOnRuins(WorldActionUtils.GetSpawnUnitAction(Actors.SlaaneshSeeker, 3))
+                   .ActionOnRuins(WorldActionUtils.GetSpawnUnitAction(Actors.SlaaneshMistress, 3))
+                   .ActionOnRuins(WorldActionUtils.GetSpawnUnitAction(Actors.Emperor, 1));
         CrimsonCore.tower = false;
         CrimsonCore.spawn_units_asset = null;
         CrimsonCore.kingdom = KingdomAssets.Crimson.id;
@@ -145,5 +159,9 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.KeeperSecrets, 1, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.KeeperSecretsNakari, 1, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedKeeperSecrets, 1, 4, 1);
+        SkavenBlight.tower = false;
+        SkavenBlight.spawn_units_asset = null;
+        SkavenBlight.kingdom = KingdomAssets.Skaven.id;
+
     }
 }
