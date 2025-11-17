@@ -16,6 +16,14 @@ public static class ActorAssetTools
         return asset;
     }
     /// <summary>
+    /// 添加死后执行的动作
+    /// </summary>
+    public static ActorAsset ActionOnDeath(this ActorAsset asset, WorldAction action)
+    {
+        asset.action_death += action;
+        return asset;
+    }
+    /// <summary>
     /// 设置ai
     /// </summary>
     public static ActorAsset AddJob(this ActorAsset asset, ActorJob job)
