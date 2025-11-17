@@ -19,6 +19,15 @@ public static class BuildingAssetTools
         return asset;
     }
     /// <summary>
+    /// 建筑能否放置在液体上
+    /// </summary>
+    public static BuildingAsset PlaceOnLiquid(this BuildingAsset asset, bool value)
+    {
+        asset.can_be_placed_on_liquid = value;
+        asset.destroy_on_liquid = !value;
+        return asset;
+    }
+    /// <summary>
     /// 建筑被完全移除时执行的动作
     /// </summary>
     public static BuildingAsset ActionOnRemoved(this BuildingAsset asset, WorldAction action)

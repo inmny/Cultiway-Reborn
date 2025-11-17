@@ -40,7 +40,13 @@ public class SkillPage : MonoBehaviour
             {
                 sb.AppendLine(skill_container.Asset.id.Localize());
             }
-            sb.AppendLine("\t" + skill_container_entity);
+
+            foreach (var modifier_asset in ModClass.I.SkillV3.ModifierLib.list)
+            {
+                var description = modifier_asset.GetDescription?.Invoke(skill_container_entity);
+                if (string.IsNullOrEmpty(description)) continue;
+                sb.AppendLine("\t" + description);
+            }
         }
 
         var this_page = page.GetComponent<SkillPage>();
