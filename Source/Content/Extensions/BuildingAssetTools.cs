@@ -23,8 +23,8 @@ public static class BuildingAssetTools
     /// </summary>
     public static BuildingAsset PlaceOnLiquid(this BuildingAsset asset, bool value)
     {
-        asset.can_be_placed_on_liquid = true;
-        asset.destroy_on_liquid = false;
+        asset.can_be_placed_on_liquid = value;
+        asset.destroy_on_liquid = !value;
         return asset;
     }
     /// <summary>
