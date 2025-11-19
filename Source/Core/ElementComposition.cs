@@ -1,5 +1,6 @@
 using System;
 using Cultiway.Const;
+using Cultiway.Utils;
 
 namespace Cultiway.Core;
 
@@ -115,5 +116,11 @@ public struct ElementComposition
                     break;
             }
         }
+    }
+
+    public string HexColor()
+    {
+        Normalize();
+        return Toolbox.colorToHex(ColorUtils.FromElement(iron, wood, water, fire, earth, neg, pos, entropy));
     }
 }

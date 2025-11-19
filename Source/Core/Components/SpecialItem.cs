@@ -8,11 +8,11 @@ public struct SpecialItem : IComponent
 {
     [Ignore]
     public Entity    self;
-    [Ignore]
-    public ItemShape Shape => self.GetComponent<ItemShape>();
 
+    public ItemShape Shape => self.GetComponent<ItemShape>();
+    public ItemIconData IconData => self.GetComponent<ItemIconData>();
     public Sprite GetSprite()
     {
-        return Shape.GetSprite();
+        return ItemIconGenerator.GenerateIcon(Shape, IconData);
     }
 }

@@ -82,6 +82,9 @@
         <Folder Include="GameResources\books\custom_book_covers\cultibook\" />
         <Folder Include="GameResources\buildings\civ_main\ming\" />
         <Folder Include="GameResources\cultiway\icons\debug\" />
+        <Folder Include="GameResources\cultiway\icons\item_shapes\eye\" />
+        <Folder Include="GameResources\cultiway\icons\item_shapes\feather\" />
+        <Folder Include="GameResources\cultiway\icons\item_shapes\others\" />
         <Folder Include="GameResources\cultiway\icons\stats\"/>
         <Folder Include="Source\Core\GeoLib\Components\"/>
     </ItemGroup>

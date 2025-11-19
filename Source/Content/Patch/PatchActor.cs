@@ -117,11 +117,6 @@ internal static class PatchActor
         }
         if (receiver == null) return;
 
-        SpecialItemUtils.Builder item_builder =
-            SpecialItemUtils.StartBuild(ItemShapes.Ball.id, __instance.data.created_time, __instance.getName(),
-                Mathf.Pow(10, Mathf.Min(dead_ae.GetPowerLevel(), 6)));
-
-        item_builder.AddTag<TagIngredient>();
         List<string> param = new();
         var type = "修士";
         if (LM.Has(dead_ae.Base.asset.name_locale))
@@ -129,19 +124,55 @@ internal static class PatchActor
             type = LM.Get(dead_ae.Base.asset.name_locale);
         }
         param.Add(type);
+        ElementRoot? element_root_component = null;
+        ItemIconData? icon_data_component = null;
         if (dead_ae.TryGetComponent(out ElementRoot er))
         {
-            item_builder.AddComponent(er);
+            element_root_component = er;
+
+            var color = ColorUtils.FromElement(er.Iron, er.Wood, er.Water, er.Fire, er.Earth, er.Neg, er.Pos, er.Entropy);
+            icon_data_component = new ItemIconData()
+            {
+                ColorHex1 = Toolbox.colorToHex(color)
+            };
             param.Add(er.Type.GetName());
         }
+        XianBase? xian_base_component = null;
         if (dead_ae.TryGetComponent(out XianBase xian_base))
         {
-            item_builder.AddComponent(xian_base);
+            xian_base_component = xian_base;
         }
+        Jindan? jindan_component = null;
         if (dead_ae.TryGetComponent(out Jindan jindan))
         {
-            item_builder.AddComponent(jindan);
+            jindan_component = jindan;
             param.Add(jindan.Type.GetName());
+        }
+        var shape_key = IngredientShapeGenerator.Instance.GenerateName(param.ToArray());
+        var shape_asset = ModClass.L.ItemShapeLibrary.GetOrDefault(shape_key, ItemShapes.Ball);
+        var shape_name = LM.Has(shape_asset.id) ? LM.Get(shape_asset.id) : shape_asset.id;
+        param.Add(shape_name);
+
+        SpecialItemUtils.Builder item_builder =
+            SpecialItemUtils.StartBuild(shape_asset.id, __instance.data.created_time, __instance.getName(),
+                Mathf.Pow(10, Mathf.Min(dead_ae.GetPowerLevel(), 6)));
+
+        item_builder.AddTag<TagIngredient>();
+        if (element_root_component.HasValue)
+        {
+            item_builder.AddComponent(element_root_component.Value);
+        }
+        if (icon_data_component.HasValue)
+        {
+            item_builder.AddComponent(icon_data_component.Value);
+        }
+        if (xian_base_component.HasValue)
+        {
+            item_builder.AddComponent(xian_base_component.Value);
+        }
+        if (jindan_component.HasValue)
+        {
+            item_builder.AddComponent(jindan_component.Value);
         }
         if (dead_ae.Base.asset == Actors.Plant)
         {
