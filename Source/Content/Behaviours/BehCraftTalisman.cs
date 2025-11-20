@@ -46,6 +46,10 @@ public class BehCraftTalisman : BehaviourActionActor
                 Strength = wakan_to_take,
                 SkillContainer = skill_v3
             })
+            .AddComponent(new ItemIconData()
+            {
+                ColorHex1 = skill_v3.GetComponent<SkillContainer>().Asset.Element.HexColor()
+            })
             .AddComponent(new EntityName(TalismanNameGenerator.Instance.GenerateName([skill_name])))
             .Build();
         item.AddRelation(new SkillMasterRelation()

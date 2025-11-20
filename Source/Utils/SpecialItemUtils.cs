@@ -20,6 +20,9 @@ public static class SpecialItemUtils
             if (year_limit < 1e6)
             {
                 entity = ModClass.I.ActorExtendManager.World.CreateEntity(new SpecialItem(), new ItemShape(shape_id),
+                    new ItemIconData()
+                    {
+                    },
                     new ItemCreation
                     {
                         created_time = creation_time,
@@ -32,6 +35,9 @@ public static class SpecialItemUtils
             else
             {
                 entity = ModClass.I.ActorExtendManager.World.CreateEntity(new SpecialItem(), new ItemShape(shape_id),
+                    new ItemIconData()
+                    {
+                    },
                     new ItemCreation
                     {
                         created_time = creation_time,
@@ -43,6 +49,11 @@ public static class SpecialItemUtils
 
         public Builder AddComponent<T>(T component) where T : struct, IComponent
         {
+            if (entity.HasComponent<T>())
+            {
+                entity.Set(component);
+                return this;
+            }
             entity.AddComponent(component);
             return this;
         }
