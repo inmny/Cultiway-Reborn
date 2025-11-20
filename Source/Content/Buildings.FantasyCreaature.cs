@@ -159,9 +159,14 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.KeeperSecrets, 1, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.KeeperSecretsNakari, 1, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedKeeperSecrets, 1, 4, 1);
-        SkavenBlight.tower = false;
-        SkavenBlight.spawn_units_asset = null;
-        SkavenBlight.kingdom = KingdomAssets.Skaven.id;
+        TzeentchTower.tower = false;
+        TzeentchTower.spawn_units_asset = null;
+        TzeentchTower.kingdom = KingdomAssets.Tzeentch.id;
+        TzeentchTower.AddAdvancedSpawnerDistributedConfig(Actors.ScreamersTzeentch, 27, 6, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.PinkHorrorTzeentch, 36, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.IridescentHorrorTzeentch, 9, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.FlamerTzeentch, 18, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.BlueHorrorTzeentch, 36, 2, 2);
 
     }
 }

@@ -5,6 +5,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General.Game.extensions;
@@ -214,6 +215,16 @@ public partial class Actors
     public static ActorAsset AdeptusCustodes { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset SistersSilence { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset PinkHorrorTzeentch { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset BlueHorrorTzeentch { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset IridescentHorrorTzeentch { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset FlamerTzeentch { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset ScreamersTzeentch { get; private set; }
     
     private void SetupFantasyCreatures()
     {
@@ -2126,9 +2137,11 @@ public partial class Actors
         ServoSkull.SetCamp(KingdomAssets.Superman)//伺服颅骨
             .SetAnimWalk(S_Anim.walk_0, S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetAnimIdleRaw("walk_0,walk_1,walk_2,walk_3,walk_4,walk_5")
             .SetIcon("actors/species/other/Cultiway/ServoSkull/main/walk_0")
             .SetJumpAnimation(false)
             .SetHideHandItem(true)
+            .SetStandWhileSleeping(true)
             .AddTrait(S_SubspeciesTrait.hovering)//悬浮
             .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
             .SetDefaultWeapons(S_Item.spear_adamantine)//武器
@@ -2146,9 +2159,11 @@ public partial class Actors
         Cherub.SetCamp(KingdomAssets.Superman)//智天使
             .SetAnimWalk(S_Anim.walk_0, S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetAnimIdleRaw("walk_0,walk_1,walk_2,walk_3,walk_4,walk_5")
             .SetIcon("actors/species/other/Cultiway/Cherub/main/walk_5")
             .SetJumpAnimation(false)
             .SetHideHandItem(true)
+            .SetStandWhileSleeping(true)
             .AddTrait(S_SubspeciesTrait.hovering)//悬浮
             .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
             .SetDefaultWeapons(S_Item.bow_adamantine)//弓
@@ -2272,6 +2287,129 @@ public partial class Actors
             .Stats(S.armor, 10)//防御
             .Stats(S.stamina, 200)//耐力
             .Stats(S.lifespan, 130);//寿命
+        IridescentHorrorTzeentch.SetCamp(KingdomAssets.Tzeentch)//虹光惧妖
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/IridescentHorrorTzeentch/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.white_staff)
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.wise)//智慧
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.heart_of_wizard)//法术心
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.boosted_vitality)//法力回复
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 55)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 20)//速度
+            .Stats(S.health, 300)//血量
+            .Stats(S.armor, 6)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 999);//寿命
+        PinkHorrorTzeentch.SetCamp(KingdomAssets.Tzeentch)//粉色惧妖
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/PinkHorrorTzeentch/main/walk_0")
+            .ActionOnDeath(WorldActionUtils.GetSpawnUnitAction(Actors.BlueHorrorTzeentch, 2))
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.bow_mythril)
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 30)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 12)//速度
+            .Stats(S.health, 160)//血量
+            .Stats(S.armor, 2)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 999);//寿命
+        BlueHorrorTzeentch.SetCamp(KingdomAssets.Tzeentch)//蓝色惧妖
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/BlueHorrorTzeentch/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.sword_mythril)
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.fast)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 40)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 16)//速度
+            .Stats(S.health, 250)//血量
+            .Stats(S.armor, 3)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 999);//寿命
+        FlamerTzeentch.SetCamp(KingdomAssets.Tzeentch)//奸奇火妖
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetAnimIdleRaw("walk_0,walk_1,walk_2,walk_3,walk_4,walk_5")
+            .SetIcon("actors/species/other/Cultiway/FlamerTzeentch/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetHideHandItem(true)
+            .SetStandWhileSleeping(true)
+            .SetDefaultWeapons(S_Item.evil_staff)
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.wise)//智慧
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.heart_of_wizard)//法术心
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.boosted_vitality)//法力回复
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 50)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 14)//速度
+            .Stats(S.health, 200)//血量
+            .Stats(S.armor, 5)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 999);//寿命
+        ScreamersTzeentch.SetCamp(KingdomAssets.Tzeentch)//尖啸飞鲨
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetAnimIdleRaw("walk_0,walk_1,walk_2,walk_3")
+            .SetIcon("actors/species/other/Cultiway/ScreamersTzeentch/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 22)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 34)//速度
+            .Stats(S.health, 180)//血量
+            .Stats(S.armor,4)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 999);//寿命
             
             
             
