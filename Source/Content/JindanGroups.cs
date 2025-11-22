@@ -4,7 +4,7 @@ using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
-using NeoModLoader.api.attributes;
+using UnityEngine;
 
 namespace Cultiway.Content;
 
@@ -28,7 +28,15 @@ public class JindanGroups : ExtendLibrary<JindanGroupAsset, JindanGroups>
         RegisterAssets("Cultiway.JindanGroup");
         Common.check = (ActorExtend ae, ref XianBase @base) => true;
         Element.check = (ActorExtend ae, ref XianBase @base) => Randy.randomChance(@base.GetFiveQiStrength());
-        Special.check = (ActorExtend ae, ref XianBase @base) => Randy.randomChance(@base.GetStrength() / 20);
+        Special.check = (ActorExtend ae, ref XianBase @base) =>
+        {
+            // 需要五气与三花都较为均衡才有更高概率进入特殊金丹池
+            var balanced = Mathf.Min(@base.GetThreeHuaStrength(), @base.GetFiveQiStrength());
+            var chance = balanced / 10f;
+            if (chance < 0) chance = 0;
+            if (chance > 1) chance = 1;
+            return Randy.randomChance(chance);
+        };
     }
 
     protected override void ActionAfterCreation(PropertyInfo prop, JindanGroupAsset asset)
