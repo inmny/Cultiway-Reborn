@@ -48,6 +48,7 @@ public abstract class EntityNameGenerator<T> : BaseNameGenerator<T> where T : En
                         }
                         Save();
                     }
+                    name = res;
                 }
             }
             catch (Exception e)
