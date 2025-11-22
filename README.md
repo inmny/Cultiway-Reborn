@@ -2,6 +2,8 @@
 
 监工仓库
 
+给点吧 [爱发电](https://afdian.com/a/inmny)
+
 ## Major Roadmap
 
 - [x] 灵根生成
