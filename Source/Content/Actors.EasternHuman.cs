@@ -37,6 +37,16 @@ public partial class Actors
             .Select(x => new DirectoryInfo(x).Name)
             .Where(x => x.ToLower().StartsWith("warrior"))
             .ToArray();
+        EasternHuman.GetExtend<ActorAssetExtend>().skin_king = Directory
+            .GetDirectories($"{ModClass.I.GetDeclaration().FolderPath}/GameResources/actors/species/civs/{EasternHuman.id}")
+            .Select(x => new DirectoryInfo(x).Name)
+            .Where(x => x.ToLower().StartsWith("king_"))
+            .ToArray();
+        EasternHuman.GetExtend<ActorAssetExtend>().skin_leader = Directory
+            .GetDirectories($"{ModClass.I.GetDeclaration().FolderPath}/GameResources/actors/species/civs/{EasternHuman.id}")
+            .Select(x => new DirectoryInfo(x).Name)
+            .Where(x => x.ToLower().StartsWith("leader_"))
+            .ToArray();
         EasternHuman.texture_id = EasternHuman.id;
         EasternHuman.texture_asset = new ActorTextureSubAsset($"actors/species/civs/{EasternHuman.id}/", true)
         {

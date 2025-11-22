@@ -14,4 +14,12 @@ public class ActorAssetExtend
     ///     隐藏手上物品
     /// </summary>
     public bool hide_hand_item;
+    /// <summary>
+    ///     国王皮肤（只有非null时才生效）
+    /// </summary>
+    public string[] skin_king;
+    /// <summary>
+    ///     领袖皮肤（只有非null时才生效）
+    /// </summary>
+    public string[] skin_leader;
 }
