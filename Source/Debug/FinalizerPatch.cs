@@ -19,6 +19,15 @@ internal static class FinalizerPatch
 
         return __exception;
     }
+    [HarmonyFinalizer, HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.addBuilding), [typeof(BuildingAsset), typeof(WorldTile), typeof(bool), typeof(bool), typeof(BuildPlacingType)])]
+    private static Exception BuildingManager_addBuilding_Finalizer(Exception __exception, BuildingAsset pAsset)
+    {
+        if (__exception != null)
+        {
+            ModClass.LogInfo($"BuildingManager_addBuilding_Finalizer: {pAsset.id}");
+        }
+        return __exception;
+    }
     [HarmonyFinalizer, HarmonyPatch(typeof(Book), nameof(Book.newBook))]
     private static Exception Book_newBook_Finalizer(Exception __exception, Book __instance, Actor pByActor)
     {
