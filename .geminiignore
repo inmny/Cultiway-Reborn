@@ -403,7 +403,7 @@ FodyWeavers.xsd
 
 .*
 Doc
-!.geminiignore
+!.GameSource/
 !.gitignore
 !.gitattribute
 !Source/Debug
