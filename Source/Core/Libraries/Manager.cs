@@ -8,7 +8,6 @@ public class Manager
     public ItemShapeLibrary   ItemShapeLibrary   { get; } = new();
     public RandomEventLibrary RandomEventLibrary { get; } = new();
     public StatusEffectLibrary StatusEffectLibrary { get; } = new();
-    public WrappedSkillLibrary WrappedSkillLibrary { get; } = new();
     public ForceTypeLibrary ForceTypeLibrary { get; } = new();
     public SectBannerLibrary SectBannerLibrary { get; } = new();
     public ImageTemplateLibrary ImageTemplateLibrary { get; } = new();
@@ -21,7 +20,6 @@ public class Manager
         AssetManager._instance.add(ItemShapeLibrary,   "item_shapes");
         AssetManager._instance.add(RandomEventLibrary, "random_events");
         AssetManager._instance.add(StatusEffectLibrary, "status_effects");
-        AssetManager._instance.add(WrappedSkillLibrary, "wrapped_skills");
         AssetManager._instance.add(ForceTypeLibrary, "force_types");
         AssetManager._instance.add(SectBannerLibrary, "sect_banners");
         AssetManager._instance.add(ImageTemplateLibrary, "image_templates");
@@ -35,7 +33,6 @@ public class Manager
         ItemShapeLibrary.linkAssets();
         RandomEventLibrary.linkAssets();
         StatusEffectLibrary.post_init();
-        WrappedSkillLibrary.post_init();
         ForceTypeLibrary.post_init();
         SectBannerLibrary.post_init();
         ImageTemplateLibrary.post_init();
@@ -48,7 +45,6 @@ public class Manager
         ItemShapeLibrary.post_init();
         RandomEventLibrary.post_init();
         StatusEffectLibrary.post_init();
-        WrappedSkillLibrary.post_init();
         ForceTypeLibrary.post_init();
         SectBannerLibrary.post_init();
         ImageTemplateLibrary.post_init();

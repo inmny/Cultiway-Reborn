@@ -56,13 +56,6 @@ public static class ActorExtendTools
                 builder.Build();
             }
         }
-        if (ae.tmp_all_skills.Count == 0) return;
-        var skill = ae.tmp_all_skills.GetRandom();
-        ModClass.L.WrappedSkillLibrary.get(skill).Enhance(ae, source);
-    }
-    public static void EnhanceSkill(this ActorExtend ae, string skill_id, string source)
-    {
-        ModClass.L.WrappedSkillLibrary.get(skill_id).Enhance(ae, source);
     }
     public static bool RestoreWakan(this ActorExtend ae, float value)
     {

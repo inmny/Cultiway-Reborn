@@ -5,6 +5,9 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Threading.Tasks;
 using Cultiway.Content.Const;
+using Cultiway.Core;
+using Cultiway.Utils;
+using Cultiway.Utils.Extension;
 using HarmonyLib;
 
 namespace Cultiway.Content.Patch
@@ -16,6 +19,7 @@ namespace Cultiway.Content.Patch
         {
             var list = instructions.ToList();
             
+            // 应用文化皮肤到战士
             var start_idx = list.FindIndex(x=>x.opcode == OpCodes.Ldfld && (x.operand as FieldInfo)?.Name == nameof(ActorTextureSubAsset.texture_path_warrior));
 
             var idx = list.FindIndex(start_idx, x => x.opcode == OpCodes.Callvirt && (x.operand as MethodInfo)?.Name == "get_" + nameof(Subspecies.has_mutation_reskin));
@@ -27,7 +31,61 @@ namespace Cultiway.Content.Patch
                 new (OpCodes.Ldloc_0)
             ]);
 
+
+            // 应用皮肤系列到国王（包括文化衣着）
+            idx = list.FindIndex(x => x.opcode == OpCodes.Ldfld && (x.operand as FieldInfo)?.Name == nameof(ActorTextureSubAsset.texture_path_king));
+            list.InsertRange(idx + 1, [
+                new (OpCodes.Ldarg_0),
+                new (OpCodes.Ldarg_1),
+                new (OpCodes.Call, AccessTools.Method(typeof(PatchAboutCultureSkin), nameof(getTexturePath_king))),
+            ]);
+
+
+            // 应用皮肤系列到领袖（包括文化衣着）
+            idx = list.FindIndex(x => x.opcode == OpCodes.Ldfld && (x.operand as FieldInfo)?.Name == nameof(ActorTextureSubAsset.texture_path_leader));
+            list.InsertRange(idx + 1, [
+                new (OpCodes.Ldarg_0),
+                new (OpCodes.Ldarg_1),
+                new (OpCodes.Call, AccessTools.Method(typeof(PatchAboutCultureSkin), nameof(getTexturePath_leader))),
+            ]);
+            
             return list;
+        }
+        private static string getTexturePath_king(string defaultPath, ActorTextureSubAsset __instance, Actor pActor)
+        {
+            var king_skins = pActor.asset.GetExtend<ActorAssetExtend>().skin_king;
+            if (king_skins == null) return defaultPath;
+            var skinID = GetCultureSkinID(pActor);
+            if (skinID == -1)
+            {
+                if (pActor.hasSubspecies())
+                {
+                    skinID = pActor.subspecies.data.skin_id;
+                }
+                else
+                {
+                    return defaultPath;
+                }
+            }
+            return __instance.texture_path_base + king_skins[skinID % king_skins.Length];
+        }
+        private static string getTexturePath_leader(string defaultPath, ActorTextureSubAsset __instance, Actor pActor)
+        {
+            var leader_skins = pActor.asset.GetExtend<ActorAssetExtend>().skin_leader;
+            if (leader_skins == null) return defaultPath;
+            var skinID = GetCultureSkinID(pActor);
+            if (skinID == -1)
+            {
+                if (pActor.hasSubspecies())
+                {
+                    skinID = pActor.subspecies.data.skin_id;
+                }
+                else
+                {
+                    return defaultPath;
+                }
+            }
+            return __instance.texture_path_base + leader_skins[skinID % leader_skins.Length];
         }
         private static string tryLoadCultureWarriorSkin(Actor pActor, string defaultSkin)
         {

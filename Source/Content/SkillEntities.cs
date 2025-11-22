@@ -9,7 +9,6 @@ using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
-using SkillEntity = Cultiway.Core.SkillLibV2.Components.SkillEntity;
 
 namespace Cultiway.Content;
 [Dependency(typeof(SkillTrajectories))]
@@ -65,7 +64,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                target.a.GetExtend().GetHit(context.Strength, ref GoldSword.Element, attacker);
             }
             else
             {
@@ -91,7 +90,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                target.a.GetExtend().GetHit(context.Strength, ref GoldBlade.Element, attacker);
             }
             else
             {
@@ -116,7 +115,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                target.a.GetExtend().GetHit(context.Strength, ref WoodThorn.Element, attacker);
             }
             else
             {
@@ -141,7 +140,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                target.a.GetExtend().GetHit(context.Strength, ref FallWood.Element, attacker);
             }
             else
             {
@@ -168,7 +167,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                target.a.GetExtend().GetHit(context.Strength, ref WaterArrow.Element, attacker);
             }
             else
             {
@@ -195,7 +194,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                target.a.GetExtend().GetHit(context.Strength, ref WaterBall.Element, attacker);
             }
             else
             {
@@ -222,7 +221,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                target.a.GetExtend().GetHit(context.Strength, ref WaterBlade.Element, attacker);
             }
             else
             {
@@ -280,7 +279,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
                 if (target.isActor())
                 {
-                    target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                    target.a.GetExtend().GetHit(context.Strength, ref FireBlade.Element, attacker);
                 }
                 else
                 {
@@ -306,7 +305,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                target.a.GetExtend().GetHit(context.Strength, ref FallStone.Element, attacker);
             }
             else
             {
@@ -334,7 +333,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                target.a.GetExtend().GetHit(context.Strength, ref StoneThorn.Element, attacker);
             }
             else
             {
@@ -359,7 +358,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                target.a.GetExtend().GetHit(context.Strength, ref WindBlade.Element, attacker);
             }
             else
             {
@@ -385,7 +384,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
                 if (target.isActor())
                 {
-                    target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                    target.a.GetExtend().GetHit(context.Strength, ref WindPolo.Element, attacker);
                 }
                 else
                 {
@@ -413,7 +412,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
                 if (target.isActor())
                 {
-                    target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                    target.a.GetExtend().GetHit(context.Strength, ref Tornado.Element, attacker);
                 }
                 else
                 {
@@ -439,7 +438,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                target.a.GetExtend().GetHit(context.Strength, ref FallLightning.Element, attacker);
             }
             else
             {
@@ -466,7 +465,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
                 if (target.isActor())
                 {
-                    target.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                    target.a.GetExtend().GetHit(context.Strength, ref LightningPolo.Element, attacker);
                 }
                 else
                 {

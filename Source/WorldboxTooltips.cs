@@ -13,6 +13,7 @@ public partial class WorldboxGame
     public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
     {
         [GetOnly("tip")] public static TooltipAsset Tip { get; private set; }
+        [GetOnly("actor")] public static TooltipAsset Actor { get; private set; }
         [GetOnly(S_Tooltip.book)] public static TooltipAsset Book { get; private set; }
         public static TooltipAsset Sect { get; private set; }
         public static TooltipAsset RawTip { get; private set; }

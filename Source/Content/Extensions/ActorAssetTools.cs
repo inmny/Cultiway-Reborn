@@ -185,6 +185,22 @@ public static class ActorAssetTools
         return asset;
     }
     /// <summary>
+    /// 添加文化栏特质
+    /// </summary>
+    public static ActorAsset AddCultureTrait(this ActorAsset asset, string trait_id)
+    {
+        asset.addCultureTrait(trait_id);
+        return asset;
+    }
+    /// <summary>
+    /// 添加文化栏特质
+    /// </summary>
+    public static ActorAsset AddCultureTrait(this ActorAsset asset, CultureTrait trait)
+    {
+        asset.AddCultureTrait(trait.id);
+        return asset;
+    }
+    /// <summary>
     /// 设置图标路径
     /// </summary>
     public static ActorAsset SetIcon(this ActorAsset asset, string icon_path)

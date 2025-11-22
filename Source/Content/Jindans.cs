@@ -8,7 +8,7 @@ using Cultiway.Utils;
 using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content;
-[Dependency(typeof(WrappedSkills), typeof(SkillEntities))]
+[Dependency(typeof(SkillEntities))]
 public class Jindans : ExtendLibrary<JindanAsset, Jindans>
 {
     public static JindanAsset Common { get; private set; }
@@ -89,20 +89,27 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
     [Hotfixable]
     private void AddEffects()
     {
-        JinHwang.wrapped_skill_id = WrappedSkills.StartAllGoldBlade.id;
-        SwordHwang.wrapped_skill_id = WrappedSkills.StartAllGoldSword.id;
-        Aoki.wrapped_skill_id = WrappedSkills.StartAllWindBlade.id;
-        Frost.wrapped_skill_id = WrappedSkills.StartAllWaterBlade.id;
-        Blaze.wrapped_skill_id = WrappedSkills.StartAllFireBlade.id;
-        Bentonite.wrapped_skill_id = WrappedSkills.StartAllGroundThorn.id;
         foreach (var jindan in assets_added)
         {
+            jindan.skills.Clear();
+            jindan.skill_acc_weight.Clear();
             var skill_similarities = new Dictionary<SkillEntityAsset, float>();
             var composition_array = jindan.composition.AsArray();
             foreach (var skill_entity in ModClass.I.SkillV3.SkillLib.list)
             {
-                skill_similarities[skill_entity] =
-                    MathUtils.CosineSimilarity(composition_array, skill_entity.Element.AsArray());
+                var skill_composition = skill_entity.Element.AsArray();
+                var similarity = MathUtils.CosineSimilarity(composition_array, skill_composition);
+                if (jindan.Group == JindanGroups.Special)
+                {
+                    // 特殊金丹压低多属性法术权重，避免过于偏向风刃等组合技能
+                    var non_zero = 0;
+                    for (var i = 0; i < skill_composition.Length; i++)
+                    {
+                        if (skill_composition[i] > 0) non_zero++;
+                    }
+                    if (non_zero > 1) similarity *= 0.7f;
+                }
+                skill_similarities[skill_entity] = similarity;
             }
 
             var sorted = skill_similarities

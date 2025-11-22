@@ -9,12 +9,8 @@ using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
-using Cultiway.Content.Skills;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
-using Cultiway.Core.SkillLibV2;
-using Cultiway.Core.SkillLibV2.Api;
-using Cultiway.Core.SkillLibV2.Examples;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Patch;
@@ -34,7 +30,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     private static Action<ActorExtend> action_on_new_creature;
 
     private static   Action<ActorExtend> action_on_update_stats;
-    private readonly HashSet<string> _learned_skills = new();
     private readonly HashSet<Entity> _learned_skills_v3 = new();
     private Entity          e;
     public HashSet<Entity> all_skills = new();
@@ -43,8 +38,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     private  Dictionary<string, Entity> _skill_entity_modifiers = new();
     internal float[]         s_armor        = new float[9];
     public Sect sect;
-    public   HashSet<string> tmp_all_skills = new();
-    public List<string> tmp_all_attack_skills = new();
 
     private Dictionary<Type, Dictionary<IDeleteWhenUnknown, float>>  _master_items = new();
     public void Master<T>(T item, float value) where T : Asset, IDeleteWhenUnknown
@@ -173,7 +166,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             WorldboxGame.CombatActions.CastVanillaSpell.AddToPool(attack_action_pool);
         }
         // 加入自定义技能
-        WorldboxGame.CombatActions.CastSkill.AddToPool(attack_action_pool, tmp_all_attack_skills.Count);
         WorldboxGame.CombatActions.CastSkillV3.AddToPool(attack_action_pool, all_attack_skills.Count);
         action_on_attack?.Invoke(this, target, attack_action_pool);
         
@@ -346,74 +338,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     {
         return $"[{e.GetComponent<ActorBinder>().ID}] {Base.getName()}: {e}";
     }
-    public bool HasSkillModifier<TModifier, TValue>(string action_id)
-        where TModifier : struct, IModifier<TValue>
-    {
-        return _skill_action_modifiers.TryGetValue(action_id, out Entity action_modifiers) && action_modifiers.HasComponent<TModifier>();
-    }
-    public bool HasSkillEntityModifier<TModifier, TValue>(string entity_id)
-        where TModifier : struct, IModifier<TValue>
-    {
-        return _skill_entity_modifiers.TryGetValue(entity_id, out Entity entity_modifiers) && entity_modifiers.HasComponent<TModifier>();
-    }
-    public ref TModifier GetSkillModifier<TModifier, TValue>(string action_id)
-        where TModifier : struct, IModifier<TValue>
-    {
-        return ref _skill_action_modifiers[action_id].GetComponent<TModifier>();
-    }
-    public ref TModifier GetSkillEntityModifier<TModifier, TValue>(string entity_id)
-        where TModifier : struct, IModifier<TValue>
-    {
-        return ref _skill_entity_modifiers[entity_id].GetComponent<TModifier>();
-    }
-    public Entity GetOrNewSkillActionModifiers(string action_id)
-    {
-        if (_skill_action_modifiers.TryGetValue(action_id, out var container))
-        {
-            return container;
-        }
-        container = TriggerActionBaseMeta.AllDict[action_id].NewModifierContainer();
-        _skill_action_modifiers[action_id] = container;
-        return container;
-    }
-    public Entity GetOrNewSkillEntityModifiers(string entity_id)
-    {
-        if (_skill_entity_modifiers.TryGetValue(entity_id, out var container))
-        {
-            return container;
-        }
-        container = SkillEntityMeta.AllDict[entity_id].NewModifierContainer();
-        _skill_entity_modifiers[entity_id] = container;
-        return container;
-    }
-    public void AddSkillModifier<TModifier, TValue>(string action_id, TModifier modifier)
-        where TModifier : struct, IModifier<TValue>
-    {
-        if (!_skill_action_modifiers.TryGetValue(action_id, out Entity modifiers))
-        {
-            modifiers = TriggerActionBaseMeta.AllDict[action_id].NewModifierContainer();
-            _skill_action_modifiers[action_id] = modifiers;
-        }
-        
-        modifiers.AddComponent(modifier);
-    }
-    public void AddSkillEntityModifier<TModifier, TValue>(string entity_id, TModifier modifier)
-        where TModifier : struct, IModifier<TValue>
-    {
-        if (!_skill_entity_modifiers.TryGetValue(entity_id, out Entity modifiers))
-        {
-            modifiers = SkillEntityMeta.AllDict[entity_id].NewModifierContainer();
-            _skill_entity_modifiers[entity_id] = modifiers;
-        }
-
-        modifiers.AddComponent(modifier);
-    }
-
-    public void LearnSkill(string id)
-    {
-        _learned_skills.Add(id);
-    }
-
     public void LearnSkillV3(Entity skill_container, bool clone = false)
     {
         if (clone)
@@ -428,28 +352,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         _learned_skills_v3.Add(skill_container);
     }
 
-    public bool CastSkillV2(string id, BaseSimObject target_obj, bool ignore_cost = false, float addition_strength = 0)
-    {
-        var wrapped_asset = ModClass.L.WrappedSkillLibrary.get(id);
-        if (wrapped_asset == null)
-        {
-            ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, 100 + addition_strength);
-            return true;
-        }
-
-        if (wrapped_asset.cost_check == null || ignore_cost)
-        {
-            ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, wrapped_asset.default_strength + addition_strength);
-            return true;
-        }
-        if (wrapped_asset.cost_check(this, out var strength))
-        {
-            ModClass.I.SkillV2.NewSkillStarter(id, this, target_obj, strength + addition_strength);
-            return true;
-        }
-
-        return false;
-    }
     public SpecialItem GetRandomSpecialItem(Func<Entity, bool> filter)
     {
         using var pool = new ListPool<SpecialItem>(e.GetRelations<InventoryRelation>()
@@ -485,21 +387,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         return target;
     }
 
-    private void TestHugeSwordQi()
-    {
-        Actor target = FindTestTarget();
-        
-        CastSkillV2(WrappedSkills.StartHugeSwordQi.id, target, true);
-        ModClass.LogInfo($"{Base.data.id} cast huge sword qi to {target.data.id}");
-    }
-    private void TestCastNewFireball()
-    {
-        Actor target = FindTestTarget();
-
-        CastSkillV2(WrappedSkills.StartFireballCaster.id, target, true);
-        ModClass.LogInfo($"{Base.data.id} cast fireball to {target.data.id}");
-    }
-
     private void TestCastFireballV3()
     {
         var target = FindTestTarget();
@@ -509,51 +396,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             SkillEntityAssetID = SkillEntities.Fireball.id
         });
         ModClass.I.SkillV3.SpawnSkill(skill_container, Base, target, 1);
-    }
-    [Hotfixable]
-    private void TestCastFireball()
-    {
-        Actor target = FindTestTarget();
-
-        CastSkillV2(ExampleTriggerActions.StartSkillFireball.id, target, true);
-        ModClass.LogInfo($"{Base.data.id} cast fireball to {target.data.id}");
-    }
-
-    private void TestCastCommonWeapon()
-    {
-        Actor target = FindTestTarget();
-
-        CastSkillV2(WrappedSkills.StartWeaponSkill.id, target, true);
-        ModClass.LogInfo($"{Base.data.id} cast weapon to {target.data.id}");
-    }
-    private void TestCastSelfSurroundFireBlade()
-    {
-        Actor target = FindTestTarget();
-
-        CastSkillV2(WrappedSkills.StartSelfSurroundFireBlade.id, target, true);
-        ModClass.LogInfo($"{Base.data.id} cast self surround fire blade to {target.data.id}");
-    }
-    private void TestCastAllFireBlade()
-    {
-        Actor target = FindTestTarget();
-
-        CastSkillV2(WrappedSkills.StartAllFireBlade.id, target, true);
-        ModClass.LogInfo($"{Base.data.id} cast all fire blade to {target.data.id}");
-    }
-    private void TestCastAllGoldSword()
-    {
-        Actor target = FindTestTarget();
-
-        CastSkillV2(WrappedSkills.StartAllGoldSword.id, target, true);
-        ModClass.LogInfo($"{Base.data.id} cast all gold sword to {target.data.id}");
-    }
-
-    private void TestCastAllGroundThorn()
-    {
-        Actor target = FindTestTarget();
-
-        CastSkillV2(WrappedSkills.StartAllGroundThorn.id, target, true);
-        ModClass.LogInfo($"{Base.data.id} cast all ground thorn to {target.data.id}");
     }
     private void TestConsumeEnlightenElixir()
     {
@@ -632,24 +474,12 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             }
         }
 
-        tmp_all_skills.Clear();
-        tmp_all_skills.UnionWith(_learned_skills);
-        
         all_skills.Clear();
         all_skills.UnionWith(_learned_skills_v3);
 
         action_on_update_stats?.Invoke(this);
         
-        tmp_all_attack_skills.Clear();
         all_attack_skills.Clear();
-        var library = ModClass.L.WrappedSkillLibrary;
-        foreach (var skill in tmp_all_skills)
-        {
-            if (library.get(skill)?.HasSkillType(WrappedSkillType.Attack) ?? false)
-            {
-                tmp_all_attack_skills.Add(skill);
-            }
-        }
 
         foreach (var skill in all_skills)
         {
@@ -871,9 +701,6 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         #region 技能相关复制
 
-        _learned_skills.Clear();
-        _learned_skills.UnionWith(clone_source._learned_skills);
-        
         _skill_action_modifiers.Clear();
         _skill_entity_modifiers.Clear();
 

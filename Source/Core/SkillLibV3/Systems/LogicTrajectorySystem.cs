@@ -1,6 +1,4 @@
 using Cultiway.Core.Components;
-using Cultiway.Core.SkillLibV2.Predefined;
-using Cultiway.Core.SkillLibV2.Systems;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Friflo.Engine.ECS;
