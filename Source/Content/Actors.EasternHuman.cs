@@ -1,6 +1,7 @@
 using System.IO;
 using System.Linq;
 using Cultiway.Abstract;
+using Cultiway.Content.Extensions;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using strings;
@@ -13,6 +14,9 @@ public partial class Actors
     public static ActorAsset EasternHuman { get; private set; }
     private void SetupEasternHuman() 
     { 
+        EasternHuman.AddCultureTrait(CultureTraits.CultureSkin)
+                    .AddCultureTrait(S_CultureTrait.city_layout_stone_garden)
+                    .AddCultureTrait(S_CultureTrait.city_layout_the_grand_arrangement);
         EasternHuman.build_order_template_id = BuildingOrders.Classic.id;
         EasternHuman.architecture_id = Architectures.EasternHuman.id;
         EasternHuman.kingdom_id_wild = KingdomAssets.NoMadsEasternHuman.id;
