@@ -10,6 +10,7 @@ using NeoModLoader.General;
 
 namespace Cultiway.Content.UI;
 
+[Dependency(typeof(GodPowers))]
 public class Manager : ICanInit
 {
     public void Init()
@@ -31,6 +32,12 @@ public class Manager : ICanInit
                 $"Cultiway.UI.{nameof(WindowWorldWakan)} Title",
                 $"Cultiway.UI.{nameof(WindowWorldWakan)}",
                 SpriteTextureLoader.getSprite("cultiway/icons/iconWakan")
+            )
+        );
+        Cultiway.UI.Manager.AddButton(TabButtonType.RACE,
+            PowerButtonCreator.CreateGodPowerButton(
+                GodPowers.EasternHuman.id,
+                SpriteTextureLoader.getSprite("cultiway/icons/races/iconEasternHuman")
             )
         );
         

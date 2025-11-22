@@ -2,6 +2,7 @@ using System;
 using Cultiway.Abstract;
 using Cultiway.Debug;
 using NeoModLoader;
+using strings;
 
 namespace Cultiway.Content;
 
@@ -18,6 +19,13 @@ public partial class KingdomAssets : ExtendLibrary<KingdomAsset, KingdomAssets>
     public static KingdomAsset Ming { get; private set; }
     [CloneSource("$TEMPLATE_NOMAD$")]
     public static KingdomAsset NoMadsMing { get; private set; }
+    /// <summary>
+    /// 东方人族
+    /// </summary>
+    [CloneSource("$TEMPLATE_NOMAD$")]
+    public static KingdomAsset EasternHuman { get; private set; }
+    [CloneSource("$TEMPLATE_NOMAD$")]
+    public static KingdomAsset NoMadsEasternHuman { get; private set; }
     protected override void OnInit()
     {
         RegisterAssets();
@@ -35,7 +43,25 @@ public partial class KingdomAssets : ExtendLibrary<KingdomAsset, KingdomAssets>
         NoMadsMing.addTag(nameof(Undead));
         NoMadsMing.addFriendlyTag(nameof(Ming));
         NoMadsMing.addFriendlyTag(nameof(Undead));
-        
+
+
+        EasternHuman.clearKingdomColor();
+        EasternHuman.civ = true;
+        EasternHuman.mobs = false;
+        EasternHuman.group_main = true;
+        EasternHuman.setIcon("cultiway/icons/races/iconEasternHuman");
+        EasternHuman.addTag(nameof(EasternHuman));
+        EasternHuman.addTag(SK.sliceable);
+        EasternHuman.addFriendlyTag(nameof(EasternHuman));
+
+
+        NoMadsEasternHuman.default_kingdom_color = new("#5AAFE5");
+        NoMadsEasternHuman.group_main = true;
+        NoMadsEasternHuman.setIcon("cultiway/icons/races/iconEasternHuman");
+        NoMadsEasternHuman.addTag(nameof(EasternHuman));
+        NoMadsEasternHuman.addTag(SK.sliceable);
+        NoMadsEasternHuman.addFriendlyTag(nameof(EasternHuman));
+
         Undead.addTag(nameof(Undead));
         Undead.addFriendlyTag(nameof(Undead));
 
