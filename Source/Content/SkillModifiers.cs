@@ -59,7 +59,6 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Setup<ProficiencyModifier>(Proficiency, SkillModifierRarity.Common);
         Setup<EmpowerModifier>(Empower, SkillModifierRarity.Common);
         Setup<KnockbackModifier>(Knockback, SkillModifierRarity.Common);
-        Setup<VolleyModifier>(Volley, SkillModifierRarity.Common);
 
         Setup<LockOnModifier>(LockOn, SkillModifierRarity.Rare);
         Setup<HugeModifier>(Huge, SkillModifierRarity.Rare);
