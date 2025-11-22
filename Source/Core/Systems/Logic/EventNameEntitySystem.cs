@@ -13,6 +13,7 @@ public class EventNameEntitySystem : QuerySystem<EventNameEntity>
             if (eventNameEntity.Target.IsNull)
             {
                 CommandBuffer.DeleteEntity(entity.Id);
+                return;
             }
 
             if (string.IsNullOrEmpty(eventNameEntity.Name))
