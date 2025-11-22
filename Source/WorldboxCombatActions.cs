@@ -15,19 +15,10 @@ public partial class WorldboxGame
         public static CombatActionAsset AttackRange { get; private set; }
         [GetOnly(nameof(CombatActionLibrary.combat_cast_spell))]
         public static CombatActionAsset CastVanillaSpell { get; private set; }
-        public static CombatActionAsset CastSkill { get; private set; }
         public static CombatActionAsset CastSkillV3 {get; private set; }
         protected override void OnInit()
         {
             RegisterAssets();
-            CastSkill.rate = 10;
-            CastSkill.action = data =>
-            {
-                var ae = data.initiator.a.GetExtend();
-
-                var skill = ae.tmp_all_attack_skills.GetRandom();
-                return ae.CastSkillV2(skill, data.target);
-            };
             CastSkillV3.rate = 10;
             CastSkillV3.action = data =>
             {

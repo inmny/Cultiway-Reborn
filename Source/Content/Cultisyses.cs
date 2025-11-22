@@ -6,11 +6,9 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
-using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
-using Cultiway.Core.SkillLibV2.Predefined.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Patch;
 using Cultiway.Utils;
@@ -22,7 +20,7 @@ using UnityEngine;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(BaseStatses), typeof(WrappedSkills))]
+[Dependency(typeof(BaseStatses))]
 public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
 {
     public static CultisysAsset<Xian> Xian { get; private set; }
@@ -49,7 +47,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 null, null,
             ],
             [
-                null, [WrappedSkills.StartWeaponSkill.id], null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null,
                 null, null,
                 null, null, null, null, null, null, null, null,
                 null, null
@@ -121,7 +119,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 stats.MergeStats(jindan_asset.Stats, jindan.strength);
                 if (!string.IsNullOrEmpty(jindan_asset.wrapped_skill_id))
                 {
-                    ae.tmp_all_skills.Add(jindan_asset.wrapped_skill_id);
+                    //ae.tmp_all_skills.Add(jindan_asset.wrapped_skill_id);
                     return;
                 }
             }
@@ -135,7 +133,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             }
             
             
-            ae.tmp_all_skills.UnionWith(Xian.Skills[curr_level]);
+            //ae.tmp_all_skills.UnionWith(Xian.Skills[curr_level]);
         });
         PatchWindowCreatureInfo.RegisterInfoDisplay((a, sb) =>
         {
@@ -200,8 +198,6 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             }
             var yuanying = Libraries.Manager.YuanyingLibrary.GetRandomYuanying(jindan.Type);
 
-            if (!string.IsNullOrEmpty(jindan.Type.wrapped_skill_id))
-                ae.LearnSkill(jindan.Type.wrapped_skill_id);
             e.AddComponent(new Yuanying
             (
                 yuanying.id,
@@ -221,7 +217,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             
             if (!string.IsNullOrEmpty(jindan.Type.wrapped_skill_id))
             {
-                ae.EnhanceSkill(jindan.Type.wrapped_skill_id, SkillEnhanceSources.SmallUpgradeSuccess);
+                //ae.EnhanceSkill(jindan.Type.wrapped_skill_id, SkillEnhanceSources.SmallUpgradeSuccess);
             }
             else
             {
@@ -428,7 +424,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             {
                 ae.Base.setName(PlantNameGenerator.Instance.GenerateName([er.Type.GetName(), jindan.GetName()]));
             }
-            ae.AddSkillModifier<ScaleModifier, float>(CommonWeaponSkills.StartWeaponSkill.id, new ScaleModifier(Randy.randomFloat(1, 4)));
+            //ae.AddSkillModifier<ScaleModifier, float>(CommonWeaponSkills.StartWeaponSkill.id, new ScaleModifier(Randy.randomFloat(1, 4)));
             if (jindan.skills.Count > 0)
             {
                 var skill_entity_asset = jindan.skills[RdUtils.RandomIndexWithAccumWeight(jindan.skill_acc_weight)];

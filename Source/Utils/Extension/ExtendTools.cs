@@ -2,8 +2,6 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Cultiway.Content.Const;
 using Cultiway.Core.Libraries;
-using Cultiway.Core.SkillLibV2;
-using Cultiway.Core.SkillLibV2.Predefined.Triggers;
 
 namespace Cultiway.Utils.Extension;
 
@@ -62,18 +60,4 @@ public static class ExtendTools
         }
     }
 
-    public static WrappedSkillAsset SelfWrap(this TriggerActionMeta<StartSkillTrigger, StartSkillContext> start_skill_meta, params WrappedSkillType[] types)
-    {
-        var asset = new WrappedSkillAsset()
-        {
-            id = start_skill_meta.id,
-        };
-        ModClass.L.WrappedSkillLibrary.add(asset);
-        foreach (WrappedSkillType type in types)
-        {
-            asset.SetSkillType(type);
-        }
-
-        return asset;
-    }
 }

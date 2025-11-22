@@ -8,7 +8,7 @@ using Cultiway.Utils;
 using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content;
-[Dependency(typeof(WrappedSkills), typeof(SkillEntities))]
+[Dependency(typeof(SkillEntities))]
 public class Jindans : ExtendLibrary<JindanAsset, Jindans>
 {
     public static JindanAsset Common { get; private set; }
@@ -89,12 +89,6 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
     [Hotfixable]
     private void AddEffects()
     {
-        JinHwang.wrapped_skill_id = WrappedSkills.StartAllGoldBlade.id;
-        SwordHwang.wrapped_skill_id = WrappedSkills.StartAllGoldSword.id;
-        Aoki.wrapped_skill_id = WrappedSkills.StartAllWindBlade.id;
-        Frost.wrapped_skill_id = WrappedSkills.StartAllWaterBlade.id;
-        Blaze.wrapped_skill_id = WrappedSkills.StartAllFireBlade.id;
-        Bentonite.wrapped_skill_id = WrappedSkills.StartAllGroundThorn.id;
         foreach (var jindan in assets_added)
         {
             var skill_similarities = new Dictionary<SkillEntityAsset, float>();

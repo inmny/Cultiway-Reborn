@@ -7,13 +7,8 @@ using Cultiway.AbstractGame.AbstractEngine;
 using Cultiway.Const;
 using Cultiway.Content;
 using Cultiway.Content.Components;
-using Cultiway.Content.Skills;
 using Cultiway.Core;
 using Cultiway.Core.Components;
-using Cultiway.Core.SkillLibV2.Components;
-using Cultiway.Core.SkillLibV2.Examples;
-using Cultiway.Core.SkillLibV2.Extensions;
-using Cultiway.Core.SkillLibV2.Systems;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
 using Cultiway.Debug;
@@ -56,7 +51,6 @@ namespace Cultiway
         public SystemRoot TileRenderSystems  { get; private set; }
         public        EntityStore             W                    { get; private set; }
         public        WorldRecord             WorldRecord          { get; private set; }
-        public        Core.SkillLibV2.Manager SkillV2              { get; private set; }
         public Core.SkillLibV3.Manager SkillV3 { get; private set; }
         public        Core.GeoLib.Manager     Geo                  { get; private set; }
 
@@ -99,7 +93,6 @@ namespace Cultiway
                             accum_time -= 1;
                             GeneralLogicSystems.Update(logic_update_tick);
                             TileLogicSystems.Update(logic_update_tick);
-                            SkillV2.UpdateLogic(logic_update_tick);
                             Geo.UpdateLogic(logic_update_tick);
                         }
                     }
@@ -107,14 +100,12 @@ namespace Cultiway
                     {
                         GeneralLogicSystems.Update(render_update_tick);
                         TileLogicSystems.Update(render_update_tick);
-                        SkillV2.UpdateLogic(render_update_tick);
                         Geo.UpdateLogic(render_update_tick);
                     }
                 }
 
                 GeneralRenderSystems.Update(render_update_tick);
                 TileRenderSystems.Update(render_update_tick);
-                SkillV2.UpdateRender(render_update_tick);
             }
             catch (Exception e)
             {
@@ -131,8 +122,6 @@ namespace Cultiway
             GeneralLogicSystems.AppendPerfLog(sb);
             sb.Append('\n');
             GeneralRenderSystems.AppendPerfLog(sb);
-            sb.Append('\n');
-            SkillV2.AppendPerfLog(sb);
             sb.Append('\n');
             Geo.AppendPerfLog(sb);
             LogInfo($"{sb}");
@@ -264,7 +253,6 @@ namespace Cultiway
             CustomMapModeManager = new();
             CustomMapModeManager.Initialize();
 
-            SkillV2 = new Core.SkillLibV2.Manager(Game);
             SkillV3 = new Core.SkillLibV3.Manager(Game);
             Geo = new Core.GeoLib.Manager(Game);
             _ui = new UI.Manager();
@@ -273,13 +261,9 @@ namespace Cultiway
 
             _ui.Init();
             _patch.Init();
-            SkillV2.Init();
             SkillV3.Init();
             _content.Init();
             GeneralLogicSystems.Add(new RemoveDirtyTagSystem());
-
-            ExampleTriggerActions.Init();
-            ExampleSkillEntities.Init();
 
             if (Environment.UserName == "Inmny")
             {
@@ -291,7 +275,6 @@ namespace Cultiway
                 
                 GeneralLogicSystems.SetMonitorPerf(true);
                 GeneralRenderSystems.SetMonitorPerf(true);
-                SkillV2.SetMonitorPerf(true);
                 Geo.SetMonitorPerf(true);
             }
         }
