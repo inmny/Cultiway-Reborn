@@ -17,7 +17,7 @@ public static class ItemIconGenerator
     }
     public static Sprite GenerateIcon(ItemShape shape, ItemIconData icon_data)
     {
-        var icon_hash = icon_data.GetHashCode() + shape.shape_id.GetHashCode();
+        var icon_hash = Mathf.Abs(icon_data.GetHashCode() + shape.shape_id.GetHashCode());
         if (IconCache.TryGetValue(icon_hash, out var sprite))
             return sprite;
 
