@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using Cultiway.Core;
+using Cultiway.Core.SkillLibV3;
 
 namespace Cultiway.Utils;
 
@@ -27,6 +29,17 @@ public static class EnumUtils
         new([0, 0, 1, 0, 0, 0, 1, 0], true), // Water
         new([0, 0, 0, 0.5f, 0.5f, 0, 1, 0], true)
     };
+    private static readonly Dictionary<SkillModifierRarity, int> RarityWeights = new()
+    {
+        { SkillModifierRarity.Common, 125 },
+        { SkillModifierRarity.Rare, 25 },
+        { SkillModifierRarity.Epic, 5 },
+        { SkillModifierRarity.Legendary, 1 }
+    };
+    public static int Weight(this SkillModifierRarity rarity)
+    {
+        return RarityWeights.TryGetValue(rarity, out var weight) ? weight : 0;
+    }
 
     internal static ref ElementComposition DamageCompositionFromDamageType(AttackType attack_type)
     {

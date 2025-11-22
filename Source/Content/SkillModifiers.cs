@@ -3,6 +3,7 @@ using Cultiway.Abstract;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Content.Components.Skill;
 
 namespace Cultiway.Content;
 
@@ -47,40 +48,41 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     {
         RegisterAssets();
 
-        Setup(Placeholder, SkillModifierRarity.Common);
+        Setup<PlaceholderModifier>(Placeholder, SkillModifierRarity.Common);
 
-        Setup(Slow, SkillModifierRarity.Common);
-        Setup(Burn, SkillModifierRarity.Common);
-        Setup(Freeze, SkillModifierRarity.Common);
-        Setup(Poison, SkillModifierRarity.Common);
-        Setup(Explosion, SkillModifierRarity.Common);
-        Setup(Haste, SkillModifierRarity.Common);
-        Setup(Proficiency, SkillModifierRarity.Common);
-        Setup(Empower, SkillModifierRarity.Common);
-        Setup(Knockback, SkillModifierRarity.Common);
-        Setup(Volley, SkillModifierRarity.Common);
+        Setup<SlowModifier>(Slow, SkillModifierRarity.Common);
+        Setup<BurnModifier>(Burn, SkillModifierRarity.Common);
+        Setup<FreezeModifier>(Freeze, SkillModifierRarity.Common);
+        Setup<PoisonModifier>(Poison, SkillModifierRarity.Common);
+        Setup<ExplosionModifier>(Explosion, SkillModifierRarity.Common);
+        Setup<HasteModifier>(Haste, SkillModifierRarity.Common);
+        Setup<ProficiencyModifier>(Proficiency, SkillModifierRarity.Common);
+        Setup<EmpowerModifier>(Empower, SkillModifierRarity.Common);
+        Setup<KnockbackModifier>(Knockback, SkillModifierRarity.Common);
+        Setup<VolleyModifier>(Volley, SkillModifierRarity.Common);
 
-        Setup(LockOn, SkillModifierRarity.Rare);
-        Setup(Huge, SkillModifierRarity.Rare);
-        Setup(Weaken, SkillModifierRarity.Rare);
-        Setup(ArmorBreak, SkillModifierRarity.Rare);
-        Setup(Gravity, SkillModifierRarity.Rare);
-        Setup(Daze, SkillModifierRarity.Rare);
+        Setup<LockOnModifier>(LockOn, SkillModifierRarity.Rare);
+        Setup<HugeModifier>(Huge, SkillModifierRarity.Rare);
+        Setup<WeakenModifier>(Weaken, SkillModifierRarity.Rare);
+        Setup<ArmorBreakModifier>(ArmorBreak, SkillModifierRarity.Rare);
+        Setup<GravityModifier>(Gravity, SkillModifierRarity.Rare);
+        Setup<DazeModifier>(Daze, SkillModifierRarity.Rare);
 
-        Setup(Mercy, SkillModifierRarity.Epic, KillOverrideTag);
-        Setup(Chaos, SkillModifierRarity.Epic);
-        Setup(Swap, SkillModifierRarity.Epic);
-        Setup(RandomAffix, SkillModifierRarity.Epic);
-        Setup(Burnout, SkillModifierRarity.Epic);
-        Setup(Combo, SkillModifierRarity.Epic);
+        Setup<MercyModifier>(Mercy, SkillModifierRarity.Epic, KillOverrideTag);
+        Setup<ChaosModifier>(Chaos, SkillModifierRarity.Epic);
+        Setup<SwapModifier>(Swap, SkillModifierRarity.Epic);
+        Setup<RandomAffixModifier>(RandomAffix, SkillModifierRarity.Epic);
+        Setup<BurnoutModifier>(Burnout, SkillModifierRarity.Epic);
+        Setup<ComboModifier>(Combo, SkillModifierRarity.Epic);
 
-        Setup(Silence, SkillModifierRarity.Legendary);
-        Setup(DeathSentence, SkillModifierRarity.Legendary, KillOverrideTag);
-        Setup(ReincarnationTrial, SkillModifierRarity.Legendary);
-        Setup(EternalCurse, SkillModifierRarity.Legendary);
+        Setup<SilenceModifier>(Silence, SkillModifierRarity.Legendary);
+        Setup<DeathSentenceModifier>(DeathSentence, SkillModifierRarity.Legendary, KillOverrideTag);
+        Setup<ReincarnationTrialModifier>(ReincarnationTrial, SkillModifierRarity.Legendary);
+        Setup<EternalCurseModifier>(EternalCurse, SkillModifierRarity.Legendary);
     }
 
-    private void Setup(SkillModifierAsset asset, SkillModifierRarity rarity, params string[] conflictTags)
+    private void Setup<TModifier>(SkillModifierAsset asset, SkillModifierRarity rarity, params string[] conflictTags)
+        where TModifier : struct, IModifier
     {
         foreach (var tag in conflictTags)
         {
@@ -88,27 +90,24 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         asset.Rarity = rarity;
-        asset.OnAddOrUpgrade = builder => AddPlaceholder(builder, asset.id);
+        asset.OnAddOrUpgrade = builder => AddModifier<TModifier>(builder);
+        asset.GetDescription = entity =>
+        {
+            if (entity.HasComponent<TModifier>())
+            {
+                var modifier = entity.GetComponent<TModifier>();
+                var value = modifier.GetValue();
+                if (string.IsNullOrEmpty(value)) return modifier.GetKey();
+                return $"{modifier.GetKey()}: {modifier.GetValue()}";
+            }
+            return null;
+        };
     }
 
-    private static bool AddPlaceholder(SkillContainerBuilder builder, string assetId)
+    private static bool AddModifier<TModifier>(SkillContainerBuilder builder) where TModifier : struct, IModifier
     {
-        if (builder.HasModifier<PlaceholderModifier>())
-        {
-            var modifier = builder.GetModifier<PlaceholderModifier>();
-            modifier.ModifierAssetIds ??= new HashSet<string>();
-            var added = modifier.ModifierAssetIds.Add(assetId);
-            builder.SetModifier(modifier);
-            return added;
-        }
-
-        builder.AddModifier(new PlaceholderModifier
-        {
-            ModifierAssetIds = new HashSet<string>
-            {
-                assetId
-            }
-        });
+        if (builder.HasModifier<TModifier>()) return false;
+        builder.AddModifier(new TModifier());
         return true;
     }
 }
