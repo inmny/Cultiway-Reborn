@@ -10,8 +10,7 @@ namespace Cultiway.Core.Systems.Logic;
 
 public class StatusParticleSystem : QuerySystem<StatusComponent, StatusParticleState>
 {
-    private const float ParticleSize = 0.25f;
-    private const float OffsetRange = 0.2f;
+    private const float ParticleSize = 0.2f;
     private const float ParticleLifetime = 1.25f;
     private static ParticleSystem _sharedEmitter;
     private static readonly Gradient FadeOutGradient = new()
@@ -74,7 +73,7 @@ public class StatusParticleSystem : QuerySystem<StatusComponent, StatusParticleS
             return;
         }
 
-        GetVisualData(actor, out var position, out var spriteHeight);
+        GetVisualData(actor, out var position, out var sprite_size);
 
         var emitter = GetEmitter();
         if (emitter == null)
@@ -90,9 +89,8 @@ public class StatusParticleSystem : QuerySystem<StatusComponent, StatusParticleS
             }
 
             var jittered = position;
-            jittered.y += spriteHeight;
-            jittered.x += Randy.randomFloat(-OffsetRange, OffsetRange);
-            jittered.y += Randy.randomFloat(-OffsetRange, OffsetRange);
+            jittered.x += Randy.randomFloat(-sprite_size.x / 2f, sprite_size.x / 2f);
+            jittered.y += Randy.randomFloat(0, sprite_size.y);
 
             var emitParams = new ParticleSystem.EmitParams
             {
@@ -104,18 +102,18 @@ public class StatusParticleSystem : QuerySystem<StatusComponent, StatusParticleS
         }
     }
 
-    private static void GetVisualData(Actor actor, out Vector3 position, out float spriteHeight)
+    private static void GetVisualData(Actor actor, out Vector3 position, out Vector2 sprite_size)
     {
         var sprite = actor._last_main_sprite;
         position = actor.cur_transform_position;
         if (sprite == null)
         {
-            spriteHeight = 0f;
+            sprite_size = Vector2.zero;
         }
         else
         {
-        var scale = actor.current_scale;
-            spriteHeight = sprite.bounds.size.y * scale.y / 2f;
+            var scale = actor.current_scale;
+            sprite_size = sprite.bounds.size * new Vector2(scale.x, scale.y);
         }
     }
 
