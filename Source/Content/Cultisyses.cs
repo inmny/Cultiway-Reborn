@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.AIGC;
@@ -100,7 +102,8 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             ModClass.I.WorldRecord.CheckAndLogFirstLevelup(Xian.id, ae, ref ae.GetCultisys<Xian>());
             if (ae.Base.asset == Actors.Plant)
             {
-                ae.Base.setName(PlantNameGenerator.Instance.GenerateName([element_root.Type.GetName()]));
+                ae.Base.setName(PlantNameGenerator.Instance.GenerateName(
+                    GetPlantNameParams(ae, element_root.Type.GetName())));
             }
         });
         ActorExtend.RegisterActionOnUpdateStats([Hotfixable](ae) =>
@@ -204,6 +207,12 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 jindan.strength
             ));
             e.RemoveComponent<Jindan>();
+            if (ae.Base.asset == Actors.Plant)
+            {
+                var elementRoot = ae.GetElementRoot();
+                ae.Base.setName(PlantNameGenerator.Instance.GenerateName(
+                    GetPlantNameParams(ae, elementRoot.Type.GetName(), yuanying.GetName())));
+            }
             return true;
         }
         if (jindan.stage < 10000)
@@ -422,7 +431,8 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             ));
             if (ae.Base.asset == Actors.Plant)
             {
-                ae.Base.setName(PlantNameGenerator.Instance.GenerateName([er.Type.GetName(), jindan.GetName()]));
+                ae.Base.setName(PlantNameGenerator.Instance.GenerateName(
+                    GetPlantNameParams(ae, er.Type.GetName(), jindan.GetName())));
             }
             //ae.AddSkillModifier<ScaleModifier, float>(CommonWeaponSkills.StartWeaponSkill.id, new ScaleModifier(Randy.randomFloat(1, 4)));
             if (jindan.skills.Count > 0)
@@ -457,5 +467,50 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         {
             return Mathf.Abs(RdUtils.NextStdNormal() * p);
         }
+    }
+    private static string[] GetPlantNameParams(ActorExtend ae, params string[] cultivationFactors)
+    {
+        List<string> param = new();
+        foreach (var factor in cultivationFactors)
+        {
+            if (string.IsNullOrEmpty(factor)) continue;
+            param.Add(factor);
+        }
+
+        var traits = GetPlantTraitNames(ae);
+        if (traits.Count > 0)
+        {
+            StringBuilder sb = new();
+            sb.Append(PlantNameGenerator.TraitPrefix);
+            for (int i = 0; i < traits.Count; i++)
+            {
+                sb.Append(traits[i]);
+                if (i < traits.Count - 1) sb.Append('、');
+            }
+            param.Add(sb.ToString());
+        }
+
+        return param.ToArray();
+    }
+
+    private static List<string> GetPlantTraitNames(ActorExtend ae)
+    {
+        List<string> traits = new();
+        var data = ae.Base.data;
+        if (data?.saved_traits == null || data.saved_traits.Count == 0) return traits;
+
+        foreach (var trait_id in data.saved_traits)
+        {
+            var trait_asset = AssetManager.traits.get(trait_id);
+            if (trait_asset == null) continue;
+            if (trait_asset.group_id == ActorTraitGroups.System.id) continue;
+            var name = trait_asset.getTranslatedName();
+            if (string.IsNullOrEmpty(name)) continue;
+
+            traits.Add(name);
+            if (traits.Count >= 3) break;
+        }
+
+        return traits;
     }
 }
