@@ -24,6 +24,14 @@ public class SkillEntityLibrary : AssetLibrary<SkillEntityAsset>
                     loop = false
                 }
             },
+            new AliveTimer()
+            {
+                value = 0f
+            },
+            new AliveTimeLimit()
+            {
+                value = 5f
+            },
             new AnimData()
             {
                 frames = SpriteTextureLoader.getSpriteList("cultiway/effect/flying_fireball")

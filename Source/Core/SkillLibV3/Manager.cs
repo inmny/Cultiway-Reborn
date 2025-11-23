@@ -46,11 +46,13 @@ public class Manager
     public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f)
     {
         var entity = SkillEntityLibrary.RawAnim.NewEntity();
+        var frames = SpriteTextureLoader.getSpriteList(path);
         var data = entity.Data;
         data.Get<Position>().value = pos;
         data.Get<Rotation>().value = rot;
         data.Get<Scale>().value = scale * Vector3.one;
-        data.Get<AnimData>().frames = SpriteTextureLoader.getSpriteList(path);
+        data.Get<AnimData>().frames = frames;
+        data.Get<AliveTimeLimit>().value = frames.Length * data.Get<AnimController>().meta.frame_interval;
     }
     public void SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength)
     {
