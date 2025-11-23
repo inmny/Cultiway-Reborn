@@ -21,6 +21,8 @@ public class Drops : ExtendLibrary<DropAsset, Drops>
     public static DropAsset Slow { get; private set; }
     [SetupButton, CloneSource(S_Drop.dust_white)]
     public static DropAsset Poison { get; private set; }
+    [SetupButton, CloneSource(S_Drop.dust_white)]
+    public static DropAsset Burn { get; private set; }
     protected override void OnInit()
     {
         RegisterAssets();
@@ -30,6 +32,11 @@ public class Drops : ExtendLibrary<DropAsset, Drops>
         Poison.action_landed = CreateStatusDropAction(StatusEffects.Poison, e =>{
             e.GetComponent<StatusTickState>().Value += 1f;
             e.GetComponent<StatusTickState>().Element = ElementComposition.Static.Poison;
+        });
+        Burn.action_landed = CreateStatusDropAction(StatusEffects.Burn, e =>
+        {
+            e.GetComponent<StatusTickState>().Value = 10f;
+            e.GetComponent<StatusTickState>().Element = ElementComposition.Static.Fire;
         });
 
 

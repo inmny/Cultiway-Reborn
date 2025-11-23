@@ -60,6 +60,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Slow.OnAddOrUpgrade = AddOrUpgradeSlow;
         Slow.OnEffectObj = ApplySlowEffect;
         Setup<BurnModifier>(Burn, SkillModifierRarity.Common);
+        Burn.OnAddOrUpgrade = AddOrUpgradeBurn;
+        Burn.OnEffectObj = ApplyBurnEffect;
         Setup<FreezeModifier>(Freeze, SkillModifierRarity.Common);
         Setup<PoisonModifier>(Poison, SkillModifierRarity.Common);
         Poison.OnAddOrUpgrade = AddOrUpgradePoison;
@@ -168,6 +170,49 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         return true;
     }
 
+    private static bool AddOrUpgradeBurn(SkillContainerBuilder builder)
+    {
+        const float minDuration = 4f;
+        const float maxDuration = 8f;
+        const float durationStep = 0.5f;
+        const float minDamageRatio = 0.15f;
+        const float maxDamageRatio = 0.25f;
+        const float damageRatioStep = 0.02f;
+
+        if (!builder.HasModifier<BurnModifier>())
+        {
+            builder.AddModifier(new BurnModifier
+            {
+                Duration = minDuration,
+                DamageRatio = minDamageRatio
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<BurnModifier>();
+        var changed = false;
+        var roll = Random.value;
+        if (roll < 0.5f && modifier.DamageRatio < maxDamageRatio)
+        {
+            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
+            changed = true;
+        }
+        else if (modifier.Duration < maxDuration)
+        {
+            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+            changed = true;
+        }
+        else if (modifier.DamageRatio < maxDamageRatio)
+        {
+            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
     private static bool AddOrUpgradePoison(SkillContainerBuilder builder)
     {
         const float minDuration = 5f;
@@ -252,6 +297,49 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         target.a.GetExtend().AddSharedStatus(status);
     }
 
+    // 击中单位时附加灼烧
+    private static void ApplyBurnEffect(Entity skillEntity, BaseSimObject target)
+    {
+        if (!target.isActor()) return;
+
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out BurnModifier burn)) return;
+        if (!skillEntity.TryGetComponent(out SkillContext context)) return;
+
+        var duration = Mathf.Clamp(burn.Duration, 0f, 999f);
+        var damageRatio = Mathf.Clamp(burn.DamageRatio, 0f, 1f);
+        if (duration <= 0f || damageRatio <= 0f) return;
+
+        var totalDamage = Mathf.Max(0f, context.Strength * damageRatio);
+        if (totalDamage <= 0f) return;
+        var element = ElementComposition.Static.Fire;
+        var dps = duration > 0f ? totalDamage / duration : 0f;
+        if (dps <= 0f) return;
+
+        var actorExtend = target.a.GetExtend();
+        Entity burnStatus = default;
+        foreach (var statusEntity in actorExtend.GetStatuses())
+        {
+            if (statusEntity.IsNull || !statusEntity.TryGetComponent(out StatusComponent statusComponent)) continue;
+            if (statusComponent.Type == StatusEffects.Burn)
+            {
+                burnStatus = statusEntity;
+                break;
+            }
+        }
+
+        if (burnStatus.IsNull)
+        {
+            burnStatus = StatusEffects.Burn.NewEntity();
+            actorExtend.AddSharedStatus(burnStatus);
+        }
+
+        ref var timeLimit = ref burnStatus.GetComponent<AliveTimeLimit>();
+        timeLimit.value = duration;
+        ApplyDamageTickState(ref burnStatus, dps, element, context.SourceObj);
+    }
+
     // 击中单位时附加中毒效果
     private static void ApplyPoisonEffect(Entity skillEntity, BaseSimObject target)
     {
@@ -295,11 +383,11 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var status = StatusEffects.Poison.NewEntity();
         ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
         timeLimit.value = duration;
-        ApplyPoisonState(ref status, damagePerSecond, element, context.SourceObj);
+        ApplyDamageTickState(ref status, damagePerSecond, element, context.SourceObj);
         actorExtend.AddSharedStatus(status);
     }
 
-    private static void ApplyPoisonState(ref Entity status, float dps, ElementComposition element, BaseSimObject source)
+    private static void ApplyDamageTickState(ref Entity status, float dps, ElementComposition element, BaseSimObject source)
     {
         ref var tickState = ref status.GetComponent<StatusTickState>();
         tickState.Value = dps;
@@ -330,6 +418,6 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         aliveTimer.value = 0f;
         ref var aliveLimit = ref targetStatus.GetComponent<AliveTimeLimit>();
         aliveLimit.value = duration;
-        ApplyPoisonState(ref targetStatus, dps, element, source);
+        ApplyDamageTickState(ref targetStatus, dps, element, source);
     }
 }
