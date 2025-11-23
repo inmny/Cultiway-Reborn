@@ -23,6 +23,11 @@
             "Id": "API_KEY",
             "Type": "TEXT",
             "TextVal": ""
+        },
+        {
+            "Id": "MODEL",
+            "Type": "TEXT",
+            "TextVal": "deepseek-chat"
         }
     ],
     "AnimSettings": [

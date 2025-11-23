@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using Cultiway.Core.Components;
+using Cultiway.Core.EventSystem;
+using Cultiway.Core.EventSystem.Events;
 using Friflo.Engine.ECS;
 using HarmonyLib;
 using Newtonsoft.Json;
@@ -14,16 +15,16 @@ public abstract class EntityNameGenerator<T> : BaseNameGenerator<T> where T : En
 {
     public void NewNameGenerateRequest(string[] param_list, Entity target)
     {
-        var event_entity_name_entity = ModClass.I.W.CreateEntity(new EventNameEntity()
-        {
-            Target = target
-        });
-        _ = GenerateAsync(param_list, event_entity_name_entity);
+        _ = GenerateAsync(param_list, target);
     }
 
     private async Task
-        GenerateAsync(string[] param_list, Entity event_entity)
+        GenerateAsync(string[] param_list, Entity target)
     {
+        if (target.IsNull)
+        {
+            return;
+        }
         var name = GetDefaultName(param_list);
         var key = GetStoreKey(param_list);
         if (RequestNewName(key))
@@ -66,6 +67,10 @@ public abstract class EntityNameGenerator<T> : BaseNameGenerator<T> where T : En
                 }
             }
         }
-        event_entity.GetComponent<EventNameEntity>().Name = name;
+        EventSystemHub.Publish(new EntityNameGeneratedEvent()
+        {
+            Target = target,
+            Name = name
+        });
     }
 }

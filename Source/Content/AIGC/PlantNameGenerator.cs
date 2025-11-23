@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Policy;
 using System.Text;
 using Cultiway.Core.AIGCLib;
 using HarmonyLib;
@@ -8,7 +9,7 @@ using UnityEngine;
 
 namespace Cultiway.Content.AIGC;
 
-public class PlantNameGenerator : PromptNameGenerator<PlantNameGenerator>
+public class PlantNameGenerator : ActorNameGenerator<PlantNameGenerator>
 {
     internal const string TraitPrefix = "特质：";
 
@@ -16,7 +17,13 @@ public class PlantNameGenerator : PromptNameGenerator<PlantNameGenerator>
     [Hotfixable]
     protected override string GetSystemPrompt()
     {
-        return "你需要根据灵植的灵根、金丹、元婴等修行信息以及额外描述的特质为灵植命名，不要有任何符号，不要给出思考过程，仅给出一个答案。\\nInput example:\\n为灵根“雷灵根”、特质“庇护、寄生”的灵植命名\\nOutput example:\\n紫霄护魂藤";
+        return "你需要根据灵植的境界、灵根、金丹、元婴等修行信息以及额外描述的特质为灵植命名，不要有任何符号，不要给出思考过程，仅给出一个答案，要求符合玄幻风格、简短凝练，一般三到五个字，不要出现不符合玄幻风格的字词，灵植类型要多样化（草、藤、莲、木、菇、芝、树、花、果、参等等，也不局限于我给出这些），要求命名风格符合灵植境界，不要使用“五行”二字，仅在高阶灵植中出现。\\nInput example:\\n为境界“筑基”、灵根“雷灵根”、特质“庇护、寄生”的灵植命名\\nOutput example:\\n雷佑藤\\nInput example: 为境界“九转金丹”、灵根“冰灵根”、特质“净化、坚韧”的灵植命名\\nOutput example: 九转冰心莲\\nInput example: 为境界“无垢元婴”、灵根“火灵根”、特质“幻化、迅捷”的灵植命名\\nOutput example: 无垢幻风草\\nInput example: 为境界“化神”、灵根“毒灵根”、特质“腐蚀、诅咒”的灵植命名\\nOutput example: 蚀魂幽毒藤\\nInput example: 为境界“筑基”、灵根“风灵根”、特质“隐匿、迷幻”的灵植命名\\nOutput example: 风影叶\\nInput example: 为境界“炼虚”、灵根“光灵根”、特质“驱散、复苏”的灵植命名\\nOutput example: 曜生树。注意不要使用“五行”二字";
+    }
+    protected override string PostProcess(string name)
+    {
+        if (name.Length <= 3)
+            return name;
+        return name.Replace("五行", "").Replace("五灵", "").Replace("五色", "").Replace("五元", "");
     }
 
     protected override string GetDefaultName(string[] param)
@@ -43,7 +50,7 @@ public class PlantNameGenerator : PromptNameGenerator<PlantNameGenerator>
 
     protected override bool IsValid(string name)
     {
-        return name.Length < 10;
+        return name.Length < 10 && name.Length >= 2;
     }
     [Hotfixable]
     protected override string GetPrompt(string[] param)

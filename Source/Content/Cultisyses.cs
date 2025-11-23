@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Cultiway.Abstract;
 using Cultiway.Const;
@@ -102,8 +104,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             ModClass.I.WorldRecord.CheckAndLogFirstLevelup(Xian.id, ae, ref ae.GetCultisys<Xian>());
             if (ae.Base.asset == Actors.Plant)
             {
-                ae.Base.setName(PlantNameGenerator.Instance.GenerateName(
-                    GetPlantNameParams(ae, element_root.Type.GetName())));
+                PlantNameGenerator.Instance.NewNameGenerateRequest(GetPlantNameParams(ae, Xian.GetLevelName(ae.GetCultisys<Xian>().CurrLevel), element_root.Type.GetName()), ae.Base);
             }
         });
         ActorExtend.RegisterActionOnUpdateStats([Hotfixable](ae) =>
@@ -210,8 +211,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (ae.Base.asset == Actors.Plant)
             {
                 var elementRoot = ae.GetElementRoot();
-                ae.Base.setName(PlantNameGenerator.Instance.GenerateName(
-                    GetPlantNameParams(ae, elementRoot.Type.GetName(), yuanying.GetName())));
+                PlantNameGenerator.Instance.NewNameGenerateRequest(GetPlantNameParams(ae, Xian.GetLevelName(ae.GetCultisys<Xian>().CurrLevel), elementRoot.Type.GetName(), yuanying.GetName()), ae.Base);
             }
             return true;
         }
@@ -431,8 +431,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             ));
             if (ae.Base.asset == Actors.Plant)
             {
-                ae.Base.setName(PlantNameGenerator.Instance.GenerateName(
-                    GetPlantNameParams(ae, er.Type.GetName(), jindan.GetName())));
+                PlantNameGenerator.Instance.NewNameGenerateRequest(GetPlantNameParams(ae, Xian.GetLevelName(ae.GetCultisys<Xian>().CurrLevel), er.Type.GetName(), jindan.GetName()), ae.Base);
             }
             //ae.AddSkillModifier<ScaleModifier, float>(CommonWeaponSkills.StartWeaponSkill.id, new ScaleModifier(Randy.randomFloat(1, 4)));
             if (jindan.skills.Count > 0)
@@ -508,9 +507,11 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (string.IsNullOrEmpty(name)) continue;
 
             traits.Add(name);
-            if (traits.Count >= 3) break;
         }
+        traits.Shuffle();
+        if (traits.Count >= 3) traits = traits.GetRange(0, 3);
 
+        traits.Sort((a, b) => string.Compare(a, b, StringComparison.Ordinal));
         return traits;
     }
 }

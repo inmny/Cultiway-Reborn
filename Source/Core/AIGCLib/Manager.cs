@@ -9,6 +9,7 @@ public class Manager
 {
     public static string BaseURL => ModClass.I.GetConfig()["AIGCSettings"]["BASE_URL"].TextVal;
     public static string APIKey => ModClass.I.GetConfig()["AIGCSettings"]["API_KEY"].TextVal;
+    public static string Model => ModClass.I.GetConfig()["AIGCSettings"]["MODEL"].TextVal;
     struct ChatResponse
     {
         public ChatResponseChoice[] choices;
@@ -44,7 +45,7 @@ public class Manager
                   "role": "user"
                 }
               ],
-              "model": "deepseek-chat",
+              "model": "<model>",
               "frequency_penalty": 0,
               "max_tokens": 2048,
               "presence_penalty": 0,
@@ -64,7 +65,8 @@ public class Manager
             """
             .Replace("<temp_value>", $"{temperature:F1}")
             .Replace("<prompt>", prompt)
-            .Replace("<system_prompt>", system_prompt);
+            .Replace("<system_prompt>", system_prompt)
+            .Replace("<model>", Model);
         var content = new StringContent(
             content_str,
             null,

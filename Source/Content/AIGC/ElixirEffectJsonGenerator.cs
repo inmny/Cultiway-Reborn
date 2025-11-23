@@ -68,18 +68,4 @@ public class ElixirEffectJsonGenerator : PromptNameGenerator<ElixirEffectJsonGen
         }
         return sb.ToString();
     }
-    [Hotfixable]
-    private static string TestGenerateName()
-    {
-        string[] param = new string[3];
-        for (int i=0;i<param.Length;i++)
-        {
-            param[i] = PlantNameGenerator.Instance.GenerateName([
-                ModClass.L.ElementRootLibrary.list.GetRandom().GetName(),
-                Libraries.Manager.JindanLibrary.list.GetRandom().GetName()
-            ]);
-        }
-        ModClass.LogInfo("Test generate name: " + param.Join());
-        return Instance.GenerateName(param);
-    }
 }

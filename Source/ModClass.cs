@@ -9,6 +9,7 @@ using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
 using Cultiway.Debug;
@@ -246,7 +247,8 @@ namespace Cultiway
             LogicRestoreStatusSystemGroup.Add(new RestoreQiyunSystem());
             
             GeneralLogicSystems.Add(LogicEventProcessSystemGroup);
-            LogicEventProcessSystemGroup.Add(new EventNameEntitySystem());
+            LogicEventProcessSystemGroup.Add(new ActorNameGeneratedEventSystem());
+            LogicEventProcessSystemGroup.Add(new EntityNameGeneratedEventSystem());
             
             GeneralLogicSystems.Add(new SyncCityRelationSystem());
             
