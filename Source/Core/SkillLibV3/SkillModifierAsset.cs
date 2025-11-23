@@ -56,6 +56,7 @@ public interface ISpawnAnimRequestProvider
 }
 
 public delegate void SetupAction(Entity skill_entity);
+public delegate void TravelAction(Entity skill_entity);
 public delegate void EffectObjAction(Entity skill_entity, BaseSimObject obj);
 public delegate bool AddOrUpgradeAction(SkillContainerBuilder builder);
 public delegate string GetDescription(Entity skill_entity);
@@ -71,6 +72,7 @@ public class SkillModifierAsset : Asset
     /// </summary>
     public HashSet<string> ConflictTags { get; } = new();
     public SetupAction OnSetup;
+    public TravelAction OnTravel;
     public EffectObjAction OnEffectObj;
     public AddOrUpgradeAction OnAddOrUpgrade;
     public GetDescription GetDescription;

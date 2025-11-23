@@ -7,9 +7,11 @@ namespace Cultiway.Content.Components.Skill;
 
 public struct SlowModifier : IModifier
 {
+    public float Duration;
+    public float Strength;
     public SkillModifierAsset ModifierAsset => SkillModifiers.Slow;
     public string GetKey() => ModifierAsset.id.Localize();
-    public string GetValue() => string.Empty;
+    public string GetValue() => $"持续{Duration:F1}s，减速{Strength:P0}";
 }
 
 public struct BurnModifier : IModifier
