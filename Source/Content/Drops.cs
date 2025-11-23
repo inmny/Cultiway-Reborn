@@ -1,10 +1,13 @@
+using System;
 using System.Reflection;
 using Cultiway.Abstract;
 using Cultiway.Content.Attributes;
+using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.UI;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using NeoModLoader.General;
 using strings;
 
@@ -16,18 +19,24 @@ public class Drops : ExtendLibrary<DropAsset, Drops>
     public static DropAsset Enlighten { get; private set; }
     [SetupButton, CloneSource(S_Drop.dust_white)]
     public static DropAsset Slow { get; private set; }
+    [SetupButton, CloneSource(S_Drop.dust_white)]
+    public static DropAsset Poison { get; private set; }
     protected override void OnInit()
     {
         RegisterAssets();
 
         Enlighten.action_landed = CreateStatusDropAction(StatusEffects.Enlighten);
         Slow.action_landed = CreateStatusDropAction(StatusEffects.Slow);
+        Poison.action_landed = CreateStatusDropAction(StatusEffects.Poison, e =>{
+            e.GetComponent<StatusTickState>().Value += 1f;
+            e.GetComponent<StatusTickState>().Element = ElementComposition.Static.Poison;
+        });
 
 
 
         SetupCommonBuildingPlaceDrop();
     }
-    private DropsAction CreateStatusDropAction(StatusEffectAsset status)
+    private DropsAction CreateStatusDropAction(StatusEffectAsset status, Action<Entity> addition_action = null)
     {
         return (tile, drop_id) =>
         {
@@ -41,12 +50,15 @@ public class Drops : ExtendLibrary<DropAsset, Drops>
                     {
                         has_status = true;
                         status_entity.GetComponent<AliveTimer>().value = status.ParticleSettings.interval;
+                        addition_action?.Invoke(status_entity);
                         break;
                     }
                 }
                 if (!has_status)
                 {
-                    a.GetExtend().AddSharedStatus(status.NewEntity());
+                    var status_entity = status.NewEntity();
+                    addition_action?.Invoke(status_entity);
+                    a.GetExtend().AddSharedStatus(status_entity);
                 }
                 a.startColorEffect();
             }

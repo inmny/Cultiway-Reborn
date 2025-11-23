@@ -1,3 +1,4 @@
+using System;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
@@ -21,10 +22,27 @@ public class StatusParticleSettings
     };
 }
 
+public delegate void StatusTickAction(Entity statusEntity, float deltaTime);
+
+public class StatusTickSettings
+{
+    public bool enabled;
+    public float interval;
+    public StatusTickAction Action;
+
+    public static StatusTickSettings Disabled => new()
+    {
+        enabled = false,
+        interval = 1f,
+        Action = null
+    };
+}
+
 public class StatusEffectAsset : Asset
 {
     public BaseStats stats = new();
     public StatusParticleSettings ParticleSettings { get; private set; } = StatusParticleSettings.Disabled;
+    public StatusTickSettings TickSettings { get; private set; } = StatusTickSettings.Disabled;
     private Entity _prefab;
     private EntityStore _world;
     public StatusEffectAsset()
@@ -81,6 +99,13 @@ public class StatusEffectAsset : Asset
         settings.interval = Mathf.Max(0.05f, settings.interval);
         return settings;
     }
+
+    private static StatusTickSettings NormalizeTickSettings(StatusTickSettings settings)
+    {
+        settings.interval = Mathf.Max(0.05f, settings.interval);
+        settings.enabled = settings.enabled && settings.Action != null;
+        return settings;
+    }
     
     public class Builder
     {
@@ -135,6 +160,20 @@ public class StatusEffectAsset : Asset
                 interval = interval
             });
         }
+        public Builder SetTick(StatusTickSettings settings)
+        {
+            _under_build.TickSettings = NormalizeTickSettings(settings);
+            return this;
+        }
+        public Builder EnableTick(float interval, StatusTickAction action)
+        {
+            return SetTick(new StatusTickSettings
+            {
+                enabled = true,
+                interval = interval,
+                Action = action
+            });
+        }
         public StatusEffectAsset Build()
         {
             ModClass.L.StatusEffectLibrary.add(_under_build);
@@ -142,6 +181,10 @@ public class StatusEffectAsset : Asset
             if (_under_build.ParticleSettings.enabled)
             {
                 _under_build._prefab.AddComponent(new StatusParticleState());
+            }
+            if (_under_build.TickSettings.enabled)
+            {
+                _under_build._prefab.AddComponent(new StatusTickState());
             }
             return _under_build;
         }

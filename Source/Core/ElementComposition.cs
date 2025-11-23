@@ -18,6 +18,12 @@ public struct ElementComposition
     public static class Static
     {
         internal static ElementComposition empty = new([1, 1, 1, 1, 1, 1, 1, 0]);
+        public static readonly ElementComposition Iron = new(iron: 1f, normalize: true);
+        public static readonly ElementComposition Wood = new(wood: 1f, normalize: true);
+        public static readonly ElementComposition Water = new(water: 1f, normalize: true);
+        public static readonly ElementComposition Fire = new(fire: 1f, normalize: true);
+        public static readonly ElementComposition Earth = new(earth: 1f, normalize: true);
+        public static readonly ElementComposition Poison = new([0f, 0.5f, 0.5f, 0f, 0f, 0f, 1f, 0f], true);
     }
 
     public void Normalize()

@@ -62,6 +62,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Setup<BurnModifier>(Burn, SkillModifierRarity.Common);
         Setup<FreezeModifier>(Freeze, SkillModifierRarity.Common);
         Setup<PoisonModifier>(Poison, SkillModifierRarity.Common);
+        Poison.OnAddOrUpgrade = AddOrUpgradePoison;
+        Poison.OnEffectObj = ApplyPoisonEffect;
         Setup<ExplosionModifier>(Explosion, SkillModifierRarity.Common);
         Setup<HasteModifier>(Haste, SkillModifierRarity.Common);
         Setup<ProficiencyModifier>(Proficiency, SkillModifierRarity.Common);
@@ -166,6 +168,67 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         return true;
     }
 
+    private static bool AddOrUpgradePoison(SkillContainerBuilder builder)
+    {
+        const float minDuration = 5f;
+        const float maxDuration = 10f;
+        const float durationStep = 1f;
+        const float minDamageRatio = 0.1f;
+        const float maxDamageRatio = 0.2f;
+        const float damageRatioStep = 0.02f;
+        const int minStacks = 3;
+        const int maxStacks = 5;
+
+        if (!builder.HasModifier<PoisonModifier>())
+        {
+            builder.AddModifier(new PoisonModifier
+            {
+                Duration = minDuration,
+                DamageRatio = minDamageRatio,
+                MaxStacks = minStacks
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<PoisonModifier>();
+        var changed = false;
+        var roll = Random.value;
+        if (roll < 0.4f && modifier.DamageRatio < maxDamageRatio)
+        {
+            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
+            changed = true;
+        }
+        else if (roll < 0.75f && modifier.Duration < maxDuration)
+        {
+            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+            changed = true;
+        }
+        else if (modifier.MaxStacks < maxStacks)
+        {
+            modifier.MaxStacks = Mathf.Min(maxStacks, modifier.MaxStacks + 1);
+            changed = true;
+        }
+        else if (modifier.DamageRatio < maxDamageRatio)
+        {
+            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
+            changed = true;
+        }
+        else if (modifier.Duration < maxDuration)
+        {
+            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+            changed = true;
+        }
+        else if (modifier.MaxStacks < maxStacks)
+        {
+            modifier.MaxStacks = Mathf.Min(maxStacks, modifier.MaxStacks + 1);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
     // 击中单位时附加减速状态
     private static void ApplySlowEffect(Entity skillEntity, BaseSimObject target)
     {
@@ -187,5 +250,86 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
             Value = strength
         });
         target.a.GetExtend().AddSharedStatus(status);
+    }
+
+    // 击中单位时附加中毒效果
+    private static void ApplyPoisonEffect(Entity skillEntity, BaseSimObject target)
+    {
+        if (!target.isActor()) return;
+
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out PoisonModifier poison)) return;
+        if (!skillEntity.TryGetComponent(out SkillContext context)) return;
+
+        var duration = Mathf.Clamp(poison.Duration, 0f, 999f);
+        var damageRatio = Mathf.Clamp(poison.DamageRatio, 0f, 1f);
+        var maxStacks = Mathf.Clamp(poison.MaxStacks, 1, 99);
+        if (duration <= 0f || damageRatio <= 0f) return;
+
+        var actorExtend = target.a.GetExtend();
+        List<Entity> poisonStatuses = new();
+        foreach (var statusEntity in actorExtend.GetStatuses())
+        {
+            if (statusEntity.IsNull || !statusEntity.TryGetComponent(out StatusComponent statusComponent)) continue;
+            if (statusComponent.Type == StatusEffects.Poison)
+            {
+                ref var tickState = ref statusEntity.GetComponent<StatusTickState>();
+                if (tickState.Source != context.SourceObj) continue;
+
+                poisonStatuses.Add(statusEntity);
+            }
+        }
+
+        var totalDamage = Mathf.Max(0f, context.Strength * damageRatio);
+        if (totalDamage <= 0f) return;
+        var element = ElementComposition.Static.Poison;
+        var damagePerSecond = duration > 0f ? totalDamage / duration : 0f;
+        if (damagePerSecond <= 0f) return;
+        if (poisonStatuses.Count >= maxStacks)
+        {
+            RefreshExistingPoison(duration, damagePerSecond, element, context.SourceObj, poisonStatuses);
+            return;
+        }
+
+        var status = StatusEffects.Poison.NewEntity();
+        ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
+        timeLimit.value = duration;
+        ApplyPoisonState(ref status, damagePerSecond, element, context.SourceObj);
+        actorExtend.AddSharedStatus(status);
+    }
+
+    private static void ApplyPoisonState(ref Entity status, float dps, ElementComposition element, BaseSimObject source)
+    {
+        ref var tickState = ref status.GetComponent<StatusTickState>();
+        tickState.Value = dps;
+        tickState.Element = element;
+        tickState.Source = source;
+    }
+
+    private static void RefreshExistingPoison(float duration, float dps, ElementComposition element, BaseSimObject source, List<Entity> poisonStatuses)
+    {
+        Entity targetStatus = default;
+        float minTimer = float.MaxValue;
+        foreach (var status in poisonStatuses)
+        {
+            if (status.IsNull || !status.TryGetComponent(out AliveTimer timer)) continue;
+            if (timer.value < minTimer)
+            {
+                minTimer = timer.value;
+                targetStatus = status;
+            }
+        }
+
+        if (targetStatus.IsNull)
+        {
+            return;
+        }
+
+        ref var aliveTimer = ref targetStatus.GetComponent<AliveTimer>();
+        aliveTimer.value = 0f;
+        ref var aliveLimit = ref targetStatus.GetComponent<AliveTimeLimit>();
+        aliveLimit.value = duration;
+        ApplyPoisonState(ref targetStatus, dps, element, source);
     }
 }

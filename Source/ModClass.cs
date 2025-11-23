@@ -230,6 +230,7 @@ namespace Cultiway
             GeneralLogicSystems.Add(new AliveTimerSystem());
             GeneralLogicSystems.Add(new AliveTimerCheckSystem());
             GeneralLogicSystems.Add(new DelayActiveCheckSystem());
+            GeneralLogicSystems.Add(new StatusTickSystem());
             GeneralLogicSystems.Add(new StatusParticleSystem());
             
             GeneralLogicSystems.Add(LogicPrepareRecycleSystemGroup);
