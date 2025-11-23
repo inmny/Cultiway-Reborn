@@ -70,52 +70,61 @@ public partial class Buildings
 
         BloodCastle.tower = false;
         BloodCastle.spawn_units_asset = null;
+        BloodCastle.spawn_units = false;
         BloodCastle.kingdom = KingdomAssets.Vampire.id;
         BloodCastle.AddAdvancedSpawnerDistributedConfig(Actors.Bloodsucker, 1, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.BloodBeast, 3, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.Bloodthirsty, 6, 2, 2);
         FishPeopleTower.tower = false;
         FishPeopleTower.spawn_units_asset = null;
+        FishPeopleTower.spawn_units = false;
         FishPeopleTower.kingdom = KingdomAssets.FishPeople.id;
         FishPeopleTower.AddAdvancedSpawnerDistributedConfig(Actors.FishPeopleShaman, 1, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.FishPeopleWarrior, 3, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.FishPeopleSoldiers, 6, 2, 2);
         RobotTower.tower = true;
         RobotTower.spawn_units_asset = null;
+        RobotTower.spawn_units = false;
         RobotTower.kingdom = KingdomAssets.Robot.id;
         RobotTower.AddAdvancedSpawnerDistributedConfig(Actors.DestroyRobot, 1, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.TankRobot, 3, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.FortRobot, 6, 2, 2);
         SpriteTower.tower = false;
         SpriteTower.spawn_units_asset = null;
+        SpriteTower.spawn_units = false;
         SpriteTower.kingdom = KingdomAssets.Fairy.id;
         SpriteTower.AddAdvancedSpawnerDistributedConfig(Actors.FairyDruid, 1, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.FairyWarrior, 3, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.FairyRanger, 6, 2, 2);
         GoblinTower.tower = false;
         GoblinTower.spawn_units_asset = null;
+        GoblinTower.spawn_units = false;
         GoblinTower.kingdom = KingdomAssets.Goblin.id;
         GoblinTower.AddAdvancedSpawnerDistributedConfig(Actors.GoblinShaman, 1, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.GoblinKnight, 3, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.GoblinWarrior, 6, 2, 2);
         Pyramid.tower = false;
         Pyramid.spawn_units_asset = null;
+        Pyramid.spawn_units = false;
         Pyramid.kingdom = KingdomAssets.Undead.id;
         Pyramid.AddAdvancedSpawnerDistributedConfig(Actors.Pharaoh, 1, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.SkeletonKnight, 4, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.Mummy, 6, 2, 2);
         MagicTower.tower = false;
         MagicTower.spawn_units_asset = null;
+        MagicTower.spawn_units = false;
         MagicTower.kingdom = KingdomAssets.Superman.id;
         MagicTower.AddAdvancedSpawnerDistributedConfig(Actors.Sorcerer, 1, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.GriffinKnight, 4, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.GuardKnight, 6, 2, 2);
         VivisomaticArbor.tower = false;
         VivisomaticArbor.spawn_units_asset = null;
+        VivisomaticArbor.spawn_units = false;
         VivisomaticArbor.kingdom = KingdomAssets.Superman.id;
 
         GoldenThrone.tower = false;
         GoldenThrone.spawn_units_asset = null;
+        GoldenThrone.spawn_units = false;
         GoldenThrone.kingdom = KingdomAssets.Superman.id;
         GoldenThrone.AddAdvancedSpawnerDistributedConfig(Actors.TechPriests, 13, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.Cherub, 13, 4, 1)
@@ -133,12 +142,14 @@ public partial class Buildings
                    .ActionOnRuins(WorldActionUtils.GetSpawnUnitAction(Actors.Emperor, 1));
         CrimsonCore.tower = false;
         CrimsonCore.spawn_units_asset = null;
+        CrimsonCore.spawn_units = false;
         CrimsonCore.kingdom = KingdomAssets.Crimson.id;
         CrimsonCore.AddAdvancedSpawnerDistributedConfig(Actors.CrimsonArbiter, 1, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors. CrimsonScion, 6, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors. CravingManifestation, 12, 2, 2);
         NurgleTower.tower = false;
         NurgleTower.spawn_units_asset = null;
+        NurgleTower.spawn_units = false;
         NurgleTower.kingdom = KingdomAssets.Nurgle.id;
         NurgleTower.AddAdvancedSpawnerDistributedConfig(Actors.UncleanCreature, 21, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.NurgleDiseaseCarrier, 28, 4, 1)
@@ -150,6 +161,7 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.NurgleSpirit, 35, 2, 2);
         SlaaneshTower.tower = false;
         SlaaneshTower.spawn_units_asset = null;
+        SlaaneshTower.spawn_units = false;
         SlaaneshTower.kingdom = KingdomAssets.Slaanesh.id;
         SlaaneshTower.AddAdvancedSpawnerDistributedConfig(Actors.Daemonette, 24, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.Hellflayer, 6, 4, 1)
@@ -161,6 +173,7 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedKeeperSecrets, 1, 4, 1);
         TzeentchTower.tower = false;
         TzeentchTower.spawn_units_asset = null;
+        TzeentchTower.spawn_units = false;
         TzeentchTower.kingdom = KingdomAssets.Tzeentch.id;
         TzeentchTower.AddAdvancedSpawnerDistributedConfig(Actors.ScreamersTzeentch, 27, 6, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.PinkHorrorTzeentch, 36, 4, 1)
