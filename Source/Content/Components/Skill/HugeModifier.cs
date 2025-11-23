@@ -7,7 +7,9 @@ namespace Cultiway.Content.Components.Skill;
 
 public struct HugeModifier : IModifier
 {
+    public float ScaleMultiplier;
+    public float ColliderMultiplier;
     public SkillModifierAsset ModifierAsset => SkillModifiers.Huge;
     public string GetKey() => ModifierAsset.id.Localize();
-    public string GetValue() => string.Empty;
+    public string GetValue() => $"体型×{ScaleMultiplier:F1}，碰撞体×{ColliderMultiplier:F1}";
 }

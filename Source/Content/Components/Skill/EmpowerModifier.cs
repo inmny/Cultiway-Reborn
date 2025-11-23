@@ -7,7 +7,8 @@ namespace Cultiway.Content.Components.Skill;
 
 public struct EmpowerModifier : IModifier
 {
+    public float SetupBonus;
     public SkillModifierAsset ModifierAsset => SkillModifiers.Empower;
     public string GetKey() => ModifierAsset.id.Localize();
-    public string GetValue() => string.Empty;
+    public string GetValue() => $"所有伤害+{SetupBonus:P0}";
 }

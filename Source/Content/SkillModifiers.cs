@@ -70,10 +70,14 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Setup<HasteModifier>(Haste, SkillModifierRarity.Common);
         Setup<ProficiencyModifier>(Proficiency, SkillModifierRarity.Common);
         Setup<EmpowerModifier>(Empower, SkillModifierRarity.Common);
+        Empower.OnAddOrUpgrade = AddOrUpgradeEmpower;
+        Empower.OnSetup = ApplyEmpowerSetup;
         Setup<KnockbackModifier>(Knockback, SkillModifierRarity.Common);
 
         Setup<LockOnModifier>(LockOn, SkillModifierRarity.Rare);
         Setup<HugeModifier>(Huge, SkillModifierRarity.Rare);
+        Huge.OnAddOrUpgrade = AddOrUpgradeHuge;
+        Huge.OnSetup = ApplyHugeOnSetup;
         Setup<WeakenModifier>(Weaken, SkillModifierRarity.Rare);
         Setup<ArmorBreakModifier>(ArmorBreak, SkillModifierRarity.Rare);
         Setup<GravityModifier>(Gravity, SkillModifierRarity.Rare);
@@ -170,6 +174,40 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         return true;
     }
 
+    private static bool AddOrUpgradeEmpower(SkillContainerBuilder builder)
+    {
+        const float minSetup = 0.2f;
+        const float maxSetup = 0.4f;
+        const float step = 0.05f;
+
+        if (!builder.HasModifier<EmpowerModifier>())
+        {
+            builder.AddModifier(new EmpowerModifier
+            {
+                SetupBonus = minSetup,
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<EmpowerModifier>();
+        var changed = false;
+        var roll = Random.value;
+        if (roll < 0.5f && modifier.SetupBonus < maxSetup)
+        {
+            modifier.SetupBonus = Mathf.Min(maxSetup, modifier.SetupBonus + step);
+            changed = true;
+        }
+        else if (modifier.SetupBonus < maxSetup)
+        {
+            modifier.SetupBonus = Mathf.Min(maxSetup, modifier.SetupBonus + step);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
     private static bool AddOrUpgradeBurn(SkillContainerBuilder builder)
     {
         const float minDuration = 4f;
@@ -205,6 +243,49 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         else if (modifier.DamageRatio < maxDamageRatio)
         {
             modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
+    private static bool AddOrUpgradeHuge(SkillContainerBuilder builder)
+    {
+        const float minScale = 1.2f;
+        const float maxScale = 1.8f;
+        const float scaleStep = 0.1f;
+        const float minCollider = 1.2f;
+        const float maxCollider = 1.8f;
+        const float colliderStep = 0.1f;
+
+        if (!builder.HasModifier<HugeModifier>())
+        {
+            builder.AddModifier(new HugeModifier
+            {
+                ScaleMultiplier = minScale,
+                ColliderMultiplier = minCollider
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<HugeModifier>();
+        var changed = false;
+        var roll = Random.value;
+        if (roll < 0.5f && modifier.ScaleMultiplier < maxScale)
+        {
+            modifier.ScaleMultiplier = Mathf.Min(maxScale, modifier.ScaleMultiplier + scaleStep);
+            changed = true;
+        }
+        else if (modifier.ColliderMultiplier < maxCollider)
+        {
+            modifier.ColliderMultiplier = Mathf.Min(maxCollider, modifier.ColliderMultiplier + colliderStep);
+            changed = true;
+        }
+        else if (modifier.ScaleMultiplier < maxScale)
+        {
+            modifier.ScaleMultiplier = Mathf.Min(maxScale, modifier.ScaleMultiplier + scaleStep);
             changed = true;
         }
 
@@ -295,6 +376,47 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
             Value = strength
         });
         target.a.GetExtend().AddSharedStatus(status);
+    }
+
+    // 构建阶段提升伤害
+    private static void ApplyEmpowerSetup(Entity skillEntity)
+    {
+        if (!skillEntity.HasComponent<SkillContext>()) return;
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out EmpowerModifier empower)) return;
+
+        var bonus = Mathf.Clamp(empower.SetupBonus, 0f, 10f);
+        if (bonus <= 0f) return;
+        ref var context = ref skillEntity.GetComponent<SkillContext>();
+        context.Strength *= 1f + bonus;
+    }
+
+    // 放大贴图和碰撞体
+    private static void ApplyHugeOnSetup(Entity skillEntity)
+    {
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out HugeModifier huge)) return;
+
+        var scaleMul = Mathf.Clamp(huge.ScaleMultiplier, 0.1f, 10f);
+        var colliderMul = Mathf.Clamp(huge.ColliderMultiplier, 0.1f, 10f);
+
+        if (skillEntity.HasComponent<Scale>())
+        {
+            ref var scale = ref skillEntity.GetComponent<Scale>();
+            scale.value *= scaleMul;
+        }
+        else
+        {
+            skillEntity.AddComponent(new Scale(scaleMul));
+        }
+
+        if (skillEntity.HasComponent<ColliderSphere>())
+        {
+            ref var collider = ref skillEntity.GetComponent<ColliderSphere>();
+            collider.Radius *= colliderMul;
+        }
     }
 
     // 击中单位时附加灼烧
