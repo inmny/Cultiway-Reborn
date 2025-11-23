@@ -45,4 +45,5 @@ present tense, and scoped to one change. Pull requests should describe
 gameplay impact, include reproduction or verification steps, and attach
 screenshots/gifs for UI-affecting changes. Reference related roadmap items
 or issues, call out any new resource files added under `GameResources/`,
-and mention if manual migration steps are required for mod users.
+and mention if manual migration steps are required for mod users. 
+Commit message should be writen in Chinese.

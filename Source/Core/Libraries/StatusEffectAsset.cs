@@ -5,9 +5,26 @@ using UnityEngine;
 
 namespace Cultiway.Core.Libraries;
 
+public class StatusParticleSettings
+{
+    public bool enabled;
+    public Color color;
+    public int count;
+    public float interval;
+
+    public static StatusParticleSettings Disabled => new()
+    {
+        enabled = false,
+        color = Color.white,
+        count = 1,
+        interval = 0.5f
+    };
+}
+
 public class StatusEffectAsset : Asset
 {
     public BaseStats stats = new();
+    public StatusParticleSettings ParticleSettings { get; private set; } = StatusParticleSettings.Disabled;
     private Entity _prefab;
     private EntityStore _world;
     public StatusEffectAsset()
@@ -57,6 +74,13 @@ public class StatusEffectAsset : Asset
     {
         return new Builder(id);
     }
+
+    private static StatusParticleSettings NormalizeParticleSettings(StatusParticleSettings settings)
+    {
+        settings.count = Mathf.Max(1, settings.count);
+        settings.interval = Mathf.Max(0.05f, settings.interval);
+        return settings;
+    }
     
     public class Builder
     {
@@ -96,9 +120,29 @@ public class StatusEffectAsset : Asset
             _under_build.given_desc = desc;
             return this;
         }
+        public Builder SetParticle(StatusParticleSettings settings)
+        {
+            _under_build.ParticleSettings = NormalizeParticleSettings(settings);
+            return this;
+        }
+        public Builder EnableParticle(Color color, int count = 1, float interval = 0.5f)
+        {
+            return SetParticle(new StatusParticleSettings
+            {
+                enabled = true,
+                color = color,
+                count = count,
+                interval = interval
+            });
+        }
         public StatusEffectAsset Build()
         {
             ModClass.L.StatusEffectLibrary.add(_under_build);
+
+            if (_under_build.ParticleSettings.enabled)
+            {
+                _under_build._prefab.AddComponent(new StatusParticleState());
+            }
             return _under_build;
         }
     }

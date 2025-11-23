@@ -12,6 +12,10 @@ public partial class Actors
 {
     [CloneSource(SA.human)]
     public static ActorAsset EasternHuman { get; private set; }
+    [CloneSource(ActorAssetLibrary.TEMPLATE_BOAT_TRADING), AssetId("boat_trading_Cultiway.EasternHuman")]
+    public static ActorAsset EasternHumanTradingBoat {get; private set;}
+    [CloneSource(ActorAssetLibrary.TEMPLATE_BOAT_TRANSPORT), AssetId("boat_transport_Cultiway.EasternHuman")]
+    public static ActorAsset EasternHumanTransportBoat {get; private set;}
     private void SetupEasternHuman() 
     { 
         EasternHuman.AddCultureTrait(CultureTraits.CultureSkin)

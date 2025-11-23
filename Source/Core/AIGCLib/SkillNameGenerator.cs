@@ -54,9 +54,9 @@ public class SkillNameGenerator : EntityNameGenerator<SkillNameGenerator>
 
             var modifier = (IModifier)skill_container_entity.GetComponent(component_type);
             var key = modifier.GetKey();
-            var value = modifier.GetValue();
+            //var value = modifier.GetValue();
             
-            param_list.Add(key + ":" + value);
+            param_list.Add(key);
         }
 
         NewNameGenerateRequest(param_list.ToArray(), skill_container_entity);
