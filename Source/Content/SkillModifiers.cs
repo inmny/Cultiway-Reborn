@@ -256,16 +256,12 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         const float minScale = 1.2f;
         const float maxScale = 1.8f;
         const float scaleStep = 0.1f;
-        const float minCollider = 1.2f;
-        const float maxCollider = 1.8f;
-        const float colliderStep = 0.1f;
 
         if (!builder.HasModifier<HugeModifier>())
         {
             builder.AddModifier(new HugeModifier
             {
-                ScaleMultiplier = minScale,
-                ColliderMultiplier = minCollider
+                Value = minScale,
             });
             return true;
         }
@@ -273,19 +269,14 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var modifier = builder.GetModifier<HugeModifier>();
         var changed = false;
         var roll = Random.value;
-        if (roll < 0.5f && modifier.ScaleMultiplier < maxScale)
+        if (roll < 0.5f && modifier.Value < maxScale)
         {
-            modifier.ScaleMultiplier = Mathf.Min(maxScale, modifier.ScaleMultiplier + scaleStep);
+            modifier.Value = Mathf.Min(maxScale, modifier.Value + scaleStep);
             changed = true;
         }
-        else if (modifier.ColliderMultiplier < maxCollider)
+        else if (modifier.Value < maxScale)
         {
-            modifier.ColliderMultiplier = Mathf.Min(maxCollider, modifier.ColliderMultiplier + colliderStep);
-            changed = true;
-        }
-        else if (modifier.ScaleMultiplier < maxScale)
-        {
-            modifier.ScaleMultiplier = Mathf.Min(maxScale, modifier.ScaleMultiplier + scaleStep);
+            modifier.Value = Mathf.Min(maxScale, modifier.Value + scaleStep);
             changed = true;
         }
 
@@ -399,8 +390,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var container = skill.SkillContainer;
         if (container.IsNull || !container.TryGetComponent(out HugeModifier huge)) return;
 
-        var scaleMul = Mathf.Clamp(huge.ScaleMultiplier, 0.1f, 10f);
-        var colliderMul = Mathf.Clamp(huge.ColliderMultiplier, 0.1f, 10f);
+        var scaleMul = Mathf.Clamp(huge.Value, 0.1f, 10f);
 
         if (skillEntity.HasComponent<Scale>())
         {
@@ -415,7 +405,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         if (skillEntity.HasComponent<ColliderSphere>())
         {
             ref var collider = ref skillEntity.GetComponent<ColliderSphere>();
-            collider.Radius *= colliderMul;
+            collider.Radius *= scaleMul;
         }
     }
 
