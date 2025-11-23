@@ -13,7 +13,7 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     {
         Enlighten = StatusEffectAsset.StartBuild(nameof(Enlighten))
             .SetDuration(60)
-            .EnableParticle(new Color(1f, 0.85f, 0.35f), 2, 0.4f)
+            .EnableParticle(new Color(1f, 0.85f, 0.35f), 1, 0.1f)
             .Build();
         Slow = StatusEffectAsset.StartBuild(nameof(Slow))
             .SetDuration(3f)
@@ -21,7 +21,7 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             {
                 [S.multiplier_speed] = -1f
             })
-            .EnableParticle(new Color(0.4f, 0.6f, 1f), 1, 0.6f)
+            .EnableParticle(new Color(0.4f, 0.6f, 1f), 1, 0.1f)
             .Build();
     }
 }

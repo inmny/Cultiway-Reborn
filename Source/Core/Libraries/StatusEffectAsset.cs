@@ -34,8 +34,8 @@ public class StatusEffectAsset : Asset
 
     private string f_desc_key;
     private string f_name_key;
-    private string name_key => f_name_key ??= $"Cultiway.StatusEffect.{id}";
-    private string desc_key => f_desc_key ??= $"Cultiway.StatusEffect.{id}.Info";
+    private string name_key => f_name_key ??= $"Cultiway.{id}";
+    private string desc_key => f_desc_key ??= $"Cultiway.{id}.Description";
     private string given_name;
     private string given_desc;
 
@@ -125,7 +125,7 @@ public class StatusEffectAsset : Asset
             _under_build.ParticleSettings = NormalizeParticleSettings(settings);
             return this;
         }
-        public Builder EnableParticle(Color color, int count = 1, float interval = 0.5f)
+        public Builder EnableParticle(Color color, int count = 1, float interval = 0.1f)
         {
             return SetParticle(new StatusParticleSettings
             {

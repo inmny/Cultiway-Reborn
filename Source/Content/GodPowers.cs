@@ -2,9 +2,11 @@ using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
 using Cultiway.Content.Attributes;
+using Cultiway.Content.Extensions;
 using Cultiway.UI;
 using NeoModLoader.General;
 using strings;
+using UnityEngine;
 
 namespace Cultiway.Content;
 [Dependency(typeof(Actors), typeof(Buildings), typeof(Drops))]
@@ -23,6 +25,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         EasternHuman.actor_asset_id = Actors.EasternHuman.id;
         SetupCommonCreaturePlacePower();
         SetupCommonBuildingPlacePower();
+        SetupCommonDropPlacePower();
     }
 
     private void SetupCommonBuildingPlacePower()
@@ -50,6 +53,29 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
             }
     }
 
+    private void SetupCommonDropPlacePower()
+    {
+        var props = typeof(Drops).GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
+        foreach (PropertyInfo prop in props)
+            if (prop.PropertyType == typeof(DropAsset))
+            {
+                DropAsset item = prop.GetValue(null) as DropAsset;
+                if (item == null) continue;
+                if (prop.GetCustomAttribute<SetupButtonAttribute>() != null)
+                {
+                    var power_id = item.id;
+
+                    Clone(power_id, PowerLibrary.TEMPLATE_DROPS);
+                    t.name = item.id.Underscore();
+                    t.drop_id = item.id;
+
+                    var icon = SpriteTextureLoader.getSprite("ui/icons/iconRain");
+                    Cultiway.UI.Manager.AddButton(TabButtonType.DROP, PowerButtonCreator.CreateGodPowerButton(
+                        power_id, icon
+                    ));
+                }
+            }
+    }
     private void SetupCommonCreaturePlacePower()
     {
         var props = typeof(Actors).GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
