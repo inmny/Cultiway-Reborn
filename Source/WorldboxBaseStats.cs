@@ -54,9 +54,9 @@ public partial class WorldboxGame
 
         public static ReadOnlyDictionary<string, string> StatsToModStats { get; private set; } =
             new(_statsToModStats);
+        protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            RegisterAssets();
             Armor.normalize = false;
             IronArmor.icon = $"cultiway/icons/stats/{nameof(IronArmor)}";
             WoodArmor.icon = $"cultiway/icons/stats/{nameof(WoodArmor)}";

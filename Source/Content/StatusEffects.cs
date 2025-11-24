@@ -17,6 +17,7 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     public static StatusEffectAsset Poison { get; private set; }
     private const float BurnTickInterval = 1f;
     private const float PoisonTickInterval = 1f;
+    protected override bool AutoRegisterAssets() => false;
     protected override void OnInit()
     {
         Enlighten = StatusEffectAsset.StartBuild(nameof(Enlighten))

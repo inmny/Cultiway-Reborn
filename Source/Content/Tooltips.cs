@@ -7,6 +7,7 @@ namespace Cultiway.Content;
 
 public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
 {
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
         WorldboxGame.Tooltips.Book.callback += ShowCultibookStats;

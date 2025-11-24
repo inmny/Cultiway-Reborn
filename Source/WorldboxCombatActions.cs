@@ -16,9 +16,9 @@ public partial class WorldboxGame
         [GetOnly(nameof(CombatActionLibrary.combat_cast_spell))]
         public static CombatActionAsset CastVanillaSpell { get; private set; }
         public static CombatActionAsset CastSkillV3 {get; private set; }
+        protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            RegisterAssets();
             CastSkillV3.rate = 10;
             CastSkillV3.action = data =>
             {

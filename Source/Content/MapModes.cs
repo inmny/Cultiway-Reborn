@@ -10,7 +10,9 @@ public class MapModes : ExtendLibrary<CustomMapModeAsset, MapModes>
     public static CustomMapModeAsset Wakan { get; private set; }
     public static CustomMapModeAsset DirtyWakan { get; private set; }
 
-    protected override void OnInit()
+    protected override bool AutoRegisterAssets() => false;
+
+    protected override void OnInit()    
     {
         Wakan = Add(new CustomMapModeAsset()
         {

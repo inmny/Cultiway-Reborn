@@ -15,9 +15,9 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     {
     }
 
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
         SetupFantasyBuildings();
         SetupEasternHumanBuildings();
         //SetupMingRaceBuildings();

@@ -25,10 +25,9 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     [GetOnly("random_move")] public static BehaviourTaskActor RandomMove { get; private set; }
 
     [GetOnly("end_job")] public static BehaviourTaskActor EndJob { get; private set; }
-
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
         DailyXianCultivate.addBeh(new BehBuildingTargetHome());
         DailyXianCultivate.addBeh(new BehGetTargetBuildingMainTile());
         DailyXianCultivate.addBeh(new BehGoToTileTarget());

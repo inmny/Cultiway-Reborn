@@ -9,9 +9,9 @@ public partial class WorldboxGame
     {
         public static NameGeneratorAsset Cultibook { get; private set; }
         public static NameGeneratorAsset Sect { get; private set; }
+        protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            RegisterAssets();
             Cultibook.use_dictionary = true;
             Cultibook.addDictPart("basic", "引气,纳元,聚灵,淬体,锻筋,养气,炼神,化虚");
             Cultibook.addDictPart("element", "焚天,御水,青木,厚土,踏雷,风影");

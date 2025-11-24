@@ -7,12 +7,10 @@ public class CitizenJobs : ExtendLibrary<CitizenJobAsset, CitizenJobs>
 {
     [CloneSource(nameof(S_ActorJob.gatherer_herbs))]
     public static CitizenJobAsset HerbCollector { get; private set; }
-
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
     }
-
     protected override void PostInit(CitizenJobAsset asset)
     {
         var library = (CitizenJobLibrary)cached_library;

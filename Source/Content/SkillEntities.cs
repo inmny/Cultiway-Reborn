@@ -30,9 +30,9 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
     public static SkillEntityAsset Tornado { get; private set; }
     public static SkillEntityAsset FallLightning { get; private set; }
     public static SkillEntityAsset LightningPolo { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
         GoldSword.Element = new ElementComposition(iron: 1f);
         GoldBlade.Element = new ElementComposition(iron: 1f);
         WoodThorn.Element = new ElementComposition(wood: 1f);

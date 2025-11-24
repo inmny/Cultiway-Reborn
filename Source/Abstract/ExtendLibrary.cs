@@ -11,7 +11,8 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
 {
     private   List<TAsset>               _assets_added = new();
     protected ReadOnlyCollection<TAsset> assets_added;
-
+    protected abstract bool AutoRegisterAssets();
+    protected virtual string Prefix() => "Cultiway";
     protected AssetLibrary<TAsset> cached_library
     {
         get => _cached_library;
@@ -30,6 +31,10 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
         cached_library =
             AssetManager._instance._list.Find(x => x is (AssetLibrary<TAsset>)) as AssetLibrary<TAsset>;
         assets_added = _assets_added.AsReadOnly();
+        if (AutoRegisterAssets())
+        {
+            RegisterAssets();
+        }
     }
 
     public void Init()
@@ -51,9 +56,10 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
     {
         
     }
-    protected void RegisterAssets(string prefix = "Cultiway")
+    protected void RegisterAssets()
     {
         if (typeof(TAsset).GetConstructors().All(x => x.GetParameters().Length > 0)) return;
+
 
         var props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
         foreach (PropertyInfo prop in props)
@@ -67,7 +73,7 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
                 }
                 else
                 {
-                    var item_id = $"{prefix}.{prop.Name}";
+                    var item_id = $"{Prefix()}.{prop.Name}";
                     var asset_id_attr = prop.GetCustomAttribute<AssetIdAttribute>();
                     if (asset_id_attr != null && !string.IsNullOrEmpty(asset_id_attr.Id)) item_id = asset_id_attr.Id;
 

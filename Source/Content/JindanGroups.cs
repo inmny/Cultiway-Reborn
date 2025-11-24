@@ -23,9 +23,10 @@ public class JindanGroups : ExtendLibrary<JindanGroupAsset, JindanGroups>
     [Prior(3)]
     public static JindanGroupAsset External { get; private set; }
 
+    protected override bool AutoRegisterAssets() => true;
+    protected override string Prefix() => "Cultiway.JindanGroup";
     protected override void OnInit()
     {
-        RegisterAssets("Cultiway.JindanGroup");
         Common.check = (ActorExtend ae, ref XianBase @base) => true;
         Element.check = (ActorExtend ae, ref XianBase @base) => Randy.randomChance(@base.GetFiveQiStrength());
         Special.check = (ActorExtend ae, ref XianBase @base) =>

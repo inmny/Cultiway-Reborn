@@ -12,10 +12,9 @@ public partial class WorldboxGame
         public static TerraformOptions HitGround { get; private set; }
         public static TerraformOptions RemoveAll { get; private set; }
 
+        protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            RegisterAssets();
-
             EarthquakeBurn.add_burned = true;
 
             HitGround.add_burned = true;

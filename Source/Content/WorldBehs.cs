@@ -19,6 +19,7 @@ public class WorldBehs : ExtendLibrary<WorldBehaviourAsset, WorldBehs>
     public static WorldBehaviourAsset WakanTide   { get; private set; }
     public static WorldBehaviourAsset WakanSpread { get; private set; }
 
+    protected override bool AutoRegisterAssets() => false;
     protected override void OnInit()
     {
         WakanTide = Add(new WorldBehaviourAsset()

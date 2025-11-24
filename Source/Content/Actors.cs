@@ -15,7 +15,7 @@ namespace Cultiway.Content;
 [Dependency(typeof(ActorJobs), typeof(Architectures), typeof(KingdomAssets), typeof(ActorTraits))]
 public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 {
-
+    protected override bool AutoRegisterAssets() => true;
     class CommonCreatureSetupAttribute : Attribute
     {
         
@@ -24,7 +24,6 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 
     protected override void OnInit()
     {
-        RegisterAssets();
         SetupPlant();
         SetupEasternHuman();
         SetupMing();

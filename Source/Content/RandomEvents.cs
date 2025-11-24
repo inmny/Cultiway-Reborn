@@ -5,6 +5,7 @@ namespace Cultiway.Content;
 
 public class RandomEvents : ExtendLibrary<RandomEventAsset, RandomEvents>
 {
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
     }

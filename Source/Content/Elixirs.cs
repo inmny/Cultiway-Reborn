@@ -19,9 +19,10 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
     public static ElixirAsset WakanRestoreElixir { get; private set; }
     public static ElixirAsset EnlightenElixir { get; private set; }
 
+    protected override bool AutoRegisterAssets() => true;
+    protected override string Prefix() => "Cultiway.Elixir";
     protected override void OnInit()
     {
-        RegisterAssets(prefix);
         OpenElementRootElixir.name_key = $"{prefix}.OpenElementRootElixir";
         OpenElementRootElixir.description_key = $"{prefix}.OpenElementRootElixir.Info";
         OpenElementRootElixir.craft_action = (ae, elixir_entity, ingredients) =>

@@ -8,6 +8,7 @@ namespace Cultiway.Content;
 
 public partial class KingdomAssets : ExtendLibrary<KingdomAsset, KingdomAssets>
 {
+    protected override bool AutoRegisterAssets() => true;
     /// <summary>
     /// 亡灵
     /// </summary>
@@ -28,8 +29,6 @@ public partial class KingdomAssets : ExtendLibrary<KingdomAsset, KingdomAssets>
     public static KingdomAsset NoMadsEasternHuman { get; private set; }
     protected override void OnInit()
     {
-        RegisterAssets();
-
         Ming.clearKingdomColor();
         Ming.civ = true;
         Ming.mobs = false;

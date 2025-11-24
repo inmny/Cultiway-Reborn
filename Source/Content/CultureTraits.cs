@@ -10,10 +10,9 @@ namespace Cultiway.Content
     public class CultureTraits : ExtendLibrary<CultureTrait, CultureTraits>
     {
         public static CultureTrait CultureSkin { get; private set; }
+        protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            RegisterAssets();
-
             CultureSkin.group_id = S_TraitGroup.miscellaneous;
             CultureSkin.path_icon = "cultiway/icons/traits/iconCultureSkin";
         }

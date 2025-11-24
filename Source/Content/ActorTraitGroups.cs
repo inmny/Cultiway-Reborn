@@ -10,11 +10,9 @@ public class ActorTraitGroups : ExtendLibrary<ActorTraitGroupAsset, ActorTraitGr
     [GetOnly("mind")] public static ActorTraitGroupAsset Mind { get; private set; }
     [GetOnly(S_TraitGroup.miscellaneous)]public static ActorTraitGroupAsset Miscellaneous { get; private set; }
     public static ActorTraitGroupAsset System { get; private set; }
-
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
-
         System.name = System.id;
         System.color = Toolbox.colorToHex(Color.white);
         AssetList.MoveTo(System, Miscellaneous);

@@ -12,10 +12,9 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
     public static BookTypeAsset Cultibook { get; private set; }
     public static BookTypeAsset Elixirbook { get; private set; }
     public static BookTypeAsset Skillbook { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
-
         Cultibook.requirement_check = (actor, _) =>
         {
             return actor.GetExtend().HasCultisys<Xian>();

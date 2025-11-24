@@ -6,10 +6,9 @@ namespace Cultiway.Content;
 public class BuildingOrders : ExtendLibrary<CityBuildOrderAsset, BuildingOrders>
 {
     public static CityBuildOrderAsset Classic { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
-        
         InitClassic();
         
     }

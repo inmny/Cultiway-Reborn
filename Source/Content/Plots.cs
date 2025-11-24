@@ -12,10 +12,9 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     public static PlotAsset NewCultibook { get; private set; }
     [CloneSource(S_Plot.new_language)]
     public static PlotAsset NewSect { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
-        
         NewCultibook.path_icon = "books/custom_book_covers/cultibook/31";
         NewCultibook.check_is_possible = (Actor actor) => actor.hasCity() && actor.hasCulture() && actor.hasLanguage() && actor.city.hasBookSlots() && actor.GetExtend().HasCultisys<Xian>();
         NewCultibook.check_should_continue = (Actor actor) => actor.hasCity() && actor.hasCulture() && actor.hasLanguage() && actor.city.hasBookSlots() && actor.GetExtend().HasCultisys<Xian>();

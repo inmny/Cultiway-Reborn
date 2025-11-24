@@ -8,10 +8,9 @@ public partial class WorldboxGame
     {
         [GetOnly("pit_deep_ocean")]
         public static TileType PitDeepOcean { get; private set; }
+        protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            RegisterAssets();
-
         }
     }
 }
