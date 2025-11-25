@@ -129,12 +129,13 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 }
             }
 
-            if (ae.HasCultibook())
+            // 仅主修功法提供属性加成
+            var mainCultibook = ae.GetMainCultibook();
+            if (mainCultibook != null)
             {
-                foreach (var cultibook_master in ae.GetAllMaster<CultibookAsset>())
-                {
-                    stats.MergeStats(cultibook_master.Item1.FinalStats, cultibook_master.Item2 / 100f);
-                }
+                var mastery = ae.GetMainCultibookMastery();
+                // 根据掌握程度应用属性加成（0-100%映射到0-1）
+                stats.MergeStats(mainCultibook.FinalStats, mastery / 100f);
             }
             
             

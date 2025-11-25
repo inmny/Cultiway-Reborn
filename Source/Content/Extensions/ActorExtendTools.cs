@@ -13,6 +13,7 @@ using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Content.Extensions;
@@ -134,6 +135,247 @@ public static class ActorExtendTools
         return ref ae.GetComponent<XianBase>();
     }
 
+
+    /// <summary>
+    /// 获取主修功法Asset
+    /// </summary>
+    public static CultibookAsset GetMainCultibook(this ActorExtend ae)
+    {
+        if (!ae.TryGetComponent(out ActorCultibookState state)) return null;
+        if (!state.HasMainCultibook) return null;
+        return state.MainCultibook;
+    }
+
+    /// <summary>
+    /// 设置主修功法
+    /// </summary>
+    public static void SetMainCultibook(this ActorExtend ae, CultibookAsset cultibook)
+    {
+        if (cultibook == null) return;
+
+        ActorCultibookState state;
+        if (!ae.HasComponent<ActorCultibookState>())
+        {
+            state = new ActorCultibookState();
+            ae.AddComponent(state);
+        }
+
+        ref var stateRef = ref ae.GetComponent<ActorCultibookState>();
+        stateRef.MainCultibookId = cultibook.id;
+        stateRef.MainMastery = 0;
+        stateRef.AccumulatedTime = 0;
+        stateRef.InitSkillProgress();
+    }
+
+    /// <summary>
+    /// 获取主修掌握程度
+    /// </summary>
+    public static float GetMainCultibookMastery(this ActorExtend ae)
+    {
+        if (!ae.TryGetComponent(out ActorCultibookState state)) return 0;
+        return state.MainMastery;
+    }
+
+    /// <summary>
+    /// 增加主修掌握程度
+    /// </summary>
+    public static void AddMainCultibookMastery(this ActorExtend ae, float amount)
+    {
+        if (!ae.TryGetComponent(out ActorCultibookState state)) return;
+        ref var stateRef = ref ae.GetComponent<ActorCultibookState>();
+        stateRef.MainMastery = Mathf.Clamp(stateRef.MainMastery + amount, 0, 100);
+    }
+
+    /// <summary>
+    /// 转修功法（将新功法设为主修）
+    /// </summary>
+    public static bool TrySwitchMainCultibook(this ActorExtend ae, CultibookAsset newCultibook)
+    {
+        if (newCultibook == null) return false;
+
+        ActorCultibookState state;
+        if (!ae.TryGetComponent(out state))
+        {
+            // 如果没有主修功法，直接设置
+            ae.SetMainCultibook(newCultibook);
+            return true;
+        }
+
+        ref var stateRef = ref ae.GetComponent<ActorCultibookState>();
+        var oldCultibook = stateRef.MainCultibook;
+
+        // 计算转修成功率
+        float successRate = CalculateSwitchSuccessRate(ae, newCultibook);
+
+        if (!Randy.randomChance(successRate))
+        {
+            // 转修失败，损失灵力
+            // TODO: 额外的惩罚
+            if (ae.HasCultisys<Xian>())
+            {
+                ref var xian = ref ae.GetCultisys<Xian>();
+                xian.wakan *= 0.5f;
+            }
+            return false;
+        }
+
+        // 转修成功
+        if (oldCultibook != null)
+        {
+            // 将原主修变为了解（保留部分掌握程度）
+            var oldMastery = stateRef.MainMastery;
+            ae.Master(oldCultibook, oldMastery * 0.5f);
+        }
+
+        // 设置新主修功法
+        stateRef.MainCultibookId = newCultibook.id;
+        // 如果有了解程度，部分转化为主修掌握程度
+        var knownMastery = ae.GetMaster(newCultibook);
+        stateRef.MainMastery = knownMastery > 0 ? knownMastery * 0.8f : 0;
+        stateRef.AccumulatedTime = 0;
+        stateRef.InitSkillProgress();
+
+        return true;
+    }
+
+    /// <summary>
+    /// 计算转修成功率
+    /// </summary>
+    private static float CalculateSwitchSuccessRate(ActorExtend ae, CultibookAsset newCultibook)
+    {
+        float baseRate = 0.7f;
+        
+        // 智力加成
+        float intelligence = ae.GetStat(S.intelligence);
+        float intelligenceBonus = Mathf.Min(intelligence / 100f * 0.2f, 0.2f);
+        
+        // 灵根契合度加成
+        float affinity = 0;
+        if (ae.HasElementRoot())
+        {
+            affinity = newCultibook.ElementReq.GetAffinity(ae.GetElementRoot());
+        }
+        float affinityBonus = affinity * 0.1f;
+        
+        // 境界惩罚（金丹后转修更难）
+        float levelPenalty = 0;
+        if (ae.HasCultisys<Xian>())
+        {
+            ref var xian = ref ae.GetCultisys<Xian>();
+            if (xian.CurrLevel > 3)
+            {
+                levelPenalty = (xian.CurrLevel - 3) * 0.05f;
+            }
+        }
+
+        return Mathf.Clamp01(baseRate + intelligenceBonus + affinityBonus - levelPenalty);
+    }
+
+    /// <summary>
+    /// 尝试领悟法术（从主修功法的法术池中）
+    /// </summary>
+    public static bool TryComprehendSkill(this ActorExtend ae)
+    {
+        var mainCultibook = ae.GetMainCultibook();
+        if (mainCultibook == null) return false;
+        if (mainCultibook.SkillPool == null || mainCultibook.SkillPool.Count == 0) return false;
+
+        if (!ae.TryGetComponent(out ActorCultibookState state)) return false;
+        ref var stateRef = ref ae.GetComponent<ActorCultibookState>();
+        stateRef.InitSkillProgress();
+
+        foreach (var entry in mainCultibook.SkillPool)
+        {
+            // 检查掌握程度阈值
+            if (stateRef.MainMastery < entry.MasteryThreshold) continue;
+
+            // 检查境界要求
+            if (ae.HasCultisys<Xian>())
+            {
+                ref var xian = ref ae.GetCultisys<Xian>();
+                if (xian.CurrLevel < entry.LevelRequirement) continue;
+            }
+
+            // 检查是否已学习
+            if (ae.HasSkill(entry.SkillEntityAssetId)) continue;
+
+            // 计算领悟概率
+            float masteryFactor = stateRef.MainMastery / 100f;
+            float intelligence = ae.GetStat(S.intelligence);
+            float intelligenceFactor = intelligence / 50f;
+            float chance = entry.BaseChance * masteryFactor * intelligenceFactor;
+
+            // 检查领悟进度
+            if (stateRef.SkillProgress != null && stateRef.SkillProgress.TryGetValue(entry.SkillEntityAssetId, out var progress))
+            {
+                // 如果已经有进度，增加成功率
+                chance += progress * 0.1f;
+            }
+
+            if (Randy.randomChance(chance))
+            {
+                // 领悟成功，学习技能
+                ae.LearnSkillFromCultibook(entry.SkillEntityAssetId);
+                return true;
+            }
+            else
+            {
+                // 领悟失败，增加进度
+                if (stateRef.SkillProgress == null) stateRef.SkillProgress = new Dictionary<string, float>();
+                if (!stateRef.SkillProgress.ContainsKey(entry.SkillEntityAssetId))
+                {
+                    stateRef.SkillProgress[entry.SkillEntityAssetId] = 0;
+                }
+                stateRef.SkillProgress[entry.SkillEntityAssetId] += entry.BaseChance * 0.1f;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 从功法中学习技能
+    /// </summary>
+    private static void LearnSkillFromCultibook(this ActorExtend ae, string skillEntityAssetId)
+    {
+        var skillEntityAsset = ModClass.I.SkillV3.SkillLib.get(skillEntityAssetId);
+        if (skillEntityAsset == null)
+        {
+            ModClass.LogError($"无法找到技能资源: {skillEntityAssetId}");
+            return;
+        }
+
+        // 创建技能容器
+        var skillContainer = ModClass.I.W.CreateEntity(new SkillContainer
+        {
+            SkillEntityAssetID = skillEntityAssetId
+        });
+
+        // 学习技能
+        ae.LearnSkillV3(skillContainer, false);
+
+        ModClass.LogInfo($"[{ae}] 从功法领悟了技能: {skillEntityAssetId}");
+    }
+
+    /// <summary>
+    /// 检查是否已学习某个技能
+    /// </summary>
+    private static bool HasSkill(this ActorExtend ae, string skillEntityAssetId)
+    {
+        if (ae.all_skills == null || ae.all_skills.Count == 0) return false;
+        
+        foreach (var skillEntity in ae.all_skills)
+        {
+            if (!skillEntity.HasComponent<SkillContainer>()) continue;
+            ref var skillContainer = ref skillEntity.GetComponent<SkillContainer>();
+            if (skillContainer.SkillEntityAssetID == skillEntityAssetId)
+            {
+                return true;
+            }
+        }
+        
+        return false;
+    }
 
     private static HashSet<string> CollectModifierIds(Entity skill_container_entity)
     {
