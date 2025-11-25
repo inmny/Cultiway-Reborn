@@ -87,6 +87,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Setup<WeakenModifier>(Weaken, SkillModifierRarity.Rare);
         Setup<ArmorBreakModifier>(ArmorBreak, SkillModifierRarity.Rare);
         Setup<GravityModifier>(Gravity, SkillModifierRarity.Rare);
+        Gravity.OnAddOrUpgrade = AddOrUpgradeGravity;
+        Gravity.OnTravel = ApplyGravityTravel;
         Setup<DazeModifier>(Daze, SkillModifierRarity.Rare);
 
         Setup<MercyModifier>(Mercy, SkillModifierRarity.Epic, KillOverrideTag);
@@ -226,6 +228,54 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         else if (modifier.DamageRatio < maxDamageRatio)
         {
             modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
+    private static bool AddOrUpgradeGravity(SkillContainerBuilder builder)
+    {
+        const float minRadius = 2f;
+        const float maxRadius = 5f;
+        const float minStrength = 0.5f;
+        const float maxStrength = 2f;
+        const float radiusStep = 0.5f;
+        const float strengthStep = 0.2f;
+
+        if (!builder.HasModifier<GravityModifier>())
+        {
+            builder.AddModifier(new GravityModifier
+            {
+                Radius = minRadius,
+                Strength = minStrength
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<GravityModifier>();
+        var upgradeRadius = Random.value < 0.5f;
+        var changed = false;
+        if (upgradeRadius && modifier.Radius < maxRadius)
+        {
+            modifier.Radius = Mathf.Min(maxRadius, modifier.Radius + radiusStep);
+            changed = true;
+        }
+        else if (!upgradeRadius && modifier.Strength < maxStrength)
+        {
+            modifier.Strength = Mathf.Min(maxStrength, modifier.Strength + strengthStep);
+            changed = true;
+        }
+        else if (modifier.Radius < maxRadius)
+        {
+            modifier.Radius = Mathf.Min(maxRadius, modifier.Radius + radiusStep);
+            changed = true;
+        }
+        else if (modifier.Strength < maxStrength)
+        {
+            modifier.Strength = Mathf.Min(maxStrength, modifier.Strength + strengthStep);
             changed = true;
         }
 
@@ -754,5 +804,49 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
 
         actor.GetExtend().GetForce(context.SourceObj, vx, vy, vz);
         return;
+    }
+
+    // 技能移动时施加引力效果
+    private static void ApplyGravityTravel(Entity skillEntity)
+    {
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out GravityModifier gravity)) return;
+
+        var radius = Mathf.Clamp(gravity.Radius, 0.5f, 10f);
+        var strength = Mathf.Clamp(gravity.Strength, 0f, 10f);
+        if (radius <= 0f || strength <= 0f) return;
+
+        var data = skillEntity.Data;
+        ref var skillPos = ref data.Get<Position>();
+        ref var context = ref data.Get<SkillContext>();
+        var attacker = context.SourceObj;
+
+        // 对范围内的敌人施加引力
+        foreach (var obj in SkillUtils.IterEnemyInSphere(skillPos.v2, radius, attacker))
+        {
+            if (!obj.isActor()) continue;
+
+            var actor = obj.a;
+            if (!actor.asset.can_be_moved_by_powers) continue;
+            if (actor.position_height > 0f) continue;
+
+            // 计算从敌人到技能实体的方向
+            var targetPos = obj.GetSimPos();
+            var direction = (skillPos.value - targetPos).normalized;
+            if (direction.sqrMagnitude < 0.01f) continue;
+
+            // 计算距离，距离越近引力越强
+            var distance = Vector3.Distance(skillPos.value, targetPos);
+            var distanceFactor = Mathf.Clamp01(1f - distance / radius);
+            var forceStrength = strength * distanceFactor;
+
+            // 施加引力（只施加水平方向的力，不施加垂直力）
+            var vx = direction.x * forceStrength;
+            var vy = direction.y * forceStrength;
+            var vz = forceStrength;
+
+            actor.GetExtend().GetForce(attacker, vx, vy, vz);
+        }
     }
 }

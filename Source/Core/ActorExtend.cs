@@ -268,9 +268,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         if (x * x + y * y + z * z > 1)
         {
-            actor.velocity.x = x * 0.6f;
-            actor.velocity.y = y * 0.6f;
-            actor.velocity.z = z * 2f;
+            actor.velocity.x = x;
+            actor.velocity.y = y;
+            actor.velocity.z = z;
+            actor.velocity_speed = z;
             actor.under_forces = true;
         }
     }
