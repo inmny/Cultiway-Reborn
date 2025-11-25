@@ -81,6 +81,8 @@ public static class ElixirEffectGenerator
         var bonus_stats = new BaseStats();
         foreach (var kv in effect.bonus_stats)
         {
+            if (string.IsNullOrEmpty(kv.Key)) continue;
+            if (!AssetManager.base_stats_library.has(kv.Key)) continue;
             bonus_stats[kv.Key] = kv.Value;
         }
         var status = StatusEffectAsset.StartBuild(elixir.id)
