@@ -62,6 +62,7 @@ public static class ActorExtendTools
             {
                 if (asset == null) continue;
                 if (asset.id == PlaceholderModifier.PlaceholderAssetId) continue;
+                if (asset.IsDisabled) continue;
                 var weight = asset.Rarity.Weight();
                 if (weight <= 0) continue;
                 var alreadyHas = existing_ids.Contains(asset.id);

@@ -71,6 +71,12 @@ public class SkillModifierAsset : Asset
     /// 冲突标签，用于互斥判定
     /// </summary>
     public HashSet<string> ConflictTags { get; } = new();
+    
+    /// <summary>
+    /// 是否禁用该词条（禁用的词条不会被抽取）
+    /// </summary>
+    public bool IsDisabled = false;
+    
     public SetupAction OnSetup;
     public TravelAction OnTravel;
     public EffectObjAction OnEffectObj;

@@ -83,11 +83,17 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Setup<DazeModifier>(Daze, SkillModifierRarity.Rare);
 
         Setup<MercyModifier>(Mercy, SkillModifierRarity.Epic, KillOverrideTag);
+        Mercy.IsDisabled = true;
         Setup<ChaosModifier>(Chaos, SkillModifierRarity.Epic);
+        Chaos.IsDisabled = true;
         Setup<SwapModifier>(Swap, SkillModifierRarity.Epic);
+        Swap.IsDisabled = true;
         Setup<RandomAffixModifier>(RandomAffix, SkillModifierRarity.Epic);
+        RandomAffix.IsDisabled = true;
         Setup<BurnoutModifier>(Burnout, SkillModifierRarity.Epic);
+        Burnout.IsDisabled = true;
         Setup<ComboModifier>(Combo, SkillModifierRarity.Epic);
+        Combo.IsDisabled = true;
 
         Setup<SilenceModifier>(Silence, SkillModifierRarity.Legendary);
         Setup<DeathSentenceModifier>(DeathSentence, SkillModifierRarity.Legendary, KillOverrideTag);
