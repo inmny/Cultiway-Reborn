@@ -7,7 +7,9 @@ namespace Cultiway.Content.Components.Skill;
 
 public struct KnockbackModifier : IModifier
 {
+    public float Distance;
+    public float Height;
     public SkillModifierAsset ModifierAsset => SkillModifiers.Knockback;
     public string GetKey() => ModifierAsset.id.Localize();
-    public string GetValue() => string.Empty;
+    public string GetValue() => $"距离{Distance:F1}，高度{Height:F1}";
 }

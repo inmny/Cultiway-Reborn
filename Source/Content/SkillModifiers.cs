@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
@@ -8,6 +9,7 @@ using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Content.Components.Skill;
 using Cultiway.Utils.Extension;
+using strings;
 using UnityEngine;
 using Friflo.Engine.ECS;
 
@@ -72,6 +74,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Empower.OnAddOrUpgrade = AddOrUpgradeEmpower;
         Empower.OnSetup = ApplyEmpowerSetup;
         Setup<KnockbackModifier>(Knockback, SkillModifierRarity.Common);
+        Knockback.OnAddOrUpgrade = AddOrUpgradeKnockback;
+        Knockback.OnEffectObj = ApplyKnockbackEffect;
 
         Setup<LockOnModifier>(LockOn, SkillModifierRarity.Rare);
         Setup<HugeModifier>(Huge, SkillModifierRarity.Rare);
@@ -351,6 +355,49 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         return true;
     }
 
+    private static bool AddOrUpgradeKnockback(SkillContainerBuilder builder)
+    {
+        const float minDistance = 2f;
+        const float maxDistance = 5f;
+        const float distanceStep = 0.5f;
+        const float minHeight = 1f;
+        const float maxHeight = 3f;
+        const float heightStep = 0.3f;
+
+        if (!builder.HasModifier<KnockbackModifier>())
+        {
+            builder.AddModifier(new KnockbackModifier
+            {
+                Distance = minDistance,
+                Height = minHeight
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<KnockbackModifier>();
+        var changed = false;
+        var roll = Random.value;
+        if (roll < 0.5f && modifier.Distance < maxDistance)
+        {
+            modifier.Distance = Mathf.Min(maxDistance, modifier.Distance + distanceStep);
+            changed = true;
+        }
+        else if (modifier.Height < maxHeight)
+        {
+            modifier.Height = Mathf.Min(maxHeight, modifier.Height + heightStep);
+            changed = true;
+        }
+        else if (modifier.Distance < maxDistance)
+        {
+            modifier.Distance = Mathf.Min(maxDistance, modifier.Distance + distanceStep);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
     // 击中单位时附加减速状态
     private static void ApplySlowEffect(Entity skillEntity, BaseSimObject target)
     {
@@ -536,5 +583,47 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         ref var aliveLimit = ref targetStatus.GetComponent<AliveTimeLimit>();
         aliveLimit.value = duration;
         ApplyDamageTickState(ref targetStatus, dps, element, source);
+    }
+
+    // 击中单位时施加击飞效果
+    private static void ApplyKnockbackEffect(Entity skillEntity, BaseSimObject target)
+    {
+        if (!target.isActor()) return;
+
+        var actor = target.a;
+        if (!actor.asset.can_be_moved_by_powers) return;
+        if (actor.position_height > 0f) return;
+
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out KnockbackModifier knockback)) return;
+        if (!skillEntity.TryGetComponent(out SkillContext context)) return;
+        if (!skillEntity.TryGetComponent(out Position skillPos)) return;
+
+        var distance = Mathf.Clamp(knockback.Distance, 0f, 10f);
+        var height = Mathf.Clamp(knockback.Height, 0f, 5f);
+        if (distance <= 0f && height <= 0f) return;
+
+        var targetPos = target.GetSimPos();
+        var direction = (targetPos - skillPos.value).normalized;
+        if (direction.sqrMagnitude < 0.01f)
+        {
+            direction = context.TargetDir;
+        }
+        if (direction.sqrMagnitude < 0.01f)
+        {
+            direction = Vector3.forward;
+        }
+
+        var mass = target.stats["mass"];
+        var a = mass * SimGlobals.m.gravity;
+        var tm = Mathf.Sqrt(height * 2 / (a * 0.3f));
+        var vz = a + 0.3f * a * tm;
+        var te = 2 * tm;
+        var vx = direction.x * distance / te;
+        var vy = direction.y * distance / te;
+
+        actor.GetExtend().GetForce(context.SourceObj, vx, vy, vz);
+        return;
     }
 }
