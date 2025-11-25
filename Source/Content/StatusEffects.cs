@@ -17,6 +17,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     public static StatusEffectAsset Burn { get; private set; }
     public static StatusEffectAsset Poison { get; private set; }
     public static StatusEffectAsset Freeze { get; private set; }
+    public static StatusEffectAsset Weaken { get; private set; }
+    public static StatusEffectAsset ArmorBreak { get; private set; }
     private const float BurnTickInterval = 1f;
     private const float PoisonTickInterval = 1f;
     protected override bool AutoRegisterAssets() => false;
@@ -48,6 +50,23 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .SetDuration(3f)
             .SetStats(CreateFreezeStats())
             .EnableParticle(new Color(0.5f, 0.8f, 1f), 1, 0.1f)
+            .Build();
+        Weaken = StatusEffectAsset.StartBuild(nameof(Weaken))
+            .SetDuration(6f)
+            .SetStats(new BaseStats
+            {
+                [S.damage] = -0.2f,
+                [S.armor] = -0.2f
+            })
+            .EnableParticle(new Color(0.55f, 0.55f, 0.6f), 1, 0.1f)
+            .Build();
+        ArmorBreak = StatusEffectAsset.StartBuild(nameof(ArmorBreak))
+            .SetDuration(4f)
+            .SetStats(new BaseStats
+            {
+                [S.armor] = -0.2f
+            })
+            .EnableParticle(new Color(1f, 0.75f, 0.25f), 1, 0.1f)
             .Build();
     }
 

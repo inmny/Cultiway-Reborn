@@ -4,6 +4,7 @@ using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
@@ -85,7 +86,11 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Huge.OnAddOrUpgrade = AddOrUpgradeHuge;
         Huge.OnSetup = ApplyHugeOnSetup;
         Setup<WeakenModifier>(Weaken, SkillModifierRarity.Rare);
+        Weaken.OnAddOrUpgrade = AddOrUpgradeWeaken;
+        Weaken.OnEffectObj = ApplyWeakenEffect;
         Setup<ArmorBreakModifier>(ArmorBreak, SkillModifierRarity.Rare);
+        ArmorBreak.OnAddOrUpgrade = AddOrUpgradeArmorBreak;
+        ArmorBreak.OnEffectObj = ApplyArmorBreakEffect;
         Setup<GravityModifier>(Gravity, SkillModifierRarity.Rare);
         Gravity.OnAddOrUpgrade = AddOrUpgradeGravity;
         Gravity.OnTravel = ApplyGravityTravel;
@@ -276,6 +281,97 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         else if (modifier.Strength < maxStrength)
         {
             modifier.Strength = Mathf.Min(maxStrength, modifier.Strength + strengthStep);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
+    private static bool AddOrUpgradeWeaken(SkillContainerBuilder builder)
+    {
+        const float minDuration = 5f;
+        const float maxDuration = 10f;
+        const float durationStep = 1f;
+        const float minReduction = 0.2f;
+        const float maxReduction = 0.4f;
+        const float reductionStep = 0.05f;
+
+        if (!builder.HasModifier<WeakenModifier>())
+        {
+            builder.AddModifier(new WeakenModifier
+            {
+                Duration = minDuration,
+                AttackReduction = minReduction,
+                DefenseReduction = minReduction
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<WeakenModifier>();
+        var roll = Random.value;
+        var changed = false;
+        if (roll < 0.33f && modifier.Duration < maxDuration)
+        {
+            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+            changed = true;
+        }
+        else if (roll < 0.66f && modifier.AttackReduction < maxReduction)
+        {
+            modifier.AttackReduction = Mathf.Min(maxReduction, modifier.AttackReduction + reductionStep);
+            changed = true;
+        }
+        else if (modifier.DefenseReduction < maxReduction)
+        {
+            modifier.DefenseReduction = Mathf.Min(maxReduction, modifier.DefenseReduction + reductionStep);
+            changed = true;
+        }
+        else if (modifier.Duration < maxDuration)
+        {
+            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
+    private static bool AddOrUpgradeArmorBreak(SkillContainerBuilder builder)
+    {
+        const float minDuration = 3f;
+        const float maxDuration = 6f;
+        const float durationStep = 0.5f;
+        const float minReduction = 0.5f;
+        const float maxReduction = 0.8f;
+        const float reductionStep = 0.05f;
+
+        if (!builder.HasModifier<ArmorBreakModifier>())
+        {
+            builder.AddModifier(new ArmorBreakModifier
+            {
+                Duration = minDuration,
+                ArmorReduction = minReduction
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<ArmorBreakModifier>();
+        var changed = false;
+        if (Random.value < 0.5f && modifier.Duration < maxDuration)
+        {
+            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+            changed = true;
+        }
+        else if (modifier.ArmorReduction < maxReduction)
+        {
+            modifier.ArmorReduction = Mathf.Min(maxReduction, modifier.ArmorReduction + reductionStep);
+            changed = true;
+        }
+        else if (modifier.Duration < maxDuration)
+        {
+            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
             changed = true;
         }
 
@@ -806,6 +902,66 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         return;
     }
 
+    // 击中单位时施加衰弱效果，降低攻防
+    private static void ApplyWeakenEffect(Entity skillEntity, BaseSimObject target)
+    {
+        if (!target.isActor()) return;
+
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out WeakenModifier weaken)) return;
+
+        var duration = Mathf.Clamp(weaken.Duration, 0f, 999f);
+        if (duration <= 0f) return;
+
+        var attackReduction = Mathf.Clamp01(weaken.AttackReduction);
+        var defenseReduction = Mathf.Clamp01(weaken.DefenseReduction);
+
+        var attackDelta = attackReduction > 0f ? Mathf.Max(0f, target.stats[S.damage]) * attackReduction : 0f;
+        var armorDelta = defenseReduction > 0f ? Mathf.Max(0f, target.stats[S.armor]) * defenseReduction : 0f;
+        if (attackDelta <= 0f && armorDelta <= 0f) return;
+
+        var actorExtend = target.a.GetExtend();
+        var status = GetOrCreateStatus(actorExtend, StatusEffects.Weaken);
+        ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
+        timeLimit.value = duration;
+
+        var stats = PrepareOverwriteStats(status);
+        if (attackDelta > 0f)
+        {
+            stats[S.damage] = -attackDelta;
+        }
+        if (armorDelta > 0f)
+        {
+            stats[S.armor] = -armorDelta;
+        }
+    }
+
+    // 击中单位时施加破甲效果，降低护甲
+    private static void ApplyArmorBreakEffect(Entity skillEntity, BaseSimObject target)
+    {
+        if (!target.isActor()) return;
+
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out ArmorBreakModifier armorBreak)) return;
+
+        var duration = Mathf.Clamp(armorBreak.Duration, 0f, 999f);
+        if (duration <= 0f) return;
+
+        var reductionRatio = Mathf.Clamp01(armorBreak.ArmorReduction);
+        var armorDelta = reductionRatio > 0f ? Mathf.Max(0f, target.stats[S.armor]) * reductionRatio : 0f;
+        if (armorDelta <= 0f) return;
+
+        var actorExtend = target.a.GetExtend();
+        var status = GetOrCreateStatus(actorExtend, StatusEffects.ArmorBreak);
+        ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
+        timeLimit.value = duration;
+
+        var stats = PrepareOverwriteStats(status);
+        stats[S.armor] = -armorDelta;
+    }
+
     // 技能移动时施加引力效果
     private static void ApplyGravityTravel(Entity skillEntity)
     {
@@ -848,5 +1004,37 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
 
             actor.GetExtend().GetForce(attacker, vx, vy, vz);
         }
+    }
+
+    private static Entity GetOrCreateStatus(ActorExtend actorExtend, StatusEffectAsset effect)
+    {
+        foreach (var status in actorExtend.GetStatuses())
+        {
+            if (status.IsNull || !status.TryGetComponent(out StatusComponent statusComponent)) continue;
+            if (statusComponent.Type == effect)
+            {
+                return status;
+            }
+        }
+
+        var newStatus = effect.NewEntity();
+        actorExtend.AddSharedStatus(newStatus);
+        return newStatus;
+    }
+
+    private static BaseStats PrepareOverwriteStats(Entity status)
+    {
+        if (!status.HasComponent<StatusOverwriteStats>())
+        {
+            status.AddComponent(new StatusOverwriteStats
+            {
+                stats = new BaseStats()
+            });
+        }
+
+        ref var overwrite = ref status.GetComponent<StatusOverwriteStats>();
+        overwrite.stats ??= new BaseStats();
+        overwrite.stats.clear();
+        return overwrite.stats;
     }
 }
