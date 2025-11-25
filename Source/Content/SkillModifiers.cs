@@ -8,6 +8,7 @@ using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Content.Components.Skill;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using strings;
 using UnityEngine;
@@ -69,6 +70,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Poison.OnAddOrUpgrade = AddOrUpgradePoison;
         Poison.OnEffectObj = ApplyPoisonEffect;
         Setup<ExplosionModifier>(Explosion, SkillModifierRarity.Common);
+        Explosion.OnAddOrUpgrade = AddOrUpgradeExplosion;
+        Explosion.OnEffectObj = ApplyExplosionEffect;
         Setup<HasteModifier>(Haste, SkillModifierRarity.Common);
         Setup<ProficiencyModifier>(Proficiency, SkillModifierRarity.Common);
         Setup<EmpowerModifier>(Empower, SkillModifierRarity.Common);
@@ -175,6 +178,54 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         else if (modifier.Strength < maxStrength)
         {
             modifier.Strength = Mathf.Min(maxStrength, modifier.Strength + strengthStep);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
+    private static bool AddOrUpgradeExplosion(SkillContainerBuilder builder)
+    {
+        const float minRadius = 1.5f;
+        const float maxRadius = 3f;
+        const float minDamageRatio = 0.5f;
+        const float maxDamageRatio = 1f;
+        const float radiusStep = 0.3f;
+        const float damageRatioStep = 0.1f;
+
+        if (!builder.HasModifier<ExplosionModifier>())
+        {
+            builder.AddModifier(new ExplosionModifier
+            {
+                Radius = minRadius,
+                DamageRatio = minDamageRatio
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<ExplosionModifier>();
+        var upgradeRadius = Random.value < 0.5f;
+        var changed = false;
+        if (upgradeRadius && modifier.Radius < maxRadius)
+        {
+            modifier.Radius = Mathf.Min(maxRadius, modifier.Radius + radiusStep);
+            changed = true;
+        }
+        else if (!upgradeRadius && modifier.DamageRatio < maxDamageRatio)
+        {
+            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
+            changed = true;
+        }
+        else if (modifier.Radius < maxRadius)
+        {
+            modifier.Radius = Mathf.Min(maxRadius, modifier.Radius + radiusStep);
+            changed = true;
+        }
+        else if (modifier.DamageRatio < maxDamageRatio)
+        {
+            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
             changed = true;
         }
 
@@ -459,6 +510,44 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
         timeLimit.value = duration;
         target.a.GetExtend().AddSharedStatus(status);
+    }
+
+    // 击中单位时触发爆炸
+    private static void ApplyExplosionEffect(Entity skillEntity, BaseSimObject target)
+    {
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out ExplosionModifier explosion)) return;
+        if (!skillEntity.TryGetComponent(out SkillContext context)) return;
+        if (!skillEntity.TryGetComponent(out Position skillPos)) return;
+
+        var radius = Mathf.Clamp(explosion.Radius, 0.5f, 10f);
+        var damageRatio = Mathf.Clamp(explosion.DamageRatio, 0f, 2f);
+        if (radius <= 0f || damageRatio <= 0f) return;
+
+        // 获取爆炸中心位置（目标位置）
+        var explosionPos = target.GetSimPos();
+        
+        // 生成爆炸动画
+        ModClass.I.SkillV3.SpawnAnim("cultiway/effect/explosion_fireball", explosionPos, Vector3.right);
+
+        // 获取技能元素和攻击者
+        var attacker = context.SourceObj;
+        ref var element = ref skill.Asset.Element;
+        var damage = context.Strength * damageRatio;
+
+        // 对范围内的敌人造成伤害
+        foreach (var obj in SkillUtils.IterEnemyInSphere(explosionPos, radius, attacker))
+        {
+            if (obj.isActor())
+            {
+                obj.a.GetExtend().GetHit(damage, ref element, attacker);
+            }
+            else
+            {
+                obj.b.getHit(damage, pAttacker: attacker);
+            }
+        }
     }
 
     // 构建阶段提升伤害
