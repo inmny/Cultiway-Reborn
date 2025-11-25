@@ -5,9 +5,9 @@ namespace Cultiway.Content;
 public class PlotCategories : ExtendLibrary<PlotCategoryAsset, PlotCategories>
 {
     public static PlotCategoryAsset Sect { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
         Sect.color = "#E4A857";
     }
 

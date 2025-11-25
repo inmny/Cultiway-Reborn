@@ -50,10 +50,9 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     public static SkillModifierAsset ReincarnationTrial { get; private set; }
     public static SkillModifierAsset EternalCurse { get; private set; }
 
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
-
         Setup<PlaceholderModifier>(Placeholder, SkillModifierRarity.Common);
 
         Setup<SlowModifier>(Slow, SkillModifierRarity.Common);

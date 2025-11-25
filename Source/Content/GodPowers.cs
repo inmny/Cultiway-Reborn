@@ -16,9 +16,9 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
     public static GodPower Plant { get; private set; }
     [CloneSource(PowerLibrary.TEMPLATE_SPAWN_ACTOR)]
     public static GodPower EasternHuman { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
         Plant.name = Actors.Plant.getLocaleID();
         Plant.actor_asset_id = Actors.Plant.id;
         EasternHuman.name = Actors.EasternHuman.getLocaleID();

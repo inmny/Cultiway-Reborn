@@ -11,9 +11,9 @@ public partial class WorldboxGame
     {
         [GetOnly(S_WorldBehaviour.erosion)] public static WorldBehaviourAsset Erosion { get; private set; }
 
+        protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            RegisterAssets();
             Erosion.interval = 9999;
         }
     }

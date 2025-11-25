@@ -12,6 +12,7 @@ public class ElementRoots : ExtendLibrary<ElementRootAsset, ElementRoots>
     public static ElementRootAsset Earth { get; private set; }
     public static ElementRootAsset Iron  { get; private set; }
 
+    protected override bool AutoRegisterAssets() => false;
     protected override void OnInit()
     {
         Fire = Add(new ElementRootAsset(nameof(Fire), new ElementComposition()

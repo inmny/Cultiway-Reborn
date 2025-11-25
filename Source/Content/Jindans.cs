@@ -51,9 +51,10 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
     /// </summary>
     public static JindanAsset Dragon { get; private set; }
 
+    protected override bool AutoRegisterAssets() => true;
+    protected override string Prefix() => "Cultiway.Jindan";
     protected override void OnInit()
     {
-        RegisterAssets("Cultiway.Jindan");
         Common.Group = JindanGroups.Common;
         Common.composition = new ElementComposition(20, 20, 20, 20, 20, 0, 0, 0);
 

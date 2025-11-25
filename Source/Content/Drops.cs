@@ -23,10 +23,9 @@ public class Drops : ExtendLibrary<DropAsset, Drops>
     public static DropAsset Poison { get; private set; }
     [SetupButton, CloneSource(S_Drop.dust_white)]
     public static DropAsset Burn { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
-
         Enlighten.action_landed = CreateStatusDropAction(StatusEffects.Enlighten);
         Slow.action_landed = CreateStatusDropAction(StatusEffects.Slow);
         Poison.action_landed = CreateStatusDropAction(StatusEffects.Poison, e =>{

@@ -21,9 +21,10 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob Attacker { get; private set; }
     [GetOnly("random_move")]
     public static ActorJob RandomMove { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
+    protected override string Prefix() => "Cultiway.ActorJob";
     protected override void OnInit()
     {
-        RegisterAssets("Cultiway.ActorJob");
         XianCultivator.addTask(ActorTasks.DailyXianCultivate.id);
         XianCultivator.addCondition(new CondHasXian());
         XianCultivator.addCondition(new CondXianReadyLevelup(), false);

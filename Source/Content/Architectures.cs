@@ -7,10 +7,9 @@ public class Architectures : ExtendLibrary<ArchitectureAsset, Architectures>
 {
     public static ArchitectureAsset Ming { get; private set; }
     public static ArchitectureAsset EasternHuman { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
-
         Ming.styled_building_orders =
         [
             S_BuildOrder.order_tent, S_BuildOrder.order_house_0, S_BuildOrder.order_house_1, S_BuildOrder.order_house_2,
@@ -46,6 +45,8 @@ public class Architectures : ExtendLibrary<ArchitectureAsset, Architectures>
             new(S_BuildOrder.order_mine, SB.mine),
             new(S_BuildOrder.order_training_dummy, SB.training_dummy)
         ];
+        EasternHuman.actor_asset_id_trading = Actors.EasternHumanTradingBoat.id;
+        EasternHuman.actor_asset_id_transport = Actors.EasternHumanTransportBoat.id;
     }
 
     protected override void PostInit(ArchitectureAsset asset)

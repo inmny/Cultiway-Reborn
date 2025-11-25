@@ -17,9 +17,9 @@ public partial class WorldboxGame
         /// </summary>
         [GetOnly("scar_of_divinity")]public static ActorTrait ScarOfDivinity { get; private set; }
 
+        protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            RegisterAssets();
         }
     }
 }

@@ -16,10 +16,9 @@ public partial class WorldboxGame
         [GetOnly(S_Status.spell_silence)] public static StatusAsset SpellSilence { get; private set; }
         [GetOnly(S_Status.frozen)] public static StatusAsset Frozen { get; private set; }
         [GetOnly(S_Status.stunned)] public static StatusAsset Stunned { get; private set; }
+        protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            RegisterAssets();
-
             Burning.GetExtend<StatusAssetExtend>().negative = true;
             SpellSilence.GetExtend<StatusAssetExtend>().negative = true;
             Frozen.GetExtend<StatusAssetExtend>().negative = true;

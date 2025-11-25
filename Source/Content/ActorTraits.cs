@@ -21,10 +21,9 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
     [GetOnly(S_Trait.immortal)]
     public  static ActorTrait Immortal { get; private set; }
 
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
-
         OpenSource.group_id = ActorTraitGroups.Mind.id;
         OpenSource.path_icon = "cultiway/icons/traits/iconOpenSource";
 

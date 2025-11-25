@@ -45,10 +45,10 @@ public class Yuanyings : ExtendLibrary<YuanyingAsset, Yuanyings>
     ///     恶龙元婴
     /// </summary>
     public static YuanyingAsset Dragon { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
+    protected override string Prefix() => "Cultiway.Yuanying";
     protected override void OnInit()
     {
-        RegisterAssets("Cultiway.Yuanying");
-
         var props = typeof(Yuanyings).GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
         foreach (var prop in props)
         {

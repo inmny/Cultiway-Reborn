@@ -29,6 +29,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
 {
     public static CultisysAsset<Xian> Xian { get; private set; }
 
+    protected override bool AutoRegisterAssets() => false;
     protected override void OnInit()
     {
         Xian = (CultisysAsset<Xian>)Add(new CultisysAsset<Xian>(nameof(Xian), 20, new Xian(),

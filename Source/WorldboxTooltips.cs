@@ -20,9 +20,9 @@ public partial class WorldboxGame
 
         public static TooltipAsset SpecialItem { get; private set; }
 
+        protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            RegisterAssets();
             SpecialItem.prefab_id = "tooltips/tooltip_cultiway_special_item";
             SpecialItem.callback = ShowSpecialItem;
             SpecialItemTooltip.PatchTo<Tooltip>(SpecialItem.prefab_id);

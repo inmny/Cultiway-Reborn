@@ -14,9 +14,9 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset TowardsDirectionNoRot { get; private set; }
     public static TrajectoryAsset TowardsPosition { get; private set; }
     public static TrajectoryAsset TowardsTarget { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
         TowardsDirection.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
         {
             pos.value += rot.value.normalized * dt * e.GetComponent<Velocity>().Value;

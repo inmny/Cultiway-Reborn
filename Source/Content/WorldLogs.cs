@@ -6,9 +6,9 @@ namespace Cultiway.Content;
 public class WorldLogs : ExtendLibrary<WorldLogAsset, WorldLogs>
 {
     public static WorldLogAsset LogCultisysLevelup { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
         LogCultisysLevelup.locale_id = "Cultiway";
         LogCultisysLevelup.path_icon = "cultiway/icons/iconCultivation";
         LogCultisysLevelup.color = Toolbox.color_log_warning;

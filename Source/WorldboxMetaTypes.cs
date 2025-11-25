@@ -13,9 +13,9 @@ public partial class WorldboxGame
     public class MetaTypes : ExtendLibrary<MetaTypeAsset, MetaTypes>
     {
         public static MetaTypeAsset Sect { get; private set; }
+        protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            RegisterAssets();
             Sect.window_name = Sect.id;
             Sect.window_action_clear = () => I.SelectedSect = null;
             Sect.GetExtend<MetaTypeAssetExtend>().ExtendWindowHistoryActionUpdate = (data) =>

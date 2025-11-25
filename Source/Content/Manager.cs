@@ -23,16 +23,25 @@ internal class Manager
         foreach (var t in library_ts)
         {
             var library = Activator.CreateInstance(t) as ICanInit;
+
+            if (library == null) 
+            {
+                ModClass.LogError($"({nameof(Content)}) failed to create instance of {t}");
+                continue;
+            }
+            libraries.Add(library);
+        }
+        foreach (var library in libraries)
+        {
             try
             {
-                library?.Init();
-                ModClass.LogInfo($"({nameof(Content)}) initializes {t}");
+                library.Init();
+                ModClass.LogInfo($"({nameof(Content)}) initializes {library.GetType().Name}");
             }
             catch (Exception e)
             {
-                ModClass.LogError($"({nameof(Content)}) failed to initialize {t}\n{e.Message}\n{e.StackTrace}");
+                ModClass.LogError($"({nameof(Content)}) failed to initialize {library.GetType().Name}\n{e.Message}\n{e.StackTrace}");
             }
-            libraries.Add(library);
         }
 
         new Patch.Manager().Init();

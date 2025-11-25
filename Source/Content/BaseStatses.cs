@@ -13,10 +13,9 @@ public class BaseStatses : ExtendLibrary<BaseStatAsset, BaseStatses>
     [AssetId(nameof(WakanRegen))] public static BaseStatAsset WakanRegen { get; private set; }
     private static StringBuilder all_stats_ids = new();
     internal static string AllStatsIds => all_stats_ids.ToString();
-
+    protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        RegisterAssets();
         PatchWindowCreatureInfo.RegisterInfoDisplay((ae, sb) =>
         {
             if (!ae.HasCultisys<Xian>()) return;

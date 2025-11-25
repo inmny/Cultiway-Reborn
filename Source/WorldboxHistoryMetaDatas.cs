@@ -16,9 +16,9 @@ public partial class WorldboxGame
     public class HistoryMetaDatas : ExtendLibrary<HistoryMetaDataAsset, HistoryMetaDatas>
     {
         public static HistoryMetaDataAsset Sect { get; private set; }
+        protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            RegisterAssets();
             Sect.table_type = typeof(SectTable);
             Sect.table_types = new Dictionary<HistoryInterval, Type>()
             {

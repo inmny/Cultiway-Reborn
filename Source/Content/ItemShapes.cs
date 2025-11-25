@@ -24,9 +24,10 @@ public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
     public static ItemShapeAsset Stone { get; private set; }
     public static ItemShapeAsset Tooth { get; private set; }
     public static ItemShapeAsset Wing { get; private set; }
+    protected override bool AutoRegisterAssets() => true;
+    protected override string Prefix() => "Cultiway.ItemShape";
     protected override void OnInit()
     {
-        RegisterAssets("Cultiway.ItemShape");
         SetFolder(Ball, "ball");
         SetFolder(Talisman, "talisman");
         SetFolder(Blood, "blood");
