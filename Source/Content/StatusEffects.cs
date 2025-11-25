@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Components;
@@ -15,6 +16,7 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     public static StatusEffectAsset Slow { get; private set; }
     public static StatusEffectAsset Burn { get; private set; }
     public static StatusEffectAsset Poison { get; private set; }
+    public static StatusEffectAsset Freeze { get; private set; }
     private const float BurnTickInterval = 1f;
     private const float PoisonTickInterval = 1f;
     protected override bool AutoRegisterAssets() => false;
@@ -42,6 +44,21 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .EnableParticle(new Color(0.35f, 0.85f, 0.35f), 1, 0.1f)
             .EnableTick(PoisonTickInterval, OnPoisonTick)
             .Build();
+        Freeze = StatusEffectAsset.StartBuild(nameof(Freeze))
+            .SetDuration(3f)
+            .SetStats(CreateFreezeStats())
+            .EnableParticle(new Color(0.5f, 0.8f, 1f), 1, 0.1f)
+            .Build();
+    }
+
+    // 创建冰冻状态的BaseStats，包含三个tag
+    private static BaseStats CreateFreezeStats()
+    {
+        var stats = new BaseStats();
+        stats.addTag("frozen_ai");
+        stats.addTag("immovable");
+        stats.addTag("stop_idle_animation");
+        return stats;
     }
 
     // 中毒状态定时掉血逻辑

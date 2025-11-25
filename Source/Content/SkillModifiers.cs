@@ -33,7 +33,6 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     public static SkillModifierAsset Knockback { get; private set; }
     public static SkillModifierAsset Volley { get; private set; }
 
-    public static SkillModifierAsset LockOn { get; private set; }
     public static SkillModifierAsset Huge { get; private set; }
     public static SkillModifierAsset Weaken { get; private set; }
     public static SkillModifierAsset ArmorBreak { get; private set; }
@@ -64,6 +63,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Burn.OnAddOrUpgrade = AddOrUpgradeBurn;
         Burn.OnEffectObj = ApplyBurnEffect;
         Setup<FreezeModifier>(Freeze, SkillModifierRarity.Common);
+        Freeze.OnAddOrUpgrade = AddOrUpgradeFreeze;
+        Freeze.OnEffectObj = ApplyFreezeEffect;
         Setup<PoisonModifier>(Poison, SkillModifierRarity.Common);
         Poison.OnAddOrUpgrade = AddOrUpgradePoison;
         Poison.OnEffectObj = ApplyPoisonEffect;
@@ -77,7 +78,6 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Knockback.OnAddOrUpgrade = AddOrUpgradeKnockback;
         Knockback.OnEffectObj = ApplyKnockbackEffect;
 
-        Setup<LockOnModifier>(LockOn, SkillModifierRarity.Rare);
         Setup<HugeModifier>(Huge, SkillModifierRarity.Rare);
         Huge.OnAddOrUpgrade = AddOrUpgradeHuge;
         Huge.OnSetup = ApplyHugeOnSetup;
@@ -398,6 +398,28 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         return true;
     }
 
+    private static bool AddOrUpgradeFreeze(SkillContainerBuilder builder)
+    {
+        const float minDuration = 2f;
+        const float maxDuration = 5f;
+        const float durationStep = 0.5f;
+
+        if (!builder.HasModifier<FreezeModifier>())
+        {
+            builder.AddModifier(new FreezeModifier
+            {
+                Duration = minDuration
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<FreezeModifier>();
+        if (modifier.Duration >= maxDuration) return false;
+        modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+        builder.SetModifier(modifier);
+        return true;
+    }
+
     // 击中单位时附加减速状态
     private static void ApplySlowEffect(Entity skillEntity, BaseSimObject target)
     {
@@ -418,6 +440,24 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         {
             Value = strength
         });
+        target.a.GetExtend().AddSharedStatus(status);
+    }
+
+    // 击中单位时附加冰冻状态
+    private static void ApplyFreezeEffect(Entity skillEntity, BaseSimObject target)
+    {
+        if (!target.isActor()) return;
+
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out FreezeModifier freeze)) return;
+
+        var duration = Mathf.Clamp(freeze.Duration, 0f, 999f);
+        if (duration <= 0f) return;
+
+        var status = StatusEffects.Freeze.NewEntity();
+        ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
+        timeLimit.value = duration;
         target.a.GetExtend().AddSharedStatus(status);
     }
 
