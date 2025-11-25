@@ -243,7 +243,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             return;
         }
         var power_level = GetPowerLevel();
-        var source_power_level = (source?.isActor()??false) ? source.a.GetExtend().GetPowerLevel() : 0;
+        var source_power_level = (source?.isActor()??false) ? (source.isRekt() ? 0 : source.a.GetExtend().GetPowerLevel()) : 0;
         if (power_level > source_power_level)
         {
             x /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - source_power_level);
