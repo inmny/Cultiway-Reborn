@@ -79,6 +79,13 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
             ae.SetMainCultibook(cultibook_asset);
             // 初始掌握程度设为1%（表示刚开始学习）
             ae.AddMainCultibookMastery(1f);
+            ae.Master(cultibook_asset, 1f);
+        }
+        else if (mainCultibook == cultibook_asset)
+        {
+            // 如果新功法就是主修功法，增加掌握程度
+            ae.AddMainCultibookMastery(1f);
+            ae.Master(cultibook_asset, ae.GetMainCultibookMastery() );
         }
         else
         {

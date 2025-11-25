@@ -19,6 +19,7 @@ public class BehCreateCultibook : BehCityActor
         pObject.timer_action = Randy.randomFloat(TimeScales.SecPerYear, TimeScales.SecPerYear * 3);
         var ae = pObject.GetExtend();
         ae.SetMainCultibook(raw_cultibook.GetExtend().GetComponent<Cultibook>().Asset);
+        ae.AddMainCultibookMastery(100);
         return BehResult.Continue;
     }
 }
