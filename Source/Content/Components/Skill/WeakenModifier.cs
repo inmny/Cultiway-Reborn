@@ -9,8 +9,7 @@ public struct WeakenModifier : IModifier
 {
     public float Duration;
     public float AttackReduction;
-    public float DefenseReduction;
     public SkillModifierAsset ModifierAsset => SkillModifiers.Weaken;
     public string GetKey() => ModifierAsset.id.Localize();
-    public string GetValue() => $"持续{Duration:F1}s，攻降{AttackReduction:P0}，防降{DefenseReduction:P0}";
+    public string GetValue() => $"持续{Duration:F1}s，攻降{AttackReduction:P0}";
 }

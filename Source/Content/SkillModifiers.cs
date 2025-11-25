@@ -303,28 +303,21 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
             builder.AddModifier(new WeakenModifier
             {
                 Duration = minDuration,
-                AttackReduction = minReduction,
-                DefenseReduction = minReduction
+                AttackReduction = minReduction
             });
             return true;
         }
 
         var modifier = builder.GetModifier<WeakenModifier>();
-        var roll = Random.value;
         var changed = false;
-        if (roll < 0.33f && modifier.Duration < maxDuration)
+        if (Random.value < 0.5f && modifier.Duration < maxDuration)
         {
             modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
             changed = true;
         }
-        else if (roll < 0.66f && modifier.AttackReduction < maxReduction)
+        else if (modifier.AttackReduction < maxReduction)
         {
             modifier.AttackReduction = Mathf.Min(maxReduction, modifier.AttackReduction + reductionStep);
-            changed = true;
-        }
-        else if (modifier.DefenseReduction < maxReduction)
-        {
-            modifier.DefenseReduction = Mathf.Min(maxReduction, modifier.DefenseReduction + reductionStep);
             changed = true;
         }
         else if (modifier.Duration < maxDuration)
@@ -915,11 +908,9 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         if (duration <= 0f) return;
 
         var attackReduction = Mathf.Clamp01(weaken.AttackReduction);
-        var defenseReduction = Mathf.Clamp01(weaken.DefenseReduction);
 
         var attackDelta = attackReduction > 0f ? Mathf.Max(0f, target.stats[S.damage]) * attackReduction : 0f;
-        var armorDelta = defenseReduction > 0f ? Mathf.Max(0f, target.stats[S.armor]) * defenseReduction : 0f;
-        if (attackDelta <= 0f && armorDelta <= 0f) return;
+        if (attackDelta <= 0f) return;
 
         var actorExtend = target.a.GetExtend();
         var status = GetOrCreateStatus(actorExtend, StatusEffects.Weaken);
@@ -930,10 +921,6 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         if (attackDelta > 0f)
         {
             stats[S.damage] = -attackDelta;
-        }
-        if (armorDelta > 0f)
-        {
-            stats[S.armor] = -armorDelta;
         }
     }
 

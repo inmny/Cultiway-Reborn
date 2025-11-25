@@ -55,8 +55,7 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .SetDuration(6f)
             .SetStats(new BaseStats
             {
-                [S.damage] = -0.2f,
-                [S.armor] = -0.2f
+                [S.damage] = -0.2f
             })
             .EnableParticle(new Color(0.55f, 0.55f, 0.6f), 1, 0.1f)
             .Build();
