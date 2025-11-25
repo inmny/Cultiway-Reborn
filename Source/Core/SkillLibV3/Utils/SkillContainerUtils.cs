@@ -22,6 +22,11 @@ public static class SkillContainerUtils
             return false;
         }
 
+        if (a_skill_container.OnTravel != b_skill_container.OnTravel)
+        {
+            return false;
+        }
+
         if (a_skill_container.OnSetup != b_skill_container.OnSetup)
         {
             return false;
