@@ -6,6 +6,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Components.TrajParams;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Content.Components.Skill;
@@ -74,6 +75,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Explosion.OnAddOrUpgrade = AddOrUpgradeExplosion;
         Explosion.OnEffectObj = ApplyExplosionEffect;
         Setup<HasteModifier>(Haste, SkillModifierRarity.Common);
+        Haste.OnAddOrUpgrade = AddOrUpgradeHaste;
+        Haste.OnSetup = ApplyHasteOnSetup;
         Setup<ProficiencyModifier>(Proficiency, SkillModifierRarity.Common);
         Setup<EmpowerModifier>(Empower, SkillModifierRarity.Common);
         Empower.OnAddOrUpgrade = AddOrUpgradeEmpower;
@@ -369,6 +372,29 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
+    private static bool AddOrUpgradeHaste(SkillContainerBuilder builder)
+    {
+        const float minMultiplier = 0.5f;
+        const float maxMultiplier = 1f;
+        const float step = 0.1f;
+
+        if (!builder.HasModifier<HasteModifier>())
+        {
+            builder.AddModifier(new HasteModifier
+            {
+                SpeedMultiplier = minMultiplier
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<HasteModifier>();
+        if (modifier.SpeedMultiplier >= maxMultiplier) return false;
+
+        modifier.SpeedMultiplier = Mathf.Min(maxMultiplier, modifier.SpeedMultiplier + step);
         builder.SetModifier(modifier);
         return true;
     }
@@ -726,6 +752,23 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         {
             ref var collider = ref skillEntity.GetComponent<ColliderSphere>();
             collider.Radius *= scaleMul;
+        }
+    }
+
+    // 提升弹道速度
+    private static void ApplyHasteOnSetup(Entity skillEntity)
+    {
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out HasteModifier haste)) return;
+
+        var multiplier = Mathf.Clamp(1f + haste.SpeedMultiplier, 0.1f, 10f);
+        if (multiplier <= 0f) return;
+
+        if (skillEntity.HasComponent<Velocity>())
+        {
+            ref var velocity = ref skillEntity.GetComponent<Velocity>();
+            velocity.Value *= multiplier;
         }
     }
 
