@@ -35,6 +35,11 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
     /// 杀戮吸收修炼方式（魔道）
     /// </summary>
     public static CultivateMethodAsset KillAbsorb { get; private set; }
+    
+    /// <summary>
+    /// 国运修炼方式（帝道）
+    /// </summary>
+    public static CultivateMethodAsset KingdomFortune { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -89,6 +94,32 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
             return 1.0f;
         };
         KillAbsorb.OnSideEffect = (ae, wakanGained) => {
+            // 负面效果暂时不用管
+        };
+        
+        // 国运修炼（帝道）
+        KingdomFortune.TriggerType = CultivateTriggerType.Continuous;
+        KingdomFortune.CanCultivate = ae =>
+        {
+            if (!ae.HasCultisys<Xian>()) return false;
+            var actor = ae.Base;
+            var isKing = actor.kingdom != null && actor.kingdom.king == actor;
+            var isCityLeader = actor.city != null && actor.city.leader == actor;
+            return isKing || isCityLeader;
+        };
+        KingdomFortune.GetEfficiency = ae => {
+            // 检查是否是国王或城主
+            var actor = ae.Base;
+            var isKing = actor.kingdom != null && actor.kingdom.king == actor;
+            var isCityLeader = actor.city != null && actor.city.leader == actor;
+            
+            if (isKing) return 1.0f; // 国王效率为1.0
+            if (isCityLeader) return 0.5f; // 城主效率减半
+            
+            return 0f; // 既不是国王也不是城主，不能修炼
+        };
+        KingdomFortune.OnSideEffect = (ae, wakanGained) => {
+            // 吸收国运可能影响国家气运
             // 负面效果暂时不用管
         };
     }
