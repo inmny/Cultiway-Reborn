@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils;
@@ -210,11 +211,14 @@ public static class BookManagerTools
             }
         }
         
+        // 根据功法信息判断品阶
+        ItemLevel itemLevel = CalculateCultibookLevel(stats, skillPool, minLevel, maxLevel, cultivateMethodId, ae);
+        
         var cultibook = _cultibookLibrary.AddDynamic(new CultibookAsset()
         {
             id = Guid.NewGuid().ToString(),
             FinalStats = stats,
-            Level = new ItemLevel(),
+            Level = itemLevel,
             Name = raw_cultibook.name,
             Description = description,
             ElementReq = elementReq,
@@ -231,5 +235,117 @@ public static class BookManagerTools
         be.Master(cultibook, 100);
         ae.Master(cultibook, 100);
         return raw_cultibook;
+    }
+    
+    /// <summary>
+    /// 根据功法信息计算品阶
+    /// </summary>
+    private static ItemLevel CalculateCultibookLevel(
+        BaseStats finalStats, 
+        List<SkillPoolEntry> skillPool, 
+        int minLevel, 
+        int maxLevel, 
+        string cultivateMethodId,
+        ActorExtend creator)
+    {
+        // 计算属性总值（所有属性值的绝对值之和）
+        float statsValue = 0f;
+        if (finalStats != null && finalStats._stats_list is IList<BaseStatsContainer> statsList)
+        {
+            foreach (var container in statsList)
+            {
+                statsValue += Mathf.Abs(container.value);
+            }
+        }
+        
+        // 法术池数量
+        int skillCount = skillPool?.Count ?? 0;
+        
+        // 创建者境界
+        int creatorLevel = 0;
+        if (creator.HasCultisys<Xian>())
+        {
+            creatorLevel = creator.GetCultisys<Xian>().CurrLevel;
+        }
+        
+        // 修炼方式特殊性（特殊修炼方式提升品阶）
+        // 判断是否为标准修炼方式（Cultiway.Standard 或 Standard）
+        bool isSpecialMethod = !string.IsNullOrEmpty(cultivateMethodId) && 
+                               cultivateMethodId != CultivateMethods.Standard.id;
+        
+        // 境界范围（范围越广，品阶可能越高）
+        int levelRange = maxLevel - minLevel;
+        
+        // 综合评分系统
+        float score = 0f;
+        
+        // 1. 属性强度评分（0-40分）
+        // 属性总值每1.0分对应约10分，最高40分
+        score += Mathf.Min(statsValue * 10f, 40f);
+        
+        // 2. 法术池数量评分（0-20分）
+        // 每个法术5分，最高20分
+        score += Mathf.Min(skillCount * 5f, 20f);
+        
+        // 3. 创建者境界评分（0-20分）
+        // 境界越高，能创造的功法品阶越高
+        // 筑基期(1) = 0分，金丹期(2) = 5分，元婴期(3) = 10分，更高境界 = 20分
+        if (creatorLevel >= 6) score += 20f;
+        else if (creatorLevel >= 3) score += 10f + (creatorLevel - 3) * 3.33f;
+        else if (creatorLevel >= 2) score += 5f;
+        
+        // 4. 特殊修炼方式奖励（0-10分）
+        if (isSpecialMethod) score += 10f;
+        
+        // 5. 境界范围奖励（0-10分）
+        // 范围越广，说明功法适用性越高
+        if (levelRange >= 15) score += 10f;
+        else if (levelRange >= 10) score += 5f;
+        else if (levelRange >= 5) score += 2f;
+        
+        // 根据总评分确定品阶
+        // 人级: 0-30分
+        // 地级: 30-60分
+        // 天级: 60-85分
+        // 仙级: 85分以上
+        
+        int stage = 0;
+        int level = 0;
+        
+        if (score >= 85f)
+        {
+            // 仙级 (Stage 3)
+            stage = 3;
+            // 在85-100分之间，level 0-4；100分以上，level 5-8
+            level = score >= 100f ? Mathf.Clamp(Mathf.RoundToInt((score - 100f) / 15f * 3f) + 5, 5, 8) 
+                                   : Mathf.Clamp(Mathf.RoundToInt((score - 85f) / 15f * 4f), 0, 4);
+        }
+        else if (score >= 60f)
+        {
+            // 天级 (Stage 2)
+            stage = 2;
+            // 在60-85分之间，level 0-8
+            level = Mathf.Clamp(Mathf.RoundToInt((score - 60f) / 25f * 8f), 0, 8);
+        }
+        else if (score >= 30f)
+        {
+            // 地级 (Stage 1)
+            stage = 1;
+            // 在30-60分之间，level 0-8
+            level = Mathf.Clamp(Mathf.RoundToInt((score - 30f) / 30f * 8f), 0, 8);
+        }
+        else
+        {
+            // 人级 (Stage 0)
+            stage = 0;
+            // 在0-30分之间，level 0-8
+            level = Mathf.Clamp(Mathf.RoundToInt(score / 30f * 8f), 0, 8);
+        }
+        
+        return new ItemLevel
+        {
+            Stage = stage,
+            Level = level
+        };
     }
 }
