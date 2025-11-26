@@ -165,6 +165,9 @@ public static class ActorExtendTools
         stateRef.MainMastery = 0;
         stateRef.AccumulatedTime = 0;
         stateRef.InitSkillProgress();
+        
+        // 管理持续修炼标记
+        UpdateContinuousCultivateTag(ae, cultibook);
     }
 
     /// <summary>
@@ -234,8 +237,33 @@ public static class ActorExtendTools
         stateRef.MainMastery = knownMastery > 0 ? knownMastery * 0.8f : 0;
         stateRef.AccumulatedTime = 0;
         stateRef.InitSkillProgress();
+        
+        // 管理持续修炼标记
+        UpdateContinuousCultivateTag(ae, newCultibook);
 
         return true;
+    }
+
+    /// <summary>
+    /// 更新持续修炼标记（根据主修功法的修炼方式类型）
+    /// </summary>
+    private static void UpdateContinuousCultivateTag(ActorExtend ae, CultibookAsset cultibook)
+    {
+        if (cultibook == null)
+        {
+            ae.E.RemoveTag<ContinuousCultivateTag>();
+            return;
+        }
+        
+        var method = cultibook.GetCultivateMethod();
+        if (method != null && method.TriggerType == CultivateTriggerType.Continuous)
+        {
+            ae.E.AddTag<ContinuousCultivateTag>();
+        }
+        else
+        {
+            ae.E.RemoveTag<ContinuousCultivateTag>();
+        }
     }
 
     /// <summary>
