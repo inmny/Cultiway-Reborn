@@ -39,7 +39,7 @@ public class CultibookAsset : Asset, IDeleteWhenUnknown
     /// <summary>
     /// 修炼方式 Asset ID
     /// </summary>
-    public string CultivateMethodId = "Standard";
+    public string CultivateMethodId = "Cultiway.Standard";
 
     /// <summary>
     /// 可领悟法术
@@ -53,6 +53,18 @@ public class CultibookAsset : Asset, IDeleteWhenUnknown
     public string[] SynergyTags = Array.Empty<string>();
 
     public int Current { get; set; } = 0;
+
+    /// <summary>
+    /// 获取对应的修炼方式Asset
+    /// </summary>
+    public CultivateMethodAsset GetCultivateMethod()
+    {
+        if (string.IsNullOrEmpty(CultivateMethodId))
+        {
+            CultivateMethodId = "Cultiway.Standard";
+        }
+        return Manager.CultivateMethodLibrary.get(CultivateMethodId);
+    }
 }
 
 /// <summary>
