@@ -415,6 +415,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
     private static Action<ActorExtend, string> action_on_get_stats;
     private static Action<ActorExtend, Actor, Kingdom> action_on_kill;
+    private static Action<ActorExtend, BaseSimObject, float> action_on_be_attacked;
 
     public float GetStat(string stat_id)
     {
@@ -560,6 +561,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
                 damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
             }
         }
+        
+        // 触发被攻击事件（在实际受到伤害之前）
+        if (damage > 0 && attacker != null)
+        {
+            action_on_be_attacked?.Invoke(this, attacker, damage);
+        }
+        
         PatchActor.getHit_snapshot(Base, damage, pAttackType: attack_type_for_vanilla, pAttacker: attacker, pSkipIfShake: false, pCheckDamageReduction: false);
     }
 
@@ -596,6 +604,11 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     public static void RegisterActionOnKill(Action<ActorExtend, Actor, Kingdom> action)
     {
         action_on_kill += action;
+    }
+    
+    public static void RegisterActionOnBeAttacked(Action<ActorExtend, BaseSimObject, float> action)
+    {
+        action_on_be_attacked += action;
     }
     
     public void NewKillAction(Actor dead_unit, Kingdom dead_kingdom)
