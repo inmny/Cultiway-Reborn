@@ -25,6 +25,16 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
     /// 水中修炼方式
     /// </summary>
     public static CultivateMethodAsset WaterMeditation { get; private set; }
+    
+    /// <summary>
+    /// 战斗修炼方式
+    /// </summary>
+    public static CultivateMethodAsset BattleCultivate { get; private set; }
+    
+    /// <summary>
+    /// 杀戮吸收修炼方式（魔道）
+    /// </summary>
+    public static CultivateMethodAsset KillAbsorb { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -54,6 +64,33 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
             return 1.5f * (1f + elementRoot.Water);
         };
         WaterMeditation.GetBehaviourJobId = ae => ActorJobs.WaterCultivator.id;
+        
+        // 战斗修炼
+        BattleCultivate.TriggerType = CultivateTriggerType.Passive;
+        BattleCultivate.PassiveTriggerEvents.Add(PassiveTriggerEvents.OnAttack);
+        BattleCultivate.PassiveTriggerEvents.Add(PassiveTriggerEvents.OnBeAttacked);
+        BattleCultivate.CanCultivate = ae => ae.HasCultisys<Xian>();
+        BattleCultivate.GetEfficiency = ae => {
+            // 基础效率1.0，可以根据战斗状态调整
+            // 暂时简化处理，后续可以根据战斗强度、敌人数量等因素调整
+            return 1.0f;
+        };
+        BattleCultivate.OnSideEffect = (ae, wakanGained) => {
+            // 负面效果暂时不用管
+        };
+        
+        // 杀戮吸收（魔道）
+        KillAbsorb.TriggerType = CultivateTriggerType.Passive;
+        KillAbsorb.PassiveTriggerEvents.Add(PassiveTriggerEvents.OnKill);
+        KillAbsorb.CanCultivate = ae => ae.HasCultisys<Xian>();
+        KillAbsorb.GetEfficiency = ae => {
+            // 基础效率1.0，可以根据杀人数调整
+            // 暂时简化处理，后续可以根据累计杀人数调整
+            return 1.0f;
+        };
+        KillAbsorb.OnSideEffect = (ae, wakanGained) => {
+            // 负面效果暂时不用管
+        };
     }
 }
 
