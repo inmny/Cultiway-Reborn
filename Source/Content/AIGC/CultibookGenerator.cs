@@ -128,7 +128,7 @@ public class CultibookGenerator
     private static CultibookAsset FallbackBuildImprovedDraft(ActorExtend ae, CultibookAsset originalCultibook)
     {
         // 使用现有的 CreateImprovedCultibook 方法作为后备
-        return BookManagerTools.CreateImprovedCultibook(originalCultibook, ae);
+        return Extensions.BookManagerTools.CreateImprovedCultibook(originalCultibook, ae);
     }
 
     private static async Task<CultibookAsset> LLMBuildImprovedDraftAsync(ActorExtend ae, CultibookAsset originalCultibook)
@@ -156,14 +156,16 @@ public class CultibookGenerator
         if (ae.HasElementRoot())
         {
             var elementRoot = ae.GetElementRoot();
-            dto.elementReq.MinIron = Mathf.Min(dto.elementReq.MinIron, elementRoot.Iron);
-            dto.elementReq.MinWood = Mathf.Min(dto.elementReq.MinWood, elementRoot.Wood);
-            dto.elementReq.MinWater = Mathf.Min(dto.elementReq.MinWater, elementRoot.Water);
-            dto.elementReq.MinFire = Mathf.Min(dto.elementReq.MinFire, elementRoot.Fire);
-            dto.elementReq.MinEarth = Mathf.Min(dto.elementReq.MinEarth, elementRoot.Earth);
-            dto.elementReq.MinNeg = Mathf.Min(dto.elementReq.MinNeg, elementRoot.Neg);
-            dto.elementReq.MinPos = Mathf.Min(dto.elementReq.MinPos, elementRoot.Pos);
-            dto.elementReq.MinEntropy = Mathf.Min(dto.elementReq.MinEntropy, elementRoot.Entropy);
+            var elementReq = dto.elementReq;
+            elementReq.MinIron = Mathf.Min(elementReq.MinIron, elementRoot.Iron);
+            elementReq.MinWood = Mathf.Min(elementReq.MinWood, elementRoot.Wood);
+            elementReq.MinWater = Mathf.Min(elementReq.MinWater, elementRoot.Water);
+            elementReq.MinFire = Mathf.Min(elementReq.MinFire, elementRoot.Fire);
+            elementReq.MinEarth = Mathf.Min(elementReq.MinEarth, elementRoot.Earth);
+            elementReq.MinNeg = Mathf.Min(elementReq.MinNeg, elementRoot.Neg);
+            elementReq.MinPos = Mathf.Min(elementReq.MinPos, elementRoot.Pos);
+            elementReq.MinEntropy = Mathf.Min(elementReq.MinEntropy, elementRoot.Entropy);
+            dto.elementReq = elementReq;
         }
 
         // 确保境界范围包含创建者的境界
@@ -191,8 +193,8 @@ public class CultibookGenerator
             MaxLevel = dto.maxLevel,
             CultivateMethodId = dto.cultivateMethodId,
             SkillPool = dto.skillPool,
-            ConflictTags = originalCultibook.ConflictTags?.ToList() ?? new List<string>(),
-            SynergyTags = originalCultibook.SynergyTags?.ToList() ?? new List<string>()
+            ConflictTags = originalCultibook.ConflictTags?.ToArray() ?? Array.Empty<string>(),
+            SynergyTags = originalCultibook.SynergyTags?.ToArray() ?? Array.Empty<string>()
         };
     }
 
