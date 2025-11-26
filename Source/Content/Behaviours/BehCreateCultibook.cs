@@ -1,9 +1,12 @@
+using System;
 using ai.behaviours;
 using Cultiway.Const;
+using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
+using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
-using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
+using UnityEngine;
 
 namespace Cultiway.Content.Behaviours;
 
@@ -11,15 +14,36 @@ public class BehCreateCultibook : BehCityActor
 {
     public override BehResult execute(Actor pObject)
     {
-        var raw_cultibook = World.world.books.CreateNewCultibook(pObject);
-        if (raw_cultibook == null)
-        {
-            return BehResult.Stop;
-        }
-        pObject.timer_action = Randy.randomFloat(TimeScales.SecPerYear, TimeScales.SecPerYear * 3);
         var ae = pObject.GetExtend();
-        ae.SetMainCultibook(raw_cultibook.GetExtend().GetComponent<Cultibook>().Asset);
-        ae.AddMainCultibookMastery(100);
+
+        pObject.data.get(ContentActorDataKeys.WaitingForCultibookCreation_int, out int state, -1);
+        if (state == -1)
+        {
+            var requestId = Guid.NewGuid().ToString();
+            var creationDuration = Randy.randomFloat(TimeScales.SecPerYear, TimeScales.SecPerYear * 3);
+            pObject.timer_action = creationDuration;
+            StayInside(pObject);
+            pObject.data.set(ContentActorDataKeys.WaitingForCultibookCreation_int, 1);
+            CultibookGenerator.Instance.RequestGeneration(ae, requestId);
+            return BehResult.RepeatStep;
+        }
+        if (state == 1)
+        {
+            StayInside(pObject);
+            return BehResult.RepeatStep;
+        }
         return BehResult.Continue;
+    }
+
+    private static void StayInside(Actor actor)
+    {
+        if (actor.beh_building_target != null)
+        {
+            actor.stayInBuilding(actor.beh_building_target);
+        }
+        else if (actor.inside_building != null)
+        {
+            actor.stayInBuilding(actor.inside_building);
+        }
     }
 }

@@ -37,6 +37,33 @@ public static class BookManagerTools
         });
         return raw_skillbook;
     }
+    public static Book CreateCultibookFromDraft(this BookManager manager, Actor creator, CultibookAsset draft_asset)
+    {
+        var ae = creator.GetExtend();
+        var rawCultibook = manager.GenerateNewBook(creator, BookTypes.Cultibook);
+        if (rawCultibook == null)
+        {
+            return null;
+        }
+        if (string.IsNullOrEmpty(draft_asset.Name))
+        {
+            draft_asset.Name = rawCultibook.name;
+        }
+        if (string.IsNullOrEmpty(draft_asset.Description))
+        {
+            draft_asset.Description = BuildDefaultDescription(draft_asset.Name, ae);
+        }
+
+        var be = rawCultibook.GetExtend();
+        var cultibook = _cultibookLibrary.AddDynamic(draft_asset);
+
+        be.AddComponent(new Cultibook(cultibook.id));
+        be.AddComponent(cultibook.Level);
+        be.Master(cultibook, 100);
+        ae.Master(cultibook, 100);
+        rawCultibook.data.name = draft_asset.Name;
+        return rawCultibook;
+    }
     public static Book CreateNewCultibook(this BookManager manager, Actor creator)
     {
         var ae = creator.GetExtend();
@@ -53,7 +80,6 @@ public static class BookManagerTools
         GenerateLevelRange(ae, out var minLevel, out var maxLevel);
         var cultivateMethodId = DetermineCultivateMethodId(ae);
         var skillPool = GenerateSkillPool(ae, minLevel);
-        var description = BuildDefaultDescription(rawCultibook.name, ae);
 
         ItemLevel itemLevel =
             CalculateCultibookLevel(stats, skillPool, minLevel, maxLevel, cultivateMethodId, ae);
@@ -64,7 +90,7 @@ public static class BookManagerTools
             FinalStats = stats,
             Level = itemLevel,
             Name = rawCultibook.name,
-            Description = description,
+            Description = BuildDefaultDescription(rawCultibook.name, ae),
             ElementReq = elementReq,
             ElementAffinityThreshold = 0.3f,
             MinLevel = minLevel,
@@ -237,7 +263,7 @@ public static class BookManagerTools
         return result;
     }
 
-    private static string BuildDefaultDescription(string bookName, ActorExtend ae)
+    internal static string BuildDefaultDescription(string bookName, ActorExtend ae)
     {
         if (!ae.HasElementRoot()) return bookName;
 

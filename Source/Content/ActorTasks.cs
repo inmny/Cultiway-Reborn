@@ -90,6 +90,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         CreateCultibook.addBeh(new BehGetTargetBuildingMainTile());
         CreateCultibook.addBeh(new BehGoToTileTarget());
         CreateCultibook.addBeh(new BehStayInBuildingTarget());
+        CreateCultibook.addBeh(new BehPrepareCreateCultibook());
         CreateCultibook.addBeh(new BehCreateCultibook());
         CreateCultibook.addBeh(new BehExitBuilding());
         
