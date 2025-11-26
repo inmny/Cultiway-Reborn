@@ -1,16 +1,24 @@
-using System;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
+using Cultiway.Content.UI.Prefab;
 using Cultiway.Utils.Extension;
+using strings;
 
 namespace Cultiway.Content;
 
 public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
 {
+    [CloneSource(S_Tooltip.book)]
+    public static TooltipAsset Cultibook { get; private set; }
+    
     protected override bool AutoRegisterAssets() => true;
+    
     protected override void OnInit()
     {
-        WorldboxGame.Tooltips.Book.callback += ShowCultibookStats;
+        // 设置功法书 Tooltip
+        Cultibook.prefab_id = "tooltips/tooltip_cultiway_cultibook";
+        Cultibook.callback = ShowCultibookTooltip;
+        CultibookTooltip.PatchTo<Tooltip>(Cultibook.prefab_id);
 
         WorldboxGame.Tooltips.Actor.callback += ShowActorCultiwayInfo;
     }
@@ -35,13 +43,12 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
         }
     }
 
-    private void ShowCultibookStats(Tooltip tooltip, string type, TooltipData data)
+    private static void ShowCultibookTooltip(Tooltip tooltip, string type, TooltipData data)
     {
         var book = data.book;
-        if (book.getAsset() != BookTypes.Cultibook) return;
-        var be = book.GetExtend();
-        var cultibook = be.GetComponent<Cultibook>();
-        tooltip.addLineText(Toolbox.coloredText("Cultiway.Book.ReadAction.FullyMaster", "#FFFFFF", true), "", pLocalize:false);
-        BaseStatsHelper.showBaseStats(tooltip.stats_description, tooltip.stats_values, cultibook.Asset.FinalStats);
+        if (book == null || book.getAsset() != BookTypes.Cultibook) return;
+        
+        var cultibookTooltip = tooltip.GetComponent<CultibookTooltip>();
+        cultibookTooltip?.Setup(book);
     }
 }
