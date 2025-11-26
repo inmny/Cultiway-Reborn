@@ -20,6 +20,11 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
     /// 标准闭关修炼方式
     /// </summary>
     public static CultivateMethodAsset Standard { get; private set; }
+    
+    /// <summary>
+    /// 水中修炼方式
+    /// </summary>
+    public static CultivateMethodAsset WaterMeditation { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -38,6 +43,17 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
                 return ActorJobs.PlantXianCultivator.id;
             }
         };
+        
+        WaterMeditation.TriggerType = CultivateTriggerType.Active;
+        WaterMeditation.CanCultivate = ae => ae.HasCultisys<Xian>();
+        WaterMeditation.GetEfficiency = ae => {
+            if (!ae.Base.current_tile.IsWater()) return 0.5f; // 不在水中效率减半
+            if (!ae.HasElementRoot()) return 1.5f;
+            // 水中效率提升，且与水系灵根强度成正比
+            var elementRoot = ae.GetElementRoot();
+            return 1.5f * (1f + elementRoot.Water);
+        };
+        WaterMeditation.GetBehaviourJobId = ae => ActorJobs.WaterCultivator.id;
     }
 }
 

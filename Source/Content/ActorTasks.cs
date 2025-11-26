@@ -11,6 +11,8 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor LevelupXianCultivate      { get; private set; }
     public static BehaviourTaskActor DailyPlantXianCultivate   { get; private set; }
     public static BehaviourTaskActor LevelupPlantXianCultivate { get; private set; }
+    public static BehaviourTaskActor DailyWaterCultivate       { get; private set; }
+    public static BehaviourTaskActor LevelupWaterCultivate     { get; private set; }
     public static BehaviourTaskActor LookForHerbs { get; private set; }
     public static BehaviourTaskActor CraftElixir  { get; private set; }
     public static BehaviourTaskActor FindNewElixir { get; private set; }
@@ -51,6 +53,16 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         LevelupPlantXianCultivate.addBeh(new BehRandomWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
         LevelupPlantXianCultivate.addBeh(new BehPlantXianLevelup());
         LevelupPlantXianCultivate.setIcon("cultiway/icons/iconCultivation");
+        
+        DailyWaterCultivate.addBeh(new BehFindWaterTile());
+        DailyWaterCultivate.addBeh(new BehGoToTileTarget());
+        DailyWaterCultivate.addBeh(new BehWaterCultivate());
+        DailyWaterCultivate.setIcon("cultiway/icons/iconCultivation");
+
+        LevelupWaterCultivate.addBeh(new BehFindWaterTile());
+        LevelupWaterCultivate.addBeh(new BehGoToTileTarget());
+        LevelupWaterCultivate.addBeh(new BehWaterCultivateLevelup());
+        LevelupWaterCultivate.setIcon("cultiway/icons/iconCultivation");
         
         LookForHerbs.addBeh(new BehFindTargetForCollector());
         LookForHerbs.addBeh(new BehGoToActorTarget());
