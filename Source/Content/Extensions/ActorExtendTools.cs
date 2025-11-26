@@ -436,4 +436,99 @@ public static class ActorExtendTools
 
         return tags;
     }
+
+    /// <summary>
+    /// 评估功法的综合价值（用于转修决策）
+    /// </summary>
+    /// <returns>评分值，越高越好</returns>
+    public static float EvaluateCultibookValue(this ActorExtend ae, CultibookAsset cultibook)
+    {
+        if (cultibook == null) return 0f;
+        
+        float score = 0f;
+        
+        // 1. 品阶评分（0-36分）
+        // 人级(Stage 0, Level 0-8) = 0-8分
+        // 地级(Stage 1, Level 0-8) = 9-17分
+        // 天级(Stage 2, Level 0-8) = 18-26分
+        // 仙级(Stage 3, Level 0-8) = 27-35分
+        int stageLevel = cultibook.Level.Stage * 9 + cultibook.Level.Level;
+        score += stageLevel;
+        
+        // 2. 灵根契合度评分（0-10分）
+        float affinity = 1f;
+        if (ae.HasElementRoot())
+        {
+            affinity = cultibook.ElementReq.GetAffinity(ae.GetElementRoot());
+        }
+        score += affinity * 10f;
+        
+        return score;
+    }
+
+    /// <summary>
+    /// 获取所有可转修的功法（包括了解的功法和身上的功法书）
+    /// </summary>
+    public static List<CultibookAsset> GetAvailableCultibooksForSwitch(this ActorExtend ae)
+    {
+        var result = new List<CultibookAsset>();
+        var mainCultibook = ae.GetMainCultibook();
+        
+        // 1. 添加了解的功法（排除当前主修）
+        var knownCultibooks = ae.GetAllMaster<CultibookAsset>();
+        foreach (var (cultibook, mastery) in knownCultibooks)
+        {
+            if (cultibook == null) continue;
+            if (mainCultibook != null && cultibook.id == mainCultibook.id) continue;
+            
+            // 检查境界要求
+            if (ae.HasCultisys<Xian>())
+            {
+                ref var xian = ref ae.GetCultisys<Xian>();
+                if (cultibook.MinLevel > xian.CurrLevel || cultibook.MaxLevel < xian.CurrLevel) continue;
+            }
+            
+            // 检查灵根要求
+            if (ae.HasElementRoot())
+            {
+                if (!cultibook.ElementReq.Check(ae.GetElementRoot())) continue;
+            }
+            
+            result.Add(cultibook);
+        }
+        
+        return result;
+    }
+
+    /// <summary>
+    /// 选择最佳转修功法（评估所有可用功法，选择评分最高的）
+    /// </summary>
+    public static CultibookAsset SelectBestCultibookToSwitch(this ActorExtend ae)
+    {
+        var availableCultibooks = ae.GetAvailableCultibooksForSwitch();
+        if (availableCultibooks.Count == 0) return null;
+        
+        var mainCultibook = ae.GetMainCultibook();
+        var currentScore = mainCultibook != null ? ae.EvaluateCultibookValue(mainCultibook) : 0f;
+        
+        CultibookAsset bestCultibook = null;
+        float bestScore = currentScore;
+        
+        // 需要显著提升（至少15%）才值得转修
+        float minImprovement = currentScore * 1.15f;
+        
+        foreach (var cultibook in availableCultibooks)
+        {
+            float score = ae.EvaluateCultibookValue(cultibook);
+            
+            // 如果新功法评分明显更高，考虑转修
+            if (score > bestScore && score >= minImprovement)
+            {
+                bestScore = score;
+                bestCultibook = cultibook;
+            }
+        }
+        
+        return bestCultibook;
+    }
 }

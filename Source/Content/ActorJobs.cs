@@ -26,6 +26,8 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     protected override string Prefix() => "Cultiway.ActorJob";
     protected override void OnInit()
     {
+        XianCultivator.addTask(ActorTasks.SwitchCultibook.id);
+        XianCultivator.addCondition(new CondCanSwitchCultibook());
         XianCultivator.addTask(ActorTasks.DailyXianCultivate.id);
         XianCultivator.addCondition(new CondHasXian());
         XianCultivator.addCondition(new CondXianReadyLevelup(), false);
@@ -33,6 +35,8 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         XianCultivator.addCondition(new CondXianReadyLevelup());
         XianCultivator.addTask(ActorTasks.EndJob.id);
 
+        PlantXianCultivator.addTask(ActorTasks.SwitchCultibook.id);
+        PlantXianCultivator.addCondition(new CondCanSwitchCultibook());
         PlantXianCultivator.addTask(ActorTasks.DailyPlantXianCultivate.id);
         PlantXianCultivator.addCondition(new CondHasXian());
         PlantXianCultivator.addCondition(new CondXianReadyLevelup(), false);
@@ -40,6 +44,8 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         PlantXianCultivator.addCondition(new CondXianReadyLevelup());
         PlantXianCultivator.addTask(ActorTasks.EndJob.id);
 
+        WaterCultivator.addTask(ActorTasks.SwitchCultibook.id);
+        WaterCultivator.addCondition(new CondCanSwitchCultibook());
         WaterCultivator.addTask(ActorTasks.DailyWaterCultivate.id);
         WaterCultivator.addCondition(new CondHasXian());
         WaterCultivator.addCondition(new CondXianReadyLevelup(), false);

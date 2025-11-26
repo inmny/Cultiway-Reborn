@@ -24,6 +24,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor WriteElixirbook { get; private set; }
     public static BehaviourTaskActor WriteSkillbook { get; private set; }
     public static BehaviourTaskActor CallSourceSpawner { get; private set; }
+    public static BehaviourTaskActor SwitchCultibook { get; private set; }
     [GetOnly("random_move")] public static BehaviourTaskActor RandomMove { get; private set; }
 
     [GetOnly("end_job")] public static BehaviourTaskActor EndJob { get; private set; }
@@ -125,5 +126,9 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         CallSourceSpawner.addBeh(new BehHoldSimpleCeremony());
         CallSourceSpawner.addBeh(new BehCallSourceSpawner());
         CallSourceSpawner.addBeh(new BehEndJob());
+        
+        SwitchCultibook.addBeh(new BehSwitchCultibook());
+        SwitchCultibook.addBeh(new BehEndJob());
+        SwitchCultibook.setIcon("cultiway/icons/iconCultivation");
     }
 }
