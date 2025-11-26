@@ -72,6 +72,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         TalismanCrafter.addTask(ActorTasks.EndJob.id);
         
         CultibookResearcher.addTask(ActorTasks.ImproveCultibook.id);
+        CultibookResearcher.addCondition(new CondCanImproveCultibook());
         CultibookResearcher.addCondition(new CondHasCultibook());
         CultibookResearcher.addCondition(new CondHasYuanying());
         CultibookResearcher.addTask(ActorTasks.CreateCultibook.id);

@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
+using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
@@ -530,5 +532,70 @@ public static class ActorExtendTools
         }
         
         return bestCultibook;
+    }
+
+    /// <summary>
+    /// 尝试改进功法（创建新功法并转修）
+    /// </summary>
+    public static bool TryImproveCultibook(this ActorExtend ae)
+    {
+        var mainCultibook = ae.GetMainCultibook();
+        if (mainCultibook == null) return false;
+        
+        float mastery = ae.GetMainCultibookMastery();
+        if (mastery < 100f) return false;
+        
+        var actor = ae.Base;
+        if (actor.city == null) return false;
+        var city = actor.city;
+        if (city.getBuildingWithBookSlot() == null) return false;
+        
+        // 计算成功率（基于智慧）
+        float intelligence = ae.GetStat(S.intelligence);
+        // 基础成功率50%，智慧每10点增加1%成功率，最高90%
+        float successRate = Mathf.Clamp(0.5f + intelligence / 10f * 0.01f, 0.5f, 0.9f);
+        
+        if (!Randy.randomChance(successRate))
+        {
+            return false;
+        }
+        
+        var improvedCultibook = BookManagerTools.CreateImprovedCultibook(mainCultibook, ae);
+        if (improvedCultibook == null) return false;
+        
+        var newBook = World.world.books.GenerateNewBook(actor, BookTypes.Cultibook);
+        if (newBook == null) return false;
+        
+        var be = newBook.GetExtend();
+        be.AddComponent(new Cultibook(improvedCultibook.id));
+        be.AddComponent(improvedCultibook.Level);
+        be.Master(improvedCultibook, 100);
+        newBook.data.name = improvedCultibook.Name;
+        
+        ae.Master(improvedCultibook, 100);
+        
+        // 无代价转修到改进版功法
+        // 将原主修变为了解
+        if (ae.HasComponent<ActorCultibookState>())
+        {
+            ref var stateRef = ref ae.GetComponent<ActorCultibookState>();
+            var oldMastery = stateRef.MainMastery;
+            ae.Master(mainCultibook, oldMastery * 0.5f);
+            
+            // 直接设置新主修功法（无代价）
+            stateRef.MainCultibookId = improvedCultibook.id;
+            stateRef.MainMastery = 100f;
+            stateRef.AccumulatedTime = 0;
+            stateRef.InitSkillProgress();
+            
+            UpdateContinuousCultivateTag(ae, improvedCultibook);
+        }
+        else
+        {
+            ae.SetMainCultibook(improvedCultibook);
+            ae.AddMainCultibookMastery(80f);
+        }
+        
+        return true;
     }
 }

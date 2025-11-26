@@ -348,4 +348,156 @@ public static class BookManagerTools
             Level = level
         };
     }
+    
+    /// <summary>
+    /// 基于原功法创建改进版功法（随机改善修炼要求、属性加成、法术池）
+    /// </summary>
+    public static CultibookAsset CreateImprovedCultibook(CultibookAsset originalCultibook, ActorExtend creator)
+    {
+        if (originalCultibook == null) return null;
+        
+        // 复制并改善属性加成（提升5-20%）
+        BaseStats improvedStats = new BaseStats();
+        if (originalCultibook.FinalStats != null && originalCultibook.FinalStats._stats_list is IList<BaseStatsContainer> originalStatsList)
+        {
+            float improvementRate = Randy.randomFloat(1.05f, 1.20f);
+            foreach (var container in originalStatsList)
+            {
+                improvedStats[container.id] = container.value * improvementRate;
+            }
+        }
+        
+        // 改善灵根需求（随机变化，但确保创建者能够满足）
+        ElementRequirement improvedElementReq = originalCultibook.ElementReq;
+        ElementRoot creatorElementRoot = default;
+        if (creator.HasElementRoot())
+        {
+            creatorElementRoot = creator.GetElementRoot();
+            
+            improvedElementReq.MinIron = Mathf.Min(originalCultibook.ElementReq.MinIron * Randy.randomFloat(0.7f, 1.3f), creatorElementRoot.Iron);
+            improvedElementReq.MinWood = Mathf.Min(originalCultibook.ElementReq.MinWood * Randy.randomFloat(0.7f, 1.3f), creatorElementRoot.Wood);
+            improvedElementReq.MinWater = Mathf.Min(originalCultibook.ElementReq.MinWater * Randy.randomFloat(0.7f, 1.3f), creatorElementRoot.Water);
+            improvedElementReq.MinFire = Mathf.Min(originalCultibook.ElementReq.MinFire * Randy.randomFloat(0.7f, 1.3f), creatorElementRoot.Fire);
+            improvedElementReq.MinEarth = Mathf.Min(originalCultibook.ElementReq.MinEarth * Randy.randomFloat(0.7f, 1.3f), creatorElementRoot.Earth);
+            improvedElementReq.MinNeg = Mathf.Min(originalCultibook.ElementReq.MinNeg * Randy.randomFloat(0.7f, 1.3f), creatorElementRoot.Neg);
+            improvedElementReq.MinPos = Mathf.Min(originalCultibook.ElementReq.MinPos * Randy.randomFloat(0.7f, 1.3f), creatorElementRoot.Pos);
+            improvedElementReq.MinEntropy = Mathf.Min(originalCultibook.ElementReq.MinEntropy * Randy.randomFloat(0.7f, 1.3f), creatorElementRoot.Entropy);
+        }
+        
+        // 改善境界限制（随机变化，但确保创建者能够满足）
+        int creatorLevel = 0;
+        if (creator.HasCultisys<Xian>())
+        {
+            creatorLevel = creator.GetCultisys<Xian>().CurrLevel;
+        }
+        
+        // 随机变化 MinLevel（可以增加或减少，但不能超过创建者境界）
+        int minLevelChange = Randy.randomInt(-2, 3);
+        int improvedMinLevel = Mathf.Max(0, Mathf.Min(originalCultibook.MinLevel + minLevelChange, creatorLevel));
+        
+        // 随机变化 MaxLevel（可以增加或减少，但不能低于创建者境界）
+        int maxLevelChange = Randy.randomInt(-1, 4);
+        int improvedMaxLevel = originalCultibook.MaxLevel + maxLevelChange;
+        improvedMaxLevel = Mathf.Max(improvedMaxLevel, creatorLevel); 
+        improvedMaxLevel = Mathf.Max(improvedMaxLevel, improvedMinLevel);
+        improvedMaxLevel = Mathf.Min(improvedMaxLevel, 20);
+        
+        // 改善法术池
+        List<SkillPoolEntry> improvedSkillPool = new List<SkillPoolEntry>();
+        if (originalCultibook.SkillPool != null && originalCultibook.SkillPool.Count > 0)
+        {
+            // 复制原法术池并提升概率
+            foreach (var entry in originalCultibook.SkillPool)
+            {
+                improvedSkillPool.Add(new SkillPoolEntry()
+                {
+                    SkillEntityAssetId = entry.SkillEntityAssetId,
+                    BaseChance = entry.BaseChance * Randy.randomFloat(1.1f, 1.5f), // 提升10-50%
+                    MasteryThreshold = entry.MasteryThreshold * Randy.randomFloat(0.8f, 0.95f), // 降低5-20%
+                    LevelRequirement = Mathf.Max(0, entry.LevelRequirement - (Randy.randomChance(0.3f) ? 1 : 0))
+                });
+            }
+            
+            // 有概率增加新法术（从创建者的技能中选择）
+            if (creator.all_skills != null && creator.all_skills.Count > 0 && Randy.randomChance(0.3f))
+            {
+                var skillList = new List<Entity>(creator.all_skills);
+                skillList.Shuffle();
+                
+                foreach (var skillEntity in skillList)
+                {
+                    if (!skillEntity.HasComponent<SkillContainer>()) continue;
+                    var skillContainer = skillEntity.GetComponent<SkillContainer>();
+                    string skillId = skillContainer.SkillEntityAssetID;
+                    if (string.IsNullOrEmpty(skillId)) continue;
+                    
+                    bool alreadyExists = improvedSkillPool.Any(e => e.SkillEntityAssetId == skillId);
+                    if (alreadyExists) continue;
+                    
+                    improvedSkillPool.Add(new SkillPoolEntry()
+                    {
+                        SkillEntityAssetId = skillId,
+                        BaseChance = Randy.randomFloat(0.03f, 0.08f),
+                        MasteryThreshold = Randy.randomFloat(30f, 60f),
+                        LevelRequirement = improvedMinLevel
+                    });
+                    break;
+                }
+            }
+        }
+        else
+        {
+            // 如果原功法没有法术池，尝试添加1-2个法术
+            if (creator.all_skills != null && creator.all_skills.Count > 0)
+            {
+                var skillsToAdd = Mathf.Min(Randy.randomInt(1, 3), creator.all_skills.Count);
+                var skillList = new List<Entity>(creator.all_skills);
+                skillList.Shuffle();
+                
+                int addedCount = 0;
+                foreach (var skillEntity in skillList)
+                {
+                    if (addedCount >= skillsToAdd) break;
+                    if (!skillEntity.HasComponent<SkillContainer>()) continue;
+                    var skillContainer = skillEntity.GetComponent<SkillContainer>();
+                    if (string.IsNullOrEmpty(skillContainer.SkillEntityAssetID)) continue;
+                    
+                    improvedSkillPool.Add(new SkillPoolEntry()
+                    {
+                        SkillEntityAssetId = skillContainer.SkillEntityAssetID,
+                        BaseChance = 0.05f + addedCount * 0.02f,
+                        MasteryThreshold = 30f + addedCount * 20f,
+                        LevelRequirement = improvedMinLevel + addedCount
+                    });
+                    addedCount++;
+                }
+            }
+        }
+        
+        // 保持相同的修炼方式
+        string improvedCultivateMethodId = originalCultibook.CultivateMethodId;
+        
+        // 重新评级
+        ItemLevel improvedLevel = CalculateCultibookLevel(improvedStats, improvedSkillPool, improvedMinLevel, improvedMaxLevel, improvedCultivateMethodId, creator);
+        
+        // 创建改进版功法Asset
+        var improvedCultibook = _cultibookLibrary.AddDynamic(new CultibookAsset()
+        {
+            id = Guid.NewGuid().ToString(),
+            FinalStats = improvedStats,
+            Level = improvedLevel,
+            Name = originalCultibook.Name,
+            Description = originalCultibook.Description + "（改进版）",
+            ElementReq = improvedElementReq,
+            ElementAffinityThreshold = originalCultibook.ElementAffinityThreshold,
+            MinLevel = improvedMinLevel,
+            MaxLevel = improvedMaxLevel,
+            CultivateMethodId = improvedCultivateMethodId,
+            SkillPool = improvedSkillPool,
+            ConflictTags = originalCultibook.ConflictTags?.ToArray() ?? Array.Empty<string>(),
+            SynergyTags = originalCultibook.SynergyTags?.ToArray() ?? Array.Empty<string>()
+        });
+        
+        return improvedCultibook;
+    }
 }

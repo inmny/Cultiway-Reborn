@@ -130,5 +130,14 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         SwitchCultibook.addBeh(new BehSwitchCultibook());
         SwitchCultibook.addBeh(new BehEndJob());
         SwitchCultibook.setIcon("cultiway/icons/iconCultivation");
+        
+        ImproveCultibook.addBeh(new BehBuildingTargetHome());
+        ImproveCultibook.addBeh(new BehGetTargetBuildingMainTile());
+        ImproveCultibook.addBeh(new BehGoToTileTarget());
+        ImproveCultibook.addBeh(new BehStayInBuildingTarget());
+        ImproveCultibook.addBeh(new BehImproveCultibook());
+        ImproveCultibook.addBeh(new BehExitBuilding());
+        ImproveCultibook.addBeh(new BehEndJob());
+        ImproveCultibook.setIcon("cultiway/icons/iconCultivation");
     }
 }
