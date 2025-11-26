@@ -10,6 +10,7 @@ using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
+using NeoModLoader.General;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -39,38 +40,45 @@ public class CultibookPage : MonoBehaviour
         if (mainCultibook != null)
         {
             sb.AppendLine("★ 主修功法");
-            sb.AppendLine($"名称: {mainCultibook.Name}");
+            sb.AppendLine($"\t名称: {mainCultibook.Name}");
             var levelName = mainCultibook.Level.GetName();
             if (!string.IsNullOrEmpty(levelName))
             {
-                sb.AppendLine($"品阶: {levelName}");
+                sb.AppendLine($"\t品阶: {levelName}");
             }
 
             var mastery = ae.GetMainCultibookMastery();
-            sb.AppendLine($"掌握程度: {mastery:F1}%");
+            sb.AppendLine($"\t掌握程度: {GetMasteryProgressBar(mastery)} {mastery:F1}%");
             
-            // 显示掌握程度进度条
-            var progressBar = GetMasteryProgressBar(mastery);
-            sb.AppendLine($"\t{progressBar}");
 
             // 显示修炼方式
             if (!string.IsNullOrEmpty(mainCultibook.CultivateMethodId))
             {
-                sb.AppendLine($"修炼方式: {mainCultibook.CultivateMethodId}");
+                var method = mainCultibook.GetCultivateMethod();
+                var methodName = LMTools.Has(method.id) ? LM.Get(method.id) : method.id;
+                sb.AppendLine($"\t修炼方式: {methodName}");
+                
+                // 显示描述
+                var methodInfoKey = $"{method.id}.Info";
+                if (LMTools.Has(methodInfoKey))
+                {
+                    var methodDescription = LM.Get(methodInfoKey);
+                    sb.AppendLine($"\t\t{methodDescription}");
+                }
             }
 
             // 显示属性加成（根据掌握程度）
             if (mainCultibook.FinalStats != null)
             {
-                sb.AppendLine("属性加成:");
+                sb.AppendLine("\t属性加成:");
                 var masteryRatio = mastery / 100f;
-                AppendStatsInfo(sb, mainCultibook.FinalStats, masteryRatio);
+                AppendStatsInfo(sb, mainCultibook.FinalStats, masteryRatio, "\t\t");
             }
 
             // 显示可领悟法术
             if (mainCultibook.SkillPool != null && mainCultibook.SkillPool.Count > 0)
             {
-                sb.AppendLine("可领悟法术:");
+                sb.AppendLine("\t可领悟法术:");
                 foreach (var skillEntry in mainCultibook.SkillPool)
                 {
                     var hasSkill = CheckHasSkill(ae, skillEntry.SkillEntityAssetId);
@@ -79,7 +87,7 @@ public class CultibookPage : MonoBehaviour
                     
                     var skillAsset = ModClass.I.SkillV3.SkillLib.get(skillEntry.SkillEntityAssetId);
                     var skillName = skillAsset != null ? skillAsset.id.Localize() : skillEntry.SkillEntityAssetId;
-                    sb.AppendLine($"\t{mark} {skillName}{status}");
+                    sb.AppendLine($"\t\t{mark} {skillName}{status}");
                 }
             }
 
@@ -98,7 +106,7 @@ public class CultibookPage : MonoBehaviour
             {
                 var cultibook = cultibook_master.Item1;
                 var knowledgeLevel = cultibook_master.Item2;
-                sb.AppendLine($"- {cultibook.Name} ({knowledgeLevel:F1}%)");
+                sb.AppendLine($"\t- {cultibook.Name} ({knowledgeLevel:F1}%)");
             }
         }
 
@@ -142,7 +150,7 @@ public class CultibookPage : MonoBehaviour
     /// <summary>
     /// 追加属性加成信息
     /// </summary>
-    private static void AppendStatsInfo(StringBuilder sb, BaseStats finalStats, float ratio)
+    private static void AppendStatsInfo(StringBuilder sb, BaseStats finalStats, float ratio, string prefix = "")
     {
         if (finalStats == null) return;
         
@@ -158,7 +166,10 @@ public class CultibookPage : MonoBehaviour
             if (statAsset == null) continue;
 
             var sign = value >= 0 ? "+" : "";
-            sb.AppendLine($"\t- {statContainer.id}: {sign}{value:F1}");
+            value *= statAsset.tooltip_multiply_for_visual_number;
+            
+            var value_text = statAsset.show_as_percents ? $"{value:F1}%" : $"{value:F1}";
+            sb.AppendLine($"{prefix}- {statAsset.translation_key.Localize()}: {sign}{value_text}");
         }
     }
 }

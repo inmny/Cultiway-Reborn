@@ -5,3 +5,13 @@ book_type_Cultiway.Elixirbook,丹方
 book_type_info_Cultiway.Elixirbook,百草为引，万火为媒
 Cultiway.Book.ReadAction.LearnCultibook,学会功法
 Cultiway.Book.ReadAction.FullyMaster,当完全掌握时:
+Cultiway.Standard,标准闭关
+Cultiway.Standard.Info,最基础的修炼方式，通过静坐闭关吸收天地灵气进行修炼
+Cultiway.WaterMeditation,水中修炼
+Cultiway.WaterMeditation.Info,在水中进行修炼，能够更好地与水元素共鸣，提升修炼效率
+Cultiway.BattleCultivate,战斗修炼
+Cultiway.BattleCultivate.Info,在战斗中修炼，通过战斗的激烈程度获得修为提升
+Cultiway.KillAbsorb,杀戮吸收
+Cultiway.KillAbsorb.Info,通过击杀生灵吸收其修为的邪道修炼方式，效率高但会积累杀业
+Cultiway.KingdomFortune,国运修炼
+Cultiway.KingdomFortune.Info,作为国王或城主，通过吸收国家气运进行修炼的帝道功法
