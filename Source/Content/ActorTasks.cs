@@ -136,6 +136,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         ImproveCultibook.addBeh(new BehGetTargetBuildingMainTile());
         ImproveCultibook.addBeh(new BehGoToTileTarget());
         ImproveCultibook.addBeh(new BehStayInBuildingTarget());
+        ImproveCultibook.addBeh(new BehPrepareImproveCultibook());
         ImproveCultibook.addBeh(new BehImproveCultibook());
         ImproveCultibook.addBeh(new BehExitBuilding());
         ImproveCultibook.addBeh(new BehEndJob());

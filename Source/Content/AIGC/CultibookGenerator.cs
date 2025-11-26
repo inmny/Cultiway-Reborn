@@ -48,6 +48,12 @@ public class CultibookGenerator
         _ = GenerateAsync(ae, requestId);
     }
 
+    public void RequestImprovement(ActorExtend ae, CultibookAsset originalCultibook, string requestId)
+    {
+        if (ae == null || ae.Base == null || ae.Base.isRekt() || originalCultibook == null) return;
+        _ = ImproveAsync(ae, originalCultibook, requestId);
+    }
+
     private async Task GenerateAsync(ActorExtend ae, string requestId)
     {
         var actor = ae.Base;
@@ -81,6 +87,171 @@ public class CultibookGenerator
             Draft = draft,
             ResponseSeconds = responseSeconds
         });
+    }
+
+    private async Task ImproveAsync(ActorExtend ae, CultibookAsset originalCultibook, string requestId)
+    {
+        var actor = ae.Base;
+        var actorId = actor.data.id;
+        var stopwatch = Stopwatch.StartNew();
+
+        CultibookAsset improvedDraft;
+        try
+        {
+            improvedDraft = await LLMBuildImprovedDraftAsync(ae, originalCultibook);
+            stopwatch.Stop();
+        }
+        catch (Exception e)
+        {
+            stopwatch.Stop();
+            ModClass.LogErrorConcurrent(e.ToString());
+
+            improvedDraft = FallbackBuildImprovedDraft(ae, originalCultibook);
+        }
+
+        var responseSeconds = (float)stopwatch.Elapsed.TotalSeconds;
+        if (responseSeconds <= 0)
+        {
+            responseSeconds = DefaultResponseSeconds;
+        }
+
+        EventSystemHub.Publish(new CultibookImprovedEvent
+        {
+            ActorId = actorId,
+            RequestId = requestId,
+            OriginalCultibook = originalCultibook,
+            ImprovedDraft = improvedDraft,
+            ResponseSeconds = responseSeconds
+        });
+    }
+
+    private static CultibookAsset FallbackBuildImprovedDraft(ActorExtend ae, CultibookAsset originalCultibook)
+    {
+        // 使用现有的 CreateImprovedCultibook 方法作为后备
+        return BookManagerTools.CreateImprovedCultibook(originalCultibook, ae);
+    }
+
+    private static async Task<CultibookAsset> LLMBuildImprovedDraftAsync(ActorExtend ae, CultibookAsset originalCultibook)
+    {
+        var prompt = BuildImprovementPrompt(ae, originalCultibook);
+        var system_prompt = GetImprovementSystemPrompt();
+        var response = await Core.AIGCLib.Manager.RequestResponseContent(prompt, system_prompt, temperature: 0.7f);
+
+        response = response.PostProcessForJSON();
+        var dto = JsonConvert.DeserializeObject<LlmResponse>(response);
+        if (dto == null)
+        {
+            return FallbackBuildImprovedDraft(ae, originalCultibook);
+        }
+
+        // 使用改进后的数据，但确保创建者能够满足要求
+        var stats = GenerateStatsFromActor(ae.Base);
+        // 如果 LLM 返回的属性为空，使用原功法的属性并提升
+        if (dto.skillPool == null || dto.skillPool.Count == 0)
+        {
+            dto.skillPool = originalCultibook.SkillPool ?? new List<SkillPoolEntry>();
+        }
+
+        // 确保灵根需求不超过创建者的灵根值
+        if (ae.HasElementRoot())
+        {
+            var elementRoot = ae.GetElementRoot();
+            dto.elementReq.MinIron = Mathf.Min(dto.elementReq.MinIron, elementRoot.Iron);
+            dto.elementReq.MinWood = Mathf.Min(dto.elementReq.MinWood, elementRoot.Wood);
+            dto.elementReq.MinWater = Mathf.Min(dto.elementReq.MinWater, elementRoot.Water);
+            dto.elementReq.MinFire = Mathf.Min(dto.elementReq.MinFire, elementRoot.Fire);
+            dto.elementReq.MinEarth = Mathf.Min(dto.elementReq.MinEarth, elementRoot.Earth);
+            dto.elementReq.MinNeg = Mathf.Min(dto.elementReq.MinNeg, elementRoot.Neg);
+            dto.elementReq.MinPos = Mathf.Min(dto.elementReq.MinPos, elementRoot.Pos);
+            dto.elementReq.MinEntropy = Mathf.Min(dto.elementReq.MinEntropy, elementRoot.Entropy);
+        }
+
+        // 确保境界范围包含创建者的境界
+        int creatorLevel = 0;
+        if (ae.HasCultisys<Xian>())
+        {
+            creatorLevel = ae.GetCultisys<Xian>().CurrLevel;
+        }
+        dto.minLevel = Mathf.Max(0, Mathf.Min(dto.minLevel, creatorLevel));
+        dto.maxLevel = Mathf.Max(Mathf.Max(creatorLevel, dto.maxLevel), dto.minLevel);
+        dto.maxLevel = Mathf.Min(dto.maxLevel, 20);
+
+        var item_level = CalculateCultibookLevel(stats, dto.skillPool, dto.minLevel, dto.maxLevel, dto.cultivateMethodId, ae);
+
+        return new CultibookAsset()
+        {
+            id = Guid.NewGuid().ToString(),
+            Name = string.IsNullOrEmpty(dto.name) ? $"{originalCultibook.Name}（改进版）" : dto.name,
+            Description = string.IsNullOrEmpty(dto.description) ? $"{originalCultibook.Description}（改进版）" : dto.description,
+            FinalStats = stats,
+            Level = item_level,
+            ElementReq = dto.elementReq,
+            ElementAffinityThreshold = dto.elementAffinityThreshold,
+            MinLevel = dto.minLevel,
+            MaxLevel = dto.maxLevel,
+            CultivateMethodId = dto.cultivateMethodId,
+            SkillPool = dto.skillPool,
+            ConflictTags = originalCultibook.ConflictTags?.ToList() ?? new List<string>(),
+            SynergyTags = originalCultibook.SynergyTags?.ToList() ?? new List<string>()
+        };
+    }
+
+    private static string GetImprovementSystemPrompt()
+    {
+        return
+            "请根据原功法信息生成改进版功法的名称与简介，只输出 JSON，例如 {\\\"name\\\":\\\"玄火九转功·改进版\\\",\\\"description\\\":\\\"简介不超过60字，说明改进之处\\\",\\\"elementReq\\\":{\\\"iron\\\":0.2,\\\"wood\\\":0.3,\\\"water\\\":0.0,\\\"fire\\\":1.5,\\\"earth\\\":0.1,\\\"neg\\\":0.1,\\\"pos\\\":0.8,\\\"entropy\\\":0.5},\\\"elementAffinityThreshold\\\":0.3,\\\"minLevel\\\":1,\\\"maxLevel\\\":4,\\\"cultivateMethodId\\\":\\\"Cultiway.Standard\\\",\\\"skillPool\\\":[{\\\"skillEntityAssetId\\\":\\\"Cultiway.Fireball\\\",\\\"baseChance\\\":0.05,\\\"masteryThreshold\\\":20,\\\"levelRequirement\\\":1}]}，不要输出其他内容。改进版功法应该在原功法基础上有所提升，但保持相同的修炼方式。可选的修炼方式：" + string.Join(", ", Libraries.Manager.CultivateMethodLibrary.list.Select(m => $"\\\"{m.id.Localize()}\\\"({m.id})")) + "。";
+    }
+
+    private static string BuildImprovementPrompt(ActorExtend ae, CultibookAsset originalCultibook)
+    {
+        var actor = ae.Base;
+        var level_value = ae.HasCultisys<Xian>() ? ae.GetCultisys<Xian>().CurrLevel : 0;
+        var level_text = Cultisyses.Xian.GetLevelName(level_value);
+        var element = ae.HasElementRoot() ? ae.GetElementRoot() : default;
+        var element_name = ae.HasElementRoot() ? element.Type.GetName() : "无灵根";
+
+        var sb = new StringBuilder();
+        sb.Append("原功法信息：");
+        sb.Append($"名称 {originalCultibook.Name}，");
+        sb.Append($"简介 {originalCultibook.Description}，");
+        sb.Append($"境界范围 {originalCultibook.MinLevel}-{originalCultibook.MaxLevel}，");
+        sb.Append($"修炼方式 {originalCultibook.CultivateMethodId}。");
+        sb.Append("\\n");
+
+        sb.Append("改进者信息：");
+        sb.Append($"姓名 {actor.getName()}，境界 {level_text}({level_value})，灵根 {element_name.Replace("五行", "杂")}(");
+        sb.Append("金");
+        sb.Append(element.Iron);
+        sb.Append("木");
+        sb.Append(element.Wood);
+        sb.Append("水");
+        sb.Append(element.Water);
+        sb.Append("火");
+        sb.Append(element.Fire);
+        sb.Append("土");
+        sb.Append(element.Earth);
+        sb.Append("阴");
+        sb.Append(element.Neg);
+        sb.Append("阳");
+        sb.Append(element.Pos);
+        sb.Append("混沌");
+        sb.Append(element.Entropy);
+        sb.Append(")。");
+
+        var skills = ae.all_skills?.Where(s => s.HasComponent<SkillContainer>())
+            .Select(s => s.GetComponent<SkillContainer>().SkillEntityAssetID)
+            .Where(id => !string.IsNullOrEmpty(id))
+            .Take(3)
+            .Select(id => $"{id.Localize()}({id})")
+            .ToArray() ?? Array.Empty<string>();
+        if (skills.Length > 0)
+        {
+            sb.Append(" 常用法术：");
+            sb.Append(string.Join("、", skills));
+            sb.Append('。');
+        }
+        sb.Append(" 请给出改进版功法的名称与简介，简介需说明改进之处，并保持与原功法风格一致。");
+        return sb.ToString();
     }
     private static CultibookAsset FallbackBuildDraft(ActorExtend ae)
     {

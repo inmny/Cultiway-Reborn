@@ -1,39 +1,58 @@
+using System;
 using ai.behaviours;
+using Cultiway.Const;
+using Cultiway.Content.AIGC;
+using Cultiway.Content.Components;
+using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Utils.Extension;
-using NeoModLoader.api.attributes;
+using UnityEngine;
 
 namespace Cultiway.Content.Behaviours;
 
 /// <summary>
-/// 改进功法行为
+/// 改进功法行为（使用 LLM）
 /// </summary>
-public class BehImproveCultibook : BehaviourActionActor
+public class BehImproveCultibook : BehCityActor
 {
-    [Hotfixable]
-    public override BehResult execute(Actor pActor)
+    public override BehResult execute(Actor pObject)
     {
-        var ae = pActor.GetExtend();
-        
-        var mainCultibook = ae.GetMainCultibook();
-        if (mainCultibook == null)
+        var ae = pObject.GetExtend();
+
+        pObject.data.get(ContentActorDataKeys.WaitingForCultibookImprovement_int, out int state, -1);
+        if (state == -1)
         {
-            return BehResult.Stop;
+            var mainCultibook = ae.GetMainCultibook();
+            if (mainCultibook == null)
+            {
+                return BehResult.Stop;
+            }
+
+            var requestId = Guid.NewGuid().ToString();
+            var improvementDuration = Randy.randomFloat(TimeScales.SecPerYear, TimeScales.SecPerYear * 3);
+            pObject.timer_action = improvementDuration;
+            StayInside(pObject);
+            pObject.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, 1);
+            CultibookGenerator.Instance.RequestImprovement(ae, mainCultibook, requestId);
+            return BehResult.RepeatStep;
         }
-        
-        // 尝试改进功法
-        bool success = ae.TryImproveCultibook();
-        
-        if (success)
+        if (state == 1)
         {
-            ModClass.LogInfo($"[{ae}] 改进功法成功: {mainCultibook.Name}");
-            return BehResult.Continue;
+            StayInside(pObject);
+            return BehResult.RepeatStep;
         }
-        else
+        return BehResult.Continue;
+    }
+
+    private static void StayInside(Actor actor)
+    {
+        if (actor.beh_building_target != null)
         {
-            ModClass.LogInfo($"[{ae}] 改进功法失败: {mainCultibook.Name}");
-            // 改进失败，停止任务（避免频繁失败）
-            return BehResult.Stop;
+            actor.stayInBuilding(actor.beh_building_target);
+        }
+        else if (actor.inside_building != null)
+        {
+            actor.stayInBuilding(actor.inside_building);
         }
     }
 }

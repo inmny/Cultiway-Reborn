@@ -52,6 +52,7 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new ContinuousCultivateSystem());
         ModClass.I.GeneralRenderSystems.Add(new CloudRenderSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());
+        ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookImprovedEventSystem());
         
         CultivateMethodTriggers.Init();
     }
