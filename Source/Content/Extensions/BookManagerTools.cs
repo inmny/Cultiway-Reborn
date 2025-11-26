@@ -132,42 +132,40 @@ public static class BookManagerTools
         }
         else
         {
-            // 从CultivateMethodLibrary中筛选合适的修炼方式，选择效率最高的
-            CultivateMethodAsset bestMethod = null;
-            float bestEfficiency = float.MinValue;
+            // 从CultivateMethodLibrary中筛选合适的修炼方式，使用效率作为权重随机选择
             var library = Libraries.Manager.CultivateMethodLibrary;
+            var candidateMethods = new List<CultivateMethodAsset>();
+            var accumWeights = new List<float>();
+            float totalWeight = 0f;
             
             foreach (var method in library.list)
             {
-                // 优先选择主动修炼方式（Active），更适合作为功法修炼方式
-                if (method.TriggerType != CultivateTriggerType.Active) continue;
-                
                 // 检查创建者是否可以使用此修炼方式
                 if (method.CanCultivate != null && !method.CanCultivate(ae)) continue;
                 
-                // 计算此修炼方式的效率
+                // 计算此修炼方式的效率作为权重
                 float efficiency = 1.0f;
                 if (method.GetEfficiency != null)
                 {
                     efficiency = method.GetEfficiency(ae);
                 }
                 
-                // 选择效率最高的
-                if (efficiency > bestEfficiency)
-                {
-                    bestEfficiency = efficiency;
-                    bestMethod = method;
-                }
+                // 如果效率为0或负数，跳过
+                if (efficiency <= 0f) continue;
+                
+                candidateMethods.Add(method);
+                totalWeight += efficiency;
+                accumWeights.Add(totalWeight);
             }
             
-            // 如果找到合适的，使用效率最高的；否则使用标准方式
-            if (bestMethod != null)
+            // 如果找到合适的，使用加权随机选择；否则使用标准方式
+            if (candidateMethods.Count > 0)
             {
-                cultivateMethodId = bestMethod.id;
+                var selectedIndex = RdUtils.RandomIndexWithAccumWeight(accumWeights);
+                cultivateMethodId = candidateMethods[selectedIndex].id;
             }
             else
             {
-                // 如果没有找到合适的Active方式，使用标准方式
                 cultivateMethodId = CultivateMethods.Standard.id;
             }
         }
@@ -179,12 +177,7 @@ public static class BookManagerTools
             // 随机选择0-3个技能加入法术池
             var skillsToAdd = Mathf.Min(3, ae.all_skills.Count);
             var skillList = new List<Entity>(ae.all_skills);
-            // 随机打乱
-            for (int i = 0; i < skillList.Count; i++)
-            {
-                var randomIndex = UnityEngine.Random.Range(i, skillList.Count);
-                (skillList[i], skillList[randomIndex]) = (skillList[randomIndex], skillList[i]);
-            }
+            skillList.Shuffle();
             
             int addedCount = 0;
             for (int i = 0; i < skillList.Count && addedCount < skillsToAdd; i++)
