@@ -393,7 +393,6 @@ public partial class Actors
             .AddSubspeciesTrait(S_SubspeciesTrait.circadian_drift)//循环
             .AddSubspeciesTrait(S_SubspeciesTrait.energy_preserver)//保护
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_metamorph)//蜕变
-            .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
             .Stats(S.damage, 40)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 18)//速度
@@ -420,7 +419,6 @@ public partial class Actors
             .AddSubspeciesTrait(S_SubspeciesTrait.circadian_drift)//循环
             .AddSubspeciesTrait(S_SubspeciesTrait.energy_preserver)//保护
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_metamorph)//蜕变
-            .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
             .Stats(S.damage, 35)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 15)//速度
@@ -445,7 +443,6 @@ public partial class Actors
             .AddSubspeciesTrait(S_SubspeciesTrait.circadian_drift)//循环
             .AddSubspeciesTrait(S_SubspeciesTrait.energy_preserver)//保护
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_metamorph)//蜕变
-            .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
             .Stats(S.damage, 33)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 20)//速度

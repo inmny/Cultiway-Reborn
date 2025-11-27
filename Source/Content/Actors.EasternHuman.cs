@@ -19,8 +19,9 @@ public partial class Actors
     private void SetupEasternHuman() 
     { 
         EasternHuman.AddCultureTrait(CultureTraits.CultureSkin)
-                    .AddCultureTrait(S_CultureTrait.city_layout_stone_garden)
-                    .AddCultureTrait(S_CultureTrait.city_layout_the_grand_arrangement);
+                    //.AddCultureTrait(S_CultureTrait.city_layout_stone_garden)
+                    //.AddCultureTrait(S_CultureTrait.city_layout_the_grand_arrangement)
+                    .AddCultureTrait(S_CultureTrait.city_layout_pebbles);
         EasternHuman.build_order_template_id = BuildingOrders.Classic.id;
         EasternHuman.architecture_id = Architectures.EasternHuman.id;
         EasternHuman.kingdom_id_wild = KingdomAssets.NoMadsEasternHuman.id;
