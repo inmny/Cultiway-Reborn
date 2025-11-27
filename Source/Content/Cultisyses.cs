@@ -129,12 +129,13 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 }
             }
 
-            if (ae.HasCultibook())
+            // 仅主修功法提供属性加成
+            var mainCultibook = ae.GetMainCultibook();
+            if (mainCultibook != null)
             {
-                foreach (var cultibook_master in ae.GetAllMaster<CultibookAsset>())
-                {
-                    stats.MergeStats(cultibook_master.Item1.FinalStats, cultibook_master.Item2 / 100f);
-                }
+                var mastery = ae.GetMainCultibookMastery();
+                // 根据掌握程度应用属性加成（0-100%映射到0-1）
+                stats.MergeStats(mainCultibook.FinalStats, mastery / 100f);
             }
             
             
@@ -285,7 +286,9 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         var total = WakanMap.I.map[tile_pos.x, tile_pos.y];
         var to_take = Mathf.Log10(total + 1);
 
-        to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * actor_extend.GetElementRoot().GetStrength());
+        var cultivate_method = actor_extend.GetMainCultibook()?.GetCultivateMethod() ?? CultivateMethods.Standard;
+
+        to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * cultivate_method.GetEfficiency?.Invoke(actor_extend) ?? 1f);
         xian.wakan += to_take;
         WakanMap.I.map[tile_pos.x, tile_pos.y] -= to_take;
     }
@@ -297,7 +300,8 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         var total = WakanMap.I.map[tile_pos.x, tile_pos.y];
         var to_take = Mathf.Log10(total + 1);
 
-        to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * actor_extend.GetElementRoot().GetStrength());
+        var cultivate_method = actor_extend.GetMainCultibook()?.GetCultivateMethod() ?? CultivateMethods.Standard;
+        to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * cultivate_method.GetEfficiency?.Invoke(actor_extend) ?? 1f);
         xian.wakan += to_take;
         var dirty_wakan_to_take = Mathf.Min(DirtyWakanMap.I.map[tile_pos.x, tile_pos.y],
             to_take * ContentSetting.DirtyWakanToWakanRatio);

@@ -11,6 +11,8 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor LevelupXianCultivate      { get; private set; }
     public static BehaviourTaskActor DailyPlantXianCultivate   { get; private set; }
     public static BehaviourTaskActor LevelupPlantXianCultivate { get; private set; }
+    public static BehaviourTaskActor DailyWaterCultivate       { get; private set; }
+    public static BehaviourTaskActor LevelupWaterCultivate     { get; private set; }
     public static BehaviourTaskActor LookForHerbs { get; private set; }
     public static BehaviourTaskActor CraftElixir  { get; private set; }
     public static BehaviourTaskActor FindNewElixir { get; private set; }
@@ -22,6 +24,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor WriteElixirbook { get; private set; }
     public static BehaviourTaskActor WriteSkillbook { get; private set; }
     public static BehaviourTaskActor CallSourceSpawner { get; private set; }
+    public static BehaviourTaskActor SwitchCultibook { get; private set; }
     [GetOnly("random_move")] public static BehaviourTaskActor RandomMove { get; private set; }
 
     [GetOnly("end_job")] public static BehaviourTaskActor EndJob { get; private set; }
@@ -52,6 +55,16 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         LevelupPlantXianCultivate.addBeh(new BehPlantXianLevelup());
         LevelupPlantXianCultivate.setIcon("cultiway/icons/iconCultivation");
         
+        DailyWaterCultivate.addBeh(new BehFindWaterTile());
+        DailyWaterCultivate.addBeh(new BehGoToTileTarget());
+        DailyWaterCultivate.addBeh(new BehWaterCultivate());
+        DailyWaterCultivate.setIcon("cultiway/icons/iconCultivation");
+
+        LevelupWaterCultivate.addBeh(new BehFindWaterTile());
+        LevelupWaterCultivate.addBeh(new BehGoToTileTarget());
+        LevelupWaterCultivate.addBeh(new BehWaterCultivateLevelup());
+        LevelupWaterCultivate.setIcon("cultiway/icons/iconCultivation");
+        
         LookForHerbs.addBeh(new BehFindTargetForCollector());
         LookForHerbs.addBeh(new BehGoToActorTarget());
         LookForHerbs.addBeh(new BehHarvestHerb());
@@ -77,6 +90,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         CreateCultibook.addBeh(new BehGetTargetBuildingMainTile());
         CreateCultibook.addBeh(new BehGoToTileTarget());
         CreateCultibook.addBeh(new BehStayInBuildingTarget());
+        CreateCultibook.addBeh(new BehPrepareCreateCultibook());
         CreateCultibook.addBeh(new BehCreateCultibook());
         CreateCultibook.addBeh(new BehExitBuilding());
         
@@ -113,5 +127,19 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         CallSourceSpawner.addBeh(new BehHoldSimpleCeremony());
         CallSourceSpawner.addBeh(new BehCallSourceSpawner());
         CallSourceSpawner.addBeh(new BehEndJob());
+        
+        SwitchCultibook.addBeh(new BehSwitchCultibook());
+        SwitchCultibook.addBeh(new BehEndJob());
+        SwitchCultibook.setIcon("cultiway/icons/iconCultivation");
+        
+        ImproveCultibook.addBeh(new BehBuildingTargetHome());
+        ImproveCultibook.addBeh(new BehGetTargetBuildingMainTile());
+        ImproveCultibook.addBeh(new BehGoToTileTarget());
+        ImproveCultibook.addBeh(new BehStayInBuildingTarget());
+        ImproveCultibook.addBeh(new BehPrepareImproveCultibook());
+        ImproveCultibook.addBeh(new BehImproveCultibook());
+        ImproveCultibook.addBeh(new BehExitBuilding());
+        ImproveCultibook.addBeh(new BehEndJob());
+        ImproveCultibook.setIcon("cultiway/icons/iconCultivation");
     }
 }

@@ -4,6 +4,7 @@ using Cultiway.Content.Extensions;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
+using UnityEngine;
 
 namespace Cultiway.Content;
 
@@ -67,7 +68,33 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         if (!ae.HasCultisys<Xian>()) return;
         var be = book.GetExtend();
         var cultibook_asset = be.GetComponent<Cultibook>().Asset;
-        var master = ae.GetMaster(cultibook_asset);
-        ae.Master(cultibook_asset, master + 1);
+        if (cultibook_asset == null) return;
+
+        // 检查是否已有主修功法
+        var mainCultibook = ae.GetMainCultibook();
+        
+        if (mainCultibook == null)
+        {
+            // 如果没有主修功法，设为新功法为主修
+            ae.SetMainCultibook(cultibook_asset);
+            // 初始掌握程度设为1%（表示刚开始学习）
+            ae.AddMainCultibookMastery(1f);
+            ae.Master(cultibook_asset, 1f);
+        }
+        else if (mainCultibook == cultibook_asset)
+        {
+            // 如果新功法就是主修功法，增加掌握程度
+            ae.AddMainCultibookMastery(1f);
+            ae.Master(cultibook_asset, ae.GetMainCultibookMastery() );
+        }
+        else
+        {
+            // 如果已有主修功法，添加为了解
+            var knownMastery = ae.GetMaster(cultibook_asset);
+            // 如果之前没有了解过，初始化为1%了解程度
+            // 如果已经了解过，增加了解程度（但上限较低，比如最多50%）
+            var newMastery = knownMastery > 0 ? Mathf.Min(knownMastery + 1f, 50f) : 1f;
+            ae.Master(cultibook_asset, newMastery);
+        }
     }
 }

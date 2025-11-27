@@ -12,6 +12,7 @@ public struct SkillContainer : IComponent
     public string SkillEntityAssetID;
 
     public SetupAction OnSetup;
+    public TravelAction OnTravel;
     public EffectObjAction OnEffectObj;
     public SkillEntityAsset Asset
     {

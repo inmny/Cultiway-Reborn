@@ -9,6 +9,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
 {
     public static ActorJob XianCultivator      { get; private set; }
     public static ActorJob PlantXianCultivator { get; private set; }
+    public static ActorJob WaterCultivator     { get; private set; }
     public static ActorJob HerbCollector { get; private set; }
     public static ActorJob ElixirCrafter { get; private set; }
     public static ActorJob ElixirFinder { get; private set; }
@@ -25,6 +26,8 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     protected override string Prefix() => "Cultiway.ActorJob";
     protected override void OnInit()
     {
+        XianCultivator.addTask(ActorTasks.SwitchCultibook.id);
+        XianCultivator.addCondition(new CondCanSwitchCultibook());
         XianCultivator.addTask(ActorTasks.DailyXianCultivate.id);
         XianCultivator.addCondition(new CondHasXian());
         XianCultivator.addCondition(new CondXianReadyLevelup(), false);
@@ -32,12 +35,23 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         XianCultivator.addCondition(new CondXianReadyLevelup());
         XianCultivator.addTask(ActorTasks.EndJob.id);
 
+        PlantXianCultivator.addTask(ActorTasks.SwitchCultibook.id);
+        PlantXianCultivator.addCondition(new CondCanSwitchCultibook());
         PlantXianCultivator.addTask(ActorTasks.DailyPlantXianCultivate.id);
         PlantXianCultivator.addCondition(new CondHasXian());
         PlantXianCultivator.addCondition(new CondXianReadyLevelup(), false);
         PlantXianCultivator.addTask(ActorTasks.LevelupPlantXianCultivate.id);
         PlantXianCultivator.addCondition(new CondXianReadyLevelup());
         PlantXianCultivator.addTask(ActorTasks.EndJob.id);
+
+        WaterCultivator.addTask(ActorTasks.SwitchCultibook.id);
+        WaterCultivator.addCondition(new CondCanSwitchCultibook());
+        WaterCultivator.addTask(ActorTasks.DailyWaterCultivate.id);
+        WaterCultivator.addCondition(new CondHasXian());
+        WaterCultivator.addCondition(new CondXianReadyLevelup(), false);
+        WaterCultivator.addTask(ActorTasks.LevelupWaterCultivate.id);
+        WaterCultivator.addCondition(new CondXianReadyLevelup());
+        WaterCultivator.addTask(ActorTasks.EndJob.id);
 
         HerbCollector.addTask(ActorTasks.RandomMove.id);
         HerbCollector.addTask(ActorTasks.LookForHerbs.id);
@@ -58,6 +72,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         TalismanCrafter.addTask(ActorTasks.EndJob.id);
         
         CultibookResearcher.addTask(ActorTasks.ImproveCultibook.id);
+        CultibookResearcher.addCondition(new CondCanImproveCultibook());
         CultibookResearcher.addCondition(new CondHasCultibook());
         CultibookResearcher.addCondition(new CondHasYuanying());
         CultibookResearcher.addTask(ActorTasks.CreateCultibook.id);

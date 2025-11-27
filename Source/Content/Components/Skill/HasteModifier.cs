@@ -7,7 +7,8 @@ namespace Cultiway.Content.Components.Skill;
 
 public struct HasteModifier : IModifier
 {
+    public float SpeedMultiplier;
     public SkillModifierAsset ModifierAsset => SkillModifiers.Haste;
     public string GetKey() => ModifierAsset.id.Localize();
-    public string GetValue() => string.Empty;
+    public string GetValue() => $"速度+{SpeedMultiplier:P0}";
 }

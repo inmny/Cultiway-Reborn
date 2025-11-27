@@ -7,6 +7,7 @@ using Cultiway.Abstract;
 using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
+using Cultiway.Content.Extensions;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Utils;
@@ -49,8 +50,15 @@ internal static class PatchActor
             if (!ae.TryGetComponent(out Xian xian)) return;
             
             var chance = 0.2f;
-            if (pActor.hasTrait(ActorTraits.Cultivator.id)) chance = 0.8f;
+            var cultivate_method = ae.GetMainCultibook()?.GetCultivateMethod() ?? CultivateMethods.Standard;
+            var can_cultivate = cultivate_method.CanCultivate?.Invoke(ae) ?? true;
+            
+            if (can_cultivate && pActor.hasTrait(ActorTraits.Cultivator.id)) chance = 0.8f;
 
+            if (!can_cultivate)
+            {
+                chance = 0f;
+            }
             if (Randy.randomChance(1 - chance))
             {
                 if (Randy.randomChance(0.6f))
@@ -79,7 +87,8 @@ internal static class PatchActor
                 return;
             }
 
-            if (ae.HasCultisys<Xian>())
+            __result = cultivate_method.GetBehaviourJobId?.Invoke(ae);
+            if (string.IsNullOrEmpty(__result))
             {
                 __result = ActorJobs.XianCultivator.id;
             }

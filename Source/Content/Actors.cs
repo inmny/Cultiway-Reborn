@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
 using Cultiway.Content.Extensions;
@@ -33,6 +35,35 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 
     protected override void GlobalPostInit()
     {
+        LoadSkinsFor(SA.orc);
+        LoadSkinsFor(SA.elf);
+        LoadSkinsFor(SA.dwarf);
+        LoadSkinsFor(SA.human);
+    }
+    private void LoadSkinsFor(string id)
+    {
+        var asset = Get(id);
+        if (asset == null) return;
+
+        var path = $"{ModClass.I.GetDeclaration().FolderPath}/GameResources/actors/species/civs/{asset.id}";
+        if (!Directory.Exists(path)) return;
+        var addition_male_skins = Directory.GetDirectories($"{ModClass.I.GetDeclaration().FolderPath}/GameResources/actors/species/civs/{asset.id}")
+            .Select(x => new DirectoryInfo(x).Name)
+            .Where(x => x.ToLower().StartsWith("male"))
+            .ToArray();
+        var addition_female_skins = Directory.GetDirectories($"{ModClass.I.GetDeclaration().FolderPath}/GameResources/actors/species/civs/{asset.id}")
+            .Select(x => new DirectoryInfo(x).Name)
+            .Where(x => x.ToLower().StartsWith("female"))
+            .ToArray();
+        var addition_warrior_skins = Directory.GetDirectories($"{ModClass.I.GetDeclaration().FolderPath}/GameResources/actors/species/civs/{asset.id}")
+            .Select(x => new DirectoryInfo(x).Name)
+            .Where(x => x.ToLower().StartsWith("warrior"))
+            .ToArray();
+        asset.skin_citizen_male = addition_male_skins.Concat(asset.skin_citizen_male).ToArray();
+        asset.skin_citizen_female = addition_female_skins.Concat(asset.skin_citizen_female).ToArray();
+        asset.skin_warrior = addition_warrior_skins.Concat(asset.skin_warrior).ToArray();
+
+        if (!asset.isTemplateAsset()) AssetManager.actor_library.loadTexturesAndSprites(asset);
     }
 
     protected override void ActionAfterCreation(PropertyInfo prop, ActorAsset asset)

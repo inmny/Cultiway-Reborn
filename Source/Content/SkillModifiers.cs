@@ -1,13 +1,18 @@
 using System.Collections.Generic;
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Components.TrajParams;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Content.Components.Skill;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
+using strings;
 using UnityEngine;
 using Friflo.Engine.ECS;
 
@@ -31,7 +36,6 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     public static SkillModifierAsset Knockback { get; private set; }
     public static SkillModifierAsset Volley { get; private set; }
 
-    public static SkillModifierAsset LockOn { get; private set; }
     public static SkillModifierAsset Huge { get; private set; }
     public static SkillModifierAsset Weaken { get; private set; }
     public static SkillModifierAsset ArmorBreak { get; private set; }
@@ -62,32 +66,51 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Burn.OnAddOrUpgrade = AddOrUpgradeBurn;
         Burn.OnEffectObj = ApplyBurnEffect;
         Setup<FreezeModifier>(Freeze, SkillModifierRarity.Common);
+        Freeze.OnAddOrUpgrade = AddOrUpgradeFreeze;
+        Freeze.OnEffectObj = ApplyFreezeEffect;
         Setup<PoisonModifier>(Poison, SkillModifierRarity.Common);
         Poison.OnAddOrUpgrade = AddOrUpgradePoison;
         Poison.OnEffectObj = ApplyPoisonEffect;
         Setup<ExplosionModifier>(Explosion, SkillModifierRarity.Common);
+        Explosion.OnAddOrUpgrade = AddOrUpgradeExplosion;
+        Explosion.OnEffectObj = ApplyExplosionEffect;
         Setup<HasteModifier>(Haste, SkillModifierRarity.Common);
+        Haste.OnAddOrUpgrade = AddOrUpgradeHaste;
+        Haste.OnSetup = ApplyHasteOnSetup;
         Setup<ProficiencyModifier>(Proficiency, SkillModifierRarity.Common);
         Setup<EmpowerModifier>(Empower, SkillModifierRarity.Common);
         Empower.OnAddOrUpgrade = AddOrUpgradeEmpower;
         Empower.OnSetup = ApplyEmpowerSetup;
         Setup<KnockbackModifier>(Knockback, SkillModifierRarity.Common);
+        Knockback.OnAddOrUpgrade = AddOrUpgradeKnockback;
+        Knockback.OnEffectObj = ApplyKnockbackEffect;
 
-        Setup<LockOnModifier>(LockOn, SkillModifierRarity.Rare);
         Setup<HugeModifier>(Huge, SkillModifierRarity.Rare);
         Huge.OnAddOrUpgrade = AddOrUpgradeHuge;
         Huge.OnSetup = ApplyHugeOnSetup;
         Setup<WeakenModifier>(Weaken, SkillModifierRarity.Rare);
+        Weaken.OnAddOrUpgrade = AddOrUpgradeWeaken;
+        Weaken.OnEffectObj = ApplyWeakenEffect;
         Setup<ArmorBreakModifier>(ArmorBreak, SkillModifierRarity.Rare);
+        ArmorBreak.OnAddOrUpgrade = AddOrUpgradeArmorBreak;
+        ArmorBreak.OnEffectObj = ApplyArmorBreakEffect;
         Setup<GravityModifier>(Gravity, SkillModifierRarity.Rare);
+        Gravity.OnAddOrUpgrade = AddOrUpgradeGravity;
+        Gravity.OnTravel = ApplyGravityTravel;
         Setup<DazeModifier>(Daze, SkillModifierRarity.Rare);
 
         Setup<MercyModifier>(Mercy, SkillModifierRarity.Epic, KillOverrideTag);
+        Mercy.IsDisabled = true;
         Setup<ChaosModifier>(Chaos, SkillModifierRarity.Epic);
+        Chaos.IsDisabled = true;
         Setup<SwapModifier>(Swap, SkillModifierRarity.Epic);
+        Swap.IsDisabled = true;
         Setup<RandomAffixModifier>(RandomAffix, SkillModifierRarity.Epic);
+        RandomAffix.IsDisabled = true;
         Setup<BurnoutModifier>(Burnout, SkillModifierRarity.Epic);
+        Burnout.IsDisabled = true;
         Setup<ComboModifier>(Combo, SkillModifierRarity.Epic);
+        Combo.IsDisabled = true;
 
         Setup<SilenceModifier>(Silence, SkillModifierRarity.Legendary);
         Setup<DeathSentenceModifier>(DeathSentence, SkillModifierRarity.Legendary, KillOverrideTag);
@@ -169,6 +192,209 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
+    private static bool AddOrUpgradeExplosion(SkillContainerBuilder builder)
+    {
+        const float minRadius = 1.5f;
+        const float maxRadius = 3f;
+        const float minDamageRatio = 0.5f;
+        const float maxDamageRatio = 1f;
+        const float radiusStep = 0.3f;
+        const float damageRatioStep = 0.1f;
+
+        if (!builder.HasModifier<ExplosionModifier>())
+        {
+            builder.AddModifier(new ExplosionModifier
+            {
+                Radius = minRadius,
+                DamageRatio = minDamageRatio
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<ExplosionModifier>();
+        var upgradeRadius = Random.value < 0.5f;
+        var changed = false;
+        if (upgradeRadius && modifier.Radius < maxRadius)
+        {
+            modifier.Radius = Mathf.Min(maxRadius, modifier.Radius + radiusStep);
+            changed = true;
+        }
+        else if (!upgradeRadius && modifier.DamageRatio < maxDamageRatio)
+        {
+            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
+            changed = true;
+        }
+        else if (modifier.Radius < maxRadius)
+        {
+            modifier.Radius = Mathf.Min(maxRadius, modifier.Radius + radiusStep);
+            changed = true;
+        }
+        else if (modifier.DamageRatio < maxDamageRatio)
+        {
+            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
+    private static bool AddOrUpgradeGravity(SkillContainerBuilder builder)
+    {
+        const float minRadius = 2f;
+        const float maxRadius = 5f;
+        const float minStrength = 0.5f;
+        const float maxStrength = 2f;
+        const float radiusStep = 0.5f;
+        const float strengthStep = 0.2f;
+
+        if (!builder.HasModifier<GravityModifier>())
+        {
+            builder.AddModifier(new GravityModifier
+            {
+                Radius = minRadius,
+                Strength = minStrength
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<GravityModifier>();
+        var upgradeRadius = Random.value < 0.5f;
+        var changed = false;
+        if (upgradeRadius && modifier.Radius < maxRadius)
+        {
+            modifier.Radius = Mathf.Min(maxRadius, modifier.Radius + radiusStep);
+            changed = true;
+        }
+        else if (!upgradeRadius && modifier.Strength < maxStrength)
+        {
+            modifier.Strength = Mathf.Min(maxStrength, modifier.Strength + strengthStep);
+            changed = true;
+        }
+        else if (modifier.Radius < maxRadius)
+        {
+            modifier.Radius = Mathf.Min(maxRadius, modifier.Radius + radiusStep);
+            changed = true;
+        }
+        else if (modifier.Strength < maxStrength)
+        {
+            modifier.Strength = Mathf.Min(maxStrength, modifier.Strength + strengthStep);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
+    private static bool AddOrUpgradeWeaken(SkillContainerBuilder builder)
+    {
+        const float minDuration = 5f;
+        const float maxDuration = 10f;
+        const float durationStep = 1f;
+        const float minReduction = 0.2f;
+        const float maxReduction = 0.4f;
+        const float reductionStep = 0.05f;
+
+        if (!builder.HasModifier<WeakenModifier>())
+        {
+            builder.AddModifier(new WeakenModifier
+            {
+                Duration = minDuration,
+                AttackReduction = minReduction
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<WeakenModifier>();
+        var changed = false;
+        if (Random.value < 0.5f && modifier.Duration < maxDuration)
+        {
+            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+            changed = true;
+        }
+        else if (modifier.AttackReduction < maxReduction)
+        {
+            modifier.AttackReduction = Mathf.Min(maxReduction, modifier.AttackReduction + reductionStep);
+            changed = true;
+        }
+        else if (modifier.Duration < maxDuration)
+        {
+            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
+    private static bool AddOrUpgradeArmorBreak(SkillContainerBuilder builder)
+    {
+        const float minDuration = 3f;
+        const float maxDuration = 6f;
+        const float durationStep = 0.5f;
+        const float minReduction = 0.5f;
+        const float maxReduction = 0.8f;
+        const float reductionStep = 0.05f;
+
+        if (!builder.HasModifier<ArmorBreakModifier>())
+        {
+            builder.AddModifier(new ArmorBreakModifier
+            {
+                Duration = minDuration,
+                ArmorReduction = minReduction
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<ArmorBreakModifier>();
+        var changed = false;
+        if (Random.value < 0.5f && modifier.Duration < maxDuration)
+        {
+            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+            changed = true;
+        }
+        else if (modifier.ArmorReduction < maxReduction)
+        {
+            modifier.ArmorReduction = Mathf.Min(maxReduction, modifier.ArmorReduction + reductionStep);
+            changed = true;
+        }
+        else if (modifier.Duration < maxDuration)
+        {
+            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
+    private static bool AddOrUpgradeHaste(SkillContainerBuilder builder)
+    {
+        const float minMultiplier = 0.5f;
+        const float maxMultiplier = 1f;
+        const float step = 0.1f;
+
+        if (!builder.HasModifier<HasteModifier>())
+        {
+            builder.AddModifier(new HasteModifier
+            {
+                SpeedMultiplier = minMultiplier
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<HasteModifier>();
+        if (modifier.SpeedMultiplier >= maxMultiplier) return false;
+
+        modifier.SpeedMultiplier = Mathf.Min(maxMultiplier, modifier.SpeedMultiplier + step);
         builder.SetModifier(modifier);
         return true;
     }
@@ -345,6 +571,71 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         return true;
     }
 
+    private static bool AddOrUpgradeKnockback(SkillContainerBuilder builder)
+    {
+        const float minDistance = 2f;
+        const float maxDistance = 5f;
+        const float distanceStep = 0.5f;
+        const float minHeight = 1f;
+        const float maxHeight = 3f;
+        const float heightStep = 0.3f;
+
+        if (!builder.HasModifier<KnockbackModifier>())
+        {
+            builder.AddModifier(new KnockbackModifier
+            {
+                Distance = minDistance,
+                Height = minHeight
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<KnockbackModifier>();
+        var changed = false;
+        var roll = Random.value;
+        if (roll < 0.5f && modifier.Distance < maxDistance)
+        {
+            modifier.Distance = Mathf.Min(maxDistance, modifier.Distance + distanceStep);
+            changed = true;
+        }
+        else if (modifier.Height < maxHeight)
+        {
+            modifier.Height = Mathf.Min(maxHeight, modifier.Height + heightStep);
+            changed = true;
+        }
+        else if (modifier.Distance < maxDistance)
+        {
+            modifier.Distance = Mathf.Min(maxDistance, modifier.Distance + distanceStep);
+            changed = true;
+        }
+
+        if (!changed) return false;
+        builder.SetModifier(modifier);
+        return true;
+    }
+
+    private static bool AddOrUpgradeFreeze(SkillContainerBuilder builder)
+    {
+        const float minDuration = 2f;
+        const float maxDuration = 5f;
+        const float durationStep = 0.5f;
+
+        if (!builder.HasModifier<FreezeModifier>())
+        {
+            builder.AddModifier(new FreezeModifier
+            {
+                Duration = minDuration
+            });
+            return true;
+        }
+
+        var modifier = builder.GetModifier<FreezeModifier>();
+        if (modifier.Duration >= maxDuration) return false;
+        modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+        builder.SetModifier(modifier);
+        return true;
+    }
+
     // 击中单位时附加减速状态
     private static void ApplySlowEffect(Entity skillEntity, BaseSimObject target)
     {
@@ -366,6 +657,62 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
             Value = strength
         });
         target.a.GetExtend().AddSharedStatus(status);
+    }
+
+    // 击中单位时附加冰冻状态
+    private static void ApplyFreezeEffect(Entity skillEntity, BaseSimObject target)
+    {
+        if (!target.isActor()) return;
+
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out FreezeModifier freeze)) return;
+
+        var duration = Mathf.Clamp(freeze.Duration, 0f, 999f);
+        if (duration <= 0f) return;
+
+        var status = StatusEffects.Freeze.NewEntity();
+        ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
+        timeLimit.value = duration;
+        target.a.GetExtend().AddSharedStatus(status);
+    }
+
+    // 击中单位时触发爆炸
+    private static void ApplyExplosionEffect(Entity skillEntity, BaseSimObject target)
+    {
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out ExplosionModifier explosion)) return;
+        if (!skillEntity.TryGetComponent(out SkillContext context)) return;
+        if (!skillEntity.TryGetComponent(out Position skillPos)) return;
+
+        var radius = Mathf.Clamp(explosion.Radius, 0.5f, 10f);
+        var damageRatio = Mathf.Clamp(explosion.DamageRatio, 0f, 2f);
+        if (radius <= 0f || damageRatio <= 0f) return;
+
+        // 获取爆炸中心位置（目标位置）
+        var explosionPos = target.GetSimPos();
+        
+        // 生成爆炸动画
+        ModClass.I.SkillV3.SpawnAnim("cultiway/effect/explosion_fireball", explosionPos, Vector3.right);
+
+        // 获取技能元素和攻击者
+        var attacker = context.SourceObj;
+        ref var element = ref skill.Asset.Element;
+        var damage = context.Strength * damageRatio;
+
+        // 对范围内的敌人造成伤害
+        foreach (var obj in SkillUtils.IterEnemyInSphere(explosionPos, radius, attacker))
+        {
+            if (obj.isActor())
+            {
+                obj.a.GetExtend().GetHit(damage, ref element, attacker);
+            }
+            else
+            {
+                obj.b.getHit(damage, pAttacker: attacker);
+            }
+        }
     }
 
     // 构建阶段提升伤害
@@ -405,6 +752,23 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         {
             ref var collider = ref skillEntity.GetComponent<ColliderSphere>();
             collider.Radius *= scaleMul;
+        }
+    }
+
+    // 提升弹道速度
+    private static void ApplyHasteOnSetup(Entity skillEntity)
+    {
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out HasteModifier haste)) return;
+
+        var multiplier = Mathf.Clamp(1f + haste.SpeedMultiplier, 0.1f, 10f);
+        if (multiplier <= 0f) return;
+
+        if (skillEntity.HasComponent<Velocity>())
+        {
+            ref var velocity = ref skillEntity.GetComponent<Velocity>();
+            velocity.Value *= multiplier;
         }
     }
 
@@ -530,5 +894,177 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         ref var aliveLimit = ref targetStatus.GetComponent<AliveTimeLimit>();
         aliveLimit.value = duration;
         ApplyDamageTickState(ref targetStatus, dps, element, source);
+    }
+
+    // 击中单位时施加击飞效果
+    private static void ApplyKnockbackEffect(Entity skillEntity, BaseSimObject target)
+    {
+        if (!target.isActor()) return;
+
+        var actor = target.a;
+        if (!actor.asset.can_be_moved_by_powers) return;
+        if (actor.position_height > 0f) return;
+
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out KnockbackModifier knockback)) return;
+        if (!skillEntity.TryGetComponent(out SkillContext context)) return;
+        if (!skillEntity.TryGetComponent(out Position skillPos)) return;
+
+        var distance = Mathf.Clamp(knockback.Distance, 0f, 10f);
+        var height = Mathf.Clamp(knockback.Height, 0f, 5f);
+        if (distance <= 0f && height <= 0f) return;
+
+        var targetPos = target.GetSimPos();
+        var direction = (targetPos - skillPos.value).normalized;
+        if (direction.sqrMagnitude < 0.01f)
+        {
+            direction = context.TargetDir;
+        }
+        if (direction.sqrMagnitude < 0.01f)
+        {
+            direction = Vector3.forward;
+        }
+
+        var mass = target.stats["mass"];
+        var a = mass * SimGlobals.m.gravity;
+        var tm = Mathf.Sqrt(height * 2 / (a * 0.3f));
+        var vz = a + 0.3f * a * tm;
+        var te = 2 * tm;
+        var vx = direction.x * distance / te;
+        var vy = direction.y * distance / te;
+
+        actor.GetExtend().GetForce(context.SourceObj, vx, vy, vz);
+        return;
+    }
+
+    // 击中单位时施加衰弱效果，降低攻防
+    private static void ApplyWeakenEffect(Entity skillEntity, BaseSimObject target)
+    {
+        if (!target.isActor()) return;
+
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out WeakenModifier weaken)) return;
+
+        var duration = Mathf.Clamp(weaken.Duration, 0f, 999f);
+        if (duration <= 0f) return;
+
+        var attackReduction = Mathf.Clamp01(weaken.AttackReduction);
+
+        var attackDelta = attackReduction > 0f ? Mathf.Max(0f, target.stats[S.damage]) * attackReduction : 0f;
+        if (attackDelta <= 0f) return;
+
+        var actorExtend = target.a.GetExtend();
+        var status = GetOrCreateStatus(actorExtend, StatusEffects.Weaken);
+        ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
+        timeLimit.value = duration;
+
+        var stats = PrepareOverwriteStats(status);
+        if (attackDelta > 0f)
+        {
+            stats[S.damage] = -attackDelta;
+        }
+    }
+
+    // 击中单位时施加破甲效果，降低护甲
+    private static void ApplyArmorBreakEffect(Entity skillEntity, BaseSimObject target)
+    {
+        if (!target.isActor()) return;
+
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out ArmorBreakModifier armorBreak)) return;
+
+        var duration = Mathf.Clamp(armorBreak.Duration, 0f, 999f);
+        if (duration <= 0f) return;
+
+        var reductionRatio = Mathf.Clamp01(armorBreak.ArmorReduction);
+        var armorDelta = reductionRatio > 0f ? Mathf.Max(0f, target.stats[S.armor]) * reductionRatio : 0f;
+        if (armorDelta <= 0f) return;
+
+        var actorExtend = target.a.GetExtend();
+        var status = GetOrCreateStatus(actorExtend, StatusEffects.ArmorBreak);
+        ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
+        timeLimit.value = duration;
+
+        var stats = PrepareOverwriteStats(status);
+        stats[S.armor] = -armorDelta;
+    }
+
+    // 技能移动时施加引力效果
+    private static void ApplyGravityTravel(Entity skillEntity)
+    {
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        var container = skill.SkillContainer;
+        if (container.IsNull || !container.TryGetComponent(out GravityModifier gravity)) return;
+
+        var radius = Mathf.Clamp(gravity.Radius, 0.5f, 10f);
+        var strength = Mathf.Clamp(gravity.Strength, 0f, 10f);
+        if (radius <= 0f || strength <= 0f) return;
+
+        var data = skillEntity.Data;
+        ref var skillPos = ref data.Get<Position>();
+        ref var context = ref data.Get<SkillContext>();
+        var attacker = context.SourceObj;
+
+        // 对范围内的敌人施加引力
+        foreach (var obj in SkillUtils.IterEnemyInSphere(skillPos.v2, radius, attacker))
+        {
+            if (!obj.isActor()) continue;
+
+            var actor = obj.a;
+            if (!actor.asset.can_be_moved_by_powers) continue;
+            if (actor.position_height > 0f) continue;
+
+            // 计算从敌人到技能实体的方向
+            var targetPos = obj.GetSimPos();
+            var direction = (skillPos.value - targetPos).normalized;
+            if (direction.sqrMagnitude < 0.01f) continue;
+
+            // 计算距离，距离越近引力越强
+            var distance = Vector3.Distance(skillPos.value, targetPos);
+            var distanceFactor = Mathf.Clamp01(1f - distance / radius);
+            var forceStrength = strength * distanceFactor;
+
+            // 施加引力（只施加水平方向的力，不施加垂直力）
+            var vx = direction.x * forceStrength;
+            var vy = direction.y * forceStrength;
+            var vz = forceStrength;
+
+            actor.GetExtend().GetForce(attacker, vx, vy, vz);
+        }
+    }
+
+    private static Entity GetOrCreateStatus(ActorExtend actorExtend, StatusEffectAsset effect)
+    {
+        foreach (var status in actorExtend.GetStatuses())
+        {
+            if (status.IsNull || !status.TryGetComponent(out StatusComponent statusComponent)) continue;
+            if (statusComponent.Type == effect)
+            {
+                return status;
+            }
+        }
+
+        var newStatus = effect.NewEntity();
+        actorExtend.AddSharedStatus(newStatus);
+        return newStatus;
+    }
+
+    private static BaseStats PrepareOverwriteStats(Entity status)
+    {
+        if (!status.HasComponent<StatusOverwriteStats>())
+        {
+            status.AddComponent(new StatusOverwriteStats
+            {
+                stats = new BaseStats()
+            });
+        }
+
+        ref var overwrite = ref status.GetComponent<StatusOverwriteStats>();
+        overwrite.stats ??= new BaseStats();
+        overwrite.stats.clear();
+        return overwrite.stats;
     }
 }

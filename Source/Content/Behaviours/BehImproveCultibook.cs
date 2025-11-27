@@ -10,21 +10,30 @@ using UnityEngine;
 
 namespace Cultiway.Content.Behaviours;
 
-public class BehCreateCultibook : BehCityActor
+/// <summary>
+/// 改进功法行为（使用 LLM）
+/// </summary>
+public class BehImproveCultibook : BehCityActor
 {
     public override BehResult execute(Actor pObject)
     {
         var ae = pObject.GetExtend();
 
-        pObject.data.get(ContentActorDataKeys.WaitingForCultibookCreation_int, out int state, -1);
+        pObject.data.get(ContentActorDataKeys.WaitingForCultibookImprovement_int, out int state, -1);
         if (state == -1)
         {
+            var mainCultibook = ae.GetMainCultibook();
+            if (mainCultibook == null)
+            {
+                return BehResult.Stop;
+            }
+
             var requestId = Guid.NewGuid().ToString();
-            var creationDuration = Randy.randomFloat(TimeScales.SecPerYear, TimeScales.SecPerYear * 3);
-            pObject.timer_action = creationDuration;
+            var improvementDuration = Randy.randomFloat(TimeScales.SecPerYear, TimeScales.SecPerYear * 3);
+            pObject.timer_action = improvementDuration;
             StayInside(pObject);
-            pObject.data.set(ContentActorDataKeys.WaitingForCultibookCreation_int, 1);
-            CultibookGenerator.Instance.RequestGeneration(ae, requestId);
+            pObject.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, 1);
+            CultibookGenerator.Instance.RequestImprovement(ae, mainCultibook, requestId);
             return BehResult.RepeatStep;
         }
         if (state == 1)
@@ -47,3 +56,4 @@ public class BehCreateCultibook : BehCityActor
         }
     }
 }
+

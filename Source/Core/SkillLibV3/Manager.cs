@@ -33,6 +33,7 @@ public class Manager
         ModClass.I.GeneralLogicSystems.Add(SkillLogicSystemGroup);
         
         SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
+        SkillLogicSystemGroup.Add(new LogicSkillTravelSystem());
         SkillLogicSystemGroup.Add(new LogicActorCollisionSystem());
     }
 

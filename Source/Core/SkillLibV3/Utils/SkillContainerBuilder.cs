@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Core.AIGCLib;
+using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Friflo.Engine.ECS;
@@ -73,6 +74,7 @@ public class SkillContainerBuilder
         {
             _containerEntity.AddNonGeneric(modifier.Value);
             skill_container.OnSetup += modifier.Value.ModifierAsset.OnSetup;
+            skill_container.OnTravel += modifier.Value.ModifierAsset.OnTravel;
             skill_container.OnEffectObj += modifier.Value.ModifierAsset.OnEffectObj;
         }
 
@@ -80,6 +82,7 @@ public class SkillContainerBuilder
         {
             _containerEntity.RemoveNonGeneric(modifier.Key);
             skill_container.OnSetup -= modifier.Value.ModifierAsset.OnSetup;
+            skill_container.OnTravel -= modifier.Value.ModifierAsset.OnTravel;
             skill_container.OnEffectObj -= modifier.Value.ModifierAsset.OnEffectObj;
         }
 
@@ -87,6 +90,17 @@ public class SkillContainerBuilder
         {
             _containerEntity.SetNonGeneric(modifier.Value);
         }
+        
+        // 如果OnTravel非空，添加tag用于过滤
+        if (skill_container.OnTravel != null)
+        {
+            _containerEntity.AddTag<TagHasOnTravel>();
+        }
+        else
+        {
+            _containerEntity.RemoveTag<TagHasOnTravel>();
+        }
+        
         SkillNameGenerator.Instance.GenerateFor(_containerEntity);
         return _containerEntity;
     }
