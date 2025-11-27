@@ -7,6 +7,10 @@ namespace Cultiway.Core.SkillLibV3.Systems;
 
 public class RecycleSkillContainerSystem : QuerySystem<SkillContainer>
 {
+    public RecycleSkillContainerSystem()
+    {
+        Filter.WithoutAnyTags(Tags.Get<TagOccupied>());
+    }
     protected override void OnUpdate()
     {
         Query.ForEach(((skills, entities) =>

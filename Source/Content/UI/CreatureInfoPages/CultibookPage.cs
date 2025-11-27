@@ -81,12 +81,16 @@ public class CultibookPage : MonoBehaviour
                 sb.AppendLine("\t可领悟法术:");
                 foreach (var skillEntry in mainCultibook.SkillPool)
                 {
-                    var hasSkill = CheckHasSkill(ae, skillEntry.SkillEntityAssetId);
+                    if (skillEntry.SkillContainer.IsNull || !skillEntry.SkillContainer.HasComponent<SkillContainer>()) continue;
+                    var container = skillEntry.SkillContainer.GetComponent<SkillContainer>();
+                    var skillId = container.SkillEntityAssetID;
+                    if (string.IsNullOrEmpty(skillId)) continue;
+                    
+                    var hasSkill = CheckHasSkill(ae, skillId);
                     var mark = hasSkill ? "✓" : "○";
                     var status = hasSkill ? " (已领悟)" : $" (需{skillEntry.MasteryThreshold}%掌握)";
                     
-                    var skillAsset = ModClass.I.SkillV3.SkillLib.get(skillEntry.SkillEntityAssetId);
-                    var skillName = skillAsset != null ? skillAsset.id.Localize() : skillEntry.SkillEntityAssetId;
+                    var skillName = skillEntry.SkillContainer.HasName ? skillEntry.SkillContainer.Name.value : skillId.Localize();
                     sb.AppendLine($"\t\t{mark} {skillName}{status}");
                 }
             }

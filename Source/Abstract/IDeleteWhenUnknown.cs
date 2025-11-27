@@ -5,4 +5,5 @@ namespace Cultiway.Abstract;
 public interface IDeleteWhenUnknown
 {
     public int Current { get; set; }
+    public void OnDelete();
 }

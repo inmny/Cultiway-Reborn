@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Core.Components;
+using Friflo.Engine.ECS;
 
 namespace Cultiway.Content.Libraries;
 
@@ -53,7 +54,7 @@ public class CultibookAsset : Asset, IDeleteWhenUnknown
     public string[] SynergyTags = Array.Empty<string>();
 
     public int Current { get; set; } = 0;
-
+    
     /// <summary>
     /// 获取对应的修炼方式Asset
     /// </summary>
@@ -64,6 +65,14 @@ public class CultibookAsset : Asset, IDeleteWhenUnknown
             CultivateMethodId = "Cultiway.Standard";
         }
         return Manager.CultivateMethodLibrary.get(CultivateMethodId);
+    }
+
+    public void OnDelete()
+    {
+        foreach (var entry in SkillPool)
+        {
+            entry.SkillContainer.RemoveTag<TagOccupied>();
+        }
     }
 }
 
@@ -132,8 +141,10 @@ public struct ElementRequirement
 /// </summary>
 public struct SkillPoolEntry
 {
-    // TODO: 拓展为直接引用SkillContainer的Entity（直接学习成品技能）
-    public string SkillEntityAssetId;
+    /// <summary>
+    /// 技能容器实体（直接引用成品技能）
+    /// </summary>
+    public Entity SkillContainer;
     public float BaseChance;
     public float MasteryThreshold;
     public int LevelRequirement;

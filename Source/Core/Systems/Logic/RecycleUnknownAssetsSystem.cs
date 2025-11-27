@@ -20,6 +20,7 @@ public class RecycleUnknownAssetsSystem : BaseSystem
                         if (delete_when_unknown.Current <= 0)
                         {
                             list_to_remove.Add(asset.id);
+                            delete_when_unknown.OnDelete();
                         }
                     }
                 }

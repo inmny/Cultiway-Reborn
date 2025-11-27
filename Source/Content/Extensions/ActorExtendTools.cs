@@ -316,6 +316,10 @@ public static class ActorExtendTools
 
         foreach (var entry in mainCultibook.SkillPool)
         {
+            // 检查技能容器是否有效
+            if (entry.SkillContainer.IsNull || !entry.SkillContainer.HasComponent<SkillContainer>()) continue;
+            var skillId = entry.SkillContainer.Id;
+
             // 检查掌握程度阈值
             if (stateRef.MainMastery < entry.MasteryThreshold) continue;
 
@@ -327,7 +331,7 @@ public static class ActorExtendTools
             }
 
             // 检查是否已学习
-            if (ae.HasSkill(entry.SkillEntityAssetId)) continue;
+            if (ae.HasSkill(entry.SkillContainer)) continue;
 
             // 计算领悟概率
             float masteryFactor = stateRef.MainMastery / 100f;
@@ -336,7 +340,7 @@ public static class ActorExtendTools
             float chance = entry.BaseChance * masteryFactor * intelligenceFactor;
 
             // 检查领悟进度
-            if (stateRef.SkillProgress != null && stateRef.SkillProgress.TryGetValue(entry.SkillEntityAssetId, out var progress))
+            if (stateRef.SkillProgress != null && stateRef.SkillProgress.TryGetValue(skillId, out var progress))
             {
                 // 如果已经有进度，增加成功率
                 chance += progress * 0.1f;
@@ -344,19 +348,19 @@ public static class ActorExtendTools
 
             if (Randy.randomChance(chance))
             {
-                // 领悟成功，学习技能
-                ae.LearnSkillFromCultibook(entry.SkillEntityAssetId);
+                // 领悟成功，直接学习技能容器（克隆）
+                ae.LearnSkillV3(entry.SkillContainer, true);
                 return true;
             }
             else
             {
                 // 领悟失败，增加进度
-                if (stateRef.SkillProgress == null) stateRef.SkillProgress = new Dictionary<string, float>();
-                if (!stateRef.SkillProgress.ContainsKey(entry.SkillEntityAssetId))
+                if (stateRef.SkillProgress == null) stateRef.SkillProgress = new Dictionary<int, float>();
+                if (!stateRef.SkillProgress.ContainsKey(skillId))
                 {
-                    stateRef.SkillProgress[entry.SkillEntityAssetId] = 0;
+                    stateRef.SkillProgress[skillId] = 0;
                 }
-                stateRef.SkillProgress[entry.SkillEntityAssetId] += entry.BaseChance * 0.1f;
+                stateRef.SkillProgress[skillId] += entry.BaseChance * 0.1f;
             }
         }
 
@@ -390,22 +394,20 @@ public static class ActorExtendTools
     /// <summary>
     /// 检查是否已学习某个技能
     /// </summary>
-    private static bool HasSkill(this ActorExtend ae, string skillEntityAssetId)
+    private static bool HasSkill(this ActorExtend ae, Entity skillContainer)
     {
         if (ae.all_skills == null || ae.all_skills.Count == 0) return false;
         
         foreach (var skillEntity in ae.all_skills)
         {
             if (!skillEntity.HasComponent<SkillContainer>()) continue;
-            ref var skillContainer = ref skillEntity.GetComponent<SkillContainer>();
-            if (skillContainer.SkillEntityAssetID == skillEntityAssetId)
-            {
-                return true;
-            }
+            if (!SkillContainerUtils.IsSimilar(skillEntity, skillContainer)) continue;
+            return true;
         }
         
         return false;
     }
+
 
     private static HashSet<string> CollectModifierIds(Entity skill_container_entity)
     {

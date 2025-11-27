@@ -246,17 +246,16 @@ public static class BookManagerTools
         {
             var skillEntity = skillList[i];
             if (!skillEntity.HasComponent<SkillContainer>()) continue;
-
-            ref var skillContainer = ref skillEntity.GetComponent<SkillContainer>();
-            if (string.IsNullOrEmpty(skillContainer.SkillEntityAssetID)) continue;
-
+            
+            skillEntity = skillEntity.Store.CloneEntity(skillEntity);
             result.Add(new SkillPoolEntry
             {
-                SkillEntityAssetId = skillContainer.SkillEntityAssetID,
+                SkillContainer = skillEntity,
                 BaseChance = 0.05f + addedCount * 0.02f,
                 MasteryThreshold = 20f + addedCount * 20f,
                 LevelRequirement = minLevel + addedCount * 2
             });
+            skillEntity.AddTag<TagOccupied>();
             addedCount++;
         }
 
@@ -446,7 +445,7 @@ public static class BookManagerTools
             {
                 improvedSkillPool.Add(new SkillPoolEntry()
                 {
-                    SkillEntityAssetId = entry.SkillEntityAssetId,
+                    SkillContainer = entry.SkillContainer.Store.CloneEntity(entry.SkillContainer),
                     BaseChance = entry.BaseChance * Randy.randomFloat(1.1f, 1.5f), // 提升10-50%
                     MasteryThreshold = entry.MasteryThreshold * Randy.randomFloat(0.8f, 0.95f), // 降低5-20%
                     LevelRequirement = Mathf.Max(0, entry.LevelRequirement - (Randy.randomChance(0.3f) ? 1 : 0))
@@ -462,16 +461,13 @@ public static class BookManagerTools
                 foreach (var skillEntity in skillList)
                 {
                     if (!skillEntity.HasComponent<SkillContainer>()) continue;
-                    var skillContainer = skillEntity.GetComponent<SkillContainer>();
-                    string skillId = skillContainer.SkillEntityAssetID;
-                    if (string.IsNullOrEmpty(skillId)) continue;
                     
-                    bool alreadyExists = improvedSkillPool.Any(e => e.SkillEntityAssetId == skillId);
+                    bool alreadyExists = improvedSkillPool.Any(e => e.SkillContainer == skillEntity);
                     if (alreadyExists) continue;
                     
                     improvedSkillPool.Add(new SkillPoolEntry()
                     {
-                        SkillEntityAssetId = skillId,
+                        SkillContainer = skillEntity.Store.CloneEntity(skillEntity),
                         BaseChance = Randy.randomFloat(0.03f, 0.08f),
                         MasteryThreshold = Randy.randomFloat(30f, 60f),
                         LevelRequirement = improvedMinLevel
@@ -494,18 +490,23 @@ public static class BookManagerTools
                 {
                     if (addedCount >= skillsToAdd) break;
                     if (!skillEntity.HasComponent<SkillContainer>()) continue;
-                    var skillContainer = skillEntity.GetComponent<SkillContainer>();
-                    if (string.IsNullOrEmpty(skillContainer.SkillEntityAssetID)) continue;
                     
                     improvedSkillPool.Add(new SkillPoolEntry()
                     {
-                        SkillEntityAssetId = skillContainer.SkillEntityAssetID,
+                        SkillContainer = skillEntity.Store.CloneEntity(skillEntity),
                         BaseChance = 0.05f + addedCount * 0.02f,
                         MasteryThreshold = 30f + addedCount * 20f,
                         LevelRequirement = improvedMinLevel + addedCount
                     });
                     addedCount++;
                 }
+            }
+        }
+        foreach (var entry in improvedSkillPool)
+        {
+            if (!entry.SkillContainer.Tags.Has<TagOccupied>())
+            {
+                entry.SkillContainer.AddTag<TagOccupied>();
             }
         }
         

@@ -5,6 +5,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
@@ -150,8 +151,12 @@ public class CultibookTooltip : APrefabPreview<CultibookTooltip>
         var lines = new List<string>();
         foreach (var skillEntry in cultibook.SkillPool)
         {
-            var skillAsset = ModClass.I.SkillV3.SkillLib.get(skillEntry.SkillEntityAssetId);
-            var skillName = skillAsset != null ? skillAsset.id.Localize() : skillEntry.SkillEntityAssetId;
+            if (skillEntry.SkillContainer.IsNull || !skillEntry.SkillContainer.HasComponent<SkillContainer>()) continue;
+            var container = skillEntry.SkillContainer.GetComponent<SkillContainer>();
+            var skillId = container.SkillEntityAssetID;
+            if (string.IsNullOrEmpty(skillId)) continue;
+            
+            var skillName = skillEntry.SkillContainer.HasName ? skillEntry.SkillContainer.Name.value : skillId.Localize();
 
             var requirements = new List<string>();
             if (skillEntry.MasteryThreshold > 0)

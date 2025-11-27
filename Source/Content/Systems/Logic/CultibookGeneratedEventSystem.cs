@@ -2,9 +2,11 @@ using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Content.Systems.Logic;

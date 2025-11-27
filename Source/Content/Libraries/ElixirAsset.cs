@@ -224,5 +224,9 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
         return res;
     }
 
+    public void OnDelete()
+    {
+    }
+
     public int Current { get; set; } = 0;
 }

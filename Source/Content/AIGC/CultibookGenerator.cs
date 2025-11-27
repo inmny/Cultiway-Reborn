@@ -28,6 +28,14 @@ public class CultibookGenerator
 
     private const float DefaultResponseSeconds = 0.01f;
 
+    private class SkillPoolEntryDto
+    {
+        public long entityId { get; set; }  // Entity 的 id
+        public float baseChance { get; set; }
+        public float masteryThreshold { get; set; }
+        public int levelRequirement { get; set; }
+    }
+
     private class LlmResponse
     {
         public string name { get; set; }
@@ -37,7 +45,7 @@ public class CultibookGenerator
         public int minLevel { get; set; }
         public int maxLevel { get; set; }
         public string cultivateMethodId { get; set; }
-        public List<SkillPoolEntry> skillPool { get; set; }
+        public List<SkillPoolEntryDto> skillPool { get; set; }
         public List<string> conflictTags { get; set; }
         public List<string> synergyTags { get; set; }
     }
@@ -138,7 +146,10 @@ public class CultibookGenerator
 
     private static async Task<CultibookAsset> LLMBuildImprovedDraftAsync(ActorExtend ae, CultibookAsset originalCultibook)
     {
-        var prompt = BuildImprovementPrompt(ae, originalCultibook);
+        var basePrompt = new StringBuilder();
+        BuildImprovementPromptBase(ae, originalCultibook, basePrompt);
+        var (prompt, clonedSkills) = PrepareSkillsForPrompt(ae, basePrompt);
+
         var system_prompt = GetImprovementSystemPrompt();
         var response = await Core.AIGCLib.Manager.RequestResponseContent(prompt, system_prompt, temperature: 0.7f);
 
@@ -146,15 +157,30 @@ public class CultibookGenerator
         var dto = JsonConvert.DeserializeObject<LlmResponse>(response);
         if (dto == null)
         {
+            // 清理未使用的 clone 技能
+            foreach (var clonedEntity in clonedSkills.Values)
+            {
+                clonedEntity.DeleteEntity();
+            }
             return FallbackBuildImprovedDraft(ae, originalCultibook);
         }
 
         // 使用改进后的数据，但确保创建者能够满足要求
         var stats = GenerateStatsFromActor(ae.Base);
-        // 如果 LLM 返回的属性为空，使用原功法的属性并提升
+        // 转换技能池 DTO 为 Entity，并清理未选中的 Entity
+        List<SkillPoolEntry> skillPool;
         if (dto.skillPool == null || dto.skillPool.Count == 0)
         {
-            dto.skillPool = originalCultibook.SkillPool ?? new List<SkillPoolEntry>();
+            // 清理所有 clone 的技能（因为都没有被选中）
+            foreach (var clonedEntity in clonedSkills.Values)
+            {
+                clonedEntity.DeleteEntity();
+            }
+            skillPool = originalCultibook.SkillPool ?? new List<SkillPoolEntry>();
+        }
+        else
+        {
+            skillPool = ConvertSkillPoolDtoToEntries(dto.skillPool, clonedSkills);
         }
 
         // 确保灵根需求不超过创建者的灵根值
@@ -183,7 +209,7 @@ public class CultibookGenerator
         dto.maxLevel = Mathf.Max(Mathf.Max(creatorLevel, dto.maxLevel), dto.minLevel);
         dto.maxLevel = Mathf.Min(dto.maxLevel, 20);
 
-        var item_level = CalculateCultibookLevel(stats, dto.skillPool, dto.minLevel, dto.maxLevel, dto.cultivateMethodId, ae);
+        var item_level = CalculateCultibookLevel(stats, skillPool, dto.minLevel, dto.maxLevel, dto.cultivateMethodId, ae);
 
         return new CultibookAsset()
         {
@@ -197,7 +223,7 @@ public class CultibookGenerator
             MinLevel = dto.minLevel,
             MaxLevel = dto.maxLevel,
             CultivateMethodId = dto.cultivateMethodId,
-            SkillPool = dto.skillPool,
+            SkillPool = skillPool,
             ConflictTags = originalCultibook.ConflictTags?.ToArray() ?? Array.Empty<string>(),
             SynergyTags = originalCultibook.SynergyTags?.ToArray() ?? Array.Empty<string>()
         };
@@ -206,10 +232,10 @@ public class CultibookGenerator
     private static string GetImprovementSystemPrompt()
     {
         return
-            "请根据原功法信息生成改进版功法的名称与简介，只输出 JSON，例如 {\\\"name\\\":\\\"玄火九转功·改进版\\\",\\\"description\\\":\\\"简介不超过60字，说明改进之处\\\",\\\"elementReq\\\":{\\\"iron\\\":0.2,\\\"wood\\\":0.3,\\\"water\\\":0.0,\\\"fire\\\":1.5,\\\"earth\\\":0.1,\\\"neg\\\":0.1,\\\"pos\\\":0.8,\\\"entropy\\\":0.5},\\\"elementAffinityThreshold\\\":0.3,\\\"minLevel\\\":1,\\\"maxLevel\\\":4,\\\"cultivateMethodId\\\":\\\"Cultiway.Standard\\\",\\\"skillPool\\\":[{\\\"skillEntityAssetId\\\":\\\"Cultiway.Fireball\\\",\\\"baseChance\\\":0.05,\\\"masteryThreshold\\\":20,\\\"levelRequirement\\\":1}]}，不要输出其他内容。改进版功法应该在原功法基础上有所提升，修炼要求有一定变化，不限制增长还是下降，不一定要保持相同的修炼方式。可选的修炼方式：" + string.Join(", ", Libraries.Manager.CultivateMethodLibrary.list.Select(m => $"\\\"{m.id.Localize()}\\\"({m.id})")) + "。";
+            "请根据原功法信息生成改进版功法的名称与简介，只输出 JSON，例如 {\\\"name\\\":\\\"玄火九转功·改进版\\\",\\\"description\\\":\\\"简介不超过60字，说明改进之处\\\",\\\"elementReq\\\":{\\\"iron\\\":0.2,\\\"wood\\\":0.3,\\\"water\\\":0.0,\\\"fire\\\":1.5,\\\"earth\\\":0.1,\\\"neg\\\":0.1,\\\"pos\\\":0.8,\\\"entropy\\\":0.5},\\\"elementAffinityThreshold\\\":0.3,\\\"minLevel\\\":1,\\\"maxLevel\\\":4,\\\"cultivateMethodId\\\":\\\"Cultiway.Standard\\\",\\\"skillPool\\\":[{\\\"entityId\\\":12345,\\\"baseChance\\\":0.05,\\\"masteryThreshold\\\":20,\\\"levelRequirement\\\":1}]}，不要输出其他内容。entityId 是技能实体的 id，从 prompt 中提供的候选技能中选择。改进版功法应该在原功法基础上有所提升，修炼要求有一定变化，不限制增长还是下降，不一定要保持相同的修炼方式。可选的修炼方式：" + string.Join(", ", Libraries.Manager.CultivateMethodLibrary.list.Select(m => $"\\\"{m.id.Localize()}\\\"({m.id})")) + "。";
     }
 
-    private static string BuildImprovementPrompt(ActorExtend ae, CultibookAsset originalCultibook)
+    private static void BuildImprovementPromptBase(ActorExtend ae, CultibookAsset originalCultibook, StringBuilder sb)
     {
         var actor = ae.Base;
         var level_value = ae.HasCultisys<Xian>() ? ae.GetCultisys<Xian>().CurrLevel : 0;
@@ -217,14 +243,26 @@ public class CultibookGenerator
         var element = ae.HasElementRoot() ? ae.GetElementRoot() : default;
         var element_name = ae.HasElementRoot() ? element.Type.GetName() : "无灵根";
 
-        var sb = new StringBuilder();
         sb.Append("原功法信息：");
         sb.Append($"名称 {originalCultibook.Name}，");
         sb.Append($"简介 {originalCultibook.Description}，");
         sb.Append($"境界范围 {originalCultibook.MinLevel}-{originalCultibook.MaxLevel}，\n");
         sb.Append($"灵根需求 金{originalCultibook.ElementReq.MinIron}木{originalCultibook.ElementReq.MinWood}水{originalCultibook.ElementReq.MinWater}火{originalCultibook.ElementReq.MinFire}土{originalCultibook.ElementReq.MinEarth}阴{originalCultibook.ElementReq.MinNeg}阳{originalCultibook.ElementReq.MinPos}混沌{originalCultibook.ElementReq.MinEntropy}，\n");
         sb.Append($"灵根契合度阈值 {originalCultibook.ElementAffinityThreshold}，\n");
-        sb.Append($"法术池 {string.Join(", ", originalCultibook.SkillPool.Select(s => $"{s.SkillEntityAssetId.Localize()}({s.SkillEntityAssetId})，概率{s.BaseChance}，熟练度阈值{s.MasteryThreshold}，等级要求{s.LevelRequirement}"))}\n");
+        var skillPoolInfo = new List<string>();
+        foreach (var entry in originalCultibook.SkillPool)
+        {
+            if (entry.SkillContainer.IsNull || !entry.SkillContainer.HasComponent<SkillContainer>()) continue;
+            var container = entry.SkillContainer.GetComponent<SkillContainer>();
+            var skillId = container.SkillEntityAssetID;
+            var skill_name = entry.SkillContainer.HasName ? entry.SkillContainer.Name.value : skillId.Localize();
+            if (string.IsNullOrEmpty(skillId)) continue;
+            skillPoolInfo.Add($"{skill_name}({entry.SkillContainer.Id})，概率{entry.BaseChance}，熟练度阈值{entry.MasteryThreshold}，等级要求{entry.LevelRequirement}");
+        }
+        if (skillPoolInfo.Count > 0)
+        {
+            sb.Append($"法术池 {string.Join(", ", skillPoolInfo)}\n");
+        }
         sb.Append($"修炼方式 {originalCultibook.CultivateMethodId}。");
         sb.Append("\n");
 
@@ -247,22 +285,8 @@ public class CultibookGenerator
         sb.Append("混沌");
         sb.Append(element.Entropy);
         sb.Append(")。");
-
-        var skills = ae.all_skills?.Where(s => s.HasComponent<SkillContainer>())
-            .Select(s => s.GetComponent<SkillContainer>().SkillEntityAssetID)
-            .Where(id => !string.IsNullOrEmpty(id))
-            .Take(3)
-            .Select(id => $"{id.Localize()}({id})")
-            .ToArray() ?? Array.Empty<string>();
-        if (skills.Length > 0)
-        {
-            sb.Append(" 常用法术：");
-            sb.Append(string.Join("、", skills));
-            sb.Append('。');
-        }
-        sb.Append(" 请给出改进版功法的名称与简介，简介需说明改进之处，并保持与原功法风格一致。");
-        return sb.ToString();
     }
+
     private static CultibookAsset FallbackBuildDraft(ActorExtend ae)
     {
         var stats = GenerateStatsFromActor(ae.Base);
@@ -288,9 +312,49 @@ public class CultibookGenerator
             SynergyTags = Array.Empty<string>()
         };
     }
+    /// <summary>
+    /// Clone 候选技能并构建包含技能信息的 prompt
+    /// </summary>
+    private static (string prompt, Dictionary<long, Entity> clonedSkills) PrepareSkillsForPrompt(ActorExtend ae, StringBuilder basePrompt)
+    {
+        var clonedSkills = new Dictionary<long, Entity>();
+        var skillInfoList = new List<string>();
+
+        if (ae.all_skills != null && ae.all_skills.Count > 0)
+        {
+            foreach (var skillEntity in ae.all_skills)
+            {
+                if (!skillEntity.HasComponent<SkillContainer>()) continue;
+                var container = skillEntity.GetComponent<SkillContainer>();
+                if (string.IsNullOrEmpty(container.SkillEntityAssetID)) continue;
+
+                // Clone 技能实体
+                var clonedEntity = skillEntity.Store.CloneEntity(skillEntity);
+                var entityId = clonedEntity.Id;
+                clonedSkills[entityId] = clonedEntity;
+
+                // 构建技能信息字符串
+                var skillName = clonedEntity.HasName ? clonedEntity.Name.value : container.SkillEntityAssetID.Localize();
+                skillInfoList.Add($"{skillName}({entityId})");
+            }
+        }
+
+        if (skillInfoList.Count > 0)
+        {
+            basePrompt.Append(" 候选法术：");
+            basePrompt.Append(string.Join("、", skillInfoList));
+            basePrompt.Append('。');
+        }
+
+        return (basePrompt.ToString(), clonedSkills);
+    }
+
     private static async Task<CultibookAsset> LLMBuildDraftAsync(ActorExtend ae)
     {
-        var prompt = BuildPrompt(ae);
+        var basePrompt = new StringBuilder();
+        BuildPromptBase(ae, basePrompt);
+        var (prompt, clonedSkills) = PrepareSkillsForPrompt(ae, basePrompt);
+
         var system_prompt = GetSystemPrompt();
         var response = await Core.AIGCLib.Manager.RequestResponseContent(prompt, system_prompt, temperature: 0.7f);
 
@@ -298,10 +362,18 @@ public class CultibookGenerator
         var dto = JsonConvert.DeserializeObject<LlmResponse>(response);
         if (dto == null)
         {
+            // 清理未使用的 clone 技能
+            foreach (var clonedEntity in clonedSkills.Values)
+            {
+                clonedEntity.DeleteEntity();
+            }
             return null;
         }
+
         var stats = GenerateStatsFromActor(ae.Base);
-        var item_level = CalculateCultibookLevel(stats, dto.skillPool, dto.minLevel, dto.maxLevel, dto.cultivateMethodId, ae);  
+        // 转换技能池 DTO 为 Entity，并清理未选中的 Entity
+        var skillPool = ConvertSkillPoolDtoToEntries(dto.skillPool ?? new List<SkillPoolEntryDto>(), clonedSkills);
+        var item_level = CalculateCultibookLevel(stats, skillPool, dto.minLevel, dto.maxLevel, dto.cultivateMethodId, ae);  
 
         return new CultibookAsset()
         {
@@ -315,19 +387,13 @@ public class CultibookGenerator
             MinLevel = dto.minLevel,
             MaxLevel = dto.maxLevel,
             CultivateMethodId = dto.cultivateMethodId,
-            SkillPool = dto.skillPool,
+            SkillPool = skillPool,
             ConflictTags = Array.Empty<string>(),
             SynergyTags = Array.Empty<string>()
         };
     }
 
-    private static string GetSystemPrompt()
-    {
-        return
-            "请根据修仙者的背景生成功法名称与简介，只输出 JSON，例如 {\\\"name\\\":\\\"玄火九转功\\\",\\\"description\\\":\\\"简介不超过60字\\\",\\\"elementReq\\\":{\\\"iron\\\":0.2,\\\"wood\\\":0.3,\\\"water\\\":0.0,\\\"fire\\\":1.5,\\\"earth\\\":0.1,\\\"neg\\\":0.1,\\\"pos\\\":0.8,\\\"entropy\\\":0.5},\\\"elementAffinityThreshold\\\":0.3,\\\"minLevel\\\":1,\\\"maxLevel\\\":4,\\\"cultivateMethodId\\\":\\\"Cultiway.Standard\\\",\\\"skillPool\\\":[{\\\"skillEntityAssetId\\\":\\\"Cultiway.Fireball\\\",\\\"baseChance\\\":0.05,\\\"masteryThreshold\\\":20,\\\"levelRequirement\\\":1},{\\\"skillEntityAssetId\\\":\\\"Cultiway.FireBlade\\\",\\\"baseChance\\\":0.02,\\\"masteryThreshold\\\":80,\\\"levelRequirement\\\":3}]}，不要输出其他内容。可选的修炼方式：" + string.Join(", ", Libraries.Manager.CultivateMethodLibrary.list.Select(m => $"\\\"{m.id.Localize()}\\\"({m.id})")) + "。";
-    }
-
-    private static string BuildPrompt(ActorExtend ae)
+    private static void BuildPromptBase(ActorExtend ae, StringBuilder sb)
     {
         var actor = ae.Base;
         var level_value = ae.HasCultisys<Xian>() ? ae.GetCultisys<Xian>().CurrLevel : 0;
@@ -338,8 +404,6 @@ public class CultibookGenerator
         var method_value = ae.GetMainCultibook()?.GetCultivateMethod()?.id ?? CultivateMethods.Standard.id;
         var method_text = method_value.Localize();
 
-
-        var sb = new StringBuilder();
         sb.Append("角色信息：");
         sb.Append($"姓名 {actor.getName()}，境界 {level_text}({level_value})，灵根 {element_name.Replace("五行","杂")}(");
         sb.Append("金");
@@ -359,22 +423,12 @@ public class CultibookGenerator
         sb.Append("混沌");
         sb.Append(element.Entropy);
         sb.Append($")，修炼方式 {method_text}({method_value})。");
-        
+    }
 
-        var skills = ae.all_skills?.Where(s => s.HasComponent<SkillContainer>())
-            .Select(s => s.GetComponent<SkillContainer>().SkillEntityAssetID)
-            .Where(id => !string.IsNullOrEmpty(id))
-            .Take(3)
-            .Select(id => $"{id.Localize()}({id})")
-            .ToArray() ?? Array.Empty<string>();
-        if (skills.Length > 0)
-        {
-            sb.Append(" 常用法术：");
-            sb.Append(string.Join("、", skills));
-            sb.Append('。');
-        }
-        sb.Append(" 请给出贴合以上设定的功法名称与简介，简介需点出灵根或战斗风格。");
-        return sb.ToString();
+    private static string GetSystemPrompt()
+    {
+        return
+            "请根据修仙者的背景生成功法名称与简介，只输出 JSON，例如 {\\\"name\\\":\\\"玄火九转功\\\",\\\"description\\\":\\\"简介不超过60字\\\",\\\"elementReq\\\":{\\\"iron\\\":0.2,\\\"wood\\\":0.3,\\\"water\\\":0.0,\\\"fire\\\":1.5,\\\"earth\\\":0.1,\\\"neg\\\":0.1,\\\"pos\\\":0.8,\\\"entropy\\\":0.5},\\\"elementAffinityThreshold\\\":0.3,\\\"minLevel\\\":1,\\\"maxLevel\\\":4,\\\"cultivateMethodId\\\":\\\"Cultiway.Standard\\\",\\\"skillPool\\\":[{\\\"entityId\\\":12345,\\\"baseChance\\\":0.05,\\\"masteryThreshold\\\":20,\\\"levelRequirement\\\":1},{\\\"entityId\\\":12346,\\\"baseChance\\\":0.02,\\\"masteryThreshold\\\":80,\\\"levelRequirement\\\":3}]}，不要输出其他内容。entityId 是技能实体的 id，从 prompt 中提供的候选技能中选择。可选的修炼方式：" + string.Join(", ", Libraries.Manager.CultivateMethodLibrary.list.Select(m => $"\\\"{m.id.Localize()}\\\"({m.id})")) + "。";
     }
 
     private static BaseStats GenerateStatsFromActor(Actor creator)
@@ -626,17 +680,59 @@ public class CultibookGenerator
             var skillEntity = skillList[i];
             if (!skillEntity.HasComponent<SkillContainer>()) continue;
 
-            ref var skillContainer = ref skillEntity.GetComponent<SkillContainer>();
-            if (string.IsNullOrEmpty(skillContainer.SkillEntityAssetID)) continue;
+            var container = skillEntity.GetComponent<SkillContainer>();
+            if (string.IsNullOrEmpty(container.SkillEntityAssetID)) continue;
+
+            // Clone 技能实体
+            var clonedEntity = skillEntity.Store.CloneEntity(skillEntity);
 
             result.Add(new SkillPoolEntry
             {
-                SkillEntityAssetId = skillContainer.SkillEntityAssetID,
+                SkillContainer = clonedEntity,
                 BaseChance = 0.05f + addedCount * 0.02f,
                 MasteryThreshold = 20f + addedCount * 20f,
                 LevelRequirement = minLevel + addedCount * 2
             });
             addedCount++;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 将技能池 DTO 转换为使用 Entity 的 SkillPoolEntry，并清理未选中的 Entity
+    /// </summary>
+    private static List<SkillPoolEntry> ConvertSkillPoolDtoToEntries(List<SkillPoolEntryDto> dtoList, Dictionary<long, Entity> clonedSkills)
+    {
+        var result = new List<SkillPoolEntry>();
+        var selectedEntityIds = new HashSet<long>();
+
+        if (dtoList != null && dtoList.Count > 0)
+        {
+            foreach (var dto in dtoList)
+            {
+                if (dto.entityId == 0) continue;
+                if (!clonedSkills.TryGetValue(dto.entityId, out var skillContainer)) continue;
+
+                selectedEntityIds.Add(dto.entityId);
+                result.Add(new SkillPoolEntry
+                {
+                    SkillContainer = skillContainer,
+                    BaseChance = dto.baseChance,
+                    MasteryThreshold = dto.masteryThreshold,
+                    LevelRequirement = dto.levelRequirement
+                });
+                skillContainer.AddTag<TagOccupied>();
+            }
+        }
+
+        // 删除未选中的 clone 技能
+        foreach (var kvp in clonedSkills)
+        {
+            if (!selectedEntityIds.Contains(kvp.Key))
+            {
+                kvp.Value.DeleteEntity();
+            }
         }
 
         return result;

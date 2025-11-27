@@ -29,7 +29,7 @@ public struct ActorCultibookState : IComponent
     /// 各法术的领悟进度
     /// </summary>
     [Ignore]
-    public Dictionary<string, float> SkillProgress;
+    public Dictionary<int, float> SkillProgress;
     
     /// <summary>
     /// 是否拥有主修功法
@@ -61,7 +61,7 @@ public struct ActorCultibookState : IComponent
     {
         if (SkillProgress == null)
         {
-            SkillProgress = new Dictionary<string, float>();
+            SkillProgress = new Dictionary<int, float>();
         }
     }
 }
