@@ -60,7 +60,7 @@ public class CultibookGenerator
         var actorId = actor.data.id;
         var stopwatch = Stopwatch.StartNew();
 
-        CultibookAsset draft;
+        CultibookAsset draft = null;
         try
         {
             draft = await LLMBuildDraftAsync(ae);
@@ -70,7 +70,9 @@ public class CultibookGenerator
         {
             stopwatch.Stop();
             ModClass.LogErrorConcurrent(e.ToString());
-
+        }
+        if (draft == null)
+        {
             draft = FallbackBuildDraft(ae);
         }
 
@@ -95,7 +97,7 @@ public class CultibookGenerator
         var actorId = actor.data.id;
         var stopwatch = Stopwatch.StartNew();
 
-        CultibookAsset improvedDraft;
+        CultibookAsset improvedDraft = null;
         try
         {
             improvedDraft = await LLMBuildImprovedDraftAsync(ae, originalCultibook);
@@ -106,6 +108,9 @@ public class CultibookGenerator
             stopwatch.Stop();
             ModClass.LogErrorConcurrent(e.ToString());
 
+        }
+        if (improvedDraft == null)
+        {
             improvedDraft = FallbackBuildImprovedDraft(ae, originalCultibook);
         }
 
