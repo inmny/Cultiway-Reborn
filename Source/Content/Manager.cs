@@ -51,6 +51,9 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new CityDistributeItemsSystem());
         ModClass.I.GeneralLogicSystems.Add(new ContinuousCultivateSystem());
         ModClass.I.GeneralRenderSystems.Add(new CloudRenderSystem());
+        ModClass.I.GeneralRenderSystems.Add(new RealmAuraRenderSystem());
+        ModClass.I.GeneralRenderSystems.Add(new RealmElementParticleRenderSystem());
+        ModClass.I.GeneralRenderSystems.Add(new RealmIndicatorRenderSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookImprovedEventSystem());
         

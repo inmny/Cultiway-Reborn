@@ -1,0 +1,76 @@
+{
+  "realm_visuals": [
+    {
+      "id": "mortal",
+      "realm_level": 0,
+      "aura_color": "#00000000",
+      "alpha_range": [0.0, 0.0],
+      "scale_multiplier": 0.0,
+      "base_particle_count": 0,
+      "aura_sprite_path": "",
+      "breath_speed": 0.5,
+      "breath_amplitude": 0.05
+    },
+    {
+      "id": "qi_refining",
+      "realm_level": 1,
+      "aura_color": "#FFFFFFAA",
+      "alpha_range": [0.1, 0.2],
+      "scale_multiplier": 1.0,
+      "base_particle_count": 2,
+      "aura_sprite_path": "cultiway/special_effects/aura/qi_aura",
+      "breath_speed": 0.4,
+      "breath_amplitude": 0.05
+    },
+    {
+      "id": "foundation",
+      "realm_level": 2,
+      "aura_color": "#87CEEBCC",
+      "alpha_range": [0.2, 0.3],
+      "scale_multiplier": 1.2,
+      "base_particle_count": 4,
+      "aura_sprite_path": "cultiway/special_effects/aura/foundation_aura",
+      "breath_speed": 0.5,
+      "breath_amplitude": 0.08
+    },
+    {
+      "id": "jindan",
+      "realm_level": 3,
+      "aura_color": "#FFD700DD",
+      "alpha_range": [0.3, 0.4],
+      "scale_multiplier": 1.5,
+      "base_particle_count": 6,
+      "aura_sprite_path": "cultiway/special_effects/aura/jindan_aura",
+      "breath_speed": 0.6,
+      "breath_amplitude": 0.12
+    },
+    {
+      "id": "yuanying",
+      "realm_level": 4,
+      "aura_color": "#9370DBEE",
+      "alpha_range": [0.4, 0.5],
+      "scale_multiplier": 1.8,
+      "base_particle_count": 9,
+      "aura_sprite_path": "cultiway/special_effects/aura/yuanying_aura",
+      "breath_speed": 0.7,
+      "breath_amplitude": 0.15
+    },
+    {
+      "id": "huashen",
+      "realm_level": 5,
+      "aura_color": "#FFFFFFFF",
+      "alpha_range": [0.5, 0.6],
+      "scale_multiplier": 2.2,
+      "base_particle_count": 12,
+      "aura_sprite_path": "cultiway/special_effects/aura/huashen_aura",
+      "breath_speed": 0.85,
+      "breath_amplitude": 0.2
+    }
+  ],
+  "indicator_sprites": {
+    "jindan": "cultiway/special_effects/aura/jindan_indicator",
+    "yuanying": "cultiway/special_effects/aura/yuanying_indicator",
+    "particle": "cultiway/special_effects/aura/element_particle"
+  }
+}
+

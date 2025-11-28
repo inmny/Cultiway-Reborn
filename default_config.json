@@ -36,5 +36,27 @@
             "Type": "SWITCH",
             "BoolVal": false
         }
+    ],
+    "RealmVisualSettings": [
+        {
+            "Id": "ENABLED",
+            "Type": "SWITCH",
+            "BoolVal": true
+        },
+        {
+            "Id": "AURA_ENABLED",
+            "Type": "SWITCH",
+            "BoolVal": true
+        },
+        {
+            "Id": "PARTICLE_ENABLED",
+            "Type": "SWITCH",
+            "BoolVal": true
+        },
+        {
+            "Id": "INDICATOR_ENABLED",
+            "Type": "SWITCH",
+            "BoolVal": true
+        }
     ]
 }
