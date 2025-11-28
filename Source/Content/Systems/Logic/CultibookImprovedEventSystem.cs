@@ -2,11 +2,11 @@ using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
-using Cultiway.Core.EventSystem;
-using Cultiway.Core.EventSystem.Events;
+using Cultiway.Content.Events;
 using Cultiway.Utils.Extension;
 using strings;
 using UnityEngine;
+using Cultiway.Core.EventSystem;
 
 namespace Cultiway.Content.Systems.Logic;
 

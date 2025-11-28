@@ -1,7 +1,7 @@
 using Cultiway.Content.AIGC;
 using Cultiway.Content.Libraries;
 
-namespace Cultiway.Core.EventSystem.Events;
+namespace Cultiway.Content.Events;
 
 public struct CultibookImprovedEvent
 {

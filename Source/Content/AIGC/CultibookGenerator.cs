@@ -12,7 +12,7 @@ using Cultiway.Core;
 using Cultiway.Core.AIGCLib;
 using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
-using Cultiway.Core.EventSystem.Events;
+using Cultiway.Content.Events;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
