@@ -232,7 +232,6 @@ namespace Cultiway
             GeneralLogicSystems.Add(new AliveTimerCheckSystem());
             GeneralLogicSystems.Add(new DelayActiveCheckSystem());
             GeneralLogicSystems.Add(new StatusTickSystem());
-            GeneralLogicSystems.Add(new StatusParticleSystem());
             
             GeneralLogicSystems.Add(LogicPrepareRecycleSystemGroup);
             LogicPrepareRecycleSystemGroup.Add(new DisposeActorExtendSystem());
@@ -253,6 +252,7 @@ namespace Cultiway
             GeneralLogicSystems.Add(new SyncCityRelationSystem());
             
             GeneralRenderSystems.Add(new RenderAnimFrameSystem(W));
+            GeneralRenderSystems.Add(new RenderStatusParticleSystem());
 
             CustomMapModeManager = new();
             CustomMapModeManager.Initialize();

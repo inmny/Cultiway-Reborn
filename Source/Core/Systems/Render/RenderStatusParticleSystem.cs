@@ -6,9 +6,9 @@ using Friflo.Engine.ECS.Systems;
 using HarmonyLib;
 using UnityEngine;
 
-namespace Cultiway.Core.Systems.Logic;
+namespace Cultiway.Core.Systems.Render;
 
-public class StatusParticleSystem : QuerySystem<StatusComponent, StatusParticleState>
+public class RenderStatusParticleSystem : QuerySystem<StatusComponent, StatusParticleState>
 {
     private const float ParticleSize = 0.2f;
     private const float ParticleLifetime = 1.25f;
@@ -27,7 +27,7 @@ public class StatusParticleSystem : QuerySystem<StatusComponent, StatusParticleS
         }
     };
 
-    public StatusParticleSystem()
+    public RenderStatusParticleSystem()
     {
         Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagRecycle>());
     }
