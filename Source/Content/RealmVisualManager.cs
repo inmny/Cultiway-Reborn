@@ -11,9 +11,8 @@ using Cultiway.Core.Components;
 using Cultiway.Utils;
 using Newtonsoft.Json;
 using UnityEngine;
-using RealmVisualComponent = Cultiway.Content.Components.RealmVisual;
 
-namespace Cultiway.Content.RealmVisual;
+namespace Cultiway.Content;
 
 internal sealed class RealmVisualManager : ICanInit, ICanReload
 {
@@ -138,11 +137,11 @@ internal sealed class RealmVisualManager : ICanInit, ICanReload
         var hasYuanying = ae.E.HasComponent<Yuanying>();
         if (hasYuanying)
         {
-            indicatorFlags |= RealmVisualComponent.IndicatorFlagYuanying;
+            indicatorFlags |= RealmVisual.IndicatorFlagYuanying;
         }
         else if (ae.E.HasComponent<Jindan>())
         {
-            indicatorFlags |= RealmVisualComponent.IndicatorFlagJindan;
+            indicatorFlags |= RealmVisual.IndicatorFlagJindan;
         }
 
         ref var component = ref EnsureComponent(ae);
@@ -153,24 +152,24 @@ internal sealed class RealmVisualManager : ICanInit, ICanReload
         component.has_element_root = ae.HasElementRoot();
     }
 
-    private static ref RealmVisualComponent EnsureComponent(ActorExtend ae)
+    private static ref RealmVisual EnsureComponent(ActorExtend ae)
     {
-        if (!ae.E.HasComponent<RealmVisualComponent>())
+        if (!ae.E.HasComponent<RealmVisual>())
         {
-            ae.E.AddComponent(new RealmVisualComponent
+            ae.E.AddComponent(new RealmVisual
             {
                 definition_index = byte.MaxValue
             });
         }
 
-        return ref ae.E.GetComponent<RealmVisualComponent>();
+        return ref ae.E.GetComponent<RealmVisual>();
     }
 
     private static void RemoveComponentIfExists(ActorExtend ae)
     {
-        if (ae.E.HasComponent<RealmVisualComponent>())
+        if (ae.E.HasComponent<RealmVisual>())
         {
-            ae.E.RemoveComponent<RealmVisualComponent>();
+            ae.E.RemoveComponent<RealmVisual>();
         }
     }
 
@@ -197,12 +196,12 @@ internal sealed class RealmVisualManager : ICanInit, ICanReload
 
     public Sprite GetIndicatorSprite(byte indicatorFlags)
     {
-        if ((indicatorFlags & RealmVisualComponent.IndicatorFlagYuanying) != 0)
+        if ((indicatorFlags & RealmVisual.IndicatorFlagYuanying) != 0)
         {
             return _yuanyingIndicatorSprite;
         }
 
-        if ((indicatorFlags & RealmVisualComponent.IndicatorFlagJindan) != 0)
+        if ((indicatorFlags & RealmVisual.IndicatorFlagJindan) != 0)
         {
             return _jindanIndicatorSprite;
         }

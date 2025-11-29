@@ -1,7 +1,6 @@
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
-using Cultiway.Content.RealmVisual;
 using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -9,11 +8,10 @@ using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
 using strings;
 using UnityEngine;
-using RealmVisualComponent = Cultiway.Content.Components.RealmVisual;
 
 namespace Cultiway.Content.Systems.Render;
 
-public class RealmAuraRenderSystem : QuerySystem<ActorBinder, RealmVisualComponent>
+public class RealmAuraRenderSystem : QuerySystem<ActorBinder, RealmVisual>
 {
     private readonly MonoObjPool<AuraRenderer> _pool;
 
@@ -49,7 +47,7 @@ public class RealmAuraRenderSystem : QuerySystem<ActorBinder, RealmVisualCompone
         _pool.ResetToStart();
         if (!MapBox.isRenderMiniMap())
         {
-            Query.ForEachEntity((ref ActorBinder binder, ref RealmVisualComponent visual, Entity entity) =>
+            Query.ForEachEntity((ref ActorBinder binder, ref RealmVisual visual, Entity entity) =>
             {
                 if (!visual.HasDefinition) return;
                 var actor = binder.Actor;

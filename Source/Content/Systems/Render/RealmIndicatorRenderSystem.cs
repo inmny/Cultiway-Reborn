@@ -1,18 +1,16 @@
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
-using Cultiway.Content.RealmVisual;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
 using strings;
 using UnityEngine;
-using RealmVisualComponent = Cultiway.Content.Components.RealmVisual;
 
 namespace Cultiway.Content.Systems.Render;
 
-public class RealmIndicatorRenderSystem : QuerySystem<ActorBinder, RealmVisualComponent>
+public class RealmIndicatorRenderSystem : QuerySystem<ActorBinder, RealmVisual>
 {
     private readonly MonoObjPool<IndicatorRenderer> _pool;
 
@@ -49,7 +47,7 @@ public class RealmIndicatorRenderSystem : QuerySystem<ActorBinder, RealmVisualCo
         _pool.ResetToStart();
         if (!MapBox.isRenderMiniMap())
         {
-            Query.ForEachEntity((ref ActorBinder binder, ref RealmVisualComponent visual, Entity entity) =>
+            Query.ForEachEntity((ref ActorBinder binder, ref RealmVisual visual, Entity entity) =>
             {
                 if (!visual.HasDefinition || visual.indicator_flags == 0) return;
                 var sprite = manager.GetIndicatorSprite(visual.indicator_flags);
