@@ -39,7 +39,7 @@
     ],
     "RealmVisualSettings": [
         {
-            "Id": "ENABLED",
+            "Id": "REALM_VISUAL_ENABLED",
             "Type": "SWITCH",
             "BoolVal": true
         },

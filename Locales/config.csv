@@ -8,3 +8,8 @@ API_KEY,API密钥
 MODEL,模型
 AnimSettings,动画相关设置
 ALL_RENDER,始终渲染所有
+RealmVisualSettings,境界视觉表现设置
+REALM_VISUAL_ENABLED,启用境界视觉表现
+AURA_ENABLED,启用光晕效果
+PARTICLE_ENABLED,启用元素粒子效果
+INDICATOR_ENABLED,启用境界标识

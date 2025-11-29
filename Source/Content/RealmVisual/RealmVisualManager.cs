@@ -32,7 +32,7 @@ internal sealed class RealmVisualManager : ICanInit, ICanReload
 
     public int MaxParticlesPerActor => 30;
 
-    public bool VisualEnabled => ModClass.I.GetConfig()["RealmVisualSettings"]["ENABLED"].BoolVal;
+    public bool VisualEnabled => ModClass.I.GetConfig()["RealmVisualSettings"]["REALM_VISUAL_ENABLED"].BoolVal;
     public bool AuraEnabled => VisualEnabled && ModClass.I.GetConfig()["RealmVisualSettings"]["AURA_ENABLED"].BoolVal;
     public bool ParticleEnabled => VisualEnabled && ModClass.I.GetConfig()["RealmVisualSettings"]["PARTICLE_ENABLED"].BoolVal;
     public bool IndicatorEnabled => VisualEnabled && ModClass.I.GetConfig()["RealmVisualSettings"]["INDICATOR_ENABLED"].BoolVal;
