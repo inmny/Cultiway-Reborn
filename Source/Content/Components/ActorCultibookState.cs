@@ -44,7 +44,7 @@ public struct ActorCultibookState : IComponent
     {
         get
         {
-            if (_mainCultibook != null) return _mainCultibook;
+            if (_mainCultibook != null && _mainCultibook.id == MainCultibookId) return _mainCultibook;
             if (string.IsNullOrEmpty(MainCultibookId)) return null;
             _mainCultibook = Libraries.Manager.CultibookLibrary.get(MainCultibookId);
             return _mainCultibook;
