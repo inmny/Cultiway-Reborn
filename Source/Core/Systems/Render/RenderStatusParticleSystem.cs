@@ -36,10 +36,6 @@ public class RenderStatusParticleSystem : QuerySystem<StatusComponent, StatusPar
     {
         var deltaTime = Tick.deltaTime;
         
-        // 获取游戏倍率并应用到粒子系统
-        var timeScale = Mathf.Max(0.01f, Config.time_scale_asset.multiplier);
-        var main = _sharedEmitter.main;
-        main.simulationSpeed = timeScale;
 
         Query.ForEachEntity(((ref StatusComponent status, ref StatusParticleState state, Entity entity) =>
         {
@@ -57,6 +53,13 @@ public class RenderStatusParticleSystem : QuerySystem<StatusComponent, StatusPar
                 SpawnForOwners(entity, settings);
             }
         }));
+        // 获取游戏倍率并应用到粒子系统
+        var timeScale = Mathf.Max(0.01f, Config.time_scale_asset.multiplier);
+        if (_sharedEmitter != null)
+        {
+            var main = _sharedEmitter.main;
+            main.simulationSpeed = timeScale;
+        }
     }
 
     private static void SpawnForOwners(Entity statusEntity, StatusParticleSettings settings)
