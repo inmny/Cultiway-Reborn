@@ -145,6 +145,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         var actor = Base;
         if (actor.isInWaterAndCantAttack()) return false;
         if (!actor.isAttackPossible()) return false;
+        if (target.isRekt()) return false;
 
         CombatActionAsset basic_attack_action = null;
         
