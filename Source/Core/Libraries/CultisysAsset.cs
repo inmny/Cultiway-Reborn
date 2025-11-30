@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Cultiway.Abstract;
+using Cultiway.Content;
 using Cultiway.Debug;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General;
@@ -173,11 +174,13 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
         if (!ae.HasCultisys<T>()) return;
         ref var c = ref ae.GetCultisys<T>();
         if (c.CurrLevel >= LevelNumber - 1) return;
-
+        var beforeLevel = c.CurrLevel;
+        var currentLevel = c.CurrLevel;
         var upgrade_action = _upgrade_actions[c.CurrLevel + 1];
         if (upgrade_action == null)
         {
             c.CurrLevel++;
+            currentLevel++;
             ae.UpgradePowerLevel(PowerLevels[c.CurrLevel]);
             ae.Base.setStatsDirty();
             
@@ -186,6 +189,8 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
         else
         {
             upgrade_action.Invoke(ae, this, ref c);
+            currentLevel = ae.GetCultisys<T>().CurrLevel;
         }
+        BreakthroughVisualTrigger.TryTriggerXian(ae, beforeLevel, currentLevel);
     }
 }

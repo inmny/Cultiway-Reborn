@@ -37,5 +37,9 @@ public struct RealmVisual : IComponent
 
     public const byte IndicatorFlagJindan = 1 << 0;
     public const byte IndicatorFlagYuanying = 1 << 1;
+    public const byte VisualStateDefault = 0;
+    public const byte VisualStateBattle = 1;
+    public const byte VisualStateCultivate = 2;
+    public const byte VisualStateBreakthrough = 3;
+    public const byte VisualStateHurt = 4;
 }
-

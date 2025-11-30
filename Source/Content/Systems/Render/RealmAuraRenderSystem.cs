@@ -64,11 +64,19 @@ public class RealmAuraRenderSystem : QuerySystem<ActorBinder, RealmVisual>
                 var breathPhase = Time.time * definition.BreathSpeed;
                 var t = (Mathf.Sin(breathPhase) + 1f) * 0.5f;
                 var alpha = Mathf.Lerp(definition.AlphaMin, definition.AlphaMax, t);
+                if (visual.visual_state == RealmVisual.VisualStateBreakthrough)
+                {
+                    alpha = Mathf.Min(alpha * 1.2f, 1f);
+                }
                 baseColor.a = alpha;
                 renderer.color = baseColor;
 
                 var scale = Mathf.Max(actor.stats[S.scale], 0.1f) * Mathf.Max(definition.ScaleMultiplier, 0.1f);
                 var breathScale = 1f + Mathf.Sin(breathPhase) * definition.BreathAmplitude;
+                if (visual.visual_state == RealmVisual.VisualStateBreakthrough)
+                {
+                    scale *= 1.15f;
+                }
 
                 aura.transform.localScale = Vector3.one * scale * breathScale;
                 aura.transform.localRotation = Quaternion.identity;
