@@ -19,7 +19,9 @@ internal sealed class BreakthroughVisualManager : ICanInit, ICanReload
 
     public static BreakthroughVisualManager Instance { get; private set; }
 
-    public bool Enabled => RealmVisualManager.Instance != null && RealmVisualManager.Instance.VisualEnabled;
+    public bool Enabled => RealmVisualManager.Instance != null 
+                           && RealmVisualManager.Instance.VisualEnabled 
+                           && ModClass.I.GetConfig()["RealmVisualSettings"]["BREAKTHROUGH_VISUAL_ENABLED"].BoolVal;
 
     public void Init()
     {

@@ -57,6 +57,11 @@
             "Id": "INDICATOR_ENABLED",
             "Type": "SWITCH",
             "BoolVal": true
+        },
+        {
+            "Id": "BREAKTHROUGH_VISUAL_ENABLED",
+            "Type": "SWITCH",
+            "BoolVal": true
         }
     ]
 }
