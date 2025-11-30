@@ -1,5 +1,6 @@
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Utils.Extension;
+using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3;
 
@@ -41,14 +42,16 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
         };
         SalvoCount = add(new SkillModifierAsset()
         {
-            id = "Cultiway."+nameof(SalvoCount)
+            id = "Cultiway."+nameof(SalvoCount),
+            Rarity = SkillModifierRarity.Common  // 设置为普通稀有度，提高出现概率
         });
         SalvoCount.OnAddOrUpgrade = builder =>
         {
             if (builder.HasModifier<SalvoCount>())
             {
                 var modifier = builder.GetModifier<SalvoCount>();
-                modifier.Value++;
+                // 等比增长：每次升级增加当前值的 50%（向上取整）
+                modifier.Value += Mathf.Max(2, Mathf.CeilToInt(modifier.Value * 0.5f));
                 builder.SetModifier(modifier);
             }
             else
@@ -72,14 +75,16 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
         };
         BurstCount = add(new SkillModifierAsset()
         {
-            id = "Cultiway."+nameof(BurstCount)
+            id = "Cultiway."+nameof(BurstCount),
+            Rarity = SkillModifierRarity.Common  // 设置为普通稀有度，提高出现概率
         });
         BurstCount.OnAddOrUpgrade = builder =>
         {
             if (builder.HasModifier<BurstCount>())
             {
                 var modifier = builder.GetModifier<BurstCount>();
-                modifier.Value++;
+                // 等比增长：每次升级增加当前值的 50%（向上取整）
+                modifier.Value += Mathf.Max(2, Mathf.CeilToInt(modifier.Value * 0.5f));
                 builder.SetModifier(modifier);
             }
             else
