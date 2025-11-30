@@ -94,6 +94,7 @@ internal static class PatchWindowCreatureInfo
             master_apprentice_entry._tip_button.textOnClick = "tab_master_apprentice";
             master_apprentice_entry._tip_button.textOnClickDescription = "tab_master_apprentice_description";
             master_apprentice_entry._worldtip_text = master_apprentice_entry.getWorldTipText();
+            master_apprentice_entry.transform.Find("Icon").GetComponent<Image>().sprite = SpriteTextureLoader.getSprite("cultiway/icons/iconMasterTree");
 
             // 移动到有genealogy的位置前面
             master_apprentice_entry.transform.SetSiblingIndex(indexToInsert);

@@ -13,14 +13,12 @@ internal static class BreakthroughVisualTrigger
 {
     public static void TryTriggerXian(ActorExtend ae, int fromLevel, int toLevel)
     {
-        ModClass.LogInfo($"TryTriggerXian {ae.Base.name}({ae.Base.id}), {fromLevel} -> {toLevel}");
         var manager = BreakthroughVisualManager.Instance;
         if (manager == null || !manager.Enabled) return;
         if (toLevel <= fromLevel) return;
 
         var def = manager.GetDefinition((byte)toLevel);
         if (def == null) return;
-        ModClass.LogInfo($"Def: {def.ToLevel}");
 
         ref var state = ref EnsureState(ae);
         state.last_level = (byte)Mathf.Clamp(fromLevel, 0, byte.MaxValue);

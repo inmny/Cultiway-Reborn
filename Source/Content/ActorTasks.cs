@@ -2,6 +2,8 @@ using ai.behaviours;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Behaviours;
+using Cultiway.Content.Behaviours.Apprentices;
+using Cultiway.Content.Behaviours.Masters;
 
 namespace Cultiway.Content;
 
@@ -25,6 +27,13 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor WriteSkillbook { get; private set; }
     public static BehaviourTaskActor CallSourceSpawner { get; private set; }
     public static BehaviourTaskActor SwitchCultibook { get; private set; }
+    
+    // 师徒系统任务
+    public static BehaviourTaskActor RecruitApprentice { get; private set; }
+    public static BehaviourTaskActor TeachApprentice { get; private set; }
+    public static BehaviourTaskActor SeekMaster { get; private set; }
+    public static BehaviourTaskActor FollowMaster { get; private set; }
+    
     [GetOnly("random_move")] public static BehaviourTaskActor RandomMove { get; private set; }
 
     [GetOnly("end_job")] public static BehaviourTaskActor EndJob { get; private set; }
@@ -141,5 +150,22 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         ImproveCultibook.addBeh(new BehExitBuilding());
         ImproveCultibook.addBeh(new BehEndJob());
         ImproveCultibook.setIcon("cultiway/icons/iconCultivation");
+        
+        // 师徒系统任务
+        RecruitApprentice.addBeh(new BehRecruitApprentice());
+        RecruitApprentice.addBeh(new BehEndJob());
+        RecruitApprentice.setIcon("cultiway/icons/iconMasterApprentice");
+        
+        TeachApprentice.addBeh(new BehTeachApprentice());
+        TeachApprentice.addBeh(new BehEndJob());
+        TeachApprentice.setIcon("cultiway/icons/iconMasterApprentice");
+        
+        SeekMaster.addBeh(new BehSeekMaster());
+        SeekMaster.addBeh(new BehEndJob());
+        SeekMaster.setIcon("cultiway/icons/iconMasterApprentice");
+        
+        FollowMaster.addBeh(new BehFollowMaster());
+        FollowMaster.addBeh(new BehEndJob());
+        FollowMaster.setIcon("cultiway/icons/iconMasterApprentice");
     }
 }

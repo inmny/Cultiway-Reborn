@@ -78,6 +78,31 @@ internal static class PatchActor
                     }
                     if (xian.CurrLevel >= XianLevels.XianBase) pool.Add(ActorJobs.TalismanCrafter.id);
                     if (xian.CurrLevel >= XianLevels.Yuanying) pool.Add(ActorJobs.CultibookResearcher.id);
+                    
+                    // ========== 师徒系统工作添加到pool ==========
+                    // 1. 师傅工作：元婴期及以上才会主动收徒和教导弟子
+                    if (xian.CurrLevel >= XianLevels.Yuanying)
+                    {
+                        var apprentices = ae.GetApprentices();
+                        // 如果有弟子，或者可以收徒，添加到pool
+                        if (apprentices.Count > 0 || ae.CanRecruit())
+                        {
+                            // 有弟子的师傅更倾向于执行师傅工作
+                            float masterJobChance = apprentices.Count > 0 ? 0.8f : 0.5f;
+                            if (Randy.randomChance(masterJobChance))
+                            {
+                                pool.Add(ActorJobs.MasterDuty.id);
+                            }
+                        }
+                    }
+                    
+                    // 2. 弟子工作：有师傅的角色
+                    // 弟子有一定概率执行弟子工作（跟随师傅、寻师等）
+                    if (Randy.randomChance(0.3f)) // 30%概率添加到pool
+                    {
+                        pool.Add(ActorJobs.ApprenticeDuty.id);
+                    }
+                    
                     if (pool.Any())
                     {
                         __result = pool.GetRandom();

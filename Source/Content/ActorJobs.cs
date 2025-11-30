@@ -18,6 +18,11 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob SectBuilder { get; private set; }
     public static ActorJob BookWriter { get; private set; }
     public static ActorJob SpawnedUnit { get; private set; }
+    
+    // 师徒系统工作
+    public static ActorJob MasterDuty { get; private set; }
+    public static ActorJob ApprenticeDuty { get; private set; }
+    
     [GetOnly("attacker")]
     public static ActorJob Attacker { get; private set; }
     [GetOnly("random_move")]
@@ -110,5 +115,22 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         SpawnedUnit.addTask(ActorTasks.CallSourceSpawner.id);
         SpawnedUnit.addCondition(new CondHasAliveSourceSpawner(), false);
         SpawnedUnit.addTask(ActorTasks.EndJob.id);
+        
+        // 师傅工作
+        MasterDuty.addTask(ActorTasks.TeachApprentice.id);
+        MasterDuty.addCondition(new CondHasApprentice());
+        MasterDuty.addCondition(new CondApprenticeNeedTeaching());
+        MasterDuty.addTask(ActorTasks.RecruitApprentice.id);
+        MasterDuty.addCondition(new CondCanRecruit());
+        MasterDuty.addTask(ActorTasks.EndJob.id);
+        
+        // 弟子工作
+        ApprenticeDuty.addTask(ActorTasks.FollowMaster.id);
+        ApprenticeDuty.addCondition(new CondHasMaster());
+        ApprenticeDuty.addCondition(new CondMasterCultivating());
+        ApprenticeDuty.addTask(ActorTasks.SeekMaster.id);
+        ApprenticeDuty.addCondition(new CondNeedMaster());
+        ApprenticeDuty.addCondition(new CondHasMaster(), false);
+        ApprenticeDuty.addTask(ActorTasks.EndJob.id);
     }
 }

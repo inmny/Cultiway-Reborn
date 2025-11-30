@@ -10,6 +10,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Core.Components;
+using NeoModLoader.api.attributes;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
@@ -133,6 +134,14 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     public bool TryGetComponent<TComponent>(out TComponent component) where TComponent : struct, IComponent
     {
         return e.TryGetComponent(out component);
+    }
+    public ref TComponent GetOrAddComponent<TComponent>() where TComponent : struct, IComponent
+    {
+        if (!e.HasComponent<TComponent>())
+        {
+            e.AddComponent(new TComponent());
+        }
+        return ref e.GetComponent<TComponent>();
     }
     public static void RegisterCombatActionOnAttack(Action<ActorExtend, BaseSimObject, ListPool<CombatActionAsset>> action)
     {
@@ -751,5 +760,134 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         }
         ModClass.I.SkillV3.SpawnSkill(skill, Base, target, 100);
         return true;
+    }
+
+    // ======== 师徒系统核心方法（不依赖Content） ========
+    
+    /// <summary>
+    /// 获取所有弟子
+    /// </summary>
+    public List<ActorExtend> GetApprentices()
+    {
+        var apprentices = new List<ActorExtend>();
+        if (E.IsNull) return apprentices;
+        
+        // 查找所有指向此Entity的MasterApprenticeRelation
+        var allActors = World.world.units.units_only_alive;
+        foreach (var actor in allActors)
+        {
+            var apprenticeAe = actor.GetExtend();
+            if (apprenticeAe.HasMaster() && apprenticeAe.GetMaster() == Base)
+            {
+                apprentices.Add(apprenticeAe);
+            }
+        }
+        
+        return apprentices;
+    }
+    
+    /// <summary>
+    /// 检查是否有师傅
+    /// </summary>
+    [Hotfixable]
+    public bool HasMaster()
+    {
+        if (E.IsNull) return false;
+        var relations = E.GetRelations<MasterApprenticeRelation>();
+        if (!relations.Any()) return false;
+        var relation = relations.First();
+        // 检查师傅是否还存在
+        if (relation.Master.IsNull) return false;
+        var masterActor = relation.Master.GetComponent<ActorBinder>().Actor;
+        if (masterActor.isRekt()) return false;
+        return true;
+    }
+    
+    /// <summary>
+    /// 获取师傅
+    /// </summary>
+    [Hotfixable]
+    public Actor GetMaster()
+    {
+        if (!HasMaster()) return null;
+        
+        var relations = E.GetRelations<MasterApprenticeRelation>();
+        if (!relations.Any()) return null;
+        
+        var masterEntity = relations.First().Master;
+        if (masterEntity.IsNull) return null;
+        
+        var masterBinder = masterEntity.GetComponent<ActorBinder>();
+        
+        return masterBinder.Actor;
+    }
+    
+    /// <summary>
+    /// 获取师徒关系
+    /// </summary>
+    public ref MasterApprenticeRelation GetMasterRelation()
+    {
+        var relations = E.GetRelations<MasterApprenticeRelation>();
+        var relation = relations.First();
+
+        return ref E.GetRelation<MasterApprenticeRelation, Entity>(relation.Master);
+    }
+    
+    /// <summary>
+    /// 增加亲密度
+    /// </summary>
+    [Hotfixable]
+    public void AddIntimacy(float amount)
+    {
+        if (!HasMaster()) return;
+        
+        ref var relation = ref GetMasterRelation();
+        relation.Intimacy = Mathf.Clamp(relation.Intimacy + amount, 0, 100);
+        
+        // 检查是否升级关系类型
+        UpdateRelationType(ref relation);
+    }
+    
+    /// <summary>
+    /// 获取亲密度
+    /// </summary>
+    public float GetIntimacy()
+    {
+        if (!HasMaster()) return 0;
+        ref var relation = ref GetMasterRelation();
+        return relation.Intimacy;
+    }
+    
+    /// <summary>
+    /// 获取关系类型
+    /// </summary>
+    public MasterApprenticeType GetRelationType()
+    {
+        if (!HasMaster()) return MasterApprenticeType.Nominal;
+        ref var relation = ref GetMasterRelation();
+        return relation.RelationType;
+    }
+    
+    /// <summary>
+    /// 更新关系类型（根据亲密度）
+    /// </summary>
+    private static void UpdateRelationType(ref MasterApprenticeRelation relation)
+    {
+        if (relation.IsSuccessor && relation.Intimacy >= 90)
+        {
+            relation.RelationType = MasterApprenticeType.Successor;
+        }
+        else if (relation.Intimacy >= 60)
+        {
+            relation.RelationType = MasterApprenticeType.Direct;
+        }
+        else if (relation.Intimacy >= 30)
+        {
+            relation.RelationType = MasterApprenticeType.Formal;
+        }
+        else
+        {
+            relation.RelationType = MasterApprenticeType.Nominal;
+        }
     }
 }

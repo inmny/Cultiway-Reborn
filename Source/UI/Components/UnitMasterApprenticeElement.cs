@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Cultiway.Abstract;
+using Cultiway.Core;
+using Cultiway.Utils.Extension;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -78,6 +80,12 @@ namespace Cultiway.UI.Components
 
             var tab_title_container_obj = transform.Find("tab_title_container_unit");
             tab_title_container_obj.GetComponentInChildren<LocalizedText>(true).key = "tab_master_apprentice";
+            tab_title_container_obj.GetComponentsInChildren<Image>(true).ToList().ForEach(x => {
+                if (x.name.ToLower().Contains("icon"))
+                {
+                    x.sprite = SpriteTextureLoader.getSprite("cultiway/icons/iconMasterTree");
+                }
+            });
 
             // 删除所有bg_前缀的children，只保留一个作prefab，然后按师祖、师父、同门、徒弟顺序初始化
             var bg_children = new List<Transform>();
@@ -111,7 +119,7 @@ namespace Cultiway.UI.Components
                     inst.name = "bg_" + names[i].ToLower();
                     inst.gameObject.SetActive(true);
                     inst.GetComponentInChildren<LocalizedText>().key = names[i].ToLower();
-                    points[i] = inst;
+                    points[i] = inst.Find("Grid");
                 }
                 transform_grandmaster = points[0];
                 transform_master = points[1];
@@ -144,18 +152,100 @@ namespace Cultiway.UI.Components
         }
         private IEnumerator showGrandmasterContent()
         {
+            // 无限向上追溯祖师，如多个按顺序全部显示
+            if (actor == null || actor.isRekt()) yield break;
+
+            var ae = actor.GetExtend();
+            var current = ae;
+            var processed = new HashSet<ActorExtend>(); // 防御环引用
+            var masters = new List<Actor>();
+
+            // 不包括自己，向上追溯所有师父到最上层
+            while (current.HasMaster())
+            {
+                var master = current.GetMaster();
+                if (master == null || master.isRekt())
+                    break;
+                if (!processed.Add(master.GetExtend()))
+                    break; // 防止环引用死循环
+                masters.Add(master);
+                current = master.GetExtend();
+            }
+
+            // 第0个是本角色的师父，再往上均作为祖师显示
+            for (int i = 1; i < masters.Count; i++)
+            {
+                var grandmaster = masters[i];
+                var avatar = _pool_grandmaster.getNext();
+                avatar.show(grandmaster);
+            }
+
             yield break;
         }
+        
         private IEnumerator showMasterContent()
         {
+            if (actor == null || actor.isRekt()) yield break;
+            
+            var ae = actor.GetExtend();
+            if (!ae.HasMaster()) yield break;
+            
+            var master = ae.GetMaster();
+            if (master == null || master.isRekt()) yield break;
+            
+            var avatar = _pool_master.getNext();
+            avatar.show(master);
             yield break;
         }
+        
         private IEnumerator showSiblingsContent()
         {
+            if (actor == null || actor.isRekt()) yield break;
+            
+            var ae = actor.GetExtend();
+            if (!ae.HasMaster()) yield break;
+            
+            var master = ae.GetMaster();
+            if (master == null || master.isRekt()) yield break;
+            
+            var masterAe = master.GetExtend();
+            var apprentices = masterAe.GetApprentices();
+            
+            // 过滤掉自己，只显示同门
+            var siblings = apprentices.Where(app => app.Base != actor && app.Base != null && !app.Base.isRekt()).ToList();
+            
+            int count = 0;
+            int limit = AVATARS_LIMIT_INITIAL;
+            foreach (var sibling in siblings)
+            {
+                if (count >= limit) break;
+                var avatar = _pool_siblings.getNext();
+                avatar.show(sibling.Base);
+                count++;
+            }
+            
             yield break;
         }
+        
         private IEnumerator showApprenticeContent()
         {
+            if (actor == null || actor.isRekt()) yield break;
+            
+            var ae = actor.GetExtend();
+            var apprentices = ae.GetApprentices();
+            
+            int count = 0;
+            int limit = AVATARS_LIMIT_INITIAL;
+            foreach (var apprentice in apprentices)
+            {
+                if (apprentice.Base == null || apprentice.Base.isRekt()) continue;
+                if (count >= limit) break;
+                
+                var avatar = _pool_apprentice.getNext();
+                avatar.show(apprentice.Base);
+                count++;
+            }
+            
             yield break;
         }
     }
