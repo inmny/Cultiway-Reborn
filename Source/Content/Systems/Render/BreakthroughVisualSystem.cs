@@ -60,6 +60,12 @@ public class BreakthroughVisualSystem : QuerySystem<ActorBinder, RealmVisual, Xi
 
         var delta = Tick.deltaTime > 0 ? Tick.deltaTime : Time.deltaTime;
 
+        // 获取游戏倍率并应用到粒子系统
+        var timeScale = Mathf.Max(0.01f, Config.time_scale_asset.multiplier);
+        var main = emitter.main;
+        main.simulationSpeed = timeScale;
+
+
         Query.ForEachEntity((ref ActorBinder binder, ref RealmVisual visual, ref XianBreakthroughState state, Entity entity) =>
         {
             var actor = binder.Actor;

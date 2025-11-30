@@ -35,6 +35,12 @@ public class RenderStatusParticleSystem : QuerySystem<StatusComponent, StatusPar
     protected override void OnUpdate()
     {
         var deltaTime = Tick.deltaTime;
+        
+        // 获取游戏倍率并应用到粒子系统
+        var timeScale = Mathf.Max(0.01f, Config.time_scale_asset.multiplier);
+        var main = _sharedEmitter.main;
+        main.simulationSpeed = timeScale;
+
         Query.ForEachEntity(((ref StatusComponent status, ref StatusParticleState state, Entity entity) =>
         {
             var settings = status.Type.ParticleSettings;

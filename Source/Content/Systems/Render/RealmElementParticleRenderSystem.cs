@@ -55,6 +55,11 @@ public class RealmElementParticleRenderSystem : QuerySystem<ActorBinder, RealmVi
             return;
         }
 
+        // 获取游戏倍率并应用到粒子系统
+        var timeScale = Mathf.Max(0.01f, Config.time_scale_asset.multiplier);
+        var main = emitter.main;
+        main.simulationSpeed = timeScale;
+
         Query.ForEachEntity((ref ActorBinder binder, ref RealmVisual visual, ref ElementRoot elementRoot, Entity entity) =>
         {
             if (!visual.HasDefinition || !visual.has_element_root) return;
