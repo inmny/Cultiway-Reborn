@@ -66,10 +66,13 @@ public static class ActorExtendTools
                 if (asset == null) continue;
                 if (asset.id == PlaceholderModifier.PlaceholderAssetId) continue;
                 if (asset.IsDisabled) continue;
-                var weight = asset.Rarity.Weight();
-                if (weight <= 0) continue;
+                var baseWeight = asset.Rarity.Weight();
+                if (baseWeight <= 0) continue;
                 var alreadyHas = existing_ids.Contains(asset.id);
                 if (!alreadyHas && asset.ConflictTags.Any(conflict_tags.Contains)) continue;
+
+                // 如果词条已存在，增加权重以倾向于升级（权重提升 5 倍）
+                var weight = alreadyHas ? baseWeight * 5 : baseWeight;
 
                 total += weight;
                 candidate_assets.Add(asset);
