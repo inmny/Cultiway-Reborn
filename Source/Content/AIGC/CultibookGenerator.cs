@@ -232,7 +232,7 @@ public class CultibookGenerator
     private static string GetImprovementSystemPrompt()
     {
         return
-            "请根据原功法信息(例如玄火功)生成改进版功法的名称与简介，只输出 JSON，例如 {\\\"name\\\":\\\"玄火九转功\\\",\\\"description\\\":\\\"简介不超过60字，说明改进之处\\\",\\\"elementReq\\\":{\\\"iron\\\":0.2,\\\"wood\\\":0.3,\\\"water\\\":0.0,\\\"fire\\\":1.5,\\\"earth\\\":0.1,\\\"neg\\\":0.1,\\\"pos\\\":0.8,\\\"entropy\\\":0.5},\\\"elementAffinityThreshold\\\":0.3,\\\"minLevel\\\":1,\\\"maxLevel\\\":4,\\\"cultivateMethodId\\\":\\\"Cultiway.Standard\\\",\\\"skillPool\\\":[{\\\"entityId\\\":12345,\\\"baseChance\\\":0.05,\\\"masteryThreshold\\\":20,\\\"levelRequirement\\\":1}]}，不要输出其他内容。entityId 是技能实体的 id，从 prompt 中提供的候选技能中选择。改进版功法应该在原功法基础上有所提升，修炼要求有一定变化，不限制增长还是下降，不一定要保持相同的修炼方式。可选的修炼方式：" + string.Join(", ", Libraries.Manager.CultivateMethodLibrary.list.Select(m => $"\\\"{m.id.Localize()}\\\"({m.id})")) + "。";
+            "请根据原功法信息(例如玄火功)生成改进版功法的名称与简介，只输出 JSON，例如 {\"name\":\"玄火九转功\",\"description\":\"简介不超过60字，说明改进之处\",\"elementReq\":{\"iron\":0.2,\"wood\":0.3,\"water\":0.0,\"fire\":1.5,\"earth\":0.1,\"neg\":0.1,\"pos\":0.8,\"entropy\":0.5},\"elementAffinityThreshold\":0.3,\"minLevel\":1,\"maxLevel\":4,\"cultivateMethodId\":\"Cultiway.Standard\",\"skillPool\":[{\"entityId\":12345,\"baseChance\":0.05,\"masteryThreshold\":20,\"levelRequirement\":1}]}，不要输出其他内容。entityId 是技能实体的 id，从 prompt 中提供的候选技能中选择。改进版功法应该在原功法基础上有所提升，修炼要求有一定变化，不限制增长还是下降，不一定要保持相同的修炼方式。可选的修炼方式：" + string.Join(", ", Libraries.Manager.CultivateMethodLibrary.list.Select(m => $"\"{m.id.Localize()}\"({m.id})")) + "。";
     }
 
     private static void BuildImprovementPromptBase(ActorExtend ae, CultibookAsset originalCultibook, StringBuilder sb)
@@ -429,7 +429,7 @@ public class CultibookGenerator
     private static string GetSystemPrompt()
     {
         return
-            "请根据修仙者的背景生成功法名称与简介，只输出 JSON，例如 {\\\"name\\\":\\\"玄火九转功\\\",\\\"description\\\":\\\"简介不超过60字\\\",\\\"elementReq\\\":{\\\"iron\\\":0.2,\\\"wood\\\":0.3,\\\"water\\\":0.0,\\\"fire\\\":1.5,\\\"earth\\\":0.1,\\\"neg\\\":0.1,\\\"pos\\\":0.8,\\\"entropy\\\":0.5},\\\"elementAffinityThreshold\\\":0.3,\\\"minLevel\\\":1,\\\"maxLevel\\\":4,\\\"cultivateMethodId\\\":\\\"Cultiway.Standard\\\",\\\"skillPool\\\":[{\\\"entityId\\\":12345,\\\"baseChance\\\":0.05,\\\"masteryThreshold\\\":20,\\\"levelRequirement\\\":1},{\\\"entityId\\\":12346,\\\"baseChance\\\":0.02,\\\"masteryThreshold\\\":80,\\\"levelRequirement\\\":3}]}，不要输出其他内容。entityId 是技能实体的 id，从 prompt 中提供的候选技能中选择。可选的修炼方式：" + string.Join(", ", Libraries.Manager.CultivateMethodLibrary.list.Select(m => $"\\\"{m.id.Localize()}\\\"({m.id})")) + "。";
+            "请根据修仙者的背景生成功法名称与简介，只输出 JSON，例如 {\"name\":\"玄火九转功\",\"description\":\"简介不超过60字\",\"elementReq\":{\"iron\":0.2,\"wood\":0.3,\"water\":0.0,\"fire\":1.5,\"earth\":0.1,\"neg\":0.1,\"pos\":0.8,\"entropy\":0.5},\"elementAffinityThreshold\":0.3,\"minLevel\":1,\"maxLevel\":4,\"cultivateMethodId\":\"Cultiway.Standard\",\"skillPool\":[{\"entityId\":12345,\"baseChance\":0.05,\"masteryThreshold\":20,\"levelRequirement\":1},{\"entityId\":12346,\"baseChance\":0.02,\"masteryThreshold\":80,\"levelRequirement\":3}]}，不要输出其他内容。entityId 是技能实体的 id，从 prompt 中提供的候选技能中选择。可选的修炼方式：" + string.Join(", ", Libraries.Manager.CultivateMethodLibrary.list.Select(m => $"\"{m.id.Localize()}\"({m.id})")) + "。";
     }
 
     private static BaseStats GenerateStatsFromActor(Actor creator)

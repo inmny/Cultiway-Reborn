@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -23,6 +24,37 @@ public class Manager
     {
         public string content;
     }
+
+    struct ChatRequestMessage
+    {
+        public string role;
+        public string content;
+    }
+
+    struct ChatRequest
+    {
+        public ChatRequestMessage[] messages;
+        public string model;
+        public float temperature;
+        public int max_tokens;
+        public float frequency_penalty;
+        public float presence_penalty;
+        public ChatResponseFormat response_format;
+        public string[] stop;
+        public bool stream;
+        public object stream_options;
+        public float top_p;
+        public object tools;
+        public object tool_choice;
+        public bool logprobs;
+        public object top_logprobs;
+    }
+
+    struct ChatResponseFormat
+    {
+        public string type;
+    }
+
     public static async Task<string> RequestResponseContent(string prompt, string system_prompt="You are a helpful assistant", int index = 0, float temperature = 1.5f)
     {
         if (string.IsNullOrEmpty(BaseURL) || string.IsNullOrEmpty(APIKey))
@@ -33,40 +65,31 @@ public class Manager
         var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseURL}/chat/completions");
         request.Headers.Add("Accept", "application/json");
         request.Headers.Add("Authorization", $"Bearer {APIKey}");
-        var content_str = """
+        
+        var chatRequest = new ChatRequest
+        {
+            messages = new ChatRequestMessage[]
             {
-              "messages": [
-                {
-                  "content": "<system_prompt>",
-                  "role": "system"
-                },
-                {
-                  "content": "<prompt>",
-                  "role": "user"
-                }
-              ],
-              "model": "<model>",
-              "frequency_penalty": 0,
-              "max_tokens": 2048,
-              "presence_penalty": 0,
-              "response_format": {
-                "type": "text"
-              },
-              "stop": null,
-              "stream": false,
-              "stream_options": null,
-              "temperature": <temp_value>,
-              "top_p": 1,
-              "tools": null,
-              "tool_choice": "none",
-              "logprobs": false,
-              "top_logprobs": null
-            }
-            """
-            .Replace("<temp_value>", $"{temperature:F1}")
-            .Replace("<prompt>", prompt)
-            .Replace("<system_prompt>", system_prompt)
-            .Replace("<model>", Model);
+                new ChatRequestMessage { role = "system", content = system_prompt },
+                new ChatRequestMessage { role = "user", content = prompt }
+            },
+            model = Model,
+            temperature = temperature,
+            max_tokens = 2048,
+            frequency_penalty = 0,
+            presence_penalty = 0,
+            response_format = new ChatResponseFormat { type = "text" },
+            stop = null,
+            stream = false,
+            stream_options = null,
+            top_p = 1,
+            tools = null,
+            tool_choice = null,
+            logprobs = false,
+            top_logprobs = null
+        };
+        
+        var content_str = JsonConvert.SerializeObject(chatRequest);
         var content = new StringContent(
             content_str,
             null,
