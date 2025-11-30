@@ -11,6 +11,12 @@ Cultiway.UI.ArmorGraph,各元素抗性
 Cultiway.UI.MasterGraph,各元素精通
 Cultiway.UI.ContentItem,材丹符器阵傀
 Cultiway.UI.Buttons.LogPerf,性能分析日志
+Tab.MasterApprentice,师徒关系
+Tab.MasterApprentice Description,显示这个生物的师父师祖、徒子徒孙
+Grandmasters,师祖
+Masters,师父
+Siblings,同门
+Apprentices,徒弟
 Sect,宗门
 Drop,雨滴
 ElementRootPage,灵根详解

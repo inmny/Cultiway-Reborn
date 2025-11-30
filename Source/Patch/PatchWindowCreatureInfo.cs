@@ -3,11 +3,14 @@ using System.Text;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.UI;
+using Cultiway.UI.Components;
+using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General.UI.Prefabs;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
@@ -48,6 +51,69 @@ internal static class PatchWindowCreatureInfo
             info_text.resizeTextForBestFit = true;
             info_text.resizeTextMinSize = 1;
             info_text.resizeTextMaxSize = 8;
+
+
+            var content_master_apprentice_obj = Object.Instantiate(__instance.transform.GetComponentInChildren<UnitGenealogyElement>(true), __instance.transform.Find("Background/Scroll View/Viewport/Content")).gameObject;
+            content_master_apprentice_obj.name = "content_master_apprentice";
+            Object.DestroyImmediate(content_master_apprentice_obj.GetComponent<UnitGenealogyElement>());
+            var content_master_apprentice = content_master_apprentice_obj.AddComponent<UnitMasterApprenticeElement>();
+            var vertical_layout_group = content_master_apprentice_obj.GetComponent<VerticalLayoutGroup>();
+            vertical_layout_group.childControlHeight = true;
+            vertical_layout_group.childControlWidth = false;
+            vertical_layout_group.childForceExpandHeight = true;
+            vertical_layout_group.childForceExpandWidth = false;
+            vertical_layout_group.spacing = 6;
+            vertical_layout_group.childAlignment = TextAnchor.UpperCenter;
+
+            // 找到UnitGenealogyElement所在的Transform
+            Transform tabsContainer = __instance.transform.Find("Background/Tabs");
+            Transform genealogyTabTransform = null;
+            int indexToInsert = -1;
+            for (int i = 0; i < tabsContainer.childCount; i++)
+            {
+                var t = tabsContainer.GetChild(i);
+                if (t.name.ToLower().Contains("genealogy"))
+                {
+                    genealogyTabTransform = t;
+                    indexToInsert = i;
+                    break;
+                }
+            }
+            // 如果没找到，则新entry还是放到最后
+            if (indexToInsert < 0)
+                indexToInsert = tabsContainer.childCount;
+
+            // 新建master/apprentice entry
+            var master_apprentice_entry = Object.Instantiate(__instance.transform.Find("Background/Tabs/Genealogy").GetComponent<WindowMetaTab>(), tabsContainer);
+            master_apprentice_entry.name = "MasterApprenticeTab";
+            master_apprentice_entry.tab_action = new WindowMetaTabEvent();
+            master_apprentice_entry.tab_action.AddListener(new UnityEngine.Events.UnityAction<WindowMetaTab>(tab =>
+            {
+                __instance.showTab(tab);
+            }));
+            master_apprentice_entry._tip_button.textOnClick = "tab_master_apprentice";
+            master_apprentice_entry._tip_button.textOnClickDescription = "tab_master_apprentice_description";
+            master_apprentice_entry._worldtip_text = master_apprentice_entry.getWorldTipText();
+
+            // 移动到有genealogy的位置前面
+            master_apprentice_entry.transform.SetSiblingIndex(indexToInsert);
+
+            // 在插入点之前，查找并移除一个名字包含space的按钮
+            for (int i = 0; i < indexToInsert; i++)
+            {
+                var t = tabsContainer.GetChild(i);
+                if (t.name.ToLower().Contains("space"))
+                {
+                    Object.DestroyImmediate(t.gameObject);
+                    break;
+                }
+            }
+
+            master_apprentice_entry.container = __instance.tabs;
+            master_apprentice_entry.tab_elements.RemoveAll(t => t.name.ToLower().StartsWith("content_"));
+            __instance.tabs._tabs.Add(master_apprentice_entry);
+            __instance.tabs.addTabContent(master_apprentice_entry, content_master_apprentice_obj.transform);
+            __instance.tabs.refillTabsWithContent();
         }
         else
         {
