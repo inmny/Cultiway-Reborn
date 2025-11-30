@@ -77,6 +77,10 @@ public class RealmIndicatorRenderSystem : QuerySystem<ActorBinder, RealmVisual>
                 var alpha = strength > 0f 
                     ? Mathf.Clamp(0.3f + Mathf.Log10(strength + 1f) * 0.2f, 0.3f, 1.0f)
                     : 0.3f;
+                if (visual.visual_state == RealmVisual.VisualStateBreakthrough)
+                {
+                    alpha = Mathf.Min(alpha + 0.15f, 1f);
+                }
 
                 var indicator = _pool.GetNext();
                 indicator.sprite_renderer.sprite = sprite;
