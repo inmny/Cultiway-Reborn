@@ -44,6 +44,8 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 
     protected override void Init()
     {
+        var back_button = transform.Find("BackButtonContainer");
+        back_button.transform.localPosition = new(-180, 0);
         VertFlexGrid stat_grid = VertFlexGrid.Instantiate(BackgroundTransform, pName: "Stat Grid");
         stat_grid.Setup(200, new Vector2(18, 25), new Vector2(4, 2));
         stat_grid.Background.enabled = false;
