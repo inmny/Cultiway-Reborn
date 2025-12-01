@@ -86,6 +86,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         CraftElixir.addBeh(new BehFindElixirToCraft());
         CraftElixir.addBeh(new BehCraftElixir());
         CraftElixir.addBeh(new BehExitBuilding());
+        CraftElixir.setIcon("cultiway/icons/iconElixirCauldron");
         
         FindNewElixir.addBeh(new BehBuildingTargetHome());
         FindNewElixir.addBeh(new BehGetTargetBuildingMainTile());
@@ -94,6 +95,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         FindNewElixir.addBeh(new BehFindNewElixir());
         FindNewElixir.addBeh(new BehCraftElixir());
         FindNewElixir.addBeh(new BehExitBuilding());
+        FindNewElixir.setIcon("cultiway/icons/iconElixirCauldron");
         
         CreateCultibook.addBeh(new BehBuildingTargetHome());
         CreateCultibook.addBeh(new BehGetTargetBuildingMainTile());
@@ -115,6 +117,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         WriteCultibook.addBeh(new BehWriteCultibook());
         WriteCultibook.addBeh(new BehExitBuilding());
         WriteCultibook.addBeh(new BehEndJob());
+        WriteCultibook.setIcon("cultiway/icons/iconWriting");
         
         WriteElixirbook.addBeh(new BehBuildingTargetHome());
         WriteElixirbook.addBeh(new BehGetTargetBuildingMainTile());
@@ -123,6 +126,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         WriteElixirbook.addBeh(new BehWriteElixirRecipe());
         WriteElixirbook.addBeh(new BehExitBuilding());
         WriteElixirbook.addBeh(new BehEndJob());
+        WriteElixirbook.setIcon("cultiway/icons/iconWriting");
         
         WriteSkillbook.addBeh(new BehBuildingTargetHome());
         WriteSkillbook.addBeh(new BehGetTargetBuildingMainTile());
@@ -131,7 +135,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         WriteSkillbook.addBeh(new BehWriteSkillbook());
         WriteSkillbook.addBeh(new BehExitBuilding());
         WriteSkillbook.addBeh(new BehEndJob());
-        
+        WriteSkillbook.setIcon("cultiway/icons/iconWriting");
         
         CallSourceSpawner.addBeh(new BehHoldSimpleCeremony());
         CallSourceSpawner.addBeh(new BehCallSourceSpawner());
