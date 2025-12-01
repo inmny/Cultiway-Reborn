@@ -92,7 +92,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             var actor = owner.GetComponent<ActorBinder>().Actor;
             if (actor == null || !actor.isAlive()) continue;
             ref var element = ref tickState.Element;
-            actor.GetExtend().GetHit(damage, ref element, tickState.Source);
+            ref var statusComp = ref statusEntity.GetComponent<StatusComponent>();
+            actor.GetExtend().GetHit(damage, ref element, statusComp.Source);
         }
     }
 
@@ -109,7 +110,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             var actor = owner.GetComponent<ActorBinder>().Actor;
             if (actor == null || !actor.isAlive()) continue;
             ref var element = ref tickState.Element;
-            actor.GetExtend().GetHit(damage, ref element, tickState.Source);
+            ref var statusComp = ref statusEntity.GetComponent<StatusComponent>();
+            actor.GetExtend().GetHit(damage, ref element, statusComp.Source);
         }
     }
 }

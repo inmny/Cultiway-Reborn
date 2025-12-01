@@ -318,10 +318,54 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         e.RemoveRelation<InventoryRelation>(item);
     }
 
-    public void AddSharedStatus(Entity item)
+    public bool AddSharedStatus(Entity item)
     {
+        // 检查是否是负面状态
+        if (item.TryGetComponent(out StatusComponent statusComponent))
+        {
+            var statusAsset = statusComponent.Type;
+            if (statusAsset != null && statusAsset.GetExtend<StatusAssetExtend>().negative)
+            {
+                // 从StatusComponent获取施加方信息
+                BaseSimObject source = null;
+                if (item.TryGetComponent(out StatusComponent statusComp))
+                {
+                    source = statusComp.Source;
+                }
+
+                // 如果有施加方信息，计算powerlevel差距并调整状态时长
+                if (source != null && source.isActor())
+                {
+                    var sourcePowerLevel = source.a.GetExtend().GetPowerLevel();
+                    var targetPowerLevel = GetPowerLevel();
+                    var powerLevelDiff = sourcePowerLevel - targetPowerLevel;
+
+                    // 如果目标powerlevel更高，减少状态时长
+                    // 差距越大，减少越多（使用对数衰减）
+                    if (powerLevelDiff < 0)
+                    {
+                        var reductionFactor = Mathf.Exp(powerLevelDiff * 0.1f); // 每差1级，效果减少约10%
+                        if (item.TryGetComponent(out AliveTimeLimit timeLimit))
+                        {
+                            var originalDuration = timeLimit.value;
+                            var adjustedDuration = originalDuration * reductionFactor;
+                            
+                            // 如果调整后的时长过短（小于0.1秒），则不添加状态
+                            if (adjustedDuration < 0.1f)
+                            {
+                                return false;
+                            }
+                            
+                            timeLimit.value = adjustedDuration;
+                        }
+                    }
+                }
+            }
+        }
+
         e.AddRelation(new StatusRelation { status = item });
         Base.setStatsDirty();
+        return true;
     }
 
     public void RemoveSharedStatus(Entity item)

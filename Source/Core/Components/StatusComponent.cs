@@ -1,3 +1,4 @@
+using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Friflo.Engine.ECS;
 using Friflo.Json.Fliox;
@@ -18,4 +19,10 @@ public struct StatusComponent : IComponent
             return _type;
         }
     }
+    
+    /// <summary>
+    /// 状态施加方信息，用于计算powerlevel差距
+    /// </summary>
+    [Ignore]
+    public BaseSimObject Source;
 }

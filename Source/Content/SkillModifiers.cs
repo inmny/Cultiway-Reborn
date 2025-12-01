@@ -488,6 +488,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
         var container = skill.SkillContainer;
         if (container.IsNull || !container.TryGetComponent(out SlowModifier slow)) return;
+        if (!skillEntity.TryGetComponent(out SkillContext context)) return;
 
         var duration = Mathf.Clamp(slow.Duration, 0f, 999f);
         var strength = Mathf.Clamp(slow.Strength, 0f, 1f);
@@ -500,6 +501,9 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         {
             Value = strength
         });
+        // 设置施加方信息，用于计算powerlevel差距
+        ref var statusComp = ref status.GetComponent<StatusComponent>();
+        statusComp.Source = context.SourceObj;
         target.a.GetExtend().AddSharedStatus(status);
     }
 
@@ -511,6 +515,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
         var container = skill.SkillContainer;
         if (container.IsNull || !container.TryGetComponent(out FreezeModifier freeze)) return;
+        if (!skillEntity.TryGetComponent(out SkillContext context)) return;
 
         var duration = Mathf.Clamp(freeze.Duration, 0f, 999f);
         if (duration <= 0f) return;
@@ -518,6 +523,9 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var status = StatusEffects.Freeze.NewEntity();
         ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
         timeLimit.value = duration;
+        // 设置施加方信息，用于计算powerlevel差距
+        ref var statusComp = ref status.GetComponent<StatusComponent>();
+        statusComp.Source = context.SourceObj;
         target.a.GetExtend().AddSharedStatus(status);
     }
 
@@ -651,12 +659,20 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         if (burnStatus.IsNull)
         {
             burnStatus = StatusEffects.Burn.NewEntity();
+            ref var timeLimit = ref burnStatus.GetComponent<AliveTimeLimit>();
+            timeLimit.value = duration;
+            // 先设置Source信息，用于AddSharedStatus时计算powerlevel差距
+            ref var statusComp = ref burnStatus.GetComponent<StatusComponent>();
+            statusComp.Source = context.SourceObj;
+            ApplyDamageTickState(ref burnStatus, dps, element, context.SourceObj);
             actorExtend.AddSharedStatus(burnStatus);
         }
-
-        ref var timeLimit = ref burnStatus.GetComponent<AliveTimeLimit>();
-        timeLimit.value = duration;
-        ApplyDamageTickState(ref burnStatus, dps, element, context.SourceObj);
+        else
+        {
+            ref var timeLimit = ref burnStatus.GetComponent<AliveTimeLimit>();
+            timeLimit.value = duration;
+            ApplyDamageTickState(ref burnStatus, dps, element, context.SourceObj);
+        }
     }
 
     // 击中单位时附加中毒效果
@@ -681,8 +697,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
             if (statusEntity.IsNull || !statusEntity.TryGetComponent(out StatusComponent statusComponent)) continue;
             if (statusComponent.Type == StatusEffects.Poison)
             {
-                ref var tickState = ref statusEntity.GetComponent<StatusTickState>();
-                if (tickState.Source != context.SourceObj) continue;
+                if (statusComponent.Source != context.SourceObj) continue;
 
                 poisonStatuses.Add(statusEntity);
             }
@@ -702,6 +717,9 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var status = StatusEffects.Poison.NewEntity();
         ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
         timeLimit.value = duration;
+        // 先设置Source信息，用于AddSharedStatus时计算powerlevel差距
+        ref var statusComp = ref status.GetComponent<StatusComponent>();
+        statusComp.Source = context.SourceObj;
         ApplyDamageTickState(ref status, damagePerSecond, element, context.SourceObj);
         actorExtend.AddSharedStatus(status);
     }
@@ -711,7 +729,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         ref var tickState = ref status.GetComponent<StatusTickState>();
         tickState.Value = dps;
         tickState.Element = element;
-        tickState.Source = source;
+        // Source已移到StatusComponent中，这里不再设置
     }
 
     private static void RefreshExistingPoison(float duration, float dps, ElementComposition element, BaseSimObject source, List<Entity> poisonStatuses)
@@ -790,6 +808,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
         var container = skill.SkillContainer;
         if (container.IsNull || !container.TryGetComponent(out WeakenModifier weaken)) return;
+        if (!skillEntity.TryGetComponent(out SkillContext context)) return;
 
         var duration = Mathf.Clamp(weaken.Duration, 0f, 999f);
         if (duration <= 0f) return;
@@ -803,6 +822,12 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var status = GetOrCreateStatus(actorExtend, StatusEffects.Weaken);
         ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
         timeLimit.value = duration;
+        // 设置施加方信息，用于计算powerlevel差距
+        ref var statusComp = ref status.GetComponent<StatusComponent>();
+        if (statusComp.Source == null)
+        {
+            statusComp.Source = context.SourceObj;
+        }
 
         var stats = PrepareOverwriteStats(status);
         if (attackDelta > 0f)
@@ -819,6 +844,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
         var container = skill.SkillContainer;
         if (container.IsNull || !container.TryGetComponent(out ArmorBreakModifier armorBreak)) return;
+        if (!skillEntity.TryGetComponent(out SkillContext context)) return;
 
         var duration = Mathf.Clamp(armorBreak.Duration, 0f, 999f);
         if (duration <= 0f) return;
@@ -831,6 +857,12 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var status = GetOrCreateStatus(actorExtend, StatusEffects.ArmorBreak);
         ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
         timeLimit.value = duration;
+        // 设置施加方信息，用于计算powerlevel差距
+        ref var statusComp = ref status.GetComponent<StatusComponent>();
+        if (statusComp.Source == null)
+        {
+            statusComp.Source = context.SourceObj;
+        }
 
         var stats = PrepareOverwriteStats(status);
         stats[S.armor] = -armorDelta;
