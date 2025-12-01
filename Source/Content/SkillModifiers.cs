@@ -151,9 +151,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     private static bool AddOrUpgradeSlow(SkillContainerBuilder builder)
     {
         const float minDuration = 3f;
-        const float maxDuration = 5f;
         const float minStrength = 0.3f;
-        const float maxStrength = 0.5f;
         const float durationStep = 0.5f;
         const float strengthStep = 0.05f;
 
@@ -169,29 +167,14 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
 
         var modifier = builder.GetModifier<SlowModifier>();
         var upgradeDuration = Random.value < 0.5f;
-        var changed = false;
-        if (upgradeDuration && modifier.Duration < maxDuration)
+        if (upgradeDuration)
         {
-            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
-            changed = true;
+            modifier.Duration += durationStep;
         }
-        else if (!upgradeDuration && modifier.Strength < maxStrength)
+        else
         {
-            modifier.Strength = Mathf.Min(maxStrength, modifier.Strength + strengthStep);
-            changed = true;
+            modifier.Strength += strengthStep;
         }
-        else if (modifier.Duration < maxDuration)
-        {
-            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
-            changed = true;
-        }
-        else if (modifier.Strength < maxStrength)
-        {
-            modifier.Strength = Mathf.Min(maxStrength, modifier.Strength + strengthStep);
-            changed = true;
-        }
-
-        if (!changed) return false;
         builder.SetModifier(modifier);
         return true;
     }
@@ -199,9 +182,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     private static bool AddOrUpgradeExplosion(SkillContainerBuilder builder)
     {
         const float minRadius = 1.5f;
-        const float maxRadius = 3f;
         const float minDamageRatio = 0.5f;
-        const float maxDamageRatio = 1f;
         const float radiusStep = 0.3f;
         const float damageRatioStep = 0.1f;
 
@@ -217,29 +198,14 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
 
         var modifier = builder.GetModifier<ExplosionModifier>();
         var upgradeRadius = Random.value < 0.5f;
-        var changed = false;
-        if (upgradeRadius && modifier.Radius < maxRadius)
+        if (upgradeRadius)
         {
-            modifier.Radius = Mathf.Min(maxRadius, modifier.Radius + radiusStep);
-            changed = true;
+            modifier.Radius += radiusStep;
         }
-        else if (!upgradeRadius && modifier.DamageRatio < maxDamageRatio)
+        else
         {
-            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
-            changed = true;
+            modifier.DamageRatio += damageRatioStep;
         }
-        else if (modifier.Radius < maxRadius)
-        {
-            modifier.Radius = Mathf.Min(maxRadius, modifier.Radius + radiusStep);
-            changed = true;
-        }
-        else if (modifier.DamageRatio < maxDamageRatio)
-        {
-            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
-            changed = true;
-        }
-
-        if (!changed) return false;
         builder.SetModifier(modifier);
         return true;
     }
@@ -247,9 +213,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     private static bool AddOrUpgradeGravity(SkillContainerBuilder builder)
     {
         const float minRadius = 2f;
-        const float maxRadius = 5f;
         const float minStrength = 0.5f;
-        const float maxStrength = 2f;
         const float radiusStep = 0.5f;
         const float strengthStep = 0.2f;
 
@@ -265,29 +229,14 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
 
         var modifier = builder.GetModifier<GravityModifier>();
         var upgradeRadius = Random.value < 0.5f;
-        var changed = false;
-        if (upgradeRadius && modifier.Radius < maxRadius)
+        if (upgradeRadius)
         {
-            modifier.Radius = Mathf.Min(maxRadius, modifier.Radius + radiusStep);
-            changed = true;
+            modifier.Radius += radiusStep;
         }
-        else if (!upgradeRadius && modifier.Strength < maxStrength)
+        else
         {
-            modifier.Strength = Mathf.Min(maxStrength, modifier.Strength + strengthStep);
-            changed = true;
+            modifier.Strength += strengthStep;
         }
-        else if (modifier.Radius < maxRadius)
-        {
-            modifier.Radius = Mathf.Min(maxRadius, modifier.Radius + radiusStep);
-            changed = true;
-        }
-        else if (modifier.Strength < maxStrength)
-        {
-            modifier.Strength = Mathf.Min(maxStrength, modifier.Strength + strengthStep);
-            changed = true;
-        }
-
-        if (!changed) return false;
         builder.SetModifier(modifier);
         return true;
     }
@@ -295,10 +244,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     private static bool AddOrUpgradeWeaken(SkillContainerBuilder builder)
     {
         const float minDuration = 5f;
-        const float maxDuration = 10f;
         const float durationStep = 1f;
         const float minReduction = 0.2f;
-        const float maxReduction = 0.4f;
         const float reductionStep = 0.05f;
 
         if (!builder.HasModifier<WeakenModifier>())
@@ -312,24 +259,14 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         var modifier = builder.GetModifier<WeakenModifier>();
-        var changed = false;
-        if (Random.value < 0.5f && modifier.Duration < maxDuration)
+        if (Random.value < 0.5f)
         {
-            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
-            changed = true;
+            modifier.Duration += durationStep;
         }
-        else if (modifier.AttackReduction < maxReduction)
+        else
         {
-            modifier.AttackReduction = Mathf.Min(maxReduction, modifier.AttackReduction + reductionStep);
-            changed = true;
+            modifier.AttackReduction += reductionStep;
         }
-        else if (modifier.Duration < maxDuration)
-        {
-            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
-            changed = true;
-        }
-
-        if (!changed) return false;
         builder.SetModifier(modifier);
         return true;
     }
@@ -337,10 +274,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     private static bool AddOrUpgradeArmorBreak(SkillContainerBuilder builder)
     {
         const float minDuration = 3f;
-        const float maxDuration = 6f;
         const float durationStep = 0.5f;
         const float minReduction = 0.5f;
-        const float maxReduction = 0.8f;
         const float reductionStep = 0.05f;
 
         if (!builder.HasModifier<ArmorBreakModifier>())
@@ -354,24 +289,14 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         var modifier = builder.GetModifier<ArmorBreakModifier>();
-        var changed = false;
-        if (Random.value < 0.5f && modifier.Duration < maxDuration)
+        if (Random.value < 0.5f)
         {
-            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
-            changed = true;
+            modifier.Duration += durationStep;
         }
-        else if (modifier.ArmorReduction < maxReduction)
+        else
         {
-            modifier.ArmorReduction = Mathf.Min(maxReduction, modifier.ArmorReduction + reductionStep);
-            changed = true;
+            modifier.ArmorReduction += reductionStep;
         }
-        else if (modifier.Duration < maxDuration)
-        {
-            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
-            changed = true;
-        }
-
-        if (!changed) return false;
         builder.SetModifier(modifier);
         return true;
     }
@@ -379,7 +304,6 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     private static bool AddOrUpgradeHaste(SkillContainerBuilder builder)
     {
         const float minMultiplier = 0.5f;
-        const float maxMultiplier = 1f;
         const float step = 0.1f;
 
         if (!builder.HasModifier<HasteModifier>())
@@ -392,9 +316,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         var modifier = builder.GetModifier<HasteModifier>();
-        if (modifier.SpeedMultiplier >= maxMultiplier) return false;
-
-        modifier.SpeedMultiplier = Mathf.Min(maxMultiplier, modifier.SpeedMultiplier + step);
+        modifier.SpeedMultiplier += step;
         builder.SetModifier(modifier);
         return true;
     }
@@ -402,7 +324,6 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     private static bool AddOrUpgradeEmpower(SkillContainerBuilder builder)
     {
         const float minSetup = 0.2f;
-        const float maxSetup = 0.4f;
         const float step = 0.05f;
 
         if (!builder.HasModifier<EmpowerModifier>())
@@ -415,20 +336,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         var modifier = builder.GetModifier<EmpowerModifier>();
-        var changed = false;
-        var roll = Random.value;
-        if (roll < 0.5f && modifier.SetupBonus < maxSetup)
-        {
-            modifier.SetupBonus = Mathf.Min(maxSetup, modifier.SetupBonus + step);
-            changed = true;
-        }
-        else if (modifier.SetupBonus < maxSetup)
-        {
-            modifier.SetupBonus = Mathf.Min(maxSetup, modifier.SetupBonus + step);
-            changed = true;
-        }
-
-        if (!changed) return false;
+        modifier.SetupBonus += step;
         builder.SetModifier(modifier);
         return true;
     }
@@ -436,10 +344,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     private static bool AddOrUpgradeBurn(SkillContainerBuilder builder)
     {
         const float minDuration = 4f;
-        const float maxDuration = 8f;
         const float durationStep = 0.5f;
         const float minDamageRatio = 0.15f;
-        const float maxDamageRatio = 0.25f;
         const float damageRatioStep = 0.02f;
 
         if (!builder.HasModifier<BurnModifier>())
@@ -453,25 +359,15 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         var modifier = builder.GetModifier<BurnModifier>();
-        var changed = false;
         var roll = Random.value;
-        if (roll < 0.5f && modifier.DamageRatio < maxDamageRatio)
+        if (roll < 0.5f)
         {
-            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
-            changed = true;
+            modifier.DamageRatio += damageRatioStep;
         }
-        else if (modifier.Duration < maxDuration)
+        else
         {
-            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
-            changed = true;
+            modifier.Duration += durationStep;
         }
-        else if (modifier.DamageRatio < maxDamageRatio)
-        {
-            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
-            changed = true;
-        }
-
-        if (!changed) return false;
         builder.SetModifier(modifier);
         return true;
     }
@@ -479,7 +375,6 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     private static bool AddOrUpgradeHuge(SkillContainerBuilder builder)
     {
         const float minScale = 1.2f;
-        const float maxScale = 1.8f;
         const float scaleStep = 0.1f;
 
         if (!builder.HasModifier<HugeModifier>())
@@ -492,20 +387,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         var modifier = builder.GetModifier<HugeModifier>();
-        var changed = false;
-        var roll = Random.value;
-        if (roll < 0.5f && modifier.Value < maxScale)
-        {
-            modifier.Value = Mathf.Min(maxScale, modifier.Value + scaleStep);
-            changed = true;
-        }
-        else if (modifier.Value < maxScale)
-        {
-            modifier.Value = Mathf.Min(maxScale, modifier.Value + scaleStep);
-            changed = true;
-        }
-
-        if (!changed) return false;
+        modifier.Value += scaleStep;
         builder.SetModifier(modifier);
         return true;
     }
@@ -513,13 +395,10 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     private static bool AddOrUpgradePoison(SkillContainerBuilder builder)
     {
         const float minDuration = 5f;
-        const float maxDuration = 10f;
         const float durationStep = 1f;
         const float minDamageRatio = 0.1f;
-        const float maxDamageRatio = 0.2f;
         const float damageRatioStep = 0.02f;
         const int minStacks = 3;
-        const int maxStacks = 5;
 
         if (!builder.HasModifier<PoisonModifier>())
         {
@@ -533,40 +412,19 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         var modifier = builder.GetModifier<PoisonModifier>();
-        var changed = false;
         var roll = Random.value;
-        if (roll < 0.4f && modifier.DamageRatio < maxDamageRatio)
+        if (roll < 0.4f)
         {
-            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
-            changed = true;
+            modifier.DamageRatio += damageRatioStep;
         }
-        else if (roll < 0.75f && modifier.Duration < maxDuration)
+        else if (roll < 0.75f)
         {
-            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
-            changed = true;
+            modifier.Duration += durationStep;
         }
-        else if (modifier.MaxStacks < maxStacks)
+        else
         {
-            modifier.MaxStacks = Mathf.Min(maxStacks, modifier.MaxStacks + 1);
-            changed = true;
+            modifier.MaxStacks += 1;
         }
-        else if (modifier.DamageRatio < maxDamageRatio)
-        {
-            modifier.DamageRatio = Mathf.Min(maxDamageRatio, modifier.DamageRatio + damageRatioStep);
-            changed = true;
-        }
-        else if (modifier.Duration < maxDuration)
-        {
-            modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
-            changed = true;
-        }
-        else if (modifier.MaxStacks < maxStacks)
-        {
-            modifier.MaxStacks = Mathf.Min(maxStacks, modifier.MaxStacks + 1);
-            changed = true;
-        }
-
-        if (!changed) return false;
         builder.SetModifier(modifier);
         return true;
     }
@@ -574,10 +432,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     private static bool AddOrUpgradeKnockback(SkillContainerBuilder builder)
     {
         const float minDistance = 2f;
-        const float maxDistance = 5f;
         const float distanceStep = 0.5f;
         const float minHeight = 1f;
-        const float maxHeight = 3f;
         const float heightStep = 0.3f;
 
         if (!builder.HasModifier<KnockbackModifier>())
@@ -591,25 +447,15 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         var modifier = builder.GetModifier<KnockbackModifier>();
-        var changed = false;
         var roll = Random.value;
-        if (roll < 0.5f && modifier.Distance < maxDistance)
+        if (roll < 0.5f)
         {
-            modifier.Distance = Mathf.Min(maxDistance, modifier.Distance + distanceStep);
-            changed = true;
+            modifier.Distance += distanceStep;
         }
-        else if (modifier.Height < maxHeight)
+        else
         {
-            modifier.Height = Mathf.Min(maxHeight, modifier.Height + heightStep);
-            changed = true;
+            modifier.Height += heightStep;
         }
-        else if (modifier.Distance < maxDistance)
-        {
-            modifier.Distance = Mathf.Min(maxDistance, modifier.Distance + distanceStep);
-            changed = true;
-        }
-
-        if (!changed) return false;
         builder.SetModifier(modifier);
         return true;
     }
@@ -617,7 +463,6 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     private static bool AddOrUpgradeFreeze(SkillContainerBuilder builder)
     {
         const float minDuration = 2f;
-        const float maxDuration = 5f;
         const float durationStep = 0.5f;
 
         if (!builder.HasModifier<FreezeModifier>())
@@ -630,8 +475,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         var modifier = builder.GetModifier<FreezeModifier>();
-        if (modifier.Duration >= maxDuration) return false;
-        modifier.Duration = Mathf.Min(maxDuration, modifier.Duration + durationStep);
+        modifier.Duration += durationStep;
         builder.SetModifier(modifier);
         return true;
     }
