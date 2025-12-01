@@ -57,10 +57,10 @@ public static class ActorExtendTools
 
             var builder = new SkillContainerBuilder(skill_container_entity);
             var existing_ids = CollectModifierIds(skill_container_entity);
-            var candidate_assets = new List<SkillModifierAsset>();
-            var weight_accum = new List<int>();
             var conflict_tags = CollectConflictTags(existing_ids);
-            var total = 0;
+            
+            // 按稀有度分组候选词条
+            var candidatesByRarity = new Dictionary<SkillModifierRarity, List<(SkillModifierAsset asset, float weight)>>();
             foreach (SkillModifierAsset asset in ModClass.I.SkillV3.ModifierLib.list)
             {
                 if (asset == null) continue;
@@ -71,20 +71,62 @@ public static class ActorExtendTools
                 var alreadyHas = existing_ids.Contains(asset.id);
                 if (!alreadyHas && asset.ConflictTags.Any(conflict_tags.Contains)) continue;
 
-                // 如果词条已存在，增加权重以倾向于升级（权重提升 5 倍）
-                var weight = alreadyHas ? baseWeight * 5 : baseWeight;
+                // 计算权重：基础权重 * weightMod * (如果已存在则提升5倍)
+                var weight = baseWeight * asset.WeightMod;
+                if (alreadyHas)
+                {
+                    weight *= 5f; // 倾向于升级已有词条
+                }
 
-                total += weight;
-                candidate_assets.Add(asset);
-                weight_accum.Add(total);
+                if (!candidatesByRarity.ContainsKey(asset.Rarity))
+                {
+                    candidatesByRarity[asset.Rarity] = new List<(SkillModifierAsset, float)>();
+                }
+                candidatesByRarity[asset.Rarity].Add((asset, weight));
             }
 
-            if (candidate_assets.Count == 0) return;
+            if (candidatesByRarity.Count == 0) return;
 
-            var chosen_index = RdUtils.RandomIndexWithAccumWeight(weight_accum.ToArray());
-            var chosen_asset = candidate_assets[chosen_index];
+            // 计算每个稀有度的总权重（用于决定稀有度）
+            var rarityWeightAccum = new List<float>();
+            var rarityList = new List<SkillModifierRarity>();
+            var totalRarityWeight = 0f;
+            foreach (var rarity in new[] { SkillModifierRarity.Common, SkillModifierRarity.Rare, SkillModifierRarity.Epic, SkillModifierRarity.Legendary })
+            {
+                if (!candidatesByRarity.ContainsKey(rarity)) continue;
+                var rarityTotalWeight = candidatesByRarity[rarity].Sum(x => x.weight);
+                if (rarityTotalWeight > 0)
+                {
+                    totalRarityWeight += rarityTotalWeight;
+                    rarityWeightAccum.Add(totalRarityWeight);
+                    rarityList.Add(rarity);
+                }
+            }
 
-            if (chosen_asset.OnAddOrUpgrade?.Invoke(builder) ?? false)
+            if (rarityList.Count == 0) return;
+
+            // 先决定稀有度
+            var chosenRarityIndex = RdUtils.RandomIndexWithAccumWeight(rarityWeightAccum);
+            var chosenRarity = rarityList[chosenRarityIndex];
+            var candidatesInRarity = candidatesByRarity[chosenRarity];
+
+            // 在对应稀有度池中随机选择（应用weightMod和升级权重）
+            var candidateWeightAccum = new List<float>();
+            var candidateAssets = new List<SkillModifierAsset>();
+            var acc = 0f;
+            foreach (var (asset, weight) in candidatesInRarity)
+            {
+                acc += weight;
+                candidateWeightAccum.Add(acc);
+                candidateAssets.Add(asset);
+            }
+
+            if (candidateAssets.Count == 0) return;
+
+            var chosenIndex = RdUtils.RandomIndexWithAccumWeight(candidateWeightAccum);
+            var chosenAsset = candidateAssets[chosenIndex];
+
+            if (chosenAsset.OnAddOrUpgrade?.Invoke(builder) ?? false)
             {
                 //ModClass.LogInfo($"[{ae}] enhanced {skill_container_entity.Id}({skill_container_entity.GetComponent<SkillContainer>().Asset})");
                 builder.Build();

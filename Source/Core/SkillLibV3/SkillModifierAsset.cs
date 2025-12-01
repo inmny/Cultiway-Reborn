@@ -68,6 +68,11 @@ public class SkillModifierAsset : Asset
     public SkillModifierRarity Rarity = SkillModifierRarity.Common;
 
     /// <summary>
+    /// 权重修正，用于细调该词条的抽取概率（默认为1）
+    /// </summary>
+    public float WeightMod = 1f;
+
+    /// <summary>
     /// 冲突标签，用于互斥判定
     /// </summary>
     public HashSet<string> ConflictTags { get; } = new();

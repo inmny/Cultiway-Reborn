@@ -43,7 +43,8 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
         SalvoCount = add(new SkillModifierAsset()
         {
             id = "Cultiway."+nameof(SalvoCount),
-            Rarity = SkillModifierRarity.Common  // 设置为普通稀有度，提高出现概率
+            Rarity = SkillModifierRarity.Common,  // 设置为普通稀有度，提高出现概率
+            WeightMod = 4f  // 权重修正为4，进一步提高出现概率
         });
         SalvoCount.OnAddOrUpgrade = builder =>
         {
@@ -76,7 +77,8 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
         BurstCount = add(new SkillModifierAsset()
         {
             id = "Cultiway."+nameof(BurstCount),
-            Rarity = SkillModifierRarity.Common  // 设置为普通稀有度，提高出现概率
+            Rarity = SkillModifierRarity.Common,  // 设置为普通稀有度，提高出现概率
+            WeightMod = 4f  // 权重修正为4，进一步提高出现概率
         });
         BurstCount.OnAddOrUpgrade = builder =>
         {
