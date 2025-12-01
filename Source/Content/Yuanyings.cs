@@ -1,9 +1,15 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
 using Cultiway.Content.Libraries;
+using Cultiway.Core;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Utils;
+using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content;
-[Dependency(typeof(Jindans))]
+[Dependency(typeof(Jindans), typeof(SkillEntities))]
 public class Yuanyings : ExtendLibrary<YuanyingAsset, Yuanyings>
 {
     public static YuanyingAsset Common { get; private set; }
@@ -72,14 +78,52 @@ public class Yuanyings : ExtendLibrary<YuanyingAsset, Yuanyings>
             {
                 continue;
             }
+            // 从对应的金丹复制元素组成
+            yuanying_asset.composition = jindan_asset.composition;
             Map(yuanying_asset, jindan_asset);
             Map(yuanying_asset, Jindans.Common);
         }
+        
+        AddEffects();
     }
 
     private void Map(YuanyingAsset yuanying, JindanAsset jindan)
     {
         var library = cached_library as YuanyingLibrary;
         library?.Map(yuanying, jindan);
+    }
+
+    [Hotfixable]
+    private void AddEffects()
+    {
+        foreach (var yuanying in assets_added)
+        {
+            yuanying.skills.Clear();
+            yuanying.skill_acc_weight.Clear();
+            var skill_similarities = new Dictionary<SkillEntityAsset, float>();
+            var composition_array = yuanying.composition.AsArray();
+            foreach (var skill_entity in ModClass.I.SkillV3.SkillLib.list)
+            {
+                var skill_composition = skill_entity.Element.AsArray();
+                var similarity = MathUtils.CosineSimilarity(composition_array, skill_composition);
+                skill_similarities[skill_entity] = similarity;
+            }
+
+            var sorted = skill_similarities
+                .OrderByDescending(pair => pair.Value)
+                .ToList();
+            var acc = 0f;
+            foreach (var pair in sorted)
+            {
+                acc += pair.Value;
+                yuanying.skill_acc_weight.Add(acc);
+                yuanying.skills.Add(pair.Key);
+            }
+        }
+    }
+
+    public override void OnReload()
+    {
+        AddEffects();
     }
 }

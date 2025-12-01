@@ -215,6 +215,13 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 var elementRoot = ae.GetElementRoot();
                 PlantNameGenerator.Instance.NewNameGenerateRequest(GetPlantNameParams(ae, Xian.GetLevelName(ae.GetCultisys<Xian>().CurrLevel), elementRoot.Type.GetName(), yuanying.GetName()), ae.Base);
             }
+            // 从元婴的法术池中随机学习一个法术
+            if (yuanying.skills.Count > 0)
+            {
+                var skill_entity_asset = yuanying.skills[RdUtils.RandomIndexWithAccumWeight(yuanying.skill_acc_weight)];
+                
+                ae.LearnSkillV3(new SkillContainerBuilder(skill_entity_asset).Build());
+            }
             return true;
         }
         if (jindan.stage < 10000)
