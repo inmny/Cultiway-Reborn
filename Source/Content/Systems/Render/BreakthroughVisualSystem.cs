@@ -41,6 +41,33 @@ public class BreakthroughVisualSystem : QuerySystem<ActorBinder, RealmVisual, Xi
     [Hotfixable]
     protected override void OnUpdate()
     {
+        var delta = Tick.deltaTime > 0 ? Tick.deltaTime : Time.deltaTime;
+        
+        // 第一部分：处理计时器减少和组件回收（总是执行）
+        Query.ForEachEntity((ref ActorBinder binder, ref RealmVisual visual, ref XianBreakthroughState state, Entity entity) =>
+        {
+            var actor = binder.Actor;
+            if (actor == null || !actor.isAlive())
+            {
+                return;
+            }
+            state.visual_timer -= delta;
+
+            if (state.visual_timer <= 0f)
+            {
+                state.visual_timer = 0f;
+                if (visual.visual_state == RealmVisual.VisualStateBreakthrough)
+                {
+                    visual.visual_state = RealmVisual.VisualStateDefault;
+                }
+                CommandBuffer.RemoveComponent<XianBreakthroughState>(entity.Id);
+                return;
+            }
+        });
+        
+        CommandBuffer.Playback();
+
+        // 第二部分：处理粒子渲染（只在渲染时执行）
         var manager = BreakthroughVisualManager.Instance;
         if (manager == null || !manager.Enabled)
         {
@@ -58,13 +85,10 @@ public class BreakthroughVisualSystem : QuerySystem<ActorBinder, RealmVisual, Xi
             return;
         }
 
-        var delta = Tick.deltaTime > 0 ? Tick.deltaTime : Time.deltaTime;
-
         // 获取游戏倍率并应用到粒子系统
         var timeScale = Mathf.Max(0.01f, Config.time_scale_asset.multiplier);
         var main = emitter.main;
         main.simulationSpeed = timeScale;
-
 
         Query.ForEachEntity((ref ActorBinder binder, ref RealmVisual visual, ref XianBreakthroughState state, Entity entity) =>
         {
@@ -73,27 +97,9 @@ public class BreakthroughVisualSystem : QuerySystem<ActorBinder, RealmVisual, Xi
             {
                 return;
             }
-
-            if (state.visual_timer <= 0f)
-            {
-                state.visual_timer = 0f;
-                if (visual.visual_state == RealmVisual.VisualStateBreakthrough)
-                {
-                    visual.visual_state = RealmVisual.VisualStateDefault;
-                }
-                return;
-            }
-
-            state.visual_timer -= delta;
-            if (!actor.is_visible)
-            {
-                return;
-            }
-
             var def = manager.GetDefinition(state.visual_level);
             if (def == null)
             {
-                state.visual_timer = 0f;
                 return;
             }
             visual.visual_state = RealmVisual.VisualStateBreakthrough;
@@ -117,13 +123,6 @@ public class BreakthroughVisualSystem : QuerySystem<ActorBinder, RealmVisual, Xi
                     break;
             }
         });
-    
-        Query.ForEachEntity((ref ActorBinder binder, ref RealmVisual visual, ref XianBreakthroughState state, Entity entity) =>
-        {
-            if (state.visual_timer > 0f) return;
-            CommandBuffer.RemoveComponent<XianBreakthroughState>(entity.Id);
-        });
-        CommandBuffer.Playback();
     }
 
     private static void EmitQiToFoundation(ParticleSystem emitter, BreakthroughVisualDefinition def, Vector3 position, float scale, float time)
