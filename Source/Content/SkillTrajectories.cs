@@ -159,7 +159,6 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             return target_normalized;
         }
         
-        // 否则，按最大角度转向
         var axis = Vector3.Cross(current_normalized, target_normalized);
         if (axis.sqrMagnitude < 0.0001f)
         {
@@ -167,15 +166,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         }
         
         axis.Normalize();
+        // 否则，按最大角度转向
         var rotation = Quaternion.AngleAxis(max_angle_degrees, axis);
-        // 打印转向前后的角度差（单位：度）
-
-        var result = rotation * current_normalized;
-
-        var dot_after = Vector3.Dot(result, target_normalized);
-        dot_after = Mathf.Clamp(dot_after, -1f, 1f);
-        var after_angle_rad = Mathf.Acos(dot_after);
-        var after_angle_deg = after_angle_rad * Mathf.Rad2Deg;
         return rotation * current_normalized;
     }
 }
