@@ -11,6 +11,7 @@ public class Manager
     public ForceTypeLibrary ForceTypeLibrary { get; } = new();
     public SectBannerLibrary SectBannerLibrary { get; } = new();
     public ImageTemplateLibrary ImageTemplateLibrary { get; } = new();
+    public OperationLibrary OperationLibrary { get; } = new();
 
     public void Init()
     {
@@ -23,6 +24,7 @@ public class Manager
         AssetManager._instance.add(ForceTypeLibrary, "force_types");
         AssetManager._instance.add(SectBannerLibrary, "sect_banners");
         AssetManager._instance.add(ImageTemplateLibrary, "image_templates");
+        AssetManager._instance.add(OperationLibrary, "operations");
     }
 
     public void LinkAssets()
@@ -36,6 +38,7 @@ public class Manager
         ForceTypeLibrary.post_init();
         SectBannerLibrary.post_init();
         ImageTemplateLibrary.post_init();
+        OperationLibrary.post_init();
     }
     public void PostInit()
     {
@@ -48,5 +51,6 @@ public class Manager
         ForceTypeLibrary.post_init();
         SectBannerLibrary.post_init();
         ImageTemplateLibrary.post_init();
+        OperationLibrary.post_init();
     }
 }
