@@ -20,7 +20,7 @@ public class WorldRecord
         where T : ICultisysComponent
     {
         string key = $"{cultisys}_{component.CurrLevel}";
-        if (!_tags.Add(key)) return;
+        if (!_tags.Add(key) && !ae.Base.isFavorite()) return;
 
         WorldLogUtils.LogCultisysLevelup(ae, ref component);
     }
