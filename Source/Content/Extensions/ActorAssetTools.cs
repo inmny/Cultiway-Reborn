@@ -1,12 +1,69 @@
 using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
+using strings;
 
 namespace Cultiway.Content.Extensions;
 
 public static class ActorAssetTools
 {
+    /// <summary>
+    /// 添加肤色
+    /// </summary>
+    /// <param name="phenotype_id">肤色组id</param>
+    /// <param name="type">应用到哪个群系</param>
+    public static ActorAsset AddPhenotype(this ActorAsset asset, string phenotype_id, string type = "default_color")
+    {
+        if (asset.phenotypes_list == null)
+        {
+            asset.phenotypes_list = [];
+        }
+        if (asset.phenotypes_dict == null)
+        {
+            asset.phenotypes_dict = [];
+        }
+        asset.phenotypes_list.Add(phenotype_id);
+        asset.phenotypes_dict[type] ??= [];
+        asset.phenotypes_dict[type].Add(phenotype_id);
+        return asset;
+    }
+
+    /// <summary>
+    /// 去除指定肤色
+    /// </summary>
+    public static ActorAsset RemovePhenotype(this ActorAsset asset, string phenotype_id)
+    {
+        if (asset.phenotypes_list != null)
+        {
+            asset.phenotypes_list.Remove(phenotype_id);
+        }
+        if (asset.phenotypes_dict != null)
+        {
+            var types = asset.phenotypes_dict.Keys.ToList();
+            foreach (var type in types)
+            {
+                asset.phenotypes_dict[type].Remove(phenotype_id);
+                if (asset.phenotypes_dict[type].Count == 0)
+                {
+                    asset.phenotypes_dict.Remove(type);
+                }
+            }
+        }
+        return asset;
+    }
+    /// <summary>
+    /// 去除所有指定的肤色
+    /// </summary>
+    public static ActorAsset RemovePhenotype(this ActorAsset asset, params string[] phenotype_ids)
+    {
+        foreach (var phenotype_id in phenotype_ids)
+        {
+            asset.RemovePhenotype(phenotype_id);
+        }
+        return asset;
+    }
     /// <summary>
     /// 设置默认所属阵营
     /// </summary>
