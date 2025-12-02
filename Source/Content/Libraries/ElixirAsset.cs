@@ -107,6 +107,10 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
     public int seed_for_random_effect;
     public string                  name_key;
     public string description_key;
+    /// <summary>
+    /// 动态效果是否已生成
+    /// </summary>
+    public bool effect_ready = true;
     
     public string GetName()
     {

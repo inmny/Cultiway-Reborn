@@ -4,8 +4,10 @@ using System.Linq;
 using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
+using Cultiway.Content.Events;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.EventSystem;
 using Cultiway.Core.Libraries;
 using Cultiway.Utils;
 using Friflo.Engine.ECS;
@@ -13,6 +15,7 @@ using NeoModLoader.api.attributes;
 using Newtonsoft.Json;
 using UnityEngine;
 using strings;
+using System.Threading.Tasks;
 using Random = System.Random;
 
 namespace Cultiway.Content.Libraries;
@@ -55,18 +58,8 @@ public static class ElixirEffectGenerator
             }
             elixir_entity.GetComponent<Elixir>().value = strength;
         };
-        if (elixir.effect_type == ElixirEffectType.DataGain)
-        {
-            return GenerateDataGainElixirActions(elixir);
-        }
-        else if (elixir.effect_type == ElixirEffectType.StatusGain)
-        {
-            return GenerateStatusGainElixirActions(elixir);
-        }
-        else
-        {
-            throw new NotImplementedException();
-        }
+        RequestGeneration(elixir);
+        return true;
     }
 
     internal class ElixirEffect
@@ -75,8 +68,15 @@ public static class ElixirEffectGenerator
         public string effect_description;
         public Dictionary<string, float> bonus_stats;
     }
-    internal class DataGainEffect
+    public class StatusEffectDraft
     {
+        public string name;
+        public string effect_description;
+        public Dictionary<string, float> bonus_stats;
+    }
+    public class DataGainEffect
+    {
+        public string name;
         public string effect_type;
         public string chosen;
         public string effect_description;
@@ -87,25 +87,152 @@ public static class ElixirEffectGenerator
         public List<string> operations;
         public Dictionary<string, string> operation_args;
     }
-    [Hotfixable]
-    private static bool GenerateStatusGainElixirActions(ElixirAsset elixir)
+    private static void RequestGeneration(ElixirAsset elixir)
     {
-        string[] param = new string[elixir.ingredients.Length];
-        for (int i = 0; i < param.Length; i++)
-        {
-            param[i] = elixir.ingredients[i].ingredient_name;
-        }
+        elixir.effect_ready = false;
+        elixir.effect_action = null;
+        elixir.consumable_check_action ??= (ActorExtend ae, Entity elixir_entity, ref Elixir elixir_component) => false;
+        _ = GenerateAsync(elixir);
+    }
 
-        var content = ElixirEffectJsonGenerator.Instance.GenerateName(param);
-        if (string.IsNullOrEmpty(content)) return false;
+    private static async Task GenerateAsync(ElixirAsset elixir)
+    {
+        try
+        {
+            if (elixir.effect_type == ElixirEffectType.StatusGain)
+            {
+                var draft = await BuildStatusDraftAsync(elixir) ?? BuildStatusFallback(elixir);
+                EventSystemHub.Publish(new ElixirEffectGeneratedEvent
+                {
+                    ElixirId = elixir.id,
+                    EffectType = ElixirEffectType.StatusGain,
+                    StatusDraft = draft
+                });
+            }
+            else if (elixir.effect_type == ElixirEffectType.DataGain)
+            {
+                var draft = await BuildDataGainDraftAsync(elixir) ?? BuildDataGainFallback(elixir);
+                EventSystemHub.Publish(new ElixirEffectGeneratedEvent
+                {
+                    ElixirId = elixir.id,
+                    EffectType = ElixirEffectType.DataGain,
+                    DataGainDraft = draft
+                });
+            }
+        }
+        catch (Exception e)
+        {
+            ModClass.LogErrorConcurrent(e.ToString());
+            if (elixir.effect_type == ElixirEffectType.StatusGain)
+            {
+                EventSystemHub.Publish(new ElixirEffectGeneratedEvent
+                {
+                    ElixirId = elixir.id,
+                    EffectType = ElixirEffectType.StatusGain,
+                    StatusDraft = BuildStatusFallback(elixir)
+                });
+            }
+            else if (elixir.effect_type == ElixirEffectType.DataGain)
+            {
+                EventSystemHub.Publish(new ElixirEffectGeneratedEvent
+                {
+                    ElixirId = elixir.id,
+                    EffectType = ElixirEffectType.DataGain,
+                    DataGainDraft = BuildDataGainFallback(elixir)
+                });
+            }
+        }
+    }
+
+    private static async Task<StatusEffectDraft> BuildStatusDraftAsync(ElixirAsset elixir)
+    {
+        string[] param = elixir.ingredients?.Select(x => x.ingredient_name).ToArray() ?? Array.Empty<string>();
+        var content = await ElixirEffectJsonGenerator.Instance.GenerateNameAsync(param);
+        if (string.IsNullOrEmpty(content)) return null;
         ElixirEffect effect = JsonConvert.DeserializeObject<ElixirEffect>(content);
-        if (effect == null) return false;
-        var name = ElixirNameGenerator.Instance.GenerateName(param.Prepend(effect.effect_description).ToArray());
+        if (effect == null) return null;
+        var name = await ElixirNameGenerator.Instance.GenerateNameAsync(param.Prepend(effect.effect_description).ToArray());
+
+        return new StatusEffectDraft
+        {
+            name = name,
+            effect_description = effect.effect_description,
+            bonus_stats = FilterAttributes(effect.bonus_stats)
+        };
+    }
+
+    private static async Task<DataGainEffect> BuildDataGainDraftAsync(ElixirAsset elixir)
+    {
+        string[] param = elixir.ingredients?.Select(x => x.ingredient_name).ToArray() ?? Array.Empty<string>();
+        var content = await ElixirDataGainJsonGenerator.Instance.GenerateNameAsync(param);
+        if (string.IsNullOrEmpty(content)) return null;
+        var effect = JsonConvert.DeserializeObject<DataGainEffect>(content);
+        if (effect == null) return null;
+        effect.attributes = FilterAttributes(effect.attributes);
+        effect.fallback_attribute = FilterAttributes(effect.fallback_attribute);
+        effect.traits = NormalizeTraits(effect.traits);
+        effect.operations = NormalizeOperations(effect.operations);
+        effect.max_stack = effect.max_stack <= 0 ? 1 : effect.max_stack;
+    
+        if (string.IsNullOrEmpty(effect.effect_description))
+        {
+            effect.effect_description = "平衡体魄的丹药";
+        }
+        if (string.IsNullOrEmpty(effect.name))
+        {
+            effect.name = "无名丹药";
+        }
+        if (string.IsNullOrEmpty(effect.chosen))
+        {
+            effect.chosen = "attribute";
+        }
+        if (string.IsNullOrEmpty(effect.effect_type))
+        {
+            effect.effect_type = ElixirEffectType.DataGain.ToString();
+        }
+        return effect;
+    }
+
+    private static StatusEffectDraft BuildStatusFallback(ElixirAsset elixir)
+    {
+        var baseName = elixir.ingredients == null
+            ? "无名丹药"
+            : string.Join("+", elixir.ingredients.Select(x => x.GetName()).Where(x => !string.IsNullOrEmpty(x)));
+        return new StatusEffectDraft
+        {
+            name = baseName,
+            effect_description = "服用后略有益处",
+            bonus_stats = new Dictionary<string, float>
+            {
+                { S.health, 10 }
+            }
+        };
+    }
+
+    private static DataGainEffect BuildDataGainFallback(ElixirAsset elixir)
+    {
+        return new DataGainEffect
+        {
+            chosen = "attribute",
+            effect_description = "淬炼血气，增强体魄",
+            attributes = new Dictionary<string, float> { { S.health, 5 } },
+            max_stack = 3
+        };
+    }
+
+    public static void ApplyStatusDraft(ElixirAsset elixir, StatusEffectDraft draft)
+    {
+        if (elixir == null || draft == null) return;
+        var name = string.IsNullOrEmpty(draft.name)
+            ? (elixir.ingredients == null
+                ? "无名丹药"
+                : string.Join("+", elixir.ingredients.Select(x => x.GetName()).Where(x => !string.IsNullOrEmpty(x))))
+            : draft.name;
         elixir.name_key = name;
-        elixir.description_key = effect.effect_description;
+        elixir.description_key = draft.effect_description;
 
         var bonus_stats = new BaseStats();
-        foreach (var kv in effect.bonus_stats)
+        foreach (var kv in draft.bonus_stats ?? new Dictionary<string, float>())
         {
             if (string.IsNullOrEmpty(kv.Key)) continue;
             if (!AssetManager.base_stats_library.has(kv.Key)) continue;
@@ -114,8 +241,8 @@ public static class ElixirEffectGenerator
         var status = StatusEffectAsset.StartBuild(elixir.id)
             .SetDuration(60)
             .SetStats(bonus_stats)
-            .SetName(name+"药效")
-            .SetDescription(effect.effect_description)
+            .SetName(name + "药效")
+            .SetDescription(draft.effect_description)
             .Build();
         elixir.effect_action = (ActorExtend ae, Entity elixir_entity, ref Elixir elixir_component) =>
         {
@@ -128,81 +255,66 @@ public static class ElixirEffectGenerator
             });
             ae.AddSharedStatus(status_effect);
         };
-        
-        
         elixir.consumable_check_action = null;
-        return true;
+        elixir.effect_ready = true;
     }
 
-    private static bool GenerateDataGainElixirActions(ElixirAsset elixir)
+    public static void ApplyDataGainDraft(ElixirAsset elixir, DataGainEffect effect)
     {
-        string[] param = new string[elixir.ingredients.Length];
-        for (int i = 0; i < param.Length; i++)
-        {
-            param[i] = elixir.ingredients[i].ingredient_name;
-        }
-
-        var content = ElixirDataGainJsonGenerator.Instance.GenerateName(param);
-        if (string.IsNullOrEmpty(content)) return false;
-        DataGainEffect effect = JsonConvert.DeserializeObject<DataGainEffect>(content);
-        if (effect == null) return false;
-
-        var name = ElixirNameGenerator.Instance.GenerateName(param.Prepend(effect.effect_description).ToArray());
-        elixir.name_key = name;
-        elixir.description_key = effect.effect_description;
-
+        if (elixir == null || effect == null) return;
         var chosen = effect.chosen?.ToLowerInvariant();
-        var attributes = FilterAttributes(effect.attributes);
-        var fallbackAttributes = FilterAttributes(effect.fallback_attribute);
-        var traits = NormalizeTraits(effect.traits);
-        var operations = NormalizeOperations(effect.operations);
+        var attributes = FilterAttributes(effect.attributes ?? new Dictionary<string, float>());
+        var fallbackAttributes = FilterAttributes(effect.fallback_attribute ?? new Dictionary<string, float>());
+        var traits = NormalizeTraits(effect.traits ?? new List<string>());
+        var operations = NormalizeOperations(effect.operations ?? new List<string>());
         var maxStack = effect.max_stack <= 0 ? 1 : effect.max_stack;
 
-        elixir.consumable_check_action = (ActorExtend ae, Entity _, ref Elixir elixir_component) =>
-        {
-            if (chosen == "attribute" && maxStack > 0)
-            {
-                return GetDataGainStack(ae.Base, elixir_component.elixir_id) < maxStack;
-            }
+        elixir.name_key = effect.name;
+        elixir.description_key = effect.effect_description;
 
-            return true;
-        };
-        elixir.effect_action = (ActorExtend ae, Entity _, ref Elixir elixir_component) =>
+        switch(chosen)
         {
-            var multiplier = Mathf.Log(elixir_component.value + 1) + 1;
-            var applied = false;
-            if (chosen == "attribute")
-            {
-                applied = ApplyAttributeGain(ae, attributes, multiplier);
-                if (applied) IncreaseDataGainStack(ae.Base, elixir_component.elixir_id);
-            }
-            else if (chosen == "trait")
-            {
-                applied = ApplyTraitGain(ae, traits);
-                if (!applied && fallbackAttributes.Count > 0)
+            case "one_time":
+                elixir.consumable_check_action = (ActorExtend ae, Entity _, ref Elixir elixir_component) => 
                 {
-                    applied = ApplyAttributeGain(ae, fallbackAttributes, multiplier);
-                }
-            }
-            else if (chosen == "one_time")
-            {
-                applied = ApplyOperations(ae, operations, effect.operation_args, multiplier);
-            }
-            else
-            {
-                if (attributes.Count > 0)
+                    var multiplier = Mathf.Log(elixir_component.value + 1) + 1;
+                    if (!PreCheckOperations(ae, operations, effect.operation_args, multiplier)) return false;
+                    return true;
+                };
+                elixir.effect_action = (ActorExtend ae, Entity _, ref Elixir elixir_component) =>
                 {
+                    var multiplier = Mathf.Log(elixir_component.value + 1) + 1;
+                    ApplyOperations(ae, operations, effect.operation_args, multiplier);
+                };
+                break;
+            case "trait":
+                elixir.effect_action = (ActorExtend ae, Entity _, ref Elixir elixir_component) =>
+                {
+                    var multiplier = Mathf.Log(elixir_component.value + 1) + 1;
+                    var applied = false;
+                    applied = ApplyTraitGain(ae, traits);
+                    if (!applied && fallbackAttributes.Count > 0)
+                    {
+                        applied = ApplyAttributeGain(ae, fallbackAttributes, multiplier);
+                    }
+                };
+                break;
+            case "attribute":
+            default:
+                elixir.consumable_check_action = (ActorExtend ae, Entity _, ref Elixir elixir_component) =>
+                {
+                    return GetDataGainStack(ae.Base, elixir_component.elixir_id) < maxStack;
+                };
+                elixir.effect_action = (ActorExtend ae, Entity _, ref Elixir elixir_component) =>
+                {
+                    var multiplier = Mathf.Log(elixir_component.value + 1) + 1;
+                    var applied = false;
                     applied = ApplyAttributeGain(ae, attributes, multiplier);
                     if (applied) IncreaseDataGainStack(ae.Base, elixir_component.elixir_id);
-                }
-            }
-
-            if (applied)
-            {
-                ae.Base.setStatsDirty();
-            }
-        };
-        return true;
+                };
+                break;
+        }
+        elixir.effect_ready = true;
     }
 
     private static Dictionary<string, float> FilterAttributes(Dictionary<string, float> source)
@@ -285,7 +397,25 @@ public static class ElixirEffectGenerator
 
         return added;
     }
-
+    private static bool PreCheckOperations(ActorExtend ae, List<string> operations, Dictionary<string, string> opArgs, float multiplier)
+    {
+        if (operations == null || operations.Count == 0) return false;
+        var opLib = ModClass.L.OperationLibrary;
+        if (opLib == null) return false;
+        var applied = false;
+        foreach (var operation in operations)
+        {
+            if (!opLib.has(operation)) continue;
+            var opAsset = opLib.get(operation);
+            if (opAsset == null || opAsset.Action == null) continue;
+            if (opAsset.PreCheck.Invoke(ae, multiplier, opArgs))
+            {
+                applied = true;
+            }
+        }
+        return applied;
+    }
+    
     private static bool ApplyOperations(ActorExtend ae, List<string> operations, Dictionary<string, string> opArgs, float multiplier)
     {
         if (operations == null || operations.Count == 0) return false;
@@ -297,7 +427,7 @@ public static class ElixirEffectGenerator
             if (!opLib.has(operation)) continue;
             var opAsset = opLib.get(operation);
             if (opAsset == null || opAsset.Action == null) continue;
-            if (!opAsset.PreCheck.Invoke(ae, multiplier, opArgs)) continue;
+            if (!PreCheckOperations(ae, operations, opArgs, multiplier)) continue;
             if (opAsset.Action.Invoke(ae, multiplier, opArgs))
             {
                 applied = true;

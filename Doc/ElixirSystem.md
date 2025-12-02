@@ -33,7 +33,7 @@
 #### 1. 核心组件 ✅
 | 组件 | 文件位置 | 功能描述 |
 |------|----------|----------|
-| `Elixir` | `Components/Elixir.cs` | 丹药实体组件，存储丹药ID和强度值 |
+| `Elixir` | `Components/Elixir.cs` | 丹药实体组件，存储丹药ID和强度值（品阶由实体上的`ItemLevel`组件提供） |
 | `Elixirbook` | `Components/Elixirbook.cs` | 丹方书组件，引用ElixirAsset |
 | `CraftingElixir` | `Components/CraftingElixir.cs` | 炼丹状态组件，存储进度 |
 | `TagElixir*` | `Components/TagElixir*.cs` | 四种效果类型标签 |
@@ -114,6 +114,8 @@ CraftingElixir (炼丹状态组件)
 ├── elixir_id: string (正在炼制的丹药)
 └── progress: int (炼制进度)
 ```
+
+> 丹药品阶通过在丹药实体上挂载`ItemLevel`组件体现，与`Elixir`组件解耦。
 
 ### 数据流向
 
@@ -297,9 +299,9 @@ public const float CityDistributeElixirProb = 0.1f;  // 城市分发丹药概率
    - TagIngredient的添加逻辑不明确
    - 缺少系统化的材料生成
 
-2. **丹药品质缺失**
-   - 没有品质等级概念
-   - 效果强度计算简单
+2. **丹药品质待接入**
+   - 需要在丹药实体挂载ItemLevel（不重复存储在Elixir内）
+   - 当前效果强度计算简单
 
 3. **炼丹技能缺失**
    - 没有炼丹等级/熟练度
@@ -357,33 +359,49 @@ private static bool GenerateDataGainElixirActions(ElixirAsset elixir)
 - 极品 (Excellent) - 效果200%
 - 仙品 (Immortal) - 效果300%
 
-**品质影响因素**：
-- 炼丹者境界
-- 炼丹熟练度
-- 材料品质
-- 丹炉品质
-- 环境灵气浓度
+**实现方式**：
+- 直接复用通用物品等级组件`ItemLevel`挂载到丹药实体
+- `Elixir`组件保持轻量，仅存储ID与强度值
+- 炼制时计算品阶并写入实体的`ItemLevel`，效果倍率由`ItemLevel`映射获得
 
 ```csharp
-// 新增组件
-public struct ElixirQuality : IComponent
+// Elixir组件保持无品阶字段
+public struct Elixir : IComponent
 {
-    public QualityLevel level;
-    public float effect_multiplier;
+    public string elixir_id;
+    public float value; // 强度/效力
 }
 
-// 在Craft时计算品质
+// 炼制时写入品阶并应用倍率
 public void Craft(...)
 {
-    var quality = CalculateQuality(ae, corr_ingredients);
-    crafting_elixir_entity.AddComponent(new ElixirQuality
+    ItemLevel level = CalculateElixirLevel(ae, corr_ingredients, furnace_entity);
+    float effectMultiplier = GetEffectMultiplier(level); // 由阶段/等级映射到倍率
+
+    elixir_entity.AddComponent(level); // 单独挂ItemLevel组件
+    elixir_entity.AddComponent(new Elixir
     {
-        level = quality,
-        effect_multiplier = GetMultiplier(quality)
+        elixir_id = elixir_asset.id,
+        value = baseValue * effectMultiplier
     });
-    ...
+}
+
+// 使用时直接从实体读取ItemLevel
+public void ApplyElixirEffect(Entity elixir_entity)
+{
+    if (elixir_entity.TryGetComponent(out ItemLevel level))
+    {
+        float effectMultiplier = GetEffectMultiplier(level);
+        // 应用倍率...
+    }
 }
 ```
+
+**品质影响因素**：
+- 炼丹者境界与熟练度
+- 材料品质与契合度
+- 丹炉品质
+- 环境灵气浓度
 
 ### 三、炼丹失败机制
 
@@ -678,9 +696,9 @@ public static float GetEnvironmentBonus(WorldTile tile, float game_time)
   - 添加材料品质概念
 
 - [ ] **丹药品质系统**
-  - 添加`ElixirQuality`组件
-  - 实现品质计算公式
-  - UI展示丹药品质
+  - 丹药实体挂载`ItemLevel`
+  - 实现品阶计算与倍率映射
+  - UI展示丹药品阶
 
 ### 中优先级 (P1)
 
@@ -741,6 +759,7 @@ public static float GetEnvironmentBonus(WorldTile tile, float game_time)
 | 组件 | `Source/Content/Components/Elixirbook.cs` |
 | 组件 | `Source/Content/Components/CraftingElixir.cs` |
 | 组件 | `Source/Content/Components/TagElixir*.cs` |
+| 组件 | `Source/Core/Components/ItemLevel.cs` |
 | 资产 | `Source/Content/Libraries/ElixirAsset.cs` |
 | 资产 | `Source/Content/Libraries/ElixirLibrary.cs` |
 | 生成 | `Source/Content/Libraries/ElixirEffectGenerator.cs` |

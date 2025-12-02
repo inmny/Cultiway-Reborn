@@ -57,6 +57,7 @@ internal class Manager
         ModClass.I.GeneralRenderSystems.Add(new RealmIndicatorRenderSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookImprovedEventSystem());
+        ModClass.I.LogicEventProcessSystemGroup.Add(new ElixirEffectGeneratedEventSystem());
         
         CultivateMethodTriggers.Init();
     }

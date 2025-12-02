@@ -5,6 +5,7 @@ using ai.behaviours;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
+using Cultiway.Content.Const;
 using Cultiway.Core.Components;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -20,6 +21,26 @@ public class BehFindNewElixir : BehCityActor
     public override BehResult execute(Actor pObject)
     {
         var ae = pObject.GetExtend();
+        pObject.data.get(ContentActorDataKeys.WaitingForElixirGeneration_string, out string waitingId, "");
+        if (!string.IsNullOrEmpty(waitingId))
+        {
+            var asset = Libraries.Manager.ElixirLibrary.get(waitingId);
+            if (asset == null)
+            {
+                pObject.data.set(ContentActorDataKeys.WaitingForElixirGeneration_string, "");
+                return BehResult.Stop;
+            }
+
+            if (!asset.effect_ready)
+            {
+                StayInside(pObject);
+                return BehResult.RepeatStep;
+            }
+
+            pObject.data.set(ContentActorDataKeys.WaitingForElixirGeneration_string, "");
+            return BehResult.Continue;
+        }
+
         if (ae.HasItem<CraftingElixir>()) return BehResult.Continue;
 
         var inv = (IHasInventory)ae;
@@ -52,7 +73,20 @@ public class BehFindNewElixir : BehCityActor
             ing.AddTag<TagOccupied>();
         }
         pObject.timer_action = Randy.randomFloat(TimeScales.SecPerMonth, TimeScales.SecPerYear);
+        pObject.data.set(ContentActorDataKeys.WaitingForElixirGeneration_string, new_asset.id);
+        StayInside(pObject);
+        return BehResult.RepeatStep;
+    }
 
-        return BehResult.Continue;
+    private static void StayInside(Actor actor)
+    {
+        if (actor.beh_building_target != null)
+        {
+            actor.stayInBuilding(actor.beh_building_target);
+        }
+        else if (actor.inside_building != null)
+        {
+            actor.stayInBuilding(actor.inside_building);
+        }
     }
 }

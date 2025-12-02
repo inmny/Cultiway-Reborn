@@ -90,12 +90,11 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
         }
         // 生成丹药的服用检查和效果
         asset.seed_for_random_effect = Randy.randomInt(0, int.MaxValue);
-        if (ElixirEffectGenerator.GenerateElixirActions(asset))
-        {
-            AddDynamic(asset);
-            return asset;
-        }
-        return null;
+        asset.effect_ready = false;
+        asset.consumable_check_action = (ActorExtend ae, Entity elixir_entity, ref Elixir elixir_component) => false; // 未生成前禁止服用
+        AddDynamic(asset);
+        ElixirEffectGenerator.GenerateElixirActions(asset);
+        return asset;
     }
 
     public ElixirAsset GetRandom()

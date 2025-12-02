@@ -27,7 +27,7 @@ public static class ContentActorDataKeys
     /// </summary>
     public const string ElixirDataGainStackPrefix = "cw.content.datagain.stack.";
     /// <summary>
-    /// 丹药一次性操作标记前缀
+    /// 等待丹方生成标记
     /// </summary>
-    public const string ElixirDataGainOpPrefix = "cw.content.datagain.op.";
+    public const string WaitingForElixirGeneration_string = "cw.content.waiting_for_elixir_generation";
 }
