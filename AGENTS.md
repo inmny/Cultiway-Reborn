@@ -28,7 +28,7 @@ clarity). Group related extensions in `<Concept>Extend.cs` files under
 `Source/Core`, and keep Harmony patches mirrored under `Source/Patch`.
 Nullable annotations are disabled, so favor explicit guards and utility
 methods in `Source/Utils`. Run ReSharper/IDE auto-formatting with the
-included `.DotSettings` profiles before committing. Comments should be writen in Chinese.
+included `.DotSettings` profiles before committing. Comments should be writen in Chinese (UTF-8).
 
 ## Testing Guidelines
 There is no automated test suite; validation happens in WorldBox. After
