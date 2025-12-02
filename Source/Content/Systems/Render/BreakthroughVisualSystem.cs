@@ -296,14 +296,40 @@ public class BreakthroughVisualSystem : QuerySystem<ActorBinder, RealmVisual, Xi
 
     private static void EmitCloud(ParticleSystem emitter, Vector3 position, float scale, BreakthroughVisualDefinition def)
     {
-        var cloudRadius = def.Radius * scale * 0.8f;
-        var height = def.HeightOffset + 0.6f * scale;
-        for (var i = 0; i < 12; i++)
+        // 多圈旋转云环，表现灵气被吸附聚拢
+        var baseRadius = def.Radius * scale * 0.85f;
+        var height = def.HeightOffset + 0.65f * scale;
+        var swirlSpeed = 0.18f * scale;
+        var puffCount = 10 + Randy.randomInt(0, 4);
+
+        // 底层云团：大小、亮度、位置均带随机性
+        for (var i = 0; i < puffCount; i++)
         {
-            var angle = i * Mathf.PI * 2f / 12f;
-            var offset = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0) * cloudRadius;
-            var pos = position + offset + new Vector3(0, height, 0);
-            Emit(emitter, pos, Color.white, ParticleSize * 1.2f * scale, ParticleLifetime * 1.4f, new Vector3(0, 0.1f * scale, 0));
+            var angle = i * Mathf.PI * 2f / puffCount + Randy.randomFloat(-0.25f, 0.25f);
+            var radius = baseRadius * Randy.randomFloat(0.55f, 0.95f);
+            var offset = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0) * radius;
+            var pos = position + offset + new Vector3(0, height + Randy.randomFloat(-0.05f, 0.05f) * scale, 0);
+            var color = Color.Lerp(Color.white, def.PrimaryColor, Randy.randomFloat(0.08f, 0.18f));
+            var size = ParticleSize * Randy.randomFloat(1.1f, 1.5f) * scale;
+            var life = ParticleLifetime * Randy.randomFloat(1.2f, 1.6f);
+            var swirlDir = new Vector3(-Mathf.Sin(angle), Mathf.Cos(angle), 0);
+            var velocity = swirlDir * swirlSpeed + new Vector3(0, Randy.randomFloat(0.06f, 0.12f) * scale, 0);
+            Emit(emitter, pos, color, size, life, velocity);
+        }
+
+        // 高处轻雾：弱上升感与淡色勾勒轮廓
+        var wispCount = 6;
+        for (var i = 0; i < wispCount; i++)
+        {
+            var angle = Time.time * 0.8f + i * Mathf.PI * 2f / wispCount;
+            var radius = baseRadius * Randy.randomFloat(0.9f, 1.15f);
+            var offset = new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0) * radius;
+            var pos = position + offset + new Vector3(0, height + Randy.randomFloat(0.05f, 0.12f) * scale, 0);
+            var color = Color.Lerp(def.PrimaryColor, def.SecondaryColor, 0.25f);
+            var size = ParticleSize * Randy.randomFloat(0.9f, 1.1f) * scale;
+            var life = ParticleLifetime * 1.2f;
+            var velocity = new Vector3(0, Randy.randomFloat(0.12f, 0.18f) * scale, 0);
+            Emit(emitter, pos, color, size, life, velocity);
         }
     }
 
