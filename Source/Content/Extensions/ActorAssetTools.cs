@@ -25,8 +25,15 @@ public static class ActorAssetTools
             asset.phenotypes_dict = [];
         }
         asset.phenotypes_list.Add(phenotype_id);
+        if (asset.phenotypes_dict.TryGetValue(type, out var list))
+        {
+            list.Add(phenotype_id);
+        }
+        else
+        {
+            asset.phenotypes_dict[type] = [phenotype_id];
+        }
         asset.phenotypes_dict[type] ??= [];
-        asset.phenotypes_dict[type].Add(phenotype_id);
         return asset;
     }
 
