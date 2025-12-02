@@ -1,5 +1,6 @@
 key,cz
 Cultiway.ItemShape.Ball,球
+Cultiway.ItemShape.Bamboo,竹
 Cultiway.ItemShape.Talisman,符箓
 Cultiway.ItemShape.Blood,血材
 Cultiway.ItemShape.Bone,骨材
@@ -7,12 +8,20 @@ Cultiway.ItemShape.Claw,爪材
 Cultiway.ItemShape.Crystal,晶石
 Cultiway.ItemShape.Eye,眼珠
 Cultiway.ItemShape.Feather,羽翎
+Cultiway.ItemShape.Flower,花
+Cultiway.ItemShape.Fruit,果
 Cultiway.ItemShape.Fur,兽皮
+Cultiway.ItemShape.Herb,草
 Cultiway.ItemShape.Hoof,兽蹄
 Cultiway.ItemShape.Horn,兽角
 Cultiway.ItemShape.Liquid,灵液
+Cultiway.ItemShape.Lotus,莲
+Cultiway.ItemShape.Mushroom,菌
 Cultiway.ItemShape.Shell,甲壳
+Cultiway.ItemShape.Root,根
 Cultiway.ItemShape.Silk,灵丝
 Cultiway.ItemShape.Stone,矿石
 Cultiway.ItemShape.Tooth,獠牙
+Cultiway.ItemShape.Vine,藤
 Cultiway.ItemShape.Wing,羽翼
+Cultiway.ItemShape.Wood,木
