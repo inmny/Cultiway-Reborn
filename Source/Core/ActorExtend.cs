@@ -529,7 +529,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
                 }
             }
         }
-
+        if (E.TryGetComponent(out PermanentStats permanent_stats))
+        {
+            Base.stats.mergeStats(permanent_stats.Stats);
+        }
         all_skills.Clear();
         all_skills.UnionWith(_learned_skills_v3);
 
