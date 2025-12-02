@@ -173,6 +173,7 @@ public static class ElixirEffectGenerator
         effect.traits = NormalizeTraits(effect.traits);
         effect.operations = NormalizeOperations(effect.operations);
         effect.max_stack = effect.max_stack <= 0 ? 1 : effect.max_stack;
+        effect.name = await ElixirNameGenerator.Instance.GenerateNameAsync(param.Prepend(effect.effect_description).ToArray());
     
         if (string.IsNullOrEmpty(effect.effect_description))
         {
