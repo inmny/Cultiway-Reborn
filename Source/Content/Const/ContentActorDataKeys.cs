@@ -22,4 +22,12 @@ public static class ContentActorDataKeys
     /// </summary>
     public const string ConstraintSpiritJob_string = "cw.content.constraint_spirit_job";
     public const string ConstraintSpiritCitizenJob_string = "cw.content.constraint_spirit_citizen_job";
+    /// <summary>
+    /// 丹药数据增益叠加计数前缀
+    /// </summary>
+    public const string ElixirDataGainStackPrefix = "cw.content.datagain.stack.";
+    /// <summary>
+    /// 丹药一次性操作标记前缀
+    /// </summary>
+    public const string ElixirDataGainOpPrefix = "cw.content.datagain.op.";
 }
