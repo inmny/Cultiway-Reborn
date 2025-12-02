@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Core.Libraries;
+using System.IO;
 
 namespace Cultiway.Content;
 
@@ -24,6 +25,7 @@ public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
     public static ItemShapeAsset Stone { get; private set; }
     public static ItemShapeAsset Tooth { get; private set; }
     public static ItemShapeAsset Wing { get; private set; }
+    public static ItemShapeAsset Others { get; private set; }
     protected override bool AutoRegisterAssets() => true;
     protected override string Prefix() => "Cultiway.ItemShape";
     protected override void OnInit()
@@ -45,6 +47,7 @@ public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
         SetFolder(Stone, "stone");
         SetFolder(Tooth, "tooth");
         SetFolder(Wing, "wing");
+        AddDynamicFoldersFromDisk();
     }
 
     protected override void PostInit(ItemShapeAsset asset)
@@ -56,5 +59,25 @@ public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
     {
         if (asset == null) return;
         asset.major_texture_folder = $"cultiway/icons/item_shapes/{folder}";
+    }
+
+    private void AddDynamicFoldersFromDisk()
+    {
+        var path = Path.Combine(ModClass.Instance.GetDeclaration().FolderPath, "GameResources", "cultiway", "icons", "item_shapes");
+        if (!Directory.Exists(path)) return;
+
+        foreach (var dir in Directory.GetDirectories(path))
+        {
+            var folderName = Path.GetFileName(dir);
+            if (string.IsNullOrEmpty(folderName))
+            {
+                continue;
+            }
+            if (Directory.GetFiles(dir).Length == 0) continue;
+            var id = $"{Prefix()}.{folderName.FirstToUpper()}";
+            if (cached_library.has(id)) continue;
+
+            SetFolder(Add(new ItemShapeAsset { id = id }), folderName);
+        }
     }
 }
