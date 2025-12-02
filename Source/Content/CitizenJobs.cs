@@ -10,6 +10,7 @@ public class CitizenJobs : ExtendLibrary<CitizenJobAsset, CitizenJobs>
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
+        HerbCollector.priority_no_food = 0;
     }
     protected override void PostInit(CitizenJobAsset asset)
     {
