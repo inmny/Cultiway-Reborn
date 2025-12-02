@@ -80,20 +80,6 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             }
 
             var actual_to_move = move_distance * rot.value.normalized;
-            if (Mathf.Abs(actual_to_move.x) > Mathf.Abs(delta.x))
-            {
-                actual_to_move.x = delta.x; 
-            }
-
-            if (Mathf.Abs(actual_to_move.y) > Mathf.Abs(delta.y))
-            {
-                actual_to_move.y = delta.y;
-            }
-
-            if (Mathf.Abs(actual_to_move.z) > Mathf.Abs(delta.z))
-            {
-                actual_to_move.z = delta.z;
-            }
 
             pos.value += actual_to_move;
         };
@@ -129,20 +115,6 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             }
 
             var actual_to_move = move_distance * rot.value.normalized;
-            if (Mathf.Abs(actual_to_move.x) > Mathf.Abs(delta.x))
-            {
-                actual_to_move.x = delta.x;
-            }
-
-            if (Mathf.Abs(actual_to_move.y) > Mathf.Abs(delta.y))
-            {
-                actual_to_move.y = delta.y;
-            }
-
-            if (Mathf.Abs(actual_to_move.z) > Mathf.Abs(delta.z))
-            {
-                actual_to_move.z = delta.z;
-            }
 
             pos.value += actual_to_move;
         };
@@ -164,6 +136,14 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     /// </summary>
     private static Vector3 SmoothTurn(Vector3 current_dir, Vector3 target_dir, float max_angle_degrees)
     {
+        if (target_dir.sqrMagnitude < 0.0001f)
+        {
+            return current_dir;
+        }
+        if (current_dir.sqrMagnitude < 0.0001f)
+        {
+            current_dir = Vector3.right;
+        }
         var current_normalized = current_dir.normalized;
         var target_normalized = target_dir.normalized;
         
