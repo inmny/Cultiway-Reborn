@@ -14,13 +14,15 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     class CommonBuildingSetupAttribute : Attribute
     {
     }
-
+    [CloneSource(BuildingLibrary.TEMPLATE_CITY_COLORED_BUILDING)]
+    public static BuildingAsset TrainStation { get; private set; }
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
         SetupFantasyBuildings();
         SetupEasternHumanBuildings();
         //SetupMingRaceBuildings();
+        SetupTrainStation();
     }
 
     protected override void ActionAfterCreation(PropertyInfo prop, BuildingAsset asset)
@@ -41,6 +43,12 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         }
         asset.has_biome_tags = asset.biome_tags_growth is { Count: > 0 };
         asset.has_biome_tags_spread = asset.biome_tags_spread is { Count: > 0 };
+    }
+    private void SetupTrainStation()
+    {
+        TrainStation.has_sprite_construction = false;
+        TrainStation.build_place_batch = false;
+        TrainStation.priority = 100;
     }
     private void SetupEasternHumanBuildings()
     {
