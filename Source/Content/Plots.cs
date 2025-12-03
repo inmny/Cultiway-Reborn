@@ -246,7 +246,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                     continue;
                 foreach (var (tile, direction) in path)
                 {
-                    MapAction.terraformTop(tile, TopTileTypes.TrainTrack, WorldboxGame.Terraforms.Road, false);
+                    MapAction.terraformTop(tile, TopTileTypes.TrainTrack, Terraforms.TrainTrack, false);
                 }
                 any_built = true;
             }

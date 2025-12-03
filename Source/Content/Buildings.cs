@@ -49,6 +49,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         TrainStation.has_sprite_construction = false;
         TrainStation.build_place_batch = false;
         TrainStation.priority = 100;
+        TrainStation.group = "train_station";
     }
     private void SetupEasternHumanBuildings()
     {
