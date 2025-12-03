@@ -11,6 +11,8 @@ public partial class WorldboxGame
         [CloneSource(S_Terraform.earthquake)] public static TerraformOptions EarthquakeBurn { get; private set; }
         public static TerraformOptions HitGround { get; private set; }
         public static TerraformOptions RemoveAll { get; private set; }
+        [GetOnly(S_Terraform.road)]
+        public static TerraformOptions Road {get; private set;}
 
         protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()

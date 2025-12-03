@@ -5,4 +5,6 @@ plot_Cultiway.NewSect,创建宗门
 plot_Cultiway.NewSect_info_base,宗门肇建，基业初立
 plot_Cultiway.BuildTrainStation,建立车站
 plot_Cultiway.BuildTrainStation_info_base,车站初成，交通便利
+plot_Cultiway.BuildTrainTrack,建立铁路
+plot_Cultiway.BuildTrainTrack_info_base,铁路初成，交通便利
 plot_group_Cultiway.Sect,宗门
