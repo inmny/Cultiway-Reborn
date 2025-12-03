@@ -20,6 +20,8 @@ namespace Cultiway.Content
         protected override void OnInit()
         {
             TrainTrack.walk_multiplier = 1f;
+            TrainTrack.render_z = 999;
+            TrainTrack.draw_layer_name = TrainTrack.id;
         }
 
         protected override void PostInit(TopTileType asset)
@@ -48,6 +50,7 @@ namespace Cultiway.Content
                     asset.sprites.addVariation(tSprite, asset.id);
                 }
             }
+            World.world.tilemap.createTileMapFor(asset);
         }
     }
 }

@@ -73,6 +73,9 @@
         <Reference Include="UnityEngine.TextRenderingModule">
             <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
         </Reference>
+        <Reference Include="UnityEngine.TilemapModule">
+            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TilemapModule.dll</HintPath>
+        </Reference>
         <Reference Include="UnityEngine.UI">
             <HintPath>..\..\worldbox_Data\Managed\UnityEngine.UI.dll</HintPath>
         </Reference>
