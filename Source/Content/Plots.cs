@@ -105,7 +105,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         };
         BuildTrainStation.check_can_be_forced = a => 
         {
-            return a.hasCity() && GetTrainTargets(a.city) != null;
+            return a.hasCity() && FindTileForTrainStation(a.city) != null;
         };
         BuildTrainStation.action = a =>
         {
