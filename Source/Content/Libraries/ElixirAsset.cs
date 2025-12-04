@@ -9,6 +9,7 @@ using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
+using UnityEngine;
 
 namespace Cultiway.Content.Libraries;
 
@@ -101,6 +102,7 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
     public ElixirEffectDelegate effect_action;
     public ElixirEffectType     effect_type;
     public ElixirIngredientCheck[] ingredients;
+    public ItemLevel base_level;
     /// <summary>
     /// 仅用于动态生成的丹药, 用于保证随机效果的一致性（存读档）
     /// </summary>
@@ -196,6 +198,31 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
 
         crafting_elixir_entity.RemoveComponent<CraftingElixir>();
         crafting_elixir_entity.AddComponent(new EntityName(GetName()));
+        var value = crafting_elixir_entity.GetComponent<Elixir>().value;
+        var level = base_level;
+        if (value > 0)
+        {
+            var level_addition = (int)Mathf.Log10(value);
+            level.Level += level_addition;
+            var overflow_level = level.Level - 8;
+            if (overflow_level > 0)
+            {
+                level.Level = 8;
+                var stage_addition = (int)Mathf.Log10(overflow_level);
+                level.Stage += stage_addition;
+                level.Stage = Mathf.Min(level.Stage, 3);
+            }
+        }
+        if (crafting_elixir_entity.HasComponent<ItemLevel>())
+        {
+            ref var existing_level = ref crafting_elixir_entity.GetComponent<ItemLevel>();
+            existing_level.Level = Mathf.Max(level.Level, existing_level.Level);
+            existing_level.Stage = Mathf.Max(level.Stage, existing_level.Stage);
+        }
+        else
+        {
+            crafting_elixir_entity.AddComponent(level);
+        }
 
         receiver.AddSpecialItem(crafting_elixir_entity);
     }
