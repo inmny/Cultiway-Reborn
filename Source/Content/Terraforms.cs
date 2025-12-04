@@ -22,16 +22,8 @@ namespace Cultiway.Content
 
         protected override void OnInit()
         {
-            TrainTrack.destroy_only.Clear();
-            AssetManager.buildings.ForEach<BuildingAsset, BuildingLibrary>(building =>
-            {
-                if (building.group == Buildings.TrainStation.group) return;
-                if (TrainTrack.destroy_only.Contains(building.group))
-                {
-                    return;
-                }
-                TrainTrack.destroy_only.Add(building.group);
-            });
+            TrainTrack.destroy_only = null;
+            TrainTrack.ignore_buildings = new List<string> { Buildings.TrainStation.id };
         }
     }
 }
