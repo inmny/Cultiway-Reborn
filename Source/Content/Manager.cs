@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
+using Cultiway.Content.ActorComponents;
 using Cultiway.Content.Systems.Logic;
 using Cultiway.Content.Systems.Render;
 
@@ -60,6 +61,7 @@ internal class Manager
         ModClass.I.LogicEventProcessSystemGroup.Add(new ElixirEffectGeneratedEventSystem());
         
         CultivateMethodTriggers.Init();
+        Train.Init();
     }
 
     public void OnReload()

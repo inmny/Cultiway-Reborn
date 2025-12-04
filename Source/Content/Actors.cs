@@ -23,10 +23,11 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         
     }
     [CloneSource("$mob$")] public static ActorAsset Plant { get; private set; }
-
+    [CloneSource(SA.crabzilla)] public static ActorAsset Train { get; private set; }
     protected override void OnInit()
     {
         SetupPlant();
+        SetupTrain();
         SetupEasternHuman();
         SetupMing();
         SetupConstraintSpirit();
@@ -129,6 +130,11 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 
         AssetManager.biome_library.ForEach<BiomeAsset, BiomeLibrary>(biome => biome.addUnit(Plant.id));
 
+    }
+    private void SetupTrain()
+    {
+        Train.kingdom_id_wild = string.Empty;
+        Train.avatar_prefab = "p_train";
     }
 
     protected override void PostInit(ActorAsset asset)
