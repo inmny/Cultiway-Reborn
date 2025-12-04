@@ -244,7 +244,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 var path = GetTrainTrackDirection(source_tile, target_tile);
                 if (path.Count == 0)
                     continue;
-                foreach (var (tile, direction) in path)
+                foreach (var tile in path)
                 {
                     MapAction.terraformTop(tile, TopTileTypes.TrainTrack, Terraforms.TrainTrack, false);
                 }
@@ -254,86 +254,76 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         };
     }
 
-    enum TrainTrackDirection
-    {
-        LR,
-        UD,
-        LU,
-        LD,
-        RU,
-        RD
-    }
-
-    private static List<(WorldTile, TrainTrackDirection)> GetTrainTrackDirection(
+    private static List<WorldTile> GetTrainTrackDirection(
         WorldTile source_tile,
         WorldTile target_tile
     )
     {
         // 实现从source_tile到target_tile的路径, 返回每一步的WorldTile和对应的TrainTrackDirection
-        var path = new List<(WorldTile, TrainTrackDirection)>();
-
+        var path = new List<WorldTile>();
+    
         // 检查参数有效性
         if (source_tile == null || target_tile == null)
             return path;
-
+    
         // 获取起点和终点坐标
         int x0 = source_tile.x;
         int y0 = source_tile.y;
         int x1 = target_tile.x;
         int y1 = target_tile.y;
-
+    
         int dx = x1 - x0;
         int dy = y1 - y0;
-
+    
         int signX = dx == 0 ? 0 : (dx > 0 ? 1 : -1);
         int signY = dy == 0 ? 0 : (dy > 0 ? 1 : -1);
-
-        // 判断主方向（横向或纵向主导）
+    
+        // 保证每隔一段交错地走斜线，实现“折线”效果
         int px = x0;
         int py = y0;
-        TrainTrackDirection dir;
+        int absDx = Math.Abs(dx);
+        int absDy = Math.Abs(dy);
 
-        // 简单实现：每格横向走，再纵向走（或反之），每步都记录方向
-        // 优化：斜向尽可能用转角（即LU、LD、RU、RD）
-        while (px != x1 || py != y1)
+        int totalSteps = Math.Max(absDx, absDy);
+        int diagonalRate = 2; // 斜向步频率，越小越频繁
+        int diagonalLeft = Math.Min(absDx, absDy); // 能走多少格斜线
+
+        for (int step = 0; px != x1 || py != y1;)
         {
-            int nx = px,
-                ny = py;
-            // 优先斜向移动
-            if (px != x1 && py != y1)
+            int nx = px;
+            int ny = py;
+
+            // 混合斜向与直线移动：优先斜向，有斜剩余就走斜，没有就直线
+            bool canDiagonal = (px != x1) && (py != y1) && diagonalLeft > 0;
+            bool shouldDiagonal = canDiagonal && 
+                                  ((step % diagonalRate == 0) || diagonalLeft >= totalSteps - step);
+
+            if (shouldDiagonal)
             {
                 nx = px + signX;
                 ny = py + signY;
-                if (signX > 0 && signY > 0)
-                    dir = TrainTrackDirection.RD;
-                else if (signX > 0 && signY < 0)
-                    dir = TrainTrackDirection.RU;
-                else if (signX < 0 && signY > 0)
-                    dir = TrainTrackDirection.LD;
-                else
-                    dir = TrainTrackDirection.LU;
+                diagonalLeft--;
             }
             else if (px != x1)
             {
                 nx = px + signX;
                 ny = py;
-                dir = TrainTrackDirection.LR;
             }
             else // py != y1
             {
                 nx = px;
                 ny = py + signY;
-                dir = TrainTrackDirection.UD;
             }
 
             WorldTile nextTile = World.world.GetTile(nx, ny);
             if (nextTile == null)
                 break;
-            path.Add((nextTile, dir));
+            path.Add(nextTile);
             px = nx;
             py = ny;
+            step++;
         }
-
+    
         return path;
     }
 
