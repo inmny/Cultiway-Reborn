@@ -48,7 +48,15 @@ namespace Cultiway.Content.Patch
                 connection |= 0b0010;
             if (pTile.tile_right != null && pTile.tile_right.top_type == TopTileTypes.TrainTrack)
                 connection |= 0b0001;
-                
+
+            if (connection == 0b1000 || connection == 0b0100)
+            {
+                connection = 0b1100;
+            }      
+            else if (connection == 0b0010 || connection == 0b0001)
+            {
+                connection = 0b0011;
+            }
             if (_train_track_tiles.TryGetValue(connection, out var tile))
             {
                 __result = tile;

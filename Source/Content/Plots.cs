@@ -300,6 +300,17 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
 
             if (shouldDiagonal)
             {
+                var tile_middle = World.world.GetTile(px + signX, py);
+                if (tile_middle == null)
+                {
+                    tile_middle = World.world.GetTile(px, py + signY);
+                    if (tile_middle == null)
+                    {
+                        break;
+                    }
+                }
+                path.Add(tile_middle);
+                
                 nx = px + signX;
                 ny = py + signY;
                 diagonalLeft--;
