@@ -27,6 +27,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor WriteSkillbook { get; private set; }
     public static BehaviourTaskActor CallSourceSpawner { get; private set; }
     public static BehaviourTaskActor SwitchCultibook { get; private set; }
+    public static BehaviourTaskActor TravelToCity { get; private set; }
     
     // 师徒系统任务
     public static BehaviourTaskActor RecruitApprentice { get; private set; }
@@ -144,6 +145,12 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         SwitchCultibook.addBeh(new BehSwitchCultibook());
         SwitchCultibook.addBeh(new BehEndJob());
         SwitchCultibook.setIcon("cultiway/icons/iconCultivation");
+
+        TravelToCity.addBeh(new BehTravelToCity());
+        TravelToCity.addBeh(new BehGoToTileTarget());
+        TravelToCity.addBeh(new BehRandomWait(5f, 15f));
+        TravelToCity.addBeh(new BehEndJob());
+        TravelToCity.setIcon("cultiway/icons/plots/iconTrainNet");
         
         ImproveCultibook.addBeh(new BehBuildingTargetHome());
         ImproveCultibook.addBeh(new BehGetTargetBuildingMainTile());
