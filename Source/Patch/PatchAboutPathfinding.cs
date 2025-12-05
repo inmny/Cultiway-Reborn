@@ -16,12 +16,7 @@ namespace Cultiway.Patch
             bool pPathOnWater = false, bool pWalkOnBlocks = false, bool pWalkOnLava = false,
             int pLimitPathfindingRegions = 0)
         {
-            AbortPath(__instance);
-            if (pTile == null)
-            {
-                __result = ExecuteEvent.False;
-                return false;
-            }
+            //AbortPath(__instance);
 
             __instance.setTileTarget(pTile);
             __instance.next_step_position = __instance.current_tile?.posV3 ?? __instance.next_step_position;
@@ -38,7 +33,7 @@ namespace Cultiway.Patch
         {
             if (!PathFinder.Instance.TryPeekStep(__instance, out var step, out var finished))
             {
-                __instance.makeWait(0.3f);
+                __instance.timer_action = 0.3f;
                 return false;
             }
 
@@ -49,12 +44,13 @@ namespace Cultiway.Patch
                     PathFinder.Instance.ConsumeStep(__instance);
                     break;
                 case PathProcessResult.Abort:
-                    AbortPath(__instance);
+                    //AbortPath(__instance);
+                    PathFinder.Instance.Cancel(__instance);
                     __instance.ai.clearBeh();
                     __instance.ai.setTaskBehFinished();
                     break;
                 case PathProcessResult.Deferred:
-                    __instance.makeWait(0.3f);
+                    __instance.timer_action = 0.3f;
                     break;
             }
 
@@ -70,7 +66,9 @@ namespace Cultiway.Patch
         private static void clearWorld_prefix()
         {
             PathFinder.Instance.Clear();
+            PortalRegistry.Instance.Clear();
         }
+
 
         private static PathProcessResult HandleStep(Actor actor, PathStep step)
         {

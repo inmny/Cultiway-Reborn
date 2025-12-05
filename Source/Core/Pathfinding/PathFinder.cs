@@ -12,11 +12,11 @@ public class PathFinder
     public static PathFinder Instance { get; } = new();
 
     private readonly ConcurrentDictionary<long, PathfindingTask> _tasks = new();
-    private IPathGenerator _generator = new PassthroughPathGenerator();
+    private IPathGenerator _generator = new PortalAwarePathGenerator(PortalRegistry.Instance, PathfindingConfig.Default);
 
     public void UseGenerator(IPathGenerator generator)
     {
-        _generator = generator ?? new PassthroughPathGenerator();
+        _generator = generator ?? new PortalAwarePathGenerator(PortalRegistry.Instance, PathfindingConfig.Default);
     }
 
     public void RequestPath(Actor actor, WorldTile target, bool pathOnWater, bool walkOnBlocks, bool walkOnLava,
