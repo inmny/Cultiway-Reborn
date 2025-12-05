@@ -237,6 +237,11 @@ public class PortalAwarePathGenerator : IPathGenerator
             return false;
         }
 
+        if (profile.IsBoat && !type.ocean)
+        {
+            return false;
+        }
+
         if (type.block && !profile.IgnoreBlocks && !profile.AllowBlocks)
         {
             return false;
@@ -310,7 +315,7 @@ public class PortalAwarePathGenerator : IPathGenerator
     {
         if (profile.IsBoat)
         {
-            return MovementMethod.Sail;
+            return MovementMethod.Swim;
         }
 
         return tile.Type.ocean ? MovementMethod.Swim : MovementMethod.Walk;
@@ -479,11 +484,11 @@ public class PortalAwarePathGenerator : IPathGenerator
 
                 if (profile.IsBoat)
                 {
-                    profile.AllowOcean = true;
-                }
-
-                return profile;
+                profile.AllowOcean = true;
             }
+
+            return profile;
         }
+    }
     }
 }
