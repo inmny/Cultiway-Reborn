@@ -14,7 +14,7 @@ internal static class FinalizerPatch
     {
         if (__exception != null)
         {
-            ModClass.LogInfo($"{__instance.tile_target==null}");
+            ModClass.LogInfo($"{__instance.name}({__instance.id}): {__instance.tile_target==null}");
         }
 
         return __exception;

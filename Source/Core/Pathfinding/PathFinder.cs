@@ -12,7 +12,7 @@ public class PathFinder
     public static PathFinder Instance { get; } = new();
 
     private readonly ConcurrentDictionary<long, PathfindingTask> _tasks = new();
-    private IPathGenerator _generator = new PortalAwarePathGenerator(PortalRegistry.Instance, PathfindingConfig.Default);
+    private IPathGenerator _generator;
 
     public void UseGenerator(IPathGenerator generator)
     {

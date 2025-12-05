@@ -10,6 +10,7 @@ using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem.Systems;
+using Cultiway.Core.Pathfinding;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
 using Cultiway.Debug;
@@ -281,6 +282,7 @@ namespace Cultiway
                 GeneralRenderSystems.SetMonitorPerf(true);
                 Geo.SetMonitorPerf(true);
             }
+            PathFinder.Instance.UseGenerator(new PassthroughPathGenerator());
         }
 
         public override void PostInit()

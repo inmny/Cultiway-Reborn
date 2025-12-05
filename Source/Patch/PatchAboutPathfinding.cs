@@ -33,6 +33,7 @@ namespace Cultiway.Patch
         {
             if (!PathFinder.Instance.TryPeekStep(__instance, out var step, out var finished))
             {
+                __instance.setNotMoving();
                 __instance.timer_action = 0.3f;
                 return false;
             }
@@ -44,14 +45,22 @@ namespace Cultiway.Patch
                     PathFinder.Instance.ConsumeStep(__instance);
                     break;
                 case PathProcessResult.Abort:
-                    //AbortPath(__instance);
                     PathFinder.Instance.Cancel(__instance);
-                    __instance.ai.clearBeh();
-                    __instance.ai.setTaskBehFinished();
+                    __instance.cancelAllBeh();
                     break;
                 case PathProcessResult.Deferred:
                     __instance.timer_action = 0.3f;
+                    __instance.setNotMoving();
                     break;
+            }
+            if (__instance.tile_target == null)
+            {
+                PathFinder.Instance.Cancel(__instance);
+                __instance.cancelAllBeh();
+            }
+            if (finished)
+            {
+                __instance.setNotMoving();
             }
 
             return false;
@@ -60,13 +69,19 @@ namespace Cultiway.Patch
         [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.isUsingPath))]
         private static void isUsingPath_postfix(Actor __instance, ref bool __result)
         {
-            __result = __result || PathFinder.Instance.IsActorPathing(__instance);
+            __result = __result || (PathFinder.Instance.IsActorPathing(__instance) && __instance.tile_target != null);
         }
         [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.clearWorld))]
         private static void clearWorld_prefix()
         {
             PathFinder.Instance.Clear();
             PortalRegistry.Instance.Clear();
+        }
+        [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.Dispose))]
+        private static void Dispose_prefix(Actor __instance)
+        {
+            if (__instance.data == null) return;
+            PathFinder.Instance.Cancel(__instance);
         }
 
 
@@ -83,7 +98,7 @@ namespace Cultiway.Patch
 
         private static PathProcessResult HandleWalk(Actor actor, WorldTile tile)
         {
-            return TryMove(actor, tile, allowBlocks: false, allowLava: false, allowOcean: false);
+            return TryMove(actor, tile, allowBlocks: false, allowLava: false, allowOcean: true);
         }
 
         private static PathProcessResult HandleSwim(Actor actor, WorldTile tile)
@@ -128,19 +143,11 @@ namespace Cultiway.Patch
 
             if (tile.isOnFire() && !actor.isImmuneToFire() && !(actor.current_tile?.isOnFire() ?? false))
             {
-                actor.cancelAllBeh();
-                actor.makeWait(0.3f);
-                return PathProcessResult.Consumed;
+                return PathProcessResult.Abort;
             }
 
             actor.moveTo(tile);
             return PathProcessResult.Consumed;
-        }
-
-        private static void AbortPath(Actor actor)
-        {
-            PathFinder.Instance.Cancel(actor);
-            actor.stopMovement();
         }
 
         private enum PathProcessResult
