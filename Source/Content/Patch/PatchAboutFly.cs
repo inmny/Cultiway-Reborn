@@ -91,7 +91,7 @@ internal static class PatchAboutFly
         return list;
     }
 
-    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.goTo))]
+    //[HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.goTo))]
     private static bool goTo_prefix(ref ExecuteEvent __result, Actor __instance, WorldTile pTile)
     {
         if (Toolbox.DistTile(__instance.current_tile, pTile) < ContentSetting.MinFlyDist) return true;
@@ -104,7 +104,7 @@ internal static class PatchAboutFly
         return true;
     }
 
-    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.goTo))]
+    //[HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.goTo))]
     private static void goTo_postfix(ref ExecuteEvent __result, Actor __instance, WorldTile pTile)
     {
         if (__result == ExecuteEvent.True)
@@ -127,7 +127,6 @@ internal static class PatchAboutFly
         }
     }
 
-    [Hotfixable]
     private static bool try_goTo_fast(Actor actor, WorldTile tile)
     {
         var ae = actor.GetExtend();
@@ -254,7 +253,6 @@ internal static class PatchAboutFly
         return list;
     }
 
-    [Hotfixable]
     private static float get_fly_speed_mod(Actor actor)
     {
         return actor.data.hasFlag(ContentActorDataKeys.IsFlying_flag) ? ContentSetting.FlySpeedMod : 1;
