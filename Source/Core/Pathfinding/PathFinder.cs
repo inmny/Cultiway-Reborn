@@ -10,6 +10,7 @@ namespace Cultiway.Core.Pathfinding;
 public class PathFinder
 {
     public static PathFinder Instance { get; } = new();
+    internal static readonly object ActorSyncLock = new object();
 
     private readonly ConcurrentDictionary<long, PathfindingTask> _tasks = new();
     private IPathGenerator _generator;

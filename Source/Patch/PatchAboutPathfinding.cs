@@ -81,7 +81,10 @@ namespace Cultiway.Patch
         private static void Dispose_prefix(Actor __instance)
         {
             if (__instance.data == null) return;
-            PathFinder.Instance.Cancel(__instance);
+            lock (PathFinder.ActorSyncLock)
+            {
+                PathFinder.Instance.Cancel(__instance);
+            }
         }
 
 

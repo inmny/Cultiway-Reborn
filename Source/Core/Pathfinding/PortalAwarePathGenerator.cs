@@ -449,38 +449,41 @@ public class PortalAwarePathGenerator : IPathGenerator
 
         public static MovementProfile Build(PathRequest request, PathfindingConfig config)
         {
-            var actor = request.Actor;
-            var isWaterCreature = actor != null && actor.isWaterCreature();
-            var inLiquid = actor?.current_tile?.is_liquid ?? false;
-            var profile = new MovementProfile
+            lock (PathFinder.ActorSyncLock)
             {
-                AllowBlocks = request.WalkOnBlocks,
-                IgnoreBlocks = actor != null && actor.ignoresBlocks(),
-                AllowLava = request.WalkOnLava || (actor != null && (actor.asset.die_in_lava == false || actor.isImmuneToFire())),
-                AllowOcean = request.PathOnWater || isWaterCreature || inLiquid,
-                IsBoat = actor != null && actor.asset.is_boat,
-                MaxSwimWidth = config.MaxSwimWidth,
-                MaxNodesShort = config.MaxNodesShort,
-                MaxNodesLong = config.MaxNodesLong,
-                LongSwimPenalty = config.LongSwimPenalty
-            };
+                var actor = request.Actor;
+                var isWaterCreature = actor != null && actor.isWaterCreature();
+                var inLiquid = actor?.current_tile?.is_liquid ?? false;
+                var profile = new MovementProfile
+                {
+                    AllowBlocks = request.WalkOnBlocks,
+                    IgnoreBlocks = actor != null && actor.ignoresBlocks(),
+                    AllowLava = request.WalkOnLava || (actor != null && (actor.asset.die_in_lava == false || actor.isImmuneToFire())),
+                    AllowOcean = request.PathOnWater || isWaterCreature || inLiquid,
+                    IsBoat = actor != null && actor.asset.is_boat,
+                    MaxSwimWidth = config.MaxSwimWidth,
+                    MaxNodesShort = config.MaxNodesShort,
+                    MaxNodesLong = config.MaxNodesLong,
+                    LongSwimPenalty = config.LongSwimPenalty
+                };
 
-            if (actor != null && actor.isDamagedByOcean() && !request.PathOnWater)
-            {
-                profile.AllowOcean = false;
+                if (actor != null && actor.isDamagedByOcean() && !request.PathOnWater)
+                {
+                    profile.AllowOcean = false;
+                }
+
+                var baseSpeed = actor?.stats?["speed"] ?? 5f;
+                profile.WalkSpeed = Mathf.Max(0.1f, baseSpeed * config.WalkSpeedScale);
+                profile.SwimSpeed = Mathf.Max(0.05f, profile.WalkSpeed * config.SwimSpeedScale);
+                profile.SailSpeed = Mathf.Max(0.05f, profile.WalkSpeed * config.SailSpeedScale);
+
+                if (profile.IsBoat)
+                {
+                    profile.AllowOcean = true;
+                }
+
+                return profile;
             }
-
-            var baseSpeed = actor?.stats?["speed"] ?? 5f;
-            profile.WalkSpeed = Mathf.Max(0.1f, baseSpeed * config.WalkSpeedScale);
-            profile.SwimSpeed = Mathf.Max(0.05f, profile.WalkSpeed * config.SwimSpeedScale);
-            profile.SailSpeed = Mathf.Max(0.05f, profile.WalkSpeed * config.SailSpeedScale);
-
-            if (profile.IsBoat)
-            {
-                profile.AllowOcean = true;
-            }
-
-            return profile;
         }
     }
 }

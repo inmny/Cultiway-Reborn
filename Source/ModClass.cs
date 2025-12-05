@@ -282,7 +282,7 @@ namespace Cultiway
                 GeneralRenderSystems.SetMonitorPerf(true);
                 Geo.SetMonitorPerf(true);
             }
-            PathFinder.Instance.UseGenerator(new PassthroughPathGenerator());
+            PathFinder.Instance.UseGenerator(new PortalAwarePathGenerator(PortalRegistry.Instance, new PathfindingConfig()));
         }
 
         public override void PostInit()
