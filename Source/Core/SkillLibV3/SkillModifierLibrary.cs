@@ -52,7 +52,7 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             {
                 var modifier = builder.GetModifier<SalvoCount>();
                 // 等比增长：每次升级增加当前值的 50%（向上取整）
-                modifier.Value += Mathf.Max(2, Mathf.CeilToInt(modifier.Value * 0.5f));
+                modifier.Value += Mathf.Max(2, Mathf.CeilToInt(Mathf.Sqrt(modifier.Value * 0.5f)));
                 builder.SetModifier(modifier);
             }
             else
@@ -86,7 +86,7 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             {
                 var modifier = builder.GetModifier<BurstCount>();
                 // 等比增长：每次升级增加当前值的 50%（向上取整）
-                modifier.Value += Mathf.Max(2, Mathf.CeilToInt(modifier.Value * 0.5f));
+                modifier.Value += Mathf.Max(2, Mathf.CeilToInt(Mathf.Sqrt(modifier.Value * 0.5f)));
                 builder.SetModifier(modifier);
             }
             else
