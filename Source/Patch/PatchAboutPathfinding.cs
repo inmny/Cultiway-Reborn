@@ -1,5 +1,10 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
 using ai;
+using ai.behaviours;
 using Cultiway.Core.Pathfinding;
 using HarmonyLib;
 using life.taxi;
@@ -36,7 +41,7 @@ namespace Cultiway.Patch
             if (!PathFinder.Instance.TryPeekStep(__instance, out var step, out var finished))
             {
                 __instance.setNotMoving();
-                __instance.timer_action = 0.3f;
+                __instance.timer_action = 1f;
                 return false;
             }
 
@@ -51,7 +56,7 @@ namespace Cultiway.Patch
                     __instance.cancelAllBeh();
                     break;
                 case PathProcessResult.Deferred:
-                    __instance.timer_action = 0.3f;
+                    __instance.timer_action = 1f;
                     __instance.setNotMoving();
                     break;
             }
@@ -95,7 +100,7 @@ namespace Cultiway.Patch
             {
                 if (pState == BuildingState.Normal)
                 {
-                    PortalRegistry.Instance.RegisterOrUpdate(new PortalDefinition(__instance.id, __instance.current_tile, 1, 1, new List<PortalConnection>()));
+                    PortalRegistry.Instance.RegisterOrUpdate(new PortalDefinition(__instance.id, __instance.getConstructionTile(), 1, 1, new List<PortalConnection>()));
                     WaterConnectivityUpdater.RequestRebuild();
                 }
                 else if (pState == BuildingState.Ruins || pState == BuildingState.Removed)
@@ -105,7 +110,7 @@ namespace Cultiway.Patch
                 }
             }
         }
-        [HarmonyPrefix, HarmonyPatch(typeof(MapChunkManager), "updateDirty")]
+        [HarmonyPrefix, HarmonyPatch(typeof(MapChunkManager), nameof(MapChunkManager.updateDirty))]
         private static void updateDirty_prefix(MapChunkManager __instance, ref bool __state)
         {
             __state = false;
@@ -117,8 +122,8 @@ namespace Cultiway.Patch
             {
                 return;
             }
-            var dirtyLinks = AccessTools.FieldRefAccess<MapChunkManager, List<MapChunk>>("_dirty_chunks_links")(__instance);
-            var dirtyRegions = AccessTools.FieldRefAccess<MapChunkManager, List<MapChunk>>("_dirty_chunks_regions")(__instance);
+            var dirtyLinks = __instance._dirty_chunks_links;
+            var dirtyRegions = __instance._dirty_chunks_regions;
             if ((dirtyLinks == null || dirtyRegions == null) ||
                 (dirtyLinks.Count == 0 && dirtyRegions.Count == 0))
             {
@@ -126,7 +131,7 @@ namespace Cultiway.Patch
             }
             __state = true;
         }
-        [HarmonyPostfix, HarmonyPatch(typeof(MapChunkManager), "updateDirty")]
+        [HarmonyPostfix, HarmonyPatch(typeof(MapChunkManager), nameof(MapChunkManager.updateDirty))]
         private static void updateDirty_postfix(bool __state)
         {
             if (!__state) return;
@@ -154,11 +159,57 @@ namespace Cultiway.Patch
         {
             return TryMove(actor, tile, allowBlocks: false, allowLava: true, allowOcean: true);
         }
-
+        [HarmonyTranspiler, HarmonyPatch(typeof(BehBoatTransportDoLoading), nameof(BehBoatTransportDoLoading.execute))]
+        private static IEnumerable<CodeInstruction> BehBoatTransportDoLoading_execute_transpiler(IEnumerable<CodeInstruction> codes)
+        {
+            var list = codes.ToList();
+            
+            // 在list中找到这样一个下标i，第i个是ldc.i4.2，第i+1个是callvirt，方法名为setState
+            for (int i = 0; i < list.Count - 1; i++)
+            {
+                var inst = list[i];
+                var nextInst = list[i + 1];
+                if (inst.opcode == OpCodes.Ldc_I4_2 &&
+                    nextInst.opcode == OpCodes.Callvirt &&
+                    (nextInst.operand as MethodInfo)?.Name == nameof(TaxiRequest.setState))
+                {
+                    list.InsertRange(i - 1, new []
+                    {
+                        new CodeInstruction(OpCodes.Ldarg_1),
+                        new CodeInstruction(OpCodes.Ldloc_0),
+                        new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PatchAboutPathfinding), nameof(LoadCommonPassengers))),
+                    });
+                    break;
+                }
+            }
+            return list;
+        }
+        private static void LoadCommonPassengers(Actor actor, TaxiRequest request)
+        {
+            var passengers = request.getActors();
+            var boat = request.getBoat();
+            using var to_add = new ListPool<Actor>(passengers.Count);
+            foreach (var passenger in passengers)
+            {
+                if (passenger.is_inside_boat) continue;
+                passenger.data.transportID = actor.data.id;
+                passenger.is_inside_boat = true;
+                passenger.inside_boat = boat;
+                to_add.Add(passenger);
+            }
+            foreach (var passenger in to_add)
+            {
+                boat.addPassenger(passenger);
+            }
+        }
         private static PathProcessResult HandleSail(Actor actor, WorldTile tile)
         {
-            // 留空供后续实现乘船逻辑
-            TaxiManager.newRequest(actor, tile);
+            var request = TaxiManager.getRequestForActor(actor);
+            if (request == null)
+            {
+                TaxiManager.newRequest(actor, tile);
+                return PathProcessResult.Deferred;
+            }
             return PathProcessResult.Deferred;
         }
 
