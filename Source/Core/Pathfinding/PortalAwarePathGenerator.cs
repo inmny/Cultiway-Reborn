@@ -257,26 +257,11 @@ public class PortalAwarePathGenerator : IPathGenerator
         {
             return false;
         }
-
         if (profile.IsBoat && !type.ocean)
         {
             return false;
         }
 
-        if (type.block && !profile.IgnoreBlocks && !profile.AllowBlocks)
-        {
-            return false;
-        }
-
-        if (type.lava && !profile.AllowLava)
-        {
-            return false;
-        }
-
-        if (type.ocean && !profile.AllowOcean)
-        {
-            return false;
-        }
 
         return true;
     }
@@ -328,8 +313,27 @@ public class PortalAwarePathGenerator : IPathGenerator
 
         var dist = (from.x != to.x && from.y != to.y) ? 1.4142f : 1f;
         var time = dist / Mathf.Max(speed, 0.01f);
+        var multiplier = 1f;
+        var type = to.Type;
+        if (type != null)
+        {
+            if (!profile.IgnoreBlocks && type.block)
+            {
+                multiplier *= profile.BlockCostMultiplier;
+            }
 
-        return time;
+            if (type.lava)
+            {
+                multiplier *= profile.LavaCostMultiplier;
+            }
+
+            if (type.ocean)
+            {
+                multiplier *= profile.OceanCostMultiplier;
+            }
+        }
+
+        return time * multiplier;
     }
 
     private static MovementMethod DecideMethod(WorldTile tile, MovementProfile profile)
@@ -476,10 +480,7 @@ public class PortalAwarePathGenerator : IPathGenerator
         {
         }
 
-        public bool AllowBlocks { get; private set; }
         public bool IgnoreBlocks { get; private set; }
-        public bool AllowLava { get; private set; }
-        public bool AllowOcean { get; private set; }
         public bool IsBoat { get; private set; }
         public int MaxSwimWidth { get; private set; }
         public int MaxNodesShort { get; private set; }
@@ -488,6 +489,9 @@ public class PortalAwarePathGenerator : IPathGenerator
         public float SwimSpeed { get; private set; }
         public float SailSpeed { get; private set; }
         public float LongSwimPenalty { get; private set; }
+        public float BlockCostMultiplier { get; private set; }
+        public float LavaCostMultiplier { get; private set; }
+        public float OceanCostMultiplier { get; private set; }
 
         public static MovementProfile Build(PathRequest request, PathfindingConfig config)
         {
@@ -496,13 +500,20 @@ public class PortalAwarePathGenerator : IPathGenerator
                 var actor = request.Actor;
                 var isWaterCreature = actor != null && actor.isWaterCreature();
                 var inLiquid = actor?.current_tile?.is_liquid ?? false;
+                var ignoreBlocks = actor != null && actor.ignoresBlocks();
+                var allowBlocks = request.WalkOnBlocks;
+                var allowLava = request.WalkOnLava || (actor != null && (actor.asset.die_in_lava == false || actor.isImmuneToFire()));
+                var allowOcean = request.PathOnWater || isWaterCreature || inLiquid;
+                var isBoat = actor != null && actor.asset.is_boat;
+                if (isBoat)
+                {
+                    allowOcean = true;
+                }
+
                 var profile = new MovementProfile
                 {
-                    AllowBlocks = request.WalkOnBlocks,
-                    IgnoreBlocks = actor != null && actor.ignoresBlocks(),
-                    AllowLava = request.WalkOnLava || (actor != null && (actor.asset.die_in_lava == false || actor.isImmuneToFire())),
-                    AllowOcean = request.PathOnWater || isWaterCreature || inLiquid,
-                    IsBoat = actor != null && actor.asset.is_boat,
+                    IgnoreBlocks = ignoreBlocks,
+                    IsBoat = isBoat,
                     MaxSwimWidth = config.MaxSwimWidth,
                     MaxNodesShort = config.MaxNodesShort,
                     MaxNodesLong = config.MaxNodesLong,
@@ -511,7 +522,7 @@ public class PortalAwarePathGenerator : IPathGenerator
 
                 if (actor != null && actor.isDamagedByOcean() && !request.PathOnWater)
                 {
-                    profile.AllowOcean = false;
+                    allowOcean = false;
                 }
 
                 var baseSpeed = actor?.stats?["speed"] ?? 5f;
@@ -519,13 +530,12 @@ public class PortalAwarePathGenerator : IPathGenerator
                 profile.SwimSpeed = Mathf.Max(0.05f, profile.WalkSpeed * config.SwimSpeedScale);
                 profile.SailSpeed = Mathf.Max(0.05f, profile.WalkSpeed * config.SailSpeedScale);
 
-                if (profile.IsBoat)
-                {
-                profile.AllowOcean = true;
-            }
+                profile.BlockCostMultiplier = (profile.IgnoreBlocks || allowBlocks) ? 1f : 10f;
+                profile.LavaCostMultiplier = allowLava ? 1f : 10f;
+                profile.OceanCostMultiplier = allowOcean ? 1f : 10f;
 
-            return profile;
+                return profile;
+            }
         }
-    }
     }
 }

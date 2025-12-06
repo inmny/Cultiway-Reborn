@@ -222,31 +222,11 @@ namespace Cultiway.Patch
             }
 
             var tileType = tile.Type;
-            if (!allowBlocks && tileType.block && !actor.ignoresBlocks())
-            {
-                return PathProcessResult.Abort;
-            }
-
-            if (!allowLava && actor.asset.die_in_lava && tileType.lava)
-            {
-                return PathProcessResult.Abort;
-            }
-
-            if (!allowOcean && tileType.ocean && actor.isDamagedByOcean())
-            {
-                return PathProcessResult.Abort;
-            }
 
             if (tileType.damaged_when_walked)
             {
                 actor.current_tile?.tryToBreak();
             }
-
-            if (tile.isOnFire() && !actor.isImmuneToFire() && !(actor.current_tile?.isOnFire() ?? false))
-            {
-                return PathProcessResult.Abort;
-            }
-
             actor.moveTo(tile);
             return PathProcessResult.Consumed;
         }
