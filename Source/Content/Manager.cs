@@ -5,16 +5,19 @@ using Cultiway.Abstract;
 using Cultiway.Content.ActorComponents;
 using Cultiway.Content.Systems.Logic;
 using Cultiway.Content.Systems.Render;
+using Cultiway.Core.Pathfinding;
 
 namespace Cultiway.Content;
 
 internal class Manager
 {
     private List<ICanInit> libraries = new();
+    internal static PathFinder FlyerPathFinder { get; } = new();
 
     public void Init()
     {
         Libraries.Manager.Init();
+        FlyerPathFinder.UseGenerator(new PassthroughPathGenerator());
 
         var ns = GetType().Namespace;
         var library_ts = ModClass.A.GetTypes()

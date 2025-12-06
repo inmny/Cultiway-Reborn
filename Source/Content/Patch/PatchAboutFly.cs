@@ -7,6 +7,7 @@ using ai;
 using ai.behaviours;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
+using Cultiway.Core.Pathfinding;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -91,43 +92,49 @@ internal static class PatchAboutFly
         return list;
     }
 
-    //[HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.goTo))]
-    private static bool goTo_prefix(ref ExecuteEvent __result, Actor __instance, WorldTile pTile)
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.updatePathMovement))]
+    private static void updatePathMovement_prefix(Actor __instance)
     {
-        if (Toolbox.DistTile(__instance.current_tile, pTile) < ContentSetting.MinFlyDist) return true;
-        if (try_goTo_fast((Actor)__instance, pTile))
+        if (!can_goTo_fast(__instance)) return;
+        var steps = PathFinder.Instance.TryViewAll(__instance);
+        if (steps == null || steps.Count == 0) return;
+        
+        var len = 0f;
+        var last_tile = __instance.current_tile;
+        foreach (var step in steps)
         {
-            __result = ExecuteEvent.True;
-            return false;
+            var tile = step.Tile;
+            len += Toolbox.DistTile(last_tile, tile);
+            last_tile = tile;
+            if (len >= ContentSetting.MinFlyDist) break;
         }
 
-        return true;
+        if (len < ContentSetting.MinFlyDist) return;
+
+        var ae = __instance.GetExtend();
+        ref var xian = ref ae.GetCultisys<Xian>();
+
+        if (xian.CurrLevel >= XianSetting.TransportLevel)
+        {
+            // 放一个特效
+            __instance.setCurrentTilePosition(__instance.tile_target);
+            __instance.stopMovement();
+            PathFinder.Instance.Cancel(__instance);
+
+            return;
+        }
+
+        if (xian.CurrLevel >= XianSetting.WeaponFlyLevel)
+        {
+            __instance.data.addFlag(ContentActorDataKeys.IsFlying_flag);
+            __instance.setFlying(true);
+            __instance.precalcMovementSpeed(true);
+            __instance.moveTo(__instance.tile_target);
+            PathFinder.Instance.Cancel(__instance);
+            return;
+        }
     }
-
-    //[HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.goTo))]
-    private static void goTo_postfix(ref ExecuteEvent __result, Actor __instance, WorldTile pTile)
-    {
-        if (__result == ExecuteEvent.True)
-        {
-            var len = 0f;
-            var last_tile = __instance.current_tile;
-            for (int i = __instance.current_path_index; i < __instance.current_path.Count; i++)
-            {
-                var tile = __instance.current_path[i];
-                len += Toolbox.DistTile(last_tile, tile);
-                last_tile = tile;
-            }
-
-            if (len < ContentSetting.MinFlyDist) return;
-        }
-
-        if (try_goTo_fast((Actor)__instance, pTile))
-        {
-            __result = ExecuteEvent.True;
-        }
-    }
-
-    private static bool try_goTo_fast(Actor actor, WorldTile tile)
+    private static bool can_goTo_fast(Actor actor)
     {
         var ae = actor.GetExtend();
         if (!ae.HasCultisys<Xian>()) return false;
@@ -135,24 +142,13 @@ internal static class PatchAboutFly
 
         if (xian.CurrLevel >= XianSetting.TransportLevel)
         {
-            actor.current_path.Clear();
-            // 放一个特效
-            actor.setCurrentTilePosition(tile);
             return true;
         }
 
         if (xian.CurrLevel >= XianSetting.WeaponFlyLevel)
         {
             if (!actor.hasWeapon() && xian.CurrLevel < XianSetting.CloudFlyLevel) return false;
-            actor.data.addFlag(ContentActorDataKeys.IsFlying_flag);
-            actor.setFlying(true);
-            actor.precalcMovementSpeed(true);
-
-            actor.clearOldPath();
-            actor.setTileTarget(tile);
-            actor.current_path.Add(tile);
             return true;
-            return ActorMove.goTo(actor, tile, true, true, true) == ExecuteEvent.True;
         }
 
         return false;
