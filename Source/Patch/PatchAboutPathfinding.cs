@@ -191,6 +191,13 @@ namespace Cultiway.Patch
             foreach (var passenger in to_add)
             {
                 boat.addPassenger(passenger);
+                if (PathFinder.Instance.TryPeekStep(passenger, out var step, out var finished))
+                {
+                    if (step.Method == MovementMethod.Sail)
+                    {
+                        PathFinder.Instance.ConsumeStep(passenger);
+                    }
+                }
             }
         }
         private static PathProcessResult HandleSail(Actor actor, WorldTile tile)
