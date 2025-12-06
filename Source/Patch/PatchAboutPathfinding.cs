@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using ai;
 using Cultiway.Core.Pathfinding;
 using HarmonyLib;
+using life.taxi;
 
 namespace Cultiway.Patch
 {
@@ -95,12 +96,41 @@ namespace Cultiway.Patch
                 if (pState == BuildingState.Normal)
                 {
                     PortalRegistry.Instance.RegisterOrUpdate(new PortalDefinition(__instance.id, __instance.current_tile, 1, 1, new List<PortalConnection>()));
+                    WaterConnectivityUpdater.RequestRebuild();
                 }
                 else if (pState == BuildingState.Ruins || pState == BuildingState.Removed)
                 {
                     PortalRegistry.Instance.Remove(__instance.id);
+                    WaterConnectivityUpdater.RequestRebuild();
                 }
             }
+        }
+        [HarmonyPrefix, HarmonyPatch(typeof(MapChunkManager), "updateDirty")]
+        private static void updateDirty_prefix(MapChunkManager __instance, ref bool __state)
+        {
+            __state = false;
+            if (!DebugConfig.isOn(DebugOption.SystemUpdateDirtyChunks))
+            {
+                return;
+            }
+            if (!__instance.isAllChunksDirty() && World.world.isActionHappening())
+            {
+                return;
+            }
+            var dirtyLinks = AccessTools.FieldRefAccess<MapChunkManager, List<MapChunk>>("_dirty_chunks_links")(__instance);
+            var dirtyRegions = AccessTools.FieldRefAccess<MapChunkManager, List<MapChunk>>("_dirty_chunks_regions")(__instance);
+            if ((dirtyLinks == null || dirtyRegions == null) ||
+                (dirtyLinks.Count == 0 && dirtyRegions.Count == 0))
+            {
+                return;
+            }
+            __state = true;
+        }
+        [HarmonyPostfix, HarmonyPatch(typeof(MapChunkManager), "updateDirty")]
+        private static void updateDirty_postfix(bool __state)
+        {
+            if (!__state) return;
+            WaterConnectivityUpdater.RequestRebuild();
         }
 
 
@@ -128,6 +158,7 @@ namespace Cultiway.Patch
         private static PathProcessResult HandleSail(Actor actor, WorldTile tile)
         {
             // 留空供后续实现乘船逻辑
+            TaxiManager.newRequest(actor, tile);
             return PathProcessResult.Deferred;
         }
 
