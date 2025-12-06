@@ -52,63 +52,77 @@ public class PortalAwarePathGenerator : IPathGenerator
         var profile = MovementProfile.Build(request, _config);
 
         var direct = TryBuildLocalPath(request.Start, request.Target, profile, useLongRange: true, token);
-        var candidates = new List<RouteCandidate>();
+        RouteCandidate bestCandidate = null;
+        var bestCost = float.MaxValue;
         if (direct.IsSuccess)
         {
-            candidates.Add(RouteCandidate.FromSegments(direct.Steps, direct.Cost));
+            bestCandidate = RouteCandidate.FromSegments(direct.Steps, direct.Cost);
+            bestCost = direct.Cost;
         }
 
-        foreach (var portalCandidate in BuildPortalCandidates(request, profile, token))
+        var estimates = BuildPortalEstimates(request, profile);
+        var bestEstimate = estimates.Count > 0 ? estimates.OrderBy(e => e.EstCost).First() : null;
+        if (bestEstimate != null)
         {
-            candidates.Add(portalCandidate);
+            if (bestCandidate != null && bestEstimate.EstCost >= bestCost)
+            {
+                EmitCandidate(bestCandidate, stream, token);
+                return;
+            }
+
+            token.ThrowIfCancellationRequested();
+
+            var toEntry = TryBuildLocalPath(request.Start, bestEstimate.Entry.Tile, profile, useLongRange: true, token);
+            if (toEntry.IsSuccess)
+            {
+                var exitToTarget = TryBuildLocalPath(bestEstimate.Exit.Tile, request.Target, profile, useLongRange: true, token);
+                if (exitToTarget.IsSuccess)
+                {
+                    var realCost = toEntry.Cost + bestEstimate.Entry.WaitTime + bestEstimate.Link.TravelTime +
+                                   bestEstimate.Exit.TransferTime + exitToTarget.Cost;
+                    if (realCost < bestCost)
+                    {
+                        bestCost = realCost;
+                        var legs = new List<RouteLeg>
+                        {
+                            new MovementLeg(toEntry.Steps, toEntry.Cost),
+                            new PortalLeg(bestEstimate.Entry, bestEstimate.Exit,
+                                bestEstimate.Entry.WaitTime + bestEstimate.Link.TravelTime + bestEstimate.Exit.TransferTime),
+                            new MovementLeg(exitToTarget.Steps, exitToTarget.Cost)
+                        };
+                        bestCandidate = RouteCandidate.FromLegs(legs, realCost);
+                    }
+                }
+            }
         }
 
-        if (candidates.Count == 0)
+        if (bestCandidate == null)
         {
             return;
         }
 
-        var best = candidates.OrderBy(c => c.Cost).First();
-        EmitCandidate(best, stream, token);
+        EmitCandidate(bestCandidate, stream, token);
     }
 
-    private IEnumerable<RouteCandidate> BuildPortalCandidates(PathRequest request, MovementProfile profile,
-        CancellationToken token)
+    private List<PortalEstimate> BuildPortalEstimates(PathRequest request, MovementProfile profile)
     {
         var portals = _registry.Snapshot();
+        var estimates = new List<PortalEstimate>();
         if (portals.Count == 0)
         {
-            yield break;
+            return estimates;
         }
 
         var portalDict = portals.ToDictionary(p => p.Id, p => p);
         var startTile = request.Start;
         var targetTile = request.Target;
-        // 缓存入口/出口的局部路径，避免重复长程 A*
-        var toEntryCache = new Dictionary<long, LocalPathResult>();
-        var exitToTargetCache = new Dictionary<long, LocalPathResult>();
 
         var nearStart = portals
             .OrderBy(p => DistTile(startTile, p.Tile))
             .Take(_config.PortalCandidates)
             .ToList();
 
-        var nearEndIds = new HashSet<long>(portals
-            .OrderBy(p => DistTile(targetTile, p.Tile))
-            .Take(_config.PortalCandidates)
-            .Select(p => p.Id));
-
-        // 用直接路径的成本作为剪枝上界
-        var bestCost = float.MaxValue;
-        {
-            var direct = TryBuildLocalPath(startTile, targetTile, profile, useLongRange: true, token);
-            if (direct.IsSuccess)
-            {
-                bestCost = direct.Cost;
-                yield return RouteCandidate.FromSegments(direct.Steps, direct.Cost);
-            }
-        }
-
+        var nearEndIds = new HashSet<long>(portals.Select(p => p.Id));
         foreach (var entry in nearStart)
         {
             if (DistTile(startTile, entry.Tile) > _config.PortalSearchRadius)
@@ -116,65 +130,30 @@ public class PortalAwarePathGenerator : IPathGenerator
                 continue;
             }
 
-            // 入口局部路径（缓存）
-            if (!toEntryCache.TryGetValue(entry.Id, out var toEntry))
-            {
-                toEntry = TryBuildLocalPath(startTile, entry.Tile, profile, useLongRange: true, token);
-                toEntryCache[entry.Id] = toEntry;
-            }
-            if (!toEntry.IsSuccess)
-            {
-                continue;
-            }
-
             foreach (var link in entry.Connections.OrderBy(c => c.TravelTime))
             {
-                token.ThrowIfCancellationRequested();
                 if (!portalDict.TryGetValue(link.TargetId, out var exit))
                 {
                     continue;
                 }
 
-                if (!nearEndIds.Contains(exit.Id) && DistTile(targetTile, exit.Tile) > _config.PortalSearchRadius * 2)
+                if (!nearEndIds.Contains(exit.Id))
                 {
                     continue;
                 }
 
-                // 估算下界：已知 toEntry + portal 固定代价 + 出口到终点的启发式
-                var heuristicExit = Heuristic(exit.Tile, targetTile) / Mathf.Max(profile.WalkSpeed, 0.01f);
-                var lowerBound = toEntry.Cost + entry.WaitTime + link.TravelTime + exit.TransferTime + heuristicExit;
-                if (lowerBound >= bestCost)
-                {
-                    continue;
-                }
+                var entryDist = DistTile(startTile, entry.Tile);
+                var exitDist = DistTile(exit.Tile, targetTile);
+                var walkSpeed = Mathf.Max(profile.WalkSpeed, 0.01f);
+                var estEntryCost = entryDist / walkSpeed;
+                var estExitCost = exitDist / walkSpeed;
+                var estCost = estEntryCost + entry.WaitTime + link.TravelTime + exit.TransferTime + estExitCost;
 
-                // 出口局部路径（缓存）
-                if (!exitToTargetCache.TryGetValue(exit.Id, out var exitToTarget))
-                {
-                    exitToTarget = TryBuildLocalPath(exit.Tile, targetTile, profile, useLongRange: true, token);
-                    exitToTargetCache[exit.Id] = exitToTarget;
-                }
-                if (!exitToTarget.IsSuccess)
-                {
-                    continue;
-                }
-
-                var cost = toEntry.Cost + entry.WaitTime + link.TravelTime + exit.TransferTime + exitToTarget.Cost;
-                if (cost >= bestCost)
-                {
-                    continue;
-                }
-
-                var legs = new List<RouteLeg>
-                {
-                    new MovementLeg(toEntry.Steps, toEntry.Cost),
-                    new PortalLeg(entry, exit, entry.WaitTime + link.TravelTime + exit.TransferTime),
-                    new MovementLeg(exitToTarget.Steps, exitToTarget.Cost)
-                };
-                bestCost = cost;
-                yield return RouteCandidate.FromLegs(legs, cost);
+                estimates.Add(new PortalEstimate(entry, exit, link, estCost));
             }
         }
+
+        return estimates;
     }
 
     private void EmitCandidate(RouteCandidate candidate, IPathStreamWriter stream, CancellationToken token)
@@ -418,6 +397,22 @@ public class PortalAwarePathGenerator : IPathGenerator
     }
 
     private abstract class RouteLeg;
+
+    private sealed class PortalEstimate
+    {
+        public PortalEstimate(PortalSnapshot entry, PortalSnapshot exit, PortalConnection link, float estCost)
+        {
+            Entry = entry;
+            Exit = exit;
+            Link = link;
+            EstCost = estCost;
+        }
+
+        public PortalSnapshot Entry { get; }
+        public PortalSnapshot Exit { get; }
+        public PortalConnection Link { get; }
+        public float EstCost { get; }
+    }
 
     private sealed class PathNode
     {

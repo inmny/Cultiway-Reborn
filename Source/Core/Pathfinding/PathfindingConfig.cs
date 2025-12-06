@@ -9,7 +9,7 @@ public class PathfindingConfig
     public int MaxNodesShort { get; set; } = 3000;
     public int MaxNodesLong { get; set; } = 12000;
     public int MaxSwimWidth { get; set; } = 12;
-    public int PortalCandidates { get; set; } = 8;
+    public int PortalCandidates { get; set; } = 2;
     public int PortalSearchRadius { get; set; } = 64;
     public float WalkSpeedScale { get; set; } = 0.4f;
     public float SwimSpeedScale { get; set; } = 0.25f;
