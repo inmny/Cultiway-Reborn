@@ -59,43 +59,47 @@ public class PortalAwarePathGenerator : IPathGenerator
             bestCandidate = RouteCandidate.FromSegments(direct.Steps, direct.Cost);
             bestCost = direct.Cost;
         }
-
-        var estimates = BuildPortalEstimates(request, profile);
-        var bestEstimate = estimates.Count > 0 ? estimates.OrderBy(e => e.EstCost).First() : null;
-        if (bestEstimate != null)
+        if (!request.Actor.asset.is_boat)
         {
-            if (bestCandidate != null && bestEstimate.EstCost >= bestCost)
+            var estimates = BuildPortalEstimates(request, profile);
+            var bestEstimate = estimates.Count > 0 ? estimates.OrderBy(e => e.EstCost).First() : null;
+            if (bestEstimate != null)
             {
-                EmitCandidate(bestCandidate, stream, token);
-                return;
-            }
-
-            token.ThrowIfCancellationRequested();
-
-            var toEntry = TryBuildLocalPath(request.Start, bestEstimate.Entry.Tile, profile, useLongRange: true, token);
-            if (toEntry.IsSuccess)
-            {
-                var exitToTarget = TryBuildLocalPath(bestEstimate.Exit.Tile, request.Target, profile, useLongRange: true, token);
-                if (exitToTarget.IsSuccess)
+                if (bestCandidate != null && bestEstimate.EstCost >= bestCost)
                 {
-                    var realCost = toEntry.Cost + bestEstimate.Entry.WaitTime + bestEstimate.Link.TravelTime +
-                                   bestEstimate.Exit.TransferTime + exitToTarget.Cost;
-                    if (realCost < bestCost)
+                    EmitCandidate(bestCandidate, stream, token);
+                    return;
+                }
+
+                token.ThrowIfCancellationRequested();
+
+                var toEntry = TryBuildLocalPath(request.Start, bestEstimate.Entry.Tile, profile, useLongRange: true, token);
+                if (!toEntry.IsSuccess)
+                {
+                    goto OUTSIDE;
+                }
+                var exitToTarget = TryBuildLocalPath(bestEstimate.Exit.Tile, request.Target, profile, useLongRange: true, token);
+                if (!exitToTarget.IsSuccess)
+                {
+                    goto OUTSIDE;
+                }
+                var realCost = toEntry.Cost + bestEstimate.Entry.WaitTime + bestEstimate.Link.TravelTime +
+                            bestEstimate.Exit.TransferTime + exitToTarget.Cost;
+                if (realCost < bestCost)
+                {
+                    bestCost = realCost;
+                    var legs = new List<RouteLeg>
                     {
-                        bestCost = realCost;
-                        var legs = new List<RouteLeg>
-                        {
-                            new MovementLeg(toEntry.Steps, toEntry.Cost),
-                            new PortalLeg(bestEstimate.Entry, bestEstimate.Exit,
-                                bestEstimate.Entry.WaitTime + bestEstimate.Link.TravelTime + bestEstimate.Exit.TransferTime),
-                            new MovementLeg(exitToTarget.Steps, exitToTarget.Cost)
-                        };
-                        bestCandidate = RouteCandidate.FromLegs(legs, realCost);
-                    }
+                        new MovementLeg(toEntry.Steps, toEntry.Cost),
+                        new PortalLeg(bestEstimate.Entry, bestEstimate.Exit,
+                            bestEstimate.Entry.WaitTime + bestEstimate.Link.TravelTime + bestEstimate.Exit.TransferTime),
+                        new MovementLeg(exitToTarget.Steps, exitToTarget.Cost)
+                    };
+                    bestCandidate = RouteCandidate.FromLegs(legs, realCost);
                 }
             }
         }
-
+        OUTSIDE:
         if (bestCandidate == null)
         {
             return;
