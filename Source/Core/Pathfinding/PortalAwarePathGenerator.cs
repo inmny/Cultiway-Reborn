@@ -84,6 +84,9 @@ public class PortalAwarePathGenerator : IPathGenerator
         var portalDict = portals.ToDictionary(p => p.Id, p => p);
         var startTile = request.Start;
         var targetTile = request.Target;
+        // 缓存入口/出口的局部路径，避免重复长程 A*
+        var toEntryCache = new Dictionary<long, LocalPathResult>();
+        var exitToTargetCache = new Dictionary<long, LocalPathResult>();
 
         var nearStart = portals
             .OrderBy(p => DistTile(startTile, p.Tile))
@@ -95,6 +98,17 @@ public class PortalAwarePathGenerator : IPathGenerator
             .Take(_config.PortalCandidates)
             .Select(p => p.Id));
 
+        // 用直接路径的成本作为剪枝上界
+        var bestCost = float.MaxValue;
+        {
+            var direct = TryBuildLocalPath(startTile, targetTile, profile, useLongRange: true, token);
+            if (direct.IsSuccess)
+            {
+                bestCost = direct.Cost;
+                yield return RouteCandidate.FromSegments(direct.Steps, direct.Cost);
+            }
+        }
+
         foreach (var entry in nearStart)
         {
             if (DistTile(startTile, entry.Tile) > _config.PortalSearchRadius)
@@ -102,7 +116,18 @@ public class PortalAwarePathGenerator : IPathGenerator
                 continue;
             }
 
-            foreach (var link in entry.Connections)
+            // 入口局部路径（缓存）
+            if (!toEntryCache.TryGetValue(entry.Id, out var toEntry))
+            {
+                toEntry = TryBuildLocalPath(startTile, entry.Tile, profile, useLongRange: true, token);
+                toEntryCache[entry.Id] = toEntry;
+            }
+            if (!toEntry.IsSuccess)
+            {
+                continue;
+            }
+
+            foreach (var link in entry.Connections.OrderBy(c => c.TravelTime))
             {
                 token.ThrowIfCancellationRequested();
                 if (!portalDict.TryGetValue(link.TargetId, out var exit))
@@ -115,25 +140,38 @@ public class PortalAwarePathGenerator : IPathGenerator
                     continue;
                 }
 
-                var toEntry = TryBuildLocalPath(startTile, entry.Tile, profile, useLongRange: true, token);
-                if (!toEntry.IsSuccess)
+                // 估算下界：已知 toEntry + portal 固定代价 + 出口到终点的启发式
+                var heuristicExit = Heuristic(exit.Tile, targetTile) / Mathf.Max(profile.WalkSpeed, 0.01f);
+                var lowerBound = toEntry.Cost + entry.WaitTime + link.TravelTime + exit.TransferTime + heuristicExit;
+                if (lowerBound >= bestCost)
                 {
                     continue;
                 }
 
-                var exitToTarget = TryBuildLocalPath(exit.Tile, targetTile, profile, useLongRange: true, token);
+                // 出口局部路径（缓存）
+                if (!exitToTargetCache.TryGetValue(exit.Id, out var exitToTarget))
+                {
+                    exitToTarget = TryBuildLocalPath(exit.Tile, targetTile, profile, useLongRange: true, token);
+                    exitToTargetCache[exit.Id] = exitToTarget;
+                }
                 if (!exitToTarget.IsSuccess)
                 {
                     continue;
                 }
 
                 var cost = toEntry.Cost + entry.WaitTime + link.TravelTime + exit.TransferTime + exitToTarget.Cost;
+                if (cost >= bestCost)
+                {
+                    continue;
+                }
+
                 var legs = new List<RouteLeg>
                 {
                     new MovementLeg(toEntry.Steps, toEntry.Cost),
                     new PortalLeg(entry, exit, entry.WaitTime + link.TravelTime + exit.TransferTime),
                     new MovementLeg(exitToTarget.Steps, exitToTarget.Cost)
                 };
+                bestCost = cost;
                 yield return RouteCandidate.FromLegs(legs, cost);
             }
         }
