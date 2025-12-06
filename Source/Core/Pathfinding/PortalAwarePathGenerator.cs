@@ -322,19 +322,19 @@ public class PortalAwarePathGenerator : IPathGenerator
             if (!profile.IgnoreBlocks && type.block)
             {
                 multiplier *= profile.BlockCostMultiplier;
-                if (profile.BlockCostMultiplier > 1f) penalty |= StepPenalty.Block;
+                penalty |= StepPenalty.Block;
             }
 
             if (type.lava)
             {
                 multiplier *= profile.LavaCostMultiplier;
-                if (profile.LavaCostMultiplier > 1f) penalty |= StepPenalty.Lava;
+                penalty |= StepPenalty.Lava;
             }
 
             if (type.ocean)
             {
                 multiplier *= profile.OceanCostMultiplier;
-                if (profile.OceanCostMultiplier > 1f) penalty |= StepPenalty.Ocean;
+                penalty |= StepPenalty.Ocean;
             }
         }
 
