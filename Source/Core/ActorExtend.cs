@@ -624,7 +624,12 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         {
             action_on_be_attacked?.Invoke(this, attacker, damage);
         }
-        
+        if (!attacker.isRekt() && attacker.isActor())
+        {
+            Base.checkSpecialAttackLogic(attacker.a, attack_type_for_vanilla, damage, out var final_damage);
+            AchievementLibrary.clone_wars.checkBySignal(new ValueTuple<Actor, Actor>(Base, attacker.a));
+            damage = Math.Min(damage, final_damage);
+        }
         PatchActor.getHit_snapshot(Base, damage, pAttackType: attack_type_for_vanilla, pAttacker: attacker, pSkipIfShake: false, pCheckDamageReduction: false);
     }
 
