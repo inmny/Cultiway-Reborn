@@ -199,7 +199,7 @@ public class PortalAwarePathGenerator : IPathGenerator
         var maxNodes = useLongRange ? profile.MaxNodesLong : profile.MaxNodesShort;
         var open = new PriorityQueuePreview<PathNode>(128, PathNodeComparer.Instance);
         var visited = new Dictionary<int, PathNode>(256);
-        var startNode = new PathNode(start, null, MovementMethod.Walk, 0, Heuristic(start, target));
+        var startNode = new PathNode(start, null, MovementMethod.Walk, 0, Heuristic(start, target), StepPenalty.None);
 
         open.Enqueue(startNode);
         visited[start.data.tile_id] = startNode;
@@ -232,7 +232,7 @@ public class PortalAwarePathGenerator : IPathGenerator
                 }
 
                 var method = DecideMethod(neighbour, profile);
-                var stepCost = StepCost(current.Tile, neighbour, method, profile);
+                var stepCost = StepCost(current.Tile, neighbour, method, profile, out var penalty);
                 var tentativeG = current.G + stepCost;
                 var tileId = neighbour.data.tile_id;
 
@@ -241,7 +241,7 @@ public class PortalAwarePathGenerator : IPathGenerator
                     continue;
                 }
 
-                var node = new PathNode(neighbour, current, method, tentativeG, Heuristic(neighbour, target));
+                var node = new PathNode(neighbour, current, method, tentativeG, Heuristic(neighbour, target), penalty);
                 visited[tileId] = node;
                 open.Enqueue(node);
             }
@@ -287,7 +287,7 @@ public class PortalAwarePathGenerator : IPathGenerator
                 swimRun = 0;
             }
 
-            reversed.Add(new PathStep(current.Tile, current.Method));
+            reversed.Add(new PathStep(current.Tile, current.Method, current.Penalty));
             current = current.Parent;
         }
 
@@ -302,8 +302,10 @@ public class PortalAwarePathGenerator : IPathGenerator
         return LocalPathResult.Success(reversed, cost);
     }
 
-    private static float StepCost(WorldTile from, WorldTile to, MovementMethod method, MovementProfile profile)
+    private static float StepCost(WorldTile from, WorldTile to, MovementMethod method, MovementProfile profile,
+        out StepPenalty penalty)
     {
+        penalty = StepPenalty.None;
         var speed = method switch
         {
             MovementMethod.Swim => profile.SwimSpeed,
@@ -320,16 +322,19 @@ public class PortalAwarePathGenerator : IPathGenerator
             if (!profile.IgnoreBlocks && type.block)
             {
                 multiplier *= profile.BlockCostMultiplier;
+                if (profile.BlockCostMultiplier > 1f) penalty |= StepPenalty.Block;
             }
 
             if (type.lava)
             {
                 multiplier *= profile.LavaCostMultiplier;
+                if (profile.LavaCostMultiplier > 1f) penalty |= StepPenalty.Lava;
             }
 
             if (type.ocean)
             {
                 multiplier *= profile.OceanCostMultiplier;
+                if (profile.OceanCostMultiplier > 1f) penalty |= StepPenalty.Ocean;
             }
         }
 
@@ -424,18 +429,20 @@ public class PortalAwarePathGenerator : IPathGenerator
 
     private sealed class PathNode
     {
-        public PathNode(WorldTile tile, PathNode parent, MovementMethod method, float g, float h)
+        public PathNode(WorldTile tile, PathNode parent, MovementMethod method, float g, float h, StepPenalty penalty)
         {
             Tile = tile;
             Parent = parent;
             Method = method;
             G = g;
             H = h;
+            Penalty = penalty;
         }
 
         public WorldTile Tile { get; }
         public PathNode Parent { get; }
         public MovementMethod Method { get; }
+        public StepPenalty Penalty { get; }
         public float G { get; }
         public float H { get; }
         public float F => G + H;

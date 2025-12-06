@@ -143,22 +143,13 @@ namespace Cultiway.Patch
         {
             return step.Method switch
             {
-                MovementMethod.Walk => HandleWalk(actor, step.Tile),
-                MovementMethod.Swim => HandleSwim(actor, step.Tile),
+                MovementMethod.Walk => TryMove(actor, step.Tile, step.Penalty.HasFlag(StepPenalty.Block), allowLava: step.Penalty.HasFlag(StepPenalty.Lava), allowOcean: step.Penalty.HasFlag(StepPenalty.Ocean)),
+                MovementMethod.Swim => TryMove(actor, step.Tile, step.Penalty.HasFlag(StepPenalty.Block), allowLava: step.Penalty.HasFlag(StepPenalty.Lava), allowOcean: step.Penalty.HasFlag(StepPenalty.Ocean)),
                 MovementMethod.Sail => HandleSail(actor, step.Tile),
                 _ => PathProcessResult.Deferred
             };
         }
 
-        private static PathProcessResult HandleWalk(Actor actor, WorldTile tile)
-        {
-            return TryMove(actor, tile, allowBlocks: false, allowLava: false, allowOcean: true);
-        }
-
-        private static PathProcessResult HandleSwim(Actor actor, WorldTile tile)
-        {
-            return TryMove(actor, tile, allowBlocks: false, allowLava: true, allowOcean: true);
-        }
         [HarmonyTranspiler, HarmonyPatch(typeof(BehBoatTransportDoLoading), nameof(BehBoatTransportDoLoading.execute))]
         private static IEnumerable<CodeInstruction> BehBoatTransportDoLoading_execute_transpiler(IEnumerable<CodeInstruction> codes)
         {
@@ -222,6 +213,29 @@ namespace Cultiway.Patch
             }
 
             var tileType = tile.Type;
+            if (tileType == null)
+            {
+                return PathProcessResult.Abort;
+            }
+            if (!allowBlocks && tileType.block && !actor.ignoresBlocks())
+            {
+                return PathProcessResult.Abort;
+            }
+
+            if (!allowLava && actor.asset.die_in_lava && tileType.lava)
+            {
+                return PathProcessResult.Abort;
+            }
+
+            if (!allowOcean && tileType.ocean && actor.isDamagedByOcean())
+            {
+                return PathProcessResult.Abort;
+            }
+
+            if (tile.isOnFire() && !actor.isImmuneToFire() && !(actor.current_tile?.isOnFire() ?? false))
+            {
+                return PathProcessResult.Abort;
+            }
 
             if (tileType.damaged_when_walked)
             {
