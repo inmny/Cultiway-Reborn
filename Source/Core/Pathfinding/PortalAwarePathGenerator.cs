@@ -90,7 +90,7 @@ public class PortalAwarePathGenerator : IPathGenerator
             .Take(_config.PortalCandidates)
             .ToList();
 
-        var nearEndIds = new HashSet<string>(portals
+        var nearEndIds = new HashSet<long>(portals
             .OrderBy(p => DistTile(targetTile, p.Tile))
             .Take(_config.PortalCandidates)
             .Select(p => p.Id));

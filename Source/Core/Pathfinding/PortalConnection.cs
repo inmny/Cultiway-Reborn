@@ -2,12 +2,12 @@ namespace Cultiway.Core.Pathfinding;
 
 public sealed class PortalConnection
 {
-    public PortalConnection(string targetId, float travelTime)
+    public PortalConnection(long targetId, float travelTime)
     {
         TargetId = targetId;
         TravelTime = travelTime;
     }
 
-    public string TargetId { get; }
+    public long TargetId { get; }
     public float TravelTime { get; }
 }

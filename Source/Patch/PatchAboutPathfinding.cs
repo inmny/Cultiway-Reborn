@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using ai;
 using Cultiway.Core.Pathfinding;
 using HarmonyLib;
@@ -84,6 +85,21 @@ namespace Cultiway.Patch
             lock (PathFinder.ActorSyncLock)
             {
                 PathFinder.Instance.Cancel(__instance);
+            }
+        }
+        [HarmonyPrefix, HarmonyPatch(typeof(Building), nameof(Building.setState))]
+        private static void setState_prefix(Building __instance, BuildingState pState)
+        {
+            if (__instance.asset.docks)
+            {
+                if (pState == BuildingState.Normal)
+                {
+                    PortalRegistry.Instance.RegisterOrUpdate(new PortalDefinition(__instance.id, __instance.current_tile, 1, 1, new List<PortalConnection>()));
+                }
+                else if (pState == BuildingState.Ruins || pState == BuildingState.Removed)
+                {
+                    PortalRegistry.Instance.Remove(__instance.id);
+                }
             }
         }
 

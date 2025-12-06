@@ -8,11 +8,11 @@ public sealed class PortalRegistry
 {
     public static PortalRegistry Instance { get; } = new();
 
-    private readonly ConcurrentDictionary<string, PortalDefinition> _portals = new();
+    private readonly ConcurrentDictionary<long, PortalDefinition> _portals = new();
 
     public void RegisterOrUpdate(PortalDefinition portal)
     {
-        if (portal == null || string.IsNullOrEmpty(portal.Id) || portal.Tile == null)
+        if (portal == null || portal.Id == 0 || portal.Tile == null)
         {
             return;
         }
@@ -20,9 +20,9 @@ public sealed class PortalRegistry
         _portals[portal.Id] = portal;
     }
 
-    public bool Remove(string id)
+    public bool Remove(long id)
     {
-        return !string.IsNullOrEmpty(id) && _portals.TryRemove(id, out _);
+        return id != 0 && _portals.TryRemove(id, out _);
     }
 
     public void Clear()

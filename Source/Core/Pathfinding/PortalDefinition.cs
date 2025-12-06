@@ -5,7 +5,7 @@ namespace Cultiway.Core.Pathfinding;
 
 public sealed class PortalDefinition
 {
-    public PortalDefinition(string id, WorldTile tile, float waitTime, float transferTime,
+    public PortalDefinition(long id, WorldTile tile, float waitTime, float transferTime,
         IEnumerable<PortalConnection> connections)
     {
         Id = id;
@@ -15,7 +15,7 @@ public sealed class PortalDefinition
         Connections = connections?.ToList() ?? new List<PortalConnection>();
     }
 
-    public string Id { get; }
+    public long Id { get; }
     public WorldTile Tile { get; }
     public float WaitTime { get; }
     public float TransferTime { get; }
