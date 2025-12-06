@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cultiway.Utils;
 using Cultiway;
+using System.Collections.Generic;
 
 namespace Cultiway.Core.Pathfinding;
 
@@ -57,7 +58,12 @@ public class PathFinder
         Cleanup(actor.data.id, task);
         return false;
     }
-
+    public List<PathStep> TryViewAll(Actor actor)
+    {
+        if (actor?.data == null) return null;
+        if (!_tasks.TryGetValue(actor.data.id, out var task)) return null;
+        return task.Stream.TryViewAll();
+    }
     public bool TryPeekStep(Actor actor, out PathStep step, out bool finished)
     {
         finished = false;
@@ -207,26 +213,10 @@ internal sealed class PassthroughPathGenerator : IPathGenerator
         cancellationToken.ThrowIfCancellationRequested();
         if (request.Target != null)
         {
-            stream.AddStep(request.Target, GetMethod(request.Actor, request.Target, request.PathOnWater));
+            stream.AddStep(request.Target, MovementMethod.Walk, StepPenalty.Block | StepPenalty.Lava | StepPenalty.Ocean);
         }
 
         stream.Complete();
         return Task.CompletedTask;
-    }
-
-    private static MovementMethod GetMethod(Actor actor, WorldTile tile, bool pathOnWater)
-    {
-        var tileType = tile.Type;
-        if (actor.asset.is_boat)
-        {
-            return MovementMethod.Sail;
-        }
-
-        if (tileType.ocean || pathOnWater)
-        {
-            return MovementMethod.Swim;
-        }
-
-        return MovementMethod.Walk;
     }
 }

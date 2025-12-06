@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 
 namespace Cultiway.Core.Pathfinding;
@@ -10,21 +12,24 @@ public sealed class PathStream : IPathStreamWriter
     private int _status;
     private Exception _error;
 
-    public void AddStep(WorldTile tile, MovementMethod method)
+    public void AddStep(WorldTile tile, MovementMethod method, StepPenalty penalty)
     {
         if (tile == null || IsFinalized)
         {
             return;
         }
 
-        _steps.Enqueue(new PathStep(tile, method));
+        _steps.Enqueue(new PathStep(tile, method, penalty));
     }
 
     public bool TryDequeue(out PathStep step)
     {
         return _steps.TryDequeue(out step);
     }
-
+    public List<PathStep> TryViewAll()
+    {
+        return _steps.ToList();
+    }
     public bool TryPeek(out PathStep step)
     {
         return _steps.TryPeek(out step);

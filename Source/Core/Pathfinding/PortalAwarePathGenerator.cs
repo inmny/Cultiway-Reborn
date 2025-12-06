@@ -171,13 +171,13 @@ public class PortalAwarePathGenerator : IPathGenerator
                     foreach (var step in movement.Steps)
                     {
                         token.ThrowIfCancellationRequested();
-                        stream.AddStep(step.Tile, step.Method);
+                        stream.AddStep(step.Tile, step.Method, step.Penalty);
                     }
 
                     break;
                 case PortalLeg portal:
                     // 传送/乘船在客户端处理，默认用 Sail 占位
-                    stream.AddStep(portal.Exit.Tile, MovementMethod.Sail);
+                    stream.AddStep(portal.Exit.Tile, MovementMethod.Sail, StepPenalty.Block | StepPenalty.Ocean | StepPenalty.Block);
                     break;
             }
         }
