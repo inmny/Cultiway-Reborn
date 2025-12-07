@@ -4,16 +4,20 @@ namespace Cultiway.Core.Pathfinding;
 
 public readonly struct PathStep
 {
-    public PathStep(WorldTile tile, MovementMethod method, StepPenalty penalty = StepPenalty.None)
+    public PathStep(WorldTile tile, MovementMethod method, StepPenalty penalty = StepPenalty.None, PortalSnapshot entry = null, PortalSnapshot exit = null)
     {
         Tile = tile ?? throw new ArgumentNullException(nameof(tile));
         Method = method;
         Penalty = penalty;
+        Entry = entry;
+        Exit = exit;
     }
 
     public WorldTile Tile { get; }
     public MovementMethod Method { get; }
     public StepPenalty Penalty { get; }
+    public PortalSnapshot Entry {get;}
+    public PortalSnapshot Exit {get;}
 }
 
 [Flags]

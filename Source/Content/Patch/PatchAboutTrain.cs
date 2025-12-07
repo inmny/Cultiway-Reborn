@@ -59,7 +59,6 @@ namespace Cultiway.Content.Patch
             LoadTrainTrackTile(0b1101);
             LoadTrainTrackTile(0b1111);
 
-            PatchAboutPathfinding.RegisterPortalType(x => x.asset == Buildings.TrainStation, x => new PortalDefinition("train_station", x.id, x.getConstructionTile(), 1, 1, new List<PortalConnection>()));
         }
         private static void LoadTrainTrackTile(byte connection)
         {

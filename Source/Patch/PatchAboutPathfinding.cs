@@ -5,7 +5,9 @@ using System.Reflection;
 using System.Reflection.Emit;
 using ai;
 using ai.behaviours;
+using Cultiway.Core.BuildingComponents;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Utils.Extension;
 using HarmonyLib;
 using life.taxi;
 
@@ -93,34 +95,36 @@ namespace Cultiway.Patch
                 PathFinder.Instance.Cancel(__instance);
             }
         }
-        public static void RegisterPortalType(Func<Building, bool> predicate, Func<Building, PortalDefinition> portalDefinitionFactory)
-        {
-            _portal_type_predicates.Add(new(predicate, portalDefinitionFactory));
-        }
-        static PatchAboutPathfinding()
-        {
-            RegisterPortalType(x => x.asset.docks, x => new PortalDefinition("dock", x.id, x.getConstructionTile(), 1, 1, new List<PortalConnection>()));
-        }
-        private static List<Tuple<Func<Building, bool>, Func<Building, PortalDefinition>>> _portal_type_predicates = new();
+
         [HarmonyPrefix, HarmonyPatch(typeof(Building), nameof(Building.setState))]
         private static void setState_prefix(Building __instance, BuildingState pState)
         {
-            for (int i = 0; i < _portal_type_predicates.Count; i++)
+            foreach (var portal_asset in ModClass.L.PortalLibrary.list)
             {
-                var (predicate, portalDefinitionFactory) = _portal_type_predicates[i];
-                if (predicate?.Invoke(__instance) ?? false)
+                if (portal_asset.Buildings.Contains(__instance.asset))
                 {
-                    var portalDefinition = portalDefinitionFactory?.Invoke(__instance);
-                    if (portalDefinition == null) continue;
                     if (pState == BuildingState.Normal)
                     {
-                        PortalRegistry.Instance.RegisterOrUpdate(portalDefinition);
-                        WaterConnectivityUpdater.RequestRebuild();
+                        Portal portal = __instance.GetBuildingComponent<Portal>();
+                        if (portal == null)
+                        {
+                            portal = __instance.addComponent<Portal>();
+                            portal.Asset = portal_asset;
+                        }
+                        PortalRegistry.Instance.RegisterOrUpdate(new PortalDefinition(portal, __instance.id, __instance.getConstructionTile(), 1, 1, new List<PortalConnection>()));
+                        portal_asset.RequestRebuildGraph?.Invoke(portal);
                     }
                     else if (pState == BuildingState.Ruins || pState == BuildingState.Removed)
                     {
                         PortalRegistry.Instance.Remove(__instance.id);
-                        WaterConnectivityUpdater.RequestRebuild();
+
+                        Portal portal = __instance.GetBuildingComponent<Portal>();
+                        if (portal == null)
+                        {
+                            portal = __instance.addComponent<Portal>();
+                            portal.Asset = portal_asset;
+                        }
+                        portal_asset.RequestRebuildGraph?.Invoke(portal);
                     }
                     break;
                 }
@@ -161,7 +165,7 @@ namespace Cultiway.Patch
             {
                 MovementMethod.Walk => TryMove(actor, step.Tile, step.Penalty.HasFlag(StepPenalty.Block), allowLava: step.Penalty.HasFlag(StepPenalty.Lava), allowOcean: step.Penalty.HasFlag(StepPenalty.Ocean)),
                 MovementMethod.Swim => TryMove(actor, step.Tile, step.Penalty.HasFlag(StepPenalty.Block), allowLava: step.Penalty.HasFlag(StepPenalty.Lava), allowOcean: step.Penalty.HasFlag(StepPenalty.Ocean)),
-                MovementMethod.Portal => HandlePortal(actor, step.Tile),
+                MovementMethod.Portal => HandlePortal(actor, step),
                 _ => PathProcessResult.Deferred
             };
         }
@@ -216,15 +220,20 @@ namespace Cultiway.Patch
                 }
             }
         }
-        private static PathProcessResult HandlePortal(Actor actor, WorldTile tile)
+        private static PathProcessResult HandlePortal(Actor actor, PathStep step)
         {
             var request = TaxiManager.getRequestForActor(actor);
             if (request == null)
             {
-                TaxiManager.newRequest(actor, tile);
+                TaxiManager.newRequest(actor, step.Exit.Tile);
                 return PathProcessResult.Deferred;
             }
             return PathProcessResult.Deferred;
+        }
+        [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.checkEventUnitsDestroy))]
+        private static void checkEventUnitsDestroy_postfix()
+        {
+            PortalManager.RemoveDeadUnits();
         }
 
         private static PathProcessResult TryMove(Actor actor, WorldTile tile, bool allowBlocks, bool allowLava,

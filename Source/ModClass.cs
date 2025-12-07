@@ -251,6 +251,7 @@ namespace Cultiway
             LogicEventProcessSystemGroup.Add(new EntityNameGeneratedEventSystem());
             
             GeneralLogicSystems.Add(new WaterConnectivitySystem());
+            GeneralLogicSystems.Add(PortalManager.Instance);
             
             GeneralRenderSystems.Add(new RenderAnimFrameSystem(W));
             GeneralRenderSystems.Add(new RenderStatusParticleSystem());

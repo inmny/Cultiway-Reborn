@@ -4,6 +4,8 @@ using System.Linq;
 using UnityEngine;
 using Friflo.Engine.ECS.Systems;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Utils.Extension;
+using Cultiway.Core.BuildingComponents;
 
 namespace Cultiway.Content
 {
@@ -375,7 +377,7 @@ namespace Cultiway.Content
 
             if (stations.Count == 0)
             {
-                foreach (var existing in PortalRegistry.Instance.Snapshot("train_station"))
+                foreach (var existing in PortalRegistry.Instance.Snapshot(Portals.TrainStation))
                 {
                     PortalRegistry.Instance.Remove(existing.Id);
                 }
@@ -383,7 +385,7 @@ namespace Cultiway.Content
             }
 
             var stationSet = new HashSet<long>(stations.Select(s => s.id));
-            foreach (var existing in PortalRegistry.Instance.Snapshot("train_station"))
+            foreach (var existing in PortalRegistry.Instance.Snapshot(Portals.TrainStation))
             {
                 if (!stationSet.Contains(existing.Id))
                 {
@@ -423,7 +425,7 @@ namespace Cultiway.Content
                 }
 
                 connections.TryGetValue(station.id, out var conn);
-                var portalDef = new PortalDefinition("train_station", station.id, tile, 1f, 1f, conn ?? Enumerable.Empty<PortalConnection>());
+                var portalDef = new PortalDefinition(station.GetBuildingComponent<Portal>(), station.id, tile, 1f, 1f, conn ?? Enumerable.Empty<PortalConnection>());
                 PortalRegistry.Instance.RegisterOrUpdate(portalDef);
             }
         }

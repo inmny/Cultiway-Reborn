@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Cultiway.Core.Libraries;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
 
@@ -51,7 +52,7 @@ internal static class WaterConnectivityUpdater
 
     private static void Rebuild(MapBox map)
     {
-        var portals = PortalRegistry.Instance.Snapshot("dock");
+        var portals = PortalRegistry.Instance.Snapshot(PortalLibrary.Dock);
         if (portals.Count == 0)
         {
             return;
@@ -198,7 +199,7 @@ internal static class WaterConnectivityUpdater
                     connections.Add(new PortalConnection(target.Id, EstimateTravel(entry.Tile, target.Tile)));
                 }
 
-                var updated = new PortalDefinition(entry.Type, entry.Id, entry.Tile, entry.WaitTime, entry.TransferTime,
+                var updated = new PortalDefinition(entry.Portal, entry.Id, entry.Tile, entry.WaitTime, entry.TransferTime,
                     connections);
                 PortalRegistry.Instance.RegisterOrUpdate(updated);
             }

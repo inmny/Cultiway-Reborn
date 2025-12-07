@@ -213,7 +213,7 @@ internal sealed class PassthroughPathGenerator : IPathGenerator
         cancellationToken.ThrowIfCancellationRequested();
         if (request.Target != null)
         {
-            stream.AddStep(request.Target, MovementMethod.Walk, StepPenalty.Block | StepPenalty.Lava | StepPenalty.Ocean);
+            stream.AddStep(new PathStep(request.Target, MovementMethod.Walk, StepPenalty.Block | StepPenalty.Lava | StepPenalty.Ocean));
         }
 
         stream.Complete();

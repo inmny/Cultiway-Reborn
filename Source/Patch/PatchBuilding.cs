@@ -39,6 +39,20 @@ internal static class PatchBuilding
         {
             building.addComponent<AdvancedUnitSpawner>().Setup(bae.advanced_unit_spawner_config);
         }
+        foreach (var portal_asset in ModClass.L.PortalLibrary.list)
+        {
+            if (portal_asset.Buildings.Contains(building.asset))
+            {
+                Portal portal = building.GetBuildingComponent<Portal>();
+                if (portal == null)
+                {
+                    portal = building.addComponent<Portal>();
+                    portal.Asset = portal_asset;
+                }
+                portal_asset.RequestRebuildGraph?.Invoke(portal);
+                break;
+            }
+        }
     }
     [HarmonyPrefix, HarmonyPatch(typeof(Building), nameof(Building.startRemove))]
     private static void startRemove_prefix(Building __instance)

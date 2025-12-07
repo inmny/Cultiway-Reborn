@@ -11,15 +11,10 @@ public sealed class PathStream : IPathStreamWriter
     private readonly ConcurrentQueue<PathStep> _steps = new();
     private int _status;
     private Exception _error;
-
-    public void AddStep(WorldTile tile, MovementMethod method, StepPenalty penalty)
+    public void AddStep(PathStep step)
     {
-        if (tile == null || IsFinalized)
-        {
-            return;
-        }
-
-        _steps.Enqueue(new PathStep(tile, method, penalty));
+        if (step.Tile == null || IsFinalized) return;
+        _steps.Enqueue(step);
     }
 
     public bool TryDequeue(out PathStep step)

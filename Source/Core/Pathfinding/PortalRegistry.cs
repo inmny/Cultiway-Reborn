@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Core.Libraries;
 
 namespace Cultiway.Core.Pathfinding;
 
@@ -30,7 +31,7 @@ public sealed class PortalRegistry
         _portals.Clear();
     }
 
-    public IReadOnlyList<PortalSnapshot> Snapshot(string type = null)
+    public IReadOnlyList<PortalSnapshot> Snapshot(PortalAsset type = null)
     {
         if (_portals.IsEmpty)
         {
@@ -38,11 +39,11 @@ public sealed class PortalRegistry
         }
 
         return _portals.Values
-            .Where(p => p.Tile != null && (string.IsNullOrEmpty(type) || p.Type == type))
+            .Where(p => p.Tile != null && (type == null || p.Portal.Asset == type))
             .Select(p => new PortalSnapshot
             {
                 Id = p.Id,
-                Type = p.Type,
+                Portal = p.Portal,
                 Tile = p.Tile,
                 Region = p.Tile.region,
                 WaitTime = p.WaitTime,
