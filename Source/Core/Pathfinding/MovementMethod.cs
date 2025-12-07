@@ -4,5 +4,5 @@ public enum MovementMethod
 {
     Walk,
     Swim,
-    Sail
+    Portal
 }

@@ -177,7 +177,7 @@ public class PortalAwarePathGenerator : IPathGenerator
                     break;
                 case PortalLeg portal:
                     // 传送/乘船在客户端处理，默认用 Sail 占位
-                    stream.AddStep(portal.Exit.Tile, MovementMethod.Sail, StepPenalty.Block | StepPenalty.Ocean | StepPenalty.Block);
+                    stream.AddStep(portal.Exit.Tile, MovementMethod.Portal, StepPenalty.Block | StepPenalty.Ocean | StepPenalty.Block);
                     break;
             }
         }
@@ -309,7 +309,7 @@ public class PortalAwarePathGenerator : IPathGenerator
         var speed = method switch
         {
             MovementMethod.Swim => profile.SwimSpeed,
-            MovementMethod.Sail => profile.SailSpeed,
+            MovementMethod.Portal => profile.SailSpeed,
             _ => profile.WalkSpeed
         };
 
