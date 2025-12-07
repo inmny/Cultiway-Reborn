@@ -250,7 +250,6 @@ namespace Cultiway
             LogicEventProcessSystemGroup.Add(new ActorNameGeneratedEventSystem());
             LogicEventProcessSystemGroup.Add(new EntityNameGeneratedEventSystem());
             
-            GeneralLogicSystems.Add(new SyncCityRelationSystem());
             GeneralLogicSystems.Add(new WaterConnectivitySystem());
             
             GeneralRenderSystems.Add(new RenderAnimFrameSystem(W));

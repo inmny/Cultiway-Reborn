@@ -27,11 +27,6 @@ public class ForcePage : MonoBehaviour
         var ae = actor.GetExtend();
         var sb = new StringBuilder();
 
-        foreach (var force_entity in ae.GetForces<ForceCityBelongRelation>())
-        {
-            sb.AppendLine($"所属城市: {force_entity.GetComponent<CityBinder>().City.name}");
-        }
-
         var this_page = page.GetComponent<ForcePage>();
         this_page.Text.text = sb.ToString();
     }
