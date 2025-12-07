@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Friflo.Engine.ECS.Systems;
+using Cultiway.Core.Pathfinding;
 
 namespace Cultiway.Content
 {
@@ -18,6 +19,7 @@ namespace Cultiway.Content
         private static readonly Dictionary<int, HashSet<LinkKey>> TileMap = new();
         private static readonly HashSet<LinkKey> Pending = new();
         private static float _nextTickTime;
+        private static bool _dirtyConnectivity;
 
         internal static void RegisterLink(Building stationA, Building stationB, IReadOnlyList<WorldTile> tiles)
         {
@@ -40,6 +42,7 @@ namespace Cultiway.Content
             };
             Links[key] = info;
             AddTileMap(info);
+            _dirtyConnectivity = true;
         }
 
         internal static void MarkTileDamaged(WorldTile tile)
@@ -90,6 +93,7 @@ namespace Cultiway.Content
                 pair.Value.Status = LinkStatus.Disabled;
                 RemoveTileMap(pair.Value);
                 Pending.Remove(pair.Key);
+                _dirtyConnectivity = true;
             }
         }
 
@@ -158,6 +162,7 @@ namespace Cultiway.Content
             link.Tiles.Clear();
             link.Tiles.AddRange(path);
             AddTileMap(link);
+            _dirtyConnectivity = true;
             return true;
         }
 
@@ -286,6 +291,11 @@ namespace Cultiway.Content
         {
             base.OnUpdateGroup();
 
+            if (!Config.game_loaded)
+            {
+                return;
+            }
+
             if (Time.time < _nextTickTime)
             {
                 return;
@@ -325,6 +335,7 @@ namespace Cultiway.Content
                     link.FailCount = 0;
                     link.NextRepairTime = Time.time + Cooldown;
                     Pending.Remove(key);
+                    _dirtyConnectivity = true;
                 }
                 else
                 {
@@ -336,11 +347,95 @@ namespace Cultiway.Content
                         link.Status = LinkStatus.Disabled;
                         Pending.Remove(key);
                         ModClass.LogWarning("TrainTrack 修复失败次数过多，暂时禁用该链路");
+                        _dirtyConnectivity = true;
                     }
                 }
 
                 handled++;
             }
+
+            if (_dirtyConnectivity)
+            {
+                RebuildTrainConnectivity();
+                _dirtyConnectivity = false;
+            }
+        }
+
+        private static void RebuildTrainConnectivity()
+        {
+            var world = World.world;
+            if (world == null)
+            {
+                return;
+            }
+
+            var stations = world.buildings.getSimpleList()
+                .Where(b => b != null && b.asset != null && b.asset.id == Buildings.TrainStation.id && b.isNormal() && !b.isRemoved() && !b.isRuin())
+                .ToList();
+
+            if (stations.Count == 0)
+            {
+                foreach (var existing in PortalRegistry.Instance.Snapshot("train_station"))
+                {
+                    PortalRegistry.Instance.Remove(existing.Id);
+                }
+                return;
+            }
+
+            var stationSet = new HashSet<long>(stations.Select(s => s.id));
+            foreach (var existing in PortalRegistry.Instance.Snapshot("train_station"))
+            {
+                if (!stationSet.Contains(existing.Id))
+                {
+                    PortalRegistry.Instance.Remove(existing.Id);
+                }
+            }
+
+            var connections = new Dictionary<long, List<PortalConnection>>();
+            foreach (var station in stations)
+            {
+                connections[station.id] = new List<PortalConnection>();
+            }
+
+            foreach (var link in Links.Values)
+            {
+                if (link.Status != LinkStatus.Normal)
+                {
+                    continue;
+                }
+
+                if (!stationSet.Contains(link.StationAId) || !stationSet.Contains(link.StationBId))
+                {
+                    continue;
+                }
+
+                float travel = EstimateTravel(link.Tiles);
+                connections[link.StationAId].Add(new PortalConnection(link.StationBId, travel));
+                connections[link.StationBId].Add(new PortalConnection(link.StationAId, travel));
+            }
+
+            foreach (var station in stations)
+            {
+                var tile = station.current_tile ?? station.getConstructionTile();
+                if (tile == null)
+                {
+                    continue;
+                }
+
+                connections.TryGetValue(station.id, out var conn);
+                var portalDef = new PortalDefinition("train_station", station.id, tile, 1f, 1f, conn ?? Enumerable.Empty<PortalConnection>());
+                PortalRegistry.Instance.RegisterOrUpdate(portalDef);
+            }
+        }
+
+        private static float EstimateTravel(IReadOnlyList<WorldTile> tiles)
+        {
+            if (tiles == null || tiles.Count == 0)
+            {
+                return 1f;
+            }
+
+            return Math.Max(1f, tiles.Count * 0.5f);
         }
     }
 }
