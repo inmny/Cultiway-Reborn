@@ -67,7 +67,21 @@ internal static class WaterConnectivityUpdater
 
         Parallel.ForEach(portals, portal =>
         {
-            var startRegion = GetOceanRegion(portal.Tile);
+            // 从portal对应建筑的tiles中，找到海洋地块，并取其region
+            var tiles = portal.Portal?.building?.tiles;
+            MapRegion startRegion = null;
+            if (tiles != null)
+            {
+                for (int i = 0; i < tiles.Count; i++)
+                {
+                    var tile = tiles[i];
+                    if (tile != null && tile.Type != null && tile.Type.ocean)
+                    {
+                        startRegion = tile.region;
+                        break;
+                    }
+                }
+            }
             if (startRegion == null)
             {
                 return;
@@ -227,36 +241,6 @@ internal static class WaterConnectivityUpdater
         }
 
         return grouped;
-    }
-
-    private static MapRegion GetOceanRegion(WorldTile tile)
-    {
-        if (tile == null)
-        {
-            return null;
-        }
-
-        if (tile.Type != null && tile.Type.ocean)
-        {
-            return tile.region;
-        }
-
-        var neighbours = tile.neighbours;
-        if (neighbours == null)
-        {
-            return null;
-        }
-
-        for (int i = 0; i < neighbours.Length; i++)
-        {
-            var nb = neighbours[i];
-            if (nb != null && nb.Type != null && nb.Type.ocean)
-            {
-                return nb.region;
-            }
-        }
-
-        return null;
     }
 
     private static float EstimateTravel(WorldTile a, WorldTile b)
