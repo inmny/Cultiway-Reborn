@@ -425,7 +425,39 @@ namespace Cultiway.Content
                 }
 
                 connections.TryGetValue(station.id, out var conn);
-                var portalDef = new PortalDefinition(station.GetBuildingComponent<Portal>(), station.id, tile, 1f, 1f, conn ?? Enumerable.Empty<PortalConnection>());
+                var portal = station.GetBuildingComponent<Portal>();
+                
+                // 设置 Neighbours 为直连邻居
+                portal.Neighbours = conn?.Select(c => World.world.buildings.get(c.TargetId).GetBuildingComponent<Portal>()).ToList() ?? new List<Portal>();
+
+                // 计算该站点所在铁路网的所有车站，ConnectedPortals为该铁路网中所有Portal
+                var visited = new HashSet<long>();
+                var queue = new Queue<long>();
+                queue.Enqueue(station.id);
+                visited.Add(station.id);
+
+                while (queue.Count > 0)
+                {
+                    var currentId = queue.Dequeue();
+                    if (connections.TryGetValue(currentId, out var neighbors))
+                    {
+                        foreach (var link in neighbors)
+                        {
+                            if (!visited.Contains(link.TargetId))
+                            {
+                                visited.Add(link.TargetId);
+                                queue.Enqueue(link.TargetId);
+                            }
+                        }
+                    }
+                }
+
+                portal.ConnectedPortals = visited
+                    .Select(id => World.world.buildings.get(id).GetBuildingComponent<Portal>())
+                    .Where(x => x != null)
+                    .ToList();
+
+                var portalDef = new PortalDefinition(portal, station.id, tile, 1f, 1f, conn ?? Enumerable.Empty<PortalConnection>());
                 PortalRegistry.Instance.RegisterOrUpdate(portalDef);
             }
         }
