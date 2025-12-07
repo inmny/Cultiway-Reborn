@@ -125,12 +125,6 @@ namespace Cultiway.Content
                     return false;
                 }
 
-                if (IsBlocked(tile))
-                {
-                    link.NextRepairTime = Time.time + RetryDelay;
-                    return false;
-                }
-
                 if (tile.top_type != TopTileTypes.TrainTrack)
                 {
                     MapAction.terraformTop(tile, TopTileTypes.TrainTrack, Terraforms.TrainTrack, false);
@@ -153,15 +147,6 @@ namespace Cultiway.Content
             if (path.Count == 0)
             {
                 return false;
-            }
-
-            foreach (var tile in path)
-            {
-                if (IsBlocked(tile))
-                {
-                    link.NextRepairTime = Time.time + RetryDelay;
-                    return false;
-                }
             }
 
             foreach (var tile in path)
@@ -189,32 +174,6 @@ namespace Cultiway.Content
             }
 
             return station.isNormal() && !station.isRemoved() && !station.isRuin();
-        }
-
-        private static bool IsBlocked(WorldTile tile)
-        {
-            var type = tile.Type;
-            if (type == null)
-            {
-                return true;
-            }
-
-            if (tile.isOnFire())
-            {
-                return true;
-            }
-
-            if (type.lava)
-            {
-                return true;
-            }
-
-            if (type.ocean && !type.ground)
-            {
-                return true;
-            }
-
-            return false;
         }
 
         private static void AddTileMap(LinkInfo info)

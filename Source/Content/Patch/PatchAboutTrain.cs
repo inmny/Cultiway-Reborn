@@ -26,7 +26,7 @@ namespace Cultiway.Content.Patch
             }
         }
 
-        [HarmonyPostfix, HarmonyPatch(typeof(Building), "setState")]
+        [HarmonyPostfix, HarmonyPatch(typeof(Building), nameof(Building.setState))]
         private static void setState_postfix(Building __instance)
         {
             if (__instance.asset == null || __instance.asset.id != Buildings.TrainStation.id)
