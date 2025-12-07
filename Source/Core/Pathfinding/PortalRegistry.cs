@@ -30,7 +30,7 @@ public sealed class PortalRegistry
         _portals.Clear();
     }
 
-    public IReadOnlyList<PortalSnapshot> Snapshot()
+    public IReadOnlyList<PortalSnapshot> Snapshot(string type = null)
     {
         if (_portals.IsEmpty)
         {
@@ -38,10 +38,11 @@ public sealed class PortalRegistry
         }
 
         return _portals.Values
-            .Where(p => p.Tile != null)
+            .Where(p => p.Tile != null && (string.IsNullOrEmpty(type) || p.Type == type))
             .Select(p => new PortalSnapshot
             {
                 Id = p.Id,
+                Type = p.Type,
                 Tile = p.Tile,
                 Region = p.Tile.region,
                 WaitTime = p.WaitTime,

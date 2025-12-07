@@ -99,7 +99,7 @@ namespace Cultiway.Patch
         }
         static PatchAboutPathfinding()
         {
-            RegisterPortalType(x => x.asset.docks, x => new PortalDefinition(x.id, x.getConstructionTile(), 1, 1, new List<PortalConnection>()));
+            RegisterPortalType(x => x.asset.docks, x => new PortalDefinition("dock", x.id, x.getConstructionTile(), 1, 1, new List<PortalConnection>()));
         }
         private static List<Tuple<Func<Building, bool>, Func<Building, PortalDefinition>>> _portal_type_predicates = new();
         [HarmonyPrefix, HarmonyPatch(typeof(Building), nameof(Building.setState))]
@@ -110,9 +110,11 @@ namespace Cultiway.Patch
                 var (predicate, portalDefinitionFactory) = _portal_type_predicates[i];
                 if (predicate?.Invoke(__instance) ?? false)
                 {
+                    var portalDefinition = portalDefinitionFactory?.Invoke(__instance);
+                    if (portalDefinition == null) continue;
                     if (pState == BuildingState.Normal)
                     {
-                        PortalRegistry.Instance.RegisterOrUpdate(portalDefinitionFactory?.Invoke(__instance) ?? new PortalDefinition(__instance.id, __instance.getConstructionTile(), 1, 1, new List<PortalConnection>()));
+                        PortalRegistry.Instance.RegisterOrUpdate(portalDefinition);
                         WaterConnectivityUpdater.RequestRebuild();
                     }
                     else if (pState == BuildingState.Ruins || pState == BuildingState.Removed)

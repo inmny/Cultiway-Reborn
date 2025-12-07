@@ -51,7 +51,7 @@ internal static class WaterConnectivityUpdater
 
     private static void Rebuild(MapBox map)
     {
-        var portals = PortalRegistry.Instance.Snapshot();
+        var portals = PortalRegistry.Instance.Snapshot("dock");
         if (portals.Count == 0)
         {
             return;
@@ -198,7 +198,7 @@ internal static class WaterConnectivityUpdater
                     connections.Add(new PortalConnection(target.Id, EstimateTravel(entry.Tile, target.Tile)));
                 }
 
-                var updated = new PortalDefinition(entry.Id, entry.Tile, entry.WaitTime, entry.TransferTime,
+                var updated = new PortalDefinition(entry.Type, entry.Id, entry.Tile, entry.WaitTime, entry.TransferTime,
                     connections);
                 PortalRegistry.Instance.RegisterOrUpdate(updated);
             }
