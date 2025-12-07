@@ -204,8 +204,7 @@ internal static class WaterConnectivityUpdater
                 var entry = list[i];
                 var orderedTargets = list
                     .Where(p => p.Id != entry.Id)
-                    .OrderBy(p => Dist(entry.Tile, p.Tile))
-                    .Take(config.PortalCandidates);
+                    .OrderBy(p => Dist(entry.Tile, p.Tile));
 
                 var connections = new List<PortalConnection>();
                 foreach (var target in orderedTargets)
@@ -215,6 +214,8 @@ internal static class WaterConnectivityUpdater
 
                 var updated = new PortalDefinition(entry.Portal, entry.Id, entry.Tile, entry.WaitTime, entry.TransferTime,
                     connections);
+                entry.Portal.Neighbours = orderedTargets.Select(p => p.Portal).ToList();
+                entry.Portal.ConnectedPortals = entry.Portal.Neighbours;
                 PortalRegistry.Instance.RegisterOrUpdate(updated);
             }
         }
