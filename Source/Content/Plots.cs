@@ -248,6 +248,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 {
                     MapAction.terraformTop(tile, TopTileTypes.TrainTrack, Terraforms.TrainTrack, false);
                 }
+                TrainTrackRepairSystem.RegisterLink(source_station, target_station, path);
                 any_built = true;
             }
             return any_built;
@@ -259,83 +260,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         WorldTile target_tile
     )
     {
-        // 实现从source_tile到target_tile的路径, 返回每一步的WorldTile和对应的TrainTrackDirection
-        var path = new List<WorldTile>();
-    
-        // 检查参数有效性
-        if (source_tile == null || target_tile == null)
-            return path;
-    
-        // 获取起点和终点坐标
-        int x0 = source_tile.x;
-        int y0 = source_tile.y;
-        int x1 = target_tile.x;
-        int y1 = target_tile.y;
-    
-        int dx = x1 - x0;
-        int dy = y1 - y0;
-    
-        int signX = dx == 0 ? 0 : (dx > 0 ? 1 : -1);
-        int signY = dy == 0 ? 0 : (dy > 0 ? 1 : -1);
-    
-        // 保证每隔一段交错地走斜线，实现“折线”效果
-        int px = x0;
-        int py = y0;
-        int absDx = Math.Abs(dx);
-        int absDy = Math.Abs(dy);
-
-        int totalSteps = Math.Max(absDx, absDy);
-        int diagonalRate = 2; // 斜向步频率，越小越频繁
-        int diagonalLeft = Math.Min(absDx, absDy); // 能走多少格斜线
-
-        for (int step = 0; px != x1 || py != y1;)
-        {
-            int nx = px;
-            int ny = py;
-
-            // 混合斜向与直线移动：优先斜向，有斜剩余就走斜，没有就直线
-            bool canDiagonal = (px != x1) && (py != y1) && diagonalLeft > 0;
-            bool shouldDiagonal = canDiagonal && 
-                                  ((step % diagonalRate == 0) || diagonalLeft >= totalSteps - step);
-
-            if (shouldDiagonal)
-            {
-                var tile_middle = World.world.GetTile(px + signX, py);
-                if (tile_middle == null)
-                {
-                    tile_middle = World.world.GetTile(px, py + signY);
-                    if (tile_middle == null)
-                    {
-                        break;
-                    }
-                }
-                path.Add(tile_middle);
-                
-                nx = px + signX;
-                ny = py + signY;
-                diagonalLeft--;
-            }
-            else if (px != x1)
-            {
-                nx = px + signX;
-                ny = py;
-            }
-            else // py != y1
-            {
-                nx = px;
-                ny = py + signY;
-            }
-
-            WorldTile nextTile = World.world.GetTile(nx, ny);
-            if (nextTile == null)
-                break;
-            path.Add(nextTile);
-            px = nx;
-            py = ny;
-            step++;
-        }
-    
-        return path;
+        return TrainTrackPathHelper.BuildPath(source_tile, target_tile);
     }
 
     private static List<City> GetTrainTrackTargets(City city)

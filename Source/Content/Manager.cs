@@ -52,6 +52,7 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new FlyCancelSystem());
         ModClass.I.GeneralLogicSystems.Add(new RestoreWakanSystem());
         ModClass.I.GeneralLogicSystems.Add(new WakanSpreadSystem());
+        ModClass.I.GeneralLogicSystems.Add(new TrainTrackRepairSystem());
         ModClass.I.GeneralLogicSystems.Add(new CityDistributeItemsSystem());
         ModClass.I.GeneralLogicSystems.Add(new ContinuousCultivateSystem());
         ModClass.I.GeneralRenderSystems.Add(new BreakthroughVisualSystem());

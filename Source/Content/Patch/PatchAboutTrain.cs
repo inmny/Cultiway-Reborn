@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Cultiway.Content;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.Tilemaps;
@@ -10,6 +11,35 @@ namespace Cultiway.Content.Patch
 {
     internal static class PatchAboutTrain
     {
+        [HarmonyPrefix, HarmonyPatch(typeof(WorldTile), nameof(WorldTile.setTopTileType))]
+        private static void setTopTileType_prefix(WorldTile __instance, ref TopTileType __state)
+        {
+            __state = __instance.top_type;
+        }
+
+        [HarmonyPostfix, HarmonyPatch(typeof(WorldTile), nameof(WorldTile.setTopTileType))]
+        private static void setTopTileType_postfix(WorldTile __instance, TopTileType __state)
+        {
+            if (__state == TopTileTypes.TrainTrack && __instance.top_type != TopTileTypes.TrainTrack)
+            {
+                TrainTrackRepairSystem.MarkTileDamaged(__instance);
+            }
+        }
+
+        [HarmonyPostfix, HarmonyPatch(typeof(Building), "setState")]
+        private static void setState_postfix(Building __instance)
+        {
+            if (__instance.asset == null || __instance.asset.id != Buildings.TrainStation.id)
+            {
+                return;
+            }
+
+            if (__instance.isRemoved() || __instance.isRuin())
+            {
+                TrainTrackRepairSystem.MarkStationDisabled(__instance);
+            }
+        }
+
         private static Dictionary<byte, Tile> _train_track_tiles = new();
         static PatchAboutTrain()
         {

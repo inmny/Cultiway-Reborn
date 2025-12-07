@@ -19,8 +19,6 @@ using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using HarmonyLib;
-using NeoModLoader.api.attributes;
-using NeoModLoader.services;
 using strings;
 using UnityEngine;
 
