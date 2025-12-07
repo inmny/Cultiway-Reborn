@@ -18,8 +18,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnlockAll", "..\UnlockAll\U
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DebugToolbox", "..\DebugToolbox\DebugToolbox.csproj", "{E76C854A-EB63-4761-A275-7216F07F5053}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleTranslation", "..\SimpleTranslation\SimpleTranslation.csproj", "{55A9DE1A-FB01-480C-88CF-5F507112433C}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSharpTest", "..\..\..\..\..\..\..\Users\Inmny\source\tmp\CSharpTest\CSharpTest.csproj", "{E277EC58-7074-44FE-AC18-7D9A073295D6}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomModT003", "..\CustomModT003\CustomModT003.csproj", "{4CFB64D4-230F-4D84-8AE2-A0B2AEF6F59A}"
