@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
+using Cultiway.Core.Libraries;
 using NeoModLoader.General.Game.extensions;
 using strings;
 using UnityEngine;
@@ -61,6 +62,10 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
             asset.civ_kingdom = KingdomAssets.EasternHuman.id;
             asset.upgrade_to = asset.upgrade_to.Replace(SA.human, Actors.EasternHuman.id);
             asset.upgraded_from = asset.upgraded_from.Replace(SA.human, Actors.EasternHuman.id);
+            if (asset.docks)
+            {
+                PortalLibrary.Dock.Buildings.Add(asset);
+            }
         }
 
         void CloneList(params string[] building_ids)
