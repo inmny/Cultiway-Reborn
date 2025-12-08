@@ -15,6 +15,19 @@ namespace Cultiway.Core.Pathfinding
         protected override void OnUpdateGroup()
         {
             base.OnUpdateGroup();
+            for (int i = 0; i < Instance._requests.Count; i++)
+            {
+                var r = _requests[i];
+                if (
+                    r.State == PortalRequestState.Completed
+                    || r.Passengers.Count == 0
+                )
+                {
+                    Instance._requests.RemoveAt(i);
+                    i--;
+                    continue;
+                }
+            }
         }
         internal static void RemoveDeadUnits()
         {
