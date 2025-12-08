@@ -214,8 +214,8 @@ internal static class WaterConnectivityUpdater
 
                 var updated = new PortalDefinition(entry.Portal, entry.Id, entry.Tile, entry.WaitTime, entry.TransferTime,
                     connections);
-                entry.Portal.Neighbours = orderedTargets.Select(p => p.Portal).ToList();
-                entry.Portal.ConnectedPortals = entry.Portal.Neighbours;
+                entry.Portal.Neighbours = orderedTargets.Take(2).Select(p => p.Portal).ToList();
+                entry.Portal.ConnectedPortals = orderedTargets.Select(p => p.Portal).ToList();
                 PortalRegistry.Instance.RegisterOrUpdate(updated);
             }
         }
