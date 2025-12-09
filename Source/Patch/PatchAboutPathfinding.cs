@@ -11,6 +11,7 @@ using Cultiway.Utils.Extension;
 using HarmonyLib;
 using life.taxi;
 using strings;
+using tools;
 
 namespace Cultiway.Patch
 {
@@ -306,6 +307,7 @@ namespace Cultiway.Patch
                 return false;
             }
             portal_request.State = PortalRequestState.Driving;
+            portal_request.Portals.RemoveAt(0);
             
             return false;
         }
