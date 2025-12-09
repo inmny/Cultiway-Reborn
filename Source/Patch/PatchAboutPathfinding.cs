@@ -263,6 +263,52 @@ namespace Cultiway.Patch
             __result = BehResult.Continue;
             return false;
         }
+        [HarmonyPrefix, HarmonyPatch(typeof(BehBoatTransportDoLoading), nameof(BehBoatTransportDoLoading.execute))]
+        private static bool BehBoatTransportDoLoading_prefix(BehBoatTransportDoLoading __instance, Actor pActor, ref BehResult __result)
+        {
+            var portal_request = PortalManager.GetRequestForDriver(pActor);
+            if (portal_request == null || portal_request.State == PortalRequestState.Completed)
+            {
+                return true;
+            }
+            var continue_loading = true;
+            if (__instance.boat.passengerWaitCounter > 4 || __instance.boat.countPassengers() >= 100)
+            {
+                continue_loading = false;
+            }
+            else if (portal_request.Portals[0].ToLoad.All(a => __instance.boat.hasPassenger(a)))
+            {
+                continue_loading = false;
+            }
+            if (continue_loading)
+            {
+                foreach (var a in portal_request.Portals[0].ToLoad)
+                {
+                    __instance.boat.addPassenger(a);
+                    if (PathFinder.Instance.TryPeekStep(a, out var step, out var finished))
+                    {
+                        if (step.Method == MovementMethod.Portal)
+                        {
+                            PathFinder.Instance.ConsumeStep(a);
+                        }
+                    }
+                }
+                portal_request.State = PortalRequestState.WaitingPassengers;
+                pActor.timer_action = 12f;
+                __instance.boat.passengerWaitCounter++;
+                __result = BehResult.RepeatStep;
+                return false;
+            }
+            if (!__instance.boat.hasPassengers())
+            {
+                PortalManager.CancelDriverRequest(pActor);
+                __result = BehResult.Stop;
+                return false;
+            }
+            portal_request.State = PortalRequestState.Driving;
+            
+            return false;
+        }
         [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.checkEventUnitsDestroy))]
         private static void checkEventUnitsDestroy_postfix()
         {
