@@ -18,10 +18,7 @@ namespace Cultiway.Core.Pathfinding
             for (int i = 0; i < Instance._requests.Count; i++)
             {
                 var r = _requests[i];
-                if (
-                    r.State == PortalRequestState.Completed
-                    || r.Passengers.Count == 0
-                )
+                if (r.IsCompleted())
                 {
                     Instance._requests.RemoveAt(i);
                     i--;
@@ -34,6 +31,28 @@ namespace Cultiway.Core.Pathfinding
             foreach (var request in Instance._requests)
             {
                 request.RemoveDeadUnits();
+            }
+        }
+        public static PortalRequest GetRequest(Actor actor)
+        {
+            foreach (var r in Instance._requests)
+            {
+                if (r.Portals.Any(p => p.ToLoad.Contains(actor)))
+                {
+                    return r;
+                }
+            }
+            return null;
+        }
+        public static void CancelDriverRequest(Actor actor)
+        {
+            foreach (var r in Instance._requests)
+            {
+                if (r.Driver == actor)
+                {
+                    r.Cancel();
+                    break;
+                }
             }
         }
         public static void NewRequest(Portal start_portal, Portal target_portal, Actor passenger)
@@ -52,6 +71,9 @@ namespace Cultiway.Core.Pathfinding
 
             PortalRequest request = null;
 
+            int startIdx = -1;
+            int targetIdx = -1;
+
             // 尝试复用已有请求：路径中包含起点，且终点在起点之后（不回头），否则尝试向前扩展
             foreach (var r in Instance._requests)
             {
@@ -60,13 +82,13 @@ namespace Cultiway.Core.Pathfinding
                     continue;
                 }
 
-                int startIdx = r.Portals.IndexOf(startBuilding);
+                startIdx = r.Portals.FindIndex(p => p.PortalBuilding == startBuilding);
                 if (startIdx < 0)
                 {
                     continue;
                 }
 
-                int targetIdx = r.Portals.IndexOf(targetBuilding);
+                targetIdx = r.Portals.FindIndex(p => p.PortalBuilding == targetBuilding);
                 if (targetIdx >= startIdx)
                 {
                     request = r;
@@ -74,8 +96,8 @@ namespace Cultiway.Core.Pathfinding
                 }
 
                 // 目标不在路径中或在起点之前，尝试从现有路径末尾向前延伸，不走回头路
-                var existingSet = new HashSet<Building>(r.Portals);
-                var lastPortal = r.Portals.LastOrDefault()?.GetBuildingComponent<Core.BuildingComponents.Portal>();
+                var existingSet = new HashSet<Building>(r.Portals.Select(p => p.PortalBuilding));
+                var lastPortal = r.Portals.LastOrDefault()?.PortalBuilding.GetBuildingComponent<Portal>();
                 if (lastPortal == null)
                 {
                     continue;
@@ -87,7 +109,13 @@ namespace Cultiway.Core.Pathfinding
                     // 扩展时保留原路径末端，追加新路径（跳过起点重复）
                     for (int i = 1; i < extendPath.Count; i++)
                     {
-                        r.Portals.Add(extendPath[i].building);
+                        r.Portals.Add(new PortalRequest.SinglePortal
+                        {
+                            PortalBuilding = extendPath[i].building,
+                            PortalTile = extendPath[i].building.getConstructionTile(),
+                            ToLoad = new HashSet<Actor>(),
+                            ToUnload = new HashSet<Actor>()
+                        });
                     }
                     request = r;
                     break;
@@ -105,16 +133,23 @@ namespace Cultiway.Core.Pathfinding
 
                 request = new PortalRequest
                 {
-                    Portals = path.Select(p => p.building).ToList(),
                     Driver = null,
                     State = PortalRequestState.WaitingDriver,
-                    Passengers = new HashSet<Actor>()
+                    Portals = path.Select(p => new PortalRequest.SinglePortal
+                    {
+                        PortalBuilding = p.building,
+                        PortalTile = p.building.getConstructionTile(),
+                        ToLoad = new HashSet<Actor>(),
+                        ToUnload = new HashSet<Actor>()
+                    }).ToList()
                 };
+                startIdx = 0;
+                targetIdx = path.Count - 1;
                 Instance._requests.Add(request);
             }
 
-            request.Passengers ??= new HashSet<Actor>();
-            request.Passengers.Add(passenger);
+            request.Portals[startIdx].ToLoad.Add(passenger);
+            request.Portals[targetIdx].ToUnload.Add(passenger);
         }
 
         private static List<Portal> FindPortalPath(Portal start, Portal target, HashSet<Building> blocked)
@@ -189,6 +224,30 @@ namespace Cultiway.Core.Pathfinding
             }
 
             return null;
+        }
+
+        internal static bool AssignNewRequestForDriver(Actor pActor)
+        {
+            throw new NotImplementedException();
+        }
+        internal static PortalRequest GetRequestForDriver(Actor pActor)
+        {
+            foreach (var r in Instance._requests)
+            {
+                if (r.Driver == pActor)
+                {
+                    return r;
+                }
+            }
+            return null;
+        }
+
+        internal static void RemoveDeadBuildings()
+        {
+            foreach (var r in Instance._requests)
+            {
+                r.RemoveDeadBuildings();
+            }
         }
     }
 }
