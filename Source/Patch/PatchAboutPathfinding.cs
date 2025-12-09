@@ -311,6 +311,26 @@ namespace Cultiway.Patch
             
             return false;
         }
+        [HarmonyPrefix, HarmonyPatch(typeof(BehBoatTransportFindTileUnload), nameof(BehBoatTransportFindTileUnload.execute))]
+        private static bool BehBoatTransportFindTileUnload_prefix(BehBoatTransportFindTileUnload __instance, Actor pActor, ref BehResult __result)
+        {
+            var portal_request = PortalManager.GetRequestForDriver(pActor);
+            if (portal_request == null || portal_request.State == PortalRequestState.Completed)
+            {
+                return true;
+            }
+            var current_portal = portal_request.Portals[0];
+            var tile = OceanHelper.findTileForBoat(pActor.current_tile, current_portal.PortalTile);
+            if (tile == null)
+            {
+                PortalManager.CancelDriverRequest(pActor);
+                __result = BehResult.Stop;
+                return false;
+            }
+            pActor.beh_tile_target = tile;
+            __result = BehResult.Continue;
+            return false;
+        }
         [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.checkEventUnitsDestroy))]
         private static void checkEventUnitsDestroy_postfix()
         {
