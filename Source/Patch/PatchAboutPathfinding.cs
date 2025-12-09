@@ -331,6 +331,26 @@ namespace Cultiway.Patch
             __result = BehResult.Continue;
             return false;
         }
+        [HarmonyPrefix, HarmonyPatch(typeof(BehBoatTransportUnloadUnits), nameof(BehBoatTransportUnloadUnits.execute))]
+        private static bool BehBoatTransportUnloadUnits_prefix(BehBoatTransportUnloadUnits __instance, Actor pActor, ref BehResult __result)
+        {
+            var portal_request = PortalManager.GetRequestForDriver(pActor);
+            if (portal_request == null || portal_request.State == PortalRequestState.Completed)
+            {
+                return true;
+            }
+            var current_portal = portal_request.Portals[0];
+            var unload_tile = current_portal.PortalTile;
+            __instance.boat.unloadPassengers(unload_tile, false);
+            if (portal_request.IsCompleted())
+            {
+                __result = BehResult.Continue;
+                return false;
+            }
+            __instance.forceTask(pActor, S_Task.boat_transport_go_load, true, false);
+            __result = BehResult.Skip;
+            return false;
+        }
         [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.checkEventUnitsDestroy))]
         private static void checkEventUnitsDestroy_postfix()
         {
