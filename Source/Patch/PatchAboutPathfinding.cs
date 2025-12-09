@@ -242,6 +242,27 @@ namespace Cultiway.Patch
             }
             return true;
         }
+        [HarmonyPrefix, HarmonyPatch(typeof(BehBoatTransportFindTilePickUp), nameof(BehBoatTransportFindTilePickUp.execute))]
+        private static bool BehBoatTranportFindTilePickUp_prefix(BehBoatTransportFindTilePickUp __instance, Actor pActor, ref BehResult __result)
+        {
+            var portal_request = PortalManager.GetRequestForDriver(pActor);
+            if (portal_request == null || portal_request.State == PortalRequestState.Completed)
+            {
+                return true;
+            }
+            var dock_building = portal_request.Portals[0].PortalBuilding;
+            var dock_tile = dock_building.component_docks.getOceanTileInSameOcean(pActor.current_tile);
+            if (dock_tile == null)
+            {
+                PortalManager.CancelDriverRequest(pActor);
+                __result = BehResult.Stop;
+                return false;
+            }
+            pActor.beh_tile_target = dock_tile;
+            __instance.boat.passengerWaitCounter = 0;
+            __result = BehResult.Continue;
+            return false;
+        }
         [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.checkEventUnitsDestroy))]
         private static void checkEventUnitsDestroy_postfix()
         {
