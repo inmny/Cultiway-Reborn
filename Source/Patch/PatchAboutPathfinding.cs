@@ -10,6 +10,7 @@ using Cultiway.Core.Pathfinding;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using life.taxi;
+using strings;
 
 namespace Cultiway.Patch
 {
@@ -222,10 +223,10 @@ namespace Cultiway.Patch
         }
         private static PathProcessResult HandlePortal(Actor actor, PathStep step)
         {
-            var request = TaxiManager.getRequestForActor(actor);
+            var request = PortalManager.GetRequest(actor);
             if (request == null)
             {
-                TaxiManager.newRequest(actor, step.Exit.Tile);
+                PortalManager.NewRequest(step.Entry.Portal, step.Exit.Portal, actor);
                 return PathProcessResult.Deferred;
             }
             return PathProcessResult.Deferred;
