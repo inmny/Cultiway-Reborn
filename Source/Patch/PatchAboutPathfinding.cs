@@ -231,6 +231,17 @@ namespace Cultiway.Patch
             }
             return PathProcessResult.Deferred;
         }
+        [HarmonyPrefix, HarmonyPatch(typeof(BehBoatFindRequest), nameof(BehBoatFindRequest.execute))]
+        private static bool BehBoatFindRequest_prefix(BehBoatFindRequest __instance, Actor pActor, ref BehResult __result)
+        {
+            PortalManager.CancelDriverRequest(pActor);
+            if (PortalManager.AssignNewRequestForDriver(pActor))
+            {
+                __result = __instance.forceTask(pActor, S_Task.boat_transport_go_load, true, false);
+                return false;
+            }
+            return true;
+        }
         [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.checkEventUnitsDestroy))]
         private static void checkEventUnitsDestroy_postfix()
         {
