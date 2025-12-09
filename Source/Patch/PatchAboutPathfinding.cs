@@ -236,6 +236,11 @@ namespace Cultiway.Patch
         {
             PortalManager.RemoveDeadUnits();
         }
+        [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.checkEventBuildingsDestroy))]
+        private static void checkEventBuildingsDestroy_postfix()
+        {
+            PortalManager.RemoveDeadBuildings();
+        }
 
         private static PathProcessResult TryMove(Actor actor, WorldTile tile, bool allowBlocks, bool allowLava,
             bool allowOcean)
