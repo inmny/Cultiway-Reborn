@@ -345,9 +345,9 @@ namespace Cultiway.Patch
             var current_portal = portal_request.Portals[0];
             var unload_tile = current_portal.PortalTile;
             __instance.boat.unloadPassengers(unload_tile, false);
-            portal_request.Portals.RemoveAt(0);
-            if (portal_request.IsCompleted())
+            if (portal_request.Portals.Count == 1)
             {
+                portal_request.Cancel();
                 __result = BehResult.Continue;
                 return false;
             }
