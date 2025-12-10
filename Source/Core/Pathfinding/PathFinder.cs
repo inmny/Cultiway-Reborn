@@ -14,6 +14,7 @@ public class PathFinder
     internal static readonly object ActorSyncLock = new object();
 
     private readonly ConcurrentDictionary<long, PathfindingTask> _tasks = new();
+    private readonly ConcurrentDictionary<long, PathRequestOptions> _lastRequests = new();
     private IPathGenerator _generator;
 
     public void UseGenerator(IPathGenerator generator)
@@ -34,6 +35,8 @@ public class PathFinder
             return;
         }
 
+        _lastRequests[request.Actor.data.id] = new PathRequestOptions(request.Target, request.PathOnWater,
+            request.WalkOnBlocks, request.WalkOnLava, request.RegionLimit);
         Cancel(request.Actor);
 
         var task = new PathfindingTask(request);
@@ -183,6 +186,39 @@ public class PathFinder
             }
         }
         _tasks.Clear();
+        _lastRequests.Clear();
+    }
+
+    internal bool TryGetLastRequestOptions(Actor actor, out PathRequestOptions options)
+    {
+        options = default;
+        if (actor?.data == null)
+        {
+            return false;
+        }
+
+        return _lastRequests.TryGetValue(actor.data.id, out options);
+    }
+
+    internal bool TryRequestRecover(Actor actor, WorldTile overrideTarget = null)
+    {
+        if (actor == null || actor.data == null)
+        {
+            return false;
+        }
+        if (!TryGetLastRequestOptions(actor, out var opt))
+        {
+            return false;
+        }
+        var target = overrideTarget ?? actor.tile_target ?? opt.Target;
+        if (target == null)
+        {
+            return false;
+        }
+
+        RequestPath(new PathRequest(actor, target, opt.PathOnWater, opt.WalkOnBlocks, opt.WalkOnLava,
+            opt.RegionLimit));
+        return true;
     }
 }
 
@@ -204,6 +240,24 @@ internal sealed class PathfindingTask : IDisposable
     {
         Cancellation.Dispose();
     }
+}
+
+internal readonly struct PathRequestOptions
+{
+    public PathRequestOptions(WorldTile target, bool pathOnWater, bool walkOnBlocks, bool walkOnLava, int regionLimit)
+    {
+        Target = target;
+        PathOnWater = pathOnWater;
+        WalkOnBlocks = walkOnBlocks;
+        WalkOnLava = walkOnLava;
+        RegionLimit = regionLimit;
+    }
+
+    public WorldTile Target { get; }
+    public bool PathOnWater { get; }
+    public bool WalkOnBlocks { get; }
+    public bool WalkOnLava { get; }
+    public int RegionLimit { get; }
 }
 
 internal sealed class PassthroughPathGenerator : IPathGenerator

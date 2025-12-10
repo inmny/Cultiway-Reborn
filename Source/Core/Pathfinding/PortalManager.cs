@@ -24,6 +24,12 @@ namespace Cultiway.Core.Pathfinding
                     i--;
                     continue;
                 }
+                ValidateRequest(r);
+                if (r.IsCompleted())
+                {
+                    Instance._requests.RemoveAt(i);
+                    i--;
+                }
             }
         }
         internal static void RemoveDeadUnits()
@@ -37,6 +43,10 @@ namespace Cultiway.Core.Pathfinding
         {
             foreach (var r in Instance._requests)
             {
+                if (r.IsCompleted())
+                {
+                    continue;
+                }
                 if (r.Portals.Any(p => p.ToLoad.Contains(actor)))
                 {
                     return r;
@@ -50,7 +60,11 @@ namespace Cultiway.Core.Pathfinding
             {
                 if (r.Driver == actor)
                 {
-                    r.Cancel();
+                    r.Driver = null;
+                    if (!r.IsCompleted())
+                    {
+                        r.State = PortalRequestState.WaitingDriver;
+                    }
                     break;
                 }
             }
@@ -228,13 +242,59 @@ namespace Cultiway.Core.Pathfinding
 
         internal static bool AssignNewRequestForDriver(Actor pActor)
         {
-            throw new NotImplementedException();
+            if (pActor == null || pActor.isRekt())
+            {
+                return false;
+            }
+
+            PortalRequest best = null;
+            var bestDist = int.MaxValue;
+            var actorTile = pActor.current_tile;
+            for (int i = 0; i < Instance._requests.Count; i++)
+            {
+                var request = Instance._requests[i];
+                if (request.IsCompleted())
+                {
+                    continue;
+                }
+                if (request.Driver != null && request.Driver != pActor)
+                {
+                    continue;
+                }
+                if (request.Portals == null || request.Portals.Count == 0)
+                {
+                    continue;
+                }
+
+                var targetTile = request.Portals[0].PortalTile ??
+                                 request.Portals[0].PortalBuilding?.getConstructionTile();
+                if (targetTile == null || actorTile == null)
+                {
+                    continue;
+                }
+
+                var dist = Math.Abs(targetTile.x - actorTile.x) + Math.Abs(targetTile.y - actorTile.y);
+                if (dist < bestDist)
+                {
+                    best = request;
+                    bestDist = dist;
+                }
+            }
+
+            if (best == null)
+            {
+                return false;
+            }
+
+            best.Driver = pActor;
+            best.State = PortalRequestState.WaitingPassengers;
+            return true;
         }
         internal static PortalRequest GetRequestForDriver(Actor pActor)
         {
             foreach (var r in Instance._requests)
             {
-                if (r.Driver == pActor)
+                if (r.Driver == pActor && !r.IsCompleted())
                 {
                     return r;
                 }
@@ -248,6 +308,62 @@ namespace Cultiway.Core.Pathfinding
             {
                 r.RemoveDeadBuildings();
             }
+        }
+
+        private static void ValidateRequest(PortalRequest request)
+        {
+            if (request == null || request.IsCompleted())
+            {
+                return;
+            }
+
+            request.RemoveDeadUnits();
+            request.RemoveDeadBuildings();
+
+            while (!request.IsCompleted() && !IsPortalAlive(request.Portals[0]))
+            {
+                if (request.Portals.Count > 1)
+                {
+                    request.Portals[1].ToUnload.UnionWith(request.Portals[0].ToUnload);
+                    request.Portals[1].ToLoad.UnionWith(request.Portals[0].ToLoad);
+                }
+                request.Portals.RemoveAt(0);
+            }
+
+            if (request.IsCompleted())
+            {
+                return;
+            }
+
+            if (request.Driver != null && request.Driver.isRekt())
+            {
+                request.Driver = null;
+                request.State = PortalRequestState.WaitingDriver;
+            }
+
+            if (request.Driver == null && request.State == PortalRequestState.Driving)
+            {
+                request.State = PortalRequestState.WaitingDriver;
+            }
+
+            // 没有上下客需求则直接完成
+            if (request.Portals.All(p => p.ToLoad.Count == 0 && p.ToUnload.Count == 0))
+            {
+                request.Cancel();
+            }
+        }
+
+        private static bool IsPortalAlive(PortalRequest.SinglePortal portal)
+        {
+            if (portal == null)
+            {
+                return false;
+            }
+            if (portal.PortalBuilding == null || portal.PortalTile == null)
+            {
+                return false;
+            }
+            return !portal.PortalBuilding.isRekt();
         }
     }
 }

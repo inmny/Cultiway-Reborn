@@ -47,7 +47,28 @@ namespace Cultiway.Core.Pathfinding
         }
         internal void RemoveDeadBuildings()
         {
-            Portals.RemoveAll(p => p.PortalBuilding.isRekt());
+            for (int i = 0; i < Portals.Count;)
+            {
+                var portal = Portals[i];
+                if (portal.PortalBuilding != null && !portal.PortalBuilding.isRekt())
+                {
+                    i++;
+                    continue;
+                }
+
+                // 被摧毁则将上下客需求并入下一节点，避免数据丢失
+                if (i + 1 < Portals.Count)
+                {
+                    Portals[i + 1].ToLoad.UnionWith(portal.ToLoad);
+                    Portals[i + 1].ToUnload.UnionWith(portal.ToUnload);
+                }
+                Portals.RemoveAt(i);
+            }
+
+            if (Portals.Count == 0)
+            {
+                State = PortalRequestState.Completed;
+            }
         }
         public bool IsCompleted()
         {

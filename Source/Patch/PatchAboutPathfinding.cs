@@ -46,6 +46,7 @@ namespace Cultiway.Patch
             {
                 __instance.setNotMoving();
                 __instance.timer_action = 1f;
+                PathRecoveryManager.TryRequest(__instance);
                 return false;
             }
 
@@ -54,10 +55,14 @@ namespace Cultiway.Patch
             {
                 case PathProcessResult.Consumed:
                     PathFinder.Instance.ConsumeStep(__instance);
+                    PathRecoveryManager.OnProgress(__instance);
                     break;
                 case PathProcessResult.Abort:
                     PathFinder.Instance.Cancel(__instance);
-                    __instance.cancelAllBeh();
+                    if (!PathRecoveryManager.OnFailureAndRecover(__instance))
+                    {
+                        __instance.cancelAllBeh();
+                    }
                     break;
                 case PathProcessResult.Deferred:
                     __instance.timer_action = 1f;
@@ -87,6 +92,7 @@ namespace Cultiway.Patch
         {
             PathFinder.Instance.Clear();
             PortalRegistry.Instance.Clear();
+            PathRecoveryManager.Clear();
         }
         [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.Dispose))]
         private static void Dispose_prefix(Actor __instance)
@@ -343,8 +349,20 @@ namespace Cultiway.Patch
                 return true;
             }
             var current_portal = portal_request.Portals[0];
-            var unload_tile = current_portal.PortalTile;
+            var unload_tile = current_portal.PortalTile ?? pActor.current_tile;
+            var passengers = __instance.boat.getPassengers().ToList();
+            if (unload_tile == null || (pActor.current_tile != null &&
+                                        Toolbox.SquaredDistTile(unload_tile, pActor.current_tile) > 36))
+            {
+                unload_tile = pActor.current_tile;
+            }
             __instance.boat.unloadPassengers(unload_tile, false);
+            foreach (var passenger in passengers)
+            {
+                if (passenger == null || passenger.isRekt()) continue;
+                PathFinder.Instance.Cancel(passenger);
+                PathFinder.Instance.TryRequestRecover(passenger, passenger.tile_target ?? unload_tile);
+            }
             if (portal_request.Portals.Count == 1)
             {
                 portal_request.Cancel();
