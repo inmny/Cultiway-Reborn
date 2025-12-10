@@ -247,7 +247,7 @@ namespace Cultiway.Patch
         private static bool BehBoatTranportFindTilePickUp_prefix(BehBoatTransportFindTilePickUp __instance, Actor pActor, ref BehResult __result)
         {
             var portal_request = PortalManager.GetRequestForDriver(pActor);
-            if (portal_request == null || portal_request.State == PortalRequestState.Completed)
+            if (portal_request == null || portal_request.IsCompleted())
             {
                 return true;
             }
@@ -271,7 +271,7 @@ namespace Cultiway.Patch
         private static bool BehBoatTransportDoLoading_prefix(BehBoatTransportDoLoading __instance, Actor pActor, ref BehResult __result)
         {
             var portal_request = PortalManager.GetRequestForDriver(pActor);
-            if (portal_request == null || portal_request.State == PortalRequestState.Completed)
+            if (portal_request == null || portal_request.IsCompleted())
             {
                 return true;
             }
@@ -318,7 +318,7 @@ namespace Cultiway.Patch
         private static bool BehBoatTransportFindTileUnload_prefix(BehBoatTransportFindTileUnload __instance, Actor pActor, ref BehResult __result)
         {
             var portal_request = PortalManager.GetRequestForDriver(pActor);
-            if (portal_request == null || portal_request.State == PortalRequestState.Completed)
+            if (portal_request == null || portal_request.IsCompleted())
             {
                 return true;
             }
@@ -338,7 +338,7 @@ namespace Cultiway.Patch
         private static bool BehBoatTransportUnloadUnits_prefix(BehBoatTransportUnloadUnits __instance, Actor pActor, ref BehResult __result)
         {
             var portal_request = PortalManager.GetRequestForDriver(pActor);
-            if (portal_request == null || portal_request.State == PortalRequestState.Completed)
+            if (portal_request == null || portal_request.IsCompleted())
             {
                 return true;
             }
