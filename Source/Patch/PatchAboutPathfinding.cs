@@ -255,8 +255,11 @@ namespace Cultiway.Patch
             var dock_tile = dock_building.component_docks.getOceanTileInSameOcean(pActor.current_tile);
             if (dock_tile == null)
             {
-                PortalManager.CancelDriverRequest(pActor);
-                __result = BehResult.Stop;
+                // 如果找不到码头，则放弃这个码头的上客。这个码头的下客挪到下一个码头，并让他们重新寻路（应该是在寻路系统中进行自动纠错）。
+                portal_request.Portals[1].ToUnload.UnionWith(portal_request.Portals[0].ToUnload);
+                portal_request.Portals.RemoveAt(0);
+
+                __result = BehResult.RepeatStep;
                 return false;
             }
             pActor.beh_tile_target = dock_tile;
@@ -342,6 +345,7 @@ namespace Cultiway.Patch
             var current_portal = portal_request.Portals[0];
             var unload_tile = current_portal.PortalTile;
             __instance.boat.unloadPassengers(unload_tile, false);
+            portal_request.Portals.RemoveAt(0);
             if (portal_request.IsCompleted())
             {
                 __result = BehResult.Continue;
