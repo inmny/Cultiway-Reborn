@@ -213,7 +213,7 @@ public class PortalAwarePathGenerator : IPathGenerator
                 return BuildResult(current, profile);
             }
 
-            var neighbours = current.Tile.neighbours;
+            var neighbours = current.Tile.neighboursAll ?? current.Tile.neighbours;
             if (neighbours == null)
             {
                 continue;
@@ -222,6 +222,11 @@ public class PortalAwarePathGenerator : IPathGenerator
             foreach (var neighbour in neighbours)
             {
                 if (neighbour == null)
+                {
+                    continue;
+                }
+
+                if (IsDiagonalBlocked(current.Tile, neighbour, profile))
                 {
                     continue;
                 }
@@ -300,6 +305,25 @@ public class PortalAwarePathGenerator : IPathGenerator
         }
 
         return LocalPathResult.Success(reversed, cost);
+    }
+
+    private static bool IsDiagonalBlocked(WorldTile from, WorldTile to, MovementProfile profile)
+    {
+        var dx = to.x - from.x;
+        var dy = to.y - from.y;
+        if (Math.Abs(dx) != 1 || Math.Abs(dy) != 1)
+        {
+            return false;
+        }
+
+        var side1 = World.world?.GetTileSimple(from.x + dx, from.y);
+        var side2 = World.world?.GetTileSimple(from.x, from.y + dy);
+        if (side1 == null || side2 == null)
+        {
+            return true;
+        }
+
+        return !(IsTileAllowed(side1, profile) && IsTileAllowed(side2, profile));
     }
 
     private static float StepCost(WorldTile from, WorldTile to, MovementMethod method, MovementProfile profile,
