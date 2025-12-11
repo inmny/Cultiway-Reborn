@@ -265,6 +265,21 @@ public static class ActorAssetTools
         return asset;
     }
     /// <summary>
+    /// 移除文化栏特质
+    /// </summary>
+    public static ActorAsset RemoveCultureTrait(this ActorAsset asset, string trait_id)
+    {
+        asset.default_culture_traits?.Remove(trait_id);
+        return asset;
+    }
+    /// <summary>
+    /// 移除文化栏特质
+    /// </summary>
+    public static ActorAsset RemoveCultureTrait(this ActorAsset asset, CultureTrait trait)
+    {
+        return asset.RemoveCultureTrait(trait.id);
+    }
+    /// <summary>
     /// 设置图标路径
     /// </summary>
     public static ActorAsset SetIcon(this ActorAsset asset, string icon_path)

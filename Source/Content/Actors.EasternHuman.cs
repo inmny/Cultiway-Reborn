@@ -19,6 +19,7 @@ public partial class Actors
     private void SetupEasternHuman() 
     { 
         EasternHuman.AddCultureTrait(CultureTraits.CultureSkin)
+                    .RemoveCultureTrait(S_CultureTrait.city_layout_the_grand_arrangement)
                     //.AddCultureTrait(S_CultureTrait.city_layout_stone_garden)
                     //.AddCultureTrait(S_CultureTrait.city_layout_the_grand_arrangement)
                     .AddCultureTrait(S_CultureTrait.city_layout_pebbles);
