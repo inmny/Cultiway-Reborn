@@ -39,6 +39,10 @@ namespace Cultiway.Core.Pathfinding
                 request.RemoveDeadUnits();
             }
         }
+        internal static List<PortalRequest> SnapshotRequests()
+        {
+            return Instance._requests.ToList();
+        }
         public static PortalRequest GetRequest(Actor actor)
         {
             foreach (var r in Instance._requests)

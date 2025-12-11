@@ -99,6 +99,80 @@ namespace Cultiway.Content
             }
         }
 
+        /// <summary>
+        /// 尝试获取两站之间的轨道格子序列；若链接不可用则返回false。
+        /// </summary>
+        internal static bool TryGetPath(long fromStationId, long toStationId, out List<WorldTile> path)
+        {
+            path = null;
+            if (fromStationId == 0 || toStationId == 0)
+            {
+                return false;
+            }
+
+            var key = LinkKey.Create(fromStationId, toStationId);
+            if (!Links.TryGetValue(key, out var link) || link.Status != LinkStatus.Normal)
+            {
+                return false;
+            }
+
+            var stationA = World.world.buildings.get(link.StationAId);
+            var stationB = World.world.buildings.get(link.StationBId);
+            if (!IsStationValid(stationA) || !IsStationValid(stationB))
+            {
+                return false;
+            }
+
+            if (link.Tiles.Count == 0)
+            {
+                return false;
+            }
+
+            path = new List<WorldTile>(link.Tiles.Count + 2);
+            if (fromStationId == link.StationAId && toStationId == link.StationBId)
+            {
+                foreach (var t in link.Tiles)
+                {
+                    if (t != null) path.Add(t);
+                }
+            }
+            else if (fromStationId == link.StationBId && toStationId == link.StationAId)
+            {
+                for (int i = link.Tiles.Count - 1; i >= 0; i--)
+                {
+                    var t = link.Tiles[i];
+                    if (t != null) path.Add(t);
+                }
+            }
+            else
+            {
+                return false;
+            }
+
+            if (path.Count == 0)
+            {
+                return false;
+            }
+
+            // 确保起终点格子包含车站位置，便于列车从站内/进站运动。
+            var startTile = World.world.buildings.get(fromStationId)?.current_tile
+                            ?? World.world.buildings.get(fromStationId)?.getConstructionTile();
+            var endTile = World.world.buildings.get(toStationId)?.current_tile
+                          ?? World.world.buildings.get(toStationId)?.getConstructionTile();
+            if (startTile != null)
+            {
+                path.Insert(0, startTile);
+            }
+            if (endTile != null && path[path.Count - 1] != endTile)
+            {
+                path.Add(endTile);
+            }
+
+            // 过滤无效/非铁轨格子。
+            path = path.Where(t => t != null && t.Type != null && t.top_type == TopTileTypes.TrainTrack).ToList();
+            return path.Count >= 2;
+        }
+
         private static bool TryRepair(LinkInfo link)
         {
             var stationA = World.world.buildings.get(link.StationAId);

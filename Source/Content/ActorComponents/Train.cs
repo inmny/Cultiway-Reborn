@@ -73,6 +73,9 @@ namespace Cultiway.Content.ActorComponents
         private float _track_total_length;
         private float _lead_distance;
         private bool _moving_forward = true;
+        private bool _stop_at_end = true;
+        private bool _finished_segment;
+        private bool _visible = true;
         private const float SectionLength = 4f;
         private void CreateTrainSection(TrainSectionType pType)
         {
@@ -93,9 +96,67 @@ namespace Cultiway.Content.ActorComponents
         private List<WorldTile> _track_tiles = new List<WorldTile>();
         public void SetTrackTiles(List<WorldTile> pTrackTiles)
         {
+            _finished_segment = false;
             _track_tiles.Clear();
             _track_tiles.AddRange(pTrackTiles);
             RebuildTrackCache();
+        }
+        public void ConfigureTrack(List<WorldTile> pTrackTiles, bool resetProgress = true, bool stopAtEnd = true)
+        {
+            SetTrackTiles(pTrackTiles);
+            _stop_at_end = stopAtEnd;
+            if (resetProgress)
+            {
+                ResetProgress();
+            }
+        }
+        public void ResetProgress(bool placeAtStart = true)
+        {
+            _moving_forward = true;
+            _finished_segment = false;
+            if (_track_total_length <= 0f)
+            {
+                RebuildTrackCache();
+            }
+
+            if (placeAtStart)
+            {
+                float trainLength = SectionLength * Math.Max(1, _train_sections.Count);
+                _lead_distance = Math.Min(trainLength, _track_total_length <= 0f ? trainLength : _track_total_length);
+            }
+            else
+            {
+                _lead_distance = _track_total_length;
+            }
+        }
+        public bool IsSegmentFinished => _finished_segment;
+        public float TrainLength => SectionLength * (_train_sections?.Count ?? 0);
+        public void SetStopAtEnd(bool stop) => _stop_at_end = stop;
+        public void Hide() => SetVisibility(false);
+        public void Show() => SetVisibility(true);
+        private void SetVisibility(bool visible)
+        {
+            _visible = visible;
+            SetSectionsActive(visible);
+            if (actor != null)
+            {
+                gameObject.SetActive(visible);
+            }
+        }
+        private void SetSectionsActive(bool active)
+        {
+            if (_train_sections == null)
+            {
+                return;
+            }
+            foreach (var s in _train_sections)
+            {
+                if (s == null) continue;
+                if (s.gameObject != null)
+                {
+                    s.gameObject.SetActive(active);
+                }
+            }
         }
         private void RebuildTrackCache()
         {
@@ -165,7 +226,10 @@ namespace Cultiway.Content.ActorComponents
             float trainLength = SectionLength * _train_sections.Count;
 
             float direction = _moving_forward ? 1f : -1f;
-            _lead_distance += direction * speed * pElapsed;
+            if (!_finished_segment)
+            {
+                _lead_distance += direction * speed * pElapsed;
+            }
 
             float minLead = _moving_forward ? Math.Min(trainLength, _track_total_length) : 0f;
             float maxLead = _moving_forward ? _track_total_length : Math.Max(0f, _track_total_length - trainLength);
@@ -175,7 +239,21 @@ namespace Cultiway.Content.ActorComponents
                 maxLead = _track_total_length;
             }
 
-            if (_moving_forward && _lead_distance > maxLead)
+            if (_stop_at_end)
+            {
+                if (_moving_forward && _lead_distance >= maxLead)
+                {
+                    _lead_distance = maxLead;
+                    _finished_segment = true;
+                }
+                else if (!_moving_forward && _lead_distance <= minLead)
+                {
+                    _lead_distance = minLead;
+                    _finished_segment = true;
+                }
+                _lead_distance = Mathf.Clamp(_lead_distance, minLead, maxLead);
+            }
+            else if (_moving_forward && _lead_distance > maxLead)
             {
                 float overflow = _lead_distance - maxLead;
                 _lead_distance = maxLead - overflow;
@@ -202,8 +280,11 @@ namespace Cultiway.Content.ActorComponents
                 Vector2 tailPos = EvaluateTrackPosition(sectionTailDistance);
                 var section = _train_sections[i];
                 section.UpdatePos(headPos, tailPos);
-                section.transform.position = headPos;
-                section.sprite_animation?.update(pElapsed);
+                if (_visible)
+                {
+                    section.transform.position = headPos;
+                    section.sprite_animation?.update(pElapsed);
+                }
             }
 
             if (actor != null)
