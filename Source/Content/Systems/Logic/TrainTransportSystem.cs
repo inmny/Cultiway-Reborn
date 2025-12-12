@@ -105,8 +105,7 @@ namespace Cultiway.Content
                 return false;
             }
 
-            return request.Portals.All(p =>
-                p?.PortalBuilding?.asset != null && p.PortalBuilding.asset.id == Buildings.TrainStation.id);
+            return request.PortalType == Portals.TrainStation;
         }
 
         private void UpdatePreparing(RideState state)

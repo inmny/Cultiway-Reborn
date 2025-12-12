@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Cultiway.Core.BuildingComponents;
 using Friflo.Engine.ECS.Systems;
 using Cultiway.Utils.Extension;
+using Cultiway.Core.Libraries;
 
 namespace Cultiway.Core.Pathfinding
 {
@@ -86,6 +87,7 @@ namespace Cultiway.Core.Pathfinding
             {
                 return;
             }
+            var portal_type = start_portal.Asset;
 
             PortalRequest request = null;
 
@@ -96,6 +98,10 @@ namespace Cultiway.Core.Pathfinding
             foreach (var r in Instance._requests)
             {
                 if (r.Portals == null || r.Portals.Count == 0)
+                {
+                    continue;
+                }
+                if (r.PortalType != portal_type)
                 {
                     continue;
                 }
@@ -152,6 +158,7 @@ namespace Cultiway.Core.Pathfinding
                 request = new PortalRequest
                 {
                     Driver = null,
+                    PortalType = portal_type,
                     State = PortalRequestState.WaitingDriver,
                     Portals = path.Select(p => new PortalRequest.SinglePortal
                     {
@@ -244,7 +251,7 @@ namespace Cultiway.Core.Pathfinding
             return null;
         }
 
-        internal static bool AssignNewRequestForDriver(Actor pActor)
+        internal static bool AssignNewRequestForDriver(Actor pActor, PortalAsset portal_type)
         {
             if (pActor == null || pActor.isRekt())
             {
@@ -258,6 +265,10 @@ namespace Cultiway.Core.Pathfinding
             {
                 var request = Instance._requests[i];
                 if (request.IsCompleted())
+                {
+                    continue;
+                }
+                if (request.PortalType != portal_type)
                 {
                     continue;
                 }

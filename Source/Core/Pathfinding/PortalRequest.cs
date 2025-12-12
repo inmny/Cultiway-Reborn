@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Cultiway.Core.Libraries;
 
 namespace Cultiway.Core.Pathfinding
 {
@@ -17,6 +18,7 @@ namespace Cultiway.Core.Pathfinding
         public Actor Driver;
         public PortalRequestState State;
         public List<SinglePortal> Portals;
+        public PortalAsset PortalType;
         public class SinglePortal
         {
             public Building PortalBuilding;
@@ -29,12 +31,14 @@ namespace Cultiway.Core.Pathfinding
         {
             Portals.Clear();
             Driver = null;
+            PortalType = null;
         }
         public void Cancel()
         {
             State = PortalRequestState.Completed;
             Driver = null;
             Portals.Clear();
+            PortalType = null;
         }
 
         internal void RemoveDeadUnits()

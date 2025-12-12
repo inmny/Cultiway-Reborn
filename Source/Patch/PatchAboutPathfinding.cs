@@ -6,6 +6,7 @@ using System.Reflection.Emit;
 using ai;
 using ai.behaviours;
 using Cultiway.Core.BuildingComponents;
+using Cultiway.Core.Libraries;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -242,7 +243,7 @@ namespace Cultiway.Patch
         private static bool BehBoatFindRequest_prefix(BehBoatFindRequest __instance, Actor pActor, ref BehResult __result)
         {
             PortalManager.CancelDriverRequest(pActor);
-            if (PortalManager.AssignNewRequestForDriver(pActor))
+            if (PortalManager.AssignNewRequestForDriver(pActor, PortalLibrary.Dock))
             {
                 __result = __instance.forceTask(pActor, S_Task.boat_transport_go_load, true, false);
                 return false;
