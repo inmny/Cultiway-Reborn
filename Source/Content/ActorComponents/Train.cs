@@ -327,7 +327,7 @@ namespace Cultiway.Content.ActorComponents
 
 
 
-            ResourcesPatch.PatchResource("actors/p_train", obj.GetComponent<Train>());
+            ResourcesPatch.PatchResource("actors/p_train", obj);
         }
     }
 }
