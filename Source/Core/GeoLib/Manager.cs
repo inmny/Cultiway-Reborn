@@ -18,6 +18,7 @@ public class Manager
         _system_root.Add(new ErosionSystem());
         _system_root.Add(new AntiErosionSystem());
         _system_root.Add(new RiverTrackSystem());
+        _system_root.Add(new RecycleEmptyGeoRegionSystem());
     }
 
     public WorldboxGame Game { get; private set; }
