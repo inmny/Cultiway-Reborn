@@ -6,6 +6,7 @@ using Cultiway.Content.Extensions;
 using Cultiway.Core.Components;
 using Cultiway.Core.GeoLib.Components;
 using Cultiway.UI;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
@@ -57,7 +58,10 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         if (rels.Length == 0)
         {
             // 创建一个空的geo region
-            var region = te.E.Store.CreateEntity(new GeoRegion());
+            var region = te.E.Store.CreateEntity(new GeoRegion()
+            {
+                color = Randy.getRandomColor()
+            });
             region.AddRelation(new BelongToRelation { entity = te.E });
             _current_geo_region = region;
         }
