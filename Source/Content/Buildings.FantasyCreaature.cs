@@ -179,7 +179,8 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.PinkHorrorTzeentch, 36, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.IridescentHorrorTzeentch, 9, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.FlamerTzeentch, 18, 4, 1)
-                   .AddAdvancedSpawnerDistributedConfig(Actors.BlueHorrorTzeentch, 36, 2, 2);
+                   .AddAdvancedSpawnerDistributedConfig(Actors.BlueHorrorTzeentch, 36, 2, 2)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.LordChange, 1, 4, 1);
 
     }
 }

@@ -225,6 +225,8 @@ public partial class Actors
     public static ActorAsset FlamerTzeentch { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset ScreamersTzeentch { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset  LordChange { get; private set; }
     
     private void SetupFantasyCreatures()
     {
@@ -1154,7 +1156,7 @@ public partial class Actors
             .SetAnimSwimRaw("swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("cultiway/icons/races/iconJin_Wu")
             .SetJumpAnimation(false)
-            .SetStandWhileSleeping(false)
+            .SetStandWhileSleeping(false)//
             .SetHideHandItem(true)
             .SetDefaultWeapons(S_Item.evil_staff)//法术法杖
             .AddTrait(S_Trait.shiny)//闪亮
@@ -2405,6 +2407,34 @@ public partial class Actors
             .Stats(S.speed, 34)//速度
             .Stats(S.health, 180)//血量
             .Stats(S.armor,4)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 999);//寿命
+        LordChange.SetCamp(KingdomAssets.Tzeentch)//万变魔君
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetAnimIdleRaw("walk_1,walk_2,walk_3,walk_4")
+            .SetIcon("actors/species/other/Cultiway/LordChange/main/walk_0")
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.evil_staff)//法术法杖
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 80)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 26)//速度
+            .Stats(S.health, 8000)//血量
+            .Stats(S.armor,16)//防御
             .Stats(S.stamina, 200)//耐力
             .Stats(S.lifespan, 999);//寿命
             
