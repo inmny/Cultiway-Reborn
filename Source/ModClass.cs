@@ -259,13 +259,14 @@ namespace Cultiway
             CustomMapModeManager = new();
             CustomMapModeManager.Initialize();
 
+            _ui = new UI.Manager();
+            _ui.Init();
+
             SkillV3 = new Core.SkillLibV3.Manager(Game);
             Geo = new Core.GeoLib.Manager(Game);
-            _ui = new UI.Manager();
             _patch = new Patch.Manager();
             _content = new Manager();
 
-            _ui.Init();
             _patch.Init();
             SkillV3.Init();
             _content.Init();

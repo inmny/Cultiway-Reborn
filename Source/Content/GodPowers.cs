@@ -3,7 +3,12 @@ using System.Reflection;
 using Cultiway.Abstract;
 using Cultiway.Content.Attributes;
 using Cultiway.Content.Extensions;
+using Cultiway.Core.Components;
+using Cultiway.Core.GeoLib.Components;
 using Cultiway.UI;
+using Cultiway.Utils;
+using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using NeoModLoader.General;
 using strings;
 using UnityEngine;
@@ -16,6 +21,10 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
     public static GodPower Plant { get; private set; }
     [CloneSource(PowerLibrary.TEMPLATE_SPAWN_ACTOR)]
     public static GodPower EasternHuman { get; private set; }
+    [CloneSource(PowerLibrary.TEMPLATE_TERRAFORM_TILES)]
+    public static GodPower ExtendGeoRegion { get; private set; }
+    [CloneSource(PowerLibrary.TEMPLATE_TERRAFORM_TILES)]
+    public static GodPower RemoveGeoRegion { get; private set; }
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
@@ -23,11 +32,77 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         Plant.actor_asset_id = Actors.Plant.id;
         EasternHuman.name = Actors.EasternHuman.getLocaleID();
         EasternHuman.actor_asset_id = Actors.EasternHuman.id;
+        ExtendGeoRegion.name = "Extend Geo Region";
+        RemoveGeoRegion.name = "Remove Geo Region";
+
+        ExtendGeoRegion.click_action = ExtendGeoRegionAction;
+        ExtendGeoRegion.click_brush_action = InitializeGeoRegionAction + ExtendGeoRegion.click_brush_action;
+        RemoveGeoRegion.click_action = RemoveGeoRegionAction;
         SetupCommonCreaturePlacePower();
         SetupCommonBuildingPlacePower();
         SetupCommonDropPlacePower();
     }
-
+    private static Entity _current_geo_region = default;
+    private static bool InitializeGeoRegionAction(WorldTile tile, string power_id)
+    {
+        var te = tile.GetExtend();
+        var rels = te.E.GetRelations<BelongToRelation>();
+        foreach (var rel in rels)
+        {
+            if (rel.entity.HasComponent<GeoRegion>())
+            {
+                _current_geo_region = rel.entity;
+                return true;
+            }
+        }
+        if (rels.Length == 0)
+        {
+            // 创建一个空的geo region
+            var region = te.E.Store.CreateEntity(new GeoRegion()
+            {
+                color = Randy.getRandomColor()
+            });
+            region.AddRelation(new BelongToRelation { entity = te.E });
+            _current_geo_region = region;
+        }
+        
+        return true;
+    }
+    private static bool ExtendGeoRegionAction(WorldTile tile, string power_id)
+    {
+        var te = tile.GetExtend();
+        var rels = te.E.GetRelations<BelongToRelation>();
+        if (rels.Length != 0)
+        {
+            foreach (var rel in rels)
+            {
+                if (rel.entity.HasComponent<GeoRegion>())
+                {
+                    te.E.RemoveRelation<BelongToRelation>(rel.entity);
+                    break;
+                }
+            }
+        }
+        te.E.AddRelation(new BelongToRelation { entity = _current_geo_region });
+        return true;
+    }
+    private static bool RemoveGeoRegionAction(WorldTile tile, string power_id)
+    {
+        var te = tile.GetExtend();
+        var rels = te.E.GetRelations<BelongToRelation>();
+        if (rels.Length != 0)
+        {
+            foreach (var rel in rels)
+            {
+                if (rel.entity.HasComponent<GeoRegion>())
+                {
+                    te.E.RemoveRelation<BelongToRelation>(rel.entity);
+                    break;
+                }
+            }
+        }
+        return true;
+    }
     private void SetupCommonBuildingPlacePower()
     {
         var props = typeof(Buildings).GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);

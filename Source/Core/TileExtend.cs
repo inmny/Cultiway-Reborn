@@ -12,6 +12,6 @@ public class TileExtend : ExtendComponent<WorldTile>
     {
         this.e = e;
     }
-
+    public override Entity E => e;
     public override WorldTile Base => e.GetComponent<TileBinder>().Tile;
 }
