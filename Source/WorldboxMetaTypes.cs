@@ -13,9 +13,22 @@ public partial class WorldboxGame
     public class MetaTypes : ExtendLibrary<MetaTypeAsset, MetaTypes>
     {
         public static MetaTypeAsset Sect { get; private set; }
+        public static MetaTypeAsset GeoRegion { get; private set; }
         protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
+            GeoRegion.window_name = GeoRegion.id;
+            GeoRegion.window_action_clear = () => I.SelectedGeoRegion = null;
+            GeoRegion.GetExtend<MetaTypeAssetExtend>().ExtendWindowHistoryActionUpdate = (data) =>
+            {
+                data.StoredObj[GeoRegion.id] = I.SelectedGeoRegion;
+            };
+            GeoRegion.GetExtend<MetaTypeAssetExtend>().ExtendWindowHistoryActionRestore = (data) =>
+            {
+                I.SelectedGeoRegion = data.StoredObj[GeoRegion.id] as GeoRegion;
+            };
+
+            
             Sect.window_name = Sect.id;
             Sect.window_action_clear = () => I.SelectedSect = null;
             Sect.GetExtend<MetaTypeAssetExtend>().ExtendWindowHistoryActionUpdate = (data) =>

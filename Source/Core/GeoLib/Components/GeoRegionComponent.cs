@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Cultiway.Core.GeoLib.Components
 {
-    public struct GeoRegion : IComponent
+    public struct GeoRegionComponent : IComponent
     {
         public Color32 color;
     }

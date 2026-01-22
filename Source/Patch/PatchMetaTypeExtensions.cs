@@ -12,7 +12,10 @@ internal static class PatchMetaTypeExtensions
         switch (pType.Extend())
         {
             case MetaTypeExtend.Sect:
-                
+                __result = "sect";
+                return false;
+            case MetaTypeExtend.GeoRegion:
+                __result = "geo_region";
                 return false;
         }
         return true;

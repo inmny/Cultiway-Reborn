@@ -16,6 +16,7 @@ public partial class WorldboxGame
     public class HistoryMetaDatas : ExtendLibrary<HistoryMetaDataAsset, HistoryMetaDatas>
     {
         public static HistoryMetaDataAsset Sect { get; private set; }
+        public static HistoryMetaDataAsset GeoRegion { get; private set; }
         protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
@@ -41,6 +42,31 @@ public partial class WorldboxGame
                     population = sect.countUnits(),
                     adults = sect.countAdults(),
                     children = sect.countChildren(),
+                };
+            };
+
+            GeoRegion.table_type = typeof(GeoRegionTable);
+            GeoRegion.table_types = new Dictionary<HistoryInterval, Type>()
+            {
+                { HistoryInterval.Yearly1, typeof(GeoRegionTableYearly1) },
+                { HistoryInterval.Yearly5, typeof(GeoRegionTableYearly5) },
+                { HistoryInterval.Yearly10, typeof(GeoRegionTableYearly10) },
+                { HistoryInterval.Yearly50, typeof(GeoRegionTableYearly50) },
+                { HistoryInterval.Yearly100, typeof(GeoRegionTableYearly100) },
+                { HistoryInterval.Yearly500, typeof(GeoRegionTableYearly500) },
+                { HistoryInterval.Yearly1000, typeof(GeoRegionTableYearly1000) },
+                { HistoryInterval.Yearly5000, typeof(GeoRegionTableYearly5000) },
+                { HistoryInterval.Yearly10000, typeof(GeoRegionTableYearly10000) },
+            };
+            GeoRegion.collector = obj =>
+            {
+                var region = (GeoRegion)obj;
+                return new GeoRegionTableYearly1()
+                {
+                    id = region.getID(),
+                    population = region.countUnits(),
+                    adults = region.countAdults(),
+                    children = region.countChildren(),
                 };
             };
         }

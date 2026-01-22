@@ -49,7 +49,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         var rels = te.E.GetRelations<BelongToRelation>();
         foreach (var rel in rels)
         {
-            if (rel.entity.HasComponent<GeoRegion>())
+            if (rel.entity.HasComponent<GeoRegionComponent>())
             {
                 _current_geo_region = rel.entity;
                 return true;
@@ -58,7 +58,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         if (rels.Length == 0)
         {
             // 创建一个空的geo region
-            var region = te.E.Store.CreateEntity(new GeoRegion()
+            var region = te.E.Store.CreateEntity(new GeoRegionComponent()
             {
                 color = Randy.getRandomColor()
             });
@@ -76,7 +76,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         {
             foreach (var rel in rels)
             {
-                if (rel.entity.HasComponent<GeoRegion>())
+                if (rel.entity.HasComponent<GeoRegionComponent>())
                 {
                     te.E.RemoveRelation<BelongToRelation>(rel.entity);
                     break;
@@ -94,7 +94,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         {
             foreach (var rel in rels)
             {
-                if (rel.entity.HasComponent<GeoRegion>())
+                if (rel.entity.HasComponent<GeoRegionComponent>())
                 {
                     te.E.RemoveRelation<BelongToRelation>(rel.entity);
                     break;

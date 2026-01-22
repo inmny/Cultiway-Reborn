@@ -48,6 +48,7 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
     public static WorldboxGame I { get; private set; }
     public Font CurrentFont => LocalizedTextManager.current_font;
     public Sect SelectedSect;
+    public GeoRegion SelectedGeoRegion;
     public SectManager Sects;
     public override float GetLogicDeltaTime()
     {

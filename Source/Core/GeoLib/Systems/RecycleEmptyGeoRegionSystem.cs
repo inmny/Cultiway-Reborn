@@ -9,11 +9,11 @@ using Friflo.Engine.ECS.Systems;
 
 namespace Cultiway.Core.GeoLib.Systems
 {
-    public class RecycleEmptyGeoRegionSystem : QuerySystem<GeoRegion>
+    public class RecycleEmptyGeoRegionSystem : QuerySystem<GeoRegionComponent>
     {
         protected override void OnUpdate()
         {
-            Query.ForEachEntity(((ref GeoRegion region, Entity entity) =>
+            Query.ForEachEntity(((ref GeoRegionComponent region, Entity entity) =>
             {
                 if (entity.GetIncomingLinks<BelongToRelation>().Count == 0)
                 {

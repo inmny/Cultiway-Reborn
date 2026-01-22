@@ -36,9 +36,9 @@ public class Manager
                 var rels = tile.E.GetRelations<BelongToRelation>();
                 foreach (var rel in rels)
                 {
-                    if (rel.entity.HasComponent<GeoRegion>())
+                    if (rel.entity.HasComponent<GeoRegionComponent>())
                     {
-                        out_color = rel.entity.GetComponent<GeoRegion>().color;
+                        out_color = rel.entity.GetComponent<GeoRegionComponent>().color;
                         return;
                     }
                 }
