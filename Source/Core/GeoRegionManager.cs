@@ -22,6 +22,11 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
             }
         }
     }
+    public override void addObject(GeoRegion pObject)
+    {
+        pObject.BaseSetup();
+        base.addObject(pObject);
+    }
 
     public GeoRegion BuildGeoRegion(Actor founder)
     {

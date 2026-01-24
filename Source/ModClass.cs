@@ -189,6 +189,16 @@ namespace Cultiway
             Try.Start(() => { _ = LK.Root; });
             A = Assembly.GetExecutingAssembly();
             PrefabLibrary.gameObject.SetActive(false);
+
+            _ui = new UI.Manager();
+            _ui.Init();
+
+            Try.Start(() =>
+            {
+                L = new Core.Libraries.Manager();
+                L.Init();
+            });
+
             Game = new WorldboxGame();
             Try.Start(() =>
             {
@@ -206,12 +216,6 @@ namespace Cultiway
             BookExtendManager = new BookExtendManager(W);
             CityExtendManager = new CityExtendManager(W);
             TileExtendManager = new();
-
-            Try.Start(() =>
-            {
-                L = new Core.Libraries.Manager();
-                L.Init();
-            });
 
             GeneralLogicSystems = new SystemRoot(nameof(GeneralLogicSystems));
             GeneralRenderSystems = new SystemRoot(nameof(GeneralRenderSystems));
@@ -258,9 +262,6 @@ namespace Cultiway
 
             CustomMapModeManager = new();
             CustomMapModeManager.Initialize();
-
-            _ui = new UI.Manager();
-            _ui.Init();
 
             SkillV3 = new Core.SkillLibV3.Manager(Game);
             Geo = new Core.GeoLib.Manager(Game);

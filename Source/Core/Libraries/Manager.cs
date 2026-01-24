@@ -38,13 +38,13 @@ public class Manager
         CustomMapModeLibrary.linkAssets();
         ItemShapeLibrary.linkAssets();
         RandomEventLibrary.linkAssets();
-        StatusEffectLibrary.post_init();
-        ForceTypeLibrary.post_init();
-        SectBannerLibrary.post_init();
-        GeoRegionBannerLibrary.post_init();
-        ImageTemplateLibrary.post_init();
-        OperationLibrary.post_init();
-        PortalLibrary.post_init();
+        StatusEffectLibrary.linkAssets();
+        ForceTypeLibrary.linkAssets();
+        SectBannerLibrary.linkAssets();
+        GeoRegionBannerLibrary.linkAssets();
+        ImageTemplateLibrary.linkAssets();
+        OperationLibrary.linkAssets();
+        PortalLibrary.linkAssets();
     }
     public void PostInit()
     {

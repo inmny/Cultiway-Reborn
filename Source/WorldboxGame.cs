@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.AbstractGame;
@@ -29,6 +30,7 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
         }
 
         Sects = AddMetaMainManager(new SectManager());
+        GeoRegions = AddMetaMainManager(new GeoRegionManager());
     }
 
     public T AddMetaMainManager<T>(T manager) where T : BaseSystemManager
@@ -50,6 +52,7 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
     public Sect SelectedSect;
     public GeoRegion SelectedGeoRegion;
     public SectManager Sects;
+    public GeoRegionManager GeoRegions;
     public override float GetLogicDeltaTime()
     {
         return World.world.elapsed / Mathf.Max(0.01f, Config.time_scale_asset.multiplier);

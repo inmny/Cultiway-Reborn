@@ -9,15 +9,16 @@ using Friflo.Engine.ECS.Systems;
 
 namespace Cultiway.Core.GeoLib.Systems
 {
-    public class RecycleEmptyGeoRegionSystem : QuerySystem<GeoRegionComponent>
+    public class RecycleEmptyGeoRegionSystem : QuerySystem<GeoRegionBinder>
     {
         protected override void OnUpdate()
         {
-            Query.ForEachEntity(((ref GeoRegionComponent region, Entity entity) =>
+            Query.ForEachEntity(((ref GeoRegionBinder region, Entity entity) =>
             {
                 if (entity.GetIncomingLinks<BelongToRelation>().Count == 0)
                 {
                     CommandBuffer.AddTag<TagRecycle>(entity.Id);
+                    WorldboxGame.I.GeoRegions.removeObject(region.GeoRegion);
                 }
             }));
             CommandBuffer.Playback();

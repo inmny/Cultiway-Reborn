@@ -1,6 +1,9 @@
 using Cultiway.Const;
+using Cultiway.Core.Components;
+using Cultiway.Core.GeoLib.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Core;
@@ -8,11 +11,25 @@ namespace Cultiway.Core;
 public class GeoRegion : MetaObject<GeoRegionData>
 {
     public override MetaType meta_type => MetaTypeExtend.GeoRegion.Back();
-
+    public Entity E {get; private set;}
+    public override void Dispose()
+    {
+        if (!E.IsNull)
+        {
+            E.AddTag<TagRecycle>();
+        }
+        base.Dispose();
+    }
+    public void BaseSetup()
+    {
+        E = ModClass.I.W.CreateEntity(
+            new GeoRegionBinder(getID())
+        );
+    }
     public void Setup(Actor founder)
     {
         generateNewMetaObject();
-        data.name = founder.generateName(meta_type, getID());
+        data.name = founder?.generateName(meta_type, getID()) ?? "Geo Region";
     }
 
     public override void generateBanner()
