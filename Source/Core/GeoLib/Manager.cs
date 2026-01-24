@@ -4,6 +4,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.GeoLib.Components;
 using Cultiway.Core.GeoLib.Systems;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.Systems.Logic;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -14,37 +15,17 @@ namespace Cultiway.Core.GeoLib;
 public class Manager
 {
     private SystemRoot _system_root;
-
+    private SystemRoot _basic_geo_system_root;
     internal Manager(WorldboxGame game)
     {
         Game = game;
         _system_root = new SystemRoot(ModClass.I.TileExtendManager.World, "GeoLib.Logic");
+        _basic_geo_system_root = new SystemRoot(ModClass.I.TileExtendManager.World, "GeoLib.Basic");
 
         _system_root.Add(new ErosionSystem());
         _system_root.Add(new AntiErosionSystem());
         _system_root.Add(new RiverTrackSystem());
-        _system_root.Add(new RecycleEmptyGeoRegionSystem());
-
-
-        ModClass.L.CustomMapModeLibrary.add(new CustomMapModeAsset()
-        {
-            id = "geo_region",
-            icon_path = "cultiway/icons/iconGeoRegion",
-            kernel_func = (int x, int y, ref Color32 out_color) =>
-            {
-                var tile = World.world.GetTile(x, y).GetExtend();
-                var rels = tile.E.GetRelations<BelongToRelation>();
-                foreach (var rel in rels)
-                {
-                    if (rel.entity.HasComponent<GeoRegion>())
-                    {
-                        out_color = rel.entity.GetComponent<GeoRegion>().color;
-                        return;
-                    }
-                }
-                out_color.a = 0;
-            }
-        });
+        _basic_geo_system_root.Add(new RecycleDefaultEntitySystem());
     }
 
     public WorldboxGame Game { get; private set; }
@@ -52,8 +33,11 @@ public class Manager
     public void UpdateLogic(UpdateTick update_tick)
     {
         if (!ModClass.I.TileExtendManager.Ready()) return;
-        if (!GeneralSettings.EnableGeoSystems) return;
-        _system_root.Update(update_tick);
+        if (GeneralSettings.EnableGeoSystems)
+        {
+            _system_root.Update(update_tick);
+        }
+        _basic_geo_system_root.Update(update_tick);
     }
     public void SetMonitorPerf(bool monitor_perf)
     {

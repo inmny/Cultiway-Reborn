@@ -20,5 +20,6 @@ public enum MetaTypeExtend
     World,
     Special,
     Army,
-    Sect
+    Sect,
+    GeoRegion
 }

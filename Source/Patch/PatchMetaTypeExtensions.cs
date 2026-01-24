@@ -12,7 +12,10 @@ internal static class PatchMetaTypeExtensions
         switch (pType.Extend())
         {
             case MetaTypeExtend.Sect:
-                
+                __result = WorldboxGame.MetaTypes.Sect.id;
+                return false;
+            case MetaTypeExtend.GeoRegion:
+                __result = WorldboxGame.MetaTypes.GeoRegion.id;
                 return false;
         }
         return true;
