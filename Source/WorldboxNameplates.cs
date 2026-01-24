@@ -82,11 +82,21 @@ public partial class WorldboxGame
 
         private static bool TryGetRegionPosition(IEnumerable<Entity> tiles, out Vector3 position)
         {
+            // 计算所有tile的平均坐标
+            int count = 0;
+            Vector3 sum = Vector3.zero;
+
             foreach (var tileEntity in tiles)
             {
                 if (!tileEntity.HasComponent<TileBinder>()) continue;
                 var tile = tileEntity.GetComponent<TileBinder>().Tile;
-                position = tile.posV3;
+                sum += tile.posV3;
+                count++;
+            }
+
+            if (count > 0)
+            {
+                position = sum / count;
                 return true;
             }
 
