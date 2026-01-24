@@ -30,7 +30,7 @@ public partial class WorldboxGame
             Sect = Add(new NameplateAsset()
             {
                 id = "plate_sect",
-                path_sprite = "cultiway/icons/iconSect",
+                path_sprite = "ui/nameplates/nameplate_culture",
                 padding_left = 11,
                 padding_right = 13,
                 map_mode = MetaTypeExtend.Sect.Back(),
@@ -39,7 +39,7 @@ public partial class WorldboxGame
             GeoRegion = Add(new NameplateAsset()
             {
                 id = "plate_geo_region",
-                path_sprite = "cultiway/icons/iconExtendGeoRegion",
+                path_sprite = "ui/nameplates/nameplate_culture",
                 padding_left = 11,
                 padding_right = 13,
                 map_mode = MetaTypeExtend.GeoRegion.Back(),
