@@ -33,7 +33,7 @@ public class GeoRegion : MetaObject<GeoRegionData>
     public void Setup(Actor founder)
     {
         generateNewMetaObject();
-        data.name = founder?.generateName(meta_type, getID()) ?? "Geo Region";
+        data.name = NameGenerator.getName(WorldboxGame.NameGenerators.GeoRegion.id, ActorSex.Male, true, null, World.world.map_stats.life_dna);
     }
 
     public override void generateBanner()
