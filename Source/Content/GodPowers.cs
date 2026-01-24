@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Content.Attributes;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
@@ -38,7 +39,9 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
 
         ExtendGeoRegion.click_action = ExtendGeoRegionAction;
         ExtendGeoRegion.click_brush_action = InitializeGeoRegionAction + ExtendGeoRegion.click_brush_action;
+        ExtendGeoRegion.force_map_mode = MetaTypeExtend.GeoRegion.Back();
         RemoveGeoRegion.click_action = RemoveGeoRegionAction;
+        RemoveGeoRegion.force_map_mode = MetaTypeExtend.GeoRegion.Back();
         SetupCommonCreaturePlacePower();
         SetupCommonBuildingPlacePower();
         SetupCommonDropPlacePower();
@@ -56,13 +59,11 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
                 return true;
             }
         }
-        if (rels.Length == 0)
-        {
-            // 创建一个空的geo region
-            var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
-            te.E.AddRelation(new BelongToRelation { entity = region.E });
-            _current_geo_region = region;
-        }
+        // 创建一个空的geo region
+        var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
+        te.E.AddRelation(new BelongToRelation { entity = region.E });
+        ModClass.LogInfo($"InitializeGeoRegionAction: Create new geo region {region.E} with links: {region.E.GetIncomingLinks<BelongToRelation>().Count}");
+        _current_geo_region = region;
         
         return true;
     }
@@ -76,6 +77,10 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
             {
                 if (rel.entity.HasComponent<GeoRegionBinder>())
                 {
+                    if (rel.entity == _current_geo_region.E)
+                    {
+                        return true;
+                    }
                     te.E.RemoveRelation<BelongToRelation>(rel.entity);
                     break;
                 }

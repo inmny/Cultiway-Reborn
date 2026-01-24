@@ -15,17 +15,17 @@ namespace Cultiway.Core.GeoLib;
 public class Manager
 {
     private SystemRoot _system_root;
-
+    private SystemRoot _basic_geo_system_root;
     internal Manager(WorldboxGame game)
     {
         Game = game;
         _system_root = new SystemRoot(ModClass.I.TileExtendManager.World, "GeoLib.Logic");
+        _basic_geo_system_root = new SystemRoot(ModClass.I.TileExtendManager.World, "GeoLib.Basic");
 
         _system_root.Add(new ErosionSystem());
         _system_root.Add(new AntiErosionSystem());
         _system_root.Add(new RiverTrackSystem());
-        _system_root.Add(new RecycleEmptyGeoRegionSystem());
-        _system_root.Add(new RecycleDefaultEntitySystem());
+        _basic_geo_system_root.Add(new RecycleDefaultEntitySystem());
     }
 
     public WorldboxGame Game { get; private set; }
@@ -33,8 +33,11 @@ public class Manager
     public void UpdateLogic(UpdateTick update_tick)
     {
         if (!ModClass.I.TileExtendManager.Ready()) return;
-        if (!GeneralSettings.EnableGeoSystems) return;
-        _system_root.Update(update_tick);
+        if (GeneralSettings.EnableGeoSystems)
+        {
+            _system_root.Update(update_tick);
+        }
+        _basic_geo_system_root.Update(update_tick);
     }
     public void SetMonitorPerf(bool monitor_perf)
     {

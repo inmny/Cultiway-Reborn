@@ -66,7 +66,6 @@ public partial class WorldboxGame
             if (!ModClass.I.TileExtendManager.Ready()) return;
 
             int current = 0;
-            var world = ModClass.I.TileExtendManager.World;
             foreach (var geoRegion in I.GeoRegions.list)
             {
                 if (current >= asset.max_nameplate_count) return;

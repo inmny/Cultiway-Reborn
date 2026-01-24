@@ -20,6 +20,10 @@ public class GeoRegion : MetaObject<GeoRegionData>
         }
         base.Dispose();
     }
+    public override bool isReadyForRemoval()
+    {
+        return base.isReadyForRemoval() && E.GetIncomingLinks<BelongToRelation>().Count == 0;
+    }
     public void BaseSetup()
     {
         E = ModClass.I.TileExtendManager.World.CreateEntity(
