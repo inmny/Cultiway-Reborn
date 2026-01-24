@@ -22,7 +22,7 @@ public class GeoRegion : MetaObject<GeoRegionData>
     }
     public void BaseSetup()
     {
-        E = ModClass.I.W.CreateEntity(
+        E = ModClass.I.TileExtendManager.World.CreateEntity(
             new GeoRegionBinder(getID())
         );
     }

@@ -67,21 +67,18 @@ public partial class WorldboxGame
 
             int current = 0;
             var world = ModClass.I.TileExtendManager.World;
-            world.Query<GeoRegionBinder>().ForEachEntity((ref GeoRegionBinder region, Entity entity) =>
+            foreach (var geoRegion in I.GeoRegions.list)
             {
                 if (current >= asset.max_nameplate_count) return;
-                var links = entity.GetIncomingLinks<BelongToRelation>();
-                ModClass.LogInfo($"[{entity}] links: {links.Count}");
+                var links = geoRegion.E.GetIncomingLinks<BelongToRelation>();
                 if (links.Count == 0) return;
                 if (!TryGetRegionPosition(links.Entities, out var position)) return;
                 if (!World.world.move_camera.isWithinCameraViewNotPowerBar(position)) return;
 
-                var geoRegion = region.GeoRegion;
                 var nameplate = manager.prepareNext(asset, geoRegion);
-                ApplyGeoRegionNameplate(nameplate, geoRegion, region.GeoRegion.getColor().getColorMain32(), position, links.Count);
-
+                ApplyGeoRegionNameplate(nameplate, geoRegion, geoRegion.getColor().getColorMain32(), position, links.Count);
                 current++;
-            });
+            }
         }
 
         private static bool TryGetRegionPosition(IEnumerable<Entity> tiles, out Vector3 position)

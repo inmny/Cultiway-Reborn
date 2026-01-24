@@ -4,6 +4,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.GeoLib.Components;
 using Cultiway.Core.GeoLib.Systems;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.Systems.Logic;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -24,6 +25,7 @@ public class Manager
         _system_root.Add(new AntiErosionSystem());
         _system_root.Add(new RiverTrackSystem());
         _system_root.Add(new RecycleEmptyGeoRegionSystem());
+        _system_root.Add(new RecycleDefaultEntitySystem());
     }
 
     public WorldboxGame Game { get; private set; }

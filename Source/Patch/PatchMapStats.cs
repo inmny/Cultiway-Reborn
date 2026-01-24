@@ -11,10 +11,10 @@ internal static class PatchMapStats
     {
         switch (pType)
         {
-            case $"Cultiway.{nameof(WorldboxGame.HistoryMetaDatas.Sect)}":
+            case $"Cultiway.{nameof(WorldboxGame.MetaTypes.Sect)}":
                 __result = __instance.GetAnyExtend<MapStats, MapStatsExtend>().IdSect++;
                 return false;
-            case $"Cultiway.{nameof(WorldboxGame.HistoryMetaDatas.GeoRegion)}":
+            case $"Cultiway.{nameof(WorldboxGame.MetaTypes.GeoRegion)}":
                 __result = __instance.GetAnyExtend<MapStats, MapStatsExtend>().IdGeoRegion++;
                 return false;
         }
@@ -26,10 +26,10 @@ internal static class PatchMapStats
     {
         switch (pType)
         {
-            case $"Cultiway.{nameof(WorldboxGame.HistoryMetaDatas.Sect)}":
+            case $"Cultiway.{nameof(WorldboxGame.MetaTypes.Sect)}":
                 __result = $"sect_{pID}";
                 return false;
-            case $"Cultiway.{nameof(WorldboxGame.HistoryMetaDatas.GeoRegion)}":
+            case $"Cultiway.{nameof(WorldboxGame.MetaTypes.GeoRegion)}":
                 __result = $"geo_region_{pID}";
                 return false;
         }

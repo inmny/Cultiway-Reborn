@@ -17,6 +17,7 @@ namespace Cultiway.Core.GeoLib.Systems
             {
                 if (entity.GetIncomingLinks<BelongToRelation>().Count == 0)
                 {
+                    ModClass.LogInfo($"RecycleEmptyGeoRegionSystem: Recycle {entity.Id}");
                     CommandBuffer.AddTag<TagRecycle>(entity.Id);
                     WorldboxGame.I.GeoRegions.removeObject(region.GeoRegion);
                 }
