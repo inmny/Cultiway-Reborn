@@ -231,7 +231,22 @@ public partial class Actors
     public static ActorAsset  KairosFateweaver { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset  ExaltedLordChange { get; private set; }
-    
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset  BloodletterKhorne { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset  FleshHoundKhorne { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset  BloodcrusherKhorne { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset  MinotaurKhorne { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset  SkullCannonKhorne { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset  Bloodthirster { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset  AnggrathUnbound { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset  ExaltedBloodthirster { get; private set; }
     private void SetupFantasyCreatures()
     {
         AcaciaTreants.SetCamp(KingdomAssets.TreantsGood)//金合欢树人
@@ -2494,6 +2509,236 @@ public partial class Actors
             .Stats(S.armor,18)//防御
             .Stats(S.stamina, 200)//耐力
             .Stats(S.lifespan, 999);//寿命
+        BloodletterKhorne.SetCamp(KingdomAssets.Khorne)//放血鬼
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/BloodletterKhorne/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.sword_bronze)
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.pyromaniac)//火焰狂热
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.burning_feet)//着火足
+            .AddTrait(S_Trait.fire_blood)//火血
+            .AddTrait(S_Trait.fire_proof)//火proof
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 58)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 22)//速度
+            .Stats(S.health, 220)//血量
+            .Stats(S.armor, 5)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 888);//寿命
+        FleshHoundKhorne.SetCamp(KingdomAssets.Khorne)//血肉猎犬
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/FleshHoundKhorne/main/walk_0")
+            .SetJumpAnimation(false)
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.pyromaniac)//火焰狂热
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.burning_feet)//着火足
+            .AddTrait(S_Trait.fire_blood)//火血
+            .AddTrait(S_Trait.fire_proof)//火proof
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 45)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 30)//速度
+            .Stats(S.health, 260)//血量
+            .Stats(S.armor, 8)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 888);//寿命
+        BloodcrusherKhorne.SetCamp(KingdomAssets.Khorne)//血碾骑士
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/BloodcrusherKhorne/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.spear_bronze)
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.pyromaniac)//火焰狂热
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.burning_feet)//着火足
+            .AddTrait(S_Trait.fire_blood)//火血
+            .AddTrait(S_Trait.fire_proof)//火proof
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 70)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 28)//速度
+            .Stats(S.health, 500)//血量
+            .Stats(S.armor, 15)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 888);//寿命
+            MinotaurKhorne.SetCamp(KingdomAssets.Khorne)//牛头怪
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/MinotaurKhorne/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.axe_bronze)
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.pyromaniac)//火焰狂热
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.burning_feet)//着火足
+            .AddTrait(S_Trait.fire_blood)//火血
+            .AddTrait(S_Trait.fire_proof)//火proof
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 62)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 20)//速度
+            .Stats(S.health, 580)//血量
+            .Stats(S.armor, 20)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 888);//寿命
+        SkullCannonKhorne.SetCamp(KingdomAssets.Khorne)//恐虐颅骨炮
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/SkullCannonKhorne/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetDefaultWeapons(S_Item.evil_staff)
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.pyromaniac)//火焰狂热
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.burning_feet)//着火足
+            .AddTrait(S_Trait.fire_blood)//火血
+            .AddTrait(S_Trait.fire_proof)//火proof
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 65)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 18)//速度
+            .Stats(S.health, 420)//血量
+            .Stats(S.armor, 12)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 888);//寿命
+        Bloodthirster.SetCamp(KingdomAssets.Khorne)//嗜血狂魔
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/Bloodthirster/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetHideHandItem(true)
+            .SetStandWhileSleeping(true)
+            .SetDefaultWeapons(S_Item.flame_sword)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.pyromaniac)//火焰狂热
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.burning_feet)//着火足
+            .AddTrait(S_Trait.fire_blood)//火血
+            .AddTrait(S_Trait.fire_proof)//火proof
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 100)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 28)//速度
+            .Stats(S.health, 900)//血量
+            .Stats(S.armor, 20)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 888);//寿命
+        AnggrathUnbound.SetCamp(KingdomAssets.Khorne)//无拘者安格拉斯
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/AnggrathUnbound/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetHideHandItem(true)
+            .SetStandWhileSleeping(true)
+            .SetDefaultWeapons(S_Item.flame_sword)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.pyromaniac)//火焰狂热
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.burning_feet)//着火足
+            .AddTrait(S_Trait.fire_blood)//火血
+            .AddTrait(S_Trait.fire_proof)//火proof
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 110)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 29)//速度
+            .Stats(S.health, 1000)//血量
+            .Stats(S.armor, 19)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 888);//寿命
+            ExaltedBloodthirster.SetCamp(KingdomAssets.Khorne)//神尊嗜血狂魔
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/ExaltedBloodthirster/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetHideHandItem(true)
+            .SetStandWhileSleeping(true)
+            .SetDefaultWeapons(S_Item.flame_hammer)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
+            .AddTrait(S_Trait.battle_reflexes)//战斗反射
+            .AddTrait(S_Trait.pyromaniac)//火焰狂热
+            .AddTrait(S_Trait.bloodlust)//嗜血
+            .AddTrait(S_Trait.burning_feet)//着火足
+            .AddTrait(S_Trait.fire_blood)//火血
+            .AddTrait(S_Trait.fire_proof)//火proof
+            .AddTrait(S_Trait.arcane_reflexes)//魔力反射
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.immune)//免疫
+            .AddTrait(S_Trait.agile)//敏捷
+            .AddTrait(S_Trait.strong)//力量
+            .AddTrait(S_Trait.eagle_eyed)//鹰眼
+            .AddTrait(S_Trait.light_lamp)//光灯
+            .AddTrait(S_Trait.immortal)//不死
+            .Stats(S.damage, 115)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 30)//速度
+            .Stats(S.health, 1100)//血量
+            .Stats(S.armor, 30)//防御
+            .Stats(S.stamina, 200)//耐力
+            .Stats(S.lifespan, 888);//寿命
             
             
             

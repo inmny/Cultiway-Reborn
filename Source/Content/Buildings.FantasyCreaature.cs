@@ -183,6 +183,18 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.LordChange, 1, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.KairosFateweaver, 1, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedLordChange, 1, 4, 1);
+        KhorneTower.tower = false;
+        KhorneTower.spawn_units_asset = null;
+        KhorneTower.spawn_units = false;
+        KhorneTower.kingdom = KingdomAssets.Khorne.id;
+        KhorneTower.AddAdvancedSpawnerDistributedConfig(Actors.MinotaurKhorne, 24, 6, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.FleshHoundKhorne, 32, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.SkullCannonKhorne, 8, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.BloodcrusherKhorne, 16, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.BloodletterKhorne, 32, 2, 2)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.Bloodthirster, 1, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.AnggrathUnbound, 1, 4, 1)
+                   .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedBloodthirster, 1, 4, 1);
 
     }
 }
