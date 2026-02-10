@@ -16,18 +16,36 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
         I = this;
         var library_ts = GetType().GetNestedTypes().Where(t => t.GetInterfaces().Contains(typeof(ICanInit))).ToList();
         library_ts = DependencyAttribute.SortManagerTypes(library_ts);
+
+        var to_init = new List<ICanInit>();
         foreach (Type t in library_ts)
         {
             try
             {
-                (Activator.CreateInstance(t) as ICanInit)?.Init();
+                if (Activator.CreateInstance(t) is not ICanInit can_init)
+                {
+                    throw new Exception($"Failed to create instance of {t.Name}");
+                }
+                to_init.Add(can_init);
                 ModClass.LogInfo($"({nameof(WorldboxGame)}) initializes {t.Name}");
             }
             catch (Exception e)
             {
-                ModClass.LogError($"Failed to initialize {t.Name}\n{e.Message}\n{e.StackTrace}");
+                ModClass.LogError($"Failed to create instance of {t.Name}\n{e.Message}\n{e.StackTrace}");
             }
         }
+        foreach (var can_init in to_init)
+        {
+            try
+            {
+                can_init.Init();
+            }
+            catch (Exception e)
+            {
+                ModClass.LogError($"Failed to initialize {can_init.GetType().Name}\n{e.Message}\n{e.StackTrace}");
+            }
+        }
+
 
         Sects = AddMetaMainManager(new SectManager());
         GeoRegions = AddMetaMainManager(new GeoRegionManager());
