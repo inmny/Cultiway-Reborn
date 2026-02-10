@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using Cultiway.Core;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Tab;
+using NeoModLoader.utils;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -23,6 +25,7 @@ public enum TabButtonType
 public class Manager
 {
     public static           PowersTab                            powers_tab;
+    public static string BaseMetaWindowPrefabPath = "windows/cultiway/BaseMetaWindow";
     private static readonly Dictionary<TabButtonType, Transform> button_groups = new();
     private static          RectTransform                        top_container;
 
@@ -60,6 +63,48 @@ public class Manager
         powers_tab.UpdateLayout();
 
         SwitchTab(TabButtonType.INFO);
+    }
+    private void CreateBaseMetaWindowPrefab()
+    {
+        string[] BaseWindowCandidates =
+        {
+            "windows/kingdom",
+            "windows/city",
+            "windows/culture",
+            "windows/clan",
+            "windows/family"
+        };
+        foreach (var path in BaseWindowCandidates)
+        {
+            var source = Resources.Load<GameObject>(path);
+            if (source == null) continue;
+            var prefab = Object.Instantiate(source, ModClass.I.PrefabLibrary);
+
+            var components = prefab.GetComponents<MonoBehaviour>();
+            foreach (var component in components)
+            {
+                if (component == null) continue;
+                if (IsWindowMetaGeneric(component.GetType()))
+                {
+                    Object.DestroyImmediate(component);
+                }
+            }
+
+            ResourcesPatch.PatchResource(BaseMetaWindowPrefabPath, prefab);
+            break;
+        }
+        bool IsWindowMetaGeneric(System.Type type)
+        {
+            for (var current = type; current != null; current = current.BaseType)
+            {
+                if (current.IsGenericType && current.GetGenericTypeDefinition().Name == "WindowMetaGeneric`2")
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     private void AddButtonsForDebug()
@@ -124,6 +169,8 @@ public class Manager
 
     public void PostInit()
     {
+        CreateBaseMetaWindowPrefab();
         WindowNewCreatureInfo.CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
+        GeoRegionWindow.Init();
     }
 }
