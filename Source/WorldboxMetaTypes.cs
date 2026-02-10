@@ -42,7 +42,20 @@ public partial class WorldboxGame
             };
             GeoRegion.get_selected = () => I.SelectedGeoRegion;
             GeoRegion.set_selected = (geoRegion) => I.SelectedGeoRegion = geoRegion as GeoRegion;
+            GeoRegion.get_list = () => I.GeoRegions;
+            GeoRegion.get = (id) => I.GeoRegions.get(id);
+            GeoRegion.custom_sorted_list = () =>
+            {
+                var list = new ListPool<NanoObject>(64);
+                foreach (var geoRegion in I.GeoRegions)
+                {
+                    if (geoRegion.isFavorite())
+                        list.Add(geoRegion);
+                }
 
+                return list;
+            };
+            GeoRegion.power_tab_id = PowerTabs.SelectedGeoRegion.id;
 
             Sect.option_id = CustomMapModeLibrary.Sect.toggle_name;
             Sect.draw_zones = (_) => {};
