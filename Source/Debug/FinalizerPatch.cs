@@ -38,4 +38,24 @@ internal static class FinalizerPatch
 
         return __exception;
     }
+    [HarmonyFinalizer, HarmonyPatch(typeof(PowerTabController), nameof(PowerTabController.showWorldTipSelected))]
+    private static Exception PowerTabController_showWorldTipSelected(Exception __exception, string pPowerTabId, bool pBar)
+    {
+        if (__exception != null)
+        {
+            var current_meta = SelectedObjects.getSelectedNanoObject();
+            var asset = AssetManager.power_tab_library.get(pPowerTabId);
+            ModClass.LogInfo($"PowerTabController_showWorldTipSelected: {current_meta==null} {asset==null}({pPowerTabId}) {asset.get_localized_worldtip==null}");
+        }
+        return __exception;
+    }
+    [HarmonyFinalizer, HarmonyPatch(typeof(TabHistoryData), nameof(TabHistoryData.getNanoObject))]
+    private static Exception TabHistoryData_getNanoObject(Exception __exception, TabHistoryData __instance)
+    {
+        if (__exception != null)
+        {
+            ModClass.LogInfo($"TabHistoryData_getNanoObject: {__instance.id}, {__instance.meta_type}");
+        }
+        return __exception;
+    }
 }
