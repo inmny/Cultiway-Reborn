@@ -24,9 +24,7 @@ namespace Cultiway.UI
             EnsureWindowAsset(windowId, metaTypeAsset);
 
             var meta_window = Manager.CreateMetaWindow<GeoRegionWindow, GeoRegion, GeoRegionData>(windowId);
-            
-            // ScrollWindow.checkWindowExist 使用 Resources.Load("windows/<id>", typeof(ScrollWindow))
-            //ResourcesPatch.PatchResource($"windows/{windowId}", scrollWindow);
+            meta_window.SetupTabTitleContainer<GeoRegionWindow, GeoRegion, GeoRegionData>("tab_title_container_kingdom", "GeoRegion".Underscore(), "cultiway/icons/iconExtendGeoRegion", "cultiway/icons/iconExtendGeoRegion").name = "tab_title_container_geo_region";
         }
 
         public override void showStatsRows()
@@ -42,7 +40,7 @@ namespace Cultiway.UI
             }
 
             // key 先占位，后续在 Locales 里补文本
-            showStatRow("cultiway_geo_region_tiles", tilesCount, MetaType.None, -1L, null, null, null);
+            showStatRow("Cultiway.GeoRegion.Tiles".Underscore(), tilesCount, MetaType.None, -1L, null, null, null);
         }
 
         private static void EnsureWindowAsset(string windowId, MetaTypeAsset metaTypeAsset)
