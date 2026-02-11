@@ -25,7 +25,6 @@ public enum TabButtonType
 public class Manager
 {
     public static           PowersTab                            powers_tab;
-    public static string BaseMetaWindowPrefabPath = "windows/cultiway/BaseMetaWindow";
     private static readonly Dictionary<TabButtonType, Transform> button_groups = new();
     private static          RectTransform                        top_container;
 
@@ -64,35 +63,75 @@ public class Manager
 
         SwitchTab(TabButtonType.INFO);
     }
-    private void CreateBaseMetaWindowPrefab()
+    private static string[] kingdom_window_content_to_remove = [
+      "TopElements", "content_meta", "content_relations", "content_king", "content_more_icons", "content_capital", "content_villages", "content_traits_editor"
+    ];
+    private static string[] kingdom_window_header_to_remove = [
+        "header_top", "header_traits"
+    ];
+    public static TWindow CreateMetaWindow<TWindow, TMeta, TMetaData>(string window_id) 
+    where TWindow : WindowMetaGeneric<TMeta, TMetaData> 
+    where TMeta : CoreSystemObject<TMetaData> 
+    where TMetaData : BaseSystemData
     {
-        string[] BaseWindowCandidates =
-        {
-            "windows/kingdom",
-            "windows/city",
-            "windows/culture",
-            "windows/clan",
-            "windows/family"
-        };
-        foreach (var path in BaseWindowCandidates)
-        {
-            var source = Resources.Load<GameObject>(path);
-            if (source == null) continue;
-            var prefab = Object.Instantiate(source, ModClass.I.PrefabLibrary);
+        var prefab = Resources.Load<GameObject>("windows/kingdom");
+        ListPool<GameObject> tTabsObjects = ScrollWindow.disableTabsInPrefab(prefab.GetComponent<ScrollWindow>());
+        var window = Object.Instantiate(prefab, ModClass.I.PrefabLibrary);
 
-            var components = prefab.GetComponents<MonoBehaviour>();
-            foreach (var component in components)
+        var components = window.GetComponents<MonoBehaviour>();
+        foreach (var component in components)
+        {
+            if (component == null) continue;
+            if (IsWindowMetaGeneric(component.GetType()))
             {
-                if (component == null) continue;
-                if (IsWindowMetaGeneric(component.GetType()))
-                {
-                    Object.DestroyImmediate(component);
-                }
+                Object.DestroyImmediate(component);
             }
-
-            ResourcesPatch.PatchResource(BaseMetaWindowPrefabPath, prefab);
-            break;
         }
+        foreach (var content_name in kingdom_window_content_to_remove)
+        {
+            var content = window.transform.Find($"Background/Scroll View/Viewport/Content/{content_name}");
+            if (content == null) continue;
+            ModClass.LogInfo($"[{nameof(Manager)}] content: {content_name}");
+            Object.DestroyImmediate(content.gameObject);
+        }
+        foreach (var header_name in kingdom_window_header_to_remove)
+        {
+            var header = window.transform.Find($"Background/Scroll View/Viewport/Header/{header_name}");
+            if (header == null) continue;
+            ModClass.LogInfo($"[{nameof(Manager)}] header: {header_name}");
+            Object.DestroyImmediate(header.gameObject);
+        }
+        window.transform.SetParent(CanvasMain.instance.transformWindows);
+        window.transform.localScale = Vector2.one;
+
+
+        ScrollWindow.enableTabsInPrefab(tTabsObjects);
+        window.SetActive(false);
+
+        foreach (var tab in window.GetComponentsInChildren<WindowMetaTab>(true))
+        {
+            ModClass.LogInfo($"[{nameof(Manager)}] tab: {tab.name}");
+            tab.tab_action = new();
+            tab.tab_action.AddListener((t) =>
+            {
+                ModClass.LogInfo($"[{nameof(Manager)}] show tab: {t}");
+                t.container.showTab(t);
+            });
+        }
+
+        var meta_window = window.AddComponent<TWindow>();
+        var scroll_window = window.GetComponent<ScrollWindow>();
+
+        ScrollWindow._all_windows.Add(window_id, scroll_window);
+
+        meta_window.scroll_window = scroll_window;
+        scroll_window.screen_id = window_id;
+        scroll_window.name = window_id; 
+        scroll_window.init();
+        scroll_window.create(true);
+
+
+        return meta_window;
         bool IsWindowMetaGeneric(System.Type type)
         {
             for (var current = type; current != null; current = current.BaseType)
@@ -169,7 +208,6 @@ public class Manager
 
     public void PostInit()
     {
-        CreateBaseMetaWindowPrefab();
         WindowNewCreatureInfo.CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
         GeoRegionWindow.Init();
     }

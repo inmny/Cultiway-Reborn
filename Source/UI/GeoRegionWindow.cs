@@ -23,20 +23,10 @@ namespace Cultiway.UI
             // 需要 WindowAsset，避免 WindowToolbar 等逻辑对 null 解引用
             EnsureWindowAsset(windowId, metaTypeAsset);
 
-            var prefab = Resources.Load<GameObject>(Manager.BaseMetaWindowPrefabPath);
-            if (prefab == null) return;
-            prefab.AddComponent<GeoRegionWindow>();
-
-            var scrollWindow = prefab.GetComponent<ScrollWindow>();
-            if (scrollWindow == null)
-            {
-                ModClass.LogError($"[{nameof(GeoRegionWindow)}] base prefab has no ScrollWindow: {prefab.name}");
-                Object.Destroy(prefab);
-                return;
-            }
-
+            var meta_window = Manager.CreateMetaWindow<GeoRegionWindow, GeoRegion, GeoRegionData>(windowId);
+            
             // ScrollWindow.checkWindowExist 使用 Resources.Load("windows/<id>", typeof(ScrollWindow))
-            ResourcesPatch.PatchResource($"windows/{windowId}", scrollWindow);
+            //ResourcesPatch.PatchResource($"windows/{windowId}", scrollWindow);
         }
 
         public override void showStatsRows()
