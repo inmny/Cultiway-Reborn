@@ -1,5 +1,6 @@
 using Cultiway.Abstract;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -16,6 +17,7 @@ public partial class WorldboxGame
         [GetOnly("actor")] public static TooltipAsset Actor { get; private set; }
         [GetOnly(S_Tooltip.book)] public static TooltipAsset Book { get; private set; }
         public static TooltipAsset Sect { get; private set; }
+        public static TooltipAsset GeoRegion { get; private set; }
         public static TooltipAsset RawTip { get; private set; }
 
         public static TooltipAsset SpecialItem { get; private set; }
@@ -30,9 +32,24 @@ public partial class WorldboxGame
             Sect.callback = ShowSect;
             SectTooltip.PatchTo<Tooltip>(Sect.prefab_id);
 
+            GeoRegion.prefab_id = "tooltips/tooltip_cultiway_geo_region";
+            GeoRegion.callback = ShowGeoRegion;
+            GeoRegionTooltip.PatchTo<Tooltip>(GeoRegion.prefab_id);
+
             Book.callback += ShowCustomBookReadAction;
             
             RawTip.callback = ShowRawTip;
+        }
+        private void ShowGeoRegion(Tooltip tooltip, string type, TooltipData data)
+        {
+            var geo_region = I.GeoRegions.get(long.Parse(data.tip_name));
+            if (geo_region == null)
+            {
+                tooltip.setTitle("ERROR");
+                return;
+            }
+            tooltip.setTitle(geo_region.name, "geo_region", geo_region.getColor().color_text);
+            tooltip.addLineText("region_size", geo_region.E.GetIncomingLinks<BelongToRelation>().Count.ToString());
         }
 
         private void ShowSect(Tooltip tooltip, string type, TooltipData data)
