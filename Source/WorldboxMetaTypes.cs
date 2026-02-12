@@ -23,11 +23,25 @@ public partial class WorldboxGame
             GeoRegion.check_cursor_highlight = (_, _, _) => {}; // TODO: GeoRegion所属tiles高亮
 		    GeoRegion.check_tile_has_meta = new MetaZoneTooltipAction(AssetManager.meta_type_library.checkTileHasMetaDefault);
 		    GeoRegion.check_cursor_tooltip = new MetaZoneTooltipAction(AssetManager.meta_type_library.checkCursorTooltipDefault);
-            GeoRegion.tile_get_metaobject = (_, _) => null;
+            GeoRegion.tile_get_metaobject = (tile, _) => null;
             GeoRegion.tile_get_metaobject_0 = (_) => null;
             GeoRegion.tile_get_metaobject_1 = (_) => null;
             GeoRegion.tile_get_metaobject_2 = (_) => null;
             GeoRegion.cursor_tooltip_action = (_) => {};
+            GeoRegion.click_action_zone = (tile, power) =>
+            {
+                if (tile == null) return false;
+                var obj = tile.GetExtend().GetGeoRegion();
+                if (obj == null) return false;
+                GeoRegion.selectAndInspect(obj);
+                return true;
+            };
+		    GeoRegion.selected_tab_action_meta = new MetaTypeActionAsset(AssetManager.meta_type_library.defaultClickActionZone);
+            GeoRegion.check_unit_has_meta = (Actor pActor) => pActor.current_tile.GetExtend().HasGeoRegion();
+            GeoRegion.set_unit_set_meta_for_meta_for_window = delegate(Actor pActor)
+            {
+                I.SelectedGeoRegion = pActor.current_tile.GetExtend().GetGeoRegion();
+            };
             
             
             GeoRegion.window_name = GeoRegion.id;
@@ -44,6 +58,7 @@ public partial class WorldboxGame
             GeoRegion.set_selected = (geoRegion) => I.SelectedGeoRegion = geoRegion as GeoRegion;
             GeoRegion.get_list = () => I.GeoRegions;
             GeoRegion.get = (id) => I.GeoRegions.get(id);
+            GeoRegion.has_any = () => I.GeoRegions.Count > 0;
             GeoRegion.custom_sorted_list = () =>
             {
                 var list = new ListPool<NanoObject>(64);
@@ -56,6 +71,9 @@ public partial class WorldboxGame
                 return list;
             };
             GeoRegion.power_tab_id = PowerTabs.SelectedGeoRegion.id;
+            GeoRegion.set_icon_for_cancel_button = true;
+            GeoRegion.icon_list = "../../cultiway/icons/iconExtendGeoRegion";
+            GeoRegion.icon_single_path = "../../cultiway/icons/iconExtendGeoRegion";
 
             Sect.option_id = CustomMapModeLibrary.Sect.toggle_name;
             Sect.draw_zones = (_) => {};
