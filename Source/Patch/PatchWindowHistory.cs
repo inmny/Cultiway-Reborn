@@ -11,6 +11,11 @@ namespace Cultiway.Patch;
 
 internal static class PatchWindowHistory
 {
+    [HarmonyPostfix, HarmonyPatch(typeof(WindowHistory), nameof(WindowHistory.clear))]
+    private static void clear_postfix()
+    {
+        _list.Clear();
+    }
     [HarmonyTranspiler, HarmonyPatch(typeof(WindowHistory), nameof(WindowHistory.addIntoHistory))]
     private static IEnumerable<CodeInstruction> addIntoHistory_transpiler(IEnumerable<CodeInstruction> codes, ILGenerator il)
     {
@@ -43,6 +48,7 @@ internal static class PatchWindowHistory
 
     private static void ActionInReturn(MetaTypeAsset asset, WindowHistoryExtend extend_history)
     {
+        if (asset == null) return;
         asset.GetExtend<MetaTypeAssetExtend>().ExtendWindowHistoryActionRestore?.Invoke(extend_history);
     }
 
@@ -79,7 +85,7 @@ internal static class PatchWindowHistory
             current_idx = store_history_idx + 1;
         }
 
-        var insert_idx = list.FindIndex(x => x.opcode == OpCodes.Ldfld && (x.operand as FieldInfo)?.Name == nameof(MetaTypeAsset.window_history_action_restore))+1;
+        var insert_idx = list.FindIndex(x => x.opcode == OpCodes.Ldfld && (x.operand as FieldInfo)?.Name == nameof(WindowAsset.meta_type_asset))+1;
         list.InsertRange(insert_idx, [
             new (OpCodes.Dup),
             new (OpCodes.Ldloc, extend_history.LocalIndex),
