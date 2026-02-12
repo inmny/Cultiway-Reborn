@@ -19,6 +19,7 @@ public partial class WorldboxGame
         protected override void OnInit()
         {
             GeoRegion.option_id = CustomMapModeLibrary.GeoRegion.toggle_name;
+            GeoRegion.power_option_zone_id = CustomMapModeLibrary.GeoRegion.toggle_name;
             GeoRegion.draw_zones = (_) => {};
             GeoRegion.check_cursor_highlight = (_, _, _) => {}; // TODO: GeoRegion所属tiles高亮
 		    GeoRegion.check_tile_has_meta = new MetaZoneTooltipAction(AssetManager.meta_type_library.checkTileHasMetaDefault);
