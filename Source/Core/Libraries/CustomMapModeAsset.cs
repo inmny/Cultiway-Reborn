@@ -11,5 +11,5 @@ public class CustomMapModeAsset : Asset
 
     public Kernel kernel_func = (int x, int y, ref Color32 out_color) => { out_color.a = 0; };
 
-    public string toggle_name => $"custom_map_mode_{id}";
+    public string toggle_name;
 }
