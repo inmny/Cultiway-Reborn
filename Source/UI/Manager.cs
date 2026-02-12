@@ -231,8 +231,10 @@ public class Manager
         image = inserted_layer_button.transform.Find("Icon").GetComponent<Image>();
         button = inserted_layer_button.GetComponent<Button>();
         tip_button = inserted_layer_button.GetComponent<TipButton>();
-        image.sprite = SpriteTextureLoader.getSprite(list_window_asset.icon_path);
-
+        var custom_map_mode = ModClass.L.CustomMapModeLibrary.get(meta_type.ToString().Underscore());
+        image.sprite = SpriteTextureLoader.getSprite(custom_map_mode.icon_path);
+        tip_button.textOnClick = custom_map_mode.toggle_name;
+        tip_button.textOnClickDescription = custom_map_mode.toggle_name + "_description";
     }
     private void AddButtonsForDebug()
     {
