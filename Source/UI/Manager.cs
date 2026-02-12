@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Core;
+using Cultiway.UI.Components;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Tab;
@@ -110,23 +111,57 @@ public class Manager
         ScrollWindow.enableTabsInPrefab(tTabsObjects);
         window.SetActive(false);
 
-        foreach (var tab in window.GetComponentsInChildren<WindowMetaTab>(true))
-        {
-            ModClass.LogInfo($"[{nameof(Manager)}] tab: {tab.name}");
-            tab.tab_action = new();
-            tab.tab_action.AddListener((t) =>
-            {
-                ModClass.LogInfo($"[{nameof(Manager)}] show tab: {t}");
-                t.container.showTab(t);
-            });
-        }
-
         var meta_window = window.AddComponent<TWindow>();
         var scroll_window = window.GetComponent<ScrollWindow>();
+        meta_window.scroll_window = scroll_window;
 
         ScrollWindow._all_windows.Add(window_id, scroll_window);
 
-        meta_window.scroll_window = scroll_window;
+        foreach (var tab in window.GetComponentsInChildren<WindowMetaTab>(true))
+        {
+            var persistent_count = tab.tab_action.GetPersistentEventCount();
+
+            bool is_tab_switcher = false;
+            if (persistent_count > 0)
+            {
+                for (int i = 0; i < persistent_count; i++)
+                {
+                    var method_name = tab.tab_action.GetPersistentMethodName(i);
+                    if (method_name == nameof(WindowMetaTabButtonsContainer.showTab))
+                    {
+                        is_tab_switcher = true;
+                        break;
+                    }
+                }
+                tab.tab_action = new();
+            }
+
+            if (is_tab_switcher)
+            {
+                tab.tab_action.AddListener((t) =>
+                {
+                    t.container.showTab(t);
+                });
+            }
+        }
+        meta_window.transform.Find("Tabs Right/Favorite").GetComponent<WindowMetaTab>().tab_action.AddListener(_ =>
+        {
+            meta_window.pressFavorite();
+        });
+        meta_window._favorite_icon = meta_window.transform.Find("Tabs Right/Favorite/Icon").GetComponent<Image>();
+
+        var list_window_asset = AssetManager.list_window_library.getByMetaType(meta_window.meta_type);
+        meta_window.transform.Find("Tabs Right/Kingdoms").GetComponent<Button>().onClick = new();
+        meta_window.transform.Find("Tabs Right/Kingdoms").GetComponent<Button>().onClick.AddListener(() =>
+        {
+            ScrollWindow.showWindow(list_window_asset.id);
+        });
+        meta_window.transform.Find("Tabs Right/Kingdoms").GetComponent<TipButton>().textOnClick = (typeof(TMeta).Name + "s").Underscore();
+        meta_window.transform.Find("Tabs Right/Kingdoms").GetComponent<TipButton>().textOnClickDescription = (typeof(TMeta).Name + "sDescription").Underscore();
+        meta_window.transform.Find("Tabs Right/Kingdoms/Icon").GetComponent<Image>().sprite = SpriteTextureLoader.getSprite(list_window_asset.icon_path);
+        meta_window.transform.Find("Tabs Right/Kingdoms").name = typeof(TMeta).Name + "s";
+
+
         scroll_window.screen_id = window_id;
         scroll_window.name = window_id; 
         scroll_window.init();
@@ -134,20 +169,31 @@ public class Manager
 
 
         return meta_window;
-        bool IsWindowMetaGeneric(System.Type type)
-        {
-            for (var current = type; current != null; current = current.BaseType)
-            {
-                if (current.IsGenericType && current.GetGenericTypeDefinition().Name == "WindowMetaGeneric`2")
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
     }
+    public static TTab CreateSelectedMetaTab<TTab, TMeta, TMetaData>(string tab_id)
+    where TTab : SelectedMeta<TMeta, TMetaData>
+    where TMeta : MetaObject<TMetaData>, IFavoriteable 
+    where TMetaData : MetaObjectData
+    {
+        var prefab = CanvasMain.instance.canvas_ui.transform.Find("CanvasBottom/BottomElements/BottomElementsMover/CanvasScrollView/Scroll View/Viewport/Content/Power Tabs/selected_kingdom").gameObject;
+        
+        var tab_obj = Object.Instantiate(prefab, ModClass.I.PrefabLibrary);
+        tab_obj.name = tab_id;
 
+        Object.DestroyImmediate(tab_obj.GetComponent<SelectedKingdom>());
+        
+        while (tab_obj.transform.childCount > 0)
+        {
+            Object.DestroyImmediate(tab_obj.transform.GetChild(0).gameObject);
+        }
+
+        var tab = tab_obj.AddComponent<TTab>();
+
+        tab_obj.transform.SetParent(prefab.transform.parent);
+        tab_obj.transform.localScale = Vector3.one;
+        
+        return tab;
+    }
     private void AddButtonsForDebug()
     {
         AddButton(TabButtonType.DEBUG, PowerButtonCreator.CreateSimpleButton("Cultiway.UI.Buttons.LogPerf", () => { ModClass.I.LogPerf(true);}, null));
@@ -212,5 +258,6 @@ public class Manager
     {
         WindowNewCreatureInfo.CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
         GeoRegionWindow.Init();
+        SelectedGeoRegionTab.Init();
     }
 }
