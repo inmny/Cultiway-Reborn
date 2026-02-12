@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Core;
+using Cultiway.Utils.Extension;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Tab;
 using NeoModLoader.utils;
@@ -78,15 +79,16 @@ public class Manager
         ListPool<GameObject> tTabsObjects = ScrollWindow.disableTabsInPrefab(prefab.GetComponent<ScrollWindow>());
         var window = Object.Instantiate(prefab, ModClass.I.PrefabLibrary);
 
-        var components = window.GetComponents<MonoBehaviour>();
-        foreach (var component in components)
-        {
-            if (component == null) continue;
-            if (IsWindowMetaGeneric(component.GetType()))
-            {
-                Object.DestroyImmediate(component);
-            }
-        }
+        var kingdom_window = window.GetComponent<KingdomWindow>();
+
+        kingdom_window.DeleteTab("Villages");
+        kingdom_window.DeleteTab("Traits");
+        kingdom_window.DeleteTab("Families");
+        kingdom_window.DeleteTab("Interesting People");
+        kingdom_window.DeleteTab("Pyramid");
+        kingdom_window.DeleteTab("Statistics");
+        
+        Object.DestroyImmediate(kingdom_window);
         foreach (var content_name in kingdom_window_content_to_remove)
         {
             var content = window.transform.Find($"Background/Scroll View/Viewport/Content/{content_name}");
