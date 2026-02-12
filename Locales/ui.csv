@@ -1,14 +1,14 @@
 key,cz
 Cultiway,修真之路
 Cultiway Description,阿巴阿巴
-custom_map_mode_Wakan,灵气图层
-custom_map_mode_Wakan Description,阿巴阿巴
-custom_map_mode_DirtyWakan,浊气图层
-custom_map_mode_DirtyWakan Description,阿巴阿巴
-custom_map_mode_Sect,宗门图层
-custom_map_mode_Sect Description,阿巴阿巴
-custom_map_mode_GeoRegion,地理区域图层
-custom_map_mode_GeoRegion Description,阿巴阿巴
+WakanLayer,灵气图层
+WakanLayer Description,阿巴阿巴
+DirtyWakanLayer,烟尘图层
+DirtyWakanLayer Description,阿巴阿巴
+SectLayer,宗门图层
+SectLayer Description,阿巴阿巴
+GeoRegionLayer,地理区域图层
+GeoRegionLayer Description,阿巴阿巴
 Cultiway.UI.WindowWorldWakan Title,世界灵气
 Cultiway.UI.WindowNewCreatureInfo Title,生物详细信息
 Cultiway.UI.ArmorGraph,各元素抗性
