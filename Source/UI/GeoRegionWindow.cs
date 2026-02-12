@@ -50,8 +50,7 @@ namespace Cultiway.UI
                 AssetManager.window_library.add(new WindowAsset
                 {
                     id = windowId,
-                    // WindowAsset.getSprite() 会在前面拼 ui/Icons/，这里先用原版图标避免额外资源依赖
-                    icon_path = "iconEmptyLocus",
+                    icon_path = "../../cultiway/icons/iconGeoRegion",
                     preload = false,
                     is_testable = false
                 });
