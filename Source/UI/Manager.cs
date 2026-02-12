@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.UI.Components;
 using Cultiway.Utils.Extension;
@@ -194,6 +195,45 @@ public class Manager
         
         return tab;
     }
+    public static void InsertButtonForMeta(MetaTypeExtend meta_type)
+    {
+        var toolbar_container_transform = CanvasMain.instance.canvas_windows.transform.Find("WindowToolbarContainer/WindowToolbar/content/Scroll View/Viewport/Content/Metas Group 3");
+        var prefab = toolbar_container_transform.Find("clans_list").gameObject;
+        var inserted_list_button = Object.Instantiate(prefab, toolbar_container_transform);
+        inserted_list_button.name = meta_type.ToString().Underscore() + "s_list";
+        var image = inserted_list_button.transform.Find("Icon").GetComponent<Image>();
+        var button = inserted_list_button.GetComponent<Button>();
+        var tip_button = inserted_list_button.GetComponent<TipButton>();
+        var power_button = inserted_list_button.GetComponent<PowerButton>();
+        var meta_switcher = inserted_list_button.GetComponent<MetaSpriteSwitcher>();
+        var list_window_asset = AssetManager.list_window_library.getByMetaType(meta_type.Back());
+        meta_switcher.meta_type = meta_type.Back();
+        power_button.open_window_id = list_window_asset.id;
+        image.sprite = SpriteTextureLoader.getSprite(list_window_asset.icon_path);
+        tip_button.textOnClick = inserted_list_button.name;
+        tip_button.textOnClickDescription = inserted_list_button.name + "_description";
+        tip_button.type = WorldboxGame.Tooltips.GetMetaListTooltipAsset(meta_type).id;
+
+        var bottom_container_transform = CanvasMain.instance.canvas_ui.transform.Find("CanvasBottom/BottomElements/BottomElementsMover/CanvasScrollView/Scroll View/Viewport/Content/Power Tabs/noosphere");
+        var anchor_obj = bottom_container_transform.Find("_line (4)");
+        inserted_list_button = Object.Instantiate(inserted_list_button, bottom_container_transform);
+        inserted_list_button.name = meta_type.ToString().Underscore() + "s_list";
+        inserted_list_button.transform.SetSiblingIndex(anchor_obj.GetSiblingIndex());
+        prefab = bottom_container_transform.Find("clan_layer").gameObject;
+        var inserted_layer_button = Object.Instantiate(prefab, bottom_container_transform);
+        inserted_layer_button.name = meta_type.ToString().Underscore() + "_layer";
+        inserted_layer_button.transform.SetSiblingIndex(anchor_obj.GetSiblingIndex());
+
+        inserted_layer_button.transform.Find("toggle_0").gameObject.SetActive(false);
+        inserted_layer_button.transform.Find("toggle_1").gameObject.SetActive(false);
+        inserted_layer_button.transform.Find("toggle_2").gameObject.SetActive(false);
+
+        image = inserted_layer_button.transform.Find("Icon").GetComponent<Image>();
+        button = inserted_layer_button.GetComponent<Button>();
+        tip_button = inserted_layer_button.GetComponent<TipButton>();
+        image.sprite = SpriteTextureLoader.getSprite(list_window_asset.icon_path);
+
+    }
     private void AddButtonsForDebug()
     {
         AddButton(TabButtonType.DEBUG, PowerButtonCreator.CreateSimpleButton("Cultiway.UI.Buttons.LogPerf", () => { ModClass.I.LogPerf(true);}, null));
@@ -259,5 +299,6 @@ public class Manager
         WindowNewCreatureInfo.CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
         GeoRegionWindow.Init();
         SelectedGeoRegionTab.Init();
+        InsertButtonForMeta(MetaTypeExtend.GeoRegion);
     }
 }
