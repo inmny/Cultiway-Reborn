@@ -79,6 +79,9 @@
         <Reference Include="UnityEngine.UI">
             <HintPath>..\..\worldbox_Data\Managed\UnityEngine.UI.dll</HintPath>
         </Reference>
+        <Reference Include="UnityEngine.UIModule">
+            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.UIModule.dll</HintPath>
+        </Reference>
         <Reference Include="UnityEngine.ParticleSystemModule">
             <HintPath>..\..\worldbox_Data\Managed\UnityEngine.ParticleSystemModule.dll</HintPath>
         </Reference>
