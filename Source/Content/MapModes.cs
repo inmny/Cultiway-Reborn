@@ -18,6 +18,7 @@ public class MapModes : ExtendLibrary<CustomMapModeAsset, MapModes>
         {
             id = nameof(Wakan),
             icon_path = "cultiway/icons/iconWakan",
+            toggle_name = "wakan_layer",
             kernel_func = [Hotfixable](int x, int y, ref Color32 out_color) =>
             {
                 var v = Mathf.Log10(WakanMap.I.map[x, y]);
@@ -32,6 +33,7 @@ public class MapModes : ExtendLibrary<CustomMapModeAsset, MapModes>
         {
             id = nameof(DirtyWakan),
             icon_path = "cultiway/icons/iconWakan",
+            toggle_name = "dirty_wakan_layer",
             kernel_func = [Hotfixable](int x, int y, ref Color32 out_color) =>
             {
                 var v = Mathf.Log10(DirtyWakanMap.I.map[x, y]);

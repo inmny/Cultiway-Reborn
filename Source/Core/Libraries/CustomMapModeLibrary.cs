@@ -1,3 +1,4 @@
+using Cultiway.Const;
 using Cultiway.Core.Components;
 using Cultiway.Core.GeoLib.Components;
 using Cultiway.UI;
@@ -18,6 +19,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
         {
             id = "sect",
             icon_path = "cultiway/icons/iconGeoRegion",
+            toggle_name = "sect_layer",
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
                 out_color.a = 0;
@@ -27,6 +29,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
         {
             id = "geo_region",
             icon_path = "cultiway/icons/iconGeoRegion",
+            toggle_name = "geo_region_layer",
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
                 var tile = World.world.GetTile(x, y).GetExtend();
