@@ -1,4 +1,5 @@
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.UI.Prefab;
@@ -18,10 +19,20 @@ public partial class WorldboxGame
         [GetOnly(S_Tooltip.book)] public static TooltipAsset Book { get; private set; }
         public static TooltipAsset Sect { get; private set; }
         public static TooltipAsset GeoRegion { get; private set; }
+        public static TooltipAsset ListGeoRegion { get; private set; }
+        public static TooltipAsset ListSect { get; private set; }
         public static TooltipAsset RawTip { get; private set; }
 
         public static TooltipAsset SpecialItem { get; private set; }
-
+        public static TooltipAsset GetMetaListTooltipAsset(MetaTypeExtend meta_type)
+        {
+            return meta_type switch
+            {
+                MetaTypeExtend.GeoRegion => ListGeoRegion,
+                MetaTypeExtend.Sect => ListSect,
+                _ => null,
+            };
+        }
         protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
