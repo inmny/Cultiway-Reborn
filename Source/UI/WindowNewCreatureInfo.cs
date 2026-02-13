@@ -70,7 +70,6 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
         register_stats_asset(WorldboxGame.BaseStats.NegMaster);
         register_stats_asset(WorldboxGame.BaseStats.PosMaster);
         register_stats_asset(WorldboxGame.BaseStats.EntropyMaster);
-*/
         void register_stats_asset(BaseStatAsset asset)
         {
             StatValue stat = _pool.GetNext();
@@ -86,6 +85,7 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
             stat.Setup(0, sprite, AssetManager.base_stats_library.get(id));
             _stat_values.Add(new Tuple<string, StatValue>(id, stat));
         }
+*/
 
 
         Transform scroll_view_transform = BackgroundTransform.Find("Scroll View");

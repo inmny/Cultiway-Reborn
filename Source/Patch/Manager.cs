@@ -26,7 +26,7 @@ internal class Manager
                         ModClass.LogInfo($"Patch {t.Name} specially");
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     ModClass.LogError($"Failed to patch {t.Name}");
                     throw;

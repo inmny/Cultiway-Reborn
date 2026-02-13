@@ -24,7 +24,6 @@ public class AnimFrameUpdateSystem : QuerySystem<AnimData, AnimController>
 
     protected override void OnUpdate()
     {
-        var i = 0;
         var time = Tick.time;
         Query.ForEachComponents((ref AnimData anim_data, ref AnimController controller) =>
         {

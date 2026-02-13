@@ -14,6 +14,7 @@ public class Manager
     public ImageTemplateLibrary ImageTemplateLibrary { get; } = new();
     public OperationLibrary OperationLibrary { get; } = new();
     public PortalLibrary PortalLibrary { get; } = new();
+    public GeoRegionLibrary GeoRegionLibrary { get; } = new();
 
     public void Init()
     {
@@ -29,6 +30,7 @@ public class Manager
         AssetManager._instance.add(ImageTemplateLibrary, "image_templates");
         AssetManager._instance.add(OperationLibrary, "operations");
         AssetManager._instance.add(PortalLibrary, "portals");
+        AssetManager._instance.add(GeoRegionLibrary, "geo_regions");
     }
 
     public void LinkAssets()
@@ -45,6 +47,7 @@ public class Manager
         ImageTemplateLibrary.linkAssets();
         OperationLibrary.linkAssets();
         PortalLibrary.linkAssets();
+        GeoRegionLibrary.linkAssets();
     }
     public void PostInit()
     {
@@ -60,5 +63,6 @@ public class Manager
         ImageTemplateLibrary.post_init();
         OperationLibrary.post_init();
         PortalLibrary.post_init();
+        GeoRegionLibrary.post_init();
     }
 }

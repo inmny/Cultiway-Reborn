@@ -101,7 +101,7 @@ public class Manager
         {
             response.EnsureSuccessStatusCode();
         }
-        catch (Exception e)
+        catch (Exception)
         {
             ModClass.LogErrorConcurrent(res);
             ModClass.LogErrorConcurrent($"Content: {content_str}");

@@ -120,8 +120,6 @@ public class CustomMapLayer : MapLayer
         for (int i = 0; i < pPixels.Length; i++)
             pPixels[i] = Color.clear;
         return;
-        foreach (TileZone zone in World.world.zone_calculator.zones) ClearZone(pPixels, zone);
-        _last_drawn_zones.Clear();
     }
 
     private static bool ClearZone(Color32[] pPixels, TileZone pZone)

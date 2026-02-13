@@ -17,9 +17,9 @@ public static class WorldLogUtils
             unit = ae.Base,
             location = ae.Base.current_position
         };
-        if (ae.Base.kingdom?.kingdomColor != null)
+        if (ae.Base.kingdom?.getColor() != null)
         {
-            world_log.color_special1 = ae.Base.kingdom.kingdomColor.getColorText();
+            world_log.color_special1 = ae.Base.kingdom.getColor().getColorText();
         }
         world_log.add();
     }
