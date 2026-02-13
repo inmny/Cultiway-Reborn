@@ -253,6 +253,8 @@ namespace Cultiway
             GeneralLogicSystems.Add(LogicEventProcessSystemGroup);
             LogicEventProcessSystemGroup.Add(new ActorNameGeneratedEventSystem());
             LogicEventProcessSystemGroup.Add(new EntityNameGeneratedEventSystem());
+            LogicEventProcessSystemGroup.Add(new WorldGeneratedPartitionGeoRegionsEventSystem());
+            LogicEventProcessSystemGroup.Add(new GeoRegionAutoClassifyAndNameEventSystem());
             
             GeneralLogicSystems.Add(new WaterConnectivitySystem());
             GeneralLogicSystems.Add(PortalManager.Instance);

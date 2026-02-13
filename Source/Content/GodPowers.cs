@@ -53,6 +53,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         var rels = te.E.GetRelations<BelongToRelation>();
         foreach (var rel in rels)
         {
+            if (rel.layer != GeoRegionLayer.Primary) continue;
             if (rel.entity.HasComponent<GeoRegionBinder>())
             {
                 _current_geo_region = rel.entity.GetComponent<GeoRegionBinder>().GeoRegion;
@@ -61,7 +62,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         }
         // 创建一个空的geo region
         var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
-        te.E.AddRelation(new BelongToRelation { entity = region.E });
+        te.E.AddRelation(new BelongToRelation { entity = region.E, layer = GeoRegionLayer.Primary });
         ModClass.LogInfo($"InitializeGeoRegionAction: Create new geo region {region.E} with links: {region.E.GetIncomingLinks<BelongToRelation>().Count}");
         _current_geo_region = region;
         
@@ -75,6 +76,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         {
             foreach (var rel in rels)
             {
+                if (rel.layer != GeoRegionLayer.Primary) continue;
                 if (rel.entity.HasComponent<GeoRegionBinder>())
                 {
                     if (rel.entity == _current_geo_region.E)
@@ -86,7 +88,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
                 }
             }
         }
-        te.E.AddRelation(new BelongToRelation { entity = _current_geo_region.E });
+        te.E.AddRelation(new BelongToRelation { entity = _current_geo_region.E, layer = GeoRegionLayer.Primary });
         return true;
     }
     private static bool RemoveGeoRegionAction(WorldTile tile, string power_id)
@@ -97,6 +99,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         {
             foreach (var rel in rels)
             {
+                if (rel.layer != GeoRegionLayer.Primary) continue;
                 if (rel.entity.HasComponent<GeoRegionBinder>())
                 {
                     te.E.RemoveRelation<BelongToRelation>(rel.entity);

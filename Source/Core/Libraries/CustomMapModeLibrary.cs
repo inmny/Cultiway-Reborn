@@ -1,4 +1,5 @@
 using Cultiway.Const;
+using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.GeoLib.Components;
 using Cultiway.UI;
@@ -13,6 +14,9 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
 {
     public static CustomMapModeAsset Sect { get; private set; }
     public static CustomMapModeAsset GeoRegion { get; private set; }
+    public static CustomMapModeAsset GeoRegionLandform { get; private set; }
+    public static CustomMapModeAsset GeoRegionLandmass { get; private set; }
+    public static CustomMapModeAsset GeoRegionMorphology { get; private set; }
     public override void init()
     {
         Sect = add(new CustomMapModeAsset()
@@ -33,14 +37,67 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
                 var tile = World.world.GetTile(x, y).GetExtend();
-                var rels = tile.E.GetRelations<BelongToRelation>();
-                foreach (var rel in rels)
+                var region = tile.GetGeoRegion();
+                if (region != null)
                 {
-                    if (rel.entity.HasComponent<GeoRegionBinder>())
-                    {
-                        out_color = rel.entity.GetComponent<GeoRegionBinder>().GeoRegion.getColor().getColorMain32();
-                        return;
-                    }
+                    out_color = region.getColor().getColorMain32();
+                    return;
+                }
+                out_color.a = 0;
+            }
+        });
+
+        GeoRegionLandform = add(new CustomMapModeAsset()
+        {
+            id = "geo_region_landform",
+            icon_path = "cultiway/icons/iconGeoRegion",
+            toggle_name = "geo_region_landform_layer",
+            kernel_func = (int x, int y, ref Color32 out_color) =>
+            {
+                var tile = World.world.GetTile(x, y).GetExtend();
+                var region = tile.GetGeoRegion(GeoRegionLayer.Landform);
+                if (region != null)
+                {
+                    out_color = region.getColor().getColorMain32();
+                    return;
+                }
+                out_color.a = 0;
+            }
+        });
+
+        GeoRegionLandmass = add(new CustomMapModeAsset()
+        {
+            id = "geo_region_landmass",
+            icon_path = "cultiway/icons/iconGeoRegion",
+            toggle_name = "geo_region_landmass_layer",
+            kernel_func = (int x, int y, ref Color32 out_color) =>
+            {
+                var tile = World.world.GetTile(x, y).GetExtend();
+                var region = tile.GetGeoRegion(GeoRegionLayer.Landmass);
+                if (region != null)
+                {
+                    out_color = region.getColor().getColorMain32();
+                    return;
+                }
+                out_color.a = 0;
+            }
+        });
+
+        GeoRegionMorphology = add(new CustomMapModeAsset()
+        {
+            id = "geo_region_morphology",
+            icon_path = "cultiway/icons/iconGeoRegion",
+            toggle_name = "geo_region_morphology_layer",
+            kernel_func = (int x, int y, ref Color32 out_color) =>
+            {
+                var tile = World.world.GetTile(x, y).GetExtend();
+                var region = tile.GetGeoRegion(GeoRegionLayer.Strait) ??
+                             tile.GetGeoRegion(GeoRegionLayer.Peninsula) ??
+                             tile.GetGeoRegion(GeoRegionLayer.Archipelago);
+                if (region != null)
+                {
+                    out_color = region.getColor().getColorMain32();
+                    return;
                 }
                 out_color.a = 0;
             }
