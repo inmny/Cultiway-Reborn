@@ -1,3 +1,4 @@
+using System;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core;
@@ -19,7 +20,9 @@ public partial class WorldboxGame
         [GetOnly(S_Tooltip.book)] public static TooltipAsset Book { get; private set; }
         public static TooltipAsset Sect { get; private set; }
         public static TooltipAsset GeoRegion { get; private set; }
+        [CloneSource("tooltip_meta_list_kingdoms")]
         public static TooltipAsset ListGeoRegion { get; private set; }
+        [CloneSource("tooltip_meta_list_kingdoms")]
         public static TooltipAsset ListSect { get; private set; }
         public static TooltipAsset RawTip { get; private set; }
 
@@ -47,9 +50,18 @@ public partial class WorldboxGame
             GeoRegion.callback = ShowGeoRegion;
             GeoRegionTooltip.PatchTo<Tooltip>(GeoRegion.prefab_id);
 
+            ListGeoRegion.callback = (TooltipShowAction)Delegate.Combine((TooltipShowAction)AssetManager.tooltips.showNormal, (TooltipShowAction)ShowGeoRegionMetaListInfo);
+
             Book.callback += ShowCustomBookReadAction;
             
             RawTip.callback = ShowRawTip;
+        }
+        private void ShowGeoRegionMetaListInfo(Tooltip tooltip, string type, TooltipData data)
+        {
+            AssetManager.tooltips.setIconValue(tooltip, "i_total", I.GeoRegions.Count);
+            AssetManager.tooltips.setIconValue(tooltip, "i_destroyed", 0); // 改成类别数量
+            AssetManager.tooltips.setIconSprite(tooltip, "i_total", MetaTypes.GeoRegion.icon_list);
+            AssetManager.tooltips.setIconSprite(tooltip, "i_destroyed", MetaTypes.GeoRegion.icon_list);
         }
         private void ShowGeoRegion(Tooltip tooltip, string type, TooltipData data)
         {
