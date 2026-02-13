@@ -60,7 +60,7 @@ public partial class WorldboxGame
                 return;
             }
             tooltip.setTitle(geo_region.name, "geo_region", geo_region.getColor().color_text);
-            tooltip.addLineText("region_size", geo_region.E.GetIncomingLinks<BelongToRelation>().Count.ToString());
+            tooltip.addLineText("Cultiway.GeoRegion.Tiles", geo_region.E.GetIncomingLinks<BelongToRelation>().Count.ToString());
         }
 
         private void ShowSect(Tooltip tooltip, string type, TooltipData data)
