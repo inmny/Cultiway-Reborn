@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
 using UnityEngine;
@@ -70,40 +71,18 @@ internal static class FinalizerPatch
         }
         return __exception;
     }
-    
-    [HarmonyPatch]
-    public static class WindowMetaElementGenericPatch
+    [HarmonyFinalizer, HarmonyPatch(typeof(ScrollWindow), nameof(ScrollWindow.showWindow), [typeof(string), typeof(bool), typeof(bool)])]
+    private static Exception ScrollWindow_showWindow(Exception __exception, string pWindowID, bool pSkipAnimation, bool pBlockSame)
     {
-        public static IEnumerable<System.Reflection.MethodBase> TargetMethods()
+        if (__exception != null)
         {
-            var type_base = typeof(WindowMetaElement<,>);
-            var assembly = type_base.Assembly;
-            foreach (var type in assembly.GetTypes())
-            {
-                if (type.IsAbstract) continue;
-                var base_type = type.BaseType;
-                while (base_type != null)
-                {
-                    if (base_type.IsGenericType && base_type.GetGenericTypeDefinition() == type_base)
-                    {
-                        var method = AccessTools.Method(type, "OnEnable");
-                        if (method == null) method = AccessTools.Method(base_type, "OnEnable");
-                        if (method != null) yield return method;
-                        break;
-                    }
-                    base_type = base_type.BaseType;
-                }
-            }
+            var sb = new StringBuilder();
+            sb.AppendLine($"{__exception} happens in {nameof(ScrollWindow_showWindow)}({pWindowID}, {pSkipAnimation}, {pBlockSame})");
+            sb.AppendLine($"World.world.selected_buttons: {World.world.selected_buttons}");
+            sb.AppendLine($"ScrollWindow._current_window: {ScrollWindow._current_window}");
+            sb.AppendLine($"tWindow: {ScrollWindow._all_windows[pWindowID]}");
+            ModClass.LogInfo(sb.ToString());
         }
-
-        [HarmonyFinalizer]
-        public static Exception Finalizer(Exception __exception, WindowMetaElementBase __instance)
-        {
-            if (__exception != null)
-            {
-                ModClass.LogInfo($"WindowMetaElement_OnEnable: {__instance?.name ?? "null"}");
-            }
-            return null;
-        }
+        return __exception;
     }
 }
