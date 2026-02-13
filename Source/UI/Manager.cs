@@ -72,6 +72,36 @@ public class Manager
     private static string[] kingdom_window_header_to_remove = [
         "header_top", "header_traits"
     ];
+    public static ListWindow CreateListMetaWindow(string window_id, MetaTypeExtend meta_type)
+    {
+        var prefab = Resources.Load<GameObject>("windows/list_kingdoms");
+        ListPool<GameObject> tTabsObjects = ScrollWindow.disableTabsInPrefab(prefab.GetComponent<ScrollWindow>());
+
+        var window = Object.Instantiate(prefab, ModClass.I.PrefabLibrary);
+        ScrollWindow.enableTabsInPrefab(tTabsObjects);
+        window.SetActive(false);
+        
+        window.transform.SetParent(CanvasMain.instance.transformWindows);
+        window.transform.localScale = Vector2.one;
+
+
+        var list_window = window.GetComponent<ListWindow>();
+        list_window._meta_type = meta_type.Back();
+        list_window._list_element_prefab = GeoRegionListElement.Prefab.gameObject;
+        
+        list_window.transform.Find("Background/Title").GetComponent<LocalizedText>().setKeyAndUpdate(meta_type.ToString().Underscore() + "s");
+        list_window.transform.Find("Background/Scroll View/Viewport/Content/content_list/title_list/title_tab").GetComponent<LocalizedText>().setKeyAndUpdate("tab_all_" + meta_type.ToString().Underscore() + "s");
+
+        var scroll_window = window.GetComponent<ScrollWindow>();
+
+        ScrollWindow._all_windows.Add(window_id, scroll_window);
+        scroll_window.screen_id = window_id;
+        scroll_window.name = window_id; 
+        scroll_window.init();
+        scroll_window.create(true);
+
+        return list_window;
+    }
     public static TWindow CreateMetaWindow<TWindow, TMeta, TMetaData>(string window_id) 
     where TWindow : WindowMetaGeneric<TMeta, TMetaData> 
     where TMeta : CoreSystemObject<TMetaData> 
@@ -209,6 +239,7 @@ public class Manager
         var list_window_asset = AssetManager.list_window_library.getByMetaType(meta_type.Back());
         meta_switcher.meta_type = meta_type.Back();
         power_button.open_window_id = list_window_asset.id;
+        power_button.block_same_window = false;
         image.sprite = SpriteTextureLoader.getSprite(list_window_asset.icon_path);
         tip_button.textOnClick = inserted_list_button.name;
         tip_button.textOnClickDescription = inserted_list_button.name + "_description";
@@ -301,6 +332,7 @@ public class Manager
         WindowNewCreatureInfo.CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
         GeoRegionWindow.Init();
         SelectedGeoRegionTab.Init();
+        GeoRegionListComponent.Init();
         InsertButtonForMeta(MetaTypeExtend.GeoRegion);
     }
 }
