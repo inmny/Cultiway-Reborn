@@ -17,6 +17,8 @@ Cultiway.UI.ContentItem,材丹符器阵傀
 Cultiway.UI.Buttons.LogPerf,性能分析日志
 Tab.MasterApprentice,师徒关系
 Tab.MasterApprentice Description,显示这个生物的师父师祖、徒子徒孙
+Tab.All.GeoRegions,所有地区
+List.Empty.GeoRegions,阿巴阿巴
 show_tab_Cultiway.SelectedGeoRegion,选定的地区: $name$
 Cultiway.GeoRegion.Tiles,占地面积
 Grandmasters,师祖
