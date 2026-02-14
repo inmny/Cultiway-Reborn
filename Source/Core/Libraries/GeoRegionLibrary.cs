@@ -7,37 +7,118 @@ namespace Cultiway.Core.Libraries;
 
 public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
 {
+    /// <summary>
+    /// 主要分类 - 海洋，接触地图边缘的大面积水体
+    /// </summary>
     public GeoRegionAsset PrimarySea { get; private set; }
+    /// <summary>
+    /// 主要分类 - 湖泊，被陆地包围的内陆水体
+    /// </summary>
     public GeoRegionAsset PrimaryLake { get; private set; }
+    /// <summary>
+    /// 主要分类 - 河流，狭长的流动水体
+    /// </summary>
     public GeoRegionAsset PrimaryRiver { get; private set; }
+    /// <summary>
+    /// 主要分类 - 熔岩，岩浆地块
+    /// </summary>
     public GeoRegionAsset PrimaryLava { get; private set; }
+    /// <summary>
+    /// 主要分类 - 菌泥，腐蚀性物质地块
+    /// </summary>
     public GeoRegionAsset PrimaryGoo { get; private set; }
+    /// <summary>
+    /// 主要分类 - 山脉，不可通行的岩石地块
+    /// </summary>
     public GeoRegionAsset PrimaryMountains { get; private set; }
 
+    /// <summary>
+    /// 主要分类 - 草原，温带草地生物群系
+    /// </summary>
     public GeoRegionAsset PrimaryGrassland { get; private set; }
+    /// <summary>
+    /// 主要分类 - 森林，温带森林生物群系
+    /// </summary>
     public GeoRegionAsset PrimaryForest { get; private set; }
+    /// <summary>
+    /// 主要分类 - 丛林，热带雨林生物群系
+    /// </summary>
     public GeoRegionAsset PrimaryJungle { get; private set; }
+    /// <summary>
+    /// 主要分类 - 沼泽，湿地生物群系
+    /// </summary>
     public GeoRegionAsset PrimarySwamp { get; private set; }
+    /// <summary>
+    /// 主要分类 - 沙漠，干旱沙漠生物群系
+    /// </summary>
     public GeoRegionAsset PrimaryDesert { get; private set; }
+    /// <summary>
+    /// 主要分类 - 海滩，邻近水体的沙滩地块
+    /// </summary>
     public GeoRegionAsset PrimaryBeach { get; private set; }
+    /// <summary>
+    /// 主要分类 - 冻原，寒冷苔原生物群系
+    /// </summary>
     public GeoRegionAsset PrimaryTundra { get; private set; }
+    /// <summary>
+    /// 主要分类 - 高地，海拔较高的高原地区
+    /// </summary>
     public GeoRegionAsset PrimaryHighlands { get; private set; }
+    /// <summary>
+    /// 主要分类 - 荒原，被腐蚀或破坏的荒芜地区
+    /// </summary>
     public GeoRegionAsset PrimaryWasteland { get; private set; }
+    /// <summary>
+    /// 主要分类 - 特殊，无法归入其他分类的特殊地块
+    /// </summary>
     public GeoRegionAsset PrimarySpecial { get; private set; }
 
+    /// <summary>
+    /// 地貌分类 - 平原，平坦开阔的地形
+    /// </summary>
     public GeoRegionAsset LandformPlain { get; private set; }
+    /// <summary>
+    /// 地貌分类 - 山地，隆起的山地地形
+    /// </summary>
     public GeoRegionAsset LandformMountain { get; private set; }
+    /// <summary>
+    /// 地貌分类 - 峡谷，两侧高中间低的狭长地形
+    /// </summary>
     public GeoRegionAsset LandformCanyon { get; private set; }
+    /// <summary>
+    /// 地貌分类 - 盆地，四周高中间低的凹陷地形
+    /// </summary>
     public GeoRegionAsset LandformBasin { get; private set; }
 
+    /// <summary>
+    /// 陆块分类 - 岛屿，不接触地图边缘的独立陆块
+    /// </summary>
     public GeoRegionAsset LandmassIsland { get; private set; }
+    /// <summary>
+    /// 陆块分类 - 大陆，接触地图边缘的主要陆块
+    /// </summary>
     public GeoRegionAsset LandmassMainland { get; private set; }
 
+    /// <summary>
+    /// 形态分类 - 半岛，三面环水的狭长陆地
+    /// </summary>
     public GeoRegionAsset Peninsula { get; private set; }
+    /// <summary>
+    /// 形态分类 - 海峡，连接两片水域的狭窄通道
+    /// </summary>
     public GeoRegionAsset Strait { get; private set; }
+    /// <summary>
+    /// 形态分类 - 群岛，密集分布的岛屿群
+    /// </summary>
     public GeoRegionAsset Archipelago { get; private set; }
 
+    /// <summary>
+    /// 生物群系ID到主要分类资产的映射字典
+    /// </summary>
     private readonly Dictionary<string, GeoRegionAsset> _biomeIdToPrimaryClass = new();
+    /// <summary>
+    /// 地貌规则资产数组，用于按优先级匹配地貌分类
+    /// </summary>
     private GeoRegionAsset[] _landformRules;
 
     public override void init()
