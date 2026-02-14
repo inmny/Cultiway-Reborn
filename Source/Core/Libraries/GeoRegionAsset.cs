@@ -55,6 +55,14 @@ public readonly struct GeoRegionTileRuleContext
     /// </summary>
     public readonly int NeighborWaterCount;
     /// <summary>
+    /// 8 邻接中的水体数量（用于识别对角线海岸）。
+    /// </summary>
+    public readonly int NeighborWater8Count;
+    /// <summary>
+    /// 到最近水体的距离（基于沙地连通传播）。
+    /// </summary>
+    public readonly int DistanceToWater;
+    /// <summary>
     /// 4 邻接中的阻挡地块数量。
     /// </summary>
     public readonly int NeighborBlockCount;
@@ -77,6 +85,8 @@ public readonly struct GeoRegionTileRuleContext
         bool isGooFlag,
         bool isMountainFlag,
         int neighborWaterCount,
+        int neighborWater8Count,
+        int distanceToWater,
         int neighborBlockCount,
         int neighborPitCount,
         bool hasOppositeBlockPair)
@@ -90,6 +100,8 @@ public readonly struct GeoRegionTileRuleContext
         IsGooFlag = isGooFlag;
         IsMountainFlag = isMountainFlag;
         NeighborWaterCount = neighborWaterCount;
+        NeighborWater8Count = neighborWater8Count;
+        DistanceToWater = distanceToWater;
         NeighborBlockCount = neighborBlockCount;
         NeighborPitCount = neighborPitCount;
         HasOppositeBlockPair = hasOppositeBlockPair;
@@ -162,9 +174,13 @@ public class GeoRegionAsset : Asset
     public bool? RequireMountainFlag;
 
     /// <summary>
-    /// 4 邻接最小水体数量。
+    /// 4 邻接最小水体数量（可用于 Primary 海滩等贴水规则）。
     /// </summary>
     public int MinNeighborWater;
+    /// <summary>
+    /// 到最近水体的最大距离（用于控制海滩等贴海宽度，-1 表示不限制）。
+    /// </summary>
+    public int MaxDistanceToWater = -1;
     /// <summary>
     /// 4 邻接最小阻挡地块数量。
     /// </summary>

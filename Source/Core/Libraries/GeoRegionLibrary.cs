@@ -19,6 +19,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
     public GeoRegionAsset PrimaryJungle { get; private set; }
     public GeoRegionAsset PrimarySwamp { get; private set; }
     public GeoRegionAsset PrimaryDesert { get; private set; }
+    public GeoRegionAsset PrimaryBeach { get; private set; }
     public GeoRegionAsset PrimaryTundra { get; private set; }
     public GeoRegionAsset PrimaryHighlands { get; private set; }
     public GeoRegionAsset PrimaryWasteland { get; private set; }
@@ -102,6 +103,19 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
     public GeoRegionAsset ResolvePrimaryLandByBiome(string biomeId)
     {
         return _biomeIdToPrimaryClass.TryGetValue(biomeId ?? string.Empty, out var category) ? category : PrimarySpecial;
+    }
+
+    /// <summary>
+    /// 基于 tile type / biome / 邻接统计解析 Primary 地表分类（包含海滩覆盖规则）。
+    /// </summary>
+    public GeoRegionAsset ResolvePrimaryLandByContext(in GeoRegionTileRuleContext context)
+    {
+        if (PrimaryBeach != null && MatchPrimaryBeachRule(PrimaryBeach, context))
+        {
+            return PrimaryBeach;
+        }
+
+        return ResolvePrimaryLandByBiome(context.BiomeId);
     }
 
     /// <summary>
@@ -193,6 +207,93 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         if (rule.MinNeighborWater > 0 && context.NeighborWaterCount < rule.MinNeighborWater)
         {
             return false;
+        }
+
+        if (rule.MinNeighborBlock > 0 && context.NeighborBlockCount < rule.MinNeighborBlock)
+        {
+            return false;
+        }
+
+        if (rule.MinNeighborPit > 0 && context.NeighborPitCount < rule.MinNeighborPit)
+        {
+            return false;
+        }
+
+        if (rule.RequireOppositeBlockPair && !context.HasOppositeBlockPair)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 海滩规则：支持“贴海宽度 + 对角邻水补偿”，避免海岸线漏判与窄判。
+    /// </summary>
+    private static bool MatchPrimaryBeachRule(GeoRegionAsset rule, in GeoRegionTileRuleContext context)
+    {
+        if (!MatchLayer(rule.LayerTypes, context.LayerType))
+        {
+            return false;
+        }
+
+        var hasBiomeRestriction = rule.BiomeIds != null && rule.BiomeIds.Length > 0;
+        var hasTileTypeRestriction = rule.TileTypeIds != null && rule.TileTypeIds.Length > 0;
+        if (hasBiomeRestriction || hasTileTypeRestriction)
+        {
+            var matchBiome = hasBiomeRestriction && MatchString(rule.BiomeIds, context.BiomeId);
+            var matchTileType = hasTileTypeRestriction && MatchString(rule.TileTypeIds, context.TileTypeId);
+            if (!matchBiome && !matchTileType)
+            {
+                return false;
+            }
+        }
+
+        if (rule.RequireOceanFlag.HasValue && context.IsOceanFlag != rule.RequireOceanFlag.Value)
+        {
+            return false;
+        }
+
+        if (rule.RequireFillableWaterFlag.HasValue && context.IsFillableWaterFlag != rule.RequireFillableWaterFlag.Value)
+        {
+            return false;
+        }
+
+        if (rule.RequireLavaFlag.HasValue && context.IsLavaFlag != rule.RequireLavaFlag.Value)
+        {
+            return false;
+        }
+
+        if (rule.RequireGooFlag.HasValue && context.IsGooFlag != rule.RequireGooFlag.Value)
+        {
+            return false;
+        }
+
+        if (rule.RequireMountainFlag.HasValue && context.IsMountainFlag != rule.RequireMountainFlag.Value)
+        {
+            return false;
+        }
+
+        if (rule.MaxDistanceToWater >= 0)
+        {
+            if (context.DistanceToWater < 0 || context.DistanceToWater > rule.MaxDistanceToWater)
+            {
+                return false;
+            }
+        }
+
+        if (rule.MinNeighborWater > 0)
+        {
+            var orthogonalWater = context.NeighborWaterCount;
+            if (orthogonalWater < rule.MinNeighborWater)
+            {
+                var diagonalWater = Math.Max(0, context.NeighborWater8Count - orthogonalWater);
+                var compensatedWater = orthogonalWater + (diagonalWater >= 2 ? 1 : 0);
+                if (compensatedWater < rule.MinNeighborWater)
+                {
+                    return false;
+                }
+            }
         }
 
         if (rule.MinNeighborBlock > 0 && context.NeighborBlockCount < rule.MinNeighborBlock)
@@ -337,6 +438,18 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Naming = new GeoRegionNamingRule { Template = "{Dir}沙漠" },
             MinTiles = 64,
             BiomeIds = new[] { "biome_desert", "biome_sand" }
+        });
+        PrimaryBeach = add(new GeoRegionAsset
+        {
+            id = "Cultiway.GeoRegion.Primary.Beach",
+            Layer = GeoRegionLayer.Primary,
+            DisplayName = "海滩",
+            Naming = new GeoRegionNamingRule { Template = "{Dir}海滩" },
+            MinTiles = 32,
+            BiomeIds = new[] { "biome_sand" },
+            TileTypeIds = new[] { "sand", "snow_sand" },
+            MinNeighborWater = 0,
+            MaxDistanceToWater = 6
         });
         PrimaryTundra = add(new GeoRegionAsset
         {

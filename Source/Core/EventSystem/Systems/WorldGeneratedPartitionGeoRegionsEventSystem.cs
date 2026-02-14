@@ -68,7 +68,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
 
         var queue = new int[total];
 
-        GeneratePrimary(evt, tiles, width, height, geoRegionLib, primarySignature, landformCode, queue);
+        GeneratePrimary(evt, tiles, width, height, geoRegionLib, primarySignature, landformCode, isLand, isWater, queue);
         GenerateLandform(evt, tiles, width, height, geoRegionLib, landformCode, primaryCategoryCode, queue);
 
         var islandCandidates = new List<IslandInfo>(64);
@@ -98,12 +98,15 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
     {
         var isBlock = new bool[tiles.Length];
         var isPit = new bool[tiles.Length];
+        var isBeachMaterial = new bool[tiles.Length];
+        var beachDistance = new int[tiles.Length];
 
         for (var i = 0; i < tiles.Length; i++)
         {
             var tile = tiles[i];
             var tileType = tile.Type;
             var layerType = tileType.layer_type;
+            var biomeId = tile.getBiome()?.id;
 
             var isLava = layerType == TileLayerType.Lava || tileType.lava;
             var isGoo = layerType == TileLayerType.Goo || tileType.grey_goo;
@@ -115,6 +118,8 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             isWater[i] = isWaterTile;
             isBlock[i] = isBlockTile;
             isPit[i] = isPitTile;
+            isBeachMaterial[i] = IsBeachMaterialTile(tileType, biomeId);
+            beachDistance[i] = -1;
 
             if (isLava)
             {
@@ -137,7 +142,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             if (isBlockTile)
             {
                 isLand[i] = true;
-                primaryCategoryCode[i] = 10; // 山地（用于跨层命名）
+                primaryCategoryCode[i] = 11; // 山地（用于跨层命名）
                 primarySignature[i] = 4;
                 continue;
             }
@@ -145,14 +150,37 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             if (isGroundTile)
             {
                 isLand[i] = true;
-                var biomeId = tile.getBiome()?.id;
-                var biomeCode = ResolvePrimaryBiomeCode(geoRegionLib, biomeId);
-                primaryCategoryCode[i] = biomeCode;
-                primarySignature[i] = (byte)(10 + biomeCode);
                 continue;
             }
 
             primarySignature[i] = 0;
+        }
+
+        // 预计算“沙地连通到水体”的距离，用于支持宽海滩识别。
+        var beachQueue = new int[tiles.Length];
+        var beachHead = 0;
+        var beachTail = 0;
+
+        for (var i = 0; i < tiles.Length; i++)
+        {
+            if (!isLand[i] || !isBeachMaterial[i]) continue;
+            if (!HasWaterNeighbor8(tiles, i, width, height, isWater)) continue;
+            beachDistance[i] = 0;
+            beachQueue[beachTail++] = i;
+        }
+
+        while (beachHead < beachTail)
+        {
+            var idx = beachQueue[beachHead++];
+            var nextDistance = beachDistance[idx] + 1;
+            var tile = tiles[idx];
+            var x = tile.x;
+            var y = tile.y;
+
+            if (x > 0) TryExpandBeachDistance(idx - 1, nextDistance, isLand, isBeachMaterial, beachDistance, beachQueue, ref beachTail);
+            if (x < width - 1) TryExpandBeachDistance(idx + 1, nextDistance, isLand, isBeachMaterial, beachDistance, beachQueue, ref beachTail);
+            if (y > 0) TryExpandBeachDistance(idx - width, nextDistance, isLand, isBeachMaterial, beachDistance, beachQueue, ref beachTail);
+            if (y < height - 1) TryExpandBeachDistance(idx + width, nextDistance, isLand, isBeachMaterial, beachDistance, beachQueue, ref beachTail);
         }
 
         // 预计算 Landform（只针对陆地，规则仅依赖 tile type/biome/邻接统计）
@@ -171,33 +199,55 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             var up = y < height - 1 ? i + width : -1;
 
             var neighborWaterCount = 0;
+            var neighborWater8Count = 0;
             var neighborBlockCount = 0;
             var neighborPitCount = 0;
 
             if (left >= 0)
             {
-                if (isWater[left]) neighborWaterCount++;
+                if (isWater[left])
+                {
+                    neighborWaterCount++;
+                    neighborWater8Count++;
+                }
                 if (isBlock[left]) neighborBlockCount++;
                 if (isPit[left]) neighborPitCount++;
             }
             if (right >= 0)
             {
-                if (isWater[right]) neighborWaterCount++;
+                if (isWater[right])
+                {
+                    neighborWaterCount++;
+                    neighborWater8Count++;
+                }
                 if (isBlock[right]) neighborBlockCount++;
                 if (isPit[right]) neighborPitCount++;
             }
             if (down >= 0)
             {
-                if (isWater[down]) neighborWaterCount++;
+                if (isWater[down])
+                {
+                    neighborWaterCount++;
+                    neighborWater8Count++;
+                }
                 if (isBlock[down]) neighborBlockCount++;
                 if (isPit[down]) neighborPitCount++;
             }
             if (up >= 0)
             {
-                if (isWater[up]) neighborWaterCount++;
+                if (isWater[up])
+                {
+                    neighborWaterCount++;
+                    neighborWater8Count++;
+                }
                 if (isBlock[up]) neighborBlockCount++;
                 if (isPit[up]) neighborPitCount++;
             }
+
+            if (x > 0 && y > 0 && isWater[i - width - 1]) neighborWater8Count++;
+            if (x < width - 1 && y > 0 && isWater[i - width + 1]) neighborWater8Count++;
+            if (x > 0 && y < height - 1 && isWater[i + width - 1]) neighborWater8Count++;
+            if (x < width - 1 && y < height - 1 && isWater[i + width + 1]) neighborWater8Count++;
 
             var leftBlock = left >= 0 && isBlock[left];
             var rightBlock = right >= 0 && isBlock[right];
@@ -221,13 +271,82 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 isGoo,
                 isMountain,
                 neighborWaterCount,
+                neighborWater8Count,
+                beachDistance[i],
                 neighborBlockCount,
                 neighborPitCount,
                 hasOppositeBlockPair);
 
             var landformAsset = geoRegionLib.ResolveLandform(context);
             landformCode[i] = ResolveLandformCode(geoRegionLib, landformAsset);
+
+            if (layerType == TileLayerType.Ground)
+            {
+                var primaryAsset = geoRegionLib.ResolvePrimaryLandByContext(context);
+                var primaryCode = ResolvePrimaryCategoryCode(geoRegionLib, primaryAsset);
+                primaryCategoryCode[i] = primaryCode;
+                primarySignature[i] = (byte)(10 + primaryCode);
+            }
         }
+    }
+
+    /// <summary>
+    /// 判断地块是否可视为“沙滩材质”。
+    /// </summary>
+    private static bool IsBeachMaterialTile(TileTypeBase tileType, string biomeId)
+    {
+        if (tileType == null) return false;
+        if (tileType.sand) return true;
+
+        var tileTypeId = tileType.id;
+        if (string.Equals(tileTypeId, "sand", StringComparison.Ordinal) ||
+            string.Equals(tileTypeId, "snow_sand", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return string.Equals(biomeId, "biome_sand", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// 判断地块 8 邻接是否存在水体。
+    /// </summary>
+    private static bool HasWaterNeighbor8(WorldTile[] tiles, int tileId, int width, int height, bool[] isWater)
+    {
+        var tile = tiles[tileId];
+        var x = tile.x;
+        var y = tile.y;
+
+        if (x > 0 && isWater[tileId - 1]) return true;
+        if (x < width - 1 && isWater[tileId + 1]) return true;
+        if (y > 0 && isWater[tileId - width]) return true;
+        if (y < height - 1 && isWater[tileId + width]) return true;
+
+        if (x > 0 && y > 0 && isWater[tileId - width - 1]) return true;
+        if (x < width - 1 && y > 0 && isWater[tileId - width + 1]) return true;
+        if (x > 0 && y < height - 1 && isWater[tileId + width - 1]) return true;
+        if (x < width - 1 && y < height - 1 && isWater[tileId + width + 1]) return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// 广度扩展沙滩距离场。
+    /// </summary>
+    private static void TryExpandBeachDistance(
+        int index,
+        int distance,
+        bool[] isLand,
+        bool[] isBeachMaterial,
+        int[] beachDistance,
+        int[] queue,
+        ref int tail)
+    {
+        if (!isLand[index] || !isBeachMaterial[index]) return;
+        if (beachDistance[index] >= 0) return;
+
+        beachDistance[index] = distance;
+        queue[tail++] = index;
     }
 
     private static void GeneratePrimary(
@@ -238,67 +357,55 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         GeoRegionLibrary geoRegionLib,
         byte[] primarySignature,
         byte[] landformCode,
+        bool[] isLand,
+        bool[] isWater,
         int[] queue)
     {
-        var visited = new bool[tiles.Length];
+        var components = new List<MutableRegionComponent>(256);
+        var componentOfTile = new int[tiles.Length];
+        for (var i = 0; i < componentOfTile.Length; i++) componentOfTile[i] = -1;
 
-        for (var i = 0; i < tiles.Length; i++)
+        CollectPrimaryNonWaterComponents(tiles, width, height, primarySignature, queue, components, componentOfTile);
+        CollectPrimaryWaterComponents(tiles, width, height, evt.WorldSeedId, geoRegionLib, isLand, isWater, queue, components, componentOfTile);
+
+        MergeOrDropTinyComponents(tiles, width, height, components, componentOfTile,
+            sig => ResolvePrimaryMinTilesBySignature(geoRegionLib, sig));
+
+        for (var i = 0; i < components.Count; i++)
         {
-            var sig = primarySignature[i];
-            if (sig == 0 || visited[i]) continue;
+            var component = components[i];
+            if (component.Removed || component.TileIds.Count <= 0) continue;
 
-            var count = FloodFillBySignature(tiles, width, height, i, sig, primarySignature, visited, queue,
-                out var sumX, out var sumY, out var touchesEdge);
+            var count = component.TileIds.Count;
+            var centerX = (component.SumX + count / 2) / count;
+            var centerY = (component.SumY + count / 2) / count;
 
-            if (count <= 0) continue;
-
-            var baseLayerType = SigToBaseLayerType(sig);
-            var centerX = (sumX + count / 2) / count;
-            var centerY = (sumY + count / 2) / count;
-            var waterKind = PrimaryWaterKind.None;
+            var waterKind = SignatureToWaterKind(component.Signature);
+            var baseLayerType = waterKind == PrimaryWaterKind.None
+                ? SigToBaseLayerType((byte)component.Signature)
+                : TileLayerType.Ocean;
 
             string biomeDominantCategoryId = null;
             if (baseLayerType == TileLayerType.Ground)
             {
-                var biomeCode = (byte)(sig - 10);
+                var biomeCode = (byte)(component.Signature - 10);
                 biomeDominantCategoryId = PrimaryCategoryIdFromCode(geoRegionLib, biomeCode);
             }
             else if (baseLayerType == TileLayerType.Block)
             {
                 biomeDominantCategoryId = geoRegionLib.PrimaryMountains?.id;
             }
-            else if (baseLayerType == TileLayerType.Ocean)
-            {
-                var minX = width;
-                var minY = height;
-                var maxX = 0;
-                var maxY = 0;
-
-                for (var k = 0; k < count; k++)
-                {
-                    var tileId = queue[k];
-                    var tile = tiles[tileId];
-                    minX = Math.Min(minX, tile.x);
-                    minY = Math.Min(minY, tile.y);
-                    maxX = Math.Max(maxX, tile.x);
-                    maxY = Math.Max(maxY, tile.y);
-                }
-
-                var bboxWidth = maxX - minX + 1;
-                var bboxHeight = maxY - minY + 1;
-                waterKind = geoRegionLib.ResolvePrimaryWaterKind(touchesEdge, count, bboxWidth, bboxHeight);
-            }
 
             string landformDominantCategoryId = null;
             if (baseLayerType is TileLayerType.Ground or TileLayerType.Block)
             {
-                landformDominantCategoryId = ResolveDominantLandformCategoryId(geoRegionLib, landformCode, queue, count);
+                landformDominantCategoryId = ResolveDominantLandformCategoryId(geoRegionLib, landformCode, component.TileIds);
             }
 
             var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
-            for (var k = 0; k < count; k++)
+            for (var k = 0; k < component.TileIds.Count; k++)
             {
-                var tileId = queue[k];
+                var tileId = component.TileIds[k];
                 var tileEntity = ModClass.I.TileExtendManager.Get(tileId).E;
                 tileEntity.AddRelation(new BelongToRelation
                 {
@@ -316,7 +423,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 RegionId = region.getID(),
                 BaseLayerType = baseLayerType,
                 WaterKind = waterKind,
-                TouchesEdge = touchesEdge,
+                TouchesEdge = component.TouchesEdge,
                 CenterX = centerX,
                 CenterY = centerY,
                 TileCount = count,
@@ -324,6 +431,561 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 LandformDominantCategoryId = landformDominantCategoryId
             });
         }
+    }
+
+    private static void CollectPrimaryNonWaterComponents(
+        WorldTile[] tiles,
+        int width,
+        int height,
+        byte[] primarySignature,
+        int[] queue,
+        List<MutableRegionComponent> components,
+        int[] componentOfTile)
+    {
+        var visited = new bool[tiles.Length];
+        for (var i = 0; i < tiles.Length; i++)
+        {
+            var sig = primarySignature[i];
+            if (sig == 0 || sig == 1 || visited[i]) continue;
+
+            var count = FloodFillBySignature(tiles, width, height, i, sig, primarySignature, visited, queue,
+                out var sumX, out var sumY, out var touchesEdge);
+            if (count <= 0) continue;
+
+            var tileIds = new List<int>(count);
+            for (var k = 0; k < count; k++)
+            {
+                var tileId = queue[k];
+                tileIds.Add(tileId);
+                componentOfTile[tileId] = components.Count;
+            }
+
+            components.Add(new MutableRegionComponent(sig, tileIds, sumX, sumY, touchesEdge));
+        }
+    }
+
+    private static void CollectPrimaryWaterComponents(
+        WorldTile[] tiles,
+        int width,
+        int height,
+        int worldSeedId,
+        GeoRegionLibrary geoRegionLib,
+        bool[] isLand,
+        bool[] isWater,
+        int[] queue,
+        List<MutableRegionComponent> components,
+        int[] componentOfTile)
+    {
+        var maxHalfWidth = Math.Max(1, geoRegionLib.Strait?.MaxHalfWidth ?? 1);
+        var channelMask = BuildWaterChannelMask(tiles, width, height, isLand, isWater, maxHalfWidth);
+        var isRiver = new bool[tiles.Length];
+        var riverVisited = new bool[tiles.Length];
+
+        var riverMinTiles = Math.Max(1, geoRegionLib.PrimaryRiver?.MinTiles ?? 12);
+        var riverMaxTiles = geoRegionLib.PrimaryRiver?.MaxTiles ?? 2048;
+        var riverMinAspectRatio = geoRegionLib.PrimaryRiver?.MinAspectRatio > 0f
+            ? geoRegionLib.PrimaryRiver.MinAspectRatio
+            : 3.0f;
+
+        for (var i = 0; i < tiles.Length; i++)
+        {
+            if (!isWater[i] || !channelMask[i] || riverVisited[i]) continue;
+
+            var count = FloodFillMask(tiles, width, height, i, channelMask, riverVisited, queue,
+                out var sumX, out var sumY, out var touchesEdge, out var minX, out var minY, out var maxX, out var maxY);
+            if (count <= 0) continue;
+
+            var bboxW = maxX - minX + 1;
+            var bboxH = maxY - minY + 1;
+            var aspect = Math.Max(bboxW, bboxH) / (float)Math.Max(1, Math.Min(bboxW, bboxH));
+            var isRiverComponent = count >= riverMinTiles &&
+                                   (riverMaxTiles <= 0 || count <= riverMaxTiles) &&
+                                   aspect >= riverMinAspectRatio;
+            if (!isRiverComponent) continue;
+
+            var tileIds = new List<int>(count);
+            for (var k = 0; k < count; k++)
+            {
+                var tileId = queue[k];
+                if (!isWater[tileId]) continue;
+                isRiver[tileId] = true;
+                tileIds.Add(tileId);
+                componentOfTile[tileId] = components.Count;
+            }
+
+            if (tileIds.Count > 0)
+            {
+                components.Add(new MutableRegionComponent((int)PrimaryWaterSignature.River, tileIds, sumX, sumY, touchesEdge));
+            }
+        }
+
+        var nonRiverMask = new bool[tiles.Length];
+        for (var i = 0; i < tiles.Length; i++)
+        {
+            nonRiverMask[i] = isWater[i] && !isRiver[i];
+        }
+
+        var visitedWater = new bool[tiles.Length];
+        var owner = new int[tiles.Length];
+        var membershipMark = new int[tiles.Length];
+        var marksToken = 1;
+        for (var i = 0; i < owner.Length; i++)
+        {
+            owner[i] = -1;
+        }
+
+        var componentOrdinal = 0;
+        var lakeMinTiles = Math.Max(1, geoRegionLib.PrimaryLake?.MinTiles ?? 24);
+        var closedDirectMaxTiles = Math.Max(64, lakeMinTiles * 6);
+
+        for (var i = 0; i < tiles.Length; i++)
+        {
+            if (!nonRiverMask[i] || visitedWater[i]) continue;
+
+            var count = FloodFillMask(tiles, width, height, i, nonRiverMask, visitedWater, queue,
+                out var sumX, out var sumY, out var touchesEdge);
+            if (count <= 0) continue;
+
+            componentOrdinal++;
+            var boundarySideMask = ComputeBoundarySideMask(tiles, queue, count, width, height);
+            var boundarySideCount = CountBoundarySides(boundarySideMask);
+            var isLargeConnectedWater = boundarySideCount >= 3;
+            var isClosedWater = !isLargeConnectedWater;
+
+            var tileIds = new List<int>(count);
+            for (var k = 0; k < count; k++)
+            {
+                tileIds.Add(queue[k]);
+            }
+
+            if (isClosedWater && count <= closedDirectMaxTiles)
+            {
+                var componentIndex = components.Count;
+                components.Add(new MutableRegionComponent((int)PrimaryWaterSignature.Lake, tileIds, sumX, sumY, false));
+                for (var k = 0; k < tileIds.Count; k++)
+                {
+                    componentOfTile[tileIds[k]] = componentIndex;
+                }
+                continue;
+            }
+
+            var signature = isLargeConnectedWater ? (int)PrimaryWaterSignature.Sea : (int)PrimaryWaterSignature.Lake;
+            var componentSeed = ComputeWaterSplitSeed(worldSeedId, componentOrdinal, count, boundarySideMask);
+            var splitCount = ResolveWaterSplitCount(geoRegionLib, count, isLargeConnectedWater, componentSeed);
+            if (splitCount <= 1)
+            {
+                var componentIndex = components.Count;
+                components.Add(new MutableRegionComponent(signature, tileIds, sumX, sumY, touchesEdge));
+                for (var k = 0; k < tileIds.Count; k++)
+                {
+                    componentOfTile[tileIds[k]] = componentIndex;
+                }
+                continue;
+            }
+
+            marksToken++;
+            if (marksToken == int.MaxValue)
+            {
+                Array.Clear(membershipMark, 0, membershipMark.Length);
+                marksToken = 1;
+            }
+
+            for (var k = 0; k < tileIds.Count; k++)
+            {
+                var tileId = tileIds[k];
+                membershipMark[tileId] = marksToken;
+                owner[tileId] = -1;
+            }
+
+            splitCount = Math.Min(splitCount, tileIds.Count);
+            var seeds = PickDistinctSeedTiles(tileIds, splitCount, componentSeed);
+            GrowWaterClustersRandomly(tileIds, seeds, owner, membershipMark, marksToken, tiles, width, height, componentSeed);
+
+            var clusterTiles = new List<int>[splitCount];
+            var clusterSumX = new int[splitCount];
+            var clusterSumY = new int[splitCount];
+            var clusterTouchesEdge = new bool[splitCount];
+
+            for (var k = 0; k < tileIds.Count; k++)
+            {
+                var tileId = tileIds[k];
+                var clusterId = owner[tileId];
+                if (clusterId < 0) clusterId = 0;
+
+                clusterTiles[clusterId] ??= new List<int>(tileIds.Count / splitCount + 1);
+                clusterTiles[clusterId].Add(tileId);
+
+                var tile = tiles[tileId];
+                clusterSumX[clusterId] += tile.x;
+                clusterSumY[clusterId] += tile.y;
+                if (tile.x == 0 || tile.y == 0 || tile.x == width - 1 || tile.y == height - 1) clusterTouchesEdge[clusterId] = true;
+            }
+
+            for (var clusterId = 0; clusterId < splitCount; clusterId++)
+            {
+                var cluster = clusterTiles[clusterId];
+                if (cluster == null || cluster.Count == 0) continue;
+
+                var componentIndex = components.Count;
+                components.Add(new MutableRegionComponent(signature, cluster, clusterSumX[clusterId], clusterSumY[clusterId], clusterTouchesEdge[clusterId]));
+                for (var k = 0; k < cluster.Count; k++)
+                {
+                    componentOfTile[cluster[k]] = componentIndex;
+                }
+            }
+
+            for (var k = 0; k < tileIds.Count; k++)
+            {
+                owner[tileIds[k]] = -1;
+            }
+        }
+    }
+
+    private static bool[] BuildWaterChannelMask(
+        WorldTile[] tiles,
+        int width,
+        int height,
+        bool[] isLand,
+        bool[] isWater,
+        int maxHalfWidth)
+    {
+        var channel = new bool[tiles.Length];
+        for (var i = 0; i < tiles.Length; i++)
+        {
+            if (!isWater[i]) continue;
+
+            var tile = tiles[i];
+            var x = tile.x;
+            var y = tile.y;
+
+            var leftLand = x > 0 && isLand[i - 1];
+            var rightLand = x < width - 1 && isLand[i + 1];
+            var downLand = y > 0 && isLand[i - width];
+            var upLand = y < height - 1 && isLand[i + width];
+
+            var landAdjCount = 0;
+            if (leftLand) landAdjCount++;
+            if (rightLand) landAdjCount++;
+            if (downLand) landAdjCount++;
+            if (upLand) landAdjCount++;
+
+            var narrowH = HasLandWithin(x, y, -1, 0, maxHalfWidth, isLand, isWater, width, height) &&
+                          HasLandWithin(x, y, 1, 0, maxHalfWidth, isLand, isWater, width, height);
+            var narrowV = HasLandWithin(x, y, 0, -1, maxHalfWidth, isLand, isWater, width, height) &&
+                          HasLandWithin(x, y, 0, 1, maxHalfWidth, isLand, isWater, width, height);
+
+            channel[i] = narrowH || narrowV || landAdjCount >= 3;
+        }
+
+        return channel;
+    }
+
+    private static int ResolveWaterSplitCount(GeoRegionLibrary geoRegionLib, int size, bool isLargeConnectedWater, int randomSeed)
+    {
+        if (size <= 0) return 1;
+
+        var minTiles = isLargeConnectedWater
+            ? Math.Max(1, geoRegionLib.PrimarySea?.MinTiles ?? 64)
+            : Math.Max(1, geoRegionLib.PrimaryLake?.MinTiles ?? 24);
+
+        var sqrtScale = isLargeConnectedWater ? 7.0 : 8.0;
+        var bySqrt = Math.Max(1, (int)Math.Round(Math.Sqrt(size) / sqrtScale));
+        var byMinTiles = Math.Max(1, size / minTiles);
+        var split = Math.Min(bySqrt, byMinTiles);
+
+        if (isLargeConnectedWater)
+        {
+            split = Math.Max(1, (split + 3) / 4);
+        }
+
+        if (split > 1)
+        {
+            var jitter = Math.Abs(MixInt(randomSeed ^ 0x51F15E)) % 3 - 1;
+            split = Math.Max(1, split + jitter);
+        }
+
+        if (isLargeConnectedWater && size >= minTiles * 12)
+        {
+            split = Math.Max(2, split);
+        }
+
+        return Math.Max(1, split);
+    }
+
+    private static int ComputeWaterSplitSeed(int worldSeedId, int componentOrdinal, int componentSize, int boundarySideMask)
+    {
+        unchecked
+        {
+            var hash = worldSeedId;
+            hash = hash * 16777619 ^ componentOrdinal;
+            hash = hash * 16777619 ^ componentSize;
+            hash = hash * 16777619 ^ boundarySideMask;
+            return hash;
+        }
+    }
+
+    private static int ComputeBoundarySideMask(WorldTile[] tiles, int[] indices, int count, int width, int height)
+    {
+        var mask = 0;
+        for (var i = 0; i < count; i++)
+        {
+            var tile = tiles[indices[i]];
+            if (tile.x == 0) mask |= 1;
+            if (tile.x == width - 1) mask |= 2;
+            if (tile.y == 0) mask |= 4;
+            if (tile.y == height - 1) mask |= 8;
+            if (mask == 15) break;
+        }
+
+        return mask;
+    }
+
+    private static int CountBoundarySides(int mask)
+    {
+        var count = 0;
+        if ((mask & 1) != 0) count++;
+        if ((mask & 2) != 0) count++;
+        if ((mask & 4) != 0) count++;
+        if ((mask & 8) != 0) count++;
+        return count;
+    }
+
+    private static int[] PickDistinctSeedTiles(List<int> tileIds, int count, int seed)
+    {
+        if (count <= 0 || tileIds == null || tileIds.Count == 0)
+        {
+            return Array.Empty<int>();
+        }
+
+        count = Math.Min(count, tileIds.Count);
+        var rng = new Random(seed);
+        var picked = new HashSet<int>();
+        var result = new int[count];
+        var filled = 0;
+
+        while (filled < count)
+        {
+            var idx = rng.Next(tileIds.Count);
+            var tileId = tileIds[idx];
+            if (!picked.Add(tileId)) continue;
+            result[filled++] = tileId;
+        }
+
+        return result;
+    }
+
+    private static void GrowWaterClustersRandomly(
+        List<int> tileIds,
+        int[] seeds,
+        int[] owner,
+        int[] membershipMark,
+        int marksToken,
+        WorldTile[] tiles,
+        int width,
+        int height,
+        int seed)
+    {
+        if (tileIds == null || tileIds.Count == 0 || seeds == null || seeds.Length == 0) return;
+
+        var rng = new Random(seed ^ unchecked((int)0x9E3779B9));
+        var frontiers = new List<int>[seeds.Length];
+        var activeClusters = new List<int>(seeds.Length);
+
+        for (var i = 0; i < seeds.Length; i++)
+        {
+            var seedTileId = seeds[i];
+            owner[seedTileId] = i;
+            frontiers[i] = new List<int>(32) { seedTileId };
+            activeClusters.Add(i);
+        }
+
+        while (activeClusters.Count > 0)
+        {
+            var totalFrontier = 0;
+            for (var i = 0; i < activeClusters.Count; i++)
+            {
+                var clusterId = activeClusters[i];
+                totalFrontier += frontiers[clusterId].Count;
+            }
+            if (totalFrontier <= 0) break;
+
+            var pick = rng.Next(totalFrontier);
+            var activeIndex = 0;
+            for (; activeIndex < activeClusters.Count; activeIndex++)
+            {
+                var clusterId = activeClusters[activeIndex];
+                var frontierCount = frontiers[clusterId].Count;
+                if (pick < frontierCount) break;
+                pick -= frontierCount;
+            }
+
+            if (activeIndex >= activeClusters.Count) activeIndex = activeClusters.Count - 1;
+            var ownerId = activeClusters[activeIndex];
+            var frontier = frontiers[ownerId];
+            if (frontier.Count <= 0)
+            {
+                activeClusters.RemoveAt(activeIndex);
+                continue;
+            }
+
+            var frontierPick = rng.Next(frontier.Count);
+            var tileId = frontier[frontierPick];
+            var tile = tiles[tileId];
+            var x = tile.x;
+            var y = tile.y;
+
+            var c0 = -1;
+            var c1 = -1;
+            var c2 = -1;
+            var c3 = -1;
+            var candidateCount = 0;
+
+            if (x > 0)
+            {
+                var n = tileId - 1;
+                if (membershipMark[n] == marksToken && owner[n] < 0)
+                {
+                    if (candidateCount == 0) c0 = n;
+                    else if (candidateCount == 1) c1 = n;
+                    else if (candidateCount == 2) c2 = n;
+                    else c3 = n;
+                    candidateCount++;
+                }
+            }
+            if (x < width - 1)
+            {
+                var n = tileId + 1;
+                if (membershipMark[n] == marksToken && owner[n] < 0)
+                {
+                    if (candidateCount == 0) c0 = n;
+                    else if (candidateCount == 1) c1 = n;
+                    else if (candidateCount == 2) c2 = n;
+                    else c3 = n;
+                    candidateCount++;
+                }
+            }
+            if (y > 0)
+            {
+                var n = tileId - width;
+                if (membershipMark[n] == marksToken && owner[n] < 0)
+                {
+                    if (candidateCount == 0) c0 = n;
+                    else if (candidateCount == 1) c1 = n;
+                    else if (candidateCount == 2) c2 = n;
+                    else c3 = n;
+                    candidateCount++;
+                }
+            }
+            if (y < height - 1)
+            {
+                var n = tileId + width;
+                if (membershipMark[n] == marksToken && owner[n] < 0)
+                {
+                    if (candidateCount == 0) c0 = n;
+                    else if (candidateCount == 1) c1 = n;
+                    else if (candidateCount == 2) c2 = n;
+                    else c3 = n;
+                    candidateCount++;
+                }
+            }
+
+            if (candidateCount <= 0)
+            {
+                frontier[frontierPick] = frontier[frontier.Count - 1];
+                frontier.RemoveAt(frontier.Count - 1);
+                if (frontier.Count == 0)
+                {
+                    activeClusters.RemoveAt(activeIndex);
+                }
+                continue;
+            }
+
+            var selected = rng.Next(candidateCount);
+            var nextTileId = selected switch
+            {
+                0 => c0,
+                1 => c1,
+                2 => c2,
+                _ => c3
+            };
+
+            owner[nextTileId] = ownerId;
+            frontier.Add(nextTileId);
+        }
+
+        for (var i = 0; i < tileIds.Count; i++)
+        {
+            var tileId = tileIds[i];
+            if (owner[tileId] >= 0) continue;
+
+            var tile = tiles[tileId];
+            var x = tile.x;
+            var y = tile.y;
+            var fallbackOwner = -1;
+
+            if (x > 0)
+            {
+                var n = tileId - 1;
+                if (membershipMark[n] == marksToken && owner[n] >= 0) fallbackOwner = owner[n];
+            }
+            if (fallbackOwner < 0 && x < width - 1)
+            {
+                var n = tileId + 1;
+                if (membershipMark[n] == marksToken && owner[n] >= 0) fallbackOwner = owner[n];
+            }
+            if (fallbackOwner < 0 && y > 0)
+            {
+                var n = tileId - width;
+                if (membershipMark[n] == marksToken && owner[n] >= 0) fallbackOwner = owner[n];
+            }
+            if (fallbackOwner < 0 && y < height - 1)
+            {
+                var n = tileId + width;
+                if (membershipMark[n] == marksToken && owner[n] >= 0) fallbackOwner = owner[n];
+            }
+
+            owner[tileId] = fallbackOwner >= 0 ? fallbackOwner : 0;
+        }
+    }
+
+    private static int MixInt(int value)
+    {
+        unchecked
+        {
+            var v = value;
+            v ^= v >> 16;
+            v *= unchecked((int)0x7FEB352D);
+            v ^= v >> 15;
+            v *= unchecked((int)0x846CA68B);
+            v ^= v >> 16;
+            return v;
+        }
+    }
+
+    private static int ResolvePrimaryMinTilesBySignature(GeoRegionLibrary geoRegionLib, int signature)
+    {
+        return signature switch
+        {
+            (int)PrimaryWaterSignature.Sea => Math.Max(1, geoRegionLib.PrimarySea?.MinTiles ?? 64),
+            (int)PrimaryWaterSignature.Lake => Math.Max(1, geoRegionLib.PrimaryLake?.MinTiles ?? 24),
+            (int)PrimaryWaterSignature.River => Math.Max(1, geoRegionLib.PrimaryRiver?.MinTiles ?? 12),
+            2 => Math.Max(1, geoRegionLib.PrimaryLava?.MinTiles ?? 16),
+            3 => Math.Max(1, geoRegionLib.PrimaryGoo?.MinTiles ?? 16),
+            4 => Math.Max(1, geoRegionLib.PrimaryMountains?.MinTiles ?? 32),
+            >= 10 => Math.Max(1, PrimaryCategoryAssetFromCode(geoRegionLib, (byte)(signature - 10))?.MinTiles ?? 32),
+            _ => 1
+        };
+    }
+
+    private static PrimaryWaterKind SignatureToWaterKind(int signature)
+    {
+        return signature switch
+        {
+            (int)PrimaryWaterSignature.Sea => PrimaryWaterKind.Sea,
+            (int)PrimaryWaterSignature.Lake => PrimaryWaterKind.Lake,
+            (int)PrimaryWaterSignature.River => PrimaryWaterKind.River,
+            _ => PrimaryWaterKind.None
+        };
     }
 
     private static void GenerateLandform(
@@ -337,6 +999,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         int[] queue)
     {
         var visited = new bool[tiles.Length];
+        var components = new List<MutableRegionComponent>(256);
+        var componentOfTile = new int[tiles.Length];
+        for (var i = 0; i < componentOfTile.Length; i++) componentOfTile[i] = -1;
 
         for (var i = 0; i < tiles.Length; i++)
         {
@@ -345,19 +1010,38 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
 
             var count = FloodFillBySignature(tiles, width, height, i, sig, landformCode, visited, queue,
                 out var sumX, out var sumY, out var touchesEdge);
-
             if (count <= 0) continue;
 
-            var centerX = (sumX + count / 2) / count;
-            var centerY = (sumY + count / 2) / count;
-
-            var biomeDominantCategoryId = ResolveDominantPrimaryCategoryId(geoRegionLib, primaryCategoryCode, queue, count);
-            var landformDominantCategoryId = LandformCategoryIdFromCode(geoRegionLib, sig);
-
-            var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
+            var tileIds = new List<int>(count);
             for (var k = 0; k < count; k++)
             {
                 var tileId = queue[k];
+                tileIds.Add(tileId);
+                componentOfTile[tileId] = components.Count;
+            }
+
+            components.Add(new MutableRegionComponent(sig, tileIds, sumX, sumY, touchesEdge));
+        }
+
+        MergeOrDropTinyComponents(tiles, width, height, components, componentOfTile,
+            sig => ResolveLandformMinTilesBySignature(geoRegionLib, sig));
+
+        for (var i = 0; i < components.Count; i++)
+        {
+            var component = components[i];
+            if (component.Removed || component.TileIds.Count <= 0) continue;
+
+            var count = component.TileIds.Count;
+            var centerX = (component.SumX + count / 2) / count;
+            var centerY = (component.SumY + count / 2) / count;
+
+            var biomeDominantCategoryId = ResolveDominantPrimaryCategoryId(geoRegionLib, primaryCategoryCode, component.TileIds);
+            var landformDominantCategoryId = LandformCategoryIdFromCode(geoRegionLib, (byte)component.Signature);
+
+            var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
+            for (var k = 0; k < component.TileIds.Count; k++)
+            {
+                var tileId = component.TileIds[k];
                 var tileEntity = ModClass.I.TileExtendManager.Get(tileId).E;
                 tileEntity.AddRelation(new BelongToRelation
                 {
@@ -375,7 +1059,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 RegionId = region.getID(),
                 BaseLayerType = TileLayerType.Ground,
                 WaterKind = PrimaryWaterKind.None,
-                TouchesEdge = touchesEdge,
+                TouchesEdge = component.TouchesEdge,
                 CenterX = centerX,
                 CenterY = centerY,
                 TileCount = count,
@@ -408,6 +1092,10 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 out var sumX, out var sumY, out var touchesEdge, out var minX, out var minY, out var maxX, out var maxY);
 
             if (count <= 0) continue;
+            var minTiles = touchesEdge
+                ? Math.Max(1, geoRegionLib.LandmassMainland?.MinTiles ?? 64)
+                : Math.Max(1, geoRegionLib.LandmassIsland?.MinTiles ?? 64);
+            if (count < minTiles) continue;
 
             var centerX = (sumX + count / 2) / count;
             var centerY = (sumY + count / 2) / count;
@@ -804,7 +1492,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             // 创建一个可非连通的群岛 GeoRegion
             var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
 
-            var primaryCounts = new int[11];
+            var primaryCounts = new int[12];
             var landformCounts = new int[5];
 
             for (var i = 0; i < cluster.Count; i++)
@@ -852,19 +1540,165 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
-    private static byte ResolvePrimaryBiomeCode(GeoRegionLibrary geoRegionLib, string biomeId)
+    private static int ResolveLandformMinTilesBySignature(GeoRegionLibrary geoRegionLib, int signature)
     {
-        var cat = geoRegionLib.ResolvePrimaryLandByBiome(biomeId);
-        if (cat == null) return 9;
-        if (cat == geoRegionLib.PrimaryGrassland) return 1;
-        if (cat == geoRegionLib.PrimaryForest) return 2;
-        if (cat == geoRegionLib.PrimaryJungle) return 3;
-        if (cat == geoRegionLib.PrimarySwamp) return 4;
-        if (cat == geoRegionLib.PrimaryDesert) return 5;
-        if (cat == geoRegionLib.PrimaryTundra) return 6;
-        if (cat == geoRegionLib.PrimaryHighlands) return 7;
-        if (cat == geoRegionLib.PrimaryWasteland) return 8;
-        return 9;
+        return signature switch
+        {
+            1 => Math.Max(1, geoRegionLib.LandformPlain?.MinTiles ?? 64),
+            2 => Math.Max(1, geoRegionLib.LandformMountain?.MinTiles ?? 64),
+            3 => Math.Max(1, geoRegionLib.LandformCanyon?.MinTiles ?? 64),
+            4 => Math.Max(1, geoRegionLib.LandformBasin?.MinTiles ?? 64),
+            _ => 1
+        };
+    }
+
+    private static void MergeOrDropTinyComponents(
+        WorldTile[] tiles,
+        int width,
+        int height,
+        List<MutableRegionComponent> components,
+        int[] componentOfTile,
+        Func<int, int> resolveMinTiles)
+    {
+        if (components == null || components.Count == 0) return;
+
+        var neighborContact = new Dictionary<int, int>(16);
+        var order = new List<int>(components.Count);
+
+        var changed = true;
+        while (changed)
+        {
+            changed = false;
+            order.Clear();
+            for (var i = 0; i < components.Count; i++)
+            {
+                if (components[i].Removed || components[i].TileIds.Count <= 0) continue;
+                order.Add(i);
+            }
+
+            order.Sort((a, b) => components[a].TileIds.Count.CompareTo(components[b].TileIds.Count));
+
+            for (var oi = 0; oi < order.Count; oi++)
+            {
+                var index = order[oi];
+                var component = components[index];
+                if (component.Removed || component.TileIds.Count <= 0) continue;
+
+                var minTiles = Math.Max(1, resolveMinTiles(component.Signature));
+                if (component.TileIds.Count >= minTiles) continue;
+
+                neighborContact.Clear();
+                for (var t = 0; t < component.TileIds.Count; t++)
+                {
+                    var tileId = component.TileIds[t];
+                    var tile = tiles[tileId];
+                    var x = tile.x;
+                    var y = tile.y;
+
+                    if (x > 0)
+                    {
+                        TryAccumulateNeighbor(index, tileId - 1, component.Signature, components, componentOfTile, neighborContact);
+                    }
+                    if (x < width - 1)
+                    {
+                        TryAccumulateNeighbor(index, tileId + 1, component.Signature, components, componentOfTile, neighborContact);
+                    }
+                    if (y > 0)
+                    {
+                        TryAccumulateNeighbor(index, tileId - width, component.Signature, components, componentOfTile, neighborContact);
+                    }
+                    if (y < height - 1)
+                    {
+                        TryAccumulateNeighbor(index, tileId + width, component.Signature, components, componentOfTile, neighborContact);
+                    }
+                }
+
+                var bestTarget = -1;
+                var bestContact = -1;
+                var bestSize = -1;
+                foreach (var pair in neighborContact)
+                {
+                    var target = pair.Key;
+                    var contact = pair.Value;
+                    var targetComponent = components[target];
+                    var targetSize = targetComponent.TileIds.Count;
+
+                    if (contact > bestContact || (contact == bestContact && targetSize > bestSize))
+                    {
+                        bestTarget = target;
+                        bestContact = contact;
+                        bestSize = targetSize;
+                    }
+                }
+
+                if (bestTarget >= 0)
+                {
+                    var targetComponent = components[bestTarget];
+                    targetComponent.SumX += component.SumX;
+                    targetComponent.SumY += component.SumY;
+                    targetComponent.TouchesEdge |= component.TouchesEdge;
+                    for (var t = 0; t < component.TileIds.Count; t++)
+                    {
+                        var tileId = component.TileIds[t];
+                        targetComponent.TileIds.Add(tileId);
+                        componentOfTile[tileId] = bestTarget;
+                    }
+                }
+                else
+                {
+                    for (var t = 0; t < component.TileIds.Count; t++)
+                    {
+                        componentOfTile[component.TileIds[t]] = -1;
+                    }
+                }
+
+                component.TileIds.Clear();
+                component.Removed = true;
+                changed = true;
+            }
+        }
+    }
+
+    private static void TryAccumulateNeighbor(
+        int selfIndex,
+        int neighborTileId,
+        int signature,
+        List<MutableRegionComponent> components,
+        int[] componentOfTile,
+        Dictionary<int, int> neighborContact)
+    {
+        var target = componentOfTile[neighborTileId];
+        if (target < 0 || target == selfIndex) return;
+
+        var targetComponent = components[target];
+        if (targetComponent.Removed || targetComponent.TileIds.Count <= 0) return;
+        if (targetComponent.Signature != signature) return;
+
+        if (neighborContact.TryGetValue(target, out var val))
+        {
+            neighborContact[target] = val + 1;
+        }
+        else
+        {
+            neighborContact[target] = 1;
+        }
+    }
+
+    private static byte ResolvePrimaryCategoryCode(GeoRegionLibrary geoRegionLib, GeoRegionAsset category)
+    {
+        if (category == null) return 10;
+        if (category == geoRegionLib.PrimaryGrassland) return 1;
+        if (category == geoRegionLib.PrimaryForest) return 2;
+        if (category == geoRegionLib.PrimaryJungle) return 3;
+        if (category == geoRegionLib.PrimarySwamp) return 4;
+        if (category == geoRegionLib.PrimaryDesert) return 5;
+        if (category == geoRegionLib.PrimaryTundra) return 6;
+        if (category == geoRegionLib.PrimaryHighlands) return 7;
+        if (category == geoRegionLib.PrimaryWasteland) return 8;
+        if (category == geoRegionLib.PrimaryBeach) return 9;
+        if (category == geoRegionLib.PrimarySpecial) return 10;
+        if (category == geoRegionLib.PrimaryMountains) return 11;
+        return 10;
     }
 
     private static byte ResolveLandformCode(GeoRegionLibrary geoRegionLib, GeoRegionAsset landformAsset)
@@ -906,7 +1740,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             6 => geoRegionLib.PrimaryTundra,
             7 => geoRegionLib.PrimaryHighlands,
             8 => geoRegionLib.PrimaryWasteland,
-            10 => geoRegionLib.PrimaryMountains,
+            9 => geoRegionLib.PrimaryBeach,
+            10 => geoRegionLib.PrimarySpecial,
+            11 => geoRegionLib.PrimaryMountains,
             _ => geoRegionLib.PrimarySpecial
         };
     }
@@ -925,8 +1761,20 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
 
     private static string ResolveDominantPrimaryCategoryId(GeoRegionLibrary geoRegionLib, byte[] primaryCategoryCode, int[] indices, int count)
     {
-        var counts = new int[11];
+        var counts = new int[12];
         for (var i = 0; i < count; i++)
+        {
+            var code = primaryCategoryCode[indices[i]];
+            if (code > 0 && code < counts.Length) counts[code]++;
+        }
+        var winner = (byte)ArgMax(counts);
+        return PrimaryCategoryIdFromCode(geoRegionLib, winner);
+    }
+
+    private static string ResolveDominantPrimaryCategoryId(GeoRegionLibrary geoRegionLib, byte[] primaryCategoryCode, List<int> indices)
+    {
+        var counts = new int[12];
+        for (var i = 0; i < indices.Count; i++)
         {
             var code = primaryCategoryCode[indices[i]];
             if (code > 0 && code < counts.Length) counts[code]++;
@@ -939,6 +1787,18 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
     {
         var counts = new int[5];
         for (var i = 0; i < count; i++)
+        {
+            var code = landformCode[indices[i]];
+            if (code > 0 && code < counts.Length) counts[code]++;
+        }
+        var winner = (byte)ArgMax(counts);
+        return LandformCategoryIdFromCode(geoRegionLib, winner);
+    }
+
+    private static string ResolveDominantLandformCategoryId(GeoRegionLibrary geoRegionLib, byte[] landformCode, List<int> indices)
+    {
+        var counts = new int[5];
+        for (var i = 0; i < indices.Count; i++)
         {
             var code = landformCode[indices[i]];
             if (code > 0 && code < counts.Length) counts[code]++;
@@ -1338,6 +2198,33 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         if (divisor <= 0) return 0;
         if (value >= 0) return value / divisor;
         return -((-value + divisor - 1) / divisor);
+    }
+
+    private enum PrimaryWaterSignature
+    {
+        Sea = 101,
+        Lake = 102,
+        River = 103
+    }
+
+    private sealed class MutableRegionComponent
+    {
+        public int Signature;
+        public List<int> TileIds;
+        public int SumX;
+        public int SumY;
+        public bool TouchesEdge;
+        public bool Removed;
+
+        public MutableRegionComponent(int signature, List<int> tileIds, int sumX, int sumY, bool touchesEdge)
+        {
+            Signature = signature;
+            TileIds = tileIds ?? new List<int>(4);
+            SumX = sumX;
+            SumY = sumY;
+            TouchesEdge = touchesEdge;
+            Removed = false;
+        }
     }
 
     private readonly struct IslandInfo
