@@ -9,6 +9,12 @@ SectLayer,宗门图层
 SectLayer Description,阿巴阿巴
 GeoRegionLayer,地理区域图层
 GeoRegionLayer Description,阿巴阿巴
+GeoRegionLandformLayer,地貌图层
+GeoRegionLandformLayer Description,阿巴阿巴
+GeoRegionLandmassLayer,陆块图层
+GeoRegionLandmassLayer Description,阿巴阿巴
+GeoRegionMorphologyLayer,形态图层
+GeoRegionMorphologyLayer Description,阿巴阿巴
 Cultiway.UI.WindowWorldWakan Title,世界灵气
 Cultiway.UI.WindowNewCreatureInfo Title,生物详细信息
 Cultiway.UI.ArmorGraph,各元素抗性
