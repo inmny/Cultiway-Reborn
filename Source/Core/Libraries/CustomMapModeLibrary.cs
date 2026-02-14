@@ -52,6 +52,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             id = "geo_region_landform",
             icon_path = "cultiway/icons/iconGeoRegion",
             toggle_name = "geo_region_landform_layer",
+            redirect_map_mode = MetaTypeExtend.GeoRegion,
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
                 var tile = World.world.GetTile(x, y).GetExtend();
@@ -70,6 +71,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             id = "geo_region_landmass",
             icon_path = "cultiway/icons/iconGeoRegion",
             toggle_name = "geo_region_landmass_layer",
+            redirect_map_mode = MetaTypeExtend.GeoRegion,
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
                 var tile = World.world.GetTile(x, y).GetExtend();
@@ -88,6 +90,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             id = "geo_region_morphology",
             icon_path = "cultiway/icons/iconGeoRegion",
             toggle_name = "geo_region_morphology_layer",
+            redirect_map_mode = MetaTypeExtend.GeoRegion,
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
                 var tile = World.world.GetTile(x, y).GetExtend();
@@ -113,6 +116,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             unselect_when_window = true,
             map_modes_switch = true,
             toggle_name = pAsset.toggle_name,
+            force_map_mode = pAsset.redirect_map_mode.Back(),
             toggle_action = _ => ModClass.I.CustomMapModeManager.SetAllDirty()
         };
         AssetManager.powers.add(power);

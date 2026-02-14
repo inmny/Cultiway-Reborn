@@ -1,5 +1,6 @@
 using Cultiway.Const;
 using Cultiway.Core;
+using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 
@@ -15,7 +16,12 @@ internal static class PatchZones
         {
             __result = MetaTypeExtend.Sect.Back();
         }
-        else if (WorldboxGame.MetaTypes.GeoRegion.isActive(pCheckOnlyOption))
+        else if (
+            WorldboxGame.MetaTypes.GeoRegion.isActive(pCheckOnlyOption)
+            || ModClass.I.CustomMapModeManager.CurrMapMode == CustomMapModeLibrary.GeoRegionLandform
+            || ModClass.I.CustomMapModeManager.CurrMapMode == CustomMapModeLibrary.GeoRegionMorphology
+            || ModClass.I.CustomMapModeManager.CurrMapMode == CustomMapModeLibrary.GeoRegionLandmass
+        )
         {
             __result = MetaTypeExtend.GeoRegion.Back();
         }

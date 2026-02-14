@@ -14,6 +14,7 @@ using Friflo.Engine.ECS;
 using UnityEngine;
 using db;
 using strings;
+using Cultiway.Core.Libraries;
 
 namespace Cultiway;
 
@@ -65,19 +66,54 @@ public partial class WorldboxGame
             if (ModClass.I?.TileExtendManager == null) return;
             if (!ModClass.I.TileExtendManager.Ready()) return;
 
+            var currMapMode = ModClass.I.CustomMapModeManager?.CurrMapMode;
             int current = 0;
             foreach (var geoRegion in I.GeoRegions.list)
             {
                 if (current >= asset.max_nameplate_count) return;
+                if (geoRegion == null || geoRegion.isRekt()) continue;
+
+                // 与 CustomMapModeLibrary 的渲染层选择保持一致
+                if (!ShouldShowGeoRegionInCurrentMapMode(geoRegion, currMapMode)) continue;
+
                 var links = geoRegion.E.GetIncomingLinks<BelongToRelation>();
-                if (links.Count == 0) return;
-                if (!TryGetRegionPosition(links.Entities, out var position)) return;
-                if (!World.world.move_camera.isWithinCameraViewNotPowerBar(position)) return;
+                if (links.Count == 0) continue;
+                if (!TryGetRegionPosition(links.Entities, out var position)) continue;
+                if (!World.world.move_camera.isWithinCameraViewNotPowerBar(position)) continue;
 
                 var nameplate = manager.prepareNext(asset, geoRegion);
                 ApplyGeoRegionNameplate(nameplate, geoRegion, geoRegion.getColor().getColorMain32(), position, links.Count);
                 current++;
             }
+        }
+
+        /// <summary>
+        /// 根据当前自定义地图模式过滤 GeoRegion 铭牌显示层。
+        /// 规则应与 CustomMapModeLibrary 中各 map mode 的 kernel_func 一致。
+        /// </summary>
+        private static bool ShouldShowGeoRegionInCurrentMapMode(GeoRegion geoRegion, CustomMapModeAsset currMapMode)
+        {
+            var layer = geoRegion.data.Layer;
+
+            if (currMapMode == CustomMapModeLibrary.GeoRegionLandform)
+            {
+                return layer == GeoRegionLayer.Landform;
+            }
+
+            if (currMapMode == CustomMapModeLibrary.GeoRegionLandmass)
+            {
+                return layer == GeoRegionLayer.Landmass;
+            }
+
+            if (currMapMode == CustomMapModeLibrary.GeoRegionMorphology)
+            {
+                return layer == GeoRegionLayer.Strait ||
+                       layer == GeoRegionLayer.Peninsula ||
+                       layer == GeoRegionLayer.Archipelago;
+            }
+
+            // 默认/Primary map mode 只显示 Primary 层
+            return layer == GeoRegionLayer.Primary;
         }
 
         private static bool TryGetRegionPosition(IEnumerable<Entity> tiles, out Vector3 position)
