@@ -11,6 +11,34 @@ public class GeoRegionNamingRule
     /// 命名模板，支持占位符：{Dir} {Biome} {Landform} {Type}。
     /// </summary>
     public string Template;
+    /// <summary>
+    /// 可选命名模板池（为空时回退 Template）。
+    /// </summary>
+    public string[] Templates;
+    /// <summary>
+    /// 前缀词池（如“苍/玄/灵”）。
+    /// </summary>
+    public string[] PrefixPool;
+    /// <summary>
+    /// 核心词池（如“渚/岭/泽”）。
+    /// </summary>
+    public string[] CorePool;
+    /// <summary>
+    /// 后缀词池（如“境/域/地带”）。
+    /// </summary>
+    public string[] SuffixPool;
+    /// <summary>
+    /// 是否允许方位词参与命名。
+    /// </summary>
+    public bool AllowDirPrefix = true;
+    /// <summary>
+    /// 是否允许群系词参与命名。
+    /// </summary>
+    public bool AllowBiomeToken = true;
+    /// <summary>
+    /// 是否允许地貌词参与命名。
+    /// </summary>
+    public bool AllowLandformToken = true;
 }
 
 /// <summary>
