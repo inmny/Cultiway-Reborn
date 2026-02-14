@@ -9,6 +9,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
 {
     public GeoRegionAsset PrimarySea { get; private set; }
     public GeoRegionAsset PrimaryLake { get; private set; }
+    public GeoRegionAsset PrimaryRiver { get; private set; }
     public GeoRegionAsset PrimaryLava { get; private set; }
     public GeoRegionAsset PrimaryGoo { get; private set; }
     public GeoRegionAsset PrimaryMountains { get; private set; }
@@ -58,9 +59,44 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         return _biomeIdToPrimaryClass.TryGetValue(biomeId, out category);
     }
 
-    public GeoRegionAsset ResolvePrimaryWater(bool touchesEdge)
+    /// <summary>
+    /// 根据 Primary 层水体细分类获取对应资产。
+    /// </summary>
+    public GeoRegionAsset ResolvePrimaryWater(PrimaryWaterKind waterKind)
     {
-        return touchesEdge ? PrimarySea : PrimaryLake;
+        return waterKind switch
+        {
+            PrimaryWaterKind.Sea => PrimarySea,
+            PrimaryWaterKind.River => PrimaryRiver,
+            PrimaryWaterKind.Lake => PrimaryLake,
+            _ => PrimaryLake
+        };
+    }
+
+    /// <summary>
+    /// 根据水域连通块形态判定 Sea/Lake/River。
+    /// </summary>
+    public PrimaryWaterKind ResolvePrimaryWaterKind(bool touchesEdge, int tileCount, int bboxWidth, int bboxHeight)
+    {
+        if (touchesEdge) return PrimaryWaterKind.Sea;
+
+        var river = PrimaryRiver;
+        if (river != null)
+        {
+            var minTiles = Math.Max(1, river.MinTiles);
+            var maxTiles = river.MaxTiles;
+            var minAspectRatio = river.MinAspectRatio > 0f ? river.MinAspectRatio : 3f;
+            var aspectRatio = Math.Max(bboxWidth, bboxHeight) / (float)Math.Max(1, Math.Min(bboxWidth, bboxHeight));
+
+            if (tileCount >= minTiles &&
+                (maxTiles <= 0 || tileCount <= maxTiles) &&
+                aspectRatio >= minAspectRatio)
+            {
+                return PrimaryWaterKind.River;
+            }
+        }
+
+        return PrimaryWaterKind.Lake;
     }
 
     public GeoRegionAsset ResolvePrimaryLandByBiome(string biomeId)
@@ -68,23 +104,38 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         return _biomeIdToPrimaryClass.TryGetValue(biomeId ?? string.Empty, out var category) ? category : PrimarySpecial;
     }
 
-    public GeoRegionAsset ResolvePrimarySpecial(TileLayerType layerType)
+    /// <summary>
+    /// 依据 tile 层级与标记解析 Primary 特殊地块分类。
+    /// </summary>
+    public GeoRegionAsset ResolvePrimarySpecial(TileLayerType layerType, bool isLavaFlag = false, bool isGooFlag = false, bool isMountainFlag = false)
     {
-        return layerType switch
+        if (layerType == TileLayerType.Lava || isLavaFlag)
         {
-            TileLayerType.Lava => PrimaryLava,
-            TileLayerType.Goo => PrimaryGoo,
-            TileLayerType.Block => PrimaryMountains,
-            _ => PrimarySpecial
-        };
+            return PrimaryLava;
+        }
+
+        if (layerType == TileLayerType.Goo || isGooFlag)
+        {
+            return PrimaryGoo;
+        }
+
+        if (layerType == TileLayerType.Block || isMountainFlag)
+        {
+            return PrimaryMountains;
+        }
+
+        return PrimarySpecial;
     }
 
-    public GeoRegionAsset ResolveLandform(int height, int slope, int delta)
+    /// <summary>
+    /// 基于 tile type / biome / 邻接统计解析地貌分类。
+    /// </summary>
+    public GeoRegionAsset ResolveLandform(in GeoRegionTileRuleContext context)
     {
         foreach (var rule in _landformRules)
         {
             if (rule == null) continue;
-            if (MatchLandformRule(rule, height, slope, delta))
+            if (MatchLandformRule(rule, context))
             {
                 return rule;
             }
@@ -97,23 +148,96 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         return touchesEdge ? LandmassMainland : LandmassIsland;
     }
 
-    private static bool MatchLandformRule(GeoRegionAsset rule, int height, int slope, int delta)
+    private static bool MatchLandformRule(GeoRegionAsset rule, in GeoRegionTileRuleContext context)
     {
-        bool heightOk = rule.MinHeight < 0 || height >= rule.MinHeight;
-        heightOk &= rule.MaxHeight < 0 || height <= rule.MaxHeight;
-
-        bool slopeOk = rule.MinSlope < 0 || slope >= rule.MinSlope;
-        slopeOk &= rule.MaxSlope < 0 || slope <= rule.MaxSlope;
-
-        bool deltaOk = rule.MinDelta < 0 || delta >= rule.MinDelta;
-        deltaOk &= rule.MaxDelta < 0 || delta <= rule.MaxDelta;
-
-        if (rule.HeightOrSlope && rule.MinHeight >= 0 && rule.MinSlope >= 0)
+        if (!MatchString(rule.TileTypeIds, context.TileTypeId))
         {
-            return (heightOk || slopeOk) && deltaOk;
+            return false;
         }
 
-        return heightOk && slopeOk && deltaOk;
+        if (!MatchLayer(rule.LayerTypes, context.LayerType))
+        {
+            return false;
+        }
+
+        if (!MatchString(rule.BiomeIds, context.BiomeId))
+        {
+            return false;
+        }
+
+        if (rule.RequireOceanFlag.HasValue && context.IsOceanFlag != rule.RequireOceanFlag.Value)
+        {
+            return false;
+        }
+
+        if (rule.RequireFillableWaterFlag.HasValue && context.IsFillableWaterFlag != rule.RequireFillableWaterFlag.Value)
+        {
+            return false;
+        }
+
+        if (rule.RequireLavaFlag.HasValue && context.IsLavaFlag != rule.RequireLavaFlag.Value)
+        {
+            return false;
+        }
+
+        if (rule.RequireGooFlag.HasValue && context.IsGooFlag != rule.RequireGooFlag.Value)
+        {
+            return false;
+        }
+
+        if (rule.RequireMountainFlag.HasValue && context.IsMountainFlag != rule.RequireMountainFlag.Value)
+        {
+            return false;
+        }
+
+        if (rule.MinNeighborWater > 0 && context.NeighborWaterCount < rule.MinNeighborWater)
+        {
+            return false;
+        }
+
+        if (rule.MinNeighborBlock > 0 && context.NeighborBlockCount < rule.MinNeighborBlock)
+        {
+            return false;
+        }
+
+        if (rule.MinNeighborPit > 0 && context.NeighborPitCount < rule.MinNeighborPit)
+        {
+            return false;
+        }
+
+        if (rule.RequireOppositeBlockPair && !context.HasOppositeBlockPair)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool MatchString(string[] candidates, string value)
+    {
+        if (candidates == null || candidates.Length == 0) return true;
+        if (string.IsNullOrEmpty(value)) return false;
+
+        for (var i = 0; i < candidates.Length; i++)
+        {
+            var candidate = candidates[i];
+            if (string.IsNullOrEmpty(candidate)) continue;
+            if (string.Equals(candidate, value, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool MatchLayer(TileLayerType[] candidates, TileLayerType value)
+    {
+        if (candidates == null || candidates.Length == 0) return true;
+        for (var i = 0; i < candidates.Length; i++)
+        {
+            if (candidates[i] == value) return true;
+        }
+        return false;
     }
 
     private void InitPrimary()
@@ -133,6 +257,16 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             DisplayName = "湖",
             Naming = new GeoRegionNamingRule { Template = "{Dir}湖" },
             MinTiles = 32
+        });
+        PrimaryRiver = add(new GeoRegionAsset
+        {
+            id = "Cultiway.GeoRegion.Primary.River",
+            Layer = GeoRegionLayer.Primary,
+            DisplayName = "河",
+            Naming = new GeoRegionNamingRule { Template = "{Dir}河" },
+            MinTiles = 16,
+            MaxTiles = 2048,
+            MinAspectRatio = 3.0f
         });
         PrimaryLava = add(new GeoRegionAsset
         {
@@ -256,35 +390,35 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         {
             id = "Cultiway.GeoRegion.Landform.Mountain",
             Layer = GeoRegionLayer.Landform,
-            Priority = 200,
+            Priority = 300,
             DisplayName = "山地",
             Naming = new GeoRegionNamingRule { Template = "{Dir}山地" },
             MinTiles = 128,
-            MinHeight = 170,
-            MinSlope = 18,
-            HeightOrSlope = true
+            RequireMountainFlag = true
         });
         LandformCanyon = add(new GeoRegionAsset
         {
             id = "Cultiway.GeoRegion.Landform.Canyon",
             Layer = GeoRegionLayer.Landform,
-            Priority = 300,
+            Priority = 260,
             DisplayName = "峡谷",
             Naming = new GeoRegionNamingRule { Template = "{Dir}峡谷" },
             MinTiles = 64,
-            MaxDelta = -12,
-            MinSlope = 20
+            RequireOceanFlag = false,
+            RequireFillableWaterFlag = false,
+            MinNeighborBlock = 2,
+            RequireOppositeBlockPair = true
         });
         LandformBasin = add(new GeoRegionAsset
         {
             id = "Cultiway.GeoRegion.Landform.Basin",
             Layer = GeoRegionLayer.Landform,
-            Priority = 100,
+            Priority = 200,
             DisplayName = "盆地",
             Naming = new GeoRegionNamingRule { Template = "{Dir}盆地" },
             MinTiles = 64,
-            MaxDelta = -8,
-            MaxSlope = 12
+            RequireFillableWaterFlag = true,
+            RequireOceanFlag = false
         });
 
         _landformRules = list.Where(a => a.Layer == GeoRegionLayer.Landform)

@@ -59,12 +59,12 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
 
         var total = tiles.Length;
         var isLand = new bool[total];
-        var isOcean = new bool[total];
+        var isWater = new bool[total];
         var primaryCategoryCode = new byte[total];
         var primarySignature = new byte[total];
         var landformCode = new byte[total];
 
-        BuildBaseArrays(tiles, width, height, geoRegionLib, isLand, isOcean, primaryCategoryCode, primarySignature, landformCode);
+        BuildBaseArrays(tiles, width, height, geoRegionLib, isLand, isWater, primaryCategoryCode, primarySignature, landformCode);
 
         var queue = new int[total];
 
@@ -74,8 +74,8 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         var islandCandidates = new List<IslandInfo>(64);
         GenerateLandmass(evt, tiles, width, height, geoRegionLib, isLand, primaryCategoryCode, landformCode, queue, islandCandidates);
 
-        GeneratePeninsula(evt, tiles, width, height, geoRegionLib, isLand, isOcean, primaryCategoryCode, landformCode, queue);
-        GenerateStrait(evt, tiles, width, height, geoRegionLib, isLand, isOcean, queue);
+        GeneratePeninsula(evt, tiles, width, height, geoRegionLib, isLand, isWater, primaryCategoryCode, landformCode, queue);
+        GenerateStrait(evt, tiles, width, height, geoRegionLib, isLand, isWater, queue);
         GenerateArchipelago(evt, tiles, width, height, geoRegionLib, primaryCategoryCode, landformCode, islandCandidates);
     }
 
@@ -91,94 +91,141 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         int height,
         GeoRegionLibrary geoRegionLib,
         bool[] isLand,
-        bool[] isOcean,
+        bool[] isWater,
         byte[] primaryCategoryCode,
         byte[] primarySignature,
         byte[] landformCode)
     {
+        var isBlock = new bool[tiles.Length];
+        var isPit = new bool[tiles.Length];
+
         for (var i = 0; i < tiles.Length; i++)
         {
             var tile = tiles[i];
-            var layerType = tile.Type.layer_type;
-            switch (layerType)
+            var tileType = tile.Type;
+            var layerType = tileType.layer_type;
+
+            var isLava = layerType == TileLayerType.Lava || tileType.lava;
+            var isGoo = layerType == TileLayerType.Goo || tileType.grey_goo;
+            var isWaterTile = (layerType == TileLayerType.Ocean || tileType.ocean) && !isLava && !isGoo;
+            var isBlockTile = layerType == TileLayerType.Block || tileType.block;
+            var isGroundTile = layerType == TileLayerType.Ground;
+            var isPitTile = tileType.can_be_filled_with_ocean;
+
+            isWater[i] = isWaterTile;
+            isBlock[i] = isBlockTile;
+            isPit[i] = isPitTile;
+
+            if (isLava)
             {
-                case TileLayerType.Ocean:
-                    isOcean[i] = true;
-                    primarySignature[i] = 1;
-                    break;
-                case TileLayerType.Lava:
-                    primarySignature[i] = 2;
-                    break;
-                case TileLayerType.Goo:
-                    primarySignature[i] = 3;
-                    break;
-                case TileLayerType.Block:
-                    isLand[i] = true;
-                    primaryCategoryCode[i] = 10; // 山地（用于跨层命名）
-                    primarySignature[i] = 4;
-                    break;
-                case TileLayerType.Ground:
-                    isLand[i] = true;
-                    var biomeId = tile.getBiome()?.id;
-                    var biomeCode = ResolvePrimaryBiomeCode(geoRegionLib, biomeId);
-                    primaryCategoryCode[i] = biomeCode;
-                    primarySignature[i] = (byte)(10 + biomeCode);
-                    break;
-                default:
-                    primarySignature[i] = 0;
-                    break;
+                primarySignature[i] = 2;
+                continue;
             }
+
+            if (isGoo)
+            {
+                primarySignature[i] = 3;
+                continue;
+            }
+
+            if (isWaterTile)
+            {
+                primarySignature[i] = 1;
+                continue;
+            }
+
+            if (isBlockTile)
+            {
+                isLand[i] = true;
+                primaryCategoryCode[i] = 10; // 山地（用于跨层命名）
+                primarySignature[i] = 4;
+                continue;
+            }
+
+            if (isGroundTile)
+            {
+                isLand[i] = true;
+                var biomeId = tile.getBiome()?.id;
+                var biomeCode = ResolvePrimaryBiomeCode(geoRegionLib, biomeId);
+                primaryCategoryCode[i] = biomeCode;
+                primarySignature[i] = (byte)(10 + biomeCode);
+                continue;
+            }
+
+            primarySignature[i] = 0;
         }
 
-        // 预计算 Landform（只针对陆地）
+        // 预计算 Landform（只针对陆地，规则仅依赖 tile type/biome/邻接统计）
         for (var i = 0; i < tiles.Length; i++)
         {
             if (!isLand[i]) continue;
 
             var tile = tiles[i];
-            var h = tile.Height;
-
-            var sum = 0;
-            var count = 0;
-            var maxDiff = 0;
+            var tileType = tile.Type;
 
             var x = tile.x;
             var y = tile.y;
+            var left = x > 0 ? i - 1 : -1;
+            var right = x < width - 1 ? i + 1 : -1;
+            var down = y > 0 ? i - width : -1;
+            var up = y < height - 1 ? i + width : -1;
 
-            // 4 邻接，只统计陆地邻居
-            if (x > 0 && isLand[i - 1])
+            var neighborWaterCount = 0;
+            var neighborBlockCount = 0;
+            var neighborPitCount = 0;
+
+            if (left >= 0)
             {
-                var hn = tiles[i - 1].Height;
-                maxDiff = Math.Max(maxDiff, Math.Abs(h - hn));
-                sum += hn;
-                count++;
+                if (isWater[left]) neighborWaterCount++;
+                if (isBlock[left]) neighborBlockCount++;
+                if (isPit[left]) neighborPitCount++;
             }
-            if (x < width - 1 && isLand[i + 1])
+            if (right >= 0)
             {
-                var hn = tiles[i + 1].Height;
-                maxDiff = Math.Max(maxDiff, Math.Abs(h - hn));
-                sum += hn;
-                count++;
+                if (isWater[right]) neighborWaterCount++;
+                if (isBlock[right]) neighborBlockCount++;
+                if (isPit[right]) neighborPitCount++;
             }
-            if (y > 0 && isLand[i - width])
+            if (down >= 0)
             {
-                var hn = tiles[i - width].Height;
-                maxDiff = Math.Max(maxDiff, Math.Abs(h - hn));
-                sum += hn;
-                count++;
+                if (isWater[down]) neighborWaterCount++;
+                if (isBlock[down]) neighborBlockCount++;
+                if (isPit[down]) neighborPitCount++;
             }
-            if (y < height - 1 && isLand[i + width])
+            if (up >= 0)
             {
-                var hn = tiles[i + width].Height;
-                maxDiff = Math.Max(maxDiff, Math.Abs(h - hn));
-                sum += hn;
-                count++;
+                if (isWater[up]) neighborWaterCount++;
+                if (isBlock[up]) neighborBlockCount++;
+                if (isPit[up]) neighborPitCount++;
             }
 
-            var avg = count > 0 ? (int)Math.Round(sum / (double)count) : h;
-            var delta = count > 0 ? h - avg : 0;
+            var leftBlock = left >= 0 && isBlock[left];
+            var rightBlock = right >= 0 && isBlock[right];
+            var downBlock = down >= 0 && isBlock[down];
+            var upBlock = up >= 0 && isBlock[up];
+            var hasOppositeBlockPair = (leftBlock && rightBlock) || (downBlock && upBlock);
 
-            var landformAsset = geoRegionLib.ResolveLandform(h, maxDiff, delta);
+            var layerType = tileType.layer_type;
+            var isLava = layerType == TileLayerType.Lava || tileType.lava;
+            var isGoo = layerType == TileLayerType.Goo || tileType.grey_goo;
+            var isMountain = layerType == TileLayerType.Block || tileType.mountains || tileType.edge_mountains;
+            var biomeId = tile.getBiome()?.id;
+
+            var context = new GeoRegionTileRuleContext(
+                tileType.id,
+                layerType,
+                biomeId,
+                tileType.ocean,
+                isPit[i],
+                isLava,
+                isGoo,
+                isMountain,
+                neighborWaterCount,
+                neighborBlockCount,
+                neighborPitCount,
+                hasOppositeBlockPair);
+
+            var landformAsset = geoRegionLib.ResolveLandform(context);
             landformCode[i] = ResolveLandformCode(geoRegionLib, landformAsset);
         }
     }
@@ -208,6 +255,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             var baseLayerType = SigToBaseLayerType(sig);
             var centerX = (sumX + count / 2) / count;
             var centerY = (sumY + count / 2) / count;
+            var waterKind = PrimaryWaterKind.None;
 
             string biomeDominantCategoryId = null;
             if (baseLayerType == TileLayerType.Ground)
@@ -218,6 +266,27 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             else if (baseLayerType == TileLayerType.Block)
             {
                 biomeDominantCategoryId = geoRegionLib.PrimaryMountains?.id;
+            }
+            else if (baseLayerType == TileLayerType.Ocean)
+            {
+                var minX = width;
+                var minY = height;
+                var maxX = 0;
+                var maxY = 0;
+
+                for (var k = 0; k < count; k++)
+                {
+                    var tileId = queue[k];
+                    var tile = tiles[tileId];
+                    minX = Math.Min(minX, tile.x);
+                    minY = Math.Min(minY, tile.y);
+                    maxX = Math.Max(maxX, tile.x);
+                    maxY = Math.Max(maxY, tile.y);
+                }
+
+                var bboxWidth = maxX - minX + 1;
+                var bboxHeight = maxY - minY + 1;
+                waterKind = geoRegionLib.ResolvePrimaryWaterKind(touchesEdge, count, bboxWidth, bboxHeight);
             }
 
             string landformDominantCategoryId = null;
@@ -246,6 +315,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 Layer = GeoRegionLayer.Primary,
                 RegionId = region.getID(),
                 BaseLayerType = baseLayerType,
+                WaterKind = waterKind,
                 TouchesEdge = touchesEdge,
                 CenterX = centerX,
                 CenterY = centerY,
@@ -304,6 +374,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 Layer = GeoRegionLayer.Landform,
                 RegionId = region.getID(),
                 BaseLayerType = TileLayerType.Ground,
+                WaterKind = PrimaryWaterKind.None,
                 TouchesEdge = touchesEdge,
                 CenterX = centerX,
                 CenterY = centerY,
@@ -364,6 +435,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 Layer = GeoRegionLayer.Landmass,
                 RegionId = region.getID(),
                 BaseLayerType = TileLayerType.Ground,
+                WaterKind = PrimaryWaterKind.None,
                 TouchesEdge = touchesEdge,
                 CenterX = centerX,
                 CenterY = centerY,
@@ -388,7 +460,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         int height,
         GeoRegionLibrary geoRegionLib,
         bool[] isLand,
-        bool[] isOcean,
+        bool[] isWater,
         byte[] primaryCategoryCode,
         byte[] landformCode,
         int[] queue)
@@ -407,7 +479,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         for (var i = 0; i < tiles.Length; i++)
         {
             if (!isLand[i]) continue;
-            if (!HasOceanNeighbor(tiles, i, width, height, isOcean)) continue;
+            if (!HasWaterNeighbor(tiles, i, width, height, isWater)) continue;
             dist[i] = 1;
             queue[qt++] = i;
         }
@@ -453,7 +525,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             for (var k = 0; k < count; k++)
             {
                 var tileId = queue[k];
-                if (HasOceanNeighbor(tiles, tileId, width, height, isOcean))
+                if (HasWaterNeighbor(tiles, tileId, width, height, isWater))
                 {
                     coastTiles++;
                 }
@@ -503,6 +575,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 Layer = GeoRegionLayer.Peninsula,
                 RegionId = region.getID(),
                 BaseLayerType = TileLayerType.Ground,
+                WaterKind = PrimaryWaterKind.None,
                 TouchesEdge = touchesEdge,
                 CenterX = centerX,
                 CenterY = centerY,
@@ -520,7 +593,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         int height,
         GeoRegionLibrary geoRegionLib,
         bool[] isLand,
-        bool[] isOcean,
+        bool[] isWater,
         int[] queue)
     {
         var asset = geoRegionLib.Strait;
@@ -531,7 +604,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
 
         for (var i = 0; i < tiles.Length; i++)
         {
-            if (!isOcean[i]) continue;
+            if (!isWater[i]) continue;
 
             var tile = tiles[i];
             var x = tile.x;
@@ -548,15 +621,15 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             if (downLand) landAdj++;
             if (upLand) landAdj++;
 
-            var narrowH = HasLandWithin(x, y, -1, 0, maxHalfWidth, isLand, isOcean, width, height) &&
-                          HasLandWithin(x, y, 1, 0, maxHalfWidth, isLand, isOcean, width, height);
-            var narrowV = HasLandWithin(x, y, 0, -1, maxHalfWidth, isLand, isOcean, width, height) &&
-                          HasLandWithin(x, y, 0, 1, maxHalfWidth, isLand, isOcean, width, height);
+            var narrowH = HasLandWithin(x, y, -1, 0, maxHalfWidth, isLand, isWater, width, height) &&
+                          HasLandWithin(x, y, 1, 0, maxHalfWidth, isLand, isWater, width, height);
+            var narrowV = HasLandWithin(x, y, 0, -1, maxHalfWidth, isLand, isWater, width, height) &&
+                          HasLandWithin(x, y, 0, 1, maxHalfWidth, isLand, isWater, width, height);
 
             channel[i] = narrowH || narrowV || landAdj >= 3;
         }
 
-        var openWaterId = BuildOpenWaterComponents(tiles, width, height, isOcean, channel, queue);
+        var openWaterId = BuildOpenWaterComponents(tiles, width, height, isWater, channel, queue);
 
         var visited = new bool[tiles.Length];
         for (var i = 0; i < tiles.Length; i++)
@@ -614,6 +687,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 Layer = GeoRegionLayer.Strait,
                 RegionId = region.getID(),
                 BaseLayerType = TileLayerType.Ocean,
+                WaterKind = PrimaryWaterKind.None,
                 TouchesEdge = touchesEdge,
                 CenterX = centerX,
                 CenterY = centerY,
@@ -767,6 +841,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 Layer = GeoRegionLayer.Archipelago,
                 RegionId = region.getID(),
                 BaseLayerType = TileLayerType.Ground,
+                WaterKind = PrimaryWaterKind.None,
                 TouchesEdge = false,
                 CenterX = centerX,
                 CenterY = centerY,
@@ -1103,16 +1178,16 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return tail;
     }
 
-    private static bool HasOceanNeighbor(WorldTile[] tiles, int idx, int width, int height, bool[] isOcean)
+    private static bool HasWaterNeighbor(WorldTile[] tiles, int idx, int width, int height, bool[] isWater)
     {
         var tile = tiles[idx];
         var x = tile.x;
         var y = tile.y;
 
-        if (x > 0 && isOcean[idx - 1]) return true;
-        if (x < width - 1 && isOcean[idx + 1]) return true;
-        if (y > 0 && isOcean[idx - width]) return true;
-        if (y < height - 1 && isOcean[idx + width]) return true;
+        if (x > 0 && isWater[idx - 1]) return true;
+        if (x < width - 1 && isWater[idx + 1]) return true;
+        if (y > 0 && isWater[idx - width]) return true;
+        if (y < height - 1 && isWater[idx + width]) return true;
 
         return false;
     }
@@ -1147,7 +1222,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         int dy,
         int maxSteps,
         bool[] isLand,
-        bool[] isOcean,
+        bool[] isWater,
         int width,
         int height)
     {
@@ -1159,7 +1234,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
 
             var nIdx = nx + ny * width;
             if (isLand[nIdx]) return true;
-            if (!isOcean[nIdx]) return false;
+            if (!isWater[nIdx]) return false;
         }
         return false;
     }
@@ -1168,7 +1243,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         WorldTile[] tiles,
         int width,
         int height,
-        bool[] isOcean,
+        bool[] isWater,
         bool[] channel,
         int[] queue)
     {
@@ -1178,7 +1253,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
 
         for (var i = 0; i < tiles.Length; i++)
         {
-            if (!isOcean[i] || channel[i] || visited[i]) continue;
+            if (!isWater[i] || channel[i] || visited[i]) continue;
 
             var head = 0;
             var tail = 0;
@@ -1196,22 +1271,22 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 if (x > 0)
                 {
                     var n = idx - 1;
-                    if (!visited[n] && isOcean[n] && !channel[n]) { visited[n] = true; openId[n] = nextId; queue[tail++] = n; }
+                    if (!visited[n] && isWater[n] && !channel[n]) { visited[n] = true; openId[n] = nextId; queue[tail++] = n; }
                 }
                 if (x < width - 1)
                 {
                     var n = idx + 1;
-                    if (!visited[n] && isOcean[n] && !channel[n]) { visited[n] = true; openId[n] = nextId; queue[tail++] = n; }
+                    if (!visited[n] && isWater[n] && !channel[n]) { visited[n] = true; openId[n] = nextId; queue[tail++] = n; }
                 }
                 if (y > 0)
                 {
                     var n = idx - width;
-                    if (!visited[n] && isOcean[n] && !channel[n]) { visited[n] = true; openId[n] = nextId; queue[tail++] = n; }
+                    if (!visited[n] && isWater[n] && !channel[n]) { visited[n] = true; openId[n] = nextId; queue[tail++] = n; }
                 }
                 if (y < height - 1)
                 {
                     var n = idx + width;
-                    if (!visited[n] && isOcean[n] && !channel[n]) { visited[n] = true; openId[n] = nextId; queue[tail++] = n; }
+                    if (!visited[n] && isWater[n] && !channel[n]) { visited[n] = true; openId[n] = nextId; queue[tail++] = n; }
                 }
             }
 

@@ -12,6 +12,7 @@ public struct GeoRegionGeneratedEvent
     public long RegionId;
 
     public TileLayerType BaseLayerType;
+    public PrimaryWaterKind WaterKind;
     public bool TouchesEdge;
 
     public int CenterX;
@@ -21,4 +22,3 @@ public struct GeoRegionGeneratedEvent
     public string BiomeDominantCategoryId;
     public string LandformDominantCategoryId;
 }
-

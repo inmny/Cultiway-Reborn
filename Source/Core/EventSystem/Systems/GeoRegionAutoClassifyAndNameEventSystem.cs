@@ -71,9 +71,14 @@ public class GeoRegionAutoClassifyAndNameEventSystem : GenericEventSystem<GeoReg
         {
             case GeoRegionLayer.Primary:
             {
+                if (evt.WaterKind != PrimaryWaterKind.None)
+                {
+                    return lib.ResolvePrimaryWater(evt.WaterKind);
+                }
+
                 if (evt.BaseLayerType == TileLayerType.Ocean)
                 {
-                    return lib.ResolvePrimaryWater(evt.TouchesEdge);
+                    return lib.ResolvePrimaryWater(evt.TouchesEdge ? PrimaryWaterKind.Sea : PrimaryWaterKind.Lake);
                 }
 
                 if (evt.BaseLayerType is TileLayerType.Lava or TileLayerType.Goo or TileLayerType.Block)
