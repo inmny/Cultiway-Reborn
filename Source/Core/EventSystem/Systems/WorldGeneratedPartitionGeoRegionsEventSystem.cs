@@ -10,6 +10,11 @@ namespace Cultiway.Core.EventSystem.Systems;
 
 /// <summary>
 /// 世界生成完成后，按层自动划分 GeoRegion（允许 tile 跨层多归属）。
+/// 主要流程：
+/// 1) 预计算 tile 基础属性（陆/水/坑/山、Primary 编码、Landform 编码、海滩距离场）。
+/// 2) 依次生成 Primary / Landform / Landmass 三个“基础层”。
+/// 3) 基于基础层和形态启发式生成 Peninsula / Strait / Archipelago 三个“叠加层”。
+/// 4) 每创建一个 GeoRegion 都发布 GeoRegionGeneratedEvent，由后续系统自动分类命名。
 /// </summary>
 public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<WorldGeneratedEvent>
 {
@@ -19,6 +24,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
     private int _lastWidth;
     private int _lastHeight;
 
+    /// <summary>
+    /// WorldGeneratedEvent 主入口：完成一次完整的多层 GeoRegion 划分。
+    /// </summary>
     protected override void HandleEvent(WorldGeneratedEvent evt)
     {
         if (evt.Width <= 0 || evt.Height <= 0) return;
@@ -55,8 +63,10 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
 
         var geoRegionLib = ModClass.L.GeoRegionLibrary;
 
+        // 旧世界切换到新世界时，先清理历史关系实体，避免残留关系污染本次划分。
         CleanupOldGeoRegionBinders();
 
+        // 基础数组：后续所有层级都依赖这些预计算结果。
         var total = tiles.Length;
         var isLand = new bool[total];
         var isWater = new bool[total];
@@ -64,27 +74,42 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         var primarySignature = new byte[total];
         var landformCode = new byte[total];
 
+        // 统一做一遍 tile 级预计算（材料、邻接、签名、海滩距离）。
         BuildBaseArrays(tiles, width, height, geoRegionLib, isLand, isWater, primaryCategoryCode, primarySignature, landformCode);
 
         var queue = new int[total];
 
+        // 基础层：Primary（地表主分类 + 水体细分）。
         GeneratePrimary(evt, tiles, width, height, geoRegionLib, primarySignature, landformCode, isLand, isWater, queue);
+        // 基础层：Landform（平原/山地/峡谷/盆地）。
         GenerateLandform(evt, tiles, width, height, geoRegionLib, landformCode, primaryCategoryCode, queue);
 
+        // 基础层：Landmass（大陆/岛屿），并产出后续群岛层候选。
         var islandCandidates = new List<IslandInfo>(64);
         GenerateLandmass(evt, tiles, width, height, geoRegionLib, isLand, primaryCategoryCode, landformCode, queue, islandCandidates);
 
+        // 叠加形态层：半岛、海峡、群岛。
         GeneratePeninsula(evt, tiles, width, height, geoRegionLib, isLand, isWater, primaryCategoryCode, landformCode, queue);
         GenerateStrait(evt, tiles, width, height, geoRegionLib, isLand, isWater, queue);
         GenerateArchipelago(evt, tiles, width, height, geoRegionLib, primaryCategoryCode, landformCode, islandCandidates);
     }
 
+    /// <summary>
+    /// 清理旧世界遗留的 GeoRegion 关系绑定实体。
+    /// </summary>
     private static void CleanupOldGeoRegionBinders()
     {
         var ecsWorld = ModClass.I.TileExtendManager.World;
         ecsWorld.Query<GeoRegionBinder>().ForEachEntity((ref GeoRegionBinder _, Entity e) => e.DeleteEntity());
     }
 
+    /// <summary>
+    /// 预计算基础数组：
+    /// - isLand / isWater：后续 flood fill 与形态识别的底图。
+    /// - primarySignature / primaryCategoryCode：Primary 划分签名与主类编码。
+    /// - landformCode：Landform 划分签名。
+    /// 同时计算沙地到水体的距离场，用于“宽海滩”判定。
+    /// </summary>
     private static void BuildBaseArrays(
         WorldTile[] tiles,
         int width,
@@ -101,6 +126,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         var isBeachMaterial = new bool[tiles.Length];
         var beachDistance = new int[tiles.Length];
 
+        // 第一遍：识别 tile 基础属性，并给非 Ground 类型写入固定 Primary 签名。
         for (var i = 0; i < tiles.Length; i++)
         {
             var tile = tiles[i];
@@ -183,7 +209,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             if (y < height - 1) TryExpandBeachDistance(idx + width, nextDistance, isLand, isBeachMaterial, beachDistance, beachQueue, ref beachTail);
         }
 
-        // 预计算 Landform（只针对陆地，规则仅依赖 tile type/biome/邻接统计）
+        // 第二遍：仅在陆地上计算邻接统计，得到 Landform 与 Ground 的 Primary 分类。
         for (var i = 0; i < tiles.Length; i++)
         {
             if (!isLand[i]) continue;
@@ -349,6 +375,13 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         queue[tail++] = index;
     }
 
+    /// <summary>
+    /// 生成 Primary 层：
+    /// - 非水体直接按 signature 连通分量划分；
+    /// - 水体先识别河流，再对其余水体做海/湖分块；
+    /// - 对碎片执行同 signature 合并；
+    /// - 创建 Region、写入关系并发布事件。
+    /// </summary>
     private static void GeneratePrimary(
         WorldGeneratedEvent evt,
         WorldTile[] tiles,
@@ -433,6 +466,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 收集 Primary 非水体连通块（熔岩/灰疫/山地/地表分类）。
+    /// </summary>
     private static void CollectPrimaryNonWaterComponents(
         WorldTile[] tiles,
         int width,
@@ -464,6 +500,12 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 收集 Primary 水体连通块：
+    /// 1) 先按“狭长水道”掩码提取河流；
+    /// 2) 剩余水体按封闭性与规模判定海/湖；
+    /// 3) 大连通水体按 splitCount 随机生长拆分为多个子海域/子湖域。
+    /// </summary>
     private static void CollectPrimaryWaterComponents(
         WorldTile[] tiles,
         int width,
@@ -641,6 +683,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 构建“狭长水道”掩码：用于河流候选提取与海峡候选提取。
+    /// </summary>
     private static bool[] BuildWaterChannelMask(
         WorldTile[] tiles,
         int width,
@@ -680,6 +725,12 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return channel;
     }
 
+    /// <summary>
+    /// 根据连通水体规模估算拆分数：
+    /// - 基于 sqrt(size) 与 MinTiles 双约束；
+    /// - 大洋类连通水体再压缩数量；
+    /// - 加入少量随机抖动，避免每次形态过于固定。
+    /// </summary>
     private static int ResolveWaterSplitCount(GeoRegionLibrary geoRegionLib, int size, bool isLargeConnectedWater, int randomSeed)
     {
         if (size <= 0) return 1;
@@ -712,6 +763,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return Math.Max(1, split);
     }
 
+    /// <summary>
+    /// 组合世界种子与连通块局部特征，得到稳定随机种子。
+    /// </summary>
     private static int ComputeWaterSplitSeed(int worldSeedId, int componentOrdinal, int componentSize, int boundarySideMask)
     {
         unchecked
@@ -724,6 +778,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 统计连通块触达世界边界的方向掩码（左/右/下/上）。
+    /// </summary>
     private static int ComputeBoundarySideMask(WorldTile[] tiles, int[] indices, int count, int width, int height)
     {
         var mask = 0;
@@ -740,6 +797,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return mask;
     }
 
+    /// <summary>
+    /// 统计边界方向掩码中的置位数量。
+    /// </summary>
     private static int CountBoundarySides(int mask)
     {
         var count = 0;
@@ -750,6 +810,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return count;
     }
 
+    /// <summary>
+    /// 从连通块内随机挑选互不重复的 seed tile。
+    /// </summary>
     private static int[] PickDistinctSeedTiles(List<int> tileIds, int count, int seed)
     {
         if (count <= 0 || tileIds == null || tileIds.Count == 0)
@@ -774,6 +837,12 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return result;
     }
 
+    /// <summary>
+    /// 在连通水体内部执行“随机前沿生长”：
+    /// - 每个 seed 对应一个簇；
+    /// - 每轮随机选择簇与前沿点扩张；
+    /// - 最终得到形态不规则、边界更自然的分区结果。
+    /// </summary>
     private static void GrowWaterClustersRandomly(
         List<int> tileIds,
         int[] seeds,
@@ -962,6 +1031,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 按 Primary 签名返回对应类别的最小区域面积阈值。
+    /// </summary>
     private static int ResolvePrimaryMinTilesBySignature(GeoRegionLibrary geoRegionLib, int signature)
     {
         return signature switch
@@ -977,6 +1049,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         };
     }
 
+    /// <summary>
+    /// 将 Primary 内部水体签名映射为事件中的水体细类。
+    /// </summary>
     private static PrimaryWaterKind SignatureToWaterKind(int signature)
     {
         return signature switch
@@ -988,6 +1063,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         };
     }
 
+    /// <summary>
+    /// 生成 Landform 层：按 landformCode 连通分量划分并合并碎片。
+    /// </summary>
     private static void GenerateLandform(
         WorldGeneratedEvent evt,
         WorldTile[] tiles,
@@ -1069,6 +1147,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 生成 Landmass 层：按陆地连通分量划分大陆/岛屿，并收集群岛候选岛屿。
+    /// </summary>
     private static void GenerateLandmass(
         WorldGeneratedEvent evt,
         WorldTile[] tiles,
@@ -1141,6 +1222,10 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 生成 Peninsula 层：
+    /// 先在“近海薄陆地”中找连通块，再按海岸占比与颈部占比过滤。
+    /// </summary>
     private static void GeneratePeninsula(
         WorldGeneratedEvent evt,
         WorldTile[] tiles,
@@ -1274,6 +1359,10 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 生成 Strait 层：
+    /// 在狭水道掩码上找连通块，再按长宽比与出口数过滤。
+    /// </summary>
     private static void GenerateStrait(
         WorldGeneratedEvent evt,
         WorldTile[] tiles,
@@ -1386,6 +1475,10 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 生成 Archipelago 层：
+    /// 对候选小岛做空间哈希聚类，簇满足阈值后生成一个可非连通群岛区域。
+    /// </summary>
     private static void GenerateArchipelago(
         WorldGeneratedEvent evt,
         WorldTile[] tiles,
@@ -1540,6 +1633,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 按 Landform 签名返回最小面积阈值。
+    /// </summary>
     private static int ResolveLandformMinTilesBySignature(GeoRegionLibrary geoRegionLib, int signature)
     {
         return signature switch
@@ -1552,6 +1648,11 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         };
     }
 
+    /// <summary>
+    /// 小区域后处理：
+    /// - 仅允许合并到同 signature 邻区；
+    /// - 若找不到可合并目标则直接丢弃该碎片。
+    /// </summary>
     private static void MergeOrDropTinyComponents(
         WorldTile[] tiles,
         int width,
@@ -1659,6 +1760,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 统计候选目标邻区的接触边数量（用于挑选最佳合并目标）。
+    /// </summary>
     private static void TryAccumulateNeighbor(
         int selfIndex,
         int neighborTileId,
@@ -1684,6 +1788,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 将 Primary 分类资产映射为内部编码（用于 signature 和多数投票）。
+    /// </summary>
     private static byte ResolvePrimaryCategoryCode(GeoRegionLibrary geoRegionLib, GeoRegionAsset category)
     {
         if (category == null) return 10;
@@ -1701,6 +1808,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return 10;
     }
 
+    /// <summary>
+    /// 将 Landform 分类资产映射为内部编码。
+    /// </summary>
     private static byte ResolveLandformCode(GeoRegionLibrary geoRegionLib, GeoRegionAsset landformAsset)
     {
         if (landformAsset == null) return 1;
@@ -1711,6 +1821,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return 1;
     }
 
+    /// <summary>
+    /// 将 Primary 签名转换为底层 tile layer 类型。
+    /// </summary>
     private static TileLayerType SigToBaseLayerType(byte sig)
     {
         return sig switch
@@ -1723,11 +1836,17 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         };
     }
 
+    /// <summary>
+    /// 将 Primary 编码转回分类资产 id。
+    /// </summary>
     private static string PrimaryCategoryIdFromCode(GeoRegionLibrary geoRegionLib, byte code)
     {
         return PrimaryCategoryAssetFromCode(geoRegionLib, code)?.id ?? geoRegionLib.PrimarySpecial?.id;
     }
 
+    /// <summary>
+    /// 将 Primary 编码转回分类资产对象。
+    /// </summary>
     private static GeoRegionAsset PrimaryCategoryAssetFromCode(GeoRegionLibrary geoRegionLib, byte code)
     {
         return code switch
@@ -1747,6 +1866,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         };
     }
 
+    /// <summary>
+    /// 将 Landform 编码转回分类资产 id。
+    /// </summary>
     private static string LandformCategoryIdFromCode(GeoRegionLibrary geoRegionLib, byte code)
     {
         return code switch
@@ -1759,6 +1881,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         };
     }
 
+    /// <summary>
+    /// 统计给定 tile 集合内的 Primary 主导类别（数组版本）。
+    /// </summary>
     private static string ResolveDominantPrimaryCategoryId(GeoRegionLibrary geoRegionLib, byte[] primaryCategoryCode, int[] indices, int count)
     {
         var counts = new int[12];
@@ -1771,6 +1896,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return PrimaryCategoryIdFromCode(geoRegionLib, winner);
     }
 
+    /// <summary>
+    /// 统计给定 tile 集合内的 Primary 主导类别（List 版本）。
+    /// </summary>
     private static string ResolveDominantPrimaryCategoryId(GeoRegionLibrary geoRegionLib, byte[] primaryCategoryCode, List<int> indices)
     {
         var counts = new int[12];
@@ -1783,6 +1911,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return PrimaryCategoryIdFromCode(geoRegionLib, winner);
     }
 
+    /// <summary>
+    /// 统计给定 tile 集合内的 Landform 主导类别（数组版本）。
+    /// </summary>
     private static string ResolveDominantLandformCategoryId(GeoRegionLibrary geoRegionLib, byte[] landformCode, int[] indices, int count)
     {
         var counts = new int[5];
@@ -1795,6 +1926,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return LandformCategoryIdFromCode(geoRegionLib, winner);
     }
 
+    /// <summary>
+    /// 统计给定 tile 集合内的 Landform 主导类别（List 版本）。
+    /// </summary>
     private static string ResolveDominantLandformCategoryId(GeoRegionLibrary geoRegionLib, byte[] landformCode, List<int> indices)
     {
         var counts = new int[5];
@@ -1807,6 +1941,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return LandformCategoryIdFromCode(geoRegionLib, winner);
     }
 
+    /// <summary>
+    /// 返回计数数组中值最大的下标。
+    /// </summary>
     private static int ArgMax(int[] counts)
     {
         var bestIdx = 0;
@@ -1823,6 +1960,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return bestIdx;
     }
 
+    /// <summary>
+    /// 按 signature 在 4 邻接网格上做 flood fill。
+    /// </summary>
     private static int FloodFillBySignature(
         WorldTile[] tiles,
         int width,
@@ -1882,6 +2022,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return tail;
     }
 
+    /// <summary>
+    /// 在陆地掩码上做 flood fill，并返回 bbox 与触边信息。
+    /// </summary>
     private static int FloodFillLand(
         WorldTile[] tiles,
         int width,
@@ -1952,6 +2095,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return tail;
     }
 
+    /// <summary>
+    /// 在任意布尔掩码上做 flood fill（简化版本）。
+    /// </summary>
     private static int FloodFillMask(
         WorldTile[] tiles,
         int width,
@@ -1968,6 +2114,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             out _, out _, out _, out _);
     }
 
+    /// <summary>
+    /// 在任意布尔掩码上做 flood fill（完整版本，含 bbox 输出）。
+    /// </summary>
     private static int FloodFillMask(
         WorldTile[] tiles,
         int width,
@@ -2038,6 +2187,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return tail;
     }
 
+    /// <summary>
+    /// 判断 tile 的 4 邻接是否至少有一个水体。
+    /// </summary>
     private static bool HasWaterNeighbor(WorldTile[] tiles, int idx, int width, int height, bool[] isWater)
     {
         var tile = tiles[idx];
@@ -2052,6 +2204,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return false;
     }
 
+    /// <summary>
+    /// 半岛距离场扩展时尝试将陆地邻居入队。
+    /// </summary>
     private static void TryEnqueueLand(
         int x,
         int y,
@@ -2075,6 +2230,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         queue[qt++] = idx;
     }
 
+    /// <summary>
+    /// 从某个水 tile 沿指定方向向外探测，判断给定步数内是否能碰到陆地。
+    /// </summary>
     private static bool HasLandWithin(
         int x,
         int y,
@@ -2099,6 +2257,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return false;
     }
 
+    /// <summary>
+    /// 对“非 channel”的开放水面分连通分量，给每块开放水面分配一个 id。
+    /// </summary>
     private static int[] BuildOpenWaterComponents(
         WorldTile[] tiles,
         int width,
@@ -2156,6 +2317,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return openId;
     }
 
+    /// <summary>
+    /// 判断两个岛屿的 bbox 间距是否不超过 maxGap（用于群岛聚类）。
+    /// </summary>
     private static bool IsWithinGap(IslandInfo a, IslandInfo b, int maxGap)
     {
         var dx = 0;
@@ -2170,6 +2334,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return gap <= maxGap;
     }
 
+    /// <summary>
+    /// 并查集查找（带路径压缩）。
+    /// </summary>
     private static int Find(int[] parent, int x)
     {
         while (parent[x] != x)
@@ -2180,6 +2347,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return x;
     }
 
+    /// <summary>
+    /// 并查集合并。
+    /// </summary>
     private static void Union(int[] parent, int a, int b)
     {
         var ra = Find(parent, a);
@@ -2188,11 +2358,17 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         parent[rb] = ra;
     }
 
+    /// <summary>
+    /// 将二维网格坐标打包成字典键。
+    /// </summary>
     private static long PackCell(int x, int y)
     {
         return ((long)x << 32) ^ (uint)y;
     }
 
+    /// <summary>
+    /// 向下取整除法（支持负数）。
+    /// </summary>
     private static int FloorDiv(int value, int divisor)
     {
         if (divisor <= 0) return 0;
@@ -2200,6 +2376,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return -((-value + divisor - 1) / divisor);
     }
 
+    /// <summary>
+    /// Primary 内部水体签名编码（用于分区阶段）。
+    /// </summary>
     private enum PrimaryWaterSignature
     {
         Sea = 101,
@@ -2207,6 +2386,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         River = 103
     }
 
+    /// <summary>
+    /// 可变连通块数据结构：用于生成期聚合、合并、剔除。
+    /// </summary>
     private sealed class MutableRegionComponent
     {
         public int Signature;
@@ -2227,6 +2409,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         }
     }
 
+    /// <summary>
+    /// 群岛候选岛屿快照（从 Landmass 层提取）。
+    /// </summary>
     private readonly struct IslandInfo
     {
         public readonly int[] TileIndices;
