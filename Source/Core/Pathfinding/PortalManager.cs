@@ -177,6 +177,62 @@ namespace Cultiway.Core.Pathfinding
             request.Portals[targetIdx].ToUnload.Add(passenger);
         }
 
+        public static bool NewEmptyRequest(Portal start_portal, Portal target_portal, bool experimentalRide = false)
+        {
+            if (start_portal == null || target_portal == null)
+            {
+                return false;
+            }
+
+            var startBuilding = start_portal.building;
+            var targetBuilding = target_portal.building;
+            if (startBuilding == null || targetBuilding == null || startBuilding == targetBuilding)
+            {
+                return false;
+            }
+
+            var portal_type = start_portal.Asset;
+            if (portal_type == null || target_portal.Asset != portal_type)
+            {
+                return false;
+            }
+
+            var has_pending = Instance._requests.Any(r =>
+                !r.IsCompleted()
+                && r.PortalType == portal_type
+                && r.Portals != null
+                && r.Portals.Count > 0
+                && r.Portals[0].PortalBuilding == startBuilding);
+            if (has_pending)
+            {
+                return false;
+            }
+
+            var path = FindPortalPath(start_portal, target_portal, null);
+            if (path == null || path.Count == 0)
+            {
+                return false;
+            }
+
+            var request = new PortalRequest
+            {
+                Driver = null,
+                PortalType = portal_type,
+                State = PortalRequestState.WaitingDriver,
+                AllowEmptyRide = true,
+                IsExperimentalRide = experimentalRide,
+                Portals = path.Select(p => new PortalRequest.SinglePortal
+                {
+                    PortalBuilding = p.building,
+                    PortalTile = p.building.getConstructionTile(),
+                    ToLoad = new HashSet<Actor>(),
+                    ToUnload = new HashSet<Actor>()
+                }).ToList()
+            };
+            Instance._requests.Add(request);
+            return true;
+        }
+
         private static List<Portal> FindPortalPath(Portal start, Portal target, HashSet<Building> blocked)
         {
             if (start == null || target == null)
@@ -361,8 +417,8 @@ namespace Cultiway.Core.Pathfinding
                 request.State = PortalRequestState.WaitingDriver;
             }
 
-            // 没有上下客需求则直接完成
-            if (request.Portals.All(p => p.ToLoad.Count == 0 && p.ToUnload.Count == 0))
+            // 没有上下客需求则直接完成；实验空载请求由调度系统主动结束。
+            if (!request.AllowEmptyRide && request.Portals.All(p => p.ToLoad.Count == 0 && p.ToUnload.Count == 0))
             {
                 request.Cancel();
             }

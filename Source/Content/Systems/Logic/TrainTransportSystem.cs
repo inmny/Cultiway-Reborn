@@ -2,10 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ai;
+using Cultiway.Core.BuildingComponents;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
 using tools;
+using HarmonyLib;
 
 namespace Cultiway.Content
 {
@@ -39,6 +42,8 @@ namespace Cultiway.Content
 
         private readonly Dictionary<PortalRequest, RideState> _rides = new();
         private readonly Dictionary<long, float> _stationCooldown = new();
+        private readonly Dictionary<long, float> _experimentalNextDispatch = new();
+        private readonly Dictionary<long, int> _experimentalTargetCursor = new();
 
         protected override void OnUpdateGroup()
         {
@@ -50,6 +55,8 @@ namespace Cultiway.Content
 
             var snapshot = PortalManager.SnapshotRequests();
             CleanupMissing(snapshot);
+            TryScheduleExperimentalRequests(snapshot);
+            snapshot = PortalManager.SnapshotRequests();
 
             foreach (var request in snapshot)
             {
@@ -145,6 +152,7 @@ namespace Cultiway.Content
 
             var spawnTile = origin.PortalTile ?? origin.PortalBuilding.getConstructionTile();
             var train = World.world.units.createNewUnit(Actors.Train.id, spawnTile);
+            ModClass.LogInfo($"Train {train.id} created at {spawnTile} with {train.children_pre_behaviour?.Select(x => x.GetType().Name).Join()}, {train.children_special?.Select(x => x.GetType().Name).Join()}");
             if (train == null)
             {
                 request.Cancel();
@@ -412,6 +420,132 @@ namespace Cultiway.Content
             {
                 DestroyRide(state);
             }
+        }
+
+        private void TryScheduleExperimentalRequests(List<PortalRequest> requests)
+        {
+            if (!TrainConfig.ExperimentalTimedDispatchEnabled)
+            {
+                _experimentalNextDispatch.Clear();
+                _experimentalTargetCursor.Clear();
+                return;
+            }
+
+            var stationSnapshots = PortalRegistry.Instance.Snapshot(Portals.TrainStation);
+            if (stationSnapshots.Count == 0)
+            {
+                _experimentalNextDispatch.Clear();
+                _experimentalTargetCursor.Clear();
+                return;
+            }
+
+            var now = Time.time;
+            var interval = Math.Max(TrainConfig.MinDepartInterval, TrainConfig.ExperimentalTimedDispatchInterval);
+            var aliveStationIds = new HashSet<long>();
+            foreach (var station in stationSnapshots)
+            {
+                if (station?.Portal?.building == null)
+                {
+                    continue;
+                }
+
+                var stationId = station.Id;
+                aliveStationIds.Add(stationId);
+                if (station.Connections == null || station.Connections.Count == 0)
+                {
+                    continue;
+                }
+
+                if (HasActiveRequestFromStation(requests, stationId))
+                {
+                    if (!_experimentalNextDispatch.TryGetValue(stationId, out var blockedUntil) || blockedUntil < now)
+                    {
+                        _experimentalNextDispatch[stationId] = now + interval;
+                    }
+                    continue;
+                }
+
+                if (_experimentalNextDispatch.TryGetValue(stationId, out var nextDispatchAt) && now < nextDispatchAt)
+                {
+                    continue;
+                }
+
+                if (TryScheduleEmptyRide(station))
+                {
+                    _experimentalNextDispatch[stationId] = now + interval;
+                }
+                else
+                {
+                    // 连接瞬时不可用时短暂重试
+                    _experimentalNextDispatch[stationId] = now + 1f;
+                }
+            }
+
+            foreach (var staleStationId in _experimentalNextDispatch.Keys.Where(id => !aliveStationIds.Contains(id)).ToList())
+            {
+                _experimentalNextDispatch.Remove(staleStationId);
+            }
+            foreach (var staleStationId in _experimentalTargetCursor.Keys.Where(id => !aliveStationIds.Contains(id)).ToList())
+            {
+                _experimentalTargetCursor.Remove(staleStationId);
+            }
+        }
+
+        private static bool HasActiveRequestFromStation(List<PortalRequest> requests, long stationId)
+        {
+            return requests.Any(r =>
+                r != null
+                && !r.IsCompleted()
+                && r.PortalType == Portals.TrainStation
+                && r.Portals != null
+                && r.Portals.Count > 0
+                && r.Portals[0]?.PortalBuilding?.id == stationId);
+        }
+
+        private bool TryScheduleEmptyRide(PortalSnapshot station)
+        {
+            var sourcePortal = station.Portal;
+            if (sourcePortal?.building == null)
+            {
+                return false;
+            }
+
+            var targetIds = station.Connections
+                .Select(c => c.TargetId)
+                .Where(id => id != 0)
+                .Distinct()
+                .ToList();
+            if (targetIds.Count == 0)
+            {
+                return false;
+            }
+
+            _experimentalTargetCursor.TryGetValue(station.Id, out var cursor);
+            if (cursor < 0)
+            {
+                cursor = 0;
+            }
+
+            for (int attempt = 0; attempt < targetIds.Count; attempt++)
+            {
+                int index = (cursor + attempt) % targetIds.Count;
+                var targetId = targetIds[index];
+                var targetPortal = World.world?.buildings.get(targetId)?.GetBuildingComponent<Portal>();
+                if (targetPortal?.building == null || targetPortal.building == sourcePortal.building)
+                {
+                    continue;
+                }
+
+                if (!PortalManager.NewEmptyRequest(sourcePortal, targetPortal, true))
+                {
+                    continue;
+                }
+
+                _experimentalTargetCursor[station.Id] = (index + 1) % targetIds.Count;
+                return true;
+            }
+
+            return false;
         }
 
         private float GetStationCooldown(long stationId)

@@ -1,3 +1,5 @@
+using Cultiway.Content;
+
 namespace Cultiway.Const;
 
 public static class GeneralSettings
@@ -12,5 +14,10 @@ public static class GeneralSettings
     public static void SwitchGeoSystems(bool value)
     {
         EnableGeoSystems = value;
+    }
+
+    public static void SwitchTrainExperimentalTimedDispatch(bool value)
+    {
+        TrainConfig.ExperimentalTimedDispatchEnabled = value;
     }
 }

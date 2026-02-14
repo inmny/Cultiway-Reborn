@@ -19,6 +19,8 @@ namespace Cultiway.Core.Pathfinding
         public PortalRequestState State;
         public List<SinglePortal> Portals;
         public PortalAsset PortalType;
+        public bool AllowEmptyRide;
+        public bool IsExperimentalRide;
         public class SinglePortal
         {
             public Building PortalBuilding;
@@ -32,6 +34,8 @@ namespace Cultiway.Core.Pathfinding
             Portals.Clear();
             Driver = null;
             PortalType = null;
+            AllowEmptyRide = false;
+            IsExperimentalRide = false;
         }
         public void Cancel()
         {
@@ -39,6 +43,8 @@ namespace Cultiway.Core.Pathfinding
             Driver = null;
             Portals.Clear();
             PortalType = null;
+            AllowEmptyRide = false;
+            IsExperimentalRide = false;
         }
 
         internal void RemoveDeadUnits()

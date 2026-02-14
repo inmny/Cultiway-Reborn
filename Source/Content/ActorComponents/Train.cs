@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Cultiway.Abstract;
+using Cultiway.Core;
 using NeoModLoader.utils;
 using strings;
 using UnityEngine;
@@ -84,6 +85,7 @@ namespace Cultiway.Content.ActorComponents
             var section = obj.GetComponent<TrainSection>();
             section.type = pType;
             section.sprite_animation = obj.GetComponent<SpriteAnimation>();
+            obj.GetComponent<SpriteRenderer>().sortingLayerName = S_SortingLayer.Objects;
             _train_sections.Add(section);
         }
         public override void create(Actor pActor)
@@ -92,6 +94,7 @@ namespace Cultiway.Content.ActorComponents
             _train_sections = new List<TrainSection>();
             CreateTrainSection(TrainSectionType.Head);
             _lead_distance = SectionLength * _train_sections.Count;
+            transform.localScale = Vector3.one * 0.3f;
         }
         private List<WorldTile> _track_tiles = new List<WorldTile>();
         public void SetTrackTiles(List<WorldTile> pTrackTiles)
@@ -210,7 +213,7 @@ namespace Cultiway.Content.ActorComponents
         public override void update(float pElapsed)
         {
             base.update(pElapsed);
-            if (_train_sections == null || _train_sections.Count == 0 || _track_tiles.Count < 2)
+            if (World.world.isPaused() || _train_sections == null || _train_sections.Count == 0 || _track_tiles.Count < 2)
             {
                 return;
             }
@@ -228,8 +231,9 @@ namespace Cultiway.Content.ActorComponents
             float direction = _moving_forward ? 1f : -1f;
             if (!_finished_segment)
             {
-                _lead_distance += direction * speed * pElapsed;
+                _lead_distance += direction * speed * pElapsed * 0.01f;
             }
+            ModClass.LogInfo($"Train.update: {actor?.data?.id}, {_lead_distance}, {_track_total_length}");
 
             float minLead = _moving_forward ? Math.Min(trainLength, _track_total_length) : 0f;
             float maxLead = _moving_forward ? _track_total_length : Math.Max(0f, _track_total_length - trainLength);
@@ -328,6 +332,7 @@ namespace Cultiway.Content.ActorComponents
 
 
             ResourcesPatch.PatchResource("actors/p_train", obj);
+            ActorExtend.RegisterPossibleChildren<Train>();
         }
     }
 }

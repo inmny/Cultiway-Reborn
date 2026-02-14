@@ -133,7 +133,7 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
     }
     private void SetupTrain()
     {
-        Train.kingdom_id_wild = string.Empty;
+        Train.kingdom_id_wild = SK.nature;
         Train.avatar_prefab = "p_train";
     }
 

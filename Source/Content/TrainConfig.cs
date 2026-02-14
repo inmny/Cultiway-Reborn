@@ -21,5 +21,11 @@ internal static class TrainConfig
 
     /// <summary>单个乘客被视为迟到并放弃的阈值（秒）。</summary>
     public const float LateIgnoreTime = 10f;
+
+    /// <summary>实验功能：启用后车站会定时发空车（无乘客也发车）。</summary>
+    public static bool ExperimentalTimedDispatchEnabled = false;
+
+    /// <summary>实验功能：同一车站空车发车周期（秒）。</summary>
+    public const float ExperimentalTimedDispatchInterval = 20f;
 }
 

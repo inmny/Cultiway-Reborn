@@ -10,6 +10,15 @@ namespace Cultiway.Debug;
 
 internal static class FinalizerPatch
 {
+    [HarmonyFinalizer, HarmonyPatch(typeof(Actor), nameof(Actor.saveKingdomCiv))]
+    private static Exception Actor_saveKingdomCiv(Exception __exception, Actor __instance)
+    {
+        if (__exception != null)
+        {
+            ModClass.LogInfo($"Actor_saveKingdomCiv: {__instance.data == null}, {__instance.kingdom == null}");
+        }
+        return __exception;
+    }
     [Hotfixable]
     [HarmonyFinalizer]
     [HarmonyPatch(typeof(Actor), nameof(Actor.checkCalibrateTargetPosition))]

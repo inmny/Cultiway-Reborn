@@ -16,6 +16,11 @@ namespace Cultiway.Patch;
 
 internal static class PatchActor
 {
+    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.addChildren))]
+    private static void addChildren_postfix(Actor __instance)
+    {
+        __instance.GetExtend().OnAddChildren();
+    }
     /// <summary>
     /// 实现<see cref="ActorAssetExtend.hide_hand_item"/>
     /// </summary>

@@ -940,4 +940,25 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             relation.RelationType = MasterApprenticeType.Nominal;
         }
     }
+
+    private static Action<Actor> action_on_addchildren;
+
+    public static void RegisterPossibleChildren<TActorComponent>() where TActorComponent : BaseActorComponent
+    {
+        action_on_addchildren += (Actor a) => {
+            if (a.avatar?.HasComponent<TActorComponent>() ?? false)
+            {
+                a.addChild(a.avatar.GetComponent<TActorComponent>());
+            }
+        };
+    }
+    internal void OnAddChildren()
+    {
+        action_on_addchildren?.Invoke(Base);
+        
+		if (Base.children_pre_behaviour != null || Base.children_special != null)
+		{
+			Base.batch.c_update_children.Add(Base);
+		}
+    }
 }
