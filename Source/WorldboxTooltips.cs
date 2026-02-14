@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core;
@@ -58,10 +59,18 @@ public partial class WorldboxGame
         }
         private void ShowGeoRegionMetaListInfo(Tooltip tooltip, string type, TooltipData data)
         {
+            var categoryIds = new HashSet<string>();
+            foreach (var geoRegion in I.GeoRegions.list)
+            {
+                if (geoRegion == null || geoRegion.isRekt()) continue;
+                if (string.IsNullOrEmpty(geoRegion.data?.CategoryId)) continue;
+                categoryIds.Add(geoRegion.data.CategoryId);
+            }
+
             AssetManager.tooltips.setIconValue(tooltip, "i_total", I.GeoRegions.Count);
-            AssetManager.tooltips.setIconValue(tooltip, "i_destroyed", 0); // 改成类别数量
+            AssetManager.tooltips.setIconValue(tooltip, "i_destroyed", categoryIds.Count);
             AssetManager.tooltips.setIconSprite(tooltip, "i_total", MetaTypes.GeoRegion.icon_list);
-            AssetManager.tooltips.setIconSprite(tooltip, "i_destroyed", MetaTypes.GeoRegion.icon_list);
+            AssetManager.tooltips.setIconSprite(tooltip, "i_destroyed", "iconUnity");
         }
         private void ShowGeoRegion(Tooltip tooltip, string type, TooltipData data)
         {

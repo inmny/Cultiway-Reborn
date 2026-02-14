@@ -73,8 +73,8 @@ public partial class WorldboxGame
             };
             GeoRegion.power_tab_id = PowerTabs.SelectedGeoRegion.id;
             GeoRegion.set_icon_for_cancel_button = true;
-            GeoRegion.icon_list = "../../cultiway/icons/iconExtendGeoRegion";
-            GeoRegion.icon_single_path = "../../cultiway/icons/iconExtendGeoRegion";
+            GeoRegion.icon_list = "../../cultiway/icons/iconGeoRegionList";
+            GeoRegion.icon_single_path = "../../cultiway/icons/iconGeoRegion";
 
             Sect.option_id = CustomMapModeLibrary.Sect.toggle_name;
             Sect.draw_zones = (_) => {};

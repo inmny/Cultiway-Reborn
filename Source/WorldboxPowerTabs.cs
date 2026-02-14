@@ -18,7 +18,7 @@ public partial class WorldboxGame
         {
             SelectedGeoRegion.meta_type = MetaTypeExtend.GeoRegion.Back();
             SelectedGeoRegion.window_id = MetaTypes.GeoRegion.id;
-            SelectedGeoRegion.icon_path = "cultiway/icons/iconExtendGeoRegion";
+            SelectedGeoRegion.icon_path = "cultiway/icons/iconGeoRegion";
             SelectedGeoRegion.get_power_tab = () => SelectedGeoRegionTab.PowersTab;
             SelectedGeoRegion.on_update_check_active = new PowerTabActionCheck(AssetManager.power_tab_library.defaultOnUpdateCheckActive);
             SelectedGeoRegion.on_main_tab_select = new PowerTabAction(AssetManager.power_tab_library.defaultMainTabSelect);

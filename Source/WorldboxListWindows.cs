@@ -18,8 +18,8 @@ public partial class WorldboxGame
         {
             GeoRegionList.meta_type = MetaTypeExtend.GeoRegion.Back();
             GeoRegionList.no_items_locale = "list_empty_geo_regions";
-            GeoRegionList.art_path = "ui/illustrations/art_biomes";
-            GeoRegionList.icon_path = "cultiway/icons/iconGeoRegion";
+            GeoRegionList.art_path = "cultiway/illustrations/art_geo_regions";
+            GeoRegionList.icon_path = "cultiway/icons/iconGeoRegionList";
             GeoRegionList.set_list_component = t => t.AddComponent<GeoRegionListComponent>();
         }
         protected override void PostInit(ListWindowAsset asset)
