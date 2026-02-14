@@ -12,6 +12,7 @@ public class FlyCancelSystem : QuerySystem<ActorBinder>
     public FlyCancelSystem()
     {
         Filter.AllComponents(ComponentTypes.Get<Xian>());
+        Filter.WithoutAnyTags(Tags.Get<TagRecycle>());
     }
     protected override void OnUpdate()
     {

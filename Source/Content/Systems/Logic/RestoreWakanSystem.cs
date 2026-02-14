@@ -2,6 +2,7 @@ using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core.Components;
+using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
 using UnityEngine;
@@ -11,6 +12,11 @@ namespace Cultiway.Content.Systems.Logic;
 public class RestoreWakanSystem : QuerySystem<Xian, ActorBinder>
 {
     private float _restore_timer = TimeScales.SecPerMonth;
+    public RestoreWakanSystem()
+    {
+        Filter.AllComponents(ComponentTypes.Get<Xian>());
+        Filter.WithoutAnyTags(Tags.Get<TagRecycle>());
+    }
     protected override void OnUpdate()
     {
         _restore_timer -= Tick.deltaTime;

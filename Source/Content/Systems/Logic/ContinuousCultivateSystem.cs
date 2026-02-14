@@ -23,6 +23,7 @@ public class ContinuousCultivateSystem : QuerySystem<Xian, ActorBinder>
     public ContinuousCultivateSystem()
     {
         Filter.AnyTags(Tags.Get<ContinuousCultivateTag>());
+        Filter.WithoutAnyTags(Tags.Get<TagRecycle>());
     }
 
     protected override void OnUpdate()
