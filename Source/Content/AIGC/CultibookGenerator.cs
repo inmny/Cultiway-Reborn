@@ -176,12 +176,30 @@ public class CultibookGenerator
             {
                 clonedEntity.RemoveTag<TagOccupied>();
             }
-            skillPool = originalCultibook.SkillPool ?? new List<SkillPoolEntry>();
+            skillPool = new();
+            foreach (var entry in originalCultibook.SkillPool)
+            {
+                skillPool.Add(new SkillPoolEntry()
+                {
+                    SkillContainer = entry.SkillContainer.Store.CloneEntity(entry.SkillContainer),
+                    BaseChance = entry.BaseChance * Randy.randomFloat(1.1f, 1.5f), // 提升10-50%
+                    MasteryThreshold = entry.MasteryThreshold * Randy.randomFloat(0.8f, 0.95f), // 降低5-20%
+                    LevelRequirement = Mathf.Max(0, entry.LevelRequirement - (Randy.randomChance(0.3f) ? 1 : 0))
+                });
+            }
         }
         else
         {
             skillPool = ConvertSkillPoolDtoToEntries(dto.skillPool, clonedSkills);
         }
+        foreach (var entry in skillPool)
+        {
+            if (!entry.SkillContainer.Tags.Has<TagOccupied>())
+            {
+                entry.SkillContainer.AddTag<TagOccupied>();
+            }
+        }
+
 
         // 确保灵根需求不超过创建者的灵根值
         if (ae.HasElementRoot())
@@ -724,7 +742,6 @@ public class CultibookGenerator
                     MasteryThreshold = dto.masteryThreshold,
                     LevelRequirement = dto.levelRequirement
                 });
-                skillContainer.AddTag<TagOccupied>();
             }
         }
 
