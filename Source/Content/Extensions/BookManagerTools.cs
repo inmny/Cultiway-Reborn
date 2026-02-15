@@ -522,7 +522,7 @@ public static class BookManagerTools
         ItemLevel improvedLevel = CalculateCultibookLevel(improvedStats, improvedSkillPool, improvedMinLevel, improvedMaxLevel, improvedCultivateMethodId, creator);
         
         // 创建改进版功法Asset
-        var improvedCultibook = _cultibookLibrary.AddDynamic(new CultibookAsset()
+        var improvedCultibook = new CultibookAsset()
         {
             id = Guid.NewGuid().ToString(),
             FinalStats = improvedStats,
@@ -537,7 +537,7 @@ public static class BookManagerTools
             SkillPool = improvedSkillPool,
             ConflictTags = originalCultibook.ConflictTags?.ToArray() ?? Array.Empty<string>(),
             SynergyTags = originalCultibook.SynergyTags?.ToArray() ?? Array.Empty<string>()
-        });
+        };
         
         return improvedCultibook;
     }

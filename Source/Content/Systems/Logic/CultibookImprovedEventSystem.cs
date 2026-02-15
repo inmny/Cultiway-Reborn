@@ -34,7 +34,6 @@ public class CultibookImprovedEventSystem : GenericEventSystem<CultibookImproved
         {
             // 改进失败，不影响功法
             actor.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, 0);
-            ae.DeMaster(evt.ImprovedDraft);
             return;
         }
 

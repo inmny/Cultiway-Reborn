@@ -89,7 +89,6 @@ public class CultibookGenerator
         {
             responseSeconds = DefaultResponseSeconds;
         }
-        ae.Master(draft, 100);
 
         EventSystemHub.Publish(new CultibookGeneratedEvent
         {
@@ -128,7 +127,6 @@ public class CultibookGenerator
         {
             responseSeconds = DefaultResponseSeconds;
         }
-        ae.Master(improvedDraft, 100);
 
         EventSystemHub.Publish(new CultibookImprovedEvent
         {
