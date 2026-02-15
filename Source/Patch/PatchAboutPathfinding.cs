@@ -166,6 +166,26 @@ namespace Cultiway.Patch
             if (!__state) return;
             WaterConnectivityUpdater.RequestRebuild();
         }
+        [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.u1_checkInside))]
+        private static bool u1_checkInside_prefix(Actor __instance)
+        {
+            if (!__instance.isInsideSomething())
+            {
+                return false;
+            }
+            if (__instance.is_inside_boat)
+            {
+                Actor actor = __instance.inside_boat?.actor ?? World.world.units.get(__instance.data.transportID);
+                if (actor == null)
+                {
+                    __instance.is_inside_boat = false;
+                    return false;
+                }
+                __instance.setCurrentTilePosition(actor.current_tile);
+                __instance.skipUpdates();
+            }
+            return false;
+        }
 
 
         private static PathProcessResult HandleStep(Actor actor, PathStep step)
