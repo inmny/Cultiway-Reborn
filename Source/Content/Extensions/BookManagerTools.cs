@@ -35,6 +35,7 @@ public static class BookManagerTools
         {
             SkillContainer = skill_container
         });
+        ModClass.LogWarning($"{creator.name} learned skillbook {raw_skillbook.name}({raw_skillbook.id})");
         return raw_skillbook;
     }
     public static Book CreateCultibookFromDraft(this BookManager manager, Actor creator, CultibookAsset draft_asset)
@@ -443,6 +444,10 @@ public static class BookManagerTools
             // 复制原法术池并提升概率
             foreach (var entry in originalCultibook.SkillPool)
             {
+                if (entry.SkillContainer.IsNull)
+                {
+                    ModClass.LogWarning($"[CultibookGenerator] SkillContainer is null for skill in cultibook {originalCultibook.id}");
+                }
                 improvedSkillPool.Add(new SkillPoolEntry()
                 {
                     SkillContainer = entry.SkillContainer.Store.CloneEntity(entry.SkillContainer),
