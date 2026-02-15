@@ -85,7 +85,7 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         {
             // 如果新功法就是主修功法，增加掌握程度
             ae.AddMainCultibookMastery(1f);
-            ae.Master(cultibook_asset, ae.GetMainCultibookMastery() );
+            ae.Master(cultibook_asset, ae.GetMainCultibookMastery() + 1);
         }
         else
         {

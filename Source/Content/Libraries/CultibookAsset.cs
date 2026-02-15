@@ -69,6 +69,7 @@ public class CultibookAsset : Asset, IDeleteWhenUnknown
 
     public void OnDelete()
     {
+        ModClass.LogInfo($"Cultibook {id} is deleted");
         foreach (var entry in SkillPool)
         {
             entry.SkillContainer.RemoveTag<TagOccupied>();
@@ -139,7 +140,7 @@ public struct ElementRequirement
 /// <summary>
 /// 法术池配置
 /// </summary>
-public struct SkillPoolEntry
+public class SkillPoolEntry
 {
     /// <summary>
     /// 技能容器实体（直接引用成品技能）
