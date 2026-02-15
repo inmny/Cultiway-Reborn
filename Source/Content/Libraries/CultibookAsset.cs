@@ -69,9 +69,10 @@ public class CultibookAsset : Asset, IDeleteWhenUnknown
 
     public void OnDelete()
     {
-        ModClass.LogInfo($"Cultibook {id} is deleted");
+        ModClass.LogInfo($"To delete Cultibook {id}");
         foreach (var entry in SkillPool)
         {
+            ModClass.LogInfo($"Remove tag for {entry.SkillContainer.Id}");
             entry.SkillContainer.RemoveTag<TagOccupied>();
         }
     }

@@ -446,7 +446,7 @@ public static class BookManagerTools
             {
                 if (entry.SkillContainer.IsNull)
                 {
-                    ModClass.LogWarning($"[CultibookGenerator] SkillContainer is null for skill in cultibook {originalCultibook.id}");
+                    ModClass.LogWarning($"[CultibookGenerator] SkillContainer({entry.SkillContainer.Id}) is null for skill in cultibook {originalCultibook.id}");
                 }
                 improvedSkillPool.Add(new SkillPoolEntry()
                 {

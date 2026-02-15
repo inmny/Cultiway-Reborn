@@ -9,6 +9,7 @@ using Cultiway.Core.EventSystem.Events;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
+using Cultiway.Content.Libraries;
 
 namespace Cultiway.Content.Systems.Logic;
 
@@ -32,6 +33,7 @@ public class CultibookGeneratedEventSystem : GenericEventSystem<CultibookGenerat
             var cultibookAsset = book.GetExtend().GetComponent<Cultibook>().Asset;
             ae.SetMainCultibook(cultibookAsset);
             ae.AddMainCultibookMastery(100);
+            ae.Master(cultibookAsset, 100);
         }
         actor.data.set(ContentActorDataKeys.WaitingForCultibookCreation_int, 0);
     }
