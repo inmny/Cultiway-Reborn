@@ -6,6 +6,9 @@ Cultiway.ER.Water,水灵根
 Cultiway.ER.Wood,木灵根
 Cultiway.ER.Earth,土灵根
 Cultiway.ER.Iron,金灵根
+Cultiway.ER.Neg,阴灵根
+Cultiway.ER.Pos,阳灵根
+Cultiway.ER.Entropy,混沌灵根
 Cultiway.Iron,金
 Cultiway.Wood,木
 Cultiway.Water,水

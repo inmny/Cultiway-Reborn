@@ -13,6 +13,10 @@ public struct SpecialItem : IComponent
     public ItemIconData IconData => self.GetComponent<ItemIconData>();
     public Sprite GetSprite()
     {
+        if (Shape.Type.GetIcon != null)
+        {
+            return Shape.Type.GetIcon(self);
+        }
         return ItemIconGenerator.GenerateIcon(Shape, IconData);
     }
 }

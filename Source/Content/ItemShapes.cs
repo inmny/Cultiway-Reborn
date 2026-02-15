@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Core.Libraries;
 using System.IO;
+using Cultiway.Core.Components;
 
 namespace Cultiway.Content;
 
 public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
 {
+    public static ItemShapeAsset ElementRoot { get; private set; }
     public static ItemShapeAsset Ball { get; private set; }
     public static ItemShapeAsset Talisman { get; private set; }
     public static ItemShapeAsset Blood { get; private set; }
@@ -47,6 +49,12 @@ public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
         SetFolder(Stone, "stone");
         SetFolder(Tooth, "tooth");
         SetFolder(Wing, "wing");
+        ElementRoot.GetIcon = (e) => 
+        {
+            if (!e.HasComponent<ElementRoot>()) return null;
+            var element_root = e.GetComponent<ElementRoot>();
+            return element_root.Type.GetSprite();
+        };
         AddDynamicFoldersFromDisk();
     }
 

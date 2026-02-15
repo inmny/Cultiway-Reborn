@@ -7,13 +7,20 @@ public class ElementRootLibrary : AssetLibrary<ElementRootAsset>
 {
     public float            base_prob = 0.1f;
     public ElementRootAsset Common { get; private set; }
+    public ElementRootAsset Entropy { get; private set; }
 
     public override void init()
     {
         Common = add(new ElementRootAsset(
             id: nameof(Common),
-            new ElementComposition([0.2f, 0.2f, 0.2f, 0.2f, 0.2f, 0.5f, 0.5f, 0])
+            new ElementComposition([0.2f, 0.2f, 0.2f, 0.2f, 0.2f, 0.5f, 0.5f, 1f])
         ));
+        t.icon_path = "common";
+        Entropy = add(new ElementRootAsset(
+            id: nameof(Entropy),
+            new ElementComposition([0f, 0f, 0f, 0f, 0f, 0f, 0f, 1f])
+        ));
+        t.icon_path = "entropy";
     }
 
     public ElementRootAsset GetRootType(float[] composition, out float final_sim)

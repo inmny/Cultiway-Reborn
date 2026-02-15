@@ -183,7 +183,7 @@ internal static class PatchActor
             param.Add(jindan.Type.GetName());
         }
         var shape_key = IngredientShapeGenerator.Instance.GenerateName(param.ToArray());
-        var shape_asset = ModClass.L.ItemShapeLibrary.GetOrDefault(shape_key, ItemShapes.Ball);
+        var shape_asset = ModClass.L.ItemShapeLibrary.GetOrDefault(shape_key, ItemShapes.ElementRoot);
         var shape_name = LM.Has(shape_asset.id) ? LM.Get(shape_asset.id) : shape_asset.id;
         param.Add(shape_name);
 
@@ -214,7 +214,6 @@ internal static class PatchActor
         }
         else
         {
-
             item_builder.AddComponent(new EntityName(IngredientNameGenerator.Instance.GenerateName(param.ToArray())));
         }
 

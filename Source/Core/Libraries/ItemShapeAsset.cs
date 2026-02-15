@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Core.Components;
+using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Core.Libraries;
@@ -275,6 +278,7 @@ public class ItemShapeAsset : Asset
     public string major_texture_folder;
     public List<Sprite> major_textures = new();
     public List<Shape> major_shapes = new();
+    public Func<Entity, Sprite> GetIcon;
     public void LoadTextures()
     {
         major_textures.Clear();
