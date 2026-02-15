@@ -194,9 +194,13 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
         }
 
         craft_action?.Invoke(ae, crafting_elixir_entity, corr_ingredients);
-        for (var i = 0; i < corr_ingredients.Length; i++) corr_ingredients[i].DeleteEntity();
+        for (var i = 0; i < corr_ingredients.Length; i++) 
+        {
+            corr_ingredients[i].DeleteEntity();
+        }
 
         crafting_elixir_entity.RemoveComponent<CraftingElixir>();
+        crafting_elixir_entity.RemoveTag<TagUncompleted>();
         crafting_elixir_entity.AddComponent(new EntityName(GetName()));
         var value = crafting_elixir_entity.GetComponent<Elixir>().value;
         var level = base_level;
@@ -238,7 +242,7 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
         var items = inv.GetItems();
         foreach (Entity item in items)
         {
-            if (item.GetIncomingLinks<CraftOccupyingRelation>().Count > 0) continue;
+            if (item.Tags.HasAny(Tags.Get<TagConsumed, TagOccupied>())) continue;
             for (var i = 0; i < ingredients.Length; i++)
             {
                 if (!check_result[i].IsNull) continue;

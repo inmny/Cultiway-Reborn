@@ -11,7 +11,7 @@ public class RecycleDefaultEntitySystem : QuerySystem
     public RecycleDefaultEntitySystem()
     {
         Filter.AllTags(Tags.Get<TagRecycle>());
-        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagOccupied>());
+        Filter.WithoutAnyTags(Tags.Get<TagPrefab>());
     }
 
     protected override void OnUpdate()

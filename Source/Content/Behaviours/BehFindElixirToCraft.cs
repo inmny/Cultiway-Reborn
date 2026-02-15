@@ -30,12 +30,13 @@ public class BehFindElixirToCraft : BehCityActor
                 {
                     elixir_id = elixir_asset.id
                 })
+                .AddTag<TagUncompleted>()
                 .Build();
             ae.AddSpecialItem(crafting_elixir);
             foreach (Entity ing in ingredients)
             {
                 crafting_elixir.AddRelation(new CraftOccupyingRelation { item = ing });
-                ing.AddTag<TagOccupied>();
+                ing.AddTag<TagConsumed>();
             }
 
             //ModClass.LogInfo($"{pObject.data.id} 开始制作 {elixir_asset.id}");

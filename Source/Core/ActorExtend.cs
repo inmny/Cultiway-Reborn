@@ -708,6 +708,19 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     public void OnDeath()
     {
         action_on_death?.Invoke(this);
+        using var pool = new ListPool<Entity>(GetItems());
+        if (Base.hasCity())
+        {
+            var ce = Base.GetExtend();
+            foreach (var item in pool)
+            {
+                if (item.Tags.HasAny(Tags.Get<TagOccupied, TagConsumed>()))
+                {
+                    continue;
+                }
+                ce.AddSpecialItem(item);
+            }
+        }
     }
     /// <summary>
     /// 复制修仙里头所有的数据

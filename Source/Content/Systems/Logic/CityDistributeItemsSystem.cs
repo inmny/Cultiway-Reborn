@@ -29,7 +29,7 @@ public class CityDistributeItemsSystem : QuerySystem<CityBinder>
                     if (item.IsNull) continue;
                     
                     var data = item.Data;
-                    if (data.Tags.Has<TagOccupied>()) continue;
+                    if (data.Tags.HasAny(Tags.Get<TagOccupied, TagConsumed>())) continue;
                     if (data.TryGet(out AliveTimeLimit limit))
                     {
                         var left_years = limit.value - data.Get<AliveTimer>().value;

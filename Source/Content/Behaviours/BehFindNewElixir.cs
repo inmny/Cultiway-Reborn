@@ -65,12 +65,13 @@ public class BehFindNewElixir : BehCityActor
             {
                 elixir_id = new_asset.id
             })
+            .AddTag<TagUncompleted>()
             .Build();
         ae.AddSpecialItem(crafting_elixir);
         foreach (Entity ing in ingredients)
         {
             crafting_elixir.AddRelation(new CraftOccupyingRelation { item = ing });
-            ing.AddTag<TagOccupied>();
+            ing.AddTag<TagConsumed>();
         }
         pObject.timer_action = Randy.randomFloat(TimeScales.SecPerMonth, TimeScales.SecPerYear);
         pObject.data.set(ContentActorDataKeys.WaitingForElixirGeneration_string, new_asset.id);
