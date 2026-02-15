@@ -53,6 +53,19 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         }
         dict[item] = value;
     }
+    public void DeMaster<T>(T item) where T : Asset, IDeleteWhenUnknown
+    {
+        if (!_master_items.TryGetValue(typeof(T), out var dict))
+        {
+            return;
+        }
+
+        if (dict.ContainsKey(item))
+        {
+            item.Current--;
+            dict.Remove(item);
+        }
+    }
 
     public bool HasMaster<T>() where T : Asset, IDeleteWhenUnknown
     {
