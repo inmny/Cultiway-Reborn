@@ -694,6 +694,7 @@ public class CultibookGenerator
                 MasteryThreshold = 20f + addedCount * 20f,
                 LevelRequirement = minLevel + addedCount * 2
             });
+            clonedEntity.AddTag<TagOccupied>();
             addedCount++;
         }
 
