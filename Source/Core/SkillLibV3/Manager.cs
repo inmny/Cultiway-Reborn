@@ -28,7 +28,7 @@ public class Manager
         Game = game;
         World = ModClass.I.W;
         
-        ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleSkillContainerSystem());
+        //ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleSkillContainerSystem());
         ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleNonMasteredSkillContainerSystem());
         ModClass.I.GeneralLogicSystems.Add(SkillLogicSystemGroup);
         
