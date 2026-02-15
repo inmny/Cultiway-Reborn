@@ -26,15 +26,8 @@ public class BehCraftElixir : BehCityActor
         if (crafting_elixir.progress >= ingredients.Length)
         {
             ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.get(crafting_elixir.elixir_id);
-            try
-            {
             elixir_asset.Craft(ae, crafting_elixir_entity, pObject.city.GetExtend(),
                 ingredients.Select(x => x.item).ToArray());
-            }
-            catch (NullReferenceException)
-            {
-                ModClass.LogWarning($"{ae == null}, {pObject == null}, {pObject?.city == null}, {pObject?.city?.GetExtend() == null}, {ingredients == null}");
-            }
             ae.Master(elixir_asset, ae.GetMaster(elixir_asset) + 1);
             ModClass.LogInfo($"{pObject.data.id} 完成制作 {elixir_asset.GetName()} 送与 {pObject.city.name}");
             return BehResult.Continue;
