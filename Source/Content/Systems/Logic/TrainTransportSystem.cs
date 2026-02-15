@@ -346,6 +346,7 @@ namespace Cultiway.Content
                 }
 
                 passenger.is_inside_boat = true;
+                passenger.data.transportID = state.Train.data.id;
                 state.Carrying.Add(passenger);
                 portal.ToLoad.Remove(passenger);
 
