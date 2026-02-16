@@ -16,6 +16,7 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
         {
             id = "Cultiway."+nameof(SetTrajectory)
         });
+        SetTrajectory.AddSimilarityTags("trajectory", "motion");
         SetTrajectory.OnAddOrUpgrade = builder =>
         {
             if (builder.HasModifier<Trajectory>())
@@ -46,6 +47,7 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             Rarity = SkillModifierRarity.Common,  // 设置为普通稀有度，提高出现概率
             WeightMod = 4f  // 权重修正为4，进一步提高出现概率
         });
+        SalvoCount.AddSimilarityTags("projectile", "salvo");
         SalvoCount.OnAddOrUpgrade = builder =>
         {
             if (builder.HasModifier<SalvoCount>())
@@ -80,6 +82,7 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             Rarity = SkillModifierRarity.Common,  // 设置为普通稀有度，提高出现概率
             WeightMod = 4f  // 权重修正为4，进一步提高出现概率
         });
+        BurstCount.AddSimilarityTags("projectile", "burst");
         BurstCount.OnAddOrUpgrade = builder =>
         {
             if (builder.HasModifier<BurstCount>())

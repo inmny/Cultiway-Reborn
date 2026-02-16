@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
@@ -49,89 +50,24 @@ public static class ActorExtendTools
         elixir_entity.DeleteEntity();
         return true;
     }
+
+    [Hotfixable]
     public static void EnhanceSkillRandomly(this ActorExtend ae, string source)
     {
-        if (ae.all_skills.Count > 0)
+        if (ae == null || ae.all_skills == null || ae.all_skills.Count == 0) return;
+
+        var targetSkill = SelectSkillForEnhancement(ae);
+        if (targetSkill.IsNull || !targetSkill.HasComponent<SkillContainer>()) return;
+
+        var skillLevel = GetSkillModifierLevel(targetSkill);
+        var successRate = CalculateEnhanceSuccessRate(ae, source, skillLevel);
+        if (Randy.randomChance(successRate))
         {
-            var skill_container_entity = ae.all_skills.GetRandom();
-
-            var builder = new SkillContainerBuilder(skill_container_entity);
-            var existing_ids = CollectModifierIds(skill_container_entity);
-            var conflict_tags = CollectConflictTags(existing_ids);
-            
-            // 按稀有度分组候选词条
-            var candidatesByRarity = new Dictionary<SkillModifierRarity, List<(SkillModifierAsset asset, float weight)>>();
-            foreach (SkillModifierAsset asset in ModClass.I.SkillV3.ModifierLib.list)
-            {
-                if (asset == null) continue;
-                if (asset.id == PlaceholderModifier.PlaceholderAssetId) continue;
-                if (asset.IsDisabled) continue;
-                var baseWeight = asset.Rarity.Weight();
-                if (baseWeight <= 0) continue;
-                var alreadyHas = existing_ids.Contains(asset.id);
-                if (!alreadyHas && asset.ConflictTags.Any(conflict_tags.Contains)) continue;
-
-                // 计算权重：基础权重 * weightMod * (如果已存在则提升5倍)
-                var weight = baseWeight * asset.WeightMod;
-                if (alreadyHas)
-                {
-                    weight *= 5f; // 倾向于升级已有词条
-                }
-
-                if (!candidatesByRarity.ContainsKey(asset.Rarity))
-                {
-                    candidatesByRarity[asset.Rarity] = new List<(SkillModifierAsset, float)>();
-                }
-                candidatesByRarity[asset.Rarity].Add((asset, weight));
-            }
-
-            if (candidatesByRarity.Count == 0) return;
-
-            // 计算每个稀有度的总权重（用于决定稀有度）
-            var rarityWeightAccum = new List<float>();
-            var rarityList = new List<SkillModifierRarity>();
-            var totalRarityWeight = 0f;
-            foreach (var rarity in new[] { SkillModifierRarity.Common, SkillModifierRarity.Rare, SkillModifierRarity.Epic, SkillModifierRarity.Legendary })
-            {
-                if (!candidatesByRarity.ContainsKey(rarity)) continue;
-                var rarityTotalWeight = candidatesByRarity[rarity].Sum(x => x.weight);
-                if (rarityTotalWeight > 0)
-                {
-                    totalRarityWeight += rarityTotalWeight;
-                    rarityWeightAccum.Add(totalRarityWeight);
-                    rarityList.Add(rarity);
-                }
-            }
-
-            if (rarityList.Count == 0) return;
-
-            // 先决定稀有度
-            var chosenRarityIndex = RdUtils.RandomIndexWithAccumWeight(rarityWeightAccum);
-            var chosenRarity = rarityList[chosenRarityIndex];
-            var candidatesInRarity = candidatesByRarity[chosenRarity];
-
-            // 在对应稀有度池中随机选择（应用weightMod和升级权重）
-            var candidateWeightAccum = new List<float>();
-            var candidateAssets = new List<SkillModifierAsset>();
-            var acc = 0f;
-            foreach (var (asset, weight) in candidatesInRarity)
-            {
-                acc += weight;
-                candidateWeightAccum.Add(acc);
-                candidateAssets.Add(asset);
-            }
-
-            if (candidateAssets.Count == 0) return;
-
-            var chosenIndex = RdUtils.RandomIndexWithAccumWeight(candidateWeightAccum);
-            var chosenAsset = candidateAssets[chosenIndex];
-
-            if (chosenAsset.OnAddOrUpgrade?.Invoke(builder) ?? false)
-            {
-                //ModClass.LogInfo($"[{ae}] enhanced {skill_container_entity.Id}({skill_container_entity.GetComponent<SkillContainer>().Asset})");
-                builder.Build();
-            }
+            _ = TryEnhanceSkillContainer(ae, targetSkill);
+            return;
         }
+
+        _ = TryCreateBranchPrototype(ae, source, targetSkill, skillLevel);
     }
     public static bool RestoreWakan(this ActorExtend ae, float value)
     {
@@ -473,6 +409,278 @@ public static class ActorExtendTools
         return ids;
     }
 
+    private static Entity SelectSkillForEnhancement(ActorExtend ae)
+    {
+        var skillList = new List<Entity>();
+        var accumWeight = new List<float>();
+        float total = 0f;
+
+        foreach (var skill in ae.all_skills)
+        {
+            if (skill.IsNull || !skill.HasComponent<SkillContainer>()) continue;
+            var level = GetSkillModifierLevel(skill);
+            var weight = 1f / (1f + level * ContentSetting.SkillEnhanceLowLevelWeightFactor);
+            if (weight <= 0f) continue;
+            total += weight;
+            accumWeight.Add(total);
+            skillList.Add(skill);
+        }
+
+        if (skillList.Count == 0) return default;
+        return skillList[RdUtils.RandomIndexWithAccumWeight(accumWeight)];
+    }
+
+    private static int GetSkillModifierLevel(Entity skillContainerEntity)
+    {
+        return CollectModifierIds(skillContainerEntity).Count;
+    }
+
+    private static float CalculateEnhanceSuccessRate(ActorExtend ae, string source, int skillLevel)
+    {
+        var baseChance = source switch
+        {
+            SkillEnhanceSources.SmallUpgradeSuccess => ContentSetting.SkillEnhanceBaseChanceSmallSuccess,
+            SkillEnhanceSources.SmallUpgradeFailed => ContentSetting.SkillEnhanceBaseChanceSmallFailed,
+            SkillEnhanceSources.LargeUpgradeSuccess => ContentSetting.SkillEnhanceBaseChanceLargeSuccess,
+            SkillEnhanceSources.LargeUpgradeFailed => ContentSetting.SkillEnhanceBaseChanceLargeFailed,
+            _ => ContentSetting.SkillEnhanceBaseChanceSmallFailed
+        };
+
+        var intelligence = Mathf.Max(0f, ae.GetStat(S.intelligence));
+        var intelligenceBonus = intelligence * ContentSetting.SkillEnhanceIntelligenceBonusFactor;
+        var levelPenalty = skillLevel * ContentSetting.SkillEnhancePerModifierPenalty;
+        return Mathf.Clamp(baseChance + intelligenceBonus - levelPenalty,
+            ContentSetting.SkillEnhanceChanceMin,
+            ContentSetting.SkillEnhanceChanceMax);
+    }
+
+    private static bool TryEnhanceSkillContainer(ActorExtend ae, Entity targetSkill)
+    {
+        if (!targetSkill.HasComponent<SkillContainer>()) return false;
+
+        var targetContainer = targetSkill.GetComponent<SkillContainer>();
+        var sameEntitySkills = new List<Entity>();
+        foreach (var skill in ae.all_skills)
+        {
+            if (skill.IsNull || skill.Id == targetSkill.Id) continue;
+            if (!skill.HasComponent<SkillContainer>()) continue;
+            var container = skill.GetComponent<SkillContainer>();
+            if (container.SkillEntityAssetID != targetContainer.SkillEntityAssetID) continue;
+            sameEntitySkills.Add(skill);
+        }
+
+        var existingIds = CollectModifierIds(targetSkill);
+        var conflictTags = CollectConflictTags(existingIds);
+        var candidateAssets = new List<SkillModifierAsset>();
+        var candidateAccumWeights = new List<float>();
+        float total = 0f;
+
+        foreach (SkillModifierAsset asset in ModClass.I.SkillV3.ModifierLib.list)
+        {
+            if (asset == null) continue;
+            if (asset.id == PlaceholderModifier.PlaceholderAssetId) continue;
+            if (asset.IsDisabled) continue;
+            if (asset.OnAddOrUpgrade == null) continue;
+
+            var baseWeight = asset.Rarity.Weight() * asset.WeightMod;
+            if (baseWeight <= 0f) continue;
+
+            var alreadyHas = existingIds.Contains(asset.id);
+            if (!alreadyHas && asset.ConflictTags.Any(conflictTags.Contains)) continue;
+
+            var weight = baseWeight * (alreadyHas
+                ? ContentSetting.SkillEnhanceExistingModifierWeight
+                : ContentSetting.SkillEnhanceNewModifierWeight);
+            if (weight <= 0f) continue;
+
+            var similarityPenalty = EvaluateCandidateSimilarityPenalty(targetSkill, sameEntitySkills, asset);
+            if (similarityPenalty <= 0f) continue;
+
+            total += weight * similarityPenalty;
+            candidateAccumWeights.Add(total);
+            candidateAssets.Add(asset);
+        }
+
+        if (candidateAssets.Count == 0) return false;
+
+        var chosenAsset = candidateAssets[RdUtils.RandomIndexWithAccumWeight(candidateAccumWeights)];
+        var builder = new SkillContainerBuilder(targetSkill);
+        if (!(chosenAsset.OnAddOrUpgrade?.Invoke(builder) ?? false)) return false;
+
+        builder.Build();
+        return true;
+    }
+
+    private static float EvaluateCandidateSimilarityPenalty(Entity targetSkill, IReadOnlyList<Entity> sameEntitySkills, SkillModifierAsset candidate)
+    {
+        var simulated = targetSkill.Store.CloneEntity(targetSkill);
+        try
+        {
+            var builder = new SkillContainerBuilder(simulated);
+            if (!(candidate.OnAddOrUpgrade?.Invoke(builder) ?? false))
+            {
+                return 0f;
+            }
+
+            builder.Build();
+
+            if (sameEntitySkills == null || sameEntitySkills.Count == 0)
+            {
+                return 1f;
+            }
+
+            float maxSimilarity = 0f;
+            foreach (var otherSkill in sameEntitySkills)
+            {
+                if (otherSkill.IsNull || !otherSkill.HasComponent<SkillContainer>()) continue;
+                maxSimilarity = Mathf.Max(maxSimilarity, ComputeSkillSimilarity(simulated, otherSkill));
+            }
+
+            if (maxSimilarity >= ContentSetting.SkillEnhanceSimilarityRejectThreshold)
+            {
+                return 0f;
+            }
+
+            return Mathf.Clamp01(1f - maxSimilarity * ContentSetting.SkillEnhanceSimilarityPenaltyScale);
+        }
+        finally
+        {
+            if (!simulated.IsNull)
+            {
+                simulated.AddTag<TagRecycle>();
+            }
+        }
+    }
+
+    private static bool TryCreateBranchPrototype(ActorExtend ae, string source, Entity sourceSkill, int sourceSkillLevel)
+    {
+        var branchChance = ContentSetting.SkillBranchBaseChanceOnEnhanceFail
+                           + sourceSkillLevel * ContentSetting.SkillBranchPerModifierBonus;
+        if (source == SkillEnhanceSources.LargeUpgradeFailed)
+        {
+            branchChance += 0.15f;
+        }
+        branchChance = Mathf.Clamp(branchChance, 0f, ContentSetting.SkillBranchMaxChance);
+        if (!Randy.randomChance(branchChance)) return false;
+
+        if (!sourceSkill.HasComponent<SkillContainer>()) return false;
+        var sourceAsset = sourceSkill.GetComponent<SkillContainer>().Asset;
+        if (sourceAsset == null) return false;
+
+        var candidates = CollectSameSeriesSkillAssets(sourceAsset);
+        if (candidates.Count == 0) return false;
+
+        candidates.Shuffle();
+        foreach (var candidate in candidates)
+        {
+            var prototype = new SkillContainerBuilder(candidate).Build();
+            if (prototype.IsNull || !prototype.HasComponent<SkillContainer>())
+            {
+                if (!prototype.IsNull) prototype.AddTag<TagRecycle>();
+                continue;
+            }
+
+            var duplicated = false;
+            foreach (var ownedSkill in ae.all_skills)
+            {
+                if (ownedSkill.IsNull || !ownedSkill.HasComponent<SkillContainer>()) continue;
+                if (IsSkillStructureDuplicate(prototype, ownedSkill))
+                {
+                    duplicated = true;
+                    break;
+                }
+                var similarity = ComputeSkillSimilarity(prototype, ownedSkill);
+                if (similarity < ContentSetting.SkillBranchDuplicateRejectThreshold) continue;
+                duplicated = true;
+                break;
+            }
+
+            if (duplicated)
+            {
+                prototype.AddTag<TagRecycle>();
+                continue;
+            }
+
+            ae.LearnSkillV3(prototype, false);
+            ModClass.LogInfo($"[{ae}] 分化出法术雏形: {candidate.id}");
+            return true;
+        }
+
+        return false;
+    }
+
+    private static List<SkillEntityAsset> CollectSameSeriesSkillAssets(SkillEntityAsset sourceAsset)
+    {
+        var result = new List<SkillEntityAsset>();
+        foreach (var candidate in ModClass.I.SkillV3.SkillLib.list)
+        {
+            if (candidate == null) continue;
+            if (candidate.PrefabEntity.IsNull || !candidate.PrefabEntity.HasComponent<SkillEntity>()) continue;
+            if (candidate.Type != SkillEntityType.Attack) continue;
+            if (!IsSameSeriesSkillEntity(sourceAsset, candidate)) continue;
+            result.Add(candidate);
+        }
+
+        if (result.Count == 0 && sourceAsset != null)
+        {
+            result.Add(sourceAsset);
+        }
+
+        return result;
+    }
+
+    private static bool IsSkillStructureDuplicate(Entity a, Entity b)
+    {
+        if (!a.HasComponent<SkillContainer>() || !b.HasComponent<SkillContainer>()) return false;
+
+        var containerA = a.GetComponent<SkillContainer>();
+        var containerB = b.GetComponent<SkillContainer>();
+        if (containerA.SkillEntityAssetID != containerB.SkillEntityAssetID) return false;
+
+        var modifiersA = CollectModifierIds(a);
+        var modifiersB = CollectModifierIds(b);
+        if (!modifiersA.SetEquals(modifiersB)) return false;
+
+        var hasTrajectoryA = a.TryGetComponent(out Trajectory trajectoryA);
+        var hasTrajectoryB = b.TryGetComponent(out Trajectory trajectoryB);
+        if (hasTrajectoryA != hasTrajectoryB) return false;
+        if (hasTrajectoryA && trajectoryA.ID != trajectoryB.ID) return false;
+
+        if ((containerA.OnTravel == null) != (containerB.OnTravel == null)) return false;
+        if (containerA.OnTravel != null && containerB.OnTravel != null && containerA.OnTravel != containerB.OnTravel) return false;
+
+        return true;
+    }
+
+    private static bool IsSameSeriesSkillEntity(SkillEntityAsset sourceAsset, SkillEntityAsset candidateAsset)
+    {
+        if (sourceAsset == null || candidateAsset == null) return false;
+        if (sourceAsset == candidateAsset) return true;
+
+        if (sourceAsset.SeriesTags.Count > 0 && candidateAsset.SeriesTags.Count > 0
+                                            && sourceAsset.SeriesTags.Overlaps(candidateAsset.SeriesTags))
+        {
+            return true;
+        }
+
+        return GetPrimaryElementIndex(sourceAsset.Element) == GetPrimaryElementIndex(candidateAsset.Element);
+    }
+
+    private static int GetPrimaryElementIndex(ElementComposition composition)
+    {
+        var values = composition.AsArray();
+        var index = 0;
+        var maxValue = float.MinValue;
+        for (int i = 0; i < values.Length; i++)
+        {
+            if (values[i] <= maxValue) continue;
+            maxValue = values[i];
+            index = i;
+        }
+
+        return index;
+    }
+
     private static HashSet<string> CollectConflictTags(HashSet<string> modifierIds)
     {
         var tags = new HashSet<string>();
@@ -484,6 +692,77 @@ public static class ActorExtendTools
         }
 
         return tags;
+    }
+
+    private static HashSet<string> CollectModifierSimilarityTags(HashSet<string> modifierIds)
+    {
+        var tags = new HashSet<string>();
+        foreach (var id in modifierIds)
+        {
+            var asset = ModClass.I.SkillV3.ModifierLib.get(id);
+            if (asset == null) continue;
+            if (asset.SimilarityTags.Count > 0)
+            {
+                tags.UnionWith(asset.SimilarityTags);
+            }
+            else
+            {
+                tags.Add($"id:{id}");
+            }
+        }
+
+        return tags;
+    }
+
+    private static float ComputeSkillSimilarity(Entity a, Entity b)
+    {
+        if (!a.HasComponent<SkillContainer>() || !b.HasComponent<SkillContainer>()) return 0f;
+
+        var aModifierIds = CollectModifierIds(a);
+        var bModifierIds = CollectModifierIds(b);
+        var modifierSimilarity = ComputeJaccardSimilarity(aModifierIds, bModifierIds);
+
+        var aTags = CollectModifierSimilarityTags(aModifierIds);
+        var bTags = CollectModifierSimilarityTags(bModifierIds);
+        var tagSimilarity = ComputeJaccardSimilarity(aTags, bTags);
+
+        var hasTrajectoryA = a.TryGetComponent(out Trajectory trajectoryA);
+        var hasTrajectoryB = b.TryGetComponent(out Trajectory trajectoryB);
+        var motionSimilarity = 0f;
+        if (hasTrajectoryA && hasTrajectoryB)
+        {
+            motionSimilarity = trajectoryA.ID == trajectoryB.ID ? 1f : 0f;
+        }
+
+        var aContainer = a.GetComponent<SkillContainer>();
+        var bContainer = b.GetComponent<SkillContainer>();
+        if (aContainer.OnTravel != null && bContainer.OnTravel != null && aContainer.OnTravel == bContainer.OnTravel)
+        {
+            motionSimilarity = Mathf.Max(motionSimilarity, 1f);
+        }
+
+        return Mathf.Clamp01(modifierSimilarity * 0.5f + tagSimilarity * 0.25f + motionSimilarity * 0.25f);
+    }
+
+    private static float ComputeJaccardSimilarity(HashSet<string> a, HashSet<string> b)
+    {
+        if ((a == null || a.Count == 0) && (b == null || b.Count == 0))
+        {
+            return 0f;
+        }
+
+        int intersection = 0;
+        if (a != null && b != null)
+        {
+            foreach (var value in a)
+            {
+                if (b.Contains(value)) intersection++;
+            }
+        }
+
+        var union = (a?.Count ?? 0) + (b?.Count ?? 0) - intersection;
+        if (union <= 0) return 0f;
+        return intersection / (float)union;
     }
 
     /// <summary>

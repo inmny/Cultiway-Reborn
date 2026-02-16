@@ -49,6 +49,23 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
         Tornado.Element = new ElementComposition(water:0.5f, wood:0.5f);
         FallLightning.Element = new ElementComposition(water:0.5f, fire:0.5f);
         LightningPolo.Element = new ElementComposition(water:0.5f, fire:0.5f);
+
+        GoldSword.AddSeriesTags("metal", "slash", "single");
+        GoldBlade.AddSeriesTags("metal", "slash", "sustain");
+        WoodThorn.AddSeriesTags("wood", "pierce", "single");
+        FallWood.AddSeriesTags("wood", "pierce", "single");
+        WaterArrow.AddSeriesTags("water", "pierce", "single");
+        WaterBall.AddSeriesTags("water", "ball", "single");
+        WaterBlade.AddSeriesTags("water", "slash", "sustain");
+        Fireball.AddSeriesTags("fire", "ball", "aoe");
+        FireBlade.AddSeriesTags("fire", "slash", "sustain");
+        FallStone.AddSeriesTags("earth", "pierce", "single");
+        StoneThorn.AddSeriesTags("earth", "pierce", "sustain");
+        WindBlade.AddSeriesTags("wind", "slash", "sustain");
+        WindPolo.AddSeriesTags("wind", "ball", "single");
+        Tornado.AddSeriesTags("wind", "aoe", "sustain");
+        FallLightning.AddSeriesTags("lightning", "single");
+        LightningPolo.AddSeriesTags("lightning", "ball", "single");
         GoldSword.SetupCommonPrefab("cultiway/effect/gold_sword")
             .SetupColliderSphere(1f, new ColliderConfig()
             {

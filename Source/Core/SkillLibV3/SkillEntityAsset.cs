@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
@@ -15,6 +17,7 @@ public class SkillEntityAsset : Asset
 {
     public Entity PrefabEntity;
     public ElementComposition Element;
+    public HashSet<string> SeriesTags { get; } = new();
     public EntityStore World => ModClass.I.SkillV3.World;
     public OnObjCollision OnObjCollision;
     public SkillEntityType Type;
@@ -94,5 +97,17 @@ public class SkillEntityAsset : Asset
     public override string ToString()
     {
         return id;
+    }
+
+    public SkillEntityAsset AddSeriesTags(params string[] tags)
+    {
+        if (tags == null) return this;
+        foreach (var tag in tags)
+        {
+            if (string.IsNullOrWhiteSpace(tag)) continue;
+            SeriesTags.Add(tag);
+        }
+
+        return this;
     }
 }

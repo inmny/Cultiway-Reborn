@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
@@ -76,6 +77,11 @@ public class SkillModifierAsset : Asset
     /// 冲突标签，用于互斥判定
     /// </summary>
     public HashSet<string> ConflictTags { get; } = new();
+
+    /// <summary>
+    /// 相似度标签，用于避免同类法术词条过于雷同
+    /// </summary>
+    public HashSet<string> SimilarityTags { get; } = new();
     
     /// <summary>
     /// 是否禁用该词条（禁用的词条不会被抽取）
@@ -87,4 +93,15 @@ public class SkillModifierAsset : Asset
     public EffectObjAction OnEffectObj;
     public AddOrUpgradeAction OnAddOrUpgrade;
     public GetDescription GetDescription;
+
+    public SkillModifierAsset AddSimilarityTags(params string[] tags)
+    {
+        if (tags == null) return this;
+        foreach (var tag in tags)
+        {
+            if (string.IsNullOrWhiteSpace(tag)) continue;
+            SimilarityTags.Add(tag);
+        }
+        return this;
+    }
 }

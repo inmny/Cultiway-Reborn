@@ -60,62 +60,86 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Setup<PlaceholderModifier>(Placeholder, SkillModifierRarity.Common);
 
         Setup<SlowModifier>(Slow, SkillModifierRarity.Common);
+        Slow.AddSimilarityTags("control", "slow");
         Slow.OnAddOrUpgrade = AddOrUpgradeSlow;
         Slow.OnEffectObj = ApplySlowEffect;
         Setup<BurnModifier>(Burn, SkillModifierRarity.Common);
+        Burn.AddSimilarityTags("dot", "burn", "fire");
         Burn.OnAddOrUpgrade = AddOrUpgradeBurn;
         Burn.OnEffectObj = ApplyBurnEffect;
         Setup<FreezeModifier>(Freeze, SkillModifierRarity.Common);
+        Freeze.AddSimilarityTags("control", "freeze");
         Freeze.OnAddOrUpgrade = AddOrUpgradeFreeze;
         Freeze.OnEffectObj = ApplyFreezeEffect;
         Setup<PoisonModifier>(Poison, SkillModifierRarity.Common);
+        Poison.AddSimilarityTags("dot", "poison");
         Poison.OnAddOrUpgrade = AddOrUpgradePoison;
         Poison.OnEffectObj = ApplyPoisonEffect;
         Setup<ExplosionModifier>(Explosion, SkillModifierRarity.Common);
+        Explosion.AddSimilarityTags("aoe", "blast");
         Explosion.OnAddOrUpgrade = AddOrUpgradeExplosion;
         Explosion.OnEffectObj = ApplyExplosionEffect;
         Setup<HasteModifier>(Haste, SkillModifierRarity.Common);
+        Haste.AddSimilarityTags("speed", "projectile");
         Haste.OnAddOrUpgrade = AddOrUpgradeHaste;
         Haste.OnSetup = ApplyHasteOnSetup;
         Setup<ProficiencyModifier>(Proficiency, SkillModifierRarity.Common);
+        Proficiency.AddSimilarityTags("growth");
         Setup<EmpowerModifier>(Empower, SkillModifierRarity.Common);
+        Empower.AddSimilarityTags("power", "damage");
         Empower.OnAddOrUpgrade = AddOrUpgradeEmpower;
         Empower.OnSetup = ApplyEmpowerSetup;
         Setup<KnockbackModifier>(Knockback, SkillModifierRarity.Common);
+        Knockback.AddSimilarityTags("control", "displace");
         Knockback.OnAddOrUpgrade = AddOrUpgradeKnockback;
         Knockback.OnEffectObj = ApplyKnockbackEffect;
 
         Setup<HugeModifier>(Huge, SkillModifierRarity.Rare);
+        Huge.AddSimilarityTags("size", "aoe");
         Huge.OnAddOrUpgrade = AddOrUpgradeHuge;
         Huge.OnSetup = ApplyHugeOnSetup;
         Setup<WeakenModifier>(Weaken, SkillModifierRarity.Rare);
+        Weaken.AddSimilarityTags("debuff", "attack_down");
         Weaken.OnAddOrUpgrade = AddOrUpgradeWeaken;
         Weaken.OnEffectObj = ApplyWeakenEffect;
         Setup<ArmorBreakModifier>(ArmorBreak, SkillModifierRarity.Rare);
+        ArmorBreak.AddSimilarityTags("debuff", "armor_down");
         ArmorBreak.OnAddOrUpgrade = AddOrUpgradeArmorBreak;
         ArmorBreak.OnEffectObj = ApplyArmorBreakEffect;
         Setup<GravityModifier>(Gravity, SkillModifierRarity.Rare);
+        Gravity.AddSimilarityTags("control", "pull", "aoe");
         Gravity.OnAddOrUpgrade = AddOrUpgradeGravity;
         Gravity.OnTravel = ApplyGravityTravel;
         Setup<DazeModifier>(Daze, SkillModifierRarity.Rare);
+        Daze.AddSimilarityTags("control", "stun");
 
         Setup<MercyModifier>(Mercy, SkillModifierRarity.Epic, KillOverrideTag);
+        Mercy.AddSimilarityTags("special");
         Mercy.IsDisabled = true;
         Setup<ChaosModifier>(Chaos, SkillModifierRarity.Epic);
+        Chaos.AddSimilarityTags("special", "random");
         Chaos.IsDisabled = true;
         Setup<SwapModifier>(Swap, SkillModifierRarity.Epic);
+        Swap.AddSimilarityTags("control", "swap");
         Swap.IsDisabled = true;
         Setup<RandomAffixModifier>(RandomAffix, SkillModifierRarity.Epic);
+        RandomAffix.AddSimilarityTags("special", "random");
         RandomAffix.IsDisabled = true;
         Setup<BurnoutModifier>(Burnout, SkillModifierRarity.Epic);
+        Burnout.AddSimilarityTags("dot", "burn");
         Burnout.IsDisabled = true;
         Setup<ComboModifier>(Combo, SkillModifierRarity.Epic);
+        Combo.AddSimilarityTags("combo");
         Combo.IsDisabled = true;
 
         Setup<SilenceModifier>(Silence, SkillModifierRarity.Legendary);
+        Silence.AddSimilarityTags("control", "silence");
         Setup<DeathSentenceModifier>(DeathSentence, SkillModifierRarity.Legendary, KillOverrideTag);
+        DeathSentence.AddSimilarityTags("execute");
         Setup<ReincarnationTrialModifier>(ReincarnationTrial, SkillModifierRarity.Legendary);
+        ReincarnationTrial.AddSimilarityTags("special");
         Setup<EternalCurseModifier>(EternalCurse, SkillModifierRarity.Legendary);
+        EternalCurse.AddSimilarityTags("curse", "dot");
     }
 
     private void Setup<TModifier>(SkillModifierAsset asset, SkillModifierRarity rarity, params string[] conflictTags)
