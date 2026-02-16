@@ -727,8 +727,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             var ce = Base.GetExtend();
             foreach (var item in pool)
             {
-                if (item.Tags.HasAny(Tags.Get<TagOccupied, TagConsumed>()))
+                if (item.Tags.HasAny(Tags.Get<TagOccupied, TagConsumed, TagUncompleted>()))
                 {
+                    item.AddTag<TagRecycle>();
                     continue;
                 }
                 ce.AddSpecialItem(item);
