@@ -72,10 +72,10 @@ internal static class PatchActor
         return true;
     }
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.tryToAttack))]
-    private static bool tryToAttack_prefix(Actor __instance, BaseSimObject pTarget, Action pKillAction, float pBonusAreOfEffect, ref bool __result)
+    private static bool tryToAttack_prefix(Actor __instance, BaseSimObject pTarget, bool pDoChecks, Action pKillAction, float pBonusAreOfEffect, ref bool __result)
     {
         if (pTarget.isRekt()) return true;
-        __result = __instance.GetExtend().TryToAttack(pTarget, pKillAction, pBonusAreOfEffect);
+        __result = __instance.GetExtend().TryToAttack(pTarget, pKillAction, pBonusAreOfEffect, pDoChecks);
         return false;
     }
     

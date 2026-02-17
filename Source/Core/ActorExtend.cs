@@ -160,13 +160,19 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     }
     private static Action<ActorExtend, BaseSimObject, ListPool<CombatActionAsset>> action_on_attack;
     [Hotfixable]
-    public bool TryToAttack(BaseSimObject target, Action kill_action = null, float bonus_area_effect = 0)
+    public bool TryToAttack(BaseSimObject target, Action kill_action = null, float bonus_area_effect = 0, bool do_checks = true)
     {
         var actor = Base;
-        if (actor.isInWaterAndCantAttack()) return false;
-        if (!actor.isAttackPossible()) return false;
+        if (do_checks)
+        {
+            if (actor.isInWaterAndCantAttack()) return false;
+            if (!actor.isAttackPossible()) return false;
+        }
         if (target.isRekt()) return false;
-
+        if (target.kingdom == null)
+        {
+            ModClass.LogError($"Target {target.id}({(target.isActor() ? target.a.asset.id : target.b.asset.id)}) has no kingdom");
+        }
         CombatActionAsset basic_attack_action = null;
         
         using var attack_action_pool = new ListPool<CombatActionAsset>();

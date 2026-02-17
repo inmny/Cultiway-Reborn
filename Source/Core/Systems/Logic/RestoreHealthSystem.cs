@@ -20,7 +20,7 @@ public class RestoreHealthSystem : QuerySystem<ActorBinder>
             for (int i = 0; i < entities.Length; i++)
             {
                 var a = binders[i].Actor;
-                if (a == null || !a.isAlive()) return;
+                if (a.isRekt()) return;
                 a.restoreHealth((int)a.stats[WorldboxGame.BaseStats.HealthRegen.id]);
             }
         }).RunParallel();

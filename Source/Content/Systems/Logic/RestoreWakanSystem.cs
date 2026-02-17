@@ -25,7 +25,7 @@ public class RestoreWakanSystem : QuerySystem<Xian, ActorBinder>
         Query.ForEachComponents(([Hotfixable](ref Xian xian, ref ActorBinder binder) =>
         {
             var a = binder.Actor;
-            if (a == null) return;
+            if (a.isRekt()) return;
             var max_wakan = a.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit;
             if (xian.wakan >= max_wakan) return;
             Vector2Int tile_pos = a.current_tile.pos;
