@@ -22,10 +22,19 @@ public class BehCraftElixir : BehCityActor
         var ingredients = crafting_elixir_entity.GetRelations<CraftOccupyingRelation>().ToArray();
 
         ref CraftingElixir crafting_elixir = ref crafting_elixir_entity.GetComponent<CraftingElixir>();
-
+        ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.get(crafting_elixir.elixir_id);
+        if (ingredients.Length < elixir_asset.ingredients.Length)
+        {
+            ModClass.LogWarning($"{pObject.data.id} 炼丹失败，原料不足(可能有原料过期了)");
+            crafting_elixir_entity.AddTag<TagRecycle>();
+            foreach (var ingredient in ingredients)
+            {
+                ingredient.item.AddTag<TagRecycle>();
+            }
+            return BehResult.Continue;
+        }
         if (crafting_elixir.progress >= ingredients.Length)
         {
-            ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.get(crafting_elixir.elixir_id);
             elixir_asset.Craft(ae, crafting_elixir_entity, pObject.city.GetExtend(),
                 ingredients.Select(x => x.item).ToArray());
             ae.Master(elixir_asset, ae.GetMaster(elixir_asset) + 1);
