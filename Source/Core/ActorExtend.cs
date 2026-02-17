@@ -686,6 +686,11 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         using var pool = new ListPool<Entity>(dead_unit.GetExtend().GetItems());
         foreach (var item in pool)
         {
+            if (item.Tags.HasAny(Tags.Get<TagOccupied, TagConsumed, TagUncompleted>()))
+            {
+                item.AddTag<TagRecycle>();
+                continue;
+            }
             AddSpecialItem(item);
         }
         action_on_kill?.Invoke(this, dead_unit, dead_kingdom);
