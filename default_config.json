@@ -2,9 +2,11 @@
     "GeneralSettings": [
         {
             "Id": "SPAWN_ELEMENT_ROOT_NATURALLY",
-            "Type": "SWITCH",
-            "BoolVal": true,
-            "Callback": "GeneralSettings:SwitchElementRootSpawnNaturally"
+            "Type": "SLIDER",
+            "FloatVal": 0.1,
+            "MinFloatVal": 0,
+            "MaxFloatVal": 1,
+            "Callback": "GeneralSettings:SetElementRootSpawnNaturally"
         },
         {
             "Id": "ENABLE_GEO_SYSTEMS",

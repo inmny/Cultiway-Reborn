@@ -4,9 +4,9 @@ namespace Cultiway.Const;
 
 public static class GeneralSettings
 {
-    public static bool SpawnNaturally { get; private set; } = true;
+    public static float SpawnNaturally { get; private set; } = 0.1f;
     public static bool EnableGeoSystems { get; private set; } = true;
-    public static void SwitchElementRootSpawnNaturally(bool value)
+    public static void SetElementRootSpawnNaturally(float value)
     {
         SpawnNaturally = value;
     }

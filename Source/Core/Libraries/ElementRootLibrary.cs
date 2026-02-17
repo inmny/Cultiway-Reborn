@@ -5,7 +5,6 @@ namespace Cultiway.Core.Libraries;
 
 public class ElementRootLibrary : AssetLibrary<ElementRootAsset>
 {
-    public float            base_prob = 0.1f;
     public ElementRootAsset Common { get; private set; }
     public ElementRootAsset Entropy { get; private set; }
 

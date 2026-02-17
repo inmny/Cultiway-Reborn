@@ -1,6 +1,7 @@
 key,cz
 GeneralSettings,一般设置
-SPAWN_ELEMENT_ROOT_NATURALLY,自然诞生灵根
+SPAWN_ELEMENT_ROOT_NATURALLY,自然诞生灵根概率
+SPAWN_ELEMENT_ROOT_NATURALLY_Description,自然诞生灵根的概率，0为禁用，1为100%
 ENABLE_GEO_SYSTEMS,启用地理演化
 AIGCSettings,AI生成内容相关设置
 BASE_URL,模型供应Base URL
