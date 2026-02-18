@@ -169,9 +169,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             if (!actor.isAttackPossible()) return false;
         }
         if (target.isRekt()) return false;
-        if (target.kingdom == null)
+        if (actor.kingdom == null)
         {
-            ModClass.LogError($"Target {target.id}({(target.isActor() ? target.a.asset.id : target.b.asset.id)}) has no kingdom");
+            ModClass.LogError($"Actor {actor.id}({(actor.isActor() ? actor.a.asset.id : actor.b.asset.id)}) has no kingdom");
         }
         CombatActionAsset basic_attack_action = null;
         
