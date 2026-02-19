@@ -278,16 +278,35 @@ namespace Cultiway.Patch
             {
                 return true;
             }
-            var dock_building = portal_request.Portals[0].PortalBuilding;
-            var dock_tile = dock_building.component_docks.getOceanTileInSameOcean(pActor.current_tile);
+            if (portal_request.Portals == null || portal_request.Portals.Count < 2)
+            {
+                portal_request.Cancel();
+                __result = BehResult.Stop;
+                return false;
+            }
+
+            var current_portal = portal_request.Portals[0];
+            var dock_building = current_portal?.PortalBuilding;
+            var dock_tile = dock_building?.component_docks?.getOceanTileInSameOcean(pActor.current_tile);
             if (dock_tile == null)
             {
                 // 如果找不到码头，则放弃这个码头的上客。这个码头的下客挪到下一个码头，并让他们重新寻路（应该是在寻路系统中进行自动纠错）。
-                portal_request.Portals[1].ToUnload.UnionWith(portal_request.Portals[0].ToUnload);
-                portal_request.Portals.RemoveAt(0);
+                if (portal_request.Portals.Count > 1)
+                {
+                    if (current_portal?.ToUnload != null)
+                    {
+                        portal_request.Portals[1].ToUnload.UnionWith(current_portal.ToUnload);
+                    }
+                    portal_request.Portals.RemoveAt(0);
 
-                __result = BehResult.RepeatStep;
+                    __result = BehResult.RepeatStep;
+                    return false;
+                }
+
+                portal_request.Cancel();
+                __result = BehResult.Stop;
                 return false;
+
             }
             pActor.beh_tile_target = dock_tile;
             __instance.boat.passengerWaitCounter = 0;
