@@ -12,7 +12,7 @@ public struct CityBinder(long id) : IComponent
     {
         get
         {
-            if (_city == null) _city = World.world.cities.get(id);
+            if (_city == null || _city.id != id) _city = World.world.cities.get(id);
 
             return _city;
         }
