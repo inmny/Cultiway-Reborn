@@ -19,7 +19,7 @@ public class RecycleStatusEffectSystem : QuerySystem<StatusComponent>
             {
                 if (status_owner.HasComponent<ActorBinder>())
                 {
-                    status_owner.GetComponent<ActorBinder>().Actor.setStatsDirty();
+                    status_owner.GetComponent<ActorBinder>().Actor?.setStatsDirty();
                 }
             }
         }));

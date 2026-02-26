@@ -238,14 +238,6 @@ namespace Cultiway
             GeneralLogicSystems.Add(new DelayActiveCheckSystem());
             GeneralLogicSystems.Add(new StatusTickSystem());
             
-            GeneralLogicSystems.Add(LogicPrepareRecycleSystemGroup);
-            LogicPrepareRecycleSystemGroup.Add(new DisposeActorExtendSystem());
-            LogicPrepareRecycleSystemGroup.Add(new DisposeCityExtendSystem());
-            LogicPrepareRecycleSystemGroup.Add(new RecycleAnimRendererSystem());
-            LogicPrepareRecycleSystemGroup.Add(new RecycleStatusEffectSystem());
-            LogicPrepareRecycleSystemGroup.Add(new RecycleUnknownAssetsSystem());
-            GeneralLogicSystems.Add(new RecycleDefaultEntitySystem());
-            
             GeneralLogicSystems.Add(LogicRestoreStatusSystemGroup);
             LogicRestoreStatusSystemGroup.Add(new RestoreHealthSystem());
             LogicRestoreStatusSystemGroup.Add(new RestoreQiyunSystem());
@@ -273,6 +265,14 @@ namespace Cultiway
             _patch.Init();
             SkillV3.Init();
             _content.Init();
+            
+            GeneralLogicSystems.Add(LogicPrepareRecycleSystemGroup);
+            //LogicPrepareRecycleSystemGroup.Add(new DisposeActorExtendSystem());
+            //LogicPrepareRecycleSystemGroup.Add(new DisposeCityExtendSystem());
+            LogicPrepareRecycleSystemGroup.Add(new RecycleAnimRendererSystem());
+            LogicPrepareRecycleSystemGroup.Add(new RecycleStatusEffectSystem());
+            LogicPrepareRecycleSystemGroup.Add(new RecycleUnknownAssetsSystem());
+            GeneralLogicSystems.Add(new RecycleDefaultEntitySystem());
             GeneralLogicSystems.Add(new RemoveDirtyTagSystem());
 
             if (Environment.UserName == "Inmny")
