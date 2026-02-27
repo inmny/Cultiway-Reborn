@@ -12,7 +12,7 @@ public class BookExtend : ExtendComponent<Book>, IDisposable
     private Entity e;
     public override Entity E => e;
     public override Book Base => e.HasComponent<BookBinder>() ? e.GetComponent<BookBinder>().Book : null;
-    
+
 
     private Dictionary<Type, Dictionary<IDeleteWhenUnknown, float>>  _master_items = new();
     public void Master<T>(T item, float value) where T : Asset, IDeleteWhenUnknown
@@ -55,6 +55,8 @@ public class BookExtend : ExtendComponent<Book>, IDisposable
         if (!e.IsNull)
         {
             e.AddTag<TagRecycle>();
+            ModClass.LogInfo($"Disposing BookExtend for Book {Base.data.id} ({e})");
+            ModClass.I.BookExtendManager.Remove(Base);
         }
 
         if (_master_items != null)

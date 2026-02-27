@@ -6,7 +6,7 @@ namespace Cultiway.Core.Components;
 
 public struct ActorBinder(long id) : IComponent
 {
-    public long ID = id;
+    public readonly long ID = id;
     [Ignore]
     public Actor Actor
     {

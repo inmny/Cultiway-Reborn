@@ -10,4 +10,8 @@ public static class BookTools
     {
         return BookExtendManager.Get(book);
     }
+    public static bool CheckExtend(this Book book)
+    {
+        return BookExtendManager.Has(book);
+    }
 }

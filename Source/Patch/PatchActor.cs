@@ -218,6 +218,10 @@ internal static class PatchActor
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.Dispose))]
     private static void Dispose_prefix(Actor __instance)
     {
+        if (!__instance.CheckExtend())
+        {
+            return;
+        }
         var ae = __instance.GetExtend();
         PathFinder.Instance.Cleanup(__instance.data.id);
         ae.Dispose();

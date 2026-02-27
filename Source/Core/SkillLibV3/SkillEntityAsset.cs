@@ -84,9 +84,10 @@ public class SkillEntityAsset : Asset
 
         var list = new EntityList(World);
         list.AddTree(entity);
-        var batch = new EntityBatch();
-        batch.RemoveTag<TagPrefab>();
-        list.ApplyBatch(batch);
+        foreach (var e in list) 
+        {
+            ModClass.I.CommandBuffer.RemoveTag<TagPrefab>(e.Id);
+        }
 
         if (entity.HasComponent<AnimData>())
             entity.GetComponent<AnimData>().next_frame_time = (float)(WorldboxGame.I.GetGameTime() + Time.deltaTime);

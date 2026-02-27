@@ -82,8 +82,11 @@
         <member name="M:Friflo.Engine.ECS.Archetype.MoveEntityTo(Friflo.Engine.ECS.Archetype,System.Int32,System.Int32,Friflo.Engine.ECS.Archetype)">
             <returns> the component index in the <paramref name="targetArch"/> </returns>
         </member>
-        <member name="M:Friflo.Engine.ECS.Archetype.CloneComponents(Friflo.Engine.ECS.Archetype,Friflo.Engine.ECS.CopyContext)">
-            <remarks>Must be used only on case all <see cref="P:Friflo.Engine.ECS.Archetype.ComponentTypes"/> are <see cref="F:Friflo.Engine.ECS.ComponentType.IsBlittable"/></remarks>
+        <member name="M:Friflo.Engine.ECS.Archetype.CopyComponents(Friflo.Engine.ECS.Archetype,Friflo.Engine.ECS.Archetype,Friflo.Engine.ECS.CopyContext@,System.Int64)">
+            <summary>
+            <see cref="T:Friflo.Engine.ECS.TreeNode"/> components (child entities) are not copied.<br/>
+            Otherwise, two different entities would have the same child entities.
+            </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.Archetype.AddEntity(Friflo.Engine.ECS.Archetype,System.Int32)">
             <returns> the component index in <paramref name="arch"/> </returns>
@@ -142,6 +145,11 @@
         <member name="M:Friflo.Engine.ECS.ComponentTypes.HasAny(Friflo.Engine.ECS.ComponentTypes@)">
             <summary>
             Return true if it contains any of the passed <paramref name="componentTypes"/>.
+            </summary>
+        </member>
+        <member name="M:Friflo.Engine.ECS.ComponentTypes.Contains(Friflo.Engine.ECS.ComponentType)">
+            <summary>
+            Return true if it contains the passed <paramref name="componentType"/>.
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.ComponentTypes.Add``1">
@@ -318,6 +326,12 @@
             Note: Should be called only in case the entity null check is negligible compared to total method execution.
             </summary>
         </member>
+        <member name="M:Friflo.Engine.ECS.EntityStoreBase.StructuralChangeWithinQueryLoop">
+            <summary>
+            Exception is thrown by add / remove component or tag operations potentially
+            calling <see cref="M:Friflo.Engine.ECS.Archetype.MoveEntityTo(Friflo.Engine.ECS.Archetype,System.Int32,System.Int32,Friflo.Engine.ECS.Archetype)"/> when within a query loop.
+            </summary>
+        </member>
         <member name="M:Friflo.Engine.ECS.EntityStoreBase.Batch(System.Boolean)">
             <summary>
             Returns a <see cref="T:Friflo.Engine.ECS.CreateEntityBatch"/> used to create entities with components and tags added to the batch.<br/>
@@ -459,6 +473,19 @@
             The filter attached to the query can be modified subsequently.
             </summary>
         </member>
+        <member name="T:Friflo.Engine.ECS.StructuralChangeException">
+            <summary>
+            Exception is thrown when executing a <b>structural change</b> within a query loop.<br/>
+            A structural change is adding / removing components or tags.<br/>
+            See <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query#structuralchangeexception">Query > StructuralChangeException.</a>
+            </summary>
+            <remarks>
+            Use <see cref="T:Friflo.Engine.ECS.CommandBuffer"/> to record changes and <see cref="M:Friflo.Engine.ECS.CommandBuffer.Playback"/> them outside the query loop.<br/>
+            <br/>
+            To preserve old behavior use the following workaround.<br/> 
+            Exception is not thrown if <see cref="P:Friflo.Engine.ECS.ArchetypeQuery.ThrowOnStructuralChange"/> of the enclosing query is set to <c>false</c>.<br/>
+            </remarks>
+        </member>
         <member name="T:Friflo.Engine.ECS.EntityStoreExtensions">
             <summary>
             Provide generic <c>CreateEntity()</c> overloads to create entities with passed components without any structural change.
@@ -554,13 +581,6 @@
             - it boxes struct values to return them as objects<br/>
             - it allows only reading struct values
             </summary>
-        </member>
-        <member name="M:Friflo.Engine.ECS.StructHeap`1.CloneComponent(System.Int32,System.Int32,Friflo.Engine.ECS.CopyContext@)">
-            <remarks>
-            Copying a component using an assignment can only be done for <see cref="F:Friflo.Engine.ECS.ComponentType.IsBlittable"/>
-            <see cref="T:Friflo.Engine.ECS.ComponentType"/>'s.<br/>
-            If not <see cref="F:Friflo.Engine.ECS.ComponentType.IsBlittable"/> serialization must be used.
-            </remarks>
         </member>
         <member name="M:Friflo.Engine.ECS.StructHeap`1.GetComponentDebug(System.Int32)">
             <summary>
@@ -724,6 +744,34 @@
         </member>
         <member name="M:Friflo.Engine.ECS.GenericInstanceTypeAttribute.#ctor(System.String,System.Type,System.Type,System.Type)">
             <summary> Register generic component / tag type with three generic parameters. </summary>
+        </member>
+        <member name="T:Friflo.Engine.ECS.BlittableTypeAttribute">
+            <summary>
+            The annotated type behaves as a value type.<br/>
+            Instances of these type can be copied in <see cref="M:Friflo.Engine.ECS.Entity.CopyEntity(Friflo.Engine.ECS.Entity)"/> or <see cref="M:Friflo.Engine.ECS.EntityStore.CloneEntity(Friflo.Engine.ECS.Entity)"/>
+            without the need of a <c>CopyValue()</c> method.
+            </summary>
+        </member>
+        <member name="T:Friflo.Engine.ECS.UiDragAttribute">
+            <summary>
+            Enables changing a number field or property with mouse dragging in EcGui.
+            </summary>
+        </member>
+        <member name="T:Friflo.Engine.ECS.UiHideAttribute">
+            <summary>
+            Hides the annotated field or property in EcGui.
+            </summary>
+        </member>
+        <member name="T:Friflo.Engine.ECS.UiFlagsAttribute">
+            <summary>
+            Defines the layout of a <c>[Flags] enum</c> type in EcGui.<br/>
+            The size of a group, their spacing and the sort order of flags.
+            </summary>
+        </member>
+        <member name="T:Friflo.Engine.ECS.UiFlagAttribute">
+            <summary>
+            Display short name for a <c>[Flags] enum</c> field in EcGui instead its bit index.<br/>
+            </summary>
         </member>
         <member name="T:Friflo.Engine.ECS.EntitySchema">
             <summary>
@@ -898,7 +946,13 @@
         </member>
         <member name="M:Friflo.Engine.ECS.Serialize.EntityConverter.EntityToDataEntity(Friflo.Engine.ECS.Entity,Friflo.Engine.ECS.Serialize.DataEntity,System.Boolean)">
             <summary>
-            Returns the passed <see cref="T:Friflo.Engine.ECS.Entity"/> as a <see cref="T:Friflo.Engine.ECS.Serialize.DataEntity"/> 
+            Returns the passed <see cref="T:Friflo.Engine.ECS.Entity"/> as a <see cref="T:Friflo.Engine.ECS.Serialize.DataEntity"/>
+            <param name="entity">Source entity.</param>
+            <param name="dataEntity">The target entity data is copied to.</param>
+            <param name="pretty">
+            If true each component in <see cref="F:Friflo.Engine.ECS.Serialize.DataEntity.components"/> JSON is written in a separate line.<br/>
+            If false <see cref="F:Friflo.Engine.ECS.Serialize.DataEntity.components"/> JSON has no line feeds.
+            </param>
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.Serialize.EntityConverter.DataEntityToEntity(Friflo.Engine.ECS.Serialize.DataEntity,Friflo.Engine.ECS.EntityStore,System.String@)">
@@ -1147,12 +1201,12 @@
             If <paramref name="index"/> is -1 the system is moved to the tail of the group.
             </summary>
         </member>
-        <member name="M:Friflo.Engine.ECS.Systems.BaseSystem.GetPerfLog">
+        <member name="M:Friflo.Engine.ECS.Systems.BaseSystem.GetPerfLog(System.Int32)">
             <summary>
             Returns performance statistics formatted as a table intended for logging.
             </summary>
         </member>
-        <member name="M:Friflo.Engine.ECS.Systems.BaseSystem.AppendPerfLog(System.Text.StringBuilder)">
+        <member name="M:Friflo.Engine.ECS.Systems.BaseSystem.AppendPerfLog(System.Text.StringBuilder,System.Int32)">
             <summary>
             Add performance statistics formatted as a table to the given <see cref="T:System.Text.StringBuilder"/> without memory allocations.
             </summary>
@@ -1491,6 +1545,12 @@
         </member>
         <member name="F:Friflo.Engine.ECS.Index.ValueStructIndex`2.entityMap">
             map:  indexed value  ->  entities (ids) containing a <see cref="T:Friflo.Engine.ECS.IIndexedComponent`1"/> with the indexed value as key.
+        </member>
+        <member name="M:Friflo.Engine.ECS.Index.ComponentIndexUtils.CreateComponentIndex(Friflo.Engine.ECS.EntityStore,Friflo.Engine.ECS.ComponentType)">
+            Call constructors of<br/>
+            <see cref="T:Friflo.Engine.ECS.Index.ValueStructIndex`2"/>
+            <see cref="T:Friflo.Engine.ECS.Index.ValueClassIndex`2"/>
+            <see cref="T:Friflo.Engine.ECS.Index.EntityIndex`1"/>
         </member>
         <member name="T:Friflo.Engine.ECS.Index.EntityIndexUtils">
             <summary>
@@ -1934,26 +1994,27 @@
             Apply the given <paramref name="batch"/> to all entities in the <see cref="T:Friflo.Engine.ECS.EntityList"/>. 
             </summary>
         </member>
+        <member name="M:Friflo.Engine.ECS.EntityList.SortByComponentField``2(System.String,Friflo.Engine.ECS.SortOrder,Friflo.Engine.ECS.ComponentField{``1}[])">
+            <summary>
+            Sort the entities by the component field/property with the given <paramref name="memberName"/>.<br/> 
+            </summary>
+            <returns>An array containing all entity id and their field/property value.</returns>
+        </member>
+        <member name="M:Friflo.Engine.ECS.EntityList.SortByEntityId(Friflo.Engine.ECS.SortOrder)">
+            <summary>
+            Sort the entities by entity Id.<br/> 
+            </summary>
+        </member>
+        <member name="M:Friflo.Engine.ECS.EntityList.Filter(System.Func{Friflo.Engine.ECS.Entity,System.Boolean})">
+            <summary>
+            Removes all entities not matching the passed filter
+            </summary>
+        </member>
         <member name="P:Friflo.Engine.ECS.EntityList.IsReadOnly">
             <summary> Gets a value indicating whether the <see cref="T:System.Collections.ICollection"/> is read-only. </summary>
         </member>
         <member name="P:Friflo.Engine.ECS.EntityList.Item(System.Int32)">
             <summary> Return the entity at the given <paramref name="index"/>.</summary>
-        </member>
-        <member name="M:Friflo.Engine.ECS.EntityList.Remove(Friflo.Engine.ECS.Entity)">
-            <summary> not implemented </summary>
-        </member>
-        <member name="M:Friflo.Engine.ECS.EntityList.IndexOf(Friflo.Engine.ECS.Entity)">
-            <summary> not implemented </summary>
-        </member>
-        <member name="M:Friflo.Engine.ECS.EntityList.Insert(System.Int32,Friflo.Engine.ECS.Entity)">
-            <summary> not implemented </summary>
-        </member>
-        <member name="M:Friflo.Engine.ECS.EntityList.RemoveAt(System.Int32)">
-            <summary> not implemented </summary>
-        </member>
-        <member name="M:Friflo.Engine.ECS.EntityList.Contains(Friflo.Engine.ECS.Entity)">
-            <summary> not implemented </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.EntityList.CopyTo(Friflo.Engine.ECS.Entity[],System.Int32)">
             <summary>
@@ -1969,6 +2030,38 @@
             <summary>
             Enumerates the entities of an <see cref="T:Friflo.Engine.ECS.EntityList"/>.
             </summary>
+        </member>
+        <member name="T:Friflo.Engine.ECS.SortOrder">
+            <summary>
+            Specify the sort order in <see cref="M:Friflo.Engine.ECS.EntityList.SortByComponentField``2(System.String,Friflo.Engine.ECS.SortOrder,Friflo.Engine.ECS.ComponentField{``1}[])"/>.
+            </summary>
+        </member>
+        <member name="F:Friflo.Engine.ECS.SortOrder.None">
+            <summary>
+            Leave entity order unchanged.<br/>
+            A custom sort can be applied to the <see cref="T:Friflo.Engine.ECS.ComponentField`1"/> array returned
+            by <see cref="M:Friflo.Engine.ECS.EntityList.SortByComponentField``2(System.String,Friflo.Engine.ECS.SortOrder,Friflo.Engine.ECS.ComponentField{``1}[])"/>.
+            </summary> 
+        </member>
+        <member name="F:Friflo.Engine.ECS.SortOrder.Ascending">
+            Sort entities in ascending order
+        </member>
+        <member name="F:Friflo.Engine.ECS.SortOrder.Descending">
+            Sort entities in descending order
+        </member>
+        <member name="T:Friflo.Engine.ECS.ComponentField`1">
+            <summary>
+            Contains an entity and its component field/property value returned by <see cref="M:Friflo.Engine.ECS.EntityList.SortByComponentField``2(System.String,Friflo.Engine.ECS.SortOrder,Friflo.Engine.ECS.ComponentField{``1}[])"/>. 
+            </summary>
+        </member>
+        <member name="F:Friflo.Engine.ECS.ComponentField`1.entityId">
+            Entity id
+        </member>
+        <member name="F:Friflo.Engine.ECS.ComponentField`1.hasField">
+            Is 1 if the entity has a component field. Otherwise, 0.
+        </member>
+        <member name="F:Friflo.Engine.ECS.ComponentField`1.field">
+            The component field value if <see cref="F:Friflo.Engine.ECS.ComponentField`1.hasField"/> == 1.
         </member>
         <member name="T:Friflo.Engine.ECS.ReadOnlyList`1">
             <summary>
@@ -2330,7 +2423,14 @@
             Returns the <see cref="T:Friflo.Engine.ECS.Entity"/> with the passed <paramref name="id"/>.<br/>
             The returned entity can be null (<see cref="P:Friflo.Engine.ECS.Entity.IsNull"/> == true).
             </summary>
-            <exception cref="T:System.IndexOutOfRangeException"> In case passed <paramref name="id"/> invalid (id >= <see cref="P:Friflo.Engine.ECS.EntityStore.Capacity"/>). </exception>
+            <exception cref="T:System.IndexOutOfRangeException"> In case passed <paramref name="id"/> is invalid (id >= <see cref="P:Friflo.Engine.ECS.EntityStore.Capacity"/>). </exception>
+        </member>
+        <member name="M:Friflo.Engine.ECS.EntityStore.GetEntityByRawEntity(Friflo.Engine.ECS.RawEntity)">
+            <summary>
+            Returns the <see cref="T:Friflo.Engine.ECS.Entity"/> with the passed <paramref name="rawEntity"/>.<br/>
+            The returned entity can be null (<see cref="P:Friflo.Engine.ECS.Entity.IsNull"/> == true).
+            </summary>
+            <exception cref="T:System.IndexOutOfRangeException"> In case passed <see cref="F:Friflo.Engine.ECS.RawEntity.Id"/> is invalid (id >= <see cref="P:Friflo.Engine.ECS.EntityStore.Capacity"/>). </exception>
         </member>
         <member name="M:Friflo.Engine.ECS.EntityStore.CreateEntityReference(System.Int64)">
             <summary>
@@ -2375,6 +2475,16 @@
         </member>
         <member name="M:Friflo.Engine.ECS.EntityStore.CreateEntityInternal(Friflo.Engine.ECS.Archetype,System.Int32,System.Int16@)">
             <returns> compIndex to access <see cref="F:Friflo.Engine.ECS.StructHeap`1.components"/> </returns>
+        </member>
+        <member name="M:Friflo.Engine.ECS.EntityStore.CopyEntity(Friflo.Engine.ECS.Entity,Friflo.Engine.ECS.Entity)">
+            <summary>
+            Copy all components, tags and scripts of the <paramref name="source"/> entity to the <paramref name="target"/> entity.<br/>
+            The <paramref name="source"/> and <paramref name="target"/> entities can be in the same or different stores.
+            </summary>
+            <remarks>
+            Child entities of the passed <paramref name="source"/> are not copied to the <paramref name="target"/> entity.<br/>
+            If doing this these child entities would be children of both entities.
+            </remarks>
         </member>
         <member name="M:Friflo.Engine.ECS.EntityStore.CloneEntity(Friflo.Engine.ECS.Entity)">
             <summary>
@@ -2796,7 +2906,7 @@
         <member name="P:Friflo.Engine.ECS.Entity.ChildIds">
             <summary>Return the ids of the child entities.</summary>
         </member>
-        <member name="F:Friflo.Engine.ECS.Entity.rawEntity">
+        <member name="F:Friflo.Engine.ECS.Entity.RawEntity">
             <summary>Unique entity id.<br/>
             Uniqueness relates to the <see cref="T:Friflo.Engine.ECS.Entity"/>'s stored in its <see cref="T:Friflo.Engine.ECS.EntityStore"/></summary>
         </member>
@@ -2840,7 +2950,7 @@
             <summary>Gets the script with the passed <typeparamref name="TScript"/> <see cref="T:System.Type"/>.</summary>
             <returns>
             Returns true if the entity has a script the passed <typeparamref name="TScript"/> <see cref="T:System.Type"/>.<br/>
-            Otherwise false.
+            Otherwise, false.
             </returns>
         </member>
         <member name="M:Friflo.Engine.ECS.Entity.AddScript``1(``0)">
@@ -2857,7 +2967,7 @@
         <member name="M:Friflo.Engine.ECS.Entity.RemoveScript``1">
             <summary>Remove the script with the given <typeparamref name="TScript"/> <see cref="T:System.Type"/> from the entity.</summary>
             <returns>
-            The script the script with the passed <typeparamref name="TScript"/> <see cref="T:System.Type"/> previously added to the entity.<br/>
+            The script with the passed <typeparamref name="TScript"/> <see cref="T:System.Type"/> previously added to the entity.<br/>
             Or null if the entity has no script with the passed <typeparamref name="TScript"/> <see cref="T:System.Type"/>.
             </returns>
             <remarks>Note: Use <see cref="M:Friflo.Engine.ECS.EntityUtils.RemoveEntityScript(Friflo.Engine.ECS.Entity,Friflo.Engine.ECS.ScriptType)"/> as non generic alternative.</remarks>
@@ -2872,7 +2982,7 @@
             <summary>Add the given <paramref name="tags"/> to the entity.</summary>
         </member>
         <member name="M:Friflo.Engine.ECS.Entity.RemoveTag``1">
-            <summary>Add the given <typeparamref name="TTag"/> from the entity.</summary>
+            <summary>Remove the given <typeparamref name="TTag"/> from the entity.</summary>
         </member>
         <member name="M:Friflo.Engine.ECS.Entity.RemoveTags(Friflo.Engine.ECS.Tags@)">
             <summary>Remove the given <paramref name="tags"/> from the entity.</summary>
@@ -2929,15 +3039,32 @@
             <param name="child"></param>
             <returns></returns>
         </member>
+        <member name="M:Friflo.Engine.ECS.Entity.CopyEntity(Friflo.Engine.ECS.Entity)">
+            <summary>
+            Copy all components, tags and scripts of this entity to the given <paramref name="target"/> entity.<br/>
+            This entity and the <paramref name="target"/> entity can be in the same or different stores.<br/>
+            This method can be used to "clone" all or a subset of entities to a different store.
+            </summary>
+            <remarks>
+            Children of this are not copied to the <paramref name="target"/> entity.<br/>
+            If doing this both entities would have the same children.
+            </remarks>
+        </member>
+        <member name="M:Friflo.Engine.ECS.Entity.CloneEntity">
+            <summary>
+            Create and return a clone of this entity.<br/>
+            The cloned entity will have the same components and tags as this entity.
+            </summary>
+            <remarks>
+            Children of this entity are not copied to the cloned entity.<br/>
+            If doing this both entities would have the same children.
+            </remarks>
+        </member>
         <member name="M:Friflo.Engine.ECS.Entity.op_Equality(Friflo.Engine.ECS.Entity,Friflo.Engine.ECS.Entity)">
             <summary> Return true if the passed entities have the same <see cref="F:Friflo.Engine.ECS.Entity.Id"/>'s. </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.Entity.op_Inequality(Friflo.Engine.ECS.Entity,Friflo.Engine.ECS.Entity)">
             <summary> Return true if the passed entities have the different <see cref="F:Friflo.Engine.ECS.Entity.Id"/>'s. </summary>
-        </member>
-        <member name="M:Friflo.Engine.ECS.Entity.Equals(System.Object)">
-            <summary> Note: Not implemented to avoid excessive boxing. </summary>
-            <remarks> Use <see cref="M:Friflo.Engine.ECS.Entity.op_Equality(Friflo.Engine.ECS.Entity,Friflo.Engine.ECS.Entity)"/> or <see cref="F:Friflo.Engine.ECS.EntityUtils.EqualityComparer"/> </remarks>
         </member>
         <member name="M:Friflo.Engine.ECS.Entity.Batch">
             <summary>
@@ -3276,6 +3403,12 @@
             So avoid using this method whenever possible. Use <see cref="M:Friflo.Engine.ECS.Entity.GetComponent``1"/> instead.
             </summary>
         </member>
+        <member name="M:Friflo.Engine.ECS.EntityUtils.SetEntityComponentMember``1(Friflo.Engine.ECS.Entity,Friflo.Engine.ECS.MemberPath,``0,System.Delegate,System.Exception@)">
+            <summary>
+            <paramref name="onMemberChanged"/> can be null or must be of type <see cref="T:Friflo.Engine.ECS.OnMemberChanged`1"/>
+            with T = <see cref="F:Friflo.Engine.ECS.MemberPath.componentType"/>
+            </summary>
+        </member>
         <member name="M:Friflo.Engine.ECS.EntityUtils.JsonToEntity(Friflo.Engine.ECS.Entity,System.String)">
             <remarks> The "id" in the passed JSON <paramref name="value"/> is ignored. </remarks>
         </member>
@@ -3397,6 +3530,63 @@
         <member name="T:Friflo.Engine.ECS.MissingComponentException">
             <summary>
             Is thrown when calling <c>Entity.Set()</c> on an entity missing the specified components.
+            </summary>
+        </member>
+        <member name="T:Friflo.Engine.ECS.MemberPath">
+            <summary>
+            Identifies a specific field / property by its <see cref="P:Friflo.Engine.ECS.MemberPath.path"/> within a specific <see cref="T:System.Type"/>.<br/>
+            It enables to read and write the field / property using the <see cref="F:Friflo.Engine.ECS.MemberPath.getter"/> and <see cref="F:Friflo.Engine.ECS.MemberPath.setter"/>.
+            </summary>
+            <remarks>
+            <see cref="T:Friflo.Engine.ECS.MemberPath"/> instances are immutable.<br/>
+            Each combination of <see cref="P:Friflo.Engine.ECS.MemberPath.declaringType"/> and <see cref="P:Friflo.Engine.ECS.MemberPath.path"/> has single <see cref="T:Friflo.Engine.ECS.MemberPath"/> instance.
+            </remarks>
+        </member>
+        <member name="F:Friflo.Engine.ECS.MemberPath.memberType">
+            The Type of the field / property.
+        </member>
+        <member name="P:Friflo.Engine.ECS.MemberPath.declaringType">
+            The Type containing the field / property.
+        </member>
+        <member name="F:Friflo.Engine.ECS.MemberPath.componentType">
+            The components Type containing the field / property.
+        </member>
+        <member name="F:Friflo.Engine.ECS.MemberPath.memberInfo">
+            The <see cref="T:System.Reflection.MemberInfo"/> of the leaf member in the <see cref="P:Friflo.Engine.ECS.MemberPath.path"/>.<br/>
+            Is null if <see cref="P:Friflo.Engine.ECS.MemberPath.path"/> == ""
+        </member>
+        <member name="P:Friflo.Engine.ECS.MemberPath.path">
+            Identifies the field / property within its <see cref="P:Friflo.Engine.ECS.MemberPath.declaringType"/>.
+        </member>
+        <member name="F:Friflo.Engine.ECS.MemberPath.name">
+            Name of the leaf member. E.g. path: "value.Length" => name: "Length" 
+        </member>
+        <member name="F:Friflo.Engine.ECS.MemberPath.getter">
+            A delegate used to read the value of the field / property.<br/>
+            Type: <see cref="T:Friflo.Engine.ECS.MemberPathGetter`2"/>. Is null if not readable.
+        </member>
+        <member name="F:Friflo.Engine.ECS.MemberPath.setter">
+            A delegate used to set the value of the field / property.<br/>
+            Type: <see cref="T:Friflo.Engine.ECS.MemberPathSetter`2"/>. Is null if not writeable.
+        </member>
+        <member name="M:Friflo.Engine.ECS.MemberPath.Get(System.Type,System.String)">
+            <summary>
+            Returns a <see cref="T:Friflo.Engine.ECS.MemberPath"/> identifying a specific field / property by its <paramref name="path"/>
+            within the passed <paramref name="type"/>.
+            </summary>
+            <remarks>
+            Internal note: Calls <see cref="M:Friflo.Engine.ECS.MemberPath.CreateGetter``2(System.String,System.Reflection.MemberInfo[])"/> and <see cref="M:Friflo.Engine.ECS.MemberPath.CreateSetter``2(System.String,System.Reflection.MemberInfo[])"/>
+            </remarks>
+        </member>
+        <member name="M:Friflo.Engine.ECS.MemberPath.PropertyOrField(System.Linq.Expressions.Expression,System.Reflection.MemberInfo)">
+            <summary>
+            <see cref="M:System.Linq.Expressions.Expression.PropertyOrField(System.Linq.Expressions.Expression,System.String)"/> does not search for exact names.
+            E.g. in case of two fields: bla and Bla it prefers the public version.
+            </summary>
+        </member>
+        <member name="T:Friflo.Engine.ECS.RawEntity">
+            <summary>
+            Raw identifier of an <see cref="T:Friflo.Engine.ECS.Entity"/> without containing <see cref="T:Friflo.Engine.ECS.EntityStore"/>.
             </summary>
         </member>
         <member name="T:Friflo.Engine.ECS.Scripts">
@@ -4207,6 +4397,16 @@
         <member name="P:Friflo.Engine.ECS.ArchetypeQuery.ComponentTypes">
             <summary> Return the <see cref="P:Friflo.Engine.ECS.ArchetypeQuery.ComponentTypes"/> of components returned by a query result. </summary>
         </member>
+        <member name="P:Friflo.Engine.ECS.ArchetypeQuery.ThrowOnStructuralChange">
+            <summary>
+            If true (default) a <see cref="T:Friflo.Engine.ECS.StructuralChangeException"/> is thrown when executing a <b>structural change</b> within a query loop.<br/>
+            See <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query#structuralchangeexception">Query > StructuralChangeException.</a>
+            </summary>
+            <remarks>
+            A structural change is adding / removing components or tags.<br/>
+            Use <see cref="T:Friflo.Engine.ECS.CommandBuffer"/> to record changes and <see cref="M:Friflo.Engine.ECS.CommandBuffer.Playback"/> them outside the query loop.
+            </remarks>
+        </member>
         <member name="F:Friflo.Engine.ECS.ArchetypeQuery.Filter">
             <summary> Return component and tag filters added to the query </summary>
         </member>
@@ -4539,31 +4739,31 @@
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.AllTags(Friflo.Engine.ECS.Tags@)">
-            <inheritdoc  cref="M:Friflo.Engine.ECS.ArchetypeQuery.AllTags(Friflo.Engine.ECS.Tags@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.AllTags(Friflo.Engine.ECS.Tags@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.AnyTags(Friflo.Engine.ECS.Tags@)">
-            <inheritdoc  cref="M:Friflo.Engine.ECS.ArchetypeQuery.AnyTags(Friflo.Engine.ECS.Tags@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.AnyTags(Friflo.Engine.ECS.Tags@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.WithDisabled">
-            <inheritdoc  cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithDisabled"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithDisabled"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.WithoutAllTags(Friflo.Engine.ECS.Tags@)">
-            <inheritdoc  cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAllTags(Friflo.Engine.ECS.Tags@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAllTags(Friflo.Engine.ECS.Tags@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.WithoutAnyTags(Friflo.Engine.ECS.Tags@)">
-            <inheritdoc  cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAnyTags(Friflo.Engine.ECS.Tags@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAnyTags(Friflo.Engine.ECS.Tags@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.AllComponents(Friflo.Engine.ECS.ComponentTypes@)">
-            <inheritdoc  cref="M:Friflo.Engine.ECS.ArchetypeQuery.AllComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.AllComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.AnyComponents(Friflo.Engine.ECS.ComponentTypes@)">
-            <inheritdoc  cref="M:Friflo.Engine.ECS.ArchetypeQuery.AnyComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.AnyComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.WithoutAllComponents(Friflo.Engine.ECS.ComponentTypes@)">
-            <inheritdoc  cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAllComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAllComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.WithoutAnyComponents(Friflo.Engine.ECS.ComponentTypes@)">
-            <inheritdoc  cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAnyComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAnyComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.HasValue``2(``1)">
             <inheritdoc cref="M:Friflo.Engine.ECS.QueryFilter.HasValue``2(``1)"/>
@@ -4572,13 +4772,13 @@
             <inheritdoc cref="M:Friflo.Engine.ECS.QueryFilter.ValueInRange``2(``1,``1)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.FreezeFilter">
-            <inheritdoc  cref="M:Friflo.Engine.ECS.ArchetypeQuery.FreezeFilter"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.FreezeFilter"/>
         </member>
         <member name="P:Friflo.Engine.ECS.ArchetypeQuery`3.Chunks">
             <summary>
             Return the <see cref="T:Friflo.Engine.ECS.Chunk`1"/>'s storing the components and entities of an <see cref="T:Friflo.Engine.ECS.ArchetypeQuery`3"/>.<br/>
             See <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">Example.</a>
-            </summary>
+            </summary> 
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`3.ForEach(System.Action{Friflo.Engine.ECS.Chunk{`0},Friflo.Engine.ECS.Chunk{`1},Friflo.Engine.ECS.Chunk{`2},Friflo.Engine.ECS.ChunkEntities})">
             <summary>
@@ -4643,31 +4843,31 @@
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.AllTags(Friflo.Engine.ECS.Tags@)">
-            <inheritdoc      cref="M:Friflo.Engine.ECS.ArchetypeQuery.AllTags(Friflo.Engine.ECS.Tags@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.AllTags(Friflo.Engine.ECS.Tags@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.AnyTags(Friflo.Engine.ECS.Tags@)">
-            <inheritdoc      cref="M:Friflo.Engine.ECS.ArchetypeQuery.AnyTags(Friflo.Engine.ECS.Tags@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.AnyTags(Friflo.Engine.ECS.Tags@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.WithDisabled">
-            <inheritdoc      cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithDisabled"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithDisabled"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.WithoutAllTags(Friflo.Engine.ECS.Tags@)">
-            <inheritdoc      cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAllTags(Friflo.Engine.ECS.Tags@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAllTags(Friflo.Engine.ECS.Tags@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.WithoutAnyTags(Friflo.Engine.ECS.Tags@)">
-            <inheritdoc      cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAnyTags(Friflo.Engine.ECS.Tags@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAnyTags(Friflo.Engine.ECS.Tags@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.AllComponents(Friflo.Engine.ECS.ComponentTypes@)">
-            <inheritdoc      cref="M:Friflo.Engine.ECS.ArchetypeQuery.AllComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.AllComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.AnyComponents(Friflo.Engine.ECS.ComponentTypes@)">
-            <inheritdoc      cref="M:Friflo.Engine.ECS.ArchetypeQuery.AnyComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.AnyComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.WithoutAllComponents(Friflo.Engine.ECS.ComponentTypes@)">
-            <inheritdoc      cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAllComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAllComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.WithoutAnyComponents(Friflo.Engine.ECS.ComponentTypes@)">
-            <inheritdoc      cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAnyComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAnyComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.HasValue``2(``1)">
             <inheritdoc cref="M:Friflo.Engine.ECS.QueryFilter.HasValue``2(``1)"/>
@@ -4676,13 +4876,13 @@
             <inheritdoc cref="M:Friflo.Engine.ECS.QueryFilter.ValueInRange``2(``1,``1)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.FreezeFilter">
-            <inheritdoc      cref="M:Friflo.Engine.ECS.ArchetypeQuery.FreezeFilter"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.FreezeFilter"/>
         </member>
         <member name="P:Friflo.Engine.ECS.ArchetypeQuery`4.Chunks">
             <summary>
             Return the <see cref="T:Friflo.Engine.ECS.Chunk`1"/>'s storing the components and entities of an <see cref="T:Friflo.Engine.ECS.ArchetypeQuery`4"/>.<br/>
             See <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">Example.</a>
-            </summary>
+            </summary> 
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`4.ForEach(System.Action{Friflo.Engine.ECS.Chunk{`0},Friflo.Engine.ECS.Chunk{`1},Friflo.Engine.ECS.Chunk{`2},Friflo.Engine.ECS.Chunk{`3},Friflo.Engine.ECS.ChunkEntities})">
             <summary>
@@ -4747,31 +4947,31 @@
             </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.AllTags(Friflo.Engine.ECS.Tags@)">
-            <inheritdoc          cref="M:Friflo.Engine.ECS.ArchetypeQuery.AllTags(Friflo.Engine.ECS.Tags@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.AllTags(Friflo.Engine.ECS.Tags@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.AnyTags(Friflo.Engine.ECS.Tags@)">
-            <inheritdoc          cref="M:Friflo.Engine.ECS.ArchetypeQuery.AnyTags(Friflo.Engine.ECS.Tags@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.AnyTags(Friflo.Engine.ECS.Tags@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.WithDisabled">
-            <inheritdoc          cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithDisabled"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithDisabled"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.WithoutAllTags(Friflo.Engine.ECS.Tags@)">
-            <inheritdoc          cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAllTags(Friflo.Engine.ECS.Tags@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAllTags(Friflo.Engine.ECS.Tags@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.WithoutAnyTags(Friflo.Engine.ECS.Tags@)">
-            <inheritdoc          cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAnyTags(Friflo.Engine.ECS.Tags@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAnyTags(Friflo.Engine.ECS.Tags@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.AllComponents(Friflo.Engine.ECS.ComponentTypes@)">
-            <inheritdoc          cref="M:Friflo.Engine.ECS.ArchetypeQuery.AllComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.AllComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.AnyComponents(Friflo.Engine.ECS.ComponentTypes@)">
-            <inheritdoc          cref="M:Friflo.Engine.ECS.ArchetypeQuery.AnyComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.AnyComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.WithoutAllComponents(Friflo.Engine.ECS.ComponentTypes@)">
-            <inheritdoc          cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAllComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAllComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.WithoutAnyComponents(Friflo.Engine.ECS.ComponentTypes@)">
-            <inheritdoc          cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAnyComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.WithoutAnyComponents(Friflo.Engine.ECS.ComponentTypes@)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.HasValue``2(``1)">
             <inheritdoc cref="M:Friflo.Engine.ECS.QueryFilter.HasValue``2(``1)"/>
@@ -4780,13 +4980,13 @@
             <inheritdoc cref="M:Friflo.Engine.ECS.QueryFilter.ValueInRange``2(``1,``1)"/>
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.FreezeFilter">
-            <inheritdoc          cref="M:Friflo.Engine.ECS.ArchetypeQuery.FreezeFilter"/>
+            <inheritdoc cref="M:Friflo.Engine.ECS.ArchetypeQuery.FreezeFilter"/>
         </member>
         <member name="P:Friflo.Engine.ECS.ArchetypeQuery`5.Chunks">
             <summary>
             Return the <see cref="T:Friflo.Engine.ECS.Chunk`1"/>'s storing the components and entities of an <see cref="T:Friflo.Engine.ECS.ArchetypeQuery`5"/>.<br/>
             See <a href="https://friflo.gitbook.io/friflo.engine.ecs/documentation/query-optimization#enumerate-query-chunks">Example.</a>
-            </summary>
+            </summary> 
         </member>
         <member name="M:Friflo.Engine.ECS.ArchetypeQuery`5.ForEach(System.Action{Friflo.Engine.ECS.Chunk{`0},Friflo.Engine.ECS.Chunk{`1},Friflo.Engine.ECS.Chunk{`2},Friflo.Engine.ECS.Chunk{`3},Friflo.Engine.ECS.Chunk{`4},Friflo.Engine.ECS.ChunkEntities})">
             <summary>
@@ -5387,6 +5587,11 @@
         <member name="F:Friflo.Engine.ECS.Relations.AbstractEntityRelations.linkEntityMap">
             map:  indexed / linked entity (id)  ->  entities (ids) containing a <see cref="T:Friflo.Engine.ECS.ILinkRelation"/> referencing the indexed / linked entity.
         </member>
+        <member name="M:Friflo.Engine.ECS.Relations.AbstractEntityRelations.CreateEntityRelations(Friflo.Engine.ECS.EntityStoreBase,Friflo.Engine.ECS.ComponentType)">
+            Call constructors of<br/>
+            <see cref="T:Friflo.Engine.ECS.Relations.GenericEntityRelations`2"/>
+            <see cref="T:Friflo.Engine.ECS.Relations.EntityLinkRelations`1"/>
+        </member>
         <member name="M:Friflo.Engine.ECS.Relations.AbstractEntityRelations.RemoveEntityRelation(System.Int32,System.Int32,Friflo.Engine.ECS.Collections.IdArray,System.Int32)">
             Executes in O(M)  M: max(number of entity relations)
         </member>
@@ -5405,8 +5610,8 @@
         <member name="M:Friflo.Engine.ECS.Relations.GenericEntityRelations`2.FindRelationPosition(System.Int32,`1,Friflo.Engine.ECS.Collections.IdArray@,System.Int32@)">
             Executes in O(M)  M: number of entity relations
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.GenericEntityRelations`2.AddComponent``1(System.Int32,``0@)">
-            <returns>true - component is newly added to the entity.<br/> false - component is updated.</returns>
+        <member name="M:Friflo.Engine.ECS.Relations.GenericEntityRelations`2.AddRelation``1(System.Int32,``0@)">
+            <returns>true - relation is newly added to the entity.<br/> false - relation is updated.</returns>
         </member>
         <member name="M:Friflo.Engine.ECS.Relations.GenericEntityRelations`2.RemoveRelation(System.Int32,`1)">
             <returns>true if entity contained a relation of the given type before</returns>
@@ -5423,8 +5628,8 @@
         <member name="M:Friflo.Engine.ECS.Relations.EntityLinkRelations`1.GetEntityRelation``1(System.Int32,System.Int32)">
             Expect: component is present
         </member>
-        <member name="M:Friflo.Engine.ECS.Relations.EntityLinkRelations`1.AddComponent``1(System.Int32,``0@)">
-            <returns>true - component is newly added to the entity.<br/> false - component is updated.</returns>
+        <member name="M:Friflo.Engine.ECS.Relations.EntityLinkRelations`1.AddRelation``1(System.Int32,``0@)">
+            <returns>true - relation is newly added to the entity.<br/> false - relation is updated.</returns>
         </member>
         <member name="M:Friflo.Engine.ECS.Relations.EntityLinkRelations`1.RemoveRelation(System.Int32,Friflo.Engine.ECS.Entity)">
             Executes in O(M)  M: number of entity relations
@@ -5558,7 +5763,7 @@
             Contains the relations of a specific entity returned by <see cref="M:Friflo.Engine.ECS.RelationExtensions.GetRelations``1(Friflo.Engine.ECS.Entity)"/>.
             </summary>
         </member>
-        <member name="F:Friflo.Engine.ECS.Relations`1.Length">
+        <member name="P:Friflo.Engine.ECS.Relations`1.Length">
             <summary>
             Return the number of relations.<br/>
             Executes in O(1).
@@ -5610,7 +5815,7 @@
             <summary> The elapsed time since previous <see cref="M:Friflo.Engine.ECS.Systems.SystemGroup.Update(Friflo.Engine.ECS.UpdateTick)"/> execution. </summary>
         </member>
         <member name="F:Friflo.Engine.ECS.UpdateTick.time">
-            <summary> The time at the beginning of the current frame. </summary>
+            <summary> The time at the beginning of the current frame since application start. </summary>
         </member>
         <member name="M:Friflo.Engine.ECS.UpdateTick.#ctor(System.Single,System.Single)">
             <summary>

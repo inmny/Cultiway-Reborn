@@ -40,6 +40,10 @@ internal static class PatchBook
     [HarmonyPrefix, HarmonyPatch(typeof(Book), nameof(Book.Dispose))]
     private static void Dispose_prefix(Book __instance)
     {
+        if (!__instance.CheckExtend())
+        {
+            return;
+        }
         var be = __instance.GetExtend();
         be.Dispose();
     }

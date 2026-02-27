@@ -89,7 +89,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             }
 
             on_effect_obj?.Invoke(entity, target);
-            entity.AddTag<TagRecycle>();
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
             return false;
         };
         GoldBlade.SetupCommonPrefab("cultiway/effect/gold_blade", anim_loop: false)
@@ -166,7 +166,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 
             on_effect_obj?.Invoke(entity, target);
 
-            entity.AddTag<TagRecycle>();
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
             return true;
         };
         WaterArrow.SetupCommonPrefab("cultiway/effect/single_water_sword")
@@ -193,7 +193,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 
             on_effect_obj?.Invoke(entity, target);
 
-            entity.AddTag<TagRecycle>();
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
             return false;
         };
         WaterBall.SetupCommonPrefab("cultiway/effect/water_polo")
@@ -220,7 +220,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 
             on_effect_obj?.Invoke(entity, target);
 
-            entity.AddTag<TagRecycle>();
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
             return false;
         };
         WaterBlade.SetupCommonPrefab("cultiway/effect/water_blade", anim_loop: false)
@@ -278,7 +278,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                 on_effect_obj?.Invoke(entity, obj);
             }
 
-            entity.AddTag<TagRecycle>();
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
             return false;
         };
         FireBlade.SetupCommonPrefab("cultiway/effect/fire_blade", anim_loop: false)
@@ -331,7 +331,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 
             on_effect_obj?.Invoke(entity, target);
 
-            entity.AddTag<TagRecycle>();
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
             return true;
         };
         StoneThorn.SetupCommonPrefab("cultiway/effect/ground_thorn", anim_loop:false)
@@ -410,7 +410,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 
                 on_effect_obj?.Invoke(entity, target);
 
-            entity.AddTag<TagRecycle>();
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
             return false;
         };
         Tornado.SetupCommonPrefab("cultiway/effect/simple_tornado")
@@ -464,7 +464,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 
             on_effect_obj?.Invoke(entity, target);
 
-            entity.AddTag<TagRecycle>();
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
             return true;
         };
         LightningPolo.SetupCommonPrefab("cultiway/effect/lightning_polo")
@@ -491,7 +491,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 
                 on_effect_obj?.Invoke(entity, target);
 
-            entity.AddTag<TagRecycle>();
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
             return false;
         };
     }

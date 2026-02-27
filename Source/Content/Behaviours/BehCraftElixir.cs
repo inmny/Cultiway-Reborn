@@ -19,7 +19,7 @@ public class BehCraftElixir : BehCityActor
         ActorExtend ae = pObject.GetExtend();
         if (!ae.HasItem<CraftingElixir>()) return BehResult.Continue;
         Entity crafting_elixir_entity = ae.GetFirstItemWithComponent<CraftingElixir>();
-        var ingredients = crafting_elixir_entity.GetRelations<CraftOccupyingRelation>().ToArray();
+        var ingredients = crafting_elixir_entity.GetRelations<CraftOccupyingRelation>();
 
         ref CraftingElixir crafting_elixir = ref crafting_elixir_entity.GetComponent<CraftingElixir>();
         ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.get(crafting_elixir.elixir_id);
@@ -35,8 +35,13 @@ public class BehCraftElixir : BehCityActor
         }
         if (crafting_elixir.progress >= ingredients.Length)
         {
+            var ingredient_array = new Entity[ingredients.Length];
+            for (int i = 0; i < ingredients.Length; i++)
+            {
+                ingredient_array[i] = ingredients[i].item;
+            }
             elixir_asset.Craft(ae, crafting_elixir_entity, pObject.city.GetExtend(),
-                ingredients.Select(x => x.item).ToArray());
+                ingredient_array);
             ae.Master(elixir_asset, ae.GetMaster(elixir_asset) + 1);
             ModClass.LogInfo($"{pObject.data.id} 完成制作 {elixir_asset.GetName()} 送与 {pObject.city.name}");
             return BehResult.Continue;

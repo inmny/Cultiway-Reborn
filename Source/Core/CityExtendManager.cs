@@ -15,6 +15,7 @@ public class CityExtendManager : ExtendComponentManager<CityExtend>
     {
         World = world;
     }
+    [MethodImpl(MethodImplOptions.Synchronized)]
     public CityExtend Get(City city)
     {
         if (_city_to_extend.TryGetValue(city.data, out var val)) return val;

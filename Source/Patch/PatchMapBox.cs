@@ -82,5 +82,7 @@ internal static class PatchMapBox
             }
         }
         PathFinder.Instance.Clear();
+        ModClass.I.ActorExtendManager.Clear();
+        ModClass.I.BookExtendManager.Clear();
     }
 }

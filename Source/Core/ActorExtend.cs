@@ -92,10 +92,12 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         if (!e.IsNull)
         {
             e.AddTag<TagRecycle>();
+            ModClass.LogInfo($"Disposing ActorExtend for Actor {Base.data.id} ({e})");
             foreach (var item in GetItems())
             {
                 item.AddTag<TagRecycle>();
             }
+            ModClass.I.ActorExtendManager.Remove(Base);
         }
 
         if (_master_items != null)
@@ -393,12 +395,24 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
     public List<Entity> GetStatuses()
     {
-        return e.GetRelations<StatusRelation>().Select(x => x.status).ToList();
+        var status_rels = e.GetRelations<StatusRelation>();
+        var list = new List<Entity>(status_rels.Length);
+        for (int i = 0; i < status_rels.Length; i++)
+        {
+            list.Add(status_rels[i].status);
+        }
+        return list;
     }
 
     public IEnumerable<Entity> GetItems()
     {
-        return e.GetRelations<InventoryRelation>().Select(x => x.item);
+        var rels = e.GetRelations<InventoryRelation>();
+        var rel_count = rels.Length;
+        for (int i = 0; i < rel_count; i++)
+        {
+            yield return rels[i].item;
+        }
+        yield break;
     }
 
     public static void RegisterActionOnNewCreature(Action<ActorExtend> action)
@@ -426,8 +440,8 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
     public SpecialItem GetRandomSpecialItem(Func<Entity, bool> filter)
     {
-        using var pool = new ListPool<SpecialItem>(e.GetRelations<InventoryRelation>()
-            .Select(x => x.item.GetComponent<SpecialItem>()).Where(x => filter(x.self)));
+        using var pool = new ListPool<SpecialItem>(GetItems()
+            .Select(x => x.GetComponent<SpecialItem>()).Where(x => filter(x.self)));
         if (pool.Any())
             return pool.GetRandom();
         return default;
@@ -669,13 +683,12 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
     public Entity GetFirstItemWithComponent<TComponent>() where TComponent : struct, IComponent
     {
-        return e.GetRelations<InventoryRelation>().Select(x => x.item)
-            .FirstOrDefault(x => x.HasComponent<TComponent>());
+        return GetItems().FirstOrDefault(x => x.HasComponent<TComponent>());
     }
 
     public bool HasItem<TComponent>() where TComponent : struct, IComponent
     {
-        return e.GetRelations<InventoryRelation>().Select(x => x.item).Any(x => x.HasComponent<TComponent>());
+        return GetItems().Any(x => x.HasComponent<TComponent>());
     }
     public static void RegisterActionOnKill(Action<ActorExtend, Actor, Kingdom> action)
     {
@@ -708,7 +721,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     }
     public IEnumerable<Entity> GetForces<TRelation>() where TRelation : struct, IForceRelation
     {
-        return E.GetRelations<TRelation>().Select(x => x.GetRelationKey());
+        var rels = E.GetRelations<TRelation>();
+        var rel_count = rels.Length;
+        for (int i = 0; i < rel_count; i++)
+        {
+            yield return rels[i].GetRelationKey();  
+        }
+        yield break;
     }
 
     public void JoinForce<TRelation>(Entity force) where TRelation : struct, IForceRelation
@@ -879,8 +898,8 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     {
         if (E.IsNull) return false;
         var relations = E.GetRelations<MasterApprenticeRelation>();
-        if (!relations.Any()) return false;
-        var relation = relations.First();
+        if (relations.Length == 0) return false;
+        var relation = relations[0];
         // 检查师傅是否还存在
         if (relation.Master.IsNull) return false;
         var masterActor = relation.Master.GetComponent<ActorBinder>().Actor;
@@ -897,9 +916,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         if (!HasMaster()) return null;
         
         var relations = E.GetRelations<MasterApprenticeRelation>();
-        if (!relations.Any()) return null;
+        if (relations.Length == 0) return null;
         
-        var masterEntity = relations.First().Master;
+        var masterEntity = relations[0].Master;
         if (masterEntity.IsNull) return null;
         
         var masterBinder = masterEntity.GetComponent<ActorBinder>();
@@ -913,7 +932,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     public ref MasterApprenticeRelation GetMasterRelation()
     {
         var relations = E.GetRelations<MasterApprenticeRelation>();
-        var relation = relations.First();
+        var relation = relations[0];
 
         return ref E.GetRelation<MasterApprenticeRelation, Entity>(relation.Master);
     }

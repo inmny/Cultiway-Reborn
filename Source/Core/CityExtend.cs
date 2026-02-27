@@ -40,12 +40,26 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce, IDispo
 
     public IEnumerable<Entity> GetItems()
     {
-        return e.GetRelations<InventoryRelation>().Select(x => x.item);
+        var rels = e.GetRelations<InventoryRelation>();
+        var rel_count = rels.Length;
+        for (int i = 0; i < rel_count; i++)
+        {
+            yield return rels[i].item;  
+        }
+        yield break;
     }
 
     public bool HasItem<TComponent>() where TComponent : struct, IComponent
     {
-        return e.GetRelations<InventoryRelation>().Select(x => x.item).Any(e => e.HasComponent<TComponent>());
+        var rels = e.GetRelations<InventoryRelation>();
+        for (int i = 0; i < rels.Length; i++)
+        {
+            if (rels[i].item.HasComponent<TComponent>())
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     public override string ToString()
@@ -93,12 +107,17 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce, IDispo
 
     public List<SpecialItem> GetSpecialItems()
     {
-        return e.GetRelations<InventoryRelation>().Select(x => x.item.GetComponent<SpecialItem>()).ToList();
+        var rels = e.GetRelations<InventoryRelation>();
+        var result = new List<SpecialItem>(rels.Length);
+        for (int i = 0; i < rels.Length; i++)
+        {
+            result.Add(rels[i].item.GetComponent<SpecialItem>());
+        }
+        return result;
     }
     public SpecialItem GetRandomSpecialItem(Func<Entity, bool> filter)
     {
-        using var pool = new ListPool<SpecialItem>(e.GetRelations<InventoryRelation>()
-            .Select(x => x.item.GetComponent<SpecialItem>()).Where(x => filter(x.self)));
+        using var pool = new ListPool<SpecialItem>(GetItems().Select(x => x.GetComponent<SpecialItem>()).Where(x => filter(x.self)));
         if (pool.Any())
             return pool.GetRandom();
         return default;
@@ -106,18 +125,15 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce, IDispo
 
     public List<SpecialItem> GetSpecialItems<TComponent>() where TComponent : struct, IComponent
     {
-        return e.GetRelations<InventoryRelation>()
-            .Where(x => x.item.HasComponent<TComponent>())
-            .Select(x => x.item.GetComponent<SpecialItem>()).ToList();
+        return GetItems().Where(x => x.HasComponent<TComponent>()).Select(x => x.GetComponent<SpecialItem>()).ToList();
     }
 
     public List<SpecialItem> GetSpecialItems<TComponent1, TComponent2>()
         where TComponent1 : struct, IComponent
         where TComponent2 : struct, IComponent
     {
-        return e.GetRelations<InventoryRelation>()
-            .Where(x => x.item.HasComponent<TComponent1>() && x.item.HasComponent<TComponent2>())
-            .Select(x => x.item.GetComponent<SpecialItem>()).ToList();
+        return GetItems().Where(x => x.HasComponent<TComponent1>() && x.HasComponent<TComponent2>())
+            .Select(x => x.GetComponent<SpecialItem>()).ToList();
     }
 
     internal void PrepareDestroy()
@@ -131,7 +147,13 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce, IDispo
 
     public IEnumerable<Entity> GetForces<TRelation>() where TRelation : struct, IForceRelation
     {
-        return E.GetRelations<TRelation>().Select(x => x.GetRelationKey());
+        var rels = E.GetRelations<TRelation>();
+        var rel_count = rels.Length;
+        for (int i = 0; i < rel_count; i++)
+        {
+            yield return rels[i].GetRelationKey();  
+        }
+        yield break;
     }
 
     public void JoinForce<TRelation>(Entity force)  where TRelation : struct, IForceRelation
