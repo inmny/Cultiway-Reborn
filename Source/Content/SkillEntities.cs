@@ -1,6 +1,8 @@
 using Cultiway.Abstract;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.EventSystem;
+using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Components.TrajParams;
@@ -81,7 +83,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref GoldSword.Element, attacker);
+                EventSystemHub.Publish(new GetHitEvent()
+                {
+                    TargetID = target.a.data.id,
+                    Damage = context.Strength,
+                    Element = GoldSword.Element,
+                    Attacker = attacker
+                });
             }
             else
             {
@@ -107,7 +115,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref GoldBlade.Element, attacker);
+                EventSystemHub.Publish(new GetHitEvent()
+                {
+                    TargetID = target.a.data.id,
+                    Damage = context.Strength,
+                    Element = GoldBlade.Element,
+                    Attacker = attacker
+                });
             }
             else
             {
@@ -132,7 +146,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref WoodThorn.Element, attacker);
+                EventSystemHub.Publish(new GetHitEvent()
+                {
+                    TargetID = target.a.data.id,
+                    Damage = context.Strength,
+                    Element = WoodThorn.Element,
+                    Attacker = attacker
+                });
             }
             else
             {
@@ -157,7 +177,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref FallWood.Element, attacker);
+                EventSystemHub.Publish(new GetHitEvent()
+                {
+                    TargetID = target.a.data.id,
+                    Damage = context.Strength,
+                    Element = FallWood.Element,
+                    Attacker = attacker
+                });
             }
             else
             {
@@ -184,7 +210,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref WaterArrow.Element, attacker);
+                EventSystemHub.Publish(new GetHitEvent()
+                {
+                    TargetID = target.a.data.id,
+                    Damage = context.Strength,
+                    Element = WaterArrow.Element,
+                    Attacker = attacker
+                });
             }
             else
             {
@@ -211,7 +243,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref WaterBall.Element, attacker);
+                EventSystemHub.Publish(new GetHitEvent()
+                {
+                    TargetID = target.a.data.id,
+                    Damage = context.Strength,
+                    Element = WaterBall.Element,
+                    Attacker = attacker
+                });
             }
             else
             {
@@ -238,7 +276,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref WaterBlade.Element, attacker);
+                EventSystemHub.Publish(new GetHitEvent()
+                {
+                    TargetID = target.a.data.id,
+                    Damage = context.Strength,
+                    Element = WaterBlade.Element,
+                    Attacker = attacker
+                });
             }
             else
             {
@@ -268,7 +312,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             {
                 if (obj.isActor())
                 {
-                    obj.a.GetExtend().GetHit(context.Strength, ref Fireball.Element, attacker);
+                    EventSystemHub.Publish(new GetHitEvent()
+                    {
+                        TargetID = obj.a.data.id,
+                        Damage = context.Strength,
+                        Element = Fireball.Element,
+                        Attacker = attacker
+                    });
                 }
                 else
                 {
@@ -296,7 +346,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
                 if (target.isActor())
                 {
-                    target.a.GetExtend().GetHit(context.Strength, ref FireBlade.Element, attacker);
+                    EventSystemHub.Publish(new GetHitEvent()
+                    {
+                        TargetID = target.a.data.id,
+                        Damage = context.Strength,
+                        Element = FireBlade.Element,
+                        Attacker = attacker
+                    });
                 }
                 else
                 {
@@ -322,7 +378,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref FallStone.Element, attacker);
+                EventSystemHub.Publish(new GetHitEvent()
+                {
+                    TargetID = target.a.data.id,
+                    Damage = context.Strength,
+                    Element = FallStone.Element,
+                    Attacker = attacker
+                });
             }
             else
             {
@@ -350,7 +412,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref StoneThorn.Element, attacker);
+                EventSystemHub.Publish(new GetHitEvent()
+                {
+                    TargetID = target.a.data.id,
+                    Damage = context.Strength,
+                    Element = StoneThorn.Element,
+                    Attacker = attacker
+                });
             }
             else
             {
@@ -375,7 +443,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref WindBlade.Element, attacker);
+                EventSystemHub.Publish(new GetHitEvent()
+                {
+                    TargetID = target.a.data.id,
+                    Damage = context.Strength,
+                    Element = WindBlade.Element,
+                    Attacker = attacker
+                });
             }
             else
             {
@@ -401,7 +475,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
                 if (target.isActor())
                 {
-                    target.a.GetExtend().GetHit(context.Strength, ref WindPolo.Element, attacker);
+                    EventSystemHub.Publish(new GetHitEvent()
+                    {
+                        TargetID = target.a.data.id,
+                        Damage = context.Strength,
+                        Element = WindPolo.Element,
+                        Attacker = attacker
+                    });
                 }
                 else
                 {
@@ -429,7 +509,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
                 if (target.isActor())
                 {
-                    target.a.GetExtend().GetHit(context.Strength, ref Tornado.Element, attacker);
+                    EventSystemHub.Publish(new GetHitEvent()
+                    {
+                        TargetID = target.a.data.id,
+                        Damage = context.Strength,
+                        Element = Tornado.Element,
+                        Attacker = attacker
+                    });
                 }
                 else
                 {
@@ -455,7 +541,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
             if (target.isActor())
             {
-                target.a.GetExtend().GetHit(context.Strength, ref FallLightning.Element, attacker);
+                EventSystemHub.Publish(new GetHitEvent()
+                {
+                    TargetID = target.a.data.id,
+                    Damage = context.Strength,
+                    Element = FallLightning.Element,
+                    Attacker = attacker
+                });
             }
             else
             {
@@ -482,7 +574,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             var attacker = context.SourceObj;
                 if (target.isActor())
                 {
-                    target.a.GetExtend().GetHit(context.Strength, ref LightningPolo.Element, attacker);
+                    EventSystemHub.Publish(new GetHitEvent()
+                    {
+                        TargetID = target.a.data.id,
+                        Damage = context.Strength,
+                        Element = LightningPolo.Element,
+                        Attacker = attacker
+                    });
                 }
                 else
                 {

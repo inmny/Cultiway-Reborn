@@ -9,6 +9,7 @@ using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Core.Systems.Logic;
@@ -260,6 +261,7 @@ namespace Cultiway
             LogicEventProcessSystemGroup.Add(new EntityNameGeneratedEventSystem());
             LogicEventProcessSystemGroup.Add(new WorldGeneratedPartitionGeoRegionsEventSystem());
             LogicEventProcessSystemGroup.Add(new GeoRegionAutoClassifyAndNameEventSystem());
+            LogicEventProcessSystemGroup.Add(new GetHitEventSystem());
             
             GeneralLogicSystems.Add(new WaterConnectivitySystem());
             GeneralLogicSystems.Add(PortalManager.Instance);

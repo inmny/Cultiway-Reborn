@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Components;
+using Cultiway.Core.EventSystem;
+using Cultiway.Core.EventSystem.Events;
 using strings;
 using UnityEngine;
 using Cultiway.Core;
@@ -91,9 +93,14 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             if (!owner.HasComponent<ActorBinder>()) continue;
             var actor = owner.GetComponent<ActorBinder>().Actor;
             if (actor == null || !actor.isAlive()) continue;
-            ref var element = ref tickState.Element;
             ref var statusComp = ref statusEntity.GetComponent<StatusComponent>();
-            actor.GetExtend().GetHit(damage, ref element, statusComp.Source);
+            EventSystemHub.Publish(new GetHitEvent()
+            {
+                TargetID = actor.data.id,
+                Damage = damage,
+                Element = tickState.Element,
+                Attacker = statusComp.Source
+            });
         }
     }
 
@@ -109,9 +116,14 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             if (!owner.HasComponent<ActorBinder>()) continue;
             var actor = owner.GetComponent<ActorBinder>().Actor;
             if (actor == null || !actor.isAlive()) continue;
-            ref var element = ref tickState.Element;
             ref var statusComp = ref statusEntity.GetComponent<StatusComponent>();
-            actor.GetExtend().GetHit(damage, ref element, statusComp.Source);
+            EventSystemHub.Publish(new GetHitEvent()
+            {
+                TargetID = actor.data.id,
+                Damage = damage,
+                Element = tickState.Element,
+                Attacker = statusComp.Source
+            });
         }
     }
 }

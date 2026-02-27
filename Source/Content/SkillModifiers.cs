@@ -3,6 +3,8 @@ using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.EventSystem;
+using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3.Components;
@@ -582,7 +584,13 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         {
             if (obj.isActor())
             {
-                obj.a.GetExtend().GetHit(damage, ref element, attacker);
+                EventSystemHub.Publish(new GetHitEvent()
+                {
+                    TargetID = obj.a.data.id,
+                    Damage = damage,
+                    Element = element,
+                    Attacker = attacker
+                });
             }
             else
             {

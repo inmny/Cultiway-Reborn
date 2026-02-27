@@ -5,6 +5,8 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Cultiway.Const;
 using Cultiway.Core;
+using Cultiway.Core.EventSystem;
+using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -117,7 +119,15 @@ internal static class PatchActor
         {
             return true;
         }
-        __instance.GetExtend().GetHit(pDamage, ref EnumUtils.DamageCompositionFromDamageType(pAttackType), pAttacker, ignore_damage_reduction: !pCheckDamageReduction);
+        var element = EnumUtils.DamageCompositionFromDamageType(pAttackType);
+        EventSystemHub.Publish(new GetHitEvent()
+        {
+            TargetID = __instance.data.id,
+            Damage = pDamage,
+            Element = element,
+            Attacker = pAttacker,
+            IgnoreDamageReduction = !pCheckDamageReduction
+        });
         return false;
     }
 
