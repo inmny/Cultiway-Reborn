@@ -12,6 +12,7 @@ using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
 using HarmonyLib;
 using UnityEngine;
+using Cultiway.Core.Pathfinding;
 
 namespace Cultiway.Patch;
 
