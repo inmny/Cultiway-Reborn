@@ -170,7 +170,7 @@ public class PathFinder
     }
     public void Cleanup(long actorId)
     {
-        if (_tasks.TryRemove(actor.data.id, out var task))
+        if (_tasks.TryRemove(actorId, out var task))
         {
             task.Dispose();
         }
