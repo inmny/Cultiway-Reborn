@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Cultiway.Const;
 using Cultiway.Core;
+using Cultiway.Core.Pathfinding;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
