@@ -168,6 +168,14 @@ public class PathFinder
             task.Dispose();
         }
     }
+    public void Cleanup(long actorId)
+    {
+        if (_tasks.TryRemove(actor.data.id, out var task))
+        {
+            task.Dispose();
+        }
+        _lastRequests.TryRemove(actorId, out _);
+    }
 
     public void Clear()
     {

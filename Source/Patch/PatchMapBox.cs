@@ -80,5 +80,6 @@ internal static class PatchMapBox
                 dynamic_asset_library.ClearDynamicAssets();
             }
         }
+        PathFinder.Instance.Clear();
     }
 }

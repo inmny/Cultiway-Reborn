@@ -218,6 +218,7 @@ internal static class PatchActor
     private static void Dispose_prefix(Actor __instance)
     {
         var ae = __instance.GetExtend();
+        PathFinder.Instance.Cleanup(__instance.data.id);
         ae.Dispose();
     }
 }
