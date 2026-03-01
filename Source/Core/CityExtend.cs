@@ -64,7 +64,7 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce, IDispo
 
     public override string ToString()
     {
-        return $"[{e.GetComponent<CityBinder>().id}] {Base.name}: {e}";
+        return $"[{e.GetComponent<CityBinder>().ID}] {Base.name}: {e}";
     }
 
     public void TestAddSpecialItem()

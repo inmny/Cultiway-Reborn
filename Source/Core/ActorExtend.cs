@@ -85,17 +85,18 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     {
         this.e = e;
         e.GetComponent<ActorBinder>()._ae = this;
+        _ = e.GetComponent<ActorBinder>().Actor;
     }
 
     public void Dispose()
     {
         if (!e.IsNull)
         {
-            e.AddTag<TagRecycle>();
-            ModClass.LogInfo($"Disposing ActorExtend for Actor {Base.data.id} ({e})");
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(e.Id);
+            //ModClass.LogInfo($"Disposing ActorExtend for Actor {Base.data.id} ({e})");
             foreach (var item in GetItems())
             {
-                item.AddTag<TagRecycle>();
+                ModClass.I.CommandBuffer.AddTag<TagRecycle>(item.Id);
             }
             ModClass.I.ActorExtendManager.Remove(Base);
         }
@@ -126,7 +127,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         {
             foreach (var skill_action in _skill_action_modifiers.Values)
             {
-                skill_action.AddTag<TagRecycle>();
+                ModClass.I.CommandBuffer.AddTag<TagRecycle>(skill_action.Id);
             }
 
             _skill_action_modifiers = null;
@@ -135,7 +136,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         {
             foreach (var skill_entity in _skill_entity_modifiers.Values)
             {
-                skill_entity.AddTag<TagRecycle>();
+                ModClass.I.CommandBuffer.AddTag<TagRecycle>(skill_entity.Id);
             }
 
             _skill_entity_modifiers = null;
@@ -426,6 +427,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     }
     public void LearnSkillV3(Entity skill_container, bool clone = false)
     {
+        if (!GeneralSettings.EnableSkillSystems) return;
         if (clone)
         {
             skill_container = skill_container.Store.CloneEntity(skill_container);
@@ -856,6 +858,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
     public bool CastSkillV3(Entity skill, BaseSimObject target)
     {
+        if (!GeneralSettings.EnableSkillSystems) return false;
         // TODO: 添加消耗检查，技能消耗由技能实体和所有词缀组合决定（存在SkillContainer里头）
         if (!skill.HasComponent<SkillContainer>())
         {

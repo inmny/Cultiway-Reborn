@@ -12,7 +12,7 @@ public struct ActorBinder(long id) : IComponent
     {
         get
         {
-            if (_actor != null && _actor.data?.id == ID) return _actor;
+            if (_actor != null) return _actor;
 
             _actor = World.world.units.get(ID);
 

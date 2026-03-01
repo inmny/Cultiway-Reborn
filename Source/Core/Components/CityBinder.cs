@@ -5,14 +5,14 @@ namespace Cultiway.Core.Components;
 
 public struct CityBinder(long id) : IComponent
 {
-    public readonly long id = id;
+    public readonly long ID = id;
 
     [Ignore]
     public City City
     {
         get
         {
-            if (_city == null || _city.data?.id != id) _city = World.world.cities.get(id);
+            if (_city == null || _city.data?.id != ID) _city = World.world.cities.get(ID);
 
             return _city;
         }

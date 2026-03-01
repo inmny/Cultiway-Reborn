@@ -11,7 +11,7 @@ public struct BookBinder(long id) : IComponent
     {
         get
         {
-            if (_book != null && _book.data?.id == ID) return _book;
+            if (_book != null) return _book;
 
             _book = World.world.books.get(ID);
 
@@ -24,5 +24,5 @@ public struct BookBinder(long id) : IComponent
     [Ignore]
     internal BookExtend _be;
     [Ignore]
-    private  Book       _book;
+    internal  Book       _book;
 }

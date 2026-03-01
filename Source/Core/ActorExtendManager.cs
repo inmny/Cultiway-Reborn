@@ -1,64 +1,76 @@
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
+using System.Collections.Concurrent;
 using Cultiway.Abstract;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using NeoModLoader.services;
+using NeoModLoader.utils;
 
 namespace Cultiway.Core;
 
 public class ActorExtendManager : ExtendComponentManager<ActorExtend>
 {
-    public readonly EntityStore                     World;
-    private object _lock = new();
-    private ConditionalWeakTable<ActorData, ActorExtend> _actor_to_extend = new();
+    public readonly EntityStore World;
+    private readonly ConcurrentDictionary<ActorData, ActorExtend> _actor_to_extend = new();
+    private readonly ConcurrentDictionary<ActorData, string> _actor_to_create_stacktrace = new();
 
     internal ActorExtendManager(EntityStore world)
     {
         World = world;
     }
+
     public ActorExtend Get(Actor actor)
     {
-        lock(_lock)
+        var actorData = actor.data;
+        var actorId = actorData.id;
+
+        // 所有对EntityStore的访问都需要在锁的保护下进行
+        lock (EntityStoreLock.GlobalLock)
         {
-            if (_actor_to_extend.TryGetValue(actor.data, out var val))
+            if (_actor_to_extend.TryGetValue(actorData, out var val))
             {
-                // 检查ActorBinder.ID是否匹配，防止ActorData被重用导致的问题
                 ref var binder = ref val.E.GetComponent<ActorBinder>();
-                if (binder.ID != actor.data.id)
+                if (binder.ID == actorId)
                 {
-                    ModClass.LogWarning($"ActorExtend for Actor {actor.data.id} ({val.E}) has mismatched ID {binder.ID}, expected {actor.data.id}.");
-                    LogService.LogStackTraceAsWarning();
+                    return val;
                 }
+
+                ModClass.LogWarning($"ActorBinder错位 {actorData.GetHashCode()} -> {val.GetHashCode()}, {binder._ae.GetHashCode()}. Actor {actorId} ({val.E}) Binder: {binder.ID}, Binder actor: {binder._actor?.id}");
+                LogService.LogStackTraceAsWarning();
+
+                LogService.LogWarning($"错位的ActorBinder创建于：\n{(_actor_to_create_stacktrace.TryGetValue(actorData, out var stacktrace) ? stacktrace : "未知")}");
+                return val;
             }
-            else
-            {
-                val = new ActorExtend(World.CreateEntity(new ActorBinder(actor.data.id)));
-                ModClass.LogInfo($"Creating ActorExtend for Actor {actor.data.id} ({val.E.GetComponent<ActorBinder>().ID}) ({val.E})");
-                _actor_to_extend.Add(actor.data, val);
-            }
-            if (val.Base == null)
-            {
-                ModClass.LogInfo($"ActorExtend for Actor {actor.data.id} ({val.E.GetComponent<ActorBinder>().ID}) ({val.E}) has null Base, this should not happen.");
-            }
-            return val;
+
+            // 创建新的ActorExtend
+            var newExtend = new ActorExtend(World.CreateEntity(new ActorBinder(actorId)));
+
+            //ModClass.LogInfo($"Creating ActorExtend for Actor {actorId} ({newExtend.E}) binder id: {newExtend.E.GetComponent<ActorBinder>().Actor.id}. {actorData.GetHashCode()} -> {newExtend.GetHashCode()}");
+            //_actor_to_create_stacktrace[actorData] = OtherUtils.GetStackTrace(1);
+            _actor_to_extend[actorData] = newExtend;
+            return newExtend;
         }
     }
+
     public bool Has(Actor actor)
     {
         return _actor_to_extend.TryGetValue(actor.data, out var val);
     }
+
     public void Remove(Actor actor)
     {
-        if (_actor_to_extend.TryGetValue(actor.data, out var val))
-        {
-            _actor_to_extend.Remove(actor.data);
-        }
+        _actor_to_extend.TryRemove(actor.data, out _);
+        //_actor_to_create_stacktrace.TryRemove(actor.data, out _);
     }
+
     public void Clear()
     {
-        _actor_to_extend = new ConditionalWeakTable<ActorData, ActorExtend>();
+        lock (EntityStoreLock.GlobalLock)
+        {
+            _actor_to_extend.Clear();
+            //_actor_to_create_stacktrace.Clear();
+        }
     }
+
     public void AllStatsDirty()
     {
         World.Query<ActorBinder>().ForEachEntity((ref ActorBinder ab, Entity e) => ab.Actor?.setStatsDirty());

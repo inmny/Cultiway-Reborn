@@ -48,13 +48,14 @@ public class BookExtend : ExtendComponent<Book>, IDisposable
     {
         this.e = e;
         e.GetComponent<BookBinder>()._be = this;
+        _ = e.GetComponent<BookBinder>().Book;
     }
 
     public void Dispose()
     {
         if (!e.IsNull)
         {
-            e.AddTag<TagRecycle>();
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(e.Id);
             ModClass.LogInfo($"Disposing BookExtend for Book {Base.data.id} ({e})");
             ModClass.I.BookExtendManager.Remove(Base);
         }
