@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using ai;
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
@@ -68,7 +69,7 @@ internal static class PatchActor
                     {
                         pool.Add(ActorJobs.BookWriter.id);
                     }
-                    if (xian.CurrLevel >= XianLevels.Jindan)
+                    if (xian.CurrLevel >= XianLevels.Jindan && GeneralSettings.EnableElixirSystems)
                     {
                         pool.Add(ActorJobs.ElixirCrafter.id);
                         if (Randy.randomChance(0.9f))
@@ -76,12 +77,12 @@ internal static class PatchActor
                             pool.Add(ActorJobs.ElixirFinder.id);
                         }
                     }
-                    if (xian.CurrLevel >= XianLevels.XianBase) pool.Add(ActorJobs.TalismanCrafter.id);
-                    if (xian.CurrLevel >= XianLevels.Yuanying) pool.Add(ActorJobs.CultibookResearcher.id);
+                    if (xian.CurrLevel >= XianLevels.XianBase && GeneralSettings.EnableTalismanSystems) pool.Add(ActorJobs.TalismanCrafter.id);
+                    if (xian.CurrLevel >= XianLevels.Yuanying && GeneralSettings.EnableCultibookSystems) pool.Add(ActorJobs.CultibookResearcher.id);
                     
                     // ========== 师徒系统工作添加到pool ==========
                     // 1. 师傅工作：元婴期及以上才会主动收徒和教导弟子
-                    if (xian.CurrLevel >= XianLevels.Yuanying)
+                    if (xian.CurrLevel >= XianLevels.Yuanying && GeneralSettings.EnableAMSystems)
                     {
                         var apprentices = ae.GetApprentices();
                         // 如果有弟子，或者可以收徒，添加到pool
@@ -98,7 +99,7 @@ internal static class PatchActor
                     
                     // 2. 弟子工作：有师傅的角色
                     // 弟子有一定概率执行弟子工作（跟随师傅、寻师等）
-                    if (Randy.randomChance(0.3f)) // 30%概率添加到pool
+                    if (Randy.randomChance(0.3f) && GeneralSettings.EnableAMSystems) // 30%概率添加到pool
                     {
                         pool.Add(ActorJobs.ApprenticeDuty.id);
                     }

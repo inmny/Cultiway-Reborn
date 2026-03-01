@@ -219,8 +219,8 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (yuanying.skills.Count > 0)
             {
                 var skill_entity_asset = yuanying.skills[RdUtils.RandomIndexWithAccumWeight(yuanying.skill_acc_weight)];
-                
-                ae.LearnSkillV3(new SkillContainerBuilder(skill_entity_asset).Build());
+                if (GeneralSettings.EnableSkillSystems)
+                    ae.LearnSkillV3(new SkillContainerBuilder(skill_entity_asset).Build());
             }
             return true;
         }
@@ -449,8 +449,8 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             if (jindan.skills.Count > 0)
             {
                 var skill_entity_asset = jindan.skills[RdUtils.RandomIndexWithAccumWeight(jindan.skill_acc_weight)];
-                
-                ae.LearnSkillV3(new SkillContainerBuilder(skill_entity_asset).Build());
+                if (GeneralSettings.EnableSkillSystems)
+                    ae.LearnSkillV3(new SkillContainerBuilder(skill_entity_asset).Build());
             }
             return true;
         }

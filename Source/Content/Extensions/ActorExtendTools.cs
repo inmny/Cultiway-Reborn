@@ -54,8 +54,9 @@ public static class ActorExtendTools
     [Hotfixable]
     public static void EnhanceSkillRandomly(this ActorExtend ae, string source)
     {
+        if (!GeneralSettings.EnableSkillSystems) return;
         if (ae == null || ae.all_skills == null || ae.all_skills.Count == 0) return;
-
+        
         var targetSkill = SelectSkillForEnhancement(ae);
         if (targetSkill.IsNull || !targetSkill.HasComponent<SkillContainer>()) return;
 
