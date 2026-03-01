@@ -523,7 +523,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var status = StatusEffects.Slow.NewEntity();
         ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
         timeLimit.value = duration;
-        status.AddComponent(new StatusStatsMultiplier
+        ModClass.I.CommandBuffer.AddComponent(status.Id, new StatusStatsMultiplier
         {
             Value = strength
         });
@@ -629,7 +629,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
         else
         {
-            skillEntity.AddComponent(new Scale(scaleMul));
+            ModClass.I.CommandBuffer.AddComponent(skillEntity.Id, new Scale(scaleMul));
         }
 
         if (skillEntity.HasComponent<ColliderSphere>())
@@ -962,17 +962,24 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
 
     private static BaseStats PrepareOverwriteStats(Entity status)
     {
+        BaseStats stats;
         if (!status.HasComponent<StatusOverwriteStats>())
         {
-            status.AddComponent(new StatusOverwriteStats
+            stats = new BaseStats();
+            ModClass.I.CommandBuffer.AddComponent(status.Id, new StatusOverwriteStats
             {
-                stats = new BaseStats()
+                stats = stats
             });
         }
-
-        ref var overwrite = ref status.GetComponent<StatusOverwriteStats>();
-        overwrite.stats ??= new BaseStats();
-        overwrite.stats.clear();
-        return overwrite.stats;
+        else
+        {
+            stats = status.GetComponent<StatusOverwriteStats>().stats;
+            if (stats == null)
+            {
+                stats = new BaseStats();
+            }
+            stats.clear();
+        }
+        return stats;
     }
 }

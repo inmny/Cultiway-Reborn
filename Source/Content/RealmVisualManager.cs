@@ -144,32 +144,36 @@ internal sealed class RealmVisualManager : ICanInit, ICanReload
             indicatorFlags |= RealmVisual.IndicatorFlagJindan;
         }
 
-        ref var component = ref EnsureComponent(ae);
-        component.definition_index = definition.Index;
-        component.realm_stage = (byte)Mathf.Clamp(definition.RealmLevel, 0, byte.MaxValue);
-        component.visual_state = 0;
-        component.indicator_flags = indicatorFlags;
-        component.has_element_root = ae.HasElementRoot();
-    }
-
-    private static ref RealmVisual EnsureComponent(ActorExtend ae)
-    {
         if (!ae.E.HasComponent<RealmVisual>())
         {
-            ae.E.AddComponent(new RealmVisual
-            {
-                definition_index = byte.MaxValue
-            });
+            ModClass.I.CommandBuffer.AddComponent(ae.E.Id,
+                new RealmVisual()
+                {
+                    definition_index = definition.Index,
+                    realm_stage = (byte)Mathf.Clamp(definition.RealmLevel, 0, byte.MaxValue),
+                    visual_state = 0,
+                    indicator_flags = indicatorFlags,
+                    has_element_root = ae.HasElementRoot()
+                }
+            );
+        }
+        else
+        {
+            ref var component = ref ae.E.GetComponent<RealmVisual>();
+            component.definition_index = definition.Index;
+            component.realm_stage = (byte)Mathf.Clamp(definition.RealmLevel, 0, byte.MaxValue);
+            component.visual_state = 0;
+            component.indicator_flags = indicatorFlags;
+            component.has_element_root = ae.HasElementRoot();
         }
 
-        return ref ae.E.GetComponent<RealmVisual>();
     }
 
     private static void RemoveComponentIfExists(ActorExtend ae)
     {
         if (ae.E.HasComponent<RealmVisual>())
         {
-            ae.E.RemoveComponent<RealmVisual>();
+            ModClass.I.CommandBuffer.RemoveComponent<RealmVisual>(ae.E.Id);
         }
     }
 
