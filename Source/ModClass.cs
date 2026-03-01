@@ -75,7 +75,8 @@ namespace Cultiway
 
         private void Update()
         {
-            if (!Game.IsLoaded()) return;
+            if (!Game.IsLoaded()) return; 
+            //DebugConfig.setOption(DebugOption.ParallelJobsUpdater, false);
             var render_update_tick = new UpdateTick(Game.GetRenderDeltaTime(), Game.GetGameTime());
             try
             {
@@ -434,7 +435,7 @@ namespace Cultiway
                 var actor = world.units.createNewUnit(
                     "Cultiway.EasternHuman",
                     tile,
-                    false,
+                    true,
                     0f,
                     null,
                     null,
