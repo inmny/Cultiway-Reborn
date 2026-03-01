@@ -1,8 +1,19 @@
 key,cz
 GeneralSettings,一般设置
 SPAWN_ELEMENT_ROOT_NATURALLY,自然诞生灵根概率
-SPAWN_ELEMENT_ROOT_NATURALLY_Description,自然诞生灵根的概率，0为禁用，1为100%
+SPAWN_ELEMENT_ROOT_NATURALLY Description,自然诞生灵根的概率，0为禁用，1为100%
 ENABLE_GEO_SYSTEMS,启用地理演化
+ENABLE_GEO_SYSTEMS Description,启用地理演化系统，开启后世界地图上的地形会随着时间推移发生变化
+ENABLE_CULTIBOOK_SYSTEMS,启用功法系统
+ENABLE_CULTIBOOK_SYSTEMS Description,启用功法系统，开启后小人可以通过研究功法来学习新的技能
+ENABLE_TALISMAN_SYSTEMS,启用符箓系统
+ENABLE_TALISMAN_SYSTEMS Description,启用符箓系统，开启后小人可以制作符箓来释放各种临时法术
+ENABLE_ELIXIR_SYSTEMS,启用丹药系统
+ENABLE_ELIXIR_SYSTEMS Description,启用丹药系统，开启后小人可以炼制丹药来获得各种增益效果
+ENABLE_AM_SYSTEMS,启用师徒系统
+ENABLE_AM_SYSTEMS Description,启用师徒系统，开启后小人可以收徒和当师傅，进行师徒互动
+ENABLE_SKILL_SYSTEMS,启用技能系统
+ENABLE_SKILL_SYSTEMS Description,启用技能系统，开启后小人可以学习和使用各种技能
 AIGCSettings,AI生成内容相关设置
 BASE_URL,模型供应Base URL
 API_KEY,API密钥

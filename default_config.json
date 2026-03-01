@@ -15,6 +15,36 @@
             "Callback": "GeneralSettings:SwitchGeoSystems"
         },
         {
+            "Id": "ENABLE_CULTIBOOK_SYSTEMS",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchCultibookSystems"
+        },
+        {
+            "Id": "ENABLE_ELIXIR_SYSTEMS",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchElixirSystems"
+        },
+        {
+            "Id": "ENABLE_TALISMAN_SYSTEMS",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchTalismanSystems"
+        },
+        {
+            "Id": "ENABLE_AM_SYSTEMS",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchAMSystems"
+        },
+        {
+            "Id": "ENABLE_SKILL_SYSTEMS",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchSkillSystems"
+        },
+        {
             "Id": "TRAIN_STATION_TIMED_DISPATCH_EXPERIMENTAL",
             "Type": "SWITCH",
             "BoolVal": false,
