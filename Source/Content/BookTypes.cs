@@ -51,6 +51,11 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         var ae = actor.GetExtend();
         if (!ae.HasCultisys<Xian>()) return;
         var be = book.GetExtend();
+        if (!be.HasComponent<Skillbook>())
+        {
+            ModClass.LogError($"Book {book} ({be.E}) does not have Skillbook component!");
+            return;
+        }
         ae.LearnSkillV3(be.GetComponent<Skillbook>().SkillContainer, true);
     }
     private static void LearnElixirbook(Actor actor, Book book, BookTypeAsset asset)
@@ -58,6 +63,11 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         var ae = actor.GetExtend();
         if (!ae.HasCultisys<Xian>()) return;
         var be = book.GetExtend();
+        if (!be.HasComponent<Elixirbook>())
+        {
+            ModClass.LogError($"Book {book} ({be.E}) does not have Elixirbook component!");
+            return;
+        }
         var elixir_asset = be.GetComponent<Elixirbook>().Asset;
         var master = ae.GetMaster(elixir_asset);
         ae.Master(elixir_asset, master + 1);
@@ -67,6 +77,11 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         var ae = actor.GetExtend();
         if (!ae.HasCultisys<Xian>()) return;
         var be = book.GetExtend();
+        if (!be.HasComponent<Cultibook>())
+        {
+            ModClass.LogError($"Book {book} ({be.E}) does not have Cultibook component!");
+            return;
+        }
         var cultibook_asset = be.GetComponent<Cultibook>().Asset;
         if (cultibook_asset == null) return;
 
