@@ -93,11 +93,11 @@ internal static class PatchAboutFly
     }
 
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.updatePathMovement))]
-    private static void updatePathMovement_prefix(Actor __instance)
+    private static bool updatePathMovement_prefix(Actor __instance)
     {
-        if (!can_goTo_fast(__instance)) return;
+        if (!can_goTo_fast(__instance)) return true;
         var steps = PathFinder.Instance.TryViewAll(__instance);
-        if (steps == null || steps.Count == 0) return;
+        if (steps == null || steps.Count == 0) return true;
         
         var len = 0f;
         var last_tile = __instance.current_tile;
@@ -109,7 +109,7 @@ internal static class PatchAboutFly
             if (len >= ContentSetting.MinFlyDist) break;
         }
 
-        if (len < ContentSetting.MinFlyDist) return;
+        if (len < ContentSetting.MinFlyDist) return true;
 
         var ae = __instance.GetExtend();
         ref var xian = ref ae.GetCultisys<Xian>();
@@ -121,7 +121,7 @@ internal static class PatchAboutFly
             __instance.stopMovement();
             PathFinder.Instance.Cancel(__instance);
 
-            return;
+            return false;
         }
 
         if (xian.CurrLevel >= XianSetting.WeaponFlyLevel)
@@ -131,8 +131,9 @@ internal static class PatchAboutFly
             __instance.precalcMovementSpeed(true);
             __instance.moveTo(__instance.tile_target);
             PathFinder.Instance.Cancel(__instance);
-            return;
+            return false;
         }
+        return true;
     }
     private static bool can_goTo_fast(Actor actor)
     {
