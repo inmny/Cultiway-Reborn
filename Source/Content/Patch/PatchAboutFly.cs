@@ -212,27 +212,6 @@ internal static class PatchAboutFly
 
         return false;
     }
-/*
-    [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.updateParallelChecks))]
-    private static IEnumerable<CodeInstruction> updateParallelChecks_transpiler(IEnumerable<CodeInstruction> codes)
-    {
-        var list = codes.ToList();
-
-        var insert_idx = list.FindLastIndex(x =>
-            x.opcode == OpCodes.Ldflda && (x.operand as FieldInfo)?.Name == nameof(Actor.position_height)) - 1;
-        var jmp_idx = list.FindLastIndex(x =>
-            x.opcode == OpCodes.Callvirt && (x.operand as MethodInfo)?.Name == nameof(Actor.updateFall)) - 2;
-
-        var jmp_label = new Label();
-        list[jmp_idx].labels.Add(jmp_label);
-
-        list.InsertRange(insert_idx, [
-            new(OpCodes.Ldarg_0), new(OpCodes.Call, AccessTools.Method(typeof(PatchAboutFly), nameof(check_is_flying))),
-            new(OpCodes.Brtrue, jmp_label)
-        ]);
-        return list;
-    }
-*/
     [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.precalcMovementSpeed))]
     private static IEnumerable<CodeInstruction> precalcMovementSpeed_transpiler(IEnumerable<CodeInstruction> codes)
     {
