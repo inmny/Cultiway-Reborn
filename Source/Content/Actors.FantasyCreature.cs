@@ -2620,8 +2620,9 @@ public partial class Actors
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
             .SetIcon("actors/species/other/Cultiway/SkullCannonKhorne/main/walk_0")
-            .SetJumpAnimation(false)
-            .SetDefaultWeapons(S_Item.evil_staff)
+            .SetJumpAnimation(true)
+            .SetHideHandItem(true)
+            .SetDefaultWeapons(S_Item.evil_staff)//法术法杖
             .AddTrait(S_Trait.battle_reflexes)//战斗反射
             .AddTrait(S_Trait.pyromaniac)//火焰狂热
             .AddTrait(S_Trait.bloodlust)//嗜血
@@ -2651,9 +2652,9 @@ public partial class Actors
             .SetHideHandItem(true)
             .SetStandWhileSleeping(true)
             .SetDefaultWeapons(S_Item.flame_sword)
-            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimWalkSpeed(2f)//移动速度
             .SetAnimIdleSpeed(5f)//待机速度
-            .SetAnimSwimSpeed(5f)//游动速度
+            .SetAnimSwimSpeed(2f)//游动速度
             .AddTrait(S_Trait.battle_reflexes)//战斗反射
             .AddTrait(S_Trait.pyromaniac)//火焰狂热
             .AddTrait(S_Trait.bloodlust)//嗜血
@@ -2671,7 +2672,7 @@ public partial class Actors
             .Stats(S.damage, 100)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 28)//速度
-            .Stats(S.health, 900)//血量
+            .Stats(S.health, 9000)//血量
             .Stats(S.armor, 20)//防御
             .Stats(S.stamina, 200)//耐力
             .Stats(S.lifespan, 888);//寿命
@@ -2683,9 +2684,9 @@ public partial class Actors
             .SetHideHandItem(true)
             .SetStandWhileSleeping(true)
             .SetDefaultWeapons(S_Item.flame_sword)
-            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimWalkSpeed(2f)//移动速度
             .SetAnimIdleSpeed(5f)//待机速度
-            .SetAnimSwimSpeed(5f)//游动速度
+            .SetAnimSwimSpeed(2f)//游动速度
             .AddTrait(S_Trait.battle_reflexes)//战斗反射
             .AddTrait(S_Trait.pyromaniac)//火焰狂热
             .AddTrait(S_Trait.bloodlust)//嗜血
@@ -2703,7 +2704,7 @@ public partial class Actors
             .Stats(S.damage, 110)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 29)//速度
-            .Stats(S.health, 1000)//血量
+            .Stats(S.health, 10000)//血量
             .Stats(S.armor, 19)//防御
             .Stats(S.stamina, 200)//耐力
             .Stats(S.lifespan, 888);//寿命
@@ -2715,9 +2716,9 @@ public partial class Actors
             .SetHideHandItem(true)
             .SetStandWhileSleeping(true)
             .SetDefaultWeapons(S_Item.flame_hammer)
-            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimWalkSpeed(2f)//移动速度
             .SetAnimIdleSpeed(5f)//待机速度
-            .SetAnimSwimSpeed(5f)//游动速度
+            .SetAnimSwimSpeed(2f)//游动速度
             .AddTrait(S_Trait.battle_reflexes)//战斗反射
             .AddTrait(S_Trait.pyromaniac)//火焰狂热
             .AddTrait(S_Trait.bloodlust)//嗜血
@@ -2735,7 +2736,7 @@ public partial class Actors
             .Stats(S.damage, 115)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 30)//速度
-            .Stats(S.health, 1100)//血量
+            .Stats(S.health, 11000)//血量
             .Stats(S.armor, 30)//防御
             .Stats(S.stamina, 200)//耐力
             .Stats(S.lifespan, 888);//寿命
