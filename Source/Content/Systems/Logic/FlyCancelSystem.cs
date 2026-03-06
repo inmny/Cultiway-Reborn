@@ -22,7 +22,7 @@ public class FlyCancelSystem : QuerySystem<ActorBinder>
             {
                 var a = binders[i].Actor;
                 if (a == null || !a.isAlive()) continue;
-                if (!a.has_attack_target && a.isJustAttacked())
+                if (!a.has_attack_target && !a.isJustAttacked())
                 {
                     if (a.is_moving || a.isFollowingLocalPath()) continue;
                 }
