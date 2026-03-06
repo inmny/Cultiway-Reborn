@@ -64,7 +64,7 @@ internal static class PatchActor
         if (level == 0f) return true;
         var time = Mathf.Log(pStatusAsset.duration, Mathf.Pow(DamageCalcHyperParameters.PowerBase, level));
 
-        if (time < 0.02f)
+        if (time < 1f)
         {
             __result = false;
             return false;
