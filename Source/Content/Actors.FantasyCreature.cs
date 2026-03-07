@@ -247,6 +247,8 @@ public partial class Actors
     public static ActorAsset  AnggrathUnbound { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset  ExaltedBloodthirster { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset  QingDi { get; private set; }
     private void SetupFantasyCreatures()
     {
         AcaciaTreants.SetCamp(KingdomAssets.TreantsGood)//金合欢树人
@@ -1211,6 +1213,31 @@ public partial class Actors
             .Stats(S.armor, 15)//防御
             .Stats(S.stamina, 120)//耐力
             .Stats(S.lifespan, 5000);//寿命
+        QingDi.SetCamp(KingdomAssets.Divine)//青帝
+            .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
+            .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
+            .SetIcon("actors/species/other/Cultiway/QingDi/main/walk_0")
+            .SetJumpAnimation(false)
+            .SetStandWhileSleeping(true)
+            .SetAnimWalkSpeed(5f)//移动速度
+            .SetAnimIdleSpeed(5f)//待机速度
+            .SetAnimSwimSpeed(5f)//游动速度
+            .AddTrait(S_Trait.shiny)//闪亮
+            .AddTrait(S_Trait.light_lamp)
+            .AddTrait(S_Trait.regeneration)//回复
+            .AddTrait(S_Trait.flower_prints)//花印
+            .AddTrait(S_Trait.sunblessed)//阳光祝福
+            .AddTrait(S_Trait.poison_immune)//毒抗
+            .AddTrait(S_Trait.immortal)//不死
+            .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
+            .Stats(S.damage, 999)//伤害
+            .Stats(S.damage_range, 0.12f)//伤害范围
+            .Stats(S.speed, 18)//速度
+            .Stats(S.health, 999999999)//血量
+            .Stats(S.armor, 999999999)//防御
+            .Stats(S.stamina, 999999999)//耐力
+            .Stats(S.mana, 999999999)//魔力
+            .Stats(S.lifespan, 129600);//寿命
         QiLin.SetCamp(KingdomAssets.Divine)//麒麟
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")
