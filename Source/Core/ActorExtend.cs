@@ -503,7 +503,8 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     private static Action<ActorExtend, string> action_on_get_stats;
     private static Action<ActorExtend, Actor, Kingdom> action_on_kill;
     private static Action<ActorExtend, BaseSimObject, float> action_on_be_attacked;
-
+    public delegate void ActionBeforeBeAttacked(ActorExtend self, BaseSimObject attacker, ref ElementComposition damage_composition, ref AttackType attack_type, ref float damage, ref bool ignore_damage_reduction);
+    private static ActionBeforeBeAttacked action_before_be_attacked;
     public float GetStat(string stat_id)
     {
         action_on_get_stats?.Invoke(this, stat_id);
@@ -611,6 +612,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         }
 
         if (Base == attacker) return;
+
+        action_before_be_attacked?.Invoke(this, attacker, ref damage_composition, ref attack_type_for_vanilla, ref damage, ref ignore_damage_reduction);
+
         if (!ignore_damage_reduction)
         {
             var attacker_power_level = ((attacker?.isActor() ?? false) && !attacker.isRekt()) ? attacker.a.GetExtend().GetPowerLevel() : 0;
@@ -700,6 +704,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     public static void RegisterActionOnBeAttacked(Action<ActorExtend, BaseSimObject, float> action)
     {
         action_on_be_attacked += action;
+    }
+    public static void RegisterActionBeforeBeAttacked(ActionBeforeBeAttacked action)
+    {
+        action_before_be_attacked += action;
     }
     
     public void NewKillAction(Actor dead_unit, Kingdom dead_kingdom)
