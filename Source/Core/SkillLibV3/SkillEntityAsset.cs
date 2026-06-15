@@ -41,6 +41,13 @@ public class SkillEntityAsset : Asset
         traj.OnInit?.Invoke(PrefabEntity);
         return this;
     }
+
+    public SkillEntityAsset SetupVisualRotation(VisualRotation visualRotation)
+    {
+        PrefabEntity.AddComponent(visualRotation);
+        return this;
+    }
+
     public SkillEntityAsset SetupCommonPrefab(string effect_path, float scale = 0.1f, bool anim_loop = true)
     {
         PrefabEntity = World.CreateEntity(

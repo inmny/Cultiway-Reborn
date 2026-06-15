@@ -80,12 +80,19 @@ public class RenderAnimFrameSystem : BaseSystem
                 if (bind_renderer.value == null) return;
                 bind_renderer.value.transform.localScale = scale.value;
             });
-            rot_query.ForEachComponents((ref Rotation rot, ref AnimBindRenderer bind_renderer) =>
+            rot_query.ForEach((rotations, bindRenderers, entities) =>
             {
-                if (bind_renderer.value == null) return;
-                bind_renderer.value.transform.localRotation =
-                    Quaternion.Euler(0, 0, Vector2.SignedAngle(Vector2.right, rot.in_plane + new Vector2(0, rot.z)));
-            });
+                for (int i = 0; i < entities.Length; i++)
+                {
+                    ref var bindRenderer = ref bindRenderers[i];
+                    if (bindRenderer.value == null) continue;
+
+                    ref var rot = ref rotations[i];
+                    var entity = entities.EntityAt(i);
+                    var angle = GetVisualAngle(entity, ref rot);
+                    bindRenderer.value.transform.localRotation = Quaternion.Euler(0, 0, angle);
+                }
+            }).RunParallel();
         }
         else
         {
@@ -106,6 +113,43 @@ public class RenderAnimFrameSystem : BaseSystem
         });
         */
     }
+    [Hotfixable]
+    private float GetVisualAngle(Entity entity, ref Rotation rot)
+    {
+        var rotationAngle = GetRotationAngle(ref rot);
+        if (!entity.HasComponent<VisualRotation>())
+        {
+            return rotationAngle;
+        }
+
+        ref var visualRotation = ref entity.GetComponent<VisualRotation>();
+        return visualRotation.Mode switch
+        {
+            VisualRotationMode.FixedUpright => visualRotation.FixedAngle + visualRotation.AngleOffset,
+            VisualRotationMode.KeepInitial => GetInitialVisualAngle(ref visualRotation, rotationAngle),
+            VisualRotationMode.Spin => visualRotation.FixedAngle + visualRotation.AngleOffset + Time.time * visualRotation.SpinSpeed,
+            _ => rotationAngle + visualRotation.AngleOffset
+        };
+    }
+
+    [Hotfixable]
+    private float GetInitialVisualAngle(ref VisualRotation visualRotation, float rotationAngle)
+    {
+        if (!visualRotation.HasInitialAngle)
+        {
+            visualRotation.InitialAngle = rotationAngle;
+            visualRotation.HasInitialAngle = true;
+        }
+
+        return visualRotation.InitialAngle + visualRotation.AngleOffset;
+    }
+
+    [Hotfixable]
+    private float GetRotationAngle(ref Rotation rot)
+    {
+        return Vector2.SignedAngle(Vector2.right, rot.in_plane + new Vector2(0, rot.z));
+    }
+
     [Hotfixable]
     private bool NeedRender(Sprite sprite, ref Position pos, ref Scale scale)
     {

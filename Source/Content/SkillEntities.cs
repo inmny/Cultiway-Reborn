@@ -494,13 +494,14 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             return false;
         };
         Tornado.SetupCommonPrefab("cultiway/effect/simple_tornado")
+            .SetupVisualRotation(VisualRotation.FixedUpright())
             .SetupColliderSphere(1.5f, new ColliderConfig()
             {
                 Enabled = true,
                 Enemy = true,
                 Actor = true
             })
-            .SetupDefaultTraj(SkillTrajectories.TowardsDirectionNoRot)
+            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
             .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
             BaseSimObject target) =>
         {
