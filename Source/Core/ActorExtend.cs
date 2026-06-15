@@ -168,8 +168,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         var actor = Base;
         if (do_checks)
         {
+            if (actor.hasMeleeAttack() && target != null && target.position_height > 0f) return false;
             if (actor.isInWaterAndCantAttack()) return false;
             if (!actor.isAttackPossible()) return false;
+            if (target != null && !actor.isInAttackRange(target)) return false;
         }
         if (target.isRekt()) return false;
         if (actor.kingdom == null)
@@ -212,44 +214,43 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         AttackData attack_data = new(actor, target.current_tile, new_point, actor.current_position, target, actor.kingdom, AttackType.Weapon,
             actor.haveMetallicWeapon(), true, actor.hasRangeAttack(), actor.getWeaponAsset().projectile, kill_action, bonus_area_effect);
         
+        if (!attack_action_pool.Any() && basic_attack_action == null) return false;
+
+        actor.startAttackCooldown();
+        actor.punchTargetAnimation(target.current_position, true, actor.hasRangeAttack());
+
+        CombatActionAsset combatAction = null;
+        bool combatActionDone = false;
         if (attack_action_pool.Any())
         {
             // 随机选择一个攻击动作
-            var attack_action = attack_action_pool.GetRandom();
-            if (attack_action.action(attack_data))
-            {
-                // 结算攻击动作/饥饿/声效/攻击间隔
-                attack_succeed(attack_action);
-                return true;
-            }
-            if (!attack_action.basic)
+            combatAction = attack_action_pool.GetRandom();
+            combatActionDone = combatAction.action(attack_data);
+            if (!combatActionDone && !combatAction.basic && basic_attack_action != null)
             {
                 // 如果不是普攻且失败了，那就尝试普攻
-                goto BASIC_ATTACK;
+                combatAction = basic_attack_action;
+                combatActionDone = combatAction.action(attack_data);
             }
-
-            // 如果是普攻且失败了，那就退出
-            return false;
         }
-        BASIC_ATTACK:
-        if (basic_attack_action == null) return false;
-        if (basic_attack_action.action(attack_data))
+        else
         {
-            // 结算攻击动作/饥饿/声效/攻击间隔
-            attack_succeed(basic_attack_action);
-            return true;
+            combatAction = basic_attack_action;
+            combatActionDone = combatAction.action(attack_data);
         }
         
-        return false;
+        finishAttackAttempt(combatAction, combatActionDone);
+        return true;
 
         [Hotfixable]
-        void attack_succeed(CombatActionAsset combat_action)
+        void finishAttackAttempt(CombatActionAsset combatActionAsset, bool combatActionSucceeded)
         {
-            actor.startAttackCooldown();
-            actor.punchTargetAnimation(target.current_position, true, actor.hasRangeAttack());
-            actor.spendStamina(combat_action.cost_stamina);
-            actor.spendMana(combat_action.cost_mana);
-            if (combat_action.play_unit_attack_sounds && actor.asset.has_sound_attack)
+            if (combatActionSucceeded)
+            {
+                actor.spendStamina(combatActionAsset.cost_stamina);
+                actor.spendMana(combatActionAsset.cost_mana);
+            }
+            if (combatActionAsset.play_unit_attack_sounds && actor.asset.has_sound_attack)
             {
                 MusicBox.playSound(actor.asset.sound_attack, actor.current_tile.x, actor.current_tile.y);
             }
