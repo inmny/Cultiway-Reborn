@@ -10,6 +10,8 @@
         <DefineConstants>DEBUG;TRACE</DefineConstants>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <DisableHandlePackageFileConflicts>true</DisableHandlePackageFileConflicts>
+        <GameManagedPath>$(MSBuildThisFileDirectory)..\..\worldbox_Data\Managed\</GameManagedPath>
+        <FrameworkPathOverride>$(GameManagedPath)</FrameworkPathOverride>
     </PropertyGroup>
     <ItemGroup>
         <Content Include="mod.json"/>
@@ -17,9 +19,6 @@
     <ItemGroup>
         <Reference Include="0Harmony">
             <HintPath>..\..\worldbox_Data\StreamingAssets\mods\NML\Assemblies\0Harmony.dll</HintPath>
-        </Reference>
-        <Reference Include="System.Memory">
-            <HintPath>..\..\worldbox_Data\StreamingAssets\mods\NML\Assemblies\System.Memory.dll</HintPath>
         </Reference>
         <Reference Include="Assembly-CSharp">
             <HintPath>..\..\worldbox_Data\StreamingAssets\mods\NML\Assembly-CSharp-Publicized.dll</HintPath>
@@ -61,6 +60,10 @@
         <Reference Include="System.Net.Http">
             <HintPath>..\..\worldbox_Data\Managed\System.Net.Http.dll</HintPath>
         </Reference>
+        <Reference Include="netstandard">
+            <HintPath>..\..\worldbox_Data\Managed\netstandard.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
         <Reference Include="Newtonsoft.Json">
             <HintPath>..\..\worldbox_Data\Managed\Newtonsoft.Json.dll</HintPath>
         </Reference>
@@ -70,8 +73,11 @@
         <Reference Include="UnityEngine.CoreModule">
             <HintPath>..\..\worldbox_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
         </Reference>
-        <Reference Include="UnityEngine.TextCoreModule">
-            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TextCoreModule.dll</HintPath>
+        <Reference Include="UnityEngine.TextCoreFontEngineModule">
+            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TextCoreFontEngineModule.dll</HintPath>
+        </Reference>
+        <Reference Include="UnityEngine.TextCoreTextEngineModule">
+            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TextCoreTextEngineModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.TextRenderingModule">
             <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
