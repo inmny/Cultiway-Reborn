@@ -39,26 +39,18 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         TowardsDirection.OnInit = e =>
         {
-            e.AddComponent(new Velocity()
-            {
-                Value = 20  // 基础速度提升2倍
-            });
-            e.AddComponent(new TurnRate()
-            {
-                Value = 180f
-            });
+            EnsureVelocity(e, 20);
+            EnsureTurnRate(e, 180f);
         };
         TowardsDirectionNoRot.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
         {
             // TowardsDirectionNoRot 不更新旋转，只移动
             pos.value += rot.value.normalized * dt * e.GetComponent<Velocity>().Value;
         };
+        TowardsDirectionNoRot.CanBeSelectedByModifier = false;
         TowardsDirectionNoRot.OnInit = e =>
         {
-            e.AddComponent(new Velocity()
-            {
-                Value = 20
-            });
+            EnsureVelocity(e, 20);
         };
         TowardsPosition.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
         {
@@ -85,14 +77,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         TowardsPosition.OnInit = e =>
         {
-            e.AddComponent(new Velocity()
-            {
-                Value = 20
-            });
-            e.AddComponent(new TurnRate()
-            {
-                Value = 180f
-            });
+            EnsureVelocity(e, 20);
+            EnsureTurnRate(e, 180f);
         };
         TowardsTarget.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
         {
@@ -120,15 +106,27 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         TowardsTarget.OnInit = e =>
         {
-            e.AddComponent(new Velocity()
-            {
-                Value = 20
-            });
-            e.AddComponent(new TurnRate()
-            {
-                Value = 180f
-            });
+            EnsureVelocity(e, 20);
+            EnsureTurnRate(e, 180f);
         };
+    }
+
+    private static void EnsureVelocity(Entity e, float value)
+    {
+        if (e.HasComponent<Velocity>()) return;
+        e.AddComponent(new Velocity()
+        {
+            Value = value
+        });
+    }
+
+    private static void EnsureTurnRate(Entity e, float value)
+    {
+        if (e.HasComponent<TurnRate>()) return;
+        e.AddComponent(new TurnRate()
+        {
+            Value = value
+        });
     }
 
     /// <summary>
