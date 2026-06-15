@@ -10,4 +10,5 @@ public class TrajectoryAsset : Asset
 {
     public InitDefaultTrajectory OnInit;
     public UpdateTrajectory Action;
+    public bool CanBeSelectedByModifier = true;
 }

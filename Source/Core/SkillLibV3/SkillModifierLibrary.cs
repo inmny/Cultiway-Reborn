@@ -1,5 +1,8 @@
+using System.Collections.Generic;
+using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3;
@@ -17,6 +20,7 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             id = "Cultiway."+nameof(SetTrajectory)
         });
         SetTrajectory.AddSimilarityTags("trajectory", "motion");
+        SetTrajectory.OnSetup = ApplyTrajectoryOnSetup;
         SetTrajectory.OnAddOrUpgrade = builder =>
         {
             if (builder.HasModifier<Trajectory>())
@@ -24,7 +28,12 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
                 return false;
             }
 
-            var traj = ModClass.I.SkillV3.TrajLib.GetRandom();
+            var traj = GetRandomTrajectoryForModifier();
+            if (traj == null)
+            {
+                return false;
+            }
+
             builder.AddModifier(new Trajectory()
             {
                 ID = traj.id
@@ -111,5 +120,44 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
 
             return null;
         };
+    }
+
+    private static TrajectoryAsset GetRandomTrajectoryForModifier()
+    {
+        var candidates = new List<TrajectoryAsset>();
+        foreach (var trajectory in ModClass.I.SkillV3.TrajLib.list)
+        {
+            if (trajectory == null) continue;
+            if (!trajectory.CanBeSelectedByModifier) continue;
+            candidates.Add(trajectory);
+        }
+
+        return candidates.Count == 0 ? null : candidates.GetRandom();
+    }
+
+    private static void ApplyTrajectoryOnSetup(Entity skillEntity)
+    {
+        if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
+        if (skill.SkillContainer.IsNull) return;
+        if (!skill.SkillContainer.TryGetComponent(out Trajectory trajectory)) return;
+
+        var entityTrajectory = new Trajectory()
+        {
+            ID = trajectory.ID
+        };
+        var trajectoryAsset = entityTrajectory.Asset;
+        if (trajectoryAsset == null) return;
+
+        if (skillEntity.HasComponent<Trajectory>())
+        {
+            ref var current = ref skillEntity.GetComponent<Trajectory>();
+            current = entityTrajectory;
+        }
+        else
+        {
+            skillEntity.AddComponent(entityTrajectory);
+        }
+
+        trajectoryAsset.OnInit?.Invoke(skillEntity);
     }
 }
