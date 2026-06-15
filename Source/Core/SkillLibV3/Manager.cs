@@ -47,7 +47,7 @@ public class Manager
     public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f)
     {
         var entity = SkillEntityLibrary.RawAnim.NewEntity();
-        var frames = SpriteTextureLoader.getSpriteList(path);
+        var frames = SkillEntityAsset.LoadOrderedFrames(path);
         var data = entity.Data;
         data.Get<Position>().value = pos;
         data.Get<Rotation>().value = rot;

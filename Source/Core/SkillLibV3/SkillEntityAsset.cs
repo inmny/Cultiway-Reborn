@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
@@ -48,6 +49,12 @@ public class SkillEntityAsset : Asset
         return this;
     }
 
+    public static Sprite[] LoadOrderedFrames(string effect_path)
+    {
+        var frames = SpriteTextureLoader.getSpriteList(effect_path);
+        return frames?.OrderBy(sprite => sprite.name, StringComparer.Ordinal).ToArray() ?? Array.Empty<Sprite>();
+    }
+
     public SkillEntityAsset SetupCommonPrefab(string effect_path, float scale = 0.1f, bool anim_loop = true)
     {
         PrefabEntity = World.CreateEntity(
@@ -71,7 +78,7 @@ public class SkillEntityAsset : Asset
             },
             new AnimData()
             {
-                frames = SpriteTextureLoader.getSpriteList(effect_path)
+                frames = LoadOrderedFrames(effect_path)
             },
             new AliveTimer()
             {

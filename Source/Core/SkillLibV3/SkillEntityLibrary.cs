@@ -34,7 +34,7 @@ public class SkillEntityLibrary : AssetLibrary<SkillEntityAsset>
             },
             new AnimData()
             {
-                frames = SpriteTextureLoader.getSpriteList("cultiway/effect/flying_fireball")
+                frames = SkillEntityAsset.LoadOrderedFrames("cultiway/effect/flying_fireball")
             }, Tags.Get<TagPrefab>()
         );
         
