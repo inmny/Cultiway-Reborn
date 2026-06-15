@@ -1,5 +1,6 @@
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
+using Cultiway.Content.Patch;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -28,9 +29,7 @@ public class FlyCancelSystem : QuerySystem<ActorBinder>
                 }
                 if (a.data.hasFlag(ContentActorDataKeys.IsFlying_flag))
                 {
-                    a.data.removeFlag(ContentActorDataKeys.IsFlying_flag);
-                    a.setFlying(false);
-                    a.precalcMovementSpeed(true);
+                    PatchAboutFly.StopCultiwayFlight(a, false);
                 }
             }
         })).RunParallel();

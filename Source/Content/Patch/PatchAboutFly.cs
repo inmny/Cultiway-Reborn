@@ -92,9 +92,14 @@ internal static class PatchAboutFly
         return list;
     }
 
+    [HarmonyPriority(Priority.First)]
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.updatePathMovement))]
     private static bool updatePathMovement_prefix(Actor __instance)
     {
+        if (__instance.has_attack_target || (__instance.hasTask() && __instance.ai.task.in_combat))
+        {
+            return true;
+        }
         if (!can_goTo_fast(__instance)) return true;
         var steps = PathFinder.Instance.TryViewAll(__instance);
         if (steps == null || steps.Count == 0) return true;
@@ -199,6 +204,21 @@ internal static class PatchAboutFly
     private static bool check_is_flying(Actor actor)
     {
         return actor.isAlive() && actor.data.hasFlag(ContentActorDataKeys.IsFlying_flag);
+    }
+
+    public static void StopCultiwayFlight(Actor actor, bool resetHeight)
+    {
+        if (actor == null || !actor.data.hasFlag(ContentActorDataKeys.IsFlying_flag)) return;
+
+        actor.data.removeFlag(ContentActorDataKeys.IsFlying_flag);
+        actor.setFlying(actor.asset.flying);
+        if (resetHeight && !actor.asset.flying)
+        {
+            actor.position_height = 0f;
+            actor.velocity = Vector3.zero;
+            actor.under_forces = false;
+        }
+        actor.precalcMovementSpeed(true);
     }
 
     [Hotfixable]
