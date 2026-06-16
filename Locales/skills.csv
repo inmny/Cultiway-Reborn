@@ -16,8 +16,8 @@ Cultiway.Tornado,旋风
 Cultiway.FallLightning,落雷
 Cultiway.LightningPolo,雷丸
 Cultiway.SetTrajectory,调整轨迹
-Cultiway.SalvoCount,连射数量
-Cultiway.BurstCount,齐射数量
+Cultiway.SalvoCount,连续施法倾向
+Cultiway.BurstCount,分散施法倾向
 Cultiway.TowardsPosition,朝向指定坐标
 Cultiway.TowardsTarget,朝向指定目标
 Cultiway.TowardsDirection,朝向指定方向

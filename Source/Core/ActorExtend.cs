@@ -874,8 +874,19 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             ModClass.LogError($"技能实体{skill}不包含技能");
             return false;
         }
-        ModClass.I.SkillV3.SpawnSkill(skill, Base, target, 100);
-        return true;
+
+        var plan = SkillCastPlanner.CreatePlan(this, skill, target);
+        if (plan.Steps.Count == 0) return false;
+
+        var casted = false;
+        foreach (var step in plan.Steps)
+        {
+            if (!SkillCastCost.TryConsumeStepWakan(this, skill)) break;
+            ModClass.I.SkillV3.SpawnSkill(skill, Base, step.Target, 100, step.Delay);
+            casted = true;
+        }
+
+        return casted;
     }
 
     // ======== 师徒系统核心方法（不依赖Content） ========

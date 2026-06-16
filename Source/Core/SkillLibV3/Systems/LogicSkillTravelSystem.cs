@@ -13,7 +13,7 @@ public class LogicSkillTravelSystem : QuerySystem<SkillEntity>
     public LogicSkillTravelSystem()
     {
         Filter.AllTags(Tags.Get<TagHasOnTravel>());
-        Filter.WithoutAnyTags(Tags.Get<TagPrefab>());
+        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
     }
     
     protected override void OnUpdate()
