@@ -878,15 +878,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         var plan = SkillCastPlanner.CreatePlan(this, skill, target);
         if (plan.Steps.Count == 0) return false;
 
-        var casted = false;
-        foreach (var step in plan.Steps)
-        {
-            if (!SkillCastCost.TryConsumeStepWakan(this, skill)) break;
-            ModClass.I.SkillV3.SpawnSkill(skill, Base, step.Target, 100, step.Delay);
-            casted = true;
-        }
-
-        return casted;
+        return ModClass.I.SkillV3.StartSkillSequence(this, skill, plan, 100);
     }
 
     // ======== 师徒系统核心方法（不依赖Content） ========

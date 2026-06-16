@@ -8,8 +8,15 @@ namespace Cultiway.Core.SkillLibV3;
 public static class SkillCastCost
 {
     private const float BaseStepCost = 1f;
-    private const float ModifierStepCost = 0.2f;
-    private const float LegacyMultiCastStepCost = 0.1f;
+    private const float ModifierStepCost = 0.1f;
+    private const float LegacyMultiCastStepCost = 0.03f;
+
+    public static bool CanAffordStepWakan(ActorExtend caster, Entity skill)
+    {
+        if (caster == null || !caster.HasCultisys<Xian>()) return true;
+
+        return caster.GetCultisys<Xian>().wakan >= CalculateStepWakanCost(caster, skill);
+    }
 
     public static bool TryConsumeStepWakan(ActorExtend caster, Entity skill)
     {

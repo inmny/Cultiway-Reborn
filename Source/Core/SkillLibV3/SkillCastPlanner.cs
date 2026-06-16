@@ -1,7 +1,6 @@
 using System.Collections.Generic;
-using Cultiway.Content;
 using Cultiway.Content.Components;
-using Cultiway.Content.Extensions;
+using Cultiway.Content.Const;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Utils;
@@ -32,7 +31,7 @@ public readonly struct SkillCastStep
 
 public static class SkillCastPlanner
 {
-    private const int MaxPlannedCastCount = 32;
+    private const float DelayStep = 0.04f;
 
     public static SkillCastPlan CreatePlan(ActorExtend caster, Entity skill, BaseSimObject primaryTarget)
     {
@@ -43,20 +42,13 @@ public static class SkillCastPlanner
         var plan = new SkillCastPlan();
         var castCount = DetermineCastCount(caster, skill, primaryTarget);
         var targets = CollectCandidateTargets(caster.Base, primaryTarget, skill, castCount);
-        var masteryRatio = Mathf.Clamp01(caster.GetMainCultibookMastery() / 100f);
-        var delayStep = Mathf.Lerp(0.22f, 0.1f, masteryRatio);
+        var repeatBias = skill.TryGetComponent(out SalvoCount salvo) ? Mathf.Max(0, salvo.Value - 1) : 0;
         var spreadBias = skill.TryGetComponent(out BurstCount burst) ? Mathf.Max(0, burst.Value - 1) : 0;
-        var multiTargetChance = Mathf.Clamp01(0.2f + (targets.Count - 1) * 0.08f + spreadBias * 0.04f + masteryRatio * 0.2f);
 
         for (var i = 0; i < castCount; i++)
         {
-            var target = primaryTarget;
-            if (i > 0 && targets.Count > 1 && Randy.randomChance(multiTargetChance))
-            {
-                target = targets[i % targets.Count];
-            }
-
-            plan.Steps.Add(new SkillCastStep(target, i * delayStep));
+            var target = i == 0 ? primaryTarget : SelectTarget(primaryTarget, targets, repeatBias, spreadBias);
+            plan.Steps.Add(new SkillCastStep(target, i * DelayStep));
         }
 
         return plan;
@@ -66,24 +58,25 @@ public static class SkillCastPlanner
     {
         if (!caster.HasCultisys<Xian>()) return 1;
 
+        var level = caster.GetCultisys<Xian>().CurrLevel;
+        var budget = GetRealmCastBudget(level);
+        if (budget <= 1) return 1;
+
         var powerLevel = caster.GetPowerLevel();
-        var masteryRatio = Mathf.Clamp01(caster.GetMainCultibookMastery() / 100f);
         var repeatBias = skill.TryGetComponent(out SalvoCount salvo) ? Mathf.Max(0, salvo.Value - 1) : 0;
         var threatRatio = GetThreatRatio(caster, primaryTarget);
-        var castCount = 1;
-        for (var nextIndex = 2; nextIndex <= MaxPlannedCastCount; nextIndex++)
+        var powerFactor = Mathf.Clamp01(powerLevel / 10f);
+        var intent = 0.35f
+                     + threatRatio * 0.45f
+                     + powerFactor * 0.1f
+                     + Mathf.Clamp(repeatBias, 0, 8) * 0.05f;
+
+        if (level >= XianLevels.Yuanying && (threatRatio >= 0.85f || repeatBias >= 4))
         {
-            var chance = 0.12f
-                         + masteryRatio * 0.25f
-                         + Mathf.Clamp01(powerLevel / 10f) * 0.2f
-                         + Mathf.Clamp(repeatBias, 0, 8) * 0.03f
-                         + threatRatio * 0.08f;
-            chance *= Mathf.Pow(0.65f, nextIndex - 2);
-            if (!Randy.randomChance(Mathf.Clamp01(chance))) break;
-            castCount++;
+            intent = 1f;
         }
 
-        return castCount;
+        return Mathf.Clamp(Mathf.CeilToInt(budget * Mathf.Clamp01(intent)), 1, budget);
     }
 
     private static List<BaseSimObject> CollectCandidateTargets(BaseSimObject caster, BaseSimObject primaryTarget,
@@ -105,6 +98,33 @@ public static class SkillCastPlanner
         }
 
         return targets;
+    }
+
+    private static BaseSimObject SelectTarget(BaseSimObject primaryTarget, List<BaseSimObject> targets, int repeatBias,
+        int spreadBias)
+    {
+        if (targets.Count <= 1) return primaryTarget;
+
+        var primaryWeight = 1f + Mathf.Clamp(repeatBias, 0, 32);
+        var otherWeight = 1f + Mathf.Clamp(spreadBias, 0, 32);
+        var totalWeight = primaryWeight + otherWeight * (targets.Count - 1);
+        var roll = Randy.randomFloat(0f, totalWeight);
+        if (roll < primaryWeight) return primaryTarget;
+
+        var index = 1 + Mathf.FloorToInt((roll - primaryWeight) / otherWeight);
+        return targets[Mathf.Clamp(index, 1, targets.Count - 1)];
+    }
+
+    private static int GetRealmCastBudget(int level)
+    {
+        return level switch
+        {
+            0 => 1,
+            XianLevels.XianBase => 4,
+            XianLevels.Jindan => 32,
+            XianLevels.Yuanying => 256,
+            _ => 1024
+        };
     }
 
     private static float GetThreatRatio(ActorExtend caster, BaseSimObject target)

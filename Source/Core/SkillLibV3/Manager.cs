@@ -30,7 +30,8 @@ public class Manager
         //ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleSkillContainerSystem());
         ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleNonMasteredSkillContainerSystem());
         ModClass.I.GeneralLogicSystems.Add(SkillLogicSystemGroup);
-        
+
+        SkillLogicSystemGroup.Add(new LogicSkillCastSequenceSystem());
         SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
         SkillLogicSystemGroup.Add(new LogicSkillTravelSystem());
         SkillLogicSystemGroup.Add(new LogicActorCollisionSystem());
@@ -54,6 +55,23 @@ public class Manager
         data.Get<AnimData>().frames = frames;
         data.Get<AliveTimeLimit>().value = frames.Length * data.Get<AnimController>().meta.frame_interval;
     }
+
+    public bool StartSkillSequence(ActorExtend caster, Entity skill_container, SkillCastPlan plan, float strength)
+    {
+        if (caster == null || plan == null || plan.Steps.Count == 0) return false;
+        if (!SkillCastCost.CanAffordStepWakan(caster, skill_container)) return false;
+
+        World.CreateEntity(new SkillCastSequence()
+        {
+            Caster = caster,
+            SkillContainer = skill_container,
+            Steps = plan.Steps.ToArray(),
+            Strength = strength,
+            MaxEmitPerTick = 8
+        });
+        return true;
+    }
+
     public void SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength,
         float delay = 0f)
     {
