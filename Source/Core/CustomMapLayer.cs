@@ -13,8 +13,8 @@ public class CustomMapLayer : MapLayer
     private static readonly HashSet<TileZone> _last_drawn_zones  = new();
     private readonly        object            lock_all_dirty     = new();
     private readonly        object            lock_pixels        = new();
+    private readonly        AutoResetEvent    dirty_event        = new(true);
     private                 bool              all_dirty          = true;
-    private                 float             force_update_timer = 1;
     private                 Color32[]         mirror_pixels;
 
     private bool need_update = true;
@@ -28,7 +28,9 @@ public class CustomMapLayer : MapLayer
 
     public void Show()
     {
-        if (!gameObject.activeSelf) gameObject.SetActive(true);
+        if (gameObject.activeSelf) return;
+        gameObject.SetActive(true);
+        SetAllDirty();
     }
 
     internal void SetAllDirty()
@@ -36,6 +38,27 @@ public class CustomMapLayer : MapLayer
         Monitor.Enter(lock_all_dirty);
         all_dirty = true;
         Monitor.Exit(lock_all_dirty);
+        dirty_event.Set();
+    }
+
+    internal void WaitForDirty(int pMillisecondsTimeout)
+    {
+        dirty_event.WaitOne(pMillisecondsTimeout);
+    }
+
+    private bool ConsumeAllDirty()
+    {
+        Monitor.Enter(lock_all_dirty);
+        try
+        {
+            if (!all_dirty) return false;
+            all_dirty = false;
+            return true;
+        }
+        finally
+        {
+            Monitor.Exit(lock_all_dirty);
+        }
     }
 
     [Hotfixable]
@@ -46,11 +69,14 @@ public class CustomMapLayer : MapLayer
 
         if (sprRnd == null) sprRnd = GetComponent<SpriteRenderer>();
 
-        if (ModClass.I.CustomMapModeManager.CurrMapMode == null)
+        var mapMode = ModClass.I.CustomMapModeManager.UpdateCurrentMapMode();
+        if (mapMode == null)
         {
             Hide();
             return;
         }
+
+        ModClass.I.CustomMapModeManager.UpdateInteractionState(mapMode);
 
         Show();
 
@@ -58,15 +84,10 @@ public class CustomMapLayer : MapLayer
             ? World.world.zone_calculator.minimap_opacity
             : Mathf.Clamp(ZoneCalculator.getCameraScaleZoom() * 0.3f, 0f, 0.7f));
 
+        bool renderer_was_disabled = !sprRnd.enabled;
         sprRnd.enabled = true;
         sprRnd.color = spr_color;
-
-        force_update_timer -= pElapsed;
-        if (force_update_timer <= 0)
-        {
-            force_update_timer = 0.2f;
-            SetAllDirty();
-        }
+        if (renderer_was_disabled) SetAllDirty();
 
         if (!need_update) return;
 
@@ -80,24 +101,15 @@ public class CustomMapLayer : MapLayer
 
     internal void PreparePixels()
     {
-        if (pixels        == null || !sprRnd.enabled) return;
+        if (pixels == null || sprRnd == null || !sprRnd.enabled) return;
+
+        CustomMapModeAsset map_mode = ModClass.I.CustomMapModeManager.UpdateCurrentMapMode();
+        if (map_mode == null) return;
+        if (!ConsumeAllDirty()) return;
+
         if (mirror_pixels == null || mirror_pixels.Length != pixels.Length) mirror_pixels = new Color32[pixels.Length];
 
-        CustomMapModeAsset map_mode = ModClass.I.CustomMapModeManager.CurrMapMode;
-        if (map_mode == null) return;
-
-        Array.Copy(pixels, mirror_pixels, pixels.Length);
-
-        var dirty = false;
-        if (all_dirty)
-        {
-            dirty = true;
-            Monitor.Enter(lock_all_dirty);
-            all_dirty = false;
-            Monitor.Exit(lock_all_dirty);
-
-            ClearAll(mirror_pixels);
-        }
+        ClearAll(mirror_pixels);
 
         // Update mirror_pixels
         for (int i = 0; i < mirror_pixels.Length; i++)
@@ -106,8 +118,6 @@ public class CustomMapLayer : MapLayer
             int y = i / textureWidth;
             map_mode.kernel_func(x, y, ref mirror_pixels[i]);
         }
-
-        if (!dirty) return;
 
         Monitor.Enter(lock_pixels);
         (pixels, mirror_pixels) = (mirror_pixels, pixels);

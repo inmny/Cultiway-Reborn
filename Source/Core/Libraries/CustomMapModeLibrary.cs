@@ -34,6 +34,8 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             id = "geo_region",
             icon_path = "cultiway/icons/iconGeoRegion",
             toggle_name = "geo_region_layer",
+            redirect_map_mode = MetaTypeExtend.GeoRegion,
+            geo_region_layers = new[] { GeoRegionLayer.Primary },
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
                 var tile = World.world.GetTile(x, y).GetExtend();
@@ -41,6 +43,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
                 if (region != null)
                 {
                     out_color = region.getColor().getColorMain32();
+                    ModClass.I.CustomMapModeManager.ApplyGeoRegionInteractionColor(region, ref out_color);
                     return;
                 }
                 out_color.a = 0;
@@ -53,6 +56,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             icon_path = "cultiway/icons/iconGeoRegion",
             toggle_name = "geo_region_landform_layer",
             redirect_map_mode = MetaTypeExtend.GeoRegion,
+            geo_region_layers = new[] { GeoRegionLayer.Landform },
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
                 var tile = World.world.GetTile(x, y).GetExtend();
@@ -60,6 +64,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
                 if (region != null)
                 {
                     out_color = region.getColor().getColorMain32();
+                    ModClass.I.CustomMapModeManager.ApplyGeoRegionInteractionColor(region, ref out_color);
                     return;
                 }
                 out_color.a = 0;
@@ -72,6 +77,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             icon_path = "cultiway/icons/iconGeoRegion",
             toggle_name = "geo_region_landmass_layer",
             redirect_map_mode = MetaTypeExtend.GeoRegion,
+            geo_region_layers = new[] { GeoRegionLayer.Landmass },
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
                 var tile = World.world.GetTile(x, y).GetExtend();
@@ -79,6 +85,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
                 if (region != null)
                 {
                     out_color = region.getColor().getColorMain32();
+                    ModClass.I.CustomMapModeManager.ApplyGeoRegionInteractionColor(region, ref out_color);
                     return;
                 }
                 out_color.a = 0;
@@ -91,6 +98,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             icon_path = "cultiway/icons/iconGeoRegion",
             toggle_name = "geo_region_morphology_layer",
             redirect_map_mode = MetaTypeExtend.GeoRegion,
+            geo_region_layers = new[] { GeoRegionLayer.Strait, GeoRegionLayer.Peninsula, GeoRegionLayer.Archipelago },
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
                 var tile = World.world.GetTile(x, y).GetExtend();
@@ -100,6 +108,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
                 if (region != null)
                 {
                     out_color = region.getColor().getColorMain32();
+                    ModClass.I.CustomMapModeManager.ApplyGeoRegionInteractionColor(region, ref out_color);
                     return;
                 }
                 out_color.a = 0;
@@ -117,7 +126,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             map_modes_switch = true,
             toggle_name = pAsset.toggle_name,
             force_map_mode = pAsset.redirect_map_mode.Back(),
-            toggle_action = _ => ModClass.I.CustomMapModeManager.SetAllDirty()
+            toggle_action = _ => ModClass.I.CustomMapModeManager.InvalidateCurrentMapMode()
         };
         AssetManager.powers.add(power);
         UI.Manager.AddButton(TabButtonType.WORLD,

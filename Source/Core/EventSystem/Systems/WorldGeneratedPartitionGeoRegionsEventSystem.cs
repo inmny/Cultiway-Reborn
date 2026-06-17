@@ -92,6 +92,8 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         GeneratePeninsula(evt, tiles, width, height, geoRegionLib, isLand, isWater, primaryCategoryCode, landformCode, queue);
         GenerateStrait(evt, tiles, width, height, geoRegionLib, isLand, isWater, queue);
         GenerateArchipelago(evt, tiles, width, height, geoRegionLib, primaryCategoryCode, landformCode, islandCandidates);
+
+        ModClass.I.CustomMapModeManager?.SetAllDirty();
     }
 
     /// <summary>

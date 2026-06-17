@@ -1,4 +1,5 @@
 using Cultiway.Const;
+using Cultiway.Core;
 using UnityEngine;
 
 namespace Cultiway.Core.Libraries;
@@ -10,6 +11,7 @@ public class CustomMapModeAsset : Asset
     public string icon_path;
 
     public Kernel kernel_func = (int x, int y, ref Color32 out_color) => { out_color.a = 0; };
+    public GeoRegionLayer[] geo_region_layers;
 
     public string toggle_name;
     public MetaTypeExtend redirect_map_mode = MetaTypeExtend.None;

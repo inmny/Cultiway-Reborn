@@ -65,6 +65,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         te.E.AddRelation(new BelongToRelation { entity = region.E, layer = GeoRegionLayer.Primary });
         ModClass.LogInfo($"InitializeGeoRegionAction: Create new geo region {region.E} with links: {region.E.GetIncomingLinks<BelongToRelation>().Count}");
         _current_geo_region = region;
+        ModClass.I.CustomMapModeManager?.SetAllDirty();
         
         return true;
     }
@@ -89,6 +90,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
             }
         }
         te.E.AddRelation(new BelongToRelation { entity = _current_geo_region.E, layer = GeoRegionLayer.Primary });
+        ModClass.I.CustomMapModeManager?.SetAllDirty();
         return true;
     }
     private static bool RemoveGeoRegionAction(WorldTile tile, string power_id)
@@ -103,6 +105,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
                 if (rel.entity.HasComponent<GeoRegionBinder>())
                 {
                     te.E.RemoveRelation<BelongToRelation>(rel.entity);
+                    ModClass.I.CustomMapModeManager?.SetAllDirty();
                     break;
                 }
             }

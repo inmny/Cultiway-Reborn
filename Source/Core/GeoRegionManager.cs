@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Core;
@@ -66,7 +67,46 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
         }
     }
 
+    public GeoRegion ResolveGeoRegion(WorldTile tile, CustomMapModeAsset mapMode)
+    {
+        if (tile == null || mapMode == null) return null;
+        if (!CanResolveTiles()) return null;
+
+        GeoRegionLayer[] layers = mapMode.geo_region_layers;
+        if (layers == null || layers.Length == 0) return null;
+
+        TileExtend tileExtend = tile.GetExtend();
+        for (int i = 0; i < layers.Length; i++)
+        {
+            GeoRegion geoRegion = tileExtend.GetGeoRegion(layers[i]);
+            if (geoRegion != null && !geoRegion.isRekt()) return geoRegion;
+        }
+
+        return null;
+    }
+
+    public GeoRegion GetGeoRegionForTile(WorldTile tile, CustomMapModeAsset mapMode)
+    {
+        GeoRegion geoRegion = ResolveGeoRegion(tile, mapMode);
+        if (geoRegion != null) return geoRegion;
+
+        return GetPrimaryGeoRegionForTile(tile);
+    }
+
+    public GeoRegion GetPrimaryGeoRegionForTile(WorldTile tile)
+    {
+        if (tile == null) return null;
+        if (!CanResolveTiles()) return null;
+
+        return tile.GetExtend().GetGeoRegion();
+    }
+
     private bool CanRefreshUnits()
+    {
+        return CanResolveTiles();
+    }
+
+    private bool CanResolveTiles()
     {
         return ModClass.I?.TileExtendManager != null && ModClass.I.TileExtendManager.Ready();
     }

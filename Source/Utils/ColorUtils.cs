@@ -9,6 +9,16 @@ public static class ColorUtils
         return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
     }
 
+    public static Color32 Blend(Color32 color, Color32 target, float amount)
+    {
+        return new Color32(
+            (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.Lerp(color.r, target.r, amount)), 0, 255),
+            (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.Lerp(color.g, target.g, amount)), 0, 255),
+            (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.Lerp(color.b, target.b, amount)), 0, 255),
+            color.a
+        );
+    }
+
     public static readonly Color IronColor = new Color(0.70f, 0.70f, 0.75f);
     public static readonly Color WoodColor = new Color(0.20f, 0.60f, 0.20f);
     public static readonly Color WaterColor = new Color(0.20f, 0.40f, 0.90f);

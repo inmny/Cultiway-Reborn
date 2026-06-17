@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.UI;
@@ -18,21 +19,22 @@ public partial class WorldboxGame
         protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
+            GeoRegion.map_mode = MetaTypeExtend.GeoRegion.Back();
             GeoRegion.option_id = CustomMapModeLibrary.GeoRegion.toggle_name;
             GeoRegion.power_option_zone_id = CustomMapModeLibrary.GeoRegion.toggle_name;
             GeoRegion.draw_zones = (_) => {};
-            GeoRegion.check_cursor_highlight = (_, _, _) => {}; // TODO: GeoRegion所属tiles高亮
-		    GeoRegion.check_tile_has_meta = new MetaZoneTooltipAction(AssetManager.meta_type_library.checkTileHasMetaDefault);
-		    GeoRegion.check_cursor_tooltip = new MetaZoneTooltipAction(AssetManager.meta_type_library.checkCursorTooltipDefault);
-            GeoRegion.tile_get_metaobject = (tile, _) => null;
-            GeoRegion.tile_get_metaobject_0 = (_) => null;
-            GeoRegion.tile_get_metaobject_1 = (_) => null;
-            GeoRegion.tile_get_metaobject_2 = (_) => null;
-            GeoRegion.cursor_tooltip_action = (_) => {};
+            GeoRegion.check_cursor_highlight = (_, _, _) => {};
+		    GeoRegion.check_tile_has_meta = CheckGeoRegionTileHasMeta;
+		    GeoRegion.check_cursor_tooltip = CheckGeoRegionCursorTooltip;
+            GeoRegion.tile_get_metaobject = (_, _) => GetGeoRegionUnderCursor();
+            GeoRegion.tile_get_metaobject_0 = (_) => GetGeoRegionUnderCursor();
+            GeoRegion.tile_get_metaobject_1 = (_) => GetGeoRegionUnderCursor();
+            GeoRegion.tile_get_metaobject_2 = (_) => GetGeoRegionUnderCursor();
+            GeoRegion.cursor_tooltip_action = ShowGeoRegionCursorTooltip;
             GeoRegion.click_action_zone = (tile, power) =>
             {
                 if (tile == null) return false;
-                var obj = tile.GetExtend().GetGeoRegion();
+                var obj = GetGeoRegionForTile(tile);
                 if (obj == null) return false;
                 GeoRegion.selectAndInspect(obj);
                 return true;
@@ -41,7 +43,7 @@ public partial class WorldboxGame
             GeoRegion.check_unit_has_meta = (Actor pActor) => pActor.current_tile.GetExtend().HasGeoRegion();
             GeoRegion.set_unit_set_meta_for_meta_for_window = delegate(Actor pActor)
             {
-                I.SelectedGeoRegion = pActor.current_tile.GetExtend().GetGeoRegion();
+                I.SelectedGeoRegion = GetGeoRegionForTile(pActor.current_tile);
             };
             
             
@@ -128,6 +130,49 @@ public partial class WorldboxGame
                 I.SelectedSect = sect;
                 //ScrollWindow.showWindow();
             };
+        }
+
+        private static bool CheckGeoRegionTileHasMeta(TileZone pZone, MetaTypeAsset pAsset, int pZoneOption)
+        {
+            return GetGeoRegionForTile(World.world.getMouseTilePosCachedFrame()) != null;
+        }
+
+        private static bool CheckGeoRegionCursorTooltip(TileZone pZone, MetaTypeAsset pAsset, int pZoneOption)
+        {
+            var geoRegion = GetGeoRegionForTile(World.world.getMouseTilePosCachedFrame());
+            if (geoRegion == null) return false;
+
+            ShowGeoRegionCursorTooltip(geoRegion);
+            return true;
+        }
+
+        private static IMetaObject GetGeoRegionUnderCursor()
+        {
+            return GetGeoRegionForTile(World.world.getMouseTilePosCachedFrame());
+        }
+
+        private static Cultiway.Core.GeoRegion GetGeoRegionForTile(WorldTile tile)
+        {
+            if (tile == null) return null;
+
+            var manager = ModClass.I?.CustomMapModeManager;
+            var mapMode = manager?.CurrMapMode;
+            return I.GeoRegions.GetGeoRegionForTile(tile, mapMode);
+        }
+
+        private static void ShowGeoRegionCursorTooltip(NanoObject pMeta)
+        {
+            var geoRegion = pMeta as Cultiway.Core.GeoRegion;
+            if (geoRegion == null || geoRegion.isRekt()) return;
+            if (Tooltip.isShowingFor(geoRegion)) return;
+
+            Tooltip.hideTooltip(geoRegion, true, Tooltips.GeoRegion.id);
+            Tooltip.show(geoRegion, Tooltips.GeoRegion.id, new TooltipData
+            {
+                tip_name = geoRegion.id.ToString(),
+                tooltip_scale = 0.7f,
+                is_sim_tooltip = true
+            });
         }
 
         protected override void PostInit(MetaTypeAsset asset)
