@@ -1,4 +1,3 @@
-using System.Drawing;
 using Cultiway;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -13,13 +12,16 @@ public class GeoRegionListElement : WindowListElementBase<GeoRegion, GeoRegionDa
     {
         var obj = Instantiate(Resources.Load<ListWindow>("windows/list_kingdoms")._list_element_prefab.gameObject, ModClass.I.PrefabLibrary);
         var banner_obj = obj.transform.Find("Kingdom Banner");
+        var kingdom_list_element = obj.GetComponent<KingdomListElement>();
+        var type_icon = kingdom_list_element._icon_species;
         banner_obj.name = "GeoRegion Banner";
-        DestroyImmediate(obj.GetComponent<KingdomListElement>());
+        DestroyImmediate(kingdom_list_element);
         DestroyImmediate(obj.transform.Find("UnitAvatarElement").gameObject);
         DestroyImmediate(banner_obj.GetComponent<KingdomBanner>());
 
         banner_obj.AddComponent<GeoRegionBanner>();
         Prefab = obj.AddComponent<GeoRegionListElement>();
+        Prefab.type_icon = type_icon;
         Prefab._icon_favorite = Prefab.transform.Find("Top/Favorited").gameObject;
         Prefab.name_text = Prefab.transform.Find("Top/Name").GetComponent<Text>();
         Prefab.transform.Find("Icons/Army").gameObject.SetActive(false);
@@ -31,6 +33,7 @@ public class GeoRegionListElement : WindowListElementBase<GeoRegion, GeoRegionDa
         Prefab.cities = Prefab.transform.Find("Icons/Cities").GetComponent<CountUpOnClick>();
     }
     public Text name_text;
+    public Image type_icon;
     public CountUpOnClick age;
     public CountUpOnClick tiles;
     public CountUpOnClick pop;
@@ -41,6 +44,7 @@ public class GeoRegionListElement : WindowListElementBase<GeoRegion, GeoRegionDa
     {
         base.show(region);
         name_text.text = region.name;
+        type_icon.sprite = ModClass.L.GeoRegionLibrary.getSimple(region.data.CategoryId).GetSpriteIcon();
         age.setValue(region.getAge());
         tiles.setValue(region.E.GetIncomingLinks<BelongToRelation>().Count);
         pop.setValue(0);

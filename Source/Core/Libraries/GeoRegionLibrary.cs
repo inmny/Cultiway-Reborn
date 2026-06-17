@@ -220,6 +220,33 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         BuildBiomeMapping();
     }
 
+    public override GeoRegionAsset add(GeoRegionAsset pAsset)
+    {
+        if (string.IsNullOrEmpty(pAsset.IconPath))
+        {
+            pAsset.IconPath = GetDefaultIconPath(pAsset);
+        }
+
+        return base.add(pAsset);
+    }
+
+    private static string GetDefaultIconPath(GeoRegionAsset asset)
+    {
+        const string prefix = "Cultiway.GeoRegion.";
+        var iconId = asset?.id ?? string.Empty;
+        if (iconId.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            iconId = iconId.Substring(prefix.Length);
+        }
+
+        if (string.IsNullOrEmpty(iconId))
+        {
+            iconId = "unknown";
+        }
+
+        return "cultiway/icons/geo_regions/" + iconId.Replace('.', '_').ToLowerInvariant();
+    }
+
     public bool TryGetPrimaryClassByBiome(string biomeId, out GeoRegionAsset category)
     {
         if (string.IsNullOrEmpty(biomeId))

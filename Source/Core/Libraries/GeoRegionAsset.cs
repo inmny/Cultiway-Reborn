@@ -1,4 +1,6 @@
 using Cultiway.Core;
+using NeoModLoader.General;
+using UnityEngine;
 
 namespace Cultiway.Core.Libraries;
 
@@ -141,6 +143,8 @@ public readonly struct GeoRegionTileRuleContext
 /// </summary>
 public class GeoRegionAsset : Asset
 {
+    public const string DefaultIconPath = "cultiway/icons/iconGeoRegion";
+
     /// <summary>
     /// 资产所属大类层。
     /// </summary>
@@ -163,9 +167,19 @@ public class GeoRegionAsset : Asset
     /// </summary>
     public string DisplayName;
     /// <summary>
+    /// 地区类型图标路径，不带 png 后缀。
+    /// </summary>
+    public string IconPath;
+    /// <summary>
     /// 命名模板规则。
     /// </summary>
     public GeoRegionNamingRule Naming = new();
+
+    public Sprite GetSpriteIcon()
+    {
+        var sprite = string.IsNullOrEmpty(IconPath) ? null : SpriteTextureLoader.getSprite(IconPath);
+        return sprite != null ? sprite : SpriteTextureLoader.getSprite(DefaultIconPath);
+    }
 
     /// <summary>
     /// 允许的 biome id 列表（为空表示不限）。
