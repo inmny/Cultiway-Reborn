@@ -49,6 +49,34 @@ public class TileExtend : ExtendComponent<WorldTile>
         }
     }
 
+    public IEnumerable<GeoRegion> GetGeoRegions()
+    {
+        var rels = e.GetRelations<BelongToRelation>();
+        foreach (var rel in rels)
+        {
+            if (rel.entity.HasComponent<GeoRegionBinder>())
+            {
+                var geoRegion = rel.entity.GetComponent<GeoRegionBinder>().GeoRegion;
+                if (geoRegion != null)
+                {
+                    yield return geoRegion;
+                }
+            }
+        }
+    }
+
+    public bool HasGeoRegion(GeoRegion geoRegion)
+    {
+        if (geoRegion == null) return false;
+
+        foreach (GeoRegion current in GetGeoRegions())
+        {
+            if (ReferenceEquals(current, geoRegion)) return true;
+        }
+
+        return false;
+    }
+
     public bool HasGeoRegion()
     {
         return GetGeoRegion() != null;

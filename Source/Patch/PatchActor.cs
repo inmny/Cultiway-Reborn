@@ -204,6 +204,8 @@ internal static class PatchActor
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.clearManagers))]
     private static void clearManagers_postfix(Actor __instance)
     {
+        WorldboxGame.I.GeoRegions.SetDirtyUnitsForTile(__instance.current_tile);
+
         var ae = __instance.GetExtend();
         if (__instance.HasSect())
         {
@@ -211,6 +213,13 @@ internal static class PatchActor
             ae.sect = null;
         }
     }
+
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.setCurrentTile))]
+    private static void setCurrentTile_prefix(Actor __instance, WorldTile pTile)
+    {
+        WorldboxGame.I.GeoRegions.SetDirtyUnitsForTileChange(__instance.current_tile, pTile);
+    }
+
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.newKillAction))]
     private static void newKillAction_postfix(Actor __instance, Actor pDeadUnit, Kingdom pPrevKingdom)
     {

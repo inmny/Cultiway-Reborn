@@ -85,4 +85,43 @@ internal static class PatchMapBox
         ModClass.I.ActorExtendManager.Clear();
         ModClass.I.BookExtendManager.Clear();
     }
+
+    [HarmonyTranspiler, HarmonyPatch(typeof(MapBox), nameof(MapBox.checkDirtyUnits))]
+    private static IEnumerable<CodeInstruction> checkDirtyUnits_transpiler(IEnumerable<CodeInstruction> codes)
+    {
+        var list = codes.ToList();
+        var insert_idx = -1;
+
+        for (var i = 0; i < list.Count - 1; i++)
+        {
+            if (list[i].opcode != OpCodes.Ldfld) continue;
+            if ((list[i].operand as FieldInfo)?.Name != nameof(MapBox.kingdoms_wild)) continue;
+
+            for (var j = i + 1; j < Mathf.Min(i + 4, list.Count); j++)
+            {
+                if (list[j].opcode != OpCodes.Call && list[j].opcode != OpCodes.Callvirt) continue;
+                if ((list[j].operand as MethodInfo)?.Name != nameof(MetaSystemManager<Kingdom, KingdomData>.beginChecksUnits)) continue;
+
+                insert_idx = j + 1;
+                break;
+            }
+
+            if (insert_idx >= 0) break;
+        }
+
+        if (insert_idx < 0)
+        {
+            ModClass.LogError("Failed to patch MapBox.checkDirtyUnits for Cultiway dirty units");
+            return list;
+        }
+
+        list.Insert(insert_idx, new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(PatchMapBox), nameof(check_cultiway_dirty_units))));
+        return list;
+    }
+
+    private static void check_cultiway_dirty_units()
+    {
+        WorldboxGame.I.Sects.beginChecksUnits();
+        WorldboxGame.I.GeoRegions.beginChecksUnits();
+    }
 }
