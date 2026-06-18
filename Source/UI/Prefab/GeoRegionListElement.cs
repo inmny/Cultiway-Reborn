@@ -44,7 +44,7 @@ public class GeoRegionListElement : WindowListElementBase<GeoRegion, GeoRegionDa
     {
         base.show(region);
         name_text.text = region.name;
-        type_icon.sprite = ModClass.L.GeoRegionLibrary.getSimple(region.data.CategoryId).GetSpriteIcon();
+        type_icon.sprite = ModClass.L.GeoRegionLibrary.getSimple(region.data.CategoryId ?? "")?.GetSpriteIcon();
         age.setValue(region.getAge());
         tiles.setValue(region.E.GetIncomingLinks<BelongToRelation>().Count);
         pop.setValue(0);
