@@ -1,3 +1,4 @@
+using System;
 using Cultiway.Const;
 using Cultiway.Core.Components;
 using Cultiway.Core.GeoLib.Components;
@@ -50,6 +51,25 @@ public class GeoRegion : MetaObject<GeoRegionData>
     public Sprite getBannerIcon()
     {
         return ModClass.L.GeoRegionBannerLibrary.getSpriteIcon(data.BannerIconIndex);
+    }
+
+    public GeoRegionAsset GetCategory()
+    {
+        if (data == null) throw new InvalidOperationException($"GeoRegion 数据为空: id={getID()}");
+
+        var categoryId = data.CategoryId;
+        if (string.IsNullOrEmpty(categoryId))
+        {
+            throw new InvalidOperationException(
+                $"GeoRegion 分类为空: id={getID()}, name={name}, layer={data.Layer}, tiles={data.TileCount}");
+        }
+
+        var lib = ModClass.L?.GeoRegionLibrary ?? throw new InvalidOperationException("GeoRegionLibrary 尚未初始化");
+        var category = lib.getSimple(categoryId);
+        if (category != null) return category;
+
+        throw new InvalidOperationException(
+            $"GeoRegion 分类无效: id={getID()}, name={name}, layer={data.Layer}, category={categoryId}");
     }
 
     public override ColorLibrary getColorLibrary()

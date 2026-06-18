@@ -16,7 +16,12 @@ public class GeoRegionAutoClassifyAndNameEventSystem : GenericEventSystem<GeoReg
 
     protected override void HandleEvent(GeoRegionGeneratedEvent evt)
     {
-        if (evt.RegionId == 0) return;
+        if (evt.RegionId < 0)
+        {
+            throw new System.InvalidOperationException(
+                $"GeoRegionGeneratedEvent 的 RegionId 非法: region={evt.RegionId}, layer={evt.Layer}, tileCount={evt.TileCount}");
+        }
+
         if (evt.WorldSeedId != _currentSeedId)
         {
             _currentSeedId = evt.WorldSeedId;
@@ -25,11 +30,19 @@ public class GeoRegionAutoClassifyAndNameEventSystem : GenericEventSystem<GeoReg
         }
 
         var region = WorldboxGame.I?.GeoRegions?.get(evt.RegionId);
-        if (region == null || region.isRekt()) return;
+        if (region == null || region.isRekt())
+        {
+            throw new System.InvalidOperationException(
+                $"GeoRegionGeneratedEvent 指向不存在的地区: region={evt.RegionId}, layer={evt.Layer}, tileCount={evt.TileCount}");
+        }
 
-        var lib = ModClass.L.GeoRegionLibrary;
-        var category = ResolveCategory(lib, evt);
-        if (category == null) return;
+        var manager = WorldboxGame.I?.GeoRegions;
+        var category = manager?.ResolveCategory(evt);
+        if (category == null)
+        {
+            throw new System.InvalidOperationException(
+                $"GeoRegion 分类解析失败: region={evt.RegionId}, layer={evt.Layer}, baseLayer={evt.BaseLayerType}, water={evt.WaterKind}, biome={evt.BiomeDominantCategoryId ?? "null"}, landform={evt.LandformDominantCategoryId ?? "null"}");
+        }
 
         region.data.Layer = evt.Layer;
         region.data.CategoryId = category.id;
@@ -206,54 +219,4 @@ public class GeoRegionAutoClassifyAndNameEventSystem : GenericEventSystem<GeoReg
         return count;
     }
 
-    private static GeoRegionAsset ResolveCategory(GeoRegionLibrary lib, GeoRegionGeneratedEvent evt)
-    {
-        switch (evt.Layer)
-        {
-            case GeoRegionLayer.Primary:
-            {
-                if (evt.WaterKind != PrimaryWaterKind.None)
-                {
-                    return lib.ResolvePrimaryWater(evt.WaterKind);
-                }
-
-                if (evt.BaseLayerType == TileLayerType.Ocean)
-                {
-                    return lib.ResolvePrimaryWater(evt.TouchesEdge ? PrimaryWaterKind.Sea : PrimaryWaterKind.Lake);
-                }
-
-                if (evt.BaseLayerType is TileLayerType.Lava or TileLayerType.Goo or TileLayerType.Block)
-                {
-                    return lib.ResolvePrimarySpecial(evt.BaseLayerType);
-                }
-
-                if (!string.IsNullOrEmpty(evt.BiomeDominantCategoryId))
-                {
-                    var cat = lib.get(evt.BiomeDominantCategoryId);
-                    if (cat != null) return cat;
-                }
-
-                return lib.PrimarySpecial;
-            }
-            case GeoRegionLayer.Landform:
-            {
-                if (!string.IsNullOrEmpty(evt.LandformDominantCategoryId))
-                {
-                    var cat = lib.get(evt.LandformDominantCategoryId);
-                    if (cat != null) return cat;
-                }
-                return lib.LandformPlain;
-            }
-            case GeoRegionLayer.Landmass:
-                return lib.ResolveLandmass(evt.TouchesEdge);
-            case GeoRegionLayer.Peninsula:
-                return lib.Peninsula;
-            case GeoRegionLayer.Strait:
-                return lib.Strait;
-            case GeoRegionLayer.Archipelago:
-                return lib.Archipelago;
-            default:
-                return null;
-        }
-    }
 }

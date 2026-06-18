@@ -586,8 +586,8 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         {
             id = "Cultiway.GeoRegion.Primary.Mountains",
             Layer = GeoRegionLayer.Primary,
-            DisplayName = "山地",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}山地" },
+            DisplayName = "山脉",
+            Naming = new GeoRegionNamingRule { Template = "{Dir}山脉" },
             MinTiles = 64
         });
 

@@ -28,6 +28,7 @@ Tab.All.GeoRegions,所有地区
 List.Empty.GeoRegions,阿巴阿巴
 show_tab_Cultiway.SelectedGeoRegion,选定的地区: $name$
 Cultiway.GeoRegion.Tiles,占地面积
+Cultiway.GeoRegion.Category,地区类型
 Grandmasters,师祖
 Masters,师父
 Siblings,同门

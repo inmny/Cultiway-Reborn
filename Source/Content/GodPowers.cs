@@ -57,13 +57,15 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
             if (rel.entity.HasComponent<GeoRegionBinder>())
             {
                 _current_geo_region = rel.entity.GetComponent<GeoRegionBinder>().GeoRegion;
+                WorldboxGame.I.GeoRegions.RefreshTileCount(_current_geo_region);
                 return true;
             }
         }
         // 创建一个空的geo region
         var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
         te.E.AddRelation(new BelongToRelation { entity = region.E, layer = GeoRegionLayer.Primary });
-        ModClass.LogInfo($"InitializeGeoRegionAction: Create new geo region {region.E} with links: {region.E.GetIncomingLinks<BelongToRelation>().Count}");
+        var category = WorldboxGame.I.GeoRegions.InitializePrimaryRegionFromTile(region, tile);
+        ModClass.LogInfo($"InitializeGeoRegionAction: Create new geo region {region.E} category={category?.id ?? "null"} with links: {region.E.GetIncomingLinks<BelongToRelation>().Count}");
         _current_geo_region = region;
         ModClass.I.CustomMapModeManager?.SetAllDirty();
         
@@ -90,6 +92,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
             }
         }
         te.E.AddRelation(new BelongToRelation { entity = _current_geo_region.E, layer = GeoRegionLayer.Primary });
+        WorldboxGame.I.GeoRegions.RefreshTileCount(_current_geo_region);
         ModClass.I.CustomMapModeManager?.SetAllDirty();
         return true;
     }
@@ -104,7 +107,9 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
                 if (rel.layer != GeoRegionLayer.Primary) continue;
                 if (rel.entity.HasComponent<GeoRegionBinder>())
                 {
+                    var region = rel.entity.GetComponent<GeoRegionBinder>().GeoRegion;
                     te.E.RemoveRelation<BelongToRelation>(rel.entity);
+                    WorldboxGame.I.GeoRegions.RefreshTileCount(region);
                     ModClass.I.CustomMapModeManager?.SetAllDirty();
                     break;
                 }

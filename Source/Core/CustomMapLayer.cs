@@ -105,6 +105,7 @@ public class CustomMapLayer : MapLayer
 
         CustomMapModeAsset map_mode = ModClass.I.CustomMapModeManager.UpdateCurrentMapMode();
         if (map_mode == null) return;
+        if (!CanPreparePixels()) return;
         if (!ConsumeAllDirty()) return;
 
         if (mirror_pixels == null || mirror_pixels.Length != pixels.Length) mirror_pixels = new Color32[pixels.Length];
@@ -123,6 +124,15 @@ public class CustomMapLayer : MapLayer
         (pixels, mirror_pixels) = (mirror_pixels, pixels);
         need_update = true;
         Monitor.Exit(lock_pixels);
+    }
+
+    private bool CanPreparePixels()
+    {
+        if (MapBox.width <= 0 || MapBox.height <= 0) return false;
+        if (World.world?.tiles_list == null) return false;
+        if (pixels.Length != World.world.tiles_list.Length) return false;
+        if (ModClass.I?.TileExtendManager == null) return false;
+        return ModClass.I.TileExtendManager.Ready();
     }
 
     private static void ClearAll(Color32[] pPixels)

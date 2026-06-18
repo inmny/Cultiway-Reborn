@@ -1,6 +1,10 @@
+using System;
 using System.Collections.Generic;
+using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.EventSystem.Events;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 
 namespace Cultiway.Core;
 
@@ -10,6 +14,7 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
     {
         type_id = WorldboxGame.HistoryMetaDatas.GeoRegion.id;
     }
+
     public override void updateDirtyUnits()
     {
         if (!CanRefreshUnits()) return;
@@ -99,6 +104,266 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
         if (!CanResolveTiles()) return null;
 
         return tile.GetExtend().GetGeoRegion();
+    }
+
+    public GeoRegionAsset ResolveCategory(in GeoRegionGeneratedEvent evt)
+    {
+        return ResolveCategory(
+            evt.Layer,
+            evt.BaseLayerType,
+            evt.WaterKind,
+            evt.TouchesEdge,
+            evt.BiomeDominantCategoryId,
+            evt.LandformDominantCategoryId);
+    }
+
+    public GeoRegionAsset ResolveCategory(
+        GeoRegionLayer layer,
+        TileLayerType baseLayerType,
+        PrimaryWaterKind waterKind,
+        bool touchesEdge,
+        string biomeDominantCategoryId,
+        string landformDominantCategoryId)
+    {
+        var lib = ModClass.L?.GeoRegionLibrary ?? throw new InvalidOperationException("GeoRegionLibrary 尚未初始化");
+
+        switch (layer)
+        {
+            case GeoRegionLayer.Primary:
+            {
+                if (waterKind != PrimaryWaterKind.None)
+                {
+                    return lib.ResolvePrimaryWater(waterKind);
+                }
+
+                if (baseLayerType == TileLayerType.Ocean)
+                {
+                    return lib.ResolvePrimaryWater(touchesEdge ? PrimaryWaterKind.Sea : PrimaryWaterKind.Lake);
+                }
+
+                if (baseLayerType is TileLayerType.Lava or TileLayerType.Goo or TileLayerType.Block)
+                {
+                    return lib.ResolvePrimarySpecial(baseLayerType);
+                }
+
+                if (!string.IsNullOrEmpty(biomeDominantCategoryId))
+                {
+                    var cat = lib.get(biomeDominantCategoryId);
+                    if (cat != null) return cat;
+                    throw new InvalidOperationException($"无效的 Primary 分类 id: {biomeDominantCategoryId}");
+                }
+
+                return lib.PrimarySpecial;
+            }
+            case GeoRegionLayer.Landform:
+            {
+                if (!string.IsNullOrEmpty(landformDominantCategoryId))
+                {
+                    var cat = lib.get(landformDominantCategoryId);
+                    if (cat != null) return cat;
+                    throw new InvalidOperationException($"无效的 Landform 分类 id: {landformDominantCategoryId}");
+                }
+
+                return lib.LandformPlain;
+            }
+            case GeoRegionLayer.Landmass:
+                return lib.ResolveLandmass(touchesEdge);
+            case GeoRegionLayer.Peninsula:
+                return lib.Peninsula;
+            case GeoRegionLayer.Strait:
+                return lib.Strait;
+            case GeoRegionLayer.Archipelago:
+                return lib.Archipelago;
+            default:
+                throw new InvalidOperationException($"未知 GeoRegionLayer: {layer}");
+        }
+    }
+
+    public GeoRegionAsset InitializePrimaryRegionFromTile(GeoRegion region, WorldTile tile)
+    {
+        if (region == null) throw new InvalidOperationException("GeoRegion 为空");
+        if (region.data == null) throw new InvalidOperationException($"GeoRegion 数据为空: id={region.getID()}");
+
+        var category = ResolvePrimaryCategoryForTile(tile);
+        region.data.Layer = GeoRegionLayer.Primary;
+        if (string.IsNullOrEmpty(category?.id))
+        {
+            throw new InvalidOperationException($"无法从 tile 初始化 GeoRegion 分类: region={region.getID()}, tile={tile?.data.tile_id.ToString() ?? "null"}");
+        }
+
+        region.data.CategoryId = category.id;
+        region.data.CenterX = tile.x;
+        region.data.CenterY = tile.y;
+
+        RefreshTileCount(region);
+        return category;
+    }
+
+    public void RefreshTileCount(GeoRegion region)
+    {
+        if (region?.data == null || region.E.IsNull) return;
+        region.data.TileCount = region.E.GetIncomingLinks<BelongToRelation>().Count;
+    }
+
+    public GeoRegionAsset ResolvePrimaryCategoryForTile(WorldTile tile)
+    {
+        var lib = ModClass.L?.GeoRegionLibrary ?? throw new InvalidOperationException("GeoRegionLibrary 尚未初始化");
+        if (tile == null) throw new InvalidOperationException("无法从空 tile 解析 GeoRegion 分类");
+        if (tile.Type == null) throw new InvalidOperationException($"无法从 Type 为空的 tile 解析 GeoRegion 分类: tile={tile.data.tile_id}");
+
+        var tileType = tile.Type;
+        var layerType = tileType.layer_type;
+        var isLava = layerType == TileLayerType.Lava || tileType.lava;
+        var isGoo = layerType == TileLayerType.Goo || tileType.grey_goo;
+        var isWater = IsWaterTile(tileType);
+        var isBlock = IsBlockTile(tileType);
+
+        if (isLava || isGoo || isBlock)
+        {
+            return lib.ResolvePrimarySpecial(layerType, isLava, isGoo, isBlock);
+        }
+
+        if (isWater)
+        {
+            return lib.ResolvePrimaryWater(TouchesMapEdge(tile) ? PrimaryWaterKind.Sea : PrimaryWaterKind.Lake);
+        }
+
+        if (layerType != TileLayerType.Ground)
+        {
+            return lib.PrimarySpecial;
+        }
+
+        var context = BuildTileRuleContext(tile);
+        return lib.ResolvePrimaryLandByContext(context) ??
+               throw new InvalidOperationException($"无法解析 tile 的 Primary 分类: tile={tile.data.tile_id}, type={tileType.id}, biome={tile.getBiome()?.id ?? "null"}");
+    }
+
+    private static GeoRegionTileRuleContext BuildTileRuleContext(WorldTile tile)
+    {
+        var tileType = tile.Type;
+        var layerType = tileType.layer_type;
+        var biomeId = tile.getBiome()?.id;
+
+        var neighborWaterCount = 0;
+        var neighborWater8Count = 0;
+        var neighborBlockCount = 0;
+        var neighborPitCount = 0;
+
+        CountNeighborStats(tile.neighbours, true, ref neighborWaterCount, ref neighborWater8Count, ref neighborBlockCount, ref neighborPitCount);
+        if (tile.neighboursAll != null)
+        {
+            CountNeighborStats(tile.neighboursAll, false, ref neighborWaterCount, ref neighborWater8Count, ref neighborBlockCount, ref neighborPitCount);
+        }
+        else
+        {
+            neighborWater8Count = neighborWaterCount;
+        }
+
+        var leftBlock = IsBlockAt(tile.x - 1, tile.y);
+        var rightBlock = IsBlockAt(tile.x + 1, tile.y);
+        var downBlock = IsBlockAt(tile.x, tile.y - 1);
+        var upBlock = IsBlockAt(tile.x, tile.y + 1);
+        var hasOppositeBlockPair = (leftBlock && rightBlock) || (downBlock && upBlock);
+        var distanceToWater = IsBeachMaterialTile(tileType, biomeId) && neighborWater8Count > 0 ? 0 : -1;
+
+        return new GeoRegionTileRuleContext(
+            tileType.id,
+            layerType,
+            biomeId,
+            tileType.ocean,
+            tileType.can_be_filled_with_ocean,
+            layerType == TileLayerType.Lava || tileType.lava,
+            layerType == TileLayerType.Goo || tileType.grey_goo,
+            IsBlockTile(tileType),
+            neighborWaterCount,
+            neighborWater8Count,
+            distanceToWater,
+            neighborBlockCount,
+            neighborPitCount,
+            hasOppositeBlockPair);
+    }
+
+    private static void CountNeighborStats(
+        WorldTile[] neighbors,
+        bool cardinal,
+        ref int neighborWaterCount,
+        ref int neighborWater8Count,
+        ref int neighborBlockCount,
+        ref int neighborPitCount)
+    {
+        if (neighbors == null) return;
+
+        for (var i = 0; i < neighbors.Length; i++)
+        {
+            var neighbor = neighbors[i];
+            var tileType = neighbor?.Type;
+            if (tileType == null) continue;
+
+            if (IsWaterTile(tileType))
+            {
+                if (cardinal)
+                {
+                    neighborWaterCount++;
+                }
+                else
+                {
+                    neighborWater8Count++;
+                }
+            }
+
+            if (!cardinal) continue;
+
+            if (IsBlockTile(tileType))
+            {
+                neighborBlockCount++;
+            }
+
+            if (tileType.can_be_filled_with_ocean)
+            {
+                neighborPitCount++;
+            }
+        }
+    }
+
+    private static bool TouchesMapEdge(WorldTile tile)
+    {
+        return tile.x <= 0 || tile.y <= 0 || tile.x >= MapBox.width - 1 || tile.y >= MapBox.height - 1;
+    }
+
+    private static bool IsBlockAt(int x, int y)
+    {
+        var tile = World.world?.GetTileSimple(x, y);
+        return IsBlockTile(tile?.Type);
+    }
+
+    private static bool IsWaterTile(TileTypeBase tileType)
+    {
+        if (tileType == null) return false;
+        var layerType = tileType.layer_type;
+        var isLava = layerType == TileLayerType.Lava || tileType.lava;
+        var isGoo = layerType == TileLayerType.Goo || tileType.grey_goo;
+        return (layerType == TileLayerType.Ocean || tileType.ocean) && !isLava && !isGoo;
+    }
+
+    private static bool IsBlockTile(TileTypeBase tileType)
+    {
+        if (tileType == null) return false;
+        return tileType.layer_type == TileLayerType.Block || tileType.block || tileType.mountains || tileType.edge_mountains;
+    }
+
+    private static bool IsBeachMaterialTile(TileTypeBase tileType, string biomeId)
+    {
+        if (tileType == null) return false;
+        if (tileType.sand) return true;
+
+        var tileTypeId = tileType.id;
+        if (string.Equals(tileTypeId, "sand", StringComparison.Ordinal) ||
+            string.Equals(tileTypeId, "snow_sand", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return string.Equals(biomeId, "biome_sand", StringComparison.Ordinal);
     }
 
     private bool CanRefreshUnits()
