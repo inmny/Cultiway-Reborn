@@ -1,49 +1,26 @@
-﻿# Repository Guidelines
+# 仓库指南
 
-## Project Structure & Module Organization
-Core gameplay logic lives in `Source/`, with major subsystems split
-across `Core/` (extensions, systems), `Patch/` (Harmony patches), `UI/`,
-`Utils/`, and `LocaleKeys/`. Assets and data tables ship from `Content/
-  ` and `GameResources/`, while localization strings reside in `Locales/`.
-`Scripts/` hosts Python helpers for data conversion and balancing, and the
-compiled assemblies land in `bin/<Configuration>/net48/`.
-Game source code lives in `.GameSource/`.
+## 项目结构与模块组织
+核心玩法逻辑位于 `Source/`，主要子系统按职责拆分到 `Core/`（扩展与系统）、`Patch/`（Harmony 补丁）、`UI/`、`Utils/` 和 `LocaleKeys/`。资源和数据表从 `Content/` 与 `GameResources/` 发布，本地化文本位于 `Locales/`。`Scripts/` 存放数据转换和平衡性辅助脚本，编译后的程序集输出到 `bin/<Configuration>/net48/`。
 
-## Build, Test, and Development Commands
-- `dotnet build Cultiway.csproj -c Debug`: restores references to the local
-  WorldBox installation and outputs a debug DLL to `bin/Debug/net48/`.
-- `dotnet build Cultiway.csproj -c Release /p:Optimize=true`: produces
-  the release DLL used for packaging; copy it alongside `mod.json` into
-  `worldbox_Data/StreamingAssets/mods/Cultiway`.
-- `python Scripts/csv2json.py Tables/<file>.csv`: converts authoring
-  spreadsheets to the JSON format consumed under `Content/`.
-- `python Scripts/count_source_lines.py Source`: quick sanity check on code
-  size when reviewing PR scope.
+原版游戏源码位于 `.GameSource/`。需要核对原版资源时，优先参考 `.GameSource\Assets`，包括图标、贴图、图集、预制体、音效和资源路径命名；新增或替换 Mod 资源前，先确认原版资源结构，避免凭猜测复刻路径或命名。
 
-## Coding Style & Naming Conventions
-The project targets `net48` with C# 12 syntax and unsafe code enabled. Use
-4-space indentation, `PascalCase` for public types/methods, and `camelCase`
-for locals and private fields (prefix with `_` only when required for
-clarity). Group related extensions in `<Concept>Extend.cs` files under
-`Source/Core`, and keep Harmony patches mirrored under `Source/Patch`.
-Nullable annotations are disabled, so favor explicit guards and utility
-methods in `Source/Utils`. Run ReSharper/IDE auto-formatting with the
-included `.DotSettings` profiles before committing. Comments should be writen in Chinese (UTF-8).
+## 构建、测试与开发命令
+- `dotnet build Cultiway.csproj -c Debug`：还原对本地 WorldBox 安装目录的引用，并将调试 DLL 输出到 `bin/Debug/net48/`。
+- `python Scripts/csv2json.py Tables/<file>.csv`：将表格源文件转换为 `Content/` 下消费的 JSON 格式。
+- `python Scripts/count_source_lines.py Source`：评审变更范围时，用于快速检查代码规模。
 
-## Testing Guidelines
-There is no automated test suite; validation happens in WorldBox. After
-building, load the mod through NeoModLoader, enable the debug tools
-in `Source/Debug`, and verify the affected systems (e.g., spells, sect
-mechanics) via in-game scenarios. Regression-test any data changes by
-regenerating derived JSON with the scripts above and confirming that UI
-assets under `GameResources/cultiway` still render as expected.
+## 编码风格与命名约定
+项目目标框架为 `net48`，启用 C# 12 语法和 unsafe 代码。使用 4 个空格缩进；公开类型和方法使用 `PascalCase`；局部变量和私有字段使用 `camelCase`，仅在确实提升可读性时给私有字段加 `_` 前缀。相关扩展集中放在 `Source/Core` 下的 `<Concept>Extend.cs` 文件中，Harmony 补丁保持在 `Source/Patch` 下与功能对应。
 
-## Commit & Pull Request Guidelines
-Follow the existing Conventional Commit style (`feat:`, `bugfix:`,
-`feat(scope): description`) seen in `git log -5`. Keep summaries short,
-present tense, and scoped to one change. Pull requests should describe
-gameplay impact, include reproduction or verification steps, and attach
-screenshots/gifs for UI-affecting changes. Reference related roadmap items
-or issues, call out any new resource files added under `GameResources/`,
-and mention if manual migration steps are required for mod users. 
-Commit message should be writen in Chinese.
+项目未启用 Nullable 注解，因此要优先使用显式 guard 和 `Source/Utils` 中的工具方法。提交前使用仓库内 `.DotSettings` 配置运行 ReSharper 或 IDE 自动格式化。代码注释应使用中文（UTF-8）。
+
+## 测试指南
+仓库没有自动化测试套件，主要通过 WorldBox 内手动验证。启动后自动通过 NeoModLoader 编译并加载 Mod，启用 `Source/Debug` 中的调试工具，并针对受影响系统（例如法术、宗门机制）创建游戏内场景验证。
+
+数据变更需要重新运行对应脚本生成派生 JSON。
+
+## 提交与 Pull Request 指南
+遵循 `git log -5` 中现有的 Conventional Commit 风格，例如 `feat:`、`bugfix:`、`feat(scope): 描述`。摘要保持简短、现在时，并限定在单一变更范围内。提交信息应使用中文。
+
+Pull Request 需要说明玩法影响，包含复现或验证步骤；涉及 UI 的变更应附截图或 GIF。关联相关路线图条目或 issue，标明 `GameResources/` 下新增的资源文件，并说明是否需要 Mod 用户执行手动迁移步骤。
