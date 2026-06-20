@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Core;
@@ -8,6 +9,7 @@ using NeoModLoader.General.UI.Tab;
 using NeoModLoader.utils;
 using UnityEngine;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace Cultiway.UI;
 
@@ -67,7 +69,7 @@ public class Manager
         SwitchTab(TabButtonType.INFO);
     }
     private static string[] kingdom_window_content_to_remove = [
-      "TopElements", "content_meta", "content_relations", "content_king", "content_more_icons", "content_capital", "content_villages", "content_traits_editor"
+      "TopElements", "content_motto", "content_meta", "content_meta_needs", "content_relations", "content_king", "content_more_icons", "content_capital", "content_villages", "content_traits_editor"
     ];
     private static string[] kingdom_window_header_to_remove = [
         "header_top", "header_traits"
@@ -210,21 +212,32 @@ public class Manager
         
         var tab_obj = Object.Instantiate(prefab, ModClass.I.PrefabLibrary);
         tab_obj.name = tab_id;
+        tab_obj.SetActive(false);
 
-        Object.DestroyImmediate(tab_obj.GetComponent<SelectedKingdom>());
-        
-        while (tab_obj.transform.childCount > 0)
-        {
-            Object.DestroyImmediate(tab_obj.transform.GetChild(0).gameObject);
-        }
-
+        var source_tab = tab_obj.GetComponent<SelectedKingdom>() 
+                         ?? throw new InvalidOperationException("创建自定义选中底栏失败：找不到原版 selected_kingdom 的 SelectedKingdom 组件");
         var tab = tab_obj.AddComponent<TTab>();
+        source_tab.CopyCompatibleSerializedFieldsTo(tab);
+        source_tab.DisableSerializedObjectsMissingFrom(tab);
+        RequireCopiedSelectedTabFields(tab, tab_id);
+
+        Object.DestroyImmediate(source_tab);
 
         tab_obj.transform.SetParent(prefab.transform.parent);
         tab_obj.transform.localScale = Vector3.one;
+        tab_obj.SetActive(true);
         
         return tab;
     }
+
+    private static void RequireCopiedSelectedTabFields(Component target, string tab_id)
+    {
+        var context = $"创建自定义选中底栏失败：{tab_id}";
+        target.RequireCopiedSerializedField("name_field", context);
+        target.RequireCopiedSerializedField("icon_right", context);
+        target.RequireCopiedSerializedField("stats_icons", context, true);
+    }
+
     public static void InsertButtonForMeta(MetaTypeExtend meta_type)
     {
         var toolbar_container_transform = CanvasMain.instance.canvas_windows.transform.Find("WindowToolbarContainer/WindowToolbar/content/Scroll View/Viewport/Content/Metas Group 3");

@@ -82,7 +82,7 @@ public partial class WorldboxGame
             }
             tooltip.setTitle(geo_region.name, "geo_region", geo_region.getColor().color_text);
             var category = geo_region.GetCategory();
-            tooltip.addLineText("Cultiway.GeoRegion.Category", category.DisplayName);
+            tooltip.addLineText("Cultiway.GeoRegion.Category", category.GetDisplayName());
             tooltip.addLineText("Cultiway.GeoRegion.Tiles", geo_region.E.GetIncomingLinks<BelongToRelation>().Count.ToString());
         }
 

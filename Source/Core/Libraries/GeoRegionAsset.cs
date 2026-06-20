@@ -1,4 +1,5 @@
 using Cultiway.Core;
+using Cultiway.Utils.Extension;
 using NeoModLoader.General;
 using UnityEngine;
 
@@ -179,6 +180,11 @@ public class GeoRegionAsset : Asset
     {
         var sprite = string.IsNullOrEmpty(IconPath) ? null : SpriteTextureLoader.getSprite(IconPath);
         return sprite != null ? sprite : SpriteTextureLoader.getSprite(DefaultIconPath);
+    }
+
+    public string GetDisplayName()
+    {
+        return LMTools.GetOrFallback(id, DisplayName);
     }
 
     /// <summary>

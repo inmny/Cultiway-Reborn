@@ -38,7 +38,12 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             geo_region_layers = new[] { GeoRegionLayer.Primary },
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
-                var tile = World.world.GetTile(x, y).GetExtend();
+                if (!TryGetTileExtend(x, y, out TileExtend tile))
+                {
+                    out_color.a = 0;
+                    return;
+                }
+
                 var region = tile.GetGeoRegion();
                 if (region != null)
                 {
@@ -59,7 +64,12 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             geo_region_layers = new[] { GeoRegionLayer.Landform },
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
-                var tile = World.world.GetTile(x, y).GetExtend();
+                if (!TryGetTileExtend(x, y, out TileExtend tile))
+                {
+                    out_color.a = 0;
+                    return;
+                }
+
                 var region = tile.GetGeoRegion(GeoRegionLayer.Landform);
                 if (region != null)
                 {
@@ -80,7 +90,12 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             geo_region_layers = new[] { GeoRegionLayer.Landmass },
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
-                var tile = World.world.GetTile(x, y).GetExtend();
+                if (!TryGetTileExtend(x, y, out TileExtend tile))
+                {
+                    out_color.a = 0;
+                    return;
+                }
+
                 var region = tile.GetGeoRegion(GeoRegionLayer.Landmass);
                 if (region != null)
                 {
@@ -101,7 +116,12 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             geo_region_layers = new[] { GeoRegionLayer.Strait, GeoRegionLayer.Peninsula, GeoRegionLayer.Archipelago },
             kernel_func = (int x, int y, ref Color32 out_color) =>
             {
-                var tile = World.world.GetTile(x, y).GetExtend();
+                if (!TryGetTileExtend(x, y, out TileExtend tile))
+                {
+                    out_color.a = 0;
+                    return;
+                }
+
                 var region = tile.GetGeoRegion(GeoRegionLayer.Strait) ??
                              tile.GetGeoRegion(GeoRegionLayer.Peninsula) ??
                              tile.GetGeoRegion(GeoRegionLayer.Archipelago);
@@ -114,6 +134,23 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
                 out_color.a = 0;
             }
         });
+    }
+
+    private static bool TryGetTileExtend(int x, int y, out TileExtend tileExtend)
+    {
+        tileExtend = null;
+        if (World.world?.tiles_list == null) return false;
+        if (ModClass.I?.TileExtendManager == null || !ModClass.I.TileExtendManager.Ready()) return false;
+        if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) return false;
+
+        WorldTile tile = World.world.GetTile(x, y);
+        if (tile == null) return false;
+
+        int tileId = tile.data.tile_id;
+        if (tileId < 0 || tileId >= World.world.tiles_list.Length) return false;
+
+        tileExtend = ModClass.I.TileExtendManager.Get(tileId);
+        return tileExtend != null;
     }
 
     public override CustomMapModeAsset add(CustomMapModeAsset pAsset)
