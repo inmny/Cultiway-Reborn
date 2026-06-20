@@ -28,6 +28,7 @@ public partial class Actors
         EasternHuman.kingdom_id_wild = KingdomAssets.NoMadsEasternHuman.id;
         EasternHuman.kingdom_id_civilization = KingdomAssets.EasternHuman.id;
         EasternHuman.name_locale = EasternHuman.id;
+        EasternHuman.name_template_sets = WorldboxGame.NameSets.EasternHumanTemplateSets;
         EasternHuman.power_id = null;
         EasternHuman.phenotypes_dict = null;
         EasternHuman.phenotypes_list = null;
