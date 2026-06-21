@@ -24,6 +24,7 @@ namespace Cultiway.UI.Components
 
         public override void setTitleIcons(GeoRegion pMeta)
         {
+            icon_left.sprite = SpriteTextureLoader.getSprite("cultiway/icons/iconGeoRegion");
             icon_right.sprite = pMeta.GetCategory().GetSpriteIcon();
         }
 

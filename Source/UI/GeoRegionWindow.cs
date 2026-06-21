@@ -1,3 +1,4 @@
+using System;
 using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -5,6 +6,7 @@ using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.utils;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Cultiway.UI
 {
@@ -12,6 +14,8 @@ namespace Cultiway.UI
     {
         public override MetaType meta_type => MetaTypeExtend.GeoRegion.Back();
         public override GeoRegion meta_object => WorldboxGame.I.SelectedGeoRegion;
+        private Image _raceTopIcon1;
+        private Image _raceTopIcon2;
 
         internal static void Init()
         {
@@ -25,6 +29,19 @@ namespace Cultiway.UI
 
             var meta_window = Manager.CreateMetaWindow<GeoRegionWindow, GeoRegion, GeoRegionData>(windowId);
             meta_window.SetupTabTitleContainer<GeoRegionWindow, GeoRegion, GeoRegionData>("tab_title_container_kingdom", "GeoRegion".Underscore(), "cultiway/icons/iconExtendGeoRegion", "cultiway/icons/iconExtendGeoRegion").name = "tab_title_container_geo_region";
+        }
+
+        public override void showTopPartInformation()
+        {
+            base.showTopPartInformation();
+
+            var region = meta_object;
+            if (region == null || region.isRekt()) return;
+
+            CacheRaceTopIcons();
+            var typeIcon = region.GetCategory().GetSpriteIcon();
+            if (_raceTopIcon1 != null) _raceTopIcon1.sprite = typeIcon;
+            if (_raceTopIcon2 != null) _raceTopIcon2.sprite = typeIcon;
         }
 
         public override void showStatsRows()
@@ -41,6 +58,20 @@ namespace Cultiway.UI
 
             // key 先占位，后续在 Locales 里补文本
             showStatRow("Cultiway.GeoRegion.Tiles".Underscore(), tilesCount, MetaType.None, -1L, null, null, null);
+        }
+
+        private void CacheRaceTopIcons()
+        {
+            _raceTopIcon1 ??= RequireRaceTopIcon("Background/RaceIcon");
+            _raceTopIcon2 ??= RequireRaceTopIcon("Background/Container/RaceIcon");
+        }
+
+        private Image RequireRaceTopIcon(string path)
+        {
+            var iconTransform = transform.Find(path)
+                                ?? throw new InvalidOperationException($"GeoRegionWindow 缺少原版种族图标节点: {path}");
+            return iconTransform.GetComponent<Image>()
+                   ?? throw new InvalidOperationException($"GeoRegionWindow 原版种族图标节点缺少 Image: {path}");
         }
 
         private static void EnsureWindowAsset(string windowId, MetaTypeAsset metaTypeAsset)

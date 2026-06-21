@@ -149,8 +149,7 @@ public partial class WorldboxGame
             nameplate.setText(text, position, 10);
             nameplate.setPriority(tileCount);
 
-            var icon = SpriteTextureLoader.getSprite("cultiway/icons/iconGeoRegion");
-            nameplate.showSpecies(icon);
+            nameplate.showSpecies(geoRegion.GetCategory().GetSpriteIcon());
         }
     }
 }
