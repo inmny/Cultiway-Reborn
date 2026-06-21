@@ -616,14 +616,15 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         action_before_be_attacked?.Invoke(this, attacker, ref damage_composition, ref attack_type_for_vanilla, ref damage, ref ignore_damage_reduction);
 
+        var attacker_power_level = ((attacker?.isActor() ?? false) && !attacker.isRekt()) ? attacker.a.GetExtend().GetPowerLevel() : 0;
+        var power_level = GetPowerLevel();
+        var power_level_gap = power_level - attacker_power_level;
         if (!ignore_damage_reduction)
         {
-            var attacker_power_level = ((attacker?.isActor() ?? false) && !attacker.isRekt()) ? attacker.a.GetExtend().GetPowerLevel() : 0;
-            var power_level = GetPowerLevel();
-            if (power_level > attacker_power_level)
+            if (power_level_gap > 0)
             {
                 damage = Mathf.Log(Mathf.Max(damage, 1),
-                    Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - attacker_power_level));
+                    Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level_gap));
             }
 
             if (damage >= 1)
@@ -653,19 +654,47 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
                 damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
             }
         }
+
+        if (ShouldResolveIneffectiveHit(attacker, damage, power_level_gap))
+        {
+            ResolveIneffectiveHit(attacker);
+            return;
+        }
         
         // 触发被攻击事件（在实际受到伤害之前）
         if (damage > 0 && attacker != null)
         {
             action_on_be_attacked?.Invoke(this, attacker, damage);
         }
-        if (!attacker.isRekt() && attacker.isActor())
+        if (attacker != null && !attacker.isRekt() && attacker.isActor())
         {
             Base.checkSpecialAttackLogic(attacker.a, attack_type_for_vanilla, damage, out var final_damage);
             AchievementLibrary.clone_wars.checkBySignal(new ValueTuple<Actor, Actor>(Base, attacker.a));
             damage = Math.Min(damage, final_damage);
         }
         PatchActor.getHit_snapshot(Base, damage, pAttackType: attack_type_for_vanilla, pAttacker: attacker, pSkipIfShake: false, pCheckDamageReduction: false);
+    }
+
+    private static bool ShouldResolveIneffectiveHit(BaseSimObject attacker, float damage, float power_level_gap)
+    {
+        if (damage <= 0 || power_level_gap < 0) return false;
+        if (attacker.isRekt() || !attacker.isActor()) return false;
+
+        var chance = power_level_gap == 0 ? 0.25f : 1f - Mathf.Pow(0.5f, power_level_gap);
+        return Randy.randomChance(Mathf.Clamp01(chance));
+    }
+
+    private void ResolveIneffectiveHit(BaseSimObject attacker)
+    {
+        if (attacker.isRekt() || !attacker.isActor()) return;
+
+        var actor = attacker.a;
+        if (actor.has_attack_target && actor.attack_target == Base)
+        {
+            actor.clearAttackTarget();
+        }
+        attacker.ignoreTarget(Base);
+        actor.makeWait(0.3f);
     }
 
     public bool HasElementRoot()
