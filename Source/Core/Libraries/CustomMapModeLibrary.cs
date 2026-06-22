@@ -84,6 +84,12 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
 
     private static void RenderGeoRegionLayer(WorldTile worldTile, GeoRegionLayer layer, ref Color32 outColor)
     {
+        if (ModClass.I.CustomMapModeManager.TryGetForcedInteractionRegion(worldTile, out GeoRegion forcedRegion))
+        {
+            RenderGeoRegion(worldTile, forcedRegion, ref outColor);
+            return;
+        }
+
         if (!TryGetTileExtend(worldTile, out TileExtend tile))
         {
             outColor.a = 0;
@@ -91,11 +97,17 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
         }
 
         GeoRegion region = tile.GetGeoRegion(layer);
-        RenderGeoRegion(region, ref outColor);
+        RenderGeoRegion(worldTile, region, ref outColor);
     }
 
     private static void RenderGeoRegionMorphology(WorldTile worldTile, ref Color32 outColor)
     {
+        if (ModClass.I.CustomMapModeManager.TryGetForcedInteractionRegion(worldTile, out GeoRegion forcedRegion))
+        {
+            RenderGeoRegion(worldTile, forcedRegion, ref outColor);
+            return;
+        }
+
         if (!TryGetTileExtend(worldTile, out TileExtend tile))
         {
             outColor.a = 0;
@@ -105,10 +117,10 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
         GeoRegion region = tile.GetGeoRegion(GeoRegionLayer.Strait) ??
                            tile.GetGeoRegion(GeoRegionLayer.Peninsula) ??
                            tile.GetGeoRegion(GeoRegionLayer.Archipelago);
-        RenderGeoRegion(region, ref outColor);
+        RenderGeoRegion(worldTile, region, ref outColor);
     }
 
-    private static void RenderGeoRegion(GeoRegion region, ref Color32 outColor)
+    private static void RenderGeoRegion(WorldTile worldTile, GeoRegion region, ref Color32 outColor)
     {
         if (region == null)
         {
@@ -117,7 +129,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
         }
 
         outColor = region.getColor().getColorMain32();
-        ModClass.I.CustomMapModeManager.ApplyGeoRegionInteractionColor(region, ref outColor);
+        ModClass.I.CustomMapModeManager.ApplyGeoRegionInteractionColor(region, worldTile, ref outColor);
     }
 
     private static bool TryGetTileExtend(WorldTile worldTile, out TileExtend tileExtend)

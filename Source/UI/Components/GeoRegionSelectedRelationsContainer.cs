@@ -57,12 +57,13 @@ internal class GeoRegionSelectedRelationsContainer : GeoRegionSelectedContainerB
             ("layer", GeoRegionSelectedTagsContainer.FormatLayer(target.data.Layer)),
             ("tiles", target.data.TileCount));
 
-        AddIcon(
+        GeoRegionSelectedInfoIcon icon = AddIcon(
             target.GetCategory().GetSpriteIcon(),
             LMTools.GetOrKey(relationTitleKey),
             description,
             RegionColor(target),
             () => SelectGeoRegion(target));
+        icon.SetHoverGeoRegion(target);
     }
 
     internal enum RelationMode

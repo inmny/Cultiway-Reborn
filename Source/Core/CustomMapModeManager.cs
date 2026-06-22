@@ -9,10 +9,15 @@ namespace Cultiway.Core;
 
 public class CustomMapModeManager
 {
+    private const float InteractionAnimationInterval = 0.06f;
+
     public CustomMapLayer MapLayer { get; private set; }
     public GeoRegion HoveredGeoRegion { get; private set; }
+    public GeoRegion UiHoveredGeoRegion { get; private set; }
     private CustomMapModeAsset _cached_map_mode;
     private GeoRegion _selected_geo_region;
+    private float _interaction_animation_next_refresh_time;
+    private float _interaction_animation_pulse = 0.5f;
 
     public CustomMapModeAsset CurrMapMode => UpdateCurrentMapMode();
 
@@ -30,6 +35,7 @@ public class CustomMapModeManager
             _cached_map_mode = newMapMode;
             HoveredGeoRegion = null;
             _selected_geo_region = null;
+            UiHoveredGeoRegion = null;
             SetAllDirty();
         }
 
@@ -85,19 +91,65 @@ public class CustomMapModeManager
         }
     }
 
-    public void ApplyGeoRegionInteractionColor(GeoRegion region, ref Color32 color)
+    public void UpdateInteractionAnimation(CustomMapModeAsset mapMode)
+    {
+        if (mapMode?.geo_region_layers == null || mapMode.geo_region_layers.Length == 0 || !HasAnyInteractionRegion()) return;
+
+        float time = Time.unscaledTime;
+        if (time < _interaction_animation_next_refresh_time) return;
+
+        _interaction_animation_next_refresh_time = time + InteractionAnimationInterval;
+        _interaction_animation_pulse = 0.5f + Mathf.Sin(time * 7.5f) * 0.5f;
+        SetGeoRegionsDirty(mapMode, UiHoveredGeoRegion, _selected_geo_region, HoveredGeoRegion);
+    }
+
+    public void SetUiHoveredGeoRegion(GeoRegion region)
+    {
+        if (ReferenceEquals(UiHoveredGeoRegion, region)) return;
+
+        GeoRegion oldRegion = UiHoveredGeoRegion;
+        UiHoveredGeoRegion = region;
+        SetGeoRegionsDirty(UpdateCurrentMapMode(), oldRegion, UiHoveredGeoRegion);
+    }
+
+    public void ClearUiHoveredGeoRegion(GeoRegion region)
+    {
+        if (!ReferenceEquals(UiHoveredGeoRegion, region)) return;
+        SetUiHoveredGeoRegion(null);
+    }
+
+    public bool TryGetForcedInteractionRegion(WorldTile tile, out GeoRegion region)
+    {
+        if (TryGetRegionOnTile(tile, UiHoveredGeoRegion, out region)) return true;
+        if (TryGetRegionOnTile(tile, _selected_geo_region, out region)) return true;
+        return false;
+    }
+
+    public void ApplyGeoRegionInteractionColor(GeoRegion region, WorldTile tile, ref Color32 color)
     {
         if (region == null || region.isRekt() || color.a == 0) return;
 
-        if (region == _selected_geo_region)
+        bool boundary = IsBoundaryTile(tile, region);
+        if (region == UiHoveredGeoRegion)
         {
-            color = ColorUtils.Blend(color, new Color32(255, 255, 255, 255), 0.35f);
+            color = boundary
+                ? PulseColor(new Color32(255, 170, 42, 255), new Color32(255, 246, 165, 255))
+                : PulseBlend(color, new Color32(255, 241, 160, 255), 0.28f, 0.62f);
+            color.a = 255;
+        }
+        else if (region == _selected_geo_region)
+        {
+            color = boundary
+                ? PulseColor(new Color32(210, 220, 230, 255), new Color32(255, 255, 255, 255))
+                : PulseBlend(color, new Color32(255, 255, 255, 255), 0.22f, 0.52f);
             color.a = 255;
         }
         else if (region == HoveredGeoRegion)
         {
-            color = ColorUtils.Blend(color, new Color32(255, 255, 255, 255), 0.22f);
-            color.a = 230;
+            color = boundary
+                ? PulseColor(new Color32(92, 198, 255, 225), new Color32(225, 250, 255, 255))
+                : PulseBlend(color, new Color32(210, 242, 255, 255), 0.14f, 0.38f);
+            color.a = boundary ? (byte)245 : (byte)230;
         }
     }
 
@@ -141,16 +193,81 @@ public class CustomMapModeManager
         for (int i = 0; i < regions.Length; i++)
         {
             GeoRegion region = regions[i];
-            if (!ShouldRefreshRegion(region, mapMode)) continue;
+            if (!CanRefreshRegion(region)) continue;
             if (!uniqueRegions.Add(region)) continue;
 
             MapLayer.SetTilesDirty(WorldboxGame.I.GeoRegions.EnumerateRegionTiles(region));
         }
     }
 
-    private static bool ShouldRefreshRegion(GeoRegion region, CustomMapModeAsset mapMode)
+    private bool HasAnyInteractionRegion()
     {
-        if (region == null || region.isRekt() || region.data == null) return false;
-        return mapMode.ContainsGeoRegionLayer(region.data.Layer);
+        return CanRefreshRegion(UiHoveredGeoRegion) ||
+               CanRefreshRegion(_selected_geo_region) ||
+               CanRefreshRegion(HoveredGeoRegion);
+    }
+
+    private static bool CanRefreshRegion(GeoRegion region)
+    {
+        return region != null && !region.isRekt() && region.data != null;
+    }
+
+    private static bool TryGetRegionOnTile(WorldTile tile, GeoRegion candidate, out GeoRegion region)
+    {
+        region = null;
+        if (tile == null || candidate == null || candidate.isRekt() || candidate.data == null) return false;
+
+        if (!TryGetTileExtend(tile, out TileExtend tileExtend)) return false;
+        GeoRegion current = tileExtend.GetGeoRegion(candidate.data.Layer);
+        if (!ReferenceEquals(current, candidate)) return false;
+
+        region = candidate;
+        return true;
+    }
+
+    private Color32 PulseColor(Color32 dim, Color32 bright)
+    {
+        return ColorUtils.Blend(dim, bright, 0.25f + _interaction_animation_pulse * 0.75f);
+    }
+
+    private Color32 PulseBlend(Color32 color, Color32 target, float minAmount, float maxAmount)
+    {
+        float amount = Mathf.Lerp(minAmount, maxAmount, _interaction_animation_pulse);
+        return ColorUtils.Blend(color, target, amount);
+    }
+
+    private static bool IsBoundaryTile(WorldTile tile, GeoRegion region)
+    {
+        if (tile == null || region?.data == null) return false;
+
+        WorldTile[] neighbors = tile.neighbours;
+        if (neighbors == null || neighbors.Length == 0) return true;
+
+        GeoRegionLayer layer = region.data.Layer;
+        for (int i = 0; i < neighbors.Length; i++)
+        {
+            WorldTile neighbor = neighbors[i];
+            if (neighbor == null) return true;
+
+            if (!TryGetTileExtend(neighbor, out TileExtend neighborExtend)) return true;
+
+            GeoRegion neighborRegion = neighborExtend.GetGeoRegion(layer);
+            if (!ReferenceEquals(neighborRegion, region)) return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetTileExtend(WorldTile tile, out TileExtend tileExtend)
+    {
+        tileExtend = null;
+        if (tile == null || tile.data == null) return false;
+        if (ModClass.I?.TileExtendManager == null || !ModClass.I.TileExtendManager.Ready()) return false;
+
+        int tileId = tile.data.tile_id;
+        if (tileId < 0) return false;
+
+        tileExtend = ModClass.I.TileExtendManager.Get(tileId);
+        return tileExtend != null;
     }
 }

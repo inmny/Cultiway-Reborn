@@ -1,12 +1,14 @@
+using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Cultiway.UI.Components;
 
-internal class GeoRegionSelectedInfoIcon : MonoBehaviour
+internal class GeoRegionSelectedInfoIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
     internal const float DefaultSize = 24f;
 
@@ -14,6 +16,7 @@ internal class GeoRegionSelectedInfoIcon : MonoBehaviour
     private Image _icon;
     private Button _button;
     private TipButton _tipButton;
+    private GeoRegion _hoverGeoRegion;
 
     internal static GeoRegionSelectedInfoIcon Create(Transform parent, string name, float size = DefaultSize)
     {
@@ -75,5 +78,37 @@ internal class GeoRegionSelectedInfoIcon : MonoBehaviour
         {
             _button.onClick.AddListener(clickAction);
         }
+    }
+
+    internal void SetHoverGeoRegion(GeoRegion region)
+    {
+        _hoverGeoRegion = region;
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (_hoverGeoRegion == null || _hoverGeoRegion.isRekt()) return;
+        ModClass.I?.CustomMapModeManager?.SetUiHoveredGeoRegion(_hoverGeoRegion);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        ClearHoverGeoRegion();
+    }
+
+    private void OnDisable()
+    {
+        ClearHoverGeoRegion();
+    }
+
+    private void OnDestroy()
+    {
+        ClearHoverGeoRegion();
+    }
+
+    private void ClearHoverGeoRegion()
+    {
+        if (_hoverGeoRegion == null) return;
+        ModClass.I?.CustomMapModeManager?.ClearUiHoveredGeoRegion(_hoverGeoRegion);
     }
 }

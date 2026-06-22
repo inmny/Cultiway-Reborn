@@ -127,6 +127,7 @@ public class CustomMapLayer : MapLayer
         }
 
         ModClass.I.CustomMapModeManager.UpdateInteractionState(mapMode);
+        ModClass.I.CustomMapModeManager.UpdateInteractionAnimation(mapMode);
 
         Show();
 
