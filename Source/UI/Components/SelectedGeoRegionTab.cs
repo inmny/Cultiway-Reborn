@@ -1,7 +1,6 @@
 using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
-using System.Reflection;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -36,7 +35,12 @@ namespace Cultiway.UI.Components
 
         public override void checkShowBanner()
         {
-            // GeoRegion 使用自己的窗口横幅；选中底栏先不复用 Kingdom 的 BannerGeneric 泛型组件。
+            if (banner == null)
+            {
+                throw new System.InvalidOperationException("GeoRegion 选中底栏缺少主旗帜组件");
+            }
+
+            base.checkShowBanner();
         }
 
         public override void updateTraits()
@@ -56,9 +60,81 @@ namespace Cultiway.UI.Components
         internal static void Init()
         {
             var tab = Manager.CreateSelectedMetaTab<SelectedGeoRegionTab, GeoRegion, GeoRegionData>(WorldboxGame.PowerTabs.SelectedGeoRegion.id);
+            tab.SetupGeoRegionMainBanner();
             tab.SetupGeoRegionContainers();
 
             PowersTab = tab.GetComponent<PowersTab>();
+        }
+
+        private void SetupGeoRegionMainBanner()
+        {
+            Transform bannerTransform = FindMainBannerTransform();
+            bannerTransform.gameObject.SetActive(true);
+
+            var oldBanner = bannerTransform.GetComponent<KingdomBanner>();
+            if (oldBanner != null)
+            {
+                Object.DestroyImmediate(oldBanner);
+            }
+
+            var geoRegionBanner = bannerTransform.GetComponent<GeoRegionBanner>() ??
+                                  bannerTransform.gameObject.AddComponent<GeoRegionBanner>();
+            geoRegionBanner.enable_default_click = true;
+            banner = geoRegionBanner;
+        }
+
+        private Transform FindMainBannerTransform()
+        {
+            Transform mainBanner = FindNamedMainBanner();
+            if (mainBanner != null)
+            {
+                return mainBanner;
+            }
+
+            KingdomBanner oldBanner = FindMainKingdomBanner();
+            if (oldBanner != null)
+            {
+                return oldBanner.transform;
+            }
+
+            throw new System.InvalidOperationException("创建 GeoRegion 选中底栏失败：找不到原版主旗帜节点");
+        }
+
+        private Transform FindNamedMainBanner()
+        {
+            var transforms = GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < transforms.Length; i++)
+            {
+                Transform current = transforms[i];
+                if (current.name != "Main Banner") continue;
+                if (IsInsideContainer(current)) continue;
+
+                return current;
+            }
+
+            return null;
+        }
+
+        private KingdomBanner FindMainKingdomBanner()
+        {
+            var oldBanners = GetComponentsInChildren<KingdomBanner>(true);
+            for (int i = 0; i < oldBanners.Length; i++)
+            {
+                KingdomBanner oldBanner = oldBanners[i];
+                if (IsInsideContainer(oldBanner.transform)) continue;
+
+                return oldBanner;
+            }
+
+            return null;
+        }
+
+        private static bool IsInsideContainer(Transform child)
+        {
+            return child.HasAncestorWithAnyComponent(
+                typeof(KingdomSelectedMetaBanners),
+                typeof(KingdomSelectedAlliesContainer),
+                typeof(KingdomSelectedWarsContainer));
         }
 
         private void SetupGeoRegionContainers()
@@ -94,25 +170,8 @@ namespace Cultiway.UI.Components
 
         private static Transform GetOriginalContentRoot(Component source)
         {
-            return GetSerializedTransform(source, "_grid") ?? GetSerializedTransform(source, "_container");
-        }
-
-        private static Transform GetSerializedTransform(Component source, string fieldName)
-        {
-            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-            System.Type type = source.GetType();
-            while (type != null && type != typeof(MonoBehaviour))
-            {
-                FieldInfo field = type.GetField(fieldName, flags);
-                if (field != null && typeof(Transform).IsAssignableFrom(field.FieldType))
-                {
-                    return field.GetValue(source) as Transform;
-                }
-
-                type = type.BaseType;
-            }
-
-            return null;
+            return source.GetSerializedFieldValue<Transform>("_grid") ??
+                   source.GetSerializedFieldValue<Transform>("_container");
         }
     }
 }

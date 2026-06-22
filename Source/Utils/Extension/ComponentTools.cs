@@ -59,6 +59,23 @@ public static class ComponentTools
         }
     }
 
+    public static T GetSerializedFieldValue<T>(this Component source, string field_name)
+        where T : class
+    {
+        if (source == null)
+        {
+            throw new InvalidOperationException($"读取序列化字段失败：组件为空，字段 {field_name}");
+        }
+
+        var field = FindField(source.GetType(), field_name);
+        if (field == null || !typeof(T).IsAssignableFrom(field.FieldType))
+        {
+            return null;
+        }
+
+        return field.GetValue(source) as T;
+    }
+
     private static Dictionary<string, FieldInfo> GetSerializedFields(Type type)
     {
         var fields = new Dictionary<string, FieldInfo>();

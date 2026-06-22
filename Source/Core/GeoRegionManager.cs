@@ -17,6 +17,12 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
         type_id = WorldboxGame.HistoryMetaDatas.GeoRegion.id;
     }
 
+    public override void clear()
+    {
+        GeoRegionShapeSpriteCache.Clear();
+        base.clear();
+    }
+
     public override void updateDirtyUnits()
     {
         if (!CanRefreshUnits()) return;
@@ -338,8 +344,15 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
         };
     }
 
-    private IEnumerable<WorldTile> EnumerateRegionTiles(GeoRegion region)
+    public bool CanResolveRegionTiles()
     {
+        return CanResolveTiles();
+    }
+
+    public IEnumerable<WorldTile> EnumerateRegionTiles(GeoRegion region)
+    {
+        if (!CanQueryRegionTiles(region)) yield break;
+
         foreach (EntityLink<BelongToRelation> link in region.E.GetIncomingLinks<BelongToRelation>())
         {
             Entity tileEntity = link.Entity;

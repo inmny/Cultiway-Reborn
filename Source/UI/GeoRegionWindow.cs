@@ -28,6 +28,11 @@ namespace Cultiway.UI
             EnsureWindowAsset(windowId, metaTypeAsset);
 
             var meta_window = Manager.CreateMetaWindow<GeoRegionWindow, GeoRegion, GeoRegionData>(windowId);
+            meta_window.SetDescendantsActiveByName(
+                false,
+                "BannerBackground",
+                "Kingdom Icon",
+                "Customization Icon");
             meta_window.SetupTabTitleContainer<GeoRegionWindow, GeoRegion, GeoRegionData>("tab_title_container_kingdom", "GeoRegion".Underscore(), "cultiway/icons/iconExtendGeoRegion", "cultiway/icons/iconExtendGeoRegion").name = "tab_title_container_geo_region";
         }
 

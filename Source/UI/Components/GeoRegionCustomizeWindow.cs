@@ -22,10 +22,16 @@ public class GeoRegionCustomizeWindow : GenericCustomizeWindow<GeoRegion, GeoReg
 
 	public override void onBannerChange()
 	{
-		this.meta_object.getActorAsset();
 		this.image_banner_option_1.sprite = this.meta_object.getBannerBackground();
 		this.image_banner_option_2.sprite = this.meta_object.getBannerIcon();
 	}
+
+	public override void setupImages()
+	{
+		this.icon_banner.SetActiveIfPresent(false);
+		this.icon_top.sprite = SpriteTextureLoader.getSprite("cultiway/icons/iconGeoRegion");
+	}
+
 	public GeoRegionCustomizeWindow()
 	{
 	}

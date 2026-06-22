@@ -1,7 +1,6 @@
 using Cultiway.Const;
 using Cultiway.Utils.Extension;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Cultiway.Core;
 
@@ -20,10 +19,18 @@ public class GeoRegionBanner : BannerGeneric<GeoRegion, GeoRegionData>
     public override void setupBanner()
     {
         base.setupBanner();
-        part_background.sprite = meta_object.getBannerBackground();
+        HideVanillaBannerDecoration(transform);
+        part_background.SetActiveIfPresent(false);
+
+        if (part_icon == null)
+        {
+            throw new System.InvalidOperationException("GeoRegion banner 缺少 Icon 图层");
+        }
+
+        part_icon.gameObject.SetActive(true);
         part_icon.sprite = meta_object.getBannerIcon();
-        part_background.color = meta_object.getColor().getColorMainSecond();
-        part_icon.color = meta_object.getColor().getColorBanner();
+        part_icon.color = Color.white;
+        part_icon.preserveAspect = true;
     }
 
     public static GeoRegionBanner Prefab
@@ -43,22 +50,7 @@ public class GeoRegionBanner : BannerGeneric<GeoRegion, GeoRegionData>
         var go = Instantiate(Resources.Load<KingdomBanner>("ui/PrefabBannerKingdom"), ModClass.I.PrefabLibrary).gameObject;
         go.SetActive(false);
         Destroy(go.GetComponent<KingdomBanner>());
-        if (go.transform.Find("TiltEffect/dead") != null)
-        {
-            Destroy(go.transform.Find("TiltEffect/dead").gameObject);
-        }
-        if (go.transform.Find("TiltEffect/left") != null)
-        {
-            Destroy(go.transform.Find("TiltEffect/left").gameObject);
-        }
-        if (go.transform.Find("TiltEffect/winner") != null)
-        {
-            Destroy(go.transform.Find("TiltEffect/winner").gameObject);
-        }
-        if (go.transform.Find("TiltEffect/loser") != null)
-        {
-            Destroy(go.transform.Find("TiltEffect/loser").gameObject);
-        }
+        HideVanillaBannerDecoration(go.transform);
 
         go.GetComponent<UiButtonHoverAnimation>().default_scale = new(0.75f, 0.75f, 1);
         go.GetComponent<TipButton>().setDefaultScale(new Vector3(0.75f, 0.75f, 1));
@@ -69,5 +61,16 @@ public class GeoRegionBanner : BannerGeneric<GeoRegion, GeoRegionData>
         _prefab.name = "PrefabBannerGeoRegion";
         _prefab.transform.localScale = Vector3.one * 0.75f;
     }
+
+    private static void HideVanillaBannerDecoration(Transform root)
+    {
+        root.HideChildrenByPath(
+            "TiltEffect/Background",
+            "TiltEffect/dead",
+            "TiltEffect/left",
+            "TiltEffect/winner",
+            "TiltEffect/loser");
+    }
+
     private static GeoRegionBanner _prefab;
 }

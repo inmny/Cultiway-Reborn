@@ -41,6 +41,9 @@ public partial class WorldboxGame
             {
                 I.SelectedGeoRegion.data.BannerBackgroundIndex = pValue;    
             };
+            GeoRegion.option_1_editable = false;
+            GeoRegion.option_2_editable = false;
+            GeoRegion.option_2_color_editable = false;
             GeoRegion.option_2_get = () => I.SelectedGeoRegion.data.BannerIconIndex;
             GeoRegion.option_2_set = delegate(int pValue)
             {
@@ -52,13 +55,13 @@ public partial class WorldboxGame
                 I.SelectedGeoRegion.data.setColorID(pValue);
             };
             GeoRegion.color_library = () => AssetManager.families_colors_library;
-            GeoRegion.option_1_count = () => ModClass.L.GeoRegionBannerLibrary.get(I.SelectedGeoRegion.getActorAsset().banner_id).backgrounds.Count;
-            GeoRegion.option_2_count = () => ModClass.L.GeoRegionBannerLibrary.get(I.SelectedGeoRegion.getActorAsset().banner_id).icons.Count;
+            GeoRegion.option_1_count = () => 1;
+            GeoRegion.option_2_count = () => 1;
             GeoRegion.title_locale = "customize_geo_region";
             GeoRegion.option_1_locale = "banner_design";
             GeoRegion.option_2_locale = "banner_emblem";
             GeoRegion.color_locale = "family_color";
-            GeoRegion.icon_banner = "iconCrown";
+            GeoRegion.icon_banner = "iconWorldInfo";
             GeoRegion.icon_creature = "iconBiomass";
         }
     }

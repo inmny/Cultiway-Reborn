@@ -50,7 +50,7 @@ public class GeoRegion : MetaObject<GeoRegionData>
 
     public Sprite getBannerIcon()
     {
-        return ModClass.L.GeoRegionBannerLibrary.getSpriteIcon(data.BannerIconIndex);
+        return GeoRegionShapeSpriteCache.GetSprite(this);
     }
 
     public GeoRegionAsset GetCategory()
