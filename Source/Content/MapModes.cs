@@ -19,8 +19,10 @@ public class MapModes : ExtendLibrary<CustomMapModeAsset, MapModes>
             id = nameof(Wakan),
             icon_path = "cultiway/icons/iconWakan",
             toggle_name = "wakan_layer",
-            kernel_func = [Hotfixable](int x, int y, ref Color32 out_color) =>
+            kernel_func = [Hotfixable](WorldTile tile, ref Color32 out_color) =>
             {
+                int x = tile.x;
+                int y = tile.y;
                 var v = Mathf.Log10(WakanMap.I.map[x, y]);
                 var p = 1 / (1 + Mathf.Exp(4f - v));
                 out_color.r = (byte)(97  + (255 - 97)  * p); // 97->255
@@ -34,8 +36,10 @@ public class MapModes : ExtendLibrary<CustomMapModeAsset, MapModes>
             id = nameof(DirtyWakan),
             icon_path = "cultiway/icons/iconWakan",
             toggle_name = "dirty_wakan_layer",
-            kernel_func = [Hotfixable](int x, int y, ref Color32 out_color) =>
+            kernel_func = [Hotfixable](WorldTile tile, ref Color32 out_color) =>
             {
+                int x = tile.x;
+                int y = tile.y;
                 var v = Mathf.Log10(DirtyWakanMap.I.map[x, y]);
                 var p = 1 / (1 + Mathf.Exp(4f - v));
                 out_color.r = (byte)(127 * (1-p));

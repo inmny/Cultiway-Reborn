@@ -76,13 +76,13 @@ public partial class WorldboxGame
                 // 与 CustomMapModeLibrary 的渲染层选择保持一致
                 if (!ShouldShowGeoRegionInCurrentMapMode(geoRegion, currMapMode)) continue;
 
-                var links = geoRegion.E.GetIncomingLinks<BelongToRelation>();
-                if (links.Count == 0) continue;
-                if (!TryGetRegionPosition(links.Entities, out var position)) continue;
+                int tileCount = geoRegion.data?.TileCount ?? 0;
+                if (tileCount <= 0) continue;
+                if (!TryGetRegionPosition(geoRegion, out var position)) continue;
                 if (!World.world.move_camera.isWithinCameraViewNotPowerBar(position)) continue;
 
                 var nameplate = manager.prepareNext(asset, geoRegion);
-                ApplyGeoRegionNameplate(nameplate, geoRegion, geoRegion.getColor().getColorMain32(), position, links.Count);
+                ApplyGeoRegionNameplate(nameplate, geoRegion, geoRegion.getColor().getColorMain32(), position, tileCount);
                 current++;
             }
         }
@@ -116,28 +116,20 @@ public partial class WorldboxGame
             return layer == GeoRegionLayer.Primary;
         }
 
-        private static bool TryGetRegionPosition(IEnumerable<Entity> tiles, out Vector3 position)
+        private static bool TryGetRegionPosition(GeoRegion geoRegion, out Vector3 position)
         {
-            // 计算所有tile的平均坐标
-            int count = 0;
-            Vector3 sum = Vector3.zero;
-
-            foreach (var tileEntity in tiles)
-            {
-                if (!tileEntity.HasComponent<TileBinder>()) continue;
-                var tile = tileEntity.GetComponent<TileBinder>().Tile;
-                sum += tile.posV3;
-                count++;
-            }
-
-            if (count > 0)
-            {
-                position = sum / count;
-                return true;
-            }
-
             position = Vector3.zero;
-            return false;
+            if (geoRegion?.data == null) return false;
+
+            int x = geoRegion.data.CenterX;
+            int y = geoRegion.data.CenterY;
+            if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) return false;
+
+            WorldTile tile = World.world.GetTile(x, y);
+            if (tile == null) return false;
+
+            position = tile.posV3;
+            return true;
         }
 
         private static void ApplyGeoRegionNameplate(NameplateText nameplate, GeoRegion geoRegion, Color32 color, Vector3 position, int tileCount)

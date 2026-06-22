@@ -24,7 +24,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             id = "sect",
             icon_path = "cultiway/icons/iconGeoRegion",
             toggle_name = "sect_layer",
-            kernel_func = (int x, int y, ref Color32 out_color) =>
+            kernel_func = (WorldTile worldTile, ref Color32 out_color) =>
             {
                 out_color.a = 0;
             }
@@ -36,22 +36,9 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             toggle_name = "geo_region_layer",
             redirect_map_mode = MetaTypeExtend.GeoRegion,
             geo_region_layers = new[] { GeoRegionLayer.Primary },
-            kernel_func = (int x, int y, ref Color32 out_color) =>
+            kernel_func = (WorldTile worldTile, ref Color32 out_color) =>
             {
-                if (!TryGetTileExtend(x, y, out TileExtend tile))
-                {
-                    out_color.a = 0;
-                    return;
-                }
-
-                var region = tile.GetGeoRegion();
-                if (region != null)
-                {
-                    out_color = region.getColor().getColorMain32();
-                    ModClass.I.CustomMapModeManager.ApplyGeoRegionInteractionColor(region, ref out_color);
-                    return;
-                }
-                out_color.a = 0;
+                RenderGeoRegionLayer(worldTile, GeoRegionLayer.Primary, ref out_color);
             }
         });
 
@@ -62,22 +49,9 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             toggle_name = "geo_region_landform_layer",
             redirect_map_mode = MetaTypeExtend.GeoRegion,
             geo_region_layers = new[] { GeoRegionLayer.Landform },
-            kernel_func = (int x, int y, ref Color32 out_color) =>
+            kernel_func = (WorldTile worldTile, ref Color32 out_color) =>
             {
-                if (!TryGetTileExtend(x, y, out TileExtend tile))
-                {
-                    out_color.a = 0;
-                    return;
-                }
-
-                var region = tile.GetGeoRegion(GeoRegionLayer.Landform);
-                if (region != null)
-                {
-                    out_color = region.getColor().getColorMain32();
-                    ModClass.I.CustomMapModeManager.ApplyGeoRegionInteractionColor(region, ref out_color);
-                    return;
-                }
-                out_color.a = 0;
+                RenderGeoRegionLayer(worldTile, GeoRegionLayer.Landform, ref out_color);
             }
         });
 
@@ -88,22 +62,9 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             toggle_name = "geo_region_landmass_layer",
             redirect_map_mode = MetaTypeExtend.GeoRegion,
             geo_region_layers = new[] { GeoRegionLayer.Landmass },
-            kernel_func = (int x, int y, ref Color32 out_color) =>
+            kernel_func = (WorldTile worldTile, ref Color32 out_color) =>
             {
-                if (!TryGetTileExtend(x, y, out TileExtend tile))
-                {
-                    out_color.a = 0;
-                    return;
-                }
-
-                var region = tile.GetGeoRegion(GeoRegionLayer.Landmass);
-                if (region != null)
-                {
-                    out_color = region.getColor().getColorMain32();
-                    ModClass.I.CustomMapModeManager.ApplyGeoRegionInteractionColor(region, ref out_color);
-                    return;
-                }
-                out_color.a = 0;
+                RenderGeoRegionLayer(worldTile, GeoRegionLayer.Landmass, ref out_color);
             }
         });
 
@@ -114,39 +75,58 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             toggle_name = "geo_region_morphology_layer",
             redirect_map_mode = MetaTypeExtend.GeoRegion,
             geo_region_layers = new[] { GeoRegionLayer.Strait, GeoRegionLayer.Peninsula, GeoRegionLayer.Archipelago },
-            kernel_func = (int x, int y, ref Color32 out_color) =>
+            kernel_func = (WorldTile worldTile, ref Color32 out_color) =>
             {
-                if (!TryGetTileExtend(x, y, out TileExtend tile))
-                {
-                    out_color.a = 0;
-                    return;
-                }
-
-                var region = tile.GetGeoRegion(GeoRegionLayer.Strait) ??
-                             tile.GetGeoRegion(GeoRegionLayer.Peninsula) ??
-                             tile.GetGeoRegion(GeoRegionLayer.Archipelago);
-                if (region != null)
-                {
-                    out_color = region.getColor().getColorMain32();
-                    ModClass.I.CustomMapModeManager.ApplyGeoRegionInteractionColor(region, ref out_color);
-                    return;
-                }
-                out_color.a = 0;
+                RenderGeoRegionMorphology(worldTile, ref out_color);
             }
         });
     }
 
-    private static bool TryGetTileExtend(int x, int y, out TileExtend tileExtend)
+    private static void RenderGeoRegionLayer(WorldTile worldTile, GeoRegionLayer layer, ref Color32 outColor)
+    {
+        if (!TryGetTileExtend(worldTile, out TileExtend tile))
+        {
+            outColor.a = 0;
+            return;
+        }
+
+        GeoRegion region = tile.GetGeoRegion(layer);
+        RenderGeoRegion(region, ref outColor);
+    }
+
+    private static void RenderGeoRegionMorphology(WorldTile worldTile, ref Color32 outColor)
+    {
+        if (!TryGetTileExtend(worldTile, out TileExtend tile))
+        {
+            outColor.a = 0;
+            return;
+        }
+
+        GeoRegion region = tile.GetGeoRegion(GeoRegionLayer.Strait) ??
+                           tile.GetGeoRegion(GeoRegionLayer.Peninsula) ??
+                           tile.GetGeoRegion(GeoRegionLayer.Archipelago);
+        RenderGeoRegion(region, ref outColor);
+    }
+
+    private static void RenderGeoRegion(GeoRegion region, ref Color32 outColor)
+    {
+        if (region == null)
+        {
+            outColor.a = 0;
+            return;
+        }
+
+        outColor = region.getColor().getColorMain32();
+        ModClass.I.CustomMapModeManager.ApplyGeoRegionInteractionColor(region, ref outColor);
+    }
+
+    private static bool TryGetTileExtend(WorldTile worldTile, out TileExtend tileExtend)
     {
         tileExtend = null;
-        if (World.world?.tiles_list == null) return false;
+        if (worldTile == null) return false;
         if (ModClass.I?.TileExtendManager == null || !ModClass.I.TileExtendManager.Ready()) return false;
-        if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) return false;
 
-        WorldTile tile = World.world.GetTile(x, y);
-        if (tile == null) return false;
-
-        int tileId = tile.data.tile_id;
+        int tileId = worldTile.data.tile_id;
         if (tileId < 0 || tileId >= World.world.tiles_list.Length) return false;
 
         tileExtend = ModClass.I.TileExtendManager.Get(tileId);

@@ -11,9 +11,10 @@ public class CustomMapLayer : MapLayer
 {
     private static readonly HashSet<TileZone> _drawn_zones       = new();
     private static readonly HashSet<TileZone> _last_drawn_zones  = new();
-    private readonly        object            lock_all_dirty     = new();
+    private readonly        object            lock_dirty         = new();
     private readonly        object            lock_pixels        = new();
     private readonly        AutoResetEvent    dirty_event        = new(true);
+    private readonly        HashSet<int>      dirty_tile_ids     = new();
     private                 bool              all_dirty          = true;
     private                 Color32[]         mirror_pixels;
 
@@ -35,10 +36,46 @@ public class CustomMapLayer : MapLayer
 
     internal void SetAllDirty()
     {
-        Monitor.Enter(lock_all_dirty);
-        all_dirty = true;
-        Monitor.Exit(lock_all_dirty);
+        lock (lock_dirty)
+        {
+            all_dirty = true;
+            dirty_tile_ids.Clear();
+        }
+
         dirty_event.Set();
+    }
+
+    internal void SetTileDirty(WorldTile tile)
+    {
+        if (tile == null) return;
+        if (!TryGetTileId(tile, out int tileId)) return;
+
+        bool hasDirty;
+        lock (lock_dirty)
+        {
+            if (all_dirty) return;
+            hasDirty = dirty_tile_ids.Add(tileId);
+        }
+
+        if (hasDirty) dirty_event.Set();
+    }
+
+    internal void SetTilesDirty(IEnumerable<WorldTile> tiles)
+    {
+        if (tiles == null) return;
+
+        bool hasDirty = false;
+        lock (lock_dirty)
+        {
+            if (all_dirty) return;
+            foreach (WorldTile tile in tiles)
+            {
+                if (!TryGetTileId(tile, out int tileId)) continue;
+                hasDirty |= dirty_tile_ids.Add(tileId);
+            }
+        }
+
+        if (hasDirty) dirty_event.Set();
     }
 
     internal void WaitForDirty(int pMillisecondsTimeout)
@@ -46,18 +83,31 @@ public class CustomMapLayer : MapLayer
         dirty_event.WaitOne(pMillisecondsTimeout);
     }
 
-    private bool ConsumeAllDirty()
+    private bool ConsumeDirty(out bool rebuildAll, out int[] dirtyTileIds)
     {
-        Monitor.Enter(lock_all_dirty);
-        try
+        lock (lock_dirty)
         {
-            if (!all_dirty) return false;
-            all_dirty = false;
+            if (all_dirty)
+            {
+                all_dirty = false;
+                dirty_tile_ids.Clear();
+                rebuildAll = true;
+                dirtyTileIds = null;
+                return true;
+            }
+
+            if (dirty_tile_ids.Count == 0)
+            {
+                rebuildAll = false;
+                dirtyTileIds = null;
+                return false;
+            }
+
+            dirtyTileIds = new int[dirty_tile_ids.Count];
+            dirty_tile_ids.CopyTo(dirtyTileIds);
+            dirty_tile_ids.Clear();
+            rebuildAll = false;
             return true;
-        }
-        finally
-        {
-            Monitor.Exit(lock_all_dirty);
         }
     }
 
@@ -91,10 +141,11 @@ public class CustomMapLayer : MapLayer
 
         if (!need_update) return;
 
-        Monitor.Enter(lock_pixels);
-        updatePixels();
-        need_update = false;
-        Monitor.Exit(lock_pixels);
+        lock (lock_pixels)
+        {
+            updatePixels();
+            need_update = false;
+        }
 
         base.update(pElapsed);
     }
@@ -106,24 +157,38 @@ public class CustomMapLayer : MapLayer
         CustomMapModeAsset map_mode = ModClass.I.CustomMapModeManager.UpdateCurrentMapMode();
         if (map_mode == null) return;
         if (!CanPreparePixels()) return;
-        if (!ConsumeAllDirty()) return;
+        if (!ConsumeDirty(out bool rebuildAll, out int[] dirtyTileIds)) return;
 
-        if (mirror_pixels == null || mirror_pixels.Length != pixels.Length) mirror_pixels = new Color32[pixels.Length];
-
-        ClearAll(mirror_pixels);
-
-        // Update mirror_pixels
-        for (int i = 0; i < mirror_pixels.Length; i++)
+        WorldTile[] tiles = World.world.tiles_list;
+        if (rebuildAll)
         {
-            int x = i % textureWidth;
-            int y = i / textureWidth;
-            map_mode.kernel_func(x, y, ref mirror_pixels[i]);
-        }
+            if (mirror_pixels == null || mirror_pixels.Length != pixels.Length) mirror_pixels = new Color32[pixels.Length];
+            ClearAll(mirror_pixels);
+            for (int i = 0; i < mirror_pixels.Length; i++)
+            {
+                RenderTile(map_mode, tiles[i], i, mirror_pixels);
+            }
 
-        Monitor.Enter(lock_pixels);
-        (pixels, mirror_pixels) = (mirror_pixels, pixels);
-        need_update = true;
-        Monitor.Exit(lock_pixels);
+            lock (lock_pixels)
+            {
+                (pixels, mirror_pixels) = (mirror_pixels, pixels);
+                need_update = true;
+            }
+        }
+        else
+        {
+            lock (lock_pixels)
+            {
+                for (int i = 0; i < dirtyTileIds.Length; i++)
+                {
+                    int tileId = dirtyTileIds[i];
+                    if (tileId < 0 || tileId >= pixels.Length || tileId >= tiles.Length) continue;
+                    RenderTile(map_mode, tiles[tileId], tileId, pixels);
+                }
+
+                need_update = true;
+            }
+        }
     }
 
     private bool CanPreparePixels()
@@ -140,6 +205,28 @@ public class CustomMapLayer : MapLayer
         for (int i = 0; i < pPixels.Length; i++)
             pPixels[i] = Color.clear;
         return;
+    }
+
+    private static void RenderTile(CustomMapModeAsset mapMode, WorldTile tile, int pixelIndex, Color32[] pPixels)
+    {
+        Color32 color = Color.clear;
+        if (tile != null)
+        {
+            mapMode.kernel_func(tile, ref color);
+        }
+
+        pPixels[pixelIndex] = color;
+    }
+
+    private static bool TryGetTileId(WorldTile tile, out int tileId)
+    {
+        tileId = -1;
+        if (tile == null || tile.data == null) return false;
+        tileId = tile.data.tile_id;
+        if (tileId < 0) return false;
+
+        WorldTile[] tiles = World.world?.tiles_list;
+        return tiles != null && tileId < tiles.Length;
     }
 
     private static bool ClearZone(Color32[] pPixels, TileZone pZone)

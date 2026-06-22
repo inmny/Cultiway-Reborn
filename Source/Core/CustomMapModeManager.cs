@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cultiway.Core.Libraries;
 using Cultiway.Utils;
@@ -80,7 +81,7 @@ public class CustomMapModeManager
 
         if (oldHovered != HoveredGeoRegion || oldSelected != _selected_geo_region)
         {
-            SetAllDirty();
+            SetGeoRegionsDirty(mapMode, oldHovered, HoveredGeoRegion, oldSelected, _selected_geo_region);
         }
     }
 
@@ -125,5 +126,31 @@ public class CustomMapModeManager
     public void SetAllDirty()
     {
         MapLayer?.SetAllDirty();
+    }
+
+    public void SetTileDirty(WorldTile tile)
+    {
+        MapLayer?.SetTileDirty(tile);
+    }
+
+    private void SetGeoRegionsDirty(CustomMapModeAsset mapMode, params GeoRegion[] regions)
+    {
+        if (MapLayer == null || mapMode == null || regions == null) return;
+
+        HashSet<GeoRegion> uniqueRegions = new();
+        for (int i = 0; i < regions.Length; i++)
+        {
+            GeoRegion region = regions[i];
+            if (!ShouldRefreshRegion(region, mapMode)) continue;
+            if (!uniqueRegions.Add(region)) continue;
+
+            MapLayer.SetTilesDirty(WorldboxGame.I.GeoRegions.EnumerateRegionTiles(region));
+        }
+    }
+
+    private static bool ShouldRefreshRegion(GeoRegion region, CustomMapModeAsset mapMode)
+    {
+        if (region == null || region.isRekt() || region.data == null) return false;
+        return mapMode.ContainsGeoRegionLayer(region.data.Layer);
     }
 }
