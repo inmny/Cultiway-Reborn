@@ -68,10 +68,11 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         _baseTabElementWidth = GetRectWidth(_tabElementRect);
 
         Transform titleRoot = FindOriginalTitleRoot(_originalContentRoot);
+        Transform contentRootToKeep = UseHostAsGrid ? null : _originalContentRoot;
         for (int i = 0; i < transform.childCount; i++)
         {
             Transform childTransform = transform.GetChild(i);
-            if (ShouldKeepOriginalChild(childTransform, titleRoot, _originalContentRoot))
+            if (ShouldKeepOriginalChild(childTransform, titleRoot, contentRootToKeep))
             {
                 childTransform.gameObject.SetActive(true);
                 continue;
@@ -85,6 +86,12 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
             }
         }
 
+        if (UseHostAsGrid)
+        {
+            HideOriginalContentRoot(_originalContentRoot);
+        }
+
+        CleanupOriginalChildren();
         SetBackgroundTitle(BackgroundTitleKey, BackgroundTitle);
 
         GridLayoutGroupExtended layout;
@@ -205,6 +212,10 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
 
         GeoRegionData data = region.data;
         return $"{region.getID()}|{data.name}|{data.CategoryId}|{(int)data.Layer}|{data.TileCount}|{data.CenterX}|{data.CenterY}|{data.color_id}|{data.BannerBackgroundIndex}|{data.BannerIconIndex}";
+    }
+
+    protected virtual void CleanupOriginalChildren()
+    {
     }
 
     protected GeoRegionSelectedInfoIcon AddIcon(Sprite sprite, string title, string description, Color? color = null, UnityEngine.Events.UnityAction clickAction = null)
@@ -380,6 +391,14 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
             child.SetActive(false);
             Object.Destroy(child);
         }
+    }
+
+    private void HideOriginalContentRoot(Transform contentRoot)
+    {
+        if (contentRoot == null || contentRoot == transform) return;
+
+        contentRoot.gameObject.SetActive(false);
+        EnsureIgnoredByLayout(contentRoot.gameObject);
     }
 
     private static void EnsureIgnoredByLayout(GameObject obj)
