@@ -85,6 +85,19 @@ internal class GeoRegionSelectedInfoIcon : MonoBehaviour, IPointerEnterHandler, 
         _hoverGeoRegion = region;
     }
 
+    internal void SetGeoRegionTooltip(GeoRegion region)
+    {
+        if (region == null)
+        {
+            throw new System.InvalidOperationException("GeoRegion tooltip 目标为空");
+        }
+
+        _tipButton.type = WorldboxGame.Tooltips.GeoRegion.id;
+        _tipButton.textOnClick = region.id.ToString();
+        _tipButton.textOnClickDescription = "";
+        _tipButton.text_description_2 = "";
+    }
+
     public void OnPointerEnter(PointerEventData eventData)
     {
         if (_hoverGeoRegion == null || _hoverGeoRegion.isRekt()) return;

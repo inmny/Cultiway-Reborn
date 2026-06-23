@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Core;
-using Cultiway.Utils.Extension;
 using LayoutGroupExt;
 using UnityEngine;
 using UnityEngine.UI;
@@ -109,7 +108,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         List<GeoRegion> overlappingRegions = manager.GetOverlappingRegions(region, MaxRelationItems);
         for (int i = 0; i < overlappingRegions.Count; i++)
         {
-            AddRegionIcon(parent, overlappingRegions[i], "Cultiway.GeoRegion.Window.RelatedRegions");
+            AddRegionIcon(parent, overlappingRegions[i]);
         }
     }
 
@@ -120,26 +119,20 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         List<GeoRegion> adjacentRegions = manager.GetAdjacentRegions(region, region.data.Layer, MaxRelationItems);
         for (int i = 0; i < adjacentRegions.Count; i++)
         {
-            AddRegionIcon(parent, adjacentRegions[i], "Cultiway.GeoRegion.Window.AdjacentRegions");
+            AddRegionIcon(parent, adjacentRegions[i]);
         }
     }
 
-    private static void AddRegionIcon(Transform parent, GeoRegion target, string titleKey)
+    private static void AddRegionIcon(Transform parent, GeoRegion target)
     {
-        string description = LMTools.Format(
-            "Cultiway.SelectedGeoRegion.Relation.Description",
-            ("name", target.name),
-            ("category", target.GetCategory().GetDisplayName()),
-            ("layer", GeoRegionSelectedTagsContainer.FormatLayer(target.data.Layer)),
-            ("tiles", target.data.TileCount));
-
         GeoRegionSelectedInfoIcon icon = GeoRegionSelectedInfoIcon.Create(parent, "GeoRegionWindowRegionIcon", IconCellSize);
         icon.Setup(
             target.GetCategory().GetSpriteIcon(),
-            LMTools.GetOrKey(titleKey),
-            description,
+            "",
+            "",
             null,
             () => AssetManager.meta_type_library.getAsset(target.meta_type).selectAndInspect(target, false, true, false));
+        icon.SetGeoRegionTooltip(target);
         icon.SetHoverGeoRegion(target);
     }
 
