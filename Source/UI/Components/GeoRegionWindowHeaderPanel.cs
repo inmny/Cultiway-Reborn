@@ -131,10 +131,19 @@ internal class GeoRegionWindowHeaderPanel : MonoBehaviour
     private static void SetupTooltip(StatsIcon stat, string titleKey, string value)
     {
         TipButton tipButton = stat.GetComponent<TipButton>() ?? stat.gameObject.AddComponent<TipButton>();
-        tipButton.type = WorldboxGame.Tooltips.RawTip.id;
-        tipButton.textOnClick = LMTools.GetOrKey(titleKey);
-        tipButton.textOnClickDescription = $"{LMTools.GetOrKey(titleKey)}: {value}";
-        tipButton.showOnClick = true;
+        string title = LMTools.GetOrKey(titleKey);
+        tipButton.textOnClick = string.Empty;
+        tipButton.textOnClickDescription = string.Empty;
+        tipButton.text_description_2 = string.Empty;
+        tipButton.setHoverAction(
+            () => Tooltip.show(
+                stat.gameObject,
+                WorldboxGame.Tooltips.RawTip.id,
+                new TooltipData
+                {
+                    tip_name = title,
+                    tip_description = value
+                }));
     }
 
     private static StatsIcon RequireStat(Transform column, string name)
