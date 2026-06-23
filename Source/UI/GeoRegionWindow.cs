@@ -1,9 +1,8 @@
 using System;
 using Cultiway.Const;
 using Cultiway.Core;
-using Cultiway.Core.Components;
+using Cultiway.UI.Components;
 using Cultiway.Utils.Extension;
-using Friflo.Engine.ECS;
 using NeoModLoader.utils;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,6 +15,8 @@ namespace Cultiway.UI
         public override GeoRegion meta_object => WorldboxGame.I.SelectedGeoRegion;
         private Image _raceTopIcon1;
         private Image _raceTopIcon2;
+        private GeoRegionWindowHeaderPanel _headerPanel;
+        private GeoRegionWindowDetailsPanel _detailsPanel;
 
         internal static void Init()
         {
@@ -30,10 +31,16 @@ namespace Cultiway.UI
             var meta_window = Manager.CreateMetaWindow<GeoRegionWindow, GeoRegion, GeoRegionData>(windowId);
             meta_window.SetDescendantsActiveByName(
                 false,
-                "BannerBackground",
                 "Kingdom Icon",
                 "Customization Icon");
             meta_window.SetupTabTitleContainer<GeoRegionWindow, GeoRegion, GeoRegionData>("tab_title_container_kingdom", "GeoRegion".Underscore(), "cultiway/icons/iconExtendGeoRegion", "cultiway/icons/iconExtendGeoRegion").name = "tab_title_container_geo_region";
+            meta_window.SetupGeoRegionPanels();
+        }
+
+        public override void startShowingWindow()
+        {
+            base.startShowingWindow();
+            RefreshGeoRegionPanels();
         }
 
         public override void showTopPartInformation()
@@ -51,18 +58,78 @@ namespace Cultiway.UI
 
         public override void showStatsRows()
         {
-            // 这里必须 override，否则 StatsRowsContainer 会调用基类实现并抛 NotImplementedException
-            var region = meta_object;
-            if (region == null || region.isRekt()) return;
+            // 基础数据放在 Header 两侧，这里只保留空实现避免原版基类抛异常。
+        }
 
-            var tilesCount = 0;
-            if (!region.E.IsNull)
+        private void SetupGeoRegionPanels()
+        {
+            Transform headerTop = transform.Find("Background/Scroll View/Viewport/Header/header_top")
+                                  ?? throw new InvalidOperationException("GeoRegionWindow 缺少原版 Header/header_top 节点");
+
+            _headerPanel = headerTop.GetComponent<GeoRegionWindowHeaderPanel>() ?? headerTop.gameObject.AddComponent<GeoRegionWindowHeaderPanel>();
+            _headerPanel.Initialize();
+
+            Transform content = transform.Find("Background/Scroll View/Viewport/Content")
+                                ?? throw new InvalidOperationException("GeoRegionWindow 缺少窗口 Content 节点");
+
+            DestroyContentIfPresent(content, "content_meta");
+            DestroyContentIfPresent(content, "content_geo_region_composition");
+            DestroyContentIfPresent(content, "content_relations");
+            DestroyContentIfPresent(content, "content_geo_region_relations");
+            DestroyContentIfPresent(content, "content_geo_region_top");
+            CollapseContentIfPresent(content, "content_stats");
+
+            _detailsPanel = SetupDetailsPanel(content);
+
+            Transform title = content.Find("tab_title_container_geo_region");
+            int index = title != null ? title.GetSiblingIndex() + 1 : 0;
+            _detailsPanel.transform.SetSiblingIndex(index);
+        }
+
+        private static GeoRegionWindowDetailsPanel SetupDetailsPanel(Transform content)
+        {
+            const string sourceName = "content_more_icons";
+            const string panelName = "content_geo_region_details";
+
+            Transform panelTransform = content.Find(panelName) ?? content.Find(sourceName);
+            if (panelTransform == null)
             {
-                tilesCount = region.E.GetIncomingLinks<BelongToRelation>().Count;
+                GameObject panelObject = new(panelName, typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+                panelObject.transform.SetParent(content, false);
+                panelObject.transform.localScale = Vector3.one;
+                panelTransform = panelObject.transform;
             }
 
-            // key 先占位，后续在 Locales 里补文本
-            showStatRow("Cultiway.GeoRegion.Tiles".Underscore(), tilesCount, MetaType.None, -1L, null, null, null);
+            panelTransform.name = panelName;
+            GeoRegionWindowDetailsPanel panel = panelTransform.GetComponent<GeoRegionWindowDetailsPanel>() ?? panelTransform.gameObject.AddComponent<GeoRegionWindowDetailsPanel>();
+            panel.Initialize();
+            return panel;
+        }
+
+        private static void DestroyContentIfPresent(Transform content, string name)
+        {
+            Transform child = content.Find(name);
+            if (child == null) return;
+            DestroyImmediate(child.gameObject);
+        }
+
+        private static void CollapseContentIfPresent(Transform content, string name)
+        {
+            Transform child = content.Find(name);
+            if (child == null) return;
+
+            child.gameObject.SetActive(false);
+            LayoutElement layout = child.GetComponent<LayoutElement>() ?? child.gameObject.AddComponent<LayoutElement>();
+            layout.ignoreLayout = true;
+            layout.minHeight = 0f;
+            layout.preferredHeight = 0f;
+        }
+
+        private void RefreshGeoRegionPanels()
+        {
+            GeoRegion region = meta_object;
+            _headerPanel?.Refresh(region);
+            _detailsPanel?.Refresh(region);
         }
 
         private void CacheRaceTopIcons()

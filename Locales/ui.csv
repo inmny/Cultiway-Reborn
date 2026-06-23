@@ -29,8 +29,21 @@ List.Empty.GeoRegions,阿巴阿巴
 show_tab_Cultiway.SelectedGeoRegion,选定的地区: $name$
 Cultiway.GeoRegion.Tiles,占地面积
 Cultiway.GeoRegion.Category,地区类型
+Cultiway.GeoRegion.Layer,图层
+Cultiway.GeoRegion.Center,中心点
+Cultiway.GeoRegion.Age,年龄
+Cultiway.GeoRegion.Cities,城市
+Cultiway.GeoRegion.Window.Overview,概况
+Cultiway.GeoRegion.Window.Composition,组成
+Cultiway.GeoRegion.Window.Relations,关系
+Cultiway.GeoRegion.Window.ContainsRegions,包含地区
+Cultiway.GeoRegion.Window.RelatedRegions,重叠区域
+Cultiway.GeoRegion.Window.AdjacentRegions,邻接区域
+Cultiway.GeoRegion.Window.RegionRowValue,$layer$ · $tiles$ 格
+Cultiway.GeoRegion.Window.CityRowValue,人口：$population$
+Cultiway.GeoRegion.Window.Empty,暂无
 Cultiway.SelectedGeoRegion.Overview,概况
-Cultiway.SelectedGeoRegion.Related,关联
+Cultiway.SelectedGeoRegion.Related,重叠
 Cultiway.SelectedGeoRegion.Adjacent,邻接
 Cultiway.SelectedGeoRegion.Contains,包含
 Cultiway.SelectedGeoRegion.Category.Title,地区类型：$category$
@@ -41,7 +54,7 @@ Cultiway.SelectedGeoRegion.Size.Title,规模：$size$
 Cultiway.SelectedGeoRegion.Size.Description,占地：$tiles$\n类别范围：$range$
 Cultiway.SelectedGeoRegion.Center.Title,中心点
 Cultiway.SelectedGeoRegion.Center.Description,x=$x$，y=$y$
-Cultiway.SelectedGeoRegion.RelatedRegion,关联区域
+Cultiway.SelectedGeoRegion.RelatedRegion,重叠区域
 Cultiway.SelectedGeoRegion.AdjacentRegion,邻接区域
 Cultiway.SelectedGeoRegion.Relation.Description,$name$\n类型：$category$\n图层：$layer$\n占地：$tiles$\n\n点击切换选中地区
 Cultiway.GeoRegion.Layer.Primary,主区域
