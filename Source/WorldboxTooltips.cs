@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core;
-using Cultiway.Core.Components;
+using Cultiway.Core.Libraries;
+using Cultiway.UI.Components;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -74,16 +76,66 @@ public partial class WorldboxGame
         }
         private void ShowGeoRegion(Tooltip tooltip, string type, TooltipData data)
         {
-            var geo_region = I.GeoRegions.get(long.Parse(data.tip_name));
-            if (geo_region == null)
+            if (!long.TryParse(data.tip_name, out long regionId))
             {
                 tooltip.setTitle("ERROR");
                 return;
             }
-            tooltip.setTitle(geo_region.name, "geo_region", geo_region.getColor().color_text);
-            var category = geo_region.GetCategory();
+
+            GeoRegion geoRegion = I.GeoRegions.get(regionId);
+            if (geoRegion == null)
+            {
+                tooltip.setTitle("ERROR");
+                return;
+            }
+
+            GeoRegionAsset category = geoRegion.GetCategory();
+            GeoRegionManager manager = I.GeoRegions;
+            List<City> cities = manager.GetCitiesInRegion(geoRegion, int.MaxValue);
+            List<Kingdom> kingdoms = manager.GetKingdomsInRegion(geoRegion, int.MaxValue);
+            List<GeoRegion> overlappingRegions = manager.GetOverlappingRegions(geoRegion, int.MaxValue);
+            List<GeoRegion> adjacentRegions = manager.GetAdjacentRegions(geoRegion, geoRegion.data.Layer, int.MaxValue);
+            int population = cities.Sum(city => city.getPopulationPeople());
+
+            tooltip.setTitle(geoRegion.name, "GeoRegion", geoRegion.getColor().color_text);
+            tooltip.GetComponent<GeoRegionTooltip>()?.Setup(geoRegion);
+            tooltip.setSpeciesIcon(category.GetSpriteIcon());
+            tooltip.transform.FindRecursive("Stats")?.gameObject.SetActive(true);
+            AssetManager.tooltips.setIconValue(tooltip, "i_age", geoRegion.getAge());
+            AssetManager.tooltips.setIconValue(tooltip, "i_population", population);
+            AssetManager.tooltips.setIconSprite(tooltip, "i_army", "iconZones");
+            AssetManager.tooltips.setIconValue(tooltip, "i_army", geoRegion.data.TileCount);
+
             tooltip.addLineText("Cultiway.GeoRegion.Category", category.GetDisplayName());
-            tooltip.addLineText("Cultiway.GeoRegion.Tiles", geo_region.E.GetIncomingLinks<BelongToRelation>().Count.ToString());
+            tooltip.addLineText("Cultiway.GeoRegion.Layer", GeoRegionSelectedTagsContainer.FormatLayer(geoRegion.data.Layer));
+            tooltip.addLineText("Cultiway.GeoRegion.Center", $"{geoRegion.data.CenterX}, {geoRegion.data.CenterY}");
+
+            tooltip.addLineBreak();
+            tooltip.addLineIntText("Cultiway.GeoRegion.Kingdoms", kingdoms.Count);
+            tooltip.addLineIntText("Cultiway.GeoRegion.Cities", cities.Count);
+            AddGeoRegionMainKingdom(tooltip, kingdoms);
+            AddGeoRegionMainCity(tooltip, cities);
+
+            tooltip.addLineBreak();
+            tooltip.addLineIntText("Cultiway.GeoRegion.Overlapping", overlappingRegions.Count);
+            tooltip.addLineIntText("Cultiway.GeoRegion.Adjacent", adjacentRegions.Count);
+        }
+
+        private static void AddGeoRegionMainKingdom(Tooltip tooltip, IReadOnlyList<Kingdom> kingdoms)
+        {
+            if (kingdoms.Count == 0) return;
+
+            Kingdom kingdom = kingdoms[0];
+            tooltip.addLineText("Cultiway.GeoRegion.MainKingdom", kingdom.name, kingdom.getColor().color_text);
+        }
+
+        private static void AddGeoRegionMainCity(Tooltip tooltip, IReadOnlyList<City> cities)
+        {
+            if (cities.Count == 0) return;
+
+            City city = cities[0];
+            string color = city.kingdom?.getColor()?.color_text;
+            tooltip.addLineText("Cultiway.GeoRegion.MainCity", city.name, color);
         }
 
         private void ShowSect(Tooltip tooltip, string type, TooltipData data)

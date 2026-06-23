@@ -33,6 +33,12 @@ Cultiway.GeoRegion.Layer,图层
 Cultiway.GeoRegion.Center,中心点
 Cultiway.GeoRegion.Age,年龄
 Cultiway.GeoRegion.Cities,城市
+Cultiway.GeoRegion.Kingdoms,国家
+Cultiway.GeoRegion.Population,人口
+Cultiway.GeoRegion.MainKingdom,主要国家
+Cultiway.GeoRegion.MainCity,主要城市
+Cultiway.GeoRegion.Overlapping,重叠
+Cultiway.GeoRegion.Adjacent,邻接
 Cultiway.GeoRegion.Window.Overview,概况
 Cultiway.GeoRegion.Window.Composition,组成
 Cultiway.GeoRegion.Window.Relations,关系
