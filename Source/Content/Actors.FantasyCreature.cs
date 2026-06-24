@@ -2767,6 +2767,44 @@ public partial class Actors
             .Stats(S.armor, 30)//防御
             .Stats(S.stamina, 200)//耐力
             .Stats(S.lifespan, 888);//寿命
+
+        // === 所有奇幻单位统一设为主动修炼：必有灵根 + 修炼职责 ===
+        // 注: 用 AddJob 追加而非 job= 覆盖，以保留召唤单位(SpawnedUnit)等已有职责
+        //     若想把主动修炼概率提升到 80%，取消下方 AddTrait 注释即可
+        ActorAsset[] fantasy_creatures = [
+            AcaciaTreants, BanyanTreants, CoconutTreants, OakTreants, SycamoreTreants,
+            DeathTreants, FireTreants,
+            BloodBeast, Bloodsucker, Bloodthirsty,
+            DestroyRobot, FortRobot, TankRobot,
+            FishPeopleShaman, FishPeopleSoldiers, FishPeopleWarrior,
+            FairyDruid, FairyRanger, FairyWarrior,
+            GhostFire, CandleGenie, KnowledgeGenie,
+            GoblinKnight, GoblinShaman, GoblinWarrior,
+            Mummy, Pharaoh, Anubis, Ossaurus, SkeletonKnight, Sphinx,
+            Diplodocus, Dreadnoughtus, Triceratops, TyrannosaurusRex, Pterodactyl, Velociraptor,
+            IceGiant, LavaGiant, RockGiant, VolcanicGiant,
+            GriffinKnight, Sorcerer, GuardKnight, FireWyvern, VampireHunter,
+            FairyFox, FengHuang, JinWu, QingLong, QiLin, NineColoredDeer,
+            WhiteTiger, XuanWu, YuChan, YueTu, ZhuQue,
+            HalfDeerMan, Mermaid, Centaur, KingSlime, GiantOctopus, Werewolf,
+            Deer, Horse, Panda, Pig, WildBoar, Rooster, Eagle, Mallard, Lion, Tiger,
+            UncleanCreature, NurgleSpirit, NurgleDiseaseCarrier, PlagueBringer,
+            GreatUncleanOneButcher, PlagueToad, GreatUncleanOneBellRinger, GreatUncleanOneRainFather,
+            Daemonette, Hellflayer, SlaaneshSeeker, SlaaneshMistress, SlaaneshFiend,
+            KeeperSecrets, KeeperSecretsNakari, ExaltedKeeperSecrets,
+            CravingManifestation, CrimsonScion, CrimsonArbiter,
+            Cherub, ServoSkull, TechPriests, Emperor, Astartes, AdeptusCustodes, SistersSilence,
+            PinkHorrorTzeentch, BlueHorrorTzeentch, IridescentHorrorTzeentch, FlamerTzeentch, ScreamersTzeentch,
+            LordChange, KairosFateweaver, ExaltedLordChange,
+            BloodletterKhorne, FleshHoundKhorne, BloodcrusherKhorne, MinotaurKhorne, SkullCannonKhorne,
+            Bloodthirster, AnggrathUnbound, ExaltedBloodthirster, QingDi
+        ];
+        foreach (var creature in fantasy_creatures)
+        {
+            creature.GetExtend<ActorAssetExtend>().must_have_element_root = true;  // 必有灵根
+            creature.AddJob(ActorJobs.PlantXianCultivator);                        // 主动修炼(野外生物需要)
+            //creature.AddTrait(ActorTraits.Cultivator);                          // 可选:提高主动修炼概率到 80%
+        }
             
             
             
