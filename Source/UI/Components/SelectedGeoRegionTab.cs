@@ -141,7 +141,7 @@ namespace Cultiway.UI.Components
         {
             _tagsContainer = ReplaceContainer<KingdomSelectedContainerTraits, GeoRegionSelectedTagsContainer>("地区标记区域");
 
-            _overlappingRelationsContainer = ReplaceContainer<KingdomSelectedAlliesContainer, GeoRegionSelectedRelationsContainer>("地区关联关系区域");
+            _overlappingRelationsContainer = ReplaceContainer<KingdomSelectedAlliesContainer, GeoRegionSelectedRelationsContainer>("地区重叠关系区域");
             _overlappingRelationsContainer.Configure(GeoRegionSelectedRelationsContainer.RelationMode.Overlapping);
 
             _adjacentRelationsContainer = ReplaceContainer<KingdomSelectedWarsContainer, GeoRegionSelectedRelationsContainer>("地区邻接关系区域");

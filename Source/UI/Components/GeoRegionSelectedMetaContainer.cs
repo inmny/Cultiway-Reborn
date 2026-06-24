@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Cultiway.Core;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Cultiway.UI.Components;
 
@@ -17,6 +18,20 @@ internal class GeoRegionSelectedMetaContainer : GeoRegionSelectedContainerBase
     protected override Vector2 CellSize => new(36f, 44f);
     protected override Vector2 GridSpacing => new(6f, 2f);
     protected override string BackgroundTitleKey => "Cultiway.SelectedGeoRegion.Contains";
+
+    protected override void CleanupOriginalChildren()
+    {
+        BannerBase[] banners = GetComponentsInChildren<BannerBase>(true);
+        for (int i = 0; i < banners.Length; i++)
+        {
+            GameObject obj = banners[i].gameObject;
+            obj.SetActive(false);
+            if (obj.TryGetComponent(out LayoutElement layout))
+            {
+                layout.ignoreLayout = true;
+            }
+        }
+    }
 
     protected override void Build(GeoRegion region)
     {

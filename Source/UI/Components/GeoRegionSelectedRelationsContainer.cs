@@ -1,5 +1,4 @@
 using Cultiway.Core;
-using Cultiway.Utils.Extension;
 using UnityEngine;
 
 namespace Cultiway.UI.Components;
@@ -36,7 +35,7 @@ internal class GeoRegionSelectedRelationsContainer : GeoRegionSelectedContainerB
         {
             foreach (GeoRegion related in manager.GetOverlappingRegions(region, 6))
             {
-                AddRelationIcon("Cultiway.SelectedGeoRegion.RelatedRegion", related);
+                AddRelationIcon(related);
             }
 
             return;
@@ -44,25 +43,19 @@ internal class GeoRegionSelectedRelationsContainer : GeoRegionSelectedContainerB
 
         foreach (GeoRegion adjacent in manager.GetAdjacentRegions(region, region.data.Layer, 6))
         {
-            AddRelationIcon("Cultiway.SelectedGeoRegion.AdjacentRegion", adjacent);
+            AddRelationIcon(adjacent);
         }
     }
 
-    private void AddRelationIcon(string relationTitleKey, GeoRegion target)
+    private void AddRelationIcon(GeoRegion target)
     {
-        string description = LMTools.Format(
-            "Cultiway.SelectedGeoRegion.Relation.Description",
-            ("name", target.name),
-            ("category", target.GetCategory().GetDisplayName()),
-            ("layer", GeoRegionSelectedTagsContainer.FormatLayer(target.data.Layer)),
-            ("tiles", target.data.TileCount));
-
         GeoRegionSelectedInfoIcon icon = AddIcon(
             target.GetCategory().GetSpriteIcon(),
-            LMTools.GetOrKey(relationTitleKey),
-            description,
+            "",
+            "",
             RegionColor(target),
             () => SelectGeoRegion(target));
+        icon.SetGeoRegionTooltip(target);
         icon.SetHoverGeoRegion(target);
     }
 

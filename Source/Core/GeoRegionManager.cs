@@ -288,6 +288,31 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
             .ToList();
     }
 
+    public List<Kingdom> GetKingdomsInRegion(GeoRegion region, int maxCount = 8)
+    {
+        if (!CanQueryRegionTiles(region)) return new List<Kingdom>();
+
+        Dictionary<Kingdom, int> counters = new();
+        foreach (WorldTile tile in EnumerateRegionTiles(region))
+        {
+            Kingdom kingdom = tile?.zone?.city?.kingdom;
+            if (kingdom == null || kingdom.isRekt() || kingdom.isNeutral()) continue;
+
+            counters.TryGetValue(kingdom, out int count);
+            counters[kingdom] = count + 1;
+        }
+
+        if (counters.Count == 0) return new List<Kingdom>();
+
+        return counters
+            .OrderByDescending(pair => pair.Value)
+            .ThenByDescending(pair => pair.Key.countCities())
+            .ThenBy(pair => pair.Key.name)
+            .Take(Math.Max(1, maxCount))
+            .Select(pair => pair.Key)
+            .ToList();
+    }
+
     private static void CountRelatedRegion(Dictionary<GeoRegion, int> counters, GeoRegion source, GeoRegion other)
     {
         if (other == null || other.isRekt() || ReferenceEquals(source, other)) return;

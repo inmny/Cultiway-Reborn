@@ -61,6 +61,21 @@ public partial class WorldboxGame
             GeoRegion.set_selected = (geoRegion) => I.SelectedGeoRegion = geoRegion as GeoRegion;
             GeoRegion.get_list = () => I.GeoRegions;
             GeoRegion.get = (id) => I.GeoRegions.get(id);
+            GeoRegion.stat_hover = (id, field) =>
+            {
+                var geoRegion = I.GeoRegions.get(id);
+                if (geoRegion.isRekt()) return;
+                Tooltip.show(field, Tooltips.GeoRegion.id, new TooltipData
+                {
+                    tip_name = id.ToString()
+                });
+            };
+            GeoRegion.stat_click = (id, _) =>
+            {
+                var geoRegion = I.GeoRegions.get(id);
+                if (geoRegion.isRekt()) return;
+                GeoRegion.selectAndInspect(geoRegion, false, true, false);
+            };
             GeoRegion.has_any = () => I.GeoRegions.Count > 0;
             GeoRegion.custom_sorted_list = () =>
             {

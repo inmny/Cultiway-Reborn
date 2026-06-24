@@ -69,10 +69,10 @@ public class Manager
         SwitchTab(TabButtonType.INFO);
     }
     private static string[] kingdom_window_content_to_remove = [
-      "TopElements", "content_motto", "content_meta", "content_meta_needs", "content_relations", "content_king", "content_more_icons", "content_capital", "content_villages", "content_traits_editor"
+      "TopElements", "content_motto", "content_meta_needs", "content_king", "content_capital", "content_villages", "content_traits_editor"
     ];
     private static string[] kingdom_window_header_to_remove = [
-        "header_top", "header_traits"
+        "header_traits"
     ];
     public static ListWindow CreateListMetaWindow(string window_id, MetaTypeExtend meta_type)
     {
@@ -121,6 +121,8 @@ public class Manager
         kingdom_window.DeleteTab("Interesting People");
         kingdom_window.DeleteTab("Pyramid");
         kingdom_window.DeleteTab("Statistics");
+
+        RemoveLegacyMetaWindowElements(window);
         
         Object.DestroyImmediate(kingdom_window);
         foreach (var content_name in kingdom_window_content_to_remove)
@@ -203,6 +205,15 @@ public class Manager
 
         return meta_window;
     }
+
+    private static void RemoveLegacyMetaWindowElements(GameObject window)
+    {
+        foreach (var element in window.GetComponentsInChildren<WindowMetaElementBase>(true))
+        {
+            Object.DestroyImmediate(element);
+        }
+    }
+
     public static TTab CreateSelectedMetaTab<TTab, TMeta, TMetaData>(string tab_id)
     where TTab : SelectedMeta<TMeta, TMetaData>
     where TMeta : MetaObject<TMetaData>, IFavoriteable 
