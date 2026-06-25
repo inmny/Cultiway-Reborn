@@ -1,48 +1,10 @@
+using System;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General;
 using UnityEngine;
 
 namespace Cultiway.Core.Libraries;
-
-/// <summary>
-/// GeoRegion 命名规则。
-/// </summary>
-public class GeoRegionNamingRule
-{
-    /// <summary>
-    /// 命名模板，支持占位符：{Dir} {Biome} {Landform} {Type}。
-    /// </summary>
-    public string Template;
-    /// <summary>
-    /// 可选命名模板池（为空时回退 Template）。
-    /// </summary>
-    public string[] Templates;
-    /// <summary>
-    /// 前缀词池（如“苍/玄/灵”）。
-    /// </summary>
-    public string[] PrefixPool;
-    /// <summary>
-    /// 核心词池（如“渚/岭/泽”）。
-    /// </summary>
-    public string[] CorePool;
-    /// <summary>
-    /// 后缀词池（如“境/域/地带”）。
-    /// </summary>
-    public string[] SuffixPool;
-    /// <summary>
-    /// 是否允许方位词参与命名。
-    /// </summary>
-    public bool AllowDirPrefix = true;
-    /// <summary>
-    /// 是否允许群系词参与命名。
-    /// </summary>
-    public bool AllowBiomeToken = true;
-    /// <summary>
-    /// 是否允许地貌词参与命名。
-    /// </summary>
-    public bool AllowLandformToken = true;
-}
 
 /// <summary>
 /// 地块规则匹配上下文（基于 tile type / biome / 邻接统计）。
@@ -140,7 +102,7 @@ public readonly struct GeoRegionTileRuleContext
 }
 
 /// <summary>
-/// GeoRegion 分类资产（规则、优先级、命名模板、形态参数）。
+/// GeoRegion 分类资产（规则、优先级、命名器引用、形态参数）。
 /// </summary>
 public class GeoRegionAsset : Asset
 {
@@ -172,9 +134,9 @@ public class GeoRegionAsset : Asset
     /// </summary>
     public string IconPath;
     /// <summary>
-    /// 命名模板规则。
+    /// 该分类对应的实际 NameGeneratorAsset。
     /// </summary>
-    public GeoRegionNamingRule Naming = new();
+    public NameGeneratorAsset NameGenerator;
 
     public Sprite GetSpriteIcon()
     {
@@ -185,6 +147,28 @@ public class GeoRegionAsset : Asset
     public string GetDisplayName()
     {
         return LMTools.GetOrFallback(id, DisplayName);
+    }
+
+    public string GenerateName()
+    {
+        NameGeneratorAsset generator = NameGenerator;
+        if (generator == null)
+        {
+            throw new InvalidOperationException($"GeoRegion 分类缺少命名器: category={id}");
+        }
+
+        if (string.IsNullOrEmpty(generator.id) || !AssetManager.name_generator.has(generator.id))
+        {
+            throw new InvalidOperationException($"GeoRegion 分类命名器未注册: category={id}, generator={generator.id ?? "null"}");
+        }
+
+        string name = global::NameGenerator.getName(
+            generator.id,
+            ActorSex.Male,
+            true,
+            null,
+            World.world.map_stats.life_dna);
+        return string.IsNullOrWhiteSpace(name) ? GetDisplayName() : name.Trim();
     }
 
     /// <summary>

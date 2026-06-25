@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Core;
+using GeoRegionNameGenerators = Cultiway.WorldboxGame.NameGenerators;
 
 namespace Cultiway.Core.Libraries;
 
@@ -121,94 +122,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
     /// </summary>
     private GeoRegionAsset[] _landformRules;
 
-    private static readonly string[] PrimaryNamingTemplates =
-    {
-        "{Dir}{Prefix}{Core}{Type}",
-        "{Dir}{Core}{Type}",
-        "{Prefix}{Core}{Type}{Suffix}"
-    };
-
-    private static readonly string[] LandformNamingTemplates =
-    {
-        "{Dir}{Prefix}{Landform}",
-        "{Dir}{Core}{Landform}",
-        "{Prefix}{Core}{Landform}{Suffix}"
-    };
-
-    private static readonly string[] LandmassNamingTemplates =
-    {
-        "{Dir}{Biome}{Prefix}{Type}",
-        "{Dir}{Prefix}{Core}{Type}",
-        "{Biome}{Core}{Type}{Suffix}"
-    };
-
-    private static readonly string[] MorphologyNamingTemplates =
-    {
-        "{Dir}{Prefix}{Core}{Type}",
-        "{Dir}{Biome}{Prefix}{Type}",
-        "{Prefix}{Core}{Type}{Suffix}"
-    };
-
-    private static readonly string[] PrimaryPrefixPool =
-    {
-        "苍", "玄", "灵", "碧", "赤", "霁", "岚", "潮", "澜", "云", "霜", "星"
-    };
-
-    private static readonly string[] PrimaryCorePool =
-    {
-        "渚", "汀", "泽", "湾", "浦", "岙", "屿", "崖", "川", "陂", "岬", "潮"
-    };
-
-    private static readonly string[] PrimarySuffixPool =
-    {
-        "境", "域", "地带", "海隅", "沿岸"
-    };
-
-    private static readonly string[] LandformPrefixPool =
-    {
-        "苍", "玄", "青", "赤", "寒", "云", "星", "龙", "玉", "峻"
-    };
-
-    private static readonly string[] LandformCorePool =
-    {
-        "岭", "梁", "冈", "坳", "阜", "峪", "岗", "垣", "塬", "谷"
-    };
-
-    private static readonly string[] LandformSuffixPool =
-    {
-        "地", "地带", "山系", "地界"
-    };
-
-    private static readonly string[] LandmassPrefixPool =
-    {
-        "灵", "苍", "玄", "碧", "丹", "银", "霁", "岚", "潮", "霜"
-    };
-
-    private static readonly string[] LandmassCorePool =
-    {
-        "洲", "屿", "垠", "岬", "汀", "岙", "涯", "浦", "堤", "滩"
-    };
-
-    private static readonly string[] LandmassSuffixPool =
-    {
-        "界", "域", "地", "沿岸"
-    };
-
-    private static readonly string[] MorphologyPrefixPool =
-    {
-        "回", "断", "双", "玉", "玄", "苍", "潮", "云", "霜", "灵"
-    };
-
-    private static readonly string[] MorphologyCorePool =
-    {
-        "门", "隘", "湾", "链", "列", "桥", "脉", "汊", "角", "岬"
-    };
-
-    private static readonly string[] MorphologySuffixPool =
-    {
-        "带", "域", "线", "区"
-    };
-
     public override void init()
     {
         base.init();
@@ -216,7 +129,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         InitLandform();
         InitLandmass();
         InitMorphology();
-        InitNamingPoolsByLayer();
         BuildBiomeMapping();
     }
 
@@ -545,7 +457,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Sea",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "海",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}海" },
+            NameGenerator = GeoRegionNameGenerators.PrimarySea,
             MinTiles = 32
         });
         PrimaryLake = add(new GeoRegionAsset
@@ -553,7 +465,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Lake",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "湖",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}湖" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryLake,
             MinTiles = 32
         });
         PrimaryRiver = add(new GeoRegionAsset
@@ -561,7 +473,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.River",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "河",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}河" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryRiver,
             MinTiles = 16,
             MaxTiles = 2048,
             MinAspectRatio = 3.0f
@@ -571,7 +483,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Lava",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "熔岩地带",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}熔岩地带" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryLava,
             MinTiles = 32
         });
         PrimaryGoo = add(new GeoRegionAsset
@@ -579,7 +491,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Goo",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "灰疫之地",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}灰疫之地" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryGoo,
             MinTiles = 32
         });
         PrimaryMountains = add(new GeoRegionAsset
@@ -587,7 +499,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Mountains",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "山脉",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}山脉" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryMountains,
             MinTiles = 64
         });
 
@@ -596,7 +508,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Grassland",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "草原",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}草原" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryGrassland,
             MinTiles = 64,
             BiomeIds = new[] { "biome_grass", "biome_savanna", "biome_clover", "biome_flower" }
         });
@@ -605,7 +517,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Forest",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "森林",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}森林" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryForest,
             MinTiles = 64,
             BiomeIds = new[] { "biome_birch", "biome_maple" }
         });
@@ -614,7 +526,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Jungle",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "丛林",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}丛林" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryJungle,
             MinTiles = 64,
             BiomeIds = new[] { "biome_jungle" }
         });
@@ -623,7 +535,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Swamp",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "沼泽",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}沼泽" },
+            NameGenerator = GeoRegionNameGenerators.PrimarySwamp,
             MinTiles = 64,
             BiomeIds = new[] { "biome_swamp" }
         });
@@ -632,7 +544,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Desert",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "沙漠",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}沙漠" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryDesert,
             MinTiles = 64,
             BiomeIds = new[] { "biome_desert", "biome_sand" }
         });
@@ -641,7 +553,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Beach",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "海滩",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}海滩" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryBeach,
             MinTiles = 32,
             BiomeIds = new[] { "biome_sand" },
             TileTypeIds = new[] { "sand", "snow_sand" },
@@ -653,7 +565,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Tundra",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "雪原",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}雪原" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryTundra,
             MinTiles = 64,
             BiomeIds = new[] { "biome_permafrost" }
         });
@@ -662,7 +574,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Highlands",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "高地",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}高地" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryHighlands,
             MinTiles = 64,
             BiomeIds = new[] { "biome_hill", "biome_rocklands" }
         });
@@ -671,7 +583,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Wasteland",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "荒原",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}荒原" },
+            NameGenerator = GeoRegionNameGenerators.PrimaryWasteland,
             MinTiles = 64,
             BiomeIds = new[] { "biome_wasteland" }
         });
@@ -680,7 +592,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Special",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "奇境",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}奇境" },
+            NameGenerator = GeoRegionNameGenerators.PrimarySpecial,
             MinTiles = 64
         });
     }
@@ -693,7 +605,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Layer = GeoRegionLayer.Landform,
             Priority = 0,
             DisplayName = "平原",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}平原" },
+            NameGenerator = GeoRegionNameGenerators.LandformPlain,
             MinTiles = 128
         });
         LandformMountain = add(new GeoRegionAsset
@@ -702,7 +614,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Layer = GeoRegionLayer.Landform,
             Priority = 300,
             DisplayName = "山地",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}山地" },
+            NameGenerator = GeoRegionNameGenerators.LandformMountain,
             MinTiles = 128,
             RequireMountainFlag = true
         });
@@ -712,7 +624,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Layer = GeoRegionLayer.Landform,
             Priority = 260,
             DisplayName = "峡谷",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}峡谷" },
+            NameGenerator = GeoRegionNameGenerators.LandformCanyon,
             MinTiles = 64,
             RequireOceanFlag = false,
             RequireFillableWaterFlag = false,
@@ -725,7 +637,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Layer = GeoRegionLayer.Landform,
             Priority = 200,
             DisplayName = "盆地",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}盆地" },
+            NameGenerator = GeoRegionNameGenerators.LandformBasin,
             MinTiles = 64,
             RequireFillableWaterFlag = true,
             RequireOceanFlag = false
@@ -743,7 +655,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Landmass.Island",
             Layer = GeoRegionLayer.Landmass,
             DisplayName = "岛",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}{Biome}岛" },
+            NameGenerator = GeoRegionNameGenerators.LandmassIsland,
             MinTiles = 128
         });
         LandmassMainland = add(new GeoRegionAsset
@@ -751,7 +663,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Landmass.Mainland",
             Layer = GeoRegionLayer.Landmass,
             DisplayName = "大陆",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}{Biome}大陆" },
+            NameGenerator = GeoRegionNameGenerators.LandmassMainland,
             MinTiles = 512
         });
     }
@@ -763,7 +675,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Morphology.Peninsula",
             Layer = GeoRegionLayer.Peninsula,
             DisplayName = "半岛",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}{Biome}半岛" },
+            NameGenerator = GeoRegionNameGenerators.Peninsula,
             MinTiles = 128,
             MaxTiles = 8192,
             MaxThickness = 2,
@@ -775,7 +687,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Morphology.Strait",
             Layer = GeoRegionLayer.Strait,
             DisplayName = "海峡",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}海峡" },
+            NameGenerator = GeoRegionNameGenerators.Strait,
             MinTiles = 24,
             MaxTiles = 4096,
             MaxHalfWidth = 1,
@@ -787,134 +699,12 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Morphology.Archipelago",
             Layer = GeoRegionLayer.Archipelago,
             DisplayName = "群岛",
-            Naming = new GeoRegionNamingRule { Template = "{Dir}{Biome}群岛" },
+            NameGenerator = GeoRegionNameGenerators.Archipelago,
             MinIslands = 3,
             MinTotalTiles = 512,
             IslandMaxTiles = 2048,
             MaxGap = 8
         });
-    }
-
-    /// <summary>
-    /// 按 Layer 统一配置命名模板池与词池，并对关键类别做覆盖。
-    /// </summary>
-    private void InitNamingPoolsByLayer()
-    {
-        ConfigureLayerNaming(
-            new[]
-            {
-                PrimarySea, PrimaryLake, PrimaryRiver, PrimaryLava, PrimaryGoo, PrimaryMountains,
-                PrimaryGrassland, PrimaryForest, PrimaryJungle, PrimarySwamp, PrimaryDesert,
-                PrimaryBeach, PrimaryTundra, PrimaryHighlands, PrimaryWasteland, PrimarySpecial
-            },
-            PrimaryNamingTemplates,
-            PrimaryPrefixPool,
-            PrimaryCorePool,
-            PrimarySuffixPool,
-            allowDirPrefix: false,
-            allowBiomeToken: false,
-            allowLandformToken: false);
-
-        ConfigureLayerNaming(
-            new[]
-            {
-                LandformPlain, LandformMountain, LandformCanyon, LandformBasin
-            },
-            LandformNamingTemplates,
-            LandformPrefixPool,
-            LandformCorePool,
-            LandformSuffixPool,
-            allowDirPrefix: false,
-            allowBiomeToken: false,
-            allowLandformToken: true);
-
-        ConfigureLayerNaming(
-            new[]
-            {
-                LandmassIsland, LandmassMainland
-            },
-            LandmassNamingTemplates,
-            LandmassPrefixPool,
-            LandmassCorePool,
-            LandmassSuffixPool,
-            allowDirPrefix: false,
-            allowBiomeToken: true,
-            allowLandformToken: false);
-
-        ConfigureLayerNaming(
-            new[]
-            {
-                Peninsula, Strait, Archipelago
-            },
-            MorphologyNamingTemplates,
-            MorphologyPrefixPool,
-            MorphologyCorePool,
-            MorphologySuffixPool,
-            allowDirPrefix: false,
-            allowBiomeToken: true,
-            allowLandformToken: false);
-
-        // 水体类使用更贴近地理语义的专用模板。
-        ConfigureNaming(PrimarySea, new[] { "{Dir}{Prefix}{Core}海", "{Dir}{Core}海", "{Prefix}{Core}海{Suffix}" },
-            PrimaryPrefixPool, PrimaryCorePool, PrimarySuffixPool, false, false, false);
-        ConfigureNaming(PrimaryLake, new[] { "{Dir}{Prefix}{Core}湖", "{Dir}{Core}湖", "{Prefix}{Core}湖{Suffix}" },
-            PrimaryPrefixPool, PrimaryCorePool, PrimarySuffixPool, false, false, false);
-        ConfigureNaming(PrimaryRiver, new[] { "{Dir}{Prefix}{Core}河", "{Dir}{Core}河", "{Prefix}{Core}河{Suffix}" },
-            PrimaryPrefixPool, PrimaryCorePool, PrimarySuffixPool, false, false, false);
-
-        // 形态层强化语义。
-        ConfigureNaming(Peninsula, new[] { "{Dir}{Biome}{Prefix}半岛", "{Dir}{Prefix}{Core}半岛", "{Prefix}{Core}半岛{Suffix}" },
-            MorphologyPrefixPool, MorphologyCorePool, MorphologySuffixPool, false, true, false);
-        ConfigureNaming(Strait, new[] { "{Dir}{Prefix}{Core}海峡", "{Dir}{Core}海峡", "{Prefix}{Core}海峡{Suffix}" },
-            MorphologyPrefixPool, MorphologyCorePool, MorphologySuffixPool, false, false, false);
-        ConfigureNaming(Archipelago, new[] { "{Dir}{Biome}{Prefix}群岛", "{Dir}{Prefix}{Core}群岛", "{Prefix}{Core}群岛{Suffix}" },
-            MorphologyPrefixPool, MorphologyCorePool, MorphologySuffixPool, false, true, false);
-    }
-
-    /// <summary>
-    /// 批量配置命名规则。
-    /// </summary>
-    private static void ConfigureLayerNaming(
-        IEnumerable<GeoRegionAsset> assets,
-        string[] templates,
-        string[] prefixPool,
-        string[] corePool,
-        string[] suffixPool,
-        bool allowDirPrefix,
-        bool allowBiomeToken,
-        bool allowLandformToken)
-    {
-        if (assets == null) return;
-        foreach (var asset in assets)
-        {
-            ConfigureNaming(asset, templates, prefixPool, corePool, suffixPool, allowDirPrefix, allowBiomeToken, allowLandformToken);
-        }
-    }
-
-    /// <summary>
-    /// 配置单个 GeoRegion 分类资产的命名池参数。
-    /// </summary>
-    private static void ConfigureNaming(
-        GeoRegionAsset asset,
-        string[] templates,
-        string[] prefixPool,
-        string[] corePool,
-        string[] suffixPool,
-        bool allowDirPrefix,
-        bool allowBiomeToken,
-        bool allowLandformToken)
-    {
-        if (asset == null) return;
-        asset.Naming ??= new GeoRegionNamingRule();
-
-        if (templates is { Length: > 0 }) asset.Naming.Templates = templates;
-        if (prefixPool is { Length: > 0 }) asset.Naming.PrefixPool = prefixPool;
-        if (corePool is { Length: > 0 }) asset.Naming.CorePool = corePool;
-        if (suffixPool is { Length: > 0 }) asset.Naming.SuffixPool = suffixPool;
-
-        asset.Naming.AllowDirPrefix = allowDirPrefix;
-        asset.Naming.AllowBiomeToken = allowBiomeToken;
-        asset.Naming.AllowLandformToken = allowLandformToken;
     }
 
     private void BuildBiomeMapping()

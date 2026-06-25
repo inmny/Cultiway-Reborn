@@ -204,6 +204,8 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
         region.data.CenterY = tile.y;
 
         RefreshTileCount(region);
+        region.data.name = category.GenerateName();
+        region.data.custom_name = false;
         return category;
     }
 

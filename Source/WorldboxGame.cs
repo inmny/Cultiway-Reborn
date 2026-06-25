@@ -11,13 +11,20 @@ namespace Cultiway;
 
 public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimObject>
 {
+    private readonly List<ICanInit> _toInit = new();
+    private bool _initialized;
+
     internal WorldboxGame()
     {
         I = this;
+        PreInitLibraries();
+    }
+
+    private void PreInitLibraries()
+    {
         var library_ts = GetType().GetNestedTypes().Where(t => t.GetInterfaces().Contains(typeof(ICanInit))).ToList();
         library_ts = DependencyAttribute.SortManagerTypes(library_ts);
 
-        var to_init = new List<ICanInit>();
         foreach (Type t in library_ts)
         {
             try
@@ -26,7 +33,7 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
                 {
                     throw new Exception($"Failed to create instance of {t.Name}");
                 }
-                to_init.Add(can_init);
+                _toInit.Add(can_init);
                 ModClass.LogInfo($"({nameof(WorldboxGame)}) initializes {t.Name}");
             }
             catch (Exception e)
@@ -34,7 +41,14 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
                 ModClass.LogError($"Failed to create instance of {t.Name}\n{e.Message}\n{e.StackTrace}");
             }
         }
-        foreach (var can_init in to_init)
+    }
+
+    internal void Init()
+    {
+        if (_initialized) return;
+        _initialized = true;
+
+        foreach (var can_init in _toInit)
         {
             try
             {

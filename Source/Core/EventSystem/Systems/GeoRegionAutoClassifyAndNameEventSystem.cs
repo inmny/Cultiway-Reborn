@@ -5,7 +5,7 @@ using Cultiway.Core.Libraries;
 namespace Cultiway.Core.EventSystem.Systems;
 
 /// <summary>
-/// GeoRegion 生成后自动分类，并基于原版命名器结果做最小化去重。
+/// GeoRegion 生成后自动分类，并基于分类命名器结果做最小化去重。
 /// </summary>
 public class GeoRegionAutoClassifyAndNameEventSystem : GenericEventSystem<GeoRegionGeneratedEvent>
 {
@@ -50,29 +50,11 @@ public class GeoRegionAutoClassifyAndNameEventSystem : GenericEventSystem<GeoReg
         region.data.CenterY = evt.CenterY;
         region.data.TileCount = evt.TileCount;
 
-        // 先拿原版命名器名称，再做轻量去重（仅重名时才加方位词，且不使用“部”）。
-        var vanillaName = EnsureVanillaName(region);
-        var normalizedName = NormalizeDirectionalWord(vanillaName);
+        // 先按地区类型生成名称，再做轻量去重（仅重名时才加方位词，且不使用“部”）。
+        var categoryName = category.GenerateName();
+        var normalizedName = NormalizeDirectionalWord(categoryName);
         region.data.name = MakeUniqueName(normalizedName, evt);
         region.data.custom_name = false;
-    }
-
-    /// <summary>
-    /// 获取原版命名器名称；若当前为空则即时生成。
-    /// </summary>
-    private static string EnsureVanillaName(GeoRegion region)
-    {
-        if (string.IsNullOrWhiteSpace(region.data.name))
-        {
-            region.data.name = NameGenerator.getName(
-                WorldboxGame.NameGenerators.GeoRegion.id,
-                ActorSex.Male,
-                true,
-                null,
-                World.world.map_stats.life_dna);
-        }
-
-        return string.IsNullOrWhiteSpace(region.data.name) ? "GeoRegion" : region.data.name.Trim();
     }
 
     /// <summary>

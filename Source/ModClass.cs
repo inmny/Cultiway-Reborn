@@ -206,13 +206,13 @@ namespace Cultiway
             _ui = new UI.Manager();
             _ui.Init();
 
+            Game = new WorldboxGame();
             Try.Start(() =>
             {
                 L = new Core.Libraries.Manager();
                 L.Init();
             });
-
-            Game = new WorldboxGame();
+            Game.Init();
             Try.Start(() =>
             {
                 W = new EntityStore()
