@@ -23,7 +23,7 @@ public partial class WorldboxGame
             CastSkillV3.action = data =>
             {
                 var ae = data.initiator.a.GetExtend();
-                var skill = ae.all_attack_skills.GetRandom();
+                if (!ae.TryGetCastableAttackSkill(data.target, out var skill)) return false;
                 return ae.CastSkillV3(skill, data.target);
             };
         }

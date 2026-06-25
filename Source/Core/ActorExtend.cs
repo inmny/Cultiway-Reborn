@@ -162,16 +162,19 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         action_on_attack += action;
     }
     private static Action<ActorExtend, BaseSimObject, ListPool<CombatActionAsset>> action_on_attack;
+    private const float BaseSkillCastRange = 11f;
+    private const float CloseCombatCasterChance = 0.25f;
+    private const float CasterPreferredRangeRatio = 0.65f;
+
     [Hotfixable]
     public bool TryToAttack(BaseSimObject target, Action kill_action = null, float bonus_area_effect = 0, bool do_checks = true)
     {
         var actor = Base;
         if (do_checks)
         {
-            if (actor.hasMeleeAttack() && target != null && target.position_height > 0f) return false;
             if (actor.isInWaterAndCantAttack()) return false;
             if (!actor.isAttackPossible()) return false;
-            if (target != null && !actor.isInAttackRange(target)) return false;
+            if (target != null && !CanUseCombatActionAtCurrentDistance(target)) return false;
         }
         if (target.isRekt()) return false;
         if (actor.kingdom == null)
@@ -182,23 +185,27 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         
         using var attack_action_pool = new ListPool<CombatActionAsset>();
         // 加入普攻
-        if (actor.hasMeleeAttack())
+        if (CanUseMeleeAttackAtCurrentDistance(target))
         {
             basic_attack_action = WorldboxGame.CombatActions.AttackMelee;
         }
-        else if (actor.isInAttackRange(target))
+        else if (CanUseRangeAttackAtCurrentDistance(target))
         {
             basic_attack_action = WorldboxGame.CombatActions.AttackRange;
         }
         
         if (basic_attack_action != null) basic_attack_action.AddToPool(attack_action_pool);
         // 加入原版技能
-        if (actor._spells.hasAny())
+        if (CanUseVanillaSpellAtCurrentDistance(target))
         {
             WorldboxGame.CombatActions.CastVanillaSpell.AddToPool(attack_action_pool);
         }
         // 加入自定义技能
-        WorldboxGame.CombatActions.CastSkillV3.AddToPool(attack_action_pool, all_attack_skills.Count);
+        var castable_skill_count = CountCastableAttackSkills(target);
+        if (castable_skill_count > 0)
+        {
+            WorldboxGame.CombatActions.CastSkillV3.AddToPool(attack_action_pool, castable_skill_count);
+        }
         action_on_attack?.Invoke(this, target, attack_action_pool);
         
 
@@ -259,6 +266,284 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
                 actor.decreaseNutrition();
             }
             // TODO: 后坐力
+        }
+    }
+
+    /// <summary>
+    /// 判断当前距离下是否能立即执行任意战斗动作。
+    /// </summary>
+    /// <param name="target">当前攻击目标。</param>
+    /// <returns>近战、远程武器、法术、技能或符箓中任一项可用时返回 true。</returns>
+    public bool CanUseCombatActionAtCurrentDistance(BaseSimObject target)
+    {
+        if (target == null || target.isRekt()) return false;
+        return CanUsePhysicalAttackAtCurrentDistance(target) || CanUseMagicActionAtCurrentDistance(target);
+    }
+
+    /// <summary>
+    /// 判断是否应该继续保留当前战斗目标。
+    /// </summary>
+    /// <param name="target">当前攻击目标。</param>
+    /// <returns>已经能物理攻击，或具备可准备的施法/符箓动作时返回 true。</returns>
+    public bool CanKeepCombatTarget(BaseSimObject target)
+    {
+        if (target == null || target.isRekt()) return false;
+        return CanUsePhysicalAttackAtCurrentDistance(target) || HasAnyMagicAction(target);
+    }
+
+    /// <summary>
+    /// 判断当前距离下是否能立即执行修士侧的法术类动作。
+    /// </summary>
+    /// <param name="target">当前攻击目标。</param>
+    /// <returns>原版法术、自定义攻击技能或符箓可用时返回 true。</returns>
+    public bool CanUseMagicActionAtCurrentDistance(BaseSimObject target)
+    {
+        if (target == null || target.isRekt()) return false;
+        if (!IsWithinSkillCastRange(target)) return false;
+        if (!IsAtPreferredSkillCombatDistance(target)) return false;
+
+        return CanUseVanillaSpellAtCurrentDistance(target)
+               || CountCastableAttackSkills(target) > 0
+               || HasCastableTalisman(target);
+    }
+
+    /// <summary>
+    /// 判断指定技能容器在当前距离下是否可以释放。
+    /// </summary>
+    /// <param name="skill">技能容器实体。</param>
+    /// <param name="target">当前攻击目标。</param>
+    /// <returns>目标、距离和灵气消耗都满足时返回 true。</returns>
+    public bool CanUseSkillContainerAtCurrentDistance(Entity skill, BaseSimObject target)
+    {
+        if (target == null || target.isRekt()) return false;
+        if (!IsWithinSkillCastRange(target)) return false;
+        if (!IsAtPreferredSkillCombatDistance(target)) return false;
+        return CanCastSkillContainer(skill, target);
+    }
+
+    /// <summary>
+    /// 从当前距离下可释放的攻击技能中随机选取一个。
+    /// </summary>
+    /// <param name="target">当前攻击目标。</param>
+    /// <param name="skill">选中的技能实体。</param>
+    /// <returns>存在可释放攻击技能时返回 true。</returns>
+    public bool TryGetCastableAttackSkill(BaseSimObject target, out Entity skill)
+    {
+        using var pool = new ListPool<Entity>();
+        foreach (var candidate in all_attack_skills)
+        {
+            if (!CanUseSkillContainerAtCurrentDistance(candidate, target)) continue;
+            pool.Add(candidate);
+        }
+
+        skill = pool.Any() ? pool.GetRandom() : default;
+        return !skill.IsNull;
+    }
+
+    /// <summary>
+    /// 判断当前距离下是否能执行原版物理攻击。
+    /// </summary>
+    private bool CanUsePhysicalAttackAtCurrentDistance(BaseSimObject target)
+    {
+        return CanUseMeleeAttackAtCurrentDistance(target) || CanUseRangeAttackAtCurrentDistance(target);
+    }
+
+    /// <summary>
+    /// 判断当前距离下是否能执行原版近战攻击。
+    /// </summary>
+    private bool CanUseMeleeAttackAtCurrentDistance(BaseSimObject target)
+    {
+        if (target == null || !Base.hasMeleeAttack()) return false;
+        if (target.position_height > 0f) return false;
+        return Base.isInAttackRange(target);
+    }
+
+    /// <summary>
+    /// 判断当前距离下是否能执行原版远程武器攻击。
+    /// </summary>
+    private bool CanUseRangeAttackAtCurrentDistance(BaseSimObject target)
+    {
+        if (target == null || !Base.hasRangeAttack()) return false;
+        return Base.isInAttackRange(target);
+    }
+
+    /// <summary>
+    /// 判断当前距离下是否能执行原版法术动作。
+    /// </summary>
+    private bool CanUseVanillaSpellAtCurrentDistance(BaseSimObject target)
+    {
+        if (target == null) return false;
+        return Base.hasSpells() && Base.canUseSpells() && IsWithinSkillCastRange(target) &&
+               IsAtPreferredSkillCombatDistance(target);
+    }
+
+    /// <summary>
+    /// 统计当前距离下可释放的自定义攻击技能数量。
+    /// </summary>
+    private int CountCastableAttackSkills(BaseSimObject target)
+    {
+        if (!GeneralSettings.EnableSkillSystems) return 0;
+
+        var count = 0;
+        foreach (var skill in all_attack_skills)
+        {
+            if (CanCastSkillContainer(skill, target)) count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// 统计可准备的自定义攻击技能数量，不要求目标已经进入施法距离。
+    /// </summary>
+    private int CountAvailableAttackSkills(BaseSimObject target)
+    {
+        if (!GeneralSettings.EnableSkillSystems) return 0;
+
+        var count = 0;
+        foreach (var skill in all_attack_skills)
+        {
+            if (CanPrepareSkillContainer(skill, target)) count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// 判断技能容器是否满足释放前置条件并且目标在最大施法距离内。
+    /// </summary>
+    private bool CanCastSkillContainer(Entity skill, BaseSimObject target)
+    {
+        if (!CanPrepareSkillContainer(skill, target)) return false;
+        return IsWithinSkillCastRange(target);
+    }
+
+    /// <summary>
+    /// 判断技能容器是否具备准备释放的基础条件。
+    /// </summary>
+    private bool CanPrepareSkillContainer(Entity skill, BaseSimObject target)
+    {
+        if (!GeneralSettings.EnableSkillSystems) return false;
+        if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
+        if (target == null || target.isRekt()) return false;
+        return SkillCastCost.CanAffordStepWakan(this, skill);
+    }
+
+    /// <summary>
+    /// 判断是否存在当前距离下可释放的符箓。
+    /// </summary>
+    private bool HasCastableTalisman(BaseSimObject target)
+    {
+        foreach (var item in GetItems())
+        {
+            if (!item.HasComponent<Talisman>()) continue;
+            ref var talisman = ref item.GetComponent<Talisman>();
+            if (CanCastSkillContainer(talisman.SkillContainer, target)) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 判断是否存在可准备释放的符箓，不要求目标已经进入施法距离。
+    /// </summary>
+    private bool HasAvailableTalisman(BaseSimObject target)
+    {
+        foreach (var item in GetItems())
+        {
+            if (!item.HasComponent<Talisman>()) continue;
+            ref var talisman = ref item.GetComponent<Talisman>();
+            if (CanPrepareSkillContainer(talisman.SkillContainer, target)) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 判断目标是否在技能最大施法距离内。
+    /// </summary>
+    private bool IsWithinSkillCastRange(BaseSimObject target)
+    {
+        if (target == null) return false;
+        var range = GetSkillCastRange(target) + target.stats[S.size];
+        return Toolbox.SquaredDistVec2Float(Base.current_position, target.current_position) <= range * range;
+    }
+
+    /// <summary>
+    /// 判断目标是否进入当前战斗风格期望的出手距离。
+    /// </summary>
+    private bool IsAtPreferredSkillCombatDistance(BaseSimObject target)
+    {
+        if (target == null) return false;
+        var range = GetDesiredCombatDistance(target) + target.stats[S.size];
+        return Toolbox.SquaredDistVec2Float(Base.current_position, target.current_position) <= range * range;
+    }
+
+    /// <summary>
+    /// 计算独立于原版物理攻击范围的技能最大施法距离。
+    /// </summary>
+    private float GetSkillCastRange(BaseSimObject target)
+    {
+        var power_bonus = Mathf.Clamp(GetPowerLevel(), 0f, 10f) * 0.5f;
+        return BaseSkillCastRange + power_bonus;
+    }
+
+    /// <summary>
+    /// 计算单位对当前目标实际想要靠近到的出手距离。
+    /// </summary>
+    private float GetDesiredCombatDistance(BaseSimObject target)
+    {
+        var physical_range = Base.getAttackRange();
+        var skill_range = GetSkillCastRange(target);
+        if (!Base.hasMeleeAttack()) return skill_range;
+        if (!HasAnyMagicAction(target)) return physical_range;
+
+        var caster_chance = GetCasterCombatStyleChance(target);
+        if (StableCombatRoll(Base, target) > caster_chance) return physical_range;
+
+        return Mathf.Lerp(physical_range, skill_range, CasterPreferredRangeRatio);
+    }
+
+    /// <summary>
+    /// 判断单位是否拥有可准备的法术类动作。
+    /// </summary>
+    private bool HasAnyMagicAction(BaseSimObject target)
+    {
+        if (target == null || target.isRekt()) return false;
+        if (Base.hasSpells() && Base.canUseSpells()) return true;
+        return CountAvailableAttackSkills(target) > 0 || HasAvailableTalisman(target);
+    }
+
+    /// <summary>
+    /// 计算当前单位对目标采用偏施法距离作战的概率。
+    /// </summary>
+    private float GetCasterCombatStyleChance(BaseSimObject target)
+    {
+        var chance = CloseCombatCasterChance;
+        if (!Base.hasWeapon()) chance += 0.25f;
+        chance += Mathf.Clamp(all_attack_skills.Count, 0, 8) * 0.03f;
+        chance += Mathf.Clamp01(GetPowerLevel() / 10f) * 0.1f;
+
+        if (target?.isActor() ?? false)
+        {
+            var threat = target.a.GetExtend().GetPowerLevel() - GetPowerLevel();
+            chance += Mathf.Clamp(threat, -2f, 4f) * 0.08f;
+        }
+
+        return Mathf.Clamp01(chance);
+    }
+
+    /// <summary>
+    /// 为 actor-target 对生成稳定随机值，避免同一对目标每帧切换战斗风格。
+    /// </summary>
+    private static float StableCombatRoll(Actor actor, BaseSimObject target)
+    {
+        unchecked
+        {
+            var hash = actor.data.id * 73856093L ^ target.getID() * 19349663L;
+            hash = (hash << 13) ^ hash;
+            var value = (hash * (hash * hash * 15731L + 789221L) + 1376312589L) & 0x7fffffff;
+            return value / (float)0x7fffffff;
         }
     }
 

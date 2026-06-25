@@ -33,6 +33,10 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
                     return has_casted;
                 }
                 ref var talisman_component = ref talisman_to_use.GetComponent<Talisman>();
+                if (!ae.CanUseSkillContainerAtCurrentDistance(talisman_component.SkillContainer, data.target))
+                {
+                    break;
+                }
                 var addition_strength = talisman_component.Strength;
                 var ae_power_level = ae.GetPowerLevel();
                 if (talisman_component.PowerLevel > ae_power_level)
@@ -55,7 +59,7 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
         
         ActorExtend.RegisterCombatActionOnAttack(((ae, target, list) =>
         {
-            if (ae.HasComponent<Xian>())
+            if (ae.HasComponent<Xian>() && ae.CanUseMagicActionAtCurrentDistance(target))
             {
                 UseTalisman.AddToPool(list);
             }

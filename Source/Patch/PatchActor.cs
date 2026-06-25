@@ -77,9 +77,86 @@ internal static class PatchActor
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.tryToAttack))]
     private static bool tryToAttack_prefix(Actor __instance, BaseSimObject pTarget, bool pDoChecks, Action pKillAction, float pBonusAreOfEffect, ref bool __result)
     {
+        if (pTarget == null) return true;
         if (pTarget.isRekt()) return true;
         __result = __instance.GetExtend().TryToAttack(pTarget, pKillAction, pBonusAreOfEffect, pDoChecks);
         return false;
+    }
+
+    /// <summary>
+    /// 将原版“是否在攻击范围内”的出手判定替换为 Mod 的综合战斗动作距离判定。
+    /// </summary>
+    [Hotfixable]
+    [HarmonyTranspiler, HarmonyPatch(typeof(Actor), "checkCurrentEnemyTarget")]
+    private static IEnumerable<CodeInstruction> checkCurrentEnemyTarget_transpiler(IEnumerable<CodeInstruction> codes)
+    {
+        var list = codes.ToList();
+        var method = AccessTools.Method(typeof(Actor), nameof(Actor.isInAttackRange));
+        var replacement = AccessTools.Method(typeof(PatchActor), nameof(isInCombatActionRange));
+        var replaced = false;
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (list[i].Calls(method))
+            {
+                list[i].opcode = OpCodes.Call;
+                list[i].operand = replacement;
+                replaced = true;
+                break;
+            }
+        }
+
+        if (!replaced)
+        {
+            ModClass.LogError("Failed to patch Actor.checkCurrentEnemyTarget combat range check");
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// 将原版不可达目标检查替换为“是否仍值得追击”的判定，避免可施法目标被提前清除。
+    /// </summary>
+    [Hotfixable]
+    [HarmonyTranspiler, HarmonyPatch(typeof(ai.behaviours.BehFightCheckEnemyIsOk), nameof(ai.behaviours.BehFightCheckEnemyIsOk.execute))]
+    private static IEnumerable<CodeInstruction> BehFightCheckEnemyIsOk_execute_transpiler(IEnumerable<CodeInstruction> codes)
+    {
+        var list = codes.ToList();
+        var method = AccessTools.Method(typeof(Actor), nameof(Actor.isInAttackRange));
+        var replacement = AccessTools.Method(typeof(PatchActor), nameof(canKeepCombatTarget));
+        var replaced = false;
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (list[i].Calls(method))
+            {
+                list[i].opcode = OpCodes.Call;
+                list[i].operand = replacement;
+                replaced = true;
+                break;
+            }
+        }
+
+        if (!replaced)
+        {
+            ModClass.LogError("Failed to patch BehFightCheckEnemyIsOk combat target check");
+        }
+
+        return list;
+    }
+
+    /// <summary>
+    /// Harmony 替换用桥接函数：判断目标当前是否已进入任意战斗动作的出手距离。
+    /// </summary>
+    private static bool isInCombatActionRange(Actor actor, BaseSimObject target)
+    {
+        return actor.GetExtend().CanUseCombatActionAtCurrentDistance(target);
+    }
+
+    /// <summary>
+    /// Harmony 替换用桥接函数：判断目标是否应继续作为战斗目标保留。
+    /// </summary>
+    private static bool canKeepCombatTarget(Actor actor, BaseSimObject target)
+    {
+        return actor.GetExtend().CanKeepCombatTarget(target);
     }
     
     [HarmonyReversePatch(HarmonyReversePatchType.Snapshot), HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
