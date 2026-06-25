@@ -72,12 +72,9 @@ namespace Cultiway.UI
             Transform content = transform.Find("Background/Scroll View/Viewport/Content")
                                 ?? throw new InvalidOperationException("GeoRegionWindow 缺少窗口 Content 节点");
 
-            DestroyContentIfPresent(content, "content_meta");
-            DestroyContentIfPresent(content, "content_geo_region_composition");
-            DestroyContentIfPresent(content, "content_relations");
-            DestroyContentIfPresent(content, "content_geo_region_relations");
-            DestroyContentIfPresent(content, "content_geo_region_top");
-            CollapseContentIfPresent(content, "content_stats");
+            content.DestroyIfPresent("content_meta");
+            content.DestroyIfPresent("content_relations");
+            content.CollapseIfPresent("content_stats");
 
             _detailsPanel = SetupDetailsPanel(content);
 
@@ -104,25 +101,6 @@ namespace Cultiway.UI
             GeoRegionWindowDetailsPanel panel = panelTransform.GetComponent<GeoRegionWindowDetailsPanel>() ?? panelTransform.gameObject.AddComponent<GeoRegionWindowDetailsPanel>();
             panel.Initialize();
             return panel;
-        }
-
-        private static void DestroyContentIfPresent(Transform content, string name)
-        {
-            Transform child = content.Find(name);
-            if (child == null) return;
-            DestroyImmediate(child.gameObject);
-        }
-
-        private static void CollapseContentIfPresent(Transform content, string name)
-        {
-            Transform child = content.Find(name);
-            if (child == null) return;
-
-            child.gameObject.SetActive(false);
-            LayoutElement layout = child.GetComponent<LayoutElement>() ?? child.gameObject.AddComponent<LayoutElement>();
-            layout.ignoreLayout = true;
-            layout.minHeight = 0f;
-            layout.preferredHeight = 0f;
         }
 
         private void RefreshGeoRegionPanels()
