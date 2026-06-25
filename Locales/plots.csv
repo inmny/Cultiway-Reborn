@@ -7,4 +7,12 @@ plot_Cultiway.BuildTrainStation,建立车站
 plot_Cultiway.BuildTrainStation_info_base,车站初成，交通便利
 plot_Cultiway.BuildTrainTrack,建立铁路
 plot_Cultiway.BuildTrainTrack_info_base,铁路初成，交通便利
+plot_Cultiway.SummonKhorne,召唤恐虐
+plot_Cultiway.SummonKhorne_info_base,以血为祭，唤醒恐虐魔塔
+plot_Cultiway.SummonSlaanesh,召唤色孽
+plot_Cultiway.SummonSlaanesh_info_base,以欲为引，唤醒色孽魔塔
+plot_Cultiway.SummonTzeentch,召唤奸奇
+plot_Cultiway.SummonTzeentch_info_base,以智为媒，唤醒奸奇魔塔
+plot_Cultiway.SummonNurgle,召唤纳垢
+plot_Cultiway.SummonNurgle_info_base,以疫为契，唤醒纳垢魔塔
 plot_group_Cultiway.Sect,宗门

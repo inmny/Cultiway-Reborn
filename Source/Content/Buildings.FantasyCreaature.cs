@@ -195,5 +195,16 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.AnggrathUnbound, 1, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedBloodthirster, 1, 4, 1);
 
+        // 所有奇幻建筑血量提升到 10000
+        BuildingAsset[] demon_buildings =
+        {
+            BloodCastle, FishPeopleTower, GoblinTower, MagicTower, Pyramid,
+            RobotTower, SpriteTower, CrimsonCore, NurgleTower, SlaaneshTower,
+            TzeentchTower, KhorneTower, VivisomaticArbor, GoldenThrone, SkavenBlight
+        };
+        foreach (var b in demon_buildings)
+        {
+            b.base_stats["health"] = 10000f;
+        }
     }
 }
