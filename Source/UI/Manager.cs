@@ -104,7 +104,7 @@ public class Manager
 
         return list_window;
     }
-    public static TWindow CreateMetaWindow<TWindow, TMeta, TMetaData>(string window_id) 
+    public static TWindow CreateMetaWindow<TWindow, TMeta, TMetaData>(string window_id, params string[] preserved_tabs)
     where TWindow : WindowMetaGeneric<TMeta, TMetaData> 
     where TMeta : CoreSystemObject<TMetaData> 
     where TMetaData : BaseSystemData
@@ -115,14 +115,15 @@ public class Manager
 
         var kingdom_window = window.GetComponent<KingdomWindow>();
 
-        kingdom_window.DeleteTab("Villages");
-        kingdom_window.DeleteTab("Traits");
-        kingdom_window.DeleteTab("Families");
-        kingdom_window.DeleteTab("Interesting People");
-        kingdom_window.DeleteTab("Pyramid");
-        kingdom_window.DeleteTab("Statistics");
+        var preservedTabs = new HashSet<string>(preserved_tabs ?? Array.Empty<string>());
+        DeleteTabUnlessPreserved(kingdom_window, preservedTabs, "Villages");
+        DeleteTabUnlessPreserved(kingdom_window, preservedTabs, "Traits");
+        DeleteTabUnlessPreserved(kingdom_window, preservedTabs, "Families");
+        DeleteTabUnlessPreserved(kingdom_window, preservedTabs, "Interesting People");
+        DeleteTabUnlessPreserved(kingdom_window, preservedTabs, "Pyramid");
+        DeleteTabUnlessPreserved(kingdom_window, preservedTabs, "Statistics");
 
-        RemoveLegacyMetaWindowElements(window);
+        RemoveLegacyMetaWindowElements(window, preservedTabs);
         
         Object.DestroyImmediate(kingdom_window);
         foreach (var content_name in kingdom_window_content_to_remove)
@@ -206,12 +207,53 @@ public class Manager
         return meta_window;
     }
 
-    private static void RemoveLegacyMetaWindowElements(GameObject window)
+    private static void DeleteTabUnlessPreserved(TabbedWindow window, ISet<string> preserved_tabs, string tab_name)
     {
+        if (preserved_tabs.Contains(tab_name)) return;
+        window.DeleteTab(tab_name);
+    }
+
+    private static void RemoveLegacyMetaWindowElements(GameObject window, ISet<string> preserved_tabs)
+    {
+        var preservedRoots = new List<Transform>();
+        if (preserved_tabs.Count > 0)
+        {
+            foreach (var tab in window.GetComponentsInChildren<WindowMetaTab>(true))
+            {
+                if (!preserved_tabs.Contains(tab.name)) continue;
+
+                for (int i = 0; i < tab.tab_elements.Count; i++)
+                {
+                    var element = tab.tab_elements[i];
+                    if (element == null || preservedRoots.Contains(element)) continue;
+                    preservedRoots.Add(element);
+                }
+            }
+        }
+
         foreach (var element in window.GetComponentsInChildren<WindowMetaElementBase>(true))
         {
+            if (ShouldPreserveMetaElement(element, preservedRoots)) continue;
             Object.DestroyImmediate(element);
         }
+    }
+
+    private static bool ShouldPreserveMetaElement(WindowMetaElementBase element, IReadOnlyList<Transform> preserved_roots)
+    {
+        if (!IsUnderAnyRoot(element.transform, preserved_roots)) return false;
+        return element is InterestingPeopleTab;
+    }
+
+    private static bool IsUnderAnyRoot(Transform transform, IReadOnlyList<Transform> roots)
+    {
+        for (int i = 0; i < roots.Count; i++)
+        {
+            Transform root = roots[i];
+            if (root == null) continue;
+            if (transform == root || transform.IsChildOf(root)) return true;
+        }
+
+        return false;
     }
 
     public static TTab CreateSelectedMetaTab<TTab, TMeta, TMetaData>(string tab_id)

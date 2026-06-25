@@ -22,6 +22,7 @@ public partial class WorldboxGame
         protected override void OnInit()
         {
             GeoRegion.meta_type = MetaTypeExtend.GeoRegion.Back();
+            GeoRegion.localization_title = "GeoRegion";
             GeoRegion.banner_prefab_id = "ui/PrefabBannerGeoRegion";
             ResourcesPatch.PatchResource(GeoRegion.banner_prefab_id, GeoRegionBanner.Prefab);
             GeoRegion.get_banner = delegate(MetaCustomizationAsset pAsset, NanoObject pNanoObject, Transform pParent)

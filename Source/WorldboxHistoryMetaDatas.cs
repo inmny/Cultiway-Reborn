@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Reflection;
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Tables;
 using Cultiway.Utils;
+using Cultiway.Utils.Extension;
 using db;
 using strings;
 
@@ -21,6 +23,7 @@ public partial class WorldboxGame
         protected override void OnInit()
         {
             Sect.table_type = typeof(SectTable);
+            Sect.meta_type = MetaTypeExtend.Sect.Back();
             Sect.table_types = new Dictionary<HistoryInterval, Type>()
             {
                 { HistoryInterval.Yearly1, typeof(SectTableYearly1) },
@@ -46,6 +49,7 @@ public partial class WorldboxGame
             };
 
             GeoRegion.table_type = typeof(GeoRegionTable);
+            GeoRegion.meta_type = MetaTypeExtend.GeoRegion.Back();
             GeoRegion.table_types = new Dictionary<HistoryInterval, Type>()
             {
                 { HistoryInterval.Yearly1, typeof(GeoRegionTableYearly1) },
@@ -80,9 +84,19 @@ public partial class WorldboxGame
                 if (prop.CanRead && prop.CanWrite && prop.GetMethod != null && prop.SetMethod != null && prop.GetMethod.IsPublic && prop.SetMethod.IsPublic && !prop.GetMethod.IsStatic && !prop.SetMethod.IsStatic)
                 {
                     var history_data_asset = AssetManager.history_data_library.get(prop.Name);
-                    asset.categories.Add(history_data_asset);
+                    if (history_data_asset == null)
+                    {
+                        throw new InvalidOperationException($"HistoryDataAsset 缺少字段: {prop.Name}");
+                    }
+
+                    if (!asset.categories.Contains(history_data_asset))
+                    {
+                        asset.categories.Add(history_data_asset);
+                    }
                 }
             }
+
+            RegisterMetaDataLookup(asset);
             
             SmoothLoaderUtils.Insert(() =>
             {
@@ -91,6 +105,28 @@ public partial class WorldboxGame
                     DBTables.createOrMigrateTable(type);
                 }
             }, $"Creating Stats ({asset.table_type.Name})", container => container.id.Contains("Creating Stats ("));
+        }
+
+        private static void RegisterMetaDataLookup(HistoryMetaDataAsset asset)
+        {
+            HistoryMetaDataAsset[] metaAssets = GetAssetsWith(asset);
+            HistoryMetaDataLibrary._meta_data[asset.meta_type] = metaAssets;
+            HistoryMetaDataLibrary._meta_dict[asset.id] = metaAssets;
+        }
+
+        private static HistoryMetaDataAsset[] GetAssetsWith(HistoryMetaDataAsset asset)
+        {
+            if (!HistoryMetaDataLibrary._meta_data.TryGetValue(asset.meta_type, out HistoryMetaDataAsset[] assets))
+            {
+                return new[] { asset };
+            }
+
+            if (Array.IndexOf(assets, asset) >= 0) return assets;
+
+            HistoryMetaDataAsset[] result = new HistoryMetaDataAsset[assets.Length + 1];
+            Array.Copy(assets, result, assets.Length);
+            result[^1] = asset;
+            return result;
         }
     }
 }
