@@ -24,6 +24,22 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     [CloneSource(S_Plot.alliance_create)]
     public static PlotAsset BuildTrainTrack { get; private set; }
 
+    // 召唤恶魔谋划：依据发起者特质，有几率召唤对应的混沌魔塔
+    [CloneSource(S_Plot.new_language)]
+    public static PlotAsset SummonKhorne { get; private set; }
+    [CloneSource(S_Plot.new_language)]
+    public static PlotAsset SummonSlaanesh { get; private set; }
+    [CloneSource(S_Plot.new_language)]
+    public static PlotAsset SummonTzeentch { get; private set; }
+    [CloneSource(S_Plot.new_language)]
+    public static PlotAsset SummonNurgle { get; private set; }
+
+    // 召唤恶魔谋划的触发阈值与召唤几率
+    private const int   DEMON_KILLS_THRESHOLD = 20;    // 杀人数门槛 -> 恐虐
+    private const int   DEMON_CHARM_THRESHOLD = 15;    // 魅力(外交)门槛 -> 色孽
+    private const int   DEMON_INT_THRESHOLD   = 15;    // 智力门槛 -> 奸奇
+    private const float DEMON_SUMMON_CHANCE   = 0.4f;  // 召唤成功率
+
     protected override bool AutoRegisterAssets() => true;
 
     protected override void OnInit()
@@ -253,6 +269,16 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             }
             return any_built;
         };
+
+        // 召唤恶魔：单位依据自身特质，有几率在所属城市召唤对应的混沌魔塔
+        SetupDemonSummonPlot(SummonKhorne,   "cultiway/icons/Khorne",
+            a => a.data.kills >= DEMON_KILLS_THRESHOLD, Buildings.KhorneTower,   DEMON_SUMMON_CHANCE);
+        SetupDemonSummonPlot(SummonSlaanesh, "cultiway/icons/Slaanesh",
+            a => a.diplomacy >= DEMON_CHARM_THRESHOLD,  Buildings.SlaaneshTower, DEMON_SUMMON_CHANCE);
+        SetupDemonSummonPlot(SummonTzeentch, "cultiway/icons/Tzeentch",
+            a => a.intelligence >= DEMON_INT_THRESHOLD, Buildings.TzeentchTower, DEMON_SUMMON_CHANCE);
+        SetupDemonSummonPlot(SummonNurgle,   "cultiway/icons/Nurgle",
+            a => a.hasTrait(S_Trait.plague),            Buildings.NurgleTower,   DEMON_SUMMON_CHANCE);
     }
 
     private static List<WorldTile> GetTrainTrackDirection(
@@ -289,6 +315,49 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         if (zones.Count == 0)
             return null;
         return CityBehBuild.tryToBuildInZones(zones, Buildings.TrainStation, city, false);
+    }
+
+    /// <summary>
+    /// 配置一个召唤恶魔的谋划：满足 <paramref name="condition"/> 的城市领袖/国王发起后，
+    /// 有 <paramref name="chance"/> 的几率在城市范围内召唤出 <paramref name="tower"/>。
+    /// </summary>
+    private static void SetupDemonSummonPlot(
+        PlotAsset plot, string icon, Func<Actor, bool> condition,
+        BuildingAsset tower, float chance)
+    {
+        plot.path_icon = icon;
+        plot.group_id = PlotCategories.Others.id;
+        plot.is_basic_plot = true;          // 允许 AI 单位自主发动
+        plot.can_be_done_by_king = true;
+        plot.can_be_done_by_leader = true;
+        plot.requires_diplomacy = false;
+        plot.check_is_possible = a => a.hasCity()
+                                     && condition(a)
+                                     && !a.city.hasBuildingType(tower.type)
+                                     && !World.world.plots.isPlotTypeAlreadyRunning(a, plot);
+        plot.check_can_be_forced = plot.check_is_possible;
+        plot.check_should_continue = a => a.hasCity() && !a.city.hasBuildingType(tower.type);
+        plot.action = a =>
+        {
+            if (!a.hasCity() || a.city.hasBuildingType(tower.type))
+                return false;
+            if (!Randy.randomChance(chance))
+                return false;
+            var tile = FindTileForTower(a.city, tower);
+            if (tile == null)
+                return false;
+            World.world.buildings.addBuilding(tower.id, tile);
+            return true;
+        };
+    }
+
+    private static WorldTile FindTileForTower(City city, BuildingAsset asset)
+    {
+        var zones = new List<TileZone>();
+        CityBehBuild.fillPossibleZones(asset, city, zones);
+        if (zones.Count == 0)
+            return null;
+        return CityBehBuild.tryToBuildInZones(zones, asset, city, false);
     }
 
     private static List<City> GetTrainTargets(City city)
