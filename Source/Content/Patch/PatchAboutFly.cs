@@ -100,6 +100,7 @@ internal static class PatchAboutFly
         {
             return true;
         }
+        if (check_is_flying(__instance)) return true;
         if (!can_goTo_fast(__instance)) return true;
         var steps = PathFinder.Instance.TryViewAll(__instance);
         if (steps == null || steps.Count == 0) return true;
@@ -131,11 +132,14 @@ internal static class PatchAboutFly
 
         if (xian.CurrLevel >= XianSetting.WeaponFlyLevel)
         {
+            var target = __instance.tile_target;
+            if (target == null) return true;
+
             __instance.data.addFlag(ContentActorDataKeys.IsFlying_flag);
             __instance.setFlying(true);
             __instance.precalcMovementSpeed(true);
-            __instance.moveTo(__instance.tile_target);
-            PathFinder.Instance.Cancel(__instance);
+            PathFinder.Instance.RequestDirectPath(__instance, target, StepPenalty.Block | StepPenalty.Lava | StepPenalty.Ocean);
+            __instance.moveTo(target);
             return false;
         }
         return true;

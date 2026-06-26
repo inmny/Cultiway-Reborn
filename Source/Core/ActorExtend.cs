@@ -35,8 +35,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     public List<Entity> all_attack_skills = new();
     private  Dictionary<string, Entity> _skill_action_modifiers = new();
     private  Dictionary<string, Entity> _skill_entity_modifiers = new();
+    private readonly List<RecentAttackerRecord> _recent_attackers = new();
     internal float[]         s_armor        = new float[9];
     public Sect sect;
+    private const float RecentAttackerLifetime = 5f;
 
     private Dictionary<Type, Dictionary<IDeleteWhenUnknown, float>>  _master_items = new();
     public void Master<T>(T item, float value) where T : Asset, IDeleteWhenUnknown
@@ -119,6 +121,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         if (_learned_skills_v3 != null && _learned_skills_v3.Count > 0)
         {
             _learned_skills_v3.Clear();
+        }
+        if (_recent_attackers.Count > 0)
+        {
+            _recent_attackers.Clear();
         }
         all_skills = null;
         all_attack_skills = null;
@@ -276,7 +282,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <returns>近战、远程武器、法术、技能或符箓中任一项可用时返回 true。</returns>
     public bool CanUseCombatActionAtCurrentDistance(BaseSimObject target)
     {
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         return CanUsePhysicalAttackAtCurrentDistance(target) || CanUseMagicActionAtCurrentDistance(target);
     }
 
@@ -284,11 +290,11 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// 判断是否应该继续保留当前战斗目标。
     /// </summary>
     /// <param name="target">当前攻击目标。</param>
-    /// <returns>已经能物理攻击，或具备可准备的施法/符箓动作时返回 true。</returns>
+    /// <returns>已经能物理攻击，或可通过施法范围/可接近路径处理目标时返回 true。</returns>
     public bool CanKeepCombatTarget(BaseSimObject target)
     {
-        if (target == null || target.isRekt()) return false;
-        return CanUsePhysicalAttackAtCurrentDistance(target) || HasAnyMagicAction(target);
+        if (target.isRekt()) return false;
+        return CanUsePhysicalAttackAtCurrentDistance(target) || CanKeepMagicCombatTarget(target);
     }
 
     /// <summary>
@@ -298,7 +304,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <returns>原版法术、自定义攻击技能或符箓可用时返回 true。</returns>
     public bool CanUseMagicActionAtCurrentDistance(BaseSimObject target)
     {
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         if (!IsWithinSkillCastRange(target)) return false;
         if (!IsAtPreferredSkillCombatDistance(target)) return false;
 
@@ -315,7 +321,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <returns>目标、距离和灵气消耗都满足时返回 true。</returns>
     public bool CanUseSkillContainerAtCurrentDistance(Entity skill, BaseSimObject target)
     {
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         if (!IsWithinSkillCastRange(target)) return false;
         if (!IsAtPreferredSkillCombatDistance(target)) return false;
         return CanCastSkillContainer(skill, target);
@@ -378,6 +384,16 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     }
 
     /// <summary>
+    /// 判断法术类动作是否足以让行为树继续保留当前目标。
+    /// </summary>
+    private bool CanKeepMagicCombatTarget(BaseSimObject target)
+    {
+        if (!HasAnyMagicAction(target)) return false;
+        if (IsWithinSkillCastRange(target)) return true;
+        return CanApproachTargetForMagic(target);
+    }
+
+    /// <summary>
     /// 统计当前距离下可释放的自定义攻击技能数量。
     /// </summary>
     private int CountCastableAttackSkills(BaseSimObject target)
@@ -425,7 +441,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     {
         if (!GeneralSettings.EnableSkillSystems) return false;
         if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         return SkillCastCost.CanAffordStepWakan(this, skill);
     }
 
@@ -497,6 +513,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         var skill_range = GetSkillCastRange(target);
         if (!Base.hasMeleeAttack()) return skill_range;
         if (!HasAnyMagicAction(target)) return physical_range;
+        if (!CanPreferPhysicalCombatDistance(target)) return skill_range;
 
         var caster_chance = GetCasterCombatStyleChance(target);
         if (StableCombatRoll(Base, target) > caster_chance) return physical_range;
@@ -505,11 +522,50 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     }
 
     /// <summary>
+    /// 判断当前目标是否适合让单位选择近战距离作为期望距离。
+    /// </summary>
+    private bool CanPreferPhysicalCombatDistance(BaseSimObject target)
+    {
+        if (target.isRekt()) return false;
+        if (!Base.hasMeleeAttack()) return false;
+        if (target.position_height > 0f) return false;
+        if (Base.isWaterCreature())
+        {
+            if (!target.isInLiquid() && !Base.asset.force_land_creature) return false;
+        }
+        else if (target.isInLiquid())
+        {
+            return false;
+        }
+
+        return IsTargetOnSameReachableIsland(target);
+    }
+
+    /// <summary>
+    /// 判断单位是否能为了施法继续向目标所在位置靠近。
+    /// </summary>
+    private bool CanApproachTargetForMagic(BaseSimObject target)
+    {
+        if (target.isRekt()) return false;
+        return IsTargetOnSameReachableIsland(target);
+    }
+
+    /// <summary>
+    /// 判断目标当前位置是否处在单位可正常寻路接近的同一岛屿上。
+    /// </summary>
+    private bool IsTargetOnSameReachableIsland(BaseSimObject target)
+    {
+        if (target.isRekt() || target.current_tile == null || Base.current_tile == null) return false;
+        if (target.isActor() && target.a.isInsideSomething()) return false;
+        return target.current_tile.isSameIsland(Base.current_tile);
+    }
+
+    /// <summary>
     /// 判断单位是否拥有可准备的法术类动作。
     /// </summary>
     private bool HasAnyMagicAction(BaseSimObject target)
     {
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         if (Base.hasSpells() && Base.canUseSpells()) return true;
         return CountAvailableAttackSkills(target) > 0 || HasAvailableTalisman(target);
     }
@@ -899,11 +955,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         if (Base == attacker) return;
 
+        RecordRecentAttacker(attacker);
         action_before_be_attacked?.Invoke(this, attacker, ref damage_composition, ref attack_type_for_vanilla, ref damage, ref ignore_damage_reduction);
 
         var attacker_power_level = ((attacker?.isActor() ?? false) && !attacker.isRekt()) ? attacker.a.GetExtend().GetPowerLevel() : 0;
         var power_level = GetPowerLevel();
         var power_level_gap = power_level - attacker_power_level;
+        var should_apply_minimum_damage = ShouldApplyMinimumDamage(attacker, damage, power_level_gap);
         if (!ignore_damage_reduction)
         {
             if (power_level_gap > 0)
@@ -940,6 +998,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             }
         }
 
+        damage = ApplyMinimumDamage(damage, should_apply_minimum_damage);
         if (ShouldResolveIneffectiveHit(attacker, damage, power_level_gap))
         {
             ResolveIneffectiveHit(attacker);
@@ -956,16 +1015,38 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             Base.checkSpecialAttackLogic(attacker.a, attack_type_for_vanilla, damage, out var final_damage);
             AchievementLibrary.clone_wars.checkBySignal(new ValueTuple<Actor, Actor>(Base, attacker.a));
             damage = Math.Min(damage, final_damage);
+            damage = ApplyMinimumDamage(damage, should_apply_minimum_damage);
         }
         PatchActor.getHit_snapshot(Base, damage, pAttackType: attack_type_for_vanilla, pAttacker: attacker, pSkipIfShake: false, pCheckDamageReduction: false);
     }
 
+    /// <summary>
+    /// 判断本次攻击是否应套用同境界/高打低的最低伤害保护。
+    /// </summary>
+    private static bool ShouldApplyMinimumDamage(BaseSimObject attacker, float damage, float power_level_gap)
+    {
+        if (damage <= 0) return false;
+        if (power_level_gap > 0) return false;
+        return !attacker.isRekt() && attacker.isActor();
+    }
+
+    /// <summary>
+    /// 在满足境界规则时，把结算伤害抬到至少 1 点。
+    /// </summary>
+    private static float ApplyMinimumDamage(float damage, bool should_apply_minimum_damage)
+    {
+        return should_apply_minimum_damage ? Mathf.Max(damage, 1f) : damage;
+    }
+
+    /// <summary>
+    /// 判断低境界攻击高境界时是否应按无效命中处理。
+    /// </summary>
     private static bool ShouldResolveIneffectiveHit(BaseSimObject attacker, float damage, float power_level_gap)
     {
-        if (damage <= 0 || power_level_gap < 0) return false;
+        if (damage <= 0 || power_level_gap <= 0) return false;
         if (attacker.isRekt() || !attacker.isActor()) return false;
 
-        var chance = power_level_gap == 0 ? 0.25f : 1f - Mathf.Pow(0.5f, power_level_gap);
+        var chance = 1f - Mathf.Pow(0.5f, power_level_gap);
         return Randy.randomChance(Mathf.Clamp01(chance));
     }
 
@@ -980,6 +1061,81 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         }
         attacker.ignoreTarget(Base);
         actor.makeWait(0.3f);
+    }
+
+    /// <summary>
+    /// 记录最近攻击者，确保无效命中也能被后续施法规划识别为反击候选；原版 attackedBy 仍只由实际受击流程维护。
+    /// </summary>
+    private void RecordRecentAttacker(BaseSimObject attacker)
+    {
+        if (attacker.isRekt() || attacker == Base || !attacker.isActor()) return;
+
+        var now = (float)World.world.map_stats.world_time;
+        PruneRecentAttackers(now);
+
+        var attackerId = attacker.getID();
+        for (var i = 0; i < _recent_attackers.Count; i++)
+        {
+            if (_recent_attackers[i].AttackerId != attackerId) continue;
+            _recent_attackers.RemoveAt(i);
+            break;
+        }
+
+        _recent_attackers.Add(new RecentAttackerRecord(attacker, attackerId, now));
+    }
+
+    /// <summary>
+    /// 返回短期内攻击过该单位的所有有效单位，并清理已死亡、复用或过期的记录。
+    /// </summary>
+    public List<BaseSimObject> GetRecentAttackersSnapshot()
+    {
+        var now = (float)World.world.map_stats.world_time;
+        PruneRecentAttackers(now);
+
+        var result = new List<BaseSimObject>(_recent_attackers.Count);
+        for (var i = _recent_attackers.Count - 1; i >= 0; i--)
+        {
+            result.Add(_recent_attackers[i].Attacker);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 清理不再处于反击窗口内的最近攻击者记录。
+    /// </summary>
+    private void PruneRecentAttackers(float now)
+    {
+        for (var i = _recent_attackers.Count - 1; i >= 0; i--)
+        {
+            var record = _recent_attackers[i];
+            if (now - record.LastAttackTime <= RecentAttackerLifetime && IsRecentAttackerStillValid(record)) continue;
+            _recent_attackers.RemoveAt(i);
+        }
+    }
+
+    /// <summary>
+    /// 判断记录中的攻击者引用是否仍指向同一个存活单位，避免对象复用污染目标池。
+    /// </summary>
+    private static bool IsRecentAttackerStillValid(RecentAttackerRecord record)
+    {
+        var attacker = record.Attacker;
+        if (attacker.isRekt() || !attacker.isActor()) return false;
+        return attacker.getID() == record.AttackerId;
+    }
+
+    private readonly struct RecentAttackerRecord
+    {
+        public readonly BaseSimObject Attacker;
+        public readonly long AttackerId;
+        public readonly float LastAttackTime;
+
+        public RecentAttackerRecord(BaseSimObject attacker, long attackerId, float lastAttackTime)
+        {
+            Attacker = attacker;
+            AttackerId = attackerId;
+            LastAttackTime = lastAttackTime;
+        }
     }
 
     public bool HasElementRoot()

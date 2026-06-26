@@ -16,6 +16,7 @@ public class BehPlantXianLevelup : BehaviourActionActor
         Cultisyses.OutWakanAndCultivate(actor_extend, ref xian);
 
         if (Cultisyses.Xian.AllowUpgrade(actor_extend)) Cultisyses.Xian.TryPerformUpgrade(actor_extend);
+        BehOutdoorCultivationWait.ClearCultivationTimers(pObject);
 
         return BehResult.Continue;
     }

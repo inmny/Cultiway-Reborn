@@ -14,6 +14,7 @@ public class BehPlantXianCultivate : BehaviourActionActor
         ActorExtend actor_extend = pObject.GetExtend();
         ref Xian xian = ref actor_extend.GetCultisys<Xian>();
         Cultisyses.OutWakanAndCultivate(actor_extend, ref xian);
+        BehOutdoorCultivationWait.ClearCultivationTimers(pObject);
         return BehResult.Continue;
     }
 }

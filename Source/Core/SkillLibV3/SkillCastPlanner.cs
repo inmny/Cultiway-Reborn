@@ -35,8 +35,8 @@ public static class SkillCastPlanner
 
     public static SkillCastPlan CreatePlan(ActorExtend caster, Entity skill, BaseSimObject primaryTarget)
     {
-        if (caster == null || caster.Base == null || caster.Base.isRekt()) return SkillCastPlan.Empty;
-        if (primaryTarget == null || primaryTarget.isRekt()) return SkillCastPlan.Empty;
+        if (caster == null || caster.Base.isRekt()) return SkillCastPlan.Empty;
+        if (primaryTarget.isRekt()) return SkillCastPlan.Empty;
         if (!skill.HasComponent<SkillContainer>()) return SkillCastPlan.Empty;
 
         var plan = new SkillCastPlan();
@@ -88,16 +88,54 @@ public static class SkillCastPlanner
         var spreadBias = skill.TryGetComponent(out BurstCount burst) ? Mathf.Max(0, burst.Value - 1) : 0;
         var radius = Mathf.Clamp(4f + spreadBias * 0.75f, 4f, 10f);
         var center = primaryTarget.current_position;
+        var targetLimit = Mathf.Max(expectedCount * 2, targets.Count);
+
+        AddAttackersOfCaster(targets, caster, targetLimit);
 
         foreach (var target in SkillUtils.IterEnemyInSphere(center, radius, caster))
         {
-            if (target == null || target.isRekt()) continue;
-            if (targets.Contains(target)) continue;
-            targets.Add(target);
-            if (targets.Count >= expectedCount * 2) break;
+            AddCandidateTarget(targets, target, caster, targetLimit);
+            if (targets.Count >= targetLimit) break;
         }
 
         return targets;
+    }
+
+    /// <summary>
+    /// 把正在攻击施法者或最近攻击过施法者的单位加入候选目标，不依赖这次攻击是否实际造成伤害。
+    /// </summary>
+    private static void AddAttackersOfCaster(List<BaseSimObject> targets, BaseSimObject caster, int targetLimit)
+    {
+        if (caster.isRekt() || !caster.isActor()) return;
+
+        var casterActor = caster.a;
+        foreach (var recentAttacker in casterActor.GetExtend().GetRecentAttackersSnapshot())
+        {
+            AddCandidateTarget(targets, recentAttacker, caster, targetLimit);
+            if (targets.Count >= targetLimit) return;
+        }
+
+        AddCandidateTarget(targets, casterActor.attackedBy, caster, targetLimit);
+        if (targets.Count >= targetLimit) return;
+
+        foreach (var actor in World.world.units.units_only_alive)
+        {
+            if (targets.Count >= targetLimit) break;
+            if (actor.isRekt()) continue;
+            if (!actor.has_attack_target || actor.attack_target != caster) continue;
+            AddCandidateTarget(targets, actor, caster, targetLimit);
+        }
+    }
+
+    private static void AddCandidateTarget(List<BaseSimObject> targets, BaseSimObject target, BaseSimObject caster,
+        int targetLimit)
+    {
+        if (targets.Count >= targetLimit) return;
+        if (target.isRekt()) return;
+        if (target == caster) return;
+        if (targets.Contains(target)) return;
+
+        targets.Add(target);
     }
 
     private static BaseSimObject SelectTarget(BaseSimObject primaryTarget, List<BaseSimObject> targets, int repeatBias,
@@ -129,7 +167,7 @@ public static class SkillCastPlanner
 
     private static float GetThreatRatio(ActorExtend caster, BaseSimObject target)
     {
-        if (target == null || !target.isActor() || target.isRekt()) return 0f;
+        if (target.isRekt() || !target.isActor()) return 0f;
 
         var targetPowerLevel = target.a.GetExtend().GetPowerLevel();
         var delta = targetPowerLevel - caster.GetPowerLevel();
