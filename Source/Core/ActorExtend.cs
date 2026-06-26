@@ -35,8 +35,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     public List<Entity> all_attack_skills = new();
     private  Dictionary<string, Entity> _skill_action_modifiers = new();
     private  Dictionary<string, Entity> _skill_entity_modifiers = new();
+    private readonly List<RecentAttackerRecord> _recent_attackers = new();
     internal float[]         s_armor        = new float[9];
     public Sect sect;
+    private const float RecentAttackerLifetime = 5f;
 
     private Dictionary<Type, Dictionary<IDeleteWhenUnknown, float>>  _master_items = new();
     public void Master<T>(T item, float value) where T : Asset, IDeleteWhenUnknown
@@ -119,6 +121,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         if (_learned_skills_v3 != null && _learned_skills_v3.Count > 0)
         {
             _learned_skills_v3.Clear();
+        }
+        if (_recent_attackers.Count > 0)
+        {
+            _recent_attackers.Clear();
         }
         all_skills = null;
         all_attack_skills = null;
@@ -276,7 +282,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <returns>近战、远程武器、法术、技能或符箓中任一项可用时返回 true。</returns>
     public bool CanUseCombatActionAtCurrentDistance(BaseSimObject target)
     {
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         return CanUsePhysicalAttackAtCurrentDistance(target) || CanUseMagicActionAtCurrentDistance(target);
     }
 
@@ -287,7 +293,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <returns>已经能物理攻击，或可通过施法范围/可接近路径处理目标时返回 true。</returns>
     public bool CanKeepCombatTarget(BaseSimObject target)
     {
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         return CanUsePhysicalAttackAtCurrentDistance(target) || CanKeepMagicCombatTarget(target);
     }
 
@@ -298,7 +304,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <returns>原版法术、自定义攻击技能或符箓可用时返回 true。</returns>
     public bool CanUseMagicActionAtCurrentDistance(BaseSimObject target)
     {
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         if (!IsWithinSkillCastRange(target)) return false;
         if (!IsAtPreferredSkillCombatDistance(target)) return false;
 
@@ -315,7 +321,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <returns>目标、距离和灵气消耗都满足时返回 true。</returns>
     public bool CanUseSkillContainerAtCurrentDistance(Entity skill, BaseSimObject target)
     {
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         if (!IsWithinSkillCastRange(target)) return false;
         if (!IsAtPreferredSkillCombatDistance(target)) return false;
         return CanCastSkillContainer(skill, target);
@@ -435,7 +441,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     {
         if (!GeneralSettings.EnableSkillSystems) return false;
         if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         return SkillCastCost.CanAffordStepWakan(this, skill);
     }
 
@@ -520,7 +526,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// </summary>
     private bool CanPreferPhysicalCombatDistance(BaseSimObject target)
     {
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         if (!Base.hasMeleeAttack()) return false;
         if (target.position_height > 0f) return false;
         if (Base.isWaterCreature())
@@ -540,7 +546,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// </summary>
     private bool CanApproachTargetForMagic(BaseSimObject target)
     {
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         return IsTargetOnSameReachableIsland(target);
     }
 
@@ -549,7 +555,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// </summary>
     private bool IsTargetOnSameReachableIsland(BaseSimObject target)
     {
-        if (target == null || target.current_tile == null || Base.current_tile == null) return false;
+        if (target.isRekt() || target.current_tile == null || Base.current_tile == null) return false;
         if (target.isActor() && target.a.isInsideSomething()) return false;
         return target.current_tile.isSameIsland(Base.current_tile);
     }
@@ -559,7 +565,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// </summary>
     private bool HasAnyMagicAction(BaseSimObject target)
     {
-        if (target == null || target.isRekt()) return false;
+        if (target.isRekt()) return false;
         if (Base.hasSpells() && Base.canUseSpells()) return true;
         return CountAvailableAttackSkills(target) > 0 || HasAvailableTalisman(target);
     }
@@ -949,6 +955,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         if (Base == attacker) return;
 
+        RecordRecentAttacker(attacker);
         action_before_be_attacked?.Invoke(this, attacker, ref damage_composition, ref attack_type_for_vanilla, ref damage, ref ignore_damage_reduction);
 
         var attacker_power_level = ((attacker?.isActor() ?? false) && !attacker.isRekt()) ? attacker.a.GetExtend().GetPowerLevel() : 0;
@@ -1054,6 +1061,81 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         }
         attacker.ignoreTarget(Base);
         actor.makeWait(0.3f);
+    }
+
+    /// <summary>
+    /// 记录最近攻击者，确保无效命中也能被后续施法规划识别为反击候选；原版 attackedBy 仍只由实际受击流程维护。
+    /// </summary>
+    private void RecordRecentAttacker(BaseSimObject attacker)
+    {
+        if (attacker.isRekt() || attacker == Base || !attacker.isActor()) return;
+
+        var now = (float)World.world.map_stats.world_time;
+        PruneRecentAttackers(now);
+
+        var attackerId = attacker.getID();
+        for (var i = 0; i < _recent_attackers.Count; i++)
+        {
+            if (_recent_attackers[i].AttackerId != attackerId) continue;
+            _recent_attackers.RemoveAt(i);
+            break;
+        }
+
+        _recent_attackers.Add(new RecentAttackerRecord(attacker, attackerId, now));
+    }
+
+    /// <summary>
+    /// 返回短期内攻击过该单位的所有有效单位，并清理已死亡、复用或过期的记录。
+    /// </summary>
+    public List<BaseSimObject> GetRecentAttackersSnapshot()
+    {
+        var now = (float)World.world.map_stats.world_time;
+        PruneRecentAttackers(now);
+
+        var result = new List<BaseSimObject>(_recent_attackers.Count);
+        for (var i = _recent_attackers.Count - 1; i >= 0; i--)
+        {
+            result.Add(_recent_attackers[i].Attacker);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 清理不再处于反击窗口内的最近攻击者记录。
+    /// </summary>
+    private void PruneRecentAttackers(float now)
+    {
+        for (var i = _recent_attackers.Count - 1; i >= 0; i--)
+        {
+            var record = _recent_attackers[i];
+            if (now - record.LastAttackTime <= RecentAttackerLifetime && IsRecentAttackerStillValid(record)) continue;
+            _recent_attackers.RemoveAt(i);
+        }
+    }
+
+    /// <summary>
+    /// 判断记录中的攻击者引用是否仍指向同一个存活单位，避免对象复用污染目标池。
+    /// </summary>
+    private static bool IsRecentAttackerStillValid(RecentAttackerRecord record)
+    {
+        var attacker = record.Attacker;
+        if (attacker.isRekt() || !attacker.isActor()) return false;
+        return attacker.getID() == record.AttackerId;
+    }
+
+    private readonly struct RecentAttackerRecord
+    {
+        public readonly BaseSimObject Attacker;
+        public readonly long AttackerId;
+        public readonly float LastAttackTime;
+
+        public RecentAttackerRecord(BaseSimObject attacker, long attackerId, float lastAttackTime)
+        {
+            Attacker = attacker;
+            AttackerId = attackerId;
+            LastAttackTime = lastAttackTime;
+        }
     }
 
     public bool HasElementRoot()
