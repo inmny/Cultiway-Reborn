@@ -45,6 +45,22 @@ public class PathFinder
         task.Worker = Task.Run(() => RunGeneratorAsync(task), task.Cancellation.Token);
     }
 
+    public void RequestDirectPath(Actor actor, WorldTile target, StepPenalty penalty)
+    {
+        if (actor?.data == null || target == null)
+        {
+            return;
+        }
+
+        _lastRequests[actor.data.id] = new PathRequestOptions(target, true, true, true, 0);
+        Cancel(actor);
+
+        var task = new PathfindingTask(new PathRequest(actor, target, true, true, true, 0));
+        task.Stream.AddStep(new PathStep(target, MovementMethod.Walk, penalty));
+        task.Stream.Complete();
+        _tasks[actor.data.id] = task;
+    }
+
     public bool IsActorPathing(Actor actor)
     {
         if (actor?.data == null) return false;
