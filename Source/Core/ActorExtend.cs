@@ -284,11 +284,11 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// 判断是否应该继续保留当前战斗目标。
     /// </summary>
     /// <param name="target">当前攻击目标。</param>
-    /// <returns>已经能物理攻击，或具备可准备的施法/符箓动作时返回 true。</returns>
+    /// <returns>已经能物理攻击，或可通过施法范围/可接近路径处理目标时返回 true。</returns>
     public bool CanKeepCombatTarget(BaseSimObject target)
     {
         if (target == null || target.isRekt()) return false;
-        return CanUsePhysicalAttackAtCurrentDistance(target) || HasAnyMagicAction(target);
+        return CanUsePhysicalAttackAtCurrentDistance(target) || CanKeepMagicCombatTarget(target);
     }
 
     /// <summary>
@@ -375,6 +375,16 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         if (target == null) return false;
         return Base.hasSpells() && Base.canUseSpells() && IsWithinSkillCastRange(target) &&
                IsAtPreferredSkillCombatDistance(target);
+    }
+
+    /// <summary>
+    /// 判断法术类动作是否足以让行为树继续保留当前目标。
+    /// </summary>
+    private bool CanKeepMagicCombatTarget(BaseSimObject target)
+    {
+        if (!HasAnyMagicAction(target)) return false;
+        if (IsWithinSkillCastRange(target)) return true;
+        return CanApproachTargetForMagic(target);
     }
 
     /// <summary>
@@ -497,11 +507,51 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         var skill_range = GetSkillCastRange(target);
         if (!Base.hasMeleeAttack()) return skill_range;
         if (!HasAnyMagicAction(target)) return physical_range;
+        if (!CanPreferPhysicalCombatDistance(target)) return skill_range;
 
         var caster_chance = GetCasterCombatStyleChance(target);
         if (StableCombatRoll(Base, target) > caster_chance) return physical_range;
 
         return Mathf.Lerp(physical_range, skill_range, CasterPreferredRangeRatio);
+    }
+
+    /// <summary>
+    /// 判断当前目标是否适合让单位选择近战距离作为期望距离。
+    /// </summary>
+    private bool CanPreferPhysicalCombatDistance(BaseSimObject target)
+    {
+        if (target == null || target.isRekt()) return false;
+        if (!Base.hasMeleeAttack()) return false;
+        if (target.position_height > 0f) return false;
+        if (Base.isWaterCreature())
+        {
+            if (!target.isInLiquid() && !Base.asset.force_land_creature) return false;
+        }
+        else if (target.isInLiquid())
+        {
+            return false;
+        }
+
+        return IsTargetOnSameReachableIsland(target);
+    }
+
+    /// <summary>
+    /// 判断单位是否能为了施法继续向目标所在位置靠近。
+    /// </summary>
+    private bool CanApproachTargetForMagic(BaseSimObject target)
+    {
+        if (target == null || target.isRekt()) return false;
+        return IsTargetOnSameReachableIsland(target);
+    }
+
+    /// <summary>
+    /// 判断目标当前位置是否处在单位可正常寻路接近的同一岛屿上。
+    /// </summary>
+    private bool IsTargetOnSameReachableIsland(BaseSimObject target)
+    {
+        if (target == null || target.current_tile == null || Base.current_tile == null) return false;
+        if (target.isActor() && target.a.isInsideSomething()) return false;
+        return target.current_tile.isSameIsland(Base.current_tile);
     }
 
     /// <summary>
