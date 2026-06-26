@@ -954,6 +954,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         var attacker_power_level = ((attacker?.isActor() ?? false) && !attacker.isRekt()) ? attacker.a.GetExtend().GetPowerLevel() : 0;
         var power_level = GetPowerLevel();
         var power_level_gap = power_level - attacker_power_level;
+        var should_apply_minimum_damage = ShouldApplyMinimumDamage(attacker, damage, power_level_gap);
         if (!ignore_damage_reduction)
         {
             if (power_level_gap > 0)
@@ -990,6 +991,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             }
         }
 
+        damage = ApplyMinimumDamage(damage, should_apply_minimum_damage);
         if (ShouldResolveIneffectiveHit(attacker, damage, power_level_gap))
         {
             ResolveIneffectiveHit(attacker);
@@ -1006,16 +1008,38 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             Base.checkSpecialAttackLogic(attacker.a, attack_type_for_vanilla, damage, out var final_damage);
             AchievementLibrary.clone_wars.checkBySignal(new ValueTuple<Actor, Actor>(Base, attacker.a));
             damage = Math.Min(damage, final_damage);
+            damage = ApplyMinimumDamage(damage, should_apply_minimum_damage);
         }
         PatchActor.getHit_snapshot(Base, damage, pAttackType: attack_type_for_vanilla, pAttacker: attacker, pSkipIfShake: false, pCheckDamageReduction: false);
     }
 
+    /// <summary>
+    /// 判断本次攻击是否应套用同境界/高打低的最低伤害保护。
+    /// </summary>
+    private static bool ShouldApplyMinimumDamage(BaseSimObject attacker, float damage, float power_level_gap)
+    {
+        if (damage <= 0) return false;
+        if (power_level_gap > 0) return false;
+        return !attacker.isRekt() && attacker.isActor();
+    }
+
+    /// <summary>
+    /// 在满足境界规则时，把结算伤害抬到至少 1 点。
+    /// </summary>
+    private static float ApplyMinimumDamage(float damage, bool should_apply_minimum_damage)
+    {
+        return should_apply_minimum_damage ? Mathf.Max(damage, 1f) : damage;
+    }
+
+    /// <summary>
+    /// 判断低境界攻击高境界时是否应按无效命中处理。
+    /// </summary>
     private static bool ShouldResolveIneffectiveHit(BaseSimObject attacker, float damage, float power_level_gap)
     {
-        if (damage <= 0 || power_level_gap < 0) return false;
+        if (damage <= 0 || power_level_gap <= 0) return false;
         if (attacker.isRekt() || !attacker.isActor()) return false;
 
-        var chance = power_level_gap == 0 ? 0.25f : 1f - Mathf.Pow(0.5f, power_level_gap);
+        var chance = 1f - Mathf.Pow(0.5f, power_level_gap);
         return Randy.randomChance(Mathf.Clamp01(chance));
     }
 
