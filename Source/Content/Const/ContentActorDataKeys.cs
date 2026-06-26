@@ -9,6 +9,14 @@ public static class ContentActorDataKeys
     /// </summary>
     public const string CultivateTime_float = "cw.content.cultivate_time";
     /// <summary>
+    /// 野外闭关修炼结束的世界时间
+    /// </summary>
+    public const string OutdoorCultivationEndTime_float = "cw.content.outdoor_cultivation_end_time";
+    /// <summary>
+    /// 下一次允许显示野外闭关修炼特效的世界时间
+    /// </summary>
+    public const string NextOutdoorCultivationEffectTime_float = "cw.content.next_outdoor_cultivation_effect_time";
+    /// <summary>
     /// 功法生成状态: -1 未开始，0 已结束，1 正在生成
     /// </summary>
     public const string WaitingForCultibookCreation_int = "cw.content.waiting_for_cultibook_creation";

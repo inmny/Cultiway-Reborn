@@ -57,11 +57,11 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         LevelupXianCultivate.addBeh(new BehExitBuilding());
         LevelupXianCultivate.setIcon("cultiway/icons/iconCultivation");
 
-        DailyPlantXianCultivate.addBeh(new BehRandomWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
+        DailyPlantXianCultivate.addBeh(new BehOutdoorCultivationWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
         DailyPlantXianCultivate.addBeh(new BehPlantXianCultivate());
         DailyPlantXianCultivate.setIcon("cultiway/icons/iconCultivation");
 
-        LevelupPlantXianCultivate.addBeh(new BehRandomWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
+        LevelupPlantXianCultivate.addBeh(new BehOutdoorCultivationWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
         LevelupPlantXianCultivate.addBeh(new BehPlantXianLevelup());
         LevelupPlantXianCultivate.setIcon("cultiway/icons/iconCultivation");
         
