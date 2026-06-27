@@ -54,7 +54,7 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
                     break;
                 }
             }
-            return false;
+            return has_casted;
         };
         
         ActorExtend.RegisterCombatActionOnAttack(((ae, target, list) =>
