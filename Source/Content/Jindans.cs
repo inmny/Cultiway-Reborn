@@ -1,16 +1,23 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
+using Cultiway.Const;
+using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Utils;
 using NeoModLoader.api.attributes;
+using UnityEngine;
 
 namespace Cultiway.Content;
 [Dependency(typeof(SkillEntities))]
 public class Jindans : ExtendLibrary<JindanAsset, Jindans>
 {
+    private const float ElementJindanFiveQiWeight = 0.7f;
+    private const float ElementJindanRootWeight = 0.3f;
+    private const float ElementJindanMinimumScore = 0.01f;
+
     public static JindanAsset Common { get; private set; }
     /// <summary>
     /// 金煌金丹
@@ -76,6 +83,13 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
         Bentonite.Group = JindanGroups.Element;
         Bentonite.composition = new ElementComposition(10, 5, 10, 5, 60, 3, 3, 4);
 
+        SetupElementJindanScore(JinHwang);
+        SetupElementJindanScore(SwordHwang);
+        SetupElementJindanScore(Aoki);
+        SetupElementJindanScore(Frost);
+        SetupElementJindanScore(Blaze);
+        SetupElementJindanScore(Bentonite);
+
         Condensed.Group = JindanGroups.Special;
         Condensed.composition = new ElementComposition(15, 15, 15, 15, 15, 5, 5, 15);
 
@@ -87,6 +101,81 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
 
         AddEffects();
     }
+
+    /// <summary>
+    /// 为元素金丹设置基于筑基五气与灵根组成的相似度权重。
+    /// </summary>
+    private static void SetupElementJindanScore(JindanAsset jindan)
+    {
+        jindan.score = (ActorExtend ae, ref XianBase xianBase) => GetElementJindanScore(jindan, ae, ref xianBase);
+    }
+
+    /// <summary>
+    /// 计算元素金丹与当前修士筑基五气、先天灵根的综合相似度。
+    /// </summary>
+    private static float GetElementJindanScore(JindanAsset jindan, ActorExtend ae, ref XianBase xianBase)
+    {
+        var jindanComposition = jindan.composition.AsArray();
+        var fiveQiComposition = GetFiveQiComposition(ref xianBase);
+        var fiveQiSimilarity = SafeCosineSimilarity(jindanComposition, fiveQiComposition, ElementIndex.Neg);
+        var rootSimilarity = fiveQiSimilarity;
+
+        if (ae.HasElementRoot())
+        {
+            rootSimilarity = SafeCosineSimilarity(jindanComposition, GetRootComposition(ae), ElementIndex.Neg);
+        }
+
+        var score = fiveQiSimilarity * ElementJindanFiveQiWeight + rootSimilarity * ElementJindanRootWeight;
+        return Mathf.Max(score, ElementJindanMinimumScore);
+    }
+
+    /// <summary>
+    /// 把筑基五气转成与元素组成同顺序的向量。
+    /// </summary>
+    private static float[] GetFiveQiComposition(ref XianBase xianBase)
+    {
+        return
+        [
+            xianBase.iron,
+            xianBase.wood,
+            xianBase.water,
+            xianBase.fire,
+            xianBase.earth,
+            0f,
+            0f,
+            0f
+        ];
+    }
+
+    /// <summary>
+    /// 把灵根组成转成与金丹组成同顺序的向量。
+    /// </summary>
+    private static float[] GetRootComposition(ActorExtend ae)
+    {
+        ref var root = ref ae.GetElementRoot();
+        return
+        [
+            root.Iron,
+            root.Wood,
+            root.Water,
+            root.Fire,
+            root.Earth,
+            root.Neg,
+            root.Pos,
+            root.Entropy
+        ];
+    }
+
+    /// <summary>
+    /// 计算安全的余弦相似度，避免异常数据导致权重为 NaN。
+    /// </summary>
+    private static float SafeCosineSimilarity(float[] a, float[] b, int len)
+    {
+        var similarity = MathUtils.CosineSimilarity(a, b, len);
+        if (float.IsNaN(similarity) || float.IsInfinity(similarity)) return 0f;
+        return Mathf.Max(0f, similarity);
+    }
+
     [Hotfixable]
     private void AddEffects()
     {
