@@ -688,19 +688,17 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             var statusAsset = statusComponent.Type;
             if (statusAsset != null && statusAsset.GetExtend<StatusAssetExtend>().negative)
             {
-                // 从StatusComponent获取施加方信息
-                BaseSimObject source = null;
-                if (item.TryGetComponent(out StatusComponent statusComp))
-                {
-                    source = statusComp.Source;
-                }
-
                 // 如果有施加方信息，计算powerlevel差距并调整状态时长
-                if (source != null && source.isActor())
+                var source = statusComponent.Source;
+                var sourcePowerLevel = statusComponent.SourcePowerLevel;
+                if (!sourcePowerLevel.HasValue && source != null && source.isActor())
                 {
-                    var sourcePowerLevel = source.a.GetExtend().GetPowerLevel();
+                    sourcePowerLevel = source.a.GetExtend().GetPowerLevel();
+                }
+                if (sourcePowerLevel.HasValue)
+                {
                     var targetPowerLevel = GetPowerLevel();
-                    var powerLevelDiff = sourcePowerLevel - targetPowerLevel;
+                    var powerLevelDiff = sourcePowerLevel.Value - targetPowerLevel;
 
                     // 如果目标powerlevel更高，减少状态时长
                     // 差距越大，减少越多（使用对数衰减）
@@ -945,7 +943,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     }
 
     [Hotfixable]
-    public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker, AttackType attack_type_for_vanilla = AttackType.Other, bool ignore_damage_reduction = false)
+    public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker,
+        AttackType attack_type_for_vanilla = AttackType.Other, bool ignore_damage_reduction = false,
+        float? attacker_power_level_override = null)
     {
 
         if (!Base.isAlive() || Base.hasStatus("invincible") || Base.data.health <= 0)
@@ -958,7 +958,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         RecordRecentAttacker(attacker);
         action_before_be_attacked?.Invoke(this, attacker, ref damage_composition, ref attack_type_for_vanilla, ref damage, ref ignore_damage_reduction);
 
-        var attacker_power_level = ((attacker?.isActor() ?? false) && !attacker.isRekt()) ? attacker.a.GetExtend().GetPowerLevel() : 0;
+        var attacker_power_level = attacker_power_level_override ??
+                                   (((attacker?.isActor() ?? false) && !attacker.isRekt())
+                                       ? attacker.a.GetExtend().GetPowerLevel()
+                                       : 0);
         var power_level = GetPowerLevel();
         var power_level_gap = power_level - attacker_power_level;
         var should_apply_minimum_damage = ShouldApplyMinimumDamage(attacker, damage, power_level_gap);
@@ -1335,7 +1338,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         Base.setStatsDirty();
     }
 
-    public bool CastSkillV3(Entity skill, BaseSimObject target)
+    public bool CastSkillV3(Entity skill, BaseSimObject target, float strength = 100, float? power_level = null)
     {
         if (!GeneralSettings.EnableSkillSystems) return false;
         // TODO: 添加消耗检查，技能消耗由技能实体和所有词缀组合决定（存在SkillContainer里头）
@@ -1348,7 +1351,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         var plan = SkillCastPlanner.CreatePlan(this, skill, target);
         if (plan.Steps.Count == 0) return false;
 
-        return ModClass.I.SkillV3.StartSkillSequence(this, skill, plan, 100);
+        return ModClass.I.SkillV3.StartSkillSequence(this, skill, plan, strength, power_level ?? GetPowerLevel());
     }
 
     // ======== 师徒系统核心方法（不依赖Content） ========

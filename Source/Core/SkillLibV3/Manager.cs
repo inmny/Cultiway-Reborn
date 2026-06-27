@@ -56,7 +56,8 @@ public class Manager
         data.Get<AliveTimeLimit>().value = frames.Length * data.Get<AnimController>().meta.frame_interval;
     }
 
-    public bool StartSkillSequence(ActorExtend caster, Entity skill_container, SkillCastPlan plan, float strength)
+    public bool StartSkillSequence(ActorExtend caster, Entity skill_container, SkillCastPlan plan, float strength,
+        float? power_level = null)
     {
         if (caster == null || plan == null || plan.Steps.Count == 0) return false;
         if (!SkillCastCost.CanAffordStepWakan(caster, skill_container)) return false;
@@ -67,13 +68,14 @@ public class Manager
             SkillContainer = skill_container,
             Steps = plan.Steps.ToArray(),
             Strength = strength,
+            PowerLevel = power_level ?? caster.GetPowerLevel(),
             MaxEmitPerTick = 8
         });
         return true;
     }
 
     public void SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength,
-        float delay = 0f)
+        float delay = 0f, float? power_level = null)
     {
         ref var container = ref skill_container.GetComponent<SkillContainer>();
         var source_pos = source.GetSimPos();
@@ -97,6 +99,9 @@ public class Manager
         var data = entity.Data;
         ref var context = ref data.Get<SkillContext>();
         context.Strength = strength;
+        context.PowerLevel = power_level ?? ((source?.isActor() ?? false) && !source.isRekt()
+            ? source.a.GetExtend().GetPowerLevel()
+            : 0f);
         context.SourceObj = source;
         context.TargetObj = target;
         ref var skill_entity = ref data.Get<SkillEntity>();

@@ -24,7 +24,8 @@ public class GetHitEventSystem : GenericEventSystem<GetHitEvent>
         }
 
         var element = evt.Element;
-        actor.GetExtend().GetHit(evt.Damage, ref element, evt.Attacker, ignore_damage_reduction: evt.IgnoreDamageReduction);
+        actor.GetExtend().GetHit(evt.Damage, ref element, evt.Attacker,
+            ignore_damage_reduction: evt.IgnoreDamageReduction,
+            attacker_power_level_override: evt.AttackerPowerLevel);
     }
 }
-

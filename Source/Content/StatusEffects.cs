@@ -99,7 +99,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
                 TargetID = actor.data.id,
                 Damage = damage,
                 Element = tickState.Element,
-                Attacker = statusComp.Source
+                Attacker = statusComp.Source,
+                AttackerPowerLevel = statusComp.SourcePowerLevel
             });
         }
     }
@@ -122,7 +123,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
                 TargetID = actor.data.id,
                 Damage = damage,
                 Element = tickState.Element,
-                Attacker = statusComp.Source
+                Attacker = statusComp.Source,
+                AttackerPowerLevel = statusComp.SourcePowerLevel
             });
         }
     }

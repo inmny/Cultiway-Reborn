@@ -41,7 +41,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 }
 
                 ModClass.I.SkillV3.SpawnSkill(sequence.SkillContainer, sequence.Caster.Base, step.Target,
-                    sequence.Strength);
+                    sequence.Strength, power_level: sequence.PowerLevel);
                 emitted++;
             }
 
