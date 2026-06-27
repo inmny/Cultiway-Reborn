@@ -57,10 +57,10 @@ public class Manager
     }
 
     public bool StartSkillSequence(ActorExtend caster, Entity skill_container, SkillCastPlan plan, float strength,
-        float? power_level = null)
+        float? power_level = null, SkillCastCostSource cost_source = SkillCastCostSource.CasterWakan)
     {
         if (caster == null || plan == null || plan.Steps.Count == 0) return false;
-        if (!SkillCastCost.CanAffordStepWakan(caster, skill_container)) return false;
+        if (!SkillCastCost.TryPay(caster, skill_container, plan, cost_source)) return false;
 
         World.CreateEntity(new SkillCastSequence()
         {

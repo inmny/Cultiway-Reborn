@@ -3,6 +3,7 @@ using System.Runtime.Remoting.Channels;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Core;
+using Cultiway.Core.SkillLibV3;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
@@ -33,7 +34,8 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
                     return has_casted;
                 }
                 ref var talisman_component = ref talisman_to_use.GetComponent<Talisman>();
-                if (!ae.CanUseSkillContainerAtCurrentDistance(talisman_component.SkillContainer, data.target))
+                if (!ae.CanUseSkillContainerAtCurrentDistance(talisman_component.SkillContainer, data.target,
+                        SkillCastCostSource.Prepaid))
                 {
                     break;
                 }
@@ -45,7 +47,7 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
                 }
 
                 if (ae.CastSkillV3(talisman_component.SkillContainer, data.target, addition_strength,
-                        talisman_component.PowerLevel))
+                        talisman_component.PowerLevel, SkillCastCostSource.Prepaid))
                 {
                     talisman_to_use.DeleteEntity(); 
                     has_casted = true;

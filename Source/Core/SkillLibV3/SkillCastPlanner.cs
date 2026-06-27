@@ -33,14 +33,16 @@ public static class SkillCastPlanner
 {
     private const float DelayStep = 0.04f;
 
-    public static SkillCastPlan CreatePlan(ActorExtend caster, Entity skill, BaseSimObject primaryTarget)
+    public static SkillCastPlan CreatePlan(ActorExtend caster, Entity skill, BaseSimObject primaryTarget,
+        int maxStepCount = int.MaxValue)
     {
+        if (maxStepCount <= 0) return SkillCastPlan.Empty;
         if (caster == null || caster.Base.isRekt()) return SkillCastPlan.Empty;
         if (primaryTarget.isRekt()) return SkillCastPlan.Empty;
         if (!skill.HasComponent<SkillContainer>()) return SkillCastPlan.Empty;
 
         var plan = new SkillCastPlan();
-        var castCount = DetermineCastCount(caster, skill, primaryTarget);
+        var castCount = Mathf.Min(DetermineCastCount(caster, skill, primaryTarget), maxStepCount);
         var targets = CollectCandidateTargets(caster.Base, primaryTarget, skill, castCount);
         var repeatBias = skill.TryGetComponent(out SalvoCount salvo) ? Mathf.Max(0, salvo.Value - 1) : 0;
         var spreadBias = skill.TryGetComponent(out BurstCount burst) ? Mathf.Max(0, burst.Value - 1) : 0;
