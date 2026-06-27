@@ -75,7 +75,7 @@ public class Manager
     }
 
     public void SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength,
-        float delay = 0f, float? power_level = null)
+        float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f)
     {
         ref var container = ref skill_container.GetComponent<SkillContainer>();
         var source_pos = source.GetSimPos();
@@ -90,6 +90,7 @@ public class Manager
         {
             base_dir.Normalize();
         }
+        var initial_dir = ApplyInitialAngleOffset(base_dir, initial_angle_offset_degrees);
 
         var entity = container.Asset.NewEntity();
         entity.AddRelation(new SkillMasterRelation()
@@ -111,7 +112,7 @@ public class Manager
         ref var pos = ref data.Get<Position>();
         pos.value = source_pos;
         ref var rot = ref data.Get<Rotation>();
-        rot.value = base_dir;
+        rot.value = initial_dir;
 
         if (delay > 0f)
         {
@@ -122,5 +123,13 @@ public class Manager
         }
 
         container.OnSetup?.Invoke(entity);
+    }
+
+    private static Vector3 ApplyInitialAngleOffset(Vector3 base_dir, float angle_degrees)
+    {
+        if (Mathf.Abs(angle_degrees) < 0.01f) return base_dir;
+
+        var rotated = Quaternion.AngleAxis(angle_degrees, Vector3.forward) * base_dir;
+        return rotated.sqrMagnitude < 0.0001f ? base_dir : rotated.normalized;
     }
 }

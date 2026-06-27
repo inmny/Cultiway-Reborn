@@ -21,17 +21,23 @@ public readonly struct SkillCastStep
 {
     public readonly BaseSimObject Target;
     public readonly float Delay;
+    public readonly float InitialAngleOffsetDegrees;
 
-    public SkillCastStep(BaseSimObject target, float delay)
+    public SkillCastStep(BaseSimObject target, float delay, float initialAngleOffsetDegrees = 0f)
     {
         Target = target;
         Delay = delay;
+        InitialAngleOffsetDegrees = initialAngleOffsetDegrees;
     }
 }
 
 public static class SkillCastPlanner
 {
     private const float DelayStep = 0.04f;
+    private const float MinSalvoAngleOffset = 3f;
+    private const float SalvoAngleOffsetStep = 2f;
+    private const float MaxSalvoAngleOffset = 30f;
+    private const float SalvoAngleOffsetJitter = 1.25f;
 
     public static SkillCastPlan CreatePlan(ActorExtend caster, Entity skill, BaseSimObject primaryTarget,
         int maxStepCount = int.MaxValue)
@@ -50,10 +56,23 @@ public static class SkillCastPlanner
         for (var i = 0; i < castCount; i++)
         {
             var target = i == 0 ? primaryTarget : SelectTarget(primaryTarget, targets, repeatBias, spreadBias);
-            plan.Steps.Add(new SkillCastStep(target, i * DelayStep));
+            var angleOffset = GetSalvoAngleOffset(i, target == primaryTarget);
+            plan.Steps.Add(new SkillCastStep(target, i * DelayStep, angleOffset));
         }
 
         return plan;
+    }
+
+    private static float GetSalvoAngleOffset(int stepIndex, bool repeatedPrimaryTarget)
+    {
+        if (stepIndex <= 0 || !repeatedPrimaryTarget) return 0f;
+
+        var pairIndex = (stepIndex - 1) / 2;
+        var sign = stepIndex % 2 == 0 ? 1f : -1f;
+        var magnitude = Mathf.Min(MinSalvoAngleOffset + pairIndex * SalvoAngleOffsetStep, MaxSalvoAngleOffset);
+        magnitude = Mathf.Clamp(magnitude + Randy.randomFloat(-SalvoAngleOffsetJitter, SalvoAngleOffsetJitter),
+            MinSalvoAngleOffset, MaxSalvoAngleOffset);
+        return sign * magnitude;
     }
 
     private static int DetermineCastCount(ActorExtend caster, Entity skill, BaseSimObject primaryTarget)

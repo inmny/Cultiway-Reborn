@@ -35,7 +35,8 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 if (step.Target == null || step.Target.isRekt()) continue;
 
                 ModClass.I.SkillV3.SpawnSkill(sequence.SkillContainer, sequence.Caster.Base, step.Target,
-                    sequence.Strength, power_level: sequence.PowerLevel);
+                    sequence.Strength, power_level: sequence.PowerLevel,
+                    initial_angle_offset_degrees: step.InitialAngleOffsetDegrees);
                 emitted++;
             }
 
