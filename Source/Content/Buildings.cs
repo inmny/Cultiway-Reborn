@@ -59,6 +59,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
             var asset = Clone(building_id.Replace(SA.human, Actors.EasternHuman.id), building_id);
             asset.main_path = $"buildings/civ_main/{Actors.EasternHuman.id}/";
             asset.group = Actors.EasternHuman.id;
+            asset.kingdom = KingdomAssets.NoMadsEasternHuman.id;
             asset.civ_kingdom = KingdomAssets.EasternHuman.id;
             asset.upgrade_to = asset.upgrade_to.Replace(SA.human, Actors.EasternHuman.id);
             asset.upgraded_from = asset.upgraded_from.Replace(SA.human, Actors.EasternHuman.id);

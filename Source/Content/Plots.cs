@@ -275,15 +275,15 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             return any_built;
         };
 
-        // 召唤恶魔：单位依据自身特质，有几率在所属城市召唤对应的混沌魔塔
+        // 召唤恶魔：单位依据自身特质，有几率召唤对应的混沌魔塔、扭转纪元，并化身为对应大魔
         SetupDemonSummonPlot(SummonKhorne,   "cultiway/icons/Khorne",
-            a => a.data.kills >= DEMON_KILLS_THRESHOLD, Buildings.KhorneTower,   DEMON_SUMMON_CHANCE);
+            a => a.data.kills >= DEMON_KILLS_THRESHOLD, Buildings.KhorneTower,   Actors.Bloodthirster,           "age_chaos",   DEMON_SUMMON_CHANCE);
         SetupDemonSummonPlot(SummonSlaanesh, "cultiway/icons/Slaanesh",
-            a => a.diplomacy >= DEMON_CHARM_THRESHOLD,  Buildings.SlaaneshTower, DEMON_SUMMON_CHANCE);
+            a => a.diplomacy >= DEMON_CHARM_THRESHOLD,  Buildings.SlaaneshTower, Actors.KeeperSecrets,           "age_moon",    DEMON_SUMMON_CHANCE);
         SetupDemonSummonPlot(SummonTzeentch, "cultiway/icons/Tzeentch",
-            a => a.intelligence >= DEMON_INT_THRESHOLD, Buildings.TzeentchTower, DEMON_SUMMON_CHANCE);
+            a => a.intelligence >= DEMON_INT_THRESHOLD, Buildings.TzeentchTower, Actors.LordChange,             "age_wonders", DEMON_SUMMON_CHANCE);
         SetupDemonSummonPlot(SummonNurgle,   "cultiway/icons/Nurgle",
-            a => a.hasTrait(S_Trait.plague),            Buildings.NurgleTower,   DEMON_SUMMON_CHANCE);
+            a => a.hasTrait(S_Trait.plague),            Buildings.NurgleTower,   Actors.GreatUncleanOneButcher, "age_ash",     DEMON_SUMMON_CHANCE);
 
         // 修建城墙：城市领袖/国王在城市达到一定规模后自主谋划，围绕城市筑一圈城墙
         SetupBuildCityWallPlot(BuildCityWall, "cultiway/icons/Tower");
@@ -327,11 +327,13 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
 
     /// <summary>
     /// 配置一个召唤恶魔的谋划：满足 <paramref name="condition"/> 的城市领袖/国王发起后，
-    /// 有 <paramref name="chance"/> 的几率在城市范围内召唤出 <paramref name="tower"/>。
+    /// 有 <paramref name="chance"/> 的几率在城市范围内召唤出 <paramref name="tower"/>，
+    /// 强制把当前纪元转变为 <paramref name="eraId"/>，
+    /// 且发起人自身强制转变为对应的大魔 <paramref name="transformInto"/>（化魔，原身消散）。
     /// </summary>
     private static void SetupDemonSummonPlot(
         PlotAsset plot, string icon, Func<Actor, bool> condition,
-        BuildingAsset tower, float chance)
+        BuildingAsset tower, ActorAsset transformInto, string eraId, float chance)
     {
         plot.path_icon = icon;
         plot.group_id = PlotCategories.Others.id;
@@ -355,6 +357,15 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             if (tile == null)
                 return false;
             World.world.buildings.addBuilding(tower.id, tile);
+            // 谋划成功：强制把当前纪元转变为对应纪元
+            var age = AssetManager.era_library.get(eraId);
+            if (age != null)
+            {
+                World.world.era_manager.setCurrentAge(age);
+            }
+            // 发起人化身为对应的大魔（在原位生成大魔，原身以”蜕变”方式消散）
+            World.world.units.spawnNewUnit(transformInto.id, a.current_tile, true, pSpawnHeight: 0);
+            a.removeByMetamorphosis();
             return true;
         };
     }
@@ -363,18 +374,19 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     private const int   WALL_MIN_ZONES             = 6;    // 城市至少 6 个 zone 才考虑修墙
     private const int   WALL_CIRCLE_ZONE_THRESHOLD = 300;  // zone 数 ≥ 300 的大城用圆形，否则方形
     private const float WALL_REBUILD_RATIO         = 0.3f; // 现存城墙低于完整圈的 30% 视为"被摧毁"，允许重修
+    private const int   WALL_TOWER_INTERVAL        = 10;   // 沿城墙每隔多少格放置一座防御箭塔
 
     private const int WALL_STAGE_NONE     = 0; // 无墙
     private const int WALL_STAGE_INNER    = 1; // 仅内墙（木墙，宽1）
     private const int WALL_STAGE_BOTH     = 2; // 内墙（石墙，宽2）+ 外墙（木墙，宽1）+ 出入口箭塔
-    private const int WALL_STAGE_FORTRESS = 3; // 内墙（古城墙，宽2）+ 外墙（石墙，宽2）
+    private const int WALL_STAGE_FORTRESS = 3; // 内墙（石墙，宽2）+ 外墙（石墙，宽2）
 
     /// <summary>
     /// 配置"修筑城墙"谋划：城市领袖/国王在城市达到一定规模后自主发起，分三阶段修筑：
     /// 1) 初次：生成一圈<b>木墙</b>包围城市全部领土（宽度1）；
     /// 2) 二次（已有内墙）：把内墙<b>原位替换为石墙、宽度2</b>，并在距内墙一个内墙直径处
     ///    （r_outer = 3×r_inner）再加一圈<b>木墙外墙</b>，内外墙每个出入口各放一座<b>种族箭塔</b>守门；
-    /// 3) 三次（已有内外墙）：内墙替换为<b>古城墙</b>（宽2），外墙替换为<b>石墙、宽度2</b>。
+    /// 3) 三次（已有内外墙）：内墙保持<b>石墙</b>（宽2），外墙升级为<b>石墙、宽度2</b>。
     /// 最终阶段任一城墙被摧毁大半后可重新谋划重建。
     /// </summary>
     private static void SetupBuildCityWallPlot(PlotAsset plot, string icon)
@@ -409,7 +421,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             {
                 // 初次：一圈木墙包围全部领土（宽度1，半径=全领地）；记录半径，此后固定不随城市扩张变化
                 rInner = WallShapeHelper.InnerRadius(city);
-                PlaceWallRing(city, circle, rInner, 1, TopTileLibrary.wall_wild);
+                PlaceWallRing(a, circle, rInner, 1, TopTileLibrary.wall_wild, 0); // 木墙阶段不生成间隔箭塔
                 SetInnerRadius(city, rInner);
                 SetWallStage(city, WALL_STAGE_INNER);
             }
@@ -421,17 +433,17 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 if (stage == WALL_STAGE_INNER)
                 {
                     // 二次：内墙原位替换为石墙、宽度2；外墙(3r)木墙宽1；内外墙出入口各放一座种族箭塔守门
-                    PlaceWallRing(city, circle, rInner, 2, TopTileLibrary.wall_order);
-                    PlaceWallRing(city, circle, rOuter, 1, TopTileLibrary.wall_wild);
+                    PlaceWallRing(a, circle, rInner, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
+                    PlaceWallRing(a, circle, rOuter, 1, TopTileLibrary.wall_wild, 0); // 外墙木墙不放箭塔
                     PlaceExitTowers(a, circle, rInner);
                     PlaceExitTowers(a, circle, rOuter);
                     SetWallStage(city, WALL_STAGE_BOTH);
                 }
                 else
                 {
-                    // 三次(stage 2→3) 或 被毁重建(stage 3)：内墙替换为古城墙、宽度2；外墙替换为石墙、宽度2
-                    PlaceWallRing(city, circle, rInner, 2, TopTileLibrary.wall_ancient);
-                    PlaceWallRing(city, circle, rOuter, 2, TopTileLibrary.wall_order);
+                    // 三次(stage 2→3) 或 被毁重建(stage 3)：内墙保持石墙、宽度2；外墙升级为石墙、宽度2
+                    PlaceWallRing(a, circle, rInner, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
+                    PlaceWallRing(a, circle, rOuter, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
                     SetWallStage(city, WALL_STAGE_FORTRESS);
                 }
             }
@@ -439,9 +451,13 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         };
     }
 
-    /// <summary>放置一圈城墙：生成 ring → 直接设置城墙 top_tile。不拆除建筑、不改变城市 zones。</summary>
-    private static void PlaceWallRing(City city, bool circle, int radius, int width, TopTileType wall)
+    /// <summary>
+    /// 放置一圈城墙：生成 ring → 直接设置城墙 top_tile（不拆除建筑、不改变城市 zones）。
+    /// <b>箭塔只在两格宽石墙(wall_order)的内侧圈、按 towerInterval 间距放置</b>；出入口箭塔由 PlaceExitTowers 单独处理。
+    /// </summary>
+    private static void PlaceWallRing(Actor actor, bool circle, int radius, int width, TopTileType wall, int towerInterval)
     {
+        var city = actor.city;
         var ring = WallShapeHelper.ComputeWallRing(city, circle, radius, width);
         if (ring == null) return;
         foreach (var tile in ring)
@@ -450,20 +466,54 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             // 也不主动拆除建筑——城墙与现有建筑共存，不影响城市 zones
             tile.setTopTileType(wall);
         }
+
+        // 箭塔只在"两格宽石墙(wall_order)"的内侧圈、按 towerInterval 间距放置（木墙/单格墙都不放）
+        if (towerInterval > 0 && width >= 2 && wall == TopTileLibrary.wall_order)
+        {
+            string tower_id = GetWatchTowerId(city);
+            var inner = WallShapeHelper.ComputeWallRing(city, circle, radius, 1); // 内侧圈
+            for (int i = 0; i < inner.Count; i += towerInterval)
+            {
+                var tile = inner[i];
+                if (tile.building != null) continue;
+                var b = World.world.buildings.addBuilding(tower_id, tile);
+                ModClass.LogInfo($"Place tower(id: {b.data.id}), its kingdom: null?{b.kingdom==null}, id?{b.kingdom?.id}, asset:{b.kingdom?.asset.id}");
+            }
+        }
     }
 
-    /// <summary>在城墙出入口处放置箭塔守门；箭塔样式取自发起单位 <paramref name="actor"/> 所属城市的种族。</summary>
+    /// <summary>在城墙出入口处放置种族箭塔守门；箭塔放在缺口<b>外侧</b>（背离圆心方向），让两格缺口保持畅通。</summary>
     private static void PlaceExitTowers(Actor actor, bool circle, int radius)
     {
         var city = actor.city;
+        var center = city.getTile();
         var exits = WallShapeHelper.ComputeExitTiles(city, circle, radius);
         if (exits == null) return;
         string tower_id = GetWatchTowerId(city);
         foreach (var tile in exits)
         {
-            if (tile == null || tile.building != null) continue; // 已有建筑则跳过（不拆除，避免改变城市 zones）
-            World.world.buildings.addBuilding(tower_id, tile);
+            if (tile == null) continue;
+            var spot = FindOutwardLand(tile, center);
+            if (spot == null || spot.building != null) continue; // 已有建筑则跳过（不拆除，避免改变城市 zones）
+            World.world.buildings.addBuilding(tower_id, spot);
         }
+    }
+
+    /// <summary>取 tile 最背离圆心的陆地邻居（用于把箭塔放到缺口外侧、不阻挡通行）；无合适邻居则返回原 tile。</summary>
+    private static WorldTile FindOutwardLand(WorldTile t, WorldTile center)
+    {
+        if (t == null) return null;
+        if (center == null) return t;
+        int cx = center.x, cy = center.y;
+        WorldTile best = t;
+        int bestDist = (t.x - cx) * (t.x - cx) + (t.y - cy) * (t.y - cy);
+        foreach (var n in t.neighbours)
+        {
+            if (n == null || n.IsWater()) continue;
+            int d = (n.x - cx) * (n.x - cx) + (n.y - cy) * (n.y - cy);
+            if (d > bestDist) { bestDist = d; best = n; }
+        }
+        return best;
     }
 
     /// <summary>按城市种族选取箭塔 id（watch_tower_human/orc/elf/dwarf），无对应样式则回退人类。</summary>

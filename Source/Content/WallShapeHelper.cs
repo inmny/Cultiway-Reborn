@@ -18,7 +18,7 @@ public static class WallShapeHelper
     private const int RADIUS_MAX = 60;   // 外墙 = 3×内墙，需要较大上限
     // 每个出口的宽度（tile 数，含两端）
     private const int EXIT_WIDTH_MIN = 2;
-    private const int EXIT_WIDTH_MAX = 3;
+    private const int EXIT_WIDTH_MAX = 2; // 出入口固定两格宽，确保单位能正常通行
 
     /// <summary>内墙半径：包围城市全部领土（πr² ≈ zones×TILES_PER_ZONE）。</summary>
     public static int InnerRadius(City city)
@@ -41,9 +41,10 @@ public static class WallShapeHelper
     }
 
     /// <summary>
-    /// 生成指定半径、宽度（同心圈数）的城墙 tile 列表，剔除水域与出口方位。
-    /// 出口数量与方位均<b>基于城市 id 确定性</b>生成（非全局随机），因此同一城市的内/外墙与
-    /// 多层同心圈的缺口始终对齐，且重建后位置一致。
+    /// 生成指定半径、宽度（同心圈数）的城墙 tile 列表。
+    /// 出口数量与方位均<b>基于城市 id 确定性</b>生成（非全局随机），同一城市的内/外墙与多层同心圈缺口始终对齐。
+    /// 路径上的<b>水域 tile 会贴着水岸绕行</b>（替换为最背离圆心的陆地邻居），相邻位置之间用<b>避水</b>的 4 连通路径补全。
+    /// 城墙<b>只生成在陆地（沿水岸）</b>，四周皆水的深海段不放置（以水为天然屏障），可能在该处断开。
     /// </summary>
     public static List<WorldTile> ComputeWallRing(City city, bool circle, int radius, int width)
     {
@@ -58,22 +59,105 @@ public static class WallShapeHelper
         int exitCount = 1 + HashInt(seed, 7, 0, 4); // 1~4 个出口
         var exits = ComputeExitAngles(exitCount, radius, seed);
 
-        var seen = new HashSet<long>();
+        var placed = new HashSet<long>();
         for (int w = 0; w < width; w++)
         {
             int r = radius + w;
-            var ring = new List<WorldTile>();
-            if (circle) FillCircleEdge(cx, cy, r, ring, seen);
-            else FillSquareEdge(cx, cy, r, ring, seen);
-            foreach (var t in ring)
+            var actual = BuildActualRing(cx, cy, circle, r, exits, out bool hasLandExit);
+            int n = actual.Count;
+            if (n == 0) continue;
+            // 兜底：确保至少一条陆地通道——若无任何出口落在陆地上（如临海城市出口全开在水里），
+            // 在最长陆地（连续非空）段中部强制开 2 格缺口
+            if (!hasLandExit) ForceLandGap(actual);
+            // 闭环连接相邻非空 tile；遇 null（出口 / 深海断点）则跳过该连接，保留出入口通道、不入水
+            for (int i = 0; i < n; i++)
             {
-                if (t == null || t.IsWater()) continue;            // 跳过水域
-                float ang = NormalizeAngle(Mathf.Atan2(t.y - cy, t.x - cx));
-                if (InAnyExit(ang, exits)) continue;               // 出口方位，跳过
-                result.Add(t);
+                var cur = actual[i];
+                var next = actual[(i + 1) % n];
+                if (cur == null || next == null) continue;          // 断点：不连接
+                AddUnique(cur, result, placed);
+                Connect4Land(cur.x, cur.y, next.x, next.y, result, placed);
             }
         }
         return result;
+    }
+
+    /// <summary>
+    /// 生成单圈实际边界序列（顺时针有序）：水域 tile 替换为最背离圆心的陆地邻居（贴岸绕行）。
+    /// <b>出口方位与四周皆水的深海 tile 记为 null（断点）</b>——调用方据此在断点处断开，
+    /// 既保留出入口通道，又不在水里生成。
+    /// </summary>
+    /// <param name="hasLandExit">输出：是否存在落在<b>陆地</b>上的出口断点（真正可通行的通道）。</param>
+    private static List<WorldTile> BuildActualRing(int cx, int cy, bool circle, int r, List<ExitRange> exits, out bool hasLandExit)
+    {
+        hasLandExit = false;
+        var ring = new List<WorldTile>();
+        var ringSeen = new HashSet<long>();
+        if (circle) FillCircleEdge(cx, cy, r, ring, ringSeen);
+        else FillSquareEdge(cx, cy, r, ring, ringSeen);
+
+        var actual = new List<WorldTile>();
+        foreach (var t in ring)
+        {
+            if (t == null) continue;
+            float ang = NormalizeAngle(Mathf.Atan2(t.y - cy, t.x - cx));
+            if (InAnyExit(ang, exits))
+            {
+                actual.Add(null); // 出口断点
+                if (!t.IsWater()) hasLandExit = true; // 出口落在陆地 → 可通行通道
+                continue;
+            }
+            WorldTile a = t.IsWater() ? FindLandNeighbor(t, cx, cy) : t;
+            actual.Add(a); // a==null（深海）同为断点
+        }
+        return actual;
+    }
+
+    /// <summary>
+    /// 在 actual 中<b>最长的连续非空（陆地）段</b>中部强制开 2 格缺口，
+    /// 用于"出口全部落在水上"时保证至少一条陆地通道。
+    /// </summary>
+    private static void ForceLandGap(List<WorldTile> actual)
+    {
+        int n = actual.Count;
+        if (n == 0) return;
+        // 闭环找最长连续非空段
+        int bestStart = 0, bestLen = 0;
+        int curStart = 0, curLen = 0;
+        for (int i = 0; i < 2 * n && curLen < n; i++)
+        {
+            int idx = i % n;
+            if (actual[idx] != null)
+            {
+                if (curLen == 0) curStart = idx;
+                curLen++;
+                if (curLen > bestLen) { bestLen = curLen; bestStart = curStart; }
+            }
+            else curLen = 0;
+        }
+        if (bestLen > n) bestLen = n;
+        if (bestLen >= 4) // 足够长的陆地城墙段：开 2 格缺口
+        {
+            int mid = (bestStart + bestLen / 2) % n;
+            actual[mid] = null;
+            actual[(mid + 1) % n] = null;
+        }
+        else if (bestLen >= 2) actual[(bestStart + bestLen / 2) % n] = null;
+    }
+
+    /// <summary>取水域 tile 四邻接中<b>最背离圆心</b>的陆地邻居（贴着水岸向外绕行）；四周皆水则返回 null。</summary>
+    private static WorldTile FindLandNeighbor(WorldTile water, int cx, int cy)
+    {
+        if (water == null) return null;
+        WorldTile best = null;
+        int bestDist = -1;
+        foreach (var n in water.neighbours)
+        {
+            if (n == null || n.IsWater()) continue;
+            int d = (n.x - cx) * (n.x - cx) + (n.y - cy) * (n.y - cy);
+            if (d > bestDist) { bestDist = d; best = n; }
+        }
+        return best;
     }
 
     /// <summary>
@@ -115,12 +199,14 @@ public static class WallShapeHelper
             }
             if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) continue;
             var t = World.world.GetTileSimple(x, y);
+            if (t == null) continue;
+            if (t.IsWater()) t = FindLandNeighbor(t, cx, cy); // 出口落在水上则贴岸放塔
             if (t != null) result.Add(t);
         }
         return result;
     }
 
-    /// <summary>指定半径、宽度的现存城墙比例（陆地边界中已是墙的比例，0~1）。用于判断是否被摧毁。</summary>
+    /// <summary>指定半径、宽度的现存城墙比例（实际边界——含水岸贴行位置——中已是墙的比例，0~1）。用于判断是否被摧毁。</summary>
     public static float ExistingWallRatio(City city, bool circle, int radius, int width)
     {
         if (city == null || city.zones.Count == 0 || radius <= 0 || width <= 0) return 0f;
@@ -128,18 +214,18 @@ public static class WallShapeHelper
         if (center == null) return 0f;
         int cx = center.x, cy = center.y;
 
-        var seen = new HashSet<long>();
+        long seed = city.data?.id ?? 0;
+        int exitCount = 1 + HashInt(seed, 7, 0, 4);
+        var exits = ComputeExitAngles(exitCount, radius, seed);
+
         int total = 0;
         int existing = 0;
         for (int w = 0; w < width; w++)
         {
             int r = radius + w;
-            var ring = new List<WorldTile>();
-            if (circle) FillCircleEdge(cx, cy, r, ring, seen);
-            else FillSquareEdge(cx, cy, r, ring, seen);
-            foreach (var t in ring)
+            foreach (var t in BuildActualRing(cx, cy, circle, r, exits, out _))
             {
-                if (t == null || t.IsWater()) continue;
+                if (t == null) continue; // 断点（出口 / 深海）不计入
                 total++;
                 if (IsWallTop(t)) existing++;
             }
@@ -158,6 +244,12 @@ public static class WallShapeHelper
         long key = (long)y * MapBox.width + x;
         if (!seen.Add(key)) return; // 已加入则跳过
         list.Add(tile);
+    }
+
+    /// <summary>去重加入一个已有 tile（复用 AddTile 的越界/去重逻辑）。</summary>
+    private static void AddUnique(WorldTile t, List<WorldTile> list, HashSet<long> seen)
+    {
+        if (t != null) AddTile(t.x, t.y, list, seen);
     }
 
     private static void FillSquareEdge(int cx, int cy, int r, List<WorldTile> list, HashSet<long> seen)
@@ -203,6 +295,30 @@ public static class WallShapeHelper
         while (y != by) { y += sy; AddTile(x, y, list, seen); }
     }
 
+    /// <summary>
+    /// 生成 (ax,ay) -> (bx,by) 的 4 连通路径（不含起点、含终点），<b>只在陆地放置</b>（水 tile 跳过）。
+    /// 用于沿水岸连接相邻边界点，确保城墙不在水里生成；若两点间必须穿水，则该段断开。
+    /// </summary>
+    private static void Connect4Land(int ax, int ay, int bx, int by, List<WorldTile> list, HashSet<long> seen)
+    {
+        int x = ax, y = ay;
+        int sx = Math.Sign(bx - ax);
+        int sy = Math.Sign(by - ay);
+        while (x != bx) { x += sx; AddTileIfLand(x, y, list, seen); }
+        while (y != by) { y += sy; AddTileIfLand(x, y, list, seen); }
+    }
+
+    /// <summary>只在陆地（非水）去重加入 tile。</summary>
+    private static void AddTileIfLand(int x, int y, List<WorldTile> list, HashSet<long> seen)
+    {
+        if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) return;
+        var tile = World.world.GetTileSimple(x, y);
+        if (tile == null || tile.IsWater()) return; // 水/越界 → 跳过，不在水里生成
+        long key = (long)y * MapBox.width + x;
+        if (!seen.Add(key)) return;
+        list.Add(tile);
+    }
+
     private struct ExitRange
     {
         public float center;
@@ -216,14 +332,11 @@ public static class WallShapeHelper
     private static List<ExitRange> ComputeExitAngles(int exitCount, int radius, long seed)
     {
         var list = new List<ExitRange>();
-        if (exitCount <= 0) return list;
-        int widthTiles = EXIT_WIDTH_MIN + HashInt(seed, 0, 0, EXIT_WIDTH_MAX - EXIT_WIDTH_MIN + 1); // 2~3
-        float halfWidth = widthTiles * 0.5f / Mathf.Max(1, radius); // 弧度半宽
-        float seg = Mathf.PI * 2f / exitCount;
-        for (int e = 0; e < exitCount; e++)
+        // 固定在上/下/左/右四个方位各开一个出口，保证单位能从四个基本方向出入
+        float halfWidth = EXIT_WIDTH_MIN * 0.5f / Mathf.Max(1, radius); // 每个出口 2 格宽
+        for (int e = 0; e < 4; e++)
         {
-            float jitter = (HashFloat(seed, e + 1) - 0.5f) * seg * 0.8f;
-            float center = seg * (e + 0.5f) + jitter;
+            float center = Mathf.PI * 2f * e / 4f; // 0(右)、π/2(下)、π(左)、3π/2(上)
             list.Add(new ExitRange { center = center, halfWidth = halfWidth });
         }
         return list;
