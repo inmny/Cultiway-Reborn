@@ -332,14 +332,11 @@ public static class WallShapeHelper
     private static List<ExitRange> ComputeExitAngles(int exitCount, int radius, long seed)
     {
         var list = new List<ExitRange>();
-        if (exitCount <= 0) return list;
-        int widthTiles = EXIT_WIDTH_MIN + HashInt(seed, 0, 0, EXIT_WIDTH_MAX - EXIT_WIDTH_MIN + 1); // 2~3
-        float halfWidth = widthTiles * 0.5f / Mathf.Max(1, radius); // 弧度半宽
-        float seg = Mathf.PI * 2f / exitCount;
-        for (int e = 0; e < exitCount; e++)
+        // 固定在上/下/左/右四个方位各开一个出口，保证单位能从四个基本方向出入
+        float halfWidth = EXIT_WIDTH_MIN * 0.5f / Mathf.Max(1, radius); // 每个出口 2 格宽
+        for (int e = 0; e < 4; e++)
         {
-            float jitter = (HashFloat(seed, e + 1) - 0.5f) * seg * 0.8f;
-            float center = seg * (e + 0.5f) + jitter;
+            float center = Mathf.PI * 2f * e / 4f; // 0(右)、π/2(下)、π(左)、3π/2(上)
             list.Add(new ExitRange { center = center, halfWidth = halfWidth });
         }
         return list;

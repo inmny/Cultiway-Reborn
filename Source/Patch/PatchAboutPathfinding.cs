@@ -29,7 +29,7 @@ namespace Cultiway.Patch
             int pLimitPathfindingRegions = 0)
         {
             //AbortPath(__instance);
-
+/*
             if (pTile != null && __instance.current_tile == pTile)
             {
                 PathFinder.Instance.Cancel(__instance);
@@ -38,7 +38,7 @@ namespace Cultiway.Patch
                 __result = ExecuteEvent.True;
                 return false;
             }
-
+*/
             __instance.setTileTarget(pTile);
             __instance.next_step_position = __instance.current_tile?.posV3 ?? __instance.next_step_position;
 
