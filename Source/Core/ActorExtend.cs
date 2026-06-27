@@ -191,18 +191,18 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         
         using var attack_action_pool = new ListPool<CombatActionAsset>();
         // 加入普攻
-        if (CanUseMeleeAttackAtCurrentDistance(target))
+        if (do_checks ? CanUseMeleeAttackAtCurrentDistance(target) : actor.hasMeleeAttack())
         {
             basic_attack_action = WorldboxGame.CombatActions.AttackMelee;
         }
-        else if (CanUseRangeAttackAtCurrentDistance(target))
+        else if (do_checks ? CanUseRangeAttackAtCurrentDistance(target) : actor.hasRangeAttack())
         {
             basic_attack_action = WorldboxGame.CombatActions.AttackRange;
         }
         
         if (basic_attack_action != null) basic_attack_action.AddToPool(attack_action_pool);
         // 加入原版技能
-        if (CanUseVanillaSpellAtCurrentDistance(target))
+        if (do_checks ? CanUseVanillaSpellAtCurrentDistance(target) : actor.hasSpells() && actor.canUseSpells())
         {
             WorldboxGame.CombatActions.CastVanillaSpell.AddToPool(attack_action_pool);
         }
@@ -319,12 +319,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <param name="skill">技能容器实体。</param>
     /// <param name="target">当前攻击目标。</param>
     /// <returns>目标、距离和灵气消耗都满足时返回 true。</returns>
-    public bool CanUseSkillContainerAtCurrentDistance(Entity skill, BaseSimObject target)
+    public bool CanUseSkillContainerAtCurrentDistance(Entity skill, BaseSimObject target,
+        SkillCastCostSource costSource = SkillCastCostSource.CasterWakan)
     {
         if (target.isRekt()) return false;
         if (!IsWithinSkillCastRange(target)) return false;
         if (!IsAtPreferredSkillCombatDistance(target)) return false;
-        return CanCastSkillContainer(skill, target);
+        return CanCastSkillContainer(skill, target, costSource);
     }
 
     /// <summary>
@@ -428,21 +429,26 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <summary>
     /// 判断技能容器是否满足释放前置条件并且目标在最大施法距离内。
     /// </summary>
-    private bool CanCastSkillContainer(Entity skill, BaseSimObject target)
+    private bool CanCastSkillContainer(Entity skill, BaseSimObject target,
+        SkillCastCostSource costSource = SkillCastCostSource.CasterWakan)
     {
-        if (!CanPrepareSkillContainer(skill, target)) return false;
+        if (!CanPrepareSkillContainer(skill, target, costSource)) return false;
         return IsWithinSkillCastRange(target);
     }
 
     /// <summary>
     /// 判断技能容器是否具备准备释放的基础条件。
     /// </summary>
-    private bool CanPrepareSkillContainer(Entity skill, BaseSimObject target)
+    private bool CanPrepareSkillContainer(Entity skill, BaseSimObject target,
+        SkillCastCostSource costSource = SkillCastCostSource.CasterWakan)
     {
         if (!GeneralSettings.EnableSkillSystems) return false;
         if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
         if (target.isRekt()) return false;
-        return SkillCastCost.CanAffordStepWakan(this, skill);
+
+        var stepLimit = SkillCastCost.GetAffordableStepLimit(this, skill, costSource);
+        var plan = SkillCastPlanner.CreatePlan(this, skill, target, stepLimit);
+        return SkillCastCost.CanPay(this, skill, plan, costSource);
     }
 
     /// <summary>
@@ -454,7 +460,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         {
             if (!item.HasComponent<Talisman>()) continue;
             ref var talisman = ref item.GetComponent<Talisman>();
-            if (CanCastSkillContainer(talisman.SkillContainer, target)) return true;
+            if (CanCastSkillContainer(talisman.SkillContainer, target, SkillCastCostSource.Prepaid)) return true;
         }
 
         return false;
@@ -469,7 +475,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         {
             if (!item.HasComponent<Talisman>()) continue;
             ref var talisman = ref item.GetComponent<Talisman>();
-            if (CanPrepareSkillContainer(talisman.SkillContainer, target)) return true;
+            if (CanPrepareSkillContainer(talisman.SkillContainer, target, SkillCastCostSource.Prepaid)) return true;
         }
 
         return false;
@@ -688,19 +694,17 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             var statusAsset = statusComponent.Type;
             if (statusAsset != null && statusAsset.GetExtend<StatusAssetExtend>().negative)
             {
-                // 从StatusComponent获取施加方信息
-                BaseSimObject source = null;
-                if (item.TryGetComponent(out StatusComponent statusComp))
-                {
-                    source = statusComp.Source;
-                }
-
                 // 如果有施加方信息，计算powerlevel差距并调整状态时长
-                if (source != null && source.isActor())
+                var source = statusComponent.Source;
+                var sourcePowerLevel = statusComponent.SourcePowerLevel;
+                if (!sourcePowerLevel.HasValue && source != null && source.isActor())
                 {
-                    var sourcePowerLevel = source.a.GetExtend().GetPowerLevel();
+                    sourcePowerLevel = source.a.GetExtend().GetPowerLevel();
+                }
+                if (sourcePowerLevel.HasValue)
+                {
                     var targetPowerLevel = GetPowerLevel();
-                    var powerLevelDiff = sourcePowerLevel - targetPowerLevel;
+                    var powerLevelDiff = sourcePowerLevel.Value - targetPowerLevel;
 
                     // 如果目标powerlevel更高，减少状态时长
                     // 差距越大，减少越多（使用对数衰减）
@@ -945,7 +949,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     }
 
     [Hotfixable]
-    public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker, AttackType attack_type_for_vanilla = AttackType.Other, bool ignore_damage_reduction = false)
+    public void GetHit(float damage, ref ElementComposition damage_composition, BaseSimObject attacker,
+        AttackType attack_type_for_vanilla = AttackType.Other, bool ignore_damage_reduction = false,
+        float? attacker_power_level_override = null)
     {
 
         if (!Base.isAlive() || Base.hasStatus("invincible") || Base.data.health <= 0)
@@ -958,7 +964,10 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         RecordRecentAttacker(attacker);
         action_before_be_attacked?.Invoke(this, attacker, ref damage_composition, ref attack_type_for_vanilla, ref damage, ref ignore_damage_reduction);
 
-        var attacker_power_level = ((attacker?.isActor() ?? false) && !attacker.isRekt()) ? attacker.a.GetExtend().GetPowerLevel() : 0;
+        var attacker_power_level = attacker_power_level_override ??
+                                   (((attacker?.isActor() ?? false) && !attacker.isRekt())
+                                       ? attacker.a.GetExtend().GetPowerLevel()
+                                       : 0);
         var power_level = GetPowerLevel();
         var power_level_gap = power_level - attacker_power_level;
         var should_apply_minimum_damage = ShouldApplyMinimumDamage(attacker, damage, power_level_gap);
@@ -1335,20 +1344,22 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         Base.setStatsDirty();
     }
 
-    public bool CastSkillV3(Entity skill, BaseSimObject target)
+    public bool CastSkillV3(Entity skill, BaseSimObject target, float strength = 100, float? power_level = null,
+        SkillCastCostSource cost_source = SkillCastCostSource.CasterWakan)
     {
         if (!GeneralSettings.EnableSkillSystems) return false;
-        // TODO: 添加消耗检查，技能消耗由技能实体和所有词缀组合决定（存在SkillContainer里头）
         if (!skill.HasComponent<SkillContainer>())
         {
             ModClass.LogError($"技能实体{skill}不包含技能");
             return false;
         }
 
-        var plan = SkillCastPlanner.CreatePlan(this, skill, target);
+        var stepLimit = SkillCastCost.GetAffordableStepLimit(this, skill, cost_source);
+        var plan = SkillCastPlanner.CreatePlan(this, skill, target, stepLimit);
         if (plan.Steps.Count == 0) return false;
 
-        return ModClass.I.SkillV3.StartSkillSequence(this, skill, plan, 100);
+        return ModClass.I.SkillV3.StartSkillSequence(this, skill, plan, strength, power_level ?? GetPowerLevel(),
+            cost_source);
     }
 
     // ======== 师徒系统核心方法（不依赖Content） ========

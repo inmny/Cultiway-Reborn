@@ -34,14 +34,8 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 sequence.NextIndex++;
                 if (step.Target == null || step.Target.isRekt()) continue;
 
-                if (!SkillCastCost.TryConsumeStepWakan(sequence.Caster, sequence.SkillContainer))
-                {
-                    CommandBuffer.AddTag<TagRecycle>(entity.Id);
-                    return;
-                }
-
                 ModClass.I.SkillV3.SpawnSkill(sequence.SkillContainer, sequence.Caster.Base, step.Target,
-                    sequence.Strength);
+                    sequence.Strength, power_level: sequence.PowerLevel);
                 emitted++;
             }
 

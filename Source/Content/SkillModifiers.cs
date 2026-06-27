@@ -527,9 +527,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         {
             Value = strength
         });
-        // 设置施加方信息，用于计算powerlevel差距
-        ref var statusComp = ref status.GetComponent<StatusComponent>();
-        statusComp.Source = context.SourceObj;
+        SetStatusSource(status, context.SourceObj, context.PowerLevel);
         target.a.GetExtend().AddSharedStatus(status);
     }
 
@@ -549,9 +547,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var status = StatusEffects.Freeze.NewEntity();
         ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
         timeLimit.value = duration;
-        // 设置施加方信息，用于计算powerlevel差距
-        ref var statusComp = ref status.GetComponent<StatusComponent>();
-        statusComp.Source = context.SourceObj;
+        SetStatusSource(status, context.SourceObj, context.PowerLevel);
         target.a.GetExtend().AddSharedStatus(status);
     }
 
@@ -589,7 +585,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
                     TargetID = obj.a.data.id,
                     Damage = damage,
                     Element = element,
-                    Attacker = attacker
+                    Attacker = attacker,
+                    AttackerPowerLevel = context.PowerLevel
                 });
             }
             else
@@ -693,17 +690,16 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
             burnStatus = StatusEffects.Burn.NewEntity();
             ref var timeLimit = ref burnStatus.GetComponent<AliveTimeLimit>();
             timeLimit.value = duration;
-            // 先设置Source信息，用于AddSharedStatus时计算powerlevel差距
-            ref var statusComp = ref burnStatus.GetComponent<StatusComponent>();
-            statusComp.Source = context.SourceObj;
-            ApplyDamageTickState(ref burnStatus, dps, element, context.SourceObj);
+            SetStatusSource(burnStatus, context.SourceObj, context.PowerLevel);
+            ApplyDamageTickState(ref burnStatus, dps, element, context.SourceObj, context.PowerLevel);
             actorExtend.AddSharedStatus(burnStatus);
         }
         else
         {
             ref var timeLimit = ref burnStatus.GetComponent<AliveTimeLimit>();
             timeLimit.value = duration;
-            ApplyDamageTickState(ref burnStatus, dps, element, context.SourceObj);
+            SetStatusSource(burnStatus, context.SourceObj, context.PowerLevel);
+            ApplyDamageTickState(ref burnStatus, dps, element, context.SourceObj, context.PowerLevel);
         }
     }
 
@@ -742,29 +738,30 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         if (damagePerSecond <= 0f) return;
         if (poisonStatuses.Count >= maxStacks)
         {
-            RefreshExistingPoison(duration, damagePerSecond, element, context.SourceObj, poisonStatuses);
+            RefreshExistingPoison(duration, damagePerSecond, element, context.SourceObj, context.PowerLevel,
+                poisonStatuses);
             return;
         }
 
         var status = StatusEffects.Poison.NewEntity();
         ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
         timeLimit.value = duration;
-        // 先设置Source信息，用于AddSharedStatus时计算powerlevel差距
-        ref var statusComp = ref status.GetComponent<StatusComponent>();
-        statusComp.Source = context.SourceObj;
-        ApplyDamageTickState(ref status, damagePerSecond, element, context.SourceObj);
+        SetStatusSource(status, context.SourceObj, context.PowerLevel);
+        ApplyDamageTickState(ref status, damagePerSecond, element, context.SourceObj, context.PowerLevel);
         actorExtend.AddSharedStatus(status);
     }
 
-    private static void ApplyDamageTickState(ref Entity status, float dps, ElementComposition element, BaseSimObject source)
+    private static void ApplyDamageTickState(ref Entity status, float dps, ElementComposition element,
+        BaseSimObject source, float? sourcePowerLevel)
     {
         ref var tickState = ref status.GetComponent<StatusTickState>();
         tickState.Value = dps;
         tickState.Element = element;
-        // Source已移到StatusComponent中，这里不再设置
+        SetStatusSource(status, source, sourcePowerLevel);
     }
 
-    private static void RefreshExistingPoison(float duration, float dps, ElementComposition element, BaseSimObject source, List<Entity> poisonStatuses)
+    private static void RefreshExistingPoison(float duration, float dps, ElementComposition element,
+        BaseSimObject source, float? sourcePowerLevel, List<Entity> poisonStatuses)
     {
         Entity targetStatus = default;
         float minTimer = float.MaxValue;
@@ -787,7 +784,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         aliveTimer.value = 0f;
         ref var aliveLimit = ref targetStatus.GetComponent<AliveTimeLimit>();
         aliveLimit.value = duration;
-        ApplyDamageTickState(ref targetStatus, dps, element, source);
+        ApplyDamageTickState(ref targetStatus, dps, element, source, sourcePowerLevel);
     }
 
     // 击中单位时施加击飞效果
@@ -851,15 +848,11 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         if (attackDelta <= 0f) return;
 
         var actorExtend = target.a.GetExtend();
-        var status = GetOrCreateStatus(actorExtend, StatusEffects.Weaken);
+        var status = GetOrCreateStatus(actorExtend, StatusEffects.Weaken, context.SourceObj, context.PowerLevel,
+            out var isNewStatus);
         ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
         timeLimit.value = duration;
-        // 设置施加方信息，用于计算powerlevel差距
-        ref var statusComp = ref status.GetComponent<StatusComponent>();
-        if (statusComp.Source == null)
-        {
-            statusComp.Source = context.SourceObj;
-        }
+        if (isNewStatus && !actorExtend.AddSharedStatus(status)) return;
 
         var stats = PrepareOverwriteStats(status);
         if (attackDelta > 0f)
@@ -886,15 +879,11 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         if (armorDelta <= 0f) return;
 
         var actorExtend = target.a.GetExtend();
-        var status = GetOrCreateStatus(actorExtend, StatusEffects.ArmorBreak);
+        var status = GetOrCreateStatus(actorExtend, StatusEffects.ArmorBreak, context.SourceObj, context.PowerLevel,
+            out var isNewStatus);
         ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
         timeLimit.value = duration;
-        // 设置施加方信息，用于计算powerlevel差距
-        ref var statusComp = ref status.GetComponent<StatusComponent>();
-        if (statusComp.Source == null)
-        {
-            statusComp.Source = context.SourceObj;
-        }
+        if (isNewStatus && !actorExtend.AddSharedStatus(status)) return;
 
         var stats = PrepareOverwriteStats(status);
         stats[S.armor] = -armorDelta;
@@ -944,20 +933,31 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
     }
 
-    private static Entity GetOrCreateStatus(ActorExtend actorExtend, StatusEffectAsset effect)
+    private static Entity GetOrCreateStatus(ActorExtend actorExtend, StatusEffectAsset effect,
+        BaseSimObject source, float? sourcePowerLevel, out bool isNewStatus)
     {
         foreach (var status in actorExtend.GetStatuses())
         {
             if (status.IsNull || !status.TryGetComponent(out StatusComponent statusComponent)) continue;
             if (statusComponent.Type == effect)
             {
+                SetStatusSource(status, source, sourcePowerLevel);
+                isNewStatus = false;
                 return status;
             }
         }
 
         var newStatus = effect.NewEntity();
-        actorExtend.AddSharedStatus(newStatus);
+        SetStatusSource(newStatus, source, sourcePowerLevel);
+        isNewStatus = true;
         return newStatus;
+    }
+
+    private static void SetStatusSource(Entity status, BaseSimObject source, float? sourcePowerLevel)
+    {
+        ref var statusComp = ref status.GetComponent<StatusComponent>();
+        statusComp.Source = source;
+        statusComp.SourcePowerLevel = sourcePowerLevel;
     }
 
     private static BaseStats PrepareOverwriteStats(Entity status)

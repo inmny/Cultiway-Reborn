@@ -88,7 +88,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                     TargetID = target.a.data.id,
                     Damage = context.Strength,
                     Element = GoldSword.Element,
-                    Attacker = attacker
+                    Attacker = attacker,
+                    AttackerPowerLevel = context.PowerLevel
                 });
             }
             else
@@ -120,7 +121,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                     TargetID = target.a.data.id,
                     Damage = context.Strength,
                     Element = GoldBlade.Element,
-                    Attacker = attacker
+                    Attacker = attacker,
+                    AttackerPowerLevel = context.PowerLevel
                 });
             }
             else
@@ -151,7 +153,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                     TargetID = target.a.data.id,
                     Damage = context.Strength,
                     Element = WoodThorn.Element,
-                    Attacker = attacker
+                    Attacker = attacker,
+                    AttackerPowerLevel = context.PowerLevel
                 });
             }
             else
@@ -182,7 +185,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                     TargetID = target.a.data.id,
                     Damage = context.Strength,
                     Element = FallWood.Element,
-                    Attacker = attacker
+                    Attacker = attacker,
+                    AttackerPowerLevel = context.PowerLevel
                 });
             }
             else
@@ -215,7 +219,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                     TargetID = target.a.data.id,
                     Damage = context.Strength,
                     Element = WaterArrow.Element,
-                    Attacker = attacker
+                    Attacker = attacker,
+                    AttackerPowerLevel = context.PowerLevel
                 });
             }
             else
@@ -248,7 +253,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                     TargetID = target.a.data.id,
                     Damage = context.Strength,
                     Element = WaterBall.Element,
-                    Attacker = attacker
+                    Attacker = attacker,
+                    AttackerPowerLevel = context.PowerLevel
                 });
             }
             else
@@ -281,7 +287,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                     TargetID = target.a.data.id,
                     Damage = context.Strength,
                     Element = WaterBlade.Element,
-                    Attacker = attacker
+                    Attacker = attacker,
+                    AttackerPowerLevel = context.PowerLevel
                 });
             }
             else
@@ -317,7 +324,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                         TargetID = obj.a.data.id,
                         Damage = context.Strength,
                         Element = Fireball.Element,
-                        Attacker = attacker
+                        Attacker = attacker,
+                        AttackerPowerLevel = context.PowerLevel
                     });
                 }
                 else
@@ -351,7 +359,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                         TargetID = target.a.data.id,
                         Damage = context.Strength,
                         Element = FireBlade.Element,
-                        Attacker = attacker
+                        Attacker = attacker,
+                        AttackerPowerLevel = context.PowerLevel
                     });
                 }
                 else
@@ -383,7 +392,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                     TargetID = target.a.data.id,
                     Damage = context.Strength,
                     Element = FallStone.Element,
-                    Attacker = attacker
+                    Attacker = attacker,
+                    AttackerPowerLevel = context.PowerLevel
                 });
             }
             else
@@ -417,7 +427,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                     TargetID = target.a.data.id,
                     Damage = context.Strength,
                     Element = StoneThorn.Element,
-                    Attacker = attacker
+                    Attacker = attacker,
+                    AttackerPowerLevel = context.PowerLevel
                 });
             }
             else
@@ -448,7 +459,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                     TargetID = target.a.data.id,
                     Damage = context.Strength,
                     Element = WindBlade.Element,
-                    Attacker = attacker
+                    Attacker = attacker,
+                    AttackerPowerLevel = context.PowerLevel
                 });
             }
             else
@@ -480,7 +492,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                         TargetID = target.a.data.id,
                         Damage = context.Strength,
                         Element = WindPolo.Element,
-                        Attacker = attacker
+                        Attacker = attacker,
+                        AttackerPowerLevel = context.PowerLevel
                     });
                 }
                 else
@@ -515,7 +528,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                         TargetID = target.a.data.id,
                         Damage = context.Strength,
                         Element = Tornado.Element,
-                        Attacker = attacker
+                        Attacker = attacker,
+                        AttackerPowerLevel = context.PowerLevel
                     });
                 }
                 else
@@ -547,7 +561,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                     TargetID = target.a.data.id,
                     Damage = context.Strength,
                     Element = FallLightning.Element,
-                    Attacker = attacker
+                    Attacker = attacker,
+                    AttackerPowerLevel = context.PowerLevel
                 });
             }
             else
@@ -580,7 +595,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                         TargetID = target.a.data.id,
                         Damage = context.Strength,
                         Element = LightningPolo.Element,
-                        Attacker = attacker
+                        Attacker = attacker,
+                        AttackerPowerLevel = context.PowerLevel
                     });
                 }
                 else

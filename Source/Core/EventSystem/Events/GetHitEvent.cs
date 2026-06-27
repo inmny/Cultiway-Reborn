@@ -8,6 +8,6 @@ public struct GetHitEvent
     public float Damage;
     public ElementComposition Element;
     public BaseSimObject Attacker;
+    public float? AttackerPowerLevel;
     public bool IgnoreDamageReduction;
 }
-

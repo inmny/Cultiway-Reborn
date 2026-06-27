@@ -25,4 +25,6 @@ public struct StatusComponent : IComponent
     /// </summary>
     [Ignore]
     public BaseSimObject Source;
+    [Ignore]
+    public float? SourcePowerLevel;
 }

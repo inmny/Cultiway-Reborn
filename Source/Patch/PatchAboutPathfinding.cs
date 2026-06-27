@@ -30,6 +30,15 @@ namespace Cultiway.Patch
         {
             //AbortPath(__instance);
 
+            if (pTile != null && __instance.current_tile == pTile)
+            {
+                PathFinder.Instance.Cancel(__instance);
+                __instance.clearOldPath();
+                __instance.moveTo(pTile);
+                __result = ExecuteEvent.True;
+                return false;
+            }
+
             __instance.setTileTarget(pTile);
             __instance.next_step_position = __instance.current_tile?.posV3 ?? __instance.next_step_position;
 

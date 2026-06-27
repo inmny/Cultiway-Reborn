@@ -10,5 +10,6 @@ public struct SkillCastSequence : IComponent
     public int NextIndex;
     public float Elapsed;
     public float Strength;
+    public float PowerLevel;
     public int MaxEmitPerTick;
 }
