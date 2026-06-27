@@ -15,4 +15,6 @@ plot_Cultiway.SummonTzeentch,召唤奸奇
 plot_Cultiway.SummonTzeentch_info_base,以智为媒，唤醒奸奇魔塔
 plot_Cultiway.SummonNurgle,召唤纳垢
 plot_Cultiway.SummonNurgle_info_base,以疫为契，唤醒纳垢魔塔
+plot_Cultiway.BuildCityWall,修筑城墙
+plot_Cultiway.BuildCityWall_info_base,筑墙围城，预留城门，层层加固城防
 plot_group_Cultiway.Sect,宗门
