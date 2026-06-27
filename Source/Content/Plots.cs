@@ -363,6 +363,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     private const int   WALL_MIN_ZONES             = 6;    // 城市至少 6 个 zone 才考虑修墙
     private const int   WALL_CIRCLE_ZONE_THRESHOLD = 300;  // zone 数 ≥ 300 的大城用圆形，否则方形
     private const float WALL_REBUILD_RATIO         = 0.3f; // 现存城墙低于完整圈的 30% 视为"被摧毁"，允许重修
+    private const int   WALL_TOWER_INTERVAL        = 10;   // 沿城墙每隔多少格放置一座防御箭塔
 
     private const int WALL_STAGE_NONE     = 0; // 无墙
     private const int WALL_STAGE_INNER    = 1; // 仅内墙（木墙，宽1）
@@ -409,7 +410,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             {
                 // 初次：一圈木墙包围全部领土（宽度1，半径=全领地）；记录半径，此后固定不随城市扩张变化
                 rInner = WallShapeHelper.InnerRadius(city);
-                PlaceWallRing(city, circle, rInner, 1, TopTileLibrary.wall_wild);
+                PlaceWallRing(a, circle, rInner, 1, TopTileLibrary.wall_wild, WALL_TOWER_INTERVAL);
                 SetInnerRadius(city, rInner);
                 SetWallStage(city, WALL_STAGE_INNER);
             }
@@ -421,8 +422,8 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 if (stage == WALL_STAGE_INNER)
                 {
                     // 二次：内墙原位替换为石墙、宽度2；外墙(3r)木墙宽1；内外墙出入口各放一座种族箭塔守门
-                    PlaceWallRing(city, circle, rInner, 2, TopTileLibrary.wall_order);
-                    PlaceWallRing(city, circle, rOuter, 1, TopTileLibrary.wall_wild);
+                    PlaceWallRing(a, circle, rInner, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
+                    PlaceWallRing(a, circle, rOuter, 1, TopTileLibrary.wall_wild, WALL_TOWER_INTERVAL);
                     PlaceExitTowers(a, circle, rInner);
                     PlaceExitTowers(a, circle, rOuter);
                     SetWallStage(city, WALL_STAGE_BOTH);
@@ -430,8 +431,8 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 else
                 {
                     // 三次(stage 2→3) 或 被毁重建(stage 3)：内墙替换为古城墙、宽度2；外墙替换为石墙、宽度2
-                    PlaceWallRing(city, circle, rInner, 2, TopTileLibrary.wall_ancient);
-                    PlaceWallRing(city, circle, rOuter, 2, TopTileLibrary.wall_order);
+                    PlaceWallRing(a, circle, rInner, 2, TopTileLibrary.wall_ancient, WALL_TOWER_INTERVAL);
+                    PlaceWallRing(a, circle, rOuter, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
                     SetWallStage(city, WALL_STAGE_FORTRESS);
                 }
             }
@@ -439,31 +440,62 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         };
     }
 
-    /// <summary>放置一圈城墙：生成 ring → 直接设置城墙 top_tile。不拆除建筑、不改变城市 zones。</summary>
-    private static void PlaceWallRing(City city, bool circle, int radius, int width, TopTileType wall)
+    /// <summary>
+    /// 放置一圈城墙：生成 ring → 直接设置城墙 top_tile（不拆除建筑、不改变城市 zones）。
+    /// 同时沿城墙每隔 <paramref name="towerInterval"/> 格放置一座<b>种族箭塔</b>用于防御。
+    /// </summary>
+    private static void PlaceWallRing(Actor actor, bool circle, int radius, int width, TopTileType wall, int towerInterval)
     {
+        var city = actor.city;
         var ring = WallShapeHelper.ComputeWallRing(city, circle, radius, width);
         if (ring == null) return;
-        foreach (var tile in ring)
+        string tower_id = GetWatchTowerId(city);
+        for (int i = 0; i < ring.Count; i++)
         {
+            var tile = ring[i];
             // 直接设置城墙 top_tile；不用 MapAction.terraformTop（它会摧毁路径建筑，导致城市 zone 被放弃），
             // 也不主动拆除建筑——城墙与现有建筑共存，不影响城市 zones
             tile.setTopTileType(wall);
+            // 沿城墙每隔 towerInterval 格放一座种族箭塔（防御）；跳过已有建筑的 tile
+            if (towerInterval > 0 && i % towerInterval == 0 && tile.building == null)
+            {
+                World.world.buildings.addBuilding(tower_id, tile);
+            }
         }
     }
 
-    /// <summary>在城墙出入口处放置箭塔守门；箭塔样式取自发起单位 <paramref name="actor"/> 所属城市的种族。</summary>
+    /// <summary>在城墙出入口处放置种族箭塔守门；箭塔放在缺口<b>外侧</b>（背离圆心方向），让两格缺口保持畅通。</summary>
     private static void PlaceExitTowers(Actor actor, bool circle, int radius)
     {
         var city = actor.city;
+        var center = city.getTile();
         var exits = WallShapeHelper.ComputeExitTiles(city, circle, radius);
         if (exits == null) return;
         string tower_id = GetWatchTowerId(city);
         foreach (var tile in exits)
         {
-            if (tile == null || tile.building != null) continue; // 已有建筑则跳过（不拆除，避免改变城市 zones）
-            World.world.buildings.addBuilding(tower_id, tile);
+            if (tile == null) continue;
+            var spot = FindOutwardLand(tile, center);
+            if (spot == null || spot.building != null) continue; // 已有建筑则跳过（不拆除，避免改变城市 zones）
+            World.world.buildings.addBuilding(tower_id, spot);
         }
+    }
+
+    /// <summary>取 tile 最背离圆心的陆地邻居（用于把箭塔放到缺口外侧、不阻挡通行）；无合适邻居则返回原 tile。</summary>
+    private static WorldTile FindOutwardLand(WorldTile t, WorldTile center)
+    {
+        if (t == null) return null;
+        if (center == null) return t;
+        int cx = center.x, cy = center.y;
+        WorldTile best = t;
+        int bestDist = (t.x - cx) * (t.x - cx) + (t.y - cy) * (t.y - cy);
+        foreach (var n in t.neighbours)
+        {
+            if (n == null || n.IsWater()) continue;
+            int d = (n.x - cx) * (n.x - cx) + (n.y - cy) * (n.y - cy);
+            if (d > bestDist) { bestDist = d; best = n; }
+        }
+        return best;
     }
 
     /// <summary>按城市种族选取箭塔 id（watch_tower_human/orc/elf/dwarf），无对应样式则回退人类。</summary>
