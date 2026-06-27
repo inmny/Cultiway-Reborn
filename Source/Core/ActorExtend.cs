@@ -191,18 +191,18 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         
         using var attack_action_pool = new ListPool<CombatActionAsset>();
         // 加入普攻
-        if (CanUseMeleeAttackAtCurrentDistance(target))
+        if (do_checks ? CanUseMeleeAttackAtCurrentDistance(target) : actor.hasMeleeAttack())
         {
             basic_attack_action = WorldboxGame.CombatActions.AttackMelee;
         }
-        else if (CanUseRangeAttackAtCurrentDistance(target))
+        else if (do_checks ? CanUseRangeAttackAtCurrentDistance(target) : actor.hasRangeAttack())
         {
             basic_attack_action = WorldboxGame.CombatActions.AttackRange;
         }
         
         if (basic_attack_action != null) basic_attack_action.AddToPool(attack_action_pool);
         // 加入原版技能
-        if (CanUseVanillaSpellAtCurrentDistance(target))
+        if (do_checks ? CanUseVanillaSpellAtCurrentDistance(target) : actor.hasSpells() && actor.canUseSpells())
         {
             WorldboxGame.CombatActions.CastVanillaSpell.AddToPool(attack_action_pool);
         }
