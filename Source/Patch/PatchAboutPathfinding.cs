@@ -34,6 +34,7 @@ namespace Cultiway.Patch
             {
                 PathFinder.Instance.Cancel(__instance);
                 __instance.clearOldPath();
+                __instance.setTileTarget(pTile);
                 __instance.moveTo(pTile);
                 __result = ExecuteEvent.True;
                 return false;
