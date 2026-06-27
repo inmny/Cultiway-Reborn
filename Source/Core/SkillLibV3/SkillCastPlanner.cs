@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Content.Components;
+using Cultiway.Content.Components.Skill;
 using Cultiway.Content.Const;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
@@ -34,6 +35,8 @@ public readonly struct SkillCastStep
 public static class SkillCastPlanner
 {
     private const float DelayStep = 0.04f;
+    private const float MinDelayStep = 0.01f;
+    private const float MaxProficiencyDelayReduction = 0.75f;
     private const float MinSalvoAngleOffset = 3f;
     private const float SalvoAngleOffsetStep = 2f;
     private const float MaxSalvoAngleOffset = 30f;
@@ -52,12 +55,13 @@ public static class SkillCastPlanner
         var targets = CollectCandidateTargets(caster.Base, primaryTarget, skill, castCount);
         var repeatBias = skill.TryGetComponent(out SalvoCount salvo) ? Mathf.Max(0, salvo.Value - 1) : 0;
         var spreadBias = skill.TryGetComponent(out BurstCount burst) ? Mathf.Max(0, burst.Value - 1) : 0;
+        var delayStep = GetDelayStep(skill);
 
         for (var i = 0; i < castCount; i++)
         {
             var target = i == 0 ? primaryTarget : SelectTarget(primaryTarget, targets, repeatBias, spreadBias);
             var angleOffset = GetSalvoAngleOffset(i, target == primaryTarget);
-            plan.Steps.Add(new SkillCastStep(target, i * DelayStep, angleOffset));
+            plan.Steps.Add(new SkillCastStep(target, i * delayStep, angleOffset));
         }
 
         return plan;
@@ -73,6 +77,14 @@ public static class SkillCastPlanner
         magnitude = Mathf.Clamp(magnitude + Randy.randomFloat(-SalvoAngleOffsetJitter, SalvoAngleOffsetJitter),
             MinSalvoAngleOffset, MaxSalvoAngleOffset);
         return sign * magnitude;
+    }
+
+    private static float GetDelayStep(Entity skill)
+    {
+        if (!skill.TryGetComponent(out ProficiencyModifier proficiency)) return DelayStep;
+
+        var reduction = Mathf.Clamp(proficiency.SalvoIntervalReduction, 0f, MaxProficiencyDelayReduction);
+        return Mathf.Max(MinDelayStep, DelayStep * (1f - reduction));
     }
 
     private static int DetermineCastCount(ActorExtend caster, Entity skill, BaseSimObject primaryTarget)

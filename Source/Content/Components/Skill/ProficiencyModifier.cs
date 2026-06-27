@@ -7,7 +7,9 @@ namespace Cultiway.Content.Components.Skill;
 
 public struct ProficiencyModifier : IModifier
 {
+    public float CostReduction;
+    public float SalvoIntervalReduction;
     public SkillModifierAsset ModifierAsset => SkillModifiers.Proficiency;
     public string GetKey() => ModifierAsset.id.Localize();
-    public string GetValue() => string.Empty;
+    public string GetValue() => $"灵力消耗-{CostReduction:P0}，连发间隔-{SalvoIntervalReduction:P0}";
 }

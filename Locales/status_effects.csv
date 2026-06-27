@@ -7,3 +7,17 @@ Cultiway.Burn,灼烧
 Cultiway.Burn.Description,附加火焰灼伤，持续掉血
 Cultiway.Poison,中毒
 Cultiway.Poison.Description,附加剧毒，定时掉血且可叠加多层
+Cultiway.Freeze,冰冻
+Cultiway.Freeze.Description,暂时无法行动
+Cultiway.Weaken,衰弱
+Cultiway.Weaken.Description,临时降低攻击能力
+Cultiway.ArmorBreak,破甲
+Cultiway.ArmorBreak.Description,临时降低护甲
+Cultiway.Daze,懵逼
+Cultiway.Daze.Description,短暂硬直，无法行动
+Cultiway.Silence,封印
+Cultiway.Silence.Description,临时削弱攻击与施法能力
+Cultiway.DeathSentence,终焉死亡
+Cultiway.DeathSentence.Description,被终焉标记，生命垂危时更容易被斩杀
+Cultiway.EternalCurse,永世诅咒
+Cultiway.EternalCurse.Description,持续受到诅咒伤害并被削弱攻防

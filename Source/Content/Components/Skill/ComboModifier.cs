@@ -7,7 +7,9 @@ namespace Cultiway.Content.Components.Skill;
 
 public struct ComboModifier : IModifier
 {
+    public int SalvoBonus;
+    public float DamageMultiplier;
     public SkillModifierAsset ModifierAsset => SkillModifiers.Combo;
     public string GetKey() => ModifierAsset.id.Localize();
-    public string GetValue() => string.Empty;
+    public string GetValue() => $"连发倾向+{SalvoBonus}，单发伤害×{DamageMultiplier:F2}";
 }

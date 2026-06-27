@@ -7,7 +7,8 @@ namespace Cultiway.Content.Components.Skill;
 
 public struct DazeModifier : IModifier
 {
+    public float Duration;
     public SkillModifierAsset ModifierAsset => SkillModifiers.Daze;
     public string GetKey() => ModifierAsset.id.Localize();
-    public string GetValue() => string.Empty;
+    public string GetValue() => $"硬直{Duration:F1}s";
 }

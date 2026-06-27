@@ -7,7 +7,10 @@ namespace Cultiway.Content.Components.Skill;
 
 public struct BurnoutModifier : IModifier
 {
+    public float DamageRatio;
+    public float BurnDuration;
+    public float BurnDamageRatio;
     public SkillModifierAsset ModifierAsset => SkillModifiers.Burnout;
     public string GetKey() => ModifierAsset.id.Localize();
-    public string GetValue() => string.Empty;
+    public string GetValue() => $"火伤{DamageRatio:P0}，燃烧{BurnDuration:F1}s/{BurnDamageRatio:P0}";
 }

@@ -1,4 +1,5 @@
 using Cultiway.Content.Components;
+using Cultiway.Content.Components.Skill;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -69,9 +70,14 @@ public static class SkillCastCost
         var modifierCount = CountModifiers(skill);
         var repeatBias = skill.TryGetComponent(out SalvoCount salvo) ? Mathf.Max(0, salvo.Value - 1) : 0;
         var spreadBias = skill.TryGetComponent(out BurstCount burst) ? Mathf.Max(0, burst.Value - 1) : 0;
-        return BaseStepCost
-               + modifierCount * ModifierStepCost
-               + Mathf.Clamp(repeatBias + spreadBias, 0, 20) * LegacyMultiCastStepCost;
+        var cost = BaseStepCost
+                   + modifierCount * ModifierStepCost
+                   + Mathf.Clamp(repeatBias + spreadBias, 0, 20) * LegacyMultiCastStepCost;
+        if (skill.TryGetComponent(out ProficiencyModifier proficiency))
+        {
+            cost *= Mathf.Clamp(1f - proficiency.CostReduction, 0.1f, 1f);
+        }
+        return cost;
     }
 
     private static int CountModifiers(Entity skill)
