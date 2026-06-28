@@ -24,6 +24,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset OrbitTarget { get; private set; }
     public static TrajectoryAsset Boomerang { get; private set; }
     public static TrajectoryAsset SlowVortex { get; private set; }
+    public static TrajectoryAsset ArcToPosition { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -40,6 +41,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupOrbitTarget();
         SetupBoomerang();
         SetupSlowVortex();
+        SetupArcToPosition();
     }
 
     private static void SetupTowardsDirection()
@@ -391,6 +393,44 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             });
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
+        };
+    }
+
+    private static void SetupArcToPosition()
+    {
+        ArcToPosition.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            state.Elapsed += dt;
+
+            var arc = e.TryGetComponent(out ArcTrajectoryParams arcComponent)
+                ? arcComponent
+                : new ArcTrajectoryParams { Duration = 0.75f, Height = 4f };
+            var target = context.TargetPos;
+            var duration = Mathf.Max(0.1f, arc.Duration);
+            var t = Mathf.Clamp01(state.Elapsed / duration);
+            var flat = Vector3.Lerp(state.StartPosition, target, t);
+            flat.z = Mathf.Lerp(state.StartPosition.z, target.z, t) + Mathf.Sin(t * Mathf.PI) * arc.Height;
+            SetOrAdd(e, new CollisionHeightGate { MaxHeight = target.z + 0.55f });
+
+            rot.value = DirectionTo(flat, pos.value, context.TargetDir);
+            pos.value = flat;
+
+            if (state.Elapsed >= duration + 0.08f)
+            {
+                ModClass.I.CommandBuffer.AddTag<TagRecycle>(e.Id);
+            }
+        };
+        ArcToPosition.OnInit = e =>
+        {
+            EnsureVelocity(e, 18f);
+            SetOrAdd(e, new ArcTrajectoryParams
+            {
+                Duration = 0.75f,
+                Height = 4f
+            });
+            SetOrAdd(e, new CollisionHeightGate { MaxHeight = 0.55f });
+            ResetRuntimeState(e);
         };
     }
 
