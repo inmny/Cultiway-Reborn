@@ -27,6 +27,7 @@ Cultiway.SineWave,波形弹道
 Cultiway.Zigzag,折线弹道
 Cultiway.SpiralHoming,螺旋追踪
 Cultiway.OrbitTarget,绕敌旋入
+Cultiway.Boomerang,回旋弹道
 Cultiway.PlaceholderAggregator,附魔占位
 Cultiway.Slow,减速
 Cultiway.Burn,灼烧

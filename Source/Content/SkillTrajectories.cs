@@ -22,6 +22,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset Zigzag { get; private set; }
     public static TrajectoryAsset SpiralHoming { get; private set; }
     public static TrajectoryAsset OrbitTarget { get; private set; }
+    public static TrajectoryAsset Boomerang { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -36,6 +37,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupZigzag();
         SetupSpiralHoming();
         SetupOrbitTarget();
+        SetupBoomerang();
     }
 
     private static void SetupTowardsDirection()
@@ -291,6 +293,54 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 AngularSpeed = 480f,
                 ShrinkSpeed = 1.8f,
                 HomingStrength = 1f
+            });
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
+        };
+    }
+
+    private static void SetupBoomerang()
+    {
+        Boomerang.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            state.Elapsed += dt;
+
+            var boomerang = e.TryGetComponent(out BoomerangTrajectoryParams boomerangComponent)
+                ? boomerangComponent
+                : new BoomerangTrajectoryParams
+                {
+                    OutDistance = 5f,
+                    ReturnTurnRate = 520f,
+                    MaxLifetime = 2.4f
+                };
+            if (!state.Returning && Vector3.Distance(state.StartPosition, pos.value) >= boomerang.OutDistance)
+            {
+                state.Returning = true;
+            }
+
+            var targetDir = state.Returning
+                ? DirectionTo(GetTargetPos(ref context), pos.value, context.TargetDir)
+                : SafeNormalized(state.StartDirection + PerpendicularInPlane(state.StartDirection) * state.Phase * 0.15f,
+                    state.StartDirection);
+            var turnRate = state.Returning ? boomerang.ReturnTurnRate : GetTurnRate(e, 120f);
+            rot.value = SmoothTurn(SafeNormalized(rot.value, targetDir), targetDir, turnRate * dt);
+            pos.value += SafeNormalized(rot.value, targetDir) * GetVelocity(e, 22f) * dt;
+
+            if (state.Elapsed >= boomerang.MaxLifetime)
+            {
+                ModClass.I.CommandBuffer.AddTag<TagRecycle>(e.Id);
+            }
+        };
+        Boomerang.OnInit = e =>
+        {
+            EnsureVelocity(e, 22f);
+            EnsureTurnRate(e, 120f);
+            SetOrAdd(e, new BoomerangTrajectoryParams
+            {
+                OutDistance = 5f,
+                ReturnTurnRate = 520f,
+                MaxLifetime = 2.4f
             });
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
