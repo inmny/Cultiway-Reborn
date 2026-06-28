@@ -370,7 +370,7 @@ namespace Cultiway
                 try
                 {
                     // 1. 关闭所有窗口
-                    CloseAllWindows();
+                    ScrollWindow.moveAllToRightAndRemove();
                     LogInfo("[AutoTest] 已关闭窗口");
 
                     // 2. 放置30个东方人族
@@ -387,19 +387,6 @@ namespace Cultiway
                 catch (Exception e)
                 {
                     LogError($"[AutoTest] 自动化测试失败: {e.Message}\n{e.StackTrace}");
-                }
-            }
-        }
-
-        private void CloseAllWindows()
-        {
-            // 关闭欢迎窗口和其他窗口
-            var windows = UnityEngine.Object.FindObjectsOfType<ScrollWindow>();
-            foreach (var window in windows)
-            {
-                if (window.isActiveAndEnabled)
-                {
-                    window.hide("right", false);
                 }
             }
         }
