@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Runtime.CompilerServices;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -35,12 +34,23 @@ internal static class PatchUnitMetaBanners
     }
     private static void AddBanners(UnitMetaBanners container)
     {
-        if (container._banners.Any(x => x.banner.HasComponent<SectBanner>())) return;
+        if (container._banners.Count == 0) return;
+        if (container._banners.Any(x => x.banner != null && x.banner.HasComponent<SectBanner>())) return;
+
         container._banners.Add(new MetaBannerElement()
         {
             banner = Object.Instantiate(SectBanner.Prefab, container._banners[0].banner.transform.parent),
-            check = () => container.actor.HasSect(),
-            nano = () => container.actor.GetExtend().sect,
+            check = () => GetSect(container) != null,
+            nano = () => GetSect(container),
         });
+    }
+
+    private static Sect GetSect(UnitMetaBanners container)
+    {
+        Actor actor = container.actor;
+        if (actor == null || actor.isRekt()) return null;
+
+        Sect sect = actor.GetExtend().sect;
+        return sect == null || sect.isRekt() ? null : sect;
     }
 }
