@@ -26,6 +26,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset SlowVortex { get; private set; }
     public static TrajectoryAsset ArcToPosition { get; private set; }
     public static TrajectoryAsset FallingStrike { get; private set; }
+    public static TrajectoryAsset GroundCrawl { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -44,6 +45,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupSlowVortex();
         SetupArcToPosition();
         SetupFallingStrike();
+        SetupGroundCrawl();
     }
 
     private static void SetupTowardsDirection()
@@ -489,6 +491,30 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             });
             SetOrAdd(e, new CollisionHeightGate { MaxHeight = 0.35f });
             ResetRuntimeState(e);
+        };
+    }
+
+    private static void SetupGroundCrawl()
+    {
+        GroundCrawl.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            state.Elapsed += dt;
+
+            var targetDir = DirectionTo(GetTargetPos(ref context), pos.value, context.TargetDir);
+            var side = PerpendicularInPlane(targetDir);
+            var sway = Mathf.Sin(state.Elapsed * TwoPi * 2.2f + state.Phase) * 0.2f;
+            var desired = SafeNormalized(targetDir + side * sway, targetDir);
+            rot.value = SmoothTurn(SafeNormalized(rot.value, desired), desired, GetTurnRate(e, 120f) * dt);
+            pos.value += SafeNormalized(rot.value, desired) * GetVelocity(e, 12f) * dt;
+            pos.z = Mathf.Max(0f, GetTargetPos(ref context).z * 0.15f);
+        };
+        GroundCrawl.OnInit = e =>
+        {
+            EnsureVelocity(e, 12f);
+            EnsureTurnRate(e, 120f);
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
         };
     }
 
