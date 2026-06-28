@@ -203,7 +203,6 @@ public partial class WorldboxGame
             tooltip.addLineText("Cultiway.Sect.DoctrineCultibook", doctrineName, sectColor, false, true, 21);
 
             tooltip.addLineBreak();
-            //tooltip.addLineIntText("Cultiway.Sect.Archive", 0);
             tooltip.addLineIntText("Cultiway.Sect.Cultibooks", sect.data.CultibookCount);
             tooltip.addLineIntText("Cultiway.Sect.ElixirRecipes", sect.data.ElixirRecipeCount);
             tooltip.addLineIntText("Cultiway.Sect.Skillbooks", sect.data.SkillbookCount);

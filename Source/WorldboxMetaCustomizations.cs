@@ -21,6 +21,48 @@ public partial class WorldboxGame
         protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
+            Sect.meta_type = MetaTypeExtend.Sect.Back();
+            Sect.localization_title = "Sect";
+            Sect.banner_prefab_id = "ui/PrefabBannerSect";
+            ResourcesPatch.PatchResource(Sect.banner_prefab_id, SectBanner.Prefab);
+            Sect.get_banner = delegate(MetaCustomizationAsset pAsset, NanoObject pNanoObject, Transform pParent)
+            {
+                SectBanner sectBanner = Object.Instantiate<SectBanner>(SectBanner.Prefab, pParent);
+                sectBanner.enable_default_click = false;
+                sectBanner.load(pNanoObject as Sect);
+                return sectBanner;
+            };
+            Sect.option_1_get = () => I.SelectedSect == null ? 0 : I.SelectedSect.data.BannerBackgroundIndex;
+            Sect.option_1_set = delegate(int pValue)
+            {
+                if (I.SelectedSect != null)
+                {
+                    I.SelectedSect.data.BannerBackgroundIndex = pValue;
+                }
+            };
+            Sect.option_2_get = () => I.SelectedSect == null ? 0 : I.SelectedSect.data.BannerIconIndex;
+            Sect.option_2_set = delegate(int pValue)
+            {
+                if (I.SelectedSect != null)
+                {
+                    I.SelectedSect.data.BannerIconIndex = pValue;
+                }
+            };
+            Sect.color_get = () => I.SelectedSect == null ? 0 : I.SelectedSect.data.color_id;
+            Sect.color_set = delegate(int pValue)
+            {
+                I.SelectedSect?.data.setColorID(pValue);
+            };
+            Sect.color_library = () => AssetManager.families_colors_library;
+            Sect.option_1_count = () => ModClass.L.SectBannerLibrary.getCurrentAsset().backgrounds.Count;
+            Sect.option_2_count = () => ModClass.L.SectBannerLibrary.getCurrentAsset().icons.Count;
+            Sect.title_locale = "Sect";
+            Sect.option_1_locale = "banner_design";
+            Sect.option_2_locale = "banner_emblem";
+            Sect.color_locale = "family_color";
+            Sect.icon_banner = "iconWorldInfo";
+            Sect.icon_creature = "iconBiomass";
+
             GeoRegion.meta_type = MetaTypeExtend.GeoRegion.Back();
             GeoRegion.localization_title = "GeoRegion";
             GeoRegion.banner_prefab_id = "ui/PrefabBannerGeoRegion";
