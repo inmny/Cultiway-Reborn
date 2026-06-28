@@ -1,8 +1,10 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Libraries;
 using Cultiway.Core;
-using Cultiway.Core.Components;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
@@ -31,9 +33,212 @@ public class SectPage : MonoBehaviour
         var sb = new StringBuilder();
 
         var sect = ae.sect;
-        sb.Append($"宗门名: {sect.name}");
+        if (sect == null)
+        {
+            sb.AppendLine("暂无宗门");
+            SetText(page, sb);
+            return;
+        }
 
+        sb.AppendLine($"宗门: {sect.name}");
+        sb.AppendLine($"职位: {GetRankName(actor.GetSectRank())}");
+        sb.AppendLine($"等级: {sect.data.Level}");
+        sb.AppendLine($"声望: {sect.data.Reputation}");
+        sb.AppendLine();
+
+        AppendLeaderInfo(sb, sect);
+        AppendFounderInfo(sb, sect);
+        AppendHomeCityInfo(sb, sect);
+        AppendDoctrineInfo(sb, sect);
+        AppendMemberInfo(sb, sect);
+        AppendArchiveInfo(sb, sect);
+
+        SetText(page, sb);
+    }
+
+    private static void AppendLeaderInfo(StringBuilder sb, Sect sect)
+    {
+        Actor leader = sect.GetLeaderActor();
+        if (leader != null)
+        {
+            sb.AppendLine($"掌门: {leader.getName()}");
+            AppendActorCultivation(sb, leader, "\t");
+            return;
+        }
+
+        sb.AppendLine(string.IsNullOrEmpty(sect.data.LeaderActorName)
+            ? "掌门: 暂缺"
+            : $"掌门: {sect.data.LeaderActorName} (已故/失踪)");
+    }
+
+    private static void AppendFounderInfo(StringBuilder sb, Sect sect)
+    {
+        if (string.IsNullOrEmpty(sect.data.FounderActorName)) return;
+
+        string founder = sect.data.FounderActorName;
+        if (sect.data.FounderActorID > 0)
+        {
+            Actor founderActor = World.world.units.get(sect.data.FounderActorID);
+            if (founderActor != null && !founderActor.isRekt())
+            {
+                founder = founderActor.getName();
+            }
+        }
+
+        sb.AppendLine($"开山祖师: {founder}");
+    }
+
+    private static void AppendHomeCityInfo(StringBuilder sb, Sect sect)
+    {
+        if (sect.data.HomeCityID > 0)
+        {
+            City city = World.world.cities.get(sect.data.HomeCityID);
+            if (city != null && !city.isRekt())
+            {
+                sb.AppendLine($"驻地: {city.name}");
+                return;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(sect.data.HomeCityName))
+        {
+            sb.AppendLine($"驻地: {sect.data.HomeCityName} (已失去)");
+        }
+        else
+        {
+            sb.AppendLine("驻地: 未定");
+        }
+    }
+
+    private static void AppendDoctrineInfo(StringBuilder sb, Sect sect)
+    {
+        sb.AppendLine();
+        sb.AppendLine("★ 道统");
+
+        CultibookAsset doctrine = sect.GetDoctrineCultibook();
+        if (doctrine == null)
+        {
+            if (string.IsNullOrEmpty(sect.data.DoctrineCultibookName))
+            {
+                sb.AppendLine("\t主修功法: 无");
+            }
+            else
+            {
+                sb.AppendLine($"\t主修功法: {sect.data.DoctrineCultibookName} (已失传)");
+            }
+
+            return;
+        }
+
+        sb.AppendLine($"\t主修功法: {doctrine.Name}");
+        string levelName = doctrine.Level.GetName();
+        if (!string.IsNullOrEmpty(levelName))
+        {
+            sb.AppendLine($"\t品阶: {levelName}");
+        }
+
+        if (!string.IsNullOrEmpty(doctrine.CultivateMethodId))
+        {
+            var method = doctrine.GetCultivateMethod();
+            if (method != null)
+            {
+                sb.AppendLine($"\t修炼方式: {method.id.Localize()}");
+            }
+        }
+    }
+
+    private static void AppendMemberInfo(StringBuilder sb, Sect sect)
+    {
+        List<Actor> members = sect.GetLivingMembers();
+        int leader = 0;
+        int elders = 0;
+        int successors = 0;
+        int direct = 0;
+        int inner = 0;
+        int outer = 0;
+
+        foreach (Actor member in members)
+        {
+            switch (member.GetSectRank())
+            {
+                case SectRank.Leader:
+                    leader++;
+                    break;
+                case SectRank.Elder:
+                    elders++;
+                    break;
+                case SectRank.Successor:
+                    successors++;
+                    break;
+                case SectRank.DirectDisciple:
+                    direct++;
+                    break;
+                case SectRank.InnerDisciple:
+                    inner++;
+                    break;
+                case SectRank.OuterDisciple:
+                    outer++;
+                    break;
+            }
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("○ 门人");
+        sb.AppendLine($"\t总人数: {members.Count}");
+        sb.AppendLine($"\t掌门: {leader}  长老: {elders}  衣钵: {successors}");
+        sb.AppendLine($"\t亲传: {direct}  内门: {inner}  外门: {outer}");
+    }
+
+    private static void AppendArchiveInfo(StringBuilder sb, Sect sect)
+    {
+        var cultibooks = sect.GetAllMaster<CultibookAsset>().ToList();
+
+        sb.AppendLine();
+        sb.AppendLine("□ 藏经阁");
+        sb.AppendLine($"\t功法: {cultibooks.Count}");
+        sb.AppendLine($"\t丹方: {sect.data.ElixirRecipeCount}");
+        sb.AppendLine($"\t术法: {sect.data.SkillbookCount}");
+
+        if (cultibooks.Count == 0) return;
+
+        foreach (var item in cultibooks.Take(5))
+        {
+            sb.AppendLine($"\t- {item.Item1.Name} ({item.Item2:F0}%)");
+        }
+
+        if (cultibooks.Count > 5)
+        {
+            sb.AppendLine($"\t... 另有 {cultibooks.Count - 5} 部");
+        }
+    }
+
+    private static void AppendActorCultivation(StringBuilder sb, Actor actor, string prefix)
+    {
+        var ae = actor.GetExtend();
+        if (!ae.HasCultisys<Xian>()) return;
+
+        ref var xian = ref ae.GetCultisys<Xian>();
+        sb.AppendLine($"{prefix}境界: {Cultisyses.Xian.GetLevelName(xian.CurrLevel)}");
+    }
+
+    private static string GetRankName(SectRank rank)
+    {
+        return rank switch
+        {
+            SectRank.Leader => "掌门",
+            SectRank.Elder => "长老",
+            SectRank.Successor => "衣钵传人",
+            SectRank.DirectDisciple => "亲传弟子",
+            SectRank.InnerDisciple => "内门弟子",
+            SectRank.OuterDisciple => "外门弟子",
+            _ => "未定"
+        };
+    }
+
+    private static void SetText(CreatureInfoPage page, StringBuilder sb)
+    {
         var this_page = page.GetComponent<SectPage>();
+        if (this_page == null || this_page.Text == null) return;
         this_page.Text.text = sb.ToString();
     }
 }
