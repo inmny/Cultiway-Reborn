@@ -18,6 +18,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset TowardsPosition { get; private set; }
     public static TrajectoryAsset TowardsTarget { get; private set; }
     public static TrajectoryAsset DriftHoming { get; private set; }
+    public static TrajectoryAsset SineWave { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -28,6 +29,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupTowardsPosition();
         SetupTowardsTarget();
         SetupDriftHoming();
+        SetupSineWave();
     }
 
     private static void SetupTowardsDirection()
@@ -125,6 +127,40 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         {
             EnsureVelocity(e, 22f);
             EnsureTurnRate(e, 220f);
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
+        };
+    }
+
+    private static void SetupSineWave()
+    {
+        SineWave.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            state.Elapsed += dt;
+
+            var wave = e.TryGetComponent(out WaveTrajectoryParams waveComponent)
+                ? waveComponent
+                : new WaveTrajectoryParams { Amplitude = 0.6f, Frequency = 3.5f, Phase = state.Phase };
+            var baseDir = SafeNormalized(state.StartDirection, context.TargetDir);
+            var side = PerpendicularInPlane(baseDir);
+            var forward = baseDir * GetVelocity(e, 18f) * state.Elapsed;
+            var sideOffset = side * (Mathf.Sin(state.Elapsed * wave.Frequency * TwoPi + wave.Phase + state.Phase)
+                                     * wave.Amplitude);
+            var next = state.StartPosition + forward + sideOffset;
+
+            rot.value = DirectionTo(next, pos.value, baseDir);
+            pos.value = next;
+        };
+        SineWave.OnInit = e =>
+        {
+            EnsureVelocity(e, 18f);
+            SetOrAdd(e, new WaveTrajectoryParams
+            {
+                Amplitude = 0.65f,
+                Frequency = 3.2f,
+                Phase = 0f
+            });
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
