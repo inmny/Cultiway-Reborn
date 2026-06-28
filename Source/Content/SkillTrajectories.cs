@@ -17,6 +17,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset TowardsDirectionNoRot { get; private set; }
     public static TrajectoryAsset TowardsPosition { get; private set; }
     public static TrajectoryAsset TowardsTarget { get; private set; }
+    public static TrajectoryAsset DriftHoming { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -26,6 +27,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupTowardsDirectionNoRot();
         SetupTowardsPosition();
         SetupTowardsTarget();
+        SetupDriftHoming();
     }
 
     private static void SetupTowardsDirection()
@@ -97,6 +99,32 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         {
             EnsureVelocity(e, 20f);
             EnsureTurnRate(e, 180f);
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
+        };
+    }
+
+    private static void SetupDriftHoming()
+    {
+        DriftHoming.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            state.Elapsed += dt;
+
+            var targetDir = DirectionTo(GetTargetPos(ref context), pos.value, context.TargetDir);
+            var side = PerpendicularInPlane(targetDir);
+            var drift = Mathf.Lerp(0.65f, 0f, Mathf.Clamp01(state.Elapsed / 0.75f));
+            var desired = SafeNormalized(targetDir + side * Mathf.Sign(state.Phase) * drift, targetDir);
+            var current = SafeNormalized(rot.value, desired);
+            var turnRate = e.TryGetComponent(out TurnRate turnRateComponent) ? turnRateComponent.Value : 220f;
+
+            rot.value = SmoothTurn(current, desired, turnRate * dt);
+            pos.value += SafeNormalized(rot.value, desired) * GetVelocity(e, 22f) * dt;
+        };
+        DriftHoming.OnInit = e =>
+        {
+            EnsureVelocity(e, 22f);
+            EnsureTurnRate(e, 220f);
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };

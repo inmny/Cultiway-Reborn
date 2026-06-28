@@ -22,6 +22,7 @@ Cultiway.TowardsPosition,朝向指定坐标
 Cultiway.TowardsTarget,朝向指定目标
 Cultiway.TowardsDirection,朝向指定方向
 Cultiway.TowardsDirectionNoRot,朝向指定方向
+Cultiway.DriftHoming,偏航归心
 Cultiway.PlaceholderAggregator,附魔占位
 Cultiway.Slow,减速
 Cultiway.Burn,灼烧
