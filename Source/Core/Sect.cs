@@ -44,6 +44,18 @@ public class Sect : MetaObject<SectData>
         }
 
         JoinSect(founder, SectRank.Leader);
+        JoinFounderApprentices(founder.GetExtend());
+    }
+
+    private void JoinFounderApprentices(ActorExtend founder)
+    {
+        foreach (ActorExtend apprentice in founder.GetApprentices())
+        {
+            if (apprentice.Base == null || apprentice.Base.isRekt()) continue;
+            if (apprentice.sect != null) continue;
+
+            JoinSect(apprentice.Base, MasterApprenticeTools.GetSectRankForRelation(apprentice.GetRelationType()));
+        }
     }
 
     public void Master<T>(T item, float value) where T : Asset, IDeleteWhenUnknown

@@ -295,7 +295,7 @@ public static class MasterApprenticeTools
         }
     }
 
-    private static SectRank GetSectRankForRelation(MasterApprenticeType type)
+    public static SectRank GetSectRankForRelation(MasterApprenticeType type)
     {
         return type switch
         {
