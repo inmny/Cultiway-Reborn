@@ -21,6 +21,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset SineWave { get; private set; }
     public static TrajectoryAsset Zigzag { get; private set; }
     public static TrajectoryAsset SpiralHoming { get; private set; }
+    public static TrajectoryAsset OrbitTarget { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -34,6 +35,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupSineWave();
         SetupZigzag();
         SetupSpiralHoming();
+        SetupOrbitTarget();
     }
 
     private static void SetupTowardsDirection()
@@ -244,6 +246,51 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 Frequency = 4f,
                 RadiusDamping = 0.75f,
                 HomingStrength = 0.7f
+            });
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
+        };
+    }
+
+    private static void SetupOrbitTarget()
+    {
+        OrbitTarget.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            state.Elapsed += dt;
+
+            var orbit = e.TryGetComponent(out OrbitTrajectoryParams orbitComponent)
+                ? orbitComponent
+                : new OrbitTrajectoryParams
+                {
+                    StartRadius = 2.2f,
+                    AngularSpeed = 480f,
+                    ShrinkSpeed = 1.8f,
+                    HomingStrength = 1f
+                };
+            var target = GetTargetPos(ref context);
+            var radius = Mathf.Max(0f, orbit.StartRadius - orbit.ShrinkSpeed * state.Elapsed);
+            var angle = state.Phase + orbit.AngularSpeed * Mathf.Deg2Rad * state.Elapsed;
+            var desired = target + new Vector3(Mathf.Cos(angle), Mathf.Sin(angle), 0f) * radius;
+            if (radius <= 0.2f)
+            {
+                desired = target;
+            }
+
+            var moveDir = DirectionTo(desired, pos.value, context.TargetDir);
+            var speed = GetVelocity(e, 20f) * Mathf.Lerp(1f, 1.35f, Mathf.Clamp01(orbit.HomingStrength));
+            pos.value = Vector3.MoveTowards(pos.value, desired, speed * dt);
+            rot.value = moveDir;
+        };
+        OrbitTarget.OnInit = e =>
+        {
+            EnsureVelocity(e, 20f);
+            SetOrAdd(e, new OrbitTrajectoryParams
+            {
+                StartRadius = 2.2f,
+                AngularSpeed = 480f,
+                ShrinkSpeed = 1.8f,
+                HomingStrength = 1f
             });
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
