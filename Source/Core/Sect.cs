@@ -17,6 +17,12 @@ public class Sect : MetaObject<SectData>
 
     private Dictionary<System.Type, Dictionary<IDeleteWhenUnknown, float>> _masterItems = new();
 
+    public override void setDefaultValues()
+    {
+        base.setDefaultValues();
+        _masterItems = new Dictionary<System.Type, Dictionary<IDeleteWhenUnknown, float>>();
+    }
+
     public void Setup(Actor founder)
     {
         generateNewMetaObject();
