@@ -19,6 +19,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset TowardsTarget { get; private set; }
     public static TrajectoryAsset DriftHoming { get; private set; }
     public static TrajectoryAsset SineWave { get; private set; }
+    public static TrajectoryAsset Zigzag { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -30,6 +31,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupTowardsTarget();
         SetupDriftHoming();
         SetupSineWave();
+        SetupZigzag();
     }
 
     private static void SetupTowardsDirection()
@@ -160,6 +162,40 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 Amplitude = 0.65f,
                 Frequency = 3.2f,
                 Phase = 0f
+            });
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
+        };
+    }
+
+    private static void SetupZigzag()
+    {
+        Zigzag.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            state.Elapsed += dt;
+
+            var zigzag = e.TryGetComponent(out ZigzagTrajectoryParams zigzagComponent)
+                ? zigzagComponent
+                : new ZigzagTrajectoryParams { SideAmplitude = 0.75f, SegmentDuration = 0.12f };
+            var baseDir = SafeNormalized(state.StartDirection, context.TargetDir);
+            var side = PerpendicularInPlane(baseDir);
+            var segmentDuration = Mathf.Max(0.03f, zigzag.SegmentDuration);
+            var sideT = Mathf.PingPong(state.Elapsed / segmentDuration, 1f) * 2f - 1f;
+            var next = state.StartPosition
+                       + baseDir * (GetVelocity(e, 21f) * state.Elapsed)
+                       + side * (sideT * zigzag.SideAmplitude);
+
+            rot.value = DirectionTo(next, pos.value, baseDir);
+            pos.value = next;
+        };
+        Zigzag.OnInit = e =>
+        {
+            EnsureVelocity(e, 21f);
+            SetOrAdd(e, new ZigzagTrajectoryParams
+            {
+                SideAmplitude = 0.75f,
+                SegmentDuration = 0.12f
             });
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
