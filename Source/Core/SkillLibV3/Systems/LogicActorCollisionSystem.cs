@@ -1,5 +1,6 @@
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Components.TrajParams;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -21,6 +22,7 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             ref ColliderConfig config, ref Position pos, Entity entity) =>
         {
             if (!config.Enabled || !config.Actor) return;
+            if (entity.TryGetComponent(out CollisionHeightGate heightGate) && pos.z > heightGate.MaxHeight) return;
             
             var radius = collider.Radius;
             var lb = pos.v2 - radius * Vector2.one;

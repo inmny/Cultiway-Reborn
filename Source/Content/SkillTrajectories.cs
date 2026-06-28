@@ -3,6 +3,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Components.TrajParams;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -10,111 +11,232 @@ namespace Cultiway.Content;
 
 public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectories>
 {
+    private const float TwoPi = 6.2831855f;
+
     public static TrajectoryAsset TowardsDirection { get; private set; }
     public static TrajectoryAsset TowardsDirectionNoRot { get; private set; }
     public static TrajectoryAsset TowardsPosition { get; private set; }
     public static TrajectoryAsset TowardsTarget { get; private set; }
+
     protected override bool AutoRegisterAssets() => true;
+
     protected override void OnInit()
+    {
+        SetupTowardsDirection();
+        SetupTowardsDirectionNoRot();
+        SetupTowardsPosition();
+        SetupTowardsTarget();
+    }
+
+    private static void SetupTowardsDirection()
     {
         TowardsDirection.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
         {
-            // 计算目标方向
-            var target_dir = context.TargetDir;
-            var current_dir = rot.value.normalized;
-            
-            // 如果方向有偏离，进行平滑转向
-            if (Vector3.Dot(current_dir, target_dir) < 0.9999f) // 避免浮点误差
+            var targetDir = SafeNormalized(context.TargetDir, rot.value);
+            var currentDir = SafeNormalized(rot.value, targetDir);
+
+            if (Vector3.Dot(currentDir, targetDir) < 0.9999f)
             {
-                var turn_rate = e.TryGetComponent(out TurnRate turnRate) ? turnRate.Value : 180f; // 默认每秒360度
-                var max_angle_change = turn_rate * dt; // 本帧最大转向角度
-                rot.value = SmoothTurn(current_dir, target_dir, max_angle_change);
+                var turnRate = e.TryGetComponent(out TurnRate turnRateComponent) ? turnRateComponent.Value : 180f;
+                rot.value = SmoothTurn(currentDir, targetDir, turnRate * dt);
             }
             else
             {
-                rot.value = target_dir;
+                rot.value = targetDir;
             }
-            
-            pos.value += rot.value.normalized * dt * e.GetComponent<Velocity>().Value;
+
+            pos.value += SafeNormalized(rot.value, targetDir) * dt * GetVelocity(e, 20f);
         };
         TowardsDirection.OnInit = e =>
         {
-            EnsureVelocity(e, 20);
+            EnsureVelocity(e, 20f);
             EnsureTurnRate(e, 180f);
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
         };
-        TowardsDirectionNoRot.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+    }
+
+    private static void SetupTowardsDirectionNoRot()
+    {
+        TowardsDirectionNoRot.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e,
+            float dt) =>
         {
-            // TowardsDirectionNoRot 不更新旋转，只移动
-            pos.value += rot.value.normalized * dt * e.GetComponent<Velocity>().Value;
+            pos.value += SafeNormalized(rot.value, context.TargetDir) * dt * GetVelocity(e, 20f);
         };
         TowardsDirectionNoRot.CanBeSelectedByModifier = false;
         TowardsDirectionNoRot.OnInit = e =>
         {
-            EnsureVelocity(e, 20);
+            EnsureVelocity(e, 20f);
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
         };
+    }
+
+    private static void SetupTowardsPosition()
+    {
         TowardsPosition.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
         {
-            var delta = context.TargetPos - pos.value;
-            var target_dir = delta.normalized;
-            var current_dir = rot.value.normalized;
-            var move_distance = dt * e.GetComponent<Velocity>().Value;
-
-            // 如果方向有偏离，进行平滑转向
-            if (Vector3.Dot(current_dir, target_dir) < 0.9999f && delta.sqrMagnitude > 0.01f)
-            {
-                var turn_rate = e.TryGetComponent(out TurnRate turnRate) ? turnRate.Value : 180f;
-                var max_angle_change = turn_rate * dt;
-                rot.value = SmoothTurn(current_dir, target_dir, max_angle_change);
-            }
-            else if (delta.sqrMagnitude > 0.01f)
-            {
-                rot.value = target_dir;
-            }
-
-            var actual_to_move = move_distance * rot.value.normalized;
-
-            pos.value += actual_to_move;
+            MoveSmoothlyTo(context.TargetPos, ref pos, ref rot, e, dt, 20f, 180f);
         };
         TowardsPosition.OnInit = e =>
         {
-            EnsureVelocity(e, 20);
+            EnsureVelocity(e, 20f);
             EnsureTurnRate(e, 180f);
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
         };
+    }
+
+    private static void SetupTowardsTarget()
+    {
         TowardsTarget.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
         {
-            var target_xy = context.TargetObj.current_position;
-            var delta = new Vector3(target_xy.x, target_xy.y, context.TargetObj.getHeight()) - pos.value;
-            var target_dir = delta.normalized;
-            var current_dir = rot.value.normalized;
-            var move_distance = dt * e.GetComponent<Velocity>().Value;
-
-            // 如果方向有偏离，进行平滑转向
-            if (Vector3.Dot(current_dir, target_dir) < 0.9999f && delta.sqrMagnitude > 0.01f)
-            {
-                var turn_rate = e.TryGetComponent(out TurnRate turnRate) ? turnRate.Value : 180f;
-                var max_angle_change = turn_rate * dt;
-                rot.value = SmoothTurn(current_dir, target_dir, max_angle_change);
-            }
-            else if (delta.sqrMagnitude > 0.01f)
-            {
-                rot.value = target_dir;
-            }
-
-            var actual_to_move = move_distance * rot.value.normalized;
-
-            pos.value += actual_to_move;
+            MoveSmoothlyTo(GetTargetPos(ref context), ref pos, ref rot, e, dt, 20f, 180f);
         };
         TowardsTarget.OnInit = e =>
         {
-            EnsureVelocity(e, 20);
+            EnsureVelocity(e, 20f);
             EnsureTurnRate(e, 180f);
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
         };
+    }
+
+    private static void MoveSmoothlyTo(Vector3 target, ref Position pos, ref Rotation rot, Entity e, float dt,
+        float defaultVelocity, float defaultTurnRate)
+    {
+        var delta = target - pos.value;
+        var targetDir = SafeNormalized(delta, rot.value);
+        var currentDir = SafeNormalized(rot.value, targetDir);
+
+        if (Vector3.Dot(currentDir, targetDir) < 0.9999f && delta.sqrMagnitude > 0.01f)
+        {
+            rot.value = SmoothTurn(currentDir, targetDir, GetTurnRate(e, defaultTurnRate) * dt);
+        }
+        else if (delta.sqrMagnitude > 0.01f)
+        {
+            rot.value = targetDir;
+        }
+
+        pos.value += SafeNormalized(rot.value, targetDir) * GetVelocity(e, defaultVelocity) * dt;
+    }
+
+    private static ref TrajectoryRuntimeState GetRuntimeState(Entity e, ref Position pos, ref Rotation rot)
+    {
+        if (!e.HasComponent<TrajectoryRuntimeState>())
+        {
+            e.AddComponent(new TrajectoryRuntimeState());
+        }
+
+        ref var state = ref e.GetComponent<TrajectoryRuntimeState>();
+        if (!state.Initialized)
+        {
+            state.Initialized = true;
+            state.Returning = false;
+            state.StartPosition = pos.value;
+            state.StartDirection = SafeNormalized(rot.value, Vector3.right);
+            state.Elapsed = 0f;
+            state.Timer = 0f;
+            state.StepIndex = 0;
+            state.Phase = Randy.randomFloat(-TwoPi, TwoPi);
+            if (Mathf.Abs(state.Phase) < 0.1f)
+            {
+                state.Phase = state.Phase < 0f ? -0.1f : 0.1f;
+            }
+        }
+
+        return ref state;
+    }
+
+    private static void ResetRuntimeState(Entity e)
+    {
+        SetOrAdd(e, new TrajectoryRuntimeState());
+    }
+
+    private static Vector3 GetTargetPos(ref SkillContext context)
+    {
+        if (context.TargetObj != null && !context.TargetObj.isRekt())
+        {
+            return context.TargetObj.GetSimPos();
+        }
+
+        return context.TargetPos;
+    }
+
+    private static Vector3 DirectionTo(Vector3 target, Vector3 source, Vector3 fallback)
+    {
+        return SafeNormalized(target - source, fallback);
+    }
+
+    private static Vector3 SafeNormalized(Vector3 value, Vector3 fallback)
+    {
+        if (value.sqrMagnitude >= 0.0001f)
+        {
+            return value.normalized;
+        }
+        if (fallback.sqrMagnitude >= 0.0001f)
+        {
+            return fallback.normalized;
+        }
+
+        return Vector3.right;
+    }
+
+    private static Vector3 PerpendicularInPlane(Vector3 dir)
+    {
+        var plane = new Vector2(dir.x, dir.y);
+        if (plane.sqrMagnitude < 0.0001f)
+        {
+            plane = Vector2.right;
+        }
+
+        plane.Normalize();
+        return new Vector3(-plane.y, plane.x, 0f);
+    }
+
+    private static Vector3 SmoothTurn(Vector3 currentDir, Vector3 targetDir, float maxAngleDegrees)
+    {
+        if (targetDir.sqrMagnitude < 0.0001f)
+        {
+            return currentDir;
+        }
+        if (currentDir.sqrMagnitude < 0.0001f)
+        {
+            currentDir = Vector3.right;
+        }
+
+        var current = currentDir.normalized;
+        var target = targetDir.normalized;
+        var dot = Mathf.Clamp(Vector3.Dot(current, target), -1f, 1f);
+        var angle = Mathf.Acos(dot) * Mathf.Rad2Deg;
+        if (angle <= maxAngleDegrees)
+        {
+            return target;
+        }
+
+        var axis = Vector3.Cross(current, target);
+        if (axis.sqrMagnitude < 0.0001f)
+        {
+            return target;
+        }
+
+        return Quaternion.AngleAxis(maxAngleDegrees, axis.normalized) * current;
+    }
+
+    private static float GetVelocity(Entity e, float defaultValue)
+    {
+        return e.TryGetComponent(out Velocity velocity) ? velocity.Value : defaultValue;
+    }
+
+    private static float GetTurnRate(Entity e, float defaultValue)
+    {
+        return e.TryGetComponent(out TurnRate turnRate) ? turnRate.Value : defaultValue;
     }
 
     private static void EnsureVelocity(Entity e, float value)
     {
         if (e.HasComponent<Velocity>()) return;
-        e.AddComponent(new Velocity()
+        e.AddComponent(new Velocity
         {
             Value = value
         });
@@ -123,49 +245,36 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     private static void EnsureTurnRate(Entity e, float value)
     {
         if (e.HasComponent<TurnRate>()) return;
-        e.AddComponent(new TurnRate()
+        e.AddComponent(new TurnRate
         {
             Value = value
         });
     }
 
-    /// <summary>
-    /// 平滑转向：从当前方向转向目标方向，限制最大转向角度
-    /// </summary>
-    private static Vector3 SmoothTurn(Vector3 current_dir, Vector3 target_dir, float max_angle_degrees)
+    private static void SetOrAdd<TComponent>(Entity e, TComponent component) where TComponent : struct, IComponent
     {
-        if (target_dir.sqrMagnitude < 0.0001f)
+        if (e.HasComponent<TComponent>())
         {
-            return current_dir;
+            ref var current = ref e.GetComponent<TComponent>();
+            current = component;
+            return;
         }
-        if (current_dir.sqrMagnitude < 0.0001f)
+
+        e.AddComponent(component);
+    }
+
+    private static void ClearCollisionHeightGate(Entity e)
+    {
+        if (e.HasComponent<CollisionHeightGate>())
         {
-            current_dir = Vector3.right;
+            e.RemoveComponent<CollisionHeightGate>();
         }
-        var current_normalized = current_dir.normalized;
-        var target_normalized = target_dir.normalized;
-        
-        // 计算当前角度差
-        var dot = Vector3.Dot(current_normalized, target_normalized);
-        dot = Mathf.Clamp(dot, -1f, 1f); // 防止数值误差
-        var angle_rad = Mathf.Acos(dot);
-        var angle_deg = angle_rad * Mathf.Rad2Deg;
-        
-        // 如果角度差小于最大转向角度，直接转向目标
-        if (angle_deg <= max_angle_degrees)
-        {
-            return target_normalized;
-        }
-        
-        var axis = Vector3.Cross(current_normalized, target_normalized);
-        if (axis.sqrMagnitude < 0.0001f)
-        {
-            return current_normalized;
-        }
-        
-        axis.Normalize();
-        // 否则，按最大角度转向
-        var rotation = Quaternion.AngleAxis(max_angle_degrees, axis);
-        return rotation * current_normalized;
+    }
+
+    private static Vector2 RandomInCircle(float radius)
+    {
+        var angle = Randy.randomFloat(0f, TwoPi);
+        var distance = Mathf.Sqrt(Randy.randomFloat(0f, 1f)) * Mathf.Max(0f, radius);
+        return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * distance;
     }
 }
