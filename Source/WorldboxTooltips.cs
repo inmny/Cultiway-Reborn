@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.UI.Components;
@@ -171,13 +172,99 @@ public partial class WorldboxGame
                 tooltip.setTitle("ERROR");
                 return;
             }
+
+            string sectColor = sect.getColor().color_text;
             tooltip.setTitle(sect.name, "sect", sect.getColor().color_text);
             tooltip.GetComponent<SectTooltip>()?.Setup(sect);
+            tooltip.setSpeciesIcon(SpriteTextureLoader.getSprite("cultiway/icons/iconSect"));
             tooltip.transform.FindRecursive("Stats")?.gameObject.SetActive(true);
-            tooltip.addLineIntText("adults", sect.countAdults());
-            tooltip.addLineIntText("children", sect.countChildren());
+            AssetManager.tooltips.setIconValue(tooltip, "i_age", sect.getAge());
+            AssetManager.tooltips.setIconValue(tooltip, "i_population", sect.countUnits());
+            AssetManager.tooltips.setIconSprite(tooltip, "i_army", "iconZones");
+            AssetManager.tooltips.setIconValue(tooltip, "i_army", sect.GetTerritoryCount());
+
+            string doctrineName = GetSectDoctrineName(sect);
+            if (doctrineName != "-")
+            {
+                tooltip.setDescription($"{LMTools.GetOrKey("Cultiway.Sect.DoctrineCultibook")}: {doctrineName}");
+            }
+
+            ShowSectLeaderLine(tooltip, sect, sectColor);
+            tooltip.addLineBreak();
             tooltip.addLineIntText("Cultiway.Sect.Level", sect.data.Level);
             tooltip.addLineIntText("Cultiway.Sect.Reputation", sect.data.Reputation);
+            tooltip.addLineIntText("adults", sect.countAdults());
+            tooltip.addLineIntText("children", sect.countChildren());
+            tooltip.addLineIntText("Cultiway.Sect.Territory", sect.GetTerritoryCount());
+
+            tooltip.addLineBreak();
+            ShowSectHomeCityLine(tooltip, sect, sectColor);
+            ShowSectFounderLine(tooltip, sect, sectColor);
+            tooltip.addLineText("Cultiway.Sect.DoctrineCultibook", doctrineName, sectColor, false, true, 21);
+
+            tooltip.addLineBreak();
+            //tooltip.addLineIntText("Cultiway.Sect.Archive", 0);
+            tooltip.addLineIntText("Cultiway.Sect.Cultibooks", sect.data.CultibookCount);
+            tooltip.addLineIntText("Cultiway.Sect.ElixirRecipes", sect.data.ElixirRecipeCount);
+            tooltip.addLineIntText("Cultiway.Sect.Skillbooks", sect.data.SkillbookCount);
+        }
+
+        private static void ShowSectLeaderLine(Tooltip tooltip, Sect sect, string fallbackColor)
+        {
+            Actor leader = sect.GetLeaderActor();
+            if (!leader.isRekt())
+            {
+                tooltip.addLineText("Cultiway.Sect.Leader", leader.getName(), GetActorLineColor(leader, fallbackColor), false, true, 21);
+                return;
+            }
+
+            tooltip.addLineText("Cultiway.Sect.Leader", GetStoredNameOrDash(sect.data.LeaderActorName), fallbackColor, false, true, 21);
+        }
+
+        private static void ShowSectFounderLine(Tooltip tooltip, Sect sect, string fallbackColor)
+        {
+            if (sect.data.FounderActorID > 0)
+            {
+                Actor founder = World.world.units.get(sect.data.FounderActorID);
+                if (!founder.isRekt())
+                {
+                    tooltip.addLineText("Cultiway.Sect.Founder", founder.getName(), GetActorLineColor(founder, fallbackColor), false, true, 21);
+                    return;
+                }
+            }
+
+            tooltip.addLineText("Cultiway.Sect.Founder", GetStoredNameOrDash(sect.data.FounderActorName), fallbackColor, false, true, 21);
+        }
+
+        private static void ShowSectHomeCityLine(Tooltip tooltip, Sect sect, string fallbackColor)
+        {
+            City city = sect.GetHomeCity();
+            if (!city.isRekt())
+            {
+                string color = city.kingdom?.getColor()?.color_text ?? fallbackColor;
+                tooltip.addLineText("Cultiway.Sect.HomeCity", city.name, color, false, true, 21);
+                return;
+            }
+
+            tooltip.addLineText("Cultiway.Sect.HomeCity", GetStoredNameOrDash(sect.data.HomeCityName), fallbackColor, false, true, 21);
+        }
+
+        private static string GetSectDoctrineName(Sect sect)
+        {
+            CultibookAsset doctrine = sect.GetDoctrineCultibook();
+            if (doctrine != null) return doctrine.Name;
+
+            return GetStoredNameOrDash(sect.data.DoctrineCultibookName);
+        }
+
+        private static string GetActorLineColor(Actor actor, string fallbackColor)
+        {
+            return actor?.kingdom?.getColor()?.color_text ?? fallbackColor;
+        }
+
+        private static string GetStoredNameOrDash(string name)
+        {
+            return string.IsNullOrEmpty(name) ? "-" : name;
         }
 
         private void ShowCustomBookReadAction(Tooltip tooltip, string type, TooltipData data)

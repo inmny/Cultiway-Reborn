@@ -23,7 +23,7 @@ public class SectListElement : WindowListElementBase<Sect, SectData>
         leader_avatar.show(sect.GetLeaderActor());
         era.setValue(sect.getAge());
         population.setValue(sect.countUnits());
-        territory.setValue(GetTerritoryCount(sect));
+        territory.setValue(sect.GetTerritoryCount());
         archive.setValue(0);
     }
 
@@ -85,14 +85,6 @@ public class SectListElement : WindowListElementBase<Sect, SectData>
         Prefab.population = populationIcon.GetComponent<CountUpOnClick>();
         Prefab.territory = zonesIcon.GetComponent<CountUpOnClick>();
         Prefab.archive = citiesIcon.GetComponent<CountUpOnClick>();
-    }
-
-    private static int GetTerritoryCount(Sect sect)
-    {
-        if (sect.data.HomeCityID <= 0) return 0;
-
-        City city = World.world.cities.get(sect.data.HomeCityID);
-        return city == null || city.isRekt() ? 0 : city.zones.Count;
     }
 
     private static void SetIconSprite(Transform statIcon, string spritePath)

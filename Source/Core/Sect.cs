@@ -234,6 +234,20 @@ public class Sect : MetaObject<SectData>
         return actor;
     }
 
+    public City GetHomeCity()
+    {
+        if (data.HomeCityID <= 0) return null;
+
+        City city = World.world.cities.get(data.HomeCityID);
+        return city == null || city.isRekt() ? null : city;
+    }
+
+    public int GetTerritoryCount()
+    {
+        City city = GetHomeCity();
+        return city?.zones?.Count ?? 0;
+    }
+
     public override ActorAsset getActorAsset()
     {
         if (data != null)
