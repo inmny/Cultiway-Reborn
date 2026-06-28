@@ -28,6 +28,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset FallingStrike { get; private set; }
     public static TrajectoryAsset GroundCrawl { get; private set; }
     public static TrajectoryAsset LightningSnap { get; private set; }
+    public static TrajectoryAsset RainFall { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -48,6 +49,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupFallingStrike();
         SetupGroundCrawl();
         SetupLightningSnap();
+        SetupRainFall();
     }
 
     private static void SetupTowardsDirection()
@@ -568,6 +570,62 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             });
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
+        };
+    }
+
+    private static void SetupRainFall()
+    {
+        RainFall.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            var rain = e.TryGetComponent(out RainFallTrajectoryParams rainComponent)
+                ? rainComponent
+                : new RainFallTrajectoryParams
+                {
+                    StartHeight = 8f,
+                    FallSpeed = 20f,
+                    HorizontalDrift = 1.4f,
+                    ImpactHeight = 0.35f
+                };
+
+            if (state.Elapsed <= 0f)
+            {
+                var target = GetTargetPos(ref context);
+                var randomOffset = RandomInCircle(rain.HorizontalDrift);
+                pos.value = new Vector3(target.x + randomOffset.x, target.y + randomOffset.y,
+                    target.z + rain.StartHeight);
+                state.StartPosition = pos.value;
+            }
+
+            state.Elapsed += dt;
+            var targetPos = GetTargetPos(ref context);
+            pos.z -= rain.FallSpeed * dt;
+            if (pos.z < targetPos.z)
+            {
+                pos.z = targetPos.z;
+            }
+            rot.value = SafeNormalized(new Vector3(0f, -0.1f, -1f), Vector3.down);
+
+            if (pos.z <= targetPos.z + rain.ImpactHeight)
+            {
+                SetOrAdd(e, new CollisionHeightGate { MaxHeight = targetPos.z + rain.ImpactHeight });
+            }
+            if (state.Elapsed >= rain.StartHeight / Mathf.Max(0.01f, rain.FallSpeed) + 0.3f)
+            {
+                ModClass.I.CommandBuffer.AddTag<TagRecycle>(e.Id);
+            }
+        };
+        RainFall.OnInit = e =>
+        {
+            SetOrAdd(e, new RainFallTrajectoryParams
+            {
+                StartHeight = 8f,
+                FallSpeed = 20f,
+                HorizontalDrift = 1.4f,
+                ImpactHeight = 0.35f
+            });
+            SetOrAdd(e, new CollisionHeightGate { MaxHeight = 0.35f });
+            ResetRuntimeState(e);
         };
     }
 
