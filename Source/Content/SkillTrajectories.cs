@@ -27,6 +27,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset ArcToPosition { get; private set; }
     public static TrajectoryAsset FallingStrike { get; private set; }
     public static TrajectoryAsset GroundCrawl { get; private set; }
+    public static TrajectoryAsset LightningSnap { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -46,6 +47,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupArcToPosition();
         SetupFallingStrike();
         SetupGroundCrawl();
+        SetupLightningSnap();
     }
 
     private static void SetupTowardsDirection()
@@ -513,6 +515,57 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         {
             EnsureVelocity(e, 12f);
             EnsureTurnRate(e, 120f);
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
+        };
+    }
+
+    private static void SetupLightningSnap()
+    {
+        LightningSnap.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            state.Elapsed += dt;
+            state.Timer -= dt;
+            if (state.Timer > 0f) return;
+
+            var snap = e.TryGetComponent(out LightningSnapTrajectoryParams snapComponent)
+                ? snapComponent
+                : new LightningSnapTrajectoryParams
+                {
+                    StepInterval = 0.035f,
+                    StepDistance = 2.8f,
+                    JitterRadius = 0.45f,
+                    HitDistance = 1.2f
+                };
+            state.Timer = Mathf.Max(0.01f, snap.StepInterval);
+
+            var target = GetTargetPos(ref context);
+            var toTarget = target - pos.value;
+            var distance = toTarget.magnitude;
+            var dir = SafeNormalized(toTarget, context.TargetDir);
+            if (distance <= snap.StepDistance + snap.HitDistance)
+            {
+                pos.value = target;
+                rot.value = dir;
+                return;
+            }
+
+            var side = PerpendicularInPlane(dir);
+            var jitter = side * Randy.randomFloat(-snap.JitterRadius, snap.JitterRadius);
+            var next = pos.value + dir * snap.StepDistance + jitter;
+            rot.value = DirectionTo(next, pos.value, dir);
+            pos.value = next;
+        };
+        LightningSnap.OnInit = e =>
+        {
+            SetOrAdd(e, new LightningSnapTrajectoryParams
+            {
+                StepInterval = 0.035f,
+                StepDistance = 2.8f,
+                JitterRadius = 0.45f,
+                HitDistance = 1.2f
+            });
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
