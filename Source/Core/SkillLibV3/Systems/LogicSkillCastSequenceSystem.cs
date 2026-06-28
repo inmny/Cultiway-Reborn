@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Friflo.Engine.ECS;
@@ -7,6 +8,8 @@ namespace Cultiway.Core.SkillLibV3.Systems;
 
 public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
 {
+    private readonly List<SpawnSkillRequest> _spawnRequests = new();
+
     public LogicSkillCastSequenceSystem()
     {
         Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagRecycle>());
@@ -15,6 +18,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
     protected override void OnUpdate()
     {
         var dt = Tick.deltaTime;
+        _spawnRequests.Clear();
         Query.ForEachEntity((ref SkillCastSequence sequence, Entity entity) =>
         {
             if (!IsSequenceValid(ref sequence))
@@ -34,9 +38,15 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 sequence.NextIndex++;
                 if (step.Target == null || step.Target.isRekt()) continue;
 
-                ModClass.I.SkillV3.SpawnSkill(sequence.SkillContainer, sequence.Caster.Base, step.Target,
-                    sequence.Strength, power_level: sequence.PowerLevel,
-                    initial_angle_offset_degrees: step.InitialAngleOffsetDegrees);
+                _spawnRequests.Add(new SpawnSkillRequest
+                {
+                    SkillContainer = sequence.SkillContainer,
+                    Source = sequence.Caster.Base,
+                    Target = step.Target,
+                    Strength = sequence.Strength,
+                    PowerLevel = sequence.PowerLevel,
+                    InitialAngleOffsetDegrees = step.InitialAngleOffsetDegrees
+                });
                 emitted++;
             }
 
@@ -45,6 +55,17 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 CommandBuffer.AddTag<TagRecycle>(entity.Id);
             }
         });
+        foreach (var request in _spawnRequests)
+        {
+            if (request.SkillContainer.IsNull
+            || request.Source.isRekt()
+            || request.Target.isRekt()
+            ) continue;
+
+            ModClass.I.SkillV3.SpawnSkill(request.SkillContainer, request.Source, request.Target,
+                request.Strength, power_level: request.PowerLevel,
+                initial_angle_offset_degrees: request.InitialAngleOffsetDegrees);
+        }
         CommandBuffer.Playback();
     }
 
@@ -54,5 +75,15 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         if (sequence.Caster.Base == null || sequence.Caster.Base.isRekt()) return false;
         if (sequence.SkillContainer.IsNull) return false;
         return sequence.Steps != null && sequence.Steps.Length > 0;
+    }
+
+    private struct SpawnSkillRequest
+    {
+        public Entity SkillContainer;
+        public BaseSimObject Source;
+        public BaseSimObject Target;
+        public float Strength;
+        public float PowerLevel;
+        public float InitialAngleOffsetDegrees;
     }
 }
