@@ -80,17 +80,11 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
 
         NewSect.path_icon = "books/custom_book_covers/cultibook/31";
         NewSect.group_id = PlotCategories.Sect.id;
-        NewSect.check_is_possible = a => a.GetExtend().HasCultibook() && !a.HasSect();
-        NewSect.check_should_continue = a => a.GetExtend().HasCultibook() && !a.HasSect();
+        NewSect.check_is_possible = SectRules.CanFoundSect;
+        NewSect.check_should_continue = SectRules.CanFoundSect;
         NewSect.action = a =>
         {
-            if (!a.GetExtend().HasCultibook())
-                return false;
-            if (a.HasSect())
-                return false;
-
-            a.GetExtend().SetSect(WorldboxGame.I.Sects.BuildSect(a));
-            return true;
+            return WorldboxGame.I.Sects.BuildSect(a) != null;
         };
 
         BuildTrainStation.path_icon = "cultiway/icons/plots/iconTrainStation";

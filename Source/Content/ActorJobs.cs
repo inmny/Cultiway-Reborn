@@ -98,9 +98,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         BookWriter.addTask(ActorTasks.EndJob.id);
         
         SectBuilder.addTask(ActorTasks.BuildSect.id);
-        SectBuilder.addCondition(new CondHasSect(), false);
-        SectBuilder.addCondition(new CondHasCultibook());
-        SectBuilder.addCondition(new CondHasYuanying());
+        SectBuilder.addCondition(new CondCanFoundSect());
         SectBuilder.addTask(ActorTasks.EndJob.id);
         
         

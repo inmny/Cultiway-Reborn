@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using ai;
 using Cultiway.Abstract;
+using Cultiway.Content;
 using Cultiway.Const;
 using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
@@ -79,6 +80,10 @@ internal static class PatchActor
                     }
                     if (xian.CurrLevel >= XianLevels.XianBase && GeneralSettings.EnableTalismanSystems) pool.Add(ActorJobs.TalismanCrafter.id);
                     if (xian.CurrLevel >= XianLevels.Yuanying && GeneralSettings.EnableCultibookSystems) pool.Add(ActorJobs.CultibookResearcher.id);
+                    if (GeneralSettings.EnableCultibookSystems && SectRules.CanFoundSect(pActor) && Randy.randomChance(0.35f))
+                    {
+                        pool.Add(ActorJobs.SectBuilder.id);
+                    }
                     
                     // ========== 师徒系统工作添加到pool ==========
                     // 1. 师傅工作：元婴期及以上才会主动收徒和教导弟子

@@ -20,6 +20,22 @@ public static class ActorTools
         return actor.GetExtend().sect != null;
     }
 
+    public static SectRank GetSectRank(this Actor actor)
+    {
+        actor.data.get(ActorDataKeys.SectRank_Int, out int rank, (int)SectRank.None);
+        return (SectRank)rank;
+    }
+
+    public static void SetSectRank(this Actor actor, SectRank rank)
+    {
+        actor.data.set(ActorDataKeys.SectRank_Int, (int)rank);
+    }
+
+    public static void ClearSectRank(this Actor actor)
+    {
+        actor.data.removeInt(ActorDataKeys.SectRank_Int);
+    }
+
     public static string GetSourceSpawnerAssetId(this Actor actor)
     {
         actor.data.get(ActorDataKeys.SourceSpawnerId_String, out string result);

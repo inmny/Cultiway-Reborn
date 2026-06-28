@@ -286,8 +286,7 @@ internal static class PatchActor
         var ae = __instance.GetExtend();
         if (__instance.HasSect())
         {
-            WorldboxGame.I.Sects.unitDied(ae.sect);
-            ae.sect = null;
+            ae.sect.LeaveSect(__instance);
         }
     }
 

@@ -104,6 +104,11 @@ public static class MasterApprenticeTools
         {
             state.Style = MasterStyle.Gentle; // 默认温和型
         }
+
+        if (master.sect != null && apprentice.sect == null)
+        {
+            master.sect.JoinSect(apprentice.Base, GetSectRankForRelation(type));
+        }
         
         // TODO: 触发事件
         // MasterApprenticeEvents.OnRecruit(master, apprentice);
@@ -283,6 +288,23 @@ public static class MasterApprenticeTools
         relation.TransferredCultibookCount++;
         relation.Intimacy = Mathf.Min(relation.Intimacy + 2, 100);
         UpdateRelationType(ref relation);
+
+        if (master.sect != null && apprentice.sect == master.sect)
+        {
+            master.sect.PromoteMember(apprentice.Base, GetSectRankForRelation(relation.RelationType));
+        }
+    }
+
+    private static SectRank GetSectRankForRelation(MasterApprenticeType type)
+    {
+        return type switch
+        {
+            MasterApprenticeType.Nominal => SectRank.OuterDisciple,
+            MasterApprenticeType.Formal => SectRank.InnerDisciple,
+            MasterApprenticeType.Direct => SectRank.DirectDisciple,
+            MasterApprenticeType.Successor => SectRank.Successor,
+            _ => SectRank.OuterDisciple
+        };
     }
     
     private static void UpdateRelationType(ref MasterApprenticeRelation relation)
