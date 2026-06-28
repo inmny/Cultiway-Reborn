@@ -35,14 +35,31 @@ internal static class PatchUnitMetaBanners
     private static void AddBanners(UnitMetaBanners container)
     {
         if (container._banners.Count == 0) return;
-        if (container._banners.Any(x => x.banner != null && x.banner.HasComponent<SectBanner>())) return;
 
-        container._banners.Add(new MetaBannerElement()
+        if (!HasBanner<SectBanner>(container))
         {
-            banner = Object.Instantiate(SectBanner.Prefab, container._banners[0].banner.transform.parent),
-            check = () => GetSect(container) != null,
-            nano = () => GetSect(container),
-        });
+            container._banners.Add(new MetaBannerElement()
+            {
+                banner = Object.Instantiate(SectBanner.Prefab, container._banners[0].banner.transform.parent),
+                check = () => GetSect(container) != null,
+                nano = () => GetSect(container),
+            });
+        }
+
+        if (!HasBanner<GeoRegionBanner>(container))
+        {
+            container._banners.Add(new MetaBannerElement()
+            {
+                banner = Object.Instantiate(GeoRegionBanner.Prefab, container._banners[0].banner.transform.parent),
+                check = () => GetGeoRegion(container) != null,
+                nano = () => GetGeoRegion(container),
+            });
+        }
+    }
+
+    private static bool HasBanner<TBanner>(UnitMetaBanners container) where TBanner : Component
+    {
+        return container._banners.Any(x => x.banner != null && x.banner.HasComponent<TBanner>());
     }
 
     private static Sect GetSect(UnitMetaBanners container)
@@ -52,5 +69,14 @@ internal static class PatchUnitMetaBanners
 
         Sect sect = actor.GetExtend().sect;
         return sect == null || sect.isRekt() ? null : sect;
+    }
+
+    private static GeoRegion GetGeoRegion(UnitMetaBanners container)
+    {
+        Actor actor = container.actor;
+        if (actor == null || actor.isRekt()) return null;
+
+        GeoRegion geoRegion = WorldboxGame.I?.GeoRegions?.GetPrimaryGeoRegionForTile(actor.current_tile);
+        return geoRegion == null || geoRegion.isRekt() ? null : geoRegion;
     }
 }
