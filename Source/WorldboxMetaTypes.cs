@@ -135,7 +135,7 @@ public partial class WorldboxGame
                 if (sect.isRekt()) return;
                 Tooltip.show(field, Tooltips.Sect.id, new TooltipData()
                 {
-                    tip_description = id.ToString()
+                    tip_name = id.ToString()
                 });
             };
             Sect.stat_click = (id, _) =>
@@ -143,8 +143,11 @@ public partial class WorldboxGame
                 var sect = I.Sects.get(id);
                 if (sect.isRekt()) return;
                 I.SelectedSect = sect;
-                //ScrollWindow.showWindow();
+                ScrollWindow.showWindow(Sect.window_name);
             };
+            Sect.set_icon_for_cancel_button = true;
+            Sect.icon_list = "../../cultiway/icons/iconSectList";
+            Sect.icon_single_path = "../../cultiway/icons/iconSect";
         }
 
         private static bool CheckGeoRegionTileHasMeta(TileZone pZone, MetaTypeAsset pAsset, int pZoneOption)

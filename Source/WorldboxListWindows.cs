@@ -21,6 +21,12 @@ public partial class WorldboxGame
             GeoRegionList.art_path = "cultiway/illustrations/art_geo_regions";
             GeoRegionList.icon_path = "cultiway/icons/iconGeoRegionList";
             GeoRegionList.set_list_component = t => t.AddComponent<GeoRegionListComponent>();
+
+            SectList.meta_type = MetaTypeExtend.Sect.Back();
+            SectList.no_items_locale = "list_empty_sects";
+            SectList.art_path = "cultiway/illustrations/art_geo_regions";
+            SectList.icon_path = "cultiway/icons/iconSectList";
+            SectList.set_list_component = t => t.AddComponent<SectListComponent>();
         }
         protected override void PostInit(ListWindowAsset asset)
         {

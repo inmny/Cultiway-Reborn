@@ -89,7 +89,7 @@ public class Manager
 
         var list_window = window.GetComponent<ListWindow>();
         list_window._meta_type = meta_type.Back();
-        list_window._list_element_prefab = GeoRegionListElement.Prefab.gameObject;
+        list_window._list_element_prefab = GetListElementPrefab(meta_type);
         
         list_window.transform.Find("Background/Title").GetComponent<LocalizedText>().setKeyAndUpdate(meta_type.ToString().Underscore() + "s");
         list_window.transform.Find("Background/Scroll View/Viewport/Content/content_list/title_list/title_tab").GetComponent<LocalizedText>().setKeyAndUpdate("tab_all_" + meta_type.ToString().Underscore() + "s");
@@ -104,6 +104,17 @@ public class Manager
 
         return list_window;
     }
+
+    private static GameObject GetListElementPrefab(MetaTypeExtend meta_type)
+    {
+        return meta_type switch
+        {
+            MetaTypeExtend.GeoRegion => GeoRegionListElement.Prefab.gameObject,
+            MetaTypeExtend.Sect => SectListElement.Prefab.gameObject,
+            _ => throw new NotSupportedException($"未注册列表元素预制体: {meta_type}")
+        };
+    }
+
     public static TWindow CreateMetaWindow<TWindow, TMeta, TMetaData>(string window_id, params string[] preserved_tabs)
     where TWindow : WindowMetaGeneric<TMeta, TMetaData> 
     where TMeta : CoreSystemObject<TMetaData> 
@@ -397,8 +408,11 @@ public class Manager
     {
         WindowNewCreatureInfo.CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
         GeoRegionWindow.Init();
+        SectWindow.Init();
         SelectedGeoRegionTab.Init();
         GeoRegionListComponent.Init();
+        SectListComponent.Init();
         InsertButtonForMeta(MetaTypeExtend.GeoRegion);
+        InsertButtonForMeta(MetaTypeExtend.Sect);
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using Cultiway.Const;
 using Cultiway.Utils.Extension;
 using UnityEngine;
@@ -20,6 +21,7 @@ public class SectBanner : BannerGeneric<Sect, SectData>
     public override void setupBanner()
     {
         base.setupBanner();
+        HideVanillaBannerDecorations(transform);
         part_background.sprite = meta_object.getBannerBackground();
         part_icon.sprite = meta_object.getBannerIcon();
         part_background.color = meta_object.getColor().getColorMainSecond();
@@ -43,22 +45,7 @@ public class SectBanner : BannerGeneric<Sect, SectData>
         var go = Instantiate(Resources.Load<KingdomBanner>("ui/PrefabBannerKingdom"), ModClass.I.PrefabLibrary).gameObject;
         go.SetActive(false);
         Destroy(go.GetComponent<KingdomBanner>());
-        if (go.transform.Find("TiltEffect/dead") != null)
-        {
-            Destroy(go.transform.Find("TiltEffect/dead").gameObject);
-        }
-        if (go.transform.Find("TiltEffect/left") != null)
-        {
-            Destroy(go.transform.Find("TiltEffect/left").gameObject);
-        }
-        if (go.transform.Find("TiltEffect/winner") != null)
-        {
-            Destroy(go.transform.Find("TiltEffect/winner").gameObject);
-        }
-        if (go.transform.Find("TiltEffect/loser") != null)
-        {
-            Destroy(go.transform.Find("TiltEffect/loser").gameObject);
-        }
+        HideVanillaBannerDecorations(go.transform);
 
         go.GetComponent<UiButtonHoverAnimation>().default_scale = new(0.75f, 0.75f, 1);
         go.GetComponent<TipButton>().setDefaultScale(new Vector3(0.75f, 0.75f, 1));
@@ -69,5 +56,46 @@ public class SectBanner : BannerGeneric<Sect, SectData>
         _prefab.name = "PrefabBannerSect";
         _prefab.transform.localScale = Vector3.one * 0.75f;
     }
+
+    public static void HideVanillaBannerDecorations(Transform root)
+    {
+        if (root == null) return;
+
+        root.HideChildrenByPath(
+            "TiltEffect/dead",
+            "TiltEffect/left",
+            "TiltEffect/winner",
+            "TiltEffect/loser");
+        HideDescendantsByName(root, "war", "revolt", "rebellion", "uprising", "laurel", "crown");
+    }
+
+    private static void HideDescendantsByName(Transform root, params string[] nameParts)
+    {
+        Transform[] descendants = root.GetComponentsInChildren<Transform>(true);
+        for (int i = 0; i < descendants.Length; i++)
+        {
+            Transform current = descendants[i];
+            if (current == root) continue;
+            if (!ContainsAny(current.name, nameParts)) continue;
+
+            current.gameObject.SetActive(false);
+        }
+    }
+
+    private static bool ContainsAny(string value, string[] nameParts)
+    {
+        if (string.IsNullOrEmpty(value)) return false;
+
+        for (int i = 0; i < nameParts.Length; i++)
+        {
+            if (value.IndexOf(nameParts[i], StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static SectBanner _prefab;
 }

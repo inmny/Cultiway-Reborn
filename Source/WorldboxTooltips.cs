@@ -56,6 +56,7 @@ public partial class WorldboxGame
             GeoRegionTooltip.PatchTo<Tooltip>(GeoRegion.prefab_id);
 
             ListGeoRegion.callback = (TooltipShowAction)Delegate.Combine((TooltipShowAction)AssetManager.tooltips.showNormal, (TooltipShowAction)ShowGeoRegionMetaListInfo);
+            ListSect.callback = (TooltipShowAction)Delegate.Combine((TooltipShowAction)AssetManager.tooltips.showNormal, (TooltipShowAction)ShowSectMetaListInfo);
 
             Book.callback += ShowCustomBookReadAction;
             
@@ -76,6 +77,22 @@ public partial class WorldboxGame
             AssetManager.tooltips.setIconSprite(tooltip, "i_total", MetaTypes.GeoRegion.icon_list);
             AssetManager.tooltips.setIconSprite(tooltip, "i_destroyed", "iconUnity");
         }
+
+        private void ShowSectMetaListInfo(Tooltip tooltip, string type, TooltipData data)
+        {
+            int memberCount = 0;
+            foreach (Sect sect in I.Sects.list)
+            {
+                if (sect == null || sect.isRekt()) continue;
+                memberCount += sect.countUnits();
+            }
+
+            AssetManager.tooltips.setIconValue(tooltip, "i_total", I.Sects.Count);
+            AssetManager.tooltips.setIconValue(tooltip, "i_destroyed", memberCount);
+            AssetManager.tooltips.setIconSprite(tooltip, "i_total", MetaTypes.Sect.icon_list);
+            AssetManager.tooltips.setIconSprite(tooltip, "i_destroyed", "iconPopulation");
+        }
+
         private void ShowGeoRegion(Tooltip tooltip, string type, TooltipData data)
         {
             if (!long.TryParse(data.tip_name, out long regionId))
@@ -142,15 +159,25 @@ public partial class WorldboxGame
 
         private void ShowSect(Tooltip tooltip, string type, TooltipData data)
         {
-            var sect = I.Sects.get(long.Parse(data.tip_name));
+            if (!long.TryParse(data.tip_name, out long sectId))
+            {
+                tooltip.setTitle("ERROR");
+                return;
+            }
+
+            var sect = I.Sects.get(sectId);
             if (sect == null)
             {
                 tooltip.setTitle("ERROR");
                 return;
             }
             tooltip.setTitle(sect.name, "sect", sect.getColor().color_text);
+            tooltip.GetComponent<SectTooltip>()?.Setup(sect);
+            tooltip.transform.FindRecursive("Stats")?.gameObject.SetActive(true);
             tooltip.addLineIntText("adults", sect.countAdults());
             tooltip.addLineIntText("children", sect.countChildren());
+            tooltip.addLineIntText("Cultiway.Sect.Level", sect.data.Level);
+            tooltip.addLineIntText("Cultiway.Sect.Reputation", sect.data.Reputation);
         }
 
         private void ShowCustomBookReadAction(Tooltip tooltip, string type, TooltipData data)

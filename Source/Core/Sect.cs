@@ -234,6 +234,28 @@ public class Sect : MetaObject<SectData>
         return actor;
     }
 
+    public override ActorAsset getActorAsset()
+    {
+        if (data != null)
+        {
+            Actor leader = GetLeaderActor();
+            if (!leader.isRekt()) return leader.getActorAsset();
+
+            if (data.FounderActorID > 0)
+            {
+                Actor founder = World.world.units.get(data.FounderActorID);
+                if (!founder.isRekt()) return founder.getActorAsset();
+            }
+
+            foreach (Actor member in GetLivingMembers())
+            {
+                if (!member.isRekt()) return member.getActorAsset();
+            }
+        }
+
+        return AssetManager.actor_library.get("human");
+    }
+
     public List<Actor> GetLivingMembers()
     {
         var result = new List<Actor>();
