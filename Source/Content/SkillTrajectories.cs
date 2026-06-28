@@ -23,6 +23,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset SpiralHoming { get; private set; }
     public static TrajectoryAsset OrbitTarget { get; private set; }
     public static TrajectoryAsset Boomerang { get; private set; }
+    public static TrajectoryAsset SlowVortex { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -38,6 +39,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupSpiralHoming();
         SetupOrbitTarget();
         SetupBoomerang();
+        SetupSlowVortex();
     }
 
     private static void SetupTowardsDirection()
@@ -341,6 +343,51 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 OutDistance = 5f,
                 ReturnTurnRate = 520f,
                 MaxLifetime = 2.4f
+            });
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
+        };
+    }
+
+    private static void SetupSlowVortex()
+    {
+        SlowVortex.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            state.Elapsed += dt;
+
+            var vortex = e.TryGetComponent(out VortexTrajectoryParams vortexComponent)
+                ? vortexComponent
+                : new VortexTrajectoryParams
+                {
+                    ForwardSpeed = 5.5f,
+                    Radius = 0.9f,
+                    AngularSpeed = 520f,
+                    PulseAmplitude = 0.25f,
+                    PulseFrequency = 2f
+                };
+            var baseDir = SafeNormalized(state.StartDirection, context.TargetDir);
+            var side = PerpendicularInPlane(baseDir);
+            var angle = state.Phase + vortex.AngularSpeed * Mathf.Deg2Rad * state.Elapsed;
+            var radius = vortex.Radius
+                         + Mathf.Sin(state.Elapsed * vortex.PulseFrequency * TwoPi + state.Phase)
+                         * vortex.PulseAmplitude;
+            var center = state.StartPosition + baseDir * (vortex.ForwardSpeed * state.Elapsed);
+            var next = center + side * (Mathf.Cos(angle) * radius) + baseDir * (Mathf.Sin(angle) * radius * 0.25f);
+
+            rot.value = DirectionTo(next, pos.value, baseDir);
+            pos.value = next;
+        };
+        SlowVortex.OnInit = e =>
+        {
+            EnsureVelocity(e, 8f);
+            SetOrAdd(e, new VortexTrajectoryParams
+            {
+                ForwardSpeed = 5.5f,
+                Radius = 0.9f,
+                AngularSpeed = 520f,
+                PulseAmplitude = 0.25f,
+                PulseFrequency = 2f
             });
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
