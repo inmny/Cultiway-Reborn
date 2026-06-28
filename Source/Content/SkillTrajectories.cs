@@ -20,6 +20,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset DriftHoming { get; private set; }
     public static TrajectoryAsset SineWave { get; private set; }
     public static TrajectoryAsset Zigzag { get; private set; }
+    public static TrajectoryAsset SpiralHoming { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -32,6 +33,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupDriftHoming();
         SetupSineWave();
         SetupZigzag();
+        SetupSpiralHoming();
     }
 
     private static void SetupTowardsDirection()
@@ -196,6 +198,52 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             {
                 SideAmplitude = 0.75f,
                 SegmentDuration = 0.12f
+            });
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
+        };
+    }
+
+    private static void SetupSpiralHoming()
+    {
+        SpiralHoming.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            state.Elapsed += dt;
+
+            var spiral = e.TryGetComponent(out SpiralTrajectoryParams spiralComponent)
+                ? spiralComponent
+                : new SpiralTrajectoryParams
+                {
+                    Radius = 0.7f,
+                    Frequency = 4f,
+                    RadiusDamping = 0.75f,
+                    HomingStrength = 0.7f
+                };
+            var targetDir = DirectionTo(GetTargetPos(ref context), pos.value, context.TargetDir);
+            var current = SafeNormalized(rot.value, targetDir);
+            var homing = Mathf.Clamp01(spiral.HomingStrength);
+            var baseDir = SmoothTurn(current, targetDir, GetTurnRate(e, 240f) * homing * dt);
+            var side = PerpendicularInPlane(baseDir);
+            var radius = spiral.Radius * Mathf.Exp(-Mathf.Max(0f, spiral.RadiusDamping) * state.Elapsed);
+            var angle = state.Elapsed * spiral.Frequency * TwoPi + state.Phase;
+            var swirl = side * (Mathf.Sin(angle) * radius);
+            var desired = SafeNormalized(baseDir + swirl, baseDir);
+
+            rot.value = desired;
+            pos.value += desired * GetVelocity(e, 19f) * dt;
+            pos.z += Mathf.Cos(angle) * radius * 0.04f;
+        };
+        SpiralHoming.OnInit = e =>
+        {
+            EnsureVelocity(e, 19f);
+            EnsureTurnRate(e, 240f);
+            SetOrAdd(e, new SpiralTrajectoryParams
+            {
+                Radius = 0.7f,
+                Frequency = 4f,
+                RadiusDamping = 0.75f,
+                HomingStrength = 0.7f
             });
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
