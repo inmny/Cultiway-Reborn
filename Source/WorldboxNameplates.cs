@@ -15,6 +15,7 @@ using UnityEngine;
 using db;
 using strings;
 using Cultiway.Core.Libraries;
+using Cultiway.UI.Components;
 
 namespace Cultiway;
 
@@ -31,9 +32,11 @@ public partial class WorldboxGame
             Sect = Add(new NameplateAsset()
             {
                 id = "plate_sect",
-                path_sprite = "ui/nameplates/nameplate_culture",
-                padding_left = 11,
-                padding_right = 13,
+                path_sprite = "ui/nameplates/nameplate_army",
+                padding_left = 26,
+                padding_right = 18,
+                padding_top = -2,
+                banner_only_mode_scale = 1.5f,
                 map_mode = MetaTypeExtend.Sect.Back(),
                 action_main = new NameplateBase(ActionSect)
             });
@@ -49,16 +52,65 @@ public partial class WorldboxGame
         }
         private static void ActionSect(NameplateManager manager, NameplateAsset asset)
         {
-            if (ModClass.I?.TileExtendManager == null) return;
-            if (!ModClass.I.TileExtendManager.Ready()) return;
-
             int current = 0;
-            foreach (var sect in WorldboxGame.I.Sects.list)
+            using (ListPool<Sect> sortedSects = new(WorldboxGame.I.Sects.list))
             {
-                if (current >= asset.max_nameplate_count) return;
-                // TODO: 添加Sect的Nameplate
-                current++;
+                sortedSects.Sort(CompareSectsForNameplate);
+                foreach (Sect sect in sortedSects)
+                {
+                    if (current >= asset.max_nameplate_count) return;
+                    if (sect == null || sect.isRekt()) continue;
+                    if (!TryGetSectNameplatePosition(sect, out Vector3 position)) continue;
+
+                    NameplateText nameplate = manager.prepareNext(asset, sect);
+                    ApplySectNameplate(nameplate, sect, position);
+                    current++;
+                }
             }
+        }
+
+        private static int CompareSectsForNameplate(Sect left, Sect right)
+        {
+            int favoriteComparison = right.isFavorite().CompareTo(left.isFavorite());
+            if (favoriteComparison != 0) return favoriteComparison;
+
+            int selectedComparison = right.isSelected().CompareTo(left.isSelected());
+            if (selectedComparison != 0) return selectedComparison;
+
+            return right.countUnits().CompareTo(left.countUnits());
+        }
+
+        private static bool TryGetSectNameplatePosition(Sect sect, out Vector3 position)
+        {
+            position = Vector3.zero;
+            if (sect == null || !sect.isAlive() || !sect.hasUnits()) return false;
+
+            Actor actor = sect.GetLeaderActor();
+            if (actor == null)
+            {
+                actor = sect.getOldestVisibleUnitForNameplatesCached();
+            }
+
+            if (actor == null || actor.isRekt()) return false;
+
+            position = actor.current_position;
+            position.y += actor.getHeight();
+            position.y += -2f;
+            return true;
+        }
+
+        private static void ApplySectNameplate(NameplateText nameplate, Sect sect, Vector3 position)
+        {
+            nameplate.setupMeta(sect.data, sect.getColor());
+
+            int unitCount = sect.countUnits();
+            string text = nameplate.is_mini ? string.Empty : $"{sect.name} - {unitCount}";
+            nameplate.setText(text, position, 10);
+            nameplate.setPriority(unitCount);
+            nameplate.showSpecies(sect.getActorAsset().getSpriteIcon());
+            SectNameplateBanner banner = nameplate.GetComponent<SectNameplateBanner>() ??
+                                         nameplate.gameObject.AddComponent<SectNameplateBanner>();
+            banner.Show(sect);
         }
 
         private static void ActionGeoRegion(NameplateManager manager, NameplateAsset asset)

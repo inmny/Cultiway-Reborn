@@ -22,8 +22,9 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
         Sect = add(new CustomMapModeAsset()
         {
             id = "sect",
-            icon_path = "cultiway/icons/iconGeoRegion",
+            icon_path = "cultiway/icons/iconSect",
             toggle_name = "sect_layer",
+            redirect_map_mode = MetaTypeExtend.Sect,
             kernel_func = (WorldTile worldTile, ref Color32 out_color) =>
             {
                 out_color.a = 0;

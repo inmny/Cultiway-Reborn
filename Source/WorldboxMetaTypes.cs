@@ -93,18 +93,25 @@ public partial class WorldboxGame
             GeoRegion.icon_list = "../../cultiway/icons/iconGeoRegionList";
             GeoRegion.icon_single_path = "../../cultiway/icons/iconGeoRegion";
 
+            Sect.map_mode = MetaTypeExtend.Sect.Back();
             Sect.option_id = CustomMapModeLibrary.Sect.toggle_name;
-            Sect.draw_zones = (_) => {};
-            Sect.check_cursor_highlight = (_, _, _) => {}; // TODO: GeoRegion所属tiles高亮
+            Sect.power_option_zone_id = CustomMapModeLibrary.Sect.toggle_name;
+            Sect.force_zone_when_selected = true;
+            Sect.has_dynamic_zones = true;
+            Sect.dynamic_zone_option = 0;
+            Sect.draw_zones = DrawSectZones;
+            Sect.check_cursor_highlight = CheckSectCursorHighlight;
 		    Sect.check_tile_has_meta = new MetaZoneTooltipAction(AssetManager.meta_type_library.checkTileHasMetaDefault);
 		    Sect.check_cursor_tooltip = new MetaZoneTooltipAction(AssetManager.meta_type_library.checkCursorTooltipDefault);
-            Sect.tile_get_metaobject = (_, _) => null;
-            Sect.tile_get_metaobject_0 = (_) => null;
-            Sect.tile_get_metaobject_1 = (_) => null;
-            Sect.tile_get_metaobject_2 = (_) => null;
-            Sect.cursor_tooltip_action = (_) => {};
+            Sect.tile_get_metaobject = (zone, _) => GetSectForZone(zone);
+            Sect.tile_get_metaobject_0 = GetSectForZone;
+            Sect.tile_get_metaobject_1 = GetSectForZone;
+            Sect.tile_get_metaobject_2 = GetSectForZone;
+            Sect.cursor_tooltip_action = ShowSectCursorTooltip;
+            Sect.dynamic_zones = UpdateSectDynamicZones;
             Sect.window_name = Sect.id;
             Sect.window_action_clear = () => I.SelectedSect = null;
+            Sect.selected_tab_action = () => ScrollWindow.showWindow(Sect.window_name);
             Sect.GetExtend<MetaTypeAssetExtend>().ExtendWindowHistoryActionUpdate = (data) =>
             {
                 data.StoredObj[Sect.id] = I.SelectedSect;
@@ -129,6 +136,9 @@ public partial class WorldboxGame
             Sect.get_selected = () => I.SelectedSect;
             Sect.set_selected = (sect) => I.SelectedSect = sect as Sect;
             Sect.get = (id) => I.Sects.get(id);
+            Sect.check_unit_has_meta = actor => GetSectForActor(actor) != null;
+            Sect.set_unit_set_meta_for_meta_for_window = actor => I.SelectedSect = GetSectForActor(actor);
+            Sect.click_action_zone = InspectSect;
             Sect.stat_hover = (id, field) =>
             {
                 var sect = I.Sects.get(id);
@@ -142,12 +152,104 @@ public partial class WorldboxGame
             {
                 var sect = I.Sects.get(id);
                 if (sect.isRekt()) return;
-                I.SelectedSect = sect;
-                ScrollWindow.showWindow(Sect.window_name);
+                Sect.selectAndInspect(sect, false, true, false);
             };
             Sect.set_icon_for_cancel_button = true;
             Sect.icon_list = "../../cultiway/icons/iconSectList";
             Sect.icon_single_path = "../../cultiway/icons/iconSect";
+        }
+
+        private static void DrawSectZones(MetaTypeAsset asset)
+        {
+            UpdateSectDynamicZones();
+
+            ZoneCalculator zoneCalculator = World.world.zone_calculator;
+            foreach (ZoneMetaData data in ZoneMetaDataVisualizer.zone_data_dict.Values)
+            {
+                if (data.meta_object is not Sect sect || sect.isRekt()) continue;
+                if (data.zone == null) continue;
+
+                zoneCalculator.drawBegin();
+                zoneCalculator.drawGenericFluid(data, asset);
+                zoneCalculator.drawEnd(data.zone);
+            }
+        }
+
+        private static void UpdateSectDynamicZones()
+        {
+            List<Actor> actors = World.world.units.getSimpleList();
+            double worldTime = World.world.getCurWorldTime();
+            for (int i = 0; i < actors.Count; i++)
+            {
+                Actor actor = actors[i];
+                if (actor == null || actor.isRekt()) continue;
+                if (!actor.asset.show_on_meta_layer) continue;
+
+                Sect sect = GetSectForActor(actor);
+                if (sect == null) continue;
+
+                TileZone zone = actor.current_tile?.zone;
+                if (zone == null) continue;
+
+                ZoneMetaDataVisualizer.countMetaZone(zone, sect, worldTime);
+            }
+        }
+
+        private static void CheckSectCursorHighlight(MetaTypeAsset asset, WorldTile tile, QuantumSpriteAsset quantumSprite)
+        {
+            Sect sect = GetSectForTile(tile);
+            if (sect == null) return;
+
+            using (ListPool<TileZone> zones = ZoneMetaDataVisualizer.getZonesWithMeta(sect))
+            {
+                QuantumSpriteLibrary.colorZones(quantumSprite, zones, quantumSprite.color);
+            }
+        }
+
+        private static bool InspectSect(WorldTile tile, string power = null)
+        {
+            Sect sect = GetSectForTile(tile);
+            if (sect == null) return false;
+
+            Sect.selectAndInspect(sect, false, true, false);
+            return true;
+        }
+
+        private static Sect GetSectForTile(WorldTile tile)
+        {
+            return tile == null ? null : GetSectForZone(tile.zone);
+        }
+
+        private static Sect GetSectForZone(TileZone zone)
+        {
+            if (zone == null) return null;
+
+            ZoneMetaData data = ZoneMetaDataVisualizer.getZoneMetaData(zone);
+            Sect sect = data.meta_object as Sect;
+            return sect == null || sect.isRekt() ? null : sect;
+        }
+
+        private static Sect GetSectForActor(Actor actor)
+        {
+            if (actor == null || actor.isRekt()) return null;
+
+            Sect sect = actor.GetExtend().sect;
+            return sect == null || sect.isRekt() ? null : sect;
+        }
+
+        private static void ShowSectCursorTooltip(NanoObject meta)
+        {
+            Sect sect = meta as Sect;
+            if (sect == null || sect.isRekt()) return;
+            if (Tooltip.isShowingFor(sect)) return;
+
+            Tooltip.hideTooltip(sect, true, Tooltips.Sect.id);
+            Tooltip.show(sect, Tooltips.Sect.id, new TooltipData
+            {
+                tip_name = sect.id.ToString(),
+                tooltip_scale = 0.7f,
+                is_sim_tooltip = true
+            });
         }
 
         private static bool CheckGeoRegionTileHasMeta(TileZone pZone, MetaTypeAsset pAsset, int pZoneOption)
