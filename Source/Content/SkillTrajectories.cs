@@ -25,6 +25,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset Boomerang { get; private set; }
     public static TrajectoryAsset SlowVortex { get; private set; }
     public static TrajectoryAsset ArcToPosition { get; private set; }
+    public static TrajectoryAsset FallingStrike { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -42,6 +43,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupBoomerang();
         SetupSlowVortex();
         SetupArcToPosition();
+        SetupFallingStrike();
     }
 
     private static void SetupTowardsDirection()
@@ -430,6 +432,62 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 Height = 4f
             });
             SetOrAdd(e, new CollisionHeightGate { MaxHeight = 0.55f });
+            ResetRuntimeState(e);
+        };
+    }
+
+    private static void SetupFallingStrike()
+    {
+        FallingStrike.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            var falling = e.TryGetComponent(out FallingTrajectoryParams fallingComponent)
+                ? fallingComponent
+                : new FallingTrajectoryParams
+                {
+                    StartHeight = 7f,
+                    FallSpeed = 18f,
+                    DriftSpeed = 4f,
+                    ImpactHeight = 0.35f
+                };
+
+            if (state.Elapsed <= 0f)
+            {
+                var target = GetTargetPos(ref context);
+                pos.value = new Vector3(target.x, target.y, target.z + falling.StartHeight);
+                state.StartPosition = pos.value;
+            }
+
+            state.Elapsed += dt;
+            var targetPos = GetTargetPos(ref context);
+            var targetFlat = new Vector3(targetPos.x, targetPos.y, pos.z);
+            pos.value = Vector3.MoveTowards(pos.value, targetFlat, falling.DriftSpeed * dt);
+            pos.z -= falling.FallSpeed * dt;
+            if (pos.z < targetPos.z)
+            {
+                pos.z = targetPos.z;
+            }
+            rot.value = SafeNormalized(new Vector3(0f, -0.2f, -1f), Vector3.down);
+
+            if (pos.z <= targetPos.z + falling.ImpactHeight)
+            {
+                SetOrAdd(e, new CollisionHeightGate { MaxHeight = targetPos.z + falling.ImpactHeight });
+            }
+            if (state.Elapsed >= falling.StartHeight / Mathf.Max(0.01f, falling.FallSpeed) + 0.35f)
+            {
+                ModClass.I.CommandBuffer.AddTag<TagRecycle>(e.Id);
+            }
+        };
+        FallingStrike.OnInit = e =>
+        {
+            SetOrAdd(e, new FallingTrajectoryParams
+            {
+                StartHeight = 7f,
+                FallSpeed = 18f,
+                DriftSpeed = 4f,
+                ImpactHeight = 0.35f
+            });
+            SetOrAdd(e, new CollisionHeightGate { MaxHeight = 0.35f });
             ResetRuntimeState(e);
         };
     }
