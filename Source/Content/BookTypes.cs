@@ -16,10 +16,8 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        Cultibook.requirement_check = (actor, _) =>
-        {
-            return actor.GetExtend().HasCultisys<Xian>();
-        };
+        // 功法书需要实例级 Cultibook 组件，只能通过显式创建路径生成。
+        Cultibook.requirement_check = (_, _) => false;
         Cultibook.name_template = WorldboxGame.NameGenerators.Cultibook.id;
         Cultibook.path_icons = "cultibook/";
         Cultibook.GetExtend<BookTypeAssetExtend>().custom_cover_name = "cultibook";
@@ -36,10 +34,8 @@ public class BookTypes : ExtendLibrary<BookTypeAsset, BookTypes>
         Elixirbook.GetExtend<BookTypeAssetExtend>().instance_read_action = LearnElixirbook;
         
         
-        Skillbook.requirement_check = (actor, _) =>
-        {
-            return actor.GetExtend().HasCultisys<Xian>();
-        };
+        // 技能书同样依赖实例级 Skillbook 组件，不能进入原版随机写书池。
+        Skillbook.requirement_check = (_, _) => false;
         Skillbook.name_template = WorldboxGame.NameGenerators.Cultibook.id;
         Skillbook.path_icons = "cultibook/";
         Skillbook.GetExtend<BookTypeAssetExtend>().custom_cover_name = "cultibook";
