@@ -10,6 +10,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Core.Components;
+using Cultiway.Debug;
 using NeoModLoader.api.attributes;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3;
@@ -961,8 +962,20 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
 
         if (Base == attacker) return;
 
+        var damage_debug = CombatDamageDebug.ShouldLog(this, attacker)
+            ? CombatDamageDebug.StartRecord(this, attacker, damage, ref damage_composition, attack_type_for_vanilla,
+                ignore_damage_reduction)
+            : null;
+
         RecordRecentAttacker(attacker);
         action_before_be_attacked?.Invoke(this, attacker, ref damage_composition, ref attack_type_for_vanilla, ref damage, ref ignore_damage_reduction);
+        if (damage_debug != null)
+        {
+            damage_debug.DamageAfterPreActions = damage;
+            damage_debug.AttackType = attack_type_for_vanilla.ToString();
+            damage_debug.IgnoreDamageReduction = ignore_damage_reduction;
+            CombatDamageDebug.RefreshComposition(damage_debug, this, ref damage_composition);
+        }
 
         var attacker_power_level = attacker_power_level_override ??
                                    (((attacker?.isActor() ?? false) && !attacker.isRekt())
@@ -971,6 +984,14 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         var power_level = GetPowerLevel();
         var power_level_gap = power_level - attacker_power_level;
         var should_apply_minimum_damage = ShouldApplyMinimumDamage(attacker, damage, power_level_gap);
+        if (damage_debug != null)
+        {
+            damage_debug.AttackerPowerLevel = attacker_power_level;
+            damage_debug.TargetPowerLevel = power_level;
+            damage_debug.PowerLevelGap = power_level_gap;
+            damage_debug.MinimumDamageEligible = should_apply_minimum_damage;
+            damage_debug.DamageBeforePowerSuppression = damage;
+        }
         if (!ignore_damage_reduction)
         {
             if (power_level_gap > 0)
@@ -979,37 +1000,49 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
                     Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level_gap));
             }
 
+            if (damage_debug != null)
+            {
+                damage_debug.DamageAfterPowerSuppression = damage;
+                damage_debug.DamageBeforeResistance = damage;
+            }
+
             if (damage >= 1)
             {
-                var damage_ratio = 1 - s_armor[ElementIndex.Entropy + 1];
-                var total_ratio = 0f;
-                var sum = 0f;
-                for (var i = 0; i < 5; i++)
-                {
-                    total_ratio += damage_composition[i] * (1 - s_armor[i]);
-                    sum += damage_composition[i];
-                }
-                if (sum > 0)
-                    damage_ratio *= total_ratio / sum;
-                total_ratio = 0f;
-                sum = 0f;
-                for (var i = 5; i < 7; i++)
-                {
-                    total_ratio += damage_composition[i] * (1 - s_armor[i]);
-                    sum += damage_composition[i];
-                }
-            
-                if (sum > 0)
-                    damage_ratio *= total_ratio / sum * (1 - s_armor[ElementIndex.Entropy]);
-            
-                damage_ratio *= (1 - s_armor[ElementIndex.Entropy]);
+                var damage_ratio = GetDamageReductionPassRatio(ref damage_composition, damage_debug);
                 damage = Mathf.Clamp(damage * damage_ratio, 0, int.MaxValue >> 2);
             }
         }
-
-        damage = ApplyMinimumDamage(damage, should_apply_minimum_damage);
-        if (ShouldResolveIneffectiveHit(attacker, damage, power_level_gap))
+        else if (damage_debug != null)
         {
+            damage_debug.DamageAfterPowerSuppression = damage;
+            damage_debug.DamageBeforeResistance = damage;
+        }
+
+        if (damage_debug != null) damage_debug.DamageAfterResistance = damage;
+        var damage_before_minimum = damage;
+        damage = ApplyMinimumDamage(damage, should_apply_minimum_damage);
+        if (damage_debug != null)
+        {
+            damage_debug.DamageBeforeMinimum = damage_before_minimum;
+            damage_debug.DamageAfterMinimum = damage;
+            damage_debug.MinimumDamageAppliedBeforeIneffective = damage > damage_before_minimum;
+        }
+
+        var ineffective_hit_chance = GetIneffectiveHitChance(attacker, damage, power_level_gap);
+        var ineffective_hit = ineffective_hit_chance > 0f && Randy.randomChance(ineffective_hit_chance);
+        if (damage_debug != null)
+        {
+            damage_debug.IneffectiveHitChance = ineffective_hit_chance;
+            damage_debug.IneffectiveHit = ineffective_hit;
+        }
+
+        if (ineffective_hit)
+        {
+            if (damage_debug != null)
+            {
+                damage_debug.FinalDamage = 0f;
+                CombatDamageDebug.Log(damage_debug);
+            }
             ResolveIneffectiveHit(attacker);
             return;
         }
@@ -1021,12 +1054,85 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         }
         if (attacker != null && !attacker.isRekt() && attacker.isActor())
         {
+            var damage_before_vanilla_special = damage;
             Base.checkSpecialAttackLogic(attacker.a, attack_type_for_vanilla, damage, out var final_damage);
             AchievementLibrary.clone_wars.checkBySignal(new ValueTuple<Actor, Actor>(Base, attacker.a));
             damage = Math.Min(damage, final_damage);
+            if (damage_debug != null)
+            {
+                damage_debug.DamageBeforeVanillaSpecial = damage_before_vanilla_special;
+                damage_debug.VanillaSpecialFinalDamage = final_damage;
+            }
+            damage_before_minimum = damage;
             damage = ApplyMinimumDamage(damage, should_apply_minimum_damage);
+            if (damage_debug != null)
+            {
+                damage_debug.MinimumDamageAppliedAfterVanillaSpecial = damage > damage_before_minimum;
+            }
+        }
+        else if (damage_debug != null)
+        {
+            damage_debug.DamageBeforeVanillaSpecial = damage;
+            damage_debug.VanillaSpecialFinalDamage = damage;
+        }
+
+        if (damage_debug != null)
+        {
+            damage_debug.FinalDamage = damage;
+            CombatDamageDebug.Log(damage_debug);
         }
         PatchActor.getHit_snapshot(Base, damage, pAttackType: attack_type_for_vanilla, pAttacker: attacker, pSkipIfShake: false, pCheckDamageReduction: false);
+    }
+
+    private float GetDamageReductionPassRatio(ref ElementComposition damage_composition,
+        CombatDamageDebugRecord damage_debug)
+    {
+        var damage_ratio = 1 - s_armor[ElementIndex.Entropy + 1];
+        var five_element_pass_ratio = 1f;
+        var polarity_pass_ratio = 1f;
+        var polarity_entropy_pass_ratio = 1f;
+        var entropy_pass_ratio = 1 - s_armor[ElementIndex.Entropy];
+
+        var total_ratio = 0f;
+        var sum = 0f;
+        for (var i = 0; i < 5; i++)
+        {
+            total_ratio += damage_composition[i] * (1 - s_armor[i]);
+            sum += damage_composition[i];
+        }
+        if (sum > 0)
+        {
+            five_element_pass_ratio = total_ratio / sum;
+            damage_ratio *= five_element_pass_ratio;
+        }
+
+        total_ratio = 0f;
+        sum = 0f;
+        for (var i = 5; i < 7; i++)
+        {
+            total_ratio += damage_composition[i] * (1 - s_armor[i]);
+            sum += damage_composition[i];
+        }
+
+        if (sum > 0)
+        {
+            polarity_pass_ratio = total_ratio / sum;
+            polarity_entropy_pass_ratio = entropy_pass_ratio;
+            damage_ratio *= polarity_pass_ratio * polarity_entropy_pass_ratio;
+        }
+
+        damage_ratio *= entropy_pass_ratio;
+
+        if (damage_debug != null)
+        {
+            damage_debug.FiveElementPassRatio = five_element_pass_ratio;
+            damage_debug.PolarityPassRatio = polarity_pass_ratio;
+            damage_debug.PolarityEntropyPassRatio = polarity_entropy_pass_ratio;
+            damage_debug.EntropyPassRatio = entropy_pass_ratio;
+            damage_debug.TotalPassRatio = damage_ratio;
+        }
+
+        return damage_ratio;
     }
 
     /// <summary>
@@ -1050,13 +1156,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <summary>
     /// 判断低境界攻击高境界时是否应按无效命中处理。
     /// </summary>
-    private static bool ShouldResolveIneffectiveHit(BaseSimObject attacker, float damage, float power_level_gap)
+    private static float GetIneffectiveHitChance(BaseSimObject attacker, float damage, float power_level_gap)
     {
-        if (damage <= 0 || power_level_gap <= 0) return false;
-        if (attacker.isRekt() || !attacker.isActor()) return false;
+        if (damage <= 0 || power_level_gap <= 0) return 0f;
+        if (attacker.isRekt() || !attacker.isActor()) return 0f;
 
         var chance = 1f - Mathf.Pow(0.5f, power_level_gap);
-        return Randy.randomChance(Mathf.Clamp01(chance));
+        return Mathf.Clamp01(chance);
     }
 
     private void ResolveIneffectiveHit(BaseSimObject attacker)

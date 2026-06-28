@@ -299,6 +299,7 @@ namespace Cultiway
                 DebugConfig.setOption(DebugOption.CityInfiniteResources, true);
                 DebugConfig.setOption(DebugOption.CityFastConstruction, true);
                 DebugConfig.setOption(DebugOption.CityFastUpgrades, true);
+                CombatDamageDebug.EnableForFavoriteUnits();
                 
                 GeneralLogicSystems.SetMonitorPerf(true);
                 GeneralRenderSystems.SetMonitorPerf(true);
