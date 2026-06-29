@@ -1,3 +1,4 @@
+using Cultiway.Content.Extensions;
 using Cultiway.Core;
 
 namespace Cultiway.Utils.Extension;
@@ -48,6 +49,7 @@ public static class BookManagerTools
     {
         if (sect == null || sect.isRekt()) return false;
         if (book == null || book.isRekt()) return false;
+        if (contributor != null && !contributor.CanStoreSectScripture(sect)) return false;
         if (!sect.AddScriptureBook(book)) return false;
 
         if (contributor != null && contribution > 0)

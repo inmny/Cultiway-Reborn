@@ -62,16 +62,19 @@ public static class ScriptureBookStorageTools
 
         var candidates = actor.GetExtend().GetAllMaster<CultibookAsset>().ToList();
         Sect sect = actor.GetExtend().sect;
-        var sectCandidates = candidates
-            .Where(item => sect.CanAcceptCultibook(item.Item1))
-            .ToList();
-        if (sectCandidates.Count > 0)
+        if (actor.CanContributeSectScripture(sect))
         {
-            var sectCandidate = sectCandidates.GetRandom();
-            target = ScriptureBookTarget.ForSect(sect);
-            cultibook = sectCandidate.Item1;
-            mastery = sectCandidate.Item2;
-            return true;
+            var sectCandidates = candidates
+                .Where(item => sect.CanAcceptCultibook(item.Item1))
+                .ToList();
+            if (sectCandidates.Count > 0)
+            {
+                var sectCandidate = sectCandidates.GetRandom();
+                target = ScriptureBookTarget.ForSect(sect);
+                cultibook = sectCandidate.Item1;
+                mastery = sectCandidate.Item2;
+                return true;
+            }
         }
 
         City city = actor.getCity();
@@ -102,16 +105,19 @@ public static class ScriptureBookStorageTools
 
         var candidates = actor.GetExtend().GetAllMaster<ElixirAsset>().ToList();
         Sect sect = actor.GetExtend().sect;
-        var sectCandidates = candidates
-            .Where(item => sect.CanAcceptElixirRecipe(item.Item1))
-            .ToList();
-        if (sectCandidates.Count > 0)
+        if (actor.CanContributeSectScripture(sect))
         {
-            var sectCandidate = sectCandidates.GetRandom();
-            target = ScriptureBookTarget.ForSect(sect);
-            elixir = sectCandidate.Item1;
-            mastery = sectCandidate.Item2;
-            return true;
+            var sectCandidates = candidates
+                .Where(item => sect.CanAcceptElixirRecipe(item.Item1))
+                .ToList();
+            if (sectCandidates.Count > 0)
+            {
+                var sectCandidate = sectCandidates.GetRandom();
+                target = ScriptureBookTarget.ForSect(sect);
+                elixir = sectCandidate.Item1;
+                mastery = sectCandidate.Item2;
+                return true;
+            }
         }
 
         City city = actor.getCity();
@@ -136,15 +142,18 @@ public static class ScriptureBookStorageTools
 
         var candidates = actor.GetExtend().all_skills.ToList();
         Sect sect = actor.GetExtend().sect;
-        var sectCandidates = candidates
-            .Where(skill => sect.CanAcceptSkillbook(skill))
-            .ToList();
-        if (sectCandidates.Count > 0)
+        if (actor.CanContributeSectScripture(sect))
         {
-            Entity sectCandidate = sectCandidates.GetRandom();
-            target = ScriptureBookTarget.ForSect(sect);
-            skillContainer = sectCandidate;
-            return true;
+            var sectCandidates = candidates
+                .Where(skill => sect.CanAcceptSkillbook(skill))
+                .ToList();
+            if (sectCandidates.Count > 0)
+            {
+                Entity sectCandidate = sectCandidates.GetRandom();
+                target = ScriptureBookTarget.ForSect(sect);
+                skillContainer = sectCandidate;
+                return true;
+            }
         }
 
         City city = actor.getCity();

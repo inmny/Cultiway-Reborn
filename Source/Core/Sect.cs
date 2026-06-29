@@ -290,6 +290,12 @@ public class Sect : MetaObject<SectData>
         return true;
     }
 
+    public bool TryPromoteMember(Actor manager, Actor actor, SectRoleAsset role)
+    {
+        return manager.CanPromoteSectMember(this, actor, role)
+               && PromoteMember(actor, role);
+    }
+
     public bool EvaluateMemberRoles(Actor actor)
     {
         SectPersonnelEvaluation evaluation = SectPersonnelEvaluator.EvaluatePromotionTarget(this, actor);
@@ -309,6 +315,14 @@ public class Sect : MetaObject<SectData>
         {
             EvaluateMemberRoles(members[i]);
         }
+    }
+
+    public bool EvaluateAllMemberRoles(Actor evaluator)
+    {
+        if (!evaluator.CanEvaluateSectPersonnel(this)) return false;
+
+        EvaluateAllMemberRoles();
+        return true;
     }
 
     public bool TryRecruitExternalMember(Actor recruiter, Actor candidate)

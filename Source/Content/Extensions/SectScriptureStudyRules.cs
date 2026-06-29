@@ -55,6 +55,7 @@ public static class SectScriptureStudyRules
 
         ActorExtend ae = actor.GetExtend();
         if (!ae.HasCultisys<Xian>()) return false;
+        if (!actor.HasAnySectScriptureReadPermission()) return false;
 
         Sect sect = ae.sect;
         return sect != null && !sect.isRekt() && sect.GetScriptureBookIds().Count > 0;
@@ -64,9 +65,9 @@ public static class SectScriptureStudyRules
     {
         if (book == null || book.isRekt()) return false;
         if (!book.isReadyToBeRead()) return false;
-        if (actor.hasTag("can_read_any_book")) return true;
+        if (!actor.hasTag("can_read_any_book") && (!actor.hasLanguage() || book.data.language_id != actor.language.id)) return false;
 
-        return actor.hasLanguage() && book.data.language_id == actor.language.id;
+        return actor.CanReadSectScriptureBook(book);
     }
 
     private static float GetStudyScore(Actor actor, ActorExtend ae, Sect sect, Book book)

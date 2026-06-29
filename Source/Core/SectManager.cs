@@ -60,6 +60,12 @@ public class SectManager : MetaSystemManager<Sect, SectData>
         return sect != null && sect.PromoteMember(actor, role);
     }
 
+    public bool TryPromoteMember(Actor manager, Actor actor, SectRoleAsset role)
+    {
+        Sect sect = actor?.GetExtend().sect;
+        return sect != null && sect.TryPromoteMember(manager, actor, role);
+    }
+
     public bool TrySuccession(Sect sect)
     {
         return sect != null && sect.TrySuccession();

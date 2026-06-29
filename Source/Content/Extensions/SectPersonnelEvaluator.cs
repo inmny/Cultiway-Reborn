@@ -69,7 +69,7 @@ public static class SectPersonnelEvaluator
         Sect sect = actor.GetExtend().sect;
         if (sect == null || sect.isRekt()) return false;
 
-        return actor.HasSectPermission(SectPermissions.EvaluatePersonnel);
+        return actor.CanEvaluateSectPersonnel(sect);
     }
 
     public static Actor FindExternalRecruitCandidate(Actor recruiter)
@@ -162,7 +162,7 @@ public static class SectPersonnelEvaluator
         if (recruiter == null || recruiter.isRekt()) return false;
         if (recruiter.GetExtend().sect != sect) return false;
 
-        return recruiter.HasSectPermission(SectPermissions.RecruitMember);
+        return recruiter.CanRecruitSectMember(sect);
     }
 
     private static SectRoleAsset GetBestAssignableRole(Sect sect, Actor actor, SectRoleSlot slot, bool initial)
