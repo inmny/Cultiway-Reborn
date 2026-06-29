@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Const;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
@@ -15,6 +16,8 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
 {
     private const string SectIconPath = "cultiway/icons/iconSect";
     private const string StatsOverviewTitleName = "sect_overview_title";
+    private const float TabContentWidth = 192f;
+    private const float TabTitleWidth = 214f;
 
     public override MetaType meta_type => MetaTypeExtend.Sect.Back();
     public override Sect meta_object => WorldboxGame.I.SelectedSect;
@@ -134,6 +137,9 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
         SetupLeaderContent(leaderContent);
         SetupStatsOverviewTitle(content);
         ReorderContent(content, leaderContent);
+        SetupMainInfoTabContent(content, leaderContent);
+        SetupSectCustomTabs(content);
+        SetupPersistentHeader(headerTop);
 
         SetupAnalysisTabs();
     }
@@ -183,6 +189,19 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
         return clone.transform;
     }
 
+    private static Transform CloneCityContent(string sourceName, Transform targetParent, string targetName)
+    {
+        GameObject prefab = Resources.Load<GameObject>("windows/city")
+                            ?? throw new InvalidOperationException("找不到原版城市窗口 prefab: windows/city");
+        Transform source = prefab.transform.Find($"Background/Scroll View/Viewport/Content/{sourceName}")
+                           ?? throw new InvalidOperationException($"原版城市窗口缺少 {sourceName} 节点");
+
+        GameObject clone = Object.Instantiate(source.gameObject, targetParent, false);
+        clone.name = targetName;
+        clone.transform.localScale = Vector3.one;
+        return clone.transform;
+    }
+
     private void SetupLeaderContent(Transform leaderContent)
     {
         foreach (WindowMetaElementBase element in leaderContent.GetComponents<WindowMetaElementBase>())
@@ -202,6 +221,7 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
     private static void ReorderContent(Transform content, Transform leaderContent)
     {
         Transform title = content.Find("tab_title_container_sect");
+        ConfigureTabTitleContainer(title);
         Transform overviewTitle = content.Find(StatsOverviewTitleName);
         Transform statsContent = content.Find("content_stats");
 
@@ -285,6 +305,225 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
     private static Font GetCurrentFont()
     {
         return WorldboxGame.I?.CurrentFont ?? LocalizedTextManager.current_font ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
+    }
+
+    private void SetupMainInfoTabContent(Transform content, Transform leaderContent)
+    {
+        WindowMetaTab mainTab = GetMainInfoTab();
+        if (mainTab == null) return;
+
+        mainTab.tab_elements.Clear();
+        AddTabContent(mainTab, content.Find("tab_title_container_sect"));
+        AddTabContent(mainTab, leaderContent);
+        AddTabContent(mainTab, content.Find(StatsOverviewTitleName));
+        AddTabContent(mainTab, content.Find("content_stats"));
+    }
+
+    private WindowMetaTab GetMainInfoTab()
+    {
+        WindowMetaTab defaultTab = scroll_window?.tabs?.tab_default;
+        if (defaultTab != null && scroll_window.tabs._tabs.Contains(defaultTab))
+        {
+            return defaultTab;
+        }
+
+        return scroll_window?.tabs?._tabs
+            .OrderBy(tab => tab.transform.GetSiblingIndex())
+            .FirstOrDefault(tab => tab != null && tab.gameObject.activeSelf && tab.getState());
+    }
+
+    private void AddTabContent(WindowMetaTab tab, Transform content)
+    {
+        if (tab == null || content == null) return;
+
+        scroll_window.tabs.addTabContent(tab, content);
+    }
+
+    private void SetupPersistentHeader(Transform headerTop)
+    {
+        Transform header = headerTop.parent;
+        if (header != null)
+        {
+            header.gameObject.SetActive(true);
+        }
+
+        headerTop.gameObject.SetActive(true);
+        foreach (WindowMetaTab tab in GetComponentsInChildren<WindowMetaTab>(true))
+        {
+            tab.tab_elements.RemoveAll(element => IsHeaderTabElement(element, header, headerTop));
+        }
+
+        scroll_window.tabs.refillTabsWithContent();
+    }
+
+    private static bool IsHeaderTabElement(Transform element, Transform header, Transform headerTop)
+    {
+        return element == null
+               || element == header
+               || element == headerTop
+               || element.IsChildOf(headerTop);
+    }
+
+    private void SetupSectCustomTabs(Transform content)
+    {
+        Transform personnelContent = content.Find("content_sect_personnel") ?? CreatePersonnelContent(content);
+        Transform scriptureContent = content.Find("content_sect_scripture") ?? CreateScriptureContent(content);
+
+        SetupCustomTab("Sect Personnel", "Cultiway.Sect.Personnel", "Cultiway.Sect.PersonnelDescription", "ui/icons/iconInterestingPeople", personnelContent);
+        SetupCustomTab("Sect Scripture", "Cultiway.Sect.ScripturePavilion", "Cultiway.Sect.ScripturePavilionDescription", "ui/icons/iconBooks", scriptureContent);
+        ReorderSectCustomTabs();
+    }
+
+    private Transform CreatePersonnelContent(Transform content)
+    {
+        GameObject personnelObject = new("content_sect_personnel", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement));
+        personnelObject.transform.SetParent(content, false);
+        personnelObject.transform.localScale = Vector3.one;
+        ConfigureTabContentRoot(personnelObject.transform);
+
+        CloneTitleContainer(content, personnelObject.transform, "tab_title_container_sect_personnel", "Cultiway.Sect.Personnel", "ui/icons/iconInterestingPeople");
+
+        SectPersonnelElement personnelElement = personnelObject.AddComponent<SectPersonnelElement>();
+        personnelElement.Initialize();
+        personnelObject.SetActive(false);
+        return personnelObject.transform;
+    }
+
+    private Transform CreateScriptureContent(Transform content)
+    {
+        Transform scriptureContent = CloneCityContent("content_books", content, "content_sect_scripture");
+        ConfigureTabContentRoot(scriptureContent);
+
+        foreach (WindowMetaElementBase element in scriptureContent.GetComponentsInChildren<WindowMetaElementBase>(true))
+        {
+            Object.DestroyImmediate(element);
+        }
+
+        SectScriptureElement scriptureElement = scriptureContent.gameObject.AddComponent<SectScriptureElement>();
+        scriptureElement.Initialize();
+        scriptureContent.gameObject.SetActive(false);
+        return scriptureContent;
+    }
+
+    private static Transform CloneTitleContainer(Transform sourceContent, Transform targetParent, string targetName, string titleKey, string iconPath)
+    {
+        Transform sourceTitle = sourceContent.Find("tab_title_container_sect")
+                                ?? sourceContent.Find("tab_title_container_kingdom")
+                                ?? throw new InvalidOperationException("SectWindow 缺少可复用的标签标题节点");
+        Transform title = Object.Instantiate(sourceTitle.gameObject, targetParent, false).transform;
+        title.name = targetName;
+        title.localScale = Vector3.one;
+        SetupTitleContainer(title, titleKey, iconPath);
+        ConfigureTabTitleContainer(title);
+        return title;
+    }
+
+    private static void SetupTitleContainer(Transform title, string titleKey, string iconPath)
+    {
+        title.Find("title_tab")?.GetComponent<LocalizedText>()?.setKeyAndUpdate(titleKey);
+        Sprite icon = SpriteTextureLoader.getSprite(iconPath);
+        SetImageSprite(title.Find("icon_left"), icon);
+        SetImageSprite(title.Find("icon_right"), icon);
+    }
+
+    private static void SetImageSprite(Transform transform, Sprite sprite)
+    {
+        Image image = transform?.GetComponent<Image>();
+        if (image != null)
+        {
+            image.sprite = sprite;
+        }
+    }
+
+    private static void ConfigureTabContentRoot(Transform root)
+    {
+        RectTransform rect = root.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            rect.sizeDelta = new Vector2(TabContentWidth, rect.sizeDelta.y);
+        }
+
+        LayoutElement layout = root.GetComponent<LayoutElement>() ?? root.gameObject.AddComponent<LayoutElement>();
+        layout.minWidth = TabContentWidth;
+        layout.preferredWidth = TabContentWidth;
+        layout.flexibleWidth = 0f;
+    }
+
+    private static void ConfigureTabTitleContainer(Transform title)
+    {
+        if (title == null) return;
+
+        title.gameObject.SetActive(true);
+        RectTransform rect = title.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            rect.sizeDelta = new Vector2(TabTitleWidth, rect.sizeDelta.y);
+        }
+
+        LayoutElement layout = title.GetComponent<LayoutElement>() ?? title.gameObject.AddComponent<LayoutElement>();
+        layout.minWidth = TabTitleWidth;
+        layout.preferredWidth = TabTitleWidth;
+        layout.flexibleWidth = 0f;
+        layout.layoutPriority = 1;
+    }
+
+    private void SetupCustomTab(string tabName, string titleKey, string descriptionKey, string iconPath, Transform content)
+    {
+        Transform tabsContainer = transform.Find("Background/Tabs")
+                                  ?? throw new InvalidOperationException("SectWindow 缺少 Background/Tabs 节点");
+        WindowMetaTab tab = tabsContainer.GetComponentsInChildren<WindowMetaTab>(true).FirstOrDefault(item => item.name == tabName);
+        if (tab == null)
+        {
+            WindowMetaTab source = tabsContainer.Find("Interesting People")?.GetComponent<WindowMetaTab>()
+                                   ?? tabsContainer.GetComponentInChildren<WindowMetaTab>(true)
+                                   ?? throw new InvalidOperationException("SectWindow 缺少可复用的原版标签按钮");
+            tab = Object.Instantiate(source, tabsContainer);
+            tab.name = tabName;
+            tab.container = scroll_window.tabs;
+            scroll_window.tabs._tabs.Add(tab);
+        }
+
+        tab.tab_action = new WindowMetaTabEvent();
+        tab.tab_action.AddListener(item => item.container.showTab(item));
+        tab.tab_elements.Clear();
+        scroll_window.tabs.addTabContent(tab, content);
+
+        TipButton tipButton = tab.GetComponent<TipButton>() ?? tab.gameObject.AddComponent<TipButton>();
+        tab._tip_button = tipButton;
+        tipButton.textOnClick = titleKey;
+        tipButton.textOnClickDescription = descriptionKey;
+        tipButton.type = "tip";
+        tipButton.hoverAction = null;
+        tipButton.setHoverAction(new TooltipAction(tipButton.showTooltipDefault), true);
+
+        tab._worldtip_text = tab.getWorldTipText();
+        Transform iconTransform = tab.transform.Find("Icon");
+        SetImageSprite(iconTransform, SpriteTextureLoader.getSprite(iconPath));
+        content.gameObject.SetActive(false);
+        scroll_window.tabs.refillTabsWithContent();
+    }
+
+    private void ReorderSectCustomTabs()
+    {
+        Transform tabsContainer = transform.Find("Background/Tabs");
+        if (tabsContainer == null) return;
+
+        WindowMetaTab mainTab = GetMainInfoTab();
+        int insertIndex = mainTab != null ? mainTab.transform.GetSiblingIndex() + 1 : 1;
+
+        Transform personnelTab = tabsContainer.Find("Sect Personnel");
+        Transform scriptureTab = tabsContainer.Find("Sect Scripture");
+        if (personnelTab != null)
+        {
+            personnelTab.SetSiblingIndex(insertIndex++);
+        }
+
+        if (scriptureTab != null)
+        {
+            scriptureTab.SetSiblingIndex(insertIndex);
+        }
+
+        scroll_window.tabs.refillTabsWithContent();
     }
 
     private void RefreshSectBanner()
