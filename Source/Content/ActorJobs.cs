@@ -22,6 +22,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     // 师徒系统工作
     public static ActorJob MasterDuty { get; private set; }
     public static ActorJob ApprenticeDuty { get; private set; }
+    public static ActorJob SectDuty { get; private set; }
     
     [GetOnly("attacker")]
     public static ActorJob Attacker { get; private set; }
@@ -100,6 +101,13 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         SectBuilder.addTask(ActorTasks.BuildSect.id);
         SectBuilder.addCondition(new CondCanFoundSect());
         SectBuilder.addTask(ActorTasks.EndJob.id);
+
+        SectDuty.addTask(ActorTasks.EvaluateSectPersonnel.id);
+        SectDuty.addCondition(new CondCanEvaluateSectPersonnel());
+        SectDuty.addCondition(new CondProb(0.35f));
+        SectDuty.addTask(ActorTasks.RecruitSectMember.id);
+        SectDuty.addCondition(new CondCanRecruitSectMember());
+        SectDuty.addTask(ActorTasks.EndJob.id);
         
         
         Attacker.addTask(ActorTasks.DailyXianCultivate.id);;
