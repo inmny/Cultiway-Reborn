@@ -30,6 +30,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor TravelToCity { get; private set; }
     public static BehaviourTaskActor EvaluateSectPersonnel { get; private set; }
     public static BehaviourTaskActor RecruitSectMember { get; private set; }
+    public static BehaviourTaskActor StudySectScripture { get; private set; }
     
     // 师徒系统任务
     public static BehaviourTaskActor RecruitApprentice { get; private set; }
@@ -161,6 +162,19 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         RecruitSectMember.addBeh(new BehRecruitSectMember());
         RecruitSectMember.addBeh(new BehEndJob());
         RecruitSectMember.setIcon("cultiway/icons/iconMasterApprentice");
+
+        StudySectScripture.force_hand_tool = "book";
+        StudySectScripture.cancellable_by_reproduction = true;
+        StudySectScripture.cancellable_by_socialize = true;
+        StudySectScripture.addBeh(new BehTryReadSectScripture());
+        StudySectScripture.addBeh(new BehBuildingTargetHome());
+        StudySectScripture.addBeh(new BehGetTargetBuildingMainTile());
+        StudySectScripture.addBeh(new BehGoToTileTarget());
+        StudySectScripture.addBeh(new BehStayInBuildingTarget(TimeScales.SecPerMonth, TimeScales.SecPerMonth * 3));
+        StudySectScripture.addBeh(new BehFinishReading());
+        StudySectScripture.addBeh(new BehExitBuilding());
+        StudySectScripture.addBeh(new BehEndJob());
+        StudySectScripture.setIcon("ui/icons/iconBooks");
         
         ImproveCultibook.addBeh(new BehBuildingTargetHome());
         ImproveCultibook.addBeh(new BehGetTargetBuildingMainTile());

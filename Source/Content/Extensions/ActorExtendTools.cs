@@ -313,7 +313,7 @@ public static class ActorExtendTools
             }
 
             // 检查是否已学习
-            if (ae.HasSkill(entry.SkillContainer)) continue;
+            if (ae.HasSimilarSkill(entry.SkillContainer)) continue;
 
             // 计算领悟概率
             float masteryFactor = stateRef.MainMastery / 100f;
@@ -374,9 +374,9 @@ public static class ActorExtendTools
     }
 
     /// <summary>
-    /// 检查是否已学习某个技能
+    /// 检查是否已学习相似术法
     /// </summary>
-    private static bool HasSkill(this ActorExtend ae, Entity skillContainer)
+    public static bool HasSimilarSkill(this ActorExtend ae, Entity skillContainer)
     {
         if (ae.all_skills == null || ae.all_skills.Count == 0) return false;
         

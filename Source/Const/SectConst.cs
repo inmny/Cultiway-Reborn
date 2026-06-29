@@ -14,4 +14,8 @@ public static class SectConst
     public const int PersonnelMembersPerExtraElderSlot = 10;
     public const int PersonnelRecruitRange = 80;
     public const int PersonnelRecruitMaxLevelAboveLeader = 1;
+    public const int ScriptureStudyTopCandidateCount = 5;
+    public const float ScriptureStudyKnownCultibookCap = 50f;
+    public const float ScriptureStudyElixirMasteryCap = 100f;
+    public const float SectStudyJobChance = 0.18f;
 }
