@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
@@ -15,17 +15,10 @@ public class Sect : MetaObject<SectData>
 {
     public override MetaType meta_type => MetaTypeExtend.Sect.Back();
 
-    private Dictionary<System.Type, Dictionary<IDeleteWhenUnknown, float>> _masterItems = new();
-
-    public override void setDefaultValues()
-    {
-        base.setDefaultValues();
-        _masterItems = new Dictionary<System.Type, Dictionary<IDeleteWhenUnknown, float>>();
-    }
-
     public void Setup(Actor founder)
     {
         generateNewMetaObject();
+        data.ScriptureBookIDs = new List<long>();
         data.FounderActorName = founder.getName();
         data.FounderActorID = founder.data.id;
         data.FoundedTime = (float)World.world.getCurWorldTime();
@@ -41,6 +34,7 @@ public class Sect : MetaObject<SectData>
         if (doctrineCultibook != null)
         {
             SetDoctrineCultibook(doctrineCultibook);
+            CreateDoctrineBook(founder, doctrineCultibook, founder.GetExtend().GetMainCultibookMastery());
         }
 
         JoinSect(founder, SectRank.Leader);
@@ -58,64 +52,49 @@ public class Sect : MetaObject<SectData>
         }
     }
 
-    public void Master<T>(T item, float value) where T : Asset, IDeleteWhenUnknown
+    public bool AddScriptureBook(Book book)
     {
-        if (item == null) return;
-        if (!_masterItems.TryGetValue(typeof(T), out var dict))
+        if (book == null || book.isRekt()) return false;
+
+        bool added = false;
+        if (!data.ScriptureBookIDs.Contains(book.id))
         {
-            dict = new Dictionary<IDeleteWhenUnknown, float>();
-            _masterItems.Add(typeof(T), dict);
+            data.ScriptureBookIDs.Add(book.id);
+            added = true;
         }
 
-        if (!dict.ContainsKey(item))
+        RefreshScriptureStats();
+        return added;
+    }
+
+    public IReadOnlyList<long> GetScriptureBookIds()
+    {
+        return data.ScriptureBookIDs;
+    }
+
+    public List<Book> GetScriptureBooks(BookTypeAsset bookType)
+    {
+        List<Book> result = new();
+        for (int i = 0; i < data.ScriptureBookIDs.Count; i++)
         {
-            item.Current++;
+            Book book = World.world.books.get(data.ScriptureBookIDs[i]);
+            if (book == null || book.isRekt()) continue;
+            if (book.getAsset() == bookType)
+            {
+                result.Add(book);
+            }
         }
 
-        dict[item] = value;
-    }
-
-    public void DeMaster<T>(T item) where T : Asset, IDeleteWhenUnknown
-    {
-        if (item == null) return;
-        if (!_masterItems.TryGetValue(typeof(T), out var dict)) return;
-
-        if (dict.ContainsKey(item))
-        {
-            item.Current--;
-            dict.Remove(item);
-        }
-    }
-
-    public bool HasMaster<T>() where T : Asset, IDeleteWhenUnknown
-    {
-        return _masterItems.TryGetValue(typeof(T), out var dict) && dict.Count > 0;
-    }
-
-    public float GetMaster<T>(T item) where T : Asset, IDeleteWhenUnknown
-    {
-        return _masterItems.TryGetValue(typeof(T), out var dict) ? (dict.TryGetValue(item, out var value) ? value : 0) : 0;
-    }
-
-    public IEnumerable<(T, float)> GetAllMaster<T>() where T : Asset, IDeleteWhenUnknown
-    {
-        return _masterItems.TryGetValue(typeof(T), out var dict) ? dict.Select(x => ((T)x.Key, x.Value)) : System.Array.Empty<(T, float)>();
+        result.Sort(CompareScriptureBooks);
+        return result;
     }
 
     public void SetDoctrineCultibook(CultibookAsset cultibook)
     {
         if (cultibook == null) return;
 
-        var oldCultibook = GetDoctrineCultibook();
-        if (oldCultibook != null && oldCultibook != cultibook)
-        {
-            DeMaster(oldCultibook);
-        }
-
         data.DoctrineCultibookId = cultibook.id;
         data.DoctrineCultibookName = cultibook.Name;
-        Master(cultibook, 100);
-        data.CultibookCount = Mathf.Max(data.CultibookCount, CountMastered<CultibookAsset>());
     }
 
     public CultibookAsset GetDoctrineCultibook()
@@ -125,12 +104,22 @@ public class Sect : MetaObject<SectData>
         var cultibook = Cultiway.Content.Libraries.Manager.CultibookLibrary.get(data.DoctrineCultibookId);
         if (cultibook == null) return null;
 
-        if (GetMaster(cultibook) <= 0)
-        {
-            Master(cultibook, 100);
-        }
-
         return cultibook;
+    }
+
+    private void CreateDoctrineBook(Actor founder, CultibookAsset cultibook, float mastery)
+    {
+        if (founder == null || founder.isRekt() || founder.language == null) return;
+
+        Book book = World.world.books.NewBook(founder, BookTypes.Cultibook);
+        if (book == null) return;
+
+        BookExtend bookExtend = book.GetExtend();
+        bookExtend.AddComponent(new Cultibook(cultibook.id));
+        bookExtend.AddComponent(cultibook.Level);
+        bookExtend.Master(cultibook, Mathf.Max(1f, mastery));
+        book.data.name = cultibook.Name;
+        AddScriptureBook(book);
     }
 
     public bool JoinSect(Actor actor, SectRank rank = SectRank.OuterDisciple)
@@ -340,32 +329,44 @@ public class Sect : MetaObject<SectData>
         return actor.GetExtend().GetMainCultibookMastery();
     }
 
-    public override void Dispose()
+    public void RefreshScriptureStats()
     {
-        ReleaseMasterItems();
-        base.Dispose();
-    }
-
-    private int CountMastered<T>() where T : Asset, IDeleteWhenUnknown
-    {
-        return _masterItems.TryGetValue(typeof(T), out var dict) ? dict.Count : 0;
-    }
-
-    private void ReleaseMasterItems()
-    {
-        if (_masterItems == null) return;
-
-        foreach (var items in _masterItems.Values)
+        int cultibooks = 0;
+        int elixirRecipes = 0;
+        int skillbooks = 0;
+        for (int i = 0; i < data.ScriptureBookIDs.Count; i++)
         {
-            if (items == null) continue;
+            Book book = World.world.books.get(data.ScriptureBookIDs[i]);
+            if (book == null || book.isRekt()) continue;
 
-            foreach (var item in items.Keys)
+            if (book.getAsset() == BookTypes.Cultibook)
             {
-                item.Current--;
+                cultibooks++;
+            }
+            else if (book.getAsset() == BookTypes.Elixirbook)
+            {
+                elixirRecipes++;
+            }
+            else if (book.getAsset() == BookTypes.Skillbook)
+            {
+                skillbooks++;
             }
         }
 
-        _masterItems = null;
+        data.CultibookCount = cultibooks;
+        data.ElixirRecipeCount = elixirRecipes;
+        data.SkillbookCount = skillbooks;
+    }
+
+    private static int CompareScriptureBooks(Book left, Book right)
+    {
+        int typeCompare = string.Compare(left.data.book_type, right.data.book_type, System.StringComparison.Ordinal);
+        if (typeCompare != 0) return typeCompare;
+
+        int nameCompare = string.Compare(left.data.name, right.data.name, System.StringComparison.CurrentCulture);
+        if (nameCompare != 0) return nameCompare;
+
+        return left.id.CompareTo(right.id);
     }
 
     public override void generateBanner()

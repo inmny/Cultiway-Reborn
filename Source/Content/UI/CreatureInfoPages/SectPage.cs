@@ -1,6 +1,6 @@
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
+using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
@@ -191,7 +191,7 @@ public class SectPage : MonoBehaviour
 
     private static void AppendArchiveInfo(StringBuilder sb, Sect sect)
     {
-        var cultibooks = sect.GetAllMaster<CultibookAsset>().ToList();
+        List<Book> cultibooks = sect.GetScriptureBooks(BookTypes.Cultibook);
 
         sb.AppendLine();
         sb.AppendLine("□ 藏经阁");
@@ -201,9 +201,10 @@ public class SectPage : MonoBehaviour
 
         if (cultibooks.Count == 0) return;
 
-        foreach (var item in cultibooks.Take(5))
+        int shown = Mathf.Min(5, cultibooks.Count);
+        for (int i = 0; i < shown; i++)
         {
-            sb.AppendLine($"\t- {item.Item1.Name} ({item.Item2:F0}%)");
+            sb.AppendLine($"\t- {cultibooks[i].data.name}");
         }
 
         if (cultibooks.Count > 5)

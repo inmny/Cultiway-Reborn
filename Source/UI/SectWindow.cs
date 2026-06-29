@@ -380,10 +380,14 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
     private void SetupSectCustomTabs(Transform content)
     {
         Transform personnelContent = CreatePersonnelContent(content);
-        Transform scriptureContent = content.Find("content_sect_scripture") ?? CreateScriptureContent(content);
+        Transform scriptureTypeTabs = CreateScriptureTypeTabContainer();
+        Transform scriptureContent = CreateScriptureContent(content, scriptureTypeTabs);
 
         SetupCustomTab("Sect Personnel", "Cultiway.Sect.Personnel", "Cultiway.Sect.PersonnelDescription", "ui/icons/iconInterestingPeople", personnelContent);
-        SetupCustomTab("Sect Scripture", "Cultiway.Sect.ScripturePavilion", "Cultiway.Sect.ScripturePavilionDescription", "ui/icons/iconBooks", scriptureContent);
+        WindowMetaTab scriptureTab = SetupCustomTab("Sect Scripture", "Cultiway.Sect.ScripturePavilion", "Cultiway.Sect.ScripturePavilionDescription", "ui/icons/iconBooks", scriptureContent);
+        AddTabContent(scriptureTab, scriptureTypeTabs);
+        scriptureTypeTabs.gameObject.SetActive(false);
+        scroll_window.tabs.refillTabsWithContent();
         ReorderSectCustomTabs();
     }
 
@@ -396,6 +400,7 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
         }
 
         Transform personnelContent = CloneUnitGenealogyContent(content, "content_sect_personnel");
+        personnelContent.gameObject.SetActive(false);
         foreach (WindowMetaElementBase element in personnelContent.GetComponents<WindowMetaElementBase>())
         {
             Object.DestroyImmediate(element);
@@ -403,13 +408,19 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
 
         SectPersonnelElement personnelElement = personnelContent.gameObject.AddComponent<SectPersonnelElement>();
         personnelElement.Initialize();
-        personnelContent.gameObject.SetActive(false);
         return personnelContent;
     }
 
-    private Transform CreateScriptureContent(Transform content)
+    private Transform CreateScriptureContent(Transform content, Transform typeTabsContainer)
     {
+        Transform existing = content.Find("content_sect_scripture");
+        if (existing != null)
+        {
+            Object.DestroyImmediate(existing.gameObject);
+        }
+
         Transform scriptureContent = CloneCityContent("content_books", content, "content_sect_scripture");
+        scriptureContent.gameObject.SetActive(false);
         ConfigureTabContentRoot(scriptureContent);
 
         foreach (WindowMetaElementBase element in scriptureContent.GetComponentsInChildren<WindowMetaElementBase>(true))
@@ -418,9 +429,52 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
         }
 
         SectScriptureElement scriptureElement = scriptureContent.gameObject.AddComponent<SectScriptureElement>();
-        scriptureElement.Initialize();
-        scriptureContent.gameObject.SetActive(false);
+        scriptureElement.Initialize(typeTabsContainer);
         return scriptureContent;
+    }
+
+    private Transform CreateScriptureTypeTabContainer()
+    {
+        Transform header = transform.Find("Background/Scroll View/Viewport/Header")
+                           ?? throw new InvalidOperationException("SectWindow 缺少 Header 节点");
+        Transform existing = header.Find("header_type_tab_container");
+        if (existing != null)
+        {
+            Object.DestroyImmediate(existing.gameObject);
+        }
+
+        GameObject container = new("header_type_tab_container", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement), typeof(TabTogglesGroup), typeof(Image));
+        container.transform.SetParent(header, false);
+        container.transform.localScale = Vector3.one;
+
+        Transform headerTop = header.Find("header_top");
+        if (headerTop != null)
+        {
+            container.transform.SetSiblingIndex(headerTop.GetSiblingIndex() + 1);
+        }
+
+        Image backgroundImage = container.GetComponent<Image>();
+        backgroundImage.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        backgroundImage.type = Image.Type.Sliced;
+
+        HorizontalLayoutGroup layout = container.GetComponent<HorizontalLayoutGroup>();
+        layout.childControlHeight = true;
+        layout.childControlWidth = false;
+        layout.childForceExpandHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.childAlignment = TextAnchor.MiddleCenter;
+        layout.spacing = 2f;
+
+        ContentSizeFitter fitter = container.GetComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        LayoutElement layoutElement = container.GetComponent<LayoutElement>();
+        layoutElement.preferredWidth = TabTitleWidth;
+        layoutElement.preferredHeight = 18f;
+
+        container.SetActive(false);
+        return container.transform;
     }
 
     private static Transform CloneTitleContainer(Transform sourceContent, Transform targetParent, string targetName, string titleKey, string iconPath)
@@ -485,7 +539,7 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
         layout.layoutPriority = 1;
     }
 
-    private void SetupCustomTab(string tabName, string titleKey, string descriptionKey, string iconPath, Transform content)
+    private WindowMetaTab SetupCustomTab(string tabName, string titleKey, string descriptionKey, string iconPath, Transform content)
     {
         Transform tabsContainer = transform.Find("Background/Tabs")
                                   ?? throw new InvalidOperationException("SectWindow 缺少 Background/Tabs 节点");
@@ -519,6 +573,7 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
         SetImageSprite(iconTransform, SpriteTextureLoader.getSprite(iconPath));
         content.gameObject.SetActive(false);
         scroll_window.tabs.refillTabsWithContent();
+        return tab;
     }
 
     private void ReorderSectCustomTabs()

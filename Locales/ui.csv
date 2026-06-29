@@ -135,8 +135,11 @@ Cultiway.Sect.Rank.DirectDisciple,亲传弟子
 Cultiway.Sect.Rank.InnerDisciple,内门弟子
 Cultiway.Sect.Rank.OuterDisciple,外门弟子
 Cultiway.Sect.Scripture.Cultibooks,功法
+Cultiway.Sect.Scripture.Cultibooks_description,查看宗门收藏的功法书
 Cultiway.Sect.Scripture.Skills,术法
+Cultiway.Sect.Scripture.Skills_description,查看宗门收藏的术法书
 Cultiway.Sect.Scripture.ElixirRecipes,丹方
+Cultiway.Sect.Scripture.ElixirRecipes_description,查看宗门收藏的丹方
 Cultiway.Sect.Scripture.Empty,暂无藏书
 Cultiway.Sect.Scripture.Level,品阶
 Cultiway.Sect.Scripture.CultivateMethod,修炼方式
