@@ -7,12 +7,16 @@ using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace Cultiway.UI.Components;
 
 internal class SectPersonnelElement : WindowMetaElement<Sect, SectData>
 {
     private const float ShowStepTime = 0.025f;
+    private const float TabTitleWidth = 214f;
+    private const string PersonnelTitleKey = "Cultiway.Sect.Personnel";
+    private const string PersonnelIconPath = "ui/icons/iconInterestingPeople";
 
     private static readonly SectRank[] RankOrder =
     {
@@ -33,14 +37,10 @@ internal class SectPersonnelElement : WindowMetaElement<Sect, SectData>
         if (_initialized) return;
         _initialized = true;
 
-        _avatarPrefab = Resources.Load<UiUnitAvatarElement>("ui/UnitAvatarElement")
-                        ?? throw new System.InvalidOperationException("SectPersonnelElement 找不到 ui/UnitAvatarElement 预制体");
-
-        SetupLayout();
-        for (int i = 0; i < RankOrder.Length; i++)
-        {
-            _sections.Add(CreateRankSection(RankOrder[i]));
-        }
+        SetupRootLayout();
+        SetupTitle();
+        SetupAvatarPrefab();
+        SetupRankSections();
     }
 
     public override IEnumerator showContent()
@@ -57,7 +57,6 @@ internal class SectPersonnelElement : WindowMetaElement<Sect, SectData>
         {
             RankSection section = _sections[i];
             List<Actor> rankMembers = members.Where(actor => actor.GetSectRank() == section.Rank).ToList();
-            section.SetCount(rankMembers.Count);
             section.Root.SetActive(rankMembers.Count > 0);
 
             foreach (Actor actor in rankMembers)
@@ -82,94 +81,122 @@ internal class SectPersonnelElement : WindowMetaElement<Sect, SectData>
         base.clear();
     }
 
-    private void SetupLayout()
+    private void SetupRootLayout()
     {
         VerticalLayoutGroup layout = GetComponent<VerticalLayoutGroup>() ?? gameObject.AddComponent<VerticalLayoutGroup>();
         layout.childControlHeight = true;
-        layout.childControlWidth = true;
-        layout.childForceExpandHeight = false;
+        layout.childControlWidth = false;
+        layout.childForceExpandHeight = true;
         layout.childForceExpandWidth = false;
         layout.childAlignment = TextAnchor.UpperCenter;
         layout.spacing = 6f;
-
-        ContentSizeFitter fitter = GetComponent<ContentSizeFitter>() ?? gameObject.AddComponent<ContentSizeFitter>();
-        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-        fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
     }
 
-    private RankSection CreateRankSection(SectRank rank)
+    private void SetupTitle()
     {
-        GameObject root = new($"sect_personnel_{rank}", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement));
-        root.transform.SetParent(transform, false);
-        root.transform.localScale = Vector3.one;
+        Transform title = transform.Find("tab_title_container_unit") ?? transform.Find("tab_title_container_sect_personnel");
+        if (title == null) return;
 
-        VerticalLayoutGroup rootLayout = root.GetComponent<VerticalLayoutGroup>();
-        rootLayout.childControlHeight = true;
-        rootLayout.childControlWidth = true;
-        rootLayout.childForceExpandHeight = false;
-        rootLayout.childForceExpandWidth = false;
-        rootLayout.childAlignment = TextAnchor.UpperCenter;
-        rootLayout.spacing = 2f;
+        title.name = "tab_title_container_sect_personnel";
+        title.gameObject.SetActive(true);
+        title.Find("title_tab")?.GetComponent<LocalizedText>()?.setKeyAndUpdate(PersonnelTitleKey);
 
-        ContentSizeFitter rootFitter = root.GetComponent<ContentSizeFitter>();
-        rootFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        Sprite icon = SpriteTextureLoader.getSprite(PersonnelIconPath);
+        foreach (Image image in title.GetComponentsInChildren<Image>(true))
+        {
+            if (image.name.ToLowerInvariant().Contains("icon"))
+            {
+                image.sprite = icon;
+            }
+        }
 
-        LayoutElement rootLayoutElement = root.GetComponent<LayoutElement>();
-        rootLayoutElement.preferredWidth = 192f;
-
-        Text title = CreateSectionTitle(root.transform, rank);
-        Transform grid = CreateAvatarGrid(root.transform);
-        ObjectPoolGenericMono<UiUnitAvatarElement> pool = new(_avatarPrefab, grid);
-
-        return new RankSection(rank, root, title, pool);
+        ConfigureTitleWidth(title);
     }
 
-    private static Text CreateSectionTitle(Transform parent, SectRank rank)
+    private static void ConfigureTitleWidth(Transform title)
     {
-        GameObject titleObject = new($"title_{rank}", typeof(RectTransform), typeof(Text), typeof(Shadow), typeof(LayoutElement));
-        titleObject.transform.SetParent(parent, false);
-        titleObject.transform.localScale = Vector3.one;
+        RectTransform rect = title.GetComponent<RectTransform>();
+        if (rect != null)
+        {
+            rect.sizeDelta = new Vector2(TabTitleWidth, rect.sizeDelta.y);
+        }
 
-        Text title = titleObject.GetComponent<Text>();
-        title.font = GetCurrentFont();
-        title.fontSize = 7;
-        title.alignment = TextAnchor.MiddleCenter;
-        title.color = Color.white;
-        title.raycastTarget = false;
-
-        Shadow shadow = titleObject.GetComponent<Shadow>();
-        shadow.effectColor = new Color(0f, 0f, 0f, 0.5f);
-        shadow.effectDistance = new Vector2(0.5f, -0.5f);
-
-        LayoutElement layout = titleObject.GetComponent<LayoutElement>();
-        layout.preferredWidth = 192f;
-        layout.preferredHeight = 12f;
-
-        title.text = GetRankName(rank);
-        return title;
+        LayoutElement layout = title.GetComponent<LayoutElement>() ?? title.gameObject.AddComponent<LayoutElement>();
+        layout.minWidth = TabTitleWidth;
+        layout.preferredWidth = TabTitleWidth;
+        layout.flexibleWidth = 0f;
+        layout.layoutPriority = 1;
     }
 
-    private static Transform CreateAvatarGrid(Transform parent)
+    private void SetupAvatarPrefab()
     {
-        GameObject gridObject = new("Grid", typeof(RectTransform), typeof(GridLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement));
-        gridObject.transform.SetParent(parent, false);
-        gridObject.transform.localScale = Vector3.one;
+        _avatarPrefab = GetComponentInChildren<UiUnitAvatarElement>(true)
+                        ?? throw new System.InvalidOperationException("SectPersonnelElement 缺少原版 UiUnitAvatarElement 预制体");
+        _avatarPrefab.gameObject.SetActive(false);
+    }
 
-        GridLayoutGroup grid = gridObject.GetComponent<GridLayoutGroup>();
-        grid.cellSize = new Vector2(24f, 24f);
-        grid.spacing = new Vector2(2f, 2f);
-        grid.startAxis = GridLayoutGroup.Axis.Horizontal;
-        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        grid.constraintCount = 7;
-        grid.childAlignment = TextAnchor.UpperCenter;
+    private void SetupRankSections()
+    {
+        List<Transform> backgroundSections = new();
+        foreach (Transform child in transform)
+        {
+            if (child.name.StartsWith("bg_"))
+            {
+                backgroundSections.Add(child);
+            }
+        }
 
-        ContentSizeFitter fitter = gridObject.GetComponent<ContentSizeFitter>();
-        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+        if (backgroundSections.Count == 0)
+        {
+            throw new System.InvalidOperationException("SectPersonnelElement 缺少原版家谱 bg_ 分组");
+        }
 
-        LayoutElement layout = gridObject.GetComponent<LayoutElement>();
-        layout.preferredWidth = 192f;
+        Transform prefabSection = backgroundSections[0];
+        for (int i = 1; i < backgroundSections.Count; i++)
+        {
+            Object.DestroyImmediate(backgroundSections[i].gameObject);
+        }
 
-        return gridObject.transform;
+        _sections.Clear();
+        for (int i = 0; i < RankOrder.Length; i++)
+        {
+            SectRank rank = RankOrder[i];
+            Transform section = i == 0 ? prefabSection : Object.Instantiate(prefabSection, prefabSection.parent, false);
+            section.name = $"bg_sect_{rank.ToString().ToLowerInvariant()}";
+            section.localScale = Vector3.one;
+            section.gameObject.SetActive(true);
+            SetupSectionTitle(section, rank);
+
+            Transform grid = FindGrid(section)
+                             ?? throw new System.InvalidOperationException($"SectPersonnelElement {section.name} 缺少 Grid");
+            _sections.Add(new RankSection(rank, section.gameObject, new ObjectPoolGenericMono<UiUnitAvatarElement>(_avatarPrefab, grid)));
+        }
+    }
+
+    private static void SetupSectionTitle(Transform section, SectRank rank)
+    {
+        string key = GetRankLocaleKey(rank);
+        LocalizedText localizedTitle = section.GetComponentInChildren<LocalizedText>(true);
+        if (localizedTitle != null)
+        {
+            localizedTitle.setKeyAndUpdate(key);
+            return;
+        }
+
+        Text title = section.GetComponentInChildren<Text>(true);
+        if (title != null)
+        {
+            title.text = key.Localize();
+        }
+    }
+
+    private static Transform FindGrid(Transform section)
+    {
+        Transform grid = section.Find("Grid");
+        if (grid != null) return grid;
+
+        return section.GetComponentsInChildren<Transform>(true)
+            .FirstOrDefault(child => child.name == "Grid");
     }
 
     private static int CompareMembers(Actor left, Actor right)
@@ -192,43 +219,31 @@ internal class SectPersonnelElement : WindowMetaElement<Sect, SectData>
         return actorExtend.HasCultisys<Xian>() ? actorExtend.GetCultisys<Xian>().CurrLevel : -1;
     }
 
-    private static string GetRankName(SectRank rank)
+    private static string GetRankLocaleKey(SectRank rank)
     {
         return rank switch
         {
-            SectRank.Leader => "Cultiway.Sect.Rank.Leader".Localize(),
-            SectRank.Successor => "Cultiway.Sect.Rank.Successor".Localize(),
-            SectRank.Elder => "Cultiway.Sect.Rank.Elder".Localize(),
-            SectRank.DirectDisciple => "Cultiway.Sect.Rank.DirectDisciple".Localize(),
-            SectRank.InnerDisciple => "Cultiway.Sect.Rank.InnerDisciple".Localize(),
-            SectRank.OuterDisciple => "Cultiway.Sect.Rank.OuterDisciple".Localize(),
-            _ => "Cultiway.Sect.Rank.None".Localize()
+            SectRank.Leader => "Cultiway.Sect.Rank.Leader",
+            SectRank.Successor => "Cultiway.Sect.Rank.Successor",
+            SectRank.Elder => "Cultiway.Sect.Rank.Elder",
+            SectRank.DirectDisciple => "Cultiway.Sect.Rank.DirectDisciple",
+            SectRank.InnerDisciple => "Cultiway.Sect.Rank.InnerDisciple",
+            SectRank.OuterDisciple => "Cultiway.Sect.Rank.OuterDisciple",
+            _ => "Cultiway.Sect.Rank.None"
         };
-    }
-
-    private static Font GetCurrentFont()
-    {
-        return WorldboxGame.I?.CurrentFont ?? LocalizedTextManager.current_font ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
     }
 
     private sealed class RankSection
     {
         internal readonly SectRank Rank;
         internal readonly GameObject Root;
-        internal readonly Text Title;
         internal readonly ObjectPoolGenericMono<UiUnitAvatarElement> Pool;
 
-        internal RankSection(SectRank rank, GameObject root, Text title, ObjectPoolGenericMono<UiUnitAvatarElement> pool)
+        internal RankSection(SectRank rank, GameObject root, ObjectPoolGenericMono<UiUnitAvatarElement> pool)
         {
             Rank = rank;
             Root = root;
-            Title = title;
             Pool = pool;
-        }
-
-        internal void SetCount(int count)
-        {
-            Title.text = $"{GetRankName(Rank)} ({count})";
         }
 
         internal void Clear()

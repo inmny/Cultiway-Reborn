@@ -16,7 +16,7 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
 {
     private const string SectIconPath = "cultiway/icons/iconSect";
     private const string StatsOverviewTitleName = "sect_overview_title";
-    private const float TabContentWidth = 192f;
+    private const float TabContentWidth = 214f;
     private const float TabTitleWidth = 214f;
 
     public override MetaType meta_type => MetaTypeExtend.Sect.Back();
@@ -202,6 +202,19 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
         return clone.transform;
     }
 
+    private static Transform CloneUnitGenealogyContent(Transform targetParent, string targetName)
+    {
+        GameObject prefab = Resources.Load<GameObject>("windows/unit")
+                            ?? throw new InvalidOperationException("找不到原版人物窗口 prefab: windows/unit");
+        UnitGenealogyElement source = prefab.GetComponentInChildren<UnitGenealogyElement>(true)
+                                      ?? throw new InvalidOperationException("原版人物窗口缺少 UnitGenealogyElement");
+
+        GameObject clone = Object.Instantiate(source.gameObject, targetParent, false);
+        clone.name = targetName;
+        clone.transform.localScale = Vector3.one;
+        return clone.transform;
+    }
+
     private void SetupLeaderContent(Transform leaderContent)
     {
         foreach (WindowMetaElementBase element in leaderContent.GetComponents<WindowMetaElementBase>())
@@ -366,7 +379,7 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
 
     private void SetupSectCustomTabs(Transform content)
     {
-        Transform personnelContent = content.Find("content_sect_personnel") ?? CreatePersonnelContent(content);
+        Transform personnelContent = CreatePersonnelContent(content);
         Transform scriptureContent = content.Find("content_sect_scripture") ?? CreateScriptureContent(content);
 
         SetupCustomTab("Sect Personnel", "Cultiway.Sect.Personnel", "Cultiway.Sect.PersonnelDescription", "ui/icons/iconInterestingPeople", personnelContent);
@@ -376,17 +389,22 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
 
     private Transform CreatePersonnelContent(Transform content)
     {
-        GameObject personnelObject = new("content_sect_personnel", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement));
-        personnelObject.transform.SetParent(content, false);
-        personnelObject.transform.localScale = Vector3.one;
-        ConfigureTabContentRoot(personnelObject.transform);
+        Transform existing = content.Find("content_sect_personnel");
+        if (existing != null)
+        {
+            Object.DestroyImmediate(existing.gameObject);
+        }
 
-        CloneTitleContainer(content, personnelObject.transform, "tab_title_container_sect_personnel", "Cultiway.Sect.Personnel", "ui/icons/iconInterestingPeople");
+        Transform personnelContent = CloneUnitGenealogyContent(content, "content_sect_personnel");
+        foreach (WindowMetaElementBase element in personnelContent.GetComponents<WindowMetaElementBase>())
+        {
+            Object.DestroyImmediate(element);
+        }
 
-        SectPersonnelElement personnelElement = personnelObject.AddComponent<SectPersonnelElement>();
+        SectPersonnelElement personnelElement = personnelContent.gameObject.AddComponent<SectPersonnelElement>();
         personnelElement.Initialize();
-        personnelObject.SetActive(false);
-        return personnelObject.transform;
+        personnelContent.gameObject.SetActive(false);
+        return personnelContent;
     }
 
     private Transform CreateScriptureContent(Transform content)

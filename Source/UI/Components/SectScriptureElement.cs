@@ -170,7 +170,7 @@ internal class SectScriptureElement : WindowMetaElement<Sect, SectData>
         rootFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
         LayoutElement rootLayoutElement = root.GetComponent<LayoutElement>();
-        rootLayoutElement.preferredWidth = 192f;
+        rootLayoutElement.preferredWidth = 214f;
 
         Text title = CreateSectionTitle(root.transform, titleKey);
         Transform grid = CreateBookGrid(root.transform);
@@ -197,7 +197,7 @@ internal class SectScriptureElement : WindowMetaElement<Sect, SectData>
         shadow.effectDistance = new Vector2(0.5f, -0.5f);
 
         LayoutElement layout = titleObject.GetComponent<LayoutElement>();
-        layout.preferredWidth = 192f;
+        layout.preferredWidth = 214f;
         layout.preferredHeight = 12f;
 
         title.text = titleKey.Localize();
@@ -222,7 +222,7 @@ internal class SectScriptureElement : WindowMetaElement<Sect, SectData>
         fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
         LayoutElement layout = gridObject.GetComponent<LayoutElement>();
-        layout.preferredWidth = 192f;
+        layout.preferredWidth = 214f;
 
         return gridObject.transform;
     }
@@ -255,7 +255,7 @@ internal class SectScriptureElement : WindowMetaElement<Sect, SectData>
         shadow.effectDistance = new Vector2(0.5f, -0.5f);
 
         LayoutElement layout = messageObject.GetComponent<LayoutElement>();
-        layout.preferredWidth = 192f;
+        layout.preferredWidth = 214f;
         layout.preferredHeight = 20f;
 
         return messageObject;
