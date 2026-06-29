@@ -90,6 +90,21 @@ public class SectRoleAsset : Asset
     public List<string> permissionIds = new();
 
     /// <summary>
+    /// 授予该角色需要的最低师徒关系类型 id；为空表示无师徒要求。
+    /// </summary>
+    public string requiredMasterRelationTypeId;
+
+    /// <summary>
+    /// 满足该角色师徒要求时，是否允许自动安排符合条件的师父。
+    /// </summary>
+    public bool canAutoAssignMasterForRequirement;
+
+    /// <summary>
+    /// 自动安排师父时要求师父至少拥有的宗门职司角色 id。
+    /// </summary>
+    public string requiredMasterOfficeRoleId;
+
+    /// <summary>
     /// 获取角色的本地化名称。
     /// </summary>
     public string GetName()

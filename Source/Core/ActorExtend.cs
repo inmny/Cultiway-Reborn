@@ -1567,11 +1567,11 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <summary>
     /// 获取关系类型
     /// </summary>
-    public MasterApprenticeType GetRelationType()
+    public MasterApprenticeTypeAsset GetRelationType()
     {
-        if (!HasMaster()) return MasterApprenticeType.Nominal;
+        if (!HasMaster()) return MasterApprenticeTypes.Nominal;
         ref var relation = ref GetMasterRelation();
-        return relation.RelationType;
+        return ModClass.L.MasterApprenticeTypeLibrary.GetOrDefault(relation.RelationTypeId);
     }
     
     /// <summary>
@@ -1579,22 +1579,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// </summary>
     private static void UpdateRelationType(ref MasterApprenticeRelation relation)
     {
-        if (relation.IsSuccessor && relation.Intimacy >= 90)
-        {
-            relation.RelationType = MasterApprenticeType.Successor;
-        }
-        else if (relation.Intimacy >= 60)
-        {
-            relation.RelationType = MasterApprenticeType.Direct;
-        }
-        else if (relation.Intimacy >= 30)
-        {
-            relation.RelationType = MasterApprenticeType.Formal;
-        }
-        else
-        {
-            relation.RelationType = MasterApprenticeType.Nominal;
-        }
+        relation.RelationTypeId = ModClass.L.MasterApprenticeTypeLibrary
+            .GetByIntimacy(relation.Intimacy, relation.IsSuccessor)
+            .id;
     }
 
     private static Action<Actor> action_on_addchildren;

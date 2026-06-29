@@ -105,7 +105,7 @@ public class BehSeekMaster : BehaviourActionActor
     {
         // 请求拜师（由师傅决定是否接受）
         // 这里简化处理，直接尝试收徒
-        return master.TryRecruit(apprentice, MasterApprenticeType.Nominal);
+        return master.TryRecruit(apprentice);
     }
 }
 

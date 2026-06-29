@@ -148,6 +148,14 @@ Cultiway.Sect.Role.NoTitle,无头衔
 Cultiway.Sect.Role.NoTitle.Info,没有特殊宗门头衔
 Cultiway.Sect.Role.Successor,衣钵传人
 Cultiway.Sect.Role.Successor.Info,掌门继任的优先人选
+Cultiway.MasterApprentice.Type.Nominal,记名弟子
+Cultiway.MasterApprentice.Type.Nominal.Info,最低层级的师徒关系
+Cultiway.MasterApprentice.Type.Formal,入室弟子
+Cultiway.MasterApprentice.Type.Formal.Info,正式认可的师徒关系
+Cultiway.MasterApprentice.Type.Direct,亲传弟子
+Cultiway.MasterApprentice.Type.Direct.Info,高亲密度的核心师徒关系
+Cultiway.MasterApprentice.Type.Successor,衣钵传人
+Cultiway.MasterApprentice.Type.Successor.Info,带有继任标记的最高层级师徒关系
 Cultiway.Sect.Permission.ReadBasicScripture,研读基础藏书
 Cultiway.Sect.Permission.ReadBasicScripture.Info,允许研读宗门基础藏书
 Cultiway.Sect.Permission.ReadCoreScripture,研读核心藏书

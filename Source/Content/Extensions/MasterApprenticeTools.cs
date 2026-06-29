@@ -66,9 +66,9 @@ public static class MasterApprenticeTools
     /// 收取弟子
     /// </summary>
     [Hotfixable]
-    public static bool TryRecruit(this ActorExtend master, ActorExtend apprentice, 
-        MasterApprenticeType type = MasterApprenticeType.Nominal)
+    public static bool TryRecruit(this ActorExtend master, ActorExtend apprentice, MasterApprenticeTypeAsset type = null)
     {
+        type ??= MasterApprenticeTypes.Nominal;
         if (!master.CanRecruit()) return false;
         if (apprentice.HasMaster()) return false;
         
@@ -80,7 +80,7 @@ public static class MasterApprenticeTools
         apprentice.E.AddRelation(new MasterApprenticeRelation
         {
             Master = master.E,
-            RelationType = type,
+            RelationTypeId = type.id,
             Intimacy = 0,
             ApprenticeTime = (float)World.world.getCurWorldTime(),
             TransferredCultibookCount = 0,
@@ -261,14 +261,9 @@ public static class MasterApprenticeTools
         
         // 关系系数
         ref var relation = ref apprentice.GetMasterRelation();
-        float relationMultiplier = relation.RelationType switch
-        {
-            MasterApprenticeType.Nominal => 0.5f,
-            MasterApprenticeType.Formal => 0.8f,
-            MasterApprenticeType.Direct => 1.0f,
-            MasterApprenticeType.Successor => 1.2f,
-            _ => 0.5f
-        };
+        float relationMultiplier = ModClass.L.MasterApprenticeTypeLibrary
+            .GetOrDefault(relation.RelationTypeId)
+            .teachEfficiencyMultiplier;
         
         // 师傅掌握度系数
         var mainCultibook = master.GetMainCultibook();
@@ -294,17 +289,18 @@ public static class MasterApprenticeTools
 
         if (master.sect != null && apprentice.sect == master.sect)
         {
-            ApplySectRolesForRelation(master.sect, apprentice.Base, relation.RelationType);
+            ApplySectRolesForRelation(master.sect, apprentice.Base, ModClass.L.MasterApprenticeTypeLibrary.GetOrDefault(relation.RelationTypeId));
             master.sect.AddContribution(master.Base, SectConst.ContributionTeachCultibook);
         }
     }
 
-    public static SectJoinProfile GetSectJoinProfileForRelation(MasterApprenticeType type)
+    public static SectJoinProfile GetSectJoinProfileForRelation(MasterApprenticeTypeAsset type)
     {
+        type ??= MasterApprenticeTypes.Nominal;
         return new SectJoinProfile(
             GetSectGradeForRelation(type),
             null,
-            type == MasterApprenticeType.Successor ? SectRoles.Successor : null);
+            GetSectTitleForRelation(type));
     }
 
     /// <summary>
@@ -313,11 +309,15 @@ public static class MasterApprenticeTools
     public static bool CanMeetSectRoleMasterRequirement(this Actor actor, Sect sect, SectRoleAsset role)
     {
         if (role == null) return false;
-        if (role.slot != SectRoleSlot.Grade && role != SectRoles.Successor) return true;
-        if (role.defaultForSlot || role == SectRoles.OuterDisciple) return true;
-        if (IsInnerDiscipleGrade(role)) return HasQualifiedInnerMasterRelation(actor, sect) || CanFindInnerDiscipleMaster(actor, sect, out _);
+        MasterApprenticeTypeAsset requiredType = GetRequiredRelationTypeForSectRole(role);
+        if (requiredType == null) return true;
 
-        MasterApprenticeType requiredType = GetRequiredRelationTypeForSectRole(role);
+        if (role.canAutoAssignMasterForRequirement)
+        {
+            return HasQualifiedRoleMasterRelation(actor, sect, role, requiredType)
+                   || CanFindRoleMaster(actor, sect, role, out _);
+        }
+
         return HasSectMasterRelationAtLeast(actor, sect, requiredType);
     }
 
@@ -327,71 +327,66 @@ public static class MasterApprenticeTools
     public static bool EnsureSectRoleMasterRequirement(this Actor actor, Sect sect, SectRoleAsset role)
     {
         if (role == null) return false;
-        if (role.slot != SectRoleSlot.Grade && role != SectRoles.Successor) return true;
-        if (role.defaultForSlot || role == SectRoles.OuterDisciple) return true;
-        if (IsInnerDiscipleGrade(role)) return EnsureInnerDiscipleMaster(actor, sect);
+        MasterApprenticeTypeAsset requiredType = GetRequiredRelationTypeForSectRole(role);
+        if (requiredType == null) return true;
 
-        MasterApprenticeType requiredType = GetRequiredRelationTypeForSectRole(role);
+        if (role.canAutoAssignMasterForRequirement)
+        {
+            return EnsureRoleMasterRequirement(actor, sect, role, requiredType);
+        }
+
         return HasSectMasterRelationAtLeast(actor, sect, requiredType);
     }
 
-    private static void ApplySectRolesForRelation(Sect sect, Actor apprentice, MasterApprenticeType type)
+    private static void ApplySectRolesForRelation(Sect sect, Actor apprentice, MasterApprenticeTypeAsset type)
     {
-        sect.PromoteMember(apprentice, GetSectGradeForRelation(type));
-        if (type == MasterApprenticeType.Successor)
+        SectRoleAsset grade = GetSectGradeForRelation(type);
+        if (grade != null)
         {
-            sect.PromoteMember(apprentice, SectRoles.Successor);
+            sect.PromoteMember(apprentice, grade);
+        }
+
+        SectRoleAsset title = GetSectTitleForRelation(type);
+        if (title != null)
+        {
+            sect.PromoteMember(apprentice, title);
         }
     }
 
-    private static SectRoleAsset GetSectGradeForRelation(MasterApprenticeType type)
+    private static SectRoleAsset GetSectGradeForRelation(MasterApprenticeTypeAsset type)
     {
-        return type switch
-        {
-            MasterApprenticeType.Nominal => SectRoles.OuterDisciple,
-            MasterApprenticeType.Formal => SectRoles.InnerDisciple,
-            MasterApprenticeType.Direct => SectRoles.DirectDisciple,
-            MasterApprenticeType.Successor => SectRoles.DirectDisciple,
-            _ => SectRoles.OuterDisciple
-        };
+        return GetSectRoleOrNull(type?.sectGradeRoleId);
+    }
+
+    private static SectRoleAsset GetSectTitleForRelation(MasterApprenticeTypeAsset type)
+    {
+        return GetSectRoleOrNull(type?.sectTitleRoleId);
     }
 
     /// <summary>
-    /// 将宗门门阶或特殊身份映射为最低需要的师徒关系层级。
+    /// 获取宗门角色配置的最低师徒关系层级。
     /// </summary>
-    private static MasterApprenticeType GetRequiredRelationTypeForSectRole(SectRoleAsset role)
+    private static MasterApprenticeTypeAsset GetRequiredRelationTypeForSectRole(SectRoleAsset role)
     {
-        if (role == SectRoles.Successor) return MasterApprenticeType.Successor;
-        if (role == SectRoles.DirectDisciple) return MasterApprenticeType.Direct;
-        if (role.slot == SectRoleSlot.Grade && role.order >= SectRoles.DirectDisciple.order) return MasterApprenticeType.Direct;
-        return MasterApprenticeType.Formal;
+        if (string.IsNullOrEmpty(role.requiredMasterRelationTypeId)) return null;
+        return ModClass.L.MasterApprenticeTypeLibrary.GetOrDefault(role.requiredMasterRelationTypeId);
     }
 
     /// <summary>
-    /// 判断角色是否属于外门和亲传之间、需要现场寻找执事以上师父的内门门阶。
+    /// 判断角色现有师父是否已经满足指定宗门角色的师徒要求。
     /// </summary>
-    private static bool IsInnerDiscipleGrade(SectRoleAsset role)
+    private static bool HasQualifiedRoleMasterRelation(Actor actor, Sect sect, SectRoleAsset role, MasterApprenticeTypeAsset requiredType)
     {
-        return role.slot == SectRoleSlot.Grade
-               && role.order > SectRoles.OuterDisciple.order
-               && role.order < SectRoles.DirectDisciple.order;
-    }
-
-    /// <summary>
-    /// 判断角色现有师父是否已经满足内门门阶要求。
-    /// </summary>
-    private static bool HasQualifiedInnerMasterRelation(Actor actor, Sect sect)
-    {
-        if (!HasSectMasterRelationAtLeast(actor, sect, MasterApprenticeType.Formal)) return false;
+        if (!HasSectMasterRelationAtLeast(actor, sect, requiredType)) return false;
 
         Actor master = actor.GetExtend().GetMaster();
-        return IsSectDeaconOrAbove(master, actor, sect);
+        return IsQualifiedSectMaster(master, actor, sect, GetSectRoleOrNull(role.requiredMasterOfficeRoleId));
     }
 
     /// <summary>
-    /// 查找可让角色晋升内门的师父；已有师父时只检查当前师父，不重新换师父。
+    /// 查找可满足宗门角色要求的师父；已有师父时只检查当前师父，不重新换师父。
     /// </summary>
-    private static bool CanFindInnerDiscipleMaster(Actor actor, Sect sect, out Actor master)
+    private static bool CanFindRoleMaster(Actor actor, Sect sect, SectRoleAsset role, out Actor master)
     {
         master = null;
         if (actor == null || actor.isRekt()) return false;
@@ -401,7 +396,7 @@ public static class MasterApprenticeTools
         if (ae.HasMaster())
         {
             Actor currentMaster = ae.GetMaster();
-            if (CanCurrentMasterPromoteToInnerDisciple(currentMaster, actor, sect))
+            if (CanCurrentMasterSupportRole(currentMaster, actor, sect, role))
             {
                 master = currentMaster;
                 return true;
@@ -415,7 +410,7 @@ public static class MasterApprenticeTools
         for (int i = 0; i < members.Count; i++)
         {
             Actor candidate = members[i];
-            if (!CanServeAsNewInnerDiscipleMaster(candidate, actor, sect)) continue;
+            if (!CanServeAsNewRoleMaster(candidate, actor, sect, role)) continue;
 
             master = candidate;
             return true;
@@ -425,24 +420,24 @@ public static class MasterApprenticeTools
     }
 
     /// <summary>
-    /// 为内门晋升落实正式师徒关系，必要时让宗门内执事以上成员收徒。
+    /// 为宗门角色授予落实所需师徒关系，必要时让宗门内符合要求的成员收徒。
     /// </summary>
-    private static bool EnsureInnerDiscipleMaster(Actor actor, Sect sect)
+    private static bool EnsureRoleMasterRequirement(Actor actor, Sect sect, SectRoleAsset role, MasterApprenticeTypeAsset requiredType)
     {
-        if (HasQualifiedInnerMasterRelation(actor, sect))
+        if (HasQualifiedRoleMasterRelation(actor, sect, role, requiredType))
         {
             ref MasterApprenticeRelation relation = ref actor.GetExtend().GetMasterRelation();
-            UpgradeMasterRelation(ref relation, MasterApprenticeType.Formal);
+            UpgradeMasterRelation(ref relation, requiredType);
             return true;
         }
 
-        if (!CanFindInnerDiscipleMaster(actor, sect, out Actor master)) return false;
+        if (!CanFindRoleMaster(actor, sect, role, out Actor master)) return false;
 
         ActorExtend actorExtend = actor.GetExtend();
         if (actorExtend.HasMaster())
         {
             ref MasterApprenticeRelation relation = ref actorExtend.GetMasterRelation();
-            UpgradeMasterRelation(ref relation, MasterApprenticeType.Formal);
+            UpgradeMasterRelation(ref relation, requiredType);
             return true;
         }
 
@@ -450,8 +445,8 @@ public static class MasterApprenticeTools
         actorExtend.E.AddRelation(new MasterApprenticeRelation
         {
             Master = masterExtend.E,
-            RelationType = MasterApprenticeType.Formal,
-            Intimacy = GetMinIntimacyForRelation(MasterApprenticeType.Formal),
+            RelationTypeId = requiredType.id,
+            Intimacy = requiredType.minIntimacy,
             ApprenticeTime = (float)World.world.getCurWorldTime(),
             TransferredCultibookCount = 0,
             TransferredSkillCount = 0,
@@ -466,34 +461,34 @@ public static class MasterApprenticeTools
     }
 
     /// <summary>
-    /// 判断已有师父是否能支持徒弟晋升内门。
+    /// 判断已有师父是否能支持徒弟获得指定宗门角色。
     /// </summary>
-    private static bool CanCurrentMasterPromoteToInnerDisciple(Actor master, Actor apprentice, Sect sect)
+    private static bool CanCurrentMasterSupportRole(Actor master, Actor apprentice, Sect sect, SectRoleAsset role)
     {
-        return IsSectDeaconOrAbove(master, apprentice, sect)
+        return IsQualifiedSectMaster(master, apprentice, sect, GetSectRoleOrNull(role.requiredMasterOfficeRoleId))
                && IsWillingToAcceptInnerDisciple(master.GetExtend());
     }
 
     /// <summary>
-    /// 判断候选成员是否能作为新师父接纳内门弟子。
+    /// 判断候选成员是否能作为新师父接纳指定宗门角色需要的弟子。
     /// </summary>
-    private static bool CanServeAsNewInnerDiscipleMaster(Actor master, Actor apprentice, Sect sect)
+    private static bool CanServeAsNewRoleMaster(Actor master, Actor apprentice, Sect sect, SectRoleAsset role)
     {
-        return IsSectDeaconOrAbove(master, apprentice, sect)
+        return IsQualifiedSectMaster(master, apprentice, sect, GetSectRoleOrNull(role.requiredMasterOfficeRoleId))
                && IsWillingToAcceptInnerDisciple(master.GetExtend())
                && CanAcceptNewInnerDisciple(master.GetExtend());
     }
 
     /// <summary>
-    /// 判断候选师父是否属于同宗门执事及以上成员，且不是徒弟本人。
+    /// 判断候选师父是否属于同宗门成员、不是徒弟本人，并满足最低职司要求。
     /// </summary>
-    private static bool IsSectDeaconOrAbove(Actor master, Actor apprentice, Sect sect)
+    private static bool IsQualifiedSectMaster(Actor master, Actor apprentice, Sect sect, SectRoleAsset requiredOffice)
     {
         if (master == null || master.isRekt()) return false;
         if (apprentice == null || apprentice.isRekt()) return false;
         if (master == apprentice) return false;
         if (master.GetExtend().sect != sect) return false;
-        return master.GetSectRole(SectRoleSlot.Office).order >= SectRoles.Deacon.order;
+        return requiredOffice == null || master.GetSectRole(SectRoleSlot.Office).order >= requiredOffice.order;
     }
 
     /// <summary>
@@ -548,35 +543,23 @@ public static class MasterApprenticeTools
     /// <summary>
     /// 将师徒关系提升到目标层级，并补足该层级需要的最低亲密度。
     /// </summary>
-    private static void UpgradeMasterRelation(ref MasterApprenticeRelation relation, MasterApprenticeType targetType)
+    private static void UpgradeMasterRelation(ref MasterApprenticeRelation relation, MasterApprenticeTypeAsset targetType)
     {
-        if (GetRelationRank(relation.RelationType) < GetRelationRank(targetType))
+        MasterApprenticeTypeAsset currentType = ModClass.L.MasterApprenticeTypeLibrary.GetOrDefault(relation.RelationTypeId);
+        if (currentType.rank < targetType.rank)
         {
-            relation.RelationType = targetType;
+            relation.RelationTypeId = targetType.id;
         }
 
-        relation.Intimacy = Mathf.Max(relation.Intimacy, GetMinIntimacyForRelation(targetType));
-    }
-
-    /// <summary>
-    /// 获取指定师徒关系层级需要保底的亲密度。
-    /// </summary>
-    private static float GetMinIntimacyForRelation(MasterApprenticeType type)
-    {
-        return type switch
-        {
-            MasterApprenticeType.Formal => 30f,
-            MasterApprenticeType.Direct => 60f,
-            MasterApprenticeType.Successor => 90f,
-            _ => 0f
-        };
+        relation.Intimacy = Mathf.Max(relation.Intimacy, targetType.minIntimacy);
     }
 
     /// <summary>
     /// 判断角色是否拥有同宗门师父，且师徒关系层级不低于指定要求。
     /// </summary>
-    private static bool HasSectMasterRelationAtLeast(Actor actor, Sect sect, MasterApprenticeType requiredType)
+    private static bool HasSectMasterRelationAtLeast(Actor actor, Sect sect, MasterApprenticeTypeAsset requiredType)
     {
+        if (requiredType == null) return true;
         if (actor == null || actor.isRekt()) return false;
         if (sect == null || sect.isRekt()) return false;
 
@@ -587,42 +570,23 @@ public static class MasterApprenticeTools
         if (master == null || master.isRekt()) return false;
         if (master.GetExtend().sect != sect) return false;
 
-        return GetRelationRank(ae.GetRelationType()) >= GetRelationRank(requiredType);
+        return ae.GetRelationType().rank >= requiredType.rank;
     }
 
     /// <summary>
-    /// 将师徒关系层级转换为可比较的排序值。
+    /// 从宗门角色库中获取角色 id 对应的角色资产。
     /// </summary>
-    private static int GetRelationRank(MasterApprenticeType type)
+    private static SectRoleAsset GetSectRoleOrNull(string roleId)
     {
-        return type switch
-        {
-            MasterApprenticeType.Nominal => 0,
-            MasterApprenticeType.Formal => 1,
-            MasterApprenticeType.Direct => 2,
-            MasterApprenticeType.Successor => 3,
-            _ => 0
-        };
+        if (string.IsNullOrEmpty(roleId)) return null;
+        return ModClass.L.SectRoleLibrary.has(roleId) ? ModClass.L.SectRoleLibrary.get(roleId) : null;
     }
     
     private static void UpdateRelationType(ref MasterApprenticeRelation relation)
     {
-        if (relation.IsSuccessor && relation.Intimacy >= 90)
-        {
-            relation.RelationType = MasterApprenticeType.Successor;
-        }
-        else if (relation.Intimacy >= 60)
-        {
-            relation.RelationType = MasterApprenticeType.Direct;
-        }
-        else if (relation.Intimacy >= 30)
-        {
-            relation.RelationType = MasterApprenticeType.Formal;
-        }
-        else
-        {
-            relation.RelationType = MasterApprenticeType.Nominal;
-        }
+        relation.RelationTypeId = ModClass.L.MasterApprenticeTypeLibrary
+            .GetByIntimacy(relation.Intimacy, relation.IsSuccessor)
+            .id;
     }
 }
 

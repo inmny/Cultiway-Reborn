@@ -3,17 +3,6 @@ using Friflo.Engine.ECS;
 namespace Cultiway.Core.Components;
 
 /// <summary>
-/// 师徒关系类型枚举
-/// </summary>
-public enum MasterApprenticeType
-{
-    Nominal,   // 记名弟子
-    Formal,    // 入室弟子
-    Direct,    // 亲传弟子
-    Successor  // 衣钵传人
-}
-
-/// <summary>
 /// 师徒关系组件 - 存储在弟子Entity上，指向师傅
 /// </summary>
 public struct MasterApprenticeRelation : ILinkRelation
@@ -24,9 +13,9 @@ public struct MasterApprenticeRelation : ILinkRelation
     public Entity Master;
     
     /// <summary>
-    /// 关系类型
+    /// 关系类型资产 id
     /// </summary>
-    public MasterApprenticeType RelationType;
+    public string RelationTypeId;
     
     /// <summary>
     /// 亲密度 (0-100)

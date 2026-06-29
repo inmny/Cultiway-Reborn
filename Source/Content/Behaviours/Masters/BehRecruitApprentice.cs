@@ -51,7 +51,7 @@ public class BehRecruitApprentice : BehaviourActionActor
         
         // 尝试收徒
         var candidateAe = candidate.GetExtend();
-        if (ae.TryRecruit(candidateAe, MasterApprenticeType.Nominal))
+        if (ae.TryRecruit(candidateAe))
         {
             return BehResult.Continue;
         }
