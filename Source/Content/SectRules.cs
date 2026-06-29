@@ -20,7 +20,21 @@ public static class SectRules
         if (ae.sect != null) return false;
         if (!ae.HasCultisys<Xian>()) return false;
         if (ae.GetCultisys<Xian>().CurrLevel < XianLevels.Yuanying) return false;
+        if (!HasAvailableFounderApprentice(ae)) return false;
 
         return ae.GetMainCultibook() != null;
+    }
+
+    private static bool HasAvailableFounderApprentice(ActorExtend founder)
+    {
+        foreach (ActorExtend apprentice in founder.GetApprentices())
+        {
+            if (apprentice.Base == null || apprentice.Base.isRekt()) continue;
+            if (apprentice.sect != null) continue;
+
+            return true;
+        }
+
+        return false;
     }
 }
