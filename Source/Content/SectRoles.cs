@@ -67,13 +67,16 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
     protected override void OnInit()
     {
         SetupGrade(NoGrade, 0, 0, 0, true, false);
-        SetupGrade(
+        SetupGradeWithMasterRequirement(
             OuterDisciple,
             10,
             10,
             0,
             false,
             true,
+            MasterApprenticeTypes.Nominal,
+            true,
+            null,
             SectPermissions.ReadBasicScripture,
             SectPermissions.WriteScripture);
         SetupGradeWithMasterRequirement(
