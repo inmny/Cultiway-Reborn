@@ -40,9 +40,11 @@ public class SectPage : MonoBehaviour
             SetText(page, sb);
             return;
         }
+        SectPersonnelScore score = sect.GetPersonnelScore(actor);
 
         sb.AppendLine($"宗门: {sect.name}");
         sb.AppendLine($"职位: {GetRankName(actor.GetSectRank())}");
+        sb.AppendLine($"人事评分: {score.Total} (境界 {score.Realm} / 资历 {score.Tenure} / 贡献 {score.Contribution})");
         sb.AppendLine($"等级: {sect.data.Level}");
         sb.AppendLine($"声望: {sect.data.Reputation}");
         sb.AppendLine();

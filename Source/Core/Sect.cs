@@ -148,6 +148,8 @@ public class Sect : MetaObject<SectData>
 
         ae.SetSect(this);
         SetMemberRank(actor, rank);
+        actor.SetSectJoinTime((float)World.world.getCurWorldTime());
+        actor.ClearSectContribution();
 
         if (rank == SectRank.Leader)
         {
@@ -167,6 +169,8 @@ public class Sect : MetaObject<SectData>
         bool wasLeader = data.LeaderActorID == actor.data.id;
         ae.SetSect(null);
         actor.ClearSectRank();
+        actor.ClearSectJoinTime();
+        actor.ClearSectContribution();
 
         if (wasLeader)
         {
@@ -176,6 +180,28 @@ public class Sect : MetaObject<SectData>
         }
 
         return true;
+    }
+
+    public bool AddContribution(Actor actor, int contribution)
+    {
+        if (actor == null || actor.isRekt()) return false;
+        if (contribution <= 0) return false;
+        if (actor.GetExtend().sect != this) return false;
+
+        actor.AddSectContribution(contribution);
+        return true;
+    }
+
+    public SectPersonnelScore GetPersonnelScore(Actor actor)
+    {
+        if (actor == null || actor.isRekt()) return new SectPersonnelScore(0, 0, 0);
+        if (actor.GetExtend().sect != this) return new SectPersonnelScore(0, 0, 0);
+
+        int realmScore = Mathf.Max(0, GetCultivationLevel(actor)) * SectConst.PersonnelRealmScorePerLevel;
+        int tenureScore = actor.GetSectTenureYears() * SectConst.PersonnelTenureScorePerYear;
+        int contributionScore = actor.GetSectContribution();
+
+        return new SectPersonnelScore(realmScore, tenureScore, contributionScore);
     }
 
     public bool PromoteMember(Actor actor, SectRank rank)

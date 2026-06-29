@@ -1,6 +1,6 @@
-using System.Drawing.Design;
 using Cultiway.Const;
 using Cultiway.Core;
+using UnityEngine;
 
 namespace Cultiway.Utils.Extension;
 
@@ -34,6 +34,49 @@ public static class ActorTools
     public static void ClearSectRank(this Actor actor)
     {
         actor.data.removeInt(ActorDataKeys.SectRank_Int);
+    }
+
+    public static float GetSectJoinTime(this Actor actor)
+    {
+        actor.data.get(ActorDataKeys.SectJoinTime_Float, out float joinTime, -1f);
+        return joinTime;
+    }
+
+    public static void SetSectJoinTime(this Actor actor, float joinTime)
+    {
+        actor.data.set(ActorDataKeys.SectJoinTime_Float, joinTime);
+    }
+
+    public static void ClearSectJoinTime(this Actor actor)
+    {
+        actor.data.removeFloat(ActorDataKeys.SectJoinTime_Float);
+    }
+
+    public static int GetSectTenureYears(this Actor actor)
+    {
+        float joinTime = actor.GetSectJoinTime();
+        if (joinTime < 0f) return 0;
+
+        float elapsed = (float)World.world.getCurWorldTime() - joinTime;
+        return Mathf.Max(0, Mathf.FloorToInt(elapsed / TimeScales.SecPerYear));
+    }
+
+    public static int GetSectContribution(this Actor actor)
+    {
+        actor.data.get(ActorDataKeys.SectContribution_Int, out int contribution, 0);
+        return contribution;
+    }
+
+    public static void AddSectContribution(this Actor actor, int contribution)
+    {
+        if (contribution <= 0) return;
+
+        actor.data.set(ActorDataKeys.SectContribution_Int, actor.GetSectContribution() + contribution);
+    }
+
+    public static void ClearSectContribution(this Actor actor)
+    {
+        actor.data.removeInt(ActorDataKeys.SectContribution_Int);
     }
 
     public static string GetSourceSpawnerAssetId(this Actor actor)

@@ -51,7 +51,7 @@ internal class SectPersonnelElement : WindowMetaElement<Sect, SectData>
         if (sect == null || sect.isRekt()) yield break;
 
         List<Actor> members = sect.GetLivingMembers();
-        members.Sort(CompareMembers);
+        members.Sort((left, right) => CompareMembers(sect, left, right));
 
         for (int i = 0; i < _sections.Count; i++)
         {
@@ -199,24 +199,15 @@ internal class SectPersonnelElement : WindowMetaElement<Sect, SectData>
             .FirstOrDefault(child => child.name == "Grid");
     }
 
-    private static int CompareMembers(Actor left, Actor right)
+    private static int CompareMembers(Sect sect, Actor left, Actor right)
     {
         int rankCompare = right.GetSectRank().CompareTo(left.GetSectRank());
         if (rankCompare != 0) return rankCompare;
 
-        int levelCompare = GetCultivationLevel(right).CompareTo(GetCultivationLevel(left));
-        if (levelCompare != 0) return levelCompare;
-
-        int masteryCompare = right.GetExtend().GetMainCultibookMastery().CompareTo(left.GetExtend().GetMainCultibookMastery());
-        if (masteryCompare != 0) return masteryCompare;
+        int scoreCompare = sect.GetPersonnelScore(right).Total.CompareTo(sect.GetPersonnelScore(left).Total);
+        if (scoreCompare != 0) return scoreCompare;
 
         return left.data.id.CompareTo(right.data.id);
-    }
-
-    private static int GetCultivationLevel(Actor actor)
-    {
-        ActorExtend actorExtend = actor.GetExtend();
-        return actorExtend.HasCultisys<Xian>() ? actorExtend.GetCultisys<Xian>().CurrLevel : -1;
     }
 
     private static string GetRankLocaleKey(SectRank rank)

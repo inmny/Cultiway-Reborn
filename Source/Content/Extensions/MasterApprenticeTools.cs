@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Libraries;
@@ -292,6 +293,7 @@ public static class MasterApprenticeTools
         if (master.sect != null && apprentice.sect == master.sect)
         {
             master.sect.PromoteMember(apprentice.Base, GetSectRankForRelation(relation.RelationType));
+            master.sect.AddContribution(master.Base, SectConst.ContributionTeachCultibook);
         }
     }
 
