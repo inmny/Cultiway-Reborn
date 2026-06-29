@@ -9,6 +9,8 @@ Task.Unit.Cultiway.CraftTalisman,绘制符箓
 Task.Unit.Cultiway.CreateCultibook,创造功法
 Task.Unit.Cultiway.ImproveCultibook,改进功法
 Task.Unit.Cultiway.BuildSect,建立宗门
+Task.Unit.Cultiway.EvaluateSectPersonnel,评定宗门人事
+Task.Unit.Cultiway.RecruitSectMember,招揽入宗
 Task.Unit.Cultiway.WriteCultibook,誊抄功法
 Task.Unit.Cultiway.WriteElixirbook,誊抄丹方
 Task.Unit.Cultiway.WriteSkillbook,誊抄术法
