@@ -268,19 +268,13 @@ public class Sect : MetaObject<SectData>
         if (actor.GetExtend().sect != this) return false;
 
         actor.AddSectContribution(contribution);
+        EvaluateMemberRank(actor);
         return true;
     }
 
     public SectPersonnelScore GetPersonnelScore(Actor actor)
     {
-        if (actor == null || actor.isRekt()) return new SectPersonnelScore(0, 0, 0);
-        if (actor.GetExtend().sect != this) return new SectPersonnelScore(0, 0, 0);
-
-        int realmScore = Mathf.Max(0, GetCultivationLevel(actor)) * SectConst.PersonnelRealmScorePerLevel;
-        int tenureScore = actor.GetSectTenureYears() * SectConst.PersonnelTenureScorePerYear;
-        int contributionScore = actor.GetSectContribution();
-
-        return new SectPersonnelScore(realmScore, tenureScore, contributionScore);
+        return SectPersonnelEvaluator.EvaluateScore(this, actor);
     }
 
     public bool PromoteMember(Actor actor, SectRank rank)
@@ -298,6 +292,27 @@ public class Sect : MetaObject<SectData>
 
         SetMemberRank(actor, rank);
         return true;
+    }
+
+    public bool EvaluateMemberRank(Actor actor)
+    {
+        SectRank targetRank = SectPersonnelEvaluator.EvaluatePromotionTarget(this, actor);
+        return targetRank != SectRank.None && PromoteMember(actor, targetRank);
+    }
+
+    public void EvaluateAllMemberRanks()
+    {
+        List<Actor> members = GetLivingMembers();
+        members.Sort((left, right) => GetPersonnelScore(right).Total.CompareTo(GetPersonnelScore(left).Total));
+        for (int i = 0; i < members.Count; i++)
+        {
+            EvaluateMemberRank(members[i]);
+        }
+    }
+
+    public bool TryRecruitExternalMember(Actor recruiter, Actor candidate)
+    {
+        return SectPersonnelEvaluator.TryRecruitExternalMember(this, recruiter, candidate);
     }
 
     public bool TrySuccession()
@@ -405,33 +420,8 @@ public class Sect : MetaObject<SectData>
         List<Actor> members = GetLivingMembers();
         if (members.Count == 0) return null;
 
-        members.Sort(CompareSuccessionCandidate);
+        members.Sort((left, right) => SectPersonnelEvaluator.CompareSuccessionCandidates(this, left, right));
         return members[0];
-    }
-
-    private static int CompareSuccessionCandidate(Actor left, Actor right)
-    {
-        int rankCompare = right.GetSectRank().CompareTo(left.GetSectRank());
-        if (rankCompare != 0) return rankCompare;
-
-        int levelCompare = GetCultivationLevel(right).CompareTo(GetCultivationLevel(left));
-        if (levelCompare != 0) return levelCompare;
-
-        int masteryCompare = GetMainCultibookMastery(right).CompareTo(GetMainCultibookMastery(left));
-        if (masteryCompare != 0) return masteryCompare;
-
-        return left.data.id.CompareTo(right.data.id);
-    }
-
-    private static int GetCultivationLevel(Actor actor)
-    {
-        var ae = actor.GetExtend();
-        return ae.HasCultisys<Xian>() ? ae.GetCultisys<Xian>().CurrLevel : -1;
-    }
-
-    private static float GetMainCultibookMastery(Actor actor)
-    {
-        return actor.GetExtend().GetMainCultibookMastery();
     }
 
     public void RefreshScriptureStats()
