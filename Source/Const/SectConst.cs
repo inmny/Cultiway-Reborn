@@ -8,6 +8,7 @@ public static class SectConst
     public const int PersonnelTenureScorePerYear = 1;
     public const int PersonnelRecruitRange = 80;
     public const int PersonnelRecruitMaxLevelAboveLeader = 1;
+    public const float PersonnelInnerDiscipleMasterMinRecruitWillingness = 30f;
     public const int ScriptureStudyTopCandidateCount = 5;
     public const int ScriptureCorePermissionMinStage = 1;
     public const int ScriptureHighPermissionMinStage = 3;

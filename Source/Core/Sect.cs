@@ -284,6 +284,7 @@ public class Sect : MetaObject<SectData>
 
         SectRoleAsset current = actor.GetSectRole(role.slot);
         if (current != null && current.order >= role.order) return true;
+        if (!actor.EnsureSectRoleMasterRequirement(this, role)) return false;
 
         actor.SetSectRole(role);
         ClearGradeForSeniorOffice(actor, role);
@@ -449,6 +450,8 @@ public class Sect : MetaObject<SectData>
         SectRoleAsset current = actor.GetSectRole(role.slot);
         if (current == null || current.defaultForSlot || role.order > current.order)
         {
+            if (!actor.EnsureSectRoleMasterRequirement(this, role)) return;
+
             actor.SetSectRole(role);
             ClearGradeForSeniorOffice(actor, role);
         }

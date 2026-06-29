@@ -187,6 +187,7 @@ public static class SectPersonnelEvaluator
         if (actor == null || actor.isRekt()) return false;
         if (initial && !role.allowInitialAssign) return false;
         if (!initial && !role.allowAutoAssign) return false;
+        if (!actor.CanMeetSectRoleMasterRequirement(sect, role)) return false;
 
         int score = initial ? GetRealmScore(actor) : EvaluateScore(sect, actor).Total;
         if (score < role.minPersonnelScore) return false;
