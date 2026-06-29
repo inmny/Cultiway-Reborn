@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Const;
+using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.Libraries;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -108,7 +110,7 @@ public static class MasterApprenticeTools
 
         if (master.sect != null && apprentice.sect == null)
         {
-            master.sect.JoinSect(apprentice.Base, GetSectRankForRelation(type));
+            master.sect.JoinSect(apprentice.Base, GetSectJoinProfileForRelation(type));
         }
         
         // TODO: 触发事件
@@ -292,20 +294,37 @@ public static class MasterApprenticeTools
 
         if (master.sect != null && apprentice.sect == master.sect)
         {
-            master.sect.PromoteMember(apprentice.Base, GetSectRankForRelation(relation.RelationType));
+            ApplySectRolesForRelation(master.sect, apprentice.Base, relation.RelationType);
             master.sect.AddContribution(master.Base, SectConst.ContributionTeachCultibook);
         }
     }
 
-    public static SectRank GetSectRankForRelation(MasterApprenticeType type)
+    public static SectJoinProfile GetSectJoinProfileForRelation(MasterApprenticeType type)
+    {
+        return new SectJoinProfile(
+            GetSectGradeForRelation(type),
+            null,
+            type == MasterApprenticeType.Successor ? SectRoles.Successor : null);
+    }
+
+    private static void ApplySectRolesForRelation(Sect sect, Actor apprentice, MasterApprenticeType type)
+    {
+        sect.PromoteMember(apprentice, GetSectGradeForRelation(type));
+        if (type == MasterApprenticeType.Successor)
+        {
+            sect.PromoteMember(apprentice, SectRoles.Successor);
+        }
+    }
+
+    private static SectRoleAsset GetSectGradeForRelation(MasterApprenticeType type)
     {
         return type switch
         {
-            MasterApprenticeType.Nominal => SectRank.OuterDisciple,
-            MasterApprenticeType.Formal => SectRank.InnerDisciple,
-            MasterApprenticeType.Direct => SectRank.DirectDisciple,
-            MasterApprenticeType.Successor => SectRank.Successor,
-            _ => SectRank.OuterDisciple
+            MasterApprenticeType.Nominal => SectRoles.OuterDisciple,
+            MasterApprenticeType.Formal => SectRoles.InnerDisciple,
+            MasterApprenticeType.Direct => SectRoles.DirectDisciple,
+            MasterApprenticeType.Successor => SectRoles.DirectDisciple,
+            _ => SectRoles.OuterDisciple
         };
     }
     

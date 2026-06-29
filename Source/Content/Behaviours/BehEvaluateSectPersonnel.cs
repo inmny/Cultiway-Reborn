@@ -17,7 +17,7 @@ public class BehEvaluateSectPersonnel : BehaviourActionActor
         }
 
         Sect sect = pObject.GetExtend().sect;
-        sect.EvaluateAllMemberRanks();
+        sect.EvaluateAllMemberRoles();
         return BehResult.Continue;
     }
 }

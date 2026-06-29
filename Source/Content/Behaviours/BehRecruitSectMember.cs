@@ -31,7 +31,7 @@ public class BehRecruitSectMember : BehaviourActionActor
         Sect sect = pObject.GetExtend().sect;
         if (sect.TryRecruitExternalMember(pObject, candidate))
         {
-            ModClass.LogInfo($"[{pObject.getName()}] 招揽散修入宗: {candidate.getName()} -> {sect.name}({candidate.GetSectRank()})");
+            ModClass.LogInfo($"[{pObject.getName()}] 招揽散修入宗: {candidate.getName()} -> {sect.name}({candidate.GetSectRoleSummary()})");
             return BehResult.Continue;
         }
 

@@ -15,6 +15,8 @@ public class Manager
     public OperationLibrary OperationLibrary { get; } = new();
     public PortalLibrary PortalLibrary { get; } = new();
     public GeoRegionLibrary GeoRegionLibrary { get; } = new();
+    public SectPermissionLibrary SectPermissionLibrary { get; } = new();
+    public SectRoleLibrary SectRoleLibrary { get; } = new();
 
     public void Init()
     {
@@ -31,6 +33,8 @@ public class Manager
         AssetManager._instance.add(OperationLibrary, "operations");
         AssetManager._instance.add(PortalLibrary, "portals");
         AssetManager._instance.add(GeoRegionLibrary, "geo_regions");
+        AssetManager._instance.add(SectPermissionLibrary, "sect_permissions");
+        AssetManager._instance.add(SectRoleLibrary, "sect_roles");
     }
 
     public void LinkAssets()
@@ -48,6 +52,8 @@ public class Manager
         OperationLibrary.linkAssets();
         PortalLibrary.linkAssets();
         GeoRegionLibrary.linkAssets();
+        SectPermissionLibrary.linkAssets();
+        SectRoleLibrary.linkAssets();
     }
     public void PostInit()
     {
@@ -64,5 +70,7 @@ public class Manager
         OperationLibrary.post_init();
         PortalLibrary.post_init();
         GeoRegionLibrary.post_init();
+        SectPermissionLibrary.post_init();
+        SectRoleLibrary.post_init();
     }
 }

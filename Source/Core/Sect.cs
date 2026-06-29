@@ -39,7 +39,7 @@ public class Sect : MetaObject<SectData>
             CreateDoctrineBook(founder, doctrineCultibook, founder.GetExtend().GetMainCultibookMastery());
         }
 
-        JoinSect(founder, SectRank.Leader);
+        JoinSect(founder, new SectJoinProfile(SectRoles.NoGrade, SectRoles.Leader, SectRoles.NoTitle));
         JoinFounderApprentices(founder.GetExtend());
     }
 
@@ -50,7 +50,7 @@ public class Sect : MetaObject<SectData>
             if (apprentice.Base == null || apprentice.Base.isRekt()) continue;
             if (apprentice.sect != null) continue;
 
-            JoinSect(apprentice.Base, MasterApprenticeTools.GetSectRankForRelation(apprentice.GetRelationType()));
+            JoinSect(apprentice.Base, MasterApprenticeTools.GetSectJoinProfileForRelation(apprentice.GetRelationType()));
         }
     }
 
@@ -201,22 +201,19 @@ public class Sect : MetaObject<SectData>
         AddScriptureBook(book);
     }
 
-    public bool JoinSect(Actor actor, SectRank rank = SectRank.OuterDisciple)
+    public bool JoinSect(Actor actor)
+    {
+        return JoinSect(actor, new SectJoinProfile(SectRoles.OuterDisciple, SectRoles.NoOffice, SectRoles.NoTitle));
+    }
+
+    public bool JoinSect(Actor actor, SectJoinProfile profile)
     {
         if (actor == null || actor.isRekt()) return false;
 
         var ae = actor.GetExtend();
         if (ae.sect == this)
         {
-            if (rank == SectRank.Leader)
-            {
-                SetLeader(actor);
-            }
-            else if (rank > actor.GetSectRank())
-            {
-                SetMemberRank(actor, rank);
-            }
-
+            ApplyJoinProfile(actor, profile);
             return true;
         }
 
@@ -226,14 +223,10 @@ public class Sect : MetaObject<SectData>
         }
 
         ae.SetSect(this);
-        SetMemberRank(actor, rank);
+        actor.SetDefaultSectRoles();
         actor.SetSectJoinTime((float)World.world.getCurWorldTime());
         actor.ClearSectContribution();
-
-        if (rank == SectRank.Leader)
-        {
-            SetLeader(actor);
-        }
+        ApplyJoinProfile(actor, profile);
 
         return true;
     }
@@ -247,7 +240,7 @@ public class Sect : MetaObject<SectData>
 
         bool wasLeader = data.LeaderActorID == actor.data.id;
         ae.SetSect(null);
-        actor.ClearSectRank();
+        actor.ClearSectRoles();
         actor.ClearSectJoinTime();
         actor.ClearSectContribution();
 
@@ -268,7 +261,7 @@ public class Sect : MetaObject<SectData>
         if (actor.GetExtend().sect != this) return false;
 
         actor.AddSectContribution(contribution);
-        EvaluateMemberRank(actor);
+        EvaluateMemberRoles(actor);
         return true;
     }
 
@@ -277,36 +270,44 @@ public class Sect : MetaObject<SectData>
         return SectPersonnelEvaluator.EvaluateScore(this, actor);
     }
 
-    public bool PromoteMember(Actor actor, SectRank rank)
+    public bool PromoteMember(Actor actor, SectRoleAsset role)
     {
         if (actor == null || actor.isRekt()) return false;
         if (actor.GetExtend().sect != this) return false;
+        if (role == null) return false;
 
-        if (rank == SectRank.Leader)
+        if (role == SectRoles.Leader)
         {
             SetLeader(actor);
             return true;
         }
 
-        if (rank <= actor.GetSectRank()) return true;
+        SectRoleAsset current = actor.GetSectRole(role.slot);
+        if (current != null && current.order >= role.order) return true;
 
-        SetMemberRank(actor, rank);
+        actor.SetSectRole(role);
+        ClearGradeForSeniorOffice(actor, role);
         return true;
     }
 
-    public bool EvaluateMemberRank(Actor actor)
+    public bool EvaluateMemberRoles(Actor actor)
     {
-        SectRank targetRank = SectPersonnelEvaluator.EvaluatePromotionTarget(this, actor);
-        return targetRank != SectRank.None && PromoteMember(actor, targetRank);
+        SectPersonnelEvaluation evaluation = SectPersonnelEvaluator.EvaluatePromotionTarget(this, actor);
+        if (!evaluation.HasTarget) return false;
+
+        if (evaluation.Grade != null) PromoteMember(actor, evaluation.Grade);
+        if (evaluation.Office != null) PromoteMember(actor, evaluation.Office);
+        if (evaluation.Title != null) PromoteMember(actor, evaluation.Title);
+        return true;
     }
 
-    public void EvaluateAllMemberRanks()
+    public void EvaluateAllMemberRoles()
     {
         List<Actor> members = GetLivingMembers();
         members.Sort((left, right) => GetPersonnelScore(right).Total.CompareTo(GetPersonnelScore(left).Total));
         for (int i = 0; i < members.Count; i++)
         {
-            EvaluateMemberRank(members[i]);
+            EvaluateMemberRoles(members[i]);
         }
     }
 
@@ -402,17 +403,49 @@ public class Sect : MetaObject<SectData>
         Actor oldLeader = GetLeaderActor();
         if (oldLeader != null && oldLeader != actor && oldLeader.GetExtend().sect == this)
         {
-            SetMemberRank(oldLeader, SectRank.Elder);
+            oldLeader.SetSectRole(SectRoles.Elder);
         }
 
         data.LeaderActorID = actor.data.id;
         data.LeaderActorName = actor.getName();
-        SetMemberRank(actor, SectRank.Leader);
+        actor.SetSectRole(SectRoles.Leader);
+        actor.SetSectRole(SectRoles.NoGrade);
+        if (actor.HasSectRole(SectRoles.Successor))
+        {
+            actor.SetSectRole(SectRoles.NoTitle);
+        }
     }
 
-    private static void SetMemberRank(Actor actor, SectRank rank)
+    private void ApplyJoinProfile(Actor actor, SectJoinProfile profile)
     {
-        actor.SetSectRank(rank);
+        ApplyJoinRole(actor, profile.Grade);
+        ApplyJoinRole(actor, profile.Office);
+        ApplyJoinRole(actor, profile.Title);
+    }
+
+    private void ApplyJoinRole(Actor actor, SectRoleAsset role)
+    {
+        if (role == null) return;
+        if (role == SectRoles.Leader)
+        {
+            SetLeader(actor);
+            return;
+        }
+
+        SectRoleAsset current = actor.GetSectRole(role.slot);
+        if (current == null || current.defaultForSlot || role.order > current.order)
+        {
+            actor.SetSectRole(role);
+            ClearGradeForSeniorOffice(actor, role);
+        }
+    }
+
+    private static void ClearGradeForSeniorOffice(Actor actor, SectRoleAsset role)
+    {
+        if (role.clearsGrade)
+        {
+            actor.SetSectRole(SectRoles.NoGrade);
+        }
     }
 
     private Actor FindSuccessionCandidate()

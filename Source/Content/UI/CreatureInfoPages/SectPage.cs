@@ -6,6 +6,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
+using Cultiway.Core.Libraries;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
@@ -43,7 +44,8 @@ public class SectPage : MonoBehaviour
         SectPersonnelScore score = sect.GetPersonnelScore(actor);
 
         sb.AppendLine($"宗门: {sect.name}");
-        sb.AppendLine($"职位: {GetRankName(actor.GetSectRank())}");
+        sb.AppendLine($"称谓: {actor.GetSectRoleSummary()}");
+        sb.AppendLine($"门阶: {GetRoleName(actor.GetSectRole(SectRoleSlot.Grade))}  职司: {GetRoleName(actor.GetSectRole(SectRoleSlot.Office))}  头衔: {GetRoleName(actor.GetSectRole(SectRoleSlot.Title))}");
         sb.AppendLine($"人事评分: {score.Total} (境界 {score.Realm} / 资历 {score.Tenure} / 贡献 {score.Contribution})");
         sb.AppendLine($"等级: {sect.data.Level}");
         sb.AppendLine($"声望: {sect.data.Reputation}");
@@ -155,6 +157,7 @@ public class SectPage : MonoBehaviour
         List<Actor> members = sect.GetLivingMembers();
         int leader = 0;
         int elders = 0;
+        int deacons = 0;
         int successors = 0;
         int direct = 0;
         int inner = 0;
@@ -162,33 +165,19 @@ public class SectPage : MonoBehaviour
 
         foreach (Actor member in members)
         {
-            switch (member.GetSectRank())
-            {
-                case SectRank.Leader:
-                    leader++;
-                    break;
-                case SectRank.Elder:
-                    elders++;
-                    break;
-                case SectRank.Successor:
-                    successors++;
-                    break;
-                case SectRank.DirectDisciple:
-                    direct++;
-                    break;
-                case SectRank.InnerDisciple:
-                    inner++;
-                    break;
-                case SectRank.OuterDisciple:
-                    outer++;
-                    break;
-            }
+            if (member.HasSectRole(SectRoles.Leader)) leader++;
+            if (member.HasSectRole(SectRoles.Elder)) elders++;
+            if (member.HasSectRole(SectRoles.Deacon)) deacons++;
+            if (member.HasSectRole(SectRoles.Successor)) successors++;
+            if (member.HasSectRole(SectRoles.DirectDisciple)) direct++;
+            if (member.HasSectRole(SectRoles.InnerDisciple)) inner++;
+            if (member.HasSectRole(SectRoles.OuterDisciple)) outer++;
         }
 
         sb.AppendLine();
         sb.AppendLine("○ 门人");
         sb.AppendLine($"\t总人数: {members.Count}");
-        sb.AppendLine($"\t掌门: {leader}  长老: {elders}  衣钵: {successors}");
+        sb.AppendLine($"\t掌门: {leader}  长老: {elders}  执事: {deacons}  衣钵: {successors}");
         sb.AppendLine($"\t亲传: {direct}  内门: {inner}  外门: {outer}");
     }
 
@@ -225,18 +214,9 @@ public class SectPage : MonoBehaviour
         sb.AppendLine($"{prefix}境界: {Cultisyses.Xian.GetLevelName(xian.CurrLevel)}");
     }
 
-    private static string GetRankName(SectRank rank)
+    private static string GetRoleName(SectRoleAsset role)
     {
-        return rank switch
-        {
-            SectRank.Leader => "掌门",
-            SectRank.Elder => "长老",
-            SectRank.Successor => "衣钵传人",
-            SectRank.DirectDisciple => "亲传弟子",
-            SectRank.InnerDisciple => "内门弟子",
-            SectRank.OuterDisciple => "外门弟子",
-            _ => "未定"
-        };
+        return role == null ? "未定" : role.GetName();
     }
 
     private static void SetText(CreatureInfoPage page, StringBuilder sb)

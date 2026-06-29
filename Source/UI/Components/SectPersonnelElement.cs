@@ -4,6 +4,7 @@ using System.Linq;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
+using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,17 +19,7 @@ internal class SectPersonnelElement : WindowMetaElement<Sect, SectData>
     private const string PersonnelTitleKey = "Cultiway.Sect.Personnel";
     private const string PersonnelIconPath = "ui/icons/iconInterestingPeople";
 
-    private static readonly SectRank[] RankOrder =
-    {
-        SectRank.Leader,
-        SectRank.Successor,
-        SectRank.Elder,
-        SectRank.DirectDisciple,
-        SectRank.InnerDisciple,
-        SectRank.OuterDisciple
-    };
-
-    private readonly List<RankSection> _sections = new();
+    private readonly List<RoleSection> _sections = new();
     private UiUnitAvatarElement _avatarPrefab;
     private bool _initialized;
 
@@ -55,11 +46,11 @@ internal class SectPersonnelElement : WindowMetaElement<Sect, SectData>
 
         for (int i = 0; i < _sections.Count; i++)
         {
-            RankSection section = _sections[i];
-            List<Actor> rankMembers = members.Where(actor => actor.GetSectRank() == section.Rank).ToList();
-            section.Root.SetActive(rankMembers.Count > 0);
+            RoleSection section = _sections[i];
+            List<Actor> roleMembers = members.Where(actor => IsInSection(actor, section.Role)).ToList();
+            section.Root.SetActive(roleMembers.Count > 0);
 
-            foreach (Actor actor in rankMembers)
+            foreach (Actor actor in roleMembers)
             {
                 if (actor.isRekt()) continue;
 
@@ -158,35 +149,35 @@ internal class SectPersonnelElement : WindowMetaElement<Sect, SectData>
         }
 
         _sections.Clear();
-        for (int i = 0; i < RankOrder.Length; i++)
+        List<SectRoleAsset> roles = ModClass.L.SectRoleLibrary.GetPersonnelDisplayOrder();
+        for (int i = 0; i < roles.Count; i++)
         {
-            SectRank rank = RankOrder[i];
+            SectRoleAsset role = roles[i];
             Transform section = i == 0 ? prefabSection : Object.Instantiate(prefabSection, prefabSection.parent, false);
-            section.name = $"bg_sect_{rank.ToString().ToLowerInvariant()}";
+            section.name = $"bg_sect_{role.id.Split('.').Last().ToLowerInvariant()}";
             section.localScale = Vector3.one;
             section.gameObject.SetActive(true);
-            SetupSectionTitle(section, rank);
+            SetupSectionTitle(section, role);
 
             Transform grid = FindGrid(section)
                              ?? throw new System.InvalidOperationException($"SectPersonnelElement {section.name} 缺少 Grid");
-            _sections.Add(new RankSection(rank, section.gameObject, new ObjectPoolGenericMono<UiUnitAvatarElement>(_avatarPrefab, grid)));
+            _sections.Add(new RoleSection(role, section.gameObject, new ObjectPoolGenericMono<UiUnitAvatarElement>(_avatarPrefab, grid)));
         }
     }
 
-    private static void SetupSectionTitle(Transform section, SectRank rank)
+    private static void SetupSectionTitle(Transform section, SectRoleAsset role)
     {
-        string key = GetRankLocaleKey(rank);
         LocalizedText localizedTitle = section.GetComponentInChildren<LocalizedText>(true);
         if (localizedTitle != null)
         {
-            localizedTitle.setKeyAndUpdate(key);
+            localizedTitle.setKeyAndUpdate(role.nameKey);
             return;
         }
 
         Text title = section.GetComponentInChildren<Text>(true);
         if (title != null)
         {
-            title.text = key.Localize();
+            title.text = role.GetName();
         }
     }
 
@@ -201,8 +192,8 @@ internal class SectPersonnelElement : WindowMetaElement<Sect, SectData>
 
     private static int CompareMembers(Sect sect, Actor left, Actor right)
     {
-        int rankCompare = right.GetSectRank().CompareTo(left.GetSectRank());
-        if (rankCompare != 0) return rankCompare;
+        int roleCompare = GetDisplayOrder(right).CompareTo(GetDisplayOrder(left));
+        if (roleCompare != 0) return roleCompare;
 
         int scoreCompare = sect.GetPersonnelScore(right).Total.CompareTo(sect.GetPersonnelScore(left).Total);
         if (scoreCompare != 0) return scoreCompare;
@@ -210,29 +201,26 @@ internal class SectPersonnelElement : WindowMetaElement<Sect, SectData>
         return left.data.id.CompareTo(right.data.id);
     }
 
-    private static string GetRankLocaleKey(SectRank rank)
+    private static bool IsInSection(Actor actor, SectRoleAsset role)
     {
-        return rank switch
-        {
-            SectRank.Leader => "Cultiway.Sect.Rank.Leader",
-            SectRank.Successor => "Cultiway.Sect.Rank.Successor",
-            SectRank.Elder => "Cultiway.Sect.Rank.Elder",
-            SectRank.DirectDisciple => "Cultiway.Sect.Rank.DirectDisciple",
-            SectRank.InnerDisciple => "Cultiway.Sect.Rank.InnerDisciple",
-            SectRank.OuterDisciple => "Cultiway.Sect.Rank.OuterDisciple",
-            _ => "Cultiway.Sect.Rank.None"
-        };
+        SectRoleAsset display = actor.GetSectDisplayRole();
+        return display != null && role != null && display.id == role.id;
     }
 
-    private sealed class RankSection
+    private static int GetDisplayOrder(Actor actor)
     {
-        internal readonly SectRank Rank;
+        return actor.GetSectDisplayRole()?.order ?? 0;
+    }
+
+    private sealed class RoleSection
+    {
+        internal readonly SectRoleAsset Role;
         internal readonly GameObject Root;
         internal readonly ObjectPoolGenericMono<UiUnitAvatarElement> Pool;
 
-        internal RankSection(SectRank rank, GameObject root, ObjectPoolGenericMono<UiUnitAvatarElement> pool)
+        internal RoleSection(SectRoleAsset role, GameObject root, ObjectPoolGenericMono<UiUnitAvatarElement> pool)
         {
-            Rank = rank;
+            Role = role;
             Root = root;
             Pool = pool;
         }

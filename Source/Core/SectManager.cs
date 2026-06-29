@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Content;
+using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Core;
@@ -37,9 +38,14 @@ public class SectManager : MetaSystemManager<Sect, SectData>
         return sect;
     }
 
-    public bool JoinSect(Sect sect, Actor actor, SectRank rank = SectRank.OuterDisciple)
+    public bool JoinSect(Sect sect, Actor actor)
     {
-        return sect != null && sect.JoinSect(actor, rank);
+        return sect != null && sect.JoinSect(actor);
+    }
+
+    public bool JoinSect(Sect sect, Actor actor, SectJoinProfile profile)
+    {
+        return sect != null && sect.JoinSect(actor, profile);
     }
 
     public bool LeaveSect(Actor actor)
@@ -48,10 +54,10 @@ public class SectManager : MetaSystemManager<Sect, SectData>
         return sect != null && sect.LeaveSect(actor);
     }
 
-    public bool PromoteMember(Actor actor, SectRank rank)
+    public bool PromoteMember(Actor actor, SectRoleAsset role)
     {
         Sect sect = actor?.GetExtend().sect;
-        return sect != null && sect.PromoteMember(actor, rank);
+        return sect != null && sect.PromoteMember(actor, role);
     }
 
     public bool TrySuccession(Sect sect)
