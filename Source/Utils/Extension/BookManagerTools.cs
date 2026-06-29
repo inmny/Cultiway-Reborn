@@ -22,10 +22,17 @@ public static class BookManagerTools
     public static bool TryStoreBookInCity(this BookManager manager, Actor actor, Book book)
     {
         if (actor == null || actor.isRekt()) return false;
-        if (book == null || book.isRekt()) return false;
         if (!actor.hasCity()) return false;
 
-        City city = actor.getCity();
+        return manager.TryStoreBookInCity(actor.getCity(), actor, book);
+    }
+
+    public static bool TryStoreBookInCity(this BookManager manager, City city, Actor actor, Book book)
+    {
+        if (city == null || city.isRekt()) return false;
+        if (actor == null || actor.isRekt()) return false;
+        if (book == null || book.isRekt()) return false;
+
         Building building = city.getBuildingWithBookSlot();
         if (building == null) return false;
 
