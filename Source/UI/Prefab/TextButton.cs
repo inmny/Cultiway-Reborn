@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using Cultiway.Abstract;
 using UnityEngine;
 using UnityEngine.Events;
@@ -45,7 +46,7 @@ public class TextButton : APrefabPreview<TextButton>
 
         var text = obj.GetComponent<Text>();
         text.alignment = TextAnchor.MiddleCenter;
-        text.font = LocalizedTextManager.current_font;
+        text.font = UIUtils.GetCurrentFont();
         text.fontSize = 8;
 
         var fitter = obj.GetComponent<ContentSizeFitter>();

@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using System.Text;
 using Cultiway.Const;
 using Cultiway.Content.Components;
@@ -20,7 +21,7 @@ public class XianBasePage : MonoBehaviour
         var this_page = page.gameObject.AddComponent<XianBasePage>();
         var text = page.gameObject.AddComponent<Text>();
 
-        text.font = LocalizedTextManager.current_font;
+        text.font = UIUtils.GetCurrentFont();
         text.fontSize = 8;
 
         this_page.Text = text;

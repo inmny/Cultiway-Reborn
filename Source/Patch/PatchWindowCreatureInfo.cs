@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using System;
 using System.Text;
 using Cultiway.Core;
@@ -47,7 +48,7 @@ internal static class PatchWindowCreatureInfo
             obj.transform.localScale = Vector3.one;
             obj.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             info_text = obj.GetComponent<Text>();
-            info_text.font = LocalizedTextManager.current_font;
+            info_text.font = UIUtils.GetCurrentFont();
             info_text.resizeTextForBestFit = true;
             info_text.resizeTextMinSize = 1;
             info_text.resizeTextMaxSize = 8;

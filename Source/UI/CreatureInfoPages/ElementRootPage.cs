@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using System;
 using System.Text;
 using Cultiway.Const;
@@ -22,7 +23,7 @@ public class ElementRootPage : MonoBehaviour
         var er_page = page.gameObject.AddComponent<ElementRootPage>();
         var text = page.gameObject.AddComponent<Text>();
 
-        text.font = LocalizedTextManager.current_font;
+        text.font = UIUtils.GetCurrentFont();
         text.fontSize = 8;
 
         er_page.Text = text;

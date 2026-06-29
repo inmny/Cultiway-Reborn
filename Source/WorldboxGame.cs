@@ -4,6 +4,7 @@ using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.AbstractGame;
 using Cultiway.Core;
+using Cultiway.Utils;
 using NeoModLoader.api.attributes;
 using UnityEngine;
 
@@ -80,7 +81,7 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
     }
 
     public static WorldboxGame I { get; private set; }
-    public Font CurrentFont => LocalizedTextManager.current_font;
+    public Font CurrentFont => UIUtils.GetCurrentFont();
     public Sect SelectedSect;
     public GeoRegion SelectedGeoRegion;
     public SectManager Sects;

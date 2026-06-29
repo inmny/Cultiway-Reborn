@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using System.Text;
 using Cultiway.Core.Components;
 using Cultiway.UI.Prefab;
@@ -16,7 +17,7 @@ public class StatusEffectPage : MonoBehaviour
         var this_page = page.gameObject.AddComponent<StatusEffectPage>();
         var text = page.gameObject.AddComponent<Text>();
 
-        text.font = LocalizedTextManager.current_font;
+        text.font = UIUtils.GetCurrentFont();
         text.fontSize = 8;
 
         this_page.Text = text;

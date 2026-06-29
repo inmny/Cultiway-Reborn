@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using System;
 using System.Collections.Generic;
 using Cultiway.Const;
@@ -193,7 +194,7 @@ namespace Cultiway.UI
 
             Text text = titleObject.GetComponent<Text>();
             text.raycastTarget = false;
-            text.font = GetCurrentFont();
+            text.font = UIUtils.GetCurrentFont();
             text.fontSize = 5;
             text.resizeTextForBestFit = true;
             text.resizeTextMinSize = 1;
@@ -210,11 +211,6 @@ namespace Cultiway.UI
             layout.layoutPriority = 1;
 
             return titleObject.transform;
-        }
-
-        private static Font GetCurrentFont()
-        {
-            return WorldboxGame.I?.CurrentFont ?? LocalizedTextManager.current_font ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
         }
 
         private void RefreshGeoRegionPanels()

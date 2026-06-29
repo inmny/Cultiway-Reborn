@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -24,7 +25,7 @@ public class CultibookPage : MonoBehaviour
         var this_page = page.gameObject.AddComponent<CultibookPage>();
         var text = page.gameObject.AddComponent<Text>();
 
-        text.font = LocalizedTextManager.current_font;
+        text.font = UIUtils.GetCurrentFont();
         text.fontSize = 8;
 
         this_page.Text = text;

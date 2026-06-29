@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -89,7 +90,7 @@ public class PolygonGraph : APrefabPreview<PolygonGraph>
         GameObject title_obj = obj.NewChild(nameof(Title), typeof(Text), typeof(LocalizedText));
         var text = title_obj.GetComponent<Text>();
         text.alignment = TextAnchor.MiddleCenter;
-        text.font = WorldboxGame.I.CurrentFont;
+        text.font = UIUtils.GetCurrentFont();
         text.resizeTextMinSize = 1;
         text.resizeTextForBestFit = true;
         var localization = title_obj.GetComponent<LocalizedText>();

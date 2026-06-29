@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using System;
 using System.Collections.Generic;
 using Cultiway.Core;
@@ -232,7 +233,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         Text text = titleObject.GetComponent<Text>();
         text.raycastTarget = false;
         text.alignment = TextAnchor.MiddleCenter;
-        text.font = GetCurrentFont();
+        text.font = UIUtils.GetCurrentFont();
         text.fontSize = 10;
         text.fontStyle = FontStyle.Bold;
         text.color = new Color(1f, 0.60730225f, 0.1102941f, 0.18039216f);
@@ -379,11 +380,6 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
             child.SetActive(false);
             Object.Destroy(child);
         }
-    }
-
-    private static Font GetCurrentFont()
-    {
-        return WorldboxGame.I?.CurrentFont ?? Resources.GetBuiltinResource<Font>("Arial.ttf");
     }
 
     private class Section

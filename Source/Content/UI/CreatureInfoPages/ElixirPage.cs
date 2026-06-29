@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
 using Cultiway.Content.Components;
@@ -21,7 +22,7 @@ public class ElixirPage : MonoBehaviour
         var this_page = page.gameObject.AddComponent<ElixirPage>();
         var text = page.gameObject.AddComponent<Text>();
 
-        text.font = LocalizedTextManager.current_font;
+        text.font = UIUtils.GetCurrentFont();
         text.fontSize = 8;
 
         this_page.Text = text;

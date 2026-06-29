@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using System.Collections.Generic;
 using System.Text;
 using Cultiway.Content;
@@ -21,7 +22,7 @@ public class SectPage : MonoBehaviour
         var this_page = page.gameObject.AddComponent<SectPage>();
         var text = page.gameObject.AddComponent<Text>();
 
-        text.font = LocalizedTextManager.current_font;
+        text.font = UIUtils.GetCurrentFont();
         text.fontSize = 8;
 
         this_page.Text = text;

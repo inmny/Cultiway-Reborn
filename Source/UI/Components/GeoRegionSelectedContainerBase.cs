@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using System.Collections.Generic;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
@@ -300,7 +301,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         Text text = titleObject.GetComponent<Text>();
         text.raycastTarget = false;
         text.alignment = TextAnchor.MiddleCenter;
-        text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        text.font = UIUtils.GetCurrentFont();
         text.fontStyle = FontStyle.Bold;
         text.horizontalOverflow = HorizontalWrapMode.Overflow;
         text.verticalOverflow = VerticalWrapMode.Overflow;

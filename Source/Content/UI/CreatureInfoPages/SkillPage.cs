@@ -1,3 +1,4 @@
+using Cultiway.Utils;
 using System.Text;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
@@ -18,7 +19,7 @@ public class SkillPage : MonoBehaviour
         var this_page = page.gameObject.AddComponent<SkillPage>();
         var text = page.gameObject.AddComponent<Text>();
 
-        text.font = LocalizedTextManager.current_font;
+        text.font = UIUtils.GetCurrentFont();
         text.fontSize = 8;
 
         this_page.Text = text;
