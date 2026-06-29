@@ -75,7 +75,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             }
 
             var book = World.world.books.CreateNewCultibook(actor);
-            return book != null;
+            return book != null && World.world.books.TryStoreBookInCity(actor, book);
         };
 
         NewSect.path_icon = "books/custom_book_covers/cultibook/31";

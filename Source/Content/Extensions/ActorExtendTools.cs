@@ -890,14 +890,8 @@ public static class ActorExtendTools
         var improvedCultibook = BookManagerTools.CreateImprovedCultibook(mainCultibook, ae);
         if (improvedCultibook == null) return false;
         
-        var newBook = World.world.books.GenerateNewBook(actor, BookTypes.Cultibook);
-        if (newBook == null) return false;
-        
-        var be = newBook.GetExtend();
-        be.AddComponent(new Cultibook(improvedCultibook.id));
-        be.AddComponent(improvedCultibook.Level);
-        be.Master(improvedCultibook, 100);
-        newBook.data.name = improvedCultibook.Name;
+        var newBook = World.world.books.WriteCultibookBook(actor, improvedCultibook, 100);
+        if (newBook == null || !World.world.books.TryStoreBookInCity(actor, newBook)) return false;
         
         ae.Master(improvedCultibook, 100);
         

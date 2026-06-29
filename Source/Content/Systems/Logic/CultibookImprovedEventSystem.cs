@@ -37,9 +37,15 @@ public class CultibookImprovedEventSystem : GenericEventSystem<CultibookImproved
             return;
         }
 
+        if (!actor.hasCity() || !actor.city.hasBookSlots())
+        {
+            actor.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, 0);
+            return;
+        }
+
         // 创建改进版功法书并添加到城市
         var newBook = World.world.books.CreateCultibookFromDraft(actor, evt.ImprovedDraft);
-        if (newBook == null)
+        if (newBook == null || !World.world.books.TryStoreBookInCity(actor, newBook))
         {
             actor.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, 0);
             return;

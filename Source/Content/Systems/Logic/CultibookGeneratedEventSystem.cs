@@ -26,9 +26,14 @@ public class CultibookGeneratedEventSystem : GenericEventSystem<CultibookGenerat
         if (actor == null || actor.isRekt()) return;
 
         var ae = actor.GetExtend();
+        if (!actor.hasCity() || !actor.city.hasBookSlots())
+        {
+            actor.data.set(ContentActorDataKeys.WaitingForCultibookCreation_int, 0);
+            return;
+        }
 
         var book = World.world.books.CreateCultibookFromDraft(actor, evt.Draft);
-        if (book != null)
+        if (book != null && World.world.books.TryStoreBookInCity(actor, book))
         {
             var cultibookAsset = book.GetExtend().GetComponent<Cultibook>().Asset;
             ae.SetMainCultibook(cultibookAsset);

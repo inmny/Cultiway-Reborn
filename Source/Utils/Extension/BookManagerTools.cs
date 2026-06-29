@@ -1,16 +1,14 @@
+using Cultiway.Core;
+
 namespace Cultiway.Utils.Extension;
 
 public static class BookManagerTools
 {
-    public static Book GenerateNewBook(this BookManager manager, Actor actor, BookTypeAsset book_type)
+    public static Book GenerateNewBookForCity(this BookManager manager, Actor actor, BookTypeAsset book_type)
     {
-        if (actor.language == null) return null;
-        City city = actor.getCity();
-        Building building = city.getBuildingWithBookSlot();
-        if (building == null)
-        {
-            return null;
-        }
+        if (actor == null || actor.isRekt()) return null;
+        if (!actor.hasCity()) return null;
+        if (actor.getCity().getBuildingWithBookSlot() == null) return null;
 
         Book book = manager.NewBook(actor, book_type);
         if (book == null)
@@ -18,16 +16,45 @@ public static class BookManagerTools
             return null;
         }
 
+        return manager.TryStoreBookInCity(actor, book) ? book : null;
+    }
+
+    public static bool TryStoreBookInCity(this BookManager manager, Actor actor, Book book)
+    {
+        if (actor == null || actor.isRekt()) return false;
+        if (book == null || book.isRekt()) return false;
+        if (!actor.hasCity()) return false;
+
+        City city = actor.getCity();
+        Building building = city.getBuildingWithBookSlot();
+        if (building == null) return false;
+
         World.world.game_stats.data.booksWritten += 1L;
         World.world.map_stats.booksWritten += 1L;
         actor.changeHappiness("wrote_book", 0);
         building.addBook(book);
         city.setStatusDirty();
-        return book;
+        return true;
+    }
+
+    public static bool TryStoreBookInSect(this BookManager manager, Sect sect, Book book, Actor contributor = null, int contribution = 0)
+    {
+        if (sect == null || sect.isRekt()) return false;
+        if (book == null || book.isRekt()) return false;
+        if (!sect.AddScriptureBook(book)) return false;
+
+        if (contributor != null && contribution > 0)
+        {
+            sect.AddContribution(contributor, contribution);
+        }
+
+        return true;
     }
 
     public static Book NewBook(this BookManager manager, Actor actor, BookTypeAsset book_type)
     {
+        if (actor == null || actor.isRekt()) return null;
+
         Book book = manager.newObject();
         ActorTrait t_trait_actor = manager.getBookTrait(actor);
         LanguageTrait t_trait_language = actor.language?.getTraitForBook();

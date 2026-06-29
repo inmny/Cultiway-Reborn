@@ -6,7 +6,9 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Core;
@@ -55,6 +57,7 @@ public class Sect : MetaObject<SectData>
     public bool AddScriptureBook(Book book)
     {
         if (book == null || book.isRekt()) return false;
+        if (HasScriptureBook(book)) return false;
 
         bool added = false;
         if (!data.ScriptureBookIDs.Contains(book.id))
@@ -65,6 +68,82 @@ public class Sect : MetaObject<SectData>
 
         RefreshScriptureStats();
         return added;
+    }
+
+    public bool HasScriptureBook(Book book)
+    {
+        if (book == null || book.isRekt()) return false;
+
+        BookExtend bookExtend = book.GetExtend();
+        if (book.getAsset() == BookTypes.Cultibook && bookExtend.HasComponent<Cultibook>())
+        {
+            return HasScriptureCultibook(bookExtend.GetComponent<Cultibook>().Asset);
+        }
+
+        if (book.getAsset() == BookTypes.Elixirbook && bookExtend.HasComponent<Elixirbook>())
+        {
+            return HasScriptureElixirRecipe(bookExtend.GetComponent<Elixirbook>().Asset);
+        }
+
+        if (book.getAsset() == BookTypes.Skillbook && bookExtend.HasComponent<Skillbook>())
+        {
+            return HasScriptureSkillbook(bookExtend.GetComponent<Skillbook>().SkillContainer);
+        }
+
+        return data.ScriptureBookIDs.Contains(book.id);
+    }
+
+    public bool HasScriptureCultibook(CultibookAsset cultibook)
+    {
+        if (cultibook == null) return false;
+
+        for (int i = 0; i < data.ScriptureBookIDs.Count; i++)
+        {
+            Book book = World.world.books.get(data.ScriptureBookIDs[i]);
+            if (book == null || book.isRekt() || book.getAsset() != BookTypes.Cultibook) continue;
+
+            BookExtend bookExtend = book.GetExtend();
+            if (!bookExtend.HasComponent<Cultibook>()) continue;
+            CultibookAsset existing = bookExtend.GetComponent<Cultibook>().Asset;
+            if (existing != null && existing.id == cultibook.id) return true;
+        }
+
+        return false;
+    }
+
+    public bool HasScriptureElixirRecipe(ElixirAsset elixir)
+    {
+        if (elixir == null) return false;
+
+        for (int i = 0; i < data.ScriptureBookIDs.Count; i++)
+        {
+            Book book = World.world.books.get(data.ScriptureBookIDs[i]);
+            if (book == null || book.isRekt() || book.getAsset() != BookTypes.Elixirbook) continue;
+
+            BookExtend bookExtend = book.GetExtend();
+            if (!bookExtend.HasComponent<Elixirbook>()) continue;
+            ElixirAsset existing = bookExtend.GetComponent<Elixirbook>().Asset;
+            if (existing != null && existing.id == elixir.id) return true;
+        }
+
+        return false;
+    }
+
+    public bool HasScriptureSkillbook(Entity skillContainer)
+    {
+        if (skillContainer.IsNull) return false;
+
+        for (int i = 0; i < data.ScriptureBookIDs.Count; i++)
+        {
+            Book book = World.world.books.get(data.ScriptureBookIDs[i]);
+            if (book == null || book.isRekt() || book.getAsset() != BookTypes.Skillbook) continue;
+
+            BookExtend bookExtend = book.GetExtend();
+            if (!bookExtend.HasComponent<Skillbook>()) continue;
+            if (SkillContainerUtils.IsSimilar(bookExtend.GetComponent<Skillbook>().SkillContainer, skillContainer)) return true;
+        }
+
+        return false;
     }
 
     public IReadOnlyList<long> GetScriptureBookIds()

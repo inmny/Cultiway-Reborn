@@ -18,30 +18,59 @@ public static class BookManagerTools
 {
     private static CultibookLibrary _cultibookLibrary = Libraries.Manager.CultibookLibrary;
 
+    public static Book WriteCultibookBook(this BookManager manager, Actor creator, CultibookAsset cultibook, float mastery)
+    {
+        Book book = manager.NewBook(creator, BookTypes.Cultibook);
+        if (book == null) return null;
+
+        BookExtend bookExtend = book.GetExtend();
+        bookExtend.AddComponent(new Cultibook(cultibook.id));
+        bookExtend.AddComponent(cultibook.Level);
+        bookExtend.Master(cultibook, mastery);
+        book.data.name = cultibook.Name;
+        return book;
+    }
+
+    public static Book WriteElixirRecipeBook(this BookManager manager, Actor creator, ElixirAsset elixir, float mastery)
+    {
+        Book book = manager.NewBook(creator, BookTypes.Elixirbook);
+        if (book == null) return null;
+
+        BookExtend bookExtend = book.GetExtend();
+        bookExtend.AddComponent(new Elixirbook(elixir.id));
+        bookExtend.Master(elixir, mastery);
+        book.data.name = elixir.GetName() + "丹方";
+        return book;
+    }
+
+    public static Book WriteSkillbookBook(this BookManager manager, Actor creator, Entity skillContainer)
+    {
+        Book book = manager.NewBook(creator, BookTypes.Skillbook);
+        if (book == null) return null;
+
+        BookExtend bookExtend = book.GetExtend();
+        Entity clonedSkillContainer = skillContainer.Store.CloneEntity(skillContainer);
+        Skillbook skillbook = new()
+        {
+            SkillContainer = clonedSkillContainer
+        };
+        bookExtend.AddComponent(skillbook);
+        bookExtend.E.AddRelation(new SkillMasterRelation()
+        {
+            SkillContainer = clonedSkillContainer
+        });
+        ModClass.LogWarning($"{creator.name} learned skillbook {book.name}({book.id})");
+        return book;
+    }
+
     public static Book CreateNewSkillbook(this BookManager manager, Actor creator, Entity skill_container)
     {
-        var ae = creator.GetExtend();
-        var raw_skillbook = manager.GenerateNewBook(creator, BookTypes.Skillbook);
-        if (raw_skillbook == null) return null;
-        var be = raw_skillbook.GetExtend();
-
-        skill_container = skill_container.Store.CloneEntity(skill_container);
-        var skillbook = new Skillbook()
-        {
-            SkillContainer = skill_container
-        };
-        be.AddComponent(skillbook);
-        be.E.AddRelation(new SkillMasterRelation()
-        {
-            SkillContainer = skill_container
-        });
-        ModClass.LogWarning($"{creator.name} learned skillbook {raw_skillbook.name}({raw_skillbook.id})");
-        return raw_skillbook;
+        return manager.WriteSkillbookBook(creator, skill_container);
     }
     public static Book CreateCultibookFromDraft(this BookManager manager, Actor creator, CultibookAsset draft_asset)
     {
         var ae = creator.GetExtend();
-        var rawCultibook = manager.GenerateNewBook(creator, BookTypes.Cultibook);
+        var rawCultibook = manager.NewBook(creator, BookTypes.Cultibook);
         if (rawCultibook == null)
         {
             return null;
@@ -68,7 +97,7 @@ public static class BookManagerTools
     public static Book CreateNewCultibook(this BookManager manager, Actor creator)
     {
         var ae = creator.GetExtend();
-        var rawCultibook = manager.GenerateNewBook(creator, BookTypes.Cultibook);
+        var rawCultibook = manager.NewBook(creator, BookTypes.Cultibook);
         if (rawCultibook == null)
         {
             return null;
