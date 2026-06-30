@@ -8,6 +8,7 @@ using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
+using Cultiway.Debug;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -116,7 +117,7 @@ public static class MasterApprenticeTools
         // TODO: 触发事件
         // MasterApprenticeEvents.OnRecruit(master, apprentice);
         
-        ModClass.LogInfo($"[{master.Base.getName()}] 收徒成功: {apprentice.Base.getName()}");
+        SectVerifyLog.Log("RecruitApprentice", $"master={SectVerifyLog.Actor(master.Base)} apprentice={SectVerifyLog.Actor(apprentice.Base)} relation={SectVerifyLog.Relation(type)} masterSect={SectVerifyLog.Sect(master.sect)} apprenticeSect={SectVerifyLog.Sect(apprentice.sect)}");
         
         return true;
     }
@@ -165,7 +166,7 @@ public static class MasterApprenticeTools
         ref var state = ref master.GetExtend().GetOrAddComponent<MasterApprenticeState>();
         state.ApprenticeCount--;
         
-        ModClass.LogInfo($"[{ae.Base.getName()}] 出师成功");
+        SectVerifyLog.Log("GraduateApprentice", $"apprentice={SectVerifyLog.Actor(ae.Base)} master={SectVerifyLog.Actor(master)} relation={SectVerifyLog.Relation(ModClass.L.MasterApprenticeTypeLibrary.GetOrDefault(relation.RelationTypeId))}");
         
         return true;
     }
@@ -225,7 +226,7 @@ public static class MasterApprenticeTools
         // 更新师徒关系
         UpdateRelationAfterTeaching(master, apprentice);
         
-        ModClass.LogInfo($"[{master.Base.getName()}] 传授功法 {cultibook.Name} 给 [{apprentice.Base.getName()}]");
+        SectVerifyLog.Log("TeachCultibook", $"master={SectVerifyLog.Actor(master.Base)} apprentice={SectVerifyLog.Actor(apprentice.Base)} cultibook={cultibook.id} gained={gainedMastery:F1} relation={SectVerifyLog.Relation(ModClass.L.MasterApprenticeTypeLibrary.GetOrDefault(apprentice.GetMasterRelation().RelationTypeId))}");
         
         return true;
     }
@@ -283,9 +284,12 @@ public static class MasterApprenticeTools
     private static void UpdateRelationAfterTeaching(ActorExtend master, ActorExtend apprentice)
     {
         ref var relation = ref apprentice.GetMasterRelation();
+        MasterApprenticeTypeAsset oldType = ModClass.L.MasterApprenticeTypeLibrary.GetOrDefault(relation.RelationTypeId);
         relation.TransferredCultibookCount++;
         relation.Intimacy = Mathf.Min(relation.Intimacy + 2, 100);
         UpdateRelationType(ref relation);
+        MasterApprenticeTypeAsset newType = ModClass.L.MasterApprenticeTypeLibrary.GetOrDefault(relation.RelationTypeId);
+        SectVerifyLog.Log("RelationAfterTeach", $"master={SectVerifyLog.Actor(master.Base)} apprentice={SectVerifyLog.Actor(apprentice.Base)} intimacy={relation.Intimacy:F1} relation={SectVerifyLog.Relation(oldType)}->{SectVerifyLog.Relation(newType)} transferredCultibooks={relation.TransferredCultibookCount}");
 
         if (master.sect != null && apprentice.sect == master.sect)
         {
@@ -428,16 +432,22 @@ public static class MasterApprenticeTools
         {
             ref MasterApprenticeRelation relation = ref actor.GetExtend().GetMasterRelation();
             UpgradeMasterRelation(ref relation, requiredType);
+            SectVerifyLog.Log("RoleMasterSatisfied", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)} required={SectVerifyLog.Relation(requiredType)} master={SectVerifyLog.Actor(actor.GetExtend().GetMaster())}");
             return true;
         }
 
-        if (!CanFindRoleMaster(actor, sect, role, out Actor master)) return false;
+        if (!CanFindRoleMaster(actor, sect, role, out Actor master))
+        {
+            SectVerifyLog.Log("RoleMasterMissing", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)} required={SectVerifyLog.Relation(requiredType)}");
+            return false;
+        }
 
         ActorExtend actorExtend = actor.GetExtend();
         if (actorExtend.HasMaster())
         {
             ref MasterApprenticeRelation relation = ref actorExtend.GetMasterRelation();
             UpgradeMasterRelation(ref relation, requiredType);
+            SectVerifyLog.Log("RoleMasterUpgrade", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)} required={SectVerifyLog.Relation(requiredType)} master={SectVerifyLog.Actor(master)}");
             return true;
         }
 
@@ -456,7 +466,7 @@ public static class MasterApprenticeTools
         ref MasterApprenticeState state = ref masterExtend.GetOrAddComponent<MasterApprenticeState>();
         state.ApprenticeCount++;
         EnsureMasterStateDefaults(masterExtend, ref state);
-        ModClass.LogInfo($"[{master.getName()}] 收内门弟子: {actor.getName()}");
+        SectVerifyLog.Log("AutoAssignMaster", $"sect={SectVerifyLog.Sect(sect)} master={SectVerifyLog.Actor(master)} apprentice={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)} relation={SectVerifyLog.Relation(requiredType)} apprenticeCount={state.ApprenticeCount}/{state.MaxApprenticeCount}");
         return true;
     }
 
@@ -549,6 +559,7 @@ public static class MasterApprenticeTools
         if (currentType.rank < targetType.rank)
         {
             relation.RelationTypeId = targetType.id;
+            SectVerifyLog.Log("RelationUpgrade", $"relation={SectVerifyLog.Relation(currentType)}->{SectVerifyLog.Relation(targetType)} minIntimacy={targetType.minIntimacy:F1}");
         }
 
         relation.Intimacy = Mathf.Max(relation.Intimacy, targetType.minIntimacy);

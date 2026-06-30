@@ -7,6 +7,7 @@ using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Debug;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -28,6 +29,7 @@ public static class BookManagerTools
         bookExtend.AddComponent(cultibook.Level);
         bookExtend.Master(cultibook, mastery);
         book.data.name = cultibook.Name;
+        SectVerifyLog.Log("WriteScriptureBook", $"type=cultibook creator={SectVerifyLog.Actor(creator)} book={SectVerifyLog.Book(book)} cultibook={cultibook.id} mastery={mastery:F1}");
         return book;
     }
 
@@ -40,6 +42,7 @@ public static class BookManagerTools
         bookExtend.AddComponent(new Elixirbook(elixir.id));
         bookExtend.Master(elixir, mastery);
         book.data.name = elixir.GetName() + "丹方";
+        SectVerifyLog.Log("WriteScriptureBook", $"type=elixir creator={SectVerifyLog.Actor(creator)} book={SectVerifyLog.Book(book)} elixir={elixir.id} mastery={mastery:F1}");
         return book;
     }
 
@@ -59,7 +62,7 @@ public static class BookManagerTools
         {
             SkillContainer = clonedSkillContainer
         });
-        ModClass.LogWarning($"{creator.name} learned skillbook {book.name}({book.id})");
+        SectVerifyLog.Log("WriteScriptureBook", $"type=skill creator={SectVerifyLog.Actor(creator)} book={SectVerifyLog.Book(book)} skill={clonedSkillContainer.Id}");
         return book;
     }
 
@@ -92,6 +95,7 @@ public static class BookManagerTools
         be.Master(cultibook, 100);
         ae.Master(cultibook, 100);
         rawCultibook.data.name = draft_asset.Name;
+        SectVerifyLog.Log("CreateCultibookDraft", $"creator={SectVerifyLog.Actor(creator)} book={SectVerifyLog.Book(rawCultibook)} cultibook={cultibook.id}");
         return rawCultibook;
     }
     public static Book CreateNewCultibook(this BookManager manager, Actor creator)
@@ -135,6 +139,7 @@ public static class BookManagerTools
         be.AddComponent(cultibook.Level);
         be.Master(cultibook, 100);
         ae.Master(cultibook, 100);
+        SectVerifyLog.Log("CreateCultibook", $"creator={SectVerifyLog.Actor(creator)} book={SectVerifyLog.Book(rawCultibook)} cultibook={cultibook.id} level={cultibook.Level.GetName()}");
         return rawCultibook;
     }
 

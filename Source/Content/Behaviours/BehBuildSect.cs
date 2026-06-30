@@ -1,5 +1,6 @@
 using ai.behaviours;
 using Cultiway.Content;
+using Cultiway.Debug;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content.Behaviours;
@@ -10,9 +11,12 @@ public class BehBuildSect : BehaviourActionActor
     {
         if (!SectRules.CanFoundSect(pObject))
         {
+            SectVerifyLog.Log("BuildSectTask", $"actor={SectVerifyLog.Actor(pObject)} result=false");
             return BehResult.Stop;
         }
 
-        return WorldboxGame.I.Sects.BuildSect(pObject) != null ? BehResult.Continue : BehResult.Stop;
+        bool result = WorldboxGame.I.Sects.BuildSect(pObject) != null;
+        SectVerifyLog.Log("BuildSectTask", $"actor={SectVerifyLog.Actor(pObject)} result={result}");
+        return result ? BehResult.Continue : BehResult.Stop;
     }
 }

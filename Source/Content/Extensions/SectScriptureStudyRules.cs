@@ -6,6 +6,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Debug;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -16,10 +17,15 @@ public static class SectScriptureStudyRules
 {
     public static bool CanStudySectScripture(Actor actor)
     {
-        return TryPickStudyBook(actor, out _);
+        return TryPickStudyBook(actor, out _, false);
     }
 
     public static bool TryPickStudyBook(Actor actor, out Book book)
+    {
+        return TryPickStudyBook(actor, out book, true);
+    }
+
+    private static bool TryPickStudyBook(Actor actor, out Book book, bool logPick)
     {
         book = null;
 
@@ -44,6 +50,19 @@ public static class SectScriptureStudyRules
 
         candidates.Sort((left, right) => right.Score.CompareTo(left.Score));
         book = PickWeighted(candidates);
+        if (logPick)
+        {
+            float pickedScore = 0f;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (candidates[i].Book != book) continue;
+
+                pickedScore = candidates[i].Score;
+                break;
+            }
+
+            SectVerifyLog.Log("PickStudyBook", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} candidates={candidates.Count} picked={SectVerifyLog.Book(book)} score={pickedScore:F1}");
+        }
         return book != null;
     }
 

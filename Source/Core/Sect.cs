@@ -7,6 +7,7 @@ using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Debug;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -41,6 +42,9 @@ public class Sect : MetaObject<SectData>
 
         JoinSect(founder, new SectJoinProfile(SectRoles.NoGrade, SectRoles.Leader, SectRoles.NoTitle));
         JoinFounderApprentices(founder.GetExtend());
+        SectVerifyLog.Log(
+            "BuildSect",
+            $"created sect={SectVerifyLog.Sect(this)} founder={SectVerifyLog.Actor(founder)} doctrine={data.DoctrineCultibookId ?? "null"} members={countUnits()} scriptures={data.ScriptureBookIDs.Count}");
     }
 
     private void JoinFounderApprentices(ActorExtend founder)
@@ -51,13 +55,18 @@ public class Sect : MetaObject<SectData>
             if (apprentice.sect != null) continue;
 
             JoinSect(apprentice.Base, MasterApprenticeTools.GetSectJoinProfileForRelation(apprentice.GetRelationType()));
+            SectVerifyLog.Log("FounderApprenticeJoin", $"sect={SectVerifyLog.Sect(this)} apprentice={SectVerifyLog.Actor(apprentice.Base)} relation={SectVerifyLog.Relation(apprentice.GetRelationType())}");
         }
     }
 
     public bool AddScriptureBook(Book book)
     {
         if (book == null || book.isRekt()) return false;
-        if (HasScriptureBook(book)) return false;
+        if (HasScriptureBook(book))
+        {
+            SectVerifyLog.Log("ScriptureAddSkip", $"sect={SectVerifyLog.Sect(this)} book={SectVerifyLog.Book(book)} reason=duplicate");
+            return false;
+        }
 
         bool added = false;
         if (!data.ScriptureBookIDs.Contains(book.id))
@@ -67,6 +76,7 @@ public class Sect : MetaObject<SectData>
         }
 
         RefreshScriptureStats();
+        SectVerifyLog.Log("ScriptureAdd", $"sect={SectVerifyLog.Sect(this)} book={SectVerifyLog.Book(book)} added={added} cultibooks={data.CultibookCount} elixirs={data.ElixirRecipeCount} skills={data.SkillbookCount}");
         return added;
     }
 
@@ -199,6 +209,7 @@ public class Sect : MetaObject<SectData>
         bookExtend.Master(cultibook, Mathf.Max(1f, mastery));
         book.data.name = cultibook.Name;
         AddScriptureBook(book);
+        SectVerifyLog.Log("DoctrineBook", $"sect={SectVerifyLog.Sect(this)} founder={SectVerifyLog.Actor(founder)} book={SectVerifyLog.Book(book)} cultibook={cultibook.id} mastery={mastery:F1}");
     }
 
     public bool JoinSect(Actor actor)
@@ -214,6 +225,7 @@ public class Sect : MetaObject<SectData>
         if (ae.sect == this)
         {
             ApplyJoinProfile(actor, profile);
+            SectVerifyLog.Log("JoinSectRefresh", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} profile={DescribeJoinProfile(profile)} roles={actor.GetSectRoleSummary()}");
             return true;
         }
 
@@ -227,6 +239,7 @@ public class Sect : MetaObject<SectData>
         actor.SetSectJoinTime((float)World.world.getCurWorldTime());
         actor.ClearSectContribution();
         ApplyJoinProfile(actor, profile);
+        SectVerifyLog.Log("JoinSect", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} profile={DescribeJoinProfile(profile)} roles={actor.GetSectRoleSummary()}");
 
         return true;
     }
@@ -243,6 +256,7 @@ public class Sect : MetaObject<SectData>
         actor.ClearSectRoles();
         actor.ClearSectJoinTime();
         actor.ClearSectContribution();
+        SectVerifyLog.Log("LeaveSect", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} wasLeader={wasLeader}");
 
         if (wasLeader)
         {
@@ -262,6 +276,7 @@ public class Sect : MetaObject<SectData>
 
         actor.AddSectContribution(contribution);
         EvaluateMemberRoles(actor);
+        SectVerifyLog.Log("Contribution", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} add={contribution} total={actor.GetSectContribution()}");
         return true;
     }
 
@@ -284,17 +299,24 @@ public class Sect : MetaObject<SectData>
 
         SectRoleAsset current = actor.GetSectRole(role.slot);
         if (current != null && current.order >= role.order) return true;
-        if (!actor.EnsureSectRoleMasterRequirement(this, role)) return false;
+        if (!actor.EnsureSectRoleMasterRequirement(this, role))
+        {
+            SectVerifyLog.Log("PromoteBlocked", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)} reason=master_requirement");
+            return false;
+        }
 
         actor.SetSectRole(role);
         ClearGradeForSeniorOffice(actor, role);
+        SectVerifyLog.Log("Promote", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} from={SectVerifyLog.Role(current)} to={SectVerifyLog.Role(role)} roles={actor.GetSectRoleSummary()}");
         return true;
     }
 
     public bool TryPromoteMember(Actor manager, Actor actor, SectRoleAsset role)
     {
-        return manager.CanPromoteSectMember(this, actor, role)
-               && PromoteMember(actor, role);
+        bool result = manager.CanPromoteSectMember(this, actor, role)
+                      && PromoteMember(actor, role);
+        SectVerifyLog.Log("TryPromote", $"sect={SectVerifyLog.Sect(this)} manager={SectVerifyLog.Actor(manager)} actor={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)} result={result}");
+        return result;
     }
 
     public bool EvaluateMemberRoles(Actor actor)
@@ -302,6 +324,7 @@ public class Sect : MetaObject<SectData>
         SectPersonnelEvaluation evaluation = SectPersonnelEvaluator.EvaluatePromotionTarget(this, actor);
         if (!evaluation.HasTarget) return false;
 
+        SectVerifyLog.Log("EvaluateMember", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} score={GetPersonnelScore(actor).Total} grade={SectVerifyLog.Role(evaluation.Grade)} office={SectVerifyLog.Role(evaluation.Office)} title={SectVerifyLog.Role(evaluation.Title)}");
         if (evaluation.Grade != null) PromoteMember(actor, evaluation.Grade);
         if (evaluation.Office != null) PromoteMember(actor, evaluation.Office);
         if (evaluation.Title != null) PromoteMember(actor, evaluation.Title);
@@ -322,13 +345,17 @@ public class Sect : MetaObject<SectData>
     {
         if (!evaluator.CanEvaluateSectPersonnel(this)) return false;
 
+        SectVerifyLog.Log("EvaluateAllStart", $"sect={SectVerifyLog.Sect(this)} evaluator={SectVerifyLog.Actor(evaluator)} members={GetLivingMembers().Count}");
         EvaluateAllMemberRoles();
+        SectVerifyLog.Log("EvaluateAllDone", $"sect={SectVerifyLog.Sect(this)} evaluator={SectVerifyLog.Actor(evaluator)}");
         return true;
     }
 
     public bool TryRecruitExternalMember(Actor recruiter, Actor candidate)
     {
-        return SectPersonnelEvaluator.TryRecruitExternalMember(this, recruiter, candidate);
+        bool result = SectPersonnelEvaluator.TryRecruitExternalMember(this, recruiter, candidate);
+        SectVerifyLog.Log("RecruitExternal", $"sect={SectVerifyLog.Sect(this)} recruiter={SectVerifyLog.Actor(recruiter)} candidate={SectVerifyLog.Actor(candidate)} result={result} roles={(result ? candidate.GetSectRoleSummary() : "none")}");
+        return result;
     }
 
     public bool TrySuccession()
@@ -336,6 +363,7 @@ public class Sect : MetaObject<SectData>
         Actor currentLeader = GetLeaderActor();
         if (currentLeader != null && currentLeader.GetExtend().sect == this)
         {
+            SectVerifyLog.Log("SuccessionSkip", $"sect={SectVerifyLog.Sect(this)} leader={SectVerifyLog.Actor(currentLeader)} reason=current_alive");
             return true;
         }
 
@@ -344,10 +372,12 @@ public class Sect : MetaObject<SectData>
         {
             data.LeaderActorID = -1;
             data.LeaderActorName = null;
+            SectVerifyLog.Log("SuccessionFailed", $"sect={SectVerifyLog.Sect(this)} reason=no_candidate");
             return false;
         }
 
         SetLeader(nextLeader);
+        SectVerifyLog.Log("Succession", $"sect={SectVerifyLog.Sect(this)} leader={SectVerifyLog.Actor(nextLeader)}");
         return true;
     }
 
@@ -429,6 +459,7 @@ public class Sect : MetaObject<SectData>
         {
             actor.SetSectRole(SectRoles.NoTitle);
         }
+        SectVerifyLog.Log("SetLeader", $"sect={SectVerifyLog.Sect(this)} old={SectVerifyLog.Actor(oldLeader)} new={SectVerifyLog.Actor(actor)} roles={actor.GetSectRoleSummary()}");
     }
 
     private void ApplyJoinProfile(Actor actor, SectJoinProfile profile)
@@ -450,10 +481,15 @@ public class Sect : MetaObject<SectData>
         SectRoleAsset current = actor.GetSectRole(role.slot);
         if (current == null || current.defaultForSlot || role.order > current.order)
         {
-            if (!actor.EnsureSectRoleMasterRequirement(this, role)) return;
+            if (!actor.EnsureSectRoleMasterRequirement(this, role))
+            {
+                SectVerifyLog.Log("JoinRoleBlocked", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)} reason=master_requirement");
+                return;
+            }
 
             actor.SetSectRole(role);
             ClearGradeForSeniorOffice(actor, role);
+            SectVerifyLog.Log("JoinRole", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} from={SectVerifyLog.Role(current)} to={SectVerifyLog.Role(role)} roles={actor.GetSectRoleSummary()}");
         }
     }
 
@@ -462,7 +498,13 @@ public class Sect : MetaObject<SectData>
         if (role.clearsGrade)
         {
             actor.SetSectRole(SectRoles.NoGrade);
+            SectVerifyLog.Log("ClearGrade", $"actor={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)}");
         }
+    }
+
+    private static string DescribeJoinProfile(SectJoinProfile profile)
+    {
+        return $"grade={SectVerifyLog.Role(profile.Grade)},office={SectVerifyLog.Role(profile.Office)},title={SectVerifyLog.Role(profile.Title)}";
     }
 
     private Actor FindSuccessionCandidate()

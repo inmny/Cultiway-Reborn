@@ -1,6 +1,7 @@
 using ai.behaviours;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
+using Cultiway.Debug;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
 
@@ -13,12 +14,14 @@ public class BehRecruitSectMember : BehaviourActionActor
     {
         if (!SectPersonnelEvaluator.CanRecruitExternalMember(pObject))
         {
+            SectVerifyLog.Log("RecruitTask", $"actor={SectVerifyLog.Actor(pObject)} result=false reason=no_candidate_or_permission");
             return BehResult.Stop;
         }
 
         Actor candidate = SectPersonnelEvaluator.FindExternalRecruitCandidate(pObject);
         if (candidate == null)
         {
+            SectVerifyLog.Log("RecruitTask", $"actor={SectVerifyLog.Actor(pObject)} result=false reason=no_candidate");
             return BehResult.Stop;
         }
 
@@ -31,10 +34,11 @@ public class BehRecruitSectMember : BehaviourActionActor
         Sect sect = pObject.GetExtend().sect;
         if (sect.TryRecruitExternalMember(pObject, candidate))
         {
-            ModClass.LogInfo($"[{pObject.getName()}] 招揽散修入宗: {candidate.getName()} -> {sect.name}({candidate.GetSectRoleSummary()})");
+            SectVerifyLog.Log("RecruitTask", $"sect={SectVerifyLog.Sect(sect)} recruiter={SectVerifyLog.Actor(pObject)} candidate={SectVerifyLog.Actor(candidate)} result=true roles={candidate.GetSectRoleSummary()}");
             return BehResult.Continue;
         }
 
+        SectVerifyLog.Log("RecruitTask", $"sect={SectVerifyLog.Sect(sect)} recruiter={SectVerifyLog.Actor(pObject)} candidate={SectVerifyLog.Actor(candidate)} result=false");
         return BehResult.Stop;
     }
 }

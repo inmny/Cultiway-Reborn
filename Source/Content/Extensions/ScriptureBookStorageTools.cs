@@ -4,6 +4,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Debug;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 
@@ -34,12 +35,16 @@ public readonly struct ScriptureBookTarget
     {
         if (_sect != null)
         {
-            return World.world.books.TryStoreBookInSect(_sect, book, contributor, SectConst.ContributionWriteScriptureBook);
+            bool result = World.world.books.TryStoreBookInSect(_sect, book, contributor, SectConst.ContributionWriteScriptureBook);
+            SectVerifyLog.Log("StoreScriptureBook", $"target=sect sect={SectVerifyLog.Sect(_sect)} contributor={SectVerifyLog.Actor(contributor)} book={SectVerifyLog.Book(book)} result={result}");
+            return result;
         }
 
         if (_city != null)
         {
-            return World.world.books.TryStoreBookInCity(_city, contributor, book);
+            bool result = World.world.books.TryStoreBookInCity(_city, contributor, book);
+            SectVerifyLog.Log("StoreScriptureBook", $"target=city city={_city.name}#{_city.data.id} contributor={SectVerifyLog.Actor(contributor)} book={SectVerifyLog.Book(book)} result={result}");
+            return result;
         }
 
         return false;
@@ -73,6 +78,7 @@ public static class ScriptureBookStorageTools
                 target = ScriptureBookTarget.ForSect(sect);
                 cultibook = sectCandidate.Item1;
                 mastery = sectCandidate.Item2;
+                SectVerifyLog.Log("PickScriptureTarget", $"type=cultibook target=sect sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} cultibook={cultibook.id} mastery={mastery:F1}");
                 return true;
             }
         }
@@ -88,6 +94,7 @@ public static class ScriptureBookStorageTools
         target = ScriptureBookTarget.ForCity(city);
         cultibook = candidate.Item1;
         mastery = candidate.Item2;
+        SectVerifyLog.Log("PickScriptureTarget", $"type=cultibook target=city city={city.name}#{city.data.id} actor={SectVerifyLog.Actor(actor)} cultibook={cultibook.id} mastery={mastery:F1}");
         return true;
     }
 
@@ -116,6 +123,7 @@ public static class ScriptureBookStorageTools
                 target = ScriptureBookTarget.ForSect(sect);
                 elixir = sectCandidate.Item1;
                 mastery = sectCandidate.Item2;
+                SectVerifyLog.Log("PickScriptureTarget", $"type=elixir target=sect sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} elixir={elixir.id} mastery={mastery:F1}");
                 return true;
             }
         }
@@ -130,6 +138,7 @@ public static class ScriptureBookStorageTools
         target = ScriptureBookTarget.ForCity(city);
         elixir = cityCandidate.Item1;
         mastery = cityCandidate.Item2;
+        SectVerifyLog.Log("PickScriptureTarget", $"type=elixir target=city city={city.name}#{city.data.id} actor={SectVerifyLog.Actor(actor)} elixir={elixir.id} mastery={mastery:F1}");
         return true;
     }
 
@@ -152,6 +161,7 @@ public static class ScriptureBookStorageTools
                 Entity sectCandidate = sectCandidates.GetRandom();
                 target = ScriptureBookTarget.ForSect(sect);
                 skillContainer = sectCandidate;
+                SectVerifyLog.Log("PickScriptureTarget", $"type=skill target=sect sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} skill={skillContainer.Id}");
                 return true;
             }
         }
@@ -165,6 +175,7 @@ public static class ScriptureBookStorageTools
         Entity cityCandidate = cityCandidates.GetRandom();
         target = ScriptureBookTarget.ForCity(city);
         skillContainer = cityCandidate;
+        SectVerifyLog.Log("PickScriptureTarget", $"type=skill target=city city={city.name}#{city.data.id} actor={SectVerifyLog.Actor(actor)} skill={skillContainer.Id}");
         return true;
     }
 
