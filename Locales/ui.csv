@@ -43,6 +43,28 @@ Cultiway.UI.Buttons.ToggleCultiLogError,开关错误日志
 Cultiway.UI.Buttons.ExportCultiLog,导出玩法日志
 Cultiway.UI.Buttons.ClearCultiLog,清空玩法日志
 Cultiway.UI.Buttons.CultiLogStats,玩法日志状态
+Cultiway.UI.Buttons.LogPerf Description,输出当前主要系统的性能统计
+Cultiway.UI.Buttons.ToggleCultiLog Description,启用或禁用玩法日志系统
+Cultiway.UI.Buttons.ToggleCultiLogDisk Description,启用后自动写入当天的 .cultilog 文件
+Cultiway.UI.Buttons.CycleCultiLogLevel Description,在 Trace、Debug、Info、Warning、Error 之间切换最低记录等级
+Cultiway.UI.Buttons.ToggleCultiLogGeneral Description,记录通用调试信息
+Cultiway.UI.Buttons.ToggleCultiLogCombat Description,记录战斗与伤害结算信息
+Cultiway.UI.Buttons.ToggleCultiLogSect Description,记录宗门验证与宗门行为信息
+Cultiway.UI.Buttons.ToggleCultiLogCultivation Description,记录修炼相关信息
+Cultiway.UI.Buttons.ToggleCultiLogBook Description,记录书籍与经文相关信息
+Cultiway.UI.Buttons.ToggleCultiLogSkill Description,记录技能释放与技能系统信息
+Cultiway.UI.Buttons.ToggleCultiLogPathfinding Description,记录寻路相关信息
+Cultiway.UI.Buttons.ToggleCultiLogItem Description,记录物品相关信息
+Cultiway.UI.Buttons.ToggleCultiLogTrain Description,记录列车与轨道系统信息
+Cultiway.UI.Buttons.ToggleCultiLogGeo Description,记录地理区域相关信息
+Cultiway.UI.Buttons.ToggleCultiLogAI Description,记录 AI 行为相关信息
+Cultiway.UI.Buttons.ToggleCultiLogUI Description,记录界面相关信息
+Cultiway.UI.Buttons.ToggleCultiLogPerf Description,记录性能采样相关信息
+Cultiway.UI.Buttons.ToggleCultiLogAIGC Description,记录 AIGC 调用相关信息
+Cultiway.UI.Buttons.ToggleCultiLogError Description,记录错误与异常信息
+Cultiway.UI.Buttons.ExportCultiLog Description,导出最近缓存中的玩法日志
+Cultiway.UI.Buttons.ClearCultiLog Description,清空最近日志缓存
+Cultiway.UI.Buttons.CultiLogStats Description,显示当前日志系统状态
 Cultiway.UI.Buttons.ToggleStatus.Enabled,<color=#4DFF72>当前：已启用</color>
 Cultiway.UI.Buttons.ToggleStatus.Disabled,<color=#FF5A5A>当前：已禁用</color>
 Tab.MasterApprentice,师徒关系

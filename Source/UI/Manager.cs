@@ -403,10 +403,10 @@ public class Manager
         tip.type = "normal";
         tip.setHoverAction(() =>
         {
-            tip.textOnClickDescription = IsPlayerOptionEnabled(optionId)
+            tip.textOnClickDescription = key + " Description";
+            tip.text_description_2 = IsPlayerOptionEnabled(optionId)
                 ? "Cultiway.UI.Buttons.ToggleStatus.Enabled"
                 : "Cultiway.UI.Buttons.ToggleStatus.Disabled";
-            tip.text_description_2 = string.Empty;
             tip.showTooltipDefault();
         });
         AddButton(TabButtonType.DEBUG, button);
