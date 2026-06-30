@@ -77,7 +77,7 @@ public class BehSeekMaster : BehaviourActionActor
             {
                 var ae = a.GetExtend();
                 if (!ae.HasCultisys<Xian>()) return false;
-                if (!ae.CanRecruit()) return false;
+                if (!ae.CanRecruit(apprenticeAe)) return false;
                 
                 // 检查境界
                 ref var masterXian = ref ae.GetCultisys<Xian>();

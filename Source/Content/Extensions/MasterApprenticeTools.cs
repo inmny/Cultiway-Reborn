@@ -45,6 +45,19 @@ public static class MasterApprenticeTools
         if (!ae.TryGetComponent(out MasterApprenticeState state)) return true;
         return state.ApprenticeCount < state.MaxApprenticeCount;
     }
+
+    /// <summary>
+    /// 检查指定修士能否收取目标弟子；在宗门内收徒时额外校验师父职司是否能支撑对应入宗身份。
+    /// </summary>
+    public static bool CanRecruit(this ActorExtend master, ActorExtend apprentice, MasterApprenticeTypeAsset type = null)
+    {
+        type ??= MasterApprenticeTypes.Nominal;
+        if (!master.CanRecruit()) return false;
+        if (apprentice == null || apprentice.Base == null || apprentice.Base.isRekt()) return false;
+        if (apprentice.HasMaster()) return false;
+
+        return CanRecruitForSectContext(master, apprentice, type);
+    }
     
     /// <summary>
     /// 获取最大弟子数量
@@ -70,8 +83,11 @@ public static class MasterApprenticeTools
     public static bool TryRecruit(this ActorExtend master, ActorExtend apprentice, MasterApprenticeTypeAsset type = null)
     {
         type ??= MasterApprenticeTypes.Nominal;
-        if (!master.CanRecruit()) return false;
-        if (apprentice.HasMaster()) return false;
+        if (!master.CanRecruit(apprentice, type))
+        {
+            SectVerifyLog.Log("RecruitApprenticeBlocked", $"master={SectVerifyLog.Actor(master.Base)} apprentice={SectVerifyLog.Actor(apprentice?.Base)} relation={SectVerifyLog.Relation(type)} reason=not_qualified masterSect={SectVerifyLog.Sect(master.sect)} apprenticeSect={SectVerifyLog.Sect(apprentice?.sect)}");
+            return false;
+        }
         
         // 计算成功率
         float successRate = CalculateRecruitSuccessRate(master, apprentice);
@@ -120,6 +136,23 @@ public static class MasterApprenticeTools
         SectVerifyLog.Log("RecruitApprentice", $"master={SectVerifyLog.Actor(master.Base)} apprentice={SectVerifyLog.Actor(apprentice.Base)} relation={SectVerifyLog.Relation(type)} masterSect={SectVerifyLog.Sect(master.sect)} apprenticeSect={SectVerifyLog.Sect(apprentice.sect)}");
         
         return true;
+    }
+
+    private static bool CanRecruitForSectContext(ActorExtend master, ActorExtend apprentice, MasterApprenticeTypeAsset type)
+    {
+        Sect sect = master.sect;
+        if (sect == null) return true;
+        if (apprentice.sect != null && apprentice.sect != sect) return false;
+
+        SectJoinProfile profile = GetSectJoinProfileForRelation(type);
+        return CanServeAsRoleMaster(master.Base, apprentice.Base, sect, profile.Grade)
+               && CanServeAsRoleMaster(master.Base, apprentice.Base, sect, profile.Title);
+    }
+
+    private static bool CanServeAsRoleMaster(Actor master, Actor apprentice, Sect sect, SectRoleAsset role)
+    {
+        if (role == null) return true;
+        return IsQualifiedSectMaster(master, apprentice, sect, GetSectRoleOrNull(role.requiredMasterOfficeRoleId));
     }
     
     // ======== 弟子相关方法 ========

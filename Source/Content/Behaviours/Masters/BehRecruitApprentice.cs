@@ -78,6 +78,7 @@ public class BehRecruitApprentice : BehaviourActionActor
                 var ae = a.GetExtend();
                 if (ae.HasMaster()) return false;
                 if (!ae.HasCultisys<Xian>()) return false;
+                if (!masterAe.CanRecruit(ae)) return false;
                 
                 // 检查境界
                 ref var candidateXian = ref ae.GetCultisys<Xian>();

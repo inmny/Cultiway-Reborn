@@ -76,7 +76,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             true,
             MasterApprenticeTypes.Nominal,
             true,
-            null,
+            Deacon,
             SectPermissions.ReadBasicScripture,
             SectPermissions.WriteScripture);
         SetupGradeWithMasterRequirement(
