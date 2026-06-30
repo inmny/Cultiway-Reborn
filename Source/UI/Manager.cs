@@ -351,8 +351,8 @@ public class Manager
     private void AddButtonsForDebug()
     {
         AddDebugButton("Cultiway.UI.Buttons.LogPerf", () => { ModClass.I.LogPerf(true); }, "log_action_perf");
-        AddDebugToggleButton("Cultiway.UI.Buttons.ToggleCultiLog", () => { ModClass.I.ToggleCultiLog(); }, "log_toggle", () => CultiLog.Enabled);
-        AddDebugToggleButton("Cultiway.UI.Buttons.ToggleCultiLogDisk", () => { ModClass.I.ToggleCultiLogDisk(); }, "log_disk", () => CultiLog.DiskEnabled);
+        AddDebugToggleButton("Cultiway.UI.Buttons.ToggleCultiLog", CultiLogPlayerOptions.Enabled, () => { ModClass.I.OnCultiLogEnabledToggled(); }, "log_toggle");
+        AddDebugToggleButton("Cultiway.UI.Buttons.ToggleCultiLogDisk", CultiLogPlayerOptions.DiskEnabled, () => { ModClass.I.OnCultiLogDiskToggled(); }, "log_disk");
         AddDebugButton("Cultiway.UI.Buttons.CycleCultiLogLevel", () => { ModClass.I.CycleCultiLogMinLevel(); }, "log_level");
 
         AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogGeneral", CultiLogCategory.General, "log_cat_general");
@@ -378,7 +378,7 @@ public class Manager
 
     private static void AddDebugLogCategoryButton(string key, CultiLogCategory category, string iconName)
     {
-        AddDebugToggleButton(key, () => { ModClass.I.ToggleCultiLogCategory(category); }, iconName, () => CultiLog.IsCategoryEnabled(category));
+        AddDebugToggleButton(key, CultiLogPlayerOptions.GetCategoryOptionId(category), () => { ModClass.I.OnCultiLogCategoryToggled(category); }, iconName);
     }
 
     private static void AddDebugButton(string key, UnityAction action, string iconName)
@@ -387,22 +387,49 @@ public class Manager
         AddButton(TabButtonType.DEBUG, PowerButtonCreator.CreateSimpleButton(key, action, icon));
     }
 
-    private static void AddDebugToggleButton(string key, UnityAction action, string iconName, Func<bool> enabledGetter)
+    private static void AddDebugToggleButton(string key, string optionId, UnityAction action, string iconName)
     {
         Sprite icon = SpriteTextureLoader.getSprite(DebugIconRoot + iconName);
-        PowerButton button = PowerButtonCreator.CreateSimpleButton(key, action, icon);
+        RegisterDebugTogglePower(key, optionId);
+        PowerButton button = PowerButtonCreator.CreateToggleButton(key, icon);
+        GodPower power = AssetManager.powers.get(key);
+        if (power != null)
+        {
+            power.toggle_action += _ => action();
+        }
+
         TipButton tip = button.GetComponent<TipButton>() ?? button.gameObject.AddComponent<TipButton>();
         tip.textOnClick = key;
         tip.type = "normal";
         tip.setHoverAction(() =>
         {
-            tip.textOnClickDescription = enabledGetter()
+            tip.textOnClickDescription = IsPlayerOptionEnabled(optionId)
                 ? "Cultiway.UI.Buttons.ToggleStatus.Enabled"
                 : "Cultiway.UI.Buttons.ToggleStatus.Disabled";
             tip.text_description_2 = string.Empty;
             tip.showTooltipDefault();
         });
         AddButton(TabButtonType.DEBUG, button);
+    }
+
+    private static void RegisterDebugTogglePower(string key, string optionId)
+    {
+        if (AssetManager.powers.get(key) != null) return;
+
+        AssetManager.powers.add(new GodPower
+        {
+            id = key,
+            name = key,
+            unselect_when_window = true,
+            toggle_name = optionId
+        });
+    }
+
+    private static bool IsPlayerOptionEnabled(string optionId)
+    {
+        return PlayerConfig.dict != null &&
+               PlayerConfig.dict.TryGetValue(optionId, out PlayerOptionData data) &&
+               data.boolVal;
     }
 
     public static void AddButton(TabButtonType type, PowerButton button)

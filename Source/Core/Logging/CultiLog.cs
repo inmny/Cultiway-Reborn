@@ -28,9 +28,8 @@ public static class CultiLog
     private static int _queuedCount;
     private static int _maxBacklog = DefaultMaxBacklog;
 
-    private static volatile bool _enabled = true;
-    private static long _categoryMask = (long)(CultiLogCategory.General | CultiLogCategory.Sect |
-                                               CultiLogCategory.Combat | CultiLogCategory.Error);
+    private static volatile bool _enabled;
+    private static long _categoryMask = (long)CultiLogCategory.None;
     private static int _minLevel = (int)CultiLogLevel.Debug;
 
     public static bool Enabled => _enabled;

@@ -143,16 +143,36 @@ namespace Cultiway
             LogInfo($"{sb}");
         }
 
-        public void ToggleCultiLog()
+        public void SyncCultiLogFromPlayerConfig(bool resetDiskToday = false)
         {
-            CultiLog.SetEnabled(!CultiLog.Enabled);
+            CultiLog.SetEnabled(IsCultiLogPlayerOptionEnabled(CultiLogPlayerOptions.Enabled));
+
+            CultiLogCategory mask = CultiLogCategory.None;
+            CultiLogCategory[] categories = CultiLogPlayerOptions.Categories;
+            for (int i = 0; i < categories.Length; i++)
+            {
+                CultiLogCategory category = categories[i];
+                if (IsCultiLogPlayerOptionEnabled(CultiLogPlayerOptions.GetCategoryOptionId(category)))
+                {
+                    mask |= category;
+                }
+            }
+
+            CultiLog.SetCategoryMask(mask);
+
+            bool diskEnabled = IsCultiLogPlayerOptionEnabled(CultiLogPlayerOptions.DiskEnabled);
+            CultiLog.SetDiskEnabled(diskEnabled, diskEnabled && resetDiskToday);
+        }
+
+        public void OnCultiLogEnabledToggled()
+        {
+            SyncCultiLogFromPlayerConfig();
             ShowCultiLogTip($"玩法日志{(CultiLog.Enabled ? "已启用" : "已禁用")}");
         }
 
-        public void ToggleCultiLogDisk()
+        public void OnCultiLogDiskToggled()
         {
-            bool enable = !CultiLog.DiskEnabled;
-            CultiLog.SetDiskEnabled(enable, enable);
+            SyncCultiLogFromPlayerConfig(true);
             if (CultiLog.DiskEnabled)
             {
                 string path = CultiLog.GetDiskFilePath();
@@ -179,10 +199,10 @@ namespace Cultiway
             ShowCultiLogTip($"日志最低等级: {level}");
         }
 
-        public void ToggleCultiLogCategory(CultiLogCategory category)
+        public void OnCultiLogCategoryToggled(CultiLogCategory category)
         {
-            bool enabled = CultiLog.ToggleCategory(category);
-            ShowCultiLogTip($"{GetCultiLogCategoryLabel(category)}日志{(enabled ? "已启用" : "已禁用")}");
+            SyncCultiLogFromPlayerConfig();
+            ShowCultiLogTip($"{GetCultiLogCategoryLabel(category)}日志{(CultiLog.IsCategoryEnabled(category) ? "已启用" : "已禁用")}");
         }
 
         public void ExportCultiLog()
@@ -208,6 +228,13 @@ namespace Cultiway
         private static void ShowCultiLogTip(string message, float time = 3f)
         {
             WorldTip.showNow(message, false, "top", time);
+        }
+
+        private static bool IsCultiLogPlayerOptionEnabled(string optionId)
+        {
+            return PlayerConfig.dict != null &&
+                   PlayerConfig.dict.TryGetValue(optionId, out PlayerOptionData data) &&
+                   data.boolVal;
         }
 
         private static string GetCultiLogCategoryLabel(CultiLogCategory category)
@@ -298,6 +325,7 @@ namespace Cultiway
 
             _ui = new UI.Manager();
             _ui.Init();
+            SyncCultiLogFromPlayerConfig(true);
 
             Game = new WorldboxGame();
             Try.Start(() =>
