@@ -26,7 +26,7 @@ public class CultibookGeneratedEventSystem : GenericEventSystem<CultibookGenerat
         if (actor == null || actor.isRekt()) return;
 
         var ae = actor.GetExtend();
-        if (!actor.hasCity() || !actor.city.hasBookSlots())
+        if (!actor.hasCity() || !actor.hasLanguage() || !actor.city.hasBookSlots())
         {
             actor.data.set(ContentActorDataKeys.WaitingForCultibookCreation_int, 0);
             return;

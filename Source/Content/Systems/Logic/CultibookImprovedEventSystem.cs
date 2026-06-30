@@ -37,7 +37,7 @@ public class CultibookImprovedEventSystem : GenericEventSystem<CultibookImproved
             return;
         }
 
-        if (!actor.hasCity() || !actor.city.hasBookSlots())
+        if (!actor.hasCity() || !actor.hasLanguage() || !actor.city.hasBookSlots())
         {
             actor.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, 0);
             return;
