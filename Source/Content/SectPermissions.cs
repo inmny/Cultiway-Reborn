@@ -34,6 +34,11 @@ public class SectPermissions : ExtendLibrary<SectPermissionAsset, SectPermission
     public static SectPermissionAsset RecruitMember { get; private set; }
 
     /// <summary>
+    /// 允许将自己的徒弟带入宗门。
+    /// </summary>
+    public static SectPermissionAsset BringApprenticeToSect { get; private set; }
+
+    /// <summary>
     /// 允许执行宗门人事评定。
     /// </summary>
     public static SectPermissionAsset EvaluatePersonnel { get; private set; }
@@ -63,6 +68,7 @@ public class SectPermissions : ExtendLibrary<SectPermissionAsset, SectPermission
         Setup(ReadHighScripture);
         Setup(WriteScripture);
         Setup(RecruitMember);
+        Setup(BringApprenticeToSect);
         Setup(EvaluatePersonnel);
         Setup(PromoteMember);
         Setup(ManageScripture);

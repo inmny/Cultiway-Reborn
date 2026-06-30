@@ -47,7 +47,7 @@ public static class MasterApprenticeTools
     }
 
     /// <summary>
-    /// 检查指定修士能否收取目标弟子；在宗门内收徒时额外校验师父职司是否能支撑对应入宗身份。
+    /// 检查指定修士能否收取目标弟子；同宗或无宗门目标允许建立师徒关系，跨宗门目标暂不允许。
     /// </summary>
     public static bool CanRecruit(this ActorExtend master, ActorExtend apprentice, MasterApprenticeTypeAsset type = null)
     {
@@ -56,7 +56,7 @@ public static class MasterApprenticeTools
         if (apprentice == null || apprentice.Base == null || apprentice.Base.isRekt()) return false;
         if (apprentice.HasMaster()) return false;
 
-        return CanRecruitForSectContext(master, apprentice, type);
+        return CanRecruitForSectContext(master, apprentice);
     }
     
     /// <summary>
@@ -127,7 +127,14 @@ public static class MasterApprenticeTools
 
         if (master.sect != null && apprentice.sect == null)
         {
-            master.sect.JoinSect(apprentice.Base, GetSectJoinProfileForRelation(type));
+            if (master.Base.CanBringApprenticeToSect(master.sect))
+            {
+                master.sect.JoinSect(apprentice.Base, GetSectJoinProfileForRelation(type));
+            }
+            else
+            {
+                SectVerifyLog.Log("BringApprenticeToSectBlocked", $"master={SectVerifyLog.Actor(master.Base)} apprentice={SectVerifyLog.Actor(apprentice.Base)} relation={SectVerifyLog.Relation(type)} sect={SectVerifyLog.Sect(master.sect)} reason=no_permission");
+            }
         }
         
         // TODO: 触发事件
@@ -138,21 +145,13 @@ public static class MasterApprenticeTools
         return true;
     }
 
-    private static bool CanRecruitForSectContext(ActorExtend master, ActorExtend apprentice, MasterApprenticeTypeAsset type)
+    private static bool CanRecruitForSectContext(ActorExtend master, ActorExtend apprentice)
     {
         Sect sect = master.sect;
         if (sect == null) return true;
         if (apprentice.sect != null && apprentice.sect != sect) return false;
-
-        SectJoinProfile profile = GetSectJoinProfileForRelation(type);
-        return CanServeAsRoleMaster(master.Base, apprentice.Base, sect, profile.Grade)
-               && CanServeAsRoleMaster(master.Base, apprentice.Base, sect, profile.Title);
-    }
-
-    private static bool CanServeAsRoleMaster(Actor master, Actor apprentice, Sect sect, SectRoleAsset role)
-    {
-        if (role == null) return true;
-        return IsQualifiedSectMaster(master, apprentice, sect, GetSectRoleOrNull(role.requiredMasterOfficeRoleId));
+        if (apprentice.sect == sect) return master.Base.CanBringApprenticeToSect(sect);
+        return true;
     }
     
     // ======== 弟子相关方法 ========
@@ -417,7 +416,7 @@ public static class MasterApprenticeTools
         if (!HasSectMasterRelationAtLeast(actor, sect, requiredType)) return false;
 
         Actor master = actor.GetExtend().GetMaster();
-        return IsQualifiedSectMaster(master, actor, sect, GetSectRoleOrNull(role.requiredMasterOfficeRoleId));
+        return IsQualifiedSectMaster(master, actor, sect, role);
     }
 
     /// <summary>
@@ -508,7 +507,7 @@ public static class MasterApprenticeTools
     /// </summary>
     private static bool CanCurrentMasterSupportRole(Actor master, Actor apprentice, Sect sect, SectRoleAsset role)
     {
-        return IsQualifiedSectMaster(master, apprentice, sect, GetSectRoleOrNull(role.requiredMasterOfficeRoleId))
+        return IsQualifiedSectMaster(master, apprentice, sect, role)
                && IsWillingToAcceptInnerDisciple(master.GetExtend());
     }
 
@@ -517,21 +516,29 @@ public static class MasterApprenticeTools
     /// </summary>
     private static bool CanServeAsNewRoleMaster(Actor master, Actor apprentice, Sect sect, SectRoleAsset role)
     {
-        return IsQualifiedSectMaster(master, apprentice, sect, GetSectRoleOrNull(role.requiredMasterOfficeRoleId))
+        return IsQualifiedSectMaster(master, apprentice, sect, role)
                && IsWillingToAcceptInnerDisciple(master.GetExtend())
                && CanAcceptNewInnerDisciple(master.GetExtend());
     }
 
     /// <summary>
-    /// 判断候选师父是否属于同宗门成员、不是徒弟本人，并满足最低职司要求。
+    /// 判断候选师父是否属于同宗门成员、不是徒弟本人，并满足角色要求的最低职司和权限。
     /// </summary>
-    private static bool IsQualifiedSectMaster(Actor master, Actor apprentice, Sect sect, SectRoleAsset requiredOffice)
+    private static bool IsQualifiedSectMaster(Actor master, Actor apprentice, Sect sect, SectRoleAsset role)
     {
         if (master == null || master.isRekt()) return false;
         if (apprentice == null || apprentice.isRekt()) return false;
         if (master == apprentice) return false;
         if (master.GetExtend().sect != sect) return false;
-        return requiredOffice == null || master.GetSectRole(SectRoleSlot.Office).order >= requiredOffice.order;
+
+        SectRoleAsset requiredOffice = GetSectRoleOrNull(role?.requiredMasterOfficeRoleId);
+        if (requiredOffice != null && master.GetSectRole(SectRoleSlot.Office).order < requiredOffice.order)
+        {
+            return false;
+        }
+
+        SectPermissionAsset requiredPermission = GetSectPermissionOrNull(role?.requiredMasterPermissionId);
+        return requiredPermission == null || master.HasSectPermission(requiredPermission);
     }
 
     /// <summary>
@@ -624,6 +631,17 @@ public static class MasterApprenticeTools
     {
         if (string.IsNullOrEmpty(roleId)) return null;
         return ModClass.L.SectRoleLibrary.has(roleId) ? ModClass.L.SectRoleLibrary.get(roleId) : null;
+    }
+
+    /// <summary>
+    /// 从宗门权限库中获取权限 id 对应的权限资产。
+    /// </summary>
+    private static SectPermissionAsset GetSectPermissionOrNull(string permissionId)
+    {
+        if (string.IsNullOrEmpty(permissionId)) return null;
+        return ModClass.L.SectPermissionLibrary.has(permissionId)
+            ? ModClass.L.SectPermissionLibrary.get(permissionId)
+            : null;
     }
     
     private static void UpdateRelationType(ref MasterApprenticeRelation relation)

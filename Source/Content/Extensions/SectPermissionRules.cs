@@ -86,6 +86,15 @@ public static class SectPermissionRules
     }
 
     /// <summary>
+    /// 判断成员能否将自己的徒弟带入指定宗门。
+    /// </summary>
+    public static bool CanBringApprenticeToSect(this Actor actor, Sect sect)
+    {
+        return IsMemberOfSect(actor, sect)
+               && actor.HasSectPermission(SectPermissions.BringApprenticeToSect);
+    }
+
+    /// <summary>
     /// 判断成员能否任免指定宗门成员的角色。
     /// </summary>
     public static bool CanPromoteSectMember(this Actor actor, Sect sect, Actor target, SectRoleAsset role)

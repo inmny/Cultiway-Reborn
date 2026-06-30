@@ -105,6 +105,11 @@ public class SectRoleAsset : Asset
     public string requiredMasterOfficeRoleId;
 
     /// <summary>
+    /// 自动安排师父时要求师父拥有的宗门权限 id。
+    /// </summary>
+    public string requiredMasterPermissionId;
+
+    /// <summary>
     /// 授予该角色时要求成员至少拥有的门阶角色 id；为空表示无门阶要求。
     /// </summary>
     public string requiredGradeRoleId;

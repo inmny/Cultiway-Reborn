@@ -76,7 +76,8 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             true,
             MasterApprenticeTypes.Nominal,
             true,
-            Deacon,
+            null,
+            SectPermissions.BringApprenticeToSect,
             SectPermissions.ReadBasicScripture,
             SectPermissions.WriteScripture);
         SetupGradeWithMasterRequirement(
@@ -88,7 +89,8 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             true,
             MasterApprenticeTypes.Formal,
             true,
-            Deacon,
+            null,
+            SectPermissions.BringApprenticeToSect,
             SectPermissions.ReadBasicScripture,
             SectPermissions.ReadCoreScripture,
             SectPermissions.WriteScripture);
@@ -101,6 +103,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             true,
             MasterApprenticeTypes.Direct,
             false,
+            null,
             null,
             SectPermissions.ReadBasicScripture,
             SectPermissions.ReadCoreScripture,
@@ -125,7 +128,8 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.ReadBasicScripture,
             SectPermissions.ReadCoreScripture,
             SectPermissions.WriteScripture,
-            SectPermissions.RecruitMember);
+            SectPermissions.RecruitMember,
+            SectPermissions.BringApprenticeToSect);
         SetupOfficeWithRequirements(
             Elder,
             70,
@@ -145,6 +149,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.ReadHighScripture,
             SectPermissions.WriteScripture,
             SectPermissions.RecruitMember,
+            SectPermissions.BringApprenticeToSect,
             SectPermissions.EvaluatePersonnel,
             SectPermissions.ManageScripture);
         SetupOffice(
@@ -164,6 +169,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.ReadHighScripture,
             SectPermissions.WriteScripture,
             SectPermissions.RecruitMember,
+            SectPermissions.BringApprenticeToSect,
             SectPermissions.EvaluatePersonnel,
             SectPermissions.PromoteMember,
             SectPermissions.ManageScripture,
@@ -178,6 +184,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             true,
             MasterApprenticeTypes.Successor,
             false,
+            null,
             null,
             SectPermissions.ReadBasicScripture,
             SectPermissions.ReadCoreScripture,
@@ -213,6 +220,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             null,
             null,
             null,
+            null,
             permissions);
     }
 
@@ -226,6 +234,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
         MasterApprenticeTypeAsset requiredMasterRelationType,
         bool canAutoAssignMasterForRequirement,
         SectRoleAsset requiredMasterOfficeRole,
+        SectPermissionAsset requiredMasterPermission,
         params SectPermissionAsset[] permissions)
     {
         Setup(
@@ -245,6 +254,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             requiredMasterRelationType,
             canAutoAssignMasterForRequirement,
             requiredMasterOfficeRole,
+            requiredMasterPermission,
             null,
             null,
             permissions);
@@ -314,6 +324,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             null,
             false,
             null,
+            null,
             requiredGradeRole,
             requiredPreviousOfficeRole,
             permissions);
@@ -327,7 +338,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
         bool showInPersonnel,
         params SectPermissionAsset[] permissions)
     {
-        Setup(asset, SectRoleSlot.Title, order, authority, defaultForSlot, showInPersonnel, false, false, false, 0, -1, -1, 0, null, false, null, null, null, permissions);
+        Setup(asset, SectRoleSlot.Title, order, authority, defaultForSlot, showInPersonnel, false, false, false, 0, -1, -1, 0, null, false, null, null, null, null, permissions);
     }
 
     private static void SetupTitleWithMasterRequirement(
@@ -339,9 +350,10 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
         MasterApprenticeTypeAsset requiredMasterRelationType,
         bool canAutoAssignMasterForRequirement,
         SectRoleAsset requiredMasterOfficeRole,
+        SectPermissionAsset requiredMasterPermission,
         params SectPermissionAsset[] permissions)
     {
-        Setup(asset, SectRoleSlot.Title, order, authority, defaultForSlot, showInPersonnel, false, false, false, 0, -1, -1, 0, requiredMasterRelationType, canAutoAssignMasterForRequirement, requiredMasterOfficeRole, null, null, permissions);
+        Setup(asset, SectRoleSlot.Title, order, authority, defaultForSlot, showInPersonnel, false, false, false, 0, -1, -1, 0, requiredMasterRelationType, canAutoAssignMasterForRequirement, requiredMasterOfficeRole, requiredMasterPermission, null, null, permissions);
     }
 
     private static void Setup(
@@ -361,6 +373,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
         MasterApprenticeTypeAsset requiredMasterRelationType,
         bool canAutoAssignMasterForRequirement,
         SectRoleAsset requiredMasterOfficeRole,
+        SectPermissionAsset requiredMasterPermission,
         SectRoleAsset requiredGradeRole,
         SectRoleAsset requiredPreviousOfficeRole,
         params SectPermissionAsset[] permissions)
@@ -382,6 +395,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
         asset.requiredMasterRelationTypeId = requiredMasterRelationType?.id;
         asset.canAutoAssignMasterForRequirement = canAutoAssignMasterForRequirement;
         asset.requiredMasterOfficeRoleId = requiredMasterOfficeRole?.id;
+        asset.requiredMasterPermissionId = requiredMasterPermission?.id;
         asset.requiredGradeRoleId = requiredGradeRole?.id;
         asset.requiredPreviousOfficeRoleId = requiredPreviousOfficeRole?.id;
         asset.permissionIds = new List<string>();
