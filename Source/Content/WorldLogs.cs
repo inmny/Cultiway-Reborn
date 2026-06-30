@@ -6,6 +6,13 @@ namespace Cultiway.Content;
 public class WorldLogs : ExtendLibrary<WorldLogAsset, WorldLogs>
 {
     public static WorldLogAsset LogCultisysLevelup { get; private set; }
+    public static WorldLogAsset LogSectFounded { get; private set; }
+    public static WorldLogAsset LogSectJoined { get; private set; }
+    public static WorldLogAsset LogSectPromoted { get; private set; }
+    public static WorldLogAsset LogSectSuccession { get; private set; }
+    public static WorldLogAsset LogSectScriptureContributed { get; private set; }
+    public static WorldLogAsset LogSectLecture { get; private set; }
+
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
@@ -18,6 +25,27 @@ public class WorldLogs : ExtendLibrary<WorldLogAsset, WorldLogs>
             var key = message.special2;
             text = LM.Get(key);
             AssetManager.world_log_library.updateText(ref text, message, "$actor$", 1);
+        };
+
+        SetupSectLog(LogSectFounded, "Cultiway.WorldLog.SectFounded", "cultiway/icons/iconSect", Toolbox.color_log_good);
+        SetupSectLog(LogSectJoined, "Cultiway.WorldLog.SectJoined", "cultiway/icons/iconMasterApprentice", Toolbox.color_log_good);
+        SetupSectLog(LogSectPromoted, "Cultiway.WorldLog.SectPromoted", "ui/icons/iconInterestingPeople", Toolbox.color_log_good);
+        SetupSectLog(LogSectSuccession, "Cultiway.WorldLog.SectSuccession", "ui/Icons/iconKings", Toolbox.color_log_warning);
+        SetupSectLog(LogSectScriptureContributed, "Cultiway.WorldLog.SectScriptureContributed", "ui/icons/iconBooks", Toolbox.color_log_good);
+        SetupSectLog(LogSectLecture, "Cultiway.WorldLog.SectLecture", "cultiway/icons/iconCultivation", Toolbox.color_log_good);
+    }
+
+    private static void SetupSectLog(WorldLogAsset asset, string localeId, string iconPath, UnityEngine.Color color)
+    {
+        asset.locale_id = localeId;
+        asset.path_icon = iconPath;
+        asset.color = color;
+        asset.group = HistoryGroups.Sects.id;
+        asset.text_replacer = (WorldLogMessage message, ref string text) =>
+        {
+            AssetManager.world_log_library.updateText(ref text, message, "$sect$", 1);
+            AssetManager.world_log_library.updateText(ref text, message, "$actor$", 2);
+            AssetManager.world_log_library.updateText(ref text, message, "$value$", 3);
         };
     }
 }

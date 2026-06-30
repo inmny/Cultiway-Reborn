@@ -225,6 +225,12 @@ Cultiway.Sect.Affair.OrganizeScripture,整理藏经阁
 Cultiway.Sect.Affair.OrganizeScripture.Info,整理宗门典籍并积累贡献
 Cultiway.Sect.Affair.LectureCultibook,宗门讲法
 Cultiway.Sect.Affair.LectureCultibook.Info,为同宗成员讲解功法，使其了解或学会新功法
+Cultiway.WorldLog.SectFounded,$actor$ 创立了 $sect$，立下主修传承：$value$
+Cultiway.WorldLog.SectJoined,$actor$ 加入了 $sect$，身份：$value$
+Cultiway.WorldLog.SectPromoted,$sect$ 提拔 $actor$ 为 $value$
+Cultiway.WorldLog.SectSuccession,$actor$ 继任为 $sect$ 掌门
+Cultiway.WorldLog.SectScriptureContributed,$actor$ 将《$value$》收入 $sect$ 藏经阁
+Cultiway.WorldLog.SectLecture,$actor$ 在 $sect$ 开坛讲法：$value$
 Cultiway.Sect.Permission.EvaluatePersonnel,评定人事
 Cultiway.Sect.Permission.EvaluatePersonnel.Info,允许执行宗门人事评定
 Cultiway.Sect.Permission.PromoteMember,任免门人

@@ -5,6 +5,7 @@ using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Debug;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
 
@@ -44,6 +45,10 @@ public class BehLectureSectCultibook : BehaviourActionActor
 
         bool result = sect.AddContribution(pObject, affair.contributionReward);
         SectVerifyLog.Log("SectLectureTask", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} cultibook={cultibook.id} audience={taughtCount} contribution={affair.contributionReward} result={result}");
+        if (result)
+        {
+            WorldLogUtils.LogSectLecture(sect, pObject, cultibook.Name, taughtCount);
+        }
         return result ? BehResult.Continue : BehResult.Stop;
     }
 }

@@ -8,6 +8,7 @@ using Cultiway.Content.Libraries;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Debug;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -45,6 +46,7 @@ public class Sect : MetaObject<SectData>
         SectVerifyLog.Log(
             "BuildSect",
             $"created sect={SectVerifyLog.Sect(this)} founder={SectVerifyLog.Actor(founder)} doctrine={data.DoctrineCultibookId ?? "null"} members={countUnits()} scriptures={data.ScriptureBookIDs.Count}");
+        WorldLogUtils.LogSectFounded(this, founder);
     }
 
     private void JoinFounderApprentices(ActorExtend founder)
@@ -240,6 +242,10 @@ public class Sect : MetaObject<SectData>
         actor.ClearSectContribution();
         ApplyJoinProfile(actor, profile);
         SectVerifyLog.Log("JoinSect", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} profile={DescribeJoinProfile(profile)} roles={actor.GetSectRoleSummary()}");
+        if (profile.Office != SectRoles.Leader)
+        {
+            WorldLogUtils.LogSectJoined(this, actor);
+        }
 
         return true;
     }
@@ -314,6 +320,7 @@ public class Sect : MetaObject<SectData>
         actor.SetSectRole(role);
         ClearGradeForSeniorOffice(actor, role);
         SectVerifyLog.Log("Promote", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} from={SectVerifyLog.Role(current)} to={SectVerifyLog.Role(role)} roles={actor.GetSectRoleSummary()}");
+        WorldLogUtils.LogSectPromoted(this, actor, role);
         return true;
     }
 
@@ -384,6 +391,7 @@ public class Sect : MetaObject<SectData>
 
         SetLeader(nextLeader);
         SectVerifyLog.Log("Succession", $"sect={SectVerifyLog.Sect(this)} leader={SectVerifyLog.Actor(nextLeader)}");
+        WorldLogUtils.LogSectSuccession(this, nextLeader);
         return true;
     }
 
