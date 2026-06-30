@@ -12,6 +12,7 @@ Task.Unit.Cultiway.BuildSect,建立宗门
 Task.Unit.Cultiway.EvaluateSectPersonnel,评定宗门人事
 Task.Unit.Cultiway.RecruitSectMember,招揽入宗
 Task.Unit.Cultiway.StudySectScripture,研读宗门藏书
+Task.Unit.Cultiway.DoSectChore,处理宗门杂务
 Task.Unit.Cultiway.WriteCultibook,誊抄功法
 Task.Unit.Cultiway.WriteElixirbook,誊抄丹方
 Task.Unit.Cultiway.WriteSkillbook,誊抄术法

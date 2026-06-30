@@ -31,6 +31,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor EvaluateSectPersonnel { get; private set; }
     public static BehaviourTaskActor RecruitSectMember { get; private set; }
     public static BehaviourTaskActor StudySectScripture { get; private set; }
+    public static BehaviourTaskActor DoSectChore { get; private set; }
     
     // 师徒系统任务
     public static BehaviourTaskActor RecruitApprentice { get; private set; }
@@ -175,6 +176,19 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         StudySectScripture.addBeh(new BehExitBuilding());
         StudySectScripture.addBeh(new BehEndJob());
         StudySectScripture.setIcon("ui/icons/iconBooks");
+
+        DoSectChore.force_hand_tool = "hammer";
+        DoSectChore.cancellable_by_reproduction = true;
+        DoSectChore.cancellable_by_socialize = true;
+        DoSectChore.addBeh(new BehFindSectChoreTile());
+        DoSectChore.addBeh(new BehGoToTileTarget());
+        DoSectChore.addBeh(new BehRandomWait(0.5f, 1.2f, true));
+        DoSectChore.addBeh(new BehAngleAnimation(AngleAnimationTarget.Tile, "event:/SFX/CIVILIZATIONS/BuildRoad", 0.8f, 40f, true, true));
+        DoSectChore.addBeh(new BehAngleAnimation(AngleAnimationTarget.Tile, "event:/SFX/CIVILIZATIONS/BuildRoad", 0.8f, 40f, true, true));
+        DoSectChore.addBeh(new BehAngleAnimation(AngleAnimationTarget.Tile, "event:/SFX/CIVILIZATIONS/BuildRoad", 0f, 40f, true, true));
+        DoSectChore.addBeh(new BehDoSectChore());
+        DoSectChore.addBeh(new BehEndJob());
+        DoSectChore.setIcon("ui/icons/iconBuildings");
         
         ImproveCultibook.addBeh(new BehBuildingTargetHome());
         ImproveCultibook.addBeh(new BehGetTargetBuildingMainTile());

@@ -95,6 +95,15 @@ public static class SectPermissionRules
     }
 
     /// <summary>
+    /// 判断成员能否为指定宗门执行杂务。
+    /// </summary>
+    public static bool CanDoSectChore(this Actor actor, Sect sect)
+    {
+        return IsMemberOfSect(actor, sect)
+               && actor.HasSectPermission(SectPermissions.DoSectChore);
+    }
+
+    /// <summary>
     /// 判断成员能否任免指定宗门成员的角色。
     /// </summary>
     public static bool CanPromoteSectMember(this Actor actor, Sect sect, Actor target, SectRoleAsset role)

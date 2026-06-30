@@ -191,6 +191,8 @@ Cultiway.Sect.Permission.RecruitMember,招揽门人
 Cultiway.Sect.Permission.RecruitMember.Info,允许招揽散修加入宗门
 Cultiway.Sect.Permission.BringApprenticeToSect,带徒入宗
 Cultiway.Sect.Permission.BringApprenticeToSect.Info,允许将自己的徒弟带入宗门
+Cultiway.Sect.Permission.DoSectChore,处理杂务
+Cultiway.Sect.Permission.DoSectChore.Info,允许执行宗门杂务并积累贡献
 Cultiway.Sect.Permission.EvaluatePersonnel,评定人事
 Cultiway.Sect.Permission.EvaluatePersonnel.Info,允许执行宗门人事评定
 Cultiway.Sect.Permission.PromoteMember,任免门人

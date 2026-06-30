@@ -99,6 +99,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             true, // canAutoAssignMasterForRequirement：允许评定时自动匹配师父。
             null, // requiredMasterOfficeRole：不按师父职司限制。
             SectPermissions.BringApprenticeToSect, // requiredMasterPermission：师父需要有带徒入宗权限。
+            SectPermissions.DoSectChore, // permissions：可处理宗门杂务。
             SectPermissions.ReadBasicScripture, // permissions：可阅读基础藏书。
             SectPermissions.WriteScripture); // permissions：可撰写并贡献藏书。
 
@@ -114,6 +115,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             true, // canAutoAssignMasterForRequirement：允许评定时自动匹配师父。
             null, // requiredMasterOfficeRole：不按师父职司限制。
             SectPermissions.BringApprenticeToSect, // requiredMasterPermission：师父需要有带徒入宗权限。
+            SectPermissions.DoSectChore, // permissions：可处理宗门杂务。
             SectPermissions.ReadBasicScripture, // permissions：可阅读基础藏书。
             SectPermissions.ReadCoreScripture, // permissions：可阅读核心藏书。
             SectPermissions.WriteScripture); // permissions：可撰写并贡献藏书。

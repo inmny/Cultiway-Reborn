@@ -24,6 +24,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob ApprenticeDuty { get; private set; }
     public static ActorJob SectDuty { get; private set; }
     public static ActorJob SectStudy { get; private set; }
+    public static ActorJob SectChore { get; private set; }
     
     [GetOnly("attacker")]
     public static ActorJob Attacker { get; private set; }
@@ -108,6 +109,10 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         SectStudy.addTask(ActorTasks.StudySectScripture.id);
         SectStudy.addCondition(new CondCanStudySectScripture());
         SectStudy.addTask(ActorTasks.EndJob.id);
+
+        SectChore.addTask(ActorTasks.DoSectChore.id);
+        SectChore.addCondition(new CondCanDoSectChore());
+        SectChore.addTask(ActorTasks.EndJob.id);
         
         
         Attacker.addTask(ActorTasks.DailyXianCultivate.id);;

@@ -96,6 +96,12 @@ internal static class PatchActor
                     {
                         pool.Add(ActorJobs.SectStudy.id);
                     }
+                    if (GeneralSettings.EnableCultibookSystems
+                        && Randy.randomChance(SectConst.SectChoreJobChance)
+                        && SectChoreRules.CanDoSectChore(pActor))
+                    {
+                        pool.Add(ActorJobs.SectChore.id);
+                    }
                     
                     // ========== 师徒系统工作添加到pool ==========
                     // 1. 师傅工作：元婴期及以上才会主动收徒和教导弟子
