@@ -23,9 +23,10 @@ public static class SectPersonnelEvaluator
 
     public static SectJoinProfile EvaluateInitialRolesForRecruit(Sect sect, Actor actor)
     {
+        SectRoleAsset grade = GetBestAssignableRole(sect, actor, SectRoleSlot.Grade, true);
         return new SectJoinProfile(
-            GetBestAssignableRole(sect, actor, SectRoleSlot.Grade, true),
-            GetBestAssignableRole(sect, actor, SectRoleSlot.Office, true),
+            grade,
+            GetBestAssignableRole(sect, actor, SectRoleSlot.Office, true, grade),
             ModClass.L.SectRoleLibrary.GetDefault(SectRoleSlot.Title));
     }
 
@@ -157,6 +158,16 @@ public static class SectPersonnelEvaluator
         return left.data.id.CompareTo(right.data.id);
     }
 
+    public static bool CanMeetConfiguredRolePrerequisites(Actor actor, SectRoleAsset role, SectRoleAsset gradeOverride = null)
+    {
+        if (role == null) return false;
+        if (role.defaultForSlot) return true;
+        if (actor == null || actor.isRekt()) return false;
+
+        return MeetsRequiredGrade(actor, role, gradeOverride)
+               && MeetsRequiredPreviousOffice(actor, role);
+    }
+
     private static bool CanRecruitForSect(Sect sect, Actor recruiter)
     {
         if (recruiter == null || recruiter.isRekt()) return false;
@@ -165,13 +176,13 @@ public static class SectPersonnelEvaluator
         return recruiter.CanRecruitSectMember(sect);
     }
 
-    private static SectRoleAsset GetBestAssignableRole(Sect sect, Actor actor, SectRoleSlot slot, bool initial)
+    private static SectRoleAsset GetBestAssignableRole(Sect sect, Actor actor, SectRoleSlot slot, bool initial, SectRoleAsset gradeOverride = null)
     {
         List<SectRoleAsset> roles = ModClass.L.SectRoleLibrary.GetRoles(slot);
         for (int i = 0; i < roles.Count; i++)
         {
             SectRoleAsset role = roles[i];
-            if (CanAssignRole(sect, actor, role, initial))
+            if (CanAssignRole(sect, actor, role, initial, gradeOverride))
             {
                 return role;
             }
@@ -180,7 +191,7 @@ public static class SectPersonnelEvaluator
         return ModClass.L.SectRoleLibrary.GetDefault(slot);
     }
 
-    private static bool CanAssignRole(Sect sect, Actor actor, SectRoleAsset role, bool initial)
+    private static bool CanAssignRole(Sect sect, Actor actor, SectRoleAsset role, bool initial, SectRoleAsset gradeOverride = null)
     {
         if (role == null) return false;
         if (role.defaultForSlot) return true;
@@ -188,12 +199,38 @@ public static class SectPersonnelEvaluator
         if (initial && !role.allowInitialAssign) return false;
         if (!initial && !role.allowAutoAssign) return false;
         if (!actor.CanMeetSectRoleMasterRequirement(sect, role)) return false;
+        if (!CanMeetConfiguredRolePrerequisites(actor, role, gradeOverride)) return false;
 
         int score = initial ? GetRealmScore(actor) : EvaluateScore(sect, actor).Total;
         if (score < role.minPersonnelScore) return false;
         if (role.minCultivationLevel >= 0 && GetCultivationLevel(actor) < role.minCultivationLevel) return false;
 
         return HasAvailableRoleSlot(sect, actor, role);
+    }
+
+    private static bool MeetsRequiredGrade(Actor actor, SectRoleAsset role, SectRoleAsset gradeOverride)
+    {
+        SectRoleAsset required = GetRoleOrNull(role.requiredGradeRoleId);
+        if (required == null) return true;
+
+        SectRoleAsset current = gradeOverride ?? actor.GetSectRole(SectRoleSlot.Grade);
+        return current != null && current.order >= required.order;
+    }
+
+    private static bool MeetsRequiredPreviousOffice(Actor actor, SectRoleAsset role)
+    {
+        SectRoleAsset required = GetRoleOrNull(role.requiredPreviousOfficeRoleId);
+        if (required == null) return true;
+
+        SectRoleAsset current = actor.GetSectRole(SectRoleSlot.Office);
+        return current != null && current.id == required.id;
+    }
+
+    private static SectRoleAsset GetRoleOrNull(string roleId)
+    {
+        return string.IsNullOrEmpty(roleId) || !ModClass.L.SectRoleLibrary.has(roleId)
+            ? null
+            : ModClass.L.SectRoleLibrary.get(roleId);
     }
 
     private static bool HasAvailableRoleSlot(Sect sect, Actor actor, SectRoleAsset role)

@@ -299,6 +299,12 @@ public class Sect : MetaObject<SectData>
 
         SectRoleAsset current = actor.GetSectRole(role.slot);
         if (current != null && current.order >= role.order) return true;
+        if (!SectPersonnelEvaluator.CanMeetConfiguredRolePrerequisites(actor, role))
+        {
+            SectVerifyLog.Log("PromoteBlocked", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)} reason=role_prerequisite");
+            return false;
+        }
+
         if (!actor.EnsureSectRoleMasterRequirement(this, role))
         {
             SectVerifyLog.Log("PromoteBlocked", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)} reason=master_requirement");
@@ -481,6 +487,12 @@ public class Sect : MetaObject<SectData>
         SectRoleAsset current = actor.GetSectRole(role.slot);
         if (current == null || current.defaultForSlot || role.order > current.order)
         {
+            if (!SectPersonnelEvaluator.CanMeetConfiguredRolePrerequisites(actor, role))
+            {
+                SectVerifyLog.Log("JoinRoleBlocked", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)} reason=role_prerequisite");
+                return;
+            }
+
             if (!actor.EnsureSectRoleMasterRequirement(this, role))
             {
                 SectVerifyLog.Log("JoinRoleBlocked", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)} reason=master_requirement");

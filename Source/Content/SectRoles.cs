@@ -108,19 +108,38 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.WriteScripture);
 
         SetupOffice(NoOffice, 0, 0, true, false, false);
-        SetupOffice(Deacon, 50, 35, false, false, false);
-        SetupOffice(
+        SetupOfficeWithRequirements(
+            Deacon,
+            50,
+            35,
+            false,
+            true,
+            true,
+            false,
+            200,
+            2,
+            2,
+            8,
+            InnerDisciple,
+            null,
+            SectPermissions.ReadBasicScripture,
+            SectPermissions.ReadCoreScripture,
+            SectPermissions.WriteScripture,
+            SectPermissions.RecruitMember);
+        SetupOfficeWithRequirements(
             Elder,
             70,
             70,
             false,
             true,
-            true,
+            false,
             true,
             300,
             3,
             1,
             10,
+            null,
+            Deacon,
             SectPermissions.ReadBasicScripture,
             SectPermissions.ReadCoreScripture,
             SectPermissions.ReadHighScripture,
@@ -192,6 +211,8 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             null,
             false,
             null,
+            null,
+            null,
             permissions);
     }
 
@@ -224,6 +245,8 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             requiredMasterRelationType,
             canAutoAssignMasterForRequirement,
             requiredMasterOfficeRole,
+            null,
+            null,
             permissions);
     }
 
@@ -241,7 +264,59 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
         int membersPerExtraSlot = 0,
         params SectPermissionAsset[] permissions)
     {
-        Setup(asset, SectRoleSlot.Office, order, authority, defaultForSlot, !defaultForSlot, allowAutoAssign, allowInitialAssign, clearsGrade, minPersonnelScore, minCultivationLevel, baseSlots, membersPerExtraSlot, null, false, null, permissions);
+        SetupOfficeWithRequirements(
+            asset,
+            order,
+            authority,
+            defaultForSlot,
+            allowAutoAssign,
+            allowInitialAssign,
+            clearsGrade,
+            minPersonnelScore,
+            minCultivationLevel,
+            baseSlots,
+            membersPerExtraSlot,
+            null,
+            null,
+            permissions);
+    }
+
+    private static void SetupOfficeWithRequirements(
+        SectRoleAsset asset,
+        int order,
+        int authority,
+        bool defaultForSlot,
+        bool allowAutoAssign,
+        bool allowInitialAssign,
+        bool clearsGrade = false,
+        int minPersonnelScore = 0,
+        int minCultivationLevel = -1,
+        int baseSlots = -1,
+        int membersPerExtraSlot = 0,
+        SectRoleAsset requiredGradeRole = null,
+        SectRoleAsset requiredPreviousOfficeRole = null,
+        params SectPermissionAsset[] permissions)
+    {
+        Setup(
+            asset,
+            SectRoleSlot.Office,
+            order,
+            authority,
+            defaultForSlot,
+            !defaultForSlot,
+            allowAutoAssign,
+            allowInitialAssign,
+            clearsGrade,
+            minPersonnelScore,
+            minCultivationLevel,
+            baseSlots,
+            membersPerExtraSlot,
+            null,
+            false,
+            null,
+            requiredGradeRole,
+            requiredPreviousOfficeRole,
+            permissions);
     }
 
     private static void SetupTitle(
@@ -252,7 +327,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
         bool showInPersonnel,
         params SectPermissionAsset[] permissions)
     {
-        Setup(asset, SectRoleSlot.Title, order, authority, defaultForSlot, showInPersonnel, false, false, false, 0, -1, -1, 0, null, false, null, permissions);
+        Setup(asset, SectRoleSlot.Title, order, authority, defaultForSlot, showInPersonnel, false, false, false, 0, -1, -1, 0, null, false, null, null, null, permissions);
     }
 
     private static void SetupTitleWithMasterRequirement(
@@ -266,7 +341,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
         SectRoleAsset requiredMasterOfficeRole,
         params SectPermissionAsset[] permissions)
     {
-        Setup(asset, SectRoleSlot.Title, order, authority, defaultForSlot, showInPersonnel, false, false, false, 0, -1, -1, 0, requiredMasterRelationType, canAutoAssignMasterForRequirement, requiredMasterOfficeRole, permissions);
+        Setup(asset, SectRoleSlot.Title, order, authority, defaultForSlot, showInPersonnel, false, false, false, 0, -1, -1, 0, requiredMasterRelationType, canAutoAssignMasterForRequirement, requiredMasterOfficeRole, null, null, permissions);
     }
 
     private static void Setup(
@@ -286,6 +361,8 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
         MasterApprenticeTypeAsset requiredMasterRelationType,
         bool canAutoAssignMasterForRequirement,
         SectRoleAsset requiredMasterOfficeRole,
+        SectRoleAsset requiredGradeRole,
+        SectRoleAsset requiredPreviousOfficeRole,
         params SectPermissionAsset[] permissions)
     {
         asset.slot = slot;
@@ -305,6 +382,8 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
         asset.requiredMasterRelationTypeId = requiredMasterRelationType?.id;
         asset.canAutoAssignMasterForRequirement = canAutoAssignMasterForRequirement;
         asset.requiredMasterOfficeRoleId = requiredMasterOfficeRole?.id;
+        asset.requiredGradeRoleId = requiredGradeRole?.id;
+        asset.requiredPreviousOfficeRoleId = requiredPreviousOfficeRole?.id;
         asset.permissionIds = new List<string>();
         for (int i = 0; i < permissions.Length; i++)
         {

@@ -105,6 +105,16 @@ public class SectRoleAsset : Asset
     public string requiredMasterOfficeRoleId;
 
     /// <summary>
+    /// 授予该角色时要求成员至少拥有的门阶角色 id；为空表示无门阶要求。
+    /// </summary>
+    public string requiredGradeRoleId;
+
+    /// <summary>
+    /// 授予该角色时要求成员当前拥有的前置职司角色 id；为空表示无前置职司要求。
+    /// </summary>
+    public string requiredPreviousOfficeRoleId;
+
+    /// <summary>
     /// 获取角色的本地化名称。
     /// </summary>
     public string GetName()
