@@ -87,16 +87,11 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         CultibookResearcher.addCondition(new CondHasYuanying());
         CultibookResearcher.addTask(ActorTasks.EndJob.id);
 
-        BookWriter.addTask(ActorTasks.WriteCultibook.id);
-        BookWriter.addCondition(new CondHasCultibook());
-        BookWriter.addTask(ActorTasks.WriteElixirbook.id);
-        BookWriter.addCondition(new CondHasElixirRecipe());
-        BookWriter.addTask(ActorTasks.WriteSkillbook.id);
-        BookWriter.addCondition(new CondHasSkill());
-        for (int i = 0; i < BookWriter.tasks.Count; i++)
-        {
-            BookWriter.tasks[i].addCondition(new CondProb(1 - (i + 1f) / BookWriter.tasks.Count), true);
-        }
+        AddSequentialEqualChanceTasks(
+            BookWriter,
+            new EqualChanceTaskOption(ActorTasks.WriteCultibook.id, new CondHasCultibook()),
+            new EqualChanceTaskOption(ActorTasks.WriteElixirbook.id, new CondHasElixirRecipe()),
+            new EqualChanceTaskOption(ActorTasks.WriteSkillbook.id, new CondHasSkill()));
         BookWriter.addTask(ActorTasks.EndJob.id);
         
         SectBuilder.addTask(ActorTasks.BuildSect.id);
@@ -143,5 +138,32 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         ApprenticeDuty.addCondition(new CondNeedMaster());
         ApprenticeDuty.addCondition(new CondHasMaster(), false);
         ApprenticeDuty.addTask(ActorTasks.EndJob.id);
+    }
+
+    private static void AddSequentialEqualChanceTasks(ActorJob job, params EqualChanceTaskOption[] options)
+    {
+        for (int i = 0; i < options.Length; i++)
+        {
+            job.addTask(options[i].TaskId);
+            job.addCondition(options[i].Condition);
+
+            int remaining = options.Length - i;
+            if (remaining > 1)
+            {
+                job.addCondition(new CondProb(1f / remaining));
+            }
+        }
+    }
+
+    private readonly struct EqualChanceTaskOption
+    {
+        public EqualChanceTaskOption(string taskId, BehaviourActorCondition condition)
+        {
+            TaskId = taskId;
+            Condition = condition;
+        }
+
+        public string TaskId { get; }
+        public BehaviourActorCondition Condition { get; }
     }
 }
