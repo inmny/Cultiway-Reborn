@@ -364,23 +364,25 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         };
     }
 
-    // ========== 修建城墙谋划（内墙 → 外墙 → 要塞 三阶段渐进） ==========
-    private const int   WALL_MIN_ZONES             = 6;    // 城市至少 6 个 zone 才考虑修墙
-    private const int   WALL_CIRCLE_ZONE_THRESHOLD = 300;  // zone 数 ≥ 300 的大城用圆形，否则方形
-    private const float WALL_REBUILD_RATIO         = 0.3f; // 现存城墙低于完整圈的 30% 视为"被摧毁"，允许重修
-    private const int   WALL_TOWER_INTERVAL        = 10;   // 沿城墙每隔多少格放置一座防御箭塔
+    // ========== 修建城墙谋划（矩形包围盒，内墙 → 外墙 → 要塞 三阶段渐进） ==========
+    private const int   WALL_MIN_ZONES      = 6;    // 城市至少 6 个 zone 才考虑修墙
+    private const int   WALL_MARGIN         = 3;    // 内墙在所有建筑之外的余量
+    private const int   WALL_SPACING        = 6;    // 外墙比内墙每边大多少
+    private const float WALL_REBUILD_RATIO  = 0.3f; // 现存城墙低于完整圈的 30% 视为"被摧毁"，允许重修
+    private const int   WALL_TOWER_INTERVAL = 10;   // 沿城墙每隔多少格放置一座防御箭塔
 
     private const int WALL_STAGE_NONE     = 0; // 无墙
     private const int WALL_STAGE_INNER    = 1; // 仅内墙（木墙，宽1）
-    private const int WALL_STAGE_BOTH     = 2; // 内墙（石墙，宽2）+ 外墙（木墙，宽1）+ 出入口箭塔
+    private const int WALL_STAGE_BOTH     = 2; // 内墙（石墙，宽2）+ 外墙（木墙，宽1）
     private const int WALL_STAGE_FORTRESS = 3; // 内墙（石墙，宽2）+ 外墙（石墙，宽2）
 
     /// <summary>
-    /// 配置"修筑城墙"谋划：城市领袖/国王在城市达到一定规模后自主发起，分三阶段修筑：
-    /// 1) 初次：生成一圈<b>木墙</b>包围城市全部领土（宽度1）；
-    /// 2) 二次（已有内墙）：把内墙<b>原位替换为石墙、宽度2</b>，并在距内墙一个内墙直径处
-    ///    （r_outer = 3×r_inner）再加一圈<b>木墙外墙</b>，内外墙每个出入口各放一座<b>种族箭塔</b>守门；
-    /// 3) 三次（已有内外墙）：内墙保持<b>石墙</b>（宽2），外墙升级为<b>石墙、宽度2</b>。
+    /// 配置"修筑城墙"谋划：城市领袖/国王在城市达到一定规模后自主发起，分三阶段修筑。
+    /// 城墙为<b>矩形</b>，以城市全部建筑的包围盒为中心、各边外扩 <see cref="WALL_MARGIN"/>，确保包围所有建筑；
+    /// 4 条边中点附近各留一个出入口通道（无箭塔）。木墙阶段（初次）记录 bounds，此后<b>固定不随城市扩张变化</b>。
+    /// 1) 初次：内墙 = 木墙（宽1，无箭塔）。
+    /// 2) 二次：内墙升级为石墙（宽2，内侧间隔箭塔）+ 外墙 = 木墙（宽1，内墙外 <see cref="WALL_SPACING"/>）。
+    /// 3) 三次：内墙石墙（宽2）+ 外墙升级为石墙（宽2，内侧间隔箭塔）。
     /// 最终阶段任一城墙被摧毁大半后可重新谋划重建。
     /// </summary>
     private static void SetupBuildCityWallPlot(PlotAsset plot, string icon)
@@ -406,54 +408,44 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         plot.action = a =>
         {
             if (!a.hasCity()) return false;
-            var city    = a.city;
-            int stage   = GetWallStage(city);
-            bool circle = city.zones.Count >= WALL_CIRCLE_ZONE_THRESHOLD;
-            int rInner;
-            int rOuter;
+            var city  = a.city;
+            int stage = GetWallStage(city);
+            // 木墙阶段（初次）记录内墙 bounds，此后固定不随城市扩张变化
+            var inner = (stage == WALL_STAGE_NONE) ? EnsureInnerBounds(city) : GetInnerBounds(city);
+            var outer = OuterBounds(city);
+            if (inner == null || outer == null) return false;
             if (stage == WALL_STAGE_NONE)
             {
-                // 初次：一圈木墙包围全部领土（宽度1，半径=全领地）；记录半径，此后固定不随城市扩张变化
-                rInner = WallShapeHelper.InnerRadius(city);
-                PlaceWallRing(a, circle, rInner, 1, TopTileLibrary.wall_wild, 0); // 木墙阶段不生成间隔箭塔
-                SetInnerRadius(city, rInner);
+                // 初次：内墙 = 木墙（宽1，无箭塔）
+                PlaceWallRing(a, inner.Value, 1, TopTileLibrary.wall_wild, 0);
                 SetWallStage(city, WALL_STAGE_INNER);
+            }
+            else if (stage == WALL_STAGE_INNER)
+            {
+                // 二次：内墙升级石墙（宽2，内侧间隔箭塔）+ 外墙木墙（宽1，拆旧外墙再建）
+                PlaceWallRing(a, inner.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
+                ReplaceOuterWall(a, outer.Value, 1, TopTileLibrary.wall_wild, 0);
+                SetWallStage(city, WALL_STAGE_BOTH);
             }
             else
             {
-                // 内墙半径用建墙时记录的值（原位，不随城市扩张漂移）
-                rInner = GetCurrentInnerRadius(city);
-                rOuter = WallShapeHelper.OuterRadiusFromInner(rInner);
-                if (stage == WALL_STAGE_INNER)
-                {
-                    // 二次：内墙原位替换为石墙、宽度2；外墙(3r)木墙宽1；内外墙出入口各放一座种族箭塔守门
-                    PlaceWallRing(a, circle, rInner, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
-                    PlaceWallRing(a, circle, rOuter, 1, TopTileLibrary.wall_wild, 0); // 外墙木墙不放箭塔
-                    PlaceExitTowers(a, circle, rInner);
-                    PlaceExitTowers(a, circle, rOuter);
-                    SetWallStage(city, WALL_STAGE_BOTH);
-                }
-                else
-                {
-                    // 三次(stage 2→3) 或 被毁重建(stage 3)：内墙保持石墙、宽度2；外墙升级为石墙、宽度2
-                    PlaceWallRing(a, circle, rInner, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
-                    PlaceWallRing(a, circle, rOuter, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
-                    SetWallStage(city, WALL_STAGE_FORTRESS);
-                }
+                // 三次(stage 2→3) 或 被毁重建(stage 3)：内墙石墙宽2 + 外墙石墙宽2（拆旧外墙再建）
+                PlaceWallRing(a, inner.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
+                ReplaceOuterWall(a, outer.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
+                SetWallStage(city, WALL_STAGE_FORTRESS);
             }
             return true;
         };
     }
 
     /// <summary>
-    /// 放置一圈城墙：生成 ring → 直接设置城墙 top_tile（不拆除建筑、不改变城市 zones）。
-    /// <b>箭塔只在两格宽石墙(wall_order)的内侧圈、按 towerInterval 间距放置</b>；出入口箭塔由 PlaceExitTowers 单独处理。
+    /// 放置矩形城墙：生成 ring → 直接设置城墙 top_tile（不拆除建筑、不改变城市 zones）。
+    /// <b>箭塔只在两格宽石墙(wall_order)的内侧圈、按 towerInterval 间距放置</b>（木墙/单格墙都不放）。
     /// </summary>
-    private static void PlaceWallRing(Actor actor, bool circle, int radius, int width, TopTileType wall, int towerInterval)
+    private static void PlaceWallRing(Actor actor, WallShapeHelper.Bounds b, int width, TopTileType wall, int towerInterval)
     {
         var city = actor.city;
-        var ring = WallShapeHelper.ComputeWallRing(city, circle, radius, width);
-        if (ring == null) return;
+        var ring = WallShapeHelper.ComputeWallRing(b, width);
         foreach (var tile in ring)
         {
             // 直接设置城墙 top_tile；不用 MapAction.terraformTop（它会摧毁路径建筑，导致城市 zone 被放弃），
@@ -461,53 +453,19 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             tile.setTopTileType(wall);
         }
 
-        // 箭塔只在"两格宽石墙(wall_order)"的内侧圈、按 towerInterval 间距放置（木墙/单格墙都不放）
+        // 箭塔只在"两格宽石墙(wall_order)"的内侧圈、按 towerInterval 间距放置
         if (towerInterval > 0 && width >= 2 && wall == TopTileLibrary.wall_order)
         {
             string tower_id = GetWatchTowerId(city);
-            var inner = WallShapeHelper.ComputeWallRing(city, circle, radius, 1); // 内侧圈
+            var inner = WallShapeHelper.ComputeWallRing(b, 1); // 内侧圈
             for (int i = 0; i < inner.Count; i += towerInterval)
             {
                 var tile = inner[i];
                 if (tile.building != null) continue;
-                var b = World.world.buildings.addBuilding(tower_id, tile);
-                ModClass.LogInfo($"Place tower(id: {b.data.id}), its kingdom: null?{b.kingdom==null}, id?{b.kingdom?.id}, asset:{b.kingdom?.asset.id}");
+                var bb = World.world.buildings.addBuilding(tower_id, tile);
+                ModClass.LogInfo($"Place tower(id: {bb.data.id}), its kingdom: null?{bb.kingdom==null}, id?{bb.kingdom?.id}, asset:{bb.kingdom?.asset.id}");
             }
         }
-    }
-
-    /// <summary>在城墙出入口处放置种族箭塔守门；箭塔放在缺口<b>外侧</b>（背离圆心方向），让两格缺口保持畅通。</summary>
-    private static void PlaceExitTowers(Actor actor, bool circle, int radius)
-    {
-        var city = actor.city;
-        var center = city.getTile();
-        var exits = WallShapeHelper.ComputeExitTiles(city, circle, radius);
-        if (exits == null) return;
-        string tower_id = GetWatchTowerId(city);
-        foreach (var tile in exits)
-        {
-            if (tile == null) continue;
-            var spot = FindOutwardLand(tile, center);
-            if (spot == null || spot.building != null) continue; // 已有建筑则跳过（不拆除，避免改变城市 zones）
-            World.world.buildings.addBuilding(tower_id, spot);
-        }
-    }
-
-    /// <summary>取 tile 最背离圆心的陆地邻居（用于把箭塔放到缺口外侧、不阻挡通行）；无合适邻居则返回原 tile。</summary>
-    private static WorldTile FindOutwardLand(WorldTile t, WorldTile center)
-    {
-        if (t == null) return null;
-        if (center == null) return t;
-        int cx = center.x, cy = center.y;
-        WorldTile best = t;
-        int bestDist = (t.x - cx) * (t.x - cx) + (t.y - cy) * (t.y - cy);
-        foreach (var n in t.neighbours)
-        {
-            if (n == null || n.IsWater()) continue;
-            int d = (n.x - cx) * (n.x - cx) + (n.y - cy) * (n.y - cy);
-            if (d > bestDist) { bestDist = d; best = n; }
-        }
-        return best;
     }
 
     /// <summary>按城市种族选取箭塔 id（watch_tower_human/orc/elf/dwarf），无对应样式则回退人类。</summary>
@@ -529,16 +487,16 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         return !WallsIntact(city); // 已建成要塞：任一城墙被摧毁大半即可重建
     }
 
-    /// <summary>内墙与外墙是否都基本完好（现存比例均 ≥ 阈值）。</summary>
+    /// <summary>内墙与外墙是否都基本完好（现存比例均 ≥ 阈值）。用记录的（固定）bounds 检测。</summary>
     private static bool WallsIntact(City city)
     {
         if (city == null) return false;
-        bool circle = city.zones.Count >= WALL_CIRCLE_ZONE_THRESHOLD;
-        int rInner  = GetCurrentInnerRadius(city);
-        int rOuter  = WallShapeHelper.OuterRadiusFromInner(rInner);
-        float inner = WallShapeHelper.ExistingWallRatio(city, circle, rInner, 2);
-        float outer = WallShapeHelper.ExistingWallRatio(city, circle, rOuter, 2);
-        return inner >= WALL_REBUILD_RATIO && outer >= WALL_REBUILD_RATIO;
+        var inner = GetInnerBounds(city);
+        var outer = OuterBounds(city);
+        if (inner == null || outer == null) return false;
+        float innerRatio = WallShapeHelper.ExistingWallRatio(inner.Value, 2);
+        float outerRatio = WallShapeHelper.ExistingWallRatio(outer.Value, 2);
+        return innerRatio >= WALL_REBUILD_RATIO && outerRatio >= WALL_REBUILD_RATIO;
     }
 
     private static int GetWallStage(City city)
@@ -554,23 +512,96 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         city.data.set(ContentCityDataKeys.CityWallStage_int, stage);
     }
 
-    /// <summary>
-    /// 取得当前应使用的内墙半径：已建过墙(stage≥1)则用建墙时记录的值（固定，不随城市扩张变化），否则按当前规模计算。
-    /// </summary>
-    private static int GetCurrentInnerRadius(City city)
+    /// <summary>取得记录的内墙 bounds（固定，木墙阶段建墙时记录）；无记录返回 null。</summary>
+    private static WallShapeHelper.Bounds? GetInnerBounds(City city)
     {
-        if (city?.data != null)
-        {
-            city.data.get(ContentCityDataKeys.CityWallInnerRadius_int, out int stored, 0);
-            if (stored > 0) return stored;
-        }
-        return WallShapeHelper.InnerRadius(city);
+        if (city?.data == null) return null;
+        city.data.get(ContentCityDataKeys.CityWallInnerHX_int, out int hx, 0);
+        city.data.get(ContentCityDataKeys.CityWallInnerHY_int, out int hy, 0);
+        if (hx <= 0 || hy <= 0) return null;
+        city.data.get(ContentCityDataKeys.CityWallInnerCX_int, out int cx, 0);
+        city.data.get(ContentCityDataKeys.CityWallInnerCY_int, out int cy, 0);
+        return new WallShapeHelper.Bounds { cx = cx, cy = cy, hx = hx, hy = hy };
     }
 
-    private static void SetInnerRadius(City city, int radius)
+    /// <summary>记录内墙 bounds 到 city.data。</summary>
+    private static void SetInnerBounds(City city, WallShapeHelper.Bounds b)
     {
         if (city?.data == null) return;
-        city.data.set(ContentCityDataKeys.CityWallInnerRadius_int, radius);
+        city.data.set(ContentCityDataKeys.CityWallInnerCX_int, b.cx);
+        city.data.set(ContentCityDataKeys.CityWallInnerCY_int, b.cy);
+        city.data.set(ContentCityDataKeys.CityWallInnerHX_int, b.hx);
+        city.data.set(ContentCityDataKeys.CityWallInnerHY_int, b.hy);
+    }
+
+    /// <summary>确保内墙 bounds 已记录：已记录则返回，否则按当前建筑包围盒 + MARGIN 计算并记录。</summary>
+    private static WallShapeHelper.Bounds? EnsureInnerBounds(City city)
+    {
+        var stored = GetInnerBounds(city);
+        if (stored != null) return stored;
+        var bb = WallShapeHelper.GetBuildingsBounds(city);
+        if (bb == null) return null;
+        var inner = new WallShapeHelper.Bounds
+        {
+            cx = bb.Value.cx, cy = bb.Value.cy,
+            hx = bb.Value.hx + WALL_MARGIN, hy = bb.Value.hy + WALL_MARGIN
+        };
+        SetInnerBounds(city, inner);
+        return inner;
+    }
+
+    /// <summary>外墙 bounds：按<b>当前建筑包围盒</b>动态计算（各边外扩 MARGIN+SPACING），与内墙中心可不同。</summary>
+    private static WallShapeHelper.Bounds? OuterBounds(City city)
+    {
+        var bb = WallShapeHelper.GetBuildingsBounds(city);
+        if (bb == null) return null;
+        return new WallShapeHelper.Bounds
+        {
+            cx = bb.Value.cx, cy = bb.Value.cy,
+            hx = bb.Value.hx + WALL_MARGIN + WALL_SPACING, hy = bb.Value.hy + WALL_MARGIN + WALL_SPACING
+        };
+    }
+
+    /// <summary>替换外墙：先拆除上一轮记录的旧外墙，再按新 bounds 建外墙，并记录新 bounds。</summary>
+    private static void ReplaceOuterWall(Actor actor, WallShapeHelper.Bounds b, int width, TopTileType wall, int towerInterval)
+    {
+        var city = actor.city;
+        var old = GetOuterBounds(city);
+        if (old != null) RemoveWallRing(old.Value); // 拆除旧外墙（2 圈覆盖宽1/宽2）
+        PlaceWallRing(actor, b, width, wall, towerInterval);
+        SetOuterBounds(city, b); // 记录新外墙 bounds
+    }
+
+    /// <summary>清除给定 bounds 上的城墙 top_tile（不拆建筑、不动地形）。用于拆除上一轮旧外墙。</summary>
+    private static void RemoveWallRing(WallShapeHelper.Bounds b)
+    {
+        foreach (var tile in WallShapeHelper.ComputeWallRing(b, 2)) // 2 圈覆盖旧外墙宽度
+        {
+            if (tile != null && tile.top_type != null && tile.top_type.wall)
+                tile.setTopTileType(null);
+        }
+    }
+
+    /// <summary>取得记录的外墙 bounds；无记录返回 null。</summary>
+    private static WallShapeHelper.Bounds? GetOuterBounds(City city)
+    {
+        if (city?.data == null) return null;
+        city.data.get(ContentCityDataKeys.CityWallOuterHX_int, out int hx, 0);
+        city.data.get(ContentCityDataKeys.CityWallOuterHY_int, out int hy, 0);
+        if (hx <= 0 || hy <= 0) return null;
+        city.data.get(ContentCityDataKeys.CityWallOuterCX_int, out int cx, 0);
+        city.data.get(ContentCityDataKeys.CityWallOuterCY_int, out int cy, 0);
+        return new WallShapeHelper.Bounds { cx = cx, cy = cy, hx = hx, hy = hy };
+    }
+
+    /// <summary>记录外墙 bounds 到 city.data。</summary>
+    private static void SetOuterBounds(City city, WallShapeHelper.Bounds b)
+    {
+        if (city?.data == null) return;
+        city.data.set(ContentCityDataKeys.CityWallOuterCX_int, b.cx);
+        city.data.set(ContentCityDataKeys.CityWallOuterCY_int, b.cy);
+        city.data.set(ContentCityDataKeys.CityWallOuterHX_int, b.hx);
+        city.data.set(ContentCityDataKeys.CityWallOuterHY_int, b.hy);
     }
 
     private static WorldTile FindTileForTower(City city, BuildingAsset asset)
