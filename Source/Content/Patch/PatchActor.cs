@@ -97,10 +97,10 @@ internal static class PatchActor
                         pool.Add(ActorJobs.SectStudy.id);
                     }
                     if (GeneralSettings.EnableCultibookSystems
-                        && Randy.randomChance(SectConst.SectChoreJobChance)
-                        && SectChoreRules.CanDoSectChore(pActor))
+                        && Randy.randomChance(SectConst.SectAffairJobChance)
+                        && SectAffairRules.CanDoAnySectAffair(pActor))
                     {
-                        pool.Add(ActorJobs.SectChore.id);
+                        pool.Add(ActorJobs.SectAffair.id);
                     }
                     
                     // ========== 师徒系统工作添加到pool ==========

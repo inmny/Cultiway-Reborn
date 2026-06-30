@@ -47,6 +47,7 @@ public class SectPage : MonoBehaviour
         sb.AppendLine($"称谓: {actor.GetSectRoleSummary()}");
         sb.AppendLine($"门阶: {GetRoleName(actor.GetSectRole(SectRoleSlot.Grade))}  职司: {GetRoleName(actor.GetSectRole(SectRoleSlot.Office))}  头衔: {GetRoleName(actor.GetSectRole(SectRoleSlot.Title))}");
         sb.AppendLine($"人事评分: {score.Total} (境界 {score.Realm} / 资历 {score.Tenure} / 贡献 {score.Contribution})");
+        sb.AppendLine($"可用贡献: {actor.GetAvailableSectContribution()} / 累计 {actor.GetSectContribution()}");
         sb.AppendLine($"等级: {sect.data.Level}");
         sb.AppendLine($"声望: {sect.data.Reputation}");
         sb.AppendLine();

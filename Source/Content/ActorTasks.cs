@@ -32,6 +32,8 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor RecruitSectMember { get; private set; }
     public static BehaviourTaskActor StudySectScripture { get; private set; }
     public static BehaviourTaskActor DoSectChore { get; private set; }
+    public static BehaviourTaskActor OrganizeSectScripture { get; private set; }
+    public static BehaviourTaskActor LectureSectCultibook { get; private set; }
     
     // 师徒系统任务
     public static BehaviourTaskActor RecruitApprentice { get; private set; }
@@ -189,6 +191,30 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         DoSectChore.addBeh(new BehDoSectChore());
         DoSectChore.addBeh(new BehEndJob());
         DoSectChore.setIcon("ui/icons/iconBuildings");
+
+        OrganizeSectScripture.force_hand_tool = "book";
+        OrganizeSectScripture.cancellable_by_reproduction = true;
+        OrganizeSectScripture.cancellable_by_socialize = true;
+        OrganizeSectScripture.addBeh(new BehBuildingTargetHome());
+        OrganizeSectScripture.addBeh(new BehGetTargetBuildingMainTile());
+        OrganizeSectScripture.addBeh(new BehGoToTileTarget());
+        OrganizeSectScripture.addBeh(new BehStayInBuildingTarget(TimeScales.SecPerMonth, TimeScales.SecPerMonth * 2));
+        OrganizeSectScripture.addBeh(new BehOrganizeSectScripture());
+        OrganizeSectScripture.addBeh(new BehExitBuilding());
+        OrganizeSectScripture.addBeh(new BehEndJob());
+        OrganizeSectScripture.setIcon("ui/icons/iconBooks");
+
+        LectureSectCultibook.force_hand_tool = "book";
+        LectureSectCultibook.cancellable_by_reproduction = true;
+        LectureSectCultibook.cancellable_by_socialize = true;
+        LectureSectCultibook.addBeh(new BehBuildingTargetHome());
+        LectureSectCultibook.addBeh(new BehGetTargetBuildingMainTile());
+        LectureSectCultibook.addBeh(new BehGoToTileTarget());
+        LectureSectCultibook.addBeh(new BehStayInBuildingTarget(TimeScales.SecPerMonth, TimeScales.SecPerMonth * 2));
+        LectureSectCultibook.addBeh(new BehLectureSectCultibook());
+        LectureSectCultibook.addBeh(new BehExitBuilding());
+        LectureSectCultibook.addBeh(new BehEndJob());
+        LectureSectCultibook.setIcon("cultiway/icons/iconCultivation");
         
         ImproveCultibook.addBeh(new BehBuildingTargetHome());
         ImproveCultibook.addBeh(new BehGetTargetBuildingMainTile());

@@ -4,7 +4,7 @@ using Cultiway.Content.Behaviours.Conditions;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(ActorTasks))]
+[Dependency(typeof(ActorTasks), typeof(SectAffairs))]
 public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
 {
     public static ActorJob XianCultivator      { get; private set; }
@@ -25,6 +25,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob SectDuty { get; private set; }
     public static ActorJob SectStudy { get; private set; }
     public static ActorJob SectChore { get; private set; }
+    public static ActorJob SectAffair { get; private set; }
     
     [GetOnly("attacker")]
     public static ActorJob Attacker { get; private set; }
@@ -113,6 +114,14 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         SectChore.addTask(ActorTasks.DoSectChore.id);
         SectChore.addCondition(new CondCanDoSectChore());
         SectChore.addTask(ActorTasks.EndJob.id);
+
+        SectAffair.addTask(ActorTasks.LectureSectCultibook.id);
+        SectAffair.addCondition(new CondCanDoSectAffair(SectAffairs.LectureCultibook.id));
+        SectAffair.addTask(ActorTasks.OrganizeSectScripture.id);
+        SectAffair.addCondition(new CondCanDoSectAffair(SectAffairs.OrganizeScripture.id));
+        SectAffair.addTask(ActorTasks.DoSectChore.id);
+        SectAffair.addCondition(new CondCanDoSectAffair(SectAffairs.Chore.id));
+        SectAffair.addTask(ActorTasks.EndJob.id);
         
         
         Attacker.addTask(ActorTasks.DailyXianCultivate.id);;

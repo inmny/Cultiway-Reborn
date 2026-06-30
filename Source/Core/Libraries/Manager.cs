@@ -18,6 +18,7 @@ public class Manager
     public MasterApprenticeTypeLibrary MasterApprenticeTypeLibrary { get; } = new();
     public SectPermissionLibrary SectPermissionLibrary { get; } = new();
     public SectRoleLibrary SectRoleLibrary { get; } = new();
+    public SectAffairLibrary SectAffairLibrary { get; } = new();
 
     public void Init()
     {
@@ -37,6 +38,7 @@ public class Manager
         AssetManager._instance.add(MasterApprenticeTypeLibrary, "master_apprentice_types");
         AssetManager._instance.add(SectPermissionLibrary, "sect_permissions");
         AssetManager._instance.add(SectRoleLibrary, "sect_roles");
+        AssetManager._instance.add(SectAffairLibrary, "sect_affairs");
     }
 
     public void LinkAssets()
@@ -57,6 +59,7 @@ public class Manager
         MasterApprenticeTypeLibrary.linkAssets();
         SectPermissionLibrary.linkAssets();
         SectRoleLibrary.linkAssets();
+        SectAffairLibrary.linkAssets();
     }
     public void PostInit()
     {
@@ -76,5 +79,6 @@ public class Manager
         MasterApprenticeTypeLibrary.post_init();
         SectPermissionLibrary.post_init();
         SectRoleLibrary.post_init();
+        SectAffairLibrary.post_init();
     }
 }

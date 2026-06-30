@@ -146,7 +146,23 @@ public static class CultiLog
     public static void Emit(CultiLogEventDef def, CultiLogArgs args = null, long actorId = -1, long targetId = -1,
         long entityId = -1, int x = int.MinValue, int y = int.MinValue)
     {
-        if (!IsEnabled(def)) return;
+        EmitCore(def, args, actorId, targetId, entityId, x, y, false);
+    }
+
+    private static void EmitWhenLogEnabled(CultiLogEventDef def, CultiLogArgs args = null, long actorId = -1,
+        long targetId = -1, long entityId = -1, int x = int.MinValue, int y = int.MinValue)
+    {
+        EmitCore(def, args, actorId, targetId, entityId, x, y, true);
+    }
+
+    private static void EmitCore(CultiLogEventDef def, CultiLogArgs args, long actorId, long targetId, long entityId,
+        int x, int y, bool ignoreEventFilters)
+    {
+        if (ignoreEventFilters)
+        {
+            if (!_enabled || def == null) return;
+        }
+        else if (!IsEnabled(def)) return;
 
         int queued = Interlocked.Increment(ref _queuedCount);
         if (queued > _maxBacklog)
@@ -207,11 +223,11 @@ public static class CultiLog
 
     public static class Combat
     {
-        public static bool DamageResolvedEnabled => IsEnabled(CultiLogEvents.Combat.DamageResolved);
+        public static bool DamageResolvedEnabled => Enabled;
 
         public static void DamageResolved(string message, long targetId, long attackerId)
         {
-            Emit(
+            EmitWhenLogEnabled(
                 CultiLogEvents.Combat.DamageResolved,
                 Args(1).Str("message", message).Build(),
                 targetId,

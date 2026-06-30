@@ -10,6 +10,7 @@ public static class ActorDataKeys
     public const string SectTitleId_String = "cw_sect_title_id";
     public const string SectJoinTime_Float = "cw_sect_join_time";
     public const string SectContribution_Int = "cw_sect_contribution";
+    public const string SectContributionSpent_Int = "cw_sect_contribution_spent";
     public const string SourceSpawnerId_String = "cw_source_spawner_id";
     public const string SourceSpawnerId_Long = "cw_source_spawner_id";
 }

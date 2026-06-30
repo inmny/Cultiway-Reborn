@@ -61,7 +61,8 @@ public static class SectScriptureStudyRules
                 break;
             }
 
-            SectVerifyLog.Log("PickStudyBook", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} candidates={candidates.Count} picked={SectVerifyLog.Book(book)} score={pickedScore:F1}");
+            int cost = actor.GetSectScriptureReadCost(book);
+            SectVerifyLog.Log("PickStudyBook", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} candidates={candidates.Count} picked={SectVerifyLog.Book(book)} score={pickedScore:F1} cost={cost} available={actor.GetAvailableSectContribution()}");
         }
         return book != null;
     }
@@ -74,7 +75,6 @@ public static class SectScriptureStudyRules
 
         ActorExtend ae = actor.GetExtend();
         if (!ae.HasCultisys<Xian>()) return false;
-        if (!actor.HasAnySectScriptureReadPermission()) return false;
 
         Sect sect = ae.sect;
         return sect != null && !sect.isRekt() && sect.GetScriptureBookIds().Count > 0;
@@ -86,7 +86,8 @@ public static class SectScriptureStudyRules
         if (!book.isReadyToBeRead()) return false;
         if (!actor.hasTag("can_read_any_book") && (!actor.hasLanguage() || book.data.language_id != actor.language.id)) return false;
 
-        return actor.CanReadSectScriptureBook(book);
+        return actor.CanAccessSectScriptureBook(book)
+               && actor.CanAffordSectScriptureRead(book);
     }
 
     private static float GetStudyScore(Actor actor, ActorExtend ae, Sect sect, Book book)

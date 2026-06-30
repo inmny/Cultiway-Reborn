@@ -46,8 +46,7 @@ public static class CombatDamageDebug
 
     public static bool ShouldLog(ActorExtend target, BaseSimObject attacker)
     {
-        if (!Enabled || !CultiLog.Combat.DamageResolvedEnabled || target?.Base == null) return false;
-        if (!FavoriteUnitsOnly) return true;
+        if (!CultiLog.Combat.DamageResolvedEnabled || target?.Base == null) return false;
         if (target.Base.isFavorite()) return true;
         return attacker != null && !attacker.isRekt() && attacker.isActor() && attacker.a.isFavorite();
     }
