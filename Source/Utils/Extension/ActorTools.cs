@@ -175,6 +175,23 @@ public static class ActorTools
         return contribution;
     }
 
+    /// <summary>
+    /// 获取单位已消耗的宗门贡献。
+    /// </summary>
+    public static int GetSpentSectContribution(this Actor actor)
+    {
+        actor.data.get(ActorDataKeys.SectContributionSpent_Int, out int contribution, 0);
+        return contribution;
+    }
+
+    /// <summary>
+    /// 获取单位当前可用于消费的宗门贡献。
+    /// </summary>
+    public static int GetAvailableSectContribution(this Actor actor)
+    {
+        return Mathf.Max(0, actor.GetSectContribution() - actor.GetSpentSectContribution());
+    }
+
     public static void AddSectContribution(this Actor actor, int contribution)
     {
         if (contribution <= 0) return;
@@ -182,9 +199,23 @@ public static class ActorTools
         actor.data.set(ActorDataKeys.SectContribution_Int, actor.GetSectContribution() + contribution);
     }
 
+    /// <summary>
+    /// 消耗单位的可用宗门贡献，不影响累计贡献。
+    /// </summary>
+    public static bool TrySpendSectContribution(this Actor actor, int contribution)
+    {
+        if (actor == null || actor.isRekt()) return false;
+        if (contribution <= 0) return true;
+        if (actor.GetAvailableSectContribution() < contribution) return false;
+
+        actor.data.set(ActorDataKeys.SectContributionSpent_Int, actor.GetSpentSectContribution() + contribution);
+        return true;
+    }
+
     public static void ClearSectContribution(this Actor actor)
     {
         actor.data.removeInt(ActorDataKeys.SectContribution_Int);
+        actor.data.removeInt(ActorDataKeys.SectContributionSpent_Int);
     }
 
     public static string GetSourceSpawnerAssetId(this Actor actor)

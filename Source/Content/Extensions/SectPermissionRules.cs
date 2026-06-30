@@ -6,6 +6,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
+using UnityEngine;
 
 namespace Cultiway.Content.Extensions;
 
@@ -25,18 +26,61 @@ public static class SectPermissionRules
     }
 
     /// <summary>
-    /// 判断成员能否研读指定宗门藏书。
+    /// 判断成员能否接触指定宗门藏书；权限不足不再硬锁，后续由贡献消耗处理。
     /// </summary>
-    public static bool CanReadSectScriptureBook(this Actor actor, Book book)
+    public static bool CanAccessSectScriptureBook(this Actor actor, Book book)
     {
         if (actor == null || actor.isRekt()) return false;
         if (book == null || book.isRekt()) return false;
 
         Sect sect = actor.GetExtend().sect;
-        if (sect == null || sect.isRekt()) return false;
-        if (!ContainsScriptureBook(sect, book)) return false;
+        return IsMemberOfSect(actor, sect) && ContainsScriptureBook(sect, book);
+    }
 
-        return actor.HasSectPermission(GetReadPermission(book));
+    /// <summary>
+    /// 判断成员是否在权限范围内研读指定宗门藏书。
+    /// </summary>
+    public static bool HasSectScriptureReadPermissionFor(this Actor actor, Book book)
+    {
+        if (actor == null || actor.isRekt()) return false;
+        if (book == null || book.isRekt()) return false;
+
+        SectPermissionAsset permission = GetReadPermission(book);
+        if (permission == SectPermissions.ReadHighScripture)
+        {
+            return actor.HasSectPermission(SectPermissions.ReadHighScripture);
+        }
+
+        if (permission == SectPermissions.ReadCoreScripture)
+        {
+            return actor.HasSectPermission(SectPermissions.ReadCoreScripture)
+                   || actor.HasSectPermission(SectPermissions.ReadHighScripture);
+        }
+
+        return actor.HasAnySectScriptureReadPermission();
+    }
+
+    /// <summary>
+    /// 获取成员研读指定宗门藏书需要消耗的贡献。
+    /// </summary>
+    public static int GetSectScriptureReadCost(this Actor actor, Book book)
+    {
+        if (!actor.CanAccessSectScriptureBook(book)) return int.MaxValue;
+
+        int baseCost = GetBaseReadCost(book);
+        float multiplier = actor.HasSectScriptureReadPermissionFor(book)
+            ? SectConst.ScriptureReadPermissionDiscount
+            : SectConst.ScriptureReadOutOfPermissionMultiplier;
+        return Mathf.CeilToInt(baseCost * multiplier);
+    }
+
+    /// <summary>
+    /// 判断成员当前是否付得起研读指定宗门藏书的贡献。
+    /// </summary>
+    public static bool CanAffordSectScriptureRead(this Actor actor, Book book)
+    {
+        int cost = actor.GetSectScriptureReadCost(book);
+        return cost != int.MaxValue && actor.GetAvailableSectContribution() >= cost;
     }
 
     /// <summary>
@@ -161,6 +205,14 @@ public static class SectPermissionRules
     private static int GetBookStage(Book book)
     {
         return GetBookLevel(book).Stage;
+    }
+
+    private static int GetBaseReadCost(Book book)
+    {
+        int stage = GetBookStage(book);
+        if (stage >= SectConst.ScriptureHighPermissionMinStage) return SectConst.ScriptureHighReadCost;
+        if (stage >= SectConst.ScriptureCorePermissionMinStage) return SectConst.ScriptureCoreReadCost;
+        return SectConst.ScriptureBasicReadCost;
     }
 
     private static ItemLevel GetBookLevel(Book book)

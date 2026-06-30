@@ -13,6 +13,11 @@ public static class SectConst
     public const int ScriptureStudyTopCandidateCount = 5;
     public const int ScriptureCorePermissionMinStage = 1;
     public const int ScriptureHighPermissionMinStage = 3;
+    public const int ScriptureBasicReadCost = 2;
+    public const int ScriptureCoreReadCost = 8;
+    public const int ScriptureHighReadCost = 20;
+    public const float ScriptureReadPermissionDiscount = 0f;
+    public const float ScriptureReadOutOfPermissionMultiplier = 3f;
     public const float ScriptureStudyKnownCultibookCap = 50f;
     public const float ScriptureStudyElixirMasteryCap = 100f;
     public const float SectStudyJobChance = 0.18f;
