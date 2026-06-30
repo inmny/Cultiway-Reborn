@@ -401,6 +401,10 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
+
+Tools/
+outputs/
+
 .*
 #!.GameSource
 # Doc

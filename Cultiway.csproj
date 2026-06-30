@@ -99,7 +99,7 @@
         <Folder Include="GameResources\books\book_icons\cultibook\" />
         <Folder Include="GameResources\books\custom_book_covers\cultibook\" />
         <Folder Include="GameResources\buildings\civ_main\ming\" />
-        <Folder Include="GameResources\cultiway\icons\debug\" />
+        <Folder Include="GameResources\cultiway\icons\cultilog\" />
         <Folder Include="GameResources\cultiway\icons\item_shapes\eye\" />
         <Folder Include="GameResources\cultiway\icons\item_shapes\feather\" />
         <Folder Include="GameResources\cultiway\icons\item_shapes\others\" />
