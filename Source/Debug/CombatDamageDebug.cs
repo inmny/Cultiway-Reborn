@@ -1,6 +1,7 @@
 using System.Text;
 using Cultiway.Const;
 using Cultiway.Core;
+using Cultiway.Core.Logging;
 using Cultiway.Utils.Extension;
 using strings;
 
@@ -45,7 +46,7 @@ public static class CombatDamageDebug
 
     public static bool ShouldLog(ActorExtend target, BaseSimObject attacker)
     {
-        if (!Enabled || target?.Base == null) return false;
+        if (!Enabled || !CultiLog.Combat.DamageResolvedEnabled || target?.Base == null) return false;
         if (!FavoriteUnitsOnly) return true;
         if (target.Base.isFavorite()) return true;
         return attacker != null && !attacker.isRekt() && attacker.isActor() && attacker.a.isFavorite();
@@ -58,6 +59,8 @@ public static class CombatDamageDebug
         {
             Target = Describe(target.Base),
             Attacker = Describe(attacker),
+            TargetId = target.Base.data.id,
+            AttackerId = ActorId(attacker),
             TargetFavorite = target.Base.isFavorite(),
             AttackerFavorite = attacker != null && !attacker.isRekt() && attacker.isActor() && attacker.a.isFavorite(),
             AttackType = attackType.ToString(),
@@ -111,7 +114,7 @@ public static class CombatDamageDebug
                 $"  {ElementDebugNames[i]} weight={Fmt(record.ElementWeights[i])} armor={Fmt(record.ElementArmorStats[i])} master={Fmt(record.ElementMasterStats[i])} combinedReduction={Pct(record.ElementReductionRatios[i])} pass={Pct(1f - record.ElementReductionRatios[i])}");
         }
 
-        ModClass.LogInfo(sb.ToString());
+        CultiLog.Combat.DamageResolved(sb.ToString(), record.TargetId, record.AttackerId);
     }
 
     private static void CaptureCompositionAndDefense(CombatDamageDebugRecord record, ActorExtend target,
@@ -137,6 +140,12 @@ public static class CombatDamageDebug
         return obj.GetType().Name;
     }
 
+    private static long ActorId(BaseSimObject obj)
+    {
+        if (obj == null || obj.isRekt() || !obj.isActor()) return -1;
+        return obj.a.data?.id ?? -1;
+    }
+
     private static string Fmt(float value)
     {
         return value.ToString("0.###");
@@ -152,6 +161,8 @@ public class CombatDamageDebugRecord
 {
     public string Target;
     public string Attacker;
+    public long TargetId;
+    public long AttackerId;
     public bool TargetFavorite;
     public bool AttackerFavorite;
     public string AttackType;

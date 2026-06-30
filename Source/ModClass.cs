@@ -11,6 +11,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Systems;
+using Cultiway.Core.Logging;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
@@ -141,6 +142,97 @@ namespace Cultiway
             Geo.AppendPerfLog(sb);
             LogInfo($"{sb}");
         }
+
+        public void ToggleCultiLog()
+        {
+            CultiLog.SetEnabled(!CultiLog.Enabled);
+            ShowCultiLogTip($"玩法日志{(CultiLog.Enabled ? "已启用" : "已禁用")}");
+        }
+
+        public void ToggleCultiLogDisk()
+        {
+            bool enable = !CultiLog.DiskEnabled;
+            CultiLog.SetDiskEnabled(enable, enable);
+            if (CultiLog.DiskEnabled)
+            {
+                string path = CultiLog.GetDiskFilePath();
+                CultiLog.General.Info($"日志落盘已重新开始: {path}");
+                ShowCultiLogTip($"日志落盘已重新开始: {path}", 5f);
+            }
+            else
+            {
+                ShowCultiLogTip("日志落盘已禁用");
+            }
+        }
+
+        public void CycleCultiLogMinLevel()
+        {
+            CultiLogLevel level = CultiLog.MinLevel switch
+            {
+                CultiLogLevel.Trace => CultiLogLevel.Debug,
+                CultiLogLevel.Debug => CultiLogLevel.Info,
+                CultiLogLevel.Info => CultiLogLevel.Warning,
+                CultiLogLevel.Warning => CultiLogLevel.Error,
+                _ => CultiLogLevel.Trace
+            };
+            CultiLog.SetMinLevel(level);
+            ShowCultiLogTip($"日志最低等级: {level}");
+        }
+
+        public void ToggleCultiLogCategory(CultiLogCategory category)
+        {
+            bool enabled = CultiLog.ToggleCategory(category);
+            ShowCultiLogTip($"{GetCultiLogCategoryLabel(category)}日志{(enabled ? "已启用" : "已禁用")}");
+        }
+
+        public void ExportCultiLog()
+        {
+            string path = CultiLog.ExportRecentToJsonl();
+            ShowCultiLogTip($"已导出最近日志: {path}", 5f);
+        }
+
+        public void ClearCultiLog()
+        {
+            CultiLog.ClearRecent();
+            ShowCultiLogTip("已清空最近日志缓存");
+        }
+
+        public void LogCultiLogStats()
+        {
+            CultiLogStats stats = CultiLog.GetStats();
+            ShowCultiLogTip(
+                $"日志: {(stats.Enabled ? "开" : "关")} 落盘:{(stats.DiskEnabled ? "开" : "关")} 等级:{stats.MinLevel} 最近:{stats.RecentCount}/{stats.RecentCapacity} 队列:{stats.QueuedCount} 丢弃:{stats.DroppedCount}",
+                5f);
+        }
+
+        private static void ShowCultiLogTip(string message, float time = 3f)
+        {
+            WorldTip.showNow(message, false, "top", time);
+        }
+
+        private static string GetCultiLogCategoryLabel(CultiLogCategory category)
+        {
+            return category switch
+            {
+                CultiLogCategory.General => "通用",
+                CultiLogCategory.Combat => "战斗",
+                CultiLogCategory.Sect => "宗门",
+                CultiLogCategory.Cultivation => "修炼",
+                CultiLogCategory.Book => "书籍",
+                CultiLogCategory.Skill => "技能",
+                CultiLogCategory.Pathfinding => "寻路",
+                CultiLogCategory.Item => "物品",
+                CultiLogCategory.Train => "列车",
+                CultiLogCategory.Geo => "地理",
+                CultiLogCategory.AI => "AI",
+                CultiLogCategory.UI => "UI",
+                CultiLogCategory.Perf => "性能",
+                CultiLogCategory.AIGC => "AIGC",
+                CultiLogCategory.Error => "错误",
+                _ => category.ToString()
+            };
+        }
+
         public static void LogInfoConcurrent(string message)
         {
             LogService.LogInfoConcurrent("[" + Instance.GetDeclaration().Name + "]: " + message);
@@ -201,6 +293,7 @@ namespace Cultiway
             Harmony.CreateAndPatchAll(typeof(FinalizerPatch));
             Try.Start(() => { _ = LK.Root; });
             A = Assembly.GetExecutingAssembly();
+            CultiLog.Initialize(GetDeclaration().FolderPath);
             PrefabLibrary.gameObject.SetActive(false);
 
             _ui = new UI.Manager();
@@ -306,6 +399,12 @@ namespace Cultiway
                 Geo.SetMonitorPerf(true);
             }
             PathFinder.Instance.UseGenerator(new PortalAwarePathGenerator(PortalRegistry.Instance, new PathfindingConfig()));
+        }
+
+        private void OnApplicationQuit()
+        {
+            PersistentLogger.Save();
+            CultiLog.Shutdown();
         }
 
         public override void PostInit()
