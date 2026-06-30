@@ -16,6 +16,9 @@ namespace Cultiway.Content;
 [Dependency(typeof(SkillTrajectories))]
 public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 {
+    // 刺类贴图默认向上绘制；渲染旋转约定的 0 度是向右。
+    private const float UpFacingSpriteToRightOffset = -90f;
+
     public static SkillEntityAsset GoldSword { get; private set; }
     public static SkillEntityAsset GoldBlade { get; private set; }
     public static SkillEntityAsset WoodThorn { get; private set; }
@@ -135,6 +138,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             return true;
         };
         WoodThorn.SetupCommonPrefab("cultiway/effect/wood_thorn", anim_loop: false)
+            .SetupVisualRotation(VisualRotation.FollowRotation(UpFacingSpriteToRightOffset))
             .SetupColliderSphere(1.2f, new ColliderConfig()
             {
                 Enabled = true,
@@ -407,6 +411,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             return true;
         };
         StoneThorn.SetupCommonPrefab("cultiway/effect/ground_thorn", anim_loop:false)
+            .SetupVisualRotation(VisualRotation.FollowRotation(UpFacingSpriteToRightOffset))
             .SetupColliderSphere(1.2f, new ColliderConfig()
             {
                 Enabled = true,
@@ -542,6 +547,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             return true;
         };
         FallLightning.SetupCommonPrefab("cultiway/effect/default_lightning", anim_loop: false)
+            .SetupVisualRotation(VisualRotation.FixedUpright())
             .SetupColliderSphere(0.5f, new ColliderConfig()
             {
                 Enabled = true,
