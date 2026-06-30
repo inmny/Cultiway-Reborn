@@ -164,6 +164,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.ReadBasicScripture, // permissions：可阅读基础藏书。
             SectPermissions.ReadCoreScripture, // permissions：可阅读核心藏书。
             SectPermissions.WriteScripture, // permissions：可撰写并贡献藏书。
+            SectPermissions.OrganizeScripture, // permissions：可整理藏经阁。
             SectPermissions.RecruitMember, // permissions：可招揽成员。
             SectPermissions.BringApprenticeToSect); // permissions：可带徒入宗。
 
@@ -189,6 +190,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.RecruitMember, // permissions：可招揽成员。
             SectPermissions.BringApprenticeToSect, // permissions：可带徒入宗。
             SectPermissions.EvaluatePersonnel, // permissions：可评定宗门人事。
+            SectPermissions.TeachSectCultibook, // permissions：可为门人讲法。
             SectPermissions.ManageScripture); // permissions：可管理藏经阁。
 
         // 掌门：宗门最高职司，唯一名额，清除门阶并授予宗门管理、提拔、人事评定等完整权限。
@@ -212,6 +214,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.BringApprenticeToSect, // permissions：可带徒入宗。
             SectPermissions.EvaluatePersonnel, // permissions：可评定宗门人事。
             SectPermissions.PromoteMember, // permissions：可提拔成员。
+            SectPermissions.TeachSectCultibook, // permissions：可为门人讲法。
             SectPermissions.ManageScripture, // permissions：可管理藏经阁。
             SectPermissions.ManageSect); // permissions：可管理宗门。
 
