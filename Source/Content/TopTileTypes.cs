@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Cultiway.Abstract;
@@ -10,6 +11,10 @@ namespace Cultiway.Content
 {
     public class TopTileTypes : ExtendLibrary<TopTileType, TopTileTypes>
     {
+        private const int RuntimeAtlasPadding = 3;
+
+        private static Dictionary<string, Sprite[]> _runtimeTileSpritesByAssetId;
+
         protected override bool AutoRegisterAssets()
         {
             return true;
@@ -48,7 +53,7 @@ namespace Cultiway.Content
         {
             // Load all biome sprites (icons + tiles + drops) from disk into SpriteTextureLoader
             // before PostInit calls getSpriteList for the tiles below.
-            TileTypeBase.last_z = Math.Max(TileTypeBase.last_z, (int)TileZIndexes.grey_goo);
+            TileTypeBase.last_z = Math.Max(TileTypeBase.last_z, (int)TileZIndexes.grey_goo + 1);
 
             TrainTrack.walk_multiplier = 1f;
             TrainTrack.setDrawLayer(TileZIndexes.nothing);
@@ -131,6 +136,9 @@ namespace Cultiway.Content
             TitansHigh.biome_id = "biome_titans";
             TitansHigh.color_hex = null;
             TitansHigh.setDrawLayer(TileZIndexes.nothing);
+
+
+            BuildRuntimeTileAtlas();
         }
 
         protected override void PostInit(TopTileType asset)
@@ -150,7 +158,7 @@ namespace Cultiway.Content
             {
                 asset.biome_asset = AssetManager.biome_library.get(asset.biome_id);
             }
-            Sprite[] tSpritesArr = SpriteTextureLoader.getSpriteList("tiles/" + asset.id, false);
+            Sprite[] tSpritesArr = _runtimeTileSpritesByAssetId.TryGetValue(asset.id, out Sprite[] sprites) ? sprites : null;
             if (tSpritesArr?.Length > 0)
             {
                 asset.sprites = new TileSprites();
@@ -166,6 +174,138 @@ namespace Cultiway.Content
                 }
             }
             World.world.tilemap.createTileMapFor(asset);
+        }
+
+        private static void BuildRuntimeTileAtlas()
+        {
+            _runtimeTileSpritesByAssetId = new Dictionary<string, Sprite[]>(StringComparer.OrdinalIgnoreCase);
+            string tilesRoot = Path.Combine(ModClass.I.GetDeclaration().FolderPath, "GameResources", "tiles");
+            if (!Directory.Exists(tilesRoot)) return;
+
+            List<TileSpriteSource> sources = LoadTileSpriteSources(tilesRoot);
+            if (sources.Count == 0) return;
+
+            int maxWidth = sources.Max(source => source.Width);
+            int maxHeight = sources.Max(source => source.Height);
+            int cellWidth = maxWidth + RuntimeAtlasPadding * 2;
+            int cellHeight = maxHeight + RuntimeAtlasPadding * 2;
+            int columns = Mathf.CeilToInt(Mathf.Sqrt(sources.Count));
+            int rows = Mathf.CeilToInt((float)sources.Count / columns);
+            int atlasWidth = Mathf.NextPowerOfTwo(columns * cellWidth);
+            int atlasHeight = Mathf.NextPowerOfTwo(rows * cellHeight);
+            Color32[] atlasPixels = new Color32[atlasWidth * atlasHeight];
+
+            Texture2D atlasTexture = new Texture2D(atlasWidth, atlasHeight, TextureFormat.RGBA32, true)
+            {
+                name = "Cultiway_TileRuntimeAtlas",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                anisoLevel = 10
+            };
+
+            Dictionary<string, List<Sprite>> spritesByAssetId =
+                new Dictionary<string, List<Sprite>>(StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < sources.Count; i++)
+            {
+                TileSpriteSource source = sources[i];
+                int cellX = i % columns;
+                int cellY = i / columns;
+                int atlasX = cellX * cellWidth;
+                int atlasY = cellY * cellHeight;
+                int spriteX = atlasX + RuntimeAtlasPadding;
+                int spriteY = atlasY + RuntimeAtlasPadding;
+
+                CopySpriteToAtlas(source, atlasPixels, atlasWidth, spriteX, spriteY);
+
+                Sprite sprite = Sprite.Create(
+                    atlasTexture,
+                    new Rect(spriteX, spriteY, source.Width, source.Height),
+                    new Vector2(0.5f, 0.5f),
+                    1f,
+                    (uint)RuntimeAtlasPadding,
+                    SpriteMeshType.FullRect,
+                    Vector4.zero);
+                sprite.name = source.Name;
+
+                if (!spritesByAssetId.TryGetValue(source.AssetId, out List<Sprite> list))
+                {
+                    list = new List<Sprite>();
+                    spritesByAssetId[source.AssetId] = list;
+                }
+                list.Add(sprite);
+            }
+
+            atlasTexture.SetPixels32(atlasPixels);
+            atlasTexture.Apply(updateMipmaps: true, makeNoLongerReadable: false);
+
+            foreach (KeyValuePair<string, List<Sprite>> pair in spritesByAssetId)
+            {
+                _runtimeTileSpritesByAssetId[pair.Key] = pair.Value.ToArray();
+            }
+
+            ModClass.LogInfo($"[TopTileTypes] Loaded {sources.Count} tile sprites into runtime atlas {atlasWidth}x{atlasHeight}");
+        }
+
+        private static List<TileSpriteSource> LoadTileSpriteSources(string tilesRoot)
+        {
+            List<TileSpriteSource> sources = new List<TileSpriteSource>();
+            foreach (string directory in Directory.GetDirectories(tilesRoot).OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
+            {
+                string assetId = Path.GetFileName(directory);
+                string[] files = Directory.GetFiles(directory, "*.png")
+                    .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+                foreach (string file in files)
+                {
+                    Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, true)
+                    {
+                        filterMode = FilterMode.Point,
+                        wrapMode = TextureWrapMode.Clamp
+                    };
+                    if (!ImageConversion.LoadImage(texture, File.ReadAllBytes(file)))
+                    {
+                        UnityEngine.Object.Destroy(texture);
+                        continue;
+                    }
+
+                    sources.Add(new TileSpriteSource
+                    {
+                        AssetId = assetId,
+                        Name = Path.GetFileNameWithoutExtension(file),
+                        Width = texture.width,
+                        Height = texture.height,
+                        Pixels = texture.GetPixels32()
+                    });
+                    UnityEngine.Object.Destroy(texture);
+                }
+            }
+
+            return sources;
+        }
+
+        private static void CopySpriteToAtlas(TileSpriteSource source, Color32[] atlasPixels, int atlasWidth, int spriteX, int spriteY)
+        {
+            for (int y = -RuntimeAtlasPadding; y < source.Height + RuntimeAtlasPadding; y++)
+            {
+                int sourceY = Mathf.Clamp(y, 0, source.Height - 1);
+                int targetY = spriteY + y;
+                for (int x = -RuntimeAtlasPadding; x < source.Width + RuntimeAtlasPadding; x++)
+                {
+                    int sourceX = Mathf.Clamp(x, 0, source.Width - 1);
+                    int targetX = spriteX + x;
+                    atlasPixels[targetY * atlasWidth + targetX] = source.Pixels[sourceY * source.Width + sourceX];
+                }
+            }
+        }
+
+        private sealed class TileSpriteSource
+        {
+            public string AssetId;
+            public string Name;
+            public int Width;
+            public int Height;
+            public Color32[] Pixels;
         }
 
     }
