@@ -20,6 +20,7 @@ public enum TabButtonType
     INFO,
     OVERWORLD,
     WORLD,
+    BIOME,
     RACE,
     CREATURE,
     BUILDING,
@@ -59,6 +60,7 @@ public class Manager
 
         ConstructTabContainer(TabButtonType.INFO,     SpriteTextureLoader.getSprite("ui/icons/iconAbout"));
         ConstructTabContainer(TabButtonType.WORLD,    SpriteTextureLoader.getSprite("ui/icons/iconWorldInfo"));
+        ConstructTabContainer(TabButtonType.BIOME,    SpriteTextureLoader.getSprite("cultiway/icons/biomes/Bamboo"));
         ConstructTabContainer(TabButtonType.RACE,     SpriteTextureLoader.getSprite("ui/icons/iconHumans"));
         ConstructTabContainer(TabButtonType.CREATURE, SpriteTextureLoader.getSprite("ui/icons/iconSheep"));
         ConstructTabContainer(TabButtonType.BUILDING, SpriteTextureLoader.getSprite("ui/icons/iconBuildings"));

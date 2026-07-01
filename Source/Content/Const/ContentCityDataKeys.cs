@@ -21,4 +21,7 @@ public static class ContentCityDataKeys
     public const string CityWallOuterCY_int = "cw.content.city.wall_outer_cy";
     public const string CityWallOuterHX_int = "cw.content.city.wall_outer_hx";
     public const string CityWallOuterHY_int = "cw.content.city.wall_outer_hy";
+
+    /// <summary>篝火丢失标记：篝火被摧毁时置 1，重建后用于触发城墙重置（回 stage 0）。</summary>
+    public const string CityWallBonfireLost_int = "cw.content.city.wall_bonfire_lost";
 }

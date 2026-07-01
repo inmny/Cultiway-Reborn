@@ -5,6 +5,7 @@ using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using strings;
 
@@ -43,7 +44,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     private const int   DEMON_KILLS_THRESHOLD = 20;    // 杀人数门槛 -> 恐虐
     private const int   DEMON_CHARM_THRESHOLD = 15;    // 魅力(外交)门槛 -> 色孽
     private const int   DEMON_INT_THRESHOLD   = 15;    // 智力门槛 -> 奸奇
-    private const float DEMON_SUMMON_CHANCE   = 0.4f;  // 召唤成功率
+    private const float DEMON_TOWER_CHANCE    = 0.01f; // 邪神恩赐：谋划成功后生成魔塔的概率
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -269,15 +270,23 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             return any_built;
         };
 
-        // 召唤恶魔：单位依据自身特质，有几率召唤对应的混沌魔塔、扭转纪元，并化身为对应大魔
+        // 召唤恶魔：单位依据自身特质，有几率召唤对应的混沌魔塔、扭转纪元，化身为对应大魔，并把同村凡人(无灵根)化为该系列随机恶魔
         SetupDemonSummonPlot(SummonKhorne,   "cultiway/icons/Khorne",
-            a => a.data.kills >= DEMON_KILLS_THRESHOLD, Buildings.KhorneTower,   Actors.Bloodthirster,           "age_chaos",   DEMON_SUMMON_CHANCE);
+            a => a.data.kills >= DEMON_KILLS_THRESHOLD, Buildings.KhorneTower,   Actors.Bloodthirster,
+            new[] { Actors.BloodletterKhorne, Actors.FleshHoundKhorne, Actors.BloodcrusherKhorne, Actors.MinotaurKhorne, Actors.SkullCannonKhorne },
+            "age_chaos");
         SetupDemonSummonPlot(SummonSlaanesh, "cultiway/icons/Slaanesh",
-            a => a.diplomacy >= DEMON_CHARM_THRESHOLD,  Buildings.SlaaneshTower, Actors.KeeperSecrets,           "age_moon",    DEMON_SUMMON_CHANCE);
+            a => a.diplomacy >= DEMON_CHARM_THRESHOLD,  Buildings.SlaaneshTower, Actors.KeeperSecrets,
+            new[] { Actors.Daemonette, Actors.Hellflayer, Actors.SlaaneshSeeker, Actors.SlaaneshMistress, Actors.SlaaneshFiend },
+            "age_moon");
         SetupDemonSummonPlot(SummonTzeentch, "cultiway/icons/Tzeentch",
-            a => a.intelligence >= DEMON_INT_THRESHOLD, Buildings.TzeentchTower, Actors.LordChange,             "age_wonders", DEMON_SUMMON_CHANCE);
+            a => a.intelligence >= DEMON_INT_THRESHOLD, Buildings.TzeentchTower, Actors.LordChange,
+            new[] { Actors.PinkHorrorTzeentch, Actors.BlueHorrorTzeentch, Actors.IridescentHorrorTzeentch, Actors.FlamerTzeentch, Actors.ScreamersTzeentch },
+            "age_wonders");
         SetupDemonSummonPlot(SummonNurgle,   "cultiway/icons/Nurgle",
-            a => a.hasTrait(S_Trait.plague),            Buildings.NurgleTower,   Actors.GreatUncleanOneButcher, "age_ash",     DEMON_SUMMON_CHANCE);
+            a => a.hasTrait(S_Trait.plague),            Buildings.NurgleTower,   Actors.GreatUncleanOneButcher,
+            new[] { Actors.UncleanCreature, Actors.NurgleSpirit, Actors.NurgleDiseaseCarrier, Actors.PlagueBringer, Actors.PlagueToad },
+            "age_ash");
 
         // 修建城墙：城市领袖/国王在城市达到一定规模后自主谋划，围绕城市筑一圈城墙
         SetupBuildCityWallPlot(BuildCityWall, "cultiway/icons/Tower");
@@ -321,13 +330,16 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
 
     /// <summary>
     /// 配置一个召唤恶魔的谋划：满足 <paramref name="condition"/> 的城市领袖/国王发起后，
-    /// 有 <paramref name="chance"/> 的几率在城市范围内召唤出 <paramref name="tower"/>，
     /// 强制把当前纪元转变为 <paramref name="eraId"/>，
-    /// 且发起人自身强制转变为对应的大魔 <paramref name="transformInto"/>（化魔，原身消散）。
+    /// 把凡人(无灵根)随机转化为 <paramref name="daemonSeries"/> 中的恶魔
+    /// (领主限所属城市，国王及整个国家)，
+    /// 发起人自身强制转变为对应的大魔 <paramref name="transformInto"/>（化魔，原身消散），
+    /// 并有极低概率(邪神恩赐 <see cref="DEMON_TOWER_CHANCE"/>)在城内生成 <paramref name="tower"/>。
     /// </summary>
     private static void SetupDemonSummonPlot(
         PlotAsset plot, string icon, Func<Actor, bool> condition,
-        BuildingAsset tower, ActorAsset transformInto, string eraId, float chance)
+        BuildingAsset tower, ActorAsset transformInto, ActorAsset[] daemonSeries,
+        string eraId)
     {
         plot.path_icon = icon;
         plot.group_id = PlotCategories.Others.id;
@@ -337,31 +349,84 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         plot.requires_diplomacy = false;
         plot.check_is_possible = a => a.hasCity()
                                      && condition(a)
-                                     && !a.city.hasBuildingType(tower.type)
                                      && !World.world.plots.isPlotTypeAlreadyRunning(a, plot);
         plot.check_can_be_forced = plot.check_is_possible;
-        plot.check_should_continue = a => a.hasCity() && !a.city.hasBuildingType(tower.type);
+        plot.check_should_continue = a => a.hasCity();
         plot.action = a =>
         {
-            if (!a.hasCity() || a.city.hasBuildingType(tower.type))
+            if (!a.hasCity())
                 return false;
-            if (!Randy.randomChance(chance))
-                return false;
-            var tile = FindTileForTower(a.city, tower);
-            if (tile == null)
-                return false;
-            World.world.buildings.addBuilding(tower.id, tile);
             // 谋划成功：强制把当前纪元转变为对应纪元
             var age = AssetManager.era_library.get(eraId);
             if (age != null)
             {
                 World.world.era_manager.setCurrentAge(age);
             }
+            // 凡人化魔：领主 -> 所属城市；国王 -> 整个国家
+            TransformMortals(a, daemonSeries);
+            // 邪神恩赐：极低概率在城内生成对应魔塔
+            if (!a.city.hasBuildingType(tower.type) && Randy.randomChance(DEMON_TOWER_CHANCE))
+            {
+                var tile = FindTileForTower(a.city, tower);
+                if (tile != null)
+                {
+                    World.world.buildings.addBuilding(tower.id, tile);
+                }
+            }
             // 发起人化身为对应的大魔（在原位生成大魔，原身以”蜕变”方式消散）
-            World.world.units.spawnNewUnit(transformInto.id, a.current_tile, true, pSpawnHeight: 0);
+            var daemon = World.world.units.spawnNewUnit(transformInto.id, a.current_tile, true, pSpawnHeight: 0);
+            // 界面提示：发起人化魔
+            WorldLogUtils.LogDemonAscension(a, daemon);
             a.removeByMetamorphosis();
             return true;
         };
+    }
+
+    /// <summary>
+    /// 把凡人(无灵根、未化形)随机转变为对应系列中的一种恶魔。
+    /// 发起人为领主时转化其所属城市，为国王时转化整个国家；有灵根的修士不会被转化；
+    /// 发起人自身另行化身为大魔，故在此排除。
+    /// </summary>
+    private static void TransformMortals(Actor initiator, ActorAsset[] daemonSeries)
+    {
+        if (daemonSeries == null || daemonSeries.Length == 0) return;
+
+        // 先收集要转化的凡人，避免在迭代中修改 city.units
+        var mortals = new List<Actor>();
+        if (initiator.isKing() && initiator.kingdom != null)
+        {
+            // 国王：整个国家所有城市的凡人
+            foreach (var city in initiator.kingdom.cities)
+            {
+                CollectMortals(city, initiator, mortals);
+            }
+        }
+        else if (initiator.city != null)
+        {
+            // 领主：所属城市的凡人
+            CollectMortals(initiator.city, initiator, mortals);
+        }
+
+        foreach (var mortal in mortals)
+        {
+            var daemon = daemonSeries.GetRandom();
+            if (daemon == null) continue;
+            World.world.units.spawnNewUnit(daemon.id, mortal.current_tile, false, pSpawnHeight: 0);
+            mortal.removeByMetamorphosis();
+        }
+    }
+
+    private static void CollectMortals(City city, Actor initiator, List<Actor> result)
+    {
+        if (city == null) return;
+        foreach (var unit in city.units)
+        {
+            if (unit == null || unit == initiator || !unit.isAlive()) continue;
+            if (unit.isAlreadyTransformed()) continue;
+            var ae = unit.GetExtend();
+            if (ae == null || ae.HasElementRoot()) continue;   // 有灵根(修士)不转化
+            result.Add(unit);
+        }
     }
 
     // ========== 修建城墙谋划（矩形包围盒，内墙 → 外墙 → 要塞 三阶段渐进） ==========
@@ -410,8 +475,19 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             if (!a.hasCity()) return false;
             var city  = a.city;
             int stage = GetWallStage(city);
+            // 篝火已重建但不在内墙范围内（城市核心迁到新区域）→ 重置城墙，在新篝火区域重新生成木墙内墙
+            var stored = GetInnerBounds(city);
+            if (stage > WALL_STAGE_NONE && stored != null
+                && city.hasBuildingType("type_bonfire")
+                && !BonfireInBounds(city, stored.Value))
+            {
+                RemoveWallRing(stored.Value); // 拆除旧内墙
+                stage = WALL_STAGE_NONE;
+                SetWallStage(city, WALL_STAGE_NONE);
+                SetInnerBounds(city, default);
+            }
             // 木墙阶段（初次）记录内墙 bounds，此后固定不随城市扩张变化
-            var inner = (stage == WALL_STAGE_NONE) ? EnsureInnerBounds(city) : GetInnerBounds(city);
+            var inner = EnsureInnerBounds(city);
             var outer = OuterBounds(city);
             if (inner == null || outer == null) return false;
             if (stage == WALL_STAGE_NONE)
@@ -534,9 +610,19 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         city.data.set(ContentCityDataKeys.CityWallInnerHY_int, b.hy);
     }
 
-    /// <summary>确保内墙 bounds 已记录：已记录则返回，否则按当前建筑包围盒 + MARGIN 计算并记录。</summary>
+    /// <summary>
+    /// 确保内墙 bounds 已记录：已记录则返回；否则按当前建筑包围盒 + MARGIN 计算并记录。
+    /// <b>篝火（城市核心）被摧毁时取消固定，清除记录以便重新按当前建筑选定范围。</b>
+    /// </summary>
     private static WallShapeHelper.Bounds? EnsureInnerBounds(City city)
     {
+        // 篝火被摧毁 → 拆除旧内墙墙体、取消固定，重新选定范围
+        if (city != null && !city.hasBuildingType("type_bonfire"))
+        {
+            var old = GetInnerBounds(city);
+            if (old != null) RemoveWallRing(old.Value); // 自动清除旧内墙墙体
+            SetInnerBounds(city, default);
+        }
         var stored = GetInnerBounds(city);
         if (stored != null) return stored;
         var bb = WallShapeHelper.GetBuildingsBounds(city);
@@ -548,6 +634,15 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         };
         SetInnerBounds(city, inner);
         return inner;
+    }
+
+    /// <summary>篝火（城市核心）是否在内墙 bounds 矩形内。用于检测"篝火迁到新区域"以触发城墙重置。</summary>
+    private static bool BonfireInBounds(City city, WallShapeHelper.Bounds b)
+    {
+        var bonfire = city?.getBuildingOfType("type_bonfire");
+        if (bonfire?.current_tile == null) return false;
+        var t = bonfire.current_tile;
+        return System.Math.Abs(t.x - b.cx) <= b.hx && System.Math.Abs(t.y - b.cy) <= b.hy;
     }
 
     /// <summary>外墙 bounds：按<b>当前建筑包围盒</b>动态计算（各边外扩 MARGIN+SPACING），与内墙中心可不同。</summary>

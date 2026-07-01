@@ -12,6 +12,7 @@ public class WorldLogs : ExtendLibrary<WorldLogAsset, WorldLogs>
     public static WorldLogAsset LogSectSuccession { get; private set; }
     public static WorldLogAsset LogSectScriptureContributed { get; private set; }
     public static WorldLogAsset LogSectLecture { get; private set; }
+    public static WorldLogAsset LogDemonAscension { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
@@ -33,6 +34,16 @@ public class WorldLogs : ExtendLibrary<WorldLogAsset, WorldLogs>
         SetupSectLog(LogSectSuccession, "Cultiway.WorldLog.SectSuccession", "ui/Icons/iconKings", Toolbox.color_log_warning);
         SetupSectLog(LogSectScriptureContributed, "Cultiway.WorldLog.SectScriptureContributed", "ui/icons/iconBooks", Toolbox.color_log_good);
         SetupSectLog(LogSectLecture, "Cultiway.WorldLog.SectLecture", "cultiway/icons/iconCultivation", Toolbox.color_log_good);
+
+        LogDemonAscension.locale_id = "Cultiway.WorldLog.DemonAscension";
+        LogDemonAscension.path_icon = "cultiway/icons/iconCultivation";
+        LogDemonAscension.color = Toolbox.color_log_warning;
+        LogDemonAscension.group = HistoryGroups.Cultivations.id;
+        LogDemonAscension.text_replacer = (WorldLogMessage message, ref string text) =>
+        {
+            AssetManager.world_log_library.updateText(ref text, message, "$actor$", 1);
+            AssetManager.world_log_library.updateText(ref text, message, "$daemon$", 2);
+        };
     }
 
     private static void SetupSectLog(WorldLogAsset asset, string localeId, string iconPath, UnityEngine.Color color)

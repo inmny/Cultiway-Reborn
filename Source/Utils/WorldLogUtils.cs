@@ -25,6 +25,27 @@ public static class WorldLogUtils
         world_log.add();
     }
 
+    public static void LogDemonAscension(Actor initiator, Actor daemon)
+    {
+        if (WorldLogs.LogDemonAscension == null || daemon == null) return;
+
+        var worldLog = new WorldLogMessage(
+            WorldLogs.LogDemonAscension,
+            initiator?.getName(),
+            LMTools.GetOrKey(daemon.asset.name_locale))
+        {
+            unit = daemon,
+            location = daemon.current_position
+        };
+
+        if (initiator?.kingdom?.getColor() != null)
+        {
+            worldLog.color_special1 = initiator.kingdom.getColor().getColorText();
+        }
+
+        worldLog.add();
+    }
+
     public static void LogSectFounded(Sect sect, Actor founder)
     {
         LogSect(WorldLogs.LogSectFounded, sect, founder, sect?.data.DoctrineCultibookName);
