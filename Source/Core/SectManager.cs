@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using Cultiway.Content;
+using Cultiway.Content.Extensions;
+using Cultiway.Const;
 using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 
@@ -7,10 +9,25 @@ namespace Cultiway.Core;
 
 public class SectManager : MetaSystemManager<Sect, SectData>
 {
+    private bool _dirty_buildings = true;
+
     public SectManager()
     {
         type_id = WorldboxGame.HistoryMetaDatas.Sect.id;
     }
+
+    public override void loadFromSave(List<SectData> pList)
+    {
+        base.loadFromSave(pList);
+        setDirtyBuildings();
+    }
+
+    public override void addObject(Sect pObject)
+    {
+        base.addObject(pObject);
+        setDirtyBuildings();
+    }
+
     public override void updateDirtyUnits()
     {
         List<Actor> units = World.world.units.units_only_alive;
@@ -69,5 +86,50 @@ public class SectManager : MetaSystemManager<Sect, SectData>
     public bool TrySuccession(Sect sect)
     {
         return sect != null && sect.TrySuccession();
+    }
+
+    public void beginChecksBuildings()
+    {
+        if (!_dirty_buildings) return;
+
+        updateDirtyBuildings();
+        _dirty_buildings = false;
+    }
+
+    public void setDirtyBuildings()
+    {
+        _dirty_buildings = true;
+    }
+
+    private void updateDirtyBuildings()
+    {
+        clearAllBuildingLists();
+
+        List<Building> buildings = World.world.buildings.getSimpleList();
+        for (int i = 0; i < buildings.Count; i++)
+        {
+            Building building = buildings[i];
+            if (building == null || building.data == null) continue;
+
+            building.data.get(BuildingDataKeys.SectID_Long, out long sectId, -1);
+            if (sectId < 0) continue;
+
+            Sect sect = get(sectId);
+            if (sect == null || sect.isRekt() || building.asset == null || !building.asset.IsSectBuilding() || !building.isUsable())
+            {
+                building.data.removeLong(BuildingDataKeys.SectID_Long);
+                continue;
+            }
+
+            sect.ListBuilding(building);
+        }
+    }
+
+    private void clearAllBuildingLists()
+    {
+        foreach (Sect sect in this)
+        {
+            sect.ClearBuildingList();
+        }
     }
 }

@@ -19,6 +19,7 @@ public class Manager
     public SectPermissionLibrary SectPermissionLibrary { get; } = new();
     public SectRoleLibrary SectRoleLibrary { get; } = new();
     public SectAffairLibrary SectAffairLibrary { get; } = new();
+    public SectBuildOrderLibrary SectBuildOrderLibrary { get; } = new();
 
     public void Init()
     {
@@ -39,6 +40,7 @@ public class Manager
         AssetManager._instance.add(SectPermissionLibrary, "sect_permissions");
         AssetManager._instance.add(SectRoleLibrary, "sect_roles");
         AssetManager._instance.add(SectAffairLibrary, "sect_affairs");
+        AssetManager._instance.add(SectBuildOrderLibrary, "sect_build_orders");
     }
 
     public void LinkAssets()
@@ -60,6 +62,7 @@ public class Manager
         SectPermissionLibrary.linkAssets();
         SectRoleLibrary.linkAssets();
         SectAffairLibrary.linkAssets();
+        SectBuildOrderLibrary.linkAssets();
     }
     public void PostInit()
     {
@@ -80,5 +83,6 @@ public class Manager
         SectPermissionLibrary.post_init();
         SectRoleLibrary.post_init();
         SectAffairLibrary.post_init();
+        SectBuildOrderLibrary.post_init();
     }
 }

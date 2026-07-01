@@ -1,3 +1,4 @@
+using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.BuildingComponents;
 using Cultiway.Utils.Extension;
@@ -6,6 +7,35 @@ namespace Cultiway.Content.Extensions;
 
 public static class BuildingAssetTools
 {
+    public static BuildingAsset AsSectBuilding(this BuildingAsset asset, string type)
+    {
+        asset.group = SectConst.BuildingGroup;
+        asset.type = type;
+        asset.city_building = false;
+        asset.can_be_abandoned = false;
+        asset.ignored_by_cities = false;
+        asset.build_place_batch = false;
+        asset.ActionOnRemoved(UnregisterSectBuilding);
+        asset.ActionOnRuins(UnregisterSectBuilding);
+        return asset;
+    }
+
+    public static bool IsSectBuilding(this BuildingAsset asset)
+    {
+        return asset != null && asset.group == SectConst.BuildingGroup;
+    }
+
+    private static bool UnregisterSectBuilding(BaseSimObject target, WorldTile tile)
+    {
+        if (target is Building building)
+        {
+            building.data?.removeLong(BuildingDataKeys.SectID_Long);
+            WorldboxGame.I?.Sects?.setDirtyBuildings();
+        }
+
+        return true;
+    }
+
     /// <summary>
     /// 设置属性，属性id从"S."下面找
     /// </summary>
