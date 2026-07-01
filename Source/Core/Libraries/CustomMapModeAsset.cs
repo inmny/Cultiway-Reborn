@@ -18,6 +18,7 @@ public class CustomMapModeAsset : Asset
     public int default_int;
     public int max_value;
     public string[] locale_options_ids;
+    public bool uses_meta_layer_button;
 
     public bool ContainsGeoRegionLayer(GeoRegionLayer layer)
     {

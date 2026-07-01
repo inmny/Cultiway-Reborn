@@ -12,6 +12,10 @@ namespace Cultiway.Core.Libraries;
 
 public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
 {
+    private const string ToggleButtonPrefab = "map_kings_leaders";
+    private const string TwoModeToggleButtonPrefab = "city_layer";
+    private const string ThreeModeToggleButtonPrefab = "subspecies_layer";
+
     public static CustomMapModeAsset Sect { get; private set; }
     public static CustomMapModeAsset GeoRegion { get; private set; }
     public static CustomMapModeAsset GeoRegionLandform { get; private set; }
@@ -25,6 +29,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             icon_path = "cultiway/icons/iconSect",
             toggle_name = "sect_layer",
             redirect_map_mode = MetaTypeExtend.Sect,
+            uses_meta_layer_button = true,
             default_int = 0,
             max_value = 1,
             locale_options_ids = new[]
@@ -43,6 +48,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             icon_path = "cultiway/icons/iconGeoRegion",
             toggle_name = "geo_region_layer",
             redirect_map_mode = MetaTypeExtend.GeoRegion,
+            uses_meta_layer_button = true,
             geo_region_layers = new[] { GeoRegionLayer.Primary },
             kernel_func = (WorldTile worldTile, ref Color32 out_color) =>
             {
@@ -171,10 +177,45 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             ? _ => ToggleMapModeZoneOption(asset, power)
             : _ => ToggleMapModeOption(asset, power);
         AssetManager.powers.add(power);
-        UI.Manager.AddButton(TabButtonType.WORLD,
-            PowerButtonCreator.CreateToggleButton(pAsset.toggle_name, SpriteTextureLoader.getSprite(pAsset.icon_path),
-                pNoAutoSetToggleAction: true));
+        if (!pAsset.uses_meta_layer_button)
+        {
+            UI.Manager.AddButton(TabButtonType.WORLD, CreateMapModeButton(pAsset));
+        }
+
         return asset;
+    }
+
+    private static PowerButton CreateMapModeButton(CustomMapModeAsset asset)
+    {
+        PowerButton prefab = ResourcesFinder.FindResource<PowerButton>(GetMapModeButtonPrefabName(asset));
+        bool wasActive = prefab.gameObject.activeSelf;
+        if (wasActive)
+        {
+            prefab.gameObject.SetActive(false);
+        }
+
+        PowerButton button = UnityEngine.Object.Instantiate(prefab);
+        if (wasActive)
+        {
+            prefab.gameObject.SetActive(true);
+        }
+
+        Sprite icon = SpriteTextureLoader.getSprite(asset.icon_path);
+        button.name = asset.toggle_name;
+        button.icon.sprite = icon;
+        button.icon.overrideSprite = icon;
+        button.open_window_id = null;
+        button.type = PowerButtonType.Special;
+        button.transform.localScale = Vector3.one;
+        button.gameObject.SetActive(true);
+        button.checkToggleIcon();
+        return button;
+    }
+
+    public static string GetMapModeButtonPrefabName(CustomMapModeAsset asset)
+    {
+        if (asset.max_value <= 0) return ToggleButtonPrefab;
+        return asset.max_value == 1 ? TwoModeToggleButtonPrefab : ThreeModeToggleButtonPrefab;
     }
 
     private static void ToggleMapModeZoneOption(CustomMapModeAsset asset, GodPower power)

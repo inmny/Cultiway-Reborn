@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Core;
+using Cultiway.Core.Libraries;
 using Cultiway.Core.Logging;
 using Cultiway.UI.Components;
 using Cultiway.Utils.Extension;
@@ -333,22 +334,37 @@ public class Manager
         inserted_list_button = Object.Instantiate(inserted_list_button, bottom_container_transform);
         inserted_list_button.name = meta_type.ToString().Underscore() + "s_list";
         inserted_list_button.transform.SetSiblingIndex(anchor_obj.GetSiblingIndex());
-        prefab = bottom_container_transform.Find("clan_layer").gameObject;
+        var custom_map_mode = ModClass.L.CustomMapModeLibrary.get(meta_type.ToString().Underscore());
+        prefab = bottom_container_transform.Find(CustomMapModeLibrary.GetMapModeButtonPrefabName(custom_map_mode)).gameObject;
+        bool was_prefab_active = prefab.activeSelf;
+        if (was_prefab_active)
+        {
+            prefab.SetActive(false);
+        }
+
         var inserted_layer_button = Object.Instantiate(prefab, bottom_container_transform);
+        if (was_prefab_active)
+        {
+            prefab.SetActive(true);
+        }
+
         inserted_layer_button.name = meta_type.ToString().Underscore() + "_layer";
         inserted_layer_button.transform.SetSiblingIndex(anchor_obj.GetSiblingIndex());
 
-        inserted_layer_button.transform.Find("toggle_0").gameObject.SetActive(false);
-        inserted_layer_button.transform.Find("toggle_1").gameObject.SetActive(false);
-        inserted_layer_button.transform.Find("toggle_2").gameObject.SetActive(false);
-
         image = inserted_layer_button.transform.Find("Icon").GetComponent<Image>();
         button = inserted_layer_button.GetComponent<Button>();
-        tip_button = inserted_layer_button.GetComponent<TipButton>();
-        var custom_map_mode = ModClass.L.CustomMapModeLibrary.get(meta_type.ToString().Underscore());
-        image.sprite = SpriteTextureLoader.getSprite(custom_map_mode.icon_path);
+        tip_button = inserted_layer_button.GetComponent<TipButton>() ?? inserted_layer_button.AddComponent<TipButton>();
+        var layer_power_button = inserted_layer_button.GetComponent<PowerButton>();
+        Sprite layer_icon = SpriteTextureLoader.getSprite(custom_map_mode.icon_path);
+        image.sprite = layer_icon;
+        image.overrideSprite = layer_icon;
         tip_button.textOnClick = custom_map_mode.toggle_name;
         tip_button.textOnClickDescription = custom_map_mode.toggle_name + "_description";
+        tip_button.text_description_2 = "hotkey_tip_zone_switch";
+        tip_button.type = "tip_zone_mode";
+        tip_button.showOnClick = false;
+        inserted_layer_button.SetActive(true);
+        layer_power_button.checkToggleIcon();
     }
     private void AddButtonsForDebug()
     {
