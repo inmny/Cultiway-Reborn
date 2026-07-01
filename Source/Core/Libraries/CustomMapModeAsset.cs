@@ -15,6 +15,9 @@ public class CustomMapModeAsset : Asset
 
     public string toggle_name;
     public MetaTypeExtend redirect_map_mode = MetaTypeExtend.None;
+    public int default_int;
+    public int max_value;
+    public string[] locale_options_ids;
 
     public bool ContainsGeoRegionLayer(GeoRegionLayer layer)
     {

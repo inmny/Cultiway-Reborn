@@ -14,6 +14,11 @@ public partial class WorldboxGame
 {
     public class MetaTypes : ExtendLibrary<MetaTypeAsset, MetaTypes>
     {
+        private const int SectZoneModeResidence = 0;
+        private const int SectZoneModeMembers = 1;
+
+        private static int _lastSectZoneOption = -1;
+
         public static MetaTypeAsset Sect { get; private set; }
         public static MetaTypeAsset GeoRegion { get; private set; }
         protected override bool AutoRegisterAssets() => true;
@@ -98,15 +103,15 @@ public partial class WorldboxGame
             Sect.power_option_zone_id = CustomMapModeLibrary.Sect.toggle_name;
             Sect.force_zone_when_selected = true;
             Sect.has_dynamic_zones = true;
-            Sect.dynamic_zone_option = 0;
+            Sect.dynamic_zone_option = SectZoneModeMembers;
             Sect.draw_zones = DrawSectZones;
             Sect.check_cursor_highlight = CheckSectCursorHighlight;
 		    Sect.check_tile_has_meta = new MetaZoneTooltipAction(AssetManager.meta_type_library.checkTileHasMetaDefault);
 		    Sect.check_cursor_tooltip = new MetaZoneTooltipAction(AssetManager.meta_type_library.checkCursorTooltipDefault);
-            Sect.tile_get_metaobject = (zone, _) => GetSectForZone(zone);
-            Sect.tile_get_metaobject_0 = GetSectForZone;
-            Sect.tile_get_metaobject_1 = GetSectForZone;
-            Sect.tile_get_metaobject_2 = GetSectForZone;
+            Sect.tile_get_metaobject = GetSectForZone;
+            Sect.tile_get_metaobject_0 = GetSectResidenceForZone;
+            Sect.tile_get_metaobject_1 = GetSectMembersForZone;
+            Sect.tile_get_metaobject_2 = GetSectMembersForZone;
             Sect.cursor_tooltip_action = ShowSectCursorTooltip;
             Sect.dynamic_zones = UpdateSectDynamicZones;
             Sect.window_name = Sect.id;
@@ -163,6 +168,31 @@ public partial class WorldboxGame
         {
             UpdateSectDynamicZones();
 
+            if (Sect.getZoneOptionState() == SectZoneModeResidence)
+            {
+                DrawSectResidenceZones(asset);
+                return;
+            }
+
+            DrawSectMemberZones(asset);
+        }
+
+        private static void DrawSectResidenceZones(MetaTypeAsset asset)
+        {
+            ZoneCalculator zoneCalculator = World.world.zone_calculator;
+            foreach (ZoneMetaData data in ZoneMetaDataVisualizer.zone_data_dict.Values)
+            {
+                if (data.meta_object is not Sect sect || sect.isRekt()) continue;
+                if (data.zone == null) continue;
+
+                zoneCalculator.drawBegin();
+                zoneCalculator.drawZoneMeta(data.zone, asset, GetSectResidenceForDrawZone);
+                zoneCalculator.drawEnd(data.zone);
+            }
+        }
+
+        private static void DrawSectMemberZones(MetaTypeAsset asset)
+        {
             ZoneCalculator zoneCalculator = World.world.zone_calculator;
             foreach (ZoneMetaData data in ZoneMetaDataVisualizer.zone_data_dict.Values)
             {
@@ -177,6 +207,24 @@ public partial class WorldboxGame
 
         private static void UpdateSectDynamicZones()
         {
+            int zoneOption = Sect.getZoneOptionState();
+            if (_lastSectZoneOption != zoneOption)
+            {
+                ZoneMetaDataVisualizer.clearAll();
+                _lastSectZoneOption = zoneOption;
+            }
+
+            if (zoneOption == SectZoneModeMembers)
+            {
+                UpdateSectMemberZones();
+                return;
+            }
+
+            UpdateSectResidenceZones();
+        }
+
+        private static void UpdateSectResidenceZones()
+        {
             List<Sect> sects = I.Sects.list;
             double worldTime = World.world.getCurWorldTime();
             for (int i = 0; i < sects.Count; i++)
@@ -189,6 +237,26 @@ public partial class WorldboxGame
                 {
                     ZoneMetaDataVisualizer.countMetaZone(zones[j], sect, worldTime);
                 }
+            }
+        }
+
+        private static void UpdateSectMemberZones()
+        {
+            List<Actor> actors = World.world.units.getSimpleList();
+            double worldTime = World.world.getCurWorldTime();
+            for (int i = 0; i < actors.Count; i++)
+            {
+                Actor actor = actors[i];
+                if (actor == null || actor.isRekt()) continue;
+                if (!actor.asset.show_on_meta_layer) continue;
+
+                Sect sect = GetSectForActor(actor);
+                if (sect == null) continue;
+
+                TileZone zone = actor.current_tile?.zone;
+                if (zone == null) continue;
+
+                ZoneMetaDataVisualizer.countMetaZone(zone, sect, worldTime);
             }
         }
 
@@ -214,12 +282,50 @@ public partial class WorldboxGame
 
         private static Sect GetSectForTile(WorldTile tile)
         {
-            return tile == null ? null : GetSectForZone(tile.zone);
+            return tile == null ? null : GetSectForZone(tile.zone, Sect.getZoneOptionState()) as Sect;
         }
 
-        private static Sect GetSectForZone(TileZone zone)
+        private static IMetaObject GetSectForZone(TileZone zone, int zoneOption)
+        {
+            return zoneOption == SectZoneModeResidence
+                ? GetSectResidenceForZone(zone)
+                : GetSectMembersForZone(zone);
+        }
+
+        private static Sect GetSectResidenceForZone(TileZone zone)
         {
             if (zone == null) return null;
+
+            List<Sect> sects = I.Sects.list;
+            for (int i = 0; i < sects.Count; i++)
+            {
+                Sect sect = sects[i];
+                if (sect == null || sect.isRekt()) continue;
+
+                List<TileZone> zones = sect.GetResidenceZones();
+                for (int j = 0; j < zones.Count; j++)
+                {
+                    if (zones[j] == zone) return sect;
+                }
+            }
+
+            return null;
+        }
+
+        private static Sect GetSectResidenceForDrawZone(TileZone zone)
+        {
+            if (zone == null) return null;
+            if (!ZoneMetaDataVisualizer.hasZoneData(zone)) return null;
+
+            ZoneMetaData data = ZoneMetaDataVisualizer.getZoneMetaData(zone);
+            Sect sect = data.meta_object as Sect;
+            return sect == null || sect.isRekt() ? null : sect;
+        }
+
+        private static Sect GetSectMembersForZone(TileZone zone)
+        {
+            if (zone == null) return null;
+            if (!ZoneMetaDataVisualizer.hasZoneData(zone)) return null;
 
             ZoneMetaData data = ZoneMetaDataVisualizer.getZoneMetaData(zone);
             Sect sect = data.meta_object as Sect;

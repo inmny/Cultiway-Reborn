@@ -25,6 +25,13 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
             icon_path = "cultiway/icons/iconSect",
             toggle_name = "sect_layer",
             redirect_map_mode = MetaTypeExtend.Sect,
+            default_int = 0,
+            max_value = 1,
+            locale_options_ids = new[]
+            {
+                "Cultiway.Sect.MapMode.Residence",
+                "Cultiway.Sect.MapMode.Members"
+            },
             kernel_func = (WorldTile worldTile, ref Color32 out_color) =>
             {
                 out_color.a = 0;
@@ -148,19 +155,122 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
 
     public override CustomMapModeAsset add(CustomMapModeAsset pAsset)
     {
+        EnsureMapModeOption(pAsset);
+        CustomMapModeAsset asset = base.add(pAsset);
         GodPower power = new GodPower()
         {
             id = pAsset.toggle_name,
             name = pAsset.toggle_name,
             unselect_when_window = true,
             map_modes_switch = true,
+            multi_toggle = pAsset.max_value > 0,
             toggle_name = pAsset.toggle_name,
-            force_map_mode = pAsset.redirect_map_mode.Back(),
-            toggle_action = _ => ModClass.I.CustomMapModeManager.InvalidateCurrentMapMode()
+            force_map_mode = pAsset.redirect_map_mode.Back()
         };
+        power.toggle_action = pAsset.max_value > 0
+            ? _ => ToggleMapModeZoneOption(asset, power)
+            : _ => ToggleMapModeOption(asset, power);
         AssetManager.powers.add(power);
         UI.Manager.AddButton(TabButtonType.WORLD,
-            PowerButtonCreator.CreateToggleButton(pAsset.toggle_name, SpriteTextureLoader.getSprite(pAsset.icon_path)));
-        return base.add(pAsset);
+            PowerButtonCreator.CreateToggleButton(pAsset.toggle_name, SpriteTextureLoader.getSprite(pAsset.icon_path),
+                pNoAutoSetToggleAction: true));
+        return asset;
+    }
+
+    private static void ToggleMapModeZoneOption(CustomMapModeAsset asset, GodPower power)
+    {
+        OptionAsset option = AssetManager.options_library.get(asset.toggle_name);
+        PlayerOptionData data = option.data;
+        int direction = InputHelpers.GetMouseButtonUp(1) ? -1 : 1;
+        if (data.boolVal)
+        {
+            data.intVal += direction;
+            if (data.intVal > option.max_value)
+            {
+                data.intVal = 0;
+                data.boolVal = false;
+            }
+
+            if (data.intVal < 0)
+            {
+                data.intVal = option.max_value;
+            }
+        }
+        else
+        {
+            data.boolVal = true;
+        }
+
+        FinishMapModeToggle(asset, power, option, showOption: true);
+    }
+
+    private static void ToggleMapModeOption(CustomMapModeAsset asset, GodPower power)
+    {
+        OptionAsset option = AssetManager.options_library.get(asset.toggle_name);
+        PlayerOptionData data = option.data;
+        data.boolVal = !data.boolVal;
+        FinishMapModeToggle(asset, power, option, showOption: false);
+    }
+
+    private static void FinishMapModeToggle(CustomMapModeAsset asset, GodPower power, OptionAsset option, bool showOption)
+    {
+        PlayerOptionData data = option.data;
+        if (data.boolVal)
+        {
+            DisableAllOtherMapModes(power.id);
+            string title = power.getTranslatedName();
+            if (showOption)
+            {
+                title += " - " + option.getTranslatedOption();
+            }
+
+            WorldTip.instance.showToolbarText(title, power.getTranslatedDescription());
+        }
+        else
+        {
+            WorldTip.instance.startHide();
+        }
+
+        PlayerConfig.saveData();
+        ModClass.I.CustomMapModeManager.InvalidateCurrentMapMode();
+        if (asset.redirect_map_mode == MetaTypeExtend.Sect)
+        {
+            ZoneMetaDataVisualizer.clearAll();
+        }
+    }
+
+    private static void DisableAllOtherMapModes(string activePowerId)
+    {
+        for (int i = 0; i < AssetManager.powers.list.Count; i++)
+        {
+            GodPower power = AssetManager.powers.list[i];
+            if (!power.map_modes_switch || power.id == activePowerId) continue;
+            PlayerConfig.dict[power.toggle_name].boolVal = false;
+        }
+    }
+
+    private static void EnsureMapModeOption(CustomMapModeAsset asset)
+    {
+        if (AssetManager.options_library.get(asset.toggle_name) == null)
+        {
+            AssetManager.options_library.add(new OptionAsset
+            {
+                id = asset.toggle_name,
+                default_int = asset.default_int,
+                max_value = asset.max_value,
+                multi_toggle = asset.max_value > 0,
+                type = OptionType.Bool,
+                locale_options_ids = asset.locale_options_ids
+            });
+        }
+
+        if (PlayerConfig.dict != null && !PlayerConfig.dict.ContainsKey(asset.toggle_name))
+        {
+            PlayerConfig.dict.Add(asset.toggle_name, new PlayerOptionData(asset.toggle_name)
+            {
+                boolVal = false,
+                intVal = asset.default_int
+            });
+        }
     }
 }

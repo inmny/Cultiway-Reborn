@@ -160,6 +160,8 @@ Cultiway.Sect.Level,等级
 Cultiway.Sect.Reputation,声望
 Cultiway.Sect.Members,成员
 Cultiway.Sect.Territory,占地
+Cultiway.Sect.MapMode.Residence,驻地
+Cultiway.Sect.MapMode.Members,宗门人员
 Cultiway.Sect.Cultibooks,功法
 Cultiway.Sect.ElixirRecipes,丹方
 Cultiway.Sect.Skillbooks,术法

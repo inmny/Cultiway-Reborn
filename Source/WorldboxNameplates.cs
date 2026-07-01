@@ -24,6 +24,8 @@ public partial class WorldboxGame
     [Dependency(typeof(MetaTypes))]
     public class Nameplates : ExtendLibrary<NameplateAsset, Nameplates> 
     {
+        private const int SectZoneModeResidence = 0;
+
         public static NameplateAsset Sect {get; private set;}
         public static NameplateAsset GeoRegion { get; private set; }
         protected override bool AutoRegisterAssets() => false;
@@ -83,18 +85,48 @@ public partial class WorldboxGame
         private static bool TryGetSectNameplatePosition(Sect sect, out Vector3 position)
         {
             position = Vector3.zero;
-            if (sect == null || !sect.isAlive() || !sect.hasUnits()) return false;
+            if (sect == null || !sect.isAlive()) return false;
 
-            Actor actor = sect.GetLeaderActor();
-            if (actor == null)
+            if (WorldboxGame.MetaTypes.Sect.getZoneOptionState() == SectZoneModeResidence)
             {
-                actor = sect.getOldestVisibleUnitForNameplatesCached();
+                return TryGetSectResidenceNameplatePosition(sect, out position);
             }
 
-            if (actor == null || actor.isRekt()) return false;
+            return TryGetSectMembersNameplatePosition(sect, out position);
+        }
 
-            position = actor.current_position;
-            position.y += actor.getHeight();
+        private static bool TryGetSectResidenceNameplatePosition(Sect sect, out Vector3 position)
+        {
+            position = Vector3.zero;
+
+            WorldTile tile = sect.GetResidenceTile();
+            if (tile == null) return false;
+
+            position = tile.posV3;
+            position.y += 2f;
+            return true;
+        }
+
+        private static bool TryGetSectMembersNameplatePosition(Sect sect, out Vector3 position)
+        {
+            position = Vector3.zero;
+            List<Actor> members = sect.GetLivingMembers();
+            if (members.Count == 0) return false;
+
+            Vector2 sum = Vector2.zero;
+            int count = 0;
+            for (int i = 0; i < members.Count; i++)
+            {
+                Actor member = members[i];
+                if (member == null || member.isRekt()) continue;
+
+                sum += member.current_position;
+                count++;
+            }
+
+            if (count == 0) return false;
+
+            position = new Vector3(sum.x / count, sum.y / count, 0f);
             position.y += -2f;
             return true;
         }
