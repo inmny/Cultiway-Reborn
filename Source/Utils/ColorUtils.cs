@@ -5,6 +5,38 @@ namespace Cultiway.Utils;
 
 public static class ColorUtils
 {
+    /// <summary>取 sprite 贴图（textureRect 区域内、跳过全透明像素）的平均 RGB 颜色。</summary>
+    public static Color32 GetAverageColor(Sprite sprite)
+    {
+        Texture2D tex = sprite.texture;
+        if (tex == null) return Color.white;
+
+        Rect rect = sprite.textureRect;
+        int x0 = Mathf.FloorToInt(rect.x);
+        int y0 = Mathf.FloorToInt(rect.y);
+        int x1 = x0 + Mathf.FloorToInt(rect.width);
+        int y1 = y0 + Mathf.FloorToInt(rect.height);
+        int tex_w = tex.width;
+
+        Color32[] pixels = tex.GetPixels32();
+        long r = 0, g = 0, b = 0;
+        int count = 0;
+        for (int y = y0; y < y1; y++)
+        {
+            int row = y * tex_w;
+            for (int x = x0; x < x1; x++)
+            {
+                Color32 c = pixels[row + x];
+                if (c.a == 0) continue;
+                r += c.r;
+                g += c.g;
+                b += c.b;
+                count++;
+            }
+        }
+
+        return count > 0 ? ColorUtils.AverageRgb(r, g, b, count) : Color.white;
+    }
     public static bool IsSameWith(this Color32 a, Color32 b)
     {
         return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;

@@ -16,7 +16,7 @@ using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;
-[Dependency(typeof(Actors), typeof(Buildings), typeof(Drops))]
+[Dependency(typeof(Actors), typeof(Buildings), typeof(Drops), typeof(Biomes))]
 public class GodPowers : ExtendLibrary<GodPower, GodPowers>
 {
     [CloneSource(PowerLibrary.TEMPLATE_SPAWN_ACTOR)]
@@ -45,6 +45,33 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         SetupCommonCreaturePlacePower();
         SetupCommonBuildingPlacePower();
         SetupCommonDropPlacePower();
+        SetupBiomePowers();
+    }
+
+    private void SetupBiomePowers()
+    {
+        AddBiomePower(Drops.SeedsBamboo,     "Bamboo",     "bamboo_seeds");
+        AddBiomePower(Drops.SeedsCandle,     "Candle",     "candle_seeds");
+        AddBiomePower(Drops.SeedsCemetery,   "Cemetery",   "cemetery_seeds");
+        AddBiomePower(Drops.SeedsCoral,      "Coral",      "coral_seeds");
+        AddBiomePower(Drops.SeedsDark,       "Dark",       "dark_seeds");
+        AddBiomePower(Drops.SeedsFern,       "Fern",       "fern_seeds");
+        AddBiomePower(Drops.SeedsFleshBlood, "FleshBlood", "flesh_blood_seeds");
+        AddBiomePower(Drops.SeedsKnowledge,  "Knowledge",  "knowledge_seeds");
+        AddBiomePower(Drops.SeedsOak,        "Oak",        "oak_seeds");
+        AddBiomePower(Drops.SeedsRice,       "Rice",       "rice_seeds");
+        AddBiomePower(Drops.SeedsTitans,     "Titans",     "titans_seeds");
+    }
+
+    private void AddBiomePower(DropAsset seed, string biomeIcon, string localeName)
+    {
+        string power_id = seed.id;
+        Clone(power_id, PowerLibrary.TEMPLATE_DROPS);
+        t.name = localeName;
+        t.drop_id = seed.id;
+        Sprite icon = SpriteTextureLoader.getSprite($"cultiway/icons/biomes/{biomeIcon}");
+        Cultiway.UI.Manager.AddButton(TabButtonType.BIOME,
+            PowerButtonCreator.CreateGodPowerButton(power_id, icon));
     }
     private static GeoRegion _current_geo_region = null;
     private static bool InitializeGeoRegionAction(WorldTile tile, string power_id)
