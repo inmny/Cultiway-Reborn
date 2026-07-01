@@ -106,9 +106,10 @@ public class SectPage : MonoBehaviour
             }
         }
 
-        if (!string.IsNullOrEmpty(sect.data.HomeCityName))
+        string residenceName = sect.GetResidenceName();
+        if (!string.IsNullOrEmpty(residenceName))
         {
-            sb.AppendLine($"驻地: {sect.data.HomeCityName} (已失去)");
+            sb.AppendLine($"驻地: {residenceName}");
         }
         else
         {

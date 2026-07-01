@@ -11,6 +11,9 @@ public class SectData : MetaObjectData
     public long LeaderActorID = -1;
     public string HomeCityName;
     public long HomeCityID = -1;
+    public string ResidenceName;
+    public int ResidenceTileID = -1;
+    public float ResidenceFoundedTime;
     public float FoundedTime;
     public int Level = 1;
     public int Reputation;

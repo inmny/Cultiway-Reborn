@@ -177,21 +177,18 @@ public partial class WorldboxGame
 
         private static void UpdateSectDynamicZones()
         {
-            List<Actor> actors = World.world.units.getSimpleList();
+            List<Sect> sects = I.Sects.list;
             double worldTime = World.world.getCurWorldTime();
-            for (int i = 0; i < actors.Count; i++)
+            for (int i = 0; i < sects.Count; i++)
             {
-                Actor actor = actors[i];
-                if (actor == null || actor.isRekt()) continue;
-                if (!actor.asset.show_on_meta_layer) continue;
+                Sect sect = sects[i];
+                if (sect == null || sect.isRekt()) continue;
 
-                Sect sect = GetSectForActor(actor);
-                if (sect == null) continue;
-
-                TileZone zone = actor.current_tile?.zone;
-                if (zone == null) continue;
-
-                ZoneMetaDataVisualizer.countMetaZone(zone, sect, worldTime);
+                List<TileZone> zones = sect.GetResidenceZones();
+                for (int j = 0; j < zones.Count; j++)
+                {
+                    ZoneMetaDataVisualizer.countMetaZone(zones[j], sect, worldTime);
+                }
             }
         }
 

@@ -33,6 +33,7 @@ public class Sect : MetaObject<SectData>
             data.HomeCityName = founder.city.name;
             data.HomeCityID = founder.city.data.id;
         }
+        SetupResidence(founder);
 
         var doctrineCultibook = founder.GetExtend().GetMainCultibook();
         if (doctrineCultibook != null)
@@ -47,6 +48,28 @@ public class Sect : MetaObject<SectData>
             "BuildSect",
             $"created sect={SectVerifyLog.Sect(this)} founder={SectVerifyLog.Actor(founder)} doctrine={data.DoctrineCultibookId ?? "null"} members={countUnits()} scriptures={data.ScriptureBookIDs.Count}");
         WorldLogUtils.LogSectFounded(this, founder);
+    }
+
+    private void SetupResidence(Actor founder)
+    {
+        WorldTile tile = ResolveFoundingResidenceTile(founder);
+        if (tile == null) return;
+
+        data.ResidenceTileID = tile.data.tile_id;
+        data.ResidenceFoundedTime = (float)World.world.getCurWorldTime();
+        data.ResidenceName = founder.hasCity() ? founder.city.name : $"{tile.x}, {tile.y}";
+        SectVerifyLog.Log("ResidenceSetup", $"sect={SectVerifyLog.Sect(this)} founder={SectVerifyLog.Actor(founder)} tile={tile.x},{tile.y} zone={tile.zone?.id ?? -1} name={data.ResidenceName}");
+    }
+
+    private static WorldTile ResolveFoundingResidenceTile(Actor founder)
+    {
+        if (founder == null || founder.isRekt()) return null;
+
+        City city = founder.hasCity() ? founder.city : null;
+        WorldTile cityTile = city?.getTile();
+        if (cityTile != null) return cityTile;
+
+        return founder.current_tile;
     }
 
     private void JoinFounderApprentices(ActorExtend founder)
@@ -411,10 +434,88 @@ public class Sect : MetaObject<SectData>
         return city == null || city.isRekt() ? null : city;
     }
 
-    public int GetTerritoryCount()
+    public WorldTile GetResidenceTile()
+    {
+        if (data.ResidenceTileID >= 0 && data.ResidenceTileID < World.world.tiles_list.Length)
+        {
+            WorldTile tile = World.world.tiles_list[data.ResidenceTileID];
+            if (tile != null) return tile;
+        }
+
+        return GetHomeCity()?.getTile();
+    }
+
+    public string GetResidenceName()
     {
         City city = GetHomeCity();
-        return city?.zones?.Count ?? 0;
+        if (city != null) return city.name;
+        if (!string.IsNullOrEmpty(data.ResidenceName)) return data.ResidenceName;
+
+        WorldTile tile = GetResidenceTile();
+        return tile == null ? null : $"{tile.x}, {tile.y}";
+    }
+
+    public TileZone GetResidenceZone()
+    {
+        return GetResidenceTile()?.zone;
+    }
+
+    public List<TileZone> GetResidenceZones()
+    {
+        List<TileZone> result = new();
+        TileZone center = GetResidenceZone();
+        if (center == null) return result;
+
+        AddResidenceZone(result, center);
+        TileZone[] neighbours = center.neighbours_all;
+        if (neighbours == null) return result;
+
+        for (int i = 0; i < neighbours.Length; i++)
+        {
+            AddResidenceZone(result, neighbours[i]);
+        }
+
+        return result;
+    }
+
+    public WorldTile GetRandomResidenceTile(Actor actor)
+    {
+        List<TileZone> zones = GetResidenceZones();
+        for (int i = 0; i < SectConst.ResidenceRandomTileAttempts; i++)
+        {
+            if (zones.Count == 0) break;
+
+            TileZone zone = zones.GetRandom();
+            if (zone == null || zone.tiles.Length == 0) continue;
+
+            WorldTile tile = zone.tiles.GetRandom();
+            if (tile != null && (actor == null || actor.current_tile == null || tile.isSameIsland(actor.current_tile)))
+            {
+                return tile;
+            }
+        }
+
+        WorldTile residence = GetResidenceTile();
+        if (residence != null && (actor == null || actor.current_tile == null || residence.isSameIsland(actor.current_tile)))
+        {
+            return residence;
+        }
+
+        return null;
+    }
+
+    public int GetTerritoryCount()
+    {
+        return GetResidenceZones().Count;
+    }
+
+    private static void AddResidenceZone(List<TileZone> zones, TileZone zone)
+    {
+        if (zone == null) return;
+        if (!zones.Contains(zone))
+        {
+            zones.Add(zone);
+        }
     }
 
     public override ActorAsset getActorAsset()

@@ -682,9 +682,10 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
             return;
         }
 
-        if (!string.IsNullOrEmpty(sect.data.HomeCityName))
+        string residenceName = sect.GetResidenceName();
+        if (!string.IsNullOrEmpty(residenceName))
         {
-            showStatRow("Cultiway.Sect.HomeCity", sect.data.HomeCityName, MetaType.None, -1L, "iconCity");
+            showStatRow("Cultiway.Sect.HomeCity", residenceName, MetaType.None, -1L, "iconCity");
         }
     }
 

@@ -245,7 +245,7 @@ public partial class WorldboxGame
                 return;
             }
 
-            tooltip.addLineText("Cultiway.Sect.HomeCity", GetStoredNameOrDash(sect.data.HomeCityName), fallbackColor, false, true, 21);
+            tooltip.addLineText("Cultiway.Sect.HomeCity", GetStoredNameOrDash(sect.GetResidenceName()), fallbackColor, false, true, 21);
         }
 
         private static string GetSectDoctrineName(Sect sect)

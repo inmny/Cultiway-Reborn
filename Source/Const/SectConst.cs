@@ -29,4 +29,5 @@ public static class SectConst
     public const float SectLectureNewCultibookGain = 12f;
     public const float SectLectureKnownCultibookGain = 8f;
     public const float SectLectureCultibookMasteryCap = 50f;
+    public const int ResidenceRandomTileAttempts = 12;
 }
