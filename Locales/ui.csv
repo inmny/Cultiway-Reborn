@@ -231,6 +231,7 @@ Cultiway.WorldLog.SectPromoted,$sect$ 提拔 $actor$ 为 $value$
 Cultiway.WorldLog.SectSuccession,$actor$ 继任为 $sect$ 掌门
 Cultiway.WorldLog.SectScriptureContributed,$actor$ 将《$value$》收入 $sect$ 藏经阁
 Cultiway.WorldLog.SectLecture,$actor$ 在 $sect$ 开坛讲法：$value$
+Cultiway.WorldLog.DemonAscension,$actor$ 献祭己身，化身为 $daemon$ 降临世间！
 Cultiway.Sect.Permission.EvaluatePersonnel,评定人事
 Cultiway.Sect.Permission.EvaluatePersonnel.Info,允许执行宗门人事评定
 Cultiway.Sect.Permission.PromoteMember,任免门人
