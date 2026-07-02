@@ -169,7 +169,8 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
         action_on_attack += action;
     }
     private static Action<ActorExtend, BaseSimObject, ListPool<CombatActionAsset>> action_on_attack;
-    private const float BaseSkillCastRange = 11f;
+    private const float MinSkillCastRange = 18f;
+    private const float MaxSkillCastRange = 64f;
     private const float CloseCombatCasterChance = 0.25f;
     private const float CasterPreferredRangeRatio = 0.65f;
 
@@ -507,8 +508,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// </summary>
     private float GetSkillCastRange(BaseSimObject target)
     {
-        var power_bonus = Mathf.Clamp(GetPowerLevel(), 0f, 10f) * 0.5f;
-        return BaseSkillCastRange + power_bonus;
+        var base_range = Mathf.Max(Base.getAttackRange(), MinSkillCastRange);
+        var power_bonus = Mathf.Max(0f, GetPowerLevel());
+        return Mathf.Min(MaxSkillCastRange, base_range + power_bonus);
     }
 
     /// <summary>
