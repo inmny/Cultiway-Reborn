@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
+using Cultiway.Const;
+using Cultiway.Content.Extensions;
 using Cultiway.Core.Libraries;
 using NeoModLoader.General.Game.extensions;
 using strings;
@@ -17,6 +19,10 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     }
     [CloneSource(BuildingLibrary.TEMPLATE_CITY_COLORED_BUILDING)]
     public static BuildingAsset TrainStation { get; private set; }
+    [CloneSource(SB.hall_human_0)]
+    public static BuildingAsset SectHall { get; private set; }
+    [CloneSource(SB.library_human)]
+    public static BuildingAsset SectScripturePavilion { get; private set; }
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
@@ -24,6 +30,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         SetupEasternHumanBuildings();
         //SetupMingRaceBuildings();
         SetupTrainStation();
+        SetupSectBuildings();
     }
 
     protected override void ActionAfterCreation(PropertyInfo prop, BuildingAsset asset)
@@ -52,6 +59,44 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         TrainStation.priority = 100;
         TrainStation.group = "train_station";
     }
+
+    private void SetupSectBuildings()
+    {
+        SetupSectBuildingBase(SectHall, SectConst.BuildingTypeHall);
+        SectHall.priority = 110;
+        SectHall.cost = new ConstructionCost(10, 5, 0, 30);
+        SectHall.base_stats["health"] = 300f;
+
+        SetupSectBuildingBase(SectScripturePavilion, SectConst.BuildingTypeScripturePavilion);
+        SectScripturePavilion.priority = 90;
+        SectScripturePavilion.cost = new ConstructionCost(0, 12, 2, 50);
+        SectScripturePavilion.base_stats["health"] = 350f;
+    }
+
+    private static void SetupSectBuildingBase(BuildingAsset asset, string type)
+    {
+        asset.AsSectBuilding(type);
+        asset.main_path = "buildings/sects/";
+        asset.kingdom = string.Empty;
+        asset.civ_kingdom = string.Empty;
+        asset.storage = false;
+        asset.storage_only_food = false;
+        asset.book_slots = 0;
+        asset.can_units_live_here = false;
+        asset.housing_slots = 0;
+        asset.housing_happiness = 0;
+        asset.max_houses = 0;
+        asset.loot_generation = 0;
+        asset.produce_biome_food = false;
+        asset.can_be_upgraded = false;
+        asset.upgrade_to = string.Empty;
+        asset.upgraded_from = string.Empty;
+        asset.upgrade_level = 0;
+        asset.ignore_other_buildings_for_upgrade = false;
+        asset.can_be_living_house = false;
+        asset.can_be_living_plant = false;
+    }
+
     private void SetupEasternHumanBuildings()
     {
         void CloneHuman(string building_id)

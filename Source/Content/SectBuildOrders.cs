@@ -1,4 +1,5 @@
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Core.Libraries;
 using NeoModLoader.api.attributes;
 
@@ -14,5 +15,18 @@ public class SectBuildOrders : ExtendLibrary<SectBuildOrderAsset, SectBuildOrder
 
     protected override void OnInit()
     {
+        InitClassic();
+    }
+
+    private static void InitClassic()
+    {
+        Classic.AddBuilding(Buildings.SectHall, maxPerSect: 1, requiredResidenceZones: 1);
+
+        SectBuildOrder scripturePavilion = Classic.AddBuilding(
+            Buildings.SectScripturePavilion,
+            maxPerSect: 1,
+            requiredMembers: 3,
+            requiredResidenceZones: 1);
+        scripturePavilion.requirementsTypes = [SectConst.BuildingTypeHall];
     }
 }
