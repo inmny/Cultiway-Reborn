@@ -145,6 +145,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
                 Enemy = true,
                 Actor = true
             })
+            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
             .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
             BaseSimObject target) =>
         {
