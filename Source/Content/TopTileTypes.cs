@@ -83,6 +83,7 @@ namespace Cultiway.Content
 
             CoralLow.biome_id = "biome_coral";
             CoralLow.color_hex = null;
+            CoralLow.liquid = true; // 珊瑚群系低地块：水源模式（生物游泳、不可建陆地建筑）
             CoralLow.setDrawLayer(TileZIndexes.nothing);
             CoralHigh.biome_id = "biome_coral";
             CoralHigh.color_hex = null;

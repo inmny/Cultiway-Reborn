@@ -61,26 +61,52 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
 
     private static void SetupBiomeTrees()
     {
+        // 默认摇动；以下群系的树不摇动：血肉/墓园/巨灵/烛火/珊瑚/知识
         SetupTree(BambooTree);
-        SetupTree(CandleTree);
-        SetupTree(CemeteryTree);
-        SetupTree(CoralTree);
+        SetupTree(CandleTree, wobble: false);
+        SetupTree(CemeteryTree, wobble: false);
+        SetupTree(CoralTree, wobble: false);
         SetupTree(DarkTree);
         SetupTree(FernTree);
-        SetupTree(FleshBloodTree);
-        SetupTree(KnowledgeTree);
+        SetupTree(FleshBloodTree, wobble: false);
+        SetupTree(KnowledgeTree, wobble: false);
         SetupTree(OakTree);
         SetupTree(RiceTree);
-        SetupTree(TitansTree);
+        SetupTree(TitansTree, wobble: false);
+
+        // 部分树木的资源产出。pNewList:true 替换继承自 tree_green_1 的默认产出。
+        CemeteryTree.addResource("stone", 1, pNewList: true);
+        CemeteryTree.addResource("wood", 1);
+
+        FleshBloodTree.addResource("meat", 2, pNewList: true);
+        FleshBloodTree.addResource("worms", 1);
+        FleshBloodTree.addResource("bones", 1);
+        FleshBloodTree.addResource("leather", 1); // 皮
+
+        TitansTree.addResource("bones", 1, pNewList: true);
+        TitansTree.addResource("common_metals", 1); // 矿石
+
+        CoralTree.addResource("sushi", 1, pNewList: true); // 鱼（无 fish 资源，用 sushi）
+
+        RiceTree.addResource("wheat", 1, pNewList: true);
     }
 
-    private static void SetupTree(BuildingAsset tree)
+    private static void SetupTree(BuildingAsset tree, bool wobble = true)
     {
         // tree_green_1 uses main_path "buildings/trees/"; repoint to "buildings/" so sprites
         // resolve from GameResources/buildings/<id>/ where the per-biome art lives.
         tree.main_path = "buildings/";
         // Cloned spread_ids still point at vanilla tree_green_1; make the tree self-propagate.
         tree.spread_ids = new[] { tree.id };
+        // 锁定在本群系：禁止自繁殖扩散。植被只由群系 grow_vegetation_auto 在本群系地块上生成
+        //（tryGrowVegetationRandom 走 tile 自己的 biome 池），不会蔓延到相邻群系。
+        tree.spread_chance = 0f;
+        // 摇晃来自 material：tree_green_1 的 "tree" 是 wobbly material（随风摇）。不摇动的树改用
+        // 静态 "building"（= BuildingRendererSettings.cur_default_material），渲染本身不受影响。
+        if (!wobble)
+        {
+            tree.material = BuildingRendererSettings.material_building;
+        }
     }
 
     private static void SetupBiomePlants()
@@ -105,6 +131,8 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         plant.main_path = "buildings/";
         // Concrete vanilla plants set spread_ids to themselves; the template leaves it null.
         plant.spread_ids = new[] { plant.id };
+        // 锁定在本群系：禁止自繁殖扩散（同 SetupTree，只由群系 grow 在本地块生成）。
+        plant.spread_chance = 0f;
     }
 
     protected override void ActionAfterCreation(PropertyInfo prop, BuildingAsset asset)

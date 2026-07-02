@@ -117,11 +117,12 @@ public static class WallShapeHelper
             if (IsExit(t.x, t.y, cx, cy, hx, hy))
             {
                 actual.Add(null); // 出口断点
-                if (!t.IsWater()) hasLandExit = true;
+                if (!t.IsWater() && !IsBlockingTerrain(t)) hasLandExit = true; // 出口落在可通行陆地
                 continue;
             }
-            WorldTile a = t.IsWater() ? FindLandNeighbor(t, cx, cy) : t;
-            actual.Add(a); // a==null（深海）同为断点
+            if (t.IsWater()) { actual.Add(FindLandNeighbor(t, cx, cy)); continue; } // 水域贴岸
+            if (IsBlockingTerrain(t)) { actual.Add(null); continue; }               // 山峰/雪顶等不可通行 → 断点
+            actual.Add(t);
         }
         return actual;
     }
@@ -133,6 +134,13 @@ public static class WallShapeHelper
         if (dy == hy && dx <= EXIT_HALF) return true; // 上/下边中点
         if (dx == hx && dy <= EXIT_HALF) return true; // 左/右边中点
         return false;
+    }
+
+    /// <summary>地块是否限制单位通行（山峰/雪顶等高山地形）——城墙在此跳过，以高山为天然屏障。</summary>
+    private static bool IsBlockingTerrain(WorldTile t)
+    {
+        var type = t.Type;
+        return type != null && (type.mountains || type.summit);
     }
 
     /// <summary>矩形四条边顺时针、沿边逐格（天然 4 连通）：上(→) → 右(↓) → 下(←) → 左(↑)。</summary>

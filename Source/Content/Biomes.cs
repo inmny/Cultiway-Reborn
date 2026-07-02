@@ -10,7 +10,7 @@ namespace Cultiway.Content;
 /// <see cref="TopTileTypes"/>. <c>generator_pot_amount &gt; 0</c> makes the vanilla
 /// <c>BiomeLibrary.linkAssets</c> pool them so they also appear in world generation.
 /// </summary>
-[Dependency(typeof(TopTileTypes), typeof(Buildings))]
+[Dependency(typeof(TopTileTypes), typeof(Buildings), typeof(Actors))]
 public class Biomes : ExtendLibrary<BiomeAsset, Biomes>
 {
     [CloneSource("biome_grass"), AssetId("biome_bamboo")]     public static BiomeAsset Bamboo { get; private set; }
@@ -47,6 +47,31 @@ public class Biomes : ExtendLibrary<BiomeAsset, Biomes>
         EnsurePooled(Bamboo); EnsurePooled(Candle); EnsurePooled(Cemetery); EnsurePooled(Coral);
         EnsurePooled(Dark);   EnsurePooled(Fern);   EnsurePooled(FleshBlood);
         EnsurePooled(Knowledge); EnsurePooled(Oak); EnsurePooled(Rice); EnsurePooled(Titans);
+
+        SetupSpawns();
+    }
+
+    /// <summary>各群系自动生成的专属生物。addUnit 会置 pot_spawn_units_auto=true。</summary>
+    private static void SetupSpawns()
+    {
+        Bamboo.addUnit(Actors.Panda.id);
+        Cemetery.addUnit(Actors.GhostFire.id);            // 鬼火精灵
+        Dark.addUnit(Actors.Bloodsucker.id);              // 吸血鬼
+        Dark.addUnit(Actors.Werewolf.id);                 // 狼人
+        FleshBlood.addUnit("tumor_monster_animal");       // 原版肿瘤塔召唤物
+        Oak.addUnit(Actors.OakTreants.id);                // 橡树人
+        Titans.addUnit("skeleton");                       // 骷髅
+        Candle.addUnit(Actors.CandleGenie.id);            // 烛火精灵
+        Coral.addUnit(Actors.Mermaid.id);                 // 美人鱼
+        Knowledge.addUnit(Actors.KnowledgeGenie.id);      // 知识精灵
+        Rice.addUnit("crab");                             // 螃蟹
+        // 蕨类：恐龙
+        Fern.addUnit(Actors.Dreadnoughtus.id);            // 无畏巨龙
+        Fern.addUnit(Actors.Triceratops.id);              // 三角龙
+        Fern.addUnit(Actors.TyrannosaurusRex.id);         // 霸王龙
+        Fern.addUnit(Actors.Diplodocus.id);               // 梁龙
+        Fern.addUnit(Actors.Pterodactyl.id);              // 翼龙
+        Fern.addUnit(Actors.Velociraptor.id);             // 迅猛龙
     }
 
     private static void EnsurePooled(BiomeAsset asset)
