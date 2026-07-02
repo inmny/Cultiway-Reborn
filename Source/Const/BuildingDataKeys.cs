@@ -2,6 +2,7 @@ namespace Cultiway.Const;
 
 public static class BuildingDataKeys
 {
+    public const string SectID_Long = "cw_sect_id";
     public const string AdvancedSpawnerCentralizedTimer_float = "cw_advanced_spawner_timer";
     public const string AdvancedSpawnerCentralizedAliveList_str = "cw_advanced_spawner_alive_list";
     public const string AdvancedSpawnerDistributedTimerPrefix_float = "cw_advanced_spawner_timer_";

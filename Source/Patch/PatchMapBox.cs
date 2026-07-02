@@ -122,6 +122,7 @@ internal static class PatchMapBox
     private static void check_cultiway_dirty_units()
     {
         WorldboxGame.I.Sects.beginChecksUnits();
+        WorldboxGame.I.Sects.beginChecksBuildings();
         WorldboxGame.I.GeoRegions.beginChecksUnits();
     }
 }

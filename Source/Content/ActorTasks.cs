@@ -169,13 +169,11 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         StudySectScripture.force_hand_tool = "book";
         StudySectScripture.cancellable_by_reproduction = true;
         StudySectScripture.cancellable_by_socialize = true;
-        StudySectScripture.addBeh(new BehTryReadSectScripture());
-        StudySectScripture.addBeh(new BehBuildingTargetHome());
-        StudySectScripture.addBeh(new BehGetTargetBuildingMainTile());
+        StudySectScripture.addBeh(new BehFindSectResidenceTile("StudyScriptureTarget"));
         StudySectScripture.addBeh(new BehGoToTileTarget());
-        StudySectScripture.addBeh(new BehStayInBuildingTarget(TimeScales.SecPerMonth, TimeScales.SecPerMonth * 3));
+        StudySectScripture.addBeh(new BehTryReadSectScripture());
+        StudySectScripture.addBeh(new BehRandomWait(TimeScales.SecPerMonth, TimeScales.SecPerMonth * 3, true));
         StudySectScripture.addBeh(new BehFinishReading());
-        StudySectScripture.addBeh(new BehExitBuilding());
         StudySectScripture.addBeh(new BehEndJob());
         StudySectScripture.setIcon("ui/icons/iconBooks");
 
@@ -195,24 +193,22 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         OrganizeSectScripture.force_hand_tool = "book";
         OrganizeSectScripture.cancellable_by_reproduction = true;
         OrganizeSectScripture.cancellable_by_socialize = true;
-        OrganizeSectScripture.addBeh(new BehBuildingTargetHome());
-        OrganizeSectScripture.addBeh(new BehGetTargetBuildingMainTile());
+        OrganizeSectScripture.addBeh(new BehFindSectResidenceTile("OrganizeScriptureTarget"));
         OrganizeSectScripture.addBeh(new BehGoToTileTarget());
-        OrganizeSectScripture.addBeh(new BehStayInBuildingTarget(TimeScales.SecPerMonth, TimeScales.SecPerMonth * 2));
+        OrganizeSectScripture.addBeh(new BehRandomWait(TimeScales.SecPerMonth, TimeScales.SecPerMonth * 2, true));
+        OrganizeSectScripture.addBeh(new BehAngleAnimation(AngleAnimationTarget.Tile, null, 0.8f, 25f, true, true));
         OrganizeSectScripture.addBeh(new BehOrganizeSectScripture());
-        OrganizeSectScripture.addBeh(new BehExitBuilding());
         OrganizeSectScripture.addBeh(new BehEndJob());
         OrganizeSectScripture.setIcon("ui/icons/iconBooks");
 
         LectureSectCultibook.force_hand_tool = "book";
         LectureSectCultibook.cancellable_by_reproduction = true;
         LectureSectCultibook.cancellable_by_socialize = true;
-        LectureSectCultibook.addBeh(new BehBuildingTargetHome());
-        LectureSectCultibook.addBeh(new BehGetTargetBuildingMainTile());
+        LectureSectCultibook.addBeh(new BehFindSectResidenceTile("SectLectureTarget"));
         LectureSectCultibook.addBeh(new BehGoToTileTarget());
-        LectureSectCultibook.addBeh(new BehStayInBuildingTarget(TimeScales.SecPerMonth, TimeScales.SecPerMonth * 2));
+        LectureSectCultibook.addBeh(new BehSpawnSlashTalkTowardTileTarget());
+        LectureSectCultibook.addBeh(new BehRandomWait(TimeScales.SecPerMonth, TimeScales.SecPerMonth * 2, true));
         LectureSectCultibook.addBeh(new BehLectureSectCultibook());
-        LectureSectCultibook.addBeh(new BehExitBuilding());
         LectureSectCultibook.addBeh(new BehEndJob());
         LectureSectCultibook.setIcon("cultiway/icons/iconCultivation");
         

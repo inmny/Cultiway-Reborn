@@ -17,12 +17,19 @@ namespace Cultiway.Core;
 
 public class Sect : MetaObject<SectData>
 {
+    public readonly List<Building> buildings = new();
+    public readonly Dictionary<string, List<Building>> buildings_dict_type = new();
+    public readonly Dictionary<string, List<Building>> buildings_dict_id = new();
+
+    internal Building under_construction_building;
+
     public override MetaType meta_type => MetaTypeExtend.Sect.Back();
 
     public void Setup(Actor founder)
     {
         generateNewMetaObject();
         data.ScriptureBookIDs = new List<long>();
+        ClearBuildingList();
         data.FounderActorName = founder.getName();
         data.FounderActorID = founder.data.id;
         data.FoundedTime = (float)World.world.getCurWorldTime();
@@ -509,6 +516,135 @@ public class Sect : MetaObject<SectData>
         return GetResidenceZones().Count;
     }
 
+    public void ClearBuildingList()
+    {
+        buildings.Clear();
+        foreach (List<Building> value in buildings_dict_type.Values)
+        {
+            value.Clear();
+        }
+        foreach (List<Building> value in buildings_dict_id.Values)
+        {
+            value.Clear();
+        }
+        buildings_dict_type.Clear();
+        buildings_dict_id.Clear();
+        under_construction_building = null;
+    }
+
+    public void ListBuilding(Building building)
+    {
+        if (!CanListBuilding(building)) return;
+
+        buildings.Add(building);
+        SetBuildingDictType(building);
+        SetBuildingDictID(building);
+        if (building.isUnderConstruction())
+        {
+            under_construction_building = building;
+        }
+    }
+
+    public List<Building> GetBuildings()
+    {
+        return buildings;
+    }
+
+    public int CountBuildings()
+    {
+        return buildings.Count;
+    }
+
+    public int CountBuildingsOfID(string buildingId, bool countOnlyFinished = true)
+    {
+        if (string.IsNullOrEmpty(buildingId)) return 0;
+        List<Building> list = GetBuildingListOfID(buildingId);
+        if (list == null) return 0;
+
+        if (!countOnlyFinished) return list.Count;
+
+        int result = 0;
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (CanCountBuilding(list[i]))
+            {
+                result++;
+            }
+        }
+
+        return result;
+    }
+
+    public int CountBuildingsType(string buildingType, bool countOnlyFinished = true)
+    {
+        if (string.IsNullOrEmpty(buildingType)) return 0;
+        List<Building> list = GetBuildingListOfType(buildingType);
+        if (list == null) return 0;
+
+        if (!countOnlyFinished) return list.Count;
+
+        int result = 0;
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (CanCountBuilding(list[i]))
+            {
+                result++;
+            }
+        }
+
+        return result;
+    }
+
+    public bool HasBuildingType(string buildingType, bool countOnlyFinished = true)
+    {
+        List<Building> list = GetBuildingListOfType(buildingType);
+        if (list == null || list.Count == 0) return false;
+
+        if (!countOnlyFinished) return true;
+
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (CanCountBuilding(list[i]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public List<Building> GetBuildingListOfID(string buildingId)
+    {
+        buildings_dict_id.TryGetValue(buildingId, out List<Building> value);
+        return value;
+    }
+
+    public List<Building> GetBuildingListOfType(string buildingType)
+    {
+        buildings_dict_type.TryGetValue(buildingType, out List<Building> value);
+        return value;
+    }
+
+    public Building GetBuildingToBuild()
+    {
+        if (under_construction_building != null && (!under_construction_building.isAlive() || !under_construction_building.isUnderConstruction()))
+        {
+            under_construction_building = null;
+        }
+
+        return under_construction_building;
+    }
+
+    public bool HasBuildingToBuild()
+    {
+        return GetBuildingToBuild() != null;
+    }
+
+    public bool TryBuild(SectBuildOrder order, out Building building)
+    {
+        return SectBuildRules.TryBuildFromOrder(this, order, out building);
+    }
+
     private static void AddResidenceZone(List<TileZone> zones, TileZone zone)
     {
         if (zone == null) return;
@@ -516,6 +652,43 @@ public class Sect : MetaObject<SectData>
         {
             zones.Add(zone);
         }
+    }
+
+    private static bool CanListBuilding(Building building)
+    {
+        return building != null
+               && !building.isRekt()
+               && building.isUsable()
+               && building.data != null
+               && building.asset != null
+               && building.asset.IsSectBuilding();
+    }
+
+    private static bool CanCountBuilding(Building building)
+    {
+        return building != null && building.isUsable() && !building.isUnderConstruction();
+    }
+
+    private void SetBuildingDictType(Building building)
+    {
+        if (!buildings_dict_type.TryGetValue(building.asset.type, out List<Building> value))
+        {
+            value = new List<Building>();
+            buildings_dict_type.Add(building.asset.type, value);
+        }
+
+        value.Add(building);
+    }
+
+    private void SetBuildingDictID(Building building)
+    {
+        if (!buildings_dict_id.TryGetValue(building.asset.id, out List<Building> value))
+        {
+            value = new List<Building>();
+            buildings_dict_id.Add(building.asset.id, value);
+        }
+
+        value.Add(building);
     }
 
     public override ActorAsset getActorAsset()
