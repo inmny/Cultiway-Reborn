@@ -52,7 +52,7 @@ internal static class PatchActor
             }
             return;
         }*/
-        if (pActor.isSapient() && pActor.city != null && !pActor.isProfession(UnitProfession.Warrior))
+        if (CanUseCultiwayJobSelection(pActor))
         {
             var ae = (pActor as Actor).GetExtend();
             if (!ae.TryGetComponent(out Xian xian)) return;
@@ -148,6 +148,17 @@ internal static class PatchActor
                 __result = ActorJobs.XianCultivator.id;
             }
         }
+    }
+
+    private static bool CanUseCultiwayJobSelection(Actor actor)
+    {
+        if (!actor.isSapient() || actor.city == null) return false;
+        if (!actor.isProfession(UnitProfession.Warrior)) return true;
+
+        var city = actor.city;
+        if (city.hasAttackZoneOrder() || city.isInDanger()) return false;
+
+        return true;    
     }
 
     [Hotfixable]
