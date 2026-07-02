@@ -25,7 +25,9 @@ public partial class WorldboxGame
         protected override void OnInit()
         {
             ConfigureUnitControlHotkey(CastControlledSkill, KeyCode.R,
-                _ => ControlledCultivatorSkillControls.CastSelectedSkill());
+                _ => ControlledSkillTargetSelection.Begin(CastControlledSkill));
+            ControlledSkillTargetSelection.Configure(CastControlledSkill);
+            ControlledSkillTargetSelection.InstallCameraZoomGate();
             ConfigureUnitControlHotkey(CycleControlledSkill, KeyCode.E,
                 _ => ControlledCultivatorSkillControls.CycleSelectedSkill());
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using strings;
@@ -16,6 +17,11 @@ internal static class ControlledCultivatorSkillControls
 
     internal static bool CastSelectedSkill()
     {
+        return CastSelectedSkill(SkillTargetSelectionArea.Inactive);
+    }
+
+    internal static bool CastSelectedSkill(SkillTargetSelectionArea selectionArea)
+    {
         if (!TryGetControlledActor(out var actor)) return false;
 
         if (!TryGetSelectedAttackSkill(actor, out _))
@@ -26,7 +32,7 @@ internal static class ControlledCultivatorSkillControls
 
         var aim = ResolveAim(actor);
         var attackKingdom = World.world.kingdoms_wild.get("possessed");
-        if (TryCastSelectedSkill(actor, aim.Target, aim.TargetPos, attackKingdom)) return true;
+        if (TryCastSelectedSkill(actor, aim.Target, aim.TargetPos, attackKingdom, selectionArea)) return true;
 
         ShowTip("暂时无法释放法术");
         return false;
@@ -141,17 +147,35 @@ internal static class ControlledCultivatorSkillControls
     }
 
     private static bool TryCastSelectedSkill(Actor actor, BaseSimObject target, Vector3 targetPos,
-        Kingdom attackKingdom)
+        Kingdom attackKingdom, SkillTargetSelectionArea selectionArea)
     {
         if (!CanUseSkillControlsNow(actor)) return false;
         if (!TryGetSelectedAttackSkill(actor, out var skill)) return false;
 
         var caster = actor.GetExtend();
+        var manualTargets = selectionArea.Active
+            ? CollectManualTargets(actor, selectionArea, attackKingdom)
+            : null;
+        if (selectionArea.Active)
+        {
+            if ((target == null || target.isRekt() || !IsWithinSkillCastRange(caster, target))
+                && manualTargets is { Count: > 0 })
+            {
+                target = manualTargets[0];
+                targetPos = target.GetSimPos();
+            }
+            else if (target == null || target.isRekt())
+            {
+                targetPos = selectionArea.Center;
+            }
+        }
+
         var clampedTargetPos = ClampTargetPos(caster, targetPos);
         var useTrackedTarget = target != null && !target.isRekt() && IsWithinSkillCastRange(caster, target);
         var stepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill);
         var plan = useTrackedTarget
-            ? SkillCastPlanner.CreatePlan(caster, skill, target, stepLimit)
+            ? SkillCastPlanner.CreatePlan(caster, skill, target, stepLimit, manualTargets,
+                selectionArea.Active)
             : SkillCastPlanner.CreatePointPlan(caster, skill, clampedTargetPos, stepLimit);
         if (plan.Steps.Count == 0) return false;
 
@@ -179,6 +203,39 @@ internal static class ControlledCultivatorSkillControls
         targetPos = ClampTargetPos(actor.GetExtend(), targetPos);
 
         return new ControlledSkillAim(target, targetPos);
+    }
+
+    internal static Vector3 ClampSkillTargetPos(ActorExtend caster, Vector3 targetPos)
+    {
+        return caster == null || caster.Base.isRekt() ? targetPos : ClampTargetPos(caster, targetPos);
+    }
+
+    internal static List<BaseSimObject> CollectManualTargets(Actor actor, SkillTargetSelectionArea area,
+        Kingdom attackKingdom)
+    {
+        var result = new List<BaseSimObject>();
+        if (!area.Active || actor == null || actor.isRekt()) return result;
+
+        var caster = actor.GetExtend();
+        var center = ClampTargetPos(caster, area.Center);
+        var radius = Mathf.Max(0.1f, area.Radius);
+        foreach (var target in SkillUtils.IterEnemyInSphere(center, radius, actor, attackKingdom))
+        {
+            if (target == null || target.isRekt()) continue;
+            if (target == actor) continue;
+            if (!IsWithinSkillCastRange(caster, target)) continue;
+            if (result.Contains(target)) continue;
+
+            result.Add(target);
+        }
+
+        result.Sort((a, b) =>
+        {
+            var da = Toolbox.SquaredDistVec2Float(center, a.current_position);
+            var db = Toolbox.SquaredDistVec2Float(center, b.current_position);
+            return da.CompareTo(db);
+        });
+        return result;
     }
 
     private static Actor GetActorTargetRaycast(Actor actor, Vector2 targetPos)

@@ -56,7 +56,8 @@ public static class SkillCastPlanner
     private const float SalvoAngleOffsetJitter = 1.25f;
 
     public static SkillCastPlan CreatePlan(ActorExtend caster, Entity skill, BaseSimObject primaryTarget,
-        int maxStepCount = int.MaxValue)
+        int maxStepCount = int.MaxValue, IReadOnlyList<BaseSimObject> explicitTargets = null,
+        bool explicitTargetsOnly = false)
     {
         if (maxStepCount <= 0) return SkillCastPlan.Empty;
         if (caster == null || caster.Base.isRekt()) return SkillCastPlan.Empty;
@@ -65,7 +66,8 @@ public static class SkillCastPlanner
 
         var plan = new SkillCastPlan();
         var castCount = Mathf.Min(DetermineCastCount(caster, skill, primaryTarget), maxStepCount);
-        var targets = CollectCandidateTargets(caster.Base, primaryTarget, skill, castCount);
+        var targets = CollectCandidateTargets(caster.Base, primaryTarget, skill, castCount, explicitTargets,
+            explicitTargetsOnly);
         var repeatBias = skill.TryGetComponent(out SalvoCount salvo) ? Mathf.Max(0, salvo.Value - 1) : 0;
         var spreadBias = skill.TryGetComponent(out BurstCount burst) ? Mathf.Max(0, burst.Value - 1) : 0;
         var delayStep = GetDelayStep(skill);
@@ -146,10 +148,21 @@ public static class SkillCastPlanner
     }
 
     private static List<BaseSimObject> CollectCandidateTargets(BaseSimObject caster, BaseSimObject primaryTarget,
-        Entity skill, int expectedCount)
+        Entity skill, int expectedCount, IReadOnlyList<BaseSimObject> explicitTargets = null,
+        bool explicitTargetsOnly = false)
     {
-        var targets = new List<BaseSimObject> { primaryTarget };
+        var targets = new List<BaseSimObject>();
+        AddCandidateTarget(targets, primaryTarget, caster, int.MaxValue);
+        if (explicitTargets != null)
+        {
+            foreach (var explicitTarget in explicitTargets)
+            {
+                AddCandidateTarget(targets, explicitTarget, caster, int.MaxValue);
+            }
+        }
+
         if (expectedCount <= 1) return targets;
+        if (explicitTargetsOnly) return targets;
 
         var spreadBias = skill.TryGetComponent(out BurstCount burst) ? Mathf.Max(0, burst.Value - 1) : 0;
         var radius = Mathf.Clamp(4f + spreadBias * 0.75f, 4f, 10f);
@@ -197,6 +210,7 @@ public static class SkillCastPlanner
         int targetLimit)
     {
         if (targets.Count >= targetLimit) return;
+        if (target == null) return;
         if (target.isRekt()) return;
         if (target == caster) return;
         if (targets.Contains(target)) return;
