@@ -268,4 +268,12 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         FollowMaster.addBeh(new BehEndJob());
         FollowMaster.setIcon("cultiway/icons/iconMasterApprentice");
     }
+    protected override void PostInit(BehaviourTaskActor asset)
+    {
+        base.PostInit(asset);
+        if (!string.IsNullOrEmpty(asset.force_hand_tool))
+        {
+            asset.cached_hand_tool_asset = AssetManager.unit_hand_tools.get(asset.force_hand_tool);
+        }
+    }
 }
