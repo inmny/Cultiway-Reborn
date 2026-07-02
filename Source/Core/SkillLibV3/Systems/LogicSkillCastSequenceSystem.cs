@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 
@@ -36,16 +37,18 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 if (step.Delay > sequence.Elapsed) break;
 
                 sequence.NextIndex++;
-                if (step.Target == null || step.Target.isRekt()) continue;
+                if (step.TrackTarget && step.Target.isRekt()) continue;
 
                 _spawnRequests.Add(new SpawnSkillRequest
                 {
                     SkillContainer = sequence.SkillContainer,
                     Source = sequence.Caster.Base,
                     Target = step.Target,
+                    TargetPos = step.TrackTarget ? step.Target.GetSimPos() : step.TargetPos,
                     Strength = sequence.Strength,
                     PowerLevel = sequence.PowerLevel,
-                    InitialAngleOffsetDegrees = step.InitialAngleOffsetDegrees
+                    InitialAngleOffsetDegrees = step.InitialAngleOffsetDegrees,
+                    AttackKingdom = sequence.AttackKingdom
                 });
                 emitted++;
             }
@@ -59,12 +62,12 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         {
             if (request.SkillContainer.IsNull
             || request.Source.isRekt()
-            || request.Target.isRekt()
             ) continue;
 
-            ModClass.I.SkillV3.SpawnSkill(request.SkillContainer, request.Source, request.Target,
+            ModClass.I.SkillV3.SpawnSkill(request.SkillContainer, request.Source, request.Target, request.TargetPos,
                 request.Strength, power_level: request.PowerLevel,
-                initial_angle_offset_degrees: request.InitialAngleOffsetDegrees);
+                initial_angle_offset_degrees: request.InitialAngleOffsetDegrees,
+                attack_kingdom: request.AttackKingdom);
         }
         CommandBuffer.Playback();
     }
@@ -82,8 +85,10 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         public Entity SkillContainer;
         public BaseSimObject Source;
         public BaseSimObject Target;
+        public UnityEngine.Vector3 TargetPos;
         public float Strength;
         public float PowerLevel;
         public float InitialAngleOffsetDegrees;
+        public Kingdom AttackKingdom;
     }
 }

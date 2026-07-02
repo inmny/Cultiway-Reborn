@@ -7,6 +7,7 @@ public struct SkillCastSequence : IComponent
     public ActorExtend Caster;
     public Entity SkillContainer;
     public SkillCastStep[] Steps;
+    public Kingdom AttackKingdom;
     public int NextIndex;
     public float Elapsed;
     public float Strength;

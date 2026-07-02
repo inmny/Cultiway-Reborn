@@ -7,7 +7,8 @@ namespace Cultiway.Utils;
 
 public static class SkillUtils
 {
-    public static IEnumerable<BaseSimObject> IterEnemyInSphere(Vector2 pos, float radius, BaseSimObject attacker = null)
+    public static IEnumerable<BaseSimObject> IterEnemyInSphere(Vector2 pos, float radius, BaseSimObject attacker = null,
+        Kingdom attackKingdom = null)
     {
         var world_min = new Vector2Int(0,            0);
         var world_max = new Vector2Int(MapBox.width-1, MapBox.height-1);
@@ -31,7 +32,8 @@ public static class SkillUtils
             if (((pos_x - x)*(pos_x-x) + (pos_y-y)*(pos_y-y)) >= (radius + 1)*(radius+1)) continue;
             WorldTile tile = World.world.GetTileSimple(x, y);
             var building = tile.building;
-            if (building != null && building.isAlive() && ((attacker?.kingdom)?.isEnemy(building.kingdom) ?? true ))
+            var attackerKingdom = attackKingdom ?? attacker?.kingdom;
+            if (building != null && building.isAlive() && (attackerKingdom?.isEnemy(building.kingdom) ?? true ))
             {
                 yield return building;
             }
@@ -40,7 +42,7 @@ public static class SkillUtils
                 Actor obj = tile._units[i];
                     
                     
-                var enemy = (attacker?.kingdom)?.isEnemy(obj.kingdom) ?? true;
+                var enemy = attackerKingdom?.isEnemy(obj.kingdom) ?? true;
                 if (!enemy) continue;
                 yield return obj;
             }

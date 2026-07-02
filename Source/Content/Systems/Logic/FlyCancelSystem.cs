@@ -5,6 +5,7 @@ using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
+using strings;
 
 namespace Cultiway.Content.Systems.Logic;
 
@@ -23,6 +24,13 @@ public class FlyCancelSystem : QuerySystem<ActorBinder>
             {
                 var a = binders[i].Actor;
                 if (a == null || !a.isAlive()) continue;
+                if (a.data.hasFlag(ContentActorDataKeys.ManualControlledFlight_flag))
+                {
+                    if (a.hasStatus(S_Status.possessed) && ControllableUnit.isControllingUnit(a)) continue;
+                    a.data.removeFlag(ContentActorDataKeys.ManualControlledFlight_flag);
+                    PatchAboutFly.StopCultiwayFlight(a, false);
+                    continue;
+                }
                 if (!a.has_attack_target && !a.isJustAttacked())
                 {
                     if (a.is_moving || a.isFollowingLocalPath()) continue;

@@ -25,6 +25,7 @@ public static class ContentActorDataKeys
     /// </summary>
     public const string WaitingForCultibookImprovement_int = "cw.content.waiting_for_cultibook_improvement";
     public const string IsFlying_flag = "cw.content.is_flying";
+    public const string ManualControlledFlight_flag = "cw.content.manual_controlled_flight";
     /// <summary>
     /// 地缚灵的行为
     /// </summary>

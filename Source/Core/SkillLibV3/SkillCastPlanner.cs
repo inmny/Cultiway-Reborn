@@ -21,12 +21,25 @@ public sealed class SkillCastPlan
 public readonly struct SkillCastStep
 {
     public readonly BaseSimObject Target;
+    public readonly Vector3 TargetPos;
+    public readonly bool TrackTarget;
     public readonly float Delay;
     public readonly float InitialAngleOffsetDegrees;
 
     public SkillCastStep(BaseSimObject target, float delay, float initialAngleOffsetDegrees = 0f)
     {
         Target = target;
+        TargetPos = default;
+        TrackTarget = true;
+        Delay = delay;
+        InitialAngleOffsetDegrees = initialAngleOffsetDegrees;
+    }
+
+    public SkillCastStep(Vector3 targetPos, float delay, float initialAngleOffsetDegrees = 0f)
+    {
+        Target = null;
+        TargetPos = targetPos;
+        TrackTarget = false;
         Delay = delay;
         InitialAngleOffsetDegrees = initialAngleOffsetDegrees;
     }
@@ -67,6 +80,26 @@ public static class SkillCastPlanner
         return plan;
     }
 
+    public static SkillCastPlan CreatePointPlan(ActorExtend caster, Entity skill, Vector3 targetPos,
+        int maxStepCount = int.MaxValue)
+    {
+        if (maxStepCount <= 0) return SkillCastPlan.Empty;
+        if (caster == null || caster.Base.isRekt()) return SkillCastPlan.Empty;
+        if (!skill.HasComponent<SkillContainer>()) return SkillCastPlan.Empty;
+
+        var plan = new SkillCastPlan();
+        var castCount = Mathf.Min(DetermineCastCount(caster, skill, null), maxStepCount);
+        var delayStep = GetDelayStep(skill);
+
+        for (var i = 0; i < castCount; i++)
+        {
+            var angleOffset = GetSalvoAngleOffset(i, true);
+            plan.Steps.Add(new SkillCastStep(targetPos, i * delayStep, angleOffset));
+        }
+
+        return plan;
+    }
+
     private static float GetSalvoAngleOffset(int stepIndex, bool repeatedPrimaryTarget)
     {
         if (stepIndex <= 0 || !repeatedPrimaryTarget) return 0f;
@@ -97,7 +130,7 @@ public static class SkillCastPlanner
 
         var powerLevel = caster.GetPowerLevel();
         var repeatBias = skill.TryGetComponent(out SalvoCount salvo) ? Mathf.Max(0, salvo.Value - 1) : 0;
-        var threatRatio = GetThreatRatio(caster, primaryTarget);
+        var threatRatio = primaryTarget.isRekt() ? 0f : GetThreatRatio(caster, primaryTarget);
         var powerFactor = Mathf.Clamp01(powerLevel / 10f);
         var intent = 0.35f
                      + threatRatio * 0.45f

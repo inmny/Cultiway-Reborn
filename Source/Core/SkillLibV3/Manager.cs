@@ -57,7 +57,8 @@ public class Manager
     }
 
     public bool StartSkillSequence(ActorExtend caster, Entity skill_container, SkillCastPlan plan, float strength,
-        float? power_level = null, SkillCastCostSource cost_source = SkillCastCostSource.CasterWakan)
+        float? power_level = null, SkillCastCostSource cost_source = SkillCastCostSource.CasterWakan,
+        Kingdom attack_kingdom = null)
     {
         if (caster == null || plan == null || plan.Steps.Count == 0) return false;
         if (!SkillCastCost.TryPay(caster, skill_container, plan, cost_source)) return false;
@@ -67,6 +68,7 @@ public class Manager
             Caster = caster,
             SkillContainer = skill_container,
             Steps = plan.Steps.ToArray(),
+            AttackKingdom = attack_kingdom,
             Strength = strength,
             PowerLevel = power_level ?? caster.GetPowerLevel(),
             MaxEmitPerTick = 8
@@ -77,9 +79,17 @@ public class Manager
     public void SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength,
         float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f)
     {
+        var target_pos = target.isRekt() ? source.GetSimPos() + Vector3.right : target.GetSimPos();
+        SpawnSkill(skill_container, source, target, target_pos, strength, delay, power_level,
+            initial_angle_offset_degrees);
+    }
+
+    public void SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, Vector3 target_pos,
+        float strength, float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f,
+        Kingdom attack_kingdom = null)
+    {
         ref var container = ref skill_container.GetComponent<SkillContainer>();
         var source_pos = source.GetSimPos();
-        var target_pos = target.GetSimPos();
 
         var base_dir = target_pos - source_pos;
         if (base_dir.sqrMagnitude < 0.0001f)
@@ -104,7 +114,8 @@ public class Manager
             ? source.a.GetExtend().GetPowerLevel()
             : 0f);
         context.SourceObj = source;
-        context.TargetObj = target;
+        context.TargetObj = target.isRekt() ? null : target;
+        context.AttackKingdom = attack_kingdom;
         ref var skill_entity = ref data.Get<SkillEntity>();
         skill_entity.SkillContainer = skill_container;
         context.TargetPos = target_pos;

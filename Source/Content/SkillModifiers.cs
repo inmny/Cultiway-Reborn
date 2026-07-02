@@ -1262,7 +1262,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var damage = context.Strength * damageRatio;
 
         // 对范围内的敌人造成伤害
-        foreach (var obj in SkillUtils.IterEnemyInSphere(explosionPos, radius, attacker))
+        foreach (var obj in SkillUtils.IterEnemyInSphere(explosionPos, radius, attacker, context.AttackKingdom))
         {
             if (obj.isActor())
             {
@@ -1604,7 +1604,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var attacker = context.SourceObj;
 
         // 对范围内的敌人施加引力
-        foreach (var obj in SkillUtils.IterEnemyInSphere(skillPos.v2, radius, attacker))
+        foreach (var obj in SkillUtils.IterEnemyInSphere(skillPos.v2, radius, attacker, context.AttackKingdom))
         {
             if (!obj.isActor()) continue;
 

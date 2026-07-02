@@ -135,15 +135,33 @@ internal static class PatchAboutFly
             var target = __instance.tile_target;
             if (target == null) return true;
 
-            __instance.data.addFlag(ContentActorDataKeys.IsFlying_flag);
-            __instance.setFlying(true);
-            __instance.precalcMovementSpeed(true);
+            StartCultiwayFlight(__instance);
             PathFinder.Instance.RequestDirectPath(__instance, target, StepPenalty.Block | StepPenalty.Lava | StepPenalty.Ocean);
             __instance.moveTo(target);
             return false;
         }
         return true;
     }
+    public static bool CanStartCultiwayFlight(Actor actor)
+    {
+        if (actor == null || !actor.isAlive()) return false;
+        var ae = actor.GetExtend();
+        if (!ae.TryGetComponent(out Xian xian)) return false;
+        if (xian.CurrLevel < XianSetting.WeaponFlyLevel) return false;
+        if (!actor.hasWeapon() && xian.CurrLevel < XianSetting.CloudFlyLevel) return false;
+        return true;
+    }
+
+    public static bool StartCultiwayFlight(Actor actor)
+    {
+        if (!CanStartCultiwayFlight(actor)) return false;
+
+        actor.data.addFlag(ContentActorDataKeys.IsFlying_flag);
+        actor.setFlying(true);
+        actor.precalcMovementSpeed(true);
+        return true;
+    }
+
     private static bool can_goTo_fast(Actor actor)
     {
         var ae = actor.GetExtend();

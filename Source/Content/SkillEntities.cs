@@ -320,7 +320,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 
             var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
             var attacker = context.SourceObj;
-            foreach (var obj in SkillUtils.IterEnemyInSphere(entity.GetComponent<Position>().v2, 2, attacker))
+            foreach (var obj in SkillUtils.IterEnemyInSphere(entity.GetComponent<Position>().v2, 2, attacker,
+                         context.AttackKingdom))
             {
                 if (obj.isActor())
                 {

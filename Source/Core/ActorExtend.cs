@@ -506,7 +506,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <summary>
     /// 计算独立于原版物理攻击范围的技能最大施法距离。
     /// </summary>
-    private float GetSkillCastRange(BaseSimObject target)
+    public float GetSkillCastRange(BaseSimObject target)
     {
         var base_range = Mathf.Max(Base.getAttackRange(), MinSkillCastRange);
         var power_bonus = Mathf.Max(0f, GetPowerLevel());
