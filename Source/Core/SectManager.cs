@@ -115,11 +115,11 @@ public class SectManager : MetaSystemManager<Sect, SectData>
             if (sectId < 0) continue;
 
             Sect sect = get(sectId);
-            if (sect == null || sect.isRekt() || building.asset == null || !building.asset.IsSectBuilding() || !building.isUsable())
-            {
-                building.data.removeLong(BuildingDataKeys.SectID_Long);
+            if (sect == null || sect.isRekt())
                 continue;
-            }
+
+            if (building.asset == null || !building.asset.IsSectBuilding() || !building.isUsable())
+                continue;
 
             sect.ListBuilding(building);
         }

@@ -26,6 +26,25 @@ public class Sect : MetaObject<SectData>
 
     public override MetaType meta_type => MetaTypeExtend.Sect.Back();
 
+    public override void triggerOnRemoveObject()
+    {
+        base.triggerOnRemoveObject();
+        AbandonBuildings();
+    }
+
+    private void AbandonBuildings()
+    {
+        foreach (Building building in buildings)
+        {
+            building.data.removeLong(BuildingDataKeys.SectID_Long);
+            building.makeAbandoned();
+        }
+
+        ClearBuildingList();
+        WorldboxGame.I?.Sects?.setDirtyBuildings();
+        SectVerifyLog.Log("SectBuildingsAbandoned", $"sect={SectVerifyLog.Sect(this)}");
+    }
+
     public void Setup(Actor founder)
     {
         generateNewMetaObject();
