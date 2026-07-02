@@ -27,6 +27,7 @@ public partial class KingdomAssets : ExtendLibrary<KingdomAsset, KingdomAssets>
     public static KingdomAsset EasternHuman { get; private set; }
     [CloneSource("$TEMPLATE_NOMAD$")]
     public static KingdomAsset NoMadsEasternHuman { get; private set; }
+    public static KingdomAsset SectBuildings { get; private set; }
     protected override void OnInit()
     {
         Ming.clearKingdomColor();
@@ -60,6 +61,17 @@ public partial class KingdomAssets : ExtendLibrary<KingdomAsset, KingdomAssets>
         NoMadsEasternHuman.addTag(nameof(EasternHuman));
         NoMadsEasternHuman.addTag(SK.sliceable);
         NoMadsEasternHuman.addFriendlyTag(nameof(EasternHuman));
+
+        SectBuildings.default_kingdom_color = new("#D6B44C");
+        SectBuildings.civ = false;
+        SectBuildings.mobs = false;
+        SectBuildings.nomads = false;
+        SectBuildings.nature = true;
+        SectBuildings.concept = true;
+        SectBuildings.count_as_danger = false;
+        SectBuildings.setIcon("cultiway/icons/iconSect");
+        SectBuildings.addTag(nameof(SectBuildings));
+        SectBuildings.addFriendlyTag(nameof(SectBuildings));
 
         Undead.addTag(nameof(Undead));
         Undead.addFriendlyTag(nameof(Undead));

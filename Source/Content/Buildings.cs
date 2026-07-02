@@ -191,7 +191,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     {
         asset.AsSectBuilding(type);
         asset.main_path = "buildings/sects/";
-        asset.kingdom = string.Empty;
+        asset.kingdom = KingdomAssets.SectBuildings.id;
         asset.civ_kingdom = string.Empty;
         asset.storage = false;
         asset.storage_only_food = false;
