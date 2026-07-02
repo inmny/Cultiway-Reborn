@@ -3,6 +3,8 @@ namespace Cultiway.Const;
 public static class SectConst
 {
     public const string BuildingGroup = "sect";
+    public const string BuildingTypeHall = "type_sect_hall";
+    public const string BuildingTypeScripturePavilion = "type_sect_scripture_pavilion";
     public const int ContributionTeachCultibook = 2;
     public const int ContributionSectChore = 1;
     public const int ContributionOrganizeScripture = 2;

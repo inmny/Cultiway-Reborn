@@ -13,7 +13,7 @@ public static class BuildingAssetTools
         asset.type = type;
         asset.city_building = false;
         asset.can_be_abandoned = false;
-        asset.ignored_by_cities = false;
+        asset.ignored_by_cities = true;
         asset.build_place_batch = false;
         asset.ActionOnRemoved(UnregisterSectBuilding);
         asset.ActionOnRuins(UnregisterSectBuilding);
