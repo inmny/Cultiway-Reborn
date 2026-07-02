@@ -277,3 +277,5 @@ YuanyingPage,元婴情况
 CultibookPage,功法情况
 ElixirPage,丹方情况
 SkillPage,法术
+Cultiway.UI.CharacterPanel.Wakan,灵气
+Cultiway.UI.CharacterPanel.Wakan Description,当前灵气 / 灵气上限

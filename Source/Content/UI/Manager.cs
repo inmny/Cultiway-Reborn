@@ -1,3 +1,4 @@
+using System.Globalization;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
@@ -7,12 +8,16 @@ using Cultiway.UI;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General;
+using UnityEngine;
 
 namespace Cultiway.Content.UI;
 
-[Dependency(typeof(GodPowers))]
+[Dependency(typeof(GodPowers), typeof(BaseStatses))]
 public class Manager : ICanInit
 {
+    private const string CharacterPanelWakanTitle = "Cultiway.UI.CharacterPanel.Wakan";
+    private const string CharacterPanelWakanDescription = "Cultiway.UI.CharacterPanel.Wakan Description";
+
     public void Init()
     {
         WindowNewCreatureInfo.RegisterPage(nameof(XianBasePage), a => a.GetExtend().HasComponent<XianBase>(),
@@ -25,6 +30,9 @@ public class Manager : ICanInit
         WindowNewCreatureInfo.RegisterPage(nameof(ElixirPage), a=> a.GetExtend().HasMaster<ElixirAsset>(), ElixirPage.Setup, ElixirPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(SectPage), a=> a.GetExtend().sect !=null, SectPage.Setup, SectPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(SkillPage), a=> a.GetExtend().all_skills.Count > 0, SkillPage.Setup, SkillPage.Show);
+        CharacterPanelExtensions.RegisterProgressBar("cultiway_wakan",
+            a => a.GetExtend().HasCultisys<Xian>(),
+            ReadWakanPanelValue);
 
         WindowWorldWakan.CreateAndInit($"Cultiway.UI.{nameof(WindowWorldWakan)}");
         Cultiway.UI.Manager.AddButton(TabButtonType.WORLD,
@@ -74,5 +82,28 @@ public class Manager : ICanInit
                 tooltip.Tooltip.addDescription(skill_container.ToString());
             }
         });
+    }
+
+    private static CharacterPanelProgressBarState ReadWakanPanelValue(Actor actor)
+    {
+        var ae = actor.GetExtend();
+        ref var xian = ref ae.GetCultisys<Xian>();
+        float current = Mathf.Max(0f, xian.wakan);
+        float max = Mathf.Max(0f, actor.stats[BaseStatses.MaxWakan.id]);
+
+        return new CharacterPanelProgressBarState(
+            current,
+            max,
+            "cultiway/icons/iconWakan",
+            CharacterPanelWakanTitle,
+            CharacterPanelWakanDescription,
+            $"{FormatWholeNumber(current)} / {FormatWholeNumber(max)}",
+            new Color(0f, 0.62f, 0.78f, 1f)
+        );
+    }
+
+    private static string FormatWholeNumber(float value)
+    {
+        return Mathf.FloorToInt(value).ToString(CultureInfo.InvariantCulture);
     }
 }
