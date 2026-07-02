@@ -19,6 +19,37 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     }
     [CloneSource(BuildingLibrary.TEMPLATE_CITY_COLORED_BUILDING)]
     public static BuildingAsset TrainStation { get; private set; }
+
+    // ---- Biome-dedicated trees. Cloned from tree_green_1; SetupTree repoints main_path
+    // to buildings/<id> so NML loads GameResources/buildings/<Biome>_tree (main_/ruin_/mini_),
+    // and self-propagates instead of spreading vanilla tree_green_1.
+    [CloneSource("tree_green_1"), AssetId("Bamboo_tree")]     public static BuildingAsset BambooTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Candle_tree")]     public static BuildingAsset CandleTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Cemetery_tree")]   public static BuildingAsset CemeteryTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Coral_tree")]      public static BuildingAsset CoralTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Dark_tree")]       public static BuildingAsset DarkTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Fern_tree")]       public static BuildingAsset FernTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("FleshBlood_tree")] public static BuildingAsset FleshBloodTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Knowledge_tree")]  public static BuildingAsset KnowledgeTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Oak_tree")]        public static BuildingAsset OakTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Rice_tree")]       public static BuildingAsset RiceTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Titans_tree")]     public static BuildingAsset TitansTree { get; private set; }
+
+    // ---- Biome-dedicated small flora (花草). Cloned from $flora_small$; SetupPlant repoints
+    // main_path to buildings/<id> so NML loads GameResources/buildings/<Biome> (main_/mini_).
+    // $flora_small$ has has_ruin_state=false and no biome_tags_growth, matching the sprite sets.
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Bamboo")]     public static BuildingAsset BambooPlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Candle")]     public static BuildingAsset CandlePlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Cemetery")]   public static BuildingAsset CemeteryPlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Coral")]      public static BuildingAsset CoralPlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Dark")]       public static BuildingAsset DarkPlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Fern")]       public static BuildingAsset FernPlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("FleshBlood")] public static BuildingAsset FleshBloodPlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Knowledge")]  public static BuildingAsset KnowledgePlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Oak")]        public static BuildingAsset OakPlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Rice")]       public static BuildingAsset RicePlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Titans")]     public static BuildingAsset TitansPlant { get; private set; }
+
     [CloneSource(SB.hall_human_0)]
     public static BuildingAsset SectHall { get; private set; }
     [CloneSource(SB.library_human)]
@@ -29,8 +60,58 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         SetupFantasyBuildings();
         SetupEasternHumanBuildings();
         //SetupMingRaceBuildings();
+        SetupBiomeTrees();
+        SetupBiomePlants();
         SetupTrainStation();
         SetupSectBuildings();
+    }
+
+    private static void SetupBiomeTrees()
+    {
+        SetupTree(BambooTree);
+        SetupTree(CandleTree);
+        SetupTree(CemeteryTree);
+        SetupTree(CoralTree);
+        SetupTree(DarkTree);
+        SetupTree(FernTree);
+        SetupTree(FleshBloodTree);
+        SetupTree(KnowledgeTree);
+        SetupTree(OakTree);
+        SetupTree(RiceTree);
+        SetupTree(TitansTree);
+    }
+
+    private static void SetupTree(BuildingAsset tree)
+    {
+        // tree_green_1 uses main_path "buildings/trees/"; repoint to "buildings/" so sprites
+        // resolve from GameResources/buildings/<id>/ where the per-biome art lives.
+        tree.main_path = "buildings/";
+        // Cloned spread_ids still point at vanilla tree_green_1; make the tree self-propagate.
+        tree.spread_ids = new[] { tree.id };
+    }
+
+    private static void SetupBiomePlants()
+    {
+        SetupPlant(BambooPlant);
+        SetupPlant(CandlePlant);
+        SetupPlant(CemeteryPlant);
+        SetupPlant(CoralPlant);
+        SetupPlant(DarkPlant);
+        SetupPlant(FernPlant);
+        SetupPlant(FleshBloodPlant);
+        SetupPlant(KnowledgePlant);
+        SetupPlant(OakPlant);
+        SetupPlant(RicePlant);
+        SetupPlant(TitansPlant);
+    }
+
+    private static void SetupPlant(BuildingAsset plant)
+    {
+        // $flora_small$ uses main_path "buildings/vegetation/"; repoint to "buildings/" so sprites
+        // resolve from GameResources/buildings/<id>/ where the per-biome art lives.
+        plant.main_path = "buildings/";
+        // Concrete vanilla plants set spread_ids to themselves; the template leaves it null.
+        plant.spread_ids = new[] { plant.id };
     }
 
     protected override void ActionAfterCreation(PropertyInfo prop, BuildingAsset asset)
