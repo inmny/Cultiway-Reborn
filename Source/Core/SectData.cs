@@ -14,6 +14,14 @@ public class SectData : MetaObjectData
     public string ResidenceName;
     public int ResidenceTileID = -1;
     public float ResidenceFoundedTime;
+    public List<ZoneData> ResidenceZones = new();
+    public float ResidenceSiteScore;
+    public float ResidenceWakanScore;
+    public float ResidenceTerrainScore;
+    public float ResidenceCityDistanceScore;
+    public float ResidenceBuildSpaceScore;
+    public string ResidenceGeoRegionName;
+    public long ResidenceGeoRegionID = -1;
     public float FoundedTime;
     public int Level = 1;
     public int Reputation;

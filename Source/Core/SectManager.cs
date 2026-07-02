@@ -10,6 +10,8 @@ namespace Cultiway.Core;
 public class SectManager : MetaSystemManager<Sect, SectData>
 {
     private bool _dirty_buildings = true;
+    private bool _dirty_residence_zones = true;
+    private readonly Dictionary<TileZone, Sect> _residence_zone_owners = new();
 
     public SectManager()
     {
@@ -20,12 +22,14 @@ public class SectManager : MetaSystemManager<Sect, SectData>
     {
         base.loadFromSave(pList);
         setDirtyBuildings();
+        setDirtyResidenceZones();
     }
 
     public override void addObject(Sect pObject)
     {
         base.addObject(pObject);
         setDirtyBuildings();
+        setDirtyResidenceZones();
     }
 
     public override void updateDirtyUnits()
@@ -101,6 +105,34 @@ public class SectManager : MetaSystemManager<Sect, SectData>
         _dirty_buildings = true;
     }
 
+    public void setDirtyResidenceZones()
+    {
+        _dirty_residence_zones = true;
+    }
+
+    public Sect GetSectByResidenceZone(TileZone zone)
+    {
+        return GetSectByResidenceZone(zone, null);
+    }
+
+    public Sect GetSectByResidenceZone(TileZone zone, Sect ignoredSect)
+    {
+        if (zone == null) return null;
+        updateResidenceZonesIfDirty();
+        if (!_residence_zone_owners.TryGetValue(zone, out Sect sect)) return null;
+        return sect == ignoredSect ? null : sect;
+    }
+
+    public bool IsSectResidenceZone(TileZone zone)
+    {
+        return IsSectResidenceZone(zone, null);
+    }
+
+    public bool IsSectResidenceZone(TileZone zone, Sect ignoredSect)
+    {
+        return GetSectByResidenceZone(zone, ignoredSect) != null;
+    }
+
     private void updateDirtyBuildings()
     {
         clearAllBuildingLists();
@@ -131,5 +163,28 @@ public class SectManager : MetaSystemManager<Sect, SectData>
         {
             sect.ClearBuildingList();
         }
+    }
+
+    private void updateResidenceZonesIfDirty()
+    {
+        if (!_dirty_residence_zones) return;
+
+        _residence_zone_owners.Clear();
+        foreach (Sect sect in this)
+        {
+            if (sect == null || sect.isRekt()) continue;
+
+            List<TileZone> zones = sect.GetResidenceZones();
+            for (int i = 0; i < zones.Count; i++)
+            {
+                TileZone zone = zones[i];
+                if (zone != null && !_residence_zone_owners.ContainsKey(zone))
+                {
+                    _residence_zone_owners.Add(zone, sect);
+                }
+            }
+        }
+
+        _dirty_residence_zones = false;
     }
 }

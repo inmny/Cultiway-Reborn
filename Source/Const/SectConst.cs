@@ -38,4 +38,10 @@ public static class SectConst
     public const int SectConstructionMembersPerBuilder = 6;
     public const int SectConstructionDecisionCooldown = 50;
     public const int ResidenceRandomTileAttempts = 12;
+    public const int ResidenceFoundingSearchZoneRadius = 8;
+    public const int ResidenceInitialZoneRadius = 1;
+    public const int ResidenceMinBuildSites = 1;
+    public const float ResidenceMinSiteScore = 1f;
+    public const float ResidenceWakanScale = 100f;
+    public const float ResidenceDirtyWakanScale = 100f;
 }

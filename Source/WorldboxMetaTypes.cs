@@ -294,22 +294,7 @@ public partial class WorldboxGame
 
         private static Sect GetSectResidenceForZone(TileZone zone)
         {
-            if (zone == null) return null;
-
-            List<Sect> sects = I.Sects.list;
-            for (int i = 0; i < sects.Count; i++)
-            {
-                Sect sect = sects[i];
-                if (sect == null || sect.isRekt()) continue;
-
-                List<TileZone> zones = sect.GetResidenceZones();
-                for (int j = 0; j < zones.Count; j++)
-                {
-                    if (zones[j] == zone) return sect;
-                }
-            }
-
-            return null;
+            return I.Sects.GetSectByResidenceZone(zone);
         }
 
         private static Sect GetSectResidenceForDrawZone(TileZone zone)

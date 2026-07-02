@@ -30,6 +30,7 @@ public class Sect : MetaObject<SectData>
     {
         base.triggerOnRemoveObject();
         AbandonBuildings();
+        WorldboxGame.I?.Sects?.setDirtyResidenceZones();
     }
 
     private void AbandonBuildings()
@@ -49,6 +50,7 @@ public class Sect : MetaObject<SectData>
     {
         generateNewMetaObject();
         data.ScriptureBookIDs = new List<long>();
+        data.ResidenceZones = new List<ZoneData>();
         ClearBuildingList();
         data.FounderActorName = founder.getName();
         data.FounderActorID = founder.data.id;
@@ -79,24 +81,10 @@ public class Sect : MetaObject<SectData>
 
     private void SetupResidence(Actor founder)
     {
-        WorldTile tile = ResolveFoundingResidenceTile(founder);
-        if (tile == null) return;
-
-        data.ResidenceTileID = tile.data.tile_id;
-        data.ResidenceFoundedTime = (float)World.world.getCurWorldTime();
-        data.ResidenceName = founder.hasCity() ? founder.city.name : $"{tile.x}, {tile.y}";
-        SectVerifyLog.Log("ResidenceSetup", $"sect={SectVerifyLog.Sect(this)} founder={SectVerifyLog.Actor(founder)} tile={tile.x},{tile.y} zone={tile.zone?.id ?? -1} name={data.ResidenceName}");
-    }
-
-    private static WorldTile ResolveFoundingResidenceTile(Actor founder)
-    {
-        if (founder == null || founder.isRekt()) return null;
-
-        City city = founder.hasCity() ? founder.city : null;
-        WorldTile cityTile = city?.getTile();
-        if (cityTile != null) return cityTile;
-
-        return founder.current_tile;
+        if (SectResidencePlanner.TryFindFoundingSite(this, founder, out SectResidencePlan plan))
+        {
+            SectResidencePlanner.ApplyResidencePlan(this, founder, plan);
+        }
     }
 
     private void JoinFounderApprentices(ActorExtend founder)
@@ -474,9 +462,10 @@ public class Sect : MetaObject<SectData>
 
     public string GetResidenceName()
     {
+        if (!string.IsNullOrEmpty(data.ResidenceName)) return data.ResidenceName;
+
         City city = GetHomeCity();
         if (city != null) return city.name;
-        if (!string.IsNullOrEmpty(data.ResidenceName)) return data.ResidenceName;
 
         WorldTile tile = GetResidenceTile();
         return tile == null ? null : $"{tile.x}, {tile.y}";
@@ -489,20 +478,7 @@ public class Sect : MetaObject<SectData>
 
     public List<TileZone> GetResidenceZones()
     {
-        List<TileZone> result = new();
-        TileZone center = GetResidenceZone();
-        if (center == null) return result;
-
-        AddResidenceZone(result, center);
-        TileZone[] neighbours = center.neighbours_all;
-        if (neighbours == null) return result;
-
-        for (int i = 0; i < neighbours.Length; i++)
-        {
-            AddResidenceZone(result, neighbours[i]);
-        }
-
-        return result;
+        return SectResidencePlanner.GetResidenceZones(this);
     }
 
     public WorldTile GetRandomResidenceTile(Actor actor)
@@ -516,19 +492,13 @@ public class Sect : MetaObject<SectData>
             if (zone == null || zone.tiles.Length == 0) continue;
 
             WorldTile tile = zone.tiles.GetRandom();
-            if (tile != null && (actor == null || actor.current_tile == null || tile.isSameIsland(actor.current_tile)))
+            if (tile != null)
             {
                 return tile;
             }
         }
 
-        WorldTile residence = GetResidenceTile();
-        if (residence != null && (actor == null || actor.current_tile == null || residence.isSameIsland(actor.current_tile)))
-        {
-            return residence;
-        }
-
-        return null;
+        return GetResidenceTile();
     }
 
     public int GetTerritoryCount()
@@ -668,15 +638,6 @@ public class Sect : MetaObject<SectData>
     public bool TryBuild(SectBuildOrder order, out Building building)
     {
         return SectBuildRules.TryBuildFromOrder(this, order, out building);
-    }
-
-    private static void AddResidenceZone(List<TileZone> zones, TileZone zone)
-    {
-        if (zone == null) return;
-        if (!zones.Contains(zone))
-        {
-            zones.Add(zone);
-        }
     }
 
     private static bool CanListBuilding(Building building)

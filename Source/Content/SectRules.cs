@@ -22,7 +22,8 @@ public static class SectRules
         if (ae.GetCultisys<Xian>().CurrLevel < XianLevels.Yuanying) return false;
         if (!HasAvailableFounderApprentice(ae)) return false;
 
-        return ae.GetMainCultibook() != null;
+        return ae.GetMainCultibook() != null
+               && SectResidencePlanner.HasFoundingSite(ae.Base);
     }
 
     private static bool HasAvailableFounderApprentice(ActorExtend founder)

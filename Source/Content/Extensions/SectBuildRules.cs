@@ -72,33 +72,7 @@ public static class SectBuildRules
     {
         if (sect == null || sect.isRekt() || building == null) return null;
 
-        List<TileZone> zones = sect.GetResidenceZones();
-        for (int i = 0; i < zones.Count; i++)
-        {
-            TileZone zone = zones[i];
-            if (zone == null || zone.tiles.Length == 0) continue;
-
-            if (CanBuildOnTile(zone.centerTile, building))
-            {
-                return zone.centerTile;
-            }
-
-            for (int j = 0; j < zone.tiles.Length; j++)
-            {
-                WorldTile tile = zone.tiles[j];
-                if (CanBuildOnTile(tile, building))
-                {
-                    return tile;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private static bool CanBuildOnTile(WorldTile tile, BuildingAsset building)
-    {
-        return tile != null && World.world.buildings.canBuildFrom(tile, building, null);
+        return SectResidencePlanner.FindBuildTile(sect, building);
     }
 
     private static bool HasRequiredBuildings(Sect sect, string[] buildingIds)
