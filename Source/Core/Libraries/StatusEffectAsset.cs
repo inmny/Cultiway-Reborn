@@ -40,7 +40,10 @@ public class StatusTickSettings
 
 public class StatusEffectAsset : Asset
 {
+    public const string DefaultIconPath = "cultiway/icons/iconWakan";
+
     public BaseStats stats = new();
+    public string IconPath;
     public StatusParticleSettings ParticleSettings { get; private set; } = StatusParticleSettings.Disabled;
     public StatusTickSettings TickSettings { get; private set; } = StatusTickSettings.Disabled;
     private Entity _prefab;
@@ -71,6 +74,20 @@ public class StatusEffectAsset : Asset
     {
         return string.IsNullOrEmpty(given_desc) ? LM.Get(desc_key) : given_desc;
     }
+
+    public Sprite GetSpriteIcon()
+    {
+        Sprite sprite = null;
+        if (!string.IsNullOrEmpty(IconPath))
+        {
+            sprite = SpriteTextureLoader.getSprite(IconPath);
+        }
+
+        sprite ??= SpriteTextureLoader.getSprite($"cultiway/icons/status_effects/{id}") 
+                    ?? SpriteTextureLoader.getSprite(DefaultIconPath);
+        return sprite;
+    }
+
     public Entity NewEntity()
     {
         Entity entity = _world.CloneEntity(_prefab);
@@ -144,6 +161,11 @@ public class StatusEffectAsset : Asset
         public Builder SetDescription(string desc)
         {
             _under_build.given_desc = desc;
+            return this;
+        }
+        public Builder SetIconPath(string iconPath)
+        {
+            _under_build.IconPath = iconPath;
             return this;
         }
         public Builder SetParticle(StatusParticleSettings settings)

@@ -32,10 +32,12 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     protected override void OnInit()
     {
         Enlighten = StatusEffectAsset.StartBuild(nameof(Enlighten))
+            .SetIconPath("cultiway/icons/iconWakan")
             .SetDuration(60)
             .EnableParticle(new Color(1f, 0.85f, 0.35f), 1, 0.1f)
             .Build();
         Slow = StatusEffectAsset.StartBuild(nameof(Slow))
+            .SetIconPath("cultiway/icons/element_root/water")
             .SetDuration(3f)
             .SetStats(new BaseStats
             {
@@ -44,21 +46,25 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .EnableParticle(new Color(0.4f, 0.6f, 1f), 1, 0.1f)
             .Build();
         Burn = StatusEffectAsset.StartBuild(nameof(Burn))
+            .SetIconPath("cultiway/icons/element_root/fire")
             .SetDuration(4f)
             .EnableParticle(new Color(1f, 0.4f, 0.1f), 1, 0.1f)
             .EnableTick(BurnTickInterval, OnBurnTick)
             .Build();
         Poison = StatusEffectAsset.StartBuild(nameof(Poison))
+            .SetIconPath("cultiway/icons/element_root/wood")
             .SetDuration(5f)
             .EnableParticle(new Color(0.35f, 0.85f, 0.35f), 1, 0.1f)
             .EnableTick(PoisonTickInterval, OnPoisonTick)
             .Build();
         Freeze = StatusEffectAsset.StartBuild(nameof(Freeze))
+            .SetIconPath("cultiway/icons/element_root/water")
             .SetDuration(3f)
             .SetStats(CreateFreezeStats())
             .EnableParticle(new Color(0.5f, 0.8f, 1f), 1, 0.1f)
             .Build();
         Weaken = StatusEffectAsset.StartBuild(nameof(Weaken))
+            .SetIconPath("cultiway/icons/element_root/neg")
             .SetDuration(6f)
             .SetStats(new BaseStats
             {
@@ -67,6 +73,7 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .EnableParticle(new Color(0.55f, 0.55f, 0.6f), 1, 0.1f)
             .Build();
         ArmorBreak = StatusEffectAsset.StartBuild(nameof(ArmorBreak))
+            .SetIconPath("cultiway/icons/stats/IronArmor")
             .SetDuration(4f)
             .SetStats(new BaseStats
             {
@@ -75,19 +82,23 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .EnableParticle(new Color(1f, 0.75f, 0.25f), 1, 0.1f)
             .Build();
         Daze = StatusEffectAsset.StartBuild(nameof(Daze))
+            .SetIconPath("cultiway/icons/element_root/pos")
             .SetDuration(1f)
             .SetStats(CreateFreezeStats())
             .EnableParticle(new Color(0.95f, 0.95f, 0.45f), 1, 0.1f)
             .Build();
         Silence = StatusEffectAsset.StartBuild(nameof(Silence))
+            .SetIconPath("cultiway/icons/element_root/neg")
             .SetDuration(4f)
             .EnableParticle(new Color(0.55f, 0.35f, 0.85f), 1, 0.12f)
             .Build();
         DeathSentence = StatusEffectAsset.StartBuild(nameof(DeathSentence))
+            .SetIconPath("cultiway/icons/element_root/entropy")
             .SetDuration(3f)
             .EnableParticle(new Color(0.45f, 0.05f, 0.05f), 1, 0.08f)
             .Build();
         EternalCurse = StatusEffectAsset.StartBuild(nameof(EternalCurse))
+            .SetIconPath("cultiway/icons/element_root/neg")
             .SetDuration(8f)
             .EnableParticle(new Color(0.25f, 0.05f, 0.45f), 1, 0.12f)
             .EnableTick(CurseTickInterval, OnCurseTick)

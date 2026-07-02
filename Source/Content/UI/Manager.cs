@@ -33,6 +33,7 @@ public class Manager : ICanInit
         CharacterPanelExtensions.RegisterProgressBar("cultiway_wakan",
             a => a.GetExtend().HasCultisys<Xian>(),
             ReadWakanPanelValue);
+        PossessionStatusEffectsUi.Ensure();
 
         WindowWorldWakan.CreateAndInit($"Cultiway.UI.{nameof(WindowWorldWakan)}");
         Cultiway.UI.Manager.AddButton(TabButtonType.WORLD,
