@@ -10,7 +10,10 @@ internal sealed class ControlledCultivatorPossessionUi : MonoBehaviour
 {
     private const string RootName = "CultiwayControlledPossessionUi";
     private const string KeyColor = "#F3961F";
-    private const float ExtraLineHeight = 14f;
+    private const string HintColor = "#A8A8A8";
+    private const int HintFontSize = 10;
+    private const float RowHeight = 14f;
+    private const float HintLineHeight = 14f;
 
     private static readonly List<RegisteredAction> RegisteredActions = new();
     private static ControlledCultivatorPossessionUi _instance;
@@ -22,13 +25,14 @@ internal sealed class ControlledCultivatorPossessionUi : MonoBehaviour
     private Transform _rowsParent;
     private Text _rowTemplate;
     private float _baseListHeight;
-    private int _visibleCount = -1;
+    private float _visibleRowsHeight = -1f;
 
-    internal static void Register(string id, Func<bool> visible, Func<string> labelKey, Func<string> hotkeyText)
+    internal static void Register(string id, Func<bool> visible, Func<string> labelKey, Func<string> hotkeyText,
+        Func<string> hintKey = null)
     {
         if (string.IsNullOrEmpty(id)) return;
 
-        var action = new RegisteredAction(id, visible, labelKey, hotkeyText);
+        var action = new RegisteredAction(id, visible, labelKey, hotkeyText, hintKey);
         var index = RegisteredActions.FindIndex(x => x.Id == id);
         if (index >= 0)
         {
@@ -64,7 +68,7 @@ internal sealed class ControlledCultivatorPossessionUi : MonoBehaviour
     {
         if (!EnsureBound()) return;
 
-        var visibleCount = 0;
+        var visibleRowsHeight = 0f;
         if (_structureDirty)
         {
             RefreshRowOrder();
@@ -79,14 +83,16 @@ internal sealed class ControlledCultivatorPossessionUi : MonoBehaviour
             visibilityChanged |= row.SetVisible(visible);
             if (!visible) continue;
 
-            visibleCount++;
-            row.SetText(action.GetLabelKey(), action.GetHotkeyText());
+            var rowHeight = action.GetRowHeight();
+            visibleRowsHeight += rowHeight;
+            visibilityChanged |= row.SetHeight(rowHeight);
+            row.SetText(action.GetLabelKey(), action.GetHotkeyText(), action.GetHintKey());
         }
 
-        if (_visibleCount == visibleCount && !visibilityChanged) return;
+        if (Mathf.Approximately(_visibleRowsHeight, visibleRowsHeight) && !visibilityChanged) return;
 
-        _visibleCount = visibleCount;
-        _listRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, _baseListHeight + visibleCount * ExtraLineHeight);
+        _visibleRowsHeight = visibleRowsHeight;
+        _listRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, _baseListHeight + visibleRowsHeight);
         LayoutRebuilder.ForceRebuildLayoutImmediate(_listRect);
     }
 
@@ -122,19 +128,20 @@ internal sealed class ControlledCultivatorPossessionUi : MonoBehaviour
         _rowsParent = attack.parent;
         _rowTemplate = attack.GetComponent<Text>();
         _listRect = _rowsParent.GetComponent<RectTransform>();
-        _visibleCount = -1;
+        _visibleRowsHeight = -1f;
 
-        var existingRows = 0;
+        var existingRowsHeight = 0f;
         foreach (Transform child in _rowsParent)
         {
-            if (RegisteredActions.Exists(x => x.RowName == child.name))
+            var action = RegisteredActions.Find(x => x.RowName == child.name);
+            if (action != null)
             {
-                existingRows++;
+                existingRowsHeight += action.GetRowHeight();
             }
         }
 
         var rawHeight = _listRect.rect.height > 0f ? _listRect.rect.height : _listRect.sizeDelta.y;
-        _baseListHeight = Mathf.Max(0f, rawHeight - existingRows * ExtraLineHeight);
+        _baseListHeight = Mathf.Max(0f, rawHeight - existingRowsHeight);
         _structureDirty = true;
     }
 
@@ -167,6 +174,8 @@ internal sealed class ControlledCultivatorPossessionUi : MonoBehaviour
 
         var text = obj.GetComponent<Text>();
         text.raycastTarget = false;
+        text.supportRichText = true;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
         row = new PossessionTipRow(obj, text);
         _rows[action.Id] = row;
         return row;
@@ -179,19 +188,22 @@ internal sealed class ControlledCultivatorPossessionUi : MonoBehaviour
             row.SetVisible(false);
         }
 
-        if (_listRect != null && _visibleCount != 0)
+        if (_listRect != null && !Mathf.Approximately(_visibleRowsHeight, 0f))
         {
-            _visibleCount = 0;
+            _visibleRowsHeight = 0f;
             _listRect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, _baseListHeight);
             LayoutRebuilder.ForceRebuildLayoutImmediate(_listRect);
         }
     }
 
-    private static string BuildText(string labelKey, string key)
+    private static string BuildText(string labelKey, string key, string hintKey)
     {
         var label = Toolbox.coloredString(LMTools.GetOrFallback(labelKey, labelKey), "white");
         var hotkey = Toolbox.coloredString(key, KeyColor);
-        return $"{label} --> [ {hotkey} ]";
+        if (string.IsNullOrEmpty(hintKey)) return $"{label} --> [ {hotkey} ]";
+
+        var hint = Toolbox.coloredString(LMTools.GetOrFallback(hintKey, hintKey), HintColor);
+        return $"{label} --> [ {hotkey} ]\n<size={HintFontSize}>{hint}</size>";
     }
 
     private sealed class RegisteredAction
@@ -199,16 +211,19 @@ internal sealed class ControlledCultivatorPossessionUi : MonoBehaviour
         private readonly Func<bool> _visible;
         private readonly Func<string> _labelKey;
         private readonly Func<string> _hotkeyText;
+        private readonly Func<string> _hintKey;
 
         public string Id { get; }
         public string RowName => $"cultiway_possession_{Id}";
 
-        public RegisteredAction(string id, Func<bool> visible, Func<string> labelKey, Func<string> hotkeyText)
+        public RegisteredAction(string id, Func<bool> visible, Func<string> labelKey, Func<string> hotkeyText,
+            Func<string> hintKey)
         {
             Id = id;
             _visible = visible;
             _labelKey = labelKey;
             _hotkeyText = hotkeyText;
+            _hintKey = hintKey;
         }
 
         public bool IsVisible()
@@ -225,6 +240,16 @@ internal sealed class ControlledCultivatorPossessionUi : MonoBehaviour
         {
             var text = _hotkeyText?.Invoke();
             return string.IsNullOrEmpty(text) ? "?" : text;
+        }
+
+        public string GetHintKey()
+        {
+            return _hintKey?.Invoke();
+        }
+
+        public float GetRowHeight()
+        {
+            return string.IsNullOrEmpty(GetHintKey()) ? RowHeight : RowHeight + HintLineHeight;
         }
     }
 
@@ -254,10 +279,34 @@ internal sealed class ControlledCultivatorPossessionUi : MonoBehaviour
             return true;
         }
 
-        public void SetText(string labelKey, string key)
+        public void SetText(string labelKey, string key, string hintKey)
         {
             if (!IsValid) return;
-            _text.text = BuildText(labelKey, key);
+            _text.text = BuildText(labelKey, key, hintKey);
+        }
+
+        public bool SetHeight(float height)
+        {
+            if (!IsValid) return false;
+
+            var changed = false;
+            var rect = _root.GetComponent<RectTransform>();
+            if (rect != null && !Mathf.Approximately(rect.rect.height, height))
+            {
+                rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+                changed = true;
+            }
+
+            var layout = _root.GetComponent<LayoutElement>() ?? _root.AddComponent<LayoutElement>();
+            if (!Mathf.Approximately(layout.preferredHeight, height))
+            {
+                layout.minHeight = height;
+                layout.preferredHeight = height;
+                layout.flexibleHeight = 0f;
+                changed = true;
+            }
+
+            return changed;
         }
     }
 }

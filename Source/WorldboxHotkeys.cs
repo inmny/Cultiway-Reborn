@@ -13,6 +13,7 @@ public partial class WorldboxGame
         public const string CycleControlledSkillId = "hotkey_cultiway_control_cycle_skill";
 
         private const string CastLabelKey = "cultiway_control_action_cast_skill";
+        private const string CastHintKey = "cultiway_control_action_cast_skill_hint";
         private const string CycleLabelKey = "cultiway_control_action_cycle_skill";
 
         [AssetId(CastControlledSkillId)]
@@ -35,7 +36,8 @@ public partial class WorldboxGame
                 CastControlledSkillId,
                 () => ControlledCultivatorSkillControls.GetState().HasSkill,
                 () => CastLabelKey,
-                () => GetHotkeyText(CastControlledSkill, "R"));
+                () => GetHotkeyText(CastControlledSkill, "R"),
+                () => CastHintKey);
             ControlledCultivatorPossessionUi.Register(
                 CycleControlledSkillId,
                 () => ControlledCultivatorSkillControls.GetState().CanCycleSkill,

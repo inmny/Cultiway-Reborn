@@ -3,6 +3,7 @@ hotkey_cultiway_control_cast_skill,释放法术
 hotkey_cultiway_control_cycle_skill,切换法术
 hotkey_cultiway_control_toggle_flight,切换飞行
 cultiway_control_action_cast_skill,法术
+cultiway_control_action_cast_skill_hint,长按选敌 / 滚轮缩放 / 右键取消
 cultiway_control_action_cycle_skill,切换
 cultiway_control_action_flight_on,飞行
 cultiway_control_action_flight_off,降落
