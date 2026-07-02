@@ -49,6 +49,25 @@ public class Biomes : ExtendLibrary<BiomeAsset, Biomes>
         EnsurePooled(Knowledge); EnsurePooled(Oak); EnsurePooled(Rice); EnsurePooled(Titans);
 
         SetupSpawns();
+        SetupExclusions();
+    }
+
+    /// <summary>部分群系排除灌木 / 矿物（石头、矿石）。getRandomAssetFromPot 对 null 池子返回 null，故不生成。</summary>
+    private static void SetupExclusions()
+    {
+        // 不生成灌木：烛火/墓园/血肉/巨灵/珊瑚/水稻
+        BiomeAsset[] no_bushes = { Candle, Cemetery, FleshBlood, Titans, Coral, Rice };
+        foreach (BiomeAsset b in no_bushes)
+        {
+            b.pot_bushes_spawn = null;
+        }
+        // 不生成石头和矿石（矿物）：烛火/血肉/水稻
+        BiomeAsset[] no_minerals = { Candle, FleshBlood, Rice };
+        foreach (BiomeAsset b in no_minerals)
+        {
+            b.grow_minerals_auto = false;
+            b.pot_minerals_spawn = null;
+        }
     }
 
     /// <summary>各群系自动生成的专属生物。addUnit 会置 pot_spawn_units_auto=true。</summary>
@@ -62,7 +81,9 @@ public class Biomes : ExtendLibrary<BiomeAsset, Biomes>
         Oak.addUnit(Actors.OakTreants.id);                // 橡树人
         Titans.addUnit("skeleton");                       // 骷髅
         Candle.addUnit(Actors.CandleGenie.id);            // 烛火精灵
-        Coral.addUnit(Actors.Mermaid.id);                 // 美人鱼
+        Coral.addUnit(Actors.FishPeopleShaman.id);        // 鱼人萨满
+        Coral.addUnit(Actors.FishPeopleSoldiers.id);      // 鱼人小兵
+        Coral.addUnit(Actors.FishPeopleWarrior.id);       // 鱼人战士
         Knowledge.addUnit(Actors.KnowledgeGenie.id);      // 知识精灵
         Rice.addUnit("crab");                             // 螃蟹
         // 蕨类：恐龙
@@ -92,5 +113,9 @@ public class Biomes : ExtendLibrary<BiomeAsset, Biomes>
         asset.grow_vegetation_auto = true;
         asset.pot_trees_spawn = new List<string> { tree_id };
         asset.pot_plants_spawn = new List<string> { plant_id };
+        // 清掉继承自 biome_grass 的野生动物/智慧生物刷新（狼/狐/羊/鸡/人/矮人...），
+        // 之后 SetupSpawns 只把指定生物加回 pot_units_spawn。
+        asset.pot_units_spawn = null;
+        asset.pot_sapient_units_spawn = null;
     }
 }

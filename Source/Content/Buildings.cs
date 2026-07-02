@@ -20,6 +20,9 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     [CloneSource(BuildingLibrary.TEMPLATE_CITY_COLORED_BUILDING)]
     public static BuildingAsset TrainStation { get; private set; }
 
+    /// <summary>群系专属树 → 其所属群系 id。PatchBiomeTree 据此把跨群系的树摧毁。</summary>
+    public static readonly Dictionary<string, string> BiomeTreeHome = new();
+
     // ---- Biome-dedicated trees. Cloned from tree_green_1; SetupTree repoints main_path
     // to buildings/<id> so NML loads GameResources/buildings/<Biome>_tree (main_/ruin_/mini_),
     // and self-propagates instead of spreading vanilla tree_green_1.
@@ -69,17 +72,17 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     private static void SetupBiomeTrees()
     {
         // 默认摇动；以下群系的树不摇动：血肉/墓园/巨灵/烛火/珊瑚/知识
-        SetupTree(BambooTree);
-        SetupTree(CandleTree, wobble: false);
-        SetupTree(CemeteryTree, wobble: false);
-        SetupTree(CoralTree, wobble: false);
-        SetupTree(DarkTree);
-        SetupTree(FernTree);
-        SetupTree(FleshBloodTree, wobble: false);
-        SetupTree(KnowledgeTree, wobble: false);
-        SetupTree(OakTree);
-        SetupTree(RiceTree);
-        SetupTree(TitansTree, wobble: false);
+        SetupTree(BambooTree, "biome_bamboo");
+        SetupTree(CandleTree, "biome_candle", wobble: false);
+        SetupTree(CemeteryTree, "biome_cemetery", wobble: false);
+        SetupTree(CoralTree, "biome_coral", wobble: false);
+        SetupTree(DarkTree, "biome_dark");
+        SetupTree(FernTree, "biome_fern");
+        SetupTree(FleshBloodTree, "biome_fleshblood", wobble: false);
+        SetupTree(KnowledgeTree, "biome_knowledge", wobble: false);
+        SetupTree(OakTree, "biome_oak");
+        SetupTree(RiceTree, "biome_rice");
+        SetupTree(TitansTree, "biome_titans", wobble: false);
 
         // 部分树木的资源产出。pNewList:true 替换继承自 tree_green_1 的默认产出。
         CemeteryTree.addResource("stone", 1, pNewList: true);
@@ -98,7 +101,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         RiceTree.addResource("wheat", 1, pNewList: true);
     }
 
-    private static void SetupTree(BuildingAsset tree, bool wobble = true)
+    private static void SetupTree(BuildingAsset tree, string biome_id, bool wobble = true)
     {
         // tree_green_1 uses main_path "buildings/trees/"; repoint to "buildings/" so sprites
         // resolve from GameResources/buildings/<id>/ where the per-biome art lives.
@@ -108,6 +111,8 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         // 锁定在本群系：禁止自繁殖扩散。植被只由群系 grow_vegetation_auto 在本群系地块上生成
         //（tryGrowVegetationRandom 走 tile 自己的 biome 池），不会蔓延到相邻群系。
         tree.spread_chance = 0f;
+        // 记录所属群系，供 PatchBiomeTree 把落到其他群系上的本树摧毁。
+        BiomeTreeHome[tree.id] = biome_id;
         // 摇晃来自 material：tree_green_1 的 "tree" 是 wobbly material（随风摇）。不摇动的树改用
         // 静态 "building"（= BuildingRendererSettings.cur_default_material），渲染本身不受影响。
         if (!wobble)
