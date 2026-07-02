@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Cultiway.Abstract;
+using Cultiway.Const;
+using Cultiway.Content.Extensions;
 
 namespace Cultiway.Content
 {
-    [Dependency(typeof(ActorTasks))]
+    [Dependency(typeof(ActorTasks), typeof(SectJobs))]
     public class Decisions : ExtendLibrary<DecisionAsset, Decisions>
     {
         protected override bool AutoRegisterAssets()
@@ -14,6 +16,7 @@ namespace Cultiway.Content
             return true;
         }
         public static DecisionAsset CivTravelToCity { get; private set; }
+        public static DecisionAsset FindSectJob { get; private set; }
         protected override void OnInit()
         {
             InitCivs();
@@ -28,6 +31,14 @@ namespace Cultiway.Content
             CivTravelToCity.weight = 0.5f;
             CivTravelToCity.list_civ = true;
             CivTravelToCity.task_id = ActorTasks.TravelToCity.id;
+
+            FindSectJob.priority = NeuroLayer.Layer_3_High;
+            FindSectJob.path_icon = "ui/Icons/iconShowTasks";
+            FindSectJob.cooldown = SectConst.SectConstructionDecisionCooldown;
+            FindSectJob.cooldown_on_launch_failure = true;
+            FindSectJob.action_check_launch = SectJobRules.HasAssignableJob;
+            FindSectJob.weight = 1.8f;
+            FindSectJob.task_id = ActorTasks.FindSectJob.id;
         }
         protected override void GlobalPostInit()
         {

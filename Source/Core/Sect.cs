@@ -20,6 +20,7 @@ public class Sect : MetaObject<SectData>
     public readonly List<Building> buildings = new();
     public readonly Dictionary<string, List<Building>> buildings_dict_type = new();
     public readonly Dictionary<string, List<Building>> buildings_dict_id = new();
+    public readonly SectJobsContainer jobs = new();
 
     internal Building under_construction_building;
 
@@ -530,6 +531,11 @@ public class Sect : MetaObject<SectData>
         buildings_dict_type.Clear();
         buildings_dict_id.Clear();
         under_construction_building = null;
+    }
+
+    public void RefreshSectJobs()
+    {
+        SectJobRules.RefreshJobs(this);
     }
 
     public void ListBuilding(Building building)

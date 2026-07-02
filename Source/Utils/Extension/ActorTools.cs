@@ -1,5 +1,6 @@
 using Cultiway.Const;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using NeoModLoader.General;
 using UnityEngine;
@@ -216,6 +217,29 @@ public static class ActorTools
     {
         actor.data.removeInt(ActorDataKeys.SectContribution_Int);
         actor.data.removeInt(ActorDataKeys.SectContributionSpent_Int);
+    }
+
+    public static SectJobAsset GetSectJob(this Actor actor)
+    {
+        return actor.GetExtend().TryGetComponent(out SectJobState state) ? state.Job : null;
+    }
+
+    public static long GetSectJobSectId(this Actor actor)
+    {
+        return actor.GetExtend().TryGetComponent(out SectJobState state) ? state.SectId : -1;
+    }
+
+    public static void SetSectJob(this Actor actor, Sect sect, SectJobAsset job)
+    {
+        ActorExtend actorExtend = actor.GetExtend();
+        ref SectJobState state = ref actorExtend.GetOrAddComponent<SectJobState>();
+        state.Job = job;
+        state.SectId = sect.getID();
+    }
+
+    public static void ClearSectJob(this Actor actor)
+    {
+        actor.GetExtend().E.RemoveComponent<SectJobState>();
     }
 
     public static string GetSourceSpawnerAssetId(this Actor actor)

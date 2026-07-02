@@ -56,6 +56,7 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new TrainTransportSystem());
         ModClass.I.GeneralLogicSystems.Add(new CityDistributeItemsSystem());
         ModClass.I.GeneralLogicSystems.Add(new ContinuousCultivateSystem());
+        ModClass.I.GeneralLogicSystems.Add(new SectConstructionSystem());
         ModClass.I.GeneralRenderSystems.Add(new BreakthroughVisualSystem());
         ModClass.I.GeneralRenderSystems.Add(new CloudRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmAuraRenderSystem());

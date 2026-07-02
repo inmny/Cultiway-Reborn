@@ -10,6 +10,7 @@ public static class SectConst
     public const int ContributionOrganizeScripture = 2;
     public const int ContributionSectLecture = 3;
     public const int ContributionWriteScriptureBook = 5;
+    public const int ContributionBuildSectBuilding = 8;
     public const int PersonnelRealmScorePerLevel = 100;
     public const int PersonnelTenureScorePerYear = 1;
     public const int PersonnelRecruitRange = 80;
@@ -32,5 +33,9 @@ public static class SectConst
     public const float SectLectureNewCultibookGain = 12f;
     public const float SectLectureKnownCultibookGain = 8f;
     public const float SectLectureCultibookMasteryCap = 50f;
+    public const float SectConstructionCheckInterval = TimeScales.SecPerMonth;
+    public const int SectConstructionMaxBuilders = 3;
+    public const int SectConstructionMembersPerBuilder = 6;
+    public const int SectConstructionDecisionCooldown = 50;
     public const int ResidenceRandomTileAttempts = 12;
 }

@@ -44,6 +44,11 @@ public class SectPermissions : ExtendLibrary<SectPermissionAsset, SectPermission
     public static SectPermissionAsset DoSectChore { get; private set; }
 
     /// <summary>
+    /// 允许参与宗门建筑修建。
+    /// </summary>
+    public static SectPermissionAsset BuildBuilding { get; private set; }
+
+    /// <summary>
     /// 允许整理宗门藏经阁。
     /// </summary>
     public static SectPermissionAsset OrganizeScripture { get; private set; }
@@ -85,6 +90,7 @@ public class SectPermissions : ExtendLibrary<SectPermissionAsset, SectPermission
         Setup(RecruitMember);
         Setup(BringApprenticeToSect);
         Setup(DoSectChore);
+        Setup(BuildBuilding);
         Setup(OrganizeScripture);
         Setup(TeachSectCultibook);
         Setup(EvaluatePersonnel);

@@ -25,6 +25,12 @@ namespace Cultiway.Content.Patch;
 
 internal static class PatchActor
 {
+    [Hotfixable, HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.endJob))]
+    private static void endJob_postfix(Actor __instance)
+    {
+        SectJobRules.ReleaseActorJob(__instance);
+    }
+
     [Hotfixable, HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.nextJobActor))]
     private static void nextJobActor_postfix(ref string __result, Actor pActor)
     {/*

@@ -100,6 +100,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             null, // requiredMasterOfficeRole：不按师父职司限制。
             SectPermissions.BringApprenticeToSect, // requiredMasterPermission：师父需要有带徒入宗权限。
             SectPermissions.DoSectChore, // permissions：可处理宗门杂务。
+            SectPermissions.BuildBuilding, // permissions：可参与宗门建筑修建。
             SectPermissions.ReadBasicScripture, // permissions：可阅读基础藏书。
             SectPermissions.WriteScripture); // permissions：可撰写并贡献藏书。
 
@@ -116,6 +117,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             null, // requiredMasterOfficeRole：不按师父职司限制。
             SectPermissions.BringApprenticeToSect, // requiredMasterPermission：师父需要有带徒入宗权限。
             SectPermissions.DoSectChore, // permissions：可处理宗门杂务。
+            SectPermissions.BuildBuilding, // permissions：可参与宗门建筑修建。
             SectPermissions.ReadBasicScripture, // permissions：可阅读基础藏书。
             SectPermissions.ReadCoreScripture, // permissions：可阅读核心藏书。
             SectPermissions.WriteScripture); // permissions：可撰写并贡献藏书。
@@ -132,6 +134,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             false, // canAutoAssignMasterForRequirement：不自动匹配亲传师父。
             null, // requiredMasterOfficeRole：不按师父职司限制。
             null, // requiredMasterPermission：不按师父权限限制。
+            SectPermissions.BuildBuilding, // permissions：可参与宗门建筑修建。
             SectPermissions.ReadBasicScripture, // permissions：可阅读基础藏书。
             SectPermissions.ReadCoreScripture, // permissions：可阅读核心藏书。
             SectPermissions.ReadHighScripture, // permissions：可阅读高阶藏书。
@@ -161,6 +164,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             8, // membersPerExtraSlot：每 8 名成员增加 1 个执事名额。
             InnerDisciple, // requiredGradeRole：必须至少是内门弟子。
             null, // requiredPreviousOfficeRole：不要求前置职司。
+            SectPermissions.BuildBuilding, // permissions：可参与宗门建筑修建。
             SectPermissions.ReadBasicScripture, // permissions：可阅读基础藏书。
             SectPermissions.ReadCoreScripture, // permissions：可阅读核心藏书。
             SectPermissions.WriteScripture, // permissions：可撰写并贡献藏书。
@@ -183,6 +187,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             10, // membersPerExtraSlot：每 10 名成员增加 1 个长老名额。
             null, // requiredGradeRole：不要求特定门阶。
             Deacon, // requiredPreviousOfficeRole：必须先担任执事。
+            SectPermissions.BuildBuilding, // permissions：可参与宗门建筑修建。
             SectPermissions.ReadBasicScripture, // permissions：可阅读基础藏书。
             SectPermissions.ReadCoreScripture, // permissions：可阅读核心藏书。
             SectPermissions.ReadHighScripture, // permissions：可阅读高阶藏书。
@@ -210,6 +215,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.ReadCoreScripture, // permissions：可阅读核心藏书。
             SectPermissions.ReadHighScripture, // permissions：可阅读高阶藏书。
             SectPermissions.WriteScripture, // permissions：可撰写并贡献藏书。
+            SectPermissions.BuildBuilding, // permissions：可参与宗门建筑修建。
             SectPermissions.RecruitMember, // permissions：可招揽成员。
             SectPermissions.BringApprenticeToSect, // permissions：可带徒入宗。
             SectPermissions.EvaluatePersonnel, // permissions：可评定宗门人事。

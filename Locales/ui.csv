@@ -217,6 +217,8 @@ Cultiway.Sect.Permission.BringApprenticeToSect,带徒入宗
 Cultiway.Sect.Permission.BringApprenticeToSect.Info,允许将自己的徒弟带入宗门
 Cultiway.Sect.Permission.DoSectChore,处理杂务
 Cultiway.Sect.Permission.DoSectChore.Info,允许执行宗门杂务并积累贡献
+Cultiway.Sect.Permission.BuildBuilding,修建建筑
+Cultiway.Sect.Permission.BuildBuilding.Info,允许参与宗门建筑修建
 Cultiway.Sect.Permission.OrganizeScripture,整理藏经阁
 Cultiway.Sect.Permission.OrganizeScripture.Info,允许整理宗门藏经阁并维护典籍
 Cultiway.Sect.Permission.TeachSectCultibook,宗门讲法
@@ -242,6 +244,8 @@ Cultiway.Sect.Permission.ManageScripture,管理藏经阁
 Cultiway.Sect.Permission.ManageScripture.Info,允许管理宗门藏经阁
 Cultiway.Sect.Permission.ManageSect,管理宗门
 Cultiway.Sect.Permission.ManageSect.Info,拥有宗门最高管理权限
+Cultiway.Sect.Job.Builder,宗门工匠
+Cultiway.Sect.Job.Builder.Info,负责修建宗门驻地内的建筑
 Cultiway.Sect.Scripture.Cultibooks,功法
 Cultiway.Sect.Scripture.Cultibooks_description,查看宗门收藏的功法书
 Cultiway.Sect.Scripture.Skills,术法

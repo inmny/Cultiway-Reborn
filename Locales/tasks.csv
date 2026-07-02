@@ -20,6 +20,9 @@ Task.Unit.Cultiway.WriteElixirbook,誊抄丹方
 Task.Unit.Cultiway.WriteSkillbook,誊抄术法
 Task.Unit.Cultiway.CallSourceSpawner,召唤仪式
 Task.Unit.Cultiway.SwitchCultibook,转修功法
+Task.Unit.Cultiway.FindSectJob,领取宗门事务
+Task.Unit.Cultiway.TryBuildSectBuilding,准备修建宗门建筑
+Task.Unit.Cultiway.BuildSectBuilding,修建宗门建筑
 Task.Unit.Cultiway.RecruitApprentice,收徒
 Task.Unit.Cultiway.TeachApprentice,传授弟子
 Task.Unit.Cultiway.SeekMaster,寻师

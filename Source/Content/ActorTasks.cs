@@ -28,10 +28,13 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor CallSourceSpawner { get; private set; }
     public static BehaviourTaskActor SwitchCultibook { get; private set; }
     public static BehaviourTaskActor TravelToCity { get; private set; }
+    public static BehaviourTaskActor FindSectJob { get; private set; }
     public static BehaviourTaskActor EvaluateSectPersonnel { get; private set; }
     public static BehaviourTaskActor RecruitSectMember { get; private set; }
     public static BehaviourTaskActor StudySectScripture { get; private set; }
     public static BehaviourTaskActor DoSectChore { get; private set; }
+    public static BehaviourTaskActor TryBuildSectBuilding { get; private set; }
+    public static BehaviourTaskActor BuildSectBuilding { get; private set; }
     public static BehaviourTaskActor OrganizeSectScripture { get; private set; }
     public static BehaviourTaskActor LectureSectCultibook { get; private set; }
     
@@ -158,6 +161,9 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         TravelToCity.addBeh(new BehEndJob());
         TravelToCity.setIcon("cultiway/icons/plots/iconTrainNet");
 
+        FindSectJob.addBeh(new BehFindSectJob());
+        FindSectJob.setIcon("ui/Icons/iconShowTasks");
+
         EvaluateSectPersonnel.addBeh(new BehEvaluateSectPersonnel());
         EvaluateSectPersonnel.addBeh(new BehEndJob());
         EvaluateSectPersonnel.setIcon("ui/icons/iconInterestingPeople");
@@ -189,6 +195,29 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         DoSectChore.addBeh(new BehDoSectChore());
         DoSectChore.addBeh(new BehEndJob());
         DoSectChore.setIcon("ui/icons/iconBuildings");
+
+        TryBuildSectBuilding.force_hand_tool = "hammer";
+        TryBuildSectBuilding.cancellable_by_reproduction = true;
+        TryBuildSectBuilding.cancellable_by_socialize = true;
+        TryBuildSectBuilding.addBeh(new BehFindSectConstructionBuilding());
+        TryBuildSectBuilding.addBeh(new BehSetNextTask(BuildSectBuilding.id, false, true));
+        TryBuildSectBuilding.setIcon("ui/Icons/citizen_jobs/iconCitizenJobBuilder");
+
+        BuildSectBuilding.force_hand_tool = "hammer";
+        BuildSectBuilding.cancellable_by_reproduction = true;
+        BuildSectBuilding.cancellable_by_socialize = true;
+        BuildSectBuilding.addBeh(new BehCheckSectBuildingUnderConstruction());
+        BuildSectBuilding.addBeh(new BehFindConstructionTile());
+        BuildSectBuilding.addBeh(new BehGoToTileTarget());
+        for (int i = 0; i < 5; i++)
+        {
+            BuildSectBuilding.addBeh(new BehCheckSectBuildingUnderConstruction());
+            BuildSectBuilding.addBeh(new BehLookAtBuildingTarget());
+            BuildSectBuilding.addBeh(new BehAngleAnimation(AngleAnimationTarget.Building, "event:/SFX/CIVILIZATIONS/BuildRoad", 0f, 40f, true, true));
+            BuildSectBuilding.addBeh(new BehBuildSectTarget());
+        }
+        BuildSectBuilding.addBeh(new BehRestartTask());
+        BuildSectBuilding.setIcon("ui/Icons/citizen_jobs/iconCitizenJobBuilder");
 
         OrganizeSectScripture.force_hand_tool = "book";
         OrganizeSectScripture.cancellable_by_reproduction = true;
