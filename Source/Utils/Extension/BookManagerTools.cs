@@ -64,7 +64,7 @@ public static class BookManagerTools
     {
         if (actor == null || actor.isRekt()) return null;
         if (book_type == null) return null;
-        if (!actor.hasLanguage()) return null;
+        if (!actor.hasLanguage() || !actor.hasCulture()) return null;
 
         Book book = manager.newObject();
         ActorTrait t_trait_actor = manager.getBookTrait(actor);
