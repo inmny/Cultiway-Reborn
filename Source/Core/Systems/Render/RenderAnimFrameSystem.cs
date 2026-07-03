@@ -16,6 +16,7 @@ public class RenderAnimFrameSystem : BaseSystem
     private readonly ArchetypeQuery<Position, AnimBindRenderer>                  pos_query;
     private readonly ArchetypeQuery<Rotation, AnimBindRenderer>                  rot_query;
     private readonly ArchetypeQuery<Scale, AnimBindRenderer>                     scale_query;
+    private readonly ArchetypeQuery<AnimTint, AnimBindRenderer>                  tint_query;
     private readonly ArchetypeQuery<AnimBindRenderer>                            single_query;
 
     public RenderAnimFrameSystem(EntityStore world)
@@ -36,6 +37,7 @@ public class RenderAnimFrameSystem : BaseSystem
         pos_query = world.Query<Position, AnimBindRenderer>(filter);
         rot_query = world.Query<Rotation, AnimBindRenderer>(filter);
         scale_query = world.Query<Scale, AnimBindRenderer>(filter);
+        tint_query = world.Query<AnimTint, AnimBindRenderer>(filter);
     }
     [Hotfixable]
     protected override void OnUpdateGroup()
@@ -58,6 +60,10 @@ public class RenderAnimFrameSystem : BaseSystem
                     if (bind_renderer.value != null)
                     {
                         bind_renderer.value.bind.sprite = sprite;
+                        if (!bind_renderer.value.hasTint)
+                        {
+                            bind_renderer.value.bind.color = Color.white;
+                        }
                         if (!bind_renderer.value.gameObject.activeSelf)
                         {
                             bind_renderer.value.gameObject.SetActive(true);
@@ -79,6 +85,12 @@ public class RenderAnimFrameSystem : BaseSystem
             {
                 if (bind_renderer.value == null) return;
                 bind_renderer.value.transform.localScale = scale.value;
+            });
+            tint_query.ForEachComponents((ref AnimTint tint, ref AnimBindRenderer bind_renderer) =>
+            {
+                if (bind_renderer.value == null) return;
+                bind_renderer.value.hasTint = true;
+                bind_renderer.value.bind.color = tint.Value;
             });
             rot_query.ForEach((rotations, bindRenderers, entities) =>
             {

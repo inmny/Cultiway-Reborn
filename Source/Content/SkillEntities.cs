@@ -1,22 +1,14 @@
 using Cultiway.Abstract;
 using Cultiway.Core;
 using Cultiway.Core.Components;
-using Cultiway.Core.EventSystem;
-using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
-using Cultiway.Core.SkillLibV3.Components.TrajParams;
-using Cultiway.Core.SkillLibV3.Modifiers;
-using Cultiway.Utils;
-using Cultiway.Utils.Extension;
-using Friflo.Engine.ECS;
-using UnityEngine;
 
 namespace Cultiway.Content;
+
 [Dependency(typeof(SkillTrajectories))]
 public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 {
-    // 刺类贴图默认向上绘制；渲染旋转约定的 0 度是向右。
     private const float UpFacingSpriteToRightOffset = -90f;
 
     public static SkillEntityAsset GoldSword { get; private set; }
@@ -35,587 +27,107 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
     public static SkillEntityAsset Tornado { get; private set; }
     public static SkillEntityAsset FallLightning { get; private set; }
     public static SkillEntityAsset LightningPolo { get; private set; }
+
     protected override bool AutoRegisterAssets() => true;
+
     protected override void OnInit()
     {
-        GoldSword.Element = new ElementComposition(iron: 1f);
-        GoldBlade.Element = new ElementComposition(iron: 1f);
-        WoodThorn.Element = new ElementComposition(wood: 1f);
-        FallWood.Element = new ElementComposition(wood: 1f);
-        WaterArrow.Element = new ElementComposition(water: 1f);
-        WaterBall.Element = new ElementComposition(water: 1f);
-        WaterBlade.Element = new ElementComposition(water: 1f);
-        Fireball.Element = new ElementComposition(fire: 1f);
-        FireBlade.Element = new ElementComposition(fire: 1f);
-        FallStone.Element = new ElementComposition(earth: 1f);
-        StoneThorn.Element = new ElementComposition(earth: 1f);
-        WindBlade.Element = new ElementComposition(water:0.5f, wood:0.5f);
-        WindPolo.Element = new ElementComposition(water:0.5f, wood:0.5f);
-        Tornado.Element = new ElementComposition(water:0.5f, wood:0.5f);
-        FallLightning.Element = new ElementComposition(water:0.5f, fire:0.5f);
-        LightningPolo.Element = new ElementComposition(water:0.5f, fire:0.5f);
+        var metal = new ElementComposition(iron: 1f);
+        var wood = new ElementComposition(wood: 1f);
+        var water = new ElementComposition(water: 1f);
+        var fire = new ElementComposition(fire: 1f);
+        var earth = new ElementComposition(earth: 1f);
+        var wind = new ElementComposition(water: 0.5f, wood: 0.5f);
+        var lightning = new ElementComposition(water: 0.5f, fire: 0.5f);
 
-        GoldSword.AddSeriesTags("metal", "slash", "single");
-        GoldBlade.AddSeriesTags("metal", "slash", "sustain");
-        WoodThorn.AddSeriesTags("wood", "pierce", "single");
-        FallWood.AddSeriesTags("wood", "pierce", "single");
-        WaterArrow.AddSeriesTags("water", "pierce", "single");
-        WaterBall.AddSeriesTags("water", "ball", "single");
-        WaterBlade.AddSeriesTags("water", "slash", "sustain");
-        Fireball.AddSeriesTags("fire", "ball", "aoe");
-        FireBlade.AddSeriesTags("fire", "slash", "sustain");
-        FallStone.AddSeriesTags("earth", "pierce", "single");
-        StoneThorn.AddSeriesTags("earth", "pierce", "sustain");
-        WindBlade.AddSeriesTags("wind", "slash", "sustain");
-        WindPolo.AddSeriesTags("wind", "ball", "single");
-        Tornado.AddSeriesTags("wind", "aoe", "sustain");
-        FallLightning.AddSeriesTags("lightning", "single");
-        LightningPolo.AddSeriesTags("lightning", "ball", "single");
-        GoldSword.SetupCommonPrefab("cultiway/effect/gold_sword")
-            .SetupColliderSphere(1f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
+        Configure(GoldSword, metal, "cultiway/effect/gold_sword", SkillTrajectories.TowardsDirection, 1f, true,
+            SkillHitResolver.Single(GoldSword, recycleOnHit: true, continueAfterHit: false),
+            "metal", "slash", "single");
+        Configure(GoldBlade, metal, "cultiway/effect/gold_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
+            SkillHitResolver.Single(GoldBlade, recycleOnHit: false, continueAfterHit: true),
+            "metal", "slash", "sustain");
+        Configure(WoodThorn, wood, "cultiway/effect/wood_thorn", SkillTrajectories.TowardsDirection, 1.2f, false,
+            VisualRotation.FollowRotation(UpFacingSpriteToRightOffset),
+            SkillHitResolver.Single(WoodThorn, recycleOnHit: false, continueAfterHit: true),
+            "wood", "pierce", "single");
+        Configure(FallWood, wood, "cultiway/effect/fall_wood", SkillTrajectories.FallingStrike, 1.2f, true,
+            SkillHitResolver.Single(FallWood, recycleOnHit: true, continueAfterHit: true),
+            "wood", "pierce", "single", "falling");
+        Configure(WaterArrow, water, "cultiway/effect/single_water_sword", SkillTrajectories.TowardsDirection, 1f,
+            true, SkillHitResolver.Single(WaterArrow, recycleOnHit: true, continueAfterHit: false),
+            "water", "pierce", "single");
+        Configure(WaterBall, water, "cultiway/effect/water_polo", SkillTrajectories.TowardsDirection, 1f, true,
+            SkillHitResolver.Single(WaterBall, recycleOnHit: true, continueAfterHit: false),
+            "water", "ball", "single");
+        Configure(WaterBlade, water, "cultiway/effect/water_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
+            SkillHitResolver.Single(WaterBlade, recycleOnHit: false, continueAfterHit: true),
+            "water", "slash", "sustain");
+        Configure(Fireball, fire, "cultiway/effect/fire_polo", SkillTrajectories.TowardsDirection, 1f, true,
+            SkillHitResolver.Area(Fireball, radius: 2f, recycleOnHit: true),
+            "fire", "ball", "aoe");
+        Configure(FireBlade, fire, "cultiway/effect/fire_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
+            SkillHitResolver.Single(FireBlade, recycleOnHit: false, continueAfterHit: true),
+            "fire", "slash", "sustain");
+        Configure(FallStone, earth, "cultiway/effect/fall_rock", SkillTrajectories.FallingStrike, 1.2f, true,
+            SkillHitResolver.Single(FallStone, recycleOnHit: true, continueAfterHit: true),
+            "earth", "pierce", "single", "falling");
+        Configure(StoneThorn, earth, "cultiway/effect/ground_thorn", SkillTrajectories.GroundCrawl, 1.2f, false,
+            VisualRotation.FollowRotation(UpFacingSpriteToRightOffset),
+            SkillHitResolver.Single(StoneThorn, recycleOnHit: false, continueAfterHit: true),
+            "earth", "pierce", "sustain");
+        Configure(WindBlade, wind, "cultiway/effect/wind_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
+            SkillHitResolver.Single(WindBlade, recycleOnHit: false, continueAfterHit: true),
+            "wind", "slash", "sustain");
+        Configure(WindPolo, wind, "cultiway/effect/wind_polo", SkillTrajectories.TowardsDirection, 1f, true,
+            SkillHitResolver.Single(WindPolo, recycleOnHit: true, continueAfterHit: false),
+            "wind", "ball", "single");
+        Configure(Tornado, wind, "cultiway/effect/simple_tornado", SkillTrajectories.SlowVortex, 1.5f, true,
+            VisualRotation.FixedUpright(),
+            SkillHitResolver.Single(Tornado, recycleOnHit: false, continueAfterHit: true),
+            "wind", "aoe", "sustain");
+        Configure(FallLightning, lightning, "cultiway/effect/default_lightning", SkillTrajectories.FallingStrike, 0.5f,
+            false, VisualRotation.FixedUpright(),
+            SkillHitResolver.Single(FallLightning, recycleOnHit: true, continueAfterHit: true),
+            "lightning", "single", "falling");
+        Configure(LightningPolo, lightning, "cultiway/effect/lightning_polo", SkillTrajectories.LightningSnap, 1f,
+            true, SkillHitResolver.Single(LightningPolo, recycleOnHit: true, continueAfterHit: false),
+            "lightning", "ball", "single");
+    }
+
+    private static SkillEntityAsset Configure(SkillEntityAsset asset, ElementComposition element, string effectPath,
+        TrajectoryAsset trajectory, float colliderRadius, bool animLoop, OnObjCollision onCollision,
+        params string[] tags)
+    {
+        asset.Element = element;
+        asset.AddSeriesTags(tags);
+        asset.SetupCommonPrefab(effectPath, anim_loop: animLoop)
+            .SetupColliderSphere(colliderRadius, EnemyActorCollider())
+            .SetupDefaultTraj(trajectory)
+            .OnObjCollision = onCollision;
+        return asset;
+    }
+
+    private static SkillEntityAsset Configure(SkillEntityAsset asset, ElementComposition element, string effectPath,
+        TrajectoryAsset trajectory, float colliderRadius, bool animLoop, VisualRotation visualRotation,
+        OnObjCollision onCollision, params string[] tags)
+    {
+        asset.Element = element;
+        asset.AddSeriesTags(tags);
+        asset.SetupCommonPrefab(effectPath, anim_loop: animLoop)
+            .SetupVisualRotation(visualRotation)
+            .SetupColliderSphere(colliderRadius, EnemyActorCollider())
+            .SetupDefaultTraj(trajectory)
+            .OnObjCollision = onCollision;
+        return asset;
+    }
+
+    private static ColliderConfig EnemyActorCollider()
+    {
+        return new ColliderConfig
         {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-            if (target.isActor())
-            {
-                EventSystemHub.Publish(new GetHitEvent()
-                {
-                    TargetID = target.a.data.id,
-                    Damage = context.Strength,
-                    Element = GoldSword.Element,
-                    Attacker = attacker,
-                    AttackerPowerLevel = context.PowerLevel
-                });
-            }
-            else
-            {
-                target.b.getHit(context.Strength, pAttacker: attacker);
-            }
-
-            on_effect_obj?.Invoke(entity, target);
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
-            return false;
-        };
-        GoldBlade.SetupCommonPrefab("cultiway/effect/gold_blade", anim_loop: false)
-            .SetupColliderSphere(1.5f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-            if (target.isActor())
-            {
-                EventSystemHub.Publish(new GetHitEvent()
-                {
-                    TargetID = target.a.data.id,
-                    Damage = context.Strength,
-                    Element = GoldBlade.Element,
-                    Attacker = attacker,
-                    AttackerPowerLevel = context.PowerLevel
-                });
-            }
-            else
-            {
-                target.b.getHit(context.Strength, pAttacker: attacker);
-            }
-
-            on_effect_obj?.Invoke(entity, target);
-
-            return true;
-        };
-        WoodThorn.SetupCommonPrefab("cultiway/effect/wood_thorn", anim_loop: false)
-            .SetupVisualRotation(VisualRotation.FollowRotation(UpFacingSpriteToRightOffset))
-            .SetupColliderSphere(1.2f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-            if (target.isActor())
-            {
-                EventSystemHub.Publish(new GetHitEvent()
-                {
-                    TargetID = target.a.data.id,
-                    Damage = context.Strength,
-                    Element = WoodThorn.Element,
-                    Attacker = attacker,
-                    AttackerPowerLevel = context.PowerLevel
-                });
-            }
-            else
-            {
-                target.b.getHit(context.Strength, pAttacker: attacker);
-            }
-
-            on_effect_obj?.Invoke(entity, target);
-            return true;
-        };
-        FallWood.SetupCommonPrefab("cultiway/effect/fall_wood")
-            .SetupColliderSphere(1.2f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.FallingStrike)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-            if (target.isActor())
-            {
-                EventSystemHub.Publish(new GetHitEvent()
-                {
-                    TargetID = target.a.data.id,
-                    Damage = context.Strength,
-                    Element = FallWood.Element,
-                    Attacker = attacker,
-                    AttackerPowerLevel = context.PowerLevel
-                });
-            }
-            else
-            {
-                target.b.getHit(context.Strength, pAttacker: attacker);
-            }
-
-            on_effect_obj?.Invoke(entity, target);
-
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
-            return true;
-        };
-        WaterArrow.SetupCommonPrefab("cultiway/effect/single_water_sword")
-            .SetupColliderSphere(1f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-            if (target.isActor())
-            {
-                EventSystemHub.Publish(new GetHitEvent()
-                {
-                    TargetID = target.a.data.id,
-                    Damage = context.Strength,
-                    Element = WaterArrow.Element,
-                    Attacker = attacker,
-                    AttackerPowerLevel = context.PowerLevel
-                });
-            }
-            else
-            {
-                target.b.getHit(context.Strength, pAttacker: attacker);
-            }
-
-            on_effect_obj?.Invoke(entity, target);
-
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
-            return false;
-        };
-        WaterBall.SetupCommonPrefab("cultiway/effect/water_polo")
-            .SetupColliderSphere(1f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-            if (target.isActor())
-            {
-                EventSystemHub.Publish(new GetHitEvent()
-                {
-                    TargetID = target.a.data.id,
-                    Damage = context.Strength,
-                    Element = WaterBall.Element,
-                    Attacker = attacker,
-                    AttackerPowerLevel = context.PowerLevel
-                });
-            }
-            else
-            {
-                target.b.getHit(context.Strength, pAttacker: attacker);
-            }
-
-            on_effect_obj?.Invoke(entity, target);
-
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
-            return false;
-        };
-        WaterBlade.SetupCommonPrefab("cultiway/effect/water_blade", anim_loop: false)
-            .SetupColliderSphere(1.5f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-            if (target.isActor())
-            {
-                EventSystemHub.Publish(new GetHitEvent()
-                {
-                    TargetID = target.a.data.id,
-                    Damage = context.Strength,
-                    Element = WaterBlade.Element,
-                    Attacker = attacker,
-                    AttackerPowerLevel = context.PowerLevel
-                });
-            }
-            else
-            {
-                target.b.getHit(context.Strength, pAttacker: attacker);
-            }
-
-            on_effect_obj?.Invoke(entity, target);
-
-            return true;
-        };
-        Fireball.SetupCommonPrefab("cultiway/effect/fire_polo")
-            .SetupColliderSphere(1f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            ModClass.I.SkillV3.SpawnAnim("cultiway/effect/explosion_fireball", target.GetSimPos(), Vector3.right);
-
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-            foreach (var obj in SkillUtils.IterEnemyInSphere(entity.GetComponent<Position>().v2, 2, attacker,
-                         context.AttackKingdom))
-            {
-                if (obj.isActor())
-                {
-                    EventSystemHub.Publish(new GetHitEvent()
-                    {
-                        TargetID = obj.a.data.id,
-                        Damage = context.Strength,
-                        Element = Fireball.Element,
-                        Attacker = attacker,
-                        AttackerPowerLevel = context.PowerLevel
-                    });
-                }
-                else
-                {
-                    obj.b.getHit(context.Strength, pAttacker: attacker);
-                }
-
-                on_effect_obj?.Invoke(entity, obj);
-            }
-
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
-            return false;
-        };
-        FireBlade.SetupCommonPrefab("cultiway/effect/fire_blade", anim_loop: false)
-            .SetupColliderSphere(1.5f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-                if (target.isActor())
-                {
-                    EventSystemHub.Publish(new GetHitEvent()
-                    {
-                        TargetID = target.a.data.id,
-                        Damage = context.Strength,
-                        Element = FireBlade.Element,
-                        Attacker = attacker,
-                        AttackerPowerLevel = context.PowerLevel
-                    });
-                }
-                else
-                {
-                    target.b.getHit(context.Strength, pAttacker: attacker);
-                }
-
-                on_effect_obj?.Invoke(entity, target);
-
-            return true;
-        };
-        FallStone.SetupCommonPrefab("cultiway/effect/fall_rock")
-            .SetupColliderSphere(1.2f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.FallingStrike)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-            if (target.isActor())
-            {
-                EventSystemHub.Publish(new GetHitEvent()
-                {
-                    TargetID = target.a.data.id,
-                    Damage = context.Strength,
-                    Element = FallStone.Element,
-                    Attacker = attacker,
-                    AttackerPowerLevel = context.PowerLevel
-                });
-            }
-            else
-            {
-                target.b.getHit(context.Strength, pAttacker: attacker);
-            }
-
-            on_effect_obj?.Invoke(entity, target);
-
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
-            return true;
-        };
-        StoneThorn.SetupCommonPrefab("cultiway/effect/ground_thorn", anim_loop:false)
-            .SetupVisualRotation(VisualRotation.FollowRotation(UpFacingSpriteToRightOffset))
-            .SetupColliderSphere(1.2f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.GroundCrawl)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-            if (target.isActor())
-            {
-                EventSystemHub.Publish(new GetHitEvent()
-                {
-                    TargetID = target.a.data.id,
-                    Damage = context.Strength,
-                    Element = StoneThorn.Element,
-                    Attacker = attacker,
-                    AttackerPowerLevel = context.PowerLevel
-                });
-            }
-            else
-            {
-                target.b.getHit(context.Strength, pAttacker: attacker);
-            }
-
-            on_effect_obj?.Invoke(entity, target);
-            return true;
-        };
-        WindBlade.SetupCommonPrefab("cultiway/effect/wind_blade", anim_loop: false)
-            .SetupColliderSphere(1.5f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-            if (target.isActor())
-            {
-                EventSystemHub.Publish(new GetHitEvent()
-                {
-                    TargetID = target.a.data.id,
-                    Damage = context.Strength,
-                    Element = WindBlade.Element,
-                    Attacker = attacker,
-                    AttackerPowerLevel = context.PowerLevel
-                });
-            }
-            else
-            {
-                target.b.getHit(context.Strength, pAttacker: attacker);
-            }
-
-            on_effect_obj?.Invoke(entity, target);
-
-            return true;
-        };
-        WindPolo.SetupCommonPrefab("cultiway/effect/wind_polo")
-            .SetupColliderSphere(1f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.TowardsDirection)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-                if (target.isActor())
-                {
-                    EventSystemHub.Publish(new GetHitEvent()
-                    {
-                        TargetID = target.a.data.id,
-                        Damage = context.Strength,
-                        Element = WindPolo.Element,
-                        Attacker = attacker,
-                        AttackerPowerLevel = context.PowerLevel
-                    });
-                }
-                else
-                {
-                    target.b.getHit(context.Strength, pAttacker: attacker);
-                }
-
-                on_effect_obj?.Invoke(entity, target);
-
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
-            return false;
-        };
-        Tornado.SetupCommonPrefab("cultiway/effect/simple_tornado")
-            .SetupVisualRotation(VisualRotation.FixedUpright())
-            .SetupColliderSphere(1.5f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.SlowVortex)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-                if (target.isActor())
-                {
-                    EventSystemHub.Publish(new GetHitEvent()
-                    {
-                        TargetID = target.a.data.id,
-                        Damage = context.Strength,
-                        Element = Tornado.Element,
-                        Attacker = attacker,
-                        AttackerPowerLevel = context.PowerLevel
-                    });
-                }
-                else
-                {
-                    target.b.getHit(context.Strength, pAttacker: attacker);
-                }
-
-                on_effect_obj?.Invoke(entity, target);
-
-            return true;
-        };
-        FallLightning.SetupCommonPrefab("cultiway/effect/default_lightning", anim_loop: false)
-            .SetupVisualRotation(VisualRotation.FixedUpright())
-            .SetupColliderSphere(0.5f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.FallingStrike)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-            if (target.isActor())
-            {
-                EventSystemHub.Publish(new GetHitEvent()
-                {
-                    TargetID = target.a.data.id,
-                    Damage = context.Strength,
-                    Element = FallLightning.Element,
-                    Attacker = attacker,
-                    AttackerPowerLevel = context.PowerLevel
-                });
-            }
-            else
-            {
-                target.b.getHit(context.Strength, pAttacker: attacker);
-            }
-
-            on_effect_obj?.Invoke(entity, target);
-
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
-            return true;
-        };
-        LightningPolo.SetupCommonPrefab("cultiway/effect/lightning_polo")
-            .SetupColliderSphere(1f, new ColliderConfig()
-            {
-                Enabled = true,
-                Enemy = true,
-                Actor = true
-            })
-            .SetupDefaultTraj(SkillTrajectories.LightningSnap)
-            .OnObjCollision = (ref SkillContext context, Entity skill_container, Entity entity,
-            BaseSimObject target) =>
-        {
-            var on_effect_obj = skill_container.GetComponent<SkillContainer>().OnEffectObj;
-            var attacker = context.SourceObj;
-                if (target.isActor())
-                {
-                    EventSystemHub.Publish(new GetHitEvent()
-                    {
-                        TargetID = target.a.data.id,
-                        Damage = context.Strength,
-                        Element = LightningPolo.Element,
-                        Attacker = attacker,
-                        AttackerPowerLevel = context.PowerLevel
-                    });
-                }
-                else
-                {
-                    target.b.getHit(context.Strength, pAttacker: attacker);
-                }
-
-                on_effect_obj?.Invoke(entity, target);
-
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
-            return false;
+            Enabled = true,
+            Enemy = true,
+            Actor = true
         };
     }
 }
