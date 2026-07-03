@@ -1230,13 +1230,13 @@ public partial class Actors
             .AddTrait(S_Trait.poison_immune)//毒抗
             .AddTrait(S_Trait.immortal)//不死
             .AddSubspeciesTrait(S_SubspeciesTrait.death_grow_tree)//死亡长树
-            .Stats(S.damage, 999)//伤害
+            .Stats(S.damage, 9999)//伤害
             .Stats(S.damage_range, 0.12f)//伤害范围
             .Stats(S.speed, 18)//速度
-            .Stats(S.health, 999999999)//血量
-            .Stats(S.armor, 999999999)//防御
-            .Stats(S.stamina, 999999999)//耐力
-            .Stats(S.mana, 999999999)//魔力
+            .Stats(S.health, 9999)//血量
+            .Stats(S.armor, 9999)//防御
+            .Stats(S.stamina, 9999)//耐力
+            .Stats(S.mana, 9999)//魔力
             .Stats(S.lifespan, 129600);//寿命
         QiLin.SetCamp(KingdomAssets.Divine)//麒麟
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
