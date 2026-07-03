@@ -42,10 +42,10 @@ public class PathFinder
         var task = new PathfindingTask(request);
         _tasks[request.Actor.data.id] = task;
 
-        task.Worker = Task.Run(() => RunGeneratorAsync(task), task.Cancellation.Token);
+        task.Worker = Task.Run(() => RunGenerator(task), task.Cancellation.Token);
     }
 
-    public void RequestDirectPath(Actor actor, WorldTile target, StepPenalty penalty)
+    public void RequestDirectPath(Actor actor, WorldTile target)
     {
         if (actor?.data == null || target == null)
         {
@@ -56,7 +56,7 @@ public class PathFinder
         Cancel(actor);
 
         var task = new PathfindingTask(new PathRequest(actor, target, true, true, true, 0));
-        task.Stream.AddStep(new PathStep(target, MovementMethod.Walk, penalty));
+        task.Stream.AddStep(new PathStep(target, MovementMethod.Walk, TraversalEstimate.Direct));
         task.Stream.Complete();
         _tasks[actor.data.id] = task;
     }
@@ -156,11 +156,11 @@ public class PathFinder
         }
     }
 
-    private async Task RunGeneratorAsync(PathfindingTask task)
+    private void RunGenerator(PathfindingTask task)
     {
         try
         {
-            await _generator.GenerateAsync(task.Request, task.Stream, task.Cancellation.Token);
+            _generator.GenerateAsync(task.Request, task.Stream, task.Cancellation.Token).GetAwaiter().GetResult();
         }
         catch (OperationCanceledException)
         {
@@ -289,9 +289,9 @@ internal sealed class PassthroughPathGenerator : IPathGenerator
     public Task GenerateAsync(PathRequest request, IPathStreamWriter stream, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (request.Target != null)
+        if (request.TargetTileId >= 0)
         {
-            stream.AddStep(new PathStep(request.Target, MovementMethod.Walk, StepPenalty.Block | StepPenalty.Lava | StepPenalty.Ocean));
+            stream.AddStep(new PathStep(request.TargetTileId, MovementMethod.Walk, TraversalEstimate.Direct));
         }
 
         stream.Complete();

@@ -136,7 +136,7 @@ internal static class PatchAboutFly
             if (target == null) return true;
 
             StartCultiwayFlight(__instance);
-            PathFinder.Instance.RequestDirectPath(__instance, target, StepPenalty.Block | StepPenalty.Lava | StepPenalty.Ocean);
+            PathFinder.Instance.RequestDirectPath(__instance, target);
             __instance.moveTo(target);
             return false;
         }
