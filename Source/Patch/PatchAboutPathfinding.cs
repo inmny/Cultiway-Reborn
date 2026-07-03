@@ -42,6 +42,7 @@ namespace Cultiway.Patch
 
             __instance.setTileTarget(pTile);
             __instance.next_step_position = __instance.current_tile?.posV3 ?? __instance.next_step_position;
+            __instance.setNotMoving();
 
             PathFinder.Instance.RequestPath(__instance, pTile, pPathOnWater, pWalkOnBlocks, pWalkOnLava,
                 pLimitPathfindingRegions);
@@ -55,6 +56,14 @@ namespace Cultiway.Patch
         {
             if (!PathFinder.Instance.TryPeekStep(__instance, out var step, out var finished))
             {
+                if (!finished && PathFinder.Instance.IsActorPathing(__instance))
+                {
+                    __instance.setNotMoving();
+                    __instance.next_step_position = __instance.current_tile?.posV3 ?? __instance.next_step_position;
+                    __instance.timer_action = 0.05f;
+                    return false;
+                }
+
                 __instance.setNotMoving();
                 __instance.timer_action = 1f;
                 PathRecoveryManager.TryRequest(__instance);
@@ -200,13 +209,28 @@ namespace Cultiway.Patch
 
         private static PathProcessResult HandleStep(Actor actor, PathStep step)
         {
+            if (step.Method == MovementMethod.Portal)
+            {
+                return HandlePortal(actor, step);
+            }
+
+            if (!TryResolveStepTile(step, out var tile))
+            {
+                return PathProcessResult.Abort;
+            }
+
             return step.Method switch
             {
-                MovementMethod.Walk => TryMove(actor, step.Tile, step.Penalty.HasFlag(StepPenalty.Block), allowLava: step.Penalty.HasFlag(StepPenalty.Lava), allowOcean: step.Penalty.HasFlag(StepPenalty.Ocean)),
-                MovementMethod.Swim => TryMove(actor, step.Tile, step.Penalty.HasFlag(StepPenalty.Block), allowLava: step.Penalty.HasFlag(StepPenalty.Lava), allowOcean: step.Penalty.HasFlag(StepPenalty.Ocean)),
-                MovementMethod.Portal => HandlePortal(actor, step),
+                MovementMethod.Walk => TryMove(actor, tile),
+                MovementMethod.Swim => TryMove(actor, tile),
                 _ => PathProcessResult.Deferred
             };
+        }
+
+        private static bool TryResolveStepTile(PathStep step, out WorldTile tile)
+        {
+            tile = step.Tile;
+            return tile != null;
         }
 
         [HarmonyTranspiler, HarmonyPatch(typeof(BehBoatTransportDoLoading), nameof(BehBoatTransportDoLoading.execute))]
@@ -434,8 +458,7 @@ namespace Cultiway.Patch
             PortalManager.RemoveDeadBuildings();
         }
 
-        private static PathProcessResult TryMove(Actor actor, WorldTile tile, bool allowBlocks, bool allowLava,
-            bool allowOcean)
+        private static PathProcessResult TryMove(Actor actor, WorldTile tile)
         {
             if (tile == null)
             {
@@ -444,25 +467,6 @@ namespace Cultiway.Patch
 
             var tileType = tile.Type;
             if (tileType == null)
-            {
-                return PathProcessResult.Abort;
-            }
-            if (!allowBlocks && tileType.block && !actor.ignoresBlocks())
-            {
-                return PathProcessResult.Abort;
-            }
-
-            if (!allowLava && actor.asset.die_in_lava && tileType.lava)
-            {
-                return PathProcessResult.Abort;
-            }
-
-            if (!allowOcean && tileType.ocean && actor.isDamagedByOcean())
-            {
-                return PathProcessResult.Abort;
-            }
-
-            if (tile.isOnFire() && !actor.isImmuneToFire() && !(actor.current_tile?.isOnFire() ?? false))
             {
                 return PathProcessResult.Abort;
             }

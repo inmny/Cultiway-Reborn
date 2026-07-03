@@ -7,6 +7,9 @@ public sealed class PortalSnapshot
 {
     public long Id { get; set; }
     public WorldTile Tile { get; set; }
+    public int TileId { get; set; }
+    public int X { get; set; }
+    public int Y { get; set; }
     public MapRegion Region { get; set; }
     public Portal Portal { get; set; }
     public float WaitTime { get; set; }

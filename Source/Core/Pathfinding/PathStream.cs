@@ -13,7 +13,7 @@ public sealed class PathStream : IPathStreamWriter
     private Exception _error;
     public void AddStep(PathStep step)
     {
-        if (step.Tile == null || IsFinalized) return;
+        if (!step.HasTile || IsFinalized) return;
         _steps.Enqueue(step);
     }
 
@@ -55,6 +55,7 @@ public sealed class PathStream : IPathStreamWriter
     }
 
     public bool HasPendingSteps => !_steps.IsEmpty;
+    public int PendingCount => _steps.Count;
     public bool IsFinalized => _status != 0;
     public bool IsFinished => IsFinalized && _steps.IsEmpty;
     public bool IsFaulted => _status == 3;
