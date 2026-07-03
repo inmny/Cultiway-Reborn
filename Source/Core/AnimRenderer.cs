@@ -10,9 +10,15 @@ public class AnimRenderer : MonoBehaviour
 {
     public SpriteRenderer            bind;
     public MonoObjPool<AnimRenderer> pool;
+    public bool                       hasTint;
 
     public void Return()
     {
+        hasTint = false;
+        if (bind != null)
+        {
+            bind.color = Color.white;
+        }
         pool.Return(this);
     }
     public static MonoObjPool<AnimRenderer> NewPool(Transform parent)

@@ -1196,6 +1196,10 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var backlash = trialDamage * Mathf.Clamp(trial.BacklashRatio, 0f, 10f);
         if (backlash <= 0f) return;
 
+        var backlashContext = context;
+        backlashContext.SourceObj = target;
+        backlashContext.TargetDir = -context.TargetDir;
+        ModClass.I.SkillV3.Vfx.QueueElementImpact(backlashContext, element, backlash, context.SourceObj);
         EventSystemHub.Publish(new GetHitEvent
         {
             TargetID = context.SourceObj.a.data.id,
@@ -1253,32 +1257,18 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         // 获取爆炸中心位置（目标位置）
         var explosionPos = target.GetSimPos();
         
-        // 生成爆炸动画
-        ModClass.I.SkillV3.SpawnAnim("cultiway/effect/explosion_fireball", explosionPos, Vector3.right);
-
         // 获取技能元素和攻击者
         var attacker = context.SourceObj;
         ref var element = ref skill.Asset.Element;
         var damage = context.Strength * damageRatio;
 
+        // 生成爆炸动画
+        ModClass.I.SkillV3.Vfx.QueueExplosion(explosionPos, element, context.PowerLevel, damage, radius, target);
+
         // 对范围内的敌人造成伤害
         foreach (var obj in SkillUtils.IterEnemyInSphere(explosionPos, radius, attacker, context.AttackKingdom))
         {
-            if (obj.isActor())
-            {
-                EventSystemHub.Publish(new GetHitEvent()
-                {
-                    TargetID = obj.a.data.id,
-                    Damage = damage,
-                    Element = element,
-                    Attacker = attacker,
-                    AttackerPowerLevel = context.PowerLevel
-                });
-            }
-            else
-            {
-                obj.b.getHit(damage, pAttacker: attacker);
-            }
+            DealDamage(obj, damage, element, context);
         }
     }
 
@@ -1658,6 +1648,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     {
         if (target.isRekt() || damage <= 0f) return;
 
+        ModClass.I.SkillV3.Vfx.QueueElementImpact(context, element, damage, target);
         if (target.isActor())
         {
             EventSystemHub.Publish(new GetHitEvent

@@ -3,6 +3,7 @@ using System.Text;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Systems;
+using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
 using Cultiway.Utils.Extension;
@@ -21,6 +22,8 @@ public class Manager
     public SkillEntityLibrary SkillLib { get; } = new SkillEntityLibrary();
     public SkillModifierLibrary ModifierLib { get; } = new();
     public TrajectoryLibrary TrajLib { get; } = new TrajectoryLibrary();
+    public SkillVfxProfileLibrary VfxProfileLib { get; } = new();
+    public SkillVfxManager Vfx { get; } = new();
     public SystemGroup SkillLogicSystemGroup { get; } = new SystemGroup("SkillLibV3");
     internal Manager(WorldboxGame game)
     {
@@ -33,8 +36,10 @@ public class Manager
 
         SkillLogicSystemGroup.Add(new LogicSkillCastSequenceSystem());
         SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
+        SkillLogicSystemGroup.Add(new LogicSkillVfxTravelSystem());
         SkillLogicSystemGroup.Add(new LogicSkillTravelSystem());
         SkillLogicSystemGroup.Add(new LogicActorCollisionSystem());
+        SkillLogicSystemGroup.Add(new LogicSkillVfxFlushSystem());
     }
 
     internal void Init()
@@ -42,18 +47,41 @@ public class Manager
         AssetManager._instance.add(SkillLib, "cultiway.skills");
         AssetManager._instance.add(ModifierLib, "cultiway.skill_modifiers");
         AssetManager._instance.add(TrajLib, "cultiway.trajectories");
+        AssetManager._instance.add(VfxProfileLib, "cultiway.skill_vfx_profiles");
     }
 
-    public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f)
+    public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
+        float frameInterval = 0.1f, bool loop = false, float? lifeTime = null, VisualRotation? visualRotation = null)
     {
         var entity = SkillEntityLibrary.RawAnim.NewEntity();
         var frames = SkillEntityAsset.LoadOrderedFrames(path);
+        if (frames.Length == 0)
+        {
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
+            return;
+        }
+
         var data = entity.Data;
         data.Get<Position>().value = pos;
         data.Get<Rotation>().value = rot;
         data.Get<Scale>().value = scale * Vector3.one;
         data.Get<AnimData>().frames = frames;
-        data.Get<AliveTimeLimit>().value = frames.Length * data.Get<AnimController>().meta.frame_interval;
+        data.Get<AnimData>().frame_idx = 0;
+        data.Get<AnimData>().next_frame_time = (float)(WorldboxGame.I.GetGameTime() + Time.deltaTime);
+        data.Get<AnimController>().meta.frame_interval = Mathf.Max(0.01f, frameInterval);
+        data.Get<AnimController>().meta.loop = loop;
+        data.Get<AliveTimer>().value = 0f;
+        data.Get<AliveTimeLimit>().value = lifeTime ?? frames.Length * data.Get<AnimController>().meta.frame_interval;
+
+        if (tint.HasValue)
+        {
+            entity.AddComponent(new AnimTint(tint.Value));
+        }
+
+        if (visualRotation.HasValue)
+        {
+            entity.AddComponent(visualRotation.Value);
+        }
     }
 
     public bool StartSkillSequence(ActorExtend caster, Entity skill_container, SkillCastPlan plan, float strength,
@@ -133,6 +161,8 @@ public class Manager
             }, Tags.Get<TagInactive>());
         }
 
+        Vfx.AttachRuntime(entity, skill_container, container.Asset, context.PowerLevel, strength);
+        Vfx.QueueCastStart(source, skill_container, container.Asset, initial_dir, context.PowerLevel, strength);
         container.OnSetup?.Invoke(entity);
     }
 

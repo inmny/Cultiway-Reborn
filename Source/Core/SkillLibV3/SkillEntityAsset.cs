@@ -17,6 +17,7 @@ public delegate bool OnObjCollision(ref SkillContext context, Entity skill_conta
 public class SkillEntityAsset : Asset
 {
     public Entity PrefabEntity;
+    public string VisualEffectPath;
     public ElementComposition Element;
     public HashSet<string> SeriesTags { get; } = new();
     public EntityStore World => ModClass.I.SkillV3.World;
@@ -57,6 +58,7 @@ public class SkillEntityAsset : Asset
 
     public SkillEntityAsset SetupCommonPrefab(string effect_path, float scale = 0.1f, bool anim_loop = true)
     {
+        VisualEffectPath = effect_path;
         PrefabEntity = World.CreateEntity(
             new SkillEntity()
             {
