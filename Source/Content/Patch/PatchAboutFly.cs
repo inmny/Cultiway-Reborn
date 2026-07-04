@@ -18,6 +18,13 @@ namespace Cultiway.Content.Patch;
 
 internal static class PatchAboutFly
 {
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.setFlying))]
+    private static bool setFlying_prefix(Actor __instance, bool pVal)
+    {
+        __instance._flying = pVal;
+        return false;
+    }
+
     [HarmonyPrefix, HarmonyPatch(typeof(BehFindRandomTile), nameof(BehFindRandomTile.execute))]
     private static bool BehFindRandomTile_execute_prefix(Actor pActor, ref BehResult __result)
     {

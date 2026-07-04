@@ -29,8 +29,13 @@ namespace Cultiway.Patch
             int pLimitPathfindingRegions = 0)
         {
             //AbortPath(__instance);
+            if (__instance?.data == null || pTile == null)
+            {
+                __result = ExecuteEvent.False;
+                return false;
+            }
 
-            if (pTile != null && __instance.current_tile == pTile)
+            if (__instance.current_tile == pTile)
             {
                 PathFinder.Instance.Cancel(__instance);
                 __instance.clearOldPath();
@@ -40,51 +45,64 @@ namespace Cultiway.Patch
                 return false;
             }
 
+            if (!PathFinder.Instance.CanAcceptRequest(__instance, pTile, out _))
+            {
+                __result = ExecuteEvent.False;
+                return false;
+            }
+
             __instance.setTileTarget(pTile);
             __instance.next_step_position = __instance.current_tile?.posV3 ?? __instance.next_step_position;
             __instance.setNotMoving();
 
-            PathFinder.Instance.RequestPath(__instance, pTile, pPathOnWater, pWalkOnBlocks, pWalkOnLava,
-                pLimitPathfindingRegions);
-
-            __result = ExecuteEvent.True;
+            __result = PathFinder.Instance.RequestPath(__instance, pTile, pPathOnWater, pWalkOnBlocks, pWalkOnLava,
+                pLimitPathfindingRegions)
+                ? ExecuteEvent.True
+                : ExecuteEvent.False;
             return false;
         }
 
         [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.updatePathMovement))]
         private static bool updatePathMovement(Actor __instance)
         {
-            if (!PathFinder.Instance.TryPeekStep(__instance, out var step, out var finished))
+            var poll = PathFinder.Instance.PollStep(__instance);
+            switch (poll.Kind)
             {
-                if (!finished && PathFinder.Instance.IsActorPathing(__instance))
-                {
+                case PathPollKind.Waiting:
                     __instance.setNotMoving();
                     __instance.next_step_position = __instance.current_tile?.posV3 ?? __instance.next_step_position;
                     __instance.timer_action = 0.05f;
                     return false;
-                }
-
-                __instance.setNotMoving();
-                __instance.timer_action = 1f;
-                PathRecoveryManager.TryRequest(__instance);
-                return false;
+                case PathPollKind.Completed:
+                    __instance.setNotMoving();
+                    PathRecoveryManager.OnProgress(__instance);
+                    return false;
+                case PathPollKind.Failed:
+                    HandlePathFailure(__instance, poll.FailureReason);
+                    return false;
+                case PathPollKind.Cancelled:
+                    __instance.setNotMoving();
+                    PathRecoveryManager.Clear(__instance);
+                    return false;
+                case PathPollKind.NoRequest:
+                    __instance.setNotMoving();
+                    __instance.timer_action = 1f;
+                    PathRecoveryManager.TryRequest(__instance);
+                    return false;
             }
 
-            var result = HandleStep(__instance, step);
-            switch (result)
+            var result = HandleStep(__instance, poll.Step);
+            switch (result.Kind)
             {
-                case PathProcessResult.Consumed:
+                case PathProcessKind.Consumed:
                     PathFinder.Instance.ConsumeStep(__instance);
                     PathRecoveryManager.OnProgress(__instance);
                     break;
-                case PathProcessResult.Abort:
+                case PathProcessKind.Abort:
                     PathFinder.Instance.Cancel(__instance);
-                    if (!PathRecoveryManager.OnFailureAndRecover(__instance))
-                    {
-                        __instance.cancelAllBeh();
-                    }
+                    HandlePathFailure(__instance, result.FailureReason);
                     break;
-                case PathProcessResult.Deferred:
+                case PathProcessKind.Deferred:
                     __instance.timer_action = 1f;
                     __instance.setNotMoving();
                     break;
@@ -94,12 +112,19 @@ namespace Cultiway.Patch
                 PathFinder.Instance.Cancel(__instance);
                 __instance.cancelAllBeh();
             }
-            if (finished)
+            return false;
+        }
+
+        private static void HandlePathFailure(Actor actor, PathFailureReason reason)
+        {
+            actor.setNotMoving();
+            if (PathRecoveryManager.OnFailureAndRecover(actor, reason))
             {
-                __instance.setNotMoving();
+                return;
             }
 
-            return false;
+            PathRecoveryManager.Clear(actor);
+            actor.cancelAllBeh();
         }
 
         [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.isUsingPath))]
@@ -216,14 +241,14 @@ namespace Cultiway.Patch
 
             if (!TryResolveStepTile(step, out var tile))
             {
-                return PathProcessResult.Abort;
+                return PathProcessResult.Abort(PathFailureReason.UnsafeStep);
             }
 
             return step.Method switch
             {
                 MovementMethod.Walk => TryMove(actor, tile),
                 MovementMethod.Swim => TryMove(actor, tile),
-                _ => PathProcessResult.Deferred
+                _ => PathProcessResult.Deferred()
             };
         }
 
@@ -285,13 +310,25 @@ namespace Cultiway.Patch
         }
         private static PathProcessResult HandlePortal(Actor actor, PathStep step)
         {
+            if (step.Entry?.Portal == null || step.Exit?.Portal == null)
+            {
+                return PathProcessResult.Abort(PathFailureReason.PortalUnavailable);
+            }
+
             var request = PortalManager.GetRequest(actor);
             if (request == null)
             {
-                PortalManager.NewRequest(step.Entry.Portal, step.Exit.Portal, actor);
-                return PathProcessResult.Deferred;
+                if (!PortalManager.NewRequest(step.Entry.Portal, step.Exit.Portal, actor))
+                {
+                    return PathProcessResult.Abort(PathFailureReason.PortalUnavailable);
+                }
+
+                return PathProcessResult.Deferred();
             }
-            return PathProcessResult.Deferred;
+
+            return request.IsCompleted()
+                ? PathProcessResult.Abort(PathFailureReason.TransportFailed)
+                : PathProcessResult.Deferred();
         }
         [HarmonyPrefix, HarmonyPatch(typeof(BehBoatFindRequest), nameof(BehBoatFindRequest.execute))]
         private static bool BehBoatFindRequest_prefix(BehBoatFindRequest __instance, Actor pActor, ref BehResult __result)
@@ -460,15 +497,35 @@ namespace Cultiway.Patch
 
         private static PathProcessResult TryMove(Actor actor, WorldTile tile)
         {
+            if (actor?.data == null || actor.asset == null)
+            {
+                return PathProcessResult.Abort(PathFailureReason.InvalidActor);
+            }
+
+            if (actor.current_tile == null)
+            {
+                return PathProcessResult.Abort(PathFailureReason.InvalidStart);
+            }
+
             if (tile == null)
             {
-                return PathProcessResult.Abort;
+                return PathProcessResult.Abort(PathFailureReason.UnsafeStep);
             }
 
             var tileType = tile.Type;
             if (tileType == null)
             {
-                return PathProcessResult.Abort;
+                return PathProcessResult.Abort(PathFailureReason.UnsafeStep);
+            }
+
+            if (actor.asset.is_boat && !tile.isGoodForBoat())
+            {
+                return PathProcessResult.Abort(PathFailureReason.StepBlocked);
+            }
+
+            if (tile.isOnFire() && !actor.isImmuneToFire() && !(actor.current_tile?.isOnFire() ?? false))
+            {
+                return PathProcessResult.Abort(PathFailureReason.UnsafeStep);
             }
 
             if (tileType.damaged_when_walked)
@@ -476,10 +533,38 @@ namespace Cultiway.Patch
                 actor.current_tile?.tryToBreak();
             }
             actor.moveTo(tile);
-            return PathProcessResult.Consumed;
+            return PathProcessResult.Consumed();
         }
 
-        private enum PathProcessResult
+        private readonly struct PathProcessResult
+        {
+            private PathProcessResult(PathProcessKind kind, PathFailureReason failureReason)
+            {
+                Kind = kind;
+                FailureReason = failureReason;
+            }
+
+            public PathProcessKind Kind { get; }
+            public PathFailureReason FailureReason { get; }
+
+            public static PathProcessResult Consumed()
+            {
+                return new PathProcessResult(PathProcessKind.Consumed, PathFailureReason.None);
+            }
+
+            public static PathProcessResult Deferred()
+            {
+                return new PathProcessResult(PathProcessKind.Deferred, PathFailureReason.None);
+            }
+
+            public static PathProcessResult Abort(PathFailureReason reason)
+            {
+                return new PathProcessResult(PathProcessKind.Abort,
+                    reason == PathFailureReason.None ? PathFailureReason.UnsafeStep : reason);
+            }
+        }
+
+        private enum PathProcessKind
         {
             Consumed,
             Deferred,

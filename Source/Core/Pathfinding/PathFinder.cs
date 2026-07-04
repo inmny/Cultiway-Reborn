@@ -22,17 +22,22 @@ public class PathFinder
         _generator = generator ?? new PortalAwarePathGenerator(PortalRegistry.Instance, PathfindingConfig.Default);
     }
 
-    public void RequestPath(Actor actor, WorldTile target, bool pathOnWater, bool walkOnBlocks, bool walkOnLava,
+    public bool RequestPath(Actor actor, WorldTile target, bool pathOnWater, bool walkOnBlocks, bool walkOnLava,
         int limitRegions)
     {
-        RequestPath(new PathRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions));
+        if (!CanAcceptRequest(actor, target, out _))
+        {
+            return false;
+        }
+
+        return RequestPath(new PathRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions));
     }
 
-    public void RequestPath(PathRequest request)
+    public bool RequestPath(PathRequest request)
     {
-        if (request.Actor?.data == null || request.Target == null)
+        if (!CanAcceptRequest(request.Actor, request.Target, out _))
         {
-            return;
+            return false;
         }
 
         _lastRequests[request.Actor.data.id] = new PathRequestOptions(request.Target, request.PathOnWater,
@@ -43,6 +48,43 @@ public class PathFinder
         _tasks[request.Actor.data.id] = task;
 
         task.Worker = Task.Run(() => RunGenerator(task), task.Cancellation.Token);
+        return true;
+    }
+
+    public bool CanAcceptRequest(Actor actor, WorldTile target, out PathFailureReason failureReason)
+    {
+        if (actor?.data == null)
+        {
+            failureReason = PathFailureReason.InvalidActor;
+            return false;
+        }
+
+        if (actor.current_tile == null)
+        {
+            failureReason = PathFailureReason.InvalidStart;
+            return false;
+        }
+
+        if (target == null)
+        {
+            failureReason = PathFailureReason.InvalidTarget;
+            return false;
+        }
+
+        if (actor.asset == null)
+        {
+            failureReason = PathFailureReason.InvalidActor;
+            return false;
+        }
+
+        if (actor.asset.is_boat && !target.isGoodForBoat())
+        {
+            failureReason = PathFailureReason.InvalidTarget;
+            return false;
+        }
+
+        failureReason = PathFailureReason.None;
+        return true;
     }
 
     public void RequestDirectPath(Actor actor, WorldTile target)
@@ -69,7 +111,9 @@ public class PathFinder
             return false;
         }
 
-        if (task.Stream.HasPendingSteps || !task.Stream.IsFinished)
+        if (task.Stream.HasPendingSteps ||
+            task.Stream.State == PathRequestState.Pending ||
+            task.Stream.State == PathRequestState.Streaming)
         {
             return true;
         }
@@ -83,33 +127,63 @@ public class PathFinder
         if (!_tasks.TryGetValue(actor.data.id, out var task)) return null;
         return task.Stream.TryViewAll();
     }
-    public bool TryPeekStep(Actor actor, out PathStep step, out bool finished)
+
+    public PathPollResult PollStep(Actor actor)
     {
-        finished = false;
-        step = default;
         if (actor?.data == null)
         {
-            finished = true;
-            return false;
+            return PathPollResult.Failed(PathFailureReason.InvalidActor);
         }
 
         if (!_tasks.TryGetValue(actor.data.id, out var task))
         {
-            finished = true;
-            return false;
+            return PathPollResult.NoRequest();
         }
 
-        if (task.Stream.TryPeek(out step))
+        if (task.Stream.TryPeek(out var step))
         {
+            return PathPollResult.StepReady(step);
+        }
+
+        switch (task.Stream.State)
+        {
+            case PathRequestState.Pending:
+            case PathRequestState.Streaming:
+                return PathPollResult.Waiting();
+            case PathRequestState.Succeeded:
+                Cleanup(actor.data.id, task);
+                return PathPollResult.Completed();
+            case PathRequestState.Failed:
+                var failure = task.Stream.FailureReason == PathFailureReason.None
+                    ? PathFailureReason.GeneratorException
+                    : task.Stream.FailureReason;
+                var error = task.Stream.Error;
+                Cleanup(actor.data.id, task);
+                return PathPollResult.Failed(failure, error);
+            case PathRequestState.Cancelled:
+                var cancelReason = task.Stream.FailureReason == PathFailureReason.None
+                    ? PathFailureReason.CancelledByNewRequest
+                    : task.Stream.FailureReason;
+                Cleanup(actor.data.id, task);
+                return PathPollResult.Cancelled(cancelReason);
+            default:
+                Cleanup(actor.data.id, task);
+                return PathPollResult.Failed(PathFailureReason.GeneratorException);
+        }
+    }
+
+    public bool TryPeekStep(Actor actor, out PathStep step, out bool finished)
+    {
+        finished = false;
+        step = default;
+        var result = PollStep(actor);
+        if (result.Kind == PathPollKind.StepReady)
+        {
+            step = result.Step;
             return true;
         }
 
-        if (task.Stream.IsFinished)
-        {
-            finished = true;
-            Cleanup(actor.data.id, task);
-        }
-
+        finished = result.Kind != PathPollKind.Waiting;
         return false;
     }
 
@@ -134,7 +208,7 @@ public class PathFinder
         }
     }
 
-    public void Cancel(Actor actor)
+    public void Cancel(Actor actor, PathFailureReason reason = PathFailureReason.CancelledByNewRequest)
     {
         if (actor?.data == null)
         {
@@ -143,7 +217,7 @@ public class PathFinder
 
         if (_tasks.TryRemove(actor.data.id, out var task))
         {
-            task.Stream.Cancel();
+            task.Stream.Cancel(reason);
             task.Cancellation.Cancel();
             if (task.Worker != null)
             {
@@ -168,7 +242,7 @@ public class PathFinder
         }
         catch (Exception e)
         {
-            task.Stream.Fail(e);
+            task.Stream.Fail(PathFailureReason.GeneratorException, e);
             ModClass.LogErrorConcurrent(SystemUtils.GetFullExceptionMessage(e));
         }
         finally
@@ -198,7 +272,7 @@ public class PathFinder
         foreach (var id_task_pair in _tasks)
         {
             var task = id_task_pair.Value;
-            task.Stream.Cancel();
+            task.Stream.Cancel(PathFailureReason.ClearWorld);
             task.Cancellation.Cancel();
             if (task.Worker != null)
             {
@@ -240,9 +314,13 @@ public class PathFinder
             return false;
         }
 
-        RequestPath(new PathRequest(actor, target, opt.PathOnWater, opt.WalkOnBlocks, opt.WalkOnLava,
+        if (!CanAcceptRequest(actor, target, out _))
+        {
+            return false;
+        }
+
+        return RequestPath(new PathRequest(actor, target, opt.PathOnWater, opt.WalkOnBlocks, opt.WalkOnLava,
             opt.RegionLimit));
-        return true;
     }
 }
 
@@ -292,6 +370,11 @@ internal sealed class PassthroughPathGenerator : IPathGenerator
         if (request.TargetTileId >= 0)
         {
             stream.AddStep(new PathStep(request.TargetTileId, MovementMethod.Walk, TraversalEstimate.Direct));
+        }
+        else
+        {
+            stream.Fail(PathFailureReason.InvalidTarget);
+            return Task.CompletedTask;
         }
 
         stream.Complete();

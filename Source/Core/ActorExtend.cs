@@ -985,7 +985,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
                                        : 0);
         var power_level = GetPowerLevel();
         var power_level_gap = power_level - attacker_power_level;
-        var should_apply_minimum_damage = ShouldApplyMinimumDamage(attacker, damage, power_level_gap);
+        var should_apply_minimum_damage = ShouldApplyMinimumDamage(damage, power_level_gap);
         if (damage_debug != null)
         {
             damage_debug.AttackerPowerLevel = attacker_power_level;
@@ -1030,7 +1030,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             damage_debug.MinimumDamageAppliedBeforeIneffective = damage > damage_before_minimum;
         }
 
-        var ineffective_hit_chance = GetIneffectiveHitChance(attacker, damage, power_level_gap);
+        var ineffective_hit_chance = GetIneffectiveHitChance(damage, power_level_gap);
         var ineffective_hit = ineffective_hit_chance > 0f && Randy.randomChance(ineffective_hit_chance);
         if (damage_debug != null)
         {
@@ -1083,7 +1083,7 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
             damage_debug.FinalDamage = damage;
             CombatDamageDebug.Log(damage_debug);
         }
-        PatchActor.getHit_snapshot(Base, damage, pAttackType: attack_type_for_vanilla, pAttacker: attacker, pSkipIfShake: false, pCheckDamageReduction: false);
+        PatchActor.getHit_snapshot(Base, damage, pFlash: damage >= 1, pAttackType: attack_type_for_vanilla, pAttacker: attacker, pSkipIfShake: false, pCheckDamageReduction: false);
     }
 
     private float GetDamageReductionPassRatio(ref ElementComposition damage_composition,
@@ -1138,13 +1138,13 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     }
 
     /// <summary>
-    /// 判断本次攻击是否应套用同境界/高打低的最低伤害保护。
+    /// 判断本次伤害是否应套用同境界/高打低的最低伤害保护。
     /// </summary>
-    private static bool ShouldApplyMinimumDamage(BaseSimObject attacker, float damage, float power_level_gap)
+    private static bool ShouldApplyMinimumDamage(float damage, float power_level_gap)
     {
         if (damage <= 0) return false;
         if (power_level_gap > 0) return false;
-        return !attacker.isRekt() && attacker.isActor();
+        return true;
     }
 
     /// <summary>
@@ -1158,10 +1158,9 @@ public class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasStatus, IH
     /// <summary>
     /// 判断低境界攻击高境界时是否应按无效命中处理。
     /// </summary>
-    private static float GetIneffectiveHitChance(BaseSimObject attacker, float damage, float power_level_gap)
+    private static float GetIneffectiveHitChance(float damage, float power_level_gap)
     {
         if (damage <= 0 || power_level_gap <= 0) return 0f;
-        if (attacker.isRekt() || !attacker.isActor()) return 0f;
 
         var chance = 1f - Mathf.Pow(0.5f, power_level_gap);
         return Mathf.Clamp01(chance);
