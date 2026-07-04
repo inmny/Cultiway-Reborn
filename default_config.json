@@ -63,6 +63,12 @@
             "Callback": "GeneralSettings:SwitchNaturalHealthRestore"
         },
         {
+            "Id": "ENABLE_NATURAL_WAKAN_RESTORE",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchNaturalWakanRestore"
+        },
+        {
             "Id": "TRAIN_STATION_TIMED_DISPATCH_EXPERIMENTAL",
             "Type": "SWITCH",
             "BoolVal": false,

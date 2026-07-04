@@ -19,6 +19,7 @@ public class RestoreWakanSystem : QuerySystem<Xian, ActorBinder>
     }
     protected override void OnUpdate()
     {
+        if (!GeneralSettings.EnableNaturalWakanRestore) return;
         _restore_timer -= Tick.deltaTime;
         if (_restore_timer > 0) return;
         _restore_timer = TimeScales.SecPerMonth;

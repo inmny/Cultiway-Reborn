@@ -42,6 +42,10 @@ public static class GeneralSettings
     /// 自然生命回复。
     /// </summary>
     public static bool EnableNaturalHealthRestore { get; private set; } = true;
+    /// <summary>
+    /// 自然灵气吸收。
+    /// </summary>
+    public static bool EnableNaturalWakanRestore { get; private set; } = true;
     public static void SetElementRootSpawnNaturally(float value)
     {
         SpawnNaturally = value;
@@ -88,6 +92,11 @@ public static class GeneralSettings
     public static void SwitchNaturalHealthRestore(bool value)
     {
         EnableNaturalHealthRestore = value;
+    }
+
+    public static void SwitchNaturalWakanRestore(bool value)
+    {
+        EnableNaturalWakanRestore = value;
     }
 
     public static void SwitchTrainExperimentalTimedDispatch(bool value)

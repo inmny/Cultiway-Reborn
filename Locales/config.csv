@@ -20,6 +20,8 @@ ENABLE_WAKAN_SPREAD,启用灵气扩散
 ENABLE_WAKAN_SPREAD Description,启用灵气在相邻地块之间自然流动
 ENABLE_NATURAL_HEALTH_RESTORE,启用自然生命回复
 ENABLE_NATURAL_HEALTH_RESTORE Description,启用单位按月根据生命回复属性自然恢复生命
+ENABLE_NATURAL_WAKAN_RESTORE,启用自然灵气吸收
+ENABLE_NATURAL_WAKAN_RESTORE Description,启用修士按月从脚下地块自然吸收灵气
 AIGCSettings,AI生成内容相关设置
 BASE_URL,模型供应Base URL
 API_KEY,API密钥
