@@ -1,6 +1,7 @@
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 
@@ -16,6 +17,7 @@ public static class SectRules
 
     public static bool CanFoundSect(ActorExtend ae)
     {
+        if (!GeneralSettings.EnableSectSystems) return false;
         if (ae == null || ae.Base == null || ae.Base.isRekt()) return false;
         if (ae.sect != null) return false;
         if (!ae.HasCultisys<Xian>()) return false;

@@ -14,6 +14,8 @@ ENABLE_AM_SYSTEMS,启用师徒系统
 ENABLE_AM_SYSTEMS Description,启用师徒系统，开启后小人可以收徒和当师傅，进行师徒互动
 ENABLE_SKILL_SYSTEMS,启用技能系统
 ENABLE_SKILL_SYSTEMS Description,启用技能系统，开启后小人可以学习和使用各种技能
+ENABLE_SECT_SYSTEMS,启用宗门系统
+ENABLE_SECT_SYSTEMS Description,启用宗门系统；关闭后不会再建立新宗门，已有宗门不会被销毁
 AIGCSettings,AI生成内容相关设置
 BASE_URL,模型供应Base URL
 API_KEY,API密钥

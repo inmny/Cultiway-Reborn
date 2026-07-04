@@ -45,6 +45,12 @@
             "Callback": "GeneralSettings:SwitchSkillSystems"
         },
         {
+            "Id": "ENABLE_SECT_SYSTEMS",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchSectSystems"
+        },
+        {
             "Id": "TRAIN_STATION_TIMED_DISPATCH_EXPERIMENTAL",
             "Type": "SWITCH",
             "BoolVal": false,
