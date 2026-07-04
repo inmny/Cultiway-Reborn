@@ -51,6 +51,12 @@
             "Callback": "GeneralSettings:SwitchSectSystems"
         },
         {
+            "Id": "ENABLE_WAKAN_SPREAD",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchWakanSpread"
+        },
+        {
             "Id": "TRAIN_STATION_TIMED_DISPATCH_EXPERIMENTAL",
             "Type": "SWITCH",
             "BoolVal": false,

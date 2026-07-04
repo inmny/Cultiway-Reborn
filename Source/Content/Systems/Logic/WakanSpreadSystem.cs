@@ -1,3 +1,4 @@
+using Cultiway.Const;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
 using UnityEngine;
@@ -16,6 +17,7 @@ public class WakanSpreadSystem : BaseSystem
     private int total_tile_count;
     protected override void OnUpdateGroup()
     {
+        if (!GeneralSettings.EnableWakanSpread) return;
         if (MapGenerator._tilesMap != null) return;
         if (_check_tile_ids == null || _check_tile_ids.Length != World.world.tiles_list.Length)
         {

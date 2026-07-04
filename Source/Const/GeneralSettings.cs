@@ -34,6 +34,10 @@ public static class GeneralSettings
     /// 宗门。关闭后不再允许建立新宗门。
     /// </summary>
     public static bool EnableSectSystems { get; private set; } = true;
+    /// <summary>
+    /// 灵气扩散。
+    /// </summary>
+    public static bool EnableWakanSpread { get; private set; } = true;
     public static void SetElementRootSpawnNaturally(float value)
     {
         SpawnNaturally = value;
@@ -70,6 +74,11 @@ public static class GeneralSettings
     public static void SwitchSectSystems(bool value)
     {
         EnableSectSystems = value;
+    }
+
+    public static void SwitchWakanSpread(bool value)
+    {
+        EnableWakanSpread = value;
     }
 
     public static void SwitchTrainExperimentalTimedDispatch(bool value)
