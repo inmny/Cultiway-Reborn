@@ -161,7 +161,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
                     t.drop_id = item.id;
 
                     var all_sprites = item.loadBuildingSpriteList();
-                    var icon = all_sprites.First(x => x.name.Contains("main"));
+                    var icon = all_sprites.FirstOrDefault(x => x.name.Contains("main")) ?? all_sprites.FirstOrDefault();
                     Cultiway.UI.Manager.AddButton(TabButtonType.BUILDING, PowerButtonCreator.CreateGodPowerButton(
                         power_id, icon
                     ));

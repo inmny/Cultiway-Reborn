@@ -76,6 +76,24 @@ namespace Cultiway.Core.Pathfinding
         }
         public static bool NewRequest(Portal start_portal, Portal target_portal, Actor passenger)
         {
+            return NewRequest(start_portal, target_portal, passenger, null, null);
+        }
+
+        public static bool NewRequest(PortalDefinition startDefinition, PortalDefinition targetDefinition,
+            Actor passenger)
+        {
+            if (startDefinition == null || targetDefinition == null)
+            {
+                return false;
+            }
+
+            return NewRequest(startDefinition.Portal, targetDefinition.Portal, passenger, startDefinition.Tile,
+                targetDefinition.Tile);
+        }
+
+        private static bool NewRequest(Portal start_portal, Portal target_portal, Actor passenger,
+            WorldTile startTile, WorldTile targetTile)
+        {
             if (start_portal == null || target_portal == null || passenger == null)
             {
                 return false;
@@ -140,7 +158,8 @@ namespace Cultiway.Core.Pathfinding
                         r.Portals.Add(new PortalRequest.SinglePortal
                         {
                             PortalBuilding = extendPath[i].building,
-                            PortalTile = extendPath[i].building.getConstructionTile(),
+                            PortalTile = ResolvePortalTile(extendPath[i], startBuilding, targetBuilding, startTile,
+                                targetTile),
                             ToLoad = new HashSet<Actor>(),
                             ToUnload = new HashSet<Actor>()
                         });
@@ -168,7 +187,7 @@ namespace Cultiway.Core.Pathfinding
                     Portals = path.Select(p => new PortalRequest.SinglePortal
                     {
                         PortalBuilding = p.building,
-                        PortalTile = p.building.getConstructionTile(),
+                        PortalTile = ResolvePortalTile(p, startBuilding, targetBuilding, startTile, targetTile),
                         ToLoad = new HashSet<Actor>(),
                         ToUnload = new HashSet<Actor>()
                     }).ToList()
@@ -178,9 +197,31 @@ namespace Cultiway.Core.Pathfinding
                 Instance._requests.Add(request);
             }
 
-            request.Portals[startIdx].ToLoad.Add(passenger);
-            request.Portals[targetIdx].ToUnload.Add(passenger);
+            request.Portals[startIdx].AddLoad(passenger, startTile);
+            request.Portals[targetIdx].AddUnload(passenger, targetTile);
             return true;
+        }
+
+        private static WorldTile ResolvePortalTile(Portal portal, Building startBuilding, Building targetBuilding,
+            WorldTile startTile, WorldTile targetTile)
+        {
+            if (portal?.building == null)
+            {
+                return null;
+            }
+
+            var building = portal.building;
+            if (building == startBuilding && startTile != null)
+            {
+                return startTile;
+            }
+
+            if (building == targetBuilding && targetTile != null)
+            {
+                return targetTile;
+            }
+
+            return building.getConstructionTile();
         }
 
         public static bool NewEmptyRequest(Portal start_portal, Portal target_portal, bool experimentalRide = false)
@@ -403,6 +444,7 @@ namespace Cultiway.Core.Pathfinding
                 {
                     request.Portals[1].ToUnload.UnionWith(request.Portals[0].ToUnload);
                     request.Portals[1].ToLoad.UnionWith(request.Portals[0].ToLoad);
+                    request.Portals[1].MergePassengerTilesFrom(request.Portals[0]);
                 }
                 request.Portals.RemoveAt(0);
             }

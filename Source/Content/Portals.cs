@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Cultiway.Abstract;
+using Cultiway.Content.Systems.Logic;
 using Cultiway.Core.Libraries;
 
 namespace Cultiway.Content
@@ -15,9 +16,12 @@ namespace Cultiway.Content
             return true;
         }
         public static PortalAsset TrainStation {get; private set;}
+        public static PortalAsset TeleportArray {get; private set;}
         protected override void OnInit()
         {
             TrainStation.Buildings.Add(Buildings.TrainStation);
+            TeleportArray.Buildings.Add(Buildings.TeleportArray);
+            TeleportArray.RequestRebuildGraph = _ => TeleportArraySystem.RequestRebuild();
         }
     }
 }

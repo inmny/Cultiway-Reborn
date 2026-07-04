@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content.Attributes;
 using Cultiway.Content.Extensions;
 using Cultiway.Core.Libraries;
 using NeoModLoader.General.Game.extensions;
@@ -19,6 +20,8 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     }
     [CloneSource(BuildingLibrary.TEMPLATE_CITY_COLORED_BUILDING)]
     public static BuildingAsset TrainStation { get; private set; }
+    [SetupButton, CloneSource("monolith")]
+    public static BuildingAsset TeleportArray { get; private set; }
 
     /// <summary>群系专属树 → 其所属群系 id。PatchBiomeTree 据此把跨群系的树摧毁。</summary>
     public static readonly Dictionary<string, string> BiomeTreeHome = new();
@@ -66,6 +69,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         SetupBiomeTrees();
         SetupBiomePlants();
         SetupTrainStation();
+        SetupTeleportArray();
         SetupSectBuildings();
     }
 
@@ -172,6 +176,37 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         TrainStation.build_place_batch = false;
         TrainStation.priority = 100;
         TrainStation.group = "train_station";
+    }
+
+    private void SetupTeleportArray()
+    {
+        TeleportArray.sprite_path = "buildings/Cultiway.TeleportArray";
+        TeleportArray.fundament = new BuildingFundament(3, 2, 6, 0);
+        TeleportArray.has_sprite_construction = false;
+        TeleportArray.city_building = false;
+        TeleportArray.can_be_abandoned = false;
+        TeleportArray.ignored_by_cities = true;
+        TeleportArray.build_place_batch = false;
+        TeleportArray.build_place_center = true;
+        TeleportArray.build_place_single = true;
+        TeleportArray.check_for_close_building = false;
+        TeleportArray.ignore_buildings = true;
+        TeleportArray.ignore_same_building_id = true;
+        TeleportArray.can_be_upgraded = false;
+        TeleportArray.can_be_demolished = true;
+        TeleportArray.can_be_living_house = false;
+        TeleportArray.can_be_living_plant = false;
+        TeleportArray.burnable = false;
+        TeleportArray.affected_by_lava = false;
+        TeleportArray.affected_by_acid = false;
+        TeleportArray.damaged_by_rain = false;
+        TeleportArray.can_be_damaged_by_tornado = false;
+        TeleportArray.kingdom = SK.nature;
+        TeleportArray.civ_kingdom = string.Empty;
+        TeleportArray.group = "cultiway_debug";
+        TeleportArray.type = "type_cultiway_teleport_array";
+        TeleportArray.priority = 10;
+        TeleportArray.base_stats["health"] = 50000f;
     }
 
     private void SetupSectBuildings()

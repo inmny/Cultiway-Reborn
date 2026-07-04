@@ -318,7 +318,10 @@ namespace Cultiway.Patch
             var request = PortalManager.GetRequest(actor);
             if (request == null)
             {
-                if (!PortalManager.NewRequest(step.Entry.Portal, step.Exit.Portal, actor))
+                var created = step.Entry.Portal.Asset == global::Cultiway.Content.Portals.TeleportArray
+                    ? PortalManager.NewRequest(step.Entry, step.Exit, actor)
+                    : PortalManager.NewRequest(step.Entry.Portal, step.Exit.Portal, actor);
+                if (!created)
                 {
                     return PathProcessResult.Abort(PathFailureReason.PortalUnavailable);
                 }
@@ -367,6 +370,7 @@ namespace Cultiway.Patch
                     if (current_portal?.ToUnload != null)
                     {
                         portal_request.Portals[1].ToUnload.UnionWith(current_portal.ToUnload);
+                        portal_request.Portals[1].MergePassengerTilesFrom(current_portal);
                     }
                     portal_request.Portals.RemoveAt(0);
 
