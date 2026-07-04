@@ -76,6 +76,16 @@ public abstract class BaseCultisysAsset : Asset
 
     public string GetLevelName(int level)
     {
+        // 优先使用玩家在 Mod 设置面板自定义的境界名
+        try
+        {
+            var text = ModClass.I.GetConfig()["RealmNameSettings"][$"REALM_NAME_{level}"].TextVal;
+            if (!string.IsNullOrWhiteSpace(text)) return text;
+        }
+        catch
+        {
+            // 配置未就绪或条目缺失时回退到本地化
+        }
         return LM.Get(_level_name_keys[level]);
     }
 
@@ -87,7 +97,9 @@ public abstract class BaseCultisysAsset : Asset
     public string GetLevelupMessage(int level)
     {
         var key = _levelup_msg_keys[level];
-        return LMTools.Has(key) ? LM.Get(key) : "";
+        if (!LMTools.Has(key)) return "";
+        // 用当前境界名替换占位符，使突破消息跟随玩家自定义的境界名
+        return LM.Get(key).Replace("$realm$", GetLevelName(level));
     }
 
     public float GetLevelForSort(ActorExtend actor_extend, int base_level)

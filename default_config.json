@@ -125,5 +125,27 @@
             "Type": "SWITCH",
             "BoolVal": true
         }
+    ],
+    "RealmNameSettings": [
+        { "Id": "REALM_NAME_0",  "Type": "TEXT", "TextVal": "炼气" },
+        { "Id": "REALM_NAME_1",  "Type": "TEXT", "TextVal": "筑基" },
+        { "Id": "REALM_NAME_2",  "Type": "TEXT", "TextVal": "金丹" },
+        { "Id": "REALM_NAME_3",  "Type": "TEXT", "TextVal": "元婴" },
+        { "Id": "REALM_NAME_4",  "Type": "TEXT", "TextVal": "化神" },
+        { "Id": "REALM_NAME_5",  "Type": "TEXT", "TextVal": "炼虚" },
+        { "Id": "REALM_NAME_6",  "Type": "TEXT", "TextVal": "合体" },
+        { "Id": "REALM_NAME_7",  "Type": "TEXT", "TextVal": "大乘" },
+        { "Id": "REALM_NAME_8",  "Type": "TEXT", "TextVal": "渡劫" },
+        { "Id": "REALM_NAME_9",  "Type": "TEXT", "TextVal": "真仙" },
+        { "Id": "REALM_NAME_10", "Type": "TEXT", "TextVal": "玄仙" },
+        { "Id": "REALM_NAME_11", "Type": "TEXT", "TextVal": "金仙" },
+        { "Id": "REALM_NAME_12", "Type": "TEXT", "TextVal": "太乙金仙" },
+        { "Id": "REALM_NAME_13", "Type": "TEXT", "TextVal": "大罗金仙" },
+        { "Id": "REALM_NAME_14", "Type": "TEXT", "TextVal": "准圣" },
+        { "Id": "REALM_NAME_15", "Type": "TEXT", "TextVal": "圣人" },
+        { "Id": "REALM_NAME_16", "Type": "TEXT", "TextVal": "天尊" },
+        { "Id": "REALM_NAME_17", "Type": "TEXT", "TextVal": "道祖" },
+        { "Id": "REALM_NAME_18", "Type": "TEXT", "TextVal": "混元" },
+        { "Id": "REALM_NAME_19", "Type": "TEXT", "TextVal": "无极" }
     ]
 }
