@@ -23,9 +23,15 @@ public class PortalAwarePathGenerator : IPathGenerator
     public Task GenerateAsync(PathRequest request, IPathStreamWriter stream, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (request.StartTileId < 0 || request.TargetTileId < 0)
+        if (request.StartTileId < 0)
         {
-            stream.Complete();
+            stream.Fail(PathFailureReason.InvalidStart);
+            return Task.CompletedTask;
+        }
+
+        if (request.TargetTileId < 0)
+        {
+            stream.Fail(PathFailureReason.InvalidTarget);
             return Task.CompletedTask;
         }
 
@@ -40,7 +46,7 @@ public class PortalAwarePathGenerator : IPathGenerator
         catch (Exception e)
         {
             ModClass.LogErrorConcurrent(SystemUtils.GetFullExceptionMessage(e));
-            stream.Fail(e);
+            stream.Fail(PathFailureReason.GeneratorException, e);
         }
 
         stream.EnsureCompleted();
@@ -53,11 +59,13 @@ public class PortalAwarePathGenerator : IPathGenerator
 
         var direct = TryBuildLocalPath(request.StartTileId, request.TargetTileId, profile, useLongRange: true, token);
         RouteCandidate bestCandidate = null;
+        var failureReason = FailureReasonFrom(direct);
         var bestCost = float.MaxValue;
         if (direct.IsSuccess)
         {
             bestCandidate = RouteCandidate.FromSegments(direct.Steps, direct.Cost);
             bestCost = direct.Cost;
+            failureReason = PathFailureReason.None;
         }
 
         if (!profile.IsBoat)
@@ -78,6 +86,7 @@ public class PortalAwarePathGenerator : IPathGenerator
                     useLongRange: true, token);
                 if (!toEntry.IsSuccess)
                 {
+                    failureReason = MoreSpecificFailure(failureReason, FailureReasonFrom(toEntry));
                     goto OUTSIDE;
                 }
 
@@ -85,6 +94,7 @@ public class PortalAwarePathGenerator : IPathGenerator
                     useLongRange: true, token);
                 if (!exitToTarget.IsSuccess)
                 {
+                    failureReason = MoreSpecificFailure(failureReason, FailureReasonFrom(exitToTarget));
                     goto OUTSIDE;
                 }
 
@@ -107,10 +117,31 @@ public class PortalAwarePathGenerator : IPathGenerator
         OUTSIDE:
         if (bestCandidate == null)
         {
+            stream.Fail(failureReason == PathFailureReason.None ? PathFailureReason.Unreachable : failureReason);
             return;
         }
 
         EmitCandidate(bestCandidate, stream, token);
+    }
+
+    private static PathFailureReason FailureReasonFrom(LocalPathResult result)
+    {
+        return result.HitNodeLimit ? PathFailureReason.SearchLimitExceeded : PathFailureReason.Unreachable;
+    }
+
+    private static PathFailureReason MoreSpecificFailure(PathFailureReason current, PathFailureReason next)
+    {
+        if (current == PathFailureReason.None)
+        {
+            return next;
+        }
+
+        if (next == PathFailureReason.SearchLimitExceeded)
+        {
+            return next;
+        }
+
+        return current;
     }
 
     private List<PortalEstimate> BuildPortalEstimates(PathRequest request, MovementProfile profile)

@@ -12,6 +12,7 @@ internal static class PathRecoveryManager
     {
         public int Failures;
         public float NextRetryTime;
+        public PathFailureReason LastReason;
     }
 
     private static readonly Dictionary<long, State> States = new();
@@ -33,9 +34,14 @@ internal static class PathRecoveryManager
         }
     }
 
-    public static bool OnFailureAndRecover(Actor actor)
+    public static bool OnFailureAndRecover(Actor actor, PathFailureReason reason)
     {
         if (actor?.data == null) return false;
+        if (!CanRecover(reason))
+        {
+            Clear(actor);
+            return false;
+        }
 
         State state;
         lock (States)
@@ -46,7 +52,19 @@ internal static class PathRecoveryManager
                 States.Add(actor.data.id, state);
             }
 
+            if (state.LastReason != reason)
+            {
+                state.Failures = 0;
+                state.LastReason = reason;
+            }
+
             state.Failures++;
+            if (state.Failures > MaxRetriesFor(reason))
+            {
+                States.Remove(actor.data.id);
+                return false;
+            }
+
             var delay = Mathf.Clamp(0.3f * Mathf.Pow(2, state.Failures - 1), 0.3f, 2f);
             state.NextRetryTime = Time.time + delay;
         }
@@ -85,5 +103,40 @@ internal static class PathRecoveryManager
         }
 
         return true;
+    }
+
+    public static void Clear(Actor actor)
+    {
+        if (actor?.data == null) return;
+        lock (States)
+        {
+            States.Remove(actor.data.id);
+        }
+    }
+
+    private static bool CanRecover(PathFailureReason reason)
+    {
+        return reason switch
+        {
+            PathFailureReason.StepBlocked => true,
+            PathFailureReason.UnsafeStep => true,
+            PathFailureReason.PortalUnavailable => true,
+            PathFailureReason.TransportFailed => true,
+            PathFailureReason.Timeout => true,
+            PathFailureReason.GeneratorException => true,
+            _ => false
+        };
+    }
+
+    private static int MaxRetriesFor(PathFailureReason reason)
+    {
+        return reason switch
+        {
+            PathFailureReason.PortalUnavailable => 2,
+            PathFailureReason.TransportFailed => 2,
+            PathFailureReason.GeneratorException => 1,
+            PathFailureReason.Timeout => 2,
+            _ => 4
+        };
     }
 }

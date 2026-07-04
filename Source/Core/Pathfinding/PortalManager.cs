@@ -74,20 +74,24 @@ namespace Cultiway.Core.Pathfinding
                 }
             }
         }
-        public static void NewRequest(Portal start_portal, Portal target_portal, Actor passenger)
+        public static bool NewRequest(Portal start_portal, Portal target_portal, Actor passenger)
         {
             if (start_portal == null || target_portal == null || passenger == null)
             {
-                return;
+                return false;
             }
 
             var startBuilding = start_portal.building;
             var targetBuilding = target_portal.building;
             if (startBuilding == null || targetBuilding == null)
             {
-                return;
+                return false;
             }
             var portal_type = start_portal.Asset;
+            if (portal_type == null || target_portal.Asset != portal_type)
+            {
+                return false;
+            }
 
             PortalRequest request = null;
 
@@ -141,6 +145,7 @@ namespace Cultiway.Core.Pathfinding
                             ToUnload = new HashSet<Actor>()
                         });
                     }
+                    targetIdx = r.Portals.Count - 1;
                     request = r;
                     break;
                 }
@@ -152,7 +157,7 @@ namespace Cultiway.Core.Pathfinding
                 var path = FindPortalPath(start_portal, target_portal, null);
                 if (path == null || path.Count == 0)
                 {
-                    return;
+                    return false;
                 }
 
                 request = new PortalRequest
@@ -175,6 +180,7 @@ namespace Cultiway.Core.Pathfinding
 
             request.Portals[startIdx].ToLoad.Add(passenger);
             request.Portals[targetIdx].ToUnload.Add(passenger);
+            return true;
         }
 
         public static bool NewEmptyRequest(Portal start_portal, Portal target_portal, bool experimentalRide = false)

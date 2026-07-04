@@ -10,7 +10,9 @@ public sealed class PathStream : IPathStreamWriter
 {
     private readonly ConcurrentQueue<PathStep> _steps = new();
     private int _status;
+    private PathFailureReason _failureReason;
     private Exception _error;
+
     public void AddStep(PathStep step)
     {
         if (!step.HasTile || IsFinalized) return;
@@ -35,15 +37,32 @@ public sealed class PathStream : IPathStreamWriter
         Interlocked.CompareExchange(ref _status, 1, 0);
     }
 
-    public void Cancel()
+    public void Cancel(PathFailureReason reason = PathFailureReason.CancelledByNewRequest)
     {
-        Interlocked.Exchange(ref _status, 2);
+        if (IsFinalized)
+        {
+            return;
+        }
+
+        _failureReason = reason;
+        Interlocked.CompareExchange(ref _status, 2, 0);
+    }
+
+    public void Fail(PathFailureReason reason, Exception error = null)
+    {
+        if (IsFinalized)
+        {
+            return;
+        }
+
+        _failureReason = reason == PathFailureReason.None ? PathFailureReason.GeneratorException : reason;
+        _error = error;
+        Interlocked.CompareExchange(ref _status, 3, 0);
     }
 
     public void Fail(Exception error)
     {
-        _error = error;
-        Interlocked.Exchange(ref _status, 3);
+        Fail(PathFailureReason.GeneratorException, error);
     }
 
     public void EnsureCompleted()
@@ -56,9 +75,25 @@ public sealed class PathStream : IPathStreamWriter
 
     public bool HasPendingSteps => !_steps.IsEmpty;
     public int PendingCount => _steps.Count;
+    public PathRequestState State
+    {
+        get
+        {
+            var status = Volatile.Read(ref _status);
+            return status switch
+            {
+                0 => HasPendingSteps ? PathRequestState.Streaming : PathRequestState.Pending,
+                1 => PathRequestState.Succeeded,
+                2 => PathRequestState.Cancelled,
+                3 => PathRequestState.Failed,
+                _ => PathRequestState.Failed
+            };
+        }
+    }
     public bool IsFinalized => _status != 0;
     public bool IsFinished => IsFinalized && _steps.IsEmpty;
     public bool IsFaulted => _status == 3;
     public bool IsCancelled => _status == 2;
+    public PathFailureReason FailureReason => _failureReason;
     public Exception Error => _error;
 }
