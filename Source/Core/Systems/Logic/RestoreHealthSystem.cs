@@ -12,6 +12,7 @@ public class RestoreHealthSystem : QuerySystem<ActorBinder>
     [Hotfixable]
     protected override void OnUpdate()
     {
+        if (!GeneralSettings.EnableNaturalHealthRestore) return;
         _restore_timer -= Tick.deltaTime;
         if (_restore_timer > 0) return;
         _restore_timer = TimeScales.SecPerMonth;

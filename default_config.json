@@ -57,6 +57,12 @@
             "Callback": "GeneralSettings:SwitchWakanSpread"
         },
         {
+            "Id": "ENABLE_NATURAL_HEALTH_RESTORE",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchNaturalHealthRestore"
+        },
+        {
             "Id": "TRAIN_STATION_TIMED_DISPATCH_EXPERIMENTAL",
             "Type": "SWITCH",
             "BoolVal": false,
