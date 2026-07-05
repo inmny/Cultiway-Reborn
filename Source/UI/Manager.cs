@@ -515,6 +515,14 @@ public class Manager
                 SpriteTextureLoader.getSprite("cultiway/icons/iconTab")
             )
         );
+        WindowRealmNames.Init();
+        AddButton(TabButtonType.INFO,
+            PowerButtonCreator.CreateWindowButton(
+                "Cultiway.UI.WindowRealmNames Title",
+                WindowRealmNames.WindowId,
+                SpriteTextureLoader.getSprite("cultiway/icons/iconCultivation")
+            )
+        );
         WindowNewCreatureInfo.CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
         GeoRegionWindow.Init();
         SectWindow.Init();

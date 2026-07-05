@@ -22,6 +22,12 @@ Cultiway.UI.WindowModInfo Title,模组介绍
 Cultiway.UI.WindowModInfo Title Description,查看修真之路的模组介绍
 Cultiway.UI.WindowModInfo.Tab.Overview,概览
 Cultiway.UI.WindowModInfo.Tab.Overview Description,查看模组定位、核心循环和当前目标
+Cultiway.UI.WindowRealmNames Title,境界名称
+Cultiway.UI.WindowRealmNames Title Description,设置各修炼体系的境界显示名称
+Cultiway.UI.WindowRealmNames Description,这些名称保存到独立配置文件，不占用模组设置。编辑后会实时保存，默认按钮会按本地文本恢复当前页。
+Cultiway.UI.WindowRealmNames.Reset,默认
+Cultiway.UI.WindowRealmNames.Tab.Xian,仙道
+Cultiway.UI.WindowRealmNames.Tab.Xian Description,设置仙道修炼体系的境界名称
 Cultiway.UI.ArmorGraph,各元素抗性
 Cultiway.UI.MasterGraph,各元素精通
 Cultiway.UI.ContentItem,材丹符器阵傀

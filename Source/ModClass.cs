@@ -11,6 +11,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Systems;
+using Cultiway.Core.Localization;
 using Cultiway.Core.Logging;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Core.Systems.Logic;
@@ -347,6 +348,7 @@ namespace Cultiway
             WorldRecord = new(W);
 
             LoadLocales();
+            ModifiableLocalizationManager.Initialize(GetDeclaration().FolderPath);
 
             ActorExtendManager = new ActorExtendManager(W);
             BookExtendManager = new BookExtendManager(W);

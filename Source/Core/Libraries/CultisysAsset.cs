@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content;
+using Cultiway.Core.Localization;
 using Cultiway.Debug;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General;
@@ -12,6 +13,8 @@ namespace Cultiway.Core.Libraries;
 public delegate float GetDetailedLevel(ActorExtend actor_extend);
 public abstract class BaseCultisysAsset : Asset
 {
+    private const string LevelNameSectionId = "cultisys_level_names";
+
     private BaseStats[]                _level_accum_stats;
     private BaseStats[]                _level_base_stats;
     private string[]                   _level_desc_keys;
@@ -76,17 +79,7 @@ public abstract class BaseCultisysAsset : Asset
 
     public string GetLevelName(int level)
     {
-        // 优先使用玩家在 Mod 设置面板自定义的境界名
-        try
-        {
-            var text = ModClass.I.GetConfig()["RealmNameSettings"][$"REALM_NAME_{level}"].TextVal;
-            if (!string.IsNullOrWhiteSpace(text)) return text;
-        }
-        catch
-        {
-            // 配置未就绪或条目缺失时回退到本地化
-        }
-        return LM.Get(_level_name_keys[level]);
+        return ModifiableLocalizationManager.GetText(LevelNameSectionId, $"{id}.{level}");
     }
 
     public string GetLevelDescription(int level)
