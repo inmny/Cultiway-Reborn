@@ -1,8 +1,10 @@
+using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core.Components;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -14,6 +16,9 @@ namespace Cultiway.Content.Systems.Render;
 
 public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
 {
+    private const float BaseBottomOpaqueSpan = 6f;
+
+    private readonly Dictionary<Sprite, float> _fly_visual_scale_cache = new();
     private MonoObjPool<Cloud> _pool;
     private Sprite _cloud_sprite;
     public CloudRenderSystem()
@@ -45,7 +50,8 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
                 Cloud cloud = _pool.GetNext();
                 var sprite_renderer = cloud.sprite_renderer;
                 var transform = cloud.transform;
-                transform.localScale = Vector3.one * a.stats[S.scale];
+                float visual_scale = GetFlyVisualScale(a);
+                transform.localScale = Vector3.one * visual_scale;
                 
                 if (a.GetExtend().GetCultisys<Xian>().CurrLevel >= XianSetting.CloudFlyLevel)
                 {
@@ -64,7 +70,7 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
                         var flip_mul = a.flip ? -1 : 1;
                         var x_offset = 0.5f * weapon_sprite.rect.width - weapon_sprite.pivot.x;
                         transform.localRotation = Quaternion.Euler(0, 0, 0);
-                        transform.localPosition = actor_binder.Actor.cur_transform_position + new Vector3(x_offset * a.stats[S.scale] * flip_mul, 0, 0);
+                        transform.localPosition = actor_binder.Actor.cur_transform_position + new Vector3(x_offset * visual_scale * flip_mul, 0, 0);
                     }
                     else
                     {
@@ -73,7 +79,7 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
 
                         var x_offset = 0.5f * weapon_sprite.rect.height - weapon_sprite.pivot.y;
                         transform.localRotation = Quaternion.Euler(0, 0, 90 * flip_mul);
-                        transform.localPosition = actor_binder.Actor.cur_transform_position + new Vector3(x_offset * a.stats[S.scale] * flip_mul, 0, 0);
+                        transform.localPosition = actor_binder.Actor.cur_transform_position + new Vector3(x_offset * visual_scale * flip_mul, 0, 0);
                     }
                 }
                 else
@@ -87,6 +93,45 @@ public class CloudRenderSystem : QuerySystem<ActorBinder, Xian>
             });
 
         _pool.ClearUnsed();
+    }
+
+    /// <summary>
+    /// 根据单位第一帧底部两行非透明像素跨度调整飞行载具大小；跨度为 6 像素时保持原大小。
+    /// </summary>
+    private float GetFlyVisualScale(Actor actor)
+    {
+        Sprite sprite = GetFirstActorSprite(actor);
+        float texture_scale = 1f;
+        if (sprite != null)
+        {
+            if (!_fly_visual_scale_cache.TryGetValue(sprite, out texture_scale))
+            {
+                int bottom_span = SpritePixelUtils.MeasureBottomOpaqueSpan(sprite);
+                texture_scale = bottom_span > BaseBottomOpaqueSpan ? bottom_span / BaseBottomOpaqueSpan : 1f;
+                _fly_visual_scale_cache[sprite] = texture_scale;
+            }
+        }
+
+        return actor.stats[S.scale] * texture_scale;
+    }
+
+    /// <summary>
+    /// 取当前单位贴图的第一帧，优先使用飞行时固定显示的 idle 第一帧。
+    /// </summary>
+    private static Sprite GetFirstActorSprite(Actor actor)
+    {
+        if (actor == null) return null;
+
+        if (actor.asset.has_override_sprite)
+        {
+            return actor.calculateMainSprite();
+        }
+
+        actor.checkAnimationContainer();
+        var frames = actor.animation_container?.idle?.frames;
+        if (frames is { Length: > 0 }) return frames[0];
+
+        return actor.calculateMainSprite();
     }
 
     [RequireComponent(typeof(SpriteRenderer))]
