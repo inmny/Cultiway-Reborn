@@ -23,8 +23,7 @@ public class WorldLogs : ExtendLibrary<WorldLogAsset, WorldLogs>
         LogCultisysLevelup.group = HistoryGroups.Cultivations.id;
         LogCultisysLevelup.text_replacer = (WorldLogMessage message, ref string text) =>
         {
-            var key = message.special1;
-            text = LM.Get(key);
+            text = message.special1;
             AssetManager.world_log_library.updateText(ref text, message, "$actor$", 2);
             AssetManager.world_log_library.updateText(ref text, message, "$realm$", 3);
         };
