@@ -98,8 +98,7 @@ public abstract class BaseCultisysAsset : Asset
     {
         var key = _levelup_msg_keys[level];
         if (!LMTools.Has(key)) return "";
-        // 用当前境界名替换占位符，使突破消息跟随玩家自定义的境界名
-        return LM.Get(key).Replace("$realm$", GetLevelName(level));
+        return LM.Get(key);
     }
 
     public float GetLevelForSort(ActorExtend actor_extend, int base_level)

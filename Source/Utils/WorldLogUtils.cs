@@ -13,7 +13,7 @@ public static class WorldLogUtils
         var msg_key = component.Asset.LevelupMsgKeys[component.CurrLevel];
         if (!LMTools.Has(msg_key)) return;
 
-        var world_log = new WorldLogMessage(WorldLogs.LogCultisysLevelup, ae.Base.getName(), component.Asset.LevelupMsgKeys[component.CurrLevel])
+        var world_log = new WorldLogMessage(WorldLogs.LogCultisysLevelup, component.Asset.GetLevelupMessage(component.CurrLevel), ae.Base.getName(), component.Asset.GetLevelName(component.CurrLevel))
         {
             unit = ae.Base,
             location = ae.Base.current_position
