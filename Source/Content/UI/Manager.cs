@@ -61,9 +61,11 @@ public class Manager : ICanInit
                 SpriteTextureLoader.getSprite("cultiway/icons/races/iconEasternHuman")
             )
         );
-        
-        
-        
+        Cultiway.UI.Manager.InsertWallButton(
+            GodPowers.EasternHumanWall,
+            "ui/Icons/iconWallEasternHuman"
+        );
+
         SpecialItemTooltip.RegisterSetupAction((tooltip, type, entity) =>
         {
             if (entity.TryGetComponent(out Elixir elixir))

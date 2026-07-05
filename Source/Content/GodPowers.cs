@@ -16,7 +16,7 @@ using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;
-[Dependency(typeof(Actors), typeof(Buildings), typeof(Drops), typeof(Biomes))]
+[Dependency(typeof(Actors), typeof(Buildings), typeof(Drops), typeof(Biomes), typeof(TopTileTypes))]
 public class GodPowers : ExtendLibrary<GodPower, GodPowers>
 {
     [CloneSource(PowerLibrary.TEMPLATE_SPAWN_ACTOR)]
@@ -27,6 +27,9 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
     public static GodPower ExtendGeoRegion { get; private set; }
     [CloneSource(PowerLibrary.TEMPLATE_TERRAFORM_TILES)]
     public static GodPower RemoveGeoRegion { get; private set; }
+    [CloneSource(PowerLibrary.TEMPLATE_WALL)]
+    public static GodPower EasternHumanWall { get; private set; }
+
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
@@ -36,6 +39,11 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         EasternHuman.actor_asset_id = Actors.EasternHuman.id;
         ExtendGeoRegion.name = "Extend Geo Region";
         RemoveGeoRegion.name = "Remove Geo Region";
+        EasternHumanWall.name = "eastern_human_wall";
+        EasternHumanWall.top_tile_type = TopTileTypes.EasternHumanWall.id;
+        EasternHumanWall.path_icon = "iconWallEasternHuman";
+        EasternHumanWall.requires_premium = false;
+        EasternHumanWall.rank = PowerRank.Rank0_free;
 
         ExtendGeoRegion.click_action = ExtendGeoRegionAction;
         ExtendGeoRegion.click_brush_action = InitializeGeoRegionAction + ExtendGeoRegion.click_brush_action;

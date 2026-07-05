@@ -3,3 +3,5 @@ remove_geo_region,缩小地理区域
 remove_geo_region Description,阿巴阿巴
 extend_geo_region,扩大地理区域
 extend_geo_region Description,阿巴阿巴
+eastern_human_wall,东方城墙
+eastern_human_wall_description,绘制东方人族建筑风格的城墙。

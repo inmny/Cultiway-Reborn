@@ -23,6 +23,9 @@ namespace Cultiway.Content
         [CloneSource("road")]
         public static TopTileType TrainTrack { get; private set; }
 
+        [CloneSource("wall_light")]
+        public static TopTileType EasternHumanWall { get; private set; }
+
         // ---- Biome ground tiles (high/low). Cloned from grass so rank_type and tile
         // behavior carry over; biome_id is repointed to the matching BiomeAsset in OnInit.
         // AssetId forces the top-tile id to match the tiles/<id> sprite folder exactly.
@@ -57,6 +60,10 @@ namespace Cultiway.Content
 
             TrainTrack.walk_multiplier = 1f;
             TrainTrack.setDrawLayer(TileZIndexes.nothing);
+
+            EasternHumanWall.color_hex = "#A1B1A2";
+            EasternHumanWall.edge_color_hex = "#787F87";
+            EasternHumanWall.setDrawLayer(TileZIndexes.wall_light);
 
             // Repoint each cloned tile's biome_id at the new biome so the tile <-> biome
             // link resolves to our BiomeAsset instead of biome_grass.

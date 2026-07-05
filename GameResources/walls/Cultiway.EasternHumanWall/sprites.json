@@ -1,0 +1,28 @@
+{
+    "Default": {
+      "PivotY": 0.15, "PivotX": 0.5
+    },
+    
+    "Specific": [
+        {
+            "Path": "node_0.png",
+            "PivotX": 0.5,
+            "PivotY": 0.18
+        },
+        {
+            "Path": "node_1.png",
+            "PivotX": 0.5,
+            "PivotY": 0.18
+        },
+        {
+            "Path": "node_2.png",
+            "PivotX": 0.5,
+            "PivotY": 0.18
+        },
+        {
+            "Path": "node_3.png",
+            "PivotX": 0.5,
+            "PivotY": 0.18
+        }
+    ]
+}

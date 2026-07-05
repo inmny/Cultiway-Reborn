@@ -366,6 +366,43 @@ public class Manager
         inserted_layer_button.SetActive(true);
         layer_power_button.checkToggleIcon();
     }
+
+    public static void InsertWallButton(GodPower power, string icon_path)
+    {
+        Transform creation_tab_transform = CanvasMain.instance.canvas_ui.transform.Find("CanvasBottom/BottomElements/BottomElementsMover/CanvasScrollView/Scroll View/Viewport/Content/Power Tabs/creation");
+        PowersTab creation_tab = creation_tab_transform.GetComponent<PowersTab>();
+        Transform template = creation_tab_transform.Find("wall_light");
+        int insert_index = template.GetSiblingIndex() + 1;
+        Object.DestroyImmediate(creation_tab_transform.GetChild(insert_index).gameObject);
+
+        GameObject template_obj = template.gameObject;
+        bool template_active = template_obj.activeSelf;
+        template_obj.SetActive(false);
+
+        GameObject button_obj = Object.Instantiate(template_obj, creation_tab_transform);
+        template_obj.SetActive(template_active);
+
+        button_obj.name = power.id;
+        button_obj.transform.SetSiblingIndex(insert_index);
+
+        PowerButton button = button_obj.GetComponent<PowerButton>();
+        button.godPower = power;
+        button.rect_transform = button_obj.GetComponent<RectTransform>();
+
+        Sprite icon = SpriteTextureLoader.getSprite(icon_path);
+        button.icon.sprite = icon;
+        button.icon.overrideSprite = icon;
+
+        button_obj.SetActive(true);
+
+        if (creation_tab._asset == null) return;
+
+        creation_tab._power_buttons.Add(button);
+        creation_tab.findNeighbours(true);
+        creation_tab.sortButtons();
+        creation_tab.recalc();
+    }
+
     private void AddButtonsForDebug()
     {
         AddDebugButton("Cultiway.UI.Buttons.LogPerf", () => { ModClass.I.LogPerf(true); }, "log_action_perf");
