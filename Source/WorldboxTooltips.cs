@@ -12,6 +12,8 @@ using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
 using strings;
+using UnityEngine;
+using UnityEngine.UI;
 
 namespace Cultiway;
 
@@ -25,6 +27,8 @@ public partial class WorldboxGame
         [GetOnly(S_Tooltip.actor_leader)] public static TooltipAsset ActorLeader { get; private set; }
         [GetOnly(S_Tooltip.book)] public static TooltipAsset Book { get; private set; }
         public static TooltipAsset Sect { get; private set; }
+        [AssetId("sect_trait")]
+        public static TooltipAsset SectTrait { get; private set; }
         public static TooltipAsset GeoRegion { get; private set; }
         [CloneSource("tooltip_meta_list_kingdoms")]
         public static TooltipAsset ListGeoRegion { get; private set; }
@@ -51,6 +55,9 @@ public partial class WorldboxGame
             Sect.prefab_id = "tooltips/tooltip_cultiway_sect";
             Sect.callback = ShowSect;
             SectTooltip.PatchTo<Tooltip>(Sect.prefab_id);
+
+            SectTrait.prefab_id = "tooltips/tooltip_trait";
+            SectTrait.callback = ShowSectTrait;
 
             GeoRegion.prefab_id = "tooltips/tooltip_cultiway_geo_region";
             GeoRegion.callback = ShowGeoRegion;
@@ -288,6 +295,94 @@ public partial class WorldboxGame
             if (!string.IsNullOrEmpty(data.tip_description_2))
             {
                 tooltip.setBottomDescription(LM.Has(data.tip_description_2) ? LM.Get(data.tip_description_2) : data.tip_description_2);
+            }
+        }
+
+        private static void ShowSectTrait(Tooltip tooltip, string type, TooltipData data)
+        {
+            if (data.custom_data_string == null || !data.custom_data_string.TryGetValue("sect_trait", out string traitId))
+            {
+                tooltip.setTitle("ERROR");
+                return;
+            }
+
+            Core.Libraries.SectTrait trait = ModClass.L.SectTraitLibrary.get(traitId);
+            if (trait == null)
+            {
+                tooltip.setTitle("ERROR");
+                return;
+            }
+
+            bool showTraitInfo = !data.is_editor_augmentation_button || trait.isAvailable();
+            Rarity rarity = trait.rarity;
+            tooltip.name.text = showTraitInfo ? trait.getTranslatedName() : LocalizedTextManager.getText("achievement_tip_hidden");
+            tooltip.name.color = rarity.getRarityColor();
+
+            Transform root = tooltip.transform;
+            Text rarityText = root.Find("Icon and Info/Background/Rarity Type/Rarity Text")?.GetComponent<Text>();
+            if (rarityText != null)
+            {
+                rarityText.text = rarity.getAsset().getLocaleID().Localize();
+                rarityText.color = rarity.getRarityColor();
+            }
+
+            Image icon = root.Find("Icon and Info/IconBG/Icon")?.GetComponent<Image>();
+            if (icon != null)
+            {
+                icon.sprite = trait.getSprite();
+                icon.color = showTraitInfo ? Toolbox.color_white : Toolbox.color_black;
+            }
+
+            root.Find("Icon and Info/IconBG/LegendaryBG")?.gameObject.SetActive(rarity == Rarity.R3_Legendary);
+
+            Text countText = root.Find("Icon and Info/Background/IconedText")?.GetComponent<Text>();
+            if (countText != null)
+            {
+                countText.text = showTraitInfo ? trait.getCountRows() : "";
+            }
+
+            SetupSectTraitRarityStars(root, rarity);
+
+            string description = trait.getTranslatedDescription();
+            if (!string.IsNullOrEmpty(description))
+            {
+                if (!trait.isAvailable() && trait.show_for_unlockables_ui)
+                {
+                    if (trait.unlocked_with_achievement)
+                    {
+                        description = LocalizedTextManager.getText("trait_locked_tooltip_text_achievement")
+                            .ColorHex(ColorStyleLibrary.m.color_text_grey);
+                        string achievementName = "<color=#00ffffff>" + trait.getAchievementLocaleID().Localize() + "</color>";
+                        description = description.Replace("$achievement_id$", achievementName);
+                    }
+                    else
+                    {
+                        description = LocalizedTextManager.getText("sect_trait_locked_tooltip_text_exploration");
+                    }
+                }
+
+                tooltip.setDescription(description);
+            }
+
+            string bottomDescription = showTraitInfo ? trait.getTranslatedDescription2() : null;
+            if (!string.IsNullOrEmpty(bottomDescription))
+            {
+                tooltip.setBottomDescription(bottomDescription);
+            }
+        }
+
+        private static void SetupSectTraitRarityStars(Transform root, Rarity rarity)
+        {
+            GameObject stars = root.Find("Icon and Info/Background/Rarity Type/Rarity Stars")?.gameObject;
+            if (stars == null) return;
+
+            int rarityIndex = (int)rarity;
+            for (int i = 0; i < stars.transform.childCount; i++)
+            {
+                Image star = stars.transform.GetChild(i).GetComponent<Image>();
+                if (star == null) continue;
+
+                star.color = i <= rarityIndex ? Toolbox.makeColor("#313131") : Color.black;
             }
         }
 

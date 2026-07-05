@@ -127,13 +127,27 @@ public class Manager
     where TMeta : CoreSystemObject<TMetaData> 
     where TMetaData : BaseSystemData
     {
+        return CreateMetaWindow<TWindow, TMeta, TMetaData>(window_id, preserved_tabs, null, null);
+    }
+
+    public static TWindow CreateMetaWindow<TWindow, TMeta, TMetaData>(
+        string window_id,
+        IEnumerable<string> preserved_tabs,
+        IEnumerable<string> preserved_content,
+        IEnumerable<string> preserved_header)
+        where TWindow : WindowMetaGeneric<TMeta, TMetaData>
+        where TMeta : CoreSystemObject<TMetaData>
+        where TMetaData : BaseSystemData
+    {
         var prefab = Resources.Load<GameObject>("windows/kingdom");
         ListPool<GameObject> tTabsObjects = ScrollWindow.disableTabsInPrefab(prefab.GetComponent<ScrollWindow>());
         var window = Object.Instantiate(prefab, ModClass.I.PrefabLibrary);
 
         var kingdom_window = window.GetComponent<KingdomWindow>();
 
-        var preservedTabs = new HashSet<string>(preserved_tabs ?? Array.Empty<string>());
+        var preservedTabs = ToPreservedSet(preserved_tabs);
+        var preservedContent = ToPreservedSet(preserved_content);
+        var preservedHeader = ToPreservedSet(preserved_header);
         DeleteTabUnlessPreserved(kingdom_window, preservedTabs, "Villages");
         DeleteTabUnlessPreserved(kingdom_window, preservedTabs, "Traits");
         DeleteTabUnlessPreserved(kingdom_window, preservedTabs, "Families");
@@ -146,6 +160,8 @@ public class Manager
         Object.DestroyImmediate(kingdom_window);
         foreach (var content_name in kingdom_window_content_to_remove)
         {
+            if (preservedContent.Contains(content_name)) continue;
+
             var content = window.transform.Find($"Background/Scroll View/Viewport/Content/{content_name}");
             if (content == null) continue;
             ModClass.LogInfo($"[{nameof(Manager)}] content: {content_name}");
@@ -153,6 +169,8 @@ public class Manager
         }
         foreach (var header_name in kingdom_window_header_to_remove)
         {
+            if (preservedHeader.Contains(header_name)) continue;
+
             var header = window.transform.Find($"Background/Scroll View/Viewport/Header/{header_name}");
             if (header == null) continue;
             ModClass.LogInfo($"[{nameof(Manager)}] header: {header_name}");
@@ -223,6 +241,11 @@ public class Manager
 
 
         return meta_window;
+    }
+
+    private static HashSet<string> ToPreservedSet(IEnumerable<string> names)
+    {
+        return new HashSet<string>(names ?? Array.Empty<string>());
     }
 
     private static void DeleteTabUnlessPreserved(TabbedWindow window, ISet<string> preserved_tabs, string tab_name)

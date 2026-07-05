@@ -5,6 +5,7 @@ using System.Linq;
 using Cultiway.Const;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
+using Cultiway.Core.Libraries;
 using Cultiway.UI.Components;
 using Cultiway.Utils.Extension;
 using UnityEngine;
@@ -13,7 +14,7 @@ using Object = UnityEngine.Object;
 
 namespace Cultiway.UI;
 
-public class SectWindow : WindowMetaGeneric<Sect, SectData>
+public class SectWindow : WindowMetaGeneric<Sect, SectData>, ITraitWindow<SectTrait, SectTraitButton>, IAugmentationsWindow<ITraitsEditor<SectTrait>>
 {
     private const string SectIconPath = "cultiway/icons/iconSect";
     private const string StatsOverviewTitleName = "sect_overview_title";
@@ -38,9 +39,9 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
 
         SectWindow metaWindow = Manager.CreateMetaWindow<SectWindow, Sect, SectData>(
             windowId,
-            "Interesting People",
-            "Pyramid",
-            "Statistics");
+            preserved_tabs: new[] { "Traits", "Interesting People", "Pyramid", "Statistics" },
+            preserved_content: new[] { "content_traits_editor" },
+            preserved_header: new[] { "header_traits" });
         metaWindow.SetDescendantsActiveByName(
             false,
             "Kingdom Icon",
@@ -140,6 +141,7 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
         ReorderContent(content, leaderContent);
         SetupMainInfoTabContent(content, leaderContent);
         SetupSectCustomTabs(content);
+        SectTraitsEditor.Setup(this, content);
         SetupPersistentHeader(headerTop);
 
         SetupAnalysisTabs();
@@ -706,5 +708,10 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>
 
         Actor actor = World.world.units.get(sect.data.FounderActorID);
         return actor.isRekt() ? null : actor;
+    }
+
+    T IAugmentationsWindow<ITraitsEditor<SectTrait>>.GetComponentInChildren<T>(bool includeInactive)
+    {
+        return GetComponentInChildren<T>(includeInactive);
     }
 }
