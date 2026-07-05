@@ -18,6 +18,10 @@ GeoRegionMorphologyLayer,形态图层
 GeoRegionMorphologyLayer Description,阿巴阿巴
 Cultiway.UI.WindowWorldWakan Title,世界灵气
 Cultiway.UI.WindowNewCreatureInfo Title,生物详细信息
+Cultiway.UI.WindowModInfo Title,模组介绍
+Cultiway.UI.WindowModInfo Title Description,查看修真之路的模组介绍
+Cultiway.UI.WindowModInfo.Tab.Overview,概览
+Cultiway.UI.WindowModInfo.Tab.Overview Description,查看模组定位、核心循环和当前目标
 Cultiway.UI.ArmorGraph,各元素抗性
 Cultiway.UI.MasterGraph,各元素精通
 Cultiway.UI.ContentItem,材丹符器阵傀

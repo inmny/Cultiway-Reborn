@@ -507,6 +507,14 @@ public class Manager
 
     public void PostInit()
     {
+        WindowModInfo.Init();
+        AddButton(TabButtonType.INFO,
+            PowerButtonCreator.CreateWindowButton(
+                "Cultiway.UI.WindowModInfo Title",
+                WindowModInfo.WindowId,
+                SpriteTextureLoader.getSprite("cultiway/icons/iconTab")
+            )
+        );
         WindowNewCreatureInfo.CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
         GeoRegionWindow.Init();
         SectWindow.Init();
