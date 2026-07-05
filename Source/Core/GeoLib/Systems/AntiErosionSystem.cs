@@ -70,6 +70,7 @@ public class AntiErosionSystem : BaseSystem
     [Hotfixable]
     private void CheckSingleTile(WorldTile tile)
     {
+        if (tile.top_type?.wall == true) return;
         if (!_available_tile_types.TryGetValue(tile.main_type.id, out var tile_level)) return;
         int exposion_count = 0;
         foreach (var neighbour in tile.neighbours)
