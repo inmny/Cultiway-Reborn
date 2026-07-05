@@ -38,6 +38,7 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
     {
         SetupResidenceStrategy(
             SecludedMountainGate,
+            iconPath: "cultiway/icons/sect_traits/secluded_mountain_gate",
             foundingWeight: 45,
             wakanWeight: 1.2f,
             terrainWeight: 1.35f,
@@ -47,6 +48,7 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
 
         SetupResidenceStrategy(
             CityAttachedBranch,
+            iconPath: "cultiway/icons/sect_traits/city_attached_branch",
             foundingWeight: 15,
             wakanWeight: 0.8f,
             terrainWeight: 0.55f,
@@ -58,6 +60,7 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
 
         SetupResidenceStrategy(
             ResourceSeekingGate,
+            iconPath: "cultiway/icons/sect_traits/resource_seeking_gate",
             foundingWeight: 30,
             wakanWeight: 1.7f,
             terrainWeight: 0.8f,
@@ -67,6 +70,7 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
 
         SetupResidenceStrategy(
             TerritorialGate,
+            iconPath: "cultiway/icons/sect_traits/territorial_gate",
             foundingWeight: 10,
             wakanWeight: 1f,
             terrainWeight: 1f,
@@ -77,6 +81,7 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
 
     private static void SetupResidenceStrategy(
         SectTrait trait,
+        string iconPath,
         int foundingWeight,
         float wakanWeight,
         float terrainWeight,
@@ -87,7 +92,7 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
         bool preferCityProximity = false)
     {
         trait.group_id = SectTraitGroups.ResidenceStrategy.id;
-        trait.path_icon = "cultiway/icons/iconSect";
+        trait.path_icon = iconPath;
         trait.needs_to_be_explored = false;
         trait.show_in_knowledge_window = false;
         trait.isResidenceStrategy = true;
