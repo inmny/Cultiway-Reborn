@@ -16,6 +16,8 @@ public class Manager
     public PortalLibrary PortalLibrary { get; } = new();
     public GeoRegionLibrary GeoRegionLibrary { get; } = new();
     public MasterApprenticeTypeLibrary MasterApprenticeTypeLibrary { get; } = new();
+    public SectTraitGroupLibrary SectTraitGroupLibrary { get; } = new();
+    public SectTraitLibrary SectTraitLibrary { get; } = new();
     public SectPermissionLibrary SectPermissionLibrary { get; } = new();
     public SectRoleLibrary SectRoleLibrary { get; } = new();
     public SectAffairLibrary SectAffairLibrary { get; } = new();
@@ -38,6 +40,8 @@ public class Manager
         AssetManager._instance.add(PortalLibrary, "portals");
         AssetManager._instance.add(GeoRegionLibrary, "geo_regions");
         AssetManager._instance.add(MasterApprenticeTypeLibrary, "master_apprentice_types");
+        AssetManager._instance.add(SectTraitGroupLibrary, "sect_trait_groups");
+        AssetManager._instance.add(SectTraitLibrary, "sect_traits");
         AssetManager._instance.add(SectPermissionLibrary, "sect_permissions");
         AssetManager._instance.add(SectRoleLibrary, "sect_roles");
         AssetManager._instance.add(SectAffairLibrary, "sect_affairs");
@@ -61,6 +65,8 @@ public class Manager
         PortalLibrary.linkAssets();
         GeoRegionLibrary.linkAssets();
         MasterApprenticeTypeLibrary.linkAssets();
+        SectTraitGroupLibrary.linkAssets();
+        SectTraitLibrary.linkAssets();
         SectPermissionLibrary.linkAssets();
         SectRoleLibrary.linkAssets();
         SectAffairLibrary.linkAssets();
@@ -83,6 +89,8 @@ public class Manager
         PortalLibrary.post_init();
         GeoRegionLibrary.post_init();
         MasterApprenticeTypeLibrary.post_init();
+        SectTraitGroupLibrary.post_init();
+        SectTraitLibrary.post_init();
         SectPermissionLibrary.post_init();
         SectRoleLibrary.post_init();
         SectAffairLibrary.post_init();

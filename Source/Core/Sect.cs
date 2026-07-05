@@ -15,7 +15,7 @@ using UnityEngine;
 
 namespace Cultiway.Core;
 
-public class Sect : MetaObject<SectData>
+public class Sect : MetaObjectWithTraits<SectData, SectTrait>
 {
     public readonly List<Building> buildings = new();
     public readonly Dictionary<string, List<Building>> buildings_dict_type = new();
@@ -23,8 +23,11 @@ public class Sect : MetaObject<SectData>
     public readonly SectJobsContainer jobs = new();
 
     internal Building under_construction_building;
+    private SectTrait _residence_strategy;
 
     public override MetaType meta_type => MetaTypeExtend.Sect.Back();
+    public override AssetLibrary<SectTrait> trait_library => ModClass.L.SectTraitLibrary;
+    public override List<string> saved_traits => data.saved_traits;
 
     public override void triggerOnRemoveObject()
     {
@@ -56,6 +59,7 @@ public class Sect : MetaObject<SectData>
         data.FounderActorID = founder.data.id;
         data.FoundedTime = (float)World.world.getCurWorldTime();
         data.name = founder.generateName(meta_type, getID());
+        AddFoundingResidenceStrategy(founder);
 
         if (founder.hasCity())
         {
@@ -77,6 +81,15 @@ public class Sect : MetaObject<SectData>
             "BuildSect",
             $"created sect={SectVerifyLog.Sect(this)} founder={SectVerifyLog.Actor(founder)} doctrine={data.DoctrineCultibookId ?? "null"} members={countUnits()} scriptures={data.ScriptureBookIDs.Count}");
         WorldLogUtils.LogSectFounded(this, founder);
+    }
+
+    private void AddFoundingResidenceStrategy(Actor founder)
+    {
+        if (SectTraits.TryPickFoundingResidenceStrategy(founder, out SectTrait trait))
+        {
+            addTrait(trait, true);
+            SectVerifyLog.Log("SectTrait", $"sect={SectVerifyLog.Sect(this)} trait={trait.id} reason=founding_residence_strategy");
+        }
     }
 
     private void SetupResidence(Actor founder)
@@ -697,6 +710,106 @@ public class Sect : MetaObject<SectData>
         }
 
         return AssetManager.actor_library.get("human");
+    }
+
+    public override void save()
+    {
+        SyncSavedTraits();
+        base.save();
+    }
+
+    public override bool addTrait(SectTrait pTrait, bool pRemoveOpposites = false)
+    {
+        bool result = base.addTrait(pTrait, pRemoveOpposites);
+        if (result)
+        {
+            OnSectTraitsChanged();
+        }
+
+        return result;
+    }
+
+    public override bool removeTrait(SectTrait pTrait)
+    {
+        bool result = base.removeTrait(pTrait);
+        if (result)
+        {
+            OnSectTraitsChanged();
+        }
+
+        return result;
+    }
+
+    public override void traitModifiedEvent()
+    {
+        base.traitModifiedEvent();
+        OnSectTraitsChanged();
+    }
+
+    public override void recalcBaseStats()
+    {
+        base.recalcBaseStats();
+        _residence_strategy = null;
+        foreach (SectTrait trait in getTraits())
+        {
+            if (!trait.isResidenceStrategy) continue;
+            _residence_strategy = trait;
+            break;
+        }
+    }
+
+    public SectTrait GetResidenceStrategy()
+    {
+        return _residence_strategy;
+    }
+
+    public bool AllowsCityResidenceZones()
+    {
+        return _residence_strategy?.allowCityResidenceZones == true;
+    }
+
+    public bool PrefersCityProximity()
+    {
+        return _residence_strategy?.preferCityProximity == true;
+    }
+
+    public float GetResidenceWakanScoreWeight()
+    {
+        return _residence_strategy?.residenceWakanScoreWeight ?? 1f;
+    }
+
+    public float GetResidenceTerrainScoreWeight()
+    {
+        return _residence_strategy?.residenceTerrainScoreWeight ?? 1f;
+    }
+
+    public float GetResidenceCityDistanceScoreWeight()
+    {
+        return _residence_strategy?.residenceCityDistanceScoreWeight ?? 1f;
+    }
+
+    public float GetResidenceBuildSpaceScoreWeight()
+    {
+        return _residence_strategy?.residenceBuildSpaceScoreWeight ?? 1f;
+    }
+
+    public float GetResidenceSectDistanceScoreWeight()
+    {
+        return _residence_strategy?.residenceSectDistanceScoreWeight ?? 1f;
+    }
+
+    private void OnSectTraitsChanged()
+    {
+        SyncSavedTraits();
+        WorldboxGame.I?.Sects?.setDirtyResidenceZones();
+    }
+
+    private void SyncSavedTraits()
+    {
+        if (data != null)
+        {
+            data.saved_traits = getTraitsAsStrings();
+        }
     }
 
     public List<Actor> GetLivingMembers()

@@ -4,6 +4,7 @@ namespace Cultiway.Core;
 
 public class SectData : MetaObjectData
 {
+    public List<string> saved_traits = new();
     public List<long> ScriptureBookIDs = new();
     public string FounderActorName;
     public long FounderActorID;

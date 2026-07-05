@@ -21,13 +21,19 @@ public sealed class SectResidencePlan
     public int BuildSiteCount;
     public GeoRegion PrimaryRegion;
     public GeoRegion LandformRegion;
+    public SectTrait ResidenceStrategy;
 }
 
 public static class SectResidencePlanner
 {
     public static bool HasFoundingSite(Actor founder)
     {
-        return TryFindFoundingSite(founder, out _);
+        return TryFindFoundingSite(null, founder, null, false, out _);
+    }
+
+    public static bool HasFoundingSite(Actor founder, SectTrait strategy)
+    {
+        return TryFindFoundingSite(null, founder, strategy, false, out _);
     }
 
     public static bool TryFindFoundingSite(Actor founder, out SectResidencePlan plan)
@@ -35,7 +41,22 @@ public static class SectResidencePlanner
         return TryFindFoundingSite(null, founder, out plan);
     }
 
+    public static bool TryFindFoundingSite(Actor founder, SectTrait strategy, out SectResidencePlan plan)
+    {
+        return TryFindFoundingSite(null, founder, strategy, out plan);
+    }
+
     public static bool TryFindFoundingSite(Sect sect, Actor founder, out SectResidencePlan plan)
+    {
+        return TryFindFoundingSite(sect, founder, sect?.GetResidenceStrategy(), out plan);
+    }
+
+    private static bool TryFindFoundingSite(Sect sect, Actor founder, SectTrait strategy, out SectResidencePlan plan)
+    {
+        return TryFindFoundingSite(sect, founder, strategy, true, out plan);
+    }
+
+    private static bool TryFindFoundingSite(Sect sect, Actor founder, SectTrait strategy, bool pickRandomTopPlan, out SectResidencePlan plan)
     {
         plan = null;
         WorldTile origin = founder?.current_tile;
@@ -49,7 +70,7 @@ public static class SectResidencePlanner
             for (int y = originZone.y - radius; y <= originZone.y + radius; y++)
             {
                 TileZone zone = World.world.zone_calculator.getZone(x, y);
-                SectResidencePlan candidate = CreatePlan(sect, zone);
+                SectResidencePlan candidate = CreatePlan(sect, strategy, zone);
                 if (candidate != null && candidate.TotalScore >= SectConst.ResidenceMinSiteScore)
                 {
                     plans.Add(candidate);
@@ -60,8 +81,16 @@ public static class SectResidencePlanner
         if (plans.Count == 0) return false;
 
         plans.Sort((left, right) => right.TotalScore.CompareTo(left.TotalScore));
-        int topCount = Mathf.Min(5, plans.Count);
-        plan = plans[Randy.randomInt(0, topCount)];
+        if (pickRandomTopPlan)
+        {
+            int topCount = Mathf.Min(5, plans.Count);
+            plan = plans[Randy.randomInt(0, topCount)];
+        }
+        else
+        {
+            plan = plans[0];
+        }
+
         return true;
     }
 
@@ -92,7 +121,7 @@ public static class SectResidencePlanner
         WorldboxGame.I?.Sects?.setDirtyResidenceZones();
         SectVerifyLog.Log(
             "ResidenceSetup",
-            $"sect={SectVerifyLog.Sect(sect)} founder={SectVerifyLog.Actor(founder)} tile={plan.Tile.x},{plan.Tile.y} zone={plan.Tile.zone?.id ?? -1} zones={plan.Zones.Count} score={plan.TotalScore:F1} wakan={plan.WakanScore:F1} terrain={plan.TerrainScore:F1} city={plan.CityDistanceScore:F1} build={plan.BuildSpaceScore:F1} name={sect.data.ResidenceName}");
+            $"sect={SectVerifyLog.Sect(sect)} founder={SectVerifyLog.Actor(founder)} trait={plan.ResidenceStrategy?.id ?? "none"} tile={plan.Tile.x},{plan.Tile.y} zone={plan.Tile.zone?.id ?? -1} zones={plan.Zones.Count} score={plan.TotalScore:F1} wakan={plan.WakanScore:F1} terrain={plan.TerrainScore:F1} city={plan.CityDistanceScore:F1} build={plan.BuildSpaceScore:F1} name={sect.data.ResidenceName}");
     }
 
     public static List<TileZone> GetResidenceZones(Sect sect)
@@ -140,26 +169,27 @@ public static class SectResidencePlanner
         return null;
     }
 
-    private static SectResidencePlan CreatePlan(Sect sect, TileZone center)
+    private static SectResidencePlan CreatePlan(Sect sect, SectTrait strategy, TileZone center)
     {
-        if (!CanUseCenterZone(center, sect)) return null;
+        if (!CanUseCenterZone(center, sect, strategy)) return null;
 
         SectResidencePlan plan = new()
         {
             Tile = FindResidenceCenterTile(center),
             PrimaryRegion = center.centerTile.GetExtend().GetGeoRegion(GeoRegionLayer.Primary),
-            LandformRegion = center.centerTile.GetExtend().GetGeoRegion(GeoRegionLayer.Landform)
+            LandformRegion = center.centerTile.GetExtend().GetGeoRegion(GeoRegionLayer.Landform),
+            ResidenceStrategy = strategy
         };
-        if (!TryCollectResidenceZones(plan.Zones, center, sect)) return null;
+        if (!TryCollectResidenceZones(plan.Zones, center, sect, strategy)) return null;
 
         plan.BuildSiteCount = CountBuildSites(plan.Zones, Buildings.SectHall);
         if (plan.BuildSiteCount < SectConst.ResidenceMinBuildSites) return null;
 
-        plan.WakanScore = EvaluateWakan(plan.Zones);
-        plan.TerrainScore = EvaluateTerrain(center, plan);
-        plan.CityDistanceScore = EvaluateCityDistance(plan.Tile);
-        plan.BuildSpaceScore = Mathf.Min(plan.BuildSiteCount, 6) * 10f;
-        plan.SectDistanceScore = EvaluateSectDistance(plan.Tile);
+        plan.WakanScore = EvaluateWakan(plan.Zones) * GetWakanScoreWeight(sect, strategy);
+        plan.TerrainScore = EvaluateTerrain(center, plan) * GetTerrainScoreWeight(sect, strategy);
+        plan.CityDistanceScore = EvaluateCityDistance(plan.Tile, sect, strategy) * GetCityDistanceScoreWeight(sect, strategy);
+        plan.BuildSpaceScore = Mathf.Min(plan.BuildSiteCount, 6) * 10f * GetBuildSpaceScoreWeight(sect, strategy);
+        plan.SectDistanceScore = EvaluateSectDistance(plan.Tile) * GetSectDistanceScoreWeight(sect, strategy);
         plan.TotalScore = plan.WakanScore
                           + plan.TerrainScore
                           + plan.CityDistanceScore
@@ -168,27 +198,27 @@ public static class SectResidencePlanner
         return plan;
     }
 
-    private static bool CanUseCenterZone(TileZone zone, Sect ignoredSect)
+    private static bool CanUseCenterZone(TileZone zone, Sect ignoredSect, SectTrait strategy)
     {
         return zone != null
                && zone.centerTile != null
                && zone.tiles_with_ground > 0
-               && !zone.hasCity()
+               && CanUseCityZone(zone, ignoredSect, strategy)
                && !zone.hasLava()
                && !WorldboxGame.I.Sects.IsSectResidenceZone(zone, ignoredSect);
     }
 
-    private static bool CanReserveZone(TileZone zone, Sect ignoredSect)
+    private static bool CanReserveZone(TileZone zone, Sect ignoredSect, SectTrait strategy)
     {
         return zone != null
                && zone.centerTile != null
                && zone.tiles_with_ground > 0
-               && !zone.hasCity()
+               && CanUseCityZone(zone, ignoredSect, strategy)
                && !zone.hasLava()
                && !WorldboxGame.I.Sects.IsSectResidenceZone(zone, ignoredSect);
     }
 
-    private static bool TryCollectResidenceZones(List<TileZone> zones, TileZone center, Sect ignoredSect)
+    private static bool TryCollectResidenceZones(List<TileZone> zones, TileZone center, Sect ignoredSect, SectTrait strategy)
     {
         int radius = SectConst.ResidenceInitialZoneRadius;
         for (int x = center.x - radius; x <= center.x + radius; x++)
@@ -197,7 +227,7 @@ public static class SectResidencePlanner
             {
                 TileZone zone = World.world.zone_calculator.getZone(x, y);
                 if (WorldboxGame.I.Sects.IsSectResidenceZone(zone, ignoredSect)) return false;
-                AddZoneIfReservable(zones, zone, ignoredSect);
+                AddZoneIfReservable(zones, zone, ignoredSect, strategy);
             }
         }
 
@@ -360,7 +390,7 @@ public static class SectResidencePlanner
         if (type.mountains || type.edge_mountains || type.summit || type.block) mountain++;
     }
 
-    private static float EvaluateCityDistance(WorldTile tile)
+    private static float EvaluateCityDistance(WorldTile tile, Sect sect, SectTrait strategy)
     {
         float nearest = float.MaxValue;
         foreach (City city in World.world.cities)
@@ -373,11 +403,26 @@ public static class SectResidencePlanner
             nearest = Mathf.Min(nearest, Toolbox.DistTile(tile, cityTile));
         }
 
+        if (PrefersCityProximity(sect, strategy))
+        {
+            return EvaluateCityProximity(nearest);
+        }
+
         if (nearest == float.MaxValue) return 0f;
         if (nearest < 24f) return -120f + nearest * 3f;
         if (nearest <= 80f) return 40f;
         if (nearest <= 160f) return 25f;
         if (nearest <= 260f) return 10f;
+        return -20f;
+    }
+
+    private static float EvaluateCityProximity(float nearest)
+    {
+        if (nearest == float.MaxValue) return -20f;
+        if (nearest < 12f) return 45f;
+        if (nearest <= 40f) return 35f;
+        if (nearest <= 90f) return 15f;
+        if (nearest <= 160f) return 0f;
         return -20f;
     }
 
@@ -433,12 +478,52 @@ public static class SectResidencePlanner
         }
     }
 
-    private static void AddZoneIfReservable(List<TileZone> zones, TileZone zone, Sect ignoredSect)
+    private static void AddZoneIfReservable(List<TileZone> zones, TileZone zone, Sect ignoredSect, SectTrait strategy)
     {
-        if (CanReserveZone(zone, ignoredSect))
+        if (CanReserveZone(zone, ignoredSect, strategy))
         {
             AddZone(zones, zone);
         }
+    }
+
+    private static bool CanUseCityZone(TileZone zone, Sect sect, SectTrait strategy)
+    {
+        return !zone.hasCity() || AllowsCityResidenceZones(sect, strategy);
+    }
+
+    private static bool AllowsCityResidenceZones(Sect sect, SectTrait strategy)
+    {
+        return strategy?.allowCityResidenceZones == true || sect?.AllowsCityResidenceZones() == true;
+    }
+
+    private static bool PrefersCityProximity(Sect sect, SectTrait strategy)
+    {
+        return strategy?.preferCityProximity == true || sect?.PrefersCityProximity() == true;
+    }
+
+    private static float GetWakanScoreWeight(Sect sect, SectTrait strategy)
+    {
+        return strategy?.residenceWakanScoreWeight ?? sect?.GetResidenceWakanScoreWeight() ?? 1f;
+    }
+
+    private static float GetTerrainScoreWeight(Sect sect, SectTrait strategy)
+    {
+        return strategy?.residenceTerrainScoreWeight ?? sect?.GetResidenceTerrainScoreWeight() ?? 1f;
+    }
+
+    private static float GetCityDistanceScoreWeight(Sect sect, SectTrait strategy)
+    {
+        return strategy?.residenceCityDistanceScoreWeight ?? sect?.GetResidenceCityDistanceScoreWeight() ?? 1f;
+    }
+
+    private static float GetBuildSpaceScoreWeight(Sect sect, SectTrait strategy)
+    {
+        return strategy?.residenceBuildSpaceScoreWeight ?? sect?.GetResidenceBuildSpaceScoreWeight() ?? 1f;
+    }
+
+    private static float GetSectDistanceScoreWeight(Sect sect, SectTrait strategy)
+    {
+        return strategy?.residenceSectDistanceScoreWeight ?? sect?.GetResidenceSectDistanceScoreWeight() ?? 1f;
     }
 
     private static void AddZone(List<TileZone> zones, TileZone zone)

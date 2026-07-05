@@ -25,7 +25,7 @@ public static class SectRules
         if (!HasAvailableFounderApprentice(ae)) return false;
 
         return ae.GetMainCultibook() != null
-               && SectResidencePlanner.HasFoundingSite(ae.Base);
+               && SectTraits.HasFoundingResidenceStrategy(ae.Base);
     }
 
     private static bool HasAvailableFounderApprentice(ActorExtend founder)

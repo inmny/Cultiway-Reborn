@@ -15,3 +15,16 @@ trait_Cultiway.OpenSource_info_2,感谢马圣开源
 culture_trait_Cultiway.CultureSkin,文化衣着
 culture_trait_Cultiway.CultureSkin_info,我的衣着我做主
 culture_trait_Cultiway.CultureSkin_info_2,该文化单位的衣着将使用文化对应的衣着皮肤
+sect_trait_group_residence_strategy,驻地策略
+sect_trait_Cultiway.Sect.Trait.SecludedMountainGate,隐世山门
+sect_trait_Cultiway.Sect.Trait.SecludedMountainGate_info,偏好远离城市的山地和高地，重视地形屏障与灵气环境。
+sect_trait_Cultiway.Sect.Trait.SecludedMountainGate_info_2,山门大宗。
+sect_trait_Cultiway.Sect.Trait.CityAttachedBranch,城坊别院
+sect_trait_Cultiway.Sect.Trait.CityAttachedBranch_info,允许在城市区域内外设立驻地，靠近凡俗城坊也不会被视为劣势。
+sect_trait_Cultiway.Sect.Trait.CityAttachedBranch_info_2,适合依附城市、广收门人的宗门。
+sect_trait_Cultiway.Sect.Trait.ResourceSeekingGate,逐灵择地
+sect_trait_Cultiway.Sect.Trait.ResourceSeekingGate_info,优先追逐灵气浓郁之地，城市距离和地形屏障的重要性较低。
+sect_trait_Cultiway.Sect.Trait.ResourceSeekingGate_info_2,为了灵脉可以舍弃一些凡俗便利。
+sect_trait_Cultiway.Sect.Trait.TerritorialGate,开疆立派
+sect_trait_Cultiway.Sect.Trait.TerritorialGate_info,偏好宽阔可建设空间，并更重视与其他宗门保持距离。
+sect_trait_Cultiway.Sect.Trait.TerritorialGate_info_2,适合独立于国家等政权的宗门。
