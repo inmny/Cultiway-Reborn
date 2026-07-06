@@ -22,7 +22,7 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
         {
             var ae = data.initiator.a.GetExtend();
 
-            using var talisman_pool = new ListPool<Entity>(ae.GetItems().Where(x => x.HasComponent<Talisman>()));
+            using var talisman_pool = new ListPool<Entity>(ae.GetItems().Where(x => !x.IsNull && x.HasComponent<Talisman>()));
 
             bool has_casted = false;
 
@@ -49,7 +49,7 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
                 if (ae.CastSkillV3(talisman_component.SkillContainer, data.target, addition_strength,
                         talisman_component.PowerLevel, SkillCastCostSource.Prepaid))
                 {
-                    talisman_to_use.DeleteEntity(); 
+                    talisman_to_use.DeleteEntity();
                     has_casted = true;
                 }
                 else
