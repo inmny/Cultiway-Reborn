@@ -18,7 +18,7 @@ internal static class FinalizerPatch
             ModClass.LogInfo($"Actor_saveKingdomCiv: {__instance.data == null}, {__instance.kingdom == null}");
         }
         return __exception;
-    }
+    }/*
     [Hotfixable]
     [HarmonyFinalizer]
     [HarmonyPatch(typeof(Actor), nameof(Actor.checkCalibrateTargetPosition))]
@@ -30,7 +30,7 @@ internal static class FinalizerPatch
         }
 
         return __exception;
-    }
+    }*/
     [HarmonyFinalizer, HarmonyPatch(typeof(BuildingManager), nameof(BuildingManager.addBuilding), [typeof(BuildingAsset), typeof(WorldTile), typeof(bool), typeof(bool), typeof(BuildPlacingType)])]
     private static Exception BuildingManager_addBuilding_Finalizer(Exception __exception, BuildingAsset pAsset)
     {

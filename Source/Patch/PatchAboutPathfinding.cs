@@ -132,6 +132,30 @@ namespace Cultiway.Patch
         {
             __result = __result || (PathFinder.Instance.IsActorPathing(__instance) && __instance.tile_target != null);
         }
+
+        [HarmonyTranspiler, HarmonyPatch(typeof(Actor), "updateMovement")]
+        private static IEnumerable<CodeInstruction> updateMovement_transpiler(IEnumerable<CodeInstruction> codes)
+        {
+            var original = AccessTools.Method(typeof(Actor), nameof(Actor.isUsingPath));
+            var replacement = AccessTools.Method(typeof(PatchAboutPathfinding), nameof(IsUsingPathForSmoothMovement));
+            foreach (var code in codes)
+            {
+                if (code.Calls(original))
+                {
+                    yield return new CodeInstruction(OpCodes.Call, replacement).WithLabels(code.labels);
+                    continue;
+                }
+
+                yield return code;
+            }
+        }
+
+        private static bool IsUsingPathForSmoothMovement(Actor actor)
+        {
+            return actor != null && (actor.isUsingPath() ||
+                                     (PathFinder.Instance.IsActorPathing(actor) && actor.tile_target != null));
+        }
+
         [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.clearWorld))]
         private static void clearWorld_prefix()
         {
