@@ -1,4 +1,3 @@
-using Cultiway.Utils;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,7 +16,6 @@ namespace Cultiway.UI;
 public class SectWindow : WindowMetaGeneric<Sect, SectData>, ITraitWindow<SectTrait, SectTraitButton>, IAugmentationsWindow<ITraitsEditor<SectTrait>>
 {
     private const string SectIconPath = "cultiway/icons/iconSect";
-    private const string StatsOverviewTitleName = "sect_overview_title";
     private const float TabContentWidth = 214f;
     private const float TabTitleWidth = 214f;
 
@@ -131,15 +129,14 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>, ITraitWindow<SectTr
                             ?? throw new InvalidOperationException("SectWindow 缺少窗口 Content 节点");
 
         content.DestroyIfPresent("content_relations");
-        content.DestroyIfPresent("content_more_icons");
         content.DestroyIfPresent("content_sect_details");
         content.DestroyIfPresent("content_meta");
 
         Transform leaderContent = content.Find("content_sect_leader") ?? CloneKingdomContent("content_king", content, "content_sect_leader");
         SetupLeaderContent(leaderContent);
-        SetupStatsOverviewTitle(content);
-        ReorderContent(content, leaderContent);
-        SetupMainInfoTabContent(content, leaderContent);
+        Transform statsIconsContent = SetupStatsIconsContent(content);
+        ReorderContent(content, leaderContent, statsIconsContent);
+        SetupMainInfoTabContent(content, leaderContent, statsIconsContent);
         SetupSectCustomTabs(content);
         SectTraitsEditor.Setup(this, content);
         SetupPersistentHeader(headerTop);
@@ -234,91 +231,19 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>, ITraitWindow<SectTr
         _leaderElement.Initialize(titleElement, unitElement);
     }
 
-    private static void ReorderContent(Transform content, Transform leaderContent)
+    private static void ReorderContent(Transform content, Transform leaderContent, Transform statsIconsContent)
     {
         Transform title = content.Find("tab_title_container_sect");
         ConfigureTabTitleContainer(title);
-        Transform overviewTitle = content.Find(StatsOverviewTitleName);
         Transform statsContent = content.Find("content_stats");
 
         int index = title != null ? title.GetSiblingIndex() + 1 : 0;
         leaderContent.SetSiblingIndex(index++);
-        overviewTitle?.SetSiblingIndex(index++);
-        statsContent?.SetSiblingIndex(index);
+        statsIconsContent?.SetSiblingIndex(index++);
+        statsContent?.SetSiblingIndex(index++);
     }
 
-    private static void SetupStatsOverviewTitle(Transform content)
-    {
-        Transform statsContent = content.Find("content_stats")
-                                 ?? throw new InvalidOperationException("SectWindow 缺少原版 content_stats 节点");
-        RemoveStatsTabTitle(statsContent);
-        RemoveStatsOverviewTitleChild(statsContent);
-
-        Transform title = content.Find(StatsOverviewTitleName) ?? CreateStatsOverviewTitle(content);
-        int statsIndex = statsContent.GetSiblingIndex();
-        if (title.GetSiblingIndex() < statsIndex)
-        {
-            statsIndex--;
-        }
-
-        title.SetSiblingIndex(statsIndex);
-        title.gameObject.SetActive(true);
-
-        LocalizedText localizedTitle = title.GetComponent<LocalizedText>()
-                                      ?? throw new InvalidOperationException("SectWindow 概览标题缺少 LocalizedText");
-        localizedTitle.setKeyAndUpdate("overview");
-    }
-
-    private static void RemoveStatsTabTitle(Transform statsContent)
-    {
-        Transform oldTitle = statsContent.Find("tab_title_container_sect_overview");
-        if (oldTitle != null)
-        {
-            UnityEngine.Object.DestroyImmediate(oldTitle.gameObject);
-        }
-    }
-
-    private static void RemoveStatsOverviewTitleChild(Transform statsContent)
-    {
-        Transform oldTitle = statsContent.Find(StatsOverviewTitleName);
-        if (oldTitle != null)
-        {
-            UnityEngine.Object.DestroyImmediate(oldTitle.gameObject);
-        }
-    }
-
-    private static Transform CreateStatsOverviewTitle(Transform content)
-    {
-        GameObject titleObject = new(StatsOverviewTitleName, typeof(RectTransform), typeof(Text), typeof(Shadow), typeof(LocalizedText), typeof(LayoutElement));
-        titleObject.transform.SetParent(content, false);
-        titleObject.transform.localScale = Vector3.one;
-
-        RectTransform rect = titleObject.GetComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(192f, 0f);
-        rect.pivot = new Vector2(0.5f, 1f);
-
-        Text text = titleObject.GetComponent<Text>();
-        text.raycastTarget = false;
-        text.font = UIUtils.GetCurrentFont();
-        text.fontSize = 5;
-        text.resizeTextForBestFit = true;
-        text.resizeTextMinSize = 1;
-        text.resizeTextMaxSize = 9;
-        text.alignment = TextAnchor.MiddleCenter;
-        text.color = Color.white;
-
-        Shadow shadow = titleObject.GetComponent<Shadow>();
-        shadow.effectColor = new Color(0f, 0f, 0f, 0.5f);
-        shadow.effectDistance = new Vector2(0.5f, -0.5f);
-
-        LayoutElement layout = titleObject.GetComponent<LayoutElement>();
-        layout.preferredHeight = 12f;
-        layout.layoutPriority = 1;
-
-        return titleObject.transform;
-    }
-
-    private void SetupMainInfoTabContent(Transform content, Transform leaderContent)
+    private void SetupMainInfoTabContent(Transform content, Transform leaderContent, Transform statsIconsContent)
     {
         WindowMetaTab mainTab = GetMainInfoTab();
         if (mainTab == null) return;
@@ -326,8 +251,67 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>, ITraitWindow<SectTr
         mainTab.tab_elements.Clear();
         AddTabContent(mainTab, content.Find("tab_title_container_sect"));
         AddTabContent(mainTab, leaderContent);
-        AddTabContent(mainTab, content.Find(StatsOverviewTitleName));
+        AddTabContent(mainTab, statsIconsContent);
         AddTabContent(mainTab, content.Find("content_stats"));
+    }
+
+    private static Transform SetupStatsIconsContent(Transform content)
+    {
+        Transform statsIconsContent = content.Find("content_more_icons") ?? CloneKingdomContent("content_more_icons", content, "content_more_icons");
+        statsIconsContent.gameObject.SetActive(true);
+
+        foreach (WindowMetaElementBase element in statsIconsContent.GetComponents<WindowMetaElementBase>())
+        {
+            Object.DestroyImmediate(element);
+        }
+
+        foreach (StatsIconContainer container in statsIconsContent.GetComponents<StatsIconContainer>())
+        {
+            Object.DestroyImmediate(container);
+        }
+
+        foreach (LocalizedText title in statsIconsContent.GetComponentsInChildren<LocalizedText>(true))
+        {
+            if (title.name == "title_tab")
+            {
+                title.setKeyAndUpdate("overview");
+            }
+        }
+
+        SetupSectStatsIcons(statsIconsContent);
+        statsIconsContent.gameObject.AddComponent<SectStatsElement>();
+        return statsIconsContent;
+    }
+
+    private static void SetupSectStatsIcons(Transform statsIconsContent)
+    {
+        Transform iconsRoot = statsIconsContent.Find("Icons")
+                              ?? throw new InvalidOperationException("SectWindow content_more_icons 缺少 Icons 节点");
+        Transform template = iconsRoot.Find("i_buildings")
+                             ?? throw new InvalidOperationException("SectWindow content_more_icons 缺少 i_buildings 模板图标");
+
+        iconsRoot.DestroyIfPresent("i_food");
+        CreateSectStatsIcon(template, iconsRoot, SectStatsElement.IconCultibooks, "ui/Icons/iconBooks", "Cultiway.Sect.Cultibooks");
+        CreateSectStatsIcon(template, iconsRoot, SectStatsElement.IconElixirRecipes, "cultiway/icons/iconElixirCauldron", "Cultiway.Sect.ElixirRecipes");
+        CreateSectStatsIcon(template, iconsRoot, SectStatsElement.IconSkillbooks, "cultiway/icons/cultilog/log_cat_skill", "Cultiway.Sect.Skillbooks");
+    }
+
+    private static void CreateSectStatsIcon(Transform template, Transform parent, string name, string iconPath, string titleKey)
+    {
+        parent.DestroyIfPresent(name);
+
+        GameObject iconObject = Object.Instantiate(template.gameObject, parent, false);
+        iconObject.name = name;
+        iconObject.SetActive(false);
+
+        StatsIcon icon = iconObject.GetComponent<StatsIcon>()
+                         ?? throw new InvalidOperationException($"SectWindow 统计图标模板缺少 StatsIcon: {name}");
+        icon.getIcon().sprite = SpriteTextureLoader.getSprite(iconPath);
+
+        TipButton tipButton = iconObject.GetComponent<TipButton>()
+                              ?? throw new InvalidOperationException($"SectWindow 统计图标模板缺少 TipButton: {name}");
+        tipButton.textOnClick = titleKey;
+        tipButton.textOnClickDescription = "";
     }
 
     private WindowMetaTab GetMainInfoTab()
