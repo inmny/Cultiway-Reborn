@@ -12,6 +12,8 @@ namespace Cultiway.Content.Behaviours;
 /// </summary>
 public class BehWaterCultivate : BehaviourActionActor
 {
+    private const float TickInterval = 1f;
+
     [Hotfixable]
     public override BehResult execute(Actor pObject)
     {
@@ -32,13 +34,14 @@ public class BehWaterCultivate : BehaviourActionActor
 
         if (time > 0)
         {
-            time -= pObject.timer_action;
+            time -= TickInterval;
 
             // 水中修炼：从地块吸收灵气（效率提升）
             Cultisyses.TakeWakanAndCultivate(actor_extend, ref xian);
-            if (xian.wakan < pObject.stats[BaseStatses.MaxWakan.id])
+            if (xian.wakan < pObject.stats[BaseStatses.MaxWakan.id] && time > 0f)
             {
                 pObject.data.set(ContentActorDataKeys.CultivateTime_float, time);
+                pObject.timer_action = TickInterval;
                 return BehResult.RepeatStep;
             }
         }

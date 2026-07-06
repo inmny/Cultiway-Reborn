@@ -7,6 +7,8 @@ namespace Cultiway.Content.Behaviours;
 
 public class BehXianLevelup : BehCityActor
 {
+    private const float TickInterval = 1f;
+
     public override BehResult execute(Actor pObject)
     {
         var actor_extend = pObject.GetExtend();
@@ -22,6 +24,8 @@ public class BehXianLevelup : BehCityActor
             return BehResult.Continue;
         }
 
-        return !Cultisyses.Xian.PreCheckUpgrade(actor_extend) ? BehResult.Continue : BehResult.RepeatStep;
+        if (!Cultisyses.Xian.PreCheckUpgrade(actor_extend)) return BehResult.Continue;
+        pObject.timer_action = TickInterval;
+        return BehResult.RepeatStep;
     }
 }

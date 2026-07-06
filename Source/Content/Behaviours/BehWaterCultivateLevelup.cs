@@ -11,6 +11,8 @@ namespace Cultiway.Content.Behaviours;
 /// </summary>
 public class BehWaterCultivateLevelup : BehaviourActionActor
 {
+    private const float TickInterval = 1f;
+
     public override BehResult execute(Actor pObject)
     {
         // 如果不在水中，先移动到水域
@@ -32,7 +34,9 @@ public class BehWaterCultivateLevelup : BehaviourActionActor
             return BehResult.Continue;
         }
 
-        return !Cultisyses.Xian.PreCheckUpgrade(actor_extend) ? BehResult.Continue : BehResult.RepeatStep;
+        if (!Cultisyses.Xian.PreCheckUpgrade(actor_extend)) return BehResult.Continue;
+        pObject.timer_action = TickInterval;
+        return BehResult.RepeatStep;
     }
 }
 

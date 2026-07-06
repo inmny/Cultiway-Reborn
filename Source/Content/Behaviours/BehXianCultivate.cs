@@ -9,6 +9,8 @@ namespace Cultiway.Content.Behaviours;
 
 public class BehXianCultivate : BehCityActor
 {
+    private const float TickInterval = 1f;
+
     [Hotfixable]
     public override BehResult execute(Actor pObject)
     {
@@ -23,14 +25,15 @@ public class BehXianCultivate : BehCityActor
 
         if (time > 0)
         {
-            time -= pObject.timer_action;
+            time -= TickInterval;
 
             // 获取修炼收益
             // TODO: 考虑天赋以及其他因素的影响
             Cultisyses.TakeWakanAndCultivate(actor_extend, ref xian);
-            if (xian.wakan < pObject.stats[BaseStatses.MaxWakan.id])
+            if (xian.wakan < pObject.stats[BaseStatses.MaxWakan.id] && time > 0f)
             {
                 pObject.data.set(ContentActorDataKeys.CultivateTime_float, time);
+                pObject.timer_action = TickInterval;
                 return BehResult.RepeatStep;
             }
         }
