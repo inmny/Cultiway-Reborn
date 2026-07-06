@@ -13,6 +13,22 @@ public class GeoRegion : MetaObject<GeoRegionData>
 {
     public override MetaType meta_type => MetaTypeExtend.GeoRegion.Back();
     public Entity E {get; private set;}
+
+    public override int countUnits()
+    {
+        return getUnits().CountValidUnits();
+    }
+
+    public override int countAdults()
+    {
+        return getUnits().CountValidAdults();
+    }
+
+    public override int countChildren()
+    {
+        return getUnits().CountValidChildren();
+    }
+
     public override void Dispose()
     {
         if (!E.IsNull)

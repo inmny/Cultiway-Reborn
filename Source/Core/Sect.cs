@@ -29,6 +29,21 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>
     public override AssetLibrary<SectTrait> trait_library => ModClass.L.SectTraitLibrary;
     public override List<string> saved_traits => data.saved_traits;
 
+    public override int countUnits()
+    {
+        return getUnits().CountValidUnits();
+    }
+
+    public override int countAdults()
+    {
+        return getUnits().CountValidAdults();
+    }
+
+    public override int countChildren()
+    {
+        return getUnits().CountValidChildren();
+    }
+
     public override void triggerOnRemoveObject()
     {
         base.triggerOnRemoveObject();
