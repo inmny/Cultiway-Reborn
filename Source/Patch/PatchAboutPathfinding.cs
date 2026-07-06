@@ -18,6 +18,8 @@ namespace Cultiway.Patch
 {
     internal static class PatchAboutPathfinding
     {
+        private const int LocalMovementBatchSize = 128;
+
         /**寻路调整方案
         * （1）完全替换原版寻路，调用goTo后会提交一个任务用以多线程寻路，goTo这边的结果始终为成功
         * （2）多线程寻路不要求最优，但省时、流式输出。
@@ -65,7 +67,17 @@ namespace Cultiway.Patch
         [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.updatePathMovement))]
         private static bool updatePathMovement(Actor __instance)
         {
-            var poll = PathFinder.Instance.PollStep(__instance);
+            if (__instance != null && __instance.isFollowingLocalPath())
+            {
+                return true;
+            }
+
+            var poll = TryDrainMovementSegment(__instance, out var preparedLocalPath);
+            if (preparedLocalPath)
+            {
+                return true;
+            }
+
             switch (poll.Kind)
             {
                 case PathPollKind.Waiting:
@@ -113,6 +125,28 @@ namespace Cultiway.Patch
                 __instance.cancelAllBeh();
             }
             return false;
+        }
+
+        private static PathPollResult TryDrainMovementSegment(Actor actor, out bool preparedLocalPath)
+        {
+            preparedLocalPath = false;
+            if (actor?.data == null)
+            {
+                return PathPollResult.Failed(PathFailureReason.InvalidActor);
+            }
+
+            actor.clearOldPath();
+            var poll = PathFinder.Instance.DrainMovementSteps(actor, actor.current_path, LocalMovementBatchSize,
+                out var drained);
+            if (drained <= 0)
+            {
+                return poll;
+            }
+
+            actor.current_path_index = 0;
+            PathRecoveryManager.OnProgress(actor);
+            preparedLocalPath = true;
+            return poll;
         }
 
         private static void HandlePathFailure(Actor actor, PathFailureReason reason)

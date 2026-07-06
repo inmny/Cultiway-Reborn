@@ -105,7 +105,10 @@ public class PathFinder
 
     public bool IsActorPathing(Actor actor)
     {
-        if (actor?.data == null) return false;
+        if (actor?.data == null)
+        {
+            return false;
+        }
         if (!_tasks.TryGetValue(actor.data.id, out var task))
         {
             return false;
@@ -172,6 +175,33 @@ public class PathFinder
         }
     }
 
+    public PathPollResult DrainMovementSteps(Actor actor, List<WorldTile> path, int maxCount, out int drained)
+    {
+        drained = 0;
+        if (actor?.data == null)
+        {
+            return PathPollResult.Failed(PathFailureReason.InvalidActor);
+        }
+
+        if (!_tasks.TryGetValue(actor.data.id, out var task))
+        {
+            return PathPollResult.NoRequest();
+        }
+
+        drained = task.Stream.DrainMovementSteps(path, maxCount);
+        if (drained > 0)
+        {
+            if (task.Stream.IsFinished && !task.Stream.HasPendingSteps)
+            {
+                Cleanup(actor.data.id, task);
+            }
+
+            return PathPollResult.StepReady(default);
+        }
+
+        return GetPollResult(actor.data.id, task);
+    }
+
     public bool TryPeekStep(Actor actor, out PathStep step, out bool finished)
     {
         finished = false;
@@ -185,6 +215,40 @@ public class PathFinder
 
         finished = result.Kind != PathPollKind.Waiting;
         return false;
+    }
+
+    private PathPollResult GetPollResult(long actorId, PathfindingTask task)
+    {
+        if (task.Stream.TryPeek(out var step))
+        {
+            return PathPollResult.StepReady(step);
+        }
+
+        switch (task.Stream.State)
+        {
+            case PathRequestState.Pending:
+            case PathRequestState.Streaming:
+                return PathPollResult.Waiting();
+            case PathRequestState.Succeeded:
+                Cleanup(actorId, task);
+                return PathPollResult.Completed();
+            case PathRequestState.Failed:
+                var failure = task.Stream.FailureReason == PathFailureReason.None
+                    ? PathFailureReason.GeneratorException
+                    : task.Stream.FailureReason;
+                var error = task.Stream.Error;
+                Cleanup(actorId, task);
+                return PathPollResult.Failed(failure, error);
+            case PathRequestState.Cancelled:
+                var cancelReason = task.Stream.FailureReason == PathFailureReason.None
+                    ? PathFailureReason.CancelledByNewRequest
+                    : task.Stream.FailureReason;
+                Cleanup(actorId, task);
+                return PathPollResult.Cancelled(cancelReason);
+            default:
+                Cleanup(actorId, task);
+                return PathPollResult.Failed(PathFailureReason.GeneratorException);
+        }
     }
 
     public void ConsumeStep(Actor actor)
