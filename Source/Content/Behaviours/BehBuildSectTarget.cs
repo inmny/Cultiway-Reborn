@@ -37,8 +37,9 @@ public class BehBuildSectTarget : BehaviourActionActor
         if (completed)
         {
             WorldboxGame.I?.Sects?.setDirtyBuildings();
-            sect.AddContribution(pActor, SectConst.ContributionBuildSectBuilding);
-            SectVerifyLog.Log("SectConstructionComplete", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pActor)} building={building.asset?.id ?? "null"} contribution={SectConst.ContributionBuildSectBuilding}");
+            int contribution = SectTraitRules.GetBuildContributionReward(sect);
+            sect.AddContribution(pActor, contribution);
+            SectVerifyLog.Log("SectConstructionComplete", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pActor)} building={building.asset?.id ?? "null"} contribution={contribution}");
         }
 
         return BehResult.Continue;

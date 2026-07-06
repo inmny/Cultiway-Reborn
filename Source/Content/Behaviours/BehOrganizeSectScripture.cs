@@ -27,8 +27,9 @@ public class BehOrganizeSectScripture : BehaviourActionActor
         }
 
         Sect sect = pObject.GetExtend().sect;
-        bool result = sect.AddContribution(pObject, affair.contributionReward);
-        SectVerifyLog.Log("SectAffairTask", $"affair={affair.id} sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} books={sect.GetScriptureBookIds().Count} contribution={affair.contributionReward} result={result}");
+        int contribution = SectTraitRules.GetAffairContributionReward(sect, affair);
+        bool result = sect.AddContribution(pObject, contribution);
+        SectVerifyLog.Log("SectAffairTask", $"affair={affair.id} sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} books={sect.GetScriptureBookIds().Count} contribution={contribution} result={result}");
         return result ? BehResult.Continue : BehResult.Stop;
     }
 }

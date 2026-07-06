@@ -35,7 +35,8 @@ public readonly struct ScriptureBookTarget
     {
         if (_sect != null)
         {
-            bool result = World.world.books.TryStoreBookInSect(_sect, book, contributor, SectConst.ContributionWriteScriptureBook);
+            int contribution = SectTraitRules.GetWriteScriptureContributionReward(_sect);
+            bool result = World.world.books.TryStoreBookInSect(_sect, book, contributor, contribution);
             SectVerifyLog.Log("StoreScriptureBook", $"target=sect sect={SectVerifyLog.Sect(_sect)} contributor={SectVerifyLog.Actor(contributor)} book={SectVerifyLog.Book(book)} result={result}");
             return result;
         }

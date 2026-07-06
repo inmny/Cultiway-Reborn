@@ -15,10 +15,13 @@ public static class SectPersonnelEvaluator
         if (sect == null || actor == null || actor.isRekt()) return new SectPersonnelScore(0, 0, 0);
         if (actor.GetExtend().sect != sect) return new SectPersonnelScore(0, 0, 0);
 
+        int realm = GetRealmScore(actor);
+        int tenure = actor.GetSectTenureYears() * SectConst.PersonnelTenureScorePerYear;
+        int contribution = actor.GetSectContribution();
         return new SectPersonnelScore(
-            GetRealmScore(actor),
-            actor.GetSectTenureYears() * SectConst.PersonnelTenureScorePerYear,
-            actor.GetSectContribution());
+            SectTraitRules.GetRealmPersonnelScore(sect, actor, realm),
+            SectTraitRules.GetTenurePersonnelScore(sect, actor, tenure),
+            SectTraitRules.GetContributionPersonnelScore(sect, actor, contribution));
     }
 
     public static SectJoinProfile EvaluateInitialRolesForRecruit(Sect sect, Actor actor)
@@ -92,7 +95,7 @@ public static class SectPersonnelEvaluator
 
             SectJoinProfile profile = EvaluateInitialRolesForRecruit(sect, candidate);
             int roleOrder = GetProfileOrder(profile);
-            int score = GetRealmScore(candidate);
+            int score = Mathf.RoundToInt(GetRealmScore(candidate) * SectTraitRules.GetRecruitRealmScoreMultiplier(sect));
             float distance = Toolbox.DistTile(recruiter.current_tile, candidate.current_tile);
 
             if (best == null
@@ -120,14 +123,21 @@ public static class SectPersonnelEvaluator
         if (candidate.GetExtend().sect != null) return false;
         if (candidate.GetExtend().HasMaster()) return false;
         if (!candidate.GetExtend().HasCultisys<Xian>()) return false;
-        if (Toolbox.DistTile(recruiter.current_tile, candidate.current_tile) > SectConst.PersonnelRecruitRange) return false;
+        if (Toolbox.DistTile(recruiter.current_tile, candidate.current_tile) > SectTraitRules.GetRecruitRange(recruiter)) return false;
 
         Actor leader = sect.GetLeaderActor();
         if (leader == null) return false;
 
         int candidateLevel = GetCultivationLevel(candidate);
         int leaderLevel = GetCultivationLevel(leader);
-        return candidateLevel <= leaderLevel + SectConst.PersonnelRecruitMaxLevelAboveLeader;
+        if (candidateLevel > leaderLevel + SectTraitRules.GetRecruitMaxLevelAboveLeader(sect)) return false;
+        if (SectTraitRules.RequiresMasterIntroduction(sect)
+            && !candidate.CanMeetSectRoleMasterRequirement(sect, SectRoles.OuterDisciple))
+        {
+            return false;
+        }
+
+        return true;
     }
 
     public static bool TryRecruitExternalMember(Sect sect, Actor recruiter, Actor candidate)
@@ -201,8 +211,10 @@ public static class SectPersonnelEvaluator
         if (!actor.CanMeetSectRoleMasterRequirement(sect, role)) return false;
         if (!CanMeetConfiguredRolePrerequisites(actor, role, gradeOverride)) return false;
 
-        int score = initial ? GetRealmScore(actor) : EvaluateScore(sect, actor).Total;
-        if (score < role.minPersonnelScore) return false;
+        int score = initial
+            ? SectTraitRules.GetRealmPersonnelScore(sect, actor, GetRealmScore(actor))
+            : EvaluateScore(sect, actor).Total;
+        if (score < SectTraitRules.GetPromotionScoreThreshold(sect, role)) return false;
         if (role.minCultivationLevel >= 0 && GetCultivationLevel(actor) < role.minCultivationLevel) return false;
 
         return HasAvailableRoleSlot(sect, actor, role);
@@ -239,7 +251,7 @@ public static class SectPersonnelEvaluator
         if (actor.HasSectRole(role)) return true;
 
         int usedSlots = CountMembersWithRole(sect, role);
-        int maxSlots = role.GetMaxCount(sect.GetLivingMembers().Count);
+        int maxSlots = SectTraitRules.GetMaxRoleSlots(sect, role);
         return usedSlots < maxSlots;
     }
 

@@ -310,7 +310,9 @@ public static class MasterApprenticeTools
         float intelligenceMultiplier = 
             (master.GetStat(S.intelligence) + apprentice.GetStat(S.intelligence)) / 100f;
         
-        return baseEfficiency * relationMultiplier * masterMasteryMultiplier * intelligenceMultiplier;
+        Sect sect = master.sect != null && master.sect == apprentice.sect ? master.sect : null;
+        float sectMultiplier = sect == null ? 1f : SectTraitRules.GetTeachingGainMultiplier(sect);
+        return baseEfficiency * relationMultiplier * masterMasteryMultiplier * intelligenceMultiplier * sectMultiplier;
     }
     
     private static void UpdateRelationAfterTeaching(ActorExtend master, ActorExtend apprentice)
@@ -497,7 +499,7 @@ public static class MasterApprenticeTools
 
         ref MasterApprenticeState state = ref masterExtend.GetOrAddComponent<MasterApprenticeState>();
         state.ApprenticeCount++;
-        EnsureMasterStateDefaults(masterExtend, ref state);
+        EnsureMasterStateDefaults(sect, masterExtend, ref state);
         SectVerifyLog.Log("AutoAssignMaster", $"sect={SectVerifyLog.Sect(sect)} master={SectVerifyLog.Actor(master)} apprentice={SectVerifyLog.Actor(actor)} role={SectVerifyLog.Role(role)} relation={SectVerifyLog.Relation(requiredType)} apprenticeCount={state.ApprenticeCount}/{state.MaxApprenticeCount}");
         return true;
     }
@@ -508,7 +510,7 @@ public static class MasterApprenticeTools
     private static bool CanCurrentMasterSupportRole(Actor master, Actor apprentice, Sect sect, SectRoleAsset role)
     {
         return IsQualifiedSectMaster(master, apprentice, sect, role)
-               && IsWillingToAcceptInnerDisciple(master.GetExtend());
+               && IsWillingToAcceptInnerDisciple(master.GetExtend(), sect);
     }
 
     /// <summary>
@@ -517,8 +519,8 @@ public static class MasterApprenticeTools
     private static bool CanServeAsNewRoleMaster(Actor master, Actor apprentice, Sect sect, SectRoleAsset role)
     {
         return IsQualifiedSectMaster(master, apprentice, sect, role)
-               && IsWillingToAcceptInnerDisciple(master.GetExtend())
-               && CanAcceptNewInnerDisciple(master.GetExtend());
+               && IsWillingToAcceptInnerDisciple(master.GetExtend(), sect)
+               && CanAcceptNewInnerDisciple(master.GetExtend(), sect);
     }
 
     /// <summary>
@@ -544,7 +546,7 @@ public static class MasterApprenticeTools
     /// <summary>
     /// 判断候选师父是否具备新增一名内门弟子的修为、功法和名额条件。
     /// </summary>
-    private static bool CanAcceptNewInnerDisciple(ActorExtend master)
+    private static bool CanAcceptNewInnerDisciple(ActorExtend master, Sect sect)
     {
         if (!master.HasCultisys<Xian>()) return false;
         ref Xian xian = ref master.GetCultisys<Xian>();
@@ -554,27 +556,27 @@ public static class MasterApprenticeTools
         if (mainCultibook == null) return false;
         if (master.GetMainCultibookMastery() < 40) return false;
 
-        int maxCount = master.GetMaxApprenticeCount();
+        int maxCount = SectTraitRules.GetMasterApprenticeCapacity(sect, master);
         return maxCount > 0 && master.GetApprentices().Count < maxCount;
     }
 
     /// <summary>
     /// 判断候选师父当前是否愿意收内门弟子。
     /// </summary>
-    private static bool IsWillingToAcceptInnerDisciple(ActorExtend master)
+    private static bool IsWillingToAcceptInnerDisciple(ActorExtend master, Sect sect)
     {
         if (!master.TryGetComponent(out MasterApprenticeState state)) return true;
-        return state.RecruitWillingness >= SectConst.PersonnelInnerDiscipleMasterMinRecruitWillingness;
+        return state.RecruitWillingness >= SectTraitRules.GetMasterWillingnessThreshold(sect);
     }
 
     /// <summary>
     /// 为首次参与收徒的师父补齐师徒状态默认值。
     /// </summary>
-    private static void EnsureMasterStateDefaults(ActorExtend master, ref MasterApprenticeState state)
+    private static void EnsureMasterStateDefaults(Sect sect, ActorExtend master, ref MasterApprenticeState state)
     {
         if (state.MaxApprenticeCount == 0)
         {
-            state.MaxApprenticeCount = master.GetMaxApprenticeCount();
+            state.MaxApprenticeCount = SectTraitRules.GetMasterApprenticeCapacity(sect, master);
         }
         if (state.TeachWillingness == 0)
         {

@@ -60,6 +60,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>
         data.FoundedTime = (float)World.world.getCurWorldTime();
         data.name = founder.generateName(meta_type, getID());
         AddFoundingResidenceStrategy(founder);
+        AddFoundingPolicies();
 
         if (founder.hasCity())
         {
@@ -89,6 +90,17 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>
         {
             addTrait(trait, true);
             SectVerifyLog.Log("SectTrait", $"sect={SectVerifyLog.Sect(this)} trait={trait.id} reason=founding_residence_strategy");
+        }
+    }
+
+    private void AddFoundingPolicies()
+    {
+        List<SectTrait> policies = SectTraits.PickFoundingPolicies();
+        for (int i = 0; i < policies.Count; i++)
+        {
+            SectTrait policy = policies[i];
+            addTrait(policy, true);
+            SectVerifyLog.Log("SectTrait", $"sect={SectVerifyLog.Sect(this)} trait={policy.id} group={policy.group_id} reason=founding_policy");
         }
     }
 

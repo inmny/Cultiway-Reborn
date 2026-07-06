@@ -14,27 +14,34 @@ public class SectTraitLibrary : BaseTraitLibrary<SectTrait>
         return null;
     }
 
-    public override void post_init()
+    public override void linkAssets()
     {
-        base.post_init();
-        LinkResidenceStrategyOpposites();
+        LinkExclusiveGroupsToOppositeList();
+        base.linkAssets();
     }
 
-    private void LinkResidenceStrategyOpposites()
+    private void LinkExclusiveGroupsToOppositeList()
     {
-        List<SectTrait> strategies = GetResidenceStrategies();
-        for (int i = 0; i < strategies.Count; i++)
+        for (int i = 0; i < list.Count; i++)
         {
-            SectTrait strategy = strategies[i];
-            strategy.opposite_traits = new HashSet<SectTrait>();
-            for (int j = 0; j < strategies.Count; j++)
+            SectTrait trait = list[i];
+            if (!IsExclusiveGroupTrait(trait)) continue;
+
+            for (int j = 0; j < list.Count; j++)
             {
-                if (i != j)
+                SectTrait other = list[j];
+                if (i != j && IsExclusiveGroupTrait(other) && other.group_id == trait.group_id)
                 {
-                    strategy.opposite_traits.Add(strategies[j]);
+                    AddOppositeId(trait, other.id);
                 }
             }
         }
+    }
+
+    private static void AddOppositeId(SectTrait trait, string oppositeId)
+    {
+        if (trait.opposite_list != null && trait.opposite_list.Contains(oppositeId)) return;
+        trait.addOpposite(oppositeId);
     }
 
     public List<SectTrait> GetResidenceStrategies()
@@ -50,5 +57,25 @@ public class SectTraitLibrary : BaseTraitLibrary<SectTrait>
         }
 
         return result;
+    }
+
+    public List<SectTrait> GetFoundingPolicies(string groupId)
+    {
+        var result = new List<SectTrait>();
+        for (int i = 0; i < list.Count; i++)
+        {
+            SectTrait trait = list[i];
+            if (trait.isFoundingPolicy && trait.group_id == groupId)
+            {
+                result.Add(trait);
+            }
+        }
+
+        return result;
+    }
+
+    private static bool IsExclusiveGroupTrait(SectTrait trait)
+    {
+        return trait.isResidenceStrategy || trait.isFoundingPolicy;
     }
 }

@@ -41,8 +41,8 @@ public static class SectAffairRules
 
         Sect sect = actor.GetExtend().sect;
         if (sect == null || sect.isRekt()) return false;
-        if (affair.requiredPermission != null && !actor.HasSectPermission(affair.requiredPermission)) return false;
-        if (!MeetsOfficeRequirement(actor, affair)) return false;
+        if (!HasAffairPermission(actor, sect, affair)) return false;
+        if (!MeetsOfficeRequirement(actor, affair) && !CanBypassOfficeRequirement(actor, sect, affair)) return false;
 
         if (affair == SectAffairs.Chore) return SectChoreRules.CanDoSectChore(actor);
         if (affair == SectAffairs.OrganizeScripture) return CanOrganizeScripture(sect);
@@ -65,7 +65,7 @@ public static class SectAffairRules
             if (!CanDoSectAffair(actor, candidate)) continue;
 
             candidates.Add(candidate);
-            totalWeight += Mathf.Max(0.01f, candidate.weight);
+            totalWeight += GetAffairWeight(actor.GetExtend().sect, candidate);
         }
 
         if (candidates.Count == 0) return false;
@@ -74,7 +74,7 @@ public static class SectAffairRules
         for (int i = 0; i < candidates.Count; i++)
         {
             SectAffairAsset candidate = candidates[i];
-            roll -= Mathf.Max(0.01f, candidate.weight);
+            roll -= GetAffairWeight(actor.GetExtend().sect, candidate);
             if (roll <= 0f)
             {
                 affair = candidate;
@@ -107,6 +107,23 @@ public static class SectAffairRules
         return affair.requireOfficeAtLeast
             ? current.order >= required.order
             : current == required;
+    }
+
+    private static bool HasAffairPermission(Actor actor, Sect sect, SectAffairAsset affair)
+    {
+        if (affair.requiredPermission == null) return true;
+        if (actor.HasSectPermission(affair.requiredPermission)) return true;
+        return affair == SectAffairs.OrganizeScripture && SectTraitRules.CanDiscipleOrganizeScripture(sect, actor);
+    }
+
+    private static bool CanBypassOfficeRequirement(Actor actor, Sect sect, SectAffairAsset affair)
+    {
+        return affair == SectAffairs.OrganizeScripture && SectTraitRules.CanDiscipleOrganizeScripture(sect, actor);
+    }
+
+    private static float GetAffairWeight(Sect sect, SectAffairAsset affair)
+    {
+        return Mathf.Max(0.01f, affair.weight * SectTraitRules.GetAffairWeightMultiplier(sect, affair));
     }
 
     private static bool CanOrganizeScripture(Sect sect)

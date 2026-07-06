@@ -96,14 +96,18 @@ internal static class PatchActor
                     {
                         pool.Add(ActorJobs.SectDuty.id);
                     }
+
+                    Sect sect = ae.sect;
+                    float sectStudyJobChance = sect == null ? SectConst.SectStudyJobChance : SectTraitRules.GetSectStudyJobChance(sect);
+                    float sectAffairJobChance = sect == null ? SectConst.SectAffairJobChance : SectTraitRules.GetSectAffairJobChance(sect);
                     if (GeneralSettings.EnableCultibookSystems
-                        && Randy.randomChance(SectConst.SectStudyJobChance)
+                        && Randy.randomChance(sectStudyJobChance)
                         && SectScriptureStudyRules.CanStudySectScripture(pActor))
                     {
                         pool.Add(ActorJobs.SectStudy.id);
                     }
                     if (GeneralSettings.EnableCultibookSystems
-                        && Randy.randomChance(SectConst.SectAffairJobChance)
+                        && Randy.randomChance(sectAffairJobChance)
                         && SectAffairRules.CanDoAnySectAffair(pActor))
                     {
                         pool.Add(ActorJobs.SectAffair.id);

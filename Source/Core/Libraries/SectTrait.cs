@@ -55,6 +55,16 @@ public class SectTrait : BaseTrait<SectTrait>
     /// </summary>
     public float residenceSectDistanceScoreWeight = 1f;
 
+    /// <summary>
+    /// 是否为建宗时自动抽取的制度特质；同组制度特质互斥。
+    /// </summary>
+    public bool isFoundingPolicy;
+
+    /// <summary>
+    /// 建宗时随机选中该制度特质的权重。
+    /// </summary>
+    public int policyFoundingWeight = 1;
+
     public override HashSet<string> progress_elements => _progress_data?.unlocked_traits_kingdom;
 
     public override string typed_id => "sect_trait";

@@ -40,7 +40,7 @@ public static class SectScriptureStudyRules
             Book candidate = World.world.books.get(bookIds[i]);
             if (!CanReadBook(actor, candidate)) continue;
 
-            float score = GetStudyScore(actor, ae, sect, candidate);
+            float score = GetStudyScore(actor, ae, sect, candidate) * SectTraitRules.GetStudyScoreMultiplier(sect, candidate);
             if (score <= 0f) continue;
 
             candidates.Add(new StudyCandidate(candidate, score));

@@ -57,7 +57,8 @@ public static class SectLectureRules
             List<Actor> members = GetAudienceForCultibook(sect, lecturer, candidate);
             if (members.Count == 0) continue;
 
-            candidates.Add(new LectureCandidate(candidate, members, members.Count));
+            float weight = members.Count * SectTraitRules.GetLectureWeightMultiplier(sect, candidate);
+            candidates.Add(new LectureCandidate(candidate, members, weight));
         }
 
         if (candidates.Count == 0) return false;
@@ -76,7 +77,9 @@ public static class SectLectureRules
         if (cultibook == null || audience == null || audience.Count == 0) return 0;
 
         int taughtCount = 0;
-        for (int i = 0; i < audience.Count && taughtCount < SectConst.SectLectureMaxAudience; i++)
+        int maxAudience = SectTraitRules.GetLectureMaxAudience(sect);
+        float gainMultiplier = SectTraitRules.GetTeachingGainMultiplier(sect);
+        for (int i = 0; i < audience.Count && taughtCount < maxAudience; i++)
         {
             Actor student = audience[i];
             if (student == null || student.isRekt()) continue;
@@ -89,7 +92,7 @@ public static class SectLectureRules
             float gain = oldMastery <= 0f
                 ? SectConst.SectLectureNewCultibookGain
                 : SectConst.SectLectureKnownCultibookGain;
-            float newMastery = Mathf.Min(SectConst.SectLectureCultibookMasteryCap, oldMastery + gain);
+            float newMastery = Mathf.Min(SectConst.SectLectureCultibookMasteryCap, oldMastery + gain * gainMultiplier);
             studentExtend.Master(cultibook, newMastery);
 
             taughtCount++;

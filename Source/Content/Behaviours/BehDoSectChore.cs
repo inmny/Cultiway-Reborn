@@ -28,8 +28,9 @@ public class BehDoSectChore : BehaviourActionActor
         }
 
         Sect sect = pObject.GetExtend().sect;
-        bool result = sect.AddContribution(pObject, affair.contributionReward);
-        SectVerifyLog.Log("SectChoreTask", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} contribution={affair.contributionReward} result={result}");
+        int contribution = SectTraitRules.GetAffairContributionReward(sect, affair);
+        bool result = sect.AddContribution(pObject, contribution);
+        SectVerifyLog.Log("SectChoreTask", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} contribution={contribution} result={result}");
         return result ? BehResult.Continue : BehResult.Stop;
     }
 }

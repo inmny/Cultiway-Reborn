@@ -68,9 +68,10 @@ public static class SectPermissionRules
         if (!actor.CanAccessSectScriptureBook(book)) return int.MaxValue;
 
         int baseCost = GetBaseReadCost(book);
+        Sect sect = actor.GetExtend().sect;
         float multiplier = actor.HasSectScriptureReadPermissionFor(book)
             ? SectConst.ScriptureReadPermissionDiscount
-            : SectConst.ScriptureReadOutOfPermissionMultiplier;
+            : SectConst.ScriptureReadOutOfPermissionMultiplier * SectTraitRules.GetOutOfPermissionReadCostMultiplier(sect);
         return Mathf.CeilToInt(baseCost * multiplier);
     }
 

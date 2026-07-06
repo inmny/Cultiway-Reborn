@@ -43,8 +43,9 @@ public class BehLectureSectCultibook : BehaviourActionActor
             return BehResult.Stop;
         }
 
-        bool result = sect.AddContribution(pObject, affair.contributionReward);
-        SectVerifyLog.Log("SectLectureTask", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} cultibook={cultibook.id} audience={taughtCount} contribution={affair.contributionReward} result={result}");
+        int contribution = SectTraitRules.GetAffairContributionReward(sect, affair);
+        bool result = sect.AddContribution(pObject, contribution);
+        SectVerifyLog.Log("SectLectureTask", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} cultibook={cultibook.id} audience={taughtCount} contribution={contribution} result={result}");
         if (result)
         {
             WorldLogUtils.LogSectLecture(sect, pObject, cultibook.Name, taughtCount);
