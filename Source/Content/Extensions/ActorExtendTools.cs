@@ -152,6 +152,7 @@ public static class ActorExtendTools
         
         // 管理持续修炼标记
         UpdateContinuousCultivateTag(ae, cultibook);
+        ae.MarkCultiwayStatsDirty();
     }
 
     /// <summary>
@@ -171,6 +172,7 @@ public static class ActorExtendTools
         if (!ae.TryGetComponent(out ActorCultibookState state)) return;
         ref var stateRef = ref ae.GetComponent<ActorCultibookState>();
         stateRef.MainMastery = Mathf.Clamp(stateRef.MainMastery + amount, 0, 100);
+        ae.MarkCultiwayStatsDirty();
     }
 
     /// <summary>
@@ -224,6 +226,7 @@ public static class ActorExtendTools
         
         // 管理持续修炼标记
         UpdateContinuousCultivateTag(ae, newCultibook);
+        ae.MarkCultiwayStatsDirty();
 
         return true;
     }
@@ -910,6 +913,7 @@ public static class ActorExtendTools
             stateRef.InitSkillProgress();
             
             UpdateContinuousCultivateTag(ae, improvedCultibook);
+            ae.MarkCultiwayStatsDirty();
         }
         else
         {

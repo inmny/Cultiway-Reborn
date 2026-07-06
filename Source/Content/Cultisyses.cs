@@ -108,15 +108,16 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
                 PlantNameGenerator.Instance.NewNameGenerateRequest(GetPlantNameParams(ae, Xian.GetLevelName(ae.GetCultisys<Xian>().CurrLevel), element_root.Type.GetName()), ae.Base);
             }
         });
-        ActorExtend.RegisterActionOnUpdateStats([Hotfixable](ae) =>
+        ActorExtend.RegisterCachedStatsBuilder([Hotfixable](ae, stats) =>
         {
             if (!ae.TryGetComponent(out Xian xian)) return;
+
             var curr_level = xian.CurrLevel;
-            var stats = ae.Base.stats;
+
             stats.mergeStats(Xian.LevelAccumBaseStats[curr_level]);
             if (ae.TryGetComponent(out XianBase xian_base))
             {
-                
+
             }
             if (ae.TryGetComponent(out Jindan jindan))
             {
@@ -244,6 +245,7 @@ public class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
             jindan.stage++;
             jindan.strength *= (1f + 0.2f * Randy.randomFloat(intelligence / (10 + intelligence), 1));
             component.wakan *= 0.8f;
+            ae.MarkCultiwayStatsDirty();
             
             return false;
         }

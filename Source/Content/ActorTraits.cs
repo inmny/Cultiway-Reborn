@@ -61,14 +61,14 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
             if (!ae.HasElementRoot())
             {
                 ae.AddComponent(ElementRoot.Roll());
-                a.setStatsDirty();
+                ae.MarkCultiwayStatsDirty();
                 return true;
             }
 
             if (!ae.HasCultisys<Xian>())
             {
                 ae.NewCultisys(Cultisyses.Xian);
-                a.setStatsDirty();
+                ae.MarkCultiwayStatsDirty();
                 return true;
             }
 
@@ -84,7 +84,7 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
                 var composition = new float[8];
                 for (var i = 0; i < 8; i++) composition[i] = Mathf.Max(er[i], Mathf.Abs(RdUtils.NextStdNormal()));
                 er = new ElementRoot(composition);
-                a.setStatsDirty();
+                ae.MarkCultiwayStatsDirty();
             }
             else
             {

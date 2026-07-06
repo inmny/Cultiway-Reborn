@@ -381,6 +381,7 @@ public static class ElixirEffectGenerator
         {
             record.Stats[kv.Key] += kv.Value * multiplier;
         }
+        ae.MarkCultiwayStatsDirty();
 
         return true;
     }

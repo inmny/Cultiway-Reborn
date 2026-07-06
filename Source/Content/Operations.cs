@@ -75,7 +75,7 @@ public class Operations : ExtendLibrary<OperationAsset, Operations>
             root = ElementRoot.Roll();
         }
         ae.AddComponent(root);
-        ae.Base.setStatsDirty();
+        ae.MarkCultiwayStatsDirty();
         return true;
     }
 
@@ -84,7 +84,7 @@ public class Operations : ExtendLibrary<OperationAsset, Operations>
         ref var jindan = ref ae.GetOrAddComponent<Jindan>();
         jindan.stage = Math.Max(1, jindan.stage + 1);
         jindan.strength = Mathf.Max(jindan.strength, multiplier);
-        ae.Base.setStatsDirty();
+        ae.MarkCultiwayStatsDirty();
         return true;
     }
 }

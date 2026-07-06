@@ -33,6 +33,7 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
         OpenElementRootElixir.SetupDataChange((ActorExtend ae, Entity elixir_entity, ref Elixir _) =>
         {
             ae.AddComponent(elixir_entity.GetComponent<ElementRoot>());
+            ae.MarkCultiwayStatsDirty();
         });
         OpenElementRootElixir.consumable_check_action =
             (ActorExtend ae, Entity elixir_entity, ref Elixir _) => !ae.HasElementRoot();

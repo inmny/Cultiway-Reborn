@@ -10,7 +10,6 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Core.Components;
-using Cultiway.Debug;
 using NeoModLoader.api.attributes;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3;
@@ -29,8 +28,12 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
 {
     private static Action<ActorExtend> action_on_new_creature;
 
-    private static   Action<ActorExtend> action_on_update_stats;
+    private static Action<ActorExtend>            action_on_update_stats;
+    private static Action<ActorExtend, BaseStats> action_on_rebuild_cached_stats;
     private readonly HashSet<Entity> _learned_skills_v3 = new();
+    private readonly BaseStats       _cached_cultiway_stats = new();
+    private bool                     _cached_cultiway_stats_dirty = true;
+    private bool                     _skill_cache_dirty = true;
     private Entity          e;
     public HashSet<Entity> all_skills = new();
     public List<Entity> all_attack_skills = new();
@@ -163,6 +166,29 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             e.AddComponent(new TComponent());
         }
         return ref e.GetComponent<TComponent>();
+    }
+
+    public new void AddComponent<TComponent>(TComponent component = default) where TComponent : struct, IComponent
+    {
+        e.AddComponent(component);
+    }
+
+    public void MarkCultiwayStatsDirty(bool set_actor_stats_dirty = true)
+    {
+        _cached_cultiway_stats_dirty = true;
+        if (set_actor_stats_dirty)
+        {
+            Base?.setStatsDirty();
+        }
+    }
+
+    public void MarkCultiwaySkillCacheDirty(bool set_actor_stats_dirty = true)
+    {
+        _skill_cache_dirty = true;
+        if (set_actor_stats_dirty)
+        {
+            Base?.setStatsDirty();
+        }
     }
     public void GetForce(BaseSimObject source, float x, float y, float z)
     {
@@ -339,6 +365,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             SkillContainer = skill_container
         });
         _learned_skills_v3.Add(skill_container);
+        MarkCultiwaySkillCacheDirty();
     }
 
     public SpecialItem GetRandomSpecialItem(Func<Entity, bool> filter)
@@ -429,18 +456,14 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         action_on_update_stats += action;
     }
 
+    public static void RegisterCachedStatsBuilder(Action<ActorExtend, BaseStats> action)
+    {
+        action_on_rebuild_cached_stats += action;
+    }
+
     [Hotfixable]
     internal void ExtendUpdateStats()
     {
-        if (HasElementRoot())
-        {
-            Base.stats.mergeStats(GetElementRoot().Stats);
-        }
-
-        if (E.TryGetComponent(out Qiyun qiyun))
-        {
-            Base.stats[nameof(WorldboxGame.BaseStats.MaxQiyun)] += qiyun.MaxValue;
-        }
         foreach (var status_entity in GetStatuses())
         {
             if (status_entity.HasComponent<StatusOverwriteStats>())
@@ -461,15 +484,48 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
                 }
             }
         }
+
+        RebuildCultiwayStatsCacheIfDirty();
+        Base.stats.mergeStats(_cached_cultiway_stats);
+
+        RebuildSkillCacheIfDirty();
+
+        action_on_update_stats?.Invoke(this);
+    }
+
+    private void RebuildCultiwayStatsCacheIfDirty()
+    {
+        if (!_cached_cultiway_stats_dirty) return;
+
+        _cached_cultiway_stats.clear();
+
+        if (HasElementRoot())
+        {
+            _cached_cultiway_stats.mergeStats(GetElementRoot().Stats);
+        }
+
+        if (E.TryGetComponent(out Qiyun qiyun))
+        {
+            _cached_cultiway_stats[nameof(WorldboxGame.BaseStats.MaxQiyun)] += qiyun.MaxValue;
+        }
+
         if (E.TryGetComponent(out PermanentStats permanent_stats))
         {
-            Base.stats.mergeStats(permanent_stats.Stats);
+            _cached_cultiway_stats.mergeStats(permanent_stats.Stats);
         }
+
+        action_on_rebuild_cached_stats?.Invoke(this, _cached_cultiway_stats);
+
+        _cached_cultiway_stats_dirty = false;
+    }
+
+    private void RebuildSkillCacheIfDirty()
+    {
+        if (!_skill_cache_dirty) return;
+
         all_skills.Clear();
         all_skills.UnionWith(_learned_skills_v3);
 
-        action_on_update_stats?.Invoke(this);
-        
         all_attack_skills.Clear();
 
         foreach (var skill in all_skills)
@@ -479,6 +535,8 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
                 all_attack_skills.Add(skill);
             }
         }
+
+        _skill_cache_dirty = false;
     }
 
     internal void PostUpdateStats()
@@ -501,6 +559,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         e.AddComponent(cultisys.DefaultComponent);
         cultisys.OnGetAction?.Invoke(this, cultisys, ref e.GetComponent<T>());
+        MarkCultiwayStatsDirty();
     }
 
     public bool HasElementRoot()

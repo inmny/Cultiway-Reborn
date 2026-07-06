@@ -186,7 +186,6 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
             c.CurrLevel++;
             currentLevel++;
             ae.UpgradePowerLevel(PowerLevels[c.CurrLevel]);
-            ae.Base.setStatsDirty();
             
             ModClass.I.WorldRecord.CheckAndLogFirstLevelup(id, ae, ref ae.GetCultisys<T>());
         }
@@ -195,6 +194,7 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
             upgrade_action.Invoke(ae, this, ref c);
             currentLevel = ae.GetCultisys<T>().CurrLevel;
         }
+        ae.MarkCultiwayStatsDirty();
         BreakthroughVisualTrigger.TryTriggerXian(ae, beforeLevel, currentLevel);
     }
 }
