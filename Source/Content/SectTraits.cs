@@ -416,6 +416,8 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
         trait.path_icon = iconPath;
         trait.needs_to_be_explored = false;
         trait.show_in_knowledge_window = false;
+        trait.can_be_given = false;
+        trait.can_be_removed = false;
         trait.isResidenceStrategy = true;
         trait.foundingWeight = foundingWeight;
         trait.allowCityResidenceZones = allowCityZones;
