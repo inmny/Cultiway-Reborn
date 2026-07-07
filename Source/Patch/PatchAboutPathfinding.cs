@@ -133,7 +133,8 @@ namespace Cultiway.Patch
                 {
                     PathFinder.Instance.Cancel(actor);
                     cursor = default;
-                    actor.cancelAllBeh();
+                    actor.stopMovement();
+                    PathRecoveryManager.OnProgress(actor);
                 }
 
                 return true;
