@@ -67,7 +67,7 @@ public class Manager
         data.Get<Scale>().value = scale * Vector3.one;
         data.Get<AnimData>().frames = frames;
         data.Get<AnimData>().frame_idx = 0;
-        data.Get<AnimData>().next_frame_time = (float)(WorldboxGame.I.GetGameTime() + Time.deltaTime);
+        data.Get<AnimData>().frame_timer = 0f;
         data.Get<AnimController>().meta.frame_interval = Mathf.Max(0.01f, frameInterval);
         data.Get<AnimController>().meta.loop = loop;
         data.Get<AliveTimer>().value = 0f;

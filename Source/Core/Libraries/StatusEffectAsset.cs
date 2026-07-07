@@ -101,7 +101,7 @@ public class StatusEffectAsset : Asset
         }
 
         if (entity.HasComponent<AnimData>())
-            entity.GetComponent<AnimData>().next_frame_time = (float)(World.world.map_stats.world_time + Time.deltaTime);
+            entity.GetComponent<AnimData>().frame_timer = 0f;
 
         return entity;
     }

@@ -106,7 +106,7 @@ public class SkillEntityAsset : Asset
         }
 
         if (entity.HasComponent<AnimData>())
-            entity.GetComponent<AnimData>().next_frame_time = (float)(WorldboxGame.I.GetGameTime() + Time.deltaTime);
+            entity.GetComponent<AnimData>().frame_timer = 0f;
 
         return entity;
     }

@@ -7,7 +7,7 @@ namespace Cultiway.Core.Components;
 public struct AnimData : IComponent
 {
     public int      frame_idx;
-    public float    next_frame_time;
+    public float    frame_timer;
     [Ignore]
     public Sprite[] frames;
     [Ignore]

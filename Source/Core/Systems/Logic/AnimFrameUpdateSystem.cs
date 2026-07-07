@@ -1,3 +1,4 @@
+using System;
 using Cultiway.Core.Components;
 using Cultiway.Core.Components.AnimOverwrite;
 using Friflo.Engine.ECS;
@@ -8,52 +9,101 @@ namespace Cultiway.Core.Systems.Logic;
 
 public class AnimFrameUpdateSystem : QuerySystem<AnimData, AnimController>
 {
-    private readonly ArchetypeQuery<AnimData, AnimFrameInterval> interval_query;
-    private readonly ArchetypeQuery<AnimData, AnimLoop>          loop_query;
+    private readonly ArchetypeQuery<AnimData, AnimFrameInterval, AnimController> interval_query;
+    private readonly ArchetypeQuery<AnimData, AnimLoop, AnimController>          loop_query;
+    private readonly ArchetypeQuery<AnimData, AnimFrameInterval, AnimLoop>       interval_loop_query;
 
     public AnimFrameUpdateSystem(EntityStore world)
     {
         Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
         Filter.WithoutAnyComponents(ComponentTypes.Get<AnimFrameInterval, AnimLoop>());
 
-        var single_filter = new QueryFilter();
-        single_filter.WithoutAnyTags(Tags.Get<TagPrefab>());
-        interval_query = world.Query<AnimData, AnimFrameInterval>(single_filter);
-        loop_query = world.Query<AnimData, AnimLoop>(single_filter);
+        var interval_filter = new QueryFilter();
+        interval_filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
+        interval_filter.WithoutAnyComponents(ComponentTypes.Get<AnimLoop>());
+        interval_query = world.Query<AnimData, AnimFrameInterval, AnimController>(interval_filter);
+
+        var loop_filter = new QueryFilter();
+        loop_filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
+        loop_filter.WithoutAnyComponents(ComponentTypes.Get<AnimFrameInterval>());
+        loop_query = world.Query<AnimData, AnimLoop, AnimController>(loop_filter);
+
+        var interval_loop_filter = new QueryFilter();
+        interval_loop_filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
+        interval_loop_query = world.Query<AnimData, AnimFrameInterval, AnimLoop>(interval_loop_filter);
     }
 
     protected override void OnUpdate()
     {
-        var time = Tick.time;
-        Query.ForEachComponents((ref AnimData anim_data, ref AnimController controller) =>
+        var deltaTime = Tick.deltaTime;
+        Query.ForEachEntity((ref AnimData anim_data, ref AnimController controller, Entity entity) =>
         {
-            var delta_time = time - anim_data.next_frame_time;
-            if (delta_time < 0) return;
             AnimControllerMeta meta = controller.meta;
-            var delta_frame_nr = Mathf.FloorToInt(delta_time / meta.frame_interval) + 1;
-
-            anim_data.frame_idx += delta_frame_nr;
-            anim_data.next_frame_time += delta_frame_nr * meta.frame_interval;
-            var len = anim_data.frames.Length;
-            if (meta.loop)
-                anim_data.frame_idx %= len;
-            else if (anim_data.frame_idx >= len) anim_data.frame_idx = len - 1;
+            AdvanceAnim(ref anim_data, Mathf.Max(0.01f, meta.frame_interval), meta.loop, deltaTime, entity);
         });
-        interval_query.ForEachComponents((ref AnimData anim_data, ref AnimFrameInterval interval) =>
+        interval_query.ForEachEntity((ref AnimData anim_data, ref AnimFrameInterval interval,
+            ref AnimController controller, Entity entity) =>
         {
-            var delta_time = time - anim_data.next_frame_time;
-            if (delta_time < 0) return;
-            var delta_frame_nr = Mathf.FloorToInt(delta_time / interval.value) + 1;
-
-            anim_data.frame_idx += delta_frame_nr;
-            anim_data.next_frame_time += delta_frame_nr * interval.value;
+            AdvanceAnim(ref anim_data, Mathf.Max(0.01f, interval.value), controller.meta.loop, deltaTime, entity);
         });
-        loop_query.ForEachComponents((ref AnimData anim_data, ref AnimLoop loop) =>
+        loop_query.ForEachEntity((ref AnimData anim_data, ref AnimLoop loop, ref AnimController controller,
+            Entity entity) =>
         {
-            var len = anim_data.frames.Length;
-            if (loop.value)
-                anim_data.frame_idx %= len;
-            else if (anim_data.frame_idx >= len) anim_data.frame_idx = len - 1;
+            AdvanceAnim(ref anim_data, Mathf.Max(0.01f, controller.meta.frame_interval), loop.value, deltaTime,
+                entity);
         });
+        interval_loop_query.ForEachEntity((ref AnimData anim_data, ref AnimFrameInterval interval,
+            ref AnimLoop loop, Entity entity) =>
+        {
+            AdvanceAnim(ref anim_data, Mathf.Max(0.01f, interval.value), loop.value, deltaTime, entity);
+        });
+    }
+
+    private static void AdvanceAnim(ref AnimData animData, float frameInterval, bool loop, float deltaTime,
+        Entity entity)
+    {
+        if (animData.frames == null || animData.frames.Length == 0) return;
+        var len = animData.frames.Length;
+        if (animData.frame_idx < 0)
+            animData.frame_idx = 0;
+        else if (animData.frame_idx >= len)
+        {
+            if (loop)
+                animData.frame_idx %= len;
+            else
+            {
+                animData.frame_idx = len - 1;
+                return;
+            }
+        }
+
+        if (!loop && animData.frame_idx >= len - 1) return;
+        if (deltaTime <= 0f) return;
+        if (animData.frame_timer < 0f) animData.frame_timer = 0f;
+
+        var oldFrameIdx = animData.frame_idx;
+        var oldFrameTimer = animData.frame_timer;
+        animData.frame_timer += deltaTime;
+        if (animData.frame_timer < frameInterval) return;
+
+        var deltaFrameNr = Mathf.FloorToInt(animData.frame_timer / frameInterval);
+        animData.frame_timer -= deltaFrameNr * frameInterval;
+        animData.frame_idx += deltaFrameNr;
+        if (loop)
+            animData.frame_idx %= len;
+        else if (animData.frame_idx >= len)
+        {
+            animData.frame_idx = len - 1;
+            animData.frame_timer = 0f;
+        }
+    }
+
+    private static bool IsTalismanAnim(ref AnimData animData)
+    {
+        if (animData.frames == null || animData.frames.Length == 0) return false;
+        var idx = Mathf.Clamp(animData.frame_idx, 0, animData.frames.Length - 1);
+        var frame = animData.frames[idx];
+        return frame != null && !string.IsNullOrEmpty(frame.name) &&
+               frame.name.StartsWith("talisman_", StringComparison.Ordinal);
     }
 }
