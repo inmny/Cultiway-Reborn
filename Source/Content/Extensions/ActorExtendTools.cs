@@ -606,7 +606,6 @@ public static class ActorExtendTools
             }
 
             ae.LearnSkillV3(prototype, false);
-            ModClass.LogInfo($"[{ae}] 分化出法术雏形: {candidate.id}");
             return true;
         }
 
