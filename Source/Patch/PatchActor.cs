@@ -158,6 +158,37 @@ internal static class PatchActor
     {
         return actor.GetExtend().CanKeepCombatTarget(target);
     }
+
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.b3_findEnemyTarget))]
+    private static void b3_findEnemyTarget_prefix(Actor __instance, out bool __state)
+    {
+        __state = ShouldBackoffEmptyEnemySearch(__instance);
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.b3_findEnemyTarget))]
+    private static void b3_findEnemyTarget_postfix(Actor __instance, bool __state)
+    {
+        if (!__state) return;
+        if (__instance == null || __instance.has_attack_target) return;
+        if (__instance._timeout_targets <= 0f) return;
+
+        var timeScale = Config.time_scale_asset?.multiplier ?? 1f;
+        var scale = Mathf.Clamp(timeScale * 0.25f, 1f, 5f);
+        if (scale <= 1f) return;
+
+        __instance._timeout_targets *= scale;
+    }
+
+    private static bool ShouldBackoffEmptyEnemySearch(Actor actor)
+    {
+        if (actor == null) return false;
+        if (actor.has_attack_target) return false;
+        if (actor._timeout_targets > 0f) return false;
+        if (actor.is_moving || actor.isUsingPath()) return false;
+        if (!actor.isAllowedToLookForEnemies()) return false;
+        if (actor.isInWaterAndCantAttack()) return false;
+        return true;
+    }
     
     [HarmonyReversePatch(HarmonyReversePatchType.Snapshot), HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]
     public static void getHit_snapshot(Actor      __instance,                      float pDamage, bool pFlash = true,
