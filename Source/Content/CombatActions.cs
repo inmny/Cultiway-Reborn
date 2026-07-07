@@ -2,6 +2,7 @@ using System.Linq;
 using System.Runtime.Remoting.Channels;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
+using Cultiway.Content.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Utils.Extension;
@@ -49,6 +50,10 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
                 if (ae.CastSkillV3(talisman_component.SkillContainer, data.target, addition_strength,
                         talisman_component.PowerLevel, SkillCastCostSource.Prepaid))
                 {
+                    var direction = data.target.GetSimPos() - data.initiator.GetSimPos();
+                    TalismanVfxManager.QueueActivation(data.initiator, talisman_to_use,
+                        talisman_component.SkillContainer, direction, talisman_component.PowerLevel,
+                        addition_strength);
                     talisman_to_use.DeleteEntity();
                     has_casted = true;
                 }

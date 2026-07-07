@@ -53,9 +53,15 @@ public class Manager
     public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
         float frameInterval = 0.1f, bool loop = false, float? lifeTime = null, VisualRotation? visualRotation = null)
     {
-        var entity = SkillEntityLibrary.RawAnim.NewEntity();
         var frames = SkillEntityAsset.LoadOrderedFrames(path);
-        if (frames.Length == 0)
+        SpawnAnim(frames, pos, rot, scale, tint, frameInterval, loop, lifeTime, visualRotation);
+    }
+
+    public void SpawnAnim(Sprite[] frames, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
+        float frameInterval = 0.1f, bool loop = false, float? lifeTime = null, VisualRotation? visualRotation = null)
+    {
+        var entity = SkillEntityLibrary.RawAnim.NewEntity();
+        if (frames == null || frames.Length == 0)
         {
             ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
             return;

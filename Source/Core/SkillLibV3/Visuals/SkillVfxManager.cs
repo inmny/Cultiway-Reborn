@@ -328,6 +328,28 @@ public sealed class SkillVfxManager
         QueueAreaImpact(profile, color, accentColor, intensity, position, Mathf.Max(0.5f, radius), shakeObject);
     }
 
+    public void QueueSpriteFrames(Sprite[] frames, Vector3 position, Vector3 rotation, float scale,
+        Color? tint = null, float frameInterval = 0.1f, float? lifeTime = null,
+        VisualRotation? visualRotation = null, BaseSimObject shakeObject = null, float shakeDuration = 0f,
+        float shakeVolume = 0f)
+    {
+        Queue(new VfxSpawnRequest
+        {
+            Frames = frames,
+            Position = position,
+            Rotation = rotation,
+            Scale = scale,
+            Tint = tint ?? Color.white,
+            FrameInterval = frameInterval,
+            LifeTime = lifeTime ?? ((frames?.Length ?? 0) * Mathf.Max(0.01f, frameInterval)),
+            VisualRotation = visualRotation,
+            ShakeObject = shakeObject,
+            ObjectShakeDuration = shakeDuration,
+            ObjectShakeVolume = shakeVolume,
+            Priority = VfxPriority.Important
+        });
+    }
+
     private void QueueAreaImpact(SkillVfxProfileAsset profile, Color color, Color accentColor, float intensity,
         Vector3 position, float radius, BaseSimObject shakeObject)
     {
@@ -448,9 +470,18 @@ public sealed class SkillVfxManager
         for (var i = 0; i < count; i++)
         {
             var request = _requests[i];
-            ModClass.I.SkillV3.SpawnAnim(request.Path, request.Position, request.Rotation, request.Scale,
-                request.Tint, request.FrameInterval, lifeTime: request.LifeTime,
-                visualRotation: request.VisualRotation);
+            if (request.Frames is { Length: > 0 })
+            {
+                ModClass.I.SkillV3.SpawnAnim(request.Frames, request.Position, request.Rotation, request.Scale,
+                    request.Tint, request.FrameInterval, lifeTime: request.LifeTime,
+                    visualRotation: request.VisualRotation);
+            }
+            else
+            {
+                ModClass.I.SkillV3.SpawnAnim(request.Path, request.Position, request.Rotation, request.Scale,
+                    request.Tint, request.FrameInterval, lifeTime: request.LifeTime,
+                    visualRotation: request.VisualRotation);
+            }
 
             ApplyObjectShake(request);
             ApplyWorldShake(request);
@@ -461,9 +492,27 @@ public sealed class SkillVfxManager
 
     private void Queue(VfxSpawnRequest request)
     {
-        if (_requests.Count >= MaxQueuedVfxPerFrame) return;
-        if (string.IsNullOrEmpty(request.Path)) return;
-        _requests.Add(request);
+        if (string.IsNullOrEmpty(request.Path) && (request.Frames == null || request.Frames.Length == 0)) return;
+        if (_requests.Count < MaxQueuedVfxPerFrame)
+        {
+            _requests.Add(request);
+            return;
+        }
+
+        var replaceIndex = -1;
+        var replacePriority = request.Priority;
+        for (var i = 0; i < _requests.Count; i++)
+        {
+            if (_requests[i].Priority >= replacePriority) continue;
+            replacePriority = _requests[i].Priority;
+            replaceIndex = i;
+            if (replacePriority == VfxPriority.Normal) break;
+        }
+
+        if (replaceIndex >= 0)
+        {
+            _requests[replaceIndex] = request;
+        }
     }
 
     private void ResolveRuntime(SkillContext context, SkillEntityAsset asset, Entity skillEntity,
@@ -604,6 +653,7 @@ public sealed class SkillVfxManager
     private struct VfxSpawnRequest
     {
         public string Path;
+        public Sprite[] Frames;
         public Vector3 Position;
         public Vector3 Rotation;
         public float Scale;
@@ -616,6 +666,13 @@ public sealed class SkillVfxManager
         public float ObjectShakeVolume;
         public float WorldShakeDuration;
         public float WorldShakeIntensity;
+        public VfxPriority Priority;
+    }
+
+    private enum VfxPriority
+    {
+        Normal = 0,
+        Important = 1
     }
 
     private readonly struct SkillVfxTierConfig
