@@ -69,6 +69,16 @@ public sealed class PathRequest
     public float ActorPowerLevel { get; }
     public bool ActorHasXianCultisys { get; }
 
+    public bool HasSameTargetAndOptions(WorldTile target, bool pathOnWater, bool walkOnBlocks, bool walkOnLava,
+        int regionLimit)
+    {
+        return TargetTileId == TileTraversalInfo.TileIdOf(target) &&
+               PathOnWater == pathOnWater &&
+               WalkOnBlocks == walkOnBlocks &&
+               WalkOnLava == walkOnLava &&
+               RegionLimit == regionLimit;
+    }
+
     private static ActorMovementSnapshot SnapshotActorMovement(Actor actor)
     {
         var staminaRegen = SimGlobals.m != null

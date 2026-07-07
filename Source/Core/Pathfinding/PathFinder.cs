@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cultiway.Utils;
 using Cultiway;
+using Cultiway.Debug;
 using System.Collections.Generic;
 
 namespace Cultiway.Core.Pathfinding;
@@ -15,7 +16,11 @@ public class PathFinder
 
     private readonly ConcurrentDictionary<long, PathfindingTask> _tasks = new();
     private readonly ConcurrentDictionary<long, PathRequestOptions> _lastRequests = new();
+    private readonly ConcurrentQueue<PathfindingTask> _pendingTasks = new();
+    private readonly AutoResetEvent _pendingSignal = new(false);
+    private readonly object _workerLock = new();
     private IPathGenerator _generator;
+    private bool _workersStarted;
 
     public void UseGenerator(IPathGenerator generator)
     {
@@ -29,15 +34,39 @@ public class PathFinder
         {
             return false;
         }
+        if (TryReuseActiveRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions))
+        {
+            return true;
+        }
 
-        return RequestPath(new PathRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions));
+        var request = new PathRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions);
+
+        return RequestPathCore(request, true, true);
     }
 
     public bool RequestPath(PathRequest request)
     {
-        if (!CanAcceptRequest(request.Actor, request.Target, out _))
+        return RequestPathCore(request, false, false);
+    }
+
+    private bool RequestPathCore(PathRequest request, bool alreadyValidated,
+        bool alreadyCheckedReuse)
+    {
+        if (!alreadyValidated)
         {
-            return false;
+            if (!CanAcceptRequest(request.Actor, request.Target, out _))
+            {
+                return false;
+            }
+        }
+
+        if (!alreadyCheckedReuse)
+        {
+            if (TryReuseActiveRequest(request.Actor, request.Target, request.PathOnWater, request.WalkOnBlocks,
+                    request.WalkOnLava, request.RegionLimit))
+            {
+                return true;
+            }
         }
 
         _lastRequests[request.Actor.data.id] = new PathRequestOptions(request.Target, request.PathOnWater,
@@ -47,8 +76,90 @@ public class PathFinder
         var task = new PathfindingTask(request);
         _tasks[request.Actor.data.id] = task;
 
-        task.Worker = Task.Run(() => RunGenerator(task), task.Cancellation.Token);
+        EnqueueTask(task);
         return true;
+    }
+
+    private void EnqueueTask(PathfindingTask task)
+    {
+        EnsureWorkersStarted();
+        _pendingTasks.Enqueue(task);
+        _pendingSignal.Set();
+    }
+
+    private void EnsureWorkersStarted()
+    {
+        if (_workersStarted)
+        {
+            return;
+        }
+
+        lock (_workerLock)
+        {
+            if (_workersStarted)
+            {
+                return;
+            }
+
+            int workerCount = Math.Max(1, Math.Min(4, Environment.ProcessorCount - 1));
+            for (int i = 0; i < workerCount; i++)
+            {
+                var worker = new Thread(WorkerLoop)
+                {
+                    IsBackground = true,
+                    Name = $"CultiwayPathFinder-{i}"
+                };
+                worker.Start();
+            }
+
+            _workersStarted = true;
+        }
+    }
+
+    private void WorkerLoop()
+    {
+        while (true)
+        {
+            if (!_pendingTasks.TryDequeue(out var task))
+            {
+                _pendingSignal.WaitOne(50);
+                continue;
+            }
+
+            RunGenerator(task);
+            task.MarkWorkerFinished();
+        }
+    }
+
+    private bool TryReuseActiveRequest(Actor actor, WorldTile target, bool pathOnWater, bool walkOnBlocks,
+        bool walkOnLava, int limitRegions)
+    {
+        if (actor?.data == null || target == null)
+        {
+            return false;
+        }
+
+        long actorId = actor.data.id;
+        if (!_tasks.TryGetValue(actorId, out var task))
+        {
+            return false;
+        }
+
+        if (!task.Request.HasSameTargetAndOptions(target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions))
+        {
+            return false;
+        }
+
+        PathRequestState state = task.Stream.State;
+        if (state == PathRequestState.Pending ||
+            state == PathRequestState.Streaming ||
+            task.Stream.HasPendingSteps)
+        {
+            return true;
+        }
+
+        Cleanup(actorId, task);
+        return false;
     }
 
     public bool CanAcceptRequest(Actor actor, WorldTile target, out PathFailureReason failureReason)
@@ -100,6 +211,7 @@ public class PathFinder
         var task = new PathfindingTask(new PathRequest(actor, target, true, true, true, 0));
         task.Stream.AddStep(new PathStep(target, MovementMethod.Walk, TraversalEstimate.Direct));
         task.Stream.Complete();
+        task.MarkWorkerFinished();
         _tasks[actor.data.id] = task;
     }
 
@@ -337,14 +449,7 @@ public class PathFinder
         {
             task.Stream.Cancel(reason);
             task.Cancellation.Cancel();
-            if (task.Worker != null)
-            {
-                task.Worker.ContinueWith(_ => task.Dispose());
-            }
-            else
-            {
-                task.Dispose();
-            }
+            task.DisposeWhenWorkerFinished();
         }
     }
 
@@ -374,14 +479,14 @@ public class PathFinder
         var entry = new KeyValuePair<long, PathfindingTask>(actorId, task);
         if (((ICollection<KeyValuePair<long, PathfindingTask>>)_tasks).Remove(entry))
         {
-            task.Dispose();
+            task.DisposeWhenWorkerFinished();
         }
     }
     public void Cleanup(long actorId)
     {
         if (_tasks.TryRemove(actorId, out var task))
         {
-            task.Dispose();
+            task.DisposeWhenWorkerFinished();
         }
         _lastRequests.TryRemove(actorId, out _);
     }
@@ -393,14 +498,7 @@ public class PathFinder
             var task = id_task_pair.Value;
             task.Stream.Cancel(PathFailureReason.ClearWorld);
             task.Cancellation.Cancel();
-            if (task.Worker != null)
-            {
-                task.Worker.ContinueWith(_ => task.Dispose());
-            }
-            else
-            {
-                task.Dispose();
-            }
+            task.DisposeWhenWorkerFinished();
         }
         _tasks.Clear();
         _lastRequests.Clear();
@@ -445,6 +543,10 @@ public class PathFinder
 
 internal sealed class PathfindingTask : IDisposable
 {
+    private int _disposeRequested;
+    private int _disposed;
+    private int _workerFinished;
+
     public PathfindingTask(PathRequest request)
     {
         Request = request;
@@ -455,10 +557,36 @@ internal sealed class PathfindingTask : IDisposable
     public PathRequest Request { get; }
     public PathStream Stream { get; }
     public CancellationTokenSource Cancellation { get; }
-    public Task Worker { get; set; }
+
+    public void MarkWorkerFinished()
+    {
+        Volatile.Write(ref _workerFinished, 1);
+        if (Volatile.Read(ref _disposeRequested) != 0)
+        {
+            Dispose();
+        }
+    }
+
+    public void DisposeWhenWorkerFinished()
+    {
+        if (Interlocked.Exchange(ref _disposeRequested, 1) != 0)
+        {
+            return;
+        }
+
+        if (Volatile.Read(ref _workerFinished) != 0)
+        {
+            Dispose();
+        }
+    }
 
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
         Cancellation.Dispose();
     }
 }
