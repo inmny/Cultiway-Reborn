@@ -69,12 +69,6 @@ namespace Cultiway
         private float time_for_log_perf = 0;
         private float time_for_save_loggers = 0;
 
-        // 自动化测试相关
-        private bool _auto_test_started = false;
-        private bool _auto_test_completed = false;
-        private float _auto_test_timer = 0;
-        private const float AUTO_TEST_START_DELAY = 5f; // 游戏加载后等待5秒
-
         private void Update()
         {
             if (!Game.IsLoaded()) return; 
@@ -82,9 +76,6 @@ namespace Cultiway
             var render_update_tick = new UpdateTick(Game.GetRenderDeltaTime(), Game.GetGameTime());
             try
             {
-                // 自动化测试逻辑
-                RunAutoTest();
-
                 time_for_save_loggers += Time.deltaTime;
                 if (time_for_save_loggers > 60)
                 {
@@ -478,97 +469,6 @@ namespace Cultiway
                 dict[k.Underscore()] = dict[k];
             }
             LocalizedTextManager.updateTexts();
-        }
-
-        /// <summary>
-        /// 自动化测试：关闭欢迎窗口，放置30个东方人族，设置20倍速
-        /// </summary>
-        private void RunAutoTest()
-        {
-            if (_auto_test_completed) return;
-
-            _auto_test_timer += Time.deltaTime;
-
-            // 等待游戏完全加载
-            if (_auto_test_timer < AUTO_TEST_START_DELAY) return;
-
-            if (!_auto_test_started)
-            {
-                _auto_test_started = true;
-                LogInfo("[AutoTest] 开始自动化测试...");
-
-                try
-                {
-                    // 1. 关闭所有窗口
-                    ScrollWindow.moveAllToRightAndRemove();
-                    LogInfo("[AutoTest] 已关闭窗口");
-
-                    // 2. 放置30个东方人族
-                    SpawnEasternHumans(30);
-                    LogInfo("[AutoTest] 已放置30个东方人族");
-
-                    // 3. 设置游戏速度为20倍
-                    Config.setWorldSpeed("x20", true);
-                    LogInfo("[AutoTest] 已设置游戏速度为20倍");
-
-                    _auto_test_completed = true;
-                    LogInfo("[AutoTest] 自动化测试设置完成，等待观察...");
-                }
-                catch (Exception e)
-                {
-                    LogError($"[AutoTest] 自动化测试失败: {e.Message}\n{e.StackTrace}");
-                }
-            }
-        }
-
-        private void SpawnEasternHumans(int count)
-        {
-            var world = World.world;
-            int spawned = 0;
-            int attempts = 0;
-            int maxAttempts = count * 20;
-            var tile = world.tiles_list.GetRandom();
-
-            while (spawned < count && attempts < maxAttempts)
-            {
-                attempts++;
-
-                // 从tiles_list中随机选择一个tile
-                if (tile == null) 
-                {
-                    tile = world.tiles_list.GetRandom();
-                    continue;
-                }
-
-                // 检查是否是可通行的地形（避开水域、岩浆等）
-                var tileType = tile.Type;
-                if (tileType.liquid || tileType.ocean || !tileType.ground) 
-                {
-                    tile = world.tiles_list.GetRandom();
-                    continue;
-                }
-
-                // 创建东方人族
-                var actor = world.units.createNewUnit(
-                    "Cultiway.EasternHuman",
-                    tile,
-                    true,
-                    0f,
-                    null,
-                    null,
-                    true,
-                    false,  // 不设置为成年
-                    false,
-                    false
-                );
-
-                if (actor != null)
-                {
-                    spawned++;
-                }
-            }
-
-            LogInfo($"[AutoTest] 成功放置 {spawned} 个东方人族");
         }
     }
 }

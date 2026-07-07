@@ -350,10 +350,10 @@ namespace Cultiway.Content
                 state.Carrying.Add(passenger);
                 portal.ToLoad.Remove(passenger);
 
-                if (PathFinder.Instance.TryPeekStep(passenger, out var step, out var _)
-                    && step.Method == MovementMethod.Portal)
+                if (PathFinder.Instance.PeekReadyStep(passenger, out var readyStep).Kind == PathPollKind.StepReady &&
+                    readyStep.Step.Method == MovementMethod.Portal)
                 {
-                    PathFinder.Instance.ConsumeStep(passenger);
+                    readyStep.Consume();
                 }
             }
         }

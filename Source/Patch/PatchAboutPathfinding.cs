@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using ai;
 using ai.behaviours;
 using Cultiway.Core.BuildingComponents;
@@ -13,12 +15,16 @@ using HarmonyLib;
 using life.taxi;
 using strings;
 using tools;
+using UnityEngine;
 
 namespace Cultiway.Patch
 {
     internal static class PatchAboutPathfinding
     {
-        private const int LocalMovementBatchSize = 128;
+        private const float DiagonalTileDistance = 1.41421356237f;
+        private const float CalibrationRepeatCooldownSeconds = 0.25f;
+        private const string SocializeGoToTargetTaskId = "socialize_go_to_target";
+        private static readonly ConcurrentDictionary<long, CalibrationState> CalibrationStates = new();
 
         /**寻路调整方案
         * （1）完全替换原版寻路，调用goTo后会提交一个任务用以多线程寻路，goTo这边的结果始终为成功
@@ -67,86 +73,255 @@ namespace Cultiway.Patch
         [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.updatePathMovement))]
         private static bool updatePathMovement(Actor __instance)
         {
-            if (__instance != null && __instance.isFollowingLocalPath())
+            if (__instance == null)
             {
                 return true;
             }
 
-            var poll = TryDrainMovementSegment(__instance, out var preparedLocalPath);
-            if (preparedLocalPath)
+            if (__instance.isFollowingLocalPath() || __instance.current_path_global != null)
             {
+                return true;
+            }
+
+            TryUpdateCustomPathMovement(__instance, true);
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool TryUpdateCustomPathMovement(Actor actor, bool handleNoRequest)
+        {
+            var poll = PathFinder.Instance.OpenReadyCursor(actor, out var cursor);
+            return TryHandleCustomPathPoll(actor, poll, ref cursor, handleNoRequest);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool TryHandleCustomPathPoll(
+            Actor actor,
+            PathPollResult poll,
+            ref PathFinder.ReadyPathCursor cursor,
+            bool handleNoRequest)
+        {
+            if (poll.Kind == PathPollKind.StepReady)
+            {
+                var stepResult = HandleStep(actor, poll.Step);
+                switch (stepResult.Kind)
+                {
+                    case PathProcessKind.Consumed:
+                        if (cursor.IsValid)
+                        {
+                            cursor.Consume();
+                        }
+                        else
+                        {
+                            PathFinder.Instance.ConsumeStep(actor);
+                        }
+
+                        PathRecoveryManager.OnProgress(actor);
+                        break;
+                    case PathProcessKind.Abort:
+                        PathFinder.Instance.Cancel(actor);
+                        cursor = default;
+                        HandlePathFailure(actor, stepResult.FailureReason);
+                        break;
+                    case PathProcessKind.Deferred:
+                        actor.timer_action = 1f;
+                        actor.setNotMoving();
+                        break;
+                }
+
+                if (actor.tile_target == null)
+                {
+                    PathFinder.Instance.Cancel(actor);
+                    cursor = default;
+                    actor.cancelAllBeh();
+                }
+
+                return true;
+            }
+
+            if (!handleNoRequest)
+            {
+                if (poll.Kind != PathPollKind.Waiting)
+                {
+                    return false;
+                }
+
+                actor.setNotMoving();
+                actor.next_step_position = actor.current_tile?.posV3 ?? actor.next_step_position;
+                actor.timer_action = 0.05f;
                 return true;
             }
 
             switch (poll.Kind)
             {
                 case PathPollKind.Waiting:
-                    __instance.setNotMoving();
-                    __instance.next_step_position = __instance.current_tile?.posV3 ?? __instance.next_step_position;
-                    __instance.timer_action = 0.05f;
-                    return false;
+                    actor.setNotMoving();
+                    actor.next_step_position = actor.current_tile?.posV3 ?? actor.next_step_position;
+                    actor.timer_action = 0.05f;
+                    return true;
                 case PathPollKind.Completed:
-                    __instance.setNotMoving();
-                    PathRecoveryManager.OnProgress(__instance);
-                    return false;
+                    actor.setNotMoving();
+                    PathRecoveryManager.OnProgress(actor);
+                    return true;
                 case PathPollKind.Failed:
-                    HandlePathFailure(__instance, poll.FailureReason);
-                    return false;
+                    HandlePathFailure(actor, poll.FailureReason);
+                    return true;
                 case PathPollKind.Cancelled:
-                    __instance.setNotMoving();
-                    PathRecoveryManager.Clear(__instance);
-                    return false;
+                    actor.setNotMoving();
+                    PathRecoveryManager.Clear(actor);
+                    return true;
                 case PathPollKind.NoRequest:
-                    __instance.setNotMoving();
-                    __instance.timer_action = 1f;
-                    PathRecoveryManager.TryRequest(__instance);
-                    return false;
+                    actor.setNotMoving();
+                    actor.timer_action = 1f;
+                    PathRecoveryManager.TryRequest(actor);
+                    return true;
             }
 
-            var result = HandleStep(__instance, poll.Step);
-            switch (result.Kind)
-            {
-                case PathProcessKind.Consumed:
-                    PathFinder.Instance.ConsumeStep(__instance);
-                    PathRecoveryManager.OnProgress(__instance);
-                    break;
-                case PathProcessKind.Abort:
-                    PathFinder.Instance.Cancel(__instance);
-                    HandlePathFailure(__instance, result.FailureReason);
-                    break;
-                case PathProcessKind.Deferred:
-                    __instance.timer_action = 1f;
-                    __instance.setNotMoving();
-                    break;
-            }
-            if (__instance.tile_target == null)
-            {
-                PathFinder.Instance.Cancel(__instance);
-                __instance.cancelAllBeh();
-            }
-            return false;
+            return true;
         }
 
-        private static PathPollResult TryDrainMovementSegment(Actor actor, out bool preparedLocalPath)
+        private static bool CanUseFastMoveTo(WorldTile tile)
         {
-            preparedLocalPath = false;
-            if (actor?.data == null)
+            return GetFastMoveBlockReason(tile) == SlowMoveReason.None;
+        }
+
+        private static SlowMoveReason GetFastMoveBlockReason(WorldTile tile)
+        {
+            Building building = tile.building;
+            if (tile.Type.step_action != null)
             {
-                return PathPollResult.Failed(PathFailureReason.InvalidActor);
+                return SlowMoveReason.TileStepAction;
             }
 
-            actor.clearOldPath();
-            var poll = PathFinder.Instance.DrainMovementSteps(actor, actor.current_path, LocalMovementBatchSize,
-                out var drained);
-            if (drained <= 0)
+            if (building?.asset == null || !building.asset.flora)
             {
-                return poll;
+                return SlowMoveReason.None;
             }
 
-            actor.current_path_index = 0;
-            PathRecoveryManager.OnProgress(actor);
-            preparedLocalPath = true;
-            return poll;
+            BuildingAsset asset = building.asset;
+            switch (asset.flora_type)
+            {
+                case FloraType.Fungi:
+                    return WorldLawLibrary.world_law_exploding_mushrooms.isEnabled()
+                        ? SlowMoveReason.FungiLaw
+                        : SlowMoveReason.None;
+                case FloraType.Plant:
+                    if (asset.type == "type_flower" && WorldLawLibrary.world_law_nectar_nap.isEnabled())
+                    {
+                        return SlowMoveReason.FlowerNectarLaw;
+                    }
+
+                    return WorldLawLibrary.world_law_plants_tickles.isEnabled() ||
+                           WorldLawLibrary.world_law_root_pranks.isEnabled()
+                        ? SlowMoveReason.PlantLaw
+                        : SlowMoveReason.None;
+                default:
+                    return SlowMoveReason.None;
+            }
+        }
+
+        private static void FastMoveTo(Actor actor, WorldTile tile, bool adjacentStep)
+        {
+            SetMoveStepTile(actor, tile, adjacentStep);
+            actor.next_step_position = new Vector2(tile.posV3.x, tile.posV3.y);
+        }
+
+        private static void FastMoveToWithMoveToSideEffects(
+            Actor actor,
+            WorldTile tile,
+            bool adjacentStep)
+        {
+            if (!actor.has_attack_target &&
+                actor.current_tile != null &&
+                tile.isOnFire() &&
+                !actor.current_tile.isOnFire() &&
+                !actor.isImmuneToFire())
+            {
+                actor.cancelAllBeh();
+                return;
+            }
+
+            SetMoveStepTile(actor, tile, adjacentStep);
+            ApplyStepActionForCurrentTile(actor);
+
+            actor.next_step_position = new Vector2(tile.posV3.x, tile.posV3.y);
+        }
+
+        private static void SetMoveStepTile(Actor actor, WorldTile tile, bool adjacentStep)
+        {
+            if (!actor._is_moving)
+            {
+                actor._is_moving = true;
+                actor.batch.c_update_movement.Add(actor);
+            }
+
+            actor._next_step_tile = tile;
+            if (adjacentStep)
+            {
+                actor.current_tile = tile;
+            }
+            else if ((float)Toolbox.SquaredDistTile(actor.current_tile, tile) > 4f)
+            {
+                actor.dirty_current_tile = true;
+            }
+            else
+            {
+                actor.current_tile = tile;
+            }
+        }
+
+        private static void ApplyStepActionForCurrentTile(Actor actor)
+        {
+            var currentTile = actor.current_tile;
+            var tileType = currentTile?.Type;
+            if (tileType == null)
+            {
+                return;
+            }
+
+            if (tileType.step_action != null && Randy.randomChance(tileType.step_action_chance))
+            {
+                tileType.step_action(currentTile, actor);
+            }
+
+            var building = currentTile.building;
+            if (building == null || !building.asset.flora)
+            {
+                return;
+            }
+
+            var buildingAsset = building.asset;
+            switch (buildingAsset.flora_type)
+            {
+                case FloraType.Fungi:
+                    if (WorldLawLibrary.world_law_exploding_mushrooms.isEnabled())
+                    {
+                        MapAction.damageWorld(currentTile, 5, AssetManager.terraform.get("grenade"));
+                        EffectsLibrary.spawnAtTileRandomScale("fx_explosion_small", currentTile, 0.1f, 0.15f);
+                    }
+
+                    break;
+                case FloraType.Plant:
+                    if (buildingAsset.type == "type_flower" &&
+                        WorldLawLibrary.world_law_nectar_nap.isEnabled() &&
+                        Randy.randomChance(0.1f))
+                    {
+                        actor.makeSleep(10f);
+                        break;
+                    }
+
+                    if (WorldLawLibrary.world_law_plants_tickles.isEnabled() && Randy.randomChance(0.3f))
+                    {
+                        actor.tryToGetSurprised(currentTile);
+                    }
+
+                    if (WorldLawLibrary.world_law_root_pranks.isEnabled() && Randy.randomChance(0.2f))
+                    {
+                        actor.makeStunned();
+                    }
+
+                    break;
+            }
         }
 
         private static void HandlePathFailure(Actor actor, PathFailureReason reason)
@@ -164,19 +339,33 @@ namespace Cultiway.Patch
         [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.isUsingPath))]
         private static void isUsingPath_postfix(Actor __instance, ref bool __result)
         {
-            __result = __result || (PathFinder.Instance.IsActorPathing(__instance) && __instance.tile_target != null);
+            if (!__result && __instance?.tile_target != null)
+            {
+                __result = PathFinder.Instance.IsActorPathing(__instance);
+            }
         }
 
-        [HarmonyTranspiler, HarmonyPatch(typeof(Actor), "updateMovement")]
-        private static IEnumerable<CodeInstruction> updateMovement_transpiler(IEnumerable<CodeInstruction> codes)
+        [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.u10_checkSmoothMovement))]
+        private static IEnumerable<CodeInstruction> u10_checkSmoothMovement_transpiler(IEnumerable<CodeInstruction> codes)
         {
-            var original = AccessTools.Method(typeof(Actor), nameof(Actor.isUsingPath));
-            var replacement = AccessTools.Method(typeof(PatchAboutPathfinding), nameof(IsUsingPathForSmoothMovement));
+            var checkCalibrate = AccessTools.Method(typeof(Actor), "checkCalibrateTargetPosition");
+            var updateMovement = AccessTools.Method(typeof(Actor), "updateMovement", new[] { typeof(float), typeof(float) });
+            var checkCalibrateOptimized = AccessTools.Method(typeof(PatchAboutPathfinding),
+                nameof(CheckCalibrateTargetPositionOptimized));
+            var updateMovementOptimized = AccessTools.Method(typeof(PatchAboutPathfinding),
+                nameof(UpdateMovementOptimized));
+
             foreach (var code in codes)
             {
-                if (code.Calls(original))
+                if (code.Calls(checkCalibrate))
                 {
-                    yield return new CodeInstruction(OpCodes.Call, replacement).WithLabels(code.labels);
+                    yield return new CodeInstruction(OpCodes.Call, checkCalibrateOptimized).WithLabels(code.labels);
+                    continue;
+                }
+
+                if (code.Calls(updateMovement))
+                {
+                    yield return new CodeInstruction(OpCodes.Call, updateMovementOptimized).WithLabels(code.labels);
                     continue;
                 }
 
@@ -184,10 +373,165 @@ namespace Cultiway.Patch
             }
         }
 
-        private static bool IsUsingPathForSmoothMovement(Actor actor)
+        [HarmonyPrefix, HarmonyPatch(typeof(Actor), "updateMovement")]
+        private static bool updateMovement_prefix(Actor __instance, float pElapsed, float pWalkedDistance = 0f)
         {
-            return actor != null && (actor.isUsingPath() ||
-                                     (PathFinder.Instance.IsActorPathing(actor) && actor.tile_target != null));
+            UpdateMovementOptimized(__instance, pElapsed, pWalkedDistance);
+            return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void CheckCalibrateTargetPositionOptimized(Actor actor)
+        {
+            var target = actor.beh_actor_target;
+            if (target == null)
+            {
+                return;
+            }
+
+            if (actor.hasRangeAttack())
+            {
+                return;
+            }
+
+            var action = actor.hasTask() ? actor.ai.action : null;
+            if (action == null || !action.calibrate_target_position)
+            {
+                return;
+            }
+
+            var isActorTarget = target.isActor();
+            var targetActor = target.a;
+            var targetTile = targetActor?.current_tile;
+            var tileTarget = actor.tile_target;
+            if (!isActorTarget || targetTile == null || tileTarget == null)
+            {
+                return;
+            }
+
+            var dx = targetTile.x - tileTarget.x;
+            var dy = targetTile.y - tileTarget.y;
+            var maxDist = action.check_actor_target_position_distance;
+            if (dx * dx + dy * dy > maxDist * maxDist)
+            {
+                if (IsSocializeGoToTarget(actor))
+                {
+                    return;
+                }
+
+                if (ShouldSkipRepeatedCalibration(actor, action, targetActor, targetTile))
+                {
+                    return;
+                }
+
+                actor.clearPathForCalibration();
+                action.startExecute(actor);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void UpdateMovementOptimized(Actor actor, float elapsed, float walkedDistance)
+        {
+            var movementBudget = actor._current_combined_movement_speed * elapsed;
+            var canFlip = actor.asset.can_flip && actor.checkFlip();
+            var customPathCursor = default(PathFinder.ReadyPathCursor);
+
+            for (int i = 0; i < 256; i++)
+            {
+                var current = actor.current_position;
+                var target = actor.next_step_position;
+
+                if (canFlip)
+                {
+                    actor.setFlip(current.x < target.x);
+                }
+
+                var movementDelta = movementBudget - walkedDistance;
+                if (movementDelta < 0f)
+                {
+                    movementDelta = 0f;
+                }
+
+                var dx = target.x - current.x;
+                var dy = target.y - current.y;
+                var distSq = dx * dx + dy * dy;
+                var deltaSq = movementDelta * movementDelta;
+
+                if (distSq >= deltaSq)
+                {
+                    if (movementDelta > 0f && distSq > 0f)
+                    {
+                        var scale = movementDelta / Mathf.Sqrt(distSq);
+                        actor.current_position = new Vector2(current.x + dx * scale, current.y + dy * scale);
+                    }
+                    return;
+                }
+
+                actor.current_position = target;
+                var walked = GetBoundaryWalkedDistance(distSq);
+
+                ContinuePathMovementFromSmooth(actor, ref customPathCursor);
+
+                if (!actor.is_moving)
+                {
+                    return;
+                }
+
+                walkedDistance += walked;
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static float GetBoundaryWalkedDistance(float distSq)
+        {
+            if (distSq <= 0f)
+            {
+                return 0f;
+            }
+
+            if (distSq > 0.999f && distSq < 1.001f)
+            {
+                return 1f;
+            }
+
+            if (distSq > 1.999f && distSq < 2.001f)
+            {
+                return DiagonalTileDistance;
+            }
+
+            return Mathf.Sqrt(distSq);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void ContinuePathMovementFromSmooth(
+            Actor actor,
+            ref PathFinder.ReadyPathCursor customPathCursor)
+        {
+            if (actor.isFollowingLocalPath() || actor.current_path_global != null)
+            {
+                actor.updatePathMovement();
+                return;
+            }
+
+            if (actor.tile_target != null)
+            {
+                PathPollResult poll;
+                if (customPathCursor.IsValid)
+                {
+                    poll = customPathCursor.Poll();
+                }
+                else
+                {
+                    poll = PathFinder.Instance.OpenReadyCursor(actor, out customPathCursor);
+                }
+
+                if (TryHandleCustomPathPoll(actor, poll, ref customPathCursor, false))
+                {
+                    return;
+                }
+            }
+
+            actor.stopMovement();
         }
 
         [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.clearWorld))]
@@ -196,11 +540,13 @@ namespace Cultiway.Patch
             PathFinder.Instance.Clear();
             PortalRegistry.Instance.Clear();
             PathRecoveryManager.Clear();
+            CalibrationStates.Clear();
         }
         [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.Dispose))]
         private static void Dispose_prefix(Actor __instance)
         {
             if (__instance.data == null) return;
+            CalibrationStates.TryRemove(__instance.data.id, out _);
             lock (PathFinder.ActorSyncLock)
             {
                 PathFinder.Instance.Cancel(__instance);
@@ -297,23 +643,12 @@ namespace Cultiway.Patch
                 return HandlePortal(actor, step);
             }
 
-            if (!TryResolveStepTile(step, out var tile))
-            {
-                return PathProcessResult.Abort(PathFailureReason.UnsafeStep);
-            }
-
             return step.Method switch
             {
-                MovementMethod.Walk => TryMove(actor, tile),
-                MovementMethod.Swim => TryMove(actor, tile),
+                MovementMethod.Walk => TryMove(actor, step),
+                MovementMethod.Swim => TryMove(actor, step),
                 _ => PathProcessResult.Deferred()
             };
-        }
-
-        private static bool TryResolveStepTile(PathStep step, out WorldTile tile)
-        {
-            tile = step.Tile;
-            return tile != null;
         }
 
         [HarmonyTranspiler, HarmonyPatch(typeof(BehBoatTransportDoLoading), nameof(BehBoatTransportDoLoading.execute))]
@@ -357,15 +692,19 @@ namespace Cultiway.Patch
             foreach (var passenger in to_add)
             {
                 boat.addPassenger(passenger);
-                if (PathFinder.Instance.TryPeekStep(passenger, out var step, out var finished))
-                {
-                    if (step.Method == MovementMethod.Portal)
-                    {
-                        PathFinder.Instance.ConsumeStep(passenger);
-                    }
-                }
+                ConsumeReadyPortalStep(passenger);
             }
         }
+
+        private static void ConsumeReadyPortalStep(Actor actor)
+        {
+            if (PathFinder.Instance.PeekReadyStep(actor, out var readyStep).Kind == PathPollKind.StepReady &&
+                readyStep.Step.Method == MovementMethod.Portal)
+            {
+                readyStep.Consume();
+            }
+        }
+
         private static PathProcessResult HandlePortal(Actor actor, PathStep step)
         {
             if (step.Entry?.Portal == null || step.Exit?.Portal == null)
@@ -468,13 +807,7 @@ namespace Cultiway.Patch
                 foreach (var a in portal_request.Portals[0].ToLoad)
                 {
                     __instance.boat.addPassenger(a);
-                    if (PathFinder.Instance.TryPeekStep(a, out var step, out var finished))
-                    {
-                        if (step.Method == MovementMethod.Portal)
-                        {
-                            PathFinder.Instance.ConsumeStep(a);
-                        }
-                    }
+                    ConsumeReadyPortalStep(a);
                 }
                 portal_request.State = PortalRequestState.WaitingPassengers;
                 pActor.timer_action = 12f;
@@ -557,44 +890,73 @@ namespace Cultiway.Patch
             PortalManager.RemoveDeadBuildings();
         }
 
-        private static PathProcessResult TryMove(Actor actor, WorldTile tile)
+        private static PathProcessResult TryMove(Actor actor, PathStep step)
         {
             if (actor?.data == null || actor.asset == null)
             {
                 return PathProcessResult.Abort(PathFailureReason.InvalidActor);
             }
 
-            if (actor.current_tile == null)
+            var currentTile = actor.current_tile;
+            if (currentTile == null)
             {
                 return PathProcessResult.Abort(PathFailureReason.InvalidStart);
             }
 
+            var tile = step.Tile;
             if (tile == null)
             {
                 return PathProcessResult.Abort(PathFailureReason.UnsafeStep);
             }
 
+            var isBoat = actor.asset.is_boat;
             var tileType = tile.Type;
             if (tileType == null)
             {
                 return PathProcessResult.Abort(PathFailureReason.UnsafeStep);
             }
 
-            if (actor.asset.is_boat && !tile.isGoodForBoat())
+            if (isBoat && !tile.isGoodForBoat())
             {
+                actor.callbacks_cancel_path_movement?.Invoke(actor);
                 return PathProcessResult.Abort(PathFailureReason.StepBlocked);
-            }
-
-            if (tile.isOnFire() && !actor.isImmuneToFire() && !(actor.current_tile?.isOnFire() ?? false))
-            {
-                return PathProcessResult.Abort(PathFailureReason.UnsafeStep);
             }
 
             if (tileType.damaged_when_walked)
             {
-                actor.current_tile?.tryToBreak();
+                currentTile.tryToBreak();
             }
-            actor.moveTo(tile);
+
+            var adjacentStep = (step.Hazards & HazardFlags.Direct) == 0;
+            var plannedFire = (step.Hazards & HazardFlags.Fire) != 0;
+            var slowMoveReason = isBoat ? SlowMoveReason.Boat : SlowMoveReason.None;
+            var useFastMove = false;
+            if (!isBoat)
+            {
+                if (plannedFire)
+                {
+                    useFastMove = true;
+                }
+                else
+                {
+                    slowMoveReason = GetFastMoveBlockReason(tile);
+                    useFastMove = slowMoveReason == SlowMoveReason.None;
+                }
+            }
+
+            if (useFastMove)
+            {
+                FastMoveTo(actor, tile, adjacentStep);
+            }
+            else if (CanReplayMoveToSideEffects(slowMoveReason))
+            {
+                FastMoveToWithMoveToSideEffects(actor, tile, adjacentStep);
+            }
+            else
+            {
+                actor.moveTo(tile);
+            }
+
             return PathProcessResult.Consumed();
         }
 
@@ -632,5 +994,74 @@ namespace Cultiway.Patch
             Deferred,
             Abort
         }
+
+        private enum SlowMoveReason
+        {
+            None,
+            Boat,
+            TileStepAction,
+            FungiLaw,
+            FlowerNectarLaw,
+            PlantLaw,
+            Unknown
+        }
+
+        private static bool CanReplayMoveToSideEffects(SlowMoveReason reason)
+        {
+            return reason == SlowMoveReason.TileStepAction ||
+                   reason == SlowMoveReason.FungiLaw ||
+                   reason == SlowMoveReason.FlowerNectarLaw ||
+                   reason == SlowMoveReason.PlantLaw;
+        }
+
+        private static bool IsSocializeGoToTarget(Actor actor)
+        {
+            return actor?.ai?.task?.id == SocializeGoToTargetTaskId;
+        }
+
+        private static bool ShouldSkipRepeatedCalibration(
+            Actor actor,
+            BehaviourActionActor action,
+            Actor targetActor,
+            WorldTile targetTile)
+        {
+            if (actor?.data == null || action == null || targetActor?.data == null || targetTile?.data == null)
+            {
+                return false;
+            }
+
+            var actorId = actor.data.id;
+            var targetId = targetActor.data.id;
+            var targetTileId = targetTile.data.tile_id;
+            var now = Time.unscaledTime;
+            if (CalibrationStates.TryGetValue(actorId, out var state) &&
+                state.TargetId == targetId &&
+                ReferenceEquals(state.Action, action) &&
+                now < state.NextAllowedTime)
+            {
+                return true;
+            }
+
+            CalibrationStates[actorId] =
+                new CalibrationState(targetId, targetTileId, action, now + CalibrationRepeatCooldownSeconds);
+            return false;
+        }
+
+        private readonly struct CalibrationState
+        {
+            public CalibrationState(long targetId, int targetTileId, BehaviourActionActor action, float nextAllowedTime)
+            {
+                TargetId = targetId;
+                TargetTileId = targetTileId;
+                Action = action;
+                NextAllowedTime = nextAllowedTime;
+            }
+
+            public long TargetId { get; }
+            public int TargetTileId { get; }
+            public BehaviourActionActor Action { get; }
+            public float NextAllowedTime { get; }
+        }
+
     }
 }

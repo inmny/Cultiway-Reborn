@@ -323,10 +323,10 @@ public class TeleportArraySystem : BaseSystem
         var passenger = pending.Passenger;
         RemovePassengerFromRequest(pending.Request, passenger);
 
-        if (PathFinder.Instance.TryPeekStep(passenger, out var step, out var _) &&
-            step.Method == MovementMethod.Portal)
+        if (PathFinder.Instance.PeekReadyStep(passenger, out var readyStep).Kind == PathPollKind.StepReady &&
+            readyStep.Step.Method == MovementMethod.Portal)
         {
-            PathFinder.Instance.ConsumeStep(passenger);
+            readyStep.Consume();
         }
 
         SpawnDepartureEffects(pending.SourceTile, passenger);

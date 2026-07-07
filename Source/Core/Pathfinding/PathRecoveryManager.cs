@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
 namespace Cultiway.Core.Pathfinding;
@@ -16,21 +17,27 @@ internal static class PathRecoveryManager
     }
 
     private static readonly Dictionary<long, State> States = new();
+    private static int _stateCount;
 
     public static void Clear()
     {
         lock (States)
         {
             States.Clear();
+            Volatile.Write(ref _stateCount, 0);
         }
     }
 
     public static void OnProgress(Actor actor)
     {
         if (actor?.data == null) return;
+        if (Volatile.Read(ref _stateCount) == 0) return;
         lock (States)
         {
-            States.Remove(actor.data.id);
+            if (States.Remove(actor.data.id))
+            {
+                Volatile.Write(ref _stateCount, States.Count);
+            }
         }
     }
 
@@ -50,6 +57,7 @@ internal static class PathRecoveryManager
             {
                 state = new State();
                 States.Add(actor.data.id, state);
+                Volatile.Write(ref _stateCount, States.Count);
             }
 
             if (state.LastReason != reason)
@@ -62,6 +70,7 @@ internal static class PathRecoveryManager
             if (state.Failures > MaxRetriesFor(reason))
             {
                 States.Remove(actor.data.id);
+                Volatile.Write(ref _stateCount, States.Count);
                 return false;
             }
 
@@ -75,6 +84,7 @@ internal static class PathRecoveryManager
     public static bool TryRequest(Actor actor)
     {
         if (actor == null) return false;
+        if (Volatile.Read(ref _stateCount) == 0) return false;
         State state = null;
         lock (States)
         {
@@ -108,9 +118,13 @@ internal static class PathRecoveryManager
     public static void Clear(Actor actor)
     {
         if (actor?.data == null) return;
+        if (Volatile.Read(ref _stateCount) == 0) return;
         lock (States)
         {
-            States.Remove(actor.data.id);
+            if (States.Remove(actor.data.id))
+            {
+                Volatile.Write(ref _stateCount, States.Count);
+            }
         }
     }
 

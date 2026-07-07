@@ -143,41 +143,12 @@ public class PathFinder
             return PathPollResult.NoRequest();
         }
 
-        if (task.Stream.TryPeek(out var step))
-        {
-            return PathPollResult.StepReady(step);
-        }
-
-        switch (task.Stream.State)
-        {
-            case PathRequestState.Pending:
-            case PathRequestState.Streaming:
-                return PathPollResult.Waiting();
-            case PathRequestState.Succeeded:
-                Cleanup(actor.data.id, task);
-                return PathPollResult.Completed();
-            case PathRequestState.Failed:
-                var failure = task.Stream.FailureReason == PathFailureReason.None
-                    ? PathFailureReason.GeneratorException
-                    : task.Stream.FailureReason;
-                var error = task.Stream.Error;
-                Cleanup(actor.data.id, task);
-                return PathPollResult.Failed(failure, error);
-            case PathRequestState.Cancelled:
-                var cancelReason = task.Stream.FailureReason == PathFailureReason.None
-                    ? PathFailureReason.CancelledByNewRequest
-                    : task.Stream.FailureReason;
-                Cleanup(actor.data.id, task);
-                return PathPollResult.Cancelled(cancelReason);
-            default:
-                Cleanup(actor.data.id, task);
-                return PathPollResult.Failed(PathFailureReason.GeneratorException);
-        }
+        return GetPollResult(actor.data.id, task);
     }
 
-    public PathPollResult DrainMovementSteps(Actor actor, List<WorldTile> path, int maxCount, out int drained)
+    public PathPollResult PeekReadyStep(Actor actor, out ReadyPathStep readyStep)
     {
-        drained = 0;
+        readyStep = default;
         if (actor?.data == null)
         {
             return PathPollResult.Failed(PathFailureReason.InvalidActor);
@@ -188,18 +159,36 @@ public class PathFinder
             return PathPollResult.NoRequest();
         }
 
-        drained = task.Stream.DrainMovementSteps(path, maxCount);
-        if (drained > 0)
+        var result = GetPollResult(actor.data.id, task);
+        if (result.Kind == PathPollKind.StepReady)
         {
-            if (task.Stream.IsFinished && !task.Stream.HasPendingSteps)
-            {
-                Cleanup(actor.data.id, task);
-            }
-
-            return PathPollResult.StepReady(default);
+            readyStep = new ReadyPathStep(this, actor.data.id, task, result.Step);
         }
 
-        return GetPollResult(actor.data.id, task);
+        return result;
+    }
+
+    public PathPollResult OpenReadyCursor(Actor actor, out ReadyPathCursor cursor)
+    {
+        cursor = default;
+        if (actor?.data == null)
+        {
+            return PathPollResult.Failed(PathFailureReason.InvalidActor);
+        }
+
+        var actorId = actor.data.id;
+        if (!_tasks.TryGetValue(actorId, out var task))
+        {
+            return PathPollResult.NoRequest();
+        }
+
+        var result = GetPollResult(actorId, task);
+        if (result.Kind == PathPollKind.StepReady)
+        {
+            cursor = new ReadyPathCursor(this, actorId, task);
+        }
+
+        return result;
     }
 
     public bool TryPeekStep(Actor actor, out PathStep step, out bool finished)
@@ -248,6 +237,71 @@ public class PathFinder
             default:
                 Cleanup(actorId, task);
                 return PathPollResult.Failed(PathFailureReason.GeneratorException);
+        }
+    }
+
+    public readonly struct ReadyPathStep
+    {
+        private readonly PathFinder _owner;
+        private readonly long _actorId;
+        private readonly PathfindingTask _task;
+
+        internal ReadyPathStep(PathFinder owner, long actorId, PathfindingTask task, PathStep step)
+        {
+            _owner = owner;
+            _actorId = actorId;
+            _task = task;
+            Step = step;
+        }
+
+        public PathStep Step { get; }
+        public bool IsValid => _owner != null && _task != null;
+
+        public void Consume()
+        {
+            if (!IsValid || !_task.Stream.TryDequeue(out _))
+            {
+                return;
+            }
+
+            if (_task.Stream.IsFinished && !_task.Stream.HasPendingSteps)
+            {
+                _owner.Cleanup(_actorId, _task);
+            }
+        }
+    }
+
+    public readonly struct ReadyPathCursor
+    {
+        private readonly PathFinder _owner;
+        private readonly long _actorId;
+        private readonly PathfindingTask _task;
+
+        internal ReadyPathCursor(PathFinder owner, long actorId, PathfindingTask task)
+        {
+            _owner = owner;
+            _actorId = actorId;
+            _task = task;
+        }
+
+        public bool IsValid => _owner != null && _task != null;
+
+        public PathPollResult Poll()
+        {
+            return IsValid ? _owner.GetPollResult(_actorId, _task) : PathPollResult.NoRequest();
+        }
+
+        public void Consume()
+        {
+            if (!IsValid || !_task.Stream.TryDequeue(out _))
+            {
+                return;
+            }
+
+            if (_task.Stream.IsFinished && !_task.Stream.HasPendingSteps)
+            {
+                _owner.Cleanup(_actorId, _task);
+            }
         }
     }
 
@@ -317,7 +371,8 @@ public class PathFinder
 
     private void Cleanup(long actorId, PathfindingTask task)
     {
-        if (_tasks.TryRemove(actorId, out _))
+        var entry = new KeyValuePair<long, PathfindingTask>(actorId, task);
+        if (((ICollection<KeyValuePair<long, PathfindingTask>>)_tasks).Remove(entry))
         {
             task.Dispose();
         }

@@ -24,39 +24,6 @@ public sealed class PathStream : IPathStreamWriter
         return _steps.TryDequeue(out step);
     }
 
-    public int DrainMovementSteps(List<WorldTile> path, int maxCount)
-    {
-        if (path == null || maxCount <= 0)
-        {
-            return 0;
-        }
-
-        int count = 0;
-        while (count < maxCount && _steps.TryPeek(out var step))
-        {
-            if (step.Method != MovementMethod.Walk && step.Method != MovementMethod.Swim)
-            {
-                break;
-            }
-
-            var tile = step.Tile;
-            if (tile == null)
-            {
-                break;
-            }
-
-            if (!_steps.TryDequeue(out step))
-            {
-                break;
-            }
-
-            path.Add(tile);
-            count++;
-        }
-
-        return count;
-    }
-
     public List<PathStep> TryViewAll()
     {
         return _steps.ToList();
