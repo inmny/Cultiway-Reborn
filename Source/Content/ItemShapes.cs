@@ -10,7 +10,7 @@ using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content;
 
-public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
+public partial class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
 {
     public static ItemShapeAsset ElementRoot { get; private set; }
     public static ItemShapeAsset Ball { get; private set; }
@@ -97,6 +97,7 @@ public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
         SetFolder(Vine, "vine");
         SetFolder(Wing, "wing");
         SetFolder(Wood, "wood");
+        SetupArtifactShapes();
         ElementRoot.GetIcon = (e) => 
         {
             if (!e.HasComponent<ElementRoot>()) return null;
