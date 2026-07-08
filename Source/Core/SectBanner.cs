@@ -76,25 +76,10 @@ public class SectBanner : BannerGeneric<Sect, SectData>
         {
             Transform current = descendants[i];
             if (current == root) continue;
-            if (!ContainsAny(current.name, nameParts)) continue;
+            if (!current.name.ContainsAny(nameParts)) continue;
 
             current.gameObject.SetActive(false);
         }
-    }
-
-    private static bool ContainsAny(string value, string[] nameParts)
-    {
-        if (string.IsNullOrEmpty(value)) return false;
-
-        for (int i = 0; i < nameParts.Length; i++)
-        {
-            if (value.IndexOf(nameParts[i], StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static SectBanner _prefab;
