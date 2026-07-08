@@ -11,7 +11,12 @@
 - `python Scripts/count_source_lines.py Source`：评审变更范围时，用于快速检查代码规模。
 
 ## 编码风格与命名约定
-项目目标框架为 `net48`，启用 C# 12 语法和 unsafe 代码。使用 4 个空格缩进；公开类型和方法使用 `PascalCase`；局部变量和私有字段使用 `camelCase`，仅在确实提升可读性时给私有字段加 `_` 前缀。相关扩展集中放在 `Source/Core` 下的 `<Concept>Extend.cs` 文件中，Harmony 补丁保持在 `Source/Patch` 下与功能对应。
+
+- 项目目标框架为 `net48`，启用 C# 12 语法和 unsafe 代码。使用 4 个空格缩进
+- 公开类型和方法使用 `PascalCase`
+- 局部变量和私有字段使用 `camelCase`，仅在确实提升可读性时给私有字段加 `_` 前缀。
+- 相关扩展集中放在 `Source/Core` 下的 `<Concept>Extend.cs` 文件中，Harmony 补丁保持在 `Source/Patch` 下与功能对应。
+- 不要编写重复的兜底代码。
 
 项目未启用 Nullable 注解，因此要优先使用显式 guard 和 `Source/Utils` 中的工具方法。提交前使用仓库内 `.DotSettings` 配置运行 ReSharper 或 IDE 自动格式化。代码注释应使用中文（UTF-8）。
 
