@@ -1,8 +1,13 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using Cultiway.Core.EventSystem;
+using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -14,12 +19,12 @@ public class SkillNameGenerator : EntityNameGenerator<SkillNameGenerator>
     Path.Combine(Application.persistentDataPath, "Cultiway_SkillNameDict.json");
     protected override string GetSystemPrompt()
     {
-        return "为用户提供的法术生成名称，要求符合玄幻风格，并且必须简洁（2-5个字），优先简洁而非完整表达所有词条含义。用户会提供一个法术实体名字以及附加在这个法术上的一系列词条，仅给出一个答案，不要有任何符号。\nInput example:\n为产生\"雷\"的法术，请生成一个名称。这个法术有以下词条：放大:2;冰冻:3;爆炸:1\nOutput example:\n霜爆雷";
+        return "为用户提供的法术生成名称，要求符合玄幻风格，必须简洁（2-6个字），优先表达主机制，不要完整堆叠所有词条。仅给出一个中文名称，不要有任何符号、解释或换行。\nInput example:\n本体=雷丸；元素=lightning；形态=ball；词条=爆炸、冰冻\nOutput example:\n霜爆雷";
     }
 
     protected override string GetDefaultName(string[] param)
     {
-        return param[0] + "术";
+        return SkillRuleNameComposer.ComposeFallback(param);
     }
 
     protected override string GetPrompt(string[] param)
@@ -38,28 +43,155 @@ public class SkillNameGenerator : EntityNameGenerator<SkillNameGenerator>
         return sb.ToString();
     }
 
-    public void GenerateFor(Entity skill_container_entity)
+    protected override bool IsValid(string name)
     {
-        var component_types = skill_container_entity.GetComponentTypes();
-
-        var skill_container = skill_container_entity.GetComponent<SkillContainer>();
-        var param_list = UnityEngine.Pool.ListPool<string>.Get();
-        param_list.Add(skill_container.Asset.id.Localize());
-        foreach (var component_type in component_types)
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        name = PostProcess(name);
+        if (name.Length is < 2 or > 6) return false;
+        if (name.Contains("名字", StringComparison.Ordinal) ||
+            name.Contains("名称", StringComparison.Ordinal) ||
+            name.Contains("法术名", StringComparison.Ordinal))
         {
-            if (!typeof(IModifier).IsAssignableFrom(component_type))
-            {
-                continue;
-            }
-
-            var modifier = (IModifier)skill_container_entity.GetComponent(component_type);
-            var key = modifier.GetKey();
-            //var value = modifier.GetValue();
-            
-            param_list.Add(key);
+            return false;
         }
 
-        NewNameGenerateRequest(param_list.ToArray(), skill_container_entity);
-        UnityEngine.Pool.ListPool<string>.Release(param_list);
+        for (var i = 0; i < name.Length; i++)
+        {
+            var ch = name[i];
+            if (char.IsWhiteSpace(ch) || char.IsPunctuation(ch) || char.IsSymbol(ch)) return false;
+            if (!IsCjk(ch)) return false;
+        }
+
+        return true;
+    }
+
+    protected override string PostProcess(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+
+        var text = name.Trim();
+        var lineBreakIndex = text.IndexOfAny(new[] { '\r', '\n' });
+        if (lineBreakIndex >= 0)
+        {
+            text = text.Substring(0, lineBreakIndex).Trim();
+        }
+
+        var colonIndex = text.IndexOfAny(new[] { ':', '：' });
+        if (colonIndex >= 0 && colonIndex < text.Length - 1)
+        {
+            text = text.Substring(colonIndex + 1).Trim();
+        }
+
+        text = text.Trim('\'', '"', '“', '”', '《', '》', '。', '，', ',', '、', '`', ' ');
+
+        var start = -1;
+        var end = -1;
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (!IsCjk(text[i])) continue;
+            if (start < 0) start = i;
+            end = i;
+        }
+
+        return start < 0 ? string.Empty : text.Substring(start, end - start + 1);
+    }
+
+    public void GenerateFor(Entity skill_container_entity)
+    {
+        if (skill_container_entity.IsNull || !skill_container_entity.HasComponent<SkillContainer>())
+        {
+            return;
+        }
+
+        var context = SkillRuleNameComposer.CreateContext(skill_container_entity);
+        if (context == null)
+        {
+            return;
+        }
+
+        var ruleName = SkillRuleNameComposer.Compose(context);
+        EventSystemHub.Publish(new EntityNameGeneratedEvent
+        {
+            Target = skill_container_entity,
+            Name = ruleName
+        });
+
+        _ = GenerateAiNameAsync(context, skill_container_entity);
+    }
+
+    private async Task GenerateAiNameAsync(SkillNamingContext context, Entity target)
+    {
+        if (target.IsNull)
+        {
+            return;
+        }
+
+        var key = context.StoreKey;
+        string name = null;
+
+        if (RequestNewName(key))
+        {
+            try
+            {
+                var res = await Manager.RequestResponseContent(SkillRuleNameComposer.BuildPrompt(context),
+                    GetSystemPrompt(), temperature: 0.7f);
+                res = PostProcess(res);
+                if (!string.IsNullOrEmpty(res) && IsValid(res))
+                {
+                    lock (NameDict)
+                    {
+                        if (NameDict.TryGetValue(key, out var names))
+                        {
+                            names.Add(res);
+                        }
+                        else
+                        {
+                            NameDict[key] = new List<string> { res };
+                        }
+
+                        Save();
+                    }
+
+                    name = res;
+                }
+            }
+            catch (Exception e)
+            {
+                ModClass.LogErrorConcurrent(e.ToString());
+            }
+        }
+        else
+        {
+            name = GetCachedName(key);
+        }
+
+        if (string.IsNullOrEmpty(name)) return;
+        if (target.IsNull || SkillContainerSignature.Build(target) != context.Signature) return;
+
+        EventSystemHub.Publish(new EntityNameGeneratedEvent
+        {
+            Target = target,
+            Name = name
+        });
+    }
+
+    private string GetCachedName(string key)
+    {
+        lock (NameDict)
+        {
+            if (!NameDict.TryGetValue(key, out var names)) return null;
+            for (var i = 0; i < names.Count; i++)
+            {
+                var name = PostProcess(names[i]);
+                if (IsValid(name)) return name;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsCjk(char ch)
+    {
+        return ch is >= '\u3400' and <= '\u4dbf' or >= '\u4e00' and <= '\u9fff';
     }
 }

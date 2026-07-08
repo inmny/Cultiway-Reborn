@@ -32,10 +32,6 @@ public static class SkillContainerUtils
             return false;
         }
 
-        if (a.HasName && b.HasName)
-        {
-            return a.Name.value == b.Name.value;
-        }
-        return true;
+        return SkillContainerSignature.Build(a) == SkillContainerSignature.Build(b);
     }
 }

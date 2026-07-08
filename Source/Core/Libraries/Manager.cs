@@ -1,3 +1,5 @@
+using Cultiway.Core.AIGCLib;
+
 namespace Cultiway.Core.Libraries;
 
 public class Manager
@@ -23,6 +25,7 @@ public class Manager
     public SectAffairLibrary SectAffairLibrary { get; } = new();
     public SectBuildOrderLibrary SectBuildOrderLibrary { get; } = new();
     public SectJobLibrary SectJobLibrary { get; } = new();
+    public SkillNameAtomLibrary SkillNameAtomLibrary { get; } = new();
 
     public void Init()
     {
@@ -47,6 +50,7 @@ public class Manager
         AssetManager._instance.add(SectAffairLibrary, "sect_affairs");
         AssetManager._instance.add(SectBuildOrderLibrary, "sect_build_orders");
         AssetManager._instance.add(SectJobLibrary, "sect_jobs");
+        AssetManager._instance.add(SkillNameAtomLibrary, "skill_name_atoms");
     }
 
     public void LinkAssets()
@@ -72,6 +76,7 @@ public class Manager
         SectAffairLibrary.linkAssets();
         SectBuildOrderLibrary.linkAssets();
         SectJobLibrary.linkAssets();
+        SkillNameAtomLibrary.linkAssets();
     }
     public void PostInit()
     {
@@ -96,5 +101,6 @@ public class Manager
         SectAffairLibrary.post_init();
         SectBuildOrderLibrary.post_init();
         SectJobLibrary.post_init();
+        SkillNameAtomLibrary.post_init();
     }
 }
