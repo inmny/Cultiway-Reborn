@@ -4,6 +4,7 @@ using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
+using SimilarityTag = Cultiway.Core.SkillLibV3.SkillTags.Similarity;
 
 namespace Cultiway.Core.SkillLibV3;
 
@@ -19,7 +20,7 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
         {
             id = "Cultiway."+nameof(SetTrajectory)
         });
-        SetTrajectory.AddSimilarityTags("trajectory", "motion");
+        SetTrajectory.AddSimilarityTags(SimilarityTag.Trajectory, SimilarityTag.Motion);
         SetTrajectory.OnSetup = ApplyTrajectoryOnSetup;
         SetTrajectory.OnAddOrUpgrade = builder =>
         {
@@ -57,7 +58,7 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             WeightMod = 0f,
             IsDisabled = true
         });
-        SalvoCount.AddSimilarityTags("projectile", "salvo");
+        SalvoCount.AddSimilarityTags(SimilarityTag.Projectile, SimilarityTag.Salvo);
         SalvoCount.OnAddOrUpgrade = builder =>
         {
             if (builder.HasModifier<SalvoCount>())
@@ -93,7 +94,7 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             WeightMod = 0f,
             IsDisabled = true
         });
-        BurstCount.AddSimilarityTags("projectile", "burst");
+        BurstCount.AddSimilarityTags(SimilarityTag.Projectile, SimilarityTag.Burst);
         BurstCount.OnAddOrUpgrade = builder =>
         {
             if (builder.HasModifier<BurstCount>())

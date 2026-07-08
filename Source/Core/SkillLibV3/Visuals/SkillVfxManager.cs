@@ -6,6 +6,7 @@ using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
+using FormTag = Cultiway.Core.SkillLibV3.SkillTags.Form;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
 
@@ -207,8 +208,8 @@ public sealed class SkillVfxManager
         }
 
         width *= scale;
-        if (asset.SeriesTags.Contains("slash")) width *= 1.35f;
-        if (asset.SeriesTags.Contains("aoe")) width *= 1.2f;
+        if (asset.SeriesTags.Contains(FormTag.Slash)) width *= 1.35f;
+        if (asset.SeriesTags.Contains(FormTag.Aoe)) width *= 1.2f;
         return Mathf.Clamp(width, 0.55f, 4.8f);
     }
 

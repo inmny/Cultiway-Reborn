@@ -1,5 +1,7 @@
 using Cultiway.Utils;
 using UnityEngine;
+using ElementTag = Cultiway.Core.SkillLibV3.SkillTags.Element;
+using SeriesTag = Cultiway.Core.SkillLibV3.SkillTags.Series;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
 
@@ -78,16 +80,16 @@ public class SkillVfxProfileAsset : Asset
 
     public static SkillVfxElementStyle ResolveStyle(SkillEntityAsset asset)
     {
-        if (asset.SeriesTags.Contains("lightning")) return SkillVfxElementStyle.Lightning;
-        if (asset.SeriesTags.Contains("wind")) return SkillVfxElementStyle.Wind;
-        if (asset.SeriesTags.Contains("metal")) return SkillVfxElementStyle.Metal;
-        if (asset.SeriesTags.Contains("wood")) return SkillVfxElementStyle.Wood;
-        if (asset.SeriesTags.Contains("water")) return SkillVfxElementStyle.Water;
-        if (asset.SeriesTags.Contains("fire")) return SkillVfxElementStyle.Fire;
-        if (asset.SeriesTags.Contains("earth")) return SkillVfxElementStyle.Earth;
-        if (asset.SeriesTags.Contains("neg")) return SkillVfxElementStyle.Neg;
-        if (asset.SeriesTags.Contains("pos")) return SkillVfxElementStyle.Pos;
-        if (asset.SeriesTags.Contains("entropy")) return SkillVfxElementStyle.Entropy;
+        if (asset.SeriesTags.Contains(ElementTag.Lightning)) return SkillVfxElementStyle.Lightning;
+        if (asset.SeriesTags.Contains(ElementTag.Wind)) return SkillVfxElementStyle.Wind;
+        if (asset.SeriesTags.Contains(SeriesTag.Metal)) return SkillVfxElementStyle.Metal;
+        if (asset.SeriesTags.Contains(ElementTag.Wood)) return SkillVfxElementStyle.Wood;
+        if (asset.SeriesTags.Contains(ElementTag.Water)) return SkillVfxElementStyle.Water;
+        if (asset.SeriesTags.Contains(ElementTag.Fire)) return SkillVfxElementStyle.Fire;
+        if (asset.SeriesTags.Contains(ElementTag.Earth)) return SkillVfxElementStyle.Earth;
+        if (asset.SeriesTags.Contains(ElementTag.Neg)) return SkillVfxElementStyle.Neg;
+        if (asset.SeriesTags.Contains(ElementTag.Pos)) return SkillVfxElementStyle.Pos;
+        if (asset.SeriesTags.Contains(ElementTag.Entropy)) return SkillVfxElementStyle.Entropy;
         return ResolveStyle(asset.Element);
     }
 
