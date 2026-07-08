@@ -9,6 +9,7 @@ using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Visuals;
 using Cultiway.Core.Components;
 using NeoModLoader.api.attributes;
 using Cultiway.Core.Libraries;
@@ -260,6 +261,10 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         item.GetIncomingLinks<InventoryRelation>().Entities
             .Do(owner => owner.RemoveRelation<InventoryRelation>(item));
         e.AddRelation(new InventoryRelation { item = item });
+        if (!item.IsNull)
+        {
+            SpecialItemIconVfx.QueueGain(Base, item);
+        }
     }
 
     public void ExtractSpecialItem(Entity item)

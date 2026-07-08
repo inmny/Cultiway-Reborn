@@ -6,6 +6,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
@@ -47,6 +48,7 @@ public static class ActorExtendTools
         }
 
         ModClass.LogInfo($"[{ae}] consumes {elixir_entity.Id}({elixir.elixir_id})");
+        SpecialItemIconVfx.QueueConsumeElixir(ae.Base, elixir_entity);
         elixir_entity.DeleteEntity();
         return true;
     }
