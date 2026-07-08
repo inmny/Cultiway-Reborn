@@ -10,6 +10,8 @@ public class WorldLogs : ExtendLibrary<WorldLogAsset, WorldLogs>
     public static WorldLogAsset LogSectJoined { get; private set; }
     public static WorldLogAsset LogSectPromoted { get; private set; }
     public static WorldLogAsset LogSectSuccession { get; private set; }
+    public static WorldLogAsset LogSectLeaderDead { get; private set; }
+    public static WorldLogAsset LogSectLeaderKilled { get; private set; }
     public static WorldLogAsset LogSectScriptureContributed { get; private set; }
     public static WorldLogAsset LogSectLecture { get; private set; }
     public static WorldLogAsset LogDemonAscension { get; private set; }
@@ -32,6 +34,8 @@ public class WorldLogs : ExtendLibrary<WorldLogAsset, WorldLogs>
         SetupSectLog(LogSectJoined, "Cultiway.WorldLog.SectJoined", "cultiway/icons/iconMasterApprentice", Toolbox.color_log_good);
         SetupSectLog(LogSectPromoted, "Cultiway.WorldLog.SectPromoted", "ui/icons/iconInterestingPeople", Toolbox.color_log_good);
         SetupSectLog(LogSectSuccession, "Cultiway.WorldLog.SectSuccession", "ui/Icons/iconKings", Toolbox.color_log_warning);
+        SetupSectLog(LogSectLeaderDead, "Cultiway.WorldLog.SectLeaderDead", "ui/icons/iconDead", Toolbox.color_log_warning);
+        SetupSectLog(LogSectLeaderKilled, "Cultiway.WorldLog.SectLeaderKilled", "ui/icons/actor_traits/iconKingslayer", Toolbox.color_log_warning);
         SetupSectLog(LogSectScriptureContributed, "Cultiway.WorldLog.SectScriptureContributed", "ui/icons/iconBooks", Toolbox.color_log_good);
         SetupSectLog(LogSectLecture, "Cultiway.WorldLog.SectLecture", "cultiway/icons/iconCultivation", Toolbox.color_log_good);
 

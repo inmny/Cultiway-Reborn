@@ -317,7 +317,20 @@ internal static class PatchActor
         var ae = __instance.GetExtend();
         if (__instance.HasSect())
         {
-            ae.sect.LeaveSect(__instance);
+            var sect = ae.sect;
+            // 掌门死亡：在 LeaveSect 清空 LeaderActorID 之前写入死亡日志（对标原版国王死亡的 die() → logKingDead）
+            if (sect.data.LeaderActorID == __instance.data.id)
+            {
+                if (!__instance.attackedBy.isRekt() && __instance.attackedBy.isActor())
+                {
+                    WorldLogUtils.LogSectLeaderKilled(sect, __instance, __instance.attackedBy.a);
+                }
+                else
+                {
+                    WorldLogUtils.LogSectLeaderDead(sect, __instance);
+                }
+            }
+            sect.LeaveSect(__instance);
         }
     }
 

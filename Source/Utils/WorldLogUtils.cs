@@ -70,6 +70,35 @@ public static class WorldLogUtils
         LogSect(WorldLogs.LogSectSuccession, sect, leader, null);
     }
 
+    public static void LogSectLeaderDead(Sect sect, Actor leader)
+    {
+        LogSect(WorldLogs.LogSectLeaderDead, sect, leader, null);
+    }
+
+    public static void LogSectLeaderKilled(Sect sect, Actor leader, Actor killer)
+    {
+        if (WorldLogs.LogSectLeaderKilled == null || killer == null) return;
+        if (sect == null || sect.isRekt()) return;
+
+        // 对标原版 logKingMurder：special3=凶手名，颜色随凶手所属势力，unit=凶手支持点击跟随
+        var worldLog = new WorldLogMessage(WorldLogs.LogSectLeaderKilled, sect.data.name, leader?.getName(), killer.getName())
+        {
+            unit = killer,
+            location = GetLogLocation(sect, leader)
+        };
+
+        if (leader?.kingdom?.getColor() != null)
+        {
+            worldLog.color_special2 = leader.kingdom.getColor().getColorText();
+        }
+        if (killer.kingdom?.getColor() != null)
+        {
+            worldLog.color_special3 = killer.kingdom.getColor().getColorText();
+        }
+
+        worldLog.add();
+    }
+
     public static void LogSectScriptureContributed(Sect sect, Actor contributor, Book book)
     {
         LogSect(WorldLogs.LogSectScriptureContributed, sect, contributor, GetBookName(book));

@@ -243,6 +243,8 @@ Cultiway.WorldLog.SectFounded,$actor$ 创立了 $sect$，立下主修传承：$v
 Cultiway.WorldLog.SectJoined,$actor$ 加入了 $sect$，身份：$value$
 Cultiway.WorldLog.SectPromoted,$sect$ 提拔 $actor$ 为 $value$
 Cultiway.WorldLog.SectSuccession,$actor$ 继任为 $sect$ 掌门
+Cultiway.WorldLog.SectLeaderDead,$actor$ 溘然长逝，$sect$ 群龙无首
+Cultiway.WorldLog.SectLeaderKilled,$sect$ 掌门 $actor$ 遇害，凶手为 $value$
 Cultiway.WorldLog.SectScriptureContributed,$actor$ 将《$value$》收入 $sect$ 藏经阁
 Cultiway.WorldLog.SectLecture,$actor$ 在 $sect$ 开坛讲法：$value$
 Cultiway.WorldLog.DemonAscension,$actor$ 献祭己身，化身为 $daemon$ 降临世间！
@@ -287,5 +289,7 @@ YuanyingPage,元婴情况
 CultibookPage,功法情况
 ElixirPage,丹方情况
 SkillPage,法术
+ArtifactPage,法宝
 Cultiway.UI.CharacterPanel.Wakan,灵气
 Cultiway.UI.CharacterPanel.Wakan Description,当前灵气 / 灵气上限
+Cultiway.ERStyle.Magic.PageTitle,元素亲和详解
