@@ -5,8 +5,8 @@ using System.Reflection.Emit;
 using ai;
 using Cultiway.Abstract;
 using Cultiway.Content;
-using Cultiway.Const;
 using Cultiway.Content.AIGC;
+using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
@@ -227,16 +227,23 @@ internal static class PatchActor
             jindan_component = jindan;
             param.Add(jindan.Type.GetName());
         }
-        var shape_key = IngredientShapeGenerator.Instance.GenerateName(param.ToArray());
+        var shape_key = IngredientShapeGenerator.ResolveShapeId(__instance, dead_ae, param.ToArray());
         var shape_asset = ModClass.L.ItemShapeLibrary.GetOrDefault(shape_key, ItemShapes.ElementRoot);
         var shape_name = LM.Has(shape_asset.id) ? LM.Get(shape_asset.id) : shape_asset.id;
         param.Add(shape_name);
+        var naming_context = IngredientNameGenerator.CreateContext(__instance, dead_ae, shape_asset.id);
+        var item_level = new ItemLevel
+        {
+            Stage = naming_context.QualityStage,
+            Level = naming_context.QualityLevel
+        };
 
         SpecialItemUtils.Builder item_builder =
             SpecialItemUtils.StartBuild(shape_asset.id, __instance.data.created_time, __instance.getName(),
-                Mathf.Pow(10, Mathf.Min(dead_ae.GetPowerLevel(), 6)));
+                Mathf.Pow(10, Mathf.Min(dead_ae.GetPowerLevel(), 6)), __instance.asset?.id ?? string.Empty);
 
         item_builder.AddTag<TagIngredient>();
+        item_builder.AddComponent(item_level);
         if (element_root_component.HasValue)
         {
             item_builder.AddComponent(element_root_component.Value);
@@ -255,11 +262,16 @@ internal static class PatchActor
         }
         if (dead_ae.Base.asset == Actors.Plant)
         {
-            item_builder.AddComponent(new EntityName(dead_ae.Base.getName()));
+            var plant_name = dead_ae.Base.getName();
+            if (string.IsNullOrEmpty(plant_name))
+            {
+                plant_name = IngredientNameGenerator.GenerateDefaultName(naming_context, param.ToArray());
+            }
+            item_builder.AddComponent(new EntityName(plant_name));
         }
         else
         {
-            item_builder.AddComponent(new EntityName(IngredientNameGenerator.Instance.GenerateName(param.ToArray())));
+            item_builder.AddComponent(new EntityName(IngredientNameGenerator.GenerateDefaultName(naming_context, param.ToArray())));
         }
 
         receiver.AddSpecialItem(item_builder.Build());

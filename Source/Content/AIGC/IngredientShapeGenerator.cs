@@ -1,8 +1,13 @@
-using System.Collections.Generic;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Cultiway.Const;
+using Cultiway.Content.Components;
+using Cultiway.Core;
 using Cultiway.Core.AIGCLib;
+using Cultiway.Core.Components;
+using Cultiway.Utils.Extension;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
 using UnityEngine;
@@ -23,7 +28,21 @@ public class IngredientShapeGenerator : PromptNameGenerator<IngredientShapeGener
 
     protected override string GetDefaultName(string[] param)
     {
-        return ItemShapes.Ball.id.Localize();
+        return ResolveShapeId(param);
+    }
+
+    public static string ResolveShapeId(Actor actor, ActorExtend ae, string[] param)
+    {
+        if (actor == null || ae == null) return ResolveShapeId(param);
+        var seed = NamingRuleUtils.StableHash($"{actor.asset?.id}|{actor.data?.id}|{string.Join("|", param ?? Array.Empty<string>())}");
+        return ItemShapes.PickDropShape(actor, ae, seed).id;
+    }
+
+    public static string ResolveShapeId(string[] param)
+    {
+        if (param == null || param.Length == 0) return ItemShapes.Blood.id;
+        var joined = string.Join("|", param);
+        return joined.ContainsAny("金丹", "妖丹", "内丹") ? ItemShapes.Ball.id : ItemShapes.Blood.id;
     }
 
     protected override bool IsValid(string name)

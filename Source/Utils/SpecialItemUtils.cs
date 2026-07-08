@@ -6,16 +6,17 @@ namespace Cultiway.Utils;
 
 public static class SpecialItemUtils
 {
-    public static Builder StartBuild(string shape_id, double creation_time, string creator = "", float year_limit = 99)
+    public static Builder StartBuild(string shape_id, double creation_time, string creator = "", float year_limit = 99,
+        string creator_asset_id = "")
     {
-        return new Builder(shape_id, creator, creation_time, year_limit);
+        return new Builder(shape_id, creator, creator_asset_id, creation_time, year_limit);
     }
 
     public class Builder
     {
         private readonly Entity entity;
 
-        internal Builder(string shape_id, string creator, double creation_time, float year_limit)
+        internal Builder(string shape_id, string creator, string creator_asset_id, double creation_time, float year_limit)
         {
             if (year_limit < 1e6)
             {
@@ -26,7 +27,8 @@ public static class SpecialItemUtils
                     new ItemCreation
                     {
                         created_time = creation_time,
-                        creator = creator
+                        creator = creator,
+                        creator_asset_id = creator_asset_id
                     }, new AliveTimer(), new AliveTimeLimit()
                     {
                         value = year_limit * TimeScales.SecPerYear
@@ -41,7 +43,8 @@ public static class SpecialItemUtils
                     new ItemCreation
                     {
                         created_time = creation_time,
-                        creator = creator
+                        creator = creator,
+                        creator_asset_id = creator_asset_id
                     });
             }
             entity.GetComponent<SpecialItem>().self = entity;

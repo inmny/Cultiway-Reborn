@@ -6,4 +6,5 @@ public struct ItemCreation : IComponent
 {
     public double created_time;
     public string creator;
+    public string creator_asset_id;
 }

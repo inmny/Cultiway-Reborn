@@ -1,6 +1,8 @@
 using System;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content.AIGC;
+using Cultiway.Content.Components;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
@@ -41,6 +43,20 @@ public class SpecialItemTooltip : APrefabPreview<SpecialItemTooltip>
             Tooltip.addDescription(element_root.Type.GetName());
             for (var i = 0; i <= ElementIndex.Entropy; i++)
                 Tooltip.addLineIntText(ElementIndex.ElementNames[i], (int)(100 * element_root[i]));
+        }
+        if (entity.Tags.Has<TagIngredient>())
+        {
+            var ingredient = IngredientNameGenerator.CreateContext(entity);
+            Tooltip.addDescription("\n");
+            if (!string.IsNullOrEmpty(ingredient.SourceName))
+            {
+                Tooltip.addLineText("来源", ingredient.SourceName, pLocalize: false);
+            }
+            var primary = IngredientNameGenerator.LocalizeElement(ingredient.PrimaryElementIndex);
+            if (!string.IsNullOrEmpty(primary))
+            {
+                Tooltip.addLineText("主性", primary, pLocalize: false);
+            }
         }
 
         _setup_actions?.Invoke(this, type, entity);
