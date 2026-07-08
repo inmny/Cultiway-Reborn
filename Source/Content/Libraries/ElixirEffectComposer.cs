@@ -4,7 +4,7 @@ using System.Linq;
 using Cultiway.Const;
 using Cultiway.Content;
 using Cultiway.Core.Libraries;
-using Cultiway.Content.AIGC;
+using Cultiway.Utils;
 using strings;
 using UnityEngine;
 

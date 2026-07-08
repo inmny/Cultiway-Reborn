@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Const;
+using Cultiway.Content;
+using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core;
@@ -10,7 +12,7 @@ using NeoModLoader.General;
 using strings;
 using UnityEngine;
 
-namespace Cultiway.Content.AIGC;
+namespace Cultiway.Utils;
 
 internal static class NamingRuleUtils
 {

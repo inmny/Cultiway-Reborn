@@ -1,3 +1,5 @@
+using Cultiway.Utils;
+
 namespace Cultiway.Content.AIGC;
 
 public sealed class IngredientNamingContext
