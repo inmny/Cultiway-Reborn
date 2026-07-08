@@ -117,7 +117,7 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
 
             CleanExpiredAttackers(history, currentTime);
 
-            long attackerId = attacker?.getData().id ?? -1;
+            long attackerId = attacker?.getData()?.id ?? -1;
             bool isNewAttacker = !history.ContainsKey(attackerId);
             int consecutiveAttacks = isNewAttacker ? 1 : history[attackerId].count + 1;
             history[attackerId] = (consecutiveAttacks, currentTime);
