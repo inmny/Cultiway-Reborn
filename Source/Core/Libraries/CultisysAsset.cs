@@ -136,6 +136,10 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
             _skills[0] = skills[0] ?? [];
             for (var i = 1; i < level_nr; i++) _skills[i] = _skills[i - 1].Concat(skills[i] ?? []).ToList();
         }
+        else
+        {
+            for (var i = 0; i < level_nr; i++) _skills[i] = [];
+        }
 
         if (power_levels == null)
         {
