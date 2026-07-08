@@ -90,6 +90,8 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 
         Transform scroll_view_transform = BackgroundTransform.Find("Scroll View");
         scroll_view_transform.localPosition = new Vector3(158, 111);
+        scroll_view_transform.GetComponent<ScrollRect>().vertical = false;
+        scroll_view_transform.GetComponent<ScrollRect>().horizontal = true;
         scroll_view_transform.GetComponent<RectTransform>().sizeDelta = new Vector2(230, 30);
         _page_entry_container = scroll_view_transform.Find("Viewport/Content");
         _page_entry_container.GetComponent<RectTransform>().sizeDelta = new Vector2(0, 30);
