@@ -123,6 +123,16 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         Plant.kingdom_id_wild = SK.nature;
 
         Plant.GetExtend<ActorAssetExtend>().must_have_element_root = true;
+        Plant.AddDropItemShapeIds(
+            ItemShapes.ShapeId("herb"),
+            ItemShapes.ShapeId("flower"),
+            ItemShapes.ShapeId("fruit"),
+            ItemShapes.ShapeId("lotus"),
+            ItemShapes.ShapeId("mushroom"),
+            ItemShapes.ShapeId("root"),
+            ItemShapes.ShapeId("vine"),
+            ItemShapes.ShapeId("wood"),
+            ItemShapes.ShapeId("bamboo"));
         t = Plant;
         AddPhenotype("skin_light", "default_color");
         AddPhenotype("skin_dark", "default_color");

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Core;
+using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using strings;
@@ -153,6 +154,33 @@ public static class ActorAssetTools
         asset.GetExtend<ActorAssetExtend>().hide_hand_item = value;
         return asset;
     }
+
+    /// <summary>
+    /// 手动添加该生物死亡后可能掉落的物品形态。
+    /// </summary>
+    public static ActorAsset AddDropItemShapes(this ActorAsset asset, params ItemShapeAsset[] shapes)
+    {
+        if (shapes == null) return asset;
+        foreach (var shape in shapes)
+        {
+            if (shape != null)
+            {
+                asset.AddDropItemShapeIds(shape.id);
+            }
+        }
+        return asset;
+    }
+
+    /// <summary>
+    /// 手动添加该生物死亡后可能掉落的物品形态。
+    /// </summary>
+    public static ActorAsset AddDropItemShapeIds(this ActorAsset asset, params string[] shape_ids)
+    {
+        if (shape_ids == null) return asset;
+        asset.GetExtend<ActorAssetExtend>().drop_item_shapes.Add(shape_ids);
+        return asset;
+    }
+
     /// <summary>
     /// 同样设置移动动画，输入格式为"walk_0,walk_1,walk_2,walk_3,walk_4,walk_5,walk_6,walk_7"
     /// </summary>

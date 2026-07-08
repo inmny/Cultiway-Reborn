@@ -11,6 +11,19 @@ public static class StringTools
 {
     private static StringBuilder sb = new();
 
+    public static bool ContainsAny(this string text, params string[] values)
+    {
+        if (string.IsNullOrEmpty(text) || values == null) return false;
+        for (var i = 0; i < values.Length; i++)
+        {
+            if (!string.IsNullOrEmpty(values[i]) && text.IndexOf(values[i], StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     [MethodImpl(MethodImplOptions.Synchronized)]
     public static string LeaveDigit(this string a)
     {

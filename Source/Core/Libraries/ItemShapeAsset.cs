@@ -279,6 +279,20 @@ public class ItemShapeAsset : Asset
     public List<Sprite> major_textures = new();
     public List<Shape> major_shapes = new();
     public Func<Entity, Sprite> GetIcon;
+    public Func<ActorAsset, bool> CheckDropFeature;
+    public string[] ingredient_name_candidates = [];
+
+    public bool CanDropFrom(ActorAsset actor_asset)
+    {
+        return CheckDropFeature?.Invoke(actor_asset) ?? false;
+    }
+
+    public string PickIngredientNameCandidate(int seed)
+    {
+        if (ingredient_name_candidates == null || ingredient_name_candidates.Length == 0) return string.Empty;
+        return ingredient_name_candidates[Math.Abs(seed) % ingredient_name_candidates.Length];
+    }
+
     public void LoadTextures()
     {
         major_textures.Clear();
