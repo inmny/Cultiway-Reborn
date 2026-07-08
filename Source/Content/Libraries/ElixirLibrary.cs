@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.AIGC;
@@ -10,6 +11,7 @@ using Cultiway.Core.Components;
 using Cultiway.UI.Prefab;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
+using UnityEngine;
 
 namespace Cultiway.Content.Libraries;
 
@@ -88,6 +90,13 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
 
             asset.ingredients[i] = ing_check;
         }
+        asset.has_recipe_semantic = true;
+        asset.recipe_semantic = BuildRecipeSemantic(ingredients, creator);
+        asset.base_level = new ItemLevel
+        {
+            Stage = asset.recipe_semantic.quality_stage,
+            Level = asset.recipe_semantic.quality_level
+        };
         // 生成丹药的服用检查和效果
         asset.seed_for_random_effect = Randy.randomInt(0, int.MaxValue);
         asset.effect_ready = false;
@@ -100,5 +109,52 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
     public ElixirAsset GetRandom()
     {
         return list.GetRandom();
+    }
+
+    private static ElixirRecipeContext BuildRecipeSemantic(Entity[] ingredients, ActorExtend creator)
+    {
+        var snapshot = new ElixirRecipeContext
+        {
+            ingredient_count = ingredients?.Length ?? 0,
+            primary_element_index = NamingRuleUtils.NoElement,
+            secondary_element_index = NamingRuleUtils.NoElement,
+            effect_hint = "body"
+        };
+
+        if (ingredients == null || ingredients.Length == 0)
+        {
+            return snapshot;
+        }
+
+        var elementValues = new float[8];
+        var shapeCounts = new Dictionary<string, int>();
+        var jindanCounts = new Dictionary<string, int>();
+        var qualitySum = 0;
+        var strengthSum = 0f;
+        var contextCount = 0;
+
+        foreach (var ingredient in ingredients)
+        {
+            var context = IngredientNameGenerator.CreateContext(ingredient);
+            contextCount++;
+            NamingRuleUtils.AddElementValue(elementValues, context.PrimaryElementIndex, context.PrimaryElementValue);
+            NamingRuleUtils.AddElementValue(elementValues, context.SecondaryElementIndex, context.SecondaryElementValue * 0.5f);
+            strengthSum += Mathf.Max(context.ElementStrength, 0f) + Mathf.Max(context.JindanStrength, 0f);
+            qualitySum += context.QualityStage * 9 + context.QualityLevel;
+            NamingRuleUtils.Increment(shapeCounts, context.ShapeId);
+            NamingRuleUtils.Increment(jindanCounts, context.JindanId);
+        }
+
+        snapshot.primary_element_index = NamingRuleUtils.GetMaxIndex(elementValues, out snapshot.primary_element_value);
+        snapshot.secondary_element_index = NamingRuleUtils.GetSecondMaxIndex(elementValues, snapshot.primary_element_index, out snapshot.secondary_element_value);
+        snapshot.main_shape_id = NamingRuleUtils.PickTopKey(shapeCounts);
+        snapshot.main_jindan_id = NamingRuleUtils.PickTopKey(jindanCounts);
+        snapshot.strength = strengthSum / Mathf.Max(1, ingredients.Length);
+
+        var avgQuality = contextCount > 0 ? qualitySum / contextCount : Mathf.Clamp(creator?.HasCultisys<Xian>() == true ? creator.GetCultisys<Xian>().CurrLevel : 0, 0, 35);
+        snapshot.quality_stage = Mathf.Clamp(avgQuality / 9, 0, 3);
+        snapshot.quality_level = Mathf.Clamp(avgQuality % 9, 0, 8);
+        snapshot.effect_hint = ElixirEffectComposer.ResolveEffectHint(snapshot);
+        return snapshot;
     }
 }

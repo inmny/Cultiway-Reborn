@@ -103,6 +103,8 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
     public ElixirEffectType     effect_type;
     public ElixirIngredientCheck[] ingredients;
     public ItemLevel base_level;
+    public bool has_recipe_semantic;
+    public ElixirRecipeContext recipe_semantic;
     /// <summary>
     /// 仅用于动态生成的丹药, 用于保证随机效果的一致性（存读档）
     /// </summary>
@@ -118,14 +120,26 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
     {
         if (string.IsNullOrEmpty(name_key))
         {
-            var param = new string[ingredients.Length + 1];
-            param[0] = description_key;
-            for (int i=0;i<ingredients.Length;i++)
+            if (has_recipe_semantic)
             {
-                param[i+1] = ingredients[i].ingredient_name;
+                name_key = ElixirNameGenerator.GenerateDefaultName(this);
             }
+            else
+            {
+                var checks = ingredients ?? Array.Empty<ElixirIngredientCheck>();
+                var param = new string[checks.Length + 1];
+                param[0] = description_key ?? string.Empty;
+                for (int i=0;i<checks.Length;i++)
+                {
+                    param[i+1] = checks[i].ingredient_name;
+                }
 
-            name_key = ElixirNameGenerator.Instance.GenerateName(param);
+                name_key = ElixirNameGenerator.Instance.GenerateName(param);
+                if (string.IsNullOrEmpty(name_key))
+                {
+                    name_key = ElixirNameGenerator.GenerateDefaultName(this);
+                }
+            }
         }
         if (LM.Has(name_key))
         {

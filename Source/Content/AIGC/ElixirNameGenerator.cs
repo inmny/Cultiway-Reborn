@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text;
+using Cultiway.Content.Libraries;
 using Cultiway.Core.AIGCLib;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
@@ -19,8 +20,19 @@ public class ElixirNameGenerator : PromptNameGenerator<ElixirNameGenerator>
 
     protected override string GetDefaultName(string[] param)
     {
-        return string.Empty;
+        return GenerateDefaultName(param);
     }
+
+    public static string GenerateDefaultName(ElixirAsset asset)
+    {
+        return ElixirEffectComposer.Compose(asset).Name;
+    }
+
+    public static string GenerateDefaultName(string[] param)
+    {
+        return ElixirEffectComposer.ComposeFromIngredientNames(param).Name;
+    }
+
     [Hotfixable]
     protected override string GetPrompt(string[] param)
     {
@@ -41,7 +53,8 @@ public class ElixirNameGenerator : PromptNameGenerator<ElixirNameGenerator>
         }
 
         sb.Append("炼制得到");
-        
+
         return sb.ToString();
     }
+
 }
