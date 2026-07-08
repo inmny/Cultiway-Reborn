@@ -161,13 +161,7 @@ public static class ActorAssetTools
     public static ActorAsset AddDropItemShapes(this ActorAsset asset, params ItemShapeAsset[] shapes)
     {
         if (shapes == null) return asset;
-        foreach (var shape in shapes)
-        {
-            if (shape != null)
-            {
-                asset.AddDropItemShapeIds(shape.id);
-            }
-        }
+        asset.GetExtend<ActorAssetExtend>().drop_item_shapes.Add(shapes);
         return asset;
     }
 
@@ -177,7 +171,7 @@ public static class ActorAssetTools
     public static ActorAsset AddDropItemShapeIds(this ActorAsset asset, params string[] shape_ids)
     {
         if (shape_ids == null) return asset;
-        asset.GetExtend<ActorAssetExtend>().drop_item_shapes.Add(shape_ids);
+        asset.GetExtend<ActorAssetExtend>().drop_item_shapes.AddIds(shape_ids);
         return asset;
     }
 

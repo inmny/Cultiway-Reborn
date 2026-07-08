@@ -69,13 +69,13 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce, IDispo
 
     public void TestAddSpecialItem()
     {
-        AddSpecialItem(SpecialItemUtils.StartBuild(ItemShapes.Ball.id, World.world.getCurWorldTime()).Build());
+        AddSpecialItem(SpecialItemUtils.StartBuild(ItemShapes.Ball, World.world.getCurWorldTime()).Build());
     }
 
     public void TestAddOpenElementRootElixir()
     {
         AddSpecialItem(
-            SpecialItemUtils.StartBuild(ItemShapes.Ball.id, World.world.getCurWorldTime())
+            SpecialItemUtils.StartBuild(ItemShapes.Ball, World.world.getCurWorldTime())
                 .AddComponent(ElementRoot.Roll())
                 .AddComponent(new Elixir
                 {

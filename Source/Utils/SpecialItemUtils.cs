@@ -1,11 +1,18 @@
 using Cultiway.Const;
 using Cultiway.Core.Components;
+using Cultiway.Core.Libraries;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Utils;
 
 public static class SpecialItemUtils
 {
+    public static Builder StartBuild(ItemShapeAsset shape, double creation_time, string creator = "", float year_limit = 99,
+        string creator_asset_id = "")
+    {
+        return StartBuild(shape?.id, creation_time, creator, year_limit, creator_asset_id);
+    }
+
     public static Builder StartBuild(string shape_id, double creation_time, string creator = "", float year_limit = 99,
         string creator_asset_id = "")
     {

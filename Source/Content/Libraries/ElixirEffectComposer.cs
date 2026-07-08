@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Const;
+using Cultiway.Content;
+using Cultiway.Core.Libraries;
 using Cultiway.Content.AIGC;
 using strings;
 using UnityEngine;
@@ -247,15 +249,26 @@ public static class ElixirEffectComposer
     private static string GuessShape(string text)
     {
         if (string.IsNullOrEmpty(text)) return string.Empty;
-        if (text.Contains("根") || text.Contains("参")) return NamingRuleUtils.ShapeId("root");
-        if (text.Contains("芝") || text.Contains("菇")) return NamingRuleUtils.ShapeId("mushroom");
-        if (text.Contains("果") || text.Contains("莲")) return NamingRuleUtils.ShapeId("fruit");
-        if (text.Contains("翼") || text.Contains("羽")) return NamingRuleUtils.ShapeId("wing");
-        if (text.Contains("甲") || text.Contains("壳")) return NamingRuleUtils.ShapeId("shell");
-        if (text.Contains("石") || text.Contains("晶")) return NamingRuleUtils.ShapeId("stone");
-        if (text.Contains("爪") || text.Contains("牙") || text.Contains("角")) return NamingRuleUtils.ShapeId("claw");
-        if (text.Contains("血") || text.Contains("骨")) return NamingRuleUtils.ShapeId("blood");
+        if (text.Contains("根") || text.Contains("参")) return ShapeId(ItemShapes.Root);
+        if (text.Contains("芝") || text.Contains("菇")) return ShapeId(ItemShapes.Mushroom);
+        if (text.Contains("果")) return ShapeId(ItemShapes.Fruit);
+        if (text.Contains("莲")) return ShapeId(ItemShapes.Lotus);
+        if (text.Contains("翼")) return ShapeId(ItemShapes.Wing);
+        if (text.Contains("羽")) return ShapeId(ItemShapes.Feather);
+        if (text.Contains("甲") || text.Contains("壳")) return ShapeId(ItemShapes.Shell);
+        if (text.Contains("石")) return ShapeId(ItemShapes.Stone);
+        if (text.Contains("晶")) return ShapeId(ItemShapes.Crystal);
+        if (text.Contains("爪")) return ShapeId(ItemShapes.Claw);
+        if (text.Contains("牙")) return ShapeId(ItemShapes.Tooth);
+        if (text.Contains("角")) return ShapeId(ItemShapes.Horn);
+        if (text.Contains("血")) return ShapeId(ItemShapes.Blood);
+        if (text.Contains("骨")) return ShapeId(ItemShapes.Bone);
         return string.Empty;
+    }
+
+    private static string ShapeId(ItemShapeAsset shape)
+    {
+        return shape?.id ?? string.Empty;
     }
 
     private static float RoundStatValue(float value)

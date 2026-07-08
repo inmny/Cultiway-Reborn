@@ -14,7 +14,7 @@ using UnityEngine;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(ActorJobs), typeof(Architectures), typeof(KingdomAssets), typeof(ActorTraits))]
+[Dependency(typeof(ActorJobs), typeof(Architectures), typeof(KingdomAssets), typeof(ActorTraits), typeof(ItemShapes))]
 public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 {
     protected override bool AutoRegisterAssets() => true;
@@ -123,16 +123,16 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         Plant.kingdom_id_wild = SK.nature;
 
         Plant.GetExtend<ActorAssetExtend>().must_have_element_root = true;
-        Plant.AddDropItemShapeIds(
-            ItemShapes.ShapeId("herb"),
-            ItemShapes.ShapeId("flower"),
-            ItemShapes.ShapeId("fruit"),
-            ItemShapes.ShapeId("lotus"),
-            ItemShapes.ShapeId("mushroom"),
-            ItemShapes.ShapeId("root"),
-            ItemShapes.ShapeId("vine"),
-            ItemShapes.ShapeId("wood"),
-            ItemShapes.ShapeId("bamboo"));
+        Plant.AddDropItemShapes(
+            ItemShapes.Herb,
+            ItemShapes.Flower,
+            ItemShapes.Fruit,
+            ItemShapes.Lotus,
+            ItemShapes.Mushroom,
+            ItemShapes.Root,
+            ItemShapes.Vine,
+            ItemShapes.Wood,
+            ItemShapes.Bamboo);
         t = Plant;
         AddPhenotype("skin_light", "default_color");
         AddPhenotype("skin_dark", "default_color");

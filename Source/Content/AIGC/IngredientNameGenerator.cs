@@ -6,6 +6,7 @@ using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.AIGCLib;
 using Cultiway.Core.Components;
+using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using HarmonyLib;
@@ -28,6 +29,11 @@ public class IngredientNameGenerator : PromptNameGenerator<IngredientNameGenerat
     protected override string GetDefaultName(string[] param)
     {
         return GenerateDefaultName(param);
+    }
+
+    public static IngredientNamingContext CreateContext(Actor actor, ActorExtend ae, ItemShapeAsset shape)
+    {
+        return CreateContext(actor, ae, shape?.id);
     }
 
     public static IngredientNamingContext CreateContext(Actor actor, ActorExtend ae, string shapeId)

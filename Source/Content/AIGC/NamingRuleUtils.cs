@@ -212,9 +212,4 @@ internal static class NamingRuleUtils
             return (int)(hash & 0x7fffffff);
         }
     }
-
-    internal static string ShapeId(string folder)
-    {
-        return ItemShapes.ShapeId(folder);
-    }
 }

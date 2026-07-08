@@ -25,7 +25,7 @@ public class BehFindElixirToCraft : BehCityActor
         {
             ae.Master(elixir_asset, ae.GetMaster(elixir_asset) + 1);
             Entity crafting_elixir = SpecialItemUtils
-                .StartBuild(ItemShapes.Ball.id, World.world.getCurWorldTime(), pObject.getName())
+                .StartBuild(ItemShapes.Ball, World.world.getCurWorldTime(), pObject.getName())
                 .AddComponent(new CraftingElixir
                 {
                     elixir_id = elixir_asset.id

@@ -39,7 +39,7 @@ public class BehCraftTalisman : BehaviourActionActor
         var power_level = ae.GetPowerLevel();
 
         string skill_name = skill_v3.HasName ? skill_v3.Name.value : skill_v3.GetComponent<SkillContainer>().Asset.id;
-        var item = SpecialItemUtils.StartBuild(ItemShapes.Talisman.id, WorldboxGame.I.GetWorldTime(), pObject.getName(), Mathf.Pow(power_level, 2)*10)
+        var item = SpecialItemUtils.StartBuild(ItemShapes.Talisman, WorldboxGame.I.GetWorldTime(), pObject.getName(), Mathf.Pow(power_level, 2)*10)
             .AddComponent(new Talisman()
             {
                 PowerLevel = power_level - 1,

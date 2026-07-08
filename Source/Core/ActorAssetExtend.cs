@@ -34,6 +34,7 @@ public class ActorAssetExtend
 
 public class ActorDropItemShapeSet
 {
+    private readonly List<ItemShapeAsset> manual_shapes = new();
     private readonly List<string> manual_shape_ids = new();
     private readonly HashSet<string> manual_shape_id_set = new(StringComparer.Ordinal);
     private ItemShapeAsset[] cached_shapes = [];
@@ -41,7 +42,21 @@ public class ActorDropItemShapeSet
     private string cached_owner_id;
     private bool dirty = true;
 
-    public void Add(params string[] shape_ids)
+    public void Add(params ItemShapeAsset[] shapes)
+    {
+        if (shapes == null) return;
+        for (var i = 0; i < shapes.Length; i++)
+        {
+            var shape = shapes[i];
+            if (shape != null && !string.IsNullOrEmpty(shape.id) && manual_shape_id_set.Add(shape.id))
+            {
+                manual_shapes.Add(shape);
+                dirty = true;
+            }
+        }
+    }
+
+    public void AddIds(params string[] shape_ids)
     {
         if (shape_ids == null) return;
         for (var i = 0; i < shape_ids.Length; i++)
@@ -79,6 +94,11 @@ public class ActorDropItemShapeSet
         {
             if (shape == null || string.IsNullOrEmpty(shape.id) || !added.Add(shape.id)) return;
             result.Add(shape);
+        }
+
+        foreach (var shape in manual_shapes)
+        {
+            Add(shape);
         }
 
         if (shape_library != null)

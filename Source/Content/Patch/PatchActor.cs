@@ -227,11 +227,10 @@ internal static class PatchActor
             jindan_component = jindan;
             param.Add(jindan.Type.GetName());
         }
-        var shape_key = IngredientShapeGenerator.ResolveShapeId(__instance, dead_ae, param.ToArray());
-        var shape_asset = ModClass.L.ItemShapeLibrary.GetOrDefault(shape_key, ItemShapes.ElementRoot);
+        var shape_asset = IngredientShapeGenerator.ResolveShapeAsset(__instance, dead_ae, param.ToArray()) ?? ItemShapes.ElementRoot;
         var shape_name = LM.Has(shape_asset.id) ? LM.Get(shape_asset.id) : shape_asset.id;
         param.Add(shape_name);
-        var naming_context = IngredientNameGenerator.CreateContext(__instance, dead_ae, shape_asset.id);
+        var naming_context = IngredientNameGenerator.CreateContext(__instance, dead_ae, shape_asset);
         var item_level = new ItemLevel
         {
             Stage = naming_context.QualityStage,
@@ -239,7 +238,7 @@ internal static class PatchActor
         };
 
         SpecialItemUtils.Builder item_builder =
-            SpecialItemUtils.StartBuild(shape_asset.id, __instance.data.created_time, __instance.getName(),
+            SpecialItemUtils.StartBuild(shape_asset, __instance.data.created_time, __instance.getName(),
                 Mathf.Pow(10, Mathf.Min(dead_ae.GetPowerLevel(), 6)), __instance.asset?.id ?? string.Empty);
 
         item_builder.AddTag<TagIngredient>();

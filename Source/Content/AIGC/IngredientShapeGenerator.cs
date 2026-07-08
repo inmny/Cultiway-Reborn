@@ -7,6 +7,7 @@ using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.AIGCLib;
 using Cultiway.Core.Components;
+using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
@@ -31,18 +32,28 @@ public class IngredientShapeGenerator : PromptNameGenerator<IngredientShapeGener
         return ResolveShapeId(param);
     }
 
+    public static ItemShapeAsset ResolveShapeAsset(Actor actor, ActorExtend ae, string[] param)
+    {
+        if (actor == null || ae == null) return ResolveShapeAsset(param);
+        var seed = NamingRuleUtils.StableHash($"{actor.asset?.id}|{actor.data?.id}|{string.Join("|", param ?? Array.Empty<string>())}");
+        return ItemShapes.PickDropShape(actor, ae, seed) ?? ItemShapes.Blood;
+    }
+
     public static string ResolveShapeId(Actor actor, ActorExtend ae, string[] param)
     {
-        if (actor == null || ae == null) return ResolveShapeId(param);
-        var seed = NamingRuleUtils.StableHash($"{actor.asset?.id}|{actor.data?.id}|{string.Join("|", param ?? Array.Empty<string>())}");
-        return ItemShapes.PickDropShape(actor, ae, seed).id;
+        return ResolveShapeAsset(actor, ae, param)?.id ?? ItemShapes.Blood.id;
+    }
+
+    public static ItemShapeAsset ResolveShapeAsset(string[] param)
+    {
+        if (param == null || param.Length == 0) return ItemShapes.Blood;
+        var joined = string.Join("|", param);
+        return joined.ContainsAny("金丹", "妖丹", "内丹") ? ItemShapes.Ball : ItemShapes.Blood;
     }
 
     public static string ResolveShapeId(string[] param)
     {
-        if (param == null || param.Length == 0) return ItemShapes.Blood.id;
-        var joined = string.Join("|", param);
-        return joined.ContainsAny("金丹", "妖丹", "内丹") ? ItemShapes.Ball.id : ItemShapes.Blood.id;
+        return ResolveShapeAsset(param)?.id ?? ItemShapes.Blood.id;
     }
 
     protected override bool IsValid(string name)

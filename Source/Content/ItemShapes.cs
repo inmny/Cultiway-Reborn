@@ -15,30 +15,33 @@ public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
     public static ItemShapeAsset ElementRoot { get; private set; }
     public static ItemShapeAsset Ball { get; private set; }
     public static ItemShapeAsset Talisman { get; private set; }
+    public static ItemShapeAsset Bamboo { get; private set; }
     public static ItemShapeAsset Blood { get; private set; }
     public static ItemShapeAsset Bone { get; private set; }
     public static ItemShapeAsset Claw { get; private set; }
     public static ItemShapeAsset Crystal { get; private set; }
     public static ItemShapeAsset Eye { get; private set; }
     public static ItemShapeAsset Feather { get; private set; }
+    public static ItemShapeAsset Flower { get; private set; }
+    public static ItemShapeAsset Fruit { get; private set; }
     public static ItemShapeAsset Fur { get; private set; }
+    public static ItemShapeAsset Herb { get; private set; }
     public static ItemShapeAsset Hoof { get; private set; }
     public static ItemShapeAsset Horn { get; private set; }
     public static ItemShapeAsset Liquid { get; private set; }
+    public static ItemShapeAsset Lotus { get; private set; }
+    public static ItemShapeAsset Mushroom { get; private set; }
+    public static ItemShapeAsset Root { get; private set; }
     public static ItemShapeAsset Shell { get; private set; }
     public static ItemShapeAsset Silk { get; private set; }
     public static ItemShapeAsset Stone { get; private set; }
     public static ItemShapeAsset Tooth { get; private set; }
+    public static ItemShapeAsset Vine { get; private set; }
     public static ItemShapeAsset Wing { get; private set; }
+    public static ItemShapeAsset Wood { get; private set; }
     public static ItemShapeAsset Others { get; private set; }
     protected override bool AutoRegisterAssets() => true;
     protected override string Prefix() => "Cultiway.ItemShape";
-
-    public static string ShapeId(string folder)
-    {
-        if (string.IsNullOrEmpty(folder)) return Others?.id ?? "Cultiway.ItemShape.Others";
-        return $"Cultiway.ItemShape.{char.ToUpperInvariant(folder[0])}{folder.Substring(1)}";
-    }
 
     public static ItemShapeAsset PickDropShape(Actor actor, ActorExtend actor_extend, int seed)
     {
@@ -70,21 +73,30 @@ public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
     {
         SetFolder(Ball, "ball");
         SetFolder(Talisman, "talisman");
+        SetFolder(Bamboo, "bamboo");
         SetFolder(Blood, "blood");
         SetFolder(Bone, "bone");
         SetFolder(Claw, "claw");
         SetFolder(Crystal, "crystal");
         SetFolder(Eye, "eye");
         SetFolder(Feather, "feather");
+        SetFolder(Flower, "flower");
+        SetFolder(Fruit, "fruit");
         SetFolder(Fur, "fur");
+        SetFolder(Herb, "herb");
         SetFolder(Hoof, "hoof");
         SetFolder(Horn, "horn");
         SetFolder(Liquid, "liquid");
+        SetFolder(Lotus, "lotus");
+        SetFolder(Mushroom, "mushroom");
+        SetFolder(Root, "root");
         SetFolder(Shell, "shell");
         SetFolder(Silk, "silk");
         SetFolder(Stone, "stone");
         SetFolder(Tooth, "tooth");
+        SetFolder(Vine, "vine");
         SetFolder(Wing, "wing");
+        SetFolder(Wood, "wood");
         ElementRoot.GetIcon = (e) => 
         {
             if (!e.HasComponent<ElementRoot>()) return null;
@@ -261,15 +273,15 @@ public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
                    (asset.flying || ContainsAssetText(asset, "dragon", "wyvern", "bird", "rooster", "eagle", "mallard", "fenghuang", "jinwu", "zhuque", "griffin"));
         });
 
-        Set(Get(ShapeId("bamboo")), ["竹"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
-        Set(Get(ShapeId("flower")), ["花"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
-        Set(Get(ShapeId("fruit")), ["果"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
-        Set(Get(ShapeId("herb")), ["草"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
-        Set(Get(ShapeId("lotus")), ["莲"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
-        Set(Get(ShapeId("mushroom")), ["芝", "菇"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
-        Set(Get(ShapeId("root")), ["根", "参"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
-        Set(Get(ShapeId("vine")), ["藤"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
-        Set(Get(ShapeId("wood")), ["木"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
+        Set(Bamboo, ["竹"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
+        Set(Flower, ["花"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
+        Set(Fruit, ["果"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
+        Set(Herb, ["草"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
+        Set(Lotus, ["莲"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
+        Set(Mushroom, ["芝", "菇"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
+        Set(Root, ["根", "参"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
+        Set(Vine, ["藤"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
+        Set(Wood, ["木"], asset => asset == Actors.Plant || ContainsAssetText(asset, "plant", "treant", "tree"));
     }
 
     private static bool ContainsAssetText(ActorAsset asset, params string[] values)

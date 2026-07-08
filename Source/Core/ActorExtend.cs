@@ -415,7 +415,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     }
     private void TestConsumeEnlightenElixir()
     {
-        var elixir = SpecialItemUtils.StartBuild(ItemShapes.Ball.id, World.world.getCurWorldTime(), Base.getName())
+        var elixir = SpecialItemUtils.StartBuild(ItemShapes.Ball, World.world.getCurWorldTime(), Base.getName())
             .AddComponent(new Elixir()
             {
                 elixir_id = Elixirs.EnlightenElixir.id
