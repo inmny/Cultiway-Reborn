@@ -146,6 +146,7 @@ public static class ElixirEffectGenerator
 
     private static async Task<StatusEffectDraft> BuildStatusDraftAsync(ElixirAsset elixir)
     {
+        if (elixir?.has_recipe_semantic == true) return null;
         string[] param = elixir.ingredients?.Select(x => x.ingredient_name).ToArray() ?? Array.Empty<string>();
         var content = await ElixirEffectJsonGenerator.Instance.GenerateNameAsync(param);
         if (string.IsNullOrEmpty(content)) return null;
@@ -163,6 +164,7 @@ public static class ElixirEffectGenerator
 
     private static async Task<DataGainEffect> BuildDataGainDraftAsync(ElixirAsset elixir)
     {
+        if (elixir?.has_recipe_semantic == true) return null;
         string[] param = elixir.ingredients?.Select(x => x.ingredient_name).ToArray() ?? Array.Empty<string>();
         var content = await ElixirDataGainJsonGenerator.Instance.GenerateNameAsync(param);
         if (string.IsNullOrEmpty(content)) return null;
@@ -196,27 +198,29 @@ public static class ElixirEffectGenerator
 
     private static StatusEffectDraft BuildStatusFallback(ElixirAsset elixir)
     {
-        var baseName = elixir.ingredients == null
-            ? "无名丹药"
-            : string.Join("+", elixir.ingredients.Select(x => x.GetName()).Where(x => !string.IsNullOrEmpty(x)));
+        var composition = ElixirEffectComposer.Compose(elixir);
         return new StatusEffectDraft
         {
-            name = baseName,
-            effect_description = "服用后略有益处",
-            bonus_stats = new Dictionary<string, float>
-            {
-                { S.health, 10 }
-            }
+            name = composition.Name,
+            effect_description = composition.Description,
+            bonus_stats = composition.StatusStats
         };
     }
 
     private static DataGainEffect BuildDataGainFallback(ElixirAsset elixir)
     {
+        var composition = ElixirEffectComposer.Compose(elixir);
         return new DataGainEffect
         {
-            chosen = "attribute",
-            effect_description = "淬炼血气，增强体魄",
-            attributes = new Dictionary<string, float> { { S.health, 5 } },
+            name = composition.Name,
+            chosen = composition.DataGainChosen,
+            effect_type = ElixirEffectType.DataGain.ToString(),
+            effect_description = composition.Description,
+            attributes = composition.DataAttributes,
+            traits = composition.DataTraits,
+            fallback_attribute = composition.FallbackAttributes,
+            operations = composition.DataOperations,
+            operation_args = composition.OperationArgs,
             max_stack = 3
         };
     }

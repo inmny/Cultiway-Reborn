@@ -15,6 +15,7 @@ public class ElixirEffectJsonGenerator : PromptNameGenerator<ElixirEffectJsonGen
 {
     protected override string NameDictPath { get; } =
         Path.Combine(Application.persistentDataPath, "Cultiway_ElixirEffectJsonDict.json");
+
     [Hotfixable]
     protected override string GetSystemPrompt()
     {
@@ -47,7 +48,18 @@ public class ElixirEffectJsonGenerator : PromptNameGenerator<ElixirEffectJsonGen
 
     protected override string GetDefaultName(string[] param)
     {
-        return string.Empty;
+        return GenerateFallbackJson(param);
+    }
+
+    public static string GenerateFallbackJson(string[] ingredientNames)
+    {
+        var composition = ElixirEffectComposer.ComposeFromIngredientNames(ingredientNames);
+        return JsonConvert.SerializeObject(new
+        {
+            effect_type = "StatusGain",
+            effect_description = composition.Description,
+            bonus_stats = composition.StatusStats
+        });
     }
 
     protected override float Temperature { get; } = 1;
@@ -68,4 +80,5 @@ public class ElixirEffectJsonGenerator : PromptNameGenerator<ElixirEffectJsonGen
         }
         return sb.ToString();
     }
+
 }

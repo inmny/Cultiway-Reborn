@@ -8,15 +8,27 @@ using Cultiway.Utils;
 using HarmonyLib;
 using NeoModLoader.api.attributes;
 using Newtonsoft.Json;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Content.AIGC;
 
 public class ElixirDataGainJsonGenerator : PromptNameGenerator<ElixirDataGainJsonGenerator>
 {
-    private static readonly string[] AttributeCandidates = ["health", "intelligence", "lifespan"];
+    private static readonly string[] AttributeCandidates =
+    [
+        S.health,
+        S.intelligence,
+        S.lifespan,
+        S.damage,
+        S.armor,
+        S.speed,
+        S.attack_speed,
+        BaseStatses.MaxWakan.id,
+        BaseStatses.WakanRegen.id
+    ];
     private static string[] OperationCandidates =>
-        ModClass.L.OperationLibrary?.list?.Select(x => $"{x.GetName()}({x.id})").ToArray();
+        ModClass.L.OperationLibrary?.list?.Select(x => $"{x.GetName()}({x.id})").ToArray() ?? Array.Empty<string>();
     protected override string NameDictPath { get; } =
         Path.Combine(Application.persistentDataPath, "Cultiway_ElixirDataGainJsonDict.json");
 
@@ -59,7 +71,24 @@ public class ElixirDataGainJsonGenerator : PromptNameGenerator<ElixirDataGainJso
 
     protected override string GetDefaultName(string[] param)
     {
-        return string.Empty;
+        return GenerateFallbackJson(param);
+    }
+
+    public static string GenerateFallbackJson(string[] ingredientNames)
+    {
+        var composition = ElixirEffectComposer.ComposeFromIngredientNames(ingredientNames);
+        return JsonConvert.SerializeObject(new
+        {
+            effect_type = "DataGain",
+            chosen = composition.DataGainChosen,
+            effect_description = composition.Description,
+            attributes = composition.DataAttributes,
+            traits = composition.DataTraits,
+            fallback_attribute = composition.FallbackAttributes,
+            operations = composition.DataOperations,
+            operation_args = composition.OperationArgs,
+            max_stack = 3
+        });
     }
 
     protected override float Temperature { get; } = 1;

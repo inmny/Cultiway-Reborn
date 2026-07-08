@@ -1,6 +1,8 @@
+using System;
 using Cultiway.Utils;
 using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
+using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
@@ -38,8 +40,18 @@ public class ElixirPage : MonoBehaviour
             var elixir_asset = elixir_master.Item1;
             sb.AppendLine($"丹方: {elixir_asset.GetName()}");
             sb.AppendLine($"\t{elixir_asset.description_key}");
+            if (elixir_asset.has_recipe_semantic)
+            {
+                var primary = IngredientNameGenerator.LocalizeElement(elixir_asset.recipe_semantic.primary_element_index);
+                var composition = ElixirEffectComposer.Compose(elixir_asset);
+                sb.AppendLine($"\t药性: {composition.Description}");
+                if (!string.IsNullOrEmpty(primary))
+                {
+                    sb.AppendLine($"\t主性: {primary}");
+                }
+            }
             sb.AppendLine($"\t配方:");
-            foreach (var ingredient in elixir_asset.ingredients)
+            foreach (var ingredient in elixir_asset.ingredients ?? Array.Empty<ElixirIngredientCheck>())
             {
                 sb.AppendLine($"\t\t{ingredient.GetName()}");
             }
