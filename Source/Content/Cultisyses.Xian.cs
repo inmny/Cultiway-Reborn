@@ -27,6 +27,8 @@ public partial class Cultisyses
 {
     public static CultisysAsset<Xian> Xian { get; private set; }
 
+    private static readonly HashSet<string> _default_xian = new(StringComparer.Ordinal) { nameof(Xian) };
+
     private void InitXian()
     {
         Xian = (CultisysAsset<Xian>)Add(new CultisysAsset<Xian>(nameof(Xian), 20, new Xian(),
@@ -95,6 +97,7 @@ public partial class Cultisyses
         ActorExtend.RegisterActionOnNewCreature((ae) =>
         {
             if (!ae.HasElementRoot()) return;
+            if (!GetAvailableCultisysIds(ae).Contains(nameof(Xian))) return;
             ref var element_root = ref ae.GetElementRoot();
             if (!ContentSetting.AllXian && element_root.Type == ModClass.L.ElementRootLibrary.Common) return;
             ae.NewCultisys(Xian);

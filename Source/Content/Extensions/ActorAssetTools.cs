@@ -176,6 +176,21 @@ public static class ActorAssetTools
     }
 
     /// <summary>
+    /// 配置该种族可用的修炼体系（按体系 id，如 "Xian"、"Magic"）。多次调用累加。
+    /// </summary>
+    public static ActorAsset AddAvailableCultisys(this ActorAsset asset, params string[] cultisys_ids)
+    {
+        if (cultisys_ids == null) return asset;
+        var extend = asset.GetExtend<ActorAssetExtend>();
+        for (var i = 0; i < cultisys_ids.Length; i++)
+        {
+            var id = cultisys_ids[i];
+            if (!string.IsNullOrEmpty(id)) extend.available_cultisys_ids.Add(id);
+        }
+        return asset;
+    }
+
+    /// <summary>
     /// 同样设置移动动画，输入格式为"walk_0,walk_1,walk_2,walk_3,walk_4,walk_5,walk_6,walk_7"
     /// </summary>
     public static ActorAsset SetAnimWalkRaw(this ActorAsset asset, string anims)

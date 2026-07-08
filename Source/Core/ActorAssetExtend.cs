@@ -30,6 +30,11 @@ public class ActorAssetExtend
     ///     手动指定该生物会掉落的特殊物品形态。最终候选会继续叠加 ItemShape 自己的掉落特征判断。
     /// </summary>
     public ActorDropItemShapeSet drop_item_shapes = new();
+    /// <summary>
+    ///     该种族可用的修炼体系 id 集合（如 "Xian"、"Magic"）。
+    ///     为空表示未配置，默认按 {Xian} 处理（向后兼容）。
+    /// </summary>
+    public HashSet<string> available_cultisys_ids = new(StringComparer.Ordinal);
 }
 
 public class ActorDropItemShapeSet

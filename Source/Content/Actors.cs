@@ -40,6 +40,21 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         LoadSkinsFor(SA.elf);
         LoadSkinsFor(SA.dwarf);
         LoadSkinsFor(SA.human);
+
+        // 四个原版种族仅修炼魔法（不修仙）
+        ConfigureMagicOnlyRace(SA.human);
+        ConfigureMagicOnlyRace(SA.elf);
+        ConfigureMagicOnlyRace(SA.dwarf);
+        ConfigureMagicOnlyRace(SA.orc);
+    }
+
+    private void ConfigureMagicOnlyRace(string id)
+    {
+        var asset = Get(id);
+        if (asset == null) return;
+        var ids = asset.GetExtend<ActorAssetExtend>().available_cultisys_ids;
+        ids.Clear();
+        ids.Add(nameof(Cultisyses.Magic));
     }
     private void LoadSkinsFor(string id)
     {
