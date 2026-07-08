@@ -106,7 +106,7 @@ internal class SkillNameAtoms : ExtendLibrary<SkillNameAtomAsset, SkillNameAtoms
         SetMotion(MotionGround, MotionTag.Ground, ["地", "岩"],
             ["{motion}{form}", "{element}{motion}"], [], ["GroundCrawl"]);
         SetMotion(MotionSnap, MotionTag.Snap, ["闪", "掣"],
-            ["{element}{motion}", "{motion}{form}"], [], ["LightningSnap"]);
+            ["{element}{motion}", "{motion}{form}"], [], ["LightningSnap", "AppearAtTarget"]);
         SetMotion(MotionVortex, MotionTag.Vortex, ["旋", "涡"],
             ["{element}{form}", "{motion}{form}", "{element}{motion}"], [], ["SlowVortex", "SpiralHoming"]);
         SetMotion(MotionRain, MotionTag.Rain, ["雨", "霖"],

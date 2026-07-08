@@ -24,6 +24,23 @@ public class SkillEntityAsset : Asset
     public OnObjCollision OnObjCollision;
     public SkillEntityType Type;
 
+    /// <summary>
+    /// 该法术视觉上可接受的方向姿态集合（按位或）。
+    /// 默认 <see cref="TrajectoryOrientation.Horizontal"/>，兼容现有绝大多数水平移动法术。
+    /// 由 <see cref="SkillModifierLibrary.SetTrajectory"/> 词条在随机选取轨迹时，
+    /// 与候选 <see cref="TrajectoryAsset.Orientations"/> 取交集过滤，避免方向不兼容的轨迹替换。
+    /// </summary>
+    public TrajectoryOrientation AcceptedOrientations { get; set; } = TrajectoryOrientation.Horizontal;
+
+    /// <summary>
+    /// 流式声明该法术可接受的方向姿态，便于在 <c>Configure(...)</c> 之后链式调用。
+    /// </summary>
+    public SkillEntityAsset AcceptOrientations(TrajectoryOrientation orientations)
+    {
+        AcceptedOrientations = orientations;
+        return this;
+    }
+
     public SkillEntityAsset SetupColliderSphere(float radius, ColliderConfig config)
     {
         PrefabEntity.Add(new ColliderSphere()

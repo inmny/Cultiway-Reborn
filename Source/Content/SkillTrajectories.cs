@@ -29,6 +29,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset GroundCrawl { get; private set; }
     public static TrajectoryAsset LightningSnap { get; private set; }
     public static TrajectoryAsset RainFall { get; private set; }
+    public static TrajectoryAsset AppearAtTarget { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -50,6 +51,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupGroundCrawl();
         SetupLightningSnap();
         SetupRainFall();
+        SetupAppearAtTarget();
     }
 
     private static void SetupTowardsDirection()
@@ -496,6 +498,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             SetOrAdd(e, new CollisionHeightGate { MaxHeight = 0.35f });
             ResetRuntimeState(e);
         };
+        FallingStrike.WithOrientations(TrajectoryOrientation.Vertical);
     }
 
     private static void SetupGroundCrawl()
@@ -520,6 +523,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        GroundCrawl.WithOrientations(TrajectoryOrientation.Ground);
     }
 
     private static void SetupLightningSnap()
@@ -571,6 +575,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        // 折线闪击以水平推进为主，但抵达后即停、视觉接近原地显现，故同时声明 Appear。
+        LightningSnap.WithOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Appear);
     }
 
     private static void SetupRainFall()
@@ -627,6 +633,32 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             SetOrAdd(e, new CollisionHeightGate { MaxHeight = 0.35f });
             ResetRuntimeState(e);
         };
+        RainFall.WithOrientations(TrajectoryOrientation.Vertical);
+    }
+
+    private static void SetupAppearAtTarget()
+    {
+        // 原地显现：首帧直接把实体挪到目标位置，之后原地等待，直到动画播完/超时回收。
+        // 适合动画本身即从上到下竖直播放、不应叠加额外位移的法术（例如落雷）。
+        AppearAtTarget.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            if (state.Elapsed <= 0f)
+            {
+                pos.value = GetTargetPos(ref context);
+                state.StartPosition = pos.value;
+            }
+
+            state.Elapsed += dt;
+            // 原地不动，方向保持朝下以贴合竖直播放动画。
+            rot.value = SafeNormalized(new Vector3(0f, 0f, -1f), Vector3.down);
+        };
+        AppearAtTarget.OnInit = e =>
+        {
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
+        };
+        AppearAtTarget.WithOrientations(TrajectoryOrientation.Appear);
     }
 
     private static void MoveSmoothlyTo(Vector3 target, ref Position pos, ref Rotation rot, Entity e, float dt,

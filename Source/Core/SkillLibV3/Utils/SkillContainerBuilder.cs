@@ -21,6 +21,26 @@ public class SkillContainerBuilder
         this._containerEntity = container_entity;
     }
 
+    /// <summary>
+    /// 解析当前构建器所操作的技能资产。
+    /// 新建容器走 <see cref="SkillEntityAsset"/> 构造分支；升级已有容器则从其
+    /// <see cref="SkillContainer"/> 组件的 <see cref="SkillContainer.Asset"/> 回查。
+    /// 用于让词条的 <c>OnAddOrUpgrade</c> 回调读取法术侧的约束（例如方向姿态）。
+    /// </summary>
+    public SkillEntityAsset EntityAsset
+    {
+        get
+        {
+            if (_entityAsset != null) return _entityAsset;
+            if (!_containerEntity.IsNull && _containerEntity.HasComponent<SkillContainer>())
+            {
+                return _containerEntity.GetComponent<SkillContainer>().Asset;
+            }
+
+            return null;
+        }
+    }
+
     public bool HasModifier<TModifier>() where TModifier : struct, IModifier
     {
         if (_modifiersToAdd.ContainsKey(typeof(TModifier))) return true;
