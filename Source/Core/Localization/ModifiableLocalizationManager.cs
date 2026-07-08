@@ -18,7 +18,8 @@ public static class ModifiableLocalizationManager
     {
         [RealmLevelNamesSectionId] = new Dictionary<string, int>
         {
-            ["Xian"] = 20
+            ["Xian"] = 20,
+            ["Magic"] = 10
         }
     };
 
