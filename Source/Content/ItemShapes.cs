@@ -123,6 +123,7 @@ public class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
             if (cached_library.has(id)) continue;
 
             SetFolder(Add(new ItemShapeAsset { id = id }), folderName);
+            ModClass.LogWarning($"Added dynamic folder: {id}");
         }
     }
 
