@@ -588,6 +588,22 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         city.data.set(ContentCityDataKeys.CityWallStage_int, stage);
     }
 
+    /// <summary>
+    /// 清除城市的全部城墙：拆除内/外墙墙体 tile，清空所有城墙记录（内/外墙 bounds + stage）。
+    /// 用于篝火（城市核心）被摧毁时立即重置城墙系统，不等下次谋划。
+    /// </summary>
+    public static void ClearCityWalls(City city)
+    {
+        if (city?.data == null) return;
+        var inner = GetInnerBounds(city);
+        if (inner != null) RemoveWallRing(inner.Value);
+        var outer = GetOuterBounds(city);
+        if (outer != null) RemoveWallRing(outer.Value);
+        SetInnerBounds(city, default);
+        SetOuterBounds(city, default);
+        SetWallStage(city, WALL_STAGE_NONE);
+    }
+
     /// <summary>取得记录的内墙 bounds（固定，木墙阶段建墙时记录）；无记录返回 null。</summary>
     private static WallShapeHelper.Bounds? GetInnerBounds(City city)
     {

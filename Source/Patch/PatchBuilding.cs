@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using Cultiway.Core;
+using Cultiway.Content;
 using Cultiway.Core.BuildingComponents;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -65,5 +66,24 @@ internal static class PatchBuilding
     private static void makeRuins_prefix(Building __instance)
     {
         __instance.asset.GetExtend<BuildingAssetExtend>().action_on_ruins?.Invoke(__instance, __instance.current_tile);
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(Building), nameof(Building.startRemove))]
+    private static void startRemove_postfix(Building __instance)
+    {
+        ClearWallsIfBonfire(__instance);
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(Building), nameof(Building.makeRuins))]
+    private static void makeRuins_postfix(Building __instance)
+    {
+        ClearWallsIfBonfire(__instance);
+    }
+
+    /// <summary>篝火（城市核心）被摧毁/变废墟时，立即清除该城市的全部城墙（不等下次谋划）。</summary>
+    private static void ClearWallsIfBonfire(Building b)
+    {
+        if (b?.asset == null || b.city == null) return;
+        if (b.asset.type == "type_bonfire") Plots.ClearCityWalls(b.city);
     }
 }
