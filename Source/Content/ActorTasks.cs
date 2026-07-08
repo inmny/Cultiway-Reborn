@@ -19,6 +19,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor CraftElixir  { get; private set; }
     public static BehaviourTaskActor FindNewElixir { get; private set; }
     public static BehaviourTaskActor CraftTalisman { get; private set; }
+    public static BehaviourTaskActor CraftArtifact { get; private set; }
     public static BehaviourTaskActor CreateCultibook { get; private set; }
     public static BehaviourTaskActor ImproveCultibook { get; private set; }
     public static BehaviourTaskActor BuildSect { get; private set; }
@@ -119,6 +120,15 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         
         CraftTalisman.addBeh(new BehRandomWait(3 * TimeScales.SecPerMonth, 12 * TimeScales.SecPerMonth));
         CraftTalisman.addBeh(new BehCraftTalisman());
+
+        CraftArtifact.addBeh(new BehBuildingTargetHome());
+        CraftArtifact.addBeh(new BehGetTargetBuildingMainTile());
+        CraftArtifact.addBeh(new BehGoToTileTarget());
+        CraftArtifact.addBeh(new BehStayInBuildingTarget());
+        CraftArtifact.addBeh(new BehFindArtifactToCraft());
+        CraftArtifact.addBeh(new BehCraftArtifact());
+        CraftArtifact.addBeh(new BehExitBuilding());
+        CraftArtifact.setIcon("cultiway/icons/iconElixirCauldron");
         
         WriteCultibook.addBeh(new BehBuildingTargetHome());
         WriteCultibook.addBeh(new BehGetTargetBuildingMainTile());

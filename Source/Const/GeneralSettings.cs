@@ -23,6 +23,10 @@ public static class GeneralSettings
     /// </summary>
     public static bool EnableElixirSystems { get; private set; } = true;
     /// <summary>
+    /// 炼器
+    /// </summary>
+    public static bool EnableArtifactSystems { get; private set; } = true;
+    /// <summary>
     /// 师徒
     /// </summary>
     public static bool EnableAMSystems { get; private set; } = true;
@@ -68,6 +72,11 @@ public static class GeneralSettings
     public static void SwitchElixirSystems(bool value)
     {
         EnableElixirSystems = value;
+    }
+
+    public static void SwitchArtifactSystems(bool value)
+    {
+        EnableArtifactSystems = value;
     }
 
     public static void SwitchAMSystems(bool value)

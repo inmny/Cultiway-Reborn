@@ -85,6 +85,7 @@ internal static class PatchActor
                         }
                     }
                     if (xian.CurrLevel >= XianLevels.XianBase && GeneralSettings.EnableTalismanSystems) pool.Add(ActorJobs.TalismanCrafter.id);
+                    if (xian.CurrLevel >= XianLevels.Yuanying && GeneralSettings.EnableArtifactSystems) pool.Add(ActorJobs.ArtifactCrafter.id);
                     if (xian.CurrLevel >= XianLevels.Yuanying && GeneralSettings.EnableCultibookSystems) pool.Add(ActorJobs.CultibookResearcher.id);
                     if (GeneralSettings.EnableCultibookSystems && SectRules.CanFoundSect(pActor) && Randy.randomChance(0.35f))
                     {
