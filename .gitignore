@@ -409,6 +409,7 @@ FodyWeavers.xsd
 
 Tools/
 outputs/
+Temp/
 Scripts/*.jpg
 Scripts/*.png
 Scripts/**/*.jpg

@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
@@ -33,6 +34,7 @@ public class Manager
 
         SkillLogicSystemGroup.Add(new LogicSkillCastSequenceSystem());
         SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
+        SkillLogicSystemGroup.Add(new LogicSkillGroundFxRecordSystem());
         SkillLogicSystemGroup.Add(new LogicSkillTravelSystem());
         SkillLogicSystemGroup.Add(new LogicActorCollisionSystem());
     }
@@ -150,6 +152,7 @@ public class Manager
         context.TargetDir = base_dir;
         ref var pos = ref data.Get<Position>();
         pos.value = source_pos;
+        SyncRuntimeFxStartPosition(entity, source_pos);
         ref var rot = ref data.Get<Rotation>();
         rot.value = initial_dir;
 
@@ -161,7 +164,57 @@ public class Manager
             }, Tags.Get<TagInactive>());
         }
 
-        container.OnSetup?.Invoke(entity);
+        if (container.OnSetup != null)
+        {
+            container.OnSetup(entity);
+        }
+
+        ApplyHorizontalTrajectoryAfterimage(entity);
+    }
+
+    private static void ApplyHorizontalTrajectoryAfterimage(Entity entity)
+    {
+        if (!entity.TryGetComponent(out Trajectory trajectory)) return;
+
+        var trajectoryAsset = trajectory.Asset;
+        var isHorizontal = (trajectoryAsset.Orientations & TrajectoryOrientation.Horizontal) != TrajectoryOrientation.None;
+        if (!isHorizontal)
+        {
+            if (entity.HasComponent<AnimAfterimage>())
+            {
+                entity.RemoveComponent<AnimAfterimage>();
+            }
+            return;
+        }
+
+        var afterimage = AnimAfterimage.HorizontalTrajectory();
+        if (entity.HasComponent<AnimAfterimage>())
+        {
+            ref var current = ref entity.GetComponent<AnimAfterimage>();
+            current = afterimage;
+        }
+        else
+        {
+            entity.AddComponent(afterimage);
+        }
+    }
+
+    private static void SyncRuntimeFxStartPosition(Entity entity, Vector3 sourcePos)
+    {
+        var planePos = new Vector2(sourcePos.x, sourcePos.y);
+        if (entity.HasComponent<PrevPosition>())
+        {
+            ref var prevPosition = ref entity.GetComponent<PrevPosition>();
+            prevPosition.Value = planePos;
+        }
+
+        if (entity.HasComponent<SkillGroundFxState>())
+        {
+            ref var groundFxState = ref entity.GetComponent<SkillGroundFxState>();
+            groundFxState.DistanceAccumulator = 0f;
+            groundFxState.LastX = sourcePos.x;
+            groundFxState.LastY = sourcePos.y;
+        }
     }
 
     private static Vector3 ApplyInitialAngleOffset(Vector3 base_dir, float angle_degrees)

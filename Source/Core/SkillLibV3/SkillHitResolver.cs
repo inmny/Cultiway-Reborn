@@ -2,6 +2,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -30,7 +31,7 @@ public static class SkillHitResolver
         return (ref SkillContext context, Entity skillContainer, Entity skillEntity, BaseSimObject target) =>
         {
             var position = skillEntity.GetComponent<Position>().value;
-            // TODO: 范围命中特效待新 VFX 重建
+            SkillGroundFx.OnImpact(position, SkillVfxColor.ResolveStyle(asset), radius, isArea: true);
 
             foreach (var obj in SkillUtils.IterEnemyInSphere(position, radius, context.SourceObj,
                          context.AttackKingdom))
@@ -52,7 +53,7 @@ public static class SkillHitResolver
     {
         if (target == null || target.isRekt()) return;
 
-        // TODO: 命中特效待新 VFX 重建
+        SkillGroundFx.OnImpact(target.GetSimPos(), SkillVfxColor.ResolveStyle(asset), 0, isArea: false);
         ApplyDamage(asset, ref context, target);
         InvokeOnEffect(skillContainer, skillEntity, target);
     }

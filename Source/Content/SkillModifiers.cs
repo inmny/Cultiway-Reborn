@@ -11,6 +11,7 @@ using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Components.TrajParams;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Content.Components.Skill;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -1201,7 +1202,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var backlashContext = context;
         backlashContext.SourceObj = target;
         backlashContext.TargetDir = -context.TargetDir;
-        // TODO: 元素反噬特效待新 VFX 重建
+        SkillGroundFx.OnImpact(context.SourceObj.GetSimPos(), SkillVfxColor.ResolveStyle(element), 0, isArea: false);
         EventSystemHub.Publish(new GetHitEvent
         {
             TargetID = context.SourceObj.a.data.id,
@@ -1264,7 +1265,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         ref var element = ref skill.Asset.Element;
         var damage = context.Strength * damageRatio;
 
-        // TODO: 爆炸特效待新 VFX 重建
+        SkillGroundFx.OnImpact(explosionPos, SkillVfxColor.ResolveStyle(skill.Asset), radius, isArea: true);
 
         // 对范围内的敌人造成伤害
         foreach (var obj in SkillUtils.IterEnemyInSphere(explosionPos, radius, attacker, context.AttackKingdom))
@@ -1649,7 +1650,6 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     {
         if (target.isRekt() || damage <= 0f) return;
 
-        // TODO: 元素命中特效待新 VFX 重建
         if (target.isActor())
         {
             EventSystemHub.Publish(new GetHitEvent

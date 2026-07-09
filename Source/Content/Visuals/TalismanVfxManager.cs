@@ -33,7 +33,6 @@ public static class TalismanVfxManager
 
         const float scale = 4.2f;
         const float frameInterval = 0.075f;
-        // TODO: 施法者抖动(shake)待新 VFX 架构补回
         ModClass.I.SkillV3.SpawnAnim(frames, pos, Vector3.right, scale, frameInterval: frameInterval,
             lifeTime: frames.Length * frameInterval, visualRotation: VisualRotation.FixedUpright());
     }
