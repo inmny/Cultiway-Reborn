@@ -1,5 +1,6 @@
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
+using Cultiway.Utils;
 
 namespace Cultiway.Utils.Extension;
 
@@ -56,6 +57,8 @@ public static class BookManagerTools
         {
             sect.AddContribution(contributor, contribution);
         }
+
+        WorldLogUtils.LogSectScriptureContributed(sect, contributor, book);
 
         return true;
     }

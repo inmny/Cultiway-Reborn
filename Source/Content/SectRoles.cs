@@ -195,8 +195,7 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.RecruitMember, // permissions：可招揽成员。
             SectPermissions.BringApprenticeToSect, // permissions：可带徒入宗。
             SectPermissions.EvaluatePersonnel, // permissions：可评定宗门人事。
-            SectPermissions.TeachSectCultibook, // permissions：可为门人讲法。
-            SectPermissions.ManageScripture); // permissions：可管理藏经阁。
+            SectPermissions.TeachSectCultibook); // permissions：可为门人讲法。
 
         // 掌门：宗门最高职司，唯一名额，清除门阶并授予宗门管理、提拔、人事评定等完整权限。
         SetupOffice(
@@ -221,7 +220,6 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.EvaluatePersonnel, // permissions：可评定宗门人事。
             SectPermissions.PromoteMember, // permissions：可提拔成员。
             SectPermissions.TeachSectCultibook, // permissions：可为门人讲法。
-            SectPermissions.ManageScripture, // permissions：可管理藏经阁。
             SectPermissions.ManageSect); // permissions：可管理宗门。
 
         // 默认头衔：用于填充头衔槽位，避免没有特殊头衔时出现空角色。

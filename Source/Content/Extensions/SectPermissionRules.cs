@@ -99,17 +99,7 @@ public static class SectPermissionRules
     public static bool CanStoreSectScripture(this Actor actor, Sect sect)
     {
         return IsMemberOfSect(actor, sect)
-               && (actor.HasSectPermission(SectPermissions.WriteScripture)
-                   || actor.HasSectPermission(SectPermissions.ManageScripture));
-    }
-
-    /// <summary>
-    /// 判断成员能否管理指定宗门藏经阁。
-    /// </summary>
-    public static bool CanManageSectScripture(this Actor actor, Sect sect)
-    {
-        return IsMemberOfSect(actor, sect)
-               && actor.HasSectPermission(SectPermissions.ManageScripture);
+               && actor.HasSectPermission(SectPermissions.WriteScripture);
     }
 
     /// <summary>

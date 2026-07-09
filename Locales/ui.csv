@@ -254,8 +254,6 @@ Cultiway.Sect.Permission.EvaluatePersonnel,评定人事
 Cultiway.Sect.Permission.EvaluatePersonnel.Info,允许执行宗门人事评定
 Cultiway.Sect.Permission.PromoteMember,任免门人
 Cultiway.Sect.Permission.PromoteMember.Info,允许任免宗门成员职司
-Cultiway.Sect.Permission.ManageScripture,管理藏经阁
-Cultiway.Sect.Permission.ManageScripture.Info,允许管理宗门藏经阁
 Cultiway.Sect.Permission.ManageSect,管理宗门
 Cultiway.Sect.Permission.ManageSect.Info,拥有宗门最高管理权限
 Cultiway.Sect.Job.Builder,宗门工匠

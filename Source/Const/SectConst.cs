@@ -28,7 +28,6 @@ public static class SectConst
     public const float ScriptureStudyElixirMasteryCap = 100f;
     public const float SectStudyJobChance = 0.18f;
     public const float SectAffairJobChance = 0.25f;
-    public const float SectChoreJobChance = SectAffairJobChance;
     public const int SectLectureMaxAudience = 4;
     public const float SectLectureNewCultibookGain = 12f;
     public const float SectLectureKnownCultibookGain = 8f;

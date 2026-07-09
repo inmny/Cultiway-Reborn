@@ -69,11 +69,6 @@ public class SectPermissions : ExtendLibrary<SectPermissionAsset, SectPermission
     public static SectPermissionAsset PromoteMember { get; private set; }
 
     /// <summary>
-    /// 允许管理藏经阁。
-    /// </summary>
-    public static SectPermissionAsset ManageScripture { get; private set; }
-
-    /// <summary>
     /// 宗门最高管理权限。
     /// </summary>
     public static SectPermissionAsset ManageSect { get; private set; }
@@ -95,7 +90,6 @@ public class SectPermissions : ExtendLibrary<SectPermissionAsset, SectPermission
         Setup(TeachSectCultibook);
         Setup(EvaluatePersonnel);
         Setup(PromoteMember);
-        Setup(ManageScripture);
         Setup(ManageSect);
     }
 

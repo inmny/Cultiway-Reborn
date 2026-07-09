@@ -98,15 +98,7 @@ public static class SectResidencePlanner
     {
         sect.data.ResidenceZones = new List<ZoneData>();
         sect.data.ResidenceTileID = plan.Tile.data.tile_id;
-        sect.data.ResidenceFoundedTime = (float)World.world.getCurWorldTime();
         sect.data.ResidenceName = ResolveResidenceName(founder, plan);
-        sect.data.ResidenceSiteScore = plan.TotalScore;
-        sect.data.ResidenceWakanScore = plan.WakanScore;
-        sect.data.ResidenceTerrainScore = plan.TerrainScore;
-        sect.data.ResidenceCityDistanceScore = plan.CityDistanceScore;
-        sect.data.ResidenceBuildSpaceScore = plan.BuildSpaceScore;
-        sect.data.ResidenceGeoRegionID = plan.LandformRegion?.getID() ?? plan.PrimaryRegion?.getID() ?? -1;
-        sect.data.ResidenceGeoRegionName = plan.LandformRegion?.name ?? plan.PrimaryRegion?.name;
 
         for (int i = 0; i < plan.Zones.Count; i++)
         {
