@@ -1,6 +1,7 @@
 using System.IO;
 using System.Linq;
 using System.Text;
+using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core;
@@ -9,6 +10,7 @@ using Cultiway.Patch;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
+using UnityEngine;
 
 namespace Cultiway.Content;
 
@@ -38,6 +40,8 @@ public partial class Cultisyses
             if (!ae.TryGetComponent(out Magic magic)) return;
             stats.mergeStats(Magic.LevelAccumBaseStats[magic.CurrLevel]);
         });
+
+        ActorExtend.RegisterDefensePowerLevelResolver(MagicDefensePowerLevelResolver);
 
         PatchWindowCreatureInfo.RegisterInfoDisplay((a, sb) =>
         {
@@ -102,5 +106,30 @@ public partial class Cultisyses
     private static bool MagicCheckUpgrade(ActorExtend ae, CultisysAsset<Magic> cultisys, ref Magic component)
     {
         return component.spirit >= ae.Base.stats[BaseStatses.MaxSpirit.id] - 0.1f;
+    }
+
+    /// <summary>
+    /// 魔法 mana 护盾：PowerLevel 防御需消耗 mana 维持。
+    /// mana 足够时正常防御（返回真实 PL），不足时完全取消防御（返回 0）。
+    /// 非魔法生物或 gap<=0 时返回 null（不处理，回退默认）。
+    /// </summary>
+    private static float? MagicDefensePowerLevelResolver(ActorExtend target, float attacker_power_level, float damage)
+    {
+        if (!target.E.HasComponent<Magic>()) return null;
+
+        var power_level = target.GetPowerLevel();
+        var gap = power_level - attacker_power_level + 1;
+        if (gap <= 0) return null;
+
+        // 按豁免量消耗 mana
+        var absorbed = damage - Mathf.Log(Mathf.Max(damage, 1),
+            Mathf.Pow(DamageCalcHyperParameters.PowerBase, gap));
+        var mana_cost = Mathf.CeilToInt(absorbed * Mathf.Pow(MagicSetting.ManaShieldCostRatio, gap - 1));
+        if (mana_cost > 0 && target.Base.getMana() >= mana_cost)
+        {
+            target.Base.setMana(target.Base.getMana() - mana_cost);
+            return power_level;
+        }
+        return 0;
     }
 }
