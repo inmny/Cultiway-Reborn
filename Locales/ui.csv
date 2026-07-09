@@ -28,6 +28,8 @@ Cultiway.UI.WindowRealmNames Description,这些名称保存到独立配置文件
 Cultiway.UI.WindowRealmNames.Reset,默认
 Cultiway.UI.WindowRealmNames.Tab.Xian,仙道
 Cultiway.UI.WindowRealmNames.Tab.Xian Description,设置仙道修炼体系的境界名称
+Cultiway.UI.WindowRealmNames.Tab.Magic,魔法
+Cultiway.UI.WindowRealmNames.Tab.Magic Description,设置魔法修炼体系的境界名称
 Cultiway.UI.ArmorGraph,各元素抗性
 Cultiway.UI.MasterGraph,各元素精通
 Cultiway.UI.ContentItem,材丹符器阵傀

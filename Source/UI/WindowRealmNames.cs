@@ -24,7 +24,8 @@ public class WindowRealmNames : TabbedWindow
 
     private static readonly RealmNamePage[] Pages =
     [
-        new XianRealmNamePage()
+        new XianRealmNamePage(),
+        new MagicRealmNamePage()
     ];
 
     internal static void Init()
@@ -636,5 +637,15 @@ public class WindowRealmNames : TabbedWindow
         public override string IconPath => "cultiway/icons/iconCultivation";
         protected override string SystemId => "Xian";
         protected override int LevelCount => 20;
+    }
+
+    private sealed class MagicRealmNamePage : RealmNamePage
+    {
+        public override string Id => "Magic";
+        public override string TitleKey => "Cultiway.UI.WindowRealmNames.Tab.Magic";
+        public override string DescriptionKey => "Cultiway.UI.WindowRealmNames.Tab.Magic Description";
+        public override string IconPath => "cultiway/icons/iconMagic";
+        protected override string SystemId => "Magic";
+        protected override int LevelCount => 10;
     }
 }
