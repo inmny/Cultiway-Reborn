@@ -292,4 +292,6 @@ SkillPage,法术
 ArtifactPage,法宝
 Cultiway.UI.CharacterPanel.Wakan,灵气
 Cultiway.UI.CharacterPanel.Wakan Description,当前灵气 / 灵气上限
+Cultiway.UI.CharacterPanel.Spirit,精神力
+Cultiway.UI.CharacterPanel.Spirit Description,当前精神力 / 精神力上限
 Cultiway.ERStyle.Magic.PageTitle,元素亲和详解

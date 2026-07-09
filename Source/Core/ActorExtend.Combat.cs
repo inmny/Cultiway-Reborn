@@ -507,7 +507,7 @@ public partial class ActorExtend
                                    (((attacker?.isActor() ?? false) && !attacker.isRekt())
                                        ? attacker.a.GetExtend().GetPowerLevel()
                                        : 0);
-        var power_level = GetPowerLevel();
+        var power_level = GetDefensePowerLevel(attacker_power_level, damage);
         var power_level_gap = power_level - attacker_power_level;
         var should_apply_minimum_damage = ShouldApplyMinimumDamage(damage, power_level_gap);
         if (damage_debug != null)

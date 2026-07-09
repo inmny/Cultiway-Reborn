@@ -256,6 +256,34 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             E.AddComponent(new PowerLevel { value = min_level });
         }
     }
+
+    /// <summary>
+    ///     防御 PowerLevel 解析器：target 在受击时可消耗资源调整自己的防御 PL。
+    ///     返回 null 表示不处理（回退默认 GetPowerLevel）；返回 float 表示调整后的防御 PL。
+    /// </summary>
+    public delegate float? DefensePowerLevelResolver(ActorExtend target, float attacker_power_level, float damage);
+
+    private static DefensePowerLevelResolver _defense_power_level_resolver;
+
+    public static void RegisterDefensePowerLevelResolver(DefensePowerLevelResolver resolver)
+    {
+        _defense_power_level_resolver += resolver;
+    }
+
+    /// <summary>
+    ///     获取用于防御判定的 PowerLevel。会触发已注册的解析器（如魔法 mana 护盾）。
+    ///     无解析器处理时回退到 GetPowerLevel()。
+    /// </summary>
+    public float GetDefensePowerLevel(float attacker_power_level, float damage)
+    {
+        if (_defense_power_level_resolver == null) return GetPowerLevel();
+        foreach (var d in _defense_power_level_resolver.GetInvocationList())
+        {
+            var adjusted = ((DefensePowerLevelResolver)d)(this, attacker_power_level, damage);
+            if (adjusted.HasValue) return adjusted.Value;
+        }
+        return GetPowerLevel();
+    }
     public void AddSpecialItem(Entity item)
     {
         item.GetIncomingLinks<InventoryRelation>().Entities

@@ -42,5 +42,6 @@ public partial class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     public override void OnReload()
     {
         LoadStatsForXian();
+        LoadStatsForMagic();
     }
 }

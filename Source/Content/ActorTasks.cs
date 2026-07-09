@@ -15,6 +15,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor LevelupPlantXianCultivate { get; private set; }
     public static BehaviourTaskActor DailyWaterCultivate       { get; private set; }
     public static BehaviourTaskActor LevelupWaterCultivate     { get; private set; }
+    public static BehaviourTaskActor DailyMagicMeditate        { get; private set; }
     public static BehaviourTaskActor LookForHerbs { get; private set; }
     public static BehaviourTaskActor CraftElixir  { get; private set; }
     public static BehaviourTaskActor FindNewElixir { get; private set; }
@@ -66,6 +67,9 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         LevelupXianCultivate.addBeh(new BehXianLevelup());
         LevelupXianCultivate.addBeh(new BehExitBuilding());
         LevelupXianCultivate.setIcon("cultiway/icons/iconCultivation");
+
+        DailyMagicMeditate.addBeh(new BehMagicMeditate());
+        DailyMagicMeditate.setIcon("cultiway/icons/iconMagic");
 
         DailyPlantXianCultivate.addBeh(new BehOutdoorCultivationWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
         DailyPlantXianCultivate.addBeh(new BehPlantXianCultivate());
