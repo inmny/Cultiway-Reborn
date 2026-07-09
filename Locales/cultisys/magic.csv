@@ -1,15 +1,15 @@
 key,cz
 cultisys_Magic,魔法
-cultisys_Magic_0,0阶
-cultisys_Magic_1,1阶
-cultisys_Magic_2,2阶
-cultisys_Magic_3,3阶
-cultisys_Magic_4,4阶
-cultisys_Magic_5,5阶
-cultisys_Magic_6,6阶
-cultisys_Magic_7,7阶
-cultisys_Magic_8,8阶
-cultisys_Magic_9,9阶
+cultisys_Magic_0,学徒
+cultisys_Magic_1,见习魔法师
+cultisys_Magic_2,初级魔法师
+cultisys_Magic_3,中级魔法师
+cultisys_Magic_4,高级魔法师
+cultisys_Magic_5,大魔法师
+cultisys_Magic_6,魔导师
+cultisys_Magic_7,大魔导师
+cultisys_Magic_8,圣魔导师
+cultisys_Magic_9,圣者
 cultisys_Magic_0_msg,恭喜 $actor$ 成功突破到$realm$
 cultisys_Magic_1_msg,恭喜 $actor$ 成功突破到$realm$
 cultisys_Magic_2_msg,恭喜 $actor$ 成功突破到$realm$
