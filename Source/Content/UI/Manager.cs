@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
@@ -30,6 +31,9 @@ public class Manager : ICanInit
         WindowNewCreatureInfo.RegisterPage(nameof(ElixirPage), a=> a.GetExtend().HasMaster<ElixirAsset>(), ElixirPage.Setup, ElixirPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(SectPage), a=> a.GetExtend().sect !=null, SectPage.Setup, SectPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(SkillPage), a=> a.GetExtend().all_skills.Count > 0, SkillPage.Setup, SkillPage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(ArtifactPage),
+            a => a.GetExtend().GetItems().Any(x => x.HasComponent<Artifact>()),
+            ArtifactPage.Setup, ArtifactPage.Show);
         CharacterPanelExtensions.RegisterProgressBar("cultiway_wakan",
             a => a.GetExtend().HasCultisys<Xian>(),
             ReadWakanPanelValue);
@@ -83,6 +87,11 @@ public class Manager : ICanInit
                 //tooltip.Tooltip.name.text = skill_asset.GetName();
                 tooltip.Tooltip.addDescription("\n");
                 tooltip.Tooltip.addDescription(skill_container.ToString());
+            }
+            if (entity.TryGetComponent(out Artifact _))
+            {
+                // 第一阶段效果属性未实现，tooltip 仅占位提示
+                tooltip.Tooltip.addDescription("\n法器（未觉醒）");
             }
         });
     }

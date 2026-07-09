@@ -32,12 +32,16 @@ public class BehCraftArtifact : BehCityActor
         }
         if (crafting.progress >= ingredients.Length)
         {
-            // 炼成：删材料 → 去掉进行中标记/组件 → 加成品组件与命名 → 入城库
+            // 先完整拷贝材料数组，再删除——DeleteEntity 会移除 crafting_entity 上的
+            // CraftOccupyingRelation，导致 relations 快照失效，故不能边遍历边删。
             var ingredient_array = new Entity[ingredients.Length];
             for (int i = 0; i < ingredients.Length; i++)
             {
                 ingredient_array[i] = ingredients[i].item;
-                ingredients[i].item.DeleteEntity();
+            }
+            for (int i = 0; i < ingredient_array.Length; i++)
+            {
+                ingredient_array[i].DeleteEntity();
             }
 
             crafting_entity.RemoveComponent<CraftingArtifact>();
@@ -48,8 +52,8 @@ public class BehCraftArtifact : BehCityActor
             crafting_entity.AddComponent(new EntityName(string.IsNullOrEmpty(label) ? "器" : label));
             crafting_entity.AddComponent(new ItemLevel { Stage = 0, Level = 0 });
 
-            pObject.city.GetExtend().AddSpecialItem(crafting_entity);
-            ModClass.LogInfo($"{pObject.data.id} 完成炼制 {crafting.shape?.id} 送与 {pObject.city.name}");
+            ae.AddSpecialItem(crafting_entity);
+            ModClass.LogInfo($"{pObject.getName()}[{pObject.data.id}] 完成炼制 {crafting.shape?.id}");
             return BehResult.Continue;
         }
 

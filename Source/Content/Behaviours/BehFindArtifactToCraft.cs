@@ -59,6 +59,7 @@ public class BehFindArtifactToCraft : BehCityActor
             {
                 shape = shape,
             })
+            .AddComponent(new ItemIconData())
             .AddTag<TagUncompleted>()
             .Build();
         ae.AddSpecialItem(crafting_artifact);
