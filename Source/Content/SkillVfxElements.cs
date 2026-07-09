@@ -70,6 +70,7 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
         Wind.SetAccent(new Color(0.78f, 1f, 0.92f), 0.35f, 0.72f)
             .MatchAny(30, ElementTag.Wind)
             .MatchAll(28, ElementTag.Water, ElementTag.Wood)
+            .SetGroundFlyOver(ApplyWindFlyOver)
             .SetGroundImpact(ApplyWindImpact);
         Lightning.SetAccent(new Color(0.72f, 0.95f, 1f), 0.55f, 0.86f)
             .MatchAny(30, ElementTag.Lightning)
@@ -174,6 +175,11 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
     private static void ApplyWoodImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
         ApplyArea(tile, rad, isArea, GrowVegetationOnly);
+    }
+
+    private static void ApplyWindFlyOver(WorldTile tile)
+    {
+        ApplyWindToTile(tile);
     }
 
     private static void ApplyWindImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
