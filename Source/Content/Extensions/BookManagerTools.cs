@@ -303,7 +303,7 @@ public static class BookManagerTools
 
         var elementType = ae.GetElementRoot().Type;
         if (elementType == null) return bookName;
-        return $"{elementType.GetName()}系功法，适合{bookName}修炼。";
+        return $"{elementType.GetName(Cultisyses.GetDisplayCultisys(ae))}系功法，适合{bookName}修炼。";
     }
 
     /// <summary>

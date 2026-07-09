@@ -39,4 +39,24 @@ public class ElementRootAsset : Asset
     {
         return LM.Get(desc_key);
     }
+
+    /// <summary>
+    ///     按修炼体系风格返回元素根名字。cultisys 为 null 或其风格未配置前缀时回退到默认（仙道 Cultiway.ER）。
+    /// </summary>
+    public string GetName(BaseCultisysAsset cultisys)
+    {
+        var prefix = cultisys?.DisplayStyle?.element_root_name_prefix;
+        if (string.IsNullOrEmpty(prefix)) return GetName();
+        return LM.Get($"{prefix}.{id}");
+    }
+
+    /// <summary>
+    ///     按修炼体系风格返回元素根描述。cultisys 为 null 或其风格未配置前缀时回退到默认（仙道 Cultiway.ER）。
+    /// </summary>
+    public string GetDescription(BaseCultisysAsset cultisys)
+    {
+        var prefix = cultisys?.DisplayStyle?.element_root_desc_prefix;
+        if (string.IsNullOrEmpty(prefix)) return GetDescription();
+        return LM.Get($"{prefix}.{id}.Info");
+    }
 }

@@ -3,6 +3,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.UI.Prefab;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
+using NeoModLoader.General;
 using strings;
 
 namespace Cultiway.Content;
@@ -34,7 +35,10 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
         if (ae.HasElementRoot())
         {
             var er = ae.GetElementRoot();
-            tooltip.addLineText("灵根", er.Type.GetName(), pLocalize: false);
+            var cultisys = Cultisyses.GetDisplayCultisys(ae);
+            var style = cultisys?.DisplayStyle;
+            var label = style != null ? LM.Get(style.category_label_key) : "灵根";
+            tooltip.addLineText(label, er.Type.GetName(cultisys), pLocalize: false);
         }
         if (ae.HasComponent<Jindan>())
         {

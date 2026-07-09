@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text;
 using Cultiway.Content.Components;
 using Cultiway.Core;
@@ -14,6 +15,7 @@ public partial class Cultisyses
     {
         Magic = (CultisysAsset<Magic>)Add(
             new CultisysAsset<Magic>(nameof(Magic), 10, new Magic()));
+        SetupMagicDisplayStyle();
 
         ActorExtend.RegisterActionOnNewCreature((ae) =>
         {
@@ -29,6 +31,30 @@ public partial class Cultisyses
             ref var magic_info = ref a.GetCultisys<Magic>();
             sb.AppendLine($"{magic_info.Asset.GetName()}: {magic_info.Asset.GetLevelName(magic_info.CurrLevel)}");
         });
+    }
+
+    private static void SetupMagicDisplayStyle()
+    {
+        Magic.DisplayStyle = new ElementRootDisplayStyle
+        {
+            category_label_key   = "Cultiway.ERStyle.Magic.Category",
+            components_label_key = "Cultiway.ERStyle.Magic.Components",
+            overall_label_key    = "Cultiway.ERStyle.Magic.Overall",
+            page_title_key       = "Cultiway.ERStyle.Magic.PageTitle",
+            stage_count          = 12,
+            level_per_stage      = 3,
+            stage_name_keys      = Enumerable.Range(0, 12)
+                .Select(i => $"Cultiway.ERStyle.Magic.Stage.{i}").ToArray(),
+            level_name_keys      =
+            [
+                "Cultiway.ERStyle.Magic.Level.0",
+                "Cultiway.ERStyle.Magic.Level.1",
+                "Cultiway.ERStyle.Magic.Level.2"
+            ],
+            level_format         = "{stage}{level}阶",
+            element_root_name_prefix = "Cultiway.ER.Magic",
+            element_root_desc_prefix = "Cultiway.ER.Magic"
+        };
     }
 }
 

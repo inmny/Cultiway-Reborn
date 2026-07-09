@@ -1,7 +1,9 @@
 using Cultiway.Utils;
 using System;
+using System.Collections.Generic;
 using System.Text;
 using Cultiway.Const;
+using Cultiway.Content;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.UI.Prefab;
@@ -27,36 +29,76 @@ public class ElementRootPage : MonoBehaviour
         text.fontSize = 8;
 
         er_page.Text = text;
-
-        float p = 1 / 36f;
-        bool q_is_one = Mathf.Approximately(Q, 1);
-        if (!q_is_one)
-        {
-            p = (1 - Q) / (1 - Mathf.Pow(Q, 36));
-        }
-        
-        for (var i = 0; i < _edgeValues.Length; i++)
-        {
-            var s_i = q_is_one ? p * i : p * (1 - Mathf.Pow(Q, i)) / (1 - Q);
-            var cdf = 0.5 + s_i / 2;
-            var z = Normal.InvCDF(0, 1, cdf);
-            _edgeValues[i] = (float)z;
-        }
     }
 
     private const float Q = 0.9f;
-    private static float[] _edgeValues = new float[36];
-    private static string GetSingleStrengthLevel(float strength)
+
+    /// <summary>按档位数缓存的强度阈值表（每档覆盖等分正态 CDF 区间）。</summary>
+    private static readonly Dictionary<int, float[]> _edgeValueCache = new();
+
+    /// <summary>计算指定档位数的强度阈值表，等价于原 36 档逻辑的泛化。</summary>
+    private static float[] GetEdgeValues(int count)
     {
-        int level = 0;
-        for (int i = 0; i < _edgeValues.Length; i++)
+        if (_edgeValueCache.TryGetValue(count, out var cached)) return cached;
+
+        var values = new float[count];
+        float p = 1f / count;
+        bool q_is_one = Mathf.Approximately(Q, 1);
+        if (!q_is_one)
         {
-            if (strength > _edgeValues[i]) continue;
-            level = i;
-            break;
+            p = (1 - Q) / (1 - Mathf.Pow(Q, count));
         }
-        return LM.Get($"Cultiway.Stage.{level / 9}") + "阶" + LM.Get($"Cultiway.Level.{level % 9}");
+
+        for (var i = 0; i < values.Length; i++)
+        {
+            var s_i = q_is_one ? p * i : p * (1 - Mathf.Pow(Q, i)) / (1 - Q);
+            var cdf = 0.5 + s_i / 2;
+            values[i] = (float)Normal.InvCDF(0, 1, cdf);
+        }
+
+        _edgeValueCache[count] = values;
+        return values;
     }
+
+    /// <summary>
+    /// 把单通道强度映射为档位序号(0..count-1)，strength 越大档位越高。
+    /// </summary>
+    private static int GetStrengthIndex(float strength, int count)
+    {
+        var edges = GetEdgeValues(count);
+        for (int i = 0; i < edges.Length; i++)
+        {
+            if (strength <= edges[i]) return i;
+        }
+        return edges.Length - 1;
+    }
+
+    /// <summary>
+    /// 返回强度对应的等级名（组合式 stage×level）。
+    /// style 为 null 时兜底用 36 档 + 仙道默认 key（仅防御，正常情况都有风格）。
+    /// </summary>
+    private static string GetLevelName(float strength, ElementRootDisplayStyle style)
+    {
+        int count = style?.TotalLevelCount ?? 36;
+        int idx = GetStrengthIndex(strength, count);
+
+        int level_per_stage = style?.level_per_stage ?? 9;
+        int stage_idx = idx / level_per_stage;
+        int level_idx = idx % level_per_stage;
+
+        if (style == null)
+        {
+            // 兜底：仙道默认 key
+            return LM.Get($"Cultiway.Stage.{stage_idx}") + "阶" + LM.Get($"Cultiway.Level.{level_idx}");
+        }
+
+        string stage_name = LM.Get(style.stage_name_keys[stage_idx]);
+        string level_name = LM.Get(style.level_name_keys[level_idx]);
+        return style.level_format
+            .Replace("{stage}", stage_name)
+            .Replace("{level}", level_name);
+    }
+
     [Hotfixable]
     public static void Show(CreatureInfoPage page, Actor actor)
     {
@@ -64,15 +106,35 @@ public class ElementRootPage : MonoBehaviour
         var sb = new StringBuilder();
 
         ElementRoot er = ae.GetElementRoot();
-        sb.AppendLine($"灵根类别: {er.Type.GetName()}");
-        sb.AppendLine($"\t{er.Type.GetDescription()}");
-        sb.AppendLine("各组分强度:");
-        for (var i = 0; i < ElementIndex.ElementNames.Count; i++)
-            sb.AppendLine($"\t{LM.Get(ElementIndex.ElementNames[i])}: {GetSingleStrengthLevel(er[i])}");
 
-        sb.AppendLine($"综合评价: {GetSingleStrengthLevel(Mathf.Log(ae.GetElementRoot().GetStrength()))}");
+        // 按优先级取生物拥有的主体系；无体系时 style=null 走仙道默认风格兜底
+        var cultisys = Cultisyses.GetDisplayCultisys(ae);
+        var style = cultisys?.DisplayStyle;
+
+        string cat_label   = style != null ? LM.Get(style.category_label_key)   : "灵根类别";
+        string comp_label  = style != null ? LM.Get(style.components_label_key) : "各组分强度";
+        string overall_lbl = style != null ? LM.Get(style.overall_label_key)    : "综合评价";
+
+        sb.AppendLine($"{cat_label}: {er.Type.GetName(cultisys)}");
+        sb.AppendLine($"\t{er.Type.GetDescription(cultisys)}");
+        sb.AppendLine($"{comp_label}:");
+        for (var i = 0; i < ElementIndex.ElementNames.Count; i++)
+            sb.AppendLine($"\t{LM.Get(ElementIndex.ElementNames[i])}: {GetLevelName(er[i], style)}");
+
+        sb.AppendLine($"{overall_lbl}: {GetLevelName(Mathf.Log(ae.GetElementRoot().GetStrength()), style)}");
 
         var er_page = page.GetComponent<ElementRootPage>();
         er_page.Text.text = sb.ToString();
+    }
+
+    /// <summary>
+    /// 页面标题：按生物主体系风格的 page_title_key 查名。
+    /// 无体系或未配置时回退 ui.csv 的 ElementRootPage key（仙道"灵根详解"）。
+    /// </summary>
+    public static string GetTitle(ActorExtend ae)
+    {
+        var style = Cultisyses.GetDisplayCultisys(ae)?.DisplayStyle;
+        var title_key = !string.IsNullOrEmpty(style?.page_title_key) ? style.page_title_key : nameof(ElementRootPage);
+        return LM.Get(title_key);
     }
 }

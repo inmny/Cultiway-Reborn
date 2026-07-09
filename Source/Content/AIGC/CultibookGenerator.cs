@@ -259,7 +259,7 @@ public class CultibookGenerator
         var level_value = ae.HasCultisys<Xian>() ? ae.GetCultisys<Xian>().CurrLevel : 0;
         var level_text = Cultisyses.Xian.GetLevelName(level_value);
         var element = ae.HasElementRoot() ? ae.GetElementRoot() : default;
-        var element_name = ae.HasElementRoot() ? element.Type.GetName() : "无灵根";
+        var element_name = ae.HasElementRoot() ? element.Type.GetName(Cultisyses.GetDisplayCultisys(ae)) : "无灵根";
 
         sb.Append("原功法信息：");
         sb.Append($"名称 {originalCultibook.Name}，");
@@ -418,7 +418,7 @@ public class CultibookGenerator
         var level_value = ae.HasCultisys<Xian>() ? ae.GetCultisys<Xian>().CurrLevel : 0;
         var level_text = Cultisyses.Xian.GetLevelName(level_value);
         var element = ae.HasElementRoot() ? ae.GetElementRoot() : default;
-        var element_name = ae.HasElementRoot() ? element.Type.GetName() : "无灵根";
+        var element_name = ae.HasElementRoot() ? element.Type.GetName(Cultisyses.GetDisplayCultisys(ae)) : "无灵根";
 
         var method_value = ae.GetMainCultibook()?.GetCultivateMethod()?.id ?? CultivateMethods.Standard.id;
         var method_text = method_value.Localize();

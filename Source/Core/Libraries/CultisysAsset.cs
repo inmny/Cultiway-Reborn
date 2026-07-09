@@ -27,6 +27,11 @@ public abstract class BaseCultisysAsset : Asset
     public  ReadOnlyCollection<string> LevelNameKeys;
     public  ReadOnlyCollection<string> LevelupMsgKeys;
 
+    /// <summary>
+    ///     ElementRootPage 展示风格。为 null 时页面回退到仙道默认风格（保持向后兼容）。
+    /// </summary>
+    public ElementRootDisplayStyle DisplayStyle { get; set; }
+
     protected BaseCultisysAsset(string id, int level_nr)
     {
         this.id = id;

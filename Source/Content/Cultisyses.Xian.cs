@@ -91,6 +91,7 @@ public partial class Cultisyses
                 null, null, null, null, null, null, null, null,
                 null, null,
             ]));
+        SetupXianDisplayStyle();
         LoadStatsForXian();
 
 
@@ -177,6 +178,27 @@ public partial class Cultisyses
             }
         });
     }
+
+    private static void SetupXianDisplayStyle()
+    {
+        Xian.DisplayStyle = new ElementRootDisplayStyle
+        {
+            category_label_key   = "Cultiway.ERStyle.Xian.Category",
+            components_label_key = "Cultiway.ERStyle.Xian.Components",
+            overall_label_key    = "Cultiway.ERStyle.Xian.Overall",
+            page_title_key       = "ElementRootPage",
+            stage_count          = 4,
+            level_per_stage      = 9,
+            stage_name_keys      = Enumerable.Range(0, 4)
+                .Select(i => $"Cultiway.Stage.{i}").ToArray(),
+            level_name_keys      = Enumerable.Range(0, 9)
+                .Select(i => $"Cultiway.Level.{i}").ToArray(),
+            level_format         = "{stage}阶{level}",
+            element_root_name_prefix = "Cultiway.ER",
+            element_root_desc_prefix = "Cultiway.ER"
+        };
+    }
+
     [Hotfixable]
     private bool CheckUpgradeToYuanying(ActorExtend ae, CultisysAsset<Xian> cultisys, ref Xian component)
     {

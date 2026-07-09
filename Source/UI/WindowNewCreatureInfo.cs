@@ -10,6 +10,7 @@ using Cultiway.Utils.Extension;
 using NeoModLoader.api;
 using NeoModLoader.api.attributes;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace Cultiway.UI;
@@ -118,7 +119,7 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
         _page_container.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(6, 6, 5, 5);
 
         RegisterPage(nameof(ElementRootPage), a => a.GetExtend().HasElementRoot(), ElementRootPage.Setup,
-            ElementRootPage.Show);
+            ElementRootPage.Show, ElementRootPage.GetTitle);
         RegisterPage(nameof(StatusEffectPage), a => a.GetExtend().GetStatuses().Count > 0, StatusEffectPage.Setup,
             StatusEffectPage.Show);
         RegisterPage(nameof(InventoryPage), a => a.GetExtend().GetItems().Any(), InventoryPage.Setup, InventoryPage.Show);
@@ -152,14 +153,15 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
     }
 
     public static void RegisterPage(string id, Func<Actor, bool> condition, Action<CreatureInfoPage> setup_action,
-                                    Action<CreatureInfoPage, Actor> show_action)
+                                    Action<CreatureInfoPage, Actor> show_action, Func<ActorExtend, string> title_resolver = null)
     {
         _page_registrations.Add(new PageRegistration
         {
             id = id,
             condition = condition,
             setup_action = setup_action,
-            show_action = show_action
+            show_action = show_action,
+            title_resolver = title_resolver
         });
     }
 
@@ -207,11 +209,19 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
             var id = registration.id;
             _available_pages.Add(page);
             TextButton entry = _page_entry_pool.GetNext();
-            entry.Setup(registration.id, () =>
+            UnityAction on_click = () =>
             {
                 _current_page = id;
                 UpdatePage();
-            });
+            };
+            if (registration.title_resolver != null)
+            {
+                entry.SetupLocalized(registration.title_resolver(_ae), on_click);
+            }
+            else
+            {
+                entry.Setup(registration.id, on_click);
+            }
             entry.name = registration.id;
         }
         LayoutRebuilder.ForceRebuildLayoutImmediate(_page_entry_container.GetComponent<RectTransform>());
@@ -254,5 +264,10 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
         public Func<Actor, bool>               condition;
         public Action<CreatureInfoPage>        setup_action;
         public Action<CreatureInfoPage, Actor> show_action;
+        /// <summary>
+        /// 动态标题解析器。返回最终显示文本（已本地化）。为 null 时用 id 作为固定 locale key。
+        /// 用于需要按上下文（如修炼体系）切换标题的页面。
+        /// </summary>
+        public Func<ActorExtend, string>       title_resolver;
     }
 }
