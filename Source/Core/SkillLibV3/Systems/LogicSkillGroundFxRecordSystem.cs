@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Cultiway.Core.SkillLibV3.Systems;
 
 /// <summary>
-/// 按飞行距离节流触发法术地面影响（火系烧焦、水系凝冰等）。
+/// 按飞行距离节流触发法术地面影响（火系烧焦、水系灭火、冰系凝冰等）。
 /// 在 <see cref="LogicTrajectorySystem"/> 之后执行，保证读取的是更新后的位置。
 /// </summary>
 public class LogicSkillGroundFxRecordSystem : QuerySystem<Position, SkillGroundFxState, SkillEntity>
@@ -38,11 +38,7 @@ public class LogicSkillGroundFxRecordSystem : QuerySystem<Position, SkillGroundF
             if (fxState.DistanceAccumulator < FlyOverDistanceThreshold) return;
 
             fxState.DistanceAccumulator = 0f;
-            var asset = skillEntity.Asset;
-            if (asset != null)
-            {
-                SkillGroundFx.OnFlyOver(currentPos, SkillVfxColor.ResolveStyle(asset));
-            }
+            SkillGroundFx.OnFlyOver(currentPos, skillEntity.VfxElement);
         });
     }
 }

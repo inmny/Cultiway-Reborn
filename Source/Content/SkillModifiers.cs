@@ -21,6 +21,7 @@ using Friflo.Engine.ECS;
 using ConflictTag = Cultiway.Core.SkillLibV3.SkillTags.Conflict;
 using ElementTag = Cultiway.Core.SkillLibV3.SkillTags.Element;
 using FormTag = Cultiway.Core.SkillLibV3.SkillTags.Form;
+using ModifierTag = Cultiway.Core.SkillLibV3.SkillTags.Modifier;
 using SimilarityTag = Cultiway.Core.SkillLibV3.SkillTags.Similarity;
 
 namespace Cultiway.Content;
@@ -65,106 +66,108 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Setup<PlaceholderModifier>(Placeholder, SkillModifierRarity.Common);
 
         Setup<SlowModifier>(Slow, SkillModifierRarity.Common);
-        Slow.AddSimilarityTags(SimilarityTag.Control, SimilarityTag.Slow);
+        Slow.AddSimilarityTags(ModifierTag.Slow, SimilarityTag.Control, SimilarityTag.Slow);
         Slow.OnAddOrUpgrade = AddOrUpgradeSlow;
         Slow.OnEffectObj = ApplySlowEffect;
         Setup<BurnModifier>(Burn, SkillModifierRarity.Common);
-        Burn.AddSimilarityTags(SimilarityTag.Dot, SimilarityTag.Burn, ElementTag.Fire);
+        Burn.AddSimilarityTags(ModifierTag.Burn, SimilarityTag.Dot, SimilarityTag.Burn, ElementTag.Fire);
         Burn.OnAddOrUpgrade = AddOrUpgradeBurn;
         Burn.OnEffectObj = ApplyBurnEffect;
         Setup<FreezeModifier>(Freeze, SkillModifierRarity.Common);
-        Freeze.AddSimilarityTags(SimilarityTag.Control, SimilarityTag.Freeze);
+        Freeze.AddSimilarityTags(ModifierTag.Freeze, SimilarityTag.Control, SimilarityTag.Freeze, ElementTag.Ice);
         Freeze.OnAddOrUpgrade = AddOrUpgradeFreeze;
         Freeze.OnEffectObj = ApplyFreezeEffect;
         Setup<PoisonModifier>(Poison, SkillModifierRarity.Common);
-        Poison.AddSimilarityTags(SimilarityTag.Dot, SimilarityTag.Poison);
+        Poison.AddSimilarityTags(ModifierTag.Poison, SimilarityTag.Dot, SimilarityTag.Poison, ElementTag.Poison);
         Poison.OnAddOrUpgrade = AddOrUpgradePoison;
         Poison.OnEffectObj = ApplyPoisonEffect;
         Setup<ExplosionModifier>(Explosion, SkillModifierRarity.Common);
-        Explosion.AddSimilarityTags(FormTag.Aoe, SimilarityTag.Blast);
+        Explosion.AddSimilarityTags(ModifierTag.Explosion, FormTag.Aoe, SimilarityTag.Blast);
         Explosion.OnAddOrUpgrade = AddOrUpgradeExplosion;
         Explosion.OnEffectObj = ApplyExplosionEffect;
         Setup<HasteModifier>(Haste, SkillModifierRarity.Common);
-        Haste.AddSimilarityTags(SimilarityTag.Speed, SimilarityTag.Projectile);
+        Haste.AddSimilarityTags(ModifierTag.Haste, SimilarityTag.Speed, SimilarityTag.Projectile);
         Haste.OnAddOrUpgrade = AddOrUpgradeHaste;
         Haste.OnSetup = ApplyHasteOnSetup;
         Setup<ProficiencyModifier>(Proficiency, SkillModifierRarity.Common);
-        Proficiency.AddSimilarityTags(SimilarityTag.Growth);
+        Proficiency.AddSimilarityTags(ModifierTag.Proficiency, SimilarityTag.Growth);
         Proficiency.OnAddOrUpgrade = AddOrUpgradeProficiency;
         Setup<EmpowerModifier>(Empower, SkillModifierRarity.Common);
-        Empower.AddSimilarityTags(SimilarityTag.Power, SimilarityTag.Damage);
+        Empower.AddSimilarityTags(ModifierTag.Empower, SimilarityTag.Power, SimilarityTag.Damage);
         Empower.OnAddOrUpgrade = AddOrUpgradeEmpower;
         Empower.OnSetup = ApplyEmpowerSetup;
         Setup<KnockbackModifier>(Knockback, SkillModifierRarity.Common);
-        Knockback.AddSimilarityTags(SimilarityTag.Control, SimilarityTag.Displace);
+        Knockback.AddSimilarityTags(ModifierTag.Knockback, SimilarityTag.Control, SimilarityTag.Displace);
         Knockback.OnAddOrUpgrade = AddOrUpgradeKnockback;
         Knockback.OnEffectObj = ApplyKnockbackEffect;
         Setup<VolleyModifier>(Volley, SkillModifierRarity.Common);
-        Volley.AddSimilarityTags(SimilarityTag.Projectile, SimilarityTag.Burst);
+        Volley.AddSimilarityTags(ModifierTag.Volley, SimilarityTag.Projectile, SimilarityTag.Burst);
         Volley.OnAddOrUpgrade = AddOrUpgradeVolley;
         Volley.OnSetup = ApplyVolleyOnSetup;
 
         Setup<HugeModifier>(Huge, SkillModifierRarity.Rare);
-        Huge.AddSimilarityTags(SimilarityTag.Size, FormTag.Aoe);
+        Huge.AddSimilarityTags(ModifierTag.Huge, SimilarityTag.Size, FormTag.Aoe);
         Huge.OnAddOrUpgrade = AddOrUpgradeHuge;
         Huge.OnSetup = ApplyHugeOnSetup;
         Setup<WeakenModifier>(Weaken, SkillModifierRarity.Rare);
-        Weaken.AddSimilarityTags(SimilarityTag.Debuff, SimilarityTag.AttackDown);
+        Weaken.AddSimilarityTags(ModifierTag.Weaken, SimilarityTag.Debuff, SimilarityTag.AttackDown);
         Weaken.OnAddOrUpgrade = AddOrUpgradeWeaken;
         Weaken.OnEffectObj = ApplyWeakenEffect;
         Setup<ArmorBreakModifier>(ArmorBreak, SkillModifierRarity.Rare);
-        ArmorBreak.AddSimilarityTags(SimilarityTag.Debuff, SimilarityTag.ArmorDown);
+        ArmorBreak.AddSimilarityTags(ModifierTag.ArmorBreak, SimilarityTag.Debuff, SimilarityTag.ArmorDown);
         ArmorBreak.OnAddOrUpgrade = AddOrUpgradeArmorBreak;
         ArmorBreak.OnEffectObj = ApplyArmorBreakEffect;
         Setup<GravityModifier>(Gravity, SkillModifierRarity.Rare);
-        Gravity.AddSimilarityTags(SimilarityTag.Control, SimilarityTag.Pull, FormTag.Aoe);
+        Gravity.AddSimilarityTags(ModifierTag.Gravity, SimilarityTag.Control, SimilarityTag.Pull, FormTag.Aoe);
         Gravity.OnAddOrUpgrade = AddOrUpgradeGravity;
         Gravity.OnTravel = ApplyGravityTravel;
         Setup<DazeModifier>(Daze, SkillModifierRarity.Rare);
-        Daze.AddSimilarityTags(SimilarityTag.Control, SimilarityTag.Stun);
+        Daze.AddSimilarityTags(ModifierTag.Daze, SimilarityTag.Control, SimilarityTag.Stun);
         Daze.OnAddOrUpgrade = AddOrUpgradeDaze;
         Daze.OnEffectObj = ApplyDazeEffect;
 
         Setup<MercyModifier>(Mercy, SkillModifierRarity.Epic, ConflictTag.KillOverride);
-        Mercy.AddSimilarityTags(SimilarityTag.Special);
+        Mercy.AddSimilarityTags(ModifierTag.Mercy, SimilarityTag.Special);
         Mercy.OnAddOrUpgrade = AddOrUpgradeMercy;
         Mercy.OnSetup = ApplyMercyOnSetup;
         Mercy.OnEffectObj = ApplyMercyEffect;
         Setup<ChaosModifier>(Chaos, SkillModifierRarity.Epic);
-        Chaos.AddSimilarityTags(SimilarityTag.Special, SimilarityTag.Random);
+        Chaos.AddSimilarityTags(ModifierTag.Chaos, SimilarityTag.Special, SimilarityTag.Random, ElementTag.Entropy);
         Chaos.OnAddOrUpgrade = AddOrUpgradeChaos;
         Chaos.OnSetup = ApplyChaosOnSetup;
         Setup<SwapModifier>(Swap, SkillModifierRarity.Epic);
-        Swap.AddSimilarityTags(SimilarityTag.Control, SimilarityTag.Swap);
+        Swap.AddSimilarityTags(ModifierTag.Swap, SimilarityTag.Control, SimilarityTag.Swap);
         Swap.OnAddOrUpgrade = AddOrUpgradeSwap;
         Swap.OnEffectObj = ApplySwapEffect;
         Setup<RandomAffixModifier>(RandomAffix, SkillModifierRarity.Epic);
-        RandomAffix.AddSimilarityTags(SimilarityTag.Special, SimilarityTag.Random);
+        RandomAffix.AddSimilarityTags(ModifierTag.RandomAffix, SimilarityTag.Special, SimilarityTag.Random,
+            ElementTag.Entropy);
         RandomAffix.OnAddOrUpgrade = AddOrUpgradeRandomAffix;
         RandomAffix.OnEffectObj = ApplyRandomAffixEffect;
         Setup<BurnoutModifier>(Burnout, SkillModifierRarity.Epic);
-        Burnout.AddSimilarityTags(SimilarityTag.Dot, SimilarityTag.Burn);
+        Burnout.AddSimilarityTags(ModifierTag.Burnout, SimilarityTag.Dot, SimilarityTag.Burn, ElementTag.Fire);
         Burnout.OnAddOrUpgrade = AddOrUpgradeBurnout;
         Burnout.OnEffectObj = ApplyBurnoutEffect;
         Setup<ComboModifier>(Combo, SkillModifierRarity.Epic);
-        Combo.AddSimilarityTags(SimilarityTag.Combo);
+        Combo.AddSimilarityTags(ModifierTag.Combo, SimilarityTag.Combo);
         Combo.OnAddOrUpgrade = AddOrUpgradeCombo;
         Combo.OnSetup = ApplyComboOnSetup;
 
         Setup<SilenceModifier>(Silence, SkillModifierRarity.Legendary);
-        Silence.AddSimilarityTags(SimilarityTag.Control, SimilarityTag.Silence);
+        Silence.AddSimilarityTags(ModifierTag.Silence, SimilarityTag.Control, SimilarityTag.Silence);
         Silence.OnAddOrUpgrade = AddOrUpgradeSilence;
         Silence.OnEffectObj = ApplySilenceEffect;
         Setup<DeathSentenceModifier>(DeathSentence, SkillModifierRarity.Legendary, ConflictTag.KillOverride);
-        DeathSentence.AddSimilarityTags(SimilarityTag.Execute);
+        DeathSentence.AddSimilarityTags(ModifierTag.DeathSentence, SimilarityTag.Execute);
         DeathSentence.OnAddOrUpgrade = AddOrUpgradeDeathSentence;
         DeathSentence.OnEffectObj = ApplyDeathSentenceEffect;
         Setup<ReincarnationTrialModifier>(ReincarnationTrial, SkillModifierRarity.Legendary);
-        ReincarnationTrial.AddSimilarityTags(SimilarityTag.Special);
+        ReincarnationTrial.AddSimilarityTags(ModifierTag.ReincarnationTrial, SimilarityTag.Special,
+            ElementTag.Entropy);
         ReincarnationTrial.OnAddOrUpgrade = AddOrUpgradeReincarnationTrial;
         ReincarnationTrial.OnEffectObj = ApplyReincarnationTrialEffect;
         Setup<EternalCurseModifier>(EternalCurse, SkillModifierRarity.Legendary);
-        EternalCurse.AddSimilarityTags(SimilarityTag.Curse, SimilarityTag.Dot);
+        EternalCurse.AddSimilarityTags(ModifierTag.EternalCurse, SimilarityTag.Curse, SimilarityTag.Dot);
         EternalCurse.OnAddOrUpgrade = AddOrUpgradeEternalCurse;
         EternalCurse.OnEffectObj = ApplyEternalCurseEffect;
     }
@@ -1177,7 +1180,8 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     // 命中时追加轮回试练伤害；若目标看起来会被击杀，则治疗施法者，否则施法者承受反噬
     private static void ApplyReincarnationTrialEffect(Entity skillEntity, BaseSimObject target)
     {
-        if (!TryGetModifierContext<ReincarnationTrialModifier>(skillEntity, out var trial, out var context, out _))
+        if (!TryGetModifierContext<ReincarnationTrialModifier>(skillEntity, out var trial, out var context,
+                out var skill))
             return;
 
         var element = new ElementComposition(pos: 0.35f, neg: 0.35f, entropy: 0.3f, normalize: true);
@@ -1202,7 +1206,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var backlashContext = context;
         backlashContext.SourceObj = target;
         backlashContext.TargetDir = -context.TargetDir;
-        SkillGroundFx.OnImpact(context.SourceObj.GetSimPos(), SkillVfxColor.ResolveStyle(element), 0, isArea: false);
+        SkillGroundFx.OnImpact(context.SourceObj.GetSimPos(), skill.VfxElement, 0, isArea: false);
         EventSystemHub.Publish(new GetHitEvent
         {
             TargetID = context.SourceObj.a.data.id,
@@ -1265,7 +1269,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         ref var element = ref skill.Asset.Element;
         var damage = context.Strength * damageRatio;
 
-        SkillGroundFx.OnImpact(explosionPos, SkillVfxColor.ResolveStyle(skill.Asset), radius, isArea: true);
+        SkillGroundFx.OnImpact(explosionPos, skill.VfxElement, radius, isArea: true);
 
         // 对范围内的敌人造成伤害
         foreach (var obj in SkillUtils.IterEnemyInSphere(explosionPos, radius, attacker, context.AttackKingdom))

@@ -6,6 +6,15 @@ namespace Cultiway.Core.SkillLibV3.Utils;
 public static class SkillContainerUtils
 {
     /// <summary>
+    /// 在容器构建或词条变更完成后解析并缓存视觉元素。
+    /// </summary>
+    public static void RefreshVfxElement(Entity skillContainer)
+    {
+        ref var container = ref skillContainer.GetComponent<SkillContainer>();
+        container.VfxElement = ModClass.I.SkillV3.VfxElementLib.Resolve(container, skillContainer);
+    }
+
+    /// <summary>
     /// 判断两个法术容器是否相似, 要求必须有<see cref="SkillContainer"/>组件
     /// </summary>
     public static bool IsSimilar(Entity a, Entity b)

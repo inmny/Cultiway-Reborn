@@ -367,10 +367,7 @@ public static class ActorExtendTools
         }
 
         // 创建技能容器
-        var skillContainer = ModClass.I.W.CreateEntity(new SkillContainer
-        {
-            SkillEntityAssetID = skillEntityAssetId
-        });
+        var skillContainer = new SkillContainerBuilder(skillEntityAsset).Build();
 
         // 学习技能
         ae.LearnSkillV3(skillContainer, false);

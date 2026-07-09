@@ -31,7 +31,8 @@ public static class SkillHitResolver
         return (ref SkillContext context, Entity skillContainer, Entity skillEntity, BaseSimObject target) =>
         {
             var position = skillEntity.GetComponent<Position>().value;
-            SkillGroundFx.OnImpact(position, SkillVfxColor.ResolveStyle(asset), radius, isArea: true);
+            var vfxElement = skillEntity.GetComponent<SkillEntity>().VfxElement;
+            SkillGroundFx.OnImpact(position, vfxElement, radius, isArea: true);
 
             foreach (var obj in SkillUtils.IterEnemyInSphere(position, radius, context.SourceObj,
                          context.AttackKingdom))
@@ -53,7 +54,8 @@ public static class SkillHitResolver
     {
         if (target == null || target.isRekt()) return;
 
-        SkillGroundFx.OnImpact(target.GetSimPos(), SkillVfxColor.ResolveStyle(asset), 0, isArea: false);
+        var vfxElement = skillEntity.GetComponent<SkillEntity>().VfxElement;
+        SkillGroundFx.OnImpact(target.GetSimPos(), vfxElement, 0, isArea: false);
         ApplyDamage(asset, ref context, target);
         InvokeOnEffect(skillContainer, skillEntity, target);
     }

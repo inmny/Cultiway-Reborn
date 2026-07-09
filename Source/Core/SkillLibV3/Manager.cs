@@ -4,6 +4,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Systems;
+using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
 using Cultiway.Utils.Extension;
@@ -22,6 +23,7 @@ public class Manager
     public SkillEntityLibrary SkillLib { get; } = new SkillEntityLibrary();
     public SkillModifierLibrary ModifierLib { get; } = new();
     public TrajectoryLibrary TrajLib { get; } = new TrajectoryLibrary();
+    public SkillVfxElementLibrary VfxElementLib { get; } = new();
     public SystemGroup SkillLogicSystemGroup { get; } = new SystemGroup("SkillLibV3");
     internal Manager(WorldboxGame game)
     {
@@ -44,6 +46,7 @@ public class Manager
         AssetManager._instance.add(SkillLib, "cultiway.skills");
         AssetManager._instance.add(ModifierLib, "cultiway.skill_modifiers");
         AssetManager._instance.add(TrajLib, "cultiway.trajectories");
+        AssetManager._instance.add(VfxElementLib, "cultiway.skill_vfx_elements");
     }
 
     public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
@@ -148,6 +151,7 @@ public class Manager
         context.AttackKingdom = attack_kingdom;
         ref var skill_entity = ref data.Get<SkillEntity>();
         skill_entity.SkillContainer = skill_container;
+        skill_entity.VfxElement = container.VfxElement;
         context.TargetPos = target_pos;
         context.TargetDir = base_dir;
         ref var pos = ref data.Get<Position>();

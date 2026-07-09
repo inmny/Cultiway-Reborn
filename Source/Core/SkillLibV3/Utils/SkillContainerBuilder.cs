@@ -120,7 +120,8 @@ public class SkillContainerBuilder
         {
             _containerEntity.RemoveTag<TagHasOnTravel>();
         }
-        
+
+        SkillContainerUtils.RefreshVfxElement(_containerEntity);
         SkillNameGenerator.Instance.GenerateFor(_containerEntity);
         return _containerEntity;
     }

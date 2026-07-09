@@ -19,12 +19,13 @@ public static class TalismanVfxManager
         var icon = GetTalismanIcon(talismanEntity);
         if (icon == null) return;
 
-        var skillAsset = skillContainer.GetComponent<SkillContainer>().Asset;
+        var skill = skillContainer.GetComponent<SkillContainer>();
+        var skillAsset = skill.Asset;
         if (skillAsset == null) return;
 
-        var style = SkillVfxColor.ResolveStyle(skillAsset);
+        var element = skill.VfxElement;
         var color = SkillVfxColor.GetElementColor(skillAsset.Element);
-        var accentColor = SkillVfxColor.GetAccentColor(style, color);
+        var accentColor = element.GetAccentColor(color);
         var frames = TalismanVfxFrameLibrary.GetActivationFrames(icon, color, accentColor);
         if (frames.Length == 0) return;
 
