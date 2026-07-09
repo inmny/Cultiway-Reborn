@@ -5,7 +5,7 @@ namespace Cultiway.Core.SkillLibV3.Visuals;
 
 public delegate void SkillVfxGroundFlyOver(WorldTile tile);
 
-public delegate void SkillVfxGroundImpact(WorldTile tile, int radius, bool isArea);
+public delegate void SkillVfxGroundImpact(WorldTile tile, int radius, bool isArea, BaseSimObject sourceObj);
 
 /// <summary>
 /// 法术视觉元素资产。颜色、地面掠过、命中地形反馈等元素差异都挂在这里。
@@ -13,7 +13,7 @@ public delegate void SkillVfxGroundImpact(WorldTile tile, int radius, bool isAre
 public class SkillVfxElementAsset : Asset
 {
     private static readonly SkillVfxGroundFlyOver NoFlyOver = _ => { };
-    private static readonly SkillVfxGroundImpact NoImpact = (_, _, _) => { };
+    private static readonly SkillVfxGroundImpact NoImpact = (_, _, _, _) => { };
 
     private readonly List<SkillVfxElementMatchRule> _matchRules = new();
 
@@ -83,9 +83,9 @@ public class SkillVfxElementAsset : Asset
         GroundFlyOver(tile);
     }
 
-    public void ApplyGroundImpact(WorldTile tile, int radius, bool isArea)
+    public void ApplyGroundImpact(WorldTile tile, int radius, bool isArea, BaseSimObject sourceObj)
     {
-        GroundImpact(tile, radius, isArea);
+        GroundImpact(tile, radius, isArea, sourceObj);
     }
 }
 

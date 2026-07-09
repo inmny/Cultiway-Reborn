@@ -1206,7 +1206,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var backlashContext = context;
         backlashContext.SourceObj = target;
         backlashContext.TargetDir = -context.TargetDir;
-        SkillGroundFx.OnImpact(context.SourceObj.GetSimPos(), skill.VfxElement, 0, isArea: false);
+        SkillGroundFx.OnImpact(context.SourceObj.GetSimPos(), skill.VfxElement, 0, isArea: false, sourceObj: target);
         EventSystemHub.Publish(new GetHitEvent
         {
             TargetID = context.SourceObj.a.data.id,
@@ -1269,7 +1269,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         ref var element = ref skill.Asset.Element;
         var damage = context.Strength * damageRatio;
 
-        SkillGroundFx.OnImpact(explosionPos, skill.VfxElement, radius, isArea: true);
+        SkillGroundFx.OnImpact(explosionPos, skill.VfxElement, radius, isArea: true, sourceObj: attacker);
 
         // 对范围内的敌人造成伤害
         foreach (var obj in SkillUtils.IterEnemyInSphere(explosionPos, radius, attacker, context.AttackKingdom))

@@ -1,5 +1,6 @@
 using Cultiway.Abstract;
 using Cultiway.Core.SkillLibV3.Visuals;
+using Cultiway.Utils.Extension;
 using UnityEngine;
 using ElementTag = Cultiway.Core.SkillLibV3.SkillTags.Element;
 using ModifierTag = Cultiway.Core.SkillLibV3.SkillTags.Modifier;
@@ -113,7 +114,7 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
         }
     }
 
-    private static void ApplyWaterImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyWaterImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
         ApplyArea(tile, rad, isArea, ApplyWaterToTile);
     }
@@ -138,12 +139,12 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
         tile.freeze(1);
     }
 
-    private static void ApplyIceImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyIceImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
         ApplyArea(tile, rad, isArea, t => t.freeze(3));
     }
 
-    private static void ApplyFireImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyFireImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
         if (isArea && rad > 0)
         {
@@ -160,81 +161,44 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
         tile.setBurned();
     }
 
-    private static void ApplyEarthImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyEarthImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
-        if (isArea && rad > 0)
-        {
-            MapAction.damageWorld(tile, rad, AssetManager.terraform.get("earthquake"));
-            return;
-        }
-
-        MapAction.decreaseTile(tile, true);
+        ApplyArea(tile, rad, isArea, ApplyEarthToTile);
     }
 
-    private static void ApplyMetalImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyMetalImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
-        if (isArea && rad > 0)
-        {
-            SkillGroundFx.ForEachTileInRadius(tile, rad, t => MapAction.decreaseTile(t, true));
-            return;
-        }
-
-        if (tile.top_type != null)
-        {
-            tile.setTopTileType(null);
-            return;
-        }
-
-        MapAction.decreaseTile(tile, true);
+        ApplyArea(tile, rad, isArea, ClearTopTile);
     }
 
-    private static void ApplyWoodImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyWoodImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
-        ApplyArea(tile, rad, isArea, ApplyGrowthToTile);
+        ApplyArea(tile, rad, isArea, GrowVegetationOnly);
     }
 
-    private static void ApplyWindImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyWindImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
         var forceRad = isArea && rad > 0 ? rad : 2;
-        World.world.applyForceOnTile(tile, forceRad, 2f, pForceOut: true);
+        ApplyWindForce(tile, forceRad, 2f, sourceObj);
+        SkillGroundFx.ForEachTileInRadius(tile, forceRad, ApplyWindToTile);
     }
 
-    private static void ApplyLightningImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyLightningImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
-        if (rad > 0)
-        {
-            MapAction.damageWorld(tile, Mathf.Max(1, rad), AssetManager.terraform.get("lightning_power"));
-            return;
-        }
-
-        tile.setBurned();
+        SkillGroundFx.ForEachTileInRadius(tile, 3, ApplyLightningToTile);
     }
 
-    private static void ApplyNegImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyNegImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
-        if (isArea && rad > 0)
-        {
-            SkillGroundFx.ForEachTileInRadius(tile, rad, t =>
-            {
-                t.setBurnedStage(15);
-                if (t.top_type == null)
-                {
-                    var wasteland = t.Height > 1 ? TopTileLibrary.wasteland_high : TopTileLibrary.wasteland_low;
-                    t.setTopTileType(wasteland);
-                }
-            });
-            return;
-        }
-
-        tile.setBurnedStage(15);
+        ApplyArea(tile, rad, isArea, LowerTerrain);
     }
 
-    private static void ApplyPosImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyPosImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
-        ApplyArea(tile, rad, isArea, ApplyPositiveToTile);
+        ApplyArea(tile, rad, isArea, RaiseTerrain);
     }
 
-    private static void ApplyEntropyImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyEntropyImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
         ApplyArea(tile, rad, isArea, ApplyEntropyToTile);
     }
@@ -247,12 +211,12 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
         }
     }
 
-    private static void ApplyPoisonImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyPoisonImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
         ApplyArea(tile, rad, isArea, MapAction.checkAcidTerraform);
     }
 
-    private static void ApplyExplosionImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyExplosionImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
         var range = isArea && rad > 0 ? Mathf.Max(1, rad) : 2;
         var terraform = range >= 3 ? "bomb" : "grenade";
@@ -267,7 +231,7 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
         tile.setBurnedStage(15);
     }
 
-    private static void ApplyBurnoutImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyBurnoutImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
         if (isArea && rad > 0)
         {
@@ -279,7 +243,7 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
         tile.setBurnedStage(15);
     }
 
-    private static void ApplyGravityImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyGravityImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
         var forceRad = isArea && rad > 0 ? Mathf.Max(1, rad) : 3;
         World.world.applyForceOnTile(tile, forceRad, 3f, pForceOut: false);
@@ -289,37 +253,147 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
         }
     }
 
-    private static void ApplyCurseImpact(WorldTile tile, int rad, bool isArea)
+    private static void ApplyCurseImpact(WorldTile tile, int rad, bool isArea, BaseSimObject sourceObj)
     {
         ApplyArea(tile, rad, isArea, ApplyCurseToTile);
     }
 
-    private static void ApplyGrowthToTile(WorldTile tile)
+    private static void ClearTopTile(WorldTile tile)
     {
-        tile.removeBurn();
-        MapAction.increaseTile(tile, false);
+        if (tile.top_type == null) return;
+
+        tile.setTopTileType(null);
+    }
+
+    private static void GrowVegetationOnly(WorldTile tile)
+    {
         var biome = tile.getBiome();
-        if (biome != null && biome.grow_vegetation_auto && Randy.randomChance(0.35f))
+        if (biome != null && biome.grow_vegetation_auto)
         {
             ActionLibrary.growRandomVegetation(tile, biome);
         }
     }
 
-    private static void ApplyPositiveToTile(WorldTile tile)
+    private static void ApplyEarthToTile(WorldTile tile)
     {
-        tile.removeBurn();
-        MapAction.increaseTile(tile, false);
+        if (tile.Type.ocean)
+        {
+            MapAction.terraformMain(tile, TileLibrary.sand, TerraformLibrary.flash);
+            return;
+        }
+
+        if (tile.Type == TileLibrary.sand)
+        {
+            MapAction.terraformMain(tile, TileLibrary.soil_low, TerraformLibrary.flash);
+            return;
+        }
+
+        if (tile.Type == TileLibrary.soil_low)
+        {
+            MapAction.terraformMain(tile, TileLibrary.soil_high, TerraformLibrary.flash);
+        }
+    }
+
+    private static void LowerTerrain(WorldTile tile)
+    {
+        if (tile.Type.decrease_to == null) return;
+
+        MapAction.terraformMain(tile, tile.Type.decrease_to, TerraformLibrary.flash);
+    }
+
+    private static void RaiseTerrain(WorldTile tile)
+    {
+        if (tile.Type.increase_to == null) return;
+
+        MapAction.terraformMain(tile, tile.Type.increase_to, TerraformLibrary.flash);
     }
 
     private static void ApplyEntropyToTile(WorldTile tile)
     {
         if (Randy.randomBool())
         {
-            MapAction.decreaseTile(tile, true);
+            LowerTerrain(tile);
             return;
         }
 
-        tile.setBurnedStage(15);
+        RaiseTerrain(tile);
+    }
+
+    private static void ApplyWindForce(WorldTile tile, int radius, float strength, BaseSimObject sourceObj)
+    {
+        var sqrRadius = radius * radius;
+        foreach (var actor in Finder.getUnitsFromChunk(tile, 1))
+        {
+            if (sourceObj != null && !sourceObj.isRekt() && sourceObj.isActor() && actor == sourceObj.a) continue;
+            if (Toolbox.SquaredDistTile(actor.current_tile, tile) > sqrRadius) continue;
+
+            var dx = (float)(actor.current_tile.x - tile.x);
+            var dy = (float)(actor.current_tile.y - tile.y);
+            var length = Mathf.Sqrt(dx * dx + dy * dy);
+            if (length < 0.01f)
+            {
+                var angle = Randy.randomFloat(0f, Mathf.PI * 2f);
+                dx = Mathf.Cos(angle);
+                dy = Mathf.Sin(angle);
+                length = 1f;
+            }
+
+            var distanceFactor = Mathf.Clamp01(1f - length / radius);
+            var force = strength * (0.55f + distanceFactor * 0.45f);
+            actor.GetExtend().GetForce(sourceObj, dx / length * force, dy / length * force, 0f);
+        }
+    }
+
+    private static void ApplyWindToTile(WorldTile tile)
+    {
+        ClearTopTile(tile);
+        if (!tile.Type.liquid) return;
+
+        TrySpawnLiquidDrop(tile, 1f);
+        ClearLiquid(tile);
+    }
+
+    private static void ApplyLightningToTile(WorldTile tile)
+    {
+        if (tile.Type.liquid)
+        {
+            TrySpawnLiquidDrop(tile, 1f);
+            return;
+        }
+
+        tile.setBurned();
+    }
+
+    private static void TrySpawnLiquidDrop(WorldTile tile, float scale)
+    {
+        var dropId = GetLiquidDropId(tile);
+        if (dropId.Length == 0) return;
+        if (AssetManager.drops.get(dropId) == null) return;
+        if (World.world.drop_manager.getActiveIndex() > 3000) return;
+
+        World.world.drop_manager.spawnParabolicDrop(tile, dropId, 0f, 0.62f, 104f * scale, 0.7f, 23.5f * scale);
+    }
+
+    private static string GetLiquidDropId(WorldTile tile)
+    {
+        if (tile.Type.lava) return "lava";
+        if (tile.Type.liquid) return "rain";
+
+        return string.Empty;
+    }
+
+    private static void ClearLiquid(WorldTile tile)
+    {
+        if (tile.Type.lava)
+        {
+            LavaHelper.removeLava(tile);
+            return;
+        }
+
+        if (tile.Type.liquid)
+        {
+            MapAction.removeLiquid(tile);
+        }
     }
 
     private static void ApplyCurseToTile(WorldTile tile)

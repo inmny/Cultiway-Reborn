@@ -26,13 +26,15 @@ public static class SkillGroundFx
     /// <param name="element">元素视觉资产。</param>
     /// <param name="radius">影响半径（0 表示单体命中）。</param>
     /// <param name="isArea">是否范围命中。</param>
-    public static void OnImpact(Vector3 pos, SkillVfxElementAsset element, float radius, bool isArea)
+    /// <param name="sourceObj">效果来源，用于需要攻击者境界参与结算的地形反馈。</param>
+    public static void OnImpact(Vector3 pos, SkillVfxElementAsset element, float radius, bool isArea,
+        BaseSimObject sourceObj)
     {
         var tile = GetTile(pos);
         if (tile == null) return;
 
         var rad = isArea ? Mathf.Max(1, Mathf.RoundToInt(radius)) : 0;
-        element.ApplyGroundImpact(tile, rad, isArea);
+        element.ApplyGroundImpact(tile, rad, isArea, sourceObj);
     }
 
     public static WorldTile GetTile(Vector3 pos)
