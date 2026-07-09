@@ -404,7 +404,10 @@ FodyWeavers.xsd
 
 Tools/
 outputs/
-
+Scripts/*.jpg
+Scripts/*.png
+Scripts/**/*.jpg
+Scripts/**/*.png
 .*
 #!.GameSource
 # Doc
