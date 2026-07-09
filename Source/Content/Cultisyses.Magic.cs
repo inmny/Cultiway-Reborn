@@ -18,6 +18,12 @@ public partial class Cultisyses
 {
     public static CultisysAsset<Magic> Magic { get; private set; }
 
+    /// <summary>每级 SpiritRegen（回神/月），由 Magic.csv 加载</summary>
+    private static readonly float[] _spiritRegenByLevel = new float[MagicSetting.LevelNumber];
+
+    /// <summary>取指定等级的每月精神力恢复值</summary>
+    public static float GetSpiritRegen(int level) => _spiritRegenByLevel[level];
+
     private void InitMagic()
     {
         Magic = (CultisysAsset<Magic>)Add(new CultisysAsset<Magic>(nameof(Magic), MagicSetting.LevelNumber, new Magic(),
@@ -82,6 +88,18 @@ public partial class Cultisyses
             MagicSetting.StatsPath)));
         var keys = csv[0];
         _ = csv[1];
+
+        // 定位 SpiritRegen（回神/月）列号，单独读取到每级数组
+        int spiritRegenCol = -1;
+        for (int j = 0; j < keys.Length; j++)
+        {
+            if (keys[j] == "SpiritRegen")
+            {
+                spiritRegenCol = j;
+                break;
+            }
+        }
+
         for (int i = 0; i < Magic.LevelNumber; i++)
         {
             var line = csv[i + 2];
@@ -92,6 +110,10 @@ public partial class Cultisyses
                 var key = keys[j];
                 if (!AssetManager.base_stats_library.Contains(key)) continue;
                 stats[key] = float.Parse(line[j]);
+            }
+            if (spiritRegenCol >= 0)
+            {
+                _spiritRegenByLevel[i] = float.Parse(line[spiritRegenCol]);
             }
         }
 

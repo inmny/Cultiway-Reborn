@@ -9,6 +9,10 @@ public static class ContentActorDataKeys
     /// </summary>
     public const string CultivateTime_float = "cw.content.cultivate_time";
     /// <summary>
+    /// 魔法冥想单轮闭关剩余时间（秒）；-SecPerMonth 表示未开始
+    /// </summary>
+    public const string MagicMeditateTime_float = "cw.content.magic_meditate_time";
+    /// <summary>
     /// 野外闭关修炼结束的世界时间
     /// </summary>
     public const string OutdoorCultivationEndTime_float = "cw.content.outdoor_cultivation_end_time";
