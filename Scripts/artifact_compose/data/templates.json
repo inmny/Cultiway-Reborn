@@ -1,0 +1,196 @@
+{
+  "canvas": 28,
+  "templates": [
+    {
+      "key": "sword_slant_crystal",
+      "shape": "sword",
+      "artifact": "ArtifactSword",
+      "palettes": {
+        "ice": { "metal": "#8fd4e8", "edge": "#efffff", "shadow": "#35616f" },
+        "guard": { "metal": "#e9b66c", "gem": "#fff0a1", "shadow": "#6b332a" },
+        "grip": { "grip": "#6b3143", "wrap": "#f0a066", "pommel": "#ffc06b", "shadow": "#341823" },
+        "tassel": { "cord": "#b51e39", "bright": "#ff5a61", "shadow": "#551426", "bead": "#f6c56a" }
+      },
+      "placements": [
+        { "slot": "blade", "module": "sword_blade", "anchor": "hilt", "x": 8.2, "y": 21.2, "angle": -43, "scale": 0.86, "palette": "ice", "z": 10 },
+        { "slot": "guard", "module": "sword_guard", "anchor": "center", "x": 8.2, "y": 21.2, "angle": 47, "scale_x": 0.80, "scale_y": 0.68, "palette": "guard", "z": 20 },
+        { "slot": "hilt", "module": "sword_hilt", "anchor": "top", "x": 7.5, "y": 21.9, "angle": 137, "scale": 0.48, "palette": "grip", "z": 30 },
+        { "slot": "tassel", "module": "sword_tassel", "anchor": "knot", "x": 4.6, "y": 24.0, "angle": 134, "scale": 0.48, "palette": "tassel", "z": 40 }
+      ],
+      "shading": [
+        { "type": "line", "points": [[6, 23], [23, 5]], "stroke_width": 1.8, "mode": "lighten", "opacity": 0.12 },
+        { "type": "polygon", "points": [[11, 11], [28, 0], [28, 28], [17, 28]], "mode": "darken", "opacity": 0.13 }
+      ]
+    },
+    {
+      "key": "sword_dark_jade",
+      "shape": "sword",
+      "artifact": "ArtifactSword",
+      "palettes": {
+        "jade": { "metal": "#b4a13d", "edge": "#ffe16d", "shadow": "#344823" },
+        "guard": { "metal": "#9a8f36", "gem": "#caff74", "shadow": "#35381c" },
+        "grip": { "grip": "#486532", "wrap": "#dfcc60", "pommel": "#7faa33", "shadow": "#1d2818" },
+        "tassel": { "cord": "#7a3dc9", "bright": "#c96cff", "shadow": "#28134a", "bead": "#f0d86b" }
+      },
+      "placements": [
+        { "slot": "blade", "module": "sword_blade", "anchor": "hilt", "x": 7.8, "y": 22.0, "angle": -42, "scale": 0.88, "palette": "jade", "z": 10 },
+        { "slot": "guard", "module": "sword_guard", "anchor": "center", "x": 7.8, "y": 22.0, "angle": 48, "scale_x": 0.84, "scale_y": 0.58, "palette": "guard", "z": 20 },
+        { "slot": "hilt", "module": "sword_hilt", "anchor": "top", "x": 7.0, "y": 22.8, "angle": 138, "scale": 0.44, "palette": "grip", "z": 30 },
+        { "slot": "tassel", "module": "sword_tassel", "anchor": "knot", "x": 4.2, "y": 24.6, "angle": 128, "scale": 0.46, "palette": "tassel", "z": 40 }
+      ],
+      "shading": [
+        { "type": "line", "points": [[5, 24], [22, 5]], "stroke_width": 1.4, "mode": "lighten", "opacity": 0.10 },
+        { "type": "polygon", "points": [[12, 8], [28, 0], [28, 28], [16, 28]], "mode": "darken", "opacity": 0.18 }
+      ]
+    },
+    {
+      "key": "seal_mountain_green",
+      "shape": "seal",
+      "artifact": "ArtifactSeal",
+      "palettes": {
+        "peak": { "top": "#547f3e", "left": "#3f6e45", "right": "#283f42", "ridge": "#94bf63", "water": "#45a2e8", "shadow": "#1b282d" }
+      },
+      "placements": [
+        { "slot": "mountain", "module": "seal_mountain", "variant": "green_peak", "anchor": "center", "x": 14, "y": 15.0, "angle": 0, "scale": 0.98, "palette": "peak", "z": 10 }
+      ],
+      "shading": [
+        { "type": "polygon", "points": [[15, 8], [28, 10], [28, 28], [15, 28]], "mode": "darken", "opacity": 0.16 },
+        { "type": "line", "points": [[7, 12], [15, 7]], "stroke_width": 2, "mode": "lighten", "opacity": 0.08 }
+      ]
+    },
+    {
+      "key": "seal_mountain_amber",
+      "shape": "seal",
+      "artifact": "ArtifactSeal",
+      "palettes": {
+        "peak": { "top": "#cf8d36", "left": "#a96723", "right": "#6b3b21", "ridge": "#ffd36a", "water": "#54a95d", "shadow": "#3a2418" }
+      },
+      "placements": [
+        { "slot": "mountain", "module": "seal_mountain", "variant": "amber_peak", "anchor": "center", "x": 14, "y": 15.2, "angle": 0, "scale": 1.0, "palette": "peak", "z": 10 }
+      ],
+      "shading": [
+        { "type": "polygon", "points": [[14, 6], [28, 8], [28, 28], [14, 28]], "mode": "darken", "opacity": 0.15 },
+        { "type": "line", "points": [[8, 12], [14, 7], [19, 10]], "stroke_width": 2, "mode": "lighten", "opacity": 0.08 }
+      ]
+    },
+    {
+      "key": "robe_fold_blue",
+      "shape": "robe",
+      "artifact": "ArtifactRobe",
+      "palettes": {
+        "cloth": { "cloth": "#2f7dbf", "trim": "#d9ecff", "shadow": "#173b5f" },
+        "gold": { "trim": "#e7ca59", "gem": "#74e7ff", "shadow": "#66511e" },
+        "charm": { "cord": "#e0c867", "jade": "#66dec0", "bright": "#dbfff1", "shadow": "#205144" }
+      },
+      "placements": [
+        { "slot": "body", "module": "robe_body", "variant": "wide_sleeve", "anchor": "collar", "x": 13.4, "y": 4.5, "angle": 92, "scale_x": 0.86, "scale_y": 0.98, "palette": "cloth", "z": 10 },
+        { "slot": "collar", "module": "robe_collar", "anchor": "center", "x": 13.4, "y": 6.0, "angle": 92, "scale": 0.86, "palette": "gold", "z": 20 },
+        { "slot": "sash", "module": "robe_sash", "anchor": "center", "x": 13.2, "y": 16.0, "angle": -5, "scale_x": 0.82, "scale_y": 0.78, "palette": "gold", "z": 30 },
+        { "slot": "charm", "module": "robe_charm", "anchor": "top", "x": 15.0, "y": 15.5, "angle": 92, "scale": 0.45, "palette": "charm", "z": 40 }
+      ],
+      "shading": [
+        { "type": "line", "points": [[9, 6], [7, 23]], "stroke_width": 1.5, "mode": "lighten", "opacity": 0.08 },
+        { "type": "polygon", "points": [[14, 3], [27, 20], [27, 28], [14, 28]], "mode": "darken", "opacity": 0.16 }
+      ]
+    },
+    {
+      "key": "robe_split_emerald",
+      "shape": "robe",
+      "artifact": "ArtifactRobe",
+      "palettes": {
+        "cloth": { "cloth": "#2f9a72", "trim": "#d9ffe8", "shadow": "#174c38" },
+        "silver": { "trim": "#e9e3c7", "gem": "#ffe273", "shadow": "#685e41" },
+        "charm": { "cord": "#dac668", "jade": "#b72e43", "bright": "#ff7d6a", "shadow": "#581527" }
+      },
+      "placements": [
+        { "slot": "body", "module": "robe_body", "variant": "split_hem", "anchor": "collar", "x": 14.0, "y": 4.8, "angle": 88, "scale_x": 0.88, "scale_y": 1.00, "palette": "cloth", "z": 10 },
+        { "slot": "collar", "module": "robe_collar", "anchor": "center", "x": 14.0, "y": 6.1, "angle": 88, "scale": 0.88, "palette": "silver", "z": 20 },
+        { "slot": "sash", "module": "robe_sash", "anchor": "center", "x": 14.2, "y": 16.2, "angle": 3, "scale_x": 0.82, "scale_y": 0.78, "palette": "silver", "z": 30 },
+        { "slot": "charm", "module": "robe_charm", "anchor": "top", "x": 12.8, "y": 15.4, "angle": 92, "scale": 0.43, "palette": "charm", "z": 40 }
+      ],
+      "shading": [
+        { "type": "line", "points": [[11, 6], [13, 21]], "stroke_width": 1.5, "mode": "lighten", "opacity": 0.08 },
+        { "type": "polygon", "points": [[15, 4], [27, 22], [27, 28], [15, 28]], "mode": "darken", "opacity": 0.15 }
+      ]
+    },
+    {
+      "key": "mirror_slant_bronze",
+      "shape": "mirror",
+      "artifact": "ArtifactMirror",
+      "palettes": {
+        "bronze": { "metal": "#a37f36", "gem": "#7cecff", "shadow": "#4c3d1d" },
+        "water": { "glass": "#d7fbff", "gleam": "#ffffff", "shadow": "#61888d" }
+      },
+      "placements": [
+        { "slot": "handle", "module": "mirror_handle", "anchor": "top", "x": 8.2, "y": 20.0, "angle": 134, "scale": 0.42, "palette": "bronze", "z": 5 },
+        { "slot": "frame", "module": "mirror_frame", "anchor": "center", "x": 13.8, "y": 12.4, "angle": -18, "scale_x": 0.78, "scale_y": 0.88, "palette": "bronze", "z": 10 },
+        { "slot": "surface", "module": "mirror_surface", "anchor": "center", "x": 13.8, "y": 12.4, "angle": -18, "scale_x": 0.74, "scale_y": 0.80, "palette": "water", "z": 20 }
+      ],
+      "shading": [
+        { "type": "line", "points": [[9, 9], [18, 17]], "stroke_width": 1.8, "mode": "lighten", "opacity": 0.12 },
+        { "type": "polygon", "points": [[15, 4], [27, 7], [27, 25], [16, 25]], "mode": "darken", "opacity": 0.15 }
+      ]
+    },
+    {
+      "key": "mirror_jade_round",
+      "shape": "mirror",
+      "artifact": "ArtifactMirror",
+      "palettes": {
+        "jade": { "metal": "#5b7f38", "gem": "#f2de6b", "shadow": "#26391e" },
+        "water": { "glass": "#edf8ff", "gleam": "#ffffff", "shadow": "#6d8892" }
+      },
+      "placements": [
+        { "slot": "handle", "module": "mirror_handle", "anchor": "top", "x": 8.8, "y": 20.6, "angle": 134, "scale": 0.40, "palette": "jade", "z": 5 },
+        { "slot": "frame", "module": "mirror_frame", "anchor": "center", "x": 14.2, "y": 12.2, "angle": -20, "scale_x": 0.76, "scale_y": 0.86, "palette": "jade", "z": 10 },
+        { "slot": "surface", "module": "mirror_surface", "anchor": "center", "x": 14.2, "y": 12.2, "angle": -20, "scale_x": 0.72, "scale_y": 0.78, "palette": "water", "z": 20 }
+      ],
+      "shading": [
+        { "type": "line", "points": [[10, 8], [18, 16]], "stroke_width": 1.8, "mode": "lighten", "opacity": 0.13 },
+        { "type": "polygon", "points": [[15, 4], [27, 7], [27, 25], [16, 25]], "mode": "darken", "opacity": 0.14 }
+      ]
+    },
+    {
+      "key": "ding_open_bluefire",
+      "shape": "ding",
+      "artifact": "ArtifactDing",
+      "palettes": {
+        "bronze": { "metal": "#5b526e", "trim": "#9fa0d0", "shadow": "#222038" },
+        "fire": { "fire": "#23d4ff", "core": "#a7ffff", "rim": "#33284e", "shadow": "#111426" }
+      },
+      "placements": [
+        { "slot": "left_leg", "module": "ding_leg", "anchor": "top", "x": 8.6, "y": 20.4, "angle": 95, "scale_x": 0.42, "scale_y": 0.54, "palette": "bronze", "z": 5 },
+        { "slot": "right_leg", "module": "ding_leg", "anchor": "top", "x": 19.1, "y": 20.0, "angle": 85, "scale_x": 0.42, "scale_y": 0.54, "palette": "bronze", "z": 5 },
+        { "slot": "body", "module": "ding_body", "variant": "round_belly", "anchor": "center", "x": 14, "y": 15.8, "angle": 0, "scale_x": 0.84, "scale_y": 0.80, "palette": "bronze", "z": 10 },
+        { "slot": "left_handle", "module": "ding_handle", "variant": "loop", "anchor": "inner", "x": 7.2, "y": 14.4, "angle": 0, "scale": 0.50, "palette": "bronze", "z": 20 },
+        { "slot": "right_handle", "module": "ding_handle", "variant": "loop", "anchor": "inner", "x": 20.8, "y": 14.4, "angle": 0, "scale": 0.50, "mirror_x": true, "palette": "bronze", "z": 20 },
+        { "slot": "mouth", "module": "ding_mouth", "variant": "blue_fire", "anchor": "center", "x": 14, "y": 10.8, "angle": 0, "scale": 0.90, "palette": "fire", "z": 30 }
+      ],
+      "shading": [
+        { "type": "polygon", "points": [[14, 8], [28, 8], [28, 26], [16, 26]], "mode": "darken", "opacity": 0.18 },
+        { "type": "line", "points": [[9, 11], [17, 10]], "stroke_width": 2.5, "mode": "lighten", "opacity": 0.10 }
+      ]
+    },
+    {
+      "key": "ding_ember_lidded",
+      "shape": "ding",
+      "artifact": "ArtifactDing",
+      "palettes": {
+        "copper": { "metal": "#a54532", "trim": "#e16f4a", "shadow": "#3d1714" },
+        "fire": { "fire": "#ff8e24", "core": "#ffe86f", "rim": "#4a1c17", "shadow": "#170909" }
+      },
+      "placements": [
+        { "slot": "left_leg", "module": "ding_leg", "anchor": "top", "x": 8.5, "y": 20.8, "angle": 94, "scale_x": 0.40, "scale_y": 0.54, "palette": "copper", "z": 5 },
+        { "slot": "right_leg", "module": "ding_leg", "anchor": "top", "x": 19.2, "y": 20.5, "angle": 86, "scale_x": 0.40, "scale_y": 0.54, "palette": "copper", "z": 5 },
+        { "slot": "body", "module": "ding_body", "variant": "tall_belly", "anchor": "center", "x": 14, "y": 16.2, "angle": 0, "scale_x": 0.82, "scale_y": 0.82, "palette": "copper", "z": 10 },
+        { "slot": "mouth", "module": "ding_mouth", "variant": "ember", "anchor": "center", "x": 14, "y": 11.2, "angle": 0, "scale": 0.78, "palette": "fire", "z": 18 },
+        { "slot": "lid", "module": "ding_lid", "variant": "peaked", "anchor": "base", "x": 14, "y": 9.0, "angle": -90, "scale_x": 0.68, "scale_y": 0.52, "palette": "copper", "z": 25 },
+        { "slot": "left_handle", "module": "ding_handle", "variant": "loop", "anchor": "inner", "x": 7.0, "y": 14.6, "angle": 0, "scale": 0.46, "palette": "copper", "z": 30 },
+        { "slot": "right_handle", "module": "ding_handle", "variant": "loop", "anchor": "inner", "x": 21.0, "y": 14.6, "angle": 0, "scale": 0.46, "mirror_x": true, "palette": "copper", "z": 30 }
+      ],
+      "shading": [
+        { "type": "polygon", "points": [[15, 7], [28, 8], [28, 26], [16, 26]], "mode": "darken", "opacity": 0.17 },
+        { "type": "line", "points": [[9, 12], [17, 10]], "stroke_width": 2.2, "mode": "lighten", "opacity": 0.09 }
+      ]
+    }
+  ]
+}

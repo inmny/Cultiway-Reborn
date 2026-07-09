@@ -1,3 +1,4 @@
+using Cultiway.Content.Artifacts;
 using Cultiway.Core.Libraries;
 
 namespace Cultiway.Content;
@@ -19,14 +20,14 @@ public partial class ItemShapes
 
     private void SetupArtifactShapes()
     {
-        Sword  = AddArtifactShape(nameof(Sword),  "artifact_shapes/sword",  ["剑"], ArtifactPurpose.Offensive,  2);
-        Seal   = AddArtifactShape(nameof(Seal),   "artifact_shapes/seal",   ["印"], ArtifactPurpose.Support,    2);
-        Robe   = AddArtifactShape(nameof(Robe),   "artifact_shapes/robe",   ["袍"], ArtifactPurpose.Defensive,  2);
-        Mirror = AddArtifactShape(nameof(Mirror), "artifact_shapes/mirror", ["镜"], ArtifactPurpose.Support,    1);
-        Ding   = AddArtifactShape(nameof(Ding),   "artifact_shapes/ding",   ["鼎"], ArtifactPurpose.Production, 3);
+        Sword  = AddArtifactShape(nameof(Sword),  ["剑"], ArtifactPurpose.Offensive,  2);
+        Seal   = AddArtifactShape(nameof(Seal),   ["印"], ArtifactPurpose.Support,    2);
+        Robe   = AddArtifactShape(nameof(Robe),   ["袍"], ArtifactPurpose.Defensive,  2);
+        Mirror = AddArtifactShape(nameof(Mirror), ["镜"], ArtifactPurpose.Support,    1);
+        Ding   = AddArtifactShape(nameof(Ding),   ["鼎"], ArtifactPurpose.Production, 3);
     }
 
-    private ArtifactShapeAsset AddArtifactShape(string id_suffix, string folder, string[] nameCandidates,
+    private ArtifactShapeAsset AddArtifactShape(string id_suffix, string[] nameCandidates,
         ArtifactPurpose purpose, int slotCount)
     {
         var asset = new ArtifactShapeAsset
@@ -35,8 +36,8 @@ public partial class ItemShapes
             ingredient_name_candidates = nameCandidates,
             Purpose = purpose,
             SlotCount = slotCount,
+            GetIcon = ArtifactIconRenderer.GetSprite,
         };
-        SetFolder(asset, folder);
         return (ArtifactShapeAsset)Add(asset);
     }
 }
