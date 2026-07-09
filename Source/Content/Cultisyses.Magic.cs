@@ -128,6 +128,12 @@ public partial class Cultisyses
         if (mana_cost > 0 && target.Base.getMana() >= mana_cost)
         {
             target.Base.setMana(target.Base.getMana() - mana_cost);
+            // 减免成功，触发护盾受击特效
+            if (target.Base.is_visible)
+            {
+                var hit_fx = EffectsLibrary.spawnAt("fx_shield_hit", target.Base.current_position, 1f);
+                hit_fx?.attachTo(target.Base.a);
+            }
             return power_level;
         }
         return 0;

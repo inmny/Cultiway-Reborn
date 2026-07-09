@@ -2,15 +2,19 @@ using Cultiway.Abstract;
 using UnityEngine;
 using Cultiway.Content.Utils;
 using Cultiway.Content.Visuals;
+using strings;
 
 namespace Cultiway.Content;
 public class QuantumSprites : ExtendLibrary<QuantumSpriteAsset, QuantumSprites>
 {
-    [CloneSource("draw_walls")]
+    [CloneSource(S_Quantum.draw_walls)]
     public static QuantumSpriteAsset EasternHumanWall { get; private set; }
 
-    [CloneSource("ate_item")]
+    [CloneSource(S_Quantum.ate_item)]
     public static QuantumSpriteAsset SpecialItemIcon { get; private set; }
+
+    [CloneSource(S_Quantum.status_effects)]
+    public static QuantumSpriteAsset MagicShield { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -25,8 +29,8 @@ public class QuantumSprites : ExtendLibrary<QuantumSpriteAsset, QuantumSprites>
 
         SpecialItemIcon.draw_call = new QuantumSpriteUpdater(SpecialItemIconVfx.Draw);
         SpecialItemIcon.base_scale = 4f;
-        SpecialItemIcon.add_camera_zoom_multiplier = false;
-        SpecialItemIcon.render_gameplay = true;
+
+        MagicShield.draw_call = new QuantumSpriteUpdater(MagicShieldVfx.Draw);
     }
 
     protected override void PostInit(QuantumSpriteAsset asset)
