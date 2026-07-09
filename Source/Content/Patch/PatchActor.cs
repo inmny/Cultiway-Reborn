@@ -55,6 +55,19 @@ internal static class PatchActor
         if (CanUseCultiwayJobSelection(pActor))
         {
             var ae = (pActor as Actor).GetExtend();
+
+            // 魔法生物：概率去冥想（仙道逻辑不影响）
+            if (ae.HasCultisys<Magic>())
+            {
+                var magic_chance = 0.2f;
+                if (pActor.hasTrait(ActorTraits.Cultivator.id)) magic_chance = 0.8f;
+                if (Randy.randomChance(magic_chance))
+                {
+                    __result = ActorJobs.MagicCultivator.id;
+                }
+                return;
+            }
+
             if (!ae.TryGetComponent(out Xian xian)) return;
             
             var chance = 0.2f;

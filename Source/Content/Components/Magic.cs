@@ -6,7 +6,8 @@ namespace Cultiway.Content.Components;
 
 public struct Magic : ICultisysComponent
 {
-    public int level;
+    public int   level;
+    public float spirit;
     [Ignore]
     public BaseCultisysAsset Asset => Cultisyses.Magic;
     [Ignore]

@@ -18,6 +18,8 @@ public class Manager : ICanInit
 {
     private const string CharacterPanelWakanTitle = "Cultiway.UI.CharacterPanel.Wakan";
     private const string CharacterPanelWakanDescription = "Cultiway.UI.CharacterPanel.Wakan Description";
+    private const string CharacterPanelSpiritTitle = "Cultiway.UI.CharacterPanel.Spirit";
+    private const string CharacterPanelSpiritDescription = "Cultiway.UI.CharacterPanel.Spirit Description";
 
     public void Init()
     {
@@ -37,6 +39,9 @@ public class Manager : ICanInit
         CharacterPanelExtensions.RegisterProgressBar("cultiway_wakan",
             a => a.GetExtend().HasCultisys<Xian>(),
             ReadWakanPanelValue);
+        CharacterPanelExtensions.RegisterProgressBar("cultiway_spirit",
+            a => a.GetExtend().HasCultisys<Magic>(),
+            ReadSpiritPanelValue);
         PossessionStatusEffectsUi.Ensure();
 
         WindowWorldWakan.CreateAndInit($"Cultiway.UI.{nameof(WindowWorldWakan)}");
@@ -111,6 +116,24 @@ public class Manager : ICanInit
             CharacterPanelWakanDescription,
             $"{FormatWholeNumber(current)} / {FormatWholeNumber(max)}",
             new Color(0f, 0.62f, 0.78f, 1f)
+        );
+    }
+
+    private static CharacterPanelProgressBarState ReadSpiritPanelValue(Actor actor)
+    {
+        var ae = actor.GetExtend();
+        ref var magic = ref ae.GetCultisys<Magic>();
+        float current = Mathf.Max(0f, magic.spirit);
+        float max = Mathf.Max(0f, actor.stats[BaseStatses.MaxSpirit.id]);
+
+        return new CharacterPanelProgressBarState(
+            current,
+            max,
+            "cultiway/icons/iconMagic",
+            CharacterPanelSpiritTitle,
+            CharacterPanelSpiritDescription,
+            $"{FormatWholeNumber(current)} / {FormatWholeNumber(max)}",
+            new Color(0.55f, 0.35f, 0.85f, 1f)
         );
     }
 
