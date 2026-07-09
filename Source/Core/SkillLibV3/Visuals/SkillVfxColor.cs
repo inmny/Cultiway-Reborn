@@ -1,3 +1,4 @@
+using Cultiway.Core.Components;
 using Cultiway.Utils;
 using UnityEngine;
 using ElementTag = Cultiway.Core.SkillLibV3.SkillTags.Element;
@@ -5,14 +6,11 @@ using SeriesTag = Cultiway.Core.SkillLibV3.SkillTags.Series;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
 
-public enum SkillVfxWeight
-{
-    Light,
-    Medium,
-    Heavy,
-    Extreme
-}
-
+/// <summary>
+/// 法术视觉元素风格与颜色工具。
+/// 从旧 SkillVfxProfileAsset 剥离，供 TalismanVfx 等系统复用。
+/// 新的 VFX 架构重建后此文件可并入或重写。
+/// </summary>
 public enum SkillVfxElementStyle
 {
     Generic,
@@ -28,56 +26,11 @@ public enum SkillVfxElementStyle
     Lightning
 }
 
-public class SkillVfxProfileAsset : Asset
+/// <summary>
+/// 法术视觉元素风格解析与颜色取值。
+/// </summary>
+public static class SkillVfxColor
 {
-    public SkillVfxElementStyle Style;
-    public string CastPath;
-    public string CastAccentPath;
-    public string MuzzlePath;
-    public string TrailPath;
-    public string TrailAccentPath;
-    public string ImpactPath;
-    public string ImpactAccentPath;
-    public string ResidualPath;
-    public float TrailInterval;
-    public float CastScale;
-    public float MuzzleScale;
-    public float TrailScale;
-    public float ImpactScale;
-    public float ResidualScale;
-    public bool CastFixedUpright;
-    public bool ImpactFixedUpright;
-    public bool ResidualFixedUpright;
-
-    public static SkillVfxProfileAsset Create(string id, SkillVfxElementStyle style,
-        float trailInterval, float castScale, float muzzleScale, float trailScale, float impactScale,
-        float residualScale, bool castFixedUpright = false, bool impactFixedUpright = false,
-        bool residualFixedUpright = false)
-    {
-        return new SkillVfxProfileAsset
-        {
-            id = id,
-            Style = style,
-            CastPath = SkillVfxResourceResolver.ResolvePhase(style, SkillVfxPhase.Cast),
-            CastAccentPath = SkillVfxResourceResolver.ResolvePhase(style, SkillVfxPhase.Residual),
-            MuzzlePath = SkillVfxResourceResolver.ResolvePhase(style, SkillVfxPhase.Muzzle),
-            TrailPath = SkillVfxResourceResolver.ResolvePhase(style, SkillVfxPhase.Trail),
-            TrailAccentPath = SkillVfxResourceResolver.ResolvePhase(style, SkillVfxPhase.Residual),
-            ImpactPath = SkillVfxResourceResolver.ResolvePhase(style, SkillVfxPhase.Impact),
-            ImpactAccentPath = SkillVfxResourceResolver.ResolvePhase(style, SkillVfxPhase.Muzzle),
-            ResidualPath = SkillVfxResourceResolver.ResolvePhase(style, SkillVfxPhase.Residual),
-            TrailInterval = trailInterval,
-            CastScale = castScale,
-            MuzzleScale = muzzleScale,
-            TrailScale = trailScale,
-            ImpactScale = impactScale,
-            ResidualScale = residualScale,
-            CastFixedUpright = castFixedUpright,
-            ImpactFixedUpright = impactFixedUpright,
-            ResidualFixedUpright = residualFixedUpright
-        };
-    }
-
     public static SkillVfxElementStyle ResolveStyle(SkillEntityAsset asset)
     {
         if (asset.SeriesTags.Contains(ElementTag.Lightning)) return SkillVfxElementStyle.Lightning;
@@ -97,7 +50,7 @@ public class SkillVfxProfileAsset : Asset
     {
         var max = element.iron;
         var style = SkillVfxElementStyle.Metal;
-
+        Pick(element.iron, SkillVfxElementStyle.Metal, ref max, ref style);
         Pick(element.wood, SkillVfxElementStyle.Wood, ref max, ref style);
         Pick(element.water, SkillVfxElementStyle.Water, ref max, ref style);
         Pick(element.fire, SkillVfxElementStyle.Fire, ref max, ref style);
@@ -106,22 +59,14 @@ public class SkillVfxProfileAsset : Asset
         Pick(element.pos, SkillVfxElementStyle.Pos, ref max, ref style);
         Pick(element.entropy, SkillVfxElementStyle.Entropy, ref max, ref style);
 
-        if (style is not (SkillVfxElementStyle.Neg or SkillVfxElementStyle.Pos or SkillVfxElementStyle.Entropy))
+        // 复合元素映射：水+火=雷，水+木=风
+        if (max <= 0f)
         {
             if (element.water > 0.25f && element.fire > 0.25f) return SkillVfxElementStyle.Lightning;
             if (element.water > 0.25f && element.wood > 0.25f) return SkillVfxElementStyle.Wind;
         }
 
         return max <= 0f ? SkillVfxElementStyle.Generic : style;
-    }
-
-    private static void Pick(float value, SkillVfxElementStyle candidate, ref float max,
-        ref SkillVfxElementStyle style)
-    {
-        if (value <= max) return;
-
-        max = value;
-        style = candidate;
     }
 
     public static Color GetElementColor(ElementComposition element)
@@ -150,8 +95,18 @@ public class SkillVfxProfileAsset : Asset
             _ => Color.white
         };
 
-        var accent = Color.Lerp(color, target, 0.55f);
-        accent.a = 0.9f;
+        // 降低向高明度 target 的偏移，避免叠加后发白发亮。
+        var accent = Color.Lerp(color, target, 0.35f);
+        accent.a = 0.75f;
         return accent;
+    }
+
+    private static void Pick(float value, SkillVfxElementStyle candidate, ref float max,
+        ref SkillVfxElementStyle style)
+    {
+        if (value <= max) return;
+
+        max = value;
+        style = candidate;
     }
 }

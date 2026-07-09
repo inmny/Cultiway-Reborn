@@ -30,7 +30,7 @@ public static class SkillHitResolver
         return (ref SkillContext context, Entity skillContainer, Entity skillEntity, BaseSimObject target) =>
         {
             var position = skillEntity.GetComponent<Position>().value;
-            ModClass.I.SkillV3.Vfx.QueueAreaImpact(ref context, asset, skillEntity, position, radius, target);
+            // TODO: 范围命中特效待新 VFX 重建
 
             foreach (var obj in SkillUtils.IterEnemyInSphere(position, radius, context.SourceObj,
                          context.AttackKingdom))
@@ -52,7 +52,7 @@ public static class SkillHitResolver
     {
         if (target == null || target.isRekt()) return;
 
-        ModClass.I.SkillV3.Vfx.QueueImpact(ref context, asset, skillEntity, target);
+        // TODO: 命中特效待新 VFX 重建
         ApplyDamage(asset, ref context, target);
         InvokeOnEffect(skillContainer, skillEntity, target);
     }

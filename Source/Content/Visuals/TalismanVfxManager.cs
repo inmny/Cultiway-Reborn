@@ -22,10 +22,9 @@ public static class TalismanVfxManager
         var skillAsset = skillContainer.GetComponent<SkillContainer>().Asset;
         if (skillAsset == null) return;
 
-        var style = SkillVfxProfileAsset.ResolveStyle(skillAsset);
-        var color = SkillVfxProfileAsset.GetElementColor(skillAsset.Element);
-        var accentColor = SkillVfxProfileAsset.GetAccentColor(style, color);
-        var vfx = ModClass.I.SkillV3.Vfx;
+        var style = SkillVfxColor.ResolveStyle(skillAsset);
+        var color = SkillVfxColor.GetElementColor(skillAsset.Element);
+        var accentColor = SkillVfxColor.GetAccentColor(style, color);
         var frames = TalismanVfxFrameLibrary.GetActivationFrames(icon, color, accentColor);
         if (frames.Length == 0) return;
 
@@ -34,9 +33,9 @@ public static class TalismanVfxManager
 
         const float scale = 4.2f;
         const float frameInterval = 0.075f;
-        vfx.QueueSpriteFrames(frames, pos, Vector3.right, scale, frameInterval: frameInterval,
-            lifeTime: frames.Length * frameInterval, visualRotation: VisualRotation.FixedUpright(),
-            shakeObject: caster);
+        // TODO: 施法者抖动(shake)待新 VFX 架构补回
+        ModClass.I.SkillV3.SpawnAnim(frames, pos, Vector3.right, scale, frameInterval: frameInterval,
+            lifeTime: frames.Length * frameInterval, visualRotation: VisualRotation.FixedUpright());
     }
 
     private static Sprite GetTalismanIcon(Entity talismanEntity)
@@ -44,11 +43,5 @@ public static class TalismanVfxManager
         if (!talismanEntity.TryGetComponent(out SpecialItem item)) return null;
         if (item.self.IsNull) item.self = talismanEntity;
         return item.GetSprite();
-    }
-
-    private static Vector3 SafeDirection(Vector3 direction)
-    {
-        direction.z = 0f;
-        return direction.sqrMagnitude < 0.0001f ? Vector3.right : direction.normalized;
     }
 }

@@ -1201,7 +1201,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var backlashContext = context;
         backlashContext.SourceObj = target;
         backlashContext.TargetDir = -context.TargetDir;
-        ModClass.I.SkillV3.Vfx.QueueElementImpact(backlashContext, element, backlash, context.SourceObj);
+        // TODO: 元素反噬特效待新 VFX 重建
         EventSystemHub.Publish(new GetHitEvent
         {
             TargetID = context.SourceObj.a.data.id,
@@ -1264,8 +1264,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         ref var element = ref skill.Asset.Element;
         var damage = context.Strength * damageRatio;
 
-        // 生成爆炸动画
-        ModClass.I.SkillV3.Vfx.QueueExplosion(explosionPos, element, context.PowerLevel, damage, radius, target);
+        // TODO: 爆炸特效待新 VFX 重建
 
         // 对范围内的敌人造成伤害
         foreach (var obj in SkillUtils.IterEnemyInSphere(explosionPos, radius, attacker, context.AttackKingdom))
@@ -1650,7 +1649,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
     {
         if (target.isRekt() || damage <= 0f) return;
 
-        ModClass.I.SkillV3.Vfx.QueueElementImpact(context, element, damage, target);
+        // TODO: 元素命中特效待新 VFX 重建
         if (target.isActor())
         {
             EventSystemHub.Publish(new GetHitEvent

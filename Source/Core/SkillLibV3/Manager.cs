@@ -3,7 +3,6 @@ using System.Text;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Systems;
-using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
 using Cultiway.Utils.Extension;
@@ -22,8 +21,6 @@ public class Manager
     public SkillEntityLibrary SkillLib { get; } = new SkillEntityLibrary();
     public SkillModifierLibrary ModifierLib { get; } = new();
     public TrajectoryLibrary TrajLib { get; } = new TrajectoryLibrary();
-    public SkillVfxProfileLibrary VfxProfileLib { get; } = new();
-    public SkillVfxManager Vfx { get; } = new();
     public SystemGroup SkillLogicSystemGroup { get; } = new SystemGroup("SkillLibV3");
     internal Manager(WorldboxGame game)
     {
@@ -36,10 +33,8 @@ public class Manager
 
         SkillLogicSystemGroup.Add(new LogicSkillCastSequenceSystem());
         SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
-        SkillLogicSystemGroup.Add(new LogicSkillVfxTravelSystem());
         SkillLogicSystemGroup.Add(new LogicSkillTravelSystem());
         SkillLogicSystemGroup.Add(new LogicActorCollisionSystem());
-        SkillLogicSystemGroup.Add(new LogicSkillVfxFlushSystem());
     }
 
     internal void Init()
@@ -47,7 +42,6 @@ public class Manager
         AssetManager._instance.add(SkillLib, "cultiway.skills");
         AssetManager._instance.add(ModifierLib, "cultiway.skill_modifiers");
         AssetManager._instance.add(TrajLib, "cultiway.trajectories");
-        AssetManager._instance.add(VfxProfileLib, "cultiway.skill_vfx_profiles");
     }
 
     public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
@@ -167,8 +161,6 @@ public class Manager
             }, Tags.Get<TagInactive>());
         }
 
-        Vfx.AttachRuntime(entity, skill_container, container.Asset, context.PowerLevel, strength);
-        Vfx.QueueCastStart(source, skill_container, container.Asset, initial_dir, context.PowerLevel, strength);
         container.OnSetup?.Invoke(entity);
     }
 
