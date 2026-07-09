@@ -71,11 +71,11 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 rot.value = targetDir;
             }
 
-            pos.value += SafeNormalized(rot.value, targetDir) * dt * GetVelocity(e, 20f);
+            pos.value += SafeNormalized(rot.value, targetDir) * dt * GetVelocity(e, 32f);
         };
         TowardsDirection.OnInit = e =>
         {
-            EnsureVelocity(e, 20f);
+            EnsureVelocity(e, 32f);
             EnsureTurnRate(e, 180f);
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
@@ -87,12 +87,12 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         TowardsDirectionNoRot.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e,
             float dt) =>
         {
-            pos.value += SafeNormalized(rot.value, context.TargetDir) * dt * GetVelocity(e, 20f);
+            pos.value += SafeNormalized(rot.value, context.TargetDir) * dt * GetVelocity(e, 32f);
         };
         TowardsDirectionNoRot.CanBeSelectedByModifier = false;
         TowardsDirectionNoRot.OnInit = e =>
         {
-            EnsureVelocity(e, 20f);
+            EnsureVelocity(e, 32f);
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
@@ -106,7 +106,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         TowardsPosition.OnInit = e =>
         {
-            EnsureVelocity(e, 20f);
+            EnsureVelocity(e, 32f);
             EnsureTurnRate(e, 180f);
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
@@ -121,7 +121,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         TowardsTarget.OnInit = e =>
         {
-            EnsureVelocity(e, 20f);
+            EnsureVelocity(e, 32f);
             EnsureTurnRate(e, 180f);
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
@@ -143,11 +143,11 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             var turnRate = e.TryGetComponent(out TurnRate turnRateComponent) ? turnRateComponent.Value : 220f;
 
             rot.value = SmoothTurn(current, desired, turnRate * dt);
-            pos.value += SafeNormalized(rot.value, desired) * GetVelocity(e, 22f) * dt;
+            pos.value += SafeNormalized(rot.value, desired) * GetVelocity(e, 35f) * dt;
         };
         DriftHoming.OnInit = e =>
         {
-            EnsureVelocity(e, 22f);
+            EnsureVelocity(e, 35f);
             EnsureTurnRate(e, 220f);
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
@@ -166,7 +166,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 : new WaveTrajectoryParams { Amplitude = 0.6f, Frequency = 3.5f, Phase = state.Phase };
             var baseDir = SafeNormalized(state.StartDirection, context.TargetDir);
             var side = PerpendicularInPlane(baseDir);
-            var forward = baseDir * GetVelocity(e, 18f) * state.Elapsed;
+            var forward = baseDir * GetVelocity(e, 30f) * state.Elapsed;
             var sideOffset = side * (Mathf.Sin(state.Elapsed * wave.Frequency * TwoPi + wave.Phase + state.Phase)
                                      * wave.Amplitude);
             var next = state.StartPosition + forward + sideOffset;
@@ -176,7 +176,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         SineWave.OnInit = e =>
         {
-            EnsureVelocity(e, 18f);
+            EnsureVelocity(e, 30f);
             SetOrAdd(e, new WaveTrajectoryParams
             {
                 Amplitude = 0.65f,
@@ -203,7 +203,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             var segmentDuration = Mathf.Max(0.03f, zigzag.SegmentDuration);
             var sideT = Mathf.PingPong(state.Elapsed / segmentDuration, 1f) * 2f - 1f;
             var next = state.StartPosition
-                       + baseDir * (GetVelocity(e, 21f) * state.Elapsed)
+                       + baseDir * (GetVelocity(e, 34f) * state.Elapsed)
                        + side * (sideT * zigzag.SideAmplitude);
 
             rot.value = DirectionTo(next, pos.value, baseDir);
@@ -211,7 +211,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         Zigzag.OnInit = e =>
         {
-            EnsureVelocity(e, 21f);
+            EnsureVelocity(e, 34f);
             SetOrAdd(e, new ZigzagTrajectoryParams
             {
                 SideAmplitude = 0.75f,
@@ -249,12 +249,12 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             var desired = SafeNormalized(baseDir + swirl, baseDir);
 
             rot.value = desired;
-            pos.value += desired * GetVelocity(e, 19f) * dt;
+            pos.value += desired * GetVelocity(e, 30f) * dt;
             pos.z += Mathf.Cos(angle) * radius * 0.04f;
         };
         SpiralHoming.OnInit = e =>
         {
-            EnsureVelocity(e, 19f);
+            EnsureVelocity(e, 30f);
             EnsureTurnRate(e, 240f);
             SetOrAdd(e, new SpiralTrajectoryParams
             {
@@ -294,13 +294,13 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             }
 
             var moveDir = DirectionTo(desired, pos.value, context.TargetDir);
-            var speed = GetVelocity(e, 20f) * Mathf.Lerp(1f, 1.35f, Mathf.Clamp01(orbit.HomingStrength));
+            var speed = GetVelocity(e, 32f) * Mathf.Lerp(1f, 1.35f, Mathf.Clamp01(orbit.HomingStrength));
             pos.value = Vector3.MoveTowards(pos.value, desired, speed * dt);
             rot.value = moveDir;
         };
         OrbitTarget.OnInit = e =>
         {
-            EnsureVelocity(e, 20f);
+            EnsureVelocity(e, 32f);
             SetOrAdd(e, new OrbitTrajectoryParams
             {
                 StartRadius = 2.2f,
@@ -339,7 +339,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                     state.StartDirection);
             var turnRate = state.Returning ? boomerang.ReturnTurnRate : GetTurnRate(e, 120f);
             rot.value = SmoothTurn(SafeNormalized(rot.value, targetDir), targetDir, turnRate * dt);
-            pos.value += SafeNormalized(rot.value, targetDir) * GetVelocity(e, 22f) * dt;
+            pos.value += SafeNormalized(rot.value, targetDir) * GetVelocity(e, 35f) * dt;
 
             if (state.Elapsed >= boomerang.MaxLifetime)
             {
@@ -348,7 +348,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         Boomerang.OnInit = e =>
         {
-            EnsureVelocity(e, 22f);
+            EnsureVelocity(e, 35f);
             EnsureTurnRate(e, 120f);
             SetOrAdd(e, new BoomerangTrajectoryParams
             {
@@ -372,7 +372,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 ? vortexComponent
                 : new VortexTrajectoryParams
                 {
-                    ForwardSpeed = 5.5f,
+                    ForwardSpeed = 9f,
                     Radius = 0.9f,
                     AngularSpeed = 520f,
                     PulseAmplitude = 0.25f,
@@ -392,10 +392,10 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         SlowVortex.OnInit = e =>
         {
-            EnsureVelocity(e, 8f);
+            EnsureVelocity(e, 13f);
             SetOrAdd(e, new VortexTrajectoryParams
             {
-                ForwardSpeed = 5.5f,
+                ForwardSpeed = 9f,
                 Radius = 0.9f,
                 AngularSpeed = 520f,
                 PulseAmplitude = 0.25f,
@@ -433,7 +433,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         ArcToPosition.OnInit = e =>
         {
-            EnsureVelocity(e, 18f);
+            EnsureVelocity(e, 30f);
             SetOrAdd(e, new ArcTrajectoryParams
             {
                 Duration = 0.75f,
@@ -454,8 +454,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 : new FallingTrajectoryParams
                 {
                     StartHeight = 7f,
-                    FallSpeed = 18f,
-                    DriftSpeed = 4f,
+                    FallSpeed = 28f,
+                    DriftSpeed = 7f,
                     ImpactHeight = 0.35f
                 };
 
@@ -491,8 +491,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             SetOrAdd(e, new FallingTrajectoryParams
             {
                 StartHeight = 7f,
-                FallSpeed = 18f,
-                DriftSpeed = 4f,
+                FallSpeed = 28f,
+                DriftSpeed = 7f,
                 ImpactHeight = 0.35f
             });
             SetOrAdd(e, new CollisionHeightGate { MaxHeight = 0.35f });
@@ -513,12 +513,12 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             var sway = Mathf.Sin(state.Elapsed * TwoPi * 2.2f + state.Phase) * 0.2f;
             var desired = SafeNormalized(targetDir + side * sway, targetDir);
             rot.value = SmoothTurn(SafeNormalized(rot.value, desired), desired, GetTurnRate(e, 120f) * dt);
-            pos.value += SafeNormalized(rot.value, desired) * GetVelocity(e, 12f) * dt;
+            pos.value += SafeNormalized(rot.value, desired) * GetVelocity(e, 20f) * dt;
             pos.z = Mathf.Max(0f, GetTargetPos(ref context).z * 0.15f);
         };
         GroundCrawl.OnInit = e =>
         {
-            EnsureVelocity(e, 12f);
+            EnsureVelocity(e, 20f);
             EnsureTurnRate(e, 120f);
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
@@ -589,7 +589,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 : new RainFallTrajectoryParams
                 {
                     StartHeight = 8f,
-                    FallSpeed = 20f,
+                    FallSpeed = 32f,
                     HorizontalDrift = 1.4f,
                     ImpactHeight = 0.35f
                 };
@@ -626,7 +626,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             SetOrAdd(e, new RainFallTrajectoryParams
             {
                 StartHeight = 8f,
-                FallSpeed = 20f,
+                FallSpeed = 32f,
                 HorizontalDrift = 1.4f,
                 ImpactHeight = 0.35f
             });
@@ -784,7 +784,16 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
 
     private static float GetVelocity(Entity e, float defaultValue)
     {
-        return e.TryGetComponent(out Velocity velocity) ? velocity.Value : defaultValue;
+        var baseVel = e.TryGetComponent(out Velocity velocity) ? velocity.Value : defaultValue;
+
+        // 加速曲线：出手蓄势 → 快速加速到终速冲刺
+        if (e.TryGetComponent(out SkillVelocityRamp ramp))
+        {
+            ramp.Elapsed += World.world.elapsed;
+            return baseVel * ramp.CurrentMultiplier;
+        }
+
+        return baseVel;
     }
 
     private static float GetTurnRate(Entity e, float defaultValue)

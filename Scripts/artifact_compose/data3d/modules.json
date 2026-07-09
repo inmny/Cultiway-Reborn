@@ -1,0 +1,250 @@
+{
+  "canvas": 28,
+  "modules": [
+    {
+      "key": "sword_blade3d",
+      "variants": [
+        {
+          "key": "crystal",
+          "anchors": [{ "key": "hilt", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "blade", "material": "metal", "length": 2.70, "width": 0.36, "depth": 0.13, "shoulder": 0.22, "base": 0.22 },
+            { "primitive": "box", "material": "edge", "size": [0.040, 2.22, 0.045], "offset": [0, 1.20, 0.075] },
+            { "primitive": "box", "material": "edge", "size": [0.030, 1.55, 0.035], "offset": [-0.095, 0.88, 0.060], "rotation": [0, 0, -4] },
+            { "primitive": "box", "material": "edge", "size": [0.030, 1.55, 0.035], "offset": [0.095, 0.88, 0.060], "rotation": [0, 0, 4] }
+          ]
+        },
+        {
+          "key": "jade",
+          "anchors": [{ "key": "hilt", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "blade", "material": "metal", "length": 2.56, "width": 0.46, "depth": 0.15, "shoulder": 0.26, "base": 0.28 },
+            { "primitive": "box", "material": "edge", "size": [0.045, 1.95, 0.045], "offset": [0, 1.08, 0.085] },
+            { "primitive": "box", "material": "edge", "size": [0.030, 1.18, 0.035], "offset": [-0.125, 0.78, 0.075], "rotation": [0, 0, -7] },
+            { "primitive": "box", "material": "edge", "size": [0.030, 1.18, 0.035], "offset": [0.125, 0.78, 0.075], "rotation": [0, 0, 7] }
+          ]
+        },
+        {
+          "key": "long_thorn",
+          "anchors": [{ "key": "hilt", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "blade", "material": "metal", "length": 2.82, "width": 0.32, "depth": 0.12, "shoulder": 0.18, "base": 0.18 },
+            { "primitive": "box", "material": "edge", "size": [0.035, 2.36, 0.042], "offset": [0, 1.25, 0.070] },
+            { "primitive": "poly_prism", "material": "edge", "depth": 0.045, "points": [[-0.23, 0.10], [-0.10, 0.28], [-0.04, 0.12]], "offset": [0, 0, 0.075] },
+            { "primitive": "poly_prism", "material": "edge", "depth": 0.045, "points": [[0.23, 0.10], [0.10, 0.28], [0.04, 0.12]], "offset": [0, 0, 0.075] }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sword_guard3d",
+      "variants": [
+        {
+          "key": "bar",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "box", "material": "metal", "size": [0.78, 0.13, 0.18] },
+            { "primitive": "box", "material": "metal", "size": [0.20, 0.12, 0.17], "offset": [-0.44, 0.02, 0.01], "rotation": [0, 0, -18] },
+            { "primitive": "box", "material": "metal", "size": [0.20, 0.12, 0.17], "offset": [0.44, 0.02, 0.01], "rotation": [0, 0, 18] },
+            { "primitive": "ellipsoid", "material": "gem", "radius": [0.13, 0.10, 0.08], "segments": 8, "rings": 4, "offset": [0, 0, 0.10] },
+            { "primitive": "ellipsoid", "material": "edge", "radius": [0.07, 0.055, 0.05], "segments": 8, "rings": 3, "offset": [-0.36, 0.01, 0.10] },
+            { "primitive": "ellipsoid", "material": "edge", "radius": [0.07, 0.055, 0.05], "segments": 8, "rings": 3, "offset": [0.36, 0.01, 0.10] }
+          ]
+        },
+        {
+          "key": "crescent",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "poly_prism", "material": "metal", "depth": 0.18, "points": [[-0.62, 0.00], [-0.34, -0.15], [-0.07, -0.08], [0, -0.02], [0.07, -0.08], [0.34, -0.15], [0.62, 0.00], [0.30, 0.12], [0.0, 0.07], [-0.30, 0.12]] },
+            { "primitive": "ellipsoid", "material": "gem", "radius": [0.12, 0.095, 0.08], "segments": 8, "rings": 4, "offset": [0, 0, 0.10] },
+            { "primitive": "ellipsoid", "material": "edge", "radius": [0.065, 0.050, 0.045], "segments": 8, "rings": 3, "offset": [-0.45, 0.02, 0.10] },
+            { "primitive": "ellipsoid", "material": "edge", "radius": [0.065, 0.050, 0.045], "segments": 8, "rings": 3, "offset": [0.45, 0.02, 0.10] }
+          ]
+        },
+        {
+          "key": "wing",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "poly_prism", "material": "metal", "depth": 0.17, "points": [[-0.62, -0.03], [-0.32, -0.20], [-0.12, -0.06], [0, 0.02], [0.12, -0.06], [0.32, -0.20], [0.62, -0.03], [0.37, 0.16], [0.12, 0.08], [0, 0.14], [-0.12, 0.08], [-0.37, 0.16]] },
+            { "primitive": "box", "material": "edge", "size": [0.74, 0.045, 0.055], "offset": [0, 0.04, 0.11] },
+            { "primitive": "ellipsoid", "material": "gem", "radius": [0.13, 0.10, 0.08], "segments": 8, "rings": 4, "offset": [0, 0.00, 0.11] }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sword_grip3d",
+      "variants": [
+        {
+          "key": "wrapped",
+          "anchors": [{ "key": "top", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "box", "material": "grip", "size": [0.18, 0.70, 0.16], "offset": [0, -0.34, 0] },
+            { "primitive": "box", "material": "wrap", "size": [0.21, 0.055, 0.18], "offset": [0, -0.15, 0.03], "rotation": [0, 0, -22] },
+            { "primitive": "box", "material": "wrap", "size": [0.21, 0.055, 0.18], "offset": [0, -0.33, 0.03], "rotation": [0, 0, 22] },
+            { "primitive": "box", "material": "wrap", "size": [0.21, 0.055, 0.18], "offset": [0, -0.51, 0.03], "rotation": [0, 0, -22] },
+            { "primitive": "ellipsoid", "material": "pommel", "radius": [0.15, 0.12, 0.11], "segments": 8, "rings": 4, "offset": [0, -0.76, 0] },
+            { "primitive": "ellipsoid", "material": "gem", "radius": [0.055, 0.045, 0.04], "segments": 8, "rings": 3, "offset": [0, -0.76, 0.09] }
+          ]
+        },
+        {
+          "key": "ringed",
+          "anchors": [{ "key": "top", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "box", "material": "grip", "size": [0.17, 0.66, 0.15], "offset": [0, -0.32, 0] },
+            { "primitive": "box", "material": "wrap", "size": [0.25, 0.070, 0.18], "offset": [0, -0.10, 0.02] },
+            { "primitive": "box", "material": "wrap", "size": [0.25, 0.070, 0.18], "offset": [0, -0.33, 0.02] },
+            { "primitive": "box", "material": "wrap", "size": [0.25, 0.070, 0.18], "offset": [0, -0.56, 0.02] },
+            { "primitive": "ellipsoid", "material": "pommel", "radius": [0.18, 0.10, 0.10], "segments": 8, "rings": 4, "offset": [0, -0.75, 0] }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "seal_mountain3d",
+      "variants": [
+        {
+          "key": "green",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "poly_prism", "material": "right", "depth": 0.46, "points": [[-0.88, -0.42], [0.88, -0.42], [0.74, -1.04], [-0.74, -1.04]], "offset": [0, 0, -0.08] },
+            { "primitive": "poly_prism", "material": "left", "depth": 0.38, "points": [[-0.78, -0.36], [0.78, -0.36], [0.88, -0.52], [-0.88, -0.52]], "offset": [0, 0, 0.10] },
+            { "primitive": "box", "material": "ridge", "size": [1.25, 0.060, 0.065], "offset": [0, -0.66, 0.24] },
+            { "primitive": "box", "material": "water", "size": [0.070, 0.34, 0.060], "offset": [-0.28, -0.78, 0.25] },
+            { "primitive": "box", "material": "water", "size": [0.070, 0.34, 0.060], "offset": [0.28, -0.78, 0.25] },
+            { "primitive": "poly_prism", "material": "top", "depth": 0.40, "points": [[-0.72, -0.18], [-0.36, 0.46], [-0.04, 0.18], [0.26, 0.82], [0.80, -0.12], [0.40, -0.34], [-0.10, -0.28]] },
+            { "primitive": "poly_prism", "material": "left", "depth": 0.35, "points": [[-0.72, -0.18], [-0.10, -0.28], [-0.24, -0.56], [-0.82, -0.42]], "offset": [0, 0, -0.05] },
+            { "primitive": "poly_prism", "material": "right", "depth": 0.34, "points": [[-0.10, -0.28], [0.80, -0.12], [0.70, -0.48], [-0.24, -0.56]], "offset": [0, 0, -0.08] },
+            { "primitive": "box", "material": "ridge", "size": [0.62, 0.055, 0.06], "offset": [-0.22, 0.20, 0.24], "rotation": [0, 0, -27] },
+            { "primitive": "box", "material": "water", "size": [0.07, 0.58, 0.06], "offset": [0.25, 0.05, 0.25], "rotation": [0, 0, -8] }
+          ]
+        },
+        {
+          "key": "amber",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "poly_prism", "material": "right", "depth": 0.46, "points": [[-0.90, -0.40], [0.90, -0.40], [0.76, -1.05], [-0.76, -1.05]], "offset": [0, 0, -0.08] },
+            { "primitive": "poly_prism", "material": "left", "depth": 0.38, "points": [[-0.80, -0.34], [0.80, -0.34], [0.90, -0.52], [-0.90, -0.52]], "offset": [0, 0, 0.10] },
+            { "primitive": "box", "material": "ridge", "size": [1.22, 0.060, 0.065], "offset": [0, -0.66, 0.24] },
+            { "primitive": "box", "material": "water", "size": [0.34, 0.060, 0.060], "offset": [0.36, -0.80, 0.25], "rotation": [0, 0, 12] },
+            { "primitive": "poly_prism", "material": "top", "depth": 0.42, "points": [[-0.74, -0.18], [-0.24, 0.68], [0.08, 0.28], [0.44, 0.78], [0.80, -0.10], [0.34, -0.32], [-0.18, -0.28]] },
+            { "primitive": "poly_prism", "material": "left", "depth": 0.36, "points": [[-0.74, -0.18], [-0.18, -0.28], [-0.26, -0.58], [-0.84, -0.42]], "offset": [0, 0, -0.05] },
+            { "primitive": "poly_prism", "material": "right", "depth": 0.35, "points": [[-0.18, -0.28], [0.80, -0.10], [0.72, -0.48], [-0.26, -0.58]], "offset": [0, 0, -0.08] },
+            { "primitive": "box", "material": "ridge", "size": [0.64, 0.055, 0.06], "offset": [-0.18, 0.24, 0.24], "rotation": [0, 0, -30] },
+            { "primitive": "box", "material": "water", "size": [0.38, 0.060, 0.060], "offset": [0.44, 0.20, 0.25], "rotation": [0, 0, 20] }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "robe_panel3d",
+      "variants": [
+        {
+          "key": "wide_blue",
+          "anchors": [{ "key": "collar", "position": [0, 0.78, 0] }],
+          "parts": [
+            { "primitive": "poly_prism", "material": "cloth", "depth": 0.12, "points": [[-0.42, 0.76], [0.42, 0.76], [0.58, 0.42], [0.86, -0.78], [0.34, -1.08], [0.10, -0.64], [0.00, -1.18], [-0.10, -0.64], [-0.34, -1.08], [-0.86, -0.78], [-0.58, 0.42]] },
+            { "primitive": "poly_prism", "material": "cloth", "depth": 0.10, "points": [[-0.48, 0.52], [-1.02, 0.18], [-0.88, -0.34], [-0.52, -0.54], [-0.38, 0.22]], "offset": [0, 0, -0.02] },
+            { "primitive": "poly_prism", "material": "cloth", "depth": 0.10, "points": [[0.48, 0.52], [1.02, 0.18], [0.88, -0.34], [0.52, -0.54], [0.38, 0.22]], "offset": [0, 0, -0.02] },
+            { "primitive": "poly_prism", "material": "fold", "depth": 0.05, "points": [[-0.16, 0.68], [0.16, 0.68], [0.00, 0.28]], "offset": [0, 0, 0.09] },
+            { "primitive": "box", "material": "trim", "size": [0.065, 0.58, 0.060], "offset": [-0.19, 0.42, 0.12], "rotation": [0, 0, -30] },
+            { "primitive": "box", "material": "trim", "size": [0.065, 0.58, 0.060], "offset": [0.19, 0.42, 0.12], "rotation": [0, 0, 30] },
+            { "primitive": "box", "material": "trim", "size": [1.10, 0.085, 0.065], "offset": [0.0, -0.30, 0.11] },
+            { "primitive": "box", "material": "fold", "size": [0.060, 1.36, 0.055], "offset": [-0.35, -0.18, 0.10], "rotation": [0, 0, -5] },
+            { "primitive": "box", "material": "fold", "size": [0.052, 1.18, 0.050], "offset": [0.33, -0.24, 0.09], "rotation": [0, 0, 6] },
+            { "primitive": "box", "material": "charm", "size": [0.13, 0.24, 0.055], "offset": [0.18, -0.56, 0.13], "rotation": [0, 0, 8] }
+          ]
+        },
+        {
+          "key": "split_green",
+          "anchors": [{ "key": "collar", "position": [0, 0.78, 0] }],
+          "parts": [
+            { "primitive": "poly_prism", "material": "cloth", "depth": 0.12, "points": [[-0.40, 0.76], [0.40, 0.76], [0.58, 0.38], [0.80, -0.88], [0.22, -0.78], [0.06, -0.30], [0.00, -1.12], [-0.06, -0.30], [-0.22, -0.78], [-0.80, -0.88], [-0.58, 0.38]] },
+            { "primitive": "poly_prism", "material": "cloth", "depth": 0.10, "points": [[-0.48, 0.50], [-0.96, 0.12], [-0.76, -0.46], [-0.50, -0.58], [-0.36, 0.22]], "offset": [0, 0, -0.02] },
+            { "primitive": "poly_prism", "material": "cloth", "depth": 0.10, "points": [[0.48, 0.50], [0.96, 0.12], [0.76, -0.46], [0.50, -0.58], [0.36, 0.22]], "offset": [0, 0, -0.02] },
+            { "primitive": "box", "material": "trim", "size": [1.00, 0.085, 0.065], "offset": [0.0, -0.30, 0.11] },
+            { "primitive": "box", "material": "trim", "size": [0.065, 0.54, 0.060], "offset": [-0.19, 0.42, 0.12], "rotation": [0, 0, -30] },
+            { "primitive": "box", "material": "trim", "size": [0.065, 0.54, 0.060], "offset": [0.19, 0.42, 0.12], "rotation": [0, 0, 30] },
+            { "primitive": "box", "material": "fold", "size": [0.060, 1.26, 0.055], "offset": [0.34, -0.18, 0.10], "rotation": [0, 0, 8] },
+            { "primitive": "box", "material": "fold", "size": [0.052, 1.10, 0.050], "offset": [-0.30, -0.26, 0.09], "rotation": [0, 0, -7] },
+            { "primitive": "poly_prism", "material": "fold", "depth": 0.05, "points": [[-0.16, 0.68], [0.16, 0.68], [0.0, 0.25]], "offset": [0, 0, 0.09] },
+            { "primitive": "box", "material": "charm", "size": [0.13, 0.24, 0.055], "offset": [-0.15, -0.60, 0.13], "rotation": [0, 0, -10] }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "mirror3d",
+      "variants": [
+        {
+          "key": "bronze_round",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "cylinder", "material": "metal", "height": 0.20, "radius": [0.72, 0.70], "segments": 16, "rotation": [90, 0, 0] },
+            { "primitive": "cylinder", "material": "glass", "height": 0.22, "radius": [0.48, 0.47], "segments": 16, "rotation": [90, 0, 0], "offset": [0, 0, 0.07] },
+            { "primitive": "ellipsoid", "material": "gem", "radius": [0.12, 0.09, 0.06], "segments": 8, "rings": 4, "offset": [0, 0.72, 0.08] },
+            { "primitive": "ellipsoid", "material": "gem", "radius": [0.08, 0.07, 0.05], "segments": 8, "rings": 3, "offset": [-0.58, 0.02, 0.10] },
+            { "primitive": "ellipsoid", "material": "gem", "radius": [0.08, 0.07, 0.05], "segments": 8, "rings": 3, "offset": [0.58, 0.02, 0.10] },
+            { "primitive": "box", "material": "glint", "size": [0.070, 0.50, 0.040], "offset": [-0.12, 0.10, 0.18], "rotation": [0, 0, -38] },
+            { "primitive": "box", "material": "glint", "size": [0.050, 0.22, 0.040], "offset": [0.18, 0.10, 0.18], "rotation": [0, 0, -38] },
+            { "primitive": "box", "material": "handle", "size": [0.16, 0.72, 0.16], "offset": [0, -0.88, -0.02] },
+            { "primitive": "ellipsoid", "material": "metal", "radius": [0.16, 0.10, 0.08], "segments": 8, "rings": 4, "offset": [0, -1.24, -0.02] }
+          ]
+        },
+        {
+          "key": "jade_hex",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "cylinder", "material": "metal", "height": 0.20, "radius": [0.74, 0.66], "segments": 6, "rotation": [90, 0, 0] },
+            { "primitive": "cylinder", "material": "glass", "height": 0.22, "radius": [0.48, 0.42], "segments": 10, "rotation": [90, 0, 0], "offset": [0, 0, 0.07] },
+            { "primitive": "ellipsoid", "material": "gem", "radius": [0.12, 0.09, 0.06], "segments": 8, "rings": 4, "offset": [0, 0.69, 0.08] },
+            { "primitive": "box", "material": "edge", "size": [0.52, 0.055, 0.050], "offset": [0, 0.58, 0.12] },
+            { "primitive": "box", "material": "glint", "size": [0.070, 0.46, 0.040], "offset": [-0.10, 0.07, 0.18], "rotation": [0, 0, -38] },
+            { "primitive": "box", "material": "glint", "size": [0.050, 0.20, 0.040], "offset": [0.18, 0.07, 0.18], "rotation": [0, 0, -38] },
+            { "primitive": "box", "material": "handle", "size": [0.16, 0.70, 0.16], "offset": [0, -0.88, -0.02] },
+            { "primitive": "ellipsoid", "material": "metal", "radius": [0.15, 0.10, 0.08], "segments": 8, "rings": 4, "offset": [0, -1.22, -0.02] }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ding3d",
+      "variants": [
+        {
+          "key": "blue_fire",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "frustum", "material": "metal", "height": 0.70, "top_radius": [0.74, 0.46], "bottom_radius": [0.54, 0.34], "segments": 14, "offset": [0, -0.14, 0] },
+            { "primitive": "cylinder", "material": "rim", "height": 0.13, "radius": [0.80, 0.49], "segments": 14, "offset": [0, 0.28, 0] },
+            { "primitive": "cylinder", "material": "fire", "height": 0.08, "radius": [0.54, 0.30], "segments": 12, "offset": [0, 0.40, 0.17] },
+            { "primitive": "poly_prism", "material": "core", "depth": 0.060, "points": [[-0.20, 0.46], [0.00, 0.78], [0.20, 0.46], [0.08, 0.40], [0.00, 0.54], [-0.08, 0.40]], "offset": [0, 0, 0.25] },
+            { "primitive": "box", "material": "rim", "size": [1.08, 0.075, 0.070], "offset": [0, -0.12, 0.25] },
+            { "primitive": "box", "material": "core", "size": [0.10, 0.28, 0.060], "offset": [0, -0.16, 0.28] },
+            { "primitive": "ellipsoid", "material": "rim", "radius": [0.16, 0.22, 0.09], "segments": 8, "rings": 4, "offset": [-0.76, 0.04, 0.00] },
+            { "primitive": "ellipsoid", "material": "rim", "radius": [0.16, 0.22, 0.09], "segments": 8, "rings": 4, "offset": [0.76, 0.04, 0.00] },
+            { "primitive": "box", "material": "leg", "size": [0.16, 0.58, 0.16], "offset": [-0.36, -0.74, 0.04], "rotation": [0, 0, -7] },
+            { "primitive": "box", "material": "leg", "size": [0.16, 0.58, 0.16], "offset": [0.36, -0.74, 0.04], "rotation": [0, 0, 7] },
+            { "primitive": "box", "material": "leg", "size": [0.13, 0.40, 0.14], "offset": [0, -0.80, -0.18] }
+          ]
+        },
+        {
+          "key": "copper_ember",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "frustum", "material": "metal", "height": 0.74, "top_radius": [0.74, 0.44], "bottom_radius": [0.54, 0.32], "segments": 14, "offset": [0, -0.14, 0] },
+            { "primitive": "cylinder", "material": "rim", "height": 0.13, "radius": [0.80, 0.48], "segments": 14, "offset": [0, 0.30, 0] },
+            { "primitive": "cylinder", "material": "fire", "height": 0.08, "radius": [0.52, 0.29], "segments": 12, "offset": [0, 0.40, 0.17] },
+            { "primitive": "poly_prism", "material": "core", "depth": 0.060, "points": [[-0.18, 0.46], [-0.03, 0.73], [0.08, 0.55], [0.18, 0.74], [0.20, 0.46], [0.08, 0.40], [0.00, 0.54], [-0.08, 0.40]], "offset": [0, 0, 0.25] },
+            { "primitive": "box", "material": "rim", "size": [1.02, 0.075, 0.070], "offset": [0, -0.13, 0.25] },
+            { "primitive": "box", "material": "core", "size": [0.28, 0.065, 0.060], "offset": [0, -0.17, 0.28] },
+            { "primitive": "ellipsoid", "material": "rim", "radius": [0.16, 0.22, 0.09], "segments": 8, "rings": 4, "offset": [-0.76, 0.04, 0.00] },
+            { "primitive": "ellipsoid", "material": "rim", "radius": [0.16, 0.22, 0.09], "segments": 8, "rings": 4, "offset": [0.76, 0.04, 0.00] },
+            { "primitive": "box", "material": "leg", "size": [0.16, 0.56, 0.16], "offset": [-0.36, -0.74, 0.04], "rotation": [0, 0, -7] },
+            { "primitive": "box", "material": "leg", "size": [0.16, 0.56, 0.16], "offset": [0.36, -0.74, 0.04], "rotation": [0, 0, 7] },
+            { "primitive": "box", "material": "leg", "size": [0.13, 0.38, 0.14], "offset": [0, -0.80, -0.18] }
+          ]
+        }
+      ]
+    }
+  ]
+}

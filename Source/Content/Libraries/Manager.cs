@@ -6,6 +6,7 @@ public class Manager
     public static JindanGroupLibrary JindanGroupLibrary { get; } = new();
     public static ElixirLibrary ElixirLibrary { get; } = new();
     public static ElixirEffectAtomLibrary ElixirEffectAtomLibrary { get; } = new();
+    public static ArtifactAtomLibrary ArtifactAtomLibrary { get; } = new();
     public static CultibookLibrary CultibookLibrary { get; } = new();
     public static YuanyingLibrary YuanyingLibrary { get; } = new();
     public static CultivateMethodLibrary CultivateMethodLibrary { get; } = new();
@@ -16,6 +17,7 @@ public class Manager
         AssetManager._instance.add(JindanLibrary,      "jindan_types");
         AssetManager._instance.add(ElixirLibrary, "elixirs");
         AssetManager._instance.add(ElixirEffectAtomLibrary, "elixir_effect_atoms");
+        AssetManager._instance.add(ArtifactAtomLibrary, "artifact_atoms");
         AssetManager._instance.add(CultibookLibrary, "cultibooks");
         AssetManager._instance.add(YuanyingLibrary, "yuanying_types");
         AssetManager._instance.add(CultivateMethodLibrary, "cultivate_methods");
@@ -29,6 +31,7 @@ public class Manager
         JindanGroupLibrary.post_init();
         ElixirLibrary.post_init();
         ElixirEffectAtomLibrary.post_init();
+        ArtifactAtomLibrary.post_init();
         CultibookLibrary.post_init();
         YuanyingLibrary.post_init();
         CultivateMethodLibrary.post_init();

@@ -19,6 +19,12 @@ public static class SkillTags
         /// <summary>水系元素标签。</summary>
         public const string Water = "water";
 
+        /// <summary>冰霜、冻结元素标签。</summary>
+        public const string Ice = "ice";
+
+        /// <summary>毒、酸蚀、瘴气元素标签。</summary>
+        public const string Poison = "poison";
+
         /// <summary>火系元素标签。</summary>
         public const string Fire = "fire";
 

@@ -15,6 +15,7 @@ using NeoModLoader.api.attributes;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Patch;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -440,10 +441,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         var target = FindTestTarget();
 
-        var skill_container = ModClass.I.W.CreateEntity(new SkillContainer()
-        {
-            SkillEntityAssetID = SkillEntities.Fireball.id
-        });
+        var skill_container = new SkillContainerBuilder(SkillEntities.Fireball).Build();
         ModClass.I.SkillV3.SpawnSkill(skill_container, Base, target, 1);
     }
     private void TestConsumeEnlightenElixir()

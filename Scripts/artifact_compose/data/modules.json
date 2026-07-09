@@ -1,0 +1,706 @@
+{
+  "canvas": 28,
+  "modules": [
+    {
+      "key": "sword_blade",
+      "variants": [
+        {
+          "key": "straight",
+          "anchors": [
+            { "key": "hilt", "x": 14, "y": 23, "angle": -90 },
+            { "key": "center", "x": 14, "y": 14, "angle": -90 }
+          ],
+          "colors": {
+            "metal": "#9fc8d7",
+            "edge": "#e6fbff",
+            "shadow": "#426170"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[14, 2], [17, 9], [16, 23], [12, 23], [11, 9]], "fill": "metal", "stroke": "shadow", "stroke_width": 0.6 },
+            { "type": "line", "points": [[14, 4], [14, 22]], "stroke": "edge", "stroke_width": 0.55, "opacity": 0.75 }
+          ]
+        },
+        {
+          "key": "leaf",
+          "anchors": [
+            { "key": "hilt", "x": 14, "y": 23, "angle": -90 },
+            { "key": "center", "x": 14, "y": 14, "angle": -90 }
+          ],
+          "colors": {
+            "metal": "#8fcfc3",
+            "edge": "#dcfff7",
+            "shadow": "#2d6b66"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[14, 1.4], [18.2, 11], [15.8, 23], [12.2, 23], [9.8, 11]], "fill": "metal", "stroke": "shadow", "stroke_width": 0.6 },
+            { "type": "line", "points": [[14, 4], [14, 22.2]], "stroke": "edge", "stroke_width": 0.55, "opacity": 0.7 }
+          ]
+        },
+        {
+          "key": "split_tip",
+          "anchors": [
+            { "key": "hilt", "x": 14, "y": 23, "angle": -90 },
+            { "key": "center", "x": 14, "y": 14, "angle": -90 }
+          ],
+          "colors": {
+            "metal": "#b7b8cf",
+            "edge": "#f3f0ff",
+            "shadow": "#55506d"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[12.3, 2.5], [14, 5.4], [15.7, 2.5], [17.2, 10], [16, 23], [12, 23], [10.8, 10]], "fill": "metal", "stroke": "shadow", "stroke_width": 0.6 },
+            { "type": "line", "points": [[14, 6], [14, 22]], "stroke": "edge", "stroke_width": 0.5, "opacity": 0.7 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sword_guard",
+      "variants": [
+        {
+          "key": "cross",
+          "anchors": [{ "key": "center", "x": 14, "y": 14, "angle": 0 }],
+          "colors": {
+            "metal": "#c7a861",
+            "gem": "#6ae5ff",
+            "shadow": "#6d4f28"
+          },
+          "shapes": [
+            { "type": "rect", "x": 7.5, "y": 12.8, "width": 13, "height": 2.4, "fill": "metal", "stroke": "shadow", "stroke_width": 0.5 },
+            { "type": "ellipse", "cx": 14, "cy": 14, "rx": 2.2, "ry": 2.6, "fill": "gem", "stroke": "shadow", "stroke_width": 0.45 }
+          ]
+        },
+        {
+          "key": "crescent",
+          "anchors": [{ "key": "center", "x": 14, "y": 14, "angle": 0 }],
+          "colors": {
+            "metal": "#b9c46c",
+            "gem": "#f7e77a",
+            "shadow": "#5a6328"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[6.5, 15.6], [9.5, 12.6], [14, 11.5], [18.5, 12.6], [21.5, 15.6], [17.5, 15.2], [14, 14.4], [10.5, 15.2]], "fill": "metal", "stroke": "shadow", "stroke_width": 0.45 },
+            { "type": "ellipse", "cx": 14, "cy": 14, "rx": 1.9, "ry": 2.3, "fill": "gem", "stroke": "shadow", "stroke_width": 0.4 }
+          ]
+        },
+        {
+          "key": "ring",
+          "anchors": [{ "key": "center", "x": 14, "y": 14, "angle": 0 }],
+          "colors": {
+            "metal": "#d2b37d",
+            "gem": "#b9fff0",
+            "shadow": "#765836"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 14, "rx": 7.2, "ry": 2.7, "fill": "metal", "stroke": "shadow", "stroke_width": 0.5 },
+            { "type": "ellipse", "cx": 14, "cy": 14, "rx": 2.0, "ry": 2.0, "fill": "gem", "stroke": "shadow", "stroke_width": 0.35 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sword_hilt",
+      "variants": [
+        {
+          "key": "wrapped",
+          "anchors": [{ "key": "top", "x": 14, "y": 8, "angle": 90 }],
+          "colors": {
+            "grip": "#4d3c42",
+            "wrap": "#d7ca9a",
+            "pommel": "#b99352",
+            "shadow": "#2c2428"
+          },
+          "shapes": [
+            { "type": "rect", "x": 12.2, "y": 8, "width": 3.6, "height": 14, "fill": "grip", "stroke": "shadow", "stroke_width": 0.45 },
+            { "type": "line", "points": [[12.3, 10], [15.7, 12.5], [12.3, 15], [15.7, 17.5], [12.3, 20]], "stroke": "wrap", "stroke_width": 0.55 },
+            { "type": "ellipse", "cx": 14, "cy": 23.3, "rx": 2.5, "ry": 2.0, "fill": "pommel", "stroke": "shadow", "stroke_width": 0.45 }
+          ]
+        },
+        {
+          "key": "jade",
+          "anchors": [{ "key": "top", "x": 14, "y": 8, "angle": 90 }],
+          "colors": {
+            "grip": "#2e6c66",
+            "wrap": "#96f0cf",
+            "pommel": "#dfc16a",
+            "shadow": "#21423e"
+          },
+          "shapes": [
+            { "type": "rect", "x": 12, "y": 8, "width": 4, "height": 13.5, "fill": "grip", "stroke": "shadow", "stroke_width": 0.45 },
+            { "type": "ellipse", "cx": 14, "cy": 14, "rx": 1.2, "ry": 4.2, "fill": "wrap", "opacity": 0.85 },
+            { "type": "ellipse", "cx": 14, "cy": 23, "rx": 2.4, "ry": 2.2, "fill": "pommel", "stroke": "shadow", "stroke_width": 0.45 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "seal_body",
+      "variants": [
+        {
+          "key": "square",
+          "anchors": [{ "key": "center", "x": 14, "y": 15, "angle": 0 }],
+          "colors": {
+            "stone": "#7ccbb8",
+            "trim": "#d8fff4",
+            "shadow": "#2d6c62"
+          },
+          "shapes": [
+            { "type": "rect", "x": 7, "y": 8, "width": 14, "height": 14, "fill": "stone", "stroke": "shadow", "stroke_width": 0.7 },
+            { "type": "rect", "x": 9.2, "y": 10.2, "width": 9.6, "height": 9.6, "fill": "none", "stroke": "trim", "stroke_width": 0.6, "opacity": 0.8 }
+          ]
+        },
+        {
+          "key": "round",
+          "anchors": [{ "key": "center", "x": 14, "y": 15, "angle": 0 }],
+          "colors": {
+            "stone": "#b87b5f",
+            "trim": "#ffd0a4",
+            "shadow": "#6a3d33"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 15, "rx": 7.7, "ry": 7.2, "fill": "stone", "stroke": "shadow", "stroke_width": 0.7 },
+            { "type": "ellipse", "cx": 14, "cy": 15, "rx": 4.7, "ry": 4.3, "fill": "none", "stroke": "trim", "stroke_width": 0.65, "opacity": 0.85 }
+          ]
+        },
+        {
+          "key": "hex",
+          "anchors": [{ "key": "center", "x": 14, "y": 15, "angle": 0 }],
+          "colors": {
+            "stone": "#8288b8",
+            "trim": "#e4e6ff",
+            "shadow": "#45476c"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[14, 6.8], [21.2, 10.4], [21.2, 19.6], [14, 23.1], [6.8, 19.6], [6.8, 10.4]], "fill": "stone", "stroke": "shadow", "stroke_width": 0.7 },
+            { "type": "polygon", "points": [[14, 10], [18.2, 12.1], [18.2, 17.9], [14, 20], [9.8, 17.9], [9.8, 12.1]], "fill": "none", "stroke": "trim", "stroke_width": 0.55, "opacity": 0.8 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "seal_handle",
+      "variants": [
+        {
+          "key": "beast",
+          "anchors": [{ "key": "base", "x": 14, "y": 20, "angle": -90 }],
+          "colors": {
+            "stone": "#84d3c0",
+            "trim": "#dcfff5",
+            "shadow": "#2c695f"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 9.6, "rx": 4.2, "ry": 3.8, "fill": "stone", "stroke": "shadow", "stroke_width": 0.55 },
+            { "type": "polygon", "points": [[11.2, 11.8], [16.8, 11.8], [18.3, 20], [9.7, 20]], "fill": "stone", "stroke": "shadow", "stroke_width": 0.55 },
+            { "type": "line", "points": [[12, 8.8], [16, 8.8]], "stroke": "trim", "stroke_width": 0.55, "opacity": 0.7 }
+          ]
+        },
+        {
+          "key": "knot",
+          "anchors": [{ "key": "base", "x": 14, "y": 20, "angle": -90 }],
+          "colors": {
+            "stone": "#b98263",
+            "trim": "#ffd8a6",
+            "shadow": "#6a4434"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 11.6, "cy": 11.2, "rx": 3.4, "ry": 3.0, "fill": "stone", "stroke": "shadow", "stroke_width": 0.5 },
+            { "type": "ellipse", "cx": 16.4, "cy": 11.2, "rx": 3.4, "ry": 3.0, "fill": "stone", "stroke": "shadow", "stroke_width": 0.5 },
+            { "type": "polygon", "points": [[12, 13.4], [16, 13.4], [17.6, 20], [10.4, 20]], "fill": "stone", "stroke": "shadow", "stroke_width": 0.5 },
+            { "type": "line", "points": [[11.2, 10], [16.8, 12.4]], "stroke": "trim", "stroke_width": 0.45, "opacity": 0.75 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "robe_body",
+      "variants": [
+        {
+          "key": "straight",
+          "anchors": [{ "key": "collar", "x": 14, "y": 5, "angle": 90 }],
+          "colors": {
+            "cloth": "#3d79b8",
+            "trim": "#d6ecff",
+            "shadow": "#234160"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[10, 4.5], [18, 4.5], [22.5, 25], [5.5, 25]], "fill": "cloth", "stroke": "shadow", "stroke_width": 0.7 },
+            { "type": "line", "points": [[14, 6], [14, 24]], "stroke": "trim", "stroke_width": 0.6, "opacity": 0.6 }
+          ]
+        },
+        {
+          "key": "wide_sleeve",
+          "anchors": [{ "key": "collar", "x": 14, "y": 5, "angle": 90 }],
+          "colors": {
+            "cloth": "#6958a8",
+            "trim": "#f1defc",
+            "shadow": "#3f3269"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[9, 4.5], [19, 4.5], [25, 23.5], [19, 25.5], [14, 22], [9, 25.5], [3, 23.5]], "fill": "cloth", "stroke": "shadow", "stroke_width": 0.7 },
+            { "type": "line", "points": [[10.5, 6], [8, 23]], "stroke": "trim", "stroke_width": 0.55, "opacity": 0.65 },
+            { "type": "line", "points": [[17.5, 6], [20, 23]], "stroke": "trim", "stroke_width": 0.55, "opacity": 0.65 }
+          ]
+        },
+        {
+          "key": "split_hem",
+          "anchors": [{ "key": "collar", "x": 14, "y": 5, "angle": 90 }],
+          "colors": {
+            "cloth": "#3c9b7c",
+            "trim": "#d7ffe8",
+            "shadow": "#205944"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[10, 4.5], [18, 4.5], [22, 25], [15.2, 22], [14, 15], [12.8, 22], [6, 25]], "fill": "cloth", "stroke": "shadow", "stroke_width": 0.7 },
+            { "type": "line", "points": [[14, 7], [14, 15]], "stroke": "trim", "stroke_width": 0.55, "opacity": 0.65 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "robe_collar",
+      "variants": [
+        {
+          "key": "v_neck",
+          "anchors": [{ "key": "center", "x": 14, "y": 6, "angle": 90 }],
+          "colors": {
+            "trim": "#e9d37b",
+            "shadow": "#785d29"
+          },
+          "shapes": [
+            { "type": "line", "points": [[10, 5], [14, 10], [18, 5]], "stroke": "trim", "stroke_width": 1.1 },
+            { "type": "line", "points": [[10, 5.8], [14, 10.8], [18, 5.8]], "stroke": "shadow", "stroke_width": 0.45, "opacity": 0.55 }
+          ]
+        },
+        {
+          "key": "round_neck",
+          "anchors": [{ "key": "center", "x": 14, "y": 6, "angle": 90 }],
+          "colors": {
+            "trim": "#b9f1ff",
+            "shadow": "#2b6171"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 7, "rx": 4.5, "ry": 2.7, "fill": "none", "stroke": "trim", "stroke_width": 1.0 },
+            { "type": "line", "points": [[9.8, 7.8], [18.2, 7.8]], "stroke": "shadow", "stroke_width": 0.45, "opacity": 0.5 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "robe_sash",
+      "variants": [
+        {
+          "key": "band",
+          "anchors": [{ "key": "center", "x": 14, "y": 16, "angle": 0 }],
+          "colors": {
+            "trim": "#d7bd62",
+            "gem": "#6ff7ff",
+            "shadow": "#6b5429"
+          },
+          "shapes": [
+            { "type": "rect", "x": 7.3, "y": 15.1, "width": 13.4, "height": 2.0, "fill": "trim", "stroke": "shadow", "stroke_width": 0.45 },
+            { "type": "ellipse", "cx": 14, "cy": 16.1, "rx": 1.4, "ry": 1.5, "fill": "gem", "stroke": "shadow", "stroke_width": 0.35 }
+          ]
+        },
+        {
+          "key": "cord",
+          "anchors": [{ "key": "center", "x": 14, "y": 16, "angle": 0 }],
+          "colors": {
+            "trim": "#e8e0c3",
+            "gem": "#ffdd77",
+            "shadow": "#76664a"
+          },
+          "shapes": [
+            { "type": "line", "points": [[7.2, 15.4], [20.8, 16.8]], "stroke": "trim", "stroke_width": 0.85 },
+            { "type": "line", "points": [[7.2, 16.8], [20.8, 15.4]], "stroke": "trim", "stroke_width": 0.85 },
+            { "type": "ellipse", "cx": 14, "cy": 16.1, "rx": 1.3, "ry": 1.3, "fill": "gem", "stroke": "shadow", "stroke_width": 0.35 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "mirror_frame",
+      "variants": [
+        {
+          "key": "round",
+          "anchors": [{ "key": "center", "x": 14, "y": 12.8, "angle": 0 }],
+          "colors": {
+            "metal": "#c89b52",
+            "shadow": "#6e4a2a"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 12.8, "rx": 9.0, "ry": 8.7, "fill": "metal", "stroke": "shadow", "stroke_width": 0.7 }
+          ]
+        },
+        {
+          "key": "lotus",
+          "anchors": [{ "key": "center", "x": 14, "y": 12.8, "angle": 0 }],
+          "colors": {
+            "metal": "#91c2bd",
+            "shadow": "#3e6c68"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[14, 2.8], [17, 6.2], [21, 5.4], [20.8, 9.5], [24.2, 12.8], [20.8, 16.1], [21, 20.2], [17, 19.4], [14, 22.8], [11, 19.4], [7, 20.2], [7.2, 16.1], [3.8, 12.8], [7.2, 9.5], [7, 5.4], [11, 6.2]], "fill": "metal", "stroke": "shadow", "stroke_width": 0.65 }
+          ]
+        },
+        {
+          "key": "hex",
+          "anchors": [{ "key": "center", "x": 14, "y": 12.8, "angle": 0 }],
+          "colors": {
+            "metal": "#8a83b8",
+            "shadow": "#4d496f"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[14, 3.2], [21.8, 8], [21.8, 17.6], [14, 22.4], [6.2, 17.6], [6.2, 8]], "fill": "metal", "stroke": "shadow", "stroke_width": 0.7 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "mirror_surface",
+      "variants": [
+        {
+          "key": "clear",
+          "anchors": [{ "key": "center", "x": 14, "y": 12.8, "angle": 0 }],
+          "colors": {
+            "glass": "#b8f5ff",
+            "gleam": "#ffffff",
+            "shadow": "#4c8c98"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 12.8, "rx": 6.2, "ry": 5.8, "fill": "glass", "stroke": "shadow", "stroke_width": 0.45 },
+            { "type": "line", "points": [[11.2, 9.4], [16.8, 15]], "stroke": "gleam", "stroke_width": 0.65, "opacity": 0.75 }
+          ]
+        },
+        {
+          "key": "moon",
+          "anchors": [{ "key": "center", "x": 14, "y": 12.8, "angle": 0 }],
+          "colors": {
+            "glass": "#d7d9ff",
+            "gleam": "#fff8cf",
+            "shadow": "#62659d"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 12.8, "rx": 6.1, "ry": 5.7, "fill": "glass", "stroke": "shadow", "stroke_width": 0.45 },
+            { "type": "ellipse", "cx": 12.5, "cy": 11.2, "rx": 1.3, "ry": 1.3, "fill": "gleam", "opacity": 0.85 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "mirror_handle",
+      "variants": [
+        {
+          "key": "short",
+          "anchors": [{ "key": "top", "x": 14, "y": 8, "angle": 90 }],
+          "colors": {
+            "metal": "#b68743",
+            "gem": "#79f0ff",
+            "shadow": "#684423"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[12.2, 8], [15.8, 8], [16.8, 24], [11.2, 24]], "fill": "metal", "stroke": "shadow", "stroke_width": 0.5 },
+            { "type": "ellipse", "cx": 14, "cy": 20.5, "rx": 1.4, "ry": 1.8, "fill": "gem", "stroke": "shadow", "stroke_width": 0.3 }
+          ]
+        },
+        {
+          "key": "ribbon",
+          "anchors": [{ "key": "top", "x": 14, "y": 8, "angle": 90 }],
+          "colors": {
+            "metal": "#8975b8",
+            "gem": "#ffe8a0",
+            "shadow": "#544475"
+          },
+          "shapes": [
+            { "type": "rect", "x": 12.4, "y": 8, "width": 3.2, "height": 13.5, "fill": "metal", "stroke": "shadow", "stroke_width": 0.45 },
+            { "type": "line", "points": [[11.2, 16], [9.4, 24]], "stroke": "gem", "stroke_width": 0.7 },
+            { "type": "line", "points": [[16.8, 16], [18.6, 24]], "stroke": "gem", "stroke_width": 0.7 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ding_body",
+      "variants": [
+        {
+          "key": "round_belly",
+          "anchors": [{ "key": "center", "x": 14, "y": 15.5, "angle": 0 }],
+          "colors": {
+            "metal": "#9b7a4f",
+            "trim": "#d7bb75",
+            "shadow": "#58402b"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 15.5, "rx": 8.5, "ry": 6.8, "fill": "metal", "stroke": "shadow", "stroke_width": 0.7 },
+            { "type": "rect", "x": 6.3, "y": 10.2, "width": 15.4, "height": 2.2, "fill": "trim", "stroke": "shadow", "stroke_width": 0.45 }
+          ]
+        },
+        {
+          "key": "square_belly",
+          "anchors": [{ "key": "center", "x": 14, "y": 15.5, "angle": 0 }],
+          "colors": {
+            "metal": "#5f8f82",
+            "trim": "#aeead9",
+            "shadow": "#33584e"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[6.2, 10.2], [21.8, 10.2], [20.2, 22.2], [7.8, 22.2]], "fill": "metal", "stroke": "shadow", "stroke_width": 0.7 },
+            { "type": "line", "points": [[8, 13], [20, 13]], "stroke": "trim", "stroke_width": 0.8, "opacity": 0.8 }
+          ]
+        },
+        {
+          "key": "tall_belly",
+          "anchors": [{ "key": "center", "x": 14, "y": 15.5, "angle": 0 }],
+          "colors": {
+            "metal": "#656c94",
+            "trim": "#c3caff",
+            "shadow": "#3b3f5d"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[8, 8.8], [20, 8.8], [21.5, 18.5], [18, 23.5], [10, 23.5], [6.5, 18.5]], "fill": "metal", "stroke": "shadow", "stroke_width": 0.7 },
+            { "type": "ellipse", "cx": 14, "cy": 11, "rx": 6.2, "ry": 2.2, "fill": "trim", "stroke": "shadow", "stroke_width": 0.45, "opacity": 0.9 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ding_leg",
+      "variants": [
+        {
+          "key": "claw",
+          "anchors": [{ "key": "top", "x": 14, "y": 8, "angle": 90 }],
+          "colors": {
+            "metal": "#8d6d47",
+            "shadow": "#4a3423"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[12.3, 8], [15.7, 8], [16.5, 22], [14, 25], [11.5, 22]], "fill": "metal", "stroke": "shadow", "stroke_width": 0.45 }
+          ]
+        },
+        {
+          "key": "straight",
+          "anchors": [{ "key": "top", "x": 14, "y": 8, "angle": 90 }],
+          "colors": {
+            "metal": "#6f8f84",
+            "shadow": "#37554d"
+          },
+          "shapes": [
+            { "type": "rect", "x": 12.5, "y": 8, "width": 3, "height": 15.5, "fill": "metal", "stroke": "shadow", "stroke_width": 0.45 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ding_handle",
+      "variants": [
+        {
+          "key": "loop",
+          "anchors": [{ "key": "inner", "x": 17, "y": 14, "angle": 0 }],
+          "colors": {
+            "metal": "#9c794d",
+            "shadow": "#563f2a"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 10.5, "cy": 14, "rx": 5.2, "ry": 3.5, "fill": "none", "stroke": "metal", "stroke_width": 1.8 },
+            { "type": "ellipse", "cx": 17, "cy": 14, "rx": 1.7, "ry": 2.0, "fill": "metal", "stroke": "shadow", "stroke_width": 0.35 }
+          ]
+        },
+        {
+          "key": "horn",
+          "anchors": [{ "key": "inner", "x": 17, "y": 14, "angle": 0 }],
+          "colors": {
+            "metal": "#708d82",
+            "shadow": "#36544a"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[17, 13], [11, 8.8], [8, 11], [12.5, 14], [8, 17], [11, 19.2], [17, 15]], "fill": "metal", "stroke": "shadow", "stroke_width": 0.45 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ding_lid",
+      "variants": [
+        {
+          "key": "flat",
+          "anchors": [{ "key": "base", "x": 14, "y": 17, "angle": -90 }],
+          "colors": {
+            "metal": "#a27d4e",
+            "trim": "#dec77a",
+            "shadow": "#58402a"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 16.7, "rx": 7.2, "ry": 2.2, "fill": "metal", "stroke": "shadow", "stroke_width": 0.5 },
+            { "type": "ellipse", "cx": 14, "cy": 12.5, "rx": 2.2, "ry": 2.0, "fill": "trim", "stroke": "shadow", "stroke_width": 0.4 }
+          ]
+        },
+        {
+          "key": "peaked",
+          "anchors": [{ "key": "base", "x": 14, "y": 17, "angle": -90 }],
+          "colors": {
+            "metal": "#718f85",
+            "trim": "#c0eadb",
+            "shadow": "#3b584f"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[7.2, 17], [14, 9.2], [20.8, 17]], "fill": "metal", "stroke": "shadow", "stroke_width": 0.5 },
+            { "type": "ellipse", "cx": 14, "cy": 9.7, "rx": 1.5, "ry": 1.4, "fill": "trim", "stroke": "shadow", "stroke_width": 0.35 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sword_tassel",
+      "variants": [
+        {
+          "key": "red_knot",
+          "anchors": [{ "key": "knot", "x": 14, "y": 9, "angle": 90 }],
+          "colors": {
+            "cord": "#b42139",
+            "bright": "#ff4d54",
+            "shadow": "#5a1628",
+            "bead": "#f0bb55"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 9, "rx": 1.5, "ry": 1.3, "fill": "bead", "stroke": "shadow", "stroke_width": 0.35 },
+            { "type": "line", "points": [[13.2, 10], [10.2, 16], [10.4, 21]], "stroke": "cord", "stroke_width": 0.75 },
+            { "type": "line", "points": [[14.8, 10], [17.2, 16], [18.8, 20]], "stroke": "cord", "stroke_width": 0.75 },
+            { "type": "line", "points": [[12, 14], [8.8, 16.2]], "stroke": "bright", "stroke_width": 0.55 },
+            { "type": "line", "points": [[16, 14], [20.0, 15.2]], "stroke": "bright", "stroke_width": 0.55 }
+          ]
+        },
+        {
+          "key": "violet_tail",
+          "anchors": [{ "key": "knot", "x": 14, "y": 9, "angle": 90 }],
+          "colors": {
+            "cord": "#7541d0",
+            "bright": "#cc68ff",
+            "shadow": "#2d174f",
+            "bead": "#f0d86b"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 9, "rx": 1.4, "ry": 1.2, "fill": "bead", "stroke": "shadow", "stroke_width": 0.35 },
+            { "type": "line", "points": [[13.4, 10], [11.2, 15.5], [9.6, 20.4]], "stroke": "cord", "stroke_width": 0.75 },
+            { "type": "line", "points": [[14.8, 10], [16.6, 14.8], [19.4, 18.8]], "stroke": "cord", "stroke_width": 0.75 },
+            { "type": "line", "points": [[11.5, 16.0], [8.4, 16.8]], "stroke": "bright", "stroke_width": 0.55 },
+            { "type": "line", "points": [[16.8, 15.2], [20.5, 15.5]], "stroke": "bright", "stroke_width": 0.55 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "seal_mountain",
+      "variants": [
+        {
+          "key": "green_peak",
+          "anchors": [{ "key": "center", "x": 14, "y": 15, "angle": 0 }],
+          "colors": {
+            "top": "#537f39",
+            "left": "#3f6e45",
+            "right": "#263d3e",
+            "ridge": "#8fbc5f",
+            "water": "#4aa3e2",
+            "shadow": "#1b282d"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[5, 12], [13, 5], [24, 10], [17, 16]], "fill": "top", "stroke": "shadow", "stroke_width": 0.7 },
+            { "type": "polygon", "points": [[5, 12], [17, 16], [16, 24], [4, 19]], "fill": "left", "stroke": "shadow", "stroke_width": 0.55 },
+            { "type": "polygon", "points": [[17, 16], [24, 10], [24, 19], [16, 24]], "fill": "right", "stroke": "shadow", "stroke_width": 0.55 },
+            { "type": "line", "points": [[9, 12], [14, 8], [19, 10]], "stroke": "ridge", "stroke_width": 0.85 },
+            { "type": "line", "points": [[17.5, 7.6], [16.5, 16.2]], "stroke": "water", "stroke_width": 1.1 },
+            { "type": "line", "points": [[7, 17], [10, 15.2], [13, 16.8]], "stroke": "ridge", "stroke_width": 0.65, "opacity": 0.75 }
+          ]
+        },
+        {
+          "key": "amber_peak",
+          "anchors": [{ "key": "center", "x": 14, "y": 15, "angle": 0 }],
+          "colors": {
+            "top": "#cc8b35",
+            "left": "#a86423",
+            "right": "#6b3a21",
+            "ridge": "#ffd16b",
+            "water": "#57b05b",
+            "shadow": "#3d261b"
+          },
+          "shapes": [
+            { "type": "polygon", "points": [[4.5, 13], [14, 4.5], [23, 10.5], [17, 17]], "fill": "top", "stroke": "shadow", "stroke_width": 0.7 },
+            { "type": "polygon", "points": [[4.5, 13], [17, 17], [16, 24], [4, 19]], "fill": "left", "stroke": "shadow", "stroke_width": 0.55 },
+            { "type": "polygon", "points": [[17, 17], [23, 10.5], [24, 19], [16, 24]], "fill": "right", "stroke": "shadow", "stroke_width": 0.55 },
+            { "type": "line", "points": [[9, 12.8], [14, 7.2], [19, 10.7]], "stroke": "ridge", "stroke_width": 0.85 },
+            { "type": "line", "points": [[8, 18], [12, 16], [14.5, 17.8]], "stroke": "ridge", "stroke_width": 0.65, "opacity": 0.75 },
+            { "type": "line", "points": [[17.5, 10], [21.5, 8.6]], "stroke": "water", "stroke_width": 0.85 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "robe_charm",
+      "variants": [
+        {
+          "key": "jade_drop",
+          "anchors": [{ "key": "top", "x": 14, "y": 8, "angle": 90 }],
+          "colors": {
+            "cord": "#d5be61",
+            "jade": "#6be5c4",
+            "bright": "#d8fff0",
+            "shadow": "#235546"
+          },
+          "shapes": [
+            { "type": "line", "points": [[14, 8], [14, 16]], "stroke": "cord", "stroke_width": 0.75 },
+            { "type": "polygon", "points": [[14, 16], [17, 20], [14, 24], [11, 20]], "fill": "jade", "stroke": "shadow", "stroke_width": 0.45 },
+            { "type": "line", "points": [[12.8, 18], [15, 17]], "stroke": "bright", "stroke_width": 0.55 }
+          ]
+        },
+        {
+          "key": "red_tag",
+          "anchors": [{ "key": "top", "x": 14, "y": 8, "angle": 90 }],
+          "colors": {
+            "cord": "#ddc66b",
+            "jade": "#ba3144",
+            "bright": "#ff7d6b",
+            "shadow": "#5b1729"
+          },
+          "shapes": [
+            { "type": "line", "points": [[14, 8], [13, 15], [14, 19]], "stroke": "cord", "stroke_width": 0.75 },
+            { "type": "polygon", "points": [[11.5, 16], [16, 16.8], [15.2, 23.5], [10.8, 22.2]], "fill": "jade", "stroke": "shadow", "stroke_width": 0.45 },
+            { "type": "line", "points": [[12.2, 18], [15.3, 18.5]], "stroke": "bright", "stroke_width": 0.5 }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ding_mouth",
+      "variants": [
+        {
+          "key": "blue_fire",
+          "anchors": [{ "key": "center", "x": 14, "y": 14, "angle": 0 }],
+          "colors": {
+            "fire": "#23d4ff",
+            "core": "#9fffff",
+            "rim": "#35284e",
+            "shadow": "#111426"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 14, "rx": 6.5, "ry": 2.6, "fill": "rim", "stroke": "shadow", "stroke_width": 0.4 },
+            { "type": "ellipse", "cx": 14, "cy": 13.6, "rx": 5.2, "ry": 1.8, "fill": "fire", "stroke": "none", "opacity": 0.95 },
+            { "type": "rect", "x": 10, "y": 12.8, "width": 8.2, "height": 1.1, "fill": "core", "opacity": 0.75 }
+          ]
+        },
+        {
+          "key": "ember",
+          "anchors": [{ "key": "center", "x": 14, "y": 14, "angle": 0 }],
+          "colors": {
+            "fire": "#ff8e24",
+            "core": "#ffe86f",
+            "rim": "#4a1c17",
+            "shadow": "#170909"
+          },
+          "shapes": [
+            { "type": "ellipse", "cx": 14, "cy": 14, "rx": 6.2, "ry": 2.5, "fill": "rim", "stroke": "shadow", "stroke_width": 0.4 },
+            { "type": "ellipse", "cx": 14, "cy": 13.5, "rx": 4.8, "ry": 1.7, "fill": "fire", "stroke": "none" },
+            { "type": "rect", "x": 11, "y": 12.7, "width": 6.4, "height": 1.1, "fill": "core", "opacity": 0.8 }
+          ]
+        }
+      ]
+    }
+  ]
+}

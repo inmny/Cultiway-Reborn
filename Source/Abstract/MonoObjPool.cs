@@ -61,24 +61,64 @@ public class MonoObjPool<T> where T : MonoBehaviour
 
     public void Return(T obj)
     {
-        if (obj.transform.parent != _parent)
+        if (obj == null) return;
+
+        var objId = obj.GetInstanceID();
+        if (!TryResolveIndex(obj, out var idx))
         {
             obj.transform.SetParent(_parent);
             _pool.Add(obj);
-        }
-        else
-        {
-            if (!_idx_dict.TryGetValue(obj.GetInstanceID(), out var idx))
-            {
-                _pool.Add(obj);
-            }
-            else
-            {
-                _pool.Swap(idx, _unused_first_idx - 1);
-                _unused_first_idx -= 1;
-            }
+            _idx_dict[objId] = _pool.Count - 1;
+            Deactivate(obj);
+            return;
         }
 
+        if (obj.transform.parent != _parent)
+        {
+            obj.transform.SetParent(_parent);
+        }
+
+        if (idx >= _unused_first_idx)
+        {
+            Deactivate(obj);
+            return;
+        }
+
+        var lastActiveIdx = _unused_first_idx - 1;
+        if (idx != lastActiveIdx)
+        {
+            var swapped = _pool[lastActiveIdx];
+            _pool[idx] = swapped;
+            _pool[lastActiveIdx] = obj;
+            _idx_dict[swapped.GetInstanceID()] = idx;
+            _idx_dict[objId] = lastActiveIdx;
+        }
+
+        _unused_first_idx -= 1;
+        Deactivate(obj);
+    }
+
+    private bool TryResolveIndex(T obj, out int idx)
+    {
+        var objId = obj.GetInstanceID();
+        if (_idx_dict.TryGetValue(objId, out idx) && idx >= 0 && idx < _pool.Count && _pool[idx] == obj)
+        {
+            return true;
+        }
+
+        idx = _pool.IndexOf(obj);
+        if (idx < 0)
+        {
+            _idx_dict.Remove(objId);
+            return false;
+        }
+
+        _idx_dict[objId] = idx;
+        return true;
+    }
+
+    private void Deactivate(T obj)
+    {
         obj.gameObject.SetActive(false);
         _deactive_action?.Invoke(obj);
     }

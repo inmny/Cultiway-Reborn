@@ -10,7 +10,7 @@ using SeriesTag = Cultiway.Core.SkillLibV3.SkillTags.Series;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(SkillTrajectories))]
+[Dependency(typeof(SkillVfxElements), typeof(SkillTrajectories))]
 public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 {
     private const float UpFacingSpriteToRightOffset = -90f;

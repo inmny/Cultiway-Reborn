@@ -2,7 +2,6 @@ using ai.behaviours;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
-using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
@@ -11,7 +10,7 @@ namespace Cultiway.Content.Behaviours;
 
 /// <summary>
 /// 逐材料推进炼制；进度满时把进行中的 CraftingArtifact 实体就地升级为成品法器。
-/// 器形与效果属性均来自 CraftingArtifact.shape，第一阶段效果属性不实现。
+/// 器形、名字、等级、atom 和图标实例在开工时已经写入实体组件。
 /// </summary>
 public class BehCraftArtifact : BehCityActor
 {
@@ -41,23 +40,24 @@ public class BehCraftArtifact : BehCityActor
             }
             for (int i = 0; i < ingredient_array.Length; i++)
             {
-                ingredient_array[i].DeleteEntity();
+                if (!ingredient_array[i].IsNull)
+                {
+                    ingredient_array[i].DeleteEntity();
+                }
             }
 
+            var shape_id = crafting_entity.GetComponent<ItemShape>().shape_id;
             crafting_entity.RemoveComponent<CraftingArtifact>();
             crafting_entity.RemoveTag<TagUncompleted>();
-            crafting_entity.AddComponent(new Artifact());
-            // 用器形的候选名（如"剑"）作为显示名占位
-            var label = crafting.shape?.PickIngredientNameCandidate(0);
-            crafting_entity.AddComponent(new EntityName(string.IsNullOrEmpty(label) ? "器" : label));
-            crafting_entity.AddComponent(new ItemLevel { Stage = 0, Level = 0 });
+            if (!crafting_entity.HasComponent<Artifact>())
+            {
+                crafting_entity.AddComponent(new Artifact());
+            }
 
-            ae.AddSpecialItem(crafting_entity);
-            ModClass.LogInfo($"{pObject.getName()}[{pObject.data.id}] 完成炼制 {crafting.shape?.id}");
+            ModClass.LogInfo($"{pObject.getName()}[{pObject.data.id}] 完成炼制 {crafting_entity.Name}");
             return BehResult.Continue;
         }
 
-        CraftOccupyingRelation ing_to_show = ingredients[crafting.progress];
         crafting.progress++;
         pObject.timer_action = Randy.randomFloat(1, 3);
 

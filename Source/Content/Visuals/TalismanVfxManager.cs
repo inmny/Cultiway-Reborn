@@ -19,12 +19,13 @@ public static class TalismanVfxManager
         var icon = GetTalismanIcon(talismanEntity);
         if (icon == null) return;
 
-        var skillAsset = skillContainer.GetComponent<SkillContainer>().Asset;
+        var skill = skillContainer.GetComponent<SkillContainer>();
+        var skillAsset = skill.Asset;
         if (skillAsset == null) return;
 
-        var style = SkillVfxColor.ResolveStyle(skillAsset);
+        var element = skill.VfxElement;
         var color = SkillVfxColor.GetElementColor(skillAsset.Element);
-        var accentColor = SkillVfxColor.GetAccentColor(style, color);
+        var accentColor = element.GetAccentColor(color);
         var frames = TalismanVfxFrameLibrary.GetActivationFrames(icon, color, accentColor);
         if (frames.Length == 0) return;
 
@@ -33,7 +34,6 @@ public static class TalismanVfxManager
 
         const float scale = 4.2f;
         const float frameInterval = 0.075f;
-        // TODO: 施法者抖动(shake)待新 VFX 架构补回
         ModClass.I.SkillV3.SpawnAnim(frames, pos, Vector3.right, scale, frameInterval: frameInterval,
             lifeTime: frames.Length * frameInterval, visualRotation: VisualRotation.FixedUpright());
     }

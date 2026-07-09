@@ -15,7 +15,8 @@ public struct SpecialItem : IComponent
     {
         if (Shape.Type.GetIcon != null)
         {
-            return Shape.Type.GetIcon(self);
+            var sprite = Shape.Type.GetIcon(self);
+            if (sprite != null) return sprite;
         }
         return ItemIconGenerator.GenerateIcon(Shape, IconData);
     }

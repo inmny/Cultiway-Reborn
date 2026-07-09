@@ -1,4 +1,5 @@
 using Friflo.Engine.ECS;
+using Cultiway.Core.SkillLibV3.Visuals;
 
 namespace Cultiway.Core.SkillLibV3.Components;
 /// <summary>
@@ -14,6 +15,12 @@ public struct SkillContainer : IComponent
     public SetupAction OnSetup;
     public TravelAction OnTravel;
     public EffectObjAction OnEffectObj;
+
+    /// <summary>
+    /// 构建完成时解析出的视觉元素，供生成的技能实体直接继承。
+    /// </summary>
+    public SkillVfxElementAsset VfxElement;
+
     public SkillEntityAsset Asset
     {
         get

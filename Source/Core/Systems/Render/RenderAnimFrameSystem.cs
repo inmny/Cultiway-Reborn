@@ -17,6 +17,7 @@ public class RenderAnimFrameSystem : BaseSystem
     private readonly ArchetypeQuery<Rotation, AnimBindRenderer>                  rot_query;
     private readonly ArchetypeQuery<Scale, AnimBindRenderer>                     scale_query;
     private readonly ArchetypeQuery<AnimTint, AnimBindRenderer>                  tint_query;
+    private readonly ArchetypeQuery<AnimData, AnimAfterimage, Rotation, AnimBindRenderer> afterimage_query;
     private readonly ArchetypeQuery<AnimBindRenderer>                            single_query;
 
     public RenderAnimFrameSystem(EntityStore world)
@@ -38,14 +39,16 @@ public class RenderAnimFrameSystem : BaseSystem
         rot_query = world.Query<Rotation, AnimBindRenderer>(filter);
         scale_query = world.Query<Scale, AnimBindRenderer>(filter);
         tint_query = world.Query<AnimTint, AnimBindRenderer>(filter);
+        afterimage_query = world.Query<AnimData, AnimAfterimage, Rotation, AnimBindRenderer>(filter);
     }
     [Hotfixable]
     protected override void OnUpdateGroup()
     {
         if (!MapBox.isRenderMiniMap() || ModClass.I.GetConfig()["AnimSettings"]["ALL_RENDER"].BoolVal)
         {
-            init_query.ForEachComponents(
-                (ref Position pos, ref Scale scale, ref AnimData anim_data, ref AnimBindRenderer bind_renderer) =>
+            init_query.ForEachEntity(
+                (ref Position pos, ref Scale scale, ref AnimData anim_data, ref AnimBindRenderer bind_renderer,
+                    Entity entity) =>
                 {
                     Sprite sprite = anim_data.CurrentFrame;
                     if (!NeedRender(sprite, ref pos, ref scale))
@@ -75,6 +78,11 @@ public class RenderAnimFrameSystem : BaseSystem
                         renderer.bind.sprite = sprite;
                         bind_renderer.value = renderer;
                     }
+
+                    if (!entity.HasComponent<AnimAfterimage>())
+                    {
+                        bind_renderer.value.HideAfterimage();
+                    }
                 });
             pos_query.ForEachComponents((ref Position pos, ref AnimBindRenderer bind_renderer) =>
             {
@@ -101,10 +109,26 @@ public class RenderAnimFrameSystem : BaseSystem
 
                     ref var rot = ref rotations[i];
                     var entity = entities.EntityAt(i);
-                    var angle = GetVisualAngle(entity, ref rot);
+                    var angle = AnimVisualUtils.GetVisualAngle(entity, ref rot);
                     bindRenderer.value.transform.localRotation = Quaternion.Euler(0, 0, angle);
                 }
             }).RunParallel();
+            afterimage_query.ForEach((animData, afterimages, rotations, bindRenderers, entities) =>
+            {
+                for (var i = 0; i < entities.Length; i++)
+                {
+                    ref var bindRenderer = ref bindRenderers[i];
+                    var renderer = bindRenderer.value;
+                    if (renderer == null || !renderer.gameObject.activeSelf) continue;
+
+                    ref var rotation = ref rotations[i];
+                    ref var afterimage = ref afterimages[i];
+                    var entity = entities.EntityAt(i);
+                    var localBackDirection = AnimVisualUtils.GetLocalBackDirection(entity, ref rotation);
+                    renderer.SetAfterimage(animData[i].CurrentFrame, renderer.bind.color, ref afterimage,
+                        localBackDirection);
+                }
+            }).Run();
         }
         else
         {
@@ -125,43 +149,6 @@ public class RenderAnimFrameSystem : BaseSystem
         });
         */
     }
-    [Hotfixable]
-    private float GetVisualAngle(Entity entity, ref Rotation rot)
-    {
-        var rotationAngle = GetRotationAngle(ref rot);
-        if (!entity.HasComponent<VisualRotation>())
-        {
-            return rotationAngle;
-        }
-
-        ref var visualRotation = ref entity.GetComponent<VisualRotation>();
-        return visualRotation.Mode switch
-        {
-            VisualRotationMode.FixedUpright => visualRotation.FixedAngle + visualRotation.AngleOffset,
-            VisualRotationMode.KeepInitial => GetInitialVisualAngle(ref visualRotation, rotationAngle),
-            VisualRotationMode.Spin => visualRotation.FixedAngle + visualRotation.AngleOffset + Time.time * visualRotation.SpinSpeed,
-            _ => rotationAngle + visualRotation.AngleOffset
-        };
-    }
-
-    [Hotfixable]
-    private float GetInitialVisualAngle(ref VisualRotation visualRotation, float rotationAngle)
-    {
-        if (!visualRotation.HasInitialAngle)
-        {
-            visualRotation.InitialAngle = rotationAngle;
-            visualRotation.HasInitialAngle = true;
-        }
-
-        return visualRotation.InitialAngle + visualRotation.AngleOffset;
-    }
-
-    [Hotfixable]
-    private float GetRotationAngle(ref Rotation rot)
-    {
-        return Vector2.SignedAngle(Vector2.right, rot.in_plane + new Vector2(0, rot.z));
-    }
-
     [Hotfixable]
     private bool NeedRender(Sprite sprite, ref Position pos, ref Scale scale)
     {
