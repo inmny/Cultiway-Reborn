@@ -78,6 +78,24 @@ public static class SkillTags
     }
 
     /// <summary>
+    /// 法术投送方式标签。形态描述外观，投送方式描述效果如何抵达目标。
+    /// </summary>
+    public static class Delivery
+    {
+        /// <summary>从施法者位置发出并独立移动的弹丸投送方式。</summary>
+        public const string Projectile = "delivery_projectile";
+
+        /// <summary>依附施法者并仅覆盖近身范围的投送方式。</summary>
+        public const string Melee = "delivery_melee";
+
+        /// <summary>直接在指定位置产生效果的瞬发投送方式。</summary>
+        public const string Instant = "delivery_instant";
+
+        /// <summary>持续占据区域并反复作用的场域投送方式。</summary>
+        public const string Field = "delivery_field";
+    }
+
+    /// <summary>
     /// 法术轨迹标签。
     /// </summary>
     public static class Motion
@@ -120,6 +138,9 @@ public static class SkillTags
 
         /// <summary>直接在目标位置显现的轨迹标签。</summary>
         public const string Appear = "appear";
+
+        /// <summary>围绕施法者完成一次短弧挥砍的近身轨迹标签。</summary>
+        public const string MeleeSweep = "melee_sweep";
     }
 
     /// <summary>

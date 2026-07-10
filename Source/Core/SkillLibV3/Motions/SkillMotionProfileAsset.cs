@@ -21,6 +21,11 @@ public class SkillMotionProfileAsset : Asset
     public float CruiseMultiplier = 1f;
     public float RampDuration = 0.08f;
     public AnimAfterimage Afterimage = AnimAfterimage.HorizontalTrajectory();
+    public float AfterimageSpeedPerLayer = 20f;
+    public int MinAfterimageLayers = 2;
+    public int MaxAfterimageLayers = AnimAfterimage.MaxLayers;
+    public bool ScaleAfterimageWithSpeed = true;
+    public int FixedAfterimageLayers;
 
     public SkillMotionProfileAsset Configure(float baseSpeed, float maxSpeed, float maxFlightDuration,
         float turnRate, float frameInterval, float launchMultiplier, float cruiseMultiplier, float rampDuration,
@@ -35,6 +40,23 @@ public class SkillMotionProfileAsset : Asset
         CruiseMultiplier = cruiseMultiplier;
         RampDuration = rampDuration;
         Afterimage = afterimage;
+        return this;
+    }
+
+    public SkillMotionProfileAsset ConfigureAfterimageDensity(float speedPerLayer, int minLayers = 2,
+        int maxLayers = AnimAfterimage.MaxLayers)
+    {
+        AfterimageSpeedPerLayer = Mathf.Max(1f, speedPerLayer);
+        MinAfterimageLayers = Mathf.Clamp(minLayers, 0, AnimAfterimage.MaxLayers);
+        MaxAfterimageLayers = Mathf.Clamp(maxLayers, MinAfterimageLayers, AnimAfterimage.MaxLayers);
+        ScaleAfterimageWithSpeed = true;
+        return this;
+    }
+
+    public SkillMotionProfileAsset ConfigureFixedAfterimageLayers(int layers)
+    {
+        FixedAfterimageLayers = Mathf.Clamp(layers, 0, AnimAfterimage.MaxLayers);
+        ScaleAfterimageWithSpeed = false;
         return this;
     }
 
@@ -75,5 +97,25 @@ public class SkillMotionProfileAsset : Asset
         }
 
         return Mathf.Min(speed, MaxSpeed);
+    }
+
+    public AnimAfterimage ResolveAfterimage(float speed)
+    {
+        var afterimage = Afterimage;
+        if (!ScaleAfterimageWithSpeed)
+        {
+            afterimage.Count = FixedAfterimageLayers;
+            return afterimage;
+        }
+
+        if (speed <= 0f || MaxAfterimageLayers <= 0)
+        {
+            afterimage.Count = 0;
+            return afterimage;
+        }
+
+        var layers = Mathf.CeilToInt(speed / AfterimageSpeedPerLayer);
+        afterimage.Count = Mathf.Clamp(layers, MinAfterimageLayers, MaxAfterimageLayers);
+        return afterimage;
     }
 }

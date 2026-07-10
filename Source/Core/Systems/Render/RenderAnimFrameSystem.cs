@@ -125,8 +125,9 @@ public class RenderAnimFrameSystem : BaseSystem
                     ref var afterimage = ref afterimages[i];
                     var entity = entities.EntityAt(i);
                     var localBackDirection = AnimVisualUtils.GetLocalBackDirection(entity, ref rotation);
+                    var movementAngle = AnimVisualUtils.GetRotationAngle(ref rotation);
                     renderer.SetAfterimage(animData[i].CurrentFrame, renderer.bind.color, ref afterimage,
-                        localBackDirection);
+                        localBackDirection, movementAngle);
                 }
             }).Run();
         }

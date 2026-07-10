@@ -3,6 +3,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
+using DeliveryTag = Cultiway.Core.SkillLibV3.SkillTags.Delivery;
 using ElementTag = Cultiway.Core.SkillLibV3.SkillTags.Element;
 using FormTag = Cultiway.Core.SkillLibV3.SkillTags.Form;
 using MotionTag = Cultiway.Core.SkillLibV3.SkillTags.Motion;
@@ -46,69 +47,69 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 
         Configure(GoldSword, metal, "cultiway/effect/gold_sword", SkillTrajectories.TowardsDirection, 1f, true,
             SkillHitResolver.Single(GoldSword, recycleOnHit: true, continueAfterHit: false),
-            SeriesTag.Metal, FormTag.Slash, SeriesTag.Single)
+            SeriesTag.Metal, FormTag.Slash, SeriesTag.Single, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(GoldBlade, metal, "cultiway/effect/gold_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
             SkillHitResolver.Single(GoldBlade, recycleOnHit: false, continueAfterHit: true),
-            SeriesTag.Metal, FormTag.Slash, FormTag.Sustain)
+            SeriesTag.Metal, FormTag.Slash, FormTag.Sustain, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(WoodThorn, wood, "cultiway/effect/wood_thorn", SkillTrajectories.TowardsDirection, 1.2f, false,
             VisualRotation.FollowRotation(UpFacingSpriteToRightOffset),
             SkillHitResolver.Single(WoodThorn, recycleOnHit: false, continueAfterHit: true),
-            ElementTag.Wood, FormTag.Pierce, SeriesTag.Single)
+            ElementTag.Wood, FormTag.Pierce, SeriesTag.Single, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(FallWood, wood, "cultiway/effect/fall_wood", SkillTrajectories.FallingStrike, 1.2f, true,
             SkillHitResolver.Single(FallWood, recycleOnHit: true, continueAfterHit: true),
-            ElementTag.Wood, FormTag.Pierce, SeriesTag.Single, MotionTag.Falling)
+            ElementTag.Wood, FormTag.Pierce, SeriesTag.Single, MotionTag.Falling, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(WaterArrow, water, "cultiway/effect/single_water_sword", SkillTrajectories.TowardsDirection, 1f,
             true, SkillHitResolver.Single(WaterArrow, recycleOnHit: true, continueAfterHit: false),
-            ElementTag.Water, FormTag.Pierce, SeriesTag.Single)
+            ElementTag.Water, FormTag.Pierce, SeriesTag.Single, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(WaterBall, water, "cultiway/effect/water_polo", SkillTrajectories.TowardsDirection, 1f, true,
             SkillHitResolver.Single(WaterBall, recycleOnHit: true, continueAfterHit: false),
-            ElementTag.Water, FormTag.Ball, SeriesTag.Single)
+            ElementTag.Water, FormTag.Ball, SeriesTag.Single, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(WaterBlade, water, "cultiway/effect/water_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
             SkillHitResolver.Single(WaterBlade, recycleOnHit: false, continueAfterHit: true),
-            ElementTag.Water, FormTag.Slash, FormTag.Sustain);
+            ElementTag.Water, FormTag.Slash, FormTag.Sustain, DeliveryTag.Projectile);
         Configure(Fireball, fire, "cultiway/effect/fire_polo", SkillTrajectories.TowardsDirection, 1f, true,
             SkillHitResolver.Area(Fireball, radius: 2f, recycleOnHit: true),
-            ElementTag.Fire, FormTag.Ball, FormTag.Aoe)
+            ElementTag.Fire, FormTag.Ball, FormTag.Aoe, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(FireBlade, fire, "cultiway/effect/fire_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
             SkillHitResolver.Single(FireBlade, recycleOnHit: false, continueAfterHit: true),
-            ElementTag.Fire, FormTag.Slash, FormTag.Sustain);
+            ElementTag.Fire, FormTag.Slash, FormTag.Sustain, DeliveryTag.Projectile);
         Configure(FallStone, earth, "cultiway/effect/fall_rock", SkillTrajectories.FallingStrike, 1.2f, true,
             SkillHitResolver.Single(FallStone, recycleOnHit: true, continueAfterHit: true),
-            ElementTag.Earth, FormTag.Pierce, SeriesTag.Single, MotionTag.Falling)
+            ElementTag.Earth, FormTag.Pierce, SeriesTag.Single, MotionTag.Falling, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(StoneThorn, earth, "cultiway/effect/ground_thorn", SkillTrajectories.GroundCrawl, 1.2f, false,
             VisualRotation.FollowRotation(UpFacingSpriteToRightOffset),
             SkillHitResolver.Single(StoneThorn, recycleOnHit: false, continueAfterHit: true),
-            ElementTag.Earth, FormTag.Pierce, FormTag.Sustain)
+            ElementTag.Earth, FormTag.Pierce, FormTag.Sustain, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(WindBlade, wind, "cultiway/effect/wind_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
             SkillHitResolver.Single(WindBlade, recycleOnHit: false, continueAfterHit: true),
-            ElementTag.Wind, FormTag.Slash, FormTag.Sustain);
+            ElementTag.Wind, FormTag.Slash, FormTag.Sustain, DeliveryTag.Projectile);
         Configure(WindPolo, wind, "cultiway/effect/wind_polo", SkillTrajectories.TowardsDirection, 1f, true,
             SkillHitResolver.Single(WindPolo, recycleOnHit: true, continueAfterHit: false),
-            ElementTag.Wind, FormTag.Ball, SeriesTag.Single)
+            ElementTag.Wind, FormTag.Ball, SeriesTag.Single, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(Tornado, wind, "cultiway/effect/simple_tornado", SkillTrajectories.SlowVortex, 1.5f, true,
             VisualRotation.FixedUpright(),
             SkillHitResolver.Single(Tornado, recycleOnHit: false, continueAfterHit: true),
-            ElementTag.Wind, FormTag.Aoe, FormTag.Sustain)
+            ElementTag.Wind, FormTag.Aoe, FormTag.Sustain, DeliveryTag.Field)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Appear);
         Configure(FallLightning, lightning, "cultiway/effect/default_lightning", SkillTrajectories.AppearAtTarget, 0.5f,
             false, VisualRotation.FixedUpright(),
             SkillHitResolver.Single(FallLightning, recycleOnHit: true, continueAfterHit: true),
-            ElementTag.Lightning, SeriesTag.Single, MotionTag.Falling)
+            ElementTag.Lightning, SeriesTag.Single, MotionTag.Falling, DeliveryTag.Instant)
             // 落雷动画本身从上到下竖直播放，只允许原地显现，排除任何带水平位移的轨迹。
             .AcceptOrientations(TrajectoryOrientation.Appear);
         Configure(LightningPolo, lightning, "cultiway/effect/lightning_polo", SkillTrajectories.LightningSnap, 1f,
             true, SkillHitResolver.Single(LightningPolo, recycleOnHit: true, continueAfterHit: false),
-            ElementTag.Lightning, FormTag.Ball, SeriesTag.Single)
+            ElementTag.Lightning, FormTag.Ball, SeriesTag.Single, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
     }
 

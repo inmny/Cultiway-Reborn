@@ -87,6 +87,13 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
                         var enemy = caster_kingdom?.isEnemy(obj.kingdom) ?? true;
                         if ((!enemy || !config.Enemy) && (enemy || !config.Alias)) continue;
                     }
+
+                    if (entity.HasComponent<SkillHitMemory>())
+                    {
+                        ref var hitMemory = ref entity.GetComponent<SkillHitMemory>();
+                        if (!hitMemory.TargetIds.Add(obj.getID())) continue;
+                    }
+
                     if (!action(ref context, skill_entity.SkillContainer, entity, obj)) return;
                 }
             }

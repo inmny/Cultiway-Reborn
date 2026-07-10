@@ -156,6 +156,12 @@ public class SkillEntityAsset : Asset
             NextAllowedTime = 0f
         });
 
+        if (entity.HasComponent<SkillHitMemory>())
+        {
+            ref var hitMemory = ref entity.GetComponent<SkillHitMemory>();
+            hitMemory = SkillHitMemory.Create();
+        }
+
         // 确保贴身残影能读到 tint（法术未显式设色时给白色默认）
         if (!entity.HasComponent<AnimTint>())
         {

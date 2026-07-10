@@ -3,13 +3,24 @@ using UnityEngine;
 
 namespace Cultiway.Core.Components;
 
+public enum AnimAfterimageLayout
+{
+    Linear,
+    Angular
+}
+
 /// <summary>
 /// 动画贴身残影参数。残影由 <see cref="AnimRenderer"/> 的子 SpriteRenderer 绘制，跟随主体 Transform 同步移动。
 /// </summary>
 public struct AnimAfterimage : IComponent
 {
+    public const int MaxLayers = 8;
+
     /// <summary>残影层数。</summary>
     public int Count;
+
+    /// <summary>残影的空间排布方式。</summary>
+    public AnimAfterimageLayout Layout;
 
     /// <summary>每层残影间距占当前 Sprite 最大尺寸的比例。</summary>
     public float SpacingRatio;
@@ -29,11 +40,21 @@ public struct AnimAfterimage : IComponent
     /// <summary>残影额外染色，最终会与主体当前颜色相乘。</summary>
     public Color Tint;
 
+    /// <summary>角度残影围绕的世界半径，仅在 Angular 排布下使用。</summary>
+    public float ArcRadius;
+
+    /// <summary>相邻角度残影之间的角度间隔。</summary>
+    public float ArcDegreesPerLayer;
+
+    /// <summary>挥砍前进方向，1 为逆时针，-1 为顺时针。</summary>
+    public float ArcDirection;
+
     public static AnimAfterimage HorizontalTrajectory()
     {
         return new AnimAfterimage
         {
             Count = 8,
+            Layout = AnimAfterimageLayout.Linear,
             SpacingRatio = 0.1f,
             MinSpacing = 0.6f,
             NewestAlpha = 0.32f,

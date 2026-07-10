@@ -37,4 +37,9 @@ public enum TrajectoryOrientation
     /// 例如 GroundCrawl。
     /// </summary>
     Ground = 1 << 3,
+
+    /// <summary>
+    /// 近身挥砍类：围绕施法者短距离扫掠，不应与独立飞行轨迹互换。
+    /// </summary>
+    Melee = 1 << 4,
 }

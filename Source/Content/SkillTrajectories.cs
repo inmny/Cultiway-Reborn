@@ -31,6 +31,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
     public static TrajectoryAsset LightningSnap { get; private set; }
     public static TrajectoryAsset RainFall { get; private set; }
     public static TrajectoryAsset AppearAtTarget { get; private set; }
+    public static TrajectoryAsset MeleeSweep { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -53,6 +54,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupLightningSnap();
         SetupRainFall();
         SetupAppearAtTarget();
+        SetupMeleeSweep();
     }
 
     private static void SetupTowardsDirection()
@@ -697,6 +699,61 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         AppearAtTarget.WithOrientations(TrajectoryOrientation.Appear)
             .AddMotionTags(MotionTag.Appear, MotionTag.Snap);
+    }
+
+    private static void SetupMeleeSweep()
+    {
+        MeleeSweep.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e, float dt) =>
+        {
+            if (context.SourceObj.isRekt())
+            {
+                ref var collider = ref e.GetComponent<ColliderConfig>();
+                collider.Enabled = false;
+                ModClass.I.CommandBuffer.AddTag<TagRecycle>(e.Id);
+                return;
+            }
+
+            ref var state = ref GetRuntimeState(e, ref pos, ref rot);
+            ref var sweep = ref e.GetComponent<MeleeSweepTrajectoryParams>();
+            state.Elapsed += dt;
+
+            var duration = Mathf.Max(0.01f, sweep.Duration);
+            var progress = Mathf.Clamp01(state.Elapsed / duration);
+            var easedProgress = progress * progress * (3f - 2f * progress);
+            var angle = Mathf.Lerp(sweep.StartAngle, sweep.EndAngle, easedProgress);
+            var radialDirection = Quaternion.AngleAxis(angle, Vector3.forward) * state.StartDirection;
+            radialDirection = SafeNormalized(radialDirection, state.StartDirection);
+
+            pos.value = context.SourceObj.GetSimPos() + radialDirection * sweep.Radius;
+            rot.value = radialDirection;
+
+            if (e.HasComponent<AnimAfterimage>())
+            {
+                ref var afterimage = ref e.GetComponent<AnimAfterimage>();
+                afterimage.ArcRadius = sweep.Radius;
+                afterimage.ArcDirection = Mathf.Sign(sweep.EndAngle - sweep.StartAngle);
+            }
+
+            if (progress >= 1f)
+            {
+                ModClass.I.CommandBuffer.AddTag<TagRecycle>(e.Id);
+            }
+        };
+        MeleeSweep.OnInit = e =>
+        {
+            SetOrAdd(e, new MeleeSweepTrajectoryParams
+            {
+                Radius = 1.35f,
+                StartAngle = -65f,
+                EndAngle = 65f,
+                Duration = 0.24f
+            });
+            SetOrAdd(e, SkillHitMemory.Create());
+            ResetRuntimeState(e);
+            ClearCollisionHeightGate(e);
+        };
+        MeleeSweep.WithOrientations(TrajectoryOrientation.Melee)
+            .AddMotionTags(MotionTag.MeleeSweep);
     }
 
     private static void MoveSmoothlyTo(Vector3 target, ref Position pos, ref Rotation rot, Entity e, float dt,

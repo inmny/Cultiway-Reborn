@@ -179,7 +179,7 @@ public class Manager
             container.OnSetup(entity);
         }
 
-        ApplyHorizontalTrajectoryAfterimage(entity, container.MotionProfile);
+        ApplyTrajectoryAfterimage(entity, container.MotionProfile);
     }
 
     private static void ApplyMotionProfile(Entity entity, SkillMotionProfileAsset profile, Vector3 sourcePos,
@@ -207,13 +207,13 @@ public class Manager
         controller.meta.frame_interval = profile.FrameInterval;
     }
 
-    private static void ApplyHorizontalTrajectoryAfterimage(Entity entity, SkillMotionProfileAsset profile)
+    private static void ApplyTrajectoryAfterimage(Entity entity, SkillMotionProfileAsset profile)
     {
         if (!entity.TryGetComponent(out Trajectory trajectory)) return;
 
         var trajectoryAsset = trajectory.Asset;
-        var isHorizontal = (trajectoryAsset.Orientations & TrajectoryOrientation.Horizontal) != TrajectoryOrientation.None;
-        if (!isHorizontal)
+        var afterimageOrientations = TrajectoryOrientation.Horizontal | TrajectoryOrientation.Melee;
+        if ((trajectoryAsset.Orientations & afterimageOrientations) == TrajectoryOrientation.None)
         {
             if (entity.HasComponent<AnimAfterimage>())
             {
@@ -222,7 +222,8 @@ public class Manager
             return;
         }
 
-        var afterimage = profile.Afterimage;
+        var speed = entity.GetComponent<Velocity>().Value;
+        var afterimage = profile.ResolveAfterimage(speed);
         if (entity.HasComponent<AnimAfterimage>())
         {
             ref var current = ref entity.GetComponent<AnimAfterimage>();

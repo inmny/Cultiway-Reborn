@@ -20,14 +20,14 @@ public class SkillMotionProfileLibrary : AssetLibrary<SkillMotionProfileAsset>
         Generic.Configure(48f, 120f, 0.55f, 480f, 0.065f, 1.15f, 1f, 0.08f,
             new AnimAfterimage
             {
-                Count = 4,
                 SpacingRatio = 0.075f,
                 MinSpacing = 0.45f,
                 NewestAlpha = 0.3f,
                 OldestAlpha = 0.025f,
                 LocalDirection = Vector2.left,
                 Tint = Color.white
-            });
+            })
+            .ConfigureAfterimageDensity(20f);
     }
 
     public SkillMotionProfileAsset Resolve(SkillContainer container, Entity containerEntity)

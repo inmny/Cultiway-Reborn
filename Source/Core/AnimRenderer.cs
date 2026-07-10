@@ -60,9 +60,10 @@ public class AnimRenderer : MonoBehaviour
         }
     }
 
-    public void SetAfterimage(Sprite sprite, Color baseColor, ref AnimAfterimage afterimage, Vector2 localDirection)
+    public void SetAfterimage(Sprite sprite, Color baseColor, ref AnimAfterimage afterimage, Vector2 localDirection,
+        float movementAngle)
     {
-        var count = Mathf.Clamp(afterimage.Count, 0, 8);
+        var count = Mathf.Clamp(afterimage.Count, 0, AnimAfterimage.MaxLayers);
         if (count <= 0 || sprite == null)
         {
             HideAfterimage();
@@ -110,15 +111,34 @@ public class AnimRenderer : MonoBehaviour
             renderer.sortingOrder = bind.sortingOrder - i - 1;
             renderer.sharedMaterial = bind.sharedMaterial;
             renderer.color = color;
-            renderer.transform.localPosition = new Vector3(direction.x * spacing * (i + 1),
-                direction.y * spacing * (i + 1), 0f);
-            renderer.transform.localRotation = Quaternion.identity;
+            if (afterimage.Layout == AnimAfterimageLayout.Angular)
+            {
+                SetAngularAfterimageTransform(renderer.transform, ref afterimage, movementAngle, i + 1);
+            }
+            else
+            {
+                renderer.transform.localPosition = new Vector3(direction.x * spacing * (i + 1),
+                    direction.y * spacing * (i + 1), 0f);
+                renderer.transform.localRotation = Quaternion.identity;
+            }
             renderer.transform.localScale = Vector3.one;
             if (!renderer.gameObject.activeSelf)
             {
                 renderer.gameObject.SetActive(true);
             }
         }
+    }
+
+    private void SetAngularAfterimageTransform(Transform afterimageTransform, ref AnimAfterimage afterimage,
+        float movementAngle, int layer)
+    {
+        var angle = afterimage.ArcDirection * afterimage.ArcDegreesPerLayer * layer;
+        var currentDirection = Quaternion.Euler(0f, 0f, movementAngle) * Vector3.right;
+        var previousDirection = Quaternion.Euler(0f, 0f, -angle) * currentDirection;
+        var worldOffset = (previousDirection - currentDirection) * afterimage.ArcRadius;
+
+        afterimageTransform.localPosition = transform.InverseTransformVector(worldOffset);
+        afterimageTransform.localRotation = Quaternion.Euler(0f, 0f, -angle);
     }
 
     private void EnsureAfterimages(int count)

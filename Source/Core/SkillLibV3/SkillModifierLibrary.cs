@@ -153,6 +153,11 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
         if (skill.SkillContainer.IsNull) return;
         if (!skill.SkillContainer.TryGetComponent(out Trajectory trajectory)) return;
 
+        if (skillEntity.HasComponent<SkillHitMemory>())
+        {
+            skillEntity.RemoveComponent<SkillHitMemory>();
+        }
+
         var entityTrajectory = new Trajectory()
         {
             ID = trajectory.ID
