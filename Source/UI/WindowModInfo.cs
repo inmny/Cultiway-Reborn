@@ -22,7 +22,14 @@ public class WindowModInfo : TabbedWindow
 
     private static readonly ModInfoPage[] Pages =
     [
-        new OverviewPage()
+        new OverviewPage(),
+        new CultivationPage(),
+        new SectPage(),
+        new SkillPage(),
+        new ItemsPage(),
+        new WorldPage(),
+        new WarhammerPage(),
+        new AIGCPage()
     ];
 
     internal static void Init()
