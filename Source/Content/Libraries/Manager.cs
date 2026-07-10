@@ -8,6 +8,7 @@ public class Manager
     public static ElixirEffectAtomLibrary ElixirEffectAtomLibrary { get; } = new();
     public static ArtifactAtomLibrary ArtifactAtomLibrary { get; } = new();
     public static CultibookLibrary CultibookLibrary { get; } = new();
+    public static CultibookRuleProfileLibrary CultibookRuleProfileLibrary { get; } = new();
     public static YuanyingLibrary YuanyingLibrary { get; } = new();
     public static CultivateMethodLibrary CultivateMethodLibrary { get; } = new();
 
@@ -19,6 +20,7 @@ public class Manager
         AssetManager._instance.add(ElixirEffectAtomLibrary, "elixir_effect_atoms");
         AssetManager._instance.add(ArtifactAtomLibrary, "artifact_atoms");
         AssetManager._instance.add(CultibookLibrary, "cultibooks");
+        AssetManager._instance.add(CultibookRuleProfileLibrary, "cultibook_rule_profiles");
         AssetManager._instance.add(YuanyingLibrary, "yuanying_types");
         AssetManager._instance.add(CultivateMethodLibrary, "cultivate_methods");
         
@@ -33,6 +35,7 @@ public class Manager
         ElixirEffectAtomLibrary.post_init();
         ArtifactAtomLibrary.post_init();
         CultibookLibrary.post_init();
+        CultibookRuleProfileLibrary.post_init();
         YuanyingLibrary.post_init();
         CultivateMethodLibrary.post_init();
     }
