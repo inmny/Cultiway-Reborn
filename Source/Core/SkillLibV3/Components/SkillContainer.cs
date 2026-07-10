@@ -1,4 +1,5 @@
 using Friflo.Engine.ECS;
+using Cultiway.Core.SkillLibV3.Motions;
 using Cultiway.Core.SkillLibV3.Visuals;
 
 namespace Cultiway.Core.SkillLibV3.Components;
@@ -20,6 +21,11 @@ public struct SkillContainer : IComponent
     /// 构建完成时解析出的视觉元素，供生成的技能实体直接继承。
     /// </summary>
     public SkillVfxElementAsset VfxElement;
+
+    /// <summary>
+    /// 构建完成时解析出的运动配置，供生成的法术实体直接继承。
+    /// </summary>
+    public SkillMotionProfileAsset MotionProfile;
 
     public SkillEntityAsset Asset
     {

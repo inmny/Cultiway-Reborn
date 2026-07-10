@@ -10,6 +10,7 @@ public struct TrajectoryRuntimeState : IComponent
     public Vector3 StartPosition;
     public Vector3 StartDirection;
     public float Elapsed;
+    public float DistanceTravelled;
     public float Phase;
     public float Timer;
     public int StepIndex;

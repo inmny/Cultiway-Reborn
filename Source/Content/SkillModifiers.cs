@@ -1345,6 +1345,12 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
             ref var velocity = ref skillEntity.GetComponent<Velocity>();
             velocity.Value *= multiplier;
         }
+
+        if (skillEntity.HasComponent<TurnRate>())
+        {
+            ref var turnRate = ref skillEntity.GetComponent<TurnRate>();
+            turnRate.Value *= multiplier;
+        }
     }
 
     // 击中单位时附加灼烧

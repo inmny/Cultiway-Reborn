@@ -122,6 +122,7 @@ public class SkillContainerBuilder
         }
 
         SkillContainerUtils.RefreshVfxElement(_containerEntity);
+        SkillContainerUtils.RefreshMotionProfile(_containerEntity);
         SkillNameGenerator.Instance.GenerateFor(_containerEntity);
         return _containerEntity;
     }

@@ -6,6 +6,7 @@ using Cultiway.Core.SkillLibV3.Components.TrajParams;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
+using MotionTag = Cultiway.Core.SkillLibV3.SkillTags.Motion;
 
 namespace Cultiway.Content;
 
@@ -71,7 +72,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 rot.value = targetDir;
             }
 
-            pos.value += SafeNormalized(rot.value, targetDir) * dt * GetVelocity(e, 32f);
+            pos.value += SafeNormalized(rot.value, targetDir) * dt * GetVelocity(e, 32f, dt);
         };
         TowardsDirection.OnInit = e =>
         {
@@ -80,6 +81,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        TowardsDirection.AddMotionTags(MotionTag.Direct);
     }
 
     private static void SetupTowardsDirectionNoRot()
@@ -87,7 +89,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         TowardsDirectionNoRot.Action = (ref SkillContext context, ref Position pos, ref Rotation rot, Entity e,
             float dt) =>
         {
-            pos.value += SafeNormalized(rot.value, context.TargetDir) * dt * GetVelocity(e, 32f);
+            pos.value += SafeNormalized(rot.value, context.TargetDir) * dt * GetVelocity(e, 32f, dt);
         };
         TowardsDirectionNoRot.CanBeSelectedByModifier = false;
         TowardsDirectionNoRot.OnInit = e =>
@@ -96,6 +98,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        TowardsDirectionNoRot.AddMotionTags(MotionTag.Direct);
     }
 
     private static void SetupTowardsPosition()
@@ -111,6 +114,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        TowardsPosition.AddMotionTags(MotionTag.Direct);
     }
 
     private static void SetupTowardsTarget()
@@ -126,6 +130,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        TowardsTarget.AddMotionTags(MotionTag.Homing);
     }
 
     private static void SetupDriftHoming()
@@ -143,7 +148,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             var turnRate = e.TryGetComponent(out TurnRate turnRateComponent) ? turnRateComponent.Value : 220f;
 
             rot.value = SmoothTurn(current, desired, turnRate * dt);
-            pos.value += SafeNormalized(rot.value, desired) * GetVelocity(e, 35f) * dt;
+            pos.value += SafeNormalized(rot.value, desired) * GetVelocity(e, 35f, dt) * dt;
         };
         DriftHoming.OnInit = e =>
         {
@@ -152,6 +157,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        DriftHoming.AddMotionTags(MotionTag.Homing);
     }
 
     private static void SetupSineWave()
@@ -160,14 +166,17 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         {
             ref var state = ref GetRuntimeState(e, ref pos, ref rot);
             state.Elapsed += dt;
+            var speed = GetVelocity(e, 30f, dt);
+            state.DistanceTravelled += speed * dt;
 
             var wave = e.TryGetComponent(out WaveTrajectoryParams waveComponent)
                 ? waveComponent
                 : new WaveTrajectoryParams { Amplitude = 0.6f, Frequency = 3.5f, Phase = state.Phase };
             var baseDir = SafeNormalized(state.StartDirection, context.TargetDir);
             var side = PerpendicularInPlane(baseDir);
-            var forward = baseDir * GetVelocity(e, 30f) * state.Elapsed;
-            var sideOffset = side * (Mathf.Sin(state.Elapsed * wave.Frequency * TwoPi + wave.Phase + state.Phase)
+            var spatialTime = state.DistanceTravelled / 30f;
+            var forward = baseDir * state.DistanceTravelled;
+            var sideOffset = side * (Mathf.Sin(spatialTime * wave.Frequency * TwoPi + wave.Phase + state.Phase)
                                      * wave.Amplitude);
             var next = state.StartPosition + forward + sideOffset;
 
@@ -186,6 +195,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        SineWave.AddMotionTags(MotionTag.Wave);
     }
 
     private static void SetupZigzag()
@@ -194,6 +204,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         {
             ref var state = ref GetRuntimeState(e, ref pos, ref rot);
             state.Elapsed += dt;
+            var speed = GetVelocity(e, 34f, dt);
+            state.DistanceTravelled += speed * dt;
 
             var zigzag = e.TryGetComponent(out ZigzagTrajectoryParams zigzagComponent)
                 ? zigzagComponent
@@ -201,9 +213,10 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             var baseDir = SafeNormalized(state.StartDirection, context.TargetDir);
             var side = PerpendicularInPlane(baseDir);
             var segmentDuration = Mathf.Max(0.03f, zigzag.SegmentDuration);
-            var sideT = Mathf.PingPong(state.Elapsed / segmentDuration, 1f) * 2f - 1f;
+            var spatialTime = state.DistanceTravelled / 34f;
+            var sideT = Mathf.PingPong(spatialTime / segmentDuration, 1f) * 2f - 1f;
             var next = state.StartPosition
-                       + baseDir * (GetVelocity(e, 34f) * state.Elapsed)
+                       + baseDir * state.DistanceTravelled
                        + side * (sideT * zigzag.SideAmplitude);
 
             rot.value = DirectionTo(next, pos.value, baseDir);
@@ -220,6 +233,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        Zigzag.AddMotionTags(MotionTag.Zigzag);
     }
 
     private static void SetupSpiralHoming()
@@ -228,6 +242,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         {
             ref var state = ref GetRuntimeState(e, ref pos, ref rot);
             state.Elapsed += dt;
+            var speed = GetVelocity(e, 30f, dt);
+            state.DistanceTravelled += speed * dt;
 
             var spiral = e.TryGetComponent(out SpiralTrajectoryParams spiralComponent)
                 ? spiralComponent
@@ -243,13 +259,14 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             var homing = Mathf.Clamp01(spiral.HomingStrength);
             var baseDir = SmoothTurn(current, targetDir, GetTurnRate(e, 240f) * homing * dt);
             var side = PerpendicularInPlane(baseDir);
-            var radius = spiral.Radius * Mathf.Exp(-Mathf.Max(0f, spiral.RadiusDamping) * state.Elapsed);
-            var angle = state.Elapsed * spiral.Frequency * TwoPi + state.Phase;
+            var spatialTime = state.DistanceTravelled / 30f;
+            var radius = spiral.Radius * Mathf.Exp(-Mathf.Max(0f, spiral.RadiusDamping) * spatialTime);
+            var angle = spatialTime * spiral.Frequency * TwoPi + state.Phase;
             var swirl = side * (Mathf.Sin(angle) * radius);
             var desired = SafeNormalized(baseDir + swirl, baseDir);
 
             rot.value = desired;
-            pos.value += desired * GetVelocity(e, 30f) * dt;
+            pos.value += desired * speed * dt;
             pos.z += Mathf.Cos(angle) * radius * 0.04f;
         };
         SpiralHoming.OnInit = e =>
@@ -266,6 +283,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        SpiralHoming.AddMotionTags(MotionTag.Spiral, MotionTag.Homing);
     }
 
     private static void SetupOrbitTarget()
@@ -294,7 +312,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             }
 
             var moveDir = DirectionTo(desired, pos.value, context.TargetDir);
-            var speed = GetVelocity(e, 32f) * Mathf.Lerp(1f, 1.35f, Mathf.Clamp01(orbit.HomingStrength));
+            var speed = GetVelocity(e, 32f, dt) * Mathf.Lerp(1f, 1.35f, Mathf.Clamp01(orbit.HomingStrength));
             pos.value = Vector3.MoveTowards(pos.value, desired, speed * dt);
             rot.value = moveDir;
         };
@@ -311,6 +329,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        OrbitTarget.AddMotionTags(MotionTag.Orbit, MotionTag.Homing);
     }
 
     private static void SetupBoomerang()
@@ -326,7 +345,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 {
                     OutDistance = 5f,
                     ReturnTurnRate = 520f,
-                    MaxLifetime = 2.4f
+                    MaxLifetime = 1.2f
                 };
             if (!state.Returning && Vector3.Distance(state.StartPosition, pos.value) >= boomerang.OutDistance)
             {
@@ -339,7 +358,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                     state.StartDirection);
             var turnRate = state.Returning ? boomerang.ReturnTurnRate : GetTurnRate(e, 120f);
             rot.value = SmoothTurn(SafeNormalized(rot.value, targetDir), targetDir, turnRate * dt);
-            pos.value += SafeNormalized(rot.value, targetDir) * GetVelocity(e, 35f) * dt;
+            pos.value += SafeNormalized(rot.value, targetDir) * GetVelocity(e, 35f, dt) * dt;
 
             if (state.Elapsed >= boomerang.MaxLifetime)
             {
@@ -354,11 +373,12 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             {
                 OutDistance = 5f,
                 ReturnTurnRate = 520f,
-                MaxLifetime = 2.4f
+                MaxLifetime = 1.2f
             });
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        Boomerang.AddMotionTags(MotionTag.Return);
     }
 
     private static void SetupSlowVortex()
@@ -372,7 +392,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 ? vortexComponent
                 : new VortexTrajectoryParams
                 {
-                    ForwardSpeed = 9f,
+                    ForwardSpeed = 28f,
                     Radius = 0.9f,
                     AngularSpeed = 520f,
                     PulseAmplitude = 0.25f,
@@ -380,11 +400,14 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 };
             var baseDir = SafeNormalized(state.StartDirection, context.TargetDir);
             var side = PerpendicularInPlane(baseDir);
-            var angle = state.Phase + vortex.AngularSpeed * Mathf.Deg2Rad * state.Elapsed;
+            var speed = GetVelocity(e, vortex.ForwardSpeed, dt);
+            state.DistanceTravelled += speed * dt;
+            var referenceTime = state.DistanceTravelled / Mathf.Max(1f, vortex.ForwardSpeed);
+            var angle = state.Phase + vortex.AngularSpeed * Mathf.Deg2Rad * referenceTime;
             var radius = vortex.Radius
-                         + Mathf.Sin(state.Elapsed * vortex.PulseFrequency * TwoPi + state.Phase)
+                         + Mathf.Sin(referenceTime * vortex.PulseFrequency * TwoPi + state.Phase)
                          * vortex.PulseAmplitude;
-            var center = state.StartPosition + baseDir * (vortex.ForwardSpeed * state.Elapsed);
+            var center = state.StartPosition + baseDir * state.DistanceTravelled;
             var next = center + side * (Mathf.Cos(angle) * radius) + baseDir * (Mathf.Sin(angle) * radius * 0.25f);
 
             rot.value = DirectionTo(next, pos.value, baseDir);
@@ -392,10 +415,10 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         SlowVortex.OnInit = e =>
         {
-            EnsureVelocity(e, 13f);
+            EnsureVelocity(e, 28f);
             SetOrAdd(e, new VortexTrajectoryParams
             {
-                ForwardSpeed = 9f,
+                ForwardSpeed = 28f,
                 Radius = 0.9f,
                 AngularSpeed = 520f,
                 PulseAmplitude = 0.25f,
@@ -404,6 +427,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
+        SlowVortex.AddMotionTags(MotionTag.Vortex);
     }
 
     private static void SetupArcToPosition()
@@ -415,10 +439,13 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
 
             var arc = e.TryGetComponent(out ArcTrajectoryParams arcComponent)
                 ? arcComponent
-                : new ArcTrajectoryParams { Duration = 0.75f, Height = 4f };
+                : new ArcTrajectoryParams { Duration = 0.5f, Height = 4f };
             var target = context.TargetPos;
-            var duration = Mathf.Max(0.1f, arc.Duration);
-            var t = Mathf.Clamp01(state.Elapsed / duration);
+            var speed = GetVelocity(e, 62f, dt);
+            state.DistanceTravelled += speed * dt;
+            var directDistance = Mathf.Max(0.1f, Vector3.Distance(state.StartPosition, target));
+            var t = Mathf.Clamp01(state.DistanceTravelled / directDistance);
+            if (state.Elapsed >= Mathf.Max(0.1f, arc.Duration)) t = 1f;
             var flat = Vector3.Lerp(state.StartPosition, target, t);
             flat.z = Mathf.Lerp(state.StartPosition.z, target.z, t) + Mathf.Sin(t * Mathf.PI) * arc.Height;
             SetOrAdd(e, new CollisionHeightGate { MaxHeight = target.z + 0.55f });
@@ -426,7 +453,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             rot.value = DirectionTo(flat, pos.value, context.TargetDir);
             pos.value = flat;
 
-            if (state.Elapsed >= duration + 0.08f)
+            if (t >= 1f)
             {
                 ModClass.I.CommandBuffer.AddTag<TagRecycle>(e.Id);
             }
@@ -436,12 +463,13 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             EnsureVelocity(e, 30f);
             SetOrAdd(e, new ArcTrajectoryParams
             {
-                Duration = 0.75f,
+                Duration = 0.5f,
                 Height = 4f
             });
             SetOrAdd(e, new CollisionHeightGate { MaxHeight = 0.55f });
             ResetRuntimeState(e);
         };
+        ArcToPosition.AddMotionTags(MotionTag.Falling);
     }
 
     private static void SetupFallingStrike()
@@ -468,9 +496,10 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
 
             state.Elapsed += dt;
             var targetPos = GetTargetPos(ref context);
+            var fallSpeed = Mathf.Max(falling.FallSpeed, GetVelocity(e, 62f, dt));
             var targetFlat = new Vector3(targetPos.x, targetPos.y, pos.z);
             pos.value = Vector3.MoveTowards(pos.value, targetFlat, falling.DriftSpeed * dt);
-            pos.z -= falling.FallSpeed * dt;
+            pos.z -= fallSpeed * dt;
             if (pos.z < targetPos.z)
             {
                 pos.z = targetPos.z;
@@ -481,7 +510,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             {
                 SetOrAdd(e, new CollisionHeightGate { MaxHeight = targetPos.z + falling.ImpactHeight });
             }
-            if (state.Elapsed >= falling.StartHeight / Mathf.Max(0.01f, falling.FallSpeed) + 0.35f)
+            if (state.Elapsed >= falling.StartHeight / Mathf.Max(0.01f, fallSpeed) + 0.12f)
             {
                 ModClass.I.CommandBuffer.AddTag<TagRecycle>(e.Id);
             }
@@ -498,7 +527,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             SetOrAdd(e, new CollisionHeightGate { MaxHeight = 0.35f });
             ResetRuntimeState(e);
         };
-        FallingStrike.WithOrientations(TrajectoryOrientation.Vertical);
+        FallingStrike.WithOrientations(TrajectoryOrientation.Vertical)
+            .AddMotionTags(MotionTag.Falling);
     }
 
     private static void SetupGroundCrawl()
@@ -513,7 +543,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             var sway = Mathf.Sin(state.Elapsed * TwoPi * 2.2f + state.Phase) * 0.2f;
             var desired = SafeNormalized(targetDir + side * sway, targetDir);
             rot.value = SmoothTurn(SafeNormalized(rot.value, desired), desired, GetTurnRate(e, 120f) * dt);
-            pos.value += SafeNormalized(rot.value, desired) * GetVelocity(e, 20f) * dt;
+            pos.value += SafeNormalized(rot.value, desired) * GetVelocity(e, 20f, dt) * dt;
             pos.z = Mathf.Max(0f, GetTargetPos(ref context).z * 0.15f);
         };
         GroundCrawl.OnInit = e =>
@@ -523,7 +553,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        GroundCrawl.WithOrientations(TrajectoryOrientation.Ground);
+        GroundCrawl.WithOrientations(TrajectoryOrientation.Ground)
+            .AddMotionTags(MotionTag.Ground);
     }
 
     private static void SetupLightningSnap()
@@ -532,6 +563,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         {
             ref var state = ref GetRuntimeState(e, ref pos, ref rot);
             state.Elapsed += dt;
+            var speed = GetVelocity(e, 100f, dt);
             state.Timer -= dt;
             if (state.Timer > 0f) return;
 
@@ -539,18 +571,20 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
                 ? snapComponent
                 : new LightningSnapTrajectoryParams
                 {
-                    StepInterval = 0.035f,
-                    StepDistance = 2.8f,
+                    StepInterval = 0.025f,
+                    StepDistance = 2.5f,
                     JitterRadius = 0.45f,
                     HitDistance = 1.2f
                 };
-            state.Timer = Mathf.Max(0.01f, snap.StepInterval);
+            var stepInterval = Mathf.Max(0.01f, snap.StepInterval);
+            var stepDistance = Mathf.Max(snap.StepDistance, speed * stepInterval);
+            state.Timer = stepInterval;
 
             var target = GetTargetPos(ref context);
             var toTarget = target - pos.value;
             var distance = toTarget.magnitude;
             var dir = SafeNormalized(toTarget, context.TargetDir);
-            if (distance <= snap.StepDistance + snap.HitDistance)
+            if (distance <= stepDistance + snap.HitDistance)
             {
                 pos.value = target;
                 rot.value = dir;
@@ -559,7 +593,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
 
             var side = PerpendicularInPlane(dir);
             var jitter = side * Randy.randomFloat(-snap.JitterRadius, snap.JitterRadius);
-            var next = pos.value + dir * snap.StepDistance + jitter;
+            var next = pos.value + dir * stepDistance + jitter;
             rot.value = DirectionTo(next, pos.value, dir);
             pos.value = next;
         };
@@ -567,8 +601,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         {
             SetOrAdd(e, new LightningSnapTrajectoryParams
             {
-                StepInterval = 0.035f,
-                StepDistance = 2.8f,
+                StepInterval = 0.025f,
+                StepDistance = 2.5f,
                 JitterRadius = 0.45f,
                 HitDistance = 1.2f
             });
@@ -576,7 +610,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ClearCollisionHeightGate(e);
         };
         // 折线闪击以水平推进为主，但抵达后即停、视觉接近原地显现，故同时声明 Appear。
-        LightningSnap.WithOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Appear);
+        LightningSnap.WithOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Appear)
+            .AddMotionTags(MotionTag.Snap);
     }
 
     private static void SetupRainFall()
@@ -605,7 +640,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
 
             state.Elapsed += dt;
             var targetPos = GetTargetPos(ref context);
-            pos.z -= rain.FallSpeed * dt;
+            var fallSpeed = Mathf.Max(rain.FallSpeed, GetVelocity(e, 62f, dt));
+            pos.z -= fallSpeed * dt;
             if (pos.z < targetPos.z)
             {
                 pos.z = targetPos.z;
@@ -616,7 +652,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             {
                 SetOrAdd(e, new CollisionHeightGate { MaxHeight = targetPos.z + rain.ImpactHeight });
             }
-            if (state.Elapsed >= rain.StartHeight / Mathf.Max(0.01f, rain.FallSpeed) + 0.3f)
+            if (state.Elapsed >= rain.StartHeight / Mathf.Max(0.01f, fallSpeed) + 0.1f)
             {
                 ModClass.I.CommandBuffer.AddTag<TagRecycle>(e.Id);
             }
@@ -633,7 +669,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             SetOrAdd(e, new CollisionHeightGate { MaxHeight = 0.35f });
             ResetRuntimeState(e);
         };
-        RainFall.WithOrientations(TrajectoryOrientation.Vertical);
+        RainFall.WithOrientations(TrajectoryOrientation.Vertical)
+            .AddMotionTags(MotionTag.Rain, MotionTag.Falling);
     }
 
     private static void SetupAppearAtTarget()
@@ -658,7 +695,8 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        AppearAtTarget.WithOrientations(TrajectoryOrientation.Appear);
+        AppearAtTarget.WithOrientations(TrajectoryOrientation.Appear)
+            .AddMotionTags(MotionTag.Appear, MotionTag.Snap);
     }
 
     private static void MoveSmoothlyTo(Vector3 target, ref Position pos, ref Rotation rot, Entity e, float dt,
@@ -677,7 +715,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             rot.value = targetDir;
         }
 
-        pos.value += SafeNormalized(rot.value, targetDir) * GetVelocity(e, defaultVelocity) * dt;
+        pos.value += SafeNormalized(rot.value, targetDir) * GetVelocity(e, defaultVelocity, dt) * dt;
     }
 
     private static ref TrajectoryRuntimeState GetRuntimeState(Entity e, ref Position pos, ref Rotation rot)
@@ -695,6 +733,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             state.StartPosition = pos.value;
             state.StartDirection = SafeNormalized(rot.value, Vector3.right);
             state.Elapsed = 0f;
+            state.DistanceTravelled = 0f;
             state.Timer = 0f;
             state.StepIndex = 0;
             state.Phase = Randy.randomFloat(-TwoPi, TwoPi);
@@ -782,14 +821,15 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         return Quaternion.AngleAxis(maxAngleDegrees, axis.normalized) * current;
     }
 
-    private static float GetVelocity(Entity e, float defaultValue)
+    private static float GetVelocity(Entity e, float defaultValue, float dt)
     {
         var baseVel = e.TryGetComponent(out Velocity velocity) ? velocity.Value : defaultValue;
 
-        // 加速曲线：出手蓄势 → 快速加速到终速冲刺
-        if (e.TryGetComponent(out SkillVelocityRamp ramp))
+        // 运动配置使用短促的起步冲量，随后迅速稳定到巡航速度。
+        if (e.HasComponent<SkillVelocityRamp>())
         {
-            ramp.Elapsed += World.world.elapsed;
+            ref var ramp = ref e.GetComponent<SkillVelocityRamp>();
+            ramp.Elapsed += dt;
             return baseVel * ramp.CurrentMultiplier;
         }
 

@@ -15,6 +15,15 @@ public static class SkillContainerUtils
     }
 
     /// <summary>
+    /// 在容器构建或词条变更完成后解析并缓存运动配置。
+    /// </summary>
+    public static void RefreshMotionProfile(Entity skillContainer)
+    {
+        ref var container = ref skillContainer.GetComponent<SkillContainer>();
+        container.MotionProfile = ModClass.I.SkillV3.MotionProfileLib.Resolve(container, skillContainer);
+    }
+
+    /// <summary>
     /// 判断两个法术容器是否相似, 要求必须有<see cref="SkillContainer"/>组件
     /// </summary>
     public static bool IsSimilar(Entity a, Entity b)

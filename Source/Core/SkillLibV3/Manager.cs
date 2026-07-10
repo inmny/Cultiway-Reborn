@@ -2,7 +2,9 @@ using System;
 using System.Text;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Components.TrajParams;
 using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.SkillLibV3.Motions;
 using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Systems.Logic;
@@ -24,6 +26,7 @@ public class Manager
     public SkillModifierLibrary ModifierLib { get; } = new();
     public TrajectoryLibrary TrajLib { get; } = new TrajectoryLibrary();
     public SkillVfxElementLibrary VfxElementLib { get; } = new();
+    public SkillMotionProfileLibrary MotionProfileLib { get; } = new();
     public SystemGroup SkillLogicSystemGroup { get; } = new SystemGroup("SkillLibV3");
     internal Manager(WorldboxGame game)
     {
@@ -47,6 +50,7 @@ public class Manager
         AssetManager._instance.add(ModifierLib, "cultiway.skill_modifiers");
         AssetManager._instance.add(TrajLib, "cultiway.trajectories");
         AssetManager._instance.add(VfxElementLib, "cultiway.skill_vfx_elements");
+        AssetManager._instance.add(MotionProfileLib, "cultiway.skill_motion_profiles");
     }
 
     public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
@@ -160,6 +164,8 @@ public class Manager
         ref var rot = ref data.Get<Rotation>();
         rot.value = initial_dir;
 
+        ApplyMotionProfile(entity, container.MotionProfile, source_pos, target_pos);
+
         if (delay > 0f)
         {
             entity.Add(new DelayActive()
@@ -173,10 +179,35 @@ public class Manager
             container.OnSetup(entity);
         }
 
-        ApplyHorizontalTrajectoryAfterimage(entity);
+        ApplyHorizontalTrajectoryAfterimage(entity, container.MotionProfile);
     }
 
-    private static void ApplyHorizontalTrajectoryAfterimage(Entity entity)
+    private static void ApplyMotionProfile(Entity entity, SkillMotionProfileAsset profile, Vector3 sourcePos,
+        Vector3 targetPos)
+    {
+        var distance = Vector2.Distance(new Vector2(sourcePos.x, sourcePos.y), new Vector2(targetPos.x, targetPos.y));
+        var velocity = new Velocity
+        {
+            Value = profile.ResolveSpeed(distance)
+        };
+        SetOrAdd(entity, velocity);
+        SetOrAdd(entity, new TurnRate
+        {
+            Value = profile.TurnRate
+        });
+        SetOrAdd(entity, new SkillVelocityRamp
+        {
+            StartMultiplier = profile.LaunchMultiplier,
+            EndMultiplier = profile.CruiseMultiplier,
+            RampDuration = profile.RampDuration,
+            Elapsed = 0f
+        });
+
+        ref var controller = ref entity.GetComponent<AnimController>();
+        controller.meta.frame_interval = profile.FrameInterval;
+    }
+
+    private static void ApplyHorizontalTrajectoryAfterimage(Entity entity, SkillMotionProfileAsset profile)
     {
         if (!entity.TryGetComponent(out Trajectory trajectory)) return;
 
@@ -191,7 +222,7 @@ public class Manager
             return;
         }
 
-        var afterimage = AnimAfterimage.HorizontalTrajectory();
+        var afterimage = profile.Afterimage;
         if (entity.HasComponent<AnimAfterimage>())
         {
             ref var current = ref entity.GetComponent<AnimAfterimage>();
@@ -201,6 +232,19 @@ public class Manager
         {
             entity.AddComponent(afterimage);
         }
+    }
+
+    private static void SetOrAdd<TComponent>(Entity entity, TComponent component)
+        where TComponent : struct, IComponent
+    {
+        if (entity.HasComponent<TComponent>())
+        {
+            ref var current = ref entity.GetComponent<TComponent>();
+            current = component;
+            return;
+        }
+
+        entity.AddComponent(component);
     }
 
     private static void SyncRuntimeFxStartPosition(Entity entity, Vector3 sourcePos)
