@@ -31,7 +31,7 @@ public class EquippedArtifactRenderSystem : QuerySystem<ActorBinder>
         var prefab = ModClass.NewPrefabPreview(nameof(EquippedArtifactRenderSystem) + "_Artifact")
             .AddComponent<ArtifactRenderer>();
         prefab.sprite_renderer = prefab.GetComponent<SpriteRenderer>();
-        prefab.sprite_renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
+        prefab.sprite_renderer.sortingLayerName = RenderSortingLayerNames.Objects_4;
         prefab.sprite_renderer.sortingOrder = 6;
 
         _pool = new MonoObjPool<ArtifactRenderer>(
@@ -51,7 +51,7 @@ public class EquippedArtifactRenderSystem : QuerySystem<ActorBinder>
         }
 
         float time = (float)World.world.getCurSessionTime();
-        Query.ForEachEntity((ref ActorBinder binder, Entity owner) =>
+        Query.ForEachEntity([Hotfixable](ref ActorBinder binder, Entity owner) =>
         {
             Actor actor = binder.Actor;
             if (actor == null || !actor.isAlive() || !actor.is_visible) return;
@@ -76,7 +76,7 @@ public class EquippedArtifactRenderSystem : QuerySystem<ActorBinder>
                 renderer.sprite_renderer.color = Color.white;
                 renderer.sprite_renderer.flipX = false;
                 renderer.transform.localRotation = Quaternion.identity;
-                renderer.transform.localScale = Vector3.one * ResolveScale(sprite, actorScale, time, visualIndex);
+                renderer.transform.localScale = Vector3.one * ResolveScale(sprite, actorScale, time, visualIndex) * 40;
                 renderer.transform.localPosition = actor.cur_transform_position +
                                                    ResolveOffset(actor, visualIndex, artifactCount, actorScale, time);
                 visualIndex++;
