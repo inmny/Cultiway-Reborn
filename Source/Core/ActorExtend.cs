@@ -788,6 +788,14 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     public void SetSect(Sect new_sect)
     {
         WorldboxGame.I.Sects.setDirtyUnits(sect);
+        if (new_sect == null)
+        {
+            E.RemoveComponent<SectJobState>();
+        }
+        else
+        {
+            E.AddComponent(new SectJobState { SectId = -1 });
+        }
         sect = new_sect;
         WorldboxGame.I.Sects.unitAdded(new_sect);
         Base.setStatsDirty();

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
@@ -18,6 +19,7 @@ public class LogicSkillGroundFxRecordSystem :
 {
     /// <summary>飞行地面影响的距离阈值（世界单位）：每移动这么远触发一次 OnFlyOver。</summary>
     private const float FlyOverDistanceThreshold = 0.6f;
+    private readonly List<PendingGroundEffect> _pendingEffects = new();
 
     public LogicSkillGroundFxRecordSystem()
     {
@@ -26,6 +28,7 @@ public class LogicSkillGroundFxRecordSystem :
 
     protected override void OnUpdate()
     {
+        _pendingEffects.Clear();
         Query.ForEachEntity((ref Position pos, ref SkillGroundFxState fxState, ref SkillEntity skillEntity,
             ref Trajectory trajectory, ref ColliderSphere collider, Entity entity) =>
         {
@@ -51,7 +54,7 @@ public class LogicSkillGroundFxRecordSystem :
             {
                 var t = sampleDistance / distance;
                 var samplePos = new Vector3(fxState.LastX + dx * t, fxState.LastY + dy * t, currentPos.z);
-                SkillGroundFx.OnFlyOver(samplePos, effectRadius, skillEntity.VfxElement);
+                _pendingEffects.Add(new PendingGroundEffect(samplePos, effectRadius, skillEntity.VfxElement));
             }
 
             var totalDistance = fxState.DistanceAccumulator + distance;
@@ -59,5 +62,18 @@ public class LogicSkillGroundFxRecordSystem :
             fxState.LastX = currentPos.x;
             fxState.LastY = currentPos.y;
         });
+
+        for (int i = 0; i < _pendingEffects.Count; i++)
+        {
+            PendingGroundEffect effect = _pendingEffects[i];
+            SkillGroundFx.OnFlyOver(effect.Position, effect.Radius, effect.Element);
+        }
+    }
+
+    private readonly struct PendingGroundEffect(Vector3 position, float radius, SkillVfxElementAsset element)
+    {
+        public Vector3 Position { get; } = position;
+        public float Radius { get; } = radius;
+        public SkillVfxElementAsset Element { get; } = element;
     }
 }

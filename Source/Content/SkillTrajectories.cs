@@ -777,11 +777,6 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
 
     private static ref TrajectoryRuntimeState GetRuntimeState(Entity e, ref Position pos, ref Rotation rot)
     {
-        if (!e.HasComponent<TrajectoryRuntimeState>())
-        {
-            e.AddComponent(new TrajectoryRuntimeState());
-        }
-
         ref var state = ref e.GetComponent<TrajectoryRuntimeState>();
         if (!state.Initialized)
         {

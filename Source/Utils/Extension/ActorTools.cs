@@ -231,15 +231,16 @@ public static class ActorTools
 
     public static void SetSectJob(this Actor actor, Sect sect, SectJobAsset job)
     {
-        ActorExtend actorExtend = actor.GetExtend();
-        ref SectJobState state = ref actorExtend.GetOrAddComponent<SectJobState>();
+        ref SectJobState state = ref actor.GetExtend().E.GetComponent<SectJobState>();
         state.Job = job;
         state.SectId = sect.getID();
     }
 
     public static void ClearSectJob(this Actor actor)
     {
-        actor.GetExtend().E.RemoveComponent<SectJobState>();
+        ref SectJobState state = ref actor.GetExtend().E.GetComponent<SectJobState>();
+        state.Job = null;
+        state.SectId = -1;
     }
 
     public static string GetSourceSpawnerAssetId(this Actor actor)

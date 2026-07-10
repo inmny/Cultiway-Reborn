@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Friflo.Engine.ECS;
@@ -10,6 +11,8 @@ namespace Cultiway.Core.SkillLibV3.Systems;
 /// </summary>
 public class LogicSkillTravelSystem : QuerySystem<SkillEntity>
 {
+    private readonly List<Entity> _pendingEntities = new();
+
     public LogicSkillTravelSystem()
     {
         Filter.AllTags(Tags.Get<TagHasOnTravel>());
@@ -18,15 +21,28 @@ public class LogicSkillTravelSystem : QuerySystem<SkillEntity>
     
     protected override void OnUpdate()
     {
+        _pendingEntities.Clear();
         Query.ForEach((skillEntities, entities) =>
         {
             for (int i = 0; i < entities.Length; i++)
             {
                 var entity = entities.EntityAt(i);
                 ref var skillEntity = ref skillEntities[i];
-                skillEntity.SkillContainer.GetComponent<SkillContainer>().OnTravel?.Invoke(entity);
+                if (skillEntity.SkillContainer.GetComponent<SkillContainer>().OnTravel != null)
+                {
+                    _pendingEntities.Add(entity);
+                }
             }
         }).Run();
+
+        for (int i = 0; i < _pendingEntities.Count; i++)
+        {
+            Entity entity = _pendingEntities[i];
+            if (entity.IsNull) continue;
+
+            SkillEntity skillEntity = entity.GetComponent<SkillEntity>();
+            skillEntity.SkillContainer.GetComponent<SkillContainer>().OnTravel?.Invoke(entity);
+        }
     }
 }
 

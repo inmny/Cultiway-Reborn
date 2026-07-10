@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Components.TrajParams;
@@ -10,6 +11,9 @@ namespace Cultiway.Core.SkillLibV3.Systems;
 
 public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, ColliderSphere, ColliderConfig, Position>
 {
+    private readonly List<PendingHit> _pendingHits = new();
+    private readonly HashSet<int> _stoppedSkillIds = new();
+
     public LogicActorCollisionSystem()
     {
         Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
@@ -17,6 +21,7 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
 
     protected override void OnUpdate()
     {
+        _pendingHits.Clear();
         var world_min = new Vector2Int(0,            0);
         var world_max = new Vector2Int(MapBox.width-1, MapBox.height-1);
         Query.ForEachEntity(((ref SkillContext context, ref SkillEntity skill_entity, ref ColliderSphere collider,
@@ -53,7 +58,6 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             var deltaSqrInv = useSegment ? 1f / delta.sqrMagnitude : 0f;
             var thresholdSqr = (radius + 1f) * (radius + 1f);
 
-            var action = skill_entity.Asset.OnObjCollision;
             for (var x = lb_fixed.x; x <= rt_fixed.x; x++)
             for (var y = lb_fixed.y; y <= rt_fixed.y; y++)
             {
@@ -89,15 +93,47 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
                         if ((!enemy || !config.Enemy) && (enemy || !config.Alias)) continue;
                     }
 
-                    if (entity.HasComponent<SkillHitMemory>())
-                    {
-                        ref var hitMemory = ref entity.GetComponent<SkillHitMemory>();
-                        if (!hitMemory.TargetIds.Add(obj.getID())) continue;
-                    }
-
-                    if (!action(ref context, skill_entity.SkillContainer, entity, obj)) return;
+                    _pendingHits.Add(new PendingHit(entity, obj));
                 }
             }
         }));
+
+        ResolvePendingHits();
+    }
+
+    /// <summary>
+    /// 在 ECS 查询结束后执行命中回调，避免其触发的原版逻辑在查询锁内修改实体结构。
+    /// </summary>
+    private void ResolvePendingHits()
+    {
+        _stoppedSkillIds.Clear();
+        for (int i = 0; i < _pendingHits.Count; i++)
+        {
+            PendingHit pending = _pendingHits[i];
+            Entity entity = pending.SkillEntity;
+            if (entity.IsNull || _stoppedSkillIds.Contains(entity.Id)) continue;
+
+            Actor target = pending.Target;
+            if (target == null || target.isRekt()) continue;
+
+            if (entity.HasComponent<SkillHitMemory>())
+            {
+                ref SkillHitMemory hitMemory = ref entity.GetComponent<SkillHitMemory>();
+                if (!hitMemory.TargetIds.Add(target.getID())) continue;
+            }
+
+            ref SkillContext context = ref entity.GetComponent<SkillContext>();
+            ref SkillEntity skillEntity = ref entity.GetComponent<SkillEntity>();
+            if (!skillEntity.Asset.OnObjCollision(ref context, skillEntity.SkillContainer, entity, target))
+            {
+                _stoppedSkillIds.Add(entity.Id);
+            }
+        }
+    }
+
+    private readonly struct PendingHit(Entity skillEntity, Actor target)
+    {
+        public Entity SkillEntity { get; } = skillEntity;
+        public Actor Target { get; } = target;
     }
 }

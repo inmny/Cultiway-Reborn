@@ -1,4 +1,4 @@
-using System.Linq;
+using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Core.Components;
@@ -11,11 +11,14 @@ namespace Cultiway.Content.Systems.Logic;
 
 public class CityDistributeItemsSystem : QuerySystem<CityBinder>
 {
+    private readonly List<PendingTransfer> _pendingTransfers = new();
+
     public CityDistributeItemsSystem()
     {
     }
     protected override void OnUpdate()
     {
+        _pendingTransfers.Clear();
         Query.ForEach(([Hotfixable](cities, entities) =>
         {
             for (int i = 0; i < entities.Length; i++)
@@ -47,9 +50,26 @@ public class CityDistributeItemsSystem : QuerySystem<CityBinder>
                 {
                     var unit = units.GetRandom();
                     if (unit.isAlive())
-                        unit.GetExtend().AddSpecialItem(item);
+                    {
+                        _pendingTransfers.Add(new PendingTransfer(unit, item));
+                    }
                 }
             }
-        })).RunParallel();
+        })).Run();
+
+        for (int i = 0; i < _pendingTransfers.Count; i++)
+        {
+            PendingTransfer transfer = _pendingTransfers[i];
+            if (!transfer.Item.IsNull && transfer.Target.isAlive())
+            {
+                transfer.Target.GetExtend().AddSpecialItem(transfer.Item);
+            }
+        }
+    }
+
+    private readonly struct PendingTransfer(Actor target, Entity item)
+    {
+        public Actor Target { get; } = target;
+        public Entity Item { get; } = item;
     }
 }

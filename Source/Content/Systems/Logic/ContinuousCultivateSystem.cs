@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
@@ -19,6 +20,7 @@ public class ContinuousCultivateSystem : QuerySystem<Xian, ActorBinder>
 {
     private float _updateTimer = 0f;
     private const float UpdateInterval = 1f;
+    private readonly List<PendingSideEffect> _pendingSideEffects = new();
 
     public ContinuousCultivateSystem()
     {
@@ -31,6 +33,7 @@ public class ContinuousCultivateSystem : QuerySystem<Xian, ActorBinder>
         _updateTimer -= Tick.deltaTime;
         if (_updateTimer > 0) return;
         _updateTimer = UpdateInterval;
+        _pendingSideEffects.Clear();
 
         Query.ForEachComponents(([Hotfixable](ref Xian xian, ref ActorBinder binder) =>
         {
@@ -58,10 +61,25 @@ public class ContinuousCultivateSystem : QuerySystem<Xian, ActorBinder>
             if (wakanGain > 0)
             {
                 xian.wakan += wakanGain;
-                
-                method.OnSideEffect?.Invoke(ae, wakanGain);
+                if (method.OnSideEffect != null)
+                {
+                    _pendingSideEffects.Add(new PendingSideEffect(method, ae, wakanGain));
+                }
             }
         }));
+
+        for (int i = 0; i < _pendingSideEffects.Count; i++)
+        {
+            PendingSideEffect sideEffect = _pendingSideEffects[i];
+            sideEffect.Method.OnSideEffect?.Invoke(sideEffect.Actor, sideEffect.WakanGain);
+        }
+    }
+
+    private readonly struct PendingSideEffect(CultivateMethodAsset method, ActorExtend actor, float wakanGain)
+    {
+        public CultivateMethodAsset Method { get; } = method;
+        public ActorExtend Actor { get; } = actor;
+        public float WakanGain { get; } = wakanGain;
     }
 }
 

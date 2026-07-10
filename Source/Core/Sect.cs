@@ -49,6 +49,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
 
     public override void triggerOnRemoveObject()
     {
+        ReleaseMembers();
         SectTreasureRules.ReleaseTreasures(this);
         DisposeTreasureInventory();
         base.triggerOnRemoveObject();
@@ -459,11 +460,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
         if (ae.sect != this) return false;
 
         bool wasLeader = data.LeaderActorID == actor.data.id;
-        SectTreasureRules.ReturnBorrowedTreasures(actor, this);
-        ae.SetSect(null);
-        actor.ClearSectRoles();
-        actor.ClearSectJoinTime();
-        actor.ClearSectContribution();
+        DetachMember(actor);
         SectVerifyLog.Log("LeaveSect", $"sect={SectVerifyLog.Sect(this)} actor={SectVerifyLog.Actor(actor)} wasLeader={wasLeader}");
 
         if (wasLeader)
@@ -474,6 +471,27 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
         }
 
         return true;
+    }
+
+    private void ReleaseMembers()
+    {
+        List<Actor> members = GetLivingMembers();
+        for (int i = 0; i < members.Count; i++)
+        {
+            DetachMember(members[i]);
+        }
+
+        SectVerifyLog.Log("SectMembersReleased", $"sect={SectVerifyLog.Sect(this)} count={members.Count}");
+    }
+
+    private void DetachMember(Actor actor)
+    {
+        SectTreasureRules.ReturnBorrowedTreasures(actor, this);
+        SectJobRules.ReleaseActorJob(actor);
+        actor.GetExtend().SetSect(null);
+        actor.ClearSectRoles();
+        actor.ClearSectJoinTime();
+        actor.ClearSectContribution();
     }
 
     public bool AddContribution(Actor actor, int contribution)

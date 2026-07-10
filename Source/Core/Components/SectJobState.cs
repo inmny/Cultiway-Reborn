@@ -4,7 +4,7 @@ using Friflo.Engine.ECS;
 namespace Cultiway.Core.Components;
 
 /// <summary>
-/// 宗门岗位运行态。只表示单位当前领取的宗门事务，不进入 ActorData 持久化。
+/// 宗门岗位运行态。随宗门成员的 ActorExtend 常驻，只表示当前领取的宗门事务，不进入 ActorData 持久化。
 /// </summary>
 public struct SectJobState : IComponent
 {
