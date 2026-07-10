@@ -23,6 +23,7 @@ public class SkillVfxElementAsset : Asset
     public float AccentAlpha = 0.75f;
     public SkillVfxGroundFlyOver GroundFlyOver = NoFlyOver;
     public SkillVfxGroundImpact GroundImpact = NoImpact;
+    public SkillFlyOverParticleStyle FlyOverParticles = SkillFlyOverParticleStyle.Default;
     public string ImpactSound;
     public float ImpactFeedbackInterval = 0.12f;
     public float AreaShakeIntensity;
@@ -51,6 +52,12 @@ public class SkillVfxElementAsset : Asset
     {
         ImpactSound = impactSound;
         AreaShakeIntensity = areaShakeIntensity;
+        return this;
+    }
+
+    public SkillVfxElementAsset SetFlyOverParticles(SkillFlyOverParticleStyle style)
+    {
+        FlyOverParticles = style;
         return this;
     }
 

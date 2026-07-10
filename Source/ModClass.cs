@@ -14,6 +14,7 @@ using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Localization;
 using Cultiway.Core.Logging;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
 using Cultiway.Debug;
@@ -383,6 +384,7 @@ namespace Cultiway
             
             GeneralRenderSystems.Add(new RenderAnimFrameSystem(W));
             GeneralRenderSystems.Add(new RenderStatusParticleSystem());
+            GeneralRenderSystems.Add(new RenderSkillFlyOverParticleSystem());
 
             CustomMapModeManager = new();
             CustomMapModeManager.Initialize();
