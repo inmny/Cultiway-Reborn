@@ -33,6 +33,8 @@ Cultiway.SectHall,宗门大殿
 Cultiway.SectHall.Description,宗门议事、传承和权威的核心建筑。
 Cultiway.SectScripturePavilion,藏经阁
 Cultiway.SectScripturePavilion.Description,收藏宗门功法、术法和丹方的建筑。
+Cultiway.SectTreasurePavilion,藏宝阁
+Cultiway.SectTreasurePavilion.Description,保管宗门丹药、符箓、材料与法宝的建筑。
 Cultiway.TeleportArray,传送阵
 Cultiway.TeleportArray.Description,多个传送阵之间完全连通，生物会请求排队传送。
 

@@ -12,7 +12,7 @@ using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;
-[Dependency(typeof(Actors), typeof(KingdomAssets))]
+[Dependency(typeof(Actors), typeof(KingdomAssets), typeof(SectStats))]
 public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
 {
     class CommonBuildingSetupAttribute : Attribute
@@ -60,6 +60,8 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     public static BuildingAsset SectHall { get; private set; }
     [CloneSource(SB.library_human)]
     public static BuildingAsset SectScripturePavilion { get; private set; }
+    [CloneSource(SB.library_human)]
+    public static BuildingAsset SectTreasurePavilion { get; private set; }
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
@@ -220,6 +222,12 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         SectScripturePavilion.priority = 90;
         SectScripturePavilion.cost = new ConstructionCost(0, 12, 2, 50);
         SectScripturePavilion.base_stats["health"] = 350f;
+
+        SetupSectBuildingBase(SectTreasurePavilion, SectConst.BuildingTypeTreasurePavilion);
+        SectTreasurePavilion.priority = 80;
+        SectTreasurePavilion.cost = new ConstructionCost(4, 16, 4, 70);
+        SectTreasurePavilion.base_stats["health"] = 450f;
+        SectTreasurePavilion.base_stats[SectStats.TreasureCapacity.id] = 40f;
     }
 
     private static void SetupSectBuildingBase(BuildingAsset asset, string type)

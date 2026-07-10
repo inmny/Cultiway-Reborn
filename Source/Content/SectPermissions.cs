@@ -29,6 +29,31 @@ public class SectPermissions : ExtendLibrary<SectPermissionAsset, SectPermission
     public static SectPermissionAsset WriteScripture { get; private set; }
 
     /// <summary>
+    /// 允许免费领取基础宗门库藏。
+    /// </summary>
+    public static SectPermissionAsset AccessBasicTreasure { get; private set; }
+
+    /// <summary>
+    /// 允许免费领取核心宗门库藏。
+    /// </summary>
+    public static SectPermissionAsset AccessCoreTreasure { get; private set; }
+
+    /// <summary>
+    /// 允许免费领取高阶宗门库藏。
+    /// </summary>
+    public static SectPermissionAsset AccessHighTreasure { get; private set; }
+
+    /// <summary>
+    /// 允许向宗门藏宝阁贡献物品。
+    /// </summary>
+    public static SectPermissionAsset DepositTreasure { get; private set; }
+
+    /// <summary>
+    /// 允许管理宗门藏宝阁。
+    /// </summary>
+    public static SectPermissionAsset ManageTreasure { get; private set; }
+
+    /// <summary>
     /// 允许招揽散修加入宗门。
     /// </summary>
     public static SectPermissionAsset RecruitMember { get; private set; }
@@ -82,6 +107,11 @@ public class SectPermissions : ExtendLibrary<SectPermissionAsset, SectPermission
         Setup(ReadCoreScripture);
         Setup(ReadHighScripture);
         Setup(WriteScripture);
+        Setup(AccessBasicTreasure);
+        Setup(AccessCoreTreasure);
+        Setup(AccessHighTreasure);
+        Setup(DepositTreasure);
+        Setup(ManageTreasure);
         Setup(RecruitMember);
         Setup(BringApprenticeToSect);
         Setup(DoSectChore);

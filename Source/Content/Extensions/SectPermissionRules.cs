@@ -7,6 +7,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 using UnityEngine;
+using Friflo.Engine.ECS;
 
 namespace Cultiway.Content.Extensions;
 
@@ -100,6 +101,54 @@ public static class SectPermissionRules
     {
         return IsMemberOfSect(actor, sect)
                && actor.HasSectPermission(SectPermissions.WriteScripture);
+    }
+
+    /// <summary>
+    /// 判断成员能否向指定宗门贡献特殊物品。
+    /// </summary>
+    public static bool CanDepositSectTreasure(this Actor actor, Sect sect)
+    {
+        return IsMemberOfSect(actor, sect)
+               && actor.HasSectPermission(SectPermissions.DepositTreasure);
+    }
+
+    /// <summary>
+    /// 判断成员是否拥有任意宗门库藏领取权限。
+    /// </summary>
+    public static bool HasAnySectTreasureAccessPermission(this Actor actor)
+    {
+        return actor.HasSectPermission(SectPermissions.AccessBasicTreasure)
+               || actor.HasSectPermission(SectPermissions.AccessCoreTreasure)
+               || actor.HasSectPermission(SectPermissions.AccessHighTreasure);
+    }
+
+    /// <summary>
+    /// 判断指定物品是否位于成员的免费或折扣领取范围内。
+    /// </summary>
+    public static bool HasSectTreasureAccessPermissionFor(this Actor actor, Entity item)
+    {
+        int stage = SectTreasureRules.GetTreasureStage(item);
+        if (stage >= SectConst.TreasureHighPermissionMinStage)
+        {
+            return actor.HasSectPermission(SectPermissions.AccessHighTreasure);
+        }
+
+        if (stage >= SectConst.TreasureCorePermissionMinStage)
+        {
+            return actor.HasSectPermission(SectPermissions.AccessCoreTreasure)
+                   || actor.HasSectPermission(SectPermissions.AccessHighTreasure);
+        }
+
+        return actor.HasAnySectTreasureAccessPermission();
+    }
+
+    /// <summary>
+    /// 判断成员能否管理指定宗门的藏宝阁。
+    /// </summary>
+    public static bool CanManageSectTreasure(this Actor actor, Sect sect)
+    {
+        return IsMemberOfSect(actor, sect)
+               && actor.HasSectPermission(SectPermissions.ManageTreasure);
     }
 
     /// <summary>

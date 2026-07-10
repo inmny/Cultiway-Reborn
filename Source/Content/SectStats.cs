@@ -41,6 +41,7 @@ public class SectStats : ExtendLibrary<BaseStatAsset, SectStats>
     [AssetId(nameof(WriteScriptureContributionModifier))] public static BaseStatAsset WriteScriptureContributionModifier { get; private set; }
     [AssetId(nameof(SectStudyJobChanceModifier))] public static BaseStatAsset SectStudyJobChanceModifier { get; private set; }
     [AssetId(nameof(SectAffairJobChanceModifier))] public static BaseStatAsset SectAffairJobChanceModifier { get; private set; }
+    [AssetId(nameof(TreasureCapacity))] public static BaseStatAsset TreasureCapacity { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -77,6 +78,7 @@ public class SectStats : ExtendLibrary<BaseStatAsset, SectStats>
         SetupPercentModifier(WriteScriptureContributionModifier, 770);
         SetupPercentModifier(SectStudyJobChanceModifier, 765);
         SetupPercentModifier(SectAffairJobChanceModifier, 760);
+        SetupFlatBonus(TreasureCapacity, 755);
     }
 
     private static void SetupPercentModifier(BaseStatAsset stat, int sortRank)

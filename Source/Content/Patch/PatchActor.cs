@@ -126,6 +126,12 @@ internal static class PatchActor
                     {
                         pool.Add(ActorJobs.SectAffair.id);
                     }
+                    if (sect != null
+                        && Randy.randomChance(SectConst.SectTreasureJobChance)
+                        && SectTreasureRules.CanDoAnyTreasureAction(pActor))
+                    {
+                        pool.Add(ActorJobs.SectTreasure.id);
+                    }
                     
                     // ========== 师徒系统工作添加到pool ==========
                     // 1. 师傅工作：元婴期及以上才会主动收徒和教导弟子

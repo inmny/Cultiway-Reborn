@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.ActorComponents;
+using Cultiway.Content.Extensions;
 using Cultiway.Content.Systems.Logic;
 using Cultiway.Content.Systems.Render;
+using Cultiway.Core;
 using Cultiway.Core.Pathfinding;
 
 namespace Cultiway.Content;
@@ -58,6 +60,7 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new CityDistributeItemsSystem());
         ModClass.I.GeneralLogicSystems.Add(new ContinuousCultivateSystem());
         ModClass.I.GeneralLogicSystems.Add(new SectConstructionSystem());
+        ActorExtend.RegisterActionOnDeath(SectTreasureRules.ReturnBorrowedTreasuresOnDeath);
         ModClass.I.GeneralRenderSystems.Add(new BreakthroughVisualSystem());
         ModClass.I.GeneralRenderSystems.Add(new CloudRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmAuraRenderSystem());

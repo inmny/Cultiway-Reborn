@@ -102,7 +102,9 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.DoSectChore, // permissions：可处理宗门杂务。
             SectPermissions.BuildBuilding, // permissions：可参与宗门建筑修建。
             SectPermissions.ReadBasicScripture, // permissions：可阅读基础藏书。
-            SectPermissions.WriteScripture); // permissions：可撰写并贡献藏书。
+            SectPermissions.WriteScripture, // permissions：可撰写并贡献藏书。
+            SectPermissions.DepositTreasure,
+            SectPermissions.AccessBasicTreasure);
 
         // 内门弟子：进阶门阶，要求人事评分达到 200 且具备正式师徒关系；可自动匹配有带徒入宗权限的师父。
         SetupGradeWithMasterRequirement(
@@ -120,7 +122,10 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.BuildBuilding, // permissions：可参与宗门建筑修建。
             SectPermissions.ReadBasicScripture, // permissions：可阅读基础藏书。
             SectPermissions.ReadCoreScripture, // permissions：可阅读核心藏书。
-            SectPermissions.WriteScripture); // permissions：可撰写并贡献藏书。
+            SectPermissions.WriteScripture, // permissions：可撰写并贡献藏书。
+            SectPermissions.DepositTreasure,
+            SectPermissions.AccessBasicTreasure,
+            SectPermissions.AccessCoreTreasure);
 
         // 亲传弟子：高阶弟子身份，要求人事评分达到 300 且已经具备亲传师徒关系，不自动补师父。
         SetupGradeWithMasterRequirement(
@@ -138,7 +143,11 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.ReadBasicScripture, // permissions：可阅读基础藏书。
             SectPermissions.ReadCoreScripture, // permissions：可阅读核心藏书。
             SectPermissions.ReadHighScripture, // permissions：可阅读高阶藏书。
-            SectPermissions.WriteScripture); // permissions：可撰写并贡献藏书。
+            SectPermissions.WriteScripture, // permissions：可撰写并贡献藏书。
+            SectPermissions.DepositTreasure,
+            SectPermissions.AccessBasicTreasure,
+            SectPermissions.AccessCoreTreasure,
+            SectPermissions.AccessHighTreasure);
 
         // 默认职司：用于填充职司槽位，不显示在人事列表中，也不参与自动任命。
         SetupOffice(
@@ -170,7 +179,11 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.WriteScripture, // permissions：可撰写并贡献藏书。
             SectPermissions.OrganizeScripture, // permissions：可整理藏经阁。
             SectPermissions.RecruitMember, // permissions：可招揽成员。
-            SectPermissions.BringApprenticeToSect); // permissions：可带徒入宗。
+            SectPermissions.BringApprenticeToSect, // permissions：可带徒入宗。
+            SectPermissions.DepositTreasure,
+            SectPermissions.AccessBasicTreasure,
+            SectPermissions.AccessCoreTreasure,
+            SectPermissions.ManageTreasure);
 
         // 长老：高层管理职司，要求从执事晋升、人事评分 300、境界等级 3；负责人事评定和藏经阁管理。
         SetupOfficeWithRequirements(
@@ -195,7 +208,12 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.RecruitMember, // permissions：可招揽成员。
             SectPermissions.BringApprenticeToSect, // permissions：可带徒入宗。
             SectPermissions.EvaluatePersonnel, // permissions：可评定宗门人事。
-            SectPermissions.TeachSectCultibook); // permissions：可为门人讲法。
+            SectPermissions.TeachSectCultibook, // permissions：可为门人讲法。
+            SectPermissions.DepositTreasure,
+            SectPermissions.AccessBasicTreasure,
+            SectPermissions.AccessCoreTreasure,
+            SectPermissions.AccessHighTreasure,
+            SectPermissions.ManageTreasure);
 
         // 掌门：宗门最高职司，唯一名额，清除门阶并授予宗门管理、提拔、人事评定等完整权限。
         SetupOffice(
@@ -220,7 +238,12 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.EvaluatePersonnel, // permissions：可评定宗门人事。
             SectPermissions.PromoteMember, // permissions：可提拔成员。
             SectPermissions.TeachSectCultibook, // permissions：可为门人讲法。
-            SectPermissions.ManageSect); // permissions：可管理宗门。
+            SectPermissions.ManageSect, // permissions：可管理宗门。
+            SectPermissions.DepositTreasure,
+            SectPermissions.AccessBasicTreasure,
+            SectPermissions.AccessCoreTreasure,
+            SectPermissions.AccessHighTreasure,
+            SectPermissions.ManageTreasure);
 
         // 默认头衔：用于填充头衔槽位，避免没有特殊头衔时出现空角色。
         SetupTitle(
@@ -244,7 +267,11 @@ public class SectRoles : ExtendLibrary<SectRoleAsset, SectRoles>
             SectPermissions.ReadBasicScripture, // permissions：可阅读基础藏书。
             SectPermissions.ReadCoreScripture, // permissions：可阅读核心藏书。
             SectPermissions.ReadHighScripture, // permissions：可阅读高阶藏书。
-            SectPermissions.WriteScripture); // permissions：可撰写并贡献藏书。
+            SectPermissions.WriteScripture, // permissions：可撰写并贡献藏书。
+            SectPermissions.DepositTreasure,
+            SectPermissions.AccessBasicTreasure,
+            SectPermissions.AccessCoreTreasure,
+            SectPermissions.AccessHighTreasure);
     }
 
     /// <summary>

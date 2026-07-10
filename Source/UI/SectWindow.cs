@@ -362,13 +362,18 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>, ITraitWindow<SectTr
     private void SetupSectCustomTabs(Transform content)
     {
         Transform personnelContent = CreatePersonnelContent(content);
-        Transform scriptureTypeTabs = CreateScriptureTypeTabContainer();
+        Transform scriptureTypeTabs = CreateTypeTabContainer("header_type_tab_container");
         Transform scriptureContent = CreateScriptureContent(content, scriptureTypeTabs);
+        Transform treasureTypeTabs = CreateTypeTabContainer("header_treasure_type_tab_container");
+        Transform treasureContent = CreateTreasureContent(content, treasureTypeTabs);
 
         SetupCustomTab("Sect Personnel", "Cultiway.Sect.Personnel", "Cultiway.Sect.PersonnelDescription", "ui/icons/iconInterestingPeople", personnelContent);
         WindowMetaTab scriptureTab = SetupCustomTab("Sect Scripture", "Cultiway.Sect.ScripturePavilion", "Cultiway.Sect.ScripturePavilionDescription", "ui/icons/iconBooks", scriptureContent);
         AddTabContent(scriptureTab, scriptureTypeTabs);
         scriptureTypeTabs.gameObject.SetActive(false);
+        WindowMetaTab treasureTab = SetupCustomTab("Sect Treasure", "Cultiway.Sect.TreasurePavilion", "Cultiway.Sect.TreasurePavilionDescription", "ui/icons/iconFavoriteItems", treasureContent);
+        AddTabContent(treasureTab, treasureTypeTabs);
+        treasureTypeTabs.gameObject.SetActive(false);
         scroll_window.tabs.refillTabsWithContent();
         ReorderSectCustomTabs();
     }
@@ -415,17 +420,39 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>, ITraitWindow<SectTr
         return scriptureContent;
     }
 
-    private Transform CreateScriptureTypeTabContainer()
+    private Transform CreateTreasureContent(Transform content, Transform typeTabsContainer)
     {
-        Transform header = transform.Find("Background/Scroll View/Viewport/Header")
-                           ?? throw new InvalidOperationException("SectWindow 缺少 Header 节点");
-        Transform existing = header.Find("header_type_tab_container");
+        Transform existing = content.Find("content_sect_treasure");
         if (existing != null)
         {
             Object.DestroyImmediate(existing.gameObject);
         }
 
-        GameObject container = new("header_type_tab_container", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement), typeof(TabTogglesGroup), typeof(Image));
+        Transform treasureContent = CloneCityContent("content_books", content, "content_sect_treasure");
+        treasureContent.gameObject.SetActive(false);
+        ConfigureTabContentRoot(treasureContent);
+
+        foreach (WindowMetaElementBase element in treasureContent.GetComponentsInChildren<WindowMetaElementBase>(true))
+        {
+            Object.DestroyImmediate(element);
+        }
+
+        SectTreasureElement treasureElement = treasureContent.gameObject.AddComponent<SectTreasureElement>();
+        treasureElement.Initialize(typeTabsContainer);
+        return treasureContent;
+    }
+
+    private Transform CreateTypeTabContainer(string containerName)
+    {
+        Transform header = transform.Find("Background/Scroll View/Viewport/Header")
+                           ?? throw new InvalidOperationException("SectWindow 缺少 Header 节点");
+        Transform existing = header.Find(containerName);
+        if (existing != null)
+        {
+            Object.DestroyImmediate(existing.gameObject);
+        }
+
+        GameObject container = new(containerName, typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter), typeof(LayoutElement), typeof(TabTogglesGroup), typeof(Image));
         container.transform.SetParent(header, false);
         container.transform.localScale = Vector3.one;
 
@@ -568,6 +595,7 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>, ITraitWindow<SectTr
 
         Transform personnelTab = tabsContainer.Find("Sect Personnel");
         Transform scriptureTab = tabsContainer.Find("Sect Scripture");
+        Transform treasureTab = tabsContainer.Find("Sect Treasure");
         if (personnelTab != null)
         {
             personnelTab.SetSiblingIndex(insertIndex++);
@@ -575,7 +603,12 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>, ITraitWindow<SectTr
 
         if (scriptureTab != null)
         {
-            scriptureTab.SetSiblingIndex(insertIndex);
+            scriptureTab.SetSiblingIndex(insertIndex++);
+        }
+
+        if (treasureTab != null)
+        {
+            treasureTab.SetSiblingIndex(insertIndex);
         }
 
         scroll_window.tabs.refillTabsWithContent();

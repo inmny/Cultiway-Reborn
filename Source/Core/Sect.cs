@@ -5,17 +5,19 @@ using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
+using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Debug;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
+using HarmonyLib;
 using UnityEngine;
 
 namespace Cultiway.Core;
 
-public class Sect : MetaObjectWithTraits<SectData, SectTrait>
+public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
 {
     public readonly List<Building> buildings = new();
     public readonly Dictionary<string, List<Building>> buildings_dict_type = new();
@@ -24,6 +26,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>
 
     internal Building under_construction_building;
     private SectTrait _residence_strategy;
+    private Entity _treasureEntity;
 
     public override MetaType meta_type => MetaTypeExtend.Sect.Back();
     public override AssetLibrary<SectTrait> trait_library => ModClass.L.SectTraitLibrary;
@@ -46,6 +49,8 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>
 
     public override void triggerOnRemoveObject()
     {
+        SectTreasureRules.ReleaseTreasures(this);
+        DisposeTreasureInventory();
         base.triggerOnRemoveObject();
         AbandonBuildings();
         WorldboxGame.I?.Sects?.setDirtyResidenceZones();
@@ -67,6 +72,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>
     public void Setup(Actor founder)
     {
         generateNewMetaObject();
+        InitializeTreasureInventory();
         data.ScriptureBookIDs = new List<long>();
         data.ResidenceZones = new List<ZoneData>();
         ClearBuildingList();
@@ -97,6 +103,123 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>
             "BuildSect",
             $"created sect={SectVerifyLog.Sect(this)} founder={SectVerifyLog.Actor(founder)} doctrine={data.DoctrineCultibookId ?? "null"} members={countUnits()} scriptures={data.ScriptureBookIDs.Count}");
         WorldLogUtils.LogSectFounded(this, founder);
+    }
+
+    public override void loadData(SectData pData)
+    {
+        base.loadData(pData);
+        InitializeTreasureInventory();
+    }
+
+    /// <summary>
+    /// 获取承载宗门运行期库藏关系的实体。
+    /// </summary>
+    public Entity TreasureEntity => _treasureEntity;
+
+    /// <summary>
+    /// 将特殊物品移入宗门运行期库存。
+    /// </summary>
+    public void AddSpecialItem(Entity item)
+    {
+        item.GetIncomingLinks<InventoryRelation>().Entities.Do(owner =>
+        {
+            owner.RemoveRelation<EquippedArtifactRelation>(item);
+            owner.RemoveRelation<InventoryRelation>(item);
+        });
+        _treasureEntity.AddRelation(new InventoryRelation { item = item });
+    }
+
+    /// <summary>
+    /// 将特殊物品移出宗门运行期库存。
+    /// </summary>
+    public void ExtractSpecialItem(Entity item)
+    {
+        _treasureEntity.RemoveRelation<InventoryRelation>(item);
+    }
+
+    /// <summary>
+    /// 枚举当前实际存放在藏宝阁中的特殊物品。
+    /// </summary>
+    public IEnumerable<Entity> GetItems()
+    {
+        var relations = _treasureEntity.GetRelations<InventoryRelation>();
+        for (int i = 0; i < relations.Length; i++)
+        {
+            yield return relations[i].item;
+        }
+    }
+
+    /// <summary>
+    /// 枚举宗门拥有的全部特殊物品，包含已经外借的法宝。
+    /// </summary>
+    public IEnumerable<Entity> GetTreasures()
+    {
+        var relations = _treasureEntity.GetRelations<SectTreasureRelation>();
+        for (int i = 0; i < relations.Length; i++)
+        {
+            yield return relations[i].item;
+        }
+    }
+
+    /// <summary>
+    /// 判断指定特殊物品的所有权是否属于宗门。
+    /// </summary>
+    public bool OwnsTreasure(Entity item)
+    {
+        var relations = _treasureEntity.GetRelations<SectTreasureRelation>();
+        for (int i = 0; i < relations.Length; i++)
+        {
+            if (relations[i].item == item) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 判断指定宗门所有物是否仍存放在藏宝阁内。
+    /// </summary>
+    public bool IsTreasureStored(Entity item)
+    {
+        var relations = _treasureEntity.GetRelations<InventoryRelation>();
+        for (int i = 0; i < relations.Length; i++)
+        {
+            if (relations[i].item == item) return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 为特殊物品登记宗门所有权。
+    /// </summary>
+    public void AddTreasureOwnership(Entity item)
+    {
+        _treasureEntity.AddRelation(new SectTreasureRelation { item = item });
+    }
+
+    /// <summary>
+    /// 解除特殊物品的宗门所有权。
+    /// </summary>
+    public void RemoveTreasureOwnership(Entity item)
+    {
+        _treasureEntity.RemoveRelation<SectTreasureRelation>(item);
+    }
+
+    private void InitializeTreasureInventory()
+    {
+        if (!_treasureEntity.IsNull)
+        {
+            _treasureEntity.AddTag<TagRecycle>();
+        }
+
+        _treasureEntity = ModClass.I.W.CreateEntity(new SectInventoryBinder(getID()));
+    }
+
+    private void DisposeTreasureInventory()
+    {
+        if (_treasureEntity.IsNull) return;
+        _treasureEntity.AddTag<TagRecycle>();
+        _treasureEntity = default;
     }
 
     private void AddFoundingResidenceStrategy(Actor founder)
@@ -336,6 +459,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>
         if (ae.sect != this) return false;
 
         bool wasLeader = data.LeaderActorID == actor.data.id;
+        SectTreasureRules.ReturnBorrowedTreasures(actor, this);
         ae.SetSect(null);
         actor.ClearSectRoles();
         actor.ClearSectJoinTime();

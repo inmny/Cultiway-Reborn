@@ -28,5 +28,12 @@ public class SectBuildOrders : ExtendLibrary<SectBuildOrderAsset, SectBuildOrder
             requiredMembers: 3,
             requiredResidenceZones: 1);
         scripturePavilion.requirementsTypes = [SectConst.BuildingTypeHall];
+
+        SectBuildOrder treasurePavilion = Classic.AddBuilding(
+            Buildings.SectTreasurePavilion,
+            maxPerSect: 1,
+            requiredMembers: 5,
+            requiredResidenceZones: 1);
+        treasurePavilion.requirementsTypes = [SectConst.BuildingTypeHall];
     }
 }

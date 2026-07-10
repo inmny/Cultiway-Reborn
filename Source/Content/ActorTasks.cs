@@ -39,6 +39,8 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor BuildSectBuilding { get; private set; }
     public static BehaviourTaskActor OrganizeSectScripture { get; private set; }
     public static BehaviourTaskActor LectureSectCultibook { get; private set; }
+    public static BehaviourTaskActor ContributeSectTreasure { get; private set; }
+    public static BehaviourTaskActor ClaimSectTreasure { get; private set; }
     
     // 师徒系统任务
     public static BehaviourTaskActor RecruitApprentice { get; private set; }
@@ -254,6 +256,28 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         LectureSectCultibook.addBeh(new BehLectureSectCultibook());
         LectureSectCultibook.addBeh(new BehEndJob());
         LectureSectCultibook.setIcon("cultiway/icons/iconCultivation");
+
+        ContributeSectTreasure.cancellable_by_reproduction = true;
+        ContributeSectTreasure.cancellable_by_socialize = true;
+        ContributeSectTreasure.addBeh(new BehFindSectTreasureBuilding(false));
+        ContributeSectTreasure.addBeh(new BehGetTargetBuildingMainTile());
+        ContributeSectTreasure.addBeh(new BehGoToTileTarget());
+        ContributeSectTreasure.addBeh(new BehStayInBuildingTarget(1f, 3f));
+        ContributeSectTreasure.addBeh(new BehContributeSectTreasure());
+        ContributeSectTreasure.addBeh(new BehExitBuilding());
+        ContributeSectTreasure.addBeh(new BehEndJob());
+        ContributeSectTreasure.setIcon("cultiway/icons/item_shapes/artifact_shapes/sword/青锋剑");
+
+        ClaimSectTreasure.cancellable_by_reproduction = true;
+        ClaimSectTreasure.cancellable_by_socialize = true;
+        ClaimSectTreasure.addBeh(new BehFindSectTreasureBuilding(true));
+        ClaimSectTreasure.addBeh(new BehGetTargetBuildingMainTile());
+        ClaimSectTreasure.addBeh(new BehGoToTileTarget());
+        ClaimSectTreasure.addBeh(new BehStayInBuildingTarget(1f, 3f));
+        ClaimSectTreasure.addBeh(new BehClaimSectTreasure());
+        ClaimSectTreasure.addBeh(new BehExitBuilding());
+        ClaimSectTreasure.addBeh(new BehEndJob());
+        ClaimSectTreasure.setIcon("cultiway/icons/item_shapes/artifact_shapes/sword/青锋剑");
         
         ImproveCultibook.addBeh(new BehBuildingTargetHome());
         ImproveCultibook.addBeh(new BehGetTargetBuildingMainTile());

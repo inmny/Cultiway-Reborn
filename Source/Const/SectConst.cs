@@ -5,6 +5,7 @@ public static class SectConst
     public const string BuildingGroup = "sect";
     public const string BuildingTypeHall = "type_sect_hall";
     public const string BuildingTypeScripturePavilion = "type_sect_scripture_pavilion";
+    public const string BuildingTypeTreasurePavilion = "type_sect_treasure_pavilion";
     public const int ContributionTeachCultibook = 2;
     public const int ContributionSectChore = 1;
     public const int ContributionOrganizeScripture = 2;
@@ -28,6 +29,11 @@ public static class SectConst
     public const float ScriptureStudyElixirMasteryCap = 100f;
     public const float SectStudyJobChance = 0.18f;
     public const float SectAffairJobChance = 0.25f;
+    public const float SectTreasureJobChance = 0.2f;
+    public const int TreasureCorePermissionMinStage = 1;
+    public const int TreasureHighPermissionMinStage = 3;
+    public const float TreasureOutOfPermissionMultiplier = 3f;
+    public const float TreasureContributionRewardRatio = 0.35f;
     public const int SectLectureMaxAudience = 4;
     public const float SectLectureNewCultibookGain = 12f;
     public const float SectLectureKnownCultibookGain = 8f;

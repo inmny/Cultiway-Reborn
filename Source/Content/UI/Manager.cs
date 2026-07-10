@@ -4,6 +4,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.UI.CreatureInfoPages;
+using Cultiway.Core;
 using Cultiway.UI;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
@@ -97,6 +98,19 @@ public class Manager : ICanInit
             {
                 bool equipped = entity.GetIncomingLinks<EquippedArtifactRelation>().Count > 0;
                 tooltip.Tooltip.addDescription(equipped ? "\n法器（已装备，未觉醒）" : "\n法器（未装备，未觉醒）");
+            }
+
+            Sect ownerSect = SectTreasureRules.GetTreasureOwner(entity);
+            if (ownerSect != null)
+            {
+                string ownerLabel = "Cultiway.Sect.Treasure.Owner".Localize();
+                tooltip.Tooltip.addDescription($"\n{ownerLabel}: {ownerSect.data.name}");
+                Actor borrower = SectTreasureRules.GetTreasureBorrower(entity);
+                if (borrower != null)
+                {
+                    string borrowerLabel = "Cultiway.Sect.Treasure.Borrower".Localize();
+                    tooltip.Tooltip.addDescription($"\n{borrowerLabel}: {borrower.getName()}");
+                }
             }
         });
     }
