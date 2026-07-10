@@ -2,6 +2,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -32,13 +33,14 @@ public static class SkillHitResolver
         {
             var position = skillEntity.GetComponent<Position>().value;
             var vfxElement = skillEntity.GetComponent<SkillEntity>().VfxElement;
+            var effectRadius = SkillEffectRadius.Resolve(skillEntity, radius);
             if (TryBeginImpactFeedback(skillEntity, vfxElement))
             {
                 vfxElement.PlayImpactSound(position, isArea: true);
             }
-            SkillGroundFx.OnImpact(position, vfxElement, radius, isArea: true, sourceObj: context.SourceObj);
+            SkillGroundFx.OnImpact(position, vfxElement, effectRadius, isArea: true, sourceObj: context.SourceObj);
 
-            foreach (var obj in SkillUtils.IterEnemyInSphere(position, radius, context.SourceObj,
+            foreach (var obj in SkillUtils.IterEnemyInSphere(position, effectRadius, context.SourceObj,
                          context.AttackKingdom))
             {
                 HitTarget(asset, ref context, skillContainer, skillEntity, obj, playImpact: false);

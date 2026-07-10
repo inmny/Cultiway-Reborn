@@ -1257,7 +1257,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         if (!skillEntity.TryGetComponent(out SkillContext context)) return;
         if (!skillEntity.TryGetComponent(out Position skillPos)) return;
 
-        var radius = Mathf.Clamp(explosion.Radius, 0.5f, 10f);
+        var radius = SkillEffectRadius.Resolve(skillEntity, Mathf.Clamp(explosion.Radius, 0.5f, 10f));
         var damageRatio = Mathf.Clamp(explosion.DamageRatio, 0f, 2f);
         if (radius <= 0f || damageRatio <= 0f) return;
 
@@ -1304,7 +1304,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         context.Strength *= Mathf.Clamp(volley.DamageMultiplier, 0.05f, 2f);
     }
 
-    // 放大贴图和碰撞体
+    // 放大贴图并统一提升法术作用半径
     private static void ApplyHugeOnSetup(Entity skillEntity)
     {
         if (!skillEntity.TryGetComponent(out SkillEntity skill)) return;
@@ -1323,11 +1323,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
             ModClass.I.CommandBuffer.AddComponent(skillEntity.Id, new Scale(scaleMul));
         }
 
-        if (skillEntity.HasComponent<ColliderSphere>())
-        {
-            ref var collider = ref skillEntity.GetComponent<ColliderSphere>();
-            collider.Radius *= scaleMul;
-        }
+        SkillEffectRadius.Multiply(skillEntity, scaleMul);
     }
 
     // 提升弹道速度
@@ -1596,7 +1592,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var container = skill.SkillContainer;
         if (container.IsNull || !container.TryGetComponent(out GravityModifier gravity)) return;
 
-        var radius = Mathf.Clamp(gravity.Radius, 0.5f, 10f);
+        var radius = SkillEffectRadius.Resolve(skillEntity, Mathf.Clamp(gravity.Radius, 0.5f, 10f));
         var strength = Mathf.Clamp(gravity.Strength, 0f, 10f);
         if (radius <= 0f || strength <= 0f) return;
 

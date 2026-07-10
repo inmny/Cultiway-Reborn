@@ -174,6 +174,11 @@ public class SkillEntityAsset : Asset
             NextAllowedTime = 0f
         });
 
+        entity.AddComponent(new EffectRadiusScale
+        {
+            Value = 1f
+        });
+
         if (entity.HasComponent<SkillHitMemory>())
         {
             ref var hitMemory = ref entity.GetComponent<SkillHitMemory>();

@@ -1,6 +1,7 @@
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Components.TrajParams;
+using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -24,7 +25,7 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             if (!config.Enabled || !config.Actor) return;
             if (entity.TryGetComponent(out CollisionHeightGate heightGate) && pos.z > heightGate.MaxHeight) return;
 
-            var radius = collider.Radius;
+            var radius = SkillEffectRadius.Resolve(entity, collider.Radius);
             var curr = pos.v2;
 
             // 扫掠碰撞：若实体带 PrevPosition，用上一帧→本帧的线段做扫描，防止高速漏检

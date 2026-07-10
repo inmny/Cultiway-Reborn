@@ -1,6 +1,7 @@
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -25,8 +26,8 @@ public class LogicSkillGroundFxRecordSystem :
 
     protected override void OnUpdate()
     {
-        Query.ForEachComponents((ref Position pos, ref SkillGroundFxState fxState, ref SkillEntity skillEntity,
-            ref Trajectory trajectory, ref ColliderSphere collider) =>
+        Query.ForEachEntity((ref Position pos, ref SkillGroundFxState fxState, ref SkillEntity skillEntity,
+            ref Trajectory trajectory, ref ColliderSphere collider, Entity entity) =>
         {
             var currentPos = pos.value;
             if ((trajectory.Asset.Orientations & TrajectoryOrientation.Horizontal) == TrajectoryOrientation.None)
@@ -44,12 +45,13 @@ public class LogicSkillGroundFxRecordSystem :
 
             var distance = Mathf.Sqrt(movedSq);
             var firstSampleDistance = FlyOverDistanceThreshold - fxState.DistanceAccumulator;
+            var effectRadius = SkillEffectRadius.Resolve(entity, collider.Radius);
             for (var sampleDistance = firstSampleDistance; sampleDistance <= distance;
                  sampleDistance += FlyOverDistanceThreshold)
             {
                 var t = sampleDistance / distance;
                 var samplePos = new Vector3(fxState.LastX + dx * t, fxState.LastY + dy * t, currentPos.z);
-                SkillGroundFx.OnFlyOver(samplePos, collider.Radius, skillEntity.VfxElement);
+                SkillGroundFx.OnFlyOver(samplePos, effectRadius, skillEntity.VfxElement);
             }
 
             var totalDistance = fxState.DistanceAccumulator + distance;
