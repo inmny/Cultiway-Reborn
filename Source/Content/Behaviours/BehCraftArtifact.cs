@@ -1,4 +1,5 @@
 using ai.behaviours;
+using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
@@ -54,6 +55,7 @@ public class BehCraftArtifact : BehCityActor
             {
                 crafting_entity.AddComponent(new Artifact());
             }
+            crafting_entity.GetComponent<AliveTimeLimit>().value = crafting_entity.GetComponent<ItemLevel>() * 10 * TimeScales.SecPerYear;
             ae.EquipArtifact(crafting_entity);
 
             ModClass.LogInfo($"{pObject.getName()}[{pObject.data.id}] 完成炼制 {crafting_entity.Name}");
