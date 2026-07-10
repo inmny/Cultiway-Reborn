@@ -11,7 +11,7 @@ using SeriesTag = Cultiway.Core.SkillLibV3.SkillTags.Series;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(SkillVfxElements), typeof(SkillTrajectories))]
+[Dependency(typeof(SkillVfxElements), typeof(SkillTrajectories), typeof(SkillModifiers))]
 public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 {
     private const float UpFacingSpriteToRightOffset = -90f;
@@ -61,6 +61,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
         Configure(FallWood, wood, "cultiway/effect/fall_wood", SkillTrajectories.FallingStrike, 1.2f, true,
             SkillHitResolver.Single(FallWood, recycleOnHit: true, continueAfterHit: true),
             ElementTag.Wood, FormTag.Pierce, SeriesTag.Single, MotionTag.Falling, DeliveryTag.Projectile)
+            .SetModifierWeightMultiplier(SkillModifiers.Huge, 4f)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(WaterArrow, water, "cultiway/effect/single_water_sword", SkillTrajectories.TowardsDirection, 1f,
             true, SkillHitResolver.Single(WaterArrow, recycleOnHit: true, continueAfterHit: false),
@@ -83,6 +84,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
         Configure(FallStone, earth, "cultiway/effect/fall_rock", SkillTrajectories.FallingStrike, 1.2f, true,
             SkillHitResolver.Single(FallStone, recycleOnHit: true, continueAfterHit: true),
             ElementTag.Earth, FormTag.Pierce, SeriesTag.Single, MotionTag.Falling, DeliveryTag.Projectile)
+            .SetModifierWeightMultiplier(SkillModifiers.Huge, 4f)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(StoneThorn, earth, "cultiway/effect/ground_thorn", SkillTrajectories.GroundCrawl, 1.2f, false,
             VisualRotation.FollowRotation(UpFacingSpriteToRightOffset),
@@ -100,6 +102,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             VisualRotation.FixedUpright(),
             SkillHitResolver.Single(Tornado, recycleOnHit: false, continueAfterHit: true),
             ElementTag.Wind, FormTag.Aoe, FormTag.Sustain, DeliveryTag.Field)
+            .SetModifierWeightMultiplier(SkillModifiers.Huge, 4f)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Appear);
         Configure(FallLightning, lightning, "cultiway/effect/default_lightning", SkillTrajectories.AppearAtTarget, 0.5f,
             false, VisualRotation.FixedUpright(),

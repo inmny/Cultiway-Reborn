@@ -494,6 +494,7 @@ public static class ActorExtendTools
             var weight = baseWeight * (alreadyHas
                 ? ContentSetting.SkillEnhanceExistingModifierWeight
                 : ContentSetting.SkillEnhanceNewModifierWeight);
+            weight *= targetContainer.Asset.GetModifierWeightMultiplier(asset);
             if (weight <= 0f) continue;
 
             var similarityPenalty = EvaluateCandidateSimilarityPenalty(targetSkill, sameEntitySkills, asset);

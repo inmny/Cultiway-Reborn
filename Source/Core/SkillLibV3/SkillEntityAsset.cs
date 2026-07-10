@@ -17,6 +17,8 @@ public enum SkillEntityType
 public delegate bool OnObjCollision(ref SkillContext context, Entity skill_container, Entity skill_entity, BaseSimObject target);
 public class SkillEntityAsset : Asset
 {
+    private readonly Dictionary<string, float> _modifierWeightMultipliers = new(StringComparer.Ordinal);
+
     public Entity PrefabEntity;
     public string VisualEffectPath;
     public ElementComposition Element;
@@ -40,6 +42,22 @@ public class SkillEntityAsset : Asset
     {
         AcceptedOrientations = orientations;
         return this;
+    }
+
+    /// <summary>
+    /// 设置该法术实体抽取指定词条时的权重倍率。倍率只参与候选加权，不绕过稀有度、冲突和相似度规则。
+    /// </summary>
+    public SkillEntityAsset SetModifierWeightMultiplier(SkillModifierAsset modifier, float multiplier)
+    {
+        if (multiplier < 0f) throw new ArgumentOutOfRangeException(nameof(multiplier));
+
+        _modifierWeightMultipliers[modifier.id] = multiplier;
+        return this;
+    }
+
+    public float GetModifierWeightMultiplier(SkillModifierAsset modifier)
+    {
+        return _modifierWeightMultipliers.TryGetValue(modifier.id, out var multiplier) ? multiplier : 1f;
     }
 
     public SkillEntityAsset SetupColliderSphere(float radius, ColliderConfig config)
