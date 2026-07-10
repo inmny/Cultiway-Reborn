@@ -22,6 +22,20 @@ Cultiway.UI.WindowModInfo Title,模组介绍
 Cultiway.UI.WindowModInfo Title Description,查看修真之路的模组介绍
 Cultiway.UI.WindowModInfo.Tab.Overview,概览
 Cultiway.UI.WindowModInfo.Tab.Overview Description,查看模组定位、核心循环和当前目标
+Cultiway.UI.WindowModInfo.Tab.Cultivation,修真炼气
+Cultiway.UI.WindowModInfo.Tab.Cultivation Description,灵根、境界、功法、金丹九转
+Cultiway.UI.WindowModInfo.Tab.Sect,宗门传承
+Cultiway.UI.WindowModInfo.Tab.Sect Description,开宗立派、驻地策略、藏经阁、师徒
+Cultiway.UI.WindowModInfo.Tab.Skill,法术御剑
+Cultiway.UI.WindowModInfo.Tab.Skill Description,元素、弹道、附魔、附身操控
+Cultiway.UI.WindowModInfo.Tab.Items,丹器符药
+Cultiway.UI.WindowModInfo.Tab.Items Description,功法、丹方、术法、丹药、符箓、材料
+Cultiway.UI.WindowModInfo.Tab.World,大千世界
+Cultiway.UI.WindowModInfo.Tab.World Description,百族争锋、地理演化、灵气地图、交通
+Cultiway.UI.WindowModInfo.Tab.Warhammer,混沌降临
+Cultiway.UI.WindowModInfo.Tab.Warhammer Description,战锤四神、魔神化、魔塔、秩序阵营
+Cultiway.UI.WindowModInfo.Tab.AIGC,AI 演化
+Cultiway.UI.WindowModInfo.Tab.AIGC Description,大模型生成功法丹药法术，配置 API 即用
 Cultiway.UI.WindowRealmNames Title,境界名称
 Cultiway.UI.WindowRealmNames Title Description,设置各修炼体系的境界显示名称
 Cultiway.UI.WindowRealmNames Description,这些名称保存到独立配置文件，不占用模组设置。编辑后会实时保存，默认按钮会按本地文本恢复当前页。

@@ -2,6 +2,7 @@ using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content.Const;
 using Cultiway.Content.Attributes;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
@@ -29,6 +30,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
     public static GodPower RemoveGeoRegion { get; private set; }
     [CloneSource(PowerLibrary.TEMPLATE_WALL)]
     public static GodPower EasternHumanWall { get; private set; }
+    public static GodPower EasternHumanSkin { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
@@ -45,6 +47,13 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         EasternHumanWall.requires_premium = false;
         EasternHumanWall.rank = PowerRank.Rank0_free;
 
+        EasternHumanSkinStyles.BuildIndex(Actors.EasternHuman.skin_citizen_male);
+        EasternHumanSkin.name = "eastern_human_skin";
+        EasternHumanSkin.click_action = CycleEasternHumanSkinAction;
+        EasternHumanSkin.force_map_mode = MetaType.None;
+        EasternHumanSkin.requires_premium = false;
+        EasternHumanSkin.rank = PowerRank.Rank0_free;
+
         ExtendGeoRegion.click_action = ExtendGeoRegionAction;
         ExtendGeoRegion.click_brush_action = InitializeGeoRegionAction + ExtendGeoRegion.click_brush_action;
         ExtendGeoRegion.force_map_mode = MetaTypeExtend.GeoRegion.Back();
@@ -54,6 +63,16 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         SetupCommonBuildingPlacePower();
         SetupCommonDropPlacePower();
         SetupBiomePowers();
+    }
+
+    private static bool CycleEasternHumanSkinAction(WorldTile tile, string power_id)
+    {
+        Actor a = ActionLibrary.getActorFromTile(tile);
+        Culture culture = a?.culture ?? tile.zone.city?.culture;
+        if (culture == null || !culture.hasTrait(CultureTraits.CultureSkin.id)) return false;
+        string next_key = EasternHumanSkinStyles.CycleNext(culture);
+        ModClass.LogInfo($"[EasternHumanSkin] culture switched to '{next_key}'");
+        return true;
     }
 
     private void SetupBiomePowers()
