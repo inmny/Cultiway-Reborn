@@ -1,5 +1,6 @@
 using ai.behaviours;
 using Cultiway.Content.Components;
+using Cultiway.Content.Extensions;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
@@ -53,6 +54,7 @@ public class BehCraftArtifact : BehCityActor
             {
                 crafting_entity.AddComponent(new Artifact());
             }
+            ae.EquipArtifact(crafting_entity);
 
             ModClass.LogInfo($"{pObject.getName()}[{pObject.data.id}] 完成炼制 {crafting_entity.Name}");
             return BehResult.Continue;
