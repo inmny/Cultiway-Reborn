@@ -5,3 +5,14 @@ extend_geo_region,扩大地理区域
 extend_geo_region Description,阿巴阿巴
 eastern_human_wall,东方城墙
 eastern_human_wall_description,绘制东方人族建筑风格的城墙。
+eastern_human_skin,东方服饰
+eastern_human_skin_description,点击东方人族的单位或城市，循环切换其文化的服饰风格（通用/春秋/唐/宋/元/明/清/扶桑/朝鲜）。
+eastern_human_skin_1,通用
+eastern_human_skin_chunqiu,春秋
+eastern_human_skin_tang,唐风
+eastern_human_skin_song,宋制
+eastern_human_skin_yuan,元风
+eastern_human_skin_ming,明制
+eastern_human_skin_qing,清制
+eastern_human_skin_fusang,扶桑
+eastern_human_skin_chaoxian,朝鲜

@@ -70,6 +70,12 @@ public class Manager : ICanInit
                 SpriteTextureLoader.getSprite("cultiway/icons/races/iconEasternHuman")
             )
         );
+        Cultiway.UI.Manager.AddButton(TabButtonType.RACE,
+            PowerButtonCreator.CreateGodPowerButton(
+                GodPowers.EasternHumanSkin.id,
+                SpriteTextureLoader.getSprite("cultiway/icons/traits/iconCultureSkin")
+            )
+        );
         Cultiway.UI.Manager.InsertWallButton(
             GodPowers.EasternHumanWall,
             "ui/Icons/iconWallEasternHuman"
