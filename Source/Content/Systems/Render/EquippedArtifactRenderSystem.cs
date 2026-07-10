@@ -17,7 +17,7 @@ namespace Cultiway.Content.Systems.Render;
 public class EquippedArtifactRenderSystem : QuerySystem<ActorBinder>
 {
     private const int RingCapacity = 6;
-    private const float TargetWorldSize = 0.34f;
+    private const float TargetWorldSize = 1f;
 
     private readonly MonoObjPool<ArtifactRenderer> _pool;
 
@@ -64,7 +64,7 @@ public class EquippedArtifactRenderSystem : QuerySystem<ActorBinder>
             }
             if (artifactCount == 0) return;
 
-            float actorScale = Mathf.Max(actor.stats[S.scale], 0.1f);
+            float actorScale = Mathf.Max(actor.stats[S.scale], 0.1f) * 10;
             int visualIndex = 0;
             for (int i = 0; i < relations.Length; i++)
             {
@@ -76,7 +76,7 @@ public class EquippedArtifactRenderSystem : QuerySystem<ActorBinder>
                 renderer.sprite_renderer.color = Color.white;
                 renderer.sprite_renderer.flipX = false;
                 renderer.transform.localRotation = Quaternion.identity;
-                renderer.transform.localScale = Vector3.one * ResolveScale(sprite, actorScale, time, visualIndex) * 40;
+                renderer.transform.localScale = Vector3.one * ResolveScale(sprite, actorScale, time, visualIndex);
                 renderer.transform.localPosition = actor.cur_transform_position +
                                                    ResolveOffset(actor, visualIndex, artifactCount, actorScale, time);
                 visualIndex++;
