@@ -132,7 +132,7 @@ public class SkillEntityAsset : Asset
     }
 
     /// <summary>
-    /// 为运行时法术实体挂载地面影响/扫掠碰撞/速度曲线所需的组件。
+    /// 为运行时法术实体挂载地面影响、扫掠碰撞和命中反馈节流所需的组件。
     /// 出生位置会在 <see cref="Manager.SpawnSkill(Entity, BaseSimObject, BaseSimObject, Vector3, float, float, float?, float, Kingdom)"/>
     /// 写入后同步刷新。
     /// </summary>
@@ -151,20 +151,17 @@ public class SkillEntityAsset : Asset
             LastY = pos.y
         });
 
+        entity.AddComponent(new SkillImpactFeedbackState
+        {
+            NextAllowedTime = 0f
+        });
+
         // 确保贴身残影能读到 tint（法术未显式设色时给白色默认）
         if (!entity.HasComponent<AnimTint>())
         {
             entity.AddComponent(new AnimTint(Color.white));
         }
 
-        // 速度加速曲线：出手 0.4 倍蓄势，0.3 秒内加速到 1.8 倍冲刺
-        entity.AddComponent(new SkillVelocityRamp
-        {
-            StartMultiplier = 0.4f,
-            EndMultiplier = 8f,
-            RampDuration = 4f,
-            Elapsed = 0f
-        });
     }
 
     public override string ToString()

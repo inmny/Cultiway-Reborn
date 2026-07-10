@@ -82,6 +82,12 @@ public static class SkillTags
     /// </summary>
     public static class Motion
     {
+        /// <summary>直接飞向目标或指定方向的高速轨迹标签。</summary>
+        public const string Direct = "direct";
+
+        /// <summary>持续修正方向并追踪目标的轨迹标签。</summary>
+        public const string Homing = "homing";
+
         /// <summary>坠落轨迹标签。</summary>
         public const string Falling = "falling";
 
@@ -105,6 +111,15 @@ public static class SkillTags
 
         /// <summary>波形轨迹标签。</summary>
         public const string Wave = "wave";
+
+        /// <summary>螺旋推进轨迹标签。</summary>
+        public const string Spiral = "spiral";
+
+        /// <summary>绕目标环行并收束的轨迹标签。</summary>
+        public const string Orbit = "orbit";
+
+        /// <summary>直接在目标位置显现的轨迹标签。</summary>
+        public const string Appear = "appear";
     }
 
     /// <summary>

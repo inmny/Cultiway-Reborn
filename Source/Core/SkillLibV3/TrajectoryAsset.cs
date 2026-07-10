@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Friflo.Engine.ECS;
@@ -11,6 +12,7 @@ public class TrajectoryAsset : Asset
     public InitDefaultTrajectory OnInit;
     public UpdateTrajectory Action;
     public bool CanBeSelectedByModifier = true;
+    public HashSet<string> MotionTags { get; } = new();
 
     /// <summary>
     /// 该轨迹能够给法术提供的方向姿态（按位或）。
@@ -26,6 +28,19 @@ public class TrajectoryAsset : Asset
     public TrajectoryAsset WithOrientations(TrajectoryOrientation orientations)
     {
         Orientations = orientations;
+        return this;
+    }
+
+    /// <summary>
+    /// 声明轨迹的运动语义，供法术容器构建时匹配运动配置。
+    /// </summary>
+    public TrajectoryAsset AddMotionTags(params string[] tags)
+    {
+        foreach (var tag in tags)
+        {
+            MotionTags.Add(tag);
+        }
+
         return this;
     }
 }

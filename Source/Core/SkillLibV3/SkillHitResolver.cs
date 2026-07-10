@@ -15,7 +15,7 @@ public static class SkillHitResolver
     {
         return (ref SkillContext context, Entity skillContainer, Entity skillEntity, BaseSimObject target) =>
         {
-            HitTarget(asset, ref context, skillContainer, skillEntity, target);
+            HitTarget(asset, ref context, skillContainer, skillEntity, target, playImpact: true);
             if (recycleOnHit)
             {
                 ModClass.I.CommandBuffer.AddTag<TagRecycle>(skillEntity.Id);
@@ -32,12 +32,16 @@ public static class SkillHitResolver
         {
             var position = skillEntity.GetComponent<Position>().value;
             var vfxElement = skillEntity.GetComponent<SkillEntity>().VfxElement;
+            if (TryBeginImpactFeedback(skillEntity, vfxElement))
+            {
+                vfxElement.PlayImpactSound(position, isArea: true);
+            }
             SkillGroundFx.OnImpact(position, vfxElement, radius, isArea: true, sourceObj: context.SourceObj);
 
             foreach (var obj in SkillUtils.IterEnemyInSphere(position, radius, context.SourceObj,
                          context.AttackKingdom))
             {
-                HitTarget(asset, ref context, skillContainer, skillEntity, obj);
+                HitTarget(asset, ref context, skillContainer, skillEntity, obj, playImpact: false);
             }
 
             if (recycleOnHit)
@@ -50,14 +54,28 @@ public static class SkillHitResolver
     }
 
     public static void HitTarget(SkillEntityAsset asset, ref SkillContext context, Entity skillContainer,
-        Entity skillEntity, BaseSimObject target)
+        Entity skillEntity, BaseSimObject target, bool playImpact)
     {
         if (target == null || target.isRekt()) return;
 
         var vfxElement = skillEntity.GetComponent<SkillEntity>().VfxElement;
+        if (playImpact && TryBeginImpactFeedback(skillEntity, vfxElement))
+        {
+            vfxElement.PlayImpactSound(target.GetSimPos(), isArea: false);
+        }
         SkillGroundFx.OnImpact(target.GetSimPos(), vfxElement, 0, isArea: false, sourceObj: context.SourceObj);
         ApplyDamage(asset, ref context, target);
         InvokeOnEffect(skillContainer, skillEntity, target);
+    }
+
+    private static bool TryBeginImpactFeedback(Entity skillEntity, SkillVfxElementAsset element)
+    {
+        ref var state = ref skillEntity.GetComponent<SkillImpactFeedbackState>();
+        var elapsed = skillEntity.GetComponent<AliveTimer>().value;
+        if (elapsed < state.NextAllowedTime) return false;
+
+        state.NextAllowedTime = elapsed + element.ImpactFeedbackInterval;
+        return true;
     }
 
     private static void ApplyDamage(SkillEntityAsset asset, ref SkillContext context, BaseSimObject target)

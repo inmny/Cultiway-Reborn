@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cultiway.Core.SkillLibV3.Utils;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
@@ -15,13 +16,16 @@ public class SkillVfxElementAsset : Asset
     private static readonly SkillVfxGroundFlyOver NoFlyOver = _ => { };
     private static readonly SkillVfxGroundImpact NoImpact = (_, _, _, _) => { };
 
-    private readonly List<SkillVfxElementMatchRule> _matchRules = new();
+    private readonly List<SkillTagMatchRule> _matchRules = new();
 
     public Color AccentColor = Color.white;
     public float AccentBlend = 0.35f;
     public float AccentAlpha = 0.75f;
     public SkillVfxGroundFlyOver GroundFlyOver = NoFlyOver;
     public SkillVfxGroundImpact GroundImpact = NoImpact;
+    public string ImpactSound;
+    public float ImpactFeedbackInterval = 0.12f;
+    public float AreaShakeIntensity;
 
     public SkillVfxElementAsset SetAccent(Color color, float blend = 0.35f, float alpha = 0.75f)
     {
@@ -43,9 +47,16 @@ public class SkillVfxElementAsset : Asset
         return this;
     }
 
+    public SkillVfxElementAsset SetImpactSound(string impactSound, float areaShakeIntensity = 0f)
+    {
+        ImpactSound = impactSound;
+        AreaShakeIntensity = areaShakeIntensity;
+        return this;
+    }
+
     public SkillVfxElementAsset MatchAny(int priority, params string[] tags)
     {
-        var rule = new SkillVfxElementMatchRule(priority);
+        var rule = new SkillTagMatchRule(priority);
         rule.AddAny(tags);
         _matchRules.Add(rule);
         return this;
@@ -53,7 +64,7 @@ public class SkillVfxElementAsset : Asset
 
     public SkillVfxElementAsset MatchAll(int priority, params string[] tags)
     {
-        var rule = new SkillVfxElementMatchRule(priority);
+        var rule = new SkillTagMatchRule(priority);
         rule.AddRequired(tags);
         _matchRules.Add(rule);
         return this;
@@ -87,54 +98,17 @@ public class SkillVfxElementAsset : Asset
     {
         GroundImpact(tile, radius, isArea, sourceObj);
     }
-}
 
-public class SkillVfxElementMatchRule
-{
-    private readonly HashSet<string> _requiredTags = new();
-    private readonly HashSet<string> _anyTags = new();
-    private readonly int _priority;
-
-    public SkillVfxElementMatchRule(int priority)
+    public void PlayImpactSound(Vector3 position, bool isArea)
     {
-        _priority = priority;
-    }
-
-    public void AddRequired(params string[] tags)
-    {
-        AddTags(_requiredTags, tags);
-    }
-
-    public void AddAny(params string[] tags)
-    {
-        AddTags(_anyTags, tags);
-    }
-
-    public int Score(HashSet<string> tags)
-    {
-        var score = _priority;
-        foreach (var tag in _requiredTags)
+        if (ImpactSound.Length > 0)
         {
-            if (!tags.Contains(tag)) return -1;
-            score += 4;
+            MusicBox.playSound(ImpactSound, position.x, position.y, pGameViewOnly: true);
         }
 
-        if (_anyTags.Count == 0) return score;
-
-        var matchedAny = 0;
-        foreach (var tag in _anyTags)
+        if (isArea && AreaShakeIntensity > 0f)
         {
-            if (tags.Contains(tag)) matchedAny++;
-        }
-
-        return matchedAny == 0 ? -1 : score + matchedAny;
-    }
-
-    private static void AddTags(HashSet<string> target, string[] tags)
-    {
-        foreach (var tag in tags)
-        {
-            target.Add(tag);
+            World.world.startShake(0.08f, 0.02f, AreaShakeIntensity);
         }
     }
 }
