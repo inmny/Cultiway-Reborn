@@ -66,7 +66,6 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
         }
 
         ClearBuildingList();
-        WorldboxGame.I?.Sects?.setDirtyBuildings();
         SectVerifyLog.Log("SectBuildingsAbandoned", $"sect={SectVerifyLog.Sect(this)}");
     }
 
@@ -918,12 +917,33 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
     public override void recalcBaseStats()
     {
         base.recalcBaseStats();
+        base_stats[SectStats.TreasureCapacity.id] += SectConst.TreasureBaseCapacity;
+        MergeBuildingStats();
         _residence_strategy = null;
         foreach (SectTrait trait in getTraits())
         {
             if (!trait.isResidenceStrategy) continue;
             _residence_strategy = trait;
             break;
+        }
+    }
+
+    private void MergeBuildingStats()
+    {
+        for (int i = 0; i < buildings.Count; i++)
+        {
+            Building building = buildings[i];
+            if (!CanCountBuilding(building)) continue;
+
+            List<BaseStatsContainer> stats = building.asset.base_stats.getList();
+            for (int j = 0; j < stats.Count; j++)
+            {
+                BaseStatsContainer stat = stats[j];
+                if (SectStats.IsSectStat(stat.id))
+                {
+                    base_stats[stat.id] += stat.value;
+                }
+            }
         }
     }
 

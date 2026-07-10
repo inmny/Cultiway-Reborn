@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cultiway.Abstract;
 
 namespace Cultiway.Content;
@@ -7,6 +8,8 @@ namespace Cultiway.Content;
 /// </summary>
 public class SectStats : ExtendLibrary<BaseStatAsset, SectStats>
 {
+    private static readonly HashSet<string> statIds = new();
+
     public const string TagRecruitRequiresMasterIntroduction = "sect_recruit_requires_master_introduction";
     public const string TagAllowDiscipleOrganizeScripture = "sect_allow_disciple_organize_scripture";
 
@@ -79,6 +82,20 @@ public class SectStats : ExtendLibrary<BaseStatAsset, SectStats>
         SetupPercentModifier(SectStudyJobChanceModifier, 765);
         SetupPercentModifier(SectAffairJobChanceModifier, 760);
         SetupFlatBonus(TreasureCapacity, 755);
+    }
+
+    protected override void PostInit(BaseStatAsset asset)
+    {
+        base.PostInit(asset);
+        statIds.Add(asset.id);
+    }
+
+    /// <summary>
+    /// 判断属性是否属于宗门属性；建筑只会向宗门聚合这一类属性。
+    /// </summary>
+    public static bool IsSectStat(string statId)
+    {
+        return statIds.Contains(statId);
     }
 
     private static void SetupPercentModifier(BaseStatAsset stat, int sortRank)

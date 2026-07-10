@@ -34,6 +34,9 @@ public static class SectConst
     public const int TreasureHighPermissionMinStage = 3;
     public const float TreasureOutOfPermissionMultiplier = 3f;
     public const float TreasureContributionRewardRatio = 0.35f;
+    public const int TreasureBaseCapacity = 10;
+    public const int TreasureHallCapacity = 30;
+    public const int TreasurePavilionCapacity = 100;
     public const int SectLectureMaxAudience = 4;
     public const float SectLectureNewCultibookGain = 12f;
     public const float SectLectureKnownCultibookGain = 8f;

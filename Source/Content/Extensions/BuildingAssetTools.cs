@@ -29,8 +29,11 @@ public static class BuildingAssetTools
     {
         if (target is Building building)
         {
-            building.data?.removeLong(BuildingDataKeys.SectID_Long);
-            WorldboxGame.I?.Sects?.setDirtyBuildings();
+            building.data.get(BuildingDataKeys.SectID_Long, out long sectId, -1);
+            SectManager sectManager = WorldboxGame.I.Sects;
+            Sect sect = sectManager.get(sectId);
+            building.data.removeLong(BuildingDataKeys.SectID_Long);
+            if (sect != null) sectManager.setDirtyBuildings(sect);
         }
 
         return true;

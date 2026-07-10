@@ -36,7 +36,7 @@ public class BehBuildSectTarget : BehaviourActionActor
         bool completed = building.updateBuild(pActor.getConstructionSpeed());
         if (completed)
         {
-            WorldboxGame.I?.Sects?.setDirtyBuildings();
+            WorldboxGame.I?.Sects?.setDirtyBuildings(sect);
             int contribution = SectTraitRules.GetBuildContributionReward(sect);
             sect.AddContribution(pActor, contribution);
             SectVerifyLog.Log("SectConstructionComplete", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pActor)} building={building.asset?.id ?? "null"} contribution={contribution}");

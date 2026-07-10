@@ -58,7 +58,7 @@ public static class SectBuildRules
         building.setUnderConstruction();
         building.data.set(BuildingDataKeys.SectID_Long, sect.getID());
         sect.under_construction_building = building;
-        WorldboxGame.I?.Sects?.setDirtyBuildings();
+        WorldboxGame.I?.Sects?.setDirtyBuildings(sect);
         SectVerifyLog.Log("SectBuild", $"sect={SectVerifyLog.Sect(sect)} building={building.asset?.id ?? "null"} tile={tile.x},{tile.y}");
         return true;
     }

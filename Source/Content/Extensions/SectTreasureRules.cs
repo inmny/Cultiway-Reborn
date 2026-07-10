@@ -17,39 +17,11 @@ namespace Cultiway.Content.Extensions;
 public static class SectTreasureRules
 {
     /// <summary>
-    /// 判断宗门是否拥有可用的藏宝阁建筑。
-    /// </summary>
-    public static bool HasTreasurePavilion(Sect sect)
-    {
-        List<Building> buildings = sect.GetBuildingListOfID(Buildings.SectTreasurePavilion.id);
-        if (buildings == null) return false;
-
-        for (int i = 0; i < buildings.Count; i++)
-        {
-            Building building = buildings[i];
-            if (building.isUsable() && !building.isUnderConstruction()) return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
     /// 获取宗门当前的总库藏容量。
     /// </summary>
     public static int GetTreasureCapacity(Sect sect)
     {
-        int capacity = Mathf.RoundToInt(sect.base_stats[SectStats.TreasureCapacity.id]);
-        List<Building> buildings = sect.GetBuildingListOfID(Buildings.SectTreasurePavilion.id);
-        if (buildings == null) return Mathf.Max(0, capacity);
-
-        for (int i = 0; i < buildings.Count; i++)
-        {
-            Building building = buildings[i];
-            if (building == null || !building.isUsable() || building.isUnderConstruction()) continue;
-            capacity += Mathf.RoundToInt(building.asset.base_stats[SectStats.TreasureCapacity.id]);
-        }
-
-        return Mathf.Max(0, capacity);
+        return Mathf.Max(0, Mathf.RoundToInt(sect.base_stats[SectStats.TreasureCapacity.id]));
     }
 
     /// <summary>
@@ -123,7 +95,6 @@ public static class SectTreasureRules
     /// </summary>
     public static bool CanAcceptTreasure(Sect sect, Entity item)
     {
-        if (!HasTreasurePavilion(sect)) return false;
         if (!IsStorableItem(item)) return false;
         if (GetTreasureOwner(item) != null) return false;
 
@@ -294,7 +265,7 @@ public static class SectTreasureRules
     {
         selected = default;
         Sect sect = actor.GetExtend().sect;
-        if (!actor.CanDepositSectTreasure(sect) || !HasTreasurePavilion(sect)) return false;
+        if (!actor.CanDepositSectTreasure(sect)) return false;
 
         Dictionary<SpecialItemCategoryAsset, int> counts = new();
         using ListPool<Entity> items = new(actor.GetExtend().GetItems());

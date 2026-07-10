@@ -9,7 +9,7 @@ namespace Cultiway.Core;
 
 public class SectManager : MetaSystemManager<Sect, SectData>
 {
-    private bool _dirty_buildings = true;
+    private readonly HashSet<Sect> _dirty_building_sects = new();
     private bool _dirty_residence_zones = true;
     private readonly Dictionary<TileZone, Sect> _residence_zone_owners = new();
 
@@ -21,14 +21,17 @@ public class SectManager : MetaSystemManager<Sect, SectData>
     public override void loadFromSave(List<SectData> pList)
     {
         base.loadFromSave(pList);
-        setDirtyBuildings();
+        foreach (Sect sect in this)
+        {
+            setDirtyBuildings(sect);
+        }
         setDirtyResidenceZones();
     }
 
     public override void addObject(Sect pObject)
     {
         base.addObject(pObject);
-        setDirtyBuildings();
+        setDirtyBuildings(pObject);
         setDirtyResidenceZones();
     }
 
@@ -94,15 +97,16 @@ public class SectManager : MetaSystemManager<Sect, SectData>
 
     public void beginChecksBuildings()
     {
-        if (!_dirty_buildings) return;
+        if (_dirty_building_sects.Count == 0) return;
 
-        updateDirtyBuildings();
-        _dirty_buildings = false;
+        HashSet<Sect> dirtySects = new(_dirty_building_sects);
+        _dirty_building_sects.Clear();
+        updateDirtyBuildings(dirtySects);
     }
 
-    public void setDirtyBuildings()
+    public void setDirtyBuildings(Sect sect)
     {
-        _dirty_buildings = true;
+        _dirty_building_sects.Add(sect);
     }
 
     public void setDirtyResidenceZones()
@@ -133,9 +137,12 @@ public class SectManager : MetaSystemManager<Sect, SectData>
         return GetSectByResidenceZone(zone, ignoredSect) != null;
     }
 
-    private void updateDirtyBuildings()
+    private void updateDirtyBuildings(HashSet<Sect> dirtySects)
     {
-        clearAllBuildingLists();
+        foreach (Sect sect in dirtySects)
+        {
+            if (!sect.isRekt()) sect.ClearBuildingList();
+        }
 
         List<Building> buildings = World.world.buildings.getSimpleList();
         for (int i = 0; i < buildings.Count; i++)
@@ -147,7 +154,7 @@ public class SectManager : MetaSystemManager<Sect, SectData>
             if (sectId < 0) continue;
 
             Sect sect = get(sectId);
-            if (sect == null || sect.isRekt())
+            if (sect == null || sect.isRekt() || !dirtySects.Contains(sect))
                 continue;
 
             if (building.asset == null || !building.asset.IsSectBuilding() || !building.isUsable())
@@ -155,13 +162,10 @@ public class SectManager : MetaSystemManager<Sect, SectData>
 
             sect.ListBuilding(building);
         }
-    }
 
-    private void clearAllBuildingLists()
-    {
-        foreach (Sect sect in this)
+        foreach (Sect sect in dirtySects)
         {
-            sect.ClearBuildingList();
+            if (!sect.isRekt()) sect.forceRecalcBaseStats();
         }
     }
 

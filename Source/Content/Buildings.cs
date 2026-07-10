@@ -217,6 +217,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         SectHall.priority = 110;
         SectHall.cost = new ConstructionCost(10, 5, 0, 30);
         SectHall.base_stats["health"] = 300f;
+        SectHall.base_stats[SectStats.TreasureCapacity.id] = SectConst.TreasureHallCapacity;
 
         SetupSectBuildingBase(SectScripturePavilion, SectConst.BuildingTypeScripturePavilion);
         SectScripturePavilion.priority = 90;
@@ -227,7 +228,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         SectTreasurePavilion.priority = 80;
         SectTreasurePavilion.cost = new ConstructionCost(4, 16, 4, 70);
         SectTreasurePavilion.base_stats["health"] = 450f;
-        SectTreasurePavilion.base_stats[SectStats.TreasureCapacity.id] = 40f;
+        SectTreasurePavilion.base_stats[SectStats.TreasureCapacity.id] = SectConst.TreasurePavilionCapacity;
     }
 
     private static void SetupSectBuildingBase(BuildingAsset asset, string type)
