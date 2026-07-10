@@ -3,6 +3,7 @@ using Cultiway.Core.Components;
 using DG.Tweening;
 using NeoModLoader.api.attributes;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace Cultiway.UI.Prefab;
@@ -23,10 +24,15 @@ public class SpecialItemDisplay : APrefabPreview<SpecialItemDisplay>
     }
 
     [Hotfixable]
-    public void Setup(SpecialItem item)
+    public void Setup(SpecialItem item, UnityAction clickAction = null)
     {
         Init();
         _item = item;
+        Button.onClick.RemoveAllListeners();
+        if (clickAction != null)
+        {
+            Button.onClick.AddListener(clickAction);
+        }
         Icon.Setup(RectTransform.sizeDelta, (item.GetSprite(), new Rect(0, 0, 1, 1)));
     }
 

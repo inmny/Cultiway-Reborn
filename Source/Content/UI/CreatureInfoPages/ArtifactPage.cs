@@ -1,6 +1,5 @@
-using System.Linq;
 using Cultiway.Abstract;
-using Cultiway.Content.Components;
+using Cultiway.Content.Extensions;
 using Cultiway.Core.Components;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
@@ -10,7 +9,7 @@ using UnityEngine.UI;
 namespace Cultiway.Content.UI.CreatureInfoPages;
 
 /// <summary>
-/// 单位信息窗口的"法宝"页：以图标网格列出该单位持有的法器（带 Artifact 组件的库存实体），
+/// 单位信息窗口的"法宝"页：以图标网格列出该单位已经装备的法器，
 /// hover 显示由 <see cref="SpecialItemTooltip"/> 渲染的 tooltip（名字/器形/品阶）。
 /// </summary>
 public class ArtifactPage : MonoBehaviour
@@ -46,12 +45,16 @@ public class ArtifactPage : MonoBehaviour
 
         var this_page = page.GetComponent<ArtifactPage>();
         this_page._special_item_pool.Clear();
-        // 仅列出该单位持有的法器
-        var artifacts = actor.GetExtend().GetItems().Where(x => x.HasComponent<Artifact>());
+        var actorExtend = actor.GetExtend();
+        var artifacts = actorExtend.GetEquippedArtifacts();
         foreach (var item in artifacts)
         {
             SpecialItemDisplay display = this_page._special_item_pool.GetNext();
-            display.Setup(item.GetComponent<SpecialItem>());
+            display.Setup(item.GetComponent<SpecialItem>(), () =>
+            {
+                actorExtend.UnequipArtifact(item);
+                Show(page, actor);
+            });
         }
     }
 }

@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
@@ -8,6 +7,7 @@ using Cultiway.Content.UI.CreatureInfoPages;
 using Cultiway.UI;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using NeoModLoader.General;
 using UnityEngine;
 
@@ -34,7 +34,7 @@ public class Manager : ICanInit
         WindowNewCreatureInfo.RegisterPage(nameof(SectPage), a=> a.GetExtend().sect !=null, SectPage.Setup, SectPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(SkillPage), a=> a.GetExtend().all_skills.Count > 0, SkillPage.Setup, SkillPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(ArtifactPage),
-            a => a.GetExtend().GetItems().Any(x => x.HasComponent<Artifact>()),
+            a => a.GetExtend().HasEquippedArtifacts(),
             ArtifactPage.Setup, ArtifactPage.Show);
         CharacterPanelExtensions.RegisterProgressBar("cultiway_wakan",
             a => a.GetExtend().HasCultisys<Xian>(),
@@ -95,8 +95,8 @@ public class Manager : ICanInit
             }
             if (entity.TryGetComponent(out Artifact _))
             {
-                // 第一阶段效果属性未实现，tooltip 仅占位提示
-                tooltip.Tooltip.addDescription("\n法器（未觉醒）");
+                bool equipped = entity.GetIncomingLinks<EquippedArtifactRelation>().Count > 0;
+                tooltip.Tooltip.addDescription(equipped ? "\n法器（已装备，未觉醒）" : "\n法器（未装备，未觉醒）");
             }
         });
     }

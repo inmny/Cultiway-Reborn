@@ -287,6 +287,8 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     }
     public void AddSpecialItem(Entity item)
     {
+        item.GetIncomingLinks<EquippedArtifactRelation>().Entities
+            .Do(owner => owner.RemoveRelation<EquippedArtifactRelation>(item));
         item.GetIncomingLinks<InventoryRelation>().Entities
             .Do(owner => owner.RemoveRelation<InventoryRelation>(item));
         e.AddRelation(new InventoryRelation { item = item });
@@ -298,6 +300,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
 
     public void ExtractSpecialItem(Entity item)
     {
+        e.RemoveRelation<EquippedArtifactRelation>(item);
         e.RemoveRelation<InventoryRelation>(item);
     }
 

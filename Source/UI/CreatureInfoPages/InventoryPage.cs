@@ -1,4 +1,6 @@
 using Cultiway.Abstract;
+using Cultiway.Content.Components;
+using Cultiway.Content.Extensions;
 using Cultiway.Core.Components;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
@@ -41,11 +43,30 @@ public class InventoryPage : MonoBehaviour
         
         var this_page = page.GetComponent<InventoryPage>();
         this_page._special_item_pool.Clear();
-        var items = actor.GetExtend().GetItems();
+        var actorExtend = actor.GetExtend();
+        var items = actorExtend.GetItems();
         foreach (var item in items)
         {
             SpecialItemDisplay display = this_page._special_item_pool.GetNext();
-            display.Setup(item.GetComponent<SpecialItem>());
+            if (item.HasComponent<Artifact>())
+            {
+                display.Setup(item.GetComponent<SpecialItem>(), () =>
+                {
+                    if (actorExtend.IsArtifactEquipped(item))
+                    {
+                        actorExtend.UnequipArtifact(item);
+                    }
+                    else
+                    {
+                        actorExtend.EquipArtifact(item);
+                    }
+                    Show(page, actor);
+                });
+            }
+            else
+            {
+                display.Setup(item.GetComponent<SpecialItem>());
+            }
         }
     }
 }
