@@ -146,9 +146,9 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         var entity = string.IsNullOrWhiteSpace(blueprint.EntityAssetId)
             ? null
             : ModClass.I.SkillV3.SkillLib.get(blueprint.EntityAssetId);
-        if (entity != null)
+        if (entity != null && entity.IsAnimationIndexValid(blueprint.AnimationIndex))
         {
-            model.Frames = entity.PrefabEntity.GetComponent<AnimData>().frames;
+            model.Frames = entity.GetAnimation(blueprint.AnimationIndex).Frames;
         }
 
         var trajectory = string.IsNullOrWhiteSpace(blueprint.TrajectoryAssetId)

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -26,6 +27,7 @@ public static class SkillBlueprintSignature
     {
         var builder = new StringBuilder();
         Append(builder, blueprint.EntityAssetId);
+        Append(builder, blueprint.AnimationIndex.ToString(CultureInfo.InvariantCulture));
         Append(builder, blueprint.TrajectoryAssetId);
 
         foreach (var modifier in blueprint.Modifiers

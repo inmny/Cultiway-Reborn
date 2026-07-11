@@ -18,11 +18,12 @@ public delegate bool OnObjCollision(ref SkillContext context, Entity skill_conta
 public class SkillEntityAsset : Asset
 {
     private readonly Dictionary<string, float> _modifierWeightMultipliers = new(StringComparer.Ordinal);
+    private readonly List<SkillEntityAnimation> _animations = new();
 
     public Entity PrefabEntity;
-    public string VisualEffectPath;
     public ElementComposition Element;
     public HashSet<string> SeriesTags { get; } = new();
+    public IReadOnlyList<SkillEntityAnimation> Animations => _animations;
     public string EditorCategoryKey;
     public int EditorSortOrder;
     public bool EditorSelectable;
@@ -97,7 +98,6 @@ public class SkillEntityAsset : Asset
 
     public SkillEntityAsset SetupCommonPrefab(string effect_path, float scale = 0.1f, bool anim_loop = true)
     {
-        VisualEffectPath = effect_path;
         PrefabEntity = World.CreateEntity(
             new SkillEntity()
             {
@@ -119,7 +119,7 @@ public class SkillEntityAsset : Asset
             },
             new AnimData()
             {
-                frames = LoadOrderedFrames(effect_path)
+                frames = Array.Empty<Sprite>()
             },
             new AliveTimer()
             {
@@ -130,8 +130,37 @@ public class SkillEntityAsset : Asset
                 value  = 5f
             },
             Tags.Get<TagPrefab>());
+        AddAnimation(effect_path, scale);
         return this;
     }
+
+    public SkillEntityAsset AddAnimation(string effectPath, float scale = 0.1f)
+    {
+        var animation = new SkillEntityAnimation(effectPath, LoadOrderedFrames(effectPath), scale);
+        _animations.Add(animation);
+        if (_animations.Count == 1)
+        {
+            PrefabEntity.GetComponent<AnimData>().frames = animation.Frames;
+            PrefabEntity.GetComponent<Scale>().value = Vector3.one * animation.Scale;
+        }
+        return this;
+    }
+
+    public SkillEntityAnimation GetAnimation(int index)
+    {
+        return _animations[index];
+    }
+
+    public bool IsAnimationIndexValid(int index)
+    {
+        return index >= 0 && index < _animations.Count;
+    }
+
+    public int GetRandomAnimationIndex()
+    {
+        return _animations.Count == 1 ? 0 : Randy.randomInt(0, _animations.Count);
+    }
+
     public Entity NewEntity()
     {
         Entity entity = World.CloneEntity(PrefabEntity);
@@ -149,6 +178,18 @@ public class SkillEntityAsset : Asset
 
         SetupRuntimeFx(entity);
 
+        return entity;
+    }
+
+    public Entity NewEntity(int animationIndex)
+    {
+        var entity = NewEntity();
+        var animation = GetAnimation(animationIndex);
+        ref var animData = ref entity.GetComponent<AnimData>();
+        animData.frames = animation.Frames;
+        animData.frame_idx = 0;
+        animData.frame_timer = 0f;
+        entity.GetComponent<Scale>().value = Vector3.one * animation.Scale;
         return entity;
     }
 

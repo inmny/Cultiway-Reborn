@@ -34,6 +34,7 @@ public sealed class SkillBlueprintCompiler
 
         var entityAsset = ModClass.I.SkillV3.SkillLib.get(blueprint.EntityAssetId);
         var builder = new SkillContainerBuilder(entityAsset);
+        builder.UseAnimation(blueprint.AnimationIndex);
         var defaultTrajectoryId = SkillBlueprintTrajectory.ResolveDefaultId(entityAsset);
         if (!string.Equals(defaultTrajectoryId, blueprint.TrajectoryAssetId, StringComparison.Ordinal))
         {

@@ -18,6 +18,7 @@ public enum SkillContainerBuildMode
 public class SkillContainerBuilder
 {
     private readonly SkillEntityAsset _entityAsset;
+    private int _animationIndex = -1;
     public SkillContainerBuilder(SkillEntityAsset entity_asset)
     {
         this._entityAsset = entity_asset;
@@ -70,6 +71,17 @@ public class SkillContainerBuilder
         _modifiersToRemove.Remove(typeof(TModifier));
         _modifiersToSet[typeof(TModifier)] = modifier;
     }
+
+    public SkillContainerBuilder UseAnimation(int animationIndex)
+    {
+        var entityAsset = EntityAsset;
+        if (animationIndex < 0 || animationIndex >= entityAsset.Animations.Count)
+        {
+            throw new ArgumentOutOfRangeException(nameof(animationIndex));
+        }
+        _animationIndex = animationIndex;
+        return this;
+    }
     private readonly Dictionary<Type, IModifier> _modifiersToSet = new Dictionary<Type, IModifier>();
     private readonly Dictionary<Type, IModifier> _modifiersToAdd = new Dictionary<Type, IModifier>();
     private readonly Dictionary<Type, IModifier> _modifiersToRemove = new Dictionary<Type, IModifier>();
@@ -98,12 +110,21 @@ public class SkillContainerBuilder
         if (_containerEntity.IsNull)
         {
             _containerEntity = ModClass.I.W.CreateEntity();
+            var animationIndex = _animationIndex;
+            if (animationIndex < 0)
+            {
+                animationIndex = mode == SkillContainerBuildMode.Runtime
+                    ? _entityAsset.GetRandomAnimationIndex()
+                    : 0;
+            }
             _containerEntity.Add(new SkillContainer()
             {
-                SkillEntityAssetID = _entityAsset.id
+                SkillEntityAssetID = _entityAsset.id,
+                AnimationIndex = animationIndex
             });
         }
         ref var skill_container = ref _containerEntity.GetComponent<SkillContainer>();
+        if (_animationIndex >= 0) skill_container.AnimationIndex = _animationIndex;
         foreach (var modifier in _modifiersToAdd)
         {
             _containerEntity.AddNonGeneric(modifier.Value);

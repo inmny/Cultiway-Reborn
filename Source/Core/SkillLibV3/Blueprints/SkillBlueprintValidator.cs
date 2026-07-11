@@ -71,6 +71,17 @@ public sealed class SkillBlueprintValidator
         {
             result.AddError("entity.internal", context.Blueprint.EntityAssetId);
         }
+        if (context.EntityAsset.Animations.Count == 0)
+        {
+            result.AddError("entity.animation_empty", context.Blueprint.EntityAssetId);
+            return;
+        }
+        if (context.Blueprint.AnimationIndex < 0 ||
+            context.Blueprint.AnimationIndex >= context.EntityAsset.Animations.Count)
+        {
+            result.AddError("animation.index", context.Blueprint.EntityAssetId,
+                context.Blueprint.AnimationIndex, context.EntityAsset.Animations.Count);
+        }
     }
 
     private static void ValidateTrajectory(SkillEditContext context, SkillCompatibilityResult result)

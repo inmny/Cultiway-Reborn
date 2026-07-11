@@ -37,6 +37,7 @@ public sealed class SkillBlueprintExporter
         var blueprint = new SkillBlueprint
         {
             EntityAssetId = container.SkillEntityAssetID,
+            AnimationIndex = container.AnimationIndex,
             TrajectoryAssetId = SkillBlueprintTrajectory.ResolveEffectiveId(containerEntity),
             Origin = new SkillBlueprintOriginData
             {

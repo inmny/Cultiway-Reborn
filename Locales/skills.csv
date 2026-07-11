@@ -222,6 +222,8 @@ Cultiway.SkillBlueprint.Validation.entity.empty,尚未选择法术实体
 Cultiway.SkillBlueprint.Validation.entity.missing,法术实体资源不存在
 Cultiway.SkillBlueprint.Validation.entity.descriptor_missing,法术实体缺少编辑元数据
 Cultiway.SkillBlueprint.Validation.entity.internal,该法术实体不允许由玩家编辑
+Cultiway.SkillBlueprint.Validation.entity.animation_empty,该法术实体没有配置动画
+Cultiway.SkillBlueprint.Validation.animation.index,动画索引 {0} 超出法术实体的范围（共 {1} 个动画）
 Cultiway.SkillBlueprint.Validation.trajectory.empty,尚未选择有效轨迹
 Cultiway.SkillBlueprint.Validation.trajectory.missing,轨迹资源不存在
 Cultiway.SkillBlueprint.Validation.trajectory.descriptor_missing,轨迹缺少编辑元数据

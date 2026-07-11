@@ -78,6 +78,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
         Configure(Fireball, fire, "cultiway/effect/fire_polo", SkillTrajectories.TowardsDirection, 1f, true,
             SkillHitResolver.Area(Fireball, radius: 2f, recycleOnHit: true),
             ElementTag.Fire, FormTag.Ball, FormTag.Aoe, DeliveryTag.Projectile)
+            .AddAnimation("cultiway/effect/flying_fireball", 0.025f)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(FireBlade, fire, "cultiway/effect/fire_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
             SkillHitResolver.Single(FireBlade, recycleOnHit: false, continueAfterHit: true),

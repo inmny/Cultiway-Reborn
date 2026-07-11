@@ -45,7 +45,7 @@ public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
         });
         _detail.text = string.Format("Cultiway.Wanfa.UI.Format.ImportDetail".Localize(), trajectory.Localize(),
             modifierCount);
-        var frames = skill.Asset.PrefabEntity.GetComponent<AnimData>().frames;
+        var frames = skill.Asset.GetAnimation(skill.AnimationIndex).Frames;
         _icon.sprite = frames.Length == 0 ? null : frames[0];
         WanfaUiFactory.SetTooltip(_icon.gameObject, () => SkillTooltip.Show(_icon.gameObject, container));
 

@@ -66,7 +66,10 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
             ? null
             : ModClass.I.SkillV3.SkillLib.get(blueprint.EntityAssetId);
         Sprite[] frames = null;
-        if (entity != null) frames = entity.PrefabEntity.GetComponent<AnimData>().frames;
+        if (entity != null && entity.IsAnimationIndexValid(blueprint.AnimationIndex))
+        {
+            frames = entity.GetAnimation(blueprint.AnimationIndex).Frames;
+        }
         _icon.sprite = frames is { Length: > 0 } ? frames[0] : null;
         WanfaUiFactory.SetTooltip(_icon.gameObject, () => SkillTooltip.Show(_icon.gameObject, blueprint));
         SetFavoriteButton(blueprint.Favorite, favorite);

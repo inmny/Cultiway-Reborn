@@ -23,6 +23,7 @@ public static class SkillContainerSignature
         var blueprint = new SkillBlueprint
         {
             EntityAssetId = container.SkillEntityAssetID,
+            AnimationIndex = container.AnimationIndex,
             TrajectoryAssetId = SkillBlueprintTrajectory.ResolveEffectiveId(skill)
         };
 

@@ -13,6 +13,11 @@ public struct SkillContainer : IComponent
     /// </summary>
     public string SkillEntityAssetID;
 
+    /// <summary>
+    /// 在所属法术实体内部绑定的动画索引。
+    /// </summary>
+    public int AnimationIndex;
+
     public SetupAction OnSetup;
     public TravelAction OnTravel;
     public EffectObjAction OnEffectObj;

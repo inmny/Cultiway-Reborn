@@ -142,7 +142,7 @@ public class Manager
         }
         var initial_dir = ApplyInitialAngleOffset(base_dir, initial_angle_offset_degrees);
 
-        var entity = container.Asset.NewEntity();
+        var entity = container.Asset.NewEntity(container.AnimationIndex);
         entity.AddRelation(new SkillMasterRelation()
         {
             SkillContainer = skill_container
