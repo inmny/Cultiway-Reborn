@@ -54,17 +54,14 @@ public static class ArtifactComposer
     {
         ArtifactRecipeContext context = new()
         {
-            ingredient_count = ingredients?.Count ?? 0,
+            ingredient_count = ingredients.Count,
             shape_counts = new Dictionary<string, int>(),
         };
 
         var bestShapeCount = 0;
         var bestQuality = -1;
-        if (ingredients == null) return context;
-
         foreach (var ingredient in ingredients)
         {
-            if (ingredient.IsNull) continue;
             if (ingredient.TryGetComponent(out ItemShape shape))
             {
                 if (string.IsNullOrEmpty(context.main_material_shape_id))
@@ -86,8 +83,8 @@ public static class ArtifactComposer
                 if (quality > bestQuality)
                 {
                     bestQuality = quality;
-                    context.quality_stage = Math.Max(0, level.Stage);
-                    context.quality_level = Math.Max(0, level.Level);
+                    context.quality_stage = level.Stage;
+                    context.quality_level = level.Level;
                 }
             }
         }
@@ -97,15 +94,12 @@ public static class ArtifactComposer
     private static ArtifactShapeAsset ResolveShape(ArtifactRecipeContext context)
     {
         Dictionary<ArtifactShapeAsset, int> scores = new();
-        if (context.shape_counts != null)
-        {
             foreach (var kv in context.shape_counts)
             {
                 var affinity = ResolveAffinity(kv.Key);
                 if (affinity == null) continue;
                 scores.TryGetValue(affinity, out var score);
                 scores[affinity] = score + kv.Value;
-            }
         }
 
         var shape = ItemShapes.Sword;
@@ -121,7 +115,6 @@ public static class ArtifactComposer
 
     private static ArtifactShapeAsset ResolveAffinity(string shapeId)
     {
-        if (string.IsNullOrEmpty(shapeId)) return null;
         var suffix = shapeId.Substring(shapeId.LastIndexOf('.') + 1);
         return suffix switch
         {
@@ -187,7 +180,7 @@ public static class ArtifactComposer
             if (!string.IsNullOrEmpty(stem)) builder.Append(stem);
         }
 
-        var shapeName = shape?.PickIngredientNameCandidate(value) ?? string.Empty;
+        var shapeName = shape.PickIngredientNameCandidate(value);
         if (string.IsNullOrEmpty(shapeName)) shapeName = "器";
         builder.Append(shapeName);
         return builder.ToString();
@@ -212,15 +205,13 @@ public static class ArtifactComposer
 
         var template = templates[StableIndex($"{seed}|template|{shapeKey}", templates.Count)];
         var slots = new List<ArtifactIconSlot>();
-        var placements = template.Placements?
-            .Where(item => item != null)
+        var placements = template.Placements
             .OrderBy(item => item.Z)
-            .ToArray() ?? [];
+            .ToArray();
         foreach (var placement in placements)
         {
-            if (!catalog.Modules.TryGetValue(placement.Module, out var module)) continue;
+            ArtifactIconModuleDef module = catalog.Modules[placement.Module];
             var variant = PickVariant(module, placement, atoms, seed, template.Key);
-            if (variant == null) continue;
             slots.Add(new ArtifactIconSlot
             {
                 slot = placement.Slot,
@@ -244,11 +235,9 @@ public static class ArtifactComposer
         string seed,
         string templateKey)
     {
-        var anchor = placement.Anchor ?? "origin";
-        var candidates = module.Variants?
-            .Where(variant => variant?.GetAnchor(anchor) != null)
-            .ToArray() ?? [];
-        if (candidates.Length == 0) return null;
+        var candidates = module.Variants
+            .Where(variant => variant.GetAnchor(placement.Anchor) != null)
+            .ToArray();
 
         var maxScore = candidates.Max(variant => VariantScore(atoms, module.Key, variant.Key));
         var best = candidates
@@ -306,13 +295,10 @@ public static class ArtifactComposer
     private static string BuildSeed(IReadOnlyList<Entity> ingredients, string creatorName, ArtifactShapeAsset shape)
     {
         StringBuilder builder = new();
-        builder.Append(creatorName ?? string.Empty);
-        builder.Append('|').Append(shape?.id ?? string.Empty);
-        if (ingredients != null)
-        {
+        builder.Append(creatorName);
+        builder.Append('|').Append(shape.id);
             foreach (var ingredient in ingredients)
             {
-                if (ingredient.IsNull) continue;
                 builder.Append('|').Append(ingredient.Id);
                 if (ingredient.TryGetComponent(out ItemShape shapeComponent))
                 {
@@ -321,7 +307,6 @@ public static class ArtifactComposer
                 if (ingredient.TryGetComponent(out ItemLevel level))
                 {
                     builder.Append(':').Append(level.Stage).Append('.').Append(level.Level);
-                }
             }
         }
         return builder.ToString();
@@ -329,7 +314,6 @@ public static class ArtifactComposer
 
     private static int StableIndex(string text, int count)
     {
-        if (count <= 0) return 0;
         return (int)(StableUInt(text) % (uint)count);
     }
 
@@ -341,7 +325,7 @@ public static class ArtifactComposer
     private static uint StableUInt(string text)
     {
         using var sha = SHA256.Create();
-        var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(text ?? string.Empty));
+        var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(text));
         return ((uint)bytes[0] << 24) | ((uint)bytes[1] << 16) | ((uint)bytes[2] << 8) | bytes[3];
     }
 }

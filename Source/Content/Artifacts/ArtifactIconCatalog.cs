@@ -36,7 +36,6 @@ public sealed class ArtifactIconModuleDef
 
     public ArtifactIconVariantDef GetVariant(string key)
     {
-        if (Variants == null) return null;
         for (int i = 0; i < Variants.Length; i++)
         {
             if (Variants[i].Key == key) return Variants[i];
@@ -53,7 +52,6 @@ public sealed class ArtifactIconVariantDef
 
     public ArtifactIconAnchorDef GetAnchor(string key)
     {
-        if (Anchors == null) return null;
         for (int i = 0; i < Anchors.Length; i++)
         {
             if (Anchors[i].Key == key) return Anchors[i];
@@ -135,7 +133,8 @@ public static class ArtifactIconCatalogLoader
         var modules = ReadJson<ArtifactIconModulesFile>(Path.Combine(root, "modules.json"));
         var templates = ReadJson<ArtifactIconTemplatesFile>(Path.Combine(root, "templates.json"));
         var colors = ReadJson<ArtifactIconColorsFile>(Path.Combine(root, "colors.json"));
-        catalog.Canvas = modules?.Canvas > 0 ? modules.Canvas : templates?.Canvas ?? 28;
+        int canvas = modules?.Canvas ?? templates?.Canvas ?? 28;
+        catalog.Canvas = canvas > 0 ? canvas : 28;
 
         if (modules?.Modules != null)
         {
@@ -193,13 +192,12 @@ public static class ArtifactIconCatalogLoader
         foreach (var variant in module.Variants)
         {
             if (variant == null || string.IsNullOrEmpty(variant.Key)) return false;
+            variant.Anchors ??= [];
+            variant.Parts ??= [];
             HashSet<string> current = new();
-            if (variant.Anchors != null)
+            foreach (var anchor in variant.Anchors)
             {
-                foreach (var anchor in variant.Anchors)
-                {
-                    if (!string.IsNullOrEmpty(anchor.Key)) current.Add(anchor.Key);
-                }
+                if (!string.IsNullOrEmpty(anchor.Key)) current.Add(anchor.Key);
             }
             if (anchorKeys == null)
             {
@@ -217,6 +215,8 @@ public static class ArtifactIconCatalogLoader
     private static bool ValidateTemplate(ArtifactIconTemplateDef template, ArtifactIconCatalog catalog)
     {
         if (template.Placements == null || template.Placements.Length == 0) return false;
+        template.Camera ??= new JObject();
+        template.Light ??= new JObject();
         foreach (var placement in template.Placements)
         {
             if (placement == null || string.IsNullOrEmpty(placement.Module)) return false;
@@ -225,11 +225,11 @@ public static class ArtifactIconCatalogLoader
                 ModClass.LogWarning($"法器图标模板 {template.Key} 引用了不存在的模块 {placement.Module}");
                 return false;
             }
-            var anchor = placement.Anchor ?? "origin";
+            placement.Anchor ??= "origin";
             var ok = false;
             foreach (var variant in module.Variants)
             {
-                if (variant.GetAnchor(anchor) != null)
+                if (variant.GetAnchor(placement.Anchor) != null)
                 {
                     ok = true;
                     break;
@@ -237,7 +237,7 @@ public static class ArtifactIconCatalogLoader
             }
             if (!ok)
             {
-                ModClass.LogWarning($"法器图标模板 {template.Key} 的放置 {placement.Slot} 找不到锚点 {anchor}");
+                ModClass.LogWarning($"法器图标模板 {template.Key} 的放置 {placement.Slot} 找不到锚点 {placement.Anchor}");
                 return false;
             }
         }

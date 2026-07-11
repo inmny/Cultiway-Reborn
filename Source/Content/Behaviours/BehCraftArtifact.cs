@@ -42,19 +42,12 @@ public class BehCraftArtifact : BehCityActor
             }
             for (int i = 0; i < ingredient_array.Length; i++)
             {
-                if (!ingredient_array[i].IsNull)
-                {
-                    ingredient_array[i].DeleteEntity();
-                }
+                ingredient_array[i].DeleteEntity();
             }
 
-            var shape_id = crafting_entity.GetComponent<ItemShape>().shape_id;
             crafting_entity.RemoveComponent<CraftingArtifact>();
             crafting_entity.RemoveTag<TagUncompleted>();
-            if (!crafting_entity.HasComponent<Artifact>())
-            {
-                crafting_entity.AddComponent(new Artifact());
-            }
+            crafting_entity.AddComponent(new Artifact());
             crafting_entity.GetComponent<AliveTimeLimit>().value = crafting_entity.GetComponent<ItemLevel>() * 10 * TimeScales.SecPerYear;
             ae.EquipArtifact(crafting_entity);
 
