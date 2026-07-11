@@ -293,6 +293,7 @@ public sealed class WanfaPavilionService : ICanInit
     {
         if (Instance == null) return;
         WanfaDropExportSession.Clear();
+        WanfaTestCastSession.Clear(false);
         foreach (var container in Instance._testContainers)
         {
             SkillBlueprintCompiler.Recycle(container);
@@ -308,6 +309,7 @@ public sealed class WanfaPavilionService : ICanInit
     internal void Tick()
     {
         WanfaDropExportSession.Tick();
+        WanfaTestCastSession.Tick();
         while (_pendingAiNames.TryDequeue(out var pending))
         {
             var blueprint = _library.Get(pending.BlueprintId);

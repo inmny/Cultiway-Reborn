@@ -45,6 +45,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     private bool _isExisting;
     private bool _closingApproved;
     private bool _resumeAfterClose;
+    private bool _resumeAfterTestCast;
     private bool _actorEdit;
     private bool _actorReplacementPending;
     private ExitMode _pendingExitMode;
@@ -59,6 +60,8 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     private Text _previewSummary;
     private Text _draftState;
     private Button[] _tabButtons;
+    private Button _undoButton;
+    private Button _redoButton;
     private Button _testCastButton;
     private MonoObjPool<WanfaEditorRow> _rowPool;
     private GameObject _confirmPanel;
@@ -99,6 +102,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
 
         _instance._closingApproved = true;
         _instance._resumeAfterClose = false;
+        _instance._resumeAfterTestCast = false;
         _instance._actorEdit = false;
         _instance._actorReplacementPending = false;
         _instance._sourceActor = null;
@@ -121,13 +125,19 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
 
         var header = WanfaUiFactory.CreateLayout(root.transform, "Header", true, 520f, 24f, 4f);
         _nameInput = WanfaUiFactory.CreateInput(header.transform, "Name", string.Empty,
-            "Cultiway.Wanfa.UI.Placeholder.SkillName".Localize(), 170f, 22f);
+            "Cultiway.Wanfa.UI.Placeholder.SkillName".Localize(), 165f, 22f);
         _nameInput.characterLimit = 24;
         _nameInput.onEndEdit.AddListener(ApplyCustomName);
-        _nameModeButton = WanfaUiFactory.CreateButton(header.transform, "NameMode",
-            "Cultiway.Wanfa.UI.NameMode.Rule".Localize(), 68f, 22f, ToggleNameMode);
-        _aiNaming = WanfaUiFactory.CreateToggle(header.transform, "AiNaming",
-            "Cultiway.Wanfa.UI.Label.AiNaming".Localize(), true, 72f, 22f);
+        WanfaUiFactory.SetTooltip(_nameInput, "Cultiway.Wanfa.UI.Placeholder.SkillName",
+            "Cultiway.Wanfa.UI.Tooltip.SkillName");
+        _nameModeButton = WanfaUiFactory.CreateIconTextButton(header.transform, "NameMode", WanfaUiIcons.NamingMode,
+            "Cultiway.Wanfa.UI.NameMode.Rule".Localize(), 88f, 22f, ToggleNameMode);
+        WanfaUiFactory.SetTooltip(_nameModeButton.gameObject, "Cultiway.Wanfa.UI.Tooltip.NameMode.Title",
+            "Cultiway.Wanfa.UI.Tooltip.NameMode");
+        _aiNaming = WanfaUiFactory.CreateIconToggle(header.transform, "AiNaming", WanfaUiIcons.AiNaming, true, 28f,
+            22f);
+        WanfaUiFactory.SetTooltip(_aiNaming, "Cultiway.Wanfa.UI.Label.AiNaming",
+            "Cultiway.Wanfa.UI.Tooltip.AiNaming");
         _aiNaming.onValueChanged.AddListener(value =>
         {
             if (_draft == null || _draft.AiNamingEnabled == value) return;
@@ -137,7 +147,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                 if (!value) _draft.GeneratedName = null;
             });
         });
-        _draftState = WanfaUiFactory.CreateText(header.transform, "DraftState", "", 190f, 22f, 6);
+        _draftState = WanfaUiFactory.CreateText(header.transform, "DraftState", "", 227f, 22f, 6);
 
         var preview = WanfaUiFactory.CreateLayout(root.transform, "Preview", true, 520f, 46f, 6f);
         var imageObject = new GameObject("Image", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
@@ -145,12 +155,18 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         WanfaUiFactory.SetLayout(imageObject.transform, 46f, 46f);
         _previewImage = imageObject.GetComponent<Image>();
         _previewImage.preserveAspect = true;
+        WanfaUiFactory.SetTooltip(imageObject, () =>
+        {
+            if (_draft != null) WanfaSkillTooltip.Show(imageObject, _draft);
+        });
         _previewSummary = WanfaUiFactory.CreateText(preview.transform, "Summary", string.Empty, 356f, 46f, 7,
             TextAnchor.MiddleLeft);
         _categoryInput = WanfaUiFactory.CreateInput(preview.transform, "Category", string.Empty,
             "Cultiway.Wanfa.UI.Placeholder.Category".Localize(), 106f, 22f);
         _categoryInput.characterLimit = 12;
         _categoryInput.onEndEdit.AddListener(ApplyCategory);
+        WanfaUiFactory.SetTooltip(_categoryInput, "Cultiway.Wanfa.UI.Placeholder.Category",
+            "Cultiway.Wanfa.UI.Tooltip.Category");
 
         var tabs = WanfaUiFactory.CreateLayout(root.transform, "Tabs", true, 520f, 22f, 4f);
         var names = new[]
@@ -160,31 +176,42 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             "Cultiway.Wanfa.UI.Tab.Modifier".Localize(),
             "Cultiway.Wanfa.UI.Tab.Overview".Localize()
         };
+        var icons = new[]
+        {
+            WanfaUiIcons.Entity, WanfaUiIcons.Trajectory, WanfaUiIcons.Modifier, WanfaUiIcons.Overview
+        };
+        var tooltipKeys = new[]
+        {
+            "Cultiway.Wanfa.UI.Tooltip.Tab.Entity", "Cultiway.Wanfa.UI.Tooltip.Tab.Trajectory",
+            "Cultiway.Wanfa.UI.Tooltip.Tab.Modifier", "Cultiway.Wanfa.UI.Tooltip.Tab.Overview"
+        };
         _tabButtons = new Button[names.Length];
         for (var i = 0; i < names.Length; i++)
         {
             var page = i;
-            _tabButtons[i] = WanfaUiFactory.CreateButton(tabs.transform, names[i], names[i], 126f, 21f,
-                () => SelectPage(page));
+            _tabButtons[i] = WanfaUiFactory.CreateIconTextButton(tabs.transform, names[i], icons[i], names[i], 126f,
+                21f, () => SelectPage(page));
+            WanfaUiFactory.SetTooltip(_tabButtons[i].gameObject, names[i], tooltipKeys[i]);
         }
 
         var content = WanfaUiFactory.CreateScrollContent(root.transform, "EditorContent", 520f, 108f);
         _rowPool = new MonoObjPool<WanfaEditorRow>(WanfaEditorRow.Prefab, content);
 
         var footer = WanfaUiFactory.CreateLayout(root.transform, "Footer", true, 520f, 25f, 4f);
-        WanfaUiFactory.CreateButton(footer.transform, "Undo", "Cultiway.Wanfa.UI.Action.Undo".Localize(), 48f,
-            22f, Undo);
-        WanfaUiFactory.CreateButton(footer.transform, "Redo", "Cultiway.Wanfa.UI.Action.Redo".Localize(), 48f,
-            22f, Redo);
-        WanfaUiFactory.CreateButton(footer.transform, "Discard",
-            "Cultiway.Wanfa.UI.Action.DiscardChanges".Localize(),
-            68f, 22f, DiscardChanges);
-        WanfaUiFactory.CreateButton(footer.transform, "SaveCopy", "Cultiway.Wanfa.UI.Action.SaveCopy".Localize(), 68f,
-            22f, SaveCopy);
-        WanfaUiFactory.CreateButton(footer.transform, "Save", "Cultiway.Wanfa.UI.Action.Save".Localize(), 62f,
-            22f, () => TrySave());
-        _testCastButton = WanfaUiFactory.CreateButton(footer.transform, "Test",
-            "Cultiway.Wanfa.UI.Action.TestCast".Localize(), 68f, 22f, TestCast);
+        _undoButton = CreateFooterButton(footer.transform, "Undo", WanfaUiIcons.Undo,
+            "Cultiway.Wanfa.UI.Action.Undo", "Cultiway.Wanfa.UI.Tooltip.Undo", Undo);
+        _redoButton = CreateFooterButton(footer.transform, "Redo", WanfaUiIcons.Undo,
+            "Cultiway.Wanfa.UI.Action.Redo", "Cultiway.Wanfa.UI.Tooltip.Redo", Redo);
+        WanfaUiFactory.SetButtonIcon(_redoButton, WanfaUiIcons.Undo, true);
+        CreateFooterButton(footer.transform, "Discard", WanfaUiIcons.Reset,
+            "Cultiway.Wanfa.UI.Action.DiscardChanges", "Cultiway.Wanfa.UI.Tooltip.DiscardChanges",
+            DiscardChanges);
+        CreateFooterButton(footer.transform, "SaveCopy", WanfaUiIcons.Copy,
+            "Cultiway.Wanfa.UI.Action.SaveCopy", "Cultiway.Wanfa.UI.Tooltip.SaveCopy", SaveCopy);
+        CreateFooterButton(footer.transform, "Save", WanfaUiIcons.Save,
+            "Cultiway.Wanfa.UI.Action.Save", "Cultiway.Wanfa.UI.Tooltip.Save", () => TrySave());
+        _testCastButton = CreateFooterButton(footer.transform, "Test", WanfaUiIcons.Play,
+            "Cultiway.Wanfa.UI.Action.TestCast", "Cultiway.Wanfa.UI.Tooltip.TestCast", TestCast);
 
         CreateConfirmationPanel();
         PositionBackButton();
@@ -193,6 +220,14 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     public override void OnNormalEnable()
     {
         StartCoroutine(BindBackButtonAfterScrollWindowStart());
+        if (_resumeAfterTestCast)
+        {
+            _resumeAfterTestCast = false;
+            _closingApproved = false;
+            _testCastButton.gameObject.SetActive(!_actorEdit);
+            RefreshAll();
+            return;
+        }
         if (_resumeAfterClose)
         {
             _resumeAfterClose = false;
@@ -251,9 +286,19 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
 
     private void RefreshAll()
     {
+        _undoButton.interactable = _undo.Count > 0;
+        _redoButton.interactable = _redo.Count > 0;
         RefreshPreview();
         RefreshHeader();
         RefreshPage();
+    }
+
+    private static Button CreateFooterButton(Transform parent, string name, string iconPath, string titleKey,
+        string descriptionKey, UnityEngine.Events.UnityAction action)
+    {
+        var button = WanfaUiFactory.CreateIconButton(parent, name, iconPath, 30f, 22f, action);
+        WanfaUiFactory.SetTooltip(button.gameObject, titleKey, descriptionKey);
+        return button;
     }
 
     private void RefreshHeader()
@@ -356,7 +401,8 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                 selected
                     ? "Cultiway.Wanfa.UI.Action.Selected".Localize()
                     : "Cultiway.Wanfa.UI.Action.Select".Localize(),
-                !selected && trajectoryId != null, () => SelectEntity(entity.id));
+                !selected && trajectoryId != null, () => SelectEntity(entity.id),
+                selected ? WanfaUiIcons.Confirm : WanfaUiIcons.Select);
         }
     }
 
@@ -383,7 +429,8 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                     ? "Cultiway.Wanfa.UI.Action.Selected".Localize()
                     : "Cultiway.Wanfa.UI.Action.Select".Localize(),
                 compatibility.IsCompatible && !selected,
-                () => ApplyMutation(() => _draft.TrajectoryAssetId = trajectory.id));
+                () => ApplyMutation(() => _draft.TrajectoryAssetId = trajectory.id),
+                selected ? WanfaUiIcons.Confirm : WanfaUiIcons.Select);
         }
     }
 
@@ -431,7 +478,8 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                     ? "Cultiway.Wanfa.UI.Action.Remove".Localize()
                     : "Cultiway.Wanfa.UI.Action.Add".Localize(),
                 selected || compatibility.IsCompatible,
-                () => ToggleModifier(modifier));
+                () => ToggleModifier(modifier), selected ? WanfaUiIcons.Remove : WanfaUiIcons.Add,
+                WanfaModifierTooltipModel.FromSpec(checkedSpec));
             if (!selected || !modifier.EditorSelectable || !available) continue;
 
             BuildFieldControls(row, modifier, spec);
@@ -444,7 +492,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                     spec.AssetId),
                 "Cultiway.Wanfa.UI.Detail.MissingModifier".Localize(),
                 "Cultiway.Wanfa.UI.Action.Remove".Localize(), true,
-                () => ApplyMutation(() => _draft.Modifiers.Remove(missingSpec)));
+                () => ApplyMutation(() => _draft.Modifiers.Remove(missingSpec)), WanfaUiIcons.Remove);
         }
     }
 
@@ -467,15 +515,20 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             WanfaUiFactory.CreateText(repair.transform, "Label",
                 "Cultiway.Wanfa.UI.Detail.InvalidParameters".Localize(),
                 330f, 22f, 7);
-            WanfaUiFactory.CreateButton(repair.transform, "Action",
-                "Cultiway.Wanfa.UI.Action.RepairParameters".Localize(), 90f, 20f,
+            var repairButton = WanfaUiFactory.CreateIconTextButton(repair.transform, "Action", WanfaUiIcons.Reset,
+                "Cultiway.Wanfa.UI.Action.RepairParameters".Localize(), 96f, 20f,
                 () => RepairParameters(spec.AssetId, modifier));
+            WanfaUiFactory.SetTooltip(repairButton.gameObject, "Cultiway.Wanfa.UI.Action.RepairParameters",
+                "Cultiway.Wanfa.UI.Tooltip.RepairParameters");
         }
         foreach (var field in modifier.EditorFields)
         {
             var storedValue = GetStoredFieldValue(spec, field);
             var controls = WanfaUiFactory.CreateLayout(row.Controls, field.ParameterKey, true, 490f, 22f, 3f);
             WanfaUiFactory.CreateText(controls.transform, "Label", field.DisplayName, 130f, 22f, 7);
+            var fieldDescription = string.Format("Cultiway.Wanfa.UI.Tooltip.Field".Localize(), field.DisplayName,
+                field.MinValue * field.DisplayScale, field.MaxValue * field.DisplayScale,
+                field.Step * field.DisplayScale, field.Unit);
             if (field.Kind == SkillEditorFieldKind.Toggle)
             {
                 if (!bool.TryParse(storedValue, out var toggleValue))
@@ -484,6 +537,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                 }
                 var toggle = WanfaUiFactory.CreateToggle(controls.transform, "Value", string.Empty,
                     toggleValue, 80f, 20f);
+                WanfaUiFactory.SetTooltip(toggle, field.DisplayName, fieldDescription);
                 toggle.onValueChanged.AddListener(value =>
                     SetField(spec.AssetId, field, value.ToString()));
                 continue;
@@ -492,16 +546,22 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             {
                 var textInput = WanfaUiFactory.CreateInput(controls.transform, "Value",
                     field.ToDisplayValue(storedValue), string.Empty, 260f, 20f);
+                WanfaUiFactory.SetTooltip(textInput, field.DisplayName, fieldDescription);
                 textInput.onEndEdit.AddListener(value => SetField(spec.AssetId, field, value));
                 continue;
             }
-            WanfaUiFactory.CreateButton(controls.transform, "Decrease", "-", 24f, 20f,
+            var decrease = WanfaUiFactory.CreateButton(controls.transform, "Decrease", "-", 24f, 20f,
                 () => StepField(spec.AssetId, field, -1));
+            WanfaUiFactory.SetTooltip(decrease.gameObject, "Cultiway.Wanfa.UI.Action.Decrease",
+                fieldDescription);
             var input = WanfaUiFactory.CreateInput(controls.transform, "Value",
                 field.ToDisplayValue(storedValue), string.Empty, 100f, 20f);
+            WanfaUiFactory.SetTooltip(input, field.DisplayName, fieldDescription);
             input.onEndEdit.AddListener(value => SetField(spec.AssetId, field, value));
-            WanfaUiFactory.CreateButton(controls.transform, "Increase", "+", 24f, 20f,
+            var increase = WanfaUiFactory.CreateButton(controls.transform, "Increase", "+", 24f, 20f,
                 () => StepField(spec.AssetId, field, 1));
+            WanfaUiFactory.SetTooltip(increase.gameObject, "Cultiway.Wanfa.UI.Action.Increase",
+                fieldDescription);
             WanfaUiFactory.CreateText(controls.transform, "Unit", field.Unit, 44f, 22f, 6);
         }
     }
@@ -882,23 +942,20 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
 
     private void TestCast()
     {
-        var actor = SelectedUnit.unit;
-        if (actor == null || !actor.isAlive())
-        {
-            WorldTip.showNow("Cultiway.Wanfa.UI.Tip.SelectTestActor".Localize(), false, "top", 3f);
-            return;
-        }
-
-        var compiled = new SkillBlueprintCompiler().Compile(_draft, SkillBlueprintCompileMode.Preview);
-        if (!compiled.Success)
+        if (!WanfaPavilionService.Instance.Validate(_draft).IsCompatible)
         {
             WorldTip.showNow("Cultiway.Wanfa.UI.Tip.TestUnavailable".Localize(), false, "top", 3f);
             return;
         }
-        var target = actor.GetSimPos() + Vector3.right * 8f;
-        ModClass.I.SkillV3.SpawnSkill(compiled.Container, actor, null, target, 100f,
-            power_level: actor.GetExtend().GetPowerLevel());
-        WanfaPavilionService.Instance.TrackTestContainer(compiled.Container);
+        _closingApproved = true;
+        WanfaTestCastSession.Enter(_draft);
+    }
+
+    internal static void ResumeAfterTestCast()
+    {
+        if (_instance == null || _instance._draft == null) return;
+        _instance._resumeAfterTestCast = true;
+        ScrollWindow.showWindow(Id, true, false);
     }
 
     private void RequestBack()
@@ -933,33 +990,39 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
 
     private void CreateConfirmationPanel()
     {
-        _confirmPanel = WanfaUiFactory.CreateLayout(BackgroundTransform, "UnsavedConfirmation", false, 270f, 94f, 6f);
+        _confirmPanel = WanfaUiFactory.CreateLayout(BackgroundTransform, "UnsavedConfirmation", false, 270f, 94f, 6f, alignment: TextAnchor.MiddleCenter);
         _confirmPanel.transform.localPosition = Vector3.zero;
         var background = _confirmPanel.AddComponent<Image>();
-        background.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        background.sprite = SpriteTextureLoader.getSprite("ui/special/windowEmptyFrame");
         background.type = Image.Type.Sliced;
         WanfaUiFactory.CreateText(_confirmPanel.transform, "Message",
             "Cultiway.Wanfa.UI.Tip.UnsavedChanges".Localize(), 260f, 30f, 9, TextAnchor.MiddleCenter,
             FontStyle.Bold);
         var actions = WanfaUiFactory.CreateLayout(_confirmPanel.transform, "Actions", true, 260f, 28f, 6f);
-        WanfaUiFactory.CreateButton(actions.transform, "SaveClose",
-            "Cultiway.Wanfa.UI.Action.SaveAndClose".Localize(), 78f, 24f, () =>
+        var saveClose = WanfaUiFactory.CreateIconTextButton(actions.transform, "SaveClose", WanfaUiIcons.Save,
+            "Cultiway.Wanfa.UI.Action.SaveAndClose".Localize(), 84f, 24f, () =>
         {
             if (!TrySave()) return;
             CompleteExit();
         });
-        WanfaUiFactory.CreateButton(actions.transform, "DiscardClose",
-            "Cultiway.Wanfa.UI.Action.Discard".Localize(), 72f, 24f, () =>
+        WanfaUiFactory.SetTooltip(saveClose.gameObject, "Cultiway.Wanfa.UI.Action.SaveAndClose",
+            "Cultiway.Wanfa.UI.Tooltip.SaveAndClose");
+        var discardClose = WanfaUiFactory.CreateIconTextButton(actions.transform, "DiscardClose",
+            WanfaUiIcons.Reset, "Cultiway.Wanfa.UI.Action.Discard".Localize(), 76f, 24f, () =>
         {
             CompleteExit();
         });
-        WanfaUiFactory.CreateButton(actions.transform, "Continue",
-            "Cultiway.Wanfa.UI.Action.ContinueEditing".Localize(), 72f, 24f,
+        WanfaUiFactory.SetTooltip(discardClose.gameObject, "Cultiway.Wanfa.UI.Action.Discard",
+            "Cultiway.Wanfa.UI.Tooltip.DiscardAndClose");
+        var continueEditing = WanfaUiFactory.CreateIconTextButton(actions.transform, "Continue",
+            WanfaUiIcons.Edit, "Cultiway.Wanfa.UI.Action.ContinueEditing".Localize(), 82f, 24f,
             () =>
             {
                 _pendingExitMode = ExitMode.Close;
                 SetConfirmation(false);
             });
+        WanfaUiFactory.SetTooltip(continueEditing.gameObject, "Cultiway.Wanfa.UI.Action.ContinueEditing",
+            "Cultiway.Wanfa.UI.Tooltip.ContinueEditing");
         _confirmPanel.SetActive(false);
     }
 

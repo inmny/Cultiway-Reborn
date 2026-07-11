@@ -116,15 +116,15 @@ public class Manager
         return true;
     }
 
-    public void SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength,
+    public Entity SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength,
         float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f)
     {
         var target_pos = target.isRekt() ? source.GetSimPos() + Vector3.right : target.GetSimPos();
-        SpawnSkill(skill_container, source, target, target_pos, strength, delay, power_level,
+        return SpawnSkill(skill_container, source, target, target_pos, strength, delay, power_level,
             initial_angle_offset_degrees);
     }
 
-    public void SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, Vector3 target_pos,
+    public Entity SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, Vector3 target_pos,
         float strength, float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f,
         Kingdom attack_kingdom = null)
     {
@@ -183,6 +183,7 @@ public class Manager
         }
 
         ApplyTrajectoryAfterimage(entity, container.MotionProfile);
+        return entity;
     }
 
     private static void ApplyMotionProfile(Entity entity, SkillMotionProfileAsset profile, Vector3 sourcePos,

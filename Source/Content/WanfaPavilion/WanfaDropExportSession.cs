@@ -35,6 +35,7 @@ public static class WanfaDropExportSession
 
     public static void Enter(string blueprintId)
     {
+        WanfaTestCastSession.Clear(false);
         _sessionGeneration++;
         Payloads.Clear();
         WindowWanfaGrantConflict.ClearPending();
@@ -48,6 +49,8 @@ public static class WanfaDropExportSession
 
     public static bool TrySpawn(WorldTile tile, string powerId)
     {
+        if (WanfaTestCastSession.IsActive) return WanfaTestCastSession.TryCast(tile, powerId);
+
         if (string.IsNullOrWhiteSpace(_selectedBlueprintId))
         {
             WorldTip.showNow("Cultiway.Wanfa.UI.Tip.SelectGrantBlueprint".Localize(), false, "top", 3f);
