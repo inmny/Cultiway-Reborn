@@ -14,6 +14,7 @@ using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Localization;
 using Cultiway.Core.Logging;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Core.Persistence;
 using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core.Systems.Logic;
@@ -59,6 +60,7 @@ namespace Cultiway
         public        EntityStore             W                    { get; private set; }
         public        CommandBuffer             CommandBuffer        { get; private set; }
         public        WorldRecord             WorldRecord          { get; private set; }
+        public ModSaveManager Persistence { get; private set; }
         public Core.SkillLibV3.Manager SkillV3 { get; private set; }
         public WanfaPavilionService Wanfa { get; private set; }
         public        Core.GeoLib.Manager     Geo                  { get; private set; }
@@ -329,6 +331,8 @@ namespace Cultiway
                 L.Init();
             });
             Game.Init();
+            Persistence = new ModSaveManager(new GlobalFileSaveStorage(
+                Path.Combine(Application.persistentDataPath, "Cultiway")));
             Try.Start(() =>
             {
                 W = new EntityStore()

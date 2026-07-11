@@ -78,12 +78,13 @@ public sealed class SkillModifierSpec
 [Serializable]
 public sealed class SkillBlueprint
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public string Id = Guid.NewGuid().ToString("N");
     public int Revision = 1;
     public int SchemaVersion = CurrentSchemaVersion;
     public string EntityAssetId;
+    public int AnimationIndex;
     public string TrajectoryAssetId;
     public List<SkillModifierSpec> Modifiers = new();
     public SkillBlueprintNameMode NameMode;
@@ -106,6 +107,7 @@ public sealed class SkillBlueprint
             Revision = Revision,
             SchemaVersion = SchemaVersion,
             EntityAssetId = EntityAssetId,
+            AnimationIndex = AnimationIndex,
             TrajectoryAssetId = TrajectoryAssetId,
             NameMode = NameMode,
             CustomName = CustomName,

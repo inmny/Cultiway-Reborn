@@ -71,7 +71,7 @@ public sealed class WanfaPavilionService
         public float ExpiresAt;
     }
 
-    private readonly WanfaPavilionLibraryStore _library = new();
+    private WanfaPavilionLibraryStore _library;
     private readonly SkillBlueprintValidator _validator = new();
     private readonly SkillBlueprintExporter _exporter = new();
     private readonly SkillBlueprintCompiler _compiler = new();
@@ -95,7 +95,7 @@ public sealed class WanfaPavilionService
     public void Init()
     {
         ActivePolicy = WanfaPavilionPolicyLibrary.Free;
-        _library.Load();
+        _library = new WanfaPavilionLibraryStore(ModClass.I.Persistence);
         _selectedBlueprintIds.UnionWith(_library.SelectedBlueprintIds);
         ModClass.I.GeneralLogicSystems.Add(new WanfaPavilionUpdateSystem(this));
         Instance = this;
