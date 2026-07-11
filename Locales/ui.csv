@@ -509,3 +509,10 @@ Cultiway.Wanfa.UI.Tooltip.CancelConflict,取消这次版本冲突处理并保留
 Cultiway.Wanfa.UI.Tooltip.Skill.Description,该法术尚未配置可展示的轨迹说明。
 Cultiway.Wanfa.UI.Tooltip.Skill.ActorOwned,角色当前掌握
 Cultiway.Wanfa.UI.Tooltip.Modifier.NoParameters,该词条没有可调整参数
+Cultiway.Artifact.ControlState.Cold,冷待命
+Cultiway.Artifact.ControlState.Ready,热待命
+Cultiway.Artifact.ControlState.Operating,运转
+Cultiway.Artifact.ControlState.Overloaded,超载运转
+Cultiway.Artifact.EquipMode.Automatic,自动
+Cultiway.Artifact.EquipMode.Standby,仅待命
+Cultiway.Artifact.EquipMode.ForcedOperating,强制运转
