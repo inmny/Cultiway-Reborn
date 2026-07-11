@@ -21,7 +21,8 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
     private Button _edit;
     private Button _copy;
     private Button _delete;
-    private Button _grant;
+    private Button _select;
+    private Image _selectMarker;
 
     protected override void OnInit()
     {
@@ -35,11 +36,12 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
         _edit = transform.Find("Edit").GetComponent<Button>();
         _copy = transform.Find("Copy").GetComponent<Button>();
         _delete = transform.Find("Delete").GetComponent<Button>();
-        _grant = transform.Find("Grant").GetComponent<Button>();
+        _select = transform.Find("Select").GetComponent<Button>();
+        _selectMarker = transform.Find("Select/Selected").GetComponent<Image>();
     }
 
-    public void Setup(SkillBlueprint blueprint, bool allowMove, Action favorite, Action moveUp, Action moveDown,
-        Action edit, Action copy, Action delete, Action grant)
+    public void Setup(SkillBlueprint blueprint, bool allowMove, bool selected, Action favorite, Action moveUp,
+        Action moveDown, Action edit, Action copy, Action delete, Action select)
     {
         Init();
         var service = WanfaPavilionService.Instance;
@@ -74,8 +76,7 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
         SetButton(_edit, edit, "Cultiway.Wanfa.UI.Action.Edit", "Cultiway.Wanfa.UI.Tooltip.Edit");
         SetButton(_copy, copy, "Cultiway.Wanfa.UI.Action.Copy", "Cultiway.Wanfa.UI.Tooltip.Copy");
         SetButton(_delete, delete, "Cultiway.Wanfa.UI.Action.Delete", "Cultiway.Wanfa.UI.Tooltip.Delete");
-        SetButton(_grant, grant, "Cultiway.Wanfa.UI.Action.Grant", "Cultiway.Wanfa.UI.Tooltip.Grant",
-            validation.IsCompatible);
+        SetSelectionButton(selected, select, validation.IsCompatible);
     }
 
     private static void SetButton(Button button, Action action, string titleKey, string descriptionKey,
@@ -97,6 +98,22 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
         WanfaUiFactory.SetTooltip(_favorite.gameObject,
             selected ? "Cultiway.Wanfa.UI.Action.Unfavorite" : "Cultiway.Wanfa.UI.Action.Favorite",
             selected ? "Cultiway.Wanfa.UI.Tooltip.Unfavorite" : "Cultiway.Wanfa.UI.Tooltip.Favorite");
+    }
+
+    private void SetSelectionButton(bool selected, Action action, bool interactable)
+    {
+        _select.interactable = interactable;
+        _select.onClick.RemoveAllListeners();
+        _select.onClick.AddListener(action.Invoke);
+        _selectMarker.gameObject.SetActive(selected);
+        _select.transform.Find("Icon").GetComponent<Image>().color = selected
+            ? ColorStyleLibrary.m.getSelectorColor()
+            : Color.white;
+        WanfaUiFactory.SetTooltip(_select.gameObject,
+            selected ? "Cultiway.Wanfa.UI.Action.Selected" : "Cultiway.Wanfa.UI.Action.Select",
+            selected
+                ? "Cultiway.Wanfa.UI.Tooltip.DeselectForGrant"
+                : "Cultiway.Wanfa.UI.Tooltip.SelectForGrant");
     }
 
     private static void _init()
@@ -123,7 +140,19 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
         WanfaUiFactory.CreateIconButton(obj.transform, "Edit", WanfaUiIcons.Edit, 28f, 24f, () => { }, 3f);
         WanfaUiFactory.CreateIconButton(obj.transform, "Copy", WanfaUiIcons.Copy, 28f, 24f, () => { });
         WanfaUiFactory.CreateIconButton(obj.transform, "Delete", WanfaUiIcons.Delete, 28f, 24f, () => { });
-        WanfaUiFactory.CreateIconButton(obj.transform, "Grant", WanfaUiIcons.Grant, 28f, 24f, () => { });
+        var select = WanfaUiFactory.CreateIconButton(obj.transform, "Select", WanfaUiIcons.Select, 28f, 24f,
+            () => { });
+        var selected = new GameObject("Selected", typeof(RectTransform), typeof(Image));
+        selected.transform.SetParent(select.transform, false);
+        var selectedRect = selected.GetComponent<RectTransform>();
+        selectedRect.anchorMin = selectedRect.anchorMax = new Vector2(1f, 0f);
+        selectedRect.sizeDelta = new Vector2(10f, 10f);
+        selectedRect.anchoredPosition = new Vector2(-5f, 5f);
+        var selectedImage = selected.GetComponent<Image>();
+        selectedImage.sprite = SpriteTextureLoader.getSprite("ui/icons/IconOn");
+        selectedImage.color = ColorStyleLibrary.m.getSelectorColor();
+        selectedImage.raycastTarget = false;
+        selected.SetActive(false);
         Prefab = obj.AddComponent<WanfaBlueprintRow>();
     }
 }

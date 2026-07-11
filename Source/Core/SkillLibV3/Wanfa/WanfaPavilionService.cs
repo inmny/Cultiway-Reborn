@@ -79,6 +79,7 @@ public sealed class WanfaPavilionService
     private readonly List<Entity> _testContainers = new();
     private readonly List<PendingAiLease> _aiPreviewLeases = new();
     private readonly Dictionary<string, SkillVfxElementAsset> _vfxCache = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _selectedBlueprintIds = new(StringComparer.Ordinal);
 
     public static WanfaPavilionService Instance { get; private set; }
     public event Action Changed;
@@ -89,12 +90,14 @@ public sealed class WanfaPavilionService
     public event Action TestCastCompleted;
     public event Action WorldStateClearing;
     public IReadOnlyList<SkillBlueprint> Blueprints => _library.Blueprints;
+    public int SelectedBlueprintCount => _selectedBlueprintIds.Count;
     public WanfaPavilionPolicyAsset ActivePolicy { get; private set; }
 
     public void Init()
     {
         ActivePolicy = WanfaPavilionPolicyLibrary.Free;
         _library.Load();
+        _selectedBlueprintIds.UnionWith(_library.SelectedBlueprintIds);
         ModClass.I.GeneralLogicSystems.Add(new WanfaPavilionUpdateSystem(this));
         Instance = this;
     }
@@ -127,6 +130,24 @@ public sealed class WanfaPavilionService
     public SkillBlueprint Get(string id)
     {
         return _library.Get(id);
+    }
+
+    public bool IsSelected(string id)
+    {
+        return _selectedBlueprintIds.Contains(id);
+    }
+
+    public IReadOnlyList<SkillBlueprint> GetSelectedBlueprints()
+    {
+        return _library.Blueprints.Where(blueprint => _selectedBlueprintIds.Contains(blueprint.Id)).ToList();
+    }
+
+    public void ToggleSelected(string id)
+    {
+        if (_library.Get(id) == null) return;
+        if (!_selectedBlueprintIds.Add(id)) _selectedBlueprintIds.Remove(id);
+        _library.SaveSelection(_selectedBlueprintIds);
+        Changed?.Invoke();
     }
 
     public SkillCompatibilityResult Validate(SkillBlueprint blueprint)
@@ -294,7 +315,11 @@ public sealed class WanfaPavilionService
     public bool Delete(string id)
     {
         var removed = _library.Remove(id);
-        if (removed) Changed?.Invoke();
+        if (removed)
+        {
+            if (_selectedBlueprintIds.Remove(id)) _library.SaveSelection(_selectedBlueprintIds);
+            Changed?.Invoke();
+        }
         return removed;
     }
 

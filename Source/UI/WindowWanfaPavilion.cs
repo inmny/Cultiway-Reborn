@@ -27,6 +27,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
     private Button _entityFilterButton;
     private Toggle _favoriteOnly;
     private Button _sortButton;
+    private Text _selectedCount;
     private int _elementFilter;
     private int _entityFilter;
     private int _sort;
@@ -67,6 +68,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
             SortNamePaths[0].Localize(), 70f, 22f, CycleSort);
         WanfaUiFactory.SetTooltip(_sortButton.gameObject, "Cultiway.Wanfa.UI.Tooltip.Sort.Title",
             "Cultiway.Wanfa.UI.Tooltip.Sort");
+        _selectedCount = WanfaUiFactory.CreateText(toolbar.transform, "SelectedCount", string.Empty, 52f, 22f, 6);
 
         var content = WanfaUiFactory.CreateScrollContent(root.transform, "BlueprintList", 520f, 208f);
         _rowPool = new MonoObjPool<WanfaBlueprintRow>(WanfaBlueprintRow.Prefab, content);
@@ -86,7 +88,10 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
     {
         if (_rowPool == null) return;
         _rowPool.Clear();
-        IEnumerable<SkillBlueprint> query = WanfaPavilionService.Instance.Blueprints;
+        var service = WanfaPavilionService.Instance;
+        _selectedCount.text = string.Format("Cultiway.Wanfa.UI.Format.SelectedCount".Localize(),
+            service.SelectedBlueprintCount);
+        IEnumerable<SkillBlueprint> query = service.Blueprints;
         var search = _search.text.Trim();
         if (search.Length > 0)
         {
@@ -120,14 +125,14 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
         foreach (var blueprint in query)
         {
             var item = blueprint;
-            _rowPool.GetNext().Setup(item, allowMove,
-                () => WanfaPavilionService.Instance.SetFavorite(item.Id, !item.Favorite),
-                () => WanfaPavilionService.Instance.Move(item.Id, -1),
-                () => WanfaPavilionService.Instance.Move(item.Id, 1),
+            _rowPool.GetNext().Setup(item, allowMove, service.IsSelected(item.Id),
+                () => service.SetFavorite(item.Id, !item.Favorite),
+                () => service.Move(item.Id, -1),
+                () => service.Move(item.Id, 1),
                 () => WindowWanfaSkillEditor.Open(item, true),
                 () => HandleCopy(item),
-                () => WanfaPavilionService.Instance.Delete(item.Id),
-                () => WanfaPavilionService.Instance.RequestGrant(item.Id));
+                () => service.Delete(item.Id),
+                () => service.ToggleSelected(item.Id));
         }
     }
 

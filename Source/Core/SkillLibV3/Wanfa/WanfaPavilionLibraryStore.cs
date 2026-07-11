@@ -13,6 +13,7 @@ internal sealed class WanfaPavilionLibraryFile
 {
     public int SchemaVersion = 1;
     public List<SkillBlueprint> Blueprints = new();
+    public List<string> SelectedBlueprintIds = new();
 }
 
 internal sealed class WanfaPavilionLibraryStore
@@ -26,6 +27,7 @@ internal sealed class WanfaPavilionLibraryStore
     private string TempPath => Path.Combine(_directory, "library.json.tmp");
 
     public IReadOnlyList<SkillBlueprint> Blueprints => _file.Blueprints;
+    public IReadOnlyList<string> SelectedBlueprintIds => _file.SelectedBlueprintIds;
 
     public void Load()
     {
@@ -134,6 +136,15 @@ internal sealed class WanfaPavilionLibraryStore
         Save();
     }
 
+    public void SaveSelection(IEnumerable<string> ids)
+    {
+        _file.SelectedBlueprintIds = ids
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        Save();
+    }
+
     private static WanfaPavilionLibraryFile Deserialize(string json)
     {
         var file = JsonConvert.DeserializeObject<WanfaPavilionLibraryFile>(json);
@@ -187,6 +198,11 @@ internal sealed class WanfaPavilionLibraryStore
                 blueprint.SchemaVersion = SkillBlueprint.CurrentSchemaVersion;
             }
         }
+        _file.SelectedBlueprintIds ??= new List<string>();
+        _file.SelectedBlueprintIds = _file.SelectedBlueprintIds
+            .Where(seenIds.Contains)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
         _file.SchemaVersion = CurrentSchemaVersion;
         NormalizeSortOrder();
     }
