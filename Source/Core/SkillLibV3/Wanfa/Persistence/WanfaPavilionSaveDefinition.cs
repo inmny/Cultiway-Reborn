@@ -10,7 +10,7 @@ namespace Cultiway.Core.SkillLibV3.Wanfa.Persistence;
 internal static class WanfaPavilionSaveDefinition
 {
     public const string DocumentId = "wanfa_pavilion";
-    public const int CurrentVersion = 2;
+    public const int CurrentVersion = 3;
 
     public static SaveDocumentDefinition<WanfaPavilionData> Create()
     {
@@ -19,7 +19,7 @@ internal static class WanfaPavilionSaveDefinition
             "Saves/global/wanfa_pavilion",
             CurrentVersion,
             () => new WanfaPavilionData(),
-            new ISaveMigration[] { new WanfaPavilionV1ToV2() },
+            new ISaveMigration[] { new WanfaPavilionV1ToV2(), new WanfaPavilionV2ToV3() },
             Normalize,
             Validate,
             new[]
@@ -38,6 +38,14 @@ internal static class WanfaPavilionSaveDefinition
         {
             blueprint.Modifiers ??= new List<SkillModifierSpec>();
             blueprint.Origin ??= new SkillBlueprintOriginData();
+            if (blueprint.CastResourceRequirement == null || !blueprint.CastResourceRequirement.IsConfigured)
+            {
+                var entity = ModClass.I.SkillV3.SkillLib.get(blueprint.EntityAssetId);
+                if (entity != null && entity.DefaultCastResourceRequirement != null)
+                {
+                    blueprint.CastResourceRequirement = entity.DefaultCastResourceRequirement.DeepClone();
+                }
+            }
             if (string.IsNullOrWhiteSpace(blueprint.Id) || !seenIds.Add(blueprint.Id))
             {
                 var oldId = blueprint.Id;
