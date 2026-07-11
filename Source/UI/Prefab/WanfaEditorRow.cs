@@ -9,6 +9,7 @@ namespace Cultiway.UI.Prefab;
 public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
 {
     public Transform Controls { get; private set; }
+    public Transform InlineControls { get; private set; }
     private SkillModifierIcon _modifierIcon;
     private Text _title;
     private Text _detail;
@@ -19,6 +20,7 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
         _modifierIcon = transform.Find("Header/ModifierIcon").GetComponent<SkillModifierIcon>();
         _title = transform.Find("Header/Title").GetComponent<Text>();
         _detail = transform.Find("Header/Detail").GetComponent<Text>();
+        InlineControls = transform.Find("Header/InlineControls");
         _action = transform.Find("Header/Action").GetComponent<Button>();
         Controls = transform.Find("Controls");
     }
@@ -57,6 +59,22 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
             child.SetActive(false);
             Destroy(child);
         }
+        for (var i = InlineControls.childCount - 1; i >= 0; i--)
+        {
+            var child = InlineControls.GetChild(i).gameObject;
+            child.SetActive(false);
+            Destroy(child);
+        }
+        InlineControls.gameObject.SetActive(false);
+        WanfaUiFactory.SetLayout(_detail.transform, 324f, 28f);
+    }
+
+    public Transform UseInlineControls(float width)
+    {
+        WanfaUiFactory.SetLayout(_detail.transform, 320f - width, 28f);
+        WanfaUiFactory.SetLayout(InlineControls, width, 28f);
+        InlineControls.gameObject.SetActive(true);
+        return InlineControls;
     }
 
     private static void _init()
@@ -71,6 +89,9 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
         WanfaUiFactory.CreateText(header.transform, "Title", string.Empty, 112f, 28f, 8, TextAnchor.MiddleLeft,
             FontStyle.Bold);
         WanfaUiFactory.CreateText(header.transform, "Detail", string.Empty, 324f, 28f, 6);
+        var inlineControls = WanfaUiFactory.CreateLayout(header.transform, "InlineControls", true, 0f, 28f, 2f,
+            TextAnchor.MiddleCenter);
+        inlineControls.SetActive(false);
         WanfaUiFactory.CreateIconButton(header.transform, "Action", WanfaUiIcons.Select, 28f, 22f, () => { });
         WanfaUiFactory.CreateLayout(obj.transform, "Controls", false, 500f, 0f, 2f);
         Prefab = obj.AddComponent<WanfaEditorRow>();

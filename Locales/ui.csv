@@ -453,6 +453,8 @@ Cultiway.Wanfa.UI.Action.MoveUp,上移
 Cultiway.Wanfa.UI.Action.MoveDown,下移
 Cultiway.Wanfa.UI.Action.Decrease,减小
 Cultiway.Wanfa.UI.Action.Increase,增大
+Cultiway.Wanfa.UI.Action.PreviousAnimation,上一个动画
+Cultiway.Wanfa.UI.Action.NextAnimation,下一个动画
 Cultiway.Wanfa.UI.Overview.Entity,法术本体
 Cultiway.Wanfa.UI.Overview.Trajectory,飞行轨迹
 Cultiway.Wanfa.UI.Overview.Tags,本体标签
@@ -460,6 +462,8 @@ Cultiway.Wanfa.UI.Overview.Modifier,词条
 Cultiway.Wanfa.UI.Overview.Modifiers,附加词条
 Cultiway.Wanfa.UI.State.NoModifiers,无
 Cultiway.Wanfa.UI.Tooltip.New,创建一份新的法术蓝图并进入编辑器。只有保存后才会写入万法阁全局法术库。
+Cultiway.Wanfa.UI.Tooltip.PreviousAnimation,切换到当前法术本体的上一个动画。
+Cultiway.Wanfa.UI.Tooltip.NextAnimation,切换到当前法术本体的下一个动画。
 Cultiway.Wanfa.UI.Tooltip.Search,按法术名称、本体、轨迹、词条或玩家分类即时筛选当前法术库。
 Cultiway.Wanfa.UI.Tooltip.ElementFilter.Title,视觉元素筛选
 Cultiway.Wanfa.UI.Tooltip.ElementFilter,循环切换法术最终解析出的视觉元素。筛选依据是完整蓝图构建结果而非名称文字。

@@ -329,9 +329,9 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         var entity = string.IsNullOrWhiteSpace(_draft.EntityAssetId)
             ? null
             : ModClass.I.SkillV3.SkillLib.get(_draft.EntityAssetId);
-        _frames = entity == null
+        _frames = entity == null || !entity.IsAnimationIndexValid(_draft.AnimationIndex)
             ? Array.Empty<Sprite>()
-            : entity.PrefabEntity.GetComponent<AnimData>().frames;
+            : entity.GetAnimation(_draft.AnimationIndex).Frames;
         _frameIndex = 0;
         _frameTimer = 0f;
         _previewImage.sprite = _frames.Length == 0 ? null : _frames[0];
@@ -398,13 +398,59 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             {
                 detail += " · " + "Cultiway.Wanfa.UI.Detail.NoAvailableTrajectory".Localize();
             }
-            _rowPool.GetNext().Setup(entity.id.Localize(), detail,
+            var row = _rowPool.GetNext();
+            row.Setup(entity.id.Localize(), detail,
                 selected
                     ? "Cultiway.Wanfa.UI.Action.Selected".Localize()
                     : "Cultiway.Wanfa.UI.Action.Select".Localize(),
                 !selected && trajectoryId != null, () => SelectEntity(entity.id),
                 selected ? WanfaUiIcons.Confirm : WanfaUiIcons.Select);
+            if (selected && entity.Animations.Count > 1)
+            {
+                BuildAnimationControls(row, entity);
+            }
         }
+    }
+
+    private void BuildAnimationControls(WanfaEditorRow row, SkillEntityAsset entity)
+    {
+        var controls = row.UseInlineControls(86f);
+        var previous = WanfaUiFactory.CreateIconButton(controls, "Previous", WanfaUiIcons.Previous,
+            18f, 20f, () => StepAnimation(entity, -1), 3f);
+        WanfaUiFactory.SetTooltip(previous.gameObject, "Cultiway.Wanfa.UI.Action.PreviousAnimation",
+            "Cultiway.Wanfa.UI.Tooltip.PreviousAnimation");
+
+        SkillEntityAnimation animation = null;
+        if (entity.IsAnimationIndexValid(_draft.AnimationIndex))
+        {
+            animation = entity.GetAnimation(_draft.AnimationIndex);
+        }
+        var preview = new GameObject("Preview", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+        preview.transform.SetParent(controls, false);
+        WanfaUiFactory.SetLayout(preview.transform, 20f, 20f);
+        var previewImage = preview.GetComponent<Image>();
+        previewImage.sprite = animation == null || animation.Frames.Length == 0 ? null : animation.Frames[0];
+        previewImage.preserveAspect = true;
+        previewImage.raycastTarget = false;
+
+        WanfaUiFactory.CreateText(controls, "Index",
+            $"{_draft.AnimationIndex + 1}/{entity.Animations.Count}", 24f, 20f, 7,
+            TextAnchor.MiddleCenter, FontStyle.Bold);
+
+        var next = WanfaUiFactory.CreateIconButton(controls, "Next", WanfaUiIcons.Next,
+            18f, 20f, () => StepAnimation(entity, 1), 3f);
+        WanfaUiFactory.SetTooltip(next.gameObject, "Cultiway.Wanfa.UI.Action.NextAnimation",
+            "Cultiway.Wanfa.UI.Tooltip.NextAnimation");
+    }
+
+    private void StepAnimation(SkillEntityAsset entity, int direction)
+    {
+        ApplyMutation(() =>
+        {
+            var count = entity.Animations.Count;
+            var current = ((_draft.AnimationIndex % count) + count) % count;
+            _draft.AnimationIndex = (current + count + direction) % count;
+        });
     }
 
     private void BuildTrajectoryPage()
@@ -655,6 +701,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         ApplyMutation(() =>
         {
             _draft.EntityAssetId = entityId;
+            _draft.AnimationIndex = 0;
             var entity = ModClass.I.SkillV3.SkillLib.get(entityId);
             var trajectoryId = WanfaPavilionService.Instance.ResolveAvailableTrajectoryId(entity,
                 _draft.TrajectoryAssetId);

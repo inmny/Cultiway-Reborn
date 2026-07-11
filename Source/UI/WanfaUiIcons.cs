@@ -13,6 +13,8 @@ internal static class WanfaUiIcons
     public const string Sort = "ui/icons/iconArrows";
     public const string MoveUp = "ui/icons/iconArrowMetaRight";
     public const string MoveDown = "ui/icons/iconArrowMetaLeft";
+    public const string Previous = "ui/icons/iconArrowMetaLeft";
+    public const string Next = "ui/icons/iconArrowMetaRight";
     public const string Edit = "ui/icons/iconEditTrait";
     public const string Copy = "ui/icons/actor_traits/iconClone";
     public const string Delete = "ui/icons/iconDemolish";
