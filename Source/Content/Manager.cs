@@ -58,6 +58,7 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new TrainTransportSystem());
         ModClass.I.GeneralLogicSystems.Add(new TeleportArraySystem());
         ModClass.I.GeneralLogicSystems.Add(new CityDistributeItemsSystem());
+        ModClass.I.GeneralLogicSystems.Add(new ArtifactEquipmentSystem());
         ModClass.I.GeneralLogicSystems.Add(new ContinuousCultivateSystem());
         ModClass.I.GeneralLogicSystems.Add(new SectConstructionSystem());
         ActorExtend.RegisterActionOnDeath(SectTreasureRules.ReturnBorrowedTreasuresOnDeath);
