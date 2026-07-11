@@ -35,6 +35,8 @@ public partial class WorldboxGame
         [CloneSource("tooltip_meta_list_kingdoms")]
         public static TooltipAsset ListSect { get; private set; }
         public static TooltipAsset RawTip { get; private set; }
+        [CloneSource("tip"), AssetId("Cultiway.WanfaSkill")]
+        public static TooltipAsset Skill { get; private set; }
 
         public static TooltipAsset SpecialItem { get; private set; }
         public static TooltipAsset GetMetaListTooltipAsset(MetaTypeExtend meta_type)
@@ -69,6 +71,15 @@ public partial class WorldboxGame
             Book.callback += ShowCustomBookReadAction;
             
             RawTip.callback = ShowRawTip;
+
+            Skill.prefab_id = "tooltips/tooltip_cultiway_wanfa_skill";
+            Skill.callback = ShowSkill;
+            SkillTooltip.PatchTo<Tooltip>(Skill.prefab_id);
+        }
+
+        private static void ShowSkill(Tooltip tooltip, string type, TooltipData data)
+        {
+            tooltip.GetComponent<SkillTooltip>().SetupPending();
         }
         private void ShowGeoRegionMetaListInfo(Tooltip tooltip, string type, TooltipData data)
         {

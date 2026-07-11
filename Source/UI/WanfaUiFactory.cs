@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
 
-namespace Cultiway.Content.UI;
+namespace Cultiway.UI;
 
 internal static class WanfaUiFactory
 {

@@ -68,6 +68,7 @@ public delegate string GetDescription(Entity skill_entity);
 public delegate void SkillModifierNormalizeAction(SkillContainerBuilder builder, SkillModifierSpec spec);
 public delegate SkillCompatibilityResult SkillModifierCompatibilityAction(SkillEditContext context,
     SkillModifierSpec spec);
+public delegate float SkillModifierEffectRadiusMultiplier(Entity skillContainer);
 public class SkillModifierAsset : Asset
 {
     /// <summary>
@@ -101,6 +102,7 @@ public class SkillModifierAsset : Asset
     public HashSet<string> EditorSemanticTags { get; } = new(StringComparer.Ordinal);
     public SkillModifierNormalizeAction EditorNormalize;
     public SkillModifierCompatibilityAction EditorCompatibility;
+    public SkillModifierEffectRadiusMultiplier EffectRadiusMultiplier;
     
     /// <summary>
     /// 是否禁用该词条（禁用的词条不会被抽取）

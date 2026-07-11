@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using Cultiway.Abstract;
 using Cultiway.Core.AIGCLib;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
@@ -14,7 +13,7 @@ using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
 
-namespace Cultiway.Content.WanfaPavilion;
+namespace Cultiway.Core.SkillLibV3.Wanfa;
 
 public enum WanfaPavilionSaveStatus
 {
@@ -31,8 +30,29 @@ public sealed class WanfaPavilionSaveResult
     public SkillCompatibilityResult Validation;
 }
 
-[Dependency(typeof(SkillEntities), typeof(SkillMotionProfiles))]
-public sealed class WanfaPavilionService : ICanInit
+public sealed class WanfaGrantConflictPrompt
+{
+    private Action<bool> _resolve;
+
+    public string ActorName { get; }
+    public int Revision { get; }
+
+    public WanfaGrantConflictPrompt(string actorName, int revision, Action<bool> resolve)
+    {
+        ActorName = actorName;
+        Revision = revision;
+        _resolve = resolve;
+    }
+
+    public void Resolve(bool overwrite)
+    {
+        var resolve = _resolve;
+        _resolve = null;
+        resolve?.Invoke(overwrite);
+    }
+}
+
+public sealed class WanfaPavilionService
 {
     private const float AiPreviewLifetime = 60f;
 
@@ -62,6 +82,12 @@ public sealed class WanfaPavilionService : ICanInit
 
     public static WanfaPavilionService Instance { get; private set; }
     public event Action Changed;
+    public event Action<string> GrantRequested;
+    public event Action<SkillBlueprint> TestCastRequested;
+    public event Action<WanfaGrantConflictPrompt> GrantConflictRequested;
+    public event Action GrantConflictsCleared;
+    public event Action TestCastCompleted;
+    public event Action WorldStateClearing;
     public IReadOnlyList<SkillBlueprint> Blueprints => _library.Blueprints;
     public WanfaPavilionPolicyAsset ActivePolicy { get; private set; }
 
@@ -71,6 +97,31 @@ public sealed class WanfaPavilionService : ICanInit
         _library.Load();
         ModClass.I.GeneralLogicSystems.Add(new WanfaPavilionUpdateSystem(this));
         Instance = this;
+    }
+
+    public void RequestGrant(string blueprintId)
+    {
+        GrantRequested?.Invoke(blueprintId);
+    }
+
+    public void RequestTestCast(SkillBlueprint draft)
+    {
+        TestCastRequested?.Invoke(draft);
+    }
+
+    public void RequestGrantConflict(string actorName, int revision, Action<bool> resolve)
+    {
+        GrantConflictRequested?.Invoke(new WanfaGrantConflictPrompt(actorName, revision, resolve));
+    }
+
+    public void ClearGrantConflicts()
+    {
+        GrantConflictsCleared?.Invoke();
+    }
+
+    public void CompleteTestCast()
+    {
+        TestCastCompleted?.Invoke();
     }
 
     public SkillBlueprint Get(string id)
@@ -292,8 +343,8 @@ public sealed class WanfaPavilionService : ICanInit
     public static void ClearWorldState()
     {
         if (Instance == null) return;
-        WanfaDropExportSession.Clear();
-        WanfaTestCastSession.Clear(false);
+        Instance.WorldStateClearing?.Invoke();
+        Instance.GrantConflictsCleared?.Invoke();
         foreach (var container in Instance._testContainers)
         {
             SkillBlueprintCompiler.Recycle(container);
@@ -308,8 +359,6 @@ public sealed class WanfaPavilionService : ICanInit
 
     internal void Tick()
     {
-        WanfaDropExportSession.Tick();
-        WanfaTestCastSession.Tick();
         while (_pendingAiNames.TryDequeue(out var pending))
         {
             var blueprint = _library.Get(pending.BlueprintId);

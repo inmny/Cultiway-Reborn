@@ -18,4 +18,16 @@ public static class SkillEffectRadius
         ref var radiusScale = ref skillEntity.GetComponent<EffectRadiusScale>();
         radiusScale.Value *= multiplier;
     }
+
+    public static float ResolveContainer(Entity skillContainer, float baseRadius)
+    {
+        var multiplier = 1f;
+        foreach (var componentType in skillContainer.GetComponentTypes())
+        {
+            var modifier = ModClass.I.SkillV3.ModifierLib.GetByComponentType(componentType);
+            if (modifier == null || modifier.EffectRadiusMultiplier == null) continue;
+            multiplier *= modifier.EffectRadiusMultiplier(skillContainer);
+        }
+        return baseRadius * multiplier;
+    }
 }

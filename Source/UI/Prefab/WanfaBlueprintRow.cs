@@ -1,12 +1,13 @@
 using System;
 using Cultiway.Abstract;
-using Cultiway.Content.WanfaPavilion;
+using Cultiway.Core.SkillLibV3.Wanfa;
+using Cultiway.UI.Components;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Cultiway.Content.UI.Prefab;
+namespace Cultiway.UI.Prefab;
 
 public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
 {
@@ -65,7 +66,7 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
         Sprite[] frames = null;
         if (entity != null) frames = entity.PrefabEntity.GetComponent<AnimData>().frames;
         _icon.sprite = frames is { Length: > 0 } ? frames[0] : null;
-        WanfaUiFactory.SetTooltip(_icon.gameObject, () => WanfaSkillTooltip.Show(_icon.gameObject, blueprint));
+        WanfaUiFactory.SetTooltip(_icon.gameObject, () => SkillTooltip.Show(_icon.gameObject, blueprint));
         SetFavoriteButton(blueprint.Favorite, favorite);
         SetButton(_up, moveUp, "Cultiway.Wanfa.UI.Action.MoveUp", "Cultiway.Wanfa.UI.Tooltip.MoveUp", allowMove);
         SetButton(_down, moveDown, "Cultiway.Wanfa.UI.Action.MoveDown", "Cultiway.Wanfa.UI.Tooltip.MoveDown",

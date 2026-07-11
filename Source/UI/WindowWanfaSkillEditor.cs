@@ -4,23 +4,24 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Cultiway.Abstract;
-using Cultiway.Content.Components.Skill;
-using Cultiway.Content.UI.Prefab;
-using Cultiway.Content.WanfaPavilion;
+using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Editor;
+using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
 using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.UI;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api;
+using Cultiway.UI.Components;
+using Cultiway.UI.Prefab;
 
-namespace Cultiway.Content.UI;
+namespace Cultiway.UI;
 
 public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkillEditor>
 {
@@ -157,7 +158,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         _previewImage.preserveAspect = true;
         WanfaUiFactory.SetTooltip(imageObject, () =>
         {
-            if (_draft != null) WanfaSkillTooltip.Show(imageObject, _draft);
+            if (_draft != null) SkillTooltip.Show(imageObject, _draft);
         });
         _previewSummary = WanfaUiFactory.CreateText(preview.transform, "Summary", string.Empty, 356f, 46f, 7,
             TextAnchor.MiddleLeft);
@@ -479,7 +480,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                     : "Cultiway.Wanfa.UI.Action.Add".Localize(),
                 selected || compatibility.IsCompatible,
                 () => ToggleModifier(modifier), selected ? WanfaUiIcons.Remove : WanfaUiIcons.Add,
-                WanfaModifierTooltipModel.FromSpec(checkedSpec));
+                SkillModifierTooltipModel.FromSpec(checkedSpec));
             if (!selected || !modifier.EditorSelectable || !available) continue;
 
             BuildFieldControls(row, modifier, spec);
@@ -585,11 +586,8 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.MotionProfile".Localize(),
                 container.MotionProfile.id.Localize());
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.CollisionRadius".Localize(),
-                ResolveCollisionRadius().ToString("0.##", CultureInfo.InvariantCulture));
-            AddModifierRadiusOverview(SkillModifiers.Explosion.id, nameof(ExplosionModifier.Radius),
-                "Cultiway.Wanfa.UI.Overview.ExplosionRadius".Localize());
-            AddModifierRadiusOverview(SkillModifiers.Gravity.id, nameof(GravityModifier.Radius),
-                "Cultiway.Wanfa.UI.Overview.GravityRadius".Localize());
+                ResolveCollisionRadius(compiled.Container).ToString("0.##", CultureInfo.InvariantCulture));
+            AddModifierRadiusOverviews(compiled.Container);
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.StepWakan".Localize(),
                 SkillCastCost.CalculateStepWakanCost(compiled.Container)
                 .ToString("0.##", CultureInfo.InvariantCulture));
@@ -624,25 +622,25 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         return $"Cultiway.SkillModifier.Rarity.{rarity}".Localize();
     }
 
-    private void AddModifierRadiusOverview(string modifierId, string field, string label)
+    private void AddModifierRadiusOverviews(Entity compiled)
     {
-        var modifier = _draft.Modifiers.FirstOrDefault(item => item.AssetId == modifierId);
-        if (modifier == null) return;
-        var radius = modifier.GetFloat(field) * ResolveEffectRadiusScale();
-        AddOverviewLine(label, radius.ToString("0.##", CultureInfo.InvariantCulture));
+        var scale = compiled.GetComponent<EffectRadiusScale>().Value;
+        foreach (var spec in _draft.Modifiers)
+        {
+            var modifier = ModClass.I.SkillV3.ModifierLib.get(spec.AssetId);
+            var field = modifier?.EditorFields.FirstOrDefault(item => item.ParameterKey == "Radius");
+            if (field == null) continue;
+            var radius = spec.GetFloat(field.ParameterKey) * scale;
+            AddOverviewLine($"{modifier.id.Localize()} · {field.DisplayName}",
+                radius.ToString("0.##", CultureInfo.InvariantCulture));
+        }
     }
 
-    private float ResolveCollisionRadius()
+    private float ResolveCollisionRadius(Entity compiled)
     {
         var entity = ModClass.I.SkillV3.SkillLib.get(_draft.EntityAssetId);
         var radius = entity.PrefabEntity.GetComponent<ColliderSphere>().Radius;
-        return radius * ResolveEffectRadiusScale();
-    }
-
-    private float ResolveEffectRadiusScale()
-    {
-        var huge = _draft.Modifiers.FirstOrDefault(item => item.AssetId == SkillModifiers.Huge.id);
-        return huge == null ? 1f : huge.GetFloat(nameof(HugeModifier.Value));
+        return SkillEffectRadius.ResolveContainer(compiled, radius);
     }
 
     private void SelectPage(int page)
@@ -948,7 +946,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             return;
         }
         _closingApproved = true;
-        WanfaTestCastSession.Enter(_draft);
+        WanfaPavilionService.Instance.RequestTestCast(_draft);
     }
 
     internal static void ResumeAfterTestCast()

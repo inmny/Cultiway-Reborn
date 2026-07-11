@@ -6,6 +6,7 @@ using System.Text;
 using Cultiway.AbstractGame.AbstractEngine;
 using Cultiway.Const;
 using Cultiway.Content;
+using Cultiway.Content.Wanfa;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -15,6 +16,7 @@ using Cultiway.Core.Localization;
 using Cultiway.Core.Logging;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Core.SkillLibV3.Systems;
+using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
 using Cultiway.Debug;
@@ -59,6 +61,7 @@ namespace Cultiway
         public        CommandBuffer             CommandBuffer        { get; private set; }
         public        WorldRecord             WorldRecord          { get; private set; }
         public Core.SkillLibV3.Manager SkillV3 { get; private set; }
+        public WanfaPavilionService Wanfa { get; private set; }
         public        Core.GeoLib.Manager     Geo                  { get; private set; }
 
         private void Start()
@@ -397,6 +400,10 @@ namespace Cultiway
             _patch.Init();
             SkillV3.Init();
             _content.Init();
+            Wanfa = new WanfaPavilionService();
+            Wanfa.Init();
+            WanfaContentBootstrap.Initialize(Wanfa);
+            _ui.InitWanfa(Wanfa);
             
             GeneralLogicSystems.Add(new StructuralChangeSystem());
             GeneralLogicSystems.Add(LogicPrepareRecycleSystemGroup);

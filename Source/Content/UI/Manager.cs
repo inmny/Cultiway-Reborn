@@ -8,17 +8,15 @@ using Cultiway.Core;
 using Cultiway.UI;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
-using Cultiway.Content.WanfaPavilion;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
 using UnityEngine;
 
 namespace Cultiway.Content.UI;
 
-[Dependency(typeof(GodPowers), typeof(BaseStatses), typeof(WanfaPavilionService))]
+[Dependency(typeof(GodPowers), typeof(BaseStatses))]
 public class Manager : ICanInit
 {
-    public static PowerButton WanfaGrantButton { get; private set; }
     private const string CharacterPanelWakanTitle = "Cultiway.UI.CharacterPanel.Wakan";
     private const string CharacterPanelWakanDescription = "Cultiway.UI.CharacterPanel.Wakan Description";
     private const string CharacterPanelSpiritTitle = "Cultiway.UI.CharacterPanel.Spirit";
@@ -54,7 +52,6 @@ public class Manager : ICanInit
                 SpriteTextureLoader.getSprite("cultiway/icons/iconWakan")
             )
         );
-        SetupWanfaPavilion();
         Cultiway.UI.Manager.AddButton(TabButtonType.WORLD,
             PowerButtonCreator.CreateGodPowerButton(
                 GodPowers.ExtendGeoRegion.id,
@@ -121,28 +118,6 @@ public class Manager : ICanInit
                 }
             }
         });
-    }
-
-    private static void SetupWanfaPavilion()
-    {
-        WindowNewCreatureInfo.RegisterPage(nameof(SkillPage),
-            actor => actor.GetExtend().GetLearnedSkillsInOrder().Count > 0,
-            SkillPage.Setup, SkillPage.Show);
-        WindowWanfaPavilion.CreateAndInit(WindowWanfaPavilion.Id);
-        WindowWanfaSkillEditor.CreateAndInit(WindowWanfaSkillEditor.Id);
-        WindowWanfaGrantConflict.CreateAndInit(WindowWanfaGrantConflict.Id);
-        Cultiway.UI.Manager.AddButton(TabButtonType.WORLD,
-            PowerButtonCreator.CreateWindowButton(
-                $"{WindowWanfaPavilion.Id} Title",
-                WindowWanfaPavilion.Id,
-                SpriteTextureLoader.getSprite("cultiway/icons/iconMagic")
-            )
-        );
-        WanfaGrantButton = PowerButtonCreator.CreateGodPowerButton(
-            GodPowers.WanfaGrant.id,
-            SpriteTextureLoader.getSprite("cultiway/icons/iconMagic")
-        );
-        Cultiway.UI.Manager.AddButton(TabButtonType.WORLD, WanfaGrantButton);
     }
 
     private static CharacterPanelProgressBarState ReadWakanPanelValue(Actor actor)

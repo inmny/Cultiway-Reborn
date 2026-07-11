@@ -1,17 +1,18 @@
 using System;
 using System.Linq;
 using Cultiway.Abstract;
-using Cultiway.Content.WanfaPavilion;
+using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
+using Cultiway.UI.Components;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Cultiway.Content.UI.Prefab;
+namespace Cultiway.UI.Prefab;
 
 public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
 {
@@ -46,7 +47,7 @@ public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
             modifierCount);
         var frames = skill.Asset.PrefabEntity.GetComponent<AnimData>().frames;
         _icon.sprite = frames.Length == 0 ? null : frames[0];
-        WanfaUiFactory.SetTooltip(_icon.gameObject, () => WanfaSkillTooltip.Show(_icon.gameObject, container));
+        WanfaUiFactory.SetTooltip(_icon.gameObject, () => SkillTooltip.Show(_icon.gameObject, container));
 
         var signature = SkillContainerSignature.Build(container);
         var imported = WanfaPavilionService.Instance.ContainsSignature(signature);

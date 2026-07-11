@@ -140,7 +140,7 @@ public class Drops : ExtendLibrary<DropAsset, Drops>
         drop.default_scale = 0.08f;
         drop.sound_drop = string.Empty;
         drop.action_landed = null;
-        drop.action_landed_drop = WanfaPavilion.WanfaDropExportSession.OnDropLanded;
+        drop.action_landed_drop = Wanfa.WanfaDropExportSession.OnDropLanded;
     }
 
     private const string SEED_SOUND = "event:/SFX/DROPS/DropSeedGrass";

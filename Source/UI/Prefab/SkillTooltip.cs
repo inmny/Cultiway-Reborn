@@ -3,22 +3,23 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Cultiway.Abstract;
-using Cultiway.Content.Components.Skill;
-using Cultiway.Content.WanfaPavilion;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Editor;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.SkillLibV3.Wanfa;
+using Cultiway.UI.Components;
 using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Cultiway.Content.UI.Prefab;
+namespace Cultiway.UI.Prefab;
 
-public sealed class WanfaSkillTooltip : APrefabPreview<WanfaSkillTooltip>
+public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
 {
     private sealed class ViewModel
     {
@@ -28,7 +29,7 @@ public sealed class WanfaSkillTooltip : APrefabPreview<WanfaSkillTooltip>
         public string BottomDescription;
         public Sprite[] Frames = Array.Empty<Sprite>();
         public readonly List<(string Label, string Value, string Color)> Lines = new();
-        public readonly List<WanfaModifierTooltipModel> Modifiers = new();
+        public readonly List<SkillModifierTooltipModel> Modifiers = new();
     }
 
     private static readonly SkillBlueprintCompiler Compiler = new();
@@ -40,7 +41,7 @@ public sealed class WanfaSkillTooltip : APrefabPreview<WanfaSkillTooltip>
     private Text _summary;
     private GameObject _modifierGrid;
     private LayoutElement _modifierGridLayout;
-    private ObjectPoolGenericMono<WanfaModifierIcon> _modifierPool;
+    private ObjectPoolGenericMono<SkillModifierIcon> _modifierPool;
     private Sprite[] _frames = Array.Empty<Sprite>();
     private int _frameIndex;
     private float _frameTimer;
@@ -52,8 +53,8 @@ public sealed class WanfaSkillTooltip : APrefabPreview<WanfaSkillTooltip>
         _summary = transform.Find("SkillSummary/Summary").GetComponent<Text>();
         _modifierGrid = transform.Find("ModifierGrid").gameObject;
         _modifierGridLayout = _modifierGrid.GetComponent<LayoutElement>();
-        var item = _modifierGrid.transform.Find("Item").GetComponent<WanfaModifierIcon>();
-        _modifierPool = new ObjectPoolGenericMono<WanfaModifierIcon>(item, _modifierGrid.transform);
+        var item = _modifierGrid.transform.Find("Item").GetComponent<SkillModifierIcon>();
+        _modifierPool = new ObjectPoolGenericMono<SkillModifierIcon>(item, _modifierGrid.transform);
     }
 
     public static void Show(GameObject source, SkillBlueprint blueprint)
@@ -78,7 +79,7 @@ public sealed class WanfaSkillTooltip : APrefabPreview<WanfaSkillTooltip>
         _pending = model;
         try
         {
-            Tooltip.show(source, Tooltips.WanfaSkill.id, new TooltipData());
+            Tooltip.show(source, WorldboxGame.Tooltips.Skill.id, new TooltipData());
         }
         finally
         {
@@ -185,7 +186,7 @@ public sealed class WanfaSkillTooltip : APrefabPreview<WanfaSkillTooltip>
             AddLine(model, "Cultiway.Wanfa.UI.Overview.MotionProfile".Localize(),
                 container.MotionProfile.id.Localize());
             AddLine(model, "Cultiway.Wanfa.UI.Overview.CollisionRadius".Localize(),
-                ResolveCollisionRadius(blueprint, entity).ToString("0.##", CultureInfo.InvariantCulture));
+                ResolveCollisionRadius(compiled, entity).ToString("0.##", CultureInfo.InvariantCulture));
             AddLine(model, "Cultiway.Wanfa.UI.Overview.StepWakan".Localize(),
                 SkillCastCost.CalculateStepWakanCost(compiled).ToString("0.##", CultureInfo.InvariantCulture));
         }
@@ -201,7 +202,7 @@ public sealed class WanfaSkillTooltip : APrefabPreview<WanfaSkillTooltip>
         {
             foreach (var spec in blueprint.Modifiers)
             {
-                model.Modifiers.Add(WanfaModifierTooltipModel.FromSpec(spec));
+                model.Modifiers.Add(SkillModifierTooltipModel.FromSpec(spec));
             }
         }
 
@@ -219,20 +220,10 @@ public sealed class WanfaSkillTooltip : APrefabPreview<WanfaSkillTooltip>
         return model;
     }
 
-    private static float ResolveCollisionRadius(SkillBlueprint blueprint, SkillEntityAsset entity)
+    private static float ResolveCollisionRadius(Entity compiled, SkillEntityAsset entity)
     {
         if (entity == null || !entity.PrefabEntity.TryGetComponent(out ColliderSphere collider)) return 0f;
-
-        var scale = 1f;
-        if (blueprint.Modifiers == null) return collider.Radius;
-        var huge = blueprint.Modifiers.FirstOrDefault(item => item != null && item.AssetId == SkillModifiers.Huge.id);
-        if (huge != null && huge.Parameters != null &&
-            huge.Parameters.TryGetValue(nameof(HugeModifier.Value), out var value) &&
-            float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var multiplier))
-        {
-            scale = multiplier;
-        }
-        return collider.Radius * scale;
+        return SkillEffectRadius.ResolveContainer(compiled, collider.Radius);
     }
 
     private static string BuildBottomDescription(SkillBlueprint blueprint, bool isBlueprint)
@@ -272,7 +263,7 @@ public sealed class WanfaSkillTooltip : APrefabPreview<WanfaSkillTooltip>
         CreateSkillSummary(obj.transform);
         CreateModifierGrid(obj.transform);
 
-        Prefab = obj.AddComponent<WanfaSkillTooltip>();
+        Prefab = obj.AddComponent<SkillTooltip>();
     }
 
     private static void CreateSkillSummary(Transform parent)
@@ -339,6 +330,6 @@ public sealed class WanfaSkillTooltip : APrefabPreview<WanfaSkillTooltip>
         layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
         layout.constraintCount = 8;
 
-        WanfaModifierIcon.Create(grid.transform, "Item", 16f).gameObject.SetActive(false);
+        SkillModifierIcon.Create(grid.transform, "Item", 16f).gameObject.SetActive(false);
     }
 }

@@ -9,9 +9,9 @@ using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
 using UnityEngine;
 using Cultiway.Utils.Extension;
-using Cultiway.Content.UI;
+using Cultiway.Core.SkillLibV3.Wanfa;
 
-namespace Cultiway.Content.WanfaPavilion;
+namespace Cultiway.Content.Wanfa;
 
 internal sealed class WanfaGrantPayload
 {
@@ -38,10 +38,10 @@ public static class WanfaDropExportSession
         WanfaTestCastSession.Clear(false);
         _sessionGeneration++;
         Payloads.Clear();
-        WindowWanfaGrantConflict.ClearPending();
+        WanfaPavilionService.Instance.ClearGrantConflicts();
         _selectedBlueprintId = blueprintId;
         PowerButtonSelector.instance.unselectAll();
-        PowerButtonSelector.instance.clickPowerButton(Content.UI.Manager.WanfaGrantButton);
+        PowerButtonSelector.instance.clickPowerButton(WanfaContentBootstrap.GrantButton);
         ScrollWindow.hideAllEvent(false);
         WorldTip.showNow("Cultiway.Wanfa.UI.Tip.SelectGrantActor".Localize(), false, "top", 3f);
         _modeWasActive = true;
@@ -118,17 +118,17 @@ public static class WanfaDropExportSession
         Payloads.Clear();
         _selectedBlueprintId = null;
         _modeWasActive = false;
-        WindowWanfaGrantConflict.ClearPending();
+        WanfaPavilionService.Instance.ClearGrantConflicts();
     }
 
-    internal static void ResolveConflict(WanfaGrantConflictRequest request, bool overwrite)
+    private static void ResolveConflict(WanfaGrantPayload payload, Entity oldContainer, bool overwrite)
     {
         if (!overwrite) return;
-        if (request.Payload.SessionGeneration != _sessionGeneration ||
-            request.Payload.ExpiresAt < Time.realtimeSinceStartup) return;
-        var actor = World.world.units.get(request.Payload.TargetActorId);
+        if (payload.SessionGeneration != _sessionGeneration ||
+            payload.ExpiresAt < Time.realtimeSinceStartup) return;
+        var actor = World.world.units.get(payload.TargetActorId);
         if (actor == null || !actor.isAlive()) return;
-        var validation = WanfaPavilionService.Instance.ValidateGrant(actor, request.Payload.Snapshot);
+        var validation = WanfaPavilionService.Instance.ValidateGrant(actor, payload.Snapshot);
         if (!validation.IsCompatible)
         {
             var error = validation.Issues.First(issue =>
@@ -137,19 +137,19 @@ public static class WanfaDropExportSession
             return;
         }
 
-        var compiled = Compiler.Compile(request.Payload.Snapshot, SkillBlueprintCompileMode.Runtime);
+        var compiled = Compiler.Compile(payload.Snapshot, SkillBlueprintCompileMode.Runtime);
         if (!compiled.Success)
         {
             WorldTip.showNow("Cultiway.Wanfa.UI.Tip.DamagedBlueprint".Localize(), false, "top", 3f);
             return;
         }
 
-        var result = SkillOwnershipService.Replace(actor.GetExtend(), request.OldContainer, compiled.Container);
+        var result = SkillOwnershipService.Replace(actor.GetExtend(), oldContainer, compiled.Container);
         if (result == SkillOwnershipResult.Replaced)
         {
-            WanfaPavilionService.Instance.CompleteGrant(actor, request.Payload.Snapshot);
+            WanfaPavilionService.Instance.CompleteGrant(actor, payload.Snapshot);
             WorldTip.showNow(string.Format("Cultiway.Wanfa.UI.Format.GrantUpdated".Localize(),
-                request.Payload.Revision), false, "top", 3f);
+                payload.Revision), false, "top", 3f);
         }
         else
         {
@@ -203,12 +203,8 @@ public static class WanfaDropExportSession
 
         if (!oldRevision.IsNull)
         {
-            WindowWanfaGrantConflict.Enqueue(new WanfaGrantConflictRequest
-            {
-                Payload = payload,
-                OldContainer = oldRevision,
-                ActorName = actor.getName()
-            });
+            WanfaPavilionService.Instance.RequestGrantConflict(actor.getName(), payload.Revision,
+                overwrite => ResolveConflict(payload, oldRevision, overwrite));
             return;
         }
 
@@ -253,11 +249,4 @@ public static class WanfaDropExportSession
         if (element == SkillVfxElements.Curse) return Drops.WanfaCurse;
         return Drops.WanfaEntropy;
     }
-}
-
-internal sealed class WanfaGrantConflictRequest
-{
-    public WanfaGrantPayload Payload;
-    public Entity OldContainer;
-    public string ActorName;
 }

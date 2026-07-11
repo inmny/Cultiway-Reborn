@@ -4,7 +4,9 @@ using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Logging;
+using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.UI.Components;
+using Cultiway.UI.CreatureInfoPages;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Tab;
@@ -74,6 +76,28 @@ public class Manager
         powers_tab.UpdateLayout();
 
         SwitchTab(TabButtonType.INFO);
+    }
+
+    public void InitWanfa(WanfaPavilionService service)
+    {
+        WindowNewCreatureInfo.RegisterPage(nameof(SkillPage),
+            actor => actor.GetExtend().GetLearnedSkillsInOrder().Count > 0,
+            SkillPage.Setup, SkillPage.Show);
+
+        WindowWanfaPavilion.CreateAndInit(WindowWanfaPavilion.Id);
+        WindowWanfaSkillEditor.CreateAndInit(WindowWanfaSkillEditor.Id);
+        WindowWanfaGrantConflict.CreateAndInit(WindowWanfaGrantConflict.Id);
+
+        AddButton(TabButtonType.WORLD,
+            PowerButtonCreator.CreateWindowButton(
+                $"{WindowWanfaPavilion.Id} Title",
+                WindowWanfaPavilion.Id,
+                SpriteTextureLoader.getSprite("cultiway/icons/iconMagic")));
+
+        service.GrantConflictRequested += WindowWanfaGrantConflict.Enqueue;
+        service.GrantConflictsCleared += WindowWanfaGrantConflict.ClearPending;
+        service.TestCastCompleted += WindowWanfaSkillEditor.ResumeAfterTestCast;
+        service.WorldStateClearing += WindowWanfaSkillEditor.ClearWorldState;
     }
     private static string[] kingdom_window_content_to_remove = [
       "TopElements", "content_motto", "content_meta_needs", "content_king", "content_capital", "content_villages", "content_traits_editor"

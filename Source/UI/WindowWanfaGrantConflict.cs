@@ -1,22 +1,22 @@
 using System.Collections.Generic;
-using Cultiway.Content.WanfaPavilion;
+using Cultiway.Core.SkillLibV3.Wanfa;
 using NeoModLoader.General.UI.Window;
 using NeoModLoader.api;
 using Cultiway.Abstract;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Cultiway.Content.UI;
+namespace Cultiway.UI;
 
 public sealed class WindowWanfaGrantConflict : AbstractWindow<WindowWanfaGrantConflict>
 {
     public const string Id = "Cultiway.UI.WindowWanfaGrantConflict";
-    private static readonly Queue<WanfaGrantConflictRequest> Requests = new();
+    private static readonly Queue<WanfaGrantConflictPrompt> Requests = new();
     private static WindowWanfaGrantConflict _instance;
-    private WanfaGrantConflictRequest _current;
+    private WanfaGrantConflictPrompt _current;
     private Text _message;
 
-    internal static void Enqueue(WanfaGrantConflictRequest request)
+    internal static void Enqueue(WanfaGrantConflictPrompt request)
     {
         Requests.Enqueue(request);
         ScrollWindow.showWindow(Id);
@@ -70,12 +70,12 @@ public sealed class WindowWanfaGrantConflict : AbstractWindow<WindowWanfaGrantCo
         }
         _current = Requests.Dequeue();
         _message.text = string.Format("Cultiway.Wanfa.UI.Format.GrantConflict".Localize(), _current.ActorName,
-            _current.Payload.Revision).Replace("\\n", "\n");
+            _current.Revision).Replace("\\n", "\n");
     }
 
     private void Resolve(bool overwrite)
     {
-        WanfaDropExportSession.ResolveConflict(_current, overwrite);
+        _current.Resolve(overwrite);
         _current = null;
         GetComponent<ScrollWindow>().clickHide();
         if (Requests.Count > 0) ScrollWindow.showWindow(Id);

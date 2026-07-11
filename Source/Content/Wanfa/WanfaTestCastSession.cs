@@ -1,11 +1,11 @@
-using Cultiway.Content.UI;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Blueprints;
+using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
-namespace Cultiway.Content.WanfaPavilion;
+namespace Cultiway.Content.Wanfa;
 
 public static class WanfaTestCastSession
 {
@@ -29,7 +29,7 @@ public static class WanfaTestCastSession
         _trackedSkillEntity = default;
         _state = SessionState.SelectingCaster;
         PowerButtonSelector.instance.unselectAll();
-        PowerButtonSelector.instance.clickPowerButton(UI.Manager.WanfaGrantButton);
+        PowerButtonSelector.instance.clickPowerButton(WanfaContentBootstrap.GrantButton);
         ScrollWindow.hideAllEvent(false);
         WorldTip.showNow("Cultiway.Wanfa.UI.Tip.SelectTestActor".Localize(), false, "top", 3f);
     }
@@ -77,7 +77,7 @@ public static class WanfaTestCastSession
         {
             _trackedSkillEntity = default;
             _state = SessionState.None;
-            WindowWanfaSkillEditor.ResumeAfterTestCast();
+            WanfaPavilionService.Instance.CompleteTestCast();
         }
     }
 
@@ -86,7 +86,7 @@ public static class WanfaTestCastSession
         _draft = null;
         _trackedSkillEntity = default;
         _state = SessionState.None;
-        if (resumeEditor) WindowWanfaSkillEditor.ResumeAfterTestCast();
+        if (resumeEditor) WanfaPavilionService.Instance.CompleteTestCast();
     }
 
     private static Actor FindRandomEnemy(Actor caster)
@@ -114,6 +114,6 @@ public static class WanfaTestCastSession
         _trackedSkillEntity = default;
         _state = SessionState.None;
         if (unselectPower) PowerButtonSelector.instance.unselectAll();
-        WindowWanfaSkillEditor.ResumeAfterTestCast();
+        WanfaPavilionService.Instance.CompleteTestCast();
     }
 }

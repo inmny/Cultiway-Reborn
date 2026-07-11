@@ -4,9 +4,9 @@ using Cultiway.Core.SkillLibV3.Blueprints;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Cultiway.Content.UI.Prefab;
+namespace Cultiway.UI.Components;
 
-internal sealed class WanfaModifierTooltipModel
+internal sealed class SkillModifierTooltipModel
 {
     public string Title;
     public string Description;
@@ -14,7 +14,7 @@ internal sealed class WanfaModifierTooltipModel
     public string IconPath;
     public string OutlineColor;
 
-    public static WanfaModifierTooltipModel FromSpec(SkillModifierSpec spec)
+    public static SkillModifierTooltipModel FromSpec(SkillModifierSpec spec)
     {
         if (spec == null)
         {
@@ -38,7 +38,7 @@ internal sealed class WanfaModifierTooltipModel
             values.Add("Cultiway.Wanfa.UI.Tooltip.Modifier.NoParameters".Localize());
         }
 
-        return new WanfaModifierTooltipModel
+        return new SkillModifierTooltipModel
         {
             Title = modifier.id.Localize(),
             Description = $"{modifier.EditorCategoryKey.Localize()} · " +
@@ -49,14 +49,14 @@ internal sealed class WanfaModifierTooltipModel
         };
     }
 
-    private static WanfaModifierTooltipModel Missing(string title)
+    private static SkillModifierTooltipModel Missing(string title)
     {
-        return new WanfaModifierTooltipModel
+        return new SkillModifierTooltipModel
         {
             Title = title,
             Description = "Cultiway.Wanfa.UI.State.Damaged".Localize(),
             Detail = "Cultiway.Wanfa.UI.Detail.MissingModifier".Localize(),
-            IconPath = WanfaUiIcons.Cancel,
+            IconPath = "ui/icons/iconClose",
             OutlineColor = "#FB2C21"
         };
     }
@@ -73,17 +73,17 @@ internal sealed class WanfaModifierTooltipModel
     }
 }
 
-internal sealed class WanfaModifierIcon : MonoBehaviour
+internal sealed class SkillModifierIcon : MonoBehaviour
 {
     private Image _icon;
     private IconOutline _outline;
     private TipButton _tipButton;
-    private WanfaModifierTooltipModel _model;
+    private SkillModifierTooltipModel _model;
 
-    public static WanfaModifierIcon Create(Transform parent, string name, float size)
+    public static SkillModifierIcon Create(Transform parent, string name, float size)
     {
         var item = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement),
-            typeof(TipButton), typeof(WanfaModifierIcon));
+            typeof(TipButton), typeof(SkillModifierIcon));
         item.transform.SetParent(parent, false);
         var itemBackground = item.GetComponent<Image>();
         itemBackground.color = Color.clear;
@@ -99,20 +99,20 @@ internal sealed class WanfaModifierIcon : MonoBehaviour
 
         var outline = new GameObject("Outline", typeof(RectTransform), typeof(Image), typeof(IconOutline));
         outline.transform.SetParent(item.transform, false);
-        WanfaUiFactory.Stretch(outline.GetComponent<RectTransform>(), 1f, 1f, 1f, 1f);
+        Stretch(outline.GetComponent<RectTransform>());
         outline.GetComponent<Image>().raycastTarget = false;
 
         var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image));
         icon.transform.SetParent(item.transform, false);
-        WanfaUiFactory.Stretch(icon.GetComponent<RectTransform>(), 1f, 1f, 1f, 1f);
+        Stretch(icon.GetComponent<RectTransform>());
         var iconImage = icon.GetComponent<Image>();
         iconImage.preserveAspect = true;
         iconImage.raycastTarget = false;
         outline.GetComponent<IconOutline>().parent_image = iconImage;
-        return item.GetComponent<WanfaModifierIcon>();
+        return item.GetComponent<SkillModifierIcon>();
     }
 
-    public void Setup(WanfaModifierTooltipModel model)
+    public void Setup(SkillModifierTooltipModel model)
     {
         if (_icon == null)
         {
@@ -125,7 +125,7 @@ internal sealed class WanfaModifierIcon : MonoBehaviour
         _icon.sprite = SpriteTextureLoader.getSprite(model.IconPath);
         if (_icon.sprite == null)
         {
-            _icon.sprite = SpriteTextureLoader.getSprite(WanfaUiIcons.Modifier);
+            _icon.sprite = SpriteTextureLoader.getSprite("ui/icons/iconEditTrait");
         }
         _outline.parent_image = _icon;
         _outline.show(new ContainerItemColor(model.OutlineColor, null));
@@ -141,5 +141,13 @@ internal sealed class WanfaModifierIcon : MonoBehaviour
             tip_description = _model.Description,
             tip_description_2 = _model.Detail
         });
+    }
+
+    private static void Stretch(RectTransform rect)
+    {
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.offsetMin = Vector2.one;
+        rect.offsetMax = -Vector2.one;
     }
 }

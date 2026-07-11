@@ -13,8 +13,7 @@ using Cultiway.Core.EventSystem.Events;
 using HarmonyLib;
 using UnityEngine;
 using Cultiway.Core.Pathfinding;
-using Cultiway.Content.WanfaPavilion;
-using Cultiway.Content.UI;
+using Cultiway.Core.SkillLibV3.Wanfa;
 
 namespace Cultiway.Patch;
 
@@ -87,7 +86,6 @@ internal static class PatchMapBox
         ModClass.I.ActorExtendManager.Clear();
         ModClass.I.BookExtendManager.Clear();
         WanfaPavilionService.ClearWorldState();
-        WindowWanfaSkillEditor.ClearWorldState();
     }
 
     [HarmonyTranspiler, HarmonyPatch(typeof(MapBox), nameof(MapBox.checkDirtyUnits))]

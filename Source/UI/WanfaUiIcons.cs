@@ -1,4 +1,4 @@
-namespace Cultiway.Content.UI;
+namespace Cultiway.UI;
 
 internal static class WanfaUiIcons
 {

@@ -2,15 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
-using Cultiway.Content.UI.Prefab;
-using Cultiway.Content.WanfaPavilion;
+using Cultiway.Core.SkillLibV3.Wanfa;
+using Cultiway.UI.Prefab;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Visuals;
 using UnityEngine;
 using UnityEngine.UI;
 using NeoModLoader.api;
 
-namespace Cultiway.Content.UI;
+namespace Cultiway.UI;
 
 public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion>
 {
@@ -127,7 +127,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
                 () => WindowWanfaSkillEditor.Open(item, true),
                 () => HandleCopy(item),
                 () => WanfaPavilionService.Instance.Delete(item.Id),
-                () => WanfaDropExportSession.Enter(item.Id));
+                () => WanfaPavilionService.Instance.RequestGrant(item.Id));
         }
     }
 

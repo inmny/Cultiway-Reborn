@@ -56,7 +56,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         EasternHumanSkin.rank = PowerRank.Rank0_free;
 
         WanfaGrant.name = "wanfa_grant";
-        WanfaGrant.click_action = WanfaPavilion.WanfaDropExportSession.TrySpawn;
+        WanfaGrant.click_action = Wanfa.WanfaDropExportSession.TrySpawn;
         WanfaGrant.force_map_mode = MetaType.None;
         WanfaGrant.force_brush = "sqr_0";
         WanfaGrant.ignore_fast_spawn = true;

@@ -6,7 +6,7 @@ using Cultiway.Core.SkillLibV3.Blueprints;
 using Newtonsoft.Json;
 using UnityEngine;
 
-namespace Cultiway.Content.WanfaPavilion;
+namespace Cultiway.Core.SkillLibV3.Wanfa;
 
 [Serializable]
 internal sealed class WanfaPavilionLibraryFile

@@ -1,21 +1,22 @@
 using System;
 using Cultiway.Abstract;
+using Cultiway.UI.Components;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Cultiway.Content.UI.Prefab;
+namespace Cultiway.UI.Prefab;
 
 public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
 {
     public Transform Controls { get; private set; }
-    private WanfaModifierIcon _modifierIcon;
+    private SkillModifierIcon _modifierIcon;
     private Text _title;
     private Text _detail;
     private Button _action;
 
     protected override void OnInit()
     {
-        _modifierIcon = transform.Find("Header/ModifierIcon").GetComponent<WanfaModifierIcon>();
+        _modifierIcon = transform.Find("Header/ModifierIcon").GetComponent<SkillModifierIcon>();
         _title = transform.Find("Header/Title").GetComponent<Text>();
         _detail = transform.Find("Header/Detail").GetComponent<Text>();
         _action = transform.Find("Header/Action").GetComponent<Button>();
@@ -23,7 +24,7 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
     }
 
     internal void Setup(string title, string detail, string actionLabel, bool interactable, Action action,
-        string actionIconPath = WanfaUiIcons.Select, WanfaModifierTooltipModel modifierIcon = null)
+        string actionIconPath = WanfaUiIcons.Select, SkillModifierTooltipModel modifierIcon = null)
     {
         Init();
         ClearControls();
@@ -65,7 +66,7 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
         background.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
         background.type = Image.Type.Sliced;
         var header = WanfaUiFactory.CreateLayout(obj.transform, "Header", true, 500f, 28f, 4f);
-        var modifierIcon = WanfaModifierIcon.Create(header.transform, "ModifierIcon", 24f);
+        var modifierIcon = SkillModifierIcon.Create(header.transform, "ModifierIcon", 24f);
         modifierIcon.gameObject.SetActive(false);
         WanfaUiFactory.CreateText(header.transform, "Title", string.Empty, 112f, 28f, 8, TextAnchor.MiddleLeft,
             FontStyle.Bold);

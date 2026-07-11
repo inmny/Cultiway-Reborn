@@ -219,8 +219,10 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
             Value = spec.GetInt(nameof(VolleyModifier.BurstBonus)) + 1
         });
 
-        ConfigureEditor<HugeModifier>(Huge, "Area",
+        var huge = ConfigureEditor<HugeModifier>(Huge, "Area",
             Float(nameof(HugeModifier.Value), "SizeAndRadiusMultiplier", 1.2f, 0.25f, 8f, 0.05f, "Multiplier"));
+        huge.EffectRadiusMultiplier = container =>
+            Mathf.Clamp(container.GetComponent<HugeModifier>().Value, 0.1f, 10f);
         ConfigureEditor<WeakenModifier>(Weaken, "Debuff",
             Float(nameof(WeakenModifier.Duration), "Duration", 5f, 0.1f, 60f, 0.1f, "Seconds"),
             Float(nameof(WeakenModifier.AttackReduction), "AttackReduction", 0.2f, 0f, 0.95f, 0.01f,
@@ -1507,7 +1509,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         var container = skill.SkillContainer;
         if (container.IsNull || !container.TryGetComponent(out HugeModifier huge)) return;
 
-        var scaleMul = Mathf.Clamp(huge.Value, 0.1f, 10f);
+        var scaleMul = SkillModifiers.Huge.EffectRadiusMultiplier(container);
 
         if (skillEntity.HasComponent<Scale>())
         {

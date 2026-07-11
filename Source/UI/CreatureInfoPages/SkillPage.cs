@@ -1,15 +1,15 @@
 using System.Linq;
 using Cultiway.Abstract;
-using Cultiway.Content.UI.Prefab;
-using Cultiway.Content.WanfaPavilion;
 using Cultiway.Core;
+using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.UI;
 using Cultiway.UI.Prefab;
 using NeoModLoader.api.attributes;
 using UnityEngine;
 using Cultiway.Utils.Extension;
 
-namespace Cultiway.Content.UI.CreatureInfoPages;
+namespace Cultiway.UI.CreatureInfoPages;
 
 public sealed class SkillPage : MonoBehaviour
 {
