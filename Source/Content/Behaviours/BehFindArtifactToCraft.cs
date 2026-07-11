@@ -29,6 +29,7 @@ public class BehFindArtifactToCraft : BehCityActor
         foreach (Entity item in ae.GetItems())
         {
             if (item.Tags.HasAny(Tags.Get<TagConsumed, TagOccupied>())) continue;
+            if (!item.Tags.Has<TagIngredient>()) continue;
             available.Add(item);
         }
 
