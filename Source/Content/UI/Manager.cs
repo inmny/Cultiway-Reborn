@@ -104,8 +104,7 @@ public class Manager : ICanInit
             }
             if (entity.TryGetComponent(out Artifact _))
             {
-                bool equipped = entity.GetIncomingLinks<EquippedArtifactRelation>().Count > 0;
-                tooltip.Tooltip.addDescription(equipped ? "\n法器（已装备，未觉醒）" : "\n法器（未装备，未觉醒）");
+                AppendArtifactControlDetails(tooltip, entity);
             }
 
             Sect ownerSect = SectTreasureRules.GetTreasureOwner(entity);
@@ -121,6 +120,58 @@ public class Manager : ICanInit
                 }
             }
         });
+    }
+
+    private static void AppendArtifactControlDetails(SpecialItemTooltip tooltip, Entity artifact)
+    {
+        Entity owner = default;
+        foreach (Entity candidate in artifact.GetIncomingLinks<EquippedArtifactRelation>().Entities)
+        {
+            owner = candidate;
+            break;
+        }
+
+        long ownerId = 0;
+        float preparedLoad;
+        float operatingLoad;
+        if (!owner.IsNull)
+        {
+            ActorExtend actor = owner.GetComponent<ActorBinder>().AE;
+            ownerId = actor.Base.data.id;
+            EquippedArtifactRelation relation = owner.GetRelation<EquippedArtifactRelation, Entity>(artifact);
+            ArtifactLoadoutState loadout = actor.GetArtifactLoadoutState();
+            var divineSense = actor.Base.stats[WorldboxGame.BaseStats.DivineSense.id];
+            tooltip.Tooltip.addDescription("\n");
+            tooltip.Tooltip.addLineText("状态", relation.state.GetName(), pLocalize: false);
+            tooltip.Tooltip.addLineText(
+                "控制",
+                relation.mode.GetName() + (relation.locked ? "（锁定）" : string.Empty),
+                pLocalize: false);
+            tooltip.Tooltip.addLineText(
+                "驾驭",
+                $"{loadout.prepared_load + loadout.operating_load:0.#}/{divineSense:0.#}",
+                pLocalize: false);
+            tooltip.Tooltip.addLineText(
+                "分念",
+                $"{loadout.used_threads}/{ArtifactControlRules.GetThreadCapacity(divineSense)}",
+                pLocalize: false);
+        }
+        else
+        {
+            if (artifact.TryGetComponent(out ArtifactAttunement attunement)) ownerId = attunement.owner_actor_id;
+            tooltip.Tooltip.addDescription("\n");
+            tooltip.Tooltip.addLineText("状态", "未装备", pLocalize: false);
+        }
+
+        ArtifactControlRules.ResolveLoads(artifact, ownerId, out preparedLoad, out operatingLoad, out _);
+        tooltip.Tooltip.addLineText(
+            "神识负荷",
+            $"准备 {preparedLoad:0.#} / 运转 {operatingLoad:0.#}",
+            pLocalize: false);
+        if (artifact.TryGetComponent(out ArtifactAttunement currentAttunement))
+        {
+            tooltip.Tooltip.addLineText("祭炼", $"{currentAttunement.mastery:0.#}%", pLocalize: false);
+        }
     }
 
     private static CharacterPanelProgressBarState ReadWakanPanelValue(Actor actor)
