@@ -140,7 +140,7 @@ internal static class PatchWindowCreatureInfo
         {
             sb.AppendLine($"气运: {qiyun.Value:F1}/{qiyun.MaxValue:F1}");
         }
-        sb.AppendLine($"神识: {actor_extend.E.GetComponent<ValuableTalent>().DivineSense:0.#}");
+        sb.AppendLine($"神识: {actor_extend.Base.stats[WorldboxGame.BaseStats.DivineSense.id]:0.#}");
         info_display_func?.Invoke(actor_extend, sb);
 
         var idx = 0;
