@@ -61,3 +61,198 @@ Cultiway.Silence,封印
 Cultiway.DeathSentence,终焉死亡
 Cultiway.ReincarnationTrial,轮回试练
 Cultiway.EternalCurse,永世诅咒
+Cultiway.MeleeSweep,近身横扫
+Cultiway.SkillEntity.Category.Attack,攻击
+Cultiway.SkillTag.iron,金
+Cultiway.SkillTag.wood,木
+Cultiway.SkillTag.water,水
+Cultiway.SkillTag.ice,冰
+Cultiway.SkillTag.poison,毒
+Cultiway.SkillTag.fire,火
+Cultiway.SkillTag.earth,土
+Cultiway.SkillTag.neg,阴
+Cultiway.SkillTag.pos,阳
+Cultiway.SkillTag.entropy,熵
+Cultiway.SkillTag.wind,风
+Cultiway.SkillTag.lightning,雷
+Cultiway.SkillTag.generic,通用
+Cultiway.SkillTag.slash,刃
+Cultiway.SkillTag.pierce,穿刺
+Cultiway.SkillTag.ball,法球
+Cultiway.SkillTag.aoe,范围
+Cultiway.SkillTag.falling,坠落
+Cultiway.SkillTag.sustain,持续
+Cultiway.SkillTag.spell,术法
+Cultiway.SkillTag.delivery_projectile,弹丸
+Cultiway.SkillTag.delivery_melee,近身
+Cultiway.SkillTag.delivery_instant,瞬发
+Cultiway.SkillTag.delivery_field,场域
+Cultiway.SkillTag.direct,直线
+Cultiway.SkillTag.homing,追踪
+Cultiway.SkillTag.ground,贴地
+Cultiway.SkillTag.snap,瞬闪
+Cultiway.SkillTag.vortex,涡旋
+Cultiway.SkillTag.rain,雨落
+Cultiway.SkillTag.return,回旋
+Cultiway.SkillTag.zigzag,折线
+Cultiway.SkillTag.wave,波形
+Cultiway.SkillTag.spiral,螺旋
+Cultiway.SkillTag.orbit,环绕
+Cultiway.SkillTag.appear,显现
+Cultiway.SkillTag.melee_sweep,近身横扫
+Cultiway.SkillTag.metal,金系
+Cultiway.SkillTag.single,单体
+Cultiway.SkillVfxElement.Generic,通用
+Cultiway.SkillVfxElement.Metal,金
+Cultiway.SkillVfxElement.Wood,木
+Cultiway.SkillVfxElement.Water,水
+Cultiway.SkillVfxElement.Ice,冰
+Cultiway.SkillVfxElement.Fire,火
+Cultiway.SkillVfxElement.Earth,土
+Cultiway.SkillVfxElement.Neg,阴
+Cultiway.SkillVfxElement.Pos,阳
+Cultiway.SkillVfxElement.Entropy,熵
+Cultiway.SkillVfxElement.Wind,风
+Cultiway.SkillVfxElement.Lightning,雷
+Cultiway.SkillVfxElement.Poison,毒
+Cultiway.SkillVfxElement.Explosion,爆炸
+Cultiway.SkillVfxElement.Burnout,燃尽
+Cultiway.SkillVfxElement.Gravity,引力
+Cultiway.SkillVfxElement.Curse,诅咒
+Cultiway.SkillMotionProfile.Generic,通用
+Cultiway.SkillMotionProfile.Swift,迅疾
+Cultiway.SkillMotionProfile.Projectile,弹丸
+Cultiway.SkillMotionProfile.Patterned,变轨
+Cultiway.SkillMotionProfile.Sustained,持续
+Cultiway.SkillMotionProfile.Melee,近身
+Cultiway.SkillMotionProfile.Snap,瞬袭
+Cultiway.SkillModifier.Category.Control,控制
+Cultiway.SkillModifier.Category.DamageOverTime,持续伤害
+Cultiway.SkillModifier.Category.Area,范围
+Cultiway.SkillModifier.Category.Delivery,投送
+Cultiway.SkillModifier.Category.Efficiency,效率
+Cultiway.SkillModifier.Category.Damage,伤害
+Cultiway.SkillModifier.Category.Volley,齐射
+Cultiway.SkillModifier.Category.Debuff,削弱
+Cultiway.SkillModifier.Category.Special,特殊
+Cultiway.SkillModifier.Category.Combo,连发
+Cultiway.SkillModifier.Category.Execute,终结
+Cultiway.SkillModifier.Category.Internal,内部
+Cultiway.SkillModifier.Rarity.Common,普通
+Cultiway.SkillModifier.Rarity.Rare,稀有
+Cultiway.SkillModifier.Rarity.Epic,罕见
+Cultiway.SkillModifier.Rarity.Legendary,珍稀
+Cultiway.Skill.Unit.Seconds,秒
+Cultiway.Skill.Unit.Percent,%
+Cultiway.Skill.Unit.Tiles,格
+Cultiway.Skill.Unit.Multiplier,倍
+Cultiway.Skill.Unit.Degrees,度
+Cultiway.SkillModifier.Field.Duration,持续时间
+Cultiway.SkillModifier.Field.SlowStrength,减速比例
+Cultiway.SkillModifier.Field.TotalDamageRatio,总伤害比例
+Cultiway.SkillModifier.Field.FreezeDuration,冻结时间
+Cultiway.SkillModifier.Field.StackDamageRatio,每层总伤害比例
+Cultiway.SkillModifier.Field.MaxStacks,最大层数
+Cultiway.SkillModifier.Field.ExplosionRadius,爆炸半径
+Cultiway.SkillModifier.Field.ExplosionDamageRatio,爆炸伤害比例
+Cultiway.SkillModifier.Field.SpeedBonus,速度增幅
+Cultiway.SkillModifier.Field.WakanCostReduction,灵力消耗降低
+Cultiway.SkillModifier.Field.SalvoIntervalReduction,连发间隔降低
+Cultiway.SkillModifier.Field.DamageBonus,伤害增幅
+Cultiway.SkillModifier.Field.KnockbackDistance,击退距离
+Cultiway.SkillModifier.Field.LaunchHeight,抛起高度
+Cultiway.SkillModifier.Field.ExtraBurstCount,额外散射数
+Cultiway.SkillModifier.Field.PerShotDamageMultiplier,单发伤害倍率
+Cultiway.SkillModifier.Field.SizeAndRadiusMultiplier,体型与作用范围倍率
+Cultiway.SkillModifier.Field.AttackReduction,攻击降低
+Cultiway.SkillModifier.Field.ArmorReduction,护甲降低
+Cultiway.SkillModifier.Field.PullRadius,牵引半径
+Cultiway.SkillModifier.Field.PullStrength,牵引强度
+Cultiway.SkillModifier.Field.DazeDuration,硬直时间
+Cultiway.SkillModifier.Field.DamageMultiplier,伤害倍率
+Cultiway.SkillModifier.Field.ReviveRatio,返生比例
+Cultiway.SkillModifier.Field.DamageVariance,伤害波动
+Cultiway.SkillModifier.Field.AngleVariance,角度波动
+Cultiway.SkillModifier.Field.SpeedVariance,速度波动
+Cultiway.SkillModifier.Field.SwapChance,交换概率
+Cultiway.SkillModifier.Field.TriggerChance,触发概率
+Cultiway.SkillModifier.Field.EffectPower,效果强度
+Cultiway.SkillModifier.Field.DirectDamageRatio,直接伤害比例
+Cultiway.SkillModifier.Field.BurnDuration,燃烧时间
+Cultiway.SkillModifier.Field.BurnDamageRatio,燃烧伤害比例
+Cultiway.SkillModifier.Field.ExtraSalvoCount,额外连发数
+Cultiway.SkillModifier.Field.SilenceDuration,封印时间
+Cultiway.SkillModifier.Field.DamageReduction,伤害降低
+Cultiway.SkillModifier.Field.ExecuteThreshold,斩杀线
+Cultiway.SkillModifier.Field.BonusDamageRatio,追加伤害比例
+Cultiway.SkillModifier.Field.TrialDamageRatio,试炼伤害比例
+Cultiway.SkillModifier.Field.BacklashRatio,反噬比例
+Cultiway.SkillModifier.Field.KillHealRatio,击杀返生比例
+Cultiway.SkillModifier.Field.CurseDuration,诅咒时间
+Cultiway.SkillModifier.Field.DamageOverTimeRatio,持续伤害比例
+Cultiway.SkillModifier.Field.AttackArmorReduction,攻防降低
+Cultiway.SkillModifier.Field.AggregateModifiers,聚合词条
+Cultiway.SkillModifier.Field.BurstCount,散射数
+Cultiway.SkillModifier.Field.SalvoCount,连发数
+Cultiway.TowardsDirection.Description,沿施法方向直线飞行并平滑修正初始朝向
+Cultiway.TowardsDirectionNoRot.Description,沿当前朝向直线飞行且不自动旋转视觉
+Cultiway.TowardsPosition.Description,持续转向施法时锁定的目标位置
+Cultiway.TowardsTarget.Description,持续追踪目标角色的当前位置
+Cultiway.DriftHoming.Description,先侧向漂移再逐步收束到追踪方向
+Cultiway.SineWave.Description,沿前进方向作连续正弦摆动
+Cultiway.Zigzag.Description,以离散折线左右交替推进
+Cultiway.SpiralHoming.Description,绕追踪方向螺旋收束到目标
+Cultiway.OrbitTarget.Description,抵近后围绕目标旋转并持续碰撞
+Cultiway.Boomerang.Description,飞向目标位置后折返施法者
+Cultiway.SlowVortex.Description,低速盘旋推进并适配大范围持续实体
+Cultiway.ArcToPosition.Description,按抛物线弧线飞向锁定位置
+Cultiway.FallingStrike.Description,从空中高速坠向目标位置
+Cultiway.GroundCrawl.Description,贴地移动并沿地面转向目标
+Cultiway.LightningSnap.Description,以短间隔折线瞬移逼近目标
+Cultiway.RainFall.Description,在目标上空生成并垂直落下
+Cultiway.AppearAtTarget.Description,首帧直接在目标位置显现并保持静止
+Cultiway.MeleeSweep.Description,贴合施法者完成一段近身扇形横扫
+Cultiway.SkillBlueprint.Validation.blueprint.null,法术蓝图不存在
+Cultiway.SkillBlueprint.Validation.blueprint.modifiers_null,蓝图词条列表损坏
+Cultiway.SkillBlueprint.Validation.blueprint.modifier_null,蓝图包含空词条记录
+Cultiway.SkillBlueprint.Validation.blueprint.id,蓝图缺少稳定 ID
+Cultiway.SkillBlueprint.Validation.blueprint.revision,蓝图 Revision 必须大于零
+Cultiway.SkillBlueprint.Validation.blueprint.schema,不支持蓝图版本 {0}
+Cultiway.SkillBlueprint.Validation.entity.empty,尚未选择法术实体
+Cultiway.SkillBlueprint.Validation.entity.missing,法术实体资源不存在
+Cultiway.SkillBlueprint.Validation.entity.descriptor_missing,法术实体缺少编辑元数据
+Cultiway.SkillBlueprint.Validation.entity.internal,该法术实体不允许由玩家编辑
+Cultiway.SkillBlueprint.Validation.trajectory.empty,尚未选择有效轨迹
+Cultiway.SkillBlueprint.Validation.trajectory.missing,轨迹资源不存在
+Cultiway.SkillBlueprint.Validation.trajectory.descriptor_missing,轨迹缺少编辑元数据
+Cultiway.SkillBlueprint.Validation.trajectory.internal,该轨迹不允许由玩家编辑
+Cultiway.SkillBlueprint.Validation.trajectory.orientation,轨迹姿态与法术实体不兼容
+Cultiway.SkillBlueprint.Validation.modifier.empty,词条缺少 Asset ID
+Cultiway.SkillBlueprint.Validation.modifier.duplicate,同一词条不能重复添加
+Cultiway.SkillBlueprint.Validation.modifier.missing,词条资源不存在
+Cultiway.SkillBlueprint.Validation.modifier.descriptor_missing,词条缺少编辑元数据
+Cultiway.SkillBlueprint.Validation.modifier.internal,该内部词条不能直接写入蓝图
+Cultiway.SkillBlueprint.Validation.modifier.component_duplicate,多个词条写入了相同组件
+Cultiway.SkillBlueprint.Validation.modifier.conflict,词条与 {0} 互斥
+Cultiway.SkillBlueprint.Validation.modifier.parameters_null,词条参数表损坏
+Cultiway.SkillBlueprint.Validation.modifier.parameter_unknown,词条包含未知参数 {0}
+Cultiway.SkillBlueprint.Validation.modifier.parameter_missing,词条缺少参数 {0}
+Cultiway.SkillBlueprint.Validation.modifier.parameter_invalid,{0}
+Cultiway.SkillBlueprint.Validation.modifier.parameter_noncanonical,{0} 不是规范存储格式 请在编辑器中修复
+Cultiway.SkillBlueprint.Validation.balance.parameter_extreme,{0} 已接近编辑上限
+Cultiway.SkillBlueprint.Validation.name.mode_invalid,蓝图命名模式无效
+Cultiway.SkillBlueprint.Validation.name.custom_empty,自定义名称不能为空
+Cultiway.SkillBlueprint.Validation.name.custom_too_long,自定义名称不能超过 {0} 个字符
+Cultiway.SkillBlueprint.Validation.category.too_long,玩家分类不能超过 {0} 个字符
+Cultiway.SkillBlueprint.Validation.balance.cost,预计单步灵力消耗较高 至少 {0:F1}
+Cultiway.SkillBlueprint.Validation.semantic.speed_static,静止或瞬发轨迹通常无法体现加速词条
+Cultiway.SkillBlueprint.Validation.semantic.travel_instant,瞬发轨迹可能没有足够时间触发持续移动效果
+Cultiway.SkillBlueprint.Validation.export.container,目标不是法术容器
+Cultiway.SkillBlueprint.Validation.export.descriptor_missing,容器组件缺少导出元数据
+Cultiway.SkillEditor.FieldError.FiniteNumber,{0} 不是有限数字
+Cultiway.SkillEditor.FieldError.Integer,{0} 不是整数
+Cultiway.SkillEditor.FieldError.Toggle,{0} 不是开关值
+Cultiway.SkillEditor.FieldError.Null,{0} 不能为空值
+Cultiway.SkillEditor.FieldError.Range,{0} 必须位于 {1:g} 到 {2:g} 之间
+Cultiway.SkillEditor.UnsupportedFieldType,技能编辑字段不支持类型 {0}
+Cultiway.SkillEditor.ComponentFieldMissing,技能词条组件 {0} 缺少字段 {1}

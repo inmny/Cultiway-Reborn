@@ -6,6 +6,14 @@ namespace Cultiway.Core.SkillLibV3;
 public static class SkillTags
 {
     /// <summary>
+    /// 获取语义标签的本地化显示文本，不改变标签用于匹配的稳定值。
+    /// </summary>
+    public static string GetDisplayName(string tag)
+    {
+        return $"Cultiway.SkillTag.{tag}".Localize();
+    }
+
+    /// <summary>
     /// 法术元素标签。
     /// </summary>
     public static class Element

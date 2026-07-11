@@ -23,6 +23,9 @@ public class SkillEntityAsset : Asset
     public string VisualEffectPath;
     public ElementComposition Element;
     public HashSet<string> SeriesTags { get; } = new();
+    public string EditorCategoryKey;
+    public int EditorSortOrder;
+    public bool EditorSelectable;
     public EntityStore World => ModClass.I.SkillV3.World;
     public OnObjCollision OnObjCollision;
     public SkillEntityType Type;

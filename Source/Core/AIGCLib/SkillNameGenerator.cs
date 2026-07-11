@@ -109,20 +109,44 @@ public class SkillNameGenerator : EntityNameGenerator<SkillNameGenerator>
             return;
         }
 
-        var ruleName = SkillRuleNameComposer.Compose(context);
-        EventSystemHub.Publish(new EntityNameGeneratedEvent
-        {
-            Target = skill_container_entity,
-            Name = ruleName
-        });
+        ApplyName(skill_container_entity, SkillRuleNameComposer.Compose(context));
 
         _ = GenerateAiNameAsync(context, skill_container_entity);
     }
 
-    private async Task GenerateAiNameAsync(SkillNamingContext context, Entity target)
+    public string GenerateRuleFor(Entity skillContainerEntity)
+    {
+        var context = SkillRuleNameComposer.CreateContext(skillContainerEntity);
+        if (context == null) return string.Empty;
+
+        var name = SkillRuleNameComposer.Compose(context);
+        ApplyName(skillContainerEntity, name);
+        return name;
+    }
+
+    public void RequestAiNameFor(Entity skillContainerEntity)
+    {
+        var context = SkillRuleNameComposer.CreateContext(skillContainerEntity);
+        if (context == null) return;
+        _ = GenerateAiNameAsync(context, skillContainerEntity);
+    }
+
+    public void RequestAiNameFor(Entity skillContainerEntity, Action<string> completed)
+    {
+        var context = SkillRuleNameComposer.CreateContext(skillContainerEntity);
+        if (context == null)
+        {
+            completed(null);
+            return;
+        }
+        _ = GenerateAiNameAsync(context, skillContainerEntity, completed);
+    }
+
+    private async Task GenerateAiNameAsync(SkillNamingContext context, Entity target, Action<string> completed = null)
     {
         if (target.IsNull)
         {
+            completed?.Invoke(null);
             return;
         }
 
@@ -165,14 +189,18 @@ public class SkillNameGenerator : EntityNameGenerator<SkillNameGenerator>
             name = GetCachedName(key);
         }
 
-        if (string.IsNullOrEmpty(name)) return;
-        if (target.IsNull || SkillContainerSignature.Build(target) != context.Signature) return;
+        if (string.IsNullOrEmpty(name) || target.IsNull || SkillContainerSignature.Build(target) != context.Signature)
+        {
+            completed?.Invoke(null);
+            return;
+        }
 
         EventSystemHub.Publish(new EntityNameGeneratedEvent
         {
             Target = target,
             Name = name
         });
+        completed?.Invoke(name);
     }
 
     private string GetCachedName(string key)
@@ -193,5 +221,17 @@ public class SkillNameGenerator : EntityNameGenerator<SkillNameGenerator>
     private static bool IsCjk(char ch)
     {
         return ch is >= '\u3400' and <= '\u4dbf' or >= '\u4e00' and <= '\u9fff';
+    }
+
+    private static void ApplyName(Entity target, string name)
+    {
+        if (target.HasName)
+        {
+            target.GetComponent<EntityName>().value = name;
+        }
+        else
+        {
+            target.AddComponent(new EntityName(name));
+        }
     }
 }

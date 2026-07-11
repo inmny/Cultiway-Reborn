@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core;
@@ -9,6 +10,7 @@ using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Components.TrajParams;
+using Cultiway.Core.SkillLibV3.Editor;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Visuals;
@@ -170,6 +172,197 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         EternalCurse.AddSimilarityTags(ModifierTag.EternalCurse, SimilarityTag.Curse, SimilarityTag.Dot);
         EternalCurse.OnAddOrUpgrade = AddOrUpgradeEternalCurse;
         EternalCurse.OnEffectObj = ApplyEternalCurseEffect;
+
+        ConfigureEditorMetadata();
+    }
+
+    private static void ConfigureEditorMetadata()
+    {
+        ConfigureHiddenEditorMetadata();
+
+        ConfigureEditor<SlowModifier>(Slow, "Control",
+            Float(nameof(SlowModifier.Duration), "Duration", 3f, 0.1f, 60f, 0.1f, "Seconds"),
+            Float(nameof(SlowModifier.Strength), "SlowStrength", 0.3f, 0f, 0.95f, 0.01f, "Percent"));
+        ConfigureEditor<BurnModifier>(Burn, "DamageOverTime",
+            Float(nameof(BurnModifier.Duration), "Duration", 4f, 0.1f, 60f, 0.1f, "Seconds"),
+            Float(nameof(BurnModifier.DamageRatio), "TotalDamageRatio", 0.15f, 0f, 1f, 0.01f, "Percent"));
+        ConfigureEditor<FreezeModifier>(Freeze, "Control",
+            Float(nameof(FreezeModifier.Duration), "FreezeDuration", 2f, 0.1f, 30f, 0.1f, "Seconds"));
+        ConfigureEditor<PoisonModifier>(Poison, "DamageOverTime",
+            Float(nameof(PoisonModifier.Duration), "Duration", 5f, 0.1f, 60f, 0.1f, "Seconds"),
+            Float(nameof(PoisonModifier.DamageRatio), "StackDamageRatio", 0.1f, 0f, 1f, 0.01f, "Percent"),
+            Integer(nameof(PoisonModifier.MaxStacks), "MaxStacks", 3, 1, 64, 1));
+        ConfigureEditor<ExplosionModifier>(Explosion, "Area",
+            Float(nameof(ExplosionModifier.Radius), "ExplosionRadius", 1.5f, 0.5f, 10f, 0.1f, "Tiles"),
+            Float(nameof(ExplosionModifier.DamageRatio), "ExplosionDamageRatio", 0.5f, 0f, 2f, 0.01f,
+                "Percent"));
+        var haste = ConfigureEditor<HasteModifier>(Haste, "Delivery",
+            Float(nameof(HasteModifier.SpeedMultiplier), "SpeedBonus", 0.5f, -0.9f, 5f, 0.05f, "Percent"));
+        haste.EditorSemanticTags.Add(SkillEditorSemanticTags.Speed);
+        ConfigureEditor<ProficiencyModifier>(Proficiency, "Efficiency",
+            Float(nameof(ProficiencyModifier.CostReduction), "WakanCostReduction", 0.08f, 0f, 0.9f, 0.01f,
+                "Percent"),
+            Float(nameof(ProficiencyModifier.SalvoIntervalReduction), "SalvoIntervalReduction", 0.08f, 0f, 0.9f,
+                0.01f, "Percent"));
+        ConfigureEditor<EmpowerModifier>(Empower, "Damage",
+            Float(nameof(EmpowerModifier.SetupBonus), "DamageBonus", 0.2f, 0f, 10f, 0.01f, "Percent"));
+        ConfigureEditor<KnockbackModifier>(Knockback, "Control",
+            Float(nameof(KnockbackModifier.Distance), "KnockbackDistance", 2f, 0f, 10f, 0.1f, "Tiles"),
+            Float(nameof(KnockbackModifier.Height), "LaunchHeight", 1f, 0f, 5f, 0.1f, "Tiles"));
+
+        var volley = ConfigureEditor<VolleyModifier>(Volley, "Volley",
+            Integer(nameof(VolleyModifier.BurstBonus), "ExtraBurstCount", 2, 0, 63, 1),
+            Float(nameof(VolleyModifier.DamageMultiplier), "PerShotDamageMultiplier", 0.88f, 0.05f, 2f, 0.01f,
+                "Multiplier"));
+        volley.EditorNormalize = (builder, spec) => builder.AddModifier(new BurstCount
+        {
+            Value = spec.GetInt(nameof(VolleyModifier.BurstBonus)) + 1
+        });
+
+        ConfigureEditor<HugeModifier>(Huge, "Area",
+            Float(nameof(HugeModifier.Value), "SizeAndRadiusMultiplier", 1.2f, 0.25f, 8f, 0.05f, "Multiplier"));
+        ConfigureEditor<WeakenModifier>(Weaken, "Debuff",
+            Float(nameof(WeakenModifier.Duration), "Duration", 5f, 0.1f, 60f, 0.1f, "Seconds"),
+            Float(nameof(WeakenModifier.AttackReduction), "AttackReduction", 0.2f, 0f, 0.95f, 0.01f,
+                "Percent"));
+        ConfigureEditor<ArmorBreakModifier>(ArmorBreak, "Debuff",
+            Float(nameof(ArmorBreakModifier.Duration), "Duration", 3f, 0.1f, 60f, 0.1f, "Seconds"),
+            Float(nameof(ArmorBreakModifier.ArmorReduction), "ArmorReduction", 0.5f, 0f, 1f, 0.01f,
+                "Percent"));
+        var gravity = ConfigureEditor<GravityModifier>(Gravity, "Control",
+            Float(nameof(GravityModifier.Radius), "PullRadius", 2f, 0.5f, 10f, 0.1f, "Tiles"),
+            Float(nameof(GravityModifier.Strength), "PullStrength", 0.5f, 0f, 10f, 0.1f, null));
+        gravity.EditorSemanticTags.Add(SkillEditorSemanticTags.OnTravel);
+        ConfigureEditor<DazeModifier>(Daze, "Control",
+            Float(nameof(DazeModifier.Duration), "DazeDuration", 0.6f, 0.1f, 10f, 0.1f, "Seconds"));
+
+        ConfigureEditor<MercyModifier>(Mercy, "Special",
+            Float(nameof(MercyModifier.DamageMultiplier), "DamageMultiplier", 0.7f, 0.05f, 1f, 0.01f,
+                "Multiplier"),
+            Float(nameof(MercyModifier.HealRatio), "ReviveRatio", 0.2f, 0f, 5f, 0.01f, "Percent"));
+        ConfigureEditor<ChaosModifier>(Chaos, "Special",
+            Float(nameof(ChaosModifier.DamageVariance), "DamageVariance", 0.25f, 0f, 2f, 0.01f, "Percent"),
+            Float(nameof(ChaosModifier.AngleVariance), "AngleVariance", 12f, 0f, 90f, 1f, "Degrees"),
+            Float(nameof(ChaosModifier.SpeedVariance), "SpeedVariance", 0.25f, 0f, 2f, 0.01f, "Percent"));
+        ConfigureEditor<SwapModifier>(Swap, "Control",
+            Float(nameof(SwapModifier.Chance), "SwapChance", 0.2f, 0f, 1f, 0.01f, "Percent"));
+        ConfigureEditor<RandomAffixModifier>(RandomAffix, "Special",
+            Float(nameof(RandomAffixModifier.Chance), "TriggerChance", 0.35f, 0f, 1f, 0.01f, "Percent"),
+            Float(nameof(RandomAffixModifier.EffectPower), "EffectPower", 1f, 0.1f, 20f, 0.1f, null));
+        ConfigureEditor<BurnoutModifier>(Burnout, "DamageOverTime",
+            Float(nameof(BurnoutModifier.DamageRatio), "DirectDamageRatio", 0.35f, 0f, 10f, 0.01f, "Percent"),
+            Float(nameof(BurnoutModifier.BurnDuration), "BurnDuration", 4f, 0.1f, 60f, 0.1f, "Seconds"),
+            Float(nameof(BurnoutModifier.BurnDamageRatio), "BurnDamageRatio", 0.2f, 0f, 10f, 0.01f,
+                "Percent"));
+
+        var combo = ConfigureEditor<ComboModifier>(Combo, "Combo",
+            Integer(nameof(ComboModifier.SalvoBonus), "ExtraSalvoCount", 2, 0, 63, 1),
+            Float(nameof(ComboModifier.DamageMultiplier), "PerShotDamageMultiplier", 0.85f, 0.05f, 2f, 0.01f,
+                "Multiplier"));
+        combo.EditorNormalize = (builder, spec) => builder.AddModifier(new SalvoCount
+        {
+            Value = spec.GetInt(nameof(ComboModifier.SalvoBonus)) + 1
+        });
+
+        ConfigureEditor<SilenceModifier>(Silence, "Control",
+            Float(nameof(SilenceModifier.Duration), "SilenceDuration", 4f, 0.1f, 60f, 0.1f, "Seconds"),
+            Float(nameof(SilenceModifier.DamageReduction), "DamageReduction", 0.25f, 0f, 0.95f, 0.01f,
+                "Percent"));
+        ConfigureEditor<DeathSentenceModifier>(DeathSentence, "Execute",
+            Float(nameof(DeathSentenceModifier.ExecuteHealthRatio), "ExecuteThreshold", 0.12f, 0f, 1f, 0.01f,
+                "Percent"),
+            Float(nameof(DeathSentenceModifier.BonusDamageRatio), "BonusDamageRatio", 0.5f, 0f, 20f, 0.01f,
+                "Percent"));
+        ConfigureEditor<ReincarnationTrialModifier>(ReincarnationTrial, "Special",
+            Float(nameof(ReincarnationTrialModifier.DamageRatio), "TrialDamageRatio", 0.8f, 0f, 20f, 0.01f,
+                "Percent"),
+            Float(nameof(ReincarnationTrialModifier.BacklashRatio), "BacklashRatio", 0.15f, 0f, 5f, 0.01f,
+                "Percent"),
+            Float(nameof(ReincarnationTrialModifier.HealRatio), "KillHealRatio", 0.3f, 0f, 5f, 0.01f,
+                "Percent"));
+        ConfigureEditor<EternalCurseModifier>(EternalCurse, "DamageOverTime",
+            Float(nameof(EternalCurseModifier.Duration), "CurseDuration", 8f, 0.1f, 120f, 0.1f, "Seconds"),
+            Float(nameof(EternalCurseModifier.DamageRatio), "DamageOverTimeRatio", 0.45f, 0f, 20f, 0.01f,
+                "Percent"),
+            Float(nameof(EternalCurseModifier.DebuffRatio), "AttackArmorReduction", 0.15f, 0f, 0.95f, 0.01f,
+                "Percent"));
+    }
+
+    private static void ConfigureHiddenEditorMetadata()
+    {
+        ConfigureEditor<PlaceholderModifier>(Placeholder, "Internal",
+            StringSet(nameof(PlaceholderModifier.ModifierAssetIds), "AggregateModifiers"));
+        Placeholder.EditorSelectable = false;
+        Placeholder.EditorPersistWhenHidden = true;
+
+        ConfigureEditor<BurstCount>(SkillModifierLibrary.BurstCount, "Internal",
+            Integer(nameof(BurstCount.Value), "BurstCount", 1, 1, 64, 1));
+        SkillModifierLibrary.BurstCount.EditorSelectable = false;
+        SkillModifierLibrary.BurstCount.EditorDerived = true;
+
+        ConfigureEditor<SalvoCount>(SkillModifierLibrary.SalvoCount, "Internal",
+            Integer(nameof(SalvoCount.Value), "SalvoCount", 1, 1, 64, 1));
+        SkillModifierLibrary.SalvoCount.EditorSelectable = false;
+        SkillModifierLibrary.SalvoCount.EditorDerived = true;
+    }
+
+    private static SkillModifierAsset ConfigureEditor<TModifier>(SkillModifierAsset modifier, string category,
+        params SkillEditorFieldAsset[] fields) where TModifier : struct, IModifier
+    {
+        modifier.BindEditor<TModifier>();
+        modifier.EditorCategoryKey = $"Cultiway.SkillModifier.Category.{category}";
+        modifier.EditorSortOrder = ModClass.I.SkillV3.ModifierLib.list.IndexOf(modifier);
+        modifier.EditorSelectable = true;
+        modifier.EditorFields.AddRange(fields);
+        return modifier;
+    }
+
+    private static SkillEditorFieldAsset Float(string key, string name, float defaultValue, float min, float max,
+        float step, string unit)
+    {
+        return new SkillEditorFieldAsset
+        {
+            id = $"wanfa.field.{key}",
+            ParameterKey = key,
+            DisplayNameKey = $"Cultiway.SkillModifier.Field.{name}",
+            Kind = SkillEditorFieldKind.Float,
+            DefaultValue = defaultValue.ToString("R", CultureInfo.InvariantCulture),
+            MinValue = min,
+            MaxValue = max,
+            Step = step,
+            DisplayScale = unit == "Percent" ? 100d : 1d,
+            UnitKey = unit == null ? null : $"Cultiway.Skill.Unit.{unit}",
+            DisplayFormat = "0.##"
+        };
+    }
+
+    private static SkillEditorFieldAsset Integer(string key, string name, int defaultValue, int min, int max,
+        int step)
+    {
+        return new SkillEditorFieldAsset
+        {
+            id = $"wanfa.field.{key}",
+            ParameterKey = key,
+            DisplayNameKey = $"Cultiway.SkillModifier.Field.{name}",
+            Kind = SkillEditorFieldKind.Integer,
+            DefaultValue = defaultValue.ToString(CultureInfo.InvariantCulture),
+            MinValue = min,
+            MaxValue = max,
+            Step = step,
+            DisplayFormat = "0"
+        };
+    }
+
+    private static SkillEditorFieldAsset StringSet(string key, string name)
+    {
+        return new SkillEditorFieldAsset
+        {
+            id = $"wanfa.field.{key}",
+            ParameterKey = key,
+            DisplayNameKey = $"Cultiway.SkillModifier.Field.{name}",
+            Kind = SkillEditorFieldKind.StringSet,
+            DefaultValue = string.Empty
+        };
     }
 
     private void Setup<TModifier>(SkillModifierAsset asset, SkillModifierRarity rarity, params string[] conflictTags)

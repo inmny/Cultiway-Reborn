@@ -3,6 +3,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Components.TrajParams;
+using Cultiway.Core.SkillLibV3.Editor;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -55,6 +56,42 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         SetupRainFall();
         SetupAppearAtTarget();
         SetupMeleeSweep();
+        ConfigureEditorMetadata();
+    }
+
+    private static void ConfigureEditorMetadata()
+    {
+        ConfigureEditor(TowardsDirection, nameof(TowardsDirection), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(TowardsDirectionNoRot, nameof(TowardsDirectionNoRot), false, true,
+            SkillEditorSemanticTags.Travel);
+        ConfigureEditor(TowardsPosition, nameof(TowardsPosition), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(TowardsTarget, nameof(TowardsTarget), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(DriftHoming, nameof(DriftHoming), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(SineWave, nameof(SineWave), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(Zigzag, nameof(Zigzag), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(SpiralHoming, nameof(SpiralHoming), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(OrbitTarget, nameof(OrbitTarget), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(Boomerang, nameof(Boomerang), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(SlowVortex, nameof(SlowVortex), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(ArcToPosition, nameof(ArcToPosition), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(FallingStrike, nameof(FallingStrike), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(GroundCrawl, nameof(GroundCrawl), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(LightningSnap, nameof(LightningSnap), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(RainFall, nameof(RainFall), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(AppearAtTarget, nameof(AppearAtTarget), true, false, SkillEditorSemanticTags.Instant,
+            SkillEditorSemanticTags.Static);
+        // 当前没有真正的近身斩击实体，先保留轨迹实现但不向编辑器开放。
+        ConfigureEditor(MeleeSweep, nameof(MeleeSweep), false, false, SkillEditorSemanticTags.Travel);
+    }
+
+    private static void ConfigureEditor(TrajectoryAsset trajectory, string key, bool selectable,
+        bool persistWhenHidden, params string[] semanticTags)
+    {
+        trajectory.EditorDescriptionKey = $"{trajectory.id}.Description";
+        trajectory.EditorSortOrder = ModClass.I.SkillV3.TrajLib.list.IndexOf(trajectory);
+        trajectory.EditorSelectable = selectable;
+        trajectory.EditorPersistWhenHidden = persistWhenHidden;
+        trajectory.EditorSemanticTags.UnionWith(semanticTags);
     }
 
     private static void SetupTowardsDirection()

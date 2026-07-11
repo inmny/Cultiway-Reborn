@@ -1,5 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
+using Cultiway.Core.SkillLibV3.Blueprints;
+using Cultiway.Core.SkillLibV3.Editor;
+using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -61,6 +65,9 @@ public delegate void TravelAction(Entity skill_entity);
 public delegate void EffectObjAction(Entity skill_entity, BaseSimObject obj);
 public delegate bool AddOrUpgradeAction(SkillContainerBuilder builder);
 public delegate string GetDescription(Entity skill_entity);
+public delegate void SkillModifierNormalizeAction(SkillContainerBuilder builder, SkillModifierSpec spec);
+public delegate SkillCompatibilityResult SkillModifierCompatibilityAction(SkillEditContext context,
+    SkillModifierSpec spec);
 public class SkillModifierAsset : Asset
 {
     /// <summary>
@@ -82,6 +89,17 @@ public class SkillModifierAsset : Asset
     /// 相似度标签，用于避免同类法术词条过于雷同
     /// </summary>
     public HashSet<string> SimilarityTags { get; } = new();
+
+    public Type EditorComponentType;
+    public string EditorCategoryKey;
+    public int EditorSortOrder;
+    public bool EditorSelectable;
+    public bool EditorDerived;
+    public bool EditorPersistWhenHidden;
+    public List<SkillEditorFieldAsset> EditorFields { get; } = new();
+    public HashSet<string> EditorSemanticTags { get; } = new(StringComparer.Ordinal);
+    public SkillModifierNormalizeAction EditorNormalize;
+    public SkillModifierCompatibilityAction EditorCompatibility;
     
     /// <summary>
     /// 是否禁用该词条（禁用的词条不会被抽取）
@@ -103,5 +121,60 @@ public class SkillModifierAsset : Asset
             SimilarityTags.Add(tag);
         }
         return this;
+    }
+
+    public SkillModifierAsset BindEditor<TModifier>() where TModifier : struct, IModifier
+    {
+        EditorComponentType = typeof(TModifier);
+        return this;
+    }
+
+    public SkillModifierSpec CreateDefaultSpec()
+    {
+        var spec = new SkillModifierSpec { AssetId = id };
+        foreach (var field in EditorFields)
+        {
+            spec.Parameters[field.ParameterKey] = field.DefaultValue;
+        }
+        return spec;
+    }
+
+    public void Materialize(SkillContainerBuilder builder, SkillModifierSpec spec)
+    {
+        object component = Activator.CreateInstance(EditorComponentType);
+        foreach (var field in EditorFields)
+        {
+            var componentField = EditorComponentType.GetField(field.ParameterKey,
+                                     BindingFlags.Instance | BindingFlags.Public)
+                                 ?? throw new InvalidOperationException(
+                                     string.Format("Cultiway.SkillEditor.ComponentFieldMissing".Localize(),
+                                         EditorComponentType.FullName, field.ParameterKey));
+            componentField.SetValue(component, field.Deserialize(componentField.FieldType,
+                spec.Parameters[field.ParameterKey]));
+        }
+        builder.AddModifier((IModifier)component);
+    }
+
+    public SkillModifierSpec Export(Entity container)
+    {
+        var component = container.GetComponent(EditorComponentType);
+        var spec = new SkillModifierSpec { AssetId = id };
+        foreach (var field in EditorFields)
+        {
+            var componentField = EditorComponentType.GetField(field.ParameterKey,
+                                     BindingFlags.Instance | BindingFlags.Public)
+                                 ?? throw new InvalidOperationException(
+                                     string.Format("Cultiway.SkillEditor.ComponentFieldMissing".Localize(),
+                                         EditorComponentType.FullName, field.ParameterKey));
+            spec.Parameters[field.ParameterKey] = field.Serialize(componentField.GetValue(component));
+        }
+        return spec;
+    }
+
+    public SkillCompatibilityResult CheckEditorCompatibility(SkillEditContext context, SkillModifierSpec spec)
+    {
+        return EditorCompatibility == null
+            ? new SkillCompatibilityResult()
+            : EditorCompatibility(context, spec);
     }
 }

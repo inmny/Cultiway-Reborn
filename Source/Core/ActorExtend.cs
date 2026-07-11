@@ -33,6 +33,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     private static Action<ActorExtend>            action_on_update_stats;
     private static Action<ActorExtend, BaseStats> action_on_rebuild_cached_stats;
     private readonly HashSet<Entity> _learned_skills_v3 = new();
+    private readonly List<Entity> _learned_skill_order = new();
     private readonly BaseStats       _cached_cultiway_stats = new();
     private bool                     _cached_cultiway_stats_dirty = true;
     private bool                     _skill_cache_dirty = true;
@@ -128,6 +129,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         {
             _learned_skills_v3.Clear();
         }
+        _learned_skill_order.Clear();
         if (_recent_attackers.Count > 0)
         {
             _recent_attackers.Clear();
@@ -391,18 +393,57 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     }
     public void LearnSkillV3(Entity skill_container, bool clone = false)
     {
-        if (!GeneralSettings.EnableSkillSystems) return;
-        if (clone)
-        {
-            skill_container = skill_container.Store.CloneEntity(skill_container);
-        }
+        SkillOwnershipService.Learn(this, skill_container, clone);
+    }
 
-        E.AddRelation(new SkillMasterRelation()
-        {
-            SkillContainer = skill_container
-        });
-        _learned_skills_v3.Add(skill_container);
+    public bool ForgetSkillV3(Entity skillContainer)
+    {
+        return SkillOwnershipService.Forget(this, skillContainer) == SkillOwnershipResult.Forgotten;
+    }
+
+    public bool ReplaceSkillV3(Entity oldContainer, Entity newContainer)
+    {
+        return SkillOwnershipService.Replace(this, oldContainer, newContainer) == SkillOwnershipResult.Replaced;
+    }
+
+    internal bool OwnsLearnedSkill(Entity container)
+    {
+        return _learned_skills_v3.Contains(container);
+    }
+
+    internal IReadOnlyList<Entity> GetLearnedSkillsInOrder()
+    {
+        return _learned_skill_order;
+    }
+
+    internal void AttachLearnedSkill(Entity container)
+    {
+        if (!_learned_skills_v3.Add(container)) return;
+        _learned_skill_order.Add(container);
+        E.AddRelation(new SkillMasterRelation { SkillContainer = container });
         MarkCultiwaySkillCacheDirty();
+    }
+
+    internal bool DetachLearnedSkill(Entity container)
+    {
+        if (!_learned_skills_v3.Remove(container)) return false;
+        _learned_skill_order.Remove(container);
+        E.RemoveRelation<SkillMasterRelation>(container);
+        MarkCultiwaySkillCacheDirty();
+        return true;
+    }
+
+    internal bool ReplaceLearnedSkill(Entity oldContainer, Entity newContainer)
+    {
+        var index = _learned_skill_order.IndexOf(oldContainer);
+        if (index < 0 || !_learned_skills_v3.Add(newContainer)) return false;
+
+        E.AddRelation(new SkillMasterRelation { SkillContainer = newContainer });
+        E.RemoveRelation<SkillMasterRelation>(oldContainer);
+        _learned_skills_v3.Remove(oldContainer);
+        _learned_skill_order[index] = newContainer;
+        MarkCultiwaySkillCacheDirty();
+        return true;
     }
 
     public SpecialItem GetRandomSpecialItem(Func<Entity, bool> filter)

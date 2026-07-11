@@ -8,6 +8,13 @@ using Friflo.Engine.ECS;
 
 namespace Cultiway.Core.SkillLibV3.Utils;
 
+public enum SkillContainerBuildMode
+{
+    Runtime,
+    Preview,
+    RuleOnly
+}
+
 public class SkillContainerBuilder
 {
     private readonly SkillEntityAsset _entityAsset;
@@ -72,6 +79,13 @@ public class SkillContainerBuilder
         _modifiersToRemove.Remove(typeof(TModifier));
     }
 
+    public void AddModifier(IModifier modifier)
+    {
+        var type = modifier.GetType();
+        _modifiersToAdd[type] = modifier;
+        _modifiersToRemove.Remove(type);
+    }
+
     public void RemoveModifier<TModifier>() where TModifier : struct, IModifier
     {
         _modifiersToAdd.Remove(typeof(TModifier));
@@ -79,7 +93,7 @@ public class SkillContainerBuilder
         _modifiersToRemove.Add(typeof(TModifier), default(TModifier));
     }
 
-    public Entity Build()
+    public Entity Build(SkillContainerBuildMode mode = SkillContainerBuildMode.Runtime)
     {
         if (_containerEntity.IsNull)
         {
@@ -123,7 +137,19 @@ public class SkillContainerBuilder
 
         SkillContainerUtils.RefreshVfxElement(_containerEntity);
         SkillContainerUtils.RefreshMotionProfile(_containerEntity);
-        SkillNameGenerator.Instance.GenerateFor(_containerEntity);
+        if (mode == SkillContainerBuildMode.Runtime)
+        {
+            SkillNameGenerator.Instance.GenerateFor(_containerEntity);
+        }
+        else
+        {
+            SkillNameGenerator.Instance.GenerateRuleFor(_containerEntity);
+        }
+
+        if (mode == SkillContainerBuildMode.Preview)
+        {
+            _containerEntity.AddTag<TagOccupied>();
+        }
         return _containerEntity;
     }
 }

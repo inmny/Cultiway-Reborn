@@ -3,6 +3,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Editor;
 using DeliveryTag = Cultiway.Core.SkillLibV3.SkillTags.Delivery;
 using ElementTag = Cultiway.Core.SkillLibV3.SkillTags.Element;
 using FormTag = Cultiway.Core.SkillLibV3.SkillTags.Form;
@@ -90,7 +91,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             VisualRotation.FollowRotation(UpFacingSpriteToRightOffset),
             SkillHitResolver.Single(StoneThorn, recycleOnHit: false, continueAfterHit: true),
             ElementTag.Earth, FormTag.Pierce, FormTag.Sustain, DeliveryTag.Projectile)
-            .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
+            .AcceptOrientations(TrajectoryOrientation.Ground);
         Configure(WindBlade, wind, "cultiway/effect/wind_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
             SkillHitResolver.Single(WindBlade, recycleOnHit: false, continueAfterHit: true),
             ElementTag.Wind, FormTag.Slash, FormTag.Sustain, DeliveryTag.Projectile);
@@ -126,6 +127,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             .SetupColliderSphere(colliderRadius, EnemyActorCollider())
             .SetupDefaultTraj(trajectory)
             .OnObjCollision = onCollision;
+        ConfigureEditor(asset);
         return asset;
     }
 
@@ -140,7 +142,15 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             .SetupColliderSphere(colliderRadius, EnemyActorCollider())
             .SetupDefaultTraj(trajectory)
             .OnObjCollision = onCollision;
+        ConfigureEditor(asset);
         return asset;
+    }
+
+    private static void ConfigureEditor(SkillEntityAsset asset)
+    {
+        asset.EditorCategoryKey = "Cultiway.SkillEntity.Category.Attack";
+        asset.EditorSortOrder = ModClass.I.SkillV3.SkillLib.list.IndexOf(asset);
+        asset.EditorSelectable = true;
     }
 
     private static ColliderConfig EnemyActorCollider()

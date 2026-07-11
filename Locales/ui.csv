@@ -339,3 +339,108 @@ Cultiway.UI.CharacterPanel.Wakan Description,当前灵气 / 灵气上限
 Cultiway.UI.CharacterPanel.Spirit,精神力
 Cultiway.UI.CharacterPanel.Spirit Description,当前精神力 / 精神力上限
 Cultiway.ERStyle.Magic.PageTitle,元素亲和详解
+Cultiway.UI.WindowWanfaPavilion Title,万法阁
+Cultiway.UI.WindowWanfaSkillEditor Title,法术编辑器
+Cultiway.UI.WindowWanfaGrantConflict Title,法术版本冲突
+Cultiway.Wanfa.Validation.policy.entity_locked,当前万法阁规则尚未解锁该法术实体
+Cultiway.Wanfa.Validation.policy.trajectory_locked,当前万法阁规则尚未解锁该轨迹
+Cultiway.Wanfa.Validation.policy.modifier_locked,当前万法阁规则尚未解锁该词条
+Cultiway.Wanfa.Validation.policy.modifier_limit,当前万法阁规则最多允许 {0} 个词条
+Cultiway.Wanfa.Exception.PolicyMissing,找不到万法阁策略 {0}
+Cultiway.Wanfa.Exception.BlueprintMissing,找不到蓝图 {0}
+Cultiway.Wanfa.Exception.LibraryEmpty,万法阁库文件为空
+Cultiway.Wanfa.Exception.LibraryVersionTooNew,万法阁库版本 {0} 高于当前支持版本
+Cultiway.Wanfa.UI.Action.New,新建
+Cultiway.Wanfa.UI.Action.Select,选择
+Cultiway.Wanfa.UI.Action.Selected,已选择
+Cultiway.Wanfa.UI.Action.Add,添加
+Cultiway.Wanfa.UI.Action.Remove,移除
+Cultiway.Wanfa.UI.Action.Import,收入
+Cultiway.Wanfa.UI.Action.Imported,已收录
+Cultiway.Wanfa.UI.Action.ImportAll,全部收入万法阁
+Cultiway.Wanfa.UI.Action.Edit,编辑
+Cultiway.Wanfa.UI.Action.Copy,复制
+Cultiway.Wanfa.UI.Action.Delete,删除
+Cultiway.Wanfa.UI.Action.Grant,赐法
+Cultiway.Wanfa.UI.Action.Undo,撤销
+Cultiway.Wanfa.UI.Action.Redo,重做
+Cultiway.Wanfa.UI.Action.DiscardChanges,放弃改动
+Cultiway.Wanfa.UI.Action.SaveCopy,另存副本
+Cultiway.Wanfa.UI.Action.Save,保存
+Cultiway.Wanfa.UI.Action.TestCast,真实试放
+Cultiway.Wanfa.UI.Action.SaveAndClose,保存并关闭
+Cultiway.Wanfa.UI.Action.Discard,放弃
+Cultiway.Wanfa.UI.Action.ContinueEditing,继续编辑
+Cultiway.Wanfa.UI.Action.RepairParameters,修复参数
+Cultiway.Wanfa.UI.Action.KeepOld,保留旧版
+Cultiway.Wanfa.UI.Action.OverwriteOld,覆盖旧版
+Cultiway.Wanfa.UI.Action.Cancel,取消
+Cultiway.Wanfa.UI.Label.AiNaming,AI 命名
+Cultiway.Wanfa.UI.Label.FavoriteOnly,仅收藏
+Cultiway.Wanfa.UI.Placeholder.SkillName,法术名称
+Cultiway.Wanfa.UI.Placeholder.Category,玩家分类
+Cultiway.Wanfa.UI.Placeholder.Search,搜索法术
+Cultiway.Wanfa.UI.Tab.Entity,本体
+Cultiway.Wanfa.UI.Tab.Trajectory,轨迹
+Cultiway.Wanfa.UI.Tab.Modifier,词条
+Cultiway.Wanfa.UI.Tab.Overview,总览
+Cultiway.Wanfa.UI.NameMode.Rule,规则命名
+Cultiway.Wanfa.UI.NameMode.Custom,自定义
+Cultiway.Wanfa.UI.State.Valid,有效
+Cultiway.Wanfa.UI.State.Damaged,损坏
+Cultiway.Wanfa.UI.State.NoEntity,未选择本体
+Cultiway.Wanfa.UI.State.NoTrajectory,未选择轨迹
+Cultiway.Wanfa.UI.State.NewBlueprint,新蓝图
+Cultiway.Wanfa.UI.State.Unsaved,未保存
+Cultiway.Wanfa.UI.State.Saved,已保存
+Cultiway.Wanfa.UI.Filter.AllVisual,全部视觉
+Cultiway.Wanfa.UI.Filter.AllEntities,全部本体
+Cultiway.Wanfa.UI.Sort.Manual,手动
+Cultiway.Wanfa.UI.Sort.Name,名称
+Cultiway.Wanfa.UI.Sort.Recent,最近
+Cultiway.Wanfa.UI.Sort.Revision,修订
+Cultiway.Wanfa.UI.Format.Revision,修订 {0}
+Cultiway.Wanfa.UI.Format.ModifierCount,{0} 个词条
+Cultiway.Wanfa.UI.Format.ImportDetail,{0} · {1} 个词条
+Cultiway.Wanfa.UI.Format.BlueprintDetail,{0}{1} / {2}  词条 {3}  R{4}  {5}
+Cultiway.Wanfa.UI.Format.CategoryPrefix,{0} ·
+Cultiway.Wanfa.UI.Format.ImportSuccess,已收入 {0} 个法术
+Cultiway.Wanfa.UI.Format.ImportPartial,已收入 {0} 个法术 {1} 个无法导入
+Cultiway.Wanfa.UI.Format.MissingModifier,缺失词条：{0}
+Cultiway.Wanfa.UI.Format.GrantConflict,{0} 掌握着同一蓝图的旧版本\n是否覆盖为 Revision {1}？
+Cultiway.Wanfa.UI.Format.GrantUpdated,已将法术更新为第 {0} 版
+Cultiway.Wanfa.UI.Format.AlreadyKnown,{0} 已经掌握该法术
+Cultiway.Wanfa.UI.Format.RejectDowngrade,{0} 已掌握该蓝图的 Revision {1} 拒绝降级
+Cultiway.Wanfa.UI.Format.GrantLearned,{0} 掌握了 {1}
+Cultiway.Wanfa.UI.Detail.NoAvailableTrajectory,当前规则下无可用轨迹
+Cultiway.Wanfa.UI.Detail.MissingModifier,对应 Asset 或编辑元数据不存在
+Cultiway.Wanfa.UI.Detail.InvalidParameters,参数记录不完整或格式错误
+Cultiway.Wanfa.UI.Overview.Name,名称
+Cultiway.Wanfa.UI.Overview.EntityTrajectory,本体 / 轨迹
+Cultiway.Wanfa.UI.Overview.VfxElement,视觉元素
+Cultiway.Wanfa.UI.Overview.MotionProfile,运动配置
+Cultiway.Wanfa.UI.Overview.CollisionRadius,碰撞半径
+Cultiway.Wanfa.UI.Overview.ExplosionRadius,爆炸作用半径
+Cultiway.Wanfa.UI.Overview.GravityRadius,牵引作用半径
+Cultiway.Wanfa.UI.Overview.StepWakan,单步灵力
+Cultiway.Wanfa.UI.Overview.Error,错误
+Cultiway.Wanfa.UI.Overview.Warning,警告
+Cultiway.Wanfa.UI.Overview.Validation,校验
+Cultiway.Wanfa.UI.Overview.Valid,结构完整 可保存和赐予
+Cultiway.Wanfa.UI.Tip.NoChanges,当前蓝图没有改动
+Cultiway.Wanfa.UI.Tip.BlueprintSaved,法术蓝图已保存
+Cultiway.Wanfa.UI.Tip.ActorSkillReplaced,法术蓝图已保存 角色原法术已替换
+Cultiway.Wanfa.UI.Tip.ActorReplaceFailed,法术蓝图已保存 但角色原法术替换失败
+Cultiway.Wanfa.UI.Tip.DuplicateBlueprint,万法阁中已有完全相同的法术
+Cultiway.Wanfa.UI.Tip.SaveFailed,蓝图保存失败
+Cultiway.Wanfa.UI.Tip.SelectTestActor,请先选中一个用于试放的角色
+Cultiway.Wanfa.UI.Tip.TestUnavailable,当前蓝图无法试放
+Cultiway.Wanfa.UI.Tip.UnsavedChanges,当前法术有未保存改动
+Cultiway.Wanfa.UI.Tip.Imported,法术已收入万法阁
+Cultiway.Wanfa.UI.Tip.SelectGrantActor,选择一名角色赐予法术
+Cultiway.Wanfa.UI.Tip.SelectGrantBlueprint,请先从万法阁选择要赐予的法术
+Cultiway.Wanfa.UI.Tip.DamagedBlueprint,法术蓝图已损坏 无法赐予
+Cultiway.Wanfa.UI.Tip.ReplaceFailed,覆盖失败 原法术未改变
+Cultiway.Wanfa.UI.Tip.GrantFailed,赐法失败
+Cultiway.Wanfa.UI.UnnamedSkill,未命名法术
+Cultiway.Wanfa.Log.LibraryFallback,[万法阁] 主库读取失败 尝试备份: {0}

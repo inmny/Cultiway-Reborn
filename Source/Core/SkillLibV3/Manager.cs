@@ -3,6 +3,7 @@ using System.Text;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Components.TrajParams;
+using Cultiway.Core.SkillLibV3.Editor;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Motions;
 using Cultiway.Core.SkillLibV3.Systems;
@@ -27,6 +28,7 @@ public class Manager
     public TrajectoryLibrary TrajLib { get; } = new TrajectoryLibrary();
     public SkillVfxElementLibrary VfxElementLib { get; } = new();
     public SkillMotionProfileLibrary MotionProfileLib { get; } = new();
+    public WanfaPavilionPolicyLibrary WanfaPolicyLib { get; } = new();
     public SystemGroup SkillLogicSystemGroup { get; } = new SystemGroup("SkillLibV3");
     internal Manager(WorldboxGame game)
     {
@@ -51,6 +53,7 @@ public class Manager
         AssetManager._instance.add(TrajLib, "cultiway.trajectories");
         AssetManager._instance.add(VfxElementLib, "cultiway.skill_vfx_elements");
         AssetManager._instance.add(MotionProfileLib, "cultiway.skill_motion_profiles");
+        AssetManager._instance.add(WanfaPolicyLib, "cultiway.wanfa_pavilion_policy");
     }
 
     public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,

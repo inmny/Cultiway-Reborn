@@ -31,6 +31,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
     [CloneSource(PowerLibrary.TEMPLATE_WALL)]
     public static GodPower EasternHumanWall { get; private set; }
     public static GodPower EasternHumanSkin { get; private set; }
+    public static GodPower WanfaGrant { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
@@ -53,6 +54,16 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         EasternHumanSkin.force_map_mode = MetaType.None;
         EasternHumanSkin.requires_premium = false;
         EasternHumanSkin.rank = PowerRank.Rank0_free;
+
+        WanfaGrant.name = "wanfa_grant";
+        WanfaGrant.click_action = WanfaPavilion.WanfaDropExportSession.TrySpawn;
+        WanfaGrant.force_map_mode = MetaType.None;
+        WanfaGrant.force_brush = "sqr_0";
+        WanfaGrant.ignore_fast_spawn = true;
+        WanfaGrant.hold_action = false;
+        WanfaGrant.can_drag_map = false;
+        WanfaGrant.requires_premium = false;
+        WanfaGrant.rank = PowerRank.Rank0_free;
 
         ExtendGeoRegion.click_action = ExtendGeoRegionAction;
         ExtendGeoRegion.click_brush_action = InitializeGeoRegionAction + ExtendGeoRegion.click_brush_action;
