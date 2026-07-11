@@ -18,6 +18,11 @@ public struct SkillContainer : IComponent
     /// </summary>
     public int AnimationIndex;
 
+    /// <summary>
+    /// 该法术实际要求的资源通道；从实体默认值复制后可由具体容器独立改写。
+    /// </summary>
+    public SkillCastResourceRequirement CastResourceRequirement;
+
     public SetupAction OnSetup;
     public TravelAction OnTravel;
     public EffectObjAction OnEffectObj;

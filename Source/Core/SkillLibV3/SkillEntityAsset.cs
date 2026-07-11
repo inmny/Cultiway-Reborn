@@ -30,6 +30,21 @@ public class SkillEntityAsset : Asset
     public EntityStore World => ModClass.I.SkillV3.World;
     public OnObjCollision OnObjCollision;
     public SkillEntityType Type;
+    public SkillCastResourceRequirement DefaultCastResourceRequirement { get; private set; }
+
+    /// <summary>
+    /// 设置由该法术实体新建容器时采用的默认施法资源需求。
+    /// </summary>
+    public SkillEntityAsset RequireCastResources(SkillCastResourceRequirement requirement)
+    {
+        DefaultCastResourceRequirement = requirement.DeepClone();
+        return this;
+    }
+
+    public SkillEntityAsset RequireCastResource(SkillCastResourceAsset resource)
+    {
+        return RequireCastResources(SkillCastResourceRequirement.Single(resource));
+    }
 
     /// <summary>
     /// 该法术视觉上可接受的方向姿态集合（按位或）。

@@ -156,7 +156,8 @@ Cultiway.SkillModifier.Field.MaxStacks,最大层数
 Cultiway.SkillModifier.Field.ExplosionRadius,爆炸半径
 Cultiway.SkillModifier.Field.ExplosionDamageRatio,爆炸伤害比例
 Cultiway.SkillModifier.Field.SpeedBonus,速度增幅
-Cultiway.SkillModifier.Field.WakanCostReduction,灵力消耗降低
+Cultiway.SkillModifier.Field.CastCostReduction,施法消耗降低
+Cultiway.SkillCastResource.Wakan,灵力
 Cultiway.SkillModifier.Field.SalvoIntervalReduction,连发间隔降低
 Cultiway.SkillModifier.Field.DamageBonus,伤害增幅
 Cultiway.SkillModifier.Field.KnockbackDistance,击退距离
@@ -246,7 +247,7 @@ Cultiway.SkillBlueprint.Validation.name.mode_invalid,蓝图命名模式无效
 Cultiway.SkillBlueprint.Validation.name.custom_empty,自定义名称不能为空
 Cultiway.SkillBlueprint.Validation.name.custom_too_long,自定义名称不能超过 {0} 个字符
 Cultiway.SkillBlueprint.Validation.category.too_long,玩家分类不能超过 {0} 个字符
-Cultiway.SkillBlueprint.Validation.balance.cost,预计单步灵力消耗较高 至少 {0:F1}
+Cultiway.SkillBlueprint.Validation.balance.cost,预计单步施法需求较高 至少 {0:F1}
 Cultiway.SkillBlueprint.Validation.semantic.speed_static,静止或瞬发轨迹通常无法体现加速词条
 Cultiway.SkillBlueprint.Validation.semantic.travel_instant,瞬发轨迹可能没有足够时间触发持续移动效果
 Cultiway.SkillBlueprint.Validation.export.container,目标不是法术容器

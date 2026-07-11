@@ -183,14 +183,14 @@ public partial class ActorExtend
     /// </summary>
     /// <param name="skill">技能容器实体。</param>
     /// <param name="target">当前攻击目标。</param>
-    /// <returns>目标、距离和灵气消耗都满足时返回 true。</returns>
+    /// <returns>目标、距离和施法资源都满足时返回 true。</returns>
     public bool CanUseSkillContainerAtCurrentDistance(Entity skill, BaseSimObject target,
-        SkillCastCostSource costSource = SkillCastCostSource.CasterWakan)
+        SkillCastFundingSource fundingSource = SkillCastFundingSource.CasterResources)
     {
         if (target.isRekt()) return false;
         if (!IsWithinSkillCastRange(target)) return false;
         if (!IsAtPreferredSkillCombatDistance(target)) return false;
-        return CanCastSkillContainer(skill, target, costSource);
+        return CanCastSkillContainer(skill, target, fundingSource);
     }
 
     /// <summary>
@@ -294,9 +294,9 @@ public partial class ActorExtend
     /// 判断技能容器是否满足释放前置条件并且目标在最大施法距离内。
     /// </summary>
     private bool CanCastSkillContainer(Entity skill, BaseSimObject target,
-        SkillCastCostSource costSource = SkillCastCostSource.CasterWakan)
+        SkillCastFundingSource fundingSource = SkillCastFundingSource.CasterResources)
     {
-        if (!CanPrepareSkillContainer(skill, target, costSource)) return false;
+        if (!CanPrepareSkillContainer(skill, target, fundingSource)) return false;
         return IsWithinSkillCastRange(target);
     }
 
@@ -304,16 +304,13 @@ public partial class ActorExtend
     /// 判断技能容器是否具备准备释放的基础条件。
     /// </summary>
     private bool CanPrepareSkillContainer(Entity skill, BaseSimObject target,
-        SkillCastCostSource costSource = SkillCastCostSource.CasterWakan)
+        SkillCastFundingSource fundingSource = SkillCastFundingSource.CasterResources)
     {
         if (!GeneralSettings.EnableSkillSystems) return false;
         if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
         if (target.isRekt()) return false;
 
-        if (costSource == SkillCastCostSource.Prepaid) return true;
-        if (!HasCultisys<Xian>()) return true;
-
-        return SkillCastCost.GetAffordableStepLimit(this, skill, costSource) > 0;
+        return SkillCastCost.GetAffordableStepLimit(this, skill, fundingSource) > 0;
     }
 
     /// <summary>
@@ -325,7 +322,7 @@ public partial class ActorExtend
         {
             if (!item.HasComponent<Talisman>()) continue;
             ref var talisman = ref item.GetComponent<Talisman>();
-            if (CanCastSkillContainer(talisman.SkillContainer, target, SkillCastCostSource.Prepaid)) return true;
+            if (CanCastSkillContainer(talisman.SkillContainer, target, SkillCastFundingSource.Prepaid)) return true;
         }
 
         return false;
@@ -340,7 +337,7 @@ public partial class ActorExtend
         {
             if (!item.HasComponent<Talisman>()) continue;
             ref var talisman = ref item.GetComponent<Talisman>();
-            if (CanPrepareSkillContainer(talisman.SkillContainer, target, SkillCastCostSource.Prepaid)) return true;
+            if (CanPrepareSkillContainer(talisman.SkillContainer, target, SkillCastFundingSource.Prepaid)) return true;
         }
 
         return false;

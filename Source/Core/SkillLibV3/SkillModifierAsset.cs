@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Cultiway.Core.SkillLibV3.Blueprints;
+using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Editor;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
@@ -69,6 +70,8 @@ public delegate void SkillModifierNormalizeAction(SkillContainerBuilder builder,
 public delegate SkillCompatibilityResult SkillModifierCompatibilityAction(SkillEditContext context,
     SkillModifierSpec spec);
 public delegate float SkillModifierEffectRadiusMultiplier(Entity skillContainer);
+public delegate void SkillModifierCastParametersAction(Entity skillContainer,
+    ref SkillCastParameters parameters);
 public class SkillModifierAsset : Asset
 {
     /// <summary>
@@ -103,6 +106,7 @@ public class SkillModifierAsset : Asset
     public SkillModifierNormalizeAction EditorNormalize;
     public SkillModifierCompatibilityAction EditorCompatibility;
     public SkillModifierEffectRadiusMultiplier EffectRadiusMultiplier;
+    public SkillModifierCastParametersAction ApplyCastParameters;
     
     /// <summary>
     /// 是否禁用该词条（禁用的词条不会被抽取）

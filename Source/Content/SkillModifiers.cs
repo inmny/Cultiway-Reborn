@@ -94,6 +94,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         Setup<ProficiencyModifier>(Proficiency, SkillModifierRarity.Common);
         Proficiency.AddSimilarityTags(ModifierTag.Proficiency, SimilarityTag.Growth);
         Proficiency.OnAddOrUpgrade = AddOrUpgradeProficiency;
+        Proficiency.ApplyCastParameters = ApplyProficiencyCastParameters;
         Setup<EmpowerModifier>(Empower, SkillModifierRarity.Common);
         Empower.AddSimilarityTags(ModifierTag.Empower, SimilarityTag.Power, SimilarityTag.Damage);
         Empower.OnAddOrUpgrade = AddOrUpgradeEmpower;
@@ -200,7 +201,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
             Float(nameof(HasteModifier.SpeedMultiplier), "SpeedBonus", 0.5f, -0.9f, 5f, 0.05f, "Percent"));
         haste.EditorSemanticTags.Add(SkillEditorSemanticTags.Speed);
         ConfigureEditor<ProficiencyModifier>(Proficiency, "Efficiency",
-            Float(nameof(ProficiencyModifier.CostReduction), "WakanCostReduction", 0.08f, 0f, 0.9f, 0.01f,
+            Float(nameof(ProficiencyModifier.CostReduction), "CastCostReduction", 0.08f, 0f, 0.9f, 0.01f,
                 "Percent"),
             Float(nameof(ProficiencyModifier.SalvoIntervalReduction), "SalvoIntervalReduction", 0.08f, 0f, 0.9f,
                 0.01f, "Percent"));
@@ -619,6 +620,13 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
         builder.SetModifier(modifier);
         return true;
+    }
+
+    private static void ApplyProficiencyCastParameters(Entity skillContainer, ref SkillCastParameters parameters)
+    {
+        var proficiency = skillContainer.GetComponent<ProficiencyModifier>();
+        parameters.CostMultiplier *= Mathf.Clamp(1f - proficiency.CostReduction, 0.1f, 1f);
+        parameters.SalvoIntervalMultiplier *= Mathf.Clamp(1f - proficiency.SalvoIntervalReduction, 0.25f, 1f);
     }
 
     private static bool AddOrUpgradeVolley(SkillContainerBuilder builder)

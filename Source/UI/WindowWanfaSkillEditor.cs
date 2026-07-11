@@ -634,8 +634,10 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.CollisionRadius".Localize(),
                 ResolveCollisionRadius(compiled.Container).ToString("0.##", CultureInfo.InvariantCulture));
             AddModifierRadiusOverviews(compiled.Container);
-            AddOverviewLine("Cultiway.Wanfa.UI.Overview.StepWakan".Localize(),
-                SkillCastCost.CalculateStepWakanCost(compiled.Container)
+            AddOverviewLine("Cultiway.Wanfa.UI.Overview.CastResource".Localize(),
+                FormatCastResources(container.CastResourceRequirement));
+            AddOverviewLine("Cultiway.Wanfa.UI.Overview.StepDemand".Localize(),
+                SkillCastCost.CalculateStepDemand(compiled.Container)
                 .ToString("0.##", CultureInfo.InvariantCulture));
         }
 
@@ -651,6 +653,12 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.Validation".Localize(),
                 "Cultiway.Wanfa.UI.Overview.Valid".Localize());
         }
+    }
+
+    private static string FormatCastResources(SkillCastResourceRequirement requirement)
+    {
+        var separator = requirement.Mode == SkillCastResourceRequirementMode.AllOf ? " + " : " / ";
+        return string.Join(separator, requirement.ResourceAssetIds.Select(id => id.Localize()));
     }
 
     private void AddOverviewLine(string title, string value)

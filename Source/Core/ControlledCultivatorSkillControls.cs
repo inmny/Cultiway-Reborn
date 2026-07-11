@@ -180,7 +180,7 @@ internal static class ControlledCultivatorSkillControls
         if (plan.Steps.Count == 0) return false;
 
         if (!ModClass.I.SkillV3.StartSkillSequence(caster, skill, plan, 100, caster.GetPowerLevel(),
-                SkillCastCostSource.CasterWakan, attackKingdom))
+                SkillCastFundingSource.CasterResources, attackKingdom))
         {
             return false;
         }

@@ -15,7 +15,6 @@ using NeoModLoader.api.attributes;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
-using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Patch;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -462,40 +461,6 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         return _skill_entity_modifiers.TryGetValue(entity_id, out var res) ? res : default_modifiers;
     }
 
-    private Actor FindTestTarget()
-    {
-        Actor target = null;
-        int count = 0;
-        do
-        {
-            target = World.world.units.GetRandom();
-            if (++count > 100)
-            {
-                ModClass.LogInfo($"{Base.data.id} failed to find enemy");
-                throw new Exception();
-            }
-        } while (!Base.kingdom.isEnemy(target.kingdom));
-
-        return target;
-    }
-
-    private void TestCastFireballV3()
-    {
-        var target = FindTestTarget();
-
-        var skill_container = new SkillContainerBuilder(SkillEntities.Fireball).Build();
-        ModClass.I.SkillV3.SpawnSkill(skill_container, Base, target, 1);
-    }
-    private void TestConsumeEnlightenElixir()
-    {
-        var elixir = SpecialItemUtils.StartBuild(ItemShapes.Ball, World.world.getCurWorldTime(), Base.getName())
-            .AddComponent(new Elixir()
-            {
-                elixir_id = Elixirs.EnlightenElixir.id
-            })
-            .Build();
-        this.TryConsumeElixir(elixir);
-    }
     public static void RegisterActionOnGetStats(Action<ActorExtend, string> action)
     {
         action_on_get_stats += action;
@@ -641,6 +606,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         e.AddComponent(cultisys.DefaultComponent);
         cultisys.OnGetAction?.Invoke(this, cultisys, ref e.GetComponent<T>());
+        SkillCastResourceResolver.Invalidate(this);
         MarkCultiwayStatsDirty();
     }
 
@@ -850,7 +816,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     }
 
     public bool CastSkillV3(Entity skill, BaseSimObject target, float strength = 100, float? power_level = null,
-        SkillCastCostSource cost_source = SkillCastCostSource.CasterWakan)
+        SkillCastFundingSource funding_source = SkillCastFundingSource.CasterResources)
     {
         if (!GeneralSettings.EnableSkillSystems) return false;
         if (!skill.HasComponent<SkillContainer>())
@@ -859,12 +825,12 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             return false;
         }
 
-        var stepLimit = SkillCastCost.GetAffordableStepLimit(this, skill, cost_source);
+        var stepLimit = SkillCastCost.GetAffordableStepLimit(this, skill, funding_source);
         var plan = SkillCastPlanner.CreatePlan(this, skill, target, stepLimit);
         if (plan.Steps.Count == 0) return false;
 
         return ModClass.I.SkillV3.StartSkillSequence(this, skill, plan, strength, power_level ?? GetPowerLevel(),
-            cost_source);
+            funding_source);
     }
 
     // ======== 师徒系统核心方法（不依赖Content） ========

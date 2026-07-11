@@ -19,6 +19,7 @@ public class SkillContainerBuilder
 {
     private readonly SkillEntityAsset _entityAsset;
     private int _animationIndex = -1;
+    private SkillCastResourceRequirement _castResourceRequirement;
     public SkillContainerBuilder(SkillEntityAsset entity_asset)
     {
         this._entityAsset = entity_asset;
@@ -82,6 +83,12 @@ public class SkillContainerBuilder
         _animationIndex = animationIndex;
         return this;
     }
+
+    public SkillContainerBuilder UseCastResources(SkillCastResourceRequirement requirement)
+    {
+        _castResourceRequirement = requirement.DeepClone();
+        return this;
+    }
     private readonly Dictionary<Type, IModifier> _modifiersToSet = new Dictionary<Type, IModifier>();
     private readonly Dictionary<Type, IModifier> _modifiersToAdd = new Dictionary<Type, IModifier>();
     private readonly Dictionary<Type, IModifier> _modifiersToRemove = new Dictionary<Type, IModifier>();
@@ -120,11 +127,17 @@ public class SkillContainerBuilder
             _containerEntity.Add(new SkillContainer()
             {
                 SkillEntityAssetID = _entityAsset.id,
-                AnimationIndex = animationIndex
+                AnimationIndex = animationIndex,
+                CastResourceRequirement = (_castResourceRequirement ?? _entityAsset.DefaultCastResourceRequirement)
+                    .DeepClone()
             });
         }
         ref var skill_container = ref _containerEntity.GetComponent<SkillContainer>();
         if (_animationIndex >= 0) skill_container.AnimationIndex = _animationIndex;
+        if (_castResourceRequirement != null)
+        {
+            skill_container.CastResourceRequirement = _castResourceRequirement.DeepClone();
+        }
         foreach (var modifier in _modifiersToAdd)
         {
             _containerEntity.AddNonGeneric(modifier.Value);
@@ -158,6 +171,8 @@ public class SkillContainerBuilder
 
         SkillContainerUtils.RefreshVfxElement(_containerEntity);
         SkillContainerUtils.RefreshMotionProfile(_containerEntity);
+        SkillCastParametersResolver.Refresh(_containerEntity);
+        SkillCastResourceResolver.Invalidate(_containerEntity);
         if (mode == SkillContainerBuildMode.Runtime)
         {
             SkillNameGenerator.Instance.GenerateFor(_containerEntity);

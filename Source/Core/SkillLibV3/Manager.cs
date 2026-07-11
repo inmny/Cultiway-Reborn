@@ -29,6 +29,8 @@ public class Manager
     public SkillVfxElementLibrary VfxElementLib { get; } = new();
     public SkillMotionProfileLibrary MotionProfileLib { get; } = new();
     public WanfaPavilionPolicyLibrary WanfaPolicyLib { get; } = new();
+    public SkillCastResourceLibrary CastResourceLib { get; } = new();
+    public SkillCastBudgetRuleLibrary CastBudgetRuleLib { get; } = new();
     public SystemGroup SkillLogicSystemGroup { get; } = new SystemGroup("SkillLibV3");
     internal Manager(WorldboxGame game)
     {
@@ -54,6 +56,8 @@ public class Manager
         AssetManager._instance.add(VfxElementLib, "cultiway.skill_vfx_elements");
         AssetManager._instance.add(MotionProfileLib, "cultiway.skill_motion_profiles");
         AssetManager._instance.add(WanfaPolicyLib, "cultiway.wanfa_pavilion_policy");
+        AssetManager._instance.add(CastResourceLib, "cultiway.skill_cast_resources");
+        AssetManager._instance.add(CastBudgetRuleLib, "cultiway.skill_cast_budget_rules");
     }
 
     public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
@@ -97,11 +101,11 @@ public class Manager
     }
 
     public bool StartSkillSequence(ActorExtend caster, Entity skill_container, SkillCastPlan plan, float strength,
-        float? power_level = null, SkillCastCostSource cost_source = SkillCastCostSource.CasterWakan,
+        float? power_level = null, SkillCastFundingSource funding_source = SkillCastFundingSource.CasterResources,
         Kingdom attack_kingdom = null)
     {
         if (caster == null || plan == null || plan.Steps.Count == 0) return false;
-        if (!SkillCastCost.TryPay(caster, skill_container, plan, cost_source)) return false;
+        if (!SkillCastCost.TryPay(caster, skill_container, plan, funding_source)) return false;
 
         World.CreateEntity(new SkillCastSequence()
         {

@@ -24,6 +24,7 @@ public static class SkillContainerSignature
         {
             EntityAssetId = container.SkillEntityAssetID,
             AnimationIndex = container.AnimationIndex,
+            CastResourceRequirement = container.CastResourceRequirement.DeepClone(),
             TrajectoryAssetId = SkillBlueprintTrajectory.ResolveEffectiveId(skill)
         };
 

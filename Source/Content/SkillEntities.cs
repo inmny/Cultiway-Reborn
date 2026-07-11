@@ -12,7 +12,8 @@ using SeriesTag = Cultiway.Core.SkillLibV3.SkillTags.Series;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(SkillVfxElements), typeof(SkillTrajectories), typeof(SkillModifiers))]
+[Dependency(typeof(SkillVfxElements), typeof(SkillTrajectories), typeof(SkillModifiers),
+    typeof(SkillCastResources))]
 public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 {
     private const float UpFacingSpriteToRightOffset = -90f;
@@ -124,6 +125,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
     {
         asset.Element = element;
         asset.AddSeriesTags(tags);
+        asset.RequireCastResource(SkillCastResources.Wakan);
         asset.SetupCommonPrefab(effectPath, anim_loop: animLoop)
             .SetupColliderSphere(colliderRadius, EnemyActorCollider())
             .SetupDefaultTraj(trajectory)
@@ -138,6 +140,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
     {
         asset.Element = element;
         asset.AddSeriesTags(tags);
+        asset.RequireCastResource(SkillCastResources.Wakan);
         asset.SetupCommonPrefab(effectPath, anim_loop: animLoop)
             .SetupVisualRotation(visualRotation)
             .SetupColliderSphere(colliderRadius, EnemyActorCollider())

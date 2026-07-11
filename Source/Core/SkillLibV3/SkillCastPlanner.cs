@@ -1,7 +1,4 @@
 using System.Collections.Generic;
-using Cultiway.Content.Components;
-using Cultiway.Content.Components.Skill;
-using Cultiway.Content.Const;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Utils;
@@ -49,7 +46,6 @@ public static class SkillCastPlanner
 {
     private const float DelayStep = 0.04f;
     private const float MinDelayStep = 0.01f;
-    private const float MaxProficiencyDelayReduction = 0.75f;
     private const float MinSalvoAngleOffset = 3f;
     private const float SalvoAngleOffsetStep = 2f;
     private const float MaxSalvoAngleOffset = 30f;
@@ -116,18 +112,14 @@ public static class SkillCastPlanner
 
     private static float GetDelayStep(Entity skill)
     {
-        if (!skill.TryGetComponent(out ProficiencyModifier proficiency)) return DelayStep;
-
-        var reduction = Mathf.Clamp(proficiency.SalvoIntervalReduction, 0f, MaxProficiencyDelayReduction);
-        return Mathf.Max(MinDelayStep, DelayStep * (1f - reduction));
+        var parameters = skill.GetComponent<SkillCastParameters>();
+        return Mathf.Max(MinDelayStep, DelayStep * parameters.SalvoIntervalMultiplier);
     }
 
     private static int DetermineCastCount(ActorExtend caster, Entity skill, BaseSimObject primaryTarget)
     {
-        if (!caster.HasCultisys<Xian>()) return 1;
-
-        var level = caster.GetCultisys<Xian>().CurrLevel;
-        var budget = GetRealmCastBudget(level);
+        var budgetResolution = SkillCastBudgetResolver.Resolve(caster, skill, primaryTarget);
+        var budget = budgetResolution.MaxSteps;
         if (budget <= 1) return 1;
 
         var powerLevel = caster.GetPowerLevel();
@@ -139,7 +131,7 @@ public static class SkillCastPlanner
                      + powerFactor * 0.1f
                      + Mathf.Clamp(repeatBias, 0, 8) * 0.05f;
 
-        if (level >= XianLevels.Yuanying && (threatRatio >= 0.85f || repeatBias >= 4))
+        if (budgetResolution.ForceFullBudgetAgainstMajorThreat && (threatRatio >= 0.85f || repeatBias >= 4))
         {
             intent = 1f;
         }
@@ -231,18 +223,6 @@ public static class SkillCastPlanner
 
         var index = 1 + Mathf.FloorToInt((roll - primaryWeight) / otherWeight);
         return targets[Mathf.Clamp(index, 1, targets.Count - 1)];
-    }
-
-    private static int GetRealmCastBudget(int level)
-    {
-        return level switch
-        {
-            0 => 1,
-            XianLevels.XianBase => 4,
-            XianLevels.Jindan => 32,
-            XianLevels.Yuanying => 256,
-            _ => 1024
-        };
     }
 
     private static float GetThreatRatio(ActorExtend caster, BaseSimObject target)

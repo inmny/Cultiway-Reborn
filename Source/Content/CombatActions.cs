@@ -36,7 +36,7 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
                 }
                 ref var talisman_component = ref talisman_to_use.GetComponent<Talisman>();
                 if (!ae.CanUseSkillContainerAtCurrentDistance(talisman_component.SkillContainer, data.target,
-                        SkillCastCostSource.Prepaid))
+                        SkillCastFundingSource.Prepaid))
                 {
                     break;
                 }
@@ -48,7 +48,7 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
                 }
 
                 if (ae.CastSkillV3(talisman_component.SkillContainer, data.target, addition_strength,
-                        talisman_component.PowerLevel, SkillCastCostSource.Prepaid))
+                        talisman_component.PowerLevel, SkillCastFundingSource.Prepaid))
                 {
                     var direction = data.target.GetSimPos() - data.initiator.GetSimPos();
                     TalismanVfxManager.QueueActivation(data.initiator, talisman_to_use,

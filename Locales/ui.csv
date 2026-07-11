@@ -424,7 +424,8 @@ Cultiway.Wanfa.UI.Overview.MotionProfile,运动配置
 Cultiway.Wanfa.UI.Overview.CollisionRadius,碰撞半径
 Cultiway.Wanfa.UI.Overview.ExplosionRadius,爆炸作用半径
 Cultiway.Wanfa.UI.Overview.GravityRadius,牵引作用半径
-Cultiway.Wanfa.UI.Overview.StepWakan,单步灵力
+Cultiway.Wanfa.UI.Overview.CastResource,施法资源
+Cultiway.Wanfa.UI.Overview.StepDemand,单步需求
 Cultiway.Wanfa.UI.Overview.Error,错误
 Cultiway.Wanfa.UI.Overview.Warning,警告
 Cultiway.Wanfa.UI.Overview.Validation,校验
@@ -495,7 +496,7 @@ Cultiway.Wanfa.UI.Tooltip.Category,填写玩家自定义分类，便于在搜索
 Cultiway.Wanfa.UI.Tooltip.Tab.Entity,选择法术实际生成的实体本体。本体决定基础贴图、碰撞体和可接受的轨迹姿态。
 Cultiway.Wanfa.UI.Tooltip.Tab.Trajectory,选择法术实体的运动方式。列表会显示轨迹说明，并阻止选择与当前本体姿态不兼容的轨迹。
 Cultiway.Wanfa.UI.Tooltip.Tab.Modifier,添加或移除法术词条并调整其参数。互斥、缺失和超限问题会直接显示在对应条目中。
-Cultiway.Wanfa.UI.Tooltip.Tab.Overview,查看当前蓝图最终解析出的视觉元素、运动配置、碰撞范围、灵力消耗和校验结果。
+Cultiway.Wanfa.UI.Tooltip.Tab.Overview,查看当前蓝图最终解析出的视觉元素、运动配置、碰撞范围、施法资源和校验结果。
 Cultiway.Wanfa.UI.Tooltip.Undo,撤销最近一次本体、轨迹、词条、参数或命名改动。保存后的历史不会保留在此栈中。
 Cultiway.Wanfa.UI.Tooltip.Redo,恢复刚刚撤销的一次编辑操作。进行新的改动后重做历史会被清空。
 Cultiway.Wanfa.UI.Tooltip.DiscardChanges,放弃本次打开编辑器后产生的全部未保存改动，恢复到最近一次保存状态。
