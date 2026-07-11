@@ -26,9 +26,9 @@ public static class ArtifactIconRenderer
         if (Cache.TryGetValue(cacheKey, out var sprite)) return sprite;
 
         var catalog = ArtifactIconCatalogLoader.Current;
-        if (catalog == null || !catalog.Templates.TryGetValue(instance.template_key, out var template)) return null;
+        if (!catalog.Templates.TryGetValue(instance.template_key, out var template)) return null;
 
-        var texture = Render(instance, template, Mathf.Max(1, catalog.Canvas));
+        var texture = Render(instance, template, catalog.Canvas);
         if (texture == null) return null;
         texture.filterMode = FilterMode.Point;
         texture.wrapMode = TextureWrapMode.Clamp;
@@ -42,7 +42,7 @@ public static class ArtifactIconRenderer
         var faces = BuildWorldFaces(instance, template);
         if (faces.Count == 0) return null;
 
-        var camera = template.Camera ?? new JObject();
+        var camera = template.Camera;
         var target = ReadVec3(camera["target"], Vector3.zero);
         var cameraRotation = new Vector3(
             -ReadFloat(camera, "pitch", 0f),
@@ -81,25 +81,23 @@ public static class ArtifactIconRenderer
     {
         List<Face3D> faces = new();
         var catalog = ArtifactIconCatalogLoader.Current;
-        var placements = template.Placements?
-            .Where(item => item != null)
+        var placements = template.Placements
             .OrderBy(item => item.Z)
-            .ToArray() ?? [];
+            .ToArray();
         foreach (var placement in placements)
         {
-            if (!catalog.Modules.TryGetValue(placement.Module, out var module)) continue;
+            ArtifactIconModuleDef module = catalog.Modules[placement.Module];
             var slot = FindSlot(instance, placement);
             if (slot == null) continue;
             var variant = module.GetVariant(slot.Value.variant);
             if (variant == null) continue;
-            var anchor = variant.GetAnchor(placement.Anchor ?? "origin");
-            if (anchor == null) continue;
+            ArtifactIconAnchorDef anchor = variant.GetAnchor(placement.Anchor);
 
             var placementPosition = Vec3(placement.Position, Vector3.zero);
             var placementRotation = Vec3(placement.Rotation, Vector3.zero);
             var placementScale = Vec3(placement.Scale, Vector3.one);
             var anchorPosition = Vec3(anchor.Position, Vector3.zero);
-            foreach (var part in variant.Parts ?? [])
+            foreach (var part in variant.Parts)
             {
                 foreach (var partFace in PartFaces(part))
                 {
