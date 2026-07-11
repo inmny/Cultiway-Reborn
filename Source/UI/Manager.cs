@@ -38,6 +38,7 @@ public class Manager
     private const string DebugIconRoot = "cultiway/icons/cultilog/";
 
     public static           PowersTab                            powers_tab;
+    public static PowerButton WanfaGrantButton { get; private set; }
     private static readonly Dictionary<TabButtonType, Transform> button_groups = new();
     private static          RectTransform                        top_container;
 
@@ -88,12 +89,19 @@ public class Manager
         WindowWanfaSkillEditor.CreateAndInit(WindowWanfaSkillEditor.Id);
         WindowWanfaGrantConflict.CreateAndInit(WindowWanfaGrantConflict.Id);
 
-        AddButton(TabButtonType.WORLD,
-            PowerButtonCreator.CreateWindowButton(
-                $"{WindowWanfaPavilion.Id} Title",
-                WindowWanfaPavilion.Id,
-                SpriteTextureLoader.getSprite("cultiway/icons/iconMagic")));
+        var pavilionButton = PowerButtonCreator.CreateWindowButton(
+            $"{WindowWanfaPavilion.Id} Title",
+            WindowWanfaPavilion.Id,
+            SpriteTextureLoader.getSprite("cultiway/icons/iconMagic"));
+        var pavilionButtonImage = pavilionButton.GetComponent<Image>();
+        pavilionButtonImage.sprite = SpriteTextureLoader.getSprite("ui/special/special_buttonRedGodly");
+        pavilionButtonImage.type = Image.Type.Sliced;
+        WanfaGrantButton = PowerButtonCreator.CreateGodPowerButton(
+            WorldboxGame.GodPowers.WanfaGrant.id,
+            SpriteTextureLoader.getSprite("ui/Icons/iconRainGammaEdit"));
+        AddButtonPair(TabButtonType.WORLD, pavilionButton, WanfaGrantButton);
 
+        service.TestCastRequested += draft => WanfaTestCastSession.Enter(draft, WanfaGrantButton);
         service.GrantConflictRequested += WindowWanfaGrantConflict.Enqueue;
         service.GrantConflictsCleared += WindowWanfaGrantConflict.ClearPending;
         service.TestCastCompleted += WindowWanfaSkillEditor.ResumeAfterTestCast;
@@ -544,6 +552,27 @@ public class Manager
 
         button.transform.SetParent(group);
         button.transform.localScale = Vector3.one;
+    }
+
+    public static void AddButtonPair(TabButtonType type, PowerButton topButton, PowerButton bottomButton)
+    {
+        if (!button_groups.TryGetValue(type, out Transform group))
+        {
+            ConstructTabContainer(type, null);
+            group = button_groups[type];
+        }
+
+        if ((group.childCount & 1) != 0)
+        {
+            var space = new GameObject("_space", typeof(RectTransform));
+            space.transform.SetParent(group, false);
+        }
+
+        topButton.transform.SetParent(group, false);
+        topButton.transform.localScale = Vector3.one;
+
+        bottomButton.transform.SetParent(group, false);
+        bottomButton.transform.localScale = Vector3.one;
     }
 
     private static void ConstructTabContainer(TabButtonType type, Sprite icon)
