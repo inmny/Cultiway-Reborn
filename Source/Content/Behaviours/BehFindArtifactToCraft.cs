@@ -46,6 +46,8 @@ public class BehFindArtifactToCraft : BehCityActor
             .AddComponent(result.Level)
             .AddComponent(new EntityName(result.Name))
             .AddComponent(result.ToAtomData())
+            .AddComponent(result.ToControlProfile())
+            .AddComponent(result.ToUseProfile())
             .AddComponent(result.IconInstance)
             .AddTag<TagUncompleted>()
             .Build();

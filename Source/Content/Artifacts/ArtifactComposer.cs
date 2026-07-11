@@ -4,6 +4,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Cultiway.Content.Components;
+using Cultiway.Content.Const;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
@@ -25,6 +26,43 @@ public sealed class ArtifactComposeResult
         {
             atom_ids = Atoms.Select(atom => atom.id).ToArray(),
         };
+    }
+
+    public ArtifactControlProfile ToControlProfile()
+    {
+        float complexity = 1f + Atoms.Length * 0.05f;
+        return new ArtifactControlProfile
+        {
+            complexity = complexity,
+            prepared_load_ratio = ArtifactSetting.DefaultPreparedLoadRatio,
+            thread_cost = 1,
+            autonomous = false,
+        };
+    }
+
+    public ArtifactUseProfile ToUseProfile()
+    {
+        ArtifactUseProfile profile = new() { support = 0.15f };
+        switch (Shape.Purpose)
+        {
+            case ArtifactPurpose.Offensive:
+                profile.offensive = 1f;
+                break;
+            case ArtifactPurpose.Defensive:
+                profile.defensive = 1f;
+                break;
+            case ArtifactPurpose.Cultivate:
+                profile.cultivate = 1f;
+                break;
+            case ArtifactPurpose.Production:
+                profile.production = 1f;
+                profile.cultivate = 0.25f;
+                break;
+            default:
+                profile.support = 1f;
+                break;
+        }
+        return profile;
     }
 }
 
@@ -94,12 +132,12 @@ public static class ArtifactComposer
     private static ArtifactShapeAsset ResolveShape(ArtifactRecipeContext context)
     {
         Dictionary<ArtifactShapeAsset, int> scores = new();
-            foreach (var kv in context.shape_counts)
-            {
-                var affinity = ResolveAffinity(kv.Key);
-                if (affinity == null) continue;
-                scores.TryGetValue(affinity, out var score);
-                scores[affinity] = score + kv.Value;
+        foreach (var kv in context.shape_counts)
+        {
+            var affinity = ResolveAffinity(kv.Key);
+            if (affinity == null) continue;
+            scores.TryGetValue(affinity, out var score);
+            scores[affinity] = score + kv.Value;
         }
 
         var shape = ItemShapes.Sword;
@@ -297,16 +335,16 @@ public static class ArtifactComposer
         StringBuilder builder = new();
         builder.Append(creatorName);
         builder.Append('|').Append(shape.id);
-            foreach (var ingredient in ingredients)
+        foreach (var ingredient in ingredients)
+        {
+            builder.Append('|').Append(ingredient.Id);
+            if (ingredient.TryGetComponent(out ItemShape shapeComponent))
             {
-                builder.Append('|').Append(ingredient.Id);
-                if (ingredient.TryGetComponent(out ItemShape shapeComponent))
-                {
-                    builder.Append(':').Append(shapeComponent.shape_id);
-                }
-                if (ingredient.TryGetComponent(out ItemLevel level))
-                {
-                    builder.Append(':').Append(level.Stage).Append('.').Append(level.Level);
+                builder.Append(':').Append(shapeComponent.shape_id);
+            }
+            if (ingredient.TryGetComponent(out ItemLevel level))
+            {
+                builder.Append(':').Append(level.Stage).Append('.').Append(level.Level);
             }
         }
         return builder.ToString();
