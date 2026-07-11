@@ -38,6 +38,7 @@ public sealed class SkillBlueprintExporter
         {
             EntityAssetId = container.SkillEntityAssetID,
             AnimationIndex = container.AnimationIndex,
+            CastResourceRequirement = container.CastResourceRequirement.DeepClone(),
             TrajectoryAssetId = SkillBlueprintTrajectory.ResolveEffectiveId(containerEntity),
             Origin = new SkillBlueprintOriginData
             {

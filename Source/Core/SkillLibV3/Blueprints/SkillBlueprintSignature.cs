@@ -28,6 +28,11 @@ public static class SkillBlueprintSignature
         var builder = new StringBuilder();
         Append(builder, blueprint.EntityAssetId);
         Append(builder, blueprint.AnimationIndex.ToString(CultureInfo.InvariantCulture));
+        Append(builder, ((int)blueprint.CastResourceRequirement.Mode).ToString(CultureInfo.InvariantCulture));
+        foreach (var resourceId in blueprint.CastResourceRequirement.ResourceAssetIds)
+        {
+            Append(builder, resourceId);
+        }
         Append(builder, blueprint.TrajectoryAssetId);
 
         foreach (var modifier in blueprint.Modifiers

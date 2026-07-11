@@ -27,11 +27,44 @@ public sealed class SkillBlueprintValidator
         }
         var context = SkillEditContext.Create(blueprint);
         ValidateEntity(context, result);
+        ValidateCastResources(context, result);
         ValidateTrajectory(context, result);
         ValidateModifiers(context, result);
         ValidateName(blueprint, result);
         AddBalanceWarnings(blueprint, result);
         return result;
+    }
+
+    private static void ValidateCastResources(SkillEditContext context, SkillCompatibilityResult result)
+    {
+        var requirement = context.Blueprint.CastResourceRequirement;
+        if (requirement == null || !requirement.IsConfigured)
+        {
+            result.AddError("cast_resource.empty");
+            return;
+        }
+        if (!Enum.IsDefined(typeof(SkillCastResourceRequirementMode), requirement.Mode))
+        {
+            result.AddError("cast_resource.mode_invalid");
+        }
+        if (requirement.Mode == SkillCastResourceRequirementMode.Single && requirement.ResourceAssetIds.Count != 1)
+        {
+            result.AddError("cast_resource.single_count");
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var resourceId in requirement.ResourceAssetIds)
+        {
+            if (!seen.Add(resourceId))
+            {
+                result.AddError("cast_resource.duplicate", resourceId);
+                continue;
+            }
+            if (ModClass.I.SkillV3.CastResourceLib.get(resourceId) == null)
+            {
+                result.AddError("cast_resource.missing", resourceId);
+            }
+        }
     }
 
     private static void ValidateIdentity(SkillBlueprint blueprint, SkillCompatibilityResult result)

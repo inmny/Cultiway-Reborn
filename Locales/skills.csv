@@ -247,6 +247,11 @@ Cultiway.SkillBlueprint.Validation.name.mode_invalid,蓝图命名模式无效
 Cultiway.SkillBlueprint.Validation.name.custom_empty,自定义名称不能为空
 Cultiway.SkillBlueprint.Validation.name.custom_too_long,自定义名称不能超过 {0} 个字符
 Cultiway.SkillBlueprint.Validation.category.too_long,玩家分类不能超过 {0} 个字符
+Cultiway.SkillBlueprint.Validation.cast_resource.empty,法术尚未绑定施法资源
+Cultiway.SkillBlueprint.Validation.cast_resource.mode_invalid,施法资源需求模式无效
+Cultiway.SkillBlueprint.Validation.cast_resource.single_count,单一资源模式必须且只能绑定一种资源
+Cultiway.SkillBlueprint.Validation.cast_resource.duplicate,施法资源 {0} 被重复绑定
+Cultiway.SkillBlueprint.Validation.cast_resource.missing,施法资源 {0} 不存在
 Cultiway.SkillBlueprint.Validation.balance.cost,预计单步施法需求较高 至少 {0:F1}
 Cultiway.SkillBlueprint.Validation.semantic.speed_static,静止或瞬发轨迹通常无法体现加速词条
 Cultiway.SkillBlueprint.Validation.semantic.travel_instant,瞬发轨迹可能没有足够时间触发持续移动效果

@@ -207,6 +207,7 @@ public sealed class WanfaPavilionService
         return new SkillBlueprint
         {
             EntityAssetId = entity.id,
+            CastResourceRequirement = entity.DefaultCastResourceRequirement.DeepClone(),
             TrajectoryAssetId = trajectoryId,
             Origin = new SkillBlueprintOriginData { Kind = SkillBlueprintOriginKind.Created }
         };

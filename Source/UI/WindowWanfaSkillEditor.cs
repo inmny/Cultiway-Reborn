@@ -711,6 +711,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             _draft.EntityAssetId = entityId;
             _draft.AnimationIndex = 0;
             var entity = ModClass.I.SkillV3.SkillLib.get(entityId);
+            _draft.CastResourceRequirement = entity.DefaultCastResourceRequirement.DeepClone();
             var trajectoryId = WanfaPavilionService.Instance.ResolveAvailableTrajectoryId(entity,
                 _draft.TrajectoryAssetId);
             _draft.TrajectoryAssetId = trajectoryId == null ? string.Empty : trajectoryId;

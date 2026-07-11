@@ -78,13 +78,14 @@ public sealed class SkillModifierSpec
 [Serializable]
 public sealed class SkillBlueprint
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     public string Id = Guid.NewGuid().ToString("N");
     public int Revision = 1;
     public int SchemaVersion = CurrentSchemaVersion;
     public string EntityAssetId;
     public int AnimationIndex;
+    public SkillCastResourceRequirement CastResourceRequirement = new();
     public string TrajectoryAssetId;
     public List<SkillModifierSpec> Modifiers = new();
     public SkillBlueprintNameMode NameMode;
@@ -108,6 +109,7 @@ public sealed class SkillBlueprint
             SchemaVersion = SchemaVersion,
             EntityAssetId = EntityAssetId,
             AnimationIndex = AnimationIndex,
+            CastResourceRequirement = CastResourceRequirement.DeepClone(),
             TrajectoryAssetId = TrajectoryAssetId,
             NameMode = NameMode,
             CustomName = CustomName,
