@@ -1,16 +1,22 @@
+using System.Collections.Generic;
 using Cultiway.Abstract;
+using Cultiway.Content.Artifacts;
+using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Utils;
+using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
+using NeoModLoader.General;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Cultiway.Content.UI.CreatureInfoPages;
 
 /// <summary>
-/// 单位信息窗口的"法宝"页：以图标网格列出该单位已经装备的法器，
-/// hover 显示由 <see cref="SpecialItemTooltip"/> 渲染的 tooltip（名字/器形/品阶）。
+/// 单位信息窗口的"法宝"页：列出已装备法器，并用图标状态区分待命、运转与超载。
 /// </summary>
 public class ArtifactPage : MonoBehaviour
 {
@@ -46,15 +52,33 @@ public class ArtifactPage : MonoBehaviour
         var this_page = page.GetComponent<ArtifactPage>();
         this_page._special_item_pool.Clear();
         var actorExtend = actor.GetExtend();
-        var artifacts = actorExtend.GetEquippedArtifacts();
+        List<Entity> artifacts = new(actorExtend.GetEquippedArtifacts());
+        artifacts.Sort((left, right) =>
+        {
+            EquippedArtifactRelation leftRelation = actorExtend.E
+                .GetRelation<EquippedArtifactRelation, Entity>(left);
+            EquippedArtifactRelation rightRelation = actorExtend.E
+                .GetRelation<EquippedArtifactRelation, Entity>(right);
+            int stateOrder = rightRelation.state.CompareTo(leftRelation.state);
+            return stateOrder != 0 ? stateOrder : left.Id.CompareTo(right.Id);
+        });
         foreach (var item in artifacts)
         {
             SpecialItemDisplay display = this_page._special_item_pool.GetNext();
+            EquippedArtifactRelation relation = actorExtend.E
+                .GetRelation<EquippedArtifactRelation, Entity>(item);
             display.Setup(item.GetComponent<SpecialItem>(), () =>
             {
-                actorExtend.UnequipArtifact(item);
+                actorExtend.UnequipArtifact(item, suppressAutoEquip: true);
                 Show(page, actor);
-            });
+            }, relation.state.GetStateColor());
         }
+    }
+
+    public static string GetTitle(ActorExtend actor)
+    {
+        ArtifactLoadoutState state = actor.GetArtifactLoadoutState();
+        float used = state.prepared_load + state.operating_load;
+        return $"{LM.Get(nameof(ArtifactPage))} {used:0.#}/{actor.Base.stats[WorldboxGame.BaseStats.DivineSense.id]:0.#}";
     }
 }

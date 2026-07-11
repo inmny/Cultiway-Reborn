@@ -1,6 +1,8 @@
 using Cultiway.Abstract;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Utils;
 using Cultiway.Core.Components;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
@@ -50,18 +52,22 @@ public class InventoryPage : MonoBehaviour
             SpecialItemDisplay display = this_page._special_item_pool.GetNext();
             if (item.HasComponent<Artifact>())
             {
+                bool equipped = actorExtend.TryGetArtifactEquipRelation(item, out EquippedArtifactRelation relation);
+                Color color = equipped
+                    ? relation.state.GetStateColor()
+                    : Color.white;
                 display.Setup(item.GetComponent<SpecialItem>(), () =>
                 {
                     if (actorExtend.IsArtifactEquipped(item))
                     {
-                        actorExtend.UnequipArtifact(item);
+                        actorExtend.UnequipArtifact(item, suppressAutoEquip: true);
                     }
                     else
                     {
-                        actorExtend.EquipArtifact(item);
+                        actorExtend.EquipArtifact(item, locked: true);
                     }
                     Show(page, actor);
-                });
+                }, color);
             }
             else
             {

@@ -1,10 +1,13 @@
 using System.Globalization;
 using Cultiway.Abstract;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.UI.CreatureInfoPages;
+using Cultiway.Content.Utils;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.UI;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
@@ -35,7 +38,7 @@ public class Manager : ICanInit
         WindowNewCreatureInfo.RegisterPage(nameof(SectPage), a=> a.GetExtend().sect !=null, SectPage.Setup, SectPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(ArtifactPage),
             a => a.GetExtend().HasEquippedArtifacts(),
-            ArtifactPage.Setup, ArtifactPage.Show);
+            ArtifactPage.Setup, ArtifactPage.Show, ArtifactPage.GetTitle);
         CharacterPanelExtensions.RegisterProgressBar("cultiway_wakan",
             a => a.GetExtend().HasCultisys<Xian>(),
             ReadWakanPanelValue);
