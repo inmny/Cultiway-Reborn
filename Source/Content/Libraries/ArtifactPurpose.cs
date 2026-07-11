@@ -1,7 +1,7 @@
-namespace Cultiway.Core.Libraries;
+namespace Cultiway.Content.Libraries;
 
 /// <summary>
-/// 法器器形的用途倾向，用于辅助 AI 决策、命名与后续效果分配。第一阶段仅占位。
+/// 法器用途倾向，用于调度、命名和效果扩展。
 /// </summary>
 public enum ArtifactPurpose
 {
