@@ -129,6 +129,7 @@ internal static class PatchWindowCreatureInfo
         {
             sb.AppendLine($"灵根: {actor_extend.GetElementRoot().ToString()}");
             sb.AppendLine($"期望修炼倍率: {actor_extend.GetElementRoot().GetStrength()}");
+            sb.AppendLine($"其他资质: {actor_extend.E.GetComponent<ValuableTalent>().ToString()}");
         }
         else
         {
@@ -139,7 +140,7 @@ internal static class PatchWindowCreatureInfo
         {
             sb.AppendLine($"气运: {qiyun.Value:F1}/{qiyun.MaxValue:F1}");
         }
-
+        sb.AppendLine($"神识: {actor_extend.E.GetComponent<ValuableTalent>().DivineSense:0.#}");
         info_display_func?.Invoke(actor_extend, sb);
 
         var idx = 0;

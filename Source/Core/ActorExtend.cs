@@ -513,7 +513,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         action_on_get_stats?.Invoke(this, stat_id);
         return Base.stats[stat_id];
     }
-    internal void ExtendNewCreature()
+    private void CreateTalent()
     {
         // 灵根
         var has_element_root = Base.asset.GetExtend<ActorAssetExtend>().must_have_element_root ||
@@ -523,6 +523,11 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             e.AddComponent(ElementRoot.Roll());
         }
 
+        e.AddComponent(ValuableTalent.Roll());
+    }
+    internal void ExtendNewCreature()
+    {
+        CreateTalent();
         action_on_new_creature?.Invoke(this);
     }
 
@@ -577,6 +582,10 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         if (HasElementRoot())
         {
             _cached_cultiway_stats.mergeStats(GetElementRoot().Stats);
+        }
+        if (E.TryGetComponent(out ValuableTalent valuable_talent))
+        {
+            _cached_cultiway_stats.mergeStats(valuable_talent.Stats);
         }
 
         if (E.TryGetComponent(out Qiyun qiyun))

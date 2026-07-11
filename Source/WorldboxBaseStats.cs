@@ -47,6 +47,7 @@ public partial class WorldboxGame
 
         [AssetId(nameof(MaxSoul))] public static BaseStatAsset MaxSoul { get; private set; }
         [AssetId(nameof(MaxQiyun))] public static BaseStatAsset MaxQiyun { get; private set; }
+        [AssetId(nameof(DivineSense))] public static BaseStatAsset DivineSense { get; private set; }
 
         public static ReadOnlyCollection<string> ArmorStats  { get; private set; }
         public static ReadOnlyCollection<string> MasterStats { get; private set; }
@@ -58,6 +59,7 @@ public partial class WorldboxGame
         protected override void OnInit()
         {
             Armor.normalize = false;
+            DivineSense.icon = $"cultiway/icons/stats/{nameof(DivineSense)}";
             IronArmor.icon = $"cultiway/icons/stats/{nameof(IronArmor)}";
             WoodArmor.icon = $"cultiway/icons/stats/{nameof(WoodArmor)}";
             WaterArmor.icon = $"cultiway/icons/stats/{nameof(WaterArmor)}";
