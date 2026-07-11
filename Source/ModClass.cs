@@ -6,7 +6,6 @@ using System.Text;
 using Cultiway.AbstractGame.AbstractEngine;
 using Cultiway.Const;
 using Cultiway.Content;
-using Cultiway.Content.Wanfa;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -402,7 +401,6 @@ namespace Cultiway
             _content.Init();
             Wanfa = new WanfaPavilionService();
             Wanfa.Init();
-            WanfaContentBootstrap.Initialize(Wanfa);
             _ui.InitWanfa(Wanfa);
             
             GeneralLogicSystems.Add(new StructuralChangeSystem());

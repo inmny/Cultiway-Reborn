@@ -7,51 +7,65 @@ using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
+using Friflo.Engine.ECS.Systems;
 using UnityEngine;
 using Cultiway.Utils.Extension;
-using Cultiway.Core.SkillLibV3.Wanfa;
 
-namespace Cultiway.Content.Wanfa;
+namespace Cultiway.Core.SkillLibV3.Wanfa;
 
-internal sealed class WanfaGrantPayload
+internal static class WanfaGrantSession
 {
-    public long Token;
-    public long TargetActorId;
-    public SkillBlueprint Snapshot;
-    public int Revision;
-    public int SessionGeneration;
-    public float ExpiresAt;
-}
+    private sealed class GrantPayload
+    {
+        public long TargetActorId;
+        public SkillBlueprint Snapshot;
+        public int Revision;
+        public int SessionGeneration;
+        public float ExpiresAt;
+    }
 
-public static class WanfaDropExportSession
-{
     private const float PayloadLifetime = 30f;
-    private static readonly Dictionary<long, WanfaGrantPayload> Payloads = new();
+    private static readonly Dictionary<long, GrantPayload> Payloads = new();
     private static readonly SkillBlueprintCompiler Compiler = new();
     private static long _nextToken = DateTime.UtcNow.Ticks;
-    private static string _selectedBlueprintId;
     private static bool _modeWasActive;
     private static int _sessionGeneration;
 
-    public static void Enter(string blueprintId)
+    public static void Initialize(WanfaPavilionService service)
     {
-        WanfaTestCastSession.Clear(false);
-        _sessionGeneration++;
-        Payloads.Clear();
-        WanfaPavilionService.Instance.ClearGrantConflicts();
-        _selectedBlueprintId = blueprintId;
-        PowerButtonSelector.instance.unselectAll();
-        PowerButtonSelector.instance.clickPowerButton(WanfaContentBootstrap.GrantButton);
-        ScrollWindow.hideAllEvent(false);
-        WorldTip.showNow("Cultiway.Wanfa.UI.Tip.SelectGrantActor".Localize(), false, "top", 3f);
-        _modeWasActive = true;
+        service.WorldStateClearing += ClearWorldState;
+
+        var grantPower = WorldboxGame.GodPowers.WanfaGrant;
+        grantPower.click_action = TrySpawn;
+        grantPower.click_brush_action = TrySpawnBrush;
+        foreach (var drop in WorldboxGame.Drops.WanfaDrops)
+        {
+            drop.action_landed_drop = OnDropLanded;
+        }
+
+        ModClass.I.GeneralLogicSystems.Add(new UpdateSystem());
+    }
+
+    [ClickActionCaller]
+    public static bool TrySpawnBrush(WorldTile tile, string powerId)
+    {
+        if (WanfaTestCastSession.IsActive) return WanfaTestCastSession.TryCast(tile, powerId);
+        if (WanfaPavilionService.Instance.SelectedBlueprintCount == 0)
+        {
+            WorldTip.showNow("Cultiway.Wanfa.UI.Tip.SelectGrantBlueprint".Localize(), false, "top", 3f);
+            return false;
+        }
+        World.world.loopWithBrush(tile, Config.current_brush_data, TrySpawn, powerId);
+        return true;
     }
 
     public static bool TrySpawn(WorldTile tile, string powerId)
     {
         if (WanfaTestCastSession.IsActive) return WanfaTestCastSession.TryCast(tile, powerId);
 
-        if (string.IsNullOrWhiteSpace(_selectedBlueprintId))
+        var service = WanfaPavilionService.Instance;
+        var blueprints = service.GetSelectedBlueprints();
+        if (blueprints.Count == 0)
         {
             WorldTip.showNow("Cultiway.Wanfa.UI.Tip.SelectGrantBlueprint".Localize(), false, "top", 3f);
             return false;
@@ -60,31 +74,42 @@ public static class WanfaDropExportSession
         var actor = ActionLibrary.getActorFromTile(tile);
         if (actor == null || !actor.isAlive()) return false;
 
-        var blueprint = WanfaPavilionService.Instance.Get(_selectedBlueprintId);
-        if (blueprint == null) return false;
-        var validation = WanfaPavilionService.Instance.ValidateGrant(actor, blueprint);
-        if (!validation.IsCompatible)
+        string validationError = null;
+        var spawned = 0;
+        foreach (var blueprint in blueprints)
         {
-            var error = validation.Issues.First(issue =>
-                issue.Severity == Core.SkillLibV3.Editor.SkillValidationSeverity.Error);
-            WorldTip.showNow(error.Message, false, "top", 3f);
-            return false;
+            var validation = service.ValidateGrant(actor, blueprint);
+            if (!validation.IsCompatible)
+            {
+                if (validationError == null)
+                {
+                    validationError = validation.Issues.First(issue =>
+                        issue.Severity == Core.SkillLibV3.Editor.SkillValidationSeverity.Error).Message;
+                }
+                continue;
+            }
+
+            var token = Interlocked.Increment(ref _nextToken);
+            Payloads[token] = new GrantPayload
+            {
+                TargetActorId = actor.data.id,
+                Snapshot = blueprint.DeepClone(),
+                Revision = blueprint.Revision,
+                SessionGeneration = _sessionGeneration,
+                ExpiresAt = Time.realtimeSinceStartup + PayloadLifetime
+            };
+
+            var drop = service.ResolveVfxElement(blueprint).GrantDrop;
+            World.world.drop_manager.spawn(tile, drop, pCasterId: token);
+            spawned++;
         }
 
-        var token = Interlocked.Increment(ref _nextToken);
-        Payloads[token] = new WanfaGrantPayload
+        if (spawned == 0 && validationError != null)
         {
-            Token = token,
-            TargetActorId = actor.data.id,
-            Snapshot = blueprint.DeepClone(),
-            Revision = blueprint.Revision,
-            SessionGeneration = _sessionGeneration,
-            ExpiresAt = Time.realtimeSinceStartup + PayloadLifetime
-        };
-
-        var drop = ResolveDrop(blueprint);
-        World.world.drop_manager.spawn(tile, drop, pCasterId: token);
-        return true;
+            WorldTip.showNow(validationError, false, "top", 3f);
+        }
+        _modeWasActive = spawned > 0;
+        return spawned > 0;
     }
 
     public static void OnDropLanded(Drop drop, WorldTile tile, string dropId)
@@ -101,7 +126,7 @@ public static class WanfaDropExportSession
 
     public static void Tick()
     {
-        if (_modeWasActive && !GodPowers.WanfaGrant.isSelected())
+        if (_modeWasActive && !WorldboxGame.GodPowers.WanfaGrant.isSelected())
         {
             Clear();
             return;
@@ -116,12 +141,11 @@ public static class WanfaDropExportSession
     {
         _sessionGeneration++;
         Payloads.Clear();
-        _selectedBlueprintId = null;
         _modeWasActive = false;
         WanfaPavilionService.Instance.ClearGrantConflicts();
     }
 
-    private static void ResolveConflict(WanfaGrantPayload payload, Entity oldContainer, bool overwrite)
+    private static void ResolveConflict(GrantPayload payload, Entity oldContainer, bool overwrite)
     {
         if (!overwrite) return;
         if (payload.SessionGeneration != _sessionGeneration ||
@@ -158,7 +182,7 @@ public static class WanfaDropExportSession
         }
     }
 
-    private static void GrantOrPrompt(Actor actor, WanfaGrantPayload payload)
+    private static void GrantOrPrompt(Actor actor, GrantPayload payload)
     {
         if (payload.SessionGeneration != _sessionGeneration) return;
         var validation = WanfaPavilionService.Instance.ValidateGrant(actor, payload.Snapshot);
@@ -229,24 +253,19 @@ public static class WanfaDropExportSession
         }
     }
 
-    private static DropAsset ResolveDrop(SkillBlueprint blueprint)
+    private static void ClearWorldState()
     {
-        var element = WanfaPavilionService.Instance.ResolveVfxElement(blueprint);
-        if (element == SkillVfxElements.Metal) return Drops.WanfaMetal;
-        if (element == SkillVfxElements.Wood) return Drops.WanfaWood;
-        if (element == SkillVfxElements.Water) return Drops.WanfaWater;
-        if (element == SkillVfxElements.Ice) return Drops.WanfaIce;
-        if (element == SkillVfxElements.Fire) return Drops.WanfaFire;
-        if (element == SkillVfxElements.Earth) return Drops.WanfaEarth;
-        if (element == SkillVfxElements.Neg) return Drops.WanfaNeg;
-        if (element == SkillVfxElements.Pos) return Drops.WanfaPos;
-        if (element == SkillVfxElements.Wind) return Drops.WanfaWind;
-        if (element == SkillVfxElements.Lightning) return Drops.WanfaLightning;
-        if (element == SkillVfxElements.Poison) return Drops.WanfaPoison;
-        if (element == SkillVfxElements.Explosion) return Drops.WanfaExplosion;
-        if (element == SkillVfxElements.Burnout) return Drops.WanfaBurnout;
-        if (element == SkillVfxElements.Gravity) return Drops.WanfaGravity;
-        if (element == SkillVfxElements.Curse) return Drops.WanfaCurse;
-        return Drops.WanfaEntropy;
+        Clear();
+        WanfaTestCastSession.Clear(false);
+    }
+
+    private sealed class UpdateSystem : BaseSystem
+    {
+        protected override void OnUpdateGroup()
+        {
+            base.OnUpdateGroup();
+            Tick();
+            WanfaTestCastSession.Tick();
+        }
     }
 }

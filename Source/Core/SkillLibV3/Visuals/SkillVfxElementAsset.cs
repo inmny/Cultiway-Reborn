@@ -27,6 +27,7 @@ public class SkillVfxElementAsset : Asset
     public string ImpactSound;
     public float ImpactFeedbackInterval = 0.12f;
     public float AreaShakeIntensity;
+    public DropAsset GrantDrop;
 
     public SkillVfxElementAsset SetAccent(Color color, float blend = 0.35f, float alpha = 0.75f)
     {
@@ -58,6 +59,12 @@ public class SkillVfxElementAsset : Asset
     public SkillVfxElementAsset SetFlyOverParticles(SkillFlyOverParticleStyle style)
     {
         FlyOverParticles = style;
+        return this;
+    }
+
+    public SkillVfxElementAsset SetGrantDrop(DropAsset drop)
+    {
+        GrantDrop = drop;
         return this;
     }
 

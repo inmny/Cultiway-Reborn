@@ -83,7 +83,6 @@ public sealed class WanfaPavilionService
 
     public static WanfaPavilionService Instance { get; private set; }
     public event Action Changed;
-    public event Action<string> GrantRequested;
     public event Action<SkillBlueprint> TestCastRequested;
     public event Action<WanfaGrantConflictPrompt> GrantConflictRequested;
     public event Action GrantConflictsCleared;
@@ -100,11 +99,7 @@ public sealed class WanfaPavilionService
         _selectedBlueprintIds.UnionWith(_library.SelectedBlueprintIds);
         ModClass.I.GeneralLogicSystems.Add(new WanfaPavilionUpdateSystem(this));
         Instance = this;
-    }
-
-    public void RequestGrant(string blueprintId)
-    {
-        GrantRequested?.Invoke(blueprintId);
+        WanfaGrantSession.Initialize(this);
     }
 
     public void RequestTestCast(SkillBlueprint draft)

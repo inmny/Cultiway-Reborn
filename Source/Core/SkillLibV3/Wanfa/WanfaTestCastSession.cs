@@ -1,13 +1,12 @@
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Blueprints;
-using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
-namespace Cultiway.Content.Wanfa;
+namespace Cultiway.Core.SkillLibV3.Wanfa;
 
-public static class WanfaTestCastSession
+internal static class WanfaTestCastSession
 {
     private enum SessionState
     {
@@ -22,14 +21,14 @@ public static class WanfaTestCastSession
     private static SessionState _state;
     public static bool IsActive => _state == SessionState.SelectingCaster;
 
-    public static void Enter(SkillBlueprint draft)
+    public static void Enter(SkillBlueprint draft, PowerButton grantButton)
     {
-        WanfaDropExportSession.Clear();
+        WanfaGrantSession.Clear();
         _draft = draft.DeepClone();
         _trackedSkillEntity = default;
         _state = SessionState.SelectingCaster;
         PowerButtonSelector.instance.unselectAll();
-        PowerButtonSelector.instance.clickPowerButton(WanfaContentBootstrap.GrantButton);
+        PowerButtonSelector.instance.clickPowerButton(grantButton);
         ScrollWindow.hideAllEvent(false);
         WorldTip.showNow("Cultiway.Wanfa.UI.Tip.SelectTestActor".Localize(), false, "top", 3f);
     }
@@ -67,7 +66,7 @@ public static class WanfaTestCastSession
 
     public static void Tick()
     {
-        if (_state == SessionState.SelectingCaster && !GodPowers.WanfaGrant.isSelected())
+        if (_state == SessionState.SelectingCaster && !WorldboxGame.GodPowers.WanfaGrant.isSelected())
         {
             FinishSelection(false);
             return;
