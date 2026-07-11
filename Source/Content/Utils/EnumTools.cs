@@ -32,6 +32,22 @@ public static class EnumTools
         };
     }
     /// <summary>
+    /// 获取法器状态对应的比例缩放
+    /// </summary>
+    /// <param name="state">法器状态</param>
+    /// <returns>比例缩放</returns>
+    public static float GetStateScale(this ArtifactControlState state)
+    {
+        return state switch
+        {
+            ArtifactControlState.Ready => 0.78f,
+            ArtifactControlState.Operating => 1f,
+            ArtifactControlState.Overloaded => 1.08f,
+            ArtifactControlState.Cold => 0.55f,
+            _ => throw new System.NotImplementedException(),
+        };
+    }
+    /// <summary>
     /// 获取法器状态对应的颜色
     /// </summary>
     /// <param name="state"></param>
