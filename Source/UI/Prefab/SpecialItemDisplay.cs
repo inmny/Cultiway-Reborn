@@ -24,7 +24,7 @@ public class SpecialItemDisplay : APrefabPreview<SpecialItemDisplay>
     }
 
     [Hotfixable]
-    public void Setup(SpecialItem item, UnityAction clickAction = null)
+    public void Setup(SpecialItem item, UnityAction clickAction = null, Color? color = null)
     {
         Init();
         _item = item;
@@ -34,6 +34,7 @@ public class SpecialItemDisplay : APrefabPreview<SpecialItemDisplay>
             Button.onClick.AddListener(clickAction);
         }
         Icon.Setup(RectTransform.sizeDelta, (item.GetSprite(), new Rect(0, 0, 1, 1)));
+        Icon.SetColor(color ?? Color.white);
     }
 
     private static void _init()

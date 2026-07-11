@@ -54,6 +54,15 @@ public class MultiLayerIcon : APrefabPreview<MultiLayerIcon>
         }
     }
 
+    public void SetColor(Color color)
+    {
+        Init();
+        foreach ((Image image, _) in _layers)
+        {
+            image.color = color;
+        }
+    }
+
     private static void _init()
     {
         GameObject obj = ModClass.NewPrefabPreview(nameof(MultiLayerIcon), typeof(RectTransform));
