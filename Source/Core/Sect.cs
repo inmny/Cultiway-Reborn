@@ -121,12 +121,13 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
     /// </summary>
     public void AddSpecialItem(Entity item)
     {
+        InventoryLifecycle.NotifyBeforeItemAdded(this, item);
         item.GetIncomingLinks<InventoryRelation>().Entities.Do(owner =>
         {
-            owner.RemoveRelation<EquippedArtifactRelation>(item);
             owner.RemoveRelation<InventoryRelation>(item);
         });
         _treasureEntity.AddRelation(new InventoryRelation { item = item });
+        InventoryLifecycle.NotifyAfterItemAdded(this, item);
     }
 
     /// <summary>
@@ -134,7 +135,9 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
     /// </summary>
     public void ExtractSpecialItem(Entity item)
     {
+        InventoryLifecycle.NotifyBeforeItemExtracted(this, item);
         _treasureEntity.RemoveRelation<InventoryRelation>(item);
+        InventoryLifecycle.NotifyAfterItemExtracted(this, item);
     }
 
     /// <summary>

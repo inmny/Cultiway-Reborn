@@ -289,21 +289,19 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     }
     public void AddSpecialItem(Entity item)
     {
-        item.GetIncomingLinks<EquippedArtifactRelation>().Entities
-            .Do(owner => owner.RemoveRelation<EquippedArtifactRelation>(item));
+        InventoryLifecycle.NotifyBeforeItemAdded(this, item);
         item.GetIncomingLinks<InventoryRelation>().Entities
             .Do(owner => owner.RemoveRelation<InventoryRelation>(item));
         e.AddRelation(new InventoryRelation { item = item });
-        if (!item.IsNull)
-        {
-            SpecialItemIconVfx.QueueGain(Base, item);
-        }
+        InventoryLifecycle.NotifyAfterItemAdded(this, item);
+        SpecialItemIconVfx.QueueGain(Base, item);
     }
 
     public void ExtractSpecialItem(Entity item)
     {
-        e.RemoveRelation<EquippedArtifactRelation>(item);
+        InventoryLifecycle.NotifyBeforeItemExtracted(this, item);
         e.RemoveRelation<InventoryRelation>(item);
+        InventoryLifecycle.NotifyAfterItemExtracted(this, item);
     }
 
     public bool AddSharedStatus(Entity item)

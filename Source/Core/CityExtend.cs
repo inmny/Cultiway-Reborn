@@ -28,16 +28,18 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce, IDispo
 
     public void AddSpecialItem(Entity item_entity)
     {
-        item_entity.GetIncomingLinks<EquippedArtifactRelation>().Entities
-            .Do(owner => owner.RemoveRelation<EquippedArtifactRelation>(item_entity));
+        InventoryLifecycle.NotifyBeforeItemAdded(this, item_entity);
         item_entity.GetIncomingLinks<InventoryRelation>().Entities
             .Do(owner => owner.RemoveRelation<InventoryRelation>(item_entity));
         e.AddRelation(new InventoryRelation { item = item_entity });
+        InventoryLifecycle.NotifyAfterItemAdded(this, item_entity);
     }
 
     public void ExtractSpecialItem(Entity item_entity)
     {
+        InventoryLifecycle.NotifyBeforeItemExtracted(this, item_entity);
         e.RemoveRelation<InventoryRelation>(item_entity);
+        InventoryLifecycle.NotifyAfterItemExtracted(this, item_entity);
     }
 
     public IEnumerable<Entity> GetItems()
