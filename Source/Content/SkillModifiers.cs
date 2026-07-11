@@ -374,6 +374,9 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         }
 
         asset.Rarity = rarity;
+        var typeName = typeof(TModifier).Name;
+        var iconName = typeName[..^"Modifier".Length].Underscore();
+        asset.EditorIconPath = $"cultiway/icons/skill_modifiers/{iconName}";
         asset.OnAddOrUpgrade = builder => AddModifier<TModifier>(builder);
         asset.GetDescription = entity =>
         {

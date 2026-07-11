@@ -40,20 +40,33 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
         root.transform.localPosition = new Vector3(0f, -8f);
 
         var toolbar = WanfaUiFactory.CreateLayout(root.transform, "Toolbar", true, 520f, 24f, 4f);
-        WanfaUiFactory.CreateButton(toolbar.transform, "New", "Cultiway.Wanfa.UI.Action.New".Localize(), 44f, 22f,
+        var create = WanfaUiFactory.CreateIconButton(toolbar.transform, "New", WanfaUiIcons.NewSkill, 28f, 22f,
             () => WindowWanfaSkillEditor.Open(WanfaPavilionService.Instance.CreateDraft(), false));
+        WanfaUiFactory.SetTooltip(create.gameObject, "Cultiway.Wanfa.UI.Action.New",
+            "Cultiway.Wanfa.UI.Tooltip.New");
         _search = WanfaUiFactory.CreateInput(toolbar.transform, "Search", string.Empty,
-            "Cultiway.Wanfa.UI.Placeholder.Search".Localize(), 130f, 22f);
+            "Cultiway.Wanfa.UI.Placeholder.Search".Localize(), 132f, 22f);
+        AddSearchIcon(_search);
+        WanfaUiFactory.SetTooltip(_search, "Cultiway.Wanfa.UI.Placeholder.Search",
+            "Cultiway.Wanfa.UI.Tooltip.Search");
         _search.onValueChanged.AddListener(_ => Refresh());
-        _elementFilterButton = WanfaUiFactory.CreateButton(toolbar.transform, "ElementFilter",
-            "Cultiway.Wanfa.UI.Filter.AllVisual".Localize(), 62f, 22f, CycleElementFilter);
-        _entityFilterButton = WanfaUiFactory.CreateButton(toolbar.transform, "EntityFilter",
-            "Cultiway.Wanfa.UI.Filter.AllEntities".Localize(), 76f, 22f, CycleEntityFilter);
-        _favoriteOnly = WanfaUiFactory.CreateToggle(toolbar.transform, "FavoriteOnly",
-            "Cultiway.Wanfa.UI.Label.FavoriteOnly".Localize(), false, 62f, 22f);
+        _elementFilterButton = WanfaUiFactory.CreateIconTextButton(toolbar.transform, "ElementFilter",
+            WanfaUiIcons.Element, "Cultiway.Wanfa.UI.Filter.AllVisual".Localize(), 88f, 22f, CycleElementFilter);
+        WanfaUiFactory.SetTooltip(_elementFilterButton.gameObject, "Cultiway.Wanfa.UI.Tooltip.ElementFilter.Title",
+            "Cultiway.Wanfa.UI.Tooltip.ElementFilter");
+        _entityFilterButton = WanfaUiFactory.CreateIconTextButton(toolbar.transform, "EntityFilter",
+            WanfaUiIcons.Entity, "Cultiway.Wanfa.UI.Filter.AllEntities".Localize(), 98f, 22f, CycleEntityFilter);
+        WanfaUiFactory.SetTooltip(_entityFilterButton.gameObject, "Cultiway.Wanfa.UI.Tooltip.EntityFilter.Title",
+            "Cultiway.Wanfa.UI.Tooltip.EntityFilter");
+        _favoriteOnly = WanfaUiFactory.CreateIconToggle(toolbar.transform, "FavoriteOnly", WanfaUiIcons.Favorite,
+            false, 28f, 22f);
+        WanfaUiFactory.SetTooltip(_favoriteOnly, "Cultiway.Wanfa.UI.Label.FavoriteOnly",
+            "Cultiway.Wanfa.UI.Tooltip.FavoriteOnly");
         _favoriteOnly.onValueChanged.AddListener(_ => Refresh());
-        _sortButton = WanfaUiFactory.CreateButton(toolbar.transform, "Sort", SortNamePaths[0].Localize(),
-            54f, 22f, CycleSort);
+        _sortButton = WanfaUiFactory.CreateIconTextButton(toolbar.transform, "Sort", WanfaUiIcons.Sort,
+            SortNamePaths[0].Localize(), 70f, 22f, CycleSort);
+        WanfaUiFactory.SetTooltip(_sortButton.gameObject, "Cultiway.Wanfa.UI.Tooltip.Sort.Title",
+            "Cultiway.Wanfa.UI.Tooltip.Sort");
 
         var content = WanfaUiFactory.CreateScrollContent(root.transform, "BlueprintList", 520f, 208f);
         _rowPool = new MonoObjPool<WanfaBlueprintRow>(WanfaBlueprintRow.Prefab, content);
@@ -146,6 +159,22 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
     private static void HandleCopy(SkillBlueprint source)
     {
         WindowWanfaSkillEditor.Open(source.CreateCopy(), false);
+    }
+
+    private static void AddSearchIcon(InputField input)
+    {
+        var icon = new GameObject("SearchIcon", typeof(RectTransform), typeof(Image));
+        icon.transform.SetParent(input.transform, false);
+        var rect = icon.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(0f, 0.5f);
+        rect.sizeDelta = new Vector2(14f, 14f);
+        rect.anchoredPosition = new Vector2(10f, 0f);
+        var image = icon.GetComponent<Image>();
+        image.sprite = SpriteTextureLoader.getSprite(WanfaUiIcons.Search);
+        image.preserveAspect = true;
+        image.raycastTarget = false;
+        input.textComponent.rectTransform.offsetMin = new Vector2(20f, 1f);
+        input.placeholder.GetComponent<RectTransform>().offsetMin = new Vector2(20f, 1f);
     }
 
     private void CycleElementFilter()

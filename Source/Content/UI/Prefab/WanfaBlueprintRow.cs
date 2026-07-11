@@ -65,21 +65,25 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
         Sprite[] frames = null;
         if (entity != null) frames = entity.PrefabEntity.GetComponent<AnimData>().frames;
         _icon.sprite = frames is { Length: > 0 } ? frames[0] : null;
+        WanfaUiFactory.SetTooltip(_icon.gameObject, () => WanfaSkillTooltip.Show(_icon.gameObject, blueprint));
         SetFavoriteButton(blueprint.Favorite, favorite);
-        SetButton(_up, "↑", moveUp, allowMove);
-        SetButton(_down, "↓", moveDown, allowMove);
-        SetButton(_edit, "Cultiway.Wanfa.UI.Action.Edit".Localize(), edit);
-        SetButton(_copy, "Cultiway.Wanfa.UI.Action.Copy".Localize(), copy);
-        SetButton(_delete, "Cultiway.Wanfa.UI.Action.Delete".Localize(), delete);
-        SetButton(_grant, "Cultiway.Wanfa.UI.Action.Grant".Localize(), grant, validation.IsCompatible);
+        SetButton(_up, moveUp, "Cultiway.Wanfa.UI.Action.MoveUp", "Cultiway.Wanfa.UI.Tooltip.MoveUp", allowMove);
+        SetButton(_down, moveDown, "Cultiway.Wanfa.UI.Action.MoveDown", "Cultiway.Wanfa.UI.Tooltip.MoveDown",
+            allowMove);
+        SetButton(_edit, edit, "Cultiway.Wanfa.UI.Action.Edit", "Cultiway.Wanfa.UI.Tooltip.Edit");
+        SetButton(_copy, copy, "Cultiway.Wanfa.UI.Action.Copy", "Cultiway.Wanfa.UI.Tooltip.Copy");
+        SetButton(_delete, delete, "Cultiway.Wanfa.UI.Action.Delete", "Cultiway.Wanfa.UI.Tooltip.Delete");
+        SetButton(_grant, grant, "Cultiway.Wanfa.UI.Action.Grant", "Cultiway.Wanfa.UI.Tooltip.Grant",
+            validation.IsCompatible);
     }
 
-    private static void SetButton(Button button, string label, Action action, bool interactable = true)
+    private static void SetButton(Button button, Action action, string titleKey, string descriptionKey,
+        bool interactable = true)
     {
-        button.GetComponentInChildren<Text>().text = label;
         button.interactable = interactable;
         button.onClick.RemoveAllListeners();
         button.onClick.AddListener(action.Invoke);
+        WanfaUiFactory.SetTooltip(button.gameObject, titleKey, descriptionKey);
     }
 
     private void SetFavoriteButton(bool selected, Action action)
@@ -89,6 +93,9 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
             : ColorStyleLibrary.m.favorite_not_selected;
         _favorite.onClick.RemoveAllListeners();
         _favorite.onClick.AddListener(action.Invoke);
+        WanfaUiFactory.SetTooltip(_favorite.gameObject,
+            selected ? "Cultiway.Wanfa.UI.Action.Unfavorite" : "Cultiway.Wanfa.UI.Action.Favorite",
+            selected ? "Cultiway.Wanfa.UI.Tooltip.Unfavorite" : "Cultiway.Wanfa.UI.Tooltip.Favorite");
     }
 
     private static void _init()
@@ -103,26 +110,19 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
         WanfaUiFactory.SetLayout(iconObj.transform, 34f, 34f);
         iconObj.GetComponent<Image>().preserveAspect = true;
 
-        var labels = WanfaUiFactory.CreateLayout(obj.transform, "Labels", false, 190f, 34f, 0f);
-        WanfaUiFactory.CreateText(labels.transform, "Name", string.Empty, 190f, 17f, 8, TextAnchor.MiddleLeft,
+        var labels = WanfaUiFactory.CreateLayout(obj.transform, "Labels", false, 230f, 34f, 0f);
+        WanfaUiFactory.CreateText(labels.transform, "Name", string.Empty, 230f, 17f, 8, TextAnchor.MiddleLeft,
             FontStyle.Bold);
-        WanfaUiFactory.CreateText(labels.transform, "Detail", string.Empty, 190f, 17f, 6);
-        var favorite = WanfaUiFactory.CreateButton(obj.transform, "Favorite", string.Empty, 34f, 24f, () => { });
-        var favoriteIcon = new GameObject("Icon", typeof(RectTransform), typeof(Image));
-        favoriteIcon.transform.SetParent(favorite.transform, false);
-        WanfaUiFactory.Stretch(favoriteIcon.GetComponent<RectTransform>(), 8f, 8f, 3f, 3f);
-        favoriteIcon.GetComponent<Image>().sprite = SpriteTextureLoader.getSprite("ui/Icons/iconFavoriteStar");
-        favoriteIcon.GetComponent<Image>().raycastTarget = false;
-        WanfaUiFactory.CreateButton(obj.transform, "Up", "↑", 20f, 24f, () => { });
-        WanfaUiFactory.CreateButton(obj.transform, "Down", "↓", 20f, 24f, () => { });
-        WanfaUiFactory.CreateButton(obj.transform, "Edit", "Cultiway.Wanfa.UI.Action.Edit".Localize(), 42f,
-            24f, () => { });
-        WanfaUiFactory.CreateButton(obj.transform, "Copy", "Cultiway.Wanfa.UI.Action.Copy".Localize(), 42f,
-            24f, () => { });
-        WanfaUiFactory.CreateButton(obj.transform, "Delete", "Cultiway.Wanfa.UI.Action.Delete".Localize(), 42f,
-            24f, () => { });
-        WanfaUiFactory.CreateButton(obj.transform, "Grant", "Cultiway.Wanfa.UI.Action.Grant".Localize(), 42f,
-            24f, () => { });
+        WanfaUiFactory.CreateText(labels.transform, "Detail", string.Empty, 230f, 17f, 6);
+        WanfaUiFactory.CreateIconButton(obj.transform, "Favorite", WanfaUiIcons.Favorite, 28f, 24f, () => { });
+        WanfaUiFactory.CreateIconButton(obj.transform, "Up", WanfaUiIcons.MoveUp, 20f, 24f, () => { }, 3f, 1.45f,
+            90f);
+        WanfaUiFactory.CreateIconButton(obj.transform, "Down", WanfaUiIcons.MoveDown, 20f, 24f, () => { }, 3f,
+            1.45f, 90f);
+        WanfaUiFactory.CreateIconButton(obj.transform, "Edit", WanfaUiIcons.Edit, 28f, 24f, () => { }, 3f);
+        WanfaUiFactory.CreateIconButton(obj.transform, "Copy", WanfaUiIcons.Copy, 28f, 24f, () => { });
+        WanfaUiFactory.CreateIconButton(obj.transform, "Delete", WanfaUiIcons.Delete, 28f, 24f, () => { });
+        WanfaUiFactory.CreateIconButton(obj.transform, "Grant", WanfaUiIcons.Grant, 28f, 24f, () => { });
         Prefab = obj.AddComponent<WanfaBlueprintRow>();
     }
 }

@@ -20,8 +20,10 @@ public sealed class SkillPage : MonoBehaviour
     {
         var component = page.gameObject.AddComponent<SkillPage>();
         var root = WanfaUiFactory.CreateLayout(page.transform, "SkillPageRoot", false, 246f, 208f, 4f);
-        WanfaUiFactory.CreateButton(root.transform, "ImportAll",
-            "Cultiway.Wanfa.UI.Action.ImportAll".Localize(), 118f, 22f, component.ImportAll);
+        var importAll = WanfaUiFactory.CreateIconTextButton(root.transform, "ImportAll", WanfaUiIcons.Import,
+            "Cultiway.Wanfa.UI.Action.ImportAll".Localize(), 132f, 22f, component.ImportAll);
+        WanfaUiFactory.SetTooltip(importAll.gameObject, "Cultiway.Wanfa.UI.Action.ImportAll",
+            "Cultiway.Wanfa.UI.Tooltip.ImportAll");
         var content = WanfaUiFactory.CreateScrollContent(root.transform, "Skills", 246f, 180f);
         component._rowPool = new MonoObjPool<SkillImportRow>(SkillImportRow.Prefab, content);
     }

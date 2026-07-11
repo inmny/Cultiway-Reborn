@@ -47,12 +47,18 @@ public sealed class WindowWanfaGrantConflict : AbstractWindow<WindowWanfaGrantCo
         _message = WanfaUiFactory.CreateText(ContentTransform, "Message", string.Empty, 190f, 62f, 8,
             TextAnchor.MiddleCenter);
         var actions = WanfaUiFactory.CreateLayout(ContentTransform, "Actions", true, 190f, 28f, 5f);
-        WanfaUiFactory.CreateButton(actions.transform, "Keep", "Cultiway.Wanfa.UI.Action.KeepOld".Localize(),
-            58f, 24f, () => Resolve(false));
-        WanfaUiFactory.CreateButton(actions.transform, "Overwrite",
-            "Cultiway.Wanfa.UI.Action.OverwriteOld".Localize(), 58f, 24f, () => Resolve(true));
-        WanfaUiFactory.CreateButton(actions.transform, "Cancel", "Cultiway.Wanfa.UI.Action.Cancel".Localize(),
-            58f, 24f, () => Resolve(false));
+        var keep = WanfaUiFactory.CreateIconTextButton(actions.transform, "Keep", WanfaUiIcons.Cancel,
+            "Cultiway.Wanfa.UI.Action.KeepOld".Localize(), 58f, 24f, () => Resolve(false));
+        WanfaUiFactory.SetTooltip(keep.gameObject, "Cultiway.Wanfa.UI.Action.KeepOld",
+            "Cultiway.Wanfa.UI.Tooltip.KeepOld");
+        var overwrite = WanfaUiFactory.CreateIconTextButton(actions.transform, "Overwrite", WanfaUiIcons.Confirm,
+            "Cultiway.Wanfa.UI.Action.OverwriteOld".Localize(), 64f, 24f, () => Resolve(true));
+        WanfaUiFactory.SetTooltip(overwrite.gameObject, "Cultiway.Wanfa.UI.Action.OverwriteOld",
+            "Cultiway.Wanfa.UI.Tooltip.OverwriteOld");
+        var cancel = WanfaUiFactory.CreateIconButton(actions.transform, "Cancel", WanfaUiIcons.Cancel, 28f, 24f,
+            () => Resolve(false));
+        WanfaUiFactory.SetTooltip(cancel.gameObject, "Cultiway.Wanfa.UI.Action.Cancel",
+            "Cultiway.Wanfa.UI.Tooltip.CancelConflict");
     }
 
     public override void OnNormalEnable()

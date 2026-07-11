@@ -8,29 +8,38 @@ namespace Cultiway.Content.UI.Prefab;
 public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
 {
     public Transform Controls { get; private set; }
+    private WanfaModifierIcon _modifierIcon;
     private Text _title;
     private Text _detail;
     private Button _action;
 
     protected override void OnInit()
     {
+        _modifierIcon = transform.Find("Header/ModifierIcon").GetComponent<WanfaModifierIcon>();
         _title = transform.Find("Header/Title").GetComponent<Text>();
         _detail = transform.Find("Header/Detail").GetComponent<Text>();
         _action = transform.Find("Header/Action").GetComponent<Button>();
         Controls = transform.Find("Controls");
     }
 
-    public void Setup(string title, string detail, string actionLabel, bool interactable, Action action)
+    internal void Setup(string title, string detail, string actionLabel, bool interactable, Action action,
+        string actionIconPath = WanfaUiIcons.Select, WanfaModifierTooltipModel modifierIcon = null)
     {
         Init();
         ClearControls();
+        _modifierIcon.gameObject.SetActive(modifierIcon != null);
+        if (modifierIcon != null) _modifierIcon.Setup(modifierIcon);
         _title.text = title;
         _detail.text = detail;
-        _action.GetComponentInChildren<Text>().text = actionLabel;
         _action.gameObject.SetActive(action != null);
         _action.interactable = interactable;
         _action.onClick.RemoveAllListeners();
         if (action != null) _action.onClick.AddListener(action.Invoke);
+        if (action != null)
+        {
+            WanfaUiFactory.SetButtonIcon(_action, actionIconPath);
+            WanfaUiFactory.SetTooltip(_action.gameObject, actionLabel, detail);
+        }
         SetHeight(32f);
     }
 
@@ -56,11 +65,12 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
         background.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
         background.type = Image.Type.Sliced;
         var header = WanfaUiFactory.CreateLayout(obj.transform, "Header", true, 500f, 28f, 4f);
-        WanfaUiFactory.CreateText(header.transform, "Title", string.Empty, 130f, 28f, 8, TextAnchor.MiddleLeft,
+        var modifierIcon = WanfaModifierIcon.Create(header.transform, "ModifierIcon", 24f);
+        modifierIcon.gameObject.SetActive(false);
+        WanfaUiFactory.CreateText(header.transform, "Title", string.Empty, 112f, 28f, 8, TextAnchor.MiddleLeft,
             FontStyle.Bold);
-        WanfaUiFactory.CreateText(header.transform, "Detail", string.Empty, 278f, 28f, 6);
-        WanfaUiFactory.CreateButton(header.transform, "Action", "Cultiway.Wanfa.UI.Action.Select".Localize(),
-            80f, 22f, () => { });
+        WanfaUiFactory.CreateText(header.transform, "Detail", string.Empty, 324f, 28f, 6);
+        WanfaUiFactory.CreateIconButton(header.transform, "Action", WanfaUiIcons.Select, 28f, 22f, () => { });
         WanfaUiFactory.CreateLayout(obj.transform, "Controls", false, 500f, 0f, 2f);
         Prefab = obj.AddComponent<WanfaEditorRow>();
     }

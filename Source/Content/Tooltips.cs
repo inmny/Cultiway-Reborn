@@ -12,6 +12,9 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
 {
     [CloneSource(S_Tooltip.book)]
     public static TooltipAsset Cultibook { get; private set; }
+
+    [CloneSource("tip")]
+    public static TooltipAsset WanfaSkill { get; private set; }
     
     protected override bool AutoRegisterAssets() => true;
     
@@ -21,6 +24,10 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
         Cultibook.prefab_id = "tooltips/tooltip_cultiway_cultibook";
         Cultibook.callback = ShowCultibookTooltip;
         CultibookTooltip.PatchTo<Tooltip>(Cultibook.prefab_id);
+
+        WanfaSkill.prefab_id = "tooltips/tooltip_cultiway_wanfa_skill";
+        WanfaSkill.callback = ShowWanfaSkillTooltip;
+        WanfaSkillTooltip.PatchTo<Tooltip>(WanfaSkill.prefab_id);
 
         WorldboxGame.Tooltips.Actor.callback += ShowActorCultiwayInfo;
         WorldboxGame.Tooltips.ActorKing.callback += ShowActorCultiwayInfo;
@@ -75,5 +82,10 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
         
         var cultibookTooltip = tooltip.GetComponent<CultibookTooltip>();
         cultibookTooltip?.Setup(book);
+    }
+
+    private static void ShowWanfaSkillTooltip(Tooltip tooltip, string type, TooltipData data)
+    {
+        tooltip.GetComponent<WanfaSkillTooltip>().SetupPending();
     }
 }

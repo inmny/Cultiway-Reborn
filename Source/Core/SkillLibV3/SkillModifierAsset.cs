@@ -92,6 +92,7 @@ public class SkillModifierAsset : Asset
 
     public Type EditorComponentType;
     public string EditorCategoryKey;
+    public string EditorIconPath;
     public int EditorSortOrder;
     public bool EditorSelectable;
     public bool EditorDerived;

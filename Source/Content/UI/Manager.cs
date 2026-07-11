@@ -135,12 +135,12 @@ public class Manager : ICanInit
             PowerButtonCreator.CreateWindowButton(
                 $"{WindowWanfaPavilion.Id} Title",
                 WindowWanfaPavilion.Id,
-                SpriteTextureLoader.getSprite("cultiway/icons/iconCultivation")
+                SpriteTextureLoader.getSprite("cultiway/icons/iconMagic")
             )
         );
         WanfaGrantButton = PowerButtonCreator.CreateGodPowerButton(
             GodPowers.WanfaGrant.id,
-            SpriteTextureLoader.getSprite("cultiway/icons/iconCultivation")
+            SpriteTextureLoader.getSprite("cultiway/icons/iconMagic")
         );
         Cultiway.UI.Manager.AddButton(TabButtonType.WORLD, WanfaGrantButton);
     }

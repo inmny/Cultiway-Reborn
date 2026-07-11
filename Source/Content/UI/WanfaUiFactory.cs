@@ -1,3 +1,4 @@
+using System;
 using Cultiway.Utils;
 using UnityEngine;
 using UnityEngine.Events;
@@ -8,7 +9,7 @@ namespace Cultiway.Content.UI;
 internal static class WanfaUiFactory
 {
     public static GameObject CreateLayout(Transform parent, string name, bool horizontal, float width, float height,
-        float spacing = 3f)
+        float spacing = 3f, TextAnchor? alignment = null)
     {
         var type = horizontal ? typeof(HorizontalLayoutGroup) : typeof(VerticalLayoutGroup);
         var obj = new GameObject(name, typeof(RectTransform), type, typeof(LayoutElement));
@@ -18,7 +19,7 @@ internal static class WanfaUiFactory
         {
             var layout = obj.GetComponent<HorizontalLayoutGroup>();
             layout.spacing = spacing;
-            layout.childAlignment = TextAnchor.MiddleLeft;
+            layout.childAlignment = alignment ?? TextAnchor.MiddleLeft;
             layout.childControlWidth = false;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = false;
@@ -28,7 +29,7 @@ internal static class WanfaUiFactory
         {
             var layout = obj.GetComponent<VerticalLayoutGroup>();
             layout.spacing = spacing;
-            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.childAlignment = alignment ?? TextAnchor.UpperLeft;
             layout.childControlWidth = true;
             layout.childControlHeight = false;
             layout.childForceExpandWidth = true;
@@ -69,6 +70,175 @@ internal static class WanfaUiFactory
         var text = CreateText(obj.transform, "Text", label, width, height, 7, TextAnchor.MiddleCenter, FontStyle.Bold);
         Stretch(text.rectTransform);
         return button;
+    }
+
+    public static Button CreateIconButton(Transform parent, string name, string iconPath, float width, float height,
+        UnityAction action, float iconInset = 4f, float iconScale = 1f, float iconRotation = 0f)
+    {
+        var obj = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(LayoutElement));
+        obj.transform.SetParent(parent, false);
+        SetLayout(obj.transform, width, height);
+        var image = obj.GetComponent<Image>();
+        image.sprite = SpriteTextureLoader.getSprite("ui/special/button");
+        image.type = Image.Type.Sliced;
+        var button = obj.GetComponent<Button>();
+        button.onClick.AddListener(action);
+
+        var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+        icon.transform.SetParent(obj.transform, false);
+        Stretch(icon.GetComponent<RectTransform>(), iconInset, iconInset, iconInset, iconInset);
+        var iconImage = icon.GetComponent<Image>();
+        iconImage.sprite = SpriteTextureLoader.getSprite(iconPath);
+        iconImage.preserveAspect = true;
+        iconImage.raycastTarget = false;
+        icon.transform.localScale = Vector3.one * iconScale;
+        icon.transform.localRotation = Quaternion.Euler(0f, 0f, iconRotation);
+        return button;
+    }
+
+    public static Button CreateIconTextButton(Transform parent, string name, string iconPath, string label,
+        float width, float height, UnityAction action)
+    {
+        var button = CreateButton(parent, name, label, width, height, action);
+        var text = button.GetComponentInChildren<Text>();
+        var textRect = text.rectTransform;
+        textRect.offsetMin = new Vector2(18f, 0f);
+
+        var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+        icon.transform.SetParent(button.transform, false);
+        var iconRect = icon.GetComponent<RectTransform>();
+        iconRect.anchorMin = iconRect.anchorMax = new Vector2(0f, 0.5f);
+        iconRect.sizeDelta = new Vector2(14f, 14f);
+        iconRect.anchoredPosition = new Vector2(10f, 0f);
+        var iconImage = icon.GetComponent<Image>();
+        iconImage.sprite = SpriteTextureLoader.getSprite(iconPath);
+        iconImage.preserveAspect = true;
+        iconImage.raycastTarget = false;
+        return button;
+    }
+
+    public static Toggle CreateIconToggle(Transform parent, string name, string iconPath, bool value, float width,
+        float height)
+    {
+        var obj = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Toggle), typeof(LayoutElement));
+        obj.transform.SetParent(parent, false);
+        SetLayout(obj.transform, width, height);
+        var background = obj.GetComponent<Image>();
+        background.sprite = SpriteTextureLoader.getSprite("ui/special/button");
+        background.type = Image.Type.Sliced;
+
+        var baseIcon = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+        baseIcon.transform.SetParent(obj.transform, false);
+        Stretch(baseIcon.GetComponent<RectTransform>(), 5f, 5f, 4f, 4f);
+        var baseImage = baseIcon.GetComponent<Image>();
+        baseImage.sprite = SpriteTextureLoader.getSprite(iconPath);
+        baseImage.color = ColorStyleLibrary.m.favorite_not_selected;
+        baseImage.preserveAspect = true;
+        baseImage.raycastTarget = false;
+
+        var selectedIcon = new GameObject("Selected", typeof(RectTransform), typeof(Image));
+        selectedIcon.transform.SetParent(obj.transform, false);
+        Stretch(selectedIcon.GetComponent<RectTransform>(), 5f, 5f, 4f, 4f);
+        var selectedImage = selectedIcon.GetComponent<Image>();
+        selectedImage.sprite = SpriteTextureLoader.getSprite(iconPath);
+        selectedImage.color = ColorStyleLibrary.m.favorite_selected;
+        selectedImage.preserveAspect = true;
+        selectedImage.raycastTarget = false;
+
+        var toggle = obj.GetComponent<Toggle>();
+        toggle.targetGraphic = background;
+        toggle.graphic = selectedImage;
+        toggle.isOn = value;
+        return toggle;
+    }
+
+    public static void SetButtonIcon(Button button, string iconPath, bool flipHorizontal = false)
+    {
+        var icon = button.transform.Find("Icon").GetComponent<Image>();
+        icon.sprite = SpriteTextureLoader.getSprite(iconPath);
+        var scale = icon.rectTransform.localScale;
+        scale.x = flipHorizontal ? -Mathf.Abs(scale.x) : Mathf.Abs(scale.x);
+        icon.rectTransform.localScale = scale;
+    }
+
+    public static void SetTooltip(GameObject target, string title, string description, string detail = null)
+    {
+        var tipButton = PrepareTipButton(target);
+        tipButton.type = WorldboxGame.Tooltips.RawTip.id;
+        tipButton.textOnClick = title;
+        tipButton.textOnClickDescription = description;
+        tipButton.text_description_2 = detail;
+        tipButton.clickAction = null;
+        tipButton.setHoverAction(tipButton.showTooltipDefault);
+    }
+
+    public static void SetTooltip(InputField input, string title, string description, string detail = null)
+    {
+        var icon = input.transform.Find("SearchIcon");
+        var target = icon == null ? CreateInputTooltipIcon(input) : icon.gameObject;
+        SetTooltip(target, title, description, detail);
+    }
+
+    public static void SetTooltip(Toggle toggle, string title, string description, string detail = null)
+    {
+        var icon = toggle.transform.Find("Icon");
+        if (icon == null) icon = toggle.transform.Find("Box");
+        if (icon == null)
+        {
+            throw new InvalidOperationException($"Toggle {toggle.name} 缺少可承载 TipButton 的图标");
+        }
+
+        var target = icon.gameObject;
+        SetTooltip(target, title, description, detail);
+        var button = target.GetComponent<Button>();
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(() => toggle.isOn = !toggle.isOn);
+    }
+
+    public static void SetTooltip(GameObject target, TooltipAction action)
+    {
+        var tipButton = PrepareTipButton(target);
+        tipButton.clickAction = null;
+        tipButton.setHoverAction(action);
+    }
+
+    private static TipButton PrepareTipButton(GameObject target)
+    {
+        if (!target.TryGetComponent<Button>(out _) && !target.TryGetComponent<Slider>(out _))
+        {
+            if (target.GetComponent<Selectable>() != null)
+            {
+                throw new InvalidOperationException($"TipButton 目标 {target.name} 不能直接使用 Selectable 控件");
+            }
+            var hoverButton = target.AddComponent<Button>();
+            hoverButton.transition = Selectable.Transition.None;
+            hoverButton.targetGraphic = null;
+            hoverButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            var graphic = target.GetComponent<Graphic>();
+            if (graphic != null) graphic.raycastTarget = true;
+        }
+
+        var tipButton = target.GetComponent<TipButton>() ?? target.AddComponent<TipButton>();
+        return tipButton;
+    }
+
+    private static GameObject CreateInputTooltipIcon(InputField input)
+    {
+        var icon = new GameObject("TooltipIcon", typeof(RectTransform), typeof(Image));
+        icon.transform.SetParent(input.transform, false);
+        var rect = icon.GetComponent<RectTransform>();
+        rect.anchorMin = rect.anchorMax = new Vector2(1f, 0.5f);
+        rect.sizeDelta = new Vector2(12f, 12f);
+        rect.anchoredPosition = new Vector2(-8f, 0f);
+        var image = icon.GetComponent<Image>();
+        image.sprite = SpriteTextureLoader.getSprite(WanfaUiIcons.Overview);
+        image.preserveAspect = true;
+
+        var textRect = input.textComponent.rectTransform;
+        textRect.offsetMax = new Vector2(-18f, textRect.offsetMax.y);
+        var placeholderRect = input.placeholder.GetComponent<RectTransform>();
+        placeholderRect.offsetMax = new Vector2(-18f, placeholderRect.offsetMax.y);
+        return icon;
     }
 
     public static InputField CreateInput(Transform parent, string name, string value, string placeholder,

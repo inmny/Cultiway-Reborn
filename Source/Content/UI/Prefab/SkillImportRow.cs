@@ -46,18 +46,21 @@ public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
             modifierCount);
         var frames = skill.Asset.PrefabEntity.GetComponent<AnimData>().frames;
         _icon.sprite = frames.Length == 0 ? null : frames[0];
+        WanfaUiFactory.SetTooltip(_icon.gameObject, () => WanfaSkillTooltip.Show(_icon.gameObject, container));
 
         var signature = SkillContainerSignature.Build(container);
         var imported = WanfaPavilionService.Instance.ContainsSignature(signature);
-        _import.GetComponentInChildren<Text>().text = imported
-            ? "Cultiway.Wanfa.UI.Action.Imported".Localize()
-            : "Cultiway.Wanfa.UI.Action.Import".Localize();
         _import.interactable = !imported;
         _import.onClick.RemoveAllListeners();
         _import.onClick.AddListener(import.Invoke);
+        WanfaUiFactory.SetTooltip(_import.gameObject,
+            imported ? "Cultiway.Wanfa.UI.Action.Imported" : "Cultiway.Wanfa.UI.Action.Import",
+            imported ? "Cultiway.Wanfa.UI.Tooltip.Imported" : "Cultiway.Wanfa.UI.Tooltip.Import");
         _edit.interactable = imported;
         _edit.onClick.RemoveAllListeners();
         _edit.onClick.AddListener(edit.Invoke);
+        WanfaUiFactory.SetTooltip(_edit.gameObject, "Cultiway.Wanfa.UI.Action.Edit",
+            imported ? "Cultiway.Wanfa.UI.Tooltip.EditActorSkill" : "Cultiway.Wanfa.UI.Tooltip.EditRequiresImport");
     }
 
     private static void _init()
@@ -70,14 +73,12 @@ public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
         icon.transform.SetParent(obj.transform, false);
         WanfaUiFactory.SetLayout(icon.transform, 34f, 34f);
         icon.GetComponent<Image>().preserveAspect = true;
-        var labels = WanfaUiFactory.CreateLayout(obj.transform, "Labels", false, 116f, 34f, 0f);
-        WanfaUiFactory.CreateText(labels.transform, "Name", string.Empty, 116f, 18f, 7, TextAnchor.MiddleLeft,
+        var labels = WanfaUiFactory.CreateLayout(obj.transform, "Labels", false, 132f, 34f, 0f);
+        WanfaUiFactory.CreateText(labels.transform, "Name", string.Empty, 132f, 18f, 7, TextAnchor.MiddleLeft,
             FontStyle.Bold);
-        WanfaUiFactory.CreateText(labels.transform, "Detail", string.Empty, 116f, 16f, 6);
-        WanfaUiFactory.CreateButton(obj.transform, "Import", "Cultiway.Wanfa.UI.Action.Import".Localize(), 48f,
-            24f, () => { });
-        WanfaUiFactory.CreateButton(obj.transform, "Edit", "Cultiway.Wanfa.UI.Action.Edit".Localize(), 36f,
-            24f, () => { });
+        WanfaUiFactory.CreateText(labels.transform, "Detail", string.Empty, 132f, 16f, 6);
+        WanfaUiFactory.CreateIconButton(obj.transform, "Import", WanfaUiIcons.Import, 28f, 24f, () => { });
+        WanfaUiFactory.CreateIconButton(obj.transform, "Edit", WanfaUiIcons.Edit, 28f, 24f, () => { });
         Prefab = obj.AddComponent<SkillImportRow>();
     }
 }
