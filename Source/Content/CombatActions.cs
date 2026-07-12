@@ -14,6 +14,7 @@ namespace Cultiway.Content;
 public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
 {
     public static CombatActionAsset UseTalisman { get; private set; }
+    public static CombatActionAsset UseMagicScroll { get; private set; }
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
@@ -68,6 +69,35 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
             UseTalisman,
             CanPrepareTalisman,
             ResolveTalismanWeight));
+
+        UseMagicScroll.rate = 10;
+        UseMagicScroll.action = [Hotfixable] (data) =>
+        {
+            var caster = data.initiator.a.GetExtend();
+            using var scrollPool = new ListPool<Entity>();
+            foreach (var item in caster.GetItems())
+            {
+                if (item.IsNull || !item.HasComponent<MagicScroll>()) continue;
+                var scroll = item.GetComponent<MagicScroll>();
+                if (caster.CanUseSkillContainerAtCurrentDistance(scroll.SkillContainer, data.target,
+                        SkillCastFundingSource.Prepaid))
+                    scrollPool.Add(item);
+            }
+
+            if (!scrollPool.Any()) return false;
+            var scrollEntity = scrollPool.GetRandom();
+            var scrollComponent = scrollEntity.GetComponent<MagicScroll>();
+            if (!caster.CastSkillV3(scrollComponent.SkillContainer, data.target, scrollComponent.Strength,
+                    scrollComponent.PowerLevel, SkillCastFundingSource.Prepaid)) return false;
+
+            scrollEntity.DeleteEntity();
+            return true;
+        };
+
+        ActorExtend.RegisterExternalMagicAction(new ExternalMagicActionProvider(
+            UseMagicScroll,
+            CanPrepareMagicScroll,
+            ResolveMagicScrollWeight));
     }
 
     private static bool CanPrepareTalisman(ActorExtend caster, BaseSimObject target)
@@ -89,6 +119,38 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
         {
             if (!item.HasComponent<Talisman>()) continue;
             var skill = item.GetComponent<Talisman>().SkillContainer;
+            if (caster.CanUseSkillContainerAtCurrentDistance(skill, target, SkillCastFundingSource.Prepaid)) return 1;
+        }
+        return 0;
+    }
+
+    private static bool CanPrepareMagicScroll(ActorExtend caster, BaseSimObject target)
+    {
+        if (!caster.HasCultisys<Magic>()) return false;
+        foreach (var item in caster.GetItems())
+        {
+            if (item.IsNull || !item.HasComponent<MagicScroll>()) continue;
+            var skill = item.GetComponent<MagicScroll>().SkillContainer;
+            if (caster.CanPrepareSkillContainer(skill, target, SkillCastFundingSource.Prepaid)) return true;
+        }
+        return false;
+    }
+
+    private static int ResolveMagicScrollWeight(ActorExtend caster, BaseSimObject target)
+    {
+        if (!caster.HasCultisys<Magic>()) return 0;
+
+        // 卷轴作为个人法术因法杖或 mana 不可用时的后备手段，避免 AI 无谓消耗一次性物品。
+        foreach (var skill in caster.all_attack_skills)
+        {
+            if (caster.CanUseSkillContainerAtCurrentDistance(skill, target,
+                    SkillCastFundingSource.CasterResources)) return 0;
+        }
+
+        foreach (var item in caster.GetItems())
+        {
+            if (item.IsNull || !item.HasComponent<MagicScroll>()) continue;
+            var skill = item.GetComponent<MagicScroll>().SkillContainer;
             if (caster.CanUseSkillContainerAtCurrentDistance(skill, target, SkillCastFundingSource.Prepaid)) return 1;
         }
         return 0;

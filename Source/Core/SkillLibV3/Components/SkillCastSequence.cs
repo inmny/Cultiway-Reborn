@@ -1,3 +1,4 @@
+using Cultiway.Core.SkillLibV3;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Core.SkillLibV3.Components;
@@ -8,6 +9,7 @@ public struct SkillCastSequence : IComponent
     public Entity SkillContainer;
     public SkillCastStep[] Steps;
     public Kingdom AttackKingdom;
+    public SkillCastFundingSource FundingSource;
     public int NextIndex;
     public int EmittedCount;
     public float Elapsed;

@@ -11,6 +11,7 @@ public class SpecialItemCategories : ExtendLibrary<SpecialItemCategoryAsset, Spe
 {
     public static SpecialItemCategoryAsset Elixir { get; private set; }
     public static SpecialItemCategoryAsset Talisman { get; private set; }
+    public static SpecialItemCategoryAsset MagicScroll { get; private set; }
     public static SpecialItemCategoryAsset Ingredient { get; private set; }
     public static SpecialItemCategoryAsset Artifact { get; private set; }
 
@@ -37,6 +38,15 @@ public class SpecialItemCategories : ExtendLibrary<SpecialItemCategoryAsset, Spe
             0f,
             SpecialItemWithdrawalMode.Transfer,
             item => item.HasComponent<Talisman>());
+        Setup(
+            MagicScroll,
+            25,
+            "cultiway/icons/item_shapes/magic_scroll/arcane",
+            3,
+            1,
+            0f,
+            SpecialItemWithdrawalMode.Transfer,
+            item => item.HasComponent<MagicScroll>());
         Setup(
             Ingredient,
             40,

@@ -310,6 +310,9 @@ Cultiway.SpecialItem.Category.Elixir_description,查看宗门收藏的丹药
 Cultiway.SpecialItem.Category.Talisman,符箓
 Cultiway.SpecialItem.Category.Talisman.Info,封存术法的一次性符箓
 Cultiway.SpecialItem.Category.Talisman_description,查看宗门收藏的符箓
+Cultiway.SpecialItem.Category.MagicScroll,魔法卷轴
+Cultiway.SpecialItem.Category.MagicScroll.Info,封存法术的一次性魔法卷轴
+Cultiway.SpecialItem.Category.MagicScroll_description,查看宗门收藏的魔法卷轴
 Cultiway.SpecialItem.Category.Artifact,法宝
 Cultiway.SpecialItem.Category.Artifact.Info,由宗门保留所有权并借给成员使用的法宝
 Cultiway.SpecialItem.Category.Artifact_description,查看宗门收藏和外借的法宝

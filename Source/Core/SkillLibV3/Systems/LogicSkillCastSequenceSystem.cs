@@ -61,7 +61,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 if (sequence.EmittedCount > 0)
                 {
                     EventSystemHub.TryPublish(new SkillCastCompletedEvent(sequence.Caster,
-                        sequence.SkillContainer, sequence.EmittedCount));
+                        sequence.SkillContainer, sequence.EmittedCount, sequence.FundingSource));
                 }
                 CommandBuffer.AddTag<TagRecycle>(entity.Id);
             }

@@ -37,10 +37,14 @@ public static class MagicSpellProgressionRules
     }
 
     /// <summary>
-    /// 记录一次已完成的施法序列；齐射、连射和散射产生的多发弹体仍只计作一次使用。
+    /// 记录一次由施法者自身支付资源并完成的施法序列；齐射、连射和散射产生的多发弹体仍只计作一次使用。
+    /// 卷轴、符箓等预付载体不代表施法者掌握或练习了该法术，因此不进入个人使用积累。
     /// </summary>
-    public static void RecordCompletedCast(ActorExtend actor, Entity castContainer, int emittedCount)
+    public static void RecordCompletedCast(ActorExtend actor, Entity castContainer, int emittedCount,
+        SkillCastFundingSource fundingSource)
     {
+        if (fundingSource == SkillCastFundingSource.Prepaid) return;
+
         // 只处理活着的魔法师实际完成的施法序列；空序列和非 mana 技能不产生使用积累。
         if (actor == null || actor.Base.isRekt() || emittedCount <= 0 || !actor.HasCultisys<Magic>()) return;
         if (!MagicLearningRules.IsManaSkill(castContainer)) return;

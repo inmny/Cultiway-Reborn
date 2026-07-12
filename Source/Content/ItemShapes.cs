@@ -15,6 +15,7 @@ public partial class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
     public static ItemShapeAsset ElementRoot { get; private set; }
     public static ItemShapeAsset Ball { get; private set; }
     public static ItemShapeAsset Talisman { get; private set; }
+    public static ItemShapeAsset MagicScroll { get; private set; }
     public static ItemShapeAsset Bamboo { get; private set; }
     public static ItemShapeAsset Blood { get; private set; }
     public static ItemShapeAsset Bone { get; private set; }
@@ -73,6 +74,7 @@ public partial class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
     {
         SetFolder(Ball, "ball");
         SetFolder(Talisman, "talisman");
+        SetFolder(MagicScroll, "magic_scroll");
         SetFolder(Bamboo, "bamboo");
         SetFolder(Blood, "blood");
         SetFolder(Bone, "bone");

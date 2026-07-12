@@ -12,6 +12,7 @@ public sealed class MagicSpellCastCompletedEventSystem : GenericEventSystem<Skil
 
     protected override void HandleEvent(SkillCastCompletedEvent evt)
     {
-        MagicSpellProgressionRules.RecordCompletedCast(evt.Caster, evt.SkillContainer, evt.EmittedCount);
+        MagicSpellProgressionRules.RecordCompletedCast(evt.Caster, evt.SkillContainer, evt.EmittedCount,
+            evt.FundingSource);
     }
 }

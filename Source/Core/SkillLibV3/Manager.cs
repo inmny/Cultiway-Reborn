@@ -107,15 +107,20 @@ public class Manager
         if (caster == null || plan == null || plan.Steps.Count == 0) return false;
         if (!SkillCastCost.TryPay(caster, skill_container, plan, funding_source)) return false;
 
-        World.CreateEntity(new SkillCastSequence()
+        var sequence_entity = World.CreateEntity(new SkillCastSequence()
         {
             Caster = caster,
             SkillContainer = skill_container,
             Steps = plan.Steps.ToArray(),
             AttackKingdom = attack_kingdom,
+            FundingSource = funding_source,
             Strength = strength,
             PowerLevel = power_level ?? caster.GetPowerLevel(),
             MaxEmitPerTick = 8
+        });
+        sequence_entity.AddRelation(new SkillMasterRelation
+        {
+            SkillContainer = skill_container
         });
         return true;
     }
