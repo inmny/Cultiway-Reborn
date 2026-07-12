@@ -71,6 +71,7 @@ internal class Manager
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookImprovedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new ElixirEffectGeneratedEventSystem());
+        ModClass.I.LogicEventProcessSystemGroup.Add(new MagicSpellCastCompletedEventSystem());
         
         CultivateMethodTriggers.Init();
         Train.Init();

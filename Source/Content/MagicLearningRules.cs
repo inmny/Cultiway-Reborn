@@ -207,7 +207,7 @@ public static class MagicLearningRules
         state.SessionRemaining = 0f;
     }
 
-    private static void EnsureKnowledgeRelations(ActorExtend actor)
+    internal static void EnsureKnowledgeRelations(ActorExtend actor)
     {
         if (actor == null) return;
 
@@ -222,18 +222,28 @@ public static class MagicLearningRules
 
         foreach (var skill in actor.GetLearnedSkillsInOrder())
         {
-            if (skill.IsNull || HasKnowledge(actor, skill)) continue;
-            var profile = MagicSpellProfile.Evaluate(skill);
-            if (profile == null || !IsManaSkill(skill)) continue;
-            actor.E.AddRelation(new MagicSpellKnowledgeRelation
-            {
-                SkillContainer = skill,
-                LearnedWorldTime = GetWorldTime(),
-                Source = MagicWebManager.Instance?.Contains(skill) == true
-                    ? MagicSpellKnowledgeSource.MagicWeb
-                    : MagicSpellKnowledgeSource.SelfCreated
-            });
+            EnsureKnowledge(actor, skill);
         }
+    }
+
+    /// <summary>
+    /// 确保施法者持有的 mana 技能具有对应的魔法知识关系。
+    /// </summary>
+    internal static bool EnsureKnowledge(ActorExtend actor, Entity skill)
+    {
+        if (actor == null || skill.IsNull || !actor.OwnsLearnedSkill(skill) || !IsManaSkill(skill)) return false;
+        if (HasKnowledge(actor, skill)) return true;
+        if (MagicSpellProfile.Evaluate(skill) == null) return false;
+
+        actor.E.AddRelation(new MagicSpellKnowledgeRelation
+        {
+            SkillContainer = skill,
+            LearnedWorldTime = GetWorldTime(),
+            Source = MagicWebManager.Instance?.Contains(skill) == true
+                ? MagicSpellKnowledgeSource.MagicWeb
+                : MagicSpellKnowledgeSource.SelfCreated
+        });
+        return true;
     }
 
     private static List<KnownSpellEntry> GetKnownSpellEntries(ActorExtend actor)
@@ -305,7 +315,7 @@ public static class MagicLearningRules
         return false;
     }
 
-    private static bool IsManaSkill(Entity skill)
+    internal static bool IsManaSkill(Entity skill)
     {
         if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
         var requirement = skill.GetComponent<SkillContainer>().CastResourceRequirement;

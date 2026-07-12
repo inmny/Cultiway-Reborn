@@ -49,7 +49,8 @@ public sealed class MagicSpellProfile
     {
         var result = new SkillBlueprintExporter().Export(container);
         if (!result.Success) return string.Empty;
-        result.Blueprint.AnimationIndex = 0;
+        result.Blueprint.TrajectoryAssetId = SkillBlueprintTrajectory.ResolveDefaultId(
+            container.GetComponent<SkillContainer>().Asset);
         return SkillBlueprintSignature.Build(result.Blueprint);
     }
 
