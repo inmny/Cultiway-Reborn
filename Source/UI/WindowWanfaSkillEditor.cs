@@ -31,6 +31,15 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         Back
     }
 
+    private enum EditorPage
+    {
+        Entity,
+        Trajectory,
+        Modifier,
+        Misc,
+        Overview
+    }
+
     public const string Id = "Cultiway.UI.WindowWanfaSkillEditor";
     private static SkillBlueprint _pendingDraft;
     private static bool _pendingExisting;
@@ -52,7 +61,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     private ExitMode _pendingExitMode;
     private Actor _sourceActor;
     private Entity _sourceSkill;
-    private int _page;
+    private EditorPage _page;
     private InputField _nameInput;
     private Button _nameModeButton;
     private Toggle _aiNaming;
@@ -175,22 +184,25 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             "Cultiway.Wanfa.UI.Tab.Entity".Localize(),
             "Cultiway.Wanfa.UI.Tab.Trajectory".Localize(),
             "Cultiway.Wanfa.UI.Tab.Modifier".Localize(),
+            "Cultiway.Wanfa.UI.Tab.Misc".Localize(),
             "Cultiway.Wanfa.UI.Tab.Overview".Localize()
         };
         var icons = new[]
         {
-            WanfaUiIcons.Entity, WanfaUiIcons.Trajectory, WanfaUiIcons.Modifier, WanfaUiIcons.Overview
+            WanfaUiIcons.Entity, WanfaUiIcons.Trajectory, WanfaUiIcons.Modifier, WanfaUiIcons.Misc,
+            WanfaUiIcons.Overview
         };
         var tooltipKeys = new[]
         {
             "Cultiway.Wanfa.UI.Tooltip.Tab.Entity", "Cultiway.Wanfa.UI.Tooltip.Tab.Trajectory",
-            "Cultiway.Wanfa.UI.Tooltip.Tab.Modifier", "Cultiway.Wanfa.UI.Tooltip.Tab.Overview"
+            "Cultiway.Wanfa.UI.Tooltip.Tab.Modifier", "Cultiway.Wanfa.UI.Tooltip.Tab.Misc",
+            "Cultiway.Wanfa.UI.Tooltip.Tab.Overview"
         };
         _tabButtons = new Button[names.Length];
         for (var i = 0; i < names.Length; i++)
         {
-            var page = i;
-            _tabButtons[i] = WanfaUiFactory.CreateIconTextButton(tabs.transform, names[i], icons[i], names[i], 126f,
+            var page = (EditorPage)i;
+            _tabButtons[i] = WanfaUiFactory.CreateIconTextButton(tabs.transform, names[i], icons[i], names[i], 100f,
                 21f, () => SelectPage(page));
             WanfaUiFactory.SetTooltip(_tabButtons[i].gameObject, names[i], tooltipKeys[i]);
         }
@@ -254,7 +266,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         _pendingExitMode = ExitMode.Close;
         _undo.Clear();
         _redo.Clear();
-        _page = 0;
+        _page = EditorPage.Entity;
         _testCastButton.gameObject.SetActive(!_actorEdit);
         SetConfirmation(false);
         RefreshAll();
@@ -365,19 +377,25 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     private void RefreshPage()
     {
         _rowPool.Clear();
-        for (var i = 0; i < _tabButtons.Length; i++) _tabButtons[i].interactable = i != _page;
+        for (var i = 0; i < _tabButtons.Length; i++)
+        {
+            _tabButtons[i].interactable = i != (int)_page;
+        }
         switch (_page)
         {
-            case 0:
+            case EditorPage.Entity:
                 BuildEntityPage();
                 break;
-            case 1:
+            case EditorPage.Trajectory:
                 BuildTrajectoryPage();
                 break;
-            case 2:
+            case EditorPage.Modifier:
                 BuildModifierPage();
                 break;
-            default:
+            case EditorPage.Misc:
+                BuildMiscPage();
+                break;
+            case EditorPage.Overview:
                 BuildOverviewPage();
                 break;
         }
@@ -613,6 +631,151 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         }
     }
 
+    private void BuildMiscPage()
+    {
+        BuildCastResourceModeControls();
+        BuildCastResourceDefaultRow();
+
+        var requirement = _draft.CastResourceRequirement;
+        var selectedIds = requirement.ResourceAssetIds;
+        var policy = WanfaPavilionService.Instance.ActivePolicy;
+        var resources = ModClass.I.SkillV3.CastResourceLib.list
+            .Where(resource => resource.EditorSelectable ||
+                               selectedIds.Contains(resource.id, StringComparer.Ordinal) &&
+                               resource.EditorPersistWhenHidden)
+            .Where(resource => selectedIds.Contains(resource.id, StringComparer.Ordinal) ||
+                               policy.IsCastResourceAvailable(resource.id))
+            .OrderBy(resource => GetCastResourceRowOrder(resource, requirement))
+            .ThenBy(resource => resource.EditorSortOrder)
+            .ThenBy(resource => resource.id, StringComparer.Ordinal);
+
+        foreach (var resource in resources)
+        {
+            BuildCastResourceRow(resource, requirement);
+        }
+
+        foreach (var resourceId in selectedIds.Where(id => ModClass.I.SkillV3.CastResourceLib.get(id) == null))
+        {
+            var canRemove = requirement.Mode != SkillCastResourceRequirementMode.Single && selectedIds.Count > 1;
+            _rowPool.GetNext().Setup(
+                string.Format("Cultiway.Wanfa.UI.Format.MissingCastResource".Localize(), resourceId),
+                "Cultiway.Wanfa.UI.Detail.MissingCastResource".Localize(),
+                canRemove ? "Cultiway.Wanfa.UI.Action.Remove".Localize() : string.Empty,
+                canRemove,
+                canRemove ? () => ToggleCastResource(resourceId) : null,
+                WanfaUiIcons.Remove);
+        }
+    }
+
+    private void BuildCastResourceModeControls()
+    {
+        var requirement = _draft.CastResourceRequirement;
+        var row = _rowPool.GetNext();
+        row.Setup("Cultiway.Wanfa.UI.CastResource.Mode.Title".Localize(),
+            SkillCastResourceFormatter.GetModeName(requirement.Mode), string.Empty, false, null);
+        WanfaUiFactory.SetLayout(row.Controls, 500f, 24f);
+        row.SetHeight(56f);
+        var controls = WanfaUiFactory.CreateLayout(row.Controls, "Modes", true, 490f, 22f, 3f);
+        CreateCastResourceModeButton(controls.transform, SkillCastResourceRequirementMode.Single,
+            WanfaUiIcons.Confirm);
+        CreateCastResourceModeButton(controls.transform, SkillCastResourceRequirementMode.AnyOf,
+            WanfaUiIcons.Sort);
+        CreateCastResourceModeButton(controls.transform, SkillCastResourceRequirementMode.AllOf,
+            WanfaUiIcons.Add);
+    }
+
+    private void CreateCastResourceModeButton(Transform parent, SkillCastResourceRequirementMode mode,
+        string iconPath)
+    {
+        var modeName = SkillCastResourceFormatter.GetModeName(mode);
+        var button = WanfaUiFactory.CreateIconTextButton(parent, mode.ToString(), iconPath, modeName, 158f, 21f,
+            () => SetCastResourceMode(mode));
+        button.interactable = _draft.CastResourceRequirement.Mode != mode;
+        WanfaUiFactory.SetTooltip(button.gameObject, modeName,
+            $"Cultiway.Wanfa.UI.Tooltip.CastResource.Mode.{mode}".Localize());
+    }
+
+    private void BuildCastResourceDefaultRow()
+    {
+        if (string.IsNullOrWhiteSpace(_draft.EntityAssetId)) return;
+
+        var entity = ModClass.I.SkillV3.SkillLib.get(_draft.EntityAssetId);
+        var defaultRequirement = entity.DefaultCastResourceRequirement;
+        var isDefault = CastResourceRequirementsEqual(_draft.CastResourceRequirement, defaultRequirement);
+        _rowPool.GetNext().Setup(
+            "Cultiway.Wanfa.UI.CastResource.EntityDefault".Localize(),
+            SkillCastResourceFormatter.Format(defaultRequirement),
+            "Cultiway.Wanfa.UI.Action.RestoreEntityDefault".Localize(),
+            !isDefault,
+            RestoreEntityCastResourceDefault,
+            WanfaUiIcons.Reset,
+            actionTooltipDescription: "Cultiway.Wanfa.UI.Tooltip.CastResource.RestoreEntityDefault");
+    }
+
+    private void BuildCastResourceRow(SkillCastResourceAsset resource,
+        SkillCastResourceRequirement requirement)
+    {
+        var selectedIndex = requirement.ResourceAssetIds.FindIndex(id => id == resource.id);
+        var selected = selectedIndex >= 0;
+        var detail = resource.EditorDescriptionKey.Localize();
+        if (selected && requirement.Mode == SkillCastResourceRequirementMode.AnyOf)
+        {
+            detail = string.Format("Cultiway.Wanfa.UI.Format.CastResourcePriority".Localize(),
+                selectedIndex + 1, detail);
+        }
+
+        var canRemove = selected && requirement.Mode != SkillCastResourceRequirementMode.Single &&
+                        requirement.ResourceAssetIds.Count > 1;
+        var canSelect = !selected && resource.EditorSelectable &&
+                        WanfaPavilionService.Instance.ActivePolicy.IsCastResourceAvailable(resource.id);
+        string actionLabel;
+        string actionIcon;
+        if (!selected)
+        {
+            actionLabel = "Cultiway.Wanfa.UI.Action.Select".Localize();
+            actionIcon = WanfaUiIcons.Select;
+        }
+        else if (canRemove)
+        {
+            actionLabel = "Cultiway.Wanfa.UI.Action.Remove".Localize();
+            actionIcon = WanfaUiIcons.Remove;
+        }
+        else
+        {
+            actionLabel = "Cultiway.Wanfa.UI.Action.Selected".Localize();
+            actionIcon = WanfaUiIcons.Confirm;
+        }
+        var row = _rowPool.GetNext();
+        row.Setup(resource.id.Localize(), detail, actionLabel,
+            canRemove || canSelect,
+            () => ToggleCastResource(resource.id),
+            actionIcon,
+            assetIconPath: resource.EditorIconPath);
+
+        if (!selected || requirement.Mode != SkillCastResourceRequirementMode.AnyOf ||
+            requirement.ResourceAssetIds.Count < 2) return;
+
+        var controls = row.UseInlineControls(40f);
+        var moveUp = WanfaUiFactory.CreateIconButton(controls, "IncreasePriority", WanfaUiIcons.MoveUp,
+            18f, 20f, () => MoveCastResource(resource.id, -1), 3f, iconRotation: 90f);
+        moveUp.interactable = selectedIndex > 0;
+        WanfaUiFactory.SetTooltip(moveUp.gameObject, "Cultiway.Wanfa.UI.Action.IncreasePriority",
+            "Cultiway.Wanfa.UI.Tooltip.CastResource.IncreasePriority");
+        var moveDown = WanfaUiFactory.CreateIconButton(controls, "DecreasePriority", WanfaUiIcons.MoveDown,
+            18f, 20f, () => MoveCastResource(resource.id, 1), 3f, iconRotation: 90f);
+        moveDown.interactable = selectedIndex < requirement.ResourceAssetIds.Count - 1;
+        WanfaUiFactory.SetTooltip(moveDown.gameObject, "Cultiway.Wanfa.UI.Action.DecreasePriority",
+            "Cultiway.Wanfa.UI.Tooltip.CastResource.DecreasePriority");
+    }
+
+    private static int GetCastResourceRowOrder(SkillCastResourceAsset resource,
+        SkillCastResourceRequirement requirement)
+    {
+        var selectedIndex = requirement.ResourceAssetIds.FindIndex(id => id == resource.id);
+        if (selectedIndex < 0) return int.MaxValue;
+        return requirement.Mode == SkillCastResourceRequirementMode.AnyOf ? selectedIndex : -1;
+    }
+
     private void BuildOverviewPage()
     {
         ReleasePreview();
@@ -635,7 +798,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                 ResolveCollisionRadius(compiled.Container).ToString("0.##", CultureInfo.InvariantCulture));
             AddModifierRadiusOverviews(compiled.Container);
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.CastResource".Localize(),
-                FormatCastResources(container.CastResourceRequirement));
+                SkillCastResourceFormatter.Format(container.CastResourceRequirement));
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.StepDemand".Localize(),
                 SkillCastCost.CalculateStepDemand(compiled.Container)
                 .ToString("0.##", CultureInfo.InvariantCulture));
@@ -653,12 +816,6 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.Validation".Localize(),
                 "Cultiway.Wanfa.UI.Overview.Valid".Localize());
         }
-    }
-
-    private static string FormatCastResources(SkillCastResourceRequirement requirement)
-    {
-        var separator = requirement.Mode == SkillCastResourceRequirementMode.AllOf ? " + " : " / ";
-        return string.Join(separator, requirement.ResourceAssetIds.Select(id => id.Localize()));
     }
 
     private void AddOverviewLine(string title, string value)
@@ -697,10 +854,10 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         return SkillEffectRadius.ResolveContainer(compiled, radius);
     }
 
-    private void SelectPage(int page)
+    private void SelectPage(EditorPage page)
     {
         _page = page;
-        if (_page != 3) ReleasePreview();
+        if (_page != EditorPage.Overview) ReleasePreview();
         RefreshPage();
     }
 
@@ -711,11 +868,86 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             _draft.EntityAssetId = entityId;
             _draft.AnimationIndex = 0;
             var entity = ModClass.I.SkillV3.SkillLib.get(entityId);
-            _draft.CastResourceRequirement = entity.DefaultCastResourceRequirement.DeepClone();
+            if (!_draft.CastResourceRequirement.IsConfigured)
+            {
+                _draft.CastResourceRequirement = entity.DefaultCastResourceRequirement.DeepClone();
+            }
             var trajectoryId = WanfaPavilionService.Instance.ResolveAvailableTrajectoryId(entity,
                 _draft.TrajectoryAssetId);
             _draft.TrajectoryAssetId = trajectoryId == null ? string.Empty : trajectoryId;
         });
+    }
+
+    private void SetCastResourceMode(SkillCastResourceRequirementMode mode)
+    {
+        ApplyMutation(() =>
+        {
+            var requirement = _draft.CastResourceRequirement;
+            requirement.Mode = mode;
+            if (mode == SkillCastResourceRequirementMode.Single && requirement.ResourceAssetIds.Count > 1)
+            {
+                requirement.ResourceAssetIds.RemoveRange(1, requirement.ResourceAssetIds.Count - 1);
+            }
+        });
+    }
+
+    private void ToggleCastResource(string resourceId)
+    {
+        ApplyMutation(() =>
+        {
+            var requirement = _draft.CastResourceRequirement;
+            var index = requirement.ResourceAssetIds.FindIndex(id => id == resourceId);
+            if (requirement.Mode == SkillCastResourceRequirementMode.Single)
+            {
+                requirement.ResourceAssetIds.Clear();
+                requirement.ResourceAssetIds.Add(resourceId);
+                return;
+            }
+
+            if (index < 0)
+            {
+                requirement.ResourceAssetIds.Add(resourceId);
+            }
+            else if (requirement.ResourceAssetIds.Count > 1)
+            {
+                requirement.ResourceAssetIds.RemoveAt(index);
+            }
+        });
+    }
+
+    private void MoveCastResource(string resourceId, int direction)
+    {
+        ApplyMutation(() =>
+        {
+            var resources = _draft.CastResourceRequirement.ResourceAssetIds;
+            var index = resources.FindIndex(id => id == resourceId);
+            var target = index + direction;
+            if (target < 0 || target >= resources.Count) return;
+            (resources[index], resources[target]) = (resources[target], resources[index]);
+        });
+    }
+
+    private void RestoreEntityCastResourceDefault()
+    {
+        ApplyMutation(() =>
+        {
+            var entity = ModClass.I.SkillV3.SkillLib.get(_draft.EntityAssetId);
+            _draft.CastResourceRequirement = entity.DefaultCastResourceRequirement.DeepClone();
+        });
+    }
+
+    private static bool CastResourceRequirementsEqual(SkillCastResourceRequirement left,
+        SkillCastResourceRequirement right)
+    {
+        if (left.Mode != right.Mode || left.ResourceAssetIds.Count != right.ResourceAssetIds.Count) return false;
+        if (left.Mode != SkillCastResourceRequirementMode.AllOf)
+        {
+            return left.ResourceAssetIds.SequenceEqual(right.ResourceAssetIds, StringComparer.Ordinal);
+        }
+
+        return left.ResourceAssetIds.OrderBy(id => id, StringComparer.Ordinal)
+            .SequenceEqual(right.ResourceAssetIds.OrderBy(id => id, StringComparer.Ordinal),
+                StringComparer.Ordinal);
     }
 
     private void ToggleModifier(SkillModifierAsset modifier)

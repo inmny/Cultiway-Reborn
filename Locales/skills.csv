@@ -158,7 +158,9 @@ Cultiway.SkillModifier.Field.ExplosionDamageRatio,爆炸伤害比例
 Cultiway.SkillModifier.Field.SpeedBonus,速度增幅
 Cultiway.SkillModifier.Field.CastCostReduction,施法消耗降低
 Cultiway.SkillCastResource.Wakan,灵力
-Cultiway.SkillCastResource.Mana,魔力
+Cultiway.SkillCastResource.Wakan.Description,修仙体系使用的施法资源 按法术需求直接消耗
+Cultiway.SkillCastResource.Mana,法力
+Cultiway.SkillCastResource.Mana.Description,魔法体系使用的施法资源 需求会向上取整后消耗
 Cultiway.SkillModifier.Field.SalvoIntervalReduction,连发间隔降低
 Cultiway.SkillModifier.Field.DamageBonus,伤害增幅
 Cultiway.SkillModifier.Field.KnockbackDistance,击退距离
@@ -253,6 +255,7 @@ Cultiway.SkillBlueprint.Validation.cast_resource.mode_invalid,施法资源需求
 Cultiway.SkillBlueprint.Validation.cast_resource.single_count,单一资源模式必须且只能绑定一种资源
 Cultiway.SkillBlueprint.Validation.cast_resource.duplicate,施法资源 {0} 被重复绑定
 Cultiway.SkillBlueprint.Validation.cast_resource.missing,施法资源 {0} 不存在
+Cultiway.SkillBlueprint.Validation.cast_resource.internal,施法资源 {0} 不允许被法术蓝图持有
 Cultiway.SkillBlueprint.Validation.balance.cost,预计单步施法需求较高 至少 {0:F1}
 Cultiway.SkillBlueprint.Validation.semantic.speed_static,静止或瞬发轨迹通常无法体现加速词条
 Cultiway.SkillBlueprint.Validation.semantic.travel_instant,瞬发轨迹可能没有足够时间触发持续移动效果

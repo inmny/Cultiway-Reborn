@@ -20,8 +20,10 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
 
     protected override void OnInit()
     {
-        Wakan.Configure(HasWakan, ReadWakan, WriteWakan, QuoteWakan);
-        Mana.Configure(HasMana, ReadMana, WriteMana, QuoteMana);
+        Wakan.Configure(HasWakan, ReadWakan, WriteWakan, QuoteWakan)
+            .ConfigureEditor("Cultiway.SkillCastResource.Wakan.Description", "cultiway/icons/iconWakan", 0);
+        Mana.Configure(HasMana, ReadMana, WriteMana, QuoteMana)
+            .ConfigureEditor("Cultiway.SkillCastResource.Mana.Description", "ui/icons/iconMana", 10);
     }
 
     private static bool HasWakan(ActorExtend caster)

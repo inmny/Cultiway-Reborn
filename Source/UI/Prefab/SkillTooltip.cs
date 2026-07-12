@@ -188,7 +188,7 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
             AddLine(model, "Cultiway.Wanfa.UI.Overview.CollisionRadius".Localize(),
                 ResolveCollisionRadius(compiled, entity).ToString("0.##", CultureInfo.InvariantCulture));
             AddLine(model, "Cultiway.Wanfa.UI.Overview.CastResource".Localize(),
-                FormatCastResources(container.CastResourceRequirement));
+                SkillCastResourceFormatter.Format(container.CastResourceRequirement));
             AddLine(model, "Cultiway.Wanfa.UI.Overview.StepDemand".Localize(),
                 SkillCastCost.CalculateStepDemand(compiled).ToString("0.##", CultureInfo.InvariantCulture));
         }
@@ -220,12 +220,6 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
 
         model.BottomDescription = BuildBottomDescription(blueprint, runtimeContainer.IsNull);
         return model;
-    }
-
-    private static string FormatCastResources(SkillCastResourceRequirement requirement)
-    {
-        var separator = requirement.Mode == SkillCastResourceRequirementMode.AllOf ? " + " : " / ";
-        return string.Join(separator, requirement.ResourceAssetIds.Select(id => id.Localize()));
     }
 
     private static float ResolveCollisionRadius(Entity compiled, SkillEntityAsset entity)

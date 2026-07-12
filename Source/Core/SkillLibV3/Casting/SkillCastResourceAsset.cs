@@ -20,6 +20,11 @@ public sealed class SkillCastResourceAsset : Asset
     public SkillCastResourceAmountReader ReadAmount;
     public SkillCastResourceAmountWriter WriteAmount;
     public SkillCastResourceQuote Quote;
+    public string EditorDescriptionKey;
+    public string EditorIconPath;
+    public int EditorSortOrder;
+    public bool EditorSelectable;
+    public bool EditorPersistWhenHidden;
 
     public SkillCastResourceAsset Configure(SkillCastResourceAvailability isAvailable,
         SkillCastResourceAmountReader readAmount, SkillCastResourceAmountWriter writeAmount,
@@ -29,6 +34,17 @@ public sealed class SkillCastResourceAsset : Asset
         ReadAmount = readAmount;
         WriteAmount = writeAmount;
         Quote = quote;
+        return this;
+    }
+
+    public SkillCastResourceAsset ConfigureEditor(string descriptionKey, string iconPath, int sortOrder = 0,
+        bool selectable = true, bool persistWhenHidden = true)
+    {
+        EditorDescriptionKey = descriptionKey;
+        EditorIconPath = iconPath;
+        EditorSortOrder = sortOrder;
+        EditorSelectable = selectable;
+        EditorPersistWhenHidden = persistWhenHidden;
         return this;
     }
 }
@@ -45,7 +61,7 @@ public enum SkillCastResourceRequirementMode
 }
 
 /// <summary>
-/// 法术容器绑定的资源语义。顺序具有意义：AnyOf 按声明顺序选择首个可用通道。
+/// 法术容器绑定的资源语义。顺序具有意义：AnyOf 按声明顺序选择首个能够支付本次施法的通道。
 /// </summary>
 [Serializable]
 public sealed class SkillCastResourceRequirement

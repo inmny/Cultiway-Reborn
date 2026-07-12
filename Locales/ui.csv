@@ -346,6 +346,7 @@ Cultiway.UI.WindowWanfaGrantConflict Title,法术版本冲突
 Cultiway.Wanfa.Validation.policy.entity_locked,当前万法阁规则尚未解锁该法术实体
 Cultiway.Wanfa.Validation.policy.trajectory_locked,当前万法阁规则尚未解锁该轨迹
 Cultiway.Wanfa.Validation.policy.modifier_locked,当前万法阁规则尚未解锁该词条
+Cultiway.Wanfa.Validation.policy.cast_resource_locked,当前万法阁规则尚未解锁该施法资源
 Cultiway.Wanfa.Validation.policy.modifier_limit,当前万法阁规则最多允许 {0} 个词条
 Cultiway.Wanfa.Exception.PolicyMissing,找不到万法阁策略 {0}
 Cultiway.Wanfa.Exception.BlueprintMissing,找不到蓝图 {0}
@@ -376,6 +377,9 @@ Cultiway.Wanfa.UI.Action.RepairParameters,修复参数
 Cultiway.Wanfa.UI.Action.KeepOld,保留旧版
 Cultiway.Wanfa.UI.Action.OverwriteOld,覆盖旧版
 Cultiway.Wanfa.UI.Action.Cancel,取消
+Cultiway.Wanfa.UI.Action.RestoreEntityDefault,恢复本体默认
+Cultiway.Wanfa.UI.Action.IncreasePriority,提高优先级
+Cultiway.Wanfa.UI.Action.DecreasePriority,降低优先级
 Cultiway.Wanfa.UI.Label.AiNaming,AI 命名
 Cultiway.Wanfa.UI.Label.FavoriteOnly,仅收藏
 Cultiway.Wanfa.UI.Placeholder.SkillName,法术名称
@@ -384,6 +388,7 @@ Cultiway.Wanfa.UI.Placeholder.Search,搜索法术
 Cultiway.Wanfa.UI.Tab.Entity,本体
 Cultiway.Wanfa.UI.Tab.Trajectory,轨迹
 Cultiway.Wanfa.UI.Tab.Modifier,词条
+Cultiway.Wanfa.UI.Tab.Misc,杂项
 Cultiway.Wanfa.UI.Tab.Overview,总览
 Cultiway.Wanfa.UI.NameMode.Rule,规则命名
 Cultiway.Wanfa.UI.NameMode.Custom,自定义
@@ -394,6 +399,7 @@ Cultiway.Wanfa.UI.State.NoTrajectory,未选择轨迹
 Cultiway.Wanfa.UI.State.NewBlueprint,新蓝图
 Cultiway.Wanfa.UI.State.Unsaved,未保存
 Cultiway.Wanfa.UI.State.Saved,已保存
+Cultiway.Wanfa.UI.State.NoCastResource,未选择施法资源
 Cultiway.Wanfa.UI.Filter.AllVisual,全部视觉
 Cultiway.Wanfa.UI.Filter.AllEntities,全部本体
 Cultiway.Wanfa.UI.Sort.Manual,手动
@@ -409,6 +415,9 @@ Cultiway.Wanfa.UI.Format.CategoryPrefix,{0} ·
 Cultiway.Wanfa.UI.Format.ImportSuccess,已收入 {0} 个法术
 Cultiway.Wanfa.UI.Format.ImportPartial,已收入 {0} 个法术 {1} 个无法导入
 Cultiway.Wanfa.UI.Format.MissingModifier,缺失词条：{0}
+Cultiway.Wanfa.UI.Format.MissingCastResource,缺失施法资源：{0}
+Cultiway.Wanfa.UI.Format.CastResource,{0}：{1}
+Cultiway.Wanfa.UI.Format.CastResourcePriority,优先级 {0} · {1}
 Cultiway.Wanfa.UI.Format.GrantConflict,{0} 掌握着同一蓝图的旧版本\n是否覆盖为 Revision {1}？
 Cultiway.Wanfa.UI.Format.GrantUpdated,已将法术更新为第 {0} 版
 Cultiway.Wanfa.UI.Format.AlreadyKnown,{0} 已经掌握该法术
@@ -417,6 +426,12 @@ Cultiway.Wanfa.UI.Format.GrantLearned,{0} 掌握了 {1}
 Cultiway.Wanfa.UI.Detail.NoAvailableTrajectory,当前规则下无可用轨迹
 Cultiway.Wanfa.UI.Detail.MissingModifier,对应 Asset 或编辑元数据不存在
 Cultiway.Wanfa.UI.Detail.InvalidParameters,参数记录不完整或格式错误
+Cultiway.Wanfa.UI.Detail.MissingCastResource,对应施法资源 Asset 不存在 请选择其他资源替换
+Cultiway.Wanfa.UI.CastResource.Mode.Title,消耗方式
+Cultiway.Wanfa.UI.CastResource.Mode.Single,固定资源
+Cultiway.Wanfa.UI.CastResource.Mode.AnyOf,备用资源
+Cultiway.Wanfa.UI.CastResource.Mode.AllOf,同时消耗
+Cultiway.Wanfa.UI.CastResource.EntityDefault,本体默认消耗
 Cultiway.Wanfa.UI.Overview.Name,名称
 Cultiway.Wanfa.UI.Overview.EntityTrajectory,本体 / 轨迹
 Cultiway.Wanfa.UI.Overview.VfxElement,视觉元素
@@ -496,7 +511,14 @@ Cultiway.Wanfa.UI.Tooltip.Category,填写玩家自定义分类，便于在搜索
 Cultiway.Wanfa.UI.Tooltip.Tab.Entity,选择法术实际生成的实体本体。本体决定基础贴图、碰撞体和可接受的轨迹姿态。
 Cultiway.Wanfa.UI.Tooltip.Tab.Trajectory,选择法术实体的运动方式。列表会显示轨迹说明，并阻止选择与当前本体姿态不兼容的轨迹。
 Cultiway.Wanfa.UI.Tooltip.Tab.Modifier,添加或移除法术词条并调整其参数。互斥、缺失和超限问题会直接显示在对应条目中。
+Cultiway.Wanfa.UI.Tooltip.Tab.Misc,调整法术容器级规则。当前可以选择施法消耗的资源以及多资源之间的支付方式。
 Cultiway.Wanfa.UI.Tooltip.Tab.Overview,查看当前蓝图最终解析出的视觉元素、运动配置、碰撞范围、施法资源和校验结果。
+Cultiway.Wanfa.UI.Tooltip.CastResource.Mode.Single,法术只能使用选定的一种资源。选择其他资源时会直接替换当前选择。
+Cultiway.Wanfa.UI.Tooltip.CastResource.Mode.AnyOf,按照优先级依次尝试资源 并使用第一种能够完整支付本次施法的资源。
+Cultiway.Wanfa.UI.Tooltip.CastResource.Mode.AllOf,每次施法都必须同时满足并消耗全部选定资源。
+Cultiway.Wanfa.UI.Tooltip.CastResource.RestoreEntityDefault,用当前法术本体声明的默认施法资源覆盖现有资源配置。
+Cultiway.Wanfa.UI.Tooltip.CastResource.IncreasePriority,将该资源提前一位 施法时会更早尝试使用它。
+Cultiway.Wanfa.UI.Tooltip.CastResource.DecreasePriority,将该资源后移一位 只有前面的资源无法支付时才会尝试它。
 Cultiway.Wanfa.UI.Tooltip.Undo,撤销最近一次本体、轨迹、词条、参数或命名改动。保存后的历史不会保留在此栈中。
 Cultiway.Wanfa.UI.Tooltip.Redo,恢复刚刚撤销的一次编辑操作。进行新的改动后重做历史会被清空。
 Cultiway.Wanfa.UI.Tooltip.DiscardChanges,放弃本次打开编辑器后产生的全部未保存改动，恢复到最近一次保存状态。

@@ -60,9 +60,15 @@ public sealed class SkillBlueprintValidator
                 result.AddError("cast_resource.duplicate", resourceId);
                 continue;
             }
-            if (ModClass.I.SkillV3.CastResourceLib.get(resourceId) == null)
+            var resource = ModClass.I.SkillV3.CastResourceLib.get(resourceId);
+            if (resource == null)
             {
                 result.AddError("cast_resource.missing", resourceId);
+                continue;
+            }
+            if (!resource.EditorSelectable && !resource.EditorPersistWhenHidden)
+            {
+                result.AddError("cast_resource.internal", resourceId);
             }
         }
     }

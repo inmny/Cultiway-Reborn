@@ -9,10 +9,12 @@ public class WanfaPavilionPolicyAsset : Asset
     public bool UnrestrictedEntities = true;
     public bool UnrestrictedTrajectories = true;
     public bool UnrestrictedModifiers = true;
+    public bool UnrestrictedCastResources = true;
     public int MaximumModifierCount = -1;
     public HashSet<string> AvailableEntityIds { get; } = new(StringComparer.Ordinal);
     public HashSet<string> AvailableTrajectoryIds { get; } = new(StringComparer.Ordinal);
     public HashSet<string> AvailableModifierIds { get; } = new(StringComparer.Ordinal);
+    public HashSet<string> AvailableCastResourceIds { get; } = new(StringComparer.Ordinal);
     public Func<SkillBlueprint, SkillCompatibilityResult> AdditionalBlueprintValidation;
     public Func<Actor, SkillBlueprint, SkillCompatibilityResult> AdditionalGrantValidation;
     public Action<Actor, SkillBlueprint> GrantCompleted;
@@ -30,6 +32,11 @@ public class WanfaPavilionPolicyAsset : Asset
     public bool IsModifierAvailable(string id)
     {
         return UnrestrictedModifiers || AvailableModifierIds.Contains(id);
+    }
+
+    public bool IsCastResourceAvailable(string id)
+    {
+        return UnrestrictedCastResources || AvailableCastResourceIds.Contains(id);
     }
 
     public SkillCompatibilityResult ValidateBlueprint(SkillBlueprint blueprint)
@@ -51,6 +58,14 @@ public class WanfaPavilionPolicyAsset : Asset
             {
                 result.AddErrorKey("policy.modifier_locked", "Cultiway.Wanfa.Validation.policy.modifier_locked",
                     modifier.AssetId);
+            }
+        }
+        foreach (var resourceId in blueprint.CastResourceRequirement.ResourceAssetIds)
+        {
+            if (!IsCastResourceAvailable(resourceId))
+            {
+                result.AddErrorKey("policy.cast_resource_locked",
+                    "Cultiway.Wanfa.Validation.policy.cast_resource_locked", resourceId);
             }
         }
         if (MaximumModifierCount >= 0 && blueprint.Modifiers.Count > MaximumModifierCount)

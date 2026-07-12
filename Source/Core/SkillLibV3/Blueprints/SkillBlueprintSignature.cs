@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
@@ -29,7 +30,11 @@ public static class SkillBlueprintSignature
         Append(builder, blueprint.EntityAssetId);
         Append(builder, blueprint.AnimationIndex.ToString(CultureInfo.InvariantCulture));
         Append(builder, ((int)blueprint.CastResourceRequirement.Mode).ToString(CultureInfo.InvariantCulture));
-        foreach (var resourceId in blueprint.CastResourceRequirement.ResourceAssetIds)
+        IEnumerable<string> resourceIds = blueprint.CastResourceRequirement.Mode ==
+                                          SkillCastResourceRequirementMode.AllOf
+            ? blueprint.CastResourceRequirement.ResourceAssetIds.OrderBy(id => id, StringComparer.Ordinal)
+            : blueprint.CastResourceRequirement.ResourceAssetIds;
+        foreach (var resourceId in resourceIds)
         {
             Append(builder, resourceId);
         }

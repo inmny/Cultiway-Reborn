@@ -46,12 +46,23 @@ public static class SkillCastCost
 
         var demand = CalculatePlanDemand(skill, plan);
         var payments = new List<ResourcePayment>(binding.Resources.Count);
-        foreach (var resource in binding.Resources)
+        if (binding.Mode == SkillCastResourceRequirementMode.AnyOf)
         {
-            var amount = resource.ReadAmount(caster);
-            var cost = Quote(resource, caster, skill, demand);
-            if (amount < cost) return false;
-            payments.Add(new ResourcePayment(resource, amount, cost));
+            foreach (var resource in binding.Resources)
+            {
+                if (!TryCreatePayment(caster, skill, resource, demand, out var payment)) continue;
+                payments.Add(payment);
+                break;
+            }
+            if (payments.Count == 0) return false;
+        }
+        else
+        {
+            foreach (var resource in binding.Resources)
+            {
+                if (!TryCreatePayment(caster, skill, resource, demand, out var payment)) return false;
+                payments.Add(payment);
+            }
         }
 
         foreach (var payment in payments)
@@ -73,12 +84,21 @@ public static class SkillCastCost
         var stepDemand = CalculateStepDemand(skill);
         if (stepDemand <= 0f) return int.MaxValue;
 
+        if (binding.Mode == SkillCastResourceRequirementMode.AnyOf)
+        {
+            var alternativeLimit = 0;
+            foreach (var resource in binding.Resources)
+            {
+                alternativeLimit = Math.Max(alternativeLimit,
+                    CalculateResourceStepLimit(caster, skill, resource, stepDemand));
+            }
+            return alternativeLimit;
+        }
+
         var limit = int.MaxValue;
         foreach (var resource in binding.Resources)
         {
-            var stepCost = Quote(resource, caster, skill, stepDemand);
-            if (stepCost <= 0f) continue;
-            limit = Math.Min(limit, Mathf.Max(0, Mathf.FloorToInt(resource.ReadAmount(caster) / stepCost)));
+            limit = Math.Min(limit, CalculateResourceStepLimit(caster, skill, resource, stepDemand));
         }
         return limit;
     }
@@ -106,11 +126,50 @@ public static class SkillCastCost
     private static bool CanPayDemand(ActorExtend caster, Entity skill, SkillCastResourceBinding binding,
         float demand)
     {
+        if (binding.Mode == SkillCastResourceRequirementMode.AnyOf)
+        {
+            foreach (var resource in binding.Resources)
+            {
+                if (CanPayResource(caster, skill, resource, demand)) return true;
+            }
+            return false;
+        }
+
         foreach (var resource in binding.Resources)
         {
-            if (resource.ReadAmount(caster) < Quote(resource, caster, skill, demand)) return false;
+            if (!CanPayResource(caster, skill, resource, demand)) return false;
         }
         return true;
+    }
+
+    private static bool CanPayResource(ActorExtend caster, Entity skill, SkillCastResourceAsset resource,
+        float demand)
+    {
+        return resource.ReadAmount(caster) >= Quote(resource, caster, skill, demand);
+    }
+
+    private static bool TryCreatePayment(ActorExtend caster, Entity skill, SkillCastResourceAsset resource,
+        float demand, out ResourcePayment payment)
+    {
+        var amount = resource.ReadAmount(caster);
+        var cost = Quote(resource, caster, skill, demand);
+        if (amount < cost)
+        {
+            payment = default;
+            return false;
+        }
+
+        payment = new ResourcePayment(resource, amount, cost);
+        return true;
+    }
+
+    private static int CalculateResourceStepLimit(ActorExtend caster, Entity skill,
+        SkillCastResourceAsset resource, float stepDemand)
+    {
+        var stepCost = Quote(resource, caster, skill, stepDemand);
+        return stepCost <= 0f
+            ? int.MaxValue
+            : Mathf.Max(0, Mathf.FloorToInt(resource.ReadAmount(caster) / stepCost));
     }
 
     private static float Quote(SkillCastResourceAsset resource, ActorExtend caster, Entity skill, float demand)

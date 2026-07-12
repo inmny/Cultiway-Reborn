@@ -8,6 +8,7 @@ internal static class WanfaUiIcons
     public const string Entity = "ui/icons/iconSpellBoost";
     public const string Trajectory = "ui/icons/iconArrowAttackTarget";
     public const string Modifier = "ui/icons/iconEditTrait";
+    public const string Misc = "ui/icons/iconOptions";
     public const string Overview = "ui/icons/iconMainInfo";
     public const string Favorite = "ui/icons/iconFavoriteStar";
     public const string Sort = "ui/icons/iconArrows";

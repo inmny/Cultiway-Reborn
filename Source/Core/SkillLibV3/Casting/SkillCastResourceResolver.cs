@@ -71,7 +71,7 @@ public static class SkillCastResourceResolver
             }
 
             resources.Add(resource);
-            if (requirement.Mode != SkillCastResourceRequirementMode.AllOf) break;
+            if (requirement.Mode == SkillCastResourceRequirementMode.Single) break;
         }
 
         if (resources.Count == 0) return null;
