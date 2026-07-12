@@ -3,9 +3,15 @@ Task.Unit.Cultiway.DailyXianCultivate,日常修炼(仙路)
 Task.Unit.Cultiway.LevelupXianCultivate,尝试突破(仙路)
 Task.Unit.Cultiway.DailyPlantXianCultivate,日常修炼(仙路)
 Task.Unit.Cultiway.LevelupPlantXianCultivate,尝试突破(仙路)
+Task.Unit.Cultiway.DailyWaterCultivate,日常修炼(水中)
+Task.Unit.Cultiway.LevelupWaterCultivate,尝试突破(水中)
+Task.Unit.Cultiway.DailyMagicMeditate,魔法冥想
+Task.Unit.Cultiway.StudyMagicWeb,研究魔网
+Task.Unit.Cultiway.LookForHerbs,寻找药草
 Task.Unit.Cultiway.CraftElixir,炼制丹药
 Task.Unit.Cultiway.FindNewElixir,研究新丹方
 Task.Unit.Cultiway.CraftTalisman,绘制符箓
+Task.Unit.Cultiway.CraftArtifact,炼制法器
 Task.Unit.Cultiway.CreateCultibook,创造功法
 Task.Unit.Cultiway.ImproveCultibook,改进功法
 Task.Unit.Cultiway.BuildSect,建立宗门
@@ -20,6 +26,7 @@ Task.Unit.Cultiway.WriteElixirbook,誊抄丹方
 Task.Unit.Cultiway.WriteSkillbook,誊抄术法
 Task.Unit.Cultiway.CallSourceSpawner,召唤仪式
 Task.Unit.Cultiway.SwitchCultibook,转修功法
+Task.Unit.Cultiway.TravelToCity,旅游
 Task.Unit.Cultiway.FindSectJob,领取宗门事务
 Task.Unit.Cultiway.TryBuildSectBuilding,准备修建宗门建筑
 Task.Unit.Cultiway.BuildSectBuilding,修建宗门建筑
