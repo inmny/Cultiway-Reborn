@@ -69,7 +69,7 @@ public sealed class MagicStaffRules : ICanInit
         var currentScore = ResolveEquipmentPreferenceValue(current, actor);
         EquipmentAsset selected = null;
         var selectedScore = currentScore;
-        foreach (var candidate in AssetManager.items.pot_weapon_assets_unlocked)
+        foreach (var candidate in AssetManager.items.pot_weapon_assets_all)
         {
             if (!IsStaff(candidate) || !CanAfford(actor, candidate, city)) continue;
             var score = candidate.equipment_value + candidate.mod_rank * 2 +
