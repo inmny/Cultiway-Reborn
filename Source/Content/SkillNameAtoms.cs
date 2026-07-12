@@ -4,7 +4,8 @@ using Cultiway.Core.AIGCLib;
 using Cultiway.Core.SkillLibV3;
 using ElementTag = Cultiway.Core.SkillLibV3.SkillTags.Element;
 using FormTag = Cultiway.Core.SkillLibV3.SkillTags.Form;
-using ModifierTag = Cultiway.Core.SkillLibV3.SkillTags.Modifier;
+using ContentModifierTag = Cultiway.Content.SkillModifierTags;
+using CoreModifierTag = Cultiway.Core.SkillLibV3.SkillTags.Modifier;
 using MotionTag = Cultiway.Core.SkillLibV3.SkillTags.Motion;
 using SeriesTag = Cultiway.Core.SkillLibV3.SkillTags.Series;
 
@@ -118,114 +119,114 @@ internal class SkillNameAtoms : ExtendLibrary<SkillNameAtomAsset, SkillNameAtoms
         SetMotion(MotionWave, MotionTag.Wave, ["波", "澜"],
             ["{element}{motion}", "{motion}{form}"], [], ["SineWave"]);
 
-        SetModifier(ModifierDeathSentence, ModifierTag.DeathSentence, ["终焉", "诛", "灭"], 395,
+        SetModifier(ModifierDeathSentence, ContentModifierTag.DeathSentence, ["终焉", "诛", "灭"], 395,
             ["{modifier}{core}", "{modifier}{element}{form}", "{modifier}{base}", "{modifier}{ending}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{core}"], ["诏", "印", "劫"],
             SkillModifierRarity.Legendary);
-        SetModifier(ModifierEternalCurse, ModifierTag.EternalCurse, ["永咒", "幽咒", "缚魂"], 392,
+        SetModifier(ModifierEternalCurse, ContentModifierTag.EternalCurse, ["永咒", "幽咒", "缚魂"], 392,
             ["{modifier}{form}", "{modifier}{element}{ending}", "{modifier}{base}", "{modifier}{core}"],
             ["{modifier}{secondary}{form}", "{secondary}{modifier}{core}"], ["咒", "禁", "契"],
             SkillModifierRarity.Legendary);
-        SetModifier(ModifierReincarnationTrial, ModifierTag.ReincarnationTrial, ["轮回", "劫", "渡厄"], 388,
+        SetModifier(ModifierReincarnationTrial, ContentModifierTag.ReincarnationTrial, ["轮回", "劫", "渡厄"], 388,
             ["{modifier}{core}", "{modifier}{element}{ending}", "{modifier}{base}", "{modifier}{ending}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{ending}"], ["劫", "印", "章"],
             SkillModifierRarity.Legendary);
-        SetModifier(ModifierSilence, ModifierTag.Silence, ["封", "绝音", "禁言"], 384,
+        SetModifier(ModifierSilence, ContentModifierTag.Silence, ["封", "绝音", "禁言"], 384,
             ["{modifier}{core}", "{modifier}{form}", "{modifier}{element}{ending}", "{modifier}{base}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["禁", "咒", "印"],
             SkillModifierRarity.Legendary);
 
-        SetModifier(ModifierBurnout, ModifierTag.Burnout, ["烬", "残焰", "劫灰"], 278,
+        SetModifier(ModifierBurnout, ContentModifierTag.Burnout, ["烬", "残焰", "劫灰"], 278,
             ["{modifier}{core}", "{modifier}{element}{form}", "{modifier}{base}", "{modifier}{ending}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}", "{modifier}{secondary}{ending}"],
             ["诀", "印", "术"], SkillModifierRarity.Epic, allowSecondary: true);
-        SetModifier(ModifierChaos, ModifierTag.Chaos, ["乱", "混", "逆"], 274,
+        SetModifier(ModifierChaos, ContentModifierTag.Chaos, ["乱", "混", "逆"], 274,
             ["{modifier}{core}", "{modifier}{element}{form}", "{modifier}{base}", "{modifier}{ending}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{core}", "{modifier}{secondary}{ending}"],
             ["诀", "法", "印"], SkillModifierRarity.Epic, allowSecondary: true);
-        SetModifier(ModifierCombo, ModifierTag.Combo, ["连", "叠", "并"], 270,
+        SetModifier(ModifierCombo, ContentModifierTag.Combo, ["连", "叠", "并"], 270,
             ["{modifier}{core}", "{modifier}{form}", "{modifier}{base}"],
             ["{modifier}{secondary}{core}", "{modifier}{secondary}{form}", "{secondary}{modifier}{core}"],
             ["诀", "式", "术"], SkillModifierRarity.Epic, allowSecondary: true);
-        SetModifier(ModifierMercy, ModifierTag.Mercy, ["慈", "生", "渡"], 268,
+        SetModifier(ModifierMercy, ContentModifierTag.Mercy, ["慈", "生", "渡"], 268,
             ["{modifier}{core}", "{modifier}{element}{ending}", "{modifier}{base}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{ending}"], ["印", "法", "诀"],
             SkillModifierRarity.Epic);
-        SetModifier(ModifierSwap, ModifierTag.Swap, ["移", "易", "换"], 266,
+        SetModifier(ModifierSwap, ContentModifierTag.Swap, ["移", "易", "换"], 266,
             ["{modifier}{core}", "{modifier}{motion}{form}", "{modifier}{base}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["诀", "法", "印"],
             SkillModifierRarity.Epic);
-        SetModifier(ModifierRandomAffix, ModifierTag.RandomAffix, ["变", "幻", "化"], 262,
+        SetModifier(ModifierRandomAffix, ContentModifierTag.RandomAffix, ["变", "幻", "化"], 262,
             ["{modifier}{core}", "{modifier}{element}{ending}", "{modifier}{base}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{ending}"], ["法", "诀", "咒"],
             SkillModifierRarity.Epic);
 
-        SetModifier(ModifierGravity, ModifierTag.Gravity, ["坠", "摄", "沉"], 158,
+        SetModifier(ModifierGravity, ContentModifierTag.Gravity, ["坠", "摄", "沉"], 158,
             ["{modifier}{core}", "{modifier}{motion}{form}", "{modifier}{base}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["阵", "印", "术"],
             SkillModifierRarity.Rare);
-        SetModifier(ModifierArmorBreak, ModifierTag.ArmorBreak, ["破", "裂甲", "摧"], 155,
+        SetModifier(ModifierArmorBreak, ContentModifierTag.ArmorBreak, ["破", "裂甲", "摧"], 155,
             ["{modifier}{core}", "{modifier}{form}", "{modifier}{element}{ending}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["诀", "式", "术"],
             SkillModifierRarity.Rare);
-        SetModifier(ModifierHuge, ModifierTag.Huge, ["巨", "岳", "峙"], 152,
+        SetModifier(ModifierHuge, ContentModifierTag.Huge, ["巨", "岳", "峙"], 152,
             ["{modifier}{form}", "{modifier}{core}", "{modifier}{element}{ending}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["阵", "印", "术"],
             SkillModifierRarity.Rare);
-        SetModifier(ModifierDaze, ModifierTag.Daze, ["眩", "迷", "昏"], 150,
+        SetModifier(ModifierDaze, ContentModifierTag.Daze, ["眩", "迷", "昏"], 150,
             ["{modifier}{core}", "{modifier}{form}", "{modifier}{base}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["咒", "印", "术"],
             SkillModifierRarity.Rare);
-        SetModifier(ModifierWeaken, ModifierTag.Weaken, ["衰", "蚀", "损"], 145,
+        SetModifier(ModifierWeaken, ContentModifierTag.Weaken, ["衰", "蚀", "损"], 145,
             ["{modifier}{core}", "{modifier}{form}", "{modifier}{base}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["咒", "印", "术"],
             SkillModifierRarity.Rare);
 
-        SetModifier(ModifierExplosion, ModifierTag.Explosion, ["爆", "轰", "裂"], 48,
+        SetModifier(ModifierExplosion, ContentModifierTag.Explosion, ["爆", "轰", "裂"], 48,
             ["{element}{modifier}", "{modifier}{form}", "{core}{modifier}", "{modifier}{ending}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["术", "诀"],
             SkillModifierRarity.Common);
-        SetModifier(ModifierFreeze, ModifierTag.Freeze, ["霜", "凝", "寒"], 46,
+        SetModifier(ModifierFreeze, ContentModifierTag.Freeze, ["霜", "凝", "寒"], 46,
             ["{modifier}{form}", "{modifier}{core}", "{element}{modifier}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["术", "咒"],
             SkillModifierRarity.Common);
-        SetModifier(ModifierPoison, ModifierTag.Poison, ["毒", "蚀", "瘴"], 44,
+        SetModifier(ModifierPoison, ContentModifierTag.Poison, ["毒", "蚀", "瘴"], 44,
             ["{modifier}{core}", "{modifier}{form}", "{element}{modifier}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["术", "咒"],
             SkillModifierRarity.Common);
-        SetModifier(ModifierBurn, ModifierTag.Burn, ["灼", "焚", "炽"], 42,
+        SetModifier(ModifierBurn, ContentModifierTag.Burn, ["灼", "焚", "炽"], 42,
             ["{modifier}{core}", "{modifier}{form}", "{element}{modifier}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["术", "诀"],
             SkillModifierRarity.Common);
-        SetModifier(ModifierVolley, ModifierTag.Volley, ["雨", "散", "群"], 40,
+        SetModifier(ModifierVolley, ContentModifierTag.Volley, ["雨", "散", "群"], 40,
             ["{element}{modifier}{form}", "{modifier}{core}", "{modifier}{form}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["阵", "式"],
             SkillModifierRarity.Common);
-        SetModifier(ModifierKnockback, ModifierTag.Knockback, ["震", "荡", "摧"], 38,
+        SetModifier(ModifierKnockback, ContentModifierTag.Knockback, ["震", "荡", "摧"], 38,
             ["{modifier}{core}", "{modifier}{form}", "{element}{modifier}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["术", "印"],
             SkillModifierRarity.Common);
-        SetModifier(ModifierHaste, ModifierTag.Haste, ["疾", "迅", "驰"], 36,
+        SetModifier(ModifierHaste, ContentModifierTag.Haste, ["疾", "迅", "驰"], 36,
             ["{modifier}{core}", "{modifier}{motion}{form}", "{element}{modifier}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["诀", "式"],
             SkillModifierRarity.Common);
-        SetModifier(ModifierEmpower, ModifierTag.Empower, ["威", "盛", "壮"], 34,
+        SetModifier(ModifierEmpower, ContentModifierTag.Empower, ["威", "盛", "壮"], 34,
             ["{modifier}{core}", "{modifier}{form}", "{element}{modifier}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["印", "术"],
             SkillModifierRarity.Common);
-        SetModifier(ModifierSlow, ModifierTag.Slow, ["滞", "缚", "迟"], 32,
+        SetModifier(ModifierSlow, ContentModifierTag.Slow, ["滞", "缚", "迟"], 32,
             ["{modifier}{core}", "{modifier}{form}", "{element}{modifier}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["咒", "印"],
             SkillModifierRarity.Common);
-        SetModifier(ModifierProficiency, ModifierTag.Proficiency, ["御", "驭", "熟"], 24,
+        SetModifier(ModifierProficiency, ContentModifierTag.Proficiency, ["御", "驭", "熟"], 24,
             ["{modifier}{core}", "{modifier}{form}", "{element}{modifier}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["诀", "式"],
             SkillModifierRarity.Common);
-        SetModifier(ModifierSalvoCount, ModifierTag.SalvoCount, ["连", "复", "重"], 22,
+        SetModifier(ModifierSalvoCount, CoreModifierTag.SalvoCount, ["连", "复", "重"], 22,
             ["{modifier}{core}", "{modifier}{form}", "{element}{modifier}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["式", "诀"],
             SkillModifierRarity.Common);
-        SetModifier(ModifierBurstCount, ModifierTag.BurstCount, ["散", "迸", "裂"], 20,
+        SetModifier(ModifierBurstCount, CoreModifierTag.BurstCount, ["散", "迸", "裂"], 20,
             ["{modifier}{core}", "{modifier}{form}", "{element}{modifier}"],
             ["{modifier}{secondary}{core}", "{secondary}{modifier}{form}"], ["式", "术"],
             SkillModifierRarity.Common);

@@ -23,7 +23,7 @@ using Friflo.Engine.ECS;
 using ConflictTag = Cultiway.Core.SkillLibV3.SkillTags.Conflict;
 using ElementTag = Cultiway.Core.SkillLibV3.SkillTags.Element;
 using FormTag = Cultiway.Core.SkillLibV3.SkillTags.Form;
-using ModifierTag = Cultiway.Core.SkillLibV3.SkillTags.Modifier;
+using ModifierTag = Cultiway.Content.SkillModifierTags;
 using SimilarityTag = Cultiway.Core.SkillLibV3.SkillTags.Similarity;
 
 namespace Cultiway.Content;

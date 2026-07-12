@@ -3,7 +3,7 @@ using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 using ElementTag = Cultiway.Core.SkillLibV3.SkillTags.Element;
-using ModifierTag = Cultiway.Core.SkillLibV3.SkillTags.Modifier;
+using ModifierTag = Cultiway.Content.SkillModifierTags;
 using SeriesTag = Cultiway.Core.SkillLibV3.SkillTags.Series;
 using SimilarityTag = Cultiway.Core.SkillLibV3.SkillTags.Similarity;
 
