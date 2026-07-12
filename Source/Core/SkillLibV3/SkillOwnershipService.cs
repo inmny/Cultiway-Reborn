@@ -39,7 +39,6 @@ public static class SkillOwnershipService
         {
             if (SkillContainerSignature.Build(owned) == signature)
             {
-                RecycleIfUnmastered(container);
                 return SkillOwnershipResult.Duplicate;
             }
         }
@@ -67,7 +66,6 @@ public static class SkillOwnershipService
         {
             if (owned == oldContainer) continue;
             if (SkillContainerSignature.Build(owned) != signature) continue;
-            RecycleIfUnmastered(newContainer);
             return SkillOwnershipResult.Duplicate;
         }
 
@@ -76,14 +74,5 @@ public static class SkillOwnershipService
         if (!owner.ReplaceLearnedSkill(oldContainer, newContainer)) return SkillOwnershipResult.NotOwned;
 
         return SkillOwnershipResult.Replaced;
-    }
-
-    private static void RecycleIfUnmastered(Entity container)
-    {
-        if (container.GetIncomingLinks<SkillMasterRelation>().Count == 0)
-        {
-            if (container.Tags.Has<TagOccupied>()) container.RemoveTag<TagOccupied>();
-            if (!container.Tags.Has<TagRecycle>()) container.AddTag<TagRecycle>();
-        }
     }
 }
