@@ -26,6 +26,7 @@ public static class SkillCastCost
         SkillCastFundingSource source = SkillCastFundingSource.CasterResources)
     {
         if (plan == null || plan.Steps.Count == 0) return false;
+        if (!SkillCastRequirements.Check(caster, skill, source)) return false;
         if (source == SkillCastFundingSource.Prepaid) return true;
 
         var binding = SkillCastResourceResolver.Resolve(caster, skill);
@@ -37,6 +38,7 @@ public static class SkillCastCost
         SkillCastFundingSource source = SkillCastFundingSource.CasterResources)
     {
         if (plan == null || plan.Steps.Count == 0) return false;
+        if (!SkillCastRequirements.Check(caster, skill, source)) return false;
         if (source == SkillCastFundingSource.Prepaid) return true;
 
         var binding = SkillCastResourceResolver.Resolve(caster, skill);
@@ -62,6 +64,7 @@ public static class SkillCastCost
     public static int GetAffordableStepLimit(ActorExtend caster, Entity skill,
         SkillCastFundingSource source = SkillCastFundingSource.CasterResources)
     {
+        if (!SkillCastRequirements.Check(caster, skill, source)) return 0;
         if (source == SkillCastFundingSource.Prepaid) return int.MaxValue;
 
         var binding = SkillCastResourceResolver.Resolve(caster, skill);

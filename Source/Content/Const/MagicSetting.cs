@@ -65,6 +65,9 @@ public static class MagicSetting
     /// <summary>为法术添加新词条时使用的候选权重倍率。</summary>
     public const float MagicSpellImprovementNewModifierWeight = 1f;
 
+    /// <summary>魔法师比较武器价值时为法杖增加的偏好分数。</summary>
+    public const int MagicStaffWeaponPreferenceBonus = 100;
+
     /// <summary>相对于 Mod 根目录的魔法等级属性表路径。</summary>
     public const string StatsPath                  = "Content/Cultisys/Magic.csv";
 }
