@@ -158,6 +158,7 @@ Cultiway.SkillModifier.Field.ExplosionDamageRatio,爆炸伤害比例
 Cultiway.SkillModifier.Field.SpeedBonus,速度增幅
 Cultiway.SkillModifier.Field.CastCostReduction,施法消耗降低
 Cultiway.SkillCastResource.Wakan,灵力
+Cultiway.SkillCastResource.Mana,魔力
 Cultiway.SkillModifier.Field.SalvoIntervalReduction,连发间隔降低
 Cultiway.SkillModifier.Field.DamageBonus,伤害增幅
 Cultiway.SkillModifier.Field.KnockbackDistance,击退距离
