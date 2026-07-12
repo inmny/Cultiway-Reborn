@@ -9,6 +9,19 @@ public struct ItemLevel : IComponent
     public int Stage;
     public int Level;
 
+    /// <summary>
+    /// 从连续等级值创建品级，值域限制为 ItemLevel 当前支持的 0-35。
+    /// </summary>
+    public static ItemLevel FromValue(int value)
+    {
+        value = Math.Max(0, Math.Min(value, 35));
+        return new ItemLevel
+        {
+            Stage = value / 9,
+            Level = value % 9
+        };
+    }
+
     public string GetName()
     {
         var stage = Math.Max(0, Math.Min(Stage, 3));

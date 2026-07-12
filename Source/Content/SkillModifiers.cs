@@ -28,7 +28,7 @@ using SimilarityTag = Cultiway.Core.SkillLibV3.SkillTags.Similarity;
 
 namespace Cultiway.Content;
 
-public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
+public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
 {
     [AssetId(PlaceholderModifier.PlaceholderAssetId)]
     public static SkillModifierAsset Placeholder { get; private set; }
@@ -174,6 +174,7 @@ public class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillModifiers>
         EternalCurse.OnAddOrUpgrade = AddOrUpgradeEternalCurse;
         EternalCurse.OnEffectObj = ApplyEternalCurseEffect;
 
+        ConfigureEvaluations();
         ConfigureEditorMetadata();
     }
 

@@ -173,6 +173,7 @@ public class SkillContainerBuilder
         SkillContainerUtils.RefreshMotionProfile(_containerEntity);
         SkillCastParametersResolver.Refresh(_containerEntity);
         SkillCastResourceResolver.Invalidate(_containerEntity);
+        SkillContainerEvaluator.Refresh(_containerEntity);
         if (mode == SkillContainerBuildMode.Runtime)
         {
             SkillNameGenerator.Instance.GenerateFor(_containerEntity);

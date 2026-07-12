@@ -25,7 +25,8 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
         base.init();
         SetTrajectory = add(new SkillModifierAsset()
         {
-            id = "Cultiway."+nameof(SetTrajectory)
+            id = "Cultiway."+nameof(SetTrajectory),
+            EvaluateLevel = SkillEvaluationActions.None
         });
         SetTrajectory.AddSimilarityTags(SimilarityTag.Trajectory, SimilarityTag.Motion);
         SetTrajectory.OnSetup = ApplyTrajectoryOnSetup;
@@ -63,7 +64,8 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             id = "Cultiway."+nameof(SalvoCount),
             Rarity = SkillModifierRarity.Common,
             WeightMod = 0f,
-            IsDisabled = true
+            IsDisabled = true,
+            EvaluateLevel = SkillEvaluationActions.None
         });
         SalvoCount.AddSimilarityTags(SimilarityTag.Projectile, SimilarityTag.Salvo);
         SalvoCount.OnAddOrUpgrade = builder =>
@@ -99,7 +101,8 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             id = "Cultiway."+nameof(BurstCount),
             Rarity = SkillModifierRarity.Common,
             WeightMod = 0f,
-            IsDisabled = true
+            IsDisabled = true,
+            EvaluateLevel = SkillEvaluationActions.None
         });
         BurstCount.AddSimilarityTags(SimilarityTag.Projectile, SimilarityTag.Burst);
         BurstCount.OnAddOrUpgrade = builder =>

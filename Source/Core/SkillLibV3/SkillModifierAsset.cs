@@ -72,6 +72,7 @@ public delegate SkillCompatibilityResult SkillModifierCompatibilityAction(SkillE
 public delegate float SkillModifierEffectRadiusMultiplier(Entity skillContainer);
 public delegate void SkillModifierCastParametersAction(Entity skillContainer,
     ref SkillCastParameters parameters);
+public delegate void SkillModifierEvaluationAction(Entity skillContainer, ref SkillEvaluationContext context);
 public class SkillModifierAsset : Asset
 {
     /// <summary>
@@ -107,6 +108,10 @@ public class SkillModifierAsset : Asset
     public SkillModifierCompatibilityAction EditorCompatibility;
     public SkillModifierEffectRadiusMultiplier EffectRadiusMultiplier;
     public SkillModifierCastParametersAction ApplyCastParameters;
+    /// <summary>
+    /// 将当前词条的实际参数贡献到技能等级评估上下文。
+    /// </summary>
+    public SkillModifierEvaluationAction EvaluateLevel = SkillEvaluationActions.None;
     
     /// <summary>
     /// 是否禁用该词条（禁用的词条不会被抽取）
