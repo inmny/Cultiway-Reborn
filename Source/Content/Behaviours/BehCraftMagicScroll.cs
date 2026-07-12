@@ -86,7 +86,7 @@ public sealed class BehCraftMagicScroll : BehaviourActionActor
 
     private static bool CanCraftFromSkill(ActorExtend actor, Entity skill)
     {
-        if (!MagicLearningRules.IsManaSkill(skill)) return false;
+        if (!SkillCastResourceResolver.UsesResource(skill, SkillCastResources.Mana)) return false;
         if (!skill.HasComponent<SkillCastParameters>()) return false;
         var manaCost = ResolveManaCost(skill);
         return manaCost > 0 && actor.Base.getMana() >= manaCost;

@@ -1,28 +1,15 @@
-using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
-using Cultiway.Core;
-using Cultiway.Core.SkillLibV3;
 using Cultiway.Utils.Extension;
-using Friflo.Engine.ECS;
 using strings;
 
 namespace Cultiway.Content;
 
 /// <summary>
-/// 定义魔法体系的法杖施法要求，以及魔法师选择和打造武器时的法杖偏好。
+/// 提供法杖识别、装备偏好和打造流程。
 /// </summary>
-[Dependency(typeof(Cultisyses), typeof(SkillCastResources))]
-public sealed class MagicStaffRules : ICanInit
+public static class MagicStaffTools
 {
-    /// <summary>
-    /// 将 mana 法术的法杖要求注册到 Core 施法前置条件链。
-    /// </summary>
-    public void Init()
-    {
-        SkillCastRequirements.Register(CheckStaffRequirement);
-    }
-
     /// <summary>
     /// 判断单位当前武器槽是否装备了原版法杖分组中的武器。
     /// </summary>
@@ -105,17 +92,6 @@ public sealed class MagicStaffRules : ICanInit
         return true;
     }
 
-    /// <summary>
-    /// 对魔法师自行支付 mana 的技能施法要求当前装备法杖。
-    /// </summary>
-    private static bool CheckStaffRequirement(ActorExtend caster, Entity skill,
-        SkillCastFundingSource fundingSource)
-    {
-        // 卷轴、符箓等预付费载体自行承担施法媒介，不要求使用者手持法杖。
-        if (fundingSource == SkillCastFundingSource.Prepaid) return true;
-        if (!caster.HasCultisys<Magic>() || !MagicLearningRules.IsManaSkill(skill)) return true;
-        return HasEquippedStaff(caster.Base);
-    }
     /// <summary>
     /// 按原版打造规则检查个人金钱和城市资源是否足够。
     /// </summary>

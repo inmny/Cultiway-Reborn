@@ -38,7 +38,7 @@ public readonly struct MagicScrollStudyCandidate
 /// <summary>
 /// 负责判定卷轴能否被指定魔法师学习，并原子更新技能所有权、知识关系和卷轴生命周期。
 /// </summary>
-public static class MagicScrollLearningRules
+public static class MagicScrollStudyService
 {
     /// <summary>
     /// 判断魔法师当前是否持有可学习的卷轴；已有阅读目标有效时优先继续该目标。
@@ -158,8 +158,8 @@ public static class MagicScrollLearningRules
         if (scroll.IsNull || !scroll.HasComponent<MagicScroll>()) return false;
 
         var skillContainer = scroll.GetComponent<MagicScroll>().SkillContainer;
-        if (!MagicLearningRules.IsManaSkill(skillContainer)) return false;
-        var profile = ResolveProfile(skillContainer);
+        if (!SkillCastResourceResolver.UsesResource(skillContainer, SkillCastResources.Mana)) return false;
+        var profile = MagicSpellProfile.Resolve(skillContainer);
         if (profile == null || string.IsNullOrEmpty(profile.FamilySignature)) return false;
 
         ref var magic = ref actor.GetCultisys<Magic>();
@@ -168,7 +168,7 @@ public static class MagicScrollLearningRules
         var affinity = profile.ElementRequirement.GetWeightedAffinity(actor.GetElementRoot());
         if (affinity < MagicSetting.MagicStudyAffinityThreshold) return false;
 
-        MagicLearningRules.EnsureKnowledgeRelations(actor);
+        MagicKnowledgeService.Synchronize(actor);
         var candidateSignature = SkillContainerSignature.Build(skillContainer);
         if (string.IsNullOrEmpty(candidateSignature)) return false;
         Entity replacement = default;
@@ -177,7 +177,7 @@ public static class MagicScrollLearningRules
             if (known.IsNull) continue;
             if (SkillContainerSignature.Build(known) == candidateSignature) return false;
 
-            var knownProfile = ResolveProfile(known);
+            var knownProfile = MagicSpellProfile.Resolve(known);
             if (knownProfile?.FamilySignature != profile.FamilySignature) continue;
             if (replacement.IsNull || GetItemLevelValue(known) > GetItemLevelValue(replacement))
                 replacement = known;
@@ -218,13 +218,6 @@ public static class MagicScrollLearningRules
     {
         if (!container.HasComponent<ItemLevel>() && !SkillContainerEvaluator.Refresh(container)) return -1;
         return container.GetComponent<ItemLevel>();
-    }
-
-    private static MagicSpellProfile ResolveProfile(Entity container)
-    {
-        return MagicWebManager.Instance?.TryGetProfile(container, out var profile) == true
-            ? profile
-            : MagicSpellProfile.Evaluate(container);
     }
 
     private static double GetWorldTime()

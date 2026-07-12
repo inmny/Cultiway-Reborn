@@ -23,6 +23,16 @@ public sealed class MagicSpellProfile
     public string PrimaryElementTag { get; internal set; }
 
     /// <summary>
+    /// 优先读取魔网收录时冻结的档案，非魔网技能则即时计算。
+    /// </summary>
+    public static MagicSpellProfile Resolve(Entity container)
+    {
+        return MagicWebManager.Instance?.TryGetProfile(container, out var profile) == true
+            ? profile
+            : Evaluate(container);
+    }
+
+    /// <summary>
     /// 从技能容器的通用 ItemLevel 组装魔网档案，并在魔法层映射为环位。
     /// </summary>
     public static MagicSpellProfile Evaluate(Entity container)

@@ -26,10 +26,10 @@ public sealed class BehStudyMagicWeb : BehCityActor
         var now = World.world.map_stats.world_time;
         if (now < state.NextStudyWorldTime) return BehResult.Continue;
 
-        if (!MagicLearningRules.TryResolveStudy(actor, state, out _, out var affinity, out var difficulty))
+        if (!MagicWebStudyPlanner.TryResolve(actor, state, out _, out var affinity, out var difficulty))
         {
-            MagicLearningRules.ClearCandidate(ref state);
-            if (!MagicLearningRules.TrySelectStudyCandidate(actor, out var candidate))
+            MagicWebStudyService.ClearCandidate(ref state);
+            if (!MagicWebStudyPlanner.TrySelectCandidate(actor, out var candidate))
             {
                 state.NextStudyWorldTime = now +
                                            MagicSetting.MagicStudyNoCandidateBackoffYears * TimeScales.SecPerYear;
@@ -54,8 +54,8 @@ public sealed class BehStudyMagicWeb : BehCityActor
         state.SessionRemaining -= TickInterval;
         if (state.Progress >= difficulty)
         {
-            var learned = MagicLearningRules.CompleteStudy(actor, ref state);
-            MagicLearningRules.ClearCandidate(ref state);
+            var learned = MagicWebStudyService.Complete(actor, ref state);
+            MagicWebStudyService.ClearCandidate(ref state);
             state.NextStudyWorldTime = now + (learned
                 ? MagicSetting.MagicStudySuccessCooldownYears
                 : MagicSetting.MagicStudyNoCandidateBackoffYears) * TimeScales.SecPerYear;

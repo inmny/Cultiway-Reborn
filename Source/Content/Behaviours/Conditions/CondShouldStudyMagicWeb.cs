@@ -6,6 +6,6 @@ public sealed class CondShouldStudyMagicWeb : BehaviourActorCondition
 {
     public override bool check(Actor pActor)
     {
-        return MagicLearningRules.ShouldStudy(pActor.GetExtend());
+        return MagicWebStudyPlanner.ShouldStudy(pActor.GetExtend());
     }
 }

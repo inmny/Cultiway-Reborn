@@ -9,6 +9,6 @@ public sealed class CondCanStudyMagicScroll : BehaviourActorCondition
 {
     public override bool check(Actor pActor)
     {
-        return MagicScrollLearningRules.ShouldStudy(pActor.GetExtend());
+        return MagicScrollStudyService.ShouldStudy(pActor.GetExtend());
     }
 }

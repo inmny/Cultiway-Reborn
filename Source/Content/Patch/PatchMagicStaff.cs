@@ -16,7 +16,7 @@ internal static class PatchMagicStaff
         City pCity, ref bool __result)
     {
         if (pType != EquipmentType.Weapon ||
-            !MagicStaffRules.TryCraftPreferredStaff(pActor, pCreatorName, pTries, pCity, out var crafted))
+            !MagicStaffTools.TryCraftPreferredStaff(pActor, pCreatorName, pTries, pCity, out var crafted))
             return true;
 
         __result = crafted;
@@ -43,8 +43,8 @@ internal static class PatchMagicStaff
         int expectedCount, string patchedMethod)
     {
         var getValue = AccessTools.Method(typeof(Item), nameof(Item.getValue));
-        var resolveValue = AccessTools.Method(typeof(MagicStaffRules),
-            nameof(MagicStaffRules.ResolveEquipmentPreferenceValue));
+        var resolveValue = AccessTools.Method(typeof(MagicStaffTools),
+            nameof(MagicStaffTools.ResolveEquipmentPreferenceValue));
         var replaced = 0;
 
         foreach (var instruction in instructions)

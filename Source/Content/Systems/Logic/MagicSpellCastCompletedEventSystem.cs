@@ -4,7 +4,7 @@ using Cultiway.Core.EventSystem.Events;
 namespace Cultiway.Content.Systems.Logic;
 
 /// <summary>
-/// 将核心技能系统的施法完成事件交给魔法知识成长规则处理。
+/// 将核心技能系统的施法完成事件交给魔法知识成长服务处理。
 /// </summary>
 public sealed class MagicSpellCastCompletedEventSystem : GenericEventSystem<SkillCastCompletedEvent>
 {
@@ -12,7 +12,7 @@ public sealed class MagicSpellCastCompletedEventSystem : GenericEventSystem<Skil
 
     protected override void HandleEvent(SkillCastCompletedEvent evt)
     {
-        MagicSpellProgressionRules.RecordCompletedCast(evt.Caster, evt.SkillContainer, evt.EmittedCount,
+        MagicSpellProgressionService.RecordCompletedCast(evt.Caster, evt.SkillContainer, evt.EmittedCount,
             evt.FundingSource);
     }
 }

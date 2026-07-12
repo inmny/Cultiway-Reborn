@@ -37,6 +37,17 @@ public static class SkillCastResourceResolver
         return binding;
     }
 
+    /// <summary>
+    /// 判断技能是否声明使用指定施法资源，不要求施法者当前能够提供该资源。
+    /// </summary>
+    public static bool UsesResource(Entity skill, SkillCastResourceAsset resource)
+    {
+        if (resource == null || skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
+
+        var requirement = skill.GetComponent<SkillContainer>().CastResourceRequirement;
+        return requirement?.ResourceAssetIds?.Contains(resource.id, StringComparer.Ordinal) ?? false;
+    }
+
     public static void Invalidate(ActorExtend caster)
     {
         if (caster == null) return;

@@ -8,13 +8,12 @@ using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
-using Cultiway.Core.SkillLibV3.Components;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
 namespace Cultiway.Content;
 
-public readonly struct MagicStudyCandidate
+public readonly struct MagicWebStudyCandidate
 {
     public readonly Entity Container;
     public readonly Entity Replacement;
@@ -23,7 +22,7 @@ public readonly struct MagicStudyCandidate
     public readonly float Score;
     public readonly float Difficulty;
 
-    public MagicStudyCandidate(Entity container, Entity replacement, MagicSpellProfile profile, float affinity,
+    public MagicWebStudyCandidate(Entity container, Entity replacement, MagicSpellProfile profile, float affinity,
         float score, float difficulty)
     {
         Container = container;
@@ -36,9 +35,9 @@ public readonly struct MagicStudyCandidate
 }
 
 /// <summary>
-/// 负责魔法师查询魔网、选择研究对象以及原子更新技能所有权和魔法知识关系。
+/// 负责查询魔网、选择研究对象并重新校验进行中的研究目标。
 /// </summary>
-public static class MagicLearningRules
+public static class MagicWebStudyPlanner
 {
     private static readonly string[] ElementTags =
     {
@@ -60,14 +59,13 @@ public static class MagicLearningRules
     /// <summary>
     /// 从有界魔网查询结果中为魔法师选出研究目标，并在容量已满时给出可替换法术。
     /// </summary>
-    public static bool TrySelectStudyCandidate(ActorExtend actor, out MagicStudyCandidate selected)
+    public static bool TrySelectCandidate(ActorExtend actor, out MagicWebStudyCandidate selected)
     {
         selected = default;
         if (actor == null || !actor.HasCultisys<Magic>() || !actor.HasElementRoot()) return false;
         var manager = MagicWebManager.Instance;
         if (manager == null) return false;
 
-        EnsureKnowledgeRelations(actor);
         ref var magic = ref actor.GetCultisys<Magic>();
         var maxRing = Cultisyses.GetMaxSpellRing(magic.CurrLevel);
         var capacity = Cultisyses.GetKnownSpellCapacity(magic.CurrLevel);
@@ -100,7 +98,7 @@ public static class MagicLearningRules
         }
         query.AnyTags.Add(ElementTags[strongestElementIndex]);
 
-        var candidates = new List<MagicStudyCandidate>();
+        var candidates = new List<MagicWebStudyCandidate>();
         foreach (var entry in manager.Query(query))
         {
             var profile = entry.Profile;
@@ -116,20 +114,19 @@ public static class MagicLearningRules
                 if (!TryFindReplacement(known, profile, score, root, maxRing, out replacement)) continue;
             }
 
-            candidates.Add(new MagicStudyCandidate(entry.Container, replacement, profile, affinity, score,
+            candidates.Add(new MagicWebStudyCandidate(entry.Container, replacement, profile, affinity, score,
                 ResolveDifficulty(profile)));
         }
 
         if (candidates.Count == 0) return false;
         selected = WeightedSelect(candidates);
-        manager.Touch(selected.Container);
         return true;
     }
 
     /// <summary>
     /// 校验正在研究的条目并重新取得其档案、亲和度和研究难度。
     /// </summary>
-    public static bool TryResolveStudy(ActorExtend actor, in MagicStudyState state, out MagicSpellProfile profile,
+    public static bool TryResolve(ActorExtend actor, in MagicStudyState state, out MagicSpellProfile profile,
         out float affinity, out float difficulty)
     {
         profile = null;
@@ -139,7 +136,7 @@ public static class MagicLearningRules
         var manager = MagicWebManager.Instance;
         if (manager == null || !manager.Contains(state.Candidate) ||
             !manager.TryGetProfile(state.Candidate, out profile)) return false;
-        if (!state.Replacement.IsNull && !HasKnowledge(actor, state.Replacement)) return false;
+        if (!state.Replacement.IsNull && !actor.OwnsLearnedSkill(state.Replacement)) return false;
 
         affinity = profile.ElementRequirement.GetWeightedAffinity(actor.GetElementRoot());
         if (affinity < MagicSetting.MagicStudyAffinityThreshold) return false;
@@ -147,106 +144,14 @@ public static class MagicLearningRules
         return true;
     }
 
-    /// <summary>
-    /// 完成学习或替换，并同步 SkillMasterRelation 与 MagicSpellKnowledgeRelation。
-    /// </summary>
-    public static bool CompleteStudy(ActorExtend actor, ref MagicStudyState state)
-    {
-        if (!TryResolveStudy(actor, state, out var profile, out _, out _)) return false;
-        ref var magic = ref actor.GetCultisys<Magic>();
-        if (profile.Ring > Cultisyses.GetMaxSpellRing(magic.CurrLevel)) return false;
-
-        SkillOwnershipResult result;
-        if (state.Replacement.IsNull)
-        {
-            if (actor.E.GetRelations<MagicSpellKnowledgeRelation>().Length >=
-                Cultisyses.GetKnownSpellCapacity(magic.CurrLevel)) return false;
-            result = MagicWebManager.Instance.Learn(actor, state.Candidate);
-        }
-        else
-        {
-            result = SkillOwnershipService.Replace(actor, state.Replacement, state.Candidate);
-            if (result == SkillOwnershipResult.Replaced)
-                actor.E.RemoveRelation<MagicSpellKnowledgeRelation>(state.Replacement);
-        }
-
-        if (result is not (SkillOwnershipResult.Added or SkillOwnershipResult.Replaced or
-            SkillOwnershipResult.Duplicate)) return false;
-        if (result == SkillOwnershipResult.Duplicate && !actor.OwnsLearnedSkill(state.Candidate)) return false;
-
-        if (result != SkillOwnershipResult.Duplicate || actor.OwnsLearnedSkill(state.Candidate))
-        {
-            actor.E.AddRelation(new MagicSpellKnowledgeRelation
-            {
-                SkillContainer = state.Candidate,
-                LearnedWorldTime = GetWorldTime(),
-                Source = MagicSpellKnowledgeSource.MagicWeb
-            });
-        }
-        MagicWebManager.Instance.Touch(state.Candidate);
-        return true;
-    }
-
-    /// <summary>
-    /// 清除当前研究对象，但保留下次允许研究的世界时间。
-    /// </summary>
-    public static void ClearCandidate(ref MagicStudyState state)
-    {
-        state.Candidate = default;
-        state.Replacement = default;
-        state.Progress = 0f;
-        state.SessionRemaining = 0f;
-    }
-
-    internal static void EnsureKnowledgeRelations(ActorExtend actor)
-    {
-        if (actor == null) return;
-
-        var staleKnowledge = new List<Entity>();
-        foreach (var relation in actor.E.GetRelations<MagicSpellKnowledgeRelation>())
-        {
-            if (relation.SkillContainer.IsNull || !actor.OwnsLearnedSkill(relation.SkillContainer))
-                staleKnowledge.Add(relation.SkillContainer);
-        }
-        foreach (var container in staleKnowledge)
-            actor.E.RemoveRelation<MagicSpellKnowledgeRelation>(container);
-
-        foreach (var skill in actor.GetLearnedSkillsInOrder())
-        {
-            EnsureKnowledge(actor, skill);
-        }
-    }
-
-    /// <summary>
-    /// 确保施法者持有的 mana 技能具有对应的魔法知识关系。
-    /// </summary>
-    internal static bool EnsureKnowledge(ActorExtend actor, Entity skill)
-    {
-        if (actor == null || skill.IsNull || !actor.OwnsLearnedSkill(skill) || !IsManaSkill(skill)) return false;
-        if (HasKnowledge(actor, skill)) return true;
-        if (MagicSpellProfile.Evaluate(skill) == null) return false;
-
-        actor.E.AddRelation(new MagicSpellKnowledgeRelation
-        {
-            SkillContainer = skill,
-            LearnedWorldTime = GetWorldTime(),
-            Source = MagicWebManager.Instance?.Contains(skill) == true
-                ? MagicSpellKnowledgeSource.MagicWeb
-                : MagicSpellKnowledgeSource.SelfCreated
-        });
-        return true;
-    }
-
     private static List<KnownSpellEntry> GetKnownSpellEntries(ActorExtend actor)
     {
         var result = new List<KnownSpellEntry>();
-        foreach (var relation in actor.E.GetRelations<MagicSpellKnowledgeRelation>())
+        foreach (var container in actor.GetLearnedSkillsInOrder())
         {
-            var container = relation.SkillContainer;
-            if (container.IsNull) continue;
-            var profile = MagicWebManager.Instance.TryGetProfile(container, out var managedProfile)
-                ? managedProfile
-                : MagicSpellProfile.Evaluate(container);
+            if (container.IsNull ||
+                !SkillCastResourceResolver.UsesResource(container, SkillCastResources.Mana)) continue;
+            var profile = MagicSpellProfile.Resolve(container);
             if (profile != null) result.Add(new KnownSpellEntry(container, profile));
         }
         return result;
@@ -284,7 +189,7 @@ public static class MagicLearningRules
         return MagicSetting.MagicStudyBaseDifficulty * Mathf.Pow(profile.Ring + 1f, 2f);
     }
 
-    private static MagicStudyCandidate WeightedSelect(List<MagicStudyCandidate> candidates)
+    private static MagicWebStudyCandidate WeightedSelect(List<MagicWebStudyCandidate> candidates)
     {
         var top = candidates.OrderByDescending(candidate => candidate.Score).Take(8).ToArray();
         var total = top.Sum(candidate => Mathf.Max(0.01f, candidate.Score));
@@ -295,22 +200,6 @@ public static class MagicLearningRules
             if (roll <= 0f) return candidate;
         }
         return top[top.Length - 1];
-    }
-
-    private static bool HasKnowledge(ActorExtend actor, Entity container)
-    {
-        foreach (var relation in actor.E.GetRelations<MagicSpellKnowledgeRelation>())
-        {
-            if (relation.SkillContainer == container) return true;
-        }
-        return false;
-    }
-
-    internal static bool IsManaSkill(Entity skill)
-    {
-        if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
-        var requirement = skill.GetComponent<SkillContainer>().CastResourceRequirement;
-        return requirement?.ResourceAssetIds?.Contains(SkillCastResources.Mana.id, StringComparer.Ordinal) ?? false;
     }
 
     private static string ResolveDominantElementTag(ElementRoot root)
