@@ -58,15 +58,6 @@ public static class MagicLearningRules
     }
 
     /// <summary>
-    /// 判断魔法师是否尚未掌握任何 mana 法术，用于提高首次学习的工作优先级。
-    /// </summary>
-    public static bool HasNoKnownSpell(ActorExtend actor)
-    {
-        EnsureKnowledgeRelations(actor);
-        return actor == null || actor.E.GetRelations<MagicSpellKnowledgeRelation>().Length == 0;
-    }
-
-    /// <summary>
     /// 从有界魔网查询结果中为魔法师选出研究目标，并在容量已满时给出可替换法术。
     /// </summary>
     public static bool TrySelectStudyCandidate(ActorExtend actor, out MagicStudyCandidate selected)

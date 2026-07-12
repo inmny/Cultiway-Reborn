@@ -11,6 +11,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob PlantXianCultivator { get; private set; }
     public static ActorJob WaterCultivator     { get; private set; }
     public static ActorJob MagicCultivator     { get; private set; }
+    public static ActorJob MagicWebResearcher  { get; private set; }
     public static ActorJob HerbCollector { get; private set; }
     public static ActorJob ElixirCrafter { get; private set; }
     public static ActorJob ElixirFinder { get; private set; }
@@ -65,10 +66,12 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         WaterCultivator.addCondition(new CondXianReadyLevelup());
         WaterCultivator.addTask(ActorTasks.EndJob.id);
 
-        MagicCultivator.addTask(ActorTasks.StudyMagicWeb.id);
-        MagicCultivator.addCondition(new CondShouldStudyMagicWeb());
         MagicCultivator.addTask(ActorTasks.DailyMagicMeditate.id);
         MagicCultivator.addTask(ActorTasks.EndJob.id);
+
+        MagicWebResearcher.addTask(ActorTasks.StudyMagicWeb.id);
+        MagicWebResearcher.addCondition(new CondShouldStudyMagicWeb());
+        MagicWebResearcher.addTask(ActorTasks.EndJob.id);
 
         HerbCollector.addTask(ActorTasks.RandomMove.id);
         HerbCollector.addTask(ActorTasks.LookForHerbs.id);
