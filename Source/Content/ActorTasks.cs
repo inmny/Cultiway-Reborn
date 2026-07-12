@@ -17,6 +17,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor LevelupWaterCultivate     { get; private set; }
     public static BehaviourTaskActor DailyMagicMeditate        { get; private set; }
     public static BehaviourTaskActor StudyMagicWeb             { get; private set; }
+    public static BehaviourTaskActor StudyMagicScroll          { get; private set; }
     public static BehaviourTaskActor LookForHerbs { get; private set; }
     public static BehaviourTaskActor CraftElixir  { get; private set; }
     public static BehaviourTaskActor FindNewElixir { get; private set; }
@@ -77,6 +78,12 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
 
         StudyMagicWeb.addBeh(new BehStudyMagicWeb());
         StudyMagicWeb.setIcon("cultiway/icons/iconMagic");
+
+        StudyMagicScroll.force_hand_tool = "book";
+        StudyMagicScroll.cancellable_by_reproduction = true;
+        StudyMagicScroll.cancellable_by_socialize = true;
+        StudyMagicScroll.addBeh(new BehStudyMagicScroll());
+        StudyMagicScroll.setIcon("cultiway/icons/iconCraftMagicScroll");
 
         DailyPlantXianCultivate.addBeh(new BehOutdoorCultivationWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
         DailyPlantXianCultivate.addBeh(new BehPlantXianCultivate());

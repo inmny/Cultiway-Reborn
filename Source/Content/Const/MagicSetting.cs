@@ -41,6 +41,9 @@ public static class MagicSetting
     /// <summary>没有可研究候选时再次查询魔网前的退避年数。</summary>
     public const float MagicStudyNoCandidateBackoffYears = 5f;
 
+    /// <summary>卷轴提供完整术式后，相对于魔网自行研究的学习难度倍率。</summary>
+    public const float MagicScrollStudyDifficultyFactor = 0.4f;
+
     /// <summary>容量已满时，新候选分数相对被替换法术分数所需达到的倍率。</summary>
     public const float MagicReplacementScoreRatio   = 1.2f;
 

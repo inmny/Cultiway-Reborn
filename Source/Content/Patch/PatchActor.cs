@@ -69,6 +69,10 @@ internal static class PatchActor
                 }
                 else
                 {
+                    if (MagicScrollLearningRules.ShouldStudy(ae))
+                    {
+                        pool.Add(ActorJobs.MagicScrollStudent.id);
+                    }
                     if (MagicLearningRules.ShouldStudy(ae))
                     {
                         pool.Add(ActorJobs.MagicWebResearcher.id);

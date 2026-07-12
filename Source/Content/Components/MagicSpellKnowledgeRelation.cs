@@ -61,3 +61,21 @@ public struct MagicStudyState : IComponent
     public float SessionRemaining;
     public double NextStudyWorldTime;
 }
+
+/// <summary>
+/// 魔法师研读实体卷轴时保留的进度。卷轴失效后该状态会被清空。
+/// </summary>
+public struct MagicScrollStudyState : IComponent
+{
+    /// <summary>当前正在研读的卷轴实体。</summary>
+    public Entity Scroll;
+
+    /// <summary>同族升级时待替换的旧法术；学习新法术时为空。</summary>
+    public Entity Replacement;
+
+    /// <summary>跨阅读轮次保留的累计理解进度。</summary>
+    public float Progress;
+
+    /// <summary>当前阅读轮次的剩余时间。</summary>
+    public float SessionRemaining;
+}
