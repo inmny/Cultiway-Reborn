@@ -35,7 +35,7 @@ internal static class MagicShieldVfx
             qs.setSharedMat(material);
             var pos = actor.cur_transform_position;
             qs.setPosOnly(ref pos);
-            qs.setScale(actor.current_scale.y * asset.base_scale);
+            qs.setScale(actor.current_scale.y);
         }
     }
 
