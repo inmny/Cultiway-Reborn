@@ -16,49 +16,49 @@ public static class SectTraitRules
     public static float GetRecruitRange(Actor recruiter)
     {
         Sect sect = recruiter.GetExtend().sect;
-        return SectConst.PersonnelRecruitRange * GetMultiplier(sect, SectStats.RecruitRangeModifier);
+        return SectConst.PersonnelRecruitRange * GetMultiplier(sect, WorldboxGame.BaseStats.RecruitRangeModifier);
     }
 
     public static int GetRecruitMaxLevelAboveLeader(Sect sect)
     {
-        return SectConst.PersonnelRecruitMaxLevelAboveLeader + GetIntBonus(sect, SectStats.RecruitMaxLevelBonus);
+        return SectConst.PersonnelRecruitMaxLevelAboveLeader + GetIntBonus(sect, WorldboxGame.BaseStats.RecruitMaxLevelBonus);
     }
 
     public static float GetRecruitRealmScoreMultiplier(Sect sect)
     {
-        return GetMultiplier(sect, SectStats.RecruitRealmScoreModifier);
+        return GetMultiplier(sect, WorldboxGame.BaseStats.RecruitRealmScoreModifier);
     }
 
     public static bool RequiresMasterIntroduction(Sect sect)
     {
-        return sect.base_stats.hasTag(SectStats.TagRecruitRequiresMasterIntroduction);
+        return sect.base_stats.hasTag(WorldboxGame.BaseStats.TagRecruitRequiresMasterIntroduction);
     }
 
     public static int GetRealmPersonnelScore(Sect sect, Actor actor, int baseScore)
     {
-        return ScaleInt(baseScore, GetMultiplier(sect, SectStats.PersonnelRealmScoreModifier));
+        return ScaleInt(baseScore, GetMultiplier(sect, WorldboxGame.BaseStats.PersonnelRealmScoreModifier));
     }
 
     public static int GetTenurePersonnelScore(Sect sect, Actor actor, int baseScore)
     {
-        return ScaleInt(baseScore, GetMultiplier(sect, SectStats.PersonnelTenureScoreModifier));
+        return ScaleInt(baseScore, GetMultiplier(sect, WorldboxGame.BaseStats.PersonnelTenureScoreModifier));
     }
 
     public static int GetContributionPersonnelScore(Sect sect, Actor actor, int baseScore)
     {
-        return ScaleInt(baseScore, GetMultiplier(sect, SectStats.PersonnelContributionScoreModifier));
+        return ScaleInt(baseScore, GetMultiplier(sect, WorldboxGame.BaseStats.PersonnelContributionScoreModifier));
     }
 
     public static int GetPromotionScoreThreshold(Sect sect, SectRoleAsset role)
     {
-        float multiplier = GetMultiplier(sect, SectStats.PromotionScoreThresholdModifier);
+        float multiplier = GetMultiplier(sect, WorldboxGame.BaseStats.PromotionScoreThresholdModifier);
         if (role == SectRoles.Deacon)
         {
-            multiplier *= GetMultiplier(sect, SectStats.DeaconThresholdModifier);
+            multiplier *= GetMultiplier(sect, WorldboxGame.BaseStats.DeaconThresholdModifier);
         }
         else if (role == SectRoles.Elder)
         {
-            multiplier *= GetMultiplier(sect, SectStats.ElderThresholdModifier);
+            multiplier *= GetMultiplier(sect, WorldboxGame.BaseStats.ElderThresholdModifier);
         }
 
         return ScaleInt(role.minPersonnelScore, multiplier);
@@ -73,11 +73,11 @@ public static class SectTraitRules
         float multiplier = 1f;
         if (role == SectRoles.Deacon)
         {
-            multiplier = GetMultiplier(sect, SectStats.DeaconSlotModifier);
+            multiplier = GetMultiplier(sect, WorldboxGame.BaseStats.DeaconSlotModifier);
         }
         else if (role == SectRoles.Elder)
         {
-            multiplier = GetMultiplier(sect, SectStats.ElderSlotModifier);
+            multiplier = GetMultiplier(sect, WorldboxGame.BaseStats.ElderSlotModifier);
         }
 
         return Mathf.Max(1, Mathf.RoundToInt(baseCount * multiplier));
@@ -86,20 +86,20 @@ public static class SectTraitRules
     public static float GetMasterWillingnessThreshold(Sect sect)
     {
         return SectConst.PersonnelInnerDiscipleMasterMinRecruitWillingness
-               * GetMultiplier(sect, SectStats.MasterWillingnessThresholdModifier);
+               * GetMultiplier(sect, WorldboxGame.BaseStats.MasterWillingnessThresholdModifier);
     }
 
     public static int GetMasterApprenticeCapacity(Sect sect, ActorExtend master)
     {
         int baseCount = master.GetMaxApprenticeCount();
-        float multiplier = GetMultiplier(sect, SectStats.MasterApprenticeCapacityModifier);
+        float multiplier = GetMultiplier(sect, WorldboxGame.BaseStats.MasterApprenticeCapacityModifier);
         return Mathf.Max(0, Mathf.RoundToInt(baseCount * multiplier));
     }
 
     public static bool CanDiscipleOrganizeScripture(Sect sect, Actor actor)
     {
         if (actor.GetSectRole(SectRoleSlot.Grade).order < SectRoles.InnerDisciple.order) return false;
-        return sect.base_stats.hasTag(SectStats.TagAllowDiscipleOrganizeScripture);
+        return sect.base_stats.hasTag(WorldboxGame.BaseStats.TagAllowDiscipleOrganizeScripture);
     }
 
     public static float GetStudyScoreMultiplier(Sect sect, Book book)
@@ -111,12 +111,12 @@ public static class SectTraitRules
 
         if (book.getAsset() == BookTypes.Skillbook)
         {
-            return GetMultiplier(sect, SectStats.SkillbookStudyModifier);
+            return GetMultiplier(sect, WorldboxGame.BaseStats.SkillbookStudyModifier);
         }
 
         if (book.getAsset() == BookTypes.Elixirbook)
         {
-            return GetMultiplier(sect, SectStats.ElixirbookStudyModifier);
+            return GetMultiplier(sect, WorldboxGame.BaseStats.ElixirbookStudyModifier);
         }
 
         return 1f;
@@ -124,40 +124,40 @@ public static class SectTraitRules
 
     public static float GetOutOfPermissionReadCostMultiplier(Sect sect)
     {
-        return GetMultiplier(sect, SectStats.OutOfPermissionReadCostModifier);
+        return GetMultiplier(sect, WorldboxGame.BaseStats.OutOfPermissionReadCostModifier);
     }
 
     public static float GetLectureWeightMultiplier(Sect sect, CultibookAsset cultibook)
     {
         if (sect.GetDoctrineCultibook() != cultibook) return 1f;
-        return GetMultiplier(sect, SectStats.DoctrineLectureWeightModifier);
+        return GetMultiplier(sect, WorldboxGame.BaseStats.DoctrineLectureWeightModifier);
     }
 
     public static int GetLectureMaxAudience(Sect sect)
     {
-        return Mathf.Max(1, SectConst.SectLectureMaxAudience + GetIntBonus(sect, SectStats.LectureMaxAudienceBonus));
+        return Mathf.Max(1, SectConst.SectLectureMaxAudience + GetIntBonus(sect, WorldboxGame.BaseStats.LectureMaxAudienceBonus));
     }
 
     public static float GetTeachingGainMultiplier(Sect sect)
     {
-        return GetMultiplier(sect, SectStats.TeachingGainModifier);
+        return GetMultiplier(sect, WorldboxGame.BaseStats.TeachingGainModifier);
     }
 
     public static float GetAffairWeightMultiplier(Sect sect, SectAffairAsset affair)
     {
         if (affair == SectAffairs.Chore)
         {
-            return GetMultiplier(sect, SectStats.ChoreAffairWeightModifier);
+            return GetMultiplier(sect, WorldboxGame.BaseStats.ChoreAffairWeightModifier);
         }
 
         if (affair == SectAffairs.OrganizeScripture)
         {
-            return GetMultiplier(sect, SectStats.OrganizeScriptureAffairWeightModifier);
+            return GetMultiplier(sect, WorldboxGame.BaseStats.OrganizeScriptureAffairWeightModifier);
         }
 
         if (affair == SectAffairs.LectureCultibook)
         {
-            return GetMultiplier(sect, SectStats.LectureAffairWeightModifier);
+            return GetMultiplier(sect, WorldboxGame.BaseStats.LectureAffairWeightModifier);
         }
 
         return 1f;
@@ -168,15 +168,15 @@ public static class SectTraitRules
         float multiplier = 1f;
         if (affair == SectAffairs.Chore)
         {
-            multiplier = GetMultiplier(sect, SectStats.ChoreContributionModifier);
+            multiplier = GetMultiplier(sect, WorldboxGame.BaseStats.ChoreContributionModifier);
         }
         else if (affair == SectAffairs.OrganizeScripture)
         {
-            multiplier = GetMultiplier(sect, SectStats.OrganizeScriptureContributionModifier);
+            multiplier = GetMultiplier(sect, WorldboxGame.BaseStats.OrganizeScriptureContributionModifier);
         }
         else if (affair == SectAffairs.LectureCultibook)
         {
-            multiplier = GetMultiplier(sect, SectStats.LectureContributionModifier);
+            multiplier = GetMultiplier(sect, WorldboxGame.BaseStats.LectureContributionModifier);
         }
 
         return ScaleReward(affair.contributionReward, multiplier);
@@ -184,22 +184,22 @@ public static class SectTraitRules
 
     public static int GetBuildContributionReward(Sect sect)
     {
-        return ScaleReward(SectConst.ContributionBuildSectBuilding, GetMultiplier(sect, SectStats.BuildContributionModifier));
+        return ScaleReward(SectConst.ContributionBuildSectBuilding, GetMultiplier(sect, WorldboxGame.BaseStats.BuildContributionModifier));
     }
 
     public static int GetWriteScriptureContributionReward(Sect sect)
     {
-        return ScaleReward(SectConst.ContributionWriteScriptureBook, GetMultiplier(sect, SectStats.WriteScriptureContributionModifier));
+        return ScaleReward(SectConst.ContributionWriteScriptureBook, GetMultiplier(sect, WorldboxGame.BaseStats.WriteScriptureContributionModifier));
     }
 
     public static float GetSectStudyJobChance(Sect sect)
     {
-        return Mathf.Clamp01(SectConst.SectStudyJobChance * GetMultiplier(sect, SectStats.SectStudyJobChanceModifier));
+        return Mathf.Clamp01(SectConst.SectStudyJobChance * GetMultiplier(sect, WorldboxGame.BaseStats.SectStudyJobChanceModifier));
     }
 
     public static float GetSectAffairJobChance(Sect sect)
     {
-        return Mathf.Clamp01(SectConst.SectAffairJobChance * GetMultiplier(sect, SectStats.SectAffairJobChanceModifier));
+        return Mathf.Clamp01(SectConst.SectAffairJobChance * GetMultiplier(sect, WorldboxGame.BaseStats.SectAffairJobChanceModifier));
     }
 
     private static float GetCultibookStudyScoreMultiplier(Sect sect, Book book)
@@ -210,10 +210,10 @@ public static class SectTraitRules
         CultibookAsset cultibook = bookExtend.GetComponent<Cultibook>().Asset;
         if (sect.GetDoctrineCultibook() == cultibook)
         {
-            return GetMultiplier(sect, SectStats.DoctrineCultibookStudyModifier);
+            return GetMultiplier(sect, WorldboxGame.BaseStats.DoctrineCultibookStudyModifier);
         }
 
-        return GetMultiplier(sect, SectStats.OtherCultibookStudyModifier);
+        return GetMultiplier(sect, WorldboxGame.BaseStats.OtherCultibookStudyModifier);
     }
 
     private static int ScaleInt(int value, float multiplier)

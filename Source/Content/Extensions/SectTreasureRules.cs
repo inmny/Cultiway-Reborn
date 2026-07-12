@@ -21,7 +21,7 @@ public static class SectTreasureRules
     /// </summary>
     public static int GetTreasureCapacity(Sect sect)
     {
-        return Mathf.Max(0, Mathf.RoundToInt(sect.base_stats[SectStats.TreasureCapacity.id]));
+        return Mathf.Max(0, Mathf.RoundToInt(sect.base_stats[WorldboxGame.BaseStats.TreasureCapacity.id]));
     }
 
     /// <summary>

@@ -8,7 +8,7 @@ namespace Cultiway.Content;
 /// <summary>
 /// 宗门特质集合。
 /// </summary>
-[Dependency(typeof(SectTraitGroups), typeof(SectStats))]
+[Dependency(typeof(SectTraitGroups), typeof(WorldboxGame.BaseStats))]
 public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
 {
     /// <summary>
@@ -228,176 +228,176 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
     private static void SetupEntrancePolicies()
     {
         SetupPolicy(OpenGate, SectTraitGroups.EntranceSystem, "cultiway/icons/sect_traits/open_gate", 35);
-        SetModifier(OpenGate, SectStats.RecruitRangeModifier, 1.35f);
-        SetModifier(OpenGate, SectStats.RecruitRealmScoreModifier, 0.85f);
+        SetModifier(OpenGate, WorldboxGame.BaseStats.RecruitRangeModifier, 1.35f);
+        SetModifier(OpenGate, WorldboxGame.BaseStats.RecruitRealmScoreModifier, 0.85f);
 
         SetupPolicy(SelectiveAdmission, SectTraitGroups.EntranceSystem, "cultiway/icons/sect_traits/selective_admission", 25);
-        SetModifier(SelectiveAdmission, SectStats.RecruitRangeModifier, 0.8f);
-        SetBonus(SelectiveAdmission, SectStats.RecruitMaxLevelBonus, 1);
-        SetModifier(SelectiveAdmission, SectStats.RecruitRealmScoreModifier, 1.6f);
+        SetModifier(SelectiveAdmission, WorldboxGame.BaseStats.RecruitRangeModifier, 0.8f);
+        SetBonus(SelectiveAdmission, WorldboxGame.BaseStats.RecruitMaxLevelBonus, 1);
+        SetModifier(SelectiveAdmission, WorldboxGame.BaseStats.RecruitRealmScoreModifier, 1.6f);
 
         SetupPolicy(MasterIntroducedAdmission, SectTraitGroups.EntranceSystem, "cultiway/icons/sect_traits/master_introduced_admission", 20);
-        MasterIntroducedAdmission.base_stats.addTag(SectStats.TagRecruitRequiresMasterIntroduction);
-        SetModifier(MasterIntroducedAdmission, SectStats.MasterWillingnessThresholdModifier, 0.9f);
-        SetModifier(MasterIntroducedAdmission, SectStats.MasterApprenticeCapacityModifier, 1.15f);
+        MasterIntroducedAdmission.base_stats.addTag(WorldboxGame.BaseStats.TagRecruitRequiresMasterIntroduction);
+        SetModifier(MasterIntroducedAdmission, WorldboxGame.BaseStats.MasterWillingnessThresholdModifier, 0.9f);
+        SetModifier(MasterIntroducedAdmission, WorldboxGame.BaseStats.MasterApprenticeCapacityModifier, 1.15f);
 
         SetupPolicy(CityAttachedRecruitment, SectTraitGroups.EntranceSystem, "cultiway/icons/sect_traits/city_attached_recruitment", 20);
-        SetModifier(CityAttachedRecruitment, SectStats.RecruitRangeModifier, 1.2f);
-        SetModifier(CityAttachedRecruitment, SectStats.DeaconSlotModifier, 1.1f);
+        SetModifier(CityAttachedRecruitment, WorldboxGame.BaseStats.RecruitRangeModifier, 1.2f);
+        SetModifier(CityAttachedRecruitment, WorldboxGame.BaseStats.DeaconSlotModifier, 1.1f);
     }
 
     private static void SetupMasterPolicies()
     {
         SetupPolicy(StrictLineage, SectTraitGroups.MasterSystem, "cultiway/icons/sect_traits/strict_lineage", 25);
-        SetModifier(StrictLineage, SectStats.MasterWillingnessThresholdModifier, 1.35f);
-        SetModifier(StrictLineage, SectStats.MasterApprenticeCapacityModifier, 0.75f);
-        SetModifier(StrictLineage, SectStats.TeachingGainModifier, 1.15f);
-        SetModifier(StrictLineage, SectStats.PromotionScoreThresholdModifier, 1.05f);
+        SetModifier(StrictLineage, WorldboxGame.BaseStats.MasterWillingnessThresholdModifier, 1.35f);
+        SetModifier(StrictLineage, WorldboxGame.BaseStats.MasterApprenticeCapacityModifier, 0.75f);
+        SetModifier(StrictLineage, WorldboxGame.BaseStats.TeachingGainModifier, 1.15f);
+        SetModifier(StrictLineage, WorldboxGame.BaseStats.PromotionScoreThresholdModifier, 1.05f);
 
         SetupPolicy(LooseTransmission, SectTraitGroups.MasterSystem, "cultiway/icons/sect_traits/loose_transmission", 30);
-        SetModifier(LooseTransmission, SectStats.MasterWillingnessThresholdModifier, 0.65f);
-        SetModifier(LooseTransmission, SectStats.MasterApprenticeCapacityModifier, 1.4f);
+        SetModifier(LooseTransmission, WorldboxGame.BaseStats.MasterWillingnessThresholdModifier, 0.65f);
+        SetModifier(LooseTransmission, WorldboxGame.BaseStats.MasterApprenticeCapacityModifier, 1.4f);
 
         SetupPolicy(SingleLineage, SectTraitGroups.MasterSystem, "cultiway/icons/sect_traits/single_lineage", 15);
-        SetModifier(SingleLineage, SectStats.MasterWillingnessThresholdModifier, 1.1f);
-        SetModifier(SingleLineage, SectStats.MasterApprenticeCapacityModifier, 0.5f);
-        SetModifier(SingleLineage, SectStats.TeachingGainModifier, 1.3f);
-        SetModifier(SingleLineage, SectStats.DoctrineLectureWeightModifier, 1.2f);
+        SetModifier(SingleLineage, WorldboxGame.BaseStats.MasterWillingnessThresholdModifier, 1.1f);
+        SetModifier(SingleLineage, WorldboxGame.BaseStats.MasterApprenticeCapacityModifier, 0.5f);
+        SetModifier(SingleLineage, WorldboxGame.BaseStats.TeachingGainModifier, 1.3f);
+        SetModifier(SingleLineage, WorldboxGame.BaseStats.DoctrineLectureWeightModifier, 1.2f);
 
         SetupPolicy(CollectiveInstruction, SectTraitGroups.MasterSystem, "cultiway/icons/sect_traits/collective_instruction", 30);
-        SetModifier(CollectiveInstruction, SectStats.MasterWillingnessThresholdModifier, 0.8f);
-        SetModifier(CollectiveInstruction, SectStats.MasterApprenticeCapacityModifier, 1.2f);
-        SetModifier(CollectiveInstruction, SectStats.TeachingGainModifier, 1.15f);
-        SetBonus(CollectiveInstruction, SectStats.LectureMaxAudienceBonus, 1);
+        SetModifier(CollectiveInstruction, WorldboxGame.BaseStats.MasterWillingnessThresholdModifier, 0.8f);
+        SetModifier(CollectiveInstruction, WorldboxGame.BaseStats.MasterApprenticeCapacityModifier, 1.2f);
+        SetModifier(CollectiveInstruction, WorldboxGame.BaseStats.TeachingGainModifier, 1.15f);
+        SetBonus(CollectiveInstruction, WorldboxGame.BaseStats.LectureMaxAudienceBonus, 1);
     }
 
     private static void SetupPromotionPolicies()
     {
         SetupPolicy(RealmSupremacy, SectTraitGroups.PromotionEvaluation, "cultiway/icons/sect_traits/realm_supremacy", 30);
-        SetModifier(RealmSupremacy, SectStats.PersonnelRealmScoreModifier, 1.35f);
-        SetModifier(RealmSupremacy, SectStats.PersonnelTenureScoreModifier, 0.75f);
-        SetModifier(RealmSupremacy, SectStats.PersonnelContributionScoreModifier, 0.75f);
+        SetModifier(RealmSupremacy, WorldboxGame.BaseStats.PersonnelRealmScoreModifier, 1.35f);
+        SetModifier(RealmSupremacy, WorldboxGame.BaseStats.PersonnelTenureScoreModifier, 0.75f);
+        SetModifier(RealmSupremacy, WorldboxGame.BaseStats.PersonnelContributionScoreModifier, 0.75f);
 
         SetupPolicy(MeritFirst, SectTraitGroups.PromotionEvaluation, "cultiway/icons/sect_traits/merit_first", 30);
-        SetModifier(MeritFirst, SectStats.PersonnelRealmScoreModifier, 0.9f);
-        SetModifier(MeritFirst, SectStats.PersonnelTenureScoreModifier, 0.75f);
-        SetModifier(MeritFirst, SectStats.PersonnelContributionScoreModifier, 1.5f);
+        SetModifier(MeritFirst, WorldboxGame.BaseStats.PersonnelRealmScoreModifier, 0.9f);
+        SetModifier(MeritFirst, WorldboxGame.BaseStats.PersonnelTenureScoreModifier, 0.75f);
+        SetModifier(MeritFirst, WorldboxGame.BaseStats.PersonnelContributionScoreModifier, 1.5f);
 
         SetupPolicy(SeniorityOrder, SectTraitGroups.PromotionEvaluation, "cultiway/icons/sect_traits/seniority_order", 20);
-        SetModifier(SeniorityOrder, SectStats.PersonnelRealmScoreModifier, 0.9f);
-        SetModifier(SeniorityOrder, SectStats.PersonnelTenureScoreModifier, 2f);
-        SetModifier(SeniorityOrder, SectStats.PersonnelContributionScoreModifier, 0.8f);
+        SetModifier(SeniorityOrder, WorldboxGame.BaseStats.PersonnelRealmScoreModifier, 0.9f);
+        SetModifier(SeniorityOrder, WorldboxGame.BaseStats.PersonnelTenureScoreModifier, 2f);
+        SetModifier(SeniorityOrder, WorldboxGame.BaseStats.PersonnelContributionScoreModifier, 0.8f);
 
         SetupPolicy(ExceptionalPromotion, SectTraitGroups.PromotionEvaluation, "cultiway/icons/sect_traits/exceptional_promotion", 20);
-        SetModifier(ExceptionalPromotion, SectStats.PersonnelRealmScoreModifier, 1.1f);
-        SetModifier(ExceptionalPromotion, SectStats.PersonnelContributionScoreModifier, 1.1f);
-        SetModifier(ExceptionalPromotion, SectStats.PromotionScoreThresholdModifier, 0.8f);
+        SetModifier(ExceptionalPromotion, WorldboxGame.BaseStats.PersonnelRealmScoreModifier, 1.1f);
+        SetModifier(ExceptionalPromotion, WorldboxGame.BaseStats.PersonnelContributionScoreModifier, 1.1f);
+        SetModifier(ExceptionalPromotion, WorldboxGame.BaseStats.PromotionScoreThresholdModifier, 0.8f);
     }
 
     private static void SetupOfficePolicies()
     {
         SetupPolicy(DeaconGovernance, SectTraitGroups.OfficeAppointment, "cultiway/icons/sect_traits/deacon_governance", 30);
-        SetModifier(DeaconGovernance, SectStats.DeaconSlotModifier, 1.75f);
-        SetModifier(DeaconGovernance, SectStats.DeaconThresholdModifier, 0.85f);
-        SetModifier(DeaconGovernance, SectStats.OrganizeScriptureAffairWeightModifier, 1.25f);
+        SetModifier(DeaconGovernance, WorldboxGame.BaseStats.DeaconSlotModifier, 1.75f);
+        SetModifier(DeaconGovernance, WorldboxGame.BaseStats.DeaconThresholdModifier, 0.85f);
+        SetModifier(DeaconGovernance, WorldboxGame.BaseStats.OrganizeScriptureAffairWeightModifier, 1.25f);
 
         SetupPolicy(ElderAuthority, SectTraitGroups.OfficeAppointment, "cultiway/icons/sect_traits/elder_authority", 25);
-        SetModifier(ElderAuthority, SectStats.DeaconSlotModifier, 0.9f);
-        SetModifier(ElderAuthority, SectStats.ElderSlotModifier, 1.5f);
-        SetModifier(ElderAuthority, SectStats.ElderThresholdModifier, 0.9f);
-        SetModifier(ElderAuthority, SectStats.LectureAffairWeightModifier, 1.25f);
+        SetModifier(ElderAuthority, WorldboxGame.BaseStats.DeaconSlotModifier, 0.9f);
+        SetModifier(ElderAuthority, WorldboxGame.BaseStats.ElderSlotModifier, 1.5f);
+        SetModifier(ElderAuthority, WorldboxGame.BaseStats.ElderThresholdModifier, 0.9f);
+        SetModifier(ElderAuthority, WorldboxGame.BaseStats.LectureAffairWeightModifier, 1.25f);
 
         SetupPolicy(DiscipleSelfGovernance, SectTraitGroups.OfficeAppointment, "cultiway/icons/sect_traits/disciple_self_governance", 25);
-        SetModifier(DiscipleSelfGovernance, SectStats.DeaconSlotModifier, 0.7f);
-        SetModifier(DiscipleSelfGovernance, SectStats.ElderSlotModifier, 0.7f);
-        DiscipleSelfGovernance.base_stats.addTag(SectStats.TagAllowDiscipleOrganizeScripture);
-        SetModifier(DiscipleSelfGovernance, SectStats.ChoreAffairWeightModifier, 1.2f);
+        SetModifier(DiscipleSelfGovernance, WorldboxGame.BaseStats.DeaconSlotModifier, 0.7f);
+        SetModifier(DiscipleSelfGovernance, WorldboxGame.BaseStats.ElderSlotModifier, 0.7f);
+        DiscipleSelfGovernance.base_stats.addTag(WorldboxGame.BaseStats.TagAllowDiscipleOrganizeScripture);
+        SetModifier(DiscipleSelfGovernance, WorldboxGame.BaseStats.ChoreAffairWeightModifier, 1.2f);
 
         SetupPolicy(StrictHierarchy, SectTraitGroups.OfficeAppointment, "cultiway/icons/sect_traits/strict_hierarchy", 20);
-        SetModifier(StrictHierarchy, SectStats.DeaconThresholdModifier, 1.1f);
-        SetModifier(StrictHierarchy, SectStats.ElderThresholdModifier, 1.15f);
-        SetModifier(StrictHierarchy, SectStats.ElderSlotModifier, 0.8f);
-        SetModifier(StrictHierarchy, SectStats.PromotionScoreThresholdModifier, 1.05f);
+        SetModifier(StrictHierarchy, WorldboxGame.BaseStats.DeaconThresholdModifier, 1.1f);
+        SetModifier(StrictHierarchy, WorldboxGame.BaseStats.ElderThresholdModifier, 1.15f);
+        SetModifier(StrictHierarchy, WorldboxGame.BaseStats.ElderSlotModifier, 0.8f);
+        SetModifier(StrictHierarchy, WorldboxGame.BaseStats.PromotionScoreThresholdModifier, 1.05f);
     }
 
     private static void SetupTransmissionPolicies()
     {
         SetupPolicy(DoctrineOrthodoxy, SectTraitGroups.TransmissionDirection, "cultiway/icons/sect_traits/doctrine_orthodoxy", 30);
-        SetModifier(DoctrineOrthodoxy, SectStats.DoctrineCultibookStudyModifier, 1.5f);
-        SetModifier(DoctrineOrthodoxy, SectStats.OtherCultibookStudyModifier, 0.5f);
-        SetModifier(DoctrineOrthodoxy, SectStats.SkillbookStudyModifier, 0.85f);
-        SetModifier(DoctrineOrthodoxy, SectStats.ElixirbookStudyModifier, 0.85f);
-        SetModifier(DoctrineOrthodoxy, SectStats.DoctrineLectureWeightModifier, 1.6f);
-        SetModifier(DoctrineOrthodoxy, SectStats.SectStudyJobChanceModifier, 1.1f);
+        SetModifier(DoctrineOrthodoxy, WorldboxGame.BaseStats.DoctrineCultibookStudyModifier, 1.5f);
+        SetModifier(DoctrineOrthodoxy, WorldboxGame.BaseStats.OtherCultibookStudyModifier, 0.5f);
+        SetModifier(DoctrineOrthodoxy, WorldboxGame.BaseStats.SkillbookStudyModifier, 0.85f);
+        SetModifier(DoctrineOrthodoxy, WorldboxGame.BaseStats.ElixirbookStudyModifier, 0.85f);
+        SetModifier(DoctrineOrthodoxy, WorldboxGame.BaseStats.DoctrineLectureWeightModifier, 1.6f);
+        SetModifier(DoctrineOrthodoxy, WorldboxGame.BaseStats.SectStudyJobChanceModifier, 1.1f);
 
         SetupPolicy(HundredSchools, SectTraitGroups.TransmissionDirection, "cultiway/icons/sect_traits/hundred_schools", 25);
-        SetModifier(HundredSchools, SectStats.OtherCultibookStudyModifier, 1.3f);
-        SetModifier(HundredSchools, SectStats.SkillbookStudyModifier, 1.2f);
-        SetModifier(HundredSchools, SectStats.ElixirbookStudyModifier, 1.2f);
-        SetModifier(HundredSchools, SectStats.OutOfPermissionReadCostModifier, 0.85f);
-        SetModifier(HundredSchools, SectStats.SectStudyJobChanceModifier, 1.15f);
+        SetModifier(HundredSchools, WorldboxGame.BaseStats.OtherCultibookStudyModifier, 1.3f);
+        SetModifier(HundredSchools, WorldboxGame.BaseStats.SkillbookStudyModifier, 1.2f);
+        SetModifier(HundredSchools, WorldboxGame.BaseStats.ElixirbookStudyModifier, 1.2f);
+        SetModifier(HundredSchools, WorldboxGame.BaseStats.OutOfPermissionReadCostModifier, 0.85f);
+        SetModifier(HundredSchools, WorldboxGame.BaseStats.SectStudyJobChanceModifier, 1.15f);
 
         SetupPolicy(SkillResearch, SectTraitGroups.TransmissionDirection, "cultiway/icons/sect_traits/skill_research", 18);
-        SetModifier(SkillResearch, SectStats.DoctrineCultibookStudyModifier, 0.9f);
-        SetModifier(SkillResearch, SectStats.OtherCultibookStudyModifier, 0.85f);
-        SetModifier(SkillResearch, SectStats.SkillbookStudyModifier, 1.8f);
-        SetModifier(SkillResearch, SectStats.SectStudyJobChanceModifier, 1.15f);
+        SetModifier(SkillResearch, WorldboxGame.BaseStats.DoctrineCultibookStudyModifier, 0.9f);
+        SetModifier(SkillResearch, WorldboxGame.BaseStats.OtherCultibookStudyModifier, 0.85f);
+        SetModifier(SkillResearch, WorldboxGame.BaseStats.SkillbookStudyModifier, 1.8f);
+        SetModifier(SkillResearch, WorldboxGame.BaseStats.SectStudyJobChanceModifier, 1.15f);
 
         SetupPolicy(ElixirInheritance, SectTraitGroups.TransmissionDirection, "cultiway/icons/sect_traits/elixir_inheritance", 18);
-        SetModifier(ElixirInheritance, SectStats.DoctrineCultibookStudyModifier, 0.9f);
-        SetModifier(ElixirInheritance, SectStats.SkillbookStudyModifier, 0.85f);
-        SetModifier(ElixirInheritance, SectStats.ElixirbookStudyModifier, 1.8f);
-        SetModifier(ElixirInheritance, SectStats.SectStudyJobChanceModifier, 1.15f);
+        SetModifier(ElixirInheritance, WorldboxGame.BaseStats.DoctrineCultibookStudyModifier, 0.9f);
+        SetModifier(ElixirInheritance, WorldboxGame.BaseStats.SkillbookStudyModifier, 0.85f);
+        SetModifier(ElixirInheritance, WorldboxGame.BaseStats.ElixirbookStudyModifier, 1.8f);
+        SetModifier(ElixirInheritance, WorldboxGame.BaseStats.SectStudyJobChanceModifier, 1.15f);
 
         SetupPolicy(StrictScripture, SectTraitGroups.TransmissionDirection, "cultiway/icons/sect_traits/strict_scripture", 9);
-        SetModifier(StrictScripture, SectStats.OutOfPermissionReadCostModifier, 1.8f);
-        SetModifier(StrictScripture, SectStats.OrganizeScriptureContributionModifier, 1.2f);
-        SetModifier(StrictScripture, SectStats.WriteScriptureContributionModifier, 1.25f);
-        SetModifier(StrictScripture, SectStats.SectStudyJobChanceModifier, 0.85f);
+        SetModifier(StrictScripture, WorldboxGame.BaseStats.OutOfPermissionReadCostModifier, 1.8f);
+        SetModifier(StrictScripture, WorldboxGame.BaseStats.OrganizeScriptureContributionModifier, 1.2f);
+        SetModifier(StrictScripture, WorldboxGame.BaseStats.WriteScriptureContributionModifier, 1.25f);
+        SetModifier(StrictScripture, WorldboxGame.BaseStats.SectStudyJobChanceModifier, 0.85f);
     }
 
     private static void SetupAffairPolicies()
     {
         SetupPolicy(OrderlyChores, SectTraitGroups.SectAffairPolicy, "cultiway/icons/sect_traits/orderly_chores", 25);
-        SetModifier(OrderlyChores, SectStats.ChoreAffairWeightModifier, 1.6f);
-        SetModifier(OrderlyChores, SectStats.OrganizeScriptureAffairWeightModifier, 1.25f);
-        SetModifier(OrderlyChores, SectStats.ChoreContributionModifier, 1.2f);
-        SetModifier(OrderlyChores, SectStats.OrganizeScriptureContributionModifier, 1.1f);
-        SetModifier(OrderlyChores, SectStats.SectAffairJobChanceModifier, 1.2f);
+        SetModifier(OrderlyChores, WorldboxGame.BaseStats.ChoreAffairWeightModifier, 1.6f);
+        SetModifier(OrderlyChores, WorldboxGame.BaseStats.OrganizeScriptureAffairWeightModifier, 1.25f);
+        SetModifier(OrderlyChores, WorldboxGame.BaseStats.ChoreContributionModifier, 1.2f);
+        SetModifier(OrderlyChores, WorldboxGame.BaseStats.OrganizeScriptureContributionModifier, 1.1f);
+        SetModifier(OrderlyChores, WorldboxGame.BaseStats.SectAffairJobChanceModifier, 1.2f);
 
         SetupPolicy(LectureCulture, SectTraitGroups.SectAffairPolicy, "cultiway/icons/sect_traits/lecture_culture", 20);
-        SetModifier(LectureCulture, SectStats.LectureAffairWeightModifier, 2f);
-        SetModifier(LectureCulture, SectStats.LectureContributionModifier, 1.2f);
-        SetModifier(LectureCulture, SectStats.TeachingGainModifier, 1.15f);
-        SetBonus(LectureCulture, SectStats.LectureMaxAudienceBonus, 1);
-        SetModifier(LectureCulture, SectStats.SectAffairJobChanceModifier, 1.15f);
+        SetModifier(LectureCulture, WorldboxGame.BaseStats.LectureAffairWeightModifier, 2f);
+        SetModifier(LectureCulture, WorldboxGame.BaseStats.LectureContributionModifier, 1.2f);
+        SetModifier(LectureCulture, WorldboxGame.BaseStats.TeachingGainModifier, 1.15f);
+        SetBonus(LectureCulture, WorldboxGame.BaseStats.LectureMaxAudienceBonus, 1);
+        SetModifier(LectureCulture, WorldboxGame.BaseStats.SectAffairJobChanceModifier, 1.15f);
 
         SetupPolicy(ConstructionZeal, SectTraitGroups.SectAffairPolicy, "cultiway/icons/sect_traits/construction_zeal", 20);
-        SetModifier(ConstructionZeal, SectStats.ChoreAffairWeightModifier, 1.2f);
-        SetModifier(ConstructionZeal, SectStats.BuildContributionModifier, 1.5f);
-        SetModifier(ConstructionZeal, SectStats.SectAffairJobChanceModifier, 1.1f);
+        SetModifier(ConstructionZeal, WorldboxGame.BaseStats.ChoreAffairWeightModifier, 1.2f);
+        SetModifier(ConstructionZeal, WorldboxGame.BaseStats.BuildContributionModifier, 1.5f);
+        SetModifier(ConstructionZeal, WorldboxGame.BaseStats.SectAffairJobChanceModifier, 1.1f);
 
         SetupPolicy(QuietCultivation, SectTraitGroups.SectAffairPolicy, "cultiway/icons/sect_traits/quiet_cultivation", 15);
-        SetModifier(QuietCultivation, SectStats.ChoreAffairWeightModifier, 0.5f);
-        SetModifier(QuietCultivation, SectStats.OrganizeScriptureAffairWeightModifier, 0.5f);
-        SetModifier(QuietCultivation, SectStats.LectureAffairWeightModifier, 0.5f);
-        SetModifier(QuietCultivation, SectStats.OutOfPermissionReadCostModifier, 0.85f);
-        SetModifier(QuietCultivation, SectStats.SectStudyJobChanceModifier, 1.2f);
-        SetModifier(QuietCultivation, SectStats.SectAffairJobChanceModifier, 0.5f);
+        SetModifier(QuietCultivation, WorldboxGame.BaseStats.ChoreAffairWeightModifier, 0.5f);
+        SetModifier(QuietCultivation, WorldboxGame.BaseStats.OrganizeScriptureAffairWeightModifier, 0.5f);
+        SetModifier(QuietCultivation, WorldboxGame.BaseStats.LectureAffairWeightModifier, 0.5f);
+        SetModifier(QuietCultivation, WorldboxGame.BaseStats.OutOfPermissionReadCostModifier, 0.85f);
+        SetModifier(QuietCultivation, WorldboxGame.BaseStats.SectStudyJobChanceModifier, 1.2f);
+        SetModifier(QuietCultivation, WorldboxGame.BaseStats.SectAffairJobChanceModifier, 0.5f);
 
         SetupPolicy(RewardAndPunishment, SectTraitGroups.SectAffairPolicy, "cultiway/icons/sect_traits/reward_and_punishment", 12);
-        SetModifier(RewardAndPunishment, SectStats.ChoreContributionModifier, 1.35f);
-        SetModifier(RewardAndPunishment, SectStats.OrganizeScriptureContributionModifier, 1.35f);
-        SetModifier(RewardAndPunishment, SectStats.LectureContributionModifier, 1.35f);
-        SetModifier(RewardAndPunishment, SectStats.BuildContributionModifier, 1.35f);
-        SetModifier(RewardAndPunishment, SectStats.PersonnelContributionScoreModifier, 1.2f);
-        SetModifier(RewardAndPunishment, SectStats.SectAffairJobChanceModifier, 1.1f);
+        SetModifier(RewardAndPunishment, WorldboxGame.BaseStats.ChoreContributionModifier, 1.35f);
+        SetModifier(RewardAndPunishment, WorldboxGame.BaseStats.OrganizeScriptureContributionModifier, 1.35f);
+        SetModifier(RewardAndPunishment, WorldboxGame.BaseStats.LectureContributionModifier, 1.35f);
+        SetModifier(RewardAndPunishment, WorldboxGame.BaseStats.BuildContributionModifier, 1.35f);
+        SetModifier(RewardAndPunishment, WorldboxGame.BaseStats.PersonnelContributionScoreModifier, 1.2f);
+        SetModifier(RewardAndPunishment, WorldboxGame.BaseStats.SectAffairJobChanceModifier, 1.1f);
 
         SetupPolicy(TransmissionReward, SectTraitGroups.SectAffairPolicy, "cultiway/icons/sect_traits/transmission_reward", 8);
-        SetModifier(TransmissionReward, SectStats.OrganizeScriptureContributionModifier, 1.3f);
-        SetModifier(TransmissionReward, SectStats.LectureContributionModifier, 1.3f);
-        SetModifier(TransmissionReward, SectStats.WriteScriptureContributionModifier, 1.6f);
-        SetModifier(TransmissionReward, SectStats.SectAffairJobChanceModifier, 1.05f);
+        SetModifier(TransmissionReward, WorldboxGame.BaseStats.OrganizeScriptureContributionModifier, 1.3f);
+        SetModifier(TransmissionReward, WorldboxGame.BaseStats.LectureContributionModifier, 1.3f);
+        SetModifier(TransmissionReward, WorldboxGame.BaseStats.WriteScriptureContributionModifier, 1.6f);
+        SetModifier(TransmissionReward, WorldboxGame.BaseStats.SectAffairJobChanceModifier, 1.05f);
     }
 
     private static void SetupResidenceStrategy(

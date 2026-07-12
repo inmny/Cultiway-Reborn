@@ -920,7 +920,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
     public override void recalcBaseStats()
     {
         base.recalcBaseStats();
-        base_stats[SectStats.TreasureCapacity.id] += SectConst.TreasureBaseCapacity;
+        base_stats[WorldboxGame.BaseStats.TreasureCapacity.id] += SectConst.TreasureBaseCapacity;
         MergeBuildingStats();
         _residence_strategy = null;
         foreach (SectTrait trait in getTraits())
@@ -942,7 +942,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
             for (int j = 0; j < stats.Count; j++)
             {
                 BaseStatsContainer stat = stats[j];
-                if (SectStats.IsSectStat(stat.id))
+                if (WorldboxGame.BaseStats.IsSectStat(stat.id))
                 {
                     base_stats[stat.id] += stat.value;
                 }

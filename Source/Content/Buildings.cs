@@ -12,7 +12,7 @@ using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;
-[Dependency(typeof(Actors), typeof(KingdomAssets), typeof(SectStats))]
+[Dependency(typeof(Actors), typeof(KingdomAssets), typeof(WorldboxGame.BaseStats))]
 public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
 {
     class CommonBuildingSetupAttribute : Attribute
@@ -217,7 +217,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         SectHall.priority = 110;
         SectHall.cost = new ConstructionCost(10, 5, 0, 30);
         SectHall.base_stats["health"] = 300f;
-        SectHall.base_stats[SectStats.TreasureCapacity.id] = SectConst.TreasureHallCapacity;
+        SectHall.base_stats[WorldboxGame.BaseStats.TreasureCapacity.id] = SectConst.TreasureHallCapacity;
 
         SetupSectBuildingBase(SectScripturePavilion, SectConst.BuildingTypeScripturePavilion);
         SectScripturePavilion.priority = 90;
@@ -228,7 +228,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         SectTreasurePavilion.priority = 80;
         SectTreasurePavilion.cost = new ConstructionCost(4, 16, 4, 70);
         SectTreasurePavilion.base_stats["health"] = 450f;
-        SectTreasurePavilion.base_stats[SectStats.TreasureCapacity.id] = SectConst.TreasurePavilionCapacity;
+        SectTreasurePavilion.base_stats[WorldboxGame.BaseStats.TreasureCapacity.id] = SectConst.TreasurePavilionCapacity;
     }
 
     private static void SetupSectBuildingBase(BuildingAsset asset, string type)
