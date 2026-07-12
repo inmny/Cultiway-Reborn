@@ -11,6 +11,7 @@ Task.Unit.Cultiway.LookForHerbs,寻找药草
 Task.Unit.Cultiway.CraftElixir,炼制丹药
 Task.Unit.Cultiway.FindNewElixir,研究新丹方
 Task.Unit.Cultiway.CraftTalisman,绘制符箓
+Task.Unit.Cultiway.CraftMagicScroll,制作魔法卷轴
 Task.Unit.Cultiway.CraftArtifact,炼制法器
 Task.Unit.Cultiway.CreateCultibook,创造功法
 Task.Unit.Cultiway.ImproveCultibook,改进功法

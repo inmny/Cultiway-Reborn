@@ -21,6 +21,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor CraftElixir  { get; private set; }
     public static BehaviourTaskActor FindNewElixir { get; private set; }
     public static BehaviourTaskActor CraftTalisman { get; private set; }
+    public static BehaviourTaskActor CraftMagicScroll { get; private set; }
     public static BehaviourTaskActor CraftArtifact { get; private set; }
     public static BehaviourTaskActor CreateCultibook { get; private set; }
     public static BehaviourTaskActor ImproveCultibook { get; private set; }
@@ -130,6 +131,10 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         
         CraftTalisman.addBeh(new BehRandomWait(3 * TimeScales.SecPerMonth, 12 * TimeScales.SecPerMonth));
         CraftTalisman.addBeh(new BehCraftTalisman());
+
+        CraftMagicScroll.addBeh(new BehRandomWait(3 * TimeScales.SecPerMonth, 12 * TimeScales.SecPerMonth));
+        CraftMagicScroll.addBeh(new BehCraftMagicScroll());
+        CraftMagicScroll.setIcon("cultiway/icons/iconCraftMagicScroll");
 
         CraftArtifact.addBeh(new BehBuildingTargetHome());
         CraftArtifact.addBeh(new BehGetTargetBuildingMainTile());

@@ -16,6 +16,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob ElixirCrafter { get; private set; }
     public static ActorJob ElixirFinder { get; private set; }
     public static ActorJob TalismanCrafter { get; private set; }
+    public static ActorJob MagicScrollCrafter { get; private set; }
     public static ActorJob ArtifactCrafter { get; private set; }
     public static ActorJob CultibookResearcher { get; private set; }
     public static ActorJob SectBuilder { get; private set; }
@@ -90,6 +91,10 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         TalismanCrafter.addCondition(new CondHasXianBase());
         TalismanCrafter.addCondition(new CondHasEnoughWakan());
         TalismanCrafter.addTask(ActorTasks.EndJob.id);
+
+        MagicScrollCrafter.addTask(ActorTasks.CraftMagicScroll.id);
+        MagicScrollCrafter.addCondition(new CondCanCraftMagicScroll());
+        MagicScrollCrafter.addTask(ActorTasks.EndJob.id);
 
         ArtifactCrafter.addTask(ActorTasks.CraftArtifact.id);
         ArtifactCrafter.addCondition(new CondHasYuanying());

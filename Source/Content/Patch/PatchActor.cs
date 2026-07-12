@@ -73,6 +73,7 @@ internal static class PatchActor
                     {
                         pool.Add(ActorJobs.MagicWebResearcher.id);
                     }
+                    pool.Add(ActorJobs.MagicScrollCrafter.id);
                 }
             }
 
