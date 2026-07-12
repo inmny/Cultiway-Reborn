@@ -13,6 +13,7 @@ namespace Cultiway.Content;
 public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, SkillCastResources>
 {
     public static SkillCastResourceAsset Wakan { get; private set; }
+    public static SkillCastResourceAsset Mana { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
     protected override string Prefix() => "Cultiway.SkillCastResource";
@@ -20,6 +21,7 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
     protected override void OnInit()
     {
         Wakan.Configure(HasWakan, ReadWakan, WriteWakan, QuoteWakan);
+        Mana.Configure(HasMana, ReadMana, WriteMana, QuoteMana);
     }
 
     private static bool HasWakan(ActorExtend caster)
@@ -40,5 +42,25 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
     private static float QuoteWakan(ActorExtend caster, Entity skill, float demand)
     {
         return demand;
+    }
+
+    private static bool HasMana(ActorExtend caster)
+    {
+        return caster.HasCultisys<Magic>();
+    }
+
+    private static float ReadMana(ActorExtend caster)
+    {
+        return caster.Base.getMana();
+    }
+
+    private static void WriteMana(ActorExtend caster, float amount)
+    {
+        caster.Base.setMana(Mathf.FloorToInt(Mathf.Max(0f, amount)));
+    }
+
+    private static float QuoteMana(ActorExtend caster, Entity skill, float demand)
+    {
+        return Mathf.Ceil(Mathf.Max(0f, demand));
     }
 }

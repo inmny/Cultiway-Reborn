@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -19,6 +20,16 @@ namespace Cultiway.Patch;
 
 internal static class PatchMapBox
 {
+    private static Action _actionOnClearWorld;
+
+    /// <summary>
+    /// 注册原版世界清理完成后需要执行的模块清理行为。
+    /// </summary>
+    public static void RegisterActionOnClearWorld(Action action)
+    {
+        _actionOnClearWorld += action;
+    }
+
     [HarmonyTranspiler]
     [HarmonyPatch(typeof(MapBox), nameof(MapBox.applyAttack))]
     private static IEnumerable<CodeInstruction> applyAttack_transpiler(IEnumerable<CodeInstruction> codes, ILGenerator il)
@@ -83,6 +94,7 @@ internal static class PatchMapBox
             }
         }
         PathFinder.Instance.Clear();
+        _actionOnClearWorld?.Invoke();
         ModClass.I.ActorExtendManager.Clear();
         ModClass.I.BookExtendManager.Clear();
         WanfaPavilionService.ClearWorldState();
