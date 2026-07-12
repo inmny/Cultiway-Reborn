@@ -9,6 +9,7 @@ public struct SkillCastSequence : IComponent
     public SkillCastStep[] Steps;
     public Kingdom AttackKingdom;
     public int NextIndex;
+    public int EmittedCount;
     public float Elapsed;
     public float Strength;
     public float PowerLevel;

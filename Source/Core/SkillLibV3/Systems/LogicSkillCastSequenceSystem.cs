@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using Cultiway.Core.Components;
+using Cultiway.Core.EventSystem;
+using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -50,11 +52,17 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                     InitialAngleOffsetDegrees = step.InitialAngleOffsetDegrees,
                     AttackKingdom = sequence.AttackKingdom
                 });
+                sequence.EmittedCount++;
                 emitted++;
             }
 
             if (sequence.NextIndex >= sequence.Steps.Length)
             {
+                if (sequence.EmittedCount > 0)
+                {
+                    EventSystemHub.TryPublish(new SkillCastCompletedEvent(sequence.Caster,
+                        sequence.SkillContainer, sequence.EmittedCount));
+                }
                 CommandBuffer.AddTag<TagRecycle>(entity.Id);
             }
         });
