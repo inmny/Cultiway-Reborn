@@ -65,6 +65,8 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         WaterCultivator.addCondition(new CondXianReadyLevelup());
         WaterCultivator.addTask(ActorTasks.EndJob.id);
 
+        MagicCultivator.addTask(ActorTasks.StudyMagicWeb.id);
+        MagicCultivator.addCondition(new CondShouldStudyMagicWeb());
         MagicCultivator.addTask(ActorTasks.DailyMagicMeditate.id);
         MagicCultivator.addTask(ActorTasks.EndJob.id);
 

@@ -38,6 +38,24 @@ public readonly struct MagicWebPublishResult
     }
 }
 
+public sealed class MagicWebQuery
+{
+    public HashSet<string> RequiredTags { get; } = new(StringComparer.Ordinal);
+    public HashSet<string> AnyTags { get; } = new(StringComparer.Ordinal);
+    public HashSet<string> ExcludedTags { get; } = new(StringComparer.Ordinal);
+    public int MaxRing = 12;
+    public int MaxResults = MagicSetting.MagicStudyQueryLimit;
+    public int SelectionSeed;
+}
+
+public sealed class MagicWebEntryView
+{
+    public Entity Container { get; internal set; }
+    public MagicSpellProfile Profile { get; internal set; }
+    public IReadOnlyCollection<string> Tags { get; internal set; }
+    public bool IsDefault { get; internal set; }
+}
+
 /// <summary>
 /// 管理当前世界的魔网实体、公开法术去重索引和语义标签倒排索引。
 /// 被收录的法术容器视为不可变对象；改进法术必须先克隆，再上传新容器。
@@ -50,6 +68,7 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         public Entity Container;
         public string Signature;
         public HashSet<string> Tags;
+        public MagicSpellProfile Profile;
         public double LastAccessWorldTime;
         public bool IsDefault;
     }
@@ -57,6 +76,8 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     private readonly Dictionary<string, Entity> _containersBySignature = new(StringComparer.Ordinal);
     private readonly Dictionary<string, HashSet<Entity>> _containersByTag = new(StringComparer.Ordinal);
     private readonly Dictionary<int, Entry> _entriesByEntityId = new();
+    private readonly HashSet<Entity>[] _containersByRing = Enumerable.Range(0, 13)
+        .Select(_ => new HashSet<Entity>()).ToArray();
 
     private Entity _magicWebEntity;
     private bool _defaultsSeeded;
@@ -115,43 +136,111 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     }
 
     /// <summary>
+    /// 判断容器当前是否仍是魔网中的公开条目。
+    /// </summary>
+    public bool Contains(Entity container)
+    {
+        return TryGetEntry(container, out _);
+    }
+
+    /// <summary>
+    /// 获取魔网收录时计算的法术档案。
+    /// </summary>
+    public bool TryGetProfile(Entity container, out MagicSpellProfile profile)
+    {
+        if (TryGetEntry(container, out var entry))
+        {
+            profile = entry.Profile;
+            return true;
+        }
+
+        profile = null;
+        return false;
+    }
+
+    /// <summary>
+    /// 按环级以及必选、任选、排除标签执行有界查询，查询本身不刷新访问时间。
+    /// </summary>
+    public IReadOnlyList<MagicWebEntryView> Query(MagicWebQuery query)
+    {
+        if (query == null || query.MaxResults <= 0) return Array.Empty<MagicWebEntryView>();
+
+        var maxRing = Math.Clamp(query.MaxRing, 0, 12);
+        HashSet<Entity> candidates = null;
+        foreach (var tag in query.RequiredTags)
+        {
+            if (!_containersByTag.TryGetValue(tag, out var tagged)) return Array.Empty<MagicWebEntryView>();
+            if (candidates == null || tagged.Count < candidates.Count) candidates = tagged;
+        }
+
+        HashSet<Entity> ownedCandidates = null;
+        if (candidates == null && query.AnyTags.Count > 0)
+        {
+            ownedCandidates = new HashSet<Entity>();
+            foreach (var tag in query.AnyTags)
+            {
+                if (_containersByTag.TryGetValue(tag, out var tagged)) ownedCandidates.UnionWith(tagged);
+            }
+            candidates = ownedCandidates;
+        }
+
+        if (candidates == null)
+        {
+            ownedCandidates = new HashSet<Entity>();
+            for (var ring = 0; ring <= maxRing; ring++) ownedCandidates.UnionWith(_containersByRing[ring]);
+            candidates = ownedCandidates;
+        }
+
+        var result = new List<MagicWebEntryView>(Math.Min(candidates.Count, query.MaxResults));
+        foreach (var container in candidates
+                     .OrderBy(entity => ResolveQueryOrder(entity.Id, query.SelectionSeed))
+                     .ThenBy(entity => entity.Id))
+        {
+            if (!TryGetEntry(container, out var entry)) continue;
+            if (entry.Profile.Ring > maxRing) continue;
+            if (query.RequiredTags.Any(tag => !entry.Tags.Contains(tag))) continue;
+            if (query.AnyTags.Count > 0 && !query.AnyTags.Any(entry.Tags.Contains)) continue;
+            if (query.ExcludedTags.Any(entry.Tags.Contains)) continue;
+
+            result.Add(new MagicWebEntryView
+            {
+                Container = container,
+                Profile = entry.Profile,
+                Tags = entry.Tags.ToArray(),
+                IsDefault = entry.IsDefault
+            });
+            if (result.Count >= query.MaxResults) break;
+        }
+
+        return result;
+    }
+
+    private static int ResolveQueryOrder(int entityId, int selectionSeed)
+    {
+        unchecked
+        {
+            var value = (uint)(entityId ^ selectionSeed);
+            value ^= value >> 16;
+            value *= 0x7feb352d;
+            value ^= value >> 15;
+            value *= 0x846ca68b;
+            value ^= value >> 16;
+            return (int)(value & 0x7fffffff);
+        }
+    }
+
+    /// <summary>
     /// 获取同时拥有全部指定语义标签的法术。候选查询本身不计为访问。
     /// </summary>
     public IReadOnlyList<Entity> QueryByTags(IEnumerable<string> requiredTags, int maxResults = int.MaxValue)
     {
-        if (maxResults <= 0) return Array.Empty<Entity>();
-
-        var tags = requiredTags?
-            .Where(tag => !string.IsNullOrWhiteSpace(tag))
-            .Distinct(StringComparer.Ordinal)
-            .ToArray() ?? Array.Empty<string>();
-
-        if (tags.Length == 0)
+        var query = new MagicWebQuery { MaxResults = maxResults };
+        if (requiredTags != null)
         {
-            return _entriesByEntityId.Values
-                .Select(entry => entry.Container)
-                .OrderBy(container => container.Id)
-                .Take(maxResults)
-                .ToArray();
+            foreach (var tag in requiredTags.Where(tag => !string.IsNullOrWhiteSpace(tag)))
+                query.RequiredTags.Add(tag);
         }
-
-        HashSet<Entity> candidates = null;
-        foreach (var tag in tags)
-        {
-            if (!_containersByTag.TryGetValue(tag, out var tagged)) return Array.Empty<Entity>();
-            if (candidates == null || tagged.Count < candidates.Count) candidates = tagged;
-        }
-
-        var result = new List<Entity>(Math.Min(candidates.Count, maxResults));
-        foreach (var container in candidates.OrderBy(entity => entity.Id))
-        {
-            if (!TryGetEntry(container, out var entry)) continue;
-            if (!tags.All(entry.Tags.Contains)) continue;
-            result.Add(container);
-            if (result.Count >= maxResults) break;
-        }
-
-        return result;
+        return Query(query).Select(entry => entry.Container).ToArray();
     }
 
     /// <summary>
@@ -298,6 +387,9 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         SkillSemanticTags.CollectAssetTags(skill.Asset, semanticTags);
         SkillSemanticTags.CollectModifierTags(container, semanticTags);
         SkillSemanticTags.CollectTrajectoryTags(skill.Asset, container, semanticTags);
+        var profile = MagicSpellProfile.Evaluate(container);
+        if (profile == null || string.IsNullOrEmpty(profile.FamilySignature))
+            return new MagicWebPublishResult(MagicWebPublishStatus.Invalid);
 
         if (container.Tags.Has<TagOccupied>()) container.RemoveTag<TagOccupied>();
         if (container.Tags.Has<TagRecycle>()) container.RemoveTag<TagRecycle>();
@@ -308,11 +400,13 @@ public sealed class MagicWebManager : ICanInit, ICanReload
             Container = container,
             Signature = signature,
             Tags = semanticTags,
+            Profile = profile,
             LastAccessWorldTime = GetWorldTime(),
             IsDefault = isDefault
         };
         _entriesByEntityId[container.Id] = entry;
         _containersBySignature[signature] = container;
+        _containersByRing[profile.Ring].Add(container);
         foreach (var tag in semanticTags)
         {
             if (!_containersByTag.TryGetValue(tag, out var tagged))
@@ -343,6 +437,7 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     {
         _entriesByEntityId.Remove(entry.Container.Id);
         _containersBySignature.Remove(entry.Signature);
+        _containersByRing[entry.Profile.Ring].Remove(entry.Container);
         foreach (var tag in entry.Tags)
         {
             if (!_containersByTag.TryGetValue(tag, out var tagged)) continue;
@@ -376,6 +471,7 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         _entriesByEntityId.Clear();
         _containersBySignature.Clear();
         _containersByTag.Clear();
+        foreach (var ring in _containersByRing) ring.Clear();
         if (!_magicWebEntity.IsNull) _magicWebEntity.DeleteEntity();
         _magicWebEntity = default;
         _defaultsSeeded = false;

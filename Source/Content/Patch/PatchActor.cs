@@ -57,10 +57,11 @@ internal static class PatchActor
             var ae = (pActor as Actor).GetExtend();
 
             // 魔法生物：概率去冥想（仙道逻辑不影响）
-            if (ae.HasCultisys<Magic>())
+            if (ae.TryGetComponent(out Magic magic))
             {
                 var magic_chance = 0.2f;
                 if (pActor.hasTrait(ActorTraits.Cultivator.id)) magic_chance = 0.8f;
+                if (MagicLearningRules.HasNoKnownSpell(ae)) magic_chance = 1f;
                 if (Randy.randomChance(magic_chance))
                 {
                     __result = ActorJobs.MagicCultivator.id;
@@ -68,108 +69,109 @@ internal static class PatchActor
                 return;
             }
 
-            if (!ae.TryGetComponent(out Xian xian)) return;
-            
-            var chance = 0.2f;
-            var cultivate_method = ae.GetMainCultibook()?.GetCultivateMethod() ?? CultivateMethods.Standard;
-            var can_cultivate = cultivate_method.CanCultivate?.Invoke(ae) ?? true;
-            
-            if (can_cultivate && pActor.hasTrait(ActorTraits.Cultivator.id)) chance = 0.8f;
+            if (ae.TryGetComponent(out Xian xian))
+            {
+                var chance = 0.2f;
+                var cultivate_method = ae.GetMainCultibook()?.GetCultivateMethod() ?? CultivateMethods.Standard;
+                var can_cultivate = cultivate_method.CanCultivate?.Invoke(ae) ?? true;
+                
+                if (can_cultivate && pActor.hasTrait(ActorTraits.Cultivator.id)) chance = 0.8f;
 
-            if (!can_cultivate)
-            {
-                chance = 0f;
-            }
-            if (Randy.randomChance(1 - chance))
-            {
-                if (Randy.randomChance(0.6f))
+                if (!can_cultivate)
                 {
-                    using var pool = new ListPool<string>();
-                    if (Randy.randomChance(pActor.hasTrait(ActorTraits.OpenSource) ? 0.5f : 0.1f))
+                    chance = 0f;
+                }
+                if (Randy.randomChance(1 - chance))
+                {
+                    if (Randy.randomChance(0.6f))
                     {
-                        pool.Add(ActorJobs.BookWriter.id);
-                    }
-                    if (xian.CurrLevel >= XianLevels.Jindan && GeneralSettings.EnableElixirSystems)
-                    {
-                        pool.Add(ActorJobs.ElixirCrafter.id);
-                        if (Randy.randomChance(0.9f))
+                        using var pool = new ListPool<string>();
+                        if (Randy.randomChance(pActor.hasTrait(ActorTraits.OpenSource) ? 0.5f : 0.1f))
                         {
-                            pool.Add(ActorJobs.ElixirFinder.id);
+                            pool.Add(ActorJobs.BookWriter.id);
                         }
-                    }
-                    if (xian.CurrLevel >= XianLevels.XianBase && GeneralSettings.EnableTalismanSystems) pool.Add(ActorJobs.TalismanCrafter.id);
-                    if (xian.CurrLevel >= XianLevels.Yuanying && GeneralSettings.EnableArtifactSystems) pool.Add(ActorJobs.ArtifactCrafter.id);
-                    if (xian.CurrLevel >= XianLevels.Yuanying && GeneralSettings.EnableCultibookSystems) pool.Add(ActorJobs.CultibookResearcher.id);
-                    if (GeneralSettings.EnableCultibookSystems && SectRules.CanFoundSect(pActor) && Randy.randomChance(0.35f))
-                    {
-                        pool.Add(ActorJobs.SectBuilder.id);
-                    }
-                    if (GeneralSettings.EnableCultibookSystems
-                        && Randy.randomChance(0.3f)
-                        && SectPersonnelEvaluator.CanManageSectPersonnel(pActor))
-                    {
-                        pool.Add(ActorJobs.SectDuty.id);
-                    }
-
-                    Sect sect = ae.sect;
-                    float sectStudyJobChance = sect == null ? SectConst.SectStudyJobChance : SectTraitRules.GetSectStudyJobChance(sect);
-                    float sectAffairJobChance = sect == null ? SectConst.SectAffairJobChance : SectTraitRules.GetSectAffairJobChance(sect);
-                    if (GeneralSettings.EnableCultibookSystems
-                        && Randy.randomChance(sectStudyJobChance)
-                        && SectScriptureStudyRules.CanStudySectScripture(pActor))
-                    {
-                        pool.Add(ActorJobs.SectStudy.id);
-                    }
-                    if (GeneralSettings.EnableCultibookSystems
-                        && Randy.randomChance(sectAffairJobChance)
-                        && SectAffairRules.CanDoAnySectAffair(pActor))
-                    {
-                        pool.Add(ActorJobs.SectAffair.id);
-                    }
-                    if (sect != null
-                        && Randy.randomChance(SectConst.SectTreasureJobChance)
-                        && SectTreasureRules.CanDoAnyTreasureAction(pActor))
-                    {
-                        pool.Add(ActorJobs.SectTreasure.id);
-                    }
-                    
-                    // ========== 师徒系统工作添加到pool ==========
-                    // 1. 师傅工作：元婴期及以上才会主动收徒和教导弟子
-                    if (xian.CurrLevel >= XianLevels.Yuanying && GeneralSettings.EnableAMSystems)
-                    {
-                        var apprentices = ae.GetApprentices();
-                        // 如果有弟子，或者可以收徒，添加到pool
-                        if (apprentices.Count > 0 || ae.CanRecruit())
+                        if (xian.CurrLevel >= XianLevels.Jindan && GeneralSettings.EnableElixirSystems)
                         {
-                            // 有弟子的师傅更倾向于执行师傅工作
-                            float masterJobChance = apprentices.Count > 0 ? 0.8f : 0.5f;
-                            if (Randy.randomChance(masterJobChance))
+                            pool.Add(ActorJobs.ElixirCrafter.id);
+                            if (Randy.randomChance(0.9f))
                             {
-                                pool.Add(ActorJobs.MasterDuty.id);
+                                pool.Add(ActorJobs.ElixirFinder.id);
                             }
                         }
+                        if (xian.CurrLevel >= XianLevels.XianBase && GeneralSettings.EnableTalismanSystems) pool.Add(ActorJobs.TalismanCrafter.id);
+                        if (xian.CurrLevel >= XianLevels.Yuanying && GeneralSettings.EnableArtifactSystems) pool.Add(ActorJobs.ArtifactCrafter.id);
+                        if (xian.CurrLevel >= XianLevels.Yuanying && GeneralSettings.EnableCultibookSystems) pool.Add(ActorJobs.CultibookResearcher.id);
+                        if (GeneralSettings.EnableCultibookSystems && SectRules.CanFoundSect(pActor) && Randy.randomChance(0.35f))
+                        {
+                            pool.Add(ActorJobs.SectBuilder.id);
+                        }
+                        if (GeneralSettings.EnableCultibookSystems
+                            && Randy.randomChance(0.3f)
+                            && SectPersonnelEvaluator.CanManageSectPersonnel(pActor))
+                        {
+                            pool.Add(ActorJobs.SectDuty.id);
+                        }
+
+                        Sect sect = ae.sect;
+                        float sectStudyJobChance = sect == null ? SectConst.SectStudyJobChance : SectTraitRules.GetSectStudyJobChance(sect);
+                        float sectAffairJobChance = sect == null ? SectConst.SectAffairJobChance : SectTraitRules.GetSectAffairJobChance(sect);
+                        if (GeneralSettings.EnableCultibookSystems
+                            && Randy.randomChance(sectStudyJobChance)
+                            && SectScriptureStudyRules.CanStudySectScripture(pActor))
+                        {
+                            pool.Add(ActorJobs.SectStudy.id);
+                        }
+                        if (GeneralSettings.EnableCultibookSystems
+                            && Randy.randomChance(sectAffairJobChance)
+                            && SectAffairRules.CanDoAnySectAffair(pActor))
+                        {
+                            pool.Add(ActorJobs.SectAffair.id);
+                        }
+                        if (sect != null
+                            && Randy.randomChance(SectConst.SectTreasureJobChance)
+                            && SectTreasureRules.CanDoAnyTreasureAction(pActor))
+                        {
+                            pool.Add(ActorJobs.SectTreasure.id);
+                        }
+                        
+                        // ========== 师徒系统工作添加到pool ==========
+                        // 1. 师傅工作：元婴期及以上才会主动收徒和教导弟子
+                        if (xian.CurrLevel >= XianLevels.Yuanying && GeneralSettings.EnableAMSystems)
+                        {
+                            var apprentices = ae.GetApprentices();
+                            // 如果有弟子，或者可以收徒，添加到pool
+                            if (apprentices.Count > 0 || ae.CanRecruit())
+                            {
+                                // 有弟子的师傅更倾向于执行师傅工作
+                                float masterJobChance = apprentices.Count > 0 ? 0.8f : 0.5f;
+                                if (Randy.randomChance(masterJobChance))
+                                {
+                                    pool.Add(ActorJobs.MasterDuty.id);
+                                }
+                            }
+                        }
+                        
+                        // 2. 弟子工作：有师傅的角色
+                        // 弟子有一定概率执行弟子工作（跟随师傅、寻师等）
+                        if (Randy.randomChance(0.3f) && GeneralSettings.EnableAMSystems) // 30%概率添加到pool
+                        {
+                            pool.Add(ActorJobs.ApprenticeDuty.id);
+                        }
+                        
+                        if (pool.Any())
+                        {
+                            __result = pool.GetRandom();
+                        }
                     }
-                    
-                    // 2. 弟子工作：有师傅的角色
-                    // 弟子有一定概率执行弟子工作（跟随师傅、寻师等）
-                    if (Randy.randomChance(0.3f) && GeneralSettings.EnableAMSystems) // 30%概率添加到pool
-                    {
-                        pool.Add(ActorJobs.ApprenticeDuty.id);
-                    }
-                    
-                    if (pool.Any())
-                    {
-                        __result = pool.GetRandom();
-                    }
+
+                    return;
                 }
 
-                return;
-            }
-
-            __result = cultivate_method.GetBehaviourJobId?.Invoke(ae);
-            if (string.IsNullOrEmpty(__result))
-            {
-                __result = ActorJobs.XianCultivator.id;
+                __result = cultivate_method.GetBehaviourJobId?.Invoke(ae);
+                if (string.IsNullOrEmpty(__result))
+                {
+                    __result = ActorJobs.XianCultivator.id;
+                }
             }
         }
     }

@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Abstract;
+using Cultiway.Core;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
+using UnityEngine;
 
 namespace Cultiway.Content.Libraries;
 
@@ -93,6 +95,24 @@ public struct ElementRequirement
     public float MinEntropy;
 
     /// <summary>
+    /// 将元素组成转换为非负的元素需求权重。
+    /// </summary>
+    public static ElementRequirement FromComposition(ElementComposition composition)
+    {
+        return new ElementRequirement
+        {
+            MinIron = Mathf.Max(0f, composition.iron),
+            MinWood = Mathf.Max(0f, composition.wood),
+            MinWater = Mathf.Max(0f, composition.water),
+            MinFire = Mathf.Max(0f, composition.fire),
+            MinEarth = Mathf.Max(0f, composition.earth),
+            MinNeg = Mathf.Max(0f, composition.neg),
+            MinPos = Mathf.Max(0f, composition.pos),
+            MinEntropy = Mathf.Max(0f, composition.entropy)
+        };
+    }
+
+    /// <summary>
     /// 检查灵根是否满足最低需求
     /// </summary>
     public bool Check(ElementRoot root)
@@ -135,6 +155,33 @@ public struct ElementRequirement
             if (requirement <= 0) return 0f;
             return Math.Min(value, requirement);
         }
+    }
+
+    /// <summary>
+    /// 按需求组成作为权重，对灵根各元素的指数饱和亲和度求加权平均。
+    /// </summary>
+    public float GetWeightedAffinity(ElementRoot root)
+    {
+        var totalRequirement = MinIron + MinWood + MinWater + MinFire + MinEarth + MinNeg + MinPos + MinEntropy;
+        if (totalRequirement <= 0f) return 1f;
+
+        var weightedAffinity = MinIron * GetElementAffinity(root.Iron)
+                               + MinWood * GetElementAffinity(root.Wood)
+                               + MinWater * GetElementAffinity(root.Water)
+                               + MinFire * GetElementAffinity(root.Fire)
+                               + MinEarth * GetElementAffinity(root.Earth)
+                               + MinNeg * GetElementAffinity(root.Neg)
+                               + MinPos * GetElementAffinity(root.Pos)
+                               + MinEntropy * GetElementAffinity(root.Entropy);
+        return Mathf.Clamp01(weightedAffinity / totalRequirement);
+    }
+
+    /// <summary>
+    /// 将单项灵根强度转换为 0-1 的指数饱和亲和度。
+    /// </summary>
+    public static float GetElementAffinity(float elementStrength)
+    {
+        return 1f - Mathf.Exp(-Mathf.Max(0f, elementStrength));
     }
 }
 

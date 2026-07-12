@@ -14,5 +14,12 @@ public static class MagicSetting
     public const float MagicWebExpirationYears     = 50f;
     /// <summary>魔网检查过期法术的时间间隔，单位为游戏年。</summary>
     public const float MagicWebSweepIntervalYears  = 1f;
+    public const float MagicStudyAffinityThreshold = 0.25f;
+    public const int   MagicStudyQueryLimit         = 48;
+    public const float MagicStudyBaseDifficulty     = 8f;
+    public const float MagicStudyRetryYears         = 0.5f;
+    public const float MagicStudySuccessCooldownYears = 2f;
+    public const float MagicStudyNoCandidateBackoffYears = 5f;
+    public const float MagicReplacementScoreRatio   = 1.2f;
     public const string StatsPath                  = "Content/Cultisys/Magic.csv";
 }
