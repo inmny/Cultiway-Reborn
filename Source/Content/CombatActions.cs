@@ -1,5 +1,4 @@
 using System.Linq;
-using System.Runtime.Remoting.Channels;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Visuals;
@@ -65,12 +64,33 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
             return has_casted;
         };
         
-        ActorExtend.RegisterCombatActionOnAttack(((ae, target, list) =>
+        ActorExtend.RegisterExternalMagicAction(new ExternalMagicActionProvider(
+            UseTalisman,
+            CanPrepareTalisman,
+            ResolveTalismanWeight));
+    }
+
+    private static bool CanPrepareTalisman(ActorExtend caster, BaseSimObject target)
+    {
+        if (!caster.HasComponent<Xian>()) return false;
+        foreach (var item in caster.GetItems())
         {
-            if (ae.HasComponent<Xian>() && ae.CanUseMagicActionAtCurrentDistance(target))
-            {
-                UseTalisman.AddToPool(list);
-            }
-        }));
+            if (!item.HasComponent<Talisman>()) continue;
+            var skill = item.GetComponent<Talisman>().SkillContainer;
+            if (caster.CanPrepareSkillContainer(skill, target, SkillCastFundingSource.Prepaid)) return true;
+        }
+        return false;
+    }
+
+    private static int ResolveTalismanWeight(ActorExtend caster, BaseSimObject target)
+    {
+        if (!caster.HasComponent<Xian>()) return 0;
+        foreach (var item in caster.GetItems())
+        {
+            if (!item.HasComponent<Talisman>()) continue;
+            var skill = item.GetComponent<Talisman>().SkillContainer;
+            if (caster.CanUseSkillContainerAtCurrentDistance(skill, target, SkillCastFundingSource.Prepaid)) return 1;
+        }
+        return 0;
     }
 }
