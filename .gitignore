@@ -409,6 +409,7 @@ FodyWeavers.xsd
 
 Tools/
 outputs/
+generated_images/
 Temp/
 Scripts/*.jpg
 Scripts/*.png
