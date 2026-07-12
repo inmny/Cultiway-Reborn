@@ -20,9 +20,17 @@ public partial class Cultisyses
 
     /// <summary>每级 SpiritRegen（回神/月），由 Magic.csv 加载</summary>
     private static readonly float[] _spiritRegenByLevel = new float[MagicSetting.LevelNumber];
+    private static readonly int[] _maxSpellRingByLevel = new int[MagicSetting.LevelNumber];
+    private static readonly int[] _knownSpellCapacityByLevel = new int[MagicSetting.LevelNumber];
 
     /// <summary>取指定等级的每月精神力恢复值</summary>
     public static float GetSpiritRegen(int level) => _spiritRegenByLevel[level];
+
+    /// <summary>取得指定魔法等级能够理解的最高法术环级。</summary>
+    public static int GetMaxSpellRing(int level) => _maxSpellRingByLevel[level];
+
+    /// <summary>取得指定魔法等级能够长期掌握的法术数量。</summary>
+    public static int GetKnownSpellCapacity(int level) => _knownSpellCapacityByLevel[level];
 
     private void InitMagic()
     {
@@ -89,14 +97,23 @@ public partial class Cultisyses
         var keys = csv[0];
         _ = csv[1];
 
-        // 定位 SpiritRegen（回神/月）列号，单独读取到每级数组
+        // 定位不属于 BaseStats 的魔法体系规则列。
         int spiritRegenCol = -1;
+        int maxSpellRingCol = -1;
+        int knownSpellCapacityCol = -1;
         for (int j = 0; j < keys.Length; j++)
         {
-            if (keys[j] == "SpiritRegen")
+            switch (keys[j])
             {
-                spiritRegenCol = j;
-                break;
+                case "SpiritRegen":
+                    spiritRegenCol = j;
+                    break;
+                case "MaxSpellRing":
+                    maxSpellRingCol = j;
+                    break;
+                case "KnownSpellCapacity":
+                    knownSpellCapacityCol = j;
+                    break;
             }
         }
 
@@ -114,6 +131,14 @@ public partial class Cultisyses
             if (spiritRegenCol >= 0)
             {
                 _spiritRegenByLevel[i] = float.Parse(line[spiritRegenCol]);
+            }
+            if (maxSpellRingCol >= 0)
+            {
+                _maxSpellRingByLevel[i] = int.Parse(line[maxSpellRingCol]);
+            }
+            if (knownSpellCapacityCol >= 0)
+            {
+                _knownSpellCapacityByLevel[i] = int.Parse(line[knownSpellCapacityCol]);
             }
         }
 
