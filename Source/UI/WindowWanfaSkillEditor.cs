@@ -835,7 +835,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
 
     private void AddModifierRadiusOverviews(Entity compiled)
     {
-        var scale = compiled.GetComponent<EffectRadiusScale>().Value;
+        var scale = SkillEffectRadius.ResolveContainer(compiled, 1f);
         foreach (var spec in _draft.Modifiers)
         {
             var modifier = ModClass.I.SkillV3.ModifierLib.get(spec.AssetId);
