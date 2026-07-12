@@ -5,10 +5,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Cultiway.Abstract;
 using Cultiway.Const;
-using Cultiway.Content;
-using Cultiway.Content.Components;
-using Cultiway.Content.Const;
-using Cultiway.Content.Extensions;
 using Cultiway.Core.Components;
 using Cultiway.Debug;
 using NeoModLoader.api.attributes;
@@ -27,6 +23,13 @@ namespace Cultiway.Core;
 
 public partial class ActorExtend
 {
+    private static readonly List<ExternalMagicActionProvider> externalMagicActions = new();
+
+    public static void RegisterExternalMagicAction(ExternalMagicActionProvider provider)
+    {
+        externalMagicActions.Add(provider);
+    }
+
     public static void RegisterCombatActionOnAttack(Action<ActorExtend, BaseSimObject, ListPool<CombatActionAsset>> action)
     {
         action_on_attack += action;
@@ -77,6 +80,7 @@ public partial class ActorExtend
         {
             WorldboxGame.CombatActions.CastSkillV3.AddToPool(attack_action_pool, castable_skill_count);
         }
+        AddExternalMagicActionsToPool(target, attack_action_pool);
         action_on_attack?.Invoke(this, target, attack_action_pool);
         
 
@@ -144,7 +148,7 @@ public partial class ActorExtend
     /// 判断当前距离下是否能立即执行任意战斗动作。
     /// </summary>
     /// <param name="target">当前攻击目标。</param>
-    /// <returns>近战、远程武器、法术、技能或符箓中任一项可用时返回 true。</returns>
+    /// <returns>近战、远程武器、法术、技能或外部魔法动作中任一项可用时返回 true。</returns>
     public bool CanUseCombatActionAtCurrentDistance(BaseSimObject target)
     {
         if (target.isRekt()) return false;
@@ -166,7 +170,7 @@ public partial class ActorExtend
     /// 判断当前距离下是否能立即执行修士侧的法术类动作。
     /// </summary>
     /// <param name="target">当前攻击目标。</param>
-    /// <returns>原版法术、自定义攻击技能或符箓可用时返回 true。</returns>
+    /// <returns>原版法术、自定义攻击技能或外部魔法动作可用时返回 true。</returns>
     public bool CanUseMagicActionAtCurrentDistance(BaseSimObject target)
     {
         if (target.isRekt()) return false;
@@ -175,7 +179,7 @@ public partial class ActorExtend
 
         return CanUseVanillaSpellAtCurrentDistance(target)
                || CountCastableAttackSkills(target) > 0
-               || HasCastableTalisman(target);
+               || HasUsableExternalMagicAction(target);
     }
 
     /// <summary>
@@ -303,7 +307,7 @@ public partial class ActorExtend
     /// <summary>
     /// 判断技能容器是否具备准备释放的基础条件。
     /// </summary>
-    private bool CanPrepareSkillContainer(Entity skill, BaseSimObject target,
+    public bool CanPrepareSkillContainer(Entity skill, BaseSimObject target,
         SkillCastFundingSource fundingSource = SkillCastFundingSource.CasterResources)
     {
         if (!GeneralSettings.EnableSkillSystems) return false;
@@ -313,34 +317,34 @@ public partial class ActorExtend
         return SkillCastCost.GetAffordableStepLimit(this, skill, fundingSource) > 0;
     }
 
-    /// <summary>
-    /// 判断是否存在当前距离下可释放的符箓。
-    /// </summary>
-    private bool HasCastableTalisman(BaseSimObject target)
+    private bool HasPreparedExternalMagicAction(BaseSimObject target)
     {
-        foreach (var item in GetItems())
+        foreach (var provider in externalMagicActions)
         {
-            if (!item.HasComponent<Talisman>()) continue;
-            ref var talisman = ref item.GetComponent<Talisman>();
-            if (CanCastSkillContainer(talisman.SkillContainer, target, SkillCastFundingSource.Prepaid)) return true;
+            if (provider.CanPrepare(this, target)) return true;
         }
-
         return false;
     }
 
-    /// <summary>
-    /// 判断是否存在可准备释放的符箓，不要求目标已经进入施法距离。
-    /// </summary>
-    private bool HasAvailableTalisman(BaseSimObject target)
+    private bool HasUsableExternalMagicAction(BaseSimObject target)
     {
-        foreach (var item in GetItems())
+        foreach (var provider in externalMagicActions)
         {
-            if (!item.HasComponent<Talisman>()) continue;
-            ref var talisman = ref item.GetComponent<Talisman>();
-            if (CanPrepareSkillContainer(talisman.SkillContainer, target, SkillCastFundingSource.Prepaid)) return true;
+            if (provider.ResolveCurrentWeightMultiplier(this, target) > 0) return true;
         }
-
         return false;
+    }
+
+    private void AddExternalMagicActionsToPool(BaseSimObject target, ListPool<CombatActionAsset> actionPool)
+    {
+        foreach (var provider in externalMagicActions)
+        {
+            var weightMultiplier = provider.ResolveCurrentWeightMultiplier(this, target);
+            if (weightMultiplier > 0)
+            {
+                provider.Action.AddToPool(actionPool, provider.Action.rate * weightMultiplier);
+            }
+        }
     }
 
     /// <summary>
@@ -436,7 +440,7 @@ public partial class ActorExtend
     {
         if (target.isRekt()) return false;
         if (Base.hasSpells() && Base.canUseSpells()) return true;
-        return HasAvailableAttackSkills(target) || HasAvailableTalisman(target);
+        return HasAvailableAttackSkills(target) || HasPreparedExternalMagicAction(target);
     }
 
     /// <summary>
