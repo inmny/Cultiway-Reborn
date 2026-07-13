@@ -15,6 +15,9 @@ namespace Cultiway.UI;
 public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion>
 {
     public const string Id = "Cultiway.UI.WindowWanfaPavilion";
+    public static readonly Vector2 WindowSize = new(600f, 360f);
+    private const float RootHeight = 318f;
+    private const float BlueprintListHeight = 288f;
     private static readonly string[] SortNamePaths =
     {
         "Cultiway.Wanfa.UI.Sort.Manual", "Cultiway.Wanfa.UI.Sort.Name", "Cultiway.Wanfa.UI.Sort.Recent",
@@ -37,7 +40,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
     protected override void Init()
     {
         BackgroundTransform.Find("Scroll View").gameObject.SetActive(false);
-        var root = WanfaUiFactory.CreateLayout(BackgroundTransform, "WanfaRoot", false, 520f, 238f, 4f);
+        var root = WanfaUiFactory.CreateLayout(BackgroundTransform, "WanfaRoot", false, 520f, RootHeight, 4f);
         root.transform.localPosition = new Vector3(0f, -8f);
 
         var toolbar = WanfaUiFactory.CreateLayout(root.transform, "Toolbar", true, 520f, 24f, 4f);
@@ -70,7 +73,8 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
             "Cultiway.Wanfa.UI.Tooltip.Sort");
         _selectedCount = WanfaUiFactory.CreateText(toolbar.transform, "SelectedCount", string.Empty, 52f, 22f, 6);
 
-        var content = WanfaUiFactory.CreateScrollContent(root.transform, "BlueprintList", 520f, 208f);
+        var content = WanfaUiFactory.CreateScrollContent(root.transform, "BlueprintList", 520f,
+            BlueprintListHeight);
         _rowPool = new MonoObjPool<WanfaBlueprintRow>(WanfaBlueprintRow.Prefab, content);
         WanfaPavilionService.Instance.Changed += Refresh;
         RefreshVfxFilters();

@@ -85,8 +85,8 @@ public class Manager
             actor => actor.GetExtend().GetLearnedSkillsInOrder().Count > 0,
             SkillPage.Setup, SkillPage.Show);
 
-        WindowWanfaPavilion.CreateAndInit(WindowWanfaPavilion.Id);
-        WindowWanfaSkillEditor.CreateAndInit(WindowWanfaSkillEditor.Id);
+        WindowWanfaPavilion.CreateAndInit(WindowWanfaPavilion.Id, WindowWanfaPavilion.WindowSize);
+        WindowWanfaSkillEditor.CreateAndInit(WindowWanfaSkillEditor.Id, WindowWanfaSkillEditor.WindowSize);
         WindowWanfaGrantConflict.CreateAndInit(WindowWanfaGrantConflict.Id);
 
         var pavilionButton = PowerButtonCreator.CreateWindowButton(

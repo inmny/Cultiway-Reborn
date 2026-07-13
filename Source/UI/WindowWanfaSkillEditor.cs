@@ -41,6 +41,9 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     }
 
     public const string Id = "Cultiway.UI.WindowWanfaSkillEditor";
+    public static readonly Vector2 WindowSize = new(600f, 360f);
+    private const float RootHeight = 318f;
+    private const float EditorContentHeight = 188f;
     private static SkillBlueprint _pendingDraft;
     private static bool _pendingExisting;
     private static bool _pendingActorEdit;
@@ -129,7 +132,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     {
         _instance = this;
         BackgroundTransform.Find("Scroll View").gameObject.SetActive(false);
-        var root = WanfaUiFactory.CreateLayout(BackgroundTransform, "EditorRoot", false, 520f, 238f, 3f);
+        var root = WanfaUiFactory.CreateLayout(BackgroundTransform, "EditorRoot", false, 520f, RootHeight, 3f);
         _editorCanvasGroup = root.AddComponent<CanvasGroup>();
         root.transform.localPosition = new Vector3(0f, -8f);
 
@@ -207,7 +210,8 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             WanfaUiFactory.SetTooltip(_tabButtons[i].gameObject, names[i], tooltipKeys[i]);
         }
 
-        var content = WanfaUiFactory.CreateScrollContent(root.transform, "EditorContent", 520f, 108f);
+        var content = WanfaUiFactory.CreateScrollContent(root.transform, "EditorContent", 520f,
+            EditorContentHeight);
         _rowPool = new MonoObjPool<WanfaEditorRow>(WanfaEditorRow.Prefab, content);
 
         var footer = WanfaUiFactory.CreateLayout(root.transform, "Footer", true, 520f, 25f, 4f);
