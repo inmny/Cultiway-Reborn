@@ -1,11 +1,9 @@
 key,cz
 Task.Unit.Cultiway.DailyXianCultivate,日常修炼(仙路)
-Task.Unit.Cultiway.LevelupXianCultivate,尝试突破(仙路)
 Task.Unit.Cultiway.DailyPlantXianCultivate,日常修炼(仙路)
-Task.Unit.Cultiway.LevelupPlantXianCultivate,尝试突破(仙路)
 Task.Unit.Cultiway.DailyWaterCultivate,日常修炼(水中)
-Task.Unit.Cultiway.LevelupWaterCultivate,尝试突破(水中)
 Task.Unit.Cultiway.DailyMagicMeditate,魔法冥想
+Task.Unit.Cultiway.CultivationProgression,尝试突破
 Task.Unit.Cultiway.StudyMagicWeb,研究魔网
 Task.Unit.Cultiway.StudyMagicScroll,研读魔法卷轴
 Task.Unit.Cultiway.ImproveMagicSpell,研究法术改进

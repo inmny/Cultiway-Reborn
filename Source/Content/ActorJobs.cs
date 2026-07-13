@@ -1,6 +1,9 @@
 using Cultiway.Abstract;
 using Cultiway.Content.Behaviours;
 using Cultiway.Content.Behaviours.Conditions;
+using Cultiway.Core;
+using Cultiway.Core.Progression;
+using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content;
 
@@ -11,6 +14,9 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob PlantXianCultivator { get; private set; }
     public static ActorJob WaterCultivator     { get; private set; }
     public static ActorJob MagicCultivator     { get; private set; }
+
+    /// <summary>由通用进阶选择器主动分配、只执行一次当前候选进阶的工作。</summary>
+    public static ActorJob CultivationProgression { get; private set; }
     public static ActorJob MagicWebResearcher  { get; private set; }
     public static ActorJob MagicScrollStudent  { get; private set; }
     public static ActorJob MagicSpellResearcher { get; private set; }
@@ -46,31 +52,38 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         XianCultivator.addCondition(new CondCanSwitchCultibook());
         XianCultivator.addTask(ActorTasks.DailyXianCultivate.id);
         XianCultivator.addCondition(new CondHasXian());
-        XianCultivator.addCondition(new CondXianReadyLevelup(), false);
-        XianCultivator.addTask(ActorTasks.LevelupXianCultivate.id);
-        XianCultivator.addCondition(new CondXianReadyLevelup());
+        XianCultivator.addCondition(new CondCanProgressCultivation(), false);
+        XianCultivator.addTask(ActorTasks.CultivationProgression.id);
+        XianCultivator.addCondition(new CondCanProgressCultivation());
         XianCultivator.addTask(ActorTasks.EndJob.id);
 
         PlantXianCultivator.addTask(ActorTasks.SwitchCultibook.id);
         PlantXianCultivator.addCondition(new CondCanSwitchCultibook());
         PlantXianCultivator.addTask(ActorTasks.DailyPlantXianCultivate.id);
         PlantXianCultivator.addCondition(new CondHasXian());
-        PlantXianCultivator.addCondition(new CondXianReadyLevelup(), false);
-        PlantXianCultivator.addTask(ActorTasks.LevelupPlantXianCultivate.id);
-        PlantXianCultivator.addCondition(new CondXianReadyLevelup());
+        PlantXianCultivator.addCondition(new CondCanProgressCultivation(), false);
+        PlantXianCultivator.addTask(ActorTasks.CultivationProgression.id);
+        PlantXianCultivator.addCondition(new CondCanProgressCultivation());
         PlantXianCultivator.addTask(ActorTasks.EndJob.id);
 
         WaterCultivator.addTask(ActorTasks.SwitchCultibook.id);
         WaterCultivator.addCondition(new CondCanSwitchCultibook());
         WaterCultivator.addTask(ActorTasks.DailyWaterCultivate.id);
         WaterCultivator.addCondition(new CondHasXian());
-        WaterCultivator.addCondition(new CondXianReadyLevelup(), false);
-        WaterCultivator.addTask(ActorTasks.LevelupWaterCultivate.id);
-        WaterCultivator.addCondition(new CondXianReadyLevelup());
+        WaterCultivator.addCondition(new CondCanProgressCultivation(), false);
+        WaterCultivator.addTask(ActorTasks.CultivationProgression.id);
+        WaterCultivator.addCondition(new CondCanProgressCultivation());
         WaterCultivator.addTask(ActorTasks.EndJob.id);
 
         MagicCultivator.addTask(ActorTasks.DailyMagicMeditate.id);
+        MagicCultivator.addCondition(new CondCanProgressCultivation(), false);
+        MagicCultivator.addTask(ActorTasks.CultivationProgression.id);
+        MagicCultivator.addCondition(new CondCanProgressCultivation());
         MagicCultivator.addTask(ActorTasks.EndJob.id);
+
+        CultivationProgression.addTask(ActorTasks.CultivationProgression.id);
+        CultivationProgression.addTask(ActorTasks.EndJob.id);
+        ActorJobSelectionRegistry.Register(TrySelectCultivationProgressionJob, 1000);
 
         MagicWebResearcher.addTask(ActorTasks.StudyMagicWeb.id);
         MagicWebResearcher.addCondition(new CondShouldStudyMagicWeb());
@@ -161,12 +174,12 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         SectAffair.addTask(ActorTasks.EndJob.id);
         
         
-        Attacker.addTask(ActorTasks.DailyXianCultivate.id);;
+        Attacker.addTask(ActorTasks.DailyXianCultivate.id);
         Attacker.addCondition(new CondHasXian());
-        Attacker.addCondition(new CondXianReadyLevelup(), false);;
+        Attacker.addCondition(new CondCanProgressCultivation(), false);
         Attacker.addCondition(new CondProb(0.4f));
-        Attacker.addTask(ActorTasks.LevelupXianCultivate.id);
-        Attacker.addCondition(new CondXianReadyLevelup());
+        Attacker.addTask(ActorTasks.CultivationProgression.id);
+        Attacker.addCondition(new CondCanProgressCultivation());
         
         SpawnedUnit.addTask(ActorTasks.RandomMove.id);
         SpawnedUnit.addTask(ActorTasks.CallSourceSpawner.id);
@@ -189,6 +202,14 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         ApprenticeDuty.addCondition(new CondNeedMaster());
         ApprenticeDuty.addCondition(new CondHasMaster(), false);
         ApprenticeDuty.addTask(ActorTasks.EndJob.id);
+    }
+
+    /// <summary>角色存在可调度进阶时抢占普通随机工作，并返回统一进阶工作标识。</summary>
+    private static bool TrySelectCultivationProgressionJob(Actor actor, ref string jobId)
+    {
+        if (!ProgressionService.CanScheduleAny(actor.GetExtend())) return false;
+        jobId = CultivationProgression.id;
+        return true;
     }
 
     private static void AddSequentialEqualChanceTasks(ActorJob job, params EqualChanceTaskOption[] options)

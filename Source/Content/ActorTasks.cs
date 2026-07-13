@@ -11,12 +11,12 @@ namespace Cultiway.Content;
 public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
 {
     public static BehaviourTaskActor DailyXianCultivate        { get; private set; }
-    public static BehaviourTaskActor LevelupXianCultivate      { get; private set; }
     public static BehaviourTaskActor DailyPlantXianCultivate   { get; private set; }
-    public static BehaviourTaskActor LevelupPlantXianCultivate { get; private set; }
     public static BehaviourTaskActor DailyWaterCultivate       { get; private set; }
-    public static BehaviourTaskActor LevelupWaterCultivate     { get; private set; }
     public static BehaviourTaskActor DailyMagicMeditate        { get; private set; }
+
+    /// <summary>调用通用进阶服务执行当前体系候选过渡的行为任务。</summary>
+    public static BehaviourTaskActor CultivationProgression    { get; private set; }
     public static BehaviourTaskActor StudyMagicWeb             { get; private set; }
     public static BehaviourTaskActor StudyMagicScroll          { get; private set; }
     public static BehaviourTaskActor ImproveMagicSpell         { get; private set; }
@@ -67,16 +67,11 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         DailyXianCultivate.addBeh(new BehExitBuilding());
         DailyXianCultivate.setIcon("cultiway/icons/iconCultivation");
 
-        LevelupXianCultivate.addBeh(new BehBuildingTargetHome());
-        LevelupXianCultivate.addBeh(new BehGetTargetBuildingMainTile());
-        LevelupXianCultivate.addBeh(new BehGoToTileTarget());
-        LevelupXianCultivate.addBeh(new BehStayInBuildingTarget());
-        LevelupXianCultivate.addBeh(new BehXianLevelup());
-        LevelupXianCultivate.addBeh(new BehExitBuilding());
-        LevelupXianCultivate.setIcon("cultiway/icons/iconCultivation");
-
         DailyMagicMeditate.addBeh(new BehMagicMeditate());
         DailyMagicMeditate.setIcon("cultiway/icons/iconMagic");
+
+        CultivationProgression.addBeh(new BehCultivationProgression());
+        CultivationProgression.setIcon("cultiway/icons/iconCultivation");
 
         StudyMagicWeb.addBeh(new BehStudyMagicWeb());
         StudyMagicWeb.setIcon("cultiway/icons/iconMagic");
@@ -100,20 +95,11 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         DailyPlantXianCultivate.addBeh(new BehPlantXianCultivate());
         DailyPlantXianCultivate.setIcon("cultiway/icons/iconCultivation");
 
-        LevelupPlantXianCultivate.addBeh(new BehOutdoorCultivationWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
-        LevelupPlantXianCultivate.addBeh(new BehPlantXianLevelup());
-        LevelupPlantXianCultivate.setIcon("cultiway/icons/iconCultivation");
-        
         DailyWaterCultivate.addBeh(new BehFindWaterTile());
         DailyWaterCultivate.addBeh(new BehGoToTileTarget());
         DailyWaterCultivate.addBeh(new BehWaterCultivate());
         DailyWaterCultivate.setIcon("cultiway/icons/iconCultivation");
 
-        LevelupWaterCultivate.addBeh(new BehFindWaterTile());
-        LevelupWaterCultivate.addBeh(new BehGoToTileTarget());
-        LevelupWaterCultivate.addBeh(new BehWaterCultivateLevelup());
-        LevelupWaterCultivate.setIcon("cultiway/icons/iconCultivation");
-        
         LookForHerbs.addBeh(new BehFindTargetForCollector());
         LookForHerbs.addBeh(new BehGoToActorTarget());
         LookForHerbs.addBeh(new BehHarvestHerb());

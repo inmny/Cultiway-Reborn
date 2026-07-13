@@ -6,6 +6,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.Progression;
 using Cultiway.Patch;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -16,9 +17,13 @@ namespace Cultiway.Content;
 
 public partial class Cultisyses
 {
+    /// <summary>魔法体系资产及其等级、属性和进阶规则入口。</summary>
     public static CultisysAsset<Magic> Magic { get; private set; }
 
+    /// <summary>按魔法师等级缓存能够理解的最高法术环级。</summary>
     private static readonly int[] _maxSpellRingByLevel = new int[MagicSetting.LevelNumber];
+
+    /// <summary>按魔法师等级缓存能够长期掌握的法术数量上限。</summary>
     private static readonly int[] _knownSpellCapacityByLevel = new int[MagicSetting.LevelNumber];
 
     /// <summary>取得指定魔法等级能够理解的最高法术环级。</summary>
@@ -29,10 +34,9 @@ public partial class Cultisyses
 
     private void InitMagic()
     {
-        Magic = (CultisysAsset<Magic>)Add(new CultisysAsset<Magic>(nameof(Magic), MagicSetting.LevelNumber, new Magic(),
-            Enumerable.Range(0, MagicSetting.LevelNumber).Select(_ => (CultisysAsset<Magic>.CheckUpgrade)MagicPreCheckUpgrade).ToArray(),
-            Enumerable.Range(0, MagicSetting.LevelNumber).Select(_ => (CultisysAsset<Magic>.CheckUpgrade)MagicCheckUpgrade).ToArray(),
-            null, null, null));
+        Magic = (CultisysAsset<Magic>)Add(new CultisysAsset<Magic>(nameof(Magic), MagicSetting.LevelNumber,
+            new Magic(), CreateMagicProgressionProfile()));
+        ProgressionService.Register(Magic);
         SetupMagicDisplayStyle();
         LoadStatsForMagic();
 
@@ -132,14 +136,61 @@ public partial class Cultisyses
         Magic.UpdateAccumStats();
     }
 
-    private static bool MagicPreCheckUpgrade(ActorExtend ae, CultisysAsset<Magic> cultisys, ref Magic component)
+    /// <summary>
+    ///     魔法体系当前只有大等级进阶，每一级共用同一套精神力门槛与结算规则。
+    /// </summary>
+    private static CultisysProgressionProfile<Magic> CreateMagicProgressionProfile()
     {
-        return component.spirit / ae.Base.stats[BaseStatses.MaxSpirit.id] > MagicSetting.CommonPreUpgradeSpiritRatio;
+        var profile = new CultisysProgressionProfile<Magic>();
+        for (var level = 0; level < MagicSetting.LevelNumber - 1; level++)
+        {
+            var transition = new ProgressionTransitionAsset<Magic>(
+                $"magic.level_{level}_to_{level + 1}", ProgressionKind.Major, level, level + 1)
+            {
+                IsApproaching = IsMagicApproachingBreakthrough,
+                ResolveNatural = ResolveMagicBreakthrough,
+                ResolveGrant = ResolveMagicBreakthrough
+            };
+            transition.Requirements.Add(RequireFullSpirit);
+            transition.SuccessCosts.Add(ConsumeSpiritAfterBreakthrough);
+            profile.AddRealm(new RealmProgressionAsset<Magic>(level)
+            {
+                Transitions = { transition }
+            });
+        }
+        return profile;
     }
 
-    private static bool MagicCheckUpgrade(ActorExtend ae, CultisysAsset<Magic> cultisys, ref Magic component)
+    /// <summary>精神力达到预突破比例时允许 AI 调度魔法进阶任务。</summary>
+    private static bool IsMagicApproachingBreakthrough(ActorExtend actor, CultisysAsset<Magic> cultisys,
+                                                       ref Magic component)
     {
-        return component.spirit >= ae.Base.stats[BaseStatses.MaxSpirit.id] - 0.1f;
+        var maxSpirit = actor.Base.stats[BaseStatses.MaxSpirit.id];
+        return maxSpirit > 0f
+               && component.spirit / maxSpirit > MagicSetting.CommonPreUpgradeSpiritRatio;
+    }
+
+    /// <summary>自然进阶要求当前精神力接近角色精神力上限。</summary>
+    private static ProgressionGateResult RequireFullSpirit(ActorExtend actor, CultisysAsset<Magic> cultisys,
+                                                            ref Magic component)
+    {
+        return component.spirit >= actor.Base.stats[BaseStatses.MaxSpirit.id] - 0.1f
+            ? ProgressionGateResult.Satisfied
+            : ProgressionGateResult.NotReady("magic.spirit_not_full");
+    }
+
+    /// <summary>魔法等级在满足精神力门槛后固定成功，不生成额外结算载荷。</summary>
+    private static ProgressionResolution ResolveMagicBreakthrough(ActorExtend actor,
+        CultisysAsset<Magic> cultisys, ref Magic component)
+    {
+        return ProgressionResolution.Success();
+    }
+
+    /// <summary>自然魔法进阶成功后清空积累的精神力；直接授予和同步不会执行。</summary>
+    private static void ConsumeSpiritAfterBreakthrough(ActorExtend actor, CultisysAsset<Magic> cultisys,
+                                                       ref Magic component, object payload)
+    {
+        component.spirit = 0f;
     }
 
     /// <summary>

@@ -420,7 +420,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             var daemonAsset = daemonSeries.GetRandom();
             if (daemonAsset == null) continue;
             var daemon = World.world.units.spawnNewUnit(daemonAsset.id, mortal.current_tile, false, pSpawnHeight: 0);
-            if (daemonLevel >= 0) GrantXianLevel(daemon, daemonLevel);
+            if (daemonLevel >= 0) SynchronizeXianLevel(daemon, daemonLevel);
             mortal.removeByMetamorphosis();
         }
     }
@@ -448,35 +448,21 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         var dst = target.GetExtend();
         if (src == null || dst == null) return;
 
-        // 仙：境界 + 修为
         if (src.HasCultisys<Xian>())
         {
-            var srcXian = src.GetCultisys<Xian>();
-            if (!dst.HasCultisys<Xian>()) dst.NewCultisys(Cultisyses.Xian);
-            ref var dstXian = ref dst.GetCultisys<Xian>();
-            dstXian.level = srcXian.level;
-            dstXian.wakan = srcXian.wakan;
+            Cultisyses.Xian.TransferFrom(src, dst);
         }
-        // 金丹 / 元婴 / 筑基
-        if (src.TryGetComponent(out Jindan jindan))    { ref var j  = ref dst.GetOrAddComponent<Jindan>();    j  = jindan; }
-        if (src.TryGetComponent(out Yuanying yuanying)){ ref var y  = ref dst.GetOrAddComponent<Yuanying>();  y  = yuanying; }
-        if (src.TryGetComponent(out XianBase xianBase)){ ref var xb = ref dst.GetOrAddComponent<XianBase>();   xb = xianBase; }
-
-        dst.MarkCultiwayStatsDirty();
     }
 
     /// <summary>
-    /// 授予 <paramref name="actor"/> 仙修，并把境界设为 <paramref name="level"/>。
+    /// 为生成角色补齐仙道必要结构并同步到 <paramref name="level"/>，不重放突破奖励。
     /// </summary>
-    private static void GrantXianLevel(Actor actor, int level)
+    private static void SynchronizeXianLevel(Actor actor, int level)
     {
         var ae = actor.GetExtend();
         if (ae == null) return;
-        if (!ae.HasCultisys<Xian>()) ae.NewCultisys(Cultisyses.Xian);
-        ref var xian = ref ae.GetCultisys<Xian>();
-        xian.level = level;
-        xian.wakan = 0;
-        ae.MarkCultiwayStatsDirty();
+        Cultisyses.Xian.SynchronizeToRealm(ae, level);
+        if (ae.HasCultisys<Xian>()) ae.GetCultisys<Xian>().wakan = 0f;
     }
 
     // ========== 修建城墙谋划（矩形包围盒，内墙 → 外墙 → 要塞 三阶段渐进） ==========

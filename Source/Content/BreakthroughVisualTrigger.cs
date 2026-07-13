@@ -2,6 +2,7 @@ using System;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.Progression;
 using UnityEngine;
 
 namespace Cultiway.Content;
@@ -11,7 +12,17 @@ namespace Cultiway.Content;
 /// </summary>
 internal static class BreakthroughVisualTrigger
 {
-    public static void TryTriggerXian(ActorExtend ae, int fromLevel, int toLevel)
+    /// <summary>
+    ///     只响应仙道大境界提交；其他体系可通过同一生命周期入口注册自己的表现。
+    /// </summary>
+    public static void OnProgressionCommitted(ProgressionCommittedEvent evt)
+    {
+        if (evt.Cultisys != Cultisyses.Xian || evt.Kind != ProgressionKind.Major) return;
+        TryTriggerXian(evt.Actor, evt.FromLevel, evt.ToLevel);
+    }
+
+    /// <summary>在表现系统启用且目标境界存在定义时初始化仙道突破视觉状态。</summary>
+    private static void TryTriggerXian(ActorExtend ae, int fromLevel, int toLevel)
     {
         var manager = BreakthroughVisualManager.Instance;
         if (manager == null || !manager.Enabled) return;
@@ -30,6 +41,7 @@ internal static class BreakthroughVisualTrigger
         EnsureRealmVisual(ae, (byte)toLevel);
     }
 
+    /// <summary>取得角色的突破状态组件；缺失时先创建默认组件。</summary>
     private static ref XianBreakthroughState EnsureState(ActorExtend ae)
     {
         if (!ae.E.HasComponent<XianBreakthroughState>())
@@ -40,6 +52,7 @@ internal static class BreakthroughVisualTrigger
         return ref ae.E.GetComponent<XianBreakthroughState>();
     }
 
+    /// <summary>创建或更新常驻境界视觉组件，使其与新境界及角色结构状态一致。</summary>
     private static void EnsureRealmVisual(ActorExtend ae, byte targetLevel)
     {
         var rvManager = RealmVisualManager.Instance;

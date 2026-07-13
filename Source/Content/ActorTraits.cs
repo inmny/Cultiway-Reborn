@@ -45,7 +45,7 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
             if (!ae.HasCultisys<Xian>()) return false;
             ref Xian xian = ref ae.GetCultisys<Xian>();
             Cultisyses.TakeWakanAndCultivate(ae, ref xian);
-            if (Cultisyses.Xian.AllowUpgrade(ae)) Cultisyses.Xian.TryPerformUpgrade(ae);
+            if (Cultisyses.Xian.CanScheduleProgression(ae)) Cultisyses.Xian.TryAdvanceNaturally(ae);
 
             return true;
         };
@@ -90,10 +90,7 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
             {
                 ref var xian = ref ae.GetCultisys<Xian>();
                 xian.wakan = a.stats[BaseStatses.MaxWakan.id];
-                if (Cultisyses.Xian.AllowUpgrade(ae))
-                {
-                    Cultisyses.Xian.TryPerformUpgrade(ae);
-                }
+                Cultisyses.Xian.TryAdvanceNaturally(ae);
             }
 
             return true;

@@ -12,12 +12,14 @@ namespace Cultiway.Content.Behaviours;
 /// <summary>
 ///     魔法冥想行为：按月闭关修炼，参考仙道闭关范式。
 ///     每次冥想随机闭关 (等级+1)×(1~3) 个月，期间按精神力上限和先天神识资质持续积累精神力；
-///     精神力满后突破境界。不从地图抽取灵气，原地冥想即可。
+///     精神力满后结束冥想，实际进阶由统一进阶任务处理。不从地图抽取灵气，原地冥想即可。
 /// </summary>
 public class BehMagicMeditate : BehCityActor
 {
+    /// <summary>冥想收益和剩余闭关时间的更新间隔，单位为游戏秒。</summary>
     private const float TickInterval = 1f;
 
+    /// <summary>推进一轮冥想，累积精神力，并在精神力满或本轮时长耗尽时退出任务。</summary>
     [Hotfixable]
     public override BehResult execute(Actor pObject)
     {
@@ -50,12 +52,9 @@ public class BehMagicMeditate : BehCityActor
                 magic.spirit += gain;
             }
 
-            // 精神力满则突破
-            if (Cultisyses.Magic.AllowUpgrade(ae))
+            // 资源积累和进阶结算分离；满值后退出，让工作选择器调度统一进阶任务。
+            if (magic.spirit >= max_spirit - 0.1f)
             {
-                pObject.changeHappiness(HappinessAssets.LevelUp.id);
-                Cultisyses.Magic.TryPerformUpgrade(ae);
-                magic.spirit = 0;
                 pObject.data.set(ContentActorDataKeys.MagicMeditateTime_float, -TimeScales.SecPerMonth);
                 return BehResult.Continue;
             }

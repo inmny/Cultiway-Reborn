@@ -3,14 +3,17 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Cultiway.Abstract;
-using Cultiway.Content;
 using Cultiway.Core.Localization;
-using Cultiway.Debug;
+using Cultiway.Core.Progression;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General;
 
 namespace Cultiway.Core.Libraries;
 public delegate float GetDetailedLevel(ActorExtend actor_extend);
+
+/// <summary>
+///     不依赖具体 ECS 组件类型的修炼体系资产接口，供通用 UI、任务调度和进阶服务访问。
+/// </summary>
 public abstract class BaseCultisysAsset : Asset
 {
     private const string LevelNameSectionId = "cultisys_level_names";
@@ -103,41 +106,54 @@ public abstract class BaseCultisysAsset : Asset
     {
         return base_level + (_detailed_levels[base_level]?.Invoke(actor_extend) ?? 0);
     }
+
+    /// <summary>角色是否拥有本修炼体系。</summary>
+    public abstract bool IsOwnedBy(ActorExtend actor);
+
+    /// <summary>无副作用查询角色当前最可能执行的进阶过渡。</summary>
+    public abstract ProgressionQuery QueryProgression(ActorExtend actor);
+
+    /// <summary>当前是否应为角色调度进阶工作。</summary>
+    public abstract bool CanScheduleProgression(ActorExtend actor);
+
+    /// <summary>按体系自然规则尝试一次进阶。</summary>
+    public abstract ProgressionResult TryAdvanceNaturally(ActorExtend actor);
 }
 
+/// <summary>绑定具体体系组件、等级属性、技能列表和进阶图的修炼体系资产。</summary>
 public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysComponent
 {
-    public delegate bool CheckUpgrade(ActorExtend ae, CultisysAsset<T> cultisys, ref T component);
-
+    /// <summary>读取体系组件时可附加执行的体系专属回调签名。</summary>
     public delegate void OnGet(ActorExtend ae, CultisysAsset<T> cultisys, ref T component);
 
-    public delegate void Upgrade(ActorExtend ae, CultisysAsset<T> cultisys, ref T component);
+    /// <summary>角色首次获得本体系时使用的默认组件值。</summary>
+    public readonly T DefaultComponent;
 
-    public readonly T              DefaultComponent;
+    /// <summary>按主等级保存已经累计可用的技能标识。</summary>
     private readonly List<string>[] _skills;
-    private         Upgrade[]      _upgrade_actions;
-    private         CheckUpgrade[] _upgrade_checkers;
-    private         CheckUpgrade[] _upgrade_pre_checkers;
-    private float[] _power_levels;
 
-    public CultisysAsset(string id, int level_nr, T default_component, CheckUpgrade[] upgrade_pre_checkers = null,
-                         CheckUpgrade[] upgrade_checkers = null, Upgrade[] upgrade_actions = null,
-                         List<string>[] skills           = null, float[] power_levels = null, GetDetailedLevel[] detailed_levels=null) : base(id, level_nr)
+    /// <summary>按主等级保存用于跨体系比较的战力等级。</summary>
+    private readonly float[] _power_levels;
+
+    /// <summary>创建一个具有明确进阶图的修炼体系资产。</summary>
+    public CultisysAsset(string id, int level_nr, T default_component,
+                         CultisysProgressionProfile<T> progression,
+                         List<string>[] skills = null, float[] power_levels = null,
+                         GetDetailedLevel[] detailed_levels = null) : base(id, level_nr)
     {
-        _upgrade_actions = upgrade_actions           ?? new Upgrade[level_nr];
-        _upgrade_pre_checkers = upgrade_pre_checkers ?? new CheckUpgrade[level_nr];
-        _upgrade_checkers = upgrade_checkers         ?? new CheckUpgrade[level_nr];
+        Progression = progression ?? throw new ArgumentNullException(nameof(progression));
         _power_levels = power_levels                 ?? new float[level_nr];
         _detailed_levels = detailed_levels           ?? new GetDetailedLevel[level_nr];
         _skills = new List<string>[level_nr];
 
-        Assert.Equals(_upgrade_actions.Length,      level_nr);
-        Assert.Equals(_upgrade_checkers.Length,     level_nr);
-        Assert.Equals(_upgrade_pre_checkers.Length, level_nr);
-        Assert.Equals(_power_levels.Length,         level_nr);
+        if (_power_levels.Length != level_nr)
+            throw new ArgumentException("power_levels 长度必须与 level_nr 一致", nameof(power_levels));
+        if (_detailed_levels.Length != level_nr)
+            throw new ArgumentException("detailed_levels 长度必须与 level_nr 一致", nameof(detailed_levels));
         if (skills != null)
         {
-            Assert.Equals(skills.Length, level_nr);
+            if (skills.Length != level_nr)
+                throw new ArgumentException("skills 长度必须与 level_nr 一致", nameof(skills));
             _skills[0] = skills[0] ?? [];
             for (var i = 1; i < level_nr; i++) _skills[i] = _skills[i - 1].Concat(skills[i] ?? []).ToList();
         }
@@ -152,58 +168,69 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
         }
 
         DefaultComponent = default_component;
-        UpgradePreCheckers = Array.AsReadOnly(_upgrade_pre_checkers);
-        UpgradeCheckers = Array.AsReadOnly(_upgrade_checkers);
-        UpgradeActions = Array.AsReadOnly(_upgrade_actions);
         PowerLevels = Array.AsReadOnly(_power_levels);
         Skills = Array.AsReadOnly(_skills.Select(x => x.AsReadOnly()).ToArray());
     }
 
-    public ReadOnlyCollection<CheckUpgrade>               UpgradePreCheckers { get; private set; }
-    public ReadOnlyCollection<CheckUpgrade>               UpgradeCheckers    { get; private set; }
-    public ReadOnlyCollection<Upgrade>                    UpgradeActions     { get; private set; }
-    public ReadOnlyCollection<float>                      PowerLevels        { get; private set; }
-    public ReadOnlyCollection<ReadOnlyCollection<string>> Skills             { get; private set; }
-    public OnGet                                          OnGetAction        { get; private set; }
+    /// <summary>各主等级对应的只读战力等级表。</summary>
+    public ReadOnlyCollection<float> PowerLevels { get; private set; }
 
-    public bool PreCheckUpgrade(ActorExtend ae)
+    /// <summary>各主等级累计可用的只读技能表。</summary>
+    public ReadOnlyCollection<ReadOnlyCollection<string>> Skills { get; private set; }
+
+    /// <summary>读取体系组件时执行的可选专属回调。</summary>
+    public OnGet OnGetAction { get; private set; }
+
+    /// <summary>本体系所有境界、过渡、结算和同步规则的唯一进阶定义。</summary>
+    public CultisysProgressionProfile<T> Progression { get; }
+
+    public override bool IsOwnedBy(ActorExtend actor)
     {
-        if (!ae.HasCultisys<T>()) return false;
-        ref var c = ref ae.GetCultisys<T>();
-        if (c.CurrLevel >= LevelNumber - 1) return false;
-        return _upgrade_pre_checkers[c.CurrLevel + 1]?.Invoke(ae, this, ref c) ?? false;
+        return actor.HasCultisys<T>();
     }
 
-    public bool AllowUpgrade(ActorExtend ae)
+    public override ProgressionQuery QueryProgression(ActorExtend actor)
     {
-        if (!ae.HasCultisys<T>()) return false;
-        ref var c = ref ae.GetCultisys<T>();
-        if (c.CurrLevel >= LevelNumber - 1) return false;
-        return _upgrade_checkers[c.CurrLevel + 1]?.Invoke(ae, this, ref c) ?? false;
+        return ProgressionService.Query(this, actor);
     }
 
-    public void TryPerformUpgrade(ActorExtend ae)
+    public override bool CanScheduleProgression(ActorExtend actor)
     {
-        if (!ae.HasCultisys<T>()) return;
-        ref var c = ref ae.GetCultisys<T>();
-        if (c.CurrLevel >= LevelNumber - 1) return;
-        var beforeLevel = c.CurrLevel;
-        var currentLevel = c.CurrLevel;
-        var upgrade_action = _upgrade_actions[c.CurrLevel + 1];
-        if (upgrade_action == null)
-        {
-            c.CurrLevel++;
-            currentLevel++;
-            ae.UpgradePowerLevel(PowerLevels[c.CurrLevel]);
-            
-            ModClass.I.WorldRecord.CheckAndLogFirstLevelup(id, ae, ref ae.GetCultisys<T>());
-        }
-        else
-        {
-            upgrade_action.Invoke(ae, this, ref c);
-            currentLevel = ae.GetCultisys<T>().CurrLevel;
-        }
-        ae.MarkCultiwayStatsDirty();
-        BreakthroughVisualTrigger.TryTriggerXian(ae, beforeLevel, currentLevel);
+        return ProgressionService.CanSchedule(this, actor);
+    }
+
+    public override ProgressionResult TryAdvanceNaturally(ActorExtend actor)
+    {
+        return ProgressionService.TryAdvanceNaturally(this, actor);
+    }
+
+    /// <summary>无视自然条件，授予下一个小境界，但不改变主等级。</summary>
+    public ProgressionResult GrantNextMinor(ActorExtend actor)
+    {
+        return ProgressionService.GrantNextMinor(this, actor);
+    }
+
+    /// <summary>无视自然条件，完成下一个大境界的必要结构变换与奖励。</summary>
+    public ProgressionResult GrantNextRealm(ActorExtend actor)
+    {
+        return ProgressionService.GrantNextRealm(this, actor);
+    }
+
+    /// <summary>逐级授予到目标大境界，经过每一级已声明的结构变换并发放奖励；缺少过渡时拒绝执行。</summary>
+    public ProgressionResult GrantToRealm(ActorExtend actor, int targetLevel)
+    {
+        return ProgressionService.GrantToRealm(this, actor, targetLevel);
+    }
+
+    /// <summary>把角色同步到目标大境界，尽可能执行必要结构修复，不发放奖励或触发表现。</summary>
+    public ProgressionResult SynchronizeToRealm(ActorExtend actor, int targetLevel)
+    {
+        return ProgressionService.SynchronizeToRealm(this, actor, targetLevel);
+    }
+
+    /// <summary>把来源角色的体系组件和体系专属结构完整传承给目标角色。</summary>
+    public ProgressionResult TransferFrom(ActorExtend source, ActorExtend target)
+    {
+        return ProgressionService.Transfer(this, source, target);
     }
 }

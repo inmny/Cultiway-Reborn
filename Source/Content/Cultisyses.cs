@@ -3,6 +3,7 @@ using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.Progression;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content;
@@ -37,6 +38,7 @@ public partial class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     {
         InitXian();
         InitMagic();
+        ProgressionLifecycle.RegisterCommitted(BreakthroughVisualTrigger.OnProgressionCommitted);
     }
 
     public override void OnReload()

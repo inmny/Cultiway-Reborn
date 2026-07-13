@@ -53,8 +53,10 @@ internal static class PatchActor
             }
             return;
         }*/
+        var canUseCultiwayJobSelection = CanUseCultiwayJobSelection(pActor);
+        if (canUseCultiwayJobSelection && ActorJobSelectionRegistry.TrySelect(pActor, ref __result)) return;
         if (Randy.randomChance(0.4f)) return;
-        if (CanUseCultiwayJobSelection(pActor))
+        if (canUseCultiwayJobSelection)
         {
             var ae = (pActor as Actor).GetExtend();
             using var pool = new ListPool<string>();
