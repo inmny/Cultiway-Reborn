@@ -28,6 +28,7 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         public string Description;
         public string BottomDescription;
         public Sprite[] Frames = Array.Empty<Sprite>();
+        public float FrameInterval = 0.1f;
         public readonly List<(string Label, string Value, string Color)> Lines = new();
         public readonly List<SkillModifierTooltipModel> Modifiers = new();
     }
@@ -45,6 +46,7 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
     private Sprite[] _frames = Array.Empty<Sprite>();
     private int _frameIndex;
     private float _frameTimer;
+    private float _frameInterval = 0.1f;
 
     protected override void OnInit()
     {
@@ -103,6 +105,7 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         _tooltip.setBottomDescription(model.BottomDescription);
 
         _frames = model.Frames;
+        _frameInterval = model.FrameInterval;
         _frameIndex = 0;
         _frameTimer = 0f;
         _avatar.sprite = _frames.Length == 0 ? null : _frames[0];
@@ -127,7 +130,7 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
     {
         if (_frames.Length < 2) return;
         _frameTimer += Time.unscaledDeltaTime;
-        if (_frameTimer < 0.1f) return;
+        if (_frameTimer < _frameInterval) return;
 
         _frameTimer = 0f;
         _frameIndex = (_frameIndex + 1) % _frames.Length;
@@ -146,9 +149,12 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         var entity = string.IsNullOrWhiteSpace(blueprint.EntityAssetId)
             ? null
             : ModClass.I.SkillV3.SkillLib.get(blueprint.EntityAssetId);
+        SkillEntityAnimation animation = null;
         if (entity != null && entity.IsAnimationIndexValid(blueprint.AnimationIndex))
         {
-            model.Frames = entity.GetAnimation(blueprint.AnimationIndex).Frames;
+            animation = entity.GetAnimation(blueprint.AnimationIndex);
+            model.Frames = animation.Frames;
+            model.FrameInterval = animation.Settings.ResolveFrameInterval(model.FrameInterval);
         }
 
         var trajectory = string.IsNullOrWhiteSpace(blueprint.TrajectoryAssetId)
@@ -182,6 +188,10 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         if (!compiled.IsNull)
         {
             var container = compiled.GetComponent<SkillContainer>();
+            if (animation != null)
+            {
+                model.FrameInterval = animation.Settings.ResolveFrameInterval(container.MotionProfile.FrameInterval);
+            }
             AddLine(model, "Cultiway.Wanfa.UI.Overview.ItemLevel".Localize(),
                 SkillCastResourceFormatter.FormatItemLevel(container.CastResourceRequirement,
                     compiled.GetComponent<ItemLevel>()));

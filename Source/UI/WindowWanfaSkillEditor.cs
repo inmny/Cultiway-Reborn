@@ -83,6 +83,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     private Sprite[] _frames = Array.Empty<Sprite>();
     private int _frameIndex;
     private float _frameTimer;
+    private float _frameInterval = 0.1f;
 
     public static void Open(SkillBlueprint blueprint, bool existing)
     {
@@ -288,7 +289,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     {
         if (_frames.Length == 0) return;
         _frameTimer += Time.unscaledDeltaTime;
-        if (_frameTimer < 0.1f) return;
+        if (_frameTimer < _frameInterval) return;
         _frameTimer = 0f;
         _frameIndex = (_frameIndex + 1) % _frames.Length;
         _previewImage.sprite = _frames[_frameIndex];
@@ -345,9 +346,17 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         var entity = string.IsNullOrWhiteSpace(_draft.EntityAssetId)
             ? null
             : ModClass.I.SkillV3.SkillLib.get(_draft.EntityAssetId);
-        _frames = entity == null || !entity.IsAnimationIndexValid(_draft.AnimationIndex)
-            ? Array.Empty<Sprite>()
-            : entity.GetAnimation(_draft.AnimationIndex).Frames;
+        if (entity == null || !entity.IsAnimationIndexValid(_draft.AnimationIndex))
+        {
+            _frames = Array.Empty<Sprite>();
+            _frameInterval = 0.1f;
+        }
+        else
+        {
+            var animation = entity.GetAnimation(_draft.AnimationIndex);
+            _frames = animation.Frames;
+            _frameInterval = animation.Settings.ResolveFrameInterval(0.1f);
+        }
         _frameIndex = 0;
         _frameTimer = 0f;
         _previewImage.sprite = _frames.Length == 0 ? null : _frames[0];

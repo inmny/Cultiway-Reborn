@@ -113,6 +113,12 @@ public class SkillEntityAsset : Asset
 
     public SkillEntityAsset SetupCommonPrefab(string effect_path, float scale = 0.1f, bool anim_loop = true)
     {
+        return SetupCommonPrefab(effect_path, scale, anim_loop, SkillEntityAnimationSettings.Inherit);
+    }
+
+    public SkillEntityAsset SetupCommonPrefab(string effect_path, float scale, bool anim_loop,
+        SkillEntityAnimationSettings animationSettings)
+    {
         PrefabEntity = World.CreateEntity(
             new SkillEntity()
             {
@@ -145,18 +151,27 @@ public class SkillEntityAsset : Asset
                 value  = 5f
             },
             Tags.Get<TagPrefab>());
-        AddAnimation(effect_path, scale);
+        AddAnimation(effect_path, scale, animationSettings);
         return this;
     }
 
     public SkillEntityAsset AddAnimation(string effectPath, float scale = 0.1f)
     {
-        var animation = new SkillEntityAnimation(effectPath, LoadOrderedFrames(effectPath), scale);
+        return AddAnimation(effectPath, scale, SkillEntityAnimationSettings.Inherit);
+    }
+
+    public SkillEntityAsset AddAnimation(string effectPath, float scale, SkillEntityAnimationSettings settings)
+    {
+        if (settings == null) throw new ArgumentNullException(nameof(settings));
+
+        var animation = new SkillEntityAnimation(effectPath, LoadOrderedFrames(effectPath), scale, settings);
         _animations.Add(animation);
         if (_animations.Count == 1)
         {
             PrefabEntity.GetComponent<AnimData>().frames = animation.Frames;
             PrefabEntity.GetComponent<Scale>().value = Vector3.one * animation.Scale;
+            ref var controller = ref PrefabEntity.GetComponent<AnimController>();
+            animation.Settings.Apply(ref controller.meta);
         }
         return this;
     }
@@ -205,6 +220,8 @@ public class SkillEntityAsset : Asset
         animData.frame_idx = 0;
         animData.frame_timer = 0f;
         entity.GetComponent<Scale>().value = Vector3.one * animation.Scale;
+        ref var controller = ref entity.GetComponent<AnimController>();
+        animation.Settings.Apply(ref controller.meta);
         return entity;
     }
 
