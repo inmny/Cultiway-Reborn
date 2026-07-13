@@ -80,10 +80,17 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             SkillHitResolver.Area(Fireball, radius: 2f, recycleOnHit: true),
             ElementTag.Fire, FormTag.Ball, FormTag.Aoe, DeliveryTag.Projectile)
             .AddAnimation("cultiway/effect/flying_fireball", 0.025f)
+            .AddAnimation("cultiway/effect/flying_missile1", 0.025f)
+            .AddAnimation("cultiway/effect/flying_missile2", 0.025f)
+            .AddAnimation("cultiway/effect/flying_missile3", 0.025f)
+            .AddAnimation("cultiway/effect/flying_missile4", 0.025f)
+            .AddAnimation("cultiway/effect/flying_missile5", 0.025f)
+            .AddAnimation("cultiway/effect/flying_missile6", 0.025f)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(FireBlade, fire, "cultiway/effect/fire_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
             SkillHitResolver.Single(FireBlade, recycleOnHit: false, continueAfterHit: true),
-            ElementTag.Fire, FormTag.Slash, FormTag.Sustain, DeliveryTag.Projectile);
+            ElementTag.Fire, FormTag.Slash, FormTag.Sustain, DeliveryTag.Projectile)
+            .AddAnimation("cultiway/effect/fire_blade2", 0.025f);
         Configure(FallStone, earth, "cultiway/effect/fall_rock", SkillTrajectories.FallingStrike, 1.2f, true,
             SkillHitResolver.Single(FallStone, recycleOnHit: true, continueAfterHit: true),
             ElementTag.Earth, FormTag.Pierce, SeriesTag.Single, MotionTag.Falling, DeliveryTag.Projectile)
@@ -106,17 +113,28 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             SkillHitResolver.Single(Tornado, recycleOnHit: false, continueAfterHit: true),
             ElementTag.Wind, FormTag.Aoe, FormTag.Sustain, DeliveryTag.Field)
             .SetModifierWeightMultiplier(SkillModifiers.Huge, 4f)
-            .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Appear);
+            .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Appear)
+            .AddAnimation("cultiway/effect/simple_tornado2", 0.025f);
         Configure(FallLightning, lightning, "cultiway/effect/default_lightning", SkillTrajectories.AppearAtTarget, 0.5f,
             false, VisualRotation.FixedUpright(),
             SkillHitResolver.Single(FallLightning, recycleOnHit: true, continueAfterHit: true),
             ElementTag.Lightning, SeriesTag.Single, MotionTag.Falling, DeliveryTag.Instant)
             // 落雷动画本身从上到下竖直播放，只允许原地显现，排除任何带水平位移的轨迹。
-            .AcceptOrientations(TrajectoryOrientation.Appear);
+            .AcceptOrientations(TrajectoryOrientation.Appear)
+            .AddAnimation("cultiway/effect/default_lightning2", 0.025f)
+            .AddAnimation("cultiway/effect/default_lightning3", 0.025f)
+            .AddAnimation("cultiway/effect/default_lightning4", 0.025f)
+            .AddAnimation("cultiway/effect/default_lightning5", 0.025f)
+            .AddAnimation("cultiway/effect/default_lightning6", 0.025f)
+            .AddAnimation("cultiway/effect/default_lightning7", 0.025f)
+            .AddAnimation("cultiway/effect/default_lightning8", 0.025f)
+            .AddAnimation("cultiway/effect/default_lightning9", 0.025f)
+            .AddAnimation("cultiway/effect/default_lightning10", 0.025f);
         Configure(LightningPolo, lightning, "cultiway/effect/lightning_polo", SkillTrajectories.LightningSnap, 1f,
             true, SkillHitResolver.Single(LightningPolo, recycleOnHit: true, continueAfterHit: false),
             ElementTag.Lightning, FormTag.Ball, SeriesTag.Single, DeliveryTag.Projectile)
-            .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
+            .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical)
+            .AddAnimation("cultiway/effect/lightning_polo2", 0.025f);
     }
 
     private static SkillEntityAsset Configure(SkillEntityAsset asset, ElementComposition element, string effectPath,
