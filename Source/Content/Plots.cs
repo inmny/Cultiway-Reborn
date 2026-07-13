@@ -356,14 +356,17 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         {
             if (!a.hasCity())
                 return false;
+            // 读取发起人境界(无修炼则视作 0)，供大魔继承、化魔者降一阶使用
+            var initAe = a.GetExtend();
+            int initiatorLevel = (initAe != null && initAe.HasCultisys<Xian>()) ? initAe.GetCultisys<Xian>().CurrLevel : 0;
             // 谋划成功：强制把当前纪元转变为对应纪元
             var age = AssetManager.era_library.get(eraId);
             if (age != null)
             {
                 World.world.era_manager.setCurrentAge(age);
             }
-            // 凡人化魔：领主 -> 所属城市；国王 -> 整个国家
-            TransformMortals(a, daemonSeries);
+            // 凡人化魔：领主 -> 所属城市；国王 -> 整个国家；化魔者境界比发起人低一阶
+            TransformMortals(a, daemonSeries, initiatorLevel);
             // 邪神恩赐：极低概率在城内生成对应魔塔
             if (!a.city.hasBuildingType(tower.type) && Randy.randomChance(DEMON_TOWER_CHANCE))
             {
@@ -375,6 +378,8 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             }
             // 发起人化身为对应的大魔（在原位生成大魔，原身以”蜕变”方式消散）
             var daemon = World.world.units.spawnNewUnit(transformInto.id, a.current_tile, true, pSpawnHeight: 0);
+            // 大魔继承发起人的修为/境界等修炼数据
+            InheritCultivation(a, daemon);
             // 界面提示：发起人化魔
             WorldLogUtils.LogDemonAscension(a, daemon);
             a.removeByMetamorphosis();
@@ -386,8 +391,9 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     /// 把凡人(无灵根、未化形)随机转变为对应系列中的一种恶魔。
     /// 发起人为领主时转化其所属城市，为国王时转化整个国家；有灵根的修士不会被转化；
     /// 发起人自身另行化身为大魔，故在此排除。
+    /// 化魔后的恶魔境界为发起人境界低一阶(发起人有修炼时才授予)。
     /// </summary>
-    private static void TransformMortals(Actor initiator, ActorAsset[] daemonSeries)
+    private static void TransformMortals(Actor initiator, ActorAsset[] daemonSeries, int initiatorLevel)
     {
         if (daemonSeries == null || daemonSeries.Length == 0) return;
 
@@ -407,11 +413,14 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             CollectMortals(initiator.city, initiator, mortals);
         }
 
+        // 发起人有修炼时，化魔者境界比其低一阶；否则不授修炼
+        int daemonLevel = initiatorLevel > 0 ? Math.Max(0, initiatorLevel - 1) : -1;
         foreach (var mortal in mortals)
         {
-            var daemon = daemonSeries.GetRandom();
-            if (daemon == null) continue;
-            World.world.units.spawnNewUnit(daemon.id, mortal.current_tile, false, pSpawnHeight: 0);
+            var daemonAsset = daemonSeries.GetRandom();
+            if (daemonAsset == null) continue;
+            var daemon = World.world.units.spawnNewUnit(daemonAsset.id, mortal.current_tile, false, pSpawnHeight: 0);
+            if (daemonLevel >= 0) GrantXianLevel(daemon, daemonLevel);
             mortal.removeByMetamorphosis();
         }
     }
@@ -427,6 +436,47 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             if (ae == null || ae.HasElementRoot()) continue;   // 有灵根(修士)不转化
             result.Add(unit);
         }
+    }
+
+    /// <summary>
+    /// 让 <paramref name="target"/> 继承 <paramref name="source"/> 的修炼数据：
+    /// 仙(境界 + 修为)、金丹、元婴、筑基。
+    /// </summary>
+    private static void InheritCultivation(Actor source, Actor target)
+    {
+        var src = source.GetExtend();
+        var dst = target.GetExtend();
+        if (src == null || dst == null) return;
+
+        // 仙：境界 + 修为
+        if (src.HasCultisys<Xian>())
+        {
+            var srcXian = src.GetCultisys<Xian>();
+            if (!dst.HasCultisys<Xian>()) dst.NewCultisys(Cultisyses.Xian);
+            ref var dstXian = ref dst.GetCultisys<Xian>();
+            dstXian.level = srcXian.level;
+            dstXian.wakan = srcXian.wakan;
+        }
+        // 金丹 / 元婴 / 筑基
+        if (src.TryGetComponent(out Jindan jindan))    { ref var j  = ref dst.GetOrAddComponent<Jindan>();    j  = jindan; }
+        if (src.TryGetComponent(out Yuanying yuanying)){ ref var y  = ref dst.GetOrAddComponent<Yuanying>();  y  = yuanying; }
+        if (src.TryGetComponent(out XianBase xianBase)){ ref var xb = ref dst.GetOrAddComponent<XianBase>();   xb = xianBase; }
+
+        dst.MarkCultiwayStatsDirty();
+    }
+
+    /// <summary>
+    /// 授予 <paramref name="actor"/> 仙修，并把境界设为 <paramref name="level"/>。
+    /// </summary>
+    private static void GrantXianLevel(Actor actor, int level)
+    {
+        var ae = actor.GetExtend();
+        if (ae == null) return;
+        if (!ae.HasCultisys<Xian>()) ae.NewCultisys(Cultisyses.Xian);
+        ref var xian = ref ae.GetCultisys<Xian>();
+        xian.level = level;
+        xian.wakan = 0;
+        ae.MarkCultiwayStatsDirty();
     }
 
     // ========== 修建城墙谋划（矩形包围盒，内墙 → 外墙 → 要塞 三阶段渐进） ==========
