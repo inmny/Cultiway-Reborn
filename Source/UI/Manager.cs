@@ -86,7 +86,7 @@ public class Manager
             SkillPage.Setup, SkillPage.Show);
 
         WindowWanfaPavilion.CreateAndInit(WindowWanfaPavilion.Id, WindowWanfaPavilion.WindowSize);
-        WindowWanfaSkillEditor.CreateAndInit(WindowWanfaSkillEditor.Id);
+        WindowWanfaSkillEditor.CreateAndInit(WindowWanfaSkillEditor.Id, WindowWanfaSkillEditor.WindowSize);
         WindowWanfaGrantConflict.CreateAndInit(WindowWanfaGrantConflict.Id);
 
         var pavilionButton = PowerButtonCreator.CreateWindowButton(
