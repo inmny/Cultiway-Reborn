@@ -1,0 +1,38 @@
+{
+    "Default": {
+        "PivotX": 0.5,
+        "PivotY": 0
+    },
+    "Specific": [
+        {
+            "Path": "000.png",
+            "PivotX": 0.667,
+            "PivotY": 0
+        },
+        {
+            "Path": "001.png",
+            "PivotX": 0.476,
+            "PivotY": 0
+        },
+        {
+            "Path": "002.png",
+            "PivotX": 0.491,
+            "PivotY": 0
+        },
+        {
+            "Path": "003.png",
+            "PivotX": 0.475,
+            "PivotY": 0
+        },
+        {
+            "Path": "004.png",
+            "PivotX": 0.5,
+            "PivotY": 0
+        },
+        {
+            "Path": "005.png",
+            "PivotX": 0.304,
+            "PivotY": 0
+        }
+    ]
+}
