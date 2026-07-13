@@ -93,6 +93,6 @@ public class SectAffairs : ExtendLibrary<SectAffairAsset, SectAffairs>
 
     private static bool CanOrganizeScripture(Actor _, Sect sect)
     {
-        return sect.GetScriptureBookIds().Count > 0;
+        return sect.Scriptures.Count > 0;
     }
 }

@@ -1,46 +1,54 @@
 using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Content.Components;
+using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Utils;
-using Cultiway.Debug;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
-namespace Cultiway.Content.Extensions;
+namespace Cultiway.Content.Sects;
 
-public static class SectScriptureStudyRules
+public static class SectScriptureStudyPlanner
 {
-    public static bool CanStudySectScripture(Actor actor)
+    public static bool CanPlan(Actor actor)
     {
-        return TryPickStudyBook(actor, out _, false);
+        if (!CanStartStudy(actor)) return false;
+
+        ActorExtend actorExtend = actor.GetExtend();
+        Sect sect = actorExtend.sect;
+        IReadOnlyList<long> bookIds = sect.Scriptures.BookIds;
+        for (int i = 0; i < bookIds.Count; i++)
+        {
+            Book book = World.world.books.get(bookIds[i]);
+            if (!CanReadBook(actor, book)) continue;
+            float score = GetStudyScore(actor, actorExtend, sect, book) * SectTraitRules.GetStudyScoreMultiplier(sect, book);
+            if (score > 0f) return true;
+        }
+
+        return false;
     }
 
-    public static bool TryPickStudyBook(Actor actor, out Book book)
+    public static bool TryCreatePlan(Actor actor, out SectScriptureStudyPlan plan)
     {
-        return TryPickStudyBook(actor, out book, true);
-    }
-
-    private static bool TryPickStudyBook(Actor actor, out Book book, bool logPick)
-    {
-        book = null;
+        plan = default;
 
         if (!CanStartStudy(actor)) return false;
 
-        ActorExtend ae = actor.GetExtend();
-        Sect sect = ae.sect;
+        ActorExtend actorExtend = actor.GetExtend();
+        Sect sect = actorExtend.sect;
         var candidates = new List<StudyCandidate>();
-        IReadOnlyList<long> bookIds = sect.GetScriptureBookIds();
+        IReadOnlyList<long> bookIds = sect.Scriptures.BookIds;
         for (int i = 0; i < bookIds.Count; i++)
         {
             Book candidate = World.world.books.get(bookIds[i]);
             if (!CanReadBook(actor, candidate)) continue;
 
-            float score = GetStudyScore(actor, ae, sect, candidate) * SectTraitRules.GetStudyScoreMultiplier(sect, candidate);
+            float score = GetStudyScore(actor, actorExtend, sect, candidate) * SectTraitRules.GetStudyScoreMultiplier(sect, candidate);
             if (score <= 0f) continue;
 
             candidates.Add(new StudyCandidate(candidate, score));
@@ -49,22 +57,19 @@ public static class SectScriptureStudyRules
         if (candidates.Count == 0) return false;
 
         candidates.Sort((left, right) => right.Score.CompareTo(left.Score));
-        book = PickWeighted(candidates);
-        if (logPick)
+        Book book = PickWeighted(candidates);
+        float pickedScore = 0f;
+        for (int i = 0; i < candidates.Count; i++)
         {
-            float pickedScore = 0f;
-            for (int i = 0; i < candidates.Count; i++)
-            {
-                if (candidates[i].Book != book) continue;
+            if (candidates[i].Book != book) continue;
 
-                pickedScore = candidates[i].Score;
-                break;
-            }
-
-            int cost = actor.GetSectScriptureReadCost(book);
-            SectVerifyLog.Log("PickStudyBook", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} candidates={candidates.Count} picked={SectVerifyLog.Book(book)} score={pickedScore:F1} cost={cost} available={actor.GetAvailableSectContribution()}");
+            pickedScore = candidates[i].Score;
+            break;
         }
-        return book != null;
+
+        int cost = SectScripturePolicy.GetReadCost(actor, book);
+        plan = new SectScriptureStudyPlan(book, cost, pickedScore, candidates.Count);
+        return true;
     }
 
     private static bool CanStartStudy(Actor actor)
@@ -77,7 +82,7 @@ public static class SectScriptureStudyRules
         if (!ae.HasCultisys<Xian>()) return false;
 
         Sect sect = ae.sect;
-        return sect != null && !sect.isRekt() && sect.GetScriptureBookIds().Count > 0;
+        return sect != null && !sect.isRekt() && sect.Scriptures.Count > 0;
     }
 
     private static bool CanReadBook(Actor actor, Book book)
@@ -86,8 +91,8 @@ public static class SectScriptureStudyRules
         if (!book.isReadyToBeRead()) return false;
         if (!actor.hasTag("can_read_any_book") && (!actor.hasLanguage() || book.data.language_id != actor.language.id)) return false;
 
-        return actor.CanAccessSectScriptureBook(book)
-               && actor.CanAffordSectScriptureRead(book);
+        return SectScripturePolicy.CanAccess(actor, book)
+               && SectScripturePolicy.CanAffordRead(actor, book);
     }
 
     private static float GetStudyScore(Actor actor, ActorExtend ae, Sect sect, Book book)

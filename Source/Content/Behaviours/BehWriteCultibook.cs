@@ -1,5 +1,6 @@
 using ai.behaviours;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 
 namespace Cultiway.Content.Behaviours;
 
@@ -7,7 +8,7 @@ public class BehWriteCultibook : BehCityActor
 {
     public override BehResult execute(Actor pObject)
     {
-        if (!pObject.TryPickCultibookTarget(out var target, out var cultibook, out float mastery))
+        if (!SectScriptureContributionPlanner.TryPickCultibookTarget(pObject, out var target, out var cultibook, out float mastery))
         {
             return BehResult.Continue;
         }

@@ -1,5 +1,5 @@
 using ai.behaviours;
-using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Debug;
 using Friflo.Engine.ECS;
 
@@ -15,9 +15,9 @@ public class BehClaimSectTreasure : BehaviourActionActor
     /// </summary>
     public override BehResult execute(Actor pActor)
     {
-        if (!SectTreasureRules.TryPickClaimItem(pActor, out Entity item)) return BehResult.Stop;
+        if (!SectTreasurePlanner.TryPickClaim(pActor, out Entity item)) return BehResult.Stop;
 
-        bool result = SectTreasureRules.TryClaimTreasure(pActor, item);
+        bool result = SectTreasureService.TryClaim(pActor, item);
         SectVerifyLog.Log("SectTreasureTask", $"type=claim actor={SectVerifyLog.Actor(pActor)} item={item.Id} result={result}");
         return result ? BehResult.Continue : BehResult.Stop;
     }

@@ -30,7 +30,7 @@ public class BehOrganizeSectScripture : BehaviourActionActor
         Sect sect = pObject.GetExtend().sect;
         int contribution = SectTraitRules.GetAffairContributionReward(sect, affair);
         bool result = sect.AddContribution(pObject, contribution);
-        SectVerifyLog.Log("SectAffairTask", $"affair={affair.id} sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} books={sect.GetScriptureBookIds().Count} contribution={contribution} result={result}");
+        SectVerifyLog.Log("SectAffairTask", $"affair={affair.id} sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} books={sect.Scriptures.Count} contribution={contribution} result={result}");
         return result ? BehResult.Continue : BehResult.Stop;
     }
 }

@@ -4,6 +4,7 @@ using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.ActorComponents;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Content.Systems.Logic;
 using Cultiway.Content.Systems.Render;
 using Cultiway.Core;
@@ -61,7 +62,7 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new ArtifactEquipmentSystem());
         ModClass.I.GeneralLogicSystems.Add(new ContinuousCultivateSystem());
         ModClass.I.GeneralLogicSystems.Add(new SectConstructionSystem());
-        ActorExtend.RegisterActionOnDeath(SectTreasureRules.ReturnBorrowedTreasuresOnDeath);
+        ActorExtend.RegisterActionOnDeath(SectTreasureService.ReturnBorrowedOnDeath);
         ModClass.I.GeneralRenderSystems.Add(new BreakthroughVisualSystem());
         ModClass.I.GeneralRenderSystems.Add(new CloudRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmAuraRenderSystem());

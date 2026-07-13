@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.UI.Prefab;
@@ -56,7 +57,7 @@ internal class SectTreasureElement : WindowMetaElement<Sect, SectData>
         if (sect == null || sect.isRekt()) yield break;
 
         string capacityLabel = "Cultiway.Sect.Treasure.Capacity".Localize();
-        _capacityText.text = $"{capacityLabel}: {SectTreasureRules.GetTreasureUsedCapacity(sect)} / {SectTreasureRules.GetTreasureCapacity(sect)}";
+        _capacityText.text = $"{capacityLabel}: {SectTreasureMetrics.GetUsedCapacity(sect)} / {SectTreasureMetrics.GetCapacity(sect)}";
         List<Entity> items = GetVisibleItems(sect);
         bool hasItems = items.Count > 0;
         _emptyMessage.SetActive(!hasItems);
@@ -80,7 +81,7 @@ internal class SectTreasureElement : WindowMetaElement<Sect, SectData>
     private List<Entity> GetVisibleItems(Sect sect)
     {
         List<Entity> items = new();
-        foreach (Entity item in sect.GetTreasures())
+        foreach (Entity item in sect.Treasures.GetOwnedItems())
         {
             SpecialItemCategoryAsset category = ModClass.L.SpecialItemCategoryLibrary.Resolve(item);
             if (_selectedCategory == null || category == _selectedCategory)
@@ -94,7 +95,7 @@ internal class SectTreasureElement : WindowMetaElement<Sect, SectData>
             SpecialItemCategoryAsset leftCategory = ModClass.L.SpecialItemCategoryLibrary.Resolve(left);
             SpecialItemCategoryAsset rightCategory = ModClass.L.SpecialItemCategoryLibrary.Resolve(right);
             int categoryOrder = leftCategory.order.CompareTo(rightCategory.order);
-            return categoryOrder != 0 ? categoryOrder : SectTreasureRules.GetTreasureValue(right).CompareTo(SectTreasureRules.GetTreasureValue(left));
+            return categoryOrder != 0 ? categoryOrder : SectTreasureMetrics.GetValue(right).CompareTo(SectTreasureMetrics.GetValue(left));
         });
         return items;
     }
