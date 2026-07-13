@@ -43,8 +43,10 @@ public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
             var modifier = ModClass.I.SkillV3.ModifierLib.GetByComponentType(type);
             return modifier != null && !modifier.EditorDerived;
         });
-        _detail.text = string.Format("Cultiway.Wanfa.UI.Format.ImportDetail".Localize(), trajectory.Localize(),
-            modifierCount);
+        var itemLevel = container.GetComponent<ItemLevel>();
+        _detail.text = string.Format("Cultiway.Wanfa.UI.Format.ImportDetail".Localize(),
+            SkillCastResourceFormatter.FormatItemLevel(skill.CastResourceRequirement, itemLevel),
+            trajectory.Localize(), modifierCount);
         var frames = skill.Asset.GetAnimation(skill.AnimationIndex).Frames;
         _icon.sprite = frames.Length == 0 ? null : frames[0];
         WanfaUiFactory.SetTooltip(_icon.gameObject, () => SkillTooltip.Show(_icon.gameObject, container));

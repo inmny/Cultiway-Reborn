@@ -790,6 +790,9 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         if (compiled.Success)
         {
             var container = compiled.Container.GetComponent<SkillContainer>();
+            AddOverviewLine("Cultiway.Wanfa.UI.Overview.ItemLevel".Localize(),
+                SkillCastResourceFormatter.FormatItemLevel(container.CastResourceRequirement,
+                    compiled.Container.GetComponent<ItemLevel>()));
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.VfxElement".Localize(),
                 container.VfxElement.id.Localize());
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.MotionProfile".Localize(),

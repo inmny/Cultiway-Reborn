@@ -182,6 +182,9 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         if (!compiled.IsNull)
         {
             var container = compiled.GetComponent<SkillContainer>();
+            AddLine(model, "Cultiway.Wanfa.UI.Overview.ItemLevel".Localize(),
+                SkillCastResourceFormatter.FormatItemLevel(container.CastResourceRequirement,
+                    compiled.GetComponent<ItemLevel>()));
             AddLine(model, "Cultiway.Wanfa.UI.Overview.VfxElement".Localize(), container.VfxElement.id.Localize());
             AddLine(model, "Cultiway.Wanfa.UI.Overview.MotionProfile".Localize(),
                 container.MotionProfile.id.Localize());

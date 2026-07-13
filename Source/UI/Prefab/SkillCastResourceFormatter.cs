@@ -1,4 +1,5 @@
 using System.Linq;
+using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 
 namespace Cultiway.UI.Prefab;
@@ -26,5 +27,15 @@ internal static class SkillCastResourceFormatter
     public static string GetModeName(SkillCastResourceRequirementMode mode)
     {
         return $"Cultiway.Wanfa.UI.CastResource.Mode.{mode}".Localize();
+    }
+
+    public static string FormatItemLevel(SkillCastResourceRequirement requirement, ItemLevel itemLevel)
+    {
+        var separator = requirement.Mode == SkillCastResourceRequirementMode.AllOf ? " + " : " / ";
+        var names = requirement.ResourceAssetIds
+            .Select(id => ModClass.I.SkillV3.CastResourceLib.get(id).ItemLevelFormatter(itemLevel))
+            .Distinct()
+            .ToArray();
+        return string.Join(separator, names);
     }
 }

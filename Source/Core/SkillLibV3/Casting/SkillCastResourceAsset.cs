@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Core.SkillLibV3;
@@ -9,6 +10,7 @@ public delegate bool SkillCastResourceAvailability(ActorExtend caster);
 public delegate float SkillCastResourceAmountReader(ActorExtend caster);
 public delegate void SkillCastResourceAmountWriter(ActorExtend caster, float amount);
 public delegate float SkillCastResourceQuote(ActorExtend caster, Entity skill, float demand);
+public delegate string SkillCastResourceItemLevelFormatter(ItemLevel itemLevel);
 
 /// <summary>
 /// 一种可被法术声明为消耗目标的施法资源通道。
@@ -20,6 +22,7 @@ public sealed class SkillCastResourceAsset : Asset
     public SkillCastResourceAmountReader ReadAmount;
     public SkillCastResourceAmountWriter WriteAmount;
     public SkillCastResourceQuote Quote;
+    public SkillCastResourceItemLevelFormatter ItemLevelFormatter = itemLevel => itemLevel.GetName();
     public string EditorDescriptionKey;
     public string EditorIconPath;
     public int EditorSortOrder;
@@ -45,6 +48,12 @@ public sealed class SkillCastResourceAsset : Asset
         EditorSortOrder = sortOrder;
         EditorSelectable = selectable;
         EditorPersistWhenHidden = persistWhenHidden;
+        return this;
+    }
+
+    public SkillCastResourceAsset ConfigureItemLevelDisplay(SkillCastResourceItemLevelFormatter formatter)
+    {
+        ItemLevelFormatter = formatter;
         return this;
     }
 }

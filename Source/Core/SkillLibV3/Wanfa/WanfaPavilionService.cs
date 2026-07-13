@@ -71,6 +71,12 @@ public sealed class WanfaPavilionService
         public float ExpiresAt;
     }
 
+    private sealed class BlueprintPreviewMetadata
+    {
+        public SkillVfxElementAsset VfxElement;
+        public ItemLevel ItemLevel;
+    }
+
     private WanfaPavilionLibraryStore _library;
     private readonly SkillBlueprintValidator _validator = new();
     private readonly SkillBlueprintExporter _exporter = new();
@@ -78,7 +84,7 @@ public sealed class WanfaPavilionService
     private readonly ConcurrentQueue<PendingAiName> _pendingAiNames = new();
     private readonly List<Entity> _testContainers = new();
     private readonly List<PendingAiLease> _aiPreviewLeases = new();
-    private readonly Dictionary<string, SkillVfxElementAsset> _vfxCache = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, BlueprintPreviewMetadata> _previewMetadataCache = new(StringComparer.Ordinal);
     private readonly HashSet<string> _selectedBlueprintIds = new(StringComparer.Ordinal);
 
     public static WanfaPavilionService Instance { get; private set; }
@@ -178,18 +184,45 @@ public sealed class WanfaPavilionService
 
     public SkillVfxElementAsset ResolveVfxElement(SkillBlueprint blueprint)
     {
+        return TryResolvePreviewMetadata(blueprint, out var metadata) ? metadata.VfxElement : null;
+    }
+
+    public bool TryResolveItemLevel(SkillBlueprint blueprint, out ItemLevel itemLevel)
+    {
+        if (!TryResolvePreviewMetadata(blueprint, out var metadata))
+        {
+            itemLevel = default;
+            return false;
+        }
+
+        itemLevel = metadata.ItemLevel;
+        return true;
+    }
+
+    private bool TryResolvePreviewMetadata(SkillBlueprint blueprint, out BlueprintPreviewMetadata metadata)
+    {
+        metadata = null;
         var validation = Validate(blueprint);
-        if (!validation.IsCompatible) return null;
+        if (!validation.IsCompatible) return false;
 
         var signature = SkillBlueprintSignature.Build(blueprint);
-        if (_vfxCache.TryGetValue(signature, out var cached)) return cached;
+        if (_previewMetadataCache.TryGetValue(signature, out metadata)) return true;
 
         var compiled = _compiler.Compile(blueprint, SkillBlueprintCompileMode.Preview);
-        if (!compiled.Success) return null;
-        var element = compiled.Container.GetComponent<SkillContainer>().VfxElement;
+        if (!compiled.Success) return false;
+        metadata = CreatePreviewMetadata(compiled.Container);
         SkillBlueprintCompiler.Recycle(compiled.Container);
-        _vfxCache[signature] = element;
-        return element;
+        _previewMetadataCache[signature] = metadata;
+        return true;
+    }
+
+    private static BlueprintPreviewMetadata CreatePreviewMetadata(Entity container)
+    {
+        return new BlueprintPreviewMetadata
+        {
+            VfxElement = container.GetComponent<SkillContainer>().VfxElement,
+            ItemLevel = container.GetComponent<ItemLevel>()
+        };
     }
 
     public SkillBlueprint CreateDraft()
@@ -457,7 +490,7 @@ public sealed class WanfaPavilionService
         }
 
         blueprint.RuleName = preview.Container.Name.value;
-        _vfxCache[signature] = preview.Container.GetComponent<SkillContainer>().VfxElement;
+        _previewMetadataCache[signature] = CreatePreviewMetadata(preview.Container);
         if (replace) _library.Replace(blueprint);
         else _library.Add(blueprint);
         Changed?.Invoke();

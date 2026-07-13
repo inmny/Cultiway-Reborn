@@ -59,8 +59,14 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
         var category = string.IsNullOrWhiteSpace(blueprint.Category)
             ? string.Empty
             : string.Format("Cultiway.Wanfa.UI.Format.CategoryPrefix".Localize(), blueprint.Category) + " ";
-        _detail.text = string.Format("Cultiway.Wanfa.UI.Format.BlueprintDetail".Localize(), category, entityName,
+        var detail = string.Format("Cultiway.Wanfa.UI.Format.BlueprintDetail".Localize(), category, entityName,
             trajectoryName, blueprint.Modifiers.Count, blueprint.Revision, state);
+        if (service.TryResolveItemLevel(blueprint, out var itemLevel))
+        {
+            detail = string.Format("Cultiway.Wanfa.UI.Format.ItemLevelPrefix".Localize(),
+                SkillCastResourceFormatter.FormatItemLevel(blueprint.CastResourceRequirement, itemLevel), detail);
+        }
+        _detail.text = detail;
 
         var entity = string.IsNullOrWhiteSpace(blueprint.EntityAssetId)
             ? null
