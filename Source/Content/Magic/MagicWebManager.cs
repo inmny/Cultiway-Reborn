@@ -54,6 +54,11 @@ public sealed class MagicWebEntryView
     public MagicSpellProfile Profile { get; internal set; }
     public IReadOnlyCollection<string> Tags { get; internal set; }
     public bool IsDefault { get; internal set; }
+    public string Signature { get; internal set; }
+    public long PublisherActorId { get; internal set; }
+    public string PublisherName { get; internal set; }
+    public double PublishedWorldTime { get; internal set; }
+    public double LastAccessWorldTime { get; internal set; }
 }
 
 /// <summary>
@@ -70,6 +75,9 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         public HashSet<string> Tags;
         public MagicSpellProfile Profile;
         public double LastAccessWorldTime;
+        public double PublishedWorldTime;
+        public long PublisherActorId;
+        public string PublisherName;
         public bool IsDefault;
     }
 
@@ -84,6 +92,9 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     private double _nextSweepWorldTime;
 
     public static MagicWebManager Instance { get; private set; }
+
+    /// <summary>魔网条目集合或条目寿命发生变化时触发。</summary>
+    public event Action Changed;
 
     public Entity MagicWebEntity => _magicWebEntity;
     public int Count => _entriesByEntityId.Count;
@@ -105,10 +116,12 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     /// <summary>
     /// 上传一个资源需求中包含 mana 的法术。重复结构返回魔网中的规范容器，不接管上传容器。
     /// </summary>
-    public MagicWebPublishResult TryPublish(Entity container)
+    public MagicWebPublishResult TryPublish(Entity container, ActorExtend publisher = null)
     {
         if (!EnsureReady()) return new MagicWebPublishResult(MagicWebPublishStatus.Unavailable);
-        return Register(container, false);
+        var result = Register(container, false, publisher);
+        if (result.Success) Changed?.Invoke();
+        return result;
     }
 
     /// <summary>
@@ -207,7 +220,12 @@ public sealed class MagicWebManager : ICanInit, ICanReload
                 Container = container,
                 Profile = entry.Profile,
                 Tags = entry.Tags.ToArray(),
-                IsDefault = entry.IsDefault
+                IsDefault = entry.IsDefault,
+                Signature = entry.Signature,
+                PublisherActorId = entry.PublisherActorId,
+                PublisherName = entry.PublisherName,
+                PublishedWorldTime = entry.PublishedWorldTime,
+                LastAccessWorldTime = entry.LastAccessWorldTime
             });
             if (result.Count >= query.MaxResults) break;
         }
@@ -260,6 +278,7 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     {
         if (!TryGetEntry(container, out var entry)) return false;
         entry.LastAccessWorldTime = GetWorldTime();
+        Changed?.Invoke();
         return true;
     }
 
@@ -350,10 +369,11 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         }
 
         _defaultsSeeded = true;
+        if (added > 0) Changed?.Invoke();
         ModClass.LogInfo($"魔网已生成 {added} 个默认 mana 法术");
     }
 
-    private MagicWebPublishResult Register(Entity container, bool isDefault)
+    private MagicWebPublishResult Register(Entity container, bool isDefault, ActorExtend publisher = null)
     {
         if (container.IsNull || !container.HasComponent<SkillContainer>())
         {
@@ -395,13 +415,18 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         if (container.Tags.Has<TagRecycle>()) container.RemoveTag<TagRecycle>();
 
         _magicWebEntity.AddRelation(new SkillMasterRelation { SkillContainer = container });
+        var now = GetWorldTime();
+        var publisherActor = publisher?.Base;
         var entry = new Entry
         {
             Container = container,
             Signature = signature,
             Tags = semanticTags,
             Profile = profile,
-            LastAccessWorldTime = GetWorldTime(),
+            LastAccessWorldTime = now,
+            PublishedWorldTime = now,
+            PublisherActorId = !isDefault && !publisherActor.isRekt() ? publisherActor.data.id : -1L,
+            PublisherName = !isDefault && !publisherActor.isRekt() ? publisherActor.getName() : string.Empty,
             IsDefault = isDefault
         };
         _entriesByEntityId[container.Id] = entry;
@@ -431,6 +456,7 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         {
             RemoveEntry(entry);
         }
+        if (expired.Length > 0) Changed?.Invoke();
     }
 
     private void RemoveEntry(Entry entry)
@@ -476,6 +502,7 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         _magicWebEntity = default;
         _defaultsSeeded = false;
         _nextSweepWorldTime = 0d;
+        Changed?.Invoke();
     }
 
     private static double GetWorldTime()

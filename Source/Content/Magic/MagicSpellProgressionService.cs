@@ -155,7 +155,7 @@ public static class MagicSpellProgressionService
 
         // 先交给魔网进行全世界结构去重；新增时候选成为规范容器，重复时改用已有规范容器。
         var manager = MagicWebManager.Instance;
-        var publish = manager?.TryPublish(candidate) ??
+        var publish = manager?.TryPublish(candidate, actor) ??
                       new MagicWebPublishResult(MagicWebPublishStatus.Unavailable);
         if (!publish.Success)
         {

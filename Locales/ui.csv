@@ -346,6 +346,73 @@ Cultiway.UI.WindowWanfaPavilion Title,万法阁
 Cultiway.UI.WindowWanfaPavilion Title Description,打开全局法术蓝图库，\n并选择赐法雨使用的法术。
 Cultiway.UI.WindowWanfaSkillEditor Title,法术编辑器
 Cultiway.UI.WindowWanfaGrantConflict Title,法术版本冲突
+Cultiway.UI.WindowMagicWebBrowser Title,魔网
+Cultiway.UI.WindowMagicWebBrowser Title Description,只读浏览当前世界魔网中的法术版本。浏览不会延长动态法术的存续时间。
+Cultiway.MagicWeb.UI.Placeholder.Search,搜索魔网法术
+Cultiway.MagicWeb.UI.Group.Entity,按本体
+Cultiway.MagicWeb.UI.Group.Element,按元素
+Cultiway.MagicWeb.UI.Group.Ring,按环位
+Cultiway.MagicWeb.UI.Group.Source,按来源
+Cultiway.MagicWeb.UI.Group.Trajectory,按轨迹
+Cultiway.MagicWeb.UI.Sort.Name,名称
+Cultiway.MagicWeb.UI.Sort.ItemLevel,魔法品阶
+Cultiway.MagicWeb.UI.Sort.ManaDemand,法力需求
+Cultiway.MagicWeb.UI.Sort.ModifierCount,词条数
+Cultiway.MagicWeb.UI.Sort.Lifetime,剩余寿命
+Cultiway.MagicWeb.UI.Filter.ItemLevel,魔法品阶
+Cultiway.MagicWeb.UI.Filter.UnderstandableOnly,仅显示可理解
+Cultiway.MagicWeb.UI.Filter.HideKnown,隐藏已掌握族
+Cultiway.MagicWeb.UI.Filter.SelectedMage,以上两项根据当前选中的魔法师静态计算
+Cultiway.MagicWeb.UI.Filter.Elements,元素筛选 同类取任一
+Cultiway.MagicWeb.UI.Filter.Source.All,全部来源
+Cultiway.MagicWeb.UI.Filter.Source.Default,仅魔网原生
+Cultiway.MagicWeb.UI.Filter.Source.Uploaded,仅上传版本
+Cultiway.MagicWeb.UI.Filter.AllEntities,全部法术本体
+Cultiway.MagicWeb.UI.Filter.AllTrajectories,全部轨迹
+Cultiway.MagicWeb.UI.TagCategory.Element,元素
+Cultiway.MagicWeb.UI.TagCategory.Form,形态
+Cultiway.MagicWeb.UI.TagCategory.Delivery,投送
+Cultiway.MagicWeb.UI.TagCategory.Motion,运动
+Cultiway.MagicWeb.UI.TagCategory.Effect,效果与词条
+Cultiway.MagicWeb.UI.Source.Native,魔网原生
+Cultiway.MagicWeb.UI.Source.Uploaded,上传版本
+Cultiway.MagicWeb.UI.Source.UnknownPublisher,未知上传者
+Cultiway.MagicWeb.UI.Lifetime.Permanent,永久
+Cultiway.MagicWeb.UI.State.None,无
+Cultiway.MagicWeb.UI.State.Yes,是
+Cultiway.MagicWeb.UI.State.No,否
+Cultiway.MagicWeb.UI.State.NoResults,没有符合条件的法术
+Cultiway.MagicWeb.UI.Compatibility.NoMage,兼容性\n选择一名具有元素根基的魔法师后显示静态判断。
+Cultiway.MagicWeb.UI.Compatibility.Understandable,满足环位与亲和要求
+Cultiway.MagicWeb.UI.Compatibility.NotUnderstandable,不满足环位或亲和要求
+Cultiway.MagicWeb.UI.Format.ResultCount,显示 {0}/{1}
+Cultiway.MagicWeb.UI.Format.FilterCount,筛选 {0}
+Cultiway.MagicWeb.UI.Format.Page,第 {0}/{1} 页
+Cultiway.MagicWeb.UI.Format.EntrySummary,{0} {1} · {2}
+Cultiway.MagicWeb.UI.Format.DetailSummary,{0}\n单发{1}需求 {2} · {3} / {4}
+Cultiway.MagicWeb.UI.Format.EntityGroup,{0} · 动画 {1}
+Cultiway.MagicWeb.UI.Format.Ring,{0} 环
+Cultiway.MagicWeb.UI.Format.RemainingYears,约 {0} 年后消失
+Cultiway.MagicWeb.UI.Format.NativeSource,来源：魔网原生\n存续：{0}
+Cultiway.MagicWeb.UI.Format.UploadedSource,来源：{0} #{1}\n上传年份：{2} · 存续：{3}
+Cultiway.MagicWeb.UI.Format.Tags,语义标签\n{0}
+Cultiway.MagicWeb.UI.Format.Modifiers,词条\n{0}
+Cultiway.MagicWeb.UI.Format.Compatibility,选中魔法师：{0} #{1}\n加权亲和/阈值：{2}/{3} · 达标：{4}\n法术环位/上限：{5}/{6} · 允许：{7}\n已掌握同族：{8} · 容量：{9}/{10} · 已满：{11}\n静态结论：{12}
+Cultiway.MagicWeb.UI.Format.TagCategory,标签 · {0}
+Cultiway.MagicWeb.UI.Tooltip.Search.Title,搜索
+Cultiway.MagicWeb.UI.Tooltip.Search,按本地化名称、本体、轨迹、词条和语义标签筛选。搜索只读取魔网索引。
+Cultiway.MagicWeb.UI.Tooltip.Group.Title,主分组
+Cultiway.MagicWeb.UI.Tooltip.Group,循环切换本体、主元素、环位、来源和轨迹分组。一次只展开一个分组。
+Cultiway.MagicWeb.UI.Tooltip.Sort.Title,组内排序
+Cultiway.MagicWeb.UI.Tooltip.Sort,循环切换名称、魔法品阶、单发法力需求、词条数和剩余寿命排序。只改变组内顺序。
+Cultiway.MagicWeb.UI.Tooltip.Direction.Title,排序方向
+Cultiway.MagicWeb.UI.Tooltip.Direction,切换当前组内排序的升序或降序。
+Cultiway.MagicWeb.UI.Tooltip.Filters.Title,筛选条件
+Cultiway.MagicWeb.UI.Tooltip.Filters,展开或收起筛选区。按钮数字是当前启用的筛选条件数量。
+Cultiway.MagicWeb.UI.Tooltip.Reset.Title,重置浏览状态
+Cultiway.MagicWeb.UI.Tooltip.Reset,清除搜索和筛选并恢复按本体分组、名称升序。
+Cultiway.MagicWeb.UI.Tooltip.TagState,点击依次切换为必须包含、必须排除和不参与筛选。绿色为必须包含 红色为必须排除。
+Cultiway.MagicWeb.UI.Tooltip.ElementState,点击切换元素筛选。同一类别内选择多个元素时满足任意一个即可。
 Cultiway.Wanfa.Validation.policy.entity_locked,当前万法阁规则尚未解锁该法术实体
 Cultiway.Wanfa.Validation.policy.trajectory_locked,当前万法阁规则尚未解锁该轨迹
 Cultiway.Wanfa.Validation.policy.modifier_locked,当前万法阁规则尚未解锁该词条

@@ -88,6 +88,7 @@ public class Manager
         WindowWanfaPavilion.CreateAndInit(WindowWanfaPavilion.Id, WindowWanfaPavilion.WindowSize);
         WindowWanfaSkillEditor.CreateAndInit(WindowWanfaSkillEditor.Id, WindowWanfaSkillEditor.WindowSize);
         WindowWanfaGrantConflict.CreateAndInit(WindowWanfaGrantConflict.Id);
+        WindowMagicWebBrowser.CreateAndInit(WindowMagicWebBrowser.Id, WindowMagicWebBrowser.WindowSize);
 
         var pavilionButton = PowerButtonCreator.CreateWindowButton(
             $"{WindowWanfaPavilion.Id} Title",
@@ -100,6 +101,11 @@ public class Manager
             WorldboxGame.GodPowers.WanfaGrant.id,
             SpriteTextureLoader.getSprite("ui/Icons/iconRainGammaEdit"));
         AddButtonPair(TabButtonType.WORLD, pavilionButton, WanfaGrantButton);
+        var magicWebButton = PowerButtonCreator.CreateWindowButton(
+            $"{WindowMagicWebBrowser.Id} Title",
+            WindowMagicWebBrowser.Id,
+            SpriteTextureLoader.getSprite("ui/icons/iconMana"));
+        AddButton(TabButtonType.WORLD, magicWebButton);
 
         service.TestCastRequested += draft => WanfaTestCastSession.Enter(draft, WanfaGrantButton);
         service.GrantConflictRequested += WindowWanfaGrantConflict.Enqueue;

@@ -10,7 +10,13 @@ public static class SkillTags
     /// </summary>
     public static string GetDisplayName(string tag)
     {
-        return $"Cultiway.SkillTag.{tag}".Localize();
+        var key = $"Cultiway.SkillTag.{tag}";
+        var localized = key.Localize();
+        if (localized != key) return localized;
+
+        // 词条资产 ID 也会成为语义标签，此时优先复用资产自己的本地化名称。
+        localized = tag.Localize();
+        return localized == tag ? tag : localized;
     }
 
     /// <summary>
