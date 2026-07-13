@@ -151,6 +151,7 @@ public class Manager
         }
         var initial_dir = ApplyInitialAngleOffset(base_dir, initial_angle_offset_degrees);
 
+        var animation = container.Asset.GetAnimation(container.AnimationIndex);
         var entity = container.Asset.NewEntity(container.AnimationIndex);
         entity.AddRelation(new SkillMasterRelation()
         {
@@ -177,6 +178,8 @@ public class Manager
         rot.value = initial_dir;
 
         ApplyMotionProfile(entity, container.MotionProfile, source_pos, target_pos);
+        ref var animController = ref entity.GetComponent<AnimController>();
+        animation.Settings.Apply(ref animController.meta);
 
         if (delay > 0f)
         {
