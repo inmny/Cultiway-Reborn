@@ -35,11 +35,13 @@ public static class SkillUtils
             var attackerKingdom = attackKingdom ?? attacker?.kingdom;
             if (building != null && building.isAlive() && (attackerKingdom?.isEnemy(building.kingdom) ?? true ))
             {
-                yield return building;
+                if (building != attacker)
+                    yield return building;
             }
             for (var i = 0; i < tile._units.Count; i++)
             {
                 Actor obj = tile._units[i];
+                if (obj == attacker) continue;
                     
                     
                 var enemy = attackerKingdom?.isEnemy(obj.kingdom) ?? true;
