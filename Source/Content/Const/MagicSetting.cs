@@ -62,6 +62,12 @@ public static class MagicSetting
     /// <summary>改进成功或候选生成失败后，再次尝试改进前的等待年数。</summary>
     public const float MagicSpellImprovementRetryYears = 1f;
 
+    /// <summary>主动研究法术改进时，单次任务持续的最短月数。</summary>
+    public const float MagicSpellImprovementStudyMinMonths = 3f;
+
+    /// <summary>主动研究法术改进时，单次任务持续的最长月数。</summary>
+    public const float MagicSpellImprovementStudyMaxMonths = 12f;
+
     /// <summary>升级法术已有词条时使用的候选权重倍率。</summary>
     public const float MagicSpellImprovementExistingModifierWeight = 0.5f;
 

@@ -4,6 +4,7 @@ using Cultiway.Const;
 using Cultiway.Content.Behaviours;
 using Cultiway.Content.Behaviours.Apprentices;
 using Cultiway.Content.Behaviours.Masters;
+using Cultiway.Content.Const;
 
 namespace Cultiway.Content;
 
@@ -18,6 +19,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor DailyMagicMeditate        { get; private set; }
     public static BehaviourTaskActor StudyMagicWeb             { get; private set; }
     public static BehaviourTaskActor StudyMagicScroll          { get; private set; }
+    public static BehaviourTaskActor ImproveMagicSpell         { get; private set; }
     public static BehaviourTaskActor LookForHerbs { get; private set; }
     public static BehaviourTaskActor CraftElixir  { get; private set; }
     public static BehaviourTaskActor FindNewElixir { get; private set; }
@@ -84,6 +86,15 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         StudyMagicScroll.cancellable_by_socialize = true;
         StudyMagicScroll.addBeh(new BehStudyMagicScroll());
         StudyMagicScroll.setIcon("cultiway/icons/iconCraftMagicScroll");
+
+        ImproveMagicSpell.force_hand_tool = "book";
+        ImproveMagicSpell.cancellable_by_reproduction = true;
+        ImproveMagicSpell.cancellable_by_socialize = true;
+        ImproveMagicSpell.addBeh(new BehRandomWait(
+            MagicSetting.MagicSpellImprovementStudyMinMonths * TimeScales.SecPerMonth,
+            MagicSetting.MagicSpellImprovementStudyMaxMonths * TimeScales.SecPerMonth, true));
+        ImproveMagicSpell.addBeh(new BehImproveMagicSpell());
+        ImproveMagicSpell.setIcon("cultiway/icons/iconMagic");
 
         DailyPlantXianCultivate.addBeh(new BehOutdoorCultivationWait(TimeScales.SecPerYear, TimeScales.SecPerYear * 5));
         DailyPlantXianCultivate.addBeh(new BehPlantXianCultivate());
