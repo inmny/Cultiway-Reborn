@@ -10,6 +10,7 @@ using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Utils;
@@ -28,7 +29,7 @@ internal static class PatchActor
     [Hotfixable, HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.endJob))]
     private static void endJob_postfix(Actor __instance)
     {
-        SectJobRules.ReleaseActorJob(__instance);
+        SectJobService.Release(__instance);
     }
 
     [Hotfixable, HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.nextJobActor))]
@@ -133,7 +134,7 @@ internal static class PatchActor
                     }
                     if (GeneralSettings.EnableCultibookSystems
                         && Randy.randomChance(sectAffairJobChance)
-                        && SectAffairRules.CanDoAnySectAffair(pActor))
+                        && SectAffairExecutionPolicy.CanExecuteAny(pActor))
                     {
                         pool.Add(ActorJobs.SectAffair.id);
                     }

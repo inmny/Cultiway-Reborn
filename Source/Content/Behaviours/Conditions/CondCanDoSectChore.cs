@@ -1,4 +1,4 @@
-using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 
 namespace Cultiway.Content.Behaviours.Conditions;
 
@@ -12,6 +12,6 @@ public class CondCanDoSectChore : BehaviourActorCondition
     /// </summary>
     public override bool check(Actor pActor)
     {
-        return SectChoreRules.CanDoSectChore(pActor);
+        return SectAffairExecutionPolicy.CanExecute(pActor, SectAffairs.Chore);
     }
 }

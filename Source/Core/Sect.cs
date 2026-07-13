@@ -5,6 +5,7 @@ using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Sects;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3.Utils;
@@ -489,7 +490,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
     private void DetachMember(Actor actor)
     {
         SectTreasureRules.ReturnBorrowedTreasures(actor, this);
-        SectJobRules.ReleaseActorJob(actor);
+        SectJobService.Release(actor);
         actor.GetExtend().SetSect(null);
         actor.ClearSectRoles();
         actor.ClearSectJoinTime();
@@ -708,7 +709,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
 
     public void RefreshSectJobs()
     {
-        SectJobRules.RefreshJobs(this);
+        SectJobService.Refresh(this);
     }
 
     public void ListBuilding(Building building)
@@ -821,7 +822,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
 
     public bool TryBuild(SectBuildOrder order, out Building building)
     {
-        return SectBuildRules.TryBuildFromOrder(this, order, out building);
+        return SectConstructionService.TryStart(this, order, out building);
     }
 
     private static bool CanListBuilding(Building building)

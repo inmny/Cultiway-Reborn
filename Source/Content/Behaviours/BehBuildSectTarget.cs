@@ -1,6 +1,7 @@
 using ai.behaviours;
 using Cultiway.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Core;
 using Cultiway.Debug;
 using Cultiway.Utils.Extension;
@@ -28,7 +29,7 @@ public class BehBuildSectTarget : BehaviourActionActor
     {
         Sect sect = pActor.GetExtend().sect;
         Building building = pActor.beh_building_target;
-        if (!SectConstructionRules.IsCurrentConstruction(sect, building))
+        if (!SectConstructionPolicy.IsCurrentBuilding(sect, building))
         {
             return BehResult.Stop;
         }

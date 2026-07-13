@@ -1,17 +1,18 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Const;
+using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 
-namespace Cultiway.Content.Extensions;
+namespace Cultiway.Content.Sects;
 
 /// <summary>
-/// 宗门讲法规则，负责挑选讲法功法和能从讲法中获益的同宗成员。
+/// 宗门讲法服务，负责挑选讲法功法、听众并应用讲法收益。
 /// </summary>
-public static class SectLectureRules
+public static class SectLectureService
 {
     /// <summary>
     /// 判断单位当前是否具备讲法内容和可受益听众。

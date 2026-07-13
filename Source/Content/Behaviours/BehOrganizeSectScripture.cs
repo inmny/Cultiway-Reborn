@@ -1,5 +1,6 @@
 using ai.behaviours;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Debug;
@@ -20,7 +21,7 @@ public class BehOrganizeSectScripture : BehaviourActionActor
     public override BehResult execute(Actor pObject)
     {
         SectAffairAsset affair = SectAffairs.OrganizeScripture;
-        if (!SectAffairRules.CanDoSectAffair(pObject, affair))
+        if (!SectAffairExecutionPolicy.CanExecute(pObject, affair))
         {
             SectVerifyLog.Log("SectAffairTask", $"affair={affair?.id ?? "null"} actor={SectVerifyLog.Actor(pObject)} result=false");
             return BehResult.Stop;

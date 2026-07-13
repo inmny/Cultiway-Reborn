@@ -1,5 +1,6 @@
 using ai.behaviours;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
@@ -24,7 +25,7 @@ public class BehCheckSectBuildingUnderConstruction : BehaviourActionActor
     public override BehResult execute(Actor pActor)
     {
         Sect sect = pActor.GetExtend().sect;
-        return SectConstructionRules.IsCurrentConstruction(sect, pActor.beh_building_target)
+        return SectConstructionPolicy.IsCurrentBuilding(sect, pActor.beh_building_target)
             ? BehResult.Continue
             : BehResult.Stop;
     }

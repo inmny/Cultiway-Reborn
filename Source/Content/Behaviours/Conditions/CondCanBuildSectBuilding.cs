@@ -1,4 +1,4 @@
-using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 
 namespace Cultiway.Content.Behaviours.Conditions;
 
@@ -12,6 +12,6 @@ public class CondCanBuildSectBuilding : BehaviourActorCondition
     /// </summary>
     public override bool check(Actor pActor)
     {
-        return SectConstructionRules.CanBuildSectBuilding(pActor);
+        return SectConstructionPolicy.CanWorkOnCurrentConstruction(pActor);
     }
 }

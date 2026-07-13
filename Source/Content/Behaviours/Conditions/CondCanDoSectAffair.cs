@@ -1,4 +1,4 @@
-using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 
 namespace Cultiway.Content.Behaviours.Conditions;
 
@@ -22,6 +22,6 @@ public class CondCanDoSectAffair : BehaviourActorCondition
     /// </summary>
     public override bool check(Actor pActor)
     {
-        return SectAffairRules.CanDoSectAffair(pActor, SectAffairRules.GetAffair(_affairId));
+        return SectAffairExecutionPolicy.CanExecute(pActor, ModClass.L.SectAffairLibrary.get(_affairId));
     }
 }

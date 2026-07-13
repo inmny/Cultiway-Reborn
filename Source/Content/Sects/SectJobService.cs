@@ -1,24 +1,23 @@
 using System.Collections.Generic;
+using Cultiway.Content.Extensions;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Debug;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
 
-namespace Cultiway.Content.Extensions;
+namespace Cultiway.Content.Sects;
 
 /// <summary>
-/// 宗门岗位刷新、分配和释放规则。
+/// 宗门岗位服务，负责刷新名额、分配岗位和释放占用。
 /// </summary>
-public static class SectJobRules
+public static class SectJobService
 {
-    private static readonly List<SectJobAsset> CandidateJobs = new();
-
     /// <summary>
     /// 根据宗门当前状态刷新岗位名额和占用。
     /// </summary>
     [Hotfixable]
-    public static void RefreshJobs(Sect sect)
+    public static void Refresh(Sect sect)
     {
         if (sect == null || sect.isRekt()) return;
 
@@ -52,7 +51,7 @@ public static class SectJobRules
     /// 给成员领取一个当前可用的宗门岗位，并切换到岗位对应的 ActorJob。
     /// </summary>
     [Hotfixable]
-    public static bool TryAssignJob(Actor actor, out SectJobAsset assignedJob)
+    public static bool TryAssign(Actor actor, out SectJobAsset assignedJob)
     {
         assignedJob = null;
         if (!CanUseSectJobSystem(actor, out Sect sect)) return false;
@@ -71,7 +70,7 @@ public static class SectJobRules
     /// 释放成员当前占用的宗门岗位。
     /// </summary>
     [Hotfixable]
-    public static void ReleaseActorJob(Actor actor)
+    public static void Release(Actor actor)
     {
         if (actor == null || actor.isRekt()) return;
 
@@ -96,16 +95,15 @@ public static class SectJobRules
 
     private static SectJobAsset FindAssignableJob(Actor actor, Sect sect)
     {
-        CandidateJobs.Clear();
+        SectJobAsset selected = null;
         foreach (KeyValuePair<SectJobAsset, int> pair in sect.jobs.jobs)
         {
             SectJobAsset job = pair.Key;
             if (!CanAssignJob(actor, sect, job)) continue;
-            CandidateJobs.Add(job);
+            if (selected == null || job.priority > selected.priority) selected = job;
         }
 
-        CandidateJobs.Sort((left, right) => right.priority.CompareTo(left.priority));
-        return CandidateJobs.Count == 0 ? null : CandidateJobs[0];
+        return selected;
     }
 
     private static bool CanAssignJob(Actor actor, Sect sect, SectJobAsset job)

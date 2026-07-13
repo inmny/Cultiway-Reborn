@@ -1,5 +1,6 @@
 using Cultiway.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Core;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -29,7 +30,7 @@ public class SectConstructionSystem : BaseSystem
         foreach (Sect sect in manager)
         {
             sect.RefreshSectJobs();
-            SectConstructionRules.TryOpenConstruction(sect);
+            SectConstructionService.TryOpen(sect);
         }
     }
 }

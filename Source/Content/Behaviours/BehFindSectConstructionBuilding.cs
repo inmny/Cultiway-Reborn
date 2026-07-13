@@ -1,5 +1,6 @@
 using ai.behaviours;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Core;
 using Cultiway.Debug;
 using Cultiway.Utils.Extension;
@@ -18,7 +19,7 @@ public class BehFindSectConstructionBuilding : BehaviourActionActor
     [Hotfixable]
     public override BehResult execute(Actor pActor)
     {
-        if (!SectConstructionRules.CanBuildSectBuilding(pActor))
+        if (!SectConstructionPolicy.CanWorkOnCurrentConstruction(pActor))
         {
             SectVerifyLog.Log("SectConstructionTarget", $"actor={SectVerifyLog.Actor(pActor)} result=false reason=no_job");
             return BehResult.Stop;
@@ -26,7 +27,7 @@ public class BehFindSectConstructionBuilding : BehaviourActionActor
 
         Sect sect = pActor.GetExtend().sect;
         Building building = sect.GetBuildingToBuild();
-        if (!SectConstructionRules.IsCurrentConstruction(sect, building))
+        if (!SectConstructionPolicy.IsCurrentBuilding(sect, building))
         {
             SectVerifyLog.Log("SectConstructionTarget", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pActor)} result=false reason=no_building");
             return BehResult.Stop;

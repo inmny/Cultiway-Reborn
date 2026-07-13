@@ -1,5 +1,8 @@
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
+using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using NeoModLoader.api.attributes;
 
@@ -60,6 +63,11 @@ public class SectAffairs : ExtendLibrary<SectAffairAsset, SectAffairs>
             SectConst.ContributionSectLecture,
             1f,
             "cultiway/icons/iconCultivation");
+
+        OrganizeScripture.bypassRequirements = (actor, sect) =>
+            SectTraitRules.CanDiscipleOrganizeScripture(sect, actor);
+        OrganizeScripture.canExecute = CanOrganizeScripture;
+        LectureCultibook.canExecute = SectLectureService.CanLectureCultibook;
     }
 
     private static void Setup(
@@ -81,5 +89,10 @@ public class SectAffairs : ExtendLibrary<SectAffairAsset, SectAffairs>
         asset.contributionReward = contributionReward;
         asset.weight = weight;
         asset.iconPath = iconPath;
+    }
+
+    private static bool CanOrganizeScripture(Actor _, Sect sect)
+    {
+        return sect.GetScriptureBookIds().Count > 0;
     }
 }

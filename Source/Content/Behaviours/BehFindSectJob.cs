@@ -1,5 +1,6 @@
 using ai.behaviours;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Core.Libraries;
 using Cultiway.Debug;
 using NeoModLoader.api.attributes;
@@ -17,7 +18,7 @@ public class BehFindSectJob : BehaviourActionActor
     [Hotfixable]
     public override BehResult execute(Actor pActor)
     {
-        if (SectJobRules.TryAssignJob(pActor, out SectJobAsset job))
+        if (SectJobService.TryAssign(pActor, out SectJobAsset job))
         {
             SectVerifyLog.Log("SectFindJob", $"actor={SectVerifyLog.Actor(pActor)} job={job.id} result=true");
             return BehResult.Continue;

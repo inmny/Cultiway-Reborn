@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 
 namespace Cultiway.Content
 {
@@ -36,7 +37,7 @@ namespace Cultiway.Content
             FindSectJob.path_icon = "ui/Icons/iconShowTasks";
             FindSectJob.cooldown = SectConst.SectConstructionDecisionCooldown;
             FindSectJob.cooldown_on_launch_failure = true;
-            FindSectJob.action_check_launch = SectJobRules.HasAssignableJob;
+            FindSectJob.action_check_launch = SectJobService.HasAssignableJob;
             FindSectJob.weight = 1.8f;
             FindSectJob.task_id = ActorTasks.FindSectJob.id;
         }

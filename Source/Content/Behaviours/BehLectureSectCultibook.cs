@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using ai.behaviours;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Sects;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Debug;
@@ -23,20 +24,20 @@ public class BehLectureSectCultibook : BehaviourActionActor
     public override BehResult execute(Actor pObject)
     {
         SectAffairAsset affair = SectAffairs.LectureCultibook;
-        if (!SectAffairRules.CanDoSectAffair(pObject, affair))
+        if (!SectAffairExecutionPolicy.CanExecute(pObject, affair))
         {
             SectVerifyLog.Log("SectLectureTask", $"actor={SectVerifyLog.Actor(pObject)} result=false");
             return BehResult.Stop;
         }
 
         Sect sect = pObject.GetExtend().sect;
-        if (!SectLectureRules.TryPickLecture(pObject, sect, out CultibookAsset cultibook, out List<Actor> audience))
+        if (!SectLectureService.TryPickLecture(pObject, sect, out CultibookAsset cultibook, out List<Actor> audience))
         {
             SectVerifyLog.Log("SectLectureTask", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} result=false reason=no_target");
             return BehResult.Stop;
         }
 
-        int taughtCount = SectLectureRules.ApplyLecture(pObject, sect, cultibook, audience);
+        int taughtCount = SectLectureService.ApplyLecture(pObject, sect, cultibook, audience);
         if (taughtCount <= 0)
         {
             SectVerifyLog.Log("SectLectureTask", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} cultibook={cultibook.id} result=false reason=no_effect");

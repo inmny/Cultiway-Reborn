@@ -1,6 +1,7 @@
 using ai.behaviours;
 using Cultiway.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Debug;
@@ -21,7 +22,7 @@ public class BehDoSectChore : BehaviourActionActor
     public override BehResult execute(Actor pObject)
     {
         SectAffairAsset affair = SectAffairs.Chore;
-        if (!SectAffairRules.CanDoSectAffair(pObject, affair))
+        if (!SectAffairExecutionPolicy.CanExecute(pObject, affair))
         {
             SectVerifyLog.Log("SectChoreTask", $"actor={SectVerifyLog.Actor(pObject)} result=false");
             return BehResult.Stop;

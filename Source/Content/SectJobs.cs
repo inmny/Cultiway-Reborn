@@ -1,6 +1,7 @@
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using NeoModLoader.api.attributes;
@@ -31,7 +32,7 @@ public class SectJobs : ExtendLibrary<SectJobAsset, SectJobs>
         Builder.requiredPermission = SectPermissions.BuildBuilding;
         Builder.priority = 9f;
         Builder.countJobs = CountBuilderJobs;
-        Builder.shouldBeAssigned = SectConstructionRules.CanUseBuilderJob;
+        Builder.shouldBeAssigned = SectConstructionPolicy.CanAssignBuilder;
     }
 
     private static int CountBuilderJobs(Sect sect)

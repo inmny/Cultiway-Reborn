@@ -1,5 +1,6 @@
 using ai.behaviours;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 using Cultiway.Debug;
 using NeoModLoader.api.attributes;
 
@@ -20,7 +21,7 @@ public class BehFindSectChoreTile : BehFindSectResidenceTile
     [Hotfixable]
     public override BehResult execute(Actor pActor)
     {
-        if (!SectChoreRules.CanDoSectChore(pActor))
+        if (!SectAffairExecutionPolicy.CanExecute(pActor, SectAffairs.Chore))
         {
             SectVerifyLog.Log("SectChoreTarget", $"actor={SectVerifyLog.Actor(pActor)} result=false reason=no_permission");
             return BehResult.Stop;

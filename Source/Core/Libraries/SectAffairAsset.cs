@@ -1,3 +1,6 @@
+using System;
+using Cultiway.Core;
+
 namespace Cultiway.Core.Libraries;
 
 /// <summary>
@@ -34,6 +37,16 @@ public class SectAffairAsset : Asset
     /// 为 true 时按最低职司判断，为 false 时要求职司完全一致。
     /// </summary>
     public bool requireOfficeAtLeast = true;
+
+    /// <summary>
+    /// 返回 true 时跳过权限和职司要求，用于由宗门制度开放的替代准入路径。
+    /// </summary>
+    public Func<Actor, Sect, bool> bypassRequirements;
+
+    /// <summary>
+    /// 事务自身的运行时条件；为空表示通过权限和职司检查后即可执行。
+    /// </summary>
+    public Func<Actor, Sect, bool> canExecute;
 
     /// <summary>
     /// 实际执行该事务的 ActorTask id。
