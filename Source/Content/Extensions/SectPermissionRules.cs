@@ -1,156 +1,14 @@
-using System.Collections.Generic;
-using Cultiway.Const;
-using Cultiway.Content.Components;
-using Cultiway.Content.Libraries;
 using Cultiway.Core;
-using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
-using UnityEngine;
-using Friflo.Engine.ECS;
 
 namespace Cultiway.Content.Extensions;
 
 /// <summary>
-/// 宗门权限规则，统一判断成员能否执行某类宗门行为。
+/// 宗门通用权限规则，负责不属于具体子系统的人事、事务与建造权限。
 /// </summary>
 public static class SectPermissionRules
 {
-    /// <summary>
-    /// 判断成员是否拥有任意藏经阁研读权限。
-    /// </summary>
-    public static bool HasAnySectScriptureReadPermission(this Actor actor)
-    {
-        return actor.HasSectPermission(SectPermissions.ReadBasicScripture)
-               || actor.HasSectPermission(SectPermissions.ReadCoreScripture)
-               || actor.HasSectPermission(SectPermissions.ReadHighScripture);
-    }
-
-    /// <summary>
-    /// 判断成员能否接触指定宗门藏书；权限不足不再硬锁，后续由贡献消耗处理。
-    /// </summary>
-    public static bool CanAccessSectScriptureBook(this Actor actor, Book book)
-    {
-        if (actor == null || actor.isRekt()) return false;
-        if (book == null || book.isRekt()) return false;
-
-        Sect sect = actor.GetExtend().sect;
-        return IsMemberOfSect(actor, sect) && ContainsScriptureBook(sect, book);
-    }
-
-    /// <summary>
-    /// 判断成员是否在权限范围内研读指定宗门藏书。
-    /// </summary>
-    public static bool HasSectScriptureReadPermissionFor(this Actor actor, Book book)
-    {
-        if (actor == null || actor.isRekt()) return false;
-        if (book == null || book.isRekt()) return false;
-
-        SectPermissionAsset permission = GetReadPermission(book);
-        if (permission == SectPermissions.ReadHighScripture)
-        {
-            return actor.HasSectPermission(SectPermissions.ReadHighScripture);
-        }
-
-        if (permission == SectPermissions.ReadCoreScripture)
-        {
-            return actor.HasSectPermission(SectPermissions.ReadCoreScripture)
-                   || actor.HasSectPermission(SectPermissions.ReadHighScripture);
-        }
-
-        return actor.HasAnySectScriptureReadPermission();
-    }
-
-    /// <summary>
-    /// 获取成员研读指定宗门藏书需要消耗的贡献。
-    /// </summary>
-    public static int GetSectScriptureReadCost(this Actor actor, Book book)
-    {
-        if (!actor.CanAccessSectScriptureBook(book)) return int.MaxValue;
-
-        int baseCost = GetBaseReadCost(book);
-        Sect sect = actor.GetExtend().sect;
-        float multiplier = actor.HasSectScriptureReadPermissionFor(book)
-            ? SectConst.ScriptureReadPermissionDiscount
-            : SectConst.ScriptureReadOutOfPermissionMultiplier * SectTraitRules.GetOutOfPermissionReadCostMultiplier(sect);
-        return Mathf.CeilToInt(baseCost * multiplier);
-    }
-
-    /// <summary>
-    /// 判断成员当前是否付得起研读指定宗门藏书的贡献。
-    /// </summary>
-    public static bool CanAffordSectScriptureRead(this Actor actor, Book book)
-    {
-        int cost = actor.GetSectScriptureReadCost(book);
-        return cost != int.MaxValue && actor.GetAvailableSectContribution() >= cost;
-    }
-
-    /// <summary>
-    /// 判断成员能否向指定宗门贡献典籍。
-    /// </summary>
-    public static bool CanContributeSectScripture(this Actor actor, Sect sect)
-    {
-        return IsMemberOfSect(actor, sect)
-               && actor.HasSectPermission(SectPermissions.WriteScripture);
-    }
-
-    /// <summary>
-    /// 判断成员能否把书放入指定宗门藏经阁。
-    /// </summary>
-    public static bool CanStoreSectScripture(this Actor actor, Sect sect)
-    {
-        return IsMemberOfSect(actor, sect)
-               && actor.HasSectPermission(SectPermissions.WriteScripture);
-    }
-
-    /// <summary>
-    /// 判断成员能否向指定宗门贡献特殊物品。
-    /// </summary>
-    public static bool CanDepositSectTreasure(this Actor actor, Sect sect)
-    {
-        return IsMemberOfSect(actor, sect)
-               && actor.HasSectPermission(SectPermissions.DepositTreasure);
-    }
-
-    /// <summary>
-    /// 判断成员是否拥有任意宗门库藏领取权限。
-    /// </summary>
-    public static bool HasAnySectTreasureAccessPermission(this Actor actor)
-    {
-        return actor.HasSectPermission(SectPermissions.AccessBasicTreasure)
-               || actor.HasSectPermission(SectPermissions.AccessCoreTreasure)
-               || actor.HasSectPermission(SectPermissions.AccessHighTreasure);
-    }
-
-    /// <summary>
-    /// 判断指定物品是否位于成员的免费或折扣领取范围内。
-    /// </summary>
-    public static bool HasSectTreasureAccessPermissionFor(this Actor actor, Entity item)
-    {
-        int stage = SectTreasureRules.GetTreasureStage(item);
-        if (stage >= SectConst.TreasureHighPermissionMinStage)
-        {
-            return actor.HasSectPermission(SectPermissions.AccessHighTreasure);
-        }
-
-        if (stage >= SectConst.TreasureCorePermissionMinStage)
-        {
-            return actor.HasSectPermission(SectPermissions.AccessCoreTreasure)
-                   || actor.HasSectPermission(SectPermissions.AccessHighTreasure);
-        }
-
-        return actor.HasAnySectTreasureAccessPermission();
-    }
-
-    /// <summary>
-    /// 判断成员能否管理指定宗门的藏宝阁。
-    /// </summary>
-    public static bool CanManageSectTreasure(this Actor actor, Sect sect)
-    {
-        return IsMemberOfSect(actor, sect)
-               && actor.HasSectPermission(SectPermissions.ManageTreasure);
-    }
-
     /// <summary>
     /// 判断成员能否执行指定宗门的人事评定。
     /// </summary>
@@ -220,17 +78,6 @@ public static class SectPermissionRules
                && actor.HasSectPermission(SectPermissions.ManageSect);
     }
 
-    /// <summary>
-    /// 获取指定藏书需要的研读权限。
-    /// </summary>
-    public static SectPermissionAsset GetReadPermission(Book book)
-    {
-        int stage = GetBookStage(book);
-        if (stage >= SectConst.ScriptureHighPermissionMinStage) return SectPermissions.ReadHighScripture;
-        if (stage >= SectConst.ScriptureCorePermissionMinStage) return SectPermissions.ReadCoreScripture;
-        return SectPermissions.ReadBasicScripture;
-    }
-
     private static bool IsMemberOfSect(Actor actor, Sect sect)
     {
         return actor != null
@@ -240,50 +87,4 @@ public static class SectPermissionRules
                && actor.GetExtend().sect == sect;
     }
 
-    private static bool ContainsScriptureBook(Sect sect, Book book)
-    {
-        IReadOnlyList<long> bookIds = sect.GetScriptureBookIds();
-        for (int i = 0; i < bookIds.Count; i++)
-        {
-            if (bookIds[i] == book.id) return true;
-        }
-
-        return false;
-    }
-
-    private static int GetBookStage(Book book)
-    {
-        return GetBookLevel(book).Stage;
-    }
-
-    private static int GetBaseReadCost(Book book)
-    {
-        int stage = GetBookStage(book);
-        if (stage >= SectConst.ScriptureHighPermissionMinStage) return SectConst.ScriptureHighReadCost;
-        if (stage >= SectConst.ScriptureCorePermissionMinStage) return SectConst.ScriptureCoreReadCost;
-        return SectConst.ScriptureBasicReadCost;
-    }
-
-    private static ItemLevel GetBookLevel(Book book)
-    {
-        BookExtend bookExtend = book.GetExtend();
-        if (bookExtend.HasComponent<ItemLevel>())
-        {
-            return bookExtend.GetComponent<ItemLevel>();
-        }
-
-        if (book.getAsset() == BookTypes.Cultibook && bookExtend.HasComponent<Cultibook>())
-        {
-            CultibookAsset cultibook = bookExtend.GetComponent<Cultibook>().Asset;
-            if (cultibook != null) return cultibook.Level;
-        }
-
-        if (book.getAsset() == BookTypes.Elixirbook && bookExtend.HasComponent<Elixirbook>())
-        {
-            ElixirAsset elixir = bookExtend.GetComponent<Elixirbook>().Asset;
-            if (elixir != null) return elixir.base_level;
-        }
-
-        return default;
-    }
 }

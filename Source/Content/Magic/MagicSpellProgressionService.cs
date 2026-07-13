@@ -5,6 +5,7 @@ using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using strings;
 using UnityEngine;
@@ -12,7 +13,7 @@ using UnityEngine;
 namespace Cultiway.Content;
 
 /// <summary>
-/// 负责将法术的实际使用积累转化为个人改进，并把改进结果上传魔网。
+/// 负责记录法术使用积累，并在主动研究任务中完成个人改进和魔网上传。
 /// </summary>
 public static class MagicSpellProgressionService
 {
@@ -34,30 +35,85 @@ public static class MagicSpellProgressionService
         var trackedContainer = ResolveTrackedContainer(actor, castContainer);
         if (trackedContainer.IsNull || !MagicKnowledgeService.Ensure(actor, trackedContainer)) return;
 
-        // 档案提供环位和法术族信息；无有效档案的容器不能进入改进流程。
-        var profile = MagicSpellProfile.Resolve(trackedContainer);
-        if (profile == null) return;
-
-        // 每个完成的施法序列固定增加一点进度，多发弹体只通过 emittedCount 判断施法是否有效。
+        // 每个完成的施法序列固定增加一点进度；达到阈值后只解锁主动研究任务，不在战斗事件中改进。
         var now = GetWorldTime();
         ref var knowledge = ref actor.E.GetRelation<MagicSpellKnowledgeRelation, Entity>(trackedContainer);
         knowledge.TotalCastCount++;
         knowledge.ImprovementProgress += 1f;
         knowledge.LastUsedWorldTime = now;
+    }
 
-        // 未到重试时间或使用积累不足时，仅保存本次使用记录，不生成临时候选。
-        if (now < knowledge.NextImprovementAttemptWorldTime) return;
-        var threshold = ResolveImprovementThreshold(actor, profile, knowledge.ImprovementCount);
-        if (knowledge.ImprovementProgress < threshold) return;
+    /// <summary>
+    /// 判断魔法师是否至少有一个法术已经满足主动改进条件。
+    /// </summary>
+    public static bool ShouldImprove(ActorExtend actor)
+    {
+        if (!CanImprove(actor)) return false;
+        MagicKnowledgeService.Synchronize(actor);
 
-        // 改进会替换知识关系，因此先复制旧状态；失败时保留全部进度并设置退避时间。
-        var snapshot = knowledge;
-        if (TryImproveAndPublish(actor, trackedContainer, profile, snapshot, threshold, now)) return;
+        var now = GetWorldTime();
+        foreach (var relation in actor.E.GetRelations<MagicSpellKnowledgeRelation>())
+        {
+            if (TryResolveReadySpell(actor, relation.SkillContainer, now, out _, out _, out _)) return true;
+        }
+        return false;
+    }
 
-        ref var current = ref actor.E.GetRelation<MagicSpellKnowledgeRelation, Entity>(trackedContainer);
-        current.NextImprovementAttemptWorldTime = now +
-                                                  MagicSetting.MagicSpellImprovementRetryYears *
-                                                  TimeScales.SecPerYear;
+    /// <summary>
+    /// 从所有达到使用阈值的法术中选择一个，在当前研究任务中尝试改进并上传魔网。
+    /// </summary>
+    public static bool TryImproveAndPublish(ActorExtend actor)
+    {
+        if (!CanImprove(actor)) return false;
+        MagicKnowledgeService.Synchronize(actor);
+
+        var now = GetWorldTime();
+        using var readySpells = new ListPool<Entity>();
+        foreach (var relation in actor.E.GetRelations<MagicSpellKnowledgeRelation>())
+        {
+            if (TryResolveReadySpell(actor, relation.SkillContainer, now, out _, out _, out _))
+                readySpells.Add(relation.SkillContainer);
+        }
+        if (!readySpells.Any()) return false;
+
+        var source = readySpells.GetRandom();
+        if (!TryResolveReadySpell(actor, source, now, out var profile, out var knowledge, out var threshold))
+            return false;
+        if (TryGenerateAndPublish(actor, source, profile, knowledge, threshold, now)) return true;
+
+        // 失败不消耗使用积累，只设置下一次允许执行研究任务的时间。
+        if (actor.OwnsLearnedSkill(source) && MagicKnowledgeService.Ensure(actor, source))
+        {
+            ref var current = ref actor.E.GetRelation<MagicSpellKnowledgeRelation, Entity>(source);
+            current.NextImprovementAttemptWorldTime = now +
+                                                      MagicSetting.MagicSpellImprovementRetryYears *
+                                                      TimeScales.SecPerYear;
+        }
+        return false;
+    }
+
+    private static bool TryResolveReadySpell(ActorExtend actor, Entity source, double now,
+        out MagicSpellProfile profile, out MagicSpellKnowledgeRelation knowledge, out float threshold)
+    {
+        profile = null;
+        knowledge = default;
+        threshold = 0f;
+        if (source.IsNull || !actor.OwnsLearnedSkill(source)) return false;
+        if (!SkillCastResourceResolver.UsesResource(source, SkillCastResources.Mana)) return false;
+        if (!MagicKnowledgeService.Ensure(actor, source)) return false;
+
+        profile = MagicSpellProfile.Resolve(source);
+        if (profile == null) return false;
+        knowledge = actor.E.GetRelation<MagicSpellKnowledgeRelation, Entity>(source);
+        if (now < knowledge.NextImprovementAttemptWorldTime) return false;
+
+        threshold = ResolveImprovementThreshold(actor, profile, knowledge.ImprovementCount);
+        return knowledge.ImprovementProgress >= threshold;
+    }
+
+    private static bool CanImprove(ActorExtend actor)
+    {
+        return actor != null && !actor.Base.isRekt() && actor.HasCultisys<Magic>();
     }
 
     /// <summary>
@@ -80,7 +136,7 @@ public static class MagicSpellProgressionService
     /// <summary>
     /// 生成一个合法改进版本、上传魔网取得规范容器，并替换施法者当前掌握的源版本。
     /// </summary>
-    private static bool TryImproveAndPublish(ActorExtend actor, Entity source, MagicSpellProfile sourceProfile,
+    private static bool TryGenerateAndPublish(ActorExtend actor, Entity source, MagicSpellProfile sourceProfile,
         MagicSpellKnowledgeRelation knowledge, float threshold, double now)
     {
         // 当前魔法等级决定候选允许达到的最高环位，避免改进出施法者无法理解的版本。

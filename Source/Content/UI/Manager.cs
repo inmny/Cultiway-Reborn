@@ -4,6 +4,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Sects;
 using Cultiway.Content.UI.CreatureInfoPages;
 using Cultiway.Content.Utils;
 using Cultiway.Core;
@@ -107,12 +108,12 @@ public class Manager : ICanInit
                 AppendArtifactControlDetails(tooltip, entity);
             }
 
-            Sect ownerSect = SectTreasureRules.GetTreasureOwner(entity);
+            Sect ownerSect = SectTreasureInventory.FindOwner(entity);
             if (ownerSect != null)
             {
                 string ownerLabel = "Cultiway.Sect.Treasure.Owner".Localize();
                 tooltip.Tooltip.addDescription($"\n{ownerLabel}: {ownerSect.data.name}");
-                Actor borrower = SectTreasureRules.GetTreasureBorrower(entity);
+                Actor borrower = SectTreasureService.GetBorrower(entity);
                 if (borrower != null)
                 {
                     string borrowerLabel = "Cultiway.Sect.Treasure.Borrower".Localize();

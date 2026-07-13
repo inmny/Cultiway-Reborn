@@ -14,6 +14,12 @@ public static class MagicSetting
     /// <summary>单轮冥想闭关月数的随机倍率上限</summary>
     public const float MeditateSessionMaxMonths    = 3f;
 
+    /// <summary>冥想每月获得的精神力占当前精神力上限的基础比例。</summary>
+    public const float MeditateSpiritGainRatioPerMonth = 0.01f;
+
+    /// <summary>自然恢复最多能够把精神力恢复到上限的比例，避免被动恢复直接完成突破积累。</summary>
+    public const float SpiritRestoreLimit          = 0.6f;
+
     /// <summary>mana 护盾：每豁免 1 点伤害消耗的 mana（默认0.1，即豁免10伤害耗1 mana）</summary>
     public const float ManaShieldCostRatio         = 0.1f;
 
@@ -61,6 +67,12 @@ public static class MagicSetting
 
     /// <summary>改进成功或候选生成失败后，再次尝试改进前的等待年数。</summary>
     public const float MagicSpellImprovementRetryYears = 1f;
+
+    /// <summary>主动研究法术改进时，单次任务持续的最短月数。</summary>
+    public const float MagicSpellImprovementStudyMinMonths = 3f;
+
+    /// <summary>主动研究法术改进时，单次任务持续的最长月数。</summary>
+    public const float MagicSpellImprovementStudyMaxMonths = 12f;
 
     /// <summary>升级法术已有词条时使用的候选权重倍率。</summary>
     public const float MagicSpellImprovementExistingModifierWeight = 0.5f;

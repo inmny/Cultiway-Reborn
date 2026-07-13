@@ -185,7 +185,7 @@ public class SectPage : MonoBehaviour
 
     private static void AppendArchiveInfo(StringBuilder sb, Sect sect)
     {
-        List<Book> cultibooks = sect.GetScriptureBooks(BookTypes.Cultibook);
+        List<Book> cultibooks = sect.Scriptures.GetBooks(BookTypes.Cultibook);
 
         sb.AppendLine();
         sb.AppendLine("□ 藏经阁");

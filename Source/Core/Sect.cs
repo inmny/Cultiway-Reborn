@@ -2,18 +2,14 @@ using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content;
-using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Sects;
-using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
-using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Debug;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
-using HarmonyLib;
 using UnityEngine;
 
 namespace Cultiway.Core;
@@ -27,7 +23,15 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
 
     internal Building under_construction_building;
     private SectTrait _residence_strategy;
-    private Entity _treasureEntity;
+
+    public Sect()
+    {
+        Scriptures = new SectScriptureCollection(this);
+        Treasures = new SectTreasureInventory(this);
+    }
+
+    public SectScriptureCollection Scriptures { get; }
+    public SectTreasureInventory Treasures { get; }
 
     public override MetaType meta_type => MetaTypeExtend.Sect.Back();
     public override AssetLibrary<SectTrait> trait_library => ModClass.L.SectTraitLibrary;
@@ -51,8 +55,8 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
     public override void triggerOnRemoveObject()
     {
         ReleaseMembers();
-        SectTreasureRules.ReleaseTreasures(this);
-        DisposeTreasureInventory();
+        SectTreasureService.Release(this);
+        Treasures.Dispose();
         base.triggerOnRemoveObject();
         AbandonBuildings();
         WorldboxGame.I?.Sects?.setDirtyResidenceZones();
@@ -73,8 +77,8 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
     public void Setup(Actor founder)
     {
         generateNewMetaObject();
-        InitializeTreasureInventory();
-        data.ScriptureBookIDs = new List<long>();
+        Treasures.Initialize();
+        Scriptures.Reset();
         data.ResidenceZones = new List<ZoneData>();
         ClearBuildingList();
         data.FounderActorName = founder.getName();
@@ -95,7 +99,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
         if (doctrineCultibook != null)
         {
             SetDoctrineCultibook(doctrineCultibook);
-            CreateDoctrineBook(founder, doctrineCultibook, founder.GetExtend().GetMainCultibookMastery());
+            SectScriptureService.CreateDoctrineBook(this, founder, doctrineCultibook, founder.GetExtend().GetMainCultibookMastery());
         }
 
         JoinSect(founder, new SectJoinProfile(SectRoles.NoGrade, SectRoles.Leader, SectRoles.NoTitle));
@@ -109,121 +113,22 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
     public override void loadData(SectData pData)
     {
         base.loadData(pData);
-        InitializeTreasureInventory();
+        Treasures.Initialize();
     }
 
-    /// <summary>
-    /// 获取承载宗门运行期库藏关系的实体。
-    /// </summary>
-    public Entity TreasureEntity => _treasureEntity;
-
-    /// <summary>
-    /// 将特殊物品移入宗门运行期库存。
-    /// </summary>
     public void AddSpecialItem(Entity item)
     {
-        InventoryLifecycle.NotifyBeforeItemAdded(this, item);
-        item.GetIncomingLinks<InventoryRelation>().Entities.Do(owner =>
-        {
-            owner.RemoveRelation<InventoryRelation>(item);
-        });
-        _treasureEntity.AddRelation(new InventoryRelation { item = item });
-        InventoryLifecycle.NotifyAfterItemAdded(this, item);
+        Treasures.Add(item);
     }
 
-    /// <summary>
-    /// 将特殊物品移出宗门运行期库存。
-    /// </summary>
     public void ExtractSpecialItem(Entity item)
     {
-        InventoryLifecycle.NotifyBeforeItemExtracted(this, item);
-        _treasureEntity.RemoveRelation<InventoryRelation>(item);
-        InventoryLifecycle.NotifyAfterItemExtracted(this, item);
+        Treasures.Extract(item);
     }
 
-    /// <summary>
-    /// 枚举当前实际存放在藏宝阁中的特殊物品。
-    /// </summary>
     public IEnumerable<Entity> GetItems()
     {
-        var relations = _treasureEntity.GetRelations<InventoryRelation>();
-        for (int i = 0; i < relations.Length; i++)
-        {
-            yield return relations[i].item;
-        }
-    }
-
-    /// <summary>
-    /// 枚举宗门拥有的全部特殊物品，包含已经外借的法宝。
-    /// </summary>
-    public IEnumerable<Entity> GetTreasures()
-    {
-        var relations = _treasureEntity.GetRelations<SectTreasureRelation>();
-        for (int i = 0; i < relations.Length; i++)
-        {
-            yield return relations[i].item;
-        }
-    }
-
-    /// <summary>
-    /// 判断指定特殊物品的所有权是否属于宗门。
-    /// </summary>
-    public bool OwnsTreasure(Entity item)
-    {
-        var relations = _treasureEntity.GetRelations<SectTreasureRelation>();
-        for (int i = 0; i < relations.Length; i++)
-        {
-            if (relations[i].item == item) return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// 判断指定宗门所有物是否仍存放在藏宝阁内。
-    /// </summary>
-    public bool IsTreasureStored(Entity item)
-    {
-        var relations = _treasureEntity.GetRelations<InventoryRelation>();
-        for (int i = 0; i < relations.Length; i++)
-        {
-            if (relations[i].item == item) return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// 为特殊物品登记宗门所有权。
-    /// </summary>
-    public void AddTreasureOwnership(Entity item)
-    {
-        _treasureEntity.AddRelation(new SectTreasureRelation { item = item });
-    }
-
-    /// <summary>
-    /// 解除特殊物品的宗门所有权。
-    /// </summary>
-    public void RemoveTreasureOwnership(Entity item)
-    {
-        _treasureEntity.RemoveRelation<SectTreasureRelation>(item);
-    }
-
-    private void InitializeTreasureInventory()
-    {
-        if (!_treasureEntity.IsNull)
-        {
-            _treasureEntity.AddTag<TagRecycle>();
-        }
-
-        _treasureEntity = ModClass.I.W.CreateEntity(new SectInventoryBinder(getID()));
-    }
-
-    private void DisposeTreasureInventory()
-    {
-        if (_treasureEntity.IsNull) return;
-        _treasureEntity.AddTag<TagRecycle>();
-        _treasureEntity = default;
+        return Treasures.GetStoredItems();
     }
 
     private void AddFoundingResidenceStrategy(Actor founder)
@@ -266,125 +171,6 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
         }
     }
 
-    public bool AddScriptureBook(Book book)
-    {
-        if (book == null || book.isRekt()) return false;
-        if (HasScriptureBook(book))
-        {
-            SectVerifyLog.Log("ScriptureAddSkip", $"sect={SectVerifyLog.Sect(this)} book={SectVerifyLog.Book(book)} reason=duplicate");
-            return false;
-        }
-
-        bool added = false;
-        if (!data.ScriptureBookIDs.Contains(book.id))
-        {
-            data.ScriptureBookIDs.Add(book.id);
-            added = true;
-        }
-
-        RefreshScriptureStats();
-        SectVerifyLog.Log("ScriptureAdd", $"sect={SectVerifyLog.Sect(this)} book={SectVerifyLog.Book(book)} added={added} cultibooks={data.CultibookCount} elixirs={data.ElixirRecipeCount} skills={data.SkillbookCount}");
-        return added;
-    }
-
-    public bool HasScriptureBook(Book book)
-    {
-        if (book == null || book.isRekt()) return false;
-
-        BookExtend bookExtend = book.GetExtend();
-        if (book.getAsset() == BookTypes.Cultibook && bookExtend.HasComponent<Cultibook>())
-        {
-            return HasScriptureCultibook(bookExtend.GetComponent<Cultibook>().Asset);
-        }
-
-        if (book.getAsset() == BookTypes.Elixirbook && bookExtend.HasComponent<Elixirbook>())
-        {
-            return HasScriptureElixirRecipe(bookExtend.GetComponent<Elixirbook>().Asset);
-        }
-
-        if (book.getAsset() == BookTypes.Skillbook && bookExtend.HasComponent<Skillbook>())
-        {
-            return HasScriptureSkillbook(bookExtend.GetComponent<Skillbook>().SkillContainer);
-        }
-
-        return data.ScriptureBookIDs.Contains(book.id);
-    }
-
-    public bool HasScriptureCultibook(CultibookAsset cultibook)
-    {
-        if (cultibook == null) return false;
-
-        for (int i = 0; i < data.ScriptureBookIDs.Count; i++)
-        {
-            Book book = World.world.books.get(data.ScriptureBookIDs[i]);
-            if (book == null || book.isRekt() || book.getAsset() != BookTypes.Cultibook) continue;
-
-            BookExtend bookExtend = book.GetExtend();
-            if (!bookExtend.HasComponent<Cultibook>()) continue;
-            CultibookAsset existing = bookExtend.GetComponent<Cultibook>().Asset;
-            if (existing != null && existing.id == cultibook.id) return true;
-        }
-
-        return false;
-    }
-
-    public bool HasScriptureElixirRecipe(ElixirAsset elixir)
-    {
-        if (elixir == null) return false;
-
-        for (int i = 0; i < data.ScriptureBookIDs.Count; i++)
-        {
-            Book book = World.world.books.get(data.ScriptureBookIDs[i]);
-            if (book == null || book.isRekt() || book.getAsset() != BookTypes.Elixirbook) continue;
-
-            BookExtend bookExtend = book.GetExtend();
-            if (!bookExtend.HasComponent<Elixirbook>()) continue;
-            ElixirAsset existing = bookExtend.GetComponent<Elixirbook>().Asset;
-            if (existing != null && existing.id == elixir.id) return true;
-        }
-
-        return false;
-    }
-
-    public bool HasScriptureSkillbook(Entity skillContainer)
-    {
-        if (skillContainer.IsNull) return false;
-
-        for (int i = 0; i < data.ScriptureBookIDs.Count; i++)
-        {
-            Book book = World.world.books.get(data.ScriptureBookIDs[i]);
-            if (book == null || book.isRekt() || book.getAsset() != BookTypes.Skillbook) continue;
-
-            BookExtend bookExtend = book.GetExtend();
-            if (!bookExtend.HasComponent<Skillbook>()) continue;
-            if (SkillContainerUtils.IsSimilar(bookExtend.GetComponent<Skillbook>().SkillContainer, skillContainer)) return true;
-        }
-
-        return false;
-    }
-
-    public IReadOnlyList<long> GetScriptureBookIds()
-    {
-        return data.ScriptureBookIDs;
-    }
-
-    public List<Book> GetScriptureBooks(BookTypeAsset bookType)
-    {
-        List<Book> result = new();
-        for (int i = 0; i < data.ScriptureBookIDs.Count; i++)
-        {
-            Book book = World.world.books.get(data.ScriptureBookIDs[i]);
-            if (book == null || book.isRekt()) continue;
-            if (book.getAsset() == bookType)
-            {
-                result.Add(book);
-            }
-        }
-
-        result.Sort(CompareScriptureBooks);
-        return result;
-    }
-
     public void SetDoctrineCultibook(CultibookAsset cultibook)
     {
         if (cultibook == null) return;
@@ -401,22 +187,6 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
         if (cultibook == null) return null;
 
         return cultibook;
-    }
-
-    private void CreateDoctrineBook(Actor founder, CultibookAsset cultibook, float mastery)
-    {
-        if (founder == null || founder.isRekt() || founder.language == null) return;
-
-        Book book = World.world.books.NewBook(founder, BookTypes.Cultibook);
-        if (book == null) return;
-
-        BookExtend bookExtend = book.GetExtend();
-        bookExtend.AddComponent(new Cultibook(cultibook.id));
-        bookExtend.AddComponent(cultibook.Level);
-        bookExtend.Master(cultibook, Mathf.Max(1f, mastery));
-        book.data.name = cultibook.Name;
-        AddScriptureBook(book);
-        SectVerifyLog.Log("DoctrineBook", $"sect={SectVerifyLog.Sect(this)} founder={SectVerifyLog.Actor(founder)} book={SectVerifyLog.Book(book)} cultibook={cultibook.id} mastery={mastery:F1}");
     }
 
     public bool JoinSect(Actor actor)
@@ -489,7 +259,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
 
     private void DetachMember(Actor actor)
     {
-        SectTreasureRules.ReturnBorrowedTreasures(actor, this);
+        SectTreasureService.ReturnBorrowed(actor, this);
         SectJobService.Release(actor);
         actor.GetExtend().SetSect(null);
         actor.ClearSectRoles();
@@ -1102,46 +872,6 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
         return members[0];
     }
 
-    public void RefreshScriptureStats()
-    {
-        int cultibooks = 0;
-        int elixirRecipes = 0;
-        int skillbooks = 0;
-        for (int i = 0; i < data.ScriptureBookIDs.Count; i++)
-        {
-            Book book = World.world.books.get(data.ScriptureBookIDs[i]);
-            if (book == null || book.isRekt()) continue;
-
-            if (book.getAsset() == BookTypes.Cultibook)
-            {
-                cultibooks++;
-            }
-            else if (book.getAsset() == BookTypes.Elixirbook)
-            {
-                elixirRecipes++;
-            }
-            else if (book.getAsset() == BookTypes.Skillbook)
-            {
-                skillbooks++;
-            }
-        }
-
-        data.CultibookCount = cultibooks;
-        data.ElixirRecipeCount = elixirRecipes;
-        data.SkillbookCount = skillbooks;
-    }
-
-    private static int CompareScriptureBooks(Book left, Book right)
-    {
-        int typeCompare = string.Compare(left.data.book_type, right.data.book_type, System.StringComparison.Ordinal);
-        if (typeCompare != 0) return typeCompare;
-
-        int nameCompare = string.Compare(left.data.name, right.data.name, System.StringComparison.CurrentCulture);
-        if (nameCompare != 0) return nameCompare;
-
-        return left.id.CompareTo(right.id);
-    }
-
     public override void generateBanner()
     {
         data.BannerBackgroundIndex = ModClass.L.SectBannerLibrary.getNewIndexBackground();
@@ -1163,4 +893,4 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
         // TODO: 添加颜色库
         return AssetManager.families_colors_library;
     }
-}    
+}

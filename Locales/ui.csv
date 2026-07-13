@@ -4,7 +4,7 @@ Cultiway Description,阿巴阿巴
 AIGenerated,该内容由AI生成
 WakanLayer,灵气图层
 WakanLayer Description,阿巴阿巴
-DirtyWakanLayer,烟尘图层
+DirtyWakanLayer,浊气图层
 DirtyWakanLayer Description,阿巴阿巴
 SectLayer,宗门图层
 SectLayer Description,阿巴阿巴
@@ -412,8 +412,9 @@ Cultiway.Wanfa.UI.Sort.Revision,修订
 Cultiway.Wanfa.UI.Format.Revision,修订 {0}
 Cultiway.Wanfa.UI.Format.ModifierCount,{0} 个词条
 Cultiway.Wanfa.UI.Format.SelectedCount,已选 {0}
-Cultiway.Wanfa.UI.Format.ImportDetail,{0} · {1} 个词条
+Cultiway.Wanfa.UI.Format.ImportDetail,{0} · {1} · {2} 个词条
 Cultiway.Wanfa.UI.Format.BlueprintDetail,{0}{1} / {2}  词条 {3}  R{4}  {5}
+Cultiway.Wanfa.UI.Format.ItemLevelPrefix,{0} · {1}
 Cultiway.Wanfa.UI.Format.CategoryPrefix,{0} ·
 Cultiway.Wanfa.UI.Format.ImportSuccess,已收入 {0} 个法术
 Cultiway.Wanfa.UI.Format.ImportPartial,已收入 {0} 个法术 {1} 个无法导入
@@ -443,6 +444,7 @@ Cultiway.Wanfa.UI.Overview.CollisionRadius,碰撞半径
 Cultiway.Wanfa.UI.Overview.ExplosionRadius,爆炸作用半径
 Cultiway.Wanfa.UI.Overview.GravityRadius,牵引作用半径
 Cultiway.Wanfa.UI.Overview.CastResource,施法资源
+Cultiway.Wanfa.UI.Overview.ItemLevel,法术品阶
 Cultiway.Wanfa.UI.Overview.StepDemand,单步需求
 Cultiway.Wanfa.UI.Overview.Error,错误
 Cultiway.Wanfa.UI.Overview.Warning,警告

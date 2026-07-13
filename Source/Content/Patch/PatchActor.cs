@@ -78,6 +78,10 @@ internal static class PatchActor
                     {
                         pool.Add(ActorJobs.MagicWebResearcher.id);
                     }
+                    if (MagicSpellProgressionService.ShouldImprove(ae))
+                    {
+                        pool.Add(ActorJobs.MagicSpellResearcher.id);
+                    }
                     pool.Add(ActorJobs.MagicScrollCrafter.id);
                 }
             }
@@ -128,7 +132,7 @@ internal static class PatchActor
                     float sectAffairJobChance = sect == null ? SectConst.SectAffairJobChance : SectTraitRules.GetSectAffairJobChance(sect);
                     if (GeneralSettings.EnableCultibookSystems
                         && Randy.randomChance(sectStudyJobChance)
-                        && SectScriptureStudyRules.CanStudySectScripture(pActor))
+                        && SectScriptureStudyPlanner.CanPlan(pActor))
                     {
                         pool.Add(ActorJobs.SectStudy.id);
                     }
@@ -140,7 +144,7 @@ internal static class PatchActor
                     }
                     if (sect != null
                         && Randy.randomChance(SectConst.SectTreasureJobChance)
-                        && SectTreasureRules.CanDoAnyTreasureAction(pActor))
+                        && SectTreasurePlanner.CanPlanAny(pActor))
                     {
                         pool.Add(ActorJobs.SectTreasure.id);
                     }

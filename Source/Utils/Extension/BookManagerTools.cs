@@ -1,7 +1,3 @@
-using Cultiway.Content.Extensions;
-using Cultiway.Core;
-using Cultiway.Utils;
-
 namespace Cultiway.Utils.Extension;
 
 public static class BookManagerTools
@@ -43,23 +39,6 @@ public static class BookManagerTools
         actor.changeHappiness("wrote_book", 0);
         building.addBook(book);
         city.setStatusDirty();
-        return true;
-    }
-
-    public static bool TryStoreBookInSect(this BookManager manager, Sect sect, Book book, Actor contributor = null, int contribution = 0)
-    {
-        if (sect == null || sect.isRekt()) return false;
-        if (book == null || book.isRekt()) return false;
-        if (contributor != null && !contributor.CanStoreSectScripture(sect)) return false;
-        if (!sect.AddScriptureBook(book)) return false;
-
-        if (contributor != null && contribution > 0)
-        {
-            sect.AddContribution(contributor, contribution);
-        }
-
-        WorldLogUtils.LogSectScriptureContributed(sect, contributor, book);
-
         return true;
     }
 

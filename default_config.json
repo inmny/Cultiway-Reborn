@@ -69,6 +69,12 @@
             "Callback": "GeneralSettings:SwitchNaturalWakanRestore"
         },
         {
+            "Id": "ENABLE_NATURAL_MAGIC_RESTORE",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchNaturalMagicRestore"
+        },
+        {
             "Id": "TRAIN_STATION_TIMED_DISPATCH_EXPERIMENTAL",
             "Type": "SWITCH",
             "BoolVal": false,

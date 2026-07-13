@@ -53,7 +53,7 @@ internal class SectScriptureElement : WindowMetaElement<Sect, SectData>
         Sect sect = meta_object;
         if (sect == null || sect.isRekt()) yield break;
 
-        List<Book> books = sect.GetScriptureBooks(_selectedBookType);
+        List<Book> books = sect.Scriptures.GetBooks(_selectedBookType);
         bool hasBooks = books.Count > 0;
         _emptyMessage.SetActive(!hasBooks);
         _listRoot.gameObject.SetActive(hasBooks);

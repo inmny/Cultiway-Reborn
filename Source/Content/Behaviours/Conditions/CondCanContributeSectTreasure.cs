@@ -1,4 +1,4 @@
-using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 
 namespace Cultiway.Content.Behaviours.Conditions;
 
@@ -12,6 +12,6 @@ public class CondCanContributeSectTreasure : BehaviourActorCondition
     /// </summary>
     public override bool check(Actor pActor)
     {
-        return SectTreasureRules.TryPickContributionItem(pActor, out _);
+        return SectTreasurePlanner.TryPickContribution(pActor, out _);
     }
 }

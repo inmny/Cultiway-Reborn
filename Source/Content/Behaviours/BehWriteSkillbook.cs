@@ -1,6 +1,7 @@
 using ai.behaviours;
 using Cultiway.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 
 namespace Cultiway.Content.Behaviours;
 
@@ -8,7 +9,7 @@ public class BehWriteSkillbook : BehCityActor
 {
     public override BehResult execute(Actor pObject)
     {
-        if (!pObject.TryPickSkillbookTarget(out var target, out var skill_to_share))
+        if (!SectScriptureContributionPlanner.TryPickSkillbookTarget(pObject, out var target, out var skill_to_share))
         {
             return BehResult.Continue;
         }

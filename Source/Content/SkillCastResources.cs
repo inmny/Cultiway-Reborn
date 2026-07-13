@@ -1,6 +1,7 @@
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -21,9 +22,11 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
     protected override void OnInit()
     {
         Wakan.Configure(HasWakan, ReadWakan, WriteWakan, QuoteWakan)
-            .ConfigureEditor("Cultiway.SkillCastResource.Wakan.Description", "cultiway/icons/iconWakan", 0);
+            .ConfigureEditor("Cultiway.SkillCastResource.Wakan.Description", "cultiway/icons/iconWakan", 0)
+            .ConfigureItemLevelDisplay(FormatWakanItemLevel);
         Mana.Configure(HasMana, ReadMana, WriteMana, QuoteMana)
-            .ConfigureEditor("Cultiway.SkillCastResource.Mana.Description", "ui/icons/iconMana", 10);
+            .ConfigureEditor("Cultiway.SkillCastResource.Mana.Description", "ui/icons/iconMana", 10)
+            .ConfigureItemLevelDisplay(FormatManaItemLevel);
     }
 
     private static bool HasWakan(ActorExtend caster)
@@ -64,5 +67,18 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
     private static float QuoteMana(ActorExtend caster, Entity skill, float demand)
     {
         return Mathf.Ceil(Mathf.Max(0f, demand));
+    }
+
+    private static string FormatWakanItemLevel(ItemLevel itemLevel)
+    {
+        return itemLevel.GetName();
+    }
+
+    private static string FormatManaItemLevel(ItemLevel itemLevel)
+    {
+        var value = (int)itemLevel;
+        var ringName = $"Cultiway.ERStyle.Magic.Stage.{value / 3}".Localize();
+        var rankName = $"Cultiway.ERStyle.Magic.Level.{value % 3}".Localize();
+        return string.Format("Cultiway.SkillCastResource.Mana.ItemLevel".Localize(), ringName, rankName);
     }
 }

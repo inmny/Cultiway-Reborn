@@ -1,5 +1,6 @@
 using ai.behaviours;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Sects;
 
 namespace Cultiway.Content.Behaviours;
 
@@ -7,7 +8,7 @@ public class BehWriteElixirRecipe : BehCityActor
 {
     public override BehResult execute(Actor pObject)
     {
-        if (!pObject.TryPickElixirRecipeTarget(out var target, out var elixir, out float mastery))
+        if (!SectScriptureContributionPlanner.TryPickElixirRecipeTarget(pObject, out var target, out var elixir, out float mastery))
         {
             return BehResult.Continue;
         }

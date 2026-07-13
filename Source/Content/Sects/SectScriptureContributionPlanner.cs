@@ -1,5 +1,4 @@
 using System.Linq;
-using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
@@ -8,55 +7,13 @@ using Cultiway.Debug;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 
-namespace Cultiway.Content.Extensions;
+namespace Cultiway.Content.Sects;
 
-public readonly struct ScriptureBookTarget
-{
-    private readonly City _city;
-    private readonly Sect _sect;
-
-    private ScriptureBookTarget(City city, Sect sect)
-    {
-        _city = city;
-        _sect = sect;
-    }
-
-    public static ScriptureBookTarget ForCity(City city)
-    {
-        return new ScriptureBookTarget(city, null);
-    }
-
-    public static ScriptureBookTarget ForSect(Sect sect)
-    {
-        return new ScriptureBookTarget(null, sect);
-    }
-
-    public bool StoreBook(Actor contributor, Book book)
-    {
-        if (_sect != null)
-        {
-            int contribution = SectTraitRules.GetWriteScriptureContributionReward(_sect);
-            bool result = World.world.books.TryStoreBookInSect(_sect, book, contributor, contribution);
-            SectVerifyLog.Log("StoreScriptureBook", $"target=sect sect={SectVerifyLog.Sect(_sect)} contributor={SectVerifyLog.Actor(contributor)} book={SectVerifyLog.Book(book)} result={result}");
-            return result;
-        }
-
-        if (_city != null)
-        {
-            bool result = World.world.books.TryStoreBookInCity(_city, contributor, book);
-            SectVerifyLog.Log("StoreScriptureBook", $"target=city city={_city.name}#{_city.data.id} contributor={SectVerifyLog.Actor(contributor)} book={SectVerifyLog.Book(book)} result={result}");
-            return result;
-        }
-
-        return false;
-    }
-}
-
-public static class ScriptureBookStorageTools
+public static class SectScriptureContributionPlanner
 {
     public static bool TryPickCultibookTarget(
-        this Actor actor,
-        out ScriptureBookTarget target,
+        Actor actor,
+        out ScriptureBookDestination target,
         out CultibookAsset cultibook,
         out float mastery)
     {
@@ -68,15 +25,15 @@ public static class ScriptureBookStorageTools
 
         var candidates = actor.GetExtend().GetAllMaster<CultibookAsset>().ToList();
         Sect sect = actor.GetExtend().sect;
-        if (actor.CanContributeSectScripture(sect))
+        if (SectScripturePolicy.CanContribute(actor, sect))
         {
             var sectCandidates = candidates
-                .Where(item => sect.CanAcceptCultibook(item.Item1))
+                .Where(item => SectScripturePolicy.CanAccept(sect, item.Item1))
                 .ToList();
             if (sectCandidates.Count > 0)
             {
                 var sectCandidate = sectCandidates.GetRandom();
-                target = ScriptureBookTarget.ForSect(sect);
+                target = ScriptureBookDestination.ForSect(sect);
                 cultibook = sectCandidate.Item1;
                 mastery = sectCandidate.Item2;
                 SectVerifyLog.Log("PickScriptureTarget", $"type=cultibook target=sect sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} cultibook={cultibook.id} mastery={mastery:F1}");
@@ -92,7 +49,7 @@ public static class ScriptureBookStorageTools
         if (cityCandidates.Count == 0) return false;
         var candidate = cityCandidates.GetRandom();
 
-        target = ScriptureBookTarget.ForCity(city);
+        target = ScriptureBookDestination.ForCity(city);
         cultibook = candidate.Item1;
         mastery = candidate.Item2;
         SectVerifyLog.Log("PickScriptureTarget", $"type=cultibook target=city city={city.name}#{city.data.id} actor={SectVerifyLog.Actor(actor)} cultibook={cultibook.id} mastery={mastery:F1}");
@@ -101,7 +58,7 @@ public static class ScriptureBookStorageTools
 
     public static bool TryPickElixirRecipeTarget(
         this Actor actor,
-        out ScriptureBookTarget target,
+        out ScriptureBookDestination target,
         out ElixirAsset elixir,
         out float mastery)
     {
@@ -113,15 +70,15 @@ public static class ScriptureBookStorageTools
 
         var candidates = actor.GetExtend().GetAllMaster<ElixirAsset>().ToList();
         Sect sect = actor.GetExtend().sect;
-        if (actor.CanContributeSectScripture(sect))
+        if (SectScripturePolicy.CanContribute(actor, sect))
         {
             var sectCandidates = candidates
-                .Where(item => sect.CanAcceptElixirRecipe(item.Item1))
+                .Where(item => SectScripturePolicy.CanAccept(sect, item.Item1))
                 .ToList();
             if (sectCandidates.Count > 0)
             {
                 var sectCandidate = sectCandidates.GetRandom();
-                target = ScriptureBookTarget.ForSect(sect);
+                target = ScriptureBookDestination.ForSect(sect);
                 elixir = sectCandidate.Item1;
                 mastery = sectCandidate.Item2;
                 SectVerifyLog.Log("PickScriptureTarget", $"type=elixir target=sect sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} elixir={elixir.id} mastery={mastery:F1}");
@@ -136,14 +93,14 @@ public static class ScriptureBookStorageTools
         if (cityCandidates.Count == 0) return false;
 
         var cityCandidate = cityCandidates.GetRandom();
-        target = ScriptureBookTarget.ForCity(city);
+        target = ScriptureBookDestination.ForCity(city);
         elixir = cityCandidate.Item1;
         mastery = cityCandidate.Item2;
         SectVerifyLog.Log("PickScriptureTarget", $"type=elixir target=city city={city.name}#{city.data.id} actor={SectVerifyLog.Actor(actor)} elixir={elixir.id} mastery={mastery:F1}");
         return true;
     }
 
-    public static bool TryPickSkillbookTarget(this Actor actor, out ScriptureBookTarget target, out Entity skillContainer)
+    public static bool TryPickSkillbookTarget(Actor actor, out ScriptureBookDestination target, out Entity skillContainer)
     {
         target = default;
         skillContainer = default;
@@ -152,15 +109,15 @@ public static class ScriptureBookStorageTools
 
         var candidates = actor.GetExtend().all_skills.ToList();
         Sect sect = actor.GetExtend().sect;
-        if (actor.CanContributeSectScripture(sect))
+        if (SectScripturePolicy.CanContribute(actor, sect))
         {
             var sectCandidates = candidates
-                .Where(skill => sect.CanAcceptSkillbook(skill))
+                .Where(skill => SectScripturePolicy.CanAccept(sect, skill))
                 .ToList();
             if (sectCandidates.Count > 0)
             {
                 Entity sectCandidate = sectCandidates.GetRandom();
-                target = ScriptureBookTarget.ForSect(sect);
+                target = ScriptureBookDestination.ForSect(sect);
                 skillContainer = sectCandidate;
                 SectVerifyLog.Log("PickScriptureTarget", $"type=skill target=sect sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(actor)} skill={skillContainer.Id}");
                 return true;
@@ -174,7 +131,7 @@ public static class ScriptureBookStorageTools
         if (cityCandidates.Count == 0) return false;
 
         Entity cityCandidate = cityCandidates.GetRandom();
-        target = ScriptureBookTarget.ForCity(city);
+        target = ScriptureBookDestination.ForCity(city);
         skillContainer = cityCandidate;
         SectVerifyLog.Log("PickScriptureTarget", $"type=skill target=city city={city.name}#{city.data.id} actor={SectVerifyLog.Actor(actor)} skill={skillContainer.Id}");
         return true;
@@ -205,30 +162,6 @@ public static class ScriptureBookStorageTools
                && !skillContainer.IsNull
                && city.hasBookSlots()
                && !city.HasSkillbook(skillContainer);
-    }
-
-    public static bool CanAcceptCultibook(this Sect sect, CultibookAsset cultibook)
-    {
-        return sect != null
-               && !sect.isRekt()
-               && cultibook != null
-               && !sect.HasScriptureCultibook(cultibook);
-    }
-
-    public static bool CanAcceptElixirRecipe(this Sect sect, ElixirAsset elixir)
-    {
-        return sect != null
-               && !sect.isRekt()
-               && elixir != null
-               && !sect.HasScriptureElixirRecipe(elixir);
-    }
-
-    public static bool CanAcceptSkillbook(this Sect sect, Entity skillContainer)
-    {
-        return sect != null
-               && !sect.isRekt()
-               && !skillContainer.IsNull
-               && !sect.HasScriptureSkillbook(skillContainer);
     }
 
     private static bool CanWriteBook(Actor actor)
