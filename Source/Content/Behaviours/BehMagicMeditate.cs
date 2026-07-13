@@ -2,6 +2,7 @@ using ai.behaviours;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
+using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
 using UnityEngine;
@@ -10,7 +11,7 @@ namespace Cultiway.Content.Behaviours;
 
 /// <summary>
 ///     魔法冥想行为：按月闭关修炼，参考仙道闭关范式。
-///     每次冥想随机闭关 (等级+1)×(1~3) 个月，期间按 SpiritRegen（回神/月）持续积累精神力；
+///     每次冥想随机闭关 (等级+1)×(1~3) 个月，期间按精神力上限和先天神识资质持续积累精神力；
 ///     精神力满后突破境界。不从地图抽取灵气，原地冥想即可。
 /// </summary>
 public class BehMagicMeditate : BehCityActor
@@ -23,6 +24,7 @@ public class BehMagicMeditate : BehCityActor
         var ae = pObject.GetExtend();
         ref var magic = ref ae.GetCultisys<Magic>();
         var max_spirit = pObject.stats[BaseStatses.MaxSpirit.id];
+        var talent_multiplier = Mathf.Exp(ae.GetComponent<ValuableTalent>().DivineSense);
 
         pObject.data.get(ContentActorDataKeys.MagicMeditateTime_float, out var time, -TimeScales.SecPerMonth);
 
@@ -38,11 +40,12 @@ public class BehMagicMeditate : BehCityActor
         {
             time -= TickInterval;
 
-            // 闭关期间按月持续积累精神力
+            // 主动冥想按精神力容量计算基础收益，先天神识只作为天赋乘子。
             if (magic.spirit < max_spirit)
             {
+                var monthly_gain = max_spirit * MagicSetting.MeditateSpiritGainRatioPerMonth * talent_multiplier;
                 var gain = Mathf.Min(
-                    Cultisyses.GetSpiritRegen(magic.CurrLevel) / TimeScales.SecPerMonth * TickInterval,
+                    monthly_gain / TimeScales.SecPerMonth * TickInterval,
                     max_spirit - magic.spirit);
                 magic.spirit += gain;
             }

@@ -18,13 +18,8 @@ public partial class Cultisyses
 {
     public static CultisysAsset<Magic> Magic { get; private set; }
 
-    /// <summary>每级 SpiritRegen（回神/月），由 Magic.csv 加载</summary>
-    private static readonly float[] _spiritRegenByLevel = new float[MagicSetting.LevelNumber];
     private static readonly int[] _maxSpellRingByLevel = new int[MagicSetting.LevelNumber];
     private static readonly int[] _knownSpellCapacityByLevel = new int[MagicSetting.LevelNumber];
-
-    /// <summary>取指定等级的每月精神力恢复值</summary>
-    public static float GetSpiritRegen(int level) => _spiritRegenByLevel[level];
 
     /// <summary>取得指定魔法等级能够理解的最高法术环级。</summary>
     public static int GetMaxSpellRing(int level) => _maxSpellRingByLevel[level];
@@ -98,16 +93,12 @@ public partial class Cultisyses
         _ = csv[1];
 
         // 定位不属于 BaseStats 的魔法体系规则列。
-        int spiritRegenCol = -1;
         int maxSpellRingCol = -1;
         int knownSpellCapacityCol = -1;
         for (int j = 0; j < keys.Length; j++)
         {
             switch (keys[j])
             {
-                case "SpiritRegen":
-                    spiritRegenCol = j;
-                    break;
                 case "MaxSpellRing":
                     maxSpellRingCol = j;
                     break;
@@ -127,10 +118,6 @@ public partial class Cultisyses
                 var key = keys[j];
                 if (!AssetManager.base_stats_library.Contains(key)) continue;
                 stats[key] = float.Parse(line[j]);
-            }
-            if (spiritRegenCol >= 0)
-            {
-                _spiritRegenByLevel[i] = float.Parse(line[spiritRegenCol]);
             }
             if (maxSpellRingCol >= 0)
             {

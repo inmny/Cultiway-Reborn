@@ -12,6 +12,9 @@ public class BaseStatses : ExtendLibrary<BaseStatAsset, BaseStatses>
     [AssetId(nameof(MaxWakan))]public static BaseStatAsset MaxWakan { get; private set; }
     [AssetId(nameof(WakanRegen))] public static BaseStatAsset WakanRegen { get; private set; }
     [AssetId(nameof(MaxSpirit))] public static BaseStatAsset MaxSpirit { get; private set; }
+    /// <summary>单位每月自然恢复的 mana。</summary>
+    [AssetId(nameof(ManaRegen))] public static BaseStatAsset ManaRegen { get; private set; }
+    /// <summary>单位每月自然恢复的精神力。</summary>
     [AssetId(nameof(SpiritRegen))] public static BaseStatAsset SpiritRegen { get; private set; }
     private static StringBuilder all_stats_ids = new();
     internal static string AllStatsIds => all_stats_ids.ToString();

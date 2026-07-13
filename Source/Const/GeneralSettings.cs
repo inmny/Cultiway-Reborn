@@ -50,6 +50,10 @@ public static class GeneralSettings
     /// 自然灵气吸收。
     /// </summary>
     public static bool EnableNaturalWakanRestore { get; private set; } = true;
+    /// <summary>
+    /// 魔法师自然恢复 mana 和精神力。
+    /// </summary>
+    public static bool EnableNaturalMagicRestore { get; private set; } = true;
     public static void SetElementRootSpawnNaturally(float value)
     {
         SpawnNaturally = value;
@@ -106,6 +110,11 @@ public static class GeneralSettings
     public static void SwitchNaturalWakanRestore(bool value)
     {
         EnableNaturalWakanRestore = value;
+    }
+
+    public static void SwitchNaturalMagicRestore(bool value)
+    {
+        EnableNaturalMagicRestore = value;
     }
 
     public static void SwitchTrainExperimentalTimedDispatch(bool value)

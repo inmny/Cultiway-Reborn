@@ -14,6 +14,12 @@ public static class MagicSetting
     /// <summary>单轮冥想闭关月数的随机倍率上限</summary>
     public const float MeditateSessionMaxMonths    = 3f;
 
+    /// <summary>冥想每月获得的精神力占当前精神力上限的基础比例。</summary>
+    public const float MeditateSpiritGainRatioPerMonth = 0.01f;
+
+    /// <summary>自然恢复最多能够把精神力恢复到上限的比例，避免被动恢复直接完成突破积累。</summary>
+    public const float SpiritRestoreLimit          = 0.6f;
+
     /// <summary>mana 护盾：每豁免 1 点伤害消耗的 mana（默认0.1，即豁免10伤害耗1 mana）</summary>
     public const float ManaShieldCostRatio         = 0.1f;
 

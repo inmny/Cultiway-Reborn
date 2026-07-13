@@ -54,6 +54,7 @@ internal class Manager
         new Patch.Manager().Init();
         ModClass.I.GeneralLogicSystems.Add(new FlyCancelSystem());
         ModClass.I.LogicRestoreStatusSystemGroup.Add(new RestoreWakanSystem());
+        ModClass.I.LogicRestoreStatusSystemGroup.Add(new RestoreMagicResourceSystem());
         ModClass.I.GeneralLogicSystems.Add(new WakanSpreadSystem());
         ModClass.I.GeneralLogicSystems.Add(new TrainTrackRepairSystem());
         ModClass.I.GeneralLogicSystems.Add(new TrainTransportSystem());
