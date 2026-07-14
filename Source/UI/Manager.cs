@@ -4,7 +4,6 @@ using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Logging;
-using Cultiway.Core.Progression;
 using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core.WorldTools;
 using Cultiway.UI.Components;

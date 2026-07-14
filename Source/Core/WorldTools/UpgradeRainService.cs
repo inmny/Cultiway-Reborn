@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Cultiway.Core.ActorFiltering;
+using Cultiway.Core.Progression;
 using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api;
 using UnityEngine;
 
-namespace Cultiway.Core.Progression;
+namespace Cultiway.Core.WorldTools;
 
 /// <summary>升级雨支持的五种互斥进阶方式。</summary>
 public enum UpgradeRainMode
@@ -101,10 +102,9 @@ public static class UpgradeRainService
 {
     private sealed class Payload
     {
-        public long TargetActorId;
         public UpgradeRainMode Mode;
         public int Amount;
-        public string[] CultisysIds;
+        public ActorFilterToken[] CompiledExpression;
         public int SessionGeneration;
         public float ExpiresAt;
     }
@@ -149,7 +149,7 @@ public static class UpgradeRainService
         return true;
     }
 
-    /// <summary>为命中且通过过滤的角色生成一枚携带配置快照的升级雨滴。</summary>
+    /// <summary>格子中至少有一个修炼体系通过过滤时，生成一枚携带配置快照的升级雨滴。</summary>
     public static bool TrySpawn(WorldTile tile, string powerId)
     {
         if (!Settings.TrySnapshot(out var configuration))
@@ -157,19 +157,22 @@ public static class UpgradeRainService
             WorldTip.showNow("Cultiway.UpgradeRain.UI.Tip.InvalidExpression".Localize(), false, "top", 3f);
             return false;
         }
-        var actor = ActionLibrary.getActorFromTile(tile);
-        if (actor == null || !actor.isAlive()) return false;
-
-        var cultisysIds = ResolveCultisysIds(actor.GetExtend(), configuration.CompiledExpression);
-        if (cultisysIds.Length == 0) return false;
+        var actors = WorldToolDropTargets.SnapshotAliveActors(tile);
+        var hasTarget = false;
+        for (var i = 0; i < actors.Count; i++)
+        {
+            if (ResolveCultisysIds(actors[i].GetExtend(), configuration.CompiledExpression).Length == 0) continue;
+            hasTarget = true;
+            break;
+        }
+        if (!hasTarget) return false;
 
         var token = Interlocked.Increment(ref _nextToken);
         Payloads[token] = new Payload
         {
-            TargetActorId = actor.data.id,
             Mode = configuration.Mode,
             Amount = configuration.Amount,
-            CultisysIds = cultisysIds,
+            CompiledExpression = configuration.CompiledExpression,
             SessionGeneration = _sessionGeneration,
             ExpiresAt = Time.realtimeSinceStartup + PayloadLifetime
         };
@@ -178,7 +181,7 @@ public static class UpgradeRainService
         return true;
     }
 
-    /// <summary>雨滴落地后取得原目标角色，并按冻结配置处理其全部目标修炼体系。</summary>
+    /// <summary>雨滴落地后按冻结配置处理该格子中所有角色的目标修炼体系。</summary>
     public static void OnDropLanded(Drop drop, WorldTile tile, string dropId)
     {
         var token = drop.getCasterId();
@@ -186,9 +189,16 @@ public static class UpgradeRainService
         Payloads.Remove(token);
         if (payload.SessionGeneration != _sessionGeneration || payload.ExpiresAt < Time.realtimeSinceStartup) return;
 
-        var actor = World.world.units.get(payload.TargetActorId);
-        if (actor == null || !actor.isAlive()) return;
-        Apply(actor.GetExtend(), payload);
+        var actors = WorldToolDropTargets.SnapshotAliveActors(tile);
+        for (var i = 0; i < actors.Count; i++)
+        {
+            var actor = actors[i];
+            if (!actor.isAlive()) continue;
+            var actorExtend = actor.GetExtend();
+            var cultisysIds = ResolveCultisysIds(actorExtend, payload.CompiledExpression);
+            if (cultisysIds.Length == 0) continue;
+            Apply(actorExtend, payload, cultisysIds);
+        }
     }
 
     private static string[] ResolveCultisysIds(ActorExtend actor, ActorFilterToken[] compiledExpression)
@@ -206,19 +216,19 @@ public static class UpgradeRainService
         return result.ToArray();
     }
 
-    private static void Apply(ActorExtend actor, Payload payload)
+    private static void Apply(ActorExtend actor, Payload payload, string[] cultisysIds)
     {
         if (payload.Mode is UpgradeRainMode.CappedMinor or UpgradeRainMode.CappedMajor)
         {
-            ApplySingleCappedProgress(actor, payload, payload.Mode == UpgradeRainMode.CappedMinor
+            ApplySingleCappedProgress(actor, payload, cultisysIds, payload.Mode == UpgradeRainMode.CappedMinor
                 ? ProgressionKind.Minor
                 : ProgressionKind.Major);
             return;
         }
 
-        for (var i = 0; i < payload.CultisysIds.Length; i++)
+        for (var i = 0; i < cultisysIds.Length; i++)
         {
-            var cultisys = ProgressionService.GetRegistered(payload.CultisysIds[i]);
+            var cultisys = ProgressionService.GetRegistered(cultisysIds[i]);
             if (cultisys == null || !cultisys.IsOwnedBy(actor)) continue;
 
             switch (payload.Mode)
@@ -237,23 +247,25 @@ public static class UpgradeRainService
     }
 
     /// <summary>让一滴封顶模式的升级雨至多提交一次进展，并累计本次启用期间的成功次数。</summary>
-    private static void ApplySingleCappedProgress(ActorExtend actor, Payload payload, ProgressionKind kind)
+    private static void ApplySingleCappedProgress(ActorExtend actor, Payload payload, string[] cultisysIds,
+        ProgressionKind kind)
     {
         var progressByActor = kind == ProgressionKind.Minor
             ? CappedMinorProgressByActor
             : CappedMajorProgressByActor;
-        progressByActor.TryGetValue(payload.TargetActorId, out var progress);
+        var actorId = actor.Base.data.id;
+        progressByActor.TryGetValue(actorId, out var progress);
         if (progress >= payload.Amount) return;
 
-        for (var i = 0; i < payload.CultisysIds.Length; i++)
+        for (var i = 0; i < cultisysIds.Length; i++)
         {
-            var cultisys = ProgressionService.GetRegistered(payload.CultisysIds[i]);
+            var cultisys = ProgressionService.GetRegistered(cultisysIds[i]);
             if (cultisys == null || !cultisys.IsOwnedBy(actor)) continue;
             var result = kind == ProgressionKind.Minor
                 ? cultisys.GrantNextMinor(actor)
                 : cultisys.GrantNextRealm(actor);
             if (!result.Changed) continue;
-            progressByActor[payload.TargetActorId] = progress + 1;
+            progressByActor[actorId] = progress + 1;
             return;
         }
     }
