@@ -24,6 +24,8 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
     public static GodPower Plant { get; private set; }
     [CloneSource(PowerLibrary.TEMPLATE_SPAWN_ACTOR)]
     public static GodPower EasternHuman { get; private set; }
+    [CloneSource(PowerLibrary.TEMPLATE_SPAWN_ACTOR)]
+    public static GodPower Gui { get; private set; }
     [CloneSource(PowerLibrary.TEMPLATE_TERRAFORM_TILES)]
     public static GodPower ExtendGeoRegion { get; private set; }
     [CloneSource(PowerLibrary.TEMPLATE_TERRAFORM_TILES)]
@@ -39,6 +41,8 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         Plant.actor_asset_id = Actors.Plant.id;
         EasternHuman.name = Actors.EasternHuman.getLocaleID();
         EasternHuman.actor_asset_id = Actors.EasternHuman.id;
+        Gui.name = Actors.Gui.getLocaleID();
+        Gui.actor_asset_id = Actors.Gui.id;
         ExtendGeoRegion.name = "Extend Geo Region";
         RemoveGeoRegion.name = "Remove Geo Region";
         EasternHumanWall.name = "eastern_human_wall";

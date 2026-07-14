@@ -29,6 +29,7 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         SetupPlant();
         SetupTrain();
         SetupEasternHuman();
+        SetupGui();
         SetupMing();
         SetupConstraintSpirit();
         SetupFantasyCreatures();

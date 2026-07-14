@@ -76,6 +76,12 @@ public class Manager : ICanInit
         );
         Cultiway.UI.Manager.AddButton(TabButtonType.RACE,
             PowerButtonCreator.CreateGodPowerButton(
+                GodPowers.Gui.id,
+                SpriteTextureLoader.getSprite("cultiway/icons/races/iconGui")
+            )
+        );
+        Cultiway.UI.Manager.AddButton(TabButtonType.RACE,
+            PowerButtonCreator.CreateGodPowerButton(
                 GodPowers.EasternHumanSkin.id,
                 SpriteTextureLoader.getSprite("cultiway/icons/traits/iconCultureSkin")
             )

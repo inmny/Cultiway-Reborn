@@ -67,6 +67,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     {
         SetupFantasyBuildings();
         SetupEasternHumanBuildings();
+        SetupGuiBuildings();
         //SetupMingRaceBuildings();
         SetupBiomeTrees();
         SetupBiomePlants();
@@ -300,6 +301,36 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         AssetManager.buildings.get($"windmill_{Races.Ming.id}_1").fundament = new BuildingFundament(2,  2, 2,  0);
         AssetManager.buildings.get($"watch_tower_{Races.Ming.id}").fundament = new BuildingFundament(2, 2, 3,  0);
         */
+    }
+
+    private void SetupGuiBuildings()
+    {
+        void CloneHuman(string building_id)
+        {
+            var asset = Clone(building_id.Replace(SA.human, Actors.Gui.id), building_id);
+            asset.main_path = $"buildings/civ_main/{Actors.Gui.id}/";
+            asset.group = Actors.Gui.id;
+            asset.kingdom = KingdomAssets.NoMadsGui.id;
+            asset.civ_kingdom = KingdomAssets.Gui.id;
+            asset.upgrade_to = asset.upgrade_to.Replace(SA.human, Actors.Gui.id);
+            asset.upgraded_from = asset.upgraded_from.Replace(SA.human, Actors.Gui.id);
+            if (asset.docks)
+            {
+                PortalLibrary.Dock.Buildings.Add(asset);
+            }
+        }
+
+        void CloneList(params string[] building_ids)
+        {
+            foreach (var building_id in building_ids)
+                CloneHuman(building_id);
+        }
+        CloneList(
+            SB.watch_tower_human, SB.fishing_docks_human, SB.docks_human, SB.barracks_human, SB.temple_human,
+            SB.windmill_human_0, SB.windmill_human_1,
+            SB.tent_human, SB.house_human_0, SB.house_human_1, SB.house_human_2, SB.house_human_3, SB.house_human_4, SB.house_human_5,
+            SB.hall_human_0, SB.hall_human_1, SB.hall_human_2
+        );
     }
 /*
     private void SetupMingRaceBuildings()
