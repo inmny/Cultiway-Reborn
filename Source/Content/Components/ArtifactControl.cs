@@ -76,9 +76,9 @@ public struct ArtifactControlProfile : IComponent
 }
 
 /// <summary>
-/// 法器在不同场景中的用途权重。实际效果可以覆盖器形提供的默认倾向。
+/// 法器能力向自动调度器提供的用途权重。该值由能力资产即时汇总，不作为实体组件保存。
 /// </summary>
-public struct ArtifactUseProfile : IComponent
+public struct ArtifactUseProfile
 {
     /// <summary>
     /// 进攻用途权重。

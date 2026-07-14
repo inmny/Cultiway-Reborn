@@ -1,0 +1,181 @@
+using System;
+using Cultiway.Abstract;
+using Cultiway.Content.Components;
+using Cultiway.Content.Libraries;
+using UnityEngine;
+
+namespace Cultiway.Content;
+
+/// <summary>
+/// 基础器形的世界表现方案。方案只负责姿态与运动，不参与能力结算。
+/// </summary>
+public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, ArtifactPresentations>
+{
+    private const int OrbitRingCapacity = 6;
+
+    public static ArtifactPresentationAsset Sword { get; private set; }
+    public static ArtifactPresentationAsset Seal { get; private set; }
+    public static ArtifactPresentationAsset Robe { get; private set; }
+    public static ArtifactPresentationAsset Mirror { get; private set; }
+    public static ArtifactPresentationAsset Ding { get; private set; }
+
+    protected override bool AutoRegisterAssets() => true;
+    protected override string Prefix() => "Cultiway.ArtifactPresentation";
+
+    protected override void OnInit()
+    {
+        Set(Sword, 0.11f, ResolveSword);
+        Set(Seal, 0.18f, ResolveSeal);
+        Set(Robe, 0.24f, ResolveRobe);
+        Set(Mirror, 0.14f, ResolveMirror);
+        Set(Ding, 0.22f, ResolveDing);
+    }
+
+    private static void Set(
+        ArtifactPresentationAsset presentation,
+        float bodyRadius,
+        Func<ArtifactPresentationContext, ArtifactPresentationPose> resolvePose)
+    {
+        presentation.body_radius = bodyRadius;
+        presentation.ResolvePose = resolvePose;
+    }
+
+    private static ArtifactPresentationPose ResolveSword(ArtifactPresentationContext context)
+    {
+        float stateScale = StateScale(context.control_state);
+        if (IsOperating(context.control_state))
+        {
+            ResolveOrbit(context, 0.5f, 0.68f, 1.05f, out Vector3 position, out float angle);
+            return new ArtifactPresentationPose
+            {
+                position = position,
+                rotation = angle * Mathf.Rad2Deg - 45f,
+                world_size = context.actor_scale * 0.92f * stateScale,
+                sorting_order = 9,
+            };
+        }
+
+        float spread = CenteredIndex(context.index, context.count);
+        float side = context.actor.flip ? -1f : 1f;
+        return new ArtifactPresentationPose
+        {
+            position = context.actor.cur_transform_position + new Vector3(
+                side * (0.36f + Mathf.Abs(spread) * 0.08f) * context.actor_scale,
+                (0.57f + spread * 0.06f) * context.actor_scale,
+                0f),
+            rotation = side * -8f + spread * 7f,
+            world_size = context.actor_scale * 0.82f * stateScale,
+            flip_x = context.actor.flip,
+            sorting_order = 7,
+        };
+    }
+
+    private static ArtifactPresentationPose ResolveSeal(ArtifactPresentationContext context)
+    {
+        float spread = CenteredIndex(context.index, context.count);
+        float activity = IsOperating(context.control_state) ? 1f : 0.35f;
+        float phase = context.time * (1.2f + activity * 0.5f) + context.index * 0.73f;
+        return new ArtifactPresentationPose
+        {
+            position = context.actor.cur_transform_position + new Vector3(
+                spread * 0.22f * context.actor_scale,
+                (0.82f + Mathf.Sin(phase) * 0.045f * activity) * context.actor_scale,
+                0f),
+            rotation = Mathf.Sin(phase * 0.65f) * 2.5f * activity,
+            world_size = context.actor_scale * 0.86f * StateScale(context.control_state),
+            sorting_order = 10,
+        };
+    }
+
+    private static ArtifactPresentationPose ResolveRobe(ArtifactPresentationContext context)
+    {
+        float spread = CenteredIndex(context.index, context.count);
+        return new ArtifactPresentationPose
+        {
+            position = context.actor.cur_transform_position + new Vector3(
+                spread * 0.08f * context.actor_scale,
+                0.34f * context.actor_scale,
+                0f),
+            world_size = context.actor_scale * 1.18f * StateScale(context.control_state),
+            flip_x = context.actor.flip,
+            sorting_order = 3,
+        };
+    }
+
+    private static ArtifactPresentationPose ResolveMirror(ArtifactPresentationContext context)
+    {
+        float phase = context.time * 0.9f + context.index * 1.17f;
+        float side = context.index % 2 == 0 ? 1f : -1f;
+        float activity = IsOperating(context.control_state) ? 1f : 0.4f;
+        return new ArtifactPresentationPose
+        {
+            position = context.actor.cur_transform_position + new Vector3(
+                (side * 0.43f + Mathf.Cos(phase) * 0.05f * activity) * context.actor_scale,
+                (0.62f + Mathf.Sin(phase) * 0.09f * activity) * context.actor_scale,
+                0f),
+            rotation = Mathf.Sin(phase * 0.72f) * 6f,
+            world_size = context.actor_scale * 0.72f * StateScale(context.control_state),
+            sorting_order = 8,
+        };
+    }
+
+    private static ArtifactPresentationPose ResolveDing(ArtifactPresentationContext context)
+    {
+        float spread = CenteredIndex(context.index, context.count);
+        float activity = IsOperating(context.control_state) ? 1f : 0.25f;
+        float phase = context.time * 1.35f + context.index * 0.61f;
+        return new ArtifactPresentationPose
+        {
+            position = context.actor.cur_transform_position + new Vector3(
+                spread * 0.2f * context.actor_scale,
+                (0.38f + activity * 0.18f + Mathf.Sin(phase) * 0.035f * activity) * context.actor_scale,
+                0f),
+            rotation = Mathf.Sin(phase * 0.42f) * activity * 1.5f,
+            world_size = context.actor_scale * 0.94f * StateScale(context.control_state),
+            sorting_order = 6,
+        };
+    }
+
+    private static void ResolveOrbit(
+        ArtifactPresentationContext context,
+        float radius,
+        float height,
+        float speed,
+        out Vector3 position,
+        out float angle)
+    {
+        int ring = context.index / OrbitRingCapacity;
+        int indexInRing = context.index % OrbitRingCapacity;
+        int ringCount = Math.Min(OrbitRingCapacity, context.count - ring * OrbitRingCapacity);
+        float direction = ring % 2 == 0 ? 1f : -1f;
+        angle = direction * context.time * (speed + ring * 0.08f) +
+                indexInRing * Mathf.PI * 2f / ringCount;
+        float ringRadius = (radius + ring * 0.16f) * context.actor_scale;
+        position = context.actor.cur_transform_position + new Vector3(
+            Mathf.Cos(angle) * ringRadius,
+            (height + ring * 0.08f + Mathf.Sin(angle) * 0.2f) * context.actor_scale,
+            0f);
+    }
+
+    private static float CenteredIndex(int index, int count)
+    {
+        return index - (count - 1) * 0.5f;
+    }
+
+    private static bool IsOperating(ArtifactControlState state)
+    {
+        return state is ArtifactControlState.Operating or ArtifactControlState.Overloaded;
+    }
+
+    private static float StateScale(ArtifactControlState state)
+    {
+        return state switch
+        {
+            ArtifactControlState.Cold => 0.55f,
+            ArtifactControlState.Ready => 0.78f,
+            ArtifactControlState.Operating => 1f,
+            ArtifactControlState.Overloaded => 1.08f,
+            _ => throw new ArgumentOutOfRangeException(nameof(state), state, null),
+        };
+    }
+}

@@ -48,8 +48,9 @@ public class BehFindArtifactToCraft : BehCityActor
             .AddComponent(new EntityName(result.Name))
             .AddComponent(result.ToAtomData())
             .AddComponent(result.ToControlProfile())
-            .AddComponent(result.ToUseProfile())
-            .AddComponent(result.IconInstance)
+            .AddComponent(result.AbilitySet)
+            .AddComponent(result.AbilityRuntime)
+            .AddComponent(result.Appearance)
             .AddTag<TagUncompleted>()
             .Build();
         ae.AddSpecialItem(crafting_artifact);

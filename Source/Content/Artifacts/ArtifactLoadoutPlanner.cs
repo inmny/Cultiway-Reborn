@@ -326,7 +326,7 @@ public static class ArtifactLoadoutPlanner
             out float preparedLoad,
             out float operatingLoad,
             out int threadCost);
-        ArtifactUseProfile useProfile = item.GetComponent<ArtifactUseProfile>();
+        ArtifactUseProfile useProfile = ArtifactAbilityDispatcher.ResolveUseProfile(item);
         float score = CalculateUtility(actor, item, useProfile, inCombat);
 
         // relation 上的人工配置只影响排序，不改变法器自身的基础价值。

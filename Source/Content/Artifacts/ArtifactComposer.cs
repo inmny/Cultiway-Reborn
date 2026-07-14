@@ -18,7 +18,9 @@ public sealed class ArtifactComposeResult
     public string Name;
     public ItemLevel Level;
     public ArtifactAtomAsset[] Atoms = [];
-    public ArtifactIconInstance IconInstance;
+    public ArtifactAppearance Appearance;
+    public ArtifactAbilitySet AbilitySet;
+    public ArtifactAbilityRuntime AbilityRuntime;
 
     public ArtifactAtomData ToAtomData()
     {
@@ -40,30 +42,6 @@ public sealed class ArtifactComposeResult
         };
     }
 
-    public ArtifactUseProfile ToUseProfile()
-    {
-        ArtifactUseProfile profile = new() { support = 0.15f };
-        switch (Shape.Purpose)
-        {
-            case ArtifactPurpose.Offensive:
-                profile.offensive = 1f;
-                break;
-            case ArtifactPurpose.Defensive:
-                profile.defensive = 1f;
-                break;
-            case ArtifactPurpose.Cultivate:
-                profile.cultivate = 1f;
-                break;
-            case ArtifactPurpose.Production:
-                profile.production = 1f;
-                profile.cultivate = 0.25f;
-                break;
-            default:
-                profile.support = 1f;
-                break;
-        }
-        return profile;
-    }
 }
 
 public static class ArtifactComposer
@@ -74,6 +52,7 @@ public static class ArtifactComposer
         var shape = ResolveShape(context);
         var seed = BuildSeed(ingredients, creatorName, shape);
         var atoms = SelectAtoms(context, shape, seed);
+        ArtifactAbilityComposition abilities = ArtifactAbilityComposer.Compose(context, shape, atoms, seed);
         return new ArtifactComposeResult
         {
             Shape = shape,
@@ -84,7 +63,9 @@ public static class ArtifactComposer
                 Level = context.quality_level,
             },
             Atoms = atoms,
-            IconInstance = ComposeIconInstance(shape, atoms, seed),
+            Appearance = ComposeAppearance(shape, atoms, seed),
+            AbilitySet = abilities.ability_set,
+            AbilityRuntime = abilities.runtime,
         };
     }
 
@@ -131,53 +112,40 @@ public static class ArtifactComposer
 
     private static ArtifactShapeAsset ResolveShape(ArtifactRecipeContext context)
     {
-        Dictionary<ArtifactShapeAsset, int> scores = new();
-        foreach (var kv in context.shape_counts)
-        {
-            var affinity = ResolveAffinity(kv.Key);
-            if (affinity == null) continue;
-            scores.TryGetValue(affinity, out var score);
-            scores[affinity] = score + kv.Value;
-        }
-
-        var shape = ItemShapes.Sword;
-        var best = 0;
-        foreach (var kv in scores)
-        {
-            if (kv.Value <= best) continue;
-            best = kv.Value;
-            shape = kv.Key;
-        }
-        return shape;
-    }
-
-    private static ArtifactShapeAsset ResolveAffinity(string shapeId)
-    {
-        var suffix = shapeId.Substring(shapeId.LastIndexOf('.') + 1);
-        return suffix switch
-        {
-            "Bone" or "Claw" or "Tooth" or "Horn" or "Feather" or "Wing" => ItemShapes.Sword,
-            "Crystal" or "Stone" or "Shell" => ItemShapes.Seal,
-            "Fur" or "Silk" or "Bamboo" or "Herb" or "Flower" => ItemShapes.Robe,
-            "Eye" or "Blood" or "Liquid" => ItemShapes.Mirror,
-            "Wood" or "Root" or "Mushroom" or "Fruit" or "Lotus" => ItemShapes.Ding,
-            _ => null,
-        };
+        ArtifactAtomAsset shapeAtom = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.All
+            .Where(atom => atom.category == ArtifactAtomCategory.Shape && atom.artifact_shape != null)
+            .Select(atom => (atom, score: atom.ScoreFor(context)))
+            .Where(item => item.score > 0f)
+            .OrderByDescending(item => item.score)
+            .ThenByDescending(item => item.atom.priority)
+            .ThenBy(item => item.atom.id)
+            .Select(item => item.atom)
+            .FirstOrDefault();
+        return (shapeAtom ?? Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.All
+                .Where(atom => atom.category == ArtifactAtomCategory.Shape && atom.artifact_shape != null)
+                .OrderByDescending(atom => atom.priority)
+                .ThenBy(atom => atom.id)
+                .First())
+            .artifact_shape;
     }
 
     private static ArtifactAtomAsset[] SelectAtoms(ArtifactRecipeContext context, ArtifactShapeAsset shape, string seed)
     {
         List<ArtifactAtomAsset> atoms = new();
-        AddIfNotNull(atoms, PickBestAtom(ArtifactAtomCategory.Shape, context, seed) ?? DefaultShapeAtom(shape));
+        AddIfNotNull(atoms, PickBestAtom(ArtifactAtomCategory.Shape, context, seed, shape) ?? DefaultShapeAtom(shape));
         AddIfNotNull(atoms, PickBestAtom(ArtifactAtomCategory.Material, context, seed));
         AddIfNotNull(atoms, PickBestAtom(ArtifactAtomCategory.Finish, context, seed));
         return atoms.ToArray();
     }
 
-    private static ArtifactAtomAsset PickBestAtom(ArtifactAtomCategory category, ArtifactRecipeContext context, string seed)
+    private static ArtifactAtomAsset PickBestAtom(
+        ArtifactAtomCategory category,
+        ArtifactRecipeContext context,
+        string seed,
+        ArtifactShapeAsset shape = null)
     {
         var candidates = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.All
-            .Where(atom => atom.category == category)
+            .Where(atom => atom.category == category && (shape == null || atom.artifact_shape == shape))
             .Select(atom => (atom, score: atom.ScoreFor(context)))
             .Where(item => item.score > 0f)
             .ToArray();
@@ -195,11 +163,11 @@ public static class ArtifactComposer
 
     private static ArtifactAtomAsset DefaultShapeAtom(ArtifactShapeAsset shape)
     {
-        if (shape == ItemShapes.Seal) return ArtifactAtoms.HeavySeal;
-        if (shape == ItemShapes.Robe) return ArtifactAtoms.RobeWard;
-        if (shape == ItemShapes.Mirror) return ArtifactAtoms.BrightMirror;
-        if (shape == ItemShapes.Ding) return ArtifactAtoms.CauldronFire;
-        return ArtifactAtoms.SwordEdge;
+        return Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.All
+            .Where(atom => atom.category == ArtifactAtomCategory.Shape && atom.artifact_shape == shape)
+            .OrderByDescending(atom => atom.priority)
+            .ThenBy(atom => atom.id)
+            .First();
     }
 
     private static void AddIfNotNull(List<ArtifactAtomAsset> atoms, ArtifactAtomAsset atom)
@@ -224,51 +192,52 @@ public static class ArtifactComposer
         return builder.ToString();
     }
 
-    private static ArtifactIconInstance ComposeIconInstance(
+    private static ArtifactAppearance ComposeAppearance(
         ArtifactShapeAsset shape,
         IReadOnlyList<ArtifactAtomAsset> atoms,
         string seed)
     {
-        var catalog = ArtifactIconCatalogLoader.Current;
-        var shapeKey = ShapeKey(shape);
+        var catalog = ArtifactAppearanceCatalogLoader.Current;
+        var shapeKey = shape.appearance_family;
         var templates = catalog.TemplatesForShape(shapeKey);
         if (templates.Count == 0)
         {
-            return new ArtifactIconInstance
+            return new ArtifactAppearance
             {
                 template_key = string.Empty,
-                slots = [],
+                parts = [],
             };
         }
 
         var template = templates[StableIndex($"{seed}|template|{shapeKey}", templates.Count)];
-        var slots = new List<ArtifactIconSlot>();
+        var parts = new List<ArtifactAppearancePart>();
         var placements = template.Placements
             .OrderBy(item => item.Z)
             .ToArray();
         foreach (var placement in placements)
         {
-            ArtifactIconModuleDef module = catalog.Modules[placement.Module];
+            ArtifactAppearanceModuleDef module = catalog.Modules[placement.Module];
             var variant = PickVariant(module, placement, atoms, seed, template.Key);
-            slots.Add(new ArtifactIconSlot
+            parts.Add(new ArtifactAppearancePart
             {
                 slot = placement.Slot,
                 module = placement.Module,
                 variant = variant.Key,
                 color_scheme = PickColorScheme(atoms, seed, template.Key, placement.Slot, module.Key, variant.Key),
+                colors = [],
             });
         }
 
-        return new ArtifactIconInstance
+        return new ArtifactAppearance
         {
             template_key = template.Key,
-            slots = slots.ToArray(),
+            parts = parts.ToArray(),
         };
     }
 
-    private static ArtifactIconVariantDef PickVariant(
-        ArtifactIconModuleDef module,
-        ArtifactIconPlacementDef placement,
+    private static ArtifactAppearanceVariantDef PickVariant(
+        ArtifactAppearanceModuleDef module,
+        ArtifactAppearancePlacementDef placement,
         IReadOnlyList<ArtifactAtomAsset> atoms,
         string seed,
         string templateKey)
@@ -303,7 +272,7 @@ public static class ArtifactComposer
         string moduleKey,
         string variantKey)
     {
-        var catalog = ArtifactIconCatalogLoader.Current;
+        var catalog = ArtifactAppearanceCatalogLoader.Current;
         if (catalog.ColorSchemes.Count == 0) return string.Empty;
         var schemes = catalog.ColorSchemes.Values.OrderBy(scheme => scheme.Key).ToArray();
         var maxScore = schemes.Max(scheme => ColorScore(atoms, scheme.Key));
@@ -319,15 +288,6 @@ public static class ArtifactComposer
             if (atoms[i].BiasesColorScheme(schemeKey)) score += 1;
         }
         return score;
-    }
-
-    private static string ShapeKey(ArtifactShapeAsset shape)
-    {
-        if (shape == ItemShapes.Seal) return "seal";
-        if (shape == ItemShapes.Robe) return "robe";
-        if (shape == ItemShapes.Mirror) return "mirror";
-        if (shape == ItemShapes.Ding) return "ding";
-        return "sword";
     }
 
     private static string BuildSeed(IReadOnlyList<Entity> ingredients, string creatorName, ArtifactShapeAsset shape)

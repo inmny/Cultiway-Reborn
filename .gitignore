@@ -69,8 +69,8 @@ artifacts/
 !Source/Content/Artifacts/
 !Source/Content/Artifacts/**
 !Content/Artifacts/
-!Content/Artifacts/IconCatalog/
-!Content/Artifacts/IconCatalog/*.json
+!Content/Artifacts/AppearanceCatalog/
+!Content/Artifacts/AppearanceCatalog/*.json
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt

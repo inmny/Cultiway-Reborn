@@ -61,6 +61,8 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new TeleportArraySystem());
         ModClass.I.GeneralLogicSystems.Add(new CityDistributeItemsSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactEquipmentSystem());
+        ModClass.I.GeneralLogicSystems.Add(new ArtifactManifestationSystem());
+        ModClass.I.GeneralLogicSystems.Add(new ArtifactManifestationCleanupSystem());
         ModClass.I.GeneralLogicSystems.Add(new ContinuousCultivateSystem());
         ModClass.I.GeneralLogicSystems.Add(new SectConstructionSystem());
         ActorExtend.RegisterActionOnDeath(SectTreasureService.ReturnBorrowedOnDeath);
@@ -69,7 +71,7 @@ internal class Manager
         ModClass.I.GeneralRenderSystems.Add(new RealmAuraRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmElementParticleRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmIndicatorRenderSystem());
-        ModClass.I.GeneralRenderSystems.Add(new EquippedArtifactRenderSystem());
+        ModClass.I.GeneralRenderSystems.Add(new ArtifactWorldRenderSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookImprovedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new ElixirEffectGeneratedEventSystem());

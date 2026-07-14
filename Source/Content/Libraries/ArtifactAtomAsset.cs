@@ -14,6 +14,7 @@ public class ArtifactAtomAsset : Asset
 {
     public string tag;
     public ArtifactAtomCategory category;
+    public ArtifactShapeAsset artifact_shape;
     public string[] name_stems = [];
     public string[] variant_biases = [];
     public string[] color_scheme_biases = [];

@@ -10,8 +10,12 @@ using UnityEngine;
 
 namespace Cultiway.Content.Artifacts;
 
-public static class ArtifactIconRenderer
+/// <summary>
+/// 根据统一外观实例生成背包图标和世界贴图，并按外观与输出规格缓存结果。
+/// </summary>
+public static class ArtifactAppearanceRenderer
 {
+    private const int WorldSpriteSize = 56;
     private static readonly Dictionary<string, Sprite> Cache = new();
 
     public static void ClearCache()
@@ -19,16 +23,27 @@ public static class ArtifactIconRenderer
         Cache.Clear();
     }
 
-    public static Sprite GetSprite(Entity item)
+    public static Sprite GetIconSprite(Entity item)
     {
-        if (!item.TryGetComponent(out ArtifactIconInstance instance)) return null;
-        var cacheKey = instance.GetCacheKey();
+        ref ArtifactAppearance appearance = ref item.GetComponent<ArtifactAppearance>();
+        return GetSprite(appearance, ArtifactAppearanceCatalogLoader.Current.Canvas, "icon");
+    }
+
+    public static Sprite GetWorldSprite(Entity item)
+    {
+        ref ArtifactAppearance appearance = ref item.GetComponent<ArtifactAppearance>();
+        return GetSprite(appearance, WorldSpriteSize, "world");
+    }
+
+    private static Sprite GetSprite(ArtifactAppearance appearance, int size, string output)
+    {
+        var cacheKey = $"{output}|{appearance.GetCacheKey()}";
         if (Cache.TryGetValue(cacheKey, out var sprite)) return sprite;
 
-        var catalog = ArtifactIconCatalogLoader.Current;
-        if (!catalog.Templates.TryGetValue(instance.template_key, out var template)) return null;
+        var catalog = ArtifactAppearanceCatalogLoader.Current;
+        if (!catalog.Templates.TryGetValue(appearance.template_key, out var template)) return null;
 
-        var texture = Render(instance, template, catalog.Canvas);
+        var texture = Render(appearance, template, size, catalog.Canvas);
         if (texture == null) return null;
         texture.filterMode = FilterMode.Point;
         texture.wrapMode = TextureWrapMode.Clamp;
@@ -37,9 +52,13 @@ public static class ArtifactIconRenderer
         return sprite;
     }
 
-    private static Texture2D Render(ArtifactIconInstance instance, ArtifactIconTemplateDef template, int size)
+    private static Texture2D Render(
+        ArtifactAppearance appearance,
+        ArtifactAppearanceTemplateDef template,
+        int size,
+        int baseCanvas)
     {
-        var faces = BuildWorldFaces(instance, template);
+        var faces = BuildWorldFaces(appearance, template);
         if (faces.Count == 0) return null;
 
         var camera = template.Camera;
@@ -48,9 +67,9 @@ public static class ArtifactIconRenderer
             -ReadFloat(camera, "pitch", 0f),
             -ReadFloat(camera, "yaw", 0f),
             -ReadFloat(camera, "roll", 0f));
-        var scale = ReadFloat(camera, "scale", 8f);
+        var scale = ReadFloat(camera, "scale", 8f) * size / baseCanvas;
         var light = LightDirection(template.Light);
-        var seed = StableSeed($"{instance.GetCacheKey()}|{template.Key}|3d");
+        var seed = StableSeed($"{appearance.GetCacheKey()}|{template.Key}|3d");
 
         var pixels = new Color32[size * size];
         var depth = new float[size * size];
@@ -62,7 +81,7 @@ public static class ArtifactIconRenderer
 
         foreach (var face in faces)
         {
-            var projected = ProjectFace(face, instance, target, cameraRotation, scale, size, light, seed);
+            var projected = ProjectFace(face, appearance, target, cameraRotation, scale, size, light, seed);
             if (projected.Points.Length < 3) continue;
             RasterProjectedFace(projected, pixels, depth, size, seed);
         }
@@ -77,21 +96,23 @@ public static class ArtifactIconRenderer
         return texture;
     }
 
-    private static List<Face3D> BuildWorldFaces(ArtifactIconInstance instance, ArtifactIconTemplateDef template)
+    private static List<Face3D> BuildWorldFaces(
+        ArtifactAppearance appearance,
+        ArtifactAppearanceTemplateDef template)
     {
         List<Face3D> faces = new();
-        var catalog = ArtifactIconCatalogLoader.Current;
+        var catalog = ArtifactAppearanceCatalogLoader.Current;
         var placements = template.Placements
             .OrderBy(item => item.Z)
             .ToArray();
         foreach (var placement in placements)
         {
-            ArtifactIconModuleDef module = catalog.Modules[placement.Module];
-            var slot = FindSlot(instance, placement);
+            ArtifactAppearanceModuleDef module = catalog.Modules[placement.Module];
+            var slot = FindPart(appearance, placement);
             if (slot == null) continue;
             var variant = module.GetVariant(slot.Value.variant);
             if (variant == null) continue;
-            ArtifactIconAnchorDef anchor = variant.GetAnchor(placement.Anchor);
+            ArtifactAppearanceAnchorDef anchor = variant.GetAnchor(placement.Anchor);
 
             var placementPosition = Vec3(placement.Position, Vector3.zero);
             var placementRotation = Vec3(placement.Rotation, Vector3.zero);
@@ -116,18 +137,19 @@ public static class ArtifactIconRenderer
         return faces;
     }
 
-    private static ArtifactIconSlot? FindSlot(ArtifactIconInstance instance, ArtifactIconPlacementDef placement)
+    private static ArtifactAppearancePart? FindPart(
+        ArtifactAppearance appearance,
+        ArtifactAppearancePlacementDef placement)
     {
-        if (instance.slots == null) return null;
-        for (int i = 0; i < instance.slots.Length; i++)
+        for (int i = 0; i < appearance.parts.Length; i++)
         {
-            var slot = instance.slots[i];
-            if (slot.slot == placement.Slot && slot.module == placement.Module) return slot;
+            var part = appearance.parts[i];
+            if (part.slot == placement.Slot && part.module == placement.Module) return part;
         }
-        for (int i = 0; i < instance.slots.Length; i++)
+        for (int i = 0; i < appearance.parts.Length; i++)
         {
-            var slot = instance.slots[i];
-            if (slot.slot == placement.Slot) return slot;
+            var part = appearance.parts[i];
+            if (part.slot == placement.Slot) return part;
         }
         return null;
     }
@@ -312,7 +334,7 @@ public static class ArtifactIconRenderer
 
     private static ProjectedFace ProjectFace(
         Face3D face,
-        ArtifactIconInstance instance,
+        ArtifactAppearance appearance,
         Vector3 target,
         Vector3 cameraRotation,
         float scale,
@@ -329,7 +351,7 @@ public static class ArtifactIconRenderer
         var normalCamera = FaceNormal(cameraPoints);
         if (normalCamera.z < 0f) normalWorld = -normalWorld;
 
-        var color = ResolveMaterialColor(face, instance);
+        var color = ResolveMaterialColor(face, appearance);
         color = ShadeColor(color, normalWorld, light, face.Material, seed);
         var projected = new Vector3[cameraPoints.Length];
         for (int i = 0; i < cameraPoints.Length; i++)
@@ -340,36 +362,30 @@ public static class ArtifactIconRenderer
         return new ProjectedFace(projected, face.Material, color);
     }
 
-    private static Color32 ResolveMaterialColor(Face3D face, ArtifactIconInstance instance)
+    private static Color32 ResolveMaterialColor(Face3D face, ArtifactAppearance appearance)
     {
-        ArtifactIconSlot? slotValue = null;
-        if (instance.slots != null)
+        ArtifactAppearancePart? partValue = null;
+        for (int i = 0; i < appearance.parts.Length; i++)
         {
-            for (int i = 0; i < instance.slots.Length; i++)
+            if (appearance.parts[i].slot == face.Slot)
             {
-                if (instance.slots[i].slot == face.Slot)
-                {
-                    slotValue = instance.slots[i];
-                    break;
-                }
+                partValue = appearance.parts[i];
+                break;
             }
         }
 
-        if (slotValue.HasValue)
+        if (partValue.HasValue)
         {
-            var slot = slotValue.Value;
-            if (slot.colors != null)
+            var part = partValue.Value;
+            for (int i = 0; i < part.colors.Length; i++)
             {
-                for (int i = 0; i < slot.colors.Length; i++)
+                if (part.colors[i].material == face.Material)
                 {
-                    if (slot.colors[i].material == face.Material)
-                    {
-                        return ParseColor(slot.colors[i].color_hex, new Color32(154, 160, 168, 255));
-                    }
+                    return ParseColor(part.colors[i].color_hex, new Color32(154, 160, 168, 255));
                 }
             }
-            if (!string.IsNullOrEmpty(slot.color_scheme) &&
-                ArtifactIconCatalogLoader.Current.ColorSchemes.TryGetValue(slot.color_scheme, out var scheme) &&
+            if (!string.IsNullOrEmpty(part.color_scheme) &&
+                ArtifactAppearanceCatalogLoader.Current.ColorSchemes.TryGetValue(part.color_scheme, out var scheme) &&
                 scheme.Colors != null &&
                 scheme.Colors.TryGetValue(face.Material, out var hex))
             {
