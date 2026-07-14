@@ -32,6 +32,9 @@ public partial class Cultisyses
     /// <summary>没有命理指定体系时默认允许选择的仙道体系标识集合。</summary>
     private static readonly HashSet<string> _default_xian = new(StringComparer.Ordinal) { nameof(Xian) };
 
+    /// <summary>授予结婴前必须逐项结算到的最低金丹淬炼层数。</summary>
+    private const int YuanyingRequiredJindanStage = 9;
+
     private void InitXian()
     {
         var progression = CreateXianProgressionProfile();
@@ -234,6 +237,7 @@ public partial class Cultisyses
         foundationRealm.Transitions.Add(formJindan);
         foundationRealm.SelectForQuery = SelectFoundationTransition;
         foundationRealm.SelectForNaturalAttempt = SelectFoundationTransition;
+        foundationRealm.SelectForMajorGrant = SelectFoundationTransition;
         foundationRealm.SynchronizationEffects.Add(NormalizeFoundationRealm);
         profile.AddRealm(foundationRealm);
 
@@ -269,6 +273,7 @@ public partial class Cultisyses
         jindanRealm.Transitions.Add(formYuanying);
         jindanRealm.SelectForQuery = SelectJindanTransitionForQuery;
         jindanRealm.SelectForNaturalAttempt = SelectJindanTransitionForAttempt;
+        jindanRealm.SelectForMajorGrant = SelectJindanTransitionForGrant;
         jindanRealm.SynchronizationEffects.Add(NormalizeJindanRealm);
         profile.AddRealm(jindanRealm);
 
@@ -338,7 +343,17 @@ public partial class Cultisyses
     {
         var realm = cultisys.Progression.GetRealm(XianLevels.Jindan);
         if (!actor.TryGetComponent(out Jindan jindan)) return realm.GetMinorTransition();
-        return jindan.stage >= 9 || MustAttemptYuanyingForLifespan(actor.Base)
+        return jindan.stage >= YuanyingRequiredJindanStage || MustAttemptYuanyingForLifespan(actor.Base)
+            ? realm.GetMajorTransition()
+            : realm.GetMinorTransition();
+    }
+
+    /// <summary>直接授予大境界时先把金丹逐次淬炼到九转，再允许提交结婴过渡。</summary>
+    private static ProgressionTransitionAsset<Xian> SelectJindanTransitionForGrant(ActorExtend actor,
+        CultisysAsset<Xian> cultisys, ref Xian component)
+    {
+        var realm = cultisys.Progression.GetRealm(XianLevels.Jindan);
+        return actor.TryGetComponent(out Jindan jindan) && jindan.stage >= YuanyingRequiredJindanStage
             ? realm.GetMajorTransition()
             : realm.GetMinorTransition();
     }
@@ -350,7 +365,7 @@ public partial class Cultisyses
         var realm = cultisys.Progression.GetRealm(XianLevels.Jindan);
         if (!actor.TryGetComponent(out Jindan jindan)) return realm.GetMinorTransition();
 
-        var shouldFormYuanying = jindan.stage >= 9
+        var shouldFormYuanying = jindan.stage >= YuanyingRequiredJindanStage
                                  && Randy.randomChance(actor.Base.hasTrait(WorldboxGame.ActorTraits.Ambitious.id)
                                      ? 0.13f
                                      : 0.5f);

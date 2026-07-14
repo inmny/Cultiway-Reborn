@@ -615,3 +615,65 @@ Cultiway.Artifact.ControlState.Overloaded,超载运转
 Cultiway.Artifact.EquipMode.Automatic,自动
 Cultiway.Artifact.EquipMode.Standby,仅待命
 Cultiway.Artifact.EquipMode.ForcedOperating,强制运转
+Cultiway.UI.WindowUpgradeRainConfig Title,升级雨配置
+Cultiway.UI.WindowUpgradeRainConfig Title Description,配置升级雨的提升方式、数量和目标过滤条件。
+Cultiway.UpgradeRain.UI.Section.Mode,提升方式
+Cultiway.UpgradeRain.UI.Mode.FixedMinor,提升小境界
+Cultiway.UpgradeRain.UI.Mode.FixedMinor.Description,固定提升指定数量的小境界。
+Cultiway.UpgradeRain.UI.Mode.CappedMinor,至多小境界
+Cultiway.UpgradeRain.UI.Mode.CappedMinor.Description,本次启用升级雨期间，每名角色至多提升指定数量的小境界；每滴雨只提升一个。
+Cultiway.UpgradeRain.UI.Mode.FixedMajor,提升大境界
+Cultiway.UpgradeRain.UI.Mode.FixedMajor.Description,每次先逐项结算当前境界所需的小境界，再提升一个大境界。
+Cultiway.UpgradeRain.UI.Mode.CappedMajor,至多大境界
+Cultiway.UpgradeRain.UI.Mode.CappedMajor.Description,每滴雨先逐项结算必要小境界，再提升一个大境界；本次启用期间每名角色至多提升指定次数。
+Cultiway.UpgradeRain.UI.Mode.ToRealm,提升至境界
+Cultiway.UpgradeRain.UI.Mode.ToRealm.Description,逐级结算沿途必要小境界，并将低于目标的修炼体系提升至指定大境界。
+Cultiway.UpgradeRain.UI.Placeholder.Amount,数量
+Cultiway.UpgradeRain.UI.Action.Decrease,减少
+Cultiway.UpgradeRain.UI.Action.Decrease.Description,将当前数量减少一。
+Cultiway.UpgradeRain.UI.Action.Increase,增加
+Cultiway.UpgradeRain.UI.Action.Increase.Description,将当前数量增加一。
+Cultiway.UpgradeRain.UI.Section.Symbols,表达式符号
+Cultiway.UpgradeRain.UI.Section.Expression,逻辑表达式
+Cultiway.UpgradeRain.UI.Action.UndoExpression,撤销词元
+Cultiway.UpgradeRain.UI.Action.UndoExpression.Description,移除逻辑表达式最后一个条件或符号。
+Cultiway.UpgradeRain.UI.Action.ClearExpression,清空表达式
+Cultiway.UpgradeRain.UI.Action.ClearExpression.Description,清空整个逻辑表达式并恢复为不过滤。
+Cultiway.UpgradeRain.UI.Filter.Semantics,优先级：非 > 与 > 或。表达式会对每个已拥有的修炼体系分别求值。
+Cultiway.UpgradeRain.UI.Filter.Category.Description,选择左侧过滤类别并在中栏浏览具体条件。
+Cultiway.UpgradeRain.UI.Filter.Option.Description,点击将这个{0}条件追加到逻辑表达式。
+Cultiway.UpgradeRain.UI.Filter.NoOptions,当前类别没有可选对象
+Cultiway.UpgradeRain.UI.Expression.Empty,逻辑表达式为空：所有已拥有的修炼体系都通过过滤
+Cultiway.UpgradeRain.UI.Expression.Invalid,表达式结构无效，请撤销或清空后重新组合。
+Cultiway.UpgradeRain.UI.Expression.ExpectCondition,表达式还需要一个条件、非或左括号。
+Cultiway.UpgradeRain.UI.Expression.ExpectRightParenthesis,表达式还有未闭合的左括号。
+Cultiway.UpgradeRain.UI.Symbol.Not,非
+Cultiway.UpgradeRain.UI.Symbol.Not.Description,对紧随其后的条件或括号表达式取反。
+Cultiway.UpgradeRain.UI.Symbol.And,与
+Cultiway.UpgradeRain.UI.Symbol.And.Description,左右表达式都成立时结果才成立。
+Cultiway.UpgradeRain.UI.Symbol.Or,或
+Cultiway.UpgradeRain.UI.Symbol.Or.Description,左右表达式至少一个成立时结果成立。
+Cultiway.UpgradeRain.UI.Symbol.LeftParenthesis,（
+Cultiway.UpgradeRain.UI.Symbol.LeftParenthesis.Description,开始一个显式优先级分组。
+Cultiway.UpgradeRain.UI.Symbol.RightParenthesis,）
+Cultiway.UpgradeRain.UI.Symbol.RightParenthesis.Description,结束当前显式优先级分组。
+Cultiway.UpgradeRain.UI.Tip.InvalidExpression,请先在升级雨配置中完成逻辑表达式。
+Cultiway.UpgradeRain.UI.Format.FixedMinor,提升 {0} 个小境界
+Cultiway.UpgradeRain.UI.Format.CappedMinor,每名角色至多提升 {0} 个小境界
+Cultiway.UpgradeRain.UI.Format.FixedMajor,提升 {0} 个大境界
+Cultiway.UpgradeRain.UI.Format.CappedMajor,每名角色至多提升 {0} 个大境界
+Cultiway.UpgradeRain.UI.Format.TargetRealm,提升至第 {0} 境界
+Cultiway.UpgradeRain.UI.Format.TargetRealmNamed,提升至第 {0} 境界：{1}
+Cultiway.UpgradeRain.UI.FilterType.Cultisys,修炼体系
+Cultiway.UpgradeRain.UI.FilterType.Race,种族
+Cultiway.UpgradeRain.UI.FilterType.Family,家族
+Cultiway.UpgradeRain.UI.FilterType.Language,语言
+Cultiway.UpgradeRain.UI.FilterType.Culture,文化
+Cultiway.UpgradeRain.UI.FilterType.Religion,宗教
+Cultiway.UpgradeRain.UI.FilterType.Clan,氏族
+Cultiway.UpgradeRain.UI.FilterType.City,城市
+Cultiway.UpgradeRain.UI.FilterType.Kingdom,国家
+Cultiway.UpgradeRain.UI.FilterType.Alliance,联盟
+Cultiway.UpgradeRain.UI.FilterType.Army,军队
+Cultiway.UpgradeRain.UI.FilterType.Sect,宗门
+Cultiway.UpgradeRain.UI.FilterType.GeoRegion,地理区域

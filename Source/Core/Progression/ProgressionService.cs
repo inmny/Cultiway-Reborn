@@ -14,6 +14,9 @@ public static class ProgressionService
     /// </summary>
     private static readonly List<BaseCultisysAsset> _cultisyses = new();
 
+    /// <summary>当前已注册并可供通用任务或世界工具访问的修炼体系。</summary>
+    public static IReadOnlyList<BaseCultisysAsset> RegisteredCultisyses => _cultisyses;
+
     /// <summary>
     ///     注册可参与通用进阶任务调度的修炼体系。
     /// </summary>
@@ -27,6 +30,17 @@ public static class ProgressionService
             return;
         }
         _cultisyses.Add(cultisys);
+    }
+
+    /// <summary>按稳定资产标识取得已注册修炼体系；未注册时返回 null。</summary>
+    public static BaseCultisysAsset GetRegistered(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        for (var i = 0; i < _cultisyses.Count; i++)
+        {
+            if (_cultisyses[i].id == id) return _cultisyses[i];
+        }
+        return null;
     }
 
     /// <summary>
@@ -140,14 +154,14 @@ public static class ProgressionService
         return ExecuteExplicit(cultisys, actor, ProgressionKind.Minor, ProgressionMode.Grant);
     }
 
-    /// <summary>跳过自然条件和消耗，授予指定体系当前主等级的大境界过渡。</summary>
+    /// <summary>跳过自然条件和消耗，逐项结算当前境界声明的必要小境界后，再授予大境界过渡。</summary>
     internal static ProgressionResult GrantNextRealm<T>(CultisysAsset<T> cultisys, ActorExtend actor)
         where T : struct, ICultisysComponent
     {
         return ExecuteExplicit(cultisys, actor, ProgressionKind.Major, ProgressionMode.Grant);
     }
 
-    /// <summary>沿已声明的大境界过渡逐级授予到目标主等级，并正常发放每级奖励。</summary>
+    /// <summary>逐级结算必要小境界与大境界过渡，授予到目标主等级并正常发放每一步奖励。</summary>
     internal static ProgressionResult GrantToRealm<T>(CultisysAsset<T> cultisys, ActorExtend actor, int targetLevel)
         where T : struct, ICultisysComponent
     {
@@ -184,7 +198,8 @@ public static class ProgressionService
     }
 
     /// <summary>
-    ///     实现逐级授予和状态同步。同步允许降低等级，并可在缺少中间过渡时直接写入目标等级后修复。
+    ///     实现逐级授予和状态同步。授予会先完成每一级声明的必要小境界；同步允许降低等级，
+    ///     并可在缺少中间过渡时直接写入目标等级后修复。
     /// </summary>
     private static ProgressionResult AdvanceToRealm<T>(CultisysAsset<T> cultisys, ActorExtend actor,
                                                         int targetLevel, ProgressionMode mode)
@@ -233,7 +248,9 @@ public static class ProgressionService
                 return new ProgressionResult(ProgressionResultCode.Blocked, null, initialLevel,
                     currentLevel, "progression.missing_major_transition");
             }
-            last = Execute(cultisys, actor, transition, mode);
+            last = mode == ProgressionMode.Grant
+                ? ExecuteGrantedMajor(cultisys, actor, realm, transition)
+                : Execute(cultisys, actor, transition, mode);
             if (last.Code is not ProgressionResultCode.MajorAdvanced
                 and not ProgressionResultCode.Synchronized)
             {
@@ -255,15 +272,47 @@ public static class ProgressionService
         where T : struct, ICultisysComponent
     {
         if (!actor.HasCultisys<T>()) actor.NewCultisys(cultisys);
-        ref var component = ref actor.GetCultisys<T>();
-        var realm = cultisys.Progression.GetRealm(component.CurrLevel);
+        var currentLevel = actor.GetCultisys<T>().CurrLevel;
+        var realm = cultisys.Progression.GetRealm(currentLevel);
         var transition = kind == ProgressionKind.Major
             ? realm?.GetMajorTransition()
             : realm?.GetMinorTransition();
         if (transition == null)
-            return new ProgressionResult(ProgressionResultCode.NotAvailable, null, component.CurrLevel,
-                component.CurrLevel);
+            return new ProgressionResult(ProgressionResultCode.NotAvailable, null, currentLevel, currentLevel);
+        if (kind == ProgressionKind.Major && mode == ProgressionMode.Grant)
+            return ExecuteGrantedMajor(cultisys, actor, realm, transition);
         return Execute(cultisys, actor, transition, mode);
+    }
+
+    /// <summary>
+    ///     按境界的授予选择器逐项提交必要的小境界；选择器返回大境界后再完成主等级切换。
+    /// </summary>
+    private static ProgressionResult ExecuteGrantedMajor<T>(CultisysAsset<T> cultisys, ActorExtend actor,
+        RealmProgressionAsset<T> realm, ProgressionTransitionAsset<T> majorTransition)
+        where T : struct, ICultisysComponent
+    {
+        if (realm.SelectForMajorGrant == null)
+            return Execute(cultisys, actor, majorTransition, ProgressionMode.Grant);
+
+        while (true)
+        {
+            ProgressionTransitionAsset<T> transition;
+            {
+                ref var component = ref actor.GetCultisys<T>();
+                transition = realm.SelectForMajorGrant(actor, cultisys, ref component);
+            }
+            if (transition == null)
+            {
+                var level = actor.GetCultisys<T>().CurrLevel;
+                return new ProgressionResult(ProgressionResultCode.Blocked, null, level, level,
+                    "progression.missing_major_grant_transition");
+            }
+            if (transition.Kind == ProgressionKind.Major)
+                return Execute(cultisys, actor, transition, ProgressionMode.Grant);
+
+            var minorResult = Execute(cultisys, actor, transition, ProgressionMode.Grant);
+            if (!minorResult.Changed) return minorResult;
+        }
     }
 
     /// <summary>

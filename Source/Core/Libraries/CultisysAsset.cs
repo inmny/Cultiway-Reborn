@@ -35,6 +35,9 @@ public abstract class BaseCultisysAsset : Asset
     /// </summary>
     public ElementRootDisplayStyle DisplayStyle { get; set; }
 
+    /// <summary>通用修炼体系选择器中使用的图标路径。</summary>
+    public string IconPath { get; set; } = "cultiway/icons/iconCultivation";
+
     protected BaseCultisysAsset(string id, int level_nr)
     {
         this.id = id;
@@ -118,6 +121,21 @@ public abstract class BaseCultisysAsset : Asset
 
     /// <summary>按体系自然规则尝试一次进阶。</summary>
     public abstract ProgressionResult TryAdvanceNaturally(ActorExtend actor);
+
+    /// <summary>无视自然条件，授予下一个小境界，但不改变主等级。</summary>
+    public abstract ProgressionResult GrantNextMinor(ActorExtend actor);
+
+    /// <summary>无视自然条件，逐项结算必要小境界后，完成下一个大境界的结构变换与奖励。</summary>
+    public abstract ProgressionResult GrantNextRealm(ActorExtend actor);
+
+    /// <summary>逐级授予到目标大境界，结算沿途必要小境界、结构变换和奖励。</summary>
+    public abstract ProgressionResult GrantToRealm(ActorExtend actor, int targetLevel);
+
+    /// <summary>把角色同步到目标大境界，执行必要结构修复但不重放奖励。</summary>
+    public abstract ProgressionResult SynchronizeToRealm(ActorExtend actor, int targetLevel);
+
+    /// <summary>把来源角色的体系组件和体系专属结构完整传承给目标角色。</summary>
+    public abstract ProgressionResult TransferFrom(ActorExtend source, ActorExtend target);
 }
 
 /// <summary>绑定具体体系组件、等级属性、技能列表和进阶图的修炼体系资产。</summary>
@@ -205,31 +223,31 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
     }
 
     /// <summary>无视自然条件，授予下一个小境界，但不改变主等级。</summary>
-    public ProgressionResult GrantNextMinor(ActorExtend actor)
+    public override ProgressionResult GrantNextMinor(ActorExtend actor)
     {
         return ProgressionService.GrantNextMinor(this, actor);
     }
 
-    /// <summary>无视自然条件，完成下一个大境界的必要结构变换与奖励。</summary>
-    public ProgressionResult GrantNextRealm(ActorExtend actor)
+    /// <summary>无视自然条件，逐项结算必要小境界后，完成下一个大境界的结构变换与奖励。</summary>
+    public override ProgressionResult GrantNextRealm(ActorExtend actor)
     {
         return ProgressionService.GrantNextRealm(this, actor);
     }
 
-    /// <summary>逐级授予到目标大境界，经过每一级已声明的结构变换并发放奖励；缺少过渡时拒绝执行。</summary>
-    public ProgressionResult GrantToRealm(ActorExtend actor, int targetLevel)
+    /// <summary>逐级授予到目标大境界，结算沿途必要小境界、结构变换和奖励；缺少过渡时拒绝执行。</summary>
+    public override ProgressionResult GrantToRealm(ActorExtend actor, int targetLevel)
     {
         return ProgressionService.GrantToRealm(this, actor, targetLevel);
     }
 
     /// <summary>把角色同步到目标大境界，尽可能执行必要结构修复，不发放奖励或触发表现。</summary>
-    public ProgressionResult SynchronizeToRealm(ActorExtend actor, int targetLevel)
+    public override ProgressionResult SynchronizeToRealm(ActorExtend actor, int targetLevel)
     {
         return ProgressionService.SynchronizeToRealm(this, actor, targetLevel);
     }
 
     /// <summary>把来源角色的体系组件和体系专属结构完整传承给目标角色。</summary>
-    public ProgressionResult TransferFrom(ActorExtend source, ActorExtend target)
+    public override ProgressionResult TransferFrom(ActorExtend source, ActorExtend target)
     {
         return ProgressionService.Transfer(this, source, target);
     }

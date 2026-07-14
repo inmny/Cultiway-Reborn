@@ -406,6 +406,7 @@ namespace Cultiway
             Wanfa = new WanfaPavilionService();
             Wanfa.Init();
             _ui.InitWanfa(Wanfa);
+            _ui.InitUpgradeRain();
             
             GeneralLogicSystems.Add(new StructuralChangeSystem());
             GeneralLogicSystems.Add(LogicPrepareRecycleSystemGroup);

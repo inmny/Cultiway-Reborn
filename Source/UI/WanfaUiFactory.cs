@@ -8,6 +8,9 @@ namespace Cultiway.UI;
 
 internal static class WanfaUiFactory
 {
+    public const float OriginalVerticalScrollbarReservedWidth = 18f;
+    private const float OriginalScrollbarWidth = 17.5f;
+
     public static GameObject CreateLayout(Transform parent, string name, bool horizontal, float width, float height,
         float spacing = 3f, TextAnchor? alignment = null)
     {
@@ -338,6 +341,111 @@ internal static class WanfaUiFactory
         scroll.vertical = true;
         scroll.movementType = ScrollRect.MovementType.Clamped;
         return content.transform;
+    }
+
+    /// <summary>创建固定列数、按行向下扩展的滚动网格内容。</summary>
+    public static Transform CreateScrollGridContent(Transform parent, string name, float width, float height,
+        int columns, Vector2 cellSize, Vector2 spacing)
+    {
+        var root = new GameObject(name, typeof(RectTransform), typeof(ScrollRect), typeof(LayoutElement));
+        root.transform.SetParent(parent, false);
+        SetLayout(root.transform, width, height);
+
+        var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+        viewport.transform.SetParent(root.transform, false);
+        Stretch(viewport.GetComponent<RectTransform>(), 2f, 2f, 2f, 2f);
+        viewport.GetComponent<Image>().color = Color.white;
+        viewport.GetComponent<Mask>().showMaskGraphic = false;
+
+        var content = new GameObject("Content", typeof(RectTransform), typeof(GridLayoutGroup),
+            typeof(ContentSizeFitter));
+        content.transform.SetParent(viewport.transform, false);
+        var contentRect = content.GetComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0f, 1f);
+        contentRect.anchorMax = new Vector2(1f, 1f);
+        contentRect.pivot = new Vector2(0.5f, 1f);
+        contentRect.offsetMin = Vector2.zero;
+        contentRect.offsetMax = Vector2.zero;
+
+        var layout = content.GetComponent<GridLayoutGroup>();
+        layout.cellSize = cellSize;
+        layout.spacing = spacing;
+        layout.padding = new RectOffset(4, 4, 4, 4);
+        layout.startCorner = GridLayoutGroup.Corner.UpperLeft;
+        layout.startAxis = GridLayoutGroup.Axis.Horizontal;
+        layout.childAlignment = TextAnchor.UpperLeft;
+        layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        layout.constraintCount = Mathf.Max(1, columns);
+        content.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        var scroll = root.GetComponent<ScrollRect>();
+        scroll.viewport = viewport.GetComponent<RectTransform>();
+        scroll.content = contentRect;
+        scroll.horizontal = false;
+        scroll.vertical = true;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        return content.transform;
+    }
+
+    /// <summary>
+    ///     克隆原版窗口的竖向滚动条，并绑定到指定滚动内容所在的 ScrollRect。
+    ///     该方法同时采用原版滚轮灵敏度，并从 viewport 右侧为滚动条预留空间。
+    /// </summary>
+    public static void AttachOriginalVerticalScrollbar(Transform content, Transform scrollbarMaskTemplate)
+    {
+        if (content == null || scrollbarMaskTemplate == null) return;
+        if (content.parent is not RectTransform viewport || viewport.parent is not RectTransform root) return;
+        var scroll = root.GetComponent<ScrollRect>();
+        if (scroll == null || scroll.verticalScrollbar != null) return;
+
+        scroll.scrollSensitivity = 60f;
+        viewport.offsetMax = new Vector2(-(OriginalVerticalScrollbarReservedWidth + 2f), viewport.offsetMax.y);
+
+        var maskObject = UnityEngine.Object.Instantiate(scrollbarMaskTemplate.gameObject, root, false);
+        maskObject.name = "Scrollbar Vertical Mask";
+        maskObject.SetActive(true);
+        var maskRect = maskObject.GetComponent<RectTransform>();
+        maskRect.anchorMin = new Vector2(1f, 0f);
+        maskRect.anchorMax = Vector2.one;
+        maskRect.pivot = new Vector2(1f, 0.5f);
+        maskRect.anchoredPosition = Vector2.zero;
+        maskRect.sizeDelta = new Vector2(OriginalScrollbarWidth, -4f);
+        maskRect.localScale = Vector3.one;
+        var rectMask = maskObject.GetComponent<RectMask2D>();
+        if (rectMask != null) rectMask.enabled = true;
+
+        var scrollbar = maskObject.GetComponentInChildren<Scrollbar>(true);
+        if (scrollbar == null)
+        {
+            UnityEngine.Object.Destroy(maskObject);
+            return;
+        }
+
+        var scrollbarRect = scrollbar.GetComponent<RectTransform>();
+        scrollbarRect.anchorMin = Vector2.zero;
+        scrollbarRect.anchorMax = Vector2.one;
+        scrollbarRect.offsetMin = Vector2.zero;
+        scrollbarRect.offsetMax = Vector2.zero;
+        scrollbarRect.localScale = Vector3.one;
+
+        var backgroundRect = scrollbar.transform.Find("Background") as RectTransform;
+        if (backgroundRect != null)
+        {
+            var backgroundX = backgroundRect.anchoredPosition.x;
+            var backgroundWidth = backgroundRect.sizeDelta.x;
+            backgroundRect.anchorMin = new Vector2(0.5f, 0f);
+            backgroundRect.anchorMax = new Vector2(0.5f, 1f);
+            backgroundRect.anchoredPosition = new Vector2(backgroundX, 0f);
+            backgroundRect.sizeDelta = new Vector2(backgroundWidth, 0f);
+        }
+
+        scrollbar.direction = Scrollbar.Direction.BottomToTop;
+        scrollbar.value = 1f;
+        scrollbar.gameObject.SetActive(true);
+
+        scroll.verticalScrollbar = scrollbar;
+        scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
+        scroll.verticalScrollbarSpacing = 0f;
     }
 
     public static void SetLayout(Transform transform, float width, float height)

@@ -4,6 +4,7 @@ using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Logging;
+using Cultiway.Core.Progression;
 using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.UI.Components;
 using Cultiway.UI.CreatureInfoPages;
@@ -39,6 +40,7 @@ public class Manager
 
     public static           PowersTab                            powers_tab;
     public static PowerButton WanfaGrantButton { get; private set; }
+    public static PowerButton UpgradeRainButton { get; private set; }
     private static readonly Dictionary<TabButtonType, Transform> button_groups = new();
     private static          RectTransform                        top_container;
 
@@ -90,6 +92,11 @@ public class Manager
         WindowWanfaGrantConflict.CreateAndInit(WindowWanfaGrantConflict.Id);
         WindowMagicWebBrowser.CreateAndInit(WindowMagicWebBrowser.Id, WindowMagicWebBrowser.WindowSize);
 
+        var magicWebButton = PowerButtonCreator.CreateWindowButton(
+            $"{WindowMagicWebBrowser.Id} Title",
+            WindowMagicWebBrowser.Id,
+            SpriteTextureLoader.getSprite("ui/icons/iconMana"));
+        AddButton(TabButtonType.WORLD, magicWebButton);
         var pavilionButton = PowerButtonCreator.CreateWindowButton(
             $"{WindowWanfaPavilion.Id} Title",
             WindowWanfaPavilion.Id,
@@ -101,17 +108,28 @@ public class Manager
             WorldboxGame.GodPowers.WanfaGrant.id,
             SpriteTextureLoader.getSprite("ui/Icons/iconRainGammaEdit"));
         AddButtonPair(TabButtonType.WORLD, pavilionButton, WanfaGrantButton);
-        var magicWebButton = PowerButtonCreator.CreateWindowButton(
-            $"{WindowMagicWebBrowser.Id} Title",
-            WindowMagicWebBrowser.Id,
-            SpriteTextureLoader.getSprite("ui/icons/iconMana"));
-        AddButton(TabButtonType.WORLD, magicWebButton);
 
         service.TestCastRequested += draft => WanfaTestCastSession.Enter(draft, WanfaGrantButton);
         service.GrantConflictRequested += WindowWanfaGrantConflict.Enqueue;
         service.GrantConflictsCleared += WindowWanfaGrantConflict.ClearPending;
         service.TestCastCompleted += WindowWanfaSkillEditor.ResumeAfterTestCast;
         service.WorldStateClearing += WindowWanfaSkillEditor.ClearWorldState;
+    }
+
+    /// <summary>初始化升级雨配置窗口，并在世界页加入成对的配置和投放按钮。</summary>
+    public void InitUpgradeRain()
+    {
+        UpgradeRainService.Initialize();
+        WindowUpgradeRainConfig.CreateAndInit(WindowUpgradeRainConfig.Id, WindowUpgradeRainConfig.WindowSize);
+
+        var configButton = PowerButtonCreator.CreateWindowButton(
+            $"{WindowUpgradeRainConfig.Id} Title",
+            WindowUpgradeRainConfig.Id,
+            SpriteTextureLoader.getSprite("ui/icons/iconRainOmegaEdit"));
+        UpgradeRainButton = PowerButtonCreator.CreateGodPowerButton(
+            WorldboxGame.GodPowers.UpgradeRain.id,
+            SpriteTextureLoader.getSprite("ui/icons/iconRainOmega"));
+        AddButtonPair(TabButtonType.WORLD, configButton, UpgradeRainButton);
     }
     private static string[] kingdom_window_content_to_remove = [
       "TopElements", "content_motto", "content_meta_needs", "content_king", "content_capital", "content_villages", "content_traits_editor"

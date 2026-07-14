@@ -24,6 +24,7 @@ public partial class WorldboxGame
         [CloneSource(S_Drop.dust_white)] public static DropAsset WanfaBurnout { get; private set; }
         [CloneSource(S_Drop.dust_white)] public static DropAsset WanfaGravity { get; private set; }
         [CloneSource(S_Drop.dust_white)] public static DropAsset WanfaCurse { get; private set; }
+        [CloneSource(S_Drop.dust_white)] public static DropAsset UpgradeRain { get; private set; }
 
         public static IEnumerable<DropAsset> WanfaDrops
         {
@@ -52,25 +53,26 @@ public partial class WorldboxGame
 
         protected override void OnInit()
         {
-            SetupWanfaDrop(WanfaMetal, "drops/drop_metal");
-            SetupWanfaDrop(WanfaWood, "drops/drop_life_seed", randomFrame: true);
-            SetupWanfaDrop(WanfaWater, "drops/drop_rain", randomFrame: true);
-            SetupWanfaDrop(WanfaIce, "drops/drop_snow", randomFrame: true);
-            SetupWanfaDrop(WanfaFire, "drops/drop_fire", animated: true, randomFrame: true);
-            SetupWanfaDrop(WanfaEarth, "drops/drop_stone");
-            SetupWanfaDrop(WanfaNeg, "drops/drop_curse", randomFrame: true);
-            SetupWanfaDrop(WanfaPos, "drops/drop_blessing", animated: true);
-            SetupWanfaDrop(WanfaEntropy, "drops/drop_madness", randomFrame: true);
-            SetupWanfaDrop(WanfaWind, "drops/drop_magic_rain", randomFrame: true);
-            SetupWanfaDrop(WanfaLightning, "drops/drop_gamma_rain", randomFrame: true);
-            SetupWanfaDrop(WanfaPoison, "drops/drop_acid", randomFrame: true);
-            SetupWanfaDrop(WanfaExplosion, "drops/drop_fireworks");
-            SetupWanfaDrop(WanfaBurnout, "drops/drop_lava", animated: true);
-            SetupWanfaDrop(WanfaGravity, "drops/drop_antimatterbomb");
-            SetupWanfaDrop(WanfaCurse, "drops/drop_curse", randomFrame: true);
+            SetupRainDrop(WanfaMetal, "drops/drop_metal");
+            SetupRainDrop(WanfaWood, "drops/drop_life_seed", randomFrame: true);
+            SetupRainDrop(WanfaWater, "drops/drop_rain", randomFrame: true);
+            SetupRainDrop(WanfaIce, "drops/drop_snow", randomFrame: true);
+            SetupRainDrop(WanfaFire, "drops/drop_fire", animated: true, randomFrame: true);
+            SetupRainDrop(WanfaEarth, "drops/drop_stone");
+            SetupRainDrop(WanfaNeg, "drops/drop_curse", randomFrame: true);
+            SetupRainDrop(WanfaPos, "drops/drop_blessing", animated: true);
+            SetupRainDrop(WanfaEntropy, "drops/drop_madness", randomFrame: true);
+            SetupRainDrop(WanfaWind, "drops/drop_magic_rain", randomFrame: true);
+            SetupRainDrop(WanfaLightning, "drops/drop_gamma_rain", randomFrame: true);
+            SetupRainDrop(WanfaPoison, "drops/drop_acid", randomFrame: true);
+            SetupRainDrop(WanfaExplosion, "drops/drop_fireworks");
+            SetupRainDrop(WanfaBurnout, "drops/drop_lava", animated: true);
+            SetupRainDrop(WanfaGravity, "drops/drop_antimatterbomb");
+            SetupRainDrop(WanfaCurse, "drops/drop_curse", randomFrame: true);
+            SetupRainDrop(UpgradeRain, "drops/drop_blessing", animated: true);
         }
 
-        private static void SetupWanfaDrop(DropAsset drop, string texturePath, bool animated = false,
+        private static void SetupRainDrop(DropAsset drop, string texturePath, bool animated = false,
             bool randomFrame = false)
         {
             drop.path_texture = texturePath;

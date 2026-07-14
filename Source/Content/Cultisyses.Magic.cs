@@ -36,6 +36,7 @@ public partial class Cultisyses
     {
         Magic = (CultisysAsset<Magic>)Add(new CultisysAsset<Magic>(nameof(Magic), MagicSetting.LevelNumber,
             new Magic(), CreateMagicProgressionProfile()));
+        Magic.IconPath = "cultiway/icons/iconMagic";
         ProgressionService.Register(Magic);
         SetupMagicDisplayStyle();
         LoadStatsForMagic();

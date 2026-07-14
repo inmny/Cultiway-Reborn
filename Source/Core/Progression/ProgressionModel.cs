@@ -457,6 +457,11 @@ public sealed class RealmProgressionAsset<T> where T : struct, ICultisysComponen
     /// <summary>条件满足后选择本次自然尝试，允许在此时执行随机决策。</summary>
     public ProgressionTransitionSelector<T> SelectForNaturalAttempt { get; set; }
 
+    /// <summary>
+    ///     直接授予大境界时选择下一项应提交的过渡。可依次返回必要的小境界过渡，完成后必须返回大境界过渡。
+    /// </summary>
+    public ProgressionTransitionSelector<T> SelectForMajorGrant { get; set; }
+
     /// <summary>取得本境界声明的大境界过渡；不存在时返回 null。</summary>
     public ProgressionTransitionAsset<T> GetMajorTransition()
     {
