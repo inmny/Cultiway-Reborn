@@ -49,7 +49,7 @@ public static class ArtifactLoadoutPlanner
         // 周期调度会重新规划自动装备；手动操作后的即时刷新只重排现有装备。
         if (manageAutomaticEquipment)
         {
-            HashSet<int> desired = ManageAutomaticEquipment(actor, candidates, existing, capacity, inCombat);
+            HashSet<int> desired = ManageAutomaticEquipment(actor, candidates, existing, capacity);
             candidates.RemoveAll(candidate => !desired.Contains(candidate.Item.Id));
         }
         else
@@ -123,8 +123,7 @@ public static class ArtifactLoadoutPlanner
         ActorExtend actor,
         List<Candidate> candidates,
         Dictionary<int, EquippedArtifactRelation> existing,
-        float capacity,
-        bool inCombat)
+        float capacity)
     {
         long ownerId = actor.Base.data.id;
         candidates.Sort(CompareSelectionCandidates);
@@ -139,28 +138,8 @@ public static class ArtifactLoadoutPlanner
             desired.Add(candidate.Item.Id);
             usedPreparedLoad += candidate.PreparedLoad;
         }
-        // TODO: 添加场景识别，根据场景选择不同的自动装备策略
-        // 自动选择只使用部分神识容量，并优先保证当前场景所需的用途覆盖。
+        // 自动选择只使用部分神识容量，并按当前场景下的候选评分依次填充。
         float targetPreparedLoad = capacity * AutomaticPreparedCapacityRatio;
-        ArtifactPurpose[] roleOrder = inCombat
-            ? [ArtifactPurpose.Defensive, ArtifactPurpose.Offensive, ArtifactPurpose.Support]
-            : [ArtifactPurpose.Cultivate, ArtifactPurpose.Production, ArtifactPurpose.Support,
-                ArtifactPurpose.Defensive, ArtifactPurpose.Offensive];
-
-        // 每种主要用途至少尝试选择一件合适法器，避免评分最高的单一用途占满配置。
-        for (int roleIndex = 0; roleIndex < roleOrder.Length; roleIndex++)
-        {
-            ArtifactPurpose role = roleOrder[roleIndex];
-            if (ContainsPurpose(candidates, desired, role)) continue;
-            for (int i = 0; i < candidates.Count; i++)
-            {
-                Candidate candidate = candidates[i];
-                if (!SupportsPurpose(candidate.UseProfile, role)) continue;
-                if (TrySelect(candidate, desired, ref usedPreparedLoad, targetPreparedLoad, capacity)) break;
-            }
-        }
-
-        // 用剩余准备容量继续按评分效率填充法器。
         for (int i = 0; i < candidates.Count; i++)
         {
             TrySelect(candidates[i], desired, ref usedPreparedLoad, targetPreparedLoad, capacity);
@@ -419,36 +398,6 @@ public static class ArtifactLoadoutPlanner
     }
 
     /// <summary>
-    /// 判断当前选择结果中是否已经包含能够承担指定用途的法器。
-    /// </summary>
-    private static bool ContainsPurpose(
-        List<Candidate> candidates,
-        HashSet<int> selected,
-        ArtifactPurpose purpose)
-    {
-        for (int i = 0; i < candidates.Count; i++)
-        {
-            if (selected.Contains(candidates[i].Item.Id) && SupportsPurpose(candidates[i].UseProfile, purpose))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// 判断用途是否是该法器的主要或次要用途，而非只有可忽略的权重。
-    /// </summary>
-    private static bool SupportsPurpose(ArtifactUseProfile profile, ArtifactPurpose purpose)
-    {
-        float weight = GetPurposeWeight(profile, purpose);
-        float dominantWeight = Mathf.Max(
-            Mathf.Max(Mathf.Max(profile.offensive, profile.defensive), Mathf.Max(profile.support, profile.cultivate)),
-            profile.production);
-        return weight >= 0.25f && weight >= dominantWeight * 0.5f;
-    }
-
-    /// <summary>
     /// 判断法器用途是否值得在当前战斗或非战斗场景中自动运转。
     /// </summary>
     private static bool ShouldOperate(ArtifactUseProfile profile, bool inCombat)
@@ -472,22 +421,6 @@ public static class ArtifactLoadoutPlanner
 
         return profile.offensive * 0.75f + profile.defensive * 0.9f + profile.support * 1.25f +
                profile.cultivate * 1.7f + profile.production * 1.5f;
-    }
-
-    /// <summary>
-    /// 读取用途配置中与指定用途对应的权重。
-    /// </summary>
-    private static float GetPurposeWeight(ArtifactUseProfile profile, ArtifactPurpose purpose)
-    {
-        return purpose switch
-        {
-            ArtifactPurpose.Offensive => profile.offensive,
-            ArtifactPurpose.Defensive => profile.defensive,
-            ArtifactPurpose.Support => profile.support,
-            ArtifactPurpose.Cultivate => profile.cultivate,
-            ArtifactPurpose.Production => profile.production,
-            _ => 0f,
-        };
     }
 
     /// <summary>
