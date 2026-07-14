@@ -19,9 +19,9 @@ public sealed class ElementRootRainSettings
 {
     public const float MinStrength = 1.001f;
     public const float MaxStrength = 300f;
-    public const float MaxRatio = 1000000f;
+    public const float MaxRatio = 100f;
 
-    private readonly float[] _ratios = { 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };
+    private readonly float[] _ratios = { 50f, 50f, 50f, 50f, 50f, 50f, 50f, 50f };
 
     public ElementRootRainSettings()
     {
@@ -44,7 +44,9 @@ public sealed class ElementRootRainSettings
         return _ratios[elementIndex];
     }
 
-    /// <summary>设置一个元素的非负相对比例；八项不允许同时为零。</summary>
+    /// <summary>
+    /// 设置一个元素的 0..100 相对权重。允许编辑过程中暂时全零，投放快照会把全零配置判为无效。
+    /// </summary>
     public void SetRatio(int elementIndex, float ratio)
     {
         ValidateElementIndex(elementIndex);
@@ -150,8 +152,8 @@ public static class ElementRootRainService
 {
     private sealed class Payload
     {
-        public long TargetActorId;
         public float[] Composition;
+        public ActorFilterToken[] CompiledExpression;
         public int SessionGeneration;
         public float ExpiresAt;
     }
@@ -192,7 +194,7 @@ public static class ElementRootRainService
         return true;
     }
 
-    /// <summary>为命中且通过过滤的角色生成一枚携带灵根快照的雨滴。</summary>
+    /// <summary>格子中至少有一名角色通过过滤时，生成一枚携带配置快照的灵根雨滴。</summary>
     public static bool TrySpawn(WorldTile tile, string powerId)
     {
         if (!Settings.TrySnapshot(out var configuration))
@@ -201,20 +203,21 @@ public static class ElementRootRainService
             return false;
         }
 
-        var actor = ActionLibrary.getActorFromTile(tile);
-        if (actor == null || !actor.isAlive()) return false;
-        var actorExtend = actor.GetExtend();
-        var hasCultisys = Cultisyses.HasAnyCultisys(actorExtend);
-        var availableCultisyses = Cultisyses.GetAvailableCultisysIds(actorExtend);
-        if (!ActorFilterExpression.Evaluate(configuration.CompiledExpression, actor,
-                cultisysId => MatchesCultisys(actorExtend, cultisysId, hasCultisys,
-                    availableCultisyses))) return false;
+        var actors = WorldToolDropTargets.SnapshotAliveActors(tile);
+        var hasTarget = false;
+        for (var i = 0; i < actors.Count; i++)
+        {
+            if (!MatchesFilter(actors[i], configuration.CompiledExpression)) continue;
+            hasTarget = true;
+            break;
+        }
+        if (!hasTarget) return false;
 
         var token = Interlocked.Increment(ref _nextToken);
         Payloads[token] = new Payload
         {
-            TargetActorId = actor.data.id,
             Composition = configuration.Composition,
+            CompiledExpression = configuration.CompiledExpression,
             SessionGeneration = _sessionGeneration,
             ExpiresAt = Time.realtimeSinceStartup + PayloadLifetime
         };
@@ -223,7 +226,7 @@ public static class ElementRootRainService
         return true;
     }
 
-    /// <summary>雨滴落地后重塑原目标角色的灵根，并补充其新满足准入条件的修炼体系。</summary>
+    /// <summary>雨滴落地后重塑该格子中所有通过冻结筛选的角色，并重检其修炼体系。</summary>
     public static void OnDropLanded(Drop drop, WorldTile tile, string dropId)
     {
         var token = drop.getCasterId();
@@ -231,9 +234,13 @@ public static class ElementRootRainService
         Payloads.Remove(token);
         if (payload.SessionGeneration != _sessionGeneration || payload.ExpiresAt < Time.realtimeSinceStartup) return;
 
-        var actor = World.world.units.get(payload.TargetActorId);
-        if (actor == null || !actor.isAlive()) return;
-        Apply(actor.GetExtend(), payload.Composition);
+        var actors = WorldToolDropTargets.SnapshotAliveActors(tile);
+        for (var i = 0; i < actors.Count; i++)
+        {
+            var actor = actors[i];
+            if (!actor.isAlive() || !MatchesFilter(actor, payload.CompiledExpression)) continue;
+            Apply(actor.GetExtend(), payload.Composition);
+        }
     }
 
     private static bool CanSpawn()
@@ -251,6 +258,15 @@ public static class ElementRootRainService
             actor.AddComponent(root);
         actor.MarkCultiwayStatsDirty();
         if (!hadCultisys) Cultisyses.RecheckAvailableCultisyses(actor);
+    }
+
+    private static bool MatchesFilter(Actor actor, ActorFilterToken[] compiledExpression)
+    {
+        var actorExtend = actor.GetExtend();
+        var hasCultisys = Cultisyses.HasAnyCultisys(actorExtend);
+        var availableCultisyses = Cultisyses.GetAvailableCultisysIds(actorExtend);
+        return ActorFilterExpression.Evaluate(compiledExpression, actor,
+            cultisysId => MatchesCultisys(actorExtend, cultisysId, hasCultisys, availableCultisyses));
     }
 
     private static bool MatchesCultisys(ActorExtend actor, string cultisysId, bool hasCultisys,
