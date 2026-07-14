@@ -407,6 +407,7 @@ namespace Cultiway
             Wanfa.Init();
             _ui.InitWanfa(Wanfa);
             _ui.InitUpgradeRain();
+            _ui.InitElementRootRain();
             
             GeneralLogicSystems.Add(new StructuralChangeSystem());
             GeneralLogicSystems.Add(LogicPrepareRecycleSystemGroup);

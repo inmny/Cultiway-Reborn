@@ -20,3 +20,5 @@ wanfa_grant,赐法雨
 wanfa_grant_description,将万法阁中已选择的所有法术以法术雨形式赐予目标角色。
 upgrade_rain,升级雨
 upgrade_rain_description,按照配置提升命中角色所拥有修炼体系的境界。
+element_root_rain,灵根雨
+element_root_rain_description,按照配置赋予或重塑命中角色的灵根，并重新检查其可接入的修炼体系。

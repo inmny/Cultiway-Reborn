@@ -6,6 +6,7 @@ using Cultiway.Core.Libraries;
 using Cultiway.Core.Logging;
 using Cultiway.Core.Progression;
 using Cultiway.Core.SkillLibV3.Wanfa;
+using Cultiway.Core.WorldTools;
 using Cultiway.UI.Components;
 using Cultiway.UI.CreatureInfoPages;
 using Cultiway.Utils.Extension;
@@ -41,6 +42,7 @@ public class Manager
     public static           PowersTab                            powers_tab;
     public static PowerButton WanfaGrantButton { get; private set; }
     public static PowerButton UpgradeRainButton { get; private set; }
+    public static PowerButton ElementRootRainButton { get; private set; }
     private static readonly Dictionary<TabButtonType, Transform> button_groups = new();
     private static          RectTransform                        top_container;
 
@@ -130,6 +132,23 @@ public class Manager
             WorldboxGame.GodPowers.UpgradeRain.id,
             SpriteTextureLoader.getSprite("ui/icons/iconRainOmega"));
         AddButtonPair(TabButtonType.WORLD, configButton, UpgradeRainButton);
+    }
+
+    /// <summary>初始化灵根雨配置窗口，并在世界页加入成对的配置和投放按钮。</summary>
+    public void InitElementRootRain()
+    {
+        ElementRootRainService.Initialize();
+        WindowElementRootRainConfig.CreateAndInit(WindowElementRootRainConfig.Id,
+            WindowElementRootRainConfig.WindowSize);
+
+        var configButton = PowerButtonCreator.CreateWindowButton(
+            $"{WindowElementRootRainConfig.Id} Title",
+            WindowElementRootRainConfig.Id,
+            SpriteTextureLoader.getSprite("ui/icons/iconRainDeltaEdit"));
+        ElementRootRainButton = PowerButtonCreator.CreateGodPowerButton(
+            WorldboxGame.GodPowers.ElementRootRain.id,
+            SpriteTextureLoader.getSprite("ui/icons/iconRainDelta"));
+        AddButtonPair(TabButtonType.WORLD, configButton, ElementRootRainButton);
     }
     private static string[] kingdom_window_content_to_remove = [
       "TopElements", "content_motto", "content_meta_needs", "content_king", "content_capital", "content_villages", "content_traits_editor"

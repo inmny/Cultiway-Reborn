@@ -79,20 +79,7 @@ public partial class Cultisyses
         LoadStatsForXian();
 
 
-        ActorExtend.RegisterActionOnNewCreature((ae) =>
-        {
-            if (!ae.HasElementRoot()) return;
-            if (!GetAvailableCultisysIds(ae).Contains(nameof(Xian))) return;
-            ref var element_root = ref ae.GetElementRoot();
-            if (!ContentSetting.AllXian && element_root.Type == ModClass.L.ElementRootLibrary.Common) return;
-            ae.NewCultisys(Xian);
-            
-            ModClass.I.WorldRecord.CheckAndLogFirstLevelup(Xian.id, ae, ref ae.GetCultisys<Xian>());
-            if (ae.Base.asset == Actors.Plant)
-            {
-                PlantNameGenerator.Instance.NewNameGenerateRequest(GetPlantNameParams(ae, Xian.GetLevelName(ae.GetCultisys<Xian>().CurrLevel), element_root.Type.GetName()), ae.Base);
-            }
-        });
+        RegisterAcquisitionRule(Xian.id, TryAcquireXian);
         ActorExtend.RegisterCachedStatsBuilder([Hotfixable](ae, stats) =>
         {
             if (!ae.TryGetComponent(out Xian xian)) return;
@@ -161,6 +148,24 @@ public partial class Cultisyses
                 sb.AppendLine($"元婴: {yuanying.Type.GetName()}");
             }
         });
+    }
+
+    /// <summary>按仙道的种族、灵根和设置约束，为尚未修仙的角色接入仙道。</summary>
+    private static bool TryAcquireXian(ActorExtend ae)
+    {
+        if (ae.HasCultisys<Xian>() || !ae.HasElementRoot()) return false;
+        if (!GetAvailableCultisysIds(ae).Contains(nameof(Xian))) return false;
+        ref var elementRoot = ref ae.GetElementRoot();
+        if (!ContentSetting.AllXian && elementRoot.Type == ModClass.L.ElementRootLibrary.Common) return false;
+
+        ae.NewCultisys(Xian);
+        ModClass.I.WorldRecord.CheckAndLogFirstLevelup(Xian.id, ae, ref ae.GetCultisys<Xian>());
+        if (ae.Base.asset == Actors.Plant)
+        {
+            PlantNameGenerator.Instance.NewNameGenerateRequest(GetPlantNameParams(ae,
+                Xian.GetLevelName(ae.GetCultisys<Xian>().CurrLevel), elementRoot.Type.GetName()), ae.Base);
+        }
+        return true;
     }
 
     private static void SetupXianDisplayStyle()

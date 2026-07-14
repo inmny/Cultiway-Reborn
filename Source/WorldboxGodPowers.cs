@@ -8,6 +8,7 @@ public partial class WorldboxGame
     {
         public static GodPower WanfaGrant { get; private set; }
         public static GodPower UpgradeRain { get; private set; }
+        public static GodPower ElementRootRain { get; private set; }
 
         protected override bool AutoRegisterAssets() => true;
 
@@ -15,6 +16,7 @@ public partial class WorldboxGame
         {
             SetupRainPower(WanfaGrant, "wanfa_grant");
             SetupRainPower(UpgradeRain, "upgrade_rain");
+            SetupRainPower(ElementRootRain, "element_root_rain");
         }
 
         /// <summary>配置一个支持笔刷连续投放、且不强制地图模式的免费雨类 power。</summary>

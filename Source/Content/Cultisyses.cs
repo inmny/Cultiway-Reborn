@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
@@ -11,6 +12,14 @@ namespace Cultiway.Content;
 [Dependency(typeof(BaseStatses))]
 public partial class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
 {
+    private sealed class AcquisitionRule
+    {
+        public string CultisysId;
+        public Func<ActorExtend, bool> TryAcquire;
+    }
+
+    private static readonly List<AcquisitionRule> AcquisitionRules = new();
+
     protected override bool AutoRegisterAssets() => false;
 
     /// <summary>
@@ -34,10 +43,54 @@ public partial class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
         return null;
     }
 
+    /// <summary>检查角色是否拥有任意一个已注册到统一进阶服务的修炼体系。</summary>
+    public static bool HasAnyCultisys(ActorExtend actor)
+    {
+        if (actor == null) return false;
+        var registered = ProgressionService.RegisteredCultisyses;
+        for (var i = 0; i < registered.Count; i++)
+        {
+            if (registered[i].IsOwnedBy(actor)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 注册一个修炼体系的幂等准入规则。同一体系再次注册时替换规则但保留执行顺序。
+    /// 规则必须自行检查角色是否已拥有该体系，并在成功接入后返回 true。
+    /// </summary>
+    public static void RegisterAcquisitionRule(string cultisysId, Func<ActorExtend, bool> tryAcquire)
+    {
+        if (string.IsNullOrEmpty(cultisysId)) throw new ArgumentException("修炼体系 ID 不能为空。", nameof(cultisysId));
+        if (tryAcquire == null) throw new ArgumentNullException(nameof(tryAcquire));
+
+        for (var i = 0; i < AcquisitionRules.Count; i++)
+        {
+            if (AcquisitionRules[i].CultisysId != cultisysId) continue;
+            AcquisitionRules[i].TryAcquire = tryAcquire;
+            return;
+        }
+        AcquisitionRules.Add(new AcquisitionRule { CultisysId = cultisysId, TryAcquire = tryAcquire });
+    }
+
+    /// <summary>
+    /// 按注册顺序重新检查角色能够接入但尚未拥有的全部修炼体系。
+    /// 用于角色初生，以及后续获得灵根等会改变体系准入结果的场景。
+    /// </summary>
+    public static bool RecheckAvailableCultisyses(ActorExtend actor)
+    {
+        if (actor?.Base == null) return false;
+        var changed = false;
+        for (var i = 0; i < AcquisitionRules.Count; i++)
+            changed |= AcquisitionRules[i].TryAcquire(actor);
+        return changed;
+    }
+
     protected override void OnInit()
     {
         InitXian();
         InitMagic();
+        ActorExtend.RegisterActionOnNewCreature(actor => RecheckAvailableCultisyses(actor));
         ProgressionLifecycle.RegisterCommitted(BreakthroughVisualTrigger.OnProgressionCommitted);
     }
 

@@ -25,6 +25,7 @@ public partial class WorldboxGame
         [CloneSource(S_Drop.dust_white)] public static DropAsset WanfaGravity { get; private set; }
         [CloneSource(S_Drop.dust_white)] public static DropAsset WanfaCurse { get; private set; }
         [CloneSource(S_Drop.dust_white)] public static DropAsset UpgradeRain { get; private set; }
+        [CloneSource(S_Drop.dust_white)] public static DropAsset ElementRootRain { get; private set; }
 
         public static IEnumerable<DropAsset> WanfaDrops
         {
@@ -70,6 +71,7 @@ public partial class WorldboxGame
             SetupRainDrop(WanfaGravity, "drops/drop_antimatterbomb");
             SetupRainDrop(WanfaCurse, "drops/drop_curse", randomFrame: true);
             SetupRainDrop(UpgradeRain, "drops/drop_blessing", animated: true);
+            SetupRainDrop(ElementRootRain, "drops/drop_delta_rain", randomFrame: true);
         }
 
         private static void SetupRainDrop(DropAsset drop, string texturePath, bool animated = false,

@@ -633,30 +633,30 @@ Cultiway.UpgradeRain.UI.Action.Decrease,减少
 Cultiway.UpgradeRain.UI.Action.Decrease.Description,将当前数量减少一。
 Cultiway.UpgradeRain.UI.Action.Increase,增加
 Cultiway.UpgradeRain.UI.Action.Increase.Description,将当前数量增加一。
-Cultiway.UpgradeRain.UI.Section.Symbols,表达式符号
-Cultiway.UpgradeRain.UI.Section.Expression,逻辑表达式
-Cultiway.UpgradeRain.UI.Action.UndoExpression,撤销词元
-Cultiway.UpgradeRain.UI.Action.UndoExpression.Description,移除逻辑表达式最后一个条件或符号。
-Cultiway.UpgradeRain.UI.Action.ClearExpression,清空表达式
-Cultiway.UpgradeRain.UI.Action.ClearExpression.Description,清空整个逻辑表达式并恢复为不过滤。
+Cultiway.ActorFilter.UI.Section.Symbols,表达式符号
+Cultiway.ActorFilter.UI.Section.Expression,逻辑表达式
+Cultiway.ActorFilter.UI.Action.UndoExpression,撤销词元
+Cultiway.ActorFilter.UI.Action.UndoExpression.Description,移除逻辑表达式最后一个条件或符号。
+Cultiway.ActorFilter.UI.Action.ClearExpression,清空表达式
+Cultiway.ActorFilter.UI.Action.ClearExpression.Description,清空整个逻辑表达式并恢复为不过滤。
 Cultiway.UpgradeRain.UI.Filter.Semantics,优先级：非 > 与 > 或。表达式会对每个已拥有的修炼体系分别求值。
-Cultiway.UpgradeRain.UI.Filter.Category.Description,选择左侧过滤类别并在中栏浏览具体条件。
-Cultiway.UpgradeRain.UI.Filter.Option.Description,点击将这个{0}条件追加到逻辑表达式。
-Cultiway.UpgradeRain.UI.Filter.NoOptions,当前类别没有可选对象
+Cultiway.ActorFilter.UI.Filter.Category.Description,选择左侧过滤类别并在中栏浏览具体条件。
+Cultiway.ActorFilter.UI.Filter.Option.Description,点击将这个{0}条件追加到逻辑表达式。
+Cultiway.ActorFilter.UI.Filter.NoOptions,当前类别没有可选对象
 Cultiway.UpgradeRain.UI.Expression.Empty,逻辑表达式为空：所有已拥有的修炼体系都通过过滤
-Cultiway.UpgradeRain.UI.Expression.Invalid,表达式结构无效，请撤销或清空后重新组合。
-Cultiway.UpgradeRain.UI.Expression.ExpectCondition,表达式还需要一个条件、非或左括号。
-Cultiway.UpgradeRain.UI.Expression.ExpectRightParenthesis,表达式还有未闭合的左括号。
-Cultiway.UpgradeRain.UI.Symbol.Not,非
-Cultiway.UpgradeRain.UI.Symbol.Not.Description,对紧随其后的条件或括号表达式取反。
-Cultiway.UpgradeRain.UI.Symbol.And,与
-Cultiway.UpgradeRain.UI.Symbol.And.Description,左右表达式都成立时结果才成立。
-Cultiway.UpgradeRain.UI.Symbol.Or,或
-Cultiway.UpgradeRain.UI.Symbol.Or.Description,左右表达式至少一个成立时结果成立。
-Cultiway.UpgradeRain.UI.Symbol.LeftParenthesis,（
-Cultiway.UpgradeRain.UI.Symbol.LeftParenthesis.Description,开始一个显式优先级分组。
-Cultiway.UpgradeRain.UI.Symbol.RightParenthesis,）
-Cultiway.UpgradeRain.UI.Symbol.RightParenthesis.Description,结束当前显式优先级分组。
+Cultiway.ActorFilter.UI.Expression.Invalid,表达式结构无效，请撤销或清空后重新组合。
+Cultiway.ActorFilter.UI.Expression.ExpectCondition,表达式还需要一个条件、非或左括号。
+Cultiway.ActorFilter.UI.Expression.ExpectRightParenthesis,表达式还有未闭合的左括号。
+Cultiway.ActorFilter.UI.Symbol.Not,非
+Cultiway.ActorFilter.UI.Symbol.Not.Description,对紧随其后的条件或括号表达式取反。
+Cultiway.ActorFilter.UI.Symbol.And,与
+Cultiway.ActorFilter.UI.Symbol.And.Description,左右表达式都成立时结果才成立。
+Cultiway.ActorFilter.UI.Symbol.Or,或
+Cultiway.ActorFilter.UI.Symbol.Or.Description,左右表达式至少一个成立时结果成立。
+Cultiway.ActorFilter.UI.Symbol.LeftParenthesis,（
+Cultiway.ActorFilter.UI.Symbol.LeftParenthesis.Description,开始一个显式优先级分组。
+Cultiway.ActorFilter.UI.Symbol.RightParenthesis,）
+Cultiway.ActorFilter.UI.Symbol.RightParenthesis.Description,结束当前显式优先级分组。
 Cultiway.UpgradeRain.UI.Tip.InvalidExpression,请先在升级雨配置中完成逻辑表达式。
 Cultiway.UpgradeRain.UI.Format.FixedMinor,提升 {0} 个小境界
 Cultiway.UpgradeRain.UI.Format.CappedMinor,每名角色至多提升 {0} 个小境界
@@ -664,16 +664,33 @@ Cultiway.UpgradeRain.UI.Format.FixedMajor,提升 {0} 个大境界
 Cultiway.UpgradeRain.UI.Format.CappedMajor,每名角色至多提升 {0} 个大境界
 Cultiway.UpgradeRain.UI.Format.TargetRealm,提升至第 {0} 境界
 Cultiway.UpgradeRain.UI.Format.TargetRealmNamed,提升至第 {0} 境界：{1}
-Cultiway.UpgradeRain.UI.FilterType.Cultisys,修炼体系
-Cultiway.UpgradeRain.UI.FilterType.Race,种族
-Cultiway.UpgradeRain.UI.FilterType.Family,家族
-Cultiway.UpgradeRain.UI.FilterType.Language,语言
-Cultiway.UpgradeRain.UI.FilterType.Culture,文化
-Cultiway.UpgradeRain.UI.FilterType.Religion,宗教
-Cultiway.UpgradeRain.UI.FilterType.Clan,氏族
-Cultiway.UpgradeRain.UI.FilterType.City,城市
-Cultiway.UpgradeRain.UI.FilterType.Kingdom,国家
-Cultiway.UpgradeRain.UI.FilterType.Alliance,联盟
-Cultiway.UpgradeRain.UI.FilterType.Army,军队
-Cultiway.UpgradeRain.UI.FilterType.Sect,宗门
-Cultiway.UpgradeRain.UI.FilterType.GeoRegion,地理区域
+Cultiway.ActorFilter.UI.FilterType.Cultisys,修炼体系
+Cultiway.ActorFilter.UI.FilterType.Race,种族
+Cultiway.ActorFilter.UI.FilterType.Family,家族
+Cultiway.ActorFilter.UI.FilterType.Language,语言
+Cultiway.ActorFilter.UI.FilterType.Culture,文化
+Cultiway.ActorFilter.UI.FilterType.Religion,宗教
+Cultiway.ActorFilter.UI.FilterType.Clan,氏族
+Cultiway.ActorFilter.UI.FilterType.City,城市
+Cultiway.ActorFilter.UI.FilterType.Kingdom,国家
+Cultiway.ActorFilter.UI.FilterType.Alliance,联盟
+Cultiway.ActorFilter.UI.FilterType.Army,军队
+Cultiway.ActorFilter.UI.FilterType.Sect,宗门
+Cultiway.ActorFilter.UI.FilterType.GeoRegion,地理区域
+Cultiway.UI.WindowElementRootRainConfig Title,灵根雨配置
+Cultiway.UI.WindowElementRootRainConfig Title Description,配置灵根雨的元素比例、综合强度和目标过滤条件。
+Cultiway.ElementRootRain.UI.Section.Composition,灵根比例与强度
+Cultiway.ElementRootRain.UI.Strength,综合强度
+Cultiway.ElementRootRain.UI.Strength.Description,最终生成灵根的真实综合强度；可配置范围为 1.001 至 300。
+Cultiway.ElementRootRain.UI.Ratio.Description,该数值只表示相对比例；系统会先归一化八项比例，再按综合强度反解实际组分。
+Cultiway.ElementRootRain.UI.Placeholder.Ratio,比例
+Cultiway.ElementRootRain.UI.Placeholder.Strength,强度
+Cultiway.ElementRootRain.UI.Action.DecreaseStrength,降低强度
+Cultiway.ElementRootRain.UI.Action.DecreaseStrength.Description,将目标综合强度降低 0.1。
+Cultiway.ElementRootRain.UI.Action.IncreaseStrength,提高强度
+Cultiway.ElementRootRain.UI.Action.IncreaseStrength.Description,将目标综合强度提高 0.1。
+Cultiway.ElementRootRain.UI.Format.Summary,预览：{0} · 综合强度 {1}
+Cultiway.ElementRootRain.UI.InvalidRatios,至少一个元素比例必须大于零
+Cultiway.ElementRootRain.UI.Expression.Empty,逻辑表达式为空：所有角色都通过过滤
+Cultiway.ElementRootRain.UI.Filter.Semantics,优先级：非 > 与 > 或。已有体系者按实际拥有判断；无体系者按种族允许接入判断。
+Cultiway.ElementRootRain.UI.Tip.InvalidConfiguration,请先完成灵根比例、综合强度和逻辑表达式配置。

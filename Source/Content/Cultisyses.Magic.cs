@@ -41,13 +41,7 @@ public partial class Cultisyses
         SetupMagicDisplayStyle();
         LoadStatsForMagic();
 
-        ActorExtend.RegisterActionOnNewCreature((ae) =>
-        {
-            if (!ae.HasElementRoot()) return;
-            if (!GetAvailableCultisysIds(ae).Contains(nameof(Magic))) return;
-            ae.NewCultisys(Magic);
-            ModClass.I.WorldRecord.CheckAndLogFirstLevelup(Magic.id, ae, ref ae.GetCultisys<Magic>());
-        });
+        RegisterAcquisitionRule(Magic.id, TryAcquireMagic);
 
         ActorExtend.RegisterCachedStatsBuilder([Hotfixable](ae, stats) =>
         {
@@ -160,6 +154,17 @@ public partial class Cultisyses
             });
         }
         return profile;
+    }
+
+    /// <summary>按魔法体系的种族与灵根约束，为尚未成为魔法师的角色接入魔法体系。</summary>
+    private static bool TryAcquireMagic(ActorExtend ae)
+    {
+        if (ae.HasCultisys<Magic>() || !ae.HasElementRoot()) return false;
+        if (!GetAvailableCultisysIds(ae).Contains(nameof(Magic))) return false;
+
+        ae.NewCultisys(Magic);
+        ModClass.I.WorldRecord.CheckAndLogFirstLevelup(Magic.id, ae, ref ae.GetCultisys<Magic>());
+        return true;
     }
 
     /// <summary>精神力达到预突破比例时允许 AI 调度魔法进阶任务。</summary>
