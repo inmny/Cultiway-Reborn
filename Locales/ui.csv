@@ -615,13 +615,13 @@ Cultiway.Artifact.ControlState.Overloaded,超载运转
 Cultiway.Artifact.EquipMode.Automatic,自动
 Cultiway.Artifact.EquipMode.Standby,仅待命
 Cultiway.Artifact.EquipMode.ForcedOperating,强制运转
-Cultiway.UI.WindowUpgradeRainConfig Title,升级雨配置
-Cultiway.UI.WindowUpgradeRainConfig Title Description,配置升级雨的提升方式、数量和目标过滤条件。
+Cultiway.UI.WindowUpgradeRainConfig Title,帝流浆配置
+Cultiway.UI.WindowUpgradeRainConfig Title Description,配置帝流浆的提升方式、数量和目标过滤条件。
 Cultiway.UpgradeRain.UI.Section.Mode,提升方式
 Cultiway.UpgradeRain.UI.Mode.FixedMinor,提升小境界
 Cultiway.UpgradeRain.UI.Mode.FixedMinor.Description,固定提升指定数量的小境界。
 Cultiway.UpgradeRain.UI.Mode.CappedMinor,至多小境界
-Cultiway.UpgradeRain.UI.Mode.CappedMinor.Description,本次启用升级雨期间，每名角色至多提升指定数量的小境界；每滴雨只提升一个。
+Cultiway.UpgradeRain.UI.Mode.CappedMinor.Description,本次启用帝流浆期间，每名角色至多提升指定数量的小境界；每滴雨只提升一个。
 Cultiway.UpgradeRain.UI.Mode.FixedMajor,提升大境界
 Cultiway.UpgradeRain.UI.Mode.FixedMajor.Description,每次先逐项结算当前境界所需的小境界，再提升一个大境界。
 Cultiway.UpgradeRain.UI.Mode.CappedMajor,至多大境界
@@ -657,7 +657,7 @@ Cultiway.ActorFilter.UI.Symbol.LeftParenthesis,（
 Cultiway.ActorFilter.UI.Symbol.LeftParenthesis.Description,开始一个显式优先级分组。
 Cultiway.ActorFilter.UI.Symbol.RightParenthesis,）
 Cultiway.ActorFilter.UI.Symbol.RightParenthesis.Description,结束当前显式优先级分组。
-Cultiway.UpgradeRain.UI.Tip.InvalidExpression,请先在升级雨配置中完成逻辑表达式。
+Cultiway.UpgradeRain.UI.Tip.InvalidExpression,请先在帝流浆配置中完成逻辑表达式。
 Cultiway.UpgradeRain.UI.Format.FixedMinor,提升 {0} 个小境界
 Cultiway.UpgradeRain.UI.Format.CappedMinor,每名角色至多提升 {0} 个小境界
 Cultiway.UpgradeRain.UI.Format.FixedMajor,提升 {0} 个大境界

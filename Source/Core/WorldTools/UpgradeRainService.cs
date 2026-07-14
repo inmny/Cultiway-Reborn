@@ -12,12 +12,12 @@ using UnityEngine;
 
 namespace Cultiway.Core.WorldTools;
 
-/// <summary>升级雨支持的五种互斥进阶方式。</summary>
+/// <summary>帝流浆支持的五种互斥进阶方式。</summary>
 public enum UpgradeRainMode
 {
     /// <summary>依次授予固定次数的小境界进展，不跨越大境界。</summary>
     FixedMinor,
-    /// <summary>同一次升级雨启用期间，每名角色累计至多获得指定次数的小境界进展。</summary>
+    /// <summary>同一次帝流浆启用期间，每名角色累计至多获得指定次数的小境界进展。</summary>
     CappedMinor,
     /// <summary>逐项结算必要小境界后，依次授予固定次数的大境界进展。</summary>
     FixedMajor,
@@ -27,7 +27,7 @@ public enum UpgradeRainMode
     ToRealm
 }
 
-/// <summary>升级雨配置窗口与实际投放共享的可变设置。</summary>
+/// <summary>帝流浆配置窗口与实际投放共享的可变设置。</summary>
 public sealed class UpgradeRainSettings
 {
     public const int MaxAmount = 10000;
@@ -82,7 +82,7 @@ public sealed class UpgradeRainSettings
     }
 }
 
-/// <summary>一次投放开始时冻结的升级雨配置。</summary>
+/// <summary>一次投放开始时冻结的帝流浆配置。</summary>
 internal readonly struct UpgradeRainConfiguration
 {
     public UpgradeRainConfiguration(UpgradeRainMode mode, int amount, ActorFilterToken[] compiledExpression)
@@ -97,7 +97,7 @@ internal readonly struct UpgradeRainConfiguration
     public ActorFilterToken[] CompiledExpression { get; }
 }
 
-/// <summary>负责升级雨 brush 投放、雨滴载荷生命周期、过滤和落地进阶结算。</summary>
+/// <summary>负责帝流浆 brush 投放、雨滴载荷生命周期、过滤和落地进阶结算。</summary>
 public static class UpgradeRainService
 {
     private sealed class Payload
@@ -111,9 +111,9 @@ public static class UpgradeRainService
 
     private const float PayloadLifetime = 30f;
     private static readonly Dictionary<long, Payload> Payloads = new();
-    /// <summary>本次升级雨启用期间，每名角色已经成功获得的小境界次数。</summary>
+    /// <summary>本次帝流浆启用期间，每名角色已经成功获得的小境界次数。</summary>
     private static readonly Dictionary<long, int> CappedMinorProgressByActor = new();
-    /// <summary>本次升级雨启用期间，每名角色已经成功获得的大境界次数。</summary>
+    /// <summary>本次帝流浆启用期间，每名角色已经成功获得的大境界次数。</summary>
     private static readonly Dictionary<long, int> CappedMajorProgressByActor = new();
     private static long _nextToken = DateTime.UtcNow.Ticks;
     private static bool _initialized;
@@ -149,7 +149,7 @@ public static class UpgradeRainService
         return true;
     }
 
-    /// <summary>格子中至少有一个修炼体系通过过滤时，生成一枚携带配置快照的升级雨滴。</summary>
+    /// <summary>格子中至少有一个修炼体系通过过滤时，生成一枚携带配置快照的帝流浆雨滴。</summary>
     public static bool TrySpawn(WorldTile tile, string powerId)
     {
         if (!Settings.TrySnapshot(out var configuration))
@@ -246,7 +246,7 @@ public static class UpgradeRainService
         }
     }
 
-    /// <summary>让一滴封顶模式的升级雨至多提交一次进展，并累计本次启用期间的成功次数。</summary>
+    /// <summary>让一滴封顶模式的帝流浆至多提交一次进展，并累计本次启用期间的成功次数。</summary>
     private static void ApplySingleCappedProgress(ActorExtend actor, Payload payload, string[] cultisysIds,
         ProgressionKind kind)
     {

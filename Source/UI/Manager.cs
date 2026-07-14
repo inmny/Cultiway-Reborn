@@ -36,7 +36,10 @@ public enum TabButtonType
 
 public class Manager
 {
-    private const string DebugIconRoot = "cultiway/icons/cultilog/";
+    private const string DebugIconRoot       = "cultiway/icons/cultilog/";
+    private const string WanfaPavilionIcon   = "cultiway/icons/world_tools/iconWanfaPavilion";
+    private const string DiliujiangIcon      = "cultiway/icons/world_tools/iconDiliujiang";
+    private const string ElementRootRainIcon = "cultiway/icons/world_tools/iconElementRootRain";
 
     public static           PowersTab                            powers_tab;
     public static PowerButton WanfaGrantButton { get; private set; }
@@ -101,13 +104,11 @@ public class Manager
         var pavilionButton = PowerButtonCreator.CreateWindowButton(
             $"{WindowWanfaPavilion.Id} Title",
             WindowWanfaPavilion.Id,
-            SpriteTextureLoader.getSprite("cultiway/icons/iconMagic"));
-        var pavilionButtonImage = pavilionButton.GetComponent<Image>();
-        pavilionButtonImage.sprite = SpriteTextureLoader.getSprite("ui/special/special_buttonRedGodly");
-        pavilionButtonImage.type = Image.Type.Sliced;
+            SpriteTextureLoader.getSprite(WanfaPavilionIcon));
+        ApplyWorldToolConfigButtonStyle(pavilionButton);
         WanfaGrantButton = PowerButtonCreator.CreateGodPowerButton(
             WorldboxGame.GodPowers.WanfaGrant.id,
-            SpriteTextureLoader.getSprite("ui/Icons/iconRainGammaEdit"));
+            SpriteTextureLoader.getSprite(WanfaPavilionIcon));
         AddButtonPair(TabButtonType.WORLD, pavilionButton, WanfaGrantButton);
 
         service.TestCastRequested += draft => WanfaTestCastSession.Enter(draft, WanfaGrantButton);
@@ -117,7 +118,7 @@ public class Manager
         service.WorldStateClearing += WindowWanfaSkillEditor.ClearWorldState;
     }
 
-    /// <summary>初始化升级雨配置窗口，并在世界页加入成对的配置和投放按钮。</summary>
+    /// <summary>初始化帝流浆配置窗口，并在世界页加入成对的配置和投放按钮。</summary>
     public void InitUpgradeRain()
     {
         UpgradeRainService.Initialize();
@@ -126,10 +127,11 @@ public class Manager
         var configButton = PowerButtonCreator.CreateWindowButton(
             $"{WindowUpgradeRainConfig.Id} Title",
             WindowUpgradeRainConfig.Id,
-            SpriteTextureLoader.getSprite("ui/icons/iconRainOmegaEdit"));
+            SpriteTextureLoader.getSprite(DiliujiangIcon));
+        ApplyWorldToolConfigButtonStyle(configButton);
         UpgradeRainButton = PowerButtonCreator.CreateGodPowerButton(
             WorldboxGame.GodPowers.UpgradeRain.id,
-            SpriteTextureLoader.getSprite("ui/icons/iconRainOmega"));
+            SpriteTextureLoader.getSprite(DiliujiangIcon));
         AddButtonPair(TabButtonType.WORLD, configButton, UpgradeRainButton);
     }
 
@@ -143,12 +145,22 @@ public class Manager
         var configButton = PowerButtonCreator.CreateWindowButton(
             $"{WindowElementRootRainConfig.Id} Title",
             WindowElementRootRainConfig.Id,
-            SpriteTextureLoader.getSprite("ui/icons/iconRainDeltaEdit"));
+            SpriteTextureLoader.getSprite(ElementRootRainIcon));
+        ApplyWorldToolConfigButtonStyle(configButton);
         ElementRootRainButton = PowerButtonCreator.CreateGodPowerButton(
             WorldboxGame.GodPowers.ElementRootRain.id,
-            SpriteTextureLoader.getSprite("ui/icons/iconRainDelta"));
+            SpriteTextureLoader.getSprite(ElementRootRainIcon));
         AddButtonPair(TabButtonType.WORLD, configButton, ElementRootRainButton);
     }
+
+    /// <summary>为世界工具的配置入口应用与万法阁一致的神力按钮底板。</summary>
+    private static void ApplyWorldToolConfigButtonStyle(PowerButton button)
+    {
+        var buttonImage = button.GetComponent<Image>();
+        buttonImage.sprite = SpriteTextureLoader.getSprite("ui/special/special_buttonRed_insides");
+        buttonImage.type = Image.Type.Sliced;
+    }
+
     private static string[] kingdom_window_content_to_remove = [
       "TopElements", "content_motto", "content_meta_needs", "content_king", "content_capital", "content_villages", "content_traits_editor"
     ];
