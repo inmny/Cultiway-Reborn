@@ -1,5 +1,6 @@
 using Cultiway.Core.ActorFiltering;
 using Cultiway.Core.Progression;
+using Cultiway.Core.WorldTools;
 using Cultiway.UI.Components;
 using NeoModLoader.api;
 using UnityEngine;
@@ -7,7 +8,7 @@ using UnityEngine.UI;
 
 namespace Cultiway.UI;
 
-/// <summary>配置升级雨进阶方式、数值以及按逻辑表达式组合的过滤条件。</summary>
+/// <summary>配置帝流浆进阶方式、数值以及按逻辑表达式组合的过滤条件。</summary>
 public sealed class WindowUpgradeRainConfig : AbstractWideWindow<WindowUpgradeRainConfig>
 {
     public const string Id = "Cultiway.UI.WindowUpgradeRainConfig";

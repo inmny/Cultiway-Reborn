@@ -5,6 +5,7 @@ using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Core;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using strings;
@@ -333,7 +334,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     /// 强制把当前纪元转变为 <paramref name="eraId"/>，
     /// 把凡人(无灵根)随机转化为 <paramref name="daemonSeries"/> 中的恶魔
     /// (领主限所属城市，国王及整个国家)，
-    /// 发起人自身强制转变为对应的大魔 <paramref name="transformInto"/>（化魔，原身消散），
+    /// 发起人自身保留原有身份和全部数据，原地转变为对应的大魔 <paramref name="transformInto"/>，
     /// 并有极低概率(邪神恩赐 <see cref="DEMON_TOWER_CHANCE"/>)在城内生成 <paramref name="tower"/>。
     /// </summary>
     private static void SetupDemonSummonPlot(
@@ -349,6 +350,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         plot.requires_diplomacy = false;
         plot.check_is_possible = a => a.hasCity()
                                      && condition(a)
+                                     && !a.isAlreadyTransformed()
                                      && !World.world.plots.isPlotTypeAlreadyRunning(a, plot);
         plot.check_can_be_forced = plot.check_is_possible;
         plot.check_should_continue = a => a.hasCity();
@@ -376,13 +378,11 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                     World.world.buildings.addBuilding(tower.id, tile);
                 }
             }
-            // 发起人化身为对应的大魔（在原位生成大魔，原身以”蜕变”方式消散）
-            var daemon = World.world.units.spawnNewUnit(transformInto.id, a.current_tile, true, pSpawnHeight: 0);
-            // 大魔继承发起人的修为/境界等修炼数据
-            InheritCultivation(a, daemon);
+            // 保留同一个角色实体原地化身，身份、关系、物品和全部模组扩展数据自然保留
+            var daemon = ActorTransformationService.TransformInPlace(a, transformInto);
+            if (daemon == null) return false;
             // 界面提示：发起人化魔
-            WorldLogUtils.LogDemonAscension(a, daemon);
-            a.removeByMetamorphosis();
+            WorldLogUtils.LogDemonAscension(daemon, daemon);
             return true;
         };
     }
@@ -420,7 +420,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             var daemonAsset = daemonSeries.GetRandom();
             if (daemonAsset == null) continue;
             var daemon = World.world.units.spawnNewUnit(daemonAsset.id, mortal.current_tile, false, pSpawnHeight: 0);
-            if (daemonLevel >= 0) SynchronizeXianLevel(daemon, daemonLevel);
+            if (daemonLevel >= 0) GrantXianLevel(daemon, daemonLevel);
             mortal.removeByMetamorphosis();
         }
     }
@@ -439,30 +439,20 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     }
 
     /// <summary>
-    /// 让 <paramref name="target"/> 继承 <paramref name="source"/> 的修炼数据：
-    /// 仙(境界 + 修为)、金丹、元婴、筑基。
+    /// 为生成角色补齐仙道体系，并通过正常授予流程逐级提升到当前进阶图可达的目标境界。
     /// </summary>
-    private static void InheritCultivation(Actor source, Actor target)
-    {
-        var src = source.GetExtend();
-        var dst = target.GetExtend();
-        if (src == null || dst == null) return;
-
-        if (src.HasCultisys<Xian>())
-        {
-            Cultisyses.Xian.TransferFrom(src, dst);
-        }
-    }
-
-    /// <summary>
-    /// 为生成角色补齐仙道必要结构并同步到 <paramref name="level"/>，不重放突破奖励。
-    /// </summary>
-    private static void SynchronizeXianLevel(Actor actor, int level)
+    private static void GrantXianLevel(Actor actor, int level)
     {
         var ae = actor.GetExtend();
         if (ae == null) return;
-        Cultisyses.Xian.SynchronizeToRealm(ae, level);
-        if (ae.HasCultisys<Xian>()) ae.GetCultisys<Xian>().wakan = 0f;
+
+        var defaultXian = Cultisyses.Xian.DefaultComponent;
+        var startLevel = ae.HasCultisys<Xian>() ? ae.GetCultisys<Xian>().CurrLevel : defaultXian.CurrLevel;
+        if (level < startLevel) return;
+
+        var highestGrantableLevel = Cultisyses.Xian.GetHighestGrantableRealm(startLevel);
+        if (highestGrantableLevel < startLevel) return;
+        Cultisyses.Xian.GrantToRealm(ae, Math.Min(level, highestGrantableLevel));
     }
 
     // ========== 修建城墙谋划（矩形包围盒，内墙 → 外墙 → 要塞 三阶段渐进） ==========

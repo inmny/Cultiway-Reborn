@@ -5,7 +5,9 @@ using System.Threading;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Editor;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.WorldTools;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -17,7 +19,6 @@ internal static class WanfaGrantSession
 {
     private sealed class GrantPayload
     {
-        public long TargetActorId;
         public SkillBlueprint Snapshot;
         public int Revision;
         public int SessionGeneration;
@@ -71,28 +72,29 @@ internal static class WanfaGrantSession
             return false;
         }
 
-        var actor = ActionLibrary.getActorFromTile(tile);
-        if (actor == null || !actor.isAlive()) return false;
+        var actors = WorldToolDropTargets.SnapshotAliveActors(tile);
+        if (actors.Count == 0) return false;
 
         string validationError = null;
         var spawned = 0;
         foreach (var blueprint in blueprints)
         {
-            var validation = service.ValidateGrant(actor, blueprint);
-            if (!validation.IsCompatible)
+            var hasCompatibleActor = false;
+            for (var i = 0; i < actors.Count; i++)
             {
-                if (validationError == null)
+                var validation = service.ValidateGrant(actors[i], blueprint);
+                if (validation.IsCompatible)
                 {
-                    validationError = validation.Issues.First(issue =>
-                        issue.Severity == Core.SkillLibV3.Editor.SkillValidationSeverity.Error).Message;
+                    hasCompatibleActor = true;
+                    break;
                 }
-                continue;
+                validationError ??= GetValidationError(validation);
             }
+            if (!hasCompatibleActor) continue;
 
             var token = Interlocked.Increment(ref _nextToken);
             Payloads[token] = new GrantPayload
             {
-                TargetActorId = actor.data.id,
                 Snapshot = blueprint.DeepClone(),
                 Revision = blueprint.Revision,
                 SessionGeneration = _sessionGeneration,
@@ -119,9 +121,26 @@ internal static class WanfaGrantSession
         Payloads.Remove(token);
         if (payload.SessionGeneration != _sessionGeneration || payload.ExpiresAt < Time.realtimeSinceStartup) return;
 
-        var actor = World.world.units.get(payload.TargetActorId);
-        if (actor == null || !actor.isAlive()) return;
-        GrantOrPrompt(actor, payload);
+        var actors = WorldToolDropTargets.SnapshotAliveActors(tile);
+        string validationError = null;
+        var compatibleActors = 0;
+        for (var i = 0; i < actors.Count; i++)
+        {
+            var actor = actors[i];
+            if (!actor.isAlive()) continue;
+            var validation = WanfaPavilionService.Instance.ValidateGrant(actor, payload.Snapshot);
+            if (!validation.IsCompatible)
+            {
+                validationError ??= GetValidationError(validation);
+                continue;
+            }
+
+            compatibleActors++;
+            GrantOrPrompt(actor, payload);
+        }
+
+        if (compatibleActors == 0 && validationError != null)
+            WorldTip.showNow(validationError, false, "top", 3f);
     }
 
     public static void Tick()
@@ -145,12 +164,12 @@ internal static class WanfaGrantSession
         WanfaPavilionService.Instance.ClearGrantConflicts();
     }
 
-    private static void ResolveConflict(GrantPayload payload, Entity oldContainer, bool overwrite)
+    private static void ResolveConflict(long targetActorId, GrantPayload payload, Entity oldContainer,
+        bool overwrite)
     {
         if (!overwrite) return;
-        if (payload.SessionGeneration != _sessionGeneration ||
-            payload.ExpiresAt < Time.realtimeSinceStartup) return;
-        var actor = World.world.units.get(payload.TargetActorId);
+        if (payload.SessionGeneration != _sessionGeneration) return;
+        var actor = World.world.units.get(targetActorId);
         if (actor == null || !actor.isAlive()) return;
         var validation = WanfaPavilionService.Instance.ValidateGrant(actor, payload.Snapshot);
         if (!validation.IsCompatible)
@@ -185,15 +204,6 @@ internal static class WanfaGrantSession
     private static void GrantOrPrompt(Actor actor, GrantPayload payload)
     {
         if (payload.SessionGeneration != _sessionGeneration) return;
-        var validation = WanfaPavilionService.Instance.ValidateGrant(actor, payload.Snapshot);
-        if (!validation.IsCompatible)
-        {
-            var error = validation.Issues.First(issue =>
-                issue.Severity == Core.SkillLibV3.Editor.SkillValidationSeverity.Error);
-            WorldTip.showNow(error.Message, false, "top", 3f);
-            return;
-        }
-
         var signature = SkillBlueprintSignature.Build(payload.Snapshot);
         Entity oldRevision = default;
         var oldRevisionNumber = 0;
@@ -227,8 +237,9 @@ internal static class WanfaGrantSession
 
         if (!oldRevision.IsNull)
         {
+            var targetActorId = actor.data.id;
             WanfaPavilionService.Instance.RequestGrantConflict(actor.getName(), payload.Revision,
-                overwrite => ResolveConflict(payload, oldRevision, overwrite));
+                overwrite => ResolveConflict(targetActorId, payload, oldRevision, overwrite));
             return;
         }
 
@@ -251,6 +262,12 @@ internal static class WanfaGrantSession
             SkillBlueprintCompiler.Recycle(compiled.Container);
             WorldTip.showNow("Cultiway.Wanfa.UI.Tip.GrantFailed".Localize(), false, "top", 3f);
         }
+    }
+
+    private static string GetValidationError(SkillCompatibilityResult validation)
+    {
+        return validation.Issues.First(issue =>
+            issue.Severity == Core.SkillLibV3.Editor.SkillValidationSeverity.Error).Message;
     }
 
     private static void ClearWorldState()

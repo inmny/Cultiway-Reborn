@@ -168,6 +168,14 @@ public static class ProgressionService
         return AdvanceToRealm(cultisys, actor, targetLevel, ProgressionMode.Grant);
     }
 
+    /// <summary>沿当前进阶图查询从指定等级开始能够完整授予到的最高大境界。</summary>
+    internal static int GetHighestGrantableRealm<T>(CultisysAsset<T> cultisys, int startLevel)
+        where T : struct, ICultisysComponent
+    {
+        if (startLevel < 0 || startLevel >= cultisys.LevelNumber) return -1;
+        return TraverseGrantPath(cultisys, startLevel, cultisys.LevelNumber - 1);
+    }
+
     /// <summary>把角色校准到目标主等级，只执行必要结构变换和幂等修复。</summary>
     internal static ProgressionResult SynchronizeToRealm<T>(CultisysAsset<T> cultisys, ActorExtend actor,
                                                               int targetLevel)
@@ -205,8 +213,9 @@ public static class ProgressionService
                                                         int targetLevel, ProgressionMode mode)
         where T : struct, ICultisysComponent
     {
-        if (!actor.HasCultisys<T>()) actor.NewCultisys(cultisys);
-        var initialLevel = actor.GetCultisys<T>().CurrLevel;
+        var ownsCultisys = actor.HasCultisys<T>();
+        var defaultComponent = cultisys.DefaultComponent;
+        var initialLevel = ownsCultisys ? actor.GetCultisys<T>().CurrLevel : defaultComponent.CurrLevel;
         if (targetLevel < 0 || targetLevel >= cultisys.LevelNumber)
             return new ProgressionResult(ProgressionResultCode.Blocked, null, initialLevel, initialLevel,
                 "progression.invalid_target_level");
@@ -215,10 +224,18 @@ public static class ProgressionService
             if (mode != ProgressionMode.Synchronize)
                 return new ProgressionResult(ProgressionResultCode.Blocked, null, initialLevel, initialLevel,
                     "progression.cannot_grant_lower_realm");
+            if (!ownsCultisys) actor.NewCultisys(cultisys);
             actor.GetCultisys<T>().CurrLevel = targetLevel;
             NormalizeCurrentRealm(cultisys, actor);
             return new ProgressionResult(ProgressionResultCode.Synchronized, null, initialLevel, targetLevel);
         }
+        if (mode == ProgressionMode.Grant
+            && TraverseGrantPath(cultisys, initialLevel, targetLevel) != targetLevel)
+        {
+            return new ProgressionResult(ProgressionResultCode.Blocked, null, initialLevel, initialLevel,
+                "progression.missing_major_transition");
+        }
+        if (!ownsCultisys) actor.NewCultisys(cultisys);
         if (targetLevel == initialLevel)
         {
             if (mode == ProgressionMode.Synchronize)
@@ -264,6 +281,31 @@ public static class ProgressionService
                 : ProgressionResultCode.MajorAdvanced,
             usedDirectSynchronization ? null : last.TransitionId, initialLevel,
             actor.GetCultisys<T>().CurrLevel);
+    }
+
+    /// <summary>
+    ///     无副作用地沿大境界过渡前进，遇到断链、越级、无授予结算器或未声明目标境界时停止。
+    /// </summary>
+    private static int TraverseGrantPath<T>(CultisysAsset<T> cultisys, int startLevel, int targetLimit)
+        where T : struct, ICultisysComponent
+    {
+        var currentLevel = startLevel;
+        while (currentLevel < targetLimit)
+        {
+            var transition = cultisys.Progression.GetRealm(currentLevel)?.GetMajorTransition();
+            if (transition == null
+                || transition.FromLevel != currentLevel
+                || transition.TargetLevel <= currentLevel
+                || transition.TargetLevel > targetLimit
+                || transition.TargetLevel >= cultisys.LevelNumber
+                || transition.ResolveGrant == null
+                || cultisys.Progression.GetRealm(transition.TargetLevel) == null)
+            {
+                break;
+            }
+            currentLevel = transition.TargetLevel;
+        }
+        return currentLevel;
     }
 
     /// <summary>从角色当前境界中按类型取得一条明确过渡，并使用指定非自然模式执行。</summary>

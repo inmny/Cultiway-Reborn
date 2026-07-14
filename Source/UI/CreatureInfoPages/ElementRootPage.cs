@@ -6,6 +6,7 @@ using Cultiway.Const;
 using Cultiway.Content;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.UI.Components;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using MathNet.Numerics.Distributions;
@@ -18,15 +19,38 @@ namespace Cultiway.UI.CreatureInfoPages;
 
 public class ElementRootPage : MonoBehaviour
 {
+    public ElementRootDiagram Diagram { get; private set; }
     public Text Text { get; private set; }
 
     public static void Setup(CreatureInfoPage page)
     {
         var er_page = page.gameObject.AddComponent<ElementRootPage>();
-        var text = page.gameObject.AddComponent<Text>();
+        var content = new GameObject("Content", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        content.transform.SetParent(page.transform, false);
+        WanfaUiFactory.Stretch(content.GetComponent<RectTransform>());
+
+        var layout = content.GetComponent<HorizontalLayoutGroup>();
+        layout.childAlignment = TextAnchor.UpperLeft;
+        layout.childControlHeight = false;
+        layout.childControlWidth = false;
+        layout.childForceExpandHeight = false;
+        layout.childForceExpandWidth = false;
+        layout.spacing = 4f;
+
+        er_page.Diagram = ElementRootDiagram.Create(content.transform, "Element Root Diagram", 74f,
+            ElementRootDiagramDetail.Medium);
+
+        var textObject = new GameObject("Details", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text),
+            typeof(LayoutElement));
+        textObject.transform.SetParent(content.transform, false);
+        WanfaUiFactory.SetLayout(textObject.transform, 168f, 210f);
+        var text = textObject.GetComponent<Text>();
 
         text.font = UIUtils.GetCurrentFont();
         text.fontSize = 8;
+        text.alignment = TextAnchor.UpperLeft;
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Truncate;
 
         er_page.Text = text;
     }
@@ -121,10 +145,13 @@ public class ElementRootPage : MonoBehaviour
         for (var i = 0; i < ElementIndex.ElementNames.Count; i++)
             sb.AppendLine($"\t{LM.Get(ElementIndex.ElementNames[i])}: {GetLevelName(er[i], style)}");
 
-        sb.AppendLine($"{overall_lbl}: {GetLevelName(Mathf.Log(ae.GetElementRoot().GetStrength()), style)}");
+        var overallLevel = GetLevelName(Mathf.Log(er.GetStrength()), style);
+        sb.AppendLine($"{overall_lbl}: {overallLevel}");
 
         var er_page = page.GetComponent<ElementRootPage>();
         er_page.Text.text = sb.ToString();
+        er_page.Diagram.SetElementRoot(er, er.Type.GetName(cultisys),
+            $"{overall_lbl}: {overallLevel}");
     }
 
     /// <summary>

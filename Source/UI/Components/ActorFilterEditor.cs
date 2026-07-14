@@ -102,15 +102,18 @@ internal sealed class ActorFilterEditor : IDisposable
         _categoryContent = WanfaUiFactory.CreateScrollContent(browser.transform, "Categories",
             CategoryWidth, height);
         WanfaUiFactory.AttachOriginalVerticalScrollbar(_categoryContent, scrollbarMaskTemplate);
+        NestedVerticalScrollRelay.Attach(_categoryContent);
         SetScrollPaneBackground(_categoryContent.parent.parent.gameObject);
 
         _optionContent = WanfaUiFactory.CreateScrollGridContent(browser.transform, "Options",
             optionWidth, height, 3, new Vector2(OptionCardWidth, OptionCardHeight), new Vector2(4f, 4f));
         WanfaUiFactory.AttachOriginalVerticalScrollbar(_optionContent, scrollbarMaskTemplate);
+        NestedVerticalScrollRelay.Attach(_optionContent);
         SetScrollPaneBackground(_optionContent.parent.parent.gameObject);
 
         var symbols = WanfaUiFactory.CreateScrollContent(browser.transform, "Symbols", SymbolWidth, height);
         WanfaUiFactory.AttachOriginalVerticalScrollbar(symbols, scrollbarMaskTemplate);
+        NestedVerticalScrollRelay.Attach(symbols);
         symbols.GetComponent<VerticalLayoutGroup>().spacing = 4f;
         SetScrollPaneBackground(symbols.parent.parent.gameObject);
         WanfaUiFactory.CreateText(symbols, "Title",

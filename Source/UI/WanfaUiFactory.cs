@@ -10,6 +10,7 @@ internal static class WanfaUiFactory
 {
     public const float OriginalVerticalScrollbarReservedWidth = 18f;
     private const float OriginalScrollbarWidth = 17.5f;
+    private static GameObject _settingButtonTemplate;
 
     public static GameObject CreateLayout(Transform parent, string name, bool horizontal, float width, float height,
         float spacing = 3f, TextAnchor? alignment = null)
@@ -268,6 +269,35 @@ internal static class WanfaUiFactory
         return input;
     }
 
+    /// <summary>
+    /// 克隆原版设置窗口的滑块区域，使自定义窗口沿用原版槽、填充、手柄和滚轮转发行为。
+    /// </summary>
+    public static SliderExtended CreateNativeSlider(Transform parent, string name, float width, float height,
+        float minValue, float maxValue, float value)
+    {
+        _settingButtonTemplate ??= Resources.Load<GameObject>("ui/SettingButton");
+        var sliderAreaTemplate = _settingButtonTemplate?.transform.Find("SliderArea");
+        if (sliderAreaTemplate == null)
+            throw new InvalidOperationException("原版 ui/SettingButton 缺少 SliderArea");
+
+        var sliderArea = UnityEngine.Object.Instantiate(sliderAreaTemplate.gameObject, parent, false);
+        sliderArea.name = name;
+        sliderArea.SetActive(true);
+        SetLayout(sliderArea.transform, width, height);
+        sliderArea.transform.localScale = Vector3.one;
+
+        var slider = sliderArea.GetComponentInChildren<SliderExtended>(true);
+        if (slider == null)
+            throw new InvalidOperationException("原版 SliderArea 缺少 SliderExtended");
+        slider.gameObject.SetActive(true);
+        slider.minValue = minValue;
+        slider.maxValue = maxValue;
+        slider.wholeNumbers = false;
+        slider.navigation = new Navigation { mode = Navigation.Mode.None };
+        slider.SetValueWithoutNotify(Mathf.Clamp(value, minValue, maxValue));
+        return slider;
+    }
+
     public static Toggle CreateToggle(Transform parent, string name, string label, bool value, float width,
         float height)
     {
@@ -390,8 +420,10 @@ internal static class WanfaUiFactory
     /// <summary>
     ///     克隆原版窗口的竖向滚动条，并绑定到指定滚动内容所在的 ScrollRect。
     ///     该方法同时采用原版滚轮灵敏度，并从 viewport 右侧为滚动条预留空间。
+    ///     指定右侧目标时，滚动条左缘会改为贴合该 RectTransform 的右缘。
     /// </summary>
-    public static void AttachOriginalVerticalScrollbar(Transform content, Transform scrollbarMaskTemplate)
+    public static void AttachOriginalVerticalScrollbar(Transform content, Transform scrollbarMaskTemplate,
+        RectTransform rightSideTarget = null)
     {
         if (content == null || scrollbarMaskTemplate == null) return;
         if (content.parent is not RectTransform viewport || viewport.parent is not RectTransform root) return;
@@ -411,6 +443,15 @@ internal static class WanfaUiFactory
         maskRect.anchoredPosition = Vector2.zero;
         maskRect.sizeDelta = new Vector2(OriginalScrollbarWidth, -4f);
         maskRect.localScale = Vector3.one;
+        if (rightSideTarget != null)
+        {
+            var targetRightWorld = rightSideTarget.TransformPoint(
+                new Vector3(rightSideTarget.rect.xMax, 0f, 0f));
+            var targetRightInRoot = root.InverseTransformPoint(targetRightWorld).x;
+            maskRect.anchoredPosition = new Vector2(
+                targetRightInRoot - root.rect.xMax + maskRect.sizeDelta.x,
+                maskRect.anchoredPosition.y);
+        }
         var rectMask = maskObject.GetComponent<RectMask2D>();
         if (rectMask != null) rectMask.enabled = true;
 
