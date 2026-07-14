@@ -131,6 +131,9 @@ public abstract class BaseCultisysAsset : Asset
     /// <summary>逐级授予到目标大境界，结算沿途必要小境界、结构变换和奖励。</summary>
     public abstract ProgressionResult GrantToRealm(ActorExtend actor, int targetLevel);
 
+    /// <summary>从指定大境界出发，沿完整授予路径能够到达的最高大境界。</summary>
+    public abstract int GetHighestGrantableRealm(int startLevel);
+
     /// <summary>把角色同步到目标大境界，执行必要结构修复但不重放奖励。</summary>
     public abstract ProgressionResult SynchronizeToRealm(ActorExtend actor, int targetLevel);
 
@@ -238,6 +241,12 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
     public override ProgressionResult GrantToRealm(ActorExtend actor, int targetLevel)
     {
         return ProgressionService.GrantToRealm(this, actor, targetLevel);
+    }
+
+    /// <summary>从指定大境界出发查询当前进阶图中结构完整、可逐级授予的最高大境界。</summary>
+    public override int GetHighestGrantableRealm(int startLevel)
+    {
+        return ProgressionService.GetHighestGrantableRealm(this, startLevel);
     }
 
     /// <summary>把角色同步到目标大境界，尽可能执行必要结构修复，不发放奖励或触发表现。</summary>
