@@ -2,7 +2,7 @@ namespace Cultiway.UI;
 
 internal static class BaibaoUiIcons
 {
-    public const string Pavilion = "ui/icons/iconArtifact";
+    public const string Pavilion = "cultiway/icons/world_tools/iconBaibaoPavilion";
     public const string Forge = "ui/icons/iconReforge";
     public const string Archive = "ui/icons/iconCityInventory";
     public const string Grant = "ui/icons/iconGift";

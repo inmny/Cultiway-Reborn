@@ -50,6 +50,8 @@ public class Manager
     public static PowerButton ElementRootRainButton { get; private set; }
     private static readonly Dictionary<TabButtonType, Transform> button_groups = new();
     private static          RectTransform                        top_container;
+    private                 PowerButton                          magicWebButton;
+    private                 PowerButton                          wanfaPavilionButton;
 
     public void Init()
     {
@@ -99,20 +101,18 @@ public class Manager
         WindowWanfaGrantConflict.CreateAndInit(WindowWanfaGrantConflict.Id);
         WindowMagicWebBrowser.CreateAndInit(WindowMagicWebBrowser.Id, WindowMagicWebBrowser.WindowSize);
 
-        var magicWebButton = PowerButtonCreator.CreateWindowButton(
+        magicWebButton = PowerButtonCreator.CreateWindowButton(
             $"{WindowMagicWebBrowser.Id} Title",
             WindowMagicWebBrowser.Id,
             SpriteTextureLoader.getSprite("ui/icons/iconMana"));
-        AddButton(TabButtonType.WORLD, magicWebButton);
-        var pavilionButton = PowerButtonCreator.CreateWindowButton(
+        wanfaPavilionButton = PowerButtonCreator.CreateWindowButton(
             $"{WindowWanfaPavilion.Id} Title",
             WindowWanfaPavilion.Id,
             SpriteTextureLoader.getSprite(WanfaPavilionIcon));
-        ApplyWorldToolConfigButtonStyle(pavilionButton);
+        ApplyWorldToolConfigButtonStyle(wanfaPavilionButton);
         WanfaGrantButton = PowerButtonCreator.CreateGodPowerButton(
             WorldboxGame.GodPowers.WanfaGrant.id,
             SpriteTextureLoader.getSprite(WanfaPavilionIcon));
-        AddButtonPair(TabButtonType.WORLD, pavilionButton, WanfaGrantButton);
 
         service.TestCastRequested += draft => WanfaTestCastSession.Enter(draft, WanfaGrantButton);
         service.GrantConflictRequested += WindowWanfaGrantConflict.Enqueue;
@@ -135,13 +135,15 @@ public class Manager
         ApplyWorldToolConfigButtonStyle(pavilionButton);
         BaibaoGrantButton = PowerButtonCreator.CreateGodPowerButton(
             WorldboxGame.GodPowers.BaibaoGrant.id,
-            SpriteTextureLoader.getSprite(BaibaoUiIcons.Grant));
-        AddButtonPair(TabButtonType.WORLD, pavilionButton, BaibaoGrantButton);
+            SpriteTextureLoader.getSprite(BaibaoUiIcons.Pavilion));
 
         BaibaoArchiveButton = PowerButtonCreator.CreateGodPowerButton(
             WorldboxGame.GodPowers.BaibaoArchive.id,
             SpriteTextureLoader.getSprite(BaibaoUiIcons.Archive));
-        AddButton(TabButtonType.WORLD, BaibaoArchiveButton);
+
+        AddButtonPair(TabButtonType.WORLD, magicWebButton, BaibaoArchiveButton);
+        AddButtonPair(TabButtonType.WORLD, wanfaPavilionButton, WanfaGrantButton);
+        AddButtonPair(TabButtonType.WORLD, pavilionButton, BaibaoGrantButton);
 
         service.ArchiveRequested += WindowBaibaoArchive.Open;
     }

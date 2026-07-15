@@ -731,6 +731,7 @@ Cultiway.Baibao.UI.Label.FavoriteOnly,仅收藏
 Cultiway.Baibao.UI.Label.Shape,器形
 Cultiway.Baibao.UI.Label.Quality,品阶
 Cultiway.Baibao.UI.Placeholder.Search,搜索法宝
+Cultiway.Baibao.UI.Placeholder.SearchShapes,搜索器形
 Cultiway.Baibao.UI.Filter.AllShapes,全部器形
 Cultiway.Baibao.UI.Sort.Manual,手动
 Cultiway.Baibao.UI.Sort.Name,名称
@@ -742,6 +743,7 @@ Cultiway.Baibao.UI.State.Forged,炼制
 Cultiway.Baibao.UI.State.Archived,已收录
 Cultiway.Baibao.UI.State.NotArchived,未收录
 Cultiway.Baibao.UI.State.TargetUnavailable,目标已经失效
+Cultiway.Baibao.UI.State.NoMenuResults,没有匹配的器形
 Cultiway.Baibao.UI.AtomCategory.Material,材质
 Cultiway.Baibao.UI.AtomCategory.Finish,饰面
 Cultiway.Baibao.UI.AtomCategory.Other,其他

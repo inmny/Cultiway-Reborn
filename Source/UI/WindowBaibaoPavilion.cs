@@ -75,7 +75,7 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
         BaibaoUiFactory.AddScrollBackground(content);
         _rowPool = new MonoObjPool<BaibaoArtifactRow>(BaibaoArtifactRow.Prefab, content);
         _inspector = new BaibaoBlueprintInspector(body.transform, 198f, 284f);
-        _optionMenu = new BaibaoOptionMenu(BackgroundTransform, _rootCanvas);
+        _optionMenu = new BaibaoOptionMenu(BackgroundTransform, _rootCanvas, scrollbarTemplate);
         CreateDeleteConfirmation();
 
         BaibaoPavilionService.Instance.Changed += Refresh;
@@ -251,6 +251,7 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
             new BaibaoMenuOption
             {
                 Label = "Cultiway.Baibao.UI.Filter.AllShapes".Localize(),
+                IconPath = BaibaoUiIcons.Shape,
                 Selected = _shapeFilter == 0,
                 Select = () => SetShapeFilter(0),
             },
@@ -258,14 +259,17 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
         for (int i = 0; i < _shapes.Length; i++)
         {
             int index = i + 1;
+            string label = BaibaoPresentation.GetShapeName(_shapes[i]);
             options.Add(new BaibaoMenuOption
             {
-                Label = BaibaoPresentation.GetShapeName(_shapes[i]),
+                Label = label,
+                IconPath = BaibaoUiIcons.Shape,
+                SearchText = $"{label} {_shapes[i].id} {_shapes[i].appearance_family}",
                 Selected = _shapeFilter == index,
                 Select = () => SetShapeFilter(index),
             });
         }
-        _optionMenu.Show("Cultiway.Baibao.UI.Tooltip.ShapeFilter.Title".Localize(), options);
+        _optionMenu.Show("Cultiway.Baibao.UI.Tooltip.ShapeFilter.Title".Localize(), options, true);
     }
 
     private void ShowSortMenu()
@@ -277,6 +281,7 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
             options.Add(new BaibaoMenuOption
             {
                 Label = SortNamePaths[i].Localize(),
+                IconPath = BaibaoUiIcons.Sort,
                 Selected = _sort == i,
                 Select = () => SetSort(index),
             });
