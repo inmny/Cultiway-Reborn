@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Core.ActorFiltering;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
@@ -39,9 +40,12 @@ public sealed class BaibaoPavilionService
     public event Action<Actor> ArchiveRequested;
     public IReadOnlyList<ArtifactBlueprint> Blueprints => _store.Blueprints;
     public int SelectedBlueprintCount => _selectedBlueprintIds.Count;
+    /// <summary>赠宝世界工具使用的角色目标筛选配置。</summary>
+    public ActorFilterSettings GrantTargetFilter { get; } = new();
 
     public void Init()
     {
+        ActorFilterCatalog.Initialize();
         _store = new BaibaoPavilionStore(ModClass.I.Persistence);
         _selectedBlueprintIds.UnionWith(_store.SelectedBlueprintIds);
         Instance = this;

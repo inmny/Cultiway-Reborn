@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Core.ActorFiltering;
 using Cultiway.Core.AIGCLib;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
@@ -96,10 +97,13 @@ public sealed class WanfaPavilionService
     public event Action WorldStateClearing;
     public IReadOnlyList<SkillBlueprint> Blueprints => _library.Blueprints;
     public int SelectedBlueprintCount => _selectedBlueprintIds.Count;
+    /// <summary>赐法世界工具使用的角色目标筛选配置。</summary>
+    public ActorFilterSettings GrantTargetFilter { get; } = new();
     public WanfaPavilionPolicyAsset ActivePolicy { get; private set; }
 
     public void Init()
     {
+        ActorFilterCatalog.Initialize();
         ActivePolicy = WanfaPavilionPolicyLibrary.Free;
         _library = new WanfaPavilionLibraryStore(ModClass.I.Persistence);
         _selectedBlueprintIds.UnionWith(_library.SelectedBlueprintIds);
@@ -397,6 +401,7 @@ public sealed class WanfaPavilionService
     public static void ClearWorldState()
     {
         if (Instance == null) return;
+        Instance.GrantTargetFilter.ClearWorldExpression();
         Instance.WorldStateClearing?.Invoke();
         Instance.GrantConflictsCleared?.Invoke();
         foreach (var container in Instance._testContainers)

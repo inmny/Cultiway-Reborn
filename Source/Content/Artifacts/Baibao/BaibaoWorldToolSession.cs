@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Core;
+using Cultiway.Core.ActorFiltering;
 using Cultiway.Core.WorldTools;
+using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api;
@@ -15,6 +17,8 @@ internal static class BaibaoWorldToolSession
 {
     private static readonly HashSet<long> GrantedActorIds = new();
     private static ArtifactBlueprint[] _sessionBlueprints = [];
+    private static ActorFilterToken[] _sessionTargetFilter = [];
+    private static bool _sessionReady;
     private static bool _grantModeWasActive;
     private static bool _grantingBrush;
     private static bool _brushFoundNewRecipient;
@@ -27,25 +31,37 @@ internal static class BaibaoWorldToolSession
         WorldboxGame.GodPowers.BaibaoArchive.click_brush_action = TryOpenArchive;
         WorldboxGame.GodPowers.BaibaoGrant.click_action = TryGrant;
         WorldboxGame.GodPowers.BaibaoGrant.click_brush_action = TryGrantBrush;
+        PatchMapBox.RegisterActionOnClearWorld(ClearWorldState);
         ModClass.I.GeneralLogicSystems.Add(new UpdateSystem());
     }
 
     /// <summary>
     /// 固定本轮要赠送的整套蓝图，并清空已经领取过的生物名单。
     /// </summary>
-    public static void BeginGrantSession()
+    public static bool BeginGrantSession(bool showInvalidFilterTip = true)
     {
+        GrantedActorIds.Clear();
+        if (!BaibaoPavilionService.Instance.GrantTargetFilter.TrySnapshot(out _sessionTargetFilter))
+        {
+            _sessionBlueprints = [];
+            _sessionReady = false;
+            _grantModeWasActive = true;
+            if (showInvalidFilterTip)
+                ShowTip("Cultiway.Baibao.UI.Tip.InvalidTargetFilter".Localize());
+            return false;
+        }
         _sessionBlueprints = BaibaoPavilionService.Instance.GetSelectedBlueprints()
             .Select(blueprint => blueprint.DeepClone())
             .ToArray();
-        GrantedActorIds.Clear();
+        _sessionReady = true;
         _grantModeWasActive = true;
+        return true;
     }
 
     [ClickActionCaller]
     public static bool TryGrantBrush(WorldTile tile, string powerId)
     {
-        EnsureGrantSession();
+        if (!EnsureGrantSession()) return false;
         if (_sessionBlueprints.Length == 0)
         {
             ShowTip("Cultiway.Baibao.UI.Tip.SelectBlueprint".Localize());
@@ -79,7 +95,7 @@ internal static class BaibaoWorldToolSession
 
     public static bool TryGrant(WorldTile tile, string powerId)
     {
-        EnsureGrantSession();
+        if (!EnsureGrantSession()) return false;
         if (_sessionBlueprints.Length == 0)
         {
             ShowTip("Cultiway.Baibao.UI.Tip.SelectBlueprint".Localize());
@@ -97,6 +113,7 @@ internal static class BaibaoWorldToolSession
         for (int actorIndex = 0; actorIndex < actors.Count; actorIndex++)
         {
             Actor actor = actors[actorIndex];
+            if (!ActorFilterExpression.EvaluateActor(_sessionTargetFilter, actor)) continue;
             long actorId = actor.data.id;
             if (GrantedActorIds.Contains(actorId))
             {
@@ -164,9 +181,9 @@ internal static class BaibaoWorldToolSession
         WorldTip.showNow(text, false, "top", 3f);
     }
 
-    private static void EnsureGrantSession()
+    private static bool EnsureGrantSession()
     {
-        if (!_grantModeWasActive) BeginGrantSession();
+        return (_grantModeWasActive && _sessionReady) || BeginGrantSession();
     }
 
     private static void Tick()
@@ -174,7 +191,7 @@ internal static class BaibaoWorldToolSession
         bool active = WorldboxGame.GodPowers.BaibaoGrant.isSelected();
         if (active)
         {
-            if (!_grantModeWasActive) BeginGrantSession();
+            if (!_grantModeWasActive) BeginGrantSession(false);
             return;
         }
         if (_grantModeWasActive) EndGrantSession();
@@ -183,8 +200,16 @@ internal static class BaibaoWorldToolSession
     private static void EndGrantSession()
     {
         _sessionBlueprints = [];
+        _sessionTargetFilter = [];
+        _sessionReady = false;
         GrantedActorIds.Clear();
         _grantModeWasActive = false;
+    }
+
+    private static void ClearWorldState()
+    {
+        EndGrantSession();
+        BaibaoPavilionService.Instance.GrantTargetFilter.ClearWorldExpression();
     }
 
     private sealed class UpdateSystem : BaseSystem

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.ActorFiltering;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Editor;
@@ -20,6 +21,7 @@ internal static class WanfaGrantSession
     private sealed class GrantPayload
     {
         public SkillBlueprint Snapshot;
+        public ActorFilterToken[] TargetFilter;
         public int Revision;
         public int SessionGeneration;
         public float ExpiresAt;
@@ -51,6 +53,11 @@ internal static class WanfaGrantSession
     public static bool TrySpawnBrush(WorldTile tile, string powerId)
     {
         if (WanfaTestCastSession.IsActive) return WanfaTestCastSession.TryCast(tile, powerId);
+        if (!WanfaPavilionService.Instance.GrantTargetFilter.ExpressionState.IsComplete)
+        {
+            WorldTip.showNow("Cultiway.Wanfa.UI.Tip.InvalidTargetFilter".Localize(), false, "top", 3f);
+            return false;
+        }
         if (WanfaPavilionService.Instance.SelectedBlueprintCount == 0)
         {
             WorldTip.showNow("Cultiway.Wanfa.UI.Tip.SelectGrantBlueprint".Localize(), false, "top", 3f);
@@ -71,6 +78,11 @@ internal static class WanfaGrantSession
             WorldTip.showNow("Cultiway.Wanfa.UI.Tip.SelectGrantBlueprint".Localize(), false, "top", 3f);
             return false;
         }
+        if (!service.GrantTargetFilter.TrySnapshot(out var targetFilter))
+        {
+            WorldTip.showNow("Cultiway.Wanfa.UI.Tip.InvalidTargetFilter".Localize(), false, "top", 3f);
+            return false;
+        }
 
         var actors = WorldToolDropTargets.SnapshotAliveActors(tile);
         if (actors.Count == 0) return false;
@@ -82,6 +94,7 @@ internal static class WanfaGrantSession
             var hasCompatibleActor = false;
             for (var i = 0; i < actors.Count; i++)
             {
+                if (!ActorFilterExpression.EvaluateActor(targetFilter, actors[i])) continue;
                 var validation = service.ValidateGrant(actors[i], blueprint);
                 if (validation.IsCompatible)
                 {
@@ -96,6 +109,7 @@ internal static class WanfaGrantSession
             Payloads[token] = new GrantPayload
             {
                 Snapshot = blueprint.DeepClone(),
+                TargetFilter = targetFilter,
                 Revision = blueprint.Revision,
                 SessionGeneration = _sessionGeneration,
                 ExpiresAt = Time.realtimeSinceStartup + PayloadLifetime
@@ -128,6 +142,7 @@ internal static class WanfaGrantSession
         {
             var actor = actors[i];
             if (!actor.isAlive()) continue;
+            if (!ActorFilterExpression.EvaluateActor(payload.TargetFilter, actor)) continue;
             var validation = WanfaPavilionService.Instance.ValidateGrant(actor, payload.Snapshot);
             if (!validation.IsCompatible)
             {
@@ -171,6 +186,7 @@ internal static class WanfaGrantSession
         if (payload.SessionGeneration != _sessionGeneration) return;
         var actor = World.world.units.get(targetActorId);
         if (actor == null || !actor.isAlive()) return;
+        if (!ActorFilterExpression.EvaluateActor(payload.TargetFilter, actor)) return;
         var validation = WanfaPavilionService.Instance.ValidateGrant(actor, payload.Snapshot);
         if (!validation.IsCompatible)
         {

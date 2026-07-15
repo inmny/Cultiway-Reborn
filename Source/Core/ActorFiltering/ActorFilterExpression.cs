@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Core.Progression;
+using Cultiway.Utils.Extension;
 
 namespace Cultiway.Core.ActorFiltering;
 
@@ -241,6 +243,17 @@ public static class ActorFilterExpression
             }
         }
         return count == 1 && values[0];
+    }
+
+    /// <summary>按角色当前所属元对象和已拥有修炼体系求值，供只筛选角色的世界工具复用。</summary>
+    public static bool EvaluateActor(ActorFilterToken[] postfix, Actor actor)
+    {
+        var actorExtend = actor.GetExtend();
+        return Evaluate(postfix, actor, cultisysId =>
+        {
+            var cultisys = ProgressionService.GetRegistered(cultisysId);
+            return cultisys != null && cultisys.IsOwnedBy(actorExtend);
+        });
     }
 
     private static ActorFilterExpressionState InvalidState(int openParentheses)
