@@ -21,9 +21,11 @@ public enum ArtifactSpatialAttackPhase
 public struct ArtifactSpatialAttackMotion : IComponent
 {
     public Vector2 direction;
+    /// <summary>品质参数给出的巡航基准速度。</summary>
     public float speed;
+    /// <summary>经过朝向和运动阶段修正后的实际速度。</summary>
+    public float current_speed;
     public float turn_rate;
-    public float damage_multiplier;
     public float control_range;
     public float pierce_distance;
     public float repeat_cooldown;

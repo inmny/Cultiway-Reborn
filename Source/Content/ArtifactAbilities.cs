@@ -81,9 +81,9 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
         FlyingSwordAttack.DescribeInstance = ability => string.Format(
             LM.Get("Cultiway.ArtifactAbility.FlyingSwordAttack.Description"),
             ability.GetNumber(DamageMultiplier),
-            ability.GetNumber(FlightSpeed),
+            ability.GetNumber(FlightSpeed) * ArtifactFlyingSwordExecution.BaseSpeedMultiplier,
             ability.GetNumber(AttackRange),
-            ability.GetNumber(TurnRate),
+            ability.GetNumber(TurnRate) * ArtifactFlyingSwordExecution.TurnRateMultiplier,
             ability.GetNumber(PierceDistance),
             ability.GetNumber(Cooldown));
         FlyingSwordAttack.Activate(new ArtifactActiveAbilityProfile
@@ -196,7 +196,7 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
         skillContext.TargetPos = target.Object.GetSimPos();
         skillContext.TargetDir = direction.normalized;
         skillContext.AttackKingdom = target.AttackKingdom;
-        skillContext.Strength = Mathf.Max(1f, controller.stats[S.damage] * ability.GetNumber(DamageMultiplier));
+        skillContext.Strength = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier);
         skillContext.PowerLevel = controller.GetExtend().GetPowerLevel();
 
         execution.GetComponent<Position>().value = artifact.GetComponent<Position>().value;
@@ -206,12 +206,14 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
         groundFxState.LastX = execution.GetComponent<Position>().x;
         groundFxState.LastY = execution.GetComponent<Position>().y;
         execution.GetComponent<ColliderSphere>().Radius = artifact.GetComponent<ArtifactBody>().radius;
+        float flightSpeed = ability.GetNumber(FlightSpeed) * ArtifactFlyingSwordExecution.BaseSpeedMultiplier;
+        float turnRate = ability.GetNumber(TurnRate) * ArtifactFlyingSwordExecution.TurnRateMultiplier;
         execution.AddComponent(new ArtifactSpatialAttackMotion
         {
             direction = direction.normalized,
-            speed = ability.GetNumber(FlightSpeed),
-            turn_rate = ability.GetNumber(TurnRate),
-            damage_multiplier = ability.GetNumber(DamageMultiplier),
+            speed = flightSpeed,
+            current_speed = flightSpeed * ArtifactFlyingSwordExecution.LaunchSpeedRatio,
+            turn_rate = turnRate,
             control_range = ability.GetNumber(AttackRange),
             pierce_distance = ability.GetNumber(PierceDistance),
             repeat_cooldown = ability.GetNumber(Cooldown),

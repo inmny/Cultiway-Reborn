@@ -13,7 +13,17 @@ namespace Cultiway.Content.Artifacts;
 /// </summary>
 internal static class ArtifactFlyingSwordExecution
 {
+    /// <summary>执行层统一调校倍率，使已经生成的法器无需重组能力参数也能获得新的运动手感。</summary>
+    internal const float BaseSpeedMultiplier = 1.4f;
+    internal const float TurnRateMultiplier = 2.5f;
+    internal const float LaunchSpeedRatio = 0.7f;
+
     private const float ReacquireInterval = 0.12f;
+    private const float PursuitMinSpeedRatio = LaunchSpeedRatio;
+    private const float PursuitMaxSpeedRatio = 2.5f;
+    private const float CruiseSpeedRatio = 1.05f;
+    private const float ReturnSpeedRatio = 1.5f;
+    private const float AfterimageSpeedPerLayer = 11f;
     private static readonly ArtifactSpatialTargeting Targeting = new();
 
     public static void Update(
@@ -31,8 +41,6 @@ internal static class ArtifactFlyingSwordExecution
         }
 
         ref ArtifactSpatialAttackMotion motion = ref execution.GetComponent<ArtifactSpatialAttackMotion>();
-        context.Strength = Mathf.Max(1f, owner.stats[S.damage] * motion.damage_multiplier);
-        context.PowerLevel = owner.GetExtend().GetPowerLevel();
 
         ref ArtifactManifestation manifestation = ref body.GetComponent<ArtifactManifestation>();
         manifestation.visible = owner.is_visible;
@@ -58,6 +66,8 @@ internal static class ArtifactFlyingSwordExecution
                 UpdateReturning(owner, execution, ref motion, ref position, ref rotation, deltaTime);
                 break;
         }
+
+        UpdateAfterimage(execution, motion.current_speed);
     }
 
     private static void UpdatePursuing(
@@ -88,12 +98,13 @@ internal static class ArtifactFlyingSwordExecution
             motion.direction);
         context.TargetPos = target.GetSimPos();
         context.TargetDir = desiredDirection;
+        float speed = ResolvePursuitSpeed(ref motion, desiredDirection, deltaTime);
         ArtifactSpatialMotionTools.Advance(
             ref position,
             ref rotation,
             ref motion.direction,
             desiredDirection,
-            motion.speed,
+            speed,
             motion.turn_rate,
             deltaTime);
     }
@@ -107,12 +118,13 @@ internal static class ArtifactFlyingSwordExecution
         float deltaTime,
         float worldTime)
     {
+        float speed = ApproachSpeed(ref motion, PursuitMaxSpeedRatio, 12f, deltaTime);
         float distance = ArtifactSpatialMotionTools.Advance(
             ref position,
             ref rotation,
             ref motion.direction,
             motion.direction,
-            motion.speed,
+            speed,
             0f,
             deltaTime);
         context.TargetDir = motion.direction;
@@ -142,12 +154,13 @@ internal static class ArtifactFlyingSwordExecution
             motion.direction,
             orbitRadius,
             motion.orbit_sign);
+        float speed = ApproachSpeed(ref motion, CruiseSpeedRatio, 8f, deltaTime);
         ArtifactSpatialMotionTools.Advance(
             ref position,
             ref rotation,
             ref motion.direction,
             desiredDirection,
-            motion.speed,
+            speed,
             motion.turn_rate,
             deltaTime);
         context.TargetDir = motion.direction;
@@ -171,18 +184,50 @@ internal static class ArtifactFlyingSwordExecution
         Vector2 destination = owner.cur_transform_position + Vector3.up * actorScale * 0.55f;
         Vector2 start = position.v2;
         Vector2 desiredDirection = ArtifactSpatialMotionTools.DirectionTo(start, destination, motion.direction);
+        float speed = ApproachSpeed(ref motion, ReturnSpeedRatio, 8f, deltaTime);
         ArtifactSpatialMotionTools.Advance(
             ref position,
             ref rotation,
             ref motion.direction,
             desiredDirection,
-            motion.speed,
+            speed,
             motion.turn_rate * 1.5f,
             deltaTime);
         if (!ArtifactSpatialMotionTools.SegmentIntersectsCircle(start, position.v2, destination, 0.18f)) return;
 
         position.v2 = destination;
         SkillExecutionLifecycle.RequestEnd(execution);
+    }
+
+    private static float ResolvePursuitSpeed(
+        ref ArtifactSpatialAttackMotion motion,
+        Vector2 desiredDirection,
+        float deltaTime)
+    {
+        float alignment = Vector2.Dot(motion.direction, desiredDirection);
+        float aligned = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 0.98f, alignment));
+        float targetRatio = Mathf.Lerp(PursuitMinSpeedRatio, PursuitMaxSpeedRatio, aligned);
+        float response = Mathf.Lerp(12f, 9f, aligned);
+        return ApproachSpeed(ref motion, targetRatio, response, deltaTime);
+    }
+
+    private static float ApproachSpeed(
+        ref ArtifactSpatialAttackMotion motion,
+        float targetRatio,
+        float response,
+        float deltaTime)
+    {
+        motion.current_speed = Mathf.MoveTowards(
+            motion.current_speed,
+            motion.speed * targetRatio,
+            motion.speed * response * deltaTime);
+        return motion.current_speed;
+    }
+
+    private static void UpdateAfterimage(Entity execution, float speed)
+    {
+        ref AnimAfterimage afterimage = ref execution.GetComponent<AnimAfterimage>();
+        afterimage.Count = Mathf.Clamp(Mathf.CeilToInt(speed / AfterimageSpeedPerLayer), 2, 7);
     }
 
     private static bool TryAcquireTarget(

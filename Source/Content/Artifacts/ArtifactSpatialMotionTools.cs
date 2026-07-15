@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Cultiway.Content.Artifacts;
 
 /// <summary>
-/// 法器空间能力共用的连续转向、恒速位移和扫掠检测计算。
+/// 法器空间能力共用的连续转向、逐帧位移和扫掠检测计算。
 /// </summary>
 internal static class ArtifactSpatialMotionTools
 {

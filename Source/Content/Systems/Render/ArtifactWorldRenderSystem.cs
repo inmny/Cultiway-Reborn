@@ -3,7 +3,9 @@ using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Utils;
+using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -29,11 +31,14 @@ public class ArtifactWorldRenderSystem
             .AddComponent<ArtifactWorldView>();
         prefab.sprite_renderer = prefab.GetComponent<SpriteRenderer>();
         prefab.sprite_renderer.sortingLayerName = RenderSortingLayerNames.Objects_4;
+        prefab.anim_renderer = prefab.gameObject.AddComponent<AnimRenderer>();
+        prefab.anim_renderer.bind = prefab.sprite_renderer;
+        prefab.anim_renderer.defaultMaterial = prefab.sprite_renderer.sharedMaterial;
 
         _pool = new MonoObjPool<ArtifactWorldView>(
             prefab,
             root.transform,
-            active_action: view => view.transform.localScale = Vector3.one);
+            active_action: view => view.anim_renderer.ResetVisualState());
     }
 
     protected override void OnUpdate()
@@ -65,12 +70,25 @@ public class ArtifactWorldRenderSystem
             ArtifactWorldView view = _pool.GetNext();
             view.artifact = artifact;
             view.sprite_renderer.sprite = sprite;
-            view.sprite_renderer.color = manifestation.control_state.GetStateColor(time);
+            Color color = manifestation.control_state.GetStateColor(time);
+            view.sprite_renderer.color = color;
             view.sprite_renderer.flipX = manifestation.flip_x;
+            view.sprite_renderer.sortingLayerName = RenderSortingLayerNames.Objects_4;
             view.sprite_renderer.sortingOrder = manifestation.sorting_order;
             view.transform.localPosition = position.value;
             view.transform.localRotation = Quaternion.Euler(0f, 0f, rotation.z);
             view.transform.localScale = Vector3.one * (manifestation.world_size / spriteSize);
+
+            if (artifact.TryGetComponent(out SkillExecutionBodyLease lease) &&
+                lease.execution.HasComponent<AnimAfterimage>())
+            {
+                ref AnimAfterimage afterimage = ref lease.execution.GetComponent<AnimAfterimage>();
+                view.anim_renderer.SetAfterimage(sprite, color, ref afterimage, Vector2.zero, rotation.z);
+            }
+            else
+            {
+                view.anim_renderer.HideAfterimage();
+            }
         });
 
         _pool.ClearUnsed();
@@ -81,5 +99,6 @@ public class ArtifactWorldRenderSystem
     {
         public Entity artifact;
         public SpriteRenderer sprite_renderer;
+        public AnimRenderer anim_renderer;
     }
 }

@@ -34,6 +34,17 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
                 VfxElement = SkillVfxElements.Metal,
             },
             new SkillContext(),
+            new AnimAfterimage
+            {
+                Count = 2,
+                Layout = AnimAfterimageLayout.Linear,
+                SpacingRatio = 0.085f,
+                MinSpacing = 0f,
+                NewestAlpha = 0.32f,
+                OldestAlpha = 0.025f,
+                LocalDirection = Vector2.down,
+                Tint = Color.white,
+            },
             new Position(),
             new Rotation(),
             new AliveTimer(),
