@@ -2,6 +2,7 @@ using System;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Utils;
 using UnityEngine;
 
 namespace Cultiway.Content;
@@ -42,10 +43,17 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
 
     private static ArtifactPresentationPose ResolveSword(ArtifactPresentationContext context)
     {
-        float stateScale = StateScale(context.control_state);
-        if (IsOperating(context.control_state))
+        float stateScale = context.control_state.GetStateScale();
+        float activity = MotionActivity(context.control_state);
+        if (context.control_state != ArtifactControlState.Cold)
         {
-            ResolveOrbit(context, 0.5f, 0.68f, 1.05f, out Vector3 position, out float angle);
+            ResolveOrbit(
+                context,
+                0.34f + activity * 0.16f,
+                0.58f + activity * 0.1f,
+                0.35f + activity * 0.7f,
+                out Vector3 position,
+                out float angle);
             return new ArtifactPresentationPose
             {
                 position = position,
@@ -57,13 +65,14 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
 
         float spread = CenteredIndex(context.index, context.count);
         float side = context.actor.flip ? -1f : 1f;
+        float phase = context.time * 0.65f + context.index * 0.79f;
         return new ArtifactPresentationPose
         {
             position = context.actor.cur_transform_position + new Vector3(
                 side * (0.36f + Mathf.Abs(spread) * 0.08f) * context.actor_scale,
-                (0.57f + spread * 0.06f) * context.actor_scale,
+                (0.57f + spread * 0.06f + Mathf.Sin(phase) * 0.05f) * context.actor_scale,
                 0f),
-            rotation = side * -8f + spread * 7f,
+            rotation = side * -8f + spread * 7f + Mathf.Sin(phase * 0.8f) * 4f,
             world_size = context.actor_scale * 0.82f * stateScale,
             flip_x = context.actor.flip,
             sorting_order = 7,
@@ -73,16 +82,17 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
     private static ArtifactPresentationPose ResolveSeal(ArtifactPresentationContext context)
     {
         float spread = CenteredIndex(context.index, context.count);
-        float activity = IsOperating(context.control_state) ? 1f : 0.35f;
-        float phase = context.time * (1.2f + activity * 0.5f) + context.index * 0.73f;
+        float activity = MotionActivity(context.control_state);
+        float phase = context.time * (0.9f + activity * 0.65f) + context.index * 0.73f;
+        float bobAmplitude = 0.06f + activity * 0.1f;
         return new ArtifactPresentationPose
         {
             position = context.actor.cur_transform_position + new Vector3(
                 spread * 0.22f * context.actor_scale,
-                (0.82f + Mathf.Sin(phase) * 0.045f * activity) * context.actor_scale,
+                (0.82f + Mathf.Sin(phase) * bobAmplitude) * context.actor_scale,
                 0f),
-            rotation = Mathf.Sin(phase * 0.65f) * 2.5f * activity,
-            world_size = context.actor_scale * 0.86f * StateScale(context.control_state),
+            rotation = Mathf.Sin(phase * 0.65f) * (2f + activity * 7f),
+            world_size = context.actor_scale * 0.86f * context.control_state.GetStateScale(),
             sorting_order = 10,
         };
     }
@@ -96,7 +106,7 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
                 spread * 0.08f * context.actor_scale,
                 0.34f * context.actor_scale,
                 0f),
-            world_size = context.actor_scale * 1.18f * StateScale(context.control_state),
+            world_size = context.actor_scale * 1.18f * context.control_state.GetStateScale(),
             flip_x = context.actor.flip,
             sorting_order = 3,
         };
@@ -104,17 +114,19 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
 
     private static ArtifactPresentationPose ResolveMirror(ArtifactPresentationContext context)
     {
-        float phase = context.time * 0.9f + context.index * 1.17f;
+        float activity = MotionActivity(context.control_state);
+        float phase = context.time * (0.65f + activity * 0.45f) + context.index * 1.17f;
         float side = context.index % 2 == 0 ? 1f : -1f;
-        float activity = IsOperating(context.control_state) ? 1f : 0.4f;
+        float horizontalAmplitude = 0.04f + activity * 0.08f;
+        float verticalAmplitude = 0.07f + activity * 0.12f;
         return new ArtifactPresentationPose
         {
             position = context.actor.cur_transform_position + new Vector3(
-                (side * 0.43f + Mathf.Cos(phase) * 0.05f * activity) * context.actor_scale,
-                (0.62f + Mathf.Sin(phase) * 0.09f * activity) * context.actor_scale,
+                (side * 0.43f + Mathf.Cos(phase) * horizontalAmplitude) * context.actor_scale,
+                (0.62f + Mathf.Sin(phase) * verticalAmplitude) * context.actor_scale,
                 0f),
-            rotation = Mathf.Sin(phase * 0.72f) * 6f,
-            world_size = context.actor_scale * 0.72f * StateScale(context.control_state),
+            rotation = Mathf.Sin(phase * 0.72f) * (4f + activity * 10f),
+            world_size = context.actor_scale * 0.72f * context.control_state.GetStateScale(),
             sorting_order = 8,
         };
     }
@@ -122,16 +134,17 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
     private static ArtifactPresentationPose ResolveDing(ArtifactPresentationContext context)
     {
         float spread = CenteredIndex(context.index, context.count);
-        float activity = IsOperating(context.control_state) ? 1f : 0.25f;
-        float phase = context.time * 1.35f + context.index * 0.61f;
+        float activity = MotionActivity(context.control_state);
+        float phase = context.time * (0.8f + activity * 0.55f) + context.index * 0.61f;
+        float bobAmplitude = 0.04f + activity * 0.07f;
         return new ArtifactPresentationPose
         {
             position = context.actor.cur_transform_position + new Vector3(
                 spread * 0.2f * context.actor_scale,
-                (0.38f + activity * 0.18f + Mathf.Sin(phase) * 0.035f * activity) * context.actor_scale,
+                (0.38f + activity * 0.18f + Mathf.Sin(phase) * bobAmplitude) * context.actor_scale,
                 0f),
-            rotation = Mathf.Sin(phase * 0.42f) * activity * 1.5f,
-            world_size = context.actor_scale * 0.94f * StateScale(context.control_state),
+            rotation = Mathf.Sin(phase * 0.42f) * (1f + activity * 3f),
+            world_size = context.actor_scale * 0.94f * context.control_state.GetStateScale(),
             sorting_order = 6,
         };
     }
@@ -162,19 +175,14 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
         return index - (count - 1) * 0.5f;
     }
 
-    private static bool IsOperating(ArtifactControlState state)
-    {
-        return state is ArtifactControlState.Operating or ArtifactControlState.Overloaded;
-    }
-
-    private static float StateScale(ArtifactControlState state)
+    private static float MotionActivity(ArtifactControlState state)
     {
         return state switch
         {
-            ArtifactControlState.Cold => 0.55f,
-            ArtifactControlState.Ready => 0.78f,
+            ArtifactControlState.Cold => 0.25f,
+            ArtifactControlState.Ready => 0.65f,
             ArtifactControlState.Operating => 1f,
-            ArtifactControlState.Overloaded => 1.08f,
+            ArtifactControlState.Overloaded => 1.15f,
             _ => throw new ArgumentOutOfRangeException(nameof(state), state, null),
         };
     }

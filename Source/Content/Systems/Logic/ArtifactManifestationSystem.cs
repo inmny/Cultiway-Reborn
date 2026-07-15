@@ -18,10 +18,12 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
     private readonly List<EquippedArtifactRelation> _relations = new();
     private readonly Dictionary<ArtifactPresentationAsset, int> _groupCounts = new();
     private readonly Dictionary<ArtifactPresentationAsset, int> _groupIndices = new();
+    private readonly List<ManifestationUpdate> _updates = new();
 
     protected override void OnUpdate()
     {
-        float time = (float)World.world.getCurSessionTime();
+        float time = Time.time;
+        _updates.Clear();
         Query.ForEachEntity((ref ActorBinder binder, ref ArtifactLoadoutState _, Entity owner) =>
         {
             Actor actor = binder.Actor;
@@ -41,25 +43,47 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
                 int groupIndex = _groupIndices[presentation];
                 _groupIndices[presentation] = groupIndex + 1;
 
-                if (!artifact.HasComponent<ArtifactManifestation>())
-                {
-                    InitializeWorldComponents(artifact, presentation.body_radius);
-                }
-                ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
-                manifestation.control_state = relation.state;
-                if (artifact.HasComponent<ArtifactIndependentMotion>()) continue;
-                manifestation.visible = actor.is_visible;
-
-                ArtifactPresentationPose pose = presentation.ResolvePose(new ArtifactPresentationContext(
-                    actor,
+                bool followsOwner = !artifact.HasComponent<ArtifactIndependentMotion>();
+                ArtifactPresentationPose pose = followsOwner
+                    ? presentation.ResolvePose(new ArtifactPresentationContext(
+                        actor,
+                        relation.state,
+                        groupIndex,
+                        _groupCounts[presentation],
+                        actorScale,
+                        time))
+                    : default;
+                _updates.Add(new ManifestationUpdate(
+                    artifact,
                     relation.state,
-                    groupIndex,
-                    _groupCounts[presentation],
-                    actorScale,
-                    time));
-                ApplyPose(artifact, pose, presentation.body_radius);
+                    presentation.body_radius,
+                    actor.is_visible,
+                    followsOwner,
+                    pose));
             }
         });
+
+        ApplyUpdates();
+    }
+
+    private void ApplyUpdates()
+    {
+        for (int i = 0; i < _updates.Count; i++)
+        {
+            ManifestationUpdate update = _updates[i];
+            Entity artifact = update.artifact;
+            if (!artifact.HasComponent<ArtifactManifestation>())
+            {
+                InitializeWorldComponents(artifact, update.bodyRadius);
+            }
+
+            ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
+            manifestation.control_state = update.controlState;
+            if (!update.followsOwner) continue;
+
+            manifestation.visible = update.visible;
+            ApplyPose(artifact, update.pose, update.bodyRadius);
+        }
     }
 
     private void CollectRelations(Entity owner)
@@ -112,6 +136,32 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
 
         ref ArtifactBody body = ref artifact.GetComponent<ArtifactBody>();
         body.radius = bodyRadius * pose.world_size;
+    }
+
+    private readonly struct ManifestationUpdate
+    {
+        public readonly Entity artifact;
+        public readonly ArtifactControlState controlState;
+        public readonly float bodyRadius;
+        public readonly bool visible;
+        public readonly bool followsOwner;
+        public readonly ArtifactPresentationPose pose;
+
+        public ManifestationUpdate(
+            Entity artifact,
+            ArtifactControlState controlState,
+            float bodyRadius,
+            bool visible,
+            bool followsOwner,
+            ArtifactPresentationPose pose)
+        {
+            this.artifact = artifact;
+            this.controlState = controlState;
+            this.bodyRadius = bodyRadius;
+            this.visible = visible;
+            this.followsOwner = followsOwner;
+            this.pose = pose;
+        }
     }
 }
 

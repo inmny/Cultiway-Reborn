@@ -45,7 +45,7 @@ public class ArtifactWorldRenderSystem
             return;
         }
 
-        float time = (float)World.world.getCurSessionTime();
+        float time = Time.time;
         Query.ForEachEntity((
             ref Artifact _,
             ref ArtifactManifestation manifestation,
