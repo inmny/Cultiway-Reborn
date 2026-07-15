@@ -407,12 +407,12 @@ namespace Cultiway
             _content.Init();
             Wanfa = new WanfaPavilionService();
             Wanfa.Init();
-            _ui.InitWanfa(Wanfa);
+            Content.UI.Manager.Instance.InitWanfa(Wanfa);
             Baibao = new BaibaoPavilionService();
             Baibao.Init();
-            _ui.InitBaibao(Baibao);
-            _ui.InitUpgradeRain();
-            _ui.InitElementRootRain();
+            Content.UI.Manager.Instance.InitBaibao(Baibao);
+            Content.UI.Manager.Instance.InitUpgradeRain();
+            Content.UI.Manager.Instance.InitElementRootRain();
             
             GeneralLogicSystems.Add(new StructuralChangeSystem());
             GeneralLogicSystems.Add(LogicPrepareRecycleSystemGroup);

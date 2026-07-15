@@ -1,14 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Const;
-using Cultiway.Content.Artifacts.Baibao;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Logging;
-using Cultiway.Core.SkillLibV3.Wanfa;
-using Cultiway.Core.WorldTools;
 using Cultiway.UI.Components;
-using Cultiway.UI.CreatureInfoPages;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General;
 using NeoModLoader.General.UI.Tab;
@@ -38,20 +34,10 @@ public enum TabButtonType
 public class Manager
 {
     private const string DebugIconRoot       = "cultiway/icons/cultilog/";
-    private const string WanfaPavilionIcon   = "cultiway/icons/world_tools/iconWanfaPavilion";
-    private const string DiliujiangIcon      = "cultiway/icons/world_tools/iconDiliujiang";
-    private const string ElementRootRainIcon = "cultiway/icons/world_tools/iconElementRootRain";
 
     public static           PowersTab                            powers_tab;
-    public static PowerButton WanfaGrantButton { get; private set; }
-    public static PowerButton BaibaoArchiveButton { get; private set; }
-    public static PowerButton BaibaoGrantButton { get; private set; }
-    public static PowerButton UpgradeRainButton { get; private set; }
-    public static PowerButton ElementRootRainButton { get; private set; }
     private static readonly Dictionary<TabButtonType, Transform> button_groups = new();
     private static          RectTransform                        top_container;
-    private                 PowerButton                          magicWebButton;
-    private                 PowerButton                          wanfaPavilionButton;
 
     public void Init()
     {
@@ -88,107 +74,6 @@ public class Manager
         powers_tab.UpdateLayout();
 
         SwitchTab(TabButtonType.INFO);
-    }
-
-    public void InitWanfa(WanfaPavilionService service)
-    {
-        WindowNewCreatureInfo.RegisterPage(nameof(SkillPage),
-            actor => actor.GetExtend().GetLearnedSkillsInOrder().Count > 0,
-            SkillPage.Setup, SkillPage.Show);
-
-        WindowWanfaPavilion.CreateAndInit(WindowWanfaPavilion.Id, WindowWanfaPavilion.WindowSize);
-        WindowWanfaSkillEditor.CreateAndInit(WindowWanfaSkillEditor.Id, WindowWanfaSkillEditor.WindowSize);
-        WindowWanfaGrantConflict.CreateAndInit(WindowWanfaGrantConflict.Id);
-        WindowMagicWebBrowser.CreateAndInit(WindowMagicWebBrowser.Id, WindowMagicWebBrowser.WindowSize);
-
-        magicWebButton = PowerButtonCreator.CreateWindowButton(
-            $"{WindowMagicWebBrowser.Id} Title",
-            WindowMagicWebBrowser.Id,
-            SpriteTextureLoader.getSprite("ui/icons/iconMana"));
-        wanfaPavilionButton = PowerButtonCreator.CreateWindowButton(
-            $"{WindowWanfaPavilion.Id} Title",
-            WindowWanfaPavilion.Id,
-            SpriteTextureLoader.getSprite(WanfaPavilionIcon));
-        ApplyWorldToolConfigButtonStyle(wanfaPavilionButton);
-        WanfaGrantButton = PowerButtonCreator.CreateGodPowerButton(
-            WorldboxGame.GodPowers.WanfaGrant.id,
-            SpriteTextureLoader.getSprite(WanfaPavilionIcon));
-
-        service.TestCastRequested += draft => WanfaTestCastSession.Enter(draft, WanfaGrantButton);
-        service.GrantConflictRequested += WindowWanfaGrantConflict.Enqueue;
-        service.GrantConflictsCleared += WindowWanfaGrantConflict.ClearPending;
-        service.TestCastCompleted += WindowWanfaSkillEditor.ResumeAfterTestCast;
-        service.WorldStateClearing += WindowWanfaSkillEditor.ClearWorldState;
-    }
-
-    /// <summary>初始化百宝阁目录、炼制、收录窗口与两种地图交互工具。</summary>
-    public void InitBaibao(BaibaoPavilionService service)
-    {
-        WindowBaibaoPavilion.CreateAndInit(WindowBaibaoPavilion.Id, WindowBaibaoPavilion.WindowSize);
-        WindowBaibaoForge.CreateAndInit(WindowBaibaoForge.Id, WindowBaibaoForge.WindowSize);
-        WindowBaibaoArchive.CreateAndInit(WindowBaibaoArchive.Id, WindowBaibaoArchive.WindowSize);
-
-        PowerButton pavilionButton = PowerButtonCreator.CreateWindowButton(
-            $"{WindowBaibaoPavilion.Id} Title",
-            WindowBaibaoPavilion.Id,
-            SpriteTextureLoader.getSprite(BaibaoUiIcons.Pavilion));
-        ApplyWorldToolConfigButtonStyle(pavilionButton);
-        BaibaoGrantButton = PowerButtonCreator.CreateGodPowerButton(
-            WorldboxGame.GodPowers.BaibaoGrant.id,
-            SpriteTextureLoader.getSprite(BaibaoUiIcons.Pavilion));
-
-        BaibaoArchiveButton = PowerButtonCreator.CreateGodPowerButton(
-            WorldboxGame.GodPowers.BaibaoArchive.id,
-            SpriteTextureLoader.getSprite(BaibaoUiIcons.Archive));
-
-        AddButtonPair(TabButtonType.WORLD, magicWebButton, BaibaoArchiveButton);
-        AddButtonPair(TabButtonType.WORLD, wanfaPavilionButton, WanfaGrantButton);
-        AddButtonPair(TabButtonType.WORLD, pavilionButton, BaibaoGrantButton);
-
-        service.ArchiveRequested += WindowBaibaoArchive.Open;
-    }
-
-    /// <summary>初始化帝流浆配置窗口，并在世界页加入成对的配置和投放按钮。</summary>
-    public void InitUpgradeRain()
-    {
-        UpgradeRainService.Initialize();
-        WindowUpgradeRainConfig.CreateAndInit(WindowUpgradeRainConfig.Id, WindowUpgradeRainConfig.WindowSize);
-
-        var configButton = PowerButtonCreator.CreateWindowButton(
-            $"{WindowUpgradeRainConfig.Id} Title",
-            WindowUpgradeRainConfig.Id,
-            SpriteTextureLoader.getSprite(DiliujiangIcon));
-        ApplyWorldToolConfigButtonStyle(configButton);
-        UpgradeRainButton = PowerButtonCreator.CreateGodPowerButton(
-            WorldboxGame.GodPowers.UpgradeRain.id,
-            SpriteTextureLoader.getSprite(DiliujiangIcon));
-        AddButtonPair(TabButtonType.WORLD, configButton, UpgradeRainButton);
-    }
-
-    /// <summary>初始化灵根雨配置窗口，并在世界页加入成对的配置和投放按钮。</summary>
-    public void InitElementRootRain()
-    {
-        ElementRootRainService.Initialize();
-        WindowElementRootRainConfig.CreateAndInit(WindowElementRootRainConfig.Id,
-            WindowElementRootRainConfig.WindowSize);
-
-        var configButton = PowerButtonCreator.CreateWindowButton(
-            $"{WindowElementRootRainConfig.Id} Title",
-            WindowElementRootRainConfig.Id,
-            SpriteTextureLoader.getSprite(ElementRootRainIcon));
-        ApplyWorldToolConfigButtonStyle(configButton);
-        ElementRootRainButton = PowerButtonCreator.CreateGodPowerButton(
-            WorldboxGame.GodPowers.ElementRootRain.id,
-            SpriteTextureLoader.getSprite(ElementRootRainIcon));
-        AddButtonPair(TabButtonType.WORLD, configButton, ElementRootRainButton);
-    }
-
-    /// <summary>为世界工具的配置入口应用与万法阁一致的神力按钮底板。</summary>
-    private static void ApplyWorldToolConfigButtonStyle(PowerButton button)
-    {
-        var buttonImage = button.GetComponent<Image>();
-        buttonImage.sprite = SpriteTextureLoader.getSprite("ui/special/special_buttonRed_insides");
-        buttonImage.type = Image.Type.Sliced;
     }
 
     private static string[] kingdom_window_content_to_remove = [

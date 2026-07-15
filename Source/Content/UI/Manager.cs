@@ -1,6 +1,7 @@
 using System.Globalization;
 using Cultiway.Abstract;
 using Cultiway.Content.Artifacts;
+using Cultiway.Content.Artifacts.Baibao;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
@@ -9,6 +10,8 @@ using Cultiway.Content.UI.CreatureInfoPages;
 using Cultiway.Content.Utils;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Wanfa;
+using Cultiway.Core.WorldTools;
 using Cultiway.UI;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
@@ -21,13 +24,27 @@ namespace Cultiway.Content.UI;
 [Dependency(typeof(GodPowers), typeof(BaseStatses))]
 public class Manager : ICanInit
 {
+    private const string WanfaPavilionIcon = "cultiway/icons/world_tools/iconWanfaPavilion";
+    private const string DiliujiangIcon = "cultiway/icons/world_tools/iconDiliujiang";
+    private const string ElementRootRainIcon = "cultiway/icons/world_tools/iconElementRootRain";
     private const string CharacterPanelWakanTitle = "Cultiway.UI.CharacterPanel.Wakan";
     private const string CharacterPanelWakanDescription = "Cultiway.UI.CharacterPanel.Wakan Description";
     private const string CharacterPanelSpiritTitle = "Cultiway.UI.CharacterPanel.Spirit";
     private const string CharacterPanelSpiritDescription = "Cultiway.UI.CharacterPanel.Spirit Description";
 
+    public static Manager Instance { get; private set; }
+    public PowerButton WanfaGrantButton { get; private set; }
+    public PowerButton BaibaoArchiveButton { get; private set; }
+    public PowerButton BaibaoGrantButton { get; private set; }
+    public PowerButton UpgradeRainButton { get; private set; }
+    public PowerButton ElementRootRainButton { get; private set; }
+
+    private PowerButton _magicWebButton;
+    private PowerButton _wanfaPavilionButton;
+
     public void Init()
     {
+        Instance = this;
         WindowNewCreatureInfo.RegisterPage(nameof(XianBasePage), a => a.GetExtend().HasComponent<XianBase>(),
             XianBasePage.Setup, XianBasePage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(JindanPage), a => a.GetExtend().HasComponent<Jindan>(),
@@ -127,6 +144,86 @@ public class Manager : ICanInit
                 }
             }
         });
+    }
+
+    public void InitWanfa(WanfaPavilionService service)
+    {
+        WindowActorTargetFilter.CreateAndInit(WindowActorTargetFilter.Id, WindowActorTargetFilter.WindowSize);
+        WindowNewCreatureInfo.RegisterPage(nameof(Cultiway.UI.CreatureInfoPages.SkillPage),
+            actor => actor.GetExtend().GetLearnedSkillsInOrder().Count > 0,
+            Cultiway.UI.CreatureInfoPages.SkillPage.Setup, Cultiway.UI.CreatureInfoPages.SkillPage.Show);
+
+        WindowWanfaPavilion.CreateAndInit(WindowWanfaPavilion.Id, WindowWanfaPavilion.WindowSize);
+        WindowWanfaSkillEditor.CreateAndInit(WindowWanfaSkillEditor.Id, WindowWanfaSkillEditor.WindowSize);
+        WindowWanfaGrantConflict.CreateAndInit(WindowWanfaGrantConflict.Id);
+        WindowMagicWebBrowser.CreateAndInit(WindowMagicWebBrowser.Id, WindowMagicWebBrowser.WindowSize);
+
+        _magicWebButton = PowerButtonCreator.CreateWindowButton(
+            $"{WindowMagicWebBrowser.Id} Title", WindowMagicWebBrowser.Id,
+            SpriteTextureLoader.getSprite("ui/icons/iconMana"));
+        _wanfaPavilionButton = PowerButtonCreator.CreateWindowButton(
+            $"{WindowWanfaPavilion.Id} Title", WindowWanfaPavilion.Id,
+            SpriteTextureLoader.getSprite(WanfaPavilionIcon));
+        UiPowerButtonAdapter.ApplyWorldToolConfigStyle(_wanfaPavilionButton);
+        WanfaGrantButton = PowerButtonCreator.CreateGodPowerButton(
+            WorldboxGame.GodPowers.WanfaGrant.id, SpriteTextureLoader.getSprite(WanfaPavilionIcon));
+
+        service.TestCastRequested += draft => WanfaTestCastSession.Enter(draft, WanfaGrantButton);
+        service.GrantConflictRequested += WindowWanfaGrantConflict.Enqueue;
+        service.GrantConflictsCleared += WindowWanfaGrantConflict.ClearPending;
+        service.TestCastCompleted += WindowWanfaSkillEditor.ResumeAfterTestCast;
+        service.WorldStateClearing += WindowWanfaSkillEditor.ClearWorldState;
+    }
+
+    /// <summary>初始化百宝阁目录、炼制、收录窗口与两种地图交互工具。</summary>
+    public void InitBaibao(BaibaoPavilionService service)
+    {
+        WindowBaibaoPavilion.CreateAndInit(WindowBaibaoPavilion.Id, WindowBaibaoPavilion.WindowSize);
+        WindowBaibaoForge.CreateAndInit(WindowBaibaoForge.Id, WindowBaibaoForge.WindowSize);
+        WindowBaibaoArchive.CreateAndInit(WindowBaibaoArchive.Id, WindowBaibaoArchive.WindowSize);
+
+        PowerButton pavilionButton = PowerButtonCreator.CreateWindowButton(
+            $"{WindowBaibaoPavilion.Id} Title", WindowBaibaoPavilion.Id,
+            SpriteTextureLoader.getSprite(BaibaoUiIcons.Pavilion));
+        UiPowerButtonAdapter.ApplyWorldToolConfigStyle(pavilionButton);
+        BaibaoGrantButton = PowerButtonCreator.CreateGodPowerButton(
+            WorldboxGame.GodPowers.BaibaoGrant.id, SpriteTextureLoader.getSprite(BaibaoUiIcons.Pavilion));
+        BaibaoArchiveButton = PowerButtonCreator.CreateGodPowerButton(
+            WorldboxGame.GodPowers.BaibaoArchive.id, SpriteTextureLoader.getSprite(BaibaoUiIcons.Archive));
+
+        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, _magicWebButton, BaibaoArchiveButton);
+        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, _wanfaPavilionButton, WanfaGrantButton);
+        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, pavilionButton, BaibaoGrantButton);
+        service.ArchiveRequested += WindowBaibaoArchive.Open;
+    }
+
+    /// <summary>初始化帝流浆配置窗口，并在世界页加入成对的配置和投放按钮。</summary>
+    public void InitUpgradeRain()
+    {
+        UpgradeRainService.Initialize();
+        WindowUpgradeRainConfig.CreateAndInit(WindowUpgradeRainConfig.Id, WindowUpgradeRainConfig.WindowSize);
+        PowerButton configButton = PowerButtonCreator.CreateWindowButton(
+            $"{WindowUpgradeRainConfig.Id} Title", WindowUpgradeRainConfig.Id,
+            SpriteTextureLoader.getSprite(DiliujiangIcon));
+        UiPowerButtonAdapter.ApplyWorldToolConfigStyle(configButton);
+        UpgradeRainButton = PowerButtonCreator.CreateGodPowerButton(
+            WorldboxGame.GodPowers.UpgradeRain.id, SpriteTextureLoader.getSprite(DiliujiangIcon));
+        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, configButton, UpgradeRainButton);
+    }
+
+    /// <summary>初始化灵根雨配置窗口，并在世界页加入成对的配置和投放按钮。</summary>
+    public void InitElementRootRain()
+    {
+        ElementRootRainService.Initialize();
+        WindowElementRootRainConfig.CreateAndInit(WindowElementRootRainConfig.Id,
+            WindowElementRootRainConfig.WindowSize);
+        PowerButton configButton = PowerButtonCreator.CreateWindowButton(
+            $"{WindowElementRootRainConfig.Id} Title", WindowElementRootRainConfig.Id,
+            SpriteTextureLoader.getSprite(ElementRootRainIcon));
+        UiPowerButtonAdapter.ApplyWorldToolConfigStyle(configButton);
+        ElementRootRainButton = PowerButtonCreator.CreateGodPowerButton(
+            WorldboxGame.GodPowers.ElementRootRain.id, SpriteTextureLoader.getSprite(ElementRootRainIcon));
+        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, configButton, ElementRootRainButton);
     }
 
     private static void AppendArtifactControlDetails(SpecialItemTooltip tooltip, Entity artifact)
