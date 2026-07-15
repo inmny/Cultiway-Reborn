@@ -49,7 +49,7 @@ public class SectScriptureStatValue : APrefabPreview<SectScriptureStatValue>
         GameObject value = obj.NewChild(nameof(Value), typeof(Text), typeof(Shadow));
         SetRect(value.GetComponent<RectTransform>(), new Vector2(14f, 12f), new Vector2(18f, 0f));
         Text valueText = value.GetComponent<Text>();
-        valueText.font = UIUtils.GetCurrentFont();
+        valueText.font = Cultiway.UI.UiTheme.Current.Font;
         valueText.fontSize = 6;
         valueText.fontStyle = FontStyle.Bold;
         valueText.alignment = TextAnchor.MiddleCenter;

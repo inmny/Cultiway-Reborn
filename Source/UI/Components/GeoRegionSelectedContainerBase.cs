@@ -301,7 +301,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         Text text = titleObject.GetComponent<Text>();
         text.raycastTarget = false;
         text.alignment = TextAnchor.MiddleCenter;
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.fontStyle = FontStyle.Bold;
         text.horizontalOverflow = HorizontalWrapMode.Overflow;
         text.verticalOverflow = VerticalWrapMode.Overflow;

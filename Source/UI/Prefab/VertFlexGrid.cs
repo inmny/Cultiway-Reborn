@@ -39,7 +39,7 @@ public class VertFlexGrid : APrefabPreview<VertFlexGrid>
         GameObject obj = ModClass.NewPrefabPreview(nameof(VertFlexGrid), typeof(Image), typeof(ContentSizeFitter),
             typeof(GridLayoutGroup));
         var bg = obj.GetComponent<Image>();
-        bg.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        bg.sprite = UiResources.GetSprite(UiResources.WindowInner);
         bg.type = Image.Type.Sliced;
 
         var fitter = obj.GetComponent<ContentSizeFitter>();

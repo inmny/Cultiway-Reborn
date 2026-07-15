@@ -27,7 +27,7 @@ public class ElementRootPage : MonoBehaviour
         var er_page = page.gameObject.AddComponent<ElementRootPage>();
         var content = new GameObject("Content", typeof(RectTransform), typeof(HorizontalLayoutGroup));
         content.transform.SetParent(page.transform, false);
-        WanfaUiFactory.Stretch(content.GetComponent<RectTransform>());
+        UiLayout.Stretch(content.GetComponent<RectTransform>());
 
         var layout = content.GetComponent<HorizontalLayoutGroup>();
         layout.childAlignment = TextAnchor.UpperLeft;
@@ -44,10 +44,10 @@ public class ElementRootPage : MonoBehaviour
         var textObject = new GameObject("Details", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text),
             typeof(LayoutElement));
         textObject.transform.SetParent(content.transform, false);
-        WanfaUiFactory.SetLayout(textObject.transform, 168f, 210f);
+        UiLayout.SetSize(textObject.transform, 168f, 210f);
         var text = textObject.GetComponent<Text>();
 
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.fontSize = 8;
         text.alignment = TextAnchor.UpperLeft;
         text.horizontalOverflow = HorizontalWrapMode.Wrap;

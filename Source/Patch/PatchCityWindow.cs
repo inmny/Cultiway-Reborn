@@ -33,7 +33,7 @@ internal static class PatchCityWindow
             obj.transform.localScale = Vector3.one;
             obj.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             info_text = obj.GetComponent<Text>();
-            info_text.font = UIUtils.GetCurrentFont();
+            info_text.font = Cultiway.UI.UiTheme.Current.Font;
             info_text.fontSize = 6;
 
             if (__instance.GetComponent<AdditionCityWindow>() == null)

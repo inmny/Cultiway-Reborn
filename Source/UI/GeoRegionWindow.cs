@@ -194,7 +194,7 @@ namespace Cultiway.UI
 
             Text text = titleObject.GetComponent<Text>();
             text.raycastTarget = false;
-            text.font = UIUtils.GetCurrentFont();
+            text.font = Cultiway.UI.UiTheme.Current.Font;
             text.fontSize = 5;
             text.resizeTextForBestFit = true;
             text.resizeTextMinSize = 1;

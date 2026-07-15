@@ -166,7 +166,7 @@ internal class SectScriptureElement : WindowMetaElement<Sect, SectData>
         messageObject.transform.localScale = Vector3.one;
 
         Text text = messageObject.GetComponent<Text>();
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.fontSize = 7;
         text.alignment = TextAnchor.MiddleCenter;
         text.color = Color.white;

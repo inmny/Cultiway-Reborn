@@ -158,7 +158,7 @@ public class SectScriptureBookRow : APrefabPreview<SectScriptureBookRow>
         SetRect(textObject.GetComponent<RectTransform>(), size, position);
 
         Text text = textObject.GetComponent<Text>();
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.fontSize = fontSize;
         text.fontStyle = fontStyle;
         text.alignment = alignment;

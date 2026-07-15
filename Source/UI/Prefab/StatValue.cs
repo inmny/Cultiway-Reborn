@@ -44,7 +44,7 @@ public class StatValue : APrefabPreview<StatValue>
     {
         GameObject obj = ModClass.NewPrefabPreview(nameof(StatValue), typeof(Image));
         var bg = obj.GetComponent<Image>();
-        bg.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        bg.sprite = UiResources.GetSprite(UiResources.WindowInner);
         bg.type = Image.Type.Sliced;
         obj.GetComponent<RectTransform>().sizeDelta = new Vector2(18, 25);
 
@@ -59,7 +59,7 @@ public class StatValue : APrefabPreview<StatValue>
         text_obj.GetComponent<RectTransform>().sizeDelta = new Vector2(0, 10);
         var text = text_obj.GetComponent<Text>();
         text.alignment = TextAnchor.MiddleCenter;
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.resizeTextForBestFit = true;
         text.resizeTextMinSize = 1;
         text.horizontalOverflow = HorizontalWrapMode.Overflow;

@@ -297,7 +297,7 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         avatarRect.anchoredPosition = new Vector2(16f, 0f);
         avatarRect.sizeDelta = new Vector2(28f, 28f);
         var avatarBackground = avatar.GetComponent<Image>();
-        avatarBackground.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        avatarBackground.sprite = UiResources.GetSprite(UiResources.WindowInner);
         avatarBackground.type = Image.Type.Sliced;
         avatarBackground.color = new Color(1f, 1f, 1f, 0.5f);
 
@@ -316,7 +316,7 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         textRect.offsetMin = new Vector2(34f, 1f);
         textRect.offsetMax = new Vector2(-3f, -1f);
         var text = textObject.GetComponent<Text>();
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.fontSize = 7;
         text.alignment = TextAnchor.MiddleLeft;
         text.color = Color.white;
@@ -334,7 +334,7 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         grid.transform.SetParent(parent, false);
         grid.transform.SetSiblingIndex(3);
         var background = grid.GetComponent<Image>();
-        background.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        background.sprite = UiResources.GetSprite(UiResources.WindowInner);
         background.type = Image.Type.Sliced;
         background.color = new Color(1f, 1f, 1f, 0.35f);
         var layout = grid.GetComponent<GridLayoutGroup>();

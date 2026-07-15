@@ -33,8 +33,8 @@ public class LineTitleValue : APrefabPreview<LineTitleValue>
         var title = title_obj.GetComponent<Text>();
         var value = value_obj.GetComponent<Text>();
 
-        title.font = UIUtils.GetCurrentFont();
-        value.font = UIUtils.GetCurrentFont();
+        title.font = Cultiway.UI.UiTheme.Current.Font;
+        value.font = Cultiway.UI.UiTheme.Current.Font;
         
         title.alignment = TextAnchor.MiddleLeft;
         value.alignment = TextAnchor.MiddleRight;

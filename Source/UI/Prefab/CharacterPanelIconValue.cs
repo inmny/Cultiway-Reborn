@@ -66,7 +66,7 @@ public class CharacterPanelIconValue : APrefabPreview<CharacterPanelIconValue>
         tip.type = WorldboxGame.Tooltips.RawTip.id;
 
         Text text = obj.transform.FindRecursive("Text").GetComponent<Text>();
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.fontStyle = FontStyle.Bold;
         text.resizeTextForBestFit = true;
         text.resizeTextMinSize = 4;
@@ -88,7 +88,7 @@ public class CharacterPanelIconValue : APrefabPreview<CharacterPanelIconValue>
         GameObject obj = ModClass.NewPrefabPreview(nameof(CharacterPanelIconValue), typeof(Image), typeof(Button),
             typeof(TipButton));
         Image background = obj.GetComponent<Image>();
-        background.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        background.sprite = UiResources.GetSprite(UiResources.WindowInner);
         background.type = Image.Type.Sliced;
         background.color = new Color(0.7735849f, 0.7735849f, 0.7735849f, 0.6313726f);
 

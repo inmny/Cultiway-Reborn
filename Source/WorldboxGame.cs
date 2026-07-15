@@ -81,7 +81,7 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
     }
 
     public static WorldboxGame I { get; private set; }
-    public Font CurrentFont => UIUtils.GetCurrentFont();
+    public Font CurrentFont => Cultiway.UI.UiTheme.Current.Font;
     public Sect SelectedSect;
     public GeoRegion SelectedGeoRegion;
     public SectManager Sects;

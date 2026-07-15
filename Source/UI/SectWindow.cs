@@ -463,7 +463,7 @@ public class SectWindow : WindowMetaGeneric<Sect, SectData>, ITraitWindow<SectTr
         }
 
         Image backgroundImage = container.GetComponent<Image>();
-        backgroundImage.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        backgroundImage.sprite = UiResources.GetSprite(UiResources.WindowInner);
         backgroundImage.type = Image.Type.Sliced;
 
         HorizontalLayoutGroup layout = container.GetComponent<HorizontalLayoutGroup>();

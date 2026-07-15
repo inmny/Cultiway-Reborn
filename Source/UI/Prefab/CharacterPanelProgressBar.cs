@@ -66,7 +66,7 @@ public class CharacterPanelProgressBar : APrefabPreview<CharacterPanelProgressBa
         tip.type = WorldboxGame.Tooltips.RawTip.id;
 
         Text text = obj.transform.FindRecursive("Text").GetComponent<Text>();
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.resizeTextForBestFit = true;
         text.resizeTextMinSize = 1;
         text.resizeTextMaxSize = 9;
@@ -96,7 +96,7 @@ public class CharacterPanelProgressBar : APrefabPreview<CharacterPanelProgressBa
 
         Image background = obj.GetComponent<Image>();
         background.color = new Color(0.8301887f, 0.8301887f, 0.8301887f, 1f);
-        background.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        background.sprite = UiResources.GetSprite(UiResources.WindowInner);
         background.type = Image.Type.Sliced;
 
         GameObject fillBackground = obj.NewChild("Background", typeof(Image));
@@ -128,7 +128,7 @@ public class CharacterPanelProgressBar : APrefabPreview<CharacterPanelProgressBa
         GameObject text = obj.NewChild("Text", typeof(Text), typeof(Shadow));
         SetRect(text.GetComponent<RectTransform>(), new Vector2(70f, 8f), new Vector2(52.5f, 0.4f));
         Text textComponent = text.GetComponent<Text>();
-        textComponent.font = UIUtils.GetCurrentFont();
+        textComponent.font = Cultiway.UI.UiTheme.Current.Font;
         textComponent.alignment = TextAnchor.MiddleCenter;
         textComponent.color = Color.white;
 

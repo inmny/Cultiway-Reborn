@@ -59,7 +59,7 @@ public class ContentGrid : APrefabPreview<ContentGrid>
         fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
         var bg = obj.GetComponent<Image>();
-        bg.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        bg.sprite = UiResources.GetSprite(UiResources.WindowInner);
         bg.type = Image.Type.Sliced;
 
         obj.GetComponent<LayoutElement>().minHeight = 30;
@@ -71,7 +71,7 @@ public class ContentGrid : APrefabPreview<ContentGrid>
         title_obj.GetComponent<LayoutElement>().ignoreLayout = true;
 
         var title_text = title_obj.GetComponent<Text>();
-        title_text.font = UIUtils.GetCurrentFont();
+        title_text.font = Cultiway.UI.UiTheme.Current.Font;
         title_text.fontSize = 12;
         title_text.alignment = TextAnchor.MiddleCenter;
         title_text.color = UIColors.BackgroundTextColor;

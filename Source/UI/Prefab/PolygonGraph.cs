@@ -90,7 +90,7 @@ public class PolygonGraph : APrefabPreview<PolygonGraph>
         GameObject title_obj = obj.NewChild(nameof(Title), typeof(Text), typeof(LocalizedText));
         var text = title_obj.GetComponent<Text>();
         text.alignment = TextAnchor.MiddleCenter;
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.resizeTextMinSize = 1;
         text.resizeTextForBestFit = true;
         var localization = title_obj.GetComponent<LocalizedText>();

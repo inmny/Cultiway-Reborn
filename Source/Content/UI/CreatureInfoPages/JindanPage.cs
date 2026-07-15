@@ -22,7 +22,7 @@ public class JindanPage : MonoBehaviour
         var this_page = page.gameObject.AddComponent<JindanPage>();
         var text = page.gameObject.AddComponent<Text>();
 
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.fontSize = 8;
 
         this_page.Text = text;

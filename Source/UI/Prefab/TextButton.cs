@@ -46,7 +46,7 @@ public class TextButton : APrefabPreview<TextButton>
 
         var text = obj.GetComponent<Text>();
         text.alignment = TextAnchor.MiddleCenter;
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.fontSize = 8;
 
         var fitter = obj.GetComponent<ContentSizeFitter>();

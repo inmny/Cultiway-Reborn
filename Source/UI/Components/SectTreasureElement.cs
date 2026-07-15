@@ -157,7 +157,7 @@ internal class SectTreasureElement : WindowMetaElement<Sect, SectData>
         row.transform.localScale = Vector3.one;
 
         Image background = row.GetComponent<Image>();
-        background.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        background.sprite = UiResources.GetSprite(UiResources.WindowInner);
         background.type = Image.Type.Sliced;
 
         GameObject label = new("Label", typeof(RectTransform), typeof(Text), typeof(Shadow));
@@ -169,7 +169,7 @@ internal class SectTreasureElement : WindowMetaElement<Sect, SectData>
         labelRect.offsetMax = Vector2.zero;
 
         Text text = label.GetComponent<Text>();
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.fontSize = 7;
         text.fontStyle = FontStyle.Bold;
         text.alignment = TextAnchor.MiddleCenter;
@@ -213,7 +213,7 @@ internal class SectTreasureElement : WindowMetaElement<Sect, SectData>
         message.transform.SetParent(parent, false);
 
         Text text = message.GetComponent<Text>();
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.fontSize = 7;
         text.alignment = TextAnchor.MiddleCenter;
         text.color = Color.white;

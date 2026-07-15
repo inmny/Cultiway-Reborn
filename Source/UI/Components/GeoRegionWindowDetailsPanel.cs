@@ -200,7 +200,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         sectionObject.transform.localScale = Vector3.one;
 
         Image image = sectionObject.GetComponent<Image>();
-        image.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        image.sprite = UiResources.GetSprite(UiResources.WindowInner);
         image.type = Image.Type.Sliced;
         image.color = Color.white;
         image.raycastTarget = false;
@@ -233,7 +233,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         Text text = titleObject.GetComponent<Text>();
         text.raycastTarget = false;
         text.alignment = TextAnchor.MiddleCenter;
-        text.font = UIUtils.GetCurrentFont();
+        text.font = Cultiway.UI.UiTheme.Current.Font;
         text.fontSize = 10;
         text.fontStyle = FontStyle.Bold;
         text.color = new Color(1f, 0.60730225f, 0.1102941f, 0.18039216f);
