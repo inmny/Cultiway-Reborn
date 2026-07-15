@@ -104,8 +104,10 @@ public class Yuanyings : ExtendLibrary<YuanyingAsset, Yuanyings>
             var composition_array = yuanying.composition.AsArray();
             foreach (var skill_entity in ModClass.I.SkillV3.SkillLib.list)
             {
+                if (!skill_entity.CanBeLearned) continue;
                 var skill_composition = skill_entity.Element.AsArray();
                 var similarity = MathUtils.CosineSimilarity(composition_array, skill_composition);
+                if (float.IsNaN(similarity) || float.IsInfinity(similarity) || similarity <= 0f) continue;
                 skill_similarities[skill_entity] = similarity;
             }
 

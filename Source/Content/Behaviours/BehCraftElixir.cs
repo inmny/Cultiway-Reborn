@@ -1,7 +1,9 @@
 using System;
 using System.Linq;
 using ai.behaviours;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
+using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -47,11 +49,12 @@ public class BehCraftElixir : BehCityActor
             return BehResult.Continue;
         }
 
-        CraftOccupyingRelation ing_to_show = ingredients[crafting_elixir.progress];
-        crafting_elixir.progress++;
+        ElixirCraftStepEvent step = new(elixir_asset, crafting_elixir_entity, Randy.randomFloat(1f, 3f));
+        ArtifactAbilityDispatcher.Dispatch(ae.E, step);
+        crafting_elixir.progress += Math.Max(1, step.ProgressGain);
         //ModClass.LogInfo(
         //    $"{pObject.data.id} 正在制作({crafting_elixir.progress}/{ingredients.Length}) {crafting_elixir.elixir_id}");
-        pObject.timer_action = Randy.randomFloat(1, 3);
+        pObject.timer_action = Math.Max(0.15f, step.Duration);
 
         return BehResult.Continue;
     }

@@ -148,7 +148,7 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             .SetupColliderSphere(colliderRadius, EnemyActorCollider())
             .SetupDefaultTraj(trajectory)
             .OnObjCollision = onCollision;
-        ConfigureEditor(asset);
+        ConfigureLearnableAsset(asset);
         return asset;
     }
 
@@ -164,12 +164,13 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             .SetupColliderSphere(colliderRadius, EnemyActorCollider())
             .SetupDefaultTraj(trajectory)
             .OnObjCollision = onCollision;
-        ConfigureEditor(asset);
+        ConfigureLearnableAsset(asset);
         return asset;
     }
 
-    private static void ConfigureEditor(SkillEntityAsset asset)
+    private static void ConfigureLearnableAsset(SkillEntityAsset asset)
     {
+        asset.AllowLearning();
         asset.EditorCategoryKey = "Cultiway.SkillEntity.Category.Attack";
         asset.EditorSortOrder = ModClass.I.SkillV3.SkillLib.list.IndexOf(asset);
         asset.EditorSelectable = true;

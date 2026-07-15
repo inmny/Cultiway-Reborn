@@ -417,8 +417,8 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     private void BuildEntityPage()
     {
         foreach (var entity in ModClass.I.SkillV3.SkillLib.list
-                     .Where(item => item.EditorSelectable &&
-                                    WanfaPavilionService.Instance.ActivePolicy.IsEntityAvailable(item.id))
+                     .Where(item => item.CanBeLearned && item.EditorSelectable &&
+                                     WanfaPavilionService.Instance.ActivePolicy.IsEntityAvailable(item.id))
                      .OrderBy(item => item.EditorSortOrder))
         {
             var selected = entity.id == _draft.EntityAssetId;

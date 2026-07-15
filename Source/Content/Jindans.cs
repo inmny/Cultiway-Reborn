@@ -187,6 +187,7 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
             var composition_array = jindan.composition.AsArray();
             foreach (var skill_entity in ModClass.I.SkillV3.SkillLib.list)
             {
+                if (!skill_entity.CanBeLearned) continue;
                 var skill_composition = skill_entity.Element.AsArray();
                 var similarity = MathUtils.CosineSimilarity(composition_array, skill_composition);
                 if (jindan.Group == JindanGroups.Special)
@@ -199,6 +200,7 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
                     }
                     if (non_zero > 1) similarity *= 0.7f;
                 }
+                if (float.IsNaN(similarity) || float.IsInfinity(similarity) || similarity <= 0f) continue;
                 skill_similarities[skill_entity] = similarity;
             }
 

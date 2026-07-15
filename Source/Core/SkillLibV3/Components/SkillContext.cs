@@ -5,6 +5,9 @@ namespace Cultiway.Core.SkillLibV3.Components;
 
 public struct SkillContext : IComponent
 {
+    /// <summary>未额外指定强度时，一次标准技能释放使用的基础强度。</summary>
+    public const float DefaultStrength = 100f;
+
     public float Strength;
     public float PowerLevel;
     public BaseSimObject SourceObj;

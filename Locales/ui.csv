@@ -615,6 +615,10 @@ Cultiway.Artifact.ControlState.Overloaded,超载运转
 Cultiway.Artifact.EquipMode.Automatic,自动
 Cultiway.Artifact.EquipMode.Standby,仅待命
 Cultiway.Artifact.EquipMode.ForcedOperating,强制运转
+Cultiway.ArtifactAbility.FlyingSwordAttack,飞剑攻击
+Cultiway.ArtifactAbility.FlyingSwordAttack.Description,伤害 ×{0:0.##} · 飞行 {1:0.#} · 控域 {2:0.#} · 转向 {3:0} · 穿出 {4:0.#} · 复击 {5:0.#}
+Cultiway.ArtifactAbility.DingAlchemyAssist,鼎辅炼丹
+Cultiway.ArtifactAbility.DingAlchemyAssist.Description,工序 +{0} · 耗时 ×{1:P0} · 品级 +{2}
 Cultiway.UI.WindowUpgradeRainConfig Title,帝流浆配置
 Cultiway.UI.WindowUpgradeRainConfig Title Description,配置帝流浆的提升方式、数量和目标过滤条件。
 Cultiway.UpgradeRain.UI.Section.Mode,提升方式
@@ -700,3 +704,87 @@ Cultiway.ElementRootRain.UI.Tip.InvalidConfiguration,请先完成灵根比例、
 Cultiway.ElementRootDiagram.Tooltip.Title,灵根构成
 Cultiway.ElementRootDiagram.Tooltip.Groups,五行 {0} · 阴阳 {1} · 混沌 {2}
 Cultiway.ElementRootDiagram.Tooltip.Strength,综合强度 {0}
+Cultiway.UI.WindowBaibaoPavilion Title,百宝阁
+Cultiway.UI.WindowBaibaoPavilion Title Description,管理法宝蓝图，并进入炼制、收录或赠宝流程。
+Cultiway.UI.WindowBaibaoForge Title,法宝炼制
+Cultiway.UI.WindowBaibaoForge Title Description,选择器形、品阶与任意数量的 atom，预览并保存法宝蓝图。
+Cultiway.UI.WindowBaibaoArchive Title,法宝收录
+Cultiway.UI.WindowBaibaoArchive Title Description,将目标角色持有的法宝复制为百宝阁制造蓝图，原法宝保持不变。
+Cultiway.Baibao.UI.Action.Forge,炼制
+Cultiway.Baibao.UI.Action.Archive,收录
+Cultiway.Baibao.UI.Action.Archived,已收录
+Cultiway.Baibao.UI.Action.ArchiveAll,全部收录
+Cultiway.Baibao.UI.Action.Grant,赠宝
+Cultiway.Baibao.UI.Action.Delete,删除
+Cultiway.Baibao.UI.Action.Select,选择
+Cultiway.Baibao.UI.Action.Selected,已选择
+Cultiway.Baibao.UI.Action.Favorite,收藏
+Cultiway.Baibao.UI.Action.Unfavorite,取消收藏
+Cultiway.Baibao.UI.Action.MoveUp,上移
+Cultiway.Baibao.UI.Action.MoveDown,下移
+Cultiway.Baibao.UI.Action.Save,保存
+Cultiway.Baibao.UI.Action.Cancel,取消
+Cultiway.Baibao.UI.Action.Previous,上一个
+Cultiway.Baibao.UI.Action.Next,下一个
+Cultiway.Baibao.UI.Action.BackToPavilion,返回百宝阁
+Cultiway.Baibao.UI.Label.FavoriteOnly,仅收藏
+Cultiway.Baibao.UI.Label.Shape,器形
+Cultiway.Baibao.UI.Label.Quality,品阶
+Cultiway.Baibao.UI.Placeholder.Search,搜索法宝
+Cultiway.Baibao.UI.Filter.AllShapes,全部器形
+Cultiway.Baibao.UI.Sort.Manual,手动
+Cultiway.Baibao.UI.Sort.Name,名称
+Cultiway.Baibao.UI.Sort.Recent,最近
+Cultiway.Baibao.UI.Sort.Quality,品阶
+Cultiway.Baibao.UI.State.Valid,有效
+Cultiway.Baibao.UI.State.Damaged,损坏
+Cultiway.Baibao.UI.State.Forged,炼制
+Cultiway.Baibao.UI.State.Archived,已收录
+Cultiway.Baibao.UI.State.NotArchived,未收录
+Cultiway.Baibao.UI.State.TargetUnavailable,目标已经失效
+Cultiway.Baibao.UI.AtomCategory.Material,材质
+Cultiway.Baibao.UI.AtomCategory.Finish,饰面
+Cultiway.Baibao.UI.AtomCategory.Other,其他
+Cultiway.Baibao.UI.Format.SelectedCount,已选 {0}
+Cultiway.Baibao.UI.Format.BlueprintDetail,{0} · {1} · 构件 {2} · 能力 {3} · {4} · {5}
+Cultiway.Baibao.UI.Format.ArchivedOrigin,收录自 {0}
+Cultiway.Baibao.UI.Format.Invalid,法宝蓝图无效：{0}
+Cultiway.Baibao.UI.Format.GrantSuccess,已向 {0} 名生物赠出 {1} 件法宝
+Cultiway.Baibao.UI.Format.NoArtifact,{0} 没有可收录的法宝
+Cultiway.Baibao.UI.Format.ArchiveItemDetail,{0} · {1} · {2}
+Cultiway.Baibao.UI.Format.ArtifactCount,法宝 {0}
+Cultiway.Baibao.UI.Format.ArchiveAllResult,新增 {0} · 已有 {1} · 无效 {2}
+Cultiway.Baibao.UI.Format.AtomOption,{0} · {1}
+Cultiway.Baibao.UI.Format.ForgePreview,{0} · {1} · 构件 {2} · 能力 {3}
+Cultiway.Baibao.UI.Format.AtomTitle,组合构件（已选 {0}）
+Cultiway.Baibao.UI.Tip.Forged,法宝蓝图已收入百宝阁
+Cultiway.Baibao.UI.Tip.Archived,法宝已收入百宝阁
+Cultiway.Baibao.UI.Tip.Duplicate,百宝阁中已有结构完全相同的法宝蓝图
+Cultiway.Baibao.UI.Tip.SelectBlueprint,请先从百宝阁选择要赠送的法宝
+Cultiway.Baibao.UI.Tip.NoValidBlueprint,当前选择中没有可以制造的法宝蓝图
+Cultiway.Baibao.UI.Tip.AlreadyGrantedThisSession,该生物在本轮赠宝中已经领取过一套法宝
+Cultiway.Baibao.UI.Tooltip.Forge,打开独立炼制窗口。器形与构件来自当前注册内容，构件选择数量不受限制。
+Cultiway.Baibao.UI.Tooltip.BeginArchive,进入角色选择模式；点击生物后在独立收录窗口中检查并收录其法宝。
+Cultiway.Baibao.UI.Tooltip.BeginGrant,进入赠宝模式；本轮每名生物最多领取一次当前选择的整套法宝。
+Cultiway.Baibao.UI.Tooltip.Search,按法宝名称、器形、构件或来源角色筛选百宝阁目录。
+Cultiway.Baibao.UI.Tooltip.ShapeFilter.Title,器形筛选
+Cultiway.Baibao.UI.Tooltip.ShapeFilter,循环切换所有已注册的法宝器形。
+Cultiway.Baibao.UI.Tooltip.FavoriteOnly,仅显示已经收藏的法宝蓝图。
+Cultiway.Baibao.UI.Tooltip.Sort.Title,排序方式
+Cultiway.Baibao.UI.Tooltip.Sort,循环切换手动、名称、最近收入和品阶排序；仅在未筛选的手动排序中允许移动条目。
+Cultiway.Baibao.UI.Tooltip.Favorite,收藏该法宝蓝图。
+Cultiway.Baibao.UI.Tooltip.Unfavorite,取消收藏，不会改变法宝蓝图内容。
+Cultiway.Baibao.UI.Tooltip.MoveUp,在手动排序中将该法宝上移一位。
+Cultiway.Baibao.UI.Tooltip.MoveDown,在手动排序中将该法宝下移一位。
+Cultiway.Baibao.UI.Tooltip.Delete,从百宝阁删除该蓝图；已经赠出的法宝不受影响。
+Cultiway.Baibao.UI.Tooltip.SelectForGrant,将该蓝图加入赠宝选择，选择状态会持久化保存。
+Cultiway.Baibao.UI.Tooltip.DeselectForGrant,将该蓝图移出赠宝选择，不会删除蓝图。
+Cultiway.Baibao.UI.Tooltip.Archive,将这件法宝的固有结构复制为制造蓝图；角色仍保留原物。
+Cultiway.Baibao.UI.Tooltip.Archived,百宝阁中已经存在结构完全相同的法宝蓝图。
+Cultiway.Baibao.UI.Tooltip.ArchiveAll,收录该角色全部尚未存在于百宝阁的法宝蓝图。
+Cultiway.Baibao.UI.Tooltip.BackToPavilion,关闭当前窗口并返回百宝阁主目录。
+Cultiway.Baibao.UI.Tooltip.Atom,勾选或取消该构件；同一类别可以同时选择任意数量的 atom。
+Cultiway.Baibao.UI.Tooltip.Save,将当前预览保存为可重复制造的法宝蓝图。
+Cultiway.Baibao.UI.Tooltip.Cancel,放弃当前预览并返回上一个窗口。
+Cultiway.Baibao.UI.Tooltip.PreviousOption,切换到上一个已注册选项。
+Cultiway.Baibao.UI.Tooltip.NextOption,切换到下一个已注册选项。

@@ -179,6 +179,14 @@ public class Manager : ICanInit
         {
             tooltip.Tooltip.addLineText("祭炼", $"{currentAttunement.mastery:0.#}%", pLocalize: false);
         }
+        ArtifactAbilitySet abilitySet = artifact.GetComponent<ArtifactAbilitySet>();
+        for (int i = 0; i < abilitySet.abilities.Length; i++)
+        {
+            ArtifactAbilityInstance ability = abilitySet.abilities[i];
+            ArtifactAbilityAsset asset = Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
+            if (asset == null) continue;
+            tooltip.Tooltip.addLineText(asset.GetName(), asset.GetDescription(ability), pLocalize: false);
+        }
     }
 
     private static CharacterPanelProgressBarState ReadWakanPanelValue(Actor actor)

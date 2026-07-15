@@ -408,7 +408,7 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
         if (_castRangeFill == null || _castRangeFillTransform == null || caster == null || caster.Base.isRekt()) return;
 
         var center = actor.current_position;
-        var range = Mathf.Max(0.1f, caster.GetSkillCastRange(null));
+        var range = Mathf.Max(0.1f, ControlledCultivatorSkillControls.ResolveSelectedAbilityRange(caster));
         if (_castRangeMaterial != null && _castRangeMaterial.HasProperty("_Color"))
         {
             _castRangeMaterial.color = CastRangeColor;

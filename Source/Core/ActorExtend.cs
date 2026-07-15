@@ -815,7 +815,8 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         Base.setStatsDirty();
     }
 
-    public bool CastSkillV3(Entity skill, BaseSimObject target, float strength = 100, float? power_level = null,
+    public bool CastSkillV3(Entity skill, BaseSimObject target, float strength = SkillContext.DefaultStrength,
+        float? power_level = null,
         SkillCastFundingSource funding_source = SkillCastFundingSource.CasterResources)
     {
         if (!GeneralSettings.EnableSkillSystems) return false;

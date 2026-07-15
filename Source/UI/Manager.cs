@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Const;
+using Cultiway.Content.Artifacts.Baibao;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Logging;
@@ -43,6 +44,8 @@ public class Manager
 
     public static           PowersTab                            powers_tab;
     public static PowerButton WanfaGrantButton { get; private set; }
+    public static PowerButton BaibaoArchiveButton { get; private set; }
+    public static PowerButton BaibaoGrantButton { get; private set; }
     public static PowerButton UpgradeRainButton { get; private set; }
     public static PowerButton ElementRootRainButton { get; private set; }
     private static readonly Dictionary<TabButtonType, Transform> button_groups = new();
@@ -116,6 +119,31 @@ public class Manager
         service.GrantConflictsCleared += WindowWanfaGrantConflict.ClearPending;
         service.TestCastCompleted += WindowWanfaSkillEditor.ResumeAfterTestCast;
         service.WorldStateClearing += WindowWanfaSkillEditor.ClearWorldState;
+    }
+
+    /// <summary>初始化百宝阁目录、炼制、收录窗口与两种地图交互工具。</summary>
+    public void InitBaibao(BaibaoPavilionService service)
+    {
+        WindowBaibaoPavilion.CreateAndInit(WindowBaibaoPavilion.Id, WindowBaibaoPavilion.WindowSize);
+        WindowBaibaoForge.CreateAndInit(WindowBaibaoForge.Id, WindowBaibaoForge.WindowSize);
+        WindowBaibaoArchive.CreateAndInit(WindowBaibaoArchive.Id, WindowBaibaoArchive.WindowSize);
+
+        PowerButton pavilionButton = PowerButtonCreator.CreateWindowButton(
+            $"{WindowBaibaoPavilion.Id} Title",
+            WindowBaibaoPavilion.Id,
+            SpriteTextureLoader.getSprite(BaibaoUiIcons.Pavilion));
+        ApplyWorldToolConfigButtonStyle(pavilionButton);
+        BaibaoGrantButton = PowerButtonCreator.CreateGodPowerButton(
+            WorldboxGame.GodPowers.BaibaoGrant.id,
+            SpriteTextureLoader.getSprite(BaibaoUiIcons.Grant));
+        AddButtonPair(TabButtonType.WORLD, pavilionButton, BaibaoGrantButton);
+
+        BaibaoArchiveButton = PowerButtonCreator.CreateGodPowerButton(
+            WorldboxGame.GodPowers.BaibaoArchive.id,
+            SpriteTextureLoader.getSprite(BaibaoUiIcons.Archive));
+        AddButton(TabButtonType.WORLD, BaibaoArchiveButton);
+
+        service.ArchiveRequested += WindowBaibaoArchive.Open;
     }
 
     /// <summary>初始化帝流浆配置窗口，并在世界页加入成对的配置和投放按钮。</summary>

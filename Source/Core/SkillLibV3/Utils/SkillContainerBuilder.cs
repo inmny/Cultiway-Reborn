@@ -22,7 +22,7 @@ public class SkillContainerBuilder
     private SkillCastResourceRequirement _castResourceRequirement;
     public SkillContainerBuilder(SkillEntityAsset entity_asset)
     {
-        this._entityAsset = entity_asset;
+        _entityAsset = entity_asset ?? throw new ArgumentNullException(nameof(entity_asset));
     }
     private Entity _containerEntity;
     public SkillContainerBuilder(Entity container_entity)
@@ -86,7 +86,7 @@ public class SkillContainerBuilder
 
     public SkillContainerBuilder UseCastResources(SkillCastResourceRequirement requirement)
     {
-        _castResourceRequirement = requirement.DeepClone();
+        _castResourceRequirement = (requirement ?? throw new ArgumentNullException(nameof(requirement))).DeepClone();
         return this;
     }
     private readonly Dictionary<Type, IModifier> _modifiersToSet = new Dictionary<Type, IModifier>();
@@ -116,7 +116,15 @@ public class SkillContainerBuilder
     {
         if (_containerEntity.IsNull)
         {
-            _containerEntity = ModClass.I.W.CreateEntity();
+            if (!_entityAsset.CanBeLearned)
+                throw new InvalidOperationException($"技能实体 {_entityAsset.id} 未声明为可学习技能模板");
+            if (_entityAsset.Animations.Count == 0)
+                throw new InvalidOperationException($"技能实体 {_entityAsset.id} 没有可用动画");
+
+            var castResourceRequirement = _castResourceRequirement ?? _entityAsset.DefaultCastResourceRequirement;
+            if (castResourceRequirement == null || !castResourceRequirement.IsConfigured)
+                throw new InvalidOperationException($"技能实体 {_entityAsset.id} 没有配置有效的施法资源需求");
+
             var animationIndex = _animationIndex;
             if (animationIndex < 0)
             {
@@ -124,15 +132,17 @@ public class SkillContainerBuilder
                     ? _entityAsset.GetRandomAnimationIndex()
                     : 0;
             }
+
+            _containerEntity = ModClass.I.W.CreateEntity();
             _containerEntity.Add(new SkillContainer()
             {
                 SkillEntityAssetID = _entityAsset.id,
                 AnimationIndex = animationIndex,
-                CastResourceRequirement = (_castResourceRequirement ?? _entityAsset.DefaultCastResourceRequirement)
-                    .DeepClone()
+                CastResourceRequirement = castResourceRequirement.DeepClone()
             });
         }
-        ref var skill_container = ref _containerEntity.GetComponent<SkillContainer>();
+        // 增删词条组件会触发 archetype 迁移，不能跨结构变更持有组件引用。
+        var skill_container = _containerEntity.GetComponent<SkillContainer>();
         if (_animationIndex >= 0) skill_container.AnimationIndex = _animationIndex;
         if (_castResourceRequirement != null)
         {
@@ -158,6 +168,8 @@ public class SkillContainerBuilder
         {
             _containerEntity.SetNonGeneric(modifier.Value);
         }
+
+        _containerEntity.GetComponent<SkillContainer>() = skill_container;
         
         // 如果OnTravel非空，添加tag用于过滤
         if (skill_container.OnTravel != null)

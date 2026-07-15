@@ -26,23 +26,28 @@ public class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
     {
         Set(SwordEdge, "sword_edge", ArtifactAtomCategory.Shape, ["锋", "玄锋", "断岳"],
             ["sword_blade3d.long_thorn", "sword_guard3d.wing"], ["dark_steel", "black_gold"],
-            r => Shape(r, ItemShapes.Bone, ItemShapes.Claw, ItemShapes.Tooth, ItemShapes.Horn, ItemShapes.Feather, ItemShapes.Wing));
+            r => Shape(r, ItemShapes.Bone, ItemShapes.Claw, ItemShapes.Tooth, ItemShapes.Horn, ItemShapes.Feather, ItemShapes.Wing),
+            ItemShapes.Sword);
 
         Set(HeavySeal, "heavy_seal", ArtifactAtomCategory.Shape, ["镇山", "岳印", "玄岳"],
             ["seal_mountain3d.green", "seal_mountain3d.amber"], ["gold_jade", "dark_steel"],
-            r => Shape(r, ItemShapes.Stone, ItemShapes.Shell, ItemShapes.Crystal));
+            r => Shape(r, ItemShapes.Stone, ItemShapes.Shell, ItemShapes.Crystal),
+            ItemShapes.Seal);
 
         Set(RobeWard, "robe_ward", ArtifactAtomCategory.Shape, ["护身", "云纹", "灵衣"],
             ["robe_panel3d.wide_blue", "robe_panel3d.split_green"], ["cold_crystal", "dark_steel"],
-            r => Shape(r, ItemShapes.Fur, ItemShapes.Silk, ItemShapes.Bamboo, ItemShapes.Herb, ItemShapes.Flower));
+            r => Shape(r, ItemShapes.Fur, ItemShapes.Silk, ItemShapes.Bamboo, ItemShapes.Herb, ItemShapes.Flower),
+            ItemShapes.Robe);
 
         Set(BrightMirror, "bright_mirror", ArtifactAtomCategory.Shape, ["明鉴", "照影", "灵鉴"],
             ["mirror3d.bronze_round", "mirror3d.jade_hex"], ["cold_crystal", "gold_jade"],
-            r => Shape(r, ItemShapes.Eye, ItemShapes.Blood, ItemShapes.Liquid));
+            r => Shape(r, ItemShapes.Eye, ItemShapes.Blood, ItemShapes.Liquid),
+            ItemShapes.Mirror);
 
         Set(CauldronFire, "cauldron_fire", ArtifactAtomCategory.Shape, ["丹火", "炉心", "鼎元"],
             ["ding3d.blue_fire", "ding3d.copper_ember"], ["copper_ember", "black_gold"],
-            r => Shape(r, ItemShapes.Wood, ItemShapes.Root, ItemShapes.Mushroom, ItemShapes.Fruit, ItemShapes.Lotus));
+            r => Shape(r, ItemShapes.Wood, ItemShapes.Root, ItemShapes.Mushroom, ItemShapes.Fruit, ItemShapes.Lotus),
+            ItemShapes.Ding);
 
         Set(Jade, "jade", ArtifactAtomCategory.Material, ["青玉", "碧玉", "灵玉"],
             ["sword_blade3d.jade", "mirror3d.jade_hex"], ["gold_jade"],
@@ -72,10 +77,12 @@ public class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
         string[] stems,
         string[] variantBiases,
         string[] colorSchemeBiases,
-        Func<ArtifactRecipeContext, float> score)
+        Func<ArtifactRecipeContext, float> score,
+        ArtifactShapeAsset artifactShape = null)
     {
         atom.tag = tag;
         atom.category = category;
+        atom.artifact_shape = artifactShape;
         atom.name_stems = stems;
         atom.variant_biases = variantBiases;
         atom.color_scheme_biases = colorSchemeBiases;

@@ -228,7 +228,7 @@ public sealed class WanfaPavilionService
     public SkillBlueprint CreateDraft()
     {
         var entity = ModClass.I.SkillV3.SkillLib.list.FirstOrDefault(item =>
-            item.EditorSelectable && ActivePolicy.IsEntityAvailable(item.id));
+            item.CanBeLearned && item.EditorSelectable && ActivePolicy.IsEntityAvailable(item.id));
         if (entity == null)
         {
             return new SkillBlueprint

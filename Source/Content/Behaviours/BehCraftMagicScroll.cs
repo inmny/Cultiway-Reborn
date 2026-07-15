@@ -17,8 +17,6 @@ namespace Cultiway.Content.Behaviours;
 /// </summary>
 public sealed class BehCraftMagicScroll : BehaviourActionActor
 {
-    private const float ScrollStrength = 100f;
-
     [Hotfixable]
     public override BehResult execute(Actor pObject)
     {
@@ -44,7 +42,7 @@ public sealed class BehCraftMagicScroll : BehaviourActionActor
                 Mathf.Max(10f, Mathf.Pow(powerLevel, 2f) * 10f), pObject.asset?.id ?? string.Empty)
             .AddComponent(new MagicScroll
             {
-                Strength = ScrollStrength,
+                Strength = SkillContext.DefaultStrength,
                 PowerLevel = powerLevel,
                 SkillContainer = skillContainer
             })

@@ -10,6 +10,7 @@ using Cultiway.Debug;
 using NeoModLoader.api.attributes;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Patch;
 using Cultiway.Utils;
@@ -23,13 +24,6 @@ namespace Cultiway.Core;
 
 public partial class ActorExtend
 {
-    private static readonly List<ExternalMagicActionProvider> externalMagicActions = new();
-
-    public static void RegisterExternalMagicAction(ExternalMagicActionProvider provider)
-    {
-        externalMagicActions.Add(provider);
-    }
-
     public static void RegisterCombatActionOnAttack(Action<ActorExtend, BaseSimObject, ListPool<CombatActionAsset>> action)
     {
         action_on_attack += action;
@@ -74,13 +68,18 @@ public partial class ActorExtend
         {
             WorldboxGame.CombatActions.CastVanillaSpell.AddToPool(attack_action_pool);
         }
-        // 加入自定义技能
-        var castable_skill_count = CountCastableAttackSkills(target);
-        if (castable_skill_count > 0)
+        // 所有 Core/Content 主动能力经同一入口参与战斗动作选择。
+        using var activeAbilities = new ListPool<ActiveAbilityHandle>();
+        using var activeAbilityWeights = new ListPool<int>();
+        int activeAbilityWeight = ActiveAbilityService.CollectAiCandidates(
+            this,
+            target,
+            activeAbilities,
+            activeAbilityWeights);
+        if (activeAbilityWeight > 0)
         {
-            WorldboxGame.CombatActions.CastSkillV3.AddToPool(attack_action_pool, castable_skill_count);
+            WorldboxGame.CombatActions.CastActiveAbility.AddToPool(attack_action_pool, activeAbilityWeight);
         }
-        AddExternalMagicActionsToPool(target, attack_action_pool);
         action_on_attack?.Invoke(this, target, attack_action_pool);
         
 
@@ -148,7 +147,7 @@ public partial class ActorExtend
     /// 判断当前距离下是否能立即执行任意战斗动作。
     /// </summary>
     /// <param name="target">当前攻击目标。</param>
-    /// <returns>近战、远程武器、法术、技能或外部魔法动作中任一项可用时返回 true。</returns>
+    /// <returns>近战、远程武器、原版法术或统一主动能力中任一项可用时返回 true。</returns>
     public bool CanUseCombatActionAtCurrentDistance(BaseSimObject target)
     {
         if (target.isRekt()) return false;
@@ -170,16 +169,14 @@ public partial class ActorExtend
     /// 判断当前距离下是否能立即执行修士侧的法术类动作。
     /// </summary>
     /// <param name="target">当前攻击目标。</param>
-    /// <returns>原版法术、自定义攻击技能或外部魔法动作可用时返回 true。</returns>
+    /// <returns>原版法术或统一主动能力可用时返回 true。</returns>
     public bool CanUseMagicActionAtCurrentDistance(BaseSimObject target)
     {
         if (target.isRekt()) return false;
-        if (!IsWithinSkillCastRange(target)) return false;
         if (!IsAtPreferredSkillCombatDistance(target)) return false;
 
         return CanUseVanillaSpellAtCurrentDistance(target)
-               || CountCastableAttackSkills(target) > 0
-               || HasUsableExternalMagicAction(target);
+               || ActiveAbilityService.CountUsableCombatAbilities(this, target) > 0;
     }
 
     /// <summary>
@@ -195,25 +192,6 @@ public partial class ActorExtend
         if (!IsWithinSkillCastRange(target)) return false;
         if (!IsAtPreferredSkillCombatDistance(target)) return false;
         return CanCastSkillContainer(skill, target, fundingSource);
-    }
-
-    /// <summary>
-    /// 从当前距离下可释放的攻击技能中随机选取一个。
-    /// </summary>
-    /// <param name="target">当前攻击目标。</param>
-    /// <param name="skill">选中的技能实体。</param>
-    /// <returns>存在可释放攻击技能时返回 true。</returns>
-    public bool TryGetCastableAttackSkill(BaseSimObject target, out Entity skill)
-    {
-        using var pool = new ListPool<Entity>();
-        foreach (var candidate in all_attack_skills)
-        {
-            if (!CanUseSkillContainerAtCurrentDistance(candidate, target)) continue;
-            pool.Add(candidate);
-        }
-
-        skill = pool.Any() ? pool.GetRandom() : default;
-        return !skill.IsNull;
     }
 
     /// <summary>
@@ -259,39 +237,8 @@ public partial class ActorExtend
     private bool CanKeepMagicCombatTarget(BaseSimObject target)
     {
         if (!HasAnyMagicAction(target)) return false;
-        if (IsWithinSkillCastRange(target)) return true;
+        if (IsWithinMagicCombatRange(target)) return true;
         return CanApproachTargetForMagic(target);
-    }
-
-    /// <summary>
-    /// 统计当前距离下可释放的自定义攻击技能数量。
-    /// </summary>
-    private int CountCastableAttackSkills(BaseSimObject target)
-    {
-        if (!GeneralSettings.EnableSkillSystems) return 0;
-
-        var count = 0;
-        foreach (var skill in all_attack_skills)
-        {
-            if (CanCastSkillContainer(skill, target)) count++;
-        }
-
-        return count;
-    }
-
-    /// <summary>
-    /// 统计可准备的自定义攻击技能数量，不要求目标已经进入施法距离。
-    /// </summary>
-    private bool HasAvailableAttackSkills(BaseSimObject target)
-    {
-        if (!GeneralSettings.EnableSkillSystems) return false;
-
-        foreach (var skill in all_attack_skills)
-        {
-            if (CanPrepareSkillContainer(skill, target)) return true;
-        }
-
-        return false;
     }
 
     /// <summary>
@@ -312,39 +259,9 @@ public partial class ActorExtend
     {
         if (!GeneralSettings.EnableSkillSystems) return false;
         if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
-        if (target.isRekt()) return false;
+        if (target != null && target.isRekt()) return false;
 
         return SkillCastCost.GetAffordableStepLimit(this, skill, fundingSource) > 0;
-    }
-
-    private bool HasPreparedExternalMagicAction(BaseSimObject target)
-    {
-        foreach (var provider in externalMagicActions)
-        {
-            if (provider.CanPrepare(this, target)) return true;
-        }
-        return false;
-    }
-
-    private bool HasUsableExternalMagicAction(BaseSimObject target)
-    {
-        foreach (var provider in externalMagicActions)
-        {
-            if (provider.ResolveCurrentWeightMultiplier(this, target) > 0) return true;
-        }
-        return false;
-    }
-
-    private void AddExternalMagicActionsToPool(BaseSimObject target, ListPool<CombatActionAsset> actionPool)
-    {
-        foreach (var provider in externalMagicActions)
-        {
-            var weightMultiplier = provider.ResolveCurrentWeightMultiplier(this, target);
-            if (weightMultiplier > 0)
-            {
-                provider.Action.AddToPool(actionPool, provider.Action.rate * weightMultiplier);
-            }
-        }
     }
 
     /// <summary>
@@ -355,6 +272,27 @@ public partial class ActorExtend
         if (target == null) return false;
         var range = GetSkillCastRange(target) + target.stats[S.size];
         return Toolbox.SquaredDistVec2Float(Base.current_position, target.current_position) <= range * range;
+    }
+
+    /// <summary>
+    /// 判断目标是否进入任意已准备主动能力或原版法术的最远作用距离。
+    /// </summary>
+    private bool IsWithinMagicCombatRange(BaseSimObject target)
+    {
+        if (target == null) return false;
+        float range = GetPreparedMagicCombatRange(target);
+        range += target.stats[S.size];
+        return Toolbox.SquaredDistVec2Float(Base.current_position, target.current_position) <= range * range;
+    }
+
+    private float GetPreparedMagicCombatRange(BaseSimObject target)
+    {
+        float range = ActiveAbilityService.ResolveMaxPreparedCombatRange(this, target);
+        if (Base.hasSpells() && Base.canUseSpells())
+        {
+            range = Mathf.Max(range, GetSkillCastRange(target));
+        }
+        return range;
     }
 
     /// <summary>
@@ -383,15 +321,15 @@ public partial class ActorExtend
     private float GetDesiredCombatDistance(BaseSimObject target)
     {
         var physical_range = Base.getAttackRange();
-        var skill_range = GetSkillCastRange(target);
-        if (!Base.hasMeleeAttack()) return skill_range;
+        var magicRange = GetPreparedMagicCombatRange(target);
+        if (!Base.hasMeleeAttack()) return magicRange;
         if (!HasAnyMagicAction(target)) return physical_range;
-        if (!CanPreferPhysicalCombatDistance(target)) return skill_range;
+        if (!CanPreferPhysicalCombatDistance(target)) return magicRange;
 
         var caster_chance = GetCasterCombatStyleChance(target);
         if (StableCombatRoll(Base, target) > caster_chance) return physical_range;
 
-        return Mathf.Lerp(physical_range, skill_range, CasterPreferredRangeRatio);
+        return Mathf.Lerp(physical_range, magicRange, CasterPreferredRangeRatio);
     }
 
     /// <summary>
@@ -440,7 +378,7 @@ public partial class ActorExtend
     {
         if (target.isRekt()) return false;
         if (Base.hasSpells() && Base.canUseSpells()) return true;
-        return HasAvailableAttackSkills(target) || HasPreparedExternalMagicAction(target);
+        return ActiveAbilityService.HasPreparedCombatAbility(this, target);
     }
 
     /// <summary>
@@ -450,7 +388,7 @@ public partial class ActorExtend
     {
         var chance = CloseCombatCasterChance;
         if (!Base.hasWeapon()) chance += 0.25f;
-        chance += Mathf.Clamp(all_attack_skills.Count, 0, 8) * 0.03f;
+        chance += Mathf.Clamp(ActiveAbilityService.CountPreparedCombatAbilities(this, target), 0, 8) * 0.03f;
         chance += Mathf.Clamp01(GetPowerLevel() / 10f) * 0.1f;
 
         if (target?.isActor() ?? false)

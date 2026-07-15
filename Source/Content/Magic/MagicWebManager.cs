@@ -339,7 +339,7 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         var added = 0;
         foreach (var asset in ModClass.I.SkillV3.SkillLib.list)
         {
-            if (!asset.EditorSelectable || asset.Animations.Count == 0) continue;
+            if (!asset.CanBeLearned || !asset.EditorSelectable || asset.Animations.Count == 0) continue;
 
             for (var animationIndex = 0; animationIndex < asset.Animations.Count; animationIndex++)
             {

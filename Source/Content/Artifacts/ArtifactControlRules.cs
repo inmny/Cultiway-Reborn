@@ -38,6 +38,10 @@ public static class ArtifactControlRules
         out int threadCost)
     {
         ArtifactControlProfile profile = artifact.GetComponent<ArtifactControlProfile>();
+        ArtifactAbilityDispatcher.ResolveControlContribution(
+            artifact,
+            out float abilityComplexity,
+            out int abilityThreadCost);
         ItemLevel itemLevel = artifact.GetComponent<ItemLevel>();
         float rankMultiplier = Mathf.Pow(2f, itemLevel.Stage) * (1f + itemLevel.Level / 9f);
         float masteryMultiplier = 1.5f;
@@ -48,9 +52,10 @@ public static class ArtifactControlRules
             if (attunement.life_bound) masteryMultiplier *= 0.65f;
         }
 
-        operatingLoad = ArtifactSetting.DefaultOperatingLoad * rankMultiplier * profile.complexity * masteryMultiplier;
+        operatingLoad = ArtifactSetting.DefaultOperatingLoad * rankMultiplier *
+                        (profile.complexity + abilityComplexity) * masteryMultiplier;
         preparedLoad = operatingLoad * profile.prepared_load_ratio;
-        threadCost = profile.autonomous ? 0 : profile.thread_cost;
+        threadCost = profile.autonomous ? 0 : profile.thread_cost + abilityThreadCost;
     }
     /// <summary>
     /// 绑定开始祭炼
