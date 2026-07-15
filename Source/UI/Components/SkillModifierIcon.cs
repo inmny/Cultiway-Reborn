@@ -99,12 +99,12 @@ internal sealed class SkillModifierIcon : MonoBehaviour
 
         var outline = new GameObject("Outline", typeof(RectTransform), typeof(Image), typeof(IconOutline));
         outline.transform.SetParent(item.transform, false);
-        Stretch(outline.GetComponent<RectTransform>());
+        UiLayout.Stretch(outline.GetComponent<RectTransform>(), 1f, 1f, 1f, 1f);
         outline.GetComponent<Image>().raycastTarget = false;
 
         var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image));
         icon.transform.SetParent(item.transform, false);
-        Stretch(icon.GetComponent<RectTransform>());
+        UiLayout.Stretch(icon.GetComponent<RectTransform>(), 1f, 1f, 1f, 1f);
         var iconImage = icon.GetComponent<Image>();
         iconImage.preserveAspect = true;
         iconImage.raycastTarget = false;
@@ -125,7 +125,7 @@ internal sealed class SkillModifierIcon : MonoBehaviour
         _icon.sprite = SpriteTextureLoader.getSprite(model.IconPath);
         if (_icon.sprite == null)
         {
-            _icon.sprite = SpriteTextureLoader.getSprite("ui/icons/iconEditTrait");
+            _icon.sprite = UiResources.GetSprite(UiIcons.Edit);
         }
         _outline.parent_image = _icon;
         _outline.show(new ContainerItemColor(model.OutlineColor, null));
@@ -143,11 +143,4 @@ internal sealed class SkillModifierIcon : MonoBehaviour
         });
     }
 
-    private static void Stretch(RectTransform rect)
-    {
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = Vector2.one;
-        rect.offsetMax = -Vector2.one;
-    }
 }

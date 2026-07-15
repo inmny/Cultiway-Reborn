@@ -11,6 +11,7 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
     public Transform Controls { get; private set; }
     public Transform InlineControls { get; private set; }
     private SkillModifierIcon _modifierIcon;
+    private UiListRowChrome _chrome;
     private Image _assetIcon;
     private Text _title;
     private Text _detail;
@@ -18,6 +19,7 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
 
     protected override void OnInit()
     {
+        _chrome = UiListRowChrome.From(gameObject);
         _modifierIcon = transform.Find("Header/ModifierIcon").GetComponent<SkillModifierIcon>();
         _assetIcon = transform.Find("Header/AssetIcon").GetComponent<Image>();
         _title = transform.Find("Header/Title").GetComponent<Text>();
@@ -28,7 +30,7 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
     }
 
     internal void Setup(string title, string detail, string actionLabel, bool interactable, Action action,
-        string actionIconPath = WanfaUiIcons.Select, SkillModifierTooltipModel modifierIcon = null,
+        string actionIconPath = UiIcons.Select, SkillModifierTooltipModel modifierIcon = null,
         string assetIconPath = null, string actionTooltipDescription = null)
     {
         Init();
@@ -39,18 +41,19 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
         if (!string.IsNullOrWhiteSpace(assetIconPath))
         {
             _assetIcon.sprite = SpriteTextureLoader.getSprite(assetIconPath);
-            WanfaUiFactory.SetTooltip(_assetIcon.gameObject, title, detail);
+            UiTooltip.Set(_assetIcon.gameObject, title, detail);
         }
         _title.text = title;
         _detail.text = detail;
+        _chrome.SetState(UiControlState.Normal);
         _action.gameObject.SetActive(action != null);
         _action.interactable = interactable;
         _action.onClick.RemoveAllListeners();
         if (action != null) _action.onClick.AddListener(action.Invoke);
         if (action != null)
         {
-            WanfaUiFactory.SetButtonIcon(_action, actionIconPath);
-            WanfaUiFactory.SetTooltip(_action.gameObject, actionLabel,
+            UiElements.SetButtonIcon(_action, actionIconPath);
+            UiTooltip.Set(_action.gameObject, actionLabel,
                 actionTooltipDescription == null ? detail : actionTooltipDescription);
         }
         SetHeight(32f);
@@ -58,7 +61,7 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
 
     public void SetHeight(float height)
     {
-        WanfaUiFactory.SetLayout(transform, 500f, height);
+        UiLayout.SetSize(transform, 500f, height);
     }
 
     public void ClearControls()
@@ -76,40 +79,38 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
             Destroy(child);
         }
         InlineControls.gameObject.SetActive(false);
-        WanfaUiFactory.SetLayout(_detail.transform, 324f, 28f);
+        UiLayout.SetSize(_detail.transform, 324f, 28f);
     }
 
     public Transform UseInlineControls(float width)
     {
-        WanfaUiFactory.SetLayout(_detail.transform, 320f - width, 28f);
-        WanfaUiFactory.SetLayout(InlineControls, width, 28f);
+        UiLayout.SetSize(_detail.transform, 320f - width, 28f);
+        UiLayout.SetSize(InlineControls, width, 28f);
         InlineControls.gameObject.SetActive(true);
         return InlineControls;
     }
 
     private static void _init()
     {
-        var obj = WanfaUiFactory.CreateLayout(ModClass.I.PrefabLibrary, nameof(WanfaEditorRow), false, 500f, 32f, 2f);
-        var background = obj.AddComponent<Image>();
-        background.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
-        background.type = Image.Type.Sliced;
-        var header = WanfaUiFactory.CreateLayout(obj.transform, "Header", true, 500f, 28f, 4f);
+        var obj = UiLayout.Create(ModClass.I.PrefabLibrary, nameof(WanfaEditorRow), false, 500f, 32f, 2f);
+        UiListRowChrome.Attach(obj, false);
+        var header = UiLayout.Create(obj.transform, "Header", true, 500f, 28f, 4f);
         var modifierIcon = SkillModifierIcon.Create(header.transform, "ModifierIcon", 24f);
         modifierIcon.gameObject.SetActive(false);
         var assetIcon = new GameObject("AssetIcon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
         assetIcon.transform.SetParent(header.transform, false);
-        WanfaUiFactory.SetLayout(assetIcon.transform, 24f, 24f);
+        UiLayout.SetSize(assetIcon.transform, 24f, 24f);
         var assetImage = assetIcon.GetComponent<Image>();
         assetImage.preserveAspect = true;
         assetIcon.SetActive(false);
-        WanfaUiFactory.CreateText(header.transform, "Title", string.Empty, 112f, 28f, 8, TextAnchor.MiddleLeft,
+        UiElements.CreateText(header.transform, "Title", string.Empty, 112f, 28f, 8, TextAnchor.MiddleLeft,
             FontStyle.Bold);
-        WanfaUiFactory.CreateText(header.transform, "Detail", string.Empty, 324f, 28f, 6);
-        var inlineControls = WanfaUiFactory.CreateLayout(header.transform, "InlineControls", true, 0f, 28f, 2f,
+        UiElements.CreateText(header.transform, "Detail", string.Empty, 324f, 28f, 6);
+        var inlineControls = UiLayout.Create(header.transform, "InlineControls", true, 0f, 28f, 2f,
             TextAnchor.MiddleCenter);
         inlineControls.SetActive(false);
-        WanfaUiFactory.CreateIconButton(header.transform, "Action", WanfaUiIcons.Select, 28f, 22f, () => { });
-        WanfaUiFactory.CreateLayout(obj.transform, "Controls", false, 500f, 0f, 2f);
+        UiElements.CreateIconButton(header.transform, "Action", UiIcons.Select, 28f, 22f, () => { });
+        UiLayout.Create(obj.transform, "Controls", false, 500f, 0f, 2f);
         Prefab = obj.AddComponent<WanfaEditorRow>();
     }
 }

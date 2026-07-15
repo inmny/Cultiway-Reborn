@@ -13,8 +13,8 @@ namespace Cultiway.UI.Prefab;
 /// </summary>
 public sealed class MagicWebBrowserRow : APrefabPreview<MagicWebBrowserRow>
 {
-    private const string GroupBackgroundPath = "ui/special/button2";
-    private const string RowBackgroundPath = "ui/special/windowInnerSliced";
+    private const string GroupBackgroundPath = UiResources.Button;
+    private const string RowBackgroundPath = UiResources.WindowInner;
 
     // 左栏宽 258，扣除 Viewport 与 Content 各 2 像素的左右内边距后，子项可用宽度为 250。
     private const float RowWidth = 250f;
@@ -53,16 +53,16 @@ public sealed class MagicWebBrowserRow : APrefabPreview<MagicWebBrowserRow>
     public void SetupGroup(string name, int count, bool expanded, Action open)
     {
         Init();
-        WanfaUiFactory.SetLayout(transform, RowWidth, 24f);
-        WanfaUiFactory.SetLayout(_labels, 194f, 22f);
-        WanfaUiFactory.SetLayout(_meta.transform, 34f, 22f);
+        UiLayout.SetSize(transform, RowWidth, 24f);
+        UiLayout.SetSize(_labels, 194f, 22f);
+        UiLayout.SetSize(_meta.transform, 34f, 22f);
         SetMode(showArrow: true, showIcon: false, showPager: false, showBranch: false);
-        _arrow.sprite = SpriteTextureLoader.getSprite(WanfaUiIcons.Next);
+        _arrow.sprite = UiResources.GetSprite(UiIcons.Next);
         _arrow.rectTransform.localRotation = Quaternion.Euler(0f, 0f, expanded ? 90f : 0f);
         _name.text = name;
         _detail.text = string.Empty;
         _meta.text = count.ToString();
-        _background.sprite = SpriteTextureLoader.getSprite(GroupBackgroundPath);
+        _background.sprite = UiResources.GetSprite(GroupBackgroundPath);
         _background.color = Color.white;
         _entrySurface.gameObject.SetActive(false);
         SetRowAction(open);
@@ -72,36 +72,36 @@ public sealed class MagicWebBrowserRow : APrefabPreview<MagicWebBrowserRow>
         bool lastInGroup, Action select)
     {
         Init();
-        WanfaUiFactory.SetLayout(transform, RowWidth, 38f);
-        WanfaUiFactory.SetLayout(_labels, 150f, 34f);
-        WanfaUiFactory.SetLayout(_meta.transform, 44f, 22f);
+        UiLayout.SetSize(transform, RowWidth, 38f);
+        UiLayout.SetSize(_labels, 150f, 34f);
+        UiLayout.SetSize(_meta.transform, 44f, 22f);
         SetMode(showArrow: false, showIcon: true, showPager: false, showBranch: true);
         SetBranch(lastInGroup);
         _icon.sprite = icon;
         _name.text = name;
         _detail.text = detail;
         _meta.text = meta;
-        _background.sprite = SpriteTextureLoader.getSprite(RowBackgroundPath);
+        _background.sprite = UiResources.GetSprite(RowBackgroundPath);
         _background.color = Color.clear;
         _entrySurface.color = selected
-            ? new Color(0.34f, 0.65f, 0.48f, 0.78f)
+            ? UiTheme.Current.Palette.Selected
             : new Color(0.38f, 0.4f, 0.34f, 0.56f);
         _entrySurface.gameObject.SetActive(true);
         SetRowAction(select);
-        WanfaUiFactory.SetTooltip(_icon.gameObject, () => SkillTooltip.Show(_icon.gameObject, container));
+        UiTooltip.Set(_icon.gameObject, () => SkillTooltip.Show(_icon.gameObject, container));
     }
 
     public void SetupPager(int page, int pageCount, Action previous, Action next)
     {
         Init();
-        WanfaUiFactory.SetLayout(transform, RowWidth, 24f);
-        WanfaUiFactory.SetLayout(_labels, 170f, 22f);
+        UiLayout.SetSize(transform, RowWidth, 24f);
+        UiLayout.SetSize(_labels, 170f, 22f);
         SetMode(showArrow: false, showIcon: false, showPager: true, showBranch: true);
         SetBranch(true);
         _name.text = string.Format("Cultiway.MagicWeb.UI.Format.Page".Localize(), page + 1, pageCount);
         _detail.text = string.Empty;
         _meta.text = string.Empty;
-        _background.sprite = SpriteTextureLoader.getSprite(RowBackgroundPath);
+        _background.sprite = UiResources.GetSprite(RowBackgroundPath);
         _background.color = Color.clear;
         _entrySurface.color = new Color(0.36f, 0.37f, 0.32f, 0.48f);
         _entrySurface.gameObject.SetActive(true);
@@ -146,10 +146,10 @@ public sealed class MagicWebBrowserRow : APrefabPreview<MagicWebBrowserRow>
 
     private static void _init()
     {
-        var obj = WanfaUiFactory.CreateLayout(ModClass.I.PrefabLibrary, nameof(MagicWebBrowserRow), true, RowWidth,
+        var obj = UiLayout.Create(ModClass.I.PrefabLibrary, nameof(MagicWebBrowserRow), true, RowWidth,
             38f, 3f);
         var background = obj.AddComponent<Image>();
-        background.sprite = SpriteTextureLoader.getSprite(RowBackgroundPath);
+        background.sprite = UiResources.GetSprite(RowBackgroundPath);
         background.type = Image.Type.Sliced;
         var button = obj.AddComponent<Button>();
         button.targetGraphic = background;
@@ -158,15 +158,15 @@ public sealed class MagicWebBrowserRow : APrefabPreview<MagicWebBrowserRow>
             typeof(LayoutElement));
         entrySurface.transform.SetParent(obj.transform, false);
         entrySurface.GetComponent<LayoutElement>().ignoreLayout = true;
-        WanfaUiFactory.Stretch(entrySurface.GetComponent<RectTransform>(), 16f, 0f, 1f, 1f);
+        UiLayout.Stretch(entrySurface.GetComponent<RectTransform>(), 16f, 0f, 1f, 1f);
         var entrySurfaceImage = entrySurface.GetComponent<Image>();
-        entrySurfaceImage.sprite = SpriteTextureLoader.getSprite(RowBackgroundPath);
+        entrySurfaceImage.sprite = UiResources.GetSprite(RowBackgroundPath);
         entrySurfaceImage.type = Image.Type.Sliced;
         entrySurfaceImage.raycastTarget = false;
 
         var branch = new GameObject("Branch", typeof(RectTransform), typeof(LayoutElement));
         branch.transform.SetParent(obj.transform, false);
-        WanfaUiFactory.SetLayout(branch.transform, 16f, 34f);
+        UiLayout.SetSize(branch.transform, 16f, 34f);
         CreateBranchLine(branch.transform, "Vertical", new Vector2(0.5f, 0f), new Vector2(0.5f, 1f),
             new Vector2(-0.5f, 0f), new Vector2(0.5f, 0f));
         CreateBranchLine(branch.transform, "Horizontal", new Vector2(0.5f, 0.5f), new Vector2(1f, 0.5f),
@@ -174,21 +174,21 @@ public sealed class MagicWebBrowserRow : APrefabPreview<MagicWebBrowserRow>
 
         var arrow = new GameObject("Arrow", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
         arrow.transform.SetParent(obj.transform, false);
-        WanfaUiFactory.SetLayout(arrow.transform, 14f, 14f);
+        UiLayout.SetSize(arrow.transform, 14f, 14f);
         arrow.GetComponent<Image>().preserveAspect = true;
 
         var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
         icon.transform.SetParent(obj.transform, false);
-        WanfaUiFactory.SetLayout(icon.transform, 30f, 30f);
+        UiLayout.SetSize(icon.transform, 30f, 30f);
         icon.GetComponent<Image>().preserveAspect = true;
 
-        var labels = WanfaUiFactory.CreateLayout(obj.transform, "Labels", false, 160f, 34f, 0f);
-        WanfaUiFactory.CreateText(labels.transform, "Name", string.Empty, 160f, 18f, 7, TextAnchor.MiddleLeft,
+        var labels = UiLayout.Create(obj.transform, "Labels", false, 160f, 34f, 0f);
+        UiElements.CreateText(labels.transform, "Name", string.Empty, 160f, 18f, 7, TextAnchor.MiddleLeft,
             FontStyle.Bold);
-        WanfaUiFactory.CreateText(labels.transform, "Detail", string.Empty, 160f, 16f, 6);
-        WanfaUiFactory.CreateText(obj.transform, "Meta", string.Empty, 34f, 22f, 6, TextAnchor.MiddleRight);
-        WanfaUiFactory.CreateIconButton(obj.transform, "Previous", WanfaUiIcons.Previous, 22f, 22f, () => { });
-        WanfaUiFactory.CreateIconButton(obj.transform, "Next", WanfaUiIcons.Next, 22f, 22f, () => { });
+        UiElements.CreateText(labels.transform, "Detail", string.Empty, 160f, 16f, 6);
+        UiElements.CreateText(obj.transform, "Meta", string.Empty, 34f, 22f, 6, TextAnchor.MiddleRight);
+        UiElements.CreateIconButton(obj.transform, "Previous", UiIcons.Previous, 22f, 22f, () => { });
+        UiElements.CreateIconButton(obj.transform, "Next", UiIcons.Next, 22f, 22f, () => { });
         Prefab = obj.AddComponent<MagicWebBrowserRow>();
     }
 

@@ -215,8 +215,8 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
 
     protected override void Init()
     {
-        BackgroundTransform.Find("Scroll View").gameObject.SetActive(false);
-        var root = WanfaUiFactory.CreateLayout(BackgroundTransform, "MagicWebRoot", false, RootWidth, RootHeight,
+        UiWindowContext.Bind(BackgroundTransform);
+        var root = UiLayout.Create(BackgroundTransform, "MagicWebRoot", false, RootWidth, RootHeight,
             4f);
         root.transform.localPosition = new Vector3(0f, -8f);
 
@@ -269,122 +269,125 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
 
     private void CreateToolbar(Transform parent)
     {
-        var toolbar = WanfaUiFactory.CreateLayout(parent, "Toolbar", true, RootWidth, 24f, 4f);
-        _search = WanfaUiFactory.CreateInput(toolbar.transform, "Search", string.Empty,
-            "Cultiway.MagicWeb.UI.Placeholder.Search".Localize(), 110f, 22f);
-        AddSearchIcon(_search);
-        WanfaUiFactory.SetTooltip(_search, "Cultiway.MagicWeb.UI.Tooltip.Search.Title",
+        var toolbar = UiLayout.Create(parent, "Toolbar", true, RootWidth, 24f, 4f);
+        _search = UiSearchField.Create(toolbar.transform, "Search", string.Empty,
+            "Cultiway.MagicWeb.UI.Placeholder.Search".Localize(), 110f, 22f).Input;
+        UiTooltip.Set(_search, "Cultiway.MagicWeb.UI.Tooltip.Search.Title",
             "Cultiway.MagicWeb.UI.Tooltip.Search");
         _search.onValueChanged.AddListener(_ => ApplyFilterChange());
 
-        _groupButton = WanfaUiFactory.CreateIconTextButton(toolbar.transform, "Group", WanfaUiIcons.Entity,
+        _groupButton = UiElements.CreateIconTextButton(toolbar.transform, "Group", WanfaUiIcons.Entity,
             string.Empty, 88f, 22f, CycleGroupMode);
-        WanfaUiFactory.SetTooltip(_groupButton.gameObject, "Cultiway.MagicWeb.UI.Tooltip.Group.Title",
+        UiTooltip.Set(_groupButton.gameObject, "Cultiway.MagicWeb.UI.Tooltip.Group.Title",
             "Cultiway.MagicWeb.UI.Tooltip.Group");
-        _sortButton = WanfaUiFactory.CreateIconTextButton(toolbar.transform, "Sort", WanfaUiIcons.Sort,
+        _sortButton = UiElements.CreateIconTextButton(toolbar.transform, "Sort", UiIcons.Sort,
             string.Empty, 80f, 22f, CycleSortMode);
-        WanfaUiFactory.SetTooltip(_sortButton.gameObject, "Cultiway.MagicWeb.UI.Tooltip.Sort.Title",
+        UiTooltip.Set(_sortButton.gameObject, "Cultiway.MagicWeb.UI.Tooltip.Sort.Title",
             "Cultiway.MagicWeb.UI.Tooltip.Sort");
-        _directionButton = WanfaUiFactory.CreateIconButton(toolbar.transform, "Direction", WanfaUiIcons.MoveUp,
+        _directionButton = UiElements.CreateIconButton(toolbar.transform, "Direction", UiIcons.MoveUp,
             24f, 22f, ToggleSortDirection);
-        WanfaUiFactory.SetTooltip(_directionButton.gameObject, "Cultiway.MagicWeb.UI.Tooltip.Direction.Title",
+        UiTooltip.Set(_directionButton.gameObject, "Cultiway.MagicWeb.UI.Tooltip.Direction.Title",
             "Cultiway.MagicWeb.UI.Tooltip.Direction");
-        _filterButton = WanfaUiFactory.CreateIconTextButton(toolbar.transform, "Filters", WanfaUiIcons.Misc,
+        _filterButton = UiElements.CreateIconTextButton(toolbar.transform, "Filters", UiIcons.Options,
             string.Empty, 60f, 22f, () => SetFilterExpanded(!_filterExpanded));
-        WanfaUiFactory.SetTooltip(_filterButton.gameObject, "Cultiway.MagicWeb.UI.Tooltip.Filters.Title",
+        UiTooltip.Set(_filterButton.gameObject, "Cultiway.MagicWeb.UI.Tooltip.Filters.Title",
             "Cultiway.MagicWeb.UI.Tooltip.Filters");
-        var reset = WanfaUiFactory.CreateIconButton(toolbar.transform, "Reset", WanfaUiIcons.Reset, 24f, 22f,
+        var reset = UiElements.CreateIconButton(toolbar.transform, "Reset", UiIcons.Reset, 24f, 22f,
             ResetView);
-        WanfaUiFactory.SetTooltip(reset.gameObject, "Cultiway.MagicWeb.UI.Tooltip.Reset.Title",
+        UiTooltip.Set(reset.gameObject, "Cultiway.MagicWeb.UI.Tooltip.Reset.Title",
             "Cultiway.MagicWeb.UI.Tooltip.Reset");
-        _resultCount = WanfaUiFactory.CreateText(toolbar.transform, "ResultCount", string.Empty, 82f, 22f, 6,
+        _resultCount = UiElements.CreateText(toolbar.transform, "ResultCount", string.Empty, 82f, 22f, 6,
             TextAnchor.MiddleRight);
     }
 
     private void CreateFilterBand(Transform parent)
     {
-        _filterContent = WanfaUiFactory.CreateScrollContent(parent, "FilterBand", RootWidth, FilterHeight);
-        _filterRoot = _filterContent.parent.parent.gameObject;
+        UiScrollPane filters = UiScrollPane.CreateVertical(parent, "FilterBand", RootWidth, FilterHeight);
+        filters.SetSurface(UiSurface.WindowInner, UiTheme.Current.Metrics.SpacingXs, false);
+        _filterContent = filters.Content;
+        _filterRoot = filters.Root.gameObject;
 
-        var rangeRow = WanfaUiFactory.CreateLayout(_filterContent, "LevelAndAssetFilters", true, RootWidth - 8f,
+        var rangeRow = UiLayout.Create(_filterContent, "LevelAndAssetFilters", true, RootWidth - 8f,
             22f, 3f);
-        WanfaUiFactory.CreateText(rangeRow.transform, "LevelLabel",
+        UiElements.CreateText(rangeRow.transform, "LevelLabel",
             "Cultiway.MagicWeb.UI.Filter.ItemLevel".Localize(), 54f, 22f, 7);
-        WanfaUiFactory.CreateIconButton(rangeRow.transform, "MinDown", WanfaUiIcons.Remove, 22f, 20f,
+        UiElements.CreateIconButton(rangeRow.transform, "MinDown", UiIcons.Remove, 22f, 20f,
             () => AdjustItemLevel(true, -1), 5f);
-        _minLevelText = WanfaUiFactory.CreateText(rangeRow.transform, "MinLevel", string.Empty, 48f, 22f, 7,
+        _minLevelText = UiElements.CreateText(rangeRow.transform, "MinLevel", string.Empty, 48f, 22f, 7,
             TextAnchor.MiddleCenter, FontStyle.Bold);
-        WanfaUiFactory.CreateIconButton(rangeRow.transform, "MinUp", WanfaUiIcons.Add, 22f, 20f,
+        UiElements.CreateIconButton(rangeRow.transform, "MinUp", UiIcons.Add, 22f, 20f,
             () => AdjustItemLevel(true, 1), 5f);
-        WanfaUiFactory.CreateText(rangeRow.transform, "Separator", "-", 8f, 22f, 7, TextAnchor.MiddleCenter);
-        WanfaUiFactory.CreateIconButton(rangeRow.transform, "MaxDown", WanfaUiIcons.Remove, 22f, 20f,
+        UiElements.CreateText(rangeRow.transform, "Separator", "-", 8f, 22f, 7, TextAnchor.MiddleCenter);
+        UiElements.CreateIconButton(rangeRow.transform, "MaxDown", UiIcons.Remove, 22f, 20f,
             () => AdjustItemLevel(false, -1), 5f);
-        _maxLevelText = WanfaUiFactory.CreateText(rangeRow.transform, "MaxLevel", string.Empty, 48f,
+        _maxLevelText = UiElements.CreateText(rangeRow.transform, "MaxLevel", string.Empty, 48f,
             22f, 7, TextAnchor.MiddleCenter, FontStyle.Bold);
-        WanfaUiFactory.CreateIconButton(rangeRow.transform, "MaxUp", WanfaUiIcons.Add, 22f, 20f,
+        UiElements.CreateIconButton(rangeRow.transform, "MaxUp", UiIcons.Add, 22f, 20f,
             () => AdjustItemLevel(false, 1), 5f);
-        _sourceFilterButton = WanfaUiFactory.CreateButton(rangeRow.transform, "Source", string.Empty, 92f, 20f,
+        _sourceFilterButton = UiElements.CreateButton(rangeRow.transform, "Source", string.Empty, 92f, 20f,
             CycleSourceFilter);
 
-        var assetRow = WanfaUiFactory.CreateLayout(_filterContent, "AssetFilters", true, RootWidth - 8f, 22f,
+        var assetRow = UiLayout.Create(_filterContent, "AssetFilters", true, RootWidth - 8f, 22f,
             3f);
-        _entityFilterButton = WanfaUiFactory.CreateButton(assetRow.transform, "Entity", string.Empty, 170f, 20f,
+        _entityFilterButton = UiElements.CreateButton(assetRow.transform, "Entity", string.Empty, 170f, 20f,
             CycleEntityFilter);
-        _trajectoryFilterButton = WanfaUiFactory.CreateButton(assetRow.transform, "Trajectory", string.Empty,
+        _trajectoryFilterButton = UiElements.CreateButton(assetRow.transform, "Trajectory", string.Empty,
             170f, 20f, CycleTrajectoryFilter);
 
-        var contextRow = WanfaUiFactory.CreateLayout(_filterContent, "MageFilters", true, RootWidth - 8f, 22f,
+        var contextRow = UiLayout.Create(_filterContent, "MageFilters", true, RootWidth - 8f, 22f,
             4f);
-        _understandableOnlyToggle = WanfaUiFactory.CreateToggle(contextRow.transform, "UnderstandableOnly",
+        _understandableOnlyToggle = UiElements.CreateToggle(contextRow.transform, "UnderstandableOnly",
             "Cultiway.MagicWeb.UI.Filter.UnderstandableOnly".Localize(), false, 136f, 20f);
         _understandableOnlyToggle.onValueChanged.AddListener(value =>
         {
             _understandableOnly = value;
             ApplyFilterChange();
         });
-        _hideKnownToggle = WanfaUiFactory.CreateToggle(contextRow.transform, "HideKnown",
+        _hideKnownToggle = UiElements.CreateToggle(contextRow.transform, "HideKnown",
             "Cultiway.MagicWeb.UI.Filter.HideKnown".Localize(), false, 116f, 20f);
         _hideKnownToggle.onValueChanged.AddListener(value =>
         {
             _hideKnown = value;
             ApplyFilterChange();
         });
-        WanfaUiFactory.CreateText(contextRow.transform, "ContextHint",
+        UiElements.CreateText(contextRow.transform, "ContextHint",
             "Cultiway.MagicWeb.UI.Filter.SelectedMage".Localize(), 240f, 20f, 6);
     }
 
     private void CreateBody(Transform parent)
     {
-        _body = WanfaUiFactory.CreateLayout(parent, "Body", true, RootWidth, BodyCollapsedHeight, 4f);
-        var leftContent = WanfaUiFactory.CreateScrollContent(_body.transform, "GroupedEntries", LeftWidth,
+        _body = UiLayout.Create(parent, "Body", true, RootWidth, BodyCollapsedHeight, 4f);
+        UiScrollPane left = UiScrollPane.CreateVertical(_body.transform, "GroupedEntries", LeftWidth,
             BodyCollapsedHeight);
-        _leftScroll = leftContent.parent.parent.gameObject;
-        _rowPool = new MonoObjPool<MagicWebBrowserRow>(MagicWebBrowserRow.Prefab, leftContent);
+        left.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingXs, false);
+        _leftScroll = left.Root.gameObject;
+        _rowPool = new MonoObjPool<MagicWebBrowserRow>(MagicWebBrowserRow.Prefab, left.Content);
 
-        var rightContent = WanfaUiFactory.CreateScrollContent(_body.transform, "EntryDetail", RightWidth,
+        UiScrollPane right = UiScrollPane.CreateVertical(_body.transform, "EntryDetail", RightWidth,
             BodyCollapsedHeight);
-        _rightScroll = rightContent.parent.parent.gameObject;
-        var header = WanfaUiFactory.CreateLayout(rightContent, "Header", true, RightWidth - 8f, 58f, 4f,
+        right.SetSurface(UiSurface.WindowInner, UiTheme.Current.Metrics.SpacingXs, false);
+        _rightScroll = right.Root.gameObject;
+        var header = UiLayout.Create(right.Content, "Header", true, RightWidth - 8f, 58f, 4f,
             TextAnchor.UpperLeft);
         var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
         icon.transform.SetParent(header.transform, false);
-        WanfaUiFactory.SetLayout(icon.transform, 54f, 54f);
+        UiLayout.SetSize(icon.transform, 54f, 54f);
         _detailIcon = icon.GetComponent<Image>();
         _detailIcon.preserveAspect = true;
-        var heading = WanfaUiFactory.CreateLayout(header.transform, "Heading", false, RightWidth - 66f, 54f, 2f);
-        _detailName = WanfaUiFactory.CreateText(heading.transform, "Name", string.Empty, RightWidth - 66f, 22f,
+        var heading = UiLayout.Create(header.transform, "Heading", false, RightWidth - 66f, 54f, 2f);
+        _detailName = UiElements.CreateText(heading.transform, "Name", string.Empty, RightWidth - 66f, 22f,
             9, TextAnchor.MiddleLeft, FontStyle.Bold);
-        _detailSummary = WanfaUiFactory.CreateText(heading.transform, "Summary", string.Empty,
+        _detailSummary = UiElements.CreateText(heading.transform, "Summary", string.Empty,
             RightWidth - 66f, 30f, 6);
-        _detailSource = CreateDetailText(rightContent, "Source", 54f);
-        _detailTags = CreateDetailText(rightContent, "Tags", 66f);
-        _detailModifiers = CreateDetailText(rightContent, "Modifiers", 100f);
-        _detailCompatibility = CreateDetailText(rightContent, "Compatibility", 110f);
+        _detailSource = CreateDetailText(right.Content, "Source", 54f);
+        _detailTags = CreateDetailText(right.Content, "Tags", 66f);
+        _detailModifiers = CreateDetailText(right.Content, "Modifiers", 100f);
+        _detailCompatibility = CreateDetailText(right.Content, "Compatibility", 110f);
     }
 
     private static Text CreateDetailText(Transform parent, string name, float height)
     {
-        var text = WanfaUiFactory.CreateText(parent, name, string.Empty, RightWidth - 8f, height, 7,
+        var text = UiElements.CreateText(parent, name, string.Empty, RightWidth - 8f, height, 7,
             TextAnchor.UpperLeft);
         text.verticalOverflow = VerticalWrapMode.Truncate;
         return text;
@@ -721,7 +724,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         _detailFrameTimer = 0f;
         _detailFrameInterval = entry.FrameInterval;
         _detailIcon.sprite = _detailFrames.Length == 0 ? null : _detailFrames[0];
-        WanfaUiFactory.SetTooltip(_detailIcon.gameObject,
+        UiTooltip.Set(_detailIcon.gameObject,
             () => SkillTooltip.Show(_detailIcon.gameObject, entry.Entry.Container));
 
         var lifetime = entry.Entry.IsDefault
@@ -850,7 +853,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
             .ToArray();
         var rowCount = (presentElements.Length + 5) / 6 + tagGroups.Sum(group => (group.Tags.Length + 5) / 6);
         var height = 18f * (1 + tagGroups.Length) + 22f * rowCount + 4f;
-        _dynamicFilterRoot = WanfaUiFactory.CreateLayout(_filterContent, "DynamicFilters", false,
+        _dynamicFilterRoot = UiLayout.Create(_filterContent, "DynamicFilters", false,
             RootWidth - 8f, Math.Max(22f, height), 2f);
         CreateFilterSection(_dynamicFilterRoot.transform, "Cultiway.MagicWeb.UI.Filter.Elements".Localize(),
             presentElements, false);
@@ -865,16 +868,16 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
     private void CreateFilterSection(Transform parent, string title, IReadOnlyList<string> tags, bool triState)
     {
         if (tags.Count == 0) return;
-        WanfaUiFactory.CreateText(parent, $"Title_{title}", title, RootWidth - 12f, 16f, 7,
+        UiElements.CreateText(parent, $"Title_{title}", title, RootWidth - 12f, 16f, 7,
             TextAnchor.MiddleLeft, FontStyle.Bold);
         for (var offset = 0; offset < tags.Count; offset += 6)
         {
-            var row = WanfaUiFactory.CreateLayout(parent, $"Row_{title}_{offset}", true, RootWidth - 12f, 20f, 3f);
+            var row = UiLayout.Create(parent, $"Row_{title}_{offset}", true, RootWidth - 12f, 20f, 3f);
             foreach (var tag in tags.Skip(offset).Take(6))
             {
                 var currentTag = tag;
                 Button button = null;
-                button = WanfaUiFactory.CreateButton(row.transform, currentTag,
+                button = UiElements.CreateButton(row.transform, currentTag,
                     SkillTags.GetDisplayName(currentTag), 80f, 19f, () =>
                     {
                         if (triState)
@@ -895,7 +898,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
                         ApplyFilterChange();
                     });
                 UpdateChipVisual(button, currentTag, triState);
-                WanfaUiFactory.SetTooltip(button.gameObject, SkillTags.GetDisplayName(currentTag),
+                UiTooltip.Set(button.gameObject, SkillTags.GetDisplayName(currentTag),
                     triState
                         ? "Cultiway.MagicWeb.UI.Tooltip.TagState".Localize()
                         : "Cultiway.MagicWeb.UI.Tooltip.ElementState".Localize());
@@ -927,8 +930,8 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
     {
         _groupButton.GetComponentInChildren<Text>().text = $"Cultiway.MagicWeb.UI.Group.{_groupMode}".Localize();
         _sortButton.GetComponentInChildren<Text>().text = $"Cultiway.MagicWeb.UI.Sort.{_sortMode}".Localize();
-        WanfaUiFactory.SetButtonIcon(_directionButton,
-            _sortDescending ? WanfaUiIcons.MoveDown : WanfaUiIcons.MoveUp);
+        UiElements.SetButtonIcon(_directionButton,
+            _sortDescending ? UiIcons.MoveDown : UiIcons.MoveUp);
         _minLevelText.text = FormatMagicItemLevel(ItemLevel.FromValue(_minItemLevel));
         _maxLevelText.text = FormatMagicItemLevel(ItemLevel.FromValue(_maxItemLevel));
         _sourceFilterButton.GetComponentInChildren<Text>().text =
@@ -957,9 +960,9 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         _filterExpanded = expanded;
         _filterRoot.SetActive(expanded);
         var bodyHeight = expanded ? BodyExpandedHeight : BodyCollapsedHeight;
-        WanfaUiFactory.SetLayout(_body.transform, RootWidth, bodyHeight);
-        WanfaUiFactory.SetLayout(_leftScroll.transform, LeftWidth, bodyHeight);
-        WanfaUiFactory.SetLayout(_rightScroll.transform, RightWidth, bodyHeight);
+        UiLayout.SetSize(_body.transform, RootWidth, bodyHeight);
+        UiLayout.SetSize(_leftScroll.transform, LeftWidth, bodyHeight);
+        UiLayout.SetSize(_rightScroll.transform, RightWidth, bodyHeight);
         UpdateFilterButton();
     }
 
@@ -1098,19 +1101,4 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         return Mathf.FloorToInt((float)(GetWorldTime() / TimeScales.SecPerYear));
     }
 
-    private static void AddSearchIcon(InputField input)
-    {
-        var icon = new GameObject("SearchIcon", typeof(RectTransform), typeof(Image));
-        icon.transform.SetParent(input.transform, false);
-        var rect = icon.GetComponent<RectTransform>();
-        rect.anchorMin = rect.anchorMax = new Vector2(0f, 0.5f);
-        rect.sizeDelta = new Vector2(14f, 14f);
-        rect.anchoredPosition = new Vector2(10f, 0f);
-        var image = icon.GetComponent<Image>();
-        image.sprite = SpriteTextureLoader.getSprite(WanfaUiIcons.Search);
-        image.preserveAspect = true;
-        image.raycastTarget = false;
-        input.textComponent.rectTransform.offsetMin = new Vector2(20f, 1f);
-        input.placeholder.GetComponent<RectTransform>().offsetMin = new Vector2(20f, 1f);
-    }
 }
