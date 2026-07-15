@@ -6,6 +6,7 @@ using System.Text;
 using Cultiway.AbstractGame.AbstractEngine;
 using Cultiway.Const;
 using Cultiway.Content;
+using Cultiway.Content.Artifacts.Baibao;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -63,6 +64,7 @@ namespace Cultiway
         public ModSaveManager Persistence { get; private set; }
         public Core.SkillLibV3.Manager SkillV3 { get; private set; }
         public WanfaPavilionService Wanfa { get; private set; }
+        public BaibaoPavilionService Baibao { get; private set; }
         public        Core.GeoLib.Manager     Geo                  { get; private set; }
 
         private void Start()
@@ -406,6 +408,9 @@ namespace Cultiway
             Wanfa = new WanfaPavilionService();
             Wanfa.Init();
             _ui.InitWanfa(Wanfa);
+            Baibao = new BaibaoPavilionService();
+            Baibao.Init();
+            _ui.InitBaibao(Baibao);
             _ui.InitUpgradeRain();
             _ui.InitElementRootRain();
             

@@ -8,6 +8,7 @@ public class Manager
     public static ElixirEffectAtomLibrary ElixirEffectAtomLibrary { get; } = new();
     public static ArtifactAtomLibrary ArtifactAtomLibrary { get; } = new();
     public static ArtifactAbilityLibrary ArtifactAbilityLibrary { get; } = new();
+    public static ArtifactBlueprintExtensionLibrary ArtifactBlueprintExtensionLibrary { get; } = new();
     public static ArtifactPresentationLibrary ArtifactPresentationLibrary { get; } = new();
     public static CultibookLibrary CultibookLibrary { get; } = new();
     public static CultibookRuleProfileLibrary CultibookRuleProfileLibrary { get; } = new();
@@ -22,6 +23,7 @@ public class Manager
         AssetManager._instance.add(ElixirEffectAtomLibrary, "elixir_effect_atoms");
         AssetManager._instance.add(ArtifactAtomLibrary, "artifact_atoms");
         AssetManager._instance.add(ArtifactAbilityLibrary, "artifact_abilities");
+        AssetManager._instance.add(ArtifactBlueprintExtensionLibrary, "artifact_blueprint_extensions");
         AssetManager._instance.add(ArtifactPresentationLibrary, "artifact_presentations");
         AssetManager._instance.add(CultibookLibrary, "cultibooks");
         AssetManager._instance.add(CultibookRuleProfileLibrary, "cultibook_rule_profiles");
@@ -39,6 +41,7 @@ public class Manager
         ElixirEffectAtomLibrary.post_init();
         ArtifactAtomLibrary.post_init();
         ArtifactAbilityLibrary.post_init();
+        ArtifactBlueprintExtensionLibrary.post_init();
         ArtifactPresentationLibrary.post_init();
         CultibookLibrary.post_init();
         CultibookRuleProfileLibrary.post_init();

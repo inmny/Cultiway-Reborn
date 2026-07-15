@@ -22,3 +22,7 @@ upgrade_rain,帝流浆
 upgrade_rain_description,按照配置，以帝流浆提升命中角色所拥有修炼体系的境界。
 element_root_rain,灵根雨
 element_root_rain_description,按照配置赋予或重塑命中角色的灵根，并重新检查其可接入的修炼体系。
+baibao_archive,法宝收录
+baibao_archive_description,点击持有法宝的生物，在独立窗口中将其法宝收入百宝阁。
+baibao_grant,赠宝
+baibao_grant_description,将百宝阁中已选择的法宝制造为独立实体并赠给命中的生物。
