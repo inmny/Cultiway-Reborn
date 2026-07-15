@@ -1,5 +1,7 @@
 using System.Linq;
 using Cultiway.Abstract;
+using Cultiway.Content.Artifacts;
+using Cultiway.Content.Artifacts.Events;
 using Cultiway.Content.Components;
 using Cultiway.Content.Visuals;
 using Cultiway.Core;
@@ -15,6 +17,7 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
 {
     public static CombatActionAsset UseTalisman { get; private set; }
     public static CombatActionAsset UseMagicScroll { get; private set; }
+    public static CombatActionAsset ArtifactSpatialAttack { get; private set; }
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
@@ -98,6 +101,18 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
             UseMagicScroll,
             CanPrepareMagicScroll,
             ResolveMagicScrollWeight));
+
+        ArtifactSpatialAttack.rate = 8;
+        ArtifactSpatialAttack.is_spell_use = true;
+        ArtifactSpatialAttack.action = data =>
+        {
+            ArtifactSpatialAttackEvent evt = new(data.target);
+            return ArtifactAbilityDispatcher.Dispatch(data.initiator.a.GetExtend().E, evt) > 0;
+        };
+        ActorExtend.RegisterExternalMagicAction(new ExternalMagicActionProvider(
+            ArtifactSpatialAttack,
+            CanPrepareArtifactSpatialAttack,
+            ResolveArtifactSpatialAttackWeight));
     }
 
     private static bool CanPrepareTalisman(ActorExtend caster, BaseSimObject target)
@@ -154,5 +169,17 @@ public class CombatActions : ExtendLibrary<CombatActionAsset, CombatActions>
             if (caster.CanUseSkillContainerAtCurrentDistance(skill, target, SkillCastFundingSource.Prepaid)) return 1;
         }
         return 0;
+    }
+
+    private static bool CanPrepareArtifactSpatialAttack(ActorExtend caster, BaseSimObject target)
+    {
+        return !target.isRekt() && ArtifactAbilityDispatcher.HasHandler<ArtifactSpatialAttackEvent>(
+            caster.E,
+            ArtifactControlState.Ready);
+    }
+
+    private static int ResolveArtifactSpatialAttackWeight(ActorExtend caster, BaseSimObject target)
+    {
+        return ArtifactAbilityDispatcher.CanDispatch(caster.E, new ArtifactSpatialAttackEvent(target)) ? 1 : 0;
     }
 }

@@ -11,6 +11,58 @@ namespace Cultiway.Content.Artifacts;
 public static class ArtifactAbilityDispatcher
 {
     /// <summary>
+    /// 判断驾驭者是否至少有一个能力当前可以响应事件，不执行事件处理器。
+    /// </summary>
+    public static bool CanDispatch<TEvent>(Entity controller, TEvent evt) where TEvent : class
+    {
+        var relations = controller.GetRelations<EquippedArtifactRelation>();
+        for (int i = 0; i < relations.Length; i++)
+        {
+            EquippedArtifactRelation relation = relations[i];
+            Entity artifact = relation.artifact;
+            if (!artifact.IsAvailable() || !artifact.TryGetComponent(out ArtifactAbilitySet abilitySet)) continue;
+
+            ArtifactAbilityRuntime runtime = artifact.GetComponent<ArtifactAbilityRuntime>();
+            ArtifactAbilityExecutionContext context = new(controller, artifact, relation.state);
+            for (int j = 0; j < abilitySet.abilities.Length; j++)
+            {
+                ArtifactAbilityInstance ability = abilitySet.abilities[j];
+                ArtifactAbilityAsset asset = Cultiway.Content.Libraries.Manager.ArtifactAbilityLibrary.get(
+                    ability.ability_id);
+                if (asset != null && asset.CanHandle(context, ability, runtime.abilities[j], evt)) return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 判断驾驭者是否装备了支持指定事件的能力，并可要求法器至少处于某一控制层级。
+    /// 此查询忽略冷却、距离等事件条件，适合 AI 判断能力是否值得准备。
+    /// </summary>
+    public static bool HasHandler<TEvent>(
+        Entity controller,
+        ArtifactControlState minimumState = ArtifactControlState.Cold)
+        where TEvent : class
+    {
+        var relations = controller.GetRelations<EquippedArtifactRelation>();
+        for (int i = 0; i < relations.Length; i++)
+        {
+            EquippedArtifactRelation relation = relations[i];
+            if (!MeetsMinimumState(relation.state, minimumState)) continue;
+
+            Entity artifact = relation.artifact;
+            if (!artifact.IsAvailable() || !artifact.TryGetComponent(out ArtifactAbilitySet abilitySet)) continue;
+            for (int j = 0; j < abilitySet.abilities.Length; j++)
+            {
+                ArtifactAbilityAsset asset = Cultiway.Content.Libraries.Manager.ArtifactAbilityLibrary.get(
+                    abilitySet.abilities[j].ability_id);
+                if (asset != null && asset.Supports<TEvent>()) return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
     /// 将领域事件依次交给驾驭者全部已装备法器中注册了该事件类型的能力。
     /// </summary>
     /// <returns>实际执行的能力处理器数量。</returns>
@@ -96,5 +148,17 @@ public static class ArtifactAbilityDispatcher
             if (asset != null && asset.HasTag(tag)) return true;
         }
         return false;
+    }
+
+    private static bool MeetsMinimumState(ArtifactControlState state, ArtifactControlState minimumState)
+    {
+        return minimumState switch
+        {
+            ArtifactControlState.Cold => true,
+            ArtifactControlState.Ready => state != ArtifactControlState.Cold,
+            ArtifactControlState.Operating => state is ArtifactControlState.Operating or ArtifactControlState.Overloaded,
+            ArtifactControlState.Overloaded => state == ArtifactControlState.Overloaded,
+            _ => false,
+        };
     }
 }

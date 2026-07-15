@@ -70,6 +70,7 @@ internal class Manager
         ModClass.I.GeneralRenderSystems.Add(new RealmAuraRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmElementParticleRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmIndicatorRenderSystem());
+        ModClass.I.GeneralRenderSystems.Add(new ArtifactSpatialAttackSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactManifestationSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactWorldRenderSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Components;
@@ -72,10 +73,7 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
         {
             ManifestationUpdate update = _updates[i];
             Entity artifact = update.artifact;
-            if (!artifact.HasComponent<ArtifactManifestation>())
-            {
-                InitializeWorldComponents(artifact, update.bodyRadius);
-            }
+            ArtifactManifestationTools.EnsureWorldComponents(artifact, update.bodyRadius);
 
             ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
             manifestation.control_state = update.controlState;
@@ -109,19 +107,6 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
             _groupCounts[presentation] = count + 1;
             _groupIndices[presentation] = 0;
         }
-    }
-
-    private static void InitializeWorldComponents(Entity artifact, float bodyRadius)
-    {
-        artifact.AddComponent(new ArtifactManifestation());
-        artifact.AddComponent(new Position());
-        artifact.AddComponent(new Rotation());
-        artifact.AddComponent(new ArtifactBody
-        {
-            radius = bodyRadius,
-            targetable = true,
-            collidable = true,
-        });
     }
 
     private static void ApplyPose(Entity artifact, ArtifactPresentationPose pose, float bodyRadius)

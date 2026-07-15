@@ -615,6 +615,10 @@ Cultiway.Artifact.ControlState.Overloaded,超载运转
 Cultiway.Artifact.EquipMode.Automatic,自动
 Cultiway.Artifact.EquipMode.Standby,仅待命
 Cultiway.Artifact.EquipMode.ForcedOperating,强制运转
+Cultiway.ArtifactAbility.FlyingSwordAttack,飞剑攻击
+Cultiway.ArtifactAbility.FlyingSwordAttack.Description,伤害 ×{0:0.##} · 飞行 {1:0.#} · 控域 {2:0.#} · 转向 {3:0} · 穿出 {4:0.#} · 复击 {5:0.#}
+Cultiway.ArtifactAbility.DingAlchemyAssist,鼎辅炼丹
+Cultiway.ArtifactAbility.DingAlchemyAssist.Description,工序 +{0} · 耗时 ×{1:P0} · 品级 +{2}
 Cultiway.UI.WindowUpgradeRainConfig Title,帝流浆配置
 Cultiway.UI.WindowUpgradeRainConfig Title Description,配置帝流浆的提升方式、数量和目标过滤条件。
 Cultiway.UpgradeRain.UI.Section.Mode,提升方式

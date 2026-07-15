@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Content.Components;
 using Friflo.Engine.ECS;
+using NeoModLoader.General;
 using UnityEngine;
 
 namespace Cultiway.Content.Libraries;
@@ -59,10 +60,21 @@ public delegate void ArtifactAbilityEventHandler<TEvent>(
     where TEvent : class;
 
 /// <summary>
+/// 判断一个能力实例当前是否可以响应指定领域事件。该判断同时用于 AI 决策和正式分发，必须无副作用。
+/// </summary>
+public delegate bool ArtifactAbilityEventCondition<TEvent>(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability,
+    ArtifactAbilityRuntimeEntry runtime,
+    TEvent evt)
+    where TEvent : class;
+
+/// <summary>
 /// 注册式法器能力。每个能力拥有独立参数规格、运行状态、调度元数据和事件处理器。
 /// </summary>
 public class ArtifactAbilityAsset : Asset
 {
+    public string name_key;
     public string[] tags = [];
     public string exclusive_group;
     public float minimum_score;
@@ -74,6 +86,7 @@ public class ArtifactAbilityAsset : Asset
     public Func<ArtifactAbilityComposeContext, float> ScoreRecipe;
     public Func<ArtifactAbilityComposeContext, ArtifactAbilityValue[]> ComposeParameters;
     public Func<ArtifactAbilityComposeContext, ArtifactAbilityValue[]> ComposeInitialState;
+    public Func<ArtifactAbilityInstance, string> DescribeInstance;
 
     private readonly Dictionary<Type, IEventHandler> _handlers = new();
 
@@ -87,11 +100,48 @@ public class ArtifactAbilityAsset : Asset
         return Array.IndexOf(tags, tag) >= 0;
     }
 
+    public string GetName()
+    {
+        return !string.IsNullOrEmpty(name_key) && LM.Has(name_key) ? LM.Get(name_key) : id;
+    }
+
+    public string GetDescription(ArtifactAbilityInstance ability)
+    {
+        return DescribeInstance?.Invoke(ability) ?? string.Empty;
+    }
+
     public ArtifactAbilityAsset Handle<TEvent>(ArtifactAbilityEventHandler<TEvent> handler)
         where TEvent : class
     {
-        _handlers[typeof(TEvent)] = new EventHandler<TEvent>(handler);
+        return Handle<TEvent>(null, handler);
+    }
+
+    /// <summary>
+    /// 注册带可执行条件的领域事件处理器。条件不通过时，该能力不会计为已处理事件。
+    /// </summary>
+    public ArtifactAbilityAsset Handle<TEvent>(
+        ArtifactAbilityEventCondition<TEvent> condition,
+        ArtifactAbilityEventHandler<TEvent> handler)
+        where TEvent : class
+    {
+        _handlers[typeof(TEvent)] = new EventHandler<TEvent>(condition, handler);
         return this;
+    }
+
+    internal bool Supports<TEvent>() where TEvent : class
+    {
+        return _handlers.ContainsKey(typeof(TEvent));
+    }
+
+    internal bool CanHandle<TEvent>(
+        ArtifactAbilityExecutionContext context,
+        ArtifactAbilityInstance ability,
+        ArtifactAbilityRuntimeEntry runtime,
+        TEvent evt)
+        where TEvent : class
+    {
+        return _handlers.TryGetValue(typeof(TEvent), out IEventHandler handler) &&
+               handler.CanInvoke(context, ability, runtime, evt);
     }
 
     internal ArtifactAbilityInstance ComposeInstance(ArtifactAbilityComposeContext context)
@@ -123,6 +173,7 @@ public class ArtifactAbilityAsset : Asset
         where TEvent : class
     {
         if (!_handlers.TryGetValue(typeof(TEvent), out IEventHandler handler)) return false;
+        if (!handler.CanInvoke(context, ability, runtime, evt)) return false;
         handler.Invoke(context, ability, ref runtime, evt);
         return true;
     }
@@ -168,6 +219,12 @@ public class ArtifactAbilityAsset : Asset
 
     private interface IEventHandler
     {
+        bool CanInvoke(
+            ArtifactAbilityExecutionContext context,
+            ArtifactAbilityInstance ability,
+            ArtifactAbilityRuntimeEntry runtime,
+            object evt);
+
         void Invoke(
             ArtifactAbilityExecutionContext context,
             ArtifactAbilityInstance ability,
@@ -177,11 +234,24 @@ public class ArtifactAbilityAsset : Asset
 
     private sealed class EventHandler<TEvent> : IEventHandler where TEvent : class
     {
+        private readonly ArtifactAbilityEventCondition<TEvent> _condition;
         private readonly ArtifactAbilityEventHandler<TEvent> _handler;
 
-        public EventHandler(ArtifactAbilityEventHandler<TEvent> handler)
+        public EventHandler(
+            ArtifactAbilityEventCondition<TEvent> condition,
+            ArtifactAbilityEventHandler<TEvent> handler)
         {
+            _condition = condition;
             _handler = handler;
+        }
+
+        public bool CanInvoke(
+            ArtifactAbilityExecutionContext context,
+            ArtifactAbilityInstance ability,
+            ArtifactAbilityRuntimeEntry runtime,
+            object evt)
+        {
+            return _condition?.Invoke(context, ability, runtime, (TEvent)evt) ?? true;
         }
 
         public void Invoke(

@@ -2,8 +2,10 @@ using System;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.AIGC;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
+using Cultiway.Content.Events;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
@@ -231,6 +233,9 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
                 level.Stage = Mathf.Min(level.Stage, 3);
             }
         }
+        ElixirCraftResultEvent result = new(this, crafting_elixir_entity);
+        ArtifactAbilityDispatcher.Dispatch(ae.E, result);
+        level = ItemLevel.FromValue(level + result.QualityBonus);
         if (crafting_elixir_entity.HasComponent<ItemLevel>())
         {
             ref var existing_level = ref crafting_elixir_entity.GetComponent<ItemLevel>();
