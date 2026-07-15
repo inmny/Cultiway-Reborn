@@ -7,7 +7,7 @@ using Cultiway.Core.Libraries;
 namespace Cultiway.Content;
 
 [Dependency(typeof(ItemShapes))]
-public class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
+public partial class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
 {
     public static ArtifactAtomAsset SwordEdge { get; private set; }
     public static ArtifactAtomAsset HeavySeal { get; private set; }
@@ -42,6 +42,7 @@ public class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
                 Trait(ArtifactMaterialTraits.Hardness, 0.85f),
                 Trait(ArtifactMaterialTraits.Suppression, 1f),
                 Trait(ArtifactMaterialTraits.Stability, 0.45f),
+                Trait(ArtifactMaterialTraits.FieldProjection, 1f),
             ],
             ItemShapes.Seal);
 
@@ -52,6 +53,7 @@ public class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
                 Trait(ArtifactMaterialTraits.Flexibility, 1f),
                 Trait(ArtifactMaterialTraits.Ward, 0.9f),
                 Trait(ArtifactMaterialTraits.Mobility, 0.25f),
+                Trait(ArtifactMaterialTraits.GuardianWard, 1f),
             ],
             ItemShapes.Robe);
 
@@ -62,6 +64,7 @@ public class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
                 Trait(ArtifactMaterialTraits.Reflection, 1f),
                 Trait(ArtifactMaterialTraits.Perception, 0.9f),
                 Trait(ArtifactMaterialTraits.Spirituality, 0.25f),
+                Trait(ArtifactMaterialTraits.Insight, 1f),
             ],
             ItemShapes.Mirror);
 
@@ -73,6 +76,7 @@ public class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
                 Trait(ArtifactMaterialTraits.Alchemy, 1f),
                 Trait(ArtifactMaterialTraits.AlchemyVessel, 1f),
                 Trait(ArtifactMaterialTraits.Stability, 0.35f),
+                Trait(ArtifactMaterialTraits.SpiritReservoir, 0.45f),
             ],
             ItemShapes.Ding);
 
@@ -84,6 +88,7 @@ public class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
                 Trait(ArtifactMaterialTraits.Spirituality, 0.45f),
                 Trait(ArtifactMaterialTraits.Ward, 0.25f),
                 Trait(ArtifactMaterialTraits.Stability, 0.55f),
+                Trait(ArtifactMaterialTraits.Purification, 0.35f),
             ]);
 
         Set(Crystal, "crystal", ArtifactAtomCategory.Material, ["冰晶", "水晶", "清光"],
@@ -95,6 +100,7 @@ public class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
                 Trait(ArtifactMaterialTraits.Hardness, 0.4f),
                 Trait(ArtifactMaterialTraits.Reflection, 0.55f),
                 Trait(ArtifactMaterialTraits.Spirituality, 0.35f),
+                Trait(ArtifactMaterialTraits.Insight, 0.25f),
             ]);
 
         Set(Iron, "iron", ArtifactAtomCategory.Material, ["玄铁", "黑铁", "铁骨"],
@@ -105,6 +111,7 @@ public class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
                 Trait(ArtifactMaterialTraits.Hardness, 0.7f),
                 Trait(ArtifactMaterialTraits.Edge, 0.35f),
                 Trait(ArtifactMaterialTraits.Suppression, 0.2f),
+                Trait(ArtifactMaterialTraits.Binding, 0.35f),
             ]);
 
         Set(Ember, "ember", ArtifactAtomCategory.Finish, ["赤火", "赤炼", "离火"],
@@ -115,6 +122,7 @@ public class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
                 Trait(ArtifactMaterialTraits.Fire, 0.45f),
                 Trait(ArtifactMaterialTraits.Volatility, 0.65f),
                 Trait(ArtifactMaterialTraits.Alchemy, 0.25f),
+                Trait(ArtifactMaterialTraits.Amplification, 0.25f),
             ]);
 
         Set(DarkGold, "dark_gold", ArtifactAtomCategory.Finish, ["玄金", "乌金", "金纹"],
@@ -126,7 +134,12 @@ public class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
                 Trait(ArtifactMaterialTraits.Hardness, 0.55f),
                 Trait(ArtifactMaterialTraits.Spirituality, 0.2f),
                 Trait(ArtifactMaterialTraits.Stability, 0.3f),
+                Trait(ArtifactMaterialTraits.Resonance, 0.25f),
             ]);
+
+        ConfigureAdditionalShapeAtoms();
+        ConfigureAdditionalMaterialAtoms();
+        ConfigureAdditionalFinishAtoms();
     }
 
     private static void Set(
