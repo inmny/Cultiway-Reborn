@@ -36,21 +36,17 @@ public sealed class WindowElementRootRainConfig : AbstractWideWindow<WindowEleme
 
     protected override void Init()
     {
-        var originalScrollView = BackgroundTransform.Find("Scroll View");
-        var scrollbarMaskTemplate = originalScrollView.Find("Scrollbar Vertical Mask");
-        originalScrollView.gameObject.SetActive(false);
-
-        var content = WanfaUiFactory.CreateScrollContent(BackgroundTransform, "ElementRootRainScroll",
+        UiWindowContext context = UiWindowContext.Bind(BackgroundTransform);
+        UiScrollPane pane = UiScrollPane.CreateVertical(BackgroundTransform, "ElementRootRainScroll",
             ScrollWidth, RootHeight);
-        var scrollRoot = content.parent.parent;
-        scrollRoot.localPosition = new Vector3(0f, -8f);
-        WanfaUiFactory.AttachOriginalVerticalScrollbar(content, scrollbarMaskTemplate,
+        pane.Root.localPosition = new Vector3(0f, -8f);
+        pane.AttachOriginalScrollbar(context.ScrollbarTemplate,
             BackgroundTransform as RectTransform);
-        _outerScroll = scrollRoot.GetComponent<ScrollRect>();
+        _outerScroll = pane.ScrollRect;
 
-        CreateCompositionSection(content);
-        _filterEditor = new ActorFilterEditor(content, RootWidth, ExpressionHeight, BrowserHeight,
-            scrollbarMaskTemplate, ElementRootRainService.Settings.Filter,
+        CreateCompositionSection(pane.Content);
+        _filterEditor = new ActorFilterEditor(pane.Content, RootWidth, ExpressionHeight, BrowserHeight,
+            context.ScrollbarTemplate, ElementRootRainService.Settings.Filter,
             "Cultiway.ElementRootRain.UI.Expression.Empty",
             "Cultiway.ElementRootRain.UI.Filter.Semantics");
 
@@ -73,24 +69,24 @@ public sealed class WindowElementRootRainConfig : AbstractWideWindow<WindowEleme
 
     private void CreateCompositionSection(Transform root)
     {
-        var section = WanfaUiFactory.CreateLayout(root, "Composition", false, RootWidth,
+        var section = UiLayout.Create(root, "Composition", false, RootWidth,
             CompositionHeight, 4f);
-        WanfaUiFactory.CreateText(section.transform, "Title",
+        UiElements.CreateText(section.transform, "Title",
             "Cultiway.ElementRootRain.UI.Section.Composition".Localize(), RootWidth, 18f, 8,
             TextAnchor.MiddleLeft, FontStyle.Bold);
 
-        var body = WanfaUiFactory.CreateLayout(section.transform, "Weight Editor And Preview", true,
+        var body = UiLayout.Create(section.transform, "Weight Editor And Preview", true,
             RootWidth, PreviewHeight, 4f, TextAnchor.UpperLeft);
         var settings = ElementRootRainService.Settings;
         _weightEditor = new ElementRootWeightEditor(body.transform, WeightEditorWidth, PreviewHeight,
             ElementRootRainSettings.MaxRatio, settings.GetRatio, settings.GetNormalizedRatio,
             settings.SetRatio);
 
-        var preview = WanfaUiFactory.CreateLayout(body.transform, "Preview", false,
+        var preview = UiLayout.Create(body.transform, "Preview", false,
             PreviewWidth, PreviewHeight, 4f, TextAnchor.UpperCenter);
         _diagram = ElementRootDiagram.Create(preview.transform, "Element Root Diagram", DiagramSize,
             ElementRootDiagramDetail.Large);
-        _summary = WanfaUiFactory.CreateText(preview.transform, "Summary", string.Empty,
+        _summary = UiElements.CreateText(preview.transform, "Summary", string.Empty,
             PreviewWidth, PreviewHeight - DiagramSize - 4f, 7, TextAnchor.MiddleCenter, FontStyle.Bold);
 
         CreateStrengthRow(section.transform);
@@ -98,37 +94,37 @@ public sealed class WindowElementRootRainConfig : AbstractWideWindow<WindowEleme
 
     private void CreateStrengthRow(Transform parent)
     {
-        var strengthRow = WanfaUiFactory.CreateLayout(parent, "Strength", true,
+        var strengthRow = UiLayout.Create(parent, "Strength", true,
             RootWidth, 28f, 4f);
-        var strengthLabel = WanfaUiFactory.CreateText(strengthRow.transform, "Label",
+        var strengthLabel = UiElements.CreateText(strengthRow.transform, "Label",
             "Cultiway.ElementRootRain.UI.Strength".Localize(), 76f, 26f, 7,
             TextAnchor.MiddleLeft, FontStyle.Bold);
-        WanfaUiFactory.SetTooltip(strengthLabel.gameObject,
+        UiTooltip.Set(strengthLabel.gameObject,
             "Cultiway.ElementRootRain.UI.Strength",
             "Cultiway.ElementRootRain.UI.Strength.Description");
-        var decrease = WanfaUiFactory.CreateIconButton(strengthRow.transform, "Decrease",
-            WanfaUiIcons.Remove, 28f, 26f,
+        var decrease = UiElements.CreateIconButton(strengthRow.transform, "Decrease",
+            UiIcons.Remove, 28f, 26f,
             () => ElementRootRainService.Settings.SetStrength(ElementRootRainService.Settings.Strength - 0.1f));
-        WanfaUiFactory.SetTooltip(decrease.gameObject,
+        UiTooltip.Set(decrease.gameObject,
             "Cultiway.ElementRootRain.UI.Action.DecreaseStrength",
             "Cultiway.ElementRootRain.UI.Action.DecreaseStrength.Description");
 
-        _strengthInput = WanfaUiFactory.CreateInput(strengthRow.transform, "StrengthInput", "2",
+        _strengthInput = UiElements.CreateInput(strengthRow.transform, "StrengthInput", "2",
             "Cultiway.ElementRootRain.UI.Placeholder.Strength".Localize(), 80f, 26f);
         _strengthInput.contentType = InputField.ContentType.DecimalNumber;
         _strengthInput.characterLimit = 8;
         _strengthInput.onEndEdit.AddListener(CommitStrength);
 
-        var increase = WanfaUiFactory.CreateIconButton(strengthRow.transform, "Increase",
-            WanfaUiIcons.Add, 28f, 26f,
+        var increase = UiElements.CreateIconButton(strengthRow.transform, "Increase",
+            UiIcons.Add, 28f, 26f,
             () => ElementRootRainService.Settings.SetStrength(ElementRootRainService.Settings.Strength + 0.1f));
-        WanfaUiFactory.SetTooltip(increase.gameObject,
+        UiTooltip.Set(increase.gameObject,
             "Cultiway.ElementRootRain.UI.Action.IncreaseStrength",
             "Cultiway.ElementRootRain.UI.Action.IncreaseStrength.Description");
 
-        _normalizationSummary = WanfaUiFactory.CreateText(strengthRow.transform, "Normalization", string.Empty,
+        _normalizationSummary = UiElements.CreateText(strengthRow.transform, "Normalization", string.Empty,
             292f, 26f, 7, TextAnchor.MiddleLeft);
-        WanfaUiFactory.SetTooltip(_normalizationSummary.gameObject,
+        UiTooltip.Set(_normalizationSummary.gameObject,
             "Cultiway.ElementRootRain.UI.Normalization.Title".Localize(),
             "Cultiway.ElementRootRain.UI.Ratio.Normalization".Localize());
     }
@@ -165,14 +161,14 @@ public sealed class WindowElementRootRainConfig : AbstractWideWindow<WindowEleme
             var strengthText = root.GetStrength().ToString("0.###", CultureInfo.CurrentCulture);
             _summary.text = string.Format("Cultiway.ElementRootRain.UI.Format.Summary".Localize(),
                 root.Type.GetName(), strengthText);
-            _summary.color = Color.white;
+            _summary.color = UiTheme.Current.Palette.PrimaryText;
             _diagram.SetValues(weights, root.Type.GetName(),
                 string.Format("Cultiway.ElementRootDiagram.Tooltip.Strength".Localize(), strengthText));
         }
         else
         {
             _summary.text = "Cultiway.ElementRootRain.UI.InvalidRatios".Localize();
-            _summary.color = new Color(1f, 0.82f, 0.25f, 1f);
+            _summary.color = UiTheme.Current.Palette.Warning;
             _diagram.SetValues(weights);
         }
     }

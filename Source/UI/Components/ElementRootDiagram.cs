@@ -210,7 +210,7 @@ public sealed class ElementRootDiagram : MonoBehaviour
         var obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
             typeof(LayoutElement), typeof(ElementRootDiagram));
         obj.transform.SetParent(parent, false);
-        WanfaUiFactory.SetLayout(obj.transform, size, size);
+        UiLayout.SetSize(obj.transform, size, size);
         var hitArea = obj.GetComponent<Image>();
         hitArea.color = Color.clear;
         hitArea.raycastTarget = true;
@@ -305,7 +305,7 @@ public sealed class ElementRootDiagram : MonoBehaviour
         _overlay = CreateGraphic<ElementRootDiagramOverlayGraphic>("Boundaries");
         _overlay.raycastTarget = false;
 
-        WanfaUiFactory.SetTooltip(gameObject, string.Empty, string.Empty);
+        UiTooltip.Set(gameObject, string.Empty, string.Empty);
         _tip = GetComponent<TipButton>();
     }
 
@@ -369,7 +369,7 @@ public sealed class ElementRootDiagram : MonoBehaviour
         var obj = new GameObject(name, typeof(RectTransform));
         obj.transform.SetParent(transform, false);
         var rect = obj.GetComponent<RectTransform>();
-        WanfaUiFactory.Stretch(rect);
+        UiLayout.Stretch(rect);
         return rect;
     }
 
@@ -377,7 +377,7 @@ public sealed class ElementRootDiagram : MonoBehaviour
     {
         var obj = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(T));
         obj.transform.SetParent(parent == null ? transform : parent, false);
-        WanfaUiFactory.Stretch(obj.GetComponent<RectTransform>());
+        UiLayout.Stretch(obj.GetComponent<RectTransform>());
         return obj.GetComponent<T>();
     }
 

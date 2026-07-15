@@ -43,7 +43,7 @@ internal sealed class ElementRootWeightEditor
         _getNormalizedWeight = getNormalizedWeight ?? throw new ArgumentNullException(nameof(getNormalizedWeight));
         _setWeight = setWeight ?? throw new ArgumentNullException(nameof(setWeight));
 
-        var root = WanfaUiFactory.CreateLayout(parent, "Element Weights", false, width, height, 1f);
+        var root = UiLayout.Create(parent, "Element Weights", false, width, height, 1f);
         for (var i = 0; i < _sliders.Length; i++)
         {
             CreateRow(root.transform, width, i);
@@ -68,24 +68,24 @@ internal sealed class ElementRootWeightEditor
 
     private void CreateRow(Transform parent, float width, int elementIndex)
     {
-        var row = WanfaUiFactory.CreateLayout(parent, $"Element_{elementIndex}", true,
+        var row = UiLayout.Create(parent, $"Element_{elementIndex}", true,
             width, RowHeight, 4f, TextAnchor.MiddleLeft);
 
         var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
         icon.transform.SetParent(row.transform, false);
-        WanfaUiFactory.SetLayout(icon.transform, 18f, 18f);
+        UiLayout.SetSize(icon.transform, 18f, 18f);
         var iconImage = icon.GetComponent<Image>();
         iconImage.sprite = SpriteTextureLoader.getSprite(ElementIconPaths[elementIndex]);
         iconImage.preserveAspect = true;
-        WanfaUiFactory.SetTooltip(icon, ElementIndex.ElementNames[elementIndex].Localize(),
+        UiTooltip.Set(icon, ElementIndex.ElementNames[elementIndex].Localize(),
             "Cultiway.ElementRootRain.UI.Ratio.Description".Localize());
 
-        WanfaUiFactory.CreateText(row.transform, "Label", ElementIndex.ElementNames[elementIndex].Localize(),
+        UiElements.CreateText(row.transform, "Label", ElementIndex.ElementNames[elementIndex].Localize(),
             20f, RowHeight, 7, TextAnchor.MiddleCenter, FontStyle.Bold);
 
-        var slider = WanfaUiFactory.CreateNativeSlider(row.transform, "Weight Slider", 155f, RowHeight,
+        var slider = UiElements.CreateNativeSlider(row.transform, "Weight Slider", 155f, RowHeight,
             0f, _maxWeight, _getWeight(elementIndex));
-        WanfaUiFactory.SetTooltip(slider.gameObject, ElementIndex.ElementNames[elementIndex].Localize(),
+        UiTooltip.Set(slider.gameObject, ElementIndex.ElementNames[elementIndex].Localize(),
             "Cultiway.ElementRootRain.UI.Ratio.Description".Localize(),
             "Cultiway.ElementRootRain.UI.Ratio.Normalization".Localize());
         slider.onValueChanged.AddListener(value =>
@@ -94,14 +94,14 @@ internal sealed class ElementRootWeightEditor
         });
         _sliders[elementIndex] = slider;
 
-        var input = WanfaUiFactory.CreateInput(row.transform, "Weight Input", "50",
+        var input = UiElements.CreateInput(row.transform, "Weight Input", "50",
             "Cultiway.ElementRootRain.UI.Placeholder.Ratio".Localize(), 54f, 22f);
         input.contentType = InputField.ContentType.DecimalNumber;
         input.characterLimit = 8;
         input.onEndEdit.AddListener(value => CommitInput(elementIndex, value));
         _inputs[elementIndex] = input;
 
-        _percentages[elementIndex] = WanfaUiFactory.CreateText(row.transform, "Normalized", string.Empty,
+        _percentages[elementIndex] = UiElements.CreateText(row.transform, "Normalized", string.Empty,
             50f, RowHeight, 7, TextAnchor.MiddleRight);
     }
 
@@ -110,7 +110,7 @@ internal sealed class ElementRootWeightEditor
         var separator = new GameObject("Group Separator", typeof(RectTransform), typeof(Image),
             typeof(LayoutElement));
         separator.transform.SetParent(parent, false);
-        WanfaUiFactory.SetLayout(separator.transform, width, SeparatorHeight);
+        UiLayout.SetSize(separator.transform, width, SeparatorHeight);
         separator.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.12f);
     }
 

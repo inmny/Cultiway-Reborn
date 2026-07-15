@@ -6,13 +6,13 @@ using Object = UnityEngine.Object;
 
 namespace Cultiway.UI.ModInfoPages;
 
-public abstract class ModInfoPage
+public abstract class ModInfoPage : IUiTabbedPage
 {
-    protected static readonly Color PrimaryTextColor = Color.white;
-    protected static readonly Color MutedTextColor = new(0.78f, 0.76f, 0.68f, 1f);
-    protected static readonly Color AccentTextColor = new(1f, 0.64f, 0.16f, 1f);
-    protected static readonly Color GoodColor = new(0.34f, 0.82f, 0.43f, 1f);
-    protected static readonly Color WarnColor = new(0.95f, 0.72f, 0.23f, 1f);
+    protected static Color PrimaryTextColor => UiTheme.Current.Palette.PrimaryText;
+    protected static Color MutedTextColor => UiTheme.Current.Palette.MutedText;
+    protected static Color AccentTextColor => UiTheme.Current.Palette.AccentText;
+    protected static Color GoodColor => UiTheme.Current.Palette.Success;
+    protected static Color WarnColor => UiTheme.Current.Palette.Warning;
     protected static readonly Color CoolColor = new(0.33f, 0.73f, 0.9f, 1f);
 
     public abstract string Id { get; }
@@ -58,7 +58,7 @@ public abstract class ModInfoPage
         SetLayoutWidth(card.transform, width);
 
         Image background = card.GetComponent<Image>();
-        background.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        background.sprite = UiResources.GetSprite(UiResources.WindowInner);
         background.type = Image.Type.Sliced;
         background.color = Color.white;
 
@@ -120,7 +120,7 @@ public abstract class ModInfoPage
         obj.transform.localScale = Vector3.one;
 
         Text textComponent = obj.GetComponent<Text>();
-        textComponent.font = UIUtils.GetCurrentFont();
+        textComponent.font = Cultiway.UI.UiTheme.Current.Font;
         textComponent.fontSize = fontSize;
         textComponent.fontStyle = style;
         textComponent.alignment = alignment;
@@ -183,7 +183,7 @@ public abstract class ModInfoPage
         SetLayoutSize(badge.transform, width, 13f);
 
         Image image = badge.GetComponent<Image>();
-        image.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        image.sprite = UiResources.GetSprite(UiResources.WindowInner);
         image.type = Image.Type.Sliced;
         image.color = new Color(color.r, color.g, color.b, 0.75f);
 
@@ -206,7 +206,7 @@ public abstract class ModInfoPage
         bar.transform.localScale = Vector3.one;
         SetLayoutSize(bar.transform, width, 7f);
         Image barBackground = bar.GetComponent<Image>();
-        barBackground.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        barBackground.sprite = UiResources.GetSprite(UiResources.WindowInner);
         barBackground.type = Image.Type.Sliced;
         barBackground.color = new Color(0.12f, 0.13f, 0.11f, 0.85f);
 
@@ -220,7 +220,7 @@ public abstract class ModInfoPage
         fillRect.offsetMax = new Vector2(-1f, -1f);
 
         Image fillImage = fill.GetComponent<Image>();
-        fillImage.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        fillImage.sprite = UiResources.GetSprite(UiResources.WindowInner);
         fillImage.type = Image.Type.Sliced;
         fillImage.color = color;
         return group;

@@ -45,8 +45,7 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 
     protected override void Init()
     {
-        var back_button = transform.Find("BackButtonContainer");
-        back_button.transform.localPosition = new(-180, 0);
+        UiWindowContext.PositionBackButton(BackgroundTransform);
         VertFlexGrid stat_grid = VertFlexGrid.Instantiate(BackgroundTransform, pName: "Stat Grid");
         stat_grid.Setup(200, new Vector2(18, 25), new Vector2(4, 2));
         stat_grid.Background.enabled = false;
@@ -113,7 +112,7 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
         _page_container.localPosition = new Vector3(158, -14);
         _page_container.localScale = Vector3.one;
         var page_bg = _page_container.GetComponent<Image>();
-        page_bg.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
+        page_bg.sprite = UiResources.GetSprite(UiResources.WindowInner);
         page_bg.type = Image.Type.Sliced;
         _page_container.GetComponent<RectTransform>().sizeDelta = new Vector2(258, 220);
         _page_container.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(6, 6, 5, 5);
