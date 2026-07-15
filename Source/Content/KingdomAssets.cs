@@ -27,6 +27,13 @@ public partial class KingdomAssets : ExtendLibrary<KingdomAsset, KingdomAssets>
     public static KingdomAsset EasternHuman { get; private set; }
     [CloneSource("$TEMPLATE_NOMAD$")]
     public static KingdomAsset NoMadsEasternHuman { get; private set; }
+    /// <summary>
+    /// 鬼族
+    /// </summary>
+    [CloneSource("$TEMPLATE_NOMAD$")]
+    public static KingdomAsset Gui { get; private set; }
+    [CloneSource("$TEMPLATE_NOMAD$")]
+    public static KingdomAsset NoMadsGui { get; private set; }
     public static KingdomAsset SectBuildings { get; private set; }
     protected override void OnInit()
     {
@@ -61,6 +68,22 @@ public partial class KingdomAssets : ExtendLibrary<KingdomAsset, KingdomAssets>
         NoMadsEasternHuman.addTag(nameof(EasternHuman));
         NoMadsEasternHuman.addTag(SK.sliceable);
         NoMadsEasternHuman.addFriendlyTag(nameof(EasternHuman));
+
+        Gui.clearKingdomColor();
+        Gui.civ = true;
+        Gui.mobs = false;
+        Gui.group_main = true;
+        Gui.setIcon("cultiway/icons/races/iconGui");
+        Gui.addTag(nameof(Gui));
+        Gui.addTag(SK.sliceable);
+        Gui.addFriendlyTag(nameof(Gui));
+
+        NoMadsGui.default_kingdom_color = new("#9088C4");
+        NoMadsGui.group_main = true;
+        NoMadsGui.setIcon("cultiway/icons/races/iconGui");
+        NoMadsGui.addTag(nameof(Gui));
+        NoMadsGui.addTag(SK.sliceable);
+        NoMadsGui.addFriendlyTag(nameof(Gui));
 
         SectBuildings.default_kingdom_color = new("#D6B44C");
         SectBuildings.civ = false;
