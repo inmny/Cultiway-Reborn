@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Friflo.Engine.ECS;
@@ -103,6 +104,144 @@ public delegate bool ArtifactActiveAbilityHandler(
     in ActiveAbilityTarget target,
     ActiveAbilityUseOrigin origin);
 
+public delegate void ArtifactAbilityLifecycleHandler(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability,
+    ref ArtifactAbilityRuntimeEntry runtime);
+
+public delegate void ArtifactAbilityControlStateHandler(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability,
+    ref ArtifactAbilityRuntimeEntry runtime,
+    ArtifactControlState previousState);
+
+public delegate void ArtifactAbilityTickHandler(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability,
+    ref ArtifactAbilityRuntimeEntry runtime,
+    float elapsedSeconds);
+
+/// <summary>
+/// 判断本轮周期回调是否有实际执行需求。该判断发生在维持资源检查和扣除之前，且不得产生副作用。
+/// </summary>
+public delegate bool ArtifactAbilityTickCondition(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability,
+    ArtifactAbilityRuntimeEntry runtime);
+
+public delegate void ArtifactAbilityStatsHandler(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability,
+    ArtifactAbilityRuntimeEntry runtime,
+    BaseStats stats);
+
+public delegate void ArtifactAbilityEndedHandler(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability,
+    ref ArtifactAbilityRuntimeEntry runtime,
+    ArtifactAbilityEndReason reason);
+
+public delegate float ArtifactAbilityValueResolver(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability);
+
+public delegate int ArtifactAbilityChargeResolver(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability);
+
+/// <summary>
+/// 检查或扣除一次能力资源消耗。consume 为 false 时只能查询，不得修改资源。
+/// </summary>
+public delegate bool ArtifactAbilityResourceHandler(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability,
+    float amount,
+    bool consume);
+
+/// <summary>
+/// 能力资产共用的生命周期协议。能力只填写需要的回调和数值解析器，运行状态由统一系统维护。
+/// </summary>
+public sealed class ArtifactAbilityLifecycleProfile
+{
+    /// <summary>领域事件可被响应的最低控制状态。</summary>
+    public ArtifactControlState event_minimum_state = ArtifactControlState.Cold;
+
+    /// <summary>主动能力可被启动的最低控制状态。</summary>
+    public ArtifactControlState active_minimum_state = ArtifactControlState.Ready;
+
+    /// <summary>持续活动得以维持的最低控制状态。</summary>
+    public ArtifactControlState sustain_minimum_state = ArtifactControlState.Operating;
+
+    /// <summary>周期回调可被推进的最低控制状态。</summary>
+    public ArtifactControlState tick_minimum_state = ArtifactControlState.Operating;
+
+    /// <summary>常驻属性可生效的最低控制状态。</summary>
+    public ArtifactControlState stats_minimum_state = ArtifactControlState.Operating;
+
+    /// <summary>周期回调间隔，单位为世界秒；0 表示不启用周期回调。</summary>
+    public float tick_interval;
+
+    /// <summary>是否仅在能力存在持续活动时推进周期回调。</summary>
+    public bool tick_requires_activity;
+
+    /// <summary>领域事件成功处理后是否消耗充能、冷却和启动资源。</summary>
+    public bool event_consumes_trigger;
+
+    /// <summary>是否允许主动能力在已有持续活动时再次启动。</summary>
+    public bool allow_active_reentry;
+
+    /// <summary>控制状态低于维持要求时是否立即结束持续活动。</summary>
+    public bool interrupt_activity_on_state_loss = true;
+
+    /// <summary>过载状态下启动和维持资源消耗的倍率。</summary>
+    public float overload_resource_multiplier = 1.5f;
+
+    /// <summary>过载状态下触发冷却的倍率。</summary>
+    public float overload_cooldown_multiplier = 1.15f;
+
+    /// <summary>解析最大充能数；未配置时能力不使用充能。</summary>
+    public ArtifactAbilityChargeResolver ResolveMaxCharges;
+
+    /// <summary>解析一次成功触发后的冷却时长。</summary>
+    public ArtifactAbilityValueResolver ResolveCooldown;
+
+    /// <summary>解析恢复一点充能所需时长；未配置时沿用冷却时长。</summary>
+    public ArtifactAbilityValueResolver ResolveRecharge;
+
+    /// <summary>解析主动活动的持续时长；0 表示由活动载体自行决定结束时机。</summary>
+    public ArtifactAbilityValueResolver ResolveDuration;
+
+    /// <summary>解析能力成功启动一次所需的资源。</summary>
+    public ArtifactAbilityValueResolver ResolveActivationCost;
+
+    /// <summary>解析每次有效周期回调所需的维持资源。</summary>
+    public ArtifactAbilityValueResolver ResolveMaintenanceCost;
+
+    /// <summary>查询或扣除能力使用的通用资源。</summary>
+    public ArtifactAbilityResourceHandler Resource;
+
+    /// <summary>法器能力首次接入驾驭者时执行。</summary>
+    public ArtifactAbilityLifecycleHandler OnAttached;
+
+    /// <summary>法器能力脱离驾驭者时执行。</summary>
+    public ArtifactAbilityLifecycleHandler OnDetached;
+
+    /// <summary>法器控制状态变化后执行，并接收变化前状态。</summary>
+    public ArtifactAbilityControlStateHandler OnControlStateChanged;
+
+    /// <summary>判断本轮周期是否需要执行；返回 false 时不会扣除维持资源。</summary>
+    public ArtifactAbilityTickCondition CanTick;
+
+    /// <summary>周期到期且资源支付成功后执行。</summary>
+    public ArtifactAbilityTickHandler OnTick;
+
+    /// <summary>构建驾驭者缓存属性时贡献常驻属性。</summary>
+    public ArtifactAbilityStatsHandler ContributeStats;
+
+    /// <summary>持续活动结束并清理通用运行状态后执行。</summary>
+    public ArtifactAbilityEndedHandler OnActivityEnded;
+}
+
 /// <summary>
 /// 法器能力可选的主动释放入口。它只描述如何被选择和启动，持续效果由 SkillExecution 驱动。
 /// </summary>
@@ -137,6 +276,7 @@ public class ArtifactAbilityAsset : Asset
     public Func<ArtifactAbilityComposeContext, ArtifactAbilityValue[]> ComposeInitialState;
     public Func<ArtifactAbilityInstance, string> DescribeInstance;
     public ArtifactActiveAbilityProfile active_use;
+    public ArtifactAbilityLifecycleProfile lifecycle = new();
 
     private readonly Dictionary<Type, IEventHandler> _handlers = new();
 
@@ -164,6 +304,12 @@ public class ArtifactAbilityAsset : Asset
     {
         active_use = profile ?? throw new ArgumentNullException(nameof(profile));
         if (profile.TryUse == null) throw new ArgumentException($"法器主动能力 {id} 缺少执行入口");
+        return this;
+    }
+
+    public ArtifactAbilityAsset ConfigureLifecycle(ArtifactAbilityLifecycleProfile profile)
+    {
+        lifecycle = profile ?? throw new ArgumentNullException(nameof(profile));
         return this;
     }
 
@@ -198,7 +344,42 @@ public class ArtifactAbilityAsset : Asset
         where TEvent : class
     {
         return _handlers.TryGetValue(typeof(TEvent), out IEventHandler handler) &&
+               ArtifactAbilityLifecycle.CanHandleEvent(this, context, ability, runtime) &&
                handler.CanInvoke(context, ability, runtime, evt);
+    }
+
+    internal bool CanPrepareActive(
+        ArtifactAbilityExecutionContext context,
+        ArtifactAbilityInstance ability,
+        ArtifactAbilityRuntimeEntry runtime,
+        BaseSimObject target)
+    {
+        return ArtifactAbilityLifecycle.CanStartActive(this, context, ability, runtime) &&
+               (active_use.CanPrepare?.Invoke(context, ability, runtime, target) ?? true);
+    }
+
+    internal bool CanUseActive(
+        ArtifactAbilityExecutionContext context,
+        ArtifactAbilityInstance ability,
+        ArtifactAbilityRuntimeEntry runtime,
+        in ActiveAbilityTarget target)
+    {
+        return ArtifactAbilityLifecycle.CanStartActive(this, context, ability, runtime) &&
+               (active_use.CanUse?.Invoke(context, ability, runtime, target) ?? true);
+    }
+
+    internal bool TryUseActive(
+        ArtifactAbilityExecutionContext context,
+        ArtifactAbilityInstance ability,
+        ref ArtifactAbilityRuntimeEntry runtime,
+        in ActiveAbilityTarget target,
+        ActiveAbilityUseOrigin origin)
+    {
+        ArtifactAbilityLifecycle.EnsureInitialized(this, context, ability, ref runtime);
+        if (!CanUseActive(context, ability, runtime, target)) return false;
+        if (!active_use.TryUse(context, ability, ref runtime, target, origin)) return false;
+        ArtifactAbilityLifecycle.CommitActive(this, context, ability, ref runtime);
+        return true;
     }
 
     internal ArtifactAbilityInstance ComposeInstance(ArtifactAbilityComposeContext context)
@@ -230,8 +411,11 @@ public class ArtifactAbilityAsset : Asset
         where TEvent : class
     {
         if (!_handlers.TryGetValue(typeof(TEvent), out IEventHandler handler)) return false;
+        ArtifactAbilityLifecycle.EnsureInitialized(this, context, ability, ref runtime);
+        if (!ArtifactAbilityLifecycle.CanHandleEvent(this, context, ability, runtime)) return false;
         if (!handler.CanInvoke(context, ability, runtime, evt)) return false;
         handler.Invoke(context, ability, ref runtime, evt);
+        ArtifactAbilityLifecycle.CommitEvent(this, context, ability, ref runtime);
         return true;
     }
 

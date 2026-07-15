@@ -95,12 +95,90 @@ public struct ArtifactAbilitySet : IComponent
 }
 
 /// <summary>
-/// 单个能力实例的可变运行状态。具体字段由能力资产自己的状态规格解释。
+/// 能力当前占用法器本体的方式。瞬时能力不建立活动，持续能力由对应类型决定如何结束。
+/// </summary>
+public enum ArtifactAbilityActivityKind
+{
+    /// <summary>能力当前没有占用法器本体的持续活动。</summary>
+    None,
+
+    /// <summary>仅由通用持续时间推进的活动。</summary>
+    Timed,
+
+    /// <summary>由一个短时 SkillExecution 驱动的活动。</summary>
+    SkillExecution,
+
+    /// <summary>法器本体脱离驾驭者并驻留在世界中的活动。</summary>
+    Deployment,
+}
+
+/// <summary>
+/// 一次持续能力活动结束的原因，供能力释放资源或产生收尾效果。
+/// </summary>
+public enum ArtifactAbilityEndReason
+{
+    /// <summary>活动载体正常完成。</summary>
+    Completed,
+
+    /// <summary>配置的持续时间耗尽。</summary>
+    DurationElapsed,
+
+    /// <summary>驾驭者主动召回。</summary>
+    Recalled,
+
+    /// <summary>法器控制状态低于活动维持要求。</summary>
+    ControlStateLost,
+
+    /// <summary>法器与驾驭者解除装备关系。</summary>
+    Unequipped,
+
+    /// <summary>驾驭者死亡或失去有效实体。</summary>
+    ControllerLost,
+
+    /// <summary>无法继续支付活动维持资源。</summary>
+    ResourceDepleted,
+
+    /// <summary>同一法器改由另一驾驭者接管。</summary>
+    Replaced,
+}
+
+/// <summary>
+/// 单个能力实例的可变运行状态。values 由能力资产自己的状态规格解释，其余字段由通用生命周期维护。
 /// </summary>
 public struct ArtifactAbilityRuntimeEntry
 {
     public string instance_id;
     public ArtifactAbilityValue[] values = [];
+
+    /// <summary>通用生命周期运行头是否已经按能力资产初始化。</summary>
+    public bool lifecycle_initialized;
+
+    /// <summary>当前可用充能。能力未配置充能上限时该字段不参与判断。</summary>
+    public int charges;
+
+    /// <summary>下一次允许触发的世界时间。</summary>
+    public double cooldown_until;
+
+    /// <summary>下一点充能恢复的世界时间。</summary>
+    public double next_charge_at;
+
+    /// <summary>下一次周期回调的世界时间。</summary>
+    public double next_tick_at;
+
+    /// <summary>最近一次成功触发的世界时间。</summary>
+    public double last_triggered_at;
+
+    /// <summary>当前持续活动开始的世界时间。</summary>
+    public double activity_started_at;
+
+    /// <summary>当前持续活动的自动结束时间；0 表示不由时长结束。</summary>
+    public double activity_until;
+
+    /// <summary>当前持续活动如何占用法器本体。</summary>
+    public ArtifactAbilityActivityKind activity_kind;
+
+    /// <summary>由能力启动并与法器本体绑定的短时技能执行会话。</summary>
+    public Entity active_execution;
 
     public ArtifactAbilityRuntimeEntry()
     {
@@ -157,6 +235,15 @@ public struct ArtifactAbilityRuntimeEntry
 public struct ArtifactAbilityRuntime : IComponent
 {
     public ArtifactAbilityRuntimeEntry[] abilities = [];
+
+    /// <summary>生命周期当前观察到的驾驭者。</summary>
+    public Entity controller;
+
+    /// <summary>生命周期当前观察到的法器控制状态。</summary>
+    public ArtifactControlState control_state;
+
+    /// <summary>法器当前是否已经接入某个驾驭者的能力生命周期。</summary>
+    public bool attached;
 
     public ArtifactAbilityRuntime()
     {

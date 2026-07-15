@@ -26,15 +26,16 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
         for (int i = 0; i < relations.Length; i++)
         {
             EquippedArtifactRelation relation = relations[i];
-            if (relation.state == ArtifactControlState.Cold) continue;
-
             Entity artifact = relation.artifact;
             if (!artifact.IsAvailable() || !artifact.TryGetComponent(out ArtifactAbilitySet abilitySet)) continue;
             for (int j = 0; j < abilitySet.abilities.Length; j++)
             {
                 ArtifactAbilityInstance ability = abilitySet.abilities[j];
                 ArtifactAbilityAsset asset = Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
-                if (asset?.active_use == null) continue;
+                if (asset?.active_use == null ||
+                    !ArtifactAbilityLifecycle.MeetsState(
+                        relation.state,
+                        asset.lifecycle.active_minimum_state)) continue;
                 output.Add(new ActiveAbilityHandle(Id, artifact, ability.instance_id));
             }
         }
@@ -68,22 +69,22 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
     {
         if (!TryResolve(caster, handle, out ResolvedAbility resolved)) return false;
         ArtifactAbilityExecutionContext context = new(caster.E, handle.Source, resolved.Relation.state);
-        return resolved.Asset.active_use.CanPrepare?.Invoke(
+        return resolved.Asset.CanPrepareActive(
             context,
             resolved.Ability,
             resolved.Runtime,
-            target) ?? true;
+            target);
     }
 
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
     {
         if (!TryResolve(caster, handle, out ResolvedAbility resolved)) return false;
         ArtifactAbilityExecutionContext context = new(caster.E, handle.Source, resolved.Relation.state);
-        return resolved.Asset.active_use.CanUse?.Invoke(
+        return resolved.Asset.CanUseActive(
             context,
             resolved.Ability,
             resolved.Runtime,
-            target) ?? true;
+            target);
     }
 
     public int ResolveAiWeight(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
@@ -108,14 +109,16 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
     {
         if (!TryResolve(caster, handle, out ResolvedAbility resolved)) return false;
 
-        ref ArtifactAbilityRuntime runtime = ref handle.Source.GetComponent<ArtifactAbilityRuntime>();
+        ArtifactAbilityRuntime runtime = handle.Source.GetComponent<ArtifactAbilityRuntime>();
         ArtifactAbilityExecutionContext context = new(caster.E, handle.Source, resolved.Relation.state);
-        return resolved.Asset.active_use.TryUse(
+        bool used = resolved.Asset.TryUseActive(
             context,
             resolved.Ability,
             ref runtime.abilities[resolved.AbilityIndex],
             target,
             origin);
+        handle.Source.GetComponent<ArtifactAbilityRuntime>() = runtime;
+        return used;
     }
 
     private static ResolvedAbility Resolve(ActorExtend caster, ActiveAbilityHandle handle)

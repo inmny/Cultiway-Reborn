@@ -77,7 +77,7 @@ public static class ArtifactAbilityDispatcher
             if (!artifact.IsAvailable()) continue;
             if (!artifact.TryGetComponent(out ArtifactAbilitySet abilitySet)) continue;
 
-            ref ArtifactAbilityRuntime runtime = ref artifact.GetComponent<ArtifactAbilityRuntime>();
+            ArtifactAbilityRuntime runtime = artifact.GetComponent<ArtifactAbilityRuntime>();
             ArtifactAbilityExecutionContext context = new(controller, artifact, relation.state);
             for (int j = 0; j < abilitySet.abilities.Length; j++)
             {
@@ -87,6 +87,7 @@ public static class ArtifactAbilityDispatcher
                 if (asset == null) continue;
                 if (asset.TryHandle(context, ability, ref runtime.abilities[j], evt)) handled++;
             }
+            artifact.GetComponent<ArtifactAbilityRuntime>() = runtime;
         }
         return handled;
     }
@@ -152,13 +153,6 @@ public static class ArtifactAbilityDispatcher
 
     private static bool MeetsMinimumState(ArtifactControlState state, ArtifactControlState minimumState)
     {
-        return minimumState switch
-        {
-            ArtifactControlState.Cold => true,
-            ArtifactControlState.Ready => state != ArtifactControlState.Cold,
-            ArtifactControlState.Operating => state is ArtifactControlState.Operating or ArtifactControlState.Overloaded,
-            ArtifactControlState.Overloaded => state == ArtifactControlState.Overloaded,
-            _ => false,
-        };
+        return ArtifactAbilityLifecycle.MeetsState(state, minimumState);
     }
 }

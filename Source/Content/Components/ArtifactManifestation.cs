@@ -45,3 +45,22 @@ public struct ArtifactBody : IComponent
 public struct ArtifactIndependentMotion : IComponent
 {
 }
+
+/// <summary>
+/// 法器本体脱离驾驭者并作为持续场域驻留在世界中的状态。
+/// 部署期间位置由能力持有，结束后移除此组件即可恢复装备跟随。
+/// </summary>
+public struct ArtifactDeployment : IComponent
+{
+    /// <summary>当前部署法器的驾驭者实体。</summary>
+    public Entity controller;
+
+    /// <summary>建立本次部署的能力实例 ID。</summary>
+    public string ability_instance_id;
+
+    /// <summary>部署开始的世界时间。</summary>
+    public double started_at;
+
+    /// <summary>部署自动结束的世界时间；0 表示不由时长结束。</summary>
+    public double expires_at;
+}
