@@ -31,6 +31,9 @@ public class ArtifactWorldRenderSystem
             .AddComponent<ArtifactWorldView>();
         prefab.sprite_renderer = prefab.GetComponent<SpriteRenderer>();
         prefab.sprite_renderer.sortingLayerName = RenderSortingLayerNames.Objects_4;
+        prefab.sprite_renderer.sortingOrder = 0;
+        prefab.sprite_renderer.spriteSortPoint = SpriteSortPoint.Pivot;
+        prefab.sprite_renderer.sharedMaterial = LibraryMaterials.instance.mat_world_object;
         prefab.anim_renderer = prefab.gameObject.AddComponent<AnimRenderer>();
         prefab.anim_renderer.bind = prefab.sprite_renderer;
         prefab.anim_renderer.defaultMaterial = prefab.sprite_renderer.sharedMaterial;
@@ -74,7 +77,7 @@ public class ArtifactWorldRenderSystem
             view.sprite_renderer.color = color;
             view.sprite_renderer.flipX = manifestation.flip_x;
             view.sprite_renderer.sortingLayerName = RenderSortingLayerNames.Objects_4;
-            view.sprite_renderer.sortingOrder = manifestation.sorting_order;
+            view.sprite_renderer.sortingOrder = 0;
             view.transform.localPosition = position.value;
             view.transform.localRotation = Quaternion.Euler(0f, 0f, rotation.z);
             view.transform.localScale = Vector3.one * (manifestation.world_size / spriteSize);

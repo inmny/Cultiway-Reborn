@@ -119,7 +119,6 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
         ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
         manifestation.world_size = pose.world_size;
         manifestation.flip_x = pose.flip_x;
-        manifestation.sorting_order = pose.sorting_order;
 
         ref ArtifactBody body = ref artifact.GetComponent<ArtifactBody>();
         body.radius = bodyRadius * pose.world_size;

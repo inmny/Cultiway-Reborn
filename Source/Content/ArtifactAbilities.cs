@@ -179,7 +179,6 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
         manifestation.visible = controller.is_visible;
         manifestation.world_size = actorScale * shape.presentation.active_world_size;
         manifestation.flip_x = false;
-        manifestation.sorting_order = 12;
         artifact.GetComponent<ArtifactBody>().radius = shape.presentation.body_radius * manifestation.world_size;
         if (initialized)
         {

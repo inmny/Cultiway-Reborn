@@ -59,7 +59,6 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
                 position = position,
                 rotation = 180f,
                 world_size = context.actor_scale * 0.62f * stateScale,
-                sorting_order = 9,
             };
         }
 
@@ -75,7 +74,6 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
             rotation = side * -8f + spread * 7f + Mathf.Sin(phase * 0.8f) * 4f,
             world_size = context.actor_scale * 0.7f * stateScale,
             flip_x = context.actor.flip,
-            sorting_order = 7,
         };
     }
 
@@ -93,7 +91,6 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
                 0f),
             rotation = Mathf.Sin(phase * 0.65f) * (2f + activity * 7f),
             world_size = context.actor_scale * 0.56f * context.control_state.GetStateScale(),
-            sorting_order = 10,
         };
     }
 
@@ -108,7 +105,6 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
                 0f),
             world_size = context.actor_scale * 0.78f * context.control_state.GetStateScale(),
             flip_x = context.actor.flip,
-            sorting_order = 3,
         };
     }
 
@@ -127,7 +123,6 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
                 0f),
             rotation = Mathf.Sin(phase * 0.72f) * (4f + activity * 10f),
             world_size = context.actor_scale * 0.5f * context.control_state.GetStateScale(),
-            sorting_order = 8,
         };
     }
 
@@ -145,7 +140,6 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
                 0f),
             rotation = Mathf.Sin(phase * 0.42f) * (1f + activity * 3f),
             world_size = context.actor_scale * 0.62f * context.control_state.GetStateScale(),
-            sorting_order = 6,
         };
     }
 

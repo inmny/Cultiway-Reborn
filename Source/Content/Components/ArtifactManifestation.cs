@@ -27,10 +27,6 @@ public struct ArtifactManifestation : IComponent
     /// </summary>
     public bool visible;
 
-    /// <summary>
-    /// 在法器渲染层内的排序序号。
-    /// </summary>
-    public int sorting_order;
 }
 
 /// <summary>

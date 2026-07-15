@@ -63,5 +63,4 @@ public struct ArtifactPresentationPose
     public float rotation;
     public float world_size;
     public bool flip_x;
-    public int sorting_order;
 }
