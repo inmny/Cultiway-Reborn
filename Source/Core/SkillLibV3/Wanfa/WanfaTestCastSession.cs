@@ -1,5 +1,6 @@
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Blueprints;
+using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -54,7 +55,8 @@ internal static class WanfaTestCastSession
             return false;
         }
 
-        _trackedSkillEntity = ModClass.I.SkillV3.SpawnSkill(compiled.Container, actor, target, 100f,
+        _trackedSkillEntity = ModClass.I.SkillV3.SpawnSkill(compiled.Container, actor, target,
+            SkillContext.DefaultStrength,
             power_level: actor.GetExtend().GetPowerLevel());
         WanfaPavilionService.Instance.TrackTestContainer(compiled.Container);
         _draft = null;

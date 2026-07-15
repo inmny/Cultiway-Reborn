@@ -108,7 +108,7 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
             caster,
             skill,
             plan,
-            100f,
+            SkillContext.DefaultStrength,
             caster.GetPowerLevel(),
             SkillCastFundingSource.CasterResources,
             target.AttackKingdom);
