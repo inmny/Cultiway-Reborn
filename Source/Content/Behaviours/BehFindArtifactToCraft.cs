@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using ai.behaviours;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
@@ -13,11 +12,6 @@ namespace Cultiway.Content.Behaviours;
 
 public class BehFindArtifactToCraft : BehCityActor
 {
-    /// <summary>
-    /// 第一阶段每次炼器需要的材料数。
-    /// </summary>
-    private const int IngredientCount = 3;
-
     public override BehResult execute(Actor pObject)
     {
         // 已经在炼制则不再选器形
@@ -33,10 +27,9 @@ public class BehFindArtifactToCraft : BehCityActor
             available.Add(item);
         }
 
-        if (available.Count < IngredientCount) return BehResult.Stop;
+        if (available.Count == 0) return BehResult.Stop;
 
-        // 占用前 IngredientCount 个可用材料
-        var ingredients = available.Take(IngredientCount).ToArray();
+        Entity[] ingredients = ArtifactIngredientPlanner.Select(pObject, available);
         var result = ArtifactComposer.Compose(ingredients);
         Entity crafting_artifact = SpecialItemUtils
             .StartBuild(result.Shape, World.world.getCurWorldTime(), pObject.getName())
@@ -47,6 +40,7 @@ public class BehFindArtifactToCraft : BehCityActor
             .AddComponent(result.Level)
             .AddComponent(new EntityName(result.Name))
             .AddComponent(result.ToAtomData())
+            .AddComponent(result.MaterialData)
             .AddComponent(result.ToControlProfile())
             .AddComponent(result.AbilitySet)
             .AddComponent(result.AbilityRuntime)

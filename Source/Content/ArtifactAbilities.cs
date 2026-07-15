@@ -63,18 +63,31 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
             NumberSpec(Cooldown),
         ];
         FlyingSwordAttack.state_schema = [NumberSpec(ReadyAt)];
-        FlyingSwordAttack.ScoreRecipe = context => context.shape == ItemShapes.Sword ? 100f : 0f;
+        FlyingSwordAttack.ScoreRecipe = context =>
+        {
+            float flight = context.GetTrait(ArtifactMaterialTraits.PiercingFlight);
+            return flight * (1f +
+                             context.GetTrait(ArtifactMaterialTraits.Mobility) * 0.12f +
+                             context.GetTrait(ArtifactMaterialTraits.Spirituality) * 0.06f);
+        };
         FlyingSwordAttack.ComposeParameters = context =>
         {
             int quality = Quality(context);
+            float edge = Mathf.Min(6f, context.GetTrait(ArtifactMaterialTraits.Edge));
+            float mobility = Mathf.Min(6f, context.GetTrait(ArtifactMaterialTraits.Mobility));
+            float spirituality = Mathf.Min(6f, context.GetTrait(ArtifactMaterialTraits.Spirituality));
             return
             [
-                ArtifactAbilityValue.Number(DamageMultiplier, 0.9f + quality * 0.055f),
-                ArtifactAbilityValue.Number(FlightSpeed, 20f + quality * 0.35f),
-                ArtifactAbilityValue.Number(AttackRange, 18f + quality * 0.25f),
-                ArtifactAbilityValue.Number(TurnRate, 180f + quality * 2.5f),
-                ArtifactAbilityValue.Number(PierceDistance, 2.4f + quality * 0.04f),
-                ArtifactAbilityValue.Number(Cooldown, Mathf.Max(0.8f, 3.2f - quality * 0.06f)),
+                ArtifactAbilityValue.Number(
+                    DamageMultiplier,
+                    0.75f + quality * 0.05f + edge * 0.06f + spirituality * 0.025f),
+                ArtifactAbilityValue.Number(FlightSpeed, 17f + quality * 0.3f + mobility * 2.2f),
+                ArtifactAbilityValue.Number(AttackRange, 15f + quality * 0.2f + spirituality * 1.2f),
+                ArtifactAbilityValue.Number(TurnRate, 160f + quality * 2f + mobility * 16f),
+                ArtifactAbilityValue.Number(PierceDistance, 2f + quality * 0.035f + edge * 0.12f),
+                ArtifactAbilityValue.Number(
+                    Cooldown,
+                    Mathf.Max(0.8f, 3.4f - quality * 0.055f - mobility * 0.08f)),
             ];
         };
         FlyingSwordAttack.ComposeInitialState = _ => [ArtifactAbilityValue.Number(ReadyAt, 0f)];
@@ -113,15 +126,28 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
             NumberSpec(DurationMultiplier),
             IntegerSpec(QualityBonus),
         ];
-        DingAlchemyAssist.ScoreRecipe = context => context.shape == ItemShapes.Ding ? 100f : 0f;
+        DingAlchemyAssist.ScoreRecipe = context =>
+        {
+            float vessel = context.GetTrait(ArtifactMaterialTraits.AlchemyVessel);
+            return vessel * (1f +
+                             context.GetTrait(ArtifactMaterialTraits.Alchemy) * 0.16f +
+                             context.GetTrait(ArtifactMaterialTraits.Capacity) * 0.08f);
+        };
         DingAlchemyAssist.ComposeParameters = context =>
         {
             int quality = Quality(context);
+            float alchemy = Mathf.Min(6f, context.GetTrait(ArtifactMaterialTraits.Alchemy));
+            float stability = context.GetTrait(ArtifactMaterialTraits.Stability);
+            float spirituality = Mathf.Min(6f, context.GetTrait(ArtifactMaterialTraits.Spirituality));
             return
             [
-                ArtifactAbilityValue.Integer(ProgressBonus, 1 + quality / 9),
-                ArtifactAbilityValue.Number(DurationMultiplier, Mathf.Max(0.35f, 0.82f - quality * 0.012f)),
-                ArtifactAbilityValue.Integer(QualityBonus, 1 + quality / 12),
+                ArtifactAbilityValue.Integer(ProgressBonus, 1 + quality / 10 + Mathf.FloorToInt(alchemy * 0.5f)),
+                ArtifactAbilityValue.Number(
+                    DurationMultiplier,
+                    Mathf.Max(0.32f, 0.9f - quality * 0.01f - alchemy * 0.025f - stability * 0.08f)),
+                ArtifactAbilityValue.Integer(
+                    QualityBonus,
+                    1 + quality / 14 + Mathf.FloorToInt(spirituality * 0.25f + stability)),
             ];
         };
         DingAlchemyAssist.DescribeInstance = ability => string.Format(

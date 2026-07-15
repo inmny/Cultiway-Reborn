@@ -32,7 +32,7 @@ public sealed class ArtifactBlueprintExtensionData
 [Serializable]
 public sealed class ArtifactBlueprint
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion = CurrentSchemaVersion;
     public string Id;
@@ -40,6 +40,7 @@ public sealed class ArtifactBlueprint
     public string ShapeId;
     public ItemLevel Level;
     public ArtifactAtomData AtomData;
+    public ArtifactMaterialData MaterialData;
     public ArtifactControlProfile ControlProfile;
     public ArtifactAppearance Appearance;
     public ArtifactAbilitySet AbilitySet;
@@ -62,6 +63,7 @@ public sealed class ArtifactBlueprint
             ShapeId = ShapeId,
             Level = Level,
             AtomData = ArtifactBlueprintData.Clone(AtomData),
+            MaterialData = ArtifactBlueprintData.Clone(MaterialData),
             ControlProfile = ControlProfile,
             Appearance = ArtifactBlueprintData.Clone(Appearance),
             AbilitySet = ArtifactBlueprintData.Clone(AbilitySet),
@@ -85,7 +87,20 @@ internal static class ArtifactBlueprintData
 {
     internal static ArtifactAtomData Clone(ArtifactAtomData source)
     {
-        return new ArtifactAtomData { atom_ids = source.atom_ids?.ToArray() ?? [] };
+        return new ArtifactAtomData { entries = source.entries?.ToArray() ?? [] };
+    }
+
+    internal static ArtifactMaterialData Clone(ArtifactMaterialData source)
+    {
+        return new ArtifactMaterialData
+        {
+            materials = source.materials?.ToArray() ?? [],
+            traits = source.traits?.ToArray() ?? [],
+            ingredient_count = source.ingredient_count,
+            quality_budget = source.quality_budget,
+            stability = source.stability,
+            complexity = source.complexity,
+        };
     }
 
     internal static ArtifactAppearance Clone(ArtifactAppearance source)
@@ -138,11 +153,23 @@ public static class ArtifactBlueprintSignature
 {
     public static string Build(ArtifactBlueprint blueprint)
     {
+        ArtifactAtomData atoms = ArtifactBlueprintData.Clone(blueprint.AtomData);
+        atoms.entries = atoms.entries
+            .OrderBy(entry => entry.atom_id, StringComparer.Ordinal)
+            .ToArray();
+        ArtifactMaterialData materials = ArtifactBlueprintData.Clone(blueprint.MaterialData);
+        materials.materials = materials.materials
+            .OrderBy(material => material.GetIdentityKey(), StringComparer.Ordinal)
+            .ToArray();
+        materials.traits = materials.traits
+            .OrderBy(trait => trait.key, StringComparer.Ordinal)
+            .ToArray();
         JObject payload = new()
         {
             ["shape"] = blueprint.ShapeId,
             ["level"] = JToken.FromObject(blueprint.Level),
-            ["atoms"] = JToken.FromObject(blueprint.AtomData),
+            ["atoms"] = JToken.FromObject(atoms),
+            ["materials"] = JToken.FromObject(materials),
             ["control"] = JToken.FromObject(blueprint.ControlProfile),
             ["appearance"] = JToken.FromObject(blueprint.Appearance),
             ["abilities"] = JToken.FromObject(blueprint.AbilitySet),

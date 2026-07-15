@@ -25,8 +25,22 @@ public sealed class ArtifactAbilityComposeContext
 {
     public ArtifactRecipeContext recipe;
     public ArtifactShapeAsset shape;
-    public ArtifactAtomAsset[] atoms = [];
+    public ArtifactAtomSelection[] atoms = [];
     public string composition_key;
+
+    public float GetTrait(string key)
+    {
+        return recipe.GetTrait(key);
+    }
+
+    public float GetAtomStrength(ArtifactAtomAsset atom)
+    {
+        for (int i = 0; i < atoms.Length; i++)
+        {
+            if (atoms[i].Atom == atom) return atoms[i].Strength;
+        }
+        return 0f;
+    }
 }
 
 /// <summary>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Content.Components;
+using Cultiway.Content.Artifacts.Baibao.Persistence.Migrations;
 using Cultiway.Core.Persistence;
 
 namespace Cultiway.Content.Artifacts.Baibao.Persistence;
@@ -9,7 +10,7 @@ namespace Cultiway.Content.Artifacts.Baibao.Persistence;
 internal static class BaibaoPavilionSaveDefinition
 {
     public const string DocumentId = "baibao_pavilion";
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     public static SaveDocumentDefinition<BaibaoPavilionData> Create()
     {
@@ -18,7 +19,7 @@ internal static class BaibaoPavilionSaveDefinition
             "Saves/global/baibao_pavilion",
             CurrentVersion,
             () => new BaibaoPavilionData(),
-            Array.Empty<ISaveMigration>(),
+            new ISaveMigration[] { new BaibaoPavilionV1ToV2() },
             Normalize,
             Validate);
     }
@@ -39,7 +40,18 @@ internal static class BaibaoPavilionSaveDefinition
             if (blueprint.CreatedAtUtcTicks <= 0) blueprint.CreatedAtUtcTicks = DateTime.UtcNow.Ticks;
             if (blueprint.UpdatedAtUtcTicks <= 0) blueprint.UpdatedAtUtcTicks = blueprint.CreatedAtUtcTicks;
 
-            blueprint.AtomData.atom_ids ??= [];
+            blueprint.AtomData.entries ??= [];
+            blueprint.MaterialData.materials ??= [];
+            blueprint.MaterialData.traits ??= [];
+            blueprint.AtomData.entries = blueprint.AtomData.entries
+                .OrderBy(entry => entry.atom_id, StringComparer.Ordinal)
+                .ToArray();
+            blueprint.MaterialData.materials = blueprint.MaterialData.materials
+                .OrderBy(material => material.GetIdentityKey(), StringComparer.Ordinal)
+                .ToArray();
+            blueprint.MaterialData.traits = blueprint.MaterialData.traits
+                .OrderBy(trait => trait.key, StringComparer.Ordinal)
+                .ToArray();
             blueprint.Appearance.parts ??= [];
             for (int i = 0; i < blueprint.Appearance.parts.Length; i++)
             {

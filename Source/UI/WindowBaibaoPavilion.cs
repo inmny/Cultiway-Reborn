@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.Artifacts.Baibao;
+using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.UI.Prefab;
 using NeoModLoader.api;
@@ -143,11 +144,12 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
 
         ArtifactShapeAsset shape = ModClass.L.ItemShapeLibrary.get(blueprint.ShapeId) as ArtifactShapeAsset;
         if (shape != null && shape.ingredient_name_candidates.Any(name => Contains(name, search))) return true;
-        string[] atomIds = blueprint.AtomData.atom_ids ?? [];
-        for (int i = 0; i < atomIds.Length; i++)
+        ArtifactAtomEntry[] atoms = blueprint.AtomData.entries ?? [];
+        for (int i = 0; i < atoms.Length; i++)
         {
-            ArtifactAtomAsset atom = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.get(atomIds[i]);
-            if (Contains(atomIds[i], search) || atom != null && atom.name_stems.Any(name => Contains(name, search)))
+            ArtifactAtomAsset atom = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.get(atoms[i].atom_id);
+            if (Contains(atoms[i].atom_id, search) ||
+                atom != null && atom.name_stems.Any(name => Contains(name, search)))
                 return true;
         }
         return false;

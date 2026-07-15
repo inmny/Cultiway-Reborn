@@ -20,6 +20,7 @@ public static class ArtifactBlueprintCodec
             ShapeId = artifact.GetComponent<ItemShape>().shape_id,
             Level = artifact.GetComponent<ItemLevel>(),
             AtomData = ArtifactBlueprintData.Clone(artifact.GetComponent<ArtifactAtomData>()),
+            MaterialData = ArtifactBlueprintData.Clone(artifact.GetComponent<ArtifactMaterialData>()),
             ControlProfile = artifact.GetComponent<ArtifactControlProfile>(),
             Appearance = ArtifactBlueprintData.Clone(artifact.GetComponent<ArtifactAppearance>()),
             AbilitySet = ArtifactBlueprintData.Clone(artifact.GetComponent<ArtifactAbilitySet>()),
@@ -49,6 +50,7 @@ public static class ArtifactBlueprintCodec
             ShapeId = result.Shape.id,
             Level = result.Level,
             AtomData = result.ToAtomData(),
+            MaterialData = ArtifactBlueprintData.Clone(result.MaterialData),
             ControlProfile = result.ToControlProfile(),
             Appearance = ArtifactBlueprintData.Clone(result.Appearance),
             AbilitySet = ArtifactBlueprintData.Clone(result.AbilitySet),
@@ -66,6 +68,7 @@ public static class ArtifactBlueprintCodec
             .AddComponent(blueprint.Level)
             .AddComponent(new EntityName(blueprint.Name))
             .AddComponent(ArtifactBlueprintData.Clone(blueprint.AtomData))
+            .AddComponent(ArtifactBlueprintData.Clone(blueprint.MaterialData))
             .AddComponent(blueprint.ControlProfile)
             .AddComponent(abilitySet)
             .AddComponent(ArtifactAbilityRuntime.CreateInitial(abilitySet))

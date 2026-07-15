@@ -1,25 +1,33 @@
-using System.Collections.Generic;
+using Cultiway.Content.Components;
 using Cultiway.Core.Libraries;
 
 namespace Cultiway.Content.Libraries;
 
-public struct ArtifactRecipeContext
+/// <summary>
+/// 能力和 atom 组合阶段读取的确定性材料上下文。
+/// </summary>
+public sealed class ArtifactRecipeContext
 {
     public string dominant_shape_id;
     public string main_material_shape_id;
     public int quality_stage;
     public int quality_level;
-    public int ingredient_count;
-    public Dictionary<string, int> shape_counts;
+    public ArtifactMaterialData material_data;
+
+    public int ingredient_count => material_data.ingredient_count;
 
     public int CountShape(ItemShapeAsset shape)
     {
-        if (shape == null || shape_counts == null) return 0;
-        return shape_counts.TryGetValue(shape.id, out var count) ? count : 0;
+        return shape == null ? 0 : material_data.CountShape(shape.id);
     }
 
     public bool HasShape(ItemShapeAsset shape)
     {
         return CountShape(shape) > 0;
+    }
+
+    public float GetTrait(string key)
+    {
+        return material_data.GetTrait(key);
     }
 }

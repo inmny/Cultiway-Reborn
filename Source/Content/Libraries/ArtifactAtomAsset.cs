@@ -1,4 +1,5 @@
 using System;
+using Cultiway.Content.Components;
 using UnityEngine;
 
 namespace Cultiway.Content.Libraries;
@@ -18,6 +19,8 @@ public class ArtifactAtomAsset : Asset
     public string[] name_stems = [];
     public string[] variant_biases = [];
     public string[] color_scheme_biases = [];
+    public ArtifactMaterialTrait[] semantic_traits = [];
+    public float minimum_score = 1f;
     public int priority;
     public Func<ArtifactRecipeContext, float> ScoreRecipe;
 
@@ -29,7 +32,7 @@ public class ArtifactAtomAsset : Asset
     public string PickNameStem(int seed)
     {
         if (name_stems == null || name_stems.Length == 0) return string.Empty;
-        return name_stems[Math.Abs(seed) % name_stems.Length];
+        return name_stems[(int)(unchecked((uint)seed) % (uint)name_stems.Length)];
     }
 
     public bool BiasesVariant(string moduleKey, string variantKey)
@@ -43,5 +46,20 @@ public class ArtifactAtomAsset : Asset
     {
         if (color_scheme_biases == null || string.IsNullOrEmpty(schemeKey)) return false;
         return Array.IndexOf(color_scheme_biases, schemeKey) >= 0;
+    }
+}
+
+/// <summary>
+/// 组合阶段解析出的 atom 资产与贡献强度。
+/// </summary>
+public readonly struct ArtifactAtomSelection
+{
+    public readonly ArtifactAtomAsset Atom;
+    public readonly float Strength;
+
+    public ArtifactAtomSelection(ArtifactAtomAsset atom, float strength)
+    {
+        Atom = atom;
+        Strength = strength;
     }
 }

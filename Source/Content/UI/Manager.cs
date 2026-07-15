@@ -175,6 +175,17 @@ public class Manager : ICanInit
             "神识负荷",
             $"准备 {preparedLoad:0.#} / 运转 {operatingLoad:0.#}",
             pLocalize: false);
+        ArtifactMaterialData materialData = artifact.GetComponent<ArtifactMaterialData>();
+        tooltip.Tooltip.addLineText("炼材", materialData.ingredient_count.ToString(), pLocalize: false);
+        tooltip.Tooltip.addLineText("稳定", $"{materialData.stability * 100f:0.#}%", pLocalize: false);
+        ArtifactAtomData atomData = artifact.GetComponent<ArtifactAtomData>();
+        ArtifactAtomEntry[] atoms = atomData.entries ?? [];
+        for (int i = 0; i < atoms.Length; i++)
+        {
+            ArtifactAtomAsset atom = Libraries.Manager.ArtifactAtomLibrary.get(atoms[i].atom_id);
+            string name = atom.name_stems.Length > 0 ? atom.name_stems[0] : atom.tag;
+            tooltip.Tooltip.addLineText(name, $"{atoms[i].strength:0.##}", pLocalize: false);
+        }
         if (artifact.TryGetComponent(out ArtifactAttunement currentAttunement))
         {
             tooltip.Tooltip.addLineText("祭炼", $"{currentAttunement.mastery:0.#}%", pLocalize: false);

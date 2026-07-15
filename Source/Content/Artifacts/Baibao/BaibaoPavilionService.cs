@@ -151,10 +151,50 @@ public sealed class BaibaoPavilionService
         }
         if (control.thread_cost < 0) return "法宝分念消耗无效";
 
-        string[] atomIds = blueprint.AtomData.atom_ids ?? [];
-        for (int i = 0; i < atomIds.Length; i++)
+        ArtifactAtomEntry[] atoms = blueprint.AtomData.entries ?? [];
+        HashSet<string> atomIds = new(StringComparer.Ordinal);
+        for (int i = 0; i < atoms.Length; i++)
         {
-            if (Libraries.Manager.ArtifactAtomLibrary.get(atomIds[i]) == null) return $"法宝 atom 不存在: {atomIds[i]}";
+            ArtifactAtomEntry atom = atoms[i];
+            if (string.IsNullOrWhiteSpace(atom.atom_id) || !atomIds.Add(atom.atom_id))
+                return $"法宝 atom 重复或缺少 ID: {atom.atom_id}";
+            if (InvalidNumber(atom.strength) || atom.strength <= 0f) return $"法宝 atom 强度无效: {atom.atom_id}";
+            if (Libraries.Manager.ArtifactAtomLibrary.get(atom.atom_id) == null)
+                return $"法宝 atom 不存在: {atom.atom_id}";
+        }
+
+        ArtifactMaterialData materialData = blueprint.MaterialData;
+        if (materialData.ingredient_count <= 0) return "法宝材料数量无效";
+        if (InvalidNumber(materialData.quality_budget) || materialData.quality_budget < 0f)
+            return "法宝材料品质预算无效";
+        if (InvalidNumber(materialData.stability) || materialData.stability is < 0f or > 1f)
+            return "法宝材料稳定度无效";
+        if (InvalidNumber(materialData.complexity) || materialData.complexity < 0f)
+            return "法宝材料复杂度无效";
+        ArtifactMaterialRecord[] materials = materialData.materials ?? [];
+        HashSet<string> materialKeys = new(StringComparer.Ordinal);
+        for (int i = 0; i < materials.Length; i++)
+        {
+            ArtifactMaterialRecord material = materials[i];
+            if (material.count <= 0 || material.quality is < 0 or > 35 ||
+                ModClass.L.ItemShapeLibrary.get(material.shape_id) == null)
+            {
+                return $"法宝材料记录无效: {material.shape_id}";
+            }
+            if (!materialKeys.Add(material.GetIdentityKey()))
+                return $"法宝材料记录重复: {material.shape_id}";
+            if (InvalidMaterialNumbers(material))
+                return $"法宝材料数值无效: {material.shape_id}";
+        }
+        ArtifactMaterialTrait[] traits = materialData.traits ?? [];
+        HashSet<string> traitKeys = new(StringComparer.Ordinal);
+        for (int i = 0; i < traits.Length; i++)
+        {
+            if (string.IsNullOrWhiteSpace(traits[i].key) || !traitKeys.Add(traits[i].key) ||
+                InvalidNumber(traits[i].value))
+            {
+                return $"法宝材料 trait 无效: {traits[i].key}";
+            }
         }
 
         if (!string.IsNullOrEmpty(blueprint.Appearance.template_key) &&
@@ -194,6 +234,21 @@ public sealed class BaibaoPavilionService
             if (!string.IsNullOrEmpty(error)) return error;
         }
         return null;
+    }
+
+    private static bool InvalidNumber(float value)
+    {
+        return float.IsNaN(value) || float.IsInfinity(value);
+    }
+
+    private static bool InvalidMaterialNumbers(ArtifactMaterialRecord material)
+    {
+        return InvalidNumber(material.iron) || InvalidNumber(material.wood) ||
+               InvalidNumber(material.water) || InvalidNumber(material.fire) ||
+               InvalidNumber(material.earth) || InvalidNumber(material.neg) ||
+               InvalidNumber(material.pos) || InvalidNumber(material.entropy) ||
+               InvalidNumber(material.jing) || InvalidNumber(material.qi) ||
+               InvalidNumber(material.shen) || InvalidNumber(material.jindan_strength);
     }
 
     public string GetShapeName(ArtifactBlueprint blueprint)

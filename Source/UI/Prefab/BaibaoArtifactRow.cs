@@ -53,7 +53,7 @@ public sealed class BaibaoArtifactRow : APrefabPreview<BaibaoArtifactRow>
             ? "Cultiway.Baibao.UI.State.Forged".Localize()
             : string.Format("Cultiway.Baibao.UI.Format.ArchivedOrigin".Localize(), blueprint.SourceActorName);
         string detail = string.Format("Cultiway.Baibao.UI.Format.BlueprintDetail".Localize(),
-            service.GetShapeName(blueprint), blueprint.Level.GetName(), blueprint.AtomData.atom_ids.Length,
+            service.GetShapeName(blueprint), blueprint.Level.GetName(), blueprint.AtomData.GetCount(),
             blueprint.AbilitySet.abilities.Length, origin, state);
 
         _name.text = blueprint.Name;

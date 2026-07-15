@@ -23,7 +23,7 @@ public static class ArtifactAbilityComposer
     public static ArtifactAbilityComposition Compose(
         ArtifactRecipeContext recipe,
         ArtifactShapeAsset shape,
-        ArtifactAtomAsset[] atoms,
+        ArtifactAtomSelection[] atoms,
         string compositionKey)
     {
         ArtifactAbilityComposeContext context = new()
