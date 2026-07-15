@@ -24,21 +24,21 @@ public static class ArtifactAbilityComposer
         ArtifactRecipeContext recipe,
         ArtifactShapeAsset shape,
         ArtifactAtomAsset[] atoms,
-        string seed)
+        string compositionKey)
     {
         ArtifactAbilityComposeContext context = new()
         {
             recipe = recipe,
             shape = shape,
             atoms = atoms,
-            seed = seed,
+            composition_key = compositionKey,
         };
         var candidates = Cultiway.Content.Libraries.Manager.ArtifactAbilityLibrary.All
             .Select(ability => new
             {
                 Ability = ability,
                 Score = ability.ScoreFor(context),
-                TieBreak = StableTieBreak(seed, ability.id),
+                TieBreak = StableTieBreak(compositionKey, ability.id),
             })
             .Where(candidate => candidate.Score > 0f && candidate.Score >= candidate.Ability.minimum_score)
             .OrderByDescending(candidate => candidate.Score)
@@ -48,7 +48,6 @@ public static class ArtifactAbilityComposer
 
         HashSet<string> selectedGroups = new(StringComparer.Ordinal);
         List<ArtifactAbilityInstance> abilities = new(candidates.Length);
-        List<ArtifactAbilityRuntimeEntry> runtime = new(candidates.Length);
         for (int i = 0; i < candidates.Length; i++)
         {
             ArtifactAbilityAsset ability = candidates[i].Ability;
@@ -58,22 +57,22 @@ public static class ArtifactAbilityComposer
                 continue;
             }
             abilities.Add(ability.ComposeInstance(context));
-            runtime.Add(ability.ComposeRuntime(context));
         }
 
+        ArtifactAbilitySet abilitySet = new() { abilities = abilities.ToArray() };
         return new ArtifactAbilityComposition
         {
-            ability_set = new ArtifactAbilitySet { abilities = abilities.ToArray() },
-            runtime = new ArtifactAbilityRuntime { abilities = runtime.ToArray() },
+            ability_set = abilitySet,
+            runtime = ArtifactAbilityRuntime.CreateInitial(abilitySet),
         };
     }
 
-    private static int StableTieBreak(string seed, string abilityId)
+    private static int StableTieBreak(string compositionKey, string abilityId)
     {
         unchecked
         {
             int hash = 17;
-            string value = $"{seed}|{abilityId}";
+            string value = $"{compositionKey}|{abilityId}";
             for (int i = 0; i < value.Length; i++) hash = hash * 31 + value[i];
             return hash;
         }

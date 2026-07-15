@@ -24,7 +24,7 @@ public sealed class ArtifactAbilityComposeContext
     public ArtifactRecipeContext recipe;
     public ArtifactShapeAsset shape;
     public ArtifactAtomAsset[] atoms = [];
-    public string seed;
+    public string composition_key;
 }
 
 /// <summary>
@@ -97,24 +97,22 @@ public class ArtifactAbilityAsset : Asset
     internal ArtifactAbilityInstance ComposeInstance(ArtifactAbilityComposeContext context)
     {
         ArtifactAbilityValue[] parameters = ComposeParameters?.Invoke(context) ?? [];
+        ArtifactAbilityValue[] initialState = ComposeInitialState?.Invoke(context) ?? [];
         ValidateValues(parameters, parameter_schema, "参数");
+        ValidateValues(initialState, state_schema, "运行状态");
         return new ArtifactAbilityInstance
         {
             instance_id = id,
             ability_id = id,
             parameters = parameters,
+            initial_state = initialState,
         };
     }
 
-    internal ArtifactAbilityRuntimeEntry ComposeRuntime(ArtifactAbilityComposeContext context)
+    internal void ValidateInstance(ArtifactAbilityInstance ability)
     {
-        ArtifactAbilityValue[] values = ComposeInitialState?.Invoke(context) ?? [];
-        ValidateValues(values, state_schema, "运行状态");
-        return new ArtifactAbilityRuntimeEntry
-        {
-            instance_id = id,
-            values = values,
-        };
+        ValidateValues(ability.parameters ?? [], parameter_schema, "参数");
+        ValidateValues(ability.initial_state ?? [], state_schema, "运行状态");
     }
 
     internal bool TryHandle<TEvent>(

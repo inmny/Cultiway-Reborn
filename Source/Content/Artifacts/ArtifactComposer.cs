@@ -44,26 +44,79 @@ public sealed class ArtifactComposeResult
 
 }
 
+/// <summary>
+/// 百宝阁等显式炼制入口提供的法宝设计。器形和品阶固定，atom 数量不受限制。
+/// </summary>
+public sealed class ArtifactDesignRequest
+{
+    public ArtifactShapeAsset Shape;
+    public ItemLevel Level;
+    public ArtifactAtomAsset[] Atoms = [];
+    public string Name;
+}
+
 public static class ArtifactComposer
 {
-    public static ArtifactComposeResult Compose(IReadOnlyList<Entity> ingredients, string creatorName)
+    public static ArtifactComposeResult Compose(IReadOnlyList<Entity> ingredients)
     {
         var context = BuildRecipeContext(ingredients);
         var shape = ResolveShape(context);
-        var seed = BuildSeed(ingredients, creatorName, shape);
-        var atoms = SelectAtoms(context, shape, seed);
-        ArtifactAbilityComposition abilities = ArtifactAbilityComposer.Compose(context, shape, atoms, seed);
+        var compositionKey = BuildRecipeCompositionKey(context, shape);
+        var atoms = SelectAtoms(context, shape, compositionKey);
+        return ComposeResolved(context, shape, atoms, compositionKey, null);
+    }
+
+    /// <summary>
+    /// 按显式设计组合一件法宝，供百宝阁和后续专属制造入口使用。
+    /// </summary>
+    public static ArtifactComposeResult ComposeDesign(ArtifactDesignRequest design)
+    {
+        List<ArtifactAtomAsset> atoms = new();
+        ArtifactAtomAsset shapeAtom = design.Atoms
+            .Where(atom => atom.category == ArtifactAtomCategory.Shape && atom.artifact_shape == design.Shape)
+            .OrderByDescending(atom => atom.priority)
+            .ThenBy(atom => atom.id)
+            .FirstOrDefault() ?? DefaultShapeAtom(design.Shape);
+        AddIfNotNull(atoms, shapeAtom);
+        foreach (ArtifactAtomAsset atom in design.Atoms
+                     .Where(atom => atom.category != ArtifactAtomCategory.Shape)
+                     .OrderBy(atom => atom.category)
+                     .ThenBy(atom => atom.id, StringComparer.Ordinal))
+        {
+            AddIfNotNull(atoms, atom);
+        }
+
+        ArtifactRecipeContext context = new()
+        {
+            ingredient_count = atoms.Count,
+            quality_stage = design.Level.Stage,
+            quality_level = design.Level.Level,
+            shape_counts = new Dictionary<string, int>(),
+        };
+        ArtifactAtomAsset[] normalizedAtoms = atoms.ToArray();
+        string compositionKey = BuildDesignCompositionKey(design.Shape, design.Level, normalizedAtoms);
+        return ComposeResolved(context, design.Shape, normalizedAtoms, compositionKey, design.Name);
+    }
+
+    private static ArtifactComposeResult ComposeResolved(
+        ArtifactRecipeContext context,
+        ArtifactShapeAsset shape,
+        ArtifactAtomAsset[] atoms,
+        string compositionKey,
+        string explicitName)
+    {
+        ArtifactAbilityComposition abilities = ArtifactAbilityComposer.Compose(context, shape, atoms, compositionKey);
         return new ArtifactComposeResult
         {
             Shape = shape,
-            Name = ComposeName(shape, atoms, seed),
+            Name = string.IsNullOrWhiteSpace(explicitName) ? ComposeName(shape, atoms, compositionKey) : explicitName,
             Level = new ItemLevel
             {
                 Stage = context.quality_stage,
                 Level = context.quality_level,
             },
             Atoms = atoms,
-            Appearance = ComposeAppearance(shape, atoms, seed),
+            Appearance = ComposeAppearance(shape, atoms, compositionKey),
             AbilitySet = abilities.ability_set,
             AbilityRuntime = abilities.runtime,
         };
@@ -77,24 +130,13 @@ public static class ArtifactComposer
             shape_counts = new Dictionary<string, int>(),
         };
 
-        var bestShapeCount = 0;
         var bestQuality = -1;
         foreach (var ingredient in ingredients)
         {
             if (ingredient.TryGetComponent(out ItemShape shape))
             {
-                if (string.IsNullOrEmpty(context.main_material_shape_id))
-                {
-                    context.main_material_shape_id = shape.shape_id;
-                }
                 context.shape_counts.TryGetValue(shape.shape_id, out var count);
-                count++;
-                context.shape_counts[shape.shape_id] = count;
-                if (count > bestShapeCount)
-                {
-                    bestShapeCount = count;
-                    context.dominant_shape_id = shape.shape_id;
-                }
+                context.shape_counts[shape.shape_id] = count + 1;
             }
             if (ingredient.TryGetComponent(out ItemLevel level))
             {
@@ -106,6 +148,14 @@ public static class ArtifactComposer
                     context.quality_level = level.Level;
                 }
             }
+        }
+        if (context.shape_counts.Count > 0)
+        {
+            context.dominant_shape_id = context.shape_counts
+                .OrderByDescending(pair => pair.Value)
+                .ThenBy(pair => pair.Key, StringComparer.Ordinal)
+                .First().Key;
+            context.main_material_shape_id = context.dominant_shape_id;
         }
         return context;
     }
@@ -129,19 +179,23 @@ public static class ArtifactComposer
             .artifact_shape;
     }
 
-    private static ArtifactAtomAsset[] SelectAtoms(ArtifactRecipeContext context, ArtifactShapeAsset shape, string seed)
+    private static ArtifactAtomAsset[] SelectAtoms(
+        ArtifactRecipeContext context,
+        ArtifactShapeAsset shape,
+        string compositionKey)
     {
         List<ArtifactAtomAsset> atoms = new();
-        AddIfNotNull(atoms, PickBestAtom(ArtifactAtomCategory.Shape, context, seed, shape) ?? DefaultShapeAtom(shape));
-        AddIfNotNull(atoms, PickBestAtom(ArtifactAtomCategory.Material, context, seed));
-        AddIfNotNull(atoms, PickBestAtom(ArtifactAtomCategory.Finish, context, seed));
+        AddIfNotNull(atoms, PickBestAtom(ArtifactAtomCategory.Shape, context, compositionKey, shape) ??
+                            DefaultShapeAtom(shape));
+        AddIfNotNull(atoms, PickBestAtom(ArtifactAtomCategory.Material, context, compositionKey));
+        AddIfNotNull(atoms, PickBestAtom(ArtifactAtomCategory.Finish, context, compositionKey));
         return atoms.ToArray();
     }
 
     private static ArtifactAtomAsset PickBestAtom(
         ArtifactAtomCategory category,
         ArtifactRecipeContext context,
-        string seed,
+        string compositionKey,
         ArtifactShapeAsset shape = null)
     {
         var candidates = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.All
@@ -158,7 +212,7 @@ public static class ArtifactComposer
             .ThenBy(item => item.atom.id)
             .Select(item => item.atom)
             .ToArray();
-        return best[StableIndex($"{seed}|atom|{category}", best.Length)];
+        return best[StableIndex($"{compositionKey}|atom|{category}", best.Length)];
     }
 
     private static ArtifactAtomAsset DefaultShapeAtom(ArtifactShapeAsset shape)
@@ -167,7 +221,7 @@ public static class ArtifactComposer
             .Where(atom => atom.category == ArtifactAtomCategory.Shape && atom.artifact_shape == shape)
             .OrderByDescending(atom => atom.priority)
             .ThenBy(atom => atom.id)
-            .First();
+            .FirstOrDefault();
     }
 
     private static void AddIfNotNull(List<ArtifactAtomAsset> atoms, ArtifactAtomAsset atom)
@@ -176,9 +230,12 @@ public static class ArtifactComposer
         atoms.Add(atom);
     }
 
-    private static string ComposeName(ArtifactShapeAsset shape, IReadOnlyList<ArtifactAtomAsset> atoms, string seed)
+    private static string ComposeName(
+        ArtifactShapeAsset shape,
+        IReadOnlyList<ArtifactAtomAsset> atoms,
+        string compositionKey)
     {
-        var value = StableSeed(seed);
+        var value = StableHash(compositionKey);
         StringBuilder builder = new();
         for (int i = 0; i < atoms.Count && i < 2; i++)
         {
@@ -195,7 +252,7 @@ public static class ArtifactComposer
     private static ArtifactAppearance ComposeAppearance(
         ArtifactShapeAsset shape,
         IReadOnlyList<ArtifactAtomAsset> atoms,
-        string seed)
+        string compositionKey)
     {
         var catalog = ArtifactAppearanceCatalogLoader.Current;
         var shapeKey = shape.appearance_family;
@@ -209,7 +266,7 @@ public static class ArtifactComposer
             };
         }
 
-        var template = templates[StableIndex($"{seed}|template|{shapeKey}", templates.Count)];
+        var template = templates[StableIndex($"{compositionKey}|template|{shapeKey}", templates.Count)];
         var parts = new List<ArtifactAppearancePart>();
         var placements = template.Placements
             .OrderBy(item => item.Z)
@@ -217,13 +274,14 @@ public static class ArtifactComposer
         foreach (var placement in placements)
         {
             ArtifactAppearanceModuleDef module = catalog.Modules[placement.Module];
-            var variant = PickVariant(module, placement, atoms, seed, template.Key);
+            var variant = PickVariant(module, placement, atoms, compositionKey, template.Key);
             parts.Add(new ArtifactAppearancePart
             {
                 slot = placement.Slot,
                 module = placement.Module,
                 variant = variant.Key,
-                color_scheme = PickColorScheme(atoms, seed, template.Key, placement.Slot, module.Key, variant.Key),
+                color_scheme = PickColorScheme(atoms, compositionKey, template.Key, placement.Slot, module.Key,
+                    variant.Key),
                 colors = [],
             });
         }
@@ -239,7 +297,7 @@ public static class ArtifactComposer
         ArtifactAppearanceModuleDef module,
         ArtifactAppearancePlacementDef placement,
         IReadOnlyList<ArtifactAtomAsset> atoms,
-        string seed,
+        string compositionKey,
         string templateKey)
     {
         var candidates = module.Variants
@@ -251,7 +309,8 @@ public static class ArtifactComposer
             .Where(variant => VariantScore(atoms, module.Key, variant.Key) == maxScore)
             .OrderBy(variant => variant.Key)
             .ToArray();
-        return best[StableIndex($"{seed}|variant|{templateKey}|{placement.Slot}|{module.Key}", best.Length)];
+        return best[StableIndex(
+            $"{compositionKey}|variant|{templateKey}|{placement.Slot}|{module.Key}", best.Length)];
     }
 
     private static int VariantScore(IReadOnlyList<ArtifactAtomAsset> atoms, string moduleKey, string variantKey)
@@ -266,7 +325,7 @@ public static class ArtifactComposer
 
     private static string PickColorScheme(
         IReadOnlyList<ArtifactAtomAsset> atoms,
-        string seed,
+        string compositionKey,
         string templateKey,
         string slot,
         string moduleKey,
@@ -277,7 +336,8 @@ public static class ArtifactComposer
         var schemes = catalog.ColorSchemes.Values.OrderBy(scheme => scheme.Key).ToArray();
         var maxScore = schemes.Max(scheme => ColorScore(atoms, scheme.Key));
         var best = schemes.Where(scheme => ColorScore(atoms, scheme.Key) == maxScore).ToArray();
-        return best[StableIndex($"{seed}|color|{templateKey}|{slot}|{moduleKey}|{variantKey}", best.Length)].Key;
+        return best[StableIndex(
+            $"{compositionKey}|color|{templateKey}|{slot}|{moduleKey}|{variantKey}", best.Length)].Key;
     }
 
     private static int ColorScore(IReadOnlyList<ArtifactAtomAsset> atoms, string schemeKey)
@@ -290,23 +350,31 @@ public static class ArtifactComposer
         return score;
     }
 
-    private static string BuildSeed(IReadOnlyList<Entity> ingredients, string creatorName, ArtifactShapeAsset shape)
+    private static string BuildRecipeCompositionKey(ArtifactRecipeContext context, ArtifactShapeAsset shape)
     {
         StringBuilder builder = new();
-        builder.Append(creatorName);
-        builder.Append('|').Append(shape.id);
-        foreach (var ingredient in ingredients)
+        builder.Append("recipe|").Append(shape.id)
+            .Append('|').Append(context.ingredient_count)
+            .Append('|').Append(context.quality_stage)
+            .Append('.').Append(context.quality_level);
+        foreach (KeyValuePair<string, int> pair in context.shape_counts.OrderBy(pair => pair.Key,
+                     StringComparer.Ordinal))
         {
-            builder.Append('|').Append(ingredient.Id);
-            if (ingredient.TryGetComponent(out ItemShape shapeComponent))
-            {
-                builder.Append(':').Append(shapeComponent.shape_id);
-            }
-            if (ingredient.TryGetComponent(out ItemLevel level))
-            {
-                builder.Append(':').Append(level.Stage).Append('.').Append(level.Level);
-            }
+            builder.Append('|').Append(pair.Key).Append(':').Append(pair.Value);
         }
+        return builder.ToString();
+    }
+
+    private static string BuildDesignCompositionKey(
+        ArtifactShapeAsset shape,
+        ItemLevel level,
+        IReadOnlyList<ArtifactAtomAsset> atoms)
+    {
+        StringBuilder builder = new();
+        builder.Append("design|").Append(shape.id)
+            .Append('|').Append(level.Stage)
+            .Append('.').Append(level.Level);
+        for (int i = 0; i < atoms.Count; i++) builder.Append('|').Append(atoms[i].id);
         return builder.ToString();
     }
 
@@ -315,7 +383,7 @@ public static class ArtifactComposer
         return (int)(StableUInt(text) % (uint)count);
     }
 
-    private static int StableSeed(string text)
+    private static int StableHash(string text)
     {
         return unchecked((int)StableUInt(text));
     }

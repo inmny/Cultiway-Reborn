@@ -69,7 +69,8 @@ public static class ArtifactAppearanceRenderer
             -ReadFloat(camera, "roll", 0f));
         var scale = ReadFloat(camera, "scale", 8f) * size / baseCanvas;
         var light = LightDirection(template.Light);
-        var seed = StableSeed($"{appearance.GetCacheKey()}|{template.Key}|3d");
+        // 表面纹理只由完整外观数据决定，同一外观在任何时间和实体上都会得到相同像素。
+        var surfacePattern = StableHash($"{appearance.GetCacheKey()}|{template.Key}|3d");
 
         var pixels = new Color32[size * size];
         var depth = new float[size * size];
@@ -81,9 +82,9 @@ public static class ArtifactAppearanceRenderer
 
         foreach (var face in faces)
         {
-            var projected = ProjectFace(face, appearance, target, cameraRotation, scale, size, light, seed);
+            var projected = ProjectFace(face, appearance, target, cameraRotation, scale, size, light);
             if (projected.Points.Length < 3) continue;
-            RasterProjectedFace(projected, pixels, depth, size, seed);
+            RasterProjectedFace(projected, pixels, depth, size, surfacePattern);
         }
 
         AddDepthEdges(pixels, depth, size);
@@ -339,8 +340,7 @@ public static class ArtifactAppearanceRenderer
         Vector3 cameraRotation,
         float scale,
         int size,
-        Vector3 light,
-        int seed)
+        Vector3 light)
     {
         var cameraPoints = new Vector3[face.Points.Length];
         for (int i = 0; i < face.Points.Length; i++)
@@ -352,7 +352,7 @@ public static class ArtifactAppearanceRenderer
         if (normalCamera.z < 0f) normalWorld = -normalWorld;
 
         var color = ResolveMaterialColor(face, appearance);
-        color = ShadeColor(color, normalWorld, light, face.Material, seed);
+        color = ShadeColor(color, normalWorld, light, face.Material);
         var projected = new Vector3[cameraPoints.Length];
         for (int i = 0; i < cameraPoints.Length; i++)
         {
@@ -395,7 +395,7 @@ public static class ArtifactAppearanceRenderer
         return new Color32(154, 160, 168, 255);
     }
 
-    private static Color32 ShadeColor(Color32 color, Vector3 normal, Vector3 light, string material, int seed)
+    private static Color32 ShadeColor(Color32 color, Vector3 normal, Vector3 light, string material)
     {
         normal = Normalize(normal, Vector3.forward);
         var diffuse = Mathf.Max(0f, Vector3.Dot(normal, light));
@@ -415,11 +415,17 @@ public static class ArtifactAppearanceRenderer
         return result;
     }
 
-    private static void RasterProjectedFace(ProjectedFace face, Color32[] pixels, float[] depth, int size, int seed)
+    private static void RasterProjectedFace(
+        ProjectedFace face,
+        Color32[] pixels,
+        float[] depth,
+        int size,
+        int surfacePattern)
     {
         for (int i = 1; i < face.Points.Length - 1; i++)
         {
-            RasterTriangle(face.Points[0], face.Points[i], face.Points[i + 1], face, pixels, depth, size, seed);
+            RasterTriangle(face.Points[0], face.Points[i], face.Points[i + 1], face, pixels, depth, size,
+                surfacePattern);
         }
     }
 
@@ -431,7 +437,7 @@ public static class ArtifactAppearanceRenderer
         Color32[] pixels,
         float[] depth,
         int size,
-        int seed)
+        int surfacePattern)
     {
         var minX = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(a.x, Mathf.Min(b.x, c.x))));
         var maxX = Mathf.Min(size - 1, Mathf.CeilToInt(Mathf.Max(a.x, Mathf.Max(b.x, c.x))));
@@ -453,7 +459,7 @@ public static class ArtifactAppearanceRenderer
                 var z = a.z * w0 + b.z * w1 + c.z * w2;
                 var index = y * size + x;
                 if (z <= depth[index]) continue;
-                pixels[index] = AddFaceTexture(face.Color, face.Material, x, y, seed);
+                pixels[index] = AddFaceTexture(face.Color, face.Material, x, y, surfacePattern);
                 depth[index] = z;
             }
         }
@@ -516,22 +522,22 @@ public static class ArtifactAppearanceRenderer
         }
     }
 
-    private static Color32 AddFaceTexture(Color32 color, string material, int x, int y, int seed)
+    private static Color32 AddFaceTexture(Color32 color, string material, int x, int y, int surfacePattern)
     {
         var result = color;
-        var value = ((x * 73) ^ (y * 151) ^ seed) & 0xFF;
+        var value = ((x * 73) ^ (y * 151) ^ surfacePattern) & 0xFF;
         if (material is "cloth" or "stone" or "jade" or "copper" or "bronze" or "metal")
         {
-            if ((x + y + seed) % 4 == 0)
+            if ((x + y + surfacePattern) % 4 == 0)
             {
                 result = Darken(result, 0.05f + value % 4 * 0.015f);
             }
-            else if ((x * 2 - y + seed) % 7 == 0)
+            else if ((x * 2 - y + surfacePattern) % 7 == 0)
             {
                 result = Lighten(result, 0.06f);
             }
         }
-        if ((material is "glass" or "fire" or "core") && (x - y + seed) % 5 == 0)
+        if ((material is "glass" or "fire" or "core") && (x - y + surfacePattern) % 5 == 0)
         {
             result = Lighten(result, 0.12f);
         }
@@ -746,7 +752,7 @@ public static class ArtifactAppearanceRenderer
         return result;
     }
 
-    private static int StableSeed(string text)
+    private static int StableHash(string text)
     {
         using var sha = SHA256.Create();
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(text ?? string.Empty));

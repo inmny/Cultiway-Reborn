@@ -37,7 +37,7 @@ public class BehFindArtifactToCraft : BehCityActor
 
         // 占用前 IngredientCount 个可用材料
         var ingredients = available.Take(IngredientCount).ToArray();
-        var result = ArtifactComposer.Compose(ingredients, pObject.getName());
+        var result = ArtifactComposer.Compose(ingredients);
         Entity crafting_artifact = SpecialItemUtils
             .StartBuild(result.Shape, World.world.getCurWorldTime(), pObject.getName())
             .AddComponent(new CraftingArtifact

@@ -55,6 +55,7 @@ public struct ArtifactAbilityInstance
     public string instance_id;
     public string ability_id;
     public ArtifactAbilityValue[] parameters = [];
+    public ArtifactAbilityValue[] initial_state = [];
 
     public ArtifactAbilityInstance()
     {
@@ -160,10 +161,36 @@ public struct ArtifactAbilityRuntime : IComponent
     public ArtifactAbilityRuntime()
     {
     }
+
+    /// <summary>
+    /// 为一件新制造的法器从能力固有初态创建独立运行状态。
+    /// </summary>
+    public static ArtifactAbilityRuntime CreateInitial(ArtifactAbilitySet abilitySet)
+    {
+        ArtifactAbilityRuntimeEntry[] entries = new ArtifactAbilityRuntimeEntry[abilitySet.abilities.Length];
+        for (int i = 0; i < entries.Length; i++)
+        {
+            ArtifactAbilityInstance ability = abilitySet.abilities[i];
+            entries[i] = new ArtifactAbilityRuntimeEntry
+            {
+                instance_id = ability.instance_id,
+                values = ArtifactAbilityValues.Clone(ability.initial_state),
+            };
+        }
+        return new ArtifactAbilityRuntime { abilities = entries };
+    }
 }
 
 internal static class ArtifactAbilityValues
 {
+    internal static ArtifactAbilityValue[] Clone(ArtifactAbilityValue[] values)
+    {
+        if (values == null || values.Length == 0) return [];
+        ArtifactAbilityValue[] copy = new ArtifactAbilityValue[values.Length];
+        Array.Copy(values, copy, values.Length);
+        return copy;
+    }
+
     internal static ArtifactAbilityValue Get(
         ArtifactAbilityValue[] values,
         string abilityId,
