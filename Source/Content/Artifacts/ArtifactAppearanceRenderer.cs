@@ -16,6 +16,7 @@ namespace Cultiway.Content.Artifacts;
 public static class ArtifactAppearanceRenderer
 {
     private const int WorldSpriteSize = 56;
+    private const float WorldSpriteFill = 0.86f;
     private static readonly Dictionary<string, Sprite> Cache = new();
 
     public static void ClearCache()
@@ -26,16 +27,16 @@ public static class ArtifactAppearanceRenderer
     public static Sprite GetIconSprite(Entity item)
     {
         ref ArtifactAppearance appearance = ref item.GetComponent<ArtifactAppearance>();
-        return GetSprite(appearance, ArtifactAppearanceCatalogLoader.Current.Canvas, "icon");
+        return GetSprite(appearance, ArtifactAppearanceCatalogLoader.Current.Canvas, AppearanceOutput.Icon);
     }
 
     public static Sprite GetWorldSprite(Entity item)
     {
         ref ArtifactAppearance appearance = ref item.GetComponent<ArtifactAppearance>();
-        return GetSprite(appearance, WorldSpriteSize, "world");
+        return GetSprite(appearance, WorldSpriteSize, AppearanceOutput.World);
     }
 
-    private static Sprite GetSprite(ArtifactAppearance appearance, int size, string output)
+    private static Sprite GetSprite(ArtifactAppearance appearance, int size, AppearanceOutput output)
     {
         var cacheKey = $"{output}|{appearance.GetCacheKey()}";
         if (Cache.TryGetValue(cacheKey, out var sprite)) return sprite;
@@ -43,11 +44,11 @@ public static class ArtifactAppearanceRenderer
         var catalog = ArtifactAppearanceCatalogLoader.Current;
         if (!catalog.Templates.TryGetValue(appearance.template_key, out var template)) return null;
 
-        var texture = Render(appearance, template, size, catalog.Canvas);
+        var texture = Render(appearance, template, size, catalog.Canvas, output);
         if (texture == null) return null;
         texture.filterMode = FilterMode.Point;
         texture.wrapMode = TextureWrapMode.Clamp;
-        sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+        sprite = CreateSprite(texture, output);
         Cache[cacheKey] = sprite;
         return sprite;
     }
@@ -56,18 +57,15 @@ public static class ArtifactAppearanceRenderer
         ArtifactAppearance appearance,
         ArtifactAppearanceTemplateDef template,
         int size,
-        int baseCanvas)
+        int baseCanvas,
+        AppearanceOutput output)
     {
         var faces = BuildWorldFaces(appearance, template);
         if (faces.Count == 0) return null;
 
-        var camera = template.Camera;
-        var target = ReadVec3(camera["target"], Vector3.zero);
-        var cameraRotation = new Vector3(
-            -ReadFloat(camera, "pitch", 0f),
-            -ReadFloat(camera, "yaw", 0f),
-            -ReadFloat(camera, "roll", 0f));
-        var scale = ReadFloat(camera, "scale", 8f) * size / baseCanvas;
+        Projection projection = output == AppearanceOutput.Icon
+            ? ResolveIconProjection(template, size, baseCanvas)
+            : ResolveWorldProjection(faces, size);
         var light = LightDirection(template.Light);
         // 表面纹理只由完整外观数据决定，同一外观在任何时间和实体上都会得到相同像素。
         var surfacePattern = StableHash($"{appearance.GetCacheKey()}|{template.Key}|3d");
@@ -82,7 +80,14 @@ public static class ArtifactAppearanceRenderer
 
         foreach (var face in faces)
         {
-            var projected = ProjectFace(face, appearance, target, cameraRotation, scale, size, light);
+            var projected = ProjectFace(
+                face,
+                appearance,
+                projection.Target,
+                projection.Rotation,
+                projection.Scale,
+                size,
+                light);
             if (projected.Points.Length < 3) continue;
             RasterProjectedFace(projected, pixels, depth, size, surfacePattern);
         }
@@ -95,6 +100,81 @@ public static class ArtifactAppearanceRenderer
         texture.SetPixels32(ToUnityPixels(pixels, size));
         texture.Apply();
         return texture;
+    }
+
+    private static Projection ResolveIconProjection(
+        ArtifactAppearanceTemplateDef template,
+        int size,
+        int baseCanvas)
+    {
+        JObject camera = template.Camera;
+        return new Projection(
+            ReadVec3(camera["target"], Vector3.zero),
+            new Vector3(
+                -ReadFloat(camera, "pitch", 0f),
+                -ReadFloat(camera, "yaw", 0f),
+                -ReadFloat(camera, "roll", 0f)),
+            ReadFloat(camera, "scale", 8f) * size / baseCanvas);
+    }
+
+    /// <summary>
+    /// 世界贴图固定沿模型正面投影：屏幕上的局部 +Y 始终是法器逻辑前向，世界 Rotation 可直接表示真实朝向。
+    /// </summary>
+    private static Projection ResolveWorldProjection(IReadOnlyList<Face3D> faces, int size)
+    {
+        Vector3 min = faces[0].Points[0];
+        Vector3 max = min;
+        for (int i = 0; i < faces.Count; i++)
+        {
+            Vector3[] points = faces[i].Points;
+            for (int j = 0; j < points.Length; j++)
+            {
+                min = Vector3.Min(min, points[j]);
+                max = Vector3.Max(max, points[j]);
+            }
+        }
+
+        float extent = Mathf.Max(max.x - min.x, max.y - min.y, 0.001f);
+        return new Projection(
+            (min + max) * 0.5f,
+            Vector3.zero,
+            size * WorldSpriteFill / extent);
+    }
+
+    private static Sprite CreateSprite(Texture2D texture, AppearanceOutput output)
+    {
+        Rect rect = output == AppearanceOutput.World
+            ? FindOpaqueRect(texture)
+            : new Rect(0f, 0f, texture.width, texture.height);
+        var canvasCenter = new Vector2(texture.width * 0.5f, texture.height * 0.5f);
+        var pivot = new Vector2(
+            (canvasCenter.x - rect.x) / rect.width,
+            (canvasCenter.y - rect.y) / rect.height);
+        return Sprite.Create(texture, rect, pivot);
+    }
+
+    private static Rect FindOpaqueRect(Texture2D texture)
+    {
+        Color32[] pixels = texture.GetPixels32();
+        int minX = texture.width;
+        int minY = texture.height;
+        int maxX = -1;
+        int maxY = -1;
+        for (int y = 0; y < texture.height; y++)
+        {
+            for (int x = 0; x < texture.width; x++)
+            {
+                if (pixels[y * texture.width + x].a == 0) continue;
+                minX = Mathf.Min(minX, x);
+                minY = Mathf.Min(minY, y);
+                maxX = Mathf.Max(maxX, x);
+                maxY = Mathf.Max(maxY, y);
+            }
+        }
+
+        return maxX < minX
+            ? new Rect(0f, 0f, texture.width, texture.height)
+            : new Rect(minX, minY, maxX - minX + 1, maxY - minY + 1);
     }
 
     private static List<Face3D> BuildWorldFaces(
@@ -758,6 +838,26 @@ public static class ArtifactAppearanceRenderer
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(text ?? string.Empty));
         var value = ((uint)bytes[0] << 24) | ((uint)bytes[1] << 16) | ((uint)bytes[2] << 8) | bytes[3];
         return unchecked((int)value);
+    }
+
+    private enum AppearanceOutput
+    {
+        Icon,
+        World,
+    }
+
+    private readonly struct Projection
+    {
+        public Projection(Vector3 target, Vector3 rotation, float scale)
+        {
+            Target = target;
+            Rotation = rotation;
+            Scale = scale;
+        }
+
+        public readonly Vector3 Target;
+        public readonly Vector3 Rotation;
+        public readonly float Scale;
     }
 
     private readonly struct Face3D

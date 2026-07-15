@@ -25,19 +25,21 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
 
     protected override void OnInit()
     {
-        Set(Sword, 0.11f, ResolveSword);
-        Set(Seal, 0.18f, ResolveSeal);
-        Set(Robe, 0.24f, ResolveRobe);
-        Set(Mirror, 0.14f, ResolveMirror);
-        Set(Ding, 0.22f, ResolveDing);
+        Set(Sword, 0.11f, 1.45f, ResolveSword);
+        Set(Seal, 0.18f, 1.25f, ResolveSeal);
+        Set(Robe, 0.24f, 1.15f, ResolveRobe);
+        Set(Mirror, 0.14f, 1.1f, ResolveMirror);
+        Set(Ding, 0.22f, 1.35f, ResolveDing);
     }
 
     private static void Set(
         ArtifactPresentationAsset presentation,
         float bodyRadius,
+        float activeWorldSize,
         Func<ArtifactPresentationContext, ArtifactPresentationPose> resolvePose)
     {
         presentation.body_radius = bodyRadius;
+        presentation.active_world_size = activeWorldSize;
         presentation.ResolvePose = resolvePose;
     }
 
@@ -47,18 +49,16 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
         float activity = MotionActivity(context.control_state);
         if (context.control_state != ArtifactControlState.Cold)
         {
-            ResolveOrbit(
+            Vector3 position = ResolveOrbit(
                 context,
                 0.34f + activity * 0.16f,
                 0.58f + activity * 0.1f,
-                0.35f + activity * 0.7f,
-                out Vector3 position,
-                out float angle);
+                0.75f + activity * 1.05f);
             return new ArtifactPresentationPose
             {
                 position = position,
-                rotation = angle * Mathf.Rad2Deg - 45f,
-                world_size = context.actor_scale * 0.92f * stateScale,
+                rotation = 180f,
+                world_size = context.actor_scale * 0.62f * stateScale,
                 sorting_order = 9,
             };
         }
@@ -73,7 +73,7 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
                 (0.57f + spread * 0.06f + Mathf.Sin(phase) * 0.05f) * context.actor_scale,
                 0f),
             rotation = side * -8f + spread * 7f + Mathf.Sin(phase * 0.8f) * 4f,
-            world_size = context.actor_scale * 0.82f * stateScale,
+            world_size = context.actor_scale * 0.7f * stateScale,
             flip_x = context.actor.flip,
             sorting_order = 7,
         };
@@ -92,7 +92,7 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
                 (0.82f + Mathf.Sin(phase) * bobAmplitude) * context.actor_scale,
                 0f),
             rotation = Mathf.Sin(phase * 0.65f) * (2f + activity * 7f),
-            world_size = context.actor_scale * 0.86f * context.control_state.GetStateScale(),
+            world_size = context.actor_scale * 0.56f * context.control_state.GetStateScale(),
             sorting_order = 10,
         };
     }
@@ -106,7 +106,7 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
                 spread * 0.08f * context.actor_scale,
                 0.34f * context.actor_scale,
                 0f),
-            world_size = context.actor_scale * 1.18f * context.control_state.GetStateScale(),
+            world_size = context.actor_scale * 0.78f * context.control_state.GetStateScale(),
             flip_x = context.actor.flip,
             sorting_order = 3,
         };
@@ -126,7 +126,7 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
                 (0.62f + Mathf.Sin(phase) * verticalAmplitude) * context.actor_scale,
                 0f),
             rotation = Mathf.Sin(phase * 0.72f) * (4f + activity * 10f),
-            world_size = context.actor_scale * 0.72f * context.control_state.GetStateScale(),
+            world_size = context.actor_scale * 0.5f * context.control_state.GetStateScale(),
             sorting_order = 8,
         };
     }
@@ -144,27 +144,25 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
                 (0.38f + activity * 0.18f + Mathf.Sin(phase) * bobAmplitude) * context.actor_scale,
                 0f),
             rotation = Mathf.Sin(phase * 0.42f) * (1f + activity * 3f),
-            world_size = context.actor_scale * 0.94f * context.control_state.GetStateScale(),
+            world_size = context.actor_scale * 0.62f * context.control_state.GetStateScale(),
             sorting_order = 6,
         };
     }
 
-    private static void ResolveOrbit(
+    private static Vector3 ResolveOrbit(
         ArtifactPresentationContext context,
         float radius,
         float height,
-        float speed,
-        out Vector3 position,
-        out float angle)
+        float speed)
     {
         int ring = context.index / OrbitRingCapacity;
         int indexInRing = context.index % OrbitRingCapacity;
         int ringCount = Math.Min(OrbitRingCapacity, context.count - ring * OrbitRingCapacity);
         float direction = ring % 2 == 0 ? 1f : -1f;
-        angle = direction * context.time * (speed + ring * 0.08f) +
-                indexInRing * Mathf.PI * 2f / ringCount;
+        float angularVelocity = direction * (speed + ring * 0.08f);
+        float angle = context.time * angularVelocity + indexInRing * Mathf.PI * 2f / ringCount;
         float ringRadius = (radius + ring * 0.16f) * context.actor_scale;
-        position = context.actor.cur_transform_position + new Vector3(
+        return context.actor.cur_transform_position + new Vector3(
             Mathf.Cos(angle) * ringRadius,
             (height + ring * 0.08f + Mathf.Sin(angle) * 0.2f) * context.actor_scale,
             0f);

@@ -15,6 +15,11 @@ public class ArtifactPresentationAsset : Asset
     public float body_radius = 0.12f;
 
     /// <summary>
+    /// 法器被能力释放到世界中时，其可见最长边相对标准角色缩放的比例。
+    /// </summary>
+    public float active_world_size = 1f;
+
+    /// <summary>
     /// 根据驾驭者、调度状态和布局位置计算当前世界姿态。
     /// </summary>
     public Func<ArtifactPresentationContext, ArtifactPresentationPose> ResolvePose;
