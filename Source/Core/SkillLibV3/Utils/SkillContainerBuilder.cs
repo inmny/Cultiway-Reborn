@@ -132,7 +132,8 @@ public class SkillContainerBuilder
                     .DeepClone()
             });
         }
-        ref var skill_container = ref _containerEntity.GetComponent<SkillContainer>();
+        // 增删词条组件会触发 archetype 迁移，不能跨结构变更持有组件引用。
+        var skill_container = _containerEntity.GetComponent<SkillContainer>();
         if (_animationIndex >= 0) skill_container.AnimationIndex = _animationIndex;
         if (_castResourceRequirement != null)
         {
@@ -158,6 +159,8 @@ public class SkillContainerBuilder
         {
             _containerEntity.SetNonGeneric(modifier.Value);
         }
+
+        _containerEntity.GetComponent<SkillContainer>() = skill_container;
         
         // 如果OnTravel非空，添加tag用于过滤
         if (skill_container.OnTravel != null)
