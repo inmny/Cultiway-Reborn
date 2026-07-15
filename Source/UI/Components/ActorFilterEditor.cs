@@ -21,12 +21,13 @@ internal sealed class ActorFilterEditor : IDisposable
     private const float OptionCardHeight = 56f;
     private const float BannerScale = 0.5f;
 
-    private readonly ActorFilterSettings _settings;
-    private readonly string _emptyExpressionKey;
-    private readonly string _semanticsKey;
+    private ActorFilterSettings _settings;
+    private string _emptyExpressionKey;
+    private string _semanticsKey;
     private readonly Button[] _symbolButtons = new Button[6];
     private readonly List<Button> _predicateButtons = new();
     private Text _expressionText;
+    private Text _semanticsText;
     private TipButton _expressionTip;
     private Button _undoExpressionButton;
     private Button _clearExpressionButton;
@@ -46,6 +47,21 @@ internal sealed class ActorFilterEditor : IDisposable
         CreateExpressionBar(root, width, expressionHeight);
         CreateFilterBrowser(root, width, browserHeight, scrollbarMaskTemplate);
         _settings.Changed += Refresh;
+        RefreshWorldOptions();
+    }
+
+    /// <summary>将同一个编辑器切换到另一份世界工具配置，并完整刷新当前世界候选项。</summary>
+    public void Bind(ActorFilterSettings settings, string emptyExpressionKey, string semanticsKey)
+    {
+        if (_settings != settings)
+        {
+            _settings.Changed -= Refresh;
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _settings.Changed += Refresh;
+        }
+        _emptyExpressionKey = emptyExpressionKey;
+        _semanticsKey = semanticsKey;
+        _semanticsText.text = _semanticsKey.Localize();
         RefreshWorldOptions();
     }
 
@@ -71,52 +87,56 @@ internal sealed class ActorFilterEditor : IDisposable
 
     private void CreateExpressionBar(Transform root, float width, float height)
     {
-        var bar = WanfaUiFactory.CreateLayout(root, "ExpressionBar", true, width, height, 4f,
+        var bar = UiLayout.Create(root, "ExpressionBar", true, width, height, 4f,
             TextAnchor.MiddleLeft);
-        SetPaneBackground(bar);
-        _expressionText = WanfaUiFactory.CreateText(bar.transform, "Expression", string.Empty,
+        Image barBackground = bar.AddComponent<Image>();
+        UiResources.ApplySurface(barBackground, UiSurface.WindowInner);
+        _expressionText = UiElements.CreateText(bar.transform, "Expression", string.Empty,
             width - 68f, height, 7, TextAnchor.MiddleLeft);
-        WanfaUiFactory.SetTooltip(_expressionText.gameObject,
+        UiTooltip.Set(_expressionText.gameObject,
             "Cultiway.ActorFilter.UI.Section.Expression", _emptyExpressionKey);
         _expressionTip = _expressionText.GetComponent<TipButton>();
 
-        _undoExpressionButton = WanfaUiFactory.CreateIconButton(bar.transform, "Undo", WanfaUiIcons.Undo,
+        _undoExpressionButton = UiElements.CreateIconButton(bar.transform, "Undo", UiIcons.Undo,
             30f, 30f, _settings.RemoveLastToken, 5f);
-        WanfaUiFactory.SetTooltip(_undoExpressionButton.gameObject,
+        UiTooltip.Set(_undoExpressionButton.gameObject,
             "Cultiway.ActorFilter.UI.Action.UndoExpression",
             "Cultiway.ActorFilter.UI.Action.UndoExpression.Description");
 
-        _clearExpressionButton = WanfaUiFactory.CreateIconButton(bar.transform, "Clear", WanfaUiIcons.Reset,
+        _clearExpressionButton = UiElements.CreateIconButton(bar.transform, "Clear", UiIcons.Reset,
             30f, 30f, _settings.ClearExpression, 5f);
-        WanfaUiFactory.SetTooltip(_clearExpressionButton.gameObject,
+        UiTooltip.Set(_clearExpressionButton.gameObject,
             "Cultiway.ActorFilter.UI.Action.ClearExpression",
             "Cultiway.ActorFilter.UI.Action.ClearExpression.Description");
     }
 
     private void CreateFilterBrowser(Transform root, float width, float height, Transform scrollbarMaskTemplate)
     {
-        var browser = WanfaUiFactory.CreateLayout(root, "FilterBrowser", true, width, height, 4f,
+        var browser = UiLayout.Create(root, "FilterBrowser", true, width, height, 4f,
             TextAnchor.UpperLeft);
         var optionWidth = width - CategoryWidth - SymbolWidth - 8f;
 
-        _categoryContent = WanfaUiFactory.CreateScrollContent(browser.transform, "Categories",
+        UiScrollPane categories = UiScrollPane.CreateVertical(browser.transform, "Categories",
             CategoryWidth, height);
-        WanfaUiFactory.AttachOriginalVerticalScrollbar(_categoryContent, scrollbarMaskTemplate);
+        categories.AttachOriginalScrollbar(scrollbarMaskTemplate);
+        categories.SetSurface(UiSurface.WindowInner, UiTheme.Current.Metrics.SpacingXs);
+        _categoryContent = categories.Content;
         NestedVerticalScrollRelay.Attach(_categoryContent);
-        SetScrollPaneBackground(_categoryContent.parent.parent.gameObject);
 
-        _optionContent = WanfaUiFactory.CreateScrollGridContent(browser.transform, "Options",
+        UiScrollPane options = UiScrollPane.CreateGrid(browser.transform, "Options",
             optionWidth, height, 3, new Vector2(OptionCardWidth, OptionCardHeight), new Vector2(4f, 4f));
-        WanfaUiFactory.AttachOriginalVerticalScrollbar(_optionContent, scrollbarMaskTemplate);
+        options.AttachOriginalScrollbar(scrollbarMaskTemplate);
+        options.SetSurface(UiSurface.WindowInner, UiTheme.Current.Metrics.SpacingXs);
+        _optionContent = options.Content;
         NestedVerticalScrollRelay.Attach(_optionContent);
-        SetScrollPaneBackground(_optionContent.parent.parent.gameObject);
 
-        var symbols = WanfaUiFactory.CreateScrollContent(browser.transform, "Symbols", SymbolWidth, height);
-        WanfaUiFactory.AttachOriginalVerticalScrollbar(symbols, scrollbarMaskTemplate);
+        UiScrollPane symbolsPane = UiScrollPane.CreateVertical(browser.transform, "Symbols", SymbolWidth, height);
+        symbolsPane.AttachOriginalScrollbar(scrollbarMaskTemplate);
+        symbolsPane.SetSurface(UiSurface.WindowInner, UiTheme.Current.Metrics.SpacingXs);
+        Transform symbols = symbolsPane.Content;
         NestedVerticalScrollRelay.Attach(symbols);
         symbols.GetComponent<VerticalLayoutGroup>().spacing = 4f;
-        SetScrollPaneBackground(symbols.parent.parent.gameObject);
-        WanfaUiFactory.CreateText(symbols, "Title",
+        UiElements.CreateText(symbols, "Title",
             "Cultiway.ActorFilter.UI.Section.Symbols".Localize(), SymbolContentWidth, 18f, 7,
             TextAnchor.MiddleCenter, FontStyle.Bold);
         _symbolButtons[(int)ActorFilterTokenKind.Not] = CreateSymbolButton(symbols,
@@ -129,17 +149,17 @@ internal sealed class ActorFilterEditor : IDisposable
             "LeftParenthesis", "LeftParenthesis", ActorFilterTokenKind.LeftParenthesis);
         _symbolButtons[(int)ActorFilterTokenKind.RightParenthesis] = CreateSymbolButton(symbols,
             "RightParenthesis", "RightParenthesis", ActorFilterTokenKind.RightParenthesis);
-        WanfaUiFactory.CreateText(symbols, "Semantics", _semanticsKey.Localize(), SymbolContentWidth, 60f,
-            6, TextAnchor.UpperLeft);
+        _semanticsText = UiElements.CreateText(symbols, "Semantics", _semanticsKey.Localize(),
+            SymbolContentWidth, 60f, 6, TextAnchor.UpperLeft);
     }
 
     private Button CreateSymbolButton(Transform parent, string name, string localeSuffix,
         ActorFilterTokenKind kind)
     {
         var localeKey = $"Cultiway.ActorFilter.UI.Symbol.{localeSuffix}";
-        var button = WanfaUiFactory.CreateButton(parent, name, localeKey.Localize(), SymbolContentWidth, 32f,
+        var button = UiElements.CreateButton(parent, name, localeKey.Localize(), SymbolContentWidth, 32f,
             () => _settings.AppendSymbol(kind));
-        WanfaUiFactory.SetTooltip(button.gameObject, localeKey, $"{localeKey}.Description");
+        UiTooltip.Set(button.gameObject, localeKey, $"{localeKey}.Description");
         return button;
     }
 
@@ -232,7 +252,7 @@ internal sealed class ActorFilterEditor : IDisposable
 
     private void RebuildCategoryButtons()
     {
-        ClearChildren(_categoryContent);
+        UiLayout.ClearChildren(_categoryContent);
         _categoryButtons = new Button[_filterTypes.Length];
         for (var i = 0; i < _filterTypes.Length; i++)
         {
@@ -240,11 +260,11 @@ internal sealed class ActorFilterEditor : IDisposable
             var descriptor = _filterTypes[i];
             var label = descriptor.NameKey.Localize();
             var button = string.IsNullOrEmpty(descriptor.IconPath)
-                ? WanfaUiFactory.CreateButton(_categoryContent, $"Category_{i}", label, CategoryButtonWidth, 24f,
+                ? UiElements.CreateButton(_categoryContent, $"Category_{i}", label, CategoryButtonWidth, 24f,
                     () => SelectCategory(index))
-                : WanfaUiFactory.CreateIconTextButton(_categoryContent, $"Category_{i}", descriptor.IconPath,
+                : UiElements.CreateIconTextButton(_categoryContent, $"Category_{i}", descriptor.IconPath,
                     label, CategoryButtonWidth, 24f, () => SelectCategory(index));
-            WanfaUiFactory.SetTooltip(button.gameObject, label,
+            UiTooltip.Set(button.gameObject, label,
                 "Cultiway.ActorFilter.UI.Filter.Category.Description".Localize());
             _categoryButtons[i] = button;
         }
@@ -264,14 +284,13 @@ internal sealed class ActorFilterEditor : IDisposable
         for (var i = 0; i < _categoryButtons.Length; i++)
         {
             if (_categoryButtons[i] == null) continue;
-            _categoryButtons[i].GetComponent<Image>().sprite = SpriteTextureLoader.getSprite(
-                i == _filterTypeIndex ? "ui/special/button2" : "ui/special/button");
+            UiStateStyle.SetSelected(_categoryButtons[i], i == _filterTypeIndex);
         }
     }
 
     private void RebuildOptionCards()
     {
-        ClearChildren(_optionContent);
+        UiLayout.ClearChildren(_optionContent);
         _predicateButtons.Clear();
         if (_filterTypes.Length == 0) return;
 
@@ -279,7 +298,7 @@ internal sealed class ActorFilterEditor : IDisposable
         var options = descriptor.GetOptions();
         if (options.Count == 0)
         {
-            WanfaUiFactory.CreateText(_optionContent, "NoOptions",
+            UiElements.CreateText(_optionContent, "NoOptions",
                 "Cultiway.ActorFilter.UI.Filter.NoOptions".Localize(), OptionCardWidth, OptionCardHeight, 6,
                 TextAnchor.MiddleCenter);
             return;
@@ -294,10 +313,9 @@ internal sealed class ActorFilterEditor : IDisposable
         var card = new GameObject($"Option_{index}", typeof(RectTransform), typeof(Image), typeof(Button),
             typeof(LayoutElement));
         card.transform.SetParent(_optionContent, false);
-        WanfaUiFactory.SetLayout(card.transform, OptionCardWidth, OptionCardHeight);
+        UiLayout.SetSize(card.transform, OptionCardWidth, OptionCardHeight);
         var cardImage = card.GetComponent<Image>();
-        cardImage.sprite = SpriteTextureLoader.getSprite("ui/special/button");
-        cardImage.type = Image.Type.Sliced;
+        UiResources.ApplySurface(cardImage, UiSurface.Button);
 
         UnityAction append = () => AppendPredicate(descriptor, option);
         var cardButton = card.GetComponent<Button>();
@@ -315,7 +333,7 @@ internal sealed class ActorFilterEditor : IDisposable
         if (!TryCreateMetaBanner(visual.transform, descriptor, option, append))
             CreateOptionIcon(visual.transform, option.IconPath ?? descriptor.IconPath);
 
-        var label = WanfaUiFactory.CreateText(card.transform, "Label", option.DisplayName,
+        var label = UiElements.CreateText(card.transform, "Label", option.DisplayName,
             OptionCardWidth - 6f, 15f, 6, TextAnchor.MiddleCenter, FontStyle.Bold);
         var labelRect = label.rectTransform;
         labelRect.anchorMin = new Vector2(0f, 0f);
@@ -327,7 +345,7 @@ internal sealed class ActorFilterEditor : IDisposable
 
         var description = string.Format("Cultiway.ActorFilter.UI.Filter.Option.Description".Localize(),
             descriptor.NameKey.Localize());
-        WanfaUiFactory.SetTooltip(card, option.DisplayName, description);
+        UiTooltip.Set(card, option.DisplayName, description);
     }
 
     private bool TryCreateMetaBanner(Transform parent, ActorFilterDescriptor descriptor,
@@ -369,9 +387,7 @@ internal sealed class ActorFilterEditor : IDisposable
         rect.sizeDelta = new Vector2(30f, 30f);
         rect.anchoredPosition = Vector2.zero;
         var image = icon.GetComponent<Image>();
-        image.sprite = SpriteTextureLoader.getSprite(string.IsNullOrEmpty(iconPath)
-            ? WanfaUiIcons.Overview
-            : iconPath);
+        image.sprite = UiResources.GetSprite(string.IsNullOrEmpty(iconPath) ? UiIcons.Info : iconPath);
         image.preserveAspect = true;
         image.raycastTarget = false;
     }
@@ -382,41 +398,4 @@ internal sealed class ActorFilterEditor : IDisposable
         _settings.AppendPredicate(new ActorFilterEntry(descriptor.Id, option.Id, option.DisplayName));
     }
 
-    private static void SetPaneBackground(GameObject pane)
-    {
-        var image = pane.GetComponent<Image>() ?? pane.AddComponent<Image>();
-        ConfigurePaneBackground(image);
-    }
-
-    private static void SetScrollPaneBackground(GameObject pane)
-    {
-        var background = new GameObject("Pane Background", typeof(RectTransform), typeof(Image));
-        background.transform.SetParent(pane.transform, false);
-        background.transform.SetAsFirstSibling();
-        var rect = background.GetComponent<RectTransform>();
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = Vector2.zero;
-        rect.offsetMax = new Vector2(-WanfaUiFactory.OriginalVerticalScrollbarReservedWidth, 0f);
-        var image = background.GetComponent<Image>();
-        image.raycastTarget = false;
-        ConfigurePaneBackground(image);
-    }
-
-    private static void ConfigurePaneBackground(Image image)
-    {
-        image.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
-        image.type = Image.Type.Sliced;
-    }
-
-    private static void ClearChildren(Transform parent)
-    {
-        if (parent == null) return;
-        for (var i = parent.childCount - 1; i >= 0; i--)
-        {
-            var child = parent.GetChild(i).gameObject;
-            child.SetActive(false);
-            Object.Destroy(child);
-        }
-    }
 }
