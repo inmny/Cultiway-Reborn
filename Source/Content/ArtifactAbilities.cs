@@ -18,8 +18,8 @@ namespace Cultiway.Content;
 /// <summary>
 /// 基础法器能力。能力只声明组合规则、参数、启动入口和领域事件处理，持续空间运动由 SkillExecution 驱动。
 /// </summary>
-[Dependency(typeof(ArtifactAtoms), typeof(ArtifactSkillExecutions))]
-public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbilities>
+[Dependency(typeof(ArtifactAtoms), typeof(ArtifactSkillExecutions), typeof(StatusEffects))]
+public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbilities>
 {
     private const string DamageMultiplier = "damage_multiplier";
     private const string FlightSpeed = "flight_speed";
@@ -27,7 +27,7 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
     private const string TurnRate = "turn_rate";
     private const string PierceDistance = "pierce_distance";
     private const string Cooldown = "cooldown";
-    private const string ReadyAt = "ready_at";
+    private const string LegacyReadyAt = "ready_at";
     private const string ProgressBonus = "progress_bonus";
     private const string DurationMultiplier = "duration_multiplier";
     private const string QualityBonus = "quality_bonus";
@@ -42,6 +42,11 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
     {
         ConfigureFlyingSwordAttack();
         ConfigureDingAlchemyAssist();
+        ConfigureGuardianWard();
+        ConfigureMirrorInsight();
+        ConfigureVitalityRenewal();
+        ConfigureSpiritReservoir();
+        ConfigureSuppressionField();
     }
 
     private static void ConfigureFlyingSwordAttack()
@@ -62,7 +67,15 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
             NumberSpec(PierceDistance),
             NumberSpec(Cooldown),
         ];
-        FlyingSwordAttack.state_schema = [NumberSpec(ReadyAt)];
+        // 旧蓝图曾把冷却时间保存在能力私有状态中；仅保留可选规格用于读取，运行时统一使用生命周期冷却。
+        FlyingSwordAttack.state_schema =
+        [
+            new ArtifactAbilityValueSpec
+            {
+                key = LegacyReadyAt,
+                kind = ArtifactAbilityValueKind.Number,
+            },
+        ];
         FlyingSwordAttack.ScoreRecipe = context =>
         {
             float flight = context.GetTrait(ArtifactMaterialTraits.PiercingFlight);
@@ -90,7 +103,6 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
                     Mathf.Max(0.8f, 3.4f - quality * 0.055f - mobility * 0.08f)),
             ];
         };
-        FlyingSwordAttack.ComposeInitialState = _ => [ArtifactAbilityValue.Number(ReadyAt, 0f)];
         FlyingSwordAttack.DescribeInstance = ability => string.Format(
             LM.Get("Cultiway.ArtifactAbility.FlyingSwordAttack.Description"),
             ability.GetNumber(DamageMultiplier),
@@ -99,6 +111,12 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
             ability.GetNumber(TurnRate) * ArtifactFlyingSwordExecution.TurnRateMultiplier,
             ability.GetNumber(PierceDistance),
             ability.GetNumber(Cooldown));
+        FlyingSwordAttack.ConfigureLifecycle(new ArtifactAbilityLifecycleProfile
+        {
+            active_minimum_state = ArtifactControlState.Operating,
+            sustain_minimum_state = ArtifactControlState.Operating,
+            ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
+        });
         FlyingSwordAttack.Activate(new ArtifactActiveAbilityProfile
         {
             channels = ActiveAbilityChannel.Combat,
@@ -155,8 +173,12 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
             ability.GetInteger(ProgressBonus),
             ability.GetNumber(DurationMultiplier),
             ability.GetInteger(QualityBonus));
-        DingAlchemyAssist.Handle<ElixirCraftStepEvent>(IsOperating<ElixirCraftStepEvent>, ApplyAlchemyStepAssist);
-        DingAlchemyAssist.Handle<ElixirCraftResultEvent>(IsOperating<ElixirCraftResultEvent>, ApplyAlchemyResultAssist);
+        DingAlchemyAssist.ConfigureLifecycle(new ArtifactAbilityLifecycleProfile
+        {
+            event_minimum_state = ArtifactControlState.Operating,
+        });
+        DingAlchemyAssist.Handle<ElixirCraftStepEvent>(ApplyAlchemyStepAssist);
+        DingAlchemyAssist.Handle<ElixirCraftResultEvent>(ApplyAlchemyResultAssist);
     }
 
     private static bool CanPrepareFlyingSword(
@@ -165,8 +187,7 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
         ArtifactAbilityRuntimeEntry runtime,
         BaseSimObject target)
     {
-        return context.control_state != ArtifactControlState.Cold &&
-               (target == null || !target.isRekt()) &&
+        return (target == null || !target.isRekt()) &&
                !context.artifact.HasComponent<ArtifactIndependentMotion>();
     }
 
@@ -176,10 +197,9 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
         ArtifactAbilityRuntimeEntry runtime,
         in ActiveAbilityTarget target)
     {
-        if (!IsOperating(context) || target.Object == null || target.Object.isRekt()) return false;
+        if (target.Object == null || target.Object.isRekt()) return false;
         if (context.artifact.HasComponent<ArtifactIndependentMotion>() ||
             context.artifact.HasComponent<SkillExecutionBodyLease>()) return false;
-        if (runtime.GetNumber(ReadyAt) > World.world.getCurWorldTime()) return false;
 
         Actor controller = context.controller.GetComponent<ActorBinder>().Actor;
         float range = ability.GetNumber(AttackRange) + target.Object.stats[S.size];
@@ -253,23 +273,8 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
             return false;
         }
 
-        runtime.SetNumber(ReadyAt, (float)World.world.getCurWorldTime() + ability.GetNumber(Cooldown));
+        ArtifactAbilityLifecycle.BindExecution(ref runtime, execution);
         return true;
-    }
-
-    private static bool IsOperating<TEvent>(
-        ArtifactAbilityExecutionContext context,
-        ArtifactAbilityInstance _,
-        ArtifactAbilityRuntimeEntry __,
-        TEvent ___)
-        where TEvent : class
-    {
-        return IsOperating(context);
-    }
-
-    private static bool IsOperating(ArtifactAbilityExecutionContext context)
-    {
-        return context.control_state is ArtifactControlState.Operating or ArtifactControlState.Overloaded;
     }
 
     private static void ApplyAlchemyStepAssist(

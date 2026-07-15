@@ -166,6 +166,17 @@ public static class ArtifactMaterialTraits
     public const string Suppression = "affordance.suppression";
     public const string Alchemy = "affordance.alchemy";
     public const string Volatility = "affordance.volatility";
+    public const string Binding = "affordance.binding";
+    public const string Concealment = "affordance.concealment";
+    public const string Resonance = "affordance.resonance";
+    public const string Purification = "affordance.purification";
+    public const string Devouring = "affordance.devouring";
+    public const string Amplification = "affordance.amplification";
     public const string PiercingFlight = "capability.piercing_flight";
     public const string AlchemyVessel = "capability.alchemy_vessel";
+    public const string GuardianWard = "capability.guardian_ward";
+    public const string Insight = "capability.insight";
+    public const string Renewal = "capability.renewal";
+    public const string SpiritReservoir = "capability.spirit_reservoir";
+    public const string FieldProjection = "capability.field_projection";
 }

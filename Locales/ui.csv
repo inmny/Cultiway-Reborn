@@ -622,6 +622,16 @@ Cultiway.ArtifactAbility.FlyingSwordAttack,飞剑攻击
 Cultiway.ArtifactAbility.FlyingSwordAttack.Description,伤害 ×{0:0.##} · 飞行 {1:0.#} · 控域 {2:0.#} · 转向 {3:0} · 穿出 {4:0.#} · 复击 {5:0.#}
 Cultiway.ArtifactAbility.DingAlchemyAssist,鼎辅炼丹
 Cultiway.ArtifactAbility.DingAlchemyAssist.Description,工序 +{0} · 耗时 ×{1:P0} · 品级 +{2}
+Cultiway.ArtifactAbility.GuardianWard,护主灵障
+Cultiway.ArtifactAbility.GuardianWard.Description,受击减伤 {0:P0} · 充能 {1} · 每 {2:0.#} 秒恢复一点
+Cultiway.ArtifactAbility.MirrorInsight,洞微灵鉴
+Cultiway.ArtifactAbility.MirrorInsight.Description,命中 +{0:0.#} · 暴击 +{1:P1} · 伤害范围 +{2:P1}
+Cultiway.ArtifactAbility.VitalityRenewal,生机回转
+Cultiway.ArtifactAbility.VitalityRenewal.Description,每秒恢复 {0:0.#} 生命 · 维持消耗 {1:0.##} 灵气
+Cultiway.ArtifactAbility.SpiritReservoir,纳灵宝库
+Cultiway.ArtifactAbility.SpiritReservoir.Description,灵气上限 +{0:0.#} · 灵气恢复 +{1:0.##}
+Cultiway.ArtifactAbility.SuppressionField,镇压法域
+Cultiway.ArtifactAbility.SuppressionField.Description,投放距离 {0:0.#} · 半径 {1:0.#} · 持续 {2:0.#} 秒 · 冷却 {3:0.#} 秒 · 敌方移速 -45% · 伤害 -12% · 启动/维持灵气 {4:0.#}/{5:0.##}
 Cultiway.UI.WindowActorTargetFilter Title,目标筛选
 Cultiway.UI.WindowActorTargetFilter Title Description,配置当前世界工具允许影响的角色。
 Cultiway.ActorTargetFilter.UI.Context.Wanfa,万法阁 · 赐法目标
