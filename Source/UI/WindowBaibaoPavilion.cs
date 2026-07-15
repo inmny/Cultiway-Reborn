@@ -38,16 +38,17 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
     private Button _shapeFilterButton;
     private Toggle _favoriteOnly;
     private Button _sortButton;
-    private Button _catalogTab;
-    private Button _giftTab;
     private Button _clearGift;
     private Button _beginGift;
+    private Button _targetFilterButton;
     private Text _resultCount;
     private Text _giftCount;
     private BaibaoBlueprintInspector _inspector;
-    private BaibaoOptionMenu _optionMenu;
+    private UiOptionMenu _optionMenu;
+    private readonly UiSegmentedTabs _viewTabs = new();
     private CanvasGroup _rootCanvas;
     private GameObject _deleteConfirmation;
+    private UiModal _deleteModal;
     private Text _deleteMessage;
     private ArtifactShapeAsset[] _shapes = [];
     private string _activeBlueprintId;
@@ -57,25 +58,31 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
 
     protected override void Init()
     {
-        Transform originalScrollView = BackgroundTransform.Find("Scroll View");
-        Transform scrollbarTemplate = originalScrollView.Find("Scrollbar Vertical Mask");
-        originalScrollView.gameObject.SetActive(false);
+        UiWindowContext context = UiWindowContext.Bind(BackgroundTransform);
 
-        GameObject root = WanfaUiFactory.CreateLayout(BackgroundTransform, "BaibaoRoot", false, 520f, RootHeight,
+        GameObject root = UiLayout.Create(BackgroundTransform, "BaibaoRoot", false, 520f, RootHeight,
             4f);
         root.transform.localPosition = new Vector3(0f, -8f);
         _rootCanvas = root.AddComponent<CanvasGroup>();
 
         CreateToolbar(root.transform);
         CreateViewBar(root.transform);
-        GameObject body = WanfaUiFactory.CreateLayout(root.transform, "Body", true, 520f, 284f, 4f,
+        GameObject body = UiLayout.Create(root.transform, "Body", true, 520f, 284f, 4f,
             TextAnchor.UpperLeft);
-        Transform content = WanfaUiFactory.CreateScrollContent(body.transform, "BlueprintList", 318f, 284f);
-        WanfaUiFactory.AttachOriginalVerticalScrollbar(content, scrollbarTemplate);
-        BaibaoUiFactory.AddScrollBackground(content);
-        _rowPool = new MonoObjPool<BaibaoArtifactRow>(BaibaoArtifactRow.Prefab, content);
+        UiScrollPane catalog = UiScrollPane.CreateVertical(body.transform, "BlueprintList", 318f, 284f);
+        catalog.AttachOriginalScrollbar(context.ScrollbarTemplate);
+        catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
+        _rowPool = new MonoObjPool<BaibaoArtifactRow>(BaibaoArtifactRow.Prefab, catalog.Content);
         _inspector = new BaibaoBlueprintInspector(body.transform, 198f, 284f);
-        _optionMenu = new BaibaoOptionMenu(BackgroundTransform, _rootCanvas, scrollbarTemplate);
+        _optionMenu = new UiOptionMenu(BackgroundTransform, _rootCanvas, context.ScrollbarTemplate,
+            new UiOptionMenuConfig
+            {
+                SearchPlaceholder = "Cultiway.UI.OptionMenu.Placeholder.Search".Localize(),
+                EmptyText = "Cultiway.UI.OptionMenu.State.Empty".Localize(),
+                CloseText = "Cultiway.UI.OptionMenu.Action.Close".Localize(),
+                CloseTooltipTitle = "Cultiway.UI.OptionMenu.Action.Close",
+                CloseTooltipDescription = "Cultiway.UI.OptionMenu.Tooltip.Close",
+            });
         CreateDeleteConfirmation();
 
         BaibaoPavilionService.Instance.Changed += Refresh;
@@ -90,62 +97,66 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
 
     private void OnDestroy()
     {
-        if (BaibaoPavilionService.Instance != null)
-            BaibaoPavilionService.Instance.Changed -= Refresh;
+        BaibaoPavilionService.Instance.Changed -= Refresh;
     }
 
     private void CreateToolbar(Transform root)
     {
-        GameObject toolbar = WanfaUiFactory.CreateLayout(root, "Toolbar", true, 520f, 24f, 4f);
-        Button forge = WanfaUiFactory.CreateIconButton(toolbar.transform, "Forge", BaibaoUiIcons.Forge, 28f, 22f,
+        GameObject toolbar = UiLayout.Create(root, "Toolbar", true, 520f, 24f, 4f);
+        Button forge = UiElements.CreateIconButton(toolbar.transform, "Forge", BaibaoUiIcons.Forge, 28f, 22f,
             WindowBaibaoForge.Open);
-        WanfaUiFactory.SetTooltip(forge.gameObject, "Cultiway.Baibao.UI.Action.NewArtifact",
+        UiTooltip.Set(forge.gameObject, "Cultiway.Baibao.UI.Action.NewArtifact",
             "Cultiway.Baibao.UI.Tooltip.Forge");
-        Button archive = WanfaUiFactory.CreateIconButton(toolbar.transform, "Archive", BaibaoUiIcons.Archive, 28f,
+        Button archive = UiElements.CreateIconButton(toolbar.transform, "Archive", BaibaoUiIcons.Archive, 28f,
             22f, BeginArchive);
-        WanfaUiFactory.SetTooltip(archive.gameObject, "Cultiway.Baibao.UI.Action.Archive",
+        UiTooltip.Set(archive.gameObject, "Cultiway.Baibao.UI.Action.Archive",
             "Cultiway.Baibao.UI.Tooltip.BeginArchive");
 
-        _search = WanfaUiFactory.CreateInput(toolbar.transform, "Search", string.Empty,
-            "Cultiway.Baibao.UI.Placeholder.Search".Localize(), 158f, 22f);
-        BaibaoUiFactory.AddSearchIcon(_search);
-        WanfaUiFactory.SetTooltip(_search, "Cultiway.Baibao.UI.Placeholder.Search",
+        _search = UiSearchField.Create(toolbar.transform, "Search", string.Empty,
+            "Cultiway.Baibao.UI.Placeholder.Search".Localize(), 158f, 22f).Input;
+        UiTooltip.Set(_search, "Cultiway.Baibao.UI.Placeholder.Search",
             "Cultiway.Baibao.UI.Tooltip.Search");
         _search.onValueChanged.AddListener(_ => Refresh());
 
-        _shapeFilterButton = WanfaUiFactory.CreateIconTextButton(toolbar.transform, "ShapeFilter",
+        _shapeFilterButton = UiElements.CreateIconTextButton(toolbar.transform, "ShapeFilter",
             BaibaoUiIcons.Shape, string.Empty, 104f, 22f, ShowShapeMenu);
-        WanfaUiFactory.SetTooltip(_shapeFilterButton.gameObject,
+        UiTooltip.Set(_shapeFilterButton.gameObject,
             "Cultiway.Baibao.UI.Tooltip.ShapeFilter.Title", "Cultiway.Baibao.UI.Tooltip.ShapeFilter.Menu");
-        _favoriteOnly = WanfaUiFactory.CreateIconToggle(toolbar.transform, "FavoriteOnly", BaibaoUiIcons.Favorite,
-            false, 28f, 22f);
-        WanfaUiFactory.SetTooltip(_favoriteOnly, "Cultiway.Baibao.UI.Label.FavoriteOnly",
+        _favoriteOnly = UiElements.CreateIconToggle(toolbar.transform, "FavoriteOnly", UiIcons.Favorite,
+            false, 28f, 22f, UiIconToggleStyle.Favorite);
+        UiTooltip.Set(_favoriteOnly, "Cultiway.Baibao.UI.Label.FavoriteOnly",
             "Cultiway.Baibao.UI.Tooltip.FavoriteOnly");
         _favoriteOnly.onValueChanged.AddListener(_ => Refresh());
-        _sortButton = WanfaUiFactory.CreateIconTextButton(toolbar.transform, "Sort", BaibaoUiIcons.Sort,
+        _sortButton = UiElements.CreateIconTextButton(toolbar.transform, "Sort", UiIcons.Sort,
             string.Empty, 92f, 22f, ShowSortMenu);
-        WanfaUiFactory.SetTooltip(_sortButton.gameObject, "Cultiway.Baibao.UI.Tooltip.Sort.Title",
+        UiTooltip.Set(_sortButton.gameObject, "Cultiway.Baibao.UI.Tooltip.Sort.Title",
             "Cultiway.Baibao.UI.Tooltip.Sort.Menu");
-        _resultCount = WanfaUiFactory.CreateText(toolbar.transform, "ResultCount", string.Empty, 58f, 22f, 6,
+        _resultCount = UiElements.CreateText(toolbar.transform, "ResultCount", string.Empty, 58f, 22f, 6,
             TextAnchor.MiddleRight);
     }
 
     private void CreateViewBar(Transform root)
     {
-        GameObject views = WanfaUiFactory.CreateLayout(root, "Views", true, 520f, 22f, 4f);
-        _catalogTab = WanfaUiFactory.CreateIconTextButton(views.transform, "Catalog", BaibaoUiIcons.Pavilion,
+        GameObject views = UiLayout.Create(root, "Views", true, 520f, 22f, 4f);
+        Button catalogTab = UiElements.CreateIconTextButton(views.transform, "Catalog", BaibaoUiIcons.Pavilion,
             "Cultiway.Baibao.UI.View.Catalog".Localize(), 112f, 21f, () => SelectView(PavilionView.Catalog));
-        _giftTab = WanfaUiFactory.CreateIconTextButton(views.transform, "GiftSet", BaibaoUiIcons.Grant,
+        Button giftTab = UiElements.CreateIconTextButton(views.transform, "GiftSet", UiIcons.Gift,
             "Cultiway.Baibao.UI.View.GiftSet".Localize(), 112f, 21f, () => SelectView(PavilionView.GiftSet));
-        _giftCount = WanfaUiFactory.CreateText(views.transform, "GiftCount", string.Empty, 170f, 21f, 6,
+        _viewTabs.Add(catalogTab);
+        _viewTabs.Add(giftTab);
+        _giftCount = UiElements.CreateText(views.transform, "GiftCount", string.Empty, 138f, 21f, 6,
             TextAnchor.MiddleLeft);
-        _clearGift = WanfaUiFactory.CreateIconButton(views.transform, "ClearGift", BaibaoUiIcons.Reset, 34f, 21f,
+        _targetFilterButton = UiElements.CreateIconButton(views.transform, "TargetFilter", UiIcons.TargetFilter,
+            28f, 21f, ShowTargetFilter, 4f);
+        UiTooltip.Set(_targetFilterButton.gameObject, "Cultiway.Baibao.UI.Action.TargetFilter",
+            "Cultiway.Baibao.UI.Tooltip.TargetFilter");
+        _clearGift = UiElements.CreateIconButton(views.transform, "ClearGift", UiIcons.Reset, 34f, 21f,
             () => BaibaoPavilionService.Instance.ClearSelected());
-        WanfaUiFactory.SetTooltip(_clearGift.gameObject, "Cultiway.Baibao.UI.Action.ClearGiftSet",
+        UiTooltip.Set(_clearGift.gameObject, "Cultiway.Baibao.UI.Action.ClearGiftSet",
             "Cultiway.Baibao.UI.Tooltip.ClearGiftSet");
-        _beginGift = WanfaUiFactory.CreateIconTextButton(views.transform, "BeginGift", BaibaoUiIcons.Grant,
+        _beginGift = UiElements.CreateIconTextButton(views.transform, "BeginGift", UiIcons.Gift,
             "Cultiway.Baibao.UI.Action.Grant".Localize(), 76f, 21f, BeginGrant);
-        WanfaUiFactory.SetTooltip(_beginGift.gameObject, "Cultiway.Baibao.UI.Action.Grant",
+        UiTooltip.Set(_beginGift.gameObject, "Cultiway.Baibao.UI.Action.Grant",
             "Cultiway.Baibao.UI.Tooltip.BeginGrant");
     }
 
@@ -187,12 +198,15 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
             service.SelectedBlueprintCount);
         _clearGift.interactable = service.SelectedBlueprintCount > 0;
         _beginGift.interactable = service.SelectedBlueprintCount > 0;
-        BaibaoUiFactory.SetSelected(_catalogTab, _view == PavilionView.Catalog);
-        BaibaoUiFactory.SetSelected(_giftTab, _view == PavilionView.GiftSet);
-        BaibaoUiFactory.SetButtonLabel(_shapeFilterButton, _shapeFilter == 0
+        _viewTabs.SetSelected((int)_view);
+        var targetFilter = service.GrantTargetFilter;
+        UiStateStyle.ApplyVisual(_targetFilterButton, !targetFilter.ExpressionState.IsComplete
+            ? UiControlState.Error
+            : targetFilter.Expression.Count > 0 ? UiControlState.Selected : UiControlState.Normal);
+        UiElements.SetButtonLabel(_shapeFilterButton, _shapeFilter == 0
             ? "Cultiway.Baibao.UI.Filter.AllShapes".Localize()
             : BaibaoPresentation.GetShapeName(_shapes[_shapeFilter - 1]));
-        BaibaoUiFactory.SetButtonLabel(_sortButton, SortNamePaths[_sort].Localize());
+        UiElements.SetButtonLabel(_sortButton, SortNamePaths[_sort].Localize());
         RefreshInspector(allowMove);
     }
 
@@ -246,9 +260,9 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
 
     private void ShowShapeMenu()
     {
-        List<BaibaoMenuOption> options = new()
+        List<UiOptionMenuOption> options = new()
         {
-            new BaibaoMenuOption
+            new UiOptionMenuOption
             {
                 Label = "Cultiway.Baibao.UI.Filter.AllShapes".Localize(),
                 IconPath = BaibaoUiIcons.Shape,
@@ -260,7 +274,7 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
         {
             int index = i + 1;
             string label = BaibaoPresentation.GetShapeName(_shapes[i]);
-            options.Add(new BaibaoMenuOption
+            options.Add(new UiOptionMenuOption
             {
                 Label = label,
                 IconPath = BaibaoUiIcons.Shape,
@@ -274,14 +288,14 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
 
     private void ShowSortMenu()
     {
-        List<BaibaoMenuOption> options = new();
+        List<UiOptionMenuOption> options = new();
         for (int i = 0; i < SortNamePaths.Length; i++)
         {
             int index = i;
-            options.Add(new BaibaoMenuOption
+            options.Add(new UiOptionMenuOption
             {
                 Label = SortNamePaths[i].Localize(),
-                IconPath = BaibaoUiIcons.Sort,
+                IconPath = UiIcons.Sort,
                 Selected = _sort == i,
                 Select = () => SetSort(index),
             });
@@ -299,6 +313,14 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
     {
         _sort = index;
         Refresh();
+    }
+
+    private static void ShowTargetFilter()
+    {
+        WindowActorTargetFilter.Open(BaibaoPavilionService.Instance.GrantTargetFilter,
+            "Cultiway.ActorTargetFilter.UI.Context.Baibao",
+            "Cultiway.ActorTargetFilter.UI.Expression.Empty",
+            "Cultiway.ActorTargetFilter.UI.Filter.Semantics");
     }
 
     private void RefreshShapes()
@@ -336,34 +358,32 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
 
     private void CreateDeleteConfirmation()
     {
-        _deleteConfirmation = WanfaUiFactory.CreateLayout(BackgroundTransform, "DeleteConfirmation", false,
+        _deleteConfirmation = UiLayout.Create(BackgroundTransform, "DeleteConfirmation", false,
             274f, 94f, 6f, TextAnchor.MiddleCenter);
         _deleteConfirmation.transform.localPosition = Vector3.zero;
         Image background = _deleteConfirmation.AddComponent<Image>();
-        background.sprite = SpriteTextureLoader.getSprite("ui/special/windowEmptyFrame");
+        background.sprite = UiResources.GetSprite(UiResources.WindowEmpty);
         background.type = Image.Type.Sliced;
-        _deleteMessage = WanfaUiFactory.CreateText(_deleteConfirmation.transform, "Message", string.Empty, 264f,
+        _deleteMessage = UiElements.CreateText(_deleteConfirmation.transform, "Message", string.Empty, 264f,
             34f, 8, TextAnchor.MiddleCenter, FontStyle.Bold);
-        GameObject actions = WanfaUiFactory.CreateLayout(_deleteConfirmation.transform, "Actions", true, 264f,
+        GameObject actions = UiLayout.Create(_deleteConfirmation.transform, "Actions", true, 264f,
             25f, 6f, TextAnchor.MiddleCenter);
-        Button confirm = WanfaUiFactory.CreateIconTextButton(actions.transform, "Confirm", BaibaoUiIcons.Delete,
+        Button confirm = UiElements.CreateIconTextButton(actions.transform, "Confirm", UiIcons.Delete,
             "Cultiway.Baibao.UI.Action.ConfirmDelete".Localize(), 104f, 23f, ConfirmDelete);
-        WanfaUiFactory.SetTooltip(confirm.gameObject, "Cultiway.Baibao.UI.Action.ConfirmDelete",
+        UiTooltip.Set(confirm.gameObject, "Cultiway.Baibao.UI.Action.ConfirmDelete",
             "Cultiway.Baibao.UI.Tooltip.ConfirmDelete");
-        Button cancel = WanfaUiFactory.CreateIconTextButton(actions.transform, "Cancel", BaibaoUiIcons.Cancel,
+        Button cancel = UiElements.CreateIconTextButton(actions.transform, "Cancel", UiIcons.Cancel,
             "Cultiway.Baibao.UI.Action.Cancel".Localize(), 90f, 23f, HideDeleteConfirmation);
-        WanfaUiFactory.SetTooltip(cancel.gameObject, "Cultiway.Baibao.UI.Action.Cancel",
+        UiTooltip.Set(cancel.gameObject, "Cultiway.Baibao.UI.Action.Cancel",
             "Cultiway.Baibao.UI.Tooltip.CancelDelete");
-        _deleteConfirmation.SetActive(false);
+        _deleteModal = new UiModal(_deleteConfirmation, _rootCanvas);
     }
 
     private void ShowDeleteConfirmation(ArtifactBlueprint blueprint)
     {
         _activeBlueprintId = blueprint.Id;
         _deleteMessage.text = string.Format("Cultiway.Baibao.UI.Format.ConfirmDelete".Localize(), blueprint.Name);
-        _deleteConfirmation.transform.SetAsLastSibling();
-        _deleteConfirmation.SetActive(true);
-        _rootCanvas.interactable = false;
+        _deleteModal.Show();
     }
 
     private void ConfirmDelete()
@@ -375,8 +395,7 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
 
     private void HideDeleteConfirmation()
     {
-        _deleteConfirmation.SetActive(false);
-        _rootCanvas.interactable = true;
+        _deleteModal.Hide();
     }
 
     internal static void ShowSaveResult(BaibaoSaveResult result, string savedKey)
@@ -392,7 +411,7 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
 
     private void BeginArchive()
     {
-        SelectWorldTool(Manager.BaibaoArchiveButton);
+        SelectWorldTool(Content.UI.Manager.Instance.BaibaoArchiveButton);
     }
 
     private void BeginGrant()
@@ -402,8 +421,8 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
             WorldTip.showNow("Cultiway.Baibao.UI.Tip.SelectBlueprint".Localize(), false, "top", 3f);
             return;
         }
-        BaibaoWorldToolSession.BeginGrantSession();
-        SelectWorldTool(Manager.BaibaoGrantButton);
+        if (!BaibaoWorldToolSession.BeginGrantSession()) return;
+        SelectWorldTool(Content.UI.Manager.Instance.BaibaoGrantButton);
     }
 
     private void SelectWorldTool(PowerButton button)

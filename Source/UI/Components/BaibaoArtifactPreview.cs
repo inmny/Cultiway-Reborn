@@ -10,8 +10,7 @@ namespace Cultiway.UI.Components;
 internal sealed class BaibaoArtifactPreview
 {
     private readonly Image _preview;
-    private readonly Button _iconMode;
-    private readonly Button _worldMode;
+    private readonly UiSegmentedTabs _modes = new();
     private readonly Text _name;
     private readonly Text _subtitle;
     private readonly Text _metrics;
@@ -33,24 +32,24 @@ internal sealed class BaibaoArtifactPreview
         float detailsHeight = Mathf.Max(38f,
             height - modeHeight - summaryHeight - statusHeight - spacing * 3f);
 
-        GameObject root = WanfaUiFactory.CreateLayout(parent, "ArtifactPreviewContent", false, width, height,
+        GameObject root = UiLayout.Create(parent, "ArtifactPreviewContent", false, width, height,
             spacing, TextAnchor.UpperCenter);
-        GameObject modes = WanfaUiFactory.CreateLayout(root.transform, "PreviewModes", true, innerWidth,
+        GameObject modes = UiLayout.Create(root.transform, "PreviewModes", true, innerWidth,
             modeHeight, spacing, TextAnchor.MiddleCenter);
         float modeWidth = (innerWidth - spacing) * 0.5f;
-        _iconMode = WanfaUiFactory.CreateIconTextButton(modes.transform, "Icon", BaibaoUiIcons.Pavilion,
+        Button iconMode = UiElements.CreateIconTextButton(modes.transform, "Icon", BaibaoUiIcons.Pavilion,
             "Cultiway.Baibao.UI.Preview.Icon".Localize(), modeWidth, 19f, () => SetPreviewMode(false));
-        _worldMode = WanfaUiFactory.CreateIconTextButton(modes.transform, "World", BaibaoUiIcons.World,
+        Button worldMode = UiElements.CreateIconTextButton(modes.transform, "World", UiIcons.World,
             "Cultiway.Baibao.UI.Preview.World".Localize(), modeWidth, 19f, () => SetPreviewMode(true));
+        _modes.AddRange(new[] { iconMode, worldMode });
 
-        GameObject summary = WanfaUiFactory.CreateLayout(root.transform, "Summary", true, innerWidth,
+        GameObject summary = UiLayout.Create(root.transform, "Summary", true, innerWidth,
             summaryHeight, spacing, TextAnchor.UpperLeft);
         GameObject previewFrame = new("Preview", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
         previewFrame.transform.SetParent(summary.transform, false);
-        WanfaUiFactory.SetLayout(previewFrame.transform, frameSize, frameSize);
+        UiLayout.SetSize(previewFrame.transform, frameSize, frameSize);
         Image frame = previewFrame.GetComponent<Image>();
-        frame.sprite = SpriteTextureLoader.getSprite("ui/special/windowEmptyFrame");
-        frame.type = Image.Type.Sliced;
+        UiResources.ApplySurface(frame, UiSurface.WindowEmpty);
 
         GameObject imageObject = new("Image", typeof(RectTransform), typeof(Image));
         imageObject.transform.SetParent(previewFrame.transform, false);
@@ -60,18 +59,18 @@ internal sealed class BaibaoArtifactPreview
         _preview = imageObject.GetComponent<Image>();
         _preview.preserveAspect = true;
 
-        GameObject information = WanfaUiFactory.CreateLayout(summary.transform, "Information", false,
+        GameObject information = UiLayout.Create(summary.transform, "Information", false,
             informationWidth, summaryHeight, 0f, TextAnchor.UpperLeft);
-        _name = WanfaUiFactory.CreateText(information.transform, "Name", string.Empty, informationWidth, 30f,
+        _name = UiElements.CreateText(information.transform, "Name", string.Empty, informationWidth, 30f,
             8, TextAnchor.UpperLeft, FontStyle.Bold);
-        _subtitle = WanfaUiFactory.CreateText(information.transform, "Subtitle", string.Empty, informationWidth,
+        _subtitle = UiElements.CreateText(information.transform, "Subtitle", string.Empty, informationWidth,
             18f, 6, TextAnchor.MiddleLeft);
-        _metrics = WanfaUiFactory.CreateText(information.transform, "Metrics", string.Empty, informationWidth,
+        _metrics = UiElements.CreateText(information.transform, "Metrics", string.Empty, informationWidth,
             32f, 6, TextAnchor.UpperLeft);
 
-        _details = WanfaUiFactory.CreateText(root.transform, "Details", string.Empty, innerWidth, detailsHeight,
+        _details = UiElements.CreateText(root.transform, "Details", string.Empty, innerWidth, detailsHeight,
             6, TextAnchor.UpperLeft);
-        _status = WanfaUiFactory.CreateText(root.transform, "Status", string.Empty, innerWidth, statusHeight, 6,
+        _status = UiElements.CreateText(root.transform, "Status", string.Empty, innerWidth, statusHeight, 6,
             TextAnchor.UpperLeft);
         Clear();
     }
@@ -100,7 +99,7 @@ internal sealed class BaibaoArtifactPreview
 
         string error = BaibaoPavilionService.Instance.Validate(blueprint);
         _status.text = error ?? validStatus;
-        _status.color = error == null ? validColor : new Color(1f, 0.45f, 0.38f, 1f);
+        _status.color = error == null ? validColor : UiTheme.Current.Palette.Error;
         RefreshPreview();
     }
 
@@ -113,8 +112,7 @@ internal sealed class BaibaoArtifactPreview
         _metrics.text = "Cultiway.Baibao.UI.Detail.SelectArtifact".Localize();
         _details.text = string.Empty;
         _status.text = string.Empty;
-        BaibaoUiFactory.SetSelected(_iconMode, !_worldPreview);
-        BaibaoUiFactory.SetSelected(_worldMode, _worldPreview);
+        _modes.SetSelected(_worldPreview ? 1 : 0);
     }
 
     private void SetPreviewMode(bool world)
@@ -125,15 +123,14 @@ internal sealed class BaibaoArtifactPreview
 
     private void RefreshPreview()
     {
-        BaibaoUiFactory.SetSelected(_iconMode, !_worldPreview);
-        BaibaoUiFactory.SetSelected(_worldMode, _worldPreview);
+        _modes.SetSelected(_worldPreview ? 1 : 0);
         if (_blueprint == null) return;
 
         BaibaoPavilionService service = BaibaoPavilionService.Instance;
         _preview.sprite = _draftPreview
             ? _worldPreview ? service.GetPreviewWorldSprite(_blueprint) : service.GetPreviewIcon(_blueprint)
             : _worldPreview ? service.GetWorldSprite(_blueprint) : service.GetIcon(_blueprint);
-        WanfaUiFactory.SetTooltip(_preview.gameObject, _blueprint.Name,
+        UiTooltip.Set(_preview.gameObject, _blueprint.Name,
             _worldPreview ? "Cultiway.Baibao.UI.Tooltip.WorldPreview" :
                 "Cultiway.Baibao.UI.Tooltip.IconPreview");
     }

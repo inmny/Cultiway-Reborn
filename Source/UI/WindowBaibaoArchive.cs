@@ -41,20 +41,18 @@ public sealed class WindowBaibaoArchive : AbstractWideWindow<WindowBaibaoArchive
 
     protected override void Init()
     {
-        Transform originalScrollView = BackgroundTransform.Find("Scroll View");
-        Transform scrollbarTemplate = originalScrollView.Find("Scrollbar Vertical Mask");
-        originalScrollView.gameObject.SetActive(false);
-        GameObject root = WanfaUiFactory.CreateLayout(BackgroundTransform, "BaibaoArchiveRoot", false, 520f,
+        UiWindowContext context = UiWindowContext.Bind(BackgroundTransform);
+        GameObject root = UiLayout.Create(BackgroundTransform, "BaibaoArchiveRoot", false, 520f,
             RootHeight, 4f);
         root.transform.localPosition = new Vector3(0f, -8f);
         CreateToolbar(root.transform);
         CreateSelectionBar(root.transform);
-        GameObject body = WanfaUiFactory.CreateLayout(root.transform, "Body", true, 520f, 284f, 4f,
+        GameObject body = UiLayout.Create(root.transform, "Body", true, 520f, 284f, 4f,
             TextAnchor.UpperLeft);
-        Transform content = WanfaUiFactory.CreateScrollContent(body.transform, "ArtifactList", 318f, 284f);
-        WanfaUiFactory.AttachOriginalVerticalScrollbar(content, scrollbarTemplate);
-        BaibaoUiFactory.AddScrollBackground(content);
-        _rowPool = new MonoObjPool<BaibaoArchiveRow>(BaibaoArchiveRow.Prefab, content);
+        UiScrollPane catalog = UiScrollPane.CreateVertical(body.transform, "ArtifactList", 318f, 284f);
+        catalog.AttachOriginalScrollbar(context.ScrollbarTemplate);
+        catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
+        _rowPool = new MonoObjPool<BaibaoArchiveRow>(BaibaoArchiveRow.Prefab, catalog.Content);
         _inspector = new BaibaoBlueprintInspector(body.transform, 198f, 284f);
     }
 
@@ -68,33 +66,33 @@ public sealed class WindowBaibaoArchive : AbstractWideWindow<WindowBaibaoArchive
 
     private void CreateToolbar(Transform root)
     {
-        GameObject toolbar = WanfaUiFactory.CreateLayout(root, "Toolbar", true, 520f, 24f, 4f);
-        Button back = WanfaUiFactory.CreateIconButton(toolbar.transform, "Back", BaibaoUiIcons.Pavilion, 28f,
+        GameObject toolbar = UiLayout.Create(root, "Toolbar", true, 520f, 24f, 4f);
+        Button back = UiElements.CreateIconButton(toolbar.transform, "Back", BaibaoUiIcons.Pavilion, 28f,
             22f, OpenPavilion);
-        WanfaUiFactory.SetTooltip(back.gameObject, "Cultiway.Baibao.UI.Action.BackToPavilion",
+        UiTooltip.Set(back.gameObject, "Cultiway.Baibao.UI.Action.BackToPavilion",
             "Cultiway.Baibao.UI.Tooltip.BackToPavilion");
-        _actorName = WanfaUiFactory.CreateText(toolbar.transform, "ActorName", string.Empty, 372f, 22f, 8,
+        _actorName = UiElements.CreateText(toolbar.transform, "ActorName", string.Empty, 372f, 22f, 8,
             TextAnchor.MiddleLeft, FontStyle.Bold);
-        _itemCount = WanfaUiFactory.CreateText(toolbar.transform, "ItemCount", string.Empty, 112f, 22f, 6,
+        _itemCount = UiElements.CreateText(toolbar.transform, "ItemCount", string.Empty, 112f, 22f, 6,
             TextAnchor.MiddleRight);
     }
 
     private void CreateSelectionBar(Transform root)
     {
-        GameObject bar = WanfaUiFactory.CreateLayout(root, "Selection", true, 520f, 22f, 4f);
-        _selectedCount = WanfaUiFactory.CreateText(bar.transform, "SelectedCount", string.Empty, 244f, 21f, 6,
+        GameObject bar = UiLayout.Create(root, "Selection", true, 520f, 22f, 4f);
+        _selectedCount = UiElements.CreateText(bar.transform, "SelectedCount", string.Empty, 244f, 21f, 6,
             TextAnchor.MiddleLeft);
-        _selectAll = WanfaUiFactory.CreateIconTextButton(bar.transform, "SelectAll", BaibaoUiIcons.Confirm,
+        _selectAll = UiElements.CreateIconTextButton(bar.transform, "SelectAll", UiIcons.Confirm,
             "Cultiway.Baibao.UI.Action.SelectAll".Localize(), 88f, 21f, SelectAll);
-        WanfaUiFactory.SetTooltip(_selectAll.gameObject, "Cultiway.Baibao.UI.Action.SelectAll",
+        UiTooltip.Set(_selectAll.gameObject, "Cultiway.Baibao.UI.Action.SelectAll",
             "Cultiway.Baibao.UI.Tooltip.SelectAllArchive");
-        _clearSelection = WanfaUiFactory.CreateIconTextButton(bar.transform, "Clear", BaibaoUiIcons.Reset,
+        _clearSelection = UiElements.CreateIconTextButton(bar.transform, "Clear", UiIcons.Reset,
             "Cultiway.Baibao.UI.Action.ClearSelection".Localize(), 88f, 21f, ClearSelection);
-        WanfaUiFactory.SetTooltip(_clearSelection.gameObject, "Cultiway.Baibao.UI.Action.ClearSelection",
+        UiTooltip.Set(_clearSelection.gameObject, "Cultiway.Baibao.UI.Action.ClearSelection",
             "Cultiway.Baibao.UI.Tooltip.ClearArchiveSelection");
-        _archiveSelected = WanfaUiFactory.CreateIconTextButton(bar.transform, "Archive", BaibaoUiIcons.Archive,
+        _archiveSelected = UiElements.CreateIconTextButton(bar.transform, "Archive", BaibaoUiIcons.Archive,
             "Cultiway.Baibao.UI.Action.ArchiveSelected".Localize(), 88f, 21f, ArchiveSelected);
-        WanfaUiFactory.SetTooltip(_archiveSelected.gameObject, "Cultiway.Baibao.UI.Action.ArchiveSelected",
+        UiTooltip.Set(_archiveSelected.gameObject, "Cultiway.Baibao.UI.Action.ArchiveSelected",
             "Cultiway.Baibao.UI.Tooltip.ArchiveSelected");
     }
 

@@ -10,7 +10,7 @@ namespace Cultiway.UI.Prefab;
 public sealed class BaibaoArtifactRow : APrefabPreview<BaibaoArtifactRow>
 {
     private Button _row;
-    private Image _background;
+    private UiListRowChrome _chrome;
     private Image _icon;
     private Text _name;
     private Text _detail;
@@ -21,7 +21,7 @@ public sealed class BaibaoArtifactRow : APrefabPreview<BaibaoArtifactRow>
     protected override void OnInit()
     {
         _row = GetComponent<Button>();
-        _background = GetComponent<Image>();
+        _chrome = UiListRowChrome.From(gameObject);
         _icon = transform.Find("Icon").GetComponent<Image>();
         _name = transform.Find("Labels/Name").GetComponent<Text>();
         _detail = transform.Find("Labels/Detail").GetComponent<Text>();
@@ -47,13 +47,13 @@ public sealed class BaibaoArtifactRow : APrefabPreview<BaibaoArtifactRow>
             blueprint.AbilitySet.abilities?.Length ?? 0);
         _icon.sprite = service.GetIcon(blueprint);
         _icon.preserveAspect = true;
-        WanfaUiFactory.SetTooltip(_icon.gameObject, blueprint.Name, error ?? _detail.text);
+        UiTooltip.Set(_icon.gameObject, blueprint.Name, error ?? _detail.text);
 
         _row.onClick.RemoveAllListeners();
         _row.onClick.AddListener(inspect.Invoke);
-        _background.color = active
-            ? BaibaoUiFactory.SelectionColor
-            : error == null ? Color.white : new Color(1f, 0.62f, 0.58f, 1f);
+        _chrome.SetState(active
+            ? UiControlState.Selected
+            : error == null ? UiControlState.Normal : UiControlState.Error);
 
         _favoriteIcon.color = blueprint.Favorite
             ? ColorStyleLibrary.m.favorite_selected
@@ -66,7 +66,7 @@ public sealed class BaibaoArtifactRow : APrefabPreview<BaibaoArtifactRow>
             giftSelected ? "Cultiway.Baibao.UI.Action.RemoveFromGift" : "Cultiway.Baibao.UI.Action.AddToGift",
             giftSelected ? "Cultiway.Baibao.UI.Tooltip.DeselectForGrant" :
                 "Cultiway.Baibao.UI.Tooltip.SelectForGrant");
-        BaibaoUiFactory.SetSelected(_gift, giftSelected);
+        UiStateStyle.SetSelected(_gift, giftSelected);
     }
 
     private static void Configure(Button button, Action action, string title, string description)
@@ -74,33 +74,29 @@ public sealed class BaibaoArtifactRow : APrefabPreview<BaibaoArtifactRow>
         button.interactable = action != null;
         button.onClick.RemoveAllListeners();
         if (action != null) button.onClick.AddListener(action.Invoke);
-        WanfaUiFactory.SetTooltip(button.gameObject, title, description);
+        UiTooltip.Set(button.gameObject, title, description);
     }
 
     private static void _init()
     {
-        GameObject obj = WanfaUiFactory.CreateLayout(ModClass.I.PrefabLibrary, nameof(BaibaoArtifactRow), true,
+        GameObject obj = UiLayout.Create(ModClass.I.PrefabLibrary, nameof(BaibaoArtifactRow), true,
             280f, 46f, 3f);
-        Image background = obj.AddComponent<Image>();
-        background.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
-        background.type = Image.Type.Sliced;
-        Button row = obj.AddComponent<Button>();
-        row.targetGraphic = background;
+        UiListRowChrome.Attach(obj, true);
         obj.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(6, 4, 3, 3);
 
         GameObject iconObject = new("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
         iconObject.transform.SetParent(obj.transform, false);
-        WanfaUiFactory.SetLayout(iconObject.transform, 40f, 40f);
+        UiLayout.SetSize(iconObject.transform, 40f, 40f);
         iconObject.GetComponent<Image>().preserveAspect = true;
 
-        GameObject labels = WanfaUiFactory.CreateLayout(obj.transform, "Labels", false, 158f, 40f, 0f);
-        WanfaUiFactory.CreateText(labels.transform, "Name", string.Empty, 158f, 21f, 8, TextAnchor.MiddleLeft,
+        GameObject labels = UiLayout.Create(obj.transform, "Labels", false, 158f, 40f, 0f);
+        UiElements.CreateText(labels.transform, "Name", string.Empty, 158f, 21f, 8, TextAnchor.MiddleLeft,
             FontStyle.Bold);
-        WanfaUiFactory.CreateText(labels.transform, "Detail", string.Empty, 158f, 19f, 6,
+        UiElements.CreateText(labels.transform, "Detail", string.Empty, 158f, 19f, 6,
             TextAnchor.MiddleLeft);
-        WanfaUiFactory.CreateIconButton(obj.transform, "Favorite", BaibaoUiIcons.Favorite, 24f, 24f, () => { },
+        UiElements.CreateIconButton(obj.transform, "Favorite", UiIcons.Favorite, 24f, 24f, () => { },
             4f);
-        WanfaUiFactory.CreateIconButton(obj.transform, "Gift", BaibaoUiIcons.Grant, 24f, 24f, () => { }, 4f);
+        UiElements.CreateIconButton(obj.transform, "Gift", UiIcons.Gift, 24f, 24f, () => { }, 4f);
         Prefab = obj.AddComponent<BaibaoArtifactRow>();
     }
 }
