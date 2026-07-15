@@ -37,8 +37,9 @@ public class ElementRootPage : MonoBehaviour
         layout.childForceExpandWidth = false;
         layout.spacing = 4f;
 
+        // 详情页同一时刻只展示一个灵根图，启用完整动态不会形成列表级刷新负担。
         er_page.Diagram = ElementRootDiagram.Create(content.transform, "Element Root Diagram", 74f,
-            ElementRootDiagramDetail.Medium);
+            ElementRootDiagramDetail.Large);
 
         var textObject = new GameObject("Details", typeof(RectTransform), typeof(CanvasRenderer), typeof(Text),
             typeof(LayoutElement));
