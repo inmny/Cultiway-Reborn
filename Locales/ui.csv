@@ -705,9 +705,9 @@ Cultiway.ElementRootDiagram.Tooltip.Title,灵根构成
 Cultiway.ElementRootDiagram.Tooltip.Groups,五行 {0} · 阴阳 {1} · 混沌 {2}
 Cultiway.ElementRootDiagram.Tooltip.Strength,综合强度 {0}
 Cultiway.UI.WindowBaibaoPavilion Title,百宝阁
-Cultiway.UI.WindowBaibaoPavilion Title Description,管理法宝蓝图，并进入炼制、收录或赠宝流程。
-Cultiway.UI.WindowBaibaoForge Title,法宝炼制
-Cultiway.UI.WindowBaibaoForge Title Description,选择器形、品阶与任意数量的 atom，预览并保存法宝蓝图。
+Cultiway.UI.WindowBaibaoPavilion Title Description,浏览法宝蓝图、检查详情并管理赠宝套装。
+Cultiway.UI.WindowBaibaoForge Title,法宝编辑器
+Cultiway.UI.WindowBaibaoForge Title Description,编辑法宝的器形、组合、外观与名称，并检查派生能力。
 Cultiway.UI.WindowBaibaoArchive Title,法宝收录
 Cultiway.UI.WindowBaibaoArchive Title Description,将目标角色持有的法宝复制为百宝阁制造蓝图，原法宝保持不变。
 Cultiway.Baibao.UI.Action.Forge,炼制
@@ -788,3 +788,147 @@ Cultiway.Baibao.UI.Tooltip.Save,将当前预览保存为可重复制造的法宝
 Cultiway.Baibao.UI.Tooltip.Cancel,放弃当前预览并返回上一个窗口。
 Cultiway.Baibao.UI.Tooltip.PreviousOption,切换到上一个已注册选项。
 Cultiway.Baibao.UI.Tooltip.NextOption,切换到下一个已注册选项。
+Cultiway.Baibao.UI.Action.NewArtifact,新建法宝
+Cultiway.Baibao.UI.Action.Edit,编辑
+Cultiway.Baibao.UI.Action.SaveCopy,另存副本
+Cultiway.Baibao.UI.Action.AddToGift,加入套装
+Cultiway.Baibao.UI.Action.RemoveFromGift,移出套装
+Cultiway.Baibao.UI.Action.ClearGiftSet,清空套装
+Cultiway.Baibao.UI.Action.ConfirmDelete,确认删除
+Cultiway.Baibao.UI.Action.CloseMenu,关闭
+Cultiway.Baibao.UI.Action.SelectAll,全选未收录
+Cultiway.Baibao.UI.Action.ClearSelection,清空选择
+Cultiway.Baibao.UI.Action.ArchiveSelected,收录所选
+Cultiway.Baibao.UI.Action.Deselect,取消选择
+Cultiway.Baibao.UI.Action.Add,添加
+Cultiway.Baibao.UI.Action.Remove,移除
+Cultiway.Baibao.UI.Action.Undo,撤销
+Cultiway.Baibao.UI.Action.Redo,重做
+Cultiway.Baibao.UI.Action.DiscardChanges,还原
+Cultiway.Baibao.UI.Action.SaveAndClose,保存并关闭
+Cultiway.Baibao.UI.Action.Discard,放弃
+Cultiway.Baibao.UI.Action.ContinueEditing,继续编辑
+Cultiway.Baibao.UI.Action.UseCustomName,改为自定
+Cultiway.Baibao.UI.Action.RestoreAutoName,恢复衍名
+Cultiway.Baibao.UI.Action.UseCustomAppearance,改为自定
+Cultiway.Baibao.UI.Action.RestoreAutoAppearance,恢复自动
+Cultiway.Baibao.UI.View.Catalog,法宝目录
+Cultiway.Baibao.UI.View.GiftSet,赠宝套装
+Cultiway.Baibao.UI.Preview.Icon,图标
+Cultiway.Baibao.UI.Preview.World,实体
+Cultiway.Baibao.UI.Tab.Basic,基础
+Cultiway.Baibao.UI.Tab.Composition,组合
+Cultiway.Baibao.UI.Tab.Appearance,外观
+Cultiway.Baibao.UI.Tab.Ability,能力
+Cultiway.Baibao.UI.Tab.Overview,总览
+Cultiway.Baibao.UI.Label.QualityStage,品阶阶段
+Cultiway.Baibao.UI.Label.QualityLevel,阶段内等级
+Cultiway.Baibao.UI.Label.NameRule,法宝命名
+Cultiway.Baibao.UI.Label.AppearanceMode,外观生成
+Cultiway.Baibao.UI.NameMode.Auto,自动衍名
+Cultiway.Baibao.UI.NameMode.Custom,自定名称
+Cultiway.Baibao.UI.Placeholder.ArtifactName,法宝名称
+Cultiway.Baibao.UI.State.None,无
+Cultiway.Baibao.UI.State.NoSelection,未选择法宝
+Cultiway.Baibao.UI.State.NewBlueprint,新蓝图
+Cultiway.Baibao.UI.State.ExistingBlueprint,已有蓝图
+Cultiway.Baibao.UI.State.CopyDraft,副本草稿
+Cultiway.Baibao.UI.State.Saved,已保存
+Cultiway.Baibao.UI.State.Unsaved,未保存
+Cultiway.Baibao.UI.State.BlueprintValid,蓝图结构有效
+Cultiway.Baibao.UI.State.NoAbility,当前没有派生能力
+Cultiway.Baibao.UI.Detail.SelectArtifact,从左侧目录选择法宝以检查完整结构。
+Cultiway.Baibao.UI.Detail.AutoName,名称随器形与 atom 组合稳定生成。
+Cultiway.Baibao.UI.Detail.CustomName,当前使用手动输入的名称。
+Cultiway.Baibao.UI.Detail.AutoAppearance,模板、变体和配色由组合稳定生成。
+Cultiway.Baibao.UI.Detail.CustomAppearance,当前外观由编辑器显式指定。
+Cultiway.Baibao.UI.Detail.AbilityDerived,能力由器形、atom 与品质推导，请在组合页调整来源。
+Cultiway.Baibao.UI.Ability.Active,主动能力
+Cultiway.Baibao.UI.Ability.Passive,被动能力
+Cultiway.Baibao.UI.Overview.Identity,法宝身份
+Cultiway.Baibao.UI.Overview.Composition,组合构件
+Cultiway.Baibao.UI.Overview.Appearance,外观结构
+Cultiway.Baibao.UI.Overview.Abilities,派生能力
+Cultiway.Baibao.UI.Overview.Validation,保存检查
+Cultiway.Baibao.UI.Format.ResultCount,{0} 件
+Cultiway.Baibao.UI.Format.GiftSetCount,套装内 {0} 件 · 每名生物每轮仅领一套
+Cultiway.Baibao.UI.Format.DirectoryRow,{0} · {1} · 能力 {2}
+Cultiway.Baibao.UI.Format.InspectorMetrics,材料 {0} 份\n稳定 {1:0.00} · 操控 {2:0.00}
+Cultiway.Baibao.UI.Format.InspectorEffects,构件：{0}\n能力：{1}
+Cultiway.Baibao.UI.Format.ConfirmDelete,确定从百宝阁删除“{0}”？
+Cultiway.Baibao.UI.Format.ArchiveSelectedCount,已选 {0} 件 · 可收录 {1} 件
+Cultiway.Baibao.UI.Format.EditorPreview,{0}\n{1}\n构件 {2} · 能力 {3}
+Cultiway.Baibao.UI.Format.EditorMetrics,稳定 {0:0.00}\n操控 {1:0.00} · 分念 {2}
+Cultiway.Baibao.UI.Format.QualityLevel,第 {0} 级
+Cultiway.Baibao.UI.Format.AtomStrength,强度 {0:0.00}
+Cultiway.Baibao.UI.Format.TemplateSlots,{0} 个模块槽位
+Cultiway.Baibao.UI.Format.ShapeTemplates,{0} 个外观模板
+Cultiway.Baibao.UI.Tip.Updated,法宝蓝图已更新
+Cultiway.Baibao.UI.Tip.CopySaved,法宝副本已收入百宝阁
+Cultiway.Baibao.UI.Tip.NoChanges,当前蓝图没有更改
+Cultiway.Baibao.UI.Tip.UnsavedChanges,当前法宝仍有未保存的更改
+Cultiway.Baibao.UI.Tooltip.Edit,在法宝编辑器中修改该蓝图；收录蓝图会作为副本编辑。
+Cultiway.Baibao.UI.Tooltip.SaveCopy,将当前结构保存成独立目录副本；即使结构相同也会保留新的蓝图身份。
+Cultiway.Baibao.UI.Tooltip.ClearGiftSet,从赠宝套装移除全部蓝图，不会删除目录内容。
+Cultiway.Baibao.UI.Tooltip.ConfirmDelete,永久删除目录中的蓝图，已经制造出的法宝不受影响。
+Cultiway.Baibao.UI.Tooltip.CancelDelete,返回目录并保留该蓝图。
+Cultiway.Baibao.UI.Tooltip.CloseMenu,关闭当前选项菜单。
+Cultiway.Baibao.UI.Tooltip.ShapeFilter.Menu,打开器形列表并直接选择筛选条件。
+Cultiway.Baibao.UI.Tooltip.Sort.Menu,打开排序列表并直接选择排序方式。
+Cultiway.Baibao.UI.Tooltip.IconPreview,显示背包和目录使用的法宝图标。
+Cultiway.Baibao.UI.Tooltip.WorldPreview,显示法宝作为世界实体时使用的正向贴图。
+Cultiway.Baibao.UI.Tooltip.SelectAllArchive,选择该角色全部尚未收录的法宝。
+Cultiway.Baibao.UI.Tooltip.ClearArchiveSelection,清空当前批量收录选择。
+Cultiway.Baibao.UI.Tooltip.ArchiveSelected,将所选法宝的固有结构复制为百宝阁蓝图。
+Cultiway.Baibao.UI.Tooltip.ArchiveSelection,切换该法宝的批量收录选择。
+Cultiway.Baibao.UI.Tooltip.ArtifactName,自定名称会覆盖组合规则生成的名称。
+Cultiway.Baibao.UI.Tooltip.NameMode.Title,命名方式
+Cultiway.Baibao.UI.Tooltip.NameMode,在稳定自动衍名与自定名称之间切换。
+Cultiway.Baibao.UI.Tooltip.Undo,撤销最近一次法宝编辑。
+Cultiway.Baibao.UI.Tooltip.Redo,恢复最近一次被撤销的编辑。
+Cultiway.Baibao.UI.Tooltip.DiscardChanges,回到本次打开或最近保存时的蓝图状态。
+Cultiway.Baibao.UI.Tooltip.ColorScheme,将该配色应用到当前模块槽位。
+Cultiway.Baibao.UI.Tooltip.Tab.Basic,选择器形、品阶与命名方式。
+Cultiway.Baibao.UI.Tooltip.Tab.Composition,自由增减 atom 并调整每个 atom 的强度。
+Cultiway.Baibao.UI.Tooltip.Tab.Appearance,选择模板以及各槽位的变体与配色。
+Cultiway.Baibao.UI.Tooltip.Tab.Ability,检查由当前组合推导出的主动与被动能力。
+Cultiway.Baibao.UI.Tooltip.Tab.Overview,汇总蓝图结构并显示保存校验结果。
+Cultiway.Baibao.UI.AtomCategory.Shape,器形
+Cultiway.Baibao.Appearance.Template.sword_diagonal_steep,凌斜剑式
+Cultiway.Baibao.Appearance.Template.sword_diagonal_shallow,舒斜剑式
+Cultiway.Baibao.Appearance.Template.seal_mountain_front,镇岳正印
+Cultiway.Baibao.Appearance.Template.seal_mountain_turn,镇岳侧印
+Cultiway.Baibao.Appearance.Template.robe_front_left,左襟法袍
+Cultiway.Baibao.Appearance.Template.robe_front_right,右襟法袍
+Cultiway.Baibao.Appearance.Template.mirror_tilt_left,左倾宝镜
+Cultiway.Baibao.Appearance.Template.mirror_tilt_right,右倾宝镜
+Cultiway.Baibao.Appearance.Template.ding_three_quarter_left,左向三足鼎
+Cultiway.Baibao.Appearance.Template.ding_three_quarter_right,右向三足鼎
+Cultiway.Baibao.Appearance.Module.sword_blade3d,剑身
+Cultiway.Baibao.Appearance.Module.sword_guard3d,剑格
+Cultiway.Baibao.Appearance.Module.sword_grip3d,剑柄
+Cultiway.Baibao.Appearance.Module.seal_mountain3d,印体
+Cultiway.Baibao.Appearance.Module.robe_panel3d,袍体
+Cultiway.Baibao.Appearance.Module.mirror3d,镜体
+Cultiway.Baibao.Appearance.Module.ding3d,鼎体
+Cultiway.Baibao.Appearance.Variant.sword_blade3d.crystal,晶锋
+Cultiway.Baibao.Appearance.Variant.sword_blade3d.jade,玉刃
+Cultiway.Baibao.Appearance.Variant.sword_blade3d.long_thorn,长锥
+Cultiway.Baibao.Appearance.Variant.sword_guard3d.bar,横格
+Cultiway.Baibao.Appearance.Variant.sword_guard3d.crescent,月牙
+Cultiway.Baibao.Appearance.Variant.sword_guard3d.wing,飞翼
+Cultiway.Baibao.Appearance.Variant.sword_grip3d.wrapped,缠柄
+Cultiway.Baibao.Appearance.Variant.sword_grip3d.ringed,环柄
+Cultiway.Baibao.Appearance.Variant.seal_mountain3d.green,青岳
+Cultiway.Baibao.Appearance.Variant.seal_mountain3d.amber,琥珀岳
+Cultiway.Baibao.Appearance.Variant.robe_panel3d.wide_blue,沧蓝广袖
+Cultiway.Baibao.Appearance.Variant.robe_panel3d.split_green,碧纹分襟
+Cultiway.Baibao.Appearance.Variant.mirror3d.bronze_round,青铜圆镜
+Cultiway.Baibao.Appearance.Variant.mirror3d.jade_hex,玉质六棱镜
+Cultiway.Baibao.Appearance.Variant.ding3d.blue_fire,幽蓝火鼎
+Cultiway.Baibao.Appearance.Variant.ding3d.copper_ember,赤铜烬鼎
+Cultiway.Baibao.Appearance.Color.cold_crystal,寒晶
+Cultiway.Baibao.Appearance.Color.gold_jade,金玉
+Cultiway.Baibao.Appearance.Color.dark_steel,玄钢
+Cultiway.Baibao.Appearance.Color.copper_ember,赤铜
+Cultiway.Baibao.Appearance.Color.black_gold,乌金

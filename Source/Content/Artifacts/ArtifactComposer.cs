@@ -59,6 +59,8 @@ public sealed class ArtifactDesignRequest
     public ArtifactShapeAsset Shape;
     public ItemLevel Level;
     public ArtifactAtomAsset[] Atoms = [];
+    public ArtifactAtomEntry[] AtomEntries = [];
+    public ArtifactAppearance? AppearanceOverride;
     public string Name;
 }
 
@@ -71,7 +73,7 @@ public static class ArtifactComposer
         ArtifactAtomSelection[] atoms = SelectAtoms(context, shape);
         ArtifactMaterialSemantics.ApplyAtoms(context, atoms);
         string compositionKey = BuildCompositionKey("recipe", context, shape, atoms);
-        return ComposeResolved(context, shape, atoms, compositionKey, null);
+        return ComposeResolved(context, shape, atoms, compositionKey, null, null);
     }
 
     /// <summary>
@@ -79,27 +81,66 @@ public static class ArtifactComposer
     /// </summary>
     public static ArtifactComposeResult ComposeDesign(ArtifactDesignRequest design)
     {
+        float qualityStrength = 1f + (int)design.Level / 35f * 0.5f;
+        ArtifactAtomSelection[] normalizedAtoms = ResolveDesignAtoms(design, qualityStrength);
+        ArtifactRecipeContext context = ArtifactMaterialSemantics.BuildDesign(design.Level, normalizedAtoms.Length);
+        ArtifactMaterialSemantics.ApplyAtoms(context, normalizedAtoms);
+        string compositionKey = BuildCompositionKey("design", context, design.Shape, normalizedAtoms);
+        return ComposeResolved(context, design.Shape, normalizedAtoms, compositionKey, design.Name,
+            design.AppearanceOverride);
+    }
+
+    private static ArtifactAtomSelection[] ResolveDesignAtoms(ArtifactDesignRequest design, float defaultStrength)
+    {
         List<ArtifactAtomSelection> atoms = new();
-        ArtifactAtomAsset shapeAtom = design.Atoms
+        ArtifactAtomEntry[] entries = design.AtomEntries ?? [];
+        if (entries.Length > 0)
+        {
+            ArtifactAtomSelection? shapeSelection = entries
+                .Select(entry => new
+                {
+                    Entry = entry,
+                    Atom = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.get(entry.atom_id),
+                })
+                .Where(item => item.Atom != null && item.Atom.category == ArtifactAtomCategory.Shape &&
+                               item.Atom.artifact_shape == design.Shape)
+                .OrderByDescending(item => item.Atom.priority)
+                .ThenBy(item => item.Atom.id, StringComparer.Ordinal)
+                .Select(item => (ArtifactAtomSelection?)new ArtifactAtomSelection(
+                    item.Atom, Mathf.Max(0.01f, item.Entry.strength)))
+                .FirstOrDefault();
+            AddIfNotNull(atoms, shapeSelection?.Atom ?? DefaultShapeAtom(design.Shape),
+                shapeSelection?.Strength ?? defaultStrength);
+
+            foreach (var item in entries
+                         .Select(entry => new
+                         {
+                             Entry = entry,
+                             Atom = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.get(entry.atom_id),
+                         })
+                         .Where(item => item.Atom != null && item.Atom.category != ArtifactAtomCategory.Shape)
+                         .OrderBy(item => item.Atom.category)
+                         .ThenBy(item => item.Atom.id, StringComparer.Ordinal))
+            {
+                AddIfNotNull(atoms, item.Atom, Mathf.Max(0.01f, item.Entry.strength));
+            }
+            return atoms.ToArray();
+        }
+
+        ArtifactAtomAsset shapeAtom = (design.Atoms ?? [])
             .Where(atom => atom.category == ArtifactAtomCategory.Shape && atom.artifact_shape == design.Shape)
             .OrderByDescending(atom => atom.priority)
             .ThenBy(atom => atom.id)
             .FirstOrDefault() ?? DefaultShapeAtom(design.Shape);
-        float qualityStrength = 1f + (int)design.Level / 35f * 0.5f;
-        AddIfNotNull(atoms, shapeAtom, qualityStrength);
-        foreach (ArtifactAtomAsset atom in design.Atoms
+        AddIfNotNull(atoms, shapeAtom, defaultStrength);
+        foreach (ArtifactAtomAsset atom in (design.Atoms ?? [])
                      .Where(atom => atom.category != ArtifactAtomCategory.Shape)
                      .OrderBy(atom => atom.category)
                      .ThenBy(atom => atom.id, StringComparer.Ordinal))
         {
-            AddIfNotNull(atoms, atom, qualityStrength);
+            AddIfNotNull(atoms, atom, defaultStrength);
         }
-
-        ArtifactAtomSelection[] normalizedAtoms = atoms.ToArray();
-        ArtifactRecipeContext context = ArtifactMaterialSemantics.BuildDesign(design.Level, normalizedAtoms.Length);
-        ArtifactMaterialSemantics.ApplyAtoms(context, normalizedAtoms);
-        string compositionKey = BuildCompositionKey("design", context, design.Shape, normalizedAtoms);
-        return ComposeResolved(context, design.Shape, normalizedAtoms, compositionKey, design.Name);
+        return atoms.ToArray();
     }
 
     private static ArtifactComposeResult ComposeResolved(
@@ -107,7 +148,8 @@ public static class ArtifactComposer
         ArtifactShapeAsset shape,
         ArtifactAtomSelection[] atoms,
         string compositionKey,
-        string explicitName)
+        string explicitName,
+        ArtifactAppearance? appearanceOverride)
     {
         ArtifactAbilityComposition abilities = ArtifactAbilityComposer.Compose(context, shape, atoms, compositionKey);
         return new ArtifactComposeResult
@@ -121,7 +163,7 @@ public static class ArtifactComposer
             },
             Atoms = atoms,
             MaterialData = context.material_data,
-            Appearance = ComposeAppearance(shape, atoms, compositionKey),
+            Appearance = appearanceOverride ?? ComposeAppearance(shape, atoms, compositionKey),
             AbilitySet = abilities.ability_set,
             AbilityRuntime = abilities.runtime,
         };

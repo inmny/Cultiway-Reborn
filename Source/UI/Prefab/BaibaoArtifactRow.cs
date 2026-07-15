@@ -6,145 +6,101 @@ using UnityEngine.UI;
 
 namespace Cultiway.UI.Prefab;
 
+/// <summary>百宝阁主目录中的紧凑蓝图条目。</summary>
 public sealed class BaibaoArtifactRow : APrefabPreview<BaibaoArtifactRow>
 {
+    private Button _row;
+    private Image _background;
     private Image _icon;
     private Text _name;
     private Text _detail;
     private Button _favorite;
     private Image _favoriteIcon;
-    private Button _up;
-    private Button _down;
-    private Button _delete;
-    private Button _select;
-    private Image _selectMarker;
+    private Button _gift;
 
     protected override void OnInit()
     {
+        _row = GetComponent<Button>();
+        _background = GetComponent<Image>();
         _icon = transform.Find("Icon").GetComponent<Image>();
         _name = transform.Find("Labels/Name").GetComponent<Text>();
         _detail = transform.Find("Labels/Detail").GetComponent<Text>();
         _favorite = transform.Find("Favorite").GetComponent<Button>();
         _favoriteIcon = transform.Find("Favorite/Icon").GetComponent<Image>();
-        _up = transform.Find("Up").GetComponent<Button>();
-        _down = transform.Find("Down").GetComponent<Button>();
-        _delete = transform.Find("Delete").GetComponent<Button>();
-        _select = transform.Find("Select").GetComponent<Button>();
-        _selectMarker = transform.Find("Select/Selected").GetComponent<Image>();
+        _gift = transform.Find("Gift").GetComponent<Button>();
     }
 
     public void Setup(
         ArtifactBlueprint blueprint,
-        bool allowMove,
-        bool selected,
+        bool active,
+        bool giftSelected,
+        Action inspect,
         Action favorite,
-        Action moveUp,
-        Action moveDown,
-        Action delete,
-        Action select)
+        Action gift)
     {
         Init();
         BaibaoPavilionService service = BaibaoPavilionService.Instance;
         string error = service.Validate(blueprint);
-        string state = error == null
-            ? "Cultiway.Baibao.UI.State.Valid".Localize()
-            : "Cultiway.Baibao.UI.State.Damaged".Localize();
-        string origin = blueprint.OriginKind == ArtifactBlueprintOriginKind.Forged
-            ? "Cultiway.Baibao.UI.State.Forged".Localize()
-            : string.Format("Cultiway.Baibao.UI.Format.ArchivedOrigin".Localize(), blueprint.SourceActorName);
-        string detail = string.Format("Cultiway.Baibao.UI.Format.BlueprintDetail".Localize(),
-            service.GetShapeName(blueprint), blueprint.Level.GetName(), blueprint.AtomData.GetCount(),
-            blueprint.AbilitySet.abilities.Length, origin, state);
-
         _name.text = blueprint.Name;
-        _detail.text = detail;
+        _detail.text = string.Format("Cultiway.Baibao.UI.Format.DirectoryRow".Localize(),
+            BaibaoPresentation.GetShapeName(blueprint), blueprint.Level.GetName(),
+            blueprint.AbilitySet.abilities?.Length ?? 0);
         _icon.sprite = service.GetIcon(blueprint);
         _icon.preserveAspect = true;
-        WanfaUiFactory.SetTooltip(_icon.gameObject, blueprint.Name, error ?? detail);
+        WanfaUiFactory.SetTooltip(_icon.gameObject, blueprint.Name, error ?? _detail.text);
 
-        SetFavoriteButton(blueprint.Favorite, favorite);
-        SetButton(_up, moveUp, "Cultiway.Baibao.UI.Action.MoveUp",
-            "Cultiway.Baibao.UI.Tooltip.MoveUp", allowMove);
-        SetButton(_down, moveDown, "Cultiway.Baibao.UI.Action.MoveDown",
-            "Cultiway.Baibao.UI.Tooltip.MoveDown", allowMove);
-        SetButton(_delete, delete, "Cultiway.Baibao.UI.Action.Delete",
-            "Cultiway.Baibao.UI.Tooltip.Delete");
-        SetSelectionButton(selected, select, error == null);
-    }
+        _row.onClick.RemoveAllListeners();
+        _row.onClick.AddListener(inspect.Invoke);
+        _background.color = active
+            ? BaibaoUiFactory.SelectionColor
+            : error == null ? Color.white : new Color(1f, 0.62f, 0.58f, 1f);
 
-    private static void SetButton(Button button, Action action, string titleKey, string descriptionKey,
-        bool interactable = true)
-    {
-        button.interactable = interactable;
-        button.onClick.RemoveAllListeners();
-        button.onClick.AddListener(action.Invoke);
-        WanfaUiFactory.SetTooltip(button.gameObject, titleKey, descriptionKey);
-    }
-
-    private void SetFavoriteButton(bool selected, Action action)
-    {
-        _favoriteIcon.color = selected
+        _favoriteIcon.color = blueprint.Favorite
             ? ColorStyleLibrary.m.favorite_selected
             : ColorStyleLibrary.m.favorite_not_selected;
-        _favorite.onClick.RemoveAllListeners();
-        _favorite.onClick.AddListener(action.Invoke);
-        WanfaUiFactory.SetTooltip(_favorite.gameObject,
-            selected ? "Cultiway.Baibao.UI.Action.Unfavorite" : "Cultiway.Baibao.UI.Action.Favorite",
-            selected ? "Cultiway.Baibao.UI.Tooltip.Unfavorite" : "Cultiway.Baibao.UI.Tooltip.Favorite");
+        Configure(_favorite, favorite,
+            blueprint.Favorite ? "Cultiway.Baibao.UI.Action.Unfavorite" : "Cultiway.Baibao.UI.Action.Favorite",
+            blueprint.Favorite ? "Cultiway.Baibao.UI.Tooltip.Unfavorite" :
+                "Cultiway.Baibao.UI.Tooltip.Favorite");
+        Configure(_gift, error == null ? gift : null,
+            giftSelected ? "Cultiway.Baibao.UI.Action.RemoveFromGift" : "Cultiway.Baibao.UI.Action.AddToGift",
+            giftSelected ? "Cultiway.Baibao.UI.Tooltip.DeselectForGrant" :
+                "Cultiway.Baibao.UI.Tooltip.SelectForGrant");
+        BaibaoUiFactory.SetSelected(_gift, giftSelected);
     }
 
-    private void SetSelectionButton(bool selected, Action action, bool interactable)
+    private static void Configure(Button button, Action action, string title, string description)
     {
-        _select.interactable = interactable;
-        _select.onClick.RemoveAllListeners();
-        _select.onClick.AddListener(action.Invoke);
-        _selectMarker.gameObject.SetActive(selected);
-        _select.transform.Find("Icon").GetComponent<Image>().color = selected
-            ? ColorStyleLibrary.m.getSelectorColor()
-            : Color.white;
-        WanfaUiFactory.SetTooltip(_select.gameObject,
-            selected ? "Cultiway.Baibao.UI.Action.Selected" : "Cultiway.Baibao.UI.Action.Select",
-            selected
-                ? "Cultiway.Baibao.UI.Tooltip.DeselectForGrant"
-                : "Cultiway.Baibao.UI.Tooltip.SelectForGrant");
+        button.interactable = action != null;
+        button.onClick.RemoveAllListeners();
+        if (action != null) button.onClick.AddListener(action.Invoke);
+        WanfaUiFactory.SetTooltip(button.gameObject, title, description);
     }
 
     private static void _init()
     {
         GameObject obj = WanfaUiFactory.CreateLayout(ModClass.I.PrefabLibrary, nameof(BaibaoArtifactRow), true,
-            500f, 38f, 3f);
+            280f, 46f, 3f);
         Image background = obj.AddComponent<Image>();
         background.sprite = SpriteTextureLoader.getSprite("ui/special/windowInnerSliced");
         background.type = Image.Type.Sliced;
+        Button row = obj.AddComponent<Button>();
+        row.targetGraphic = background;
+        obj.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(6, 4, 3, 3);
 
         GameObject iconObject = new("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
         iconObject.transform.SetParent(obj.transform, false);
-        WanfaUiFactory.SetLayout(iconObject.transform, 34f, 34f);
+        WanfaUiFactory.SetLayout(iconObject.transform, 40f, 40f);
         iconObject.GetComponent<Image>().preserveAspect = true;
 
-        GameObject labels = WanfaUiFactory.CreateLayout(obj.transform, "Labels", false, 279f, 34f, 0f);
-        WanfaUiFactory.CreateText(labels.transform, "Name", string.Empty, 279f, 17f, 8, TextAnchor.MiddleLeft,
+        GameObject labels = WanfaUiFactory.CreateLayout(obj.transform, "Labels", false, 158f, 40f, 0f);
+        WanfaUiFactory.CreateText(labels.transform, "Name", string.Empty, 158f, 21f, 8, TextAnchor.MiddleLeft,
             FontStyle.Bold);
-        WanfaUiFactory.CreateText(labels.transform, "Detail", string.Empty, 279f, 17f, 6);
-        WanfaUiFactory.CreateIconButton(obj.transform, "Favorite", BaibaoUiIcons.Favorite, 28f, 24f, () => { });
-        WanfaUiFactory.CreateIconButton(obj.transform, "Up", BaibaoUiIcons.MoveUp, 20f, 24f, () => { }, 3f,
-            1.45f, 90f);
-        WanfaUiFactory.CreateIconButton(obj.transform, "Down", BaibaoUiIcons.MoveDown, 20f, 24f, () => { }, 3f,
-            1.45f, 90f);
-        WanfaUiFactory.CreateIconButton(obj.transform, "Delete", BaibaoUiIcons.Delete, 28f, 24f, () => { });
-        Button select = WanfaUiFactory.CreateIconButton(obj.transform, "Select", BaibaoUiIcons.Select, 28f, 24f,
-            () => { });
-        GameObject selected = new("Selected", typeof(RectTransform), typeof(Image));
-        selected.transform.SetParent(select.transform, false);
-        RectTransform selectedRect = selected.GetComponent<RectTransform>();
-        selectedRect.anchorMin = selectedRect.anchorMax = new Vector2(1f, 0f);
-        selectedRect.sizeDelta = new Vector2(10f, 10f);
-        selectedRect.anchoredPosition = new Vector2(-5f, 5f);
-        Image selectedImage = selected.GetComponent<Image>();
-        selectedImage.sprite = SpriteTextureLoader.getSprite("ui/icons/IconOn");
-        selectedImage.color = ColorStyleLibrary.m.getSelectorColor();
-        selectedImage.raycastTarget = false;
-        selected.SetActive(false);
+        WanfaUiFactory.CreateText(labels.transform, "Detail", string.Empty, 158f, 19f, 6,
+            TextAnchor.MiddleLeft);
+        WanfaUiFactory.CreateIconButton(obj.transform, "Favorite", BaibaoUiIcons.Favorite, 24f, 24f, () => { },
+            4f);
+        WanfaUiFactory.CreateIconButton(obj.transform, "Gift", BaibaoUiIcons.Grant, 24f, 24f, () => { }, 4f);
         Prefab = obj.AddComponent<BaibaoArtifactRow>();
     }
 }

@@ -71,6 +71,62 @@ public sealed class BaibaoPavilionService
         return AddPrepared(ArtifactBlueprintCodec.FromComposeResult(result));
     }
 
+    /// <summary>用编辑后的固有结构更新目录中的炼制蓝图，并保留其目录元数据。</summary>
+    public BaibaoSaveResult Update(ArtifactBlueprint draft)
+    {
+        ArtifactBlueprint current = _store.Get(draft.Id);
+        if (current == null)
+        {
+            return Invalid(draft, "百宝阁中不存在要更新的法宝蓝图");
+        }
+
+        ArtifactBlueprint blueprint = draft.DeepClone();
+        blueprint.SchemaVersion = ArtifactBlueprint.CurrentSchemaVersion;
+        blueprint.Id = current.Id;
+        blueprint.Favorite = current.Favorite;
+        blueprint.SortOrder = current.SortOrder;
+        blueprint.CreatedAtUtcTicks = current.CreatedAtUtcTicks;
+        blueprint.UpdatedAtUtcTicks = DateTime.UtcNow.Ticks;
+        blueprint.OriginKind = current.OriginKind;
+        blueprint.SourceActorId = current.SourceActorId;
+        blueprint.SourceActorName = current.SourceActorName;
+
+        string error = Validate(blueprint);
+        if (error != null) return Invalid(blueprint, error);
+        ArtifactBlueprint duplicate = _store.FindBySignature(ArtifactBlueprintSignature.Build(blueprint), blueprint.Id);
+        if (duplicate != null) return Duplicate(duplicate);
+
+        _store.Replace(blueprint);
+        Changed?.Invoke();
+        return Saved(blueprint);
+    }
+
+    /// <summary>保存新的炼制设计，仍执行结构去重。</summary>
+    public BaibaoSaveResult SaveNew(ArtifactBlueprint draft)
+    {
+        return AddPrepared(PrepareCopy(draft));
+    }
+
+    /// <summary>按用户的明确操作另存目录副本，允许同构蓝图拥有独立目录身份。</summary>
+    public BaibaoSaveResult SaveCopy(ArtifactBlueprint draft)
+    {
+        return AddPrepared(PrepareCopy(draft), true);
+    }
+
+    private static ArtifactBlueprint PrepareCopy(ArtifactBlueprint draft)
+    {
+        ArtifactBlueprint copy = draft.DeepClone();
+        copy.Id = null;
+        copy.OriginKind = ArtifactBlueprintOriginKind.Forged;
+        copy.SourceActorId = 0;
+        copy.SourceActorName = null;
+        copy.Favorite = false;
+        copy.SortOrder = 0;
+        copy.CreatedAtUtcTicks = 0;
+        copy.UpdatedAtUtcTicks = 0;
+        return copy;
+    }
+
     public BaibaoSaveResult Archive(Entity artifact, Actor sourceActor)
     {
         return AddPrepared(ArtifactBlueprintCodec.Capture(artifact, sourceActor));
@@ -112,9 +168,19 @@ public sealed class BaibaoPavilionService
 
     public Sprite GetIcon(ArtifactBlueprint blueprint)
     {
-        string signature = ArtifactBlueprintSignature.Build(blueprint);
+        string signature = $"icon|{ArtifactBlueprintSignature.Build(blueprint)}";
         if (_iconCache.TryGetValue(signature, out Sprite sprite)) return sprite;
-        sprite = RenderIcon(blueprint);
+        sprite = RenderSprite(blueprint, false);
+        if (sprite != null) _iconCache[signature] = sprite;
+        return sprite;
+    }
+
+    /// <summary>取得法宝在世界中使用的正向贴图，专属器形可以通过器形接口覆盖。</summary>
+    public Sprite GetWorldSprite(ArtifactBlueprint blueprint)
+    {
+        string signature = $"world|{ArtifactBlueprintSignature.Build(blueprint)}";
+        if (_iconCache.TryGetValue(signature, out Sprite sprite)) return sprite;
+        sprite = RenderSprite(blueprint, true);
         if (sprite != null) _iconCache[signature] = sprite;
         return sprite;
     }
@@ -122,13 +188,23 @@ public sealed class BaibaoPavilionService
     /// <summary>生成临时设计的预览图标，不将尚未保存的随机结果留在目录缓存中。</summary>
     public Sprite GetPreviewIcon(ArtifactBlueprint blueprint)
     {
-        return RenderIcon(blueprint);
+        return RenderSprite(blueprint, false);
     }
 
-    private Sprite RenderIcon(ArtifactBlueprint blueprint)
+    /// <summary>生成临时设计的世界贴图预览。</summary>
+    public Sprite GetPreviewWorldSprite(ArtifactBlueprint blueprint)
+    {
+        return RenderSprite(blueprint, true);
+    }
+
+    private Sprite RenderSprite(ArtifactBlueprint blueprint, bool world)
     {
         if (!TryMaterialize(blueprint, "百宝阁预览", out Entity preview)) return null;
-        Sprite sprite = preview.GetComponent<SpecialItem>().GetSprite();
+        ref SpecialItem specialItem = ref preview.GetComponent<SpecialItem>();
+        ArtifactShapeAsset shape = (ArtifactShapeAsset)specialItem.Shape.Type;
+        Sprite sprite = world && shape.GetWorldSprite != null
+            ? shape.GetWorldSprite(preview)
+            : specialItem.GetSprite();
         preview.DeleteEntity();
         return sprite;
     }
@@ -197,11 +273,9 @@ public sealed class BaibaoPavilionService
             }
         }
 
-        if (!string.IsNullOrEmpty(blueprint.Appearance.template_key) &&
-            !ArtifactAppearanceCatalogLoader.Current.Templates.ContainsKey(blueprint.Appearance.template_key))
-        {
-            return $"法宝外观模板不存在: {blueprint.Appearance.template_key}";
-        }
+        string appearanceError = ValidateAppearance(blueprint,
+            (ArtifactShapeAsset)ModClass.L.ItemShapeLibrary.get(blueprint.ShapeId));
+        if (appearanceError != null) return appearanceError;
 
         ArtifactAbilityInstance[] abilities = blueprint.AbilitySet.abilities ?? [];
         HashSet<string> instanceIds = new(StringComparer.Ordinal);
@@ -251,6 +325,48 @@ public sealed class BaibaoPavilionService
                InvalidNumber(material.shen) || InvalidNumber(material.jindan_strength);
     }
 
+    private static string ValidateAppearance(ArtifactBlueprint blueprint, ArtifactShapeAsset shape)
+    {
+        ArtifactAppearance appearance = blueprint.Appearance;
+        if (string.IsNullOrEmpty(appearance.template_key)) return null;
+
+        ArtifactAppearanceCatalog catalog = ArtifactAppearanceCatalogLoader.Current;
+        if (!catalog.Templates.TryGetValue(appearance.template_key, out ArtifactAppearanceTemplateDef template))
+            return $"法宝外观模板不存在: {appearance.template_key}";
+        if (template.Shape != shape.appearance_family)
+            return $"法宝外观模板与器形不匹配: {appearance.template_key}";
+
+        ArtifactAppearancePart[] parts = appearance.parts ?? [];
+        if (parts.Length != template.Placements.Length) return "法宝外观槽位数量与模板不匹配";
+        HashSet<string> slots = new(StringComparer.Ordinal);
+        for (int i = 0; i < template.Placements.Length; i++)
+        {
+            ArtifactAppearancePlacementDef placement = template.Placements[i];
+            int partIndex = Array.FindIndex(parts, part => part.slot == placement.Slot);
+            if (partIndex < 0 || !slots.Add(placement.Slot)) return $"法宝外观缺少或重复槽位: {placement.Slot}";
+            ArtifactAppearancePart part = parts[partIndex];
+            if (part.module != placement.Module) return $"法宝外观槽位模块不匹配: {placement.Slot}";
+            ArtifactAppearanceModuleDef module = catalog.Modules[placement.Module];
+            ArtifactAppearanceVariantDef variant = module.GetVariant(part.variant);
+            if (variant == null || variant.GetAnchor(placement.Anchor) == null)
+                return $"法宝外观变体无法放入槽位: {placement.Slot}";
+            if (!string.IsNullOrEmpty(part.color_scheme) && !catalog.ColorSchemes.ContainsKey(part.color_scheme))
+                return $"法宝外观配色不存在: {part.color_scheme}";
+
+            ArtifactAppearanceColor[] colors = part.colors ?? [];
+            HashSet<string> materials = new(StringComparer.Ordinal);
+            for (int j = 0; j < colors.Length; j++)
+            {
+                if (string.IsNullOrWhiteSpace(colors[j].material) || !materials.Add(colors[j].material) ||
+                    !ColorUtility.TryParseHtmlString(colors[j].color_hex, out _))
+                {
+                    return $"法宝外观自定义颜色无效: {placement.Slot}";
+                }
+            }
+        }
+        return null;
+    }
+
     public string GetShapeName(ArtifactBlueprint blueprint)
     {
         if (ModClass.L.ItemShapeLibrary.get(blueprint.ShapeId) is not ArtifactShapeAsset shape)
@@ -263,6 +379,14 @@ public sealed class BaibaoPavilionService
         ArtifactBlueprint blueprint = _store.Get(id);
         if (blueprint == null || Validate(blueprint) != null) return;
         if (!_selectedBlueprintIds.Add(id)) _selectedBlueprintIds.Remove(id);
+        _store.SaveSelection(_selectedBlueprintIds);
+        Changed?.Invoke();
+    }
+
+    public void ClearSelected()
+    {
+        if (_selectedBlueprintIds.Count == 0) return;
+        _selectedBlueprintIds.Clear();
         _store.SaveSelection(_selectedBlueprintIds);
         Changed?.Invoke();
     }
@@ -300,7 +424,7 @@ public sealed class BaibaoPavilionService
         Changed?.Invoke();
     }
 
-    private BaibaoSaveResult AddPrepared(ArtifactBlueprint blueprint)
+    private BaibaoSaveResult AddPrepared(ArtifactBlueprint blueprint, bool allowDuplicate = false)
     {
         blueprint.Id = Guid.NewGuid().ToString("N");
         blueprint.SchemaVersion = ArtifactBlueprint.CurrentSchemaVersion;
@@ -309,32 +433,41 @@ public sealed class BaibaoPavilionService
         string error = Validate(blueprint);
         if (error != null)
         {
-            return new BaibaoSaveResult
-            {
-                Status = BaibaoSaveStatus.Invalid,
-                Blueprint = blueprint,
-                Error = error,
-            };
+            return Invalid(blueprint, error);
         }
 
-        ArtifactBlueprint duplicate = _store.FindBySignature(ArtifactBlueprintSignature.Build(blueprint));
+        ArtifactBlueprint duplicate = allowDuplicate
+            ? null
+            : _store.FindBySignature(ArtifactBlueprintSignature.Build(blueprint));
         if (duplicate != null)
         {
-            return new BaibaoSaveResult
-            {
-                Status = BaibaoSaveStatus.Duplicate,
-                Blueprint = duplicate,
-            };
+            return Duplicate(duplicate);
         }
 
         _store.Add(blueprint);
         _selectedBlueprintIds.Add(blueprint.Id);
         _store.SaveSelection(_selectedBlueprintIds);
         Changed?.Invoke();
+        return Saved(blueprint);
+    }
+
+    private static BaibaoSaveResult Saved(ArtifactBlueprint blueprint)
+    {
+        return new BaibaoSaveResult { Status = BaibaoSaveStatus.Saved, Blueprint = blueprint };
+    }
+
+    private static BaibaoSaveResult Duplicate(ArtifactBlueprint blueprint)
+    {
+        return new BaibaoSaveResult { Status = BaibaoSaveStatus.Duplicate, Blueprint = blueprint };
+    }
+
+    private static BaibaoSaveResult Invalid(ArtifactBlueprint blueprint, string error)
+    {
         return new BaibaoSaveResult
         {
-            Status = BaibaoSaveStatus.Saved,
+            Status = BaibaoSaveStatus.Invalid,
             Blueprint = blueprint,
+            Error = error,
         };
     }
 }

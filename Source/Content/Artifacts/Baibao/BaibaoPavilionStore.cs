@@ -27,9 +27,10 @@ internal sealed class BaibaoPavilionStore
         return Data.Blueprints.FirstOrDefault(blueprint => blueprint.Id == id);
     }
 
-    public ArtifactBlueprint FindBySignature(string signature)
+    public ArtifactBlueprint FindBySignature(string signature, string excludedId = null)
     {
-        return Data.Blueprints.FirstOrDefault(blueprint => ArtifactBlueprintSignature.Build(blueprint) == signature);
+        return Data.Blueprints.FirstOrDefault(blueprint => blueprint.Id != excludedId &&
+                                                               ArtifactBlueprintSignature.Build(blueprint) == signature);
     }
 
     public void Add(ArtifactBlueprint blueprint)

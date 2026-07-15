@@ -1,233 +1,1009 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Artifacts.Baibao;
+using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Components;
+using Cultiway.UI.Components;
+using Cultiway.UI.Prefab;
 using NeoModLoader.api;
+using NeoModLoader.General;
+using Newtonsoft.Json;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace Cultiway.UI;
 
-/// <summary>
-/// 法宝炼制窗口。器形和 atom 均从注册表读取，非器形 atom 可以任意组合。
-/// </summary>
+/// <summary>以蓝图草稿驱动的多页法宝编辑器。</summary>
 public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
 {
-    public const string Id = "Cultiway.UI.WindowBaibaoForge";
-    public static readonly Vector2 WindowSize = new(600f, 360f);
-    private const float RootHeight = 318f;
-    private static bool _resetRequested;
+    private enum ExitMode
+    {
+        Close,
+        Back,
+    }
 
+    private enum EditorPage
+    {
+        Basic,
+        Composition,
+        Appearance,
+        Ability,
+        Overview,
+    }
+
+    private sealed class EditorDraft
+    {
+        public ArtifactBlueprint Blueprint;
+        public bool AutoName;
+        public bool AutoAppearance;
+
+        public EditorDraft DeepClone()
+        {
+            return new EditorDraft
+            {
+                Blueprint = Blueprint.DeepClone(),
+                AutoName = AutoName,
+                AutoAppearance = AutoAppearance,
+            };
+        }
+    }
+
+    public const string Id = "Cultiway.UI.WindowBaibaoForge";
+    public static readonly Vector2 WindowSize = new(600f, 380f);
+    private const float RootHeight = 338f;
+    private const float EditorContentHeight = 254f;
+    private static ArtifactBlueprint _pendingBlueprint;
+    private static bool _pendingCopyOnly;
+    private static bool _pendingNew;
+
+    private readonly Stack<EditorDraft> _undo = new();
+    private readonly Stack<EditorDraft> _redo = new();
     private ArtifactShapeAsset[] _shapes = [];
     private ArtifactAtomAsset[] _atoms = [];
-    private Toggle[] _atomToggles = [];
-    private Image _previewImage;
-    private Text _previewName;
-    private Text _previewSummary;
-    private Text _shapeValue;
-    private Text _qualityValue;
-    private Text _atomTitle;
-    private int _shapeIndex;
-    private int _qualityValueIndex;
-    private bool _suppressRefresh;
+    private EditorDraft _draft;
+    private EditorDraft _savedDraft;
+    private bool _existing;
+    private bool _canUpdate;
+    private bool _saveAsCopy;
+    private bool _closingApproved;
+    private bool _resumeAfterClose;
+    private ExitMode _pendingExitMode;
+    private EditorPage _page;
+    private CanvasGroup _editorCanvas;
+    private InputField _nameInput;
+    private Button _nameMode;
+    private Text _draftState;
+    private BaibaoArtifactPreview _preview;
+    private Button[] _tabButtons;
+    private MonoObjPool<BaibaoEditorRow> _rowPool;
+    private Button _undoButton;
+    private Button _redoButton;
+    private Button _saveButton;
+    private GameObject _confirmation;
 
     public static void Open()
     {
-        _resetRequested = true;
+        _pendingBlueprint = null;
+        _pendingCopyOnly = false;
+        _pendingNew = true;
+        ScrollWindow.showWindow(Id);
+    }
+
+    public static void Open(ArtifactBlueprint blueprint)
+    {
+        _pendingBlueprint = blueprint.DeepClone();
+        _pendingCopyOnly = blueprint.OriginKind != ArtifactBlueprintOriginKind.Forged;
+        _pendingNew = false;
+        ScrollWindow.showWindow(Id);
+    }
+
+    public static void OpenCopy(ArtifactBlueprint blueprint)
+    {
+        _pendingBlueprint = blueprint.DeepClone();
+        _pendingCopyOnly = true;
+        _pendingNew = false;
         ScrollWindow.showWindow(Id);
     }
 
     protected override void Init()
     {
-        BackgroundTransform.Find("Scroll View").gameObject.SetActive(false);
-        GameObject root = WanfaUiFactory.CreateLayout(BackgroundTransform, "BaibaoForgeRoot", false, 520f,
+        Transform originalScrollView = BackgroundTransform.Find("Scroll View");
+        Transform scrollbarTemplate = originalScrollView.Find("Scrollbar Vertical Mask");
+        originalScrollView.gameObject.SetActive(false);
+
+        GameObject root = WanfaUiFactory.CreateLayout(BackgroundTransform, "BaibaoEditorRoot", false, 520f,
             RootHeight, 4f);
         root.transform.localPosition = new Vector3(0f, -8f);
+        _editorCanvas = root.AddComponent<CanvasGroup>();
+        CreateHeader(root.transform);
 
-        GameObject preview = WanfaUiFactory.CreateLayout(root.transform, "Preview", true, 520f, 66f, 6f);
-        GameObject imageObject = new("Image", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-        imageObject.transform.SetParent(preview.transform, false);
-        WanfaUiFactory.SetLayout(imageObject.transform, 64f, 64f);
-        _previewImage = imageObject.GetComponent<Image>();
-        _previewImage.preserveAspect = true;
-        GameObject labels = WanfaUiFactory.CreateLayout(preview.transform, "Labels", false, 450f, 64f, 0f);
-        _previewName = WanfaUiFactory.CreateText(labels.transform, "Name", string.Empty, 450f, 22f, 10,
-            TextAnchor.MiddleLeft, FontStyle.Bold);
-        _previewSummary = WanfaUiFactory.CreateText(labels.transform, "Summary", string.Empty, 450f, 42f, 7,
+        GameObject body = WanfaUiFactory.CreateLayout(root.transform, "Body", true, 520f, 280f, 4f,
             TextAnchor.UpperLeft);
+        CreatePreview(body.transform);
+        GameObject editor = WanfaUiFactory.CreateLayout(body.transform, "Editor", false, 358f, 280f, 4f);
+        CreateTabs(editor.transform);
+        Transform content = WanfaUiFactory.CreateScrollContent(editor.transform, "EditorContent", 358f,
+            EditorContentHeight);
+        WanfaUiFactory.AttachOriginalVerticalScrollbar(content, scrollbarTemplate);
+        BaibaoUiFactory.AddScrollBackground(content);
+        _rowPool = new MonoObjPool<BaibaoEditorRow>(BaibaoEditorRow.Prefab, content);
 
-        GameObject selectors = WanfaUiFactory.CreateLayout(root.transform, "Selectors", true, 520f, 24f, 4f);
-        CreateSelector(selectors.transform, "Shape", "Cultiway.Baibao.UI.Label.Shape", 165f,
-            () => CycleShape(-1), () => CycleShape(1), out _shapeValue);
-        CreateSelector(selectors.transform, "Quality", "Cultiway.Baibao.UI.Label.Quality", 133f,
-            () => CycleQuality(-1), () => CycleQuality(1), out _qualityValue);
-
-        _atomTitle = WanfaUiFactory.CreateText(root.transform, "AtomTitle", string.Empty, 520f, 17f, 7,
-            TextAnchor.MiddleLeft, FontStyle.Bold);
-        Transform atomContent = WanfaUiFactory.CreateScrollContent(root.transform, "Atoms", 520f, 166f);
-
-        _shapes = ModClass.L.ItemShapeLibrary.list
-            .OfType<ArtifactShapeAsset>()
-            .OrderBy(shape => shape.id, StringComparer.Ordinal)
-            .ToArray();
-        _atoms = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.All
-            .Where(atom => atom.category != ArtifactAtomCategory.Shape)
-            .OrderBy(atom => atom.category)
-            .ThenByDescending(atom => atom.priority)
-            .ThenBy(atom => atom.id, StringComparer.Ordinal)
-            .ToArray();
-        _atomToggles = new Toggle[_atoms.Length];
-        for (int i = 0; i < _atoms.Length; i++)
-        {
-            ArtifactAtomAsset atom = _atoms[i];
-            string label = string.Format("Cultiway.Baibao.UI.Format.AtomOption".Localize(),
-                GetCategoryName(atom.category), GetAtomName(atom));
-            Toggle toggle = WanfaUiFactory.CreateToggle(atomContent, $"Atom_{atom.id}", label, false, 500f, 24f);
-            WanfaUiFactory.SetTooltip(toggle, GetAtomName(atom), "Cultiway.Baibao.UI.Tooltip.Atom");
-            toggle.onValueChanged.AddListener(_ => OnAtomChanged());
-            _atomToggles[i] = toggle;
-        }
-
-        GameObject footer = WanfaUiFactory.CreateLayout(root.transform, "Footer", true, 520f, 25f, 4f,
-            TextAnchor.MiddleRight);
-        WanfaUiFactory.CreateText(footer.transform, "Spacer", string.Empty, 436f, 25f);
-        Button save = WanfaUiFactory.CreateIconTextButton(footer.transform, "Save", BaibaoUiIcons.Save,
-            "Cultiway.Baibao.UI.Action.Save".Localize(), 48f, 23f, Save);
-        WanfaUiFactory.SetTooltip(save.gameObject, "Cultiway.Baibao.UI.Action.Save",
-            "Cultiway.Baibao.UI.Tooltip.Save");
-        Button cancel = WanfaUiFactory.CreateIconButton(footer.transform, "Cancel", BaibaoUiIcons.Cancel, 28f,
-            23f, CloseToPrevious);
-        WanfaUiFactory.SetTooltip(cancel.gameObject, "Cultiway.Baibao.UI.Action.Cancel",
-            "Cultiway.Baibao.UI.Tooltip.Cancel");
+        CreateFooter(root.transform);
+        CreateConfirmationPanel();
+        PositionBackButton();
     }
 
     public override void OnNormalEnable()
     {
-        if (_resetRequested)
+        StartCoroutine(BindBackButtonAfterScrollWindowStart());
+        if (_resumeAfterClose)
         {
-            ResetDesign();
-            _resetRequested = false;
+            _resumeAfterClose = false;
+            RefreshAll();
+            SetConfirmation(true);
+            return;
         }
-        RefreshPreview();
+
+        RefreshAssets();
+        _draft = _pendingNew || _pendingBlueprint == null
+            ? CreateNewDraft()
+            : CreateDraft(_pendingBlueprint);
+        _saveAsCopy = _pendingCopyOnly;
+        _existing = !_pendingNew && !_saveAsCopy && _pendingBlueprint?.Id != null;
+        _canUpdate = _existing && _pendingBlueprint.OriginKind == ArtifactBlueprintOriginKind.Forged;
+        _savedDraft = _draft.DeepClone();
+        _pendingBlueprint = null;
+        _pendingCopyOnly = false;
+        _pendingNew = false;
+        _closingApproved = false;
+        _pendingExitMode = ExitMode.Close;
+        _page = EditorPage.Basic;
+        _undo.Clear();
+        _redo.Clear();
+        SetConfirmation(false);
+        RefreshAll();
     }
 
-    private static void CreateSelector(
-        Transform parent,
-        string name,
-        string labelKey,
-        float valueWidth,
-        UnityAction previous,
-        UnityAction next,
-        out Text value)
+    public override void OnNormalDisable()
     {
-        WanfaUiFactory.CreateText(parent, name + "Label", labelKey.Localize(), 42f, 24f, 7,
+        if (_draft == null || !IsDirty() || _closingApproved) return;
+        _resumeAfterClose = true;
+        ModClass.I.StartCoroutine(ReopenAfterClose());
+    }
+
+    private void CreateHeader(Transform root)
+    {
+        GameObject header = WanfaUiFactory.CreateLayout(root, "Header", true, 520f, 24f, 4f);
+        _nameInput = WanfaUiFactory.CreateInput(header.transform, "Name", string.Empty,
+            "Cultiway.Baibao.UI.Placeholder.ArtifactName".Localize(), 196f, 22f);
+        _nameInput.characterLimit = 24;
+        _nameInput.onEndEdit.AddListener(ApplyCustomName);
+        WanfaUiFactory.SetTooltip(_nameInput, "Cultiway.Baibao.UI.Placeholder.ArtifactName",
+            "Cultiway.Baibao.UI.Tooltip.ArtifactName");
+        _nameMode = WanfaUiFactory.CreateIconTextButton(header.transform, "NameMode", BaibaoUiIcons.Edit,
+            string.Empty, 92f, 22f, ToggleNameMode);
+        WanfaUiFactory.SetTooltip(_nameMode.gameObject, "Cultiway.Baibao.UI.Tooltip.NameMode.Title",
+            "Cultiway.Baibao.UI.Tooltip.NameMode");
+        _draftState = WanfaUiFactory.CreateText(header.transform, "DraftState", string.Empty, 224f, 22f, 6,
             TextAnchor.MiddleRight);
-        Button previousButton = WanfaUiFactory.CreateIconButton(parent, name + "Previous", BaibaoUiIcons.Previous,
-            24f, 22f, previous, 4f);
-        WanfaUiFactory.SetTooltip(previousButton.gameObject, "Cultiway.Baibao.UI.Action.Previous",
-            "Cultiway.Baibao.UI.Tooltip.PreviousOption");
-        value = WanfaUiFactory.CreateText(parent, name + "Value", string.Empty, valueWidth, 24f, 7,
-            TextAnchor.MiddleCenter, FontStyle.Bold);
-        Button nextButton = WanfaUiFactory.CreateIconButton(parent, name + "Next", BaibaoUiIcons.Next, 24f, 22f,
-            next, 4f);
-        WanfaUiFactory.SetTooltip(nextButton.gameObject, "Cultiway.Baibao.UI.Action.Next",
-            "Cultiway.Baibao.UI.Tooltip.NextOption");
     }
 
-    private void ResetDesign()
+    private void CreatePreview(Transform body)
     {
-        _shapeIndex = 0;
-        _qualityValueIndex = 0;
-        _suppressRefresh = true;
-        for (int i = 0; i < _atomToggles.Length; i++) _atomToggles[i].SetIsOnWithoutNotify(false);
-        SelectFirstAtom(ArtifactAtomCategory.Material);
-        SelectFirstAtom(ArtifactAtomCategory.Finish);
-        _suppressRefresh = false;
+        GameObject root = BaibaoUiFactory.CreatePanel(body, "Preview", false, 158f, 280f, 3f,
+            TextAnchor.UpperCenter);
+        _preview = new BaibaoArtifactPreview(root.transform, 146f, 268f);
     }
 
-    private void SelectFirstAtom(ArtifactAtomCategory category)
+    private void CreateTabs(Transform editor)
     {
-        int index = Array.FindIndex(_atoms, atom => atom.category == category);
-        if (index >= 0) _atomToggles[index].SetIsOnWithoutNotify(true);
+        GameObject tabs = WanfaUiFactory.CreateLayout(editor, "Tabs", true, 358f, 22f, 4f);
+        string[] names =
+        {
+            "Cultiway.Baibao.UI.Tab.Basic", "Cultiway.Baibao.UI.Tab.Composition",
+            "Cultiway.Baibao.UI.Tab.Appearance", "Cultiway.Baibao.UI.Tab.Ability",
+            "Cultiway.Baibao.UI.Tab.Overview",
+        };
+        string[] icons =
+        {
+            BaibaoUiIcons.Pavilion, BaibaoUiIcons.Composition, BaibaoUiIcons.Appearance,
+            BaibaoUiIcons.Ability, BaibaoUiIcons.Info,
+        };
+        _tabButtons = new Button[names.Length];
+        for (int i = 0; i < names.Length; i++)
+        {
+            EditorPage page = (EditorPage)i;
+            _tabButtons[i] = WanfaUiFactory.CreateIconTextButton(tabs.transform, page.ToString(), icons[i],
+                names[i].Localize(), 68f, 21f, () => SelectPage(page));
+            WanfaUiFactory.SetTooltip(_tabButtons[i].gameObject, names[i],
+                $"Cultiway.Baibao.UI.Tooltip.Tab.{page}".Localize());
+        }
     }
 
-    private void CycleShape(int offset)
+    private void CreateFooter(Transform root)
     {
-        _shapeIndex = (_shapeIndex + offset + _shapes.Length) % _shapes.Length;
+        GameObject footer = WanfaUiFactory.CreateLayout(root, "Footer", true, 520f, 26f, 4f);
+        _undoButton = CreateFooterButton(footer.transform, "Undo", BaibaoUiIcons.Undo,
+            "Cultiway.Baibao.UI.Action.Undo", "Cultiway.Baibao.UI.Tooltip.Undo", Undo);
+        _redoButton = CreateFooterButton(footer.transform, "Redo", BaibaoUiIcons.Undo,
+            "Cultiway.Baibao.UI.Action.Redo", "Cultiway.Baibao.UI.Tooltip.Redo", Redo);
+        WanfaUiFactory.SetButtonIcon(_redoButton, BaibaoUiIcons.Undo, true);
+        CreateFooterButton(footer.transform, "Reset", BaibaoUiIcons.Reset,
+            "Cultiway.Baibao.UI.Action.DiscardChanges", "Cultiway.Baibao.UI.Tooltip.DiscardChanges",
+            DiscardChanges);
+        WanfaUiFactory.CreateText(footer.transform, "Spacer", string.Empty, 312f, 24f);
+        CreateFooterButton(footer.transform, "SaveCopy", BaibaoUiIcons.Copy,
+            "Cultiway.Baibao.UI.Action.SaveCopy", "Cultiway.Baibao.UI.Tooltip.SaveCopy", SaveCopy, 34f);
+        _saveButton = CreateFooterButton(footer.transform, "Save", BaibaoUiIcons.Save,
+            "Cultiway.Baibao.UI.Action.Save", "Cultiway.Baibao.UI.Tooltip.Save", TrySave, 38f);
+        CreateFooterButton(footer.transform, "Close", BaibaoUiIcons.Cancel,
+            "Cultiway.Baibao.UI.Action.Cancel", "Cultiway.Baibao.UI.Tooltip.Cancel", RequestBack);
+    }
+
+    private static Button CreateFooterButton(Transform parent, string name, string icon, string title,
+        string description, UnityEngine.Events.UnityAction action, float width = 28f)
+    {
+        Button button = WanfaUiFactory.CreateIconButton(parent, name, icon, width, 23f, action);
+        WanfaUiFactory.SetTooltip(button.gameObject, title, description);
+        return button;
+    }
+
+    private void RefreshAssets()
+    {
+        _shapes = ModClass.L.ItemShapeLibrary.list.OfType<ArtifactShapeAsset>()
+            .OrderBy(shape => shape.id, StringComparer.Ordinal).ToArray();
+        _atoms = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.All
+            .Where(atom => atom.category != ArtifactAtomCategory.Shape)
+            .OrderBy(atom => atom.category).ThenByDescending(atom => atom.priority)
+            .ThenBy(atom => atom.id, StringComparer.Ordinal).ToArray();
+    }
+
+    private EditorDraft CreateNewDraft()
+    {
+        ArtifactAtomAsset[] defaults =
+        {
+            _atoms.FirstOrDefault(atom => atom.category == ArtifactAtomCategory.Material),
+            _atoms.FirstOrDefault(atom => atom.category == ArtifactAtomCategory.Finish),
+        };
+        ArtifactComposeResult result = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+        {
+            Shape = _shapes[0],
+            Level = ItemLevel.FromValue(0),
+            Atoms = defaults.Where(atom => atom != null).ToArray(),
+        });
+        return new EditorDraft
+        {
+            Blueprint = ArtifactBlueprintCodec.FromComposeResult(result),
+            AutoName = true,
+            AutoAppearance = true,
+        };
+    }
+
+    private static EditorDraft CreateDraft(ArtifactBlueprint blueprint)
+    {
+        ArtifactShapeAsset shape = (ArtifactShapeAsset)ModClass.L.ItemShapeLibrary.get(blueprint.ShapeId);
+        ArtifactComposeResult automatic = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+        {
+            Shape = shape,
+            Level = blueprint.Level,
+            AtomEntries = blueprint.AtomData.entries ?? [],
+        });
+        return new EditorDraft
+        {
+            Blueprint = blueprint.DeepClone(),
+            AutoName = automatic.Name == blueprint.Name,
+            AutoAppearance = automatic.Appearance.GetCacheKey() == blueprint.Appearance.GetCacheKey(),
+        };
+    }
+
+    private void RefreshAll()
+    {
+        if (_draft == null) return;
+        _undoButton.interactable = _undo.Count > 0;
+        _redoButton.interactable = _redo.Count > 0;
+        _saveButton.interactable = !_existing || IsDirty();
+        RefreshHeader();
         RefreshPreview();
+        RefreshPage();
     }
 
-    private void CycleQuality(int offset)
+    private void RefreshHeader()
     {
-        _qualityValueIndex = (_qualityValueIndex + offset + 36) % 36;
-        RefreshPreview();
-    }
-
-    private void OnAtomChanged()
-    {
-        if (_suppressRefresh) return;
-        RefreshPreview();
+        _nameInput.SetTextWithoutNotify(_draft.Blueprint.Name);
+        BaibaoUiFactory.SetButtonLabel(_nameMode, _draft.AutoName
+            ? "Cultiway.Baibao.UI.NameMode.Auto".Localize()
+            : "Cultiway.Baibao.UI.NameMode.Custom".Localize());
+        string source = _saveAsCopy
+            ? "Cultiway.Baibao.UI.State.CopyDraft".Localize()
+            : _existing
+                ? "Cultiway.Baibao.UI.State.ExistingBlueprint".Localize()
+                : "Cultiway.Baibao.UI.State.NewBlueprint".Localize();
+        string state = IsDirty()
+            ? "Cultiway.Baibao.UI.State.Unsaved".Localize()
+            : "Cultiway.Baibao.UI.State.Saved".Localize();
+        _draftState.text = $"{source}  ·  {state}";
     }
 
     private void RefreshPreview()
     {
-        if (_shapes.Length == 0) return;
-        ArtifactComposeResult result = ArtifactComposer.ComposeDesign(BuildDesign());
-        ArtifactBlueprint blueprint = ArtifactBlueprintCodec.FromComposeResult(result);
-        _previewImage.sprite = BaibaoPavilionService.Instance.GetPreviewIcon(blueprint);
-        _previewName.text = result.Name;
-        _previewSummary.text = string.Format("Cultiway.Baibao.UI.Format.ForgePreview".Localize(),
-            GetShapeName(result.Shape), result.Level.GetName(), result.Atoms.Length, result.AbilitySet.abilities.Length);
-        _shapeValue.text = GetShapeName(_shapes[_shapeIndex]);
-        _qualityValue.text = ItemLevel.FromValue(_qualityValueIndex).GetName();
-        int selectedAtoms = _atomToggles.Count(toggle => toggle.isOn);
-        _atomTitle.text = string.Format("Cultiway.Baibao.UI.Format.AtomTitle".Localize(), selectedAtoms);
-        WanfaUiFactory.SetTooltip(_previewImage.gameObject, result.Name, _previewSummary.text);
+        ArtifactBlueprint blueprint = _draft.Blueprint;
+        _preview.Show(blueprint, true, "Cultiway.Baibao.UI.State.BlueprintValid".Localize(),
+            new Color(0.65f, 1f, 0.72f, 1f));
     }
 
-    private ArtifactDesignRequest BuildDesign()
+    private void RefreshPage()
     {
-        return new ArtifactDesignRequest
+        _rowPool.Clear();
+        for (int i = 0; i < _tabButtons.Length; i++)
+            BaibaoUiFactory.SetSelected(_tabButtons[i], i == (int)_page);
+        switch (_page)
         {
-            Shape = _shapes[_shapeIndex],
-            Level = ItemLevel.FromValue(_qualityValueIndex),
-            Atoms = _atoms.Where((_, index) => _atomToggles[index].isOn).ToArray(),
-        };
+            case EditorPage.Basic:
+                BuildBasicPage();
+                break;
+            case EditorPage.Composition:
+                BuildCompositionPage();
+                break;
+            case EditorPage.Appearance:
+                BuildAppearancePage();
+                break;
+            case EditorPage.Ability:
+                BuildAbilityPage();
+                break;
+            case EditorPage.Overview:
+                BuildOverviewPage();
+                break;
+        }
     }
 
-    private void Save()
+    private void BuildBasicPage()
     {
-        BaibaoSaveResult result = BaibaoPavilionService.Instance.Forge(BuildDesign());
-        WindowBaibaoPavilion.ShowSaveResult(result, "Cultiway.Baibao.UI.Tip.Forged");
-        if (result.Status != BaibaoSaveStatus.Invalid) CloseToPrevious();
-    }
-
-    private void CloseToPrevious()
-    {
-        WindowHistory.clickBack();
-    }
-
-    private static string GetShapeName(ArtifactShapeAsset shape)
-    {
-        return shape.ingredient_name_candidates.FirstOrDefault() ?? shape.id.Localize();
-    }
-
-    private static string GetAtomName(ArtifactAtomAsset atom)
-    {
-        return atom.name_stems.FirstOrDefault() ?? atom.tag ?? atom.id;
-    }
-
-    private static string GetCategoryName(ArtifactAtomCategory category)
-    {
-        return category switch
+        for (int i = 0; i < _shapes.Length; i++)
         {
-            ArtifactAtomCategory.Material => "Cultiway.Baibao.UI.AtomCategory.Material".Localize(),
-            ArtifactAtomCategory.Finish => "Cultiway.Baibao.UI.AtomCategory.Finish".Localize(),
-            _ => "Cultiway.Baibao.UI.AtomCategory.Other".Localize(),
-        };
+            ArtifactShapeAsset shape = _shapes[i];
+            bool selected = shape.id == _draft.Blueprint.ShapeId;
+            ArtifactBlueprint candidate = selected ? _draft.Blueprint : BuildShapeCandidate(shape);
+            int templateCount = ArtifactAppearanceCatalogLoader.Current
+                .TemplatesForShape(shape.appearance_family).Count;
+            _rowPool.GetNext().Setup(BaibaoPresentation.GetShapeName(shape),
+                string.Format("Cultiway.Baibao.UI.Format.ShapeTemplates".Localize(), templateCount),
+                selected ? "Cultiway.Baibao.UI.Action.Selected".Localize() :
+                    "Cultiway.Baibao.UI.Action.Select".Localize(),
+                selected ? BaibaoUiIcons.Confirm : BaibaoUiIcons.Select, selected, !selected,
+                () => SelectShape(shape), BaibaoPavilionService.Instance.GetPreviewIcon(candidate));
+        }
+
+        BaibaoEditorRow stageRow = _rowPool.GetNext();
+        stageRow.Setup("Cultiway.Baibao.UI.Label.QualityStage".Localize(), _draft.Blueprint.Level.GetName(),
+            string.Empty, BaibaoUiIcons.Select, false, false, null, SpriteTextureLoader.getSprite(BaibaoUiIcons.Info));
+        Transform stageControls = stageRow.UseControls(28f);
+        GameObject stages = WanfaUiFactory.CreateLayout(stageControls, "Stages", true, 306f, 24f, 3f);
+        for (int i = 0; i < 4; i++)
+        {
+            int stage = i;
+            Button button = WanfaUiFactory.CreateButton(stages.transform, $"Stage{stage}",
+                $"{LM.Get($"Cultiway.Stage.{stage}")}阶", 74f, 22f, () => SetQualityStage(stage));
+            BaibaoUiFactory.SetSelected(button, _draft.Blueprint.Level.Stage == stage);
+        }
+
+        BaibaoEditorRow levelRow = _rowPool.GetNext();
+        levelRow.Setup("Cultiway.Baibao.UI.Label.QualityLevel".Localize(),
+            string.Format("Cultiway.Baibao.UI.Format.QualityLevel".Localize(), _draft.Blueprint.Level.Level + 1),
+            string.Empty, BaibaoUiIcons.Select, false, false, null,
+            SpriteTextureLoader.getSprite(BaibaoUiIcons.Info));
+        Transform levelControls = levelRow.UseControls(28f);
+        GameObject level = WanfaUiFactory.CreateLayout(levelControls, "Level", true, 306f, 24f, 4f,
+            TextAnchor.MiddleCenter);
+        WanfaUiFactory.CreateIconButton(level.transform, "Previous", BaibaoUiIcons.Previous, 28f, 22f,
+            () => StepQualityLevel(-1));
+        WanfaUiFactory.CreateText(level.transform, "Value", _draft.Blueprint.Level.GetName(), 212f, 22f, 8,
+            TextAnchor.MiddleCenter, FontStyle.Bold);
+        WanfaUiFactory.CreateIconButton(level.transform, "Next", BaibaoUiIcons.Next, 28f, 22f,
+            () => StepQualityLevel(1));
+
+        _rowPool.GetNext().Setup("Cultiway.Baibao.UI.Label.NameRule".Localize(),
+            _draft.AutoName ? "Cultiway.Baibao.UI.Detail.AutoName".Localize() :
+                "Cultiway.Baibao.UI.Detail.CustomName".Localize(),
+            _draft.AutoName ? "Cultiway.Baibao.UI.Action.UseCustomName".Localize() :
+                "Cultiway.Baibao.UI.Action.RestoreAutoName".Localize(),
+            BaibaoUiIcons.Edit, _draft.AutoName, true, ToggleNameMode,
+            SpriteTextureLoader.getSprite(BaibaoUiIcons.Edit));
+    }
+
+    private void BuildCompositionPage()
+    {
+        ArtifactAtomEntry[] entries = _draft.Blueprint.AtomData.entries ?? [];
+        ArtifactAtomEntry[] selected = entries.Where(entry =>
+            Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.get(entry.atom_id) != null).ToArray();
+        for (int i = 0; i < selected.Length; i++)
+        {
+            ArtifactAtomEntry entry = selected[i];
+            ArtifactAtomAsset atom = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.get(entry.atom_id);
+            bool shapeAtom = atom.category == ArtifactAtomCategory.Shape;
+            BaibaoEditorRow row = _rowPool.GetNext();
+            row.Setup(BaibaoPresentation.GetAtomName(atom),
+                $"{BaibaoPresentation.GetAtomCategoryName(atom.category)}  ·  " +
+                string.Format("Cultiway.Baibao.UI.Format.AtomStrength".Localize(), entry.strength),
+                shapeAtom ? string.Empty : "Cultiway.Baibao.UI.Action.Remove".Localize(),
+                BaibaoUiIcons.Remove, true, !shapeAtom,
+                shapeAtom ? null : () => RemoveAtom(entry.atom_id),
+                SpriteTextureLoader.getSprite(BaibaoUiIcons.Composition));
+            Transform controls = row.UseControls(26f);
+            GameObject strength = WanfaUiFactory.CreateLayout(controls, "Strength", true, 306f, 22f, 4f,
+                TextAnchor.MiddleCenter);
+            WanfaUiFactory.CreateButton(strength.transform, "Decrease", "-", 28f, 21f,
+                () => StepAtomStrength(entry.atom_id, -0.25f));
+            WanfaUiFactory.CreateText(strength.transform, "Value", entry.strength.ToString("0.00"), 212f, 21f, 8,
+                TextAnchor.MiddleCenter, FontStyle.Bold);
+            WanfaUiFactory.CreateButton(strength.transform, "Increase", "+", 28f, 21f,
+                () => StepAtomStrength(entry.atom_id, 0.25f));
+        }
+
+        HashSet<string> selectedIds = new(entries.Select(entry => entry.atom_id), StringComparer.Ordinal);
+        for (int i = 0; i < _atoms.Length; i++)
+        {
+            ArtifactAtomAsset atom = _atoms[i];
+            if (selectedIds.Contains(atom.id)) continue;
+            _rowPool.GetNext().Setup(BaibaoPresentation.GetAtomName(atom),
+                BaibaoPresentation.GetAtomCategoryName(atom.category),
+                "Cultiway.Baibao.UI.Action.Add".Localize(), BaibaoUiIcons.Add, false, true,
+                () => AddAtom(atom), SpriteTextureLoader.getSprite(BaibaoUiIcons.Composition));
+        }
+    }
+
+    private void BuildAppearancePage()
+    {
+        _rowPool.GetNext().Setup("Cultiway.Baibao.UI.Label.AppearanceMode".Localize(),
+            _draft.AutoAppearance ? "Cultiway.Baibao.UI.Detail.AutoAppearance".Localize() :
+                "Cultiway.Baibao.UI.Detail.CustomAppearance".Localize(),
+            _draft.AutoAppearance ? "Cultiway.Baibao.UI.Action.UseCustomAppearance".Localize() :
+                "Cultiway.Baibao.UI.Action.RestoreAutoAppearance".Localize(),
+            BaibaoUiIcons.Appearance, _draft.AutoAppearance, true, ToggleAppearanceMode,
+            SpriteTextureLoader.getSprite(BaibaoUiIcons.Appearance));
+
+        ArtifactShapeAsset shape = CurrentShape();
+        List<ArtifactAppearanceTemplateDef> templates = ArtifactAppearanceCatalogLoader.Current
+            .TemplatesForShape(shape.appearance_family);
+        for (int i = 0; i < templates.Count; i++)
+        {
+            ArtifactAppearanceTemplateDef template = templates[i];
+            bool selected = _draft.Blueprint.Appearance.template_key == template.Key;
+            ArtifactBlueprint candidate = selected ? _draft.Blueprint : BuildAppearanceCandidate(template);
+            _rowPool.GetNext().Setup(BaibaoPresentation.GetTemplateName(template.Key),
+                string.Format("Cultiway.Baibao.UI.Format.TemplateSlots".Localize(), template.Placements.Length),
+                selected ? "Cultiway.Baibao.UI.Action.Selected".Localize() :
+                    "Cultiway.Baibao.UI.Action.Select".Localize(),
+                selected ? BaibaoUiIcons.Confirm : BaibaoUiIcons.Select, selected, !selected,
+                () => SelectTemplate(template), BaibaoPavilionService.Instance.GetPreviewIcon(candidate));
+        }
+
+        if (!ArtifactAppearanceCatalogLoader.Current.Templates.TryGetValue(
+                _draft.Blueprint.Appearance.template_key, out ArtifactAppearanceTemplateDef currentTemplate))
+            return;
+        ArtifactAppearancePart[] parts = _draft.Blueprint.Appearance.parts ?? [];
+        foreach (ArtifactAppearancePlacementDef placement in currentTemplate.Placements.OrderBy(item => item.Z))
+        {
+            int partIndex = Array.FindIndex(parts, part => part.slot == placement.Slot);
+            if (partIndex < 0) continue;
+            ArtifactAppearancePart part = parts[partIndex];
+            ArtifactAppearanceModuleDef module = ArtifactAppearanceCatalogLoader.Current.Modules[placement.Module];
+            BaibaoEditorRow row = _rowPool.GetNext();
+            row.Setup(BaibaoPresentation.GetModuleName(module.Key),
+                $"{BaibaoPresentation.GetVariantName(module.Key, part.variant)}  ·  " +
+                BaibaoPresentation.GetColorSchemeName(part.color_scheme), string.Empty,
+                BaibaoUiIcons.Appearance, false, false, null,
+                SpriteTextureLoader.getSprite(BaibaoUiIcons.Appearance));
+            ArtifactAppearanceVariantDef[] candidates = module.Variants
+                .Where(variant => variant.GetAnchor(placement.Anchor) != null).ToArray();
+            ArtifactAppearanceColorSchemeDef[] schemes = ArtifactAppearanceCatalogLoader.Current.ColorSchemes
+                .Values.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
+            int variantRows = Mathf.CeilToInt(candidates.Length / 3f);
+            int colorRows = Mathf.CeilToInt(schemes.Length / 10f);
+            int controlRows = variantRows + colorRows;
+            float controlsHeight = variantRows * 24f + colorRows * 26f + Mathf.Max(0, controlRows - 1) * 2f;
+            Transform controls = row.UseControls(controlsHeight);
+            BuildVariantControls(controls, placement, module, candidates, part);
+            BuildColorControls(controls, placement, schemes, part);
+        }
+    }
+
+    private void BuildVariantControls(
+        Transform controls,
+        ArtifactAppearancePlacementDef placement,
+        ArtifactAppearanceModuleDef module,
+        IReadOnlyList<ArtifactAppearanceVariantDef> variants,
+        ArtifactAppearancePart selectedPart)
+    {
+        for (int start = 0; start < variants.Count; start += 3)
+        {
+            int count = Mathf.Min(3, variants.Count - start);
+            GameObject line = WanfaUiFactory.CreateLayout(controls, $"Variants{start / 3}", true, 306f, 22f, 3f);
+            float width = (306f - (count - 1) * 3f) / count;
+            for (int i = 0; i < count; i++)
+            {
+                ArtifactAppearanceVariantDef variant = variants[start + i];
+                Button button = WanfaUiFactory.CreateButton(line.transform, variant.Key,
+                    BaibaoPresentation.GetVariantName(module.Key, variant.Key), width, 21f,
+                    () => SelectVariant(placement.Slot, variant.Key));
+                BaibaoUiFactory.SetSelected(button, selectedPart.variant == variant.Key);
+            }
+        }
+    }
+
+    private void BuildColorControls(
+        Transform controls,
+        ArtifactAppearancePlacementDef placement,
+        IReadOnlyList<ArtifactAppearanceColorSchemeDef> schemes,
+        ArtifactAppearancePart selectedPart)
+    {
+        for (int start = 0; start < schemes.Count; start += 10)
+        {
+            GameObject line = WanfaUiFactory.CreateLayout(controls, $"Colors{start / 10}", true, 306f, 24f, 4f,
+                TextAnchor.MiddleLeft);
+            int count = Mathf.Min(10, schemes.Count - start);
+            for (int i = 0; i < count; i++)
+            {
+                ArtifactAppearanceColorSchemeDef scheme = schemes[start + i];
+                Button swatch = BaibaoUiFactory.CreateSwatchButton(line.transform, scheme.Key,
+                    BaibaoPresentation.GetColorSchemeSwatch(scheme), 24f,
+                    () => SelectColorScheme(placement.Slot, scheme.Key));
+                BaibaoUiFactory.SetSelected(swatch, selectedPart.color_scheme == scheme.Key);
+                WanfaUiFactory.SetTooltip(swatch.gameObject, BaibaoPresentation.GetColorSchemeName(scheme.Key),
+                    "Cultiway.Baibao.UI.Tooltip.ColorScheme".Localize());
+            }
+        }
+    }
+
+    private void BuildAbilityPage()
+    {
+        ArtifactAbilityInstance[] abilities = _draft.Blueprint.AbilitySet.abilities ?? [];
+        if (abilities.Length == 0)
+        {
+            _rowPool.GetNext().Setup("Cultiway.Baibao.UI.State.NoAbility".Localize(),
+                "Cultiway.Baibao.UI.Detail.AbilityDerived".Localize(), string.Empty,
+                BaibaoUiIcons.Ability, false, false, null,
+                SpriteTextureLoader.getSprite(BaibaoUiIcons.Ability));
+            return;
+        }
+        for (int i = 0; i < abilities.Length; i++)
+        {
+            ArtifactAbilityInstance instance = abilities[i];
+            ArtifactAbilityAsset asset = Cultiway.Content.Libraries.Manager.ArtifactAbilityLibrary
+                .get(instance.ability_id);
+            string type = asset?.active_use == null
+                ? "Cultiway.Baibao.UI.Ability.Passive".Localize()
+                : "Cultiway.Baibao.UI.Ability.Active".Localize();
+            string description = BaibaoPresentation.GetAbilityDescription(instance);
+            _rowPool.GetNext().Setup(BaibaoPresentation.GetAbilityName(instance.ability_id),
+                string.IsNullOrWhiteSpace(description) ? type : $"{type}  ·  {description}",
+                string.Empty, BaibaoUiIcons.Ability, false, false, null,
+                SpriteTextureLoader.getSprite(BaibaoUiIcons.Ability));
+        }
+    }
+
+    private void BuildOverviewPage()
+    {
+        ArtifactBlueprint blueprint = _draft.Blueprint;
+        _rowPool.GetNext().Setup("Cultiway.Baibao.UI.Overview.Identity".Localize(),
+            $"{blueprint.Name}  ·  {BaibaoPresentation.GetShapeName(blueprint)}  ·  {blueprint.Level.GetName()}",
+            string.Empty, BaibaoUiIcons.Info, false, false, null,
+            BaibaoPavilionService.Instance.GetPreviewIcon(blueprint));
+        string atoms = string.Join("、", (blueprint.AtomData.entries ?? [])
+            .Select(entry => Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.get(entry.atom_id))
+            .Where(atom => atom != null)
+            .Select(BaibaoPresentation.GetAtomName));
+        _rowPool.GetNext().Setup("Cultiway.Baibao.UI.Overview.Composition".Localize(), atoms,
+            string.Empty, BaibaoUiIcons.Composition, false, false, null,
+            SpriteTextureLoader.getSprite(BaibaoUiIcons.Composition));
+        _rowPool.GetNext().Setup("Cultiway.Baibao.UI.Overview.Appearance".Localize(),
+            $"{BaibaoPresentation.GetTemplateName(blueprint.Appearance.template_key)}  ·  " +
+            string.Format("Cultiway.Baibao.UI.Format.TemplateSlots".Localize(),
+                blueprint.Appearance.parts?.Length ?? 0), string.Empty, BaibaoUiIcons.Appearance, false, false, null,
+            SpriteTextureLoader.getSprite(BaibaoUiIcons.Appearance));
+        string abilities = string.Join("、", (blueprint.AbilitySet.abilities ?? [])
+            .Select(ability => BaibaoPresentation.GetAbilityName(ability.ability_id)));
+        _rowPool.GetNext().Setup("Cultiway.Baibao.UI.Overview.Abilities".Localize(),
+            string.IsNullOrEmpty(abilities) ? "Cultiway.Baibao.UI.State.None".Localize() : abilities,
+            string.Empty, BaibaoUiIcons.Ability, false, false, null,
+            SpriteTextureLoader.getSprite(BaibaoUiIcons.Ability));
+        string error = BaibaoPavilionService.Instance.Validate(blueprint);
+        _rowPool.GetNext().Setup("Cultiway.Baibao.UI.Overview.Validation".Localize(),
+            error ?? "Cultiway.Baibao.UI.State.BlueprintValid".Localize(), string.Empty,
+            error == null ? BaibaoUiIcons.Confirm : BaibaoUiIcons.Info, error == null, false, null,
+            SpriteTextureLoader.getSprite(error == null ? BaibaoUiIcons.Confirm : BaibaoUiIcons.Info));
+    }
+
+    private ArtifactBlueprint BuildShapeCandidate(ArtifactShapeAsset shape)
+    {
+        ArtifactComposeResult result = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+        {
+            Shape = shape,
+            Level = _draft.Blueprint.Level,
+            AtomEntries = _draft.Blueprint.AtomData.entries ?? [],
+        });
+        return ArtifactBlueprintCodec.FromComposeResult(result);
+    }
+
+    private ArtifactBlueprint BuildAppearanceCandidate(ArtifactAppearanceTemplateDef template)
+    {
+        ArtifactAppearance appearance = BuildAppearance(template);
+        ArtifactBlueprint candidate = _draft.Blueprint.DeepClone();
+        candidate.Appearance = appearance;
+        return candidate;
+    }
+
+    private ArtifactAppearance BuildAppearance(ArtifactAppearanceTemplateDef template)
+    {
+        ArtifactAppearanceCatalog catalog = ArtifactAppearanceCatalogLoader.Current;
+        ArtifactAppearancePart[] current = _draft.Blueprint.Appearance.parts ?? [];
+        string defaultScheme = catalog.ColorSchemes.Keys.OrderBy(key => key, StringComparer.Ordinal).FirstOrDefault();
+        List<ArtifactAppearancePart> parts = new();
+        foreach (ArtifactAppearancePlacementDef placement in template.Placements.OrderBy(item => item.Z))
+        {
+            ArtifactAppearanceModuleDef module = catalog.Modules[placement.Module];
+            ArtifactAppearancePart existing = current.FirstOrDefault(part => part.slot == placement.Slot &&
+                                                                              part.module == placement.Module);
+            ArtifactAppearanceVariantDef variant = module.GetVariant(existing.variant);
+            if (variant == null || variant.GetAnchor(placement.Anchor) == null)
+            {
+                variant = module.Variants.First(item => item.GetAnchor(placement.Anchor) != null);
+            }
+            string scheme = !string.IsNullOrEmpty(existing.color_scheme) &&
+                            catalog.ColorSchemes.ContainsKey(existing.color_scheme)
+                ? existing.color_scheme
+                : defaultScheme;
+            parts.Add(new ArtifactAppearancePart
+            {
+                slot = placement.Slot,
+                module = placement.Module,
+                variant = variant.Key,
+                color_scheme = scheme,
+                colors = existing.colors ?? [],
+            });
+        }
+        return new ArtifactAppearance { template_key = template.Key, parts = parts.ToArray() };
+    }
+
+    private ArtifactShapeAsset CurrentShape()
+    {
+        return (ArtifactShapeAsset)ModClass.L.ItemShapeLibrary.get(_draft.Blueprint.ShapeId);
+    }
+
+    private void Recompose()
+    {
+        ArtifactBlueprint previous = _draft.Blueprint;
+        ArtifactComposeResult result = ArtifactComposer.ComposeDesign(new ArtifactDesignRequest
+        {
+            Shape = (ArtifactShapeAsset)ModClass.L.ItemShapeLibrary.get(previous.ShapeId),
+            Level = previous.Level,
+            AtomEntries = previous.AtomData.entries ?? [],
+            Name = _draft.AutoName ? null : previous.Name,
+            AppearanceOverride = _draft.AutoAppearance ? null : previous.Appearance,
+        });
+        ArtifactBlueprint next = ArtifactBlueprintCodec.FromComposeResult(result);
+        ArtifactBlueprint metadata = previous.DeepClone();
+        next.Id = metadata.Id;
+        next.Extensions = metadata.Extensions;
+        next.OriginKind = metadata.OriginKind;
+        next.SourceActorId = metadata.SourceActorId;
+        next.SourceActorName = metadata.SourceActorName;
+        next.Favorite = metadata.Favorite;
+        next.SortOrder = metadata.SortOrder;
+        next.CreatedAtUtcTicks = metadata.CreatedAtUtcTicks;
+        next.UpdatedAtUtcTicks = DateTime.UtcNow.Ticks;
+        _draft.Blueprint = next;
+    }
+
+    private void ApplyMutation(Action mutation, bool recompose = true)
+    {
+        _undo.Push(_draft.DeepClone());
+        _redo.Clear();
+        mutation();
+        if (recompose) Recompose();
+        RefreshAll();
+    }
+
+    private void SelectShape(ArtifactShapeAsset shape)
+    {
+        if (_draft.Blueprint.ShapeId == shape.id) return;
+        ApplyMutation(() =>
+        {
+            _draft.Blueprint.ShapeId = shape.id;
+            _draft.AutoAppearance = true;
+        });
+    }
+
+    private void SetQualityStage(int stage)
+    {
+        if (_draft.Blueprint.Level.Stage == stage) return;
+        ApplyMutation(() =>
+        {
+            ItemLevel level = _draft.Blueprint.Level;
+            level.Stage = stage;
+            _draft.Blueprint.Level = level;
+        });
+    }
+
+    private void StepQualityLevel(int direction)
+    {
+        int value = Mathf.Clamp(_draft.Blueprint.Level.Level + direction, 0, 8);
+        if (value == _draft.Blueprint.Level.Level) return;
+        ApplyMutation(() =>
+        {
+            ItemLevel level = _draft.Blueprint.Level;
+            level.Level = value;
+            _draft.Blueprint.Level = level;
+        });
+    }
+
+    private void AddAtom(ArtifactAtomAsset atom)
+    {
+        ApplyMutation(() =>
+        {
+            List<ArtifactAtomEntry> entries = (_draft.Blueprint.AtomData.entries ?? []).ToList();
+            entries.Add(new ArtifactAtomEntry { atom_id = atom.id, strength = 1f });
+            _draft.Blueprint.AtomData = new ArtifactAtomData { entries = entries.ToArray() };
+        });
+    }
+
+    private void RemoveAtom(string atomId)
+    {
+        ApplyMutation(() =>
+        {
+            ArtifactAtomEntry[] entries = (_draft.Blueprint.AtomData.entries ?? [])
+                .Where(entry => entry.atom_id != atomId).ToArray();
+            _draft.Blueprint.AtomData = new ArtifactAtomData { entries = entries };
+        });
+    }
+
+    private void StepAtomStrength(string atomId, float delta)
+    {
+        ApplyMutation(() =>
+        {
+            ArtifactAtomEntry[] entries = (_draft.Blueprint.AtomData.entries ?? []).ToArray();
+            int index = Array.FindIndex(entries, entry => entry.atom_id == atomId);
+            ArtifactAtomEntry entry = entries[index];
+            entry.strength = Mathf.Max(0.25f, entry.strength + delta);
+            entries[index] = entry;
+            _draft.Blueprint.AtomData = new ArtifactAtomData { entries = entries };
+        });
+    }
+
+    private void SelectTemplate(ArtifactAppearanceTemplateDef template)
+    {
+        ApplyMutation(() =>
+        {
+            _draft.AutoAppearance = false;
+            _draft.Blueprint.Appearance = BuildAppearance(template);
+        });
+    }
+
+    private void SelectVariant(string slot, string variant)
+    {
+        ApplyMutation(() =>
+        {
+            _draft.AutoAppearance = false;
+            ArtifactAppearance appearance = _draft.Blueprint.Appearance;
+            ArtifactAppearancePart[] parts = appearance.parts.ToArray();
+            int index = Array.FindIndex(parts, part => part.slot == slot);
+            ArtifactAppearancePart part = parts[index];
+            part.variant = variant;
+            parts[index] = part;
+            appearance.parts = parts;
+            _draft.Blueprint.Appearance = appearance;
+        });
+    }
+
+    private void SelectColorScheme(string slot, string scheme)
+    {
+        ApplyMutation(() =>
+        {
+            _draft.AutoAppearance = false;
+            ArtifactAppearance appearance = _draft.Blueprint.Appearance;
+            ArtifactAppearancePart[] parts = appearance.parts.ToArray();
+            int index = Array.FindIndex(parts, part => part.slot == slot);
+            ArtifactAppearancePart part = parts[index];
+            part.color_scheme = scheme;
+            part.colors = [];
+            parts[index] = part;
+            appearance.parts = parts;
+            _draft.Blueprint.Appearance = appearance;
+        });
+    }
+
+    private void ToggleAppearanceMode()
+    {
+        ApplyMutation(() => _draft.AutoAppearance = !_draft.AutoAppearance);
+    }
+
+    private void ApplyCustomName(string value)
+    {
+        string name = value.Trim();
+        if (name.Length == 0 || !_draft.AutoName && name == _draft.Blueprint.Name)
+        {
+            RefreshHeader();
+            return;
+        }
+        ApplyMutation(() =>
+        {
+            _draft.AutoName = false;
+            _draft.Blueprint.Name = name;
+        });
+    }
+
+    private void ToggleNameMode()
+    {
+        ApplyMutation(() => _draft.AutoName = !_draft.AutoName);
+    }
+
+    private void SelectPage(EditorPage page)
+    {
+        _page = page;
+        RefreshPage();
+    }
+
+    private void Undo()
+    {
+        if (_undo.Count == 0) return;
+        _redo.Push(_draft.DeepClone());
+        _draft = _undo.Pop();
+        RefreshAll();
+    }
+
+    private void Redo()
+    {
+        if (_redo.Count == 0) return;
+        _undo.Push(_draft.DeepClone());
+        _draft = _redo.Pop();
+        RefreshAll();
+    }
+
+    private void DiscardChanges()
+    {
+        _draft = _savedDraft.DeepClone();
+        _undo.Clear();
+        _redo.Clear();
+        RefreshAll();
+    }
+
+    private void TrySave()
+    {
+        if (_existing && !IsDirty())
+        {
+            WorldTip.showNow("Cultiway.Baibao.UI.Tip.NoChanges".Localize(), false, "top", 2f);
+            return;
+        }
+        BaibaoSaveResult result = _canUpdate
+            ? BaibaoPavilionService.Instance.Update(_draft.Blueprint)
+            : _saveAsCopy
+                ? BaibaoPavilionService.Instance.SaveCopy(_draft.Blueprint)
+                : BaibaoPavilionService.Instance.SaveNew(_draft.Blueprint);
+        HandleSaveResult(result, _canUpdate
+            ? "Cultiway.Baibao.UI.Tip.Updated"
+            : "Cultiway.Baibao.UI.Tip.Forged");
+    }
+
+    private void SaveCopy()
+    {
+        HandleSaveResult(BaibaoPavilionService.Instance.SaveCopy(_draft.Blueprint),
+            "Cultiway.Baibao.UI.Tip.CopySaved");
+    }
+
+    private bool HandleSaveResult(BaibaoSaveResult result, string savedKey)
+    {
+        WindowBaibaoPavilion.ShowSaveResult(result, savedKey);
+        if (result.Status != BaibaoSaveStatus.Saved) return false;
+        _draft.Blueprint = result.Blueprint.DeepClone();
+        _savedDraft = _draft.DeepClone();
+        _existing = true;
+        _canUpdate = true;
+        _saveAsCopy = false;
+        _undo.Clear();
+        _redo.Clear();
+        RefreshAll();
+        return true;
+    }
+
+    private bool IsDirty()
+    {
+        if (!_existing) return true;
+        return JsonConvert.SerializeObject(_draft.Blueprint) !=
+               JsonConvert.SerializeObject(_savedDraft.Blueprint);
+    }
+
+    private IEnumerator ReopenAfterClose()
+    {
+        yield return new WaitForEndOfFrame();
+        if (_resumeAfterClose) ScrollWindow.showWindow(Id, true, false);
+    }
+
+    private void RequestBack()
+    {
+        RequestExit(ExitMode.Back);
+    }
+
+    private void RequestExit(ExitMode mode)
+    {
+        _pendingExitMode = mode;
+        if (IsDirty())
+        {
+            SetConfirmation(true);
+            return;
+        }
+        CompleteExit();
+    }
+
+    private void CompleteExit()
+    {
+        _closingApproved = true;
+        SetConfirmation(false);
+        if (_pendingExitMode == ExitMode.Back)
+        {
+            WindowHistory.clickBack();
+            return;
+        }
+        GetComponent<ScrollWindow>().clickHide();
+    }
+
+    private void CreateConfirmationPanel()
+    {
+        _confirmation = WanfaUiFactory.CreateLayout(BackgroundTransform, "UnsavedConfirmation", false, 282f,
+            94f, 6f, TextAnchor.MiddleCenter);
+        _confirmation.transform.localPosition = Vector3.zero;
+        Image background = _confirmation.AddComponent<Image>();
+        background.sprite = SpriteTextureLoader.getSprite("ui/special/windowEmptyFrame");
+        background.type = Image.Type.Sliced;
+        WanfaUiFactory.CreateText(_confirmation.transform, "Message",
+            "Cultiway.Baibao.UI.Tip.UnsavedChanges".Localize(), 272f, 30f, 9,
+            TextAnchor.MiddleCenter, FontStyle.Bold);
+        GameObject actions = WanfaUiFactory.CreateLayout(_confirmation.transform, "Actions", true, 272f, 28f, 5f,
+            TextAnchor.MiddleCenter);
+        WanfaUiFactory.CreateIconTextButton(actions.transform, "Save", BaibaoUiIcons.Save,
+            "Cultiway.Baibao.UI.Action.SaveAndClose".Localize(), 86f, 24f, () =>
+            {
+                BaibaoSaveResult result = _canUpdate
+                    ? BaibaoPavilionService.Instance.Update(_draft.Blueprint)
+                    : _saveAsCopy
+                        ? BaibaoPavilionService.Instance.SaveCopy(_draft.Blueprint)
+                        : BaibaoPavilionService.Instance.SaveNew(_draft.Blueprint);
+                if (!HandleSaveResult(result, "Cultiway.Baibao.UI.Tip.Forged")) return;
+                CompleteExit();
+            });
+        WanfaUiFactory.CreateIconTextButton(actions.transform, "Discard", BaibaoUiIcons.Reset,
+            "Cultiway.Baibao.UI.Action.Discard".Localize(), 82f, 24f, CompleteExit);
+        WanfaUiFactory.CreateIconTextButton(actions.transform, "Continue", BaibaoUiIcons.Edit,
+            "Cultiway.Baibao.UI.Action.ContinueEditing".Localize(), 94f, 24f, () => SetConfirmation(false));
+        _confirmation.SetActive(false);
+    }
+
+    private void SetConfirmation(bool visible)
+    {
+        _confirmation.SetActive(visible);
+        _editorCanvas.interactable = !visible;
+    }
+
+    private void PositionBackButton()
+    {
+        Transform back = transform.Find("BackButtonContainer");
+        Vector3 position = back.localPosition;
+        position.x = -180f;
+        back.localPosition = position;
+    }
+
+    private IEnumerator BindBackButtonAfterScrollWindowStart()
+    {
+        yield return null;
+        Transform back = transform.Find("BackButtonContainer");
+        foreach (Button button in back.GetComponentsInChildren<Button>(true))
+        {
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(RequestBack);
+        }
     }
 }
