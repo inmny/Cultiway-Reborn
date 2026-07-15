@@ -214,7 +214,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
     private void RefreshEntityIds()
     {
         _entityIds = ModClass.I.SkillV3.SkillLib.list
-            .Where(item => item.EditorSelectable)
+            .Where(item => item.CanBeLearned && item.EditorSelectable)
             .OrderBy(item => item.EditorSortOrder)
             .Select(item => item.id)
             .ToArray();

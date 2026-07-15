@@ -2,10 +2,9 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Core.SkillLibV3;
-using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
-using Friflo.Engine.ECS;
 using strings;
 using UnityEngine;
 
@@ -13,7 +12,7 @@ namespace Cultiway.Core;
 
 internal static class ControlledCultivatorSkillControls
 {
-    private static readonly Dictionary<long, int> SelectedSkillIndexes = new();
+    private static readonly Dictionary<long, int> SelectedAbilityIndexes = new();
 
     internal static bool CastSelectedSkill()
     {
@@ -24,9 +23,9 @@ internal static class ControlledCultivatorSkillControls
     {
         if (!TryGetControlledActor(out var actor)) return false;
 
-        if (!TryGetSelectedAttackSkill(actor, out _))
+        if (!TryGetSelectedAttackAbility(actor, out _))
         {
-            ShowTip("没有可释放的法术");
+            ShowTip("没有可释放的主动能力");
             return false;
         }
 
@@ -34,20 +33,20 @@ internal static class ControlledCultivatorSkillControls
         var attackKingdom = World.world.kingdoms_wild.get("possessed");
         if (TryCastSelectedSkill(actor, aim.Target, aim.TargetPos, attackKingdom, selectionArea)) return true;
 
-        ShowTip("暂时无法释放法术");
+        ShowTip("暂时无法释放主动能力");
         return false;
     }
 
     internal static bool CycleSelectedSkill(int direction = 1)
     {
         if (!TryGetControlledActor(out var actor)) return false;
-        if (!TryCycleAttackSkill(actor, direction, out var skill))
+        if (!TryCycleAttackAbility(actor, direction, out ActiveAbilityHandle ability))
         {
-            ShowTip("没有可切换的法术");
+            ShowTip("没有可切换的主动能力");
             return false;
         }
 
-        ShowTip($"当前法术：{GetSkillName(skill)}");
+        ShowTip($"当前能力：{GetAbilityName(actor.GetExtend(), ability)}");
         return true;
     }
 
@@ -55,12 +54,12 @@ internal static class ControlledCultivatorSkillControls
     {
         if (!TryGetControlledActor(out var actor)) return ControlledSkillControlState.Inactive;
 
-        var hasSkill = TryGetSelectedAttackSkill(actor, out var selectedSkill, out var skillCount);
+        var hasSkill = TryGetSelectedAttackAbility(actor, out ActiveAbilityHandle selectedAbility, out int skillCount);
         return new ControlledSkillControlState(
             actor,
             hasSkill,
             skillCount,
-            hasSkill ? GetSkillName(selectedSkill) : string.Empty,
+            hasSkill ? GetAbilityName(actor.GetExtend(), selectedAbility) : string.Empty,
             skillCount > 1
         );
     }
@@ -76,64 +75,61 @@ internal static class ControlledCultivatorSkillControls
         return true;
     }
 
-    private static bool TryCycleAttackSkill(Actor actor, int direction, out Entity skill)
+    private static bool TryCycleAttackAbility(Actor actor, int direction, out ActiveAbilityHandle ability)
     {
-        skill = default;
-        if (!TryCollectAvailableAttackSkills(actor.GetExtend(), out var candidates)) return false;
+        ability = default;
+        using var candidates = new ListPool<ActiveAbilityHandle>();
+        if (!TryCollectAvailableAttackAbilities(actor.GetExtend(), candidates)) return false;
 
         var count = candidates.Count;
-        var next = GetSelectedSkillIndex(actor);
+        var next = GetSelectedAbilityIndex(actor);
         next = Mod(next + Math.Sign(direction == 0 ? 1 : direction), count);
-        SelectedSkillIndexes[actor.data.id] = next;
-        skill = candidates[next];
+        SelectedAbilityIndexes[actor.data.id] = next;
+        ability = candidates[next];
         return true;
     }
 
-    private static bool TryGetSelectedAttackSkill(Actor actor, out Entity skill)
+    private static bool TryGetSelectedAttackAbility(Actor actor, out ActiveAbilityHandle ability)
     {
-        return TryGetSelectedAttackSkill(actor, out skill, out _);
+        return TryGetSelectedAttackAbility(actor, out ability, out _);
     }
 
-    private static bool TryGetSelectedAttackSkill(Actor actor, out Entity skill, out int count)
+    private static bool TryGetSelectedAttackAbility(
+        Actor actor,
+        out ActiveAbilityHandle ability,
+        out int count)
     {
-        skill = default;
+        ability = default;
         count = 0;
-        if (!TryCollectAvailableAttackSkills(actor.GetExtend(), out var candidates)) return false;
+        using var candidates = new ListPool<ActiveAbilityHandle>();
+        if (!TryCollectAvailableAttackAbilities(actor.GetExtend(), candidates)) return false;
 
         count = candidates.Count;
-        var index = Mod(GetSelectedSkillIndex(actor), count);
-        SelectedSkillIndexes[actor.data.id] = index;
-        skill = candidates[index];
+        var index = Mod(GetSelectedAbilityIndex(actor), count);
+        SelectedAbilityIndexes[actor.data.id] = index;
+        ability = candidates[index];
         return true;
     }
 
-    private static bool TryCollectAvailableAttackSkills(ActorExtend caster, out List<Entity> candidates)
+    private static bool TryCollectAvailableAttackAbilities(
+        ActorExtend caster,
+        IList<ActiveAbilityHandle> candidates)
     {
-        candidates = null;
-        if (!GeneralSettings.EnableSkillSystems) return false;
-        if (caster?.all_attack_skills == null || caster.all_attack_skills.Count == 0) return false;
+        candidates.Clear();
+        if (!GeneralSettings.EnableSkillSystems || caster == null || caster.Base.isRekt()) return false;
 
-        candidates = new List<Entity>();
-        foreach (var candidate in caster.all_attack_skills)
+        ActiveAbilityService.Collect(caster, candidates);
+        for (int i = candidates.Count - 1; i >= 0; i--)
         {
-            if (CanPreparePointCast(caster, candidate))
+            ActiveAbilityHandle candidate = candidates[i];
+            if ((ActiveAbilityService.GetChannels(caster, candidate) & ActiveAbilityChannel.Combat) == 0 ||
+                !ActiveAbilityService.CanPrepare(caster, candidate, null))
             {
-                candidates.Add(candidate);
+                candidates.RemoveAt(i);
             }
         }
 
         return candidates.Count > 0;
-    }
-
-    private static bool CanPreparePointCast(ActorExtend caster, Entity skill)
-    {
-        if (caster == null || caster.Base.isRekt()) return false;
-        if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
-
-        var stepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill);
-        var probePlan = SkillCastPlanner.CreatePointPlan(caster, skill, caster.Base.GetSimPos() + Vector3.right,
-            stepLimit);
-        return SkillCastCost.CanPay(caster, skill, probePlan);
     }
 
     private static bool CanUseSkillControlsNow(Actor actor)
@@ -150,7 +146,7 @@ internal static class ControlledCultivatorSkillControls
         Kingdom attackKingdom, SkillTargetSelectionArea selectionArea)
     {
         if (!CanUseSkillControlsNow(actor)) return false;
-        if (!TryGetSelectedAttackSkill(actor, out var skill)) return false;
+        if (!TryGetSelectedAttackAbility(actor, out ActiveAbilityHandle ability)) return false;
 
         var caster = actor.GetExtend();
         var manualTargets = selectionArea.Active
@@ -158,7 +154,7 @@ internal static class ControlledCultivatorSkillControls
             : null;
         if (selectionArea.Active)
         {
-            if ((target == null || target.isRekt() || !IsWithinSkillCastRange(caster, target))
+            if ((target == null || target.isRekt() || !IsWithinAbilityRange(caster, ability, target))
                 && manualTargets is { Count: > 0 })
             {
                 target = manualTargets[0];
@@ -170,20 +166,15 @@ internal static class ControlledCultivatorSkillControls
             }
         }
 
-        var clampedTargetPos = ClampTargetPos(caster, targetPos);
-        var useTrackedTarget = target != null && !target.isRekt() && IsWithinSkillCastRange(caster, target);
-        var stepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill);
-        var plan = useTrackedTarget
-            ? SkillCastPlanner.CreatePlan(caster, skill, target, stepLimit, manualTargets,
-                selectionArea.Active)
-            : SkillCastPlanner.CreatePointPlan(caster, skill, clampedTargetPos, stepLimit);
-        if (plan.Steps.Count == 0) return false;
-
-        if (!ModClass.I.SkillV3.StartSkillSequence(caster, skill, plan, 100, caster.GetPowerLevel(),
-                SkillCastFundingSource.CasterResources, attackKingdom))
-        {
-            return false;
-        }
+        var clampedTargetPos = ClampTargetPos(caster, ability, targetPos);
+        var useTrackedTarget = target != null && !target.isRekt() && IsWithinAbilityRange(caster, ability, target);
+        var abilityTarget = new ActiveAbilityTarget(
+            useTrackedTarget ? target : null,
+            useTrackedTarget ? target.GetSimPos() : clampedTargetPos,
+            selectionArea,
+            manualTargets,
+            attackKingdom);
+        if (!ActiveAbilityService.TryUse(caster, ability, abilityTarget, ActiveAbilityUseOrigin.Player)) return false;
 
         var aimPos = useTrackedTarget ? target.GetSimPos() : clampedTargetPos;
         actor.startAttackCooldown();
@@ -198,7 +189,9 @@ internal static class ControlledCultivatorSkillControls
         var mousePos = (Vector3)World.world.getMousePos();
         mousePos.z = 0f;
 
-        var target = GetActorTargetRaycast(actor, mousePos) ?? GetActorTargetNearCursor(actor);
+        BaseSimObject target = GetActorTargetRaycast(actor, mousePos);
+        target ??= GetActorTargetNearCursor(actor);
+        target ??= GetBuildingTargetNearCursor();
         var targetPos = target == null ? mousePos : target.GetSimPos();
         targetPos = ClampTargetPos(actor.GetExtend(), targetPos);
 
@@ -217,13 +210,14 @@ internal static class ControlledCultivatorSkillControls
         if (!area.Active || actor == null || actor.isRekt()) return result;
 
         var caster = actor.GetExtend();
+        if (!TryGetSelectedAttackAbility(actor, out ActiveAbilityHandle ability)) return result;
         var center = ClampTargetPos(caster, area.Center);
         var radius = Mathf.Max(0.1f, area.Radius);
         foreach (var target in SkillUtils.IterEnemyInSphere(center, radius, actor, attackKingdom))
         {
             if (target == null || target.isRekt()) continue;
             if (target == actor) continue;
-            if (!IsWithinSkillCastRange(caster, target)) continue;
+            if (!IsWithinAbilityRange(caster, ability, target)) continue;
             if (result.Contains(target)) continue;
 
             result.Add(target);
@@ -274,36 +268,60 @@ internal static class ControlledCultivatorSkillControls
         return target;
     }
 
+    private static Building GetBuildingTargetNearCursor()
+    {
+        WorldTile tile = World.world.getMouseTilePosCachedFrame();
+        Building target = tile?.building;
+        return target == null || target.isRekt() ? null : target;
+    }
+
     private static Vector3 ClampTargetPos(ActorExtend caster, Vector3 targetPos)
+    {
+        return TryGetSelectedAttackAbility(caster.Base, out ActiveAbilityHandle ability)
+            ? ClampTargetPos(caster, ability, targetPos)
+            : targetPos;
+    }
+
+    private static Vector3 ClampTargetPos(
+        ActorExtend caster,
+        ActiveAbilityHandle ability,
+        Vector3 targetPos)
     {
         var sourcePos = caster.Base.GetSimPos();
         var delta = targetPos - sourcePos;
-        var maxRange = caster.GetSkillCastRange(null);
+        var maxRange = ActiveAbilityService.ResolveRange(caster, ability);
         if (delta.sqrMagnitude <= maxRange * maxRange) return targetPos;
         if (delta.sqrMagnitude < 0.0001f) return sourcePos + Vector3.right * maxRange;
         return sourcePos + delta.normalized * maxRange;
     }
 
-    private static bool IsWithinSkillCastRange(ActorExtend caster, BaseSimObject target)
+    private static bool IsWithinAbilityRange(
+        ActorExtend caster,
+        ActiveAbilityHandle ability,
+        BaseSimObject target)
     {
         if (target == null) return false;
-        var range = caster.GetSkillCastRange(target) + target.stats[S.size];
+        var range = ActiveAbilityService.ResolveRange(caster, ability, target) + target.stats[S.size];
         return Toolbox.SquaredDistVec2Float(caster.Base.current_position, target.current_position) <= range * range;
     }
 
-    private static string GetSkillName(Entity skill)
+    internal static float ResolveSelectedAbilityRange(ActorExtend caster)
     {
-        if (skill.IsNull) return "未知法术";
-        if (skill.HasName) return skill.Name.value;
-        if (!skill.HasComponent<SkillContainer>()) return "未知法术";
-
-        var skillId = skill.GetComponent<SkillContainer>().SkillEntityAssetID;
-        return string.IsNullOrEmpty(skillId) ? "未知法术" : skillId.Localize();
+        return caster != null && !caster.Base.isRekt() &&
+               TryGetSelectedAttackAbility(caster.Base, out ActiveAbilityHandle ability)
+            ? ActiveAbilityService.ResolveRange(caster, ability)
+            : 0f;
     }
 
-    private static int GetSelectedSkillIndex(Actor actor)
+    private static string GetAbilityName(ActorExtend caster, ActiveAbilityHandle ability)
     {
-        return actor != null && SelectedSkillIndexes.TryGetValue(actor.data.id, out var index) ? index : 0;
+        string name = ActiveAbilityService.Describe(caster, ability).Name;
+        return string.IsNullOrEmpty(name) ? "未知能力" : name;
+    }
+
+    private static int GetSelectedAbilityIndex(Actor actor)
+    {
+        return actor != null && SelectedAbilityIndexes.TryGetValue(actor.data.id, out var index) ? index : 0;
     }
 
     private static int Mod(int value, int divisor)
@@ -321,10 +339,10 @@ internal static class ControlledCultivatorSkillControls
 
     private readonly struct ControlledSkillAim
     {
-        public readonly Actor Target;
+        public readonly BaseSimObject Target;
         public readonly Vector3 TargetPos;
 
-        public ControlledSkillAim(Actor target, Vector3 targetPos)
+        public ControlledSkillAim(BaseSimObject target, Vector3 targetPos)
         {
             Target = target;
             TargetPos = targetPos;

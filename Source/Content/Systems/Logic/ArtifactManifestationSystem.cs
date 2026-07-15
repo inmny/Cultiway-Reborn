@@ -3,6 +3,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -44,7 +45,8 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
                 int groupIndex = _groupIndices[presentation];
                 _groupIndices[presentation] = groupIndex + 1;
 
-                bool followsOwner = !artifact.HasComponent<ArtifactIndependentMotion>();
+                bool followsOwner = !artifact.HasComponent<ArtifactIndependentMotion>() &&
+                                    !artifact.HasComponent<SkillExecutionBodyLease>();
                 ArtifactPresentationPose pose = followsOwner
                     ? presentation.ResolvePose(new ArtifactPresentationContext(
                         actor,
@@ -77,9 +79,9 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
 
             ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
             manifestation.control_state = update.controlState;
+            manifestation.visible = update.visible;
             if (!update.followsOwner) continue;
 
-            manifestation.visible = update.visible;
             ApplyPose(artifact, update.pose, update.bodyRadius);
         }
     }
@@ -159,7 +161,9 @@ public class ArtifactManifestationCleanupSystem : QuerySystem<Artifact, Artifact
     {
         Query.ForEachEntity((ref Artifact _, ref ArtifactManifestation _, Entity artifact) =>
         {
-            if (artifact.HasComponent<ArtifactIndependentMotion>() || HasLiveController(artifact)) return;
+            if (artifact.HasComponent<ArtifactIndependentMotion>() ||
+                artifact.HasComponent<SkillExecutionBodyLease>() ||
+                HasLiveController(artifact)) return;
 
             CommandBuffer.RemoveComponent<ArtifactManifestation>(artifact.Id);
             CommandBuffer.RemoveComponent<ArtifactBody>(artifact.Id);

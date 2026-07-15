@@ -27,6 +27,8 @@ public class SkillEntityAsset : Asset
     public string EditorCategoryKey;
     public int EditorSortOrder;
     public bool EditorSelectable;
+    /// <summary>该实体能否作为角色持有、改进和释放的技能容器模板。</summary>
+    public bool CanBeLearned { get; private set; }
     public EntityStore World => ModClass.I.SkillV3.World;
     public OnObjCollision OnObjCollision;
     public SkillEntityType Type;
@@ -44,6 +46,13 @@ public class SkillEntityAsset : Asset
     public SkillEntityAsset RequireCastResource(SkillCastResourceAsset resource)
     {
         return RequireCastResources(SkillCastResourceRequirement.Single(resource));
+    }
+
+    /// <summary>声明该实体具备创建可学习技能容器的语义；内部动画和执行体保持默认关闭。</summary>
+    public SkillEntityAsset AllowLearning()
+    {
+        CanBeLearned = true;
+        return this;
     }
 
     /// <summary>

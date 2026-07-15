@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Content.Artifacts;
-using Cultiway.Content.Artifacts.Events;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
@@ -15,9 +16,9 @@ using UnityEngine;
 namespace Cultiway.Content;
 
 /// <summary>
-/// 基础法器能力。能力只声明组合规则、参数和领域事件处理，持续空间运动由独立系统驱动。
+/// 基础法器能力。能力只声明组合规则、参数、启动入口和领域事件处理，持续空间运动由 SkillExecution 驱动。
 /// </summary>
-[Dependency(typeof(ArtifactAtoms))]
+[Dependency(typeof(ArtifactAtoms), typeof(ArtifactSkillExecutions))]
 public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbilities>
 {
     private const string DamageMultiplier = "damage_multiplier";
@@ -85,7 +86,17 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
             ability.GetNumber(TurnRate),
             ability.GetNumber(PierceDistance),
             ability.GetNumber(Cooldown));
-        FlyingSwordAttack.Handle<ArtifactSpatialAttackEvent>(CanLaunchFlyingSword, LaunchFlyingSword);
+        FlyingSwordAttack.Activate(new ArtifactActiveAbilityProfile
+        {
+            channels = ActiveAbilityChannel.Combat,
+            target_mode = ActiveAbilityTargetMode.Object,
+            activation_mode = ActiveAbilityActivationMode.Sustained,
+            ai_weight = 8,
+            ResolveRange = (_, ability) => ability.GetNumber(AttackRange),
+            CanPrepare = CanPrepareFlyingSword,
+            CanUse = CanLaunchFlyingSword,
+            TryUse = LaunchFlyingSword,
+        });
     }
 
     private static void ConfigureDingAlchemyAssist()
@@ -122,26 +133,40 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
         DingAlchemyAssist.Handle<ElixirCraftResultEvent>(IsOperating<ElixirCraftResultEvent>, ApplyAlchemyResultAssist);
     }
 
+    private static bool CanPrepareFlyingSword(
+        ArtifactAbilityExecutionContext context,
+        ArtifactAbilityInstance ability,
+        ArtifactAbilityRuntimeEntry runtime,
+        BaseSimObject target)
+    {
+        return context.control_state != ArtifactControlState.Cold &&
+               (target == null || !target.isRekt()) &&
+               !context.artifact.HasComponent<ArtifactIndependentMotion>();
+    }
+
     private static bool CanLaunchFlyingSword(
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ArtifactAbilityRuntimeEntry runtime,
-        ArtifactSpatialAttackEvent evt)
+        in ActiveAbilityTarget target)
     {
-        if (!IsOperating(context) || evt.Target.isRekt()) return false;
-        if (context.artifact.HasComponent<ArtifactIndependentMotion>()) return false;
+        if (!IsOperating(context) || target.Object == null || target.Object.isRekt()) return false;
+        if (context.artifact.HasComponent<ArtifactIndependentMotion>() ||
+            context.artifact.HasComponent<SkillExecutionBodyLease>()) return false;
         if (runtime.GetNumber(ReadyAt) > World.world.getCurWorldTime()) return false;
 
         Actor controller = context.controller.GetComponent<ActorBinder>().Actor;
-        float range = ability.GetNumber(AttackRange) + evt.Target.stats[S.size];
-        return Toolbox.SquaredDistVec2Float(controller.current_position, evt.Target.current_position) <= range * range;
+        float range = ability.GetNumber(AttackRange) + target.Object.stats[S.size];
+        return Toolbox.SquaredDistVec2Float(controller.current_position, target.Object.current_position) <=
+               range * range;
     }
 
-    private static void LaunchFlyingSword(
+    private static bool LaunchFlyingSword(
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
-        ArtifactSpatialAttackEvent evt)
+        in ActiveAbilityTarget target,
+        ActiveAbilityUseOrigin origin)
     {
         Actor controller = context.controller.GetComponent<ActorBinder>().Actor;
         Entity artifact = context.artifact;
@@ -161,28 +186,48 @@ public class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbi
             artifact.GetComponent<Position>().value = controller.cur_transform_position + Vector3.up * actorScale * 0.55f;
         }
 
-        Vector2 direction = evt.Target.current_position - artifact.GetComponent<Position>().v2;
+        Vector2 direction = target.Object.current_position - artifact.GetComponent<Position>().v2;
         if (direction.sqrMagnitude < 0.0001f) direction = Vector2.up;
 
-        artifact.AddComponent(new ArtifactIndependentMotion());
-        artifact.AddComponent(new ArtifactSpatialAttackMotion
+        Entity execution = ArtifactSkillExecutions.FlyingSword.NewEntity();
+        ref SkillContext skillContext = ref execution.GetComponent<SkillContext>();
+        skillContext.SourceObj = controller;
+        skillContext.TargetObj = target.Object;
+        skillContext.TargetPos = target.Object.GetSimPos();
+        skillContext.TargetDir = direction.normalized;
+        skillContext.AttackKingdom = target.AttackKingdom;
+        skillContext.Strength = Mathf.Max(1f, controller.stats[S.damage] * ability.GetNumber(DamageMultiplier));
+        skillContext.PowerLevel = controller.GetExtend().GetPowerLevel();
+
+        execution.GetComponent<Position>().value = artifact.GetComponent<Position>().value;
+        execution.GetComponent<Rotation>().value = artifact.GetComponent<Rotation>().value;
+        execution.GetComponent<PrevPosition>().Value = execution.GetComponent<Position>().v2;
+        ref SkillGroundFxState groundFxState = ref execution.GetComponent<SkillGroundFxState>();
+        groundFxState.LastX = execution.GetComponent<Position>().x;
+        groundFxState.LastY = execution.GetComponent<Position>().y;
+        execution.GetComponent<ColliderSphere>().Radius = artifact.GetComponent<ArtifactBody>().radius;
+        execution.AddComponent(new ArtifactSpatialAttackMotion
         {
-            owner_actor_id = controller.data.id,
-            target_id = evt.Target.getID(),
-            target_is_actor = evt.Target.isActor(),
             direction = direction.normalized,
             speed = ability.GetNumber(FlightSpeed),
             turn_rate = ability.GetNumber(TurnRate),
             damage_multiplier = ability.GetNumber(DamageMultiplier),
             control_range = ability.GetNumber(AttackRange),
-            hit_radius = shape.presentation.body_radius * manifestation.world_size,
             pierce_distance = ability.GetNumber(PierceDistance),
             repeat_cooldown = ability.GetNumber(Cooldown),
             orbit_sign = (artifact.Id & 1) == 0 ? 1f : -1f,
             hit_target_keys = new HashSet<long>(),
             phase = ArtifactSpatialAttackPhase.Pursuing,
         });
+
+        if (!SkillExecutionLifecycle.TryBorrowBody(execution, artifact))
+        {
+            SkillExecutionLifecycle.RequestEnd(execution);
+            return false;
+        }
+
         runtime.SetNumber(ReadyAt, (float)World.world.getCurWorldTime() + ability.GetNumber(Cooldown));
+        return true;
     }
 
     private static bool IsOperating<TEvent>(

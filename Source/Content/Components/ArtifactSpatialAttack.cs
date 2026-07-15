@@ -16,19 +16,15 @@ public enum ArtifactSpatialAttackPhase
 }
 
 /// <summary>
-/// 一件飞剑正在执行的持续空间攻击。运动、扫掠命中和世界渲染都作用于法器本体。
+/// 飞剑主动能力执行会话的私有运动状态。目标与施法者存放在通用 SkillContext 中，命中由 SkillV3 碰撞系统处理。
 /// </summary>
 public struct ArtifactSpatialAttackMotion : IComponent
 {
-    public long owner_actor_id;
-    public long target_id;
-    public bool target_is_actor;
     public Vector2 direction;
     public float speed;
     public float turn_rate;
     public float damage_multiplier;
     public float control_range;
-    public float hit_radius;
     public float pierce_distance;
     public float repeat_cooldown;
     public float pierce_remaining;

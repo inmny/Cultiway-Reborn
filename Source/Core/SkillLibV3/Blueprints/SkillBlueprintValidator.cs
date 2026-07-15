@@ -106,7 +106,7 @@ public sealed class SkillBlueprintValidator
             result.AddError("entity.descriptor_missing", context.Blueprint.EntityAssetId);
             return;
         }
-        if (!context.EntityAsset.EditorSelectable)
+        if (!context.EntityAsset.CanBeLearned || !context.EntityAsset.EditorSelectable)
         {
             result.AddError("entity.internal", context.Blueprint.EntityAssetId);
         }

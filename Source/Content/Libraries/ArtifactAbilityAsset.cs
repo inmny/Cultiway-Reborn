@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Content.Components;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
 using UnityEngine;
@@ -69,6 +70,40 @@ public delegate bool ArtifactAbilityEventCondition<TEvent>(
     TEvent evt)
     where TEvent : class;
 
+public delegate bool ArtifactActiveAbilityPrepareCondition(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability,
+    ArtifactAbilityRuntimeEntry runtime,
+    BaseSimObject target);
+
+public delegate bool ArtifactActiveAbilityCondition(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability,
+    ArtifactAbilityRuntimeEntry runtime,
+    in ActiveAbilityTarget target);
+
+public delegate bool ArtifactActiveAbilityHandler(
+    ArtifactAbilityExecutionContext context,
+    ArtifactAbilityInstance ability,
+    ref ArtifactAbilityRuntimeEntry runtime,
+    in ActiveAbilityTarget target,
+    ActiveAbilityUseOrigin origin);
+
+/// <summary>
+/// 法器能力可选的主动释放入口。它只描述如何被选择和启动，持续效果由 SkillExecution 驱动。
+/// </summary>
+public sealed class ArtifactActiveAbilityProfile
+{
+    public ActiveAbilityChannel channels = ActiveAbilityChannel.Combat;
+    public ActiveAbilityTargetMode target_mode = ActiveAbilityTargetMode.Object;
+    public ActiveAbilityActivationMode activation_mode = ActiveAbilityActivationMode.Instant;
+    public int ai_weight = 1;
+    public Func<ArtifactAbilityExecutionContext, ArtifactAbilityInstance, float> ResolveRange;
+    public ArtifactActiveAbilityPrepareCondition CanPrepare;
+    public ArtifactActiveAbilityCondition CanUse;
+    public ArtifactActiveAbilityHandler TryUse;
+}
+
 /// <summary>
 /// 注册式法器能力。每个能力拥有独立参数规格、运行状态、调度元数据和事件处理器。
 /// </summary>
@@ -87,6 +122,7 @@ public class ArtifactAbilityAsset : Asset
     public Func<ArtifactAbilityComposeContext, ArtifactAbilityValue[]> ComposeParameters;
     public Func<ArtifactAbilityComposeContext, ArtifactAbilityValue[]> ComposeInitialState;
     public Func<ArtifactAbilityInstance, string> DescribeInstance;
+    public ArtifactActiveAbilityProfile active_use;
 
     private readonly Dictionary<Type, IEventHandler> _handlers = new();
 
@@ -108,6 +144,13 @@ public class ArtifactAbilityAsset : Asset
     public string GetDescription(ArtifactAbilityInstance ability)
     {
         return DescribeInstance?.Invoke(ability) ?? string.Empty;
+    }
+
+    public ArtifactAbilityAsset Activate(ArtifactActiveAbilityProfile profile)
+    {
+        active_use = profile ?? throw new ArgumentNullException(nameof(profile));
+        if (profile.TryUse == null) throw new ArgumentException($"法器主动能力 {id} 缺少执行入口");
+        return this;
     }
 
     public ArtifactAbilityAsset Handle<TEvent>(ArtifactAbilityEventHandler<TEvent> handler)

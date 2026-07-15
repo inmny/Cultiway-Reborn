@@ -1,6 +1,5 @@
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using Cultiway.Abstract;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway;
@@ -15,16 +14,25 @@ public partial class WorldboxGame
         public static CombatActionAsset AttackRange { get; private set; }
         [GetOnly(nameof(CombatActionLibrary.combat_cast_spell))]
         public static CombatActionAsset CastVanillaSpell { get; private set; }
-        public static CombatActionAsset CastSkillV3 {get; private set; }
+        public static CombatActionAsset CastActiveAbility { get; private set; }
         protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
-            CastSkillV3.rate = 10;
-            CastSkillV3.action = data =>
+            CastActiveAbility.rate = 1;
+            CastActiveAbility.action = data =>
             {
                 var ae = data.initiator.a.GetExtend();
-                if (!ae.TryGetCastableAttackSkill(data.target, out var skill)) return false;
-                return ae.CastSkillV3(skill, data.target);
+                using var candidates = new ListPool<ActiveAbilityHandle>();
+                using var weights = new ListPool<int>();
+                if (!ActiveAbilityService.TrySelectForAi(
+                        ae,
+                        data.target,
+                        candidates,
+                        weights,
+                        out ActiveAbilityHandle selected)) return false;
+
+                var target = new ActiveAbilityTarget(data.target, data.target.GetSimPos());
+                return ActiveAbilityService.TryUse(ae, selected, target, ActiveAbilityUseOrigin.Autonomous);
             };
         }
     }

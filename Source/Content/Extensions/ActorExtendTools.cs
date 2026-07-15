@@ -617,7 +617,7 @@ public static class ActorExtendTools
         var result = new List<SkillEntityAsset>();
         foreach (var candidate in ModClass.I.SkillV3.SkillLib.list)
         {
-            if (candidate == null) continue;
+            if (candidate == null || !candidate.CanBeLearned) continue;
             if (candidate.PrefabEntity.IsNull || !candidate.PrefabEntity.HasComponent<SkillEntity>()) continue;
             if (candidate.Type != SkillEntityType.Attack) continue;
             if (!IsSameSeriesSkillEntity(sourceAsset, candidate)) continue;

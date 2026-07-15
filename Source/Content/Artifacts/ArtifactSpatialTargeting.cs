@@ -7,25 +7,24 @@ using UnityEngine;
 namespace Cultiway.Content.Artifacts;
 
 /// <summary>
-/// 为持续空间攻击选择下一目标，并收集法器本体一帧位移扫过的敌人。
+/// 为持续空间攻击选择下一目标。实际扫掠命中由 SkillV3 的通用碰撞系统处理。
 /// </summary>
 internal sealed class ArtifactSpatialTargeting
 {
     private const float ChunkSize = 16f;
-    private const float ScanPadding = 3f;
 
     private readonly List<BaseSimObject> _candidates = new();
     private readonly HashSet<long> _candidateKeys = new();
-    private readonly HashSet<long> _scanKeys = new();
 
     public bool TrySelect(
         Actor owner,
         Vector2 artifactPosition,
         ref ArtifactSpatialAttackMotion motion,
         float worldTime,
+        Kingdom attackKingdom,
         out BaseSimObject target)
     {
-        CollectCandidates(owner, motion.control_range);
+        CollectCandidates(owner, motion.control_range, attackKingdom);
         target = null;
         if (_candidates.Count == 0) return false;
 
@@ -52,49 +51,21 @@ internal sealed class ArtifactSpatialTargeting
         return target != null;
     }
 
-    public void CollectSweptHits(
+    public static bool IsValidTarget(
         Actor owner,
-        Vector2 start,
-        Vector2 end,
-        ref ArtifactSpatialAttackMotion motion,
-        List<BaseSimObject> hits)
+        BaseSimObject target,
+        float controlRange,
+        Kingdom attackKingdom = null)
     {
-        hits.Clear();
-        _scanKeys.Clear();
-
-        float padding = motion.hit_radius + ScanPadding;
-        Vector2 minimum = Vector2.Min(start, end) - Vector2.one * padding;
-        Vector2 maximum = Vector2.Max(start, end) + Vector2.one * padding;
-        Vector2Int lower = Vector2Int.FloorToInt(minimum);
-        Vector2Int upper = Vector2Int.CeilToInt(maximum);
-        lower.Clamp(Vector2Int.zero, new Vector2Int(MapBox.width - 1, MapBox.height - 1));
-        upper.Clamp(Vector2Int.zero, new Vector2Int(MapBox.width - 1, MapBox.height - 1));
-
-        for (int x = lower.x; x <= upper.x; x++)
-        for (int y = lower.y; y <= upper.y; y++)
+        if (target == null || target.isRekt() || target == owner) return false;
+        if (attackKingdom != null)
         {
-            WorldTile tile = World.world.GetTileSimple(x, y);
-            if (tile.building != null)
-            {
-                TryCollectHit(owner, tile.building, start, end, ref motion, hits);
-            }
-            for (int i = 0; i < tile._units.Count; i++)
-            {
-                TryCollectHit(owner, tile._units[i], start, end, ref motion, hits);
-            }
+            if (!attackKingdom.isEnemy(target.kingdom)) return false;
         }
-    }
-
-    public static BaseSimObject ResolveTarget(ArtifactSpatialAttackMotion motion)
-    {
-        return motion.target_is_actor
-            ? World.world.units.get(motion.target_id)
-            : World.world.buildings.get(motion.target_id);
-    }
-
-    public static bool IsValidTarget(Actor owner, BaseSimObject target, float controlRange)
-    {
-        if (target.isRekt() || target == owner || !owner.canAttackTarget(target)) return false;
+        else if (!owner.canAttackTarget(target))
+        {
+            return false;
+        }
 
         float range = controlRange + target.stats[S.size];
         return Toolbox.SquaredDistVec2Float(owner.current_position, target.current_position) <= range * range;
@@ -105,7 +76,7 @@ internal sealed class ArtifactSpatialTargeting
         return unchecked((target.getID() << 1) | (target.isActor() ? 0L : 1L));
     }
 
-    private void CollectCandidates(Actor owner, float controlRange)
+    private void CollectCandidates(Actor owner, float controlRange, Kingdom attackKingdom)
     {
         _candidates.Clear();
         _candidateKeys.Clear();
@@ -116,20 +87,24 @@ internal sealed class ArtifactSpatialTargeting
                      chunkRadius,
                      controlRange + 1f))
         {
-            AddCandidate(owner, actor, controlRange);
+            AddCandidate(owner, actor, controlRange, attackKingdom);
         }
         foreach (Building building in Finder.getBuildingsFromChunk(
                      owner.current_tile,
                      chunkRadius,
                      Mathf.CeilToInt(controlRange + 1f)))
         {
-            AddCandidate(owner, building, controlRange);
+            AddCandidate(owner, building, controlRange, attackKingdom);
         }
     }
 
-    private void AddCandidate(Actor owner, BaseSimObject candidate, float controlRange)
+    private void AddCandidate(
+        Actor owner,
+        BaseSimObject candidate,
+        float controlRange,
+        Kingdom attackKingdom)
     {
-        if (!IsValidTarget(owner, candidate, controlRange)) return;
+        if (!IsValidTarget(owner, candidate, controlRange, attackKingdom)) return;
         if (!_candidateKeys.Add(GetTargetKey(candidate))) return;
         _candidates.Add(candidate);
     }
@@ -165,29 +140,5 @@ internal sealed class ArtifactSpatialTargeting
             bestKey = key;
         }
         return best;
-    }
-
-    private void TryCollectHit(
-        Actor owner,
-        BaseSimObject candidate,
-        Vector2 start,
-        Vector2 end,
-        ref ArtifactSpatialAttackMotion motion,
-        List<BaseSimObject> hits)
-    {
-        if (!IsValidTarget(owner, candidate, motion.control_range)) return;
-
-        long key = GetTargetKey(candidate);
-        if (motion.hit_target_keys.Contains(key) || !_scanKeys.Add(key)) return;
-
-        float radius = Mathf.Max(0.35f, motion.hit_radius + candidate.stats[S.size]);
-        if (!ArtifactSpatialMotionTools.SegmentIntersectsCircle(
-                start,
-                end,
-                candidate.current_position,
-                radius)) return;
-
-        motion.hit_target_keys.Add(key);
-        hits.Add(candidate);
     }
 }
