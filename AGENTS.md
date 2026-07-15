@@ -20,6 +20,12 @@
 
 项目未启用 Nullable 注解，因此要优先使用显式 guard 和 `Source/Utils` 中的工具方法。提交前使用仓库内 `.DotSettings` 配置运行 ReSharper 或 IDE 自动格式化。代码注释应使用中文（UTF-8）。
 
+## UI 开发约束
+
+涉及窗口、弹层、列表、详情页、HUD、底栏按钮、Tooltip、滚动容器、UI prefab 或 UI 资源的设计与实现时，开始修改前必须阅读 [`Prompts/UI.md`](Prompts/UI.md)。该文档规定了 UI 的现行分层、真实 API、视觉语义、原版资源复用方式、扩展规则和验证清单。
+
+公共原子元素、布局、主题和资源位于 `Source/UI/Foundation`，复合控件位于 `Source/UI/Controls`，原版 prefab 边界位于 `Source/UI/Adapters` 或拥有该 prefab 的 Window。不要恢复 `WanfaUiFactory`、`BaibaoUiFactory`、`UIUtils`，也不要新增功能专属的通用 UI 工厂。
+
 ## 测试指南
 仓库没有自动化测试套件，主要通过 WorldBox 内手动验证。启动后自动通过 NeoModLoader 编译并加载 Mod，启用 `Source/Debug` 中的调试工具，并针对受影响系统（例如法术、宗门机制）创建游戏内场景验证。
 
