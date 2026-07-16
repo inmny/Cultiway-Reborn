@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
 using UnityEngine;
@@ -252,6 +253,7 @@ public sealed class ArtifactActiveAbilityProfile
     public ActiveAbilityActivationMode activation_mode = ActiveAbilityActivationMode.Instant;
     public int ai_weight = 1;
     public Func<ArtifactAbilityExecutionContext, ArtifactAbilityInstance, float> ResolveRange;
+    public Func<ArtifactAbilityExecutionContext, ArtifactAbilityInstance, float> ResolveEffectRadius;
     public ArtifactActiveAbilityPrepareCondition CanPrepare;
     public ArtifactActiveAbilityCondition CanUse;
     public ArtifactActiveAbilityHandler TryUse;
@@ -277,6 +279,7 @@ public class ArtifactAbilityAsset : Asset
     public Func<ArtifactAbilityInstance, string> DescribeInstance;
     public ArtifactActiveAbilityProfile active_use;
     public ArtifactAbilityLifecycleProfile lifecycle = new();
+    public ArtifactAbilityVisualProfile visual;
 
     private readonly Dictionary<Type, IEventHandler> _handlers = new();
 
@@ -310,6 +313,12 @@ public class ArtifactAbilityAsset : Asset
     public ArtifactAbilityAsset ConfigureLifecycle(ArtifactAbilityLifecycleProfile profile)
     {
         lifecycle = profile ?? throw new ArgumentNullException(nameof(profile));
+        return this;
+    }
+
+    public ArtifactAbilityAsset Visualize(ArtifactAbilityVisualProfile profile)
+    {
+        visual = profile ?? throw new ArgumentNullException(nameof(profile));
         return this;
     }
 
@@ -379,6 +388,16 @@ public class ArtifactAbilityAsset : Asset
         if (!CanUseActive(context, ability, runtime, target)) return false;
         if (!active_use.TryUse(context, ability, ref runtime, target, origin)) return false;
         ArtifactAbilityLifecycle.CommitActive(this, context, ability, ref runtime);
+        Vector3 targetPosition = target.Object != null && !target.Object.isRekt()
+            ? target.Object.GetSimPos()
+            : target.Position;
+        ArtifactAbilityVisuals.Emit(
+            context,
+            ability,
+            runtime,
+            ArtifactVisualChannels.Trigger,
+            targetPosition,
+            target: target.Object);
         return true;
     }
 

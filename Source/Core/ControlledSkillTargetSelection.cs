@@ -41,6 +41,7 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
     private bool _selecting;
     private float _pressStartTime;
     private float _radius = DefaultRadius;
+    private float _displayRadius = DefaultRadius;
     private Vector3 _center;
 
     internal static void Configure(HotkeyAsset castHotkey)
@@ -110,7 +111,10 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
 
         if (!_selecting) return;
 
-        if (Mathf.Abs(scroll) > 0.01f)
+        float fixedEffectRadius = ControlledCultivatorSkillControls.TryGetControlledActor(out Actor actor)
+            ? ControlledCultivatorSkillControls.ResolveSelectedAbilityEffectRadius(actor.GetExtend())
+            : 0f;
+        if (fixedEffectRadius <= 0f && Mathf.Abs(scroll) > 0.01f)
         {
             _radius = Mathf.Clamp(_radius + scroll * WheelRadiusStep, MinRadius, MaxRadius);
         }
@@ -134,13 +138,14 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
         _selecting = false;
         _pressStartTime = Time.unscaledTime;
         _radius = Mathf.Clamp(_radius, MinRadius, MaxRadius);
+        _displayRadius = _radius;
         HideCircle();
     }
 
     private void Release()
     {
         var area = _selecting
-            ? new SkillTargetSelectionArea(true, _center, _radius)
+            ? new SkillTargetSelectionArea(true, _center, _displayRadius)
             : SkillTargetSelectionArea.Inactive;
         Cancel();
         ControlledCultivatorSkillControls.CastSelectedSkill(area);
@@ -378,10 +383,12 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
         mousePos.z = 0f;
         var caster = actor.GetExtend();
         _center = ControlledCultivatorSkillControls.ClampSkillTargetPos(caster, mousePos);
-        var area = new SkillTargetSelectionArea(true, _center, _radius);
+        float effectRadius = ControlledCultivatorSkillControls.ResolveSelectedAbilityEffectRadius(caster);
+        _displayRadius = effectRadius > 0f ? effectRadius : _radius;
+        var area = new SkillTargetSelectionArea(true, _center, _displayRadius);
         var targets = ControlledCultivatorSkillControls.CollectManualTargets(actor, area,
             World.world.kingdoms_wild.get("possessed"));
-        var color = targets.Count > 0
+        var color = effectRadius > 0f || targets.Count > 0
             ? new Color(0.15f, 0.9f, 1f, 0.85f)
             : new Color(1f, 0.35f, 0.2f, 0.65f);
 
@@ -393,8 +400,8 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
         {
             var angle = i / (float)CircleSegments * Mathf.PI * 2f;
             _circlePoints[i] = new Vector3(
-                _center.x + Mathf.Cos(angle) * _radius,
-                _center.y + Mathf.Sin(angle) * _radius,
+                _center.x + Mathf.Cos(angle) * _displayRadius,
+                _center.y + Mathf.Sin(angle) * _displayRadius,
                 _center.z + 0.25f);
         }
 

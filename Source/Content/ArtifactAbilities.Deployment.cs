@@ -91,6 +91,7 @@ public partial class ArtifactAbilities
             activation_mode = ActiveAbilityActivationMode.Sustained,
             ai_weight = 6,
             ResolveRange = (_, ability) => ability.GetNumber(AttackRange),
+            ResolveEffectRadius = (_, ability) => ability.GetNumber(FieldRadius),
             CanPrepare = CanPrepareSuppressionField,
             CanUse = CanDeploySuppressionField,
             TryUse = DeploySuppressionField,
@@ -128,16 +129,19 @@ public partial class ArtifactAbilities
         in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin _)
     {
-        Actor controller = context.controller.GetComponent<ActorBinder>().Actor;
-        ArtifactShapeAsset shape = (ArtifactShapeAsset)context.artifact.GetComponent<ItemShape>().Type;
-        float actorScale = Mathf.Max(controller.stats[S.scale], 0.1f) * 10f;
         Vector3 position = target.Object?.GetSimPos() ?? target.Position;
+        ArtifactShapeAsset shape = (ArtifactShapeAsset)context.artifact.GetComponent<ItemShape>().Type;
+        ArtifactBodyAnchorKind bodyAnchor = shape == ItemShapes.Sword
+            ? ArtifactBodyAnchorKind.ForwardTip
+            : ArtifactBodyAnchorKind.Center;
+        float? rotation = shape == ItemShapes.Sword ? 180f : null;
         return ArtifactAbilityLifecycle.Deploy(
             context,
             ability,
             ref runtime,
             position,
-            actorScale * shape.presentation.active_world_size);
+            bodyAnchor,
+            rotation);
     }
 
     private static void ApplySuppressionField(
@@ -147,16 +151,20 @@ public partial class ArtifactAbilities
         float __)
     {
         Actor controller = context.controller.GetComponent<ActorBinder>().Actor;
-        Vector2 position = context.artifact.GetComponent<Position>().v2;
+        ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
+        Vector2 position = ArtifactManifestationTools.ResolveWorldAnchor(
+            context.artifact,
+            deployment.body_anchor);
         WorldTile tile = World.world.GetTile(Mathf.FloorToInt(position.x), Mathf.FloorToInt(position.y));
         if (tile == null) return;
 
         float radius = ability.GetNumber(FieldRadius);
         float statusDuration = ability.GetNumber(StatusDuration);
-        int chunkRadius = Mathf.Max(1, Mathf.CeilToInt(radius / 8f));
-        foreach (Actor target in Finder.getUnitsFromChunk(tile, chunkRadius, radius))
+        int chunkRadius = Mathf.CeilToInt(radius / 16f) + 1;
+        foreach (Actor target in Finder.getUnitsFromChunk(tile, chunkRadius))
         {
             if (target == controller || !controller.canAttackTarget(target)) continue;
+            if (Toolbox.SquaredDistVec2Float(position, target.current_position) > radius * radius) continue;
             ApplyArtifactStatus(target, StatusEffects.Slow, statusDuration, S.multiplier_speed, -0.45f, controller);
             ApplyArtifactStatus(target, StatusEffects.Weaken, statusDuration, S.multiplier_damage, -0.12f, controller);
         }

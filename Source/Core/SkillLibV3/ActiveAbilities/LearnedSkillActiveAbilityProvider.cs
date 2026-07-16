@@ -79,6 +79,11 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         return caster.GetSkillCastRange(target);
     }
 
+    public float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
+    {
+        return 0f;
+    }
+
     public bool TryUse(
         ActorExtend caster,
         ActiveAbilityHandle handle,

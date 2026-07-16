@@ -18,7 +18,7 @@ namespace Cultiway.Content;
 /// <summary>
 /// 基础法器能力。能力只声明组合规则、参数、启动入口和领域事件处理，持续空间运动由 SkillExecution 驱动。
 /// </summary>
-[Dependency(typeof(ArtifactAtoms), typeof(ArtifactSkillExecutions), typeof(StatusEffects))]
+[Dependency(typeof(ArtifactAtoms), typeof(ArtifactSkillExecutions), typeof(StatusEffects), typeof(SkillVfxElements))]
 public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbilities>
 {
     private const string DamageMultiplier = "damage_multiplier";
@@ -47,6 +47,7 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
         ConfigureVitalityRenewal();
         ConfigureSpiritReservoir();
         ConfigureSuppressionField();
+        ConfigureVisuals();
     }
 
     private static void ConfigureFlyingSwordAttack()
@@ -223,9 +224,8 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
         ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
         manifestation.control_state = context.control_state;
         manifestation.visible = controller.is_visible;
-        manifestation.world_size = actorScale * shape.presentation.active_world_size;
         manifestation.flip_x = false;
-        artifact.GetComponent<ArtifactBody>().radius = shape.presentation.body_radius * manifestation.world_size;
+        ArtifactManifestationTools.ApplyActiveWorldSize(artifact, controller);
         if (initialized)
         {
             artifact.GetComponent<Position>().value = controller.cur_transform_position + Vector3.up * actorScale * 0.55f;
@@ -250,7 +250,18 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
         ref SkillGroundFxState groundFxState = ref execution.GetComponent<SkillGroundFxState>();
         groundFxState.LastX = execution.GetComponent<Position>().x;
         groundFxState.LastY = execution.GetComponent<Position>().y;
-        execution.GetComponent<ColliderSphere>().Radius = artifact.GetComponent<ArtifactBody>().radius;
+        ref AnimAfterimage afterimage = ref execution.GetComponent<AnimAfterimage>();
+        afterimage.Tint = ArtifactAbilityVisuals.ResolveTheme(artifact, FlyingSwordAttack.visual).glow;
+        float colliderRadius = artifact.GetComponent<ArtifactBody>().radius;
+        execution.GetComponent<ColliderSphere>().Radius = colliderRadius;
+        Sprite worldSprite = shape.GetWorldSprite(artifact);
+        float worldSpriteScale = manifestation.world_size /
+                                 Mathf.Max(worldSprite.bounds.size.x, worldSprite.bounds.size.y);
+        execution.AddComponent(new ColliderLinearExtent
+        {
+            Forward = Mathf.Max(0f, worldSprite.bounds.max.y * worldSpriteScale - colliderRadius),
+            Backward = Mathf.Max(0f, -worldSprite.bounds.min.y * worldSpriteScale - colliderRadius),
+        });
         float flightSpeed = ability.GetNumber(FlightSpeed) * ArtifactFlyingSwordExecution.BaseSpeedMultiplier;
         float turnRate = ability.GetNumber(TurnRate) * ArtifactFlyingSwordExecution.TurnRateMultiplier;
         execution.AddComponent(new ArtifactSpatialAttackMotion
@@ -278,22 +289,35 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
     }
 
     private static void ApplyAlchemyStepAssist(
-        ArtifactAbilityExecutionContext _,
+        ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry __,
+        ref ArtifactAbilityRuntimeEntry runtime,
         ElixirCraftStepEvent evt)
     {
         evt.ProgressGain += ability.GetInteger(ProgressBonus);
         evt.Duration *= ability.GetNumber(DurationMultiplier);
+        ArtifactAbilityVisuals.Emit(
+            context,
+            ability,
+            runtime,
+            ArtifactVisualChannels.CraftStep,
+            intensity: ability.GetInteger(ProgressBonus),
+            duration: evt.Duration + 0.2f);
     }
 
     private static void ApplyAlchemyResultAssist(
-        ArtifactAbilityExecutionContext _,
+        ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry __,
+        ref ArtifactAbilityRuntimeEntry runtime,
         ElixirCraftResultEvent evt)
     {
         evt.QualityBonus += ability.GetInteger(QualityBonus);
+        ArtifactAbilityVisuals.Emit(
+            context,
+            ability,
+            runtime,
+            ArtifactVisualChannels.CraftResult,
+            intensity: ability.GetInteger(QualityBonus));
     }
 
     private static int Quality(ArtifactAbilityComposeContext context)

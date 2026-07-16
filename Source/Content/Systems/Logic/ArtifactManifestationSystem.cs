@@ -47,6 +47,7 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
 
                 bool followsOwner = !artifact.HasComponent<ArtifactIndependentMotion>() &&
                                     !artifact.HasComponent<SkillExecutionBodyLease>();
+                bool active = !followsOwner || HasActiveAbility(artifact.GetComponent<ArtifactAbilityRuntime>());
                 ArtifactPresentationPose pose = followsOwner
                     ? presentation.ResolvePose(new ArtifactPresentationContext(
                         actor,
@@ -56,12 +57,17 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
                         actorScale,
                         time))
                     : default;
+                float activeWorldSize = active
+                    ? ArtifactManifestationTools.ResolveActiveWorldSize(artifact, actor)
+                    : 0f;
                 _updates.Add(new ManifestationUpdate(
                     artifact,
                     relation.state,
                     presentation.body_radius,
                     actor.is_visible,
                     followsOwner,
+                    active,
+                    activeWorldSize,
                     pose));
             }
         });
@@ -80,10 +86,29 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
             ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
             manifestation.control_state = update.controlState;
             manifestation.visible = update.visible;
-            if (!update.followsOwner) continue;
+            if (update.followsOwner) ApplyPose(artifact, update.pose, update.bodyRadius);
+            else manifestation.flip_x = false;
+            if (!update.active) continue;
 
-            ApplyPose(artifact, update.pose, update.bodyRadius);
+            manifestation.world_size = update.activeWorldSize;
+            artifact.GetComponent<ArtifactBody>().radius = update.bodyRadius * update.activeWorldSize;
+            if (artifact.TryGetComponent(out ArtifactDeployment deployment))
+            {
+                ArtifactManifestationTools.AlignWorldAnchor(
+                    artifact,
+                    deployment.body_anchor,
+                    deployment.origin);
+            }
         }
+    }
+
+    private static bool HasActiveAbility(ArtifactAbilityRuntime runtime)
+    {
+        for (int i = 0; i < runtime.abilities.Length; i++)
+        {
+            if (runtime.abilities[i].activity_kind != ArtifactAbilityActivityKind.None) return true;
+        }
+        return false;
     }
 
     private void CollectRelations(Entity owner)
@@ -131,6 +156,8 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
         public readonly float bodyRadius;
         public readonly bool visible;
         public readonly bool followsOwner;
+        public readonly bool active;
+        public readonly float activeWorldSize;
         public readonly ArtifactPresentationPose pose;
 
         public ManifestationUpdate(
@@ -139,6 +166,8 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
             float bodyRadius,
             bool visible,
             bool followsOwner,
+            bool active,
+            float activeWorldSize,
             ArtifactPresentationPose pose)
         {
             this.artifact = artifact;
@@ -146,6 +175,8 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
             this.bodyRadius = bodyRadius;
             this.visible = visible;
             this.followsOwner = followsOwner;
+            this.active = active;
+            this.activeWorldSize = activeWorldSize;
             this.pose = pose;
         }
     }

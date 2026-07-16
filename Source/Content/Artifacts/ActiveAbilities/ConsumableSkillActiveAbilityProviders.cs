@@ -71,6 +71,11 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
         return caster.GetSkillCastRange(target);
     }
 
+    public float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
+    {
+        return 0f;
+    }
+
     public bool TryUse(
         ActorExtend caster,
         ActiveAbilityHandle handle,

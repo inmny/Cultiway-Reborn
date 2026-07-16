@@ -65,21 +65,21 @@ public class Manager
         AssetManager._instance.add(CastBudgetRuleLib, "cultiway.skill_cast_budget_rules");
     }
 
-    public void SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
+    public Entity SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
         float frameInterval = 0.1f, bool loop = false, float? lifeTime = null, VisualRotation? visualRotation = null)
     {
         var frames = SkillEntityAsset.LoadOrderedFrames(path);
-        SpawnAnim(frames, pos, rot, scale, tint, frameInterval, loop, lifeTime, visualRotation);
+        return SpawnAnim(frames, pos, rot, scale, tint, frameInterval, loop, lifeTime, visualRotation);
     }
 
-    public void SpawnAnim(Sprite[] frames, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
+    public Entity SpawnAnim(Sprite[] frames, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
         float frameInterval = 0.1f, bool loop = false, float? lifeTime = null, VisualRotation? visualRotation = null)
     {
         var entity = SkillEntityLibrary.RawAnim.NewEntity();
         if (frames == null || frames.Length == 0)
         {
             ModClass.I.CommandBuffer.AddTag<TagRecycle>(entity.Id);
-            return;
+            return entity;
         }
 
         var data = entity.Data;
@@ -103,6 +103,7 @@ public class Manager
         {
             entity.AddComponent(visualRotation.Value);
         }
+        return entity;
     }
 
     public bool StartSkillSequence(ActorExtend caster, Entity skill_container, SkillCastPlan plan, float strength,

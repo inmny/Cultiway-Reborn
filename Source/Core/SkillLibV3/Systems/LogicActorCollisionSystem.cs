@@ -40,11 +40,19 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             var hasPrev = entity.TryGetComponent(out PrevPosition prevPos);
             var prev = hasPrev ? prevPos.Value : curr;
             var delta = curr - prev;
+            var sweepStart = prev;
+            var sweepEnd = curr;
+            if (entity.TryGetComponent(out ColliderLinearExtent linearExtent) && delta.sqrMagnitude > 0.0001f)
+            {
+                Vector2 direction = delta.normalized;
+                sweepStart -= direction * Mathf.Max(0f, linearExtent.Backward);
+                sweepEnd += direction * Mathf.Max(0f, linearExtent.Forward);
+            }
 
-            // 扫描 AABB：覆盖 prev→curr 线段两侧 radius 范围
+            // 扫描 AABB：覆盖本帧完整扫掠胶囊体两侧的 radius 范围。
             const float targetScanPadding = 3f;
-            var scan_min = Vector2.Min(prev, curr) - (radius + targetScanPadding) * Vector2.one;
-            var scan_max = Vector2.Max(prev, curr) + (radius + targetScanPadding) * Vector2.one;
+            var scan_min = Vector2.Min(sweepStart, sweepEnd) - (radius + targetScanPadding) * Vector2.one;
+            var scan_max = Vector2.Max(sweepStart, sweepEnd) + (radius + targetScanPadding) * Vector2.one;
 
             Vector2Int lb_fixed = Vector2Int.FloorToInt(scan_min);
             Vector2Int rt_fixed = Vector2Int.CeilToInt(scan_max);
@@ -60,14 +68,14 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
                 WorldTile tile = World.world.GetTileSimple(x, y);
                 if (config.Building && tile.building != null)
                 {
-                    TryQueueHit(entity, ref context, ref config, prev, curr, radius, caster_kingdom,
+                    TryQueueHit(entity, ref context, ref config, sweepStart, sweepEnd, radius, caster_kingdom,
                         tile.building);
                 }
 
                 if (!config.Actor) continue;
                 for (var i = 0; i < tile._units.Count; i++)
                 {
-                    TryQueueHit(entity, ref context, ref config, prev, curr, radius, caster_kingdom,
+                    TryQueueHit(entity, ref context, ref config, sweepStart, sweepEnd, radius, caster_kingdom,
                         tile._units[i]);
                 }
             }

@@ -79,6 +79,13 @@ public static class ActiveAbilityService
             : 0f;
     }
 
+    public static float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
+    {
+        return TryResolveProvider(handle, out IActiveAbilityProvider provider)
+            ? Math.Max(0f, provider.ResolveEffectRadius(caster, handle))
+            : 0f;
+    }
+
     public static int CollectAiCandidates(
         ActorExtend caster,
         BaseSimObject target,
