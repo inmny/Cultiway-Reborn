@@ -1,0 +1,179 @@
+{
+  "canvas": 28,
+  "templates": [
+    {
+      "key": "sword_celestial_vertical",
+      "shape": "sword",
+      "artifact": "ArtifactSword",
+      "camera": {
+        "yaw": -24,
+        "pitch": 18,
+        "roll": -38,
+        "scale": 8.2,
+        "target": [
+          0,
+          0.48,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -48,
+        "pitch": 60
+      },
+      "placements": [
+        {
+          "slot": "blade",
+          "module": "sword_blade3d",
+          "anchor": "hilt",
+          "position": [
+            0,
+            0.1,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "guard",
+          "module": "sword_guard3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.08,
+            0
+          ],
+          "z": 20
+        },
+        {
+          "slot": "grip",
+          "module": "sword_grip_core3d",
+          "anchor": "top",
+          "position": [
+            0,
+            -0.02,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "pommel",
+          "module": "sword_pommel3d",
+          "anchor": "top",
+          "position": [
+            0,
+            -0.7,
+            0
+          ],
+          "z": 40
+        },
+        {
+          "slot": "charm",
+          "module": "sword_charm3d",
+          "anchor": "knot",
+          "position": [
+            0.16,
+            -0.58,
+            0.02
+          ],
+          "rotation": [
+            0,
+            0,
+            -8
+          ],
+          "z": 50
+        }
+      ]
+    },
+    {
+      "key": "sword_ritual_long",
+      "shape": "sword",
+      "artifact": "ArtifactSword",
+      "camera": {
+        "yaw": -16,
+        "pitch": 22,
+        "roll": -46,
+        "scale": 8,
+        "target": [
+          0,
+          0.44,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -36,
+        "pitch": 55
+      },
+      "placements": [
+        {
+          "slot": "blade",
+          "module": "sword_blade3d",
+          "anchor": "hilt",
+          "position": [
+            0,
+            0.14,
+            0
+          ],
+          "scale": [
+            0.94,
+            1.06,
+            1
+          ],
+          "z": 10
+        },
+        {
+          "slot": "guard",
+          "module": "sword_guard3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.1,
+            0
+          ],
+          "scale": [
+            1.08,
+            1,
+            1
+          ],
+          "z": 20
+        },
+        {
+          "slot": "grip",
+          "module": "sword_grip_core3d",
+          "anchor": "top",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "pommel",
+          "module": "sword_pommel3d",
+          "anchor": "top",
+          "position": [
+            0,
+            -0.72,
+            0
+          ],
+          "z": 40
+        },
+        {
+          "slot": "charm",
+          "module": "sword_charm3d",
+          "anchor": "knot",
+          "position": [
+            -0.16,
+            -0.6,
+            0.02
+          ],
+          "rotation": [
+            0,
+            0,
+            10
+          ],
+          "z": 50
+        }
+      ]
+    }
+  ]
+}

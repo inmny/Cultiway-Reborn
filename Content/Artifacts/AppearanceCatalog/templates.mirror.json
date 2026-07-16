@@ -1,0 +1,184 @@
+{
+  "canvas": 28,
+  "templates": [
+    {
+      "key": "mirror_full_moon",
+      "shape": "mirror",
+      "artifact": "ArtifactMirror",
+      "camera": {
+        "yaw": -26,
+        "pitch": 16,
+        "roll": -16,
+        "scale": 9.5,
+        "target": [
+          0,
+          -0.28,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -44,
+        "pitch": 62
+      },
+      "placements": [
+        {
+          "slot": "back",
+          "module": "mirror_back3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.1,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "surface",
+          "module": "mirror_surface3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.1,
+            0
+          ],
+          "z": 20
+        },
+        {
+          "slot": "frame",
+          "module": "mirror_frame3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.1,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "handle",
+          "module": "mirror_handle3d",
+          "anchor": "top",
+          "position": [
+            0,
+            -0.5,
+            0
+          ],
+          "z": 40
+        },
+        {
+          "slot": "crown",
+          "module": "mirror_crown3d",
+          "anchor": "base",
+          "position": [
+            0,
+            0.76,
+            0
+          ],
+          "z": 50
+        }
+      ]
+    },
+    {
+      "key": "mirror_celestial_water",
+      "shape": "mirror",
+      "artifact": "ArtifactMirror",
+      "camera": {
+        "yaw": -18,
+        "pitch": 20,
+        "roll": -24,
+        "scale": 9.3,
+        "target": [
+          0,
+          -0.28,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -30,
+        "pitch": 60
+      },
+      "placements": [
+        {
+          "slot": "back",
+          "module": "mirror_back3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.1,
+            0
+          ],
+          "rotation": [
+            0,
+            6,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "surface",
+          "module": "mirror_surface3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.1,
+            0
+          ],
+          "rotation": [
+            0,
+            6,
+            0
+          ],
+          "z": 20
+        },
+        {
+          "slot": "frame",
+          "module": "mirror_frame3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.1,
+            0
+          ],
+          "rotation": [
+            0,
+            6,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "handle",
+          "module": "mirror_handle3d",
+          "anchor": "top",
+          "position": [
+            0,
+            -0.5,
+            0
+          ],
+          "rotation": [
+            0,
+            6,
+            0
+          ],
+          "z": 40
+        },
+        {
+          "slot": "crown",
+          "module": "mirror_crown3d",
+          "anchor": "base",
+          "position": [
+            0,
+            0.76,
+            0
+          ],
+          "rotation": [
+            0,
+            6,
+            0
+          ],
+          "z": 50
+        }
+      ]
+    }
+  ]
+}

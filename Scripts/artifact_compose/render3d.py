@@ -15,6 +15,7 @@ from .colors import parse_hex_color
 from .compose3d import ArtifactInstance3D, build_world_faces, split_instance_material_key
 from .math3d import Vec3, dot, face_normal, normalize, rotate_euler, sub, v3
 from .mesh3d import Face3D
+from .models3d import SurfaceStyle3D
 from .render import clear_transparent_pixels, darken_color, lighten_color, save_preview, stable_seed
 
 
@@ -24,6 +25,7 @@ class ProjectedFace:
     world_points: tuple[Vec3, ...]
     normal_world: Vec3
     material: str
+    surface: SurfaceStyle3D
     color: tuple[int, int, int]
 
 
@@ -96,7 +98,8 @@ def project_face(
 
     _, material = split_instance_material_key(face.material)
     color = resolve_material_color(face.material, instance)
-    shaded = shade_color(color, normal_world, light, material, seed)
+    surface = resolve_surface_style(face.surface, instance)
+    shaded = shade_color(color, normal_world, light, surface)
     projected = tuple(
         (
             size * 0.5 + point[0] * scale,
@@ -105,7 +108,7 @@ def project_face(
         )
         for point in camera_points
     )
-    return ProjectedFace(projected, tuple(face.points), normal_world, material, shaded)
+    return ProjectedFace(projected, tuple(face.points), normal_world, material, surface, shaded)
 
 
 def resolve_material_color(material_key: str, instance: ArtifactInstance3D) -> tuple[int, int, int]:
@@ -124,26 +127,31 @@ def shade_color(
     color: tuple[int, int, int],
     normal: Vec3,
     light: Vec3,
-    material: str,
-    seed: int,
+    surface: SurfaceStyle3D,
 ) -> tuple[int, int, int]:
     normal = normalize(normal)
     diffuse = max(0.0, dot(normal, light))
     side_dark = max(0.0, -normal[0] * 0.18 + -normal[2] * 0.10)
-    amount = 0.52 + diffuse * 0.56 - side_dark
-    if material in {"metal", "rim", "trim", "gold", "edge", "fold", "wrap", "pommel"}:
-        amount += 0.08
-    if material in {"glass", "fire", "core", "glint"}:
-        amount += 0.16
+    amount = (
+        0.52 + diffuse * surface.diffuse - side_dark * surface.side_shadow
+        + surface.brightness + surface.emission
+    )
     amount = max(0.22, min(1.08, amount))
     r, g, b = color
     if amount >= 1.0:
         r, g, b = lighten_color(r, g, b, (amount - 1.0) * 0.75)
     else:
         r, g, b = darken_color(r, g, b, 1.0 - amount)
-    if material in {"glass", "fire", "core", "glint"} and diffuse > 0.45:
-        r, g, b = lighten_color(r, g, b, 0.14)
+    if surface.emission > 0 and diffuse > 0.25:
+        r, g, b = lighten_color(r, g, b, min(0.3, surface.emission * 0.7))
     return r, g, b
+
+
+def resolve_surface_style(surface: str, instance: ArtifactInstance3D) -> SurfaceStyle3D:
+    return instance.surface_styles.get(
+        surface,
+        instance.surface_styles.get("neutral", SurfaceStyle3D("neutral")),
+    )
 
 
 def light_direction(light: dict) -> Vec3:
@@ -183,7 +191,13 @@ def raster_triangle(triangle, face: ProjectedFace, pixels, depth, material_marks
             index = y * size + x
             if z <= depth[index]:
                 continue
-            r, g, b = add_face_texture(face.color, face.material, x, y, seed)
+            r, g, b = add_face_texture(
+                face.color,
+                face.surface,
+                x,
+                y,
+                seed,
+            )
             pixels[index] = (r, g, b, 255)
             depth[index] = z
             material_marks[index] = face.material
@@ -193,16 +207,24 @@ def edge(a, b, c) -> float:
     return (c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0])
 
 
-def add_face_texture(color: tuple[int, int, int], material: str, x: int, y: int, seed: int) -> tuple[int, int, int]:
+def add_face_texture(
+    color: tuple[int, int, int],
+    surface: SurfaceStyle3D,
+    x: int,
+    y: int,
+    seed: int,
+) -> tuple[int, int, int]:
     r, g, b = color
     value = ((x * 73) ^ (y * 151) ^ seed) & 0xFF
-    if material in {"cloth", "stone", "jade", "copper", "bronze", "metal"}:
-        if (x + y + seed) % 4 == 0:
-            r, g, b = darken_color(r, g, b, 0.05 + (value % 4) * 0.015)
-        elif (x * 2 - y + seed) % 7 == 0:
-            r, g, b = lighten_color(r, g, b, 0.06)
-    if material in {"glass", "fire", "core"} and (x - y + seed) % 5 == 0:
-        r, g, b = lighten_color(r, g, b, 0.12)
+    if surface.texture_frequency > 0 and (x + y + seed) % surface.texture_frequency == 0:
+        amount = surface.texture_dark * (0.7 + (value % 4) * 0.1)
+        r, g, b = darken_color(r, g, b, amount)
+    elif surface.texture_light > 0 and (
+        (x * 2 - y + seed) % max(3, surface.texture_frequency + 3) == 0
+    ):
+        r, g, b = lighten_color(r, g, b, surface.texture_light)
+    if surface.sparkle_frequency > 0 and (x - y + seed) % surface.sparkle_frequency == 0:
+        r, g, b = lighten_color(r, g, b, max(surface.texture_light, 0.08))
     return r, g, b
 
 

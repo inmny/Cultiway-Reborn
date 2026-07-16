@@ -1,0 +1,162 @@
+{
+  "canvas": 28,
+  "templates": [
+    {
+      "key": "seal_heavenly_square",
+      "shape": "seal",
+      "artifact": "ArtifactSeal",
+      "camera": {
+        "yaw": -34,
+        "pitch": 28,
+        "roll": 0,
+        "scale": 10.1,
+        "target": [
+          0,
+          -0.08,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -48,
+        "pitch": 60
+      },
+      "placements": [
+        {
+          "slot": "base",
+          "module": "seal_base3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.45,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "body",
+          "module": "seal_body3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.42,
+            0
+          ],
+          "z": 20
+        },
+        {
+          "slot": "crown",
+          "module": "seal_crown3d",
+          "anchor": "base",
+          "position": [
+            0,
+            0.28,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "face",
+          "module": "seal_face3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.42,
+            0
+          ],
+          "z": 40
+        }
+      ]
+    },
+    {
+      "key": "seal_lotus_edict",
+      "shape": "seal",
+      "artifact": "ArtifactSeal",
+      "camera": {
+        "yaw": -22,
+        "pitch": 31,
+        "roll": -2,
+        "scale": 10,
+        "target": [
+          0,
+          -0.06,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -32,
+        "pitch": 62
+      },
+      "placements": [
+        {
+          "slot": "base",
+          "module": "seal_base3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.46,
+            0
+          ],
+          "rotation": [
+            0,
+            8,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "body",
+          "module": "seal_body3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.42,
+            0
+          ],
+          "rotation": [
+            0,
+            8,
+            0
+          ],
+          "scale": [
+            0.96,
+            1.06,
+            0.96
+          ],
+          "z": 20
+        },
+        {
+          "slot": "crown",
+          "module": "seal_crown3d",
+          "anchor": "base",
+          "position": [
+            0,
+            0.32,
+            0
+          ],
+          "rotation": [
+            0,
+            8,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "face",
+          "module": "seal_face3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.42,
+            0
+          ],
+          "rotation": [
+            0,
+            8,
+            0
+          ],
+          "z": 40
+        }
+      ]
+    }
+  ]
+}

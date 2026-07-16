@@ -1,0 +1,189 @@
+{
+  "canvas": 28,
+  "templates": [
+    {
+      "key": "robe_cloud_mantle",
+      "shape": "robe",
+      "artifact": "ArtifactRobe",
+      "camera": {
+        "yaw": -14,
+        "pitch": 9,
+        "roll": 0,
+        "scale": 9.4,
+        "target": [
+          0,
+          -0.18,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -38,
+        "pitch": 58
+      },
+      "placements": [
+        {
+          "slot": "body",
+          "module": "robe_body3d",
+          "anchor": "collar",
+          "position": [
+            0,
+            0.76,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "sleeves",
+          "module": "robe_sleeves3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.34,
+            -0.02
+          ],
+          "z": 20
+        },
+        {
+          "slot": "collar",
+          "module": "robe_collar3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.68,
+            0.05
+          ],
+          "z": 30
+        },
+        {
+          "slot": "belt",
+          "module": "robe_belt3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.18,
+            0.08
+          ],
+          "z": 40
+        },
+        {
+          "slot": "hem",
+          "module": "robe_hem3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -1.04,
+            0.04
+          ],
+          "z": 50
+        }
+      ]
+    },
+    {
+      "key": "robe_crane_immortal",
+      "shape": "robe",
+      "artifact": "ArtifactRobe",
+      "camera": {
+        "yaw": -22,
+        "pitch": 8,
+        "roll": 2,
+        "scale": 9.2,
+        "target": [
+          0,
+          -0.2,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -28,
+        "pitch": 62
+      },
+      "placements": [
+        {
+          "slot": "body",
+          "module": "robe_body3d",
+          "anchor": "collar",
+          "position": [
+            0,
+            0.77,
+            0
+          ],
+          "rotation": [
+            0,
+            -7,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "sleeves",
+          "module": "robe_sleeves3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.36,
+            -0.03
+          ],
+          "rotation": [
+            0,
+            -7,
+            0
+          ],
+          "scale": [
+            1.08,
+            1.02,
+            1
+          ],
+          "z": 20
+        },
+        {
+          "slot": "collar",
+          "module": "robe_collar3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.7,
+            0.05
+          ],
+          "rotation": [
+            0,
+            -7,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "belt",
+          "module": "robe_belt3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.17,
+            0.08
+          ],
+          "rotation": [
+            0,
+            -7,
+            0
+          ],
+          "z": 40
+        },
+        {
+          "slot": "hem",
+          "module": "robe_hem3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -1.06,
+            0.04
+          ],
+          "rotation": [
+            0,
+            -7,
+            0
+          ],
+          "z": 50
+        }
+      ]
+    }
+  ]
+}

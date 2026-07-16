@@ -1,0 +1,91 @@
+{
+  "styles": [
+    {
+      "key": "neutral",
+      "diffuse": 0.56,
+      "side_shadow": 1.0
+    },
+    {
+      "key": "polished_metal",
+      "diffuse": 0.66,
+      "side_shadow": 1.08,
+      "brightness": 0.08,
+      "texture_dark": 0.035,
+      "texture_light": 0.08,
+      "texture_frequency": 7,
+      "sparkle_frequency": 13
+    },
+    {
+      "key": "aged_metal",
+      "diffuse": 0.50,
+      "side_shadow": 1.12,
+      "brightness": -0.03,
+      "texture_dark": 0.10,
+      "texture_light": 0.035,
+      "texture_frequency": 4,
+      "sparkle_frequency": 17
+    },
+    {
+      "key": "jade",
+      "diffuse": 0.58,
+      "side_shadow": 0.84,
+      "brightness": 0.05,
+      "texture_dark": 0.035,
+      "texture_light": 0.10,
+      "texture_frequency": 9,
+      "sparkle_frequency": 11
+    },
+    {
+      "key": "crystal",
+      "diffuse": 0.48,
+      "side_shadow": 0.65,
+      "brightness": 0.10,
+      "emission": 0.10,
+      "texture_light": 0.16,
+      "sparkle_frequency": 5
+    },
+    {
+      "key": "emissive",
+      "diffuse": 0.24,
+      "side_shadow": 0.25,
+      "brightness": 0.15,
+      "emission": 0.28,
+      "texture_light": 0.18,
+      "sparkle_frequency": 4
+    },
+    {
+      "key": "silk",
+      "diffuse": 0.48,
+      "side_shadow": 0.92,
+      "texture_dark": 0.07,
+      "texture_light": 0.045,
+      "texture_frequency": 4
+    },
+    {
+      "key": "stone",
+      "diffuse": 0.43,
+      "side_shadow": 1.14,
+      "brightness": -0.05,
+      "texture_dark": 0.12,
+      "texture_light": 0.03,
+      "texture_frequency": 3
+    },
+    {
+      "key": "wood",
+      "diffuse": 0.47,
+      "side_shadow": 1.02,
+      "texture_dark": 0.09,
+      "texture_light": 0.035,
+      "texture_frequency": 5
+    },
+    {
+      "key": "bone",
+      "diffuse": 0.52,
+      "side_shadow": 0.94,
+      "brightness": 0.03,
+      "texture_dark": 0.045,
+      "texture_light": 0.035,
+      "texture_frequency": 8
+    }
+  ]
+}

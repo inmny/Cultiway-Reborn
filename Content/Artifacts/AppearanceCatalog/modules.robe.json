@@ -1,0 +1,194 @@
+{
+  "canvas": 28,
+  "modules": [
+    {
+      "key": "robe_body3d",
+      "variants": [
+        {
+          "key": "cloud_fall",
+          "anchors": [
+            { "key": "collar", "position": [0, 0.92, 0] },
+            { "key": "hem", "position": [0, -0.98, 0] }
+          ],
+          "parts": [
+            { "primitive": "cloth_panel", "material": "cloth", "surface": "silk", "width": 0.92, "height": 1.90, "depth": 0.09, "flare": 0.32, "curve": 0.10, "wave": 0.035, "segments_x": 6, "segments_y": 9 },
+            { "primitive": "tube", "material": "fold", "surface": "silk", "radius": 0.028, "segments": 6, "points": [[-0.12, 0.78, 0.10], [-0.16, 0.18, 0.12], [-0.22, -0.78, 0.10]] },
+            { "primitive": "tube", "material": "fold", "surface": "silk", "radius": 0.024, "segments": 6, "points": [[0.18, 0.72, 0.11], [0.12, 0.10, 0.13], [0.28, -0.82, 0.09]] }
+          ]
+        },
+        {
+          "key": "crane_split",
+          "anchors": [
+            { "key": "collar", "position": [0, 0.92, 0] },
+            { "key": "hem", "position": [0, -1.02, 0] }
+          ],
+          "parts": [
+            { "primitive": "cloth_panel", "material": "cloth", "surface": "silk", "width": 0.56, "height": 1.88, "depth": 0.08, "flare": 0.42, "curve": 0.08, "wave": 0.025, "segments_x": 5, "segments_y": 9, "offset": [-0.24, 0, 0], "rotation": [0, -5, -3] },
+            { "primitive": "cloth_panel", "material": "cloth", "surface": "silk", "width": 0.56, "height": 1.92, "depth": 0.08, "flare": 0.38, "curve": 0.08, "wave": 0.03, "segments_x": 5, "segments_y": 9, "offset": [0.24, -0.02, 0], "rotation": [0, 5, 3] },
+            { "primitive": "poly_prism", "material": "fold", "surface": "silk", "depth": 0.045, "points": [[-0.34, 0.82], [0.34, 0.82], [0, 0.34]], "offset": [0, 0, 0.10] }
+          ]
+        },
+        {
+          "key": "star_veil",
+          "anchors": [
+            { "key": "collar", "position": [0, 0.90, 0] },
+            { "key": "hem", "position": [0, -1.00, 0] }
+          ],
+          "parts": [
+            { "primitive": "cloth_panel", "material": "cloth", "surface": "silk", "width": 1.02, "height": 1.88, "depth": 0.075, "flare": 0.18, "curve": 0.14, "wave": 0.05, "segments_x": 7, "segments_y": 10 },
+            { "primitive": "radial_repeat", "count": 7, "radius": 0.32, "rotation": [90, 0, 0], "offset": [0, -0.18, 0.13], "part": { "primitive": "ellipsoid", "material": "charm", "surface": "emissive", "radius": [0.035, 0.055, 0.018], "segments": 7, "rings": 3 } },
+            { "primitive": "tube", "material": "fold", "surface": "silk", "radius": 0.026, "segments": 6, "points": [[0, 0.78, 0.11], [-0.08, 0.10, 0.14], [0.05, -0.82, 0.11]] }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "robe_collar3d",
+      "variants": [
+        {
+          "key": "crossed_jade",
+          "anchors": [
+            { "key": "center", "position": [0, 0, 0] },
+            { "key": "throat", "position": [0, 0.06, 0.12] }
+          ],
+          "parts": [
+            { "primitive": "poly_prism", "material": "trim", "surface": "silk", "depth": 0.07, "points": [[-0.40, 0.10], [-0.12, 0.22], [0.06, -0.22], [-0.08, -0.27]] },
+            { "primitive": "poly_prism", "material": "trim", "surface": "silk", "depth": 0.07, "points": [[0.40, 0.10], [0.12, 0.22], [-0.06, -0.22], [0.08, -0.27]] },
+            { "primitive": "ellipsoid", "material": "gem", "surface": "jade", "radius": [0.07, 0.085, 0.035], "segments": 8, "rings": 4, "offset": [0, -0.18, 0.09] }
+          ]
+        },
+        {
+          "key": "high_cloud",
+          "anchors": [
+            { "key": "center", "position": [0, 0, 0] },
+            { "key": "throat", "position": [0, 0.08, 0.13] }
+          ],
+          "parts": [
+            { "primitive": "cloth_panel", "material": "trim", "surface": "silk", "width": 0.70, "height": 0.32, "depth": 0.07, "flare": -0.32, "curve": 0.08, "wave": 0.015, "segments_x": 5, "segments_y": 3, "offset": [0, 0.08, 0] },
+            { "primitive": "torus", "material": "edge", "surface": "polished_metal", "major_radius": 0.12, "minor_radius": 0.022, "segments": 10, "tube_segments": 4, "rotation": [90, 0, 0], "offset": [0, -0.08, 0.11] }
+          ]
+        },
+        {
+          "key": "feather_mantle",
+          "anchors": [
+            { "key": "center", "position": [0, 0, 0] },
+            { "key": "throat", "position": [0, 0.06, 0.14] }
+          ],
+          "parts": [
+            { "primitive": "radial_repeat", "count": 9, "radius": 0.28, "rotation": [90, 0, 0], "offset": [0, 0.06, 0], "part": { "primitive": "ellipsoid", "material": "trim", "surface": "silk", "radius": [0.075, 0.20, 0.035], "segments": 8, "rings": 4, "rotation": [0, 0, 18] } },
+            { "primitive": "ellipsoid", "material": "gem", "surface": "crystal", "radius": [0.075, 0.09, 0.035], "segments": 8, "rings": 4, "offset": [0, -0.12, 0.12] }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "robe_sleeves3d",
+      "variants": [
+        {
+          "key": "flowing_pair",
+          "anchors": [
+            { "key": "center", "position": [0, 0, 0] },
+            { "key": "left_cuff", "position": [-1.02, -0.24, 0] },
+            { "key": "right_cuff", "position": [1.02, -0.24, 0] }
+          ],
+          "parts": [
+            { "primitive": "cloth_panel", "material": "cloth", "surface": "silk", "width": 0.42, "height": 1.18, "depth": 0.07, "flare": 0.48, "curve": 0.06, "wave": 0.04, "segments_x": 4, "segments_y": 7, "offset": [-0.66, -0.02, -0.02], "rotation": [0, -5, -67] },
+            { "primitive": "cloth_panel", "material": "cloth", "surface": "silk", "width": 0.42, "height": 1.18, "depth": 0.07, "flare": 0.48, "curve": 0.06, "wave": 0.04, "segments_x": 4, "segments_y": 7, "offset": [0.66, -0.02, -0.02], "rotation": [0, 5, 67] },
+            { "primitive": "box", "material": "trim", "surface": "silk", "size": [0.08, 0.42, 0.08], "offset": [-1.00, -0.23, 0.02], "rotation": [0, 0, -67] },
+            { "primitive": "box", "material": "trim", "surface": "silk", "size": [0.08, 0.42, 0.08], "offset": [1.00, -0.23, 0.02], "rotation": [0, 0, 67] }
+          ]
+        },
+        {
+          "key": "narrow_pair",
+          "anchors": [
+            { "key": "center", "position": [0, 0, 0] },
+            { "key": "left_cuff", "position": [-0.90, -0.18, 0] },
+            { "key": "right_cuff", "position": [0.90, -0.18, 0] }
+          ],
+          "parts": [
+            { "primitive": "capsule", "material": "cloth", "surface": "silk", "radius": 0.16, "height": 0.92, "segments": 10, "rings": 4, "offset": [-0.56, 0.00, 0], "rotation": [0, 0, -68] },
+            { "primitive": "capsule", "material": "cloth", "surface": "silk", "radius": 0.16, "height": 0.92, "segments": 10, "rings": 4, "offset": [0.56, 0.00, 0], "rotation": [0, 0, 68] },
+            { "primitive": "torus", "material": "trim", "surface": "polished_metal", "major_radius": 0.16, "minor_radius": 0.024, "segments": 10, "tube_segments": 4, "rotation": [90, 0, 68], "offset": [-0.90, -0.18, 0] },
+            { "primitive": "torus", "material": "trim", "surface": "polished_metal", "major_radius": 0.16, "minor_radius": 0.024, "segments": 10, "tube_segments": 4, "rotation": [90, 0, -68], "offset": [0.90, -0.18, 0] }
+          ]
+        },
+        {
+          "key": "feather_pair",
+          "anchors": [
+            { "key": "center", "position": [0, 0, 0] },
+            { "key": "left_cuff", "position": [-1.08, -0.10, 0] },
+            { "key": "right_cuff", "position": [1.08, -0.10, 0] }
+          ],
+          "parts": [
+            { "primitive": "radial_repeat", "count": 4, "radius": 0.16, "offset": [-0.62, 0, 0], "rotation": [0, 0, -68], "part": { "primitive": "ellipsoid", "material": "cloth", "surface": "silk", "radius": [0.10, 0.48, 0.045], "segments": 8, "rings": 4, "rotation": [0, 0, -8] } },
+            { "primitive": "radial_repeat", "count": 4, "radius": 0.16, "offset": [0.62, 0, 0], "rotation": [0, 0, 68], "part": { "primitive": "ellipsoid", "material": "cloth", "surface": "silk", "radius": [0.10, 0.48, 0.045], "segments": 8, "rings": 4, "rotation": [0, 0, 8] } },
+            { "primitive": "ellipsoid", "material": "gem", "surface": "emissive", "radius": [0.055, 0.075, 0.03], "segments": 8, "rings": 4, "offset": [-1.08, -0.10, 0.06] },
+            { "primitive": "ellipsoid", "material": "gem", "surface": "emissive", "radius": [0.055, 0.075, 0.03], "segments": 8, "rings": 4, "offset": [1.08, -0.10, 0.06] }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "robe_belt3d",
+      "variants": [
+        {
+          "key": "jade_sash",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "beveled_box", "material": "trim", "surface": "silk", "size": [1.02, 0.13, 0.10], "bevel": 0.04 },
+            { "primitive": "ellipsoid", "material": "gem", "surface": "jade", "radius": [0.14, 0.11, 0.055], "segments": 10, "rings": 4, "offset": [0, 0, 0.09] },
+            { "primitive": "tube", "material": "charm", "surface": "silk", "radius": 0.025, "segments": 6, "points": [[0.12, -0.02, 0.04], [0.20, -0.36, 0.02], [0.13, -0.58, 0]] }
+          ]
+        },
+        {
+          "key": "ring_belt",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "tube", "material": "trim", "surface": "silk", "radius": 0.045, "segments": 7, "points": [[-0.52, 0, 0], [-0.26, -0.04, 0.03], [0, 0, 0.05], [0.26, -0.04, 0.03], [0.52, 0, 0]] },
+            { "primitive": "torus", "material": "edge", "surface": "polished_metal", "major_radius": 0.14, "minor_radius": 0.035, "segments": 12, "tube_segments": 5, "rotation": [90, 0, 0], "offset": [0, -0.02, 0.08] },
+            { "primitive": "ellipsoid", "material": "gem", "surface": "crystal", "radius": [0.055, 0.07, 0.03], "segments": 8, "rings": 4, "offset": [0, -0.02, 0.12] }
+          ]
+        },
+        {
+          "key": "cloud_knot",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "tube", "material": "trim", "surface": "silk", "radius": 0.05, "segments": 7, "points": [[-0.50, 0.02, 0], [-0.22, -0.03, 0.04], [0, 0.02, 0.07], [0.22, -0.03, 0.04], [0.50, 0.02, 0]] },
+            { "primitive": "tube", "material": "charm", "surface": "silk", "radius": 0.035, "segments": 6, "points": [[-0.04, 0, 0.06], [-0.22, -0.22, 0.03], [-0.10, -0.42, 0]] },
+            { "primitive": "tube", "material": "charm", "surface": "silk", "radius": 0.035, "segments": 6, "points": [[0.04, 0, 0.06], [0.22, -0.22, 0.03], [0.10, -0.42, 0]] }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "robe_hem3d",
+      "variants": [
+        {
+          "key": "wave_border",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "tube", "material": "trim", "surface": "silk", "radius": 0.035, "segments": 6, "points": [[-0.62, 0.05, 0], [-0.38, -0.03, 0.04], [-0.14, 0.05, 0.06], [0.14, -0.03, 0.06], [0.38, 0.05, 0.04], [0.62, -0.03, 0]] },
+            { "primitive": "radial_repeat", "count": 5, "radius": 0.36, "rotation": [90, 0, 0], "part": { "primitive": "ellipsoid", "material": "charm", "surface": "emissive", "radius": [0.025, 0.04, 0.015], "segments": 7, "rings": 3 } }
+          ]
+        },
+        {
+          "key": "split_ribbons",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "cloth_panel", "material": "trim", "surface": "silk", "width": 0.18, "height": 0.62, "depth": 0.03, "flare": 0.35, "curve": 0.03, "wave": 0.03, "segments_x": 3, "segments_y": 5, "offset": [-0.24, -0.26, 0], "rotation": [0, 0, -7] },
+            { "primitive": "cloth_panel", "material": "trim", "surface": "silk", "width": 0.18, "height": 0.62, "depth": 0.03, "flare": 0.35, "curve": 0.03, "wave": 0.03, "segments_x": 3, "segments_y": 5, "offset": [0.24, -0.26, 0], "rotation": [0, 0, 7] },
+            { "primitive": "ellipsoid", "material": "gem", "surface": "crystal", "radius": [0.05, 0.07, 0.03], "segments": 8, "rings": 4, "offset": [0, 0.02, 0.08] }
+          ]
+        },
+        {
+          "key": "talisman_fringe",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }],
+          "parts": [
+            { "primitive": "radial_repeat", "count": 5, "radius": 0.34, "rotation": [90, 0, 0], "part": { "primitive": "beveled_box", "material": "charm", "surface": "silk", "size": [0.10, 0.28, 0.025], "bevel": 0.025, "offset": [0, -0.12, 0] } },
+            { "primitive": "tube", "material": "trim", "surface": "silk", "radius": 0.032, "segments": 6, "points": [[-0.60, 0.03, 0], [-0.30, -0.02, 0.04], [0, 0.03, 0.06], [0.30, -0.02, 0.04], [0.60, 0.03, 0]] }
+          ]
+        }
+      ]
+    }
+  ]
+}

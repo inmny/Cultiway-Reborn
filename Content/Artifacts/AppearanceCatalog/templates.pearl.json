@@ -1,0 +1,182 @@
+{
+  "canvas": 28,
+  "templates": [
+    {
+      "key": "pearl_celestial_orbit",
+      "shape": "pearl",
+      "artifact": "ArtifactPearl",
+      "camera": {
+        "yaw": -28,
+        "pitch": 22,
+        "roll": -8,
+        "scale": 8.7,
+        "target": [
+          0,
+          0,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -44,
+        "pitch": 60
+      },
+      "placements": [
+        {
+          "slot": "core",
+          "module": "pearl_core3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "shell",
+          "module": "pearl_shell3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            8,
+            -12,
+            0
+          ],
+          "z": 20
+        },
+        {
+          "slot": "halo",
+          "module": "pearl_halo3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0,
+            -0.03
+          ],
+          "rotation": [
+            0,
+            0,
+            -10
+          ],
+          "z": 30
+        },
+        {
+          "slot": "companions",
+          "module": "pearl_companions3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0,
+            -0.02
+          ],
+          "rotation": [
+            12,
+            0,
+            8
+          ],
+          "z": 40
+        }
+      ]
+    },
+    {
+      "key": "pearl_five_phase_resonance",
+      "shape": "pearl",
+      "artifact": "ArtifactPearl",
+      "camera": {
+        "yaw": -18,
+        "pitch": 16,
+        "roll": -18,
+        "scale": 8.5,
+        "target": [
+          0,
+          0,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -30,
+        "pitch": 64
+      },
+      "placements": [
+        {
+          "slot": "core",
+          "module": "pearl_core3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            9,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "shell",
+          "module": "pearl_shell3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            -12,
+            18,
+            10
+          ],
+          "z": 20
+        },
+        {
+          "slot": "halo",
+          "module": "pearl_halo3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0,
+            -0.04
+          ],
+          "rotation": [
+            4,
+            0,
+            14
+          ],
+          "scale": [
+            1.06,
+            1.06,
+            1.06
+          ],
+          "z": 30
+        },
+        {
+          "slot": "companions",
+          "module": "pearl_companions3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0,
+            -0.02
+          ],
+          "rotation": [
+            -8,
+            0,
+            -12
+          ],
+          "scale": [
+            1.04,
+            1.04,
+            1.04
+          ],
+          "z": 40
+        }
+      ]
+    }
+  ]
+}

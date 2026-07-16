@@ -1,0 +1,258 @@
+{
+  "canvas": 28,
+  "templates": [
+    {
+      "key": "tower_two_realms",
+      "shape": "tower",
+      "artifact": "ArtifactTower",
+      "camera": {
+        "yaw": -34,
+        "pitch": 27,
+        "roll": 0,
+        "scale": 7.2,
+        "target": [
+          0,
+          0.02,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -48,
+        "pitch": 58
+      },
+      "placements": [
+        {
+          "slot": "base",
+          "module": "tower_base3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.92,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "lower_level",
+          "module": "tower_level3d",
+          "anchor": "base",
+          "position": [
+            0,
+            -0.7,
+            0
+          ],
+          "scale": [
+            1.08,
+            1,
+            1.08
+          ],
+          "z": 20
+        },
+        {
+          "slot": "lower_eaves",
+          "module": "tower_eaves3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.05,
+            0
+          ],
+          "scale": [
+            1.08,
+            1,
+            1.08
+          ],
+          "z": 30
+        },
+        {
+          "slot": "upper_level",
+          "module": "tower_level3d",
+          "anchor": "base",
+          "position": [
+            0,
+            0.06,
+            0
+          ],
+          "scale": [
+            0.82,
+            0.88,
+            0.82
+          ],
+          "z": 40
+        },
+        {
+          "slot": "upper_eaves",
+          "module": "tower_eaves3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.62,
+            0
+          ],
+          "scale": [
+            0.84,
+            0.9,
+            0.84
+          ],
+          "z": 50
+        },
+        {
+          "slot": "finial",
+          "module": "tower_finial3d",
+          "anchor": "base",
+          "position": [
+            0,
+            0.76,
+            0
+          ],
+          "z": 60
+        }
+      ]
+    },
+    {
+      "key": "tower_ninefold_projection",
+      "shape": "tower",
+      "artifact": "ArtifactTower",
+      "camera": {
+        "yaw": -25,
+        "pitch": 30,
+        "roll": -2,
+        "scale": 6.6,
+        "target": [
+          0,
+          0.08,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -34,
+        "pitch": 62
+      },
+      "placements": [
+        {
+          "slot": "base",
+          "module": "tower_base3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -1.04,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "lower_level",
+          "module": "tower_level3d",
+          "anchor": "base",
+          "position": [
+            0,
+            -0.82,
+            0
+          ],
+          "scale": [
+            1.1,
+            0.86,
+            1.1
+          ],
+          "z": 20
+        },
+        {
+          "slot": "lower_eaves",
+          "module": "tower_eaves3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.25,
+            0
+          ],
+          "scale": [
+            1.1,
+            1,
+            1.1
+          ],
+          "z": 30
+        },
+        {
+          "slot": "middle_level",
+          "module": "tower_level3d",
+          "anchor": "base",
+          "position": [
+            0,
+            -0.15,
+            0
+          ],
+          "scale": [
+            0.9,
+            0.8,
+            0.9
+          ],
+          "z": 40
+        },
+        {
+          "slot": "middle_eaves",
+          "module": "tower_eaves3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.37,
+            0
+          ],
+          "scale": [
+            0.92,
+            0.88,
+            0.92
+          ],
+          "z": 50
+        },
+        {
+          "slot": "upper_level",
+          "module": "tower_level3d",
+          "anchor": "base",
+          "position": [
+            0,
+            0.46,
+            0
+          ],
+          "scale": [
+            0.72,
+            0.72,
+            0.72
+          ],
+          "z": 60
+        },
+        {
+          "slot": "upper_eaves",
+          "module": "tower_eaves3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.92,
+            0
+          ],
+          "scale": [
+            0.74,
+            0.78,
+            0.74
+          ],
+          "z": 70
+        },
+        {
+          "slot": "finial",
+          "module": "tower_finial3d",
+          "anchor": "base",
+          "position": [
+            0,
+            1.04,
+            0
+          ],
+          "scale": [
+            0.86,
+            0.86,
+            0.86
+          ],
+          "z": 80
+        }
+      ]
+    }
+  ]
+}

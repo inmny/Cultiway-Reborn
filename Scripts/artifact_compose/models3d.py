@@ -83,6 +83,33 @@ class ColorScheme3D:
 
 
 @dataclass(frozen=True)
+class SurfaceStyle3D:
+    key: str
+    diffuse: float = 0.56
+    side_shadow: float = 1.0
+    brightness: float = 0.0
+    emission: float = 0.0
+    texture_dark: float = 0.0
+    texture_light: float = 0.0
+    texture_frequency: int = 0
+    sparkle_frequency: int = 0
+
+    @staticmethod
+    def from_json(data: dict[str, Any]) -> "SurfaceStyle3D":
+        return SurfaceStyle3D(
+            key=str(data["key"]),
+            diffuse=float(data.get("diffuse", 0.56)),
+            side_shadow=float(data.get("side_shadow", 1.0)),
+            brightness=float(data.get("brightness", 0.0)),
+            emission=float(data.get("emission", 0.0)),
+            texture_dark=float(data.get("texture_dark", 0.0)),
+            texture_light=float(data.get("texture_light", 0.0)),
+            texture_frequency=int(data.get("texture_frequency", 0)),
+            sparkle_frequency=int(data.get("sparkle_frequency", 0)),
+        )
+
+
+@dataclass(frozen=True)
 class Placement3D:
     slot: str
     module: str
@@ -136,6 +163,7 @@ class Catalog3D:
     modules: dict[str, ModuleDef3D]
     templates: dict[str, TemplateDef3D]
     color_schemes: dict[str, ColorScheme3D]
+    surface_styles: dict[str, SurfaceStyle3D]
 
     def templates_for_shape(self, shape: str) -> list[TemplateDef3D]:
         return [template for template in self.templates.values() if template.shape == shape]

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from .compose import stable_int
 from .math3d import Vec3, add, mul, rotate_euler, sub
 from .mesh3d import Face3D, part_faces
-from .models3d import Catalog3D, ModuleDef3D, ModuleVariant3D, Placement3D, TemplateDef3D
+from .models3d import Catalog3D, ModuleDef3D, ModuleVariant3D, Placement3D, SurfaceStyle3D, TemplateDef3D
 
 
 INSTANCE_MATERIAL_SEPARATOR = "::"
@@ -34,6 +34,7 @@ class ArtifactInstance3D:
     seed: str
     sample_index: int
     modules: tuple[InstanceModule3D, ...]
+    surface_styles: dict[str, SurfaceStyle3D]
 
     @property
     def variant_map(self) -> dict[str, str]:
@@ -67,7 +68,7 @@ class ArtifactComposer3D:
                 raise ValueError(f"{variant.module_key}.{variant.key} 缺少 3D 锚点 {placement.anchor}")
             color_scheme_key, colors = self._select_colors(template, placement, module, variant, seed, sample_index)
             modules.append(InstanceModule3D(placement, variant, anchor.position, color_scheme_key, colors))
-        return ArtifactInstance3D(template, str(seed), sample_index, tuple(modules))
+        return ArtifactInstance3D(template, str(seed), sample_index, tuple(modules), self.catalog.surface_styles)
 
     def pick_template(self, shape: str, seed: str, sample_index: int) -> TemplateDef3D:
         choices = self.catalog.templates_for_shape(shape)
@@ -122,7 +123,11 @@ def build_world_faces(instance: ArtifactInstance3D) -> list[Face3D]:
         for part in module.variant.parts:
             for face in part_faces(part):
                 points = tuple(transform_module_point(point, module) for point in face.points)
-                faces.append(Face3D(points, instance_material_key(module.placement.slot, face.material)))
+                faces.append(Face3D(
+                    points,
+                    instance_material_key(module.placement.slot, face.material),
+                    face.surface,
+                ))
     return faces
 
 
@@ -134,7 +139,19 @@ def transform_module_point(point: Vec3, module: InstanceModule3D) -> Vec3:
 
 
 def collect_variant_materials(variant: ModuleVariant3D) -> set[str]:
-    return {str(part.get("material", "main")) for part in variant.parts}
+    materials: set[str] = set()
+    for part in variant.parts:
+        collect_part_materials(part, materials)
+    return materials
+
+
+def collect_part_materials(part: dict, materials: set[str]) -> None:
+    if part.get("primitive", part.get("type")) == "radial_repeat":
+        child = part.get("part")
+        if isinstance(child, dict):
+            collect_part_materials(child, materials)
+        return
+    materials.add(str(part.get("material", "main")))
 
 
 def instance_material_key(slot: str, material: str) -> str:

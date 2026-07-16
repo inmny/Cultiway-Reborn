@@ -1,0 +1,132 @@
+{
+  "canvas": 28,
+  "modules": [
+    {
+      "key": "gourd_body3d",
+      "variants": [
+        {
+          "key": "golden_double_calabash",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }, { "key": "neck", "position": [0, 0.76, 0] }, { "key": "focus", "position": [0, -0.12, 0.28] }],
+          "parts": [
+            { "primitive": "ellipsoid", "material": "metal", "surface": "polished_metal", "radius": [0.56, 0.62, 0.46], "segments": 16, "rings": 8, "offset": [0, -0.30, 0] },
+            { "primitive": "ellipsoid", "material": "top", "surface": "polished_metal", "radius": [0.38, 0.44, 0.32], "segments": 14, "rings": 7, "offset": [0, 0.43, 0] },
+            { "primitive": "torus", "material": "ridge", "surface": "aged_metal", "major_radius": 0.30, "minor_radius": 0.045, "segments": 14, "tube_segments": 5, "offset": [0, 0.10, 0] },
+            { "primitive": "ellipsoid", "material": "gem", "surface": "emissive", "radius": [0.09, 0.12, 0.04], "segments": 8, "rings": 4, "offset": [0, -0.18, 0.48] }
+          ]
+        },
+        {
+          "key": "jade_spirit_gourd",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }, { "key": "neck", "position": [0, 0.76, 0] }, { "key": "focus", "position": [0, -0.12, 0.28] }],
+          "parts": [
+            { "primitive": "ellipsoid", "material": "right", "surface": "jade", "radius": [0.54, 0.64, 0.45], "segments": 16, "rings": 8, "offset": [0, -0.30, 0] },
+            { "primitive": "ellipsoid", "material": "top", "surface": "jade", "radius": [0.36, 0.46, 0.31], "segments": 14, "rings": 7, "offset": [0, 0.42, 0] },
+            { "primitive": "tube", "material": "glint", "surface": "emissive", "radius": 0.022, "segments": 6, "points": [[-0.24, 0.06, 0.42], [0.02, -0.06, 0.49], [-0.16, -0.26, 0.44], [0.18, -0.44, 0.36]] },
+            { "primitive": "torus", "material": "edge", "surface": "polished_metal", "major_radius": 0.29, "minor_radius": 0.035, "segments": 14, "tube_segments": 5, "offset": [0, 0.10, 0] }
+          ]
+        },
+        {
+          "key": "void_swallowing_gourd",
+          "anchors": [{ "key": "center", "position": [0, 0, 0] }, { "key": "neck", "position": [0, 0.76, 0] }, { "key": "focus", "position": [0, -0.12, 0.28] }],
+          "parts": [
+            { "primitive": "ellipsoid", "material": "right", "surface": "stone", "radius": [0.58, 0.64, 0.48], "segments": 14, "rings": 7, "offset": [0, -0.30, 0] },
+            { "primitive": "ellipsoid", "material": "metal", "surface": "aged_metal", "radius": [0.38, 0.45, 0.33], "segments": 14, "rings": 7, "offset": [0, 0.42, 0] },
+            { "primitive": "torus", "material": "core", "surface": "emissive", "major_radius": 0.34, "minor_radius": 0.035, "segments": 16, "tube_segments": 5, "rotation": [90, 0, 0], "offset": [0, -0.16, 0.46] },
+            { "primitive": "radial_repeat", "count": 6, "radius": 0.43, "rotation": [90, 0, 0], "offset": [0, -0.20, 0.42], "part": { "primitive": "ellipsoid", "material": "gem", "surface": "crystal", "radius": [0.045, 0.075, 0.03], "segments": 7, "rings": 3 } }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "gourd_mouth3d",
+      "variants": [
+        {
+          "key": "bronze_neck",
+          "anchors": [{ "key": "base", "position": [0, -0.18, 0] }, { "key": "top", "position": [0, 0.22, 0] }, { "key": "focus", "position": [0, 0.20, 0] }],
+          "parts": [
+            { "primitive": "lathe", "material": "rim", "surface": "aged_metal", "segments": 14, "profile": [[0.16, -0.18], [0.18, 0.08], [0.23, 0.18], [0.20, 0.22]] },
+            { "primitive": "torus", "material": "edge", "surface": "polished_metal", "major_radius": 0.21, "minor_radius": 0.04, "segments": 12, "tube_segments": 5, "offset": [0, 0.20, 0] }
+          ]
+        },
+        {
+          "key": "lotus_mouth",
+          "anchors": [{ "key": "base", "position": [0, -0.18, 0] }, { "key": "top", "position": [0, 0.22, 0] }, { "key": "focus", "position": [0, 0.20, 0] }],
+          "parts": [
+            { "primitive": "capsule", "material": "metal", "surface": "jade", "radius": 0.15, "height": 0.36, "segments": 12, "rings": 3 },
+            { "primitive": "radial_repeat", "count": 8, "radius": 0.20, "offset": [0, 0.18, 0], "part": { "primitive": "ellipsoid", "material": "trim", "surface": "jade", "radius": [0.07, 0.11, 0.035], "segments": 7, "rings": 3, "rotation": [0, 0, 22] } }
+          ]
+        },
+        {
+          "key": "spatial_rim",
+          "anchors": [{ "key": "base", "position": [0, -0.18, 0] }, { "key": "top", "position": [0, 0.22, 0] }, { "key": "focus", "position": [0, 0.20, 0] }],
+          "parts": [
+            { "primitive": "capsule", "material": "right", "surface": "stone", "radius": 0.16, "height": 0.36, "segments": 10, "rings": 3 },
+            { "primitive": "torus", "material": "core", "surface": "emissive", "major_radius": 0.23, "minor_radius": 0.045, "segments": 14, "tube_segments": 5, "offset": [0, 0.19, 0] },
+            { "primitive": "ellipsoid", "material": "glint", "surface": "emissive", "radius": [0.09, 0.05, 0.03], "segments": 8, "rings": 3, "offset": [0, 0.19, 0.18] }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "gourd_stopper3d",
+      "variants": [
+        {
+          "key": "jade_plug",
+          "anchors": [{ "key": "base", "position": [0, -0.12, 0] }, { "key": "top", "position": [0, 0.24, 0] }],
+          "parts": [
+            { "primitive": "capsule", "material": "gem", "surface": "jade", "radius": 0.13, "height": 0.28, "segments": 10, "rings": 3 },
+            { "primitive": "ellipsoid", "material": "edge", "surface": "polished_metal", "radius": [0.20, 0.10, 0.16], "segments": 10, "rings": 4, "offset": [0, 0.16, 0] }
+          ]
+        },
+        {
+          "key": "cloud_cork",
+          "anchors": [{ "key": "base", "position": [0, -0.12, 0] }, { "key": "top", "position": [0, 0.24, 0] }],
+          "parts": [
+            { "primitive": "beveled_box", "material": "handle", "surface": "wood", "size": [0.28, 0.28, 0.24], "bevel": 0.09, "offset": [0, 0.02, 0] },
+            { "primitive": "tube", "material": "ridge", "surface": "polished_metal", "radius": 0.035, "segments": 7, "points": [[-0.16, 0.16, 0], [0, 0.28, 0], [0.16, 0.16, 0]] }
+          ]
+        },
+        {
+          "key": "spirit_bead_seal",
+          "anchors": [{ "key": "base", "position": [0, -0.12, 0] }, { "key": "top", "position": [0, 0.24, 0] }],
+          "parts": [
+            { "primitive": "ellipsoid", "material": "core", "surface": "emissive", "radius": [0.17, 0.17, 0.14], "segments": 12, "rings": 6, "offset": [0, 0.06, 0] },
+            { "primitive": "torus", "material": "rim", "surface": "polished_metal", "major_radius": 0.22, "minor_radius": 0.03, "segments": 12, "tube_segments": 5, "rotation": [90, 0, 0], "offset": [0, 0.06, 0] },
+            { "primitive": "frustum", "material": "edge", "surface": "crystal", "height": 0.18, "top_radius": [0.02, 0.02], "bottom_radius": [0.07, 0.07], "segments": 8, "offset": [0, 0.22, 0] }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "gourd_tie3d",
+      "variants": [
+        {
+          "key": "red_silk_knot",
+          "anchors": [{ "key": "knot", "position": [0, 0.18, 0] }, { "key": "focus", "position": [0, -0.32, 0] }],
+          "parts": [
+            { "primitive": "torus", "material": "wrap", "surface": "silk", "major_radius": 0.22, "minor_radius": 0.035, "segments": 12, "tube_segments": 5, "rotation": [90, 0, 0], "offset": [0, 0.08, 0] },
+            { "primitive": "cloth_panel", "material": "charm", "surface": "silk", "width": 0.11, "height": 0.48, "depth": 0.025, "flare": 0.42, "curve": 0.04, "wave": 0.04, "segments_x": 3, "segments_y": 5, "offset": [-0.08, -0.24, 0], "rotation": [0, 0, -8] },
+            { "primitive": "cloth_panel", "material": "charm", "surface": "silk", "width": 0.11, "height": 0.48, "depth": 0.025, "flare": 0.42, "curve": 0.04, "wave": 0.04, "segments_x": 3, "segments_y": 5, "offset": [0.08, -0.24, 0], "rotation": [0, 0, 8] }
+          ]
+        },
+        {
+          "key": "vine_binding",
+          "anchors": [{ "key": "knot", "position": [0, 0.18, 0] }, { "key": "focus", "position": [0, -0.32, 0] }],
+          "parts": [
+            { "primitive": "tube", "material": "handle", "surface": "wood", "radius": 0.035, "segments": 7, "points": [[-0.20, 0.12, 0], [0, 0.20, 0], [0.20, 0.10, 0], [0.04, -0.04, 0], [-0.16, -0.12, 0]] },
+            { "primitive": "tube", "material": "handle", "surface": "wood", "radius": 0.028, "segments": 7, "points": [[0, 0.08, 0], [0.10, -0.12, 0], [0.03, -0.42, 0]] },
+            { "primitive": "ellipsoid", "material": "gem", "surface": "jade", "radius": [0.08, 0.13, 0.035], "segments": 8, "rings": 4, "offset": [0.08, -0.22, 0] }
+          ]
+        },
+        {
+          "key": "chain_talisman",
+          "anchors": [{ "key": "knot", "position": [0, 0.18, 0] }, { "key": "focus", "position": [0, -0.32, 0] }],
+          "parts": [
+            { "primitive": "tube", "material": "rim", "surface": "aged_metal", "radius": 0.03, "segments": 7, "points": [[0, 0.18, 0], [-0.08, 0.02, 0], [0.07, -0.14, 0], [0, -0.30, 0]] },
+            { "primitive": "beveled_box", "material": "gem", "surface": "jade", "size": [0.22, 0.36, 0.07], "bevel": 0.05, "offset": [0, -0.42, 0] },
+            { "primitive": "ellipsoid", "material": "glint", "surface": "emissive", "radius": [0.04, 0.07, 0.02], "segments": 7, "rings": 3, "offset": [0, -0.40, 0.05] }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,162 @@
+{
+  "canvas": 28,
+  "templates": [
+    {
+      "key": "bell_temple_resonance",
+      "shape": "bell",
+      "artifact": "ArtifactBell",
+      "camera": {
+        "yaw": -30,
+        "pitch": 24,
+        "roll": 0,
+        "scale": 10,
+        "target": [
+          0,
+          0,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -46,
+        "pitch": 60
+      },
+      "placements": [
+        {
+          "slot": "body",
+          "module": "bell_body3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "mouth",
+          "module": "bell_mouth3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.58,
+            0
+          ],
+          "z": 20
+        },
+        {
+          "slot": "clapper",
+          "module": "bell_clapper3d",
+          "anchor": "top",
+          "position": [
+            0,
+            0.3,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "crown",
+          "module": "bell_crown3d",
+          "anchor": "base",
+          "position": [
+            0,
+            0.56,
+            0
+          ],
+          "z": 40
+        }
+      ]
+    },
+    {
+      "key": "bell_void_soul",
+      "shape": "bell",
+      "artifact": "ArtifactBell",
+      "camera": {
+        "yaw": -20,
+        "pitch": 30,
+        "roll": -8,
+        "scale": 9.8,
+        "target": [
+          0,
+          -0.02,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -32,
+        "pitch": 64
+      },
+      "placements": [
+        {
+          "slot": "body",
+          "module": "bell_body3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            7,
+            0
+          ],
+          "scale": [
+            0.96,
+            1.06,
+            0.96
+          ],
+          "z": 10
+        },
+        {
+          "slot": "mouth",
+          "module": "bell_mouth3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.61,
+            0
+          ],
+          "rotation": [
+            0,
+            7,
+            0
+          ],
+          "z": 20
+        },
+        {
+          "slot": "clapper",
+          "module": "bell_clapper3d",
+          "anchor": "top",
+          "position": [
+            0,
+            0.31,
+            0
+          ],
+          "rotation": [
+            0,
+            7,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "crown",
+          "module": "bell_crown3d",
+          "anchor": "base",
+          "position": [
+            0,
+            0.6,
+            0
+          ],
+          "rotation": [
+            0,
+            7,
+            0
+          ],
+          "z": 40
+        }
+      ]
+    }
+  ]
+}

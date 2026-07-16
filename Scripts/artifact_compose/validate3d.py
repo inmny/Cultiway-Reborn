@@ -16,13 +16,18 @@ from .render3d import render_png3d
 
 
 REQUIRED_SHAPES = {"sword", "seal", "robe", "mirror", "ding"}
-SUPPORTED_3D_PRIMITIVES = {"box", "poly_prism", "blade", "cylinder", "frustum", "ellipsoid"}
+SUPPORTED_3D_PRIMITIVES = {
+    "box", "beveled_box", "poly_prism", "blade", "cylinder", "frustum", "ellipsoid",
+    "torus", "lathe", "capsule", "tube", "cloth_panel", "radial_repeat",
+}
 
 
 def validate_catalog3d(catalog: Catalog3D) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
-    validate_modules3d(catalog.modules.values(), errors, warnings)
+    if "neutral" not in catalog.surface_styles:
+        errors.append("3D 表面风格目录缺少 neutral")
+    validate_modules3d(catalog.modules.values(), set(catalog.surface_styles), errors, warnings)
     validate_color_schemes3d(catalog, errors, warnings)
     validate_templates3d(catalog, errors, warnings)
     missing = sorted(REQUIRED_SHAPES - set(catalog.shapes))
@@ -31,7 +36,12 @@ def validate_catalog3d(catalog: Catalog3D) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
-def validate_modules3d(modules: Iterable[ModuleDef3D], errors: list[str], warnings: list[str]) -> None:
+def validate_modules3d(
+    modules: Iterable[ModuleDef3D],
+    surfaces: set[str],
+    errors: list[str],
+    warnings: list[str],
+) -> None:
     for module in modules:
         if "palettes" in module.source_keys:
             errors.append(f"3D 模块 {module.key} 不应定义 palettes；module 只容纳 variants")
@@ -39,7 +49,7 @@ def validate_modules3d(modules: Iterable[ModuleDef3D], errors: list[str], warnin
             errors.append(f"3D 模块 {module.key} 没有任何变体")
         validate_module_anchor_contract3d(module, errors)
         for variant in module.variants:
-            validate_variant3d(variant, errors, warnings)
+            validate_variant3d(variant, surfaces, errors, warnings)
 
 
 def validate_module_anchor_contract3d(module: ModuleDef3D, errors: list[str]) -> None:
@@ -89,7 +99,12 @@ def validate_color_scheme3d(
         warnings.append(f"3D 颜色方案 {scheme.key} 有未使用颜色: {', '.join(extra)}")
 
 
-def validate_variant3d(variant: ModuleVariant3D, errors: list[str], warnings: list[str]) -> None:
+def validate_variant3d(
+    variant: ModuleVariant3D,
+    surfaces: set[str],
+    errors: list[str],
+    warnings: list[str],
+) -> None:
     if "colors" in variant.source_keys:
         errors.append(f"{variant.module_key}.{variant.key} 不应定义 colors；配色应记录在 Instance")
     if not variant.anchors:
@@ -101,10 +116,25 @@ def validate_variant3d(variant: ModuleVariant3D, errors: list[str], warnings: li
         if anchor.key in seen_anchors:
             errors.append(f"{variant.module_key}.{variant.key} 存在重复 3D 锚点 {anchor.key}")
         seen_anchors.add(anchor.key)
-    for part in variant.parts:
-        primitive = part.get("primitive", part.get("type"))
-        if primitive not in SUPPORTED_3D_PRIMITIVES:
-            errors.append(f"{variant.module_key}.{variant.key} 使用了不支持的 3D 几何体 {primitive}")
+    for index, part in enumerate(variant.parts):
+        validate_part3d(part, f"{variant.module_key}.{variant.key}.parts[{index}]", surfaces, errors)
+
+
+def validate_part3d(part: dict, path: str, surfaces: set[str], errors: list[str]) -> None:
+    primitive = part.get("primitive", part.get("type"))
+    if primitive not in SUPPORTED_3D_PRIMITIVES:
+        errors.append(f"{path} 使用了不支持的 3D 几何体 {primitive}")
+        return
+    if primitive == "radial_repeat":
+        child = part.get("part")
+        if not isinstance(child, dict):
+            errors.append(f"{path} 缺少 radial_repeat.part")
+            return
+        validate_part3d(child, f"{path}.part", surfaces, errors)
+        return
+    surface = str(part.get("surface", "neutral"))
+    if surface not in surfaces:
+        errors.append(f"{path} 引用了不存在的表面风格 {surface}")
 
 
 def validate_templates3d(catalog: Catalog3D, errors: list[str], warnings: list[str]) -> None:

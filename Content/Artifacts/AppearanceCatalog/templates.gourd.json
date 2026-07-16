@@ -1,0 +1,167 @@
+{
+  "canvas": 28,
+  "templates": [
+    {
+      "key": "gourd_spirit_vessel",
+      "shape": "gourd",
+      "artifact": "ArtifactGourd",
+      "camera": {
+        "yaw": -30,
+        "pitch": 20,
+        "roll": -10,
+        "scale": 9.4,
+        "target": [
+          0,
+          -0.02,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -45,
+        "pitch": 58
+      },
+      "placements": [
+        {
+          "slot": "body",
+          "module": "gourd_body3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.1,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "mouth",
+          "module": "gourd_mouth3d",
+          "anchor": "base",
+          "position": [
+            0,
+            0.66,
+            0
+          ],
+          "z": 20
+        },
+        {
+          "slot": "stopper",
+          "module": "gourd_stopper3d",
+          "anchor": "base",
+          "position": [
+            0,
+            1.06,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "tie",
+          "module": "gourd_tie3d",
+          "anchor": "knot",
+          "position": [
+            0,
+            0.76,
+            0.02
+          ],
+          "rotation": [
+            0,
+            0,
+            -8
+          ],
+          "z": 40
+        }
+      ]
+    },
+    {
+      "key": "gourd_void_swallowing",
+      "shape": "gourd",
+      "artifact": "ArtifactGourd",
+      "camera": {
+        "yaw": -18,
+        "pitch": 24,
+        "roll": -18,
+        "scale": 9.2,
+        "target": [
+          0,
+          -0.04,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -30,
+        "pitch": 62
+      },
+      "placements": [
+        {
+          "slot": "body",
+          "module": "gourd_body3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.12,
+            0
+          ],
+          "rotation": [
+            0,
+            -7,
+            -5
+          ],
+          "scale": [
+            1.04,
+            1.03,
+            1
+          ],
+          "z": 10
+        },
+        {
+          "slot": "mouth",
+          "module": "gourd_mouth3d",
+          "anchor": "base",
+          "position": [
+            -0.07,
+            0.65,
+            0
+          ],
+          "rotation": [
+            0,
+            -7,
+            -5
+          ],
+          "z": 20
+        },
+        {
+          "slot": "stopper",
+          "module": "gourd_stopper3d",
+          "anchor": "base",
+          "position": [
+            -0.1,
+            1.05,
+            0
+          ],
+          "rotation": [
+            0,
+            -7,
+            -5
+          ],
+          "z": 30
+        },
+        {
+          "slot": "tie",
+          "module": "gourd_tie3d",
+          "anchor": "knot",
+          "position": [
+            -0.02,
+            0.75,
+            0.03
+          ],
+          "rotation": [
+            0,
+            -7,
+            10
+          ],
+          "z": 40
+        }
+      ]
+    }
+  ]
+}

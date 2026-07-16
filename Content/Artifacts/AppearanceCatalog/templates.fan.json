@@ -1,0 +1,167 @@
+{
+  "canvas": 28,
+  "templates": [
+    {
+      "key": "fan_cloud_feather",
+      "shape": "fan",
+      "artifact": "ArtifactFan",
+      "camera": {
+        "yaw": -22,
+        "pitch": 14,
+        "roll": -12,
+        "scale": 8.6,
+        "target": [
+          0,
+          0.26,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -40,
+        "pitch": 60
+      },
+      "placements": [
+        {
+          "slot": "leaf",
+          "module": "fan_leaf3d",
+          "anchor": "hinge",
+          "position": [
+            0,
+            0.15,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "ribs",
+          "module": "fan_ribs3d",
+          "anchor": "hinge",
+          "position": [
+            0,
+            0.15,
+            0.04
+          ],
+          "z": 20
+        },
+        {
+          "slot": "handle",
+          "module": "fan_handle3d",
+          "anchor": "top",
+          "position": [
+            0,
+            0.15,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "pendant",
+          "module": "fan_pendant3d",
+          "anchor": "knot",
+          "position": [
+            0,
+            -0.56,
+            0.02
+          ],
+          "rotation": [
+            0,
+            0,
+            7
+          ],
+          "z": 40
+        }
+      ]
+    },
+    {
+      "key": "fan_iron_tempest",
+      "shape": "fan",
+      "artifact": "ArtifactFan",
+      "camera": {
+        "yaw": -14,
+        "pitch": 18,
+        "roll": -22,
+        "scale": 8.4,
+        "target": [
+          0,
+          0.25,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -28,
+        "pitch": 64
+      },
+      "placements": [
+        {
+          "slot": "leaf",
+          "module": "fan_leaf3d",
+          "anchor": "hinge",
+          "position": [
+            0,
+            0.15,
+            0
+          ],
+          "rotation": [
+            0,
+            -5,
+            0
+          ],
+          "scale": [
+            1.05,
+            1.02,
+            1
+          ],
+          "z": 10
+        },
+        {
+          "slot": "ribs",
+          "module": "fan_ribs3d",
+          "anchor": "hinge",
+          "position": [
+            0,
+            0.15,
+            0.045
+          ],
+          "rotation": [
+            0,
+            -5,
+            0
+          ],
+          "z": 20
+        },
+        {
+          "slot": "handle",
+          "module": "fan_handle3d",
+          "anchor": "top",
+          "position": [
+            0,
+            0.15,
+            0
+          ],
+          "rotation": [
+            0,
+            -5,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "pendant",
+          "module": "fan_pendant3d",
+          "anchor": "knot",
+          "position": [
+            0,
+            -0.56,
+            0.02
+          ],
+          "rotation": [
+            0,
+            -5,
+            -9
+          ],
+          "z": 40
+        }
+      ]
+    }
+  ]
+}

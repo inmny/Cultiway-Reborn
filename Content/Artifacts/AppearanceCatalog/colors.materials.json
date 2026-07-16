@@ -1,0 +1,74 @@
+{
+  "schemes": [
+    {
+      "key": "moon_silver",
+      "visual_theme": { "primary": "#9edcff", "secondary": "#6f91c8", "glow": "#f4fbff" },
+      "colors": {
+        "metal": "#9aaabd", "edge": "#e7f4ff", "gem": "#9edcff", "grip": "#39475a", "wrap": "#b7cce5", "pommel": "#c5d7e8",
+        "left": "#58697f", "top": "#8ea0b8", "right": "#2b3444", "ridge": "#d4e3f1", "water": "#6bbde8", "cloth": "#617ca6",
+        "fold": "#a9c8ea", "trim": "#d9e3ec", "charm": "#6f91c8", "glass": "#e8f7ff", "glint": "#ffffff", "handle": "#526173",
+        "rim": "#aebdca", "fire": "#79cfff", "core": "#f4fbff", "leg": "#303847"
+      }
+    },
+    {
+      "key": "blood_jade",
+      "visual_theme": { "primary": "#ef4f67", "secondary": "#8f2439", "glow": "#ffd6d9" },
+      "colors": {
+        "metal": "#8f3341", "edge": "#f4a4a4", "gem": "#ef4f67", "grip": "#3d2029", "wrap": "#b65862", "pommel": "#c66a72",
+        "left": "#5b2834", "top": "#974050", "right": "#291921", "ridge": "#d77d82", "water": "#b73b61", "cloth": "#812f4b",
+        "fold": "#c95c76", "trim": "#d8a89f", "charm": "#ef4f67", "glass": "#ffdadd", "glint": "#fff2f0", "handle": "#5a3039",
+        "rim": "#b14d55", "fire": "#ef4f67", "core": "#ffd6d9", "leg": "#321b22"
+      }
+    },
+    {
+      "key": "void_obsidian",
+      "visual_theme": { "primary": "#866fff", "secondary": "#30245f", "glow": "#d8d2ff" },
+      "colors": {
+        "metal": "#343241", "edge": "#81779f", "gem": "#866fff", "grip": "#1d1b24", "wrap": "#504966", "pommel": "#625a79",
+        "left": "#292739", "top": "#44405c", "right": "#15141c", "ridge": "#77708f", "water": "#5a4cb2", "cloth": "#302b4d",
+        "fold": "#645b87", "trim": "#8d849e", "charm": "#866fff", "glass": "#aaa2dc", "glint": "#ece9ff", "handle": "#292633",
+        "rim": "#544d69", "fire": "#715cff", "core": "#d8d2ff", "leg": "#17151c"
+      }
+    },
+    {
+      "key": "cloud_silk",
+      "visual_theme": { "primary": "#e5b6ff", "secondary": "#7ebbc4", "glow": "#fff1ff" },
+      "colors": {
+        "metal": "#b8a7c6", "edge": "#f2ddff", "gem": "#e5b6ff", "grip": "#505166", "wrap": "#cbb6dc", "pommel": "#d4bedf",
+        "left": "#718b96", "top": "#a9c2c8", "right": "#42535f", "ridge": "#d7eced", "water": "#7ebbc4", "cloth": "#8c87bd",
+        "fold": "#c8b9ec", "trim": "#e5dce8", "charm": "#d684c7", "glass": "#f0ecff", "glint": "#ffffff", "handle": "#6d6b82",
+        "rim": "#aea0bc", "fire": "#c187e6", "core": "#fff1ff", "leg": "#484758"
+      }
+    },
+    {
+      "key": "imperial_bronze",
+      "visual_theme": { "primary": "#f0c35c", "secondary": "#7d8f4d", "glow": "#fff0a6" },
+      "colors": {
+        "metal": "#8e6935", "edge": "#d9ad55", "gem": "#f0c35c", "grip": "#463b2b", "wrap": "#a88347", "pommel": "#bf9650",
+        "left": "#59603a", "top": "#8c8951", "right": "#343521", "ridge": "#c9b166", "water": "#6f9c75", "cloth": "#6c6440",
+        "fold": "#9c8c55", "trim": "#cdb677", "charm": "#a83d35", "glass": "#eee4bd", "glint": "#fff7d8", "handle": "#59462d",
+        "rim": "#a57c3d", "fire": "#e99b3d", "core": "#fff0a6", "leg": "#30261d"
+      }
+    },
+    {
+      "key": "azure_ceramic",
+      "visual_theme": { "primary": "#52d4dc", "secondary": "#2f7a9c", "glow": "#d8ffff" },
+      "colors": {
+        "metal": "#4c8295", "edge": "#a5e4e5", "gem": "#52d4dc", "grip": "#29424d", "wrap": "#70adb9", "pommel": "#82bdc6",
+        "left": "#376c7c", "top": "#5e9da8", "right": "#203b46", "ridge": "#94d5d3", "water": "#49b9d2", "cloth": "#347c9b",
+        "fold": "#6cb7c9", "trim": "#b6dad9", "charm": "#3b9db4", "glass": "#d8f7f7", "glint": "#ffffff", "handle": "#355766",
+        "rim": "#6097a3", "fire": "#52d4dc", "core": "#d8ffff", "leg": "#243b43"
+      }
+    },
+    {
+      "key": "white_bone",
+      "visual_theme": { "primary": "#e9dfc6", "secondary": "#7fa58b", "glow": "#fffdf0" },
+      "colors": {
+        "metal": "#aca58f", "edge": "#efe7d0", "gem": "#b7e2c4", "grip": "#554f44", "wrap": "#b9ae95", "pommel": "#d0c5ac",
+        "left": "#6c7567", "top": "#9da68e", "right": "#3d443c", "ridge": "#d7d2b8", "water": "#79a99a", "cloth": "#727a69",
+        "fold": "#a8ae93", "trim": "#d8d1bb", "charm": "#8ebc98", "glass": "#f1f2df", "glint": "#ffffff", "handle": "#6b6557",
+        "rim": "#b6ad94", "fire": "#9bc8aa", "core": "#fffdf0", "leg": "#49463e"
+      }
+    }
+  ]
+}

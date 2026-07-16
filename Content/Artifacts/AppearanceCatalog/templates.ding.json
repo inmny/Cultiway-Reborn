@@ -1,0 +1,184 @@
+{
+  "canvas": 28,
+  "templates": [
+    {
+      "key": "ding_ancient_round",
+      "shape": "ding",
+      "artifact": "ArtifactDing",
+      "camera": {
+        "yaw": -32,
+        "pitch": 30,
+        "roll": 0,
+        "scale": 8.9,
+        "target": [
+          0,
+          -0.16,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -48,
+        "pitch": 58
+      },
+      "placements": [
+        {
+          "slot": "legs",
+          "module": "ding_legs3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.38,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "vessel",
+          "module": "ding_vessel3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "z": 20
+        },
+        {
+          "slot": "ears",
+          "module": "ding_ears3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.06,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "core",
+          "module": "ding_core3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.24,
+            0
+          ],
+          "z": 40
+        },
+        {
+          "slot": "lid",
+          "module": "ding_lid3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.52,
+            0
+          ],
+          "z": 50
+        }
+      ]
+    },
+    {
+      "key": "ding_jade_furnace",
+      "shape": "ding",
+      "artifact": "ArtifactDing",
+      "camera": {
+        "yaw": -22,
+        "pitch": 33,
+        "roll": 0,
+        "scale": 8.8,
+        "target": [
+          0,
+          -0.14,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -34,
+        "pitch": 62
+      },
+      "placements": [
+        {
+          "slot": "legs",
+          "module": "ding_legs3d",
+          "anchor": "center",
+          "position": [
+            0,
+            -0.38,
+            0
+          ],
+          "rotation": [
+            0,
+            8,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "vessel",
+          "module": "ding_vessel3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            8,
+            0
+          ],
+          "z": 20
+        },
+        {
+          "slot": "ears",
+          "module": "ding_ears3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.06,
+            0
+          ],
+          "rotation": [
+            0,
+            8,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "core",
+          "module": "ding_core3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.24,
+            0
+          ],
+          "rotation": [
+            0,
+            8,
+            0
+          ],
+          "z": 40
+        },
+        {
+          "slot": "lid",
+          "module": "ding_lid3d",
+          "anchor": "center",
+          "position": [
+            0,
+            0.52,
+            0
+          ],
+          "rotation": [
+            0,
+            8,
+            0
+          ],
+          "z": 50
+        }
+      ]
+    }
+  ]
+}

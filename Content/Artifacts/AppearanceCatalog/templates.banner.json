@@ -1,0 +1,167 @@
+{
+  "canvas": 28,
+  "templates": [
+    {
+      "key": "banner_celestial_command",
+      "shape": "banner",
+      "artifact": "ArtifactBanner",
+      "camera": {
+        "yaw": -24,
+        "pitch": 16,
+        "roll": -8,
+        "scale": 7.2,
+        "target": [
+          0.42,
+          0,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -42,
+        "pitch": 58
+      },
+      "placements": [
+        {
+          "slot": "pole",
+          "module": "banner_pole3d",
+          "anchor": "base",
+          "position": [
+            0,
+            -1.12,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "cloth",
+          "module": "banner_cloth3d",
+          "anchor": "attach",
+          "position": [
+            0,
+            0.56,
+            0
+          ],
+          "z": 20
+        },
+        {
+          "slot": "finial",
+          "module": "banner_finial3d",
+          "anchor": "base",
+          "position": [
+            0,
+            1.12,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "tassel",
+          "module": "banner_tassel3d",
+          "anchor": "knot",
+          "position": [
+            1.12,
+            -0.52,
+            0.02
+          ],
+          "rotation": [
+            0,
+            0,
+            -7
+          ],
+          "z": 40
+        }
+      ]
+    },
+    {
+      "key": "banner_soul_swallowtail",
+      "shape": "banner",
+      "artifact": "ArtifactBanner",
+      "camera": {
+        "yaw": -17,
+        "pitch": 12,
+        "roll": -13,
+        "scale": 7,
+        "target": [
+          0.4,
+          -0.02,
+          0
+        ]
+      },
+      "light": {
+        "yaw": -30,
+        "pitch": 62
+      },
+      "placements": [
+        {
+          "slot": "pole",
+          "module": "banner_pole3d",
+          "anchor": "base",
+          "position": [
+            0,
+            -1.12,
+            0
+          ],
+          "rotation": [
+            0,
+            -6,
+            0
+          ],
+          "z": 10
+        },
+        {
+          "slot": "cloth",
+          "module": "banner_cloth3d",
+          "anchor": "attach",
+          "position": [
+            0,
+            0.58,
+            0
+          ],
+          "rotation": [
+            0,
+            -6,
+            -3
+          ],
+          "scale": [
+            1.04,
+            1.08,
+            1
+          ],
+          "z": 20
+        },
+        {
+          "slot": "finial",
+          "module": "banner_finial3d",
+          "anchor": "base",
+          "position": [
+            0,
+            1.12,
+            0
+          ],
+          "rotation": [
+            0,
+            -6,
+            0
+          ],
+          "z": 30
+        },
+        {
+          "slot": "tassel",
+          "module": "banner_tassel3d",
+          "anchor": "knot",
+          "position": [
+            1.1,
+            -0.54,
+            0.03
+          ],
+          "rotation": [
+            0,
+            -6,
+            9
+          ],
+          "z": 40
+        }
+      ]
+    }
+  ]
+}
