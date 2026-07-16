@@ -25,21 +25,20 @@ public class ArtifactPresentations : ExtendLibrary<ArtifactPresentationAsset, Ar
 
     protected override void OnInit()
     {
-        Set(Sword, 0.11f, 1.45f, ResolveSword);
-        Set(Seal, 0.18f, 1.25f, ResolveSeal);
-        Set(Robe, 0.24f, 1.15f, ResolveRobe);
-        Set(Mirror, 0.14f, 1.1f, ResolveMirror);
-        Set(Ding, 0.22f, 1.35f, ResolveDing);
+        Set(Sword, 0.11f, ResolveSword);
+        Set(Seal, 0.18f, ResolveSeal);
+        Set(Robe, 0.24f, ResolveRobe);
+        Set(Mirror, 0.14f, ResolveMirror);
+        Set(Ding, 0.22f, ResolveDing);
     }
 
     private static void Set(
         ArtifactPresentationAsset presentation,
         float bodyRadius,
-        float activeWorldSize,
         Func<ArtifactPresentationContext, ArtifactPresentationPose> resolvePose)
     {
         presentation.body_radius = bodyRadius;
-        presentation.active_world_size = activeWorldSize;
+        presentation.active_pixel_scale = 1f;
         presentation.ResolvePose = resolvePose;
     }
 

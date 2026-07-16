@@ -249,7 +249,11 @@ public static partial class ArtifactAbilityLifecycle
         {
             profile.Resource(context, ability, maintenanceCost, true);
         }
-        profile.OnTick?.Invoke(context, ability, ref runtime, profile.tick_interval);
+        if (profile.OnTick != null)
+        {
+            profile.OnTick(context, ability, ref runtime, profile.tick_interval);
+            ArtifactAbilityVisuals.Emit(context, ability, runtime, ArtifactVisualChannels.Tick);
+        }
     }
 
     private static void AdvanceCharges(
@@ -301,6 +305,7 @@ public static partial class ArtifactAbilityLifecycle
         bool requestExecutionEnd)
     {
         ArtifactAbilityActivityKind kind = runtime.activity_kind;
+        Vector3? endPosition = null;
         if (kind == ArtifactAbilityActivityKind.SkillExecution && requestExecutionEnd &&
             !runtime.active_execution.IsNull && runtime.active_execution.HasComponent<SkillExecution>())
         {
@@ -310,6 +315,7 @@ public static partial class ArtifactAbilityLifecycle
                  context.artifact.TryGetComponent(out ArtifactDeployment deployment) &&
                  deployment.ability_instance_id == ability.instance_id)
         {
+            endPosition = deployment.origin;
             PendingDeploymentReleases.Add(new PendingDeploymentRelease(
                 context.artifact,
                 ability.instance_id));
@@ -320,6 +326,13 @@ public static partial class ArtifactAbilityLifecycle
         runtime.activity_started_at = 0d;
         runtime.activity_until = 0d;
         asset.lifecycle.OnActivityEnded?.Invoke(context, ability, ref runtime, reason);
+        ArtifactAbilityVisuals.Emit(
+            context,
+            ability,
+            runtime,
+            ArtifactVisualChannels.End,
+            position: endPosition,
+            endReason: reason);
         MarkStatsDirty(context.controller);
     }
 

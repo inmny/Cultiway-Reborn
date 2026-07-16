@@ -1,4 +1,5 @@
 using Friflo.Engine.ECS;
+using UnityEngine;
 
 namespace Cultiway.Content.Components;
 
@@ -47,6 +48,18 @@ public struct ArtifactIndependentMotion : IComponent
 }
 
 /// <summary>
+/// 法器本体上用于对齐世界作用点的空间锚点。
+/// </summary>
+public enum ArtifactBodyAnchorKind
+{
+    /// <summary>法器本体的 Position。</summary>
+    Center,
+
+    /// <summary>世界贴图局部 +Y 方向上的前端尖点。</summary>
+    ForwardTip,
+}
+
+/// <summary>
 /// 法器本体脱离驾驭者并作为持续场域驻留在世界中的状态。
 /// 部署期间位置由能力持有，结束后移除此组件即可恢复装备跟随。
 /// </summary>
@@ -63,4 +76,10 @@ public struct ArtifactDeployment : IComponent
 
     /// <summary>部署自动结束的世界时间；0 表示不由时长结束。</summary>
     public double expires_at;
+
+    /// <summary>能力在世界中的权威作用原点。</summary>
+    public Vector3 origin;
+
+    /// <summary>部署时与作用原点重合的法器本体锚点。</summary>
+    public ArtifactBodyAnchorKind body_anchor;
 }

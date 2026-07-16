@@ -150,6 +150,9 @@ public interface IActiveAbilityProvider
 
     float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target);
 
+    /// <summary>返回能力在落点处实际影响的半径；0 表示没有固定范围预览。</summary>
+    float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle);
+
     bool TryUse(
         ActorExtend caster,
         ActiveAbilityHandle handle,

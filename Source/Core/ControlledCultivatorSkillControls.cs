@@ -313,6 +313,14 @@ internal static class ControlledCultivatorSkillControls
             : 0f;
     }
 
+    internal static float ResolveSelectedAbilityEffectRadius(ActorExtend caster)
+    {
+        return caster != null && !caster.Base.isRekt() &&
+               TryGetSelectedAttackAbility(caster.Base, out ActiveAbilityHandle ability)
+            ? ActiveAbilityService.ResolveEffectRadius(caster, ability)
+            : 0f;
+    }
+
     private static string GetAbilityName(ActorExtend caster, ActiveAbilityHandle ability)
     {
         string name = ActiveAbilityService.Describe(caster, ability).Name;

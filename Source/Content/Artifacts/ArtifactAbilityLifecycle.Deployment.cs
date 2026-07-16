@@ -24,8 +24,9 @@ public static partial class ArtifactAbilityLifecycle
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
-        Vector3 position,
-        float worldSize)
+        Vector3 origin,
+        ArtifactBodyAnchorKind bodyAnchor = ArtifactBodyAnchorKind.Center,
+        float? rotation = null)
     {
         Entity artifact = context.artifact;
         if (artifact.HasComponent<ArtifactIndependentMotion>() ||
@@ -37,8 +38,9 @@ public static partial class ArtifactAbilityLifecycle
             context.controller,
             context.control_state,
             ability.instance_id,
-            position,
-            worldSize));
+            origin,
+            bodyAnchor,
+            rotation));
         runtime.activity_kind = ArtifactAbilityActivityKind.Deployment;
         runtime.activity_started_at = now;
         runtime.activity_until = 0d;
@@ -71,14 +73,16 @@ public static partial class ArtifactAbilityLifecycle
 
             ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
             ArtifactManifestationTools.EnsureWorldComponents(artifact, shape.presentation.body_radius);
-            artifact.GetComponent<Position>().value = pending.Position;
+            artifact.GetComponent<Position>().value = pending.Origin;
+            if (pending.Rotation.HasValue) artifact.GetComponent<Rotation>().z = pending.Rotation.Value;
 
             ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
             manifestation.control_state = pending.ControlState;
-            manifestation.world_size = pending.WorldSize;
-            manifestation.visible = pending.Controller.GetComponent<ActorBinder>().Actor.is_visible;
+            Actor controller = pending.Controller.GetComponent<ActorBinder>().Actor;
+            manifestation.visible = controller.is_visible;
             manifestation.flip_x = false;
-            artifact.GetComponent<ArtifactBody>().radius = shape.presentation.body_radius * pending.WorldSize;
+            ArtifactManifestationTools.ApplyActiveWorldSize(artifact, controller);
+            ArtifactManifestationTools.AlignWorldAnchor(artifact, pending.BodyAnchor, pending.Origin);
 
             artifact.AddComponent(new ArtifactIndependentMotion());
             artifact.AddComponent(new ArtifactDeployment
@@ -87,6 +91,8 @@ public static partial class ArtifactAbilityLifecycle
                 ability_instance_id = pending.AbilityInstanceId,
                 started_at = entry.activity_started_at,
                 expires_at = entry.activity_until,
+                origin = pending.Origin,
+                body_anchor = pending.BodyAnchor,
             });
         }
         PendingDeployments.Clear();
@@ -113,23 +119,26 @@ public static partial class ArtifactAbilityLifecycle
         public readonly Entity Controller;
         public readonly ArtifactControlState ControlState;
         public readonly string AbilityInstanceId;
-        public readonly Vector3 Position;
-        public readonly float WorldSize;
+        public readonly Vector3 Origin;
+        public readonly ArtifactBodyAnchorKind BodyAnchor;
+        public readonly float? Rotation;
 
         public PendingDeployment(
             Entity artifact,
             Entity controller,
             ArtifactControlState controlState,
             string abilityInstanceId,
-            Vector3 position,
-            float worldSize)
+            Vector3 origin,
+            ArtifactBodyAnchorKind bodyAnchor,
+            float? rotation)
         {
             Artifact = artifact;
             Controller = controller;
             ControlState = controlState;
             AbilityInstanceId = abilityInstanceId;
-            Position = position;
-            WorldSize = worldSize;
+            Origin = origin;
+            BodyAnchor = bodyAnchor;
+            Rotation = rotation;
         }
     }
 

@@ -101,6 +101,13 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
         return resolved.Asset.active_use.ResolveRange?.Invoke(context, resolved.Ability) ?? 0f;
     }
 
+    public float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
+    {
+        if (!TryResolve(caster, handle, out ResolvedAbility resolved)) return 0f;
+        ArtifactAbilityExecutionContext context = new(caster.E, handle.Source, resolved.Relation.state);
+        return resolved.Asset.active_use.ResolveEffectRadius?.Invoke(context, resolved.Ability) ?? 0f;
+    }
+
     public bool TryUse(
         ActorExtend caster,
         ActiveAbilityHandle handle,

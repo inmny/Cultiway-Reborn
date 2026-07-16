@@ -91,6 +91,17 @@ public sealed class ArtifactAppearanceColorSchemeDef
 {
     [JsonProperty("key")] public string Key;
     [JsonProperty("colors")] public Dictionary<string, string> Colors = new();
+    [JsonProperty("visual_theme")] public ArtifactAppearanceVisualThemeDef VisualTheme;
+}
+
+/// <summary>
+/// 配色方案提供给光效、粒子等外部表现使用的语义颜色，不依赖模型内部的材质通道命名。
+/// </summary>
+public sealed class ArtifactAppearanceVisualThemeDef
+{
+    [JsonProperty("primary")] public string Primary;
+    [JsonProperty("secondary")] public string Secondary;
+    [JsonProperty("glow")] public string Glow;
 }
 
 internal sealed class ArtifactAppearanceModulesFile
@@ -119,6 +130,7 @@ public static class ArtifactAppearanceCatalogLoader
         var root = Path.Combine(ModClass.I.GetDeclaration().FolderPath, "Content", "Artifacts", "AppearanceCatalog");
         Current = LoadFrom(root);
         ArtifactAppearanceRenderer.ClearCache();
+        ArtifactAbilityVisuals.ClearThemeCache();
     }
 
     private static ArtifactAppearanceCatalog LoadFrom(string root)

@@ -1,6 +1,8 @@
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Core.Components;
 using NeoModLoader.General;
 using UnityEngine;
 
@@ -67,11 +69,24 @@ public partial class ArtifactAbilities
     }
 
     private static void ApplyGuardianWard(
-        ArtifactAbilityExecutionContext _,
+        ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
-        ref ArtifactAbilityRuntimeEntry __,
+        ref ArtifactAbilityRuntimeEntry runtime,
         ArtifactIncomingDamageEvent evt)
     {
-        evt.Damage *= 1f - ability.GetNumber(DamageReduction);
+        float reduction = ability.GetNumber(DamageReduction);
+        evt.Damage *= 1f - reduction;
+        Actor defender = context.controller.GetComponent<ActorBinder>().Actor;
+        Vector3 direction = evt.Attacker != null && !evt.Attacker.isRekt()
+            ? evt.Attacker.current_position - defender.current_position
+            : Vector3.up;
+        ArtifactAbilityVisuals.Emit(
+            context,
+            ability,
+            runtime,
+            ArtifactVisualChannels.Guard,
+            direction: direction,
+            target: evt.Attacker,
+            intensity: reduction);
     }
 }

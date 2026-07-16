@@ -2,6 +2,11 @@
   "schemes": [
     {
       "key": "cold_crystal",
+      "visual_theme": {
+        "primary": "#7ef2ff",
+        "secondary": "#20d7ff",
+        "glow": "#d9fbff"
+      },
       "colors": {
         "metal": "#8bd8ec",
         "edge": "#f0ffff",
@@ -29,6 +34,11 @@
     },
     {
       "key": "gold_jade",
+      "visual_theme": {
+        "primary": "#d7ff76",
+        "secondary": "#4fa45b",
+        "glow": "#f6ffbd"
+      },
       "colors": {
         "metal": "#c1ab3d",
         "edge": "#ffe56e",
@@ -56,6 +66,11 @@
     },
     {
       "key": "dark_steel",
+      "visual_theme": {
+        "primary": "#d95e8c",
+        "secondary": "#63bfd4",
+        "glow": "#efffff"
+      },
       "colors": {
         "metal": "#667284",
         "edge": "#dce7f2",
@@ -83,6 +98,11 @@
     },
     {
       "key": "copper_ember",
+      "visual_theme": {
+        "primary": "#ff8a23",
+        "secondary": "#e07148",
+        "glow": "#ffe66c"
+      },
       "colors": {
         "metal": "#a44531",
         "edge": "#ffb35f",
@@ -110,6 +130,11 @@
     },
     {
       "key": "black_gold",
+      "visual_theme": {
+        "primary": "#f0d36a",
+        "secondary": "#8ce6ff",
+        "glow": "#efffff"
+      },
       "colors": {
         "metal": "#574936",
         "edge": "#d9bf72",

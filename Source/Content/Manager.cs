@@ -75,6 +75,7 @@ internal class Manager
         ModClass.I.GeneralRenderSystems.Add(new RealmIndicatorRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactManifestationSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactWorldRenderSystem());
+        ModClass.I.GeneralRenderSystems.Add(new ArtifactAbilityVisualSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookImprovedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new ElixirEffectGeneratedEventSystem());
