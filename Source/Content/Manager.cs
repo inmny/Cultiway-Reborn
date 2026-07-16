@@ -56,6 +56,8 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new FlyCancelSystem());
         ModClass.I.LogicRestoreStatusSystemGroup.Add(new RestoreWakanSystem());
         ModClass.I.LogicRestoreStatusSystemGroup.Add(new RestoreMagicResourceSystem());
+        ModClass.I.LogicRestoreStatusSystemGroup.Add(new KnightAcquisitionSystem());
+        ModClass.I.LogicRestoreStatusSystemGroup.Add(new KnightBreakthroughSystem());
         ModClass.I.GeneralLogicSystems.Add(new WakanSpreadSystem());
         ModClass.I.GeneralLogicSystems.Add(new TrainTrackRepairSystem());
         ModClass.I.GeneralLogicSystems.Add(new TrainTransportSystem());
@@ -81,6 +83,8 @@ internal class Manager
         ModClass.I.LogicEventProcessSystemGroup.Add(new MagicSpellCastCompletedEventSystem());
         
         CultivateMethodTriggers.Init();
+        KnightCombatTriggers.Init();
+        KnightBloodline.Init();
         Train.Init();
     }
 

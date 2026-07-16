@@ -42,7 +42,7 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         LoadSkinsFor(SA.dwarf);
         LoadSkinsFor(SA.human);
 
-        // 四个原版种族仅修炼魔法（不修仙）
+        // 四个原版种族修炼魔法与骑士（不修仙）：有灵根者走魔法，无灵根的士兵可觉醒为骑士
         ConfigureMagicOnlyRace(SA.human);
         ConfigureMagicOnlyRace(SA.elf);
         ConfigureMagicOnlyRace(SA.dwarf);
@@ -56,6 +56,7 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         var ids = asset.GetExtend<ActorAssetExtend>().available_cultisys_ids;
         ids.Clear();
         ids.Add(nameof(Cultisyses.Magic));
+        ids.Add(nameof(Cultisyses.Knight)); // 骑士：无灵根的士兵可觉醒
     }
     private void LoadSkinsFor(string id)
     {

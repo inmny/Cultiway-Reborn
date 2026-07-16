@@ -14,6 +14,8 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor DailyPlantXianCultivate   { get; private set; }
     public static BehaviourTaskActor DailyWaterCultivate       { get; private set; }
     public static BehaviourTaskActor DailyMagicMeditate        { get; private set; }
+    /// <summary>骑士和平期操练任务（原地积累斗气，比战斗慢）。</summary>
+    public static BehaviourTaskActor DailyKnightTrain          { get; private set; }
 
     /// <summary>调用通用进阶服务执行当前体系候选过渡的行为任务。</summary>
     public static BehaviourTaskActor CultivationProgression    { get; private set; }
@@ -69,6 +71,9 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
 
         DailyMagicMeditate.addBeh(new BehMagicMeditate());
         DailyMagicMeditate.setIcon("cultiway/icons/iconMagic");
+
+        DailyKnightTrain.addBeh(new BehKnightTrain());
+        DailyKnightTrain.setIcon("cultiway/icons/iconCultivation");
 
         CultivationProgression.addBeh(new BehCultivationProgression());
         CultivationProgression.setIcon("cultiway/icons/iconCultivation");

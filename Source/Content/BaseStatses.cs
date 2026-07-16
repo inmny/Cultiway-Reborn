@@ -16,6 +16,10 @@ public class BaseStatses : ExtendLibrary<BaseStatAsset, BaseStatses>
     [AssetId(nameof(ManaRegen))] public static BaseStatAsset ManaRegen { get; private set; }
     /// <summary>单位每月自然恢复的精神力。</summary>
     [AssetId(nameof(SpiritRegen))] public static BaseStatAsset SpiritRegen { get; private set; }
+    /// <summary>骑士的斗气上限（突破资源）。</summary>
+    [AssetId(nameof(MaxVigor))] public static BaseStatAsset MaxVigor { get; private set; }
+    /// <summary>骑士的闪避几率（自定义 stat；WorldBox 无原生闪避数值）。</summary>
+    [AssetId(nameof(KnightEvasion))] public static BaseStatAsset KnightEvasion { get; private set; }
     private static StringBuilder all_stats_ids = new();
     internal static string AllStatsIds => all_stats_ids.ToString();
     protected override bool AutoRegisterAssets() => true;
