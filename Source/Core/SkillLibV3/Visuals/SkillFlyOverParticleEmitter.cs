@@ -65,6 +65,35 @@ public static class SkillFlyOverParticleEmitter
         EmitParticles(source);
     }
 
+    /// <summary>
+    /// 从任意世界坐标直接发射一批共享粒子，供技能、法器等上层表现复用而不创建独立 ParticleSystem。
+    /// </summary>
+    public static void EmitBurst(
+        Vector3 position,
+        Color color,
+        SkillFlyOverParticleStyle style,
+        float spread = 0.35f,
+        Vector3 direction = default,
+        float directionalSpeed = 0f,
+        int particleCount = -1)
+    {
+        if (!MapBox.isRenderGameplay() || !IsVisible(position)) return;
+        EnsureWorld();
+        color.a *= style.Alpha;
+        EmissionSource source = new()
+        {
+            Position = position,
+            Style = style,
+            Color = color,
+        };
+        EmitParticles(
+            source,
+            particleCount >= 0 ? particleCount : style.ParticlesPerEmission,
+            Mathf.Max(0f, spread),
+            direction,
+            directionalSpeed);
+    }
+
     public static void Update(float deltaTime)
     {
         EnsureWorld();
@@ -109,19 +138,32 @@ public static class SkillFlyOverParticleEmitter
 
     private static void EmitParticles(EmissionSource source)
     {
+        EmitParticles(source, source.Style.ParticlesPerEmission, 0.35f, Vector3.zero, 0f);
+    }
+
+    private static void EmitParticles(
+        EmissionSource source,
+        int particleCount,
+        float spread,
+        Vector3 direction,
+        float directionalSpeed)
+    {
         var emitter = GetEmitter();
         var style = source.Style;
+        Vector3 directionalVelocity = direction.sqrMagnitude > 0.0001f
+            ? direction.normalized * directionalSpeed
+            : Vector3.zero;
 
-        for (var i = 0; i < style.ParticlesPerEmission; i++)
+        for (var i = 0; i < particleCount; i++)
         {
             var position = source.Position;
-            position.x += Randy.randomFloat(-0.35f, 0.35f);
-            position.y += Randy.randomFloat(0.02f, 0.16f);
+            position.x += Randy.randomFloat(-spread, spread);
+            position.y += Randy.randomFloat(-spread * 0.28f, spread * 0.45f);
 
             var emitParams = new ParticleSystem.EmitParams
             {
                 position = position,
-                velocity = new Vector3(
+                velocity = directionalVelocity + new Vector3(
                     Randy.randomFloat(-style.HorizontalDrift, style.HorizontalDrift),
                     Randy.randomFloat(style.MinRiseSpeed, style.MaxRiseSpeed),
                     0f),

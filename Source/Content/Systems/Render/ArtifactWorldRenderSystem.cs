@@ -3,6 +3,7 @@ using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Utils;
+using Cultiway.Content.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
@@ -54,6 +55,7 @@ public class ArtifactWorldRenderSystem
         }
 
         float time = Time.time;
+        double worldTime = World.world.getCurWorldTime();
         Query.ForEachEntity((
             ref Artifact _,
             ref ArtifactManifestation manifestation,
@@ -74,13 +76,15 @@ public class ArtifactWorldRenderSystem
             view.artifact = artifact;
             view.sprite_renderer.sprite = sprite;
             Color color = manifestation.control_state.GetStateColor(time);
+            float pulseScale = 1f;
+            ArtifactModelPulseVisualState.Apply(artifact, worldTime, ref pulseScale, ref color);
             view.sprite_renderer.color = color;
             view.sprite_renderer.flipX = manifestation.flip_x;
             view.sprite_renderer.sortingLayerName = RenderSortingLayerNames.Objects_4;
             view.sprite_renderer.sortingOrder = 0;
             view.transform.localPosition = position.value;
             view.transform.localRotation = Quaternion.Euler(0f, 0f, rotation.z);
-            view.transform.localScale = Vector3.one * (manifestation.world_size / spriteSize);
+            view.transform.localScale = Vector3.one * (manifestation.world_size / spriteSize * pulseScale);
 
             if (artifact.TryGetComponent(out SkillExecutionBodyLease lease) &&
                 lease.execution.HasComponent<AnimAfterimage>())

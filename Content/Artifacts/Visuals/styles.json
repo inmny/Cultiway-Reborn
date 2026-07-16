@@ -1,0 +1,99 @@
+{
+  "styles": [
+    {
+      "key": "arcane",
+      "surface": { "pattern": "arcane", "rune_count": 12, "spoke_count": 6, "node_count": 6 },
+      "path": { "pattern": "arcane", "strands": 2, "cap": "spark" }
+    },
+    {
+      "key": "metal",
+      "surface": { "pattern": "metal", "ring_count": 2, "rune_count": 8, "spoke_count": 8, "node_count": 4, "break_ratio": 0.25, "outer_rotation": 15 },
+      "path": { "pattern": "blade", "tile_length": 0.5, "flow_speed": 3.4, "start_width": 0.35, "middle_width": 1, "end_width": 0.18, "cap": "blade" }
+    },
+    {
+      "key": "ward",
+      "surface": { "pattern": "ward", "ring_count": 3, "rune_count": 12, "spoke_count": 6, "node_count": 6, "break_ratio": 0.06, "base_alpha": 0.14, "outer_rotation": 5, "inner_rotation": -9 },
+      "path": { "pattern": "ward", "strands": 2, "flow_speed": 1.2, "cap": "shield" }
+    },
+    {
+      "key": "healing",
+      "surface": { "pattern": "healing", "ring_count": 2, "rune_count": 10, "spoke_count": 5, "node_count": 8, "break_ratio": 0.12, "base_density": 0.24, "outer_rotation": 6 },
+      "path": { "pattern": "spirit", "strands": 2, "flow_speed": 1.1, "cap": "bloom" }
+    },
+    {
+      "key": "spirit",
+      "surface": { "pattern": "spirit", "ring_count": 3, "rune_count": 14, "spoke_count": 7, "node_count": 7, "break_ratio": 0.2, "inner_rotation": -24 },
+      "path": { "pattern": "spirit", "strands": 3, "flow_speed": 2.2, "cap": "spark" }
+    },
+    {
+      "key": "suppression",
+      "surface": { "pattern": "suppression", "ring_count": 3, "rune_count": 16, "spoke_count": 8, "node_count": 8, "break_ratio": 0.08, "base_density": 0.3, "outer_rotation": -5, "inner_rotation": 12, "flow_speed": -1.8 },
+      "path": { "pattern": "binding", "strands": 3, "flow_speed": -1.4, "cap": "seal" }
+    },
+    {
+      "key": "earth",
+      "surface": { "pattern": "earth", "ring_count": 2, "rune_count": 8, "spoke_count": 4, "node_count": 4, "break_ratio": 0.3, "irregularity": 0.32, "outer_rotation": 2, "inner_rotation": -4 },
+      "path": { "pattern": "crack", "strands": 2, "flow_speed": 0.8, "break_ratio": 0.26, "cap": "impact" }
+    },
+    {
+      "key": "seal",
+      "surface": { "pattern": "seal", "ring_count": 3, "rune_count": 16, "spoke_count": 8, "node_count": 8, "break_ratio": 0.04, "outer_rotation": -12, "inner_rotation": 18 },
+      "path": { "pattern": "binding", "strands": 2, "flow_speed": -1.8, "cap": "seal" }
+    },
+    {
+      "key": "purification",
+      "surface": { "pattern": "purification", "ring_count": 2, "rune_count": 12, "spoke_count": 12, "node_count": 12, "break_ratio": 0.1, "base_density": 0.12, "outer_rotation": 16, "inner_rotation": -8 },
+      "path": { "pattern": "purification", "strands": 2, "flow_speed": 2.4, "cap": "bloom" }
+    },
+    {
+      "key": "fire",
+      "surface": { "pattern": "fire", "ring_count": 2, "rune_count": 10, "spoke_count": 5, "node_count": 10, "break_ratio": 0.28, "base_density": 0.28, "outer_rotation": 22, "flow_speed": 2.8 },
+      "path": { "pattern": "fire", "strands": 3, "tile_length": 0.34, "flow_speed": 4.2, "start_width": 0.45, "end_width": 0.12, "cap": "flame" }
+    },
+    {
+      "key": "devouring",
+      "surface": { "pattern": "devouring", "ring_count": 3, "rune_count": 13, "spoke_count": 7, "node_count": 7, "break_ratio": 0.34, "base_density": 0.34, "outer_rotation": -28, "inner_rotation": 42, "flow_speed": -3.2 },
+      "path": { "pattern": "soul", "strands": 3, "flow_speed": -3.6, "break_ratio": 0.22, "cap": "maw" }
+    },
+    {
+      "key": "soul",
+      "surface": { "pattern": "soul", "ring_count": 2, "rune_count": 9, "spoke_count": 6, "node_count": 9, "break_ratio": 0.38, "irregularity": 0.3, "outer_rotation": -18, "inner_rotation": 27 },
+      "path": { "pattern": "soul", "strands": 3, "tile_length": 0.36, "flow_speed": -2.8, "break_ratio": 0.18, "cap": "eye" }
+    },
+    {
+      "key": "command",
+      "surface": { "pattern": "command", "ring_count": 2, "rune_count": 12, "spoke_count": 6, "node_count": 6, "break_ratio": 0.08, "outer_rotation": 8, "inner_rotation": 4 },
+      "path": { "pattern": "command", "strands": 2, "flow_speed": 2, "cap": "banner" }
+    },
+    {
+      "key": "wind",
+      "surface": { "pattern": "wind", "ring_count": 2, "rune_count": 9, "spoke_count": 3, "node_count": 9, "break_ratio": 0.45, "base_density": 0.12, "outer_rotation": 32, "inner_rotation": 18, "flow_speed": 4 },
+      "path": { "pattern": "wind", "strands": 3, "tile_length": 0.56, "flow_speed": 5.4, "break_ratio": 0.3, "start_width": 0.2, "end_width": 0.08, "cap": "gust" }
+    },
+    {
+      "key": "prison",
+      "surface": { "pattern": "prison", "ring_count": 3, "rune_count": 16, "spoke_count": 8, "node_count": 8, "break_ratio": 0.03, "base_density": 0.32, "outer_rotation": -9, "inner_rotation": 15 },
+      "path": { "pattern": "chain", "strands": 2, "flow_speed": -1.2, "cap": "seal" }
+    },
+    {
+      "key": "pearl",
+      "surface": { "pattern": "pearl", "ring_count": 3, "rune_count": 15, "spoke_count": 5, "node_count": 10, "break_ratio": 0.15, "outer_rotation": 24, "inner_rotation": -30 },
+      "path": { "pattern": "pearl", "strands": 2, "flow_speed": 3.2, "cap": "orb" }
+    },
+    {
+      "key": "reflection",
+      "surface": { "pattern": "reflection", "ring_count": 2, "rune_count": 8, "spoke_count": 8, "node_count": 4, "break_ratio": 0.2, "outer_rotation": 18, "inner_rotation": -18 },
+      "path": { "pattern": "reflection", "strands": 1, "tile_length": 0.62, "flow_speed": 5.8, "start_width": 0.18, "middle_width": 0.65, "end_width": 0.12, "cap": "mirror" }
+    },
+    {
+      "key": "cloth",
+      "surface": { "pattern": "wind", "ring_count": 1, "rune_count": 8, "spoke_count": 4, "node_count": 8, "break_ratio": 0.48 },
+      "path": { "pattern": "cloth", "strands": 2, "tile_length": 0.72, "flow_speed": 0.7, "break_ratio": 0.1, "start_width": 0.08, "middle_width": 1, "end_width": 0.72, "cap": "none", "smooth": true }
+    },
+    {
+      "key": "vehicle",
+      "surface": { "pattern": "wind", "ring_count": 1, "rune_count": 6, "spoke_count": 3, "node_count": 6, "break_ratio": 0.5 },
+      "path": { "pattern": "wind", "strands": 2, "tile_length": 0.64, "flow_speed": 4.8, "break_ratio": 0.38, "start_width": 0.1, "end_width": 0.04, "cap": "none" }
+    }
+  ]
+}

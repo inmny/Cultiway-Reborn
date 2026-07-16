@@ -21,6 +21,7 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
     private readonly Dictionary<ArtifactPresentationAsset, int> _groupCounts = new();
     private readonly Dictionary<ArtifactPresentationAsset, int> _groupIndices = new();
     private readonly List<ManifestationUpdate> _updates = new();
+    private Entity _vehicleArtifact;
 
     protected override void OnUpdate()
     {
@@ -33,6 +34,7 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
 
             CollectRelations(owner);
             if (_relations.Count == 0) return;
+            ResolveVehicle(owner);
 
             CountPresentationGroups();
             float actorScale = Mathf.Max(actor.stats[S.scale], 0.1f) * 10f;
@@ -47,15 +49,19 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
 
                 bool followsOwner = !artifact.HasComponent<ArtifactIndependentMotion>() &&
                                     !artifact.HasComponent<SkillExecutionBodyLease>();
-                bool active = !followsOwner || HasActiveAbility(artifact.GetComponent<ArtifactAbilityRuntime>());
+                bool vehicle = artifact == _vehicleArtifact;
+                bool active = vehicle || !followsOwner || HasActiveAbility(artifact.GetComponent<ArtifactAbilityRuntime>());
                 ArtifactPresentationPose pose = followsOwner
-                    ? presentation.ResolvePose(new ArtifactPresentationContext(
-                        actor,
-                        relation.state,
-                        groupIndex,
-                        _groupCounts[presentation],
-                        actorScale,
-                        time))
+                    ? ResolvePose(
+                        presentation,
+                        new ArtifactPresentationContext(
+                            actor,
+                            relation.state,
+                            groupIndex,
+                            _groupCounts[presentation],
+                            actorScale,
+                            time),
+                        vehicle)
                     : default;
                 float activeWorldSize = active
                     ? ArtifactManifestationTools.ResolveActiveWorldSize(artifact, actor)
@@ -75,6 +81,14 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
         ApplyUpdates();
     }
 
+    private static ArtifactPresentationPose ResolvePose(
+        ArtifactPresentationAsset presentation,
+        ArtifactPresentationContext context,
+        bool vehicle)
+    {
+        return vehicle ? presentation.ResolveVehicle(context) : presentation.Resolve(context);
+    }
+
     private void ApplyUpdates()
     {
         for (int i = 0; i < _updates.Count; i++)
@@ -91,12 +105,12 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
             if (!update.active) continue;
 
             manifestation.world_size = update.activeWorldSize;
-            artifact.GetComponent<ArtifactBody>().radius = update.bodyRadius * update.activeWorldSize;
+            ArtifactManifestationTools.ApplyBodySize(artifact, update.bodyRadius, update.activeWorldSize);
             if (artifact.TryGetComponent(out ArtifactDeployment deployment))
             {
                 ArtifactManifestationTools.AlignWorldAnchor(
                     artifact,
-                    deployment.body_anchor,
+                    deployment.ResolveBodyAnchor(),
                     deployment.origin);
             }
         }
@@ -122,6 +136,12 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
         _relations.Sort((left, right) => left.artifact.Id.CompareTo(right.artifact.Id));
     }
 
+    private void ResolveVehicle(Entity owner)
+    {
+        var relations = owner.GetRelations<ArtifactVehicleRelation>();
+        _vehicleArtifact = relations.Length == 0 ? default : relations[0].artifact;
+    }
+
     private void CountPresentationGroups()
     {
         _groupCounts.Clear();
@@ -145,8 +165,7 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
         manifestation.world_size = pose.world_size;
         manifestation.flip_x = pose.flip_x;
 
-        ref ArtifactBody body = ref artifact.GetComponent<ArtifactBody>();
-        body.radius = bodyRadius * pose.world_size;
+        ArtifactManifestationTools.ApplyBodySize(artifact, bodyRadius, pose.world_size);
     }
 
     private readonly struct ManifestationUpdate
@@ -185,30 +204,3 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
 /// <summary>
 /// 回收既未装备、也没有被独立运动或部署系统接管的法器显化状态。
 /// </summary>
-public class ArtifactManifestationCleanupSystem : QuerySystem<Artifact, ArtifactManifestation>
-{
-    protected override void OnUpdate()
-    {
-        Query.ForEachEntity((ref Artifact _, ref ArtifactManifestation _, Entity artifact) =>
-        {
-            if (artifact.HasComponent<ArtifactIndependentMotion>() ||
-                artifact.HasComponent<SkillExecutionBodyLease>() ||
-                HasLiveController(artifact)) return;
-
-            CommandBuffer.RemoveComponent<ArtifactManifestation>(artifact.Id);
-            CommandBuffer.RemoveComponent<ArtifactBody>(artifact.Id);
-            CommandBuffer.RemoveComponent<Position>(artifact.Id);
-            CommandBuffer.RemoveComponent<Rotation>(artifact.Id);
-        });
-    }
-
-    private static bool HasLiveController(Entity artifact)
-    {
-        foreach (Entity owner in artifact.GetIncomingLinks<EquippedArtifactRelation>().Entities)
-        {
-            Actor actor = owner.GetComponent<ActorBinder>().Actor;
-            if (actor != null && actor.isAlive()) return true;
-        }
-        return false;
-    }
-}
