@@ -252,7 +252,16 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
         groundFxState.LastY = execution.GetComponent<Position>().y;
         ref AnimAfterimage afterimage = ref execution.GetComponent<AnimAfterimage>();
         afterimage.Tint = ArtifactAbilityVisuals.ResolveTheme(artifact, FlyingSwordAttack.visual).glow;
-        execution.GetComponent<ColliderSphere>().Radius = artifact.GetComponent<ArtifactBody>().radius;
+        float colliderRadius = artifact.GetComponent<ArtifactBody>().radius;
+        execution.GetComponent<ColliderSphere>().Radius = colliderRadius;
+        Sprite worldSprite = shape.GetWorldSprite(artifact);
+        float worldSpriteScale = manifestation.world_size /
+                                 Mathf.Max(worldSprite.bounds.size.x, worldSprite.bounds.size.y);
+        execution.AddComponent(new ColliderLinearExtent
+        {
+            Forward = Mathf.Max(0f, worldSprite.bounds.max.y * worldSpriteScale - colliderRadius),
+            Backward = Mathf.Max(0f, -worldSprite.bounds.min.y * worldSpriteScale - colliderRadius),
+        });
         float flightSpeed = ability.GetNumber(FlightSpeed) * ArtifactFlyingSwordExecution.BaseSpeedMultiplier;
         float turnRate = ability.GetNumber(TurnRate) * ArtifactFlyingSwordExecution.TurnRateMultiplier;
         execution.AddComponent(new ArtifactSpatialAttackMotion
