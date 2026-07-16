@@ -25,6 +25,10 @@ public static class ArtifactManifestationTools
             targetable = true,
             collidable = true,
         });
+        if (ArtifactAppearanceRenderer.TryResolveBodyGeometry(artifact, out ArtifactBodyGeometry geometry))
+        {
+            artifact.AddComponent(geometry);
+        }
         return true;
     }
 
@@ -48,15 +52,54 @@ public static class ArtifactManifestationTools
         ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
         float worldSize = ResolveActiveWorldSize(artifact, controller);
         artifact.GetComponent<ArtifactManifestation>().world_size = worldSize;
-        artifact.GetComponent<ArtifactBody>().radius = shape.presentation.body_radius * worldSize;
+        ApplyBodySize(artifact, shape.presentation.body_radius, worldSize);
+    }
+
+    /// <summary>按当前显化尺寸把模型空间边界转换为世界碰撞代理。</summary>
+    public static void ApplyBodySize(Entity artifact, float fallbackRadius, float worldSize)
+    {
+        ref ArtifactBody body = ref artifact.GetComponent<ArtifactBody>();
+        body.radius = fallbackRadius * worldSize;
+        body.lateral_extent = body.radius;
+        body.forward_extent = body.radius;
+        body.backward_extent = body.radius;
+        body.sort_pivot_y = -body.radius;
+        if (!artifact.TryGetComponent(out ArtifactBodyGeometry geometry)) return;
+
+        Vector3 size = geometry.local_max - geometry.local_min;
+        float span = Mathf.Max(size.x, size.y, 0.001f);
+        float scale = worldSize / span;
+        body.lateral_extent = Mathf.Max(
+            Mathf.Abs(geometry.local_min.x),
+            Mathf.Abs(geometry.local_max.x)) * scale;
+        body.forward_extent = Mathf.Max(0f, geometry.local_max.y * scale);
+        body.backward_extent = Mathf.Max(0f, -geometry.local_min.y * scale);
+        body.sort_pivot_y = geometry.local_min.y * scale;
+        body.radius = Mathf.Max(body.radius, body.lateral_extent * 0.55f);
     }
 
     /// <summary>取得法器本体锚点相对于 Position 的世界空间偏移。</summary>
     public static Vector3 ResolveWorldAnchorOffset(Entity artifact, ArtifactBodyAnchorKind anchor)
     {
-        if (anchor == ArtifactBodyAnchorKind.Center) return Vector3.zero;
-        if (anchor != ArtifactBodyAnchorKind.ForwardTip)
-            throw new System.ArgumentOutOfRangeException(nameof(anchor), anchor, null);
+        return ResolveWorldAnchorOffset(artifact, new ArtifactBodyAnchorRef(anchor));
+    }
+
+    /// <summary>取得组合模型锚点相对于 Position 的世界空间偏移。</summary>
+    public static Vector3 ResolveWorldAnchorOffset(Entity artifact, ArtifactBodyAnchorRef anchor)
+    {
+        if (anchor.UsesAppearanceAnchor &&
+            ArtifactAppearanceRenderer.TryResolveWorldAnchorOffset(
+                artifact,
+                anchor.slot,
+                anchor.anchor,
+                out Vector3 appearanceOffset))
+        {
+            return appearanceOffset;
+        }
+
+        if (anchor.fallback == ArtifactBodyAnchorKind.Center) return Vector3.zero;
+        if (anchor.fallback != ArtifactBodyAnchorKind.ForwardTip)
+            throw new System.ArgumentOutOfRangeException(nameof(anchor), anchor.fallback, null);
 
         ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
         Sprite sprite = shape.GetWorldSprite(artifact);
@@ -73,8 +116,18 @@ public static class ArtifactManifestationTools
         return artifact.GetComponent<Position>().value + ResolveWorldAnchorOffset(artifact, anchor);
     }
 
+    public static Vector3 ResolveWorldAnchor(Entity artifact, ArtifactBodyAnchorRef anchor)
+    {
+        return artifact.GetComponent<Position>().value + ResolveWorldAnchorOffset(artifact, anchor);
+    }
+
     /// <summary>移动法器本体，使指定锚点与世界作用点重合。</summary>
     public static void AlignWorldAnchor(Entity artifact, ArtifactBodyAnchorKind anchor, Vector3 origin)
+    {
+        artifact.GetComponent<Position>().value = origin - ResolveWorldAnchorOffset(artifact, anchor);
+    }
+
+    public static void AlignWorldAnchor(Entity artifact, ArtifactBodyAnchorRef anchor, Vector3 origin)
     {
         artifact.GetComponent<Position>().value = origin - ResolveWorldAnchorOffset(artifact, anchor);
     }

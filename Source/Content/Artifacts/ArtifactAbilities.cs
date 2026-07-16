@@ -32,7 +32,9 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
     private const string DurationMultiplier = "duration_multiplier";
     private const string QualityBonus = "quality_bonus";
 
+    /// <summary>主动持续攻击能力；驱动法器加速追踪并反复穿刺敌人，可连续换目标并按施法伤害与法器倍率结算。</summary>
     public static ArtifactAbilityAsset FlyingSwordAttack { get; private set; }
+    /// <summary>炼丹生产被动；增加工序进度、缩短炼制耗时并提高成丹品质。</summary>
     public static ArtifactAbilityAsset DingAlchemyAssist { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
@@ -47,6 +49,10 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
         ConfigureVitalityRenewal();
         ConfigureSpiritReservoir();
         ConfigureSuppressionField();
+        ConfigureShapeAbilities();
+        ConfigureVehicleAbilities();
+        ConfigureSectAbilities();
+        ConfigureSpiritAbilities();
         ConfigureVisuals();
     }
 
@@ -178,8 +184,12 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
         {
             event_minimum_state = ArtifactControlState.Operating,
         });
-        DingAlchemyAssist.Handle<ElixirCraftStepEvent>(ApplyAlchemyStepAssist);
-        DingAlchemyAssist.Handle<ElixirCraftResultEvent>(ApplyAlchemyResultAssist);
+        DingAlchemyAssist.Handle<ArtifactProductionStepEvent>(
+            (_, _, _, evt) => evt.Process == ArtifactProductionProcesses.Alchemy,
+            ApplyAlchemyStepAssist);
+        DingAlchemyAssist.Handle<ArtifactProductionResultEvent>(
+            (_, _, _, evt) => evt.Process == ArtifactProductionProcesses.Alchemy,
+            ApplyAlchemyResultAssist);
     }
 
     private static bool CanPrepareFlyingSword(
@@ -254,13 +264,11 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
         afterimage.Tint = ArtifactAbilityVisuals.ResolveTheme(artifact, FlyingSwordAttack.visual).glow;
         float colliderRadius = artifact.GetComponent<ArtifactBody>().radius;
         execution.GetComponent<ColliderSphere>().Radius = colliderRadius;
-        Sprite worldSprite = shape.GetWorldSprite(artifact);
-        float worldSpriteScale = manifestation.world_size /
-                                 Mathf.Max(worldSprite.bounds.size.x, worldSprite.bounds.size.y);
+        ArtifactBody body = artifact.GetComponent<ArtifactBody>();
         execution.AddComponent(new ColliderLinearExtent
         {
-            Forward = Mathf.Max(0f, worldSprite.bounds.max.y * worldSpriteScale - colliderRadius),
-            Backward = Mathf.Max(0f, -worldSprite.bounds.min.y * worldSpriteScale - colliderRadius),
+            Forward = Mathf.Max(0f, body.forward_extent - colliderRadius),
+            Backward = Mathf.Max(0f, body.backward_extent - colliderRadius),
         });
         float flightSpeed = ability.GetNumber(FlightSpeed) * ArtifactFlyingSwordExecution.BaseSpeedMultiplier;
         float turnRate = ability.GetNumber(TurnRate) * ArtifactFlyingSwordExecution.TurnRateMultiplier;
@@ -292,7 +300,7 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
-        ElixirCraftStepEvent evt)
+        ArtifactProductionStepEvent evt)
     {
         evt.ProgressGain += ability.GetInteger(ProgressBonus);
         evt.Duration *= ability.GetNumber(DurationMultiplier);
@@ -309,7 +317,7 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
-        ElixirCraftResultEvent evt)
+        ArtifactProductionResultEvent evt)
     {
         evt.QualityBonus += ability.GetInteger(QualityBonus);
         ArtifactAbilityVisuals.Emit(

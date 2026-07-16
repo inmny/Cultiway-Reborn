@@ -16,7 +16,13 @@ Cultiway.ArmorBreak.Description,临时降低护甲
 Cultiway.Daze,懵逼
 Cultiway.Daze.Description,短暂硬直，无法行动
 Cultiway.Silence,封印
-Cultiway.Silence.Description,临时削弱攻击与施法能力
+Cultiway.Silence.Description,临时封禁法术、技能与法器主动能力
+Cultiway.Concealed,隐匿
+Cultiway.Concealed.Description,隐藏自身气息，使普通敌人无法锁定为攻击目标
+Cultiway.Imprisoned,禁锢
+Cultiway.Imprisoned.Description,被法器镇住实体，暂时无法移动或行动
+Cultiway.LayeredWard,层界护障
+Cultiway.LayeredWard.Description,由重叠空间形成的临时防护屏障
 Cultiway.DeathSentence,终焉死亡
 Cultiway.DeathSentence.Description,被终焉标记，生命垂危时更容易被斩杀
 Cultiway.EternalCurse,永世诅咒

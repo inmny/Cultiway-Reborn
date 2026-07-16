@@ -19,8 +19,11 @@ public partial class ArtifactAbilities
     private const string WakanCapacity = "wakan_capacity";
     private const string WakanRegen = "wakan_regen";
 
+    /// <summary>常驻洞察被动；提高持有者的命中、暴击概率和伤害波动上限。</summary>
     public static ArtifactAbilityAsset MirrorInsight { get; private set; }
+    /// <summary>持续恢复被动；法器运转时每秒消耗灵气，为受伤持有者恢复生命。</summary>
     public static ArtifactAbilityAsset VitalityRenewal { get; private set; }
+    /// <summary>灵力储备被动；法器运转时提高持有者的灵气上限和灵气回复。</summary>
     public static ArtifactAbilityAsset SpiritReservoir { get; private set; }
 
     private static void ConfigureMirrorInsight()

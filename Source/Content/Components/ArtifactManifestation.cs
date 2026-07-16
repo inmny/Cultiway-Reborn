@@ -35,9 +35,30 @@ public struct ArtifactManifestation : IComponent
 /// </summary>
 public struct ArtifactBody : IComponent
 {
+    /// <summary>用于近似圆形选取和普通碰撞的半径。</summary>
     public float radius;
+
+    /// <summary>本体局部左右方向的最大碰撞距离。</summary>
+    public float lateral_extent;
+
+    /// <summary>从本体原点沿局部前向延伸的碰撞距离。</summary>
+    public float forward_extent;
+
+    /// <summary>从本体原点沿局部后向延伸的碰撞距离。</summary>
+    public float backward_extent;
+
+    /// <summary>透明排序使用的局部纵向支点偏移。</summary>
+    public float sort_pivot_y;
+
     public bool targetable;
     public bool collidable;
+}
+
+/// <summary>由外观 Instance 计算并缓存到实体上的模型空间边界。</summary>
+public struct ArtifactBodyGeometry : IComponent
+{
+    public Vector3 local_min;
+    public Vector3 local_max;
 }
 
 /// <summary>
@@ -57,6 +78,39 @@ public enum ArtifactBodyAnchorKind
 
     /// <summary>世界贴图局部 +Y 方向上的前端尖点。</summary>
     ForwardTip,
+}
+
+/// <summary>
+/// 对法器组合模型中一个空间锚点的运行时引用。slot/anchor 缺失时退回旧的几何锚点，兼容已有数据。
+/// </summary>
+public readonly struct ArtifactBodyAnchorRef
+{
+    public readonly ArtifactBodyAnchorKind fallback;
+    public readonly string slot;
+    public readonly string anchor;
+
+    public bool UsesAppearanceAnchor => !string.IsNullOrEmpty(slot) && !string.IsNullOrEmpty(anchor);
+
+    public ArtifactBodyAnchorRef(
+        ArtifactBodyAnchorKind fallback,
+        string slot = null,
+        string anchor = null)
+    {
+        this.fallback = fallback;
+        this.slot = slot;
+        this.anchor = anchor;
+    }
+
+    public static ArtifactBodyAnchorRef Center => new(ArtifactBodyAnchorKind.Center);
+    public static ArtifactBodyAnchorRef ForwardTip => new(ArtifactBodyAnchorKind.ForwardTip);
+
+    public static ArtifactBodyAnchorRef Appearance(
+        string slot,
+        string anchor,
+        ArtifactBodyAnchorKind fallback = ArtifactBodyAnchorKind.Center)
+    {
+        return new ArtifactBodyAnchorRef(fallback, slot, anchor);
+    }
 }
 
 /// <summary>
@@ -82,4 +136,15 @@ public struct ArtifactDeployment : IComponent
 
     /// <summary>部署时与作用原点重合的法器本体锚点。</summary>
     public ArtifactBodyAnchorKind body_anchor;
+
+    /// <summary>组合外观中的模块槽位；为空时沿用 body_anchor。</summary>
+    public string body_anchor_slot;
+
+    /// <summary>所选 variant 上的锚点 key；为空时沿用 body_anchor。</summary>
+    public string body_anchor_key;
+
+    public ArtifactBodyAnchorRef ResolveBodyAnchor()
+    {
+        return new ArtifactBodyAnchorRef(body_anchor, body_anchor_slot, body_anchor_key);
+    }
 }

@@ -1,5 +1,6 @@
 using System;
 using Cultiway.Core.Components;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
 using UnityEngine;
@@ -128,6 +129,7 @@ public class StatusEffectAsset : Asset
     public class Builder
     {
         private StatusEffectAsset _under_build;
+        private bool _negative;
         public Builder(string id)
         {
             _under_build = new StatusEffectAsset()
@@ -143,6 +145,12 @@ public class StatusEffectAsset : Asset
         public Builder SetStats(BaseStats stats)
         {
             _under_build.stats = stats;
+            return this;
+        }
+        /// <summary>将状态标记为可被抗性、净化和驱散规则识别的负面状态。</summary>
+        public Builder SetNegative(bool negative = true)
+        {
+            _negative = negative;
             return this;
         }
         public Builder SetDuration(float duration)
@@ -200,6 +208,7 @@ public class StatusEffectAsset : Asset
         public StatusEffectAsset Build()
         {
             ModClass.L.StatusEffectLibrary.add(_under_build);
+            _under_build.GetExtend<StatusAssetExtend>().negative = _negative;
 
             if (_under_build.ParticleSettings.enabled)
             {

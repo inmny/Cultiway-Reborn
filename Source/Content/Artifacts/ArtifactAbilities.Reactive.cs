@@ -14,6 +14,7 @@ public partial class ArtifactAbilities
     private const string MaxCharges = "max_charges";
     private const string Recharge = "recharge";
 
+    /// <summary>受击防护被动；消耗可恢复的守护充能，按比例降低本次受到的伤害。</summary>
     public static ArtifactAbilityAsset GuardianWard { get; private set; }
 
     private static void ConfigureGuardianWard()

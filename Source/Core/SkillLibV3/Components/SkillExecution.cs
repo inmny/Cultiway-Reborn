@@ -14,6 +14,13 @@ public struct SkillExecution : IComponent
     public bool end_requested;
 }
 
+/// <summary>
+/// 标记执行会话不需要独立世界 Body。适用于一个会话统一驱动多份程序化表现或纯逻辑载体的能力。
+/// </summary>
+public struct SkillExecutionWithoutBody : IComponent
+{
+}
+
 public enum SkillExecutionBodyOwnership
 {
     /// <summary>Body 由本次执行创建，结束时一并回收。</summary>

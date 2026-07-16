@@ -22,6 +22,11 @@ public static class ArtifactVisualChannels
     public const string CraftStep = "craft_step";
     public const string CraftResult = "craft_result";
     public const string Guard = "guard";
+    public const string Counter = "counter";
+    public const string Impact = "impact";
+    public const string Cleanse = "cleanse";
+    public const string Reflect = "reflect";
+    public const string Drain = "drain";
 }
 
 /// <summary>
@@ -83,6 +88,12 @@ public static class ArtifactAbilityVisuals
         ArtifactAbilityRuntime ownerRuntime,
         string channel)
     {
+        Vector3 position = runtime.has_activity_position
+            ? runtime.activity_position
+            : ResolveSnapshotPosition(ownerRuntime.controller, artifact);
+        Vector3 direction = runtime.has_activity_direction
+            ? runtime.activity_direction
+            : default;
         return new ArtifactAbilityVisualContext(
             ownerRuntime.controller,
             artifact,
@@ -92,7 +103,8 @@ public static class ArtifactAbilityVisuals
             ownerRuntime.control_state,
             ResolveTheme(artifact, asset.visual),
             channel,
-            ResolveSnapshotPosition(ownerRuntime.controller, artifact));
+            position,
+            direction);
     }
 
     internal static void DrainSignals(List<ArtifactVisualSignalRequest> output)
@@ -104,10 +116,16 @@ public static class ArtifactAbilityVisuals
 
     internal static bool TryResolveAnchorPosition(
         ArtifactAbilityVisualContext context,
-        ArtifactVisualAnchorKind anchor,
+        ArtifactVisualAnchorRef anchor,
         out Vector3 position)
     {
-        switch (anchor)
+        if (anchor.use_body_anchor && !context.artifact.IsNull && context.artifact.HasComponent<Position>())
+        {
+            position = ArtifactManifestationTools.ResolveWorldAnchor(context.artifact, anchor.body_anchor);
+            return true;
+        }
+
+        switch (anchor.kind)
         {
             case ArtifactVisualAnchorKind.Controller:
                 if (TryResolveControllerPosition(context.controller, out position)) return true;
@@ -125,7 +143,7 @@ public static class ArtifactAbilityVisuals
                 {
                     position = ArtifactManifestationTools.ResolveWorldAnchor(
                         context.artifact,
-                        deployment.body_anchor);
+                        deployment.ResolveBodyAnchor());
                     return true;
                 }
                 break;
@@ -153,7 +171,7 @@ public static class ArtifactAbilityVisuals
                 position = context.position;
                 return true;
             default:
-                throw new ArgumentOutOfRangeException(nameof(anchor), anchor, null);
+                throw new ArgumentOutOfRangeException(nameof(anchor), anchor.kind, null);
         }
 
         position = context.position;

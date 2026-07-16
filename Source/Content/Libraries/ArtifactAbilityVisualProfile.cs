@@ -38,6 +38,48 @@ public enum ArtifactVisualAnchorKind
 }
 
 /// <summary>
+/// 视觉作用点引用。既可跟随控制者、目标等运行时对象，也可精确指向法器组合模型中的 slot.anchor。
+/// </summary>
+public readonly struct ArtifactVisualAnchorRef
+{
+    public readonly ArtifactVisualAnchorKind kind;
+    public readonly ArtifactBodyAnchorRef body_anchor;
+    public readonly bool use_body_anchor;
+
+    public ArtifactVisualAnchorRef(ArtifactVisualAnchorKind kind)
+    {
+        this.kind = kind;
+        body_anchor = default;
+        use_body_anchor = false;
+    }
+
+    public ArtifactVisualAnchorRef(ArtifactBodyAnchorRef bodyAnchor)
+    {
+        kind = ArtifactVisualAnchorKind.Artifact;
+        body_anchor = bodyAnchor;
+        use_body_anchor = true;
+    }
+
+    public static ArtifactVisualAnchorRef Appearance(
+        string slot,
+        string anchor,
+        ArtifactBodyAnchorKind fallback = ArtifactBodyAnchorKind.Center)
+    {
+        return new ArtifactVisualAnchorRef(ArtifactBodyAnchorRef.Appearance(slot, anchor, fallback));
+    }
+
+    public static implicit operator ArtifactVisualAnchorRef(ArtifactVisualAnchorKind kind)
+    {
+        return new ArtifactVisualAnchorRef(kind);
+    }
+
+    public static implicit operator ArtifactVisualAnchorRef(ArtifactBodyAnchorRef anchor)
+    {
+        return new ArtifactVisualAnchorRef(anchor);
+    }
+}
+
+/// <summary>
 /// cue 从法器外观或能力后备元素得到的统一配色。
 /// </summary>
 public readonly struct ArtifactVisualTheme

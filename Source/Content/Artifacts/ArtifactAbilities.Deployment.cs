@@ -21,6 +21,7 @@ public partial class ArtifactAbilities
     private const string StatusDuration = "status_duration";
     private const string ActivationCost = "activation_cost";
 
+    /// <summary>可部署镇压法域；在持续时间内反复对范围内敌人施加减速和弱化。</summary>
     public static ArtifactAbilityAsset SuppressionField { get; private set; }
 
     private static void ConfigureSuppressionField()
@@ -154,71 +155,25 @@ public partial class ArtifactAbilities
         ArtifactDeployment deployment = context.artifact.GetComponent<ArtifactDeployment>();
         Vector2 position = ArtifactManifestationTools.ResolveWorldAnchor(
             context.artifact,
-            deployment.body_anchor);
-        WorldTile tile = World.world.GetTile(Mathf.FloorToInt(position.x), Mathf.FloorToInt(position.y));
-        if (tile == null) return;
-
+            deployment.ResolveBodyAnchor());
         float radius = ability.GetNumber(FieldRadius);
         float statusDuration = ability.GetNumber(StatusDuration);
-        int chunkRadius = Mathf.CeilToInt(radius / 16f) + 1;
-        foreach (Actor target in Finder.getUnitsFromChunk(tile, chunkRadius))
+        ArtifactTargeting.ForEachHostile(controller, position, radius, target =>
         {
-            if (target == controller || !controller.canAttackTarget(target)) continue;
-            if (Toolbox.SquaredDistVec2Float(position, target.current_position) > radius * radius) continue;
-            ApplyArtifactStatus(target, StatusEffects.Slow, statusDuration, S.multiplier_speed, -0.45f, controller);
-            ApplyArtifactStatus(target, StatusEffects.Weaken, statusDuration, S.multiplier_damage, -0.12f, controller);
-        }
-    }
-
-    private static void ApplyArtifactStatus(
-        Actor target,
-        StatusEffectAsset effect,
-        float duration,
-        string statId,
-        float statValue,
-        Actor source)
-    {
-        ActorExtend targetExtend = target.GetExtend();
-        foreach (Entity status in targetExtend.GetStatuses())
-        {
-            StatusComponent component = status.GetComponent<StatusComponent>();
-            if (component.Type != effect || component.Source != source) continue;
-            SetArtifactStatus(status, duration, statId, statValue, source);
-            return;
-        }
-
-        Entity created = effect.NewEntity();
-        SetArtifactStatus(created, duration, statId, statValue, source);
-        if (!targetExtend.AddSharedStatus(created))
-        {
-            ModClass.I.CommandBuffer.AddTag<TagRecycle>(created.Id);
-        }
-    }
-
-    private static void SetArtifactStatus(
-        Entity status,
-        float duration,
-        string statId,
-        float statValue,
-        Actor source)
-    {
-        status.GetComponent<AliveTimeLimit>().value = duration;
-        status.GetComponent<AliveTimer>().value = 0f;
-        BaseStats stats;
-        if (status.HasComponent<StatusOverwriteStats>())
-        {
-            ref StatusOverwriteStats overwrite = ref status.GetComponent<StatusOverwriteStats>();
-            stats = overwrite.stats ??= new BaseStats();
-            stats.clear();
-        }
-        else
-        {
-            stats = new BaseStats();
-            status.AddComponent(new StatusOverwriteStats { stats = stats });
-        }
-        stats[statId] = statValue;
-        ref StatusComponent component = ref status.GetComponent<StatusComponent>();
-        component.Source = source;
-        component.SourcePowerLevel = source.GetExtend().GetPowerLevel();
+            ArtifactStatusEffects.ApplyStatus(
+                target,
+                StatusEffects.Slow,
+                statusDuration,
+                S.multiplier_speed,
+                -0.45f,
+                controller);
+            ArtifactStatusEffects.ApplyStatus(
+                target,
+                StatusEffects.Weaken,
+                statusDuration,
+                S.multiplier_damage,
+                -0.12f,
+                controller);
+        });
     }
 }

@@ -1,5 +1,8 @@
 using Cultiway.Content.Events;
 using Cultiway.Core;
+using Cultiway.Core.SkillLibV3;
+using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 
 namespace Cultiway.Content.Artifacts;
 
@@ -12,6 +15,9 @@ internal static class ArtifactAbilityRuntimeBridge
     {
         ActorExtend.RegisterCachedStatsBuilder(ArtifactAbilityLifecycle.ContributeStats);
         ActorExtend.RegisterActionBeforeBeAttacked(BeforeBeAttacked);
+        ActorExtend.RegisterActionOnDamageResolved(DamageResolved);
+        ActorExtend.RegisterActionOnKill(Killed);
+        ActorExtend.RegisterActionOnSkillCastCompleted(SkillCastCompleted);
         ActorExtend.RegisterActionOnDeath(actor => ArtifactAbilityLifecycle.InterruptController(actor.E));
     }
 
@@ -30,11 +36,60 @@ internal static class ArtifactAbilityRuntimeBridge
             AttackType = attackType,
             Damage = damage,
             IgnoreDamageReduction = ignoreDamageReduction,
+            IsRetaliation = ArtifactDamageEffects.IsResolvingRetaliation,
         };
         ArtifactAbilityDispatcher.Dispatch(self.E, evt);
         damageComposition = evt.DamageComposition;
         attackType = evt.AttackType;
         damage = evt.Damage;
         ignoreDamageReduction = evt.IgnoreDamageReduction;
+    }
+
+    private static void DamageResolved(
+        ActorExtend target,
+        BaseSimObject attacker,
+        float damage,
+        ElementComposition composition,
+        AttackType attackType)
+    {
+        ArtifactAbilityDispatcher.Dispatch(target.E, new ArtifactDamageTakenEvent
+        {
+            Attacker = attacker,
+            Damage = damage,
+            DamageComposition = composition,
+            AttackType = attackType,
+        });
+
+        if (attacker == null || attacker.isRekt() || !attacker.isActor() || attacker.a == target.Base) return;
+        ArtifactAbilityDispatcher.Dispatch(attacker.a.GetExtend().E, new ArtifactDamageDealtEvent
+        {
+            Target = target.Base,
+            Damage = damage,
+            DamageComposition = composition,
+            AttackType = attackType,
+        });
+    }
+
+    private static void Killed(ActorExtend killer, Actor victim, Kingdom victimKingdom)
+    {
+        ArtifactAbilityDispatcher.Dispatch(killer.E, new ArtifactKillEvent
+        {
+            Victim = victim,
+            VictimKingdom = victimKingdom,
+        });
+    }
+
+    private static void SkillCastCompleted(
+        ActorExtend caster,
+        Entity skillContainer,
+        int emittedCount,
+        SkillCastFundingSource fundingSource)
+    {
+        ArtifactAbilityDispatcher.Dispatch(caster.E, new ArtifactSkillCastEvent
+        {
+            SkillContainer = skillContainer,
+            EmittedCount = emittedCount,
+            FundingSource = fundingSource,
+        });
     }
 }

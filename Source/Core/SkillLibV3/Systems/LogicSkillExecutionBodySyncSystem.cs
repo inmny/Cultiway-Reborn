@@ -22,6 +22,7 @@ public sealed class LogicSkillExecutionBodySyncSystem : QuerySystem<SkillExecuti
             var relations = execution.GetRelations<SkillExecutionBodyRelation>();
             if (relations.Length == 0)
             {
+                if (execution.HasComponent<SkillExecutionWithoutBody>()) return;
                 SkillExecutionLifecycle.RequestEnd(execution);
                 return;
             }

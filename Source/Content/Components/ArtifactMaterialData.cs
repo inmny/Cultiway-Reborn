@@ -172,6 +172,15 @@ public static class ArtifactMaterialTraits
     public const string Purification = "affordance.purification";
     public const string Devouring = "affordance.devouring";
     public const string Amplification = "affordance.amplification";
+    public const string Impact = "affordance.impact";
+    public const string Projection = "affordance.projection";
+    public const string Storage = "affordance.storage";
+    public const string Sealing = "affordance.sealing";
+    public const string Sound = "affordance.sound";
+    public const string Soul = "affordance.soul";
+    public const string Space = "affordance.space";
+    public const string Transformation = "affordance.transformation";
+    public const string Sustain = "affordance.sustain";
     public const string PiercingFlight = "capability.piercing_flight";
     public const string AlchemyVessel = "capability.alchemy_vessel";
     public const string GuardianWard = "capability.guardian_ward";
@@ -179,4 +188,7 @@ public static class ArtifactMaterialTraits
     public const string Renewal = "capability.renewal";
     public const string SpiritReservoir = "capability.spirit_reservoir";
     public const string FieldProjection = "capability.field_projection";
+    public const string Vehicle = "capability.vehicle";
+    public const string SectGuardian = "capability.sect_guardian";
+    public const string ArtifactSpirit = "capability.artifact_spirit";
 }

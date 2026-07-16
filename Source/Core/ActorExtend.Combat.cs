@@ -258,6 +258,7 @@ public partial class ActorExtend
         SkillCastFundingSource fundingSource = SkillCastFundingSource.CasterResources)
     {
         if (!GeneralSettings.EnableSkillSystems) return false;
+        if (Base.stats.hasTag(ActorControlTags.Silenced)) return false;
         if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
         if (target != null && target.isRekt()) return false;
 
@@ -545,6 +546,10 @@ public partial class ActorExtend
         {
             damage_debug.FinalDamage = damage;
             CombatDamageDebug.Log(damage_debug);
+        }
+        if (damage > 0f)
+        {
+            OnDamageResolved(attacker, damage, damage_composition, attack_type_for_vanilla);
         }
         PatchActor.getHit_snapshot(Base, damage, pFlash: damage >= 1, pAttackType: attack_type_for_vanilla, pAttacker: attacker, pSkipIfShake: false, pCheckDamageReduction: false);
     }

@@ -469,6 +469,9 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     private static Action<ActorExtend, string> action_on_get_stats;
     private static Action<ActorExtend, Actor, Kingdom> action_on_kill;
     private static Action<ActorExtend, BaseSimObject, float> action_on_be_attacked;
+    private static Action<ActorExtend, BaseSimObject, float, ElementComposition, AttackType>
+        action_on_damage_resolved;
+    private static Action<ActorExtend, Entity, int, SkillCastFundingSource> action_on_skill_cast_completed;
     public delegate void ActionBeforeBeAttacked(ActorExtend self, BaseSimObject attacker, ref ElementComposition damage_composition, ref AttackType attack_type, ref float damage, ref bool ignore_damage_reduction);
     private static ActionBeforeBeAttacked action_before_be_attacked;
     public float GetStat(string stat_id)
@@ -652,6 +655,41 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         action_before_be_attacked += action;
     }
+
+    /// <summary>
+    /// 注册最终伤害结算回调。此时功率压制、抗性和原版特殊减伤均已完成，但生命值尚未实际扣除。
+    /// </summary>
+    public static void RegisterActionOnDamageResolved(
+        Action<ActorExtend, BaseSimObject, float, ElementComposition, AttackType> action)
+    {
+        action_on_damage_resolved += action;
+    }
+
+    internal void OnDamageResolved(
+        BaseSimObject attacker,
+        float damage,
+        ElementComposition composition,
+        AttackType attackType)
+    {
+        action_on_damage_resolved?.Invoke(this, attacker, damage, composition, attackType);
+    }
+
+    /// <summary>
+    /// 注册技能施放序列完成回调。回调只暴露核心技能语义，具体内容系统自行解释技能用途。
+    /// </summary>
+    public static void RegisterActionOnSkillCastCompleted(
+        Action<ActorExtend, Entity, int, SkillCastFundingSource> action)
+    {
+        action_on_skill_cast_completed += action;
+    }
+
+    internal void OnSkillCastCompleted(
+        Entity skillContainer,
+        int emittedCount,
+        SkillCastFundingSource fundingSource)
+    {
+        action_on_skill_cast_completed?.Invoke(this, skillContainer, emittedCount, fundingSource);
+    }
     
     public void NewKillAction(Actor dead_unit, Kingdom dead_kingdom)
     {
@@ -812,6 +850,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         }
         sect = new_sect;
         WorldboxGame.I.Sects.unitAdded(new_sect);
+        MarkCultiwayStatsDirty();
         Base.setStatsDirty();
     }
 

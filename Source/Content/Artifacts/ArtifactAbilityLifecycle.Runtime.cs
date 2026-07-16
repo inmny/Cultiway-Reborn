@@ -14,6 +14,19 @@ namespace Cultiway.Content.Artifacts;
 /// </summary>
 public static partial class ArtifactAbilityLifecycle
 {
+    /// <summary>由能力自己的规则提前结束当前活动，并执行统一清理和收尾视觉。</summary>
+    public static bool InterruptActivity(
+        ArtifactAbilityExecutionContext context,
+        ArtifactAbilityInstance ability,
+        ref ArtifactAbilityRuntimeEntry runtime,
+        ArtifactAbilityEndReason reason = ArtifactAbilityEndReason.Completed)
+    {
+        if (runtime.activity_kind == ArtifactAbilityActivityKind.None) return false;
+        ArtifactAbilityAsset asset = Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
+        EndActivity(asset, context, ability, ref runtime, reason, true);
+        return true;
+    }
+
     private static bool CanTrigger(
         ArtifactAbilityAsset asset,
         ArtifactAbilityExecutionContext context,
@@ -204,7 +217,7 @@ public static partial class ArtifactAbilityLifecycle
                 return;
             }
             if (runtime.activity_kind == ArtifactAbilityActivityKind.SkillExecution &&
-                (runtime.active_execution.IsNull ||
+                (!runtime.active_execution.IsAvailable() ||
                  !runtime.active_execution.HasComponent<SkillExecution>() ||
                  runtime.active_execution.GetComponent<SkillExecution>().end_requested))
             {
@@ -252,7 +265,13 @@ public static partial class ArtifactAbilityLifecycle
         if (profile.OnTick != null)
         {
             profile.OnTick(context, ability, ref runtime, profile.tick_interval);
-            ArtifactAbilityVisuals.Emit(context, ability, runtime, ArtifactVisualChannels.Tick);
+            ArtifactAbilityVisuals.Emit(
+                context,
+                ability,
+                runtime,
+                ArtifactVisualChannels.Tick,
+                runtime.has_activity_position ? runtime.activity_position : null,
+                runtime.has_activity_direction ? runtime.activity_direction : default);
         }
     }
 
@@ -305,9 +324,10 @@ public static partial class ArtifactAbilityLifecycle
         bool requestExecutionEnd)
     {
         ArtifactAbilityActivityKind kind = runtime.activity_kind;
-        Vector3? endPosition = null;
+        Vector3? endPosition = runtime.has_activity_position ? runtime.activity_position : null;
+        Vector3 endDirection = runtime.has_activity_direction ? runtime.activity_direction : default;
         if (kind == ArtifactAbilityActivityKind.SkillExecution && requestExecutionEnd &&
-            !runtime.active_execution.IsNull && runtime.active_execution.HasComponent<SkillExecution>())
+            runtime.active_execution.IsAvailable() && runtime.active_execution.HasComponent<SkillExecution>())
         {
             SkillExecutionLifecycle.RequestEnd(runtime.active_execution);
         }
@@ -325,6 +345,10 @@ public static partial class ArtifactAbilityLifecycle
         runtime.active_execution = default;
         runtime.activity_started_at = 0d;
         runtime.activity_until = 0d;
+        runtime.activity_position = default;
+        runtime.activity_direction = default;
+        runtime.has_activity_position = false;
+        runtime.has_activity_direction = false;
         asset.lifecycle.OnActivityEnded?.Invoke(context, ability, ref runtime, reason);
         ArtifactAbilityVisuals.Emit(
             context,
@@ -332,6 +356,7 @@ public static partial class ArtifactAbilityLifecycle
             runtime,
             ArtifactVisualChannels.End,
             position: endPosition,
+            direction: endDirection,
             endReason: reason);
         MarkStatsDirty(context.controller);
     }
@@ -390,7 +415,7 @@ public static partial class ArtifactAbilityLifecycle
 
     private static void MarkStatsDirty(Entity controller)
     {
-        if (controller.IsNull || !controller.HasComponent<ActorBinder>()) return;
+        if (!controller.IsAvailable() || !controller.HasComponent<ActorBinder>()) return;
         Actor actor = controller.GetComponent<ActorBinder>().Actor;
         if (actor != null) actor.GetExtend().MarkCultiwayStatsDirty();
     }

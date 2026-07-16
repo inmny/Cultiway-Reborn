@@ -10,6 +10,7 @@ namespace Cultiway.Content;
 public sealed class ArtifactSkillTrajectories : ExtendLibrary<TrajectoryAsset, ArtifactSkillTrajectories>
 {
     public static TrajectoryAsset FlyingSword { get; private set; }
+    public static TrajectoryAsset SwordArray { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -20,5 +21,9 @@ public sealed class ArtifactSkillTrajectories : ExtendLibrary<TrajectoryAsset, A
         FlyingSword.CanBeSelectedByModifier = false;
         FlyingSword.Orientations = TrajectoryOrientation.Horizontal;
         FlyingSword.Action = ArtifactFlyingSwordExecution.Update;
+
+        SwordArray.CanBeSelectedByModifier = false;
+        SwordArray.Orientations = TrajectoryOrientation.Appear;
+        SwordArray.Action = ArtifactSwordArrayExecution.Update;
     }
 }

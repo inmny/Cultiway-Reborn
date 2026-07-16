@@ -3,6 +3,7 @@ using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
+using UnityEngine;
 
 namespace Cultiway.Content.Artifacts;
 
@@ -93,7 +94,7 @@ public static partial class ArtifactAbilityLifecycle
     }
 
     /// <summary>
-    /// 将一次短时技能执行绑定到当前能力。执行结束或能力被中断时，生命周期会解除法器 Body 租约。
+    /// 将一次短时技能执行绑定到当前能力。执行结束或能力被中断时，生命周期会结束会话并释放其 Body 策略。
     /// </summary>
     public static void BindExecution(ref ArtifactAbilityRuntimeEntry runtime, Entity execution)
     {
@@ -112,6 +113,20 @@ public static partial class ArtifactAbilityLifecycle
         runtime.activity_kind = ArtifactAbilityActivityKind.Timed;
         runtime.activity_started_at = Now;
         runtime.activity_until = 0d;
+    }
+
+    /// <summary>建立带权威作用点和朝向的定时活动，供逻辑与视觉共同读取。</summary>
+    public static void BeginTimedActivity(
+        ref ArtifactAbilityRuntimeEntry runtime,
+        Vector3 position,
+        Vector3 direction = default)
+    {
+        BeginTimedActivity(ref runtime);
+        runtime.activity_position = position;
+        runtime.has_activity_position = true;
+        if (direction.sqrMagnitude < 0.0001f) return;
+        runtime.activity_direction = direction.normalized;
+        runtime.has_activity_direction = true;
     }
 
     /// <summary>

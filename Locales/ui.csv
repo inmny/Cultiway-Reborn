@@ -632,6 +632,72 @@ Cultiway.ArtifactAbility.SpiritReservoir,纳灵宝库
 Cultiway.ArtifactAbility.SpiritReservoir.Description,灵气上限 +{0:0.#} · 灵气恢复 +{1:0.##}
 Cultiway.ArtifactAbility.SuppressionField,镇压法域
 Cultiway.ArtifactAbility.SuppressionField.Description,投放距离 {0:0.#} · 半径 {1:0.#} · 持续 {2:0.#} 秒 · 冷却 {3:0.#} 秒 · 敌方移速 -45% · 伤害 -12% · 启动/维持灵气 {4:0.#}/{5:0.##}
+Cultiway.ArtifactAbility.SplittingSwordArray,分光剑阵
+Cultiway.ArtifactAbility.SplittingSwordArray.Description,剑影 {0} · 半径 {1:0.#} · 每击伤害 ×{2:0.##} · 持续 {3:0.#} 秒 · 冷却 {4:0.#} 秒
+Cultiway.ArtifactAbility.ReturningBladeGuard,回锋护主
+Cultiway.ArtifactAbility.ReturningBladeGuard.Description,减伤 {0:P0} · 反击伤害 ×{1:0.##} · 充能 {2} · 每 {3:0.#} 秒恢复一点
+Cultiway.ArtifactAbility.ArmorPiercingSwordAura,破甲剑芒
+Cultiway.ArtifactAbility.ArmorPiercingSwordAura.Description,命中削减目标护甲 {0:P0} · 持续 {1:0.#} 秒
+Cultiway.ArtifactAbility.MountainSealFall,山岳印落
+Cultiway.ArtifactAbility.MountainSealFall.Description,投放距离 {0:0.#} · 冲击半径 {1:0.#} · 伤害 ×{2:0.##} · 定身 {3:0.#} 秒 · 冷却 {4:0.#} 秒
+Cultiway.ArtifactAbility.SpellBanningEdict,禁法敕令
+Cultiway.ArtifactAbility.SpellBanningEdict.Description,投放距离 {0:0.#} · 半径 {1:0.#} · 持续 {2:0.#} 秒 · 禁法 {3:0.#} 秒 · 每轮削减灵气 {4:0.#}
+Cultiway.ArtifactAbility.MeridianSealing,封脉镇身
+Cultiway.ArtifactAbility.MeridianSealing.Description,距离 {0:0.#} · 封脉 {1:0.#} 秒 · 移速与伤害 -{2:P0} · 削减灵气 {3:0.#} · 冷却 {4:0.#} 秒
+Cultiway.ArtifactAbility.CloudRobeShield,云衣护体
+Cultiway.ArtifactAbility.CloudRobeShield.Description,护盾 {0:0.#} · 每秒恢复 {1:0.#}
+Cultiway.ArtifactAbility.HeavenlyConcealment,遁形天衣
+Cultiway.ArtifactAbility.HeavenlyConcealment.Description,持续 {0:0.#} 秒 · 减伤 {1:P0} · 速度 +{2:0.#} · 冷却 {3:0.#} 秒
+Cultiway.ArtifactAbility.DamageDiversion,移花卸力
+Cultiway.ArtifactAbility.DamageDiversion.Description,转移并返还 {0:P0} 伤害 · 充能 {1} · 每 {2:0.#} 秒恢复一点
+Cultiway.ArtifactAbility.SpellReflection,返照反术
+Cultiway.ArtifactAbility.SpellReflection.Description,减免并反射 {0:P0} 非武器伤害 · 充能 {1} · 每 {2:0.#} 秒恢复一点
+Cultiway.ArtifactAbility.TruthRevealingMirror,破妄照影
+Cultiway.ArtifactAbility.TruthRevealingMirror.Description,投放距离 {0:0.#} · 半径 {1:0.#} · 破除隐匿并每目标净化/驱散 {2} 个状态 · 持续 {3:0.#} 秒 · 冷却 {4:0.#} 秒
+Cultiway.ArtifactAbility.SoulCapturingStasis,摄魂定魄
+Cultiway.ArtifactAbility.SoulCapturingStasis.Description,距离 {0:0.#} · 定魄 {1:0.#} 秒 · 摄取灵气 {2:0.#} · 回收 {3:P0} · 冷却 {4:0.#} 秒
+Cultiway.ArtifactAbility.DingFireRefinement,鼎火炼化
+Cultiway.ArtifactAbility.DingFireRefinement.Description,投放距离 {0:0.#} · 半径 {1:0.#} · 每轮伤害 ×{2:0.##} · 灼烧 {3:0.#} 秒 · 持续 {4:0.#} 秒
+Cultiway.ArtifactAbility.DevouringReturn,吞纳归元
+Cultiway.ArtifactAbility.DevouringReturn.Description,投放距离 {0:0.#} · 半径 {1:0.#} · 每轮伤害 ×{2:0.##} · 摄取灵气 {3:0.#} · 持续 {4:0.#} 秒
+Cultiway.ArtifactAbility.HundredRefinementCore,百炼炉心
+Cultiway.ArtifactAbility.HundredRefinementCore.Description,全生产工序 +{0} · 耗时 ×{1:P0} · 品级 +{2} · 产量 ×{3:0.##}
+Cultiway.ArtifactAbility.MyriadSoulBannerArray,万魂幡阵
+Cultiway.ArtifactAbility.MyriadSoulBannerArray.Description,投放距离 {0:0.#} · 法域半径 {1:0.#} · 每轮伤害 ×{2:0.##} · 持续 {3:0.#} 秒
+Cultiway.ArtifactAbility.CommandingBannerField,号令旗域
+Cultiway.ArtifactAbility.CommandingBannerField.Description,法域半径 {0:0.#} · 友军伤害 +{1:P0} · 持续 {2:0.#} 秒 · 冷却 {3:0.#} 秒
+Cultiway.ArtifactAbility.SpiritHostManifestation,阴兵显化
+Cultiway.ArtifactAbility.SpiritHostManifestation.Description,魂力储量 {0:0.#} · 每次击杀收取 {1:0.##} · 召唤 {2} 名阴兵 · 持续 {3:0.#} 秒
+Cultiway.ArtifactAbility.SoulShakingChime,震魂钟鸣
+Cultiway.ArtifactAbility.SoulShakingChime.Description,半径 {0:0.#} · 伤害 ×{1:0.##} · 震慑 {2:0.#} 秒 · 冷却 {3:0.#} 秒
+Cultiway.ArtifactAbility.PurifyingChime,清音涤尘
+Cultiway.ArtifactAbility.PurifyingChime.Description,半径 {0:0.#} · 每目标净化或驱散 {1} 个状态 · 冷却 {2:0.#} 秒
+Cultiway.ArtifactAbility.GoldenBellBarrier,金钟护界
+Cultiway.ArtifactAbility.GoldenBellBarrier.Description,护盾 {0:0.#} · 持续 {1:0.#} 秒 · 冷却 {2:0.#} 秒
+Cultiway.ArtifactAbility.HeavenSwallowingGourd,吞天葫芦
+Cultiway.ArtifactAbility.HeavenSwallowingGourd.Description,法域半径 {0:0.#} · 每轮摄取灵气 {1:0.#} · 蓄能上限 {2:0.#} · 持续 {3:0.#} 秒
+Cultiway.ArtifactAbility.SpiritGourdReserve,灵葫储元
+Cultiway.ArtifactAbility.SpiritGourdReserve.Description,储量 {0:0.#} · 每轮存入 {1:0.#} · 每轮释放 {2:0.#} · 低于 {3:P0} 时回补
+Cultiway.ArtifactAbility.FiveEssenceOutpouring,五炁倾泻
+Cultiway.ArtifactAbility.FiveEssenceOutpouring.Description,距离 {0:0.#} · 张角 {1:0}° · 基础伤害 ×{2:0.##} · 每点蓄能追加 ×{3:0.##}
+Cultiway.ArtifactAbility.GaleFanSweep,罡风横扫
+Cultiway.ArtifactAbility.GaleFanSweep.Description,距离 {0:0.#} · 张角 {1:0}° · 伤害 ×{2:0.##} · 推力 {3:0.##}
+Cultiway.ArtifactAbility.DepartingFireFan,离火焚风
+Cultiway.ArtifactAbility.DepartingFireFan.Description,距离 {0:0.#} · 张角 {1:0}° · 伤害 ×{2:0.##} · 灼烧 {3:0.#} 秒
+Cultiway.ArtifactAbility.CleansingWindFan,清风涤障
+Cultiway.ArtifactAbility.CleansingWindFan.Description,距离 {0:0.#} · 张角 {1:0}° · 每目标净化或驱散 {2} 个状态 · 冷却 {3:0.#} 秒
+Cultiway.ArtifactAbility.TreasureTowerPrison,宝塔镇狱
+Cultiway.ArtifactAbility.TreasureTowerPrison.Description,法域半径 {0:0.#} · 囚禁 {1:0.#} 秒 · 每轮伤害 ×{2:0.##} · 持续 {3:0.#} 秒
+Cultiway.ArtifactAbility.LayeredRealmWard,九重界障
+Cultiway.ArtifactAbility.LayeredRealmWard.Description,法域半径 {0:0.#} · 友军护甲 +{1:0.##} · 持续 {2:0.#} 秒 · 冷却 {3:0.#} 秒
+Cultiway.ArtifactAbility.TowerShadowProjection,塔影投界
+Cultiway.ArtifactAbility.TowerShadowProjection.Description,投射距离 {0:0.#} · 半径 {1:0.#} · 每轮伤害 ×{2:0.##} · 持续 {3:0.#} 秒
+Cultiway.ArtifactAbility.CelestialPearlGuard,周天珠护
+Cultiway.ArtifactAbility.CelestialPearlGuard.Description,护盾 {0:0.#} · 每秒恢复 {1:0.#}
+Cultiway.ArtifactAbility.FivePhasePearlStrike,五行连珠
+Cultiway.ArtifactAbility.FivePhasePearlStrike.Description,距离 {0:0.#} · 连击 {1} 次 · 每击伤害 ×{2:0.##} · 爆发半径 {3:0.#}
+Cultiway.ArtifactAbility.LinkedPearlResonance,连珠共鸣
+Cultiway.ArtifactAbility.LinkedPearlResonance.Description,施法恢复 {0:0.##} 灵气 · 最多计入 {1} 个投射物 · 冷却 {2:0.#} 秒
 Cultiway.UI.WindowActorTargetFilter Title,目标筛选
 Cultiway.UI.WindowActorTargetFilter Title Description,配置当前世界工具允许影响的角色。
 Cultiway.ActorTargetFilter.UI.Context.Wanfa,万法阁 · 赐法目标
@@ -954,3 +1020,9 @@ Cultiway.Baibao.Appearance.Color.gold_jade,金玉
 Cultiway.Baibao.Appearance.Color.dark_steel,玄钢
 Cultiway.Baibao.Appearance.Color.copper_ember,赤铜
 Cultiway.Baibao.Appearance.Color.black_gold,乌金
+Cultiway.ArtifactAbility.ArtifactRiding,御器载行
+Cultiway.ArtifactAbility.ArtifactRiding.Description,法器可承载驾驭者直飞；飞行速度倍率 {0:0.00}，可搭载 {1} 名同行者。
+Cultiway.ArtifactAbility.SectGuardianTreasure,镇宗宝脉
+Cultiway.ArtifactAbility.SectGuardianTreasure.Description,供奉于藏宝阁时，宗门成员最大生命提高 {0:P1}、护甲提高 {1:0.0}；同组择优生效。
+Cultiway.ArtifactAbility.ArtifactSpiritAwakening,器灵觉醒
+Cultiway.ArtifactAbility.ArtifactSpiritAwakening.Description,显化可成长器灵，继承驾驭者 {0:P1} 伤害、{1:P1} 生命并获得 {2:0.0} 护甲；战死后 {3:0.0} 秒复苏。

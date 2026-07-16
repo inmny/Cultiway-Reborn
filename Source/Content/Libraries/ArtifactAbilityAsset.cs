@@ -29,6 +29,7 @@ public sealed class ArtifactAbilityComposeContext
     public ArtifactShapeAsset shape;
     public ArtifactAtomSelection[] atoms = [];
     public string composition_key;
+    public ArtifactAbilityScales scales;
 
     public float GetTrait(string key)
     {
@@ -267,6 +268,17 @@ public class ArtifactAbilityAsset : Asset
     public string name_key;
     public string[] tags = [];
     public string exclusive_group;
+    /// <summary>
+    /// 能力在成品中稳定显化所占用的承载量。它不是固定槽位，最终数量由整件法器的材料语义决定。
+    /// </summary>
+    public float manifestation_cost = 1f;
+
+    /// <summary>已经选中的能力具有这些标签时，提高本能力在剩余候选中的优先级。</summary>
+    public string[] synergy_tags = [];
+
+    /// <summary>本能力不会与具有这些标签的能力同时显化。</summary>
+    public string[] conflict_tags = [];
+
     public float minimum_score;
     public ArtifactUseProfile use_profile;
     public float control_complexity;
@@ -280,6 +292,9 @@ public class ArtifactAbilityAsset : Asset
     public ArtifactActiveAbilityProfile active_use;
     public ArtifactAbilityLifecycleProfile lifecycle = new();
     public ArtifactAbilityVisualProfile visual;
+    public ArtifactVehicleAbilityProfile vehicle_use;
+    public ArtifactSectAbilityProfile sect_use;
+    public ArtifactSpiritAbilityProfile spirit_use;
 
     private readonly Dictionary<Type, IEventHandler> _handlers = new();
 
@@ -319,6 +334,24 @@ public class ArtifactAbilityAsset : Asset
     public ArtifactAbilityAsset Visualize(ArtifactAbilityVisualProfile profile)
     {
         visual = profile ?? throw new ArgumentNullException(nameof(profile));
+        return this;
+    }
+
+    public ArtifactAbilityAsset ProvideVehicle(ArtifactVehicleAbilityProfile profile)
+    {
+        vehicle_use = profile ?? throw new ArgumentNullException(nameof(profile));
+        return this;
+    }
+
+    public ArtifactAbilityAsset SupportSect(ArtifactSectAbilityProfile profile)
+    {
+        sect_use = profile ?? throw new ArgumentNullException(nameof(profile));
+        return this;
+    }
+
+    public ArtifactAbilityAsset AwakenSpirit(ArtifactSpiritAbilityProfile profile)
+    {
+        spirit_use = profile ?? throw new ArgumentNullException(nameof(profile));
         return this;
     }
 
@@ -397,6 +430,7 @@ public class ArtifactAbilityAsset : Asset
             runtime,
             ArtifactVisualChannels.Trigger,
             targetPosition,
+            runtime.has_activity_direction ? runtime.activity_direction : default,
             target: target.Object);
         return true;
     }

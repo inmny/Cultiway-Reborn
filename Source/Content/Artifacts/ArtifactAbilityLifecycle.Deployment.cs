@@ -3,6 +3,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -28,6 +29,26 @@ public static partial class ArtifactAbilityLifecycle
         ArtifactBodyAnchorKind bodyAnchor = ArtifactBodyAnchorKind.Center,
         float? rotation = null)
     {
+        return Deploy(
+            context,
+            ability,
+            ref runtime,
+            origin,
+            new ArtifactBodyAnchorRef(bodyAnchor),
+            rotation);
+    }
+
+    /// <summary>
+    /// 将法器组合模型的指定锚点部署到世界位置；无法解析外观锚点时使用 fallback。
+    /// </summary>
+    public static bool Deploy(
+        ArtifactAbilityExecutionContext context,
+        ArtifactAbilityInstance ability,
+        ref ArtifactAbilityRuntimeEntry runtime,
+        Vector3 origin,
+        ArtifactBodyAnchorRef bodyAnchor,
+        float? rotation = null)
+    {
         Entity artifact = context.artifact;
         if (artifact.HasComponent<ArtifactIndependentMotion>() ||
             artifact.HasComponent<SkillExecutionBodyLease>()) return false;
@@ -44,6 +65,14 @@ public static partial class ArtifactAbilityLifecycle
         runtime.activity_kind = ArtifactAbilityActivityKind.Deployment;
         runtime.activity_started_at = now;
         runtime.activity_until = 0d;
+        runtime.activity_position = origin;
+        runtime.has_activity_position = true;
+        if (rotation.HasValue)
+        {
+            float radians = rotation.Value * Mathf.Deg2Rad;
+            runtime.activity_direction = new Vector3(Mathf.Cos(radians), Mathf.Sin(radians));
+            runtime.has_activity_direction = true;
+        }
         return true;
     }
 
@@ -54,7 +83,7 @@ public static partial class ArtifactAbilityLifecycle
         {
             PendingDeployment pending = PendingDeployments[i];
             Entity artifact = pending.Artifact;
-            if (artifact.IsNull || pending.Controller.IsNull ||
+            if (!artifact.IsAvailable() || !pending.Controller.IsAvailable() ||
                 !pending.Controller.HasComponent<ActorBinder>() ||
                 artifact.HasComponent<ArtifactIndependentMotion>() ||
                 artifact.HasComponent<SkillExecutionBodyLease>()) continue;
@@ -92,7 +121,9 @@ public static partial class ArtifactAbilityLifecycle
                 started_at = entry.activity_started_at,
                 expires_at = entry.activity_until,
                 origin = pending.Origin,
-                body_anchor = pending.BodyAnchor,
+                body_anchor = pending.BodyAnchor.fallback,
+                body_anchor_slot = pending.BodyAnchor.slot,
+                body_anchor_key = pending.BodyAnchor.anchor,
             });
         }
         PendingDeployments.Clear();
@@ -104,7 +135,7 @@ public static partial class ArtifactAbilityLifecycle
         {
             PendingDeploymentRelease pending = PendingDeploymentReleases[i];
             Entity artifact = pending.Artifact;
-            if (artifact.IsNull ||
+            if (!artifact.IsAvailable() ||
                 !artifact.TryGetComponent(out ArtifactDeployment deployment) ||
                 deployment.ability_instance_id != pending.AbilityInstanceId) continue;
             artifact.RemoveComponent<ArtifactDeployment>();
@@ -120,7 +151,7 @@ public static partial class ArtifactAbilityLifecycle
         public readonly ArtifactControlState ControlState;
         public readonly string AbilityInstanceId;
         public readonly Vector3 Origin;
-        public readonly ArtifactBodyAnchorKind BodyAnchor;
+        public readonly ArtifactBodyAnchorRef BodyAnchor;
         public readonly float? Rotation;
 
         public PendingDeployment(
@@ -129,7 +160,7 @@ public static partial class ArtifactAbilityLifecycle
             ArtifactControlState controlState,
             string abilityInstanceId,
             Vector3 origin,
-            ArtifactBodyAnchorKind bodyAnchor,
+            ArtifactBodyAnchorRef bodyAnchor,
             float? rotation)
         {
             Artifact = artifact;

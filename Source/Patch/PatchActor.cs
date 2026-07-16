@@ -74,6 +74,21 @@ internal static class PatchActor
 
         return true;
     }
+    /// <summary>让 Core 控制标签同时约束原版法术入口。</summary>
+    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.canUseSpells))]
+    private static void canUseSpells_postfix(Actor __instance, ref bool __result)
+    {
+        if (__result && __instance.stats.hasTag(ActorControlTags.Silenced)) __result = false;
+    }
+    /// <summary>让隐匿标签参与原版目标获取和 Mod 共用的敌对目标判定。</summary>
+    [HarmonyPostfix, HarmonyPatch(typeof(BaseSimObject), nameof(BaseSimObject.canAttackTarget))]
+    private static void canAttackTarget_postfix(BaseSimObject pTarget, ref bool __result)
+    {
+        if (__result && pTarget.isActor() && pTarget.a.stats.hasTag(ActorControlTags.Concealed))
+        {
+            __result = false;
+        }
+    }
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.tryToAttack))]
     private static bool tryToAttack_prefix(Actor __instance, BaseSimObject pTarget, bool pDoChecks, Action pKillAction, float pBonusAreOfEffect, ref bool __result)
     {

@@ -9,15 +9,25 @@ namespace Cultiway.Content;
 [Dependency(typeof(ItemShapes))]
 public partial class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAtoms>
 {
+    /// <summary>基础剑形 Atom；提供锋锐、机动和御剑穿刺语义，倾向生成直接进攻型飞剑。</summary>
     public static ArtifactAtomAsset SwordEdge { get; private set; }
+    /// <summary>基础印形 Atom；提供坚硬、镇压、稳定和法域投射语义，倾向生成重压封禁型法印。</summary>
     public static ArtifactAtomAsset HeavySeal { get; private set; }
+    /// <summary>基础袍形 Atom；提供柔韧、守护、机动和护主语义，倾向生成贴身防护法袍。</summary>
     public static ArtifactAtomAsset RobeWard { get; private set; }
+    /// <summary>基础镜形 Atom；提供反射、感知、灵性和洞察语义，倾向生成观照与反制法镜。</summary>
     public static ArtifactAtomAsset BrightMirror { get; private set; }
+    /// <summary>基础鼎形 Atom；提供容量、炼丹、稳定和蓄灵语义，倾向生成火炼与生产辅助法鼎。</summary>
     public static ArtifactAtomAsset CauldronFire { get; private set; }
+    /// <summary>玉质材料 Atom；提供灵性、守护、稳定和净化语义，适合均衡防护型法器。</summary>
     public static ArtifactAtomAsset Jade { get; private set; }
+    /// <summary>晶质材料 Atom；提供坚硬、反射、灵性和洞察语义，适合感知与镜面效果。</summary>
     public static ArtifactAtomAsset Crystal { get; private set; }
+    /// <summary>铁质材料 Atom；提供坚硬、锋锐、镇压和束缚语义，适合攻击与禁制效果。</summary>
     public static ArtifactAtomAsset Iron { get; private set; }
+    /// <summary>赤火饰面 Atom；提供火行、易变、炼制和增幅语义，适合爆发与火炼效果。</summary>
     public static ArtifactAtomAsset Ember { get; private set; }
+    /// <summary>玄金饰面 Atom；提供坚硬、灵性、稳定和共鸣语义，适合稳固的高阶法器。</summary>
     public static ArtifactAtomAsset DarkGold { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
@@ -137,9 +147,9 @@ public partial class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAt
                 Trait(ArtifactMaterialTraits.Resonance, 0.25f),
             ]);
 
-        ConfigureAdditionalShapeAtoms();
-        ConfigureAdditionalMaterialAtoms();
-        ConfigureAdditionalFinishAtoms();
+        ConfigureShapeAtoms();
+        ConfigureMaterialAtoms();
+        ConfigureFinishAtoms();
     }
 
     private static void Set(

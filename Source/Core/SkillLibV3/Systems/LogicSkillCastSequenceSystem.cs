@@ -62,6 +62,10 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 {
                     EventSystemHub.TryPublish(new SkillCastCompletedEvent(sequence.Caster,
                         sequence.SkillContainer, sequence.EmittedCount, sequence.FundingSource));
+                    sequence.Caster.OnSkillCastCompleted(
+                        sequence.SkillContainer,
+                        sequence.EmittedCount,
+                        sequence.FundingSource);
                 }
                 CommandBuffer.AddTag<TagRecycle>(entity.Id);
             }

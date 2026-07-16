@@ -1,5 +1,6 @@
 using System;
 using Friflo.Engine.ECS;
+using UnityEngine;
 
 namespace Cultiway.Content.Components;
 
@@ -179,6 +180,18 @@ public struct ArtifactAbilityRuntimeEntry
 
     /// <summary>由能力启动并与法器本体绑定的短时技能执行会话。</summary>
     public Entity active_execution;
+
+    /// <summary>持续活动的权威作用点；部署、投影和定点领域共用。</summary>
+    public Vector3 activity_position;
+
+    /// <summary>持续活动的权威朝向；扇形、束流和定向投影共用。</summary>
+    public Vector3 activity_direction;
+
+    /// <summary>当前活动是否显式声明了作用点。</summary>
+    public bool has_activity_position;
+
+    /// <summary>当前活动是否显式声明了朝向。</summary>
+    public bool has_activity_direction;
 
     public ArtifactAbilityRuntimeEntry()
     {

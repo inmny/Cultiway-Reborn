@@ -51,13 +51,15 @@ public static class ActiveAbilityService
 
     public static bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
-        return TryResolveProvider(handle, out IActiveAbilityProvider provider) &&
+        return !IsSilenced(caster) &&
+               TryResolveProvider(handle, out IActiveAbilityProvider provider) &&
                provider.CanPrepare(caster, handle, target);
     }
 
     public static bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
     {
-        return TryResolveProvider(handle, out IActiveAbilityProvider provider) &&
+        return !IsSilenced(caster) &&
+               TryResolveProvider(handle, out IActiveAbilityProvider provider) &&
                provider.CanUse(caster, handle, target);
     }
 
@@ -67,6 +69,7 @@ public static class ActiveAbilityService
         in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin)
     {
+        if (IsSilenced(caster)) return false;
         if (!TryResolveProvider(handle, out IActiveAbilityProvider provider)) return false;
         if (!provider.CanUse(caster, handle, target)) return false;
         return provider.TryUse(caster, handle, target, origin);
@@ -92,6 +95,12 @@ public static class ActiveAbilityService
         IList<ActiveAbilityHandle> output,
         IList<int> weights)
     {
+        if (IsSilenced(caster))
+        {
+            output.Clear();
+            weights.Clear();
+            return 0;
+        }
         Collect(caster, output);
         weights.Clear();
         int totalWeight = 0;
@@ -157,6 +166,7 @@ public static class ActiveAbilityService
 
     public static bool HasPreparedCombatAbility(ActorExtend caster, BaseSimObject target)
     {
+        if (IsSilenced(caster)) return false;
         using var handles = new ListPool<ActiveAbilityHandle>();
         Collect(caster, handles);
         for (int i = 0; i < handles.Count; i++)
@@ -171,6 +181,7 @@ public static class ActiveAbilityService
 
     public static int CountPreparedCombatAbilities(ActorExtend caster, BaseSimObject target)
     {
+        if (IsSilenced(caster)) return 0;
         using var handles = new ListPool<ActiveAbilityHandle>();
         Collect(caster, handles);
         int count = 0;
@@ -189,6 +200,7 @@ public static class ActiveAbilityService
     /// </summary>
     public static float ResolveMaxPreparedCombatRange(ActorExtend caster, BaseSimObject target)
     {
+        if (IsSilenced(caster)) return 0f;
         using var handles = new ListPool<ActiveAbilityHandle>();
         Collect(caster, handles);
         float range = 0f;
@@ -224,5 +236,10 @@ public static class ActiveAbilityService
             ProvidersById.TryGetValue(handle.ProviderId, out provider)) return true;
         provider = null;
         return false;
+    }
+
+    private static bool IsSilenced(ActorExtend caster)
+    {
+        return caster.Base.stats.hasTag(ActorControlTags.Silenced);
     }
 }

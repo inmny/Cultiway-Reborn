@@ -12,12 +12,13 @@ using UnityEngine;
 namespace Cultiway.Content;
 
 /// <summary>
-/// 法器主动能力使用的隐藏技能实体资产。实体承载执行状态，实际画面由其借用的法器 Body 提供。
+/// 法器主动能力使用的隐藏技能实体资产。实体承载执行状态，画面由借用的法器 Body 或能力视觉读取。
 /// </summary>
 [Dependency(typeof(ArtifactSkillTrajectories), typeof(SkillVfxElements))]
 public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, ArtifactSkillExecutions>
 {
     public static SkillEntityAsset FlyingSword { get; private set; }
+    public static SkillEntityAsset SwordArray { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -59,6 +60,23 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
             })
             .SetupDefaultTraj(ArtifactSkillTrajectories.FlyingSword)
             .OnObjCollision = ResolveFlyingSwordHit;
+
+        SwordArray.Element = ElementComposition.Static.Iron;
+        SwordArray.PrefabEntity = SwordArray.World.CreateEntity(
+            new SkillExecution(),
+            new SkillExecutionWithoutBody(),
+            new SkillEntity
+            {
+                Asset = SwordArray,
+                VfxElement = SkillVfxElements.Metal,
+            },
+            new SkillContext(),
+            new ArtifactSwordArrayExecutionState(),
+            new Position(),
+            new Rotation(),
+            new AliveTimer(),
+            Tags.Get<TagPrefab>());
+        SwordArray.SetupDefaultTraj(ArtifactSkillTrajectories.SwordArray);
     }
 
     private static bool ResolveFlyingSwordHit(
