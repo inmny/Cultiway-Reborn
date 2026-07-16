@@ -1,6 +1,9 @@
 using ai.behaviours;
+using Cultiway.Abstract;
 using Cultiway.Content.AIGC;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
+using Cultiway.Content.Events;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils;
@@ -56,14 +59,25 @@ public class BehCraftTalisman : BehaviourActionActor
         {
             SkillContainer = skill_v3
         });
-        if (pObject.city != null && Randy.randomChance(0.6f))
+        ArtifactProductionResultEvent result = ArtifactProductionService.DispatchResult(
+            ae,
+            ArtifactProductionProcesses.TalismanCrafting,
+            skill_v3,
+            item);
+        if (result.QualityBonus != 0)
         {
-            pObject.city.GetExtend().AddSpecialItem(item);
+            ref ItemLevel level = ref item.GetComponent<ItemLevel>();
+            level = ItemLevel.FromValue(level + result.QualityBonus);
         }
-        else
+        int outputCount = ArtifactProductionService.ResolveOutputCount(result.YieldMultiplier);
+        IHasInventory receiver = pObject.city != null && Randy.randomChance(0.6f)
+            ? pObject.city.GetExtend()
+            : ae;
+        ArtifactProductionService.AddOutputs(receiver, item, outputCount, clone =>
         {
-            ae.AddSpecialItem(item);
-        }
+            Entity skill = clone.GetComponent<Talisman>().SkillContainer;
+            clone.AddRelation(new SkillMasterRelation { SkillContainer = skill });
+        });
         return BehResult.Continue;
     }
 }

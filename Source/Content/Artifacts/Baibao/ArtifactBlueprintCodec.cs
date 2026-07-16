@@ -72,6 +72,8 @@ public static class ArtifactBlueprintCodec
             .AddComponent(blueprint.ControlProfile)
             .AddComponent(abilitySet)
             .AddComponent(ArtifactAbilityRuntime.CreateInitial(abilitySet))
+            .AddComponent(new ArtifactStorageState())
+            .AddComponent(new ArtifactSpiritState())
             .AddComponent(ArtifactBlueprintData.Clone(blueprint.Appearance))
             .Build();
 

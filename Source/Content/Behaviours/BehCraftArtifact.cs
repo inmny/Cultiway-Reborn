@@ -1,12 +1,15 @@
 using ai.behaviours;
 using Cultiway.Const;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
+using Cultiway.Content.Events;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
+using UnityEngine;
 
 namespace Cultiway.Content.Behaviours;
 
@@ -33,6 +36,17 @@ public class BehCraftArtifact : BehCityActor
         }
         if (crafting.progress >= ingredients.Length)
         {
+            ArtifactProductionResultEvent result = ArtifactProductionService.DispatchResult(
+                ae,
+                ArtifactProductionProcesses.ArtifactRefining,
+                crafting_entity.GetComponent<ArtifactMaterialData>(),
+                crafting_entity);
+            if (result.QualityBonus != 0)
+            {
+                ref ItemLevel level = ref crafting_entity.GetComponent<ItemLevel>();
+                level = ItemLevel.FromValue(level + result.QualityBonus);
+            }
+
             // 先完整拷贝材料数组，再删除——DeleteEntity 会移除 crafting_entity 上的
             // CraftOccupyingRelation，导致 relations 快照失效，故不能边遍历边删。
             var ingredient_array = new Entity[ingredients.Length];
@@ -49,14 +63,25 @@ public class BehCraftArtifact : BehCityActor
             crafting_entity.RemoveTag<TagUncompleted>();
             crafting_entity.AddComponent(new Artifact());
             crafting_entity.GetComponent<AliveTimeLimit>().value = crafting_entity.GetComponent<ItemLevel>() * 10 * TimeScales.SecPerYear;
+            int outputCount = ArtifactProductionService.ResolveOutputCount(result.YieldMultiplier);
+            for (int i = 1; i < outputCount; i++)
+            {
+                ae.AddSpecialItem(ArtifactProductionService.CloneProduct(crafting_entity));
+            }
             ae.EquipArtifact(crafting_entity);
 
-            ModClass.LogInfo($"{pObject.getName()}[{pObject.data.id}] 完成炼制 {crafting_entity.Name}");
+            ModClass.LogInfo($"{pObject.getName()}[{pObject.data.id}] 完成炼制 {crafting_entity.Name} x{outputCount}");
             return BehResult.Continue;
         }
 
-        crafting.progress++;
-        pObject.timer_action = Randy.randomFloat(1, 3);
+        ArtifactProductionStepEvent step = ArtifactProductionService.DispatchStep(
+            ae,
+            ArtifactProductionProcesses.ArtifactRefining,
+            crafting_entity.GetComponent<ArtifactMaterialData>(),
+            crafting_entity,
+            Randy.randomFloat(1f, 3f));
+        crafting.progress += System.Math.Max(1, step.ProgressGain);
+        pObject.timer_action = Mathf.Max(0.15f, step.Duration);
 
         return BehResult.Continue;
     }

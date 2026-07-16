@@ -49,7 +49,16 @@ public class BehCraftElixir : BehCityActor
             return BehResult.Continue;
         }
 
-        ElixirCraftStepEvent step = new(elixir_asset, crafting_elixir_entity, Randy.randomFloat(1f, 3f));
+        ArtifactProductionStepEvent productionStep = ArtifactProductionService.DispatchStep(
+            ae,
+            ArtifactProductionProcesses.Alchemy,
+            elixir_asset,
+            crafting_elixir_entity,
+            Randy.randomFloat(1f, 3f));
+        ElixirCraftStepEvent step = new(elixir_asset, crafting_elixir_entity, productionStep.Duration)
+        {
+            ProgressGain = productionStep.ProgressGain,
+        };
         ArtifactAbilityDispatcher.Dispatch(ae.E, step);
         crafting_elixir.progress += Math.Max(1, step.ProgressGain);
         //ModClass.LogInfo(

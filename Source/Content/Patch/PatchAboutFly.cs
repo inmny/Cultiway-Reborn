@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using ai;
 using ai.behaviours;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core.Pathfinding;
@@ -125,9 +126,7 @@ internal static class PatchAboutFly
         if (len < ContentSetting.MinFlyDist) return true;
 
         var ae = __instance.GetExtend();
-        ref var xian = ref ae.GetCultisys<Xian>();
-
-        if (xian.CurrLevel >= XianSetting.TransportLevel)
+        if (ae.TryGetComponent(out Xian xian) && xian.CurrLevel >= XianSetting.TransportLevel)
         {
             // 放一个特效
             __instance.setCurrentTilePosition(__instance.tile_target);
@@ -137,7 +136,7 @@ internal static class PatchAboutFly
             return false;
         }
 
-        if (xian.CurrLevel >= XianSetting.WeaponFlyLevel)
+        if (CanStartCultiwayFlight(__instance))
         {
             var target = __instance.tile_target;
             if (target == null) return true;
@@ -152,6 +151,7 @@ internal static class PatchAboutFly
     public static bool CanStartCultiwayFlight(Actor actor)
     {
         if (actor == null || !actor.isAlive()) return false;
+        if (ArtifactVehicleService.TryResolve(actor, out _)) return true;
         var ae = actor.GetExtend();
         if (!ae.TryGetComponent(out Xian xian)) return false;
         if (xian.CurrLevel < XianSetting.WeaponFlyLevel) return false;
@@ -165,6 +165,8 @@ internal static class PatchAboutFly
 
         actor.data.addFlag(ContentActorDataKeys.IsFlying_flag);
         actor.setFlying(true);
+        ArtifactVehicleService.SyncFlightRelation(actor);
+        ArtifactVehicleService.BoardNearbyPassengers(actor);
         actor.precalcMovementSpeed(true);
         return true;
     }
@@ -172,21 +174,13 @@ internal static class PatchAboutFly
     private static bool can_goTo_fast(Actor actor)
     {
         var ae = actor.GetExtend();
-        if (!ae.HasCultisys<Xian>()) return false;
-        ref var xian = ref ae.GetCultisys<Xian>();
-
-        if (xian.CurrLevel >= XianSetting.TransportLevel)
+        if (ae.TryGetComponent(out Xian xian))
         {
-            return true;
+            if (xian.CurrLevel >= XianSetting.TransportLevel) return true;
+            if (xian.CurrLevel >= XianSetting.WeaponFlyLevel &&
+                (actor.hasWeapon() || xian.CurrLevel >= XianSetting.CloudFlyLevel)) return true;
         }
-
-        if (xian.CurrLevel >= XianSetting.WeaponFlyLevel)
-        {
-            if (!actor.hasWeapon() && xian.CurrLevel < XianSetting.CloudFlyLevel) return false;
-            return true;
-        }
-
-        return false;
+        return ArtifactVehicleService.TryResolve(actor, out _);
     }
 
     [HarmonyTranspiler, HarmonyPatch(typeof(Actor), nameof(Actor.b1_checkUnderForce))]
@@ -237,7 +231,9 @@ internal static class PatchAboutFly
 
     public static void StopCultiwayFlight(Actor actor, bool resetHeight)
     {
-        if (actor == null || !actor.data.hasFlag(ContentActorDataKeys.IsFlying_flag)) return;
+        if (actor == null) return;
+        ArtifactVehicleService.ClearFlightRelation(actor);
+        if (!actor.data.hasFlag(ContentActorDataKeys.IsFlying_flag)) return;
 
         actor.data.removeFlag(ContentActorDataKeys.IsFlying_flag);
         actor.setFlying(actor.asset.flying);
@@ -280,6 +276,8 @@ internal static class PatchAboutFly
 
     private static float get_fly_speed_mod(Actor actor)
     {
-        return actor.data.hasFlag(ContentActorDataKeys.IsFlying_flag) ? ContentSetting.FlySpeedMod : 1;
+        return actor.data.hasFlag(ContentActorDataKeys.IsFlying_flag)
+            ? ArtifactVehicleService.ResolveFlightSpeedMultiplier(actor, ContentSetting.FlySpeedMod)
+            : 1f;
     }
 }

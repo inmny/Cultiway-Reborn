@@ -233,7 +233,15 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
                 level.Stage = Mathf.Min(level.Stage, 3);
             }
         }
-        ElixirCraftResultEvent result = new(this, crafting_elixir_entity);
+        ArtifactProductionResultEvent productionResult = ArtifactProductionService.DispatchResult(
+            ae,
+            ArtifactProductionProcesses.Alchemy,
+            this,
+            crafting_elixir_entity);
+        ElixirCraftResultEvent result = new(this, crafting_elixir_entity)
+        {
+            QualityBonus = productionResult.QualityBonus,
+        };
         ArtifactAbilityDispatcher.Dispatch(ae.E, result);
         level = ItemLevel.FromValue(level + result.QualityBonus);
         if (crafting_elixir_entity.HasComponent<ItemLevel>())
@@ -247,7 +255,8 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
             crafting_elixir_entity.AddComponent(level);
         }
 
-        receiver.AddSpecialItem(crafting_elixir_entity);
+        int outputCount = ArtifactProductionService.ResolveOutputCount(productionResult.YieldMultiplier);
+        ArtifactProductionService.AddOutputs(receiver, crafting_elixir_entity, outputCount);
     }
 
     public bool QueryInventoryForIngredients(IHasInventory inv, out Entity[] corr_ingredients)

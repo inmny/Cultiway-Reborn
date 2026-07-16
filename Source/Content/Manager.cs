@@ -54,6 +54,8 @@ internal class Manager
 
         new Patch.Manager().Init();
         ModClass.I.GeneralLogicSystems.Add(new FlyCancelSystem());
+        ModClass.I.GeneralLogicSystems.Add(new ArtifactVehicleFlightSystem());
+        ModClass.I.GeneralLogicSystems.Add(new ArtifactVehiclePassengerSystem());
         ModClass.I.LogicRestoreStatusSystemGroup.Add(new RestoreWakanSystem());
         ModClass.I.LogicRestoreStatusSystemGroup.Add(new RestoreMagicResourceSystem());
         ModClass.I.GeneralLogicSystems.Add(new WakanSpreadSystem());
@@ -62,7 +64,14 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new TeleportArraySystem());
         ModClass.I.GeneralLogicSystems.Add(new CityDistributeItemsSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactEquipmentSystem());
+        ModClass.I.GeneralLogicSystems.Add(new ArtifactSwordArrayHitSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactAbilityLifecycleSystem());
+        ModClass.I.GeneralLogicSystems.Add(new ArtifactSectInstallationSystem());
+        ArtifactSummonService.Init();
+        ArtifactSpiritService.Init();
+        ModClass.I.GeneralLogicSystems.Add(new ArtifactSummonSystem());
+        ModClass.I.GeneralLogicSystems.Add(new ArtifactSpiritSystem());
+        ModClass.I.GeneralLogicSystems.Add(new ArtifactSpiritAvatarCleanupSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactManifestationCleanupSystem());
         ModClass.I.GeneralLogicSystems.Add(new ContinuousCultivateSystem());
         ModClass.I.GeneralLogicSystems.Add(new SectConstructionSystem());
@@ -74,6 +83,7 @@ internal class Manager
         ModClass.I.GeneralRenderSystems.Add(new RealmElementParticleRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmIndicatorRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactManifestationSystem());
+        ModClass.I.GeneralRenderSystems.Add(new ArtifactSectManifestationSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactWorldRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactAbilityVisualSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());
