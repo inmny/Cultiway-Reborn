@@ -1,9 +1,12 @@
 using Cultiway.Abstract;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
+using Cultiway.Content.Semantics;
+using Cultiway.Core.Semantics;
 
 namespace Cultiway.Content;
 
+[Dependency(typeof(CultivationSemantics))]
 public class ElementRoots : ExtendLibrary<ElementRootAsset, ElementRoots>
 {
     public static ElementRootAsset Fire  { get; private set; }
@@ -52,5 +55,17 @@ public class ElementRoots : ExtendLibrary<ElementRootAsset, ElementRoots>
             pos = 1, entropy = 1f
         }));
         Pos.icon_path = "pos";
+
+        ModClass.L.ElementRootLibrary.Common.Semantics = SemanticDescriptor.Of(CultivationSemantics.Trait.ElementRoot);
+        ModClass.L.ElementRootLibrary.Entropy.Semantics = SemanticDescriptor.Of(
+            CultivationSemantics.Trait.ElementRoot,
+            SkillSemantics.Element.Entropy);
+        Fire.Semantics = SemanticDescriptor.Of(CultivationSemantics.Trait.ElementRoot, SkillSemantics.Element.Fire);
+        Water.Semantics = SemanticDescriptor.Of(CultivationSemantics.Trait.ElementRoot, SkillSemantics.Element.Water);
+        Wood.Semantics = SemanticDescriptor.Of(CultivationSemantics.Trait.ElementRoot, SkillSemantics.Element.Wood);
+        Earth.Semantics = SemanticDescriptor.Of(CultivationSemantics.Trait.ElementRoot, SkillSemantics.Element.Earth);
+        Iron.Semantics = SemanticDescriptor.Of(CultivationSemantics.Trait.ElementRoot, SkillSemantics.Element.Iron);
+        Neg.Semantics = SemanticDescriptor.Of(CultivationSemantics.Trait.ElementRoot, SkillSemantics.Element.Neg);
+        Pos.Semantics = SemanticDescriptor.Of(CultivationSemantics.Trait.ElementRoot, SkillSemantics.Element.Pos);
     }
 }

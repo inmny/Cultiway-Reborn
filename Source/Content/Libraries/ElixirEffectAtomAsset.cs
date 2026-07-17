@@ -7,7 +7,8 @@ namespace Cultiway.Content.Libraries;
 
 public class ElixirEffectAtomAsset : Asset
 {
-    public string tag;
+    /// <summary>丹药效果组合器用于去重和提示的稳定技术键。</summary>
+    public string effect_key;
     public string[] name_stems = [];
     public string description_fragment;
     public string effect_sentence;

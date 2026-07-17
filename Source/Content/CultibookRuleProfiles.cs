@@ -55,12 +55,12 @@ internal class CultibookRuleProfiles : ExtendLibrary<CultibookRuleProfileAsset, 
             context => IsMethod(context, CultivateMethods.KingdomFortune) ? 100f : 0f);
     }
 
-    private static void Set(CultibookRuleProfileAsset profile, string tag, string[] nameStems,
+    private static void Set(CultibookRuleProfileAsset profile, string key, string[] nameStems,
         string[] suffixes, string description, float masteryWeight, float armorWeight,
         float secondaryWeight, float requirementRatio, float affinityThreshold, int maxSkillCount,
         float skillChanceBonus, Func<CultibookRuleContext, float> score)
     {
-        profile.Tag = tag;
+        profile.Key = key;
         profile.NameStems = nameStems;
         profile.Suffixes = suffixes;
         profile.DescriptionFragment = description;

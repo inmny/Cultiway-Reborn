@@ -3,13 +3,15 @@ using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
+using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Utils;
 using NeoModLoader.api.attributes;
 
 namespace Cultiway.Content;
-[Dependency(typeof(Jindans), typeof(SkillEntities))]
+[Dependency(typeof(Jindans), typeof(SkillEntities), typeof(CultivationSemantics))]
 public class Yuanyings : ExtendLibrary<YuanyingAsset, Yuanyings>
 {
     public static YuanyingAsset Common { get; private set; }
@@ -80,11 +82,27 @@ public class Yuanyings : ExtendLibrary<YuanyingAsset, Yuanyings>
             }
             // 从对应的金丹复制元素组成
             yuanying_asset.composition = jindan_asset.composition;
+            yuanying_asset.Semantics = ComposeSemantics(jindan_asset);
             Map(yuanying_asset, jindan_asset);
             Map(yuanying_asset, Jindans.Common);
         }
         
         AddEffects();
+    }
+
+    private static SemanticDescriptor ComposeSemantics(JindanAsset jindan)
+    {
+        var builder = new SemanticDescriptorBuilder()
+            .Add(CultivationSemantics.Realm.Yuanying)
+            .Add(CultivationSemantics.Role.Cultivation);
+        for (var i = 0; i < jindan.Semantics.contributions.Length; i++)
+        {
+            var contribution = jindan.Semantics.contributions[i];
+            if (contribution.semantic_id == CultivationSemantics.Realm.Jindan.id ||
+                contribution.semantic_id == CultivationSemantics.Role.Cultivation.id) continue;
+            builder.Add(contribution);
+        }
+        return builder.Build();
     }
 
     private void Map(YuanyingAsset yuanying, JindanAsset jindan)

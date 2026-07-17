@@ -4,9 +4,12 @@ using Cultiway.Content;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.Semantics;
 using Cultiway.Utils.Extension;
+using NeoModLoader.api.attributes;
 using UnityEngine;
 
 namespace Cultiway.Content;
@@ -14,6 +17,7 @@ namespace Cultiway.Content;
 /// <summary>
 /// 修炼方式集合（继承ExtendLibrary）
 /// </summary>
+[Dependency(typeof(CultivationSemantics))]
 public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMethods>
 {
     /// <summary>
@@ -45,6 +49,28 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
 
     protected override void OnInit()
     {
+        Standard.Semantics = SemanticDescriptor.Of(
+            CultivationSemantics.Role.Cultivation,
+            CultivationSemantics.Path.Meditation);
+        WaterMeditation.Semantics = SemanticDescriptor.Of(
+            CultivationSemantics.Role.Cultivation,
+            CultivationSemantics.Path.Meditation,
+            Core.Semantics.SkillSemantics.Element.Water);
+        BattleCultivate.Semantics = SemanticDescriptor.Of(
+            CultivationSemantics.Role.Cultivation,
+            CultivationSemantics.Path.BattleCultivation,
+            Core.Semantics.SkillSemantics.Role.Offensive);
+        KillAbsorb.Semantics = SemanticDescriptor.Of(
+            CultivationSemantics.Role.Cultivation,
+            CultivationSemantics.Path.SlaughterCultivation,
+            CultivationSemantics.Effect.Devouring,
+            Core.Semantics.SkillSemantics.Element.Neg,
+            Core.Semantics.SkillSemantics.Element.Entropy);
+        KingdomFortune.Semantics = SemanticDescriptor.Of(
+            CultivationSemantics.Role.Cultivation,
+            CultivationSemantics.Path.FortuneCultivation,
+            Core.Semantics.SkillSemantics.Element.Pos);
+
         Standard.TriggerType = CultivateTriggerType.Active;
         Standard.CanCultivate = ae => ae.HasCultisys<Xian>();
         Standard.GetEfficiency = ae => ae.HasElementRoot() ? ae.GetElementRoot().GetStrength() : 1f;

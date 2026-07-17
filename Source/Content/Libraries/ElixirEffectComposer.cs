@@ -34,7 +34,7 @@ public static class ElixirEffectComposer
     public static string ResolveEffectHint(ElixirRecipeContext recipe)
     {
         var atom = SelectAtoms(recipe, string.Empty, NamingRuleUtils.StableHash($"{recipe.main_shape_id}|{recipe.primary_element_index}"), 1).FirstOrDefault();
-        return atom?.tag ?? "body";
+        return atom?.effect_key ?? "body";
     }
 
     private static ElixirEffectComposition Compose(ElixirRecipeContext recipe, string text, int seed)
@@ -68,14 +68,14 @@ public static class ElixirEffectComposer
         }
 
         List<ElixirEffectAtomAsset> selected = new();
-        HashSet<string> tags = new(StringComparer.Ordinal);
+        HashSet<string> effectKeys = new(StringComparer.Ordinal);
         foreach (var entry in scored)
         {
             if (selected.Count >= targetCount) break;
-            var tag = entry.Atom.tag ?? entry.Atom.id;
-            if (tags.Contains(tag)) continue;
+            var effectKey = entry.Atom.effect_key ?? entry.Atom.id;
+            if (effectKeys.Contains(effectKey)) continue;
             selected.Add(entry.Atom);
-            tags.Add(tag);
+            effectKeys.Add(effectKey);
         }
 
         for (var i = 0; selected.Count == 0 && i < scored.Count; i++)

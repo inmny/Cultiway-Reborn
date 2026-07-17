@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Core;
+using Cultiway.Core.Semantics;
 using Cultiway.Core.Components;
 using UnityEngine;
 
@@ -34,6 +35,9 @@ public enum PassiveTriggerEvents
 /// </summary>
 public class CultivateMethodAsset : Asset
 {
+    /// <summary>修炼方式本身表达的路径语义。</summary>
+    public SemanticDescriptor Semantics = new();
+
     // ========== 核心委托 ==========
     
     /// <summary>

@@ -247,7 +247,7 @@ public class ElixirEffectAtoms : ExtendLibrary<ElixirEffectAtomAsset, ElixirEffe
 
     private static void Set(
         ElixirEffectAtomAsset atom,
-        string tag,
+        string effectKey,
         string[] nameStems,
         string fragment,
         string sentence,
@@ -257,7 +257,7 @@ public class ElixirEffectAtoms : ExtendLibrary<ElixirEffectAtomAsset, ElixirEffe
         string[] traits = null,
         string[] operations = null)
     {
-        atom.tag = tag;
+        atom.effect_key = effectKey;
         atom.name_stems = nameStems;
         atom.description_fragment = fragment;
         atom.effect_sentence = sentence;

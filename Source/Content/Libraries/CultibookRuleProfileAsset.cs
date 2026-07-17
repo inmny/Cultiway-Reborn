@@ -4,7 +4,7 @@ namespace Cultiway.Content.Libraries;
 
 public class CultibookRuleProfileAsset : Asset
 {
-    public string Tag;
+    public string Key;
     public string[] NameStems = [];
     public string[] Suffixes = ["功", "诀", "经"];
     public string DescriptionFragment;

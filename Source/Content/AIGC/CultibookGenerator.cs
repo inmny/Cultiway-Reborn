@@ -13,6 +13,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
 using Cultiway.Content.Events;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.Semantics;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Newtonsoft.Json;
@@ -43,8 +44,6 @@ public class CultibookGenerator
         public int maxLevel { get; set; }
         public string cultivateMethodId { get; set; }
         public List<SkillPoolEntryDto> skillPool { get; set; }
-        public List<string> conflictTags { get; set; }
-        public List<string> synergyTags { get; set; }
     }
 
     public void RequestGeneration(ActorExtend ae, string requestId)
@@ -173,8 +172,10 @@ public class CultibookGenerator
             MaxLevel = dto.maxLevel,
             CultivateMethodId = dto.cultivateMethodId,
             SkillPool = skillPool,
-            ConflictTags = originalCultibook.ConflictTags?.ToArray() ?? Array.Empty<string>(),
-            SynergyTags = originalCultibook.SynergyTags?.ToArray() ?? Array.Empty<string>()
+            ConflictConditions = originalCultibook.ConflictConditions?.ToArray() ??
+                                 Array.Empty<SemanticQueryExpression>(),
+            SynergyConditions = originalCultibook.SynergyConditions?.ToArray() ??
+                                Array.Empty<SemanticQueryExpression>()
         };
         return CultibookRuleComposer.NormalizeDraft(draft, ae, originalCultibook);
     }
@@ -312,8 +313,8 @@ public class CultibookGenerator
             MaxLevel = dto.maxLevel,
             CultivateMethodId = dto.cultivateMethodId,
             SkillPool = skillPool,
-            ConflictTags = Array.Empty<string>(),
-            SynergyTags = Array.Empty<string>()
+            ConflictConditions = Array.Empty<SemanticQueryExpression>(),
+            SynergyConditions = Array.Empty<SemanticQueryExpression>()
         };
         return CultibookRuleComposer.NormalizeDraft(draft, ae);
     }

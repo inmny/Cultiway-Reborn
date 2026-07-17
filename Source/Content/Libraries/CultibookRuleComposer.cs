@@ -4,11 +4,13 @@ using System.Linq;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.Semantics;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -67,8 +69,9 @@ public static class CultibookRuleComposer
         draft.Level = CalculateLevel(draft.FinalStats, draft.SkillPool, draft.CultivateMethodId, creator);
         draft.Name = ComposeName(context, profile, draft.Level);
         draft.Description = ComposeDescription(context, profile, draft.SkillPool);
-        draft.ConflictTags = Array.Empty<string>();
-        draft.SynergyTags = Array.Empty<string>();
+        draft.ConflictConditions = Array.Empty<SemanticQueryExpression>();
+        draft.SynergyConditions = Array.Empty<SemanticQueryExpression>();
+        draft.Semantics = ComposeSemantics(draft);
         return draft;
     }
 
@@ -97,8 +100,11 @@ public static class CultibookRuleComposer
         draft.Level = MaxItemLevel(original.Level, calculatedLevel);
         draft.Name = ComposeImprovedName(original.Name, context, profile, draft.Level);
         draft.Description = ComposeImprovedDescription(original.Name, context, profile, draft.SkillPool);
-        draft.ConflictTags = original.ConflictTags?.ToArray() ?? Array.Empty<string>();
-        draft.SynergyTags = original.SynergyTags?.ToArray() ?? Array.Empty<string>();
+        draft.ConflictConditions = original.ConflictConditions?.ToArray() ??
+                                   Array.Empty<SemanticQueryExpression>();
+        draft.SynergyConditions = original.SynergyConditions?.ToArray() ??
+                                  Array.Empty<SemanticQueryExpression>();
+        draft.Semantics = ComposeSemantics(draft);
         return draft;
     }
 
@@ -177,9 +183,83 @@ public static class CultibookRuleComposer
                 : ComposeImprovedDescription(original.Name, context, profile, draft.SkillPool);
         }
 
-        draft.ConflictTags ??= original?.ConflictTags?.ToArray() ?? Array.Empty<string>();
-        draft.SynergyTags ??= original?.SynergyTags?.ToArray() ?? Array.Empty<string>();
+        draft.ConflictConditions ??= original?.ConflictConditions?.ToArray() ??
+                                     Array.Empty<SemanticQueryExpression>();
+        draft.SynergyConditions ??= original?.SynergyConditions?.ToArray() ??
+                                    Array.Empty<SemanticQueryExpression>();
+        draft.Semantics = ComposeSemantics(draft);
         return draft;
+    }
+
+    /// <summary>
+    /// 从修炼方式、元素需求和传承法术合成功法的稳定语义，旧存档中的功法也可按需重建。
+    /// </summary>
+    public static SemanticDescriptor ComposeSemantics(CultibookAsset draft)
+    {
+        var builder = new SemanticDescriptorBuilder()
+            .Add(CultivationSemantics.Form.Cultibook)
+            .Add(CultivationSemantics.Role.Cultivation);
+
+        var method = Manager.CultivateMethodLibrary.get(draft.CultivateMethodId);
+        builder.Add(method.Semantics, 0.8f);
+        AddElementSemantics(builder, RequirementValues(draft.ElementReq), 1f);
+
+        var skills = draft.SkillPool
+            .Where(entry => entry?.SkillContainer.IsNull == false &&
+                            entry.SkillContainer.HasComponent<SkillContainer>())
+            .Select(entry => entry.SkillContainer)
+            .ToArray();
+        var skillWeight = skills.Length == 0 ? 0f : 0.65f / Mathf.Sqrt(skills.Length);
+        for (var i = 0; i < skills.Length; i++)
+        {
+            var entity = skills[i];
+            var asset = entity.GetComponent<SkillContainer>().Asset;
+            builder.Add(asset.Semantics, skillWeight);
+            AddElementSemantics(builder, asset.Element.AsArray(), skillWeight * 0.5f);
+
+            foreach (var type in entity.GetComponentTypes())
+            {
+                if (!typeof(IModifier).IsAssignableFrom(type)) continue;
+                builder.Add(((IModifier)entity.GetComponent(type)).ModifierAsset.Semantics, skillWeight * 0.5f);
+            }
+
+            var trajectory = entity.HasComponent<Trajectory>()
+                ? entity.GetComponent<Trajectory>().Asset
+                : asset.PrefabEntity.GetComponent<Trajectory>().Asset;
+            builder.Add(trajectory.Semantics, skillWeight * 0.35f);
+        }
+
+        return builder.Build();
+    }
+
+    private static void AddElementSemantics(
+        SemanticDescriptorBuilder builder,
+        float[] values,
+        float multiplier)
+    {
+        var total = values.Sum(value => Mathf.Max(0f, value));
+        if (total <= 0f)
+        {
+            builder.Add(SkillSemantics.Element.Generic, multiplier);
+            return;
+        }
+
+        var elements = new[]
+        {
+            SkillSemantics.Element.Iron,
+            SkillSemantics.Element.Wood,
+            SkillSemantics.Element.Water,
+            SkillSemantics.Element.Fire,
+            SkillSemantics.Element.Earth,
+            SkillSemantics.Element.Neg,
+            SkillSemantics.Element.Pos,
+            SkillSemantics.Element.Entropy
+        };
+        for (var i = 0; i < elements.Length; i++)
+        {
+            var strength = Mathf.Max(0f, values[i]) / total * multiplier;
+            if (strength > 0f) builder.Add(elements[i], strength);
+        }
     }
 
     public static ElementRequirement ClampElementRequirement(ElementRequirement requirement, ActorExtend creator)
@@ -547,7 +627,7 @@ public static class CultibookRuleComposer
             return;
         }
 
-        var lowerReach = profile.Tag == "fortune" || profile.Tag == "balanced" ? 3 : 2;
+        var lowerReach = profile.Key == "fortune" || profile.Key == "balanced" ? 3 : 2;
         var upperReach = 4 + Mathf.Min(3, context.CreatorLevel / 4);
         minLevel = Mathf.Max(0, context.CreatorLevel - lowerReach);
         maxLevel = Mathf.Min(MaxCultivationLevel, context.CreatorLevel + upperReach);

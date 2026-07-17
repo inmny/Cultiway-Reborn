@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.Semantics;
 using NeoModLoader.General;
 using strings;
 
@@ -10,6 +11,9 @@ public delegate bool JindanCheck(ActorExtend ae, ref XianBase xian_base);
 public delegate float JindanScore(ActorExtend ae, ref XianBase xian_base);
 public class JindanAsset : Asset
 {
+    /// <summary>该金丹类型除元素组成外的稳定语义。</summary>
+    public SemanticDescriptor Semantics = new();
+
     private JindanGroupAsset _group;
     public JindanCheck check;
     public JindanScore score;

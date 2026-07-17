@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -10,6 +11,9 @@ namespace Cultiway.Content.Libraries;
 
 public class CultibookAsset : Asset, IDeleteWhenUnknown
 {
+    /// <summary>功法稳定表达的流派、作用和主题语义。</summary>
+    public SemanticDescriptor Semantics = new();
+
     /// <summary>
     /// 当掌握程度达到100%时的属性加成
     /// </summary>
@@ -50,10 +54,10 @@ public class CultibookAsset : Asset, IDeleteWhenUnknown
     public List<SkillPoolEntry> SkillPool = new();
 
     /// <summary>
-    /// 冲突/协同标签
+    /// 与其他内容组合时采用的语义冲突和协同条件。
     /// </summary>
-    public string[] ConflictTags = Array.Empty<string>();
-    public string[] SynergyTags = Array.Empty<string>();
+    public SemanticQueryExpression[] ConflictConditions = Array.Empty<SemanticQueryExpression>();
+    public SemanticQueryExpression[] SynergyConditions = Array.Empty<SemanticQueryExpression>();
 
     public int Current { get; set; } = 0;
     

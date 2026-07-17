@@ -4,14 +4,16 @@ using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
+using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Utils;
 using NeoModLoader.api.attributes;
 using UnityEngine;
 
 namespace Cultiway.Content;
-[Dependency(typeof(SkillEntities))]
+[Dependency(typeof(SkillEntities), typeof(CultivationSemantics))]
 public class Jindans : ExtendLibrary<JindanAsset, Jindans>
 {
     private const float ElementJindanFiveQiWeight = 0.7f;
@@ -99,7 +101,27 @@ public class Jindans : ExtendLibrary<JindanAsset, Jindans>
         Dragon.Group = JindanGroups.External;
         Dragon.composition = new ElementComposition(20, 5, 10, 20, 15, 5, 20, 5);
 
+        SetSemantics(Common);
+        SetSemantics(JinHwang);
+        SetSemantics(SwordHwang, CultivationSemantics.Path.Sword);
+        SetSemantics(Aoki);
+        SetSemantics(Frost);
+        SetSemantics(Blaze);
+        SetSemantics(Bentonite);
+        SetSemantics(Condensed, CultivationSemantics.Craft.SpiritReservoir);
+        SetSemantics(Phantom, CultivationSemantics.Theme.Illusion);
+        SetSemantics(Dragon, CultivationSemantics.Theme.Dragon, CultivationSemantics.Form.Body);
+
         AddEffects();
+    }
+
+    private static void SetSemantics(JindanAsset asset, params SemanticAsset[] extra)
+    {
+        var builder = new SemanticDescriptorBuilder()
+            .Add(CultivationSemantics.Realm.Jindan)
+            .Add(CultivationSemantics.Role.Cultivation);
+        for (var i = 0; i < extra.Length; i++) builder.Add(extra[i]);
+        asset.Semantics = builder.Build();
     }
 
     /// <summary>
