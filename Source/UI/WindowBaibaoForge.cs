@@ -86,6 +86,7 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
     private Button _undoButton;
     private Button _redoButton;
     private Button _saveButton;
+    private BaibaoAtomPicker _atomPicker;
     private UiModal _confirmation;
 
     public static void Open()
@@ -134,12 +135,16 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
         _rowPool = new MonoObjPool<BaibaoEditorRow>(BaibaoEditorRow.Prefab, editorPane.Content);
 
         CreateFooter(root.transform);
+        _atomPicker = new BaibaoAtomPicker(BackgroundTransform, _editorCanvas, context.ScrollbarTemplate,
+            () => _draft.Blueprint, () => _draft.AutoName, () => _draft.AutoAppearance,
+            ToggleAtomFromPicker);
         CreateConfirmationPanel();
     }
 
     public override void OnNormalEnable()
     {
         StartCoroutine(BindBackButtonAfterScrollWindowStart());
+        _atomPicker.Hide();
         if (_resumeAfterClose)
         {
             _resumeAfterClose = false;
@@ -170,6 +175,7 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
 
     public override void OnNormalDisable()
     {
+        _atomPicker.Hide();
         if (_draft == null || !IsDirty() || _closingApproved) return;
         _resumeAfterClose = true;
         ModClass.I.StartCoroutine(ReopenAfterClose());
@@ -258,7 +264,6 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
         _shapes = ModClass.L.ItemShapeLibrary.list.OfType<ArtifactShapeAsset>()
             .OrderBy(shape => shape.id, StringComparer.Ordinal).ToArray();
         _atoms = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.All
-            .Where(atom => atom.category != ArtifactAtomCategory.Shape)
             .OrderBy(atom => atom.category).ThenByDescending(atom => atom.priority)
             .ThenBy(atom => atom.id, StringComparer.Ordinal).ToArray();
     }
@@ -417,41 +422,59 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
     private void BuildCompositionPage()
     {
         ArtifactAtomEntry[] entries = _draft.Blueprint.AtomData.entries ?? [];
-        ArtifactAtomEntry[] selected = entries.Where(entry =>
-            Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.get(entry.atom_id) != null).ToArray();
-        for (int i = 0; i < selected.Length; i++)
+        for (int categoryIndex = 0; categoryIndex < 3; categoryIndex++)
         {
-            ArtifactAtomEntry entry = selected[i];
-            ArtifactAtomAsset atom = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.get(entry.atom_id);
-            bool shapeAtom = atom.category == ArtifactAtomCategory.Shape;
-            BaibaoEditorRow row = _rowPool.GetNext();
-            row.Setup(BaibaoPresentation.GetAtomName(atom),
-                $"{BaibaoPresentation.GetAtomCategoryName(atom.category)}  ·  " +
-                string.Format("Cultiway.Baibao.UI.Format.AtomStrength".Localize(), entry.strength),
-                shapeAtom ? string.Empty : "Cultiway.Baibao.UI.Action.Remove".Localize(),
-                UiIcons.Remove, true, !shapeAtom,
-                shapeAtom ? null : () => RemoveAtom(entry.atom_id),
-                SpriteTextureLoader.getSprite(BaibaoUiIcons.Composition));
-            Transform controls = row.UseControls(26f);
-            GameObject strength = UiLayout.Create(controls, "Strength", true, 306f, 22f, 4f,
-                TextAnchor.MiddleCenter);
-            UiElements.CreateButton(strength.transform, "Decrease", "-", 28f, 21f,
-                () => StepAtomStrength(entry.atom_id, -0.25f));
-            UiElements.CreateText(strength.transform, "Value", entry.strength.ToString("0.00"), 212f, 21f, 8,
-                TextAnchor.MiddleCenter, FontStyle.Bold);
-            UiElements.CreateButton(strength.transform, "Increase", "+", 28f, 21f,
-                () => StepAtomStrength(entry.atom_id, 0.25f));
-        }
+            ArtifactAtomCategory category = (ArtifactAtomCategory)categoryIndex;
+            (ArtifactAtomEntry Entry, ArtifactAtomAsset Atom)[] selected = entries
+                .Select(entry => (Entry: entry,
+                    Atom: Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.get(entry.atom_id)))
+                .Where(item => item.Atom?.category == category)
+                .OrderByDescending(item => item.Atom.priority)
+                .ThenBy(item => item.Atom.id, StringComparer.Ordinal)
+                .ToArray();
 
-        HashSet<string> selectedIds = new(entries.Select(entry => entry.atom_id), StringComparer.Ordinal);
-        for (int i = 0; i < _atoms.Length; i++)
-        {
-            ArtifactAtomAsset atom = _atoms[i];
-            if (selectedIds.Contains(atom.id)) continue;
-            _rowPool.GetNext().Setup(BaibaoPresentation.GetAtomName(atom),
-                BaibaoPresentation.GetAtomCategoryName(atom.category),
-                "Cultiway.Baibao.UI.Action.Add".Localize(), UiIcons.Add, false, true,
-                () => AddAtom(atom), SpriteTextureLoader.getSprite(BaibaoUiIcons.Composition));
+            BaibaoEditorRow header = _rowPool.GetNext();
+            string categoryName = BaibaoPresentation.GetAtomCategoryName(category);
+            header.Setup(categoryName,
+                string.Format("Cultiway.Baibao.UI.Format.AtomCount".Localize(), selected.Length),
+                category == ArtifactAtomCategory.Shape
+                    ? "Cultiway.Baibao.UI.Action.ReplaceAtom".Localize()
+                    : "Cultiway.Baibao.UI.Action.AddAtom".Localize(),
+                category == ArtifactAtomCategory.Shape ? UiIcons.Select : UiIcons.Add,
+                false, true, () => ShowAtomPicker(category),
+                SpriteTextureLoader.getSprite(BaibaoPresentation.GetAtomCategoryIconPath(category)));
+            header.SetTooltip(categoryName,
+                $"Cultiway.Baibao.UI.AtomCategory.{category}.Description".Localize());
+
+            for (int i = 0; i < selected.Length; i++)
+            {
+                ArtifactAtomEntry entry = selected[i].Entry;
+                ArtifactAtomAsset atom = selected[i].Atom;
+                bool shapeAtom = atom.category == ArtifactAtomCategory.Shape;
+                BaibaoEditorRow row = _rowPool.GetNext();
+                row.Setup(BaibaoPresentation.GetAtomName(atom),
+                    BaibaoPresentation.GetAtomTraitSummary(atom, entry.strength, 2),
+                    string.Empty, UiIcons.Remove, true, !shapeAtom,
+                    shapeAtom ? null : () => RemoveAtom(entry.atom_id),
+                    BaibaoPresentation.GetAtomIcon(atom));
+                row.SetTooltip(BaibaoPresentation.GetAtomName(atom),
+                    BaibaoPresentation.GetAtomDescription(atom),
+                    BaibaoPresentation.GetAtomTooltipDetail(atom, entry.strength));
+                if (!shapeAtom)
+                    row.SetActionTooltip("Cultiway.Baibao.UI.Action.Remove".Localize(),
+                        "Cultiway.Baibao.UI.Tooltip.RemoveAtom".Localize());
+                Transform strength = row.UseInlineControls(94f, shapeAtom ? 0f : 28f);
+                Button decrease = UiElements.CreateButton(strength, "Decrease", "-", 24f, 21f,
+                    () => StepAtomStrength(entry.atom_id, -0.25f));
+                UiElements.CreateText(strength, "Value", entry.strength.ToString("0.00"), 42f, 21f, 7,
+                    TextAnchor.MiddleCenter, FontStyle.Bold);
+                Button increase = UiElements.CreateButton(strength, "Increase", "+", 24f, 21f,
+                    () => StepAtomStrength(entry.atom_id, 0.25f));
+                UiTooltip.Set(decrease.gameObject, "Cultiway.Baibao.UI.Action.DecreaseStrength".Localize(),
+                    "Cultiway.Baibao.UI.Tooltip.AtomStrength".Localize());
+                UiTooltip.Set(increase.gameObject, "Cultiway.Baibao.UI.Action.IncreaseStrength".Localize(),
+                    "Cultiway.Baibao.UI.Tooltip.AtomStrength".Localize());
+            }
         }
     }
 
@@ -747,6 +770,37 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
             List<ArtifactAtomEntry> entries = (_draft.Blueprint.AtomData.entries ?? []).ToList();
             entries.Add(new ArtifactAtomEntry { atom_id = atom.id, strength = 1f });
             _draft.Blueprint.AtomData = new ArtifactAtomData { entries = entries.ToArray() };
+        });
+    }
+
+    private void ShowAtomPicker(ArtifactAtomCategory category)
+    {
+        _atomPicker.Show(category, _atoms);
+    }
+
+    private void ToggleAtomFromPicker(ArtifactAtomAsset atom)
+    {
+        ArtifactAtomEntry[] entries = _draft.Blueprint.AtomData.entries ?? [];
+        if (entries.Any(entry => entry.atom_id == atom.id))
+        {
+            if (atom.category != ArtifactAtomCategory.Shape) RemoveAtom(atom.id);
+            return;
+        }
+        if (atom.category != ArtifactAtomCategory.Shape)
+        {
+            AddAtom(atom);
+            return;
+        }
+
+        ApplyMutation(() =>
+        {
+            List<ArtifactAtomEntry> next = entries.Where(entry =>
+            {
+                ArtifactAtomAsset current = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.get(entry.atom_id);
+                return current?.category != ArtifactAtomCategory.Shape;
+            }).ToList();
+            next.Add(new ArtifactAtomEntry { atom_id = atom.id, strength = 1f });
+            _draft.Blueprint.AtomData = new ArtifactAtomData { entries = next.ToArray() };
         });
     }
 

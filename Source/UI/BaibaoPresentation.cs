@@ -1,9 +1,11 @@
 using System;
 using System.Linq;
+using System.Text;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Artifacts.Baibao;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Core.Semantics;
 using NeoModLoader.General;
 using UnityEngine;
 
@@ -28,8 +30,91 @@ internal static class BaibaoPresentation
 
     public static string GetAtomName(ArtifactAtomAsset atom)
     {
-        string key = $"Cultiway.Baibao.Atom.{atom.id}";
-        return LocalizedOrFallback(key, atom.name_stems.FirstOrDefault() ?? atom.key ?? atom.id);
+        return atom.GetName();
+    }
+
+    public static string GetAtomDescription(ArtifactAtomAsset atom)
+    {
+        return atom.GetDescription();
+    }
+
+    public static Sprite GetAtomIcon(ArtifactAtomAsset atom)
+    {
+        Sprite sprite = string.IsNullOrEmpty(atom.editor_icon_path)
+            ? null
+            : SpriteTextureLoader.getSprite(atom.editor_icon_path);
+        return sprite ?? SpriteTextureLoader.getSprite(GetAtomCategoryIconPath(atom.category));
+    }
+
+    public static string GetAtomCategoryIconPath(ArtifactAtomCategory category)
+    {
+        return category switch
+        {
+            ArtifactAtomCategory.Shape => BaibaoUiIcons.Shape,
+            ArtifactAtomCategory.Material => BaibaoUiIcons.Composition,
+            ArtifactAtomCategory.Finish => BaibaoUiIcons.Appearance,
+            _ => BaibaoUiIcons.Composition,
+        };
+    }
+
+    public static string GetTraitName(string traitKey)
+    {
+        return ModClass.L.SemanticLibrary.TryResolve(traitKey, out SemanticAsset semantic)
+            ? semantic.GetName()
+            : traitKey;
+    }
+
+    public static string GetTraitFacetName(string traitKey)
+    {
+        return ModClass.L.SemanticLibrary.TryResolve(traitKey, out SemanticAsset semantic)
+            ? semantic.Facet.GetName()
+            : string.Empty;
+    }
+
+    public static string GetAtomTraitSummary(ArtifactAtomAsset atom, float strength, int limit = 3)
+    {
+        return string.Join(" · ", (atom.material_traits ?? [])
+            .Where(trait => trait.value != 0f)
+            .OrderByDescending(trait => Math.Abs(trait.value * strength))
+            .Take(limit)
+            .Select(trait => $"{GetTraitName(trait.key)} {FormatSigned(trait.value * strength)}"));
+    }
+
+    public static string GetAtomSearchText(ArtifactAtomAsset atom)
+    {
+        StringBuilder builder = new();
+        builder.Append(GetAtomName(atom)).Append(' ')
+            .Append(GetAtomDescription(atom)).Append(' ')
+            .Append(GetAtomCategoryName(atom.category));
+        string[] stems = atom.name_stems ?? [];
+        for (int i = 0; i < stems.Length; i++) builder.Append(' ').Append(stems[i]);
+        ArtifactMaterialTrait[] traits = atom.material_traits ?? [];
+        for (int i = 0; i < traits.Length; i++)
+        {
+            builder.Append(' ').Append(GetTraitName(traits[i].key))
+                .Append(' ').Append(GetTraitFacetName(traits[i].key));
+        }
+        return builder.ToString();
+    }
+
+    public static string GetAtomTooltipDetail(ArtifactAtomAsset atom, float strength)
+    {
+        string traits = GetAtomTraitSummary(atom, strength, 6);
+        return string.IsNullOrEmpty(traits)
+            ? GetAtomCategoryName(atom.category)
+            : $"{GetAtomCategoryName(atom.category)}\n" +
+              string.Format("Cultiway.Baibao.UI.Format.AtomTraits".Localize(), traits);
+    }
+
+    public static string GetAtomBiasSummary(ArtifactAtomAsset atom)
+    {
+        string variants = string.Join("、", (atom.variant_biases ?? []).Take(3)
+            .Select(value => GetVariantName(value.Contains('.') ? value.Substring(0, value.IndexOf('.')) : string.Empty,
+                value.Contains('.') ? value.Substring(value.IndexOf('.') + 1) : value)));
+        string colors = string.Join("、", (atom.color_scheme_biases ?? []).Take(3).Select(GetColorSchemeName));
+        if (string.IsNullOrEmpty(variants)) return colors;
+        if (string.IsNullOrEmpty(colors)) return variants;
+        return $"{variants}\n{colors}";
     }
 
     public static string GetAtomCategoryName(ArtifactAtomCategory category)
@@ -110,5 +195,10 @@ internal static class BaibaoPresentation
         if (string.IsNullOrEmpty(value)) return string.Empty;
         string tail = value.Contains('.') ? value.Substring(value.LastIndexOf('.') + 1) : value;
         return string.Join(" ", tail.Split(new[] { '_' }, StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    public static string FormatSigned(float value)
+    {
+        return value >= 0f ? $"+{value:0.##}" : value.ToString("0.##");
     }
 }

@@ -164,6 +164,9 @@ public partial class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAt
         ArtifactShapeAsset artifactShape = null)
     {
         atom.key = key;
+        atom.name_key = $"Cultiway.ArtifactAtom.{key}.Name";
+        atom.description_key = $"Cultiway.ArtifactAtom.{key}.Description";
+        atom.editor_icon_path = $"cultiway/icons/artifact_atoms/{key}";
         atom.category = category;
         atom.artifact_shape = artifactShape;
         atom.name_stems = stems;

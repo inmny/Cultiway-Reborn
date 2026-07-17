@@ -267,6 +267,19 @@ public partial class ArtifactAtoms
                 Trait(ArtifactMaterialTraits.Volatility, 0.25f),
             ]);
 
+        Set(CloudRidingScript, "cloud_riding_script", ArtifactAtomCategory.Finish, ["御空", "乘云", "凌霄"],
+            ["tower_base3d.floating_cloud_base", "fan_leaf3d.crane_feather_leaf", "banner_tassel3d.twin_silk"],
+            ["cloud_silk", "moon_silver"],
+            r => Shape(r, ItemShapes.Feather, ItemShapes.Wing, ItemShapes.Silk, ItemShapes.Wood, ItemShapes.Ball) +
+                 Semantic(r, ArtifactMaterialTraits.Mobility, 0.9f) +
+                 Semantic(r, ArtifactMaterialTraits.Space, 0.5f) + Quality(r, 1),
+            [
+                Trait(ArtifactMaterialTraits.Vehicle, 0.65f),
+                Trait(ArtifactMaterialTraits.Mobility, 0.55f),
+                Trait(ArtifactMaterialTraits.Projection, 0.4f),
+                Trait(ArtifactMaterialTraits.Sustain, 0.35f),
+            ]);
+
         Set(AncestralGuardianVow, "ancestral_guardian_vow", ArtifactAtomCategory.Finish,
                     ["镇宗", "祖誓", "山门"],
                     ["banner_cloth3d.cloud_war_banner", "tower_level3d.golden_scripture_chamber", "seal_crown3d.dragon_loop"],
