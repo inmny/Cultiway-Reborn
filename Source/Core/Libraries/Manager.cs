@@ -1,4 +1,5 @@
 using Cultiway.Core.AIGCLib;
+using Cultiway.Core.Semantics;
 
 namespace Cultiway.Core.Libraries;
 
@@ -27,6 +28,8 @@ public class Manager
     public SectBuildOrderLibrary SectBuildOrderLibrary { get; } = new();
     public SectJobLibrary SectJobLibrary { get; } = new();
     public SkillNameAtomLibrary SkillNameAtomLibrary { get; } = new();
+    public SemanticFacetLibrary SemanticFacetLibrary { get; } = new();
+    public SemanticLibrary SemanticLibrary { get; } = new();
 
     public void Init()
     {
@@ -53,6 +56,8 @@ public class Manager
         AssetManager._instance.add(SectBuildOrderLibrary, "sect_build_orders");
         AssetManager._instance.add(SectJobLibrary, "sect_jobs");
         AssetManager._instance.add(SkillNameAtomLibrary, "skill_name_atoms");
+        AssetManager._instance.add(SemanticFacetLibrary, "semantic_facets");
+        AssetManager._instance.add(SemanticLibrary, "semantics");
     }
 
     public void LinkAssets()
@@ -80,6 +85,8 @@ public class Manager
         SectBuildOrderLibrary.linkAssets();
         SectJobLibrary.linkAssets();
         SkillNameAtomLibrary.linkAssets();
+        SemanticFacetLibrary.linkAssets();
+        SemanticLibrary.linkAssets();
     }
     public void PostInit()
     {
@@ -106,5 +113,7 @@ public class Manager
         SectBuildOrderLibrary.post_init();
         SectJobLibrary.post_init();
         SkillNameAtomLibrary.post_init();
+        SemanticFacetLibrary.post_init();
+        SemanticLibrary.post_init();
     }
 }

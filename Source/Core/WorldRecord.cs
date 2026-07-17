@@ -7,7 +7,7 @@ namespace Cultiway.Core;
 
 public class WorldRecord
 {
-    private readonly HashSet<string> _tags = new();
+    private readonly HashSet<string> recordKeys = new();
 
     public WorldRecord(EntityStore world)
     {
@@ -20,23 +20,23 @@ public class WorldRecord
         where T : ICultisysComponent
     {
         string key = $"{cultisys}_{component.CurrLevel}";
-        if (!_tags.Add(key) && !ae.Base.isFavorite()) return;
+        if (!recordKeys.Add(key) && !ae.Base.isFavorite()) return;
 
         WorldLogUtils.LogCultisysLevelup(ae, ref component);
     }
 
-    public void AddStringTag(string tag)
+    public void AddKey(string key)
     {
-        _tags.Add(tag);
+        recordKeys.Add(key);
     }
 
-    public bool HasStringTag(string tag)
+    public bool HasKey(string key)
     {
-        return _tags.Contains(tag);
+        return recordKeys.Contains(key);
     }
 
-    public void RemoveStringTag(string tag)
+    public void RemoveKey(string key)
     {
-        _tags.Remove(tag);
+        recordKeys.Remove(key);
     }
 }

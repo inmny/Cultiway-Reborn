@@ -1,10 +1,14 @@
 using NeoModLoader.General;
+using Cultiway.Core.Semantics;
 using UnityEngine;
 
 namespace Cultiway.Core.Libraries;
 
 public class ElementRootAsset : Asset
 {
+    /// <summary>灵根类型稳定表达的先天语义；实际元素比例由组件数值贡献。</summary>
+    public SemanticDescriptor Semantics = new();
+
     public readonly BaseStats base_stats = new();
     public readonly ElementComposition composition;
     public string icon_path;

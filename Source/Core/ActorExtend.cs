@@ -179,6 +179,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     public void MarkCultiwayStatsDirty(bool set_actor_stats_dirty = true)
     {
         _cached_cultiway_stats_dirty = true;
+        MarkSemanticProfileDirty();
         if (set_actor_stats_dirty)
         {
             Base?.setStatsDirty();
@@ -188,6 +189,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     public void MarkCultiwaySkillCacheDirty(bool set_actor_stats_dirty = true)
     {
         _skill_cache_dirty = true;
+        MarkSemanticProfileDirty();
         if (set_actor_stats_dirty)
         {
             Base?.setStatsDirty();
