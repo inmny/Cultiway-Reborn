@@ -90,6 +90,7 @@ public partial class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     {
         InitXian();
         InitMagic();
+        InitKnight();
         ActorExtend.RegisterActionOnNewCreature(actor => RecheckAvailableCultisyses(actor));
         ProgressionLifecycle.RegisterCommitted(BreakthroughVisualTrigger.OnProgressionCommitted);
     }
@@ -98,5 +99,6 @@ public partial class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     {
         LoadStatsForXian();
         LoadStatsForMagic();
+        LoadStatsForKnight();
     }
 }

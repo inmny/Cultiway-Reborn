@@ -154,6 +154,7 @@ public partial class Cultisyses
     private static bool TryAcquireXian(ActorExtend ae)
     {
         if (ae.HasCultisys<Xian>() || !ae.HasElementRoot()) return false;
+        if (ae.HasCultisys<Knight>()) return false; // 骑士与修仙互斥
         if (!GetAvailableCultisysIds(ae).Contains(nameof(Xian))) return false;
         ref var elementRoot = ref ae.GetElementRoot();
         if (!ContentSetting.AllXian && elementRoot.Type == ModClass.L.ElementRootLibrary.Common) return false;

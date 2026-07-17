@@ -88,6 +88,12 @@ internal static class PatchActor
                 }
             }
 
+            // 骑士：和平期且本轮选中修炼工作时，操练积累斗气（战时不练）
+            if (ae.HasCultisys<Knight>() && use_cultivator_job)
+            {
+                pool.Add(ActorJobs.KnightCultivator.id);
+            }
+
             if (ae.TryGetComponent(out Xian xian))
             {
                 var cultivate_method = ae.GetMainCultibook()?.GetCultivateMethod() ?? CultivateMethods.Standard;

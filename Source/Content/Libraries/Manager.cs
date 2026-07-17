@@ -11,6 +11,7 @@ public class Manager
     public static ArtifactBlueprintExtensionLibrary ArtifactBlueprintExtensionLibrary { get; } = new();
     public static ArtifactPresentationLibrary ArtifactPresentationLibrary { get; } = new();
     public static CultibookLibrary CultibookLibrary { get; } = new();
+    public static BloodlineLibrary BloodlineLibrary { get; } = new();
     public static CultibookRuleProfileLibrary CultibookRuleProfileLibrary { get; } = new();
     public static YuanyingLibrary YuanyingLibrary { get; } = new();
     public static CultivateMethodLibrary CultivateMethodLibrary { get; } = new();
@@ -26,6 +27,7 @@ public class Manager
         AssetManager._instance.add(ArtifactBlueprintExtensionLibrary, "artifact_blueprint_extensions");
         AssetManager._instance.add(ArtifactPresentationLibrary, "artifact_presentations");
         AssetManager._instance.add(CultibookLibrary, "cultibooks");
+        AssetManager._instance.add(BloodlineLibrary, "bloodlines");
         AssetManager._instance.add(CultibookRuleProfileLibrary, "cultibook_rule_profiles");
         AssetManager._instance.add(YuanyingLibrary, "yuanying_types");
         AssetManager._instance.add(CultivateMethodLibrary, "cultivate_methods");
