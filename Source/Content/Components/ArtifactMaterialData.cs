@@ -137,7 +137,7 @@ public struct ArtifactMaterialData : IComponent
 }
 
 /// <summary>
-/// 法器材料与 atom 共用的语义键。新增能力应依赖这些语义，而不是判断具体器形。
+/// 法器材料与 atom 共用的持久化特征键。语义库将这些键作为别名解析为规范语义。
 /// </summary>
 public static class ArtifactMaterialTraits
 {

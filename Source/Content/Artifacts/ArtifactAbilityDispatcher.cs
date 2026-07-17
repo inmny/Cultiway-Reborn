@@ -1,5 +1,6 @@
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Core.Semantics;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 
@@ -137,16 +138,16 @@ public static class ArtifactAbilityDispatcher
     }
 
     /// <summary>
-    /// 判断法器是否拥有带指定语义标签的能力。
+    /// 判断法器是否拥有指定语义或能够蕴含该语义的能力。
     /// </summary>
-    public static bool HasAbilityTag(Entity artifact, string tag)
+    public static bool HasAbilitySemantic(Entity artifact, SemanticAsset semantic)
     {
         if (!artifact.TryGetComponent(out ArtifactAbilitySet abilitySet)) return false;
         for (int i = 0; i < abilitySet.abilities.Length; i++)
         {
             ArtifactAbilityAsset asset = Cultiway.Content.Libraries.Manager.ArtifactAbilityLibrary.get(
                 abilitySet.abilities[i].ability_id);
-            if (asset != null && asset.HasTag(tag)) return true;
+            if (asset.semantics.ContainsExpanded(ModClass.L.SemanticLibrary, semantic)) return true;
         }
         return false;
     }

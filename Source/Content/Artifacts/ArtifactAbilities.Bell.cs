@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
@@ -26,11 +27,18 @@ public partial class ArtifactAbilities
     private static void ConfigureSoulShakingChime()
     {
         SoulShakingChime.name_key = "Cultiway.ArtifactAbility.SoulShakingChime";
-        SoulShakingChime.tags = ["active", "offensive", "sound", "soul", "impact", "control"];
-        SoulShakingChime.exclusive_group = "sound_burst";
+        SoulShakingChime.SetSemantics(
+            ArtifactSemantics.Theme.Sound,
+            ArtifactSemantics.Theme.Soul,
+            ArtifactSemantics.Effect.Impact,
+            ArtifactSemantics.Effect.Control);
+        SoulShakingChime.exclusivity = ArtifactAbilityExclusivity.SoundBurst;
         SoulShakingChime.manifestation_cost = 1.2f;
-        SoulShakingChime.synergy_tags = ["sound", "impact", "soul"];
-        SoulShakingChime.conflict_tags = ["silence_aura"];
+        SoulShakingChime.AddSynergies(
+            ArtifactSemantics.Theme.Sound,
+            ArtifactSemantics.Effect.Impact,
+            ArtifactSemantics.Theme.Soul);
+        SoulShakingChime.AddConflicts(ArtifactSemanticRules.SilenceAura);
         SoulShakingChime.minimum_score = 1f;
         SoulShakingChime.use_profile = new ArtifactUseProfile { offensive = 0.85f, defensive = 0.2f };
         SoulShakingChime.control_complexity = 0.38f;
@@ -111,11 +119,17 @@ public partial class ArtifactAbilities
     private static void ConfigurePurifyingChime()
     {
         PurifyingChime.name_key = "Cultiway.ArtifactAbility.PurifyingChime";
-        PurifyingChime.tags = ["active", "support", "sound", "purification", "dispel"];
-        PurifyingChime.exclusive_group = "purification_burst";
+        PurifyingChime.SetSemantics(
+            ArtifactSemantics.Theme.Sound,
+            ArtifactSemantics.Effect.Purification,
+            ArtifactSemantics.Effect.Dispel);
+        PurifyingChime.exclusivity = ArtifactAbilityExclusivity.PurificationBurst;
         PurifyingChime.manifestation_cost = 1.05f;
-        PurifyingChime.synergy_tags = ["support", "sound", "ward"];
-        PurifyingChime.conflict_tags = ["curse_field"];
+        PurifyingChime.AddSynergies(
+            ArtifactSemantics.Role.Support,
+            ArtifactSemantics.Theme.Sound,
+            ArtifactSemantics.Effect.Ward);
+        PurifyingChime.AddConflicts(ArtifactSemanticRules.CurseField);
         PurifyingChime.minimum_score = 1f;
         PurifyingChime.use_profile = new ArtifactUseProfile { defensive = 0.55f, support = 1f };
         PurifyingChime.control_complexity = 0.3f;
@@ -189,11 +203,17 @@ public partial class ArtifactAbilities
     private static void ConfigureGoldenBellBarrier()
     {
         GoldenBellBarrier.name_key = "Cultiway.ArtifactAbility.GoldenBellBarrier";
-        GoldenBellBarrier.tags = ["active", "defensive", "shield", "sound", "ward"];
-        GoldenBellBarrier.exclusive_group = "active_barrier";
+        GoldenBellBarrier.SetSemantics(
+            ArtifactSemantics.Effect.Shield,
+            ArtifactSemantics.Theme.Sound,
+            ArtifactSemantics.Effect.Ward);
+        GoldenBellBarrier.exclusivity = ArtifactAbilityExclusivity.ActiveBarrier;
         GoldenBellBarrier.manifestation_cost = 1.2f;
-        GoldenBellBarrier.synergy_tags = ["defensive", "ward", "sustain"];
-        GoldenBellBarrier.conflict_tags = ["damage_conversion"];
+        GoldenBellBarrier.AddSynergies(
+            ArtifactSemantics.Role.Defensive,
+            ArtifactSemantics.Effect.Ward,
+            ArtifactSemantics.Form.Sustain);
+        GoldenBellBarrier.AddConflicts(ArtifactSemanticRules.DamageConversion);
         GoldenBellBarrier.minimum_score = 1f;
         GoldenBellBarrier.use_profile = new ArtifactUseProfile { defensive = 1f, support = 0.25f };
         GoldenBellBarrier.control_complexity = 0.4f;

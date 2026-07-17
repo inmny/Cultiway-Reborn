@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -27,11 +28,15 @@ public partial class ArtifactAbilities
     private static void ConfigureDingFireRefinement()
     {
         DingFireRefinement.name_key = "Cultiway.ArtifactAbility.DingFireRefinement";
-        DingFireRefinement.tags = ["active", "offensive", "deployment", "field", "fire", "transformation"];
-        DingFireRefinement.exclusive_group = "refining_flame_field";
+        DingFireRefinement.SetSemantics(
+            ArtifactSemantics.Delivery.Deployment,
+            ArtifactSemantics.Delivery.Field,
+            ArtifactSemantics.Element.Fire,
+            ArtifactSemantics.Effect.Transformation);
+        DingFireRefinement.exclusivity = ArtifactAbilityExclusivity.RefiningFlameField;
         DingFireRefinement.manifestation_cost = 1.35f;
-        DingFireRefinement.synergy_tags = ["alchemy", "amplification"];
-        DingFireRefinement.conflict_tags = ["cold_field"];
+        DingFireRefinement.AddSynergies(ArtifactSemantics.Craft.Alchemy, ArtifactSemantics.Effect.Amplification);
+        DingFireRefinement.AddConflicts(ArtifactSemanticRules.ColdField);
         DingFireRefinement.minimum_score = 1f;
         DingFireRefinement.use_profile = new ArtifactUseProfile { offensive = 0.85f, production = 0.2f };
         DingFireRefinement.control_complexity = 0.46f;
@@ -146,11 +151,15 @@ public partial class ArtifactAbilities
     private static void ConfigureDevouringReturn()
     {
         DevouringReturn.name_key = "Cultiway.ArtifactAbility.DevouringReturn";
-        DevouringReturn.tags = ["active", "offensive", "deployment", "field", "devouring", "recovery"];
-        DevouringReturn.exclusive_group = "devouring_field";
+        DevouringReturn.SetSemantics(
+            ArtifactSemantics.Delivery.Deployment,
+            ArtifactSemantics.Delivery.Field,
+            ArtifactSemantics.Effect.Devouring,
+            ArtifactSemantics.Effect.Recovery);
+        DevouringReturn.exclusivity = ArtifactAbilityExclusivity.DevouringField;
         DevouringReturn.manifestation_cost = 1.5f;
-        DevouringReturn.synergy_tags = ["storage", "recovery"];
-        DevouringReturn.conflict_tags = ["purification"];
+        DevouringReturn.AddSynergies(ArtifactSemantics.Effect.Storage, ArtifactSemantics.Effect.Recovery);
+        DevouringReturn.AddConflicts(ArtifactSemanticRules.Purification);
         DevouringReturn.minimum_score = 1f;
         DevouringReturn.use_profile = new ArtifactUseProfile { offensive = 0.7f, defensive = 0.3f, cultivate = 0.25f };
         DevouringReturn.control_complexity = 0.56f;
@@ -269,10 +278,10 @@ public partial class ArtifactAbilities
     private static void ConfigureHundredRefinementCore()
     {
         HundredRefinementCore.name_key = "Cultiway.ArtifactAbility.HundredRefinementCore";
-        HundredRefinementCore.tags = ["passive", "production", "refinement", "transformation"];
-        HundredRefinementCore.exclusive_group = "general_refinement_assist";
+        HundredRefinementCore.SetSemantics(ArtifactSemantics.Craft.Refinement, ArtifactSemantics.Effect.Transformation);
+        HundredRefinementCore.exclusivity = ArtifactAbilityExclusivity.GeneralRefinementAssist;
         HundredRefinementCore.manifestation_cost = 0.9f;
-        HundredRefinementCore.synergy_tags = ["production", "stability"];
+        HundredRefinementCore.AddSynergies(ArtifactSemantics.Role.Production, ArtifactSemantics.Material.Stability);
         HundredRefinementCore.minimum_score = 1f;
         HundredRefinementCore.use_profile = new ArtifactUseProfile { production = 1f };
         HundredRefinementCore.control_complexity = 0.22f;

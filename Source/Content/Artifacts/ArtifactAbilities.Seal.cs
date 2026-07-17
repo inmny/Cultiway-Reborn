@@ -1,6 +1,7 @@
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -27,11 +28,14 @@ public partial class ArtifactAbilities
     private static void ConfigureMountainSealFall()
     {
         MountainSealFall.name_key = "Cultiway.ArtifactAbility.MountainSealFall";
-        MountainSealFall.tags = ["active", "offensive", "deployment", "impact", "control"];
-        MountainSealFall.exclusive_group = "heavy_impact";
+        MountainSealFall.SetSemantics(
+            ArtifactSemantics.Delivery.Deployment,
+            ArtifactSemantics.Effect.Impact,
+            ArtifactSemantics.Effect.Control);
+        MountainSealFall.exclusivity = ArtifactAbilityExclusivity.HeavyImpact;
         MountainSealFall.manifestation_cost = 1.45f;
-        MountainSealFall.synergy_tags = ["suppression", "field"];
-        MountainSealFall.conflict_tags = ["lightweight"];
+        MountainSealFall.AddSynergies(ArtifactSemantics.Effect.Suppression, ArtifactSemantics.Delivery.Field);
+        MountainSealFall.AddConflicts(ArtifactSemanticRules.Lightweight);
         MountainSealFall.minimum_score = 1f;
         MountainSealFall.use_profile = new ArtifactUseProfile { offensive = 0.9f, defensive = 0.15f };
         MountainSealFall.control_complexity = 0.46f;
@@ -173,11 +177,14 @@ public partial class ArtifactAbilities
     private static void ConfigureSpellBanningEdict()
     {
         SpellBanningEdict.name_key = "Cultiway.ArtifactAbility.SpellBanningEdict";
-        SpellBanningEdict.tags = ["active", "offensive", "deployment", "field", "silence"];
-        SpellBanningEdict.exclusive_group = "spell_banning_field";
+        SpellBanningEdict.SetSemantics(
+            ArtifactSemantics.Delivery.Deployment,
+            ArtifactSemantics.Delivery.Field,
+            ArtifactSemantics.Effect.Silence);
+        SpellBanningEdict.exclusivity = ArtifactAbilityExclusivity.SpellBanningField;
         SpellBanningEdict.manifestation_cost = 1.35f;
-        SpellBanningEdict.synergy_tags = ["suppression", "soul"];
-        SpellBanningEdict.conflict_tags = ["skill_amplification"];
+        SpellBanningEdict.AddSynergies(ArtifactSemantics.Effect.Suppression, ArtifactSemantics.Theme.Soul);
+        SpellBanningEdict.AddConflicts(ArtifactSemanticRules.SkillAmplification);
         SpellBanningEdict.minimum_score = 1f;
         SpellBanningEdict.use_profile = new ArtifactUseProfile { offensive = 0.6f, support = 0.55f };
         SpellBanningEdict.control_complexity = 0.5f;
@@ -284,10 +291,10 @@ public partial class ArtifactAbilities
     private static void ConfigureMeridianSealing()
     {
         MeridianSealing.name_key = "Cultiway.ArtifactAbility.MeridianSealing";
-        MeridianSealing.tags = ["active", "offensive", "control", "sealing"];
-        MeridianSealing.exclusive_group = "single_target_sealing";
+        MeridianSealing.SetSemantics(ArtifactSemantics.Effect.Control, ArtifactSemantics.Effect.Sealing);
+        MeridianSealing.exclusivity = ArtifactAbilityExclusivity.SingleTargetSealing;
         MeridianSealing.manifestation_cost = 0.95f;
-        MeridianSealing.synergy_tags = ["debuff", "soul"];
+        MeridianSealing.AddSynergies(ArtifactSemantics.Effect.Debuff, ArtifactSemantics.Theme.Soul);
         MeridianSealing.minimum_score = 1f;
         MeridianSealing.use_profile = new ArtifactUseProfile { offensive = 0.75f, support = 0.25f };
         MeridianSealing.control_complexity = 0.34f;

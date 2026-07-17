@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using NeoModLoader.General;
 using strings;
 using UnityEngine;
@@ -29,10 +30,16 @@ public partial class ArtifactAbilities
     private static void ConfigureArtifactSpiritAwakening()
     {
         ArtifactSpiritAwakening.name_key = "Cultiway.ArtifactAbility.ArtifactSpiritAwakening";
-        ArtifactSpiritAwakening.tags = ["passive", "support", "summon", "spirit", "growth"];
-        ArtifactSpiritAwakening.exclusive_group = "artifact_spirit";
+        ArtifactSpiritAwakening.SetSemantics(
+            ArtifactSemantics.Effect.Summon,
+            ArtifactSemantics.Theme.Spirit,
+            ArtifactSemantics.Effect.Growth);
+        ArtifactSpiritAwakening.exclusivity = ArtifactAbilityExclusivity.ArtifactSpirit;
         ArtifactSpiritAwakening.manifestation_cost = 1.45f;
-        ArtifactSpiritAwakening.synergy_tags = ["soul", "spirituality", "sustain"];
+        ArtifactSpiritAwakening.AddSynergies(
+            ArtifactSemantics.Theme.Soul,
+            ArtifactSemantics.Resource.Spirituality,
+            ArtifactSemantics.Form.Sustain);
         ArtifactSpiritAwakening.minimum_score = 1f;
         ArtifactSpiritAwakening.use_profile = new ArtifactUseProfile { offensive = 0.45f, support = 0.55f };
         ArtifactSpiritAwakening.control_complexity = 0.42f;

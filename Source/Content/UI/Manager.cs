@@ -280,7 +280,7 @@ public class Manager : ICanInit
         for (int i = 0; i < atoms.Length; i++)
         {
             ArtifactAtomAsset atom = Libraries.Manager.ArtifactAtomLibrary.get(atoms[i].atom_id);
-            string name = atom.name_stems.Length > 0 ? atom.name_stems[0] : atom.tag;
+            string name = atom.name_stems.Length > 0 ? atom.name_stems[0] : atom.id;
             tooltip.Tooltip.addLineText(name, $"{atoms[i].strength:0.##}", pLocalize: false);
         }
         if (artifact.TryGetComponent(out ArtifactAttunement currentAttunement))

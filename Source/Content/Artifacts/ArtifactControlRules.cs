@@ -103,12 +103,15 @@ public static class ArtifactControlRules
     /// <param name="artifact">法器</param>
     /// <param name="state">法器状态</param>
     /// <param name="elapsedSeconds">流逝时间</param>
-    public static void AdvanceAttunement(
+    public static bool AdvanceAttunement(
         Entity artifact,
         ArtifactControlState state,
         float elapsedSeconds)
     {
         ref ArtifactAttunement attunement = ref artifact.GetComponent<ArtifactAttunement>();
-        attunement.mastery = Mathf.Min(100f, attunement.mastery + elapsedSeconds * state.GetAttunementRate());
+        float mastery = Mathf.Min(100f, attunement.mastery + elapsedSeconds * state.GetAttunementRate());
+        if (mastery.Equals(attunement.mastery)) return false;
+        attunement.mastery = mastery;
+        return true;
     }
 }

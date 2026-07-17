@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using NeoModLoader.General;
 using strings;
 using UnityEngine;
@@ -24,10 +25,13 @@ public partial class ArtifactAbilities
     private static void ConfigureSectGuardianTreasure()
     {
         SectGuardianTreasure.name_key = "Cultiway.ArtifactAbility.SectGuardianTreasure";
-        SectGuardianTreasure.tags = ["passive", "support", "sect", "field"];
-        SectGuardianTreasure.exclusive_group = "sect_guardian";
+        SectGuardianTreasure.SetSemantics(ArtifactSemantics.Organization.Sect, ArtifactSemantics.Delivery.Field);
+        SectGuardianTreasure.exclusivity = ArtifactAbilityExclusivity.SectGuardian;
         SectGuardianTreasure.manifestation_cost = 1.15f;
-        SectGuardianTreasure.synergy_tags = ["ward", "field", "sustain"];
+        SectGuardianTreasure.AddSynergies(
+            ArtifactSemantics.Effect.Ward,
+            ArtifactSemantics.Delivery.Field,
+            ArtifactSemantics.Form.Sustain);
         SectGuardianTreasure.minimum_score = 1f;
         SectGuardianTreasure.use_profile = new ArtifactUseProfile { defensive = 0.35f, support = 0.8f };
         SectGuardianTreasure.control_complexity = 0.28f;

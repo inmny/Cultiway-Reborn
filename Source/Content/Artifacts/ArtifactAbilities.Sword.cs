@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
@@ -30,11 +31,11 @@ public partial class ArtifactAbilities
     private static void ConfigureSplittingSwordArray()
     {
         SplittingSwordArray.name_key = "Cultiway.ArtifactAbility.SplittingSwordArray";
-        SplittingSwordArray.tags = ["active", "offensive", "projection", "array"];
-        SplittingSwordArray.exclusive_group = "projection_array";
+        SplittingSwordArray.SetSemantics(ArtifactSemantics.Delivery.Projection, ArtifactSemantics.Form.Array);
+        SplittingSwordArray.exclusivity = ArtifactAbilityExclusivity.ProjectionArray;
         SplittingSwordArray.manifestation_cost = 1.4f;
-        SplittingSwordArray.synergy_tags = ["offensive", "resonance"];
-        SplittingSwordArray.conflict_tags = ["singular_projection"];
+        SplittingSwordArray.AddSynergies(ArtifactSemantics.Role.Offensive, ArtifactSemantics.Effect.Resonance);
+        SplittingSwordArray.AddConflicts(ArtifactSemanticRules.SingularProjection);
         SplittingSwordArray.minimum_score = 1f;
         SplittingSwordArray.use_profile = new ArtifactUseProfile { offensive = 0.85f, defensive = 0.2f };
         SplittingSwordArray.control_complexity = 0.52f;
@@ -135,11 +136,11 @@ public partial class ArtifactAbilities
     private static void ConfigureReturningBladeGuard()
     {
         ReturningBladeGuard.name_key = "Cultiway.ArtifactAbility.ReturningBladeGuard";
-        ReturningBladeGuard.tags = ["reaction", "defensive", "counter", "blade"];
-        ReturningBladeGuard.exclusive_group = "blade_counter";
+        ReturningBladeGuard.SetSemantics(ArtifactSemantics.Effect.Counter, ArtifactSemantics.Form.Blade);
+        ReturningBladeGuard.exclusivity = ArtifactAbilityExclusivity.BladeCounter;
         ReturningBladeGuard.manifestation_cost = 0.9f;
-        ReturningBladeGuard.synergy_tags = ["defensive", "offensive"];
-        ReturningBladeGuard.conflict_tags = ["nonretaliation"];
+        ReturningBladeGuard.AddSynergies(ArtifactSemantics.Role.Defensive, ArtifactSemantics.Role.Offensive);
+        ReturningBladeGuard.AddConflicts(ArtifactSemanticRules.Nonretaliation);
         ReturningBladeGuard.minimum_score = 1f;
         ReturningBladeGuard.use_profile = new ArtifactUseProfile { offensive = 0.45f, defensive = 0.85f };
         ReturningBladeGuard.control_complexity = 0.3f;
@@ -219,10 +220,10 @@ public partial class ArtifactAbilities
     private static void ConfigureArmorPiercingSwordAura()
     {
         ArmorPiercingSwordAura.name_key = "Cultiway.ArtifactAbility.ArmorPiercingSwordAura";
-        ArmorPiercingSwordAura.tags = ["passive", "offensive", "debuff", "armor_break"];
-        ArmorPiercingSwordAura.exclusive_group = "armor_break_on_hit";
+        ArmorPiercingSwordAura.SetSemantics(ArtifactSemantics.Effect.Debuff, ArtifactSemantics.Effect.ArmorBreak);
+        ArmorPiercingSwordAura.exclusivity = ArtifactAbilityExclusivity.ArmorBreakOnHit;
         ArmorPiercingSwordAura.manifestation_cost = 0.7f;
-        ArmorPiercingSwordAura.synergy_tags = ["offensive", "hit"];
+        ArmorPiercingSwordAura.AddSynergies(ArtifactSemantics.Role.Offensive, ArtifactSemantics.Effect.Hit);
         ArmorPiercingSwordAura.minimum_score = 1f;
         ArmorPiercingSwordAura.use_profile = new ArtifactUseProfile { offensive = 0.95f };
         ArmorPiercingSwordAura.control_complexity = 0.16f;

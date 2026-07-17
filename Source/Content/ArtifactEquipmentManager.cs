@@ -1,6 +1,7 @@
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Content;
@@ -21,6 +22,7 @@ public class ArtifactEquipmentManager : ICanInit
         foreach (Entity owner in owners)
         {
             owner.RemoveRelation<EquippedArtifactRelation>(item);
+            owner.GetComponent<ActorBinder>().AE.MarkSemanticProfileDirty();
         }
     }
 
@@ -38,6 +40,7 @@ public class ArtifactEquipmentManager : ICanInit
         if (inventory is ActorExtend actor)
         {
             actor.E.RemoveRelation<EquippedArtifactRelation>(item);
+            actor.MarkSemanticProfileDirty();
         }
     }
 

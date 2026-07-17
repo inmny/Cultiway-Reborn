@@ -83,7 +83,7 @@ public static class ArtifactMaterialSemantics
         {
             ArtifactAtomSelection selection = atoms[i];
             atomComplexity += selection.Strength * 0.035f;
-            ArtifactMaterialTrait[] contributions = selection.Atom.semantic_traits ?? [];
+            ArtifactMaterialTrait[] contributions = selection.Atom.material_traits ?? [];
             for (int j = 0; j < contributions.Length; j++)
             {
                 ArtifactMaterialTrait contribution = contributions[j];

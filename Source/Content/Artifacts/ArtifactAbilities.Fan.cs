@@ -1,6 +1,7 @@
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
@@ -28,11 +29,14 @@ public partial class ArtifactAbilities
     private static void ConfigureGaleFanSweep()
     {
         GaleFanSweep.name_key = "Cultiway.ArtifactAbility.GaleFanSweep";
-        GaleFanSweep.tags = ["active", "offensive", "cone", "wind", "force"];
-        GaleFanSweep.exclusive_group = "wind_cone";
+        GaleFanSweep.SetSemantics(ArtifactSemantics.Form.Cone, ArtifactSemantics.Element.Wind, ArtifactSemantics.Effect.Force);
+        GaleFanSweep.exclusivity = ArtifactAbilityExclusivity.WindCone;
         GaleFanSweep.manifestation_cost = 1.05f;
-        GaleFanSweep.synergy_tags = ["mobility", "impact", "projection"];
-        GaleFanSweep.conflict_tags = ["immovable_field"];
+        GaleFanSweep.AddSynergies(
+            ArtifactSemantics.Effect.Mobility,
+            ArtifactSemantics.Effect.Impact,
+            ArtifactSemantics.Delivery.Projection);
+        GaleFanSweep.AddConflicts(ArtifactSemanticRules.ImmovableField);
         GaleFanSweep.minimum_score = 1f;
         GaleFanSweep.use_profile = new ArtifactUseProfile { offensive = 0.9f, defensive = 0.2f };
         GaleFanSweep.control_complexity = 0.3f;
@@ -121,11 +125,14 @@ public partial class ArtifactAbilities
     private static void ConfigureDepartingFireFan()
     {
         DepartingFireFan.name_key = "Cultiway.ArtifactAbility.DepartingFireFan";
-        DepartingFireFan.tags = ["active", "offensive", "cone", "fire", "status"];
-        DepartingFireFan.exclusive_group = "fire_cone";
+        DepartingFireFan.SetSemantics(ArtifactSemantics.Form.Cone, ArtifactSemantics.Element.Fire, ArtifactSemantics.Effect.Status);
+        DepartingFireFan.exclusivity = ArtifactAbilityExclusivity.FireCone;
         DepartingFireFan.manifestation_cost = 1.12f;
-        DepartingFireFan.synergy_tags = ["fire", "volatility", "projection"];
-        DepartingFireFan.conflict_tags = ["water_field"];
+        DepartingFireFan.AddSynergies(
+            ArtifactSemantics.Element.Fire,
+            ArtifactSemantics.Material.Volatility,
+            ArtifactSemantics.Delivery.Projection);
+        DepartingFireFan.AddConflicts(ArtifactSemanticRules.WaterField);
         DepartingFireFan.minimum_score = 1f;
         DepartingFireFan.use_profile = new ArtifactUseProfile { offensive = 1f };
         DepartingFireFan.control_complexity = 0.34f;
@@ -214,11 +221,17 @@ public partial class ArtifactAbilities
     private static void ConfigureCleansingWindFan()
     {
         CleansingWindFan.name_key = "Cultiway.ArtifactAbility.CleansingWindFan";
-        CleansingWindFan.tags = ["active", "support", "cone", "purification", "dispel"];
-        CleansingWindFan.exclusive_group = "cleansing_cone";
+        CleansingWindFan.SetSemantics(
+            ArtifactSemantics.Form.Cone,
+            ArtifactSemantics.Effect.Purification,
+            ArtifactSemantics.Effect.Dispel);
+        CleansingWindFan.exclusivity = ArtifactAbilityExclusivity.CleansingCone;
         CleansingWindFan.manifestation_cost = 0.95f;
-        CleansingWindFan.synergy_tags = ["purification", "mobility", "support"];
-        CleansingWindFan.conflict_tags = ["curse_field"];
+        CleansingWindFan.AddSynergies(
+            ArtifactSemantics.Effect.Purification,
+            ArtifactSemantics.Effect.Mobility,
+            ArtifactSemantics.Role.Support);
+        CleansingWindFan.AddConflicts(ArtifactSemanticRules.CurseField);
         CleansingWindFan.minimum_score = 1f;
         CleansingWindFan.use_profile = new ArtifactUseProfile { defensive = 0.55f, support = 1f };
         CleansingWindFan.control_complexity = 0.28f;

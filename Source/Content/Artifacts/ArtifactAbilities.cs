@@ -4,6 +4,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
@@ -18,7 +19,8 @@ namespace Cultiway.Content;
 /// <summary>
 /// 基础法器能力。能力只声明组合规则、参数、启动入口和领域事件处理，持续空间运动由 SkillExecution 驱动。
 /// </summary>
-[Dependency(typeof(ArtifactAtoms), typeof(ArtifactSkillExecutions), typeof(StatusEffects), typeof(SkillVfxElements))]
+[Dependency(typeof(CultivationSemantics), typeof(ArtifactAtoms), typeof(ArtifactSkillExecutions),
+    typeof(StatusEffects), typeof(SkillVfxElements))]
 public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, ArtifactAbilities>
 {
     private const string DamageMultiplier = "damage_multiplier";
@@ -59,8 +61,8 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
     private static void ConfigureFlyingSwordAttack()
     {
         FlyingSwordAttack.name_key = "Cultiway.ArtifactAbility.FlyingSwordAttack";
-        FlyingSwordAttack.tags = ["active", "offensive", "spatial"];
-        FlyingSwordAttack.exclusive_group = "spatial_attack";
+        FlyingSwordAttack.SetSemantics(ArtifactSemantics.Theme.Space);
+        FlyingSwordAttack.exclusivity = ArtifactAbilityExclusivity.SpatialAttack;
         FlyingSwordAttack.minimum_score = 1f;
         FlyingSwordAttack.use_profile = new ArtifactUseProfile { offensive = 1f };
         FlyingSwordAttack.control_complexity = 0.35f;
@@ -140,8 +142,8 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
     private static void ConfigureDingAlchemyAssist()
     {
         DingAlchemyAssist.name_key = "Cultiway.ArtifactAbility.DingAlchemyAssist";
-        DingAlchemyAssist.tags = ["passive", "production", "alchemy"];
-        DingAlchemyAssist.exclusive_group = "alchemy_assist";
+        DingAlchemyAssist.SetSemantics(ArtifactSemantics.Craft.Alchemy);
+        DingAlchemyAssist.exclusivity = ArtifactAbilityExclusivity.AlchemyAssist;
         DingAlchemyAssist.minimum_score = 1f;
         DingAlchemyAssist.use_profile = new ArtifactUseProfile { production = 1f };
         DingAlchemyAssist.control_complexity = 0.2f;

@@ -1,5 +1,7 @@
 using Cultiway.Content.Components;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
@@ -29,8 +31,8 @@ public partial class ArtifactAbilities
     private static void ConfigureMirrorInsight()
     {
         MirrorInsight.name_key = "Cultiway.ArtifactAbility.MirrorInsight";
-        MirrorInsight.tags = ["passive", "support", "perception"];
-        MirrorInsight.exclusive_group = "perception_support";
+        MirrorInsight.SetSemantics(ArtifactSemantics.Effect.Perception);
+        MirrorInsight.exclusivity = ArtifactAbilityExclusivity.PerceptionSupport;
         MirrorInsight.minimum_score = 1f;
         MirrorInsight.use_profile = new ArtifactUseProfile { offensive = 0.2f, support = 0.8f };
         MirrorInsight.control_complexity = 0.12f;
@@ -75,8 +77,8 @@ public partial class ArtifactAbilities
     private static void ConfigureVitalityRenewal()
     {
         VitalityRenewal.name_key = "Cultiway.ArtifactAbility.VitalityRenewal";
-        VitalityRenewal.tags = ["passive", "support", "recovery"];
-        VitalityRenewal.exclusive_group = "continuous_recovery";
+        VitalityRenewal.SetSemantics(ArtifactSemantics.Effect.Recovery);
+        VitalityRenewal.exclusivity = ArtifactAbilityExclusivity.ContinuousRecovery;
         VitalityRenewal.minimum_score = 1f;
         VitalityRenewal.use_profile = new ArtifactUseProfile { defensive = 0.35f, support = 0.75f };
         VitalityRenewal.control_complexity = 0.16f;
@@ -114,8 +116,8 @@ public partial class ArtifactAbilities
     private static void ConfigureSpiritReservoir()
     {
         SpiritReservoir.name_key = "Cultiway.ArtifactAbility.SpiritReservoir";
-        SpiritReservoir.tags = ["passive", "support", "resource"];
-        SpiritReservoir.exclusive_group = "spirit_reservoir";
+        SpiritReservoir.SetSemantics(ArtifactSemantics.Resource.Reserve, ArtifactSemantics.Resource.Spirituality);
+        SpiritReservoir.exclusivity = ArtifactAbilityExclusivity.SpiritReservoir;
         SpiritReservoir.minimum_score = 1f;
         SpiritReservoir.use_profile = new ArtifactUseProfile { support = 0.35f, cultivate = 0.9f };
         SpiritReservoir.control_complexity = 0.1f;

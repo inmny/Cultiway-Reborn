@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core.Components;
 using NeoModLoader.General;
 using UnityEngine;
@@ -20,8 +21,8 @@ public partial class ArtifactAbilities
     private static void ConfigureGuardianWard()
     {
         GuardianWard.name_key = "Cultiway.ArtifactAbility.GuardianWard";
-        GuardianWard.tags = ["reaction", "defensive", "guardian"];
-        GuardianWard.exclusive_group = "guardian_reaction";
+        GuardianWard.SetSemantics(ArtifactSemantics.Effect.Guardian, ArtifactSemantics.Effect.Ward);
+        GuardianWard.exclusivity = ArtifactAbilityExclusivity.GuardianReaction;
         GuardianWard.minimum_score = 1f;
         GuardianWard.use_profile = new ArtifactUseProfile { defensive = 1f, support = 0.25f };
         GuardianWard.control_complexity = 0.2f;

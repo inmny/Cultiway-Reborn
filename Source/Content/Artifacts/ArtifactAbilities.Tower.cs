@@ -1,6 +1,7 @@
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
 using NeoModLoader.General;
@@ -27,11 +28,17 @@ public partial class ArtifactAbilities
     private static void ConfigureTreasureTowerPrison()
     {
         TreasureTowerPrison.name_key = "Cultiway.ArtifactAbility.TreasureTowerPrison";
-        TreasureTowerPrison.tags = ["active", "offensive", "deployment", "imprisonment", "field"];
-        TreasureTowerPrison.exclusive_group = "imprisonment_field";
+        TreasureTowerPrison.SetSemantics(
+            ArtifactSemantics.Delivery.Deployment,
+            ArtifactSemantics.Effect.Imprisonment,
+            ArtifactSemantics.Delivery.Field);
+        TreasureTowerPrison.exclusivity = ArtifactAbilityExclusivity.ImprisonmentField;
         TreasureTowerPrison.manifestation_cost = 1.65f;
-        TreasureTowerPrison.synergy_tags = ["sealing", "space", "suppression"];
-        TreasureTowerPrison.conflict_tags = ["mobility_field"];
+        TreasureTowerPrison.AddSynergies(
+            ArtifactSemantics.Effect.Sealing,
+            ArtifactSemantics.Theme.Space,
+            ArtifactSemantics.Effect.Suppression);
+        TreasureTowerPrison.AddConflicts(ArtifactSemanticRules.MobilityField);
         TreasureTowerPrison.minimum_score = 1f;
         TreasureTowerPrison.use_profile = new ArtifactUseProfile { offensive = 0.85f, defensive = 0.3f };
         TreasureTowerPrison.control_complexity = 0.62f;
@@ -131,11 +138,17 @@ public partial class ArtifactAbilities
     private static void ConfigureLayeredRealmWard()
     {
         LayeredRealmWard.name_key = "Cultiway.ArtifactAbility.LayeredRealmWard";
-        LayeredRealmWard.tags = ["active", "support", "deployment", "ward", "field"];
-        LayeredRealmWard.exclusive_group = "layered_ward_field";
+        LayeredRealmWard.SetSemantics(
+            ArtifactSemantics.Delivery.Deployment,
+            ArtifactSemantics.Effect.Ward,
+            ArtifactSemantics.Delivery.Field);
+        LayeredRealmWard.exclusivity = ArtifactAbilityExclusivity.LayeredWardField;
         LayeredRealmWard.manifestation_cost = 1.35f;
-        LayeredRealmWard.synergy_tags = ["ward", "sustain", "hardness"];
-        LayeredRealmWard.conflict_tags = ["concealment"];
+        LayeredRealmWard.AddSynergies(
+            ArtifactSemantics.Effect.Ward,
+            ArtifactSemantics.Form.Sustain,
+            ArtifactSemantics.Material.Hardness);
+        LayeredRealmWard.AddConflicts(ArtifactSemanticRules.Concealment);
         LayeredRealmWard.minimum_score = 1f;
         LayeredRealmWard.use_profile = new ArtifactUseProfile { defensive = 0.9f, support = 0.85f };
         LayeredRealmWard.control_complexity = 0.45f;
@@ -233,11 +246,17 @@ public partial class ArtifactAbilities
     private static void ConfigureTowerShadowProjection()
     {
         TowerShadowProjection.name_key = "Cultiway.ArtifactAbility.TowerShadowProjection";
-        TowerShadowProjection.tags = ["active", "offensive", "projection", "field", "suppression"];
-        TowerShadowProjection.exclusive_group = "remote_projection";
+        TowerShadowProjection.SetSemantics(
+            ArtifactSemantics.Delivery.Projection,
+            ArtifactSemantics.Delivery.Field,
+            ArtifactSemantics.Effect.Suppression);
+        TowerShadowProjection.exclusivity = ArtifactAbilityExclusivity.RemoteProjection;
         TowerShadowProjection.manifestation_cost = 1.4f;
-        TowerShadowProjection.synergy_tags = ["projection", "space", "suppression"];
-        TowerShadowProjection.conflict_tags = ["body_deployment"];
+        TowerShadowProjection.AddSynergies(
+            ArtifactSemantics.Delivery.Projection,
+            ArtifactSemantics.Theme.Space,
+            ArtifactSemantics.Effect.Suppression);
+        TowerShadowProjection.AddConflicts(ArtifactSemanticRules.BodyDeployment);
         TowerShadowProjection.minimum_score = 1f;
         TowerShadowProjection.use_profile = new ArtifactUseProfile { offensive = 0.75f, defensive = 0.3f };
         TowerShadowProjection.control_complexity = 0.56f;

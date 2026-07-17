@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using NeoModLoader.General;
 using strings;
 using UnityEngine;
@@ -26,11 +27,14 @@ public partial class ArtifactAbilities
     private static void ConfigureArtifactRiding()
     {
         ArtifactRiding.name_key = "Cultiway.ArtifactAbility.ArtifactRiding";
-        ArtifactRiding.tags = ["passive", "support", "movement", "vehicle"];
-        ArtifactRiding.exclusive_group = "artifact_vehicle";
+        ArtifactRiding.SetSemantics(ArtifactSemantics.Effect.Movement, ArtifactSemantics.Role.Vehicle);
+        ArtifactRiding.exclusivity = ArtifactAbilityExclusivity.ArtifactVehicle;
         ArtifactRiding.manifestation_cost = 0.9f;
-        ArtifactRiding.synergy_tags = ["mobility", "space", "projection"];
-        ArtifactRiding.conflict_tags = ["immobile_core"];
+        ArtifactRiding.AddSynergies(
+            ArtifactSemantics.Effect.Mobility,
+            ArtifactSemantics.Theme.Space,
+            ArtifactSemantics.Delivery.Projection);
+        ArtifactRiding.AddConflicts(ArtifactSemanticRules.ImmobileCore);
         ArtifactRiding.minimum_score = 1f;
         ArtifactRiding.use_profile = new ArtifactUseProfile { support = 0.65f };
         ArtifactRiding.control_complexity = 0.2f;

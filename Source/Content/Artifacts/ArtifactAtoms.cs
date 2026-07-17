@@ -154,22 +154,22 @@ public partial class ArtifactAtoms : ExtendLibrary<ArtifactAtomAsset, ArtifactAt
 
     private static void Set(
         ArtifactAtomAsset atom,
-        string tag,
+        string key,
         ArtifactAtomCategory category,
         string[] stems,
         string[] variantBiases,
         string[] colorSchemeBiases,
         Func<ArtifactRecipeContext, float> score,
-        ArtifactMaterialTrait[] semanticTraits,
+        ArtifactMaterialTrait[] materialTraits,
         ArtifactShapeAsset artifactShape = null)
     {
-        atom.tag = tag;
+        atom.key = key;
         atom.category = category;
         atom.artifact_shape = artifactShape;
         atom.name_stems = stems;
         atom.variant_biases = variantBiases;
         atom.color_scheme_biases = colorSchemeBiases;
-        atom.semantic_traits = semanticTraits;
+        atom.material_traits = materialTraits;
         atom.minimum_score = 1f;
         atom.priority = 100;
         atom.ScoreRecipe = score;

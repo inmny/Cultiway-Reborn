@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using NeoModLoader.General;
 using UnityEngine;
@@ -24,11 +25,14 @@ public partial class ArtifactAbilities
     private static void ConfigureSpellReflection()
     {
         SpellReflection.name_key = "Cultiway.ArtifactAbility.SpellReflection";
-        SpellReflection.tags = ["reaction", "defensive", "counter", "reflection", "spell"];
-        SpellReflection.exclusive_group = "spell_reflection";
+        SpellReflection.SetSemantics(
+            ArtifactSemantics.Effect.Counter,
+            ArtifactSemantics.Effect.Reflection,
+            ArtifactSemantics.Form.Spell);
+        SpellReflection.exclusivity = ArtifactAbilityExclusivity.SpellReflection;
         SpellReflection.manifestation_cost = 1.2f;
-        SpellReflection.synergy_tags = ["perception", "counter"];
-        SpellReflection.conflict_tags = ["absorption"];
+        SpellReflection.AddSynergies(ArtifactSemantics.Effect.Perception, ArtifactSemantics.Effect.Counter);
+        SpellReflection.AddConflicts(ArtifactSemanticRules.Absorption);
         SpellReflection.minimum_score = 1f;
         SpellReflection.use_profile = new ArtifactUseProfile { offensive = 0.4f, defensive = 0.9f };
         SpellReflection.control_complexity = 0.42f;
@@ -97,11 +101,14 @@ public partial class ArtifactAbilities
     private static void ConfigureTruthRevealingMirror()
     {
         TruthRevealingMirror.name_key = "Cultiway.ArtifactAbility.TruthRevealingMirror";
-        TruthRevealingMirror.tags = ["active", "support", "deployment", "purification", "dispel"];
-        TruthRevealingMirror.exclusive_group = "truth_revealing_field";
+        TruthRevealingMirror.SetSemantics(
+            ArtifactSemantics.Delivery.Deployment,
+            ArtifactSemantics.Effect.Purification,
+            ArtifactSemantics.Effect.Dispel);
+        TruthRevealingMirror.exclusivity = ArtifactAbilityExclusivity.TruthRevealingField;
         TruthRevealingMirror.manifestation_cost = 1.3f;
-        TruthRevealingMirror.synergy_tags = ["perception", "support"];
-        TruthRevealingMirror.conflict_tags = ["concealment"];
+        TruthRevealingMirror.AddSynergies(ArtifactSemantics.Effect.Perception, ArtifactSemantics.Role.Support);
+        TruthRevealingMirror.AddConflicts(ArtifactSemanticRules.Concealment);
         TruthRevealingMirror.minimum_score = 1f;
         TruthRevealingMirror.use_profile = new ArtifactUseProfile { offensive = 0.25f, defensive = 0.45f, support = 0.95f };
         TruthRevealingMirror.control_complexity = 0.44f;
@@ -220,11 +227,14 @@ public partial class ArtifactAbilities
     private static void ConfigureSoulCapturingStasis()
     {
         SoulCapturingStasis.name_key = "Cultiway.ArtifactAbility.SoulCapturingStasis";
-        SoulCapturingStasis.tags = ["active", "offensive", "control", "soul", "drain"];
-        SoulCapturingStasis.exclusive_group = "soul_stasis";
+        SoulCapturingStasis.SetSemantics(
+            ArtifactSemantics.Effect.Control,
+            ArtifactSemantics.Theme.Soul,
+            ArtifactSemantics.Effect.Drain);
+        SoulCapturingStasis.exclusivity = ArtifactAbilityExclusivity.SoulStasis;
         SoulCapturingStasis.manifestation_cost = 1.05f;
-        SoulCapturingStasis.synergy_tags = ["sealing", "devouring"];
-        SoulCapturingStasis.conflict_tags = ["purification"];
+        SoulCapturingStasis.AddSynergies(ArtifactSemantics.Effect.Sealing, ArtifactSemantics.Effect.Devouring);
+        SoulCapturingStasis.AddConflicts(ArtifactSemanticRules.Purification);
         SoulCapturingStasis.minimum_score = 1f;
         SoulCapturingStasis.use_profile = new ArtifactUseProfile { offensive = 0.8f, support = 0.15f };
         SoulCapturingStasis.control_complexity = 0.4f;

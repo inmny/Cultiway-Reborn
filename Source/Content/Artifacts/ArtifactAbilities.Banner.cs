@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -28,11 +29,17 @@ public partial class ArtifactAbilities
     private static void ConfigureMyriadSoulBannerArray()
     {
         MyriadSoulBannerArray.name_key = "Cultiway.ArtifactAbility.MyriadSoulBannerArray";
-        MyriadSoulBannerArray.tags = ["active", "offensive", "deployment", "field", "soul"];
-        MyriadSoulBannerArray.exclusive_group = "soul_field";
+        MyriadSoulBannerArray.SetSemantics(
+            ArtifactSemantics.Delivery.Deployment,
+            ArtifactSemantics.Delivery.Field,
+            ArtifactSemantics.Theme.Soul);
+        MyriadSoulBannerArray.exclusivity = ArtifactAbilityExclusivity.SoulField;
         MyriadSoulBannerArray.manifestation_cost = 1.45f;
-        MyriadSoulBannerArray.synergy_tags = ["soul", "devouring", "field"];
-        MyriadSoulBannerArray.conflict_tags = ["purification_field"];
+        MyriadSoulBannerArray.AddSynergies(
+            ArtifactSemantics.Theme.Soul,
+            ArtifactSemantics.Effect.Devouring,
+            ArtifactSemantics.Delivery.Field);
+        MyriadSoulBannerArray.AddConflicts(ArtifactSemanticRules.PurificationField);
         MyriadSoulBannerArray.minimum_score = 1f;
         MyriadSoulBannerArray.use_profile = new ArtifactUseProfile { offensive = 0.8f, support = 0.25f };
         MyriadSoulBannerArray.control_complexity = 0.52f;
@@ -139,11 +146,17 @@ public partial class ArtifactAbilities
     private static void ConfigureCommandingBannerField()
     {
         CommandingBannerField.name_key = "Cultiway.ArtifactAbility.CommandingBannerField";
-        CommandingBannerField.tags = ["active", "support", "deployment", "field", "amplification"];
-        CommandingBannerField.exclusive_group = "command_field";
+        CommandingBannerField.SetSemantics(
+            ArtifactSemantics.Delivery.Deployment,
+            ArtifactSemantics.Delivery.Field,
+            ArtifactSemantics.Effect.Amplification);
+        CommandingBannerField.exclusivity = ArtifactAbilityExclusivity.CommandField;
         CommandingBannerField.manifestation_cost = 1.25f;
-        CommandingBannerField.synergy_tags = ["support", "sound", "sustain"];
-        CommandingBannerField.conflict_tags = ["concealment"];
+        CommandingBannerField.AddSynergies(
+            ArtifactSemantics.Role.Support,
+            ArtifactSemantics.Theme.Sound,
+            ArtifactSemantics.Form.Sustain);
+        CommandingBannerField.AddConflicts(ArtifactSemanticRules.Concealment);
         CommandingBannerField.minimum_score = 1f;
         CommandingBannerField.use_profile = new ArtifactUseProfile { support = 1f, offensive = 0.3f };
         CommandingBannerField.control_complexity = 0.4f;
@@ -242,11 +255,17 @@ public partial class ArtifactAbilities
     private static void ConfigureSpiritHostManifestation()
     {
         SpiritHostManifestation.name_key = "Cultiway.ArtifactAbility.SpiritHostManifestation";
-        SpiritHostManifestation.tags = ["active", "offensive", "summon", "soul", "storage"];
-        SpiritHostManifestation.exclusive_group = "spirit_host";
+        SpiritHostManifestation.SetSemantics(
+            ArtifactSemantics.Effect.Summon,
+            ArtifactSemantics.Theme.Soul,
+            ArtifactSemantics.Effect.Storage);
+        SpiritHostManifestation.exclusivity = ArtifactAbilityExclusivity.SpiritHost;
         SpiritHostManifestation.manifestation_cost = 1.6f;
-        SpiritHostManifestation.synergy_tags = ["soul", "storage", "sustain"];
-        SpiritHostManifestation.conflict_tags = ["soul_purification"];
+        SpiritHostManifestation.AddSynergies(
+            ArtifactSemantics.Theme.Soul,
+            ArtifactSemantics.Effect.Storage,
+            ArtifactSemantics.Form.Sustain);
+        SpiritHostManifestation.AddConflicts(ArtifactSemanticRules.SoulPurification);
         SpiritHostManifestation.minimum_score = 1f;
         SpiritHostManifestation.use_profile = new ArtifactUseProfile { offensive = 0.75f, support = 0.35f };
         SpiritHostManifestation.control_complexity = 0.65f;

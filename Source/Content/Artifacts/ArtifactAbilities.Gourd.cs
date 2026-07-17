@@ -1,6 +1,7 @@
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -30,11 +31,17 @@ public partial class ArtifactAbilities
     private static void ConfigureHeavenSwallowingGourd()
     {
         HeavenSwallowingGourd.name_key = "Cultiway.ArtifactAbility.HeavenSwallowingGourd";
-        HeavenSwallowingGourd.tags = ["active", "offensive", "deployment", "devouring", "storage"];
-        HeavenSwallowingGourd.exclusive_group = "devouring_field";
+        HeavenSwallowingGourd.SetSemantics(
+            ArtifactSemantics.Delivery.Deployment,
+            ArtifactSemantics.Effect.Devouring,
+            ArtifactSemantics.Effect.Storage);
+        HeavenSwallowingGourd.exclusivity = ArtifactAbilityExclusivity.DevouringField;
         HeavenSwallowingGourd.manifestation_cost = 1.45f;
-        HeavenSwallowingGourd.synergy_tags = ["devouring", "storage", "space"];
-        HeavenSwallowingGourd.conflict_tags = ["purification_field"];
+        HeavenSwallowingGourd.AddSynergies(
+            ArtifactSemantics.Effect.Devouring,
+            ArtifactSemantics.Effect.Storage,
+            ArtifactSemantics.Theme.Space);
+        HeavenSwallowingGourd.AddConflicts(ArtifactSemanticRules.PurificationField);
         HeavenSwallowingGourd.minimum_score = 1f;
         HeavenSwallowingGourd.use_profile = new ArtifactUseProfile { offensive = 0.8f, support = 0.3f };
         HeavenSwallowingGourd.control_complexity = 0.52f;
@@ -175,10 +182,13 @@ public partial class ArtifactAbilities
     private static void ConfigureSpiritGourdReserve()
     {
         SpiritGourdReserve.name_key = "Cultiway.ArtifactAbility.SpiritGourdReserve";
-        SpiritGourdReserve.tags = ["passive", "support", "storage", "resource"];
-        SpiritGourdReserve.exclusive_group = "wakan_buffer";
+        SpiritGourdReserve.SetSemantics(ArtifactSemantics.Effect.Storage, ArtifactSemantics.Resource.Reserve);
+        SpiritGourdReserve.exclusivity = ArtifactAbilityExclusivity.WakanBuffer;
         SpiritGourdReserve.manifestation_cost = 0.85f;
-        SpiritGourdReserve.synergy_tags = ["storage", "sustain", "resource"];
+        SpiritGourdReserve.AddSynergies(
+            ArtifactSemantics.Effect.Storage,
+            ArtifactSemantics.Form.Sustain,
+            ArtifactSemantics.Resource.Reserve);
         SpiritGourdReserve.minimum_score = 1f;
         SpiritGourdReserve.use_profile = new ArtifactUseProfile { support = 0.55f, cultivate = 0.8f };
         SpiritGourdReserve.control_complexity = 0.18f;
@@ -274,10 +284,16 @@ public partial class ArtifactAbilities
     private static void ConfigureFiveEssenceOutpouring()
     {
         FiveEssenceOutpouring.name_key = "Cultiway.ArtifactAbility.FiveEssenceOutpouring";
-        FiveEssenceOutpouring.tags = ["active", "offensive", "cone", "elemental", "release"];
-        FiveEssenceOutpouring.exclusive_group = "elemental_cone";
+        FiveEssenceOutpouring.SetSemantics(
+            ArtifactSemantics.Form.Cone,
+            ArtifactSemantics.Theme.Elemental,
+            ArtifactSemantics.Effect.Release);
+        FiveEssenceOutpouring.exclusivity = ArtifactAbilityExclusivity.ElementalCone;
         FiveEssenceOutpouring.manifestation_cost = 1.15f;
-        FiveEssenceOutpouring.synergy_tags = ["storage", "elemental", "release"];
+        FiveEssenceOutpouring.AddSynergies(
+            ArtifactSemantics.Effect.Storage,
+            ArtifactSemantics.Theme.Elemental,
+            ArtifactSemantics.Effect.Release);
         FiveEssenceOutpouring.minimum_score = 1f;
         FiveEssenceOutpouring.use_profile = new ArtifactUseProfile { offensive = 0.9f };
         FiveEssenceOutpouring.control_complexity = 0.36f;

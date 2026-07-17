@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Semantics;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
@@ -266,18 +268,18 @@ public sealed class ArtifactActiveAbilityProfile
 public class ArtifactAbilityAsset : Asset
 {
     public string name_key;
-    public string[] tags = [];
-    public string exclusive_group;
+    public SemanticDescriptor semantics = new();
+    public ArtifactAbilityExclusivityKey exclusivity;
     /// <summary>
     /// 能力在成品中稳定显化所占用的承载量。它不是固定槽位，最终数量由整件法器的材料语义决定。
     /// </summary>
     public float manifestation_cost = 1f;
 
     /// <summary>已经选中的能力具有这些标签时，提高本能力在剩余候选中的优先级。</summary>
-    public string[] synergy_tags = [];
+    public SemanticQueryExpression[] synergy_conditions = [];
 
     /// <summary>本能力不会与具有这些标签的能力同时显化。</summary>
-    public string[] conflict_tags = [];
+    public SemanticQueryExpression[] conflict_conditions = [];
 
     public float minimum_score;
     public ArtifactUseProfile use_profile;
@@ -303,9 +305,22 @@ public class ArtifactAbilityAsset : Asset
         return Mathf.Max(0f, ScoreRecipe?.Invoke(context) ?? 0f);
     }
 
-    public bool HasTag(string tag)
+    public ArtifactAbilityAsset SetSemantics(params SemanticAsset[] values)
     {
-        return Array.IndexOf(tags, tag) >= 0;
+        semantics = SemanticDescriptor.Of(values);
+        return this;
+    }
+
+    public ArtifactAbilityAsset AddSynergies(params SemanticAsset[] values)
+    {
+        synergy_conditions = values.Select(SemanticQueryExpression.Has).ToArray();
+        return this;
+    }
+
+    public ArtifactAbilityAsset AddConflicts(params SemanticQueryExpression[] conditions)
+    {
+        conflict_conditions = conditions ?? [];
+        return this;
     }
 
     public string GetName()
@@ -557,4 +572,24 @@ public class ArtifactAbilityAsset : Asset
             _handler(context, ability, ref runtime, (TEvent)evt);
         }
     }
+}
+
+/// <summary>
+/// 法器能力技术互斥组的强类型键，防止它和语义资产混用。
+/// </summary>
+public readonly struct ArtifactAbilityExclusivityKey : IEquatable<ArtifactAbilityExclusivityKey>
+{
+    private readonly string value;
+
+    public bool IsEmpty => string.IsNullOrEmpty(value);
+
+    public ArtifactAbilityExclusivityKey(string value)
+    {
+        this.value = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    public bool Equals(ArtifactAbilityExclusivityKey other) => value == other.value;
+    public override bool Equals(object obj) => obj is ArtifactAbilityExclusivityKey other && Equals(other);
+    public override int GetHashCode() => value?.GetHashCode() ?? 0;
+    public override string ToString() => value ?? string.Empty;
 }

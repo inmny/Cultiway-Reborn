@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Core.Semantics;
 using UnityEngine;
 
 namespace Cultiway.Content.Artifacts;
@@ -43,9 +44,9 @@ public static class ArtifactAbilityComposer
             .Where(candidate => candidate.Score > 0f && candidate.Score >= candidate.Ability.minimum_score)
             .ToList();
 
-        HashSet<string> selectedGroups = new(StringComparer.Ordinal);
-        HashSet<string> selectedTags = new(StringComparer.Ordinal);
-        HashSet<string> blockedTags = new(StringComparer.Ordinal);
+        HashSet<ArtifactAbilityExclusivityKey> selectedGroups = new();
+        HashSet<SemanticAsset> selectedSemantics = new();
+        List<ArtifactAbilityAsset> selectedAssets = new();
         List<ArtifactAbilityInstance> abilities = new(candidates.Count);
         float capacity = ResolveManifestationCapacity(context);
         float spent = 0f;
@@ -54,12 +55,12 @@ public static class ArtifactAbilityComposer
             candidates.RemoveAll(candidate => Conflicts(
                 candidate.Ability,
                 selectedGroups,
-                selectedTags,
-                blockedTags));
+                selectedSemantics,
+                selectedAssets));
             if (candidates.Count == 0) break;
 
             Candidate candidate = candidates
-                .OrderByDescending(item => ResolveSelectionValue(item, selectedTags))
+                .OrderByDescending(item => ResolveSelectionValue(item, selectedSemantics))
                 .ThenByDescending(item => item.Score)
                 .ThenByDescending(item => item.TieBreak)
                 .ThenBy(item => item.Ability.id, StringComparer.Ordinal)
@@ -74,10 +75,10 @@ public static class ArtifactAbilityComposer
             }
 
             abilities.Add(ability.ComposeInstance(context));
+            selectedAssets.Add(ability);
             spent += cost;
-            if (!string.IsNullOrEmpty(ability.exclusive_group)) selectedGroups.Add(ability.exclusive_group);
-            AddTags(selectedTags, ability.tags);
-            AddTags(blockedTags, ability.conflict_tags);
+            if (!ability.exclusivity.IsEmpty) selectedGroups.Add(ability.exclusivity);
+            selectedSemantics.UnionWith(CollectSemantics(ability));
         }
 
         ArtifactAbilitySet abilitySet = new() { abilities = abilities.ToArray() };
@@ -108,45 +109,56 @@ public static class ArtifactAbilityComposer
             ability.manifestation_cost + ability.control_complexity * 0.35f + ability.thread_cost * 0.12f);
     }
 
-    private static float ResolveSelectionValue(Candidate candidate, HashSet<string> selectedTags)
+    private static float ResolveSelectionValue(Candidate candidate, HashSet<SemanticAsset> selectedSemantics)
     {
-        int synergyCount = CountMatches(candidate.Ability.synergy_tags, selectedTags);
+        int synergyCount = CountMatches(candidate.Ability.synergy_conditions, selectedSemantics);
         float adjustedScore = candidate.Score * (1f + synergyCount * 0.12f);
         return adjustedScore / ResolveManifestationCost(candidate.Ability);
     }
 
     private static bool Conflicts(
         ArtifactAbilityAsset ability,
-        HashSet<string> selectedGroups,
-        HashSet<string> selectedTags,
-        HashSet<string> blockedTags)
+        HashSet<ArtifactAbilityExclusivityKey> selectedGroups,
+        HashSet<SemanticAsset> selectedSemantics,
+        List<ArtifactAbilityAsset> selectedAssets)
     {
-        if (!string.IsNullOrEmpty(ability.exclusive_group) && selectedGroups.Contains(ability.exclusive_group))
+        if (!ability.exclusivity.IsEmpty && selectedGroups.Contains(ability.exclusivity))
         {
             return true;
         }
-        return CountMatches(ability.tags, blockedTags) > 0 ||
-               CountMatches(ability.conflict_tags, selectedTags) > 0;
+        if (CountMatches(ability.conflict_conditions, selectedSemantics) > 0) return true;
+
+        var candidateSemantics = CollectSemantics(ability);
+        for (var i = 0; i < selectedAssets.Count; i++)
+        {
+            if (CountMatches(selectedAssets[i].conflict_conditions, candidateSemantics) > 0) return true;
+        }
+        return false;
     }
 
-    private static int CountMatches(string[] values, HashSet<string> selected)
+    private static int CountMatches(
+        SemanticQueryExpression[] conditions,
+        HashSet<SemanticAsset> selected)
     {
-        if (values == null || values.Length == 0 || selected.Count == 0) return 0;
+        if (conditions == null || conditions.Length == 0 || selected.Count == 0) return 0;
         int count = 0;
-        for (int i = 0; i < values.Length; i++)
+        for (int i = 0; i < conditions.Length; i++)
         {
-            if (selected.Contains(values[i])) count++;
+            if (conditions[i].Matches(selected, ModClass.L.SemanticLibrary)) count++;
         }
         return count;
     }
 
-    private static void AddTags(HashSet<string> target, string[] values)
+    private static HashSet<SemanticAsset> CollectSemantics(ArtifactAbilityAsset ability)
     {
-        if (values == null) return;
-        for (int i = 0; i < values.Length; i++)
-        {
-            if (!string.IsNullOrEmpty(values[i])) target.Add(values[i]);
-        }
+        HashSet<SemanticAsset> result = new();
+        ability.semantics.CollectExpanded(ModClass.L.SemanticLibrary, result);
+
+        if (ability.use_profile.offensive > 0f) result.Add(SkillSemantics.Role.Offensive);
+        if (ability.use_profile.defensive > 0f) result.Add(SkillSemantics.Role.Defensive);
+        if (ability.use_profile.support > 0f) result.Add(SkillSemantics.Role.Support);
+        if (ability.use_profile.production > 0f) result.Add(SkillSemantics.Role.Production);
+        return result;
     }
 
     private static int StableTieBreak(string compositionKey, string abilityId)

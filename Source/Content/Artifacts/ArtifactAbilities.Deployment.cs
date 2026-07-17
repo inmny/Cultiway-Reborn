@@ -1,6 +1,7 @@
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
@@ -27,8 +28,11 @@ public partial class ArtifactAbilities
     private static void ConfigureSuppressionField()
     {
         SuppressionField.name_key = "Cultiway.ArtifactAbility.SuppressionField";
-        SuppressionField.tags = ["active", "offensive", "deployment", "field"];
-        SuppressionField.exclusive_group = "suppression_field";
+        SuppressionField.SetSemantics(
+            ArtifactSemantics.Delivery.Deployment,
+            ArtifactSemantics.Delivery.Field,
+            ArtifactSemantics.Effect.Suppression);
+        SuppressionField.exclusivity = ArtifactAbilityExclusivity.SuppressionField;
         SuppressionField.minimum_score = 1f;
         SuppressionField.use_profile = new ArtifactUseProfile { offensive = 0.55f, support = 0.45f };
         SuppressionField.control_complexity = 0.32f;

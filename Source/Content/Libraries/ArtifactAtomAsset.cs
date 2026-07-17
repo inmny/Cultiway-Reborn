@@ -13,13 +13,14 @@ public enum ArtifactAtomCategory
 
 public class ArtifactAtomAsset : Asset
 {
-    public string tag;
+    /// <summary>组合器内部使用的稳定原子键，不参与跨系统语义查询。</summary>
+    public string key;
     public ArtifactAtomCategory category;
     public ArtifactShapeAsset artifact_shape;
     public string[] name_stems = [];
     public string[] variant_biases = [];
     public string[] color_scheme_biases = [];
-    public ArtifactMaterialTrait[] semantic_traits = [];
+    public ArtifactMaterialTrait[] material_traits = [];
     public float minimum_score = 1f;
     public int priority;
     public Func<ArtifactRecipeContext, float> ScoreRecipe;

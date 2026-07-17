@@ -29,7 +29,7 @@ internal static class BaibaoPresentation
     public static string GetAtomName(ArtifactAtomAsset atom)
     {
         string key = $"Cultiway.Baibao.Atom.{atom.id}";
-        return LocalizedOrFallback(key, atom.name_stems.FirstOrDefault() ?? atom.tag ?? atom.id);
+        return LocalizedOrFallback(key, atom.name_stems.FirstOrDefault() ?? atom.key ?? atom.id);
     }
 
     public static string GetAtomCategoryName(ArtifactAtomCategory category)

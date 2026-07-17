@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
 using NeoModLoader.General;
@@ -28,11 +29,17 @@ public partial class ArtifactAbilities
     private static void ConfigureCelestialPearlGuard()
     {
         CelestialPearlGuard.name_key = "Cultiway.ArtifactAbility.CelestialPearlGuard";
-        CelestialPearlGuard.tags = ["passive", "defensive", "shield", "orbit", "resonance"];
-        CelestialPearlGuard.exclusive_group = "recharging_shield";
+        CelestialPearlGuard.SetSemantics(
+            ArtifactSemantics.Effect.Shield,
+            ArtifactSemantics.Motion.Orbit,
+            ArtifactSemantics.Effect.Resonance);
+        CelestialPearlGuard.exclusivity = ArtifactAbilityExclusivity.RechargingShield;
         CelestialPearlGuard.manifestation_cost = 1.05f;
-        CelestialPearlGuard.synergy_tags = ["ward", "resonance", "sustain"];
-        CelestialPearlGuard.conflict_tags = ["body_deployment"];
+        CelestialPearlGuard.AddSynergies(
+            ArtifactSemantics.Effect.Ward,
+            ArtifactSemantics.Effect.Resonance,
+            ArtifactSemantics.Form.Sustain);
+        CelestialPearlGuard.AddConflicts(ArtifactSemanticRules.BodyDeployment);
         CelestialPearlGuard.minimum_score = 1f;
         CelestialPearlGuard.use_profile = new ArtifactUseProfile { defensive = 1f, support = 0.2f };
         CelestialPearlGuard.control_complexity = 0.28f;
@@ -125,11 +132,17 @@ public partial class ArtifactAbilities
     private static void ConfigureFivePhasePearlStrike()
     {
         FivePhasePearlStrike.name_key = "Cultiway.ArtifactAbility.FivePhasePearlStrike";
-        FivePhasePearlStrike.tags = ["active", "offensive", "projection", "elemental", "multi_hit"];
-        FivePhasePearlStrike.exclusive_group = "elemental_barrage";
+        FivePhasePearlStrike.SetSemantics(
+            ArtifactSemantics.Delivery.Projection,
+            ArtifactSemantics.Theme.Elemental,
+            ArtifactSemantics.Effect.MultiHit);
+        FivePhasePearlStrike.exclusivity = ArtifactAbilityExclusivity.ElementalBarrage;
         FivePhasePearlStrike.manifestation_cost = 1.25f;
-        FivePhasePearlStrike.synergy_tags = ["resonance", "projection", "elemental"];
-        FivePhasePearlStrike.conflict_tags = ["single_heavy_strike"];
+        FivePhasePearlStrike.AddSynergies(
+            ArtifactSemantics.Effect.Resonance,
+            ArtifactSemantics.Delivery.Projection,
+            ArtifactSemantics.Theme.Elemental);
+        FivePhasePearlStrike.AddConflicts(ArtifactSemanticRules.SingleHeavyStrike);
         FivePhasePearlStrike.minimum_score = 1f;
         FivePhasePearlStrike.use_profile = new ArtifactUseProfile { offensive = 0.95f };
         FivePhasePearlStrike.control_complexity = 0.42f;
@@ -246,10 +259,13 @@ public partial class ArtifactAbilities
     private static void ConfigureLinkedPearlResonance()
     {
         LinkedPearlResonance.name_key = "Cultiway.ArtifactAbility.LinkedPearlResonance";
-        LinkedPearlResonance.tags = ["passive", "support", "resonance", "resource", "skill_event"];
-        LinkedPearlResonance.exclusive_group = "skill_cast_resonance";
+        LinkedPearlResonance.SetSemantics(ArtifactSemantics.Effect.Resonance, ArtifactSemantics.Resource.Reserve);
+        LinkedPearlResonance.exclusivity = ArtifactAbilityExclusivity.SkillCastResonance;
         LinkedPearlResonance.manifestation_cost = 0.9f;
-        LinkedPearlResonance.synergy_tags = ["resonance", "spirituality", "sustain"];
+        LinkedPearlResonance.AddSynergies(
+            ArtifactSemantics.Effect.Resonance,
+            ArtifactSemantics.Resource.Spirituality,
+            ArtifactSemantics.Form.Sustain);
         LinkedPearlResonance.minimum_score = 1f;
         LinkedPearlResonance.use_profile = new ArtifactUseProfile { support = 0.65f, cultivate = 0.55f };
         LinkedPearlResonance.control_complexity = 0.2f;

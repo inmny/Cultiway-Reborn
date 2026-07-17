@@ -49,6 +49,7 @@ public static class ArtifactEquipmentTools
             priority = priority,
             locked = locked,
         });
+        actor.MarkSemanticProfileDirty();
         // 只重新分配现有装备的运行状态，不在手动操作中触发自动增删装备。
         ArtifactLoadoutPlanner.Refresh(actor, false, 0f);
         return true;
@@ -71,6 +72,7 @@ public static class ArtifactEquipmentTools
             ArtifactControlRules.SetAutoEquipDisabled(artifact, true);
         }
         actor.E.RemoveRelation<EquippedArtifactRelation>(artifact);
+        actor.MarkSemanticProfileDirty();
         ArtifactLoadoutPlanner.Refresh(actor, false, 0f);
         return true;
     }

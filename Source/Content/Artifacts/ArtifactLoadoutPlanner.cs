@@ -42,14 +42,16 @@ public static class ArtifactLoadoutPlanner
         float capacity = actor.Base.stats[nameof(WorldboxGame.BaseStats.DivineSense)];
         bool inCombat = IsCombatContext(actor.Base);
         Dictionary<int, EquippedArtifactRelation> existing = ReadRelations(actor.E);
-        RemoveUnavailableRelations(actor.E, existing);
+        bool semanticProfileChanged = RemoveUnavailableRelations(actor.E, existing);
         List<Entity> inventory = CollectArtifacts(actor);
         List<Candidate> candidates = BuildCandidates(actor, inventory, existing, inCombat);
 
         // 周期调度会重新规划自动装备；手动操作后的即时刷新只重排现有装备。
         if (manageAutomaticEquipment)
         {
-            HashSet<int> desired = ManageAutomaticEquipment(actor, candidates, existing, capacity);
+            HashSet<int> desired = ManageAutomaticEquipment(
+                actor, candidates, existing, capacity, out bool equipmentChanged);
+            semanticProfileChanged |= equipmentChanged;
             candidates.RemoveAll(candidate => !desired.Contains(candidate.Item.Id));
         }
         else
@@ -57,7 +59,8 @@ public static class ArtifactLoadoutPlanner
             candidates.RemoveAll(candidate => !candidate.HasRelation);
         }
 
-        Schedule(actor, candidates, capacity, inCombat, elapsedSeconds);
+        semanticProfileChanged |= Schedule(actor, candidates, capacity, inCombat, elapsedSeconds);
+        if (semanticProfileChanged) actor.MarkSemanticProfileDirty();
     }
 
     /// <summary>
@@ -77,7 +80,7 @@ public static class ArtifactLoadoutPlanner
     /// 清除因未完成、占用、消耗或回收而失效的装备关系。
     /// 库存转移导致的关系删除由 ArtifactEquipmentManager 保证，不在此重复处理。
     /// </summary>
-    private static void RemoveUnavailableRelations(
+    private static bool RemoveUnavailableRelations(
         Entity owner,
         Dictionary<int, EquippedArtifactRelation> existing)
     {
@@ -91,6 +94,7 @@ public static class ArtifactLoadoutPlanner
             owner.RemoveRelation<EquippedArtifactRelation>(unavailable[i]);
             existing.Remove(unavailable[i].Id);
         }
+        return unavailable.Count > 0;
     }
 
     /// <summary>
@@ -123,8 +127,10 @@ public static class ArtifactLoadoutPlanner
         ActorExtend actor,
         List<Candidate> candidates,
         Dictionary<int, EquippedArtifactRelation> existing,
-        float capacity)
+        float capacity,
+        out bool changed)
     {
+        changed = false;
         long ownerId = actor.Base.data.id;
         candidates.Sort(CompareSelectionCandidates);
 
@@ -156,6 +162,7 @@ public static class ArtifactLoadoutPlanner
         {
             actor.E.RemoveRelation<EquippedArtifactRelation>(toRemove[i]);
             existing.Remove(toRemove[i].Id);
+            changed = true;
         }
 
         // 为本轮新选中的法器建立装备关系，并将其祭炼归属绑定到当前角色。
@@ -169,6 +176,7 @@ public static class ArtifactLoadoutPlanner
                 artifact = candidate.Item,
                 mode = ArtifactEquipMode.Automatic,
             });
+            changed = true;
         }
         return desired;
     }
@@ -176,13 +184,14 @@ public static class ArtifactLoadoutPlanner
     /// <summary>
     /// 在神识负荷和分念限制内，为已装备法器分配冷待命、准备、运转或超载状态。
     /// </summary>
-    private static void Schedule(
+    private static bool Schedule(
         ActorExtend actor,
         List<Candidate> candidates,
         float capacity,
         bool inCombat,
         float elapsedSeconds)
     {
+        bool attunementChanged = false;
         candidates.Sort(CompareRuntimeCandidates);
 
         // 每轮从冷待命开始重新分配，后续阶段逐步提升满足条件的法器状态。
@@ -278,7 +287,8 @@ public static class ArtifactLoadoutPlanner
                 Candidate candidate = candidates[i];
                 ref EquippedArtifactRelation relation = ref actor.E
                     .GetRelation<EquippedArtifactRelation, Entity>(candidate.Item);
-                ArtifactControlRules.AdvanceAttunement(candidate.Item, relation.state, elapsedSeconds);
+                attunementChanged |= ArtifactControlRules.AdvanceAttunement(
+                    candidate.Item, relation.state, elapsedSeconds);
             }
         }
 
@@ -287,6 +297,7 @@ public static class ArtifactLoadoutPlanner
         state.prepared_load = usedPreparedLoad;
         state.operating_load = usedOperatingLoad;
         state.used_threads = usedThreads;
+        return attunementChanged;
     }
 
     /// <summary>

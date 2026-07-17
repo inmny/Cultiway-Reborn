@@ -2,6 +2,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.Semantics;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using NeoModLoader.General;
@@ -25,11 +26,11 @@ public partial class ArtifactAbilities
     private static void ConfigureCloudRobeShield()
     {
         CloudRobeShield.name_key = "Cultiway.ArtifactAbility.CloudRobeShield";
-        CloudRobeShield.tags = ["passive", "defensive", "shield", "sustain"];
-        CloudRobeShield.exclusive_group = "recharging_shield";
+        CloudRobeShield.SetSemantics(ArtifactSemantics.Effect.Shield, ArtifactSemantics.Form.Sustain);
+        CloudRobeShield.exclusivity = ArtifactAbilityExclusivity.RechargingShield;
         CloudRobeShield.manifestation_cost = 1.1f;
-        CloudRobeShield.synergy_tags = ["defensive", "recovery"];
-        CloudRobeShield.conflict_tags = ["brittle"];
+        CloudRobeShield.AddSynergies(ArtifactSemantics.Role.Defensive, ArtifactSemantics.Effect.Recovery);
+        CloudRobeShield.AddConflicts(ArtifactSemanticRules.Brittle);
         CloudRobeShield.minimum_score = 1f;
         CloudRobeShield.use_profile = new ArtifactUseProfile { defensive = 1f, support = 0.2f };
         CloudRobeShield.control_complexity = 0.25f;
@@ -121,11 +122,11 @@ public partial class ArtifactAbilities
     private static void ConfigureHeavenlyConcealment()
     {
         HeavenlyConcealment.name_key = "Cultiway.ArtifactAbility.HeavenlyConcealment";
-        HeavenlyConcealment.tags = ["active", "defensive", "concealment", "movement"];
-        HeavenlyConcealment.exclusive_group = "concealment_state";
+        HeavenlyConcealment.SetSemantics(ArtifactSemantics.Effect.Concealment, ArtifactSemantics.Effect.Movement);
+        HeavenlyConcealment.exclusivity = ArtifactAbilityExclusivity.ConcealmentState;
         HeavenlyConcealment.manifestation_cost = 1.05f;
-        HeavenlyConcealment.synergy_tags = ["movement", "defensive"];
-        HeavenlyConcealment.conflict_tags = ["revealing"];
+        HeavenlyConcealment.AddSynergies(ArtifactSemantics.Effect.Movement, ArtifactSemantics.Role.Defensive);
+        HeavenlyConcealment.AddConflicts(ArtifactSemanticRules.Revealing);
         HeavenlyConcealment.minimum_score = 1f;
         HeavenlyConcealment.use_profile = new ArtifactUseProfile { defensive = 0.7f, support = 0.35f };
         HeavenlyConcealment.control_complexity = 0.38f;
@@ -252,11 +253,11 @@ public partial class ArtifactAbilities
     private static void ConfigureDamageDiversion()
     {
         DamageDiversion.name_key = "Cultiway.ArtifactAbility.DamageDiversion";
-        DamageDiversion.tags = ["reaction", "defensive", "counter", "transformation"];
-        DamageDiversion.exclusive_group = "damage_diversion";
+        DamageDiversion.SetSemantics(ArtifactSemantics.Effect.Counter, ArtifactSemantics.Effect.Transformation);
+        DamageDiversion.exclusivity = ArtifactAbilityExclusivity.DamageDiversion;
         DamageDiversion.manifestation_cost = 1f;
-        DamageDiversion.synergy_tags = ["defensive", "counter"];
-        DamageDiversion.conflict_tags = ["rigid_guard"];
+        DamageDiversion.AddSynergies(ArtifactSemantics.Role.Defensive, ArtifactSemantics.Effect.Counter);
+        DamageDiversion.AddConflicts(ArtifactSemanticRules.RigidGuard);
         DamageDiversion.minimum_score = 1f;
         DamageDiversion.use_profile = new ArtifactUseProfile { offensive = 0.35f, defensive = 0.9f };
         DamageDiversion.control_complexity = 0.36f;

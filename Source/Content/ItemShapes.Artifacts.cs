@@ -2,6 +2,8 @@ using Cultiway.Abstract;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.Semantics;
+using Cultiway.Content.Semantics;
 
 namespace Cultiway.Content;
 
@@ -12,7 +14,7 @@ namespace Cultiway.Content;
 /// ArtifactShapeAsset 类型的属性不会被 <see cref="ItemShapes"/>(ExtendLibrary&lt;ItemShapeAsset&gt;) 自动注册，
 /// 故在此手动 <c>Add</c> 进 ItemShapeLibrary，与普通 ItemShapeAsset 共库、共反查路径。
 /// </summary>
-[Dependency(typeof(ArtifactPresentations))]
+[Dependency(typeof(CultivationSemantics), typeof(ArtifactPresentations))]
 public partial class ItemShapes
 {
     /// <summary>剑形法器；以剑尖为前向锚点，适合飞行穿刺、剑阵和近身护主能力。</summary>
@@ -41,16 +43,27 @@ public partial class ItemShapes
     private void SetupArtifactShapes()
     {
         Sword = AddArtifactShape(nameof(Sword), ["剑"], "sword", ArtifactPresentations.Sword);
+        Sword.semantics = SemanticDescriptor.Of(CultivationSemantics.Form.Blade);
         Seal = AddArtifactShape(nameof(Seal), ["印"], "seal", ArtifactPresentations.Seal);
+        Seal.semantics = SemanticDescriptor.Of(CultivationSemantics.Effect.Sealing, CultivationSemantics.Effect.Suppression);
         Robe = AddArtifactShape(nameof(Robe), ["袍"], "robe", ArtifactPresentations.Robe);
+        Robe.semantics = SemanticDescriptor.Of(CultivationSemantics.Effect.Ward, CultivationSemantics.Material.Flexibility);
         Mirror = AddArtifactShape(nameof(Mirror), ["镜"], "mirror", ArtifactPresentations.Mirror);
+        Mirror.semantics = SemanticDescriptor.Of(CultivationSemantics.Effect.Reflection, CultivationSemantics.Effect.Perception);
         Ding = AddArtifactShape(nameof(Ding), ["鼎"], "ding", ArtifactPresentations.Ding);
+        Ding.semantics = SemanticDescriptor.Of(CultivationSemantics.Craft.Alchemy, CultivationSemantics.Craft.Refinement);
         Banner = AddArtifactShape(nameof(Banner), ["旗", "幡"], "banner", ArtifactPresentations.Banner);
+        Banner.semantics = SemanticDescriptor.Of(CultivationSemantics.Delivery.Deployment, CultivationSemantics.Form.Array);
         Bell = AddArtifactShape(nameof(Bell), ["钟", "铃", "铎"], "bell", ArtifactPresentations.Bell);
+        Bell.semantics = SemanticDescriptor.Of(CultivationSemantics.Theme.Sound, CultivationSemantics.Effect.Resonance);
         Gourd = AddArtifactShape(nameof(Gourd), ["葫芦"], "gourd", ArtifactPresentations.Gourd);
+        Gourd.semantics = SemanticDescriptor.Of(CultivationSemantics.Effect.Storage, CultivationSemantics.Material.Capacity);
         Fan = AddArtifactShape(nameof(Fan), ["扇"], "fan", ArtifactPresentations.Fan);
+        Fan.semantics = SemanticDescriptor.Of(CultivationSemantics.Form.Cone, CultivationSemantics.Effect.Force);
         Tower = AddArtifactShape(nameof(Tower), ["塔"], "tower", ArtifactPresentations.Tower);
+        Tower.semantics = SemanticDescriptor.Of(CultivationSemantics.Delivery.Deployment, CultivationSemantics.Effect.Suppression);
         Pearl = AddArtifactShape(nameof(Pearl), ["珠", "宝珠"], "pearl", ArtifactPresentations.Pearl);
+        Pearl.semantics = SemanticDescriptor.Of(CultivationSemantics.Effect.Resonance, SkillSemantics.Motion.Orbit);
     }
 
     private ArtifactShapeAsset AddArtifactShape(string id_suffix, string[] nameCandidates,
