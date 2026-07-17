@@ -51,7 +51,6 @@ public sealed class BaibaoEditorRow : APrefabPreview<BaibaoEditorRow>
         _icon.sprite = icon ?? SpriteTextureLoader.getSprite(BaibaoUiIcons.Composition);
         _icon.preserveAspect = true;
         UiTooltip.Set(_icon.gameObject, title, detail);
-        UiTooltip.Set(_title.gameObject, title, detail);
         _chrome.SetState(selected ? UiControlState.Selected : UiControlState.Normal);
 
         bool showAction = action != null || !string.IsNullOrEmpty(actionLabel);
@@ -69,7 +68,6 @@ public sealed class BaibaoEditorRow : APrefabPreview<BaibaoEditorRow>
     {
         Init();
         UiTooltip.Set(_icon.gameObject, title, description, detail);
-        UiTooltip.Set(_title.gameObject, title, description, detail);
     }
 
     public void SetActionTooltip(string title, string description)

@@ -19,8 +19,8 @@ public sealed class BaibaoAtomCatalogRow : APrefabPreview<BaibaoAtomCatalogRow>
     protected override void OnInit()
     {
         _chrome = UiListRowChrome.From(gameObject);
-        _focus = GetComponent<Button>();
         _icon = transform.Find("Icon").GetComponent<Image>();
+        _focus = _icon.GetComponent<Button>();
         _title = transform.Find("Labels/Title").GetComponent<Text>();
         _detail = transform.Find("Labels/Detail").GetComponent<Text>();
         _action = transform.Find("Action").GetComponent<Button>();
@@ -54,7 +54,7 @@ public sealed class BaibaoAtomCatalogRow : APrefabPreview<BaibaoAtomCatalogRow>
         UiElements.SetButtonIcon(_action, selected ? UiIcons.Confirm : UiIcons.Add);
         UiStateStyle.SetSelected(_action, selected);
 
-        UiTooltip.Set(gameObject, title, description,
+        UiTooltip.Set(_icon.gameObject, title, description,
             BaibaoPresentation.GetAtomTooltipDetail(atom, strength));
         string actionTitle = selected
             ? "Cultiway.Baibao.UI.Action.Selected".Localize()
@@ -70,12 +70,16 @@ public sealed class BaibaoAtomCatalogRow : APrefabPreview<BaibaoAtomCatalogRow>
             232f, 42f, 4f, TextAnchor.MiddleLeft);
         HorizontalLayoutGroup layout = root.GetComponent<HorizontalLayoutGroup>();
         layout.padding = new RectOffset(5, 4, 3, 3);
-        UiListRowChrome.Attach(root, true);
+        UiListRowChrome.Attach(root, false);
 
         GameObject icon = new("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
         icon.transform.SetParent(root.transform, false);
         UiLayout.SetSize(icon.transform, 32f, 32f);
-        icon.GetComponent<Image>().preserveAspect = true;
+        Image iconImage = icon.GetComponent<Image>();
+        iconImage.preserveAspect = true;
+        Button focus = icon.AddComponent<Button>();
+        focus.targetGraphic = iconImage;
+        focus.navigation = new Navigation { mode = Navigation.Mode.None };
 
         GameObject labels = UiLayout.Create(root.transform, "Labels", false, 155f, 36f, 0f);
         UiElements.CreateText(labels.transform, "Title", string.Empty, 155f, 20f, 8,
