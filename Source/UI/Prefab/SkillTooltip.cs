@@ -167,10 +167,11 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         var entityName = GetAssetName(blueprint.EntityAssetId, "Cultiway.Wanfa.UI.State.NoEntity");
         var trajectoryName = GetAssetName(blueprint.TrajectoryAssetId, "Cultiway.Wanfa.UI.State.NoTrajectory");
         model.Summary = $"{entityName}\n{trajectoryName}";
-        if (entity != null && entity.SeriesTags.Count > 0)
+        var entitySemantics = entity?.Semantics.Resolve(ModClass.L.SemanticLibrary).ToArray();
+        if (entitySemantics is { Length: > 0 })
         {
             AddLine(model, "Cultiway.Wanfa.UI.Overview.Tags".Localize(),
-                string.Join("、", entity.SeriesTags.Select(SkillTags.GetDisplayName)));
+                string.Join("、", entitySemantics.Select(semantic => semantic.GetName())));
         }
 
         var compiled = runtimeContainer;

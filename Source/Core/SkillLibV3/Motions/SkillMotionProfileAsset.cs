@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.Semantics;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Motions;
@@ -10,7 +11,7 @@ namespace Cultiway.Core.SkillLibV3.Motions;
 /// </summary>
 public class SkillMotionProfileAsset : Asset
 {
-    private readonly List<SkillTagMatchRule> _matchRules = new();
+    private readonly List<SkillSemanticMatchRule> _matchRules = new();
 
     public float BaseSpeed = 48f;
     public float MaxSpeed = 120f;
@@ -60,28 +61,28 @@ public class SkillMotionProfileAsset : Asset
         return this;
     }
 
-    public SkillMotionProfileAsset MatchAny(int priority, params string[] tags)
+    public SkillMotionProfileAsset MatchAny(int priority, params SemanticAsset[] semantics)
     {
-        var rule = new SkillTagMatchRule(priority);
-        rule.AddAny(tags);
+        var rule = new SkillSemanticMatchRule(priority);
+        rule.AddAny(semantics);
         _matchRules.Add(rule);
         return this;
     }
 
-    public SkillMotionProfileAsset MatchAll(int priority, params string[] tags)
+    public SkillMotionProfileAsset MatchAll(int priority, params SemanticAsset[] semantics)
     {
-        var rule = new SkillTagMatchRule(priority);
-        rule.AddRequired(tags);
+        var rule = new SkillSemanticMatchRule(priority);
+        rule.AddRequired(semantics);
         _matchRules.Add(rule);
         return this;
     }
 
-    public int ScoreTags(HashSet<string> tags)
+    public int ScoreSemantics(HashSet<SemanticAsset> semantics)
     {
         var best = -1;
         foreach (var rule in _matchRules)
         {
-            var score = rule.Score(tags);
+            var score = rule.Score(semantics);
             if (score > best) best = score;
         }
 

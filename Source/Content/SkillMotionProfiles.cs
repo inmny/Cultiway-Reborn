@@ -2,8 +2,8 @@ using Cultiway.Abstract;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Motions;
 using UnityEngine;
-using DeliveryTag = Cultiway.Core.SkillLibV3.SkillTags.Delivery;
-using MotionTag = Cultiway.Core.SkillLibV3.SkillTags.Motion;
+using DeliveryTag = Cultiway.Core.Semantics.SkillSemantics.Delivery;
+using MotionTag = Cultiway.Core.Semantics.SkillSemantics.Motion;
 
 namespace Cultiway.Content;
 

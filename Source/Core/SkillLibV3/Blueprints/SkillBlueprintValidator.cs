@@ -148,7 +148,7 @@ public sealed class SkillBlueprintValidator
     {
         var seenIds = new HashSet<string>(StringComparer.Ordinal);
         var seenComponents = new HashSet<Type>();
-        var conflictOwners = new Dictionary<string, string>(StringComparer.Ordinal);
+        var conflictOwners = new Dictionary<SkillConflictKey, string>();
 
         foreach (var spec in context.Blueprint.Modifiers)
         {
@@ -187,15 +187,15 @@ public sealed class SkillBlueprintValidator
             ValidateFields(spec, modifierAsset, result);
             result.Merge(modifierAsset.CheckEditorCompatibility(context, spec));
 
-            foreach (var conflictTag in modifierAsset.ConflictTags)
+            foreach (var conflictKey in modifierAsset.ConflictKeys)
             {
-                if (conflictOwners.TryGetValue(conflictTag, out var owner))
+                if (conflictOwners.TryGetValue(conflictKey, out var owner))
                 {
                     result.AddError("modifier.conflict", spec.AssetId, owner.Localize());
                 }
                 else
                 {
-                    conflictOwners[conflictTag] = spec.AssetId;
+                    conflictOwners[conflictKey] = spec.AssetId;
                 }
             }
         }
@@ -290,14 +290,14 @@ public sealed class SkillBlueprintValidator
         {
             var modifier = ModClass.I.SkillV3.ModifierLib.get(spec.AssetId);
             if (modifier == null) continue;
-            if (modifier.EditorSemanticTags.Contains(SkillEditorSemanticTags.Speed) &&
-                (trajectory.EditorSemanticTags.Contains(SkillEditorSemanticTags.Static) ||
-                 trajectory.EditorSemanticTags.Contains(SkillEditorSemanticTags.Instant)))
+            if (modifier.EditorCompatibilityKeys.Contains(SkillEditorCompatibilityKeys.Speed) &&
+                (trajectory.EditorCompatibilityKeys.Contains(SkillEditorCompatibilityKeys.Static) ||
+                 trajectory.EditorCompatibilityKeys.Contains(SkillEditorCompatibilityKeys.Instant)))
             {
                 result.AddWarning("semantic.speed_static", spec.AssetId);
             }
-            if (modifier.EditorSemanticTags.Contains(SkillEditorSemanticTags.OnTravel) &&
-                trajectory.EditorSemanticTags.Contains(SkillEditorSemanticTags.Instant))
+            if (modifier.EditorCompatibilityKeys.Contains(SkillEditorCompatibilityKeys.OnTravel) &&
+                trajectory.EditorCompatibilityKeys.Contains(SkillEditorCompatibilityKeys.Instant))
             {
                 result.AddWarning("semantic.travel_instant", spec.AssetId);
             }

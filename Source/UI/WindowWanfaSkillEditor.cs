@@ -424,7 +424,9 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             var selected = entity.id == _draft.EntityAssetId;
             var trajectoryId = WanfaPavilionService.Instance.ResolveAvailableTrajectoryId(entity,
                 selected ? _draft.TrajectoryAssetId : null);
-            var detail = $"{entity.EditorCategoryKey.Localize()} · {string.Join("、", entity.SeriesTags.Select(SkillTags.GetDisplayName))}";
+            var semanticNames = entity.Semantics.Resolve(ModClass.L.SemanticLibrary)
+                .Select(semantic => semantic.GetName());
+            var detail = $"{entity.EditorCategoryKey.Localize()} · {string.Join("、", semanticNames)}";
             if (trajectoryId == null)
             {
                 detail += " · " + "Cultiway.Wanfa.UI.Detail.NoAvailableTrajectory".Localize();

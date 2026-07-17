@@ -3,6 +3,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.Semantics;
 using Cultiway.Content.Libraries;
 using Friflo.Engine.ECS;
 
@@ -20,7 +21,7 @@ public sealed class MagicSpellProfile
     public ElementComposition Element { get; internal set; }
     public ElementRequirement ElementRequirement { get; internal set; }
     public string FamilySignature { get; internal set; }
-    public string PrimaryElementTag { get; internal set; }
+    public SemanticAsset PrimaryElement { get; internal set; }
 
     /// <summary>
     /// 优先读取魔网收录时冻结的档案，非魔网技能则即时计算。
@@ -51,7 +52,7 @@ public sealed class MagicSpellProfile
             Element = asset.Element,
             ElementRequirement = ElementRequirement.FromComposition(asset.Element),
             FamilySignature = BuildFamilySignature(container),
-            PrimaryElementTag = ResolvePrimaryElementTag(asset.Element)
+            PrimaryElement = ResolvePrimaryElement(asset.Element)
         };
     }
 
@@ -64,21 +65,22 @@ public sealed class MagicSpellProfile
         return SkillBlueprintSignature.Build(result.Blueprint);
     }
 
-    private static string ResolvePrimaryElementTag(ElementComposition element)
+    private static SemanticAsset ResolvePrimaryElement(ElementComposition element)
     {
-        var tags = new[]
+        var semantics = new[]
         {
-            SkillTags.Element.Iron, SkillTags.Element.Wood, SkillTags.Element.Water, SkillTags.Element.Fire,
-            SkillTags.Element.Earth, SkillTags.Element.Neg, SkillTags.Element.Pos, SkillTags.Element.Entropy
+            SkillSemantics.Element.Iron, SkillSemantics.Element.Wood, SkillSemantics.Element.Water,
+            SkillSemantics.Element.Fire, SkillSemantics.Element.Earth, SkillSemantics.Element.Neg,
+            SkillSemantics.Element.Pos, SkillSemantics.Element.Entropy
         };
         var bestIndex = -1;
         var bestValue = 0f;
-        for (var i = 0; i < tags.Length; i++)
+        for (var i = 0; i < semantics.Length; i++)
         {
             if (element[i] <= bestValue) continue;
             bestValue = element[i];
             bestIndex = i;
         }
-        return bestIndex < 0 ? SkillTags.Element.Generic : tags[bestIndex];
+        return bestIndex < 0 ? SkillSemantics.Element.Generic : semantics[bestIndex];
     }
 }

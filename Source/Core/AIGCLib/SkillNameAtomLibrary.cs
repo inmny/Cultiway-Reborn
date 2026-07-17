@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.Semantics;
 
 namespace Cultiway.Core.AIGCLib;
 
@@ -9,22 +10,22 @@ public class SkillNameAtomLibrary : AssetLibrary<SkillNameAtomAsset>
 {
     internal IEnumerable<SkillNameAtomAsset> All => list;
 
-    internal string ResolveElementTag(SkillEntityAsset asset)
+    internal SemanticAsset ResolveElementSemantic(SkillEntityAsset asset)
     {
         var atom = SelectBestContextAtom(SkillNameAtomCategory.Element, candidate => candidate.ScoreElement(asset));
-        return atom == null ? SkillTags.Element.Generic : atom.tag;
+        return atom?.semantic ?? SkillSemantics.Element.Generic;
     }
 
-    internal string ResolveFormTag(SkillEntityAsset asset)
+    internal SemanticAsset ResolveFormSemantic(SkillEntityAsset asset)
     {
         var atom = SelectBestContextAtom(SkillNameAtomCategory.Form, candidate => candidate.ScoreForm(asset));
-        return atom == null ? SkillTags.Form.Spell : atom.tag;
+        return atom?.semantic ?? SkillSemantics.Form.Spell;
     }
 
-    internal string ResolveMotionTag(SkillEntityAsset asset, string trajectoryId)
+    internal SemanticAsset ResolveMotionSemantic(SkillEntityAsset asset, string trajectoryId)
     {
         var atom = SelectBestContextAtom(SkillNameAtomCategory.Motion, candidate => candidate.ScoreMotion(asset, trajectoryId));
-        return atom == null ? string.Empty : atom.tag;
+        return atom?.semantic;
     }
 
     internal SkillNameAtomAsset CreateFallbackModifierAtom(SkillNamingModifier modifier)
@@ -36,7 +37,7 @@ public class SkillNameAtomLibrary : AssetLibrary<SkillNameAtomAsset>
         return new SkillNameAtomAsset
         {
             id = "Cultiway.SkillNameAtom.Fallback",
-            tag = SkillTags.Modifier.Fallback,
+            modifier_asset_ids = [modifier.Id],
             category = SkillNameAtomCategory.Modifier,
             name_stems = [stem],
             pattern = "{modifier}{core}",

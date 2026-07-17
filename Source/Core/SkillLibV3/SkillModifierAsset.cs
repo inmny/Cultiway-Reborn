@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Linq;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Editor;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -75,6 +77,9 @@ public delegate void SkillModifierCastParametersAction(Entity skillContainer,
 public delegate void SkillModifierEvaluationAction(Entity skillContainer, ref SkillEvaluationContext context);
 public class SkillModifierAsset : Asset
 {
+    /// <summary>词条实际贡献的跨系统语义；编辑器筛选标签不应写入这里。</summary>
+    public SemanticDescriptor Semantics { get; set; } = new();
+
     /// <summary>
     /// 词条稀有度
     /// </summary>
@@ -86,14 +91,9 @@ public class SkillModifierAsset : Asset
     public float WeightMod = 1f;
 
     /// <summary>
-    /// 冲突标签，用于互斥判定
+    /// 技术互斥键，用于阻止不能同时存在的词条组合。
     /// </summary>
-    public HashSet<string> ConflictTags { get; } = new();
-
-    /// <summary>
-    /// 相似度标签，用于避免同类法术词条过于雷同
-    /// </summary>
-    public HashSet<string> SimilarityTags { get; } = new();
+    public HashSet<SkillConflictKey> ConflictKeys { get; } = new();
 
     public Type EditorComponentType;
     public string EditorCategoryKey;
@@ -103,7 +103,7 @@ public class SkillModifierAsset : Asset
     public bool EditorDerived;
     public bool EditorPersistWhenHidden;
     public List<SkillEditorFieldAsset> EditorFields { get; } = new();
-    public HashSet<string> EditorSemanticTags { get; } = new(StringComparer.Ordinal);
+    public HashSet<string> EditorCompatibilityKeys { get; } = new(StringComparer.Ordinal);
     public SkillModifierNormalizeAction EditorNormalize;
     public SkillModifierCompatibilityAction EditorCompatibility;
     public SkillModifierEffectRadiusMultiplier EffectRadiusMultiplier;
@@ -124,14 +124,14 @@ public class SkillModifierAsset : Asset
     public AddOrUpgradeAction OnAddOrUpgrade;
     public GetDescription GetDescription;
 
-    public SkillModifierAsset AddSimilarityTags(params string[] tags)
+    public SkillModifierAsset AddSemantics(params SemanticAsset[] semantics)
     {
-        if (tags == null) return this;
-        foreach (var tag in tags)
-        {
-            if (string.IsNullOrWhiteSpace(tag)) continue;
-            SimilarityTags.Add(tag);
-        }
+        Semantics = SemanticDescriptor.Weighted(
+            Semantics.contributions
+                .Concat(semantics.Select(x => new SemanticContribution(x)))
+                .GroupBy(x => x.semantic_id, StringComparer.Ordinal)
+                .Select(x => x.First())
+                .ToArray());
         return this;
     }
 
@@ -189,4 +189,26 @@ public class SkillModifierAsset : Asset
             ? new SkillCompatibilityResult()
             : EditorCompatibility(context, spec);
     }
+}
+
+/// <summary>
+/// 技能词条的技术冲突键。它只控制词条兼容性，不进入跨系统语义档案。
+/// </summary>
+public readonly struct SkillConflictKey : IEquatable<SkillConflictKey>
+{
+    private readonly string value;
+
+    public SkillConflictKey(string value)
+    {
+        this.value = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    public bool Equals(SkillConflictKey other) => value == other.value;
+    public override bool Equals(object obj) => obj is SkillConflictKey other && Equals(other);
+    public override int GetHashCode() => value?.GetHashCode() ?? 0;
+}
+
+public static class SkillConflictKeys
+{
+    public static readonly SkillConflictKey KillOverride = new("kill_override");
 }

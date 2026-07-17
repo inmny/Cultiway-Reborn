@@ -32,16 +32,16 @@ public class SkillMotionProfileLibrary : AssetLibrary<SkillMotionProfileAsset>
 
     public SkillMotionProfileAsset Resolve(SkillContainer container, Entity containerEntity)
     {
-        var tags = SkillSemanticTags.NewSet();
-        SkillSemanticTags.CollectAssetTags(container.Asset, tags);
-        SkillSemanticTags.CollectModifierTags(containerEntity, tags);
-        SkillSemanticTags.CollectTrajectoryTags(container.Asset, containerEntity, tags);
+        var semantics = SkillSemanticCollector.NewSet();
+        SkillSemanticCollector.CollectAssetSemantics(container.Asset, semantics);
+        SkillSemanticCollector.CollectModifierSemantics(containerEntity, semantics);
+        SkillSemanticCollector.CollectTrajectorySemantics(container.Asset, containerEntity, semantics);
 
         var bestScore = -1;
         SkillMotionProfileAsset best = null;
         foreach (var profile in list)
         {
-            var score = profile.ScoreTags(tags);
+            var score = profile.ScoreSemantics(semantics);
             if (score <= bestScore) continue;
 
             bestScore = score;

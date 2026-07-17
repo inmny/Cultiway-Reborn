@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.Semantics;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
@@ -16,7 +17,7 @@ public class SkillVfxElementAsset : Asset
     private static readonly SkillVfxGroundFlyOver NoFlyOver = _ => { };
     private static readonly SkillVfxGroundImpact NoImpact = (_, _, _, _) => { };
 
-    private readonly List<SkillTagMatchRule> _matchRules = new();
+    private readonly List<SkillSemanticMatchRule> _matchRules = new();
 
     public Color AccentColor = Color.white;
     public float AccentBlend = 0.35f;
@@ -68,28 +69,28 @@ public class SkillVfxElementAsset : Asset
         return this;
     }
 
-    public SkillVfxElementAsset MatchAny(int priority, params string[] tags)
+    public SkillVfxElementAsset MatchAny(int priority, params SemanticAsset[] semantics)
     {
-        var rule = new SkillTagMatchRule(priority);
-        rule.AddAny(tags);
+        var rule = new SkillSemanticMatchRule(priority);
+        rule.AddAny(semantics);
         _matchRules.Add(rule);
         return this;
     }
 
-    public SkillVfxElementAsset MatchAll(int priority, params string[] tags)
+    public SkillVfxElementAsset MatchAll(int priority, params SemanticAsset[] semantics)
     {
-        var rule = new SkillTagMatchRule(priority);
-        rule.AddRequired(tags);
+        var rule = new SkillSemanticMatchRule(priority);
+        rule.AddRequired(semantics);
         _matchRules.Add(rule);
         return this;
     }
 
-    public int ScoreTags(HashSet<string> tags)
+    public int ScoreSemantics(HashSet<SemanticAsset> semantics)
     {
         var best = -1;
         foreach (var rule in _matchRules)
         {
-            var score = rule.Score(tags);
+            var score = rule.Score(semantics);
             if (score > best) best = score;
         }
 

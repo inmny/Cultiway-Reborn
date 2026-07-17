@@ -7,6 +7,7 @@ using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.Semantics;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -32,9 +33,9 @@ internal static class SkillRuleNameComposer
             StoreKey = $"skill-name-v3|{signature}",
             Asset = asset,
             BaseName = TrimKnownSuffix(LMTools.GetOrKey(asset.id), "术"),
-            ElementTag = atomLibrary.ResolveElementTag(asset),
-            FormTag = atomLibrary.ResolveFormTag(asset),
-            MotionTag = atomLibrary.ResolveMotionTag(asset, trajectoryId),
+            ElementSemantic = atomLibrary.ResolveElementSemantic(asset),
+            FormSemantic = atomLibrary.ResolveFormSemantic(asset),
+            MotionSemantic = atomLibrary.ResolveMotionSemantic(asset, trajectoryId),
             TrajectoryId = trajectoryId
         };
 
@@ -88,13 +89,13 @@ internal static class SkillRuleNameComposer
         var parts = new List<string>
         {
             $"本体={context.BaseName}",
-            $"元素={context.ElementTag}",
-            $"形态={context.FormTag}"
+            $"元素={context.ElementSemantic.GetName()}",
+            $"形态={context.FormSemantic.GetName()}"
         };
 
-        if (!string.IsNullOrEmpty(context.MotionTag))
+        if (context.MotionSemantic != null)
         {
-            parts.Add($"轨迹={context.MotionTag}");
+            parts.Add($"轨迹={context.MotionSemantic.GetName()}");
         }
 
         foreach (var modifier in context.Modifiers)
@@ -266,7 +267,7 @@ internal static class SkillRuleNameComposer
         foreach (var candidate in selected.OrderByDescending(x => x.Score))
         {
             if (candidate == primary) continue;
-            if (candidate.Atom.tag == primary.Atom.tag) continue;
+            if (candidate.Atom.id == primary.Atom.id) continue;
             return candidate;
         }
 
@@ -483,6 +484,8 @@ internal static class SkillRuleNameComposer
         var kind = GetKind(asset.id);
         if (kind == "Placeholder") return null;
 
+        var semantics = SkillSemanticCollector.NewSet();
+        SkillSemanticCollector.CollectDescriptorSemantics(asset.Semantics, semantics);
         return new SkillNamingModifier
         {
             Id = asset.id,
@@ -491,7 +494,7 @@ internal static class SkillRuleNameComposer
             Value = SafeGetValue(modifier),
             ValueTier = GetValueTier(modifier),
             Rarity = asset.Rarity,
-            SimilarityTags = new HashSet<string>(asset.SimilarityTags ?? [], StringComparer.Ordinal)
+            Semantics = semantics
         };
     }
 

@@ -1,9 +1,10 @@
+using System.Linq;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 using UnityEngine;
-using FormTag = Cultiway.Core.SkillLibV3.SkillTags.Form;
 
 namespace Cultiway.Core.SkillLibV3;
 
@@ -123,7 +124,8 @@ public static class SkillContainerEvaluator
         var asset = container.GetComponent<SkillContainer>().Asset;
         if (asset == null) return false;
 
-        var expectedTargets = asset.SeriesTags.Contains(FormTag.Aoe) ? 3f : 1f;
+        var expectedTargets = asset.Semantics.Resolve(ModClass.L.SemanticLibrary)
+            .Contains(SkillSemantics.Form.Aoe) ? 3f : 1f;
         var context = new SkillEvaluationContext(expectedTargets);
         foreach (var componentType in container.GetComponentTypes())
         {

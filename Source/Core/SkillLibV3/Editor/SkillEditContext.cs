@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Core.Semantics;
+using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Blueprints;
 
 namespace Cultiway.Core.SkillLibV3.Editor;
@@ -9,7 +11,8 @@ public sealed class SkillEditContext
     public SkillBlueprint Blueprint { get; private set; }
     public SkillEntityAsset EntityAsset { get; private set; }
     public TrajectoryAsset TrajectoryAsset { get; private set; }
-    public HashSet<string> SemanticTags { get; } = new(StringComparer.Ordinal);
+    public HashSet<SemanticAsset> Semantics { get; } = new();
+    public HashSet<string> EditorCompatibilityKeys { get; } = new(StringComparer.Ordinal);
     public HashSet<string> SelectedModifierIds { get; } = new(StringComparer.Ordinal);
 
     public static SkillEditContext Create(SkillBlueprint blueprint)
@@ -20,7 +23,7 @@ public sealed class SkillEditContext
             context.EntityAsset = ModClass.I.SkillV3.SkillLib.get(blueprint.EntityAssetId);
             if (context.EntityAsset != null)
             {
-                context.SemanticTags.UnionWith(context.EntityAsset.SeriesTags);
+                SkillSemanticCollector.CollectAssetSemantics(context.EntityAsset, context.Semantics);
             }
         }
 
@@ -29,8 +32,9 @@ public sealed class SkillEditContext
             context.TrajectoryAsset = ModClass.I.SkillV3.TrajLib.get(blueprint.TrajectoryAssetId);
             if (context.TrajectoryAsset != null)
             {
-                context.SemanticTags.UnionWith(context.TrajectoryAsset.MotionTags);
-                context.SemanticTags.UnionWith(context.TrajectoryAsset.EditorSemanticTags);
+                SkillSemanticCollector.CollectDescriptorSemantics(
+                    context.TrajectoryAsset.Semantics, context.Semantics);
+                context.EditorCompatibilityKeys.UnionWith(context.TrajectoryAsset.EditorCompatibilityKeys);
             }
         }
 
@@ -41,11 +45,8 @@ public sealed class SkillEditContext
             var modifierAsset = ModClass.I.SkillV3.ModifierLib.get(modifier.AssetId);
             if (modifierAsset != null)
             {
-                context.SemanticTags.UnionWith(modifierAsset.SimilarityTags);
-            }
-            if (modifierAsset != null)
-            {
-                context.SemanticTags.UnionWith(modifierAsset.EditorSemanticTags);
+                SkillSemanticCollector.CollectDescriptorSemantics(modifierAsset.Semantics, context.Semantics);
+                context.EditorCompatibilityKeys.UnionWith(modifierAsset.EditorCompatibilityKeys);
             }
         }
         return context;

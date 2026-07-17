@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Const;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.Semantics;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Core.AIGCLib;
@@ -16,10 +19,11 @@ public enum SkillNameAtomCategory
 
 public class SkillNameAtomAsset : Asset
 {
-    public string tag;
+    public SemanticAsset semantic;
+    public SemanticAsset[] match_semantics = [];
+    public string[] modifier_asset_ids = [];
     public SkillNameAtomCategory category;
     public string[] name_stems = [];
-    public string[] series_tags = [];
     public string[] trajectory_suffixes = [];
     public string pattern;
     public string core_pattern;
@@ -47,7 +51,7 @@ public class SkillNameAtomAsset : Asset
 
     internal float ScoreElement(SkillEntityAsset asset)
     {
-        var score = ScoreSeriesTags(asset) * 2f;
+        var score = ScoreSemantics(asset) * 2f;
         if (element_index >= ElementIndex.Iron && DominantElementIndex(asset) == element_index)
         {
             score += 8f;
@@ -58,12 +62,21 @@ public class SkillNameAtomAsset : Asset
 
     internal float ScoreForm(SkillEntityAsset asset)
     {
-        return ScoreSeriesTags(asset) * 2f;
+        return ScoreSemantics(asset) * 2f;
     }
 
     internal float ScoreMotion(SkillEntityAsset asset, string trajectoryId)
     {
-        var score = ScoreSeriesTags(asset) * 1.5f;
+        var semantics = SkillSemanticCollector.NewSet();
+        SkillSemanticCollector.CollectAssetSemantics(asset, semantics);
+        var trajectory = string.IsNullOrEmpty(trajectoryId)
+            ? null
+            : ModClass.I.SkillV3.TrajLib.get(trajectoryId);
+        if (trajectory != null)
+        {
+            SkillSemanticCollector.CollectDescriptorSemantics(trajectory.Semantics, semantics);
+        }
+        var score = ScoreSemantics(semantics) * 1.5f;
         if (!string.IsNullOrEmpty(trajectoryId))
         {
             for (var i = 0; i < trajectory_suffixes.Length; i++)
@@ -94,10 +107,17 @@ public class SkillNameAtomAsset : Asset
         return values[(seed & int.MaxValue) % values.Length];
     }
 
-    private float ScoreSeriesTags(SkillEntityAsset asset)
+    private float ScoreSemantics(SkillEntityAsset asset)
     {
-        if (series_tags.Length == 0) return 0f;
-        return series_tags.Any(tag => asset.SeriesTags.Contains(tag)) ? 6f : 0f;
+        var semantics = SkillSemanticCollector.NewSet();
+        SkillSemanticCollector.CollectAssetSemantics(asset, semantics);
+        return ScoreSemantics(semantics);
+    }
+
+    private float ScoreSemantics(HashSet<SemanticAsset> semantics)
+    {
+        if (match_semantics.Length == 0) return 0f;
+        return match_semantics.Any(semantics.Contains) ? 6f : 0f;
     }
 
     private static int DominantElementIndex(SkillEntityAsset asset)

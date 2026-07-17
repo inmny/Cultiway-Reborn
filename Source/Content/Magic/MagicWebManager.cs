@@ -11,6 +11,7 @@ using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 
@@ -40,9 +41,9 @@ public readonly struct MagicWebPublishResult
 
 public sealed class MagicWebQuery
 {
-    public HashSet<string> RequiredTags { get; } = new(StringComparer.Ordinal);
-    public HashSet<string> AnyTags { get; } = new(StringComparer.Ordinal);
-    public HashSet<string> ExcludedTags { get; } = new(StringComparer.Ordinal);
+    public HashSet<SemanticAsset> RequiredSemantics { get; } = new();
+    public HashSet<SemanticAsset> AnySemantics { get; } = new();
+    public HashSet<SemanticAsset> ExcludedSemantics { get; } = new();
     public int MaxRing = 12;
     public int MaxResults = MagicSetting.MagicStudyQueryLimit;
     public int SelectionSeed;
@@ -52,7 +53,7 @@ public sealed class MagicWebEntryView
 {
     public Entity Container { get; internal set; }
     public MagicSpellProfile Profile { get; internal set; }
-    public IReadOnlyCollection<string> Tags { get; internal set; }
+    public IReadOnlyCollection<SemanticAsset> Semantics { get; internal set; }
     public bool IsDefault { get; internal set; }
     public string Signature { get; internal set; }
     public long PublisherActorId { get; internal set; }
@@ -62,7 +63,7 @@ public sealed class MagicWebEntryView
 }
 
 /// <summary>
-/// 管理当前世界的魔网实体、公开法术去重索引和语义标签倒排索引。
+/// 管理当前世界的魔网实体、公开法术去重索引和语义倒排索引。
 /// 被收录的法术容器视为不可变对象；改进法术必须先克隆，再上传新容器。
 /// </summary>
 [Dependency(typeof(SkillEntities), typeof(SkillCastResources))]
@@ -72,7 +73,7 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     {
         public Entity Container;
         public string Signature;
-        public HashSet<string> Tags;
+        public HashSet<SemanticAsset> Semantics;
         public MagicSpellProfile Profile;
         public double LastAccessWorldTime;
         public double PublishedWorldTime;
@@ -82,7 +83,7 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     }
 
     private readonly Dictionary<string, Entity> _containersBySignature = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, HashSet<Entity>> _containersByTag = new(StringComparer.Ordinal);
+    private readonly Dictionary<SemanticAsset, HashSet<Entity>> _containersBySemantic = new();
     private readonly Dictionary<int, Entry> _entriesByEntityId = new();
     private readonly HashSet<Entity>[] _containersByRing = Enumerable.Range(0, 13)
         .Select(_ => new HashSet<Entity>()).ToArray();
@@ -172,7 +173,7 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     }
 
     /// <summary>
-    /// 按环级以及必选、任选、排除标签执行有界查询，查询本身不刷新访问时间。
+    /// 按环级以及必选、任选、排除语义执行有界查询，查询本身不刷新访问时间。
     /// </summary>
     public IReadOnlyList<MagicWebEntryView> Query(MagicWebQuery query)
     {
@@ -180,19 +181,20 @@ public sealed class MagicWebManager : ICanInit, ICanReload
 
         var maxRing = Math.Clamp(query.MaxRing, 0, 12);
         HashSet<Entity> candidates = null;
-        foreach (var tag in query.RequiredTags)
+        foreach (var semantic in query.RequiredSemantics)
         {
-            if (!_containersByTag.TryGetValue(tag, out var tagged)) return Array.Empty<MagicWebEntryView>();
-            if (candidates == null || tagged.Count < candidates.Count) candidates = tagged;
+            if (!_containersBySemantic.TryGetValue(semantic, out var matched))
+                return Array.Empty<MagicWebEntryView>();
+            if (candidates == null || matched.Count < candidates.Count) candidates = matched;
         }
 
         HashSet<Entity> ownedCandidates = null;
-        if (candidates == null && query.AnyTags.Count > 0)
+        if (candidates == null && query.AnySemantics.Count > 0)
         {
             ownedCandidates = new HashSet<Entity>();
-            foreach (var tag in query.AnyTags)
+            foreach (var semantic in query.AnySemantics)
             {
-                if (_containersByTag.TryGetValue(tag, out var tagged)) ownedCandidates.UnionWith(tagged);
+                if (_containersBySemantic.TryGetValue(semantic, out var matched)) ownedCandidates.UnionWith(matched);
             }
             candidates = ownedCandidates;
         }
@@ -211,15 +213,15 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         {
             if (!TryGetEntry(container, out var entry)) continue;
             if (entry.Profile.Ring > maxRing) continue;
-            if (query.RequiredTags.Any(tag => !entry.Tags.Contains(tag))) continue;
-            if (query.AnyTags.Count > 0 && !query.AnyTags.Any(entry.Tags.Contains)) continue;
-            if (query.ExcludedTags.Any(entry.Tags.Contains)) continue;
+            if (query.RequiredSemantics.Any(semantic => !entry.Semantics.Contains(semantic))) continue;
+            if (query.AnySemantics.Count > 0 && !query.AnySemantics.Any(entry.Semantics.Contains)) continue;
+            if (query.ExcludedSemantics.Any(entry.Semantics.Contains)) continue;
 
             result.Add(new MagicWebEntryView
             {
                 Container = container,
                 Profile = entry.Profile,
-                Tags = entry.Tags.ToArray(),
+                Semantics = entry.Semantics.OrderBy(semantic => semantic.id, StringComparer.Ordinal).ToArray(),
                 IsDefault = entry.IsDefault,
                 Signature = entry.Signature,
                 PublisherActorId = entry.PublisherActorId,
@@ -248,27 +250,28 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     }
 
     /// <summary>
-    /// 获取同时拥有全部指定语义标签的法术。候选查询本身不计为访问。
+    /// 获取同时拥有全部指定语义的法术。候选查询本身不计为访问。
     /// </summary>
-    public IReadOnlyList<Entity> QueryByTags(IEnumerable<string> requiredTags, int maxResults = int.MaxValue)
+    public IReadOnlyList<Entity> QueryBySemantics(
+        IEnumerable<SemanticAsset> requiredSemantics,
+        int maxResults = int.MaxValue)
     {
         var query = new MagicWebQuery { MaxResults = maxResults };
-        if (requiredTags != null)
+        if (requiredSemantics != null)
         {
-            foreach (var tag in requiredTags.Where(tag => !string.IsNullOrWhiteSpace(tag)))
-                query.RequiredTags.Add(tag);
+            query.RequiredSemantics.UnionWith(requiredSemantics);
         }
         return Query(query).Select(entry => entry.Container).ToArray();
     }
 
     /// <summary>
-    /// 返回法术在魔网中的分类标签副本。
+    /// 返回法术在魔网中的语义副本。
     /// </summary>
-    public IReadOnlyCollection<string> GetTags(Entity container)
+    public IReadOnlyCollection<SemanticAsset> GetSemantics(Entity container)
     {
         return TryGetEntry(container, out var entry)
-            ? entry.Tags.OrderBy(tag => tag, StringComparer.Ordinal).ToArray()
-            : Array.Empty<string>();
+            ? entry.Semantics.OrderBy(semantic => semantic.id, StringComparer.Ordinal).ToArray()
+            : Array.Empty<SemanticAsset>();
     }
 
     /// <summary>
@@ -403,10 +406,10 @@ public sealed class MagicWebManager : ICanInit, ICanReload
             return new MagicWebPublishResult(MagicWebPublishStatus.Duplicate, duplicate);
         }
 
-        var semanticTags = SkillSemanticTags.NewSet();
-        SkillSemanticTags.CollectAssetTags(skill.Asset, semanticTags);
-        SkillSemanticTags.CollectModifierTags(container, semanticTags);
-        SkillSemanticTags.CollectTrajectoryTags(skill.Asset, container, semanticTags);
+        var semantics = SkillSemanticCollector.NewSet();
+        SkillSemanticCollector.CollectAssetSemantics(skill.Asset, semantics);
+        SkillSemanticCollector.CollectModifierSemantics(container, semantics);
+        SkillSemanticCollector.CollectTrajectorySemantics(skill.Asset, container, semantics);
         var profile = MagicSpellProfile.Evaluate(container);
         if (profile == null || string.IsNullOrEmpty(profile.FamilySignature))
             return new MagicWebPublishResult(MagicWebPublishStatus.Invalid);
@@ -421,7 +424,7 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         {
             Container = container,
             Signature = signature,
-            Tags = semanticTags,
+            Semantics = semantics,
             Profile = profile,
             LastAccessWorldTime = now,
             PublishedWorldTime = now,
@@ -432,14 +435,14 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         _entriesByEntityId[container.Id] = entry;
         _containersBySignature[signature] = container;
         _containersByRing[profile.Ring].Add(container);
-        foreach (var tag in semanticTags)
+        foreach (var semantic in semantics)
         {
-            if (!_containersByTag.TryGetValue(tag, out var tagged))
+            if (!_containersBySemantic.TryGetValue(semantic, out var matched))
             {
-                tagged = new HashSet<Entity>();
-                _containersByTag[tag] = tagged;
+                matched = new HashSet<Entity>();
+                _containersBySemantic[semantic] = matched;
             }
-            tagged.Add(container);
+            matched.Add(container);
         }
 
         return new MagicWebPublishResult(MagicWebPublishStatus.Added, container);
@@ -464,11 +467,11 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         _entriesByEntityId.Remove(entry.Container.Id);
         _containersBySignature.Remove(entry.Signature);
         _containersByRing[entry.Profile.Ring].Remove(entry.Container);
-        foreach (var tag in entry.Tags)
+        foreach (var semantic in entry.Semantics)
         {
-            if (!_containersByTag.TryGetValue(tag, out var tagged)) continue;
-            tagged.Remove(entry.Container);
-            if (tagged.Count == 0) _containersByTag.Remove(tag);
+            if (!_containersBySemantic.TryGetValue(semantic, out var matched)) continue;
+            matched.Remove(entry.Container);
+            if (matched.Count == 0) _containersBySemantic.Remove(semantic);
         }
 
         if (entry.Container.IsNull) return;
@@ -496,7 +499,7 @@ public sealed class MagicWebManager : ICanInit, ICanReload
 
         _entriesByEntityId.Clear();
         _containersBySignature.Clear();
-        _containersByTag.Clear();
+        _containersBySemantic.Clear();
         foreach (var ring in _containersByRing) ring.Clear();
         if (!_magicWebEntity.IsNull) _magicWebEntity.DeleteEntity();
         _magicWebEntity = default;

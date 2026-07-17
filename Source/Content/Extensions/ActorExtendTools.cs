@@ -13,6 +13,7 @@ using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.Semantics;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -66,7 +67,7 @@ public static class ActorExtendTools
         var successRate = CalculateEnhanceSuccessRate(ae, source, skillLevel);
         if (Randy.randomChance(successRate))
         {
-            _ = TryEnhanceSkillContainer(ae, targetSkill);
+            if (TryEnhanceSkillContainer(ae, targetSkill)) ae.MarkCultiwaySkillCacheDirty();
             return;
         }
 
@@ -473,7 +474,7 @@ public static class ActorExtendTools
         }
 
         var existingIds = CollectModifierIds(targetSkill);
-        var conflictTags = CollectConflictTags(existingIds);
+        var conflictKeys = CollectConflictKeys(existingIds);
         var candidateAssets = new List<SkillModifierAsset>();
         var candidateAccumWeights = new List<float>();
         float total = 0f;
@@ -489,7 +490,7 @@ public static class ActorExtendTools
             if (baseWeight <= 0f) continue;
 
             var alreadyHas = existingIds.Contains(asset.id);
-            if (!alreadyHas && asset.ConflictTags.Any(conflictTags.Contains)) continue;
+            if (!alreadyHas && asset.ConflictKeys.Any(conflictKeys.Contains)) continue;
 
             var weight = baseWeight * (alreadyHas
                 ? ContentSetting.SkillEnhanceExistingModifierWeight
@@ -660,8 +661,11 @@ public static class ActorExtendTools
         if (sourceAsset == null || candidateAsset == null) return false;
         if (sourceAsset == candidateAsset) return true;
 
-        if (sourceAsset.SeriesTags.Count > 0 && candidateAsset.SeriesTags.Count > 0
-                                            && sourceAsset.SeriesTags.Overlaps(candidateAsset.SeriesTags))
+        var sourceSemantics = SkillSemanticCollector.NewSet();
+        var candidateSemantics = SkillSemanticCollector.NewSet();
+        SkillSemanticCollector.CollectAssetSemantics(sourceAsset, sourceSemantics);
+        SkillSemanticCollector.CollectAssetSemantics(candidateAsset, candidateSemantics);
+        if (sourceSemantics.Overlaps(candidateSemantics))
         {
             return true;
         }
@@ -684,37 +688,30 @@ public static class ActorExtendTools
         return index;
     }
 
-    private static HashSet<string> CollectConflictTags(HashSet<string> modifierIds)
+    private static HashSet<SkillConflictKey> CollectConflictKeys(HashSet<string> modifierIds)
     {
-        var tags = new HashSet<string>();
+        var keys = new HashSet<SkillConflictKey>();
         foreach (var id in modifierIds)
         {
             var asset = ModClass.I.SkillV3.ModifierLib.get(id);
             if (asset == null) continue;
-            tags.UnionWith(asset.ConflictTags);
+            keys.UnionWith(asset.ConflictKeys);
         }
 
-        return tags;
+        return keys;
     }
 
-    private static HashSet<string> CollectModifierSimilarityTags(HashSet<string> modifierIds)
+    private static HashSet<SemanticAsset> CollectModifierSemantics(HashSet<string> modifierIds)
     {
-        var tags = new HashSet<string>();
+        var semantics = SkillSemanticCollector.NewSet();
         foreach (var id in modifierIds)
         {
             var asset = ModClass.I.SkillV3.ModifierLib.get(id);
             if (asset == null) continue;
-            if (asset.SimilarityTags.Count > 0)
-            {
-                tags.UnionWith(asset.SimilarityTags);
-            }
-            else
-            {
-                tags.Add($"id:{id}");
-            }
+            SkillSemanticCollector.CollectDescriptorSemantics(asset.Semantics, semantics);
         }
 
-        return tags;
+        return semantics;
     }
 
     private static float ComputeSkillSimilarity(Entity a, Entity b)
@@ -725,9 +722,9 @@ public static class ActorExtendTools
         var bModifierIds = CollectModifierIds(b);
         var modifierSimilarity = ComputeJaccardSimilarity(aModifierIds, bModifierIds);
 
-        var aTags = CollectModifierSimilarityTags(aModifierIds);
-        var bTags = CollectModifierSimilarityTags(bModifierIds);
-        var tagSimilarity = ComputeJaccardSimilarity(aTags, bTags);
+        var aSemantics = CollectModifierSemantics(aModifierIds);
+        var bSemantics = CollectModifierSemantics(bModifierIds);
+        var semanticSimilarity = ComputeJaccardSimilarity(aSemantics, bSemantics);
 
         var hasTrajectoryA = a.TryGetComponent(out Trajectory trajectoryA);
         var hasTrajectoryB = b.TryGetComponent(out Trajectory trajectoryB);
@@ -744,10 +741,10 @@ public static class ActorExtendTools
             motionSimilarity = Mathf.Max(motionSimilarity, 1f);
         }
 
-        return Mathf.Clamp01(modifierSimilarity * 0.5f + tagSimilarity * 0.25f + motionSimilarity * 0.25f);
+        return Mathf.Clamp01(modifierSimilarity * 0.5f + semanticSimilarity * 0.25f + motionSimilarity * 0.25f);
     }
 
-    private static float ComputeJaccardSimilarity(HashSet<string> a, HashSet<string> b)
+    private static float ComputeJaccardSimilarity<T>(HashSet<T> a, HashSet<T> b)
     {
         if ((a == null || a.Count == 0) && (b == null || b.Count == 0))
         {

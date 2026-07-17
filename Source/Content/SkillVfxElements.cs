@@ -1,11 +1,11 @@
 using Cultiway.Abstract;
 using Cultiway.Core.SkillLibV3.Visuals;
+using Cultiway.Core.Semantics;
 using Cultiway.Utils.Extension;
 using UnityEngine;
-using ElementTag = Cultiway.Core.SkillLibV3.SkillTags.Element;
-using ModifierTag = Cultiway.Content.SkillModifierTags;
-using SeriesTag = Cultiway.Core.SkillLibV3.SkillTags.Series;
-using SimilarityTag = Cultiway.Core.SkillLibV3.SkillTags.Similarity;
+using ElementSemantic = Cultiway.Core.Semantics.SkillSemantics.Element;
+using EffectSemantic = Cultiway.Core.Semantics.SkillSemantics.Effect;
+using ThemeSemantic = Cultiway.Core.Semantics.SkillSemantics.Theme;
 
 namespace Cultiway.Content;
 
@@ -36,92 +36,90 @@ public class SkillVfxElements : ExtendLibrary<SkillVfxElementAsset, SkillVfxElem
         Metal.SetAccent(new Color(1f, 0.95f, 0.55f), 0.45f, 0.78f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaMetal)
             .SetImpactSound("event:/SFX/HIT/HitSwordSword")
-            .MatchAny(10, ElementTag.Iron, SeriesTag.Metal)
+            .MatchAny(10, ElementSemantic.Iron, ThemeSemantic.Metal)
             .SetGroundImpact(ApplyMetalImpact);
         Wood.SetAccent(new Color(0.55f, 1f, 0.35f), 0.42f, 0.78f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaWood)
             .SetImpactSound("event:/SFX/HIT/HitWood")
-            .MatchAny(10, ElementTag.Wood)
+            .MatchAny(10, ElementSemantic.Wood)
             .SetGroundImpact(ApplyWoodImpact);
         Water.SetAccent(new Color(0.52f, 0.9f, 1f), 0.45f, 0.78f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaWater)
             .SetImpactSound("event:/SFX/DROPS/DropWaterBomb")
-            .MatchAny(10, ElementTag.Water)
+            .MatchAny(10, ElementSemantic.Water)
             .SetGroundFlyOver(ApplyWaterFlyOver)
             .SetGroundImpact(ApplyWaterImpact);
         Ice.SetAccent(new Color(0.82f, 1f, 1f), 0.55f, 0.82f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaIce)
             .SetImpactSound("event:/SFX/WEAPONS/WeaponFreezeOrbLand")
-            .MatchAny(80, ElementTag.Ice, ModifierTag.Freeze, SimilarityTag.Freeze)
+            .MatchAny(80, ElementSemantic.Ice, EffectSemantic.Freeze)
             .SetGroundFlyOver(ApplyIceFlyOver)
             .SetGroundImpact(ApplyIceImpact);
         Fire.SetAccent(new Color(1f, 0.82f, 0.35f), 0.42f, 0.8f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaFire)
             .SetImpactSound("event:/SFX/WEAPONS/WeaponFireballLand", areaShakeIntensity: 0.08f)
-            .MatchAny(20, ElementTag.Fire, ModifierTag.Burn, SimilarityTag.Burn)
+            .MatchAny(20, ElementSemantic.Fire, EffectSemantic.Burn)
             .SetGroundFlyOver(ApplyFireFlyOver)
             .SetGroundImpact(ApplyFireImpact);
         Earth.SetAccent(new Color(0.92f, 0.68f, 0.36f), 0.4f, 0.78f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaEarth)
             .SetImpactSound("event:/SFX/WEAPONS/WeaponRockLand", areaShakeIntensity: 0.1f)
-            .MatchAny(10, ElementTag.Earth)
+            .MatchAny(10, ElementSemantic.Earth)
             .SetGroundImpact(ApplyEarthImpact);
         Neg.SetAccent(new Color(0.52f, 0.22f, 0.88f), 0.48f, 0.8f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaNeg)
             .SetImpactSound("event:/SFX/WEAPONS/WeaponMadnessBallLand")
-            .MatchAny(10, ElementTag.Neg)
+            .MatchAny(10, ElementSemantic.Neg)
             .SetGroundImpact(ApplyNegImpact);
         Pos.SetAccent(new Color(1f, 0.96f, 0.42f), 0.45f, 0.8f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaPos)
             .SetImpactSound("event:/SFX/WEAPONS/WeaponPlasmaBallLand")
-            .MatchAny(10, ElementTag.Pos)
+            .MatchAny(10, ElementSemantic.Pos)
             .SetGroundImpact(ApplyPosImpact);
         Entropy.SetAccent(new Color(1f, 0.22f, 0.92f), 0.5f, 0.82f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaEntropy)
             .SetImpactSound("event:/SFX/WEAPONS/WeaponMadnessBallLand", areaShakeIntensity: 0.08f)
-            .MatchAny(68, ElementTag.Entropy, ModifierTag.Chaos, ModifierTag.RandomAffix,
-                ModifierTag.ReincarnationTrial)
+            .MatchAny(68, ElementSemantic.Entropy, EffectSemantic.Random)
             .SetGroundImpact(ApplyEntropyImpact);
         Wind.SetAccent(new Color(0.78f, 1f, 0.92f), 0.35f, 0.72f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaWind)
             .SetImpactSound("event:/SFX/HIT/HitGeneric")
-            .MatchAny(30, ElementTag.Wind)
-            .MatchAll(28, ElementTag.Water, ElementTag.Wood)
+            .MatchAny(30, ElementSemantic.Wind)
+            .MatchAll(28, ElementSemantic.Water, ElementSemantic.Wood)
             .SetGroundFlyOver(ApplyWindFlyOver)
             .SetGroundImpact(ApplyWindImpact);
         Lightning.SetAccent(new Color(0.72f, 0.95f, 1f), 0.55f, 0.86f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaLightning)
             .SetImpactSound("event:/SFX/WEAPONS/WeaponPlasmaBallLand", areaShakeIntensity: 0.08f)
-            .MatchAny(30, ElementTag.Lightning)
-            .MatchAll(28, ElementTag.Water, ElementTag.Fire)
+            .MatchAny(30, ElementSemantic.Lightning)
+            .MatchAll(28, ElementSemantic.Water, ElementSemantic.Fire)
             .SetGroundImpact(ApplyLightningImpact);
         Poison.SetAccent(new Color(0.58f, 0.95f, 0.2f), 0.52f, 0.82f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaPoison)
             .SetImpactSound("event:/SFX/WEAPONS/WeaponGreenOrbLand")
-            .MatchAny(70, ElementTag.Poison, ModifierTag.Poison, SimilarityTag.Poison)
+            .MatchAny(70, ElementSemantic.Poison)
             .SetGroundFlyOver(ApplyPoisonFlyOver)
             .SetGroundImpact(ApplyPoisonImpact);
         Explosion.SetAccent(new Color(1f, 0.52f, 0.18f), 0.55f, 0.86f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaExplosion)
             .SetImpactSound("event:/SFX/WEAPONS/WeaponFireballLand", areaShakeIntensity: 0.16f)
-            .MatchAny(60, ModifierTag.Explosion, SimilarityTag.Blast)
+            .MatchAny(60, EffectSemantic.Blast)
             .SetGroundImpact(ApplyExplosionImpact);
         Burnout.SetAccent(new Color(1f, 0.26f, 0.08f), 0.62f, 0.9f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaBurnout)
             .SetImpactSound("event:/SFX/WEAPONS/WeaponFireballLand", areaShakeIntensity: 0.12f)
-            .MatchAny(75, ModifierTag.Burnout)
+            .MatchAll(75, EffectSemantic.Burn, EffectSemantic.Power)
             .SetGroundFlyOver(ApplyBurnoutFlyOver)
             .SetGroundImpact(ApplyBurnoutImpact);
         Gravity.SetAccent(new Color(0.34f, 0.22f, 0.72f), 0.52f, 0.82f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaGravity)
             .SetImpactSound("event:/SFX/WEAPONS/WeaponMadnessBallLand", areaShakeIntensity: 0.14f)
-            .MatchAny(65, ModifierTag.Gravity, SimilarityTag.Pull)
+            .MatchAny(65, EffectSemantic.Pull)
             .SetGroundImpact(ApplyGravityImpact);
         Curse.SetAccent(new Color(0.38f, 0.05f, 0.5f), 0.58f, 0.84f)
             .SetGrantDrop(WorldboxGame.Drops.WanfaCurse)
             .SetImpactSound("event:/SFX/DROPS/DropCurse")
-            .MatchAny(76, ModifierTag.DeathSentence, ModifierTag.EternalCurse, SimilarityTag.Curse,
-                SimilarityTag.Execute)
+            .MatchAny(76, EffectSemantic.Curse, EffectSemantic.Execute)
             .SetGroundImpact(ApplyCurseImpact);
     }
 

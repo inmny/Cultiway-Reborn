@@ -8,6 +8,7 @@ using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -39,10 +40,11 @@ public readonly struct MagicWebStudyCandidate
 /// </summary>
 public static class MagicWebStudyPlanner
 {
-    private static readonly string[] ElementTags =
+    private static readonly SemanticAsset[] ElementSemantics =
     {
-        SkillTags.Element.Iron, SkillTags.Element.Wood, SkillTags.Element.Water, SkillTags.Element.Fire,
-        SkillTags.Element.Earth, SkillTags.Element.Neg, SkillTags.Element.Pos, SkillTags.Element.Entropy
+        SkillSemantics.Element.Iron, SkillSemantics.Element.Wood, SkillSemantics.Element.Water,
+        SkillSemantics.Element.Fire, SkillSemantics.Element.Earth, SkillSemantics.Element.Neg,
+        SkillSemantics.Element.Pos, SkillSemantics.Element.Entropy
     };
 
     /// <summary>
@@ -73,8 +75,7 @@ public static class MagicWebStudyPlanner
         var known = GetKnownSpellEntries(actor);
         var knownFamilies = new HashSet<string>(known.Select(item => item.Profile.FamilySignature),
             StringComparer.Ordinal);
-        var knownPrimaryElements = new HashSet<string>(known.Select(item => item.Profile.PrimaryElementTag),
-            StringComparer.Ordinal);
+        var knownPrimaryElements = new HashSet<SemanticAsset>(known.Select(item => item.Profile.PrimaryElement));
 
         var query = new MagicWebQuery
         {
@@ -83,10 +84,10 @@ public static class MagicWebStudyPlanner
             SelectionSeed = unchecked(actor.E.Id * 397 ^
                                       (int)(GetWorldTime() / (TimeScales.SecPerYear * 5f)))
         };
-        query.AnyTags.Add(SkillTags.Element.Generic);
+        query.AnySemantics.Add(SkillSemantics.Element.Generic);
         var strongestElementIndex = 0;
         var strongestElementAffinity = float.MinValue;
-        for (var i = 0; i < ElementTags.Length; i++)
+        for (var i = 0; i < ElementSemantics.Length; i++)
         {
             var elementalAffinity = ElementRequirement.GetElementAffinity(root[i]);
             if (elementalAffinity > strongestElementAffinity)
@@ -94,9 +95,10 @@ public static class MagicWebStudyPlanner
                 strongestElementAffinity = elementalAffinity;
                 strongestElementIndex = i;
             }
-            if (elementalAffinity >= MagicSetting.MagicStudyAffinityThreshold) query.AnyTags.Add(ElementTags[i]);
+            if (elementalAffinity >= MagicSetting.MagicStudyAffinityThreshold)
+                query.AnySemantics.Add(ElementSemantics[i]);
         }
-        query.AnyTags.Add(ElementTags[strongestElementIndex]);
+        query.AnySemantics.Add(ElementSemantics[strongestElementIndex]);
 
         var candidates = new List<MagicWebStudyCandidate>();
         foreach (var entry in manager.Query(query))
@@ -106,7 +108,7 @@ public static class MagicWebStudyPlanner
             var affinity = profile.ElementRequirement.GetWeightedAffinity(root);
             if (affinity < MagicSetting.MagicStudyAffinityThreshold) continue;
 
-            var novelty = knownPrimaryElements.Contains(profile.PrimaryElementTag) ? 0f : 1f;
+            var novelty = knownPrimaryElements.Contains(profile.PrimaryElement) ? 0f : 1f;
             var score = Score(profile, affinity, maxRing, novelty, entry.IsDefault);
             var replacement = default(Entity);
             if (known.Count >= capacity)
@@ -161,12 +163,12 @@ public static class MagicWebStudyPlanner
         float candidateScore, Core.Components.ElementRoot root, int maxRing, out Entity replacement)
     {
         replacement = default;
-        var dominantTag = ResolveDominantElementTag(root);
-        var dominantCount = known.Count(item => item.Profile.PrimaryElementTag == dominantTag);
+        var dominantElement = ResolveDominantElement(root);
+        var dominantCount = known.Count(item => item.Profile.PrimaryElement == dominantElement);
         var weakestScore = float.MaxValue;
         foreach (var item in known)
         {
-            if (item.Profile.PrimaryElementTag == dominantTag && dominantCount <= 1) continue;
+            if (item.Profile.PrimaryElement == dominantElement && dominantCount <= 1) continue;
             var affinity = item.Profile.ElementRequirement.GetWeightedAffinity(root);
             var score = Score(item.Profile, affinity, maxRing, 0f, false);
             if (score >= weakestScore) continue;
@@ -202,12 +204,12 @@ public static class MagicWebStudyPlanner
         return top[top.Length - 1];
     }
 
-    private static string ResolveDominantElementTag(ElementRoot root)
+    private static SemanticAsset ResolveDominantElement(ElementRoot root)
     {
         var bestIndex = 0;
-        for (var i = 1; i < ElementTags.Length; i++)
+        for (var i = 1; i < ElementSemantics.Length; i++)
             if (root[i] > root[bestIndex]) bestIndex = i;
-        return ElementTags[bestIndex];
+        return ElementSemantics[bestIndex];
     }
 
     private static double GetWorldTime()

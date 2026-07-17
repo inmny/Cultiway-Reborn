@@ -13,6 +13,7 @@ using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.Semantics;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -53,7 +54,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         Uploaded
     }
 
-    private enum TagFilterState
+    private enum SemanticFilterState
     {
         Off,
         Required,
@@ -73,7 +74,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         public int ItemLevelValue;
         public float ManaDemand;
         public string[] ModifierNames;
-        public string[] Tags;
+        public SemanticAsset[] Semantics;
         public string SearchText;
         public Sprite[] Frames;
         public float FrameInterval;
@@ -132,35 +133,16 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
     private const int MaxItemLevel = 35;
 
     private static readonly SkillBlueprintExporter Exporter = new();
-    private static readonly string[] ElementTags =
+    private static readonly SemanticAsset[] ElementSemantics =
     {
-        SkillTags.Element.Iron, SkillTags.Element.Wood, SkillTags.Element.Water, SkillTags.Element.Fire,
-        SkillTags.Element.Earth, SkillTags.Element.Neg, SkillTags.Element.Pos, SkillTags.Element.Entropy,
-        SkillTags.Element.Generic
+        SkillSemantics.Element.Iron, SkillSemantics.Element.Wood, SkillSemantics.Element.Water,
+        SkillSemantics.Element.Fire, SkillSemantics.Element.Earth, SkillSemantics.Element.Neg,
+        SkillSemantics.Element.Pos, SkillSemantics.Element.Entropy, SkillSemantics.Element.Generic
     };
 
-    private static readonly HashSet<string> ElementTagSet = new(ElementTags, StringComparer.Ordinal);
-    private static readonly HashSet<string> FormTagSet = new(new[]
-    {
-        SkillTags.Form.Slash, SkillTags.Form.Pierce, SkillTags.Form.Ball, SkillTags.Form.Aoe,
-        SkillTags.Form.Falling, SkillTags.Form.Sustain, SkillTags.Form.Spell
-    }, StringComparer.Ordinal);
-    private static readonly HashSet<string> DeliveryTagSet = new(new[]
-    {
-        SkillTags.Delivery.Projectile, SkillTags.Delivery.Melee, SkillTags.Delivery.Instant,
-        SkillTags.Delivery.Field
-    }, StringComparer.Ordinal);
-    private static readonly HashSet<string> MotionTagSet = new(new[]
-    {
-        SkillTags.Motion.Direct, SkillTags.Motion.Homing, SkillTags.Motion.Falling, SkillTags.Motion.Ground,
-        SkillTags.Motion.Snap, SkillTags.Motion.Vortex, SkillTags.Motion.Rain, SkillTags.Motion.Return,
-        SkillTags.Motion.Zigzag, SkillTags.Motion.Wave, SkillTags.Motion.Spiral, SkillTags.Motion.Orbit,
-        SkillTags.Motion.Appear, SkillTags.Motion.MeleeSweep
-    }, StringComparer.Ordinal);
-
     private readonly List<EntryModel> _entries = new();
-    private readonly HashSet<string> _elementFilters = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, TagFilterState> _tagFilters = new(StringComparer.Ordinal);
+    private readonly HashSet<SemanticAsset> _elementFilters = new();
+    private readonly Dictionary<SemanticAsset, SemanticFilterState> _semanticFilters = new();
     private MonoObjPool<MagicWebBrowserRow> _rowPool;
     private InputField _search;
     private Button _groupButton;
@@ -185,7 +167,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
     private Text _detailName;
     private Text _detailSummary;
     private Text _detailSource;
-    private Text _detailTags;
+    private Text _detailSemantics;
     private Text _detailModifiers;
     private Text _detailCompatibility;
     private Sprite[] _detailFrames = Array.Empty<Sprite>();
@@ -380,7 +362,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         _detailSummary = UiElements.CreateText(heading.transform, "Summary", string.Empty,
             RightWidth - 66f, 30f, 6);
         _detailSource = CreateDetailText(right.Content, "Source", 54f);
-        _detailTags = CreateDetailText(right.Content, "Tags", 66f);
+        _detailSemantics = CreateDetailText(right.Content, "Semantics", 66f);
         _detailModifiers = CreateDetailText(right.Content, "Modifiers", 100f);
         _detailCompatibility = CreateDetailText(right.Content, "Compatibility", 110f);
     }
@@ -450,7 +432,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
                 ? modifier.GetKey()
                 : $"{modifier.GetKey()}: {modifier.GetValue()}")
             .ToArray();
-        var tags = entry.Tags.OrderBy(tag => tag, StringComparer.Ordinal).ToArray();
+        var semantics = entry.Semantics.OrderBy(semantic => semantic.id, StringComparer.Ordinal).ToArray();
         var animation = skill.Asset.IsAnimationIndexValid(skill.AnimationIndex)
             ? skill.Asset.GetAnimation(skill.AnimationIndex)
             : null;
@@ -463,8 +445,8 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
             name, entityId, entityName, trajectoryId, trajectoryName
         };
         searchParts.AddRange(modifierNames);
-        searchParts.AddRange(tags);
-        searchParts.AddRange(tags.Select(SkillTags.GetDisplayName));
+        searchParts.AddRange(semantics.Select(semantic => semantic.id));
+        searchParts.AddRange(semantics.Select(semantic => semantic.GetName()));
 
         return new EntryModel
         {
@@ -479,7 +461,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
             ItemLevelValue = itemLevel,
             ManaDemand = SkillCastCost.CalculateStepDemand(container),
             ModifierNames = modifierNames,
-            Tags = tags,
+            Semantics = semantics,
             SearchText = string.Join("\n", searchParts),
             Frames = frames,
             FrameInterval = frameInterval
@@ -612,11 +594,11 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         if (_sourceFilter == SourceFilter.Uploaded && entry.Entry.IsDefault) return false;
         if (_entityFilter != null && entry.EntityId != _entityFilter) return false;
         if (_trajectoryFilter != null && entry.TrajectoryId != _trajectoryFilter) return false;
-        if (_elementFilters.Count > 0 && !_elementFilters.Any(entry.Tags.Contains)) return false;
-        foreach (var (tag, state) in _tagFilters)
+        if (_elementFilters.Count > 0 && !_elementFilters.Any(entry.Semantics.Contains)) return false;
+        foreach (var (semantic, state) in _semanticFilters)
         {
-            if (state == TagFilterState.Required && !entry.Tags.Contains(tag)) return false;
-            if (state == TagFilterState.Excluded && entry.Tags.Contains(tag)) return false;
+            if (state == SemanticFilterState.Required && !entry.Semantics.Contains(semantic)) return false;
+            if (state == SemanticFilterState.Excluded && entry.Semantics.Contains(semantic)) return false;
         }
 
         if (mage == null) return true;
@@ -650,7 +632,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         return _groupMode switch
         {
             GroupMode.Entity => $"entity:{entry.EntityId}:{entry.AnimationIndex}",
-            GroupMode.Element => $"element:{entry.Entry.Profile.PrimaryElementTag}",
+            GroupMode.Element => $"element:{entry.Entry.Profile.PrimaryElement.id}",
             GroupMode.Ring => $"ring:{entry.Entry.Profile.Ring}",
             GroupMode.Source => entry.Entry.IsDefault ? "source:default" : "source:uploaded",
             GroupMode.Trajectory => $"trajectory:{entry.TrajectoryId}",
@@ -664,7 +646,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         {
             GroupMode.Entity => string.Format("Cultiway.MagicWeb.UI.Format.EntityGroup".Localize(),
                 entry.EntityName, entry.AnimationIndex + 1),
-            GroupMode.Element => SkillTags.GetDisplayName(entry.Entry.Profile.PrimaryElementTag),
+            GroupMode.Element => entry.Entry.Profile.PrimaryElement.GetName(),
             GroupMode.Ring => string.Format("Cultiway.MagicWeb.UI.Format.Ring".Localize(), entry.Entry.Profile.Ring),
             GroupMode.Source => entry.Entry.IsDefault
                 ? "Cultiway.MagicWeb.UI.Source.Native".Localize()
@@ -679,7 +661,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         return _groupMode switch
         {
             GroupMode.Entity => $"{entry.EntityName}\u0001{entry.AnimationIndex:D3}",
-            GroupMode.Element => Array.IndexOf(ElementTags, entry.Entry.Profile.PrimaryElementTag).ToString("D2"),
+            GroupMode.Element => Array.IndexOf(ElementSemantics, entry.Entry.Profile.PrimaryElement).ToString("D2"),
             GroupMode.Ring => entry.Entry.Profile.Ring.ToString("D2"),
             GroupMode.Source => entry.Entry.IsDefault ? "00" : "01",
             GroupMode.Trajectory => entry.TrajectoryName,
@@ -745,8 +727,8 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
                 entry.Entry.PublisherActorId, uploadYear, lifetime);
         }
 
-        _detailTags.text = string.Format("Cultiway.MagicWeb.UI.Format.Tags".Localize(),
-            string.Join("、", entry.Tags.Select(SkillTags.GetDisplayName)));
+        _detailSemantics.text = string.Format("Cultiway.MagicWeb.UI.Format.Tags".Localize(),
+            string.Join("、", entry.Semantics.Select(semantic => semantic.GetName())));
         _detailModifiers.text = string.Format("Cultiway.MagicWeb.UI.Format.Modifiers".Localize(),
             entry.ModifierNames.Length == 0
                 ? "Cultiway.MagicWeb.UI.State.None".Localize()
@@ -780,7 +762,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         _detailName.text = "Cultiway.MagicWeb.UI.State.NoResults".Localize();
         _detailSummary.text = string.Empty;
         _detailSource.text = string.Empty;
-        _detailTags.text = string.Empty;
+        _detailSemantics.text = string.Empty;
         _detailModifiers.text = string.Empty;
         _detailCompatibility.text = string.Empty;
     }
@@ -833,10 +815,11 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         if (_trajectoryFilter != null && !_trajectoryIds.Contains(_trajectoryFilter, StringComparer.Ordinal))
             _trajectoryFilter = null;
 
-        var presentTags = new HashSet<string>(_entries.SelectMany(entry => entry.Tags), StringComparer.Ordinal);
-        _elementFilters.RemoveWhere(tag => !presentTags.Contains(tag));
-        foreach (var tag in _tagFilters.Keys.Where(tag => !presentTags.Contains(tag)).ToArray())
-            _tagFilters.Remove(tag);
+        var presentSemantics = new HashSet<SemanticAsset>(_entries.SelectMany(entry => entry.Semantics));
+        _elementFilters.RemoveWhere(semantic => !presentSemantics.Contains(semantic));
+        foreach (var semantic in _semanticFilters.Keys
+                     .Where(semantic => !presentSemantics.Contains(semantic)).ToArray())
+            _semanticFilters.Remove(semantic);
     }
 
     private void RefreshDynamicFilters()
@@ -844,61 +827,66 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         if (_filterContent == null) return;
         if (_dynamicFilterRoot != null) Object.DestroyImmediate(_dynamicFilterRoot);
 
-        var presentTags = _entries.SelectMany(entry => entry.Tags).Distinct(StringComparer.Ordinal).ToArray();
-        var presentElements = ElementTags.Where(presentTags.Contains).ToArray();
-        var tagGroups = presentTags.GroupBy(GetTagCategory)
-            .OrderBy(group => GetTagCategoryOrder(group.Key))
-            .Select(group => (Category: group.Key,
-                Tags: group.OrderBy(SkillTags.GetDisplayName, StringComparer.Ordinal).ToArray()))
+        var presentSemantics = _entries.SelectMany(entry => entry.Semantics).Distinct().ToArray();
+        var presentElements = ElementSemantics.Where(presentSemantics.Contains).ToArray();
+        var semanticGroups = presentSemantics.Where(semantic => semantic.Facet.id != "element")
+            .GroupBy(semantic => semantic.Facet)
+            .OrderBy(group => ModClass.L.SemanticFacetLibrary.list.IndexOf(group.Key))
+            .ThenBy(group => group.Key.id, StringComparer.Ordinal)
+            .Select(group => (Facet: group.Key,
+                Semantics: group.OrderBy(semantic => semantic.GetName(), StringComparer.Ordinal).ToArray()))
             .ToArray();
-        var rowCount = (presentElements.Length + 5) / 6 + tagGroups.Sum(group => (group.Tags.Length + 5) / 6);
-        var height = 18f * (1 + tagGroups.Length) + 22f * rowCount + 4f;
+        var rowCount = (presentElements.Length + 5) / 6 +
+                       semanticGroups.Sum(group => (group.Semantics.Length + 5) / 6);
+        var height = 18f * (1 + semanticGroups.Length) + 22f * rowCount + 4f;
         _dynamicFilterRoot = UiLayout.Create(_filterContent, "DynamicFilters", false,
             RootWidth - 8f, Math.Max(22f, height), 2f);
         CreateFilterSection(_dynamicFilterRoot.transform, "Cultiway.MagicWeb.UI.Filter.Elements".Localize(),
             presentElements, false);
-        foreach (var group in tagGroups)
+        foreach (var group in semanticGroups)
         {
-            CreateFilterSection(_dynamicFilterRoot.transform,
-                string.Format("Cultiway.MagicWeb.UI.Format.TagCategory".Localize(),
-                    $"Cultiway.MagicWeb.UI.TagCategory.{group.Category}".Localize()), group.Tags, true);
+            CreateFilterSection(_dynamicFilterRoot.transform, group.Facet.GetName(), group.Semantics, true);
         }
     }
 
-    private void CreateFilterSection(Transform parent, string title, IReadOnlyList<string> tags, bool triState)
+    private void CreateFilterSection(
+        Transform parent,
+        string title,
+        IReadOnlyList<SemanticAsset> semantics,
+        bool triState)
     {
-        if (tags.Count == 0) return;
+        if (semantics.Count == 0) return;
         UiElements.CreateText(parent, $"Title_{title}", title, RootWidth - 12f, 16f, 7,
             TextAnchor.MiddleLeft, FontStyle.Bold);
-        for (var offset = 0; offset < tags.Count; offset += 6)
+        for (var offset = 0; offset < semantics.Count; offset += 6)
         {
             var row = UiLayout.Create(parent, $"Row_{title}_{offset}", true, RootWidth - 12f, 20f, 3f);
-            foreach (var tag in tags.Skip(offset).Take(6))
+            foreach (var semantic in semantics.Skip(offset).Take(6))
             {
-                var currentTag = tag;
+                var currentSemantic = semantic;
                 Button button = null;
-                button = UiElements.CreateButton(row.transform, currentTag,
-                    SkillTags.GetDisplayName(currentTag), 80f, 19f, () =>
+                button = UiElements.CreateButton(row.transform, currentSemantic.id,
+                    currentSemantic.GetName(), 80f, 19f, () =>
                     {
                         if (triState)
                         {
-                            var state = _tagFilters.TryGetValue(currentTag, out var existing)
+                            var state = _semanticFilters.TryGetValue(currentSemantic, out var existing)
                                 ? existing
-                                : TagFilterState.Off;
-                            state = (TagFilterState)(((int)state + 1) % 3);
-                            if (state == TagFilterState.Off) _tagFilters.Remove(currentTag);
-                            else _tagFilters[currentTag] = state;
+                                : SemanticFilterState.Off;
+                            state = (SemanticFilterState)(((int)state + 1) % 3);
+                            if (state == SemanticFilterState.Off) _semanticFilters.Remove(currentSemantic);
+                            else _semanticFilters[currentSemantic] = state;
                         }
-                        else if (!_elementFilters.Add(currentTag))
+                        else if (!_elementFilters.Add(currentSemantic))
                         {
-                            _elementFilters.Remove(currentTag);
+                            _elementFilters.Remove(currentSemantic);
                         }
 
-                        UpdateChipVisual(button, currentTag, triState);
+                        UpdateChipVisual(button, currentSemantic, triState);
                         ApplyFilterChange();
                     });
-                UpdateChipVisual(button, currentTag, triState);
-                UiTooltip.Set(button.gameObject, SkillTags.GetDisplayName(currentTag),
+                UpdateChipVisual(button, currentSemantic, triState);
+                UiTooltip.Set(button.gameObject, currentSemantic.GetName(),
                     triState
                         ? "Cultiway.MagicWeb.UI.Tooltip.TagState".Localize()
                         : "Cultiway.MagicWeb.UI.Tooltip.ElementState".Localize());
@@ -906,22 +894,22 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         }
     }
 
-    private void UpdateChipVisual(Button button, string tag, bool triState)
+    private void UpdateChipVisual(Button button, SemanticAsset semantic, bool triState)
     {
         var state = triState
-            ? _tagFilters.TryGetValue(tag, out var current) ? current : TagFilterState.Off
-            : _elementFilters.Contains(tag) ? TagFilterState.Required : TagFilterState.Off;
+            ? _semanticFilters.TryGetValue(semantic, out var current) ? current : SemanticFilterState.Off
+            : _elementFilters.Contains(semantic) ? SemanticFilterState.Required : SemanticFilterState.Off;
         var prefix = state switch
         {
-            TagFilterState.Required => "+ ",
-            TagFilterState.Excluded => "- ",
+            SemanticFilterState.Required => "+ ",
+            SemanticFilterState.Excluded => "- ",
             _ => string.Empty
         };
-        button.GetComponentInChildren<Text>().text = prefix + SkillTags.GetDisplayName(tag);
+        button.GetComponentInChildren<Text>().text = prefix + semantic.GetName();
         button.GetComponent<Image>().color = state switch
         {
-            TagFilterState.Required => new Color(0.42f, 0.82f, 0.56f, 1f),
-            TagFilterState.Excluded => new Color(0.9f, 0.42f, 0.4f, 1f),
+            SemanticFilterState.Required => new Color(0.42f, 0.82f, 0.56f, 1f),
+            SemanticFilterState.Excluded => new Color(0.9f, 0.42f, 0.4f, 1f),
             _ => Color.white
         };
     }
@@ -949,7 +937,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
     {
         var count = (_minItemLevel > 0 ? 1 : 0) + (_maxItemLevel < MaxItemLevel ? 1 : 0) +
                     (_sourceFilter != SourceFilter.All ? 1 : 0) + (_entityFilter != null ? 1 : 0) +
-                    (_trajectoryFilter != null ? 1 : 0) + _elementFilters.Count + _tagFilters.Count +
+                    (_trajectoryFilter != null ? 1 : 0) + _elementFilters.Count + _semanticFilters.Count +
                     (_understandableOnly ? 1 : 0) + (_hideKnown ? 1 : 0);
         _filterButton.GetComponentInChildren<Text>().text = string.Format(
             "Cultiway.MagicWeb.UI.Format.FilterCount".Localize(), count);
@@ -1051,7 +1039,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         _entityFilter = null;
         _trajectoryFilter = null;
         _elementFilters.Clear();
-        _tagFilters.Clear();
+        _semanticFilters.Clear();
         _understandableOnly = false;
         _hideKnown = false;
         _understandableOnlyToggle.isOn = false;
@@ -1061,27 +1049,6 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         _page = 0;
         RefreshDynamicFilters();
         Refresh();
-    }
-
-    private static string GetTagCategory(string tag)
-    {
-        if (ElementTagSet.Contains(tag)) return "Element";
-        if (FormTagSet.Contains(tag)) return "Form";
-        if (DeliveryTagSet.Contains(tag)) return "Delivery";
-        if (MotionTagSet.Contains(tag)) return "Motion";
-        return "Effect";
-    }
-
-    private static int GetTagCategoryOrder(string category)
-    {
-        return category switch
-        {
-            "Element" => 0,
-            "Form" => 1,
-            "Delivery" => 2,
-            "Motion" => 3,
-            _ => 4
-        };
     }
 
     private static double GetRemainingYears(EntryModel entry)

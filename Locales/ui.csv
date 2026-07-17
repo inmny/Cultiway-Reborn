@@ -395,10 +395,10 @@ Cultiway.MagicWeb.UI.Format.Ring,{0} 环
 Cultiway.MagicWeb.UI.Format.RemainingYears,约 {0} 年后消失
 Cultiway.MagicWeb.UI.Format.NativeSource,来源：魔网原生\n存续：{0}
 Cultiway.MagicWeb.UI.Format.UploadedSource,来源：{0} #{1}\n上传年份：{2} · 存续：{3}
-Cultiway.MagicWeb.UI.Format.Tags,语义标签\n{0}
+Cultiway.MagicWeb.UI.Format.Tags,语义\n{0}
 Cultiway.MagicWeb.UI.Format.Modifiers,词条\n{0}
 Cultiway.MagicWeb.UI.Format.Compatibility,选中魔法师：{0} #{1}\n加权亲和/阈值：{2}/{3} · 达标：{4}\n法术环位/上限：{5}/{6} · 允许：{7}\n已掌握同族：{8} · 容量：{9}/{10} · 已满：{11}\n静态结论：{12}
-Cultiway.MagicWeb.UI.Format.TagCategory,标签 · {0}
+Cultiway.MagicWeb.UI.Format.TagCategory,语义 · {0}
 Cultiway.MagicWeb.UI.Tooltip.Search.Title,搜索
 Cultiway.MagicWeb.UI.Tooltip.Search,按本地化名称、本体、轨迹、词条和语义标签筛选。搜索只读取魔网索引。
 Cultiway.MagicWeb.UI.Tooltip.Group.Title,主分组
@@ -547,7 +547,7 @@ Cultiway.Wanfa.UI.Action.PreviousAnimation,上一个动画
 Cultiway.Wanfa.UI.Action.NextAnimation,下一个动画
 Cultiway.Wanfa.UI.Overview.Entity,法术本体
 Cultiway.Wanfa.UI.Overview.Trajectory,飞行轨迹
-Cultiway.Wanfa.UI.Overview.Tags,本体标签
+Cultiway.Wanfa.UI.Overview.Tags,本体语义
 Cultiway.Wanfa.UI.Overview.Modifier,词条
 Cultiway.Wanfa.UI.Overview.Modifiers,附加词条
 Cultiway.Wanfa.UI.State.NoModifiers,无

@@ -7,7 +7,7 @@ using Cultiway.Core.SkillLibV3.Editor;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
-using MotionTag = Cultiway.Core.SkillLibV3.SkillTags.Motion;
+using MotionTag = Cultiway.Core.Semantics.SkillSemantics.Motion;
 
 namespace Cultiway.Content;
 
@@ -61,37 +61,37 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
 
     private static void ConfigureEditorMetadata()
     {
-        ConfigureEditor(TowardsDirection, nameof(TowardsDirection), true, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(TowardsDirection, nameof(TowardsDirection), true, false, SkillEditorCompatibilityKeys.Travel);
         ConfigureEditor(TowardsDirectionNoRot, nameof(TowardsDirectionNoRot), false, true,
-            SkillEditorSemanticTags.Travel);
-        ConfigureEditor(TowardsPosition, nameof(TowardsPosition), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(TowardsTarget, nameof(TowardsTarget), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(DriftHoming, nameof(DriftHoming), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(SineWave, nameof(SineWave), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(Zigzag, nameof(Zigzag), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(SpiralHoming, nameof(SpiralHoming), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(OrbitTarget, nameof(OrbitTarget), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(Boomerang, nameof(Boomerang), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(SlowVortex, nameof(SlowVortex), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(ArcToPosition, nameof(ArcToPosition), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(FallingStrike, nameof(FallingStrike), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(GroundCrawl, nameof(GroundCrawl), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(LightningSnap, nameof(LightningSnap), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(RainFall, nameof(RainFall), true, false, SkillEditorSemanticTags.Travel);
-        ConfigureEditor(AppearAtTarget, nameof(AppearAtTarget), true, false, SkillEditorSemanticTags.Instant,
-            SkillEditorSemanticTags.Static);
+            SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(TowardsPosition, nameof(TowardsPosition), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(TowardsTarget, nameof(TowardsTarget), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(DriftHoming, nameof(DriftHoming), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(SineWave, nameof(SineWave), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(Zigzag, nameof(Zigzag), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(SpiralHoming, nameof(SpiralHoming), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(OrbitTarget, nameof(OrbitTarget), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(Boomerang, nameof(Boomerang), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(SlowVortex, nameof(SlowVortex), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(ArcToPosition, nameof(ArcToPosition), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(FallingStrike, nameof(FallingStrike), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(GroundCrawl, nameof(GroundCrawl), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(LightningSnap, nameof(LightningSnap), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(RainFall, nameof(RainFall), true, false, SkillEditorCompatibilityKeys.Travel);
+        ConfigureEditor(AppearAtTarget, nameof(AppearAtTarget), true, false, SkillEditorCompatibilityKeys.Instant,
+            SkillEditorCompatibilityKeys.Static);
         // 当前没有真正的近身斩击实体，先保留轨迹实现但不向编辑器开放。
-        ConfigureEditor(MeleeSweep, nameof(MeleeSweep), false, false, SkillEditorSemanticTags.Travel);
+        ConfigureEditor(MeleeSweep, nameof(MeleeSweep), false, false, SkillEditorCompatibilityKeys.Travel);
     }
 
     private static void ConfigureEditor(TrajectoryAsset trajectory, string key, bool selectable,
-        bool persistWhenHidden, params string[] semanticTags)
+        bool persistWhenHidden, params string[] compatibilityKeys)
     {
         trajectory.EditorDescriptionKey = $"{trajectory.id}.Description";
         trajectory.EditorSortOrder = ModClass.I.SkillV3.TrajLib.list.IndexOf(trajectory);
         trajectory.EditorSelectable = selectable;
         trajectory.EditorPersistWhenHidden = persistWhenHidden;
-        trajectory.EditorSemanticTags.UnionWith(semanticTags);
+        trajectory.EditorCompatibilityKeys.UnionWith(compatibilityKeys);
     }
 
     private static void SetupTowardsDirection()
@@ -120,7 +120,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        TowardsDirection.AddMotionTags(MotionTag.Direct);
+        TowardsDirection.AddSemantics(MotionTag.Direct);
     }
 
     private static void SetupTowardsDirectionNoRot()
@@ -137,7 +137,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        TowardsDirectionNoRot.AddMotionTags(MotionTag.Direct);
+        TowardsDirectionNoRot.AddSemantics(MotionTag.Direct);
     }
 
     private static void SetupTowardsPosition()
@@ -153,7 +153,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        TowardsPosition.AddMotionTags(MotionTag.Direct);
+        TowardsPosition.AddSemantics(MotionTag.Direct);
     }
 
     private static void SetupTowardsTarget()
@@ -169,7 +169,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        TowardsTarget.AddMotionTags(MotionTag.Homing);
+        TowardsTarget.AddSemantics(MotionTag.Homing);
     }
 
     private static void SetupDriftHoming()
@@ -196,7 +196,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        DriftHoming.AddMotionTags(MotionTag.Homing);
+        DriftHoming.AddSemantics(MotionTag.Homing);
     }
 
     private static void SetupSineWave()
@@ -234,7 +234,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        SineWave.AddMotionTags(MotionTag.Wave);
+        SineWave.AddSemantics(MotionTag.Wave);
     }
 
     private static void SetupZigzag()
@@ -272,7 +272,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        Zigzag.AddMotionTags(MotionTag.Zigzag);
+        Zigzag.AddSemantics(MotionTag.Zigzag);
     }
 
     private static void SetupSpiralHoming()
@@ -322,7 +322,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        SpiralHoming.AddMotionTags(MotionTag.Spiral, MotionTag.Homing);
+        SpiralHoming.AddSemantics(MotionTag.Spiral, MotionTag.Homing);
     }
 
     private static void SetupOrbitTarget()
@@ -368,7 +368,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        OrbitTarget.AddMotionTags(MotionTag.Orbit, MotionTag.Homing);
+        OrbitTarget.AddSemantics(MotionTag.Orbit, MotionTag.Homing);
     }
 
     private static void SetupBoomerang()
@@ -417,7 +417,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        Boomerang.AddMotionTags(MotionTag.Return);
+        Boomerang.AddSemantics(MotionTag.Return);
     }
 
     private static void SetupSlowVortex()
@@ -466,7 +466,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
             ClearCollisionHeightGate(e);
         };
-        SlowVortex.AddMotionTags(MotionTag.Vortex);
+        SlowVortex.AddSemantics(MotionTag.Vortex);
     }
 
     private static void SetupArcToPosition()
@@ -508,7 +508,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             SetOrAdd(e, new CollisionHeightGate { MaxHeight = 0.55f });
             ResetRuntimeState(e);
         };
-        ArcToPosition.AddMotionTags(MotionTag.Falling);
+        ArcToPosition.AddSemantics(MotionTag.Falling);
     }
 
     private static void SetupFallingStrike()
@@ -567,7 +567,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
         };
         FallingStrike.WithOrientations(TrajectoryOrientation.Vertical)
-            .AddMotionTags(MotionTag.Falling);
+            .AddSemantics(MotionTag.Falling);
     }
 
     private static void SetupGroundCrawl()
@@ -593,7 +593,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ClearCollisionHeightGate(e);
         };
         GroundCrawl.WithOrientations(TrajectoryOrientation.Ground)
-            .AddMotionTags(MotionTag.Ground);
+            .AddSemantics(MotionTag.Ground);
     }
 
     private static void SetupLightningSnap()
@@ -650,7 +650,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
         };
         // 折线闪击以水平推进为主，但抵达后即停、视觉接近原地显现，故同时声明 Appear。
         LightningSnap.WithOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Appear)
-            .AddMotionTags(MotionTag.Snap);
+            .AddSemantics(MotionTag.Snap);
     }
 
     private static void SetupRainFall()
@@ -709,7 +709,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ResetRuntimeState(e);
         };
         RainFall.WithOrientations(TrajectoryOrientation.Vertical)
-            .AddMotionTags(MotionTag.Rain, MotionTag.Falling);
+            .AddSemantics(MotionTag.Rain, MotionTag.Falling);
     }
 
     private static void SetupAppearAtTarget()
@@ -735,7 +735,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ClearCollisionHeightGate(e);
         };
         AppearAtTarget.WithOrientations(TrajectoryOrientation.Appear)
-            .AddMotionTags(MotionTag.Appear, MotionTag.Snap);
+            .AddSemantics(MotionTag.Appear, MotionTag.Snap);
     }
 
     private static void SetupMeleeSweep()
@@ -790,7 +790,7 @@ public class SkillTrajectories : ExtendLibrary<TrajectoryAsset, SkillTrajectorie
             ClearCollisionHeightGate(e);
         };
         MeleeSweep.WithOrientations(TrajectoryOrientation.Melee)
-            .AddMotionTags(MotionTag.MeleeSweep);
+            .AddSemantics(MotionTag.MeleeSweep);
     }
 
     private static void MoveSmoothlyTo(Vector3 target, ref Position pos, ref Rotation rot, Entity e, float dt,

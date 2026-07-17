@@ -2,9 +2,9 @@ using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 using UnityEngine;
-using ElementTag = Cultiway.Core.SkillLibV3.SkillTags.Element;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
 
@@ -22,31 +22,31 @@ public class SkillVfxElementLibrary : AssetLibrary<SkillVfxElementAsset>
         Generic.SetAccent(Color.white)
             .SetGrantDrop(WorldboxGame.Drops.WanfaEntropy)
             .SetImpactSound("event:/SFX/HIT/HitGeneric")
-            .MatchAny(0, ElementTag.Generic);
+            .MatchAny(0, SkillSemantics.Element.Generic);
     }
 
     public SkillVfxElementAsset Resolve(Entity entity)
     {
-        var tags = SkillSemanticTags.NewSet();
+        var semantics = SkillSemanticCollector.NewSet();
         if (entity.HasComponent<SkillEntity>())
         {
             var skill = entity.GetComponent<SkillEntity>();
-            SkillSemanticTags.CollectAssetTags(skill.Asset, tags);
-            SkillSemanticTags.CollectModifierTags(entity, tags);
+            SkillSemanticCollector.CollectAssetSemantics(skill.Asset, semantics);
+            SkillSemanticCollector.CollectModifierSemantics(entity, semantics);
             if (!skill.SkillContainer.IsNull)
             {
-                SkillSemanticTags.CollectModifierTags(skill.SkillContainer, tags);
+                SkillSemanticCollector.CollectModifierSemantics(skill.SkillContainer, semantics);
             }
 
-            return ResolveTags(tags);
+            return ResolveSemantics(semantics);
         }
 
         if (entity.HasComponent<SkillContainer>())
         {
             var container = entity.GetComponent<SkillContainer>();
-            SkillSemanticTags.CollectAssetTags(container.Asset, tags);
-            SkillSemanticTags.CollectModifierTags(entity, tags);
-            return ResolveTags(tags);
+            SkillSemanticCollector.CollectAssetSemantics(container.Asset, semantics);
+            SkillSemanticCollector.CollectModifierSemantics(entity, semantics);
+            return ResolveSemantics(semantics);
         }
 
         return get(Generic.id);
@@ -54,46 +54,46 @@ public class SkillVfxElementLibrary : AssetLibrary<SkillVfxElementAsset>
 
     public SkillVfxElementAsset Resolve(SkillEntity skill, Entity skillEntity)
     {
-        var tags = SkillSemanticTags.NewSet();
-        SkillSemanticTags.CollectAssetTags(skill.Asset, tags);
-        SkillSemanticTags.CollectModifierTags(skillEntity, tags);
+        var semantics = SkillSemanticCollector.NewSet();
+        SkillSemanticCollector.CollectAssetSemantics(skill.Asset, semantics);
+        SkillSemanticCollector.CollectModifierSemantics(skillEntity, semantics);
         if (!skill.SkillContainer.IsNull)
         {
-            SkillSemanticTags.CollectModifierTags(skill.SkillContainer, tags);
+            SkillSemanticCollector.CollectModifierSemantics(skill.SkillContainer, semantics);
         }
 
-        return ResolveTags(tags);
+        return ResolveSemantics(semantics);
     }
 
     public SkillVfxElementAsset Resolve(SkillContainer container, Entity containerEntity)
     {
-        var tags = SkillSemanticTags.NewSet();
-        SkillSemanticTags.CollectAssetTags(container.Asset, tags);
-        SkillSemanticTags.CollectModifierTags(containerEntity, tags);
-        return ResolveTags(tags);
+        var semantics = SkillSemanticCollector.NewSet();
+        SkillSemanticCollector.CollectAssetSemantics(container.Asset, semantics);
+        SkillSemanticCollector.CollectModifierSemantics(containerEntity, semantics);
+        return ResolveSemantics(semantics);
     }
 
     public SkillVfxElementAsset Resolve(SkillEntityAsset asset)
     {
-        var tags = SkillSemanticTags.NewSet();
-        SkillSemanticTags.CollectAssetTags(asset, tags);
-        return ResolveTags(tags);
+        var semantics = SkillSemanticCollector.NewSet();
+        SkillSemanticCollector.CollectAssetSemantics(asset, semantics);
+        return ResolveSemantics(semantics);
     }
 
     public SkillVfxElementAsset Resolve(ElementComposition element)
     {
-        var tags = SkillSemanticTags.NewSet();
-        SkillSemanticTags.CollectElementTags(element, tags);
-        return ResolveTags(tags);
+        var semantics = SkillSemanticCollector.NewSet();
+        SkillSemanticCollector.CollectElementSemantics(element, semantics);
+        return ResolveSemantics(semantics);
     }
 
-    private SkillVfxElementAsset ResolveTags(HashSet<string> tags)
+    private SkillVfxElementAsset ResolveSemantics(HashSet<SemanticAsset> semantics)
     {
         var bestScore = -1;
         SkillVfxElementAsset best = null;
         foreach (var element in list)
         {
-            var score = element.ScoreTags(tags);
+            var score = element.ScoreSemantics(semantics);
             if (score <= bestScore) continue;
 
             bestScore = score;

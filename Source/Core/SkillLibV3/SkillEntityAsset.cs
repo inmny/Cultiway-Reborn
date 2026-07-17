@@ -5,6 +5,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Components.TrajParams;
 using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -22,7 +23,7 @@ public class SkillEntityAsset : Asset
 
     public Entity PrefabEntity;
     public ElementComposition Element;
-    public HashSet<string> SeriesTags { get; } = new();
+    public SemanticDescriptor Semantics { get; set; } = new();
     public IReadOnlyList<SkillEntityAnimation> Animations => _animations;
     public string EditorCategoryKey;
     public int EditorSortOrder;
@@ -283,15 +284,14 @@ public class SkillEntityAsset : Asset
         return id;
     }
 
-    public SkillEntityAsset AddSeriesTags(params string[] tags)
+    public SkillEntityAsset AddSemantics(params SemanticAsset[] semantics)
     {
-        if (tags == null) return this;
-        foreach (var tag in tags)
-        {
-            if (string.IsNullOrWhiteSpace(tag)) continue;
-            SeriesTags.Add(tag);
-        }
-
+        Semantics = SemanticDescriptor.Weighted(
+            Semantics.contributions
+                .Concat(semantics.Select(x => new SemanticContribution(x)))
+                .GroupBy(x => x.semantic_id, StringComparer.Ordinal)
+                .Select(x => x.First())
+                .ToArray());
         return this;
     }
 }

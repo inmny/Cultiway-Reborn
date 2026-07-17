@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.Semantics;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
-using SimilarityTag = Cultiway.Core.SkillLibV3.SkillTags.Similarity;
 
 namespace Cultiway.Core.SkillLibV3;
 
@@ -28,7 +28,7 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             id = "Cultiway."+nameof(SetTrajectory),
             EvaluateLevel = SkillEvaluationActions.None
         });
-        SetTrajectory.AddSimilarityTags(SimilarityTag.Trajectory, SimilarityTag.Motion);
+        SetTrajectory.AddSemantics(SkillSemantics.Effect.Trajectory, SkillSemantics.Effect.MotionChange);
         SetTrajectory.OnSetup = ApplyTrajectoryOnSetup;
         SetTrajectory.OnAddOrUpgrade = builder =>
         {
@@ -67,7 +67,7 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             IsDisabled = true,
             EvaluateLevel = SkillEvaluationActions.None
         });
-        SalvoCount.AddSimilarityTags(SimilarityTag.Projectile, SimilarityTag.Salvo);
+        SalvoCount.AddSemantics(SkillSemantics.Delivery.Projectile, SkillSemantics.Effect.Salvo);
         SalvoCount.OnAddOrUpgrade = builder =>
         {
             if (builder.HasModifier<SalvoCount>())
@@ -104,7 +104,7 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
             IsDisabled = true,
             EvaluateLevel = SkillEvaluationActions.None
         });
-        BurstCount.AddSimilarityTags(SimilarityTag.Projectile, SimilarityTag.Burst);
+        BurstCount.AddSemantics(SkillSemantics.Delivery.Projectile, SkillSemantics.Effect.Burst);
         BurstCount.OnAddOrUpgrade = builder =>
         {
             if (builder.HasModifier<BurstCount>())
