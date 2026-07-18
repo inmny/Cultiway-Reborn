@@ -675,7 +675,7 @@ Cultiway.ArtifactAbility.SuppressionField.Description,投放距离 {0:0.#} · �
 Cultiway.ArtifactAbility.SplittingSwordArray,分光剑阵
 Cultiway.ArtifactAbility.SplittingSwordArray.Description,剑影 {0} · 半径 {1:0.#} · 每击伤害 ×{2:0.##} · 持续 {3:0.#} 秒 · 冷却 {4:0.#} 秒
 Cultiway.ArtifactAbility.ReturningBladeGuard,回锋护主
-Cultiway.ArtifactAbility.ReturningBladeGuard.Description,减伤 {0:P0} · 反击伤害 ×{1:0.##} · 充能 {2} · 每 {3:0.#} 秒恢复一点
+Cultiway.ArtifactAbility.ReturningBladeGuard.Description,减伤 {0:P0} · 回锋穿刺伤害 ×{1:0.##} · 充能 {2} · 每 {3:0.#} 秒恢复一点
 Cultiway.ArtifactAbility.ArmorPiercingSwordAura,破甲剑芒
 Cultiway.ArtifactAbility.ArmorPiercingSwordAura.Description,命中削减目标护甲 {0:P0} · 持续 {1:0.#} 秒
 Cultiway.ArtifactAbility.MountainSealFall,山岳印落

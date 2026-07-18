@@ -9,9 +9,9 @@ using UnityEngine;
 namespace Cultiway.Content.Artifacts;
 
 /// <summary>
-/// 飞剑技能执行的持续轨迹。会话计算位姿，Core 随后将位姿同步到被借用的法器 Body。
+/// 借用法宝真实本体发动空间攻击的共用轨迹。会话计算位姿，Core 随后将位姿同步到被借用的 Body。
 /// </summary>
-internal static class ArtifactFlyingSwordExecution
+internal static class ArtifactSpatialAttackExecution
 {
     /// <summary>执行层统一调校倍率，使已经生成的法器无需重组能力参数也能获得新的运动手感。</summary>
     internal const float BaseSpeedMultiplier = 1.4f;
@@ -45,19 +45,42 @@ internal static class ArtifactFlyingSwordExecution
         ref ArtifactManifestation manifestation = ref body.GetComponent<ArtifactManifestation>();
         manifestation.visible = owner.is_visible;
 
-        if (motion.phase != ArtifactSpatialAttackPhase.Returning && !IsOperating(owner, body))
+        if (motion.phase != ArtifactSpatialAttackPhase.Returning && !IsOperating(owner, body, motion.mode))
         {
             BeginReturning(ref context, ref motion, execution);
         }
 
         float worldTime = (float)World.world.getCurWorldTime();
+        if (motion.mode == ArtifactSpatialAttackMode.StrikeAndReturn &&
+            motion.phase == ArtifactSpatialAttackPhase.Pursuing &&
+            worldTime >= motion.return_at)
+        {
+            BeginReturning(ref context, ref motion, execution);
+        }
+
         switch (motion.phase)
         {
             case ArtifactSpatialAttackPhase.Pursuing:
-                UpdatePursuing(ref context, owner, ref motion, ref position, ref rotation, deltaTime, worldTime);
+                UpdatePursuing(
+                    ref context,
+                    owner,
+                    execution,
+                    ref motion,
+                    ref position,
+                    ref rotation,
+                    deltaTime,
+                    worldTime);
                 break;
             case ArtifactSpatialAttackPhase.Piercing:
-                UpdatePiercing(ref context, owner, ref motion, ref position, ref rotation, deltaTime, worldTime);
+                UpdatePiercing(
+                    ref context,
+                    owner,
+                    execution,
+                    ref motion,
+                    ref position,
+                    ref rotation,
+                    deltaTime,
+                    worldTime);
                 break;
             case ArtifactSpatialAttackPhase.Cruising:
                 UpdateCruising(ref context, owner, ref motion, ref position, ref rotation, deltaTime, worldTime);
@@ -73,6 +96,7 @@ internal static class ArtifactFlyingSwordExecution
     private static void UpdatePursuing(
         ref SkillContext context,
         Actor owner,
+        Entity execution,
         ref ArtifactSpatialAttackMotion motion,
         ref Position position,
         ref Rotation rotation,
@@ -82,6 +106,11 @@ internal static class ArtifactFlyingSwordExecution
         BaseSimObject target = context.TargetObj;
         if (!ArtifactSpatialTargeting.IsValidTarget(owner, target, motion.control_range, context.AttackKingdom))
         {
+            if (motion.mode == ArtifactSpatialAttackMode.StrikeAndReturn)
+            {
+                BeginReturning(ref context, ref motion, execution);
+                return;
+            }
             if (!TryAcquireTarget(ref context, owner, ref motion, position.v2, worldTime))
             {
                 motion.phase = ArtifactSpatialAttackPhase.Cruising;
@@ -112,6 +141,7 @@ internal static class ArtifactFlyingSwordExecution
     private static void UpdatePiercing(
         ref SkillContext context,
         Actor owner,
+        Entity execution,
         ref ArtifactSpatialAttackMotion motion,
         ref Position position,
         ref Rotation rotation,
@@ -130,6 +160,12 @@ internal static class ArtifactFlyingSwordExecution
         context.TargetDir = motion.direction;
         motion.pierce_remaining -= distance;
         if (motion.pierce_remaining > 0f) return;
+
+        if (motion.mode == ArtifactSpatialAttackMode.StrikeAndReturn)
+        {
+            BeginReturning(ref context, ref motion, execution);
+            return;
+        }
 
         if (!TryAcquireTarget(ref context, owner, ref motion, position.v2, worldTime))
         {
@@ -284,14 +320,19 @@ internal static class ArtifactFlyingSwordExecution
         return true;
     }
 
-    private static bool IsOperating(Actor owner, Entity artifact)
+    private static bool IsOperating(
+        Actor owner,
+        Entity artifact,
+        ArtifactSpatialAttackMode mode)
     {
         var relations = owner.GetExtend().E.GetRelations<EquippedArtifactRelation>();
         for (int i = 0; i < relations.Length; i++)
         {
             EquippedArtifactRelation relation = relations[i];
             if (relation.artifact != artifact) continue;
-            return relation.state is ArtifactControlState.Operating or ArtifactControlState.Overloaded;
+            return mode == ArtifactSpatialAttackMode.StrikeAndReturn
+                ? relation.state != ArtifactControlState.Cold
+                : relation.state is ArtifactControlState.Operating or ArtifactControlState.Overloaded;
         }
         return false;
     }

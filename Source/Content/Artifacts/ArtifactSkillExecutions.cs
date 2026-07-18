@@ -17,7 +17,7 @@ namespace Cultiway.Content;
 [Dependency(typeof(ArtifactSkillTrajectories), typeof(SkillVfxElements))]
 public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, ArtifactSkillExecutions>
 {
-    /// <summary>借用真实法器 Body 持续追踪、穿刺并折返的飞剑攻击执行。</summary>
+    /// <summary>借用真实法器 Body 追踪、穿刺并折返的空间攻击执行，可持续寻敌或单次出击。</summary>
     public static SkillEntityAsset FlyingSword { get; private set; }
 
     /// <summary>统一调度分光剑阵阵形、出剑时序和生命周期的隐藏根执行。</summary>
@@ -168,6 +168,21 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
         long targetKey = ArtifactSpatialTargeting.GetTargetKey(target);
         if (!motion.hit_target_keys.Add(targetKey)) return true;
 
+        bool completesStrike = motion.mode == ArtifactSpatialAttackMode.ContinuousHunt ||
+                               context.TargetObj != null &&
+                               ArtifactSpatialTargeting.GetTargetKey(context.TargetObj) == targetKey;
+        SkillHitResolver.HitTarget(FlyingSword, ref context, skillContainer, execution, target, playImpact: true);
+        if (motion.impact_force > 0f && target.isActor())
+        {
+            ArtifactForceEffects.ApplyRadialForce(
+                owner,
+                target.a,
+                owner.current_position,
+                motion.impact_force,
+                pull: false);
+        }
+        if (!completesStrike) return true;
+
         motion.last_target_key = targetKey;
         motion.has_last_target = true;
         motion.repeat_ready_at = (float)World.world.getCurWorldTime() + motion.repeat_cooldown;
@@ -175,8 +190,6 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
             motion.pierce_remaining,
             motion.pierce_distance + target.stats[S.size]);
         motion.phase = ArtifactSpatialAttackPhase.Piercing;
-
-        SkillHitResolver.HitTarget(FlyingSword, ref context, skillContainer, execution, target, playImpact: true);
         return true;
     }
 }

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
@@ -115,9 +114,9 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
         FlyingSwordAttack.DescribeInstance = ability => string.Format(
             LM.Get("Cultiway.ArtifactAbility.FlyingSwordAttack.Description"),
             ability.GetNumber(DamageMultiplier),
-            ability.GetNumber(FlightSpeed) * ArtifactFlyingSwordExecution.BaseSpeedMultiplier,
+            ability.GetNumber(FlightSpeed) * ArtifactSpatialAttackExecution.BaseSpeedMultiplier,
             ability.GetNumber(AttackRange),
-            ability.GetNumber(TurnRate) * ArtifactFlyingSwordExecution.TurnRateMultiplier,
+            ability.GetNumber(TurnRate) * ArtifactSpatialAttackExecution.TurnRateMultiplier,
             ability.GetNumber(PierceDistance),
             ability.GetNumber(Cooldown));
         FlyingSwordAttack.ConfigureLifecycle(new ArtifactAbilityLifecycleProfile
@@ -227,70 +226,24 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
         in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin)
     {
-        Actor controller = context.controller.GetComponent<ActorBinder>().Actor;
         Entity artifact = context.artifact;
-        ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
-        bool initialized = ArtifactManifestationTools.EnsureWorldComponents(artifact, shape.presentation.body_radius);
-        float actorScale = Mathf.Max(controller.stats[S.scale], 0.1f) * 10f;
-
-        ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
-        manifestation.control_state = context.control_state;
-        manifestation.visible = controller.is_visible;
-        manifestation.flip_x = false;
-        ArtifactManifestationTools.ApplyActiveWorldSize(artifact, controller);
-        if (initialized)
+        if (!ArtifactSpatialAttackLauncher.TryLaunch(
+                context,
+                new ArtifactSpatialAttackLaunchRequest
+                {
+                    target = target.Object,
+                    attack_kingdom = target.AttackKingdom,
+                    mode = ArtifactSpatialAttackMode.ContinuousHunt,
+                    strength = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
+                    speed = ability.GetNumber(FlightSpeed) * ArtifactSpatialAttackExecution.BaseSpeedMultiplier,
+                    turn_rate = ability.GetNumber(TurnRate) * ArtifactSpatialAttackExecution.TurnRateMultiplier,
+                    control_range = ability.GetNumber(AttackRange),
+                    pierce_distance = ability.GetNumber(PierceDistance),
+                    repeat_cooldown = ability.GetNumber(Cooldown),
+                    trail_tint = ArtifactAbilityVisuals.ResolveTheme(artifact, FlyingSwordAttack.visual).glow,
+                },
+                out Entity execution))
         {
-            artifact.GetComponent<Position>().value = controller.cur_transform_position + Vector3.up * actorScale * 0.55f;
-        }
-
-        Vector2 direction = target.Object.current_position - artifact.GetComponent<Position>().v2;
-        if (direction.sqrMagnitude < 0.0001f) direction = Vector2.up;
-
-        Entity execution = ArtifactSkillExecutions.FlyingSword.NewEntity();
-        ref SkillContext skillContext = ref execution.GetComponent<SkillContext>();
-        skillContext.SourceObj = controller;
-        skillContext.TargetObj = target.Object;
-        skillContext.TargetPos = target.Object.GetSimPos();
-        skillContext.TargetDir = direction.normalized;
-        skillContext.AttackKingdom = target.AttackKingdom;
-        skillContext.Strength = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier);
-        skillContext.PowerLevel = controller.GetExtend().GetPowerLevel();
-
-        execution.GetComponent<Position>().value = artifact.GetComponent<Position>().value;
-        execution.GetComponent<Rotation>().value = artifact.GetComponent<Rotation>().value;
-        execution.GetComponent<PrevPosition>().Value = execution.GetComponent<Position>().v2;
-        ref SkillGroundFxState groundFxState = ref execution.GetComponent<SkillGroundFxState>();
-        groundFxState.LastX = execution.GetComponent<Position>().x;
-        groundFxState.LastY = execution.GetComponent<Position>().y;
-        ref AnimAfterimage afterimage = ref execution.GetComponent<AnimAfterimage>();
-        afterimage.Tint = ArtifactAbilityVisuals.ResolveTheme(artifact, FlyingSwordAttack.visual).glow;
-        float colliderRadius = artifact.GetComponent<ArtifactBody>().radius;
-        execution.GetComponent<ColliderSphere>().Radius = colliderRadius;
-        ArtifactBody body = artifact.GetComponent<ArtifactBody>();
-        execution.AddComponent(new ColliderLinearExtent
-        {
-            Forward = Mathf.Max(0f, body.forward_extent - colliderRadius),
-            Backward = Mathf.Max(0f, body.backward_extent - colliderRadius),
-        });
-        float flightSpeed = ability.GetNumber(FlightSpeed) * ArtifactFlyingSwordExecution.BaseSpeedMultiplier;
-        float turnRate = ability.GetNumber(TurnRate) * ArtifactFlyingSwordExecution.TurnRateMultiplier;
-        execution.AddComponent(new ArtifactSpatialAttackMotion
-        {
-            direction = direction.normalized,
-            speed = flightSpeed,
-            current_speed = flightSpeed * ArtifactFlyingSwordExecution.LaunchSpeedRatio,
-            turn_rate = turnRate,
-            control_range = ability.GetNumber(AttackRange),
-            pierce_distance = ability.GetNumber(PierceDistance),
-            repeat_cooldown = ability.GetNumber(Cooldown),
-            orbit_sign = (artifact.Id & 1) == 0 ? 1f : -1f,
-            hit_target_keys = new HashSet<long>(),
-            phase = ArtifactSpatialAttackPhase.Pursuing,
-        });
-
-        if (!SkillExecutionLifecycle.TryBorrowBody(execution, artifact))
-        {
-            SkillExecutionLifecycle.RequestEnd(execution);
             return false;
         }
 

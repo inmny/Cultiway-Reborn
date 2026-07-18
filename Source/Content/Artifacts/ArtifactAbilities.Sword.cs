@@ -23,7 +23,7 @@ public partial class ArtifactAbilities
 {
     /// <summary>持续剑阵主动；环绕剑影按敌人方向反复直线横贯圆阵，并在对侧换位入阵。</summary>
     public static ArtifactAbilityAsset SplittingSwordArray { get; private set; }
-    /// <summary>受击护主被动；降低本次伤害，并以反击伤害和冲击力回敬攻击者。</summary>
+    /// <summary>受击护主被动；降低本次伤害，并驱动法宝本体穿刺攻击者后立即归位。</summary>
     public static ArtifactAbilityAsset ReturningBladeGuard { get; private set; }
     /// <summary>命中破甲被动；角色造成伤害时按目标护甲施加破甲状态。</summary>
     public static ArtifactAbilityAsset ArmorPiercingSwordAura { get; private set; }
@@ -177,15 +177,30 @@ public partial class ArtifactAbilities
         ReturningBladeGuard.ConfigureLifecycle(new ArtifactAbilityLifecycleProfile
         {
             event_minimum_state = ArtifactControlState.Ready,
+            sustain_minimum_state = ArtifactControlState.Ready,
             event_consumes_trigger = true,
             ResolveMaxCharges = (_, ability) => ability.GetInteger(MaxCharges),
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveRecharge = (_, ability) => ability.GetNumber(Recharge),
         });
         ReturningBladeGuard.Handle<ArtifactIncomingDamageEvent>(
-            (_, _, _, evt) => evt.Damage > 0f && !evt.IsRetaliation &&
-                              evt.Attacker != null && !evt.Attacker.isRekt() && evt.Attacker.isActor(),
+            CanTriggerReturningBladeGuard,
             ApplyReturningBladeGuard);
+    }
+
+    private static bool CanTriggerReturningBladeGuard(
+        ArtifactAbilityExecutionContext context,
+        ArtifactAbilityInstance ability,
+        ArtifactAbilityRuntimeEntry runtime,
+        ArtifactIncomingDamageEvent evt)
+    {
+        return evt.Damage > 0f &&
+               !evt.IsRetaliation &&
+               evt.Attacker != null &&
+               !evt.Attacker.isRekt() &&
+               evt.Attacker.isActor() &&
+               runtime.activity_kind == ArtifactAbilityActivityKind.None &&
+               CanPrepareFreeBody(context, ability, runtime, evt.Attacker);
     }
 
     private static void ApplyReturningBladeGuard(
@@ -196,19 +211,30 @@ public partial class ArtifactAbilities
     {
         Actor controller = Controller(context);
         Actor attacker = evt.Attacker.a;
+        float forceStrength = ability.GetNumber(ForceStrength);
+        float flightSpeed = 24f + forceStrength * 4f;
+        float targetDistance = Vector2.Distance(controller.current_position, attacker.current_position);
+        if (!ArtifactSpatialAttackLauncher.TryLaunch(
+                context,
+                new ArtifactSpatialAttackLaunchRequest
+                {
+                    target = attacker,
+                    mode = ArtifactSpatialAttackMode.StrikeAndReturn,
+                    strength = SkillContext.DefaultStrength * ability.GetNumber(CounterMultiplier),
+                    speed = flightSpeed,
+                    turn_rate = 540f + forceStrength * 40f,
+                    control_range = Mathf.Max(6f, targetDistance + attacker.stats[S.size] + 2f),
+                    pierce_distance = 1.2f + forceStrength * 0.35f,
+                    impact_force = forceStrength,
+                    trail_tint = ArtifactAbilityVisuals.ResolveTheme(
+                        context.artifact,
+                        ReturningBladeGuard.visual).glow,
+                },
+                out Entity execution)) return;
+
         float originalDamage = evt.Damage;
         evt.Damage *= 1f - ability.GetNumber(DamageReduction);
-        ArtifactDamageEffects.DealRetaliationDamage(
-            controller,
-            attacker,
-            SkillContext.DefaultStrength * ability.GetNumber(CounterMultiplier),
-            ElementComposition.Static.Iron);
-        ArtifactForceEffects.ApplyRadialForce(
-            controller,
-            attacker,
-            controller.current_position,
-            ability.GetNumber(ForceStrength),
-            pull: false);
+        ArtifactAbilityLifecycle.BindExecution(ref runtime, execution);
         ArtifactAbilityVisuals.Emit(
             context,
             ability,
@@ -332,24 +358,15 @@ public partial class ArtifactAbilities
 
     private static void ConfigureReturningBladeGuardVisuals()
     {
-        ArtifactBeamVisualCue counter = Beam(
-            ArtifactVisualAnchorRef.Appearance("blade", "tip", ArtifactBodyAnchorKind.ForwardTip),
-            ArtifactVisualAnchorKind.Target,
-            ArtifactVisualColorRole.Glow,
-            ArtifactVfxStyles.Metal
-        );
-        counter.width = 0.06f;
-        counter.glow_width_multiplier = 3f;
         ReturningBladeGuard.Visualize(
             Theme(SkillVfxElements.Metal.AccentColor)
                 .Signal(
                     ArtifactVisualChannels.Counter,
                     new ArtifactCompositeVisualCue(
-                        counter,
-                        Burst(ArtifactVisualAnchorKind.Target, ArtifactVisualColorRole.Primary, 5),
+                        Burst(ArtifactVisualAnchorKind.Artifact, ArtifactVisualColorRole.Glow, 5),
                         Pulse(1.12f, 1f, 0.18f)
                     ),
-                    0.28f
+                    0.2f
                 )
         );
     }
