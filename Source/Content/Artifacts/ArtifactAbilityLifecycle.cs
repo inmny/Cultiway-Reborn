@@ -64,7 +64,28 @@ public static partial class ArtifactAbilityLifecycle
     {
         ArtifactAbilityLifecycleProfile profile = asset.lifecycle;
         return MeetsState(context.control_state, profile.active_minimum_state) &&
+               !HasOtherActiveAbility(context.artifact, ability.instance_id) &&
                CanTrigger(asset, context, ability, runtime, !profile.allow_active_reentry);
+    }
+
+    /// <summary>
+    /// 判断同一法宝是否正由另一个主要主动能力维持活动。
+    /// 被动和事件能力没有主动释放入口，不参与该互斥。
+    /// </summary>
+    private static bool HasOtherActiveAbility(Entity artifact, string abilityInstanceId)
+    {
+        ArtifactAbilitySet abilitySet = artifact.GetComponent<ArtifactAbilitySet>();
+        ArtifactAbilityRuntime runtime = artifact.GetComponent<ArtifactAbilityRuntime>();
+        for (int i = 0; i < abilitySet.abilities.Length; i++)
+        {
+            ArtifactAbilityInstance otherAbility = abilitySet.abilities[i];
+            if (otherAbility.instance_id == abilityInstanceId ||
+                runtime.abilities[i].activity_kind == ArtifactAbilityActivityKind.None) continue;
+
+            ArtifactAbilityAsset otherAsset = Libraries.Manager.ArtifactAbilityLibrary.get(otherAbility.ability_id);
+            if (otherAsset.active_use != null) return true;
+        }
+        return false;
     }
 
     internal static void CommitEvent(
