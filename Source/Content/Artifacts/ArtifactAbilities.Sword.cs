@@ -21,7 +21,7 @@ namespace Cultiway.Content;
 
 public partial class ArtifactAbilities
 {
-    /// <summary>持续剑阵主动；按能力强度生成环绕剑影，反复出阵穿刺不同目标后归阵。</summary>
+    /// <summary>持续剑阵主动；环绕剑影按敌人方向反复直线横贯圆阵，并在对侧换位入阵。</summary>
     public static ArtifactAbilityAsset SplittingSwordArray { get; private set; }
     /// <summary>受击护主被动；降低本次伤害，并以反击伤害和冲击力回敬攻击者。</summary>
     public static ArtifactAbilityAsset ReturningBladeGuard { get; private set; }
@@ -48,7 +48,12 @@ public partial class ArtifactAbilities
             IntegerSpec(EffectCount),
             NumberSpec(Cooldown),
             NumberSpec(ActivationCost),
-            NumberSpec(MaintenanceCost),
+            // 仅兼容旧百宝阁蓝图；分光剑阵不再生成或使用维持灵力参数。
+            new ArtifactAbilityValueSpec
+            {
+                key = MaintenanceCost,
+                kind = ArtifactAbilityValueKind.Number,
+            },
         ];
         SplittingSwordArray.ScoreRecipe = context =>
             (context.GetTrait(ArtifactMaterialTraits.Projection) +
@@ -69,7 +74,6 @@ public partial class ArtifactAbilities
                     ArtifactSwordArrayExecution.MaxBladeCount)),
             ArtifactAbilityValue.Number(Cooldown, ScaledCooldown(context, 20f, 6f)),
             ArtifactAbilityValue.Number(ActivationCost, ScaledCost(context, 3.2f)),
-            ArtifactAbilityValue.Number(MaintenanceCost, ScaledCost(context, 0.12f)),
         ];
         SplittingSwordArray.DescribeInstance = ability => string.Format(
             LM.Get("Cultiway.ArtifactAbility.SplittingSwordArray.Description"),
@@ -82,13 +86,9 @@ public partial class ArtifactAbilities
         {
             active_minimum_state = ArtifactControlState.Operating,
             sustain_minimum_state = ArtifactControlState.Operating,
-            tick_minimum_state = ArtifactControlState.Operating,
-            tick_interval = 0.35f,
-            tick_requires_activity = true,
             ResolveCooldown = (_, ability) => ability.GetNumber(Cooldown),
             ResolveDuration = (_, ability) => ability.GetNumber(EffectDuration),
             ResolveActivationCost = (_, ability) => ability.GetNumber(ActivationCost),
-            ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = UseWakan,
         });
         SplittingSwordArray.Activate(new ArtifactActiveAbilityProfile
@@ -125,6 +125,7 @@ public partial class ArtifactAbilities
         ArtifactSwordArrayExecution.Initialize(
             execution,
             controller,
+            context.artifact,
             origin,
             ability.GetInteger(EffectCount),
             ability.GetNumber(EffectRadius),
@@ -284,13 +285,6 @@ public partial class ArtifactAbilities
 
     private static void ConfigureSplittingSwordArrayVisuals()
     {
-        ArtifactSwordArrayVisualCue projections = new ArtifactSwordArrayVisualCue
-        {
-            max_count = ArtifactSwordArrayExecution.MaxBladeCount,
-            formation_size_ratio = 0.24f,
-            attack_size_ratio = 0.95f,
-            alpha = 0.84f,
-        };
         ArtifactGlyphVisualCue arrayGlyph = Glyph(
             ArtifactVisualAnchorKind.Controller,
             context =>
@@ -308,7 +302,7 @@ public partial class ArtifactAbilities
             Theme(SkillVfxElements.Metal.AccentColor)
                 .Loop(
                     "splitting_array",
-                    new ArtifactCompositeVisualCue(projections, arrayGlyph),
+                    arrayGlyph,
                     IsActivityActive
                 )
                 .Signal(

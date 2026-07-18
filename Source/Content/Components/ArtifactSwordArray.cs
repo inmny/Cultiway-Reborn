@@ -8,27 +8,24 @@ public enum ArtifactSwordArrayBladePhase
 {
     Forming,
     Arrayed,
-    Launching,
-    Piercing,
-    Returning,
+    Traversing,
 }
 
-/// <summary>单道剑影的瞬时轨迹状态。剑影只是一份表现与命中载体，不是独立法器实体。</summary>
+/// <summary>单道剑影的瞬时轨迹状态。每道剑影由独立 SkillEntity 负责渲染和扫掠碰撞。</summary>
 public struct ArtifactSwordArrayBladeState
 {
+    public Entity entity;
     public int slot_index;
-    public int return_slot_index;
     public ArtifactSwordArrayBladePhase phase;
     public Vector2 position;
     public Vector2 previous_position;
     public Vector2 direction;
     public Vector2 phase_origin;
-    public Vector2 phase_control;
+    public Vector2 phase_center;
     public Vector2 phase_destination;
-    public Actor target;
+    public Vector2 travel_direction;
     public float phase_started_at;
     public float phase_duration;
-    public float hit_at;
 }
 
 /// <summary>
@@ -37,14 +34,14 @@ public struct ArtifactSwordArrayBladeState
 public struct ArtifactSwordArrayExecutionState : IComponent
 {
     public ArtifactSwordArrayBladeState[] blades = [];
+    public Entity artifact;
     public int sortie_sequence;
-    public int max_simultaneous;
+    public int target_in_flight;
     public float started_at;
     public float duration;
     public float formation_duration;
     public float collapse_duration;
-    public float launch_interval;
-    public float next_launch_at;
+    public float next_launch_attempt_at;
     public float attack_range;
     public float ring_angle;
     public float angular_speed;

@@ -15,7 +15,8 @@ public struct SkillExecution : IComponent
 }
 
 /// <summary>
-/// 标记执行会话不需要独立世界 Body。适用于一个会话统一驱动多份程序化表现或纯逻辑载体的能力。
+/// 标记执行会话没有需要统一同步位姿的单一世界 Body。
+/// 会话仍可通过 Body 关系持有独立运动的派生实体，并在结束时统一回收它们。
 /// </summary>
 public struct SkillExecutionWithoutBody : IComponent
 {

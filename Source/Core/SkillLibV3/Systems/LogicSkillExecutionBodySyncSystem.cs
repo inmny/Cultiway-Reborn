@@ -19,10 +19,11 @@ public sealed class LogicSkillExecutionBodySyncSystem : QuerySystem<SkillExecuti
     {
         Query.ForEachEntity((ref SkillExecution _, ref Position position, ref Rotation rotation, Entity execution) =>
         {
+            if (execution.HasComponent<SkillExecutionWithoutBody>()) return;
+
             var relations = execution.GetRelations<SkillExecutionBodyRelation>();
             if (relations.Length == 0)
             {
-                if (execution.HasComponent<SkillExecutionWithoutBody>()) return;
                 SkillExecutionLifecycle.RequestEnd(execution);
                 return;
             }

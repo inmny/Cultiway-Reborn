@@ -69,7 +69,6 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new TeleportArraySystem());
         ModClass.I.GeneralLogicSystems.Add(new CityDistributeItemsSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactEquipmentSystem());
-        ModClass.I.GeneralLogicSystems.Add(new ArtifactSwordArrayHitSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactAbilityLifecycleSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactSectInstallationSystem());
         ArtifactSummonService.Init();
