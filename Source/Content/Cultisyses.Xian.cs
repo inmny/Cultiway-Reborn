@@ -75,6 +75,7 @@ public partial class Cultisyses
                 null, null,
             ]));
         ProgressionService.Register(Xian);
+        Xian.DisplayDetailProvider = AppendXianDisplayDetails;
         SetupXianDisplayStyle();
         LoadStatsForXian();
 
@@ -148,6 +149,65 @@ public partial class Cultisyses
                 sb.AppendLine($"元婴: {yuanying.Type.GetName()}");
             }
         });
+    }
+
+    /// <summary>向通用修炼体系详情追加仙道资源与阶段性结构。</summary>
+    private static void AppendXianDisplayDetails(ActorExtend actor, ICollection<CultisysDisplayLine> lines)
+    {
+        ref var xian = ref actor.GetCultisys<Xian>();
+        if (actor.HasElementRoot())
+        {
+            ref var root = ref actor.GetElementRoot();
+            lines.Add(new CultisysDisplayLine(
+                Xian.DisplayStyle.category_label_key,
+                string.Format("Cultiway.CultisysTooltip.Format.ElementRoot".Localize(),
+                    root.Type.GetName(Xian), root.GetStrength())));
+        }
+        lines.Add(CultisysDisplayLine.CreateProgress(
+            "Cultiway.CultisysTooltip.Resource.Wakan",
+            xian.wakan,
+            actor.Base.stats[BaseStatses.MaxWakan.id],
+            "cultiway/icons/iconWakan",
+            "#009EC7"));
+
+        if (actor.TryGetComponent(out XianBase xianBase))
+        {
+            int completed = CountFoundationParts(ref xianBase);
+            lines.Add(new CultisysDisplayLine(
+                "Cultiway.CultisysTooltip.Xian.Foundation",
+                string.Format("Cultiway.CultisysTooltip.Format.Foundation".Localize(), completed,
+                    xianBase.GetStrength())));
+        }
+        if (actor.TryGetComponent(out Jindan jindan))
+        {
+            string name = jindan.Type?.GetName() ?? jindan.jindan_type;
+            lines.Add(new CultisysDisplayLine(
+                "Cultiway.CultisysTooltip.Xian.Jindan",
+                string.Format("Cultiway.CultisysTooltip.Format.Jindan".Localize(), name, jindan.stage,
+                    jindan.strength)));
+        }
+        if (actor.TryGetComponent(out Yuanying yuanying))
+        {
+            string name = yuanying.Type?.GetName() ?? yuanying.yuanying_type;
+            lines.Add(new CultisysDisplayLine(
+                "Cultiway.CultisysTooltip.Xian.Yuanying",
+                string.Format("Cultiway.CultisysTooltip.Format.Yuanying".Localize(), name,
+                    yuanying.strength)));
+        }
+    }
+
+    private static int CountFoundationParts(ref XianBase xianBase)
+    {
+        int count = 0;
+        if (xianBase.jing != 0f) count++;
+        if (xianBase.qi != 0f) count++;
+        if (xianBase.shen != 0f) count++;
+        if (xianBase.iron != 0f) count++;
+        if (xianBase.wood != 0f) count++;
+        if (xianBase.water != 0f) count++;
+        if (xianBase.fire != 0f) count++;
+        if (xianBase.earth != 0f) count++;
+        return count;
     }
 
     /// <summary>按仙道的种族、灵根和设置约束，为尚未修仙的角色接入仙道。</summary>

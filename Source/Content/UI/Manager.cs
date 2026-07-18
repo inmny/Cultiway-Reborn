@@ -13,6 +13,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core.WorldTools;
 using Cultiway.UI;
+using Cultiway.UI.CreatureInfoPages;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -45,6 +46,9 @@ public class Manager : ICanInit
     public void Init()
     {
         Instance = this;
+        WindowNewCreatureInfo.RegisterPage(nameof(CultisysOverviewPage),
+            a => Cultisyses.HasAnyCultisys(a.GetExtend()),
+            CultisysOverviewPage.Setup, CultisysOverviewPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(XianBasePage), a => a.GetExtend().HasComponent<XianBase>(),
             XianBasePage.Setup, XianBasePage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(JindanPage), a => a.GetExtend().HasComponent<Jindan>(),

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
@@ -20,8 +21,9 @@ public partial class Cultisyses
     {
         Knight = (CultisysAsset<Knight>)Add(new CultisysAsset<Knight>(nameof(Knight), KnightSetting.LevelNumber,
             new Knight(), CreateKnightProgressionProfile()));
-        Knight.IconPath = "cultiway/icons/iconCultivation"; // TODO 骑士专属图标
+        Knight.IconPath = "cultiway/icons/iconKnight";
         ProgressionService.Register(Knight);
+        Knight.DisplayDetailProvider = AppendKnightDisplayDetails;
         LoadStatsForKnight();
 
         RegisterAcquisitionRule(Knight.id, TryAcquireKnight);
@@ -39,6 +41,22 @@ public partial class Cultisyses
             sb.AppendLine($"骑士 {knight_info.CurrLevel} 级");
             sb.AppendLine($"斗气: {knight_info.vigor} / {a.Base.stats[BaseStatses.MaxVigor.id]}");
         });
+    }
+
+    /// <summary>向通用修炼体系详情追加斗气与当前等级的自然突破率。</summary>
+    private static void AppendKnightDisplayDetails(ActorExtend actor, ICollection<CultisysDisplayLine> lines)
+    {
+        ref var knight = ref actor.GetCultisys<Knight>();
+        lines.Add(CultisysDisplayLine.CreateProgress(
+            "Cultiway.CultisysTooltip.Resource.Vigor",
+            knight.vigor,
+            actor.Base.stats[BaseStatses.MaxVigor.id],
+            Knight.IconPath,
+            "#F3961F"));
+        if (knight.CurrLevel >= KnightSetting.BreakthroughSuccessChance.Length) return;
+        lines.Add(new CultisysDisplayLine(
+            "Cultiway.CultisysTooltip.Knight.SuccessChance",
+            $"{KnightSetting.BreakthroughSuccessChance[knight.CurrLevel] * 100f:0.#}%"));
     }
 
     private void LoadStatsForKnight()

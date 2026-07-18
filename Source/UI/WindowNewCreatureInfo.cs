@@ -18,6 +18,8 @@ namespace Cultiway.UI;
 public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 {
     private static readonly List<PageRegistration> _page_registrations = new();
+    internal static Transform PageScrollbarTemplate { get; private set; }
+
     private readonly List<CreatureInfoPage> _available_pages = new();
 
     private readonly Dictionary<string, CreatureInfoPage> _pages = new();
@@ -45,7 +47,7 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 
     protected override void Init()
     {
-        UiWindowContext.PositionBackButton(BackgroundTransform);
+        UiWindowContext windowContext = UiWindowContext.Bind(BackgroundTransform, false);
         VertFlexGrid stat_grid = VertFlexGrid.Instantiate(BackgroundTransform, pName: "Stat Grid");
         stat_grid.Setup(200, new Vector2(18, 25), new Vector2(4, 2));
         stat_grid.Background.enabled = false;
@@ -88,7 +90,8 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 */
 
 
-        Transform scroll_view_transform = BackgroundTransform.Find("Scroll View");
+        Transform scroll_view_transform = windowContext.OriginalScrollView;
+        PageScrollbarTemplate = windowContext.ScrollbarTemplate;
         scroll_view_transform.localPosition = new Vector3(158, 111);
         scroll_view_transform.GetComponent<ScrollRect>().vertical = false;
         scroll_view_transform.GetComponent<ScrollRect>().horizontal = true;

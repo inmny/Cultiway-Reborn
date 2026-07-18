@@ -56,14 +56,22 @@ public class CharacterPanelProgressBar : APrefabPreview<CharacterPanelProgressBa
 
     private static void _init()
     {
-        GameObject obj = LoadOriginalHealthBar();
-        obj.name = nameof(CharacterPanelProgressBar);
+        GameObject obj = CreateNativeHealthBar(nameof(CharacterPanelProgressBar), new Vector2(92f, 12f));
         obj.transform.SetParent(ModClass.I.PrefabLibrary, false);
-        obj.GetComponent<RectTransform>().sizeDelta = new Vector2(92f, 12f);
 
         var tip = obj.GetComponent<TipButton>() ?? obj.AddComponent<TipButton>();
         tip.enabled = true;
         tip.type = WorldboxGame.Tooltips.RawTip.id;
+
+        Prefab = obj.AddComponent<CharacterPanelProgressBar>();
+    }
+
+    /// <summary>克隆原版角色血条，并统一配置可复用的尺寸与文字样式。</summary>
+    internal static GameObject CreateNativeHealthBar(string name, Vector2 size)
+    {
+        GameObject obj = LoadOriginalHealthBar();
+        obj.name = name;
+        obj.GetComponent<RectTransform>().sizeDelta = size;
 
         Text text = obj.transform.FindRecursive("Text").GetComponent<Text>();
         text.font = Cultiway.UI.UiTheme.Current.Font;
@@ -72,8 +80,7 @@ public class CharacterPanelProgressBar : APrefabPreview<CharacterPanelProgressBa
         text.resizeTextMaxSize = 9;
         text.horizontalOverflow = HorizontalWrapMode.Overflow;
         text.verticalOverflow = VerticalWrapMode.Truncate;
-
-        Prefab = obj.AddComponent<CharacterPanelProgressBar>();
+        return obj;
     }
 
     private static GameObject LoadOriginalHealthBar()

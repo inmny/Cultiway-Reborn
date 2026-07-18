@@ -326,6 +326,46 @@ GeoRegionsList,地区
 GeoRegionsListDescription,阿巴阿巴
 Drop,雨滴
 ElementRootPage,灵根详解
+CultisysOverviewPage,修炼体系
+Cultiway.CultisysOverview.UI.Format.Count,已拥有 {0} 种修炼体系
+Cultiway.CultisysOverview.UI.Format.Next,下一步：{0} · {1}
+Cultiway.CultisysOverview.UI.Kind.Minor,小境界
+Cultiway.CultisysOverview.UI.Kind.Major,大境界
+Cultiway.CultisysOverview.UI.State.Unavailable,暂无可用进阶
+Cultiway.CultisysOverview.UI.State.Accumulating,积累中
+Cultiway.CultisysOverview.UI.State.Ready,可尝试突破
+Cultiway.CultisysOverview.UI.State.NotReady,条件未满足
+Cultiway.CultisysOverview.UI.State.NeedsStart,待开始准备
+Cultiway.CultisysOverview.UI.State.InProgress,准备中
+Cultiway.CultisysOverview.UI.State.Blocked,突破受阻
+Cultiway.CultisysOverview.UI.UnknownRealm,未知境界
+Cultiway.CultisysOverview.UI.Empty,当前没有修炼体系
+Cultiway.CultisysTooltip.Format.LevelMeta,第 {0}/{1} 境 · 战力 {2}
+Cultiway.CultisysTooltip.Section.Attributes,体系属性加成
+Cultiway.CultisysTooltip.Progression.Target,进阶目标
+Cultiway.CultisysTooltip.Progression.Requirement,未满足条件
+Cultiway.CultisysTooltip.Resource.Wakan,灵气
+Cultiway.CultisysTooltip.Resource.Spirit,精神力
+Cultiway.CultisysTooltip.Resource.Mana,法力
+Cultiway.CultisysTooltip.Resource.Vigor,斗气
+Cultiway.CultisysTooltip.Xian.Foundation,筑基
+Cultiway.CultisysTooltip.Xian.Jindan,金丹
+Cultiway.CultisysTooltip.Xian.Yuanying,元婴
+Cultiway.CultisysTooltip.Magic.MaxRing,最高法术环
+Cultiway.CultisysTooltip.Magic.SpellCapacity,法术掌握
+Cultiway.CultisysTooltip.Knight.SuccessChance,自然突破率
+Cultiway.CultisysTooltip.Format.ElementRoot,{0} · 强度 {1:0.##}
+Cultiway.CultisysTooltip.Format.Foundation,{0}/8 · 强度 {1:0.##}
+Cultiway.CultisysTooltip.Format.Jindan,{0} · {1}转 · 强度 {2:0.##}
+Cultiway.CultisysTooltip.Format.Yuanying,{0} · 强度 {1:0.##}
+Cultiway.CultisysTooltip.Format.Ring,{0} 环
+progression.not_approaching,尚未接近突破条件
+progression.not_available,当前境界没有可用进阶
+xian.wakan_not_full,灵气尚未充盈
+xian.element_root_missing,缺少灵根
+xian.jindan_missing,缺少金丹
+magic.spirit_not_full,精神力尚未充盈
+knight.vigor_not_full,斗气尚未充盈
 InventoryPage,背包
 ForcePage,相关势力
 SectPage,宗门

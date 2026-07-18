@@ -11,6 +11,57 @@ using NeoModLoader.General;
 namespace Cultiway.Core.Libraries;
 public delegate float GetDetailedLevel(ActorExtend actor_extend);
 
+/// <summary>修炼体系向通用详情界面追加的一行只读展示数据。</summary>
+public readonly struct CultisysDisplayLine
+{
+    public CultisysDisplayLine(string labelKey, string value, string iconPath = null, string colorHex = null)
+        : this(labelKey, value, iconPath, colorHex, float.NaN, float.NaN)
+    {
+    }
+
+    private CultisysDisplayLine(string labelKey, string value, string iconPath, string colorHex,
+                                float progressValue, float progressMax)
+    {
+        LabelKey = labelKey;
+        Value = value;
+        IconPath = iconPath;
+        ColorHex = colorHex;
+        ProgressValue = progressValue;
+        ProgressMax = progressMax;
+    }
+
+    /// <summary>创建由 UI 以进度条显示的数值行。</summary>
+    public static CultisysDisplayLine CreateProgress(string labelKey, float value, float max,
+                                                      string iconPath = null, string colorHex = null)
+    {
+        return new CultisysDisplayLine(labelKey, null, iconPath, colorHex, value, max);
+    }
+
+    /// <summary>行标题的本地化键。</summary>
+    public string LabelKey { get; }
+
+    /// <summary>已经格式化、无需再次本地化的展示值。</summary>
+    public string Value { get; }
+
+    /// <summary>可选图标路径；当前由支持图标的详情界面使用。</summary>
+    public string IconPath { get; }
+
+    /// <summary>可选的 HTML 颜色值，例如 #43FF43。</summary>
+    public string ColorHex { get; }
+
+    /// <summary>进度条当前值；普通文本行使用 NaN。</summary>
+    public float ProgressValue { get; }
+
+    /// <summary>进度条上限；普通文本行使用 NaN。</summary>
+    public float ProgressMax { get; }
+
+    /// <summary>该行是否应以进度条显示。</summary>
+    public bool HasProgress => !float.IsNaN(ProgressValue) && !float.IsNaN(ProgressMax);
+}
+
+/// <summary>由具体修炼体系向通用详情界面追加体系专属数据。</summary>
+public delegate void CultisysDisplayDetailProvider(ActorExtend actor, ICollection<CultisysDisplayLine> lines);
+
 /// <summary>
 ///     不依赖具体 ECS 组件类型的修炼体系资产接口，供通用 UI、任务调度和进阶服务访问。
 /// </summary>
@@ -37,6 +88,9 @@ public abstract class BaseCultisysAsset : Asset
 
     /// <summary>通用修炼体系选择器中使用的图标路径。</summary>
     public string IconPath { get; set; } = "cultiway/icons/iconCultivation";
+
+    /// <summary>为通用详情界面提供体系专属资源、结构或规则数据的可选委托。</summary>
+    public CultisysDisplayDetailProvider DisplayDetailProvider { get; set; }
 
     protected BaseCultisysAsset(string id, int level_nr)
     {
@@ -98,6 +152,24 @@ public abstract class BaseCultisysAsset : Asset
         return LM.Get(_level_desc_keys[level]);
     }
 
+    /// <summary>仅在当前境界确实配置了本地化描述时返回该描述。</summary>
+    public bool TryGetLevelDescription(int level, out string description)
+    {
+        if (level < 0 || level >= _level_desc_keys.Length)
+        {
+            description = null;
+            return false;
+        }
+        string key = _level_desc_keys[level];
+        if (!LMTools.Has(key))
+        {
+            description = null;
+            return false;
+        }
+        description = LM.Get(key);
+        return true;
+    }
+
     public string GetLevelupMessage(int level)
     {
         var key = _levelup_msg_keys[level];
@@ -112,6 +184,22 @@ public abstract class BaseCultisysAsset : Asset
 
     /// <summary>角色是否拥有本修炼体系。</summary>
     public abstract bool IsOwnedBy(ActorExtend actor);
+
+    /// <summary>读取角色在本体系中的当前主等级；未拥有本体系时返回 -1。</summary>
+    public abstract int GetCurrentLevel(ActorExtend actor);
+
+    /// <summary>读取本体系截至指定主等级累计提供的属性；返回对象只用于读取。</summary>
+    public abstract BaseStats GetProvidedStats(int level);
+
+    /// <summary>读取指定主等级用于跨体系比较的战力层级。</summary>
+    public abstract float GetLevelPower(int level);
+
+    /// <summary>向目标集合追加当前角色的体系专属展示数据。</summary>
+    public void AppendDisplayDetails(ActorExtend actor, ICollection<CultisysDisplayLine> lines)
+    {
+        if (lines == null) throw new ArgumentNullException(nameof(lines));
+        DisplayDetailProvider?.Invoke(actor, lines);
+    }
 
     /// <summary>无副作用查询角色当前最可能执行的进阶过渡。</summary>
     public abstract ProgressionQuery QueryProgression(ActorExtend actor);
@@ -208,6 +296,21 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
     public override bool IsOwnedBy(ActorExtend actor)
     {
         return actor.HasCultisys<T>();
+    }
+
+    public override int GetCurrentLevel(ActorExtend actor)
+    {
+        return actor.HasCultisys<T>() ? actor.GetCultisys<T>().CurrLevel : -1;
+    }
+
+    public override BaseStats GetProvidedStats(int level)
+    {
+        return LevelAccumBaseStats[level];
+    }
+
+    public override float GetLevelPower(int level)
+    {
+        return PowerLevels[level];
     }
 
     public override ProgressionQuery QueryProgression(ActorExtend actor)

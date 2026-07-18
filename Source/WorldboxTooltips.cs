@@ -37,6 +37,8 @@ public partial class WorldboxGame
         public static TooltipAsset RawTip { get; private set; }
         [CloneSource("tip"), AssetId("Cultiway.WanfaSkill")]
         public static TooltipAsset Skill { get; private set; }
+        [CloneSource("tip"), AssetId("Cultiway.Cultisys")]
+        public static TooltipAsset Cultisys { get; private set; }
 
         public static TooltipAsset SpecialItem { get; private set; }
         public static TooltipAsset GetMetaListTooltipAsset(MetaTypeExtend meta_type)
@@ -75,11 +77,20 @@ public partial class WorldboxGame
             Skill.prefab_id = "tooltips/tooltip_cultiway_wanfa_skill";
             Skill.callback = ShowSkill;
             SkillTooltip.PatchTo<Tooltip>(Skill.prefab_id);
+
+            Cultisys.prefab_id = "tooltips/tooltip_cultiway_cultisys";
+            Cultisys.callback = ShowCultisys;
+            CultisysTooltip.PatchTo<Tooltip>(Cultisys.prefab_id);
         }
 
         private static void ShowSkill(Tooltip tooltip, string type, TooltipData data)
         {
             tooltip.GetComponent<SkillTooltip>().SetupPending();
+        }
+
+        private static void ShowCultisys(Tooltip tooltip, string type, TooltipData data)
+        {
+            tooltip.GetComponent<CultisysTooltip>().SetupPending();
         }
         private void ShowGeoRegionMetaListInfo(Tooltip tooltip, string type, TooltipData data)
         {

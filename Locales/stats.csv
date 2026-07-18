@@ -16,6 +16,14 @@ NegMaster,阴精通
 PosMaster,阳精通
 EntropyMaster,同化精通
 DivineSense,神识
+HealthRegen,生命恢复
+MaxSoul,元神上限
+MaxQiyun,气运上限
+MaxWakan,灵气上限
+WakanRegen,灵气恢复
+MaxSpirit,精神力上限
+MaxVigor,斗气上限
+KnightEvasion,闪避率
 ModDivineSense,神识加成
 ManaRegen,法力恢复
 SpiritRegen,精神力恢复

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,6 +11,7 @@ using Cultiway.Core.Progression;
 using Cultiway.Patch;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
 using UnityEngine;
 
@@ -38,6 +40,7 @@ public partial class Cultisyses
             new Magic(), CreateMagicProgressionProfile()));
         Magic.IconPath = "cultiway/icons/iconMagic";
         ProgressionService.Register(Magic);
+        Magic.DisplayDetailProvider = AppendMagicDisplayDetails;
         SetupMagicDisplayStyle();
         LoadStatsForMagic();
 
@@ -58,6 +61,40 @@ public partial class Cultisyses
             sb.AppendLine($"{magic_info.Asset.GetName()}: {magic_info.Asset.GetLevelName(magic_info.CurrLevel)}");
             sb.AppendLine($"精神力: {magic_info.spirit} / {a.Base.stats[BaseStatses.MaxSpirit.id]}");
         });
+    }
+
+    /// <summary>向通用修炼体系详情追加魔法资源、环位与法术容量。</summary>
+    private static void AppendMagicDisplayDetails(ActorExtend actor, ICollection<CultisysDisplayLine> lines)
+    {
+        ref var magic = ref actor.GetCultisys<Magic>();
+        int level = magic.CurrLevel;
+        if (actor.HasElementRoot())
+        {
+            ref var root = ref actor.GetElementRoot();
+            lines.Add(new CultisysDisplayLine(
+                Magic.DisplayStyle.category_label_key,
+                string.Format("Cultiway.CultisysTooltip.Format.ElementRoot".Localize(),
+                    root.Type.GetName(Magic), root.GetStrength())));
+        }
+        lines.Add(CultisysDisplayLine.CreateProgress(
+            "Cultiway.CultisysTooltip.Resource.Spirit",
+            magic.spirit,
+            actor.Base.stats[BaseStatses.MaxSpirit.id],
+            "cultiway/icons/iconMagic",
+            "#8C59D9"));
+        lines.Add(CultisysDisplayLine.CreateProgress(
+            "Cultiway.CultisysTooltip.Resource.Mana",
+            actor.Base.getMana(),
+            actor.Base.getMaxMana(),
+            "ui/icons/iconMana",
+            "#27CDFF"));
+        lines.Add(new CultisysDisplayLine(
+            "Cultiway.CultisysTooltip.Magic.MaxRing",
+            string.Format("Cultiway.CultisysTooltip.Format.Ring".Localize(), GetMaxSpellRing(level))));
+        int known = actor.E.GetRelations<MagicSpellKnowledgeRelation>().Length;
+        lines.Add(new CultisysDisplayLine(
+            "Cultiway.CultisysTooltip.Magic.SpellCapacity",
+            $"{known} / {GetKnownSpellCapacity(level)}"));
     }
 
     private static void SetupMagicDisplayStyle()

@@ -41,7 +41,7 @@ public class ElementRootAsset : Asset
 
     public string GetDescription()
     {
-        return LM.Get(desc_key);
+        return GetDescriptionOrFallback(desc_key, "Cultiway.ER.Common.Info");
     }
 
     /// <summary>
@@ -61,6 +61,18 @@ public class ElementRootAsset : Asset
     {
         var prefix = cultisys?.DisplayStyle?.element_root_desc_prefix;
         if (string.IsNullOrEmpty(prefix)) return GetDescription();
-        return LM.Get($"{prefix}.{id}.Info");
+        return GetDescriptionOrFallback($"{prefix}.{id}.Info", $"{prefix}.Common.Info");
+    }
+
+    private static string GetDescriptionOrFallback(string key, string fallbackKey)
+    {
+        string normalizedKey = key.Underscore();
+        if (LocalizedTextManager.stringExists(normalizedKey))
+            return LocalizedTextManager.getText(normalizedKey, null, false);
+
+        string normalizedFallback = fallbackKey.Underscore();
+        return LocalizedTextManager.stringExists(normalizedFallback)
+            ? LocalizedTextManager.getText(normalizedFallback, null, false)
+            : string.Empty;
     }
 }
