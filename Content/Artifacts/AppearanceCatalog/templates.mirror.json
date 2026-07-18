@@ -6,9 +6,9 @@
       "shape": "mirror",
       "artifact": "ArtifactMirror",
       "camera": {
-        "yaw": -26,
-        "pitch": 16,
-        "roll": -16,
+        "yaw": -8,
+        "pitch": 12,
+        "roll": -12,
         "scale": 9.5,
         "target": [
           0,
@@ -16,6 +16,10 @@
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": -8, "pitch": 12, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": -8, "pitch": 12, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -44,
         "pitch": 62
@@ -83,8 +87,8 @@
       "shape": "mirror",
       "artifact": "ArtifactMirror",
       "camera": {
-        "yaw": -18,
-        "pitch": 20,
+        "yaw": -36,
+        "pitch": 22,
         "roll": -24,
         "scale": 9.3,
         "target": [
@@ -93,6 +97,10 @@
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": -36, "pitch": 22, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": -36, "pitch": 22, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -30,
         "pitch": 60

@@ -28,6 +28,10 @@ public struct ArtifactManifestation : IComponent
     /// </summary>
     public bool visible;
 
+    /// <summary>
+    /// 是否使用施展能力时的完整尺寸、视角和像素细节。
+    /// </summary>
+    public bool active_visual;
 }
 
 /// <summary>

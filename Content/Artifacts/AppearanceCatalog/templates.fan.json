@@ -6,9 +6,9 @@
       "shape": "fan",
       "artifact": "ArtifactFan",
       "camera": {
-        "yaw": -22,
-        "pitch": 14,
-        "roll": -12,
+        "yaw": -12,
+        "pitch": 12,
+        "roll": -14,
         "scale": 8.6,
         "target": [
           0,
@@ -16,6 +16,10 @@
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": -12, "pitch": 12, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": -12, "pitch": 12, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -40,
         "pitch": 60
@@ -77,16 +81,20 @@
       "shape": "fan",
       "artifact": "ArtifactFan",
       "camera": {
-        "yaw": -14,
-        "pitch": 18,
-        "roll": -22,
-        "scale": 8.4,
+        "yaw": 32,
+        "pitch": 20,
+        "roll": 18,
+        "scale": 10.0,
         "target": [
           0,
           0.25,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": 32, "pitch": 20, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": 32, "pitch": 20, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -28,
         "pitch": 64

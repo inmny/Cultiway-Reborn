@@ -1,0 +1,98 @@
+# Cultiway handcrafted low-poly artifact model
+# module: sword_blade3d
+# variant: crystal
+mtllib crystal.mtl
+s off
+v 0.000000 0.000000 0.090000
+v -0.100000 0.000000 0.000000
+v -0.190000 0.240000 0.000000
+v 0.000000 0.240000 0.090000
+v 0.100000 0.000000 0.000000
+v 0.190000 0.240000 0.000000
+v 0.000000 0.000000 -0.090000
+v 0.000000 0.240000 -0.090000
+v -0.180000 2.160000 0.000000
+v 0.000000 2.160000 0.090000
+v 0.180000 2.160000 0.000000
+v 0.000000 2.160000 -0.090000
+v -0.120000 2.460000 0.000000
+v 0.000000 2.460000 0.090000
+v 0.120000 2.460000 0.000000
+v 0.000000 2.460000 -0.090000
+v -0.006000 2.700000 0.000000
+v 0.000000 2.700000 0.090000
+v 0.006000 2.700000 0.000000
+v 0.000000 2.700000 -0.090000
+v 0.015000 0.160000 0.117500
+v -0.015000 0.160000 0.117500
+v -0.015000 2.420000 0.117500
+v -0.015000 2.420000 0.092500
+v -0.015000 0.160000 0.092500
+v 0.015000 0.160000 0.092500
+v 0.015000 2.420000 0.117500
+v 0.015000 2.420000 0.092500
+v -0.057800 1.340000 0.140200
+v 0.000000 1.425000 0.140200
+v 0.057800 1.340000 0.140200
+v 0.057800 1.340000 0.119800
+v 0.000000 1.425000 0.119800
+v -0.057800 1.340000 0.119800
+v 0.000000 1.255000 0.140200
+v 0.000000 1.255000 0.119800
+o crystal_blade_left
+usemtl metal__surface__crystal
+f 1 2 3 4
+o crystal_blade_right
+f 5 1 4 6
+o crystal_blade_back_right
+f 7 5 6 8
+o crystal_blade_back_left
+f 2 7 8 3
+o crystal_blade_left
+f 4 3 9 10
+o crystal_blade_right
+f 6 4 10 11
+o crystal_blade_back_right
+f 8 6 11 12
+o crystal_blade_back_left
+f 3 8 12 9
+o crystal_blade_left
+f 10 9 13 14
+o crystal_blade_right
+f 11 10 14 15
+o crystal_blade_back_right
+f 12 11 15 16
+o crystal_blade_back_left
+f 9 12 16 13
+o crystal_blade_left
+f 14 13 17 18
+o crystal_blade_right
+f 15 14 18 19
+o crystal_blade_back_right
+f 16 15 19 20
+o crystal_blade_back_left
+f 13 16 20 17
+o crystal_blade_base
+f 7 5 1 2
+o crystal_ridge
+usemtl edge__surface__polished_metal
+f 21 22 23
+f 24 25 26
+f 23 27 21
+f 26 28 24
+o crystal_ridge_edge
+f 22 23 24 25
+f 23 27 28 24
+f 27 21 26 28
+f 21 22 25 26
+o crystal_vein
+usemtl edge__surface__emissive
+f 29 30 31
+f 32 33 34
+f 31 35 29
+f 34 36 32
+o crystal_vein_edge
+f 30 31 32 33
+f 31 35 36 32
+f 35 29 34 36
+f 29 30 33 34

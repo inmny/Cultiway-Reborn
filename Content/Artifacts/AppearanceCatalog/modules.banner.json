@@ -1,5 +1,6 @@
 {
   "canvas": 28,
+  "model_root": "Models",
   "modules": [
     {
       "key": "banner_pole3d",

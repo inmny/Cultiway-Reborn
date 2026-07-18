@@ -6,18 +6,22 @@
       "shape": "seal",
       "artifact": "ArtifactSeal",
       "camera": {
-        "yaw": -34,
-        "pitch": 28,
-        "roll": 0,
-        "scale": 10.1,
+        "yaw": -24,
+        "pitch": -26,
+        "roll": -1,
+        "scale": 12.6,
         "target": [
           0,
           -0.08,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": -24, "pitch": -24, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": -24, "pitch": -30, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
-        "yaw": -48,
+        "yaw": -38,
         "pitch": 60
       },
       "placements": [
@@ -49,8 +53,13 @@
           "anchor": "base",
           "position": [
             0,
-            0.28,
+            0.24,
             0
+          ],
+          "scale": [
+            0.84,
+            0.84,
+            0.84
           ],
           "z": 30
         },
@@ -72,18 +81,22 @@
       "shape": "seal",
       "artifact": "ArtifactSeal",
       "camera": {
-        "yaw": -22,
-        "pitch": 31,
-        "roll": -2,
-        "scale": 10,
+        "yaw": 24,
+        "pitch": -28,
+        "roll": 1,
+        "scale": 12.5,
         "target": [
           0,
           -0.06,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": 24, "pitch": -26, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": 24, "pitch": -32, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
-        "yaw": -32,
+        "yaw": -30,
         "pitch": 62
       },
       "placements": [
@@ -130,13 +143,18 @@
           "anchor": "base",
           "position": [
             0,
-            0.32,
+            0.25,
             0
           ],
           "rotation": [
             0,
             8,
             0
+          ],
+          "scale": [
+            0.84,
+            0.84,
+            0.84
           ],
           "z": 30
         },

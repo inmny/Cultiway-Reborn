@@ -1,0 +1,49 @@
+# Preview colors only; ArtifactAppearance supplies final Instance colors
+
+newmtl core__surface__emissive
+Ka 0.0599 0.1600 0.0979
+Kd 0.3744 1.0000 0.6120
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl main__surface__emissive
+Ka 0.0768 0.1536 0.1088
+Kd 0.4800 0.9600 0.6800
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl metal__surface__polished_metal
+Ka 0.1152 0.1088 0.0832
+Kd 0.7200 0.6800 0.5200
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl ridge__surface__aged_metal
+Ka 0.0591 0.0424 0.0230
+Kd 0.3696 0.2652 0.1440
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl ridge__surface__polished_metal
+Ka 0.1014 0.0849 0.0499
+Kd 0.6336 0.5304 0.3120
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl right__surface__aged_metal
+Ka 0.0417 0.0381 0.0315
+Kd 0.2604 0.2380 0.1968
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2

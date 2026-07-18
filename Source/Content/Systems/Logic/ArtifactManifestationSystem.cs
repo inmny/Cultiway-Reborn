@@ -100,6 +100,7 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
             ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
             manifestation.control_state = update.controlState;
             manifestation.visible = update.visible;
+            manifestation.active_visual = update.active;
             if (update.followsOwner) ApplyPose(artifact, update.pose, update.bodyRadius);
             else manifestation.flip_x = false;
             if (!update.active) continue;

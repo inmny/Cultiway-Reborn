@@ -1,0 +1,17 @@
+# Preview colors only; ArtifactAppearance supplies final Instance colors
+
+newmtl handle__surface__wood
+Ka 0.0576 0.0352 0.0224
+Kd 0.3600 0.2200 0.1400
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl ridge__surface__bone
+Ka 0.1070 0.0899 0.0557
+Kd 0.6688 0.5616 0.3480
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2

@@ -1,0 +1,25 @@
+# Preview colors only; ArtifactAppearance supplies final Instance colors
+
+newmtl glass__surface__crystal
+Ka 0.0560 0.1216 0.1376
+Kd 0.3500 0.7600 0.8600
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl glint__surface__crystal
+Ka 0.0627 0.1362 0.1541
+Kd 0.3920 0.8512 0.9632
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl glint__surface__emissive
+Ka 0.0860 0.1600 0.1219
+Kd 0.5376 1.0000 0.7616
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2

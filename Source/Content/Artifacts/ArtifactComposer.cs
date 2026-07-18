@@ -287,6 +287,16 @@ public static class ArtifactComposer
         }
 
         var template = templates[StableIndex($"{compositionKey}|template|{shapeKey}", templates.Count)];
+        return ComposeAppearance(template, atoms, compositionKey);
+    }
+
+    /// <summary>按指定模板执行正式的 variant 与配色选择，供运行时预览复用真实组合规则。</summary>
+    internal static ArtifactAppearance ComposeAppearance(
+        ArtifactAppearanceTemplateDef template,
+        IReadOnlyList<ArtifactAtomSelection> atoms,
+        string compositionKey)
+    {
+        var catalog = ArtifactAppearanceCatalogLoader.Current;
         var parts = new List<ArtifactAppearancePart>();
         var placements = template.Placements
             .OrderBy(item => item.Z)

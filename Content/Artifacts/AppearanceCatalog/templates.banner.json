@@ -6,9 +6,9 @@
       "shape": "banner",
       "artifact": "ArtifactBanner",
       "camera": {
-        "yaw": -24,
-        "pitch": 16,
-        "roll": -8,
+        "yaw": -30,
+        "pitch": 18,
+        "roll": -7,
         "scale": 7.2,
         "target": [
           0.42,
@@ -16,6 +16,10 @@
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": -30, "pitch": 18, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": -30, "pitch": 18, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -42,
         "pitch": 58
@@ -77,9 +81,9 @@
       "shape": "banner",
       "artifact": "ArtifactBanner",
       "camera": {
-        "yaw": -17,
-        "pitch": 12,
-        "roll": -13,
+        "yaw": 26,
+        "pitch": 15,
+        "roll": 10,
         "scale": 7,
         "target": [
           0.4,
@@ -87,6 +91,10 @@
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": 26, "pitch": 15, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": 26, "pitch": 15, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -30,
         "pitch": 62

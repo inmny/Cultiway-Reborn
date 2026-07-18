@@ -1,5 +1,6 @@
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Utils;
@@ -10,6 +11,7 @@ using Cultiway.Core.SkillLibV3.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Cultiway.Content.Systems.Render;
 
@@ -31,10 +33,19 @@ public class ArtifactWorldRenderSystem
         var prefab = ModClass.NewPrefabPreview(nameof(ArtifactWorldRenderSystem) + "_Artifact")
             .AddComponent<ArtifactWorldView>();
         prefab.sprite_renderer = prefab.GetComponent<SpriteRenderer>();
+        prefab.sorting_group = prefab.gameObject.AddComponent<SortingGroup>();
+        prefab.sorting_group.sortingLayerName = RenderSortingLayerNames.Objects_4;
+        prefab.sorting_group.sortingOrder = 0;
         prefab.sprite_renderer.sortingLayerName = RenderSortingLayerNames.Objects_4;
         prefab.sprite_renderer.sortingOrder = 0;
         prefab.sprite_renderer.spriteSortPoint = SpriteSortPoint.Pivot;
         prefab.sprite_renderer.sharedMaterial = LibraryMaterials.instance.mat_world_object;
+        prefab.shadow_renderer = AddLayer(prefab.transform, "shadow", -1, LibraryMaterials.instance.mat_world_object);
+        prefab.emission_renderer = AddLayer(
+            prefab.transform,
+            "emission",
+            1,
+            LibraryMaterials.instance.mat_world_object_lit);
         prefab.anim_renderer = prefab.gameObject.AddComponent<AnimRenderer>();
         prefab.anim_renderer.bind = prefab.sprite_renderer;
         prefab.anim_renderer.defaultMaterial = prefab.sprite_renderer.sharedMaterial;
@@ -42,7 +53,7 @@ public class ArtifactWorldRenderSystem
         _pool = new MonoObjPool<ArtifactWorldView>(
             prefab,
             root.transform,
-            active_action: view => view.anim_renderer.ResetVisualState());
+            active_action: view => view.ResetVisualState());
     }
 
     protected override void OnUpdate()
@@ -66,25 +77,37 @@ public class ArtifactWorldRenderSystem
         {
             if (!manifestation.visible) return;
             ArtifactShapeAsset shape = (ArtifactShapeAsset)itemShape.Type;
-            Sprite sprite = shape.GetWorldSprite(artifact);
+            ArtifactWorldSpriteSet sprites = shape.GetWorldSprites != null
+                ? shape.GetWorldSprites(artifact, manifestation.active_visual)
+                : ArtifactWorldSpriteSet.Single(
+                    ArtifactManifestationTools.ResolveWorldSprite(artifact, manifestation.active_visual));
+            Sprite sprite = sprites.Main;
             if (sprite == null) return;
 
-            float spriteSize = Mathf.Max(sprite.bounds.size.x, sprite.bounds.size.y);
+            Sprite scaleReference = sprites.ScaleReference;
+            float spriteSize = Mathf.Max(scaleReference.bounds.size.x, scaleReference.bounds.size.y);
             if (spriteSize <= 0f || manifestation.world_size <= 0f) return;
 
             ArtifactWorldView view = _pool.GetNext();
             view.artifact = artifact;
-            view.sprite_renderer.sprite = sprite;
+            view.sprite_renderer.sprite = sprites.Body != null ? sprites.Body : sprite;
+            view.emission_renderer.sprite = sprites.Emission;
+            view.shadow_renderer.sprite = sprites.Shadow;
             Color color = manifestation.control_state.GetStateColor(time);
             float pulseScale = 1f;
             ArtifactModelPulseVisualState.Apply(artifact, worldTime, ref pulseScale, ref color);
             view.sprite_renderer.color = color;
+            view.emission_renderer.color = color;
+            view.shadow_renderer.color = new Color(1f, 1f, 1f, color.a);
             view.sprite_renderer.flipX = manifestation.flip_x;
-            view.sprite_renderer.sortingLayerName = RenderSortingLayerNames.Objects_4;
-            view.sprite_renderer.sortingOrder = 0;
+            view.emission_renderer.flipX = manifestation.flip_x;
+            view.shadow_renderer.flipX = manifestation.flip_x;
+            view.emission_renderer.enabled = sprites.Emission != null;
+            view.shadow_renderer.enabled = sprites.Shadow != null;
             view.transform.localPosition = position.value;
             view.transform.localRotation = Quaternion.Euler(0f, 0f, rotation.z);
             view.transform.localScale = Vector3.one * (manifestation.world_size / spriteSize * pulseScale);
+            view.shadow_renderer.transform.rotation = Quaternion.identity;
 
             if (artifact.TryGetComponent(out SkillExecutionBodyLease lease) &&
                 lease.execution.HasComponent<AnimAfterimage>())
@@ -101,11 +124,41 @@ public class ArtifactWorldRenderSystem
         _pool.ClearUnsed();
     }
 
+    private static SpriteRenderer AddLayer(
+        Transform parent,
+        string name,
+        int sortingOrder,
+        Material material)
+    {
+        GameObject layer = new(name);
+        layer.transform.SetParent(parent, false);
+        SpriteRenderer renderer = layer.AddComponent<SpriteRenderer>();
+        renderer.sortingLayerName = RenderSortingLayerNames.Objects_4;
+        renderer.sortingOrder = sortingOrder;
+        renderer.spriteSortPoint = SpriteSortPoint.Pivot;
+        renderer.sharedMaterial = material;
+        return renderer;
+    }
+
     [RequireComponent(typeof(SpriteRenderer))]
     private class ArtifactWorldView : MonoBehaviour
     {
         public Entity artifact;
         public SpriteRenderer sprite_renderer;
+        public SpriteRenderer emission_renderer;
+        public SpriteRenderer shadow_renderer;
+        public SortingGroup sorting_group;
         public AnimRenderer anim_renderer;
+
+        public void ResetVisualState()
+        {
+            anim_renderer.ResetVisualState();
+            sprite_renderer.sprite = null;
+            emission_renderer.sprite = null;
+            emission_renderer.enabled = false;
+            shadow_renderer.sprite = null;
+            shadow_renderer.enabled = false;
+            shadow_renderer.transform.localRotation = Quaternion.identity;
+        }
     }
 }

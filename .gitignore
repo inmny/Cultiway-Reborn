@@ -85,6 +85,8 @@ StyleCopReport.xml
 *.ilk
 *.meta
 *.obj
+!Content/Artifacts/AppearanceCatalog/Models/
+!Content/Artifacts/AppearanceCatalog/Models/**
 *.iobj
 *.pch
 *.ipdb

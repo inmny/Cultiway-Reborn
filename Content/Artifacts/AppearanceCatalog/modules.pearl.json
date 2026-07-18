@@ -1,5 +1,6 @@
 {
   "canvas": 28,
+  "model_root": "Models",
   "modules": [
     {
       "key": "pearl_core3d",

@@ -1,0 +1,17 @@
+# Preview colors only; ArtifactAppearance supplies final Instance colors
+
+newmtl pommel__surface__bone
+Ka 0.1216 0.1152 0.0928
+Kd 0.7600 0.7200 0.5800
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl wrap__surface__silk
+Ka 0.1008 0.0384 0.0608
+Kd 0.6300 0.2400 0.3800
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2

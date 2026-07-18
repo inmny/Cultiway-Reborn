@@ -1,0 +1,25 @@
+# Preview colors only; ArtifactAppearance supplies final Instance colors
+
+newmtl edge__surface__polished_metal
+Ka 0.1290 0.1142 0.0682
+Kd 0.8064 0.7140 0.4264
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl gem__surface__jade
+Ka 0.0211 0.1183 0.0677
+Kd 0.1320 0.7392 0.4232
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl metal__surface__aged_metal
+Ka 0.0672 0.0544 0.0384
+Kd 0.4200 0.3400 0.2400
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2

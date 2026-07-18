@@ -6,18 +6,22 @@
       "shape": "tower",
       "artifact": "ArtifactTower",
       "camera": {
-        "yaw": -34,
-        "pitch": 27,
-        "roll": 0,
-        "scale": 7.2,
+        "yaw": -30,
+        "pitch": 24,
+        "roll": -1,
+        "scale": 8.3,
         "target": [
           0,
           0.02,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": -30, "pitch": 24, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": -30, "pitch": 24, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
-        "yaw": -48,
+        "yaw": -38,
         "pitch": 58
       },
       "placements": [
@@ -114,18 +118,22 @@
       "shape": "tower",
       "artifact": "ArtifactTower",
       "camera": {
-        "yaw": -25,
-        "pitch": 30,
-        "roll": -2,
-        "scale": 6.6,
+        "yaw": 30,
+        "pitch": 28,
+        "roll": 2,
+        "scale": 7.7,
         "target": [
           0,
           0.08,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": 30, "pitch": 28, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": 30, "pitch": 28, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
-        "yaw": -34,
+        "yaw": -30,
         "pitch": 62
       },
       "placements": [

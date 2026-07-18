@@ -6,9 +6,9 @@
       "shape": "robe",
       "artifact": "ArtifactRobe",
       "camera": {
-        "yaw": -14,
-        "pitch": 9,
-        "roll": 0,
+        "yaw": -16,
+        "pitch": 10,
+        "roll": -2,
         "scale": 9.4,
         "target": [
           0,
@@ -16,6 +16,10 @@
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": -16, "pitch": 10, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": -16, "pitch": 10, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -38,
         "pitch": 58
@@ -83,9 +87,9 @@
       "shape": "robe",
       "artifact": "ArtifactRobe",
       "camera": {
-        "yaw": -22,
-        "pitch": 8,
-        "roll": 2,
+        "yaw": 24,
+        "pitch": 12,
+        "roll": 3,
         "scale": 9.2,
         "target": [
           0,
@@ -93,6 +97,10 @@
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": 24, "pitch": 12, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": 24, "pitch": 12, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -28,
         "pitch": 62

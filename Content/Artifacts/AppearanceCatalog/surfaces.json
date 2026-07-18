@@ -3,37 +3,52 @@
     {
       "key": "neutral",
       "diffuse": 0.56,
-      "side_shadow": 1.0
+      "side_shadow": 1.0,
+      "specular": 0.08,
+      "specular_power": 14.0,
+      "rim_light": 0.03,
+      "shade_thresholds": [0.10, 0.28, 0.47, 0.67, 0.87]
     },
     {
       "key": "polished_metal",
       "diffuse": 0.66,
       "side_shadow": 1.08,
       "brightness": 0.08,
-      "texture_dark": 0.035,
-      "texture_light": 0.08,
-      "texture_frequency": 7,
-      "sparkle_frequency": 13
+      "specular": 0.40,
+      "specular_power": 22.0,
+      "rim_light": 0.16,
+      "pixel_rim": true,
+      "pattern": "brushed",
+      "pattern_scale": 5.5,
+      "pattern_strength": 0.025,
+      "shade_thresholds": [0.07, 0.22, 0.40, 0.59, 0.78]
     },
     {
       "key": "aged_metal",
       "diffuse": 0.50,
       "side_shadow": 1.12,
       "brightness": -0.03,
-      "texture_dark": 0.10,
-      "texture_light": 0.035,
-      "texture_frequency": 4,
-      "sparkle_frequency": 17
+      "specular": 0.14,
+      "specular_power": 13.0,
+      "rim_light": 0.05,
+      "pattern": "patina",
+      "pattern_scale": 1.8,
+      "pattern_strength": 0.075,
+      "shade_thresholds": [0.10, 0.27, 0.45, 0.64, 0.84]
     },
     {
       "key": "jade",
       "diffuse": 0.58,
       "side_shadow": 0.84,
       "brightness": 0.05,
-      "texture_dark": 0.035,
-      "texture_light": 0.10,
-      "texture_frequency": 9,
-      "sparkle_frequency": 11
+      "specular": 0.22,
+      "specular_power": 12.0,
+      "rim_light": 0.12,
+      "pixel_rim": true,
+      "pattern": "jade_cloud",
+      "pattern_scale": 1.7,
+      "pattern_strength": 0.045,
+      "shade_thresholds": [0.08, 0.24, 0.43, 0.63, 0.82]
     },
     {
       "key": "crystal",
@@ -41,8 +56,14 @@
       "side_shadow": 0.65,
       "brightness": 0.10,
       "emission": 0.10,
-      "texture_light": 0.16,
-      "sparkle_frequency": 5
+      "specular": 0.32,
+      "specular_power": 10.0,
+      "rim_light": 0.20,
+      "pixel_rim": true,
+      "pattern": "crystal_facet",
+      "pattern_scale": 2.4,
+      "pattern_strength": 0.035,
+      "shade_thresholds": [0.06, 0.20, 0.38, 0.58, 0.78]
     },
     {
       "key": "emissive",
@@ -50,42 +71,64 @@
       "side_shadow": 0.25,
       "brightness": 0.15,
       "emission": 0.28,
-      "texture_light": 0.18,
-      "sparkle_frequency": 4
+      "specular": 0.18,
+      "specular_power": 9.0,
+      "rim_light": 0.22,
+      "pixel_rim": true,
+      "emission_layer": 1.0,
+      "shade_thresholds": [0.04, 0.14, 0.28, 0.46, 0.66],
+      "preserve_detail": true
     },
     {
       "key": "silk",
       "diffuse": 0.48,
       "side_shadow": 0.92,
-      "texture_dark": 0.07,
-      "texture_light": 0.045,
-      "texture_frequency": 4
+      "specular": 0.10,
+      "specular_power": 10.0,
+      "rim_light": 0.08,
+      "pattern": "silk_weave",
+      "pattern_scale": 4.0,
+      "pattern_strength": 0.035,
+      "shade_thresholds": [0.10, 0.28, 0.48, 0.68, 0.88]
     },
     {
       "key": "stone",
       "diffuse": 0.43,
       "side_shadow": 1.14,
       "brightness": -0.05,
-      "texture_dark": 0.12,
-      "texture_light": 0.03,
-      "texture_frequency": 3
+      "specular": 0.02,
+      "specular_power": 8.0,
+      "rim_light": 0.03,
+      "pattern": "stone_mottle",
+      "pattern_scale": 1.9,
+      "pattern_strength": 0.065,
+      "shade_thresholds": [0.12, 0.30, 0.50, 0.70, 0.90]
     },
     {
       "key": "wood",
       "diffuse": 0.47,
       "side_shadow": 1.02,
-      "texture_dark": 0.09,
-      "texture_light": 0.035,
-      "texture_frequency": 5
+      "specular": 0.05,
+      "specular_power": 9.0,
+      "rim_light": 0.04,
+      "pattern": "wood_grain",
+      "pattern_scale": 2.8,
+      "pattern_strength": 0.055,
+      "shade_thresholds": [0.12, 0.30, 0.50, 0.70, 0.90]
     },
     {
       "key": "bone",
       "diffuse": 0.52,
       "side_shadow": 0.94,
       "brightness": 0.03,
-      "texture_dark": 0.045,
-      "texture_light": 0.035,
-      "texture_frequency": 8
+      "specular": 0.12,
+      "specular_power": 11.0,
+      "rim_light": 0.06,
+      "pixel_rim": true,
+      "pattern": "bone_grain",
+      "pattern_scale": 3.2,
+      "pattern_strength": 0.030,
+      "shade_thresholds": [0.10, 0.28, 0.47, 0.67, 0.87]
     }
   ]
 }

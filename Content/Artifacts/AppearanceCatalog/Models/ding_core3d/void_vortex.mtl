@@ -1,0 +1,25 @@
+# Preview colors only; ArtifactAppearance supplies final Instance colors
+
+newmtl core__surface__crystal
+Ka 0.0437 0.1398 0.1238
+Kd 0.2730 0.8740 0.7740
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl fire__surface__emissive
+Ka 0.0906 0.1106 0.0326
+Kd 0.5664 0.6912 0.2040
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl gem__surface__emissive
+Ka 0.0422 0.1600 0.1001
+Kd 0.2640 1.0000 0.6256
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2

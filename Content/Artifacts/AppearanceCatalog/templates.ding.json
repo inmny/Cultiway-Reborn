@@ -6,16 +6,20 @@
       "shape": "ding",
       "artifact": "ArtifactDing",
       "camera": {
-        "yaw": -32,
-        "pitch": 30,
-        "roll": 0,
-        "scale": 8.9,
+        "yaw": -38,
+        "pitch": 34,
+        "roll": -2,
+        "scale": 10.4,
         "target": [
           0,
           -0.16,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": -38, "pitch": 34, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": -38, "pitch": 34, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -48,
         "pitch": 58
@@ -49,7 +53,7 @@
           "anchor": "center",
           "position": [
             0,
-            0.06,
+            0.02,
             0
           ],
           "z": 30
@@ -60,7 +64,7 @@
           "anchor": "center",
           "position": [
             0,
-            0.24,
+            0.18,
             0
           ],
           "z": 40
@@ -71,7 +75,7 @@
           "anchor": "center",
           "position": [
             0,
-            0.52,
+            0.41,
             0
           ],
           "z": 50
@@ -83,16 +87,20 @@
       "shape": "ding",
       "artifact": "ArtifactDing",
       "camera": {
-        "yaw": -22,
-        "pitch": 33,
-        "roll": 0,
-        "scale": 8.8,
+        "yaw": 32,
+        "pitch": 38,
+        "roll": 2,
+        "scale": 10.4,
         "target": [
           0,
           -0.14,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": 32, "pitch": 38, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": 32, "pitch": 38, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -34,
         "pitch": 62
@@ -136,7 +144,7 @@
           "anchor": "center",
           "position": [
             0,
-            0.06,
+            0.02,
             0
           ],
           "rotation": [
@@ -152,7 +160,7 @@
           "anchor": "center",
           "position": [
             0,
-            0.24,
+            0.18,
             0
           ],
           "rotation": [
@@ -168,7 +176,7 @@
           "anchor": "center",
           "position": [
             0,
-            0.52,
+            0.41,
             0
           ],
           "rotation": [

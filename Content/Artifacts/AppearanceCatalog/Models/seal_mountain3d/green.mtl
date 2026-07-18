@@ -1,0 +1,41 @@
+# Preview colors only; ArtifactAppearance supplies final Instance colors
+
+newmtl left__surface__jade
+Ka 0.0300 0.0887 0.0677
+Kd 0.1872 0.5544 0.4232
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl ridge__surface__polished_metal
+Ka 0.1014 0.0849 0.0499
+Kd 0.6336 0.5304 0.3120
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl right__surface__jade
+Ka 0.0238 0.0739 0.0604
+Kd 0.1488 0.4620 0.3772
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl top__surface__emissive
+Ka 0.0768 0.1536 0.1088
+Kd 0.4800 0.9600 0.6800
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl water__surface__emissive
+Ka 0.0476 0.1413 0.1251
+Kd 0.2976 0.8832 0.7820
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2

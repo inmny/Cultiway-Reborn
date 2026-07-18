@@ -282,6 +282,10 @@ namespace Cultiway
                 ?.Invoke(null,
                     new object[] { Path.Combine(GetDeclaration().FolderPath, "GameResources") });
             _content.OnReload();
+            if (Environment.UserName == "Inmny")
+            {
+                ArtifactAppearanceRuntimePreviewExporter.Install(gameObject, GetDeclaration().FolderPath);
+            }
 
             ActorExtendManager.AllStatsDirty();
 
@@ -436,6 +440,7 @@ namespace Cultiway
                 GeneralLogicSystems.SetMonitorPerf(true);
                 GeneralRenderSystems.SetMonitorPerf(true);
                 Geo.SetMonitorPerf(true);
+                ArtifactAppearanceRuntimePreviewExporter.Install(gameObject, GetDeclaration().FolderPath);
             }
             PerformanceBenchmarkRunner.Install(gameObject);
             PathFinder.Instance.UseGenerator(new PortalAwarePathGenerator(PortalRegistry.Instance, new PathfindingConfig()));

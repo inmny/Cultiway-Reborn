@@ -77,6 +77,8 @@ public partial class ItemShapes
             presentation = presentation,
             GetIcon = ArtifactAppearanceRenderer.GetIconSprite,
             GetWorldSprite = ArtifactAppearanceRenderer.GetWorldSprite,
+            GetActiveWorldSprite = ArtifactAppearanceRenderer.GetActiveWorldSprite,
+            GetWorldSprites = ArtifactAppearanceRenderer.GetWorldSprites,
         };
         return (ArtifactShapeAsset)Add(asset);
     }

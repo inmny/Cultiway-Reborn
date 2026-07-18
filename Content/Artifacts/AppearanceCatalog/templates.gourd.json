@@ -6,9 +6,9 @@
       "shape": "gourd",
       "artifact": "ArtifactGourd",
       "camera": {
-        "yaw": -30,
+        "yaw": -32,
         "pitch": 20,
-        "roll": -10,
+        "roll": -12,
         "scale": 9.4,
         "target": [
           0,
@@ -16,6 +16,10 @@
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": -32, "pitch": 20, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": -32, "pitch": 20, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -45,
         "pitch": 58
@@ -61,7 +65,7 @@
           "position": [
             0,
             0.76,
-            0.02
+            0.34
           ],
           "rotation": [
             0,
@@ -77,9 +81,9 @@
       "shape": "gourd",
       "artifact": "ArtifactGourd",
       "camera": {
-        "yaw": -18,
-        "pitch": 24,
-        "roll": -18,
+        "yaw": 30,
+        "pitch": 26,
+        "roll": 16,
         "scale": 9.2,
         "target": [
           0,
@@ -87,6 +91,10 @@
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": 30, "pitch": 26, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": 30, "pitch": 26, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -30,
         "pitch": 62
@@ -152,7 +160,7 @@
           "position": [
             -0.02,
             0.75,
-            0.03
+            0.34
           ],
           "rotation": [
             0,

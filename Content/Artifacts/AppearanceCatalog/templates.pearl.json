@@ -6,16 +6,20 @@
       "shape": "pearl",
       "artifact": "ArtifactPearl",
       "camera": {
-        "yaw": -28,
-        "pitch": 22,
-        "roll": -8,
-        "scale": 8.7,
+        "yaw": -32,
+        "pitch": 24,
+        "roll": -10,
+        "scale": 13.6,
         "target": [
           0,
           0,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": -32, "pitch": 24, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": -32, "pitch": 24, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -44,
         "pitch": 60
@@ -87,16 +91,20 @@
       "shape": "pearl",
       "artifact": "ArtifactPearl",
       "camera": {
-        "yaw": -18,
-        "pitch": 16,
-        "roll": -18,
-        "scale": 8.5,
+        "yaw": 30,
+        "pitch": 18,
+        "roll": 16,
+        "scale": 13.2,
         "target": [
           0,
           0,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": 30, "pitch": 18, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": 30, "pitch": 18, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -30,
         "pitch": 64

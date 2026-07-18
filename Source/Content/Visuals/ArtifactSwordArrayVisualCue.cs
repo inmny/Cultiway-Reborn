@@ -26,7 +26,7 @@ public sealed class ArtifactSwordArrayVisualCue : IArtifactVisualCue
         {
             return ArtifactEmptyVisualLease.Instance;
         }
-        Sprite sprite = ((ArtifactShapeAsset)itemShape.Type).GetWorldSprite(context.artifact);
+        Sprite sprite = ArtifactManifestationTools.ResolveWorldSprite(context.artifact, true);
         if (sprite == null) return ArtifactEmptyVisualLease.Instance;
 
         SwordArrayLease lease = new(this, sprite);

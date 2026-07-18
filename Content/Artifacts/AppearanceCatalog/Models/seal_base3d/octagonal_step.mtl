@@ -1,0 +1,17 @@
+# Preview colors only; ArtifactAppearance supplies final Instance colors
+
+newmtl ridge__surface__polished_metal
+Ka 0.1014 0.0849 0.0499
+Kd 0.6336 0.5304 0.3120
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl right__surface__stone
+Ka 0.0427 0.0515 0.0656
+Kd 0.2666 0.3220 0.4100
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2

@@ -38,7 +38,7 @@ public static class ArtifactManifestationTools
     public static float ResolveActiveWorldSize(Entity artifact, Actor controller)
     {
         ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
-        Sprite artifactSprite = shape.GetWorldSprite(artifact);
+        Sprite artifactSprite = ResolveWorldScaleSprite(artifact, true);
         Sprite controllerSprite = controller.calculateMainSprite();
         float controllerPixelSize = controller.current_scale.y / controllerSprite.pixelsPerUnit;
         float artifactPixelSpan = Mathf.Max(artifactSprite.bounds.size.x, artifactSprite.bounds.size.y) *
@@ -51,8 +51,31 @@ public static class ArtifactManifestationTools
     {
         ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
         float worldSize = ResolveActiveWorldSize(artifact, controller);
-        artifact.GetComponent<ArtifactManifestation>().world_size = worldSize;
+        ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
+        manifestation.active_visual = true;
+        manifestation.world_size = worldSize;
         ApplyBodySize(artifact, shape.presentation.body_radius, worldSize);
+    }
+
+    /// <summary>按显化状态取得器形提供的世界贴图，并兼容仅实现普通世界贴图的专属器形。</summary>
+    public static Sprite ResolveWorldSprite(Entity artifact, bool active)
+    {
+        ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
+        return active && shape.GetActiveWorldSprite != null
+            ? shape.GetActiveWorldSprite(artifact)
+            : shape.GetWorldSprite(artifact);
+    }
+
+    /// <summary>取得世界尺寸和碰撞换算所用的本体贴图，不计外围辉光与阴影。</summary>
+    public static Sprite ResolveWorldScaleSprite(Entity artifact, bool active)
+    {
+        ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
+        if (shape.GetWorldSprites != null)
+        {
+            ArtifactWorldSpriteSet sprites = shape.GetWorldSprites(artifact, active);
+            if (sprites.ScaleReference != null) return sprites.ScaleReference;
+        }
+        return ResolveWorldSprite(artifact, active);
     }
 
     /// <summary>按当前显化尺寸把模型空间边界转换为世界碰撞代理。</summary>
@@ -102,8 +125,9 @@ public static class ArtifactManifestationTools
             throw new System.ArgumentOutOfRangeException(nameof(anchor), anchor.fallback, null);
 
         ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
-        Sprite sprite = shape.GetWorldSprite(artifact);
-        float spriteScale = artifact.GetComponent<ArtifactManifestation>().world_size /
+        ArtifactManifestation manifestation = artifact.GetComponent<ArtifactManifestation>();
+        Sprite sprite = ResolveWorldScaleSprite(artifact, manifestation.active_visual);
+        float spriteScale = manifestation.world_size /
                             Mathf.Max(sprite.bounds.size.x, sprite.bounds.size.y);
         float forwardDistance = sprite.bounds.max.y * spriteScale;
         float rotation = artifact.GetComponent<Rotation>().z;

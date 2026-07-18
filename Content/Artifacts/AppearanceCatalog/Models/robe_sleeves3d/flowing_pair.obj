@@ -1,0 +1,635 @@
+# Cultiway handcrafted low-poly artifact model
+# module: robe_sleeves3d
+# variant: flowing_pair
+mtllib flowing_pair.mtl
+s off
+v -0.140284 0.428030 0.033655
+v -0.286820 0.403937 0.030271
+v -0.267511 0.336362 0.099977
+v -0.122764 0.366930 0.099499
+v -0.120380 0.358616 -0.024194
+v -0.265110 0.327991 -0.024561
+v -0.285120 0.398009 -0.057912
+v -0.138555 0.422000 -0.056046
+v -0.246743 0.264553 0.105711
+v -0.104095 0.301824 0.105739
+v -0.101776 0.293734 -0.014612
+v -0.244421 0.256453 -0.014791
+v -0.226296 0.192486 0.109170
+v -0.085398 0.236618 0.110482
+v -0.083078 0.228528 -0.009869
+v -0.223997 0.184469 -0.010092
+v -0.205565 0.120801 0.116760
+v -0.066671 0.171310 0.113729
+v -0.064287 0.162996 -0.009964
+v -0.203150 0.112378 -0.008544
+v -0.183749 0.044485 0.056419
+v -0.046796 0.101997 0.057372
+v -0.045067 0.095967 -0.032329
+v -0.182049 0.038558 -0.031764
+v -0.433357 0.379848 0.026953
+v -0.412377 0.305746 0.100258
+v -0.409963 0.297327 -0.024987
+v -0.431685 0.374019 -0.059759
+v -0.389195 0.227356 0.105935
+v -0.386866 0.219234 -0.014894
+v -0.367392 0.148282 0.107646
+v -0.365117 0.140349 -0.010379
+v -0.344336 0.070333 0.119880
+v -0.341888 0.061798 -0.007097
+v -0.320703 -0.013022 0.055532
+v -0.319032 -0.018850 -0.031179
+v -0.579895 0.355765 0.023722
+v -0.557364 0.275080 0.100329
+v -0.554940 0.266623 -0.025477
+v -0.578251 0.350031 -0.061579
+v -0.531451 0.190234 0.106413
+v -0.529112 0.182078 -0.014921
+v -0.508684 0.104007 0.105923
+v -0.506436 0.096167 -0.010726
+v -0.482984 0.019906 0.123071
+v -0.480503 0.011255 -0.005630
+v -0.457659 -0.070523 0.054732
+v -0.456015 -0.076257 -0.030568
+v -0.726436 0.331689 0.020597
+v -0.702471 0.244363 0.100177
+v -0.700039 0.235879 -0.026033
+v -0.724818 0.326046 -0.063367
+v -0.673510 0.153187 0.107145
+v -0.671158 0.144985 -0.014871
+v -0.650175 0.059662 0.104012
+v -0.647955 0.051923 -0.011129
+v -0.621508 -0.030483 0.126311
+v -0.618994 -0.039252 -0.004147
+v -0.594617 -0.128017 0.054039
+v -0.592999 -0.133661 -0.029926
+v -0.872979 0.307622 0.017599
+v -0.847698 0.213594 0.099791
+v -0.845261 0.205095 -0.026659
+v -0.871385 0.302062 -0.065117
+v -0.815373 0.116214 0.108129
+v -0.813004 0.107955 -0.014746
+v -0.791863 0.015248 0.101926
+v -0.789675 0.007618 -0.011585
+v -0.759909 -0.080834 0.129581
+v -0.757361 -0.089722 -0.002655
+v -0.731578 -0.185502 0.053472
+v -0.729983 -0.191062 -0.029245
+v -1.019525 0.283565 0.014747
+v -0.993045 0.182774 0.099161
+v -0.990606 0.174270 -0.027359
+v -1.017952 0.278082 -0.066824
+v -0.957039 0.079316 0.109362
+v -0.954651 0.070987 -0.014546
+v -0.933749 -0.029235 0.099681
+v -0.931595 -0.036748 -0.012088
+v -0.898186 -0.131148 0.132860
+v -0.895603 -0.140157 -0.001161
+v -0.868541 -0.242978 0.053050
+v -0.866969 -0.248461 -0.028520
+v -1.166074 0.259519 0.012058
+v -1.138511 0.151901 0.098278
+v -1.136074 0.143404 -0.028134
+v -1.164521 0.254105 -0.068481
+v -1.098509 0.042492 0.110840
+v -1.096098 0.034082 -0.014273
+v -1.075833 -0.073785 0.097293
+v -1.073714 -0.081174 -0.012635
+v -1.036338 -0.181428 0.136126
+v -1.033721 -0.190556 0.000329
+v -1.005507 -0.300443 0.052793
+v -1.003955 -0.305857 -0.027747
+v -1.312626 0.235484 0.009551
+v -1.284096 0.120975 0.097136
+v -1.281665 0.112497 -0.028987
+v -1.311091 0.230131 -0.070084
+v -1.239783 0.005741 0.112556
+v -1.237345 -0.002761 -0.013929
+v -1.218116 -0.118401 0.094778
+v -1.216035 -0.125660 -0.013219
+v -1.174366 -0.231675 0.139358
+v -1.171715 -0.240920 0.001809
+v -1.142477 -0.357895 0.052717
+v -1.140942 -0.363248 -0.026919
+v -0.997179 0.001474 0.157500
+v -0.962821 -0.041474 0.157500
+v -1.162821 -0.201474 0.157500
+v -1.162821 -0.201474 0.122500
+v -0.962821 -0.041474 0.122500
+v -0.997179 0.001474 0.122500
+v -1.197179 -0.158526 0.157500
+v -1.197179 -0.158526 0.122500
+v 0.046796 0.101997 0.057372
+v 0.183749 0.044485 0.056419
+v 0.205668 0.120692 0.115665
+v 0.066671 0.171310 0.113729
+v 0.064287 0.162996 -0.009964
+v 0.203268 0.112320 -0.008872
+v 0.182049 0.038558 -0.031764
+v 0.045067 0.095967 -0.032329
+v 0.226129 0.192663 0.110941
+v 0.085398 0.236618 0.110482
+v 0.083078 0.228528 -0.009869
+v 0.223807 0.184563 -0.009561
+v 0.246910 0.264376 0.103940
+v 0.104095 0.301824 0.105739
+v 0.101776 0.293734 -0.014612
+v 0.244612 0.256359 -0.015322
+v 0.267407 0.336472 0.101071
+v 0.122764 0.366930 0.099499
+v 0.120380 0.358616 -0.024194
+v 0.264992 0.328049 -0.024233
+v 0.286820 0.403937 0.030271
+v 0.140284 0.428030 0.033655
+v 0.138555 0.422000 -0.056046
+v 0.285120 0.398009 -0.057912
+v 0.320703 -0.013022 0.055532
+v 0.344785 0.070024 0.117405
+v 0.342371 0.061605 -0.007840
+v 0.319032 -0.018850 -0.031179
+v 0.366664 0.148782 0.111651
+v 0.364335 0.140660 -0.009178
+v 0.389922 0.226856 0.101931
+v 0.387648 0.218923 -0.016095
+v 0.411928 0.306055 0.102733
+v 0.409480 0.297520 -0.024245
+v 0.433357 0.379848 0.026953
+v 0.431685 0.374019 -0.059759
+v 0.457659 -0.070523 0.054732
+v 0.484023 0.019307 0.118935
+v 0.481598 0.010850 -0.006871
+v 0.456015 -0.076257 -0.030568
+v 0.507003 0.104976 0.112615
+v 0.504665 0.096821 -0.008719
+v 0.533132 0.189265 0.099721
+v 0.530883 0.181424 -0.016928
+v 0.556325 0.275678 0.104465
+v 0.553845 0.267027 -0.024236
+v 0.579895 0.355765 0.023722
+v 0.578251 0.350031 -0.061579
+v 0.594617 -0.128017 0.054039
+v 0.623380 -0.031461 0.120241
+v 0.620948 -0.039945 -0.005968
+v 0.592999 -0.133661 -0.029926
+v 0.647146 0.061245 0.113833
+v 0.644794 0.053044 -0.008183
+v 0.676538 0.151604 0.097323
+v 0.674319 0.143864 -0.017818
+v 0.700600 0.245341 0.106247
+v 0.698085 0.236572 -0.024212
+v 0.726436 0.331689 0.020597
+v 0.724818 0.326046 -0.063367
+v 0.731578 -0.185502 0.053472
+v 0.762858 -0.082281 0.121314
+v 0.760420 -0.090780 -0.005136
+v 0.729983 -0.191062 -0.029245
+v 0.787092 0.017589 0.115303
+v 0.784724 0.009330 -0.007572
+v 0.820143 0.113873 0.094752
+v 0.817955 0.106243 -0.018759
+v 0.844750 0.215041 0.108058
+v 0.842201 0.206152 -0.024179
+v 0.872979 0.307622 0.017599
+v 0.871385 0.302062 -0.065117
+v 0.868541 -0.242978 0.053050
+v 0.902455 -0.133152 0.122143
+v 0.900016 -0.141656 -0.004377
+v 0.866969 -0.248461 -0.028520
+v 0.926843 -0.025993 0.117022
+v 0.924454 -0.034322 -0.006886
+v 0.963946 0.076074 0.092020
+v 0.961791 0.068561 -0.019749
+v 0.988776 0.184777 0.109878
+v 0.986193 0.175769 -0.024143
+v 1.019525 0.283565 0.014747
+v 1.017952 0.278082 -0.066824
+v 1.005507 -0.300443 0.052793
+v 1.042171 -0.184076 0.122719
+v 1.039734 -0.192573 -0.003693
+v 1.003955 -0.305857 -0.027747
+v 1.066396 -0.069501 0.118987
+v 1.063985 -0.077910 -0.006126
+v 1.107947 0.038207 0.089146
+v 1.105828 0.030818 -0.020781
+v 1.132678 0.154549 0.111685
+v 1.130061 0.145421 -0.024112
+v 1.166074 0.259519 0.012058
+v 1.164521 0.254105 -0.068481
+v 1.142477 -0.357895 0.052717
+v 1.182007 -0.235053 0.123035
+v 1.179576 -0.243531 -0.003088
+v 1.140942 -0.363248 -0.026919
+v 1.205753 -0.112935 0.121189
+v 1.203315 -0.121437 -0.005296
+v 1.252146 0.000275 0.086145
+v 1.250065 -0.006984 -0.021852
+v 1.276455 0.124353 0.113459
+v 1.273804 0.115107 -0.024090
+v 1.312626 0.235484 0.009551
+v 1.311091 0.230131 -0.070084
+v 0.962821 -0.041474 0.157500
+v 0.997179 0.001474 0.157500
+v 1.197179 -0.158526 0.157500
+v 1.197179 -0.158526 0.122500
+v 0.997179 0.001474 0.122500
+v 0.962821 -0.041474 0.122500
+v 1.162821 -0.201474 0.157500
+v 1.162821 -0.201474 0.122500
+o flowing_-1_flowing_sleeve
+usemtl cloth__surface__silk
+f 1 2 3 4
+o flowing_-1_flowing_sleeve_back
+f 5 6 7 8
+o flowing_-1_flowing_sleeve
+f 4 3 9 10
+o flowing_-1_flowing_sleeve_back
+f 11 12 6 5
+o flowing_-1_flowing_sleeve
+f 10 9 13 14
+o flowing_-1_flowing_sleeve_back
+f 15 16 12 11
+o flowing_-1_flowing_sleeve
+f 14 13 17 18
+o flowing_-1_flowing_sleeve_back
+f 19 20 16 15
+o flowing_-1_flowing_sleeve
+f 18 17 21 22
+o flowing_-1_flowing_sleeve_back
+f 23 24 20 19
+o flowing_-1_flowing_sleeve
+f 2 25 26 3
+o flowing_-1_flowing_sleeve_back
+f 6 27 28 7
+o flowing_-1_flowing_sleeve
+f 3 26 29 9
+o flowing_-1_flowing_sleeve_back
+f 12 30 27 6
+o flowing_-1_flowing_sleeve
+f 9 29 31 13
+o flowing_-1_flowing_sleeve_back
+f 16 32 30 12
+o flowing_-1_flowing_sleeve
+f 13 31 33 17
+o flowing_-1_flowing_sleeve_back
+f 20 34 32 16
+o flowing_-1_flowing_sleeve
+f 17 33 35 21
+o flowing_-1_flowing_sleeve_back
+f 24 36 34 20
+o flowing_-1_flowing_sleeve
+f 25 37 38 26
+o flowing_-1_flowing_sleeve_back
+f 27 39 40 28
+o flowing_-1_flowing_sleeve
+f 26 38 41 29
+o flowing_-1_flowing_sleeve_back
+f 30 42 39 27
+o flowing_-1_flowing_sleeve
+f 29 41 43 31
+o flowing_-1_flowing_sleeve_back
+f 32 44 42 30
+o flowing_-1_flowing_sleeve
+f 31 43 45 33
+o flowing_-1_flowing_sleeve_back
+f 34 46 44 32
+o flowing_-1_flowing_sleeve
+f 33 45 47 35
+o flowing_-1_flowing_sleeve_back
+f 36 48 46 34
+o flowing_-1_flowing_sleeve
+f 37 49 50 38
+o flowing_-1_flowing_sleeve_back
+f 39 51 52 40
+o flowing_-1_flowing_sleeve
+f 38 50 53 41
+o flowing_-1_flowing_sleeve_back
+f 42 54 51 39
+o flowing_-1_flowing_sleeve
+f 41 53 55 43
+o flowing_-1_flowing_sleeve_back
+f 44 56 54 42
+o flowing_-1_flowing_sleeve
+f 43 55 57 45
+o flowing_-1_flowing_sleeve_back
+f 46 58 56 44
+o flowing_-1_flowing_sleeve
+f 45 57 59 47
+o flowing_-1_flowing_sleeve_back
+f 48 60 58 46
+o flowing_-1_flowing_sleeve
+f 49 61 62 50
+o flowing_-1_flowing_sleeve_back
+f 51 63 64 52
+o flowing_-1_flowing_sleeve
+f 50 62 65 53
+o flowing_-1_flowing_sleeve_back
+f 54 66 63 51
+o flowing_-1_flowing_sleeve
+f 53 65 67 55
+o flowing_-1_flowing_sleeve_back
+f 56 68 66 54
+o flowing_-1_flowing_sleeve
+f 55 67 69 57
+o flowing_-1_flowing_sleeve_back
+f 58 70 68 56
+o flowing_-1_flowing_sleeve
+f 57 69 71 59
+o flowing_-1_flowing_sleeve_back
+f 60 72 70 58
+o flowing_-1_flowing_sleeve
+f 61 73 74 62
+o flowing_-1_flowing_sleeve_back
+f 63 75 76 64
+o flowing_-1_flowing_sleeve
+f 62 74 77 65
+o flowing_-1_flowing_sleeve_back
+f 66 78 75 63
+o flowing_-1_flowing_sleeve
+f 65 77 79 67
+o flowing_-1_flowing_sleeve_back
+f 68 80 78 66
+o flowing_-1_flowing_sleeve
+f 67 79 81 69
+o flowing_-1_flowing_sleeve_back
+f 70 82 80 68
+o flowing_-1_flowing_sleeve
+f 69 81 83 71
+o flowing_-1_flowing_sleeve_back
+f 72 84 82 70
+o flowing_-1_flowing_sleeve
+f 73 85 86 74
+o flowing_-1_flowing_sleeve_back
+f 75 87 88 76
+o flowing_-1_flowing_sleeve
+f 74 86 89 77
+o flowing_-1_flowing_sleeve_back
+f 78 90 87 75
+o flowing_-1_flowing_sleeve
+f 77 89 91 79
+o flowing_-1_flowing_sleeve_back
+f 80 92 90 78
+o flowing_-1_flowing_sleeve
+f 79 91 93 81
+o flowing_-1_flowing_sleeve_back
+f 82 94 92 80
+o flowing_-1_flowing_sleeve
+f 81 93 95 83
+o flowing_-1_flowing_sleeve_back
+f 84 96 94 82
+o flowing_-1_flowing_sleeve
+f 85 97 98 86
+o flowing_-1_flowing_sleeve_back
+f 87 99 100 88
+o flowing_-1_flowing_sleeve
+f 86 98 101 89
+o flowing_-1_flowing_sleeve_back
+f 90 102 99 87
+o flowing_-1_flowing_sleeve
+f 89 101 103 91
+o flowing_-1_flowing_sleeve_back
+f 92 104 102 90
+o flowing_-1_flowing_sleeve
+f 91 103 105 93
+o flowing_-1_flowing_sleeve_back
+f 94 106 104 92
+o flowing_-1_flowing_sleeve
+f 93 105 107 95
+o flowing_-1_flowing_sleeve_back
+f 96 108 106 94
+o flowing_-1_flowing_sleeve_edge
+f 1 2 7 8
+f 22 21 24 23
+f 2 25 28 7
+f 21 35 36 24
+f 25 37 40 28
+f 35 47 48 36
+f 37 49 52 40
+f 47 59 60 48
+f 49 61 64 52
+f 59 71 72 60
+f 61 73 76 64
+f 71 83 84 72
+f 73 85 88 76
+f 83 95 96 84
+f 85 97 100 88
+f 95 107 108 96
+f 1 4 5 8
+f 4 10 11 5
+f 10 14 15 11
+f 14 18 19 15
+f 18 22 23 19
+f 97 98 99 100
+f 98 101 102 99
+f 101 103 104 102
+f 103 105 106 104
+f 105 107 108 106
+o flowing_trim_-1
+usemtl trim__surface__polished_metal
+f 109 110 111
+f 112 113 114
+f 111 115 109
+f 114 116 112
+o flowing_trim_-1_edge
+f 110 111 112 113
+f 111 115 116 112
+f 115 109 114 116
+f 109 110 113 114
+o flowing_1_flowing_sleeve
+usemtl cloth__surface__silk
+f 117 118 119 120
+o flowing_1_flowing_sleeve_back
+f 121 122 123 124
+o flowing_1_flowing_sleeve
+f 120 119 125 126
+o flowing_1_flowing_sleeve_back
+f 127 128 122 121
+o flowing_1_flowing_sleeve
+f 126 125 129 130
+o flowing_1_flowing_sleeve_back
+f 131 132 128 127
+o flowing_1_flowing_sleeve
+f 130 129 133 134
+o flowing_1_flowing_sleeve_back
+f 135 136 132 131
+o flowing_1_flowing_sleeve
+f 134 133 137 138
+o flowing_1_flowing_sleeve_back
+f 139 140 136 135
+o flowing_1_flowing_sleeve
+f 118 141 142 119
+o flowing_1_flowing_sleeve_back
+f 122 143 144 123
+o flowing_1_flowing_sleeve
+f 119 142 145 125
+o flowing_1_flowing_sleeve_back
+f 128 146 143 122
+o flowing_1_flowing_sleeve
+f 125 145 147 129
+o flowing_1_flowing_sleeve_back
+f 132 148 146 128
+o flowing_1_flowing_sleeve
+f 129 147 149 133
+o flowing_1_flowing_sleeve_back
+f 136 150 148 132
+o flowing_1_flowing_sleeve
+f 133 149 151 137
+o flowing_1_flowing_sleeve_back
+f 140 152 150 136
+o flowing_1_flowing_sleeve
+f 141 153 154 142
+o flowing_1_flowing_sleeve_back
+f 143 155 156 144
+o flowing_1_flowing_sleeve
+f 142 154 157 145
+o flowing_1_flowing_sleeve_back
+f 146 158 155 143
+o flowing_1_flowing_sleeve
+f 145 157 159 147
+o flowing_1_flowing_sleeve_back
+f 148 160 158 146
+o flowing_1_flowing_sleeve
+f 147 159 161 149
+o flowing_1_flowing_sleeve_back
+f 150 162 160 148
+o flowing_1_flowing_sleeve
+f 149 161 163 151
+o flowing_1_flowing_sleeve_back
+f 152 164 162 150
+o flowing_1_flowing_sleeve
+f 153 165 166 154
+o flowing_1_flowing_sleeve_back
+f 155 167 168 156
+o flowing_1_flowing_sleeve
+f 154 166 169 157
+o flowing_1_flowing_sleeve_back
+f 158 170 167 155
+o flowing_1_flowing_sleeve
+f 157 169 171 159
+o flowing_1_flowing_sleeve_back
+f 160 172 170 158
+o flowing_1_flowing_sleeve
+f 159 171 173 161
+o flowing_1_flowing_sleeve_back
+f 162 174 172 160
+o flowing_1_flowing_sleeve
+f 161 173 175 163
+o flowing_1_flowing_sleeve_back
+f 164 176 174 162
+o flowing_1_flowing_sleeve
+f 165 177 178 166
+o flowing_1_flowing_sleeve_back
+f 167 179 180 168
+o flowing_1_flowing_sleeve
+f 166 178 181 169
+o flowing_1_flowing_sleeve_back
+f 170 182 179 167
+o flowing_1_flowing_sleeve
+f 169 181 183 171
+o flowing_1_flowing_sleeve_back
+f 172 184 182 170
+o flowing_1_flowing_sleeve
+f 171 183 185 173
+o flowing_1_flowing_sleeve_back
+f 174 186 184 172
+o flowing_1_flowing_sleeve
+f 173 185 187 175
+o flowing_1_flowing_sleeve_back
+f 176 188 186 174
+o flowing_1_flowing_sleeve
+f 177 189 190 178
+o flowing_1_flowing_sleeve_back
+f 179 191 192 180
+o flowing_1_flowing_sleeve
+f 178 190 193 181
+o flowing_1_flowing_sleeve_back
+f 182 194 191 179
+o flowing_1_flowing_sleeve
+f 181 193 195 183
+o flowing_1_flowing_sleeve_back
+f 184 196 194 182
+o flowing_1_flowing_sleeve
+f 183 195 197 185
+o flowing_1_flowing_sleeve_back
+f 186 198 196 184
+o flowing_1_flowing_sleeve
+f 185 197 199 187
+o flowing_1_flowing_sleeve_back
+f 188 200 198 186
+o flowing_1_flowing_sleeve
+f 189 201 202 190
+o flowing_1_flowing_sleeve_back
+f 191 203 204 192
+o flowing_1_flowing_sleeve
+f 190 202 205 193
+o flowing_1_flowing_sleeve_back
+f 194 206 203 191
+o flowing_1_flowing_sleeve
+f 193 205 207 195
+o flowing_1_flowing_sleeve_back
+f 196 208 206 194
+o flowing_1_flowing_sleeve
+f 195 207 209 197
+o flowing_1_flowing_sleeve_back
+f 198 210 208 196
+o flowing_1_flowing_sleeve
+f 197 209 211 199
+o flowing_1_flowing_sleeve_back
+f 200 212 210 198
+o flowing_1_flowing_sleeve
+f 201 213 214 202
+o flowing_1_flowing_sleeve_back
+f 203 215 216 204
+o flowing_1_flowing_sleeve
+f 202 214 217 205
+o flowing_1_flowing_sleeve_back
+f 206 218 215 203
+o flowing_1_flowing_sleeve
+f 205 217 219 207
+o flowing_1_flowing_sleeve_back
+f 208 220 218 206
+o flowing_1_flowing_sleeve
+f 207 219 221 209
+o flowing_1_flowing_sleeve_back
+f 210 222 220 208
+o flowing_1_flowing_sleeve
+f 209 221 223 211
+o flowing_1_flowing_sleeve_back
+f 212 224 222 210
+o flowing_1_flowing_sleeve_edge
+f 117 118 123 124
+f 138 137 140 139
+f 118 141 144 123
+f 137 151 152 140
+f 141 153 156 144
+f 151 163 164 152
+f 153 165 168 156
+f 163 175 176 164
+f 165 177 180 168
+f 175 187 188 176
+f 177 189 192 180
+f 187 199 200 188
+f 189 201 204 192
+f 199 211 212 200
+f 201 213 216 204
+f 211 223 224 212
+f 117 120 121 124
+f 120 126 127 121
+f 126 130 131 127
+f 130 134 135 131
+f 134 138 139 135
+f 213 214 215 216
+f 214 217 218 215
+f 217 219 220 218
+f 219 221 222 220
+f 221 223 224 222
+o flowing_trim_1
+usemtl trim__surface__polished_metal
+f 225 226 227
+f 228 229 230
+f 227 231 225
+f 230 232 228
+o flowing_trim_1_edge
+f 226 227 228 229
+f 227 231 232 228
+f 231 225 230 232
+f 225 226 229 230

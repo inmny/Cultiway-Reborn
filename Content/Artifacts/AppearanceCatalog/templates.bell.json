@@ -6,16 +6,20 @@
       "shape": "bell",
       "artifact": "ArtifactBell",
       "camera": {
-        "yaw": -30,
-        "pitch": 24,
-        "roll": 0,
-        "scale": 10,
+        "yaw": -34,
+        "pitch": 26,
+        "roll": -2,
+        "scale": 11.0,
         "target": [
           0,
           0,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": -34, "pitch": 26, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": -34, "pitch": 26, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -46,
         "pitch": 60
@@ -72,16 +76,20 @@
       "shape": "bell",
       "artifact": "ArtifactBell",
       "camera": {
-        "yaw": -20,
-        "pitch": 30,
-        "roll": -8,
-        "scale": 9.8,
+        "yaw": 30,
+        "pitch": 32,
+        "roll": 7,
+        "scale": 10.8,
         "target": [
           0,
           -0.02,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": 30, "pitch": 32, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": 30, "pitch": 32, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -32,
         "pitch": 64

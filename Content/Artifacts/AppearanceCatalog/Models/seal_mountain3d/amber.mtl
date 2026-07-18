@@ -1,0 +1,41 @@
+# Preview colors only; ArtifactAppearance supplies final Instance colors
+
+newmtl left__surface__stone
+Ka 0.0537 0.0618 0.0736
+Kd 0.3354 0.3864 0.4600
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl ridge__surface__polished_metal
+Ka 0.1014 0.0849 0.0499
+Kd 0.6336 0.5304 0.3120
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl right__surface__stone
+Ka 0.0427 0.0515 0.0656
+Kd 0.2666 0.3220 0.4100
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl top__surface__emissive
+Ka 0.0768 0.1536 0.1088
+Kd 0.4800 0.9600 0.6800
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl water__surface__emissive
+Ka 0.0476 0.1413 0.1251
+Kd 0.2976 0.8832 0.7820
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2

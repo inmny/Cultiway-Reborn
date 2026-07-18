@@ -1,0 +1,25 @@
+# Preview colors only; ArtifactAppearance supplies final Instance colors
+
+newmtl gem__surface__jade
+Ka 0.0211 0.1183 0.0677
+Kd 0.1320 0.7392 0.4232
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl ridge__surface__polished_metal
+Ka 0.1014 0.0849 0.0499
+Kd 0.6336 0.5304 0.3120
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl rim__surface__polished_metal
+Ka 0.1221 0.0957 0.0466
+Kd 0.7632 0.5984 0.2912
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2

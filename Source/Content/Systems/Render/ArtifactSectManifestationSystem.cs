@@ -82,6 +82,7 @@ public sealed class ArtifactSectManifestationSystem : QuerySystem<SectInventoryB
         manifestation.world_size = 0.86f;
         manifestation.flip_x = false;
         manifestation.visible = pose.visible;
+        manifestation.active_visual = false;
         ArtifactManifestationTools.ApplyBodySize(artifact, presentation.body_radius, manifestation.world_size);
     }
 

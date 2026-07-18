@@ -1,0 +1,25 @@
+# Preview colors only; ArtifactAppearance supplies final Instance colors
+
+newmtl edge__surface__emissive
+Ka 0.0860 0.1600 0.0892
+Kd 0.5376 1.0000 0.5576
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl edge__surface__polished_metal
+Ka 0.1290 0.1142 0.0682
+Kd 0.8064 0.7140 0.4264
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl handle__surface__jade
+Ka 0.0384 0.1056 0.0736
+Kd 0.2400 0.6600 0.4600
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2

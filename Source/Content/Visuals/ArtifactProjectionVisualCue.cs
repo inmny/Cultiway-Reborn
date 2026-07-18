@@ -43,7 +43,7 @@ public sealed class ArtifactProjectionVisualCue : IArtifactVisualCue
     private static Sprite ResolveSprite(Entity artifact)
     {
         if (artifact.IsNull || !artifact.TryGetComponent(out ItemShape itemShape)) return null;
-        return ((ArtifactShapeAsset)itemShape.Type).GetWorldSprite(artifact);
+        return ArtifactManifestationTools.ResolveWorldSprite(artifact, true);
     }
 
     private sealed class ProjectionLease : IArtifactVisualLease
@@ -212,7 +212,7 @@ public sealed class ArtifactOrbitProjectionVisualCue : IArtifactVisualCue
         {
             return ArtifactEmptyVisualLease.Instance;
         }
-        Sprite sprite = ((ArtifactShapeAsset)itemShape.Type).GetWorldSprite(context.artifact);
+        Sprite sprite = ArtifactManifestationTools.ResolveWorldSprite(context.artifact, true);
         if (sprite == null) return ArtifactEmptyVisualLease.Instance;
 
         OrbitLease lease = new(this, sprite);

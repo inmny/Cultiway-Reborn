@@ -6,16 +6,20 @@
       "shape": "sword",
       "artifact": "ArtifactSword",
       "camera": {
-        "yaw": -24,
-        "pitch": 18,
-        "roll": -38,
-        "scale": 8.2,
+        "yaw": -28,
+        "pitch": 16,
+        "roll": -35,
+        "scale": 7.6,
         "target": [
           0,
           0.48,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": -28, "pitch": 16, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": -28, "pitch": 16, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -48,
         "pitch": 60
@@ -88,16 +92,20 @@
       "shape": "sword",
       "artifact": "ArtifactSword",
       "camera": {
-        "yaw": -16,
-        "pitch": 22,
-        "roll": -46,
-        "scale": 8,
+        "yaw": 12,
+        "pitch": 18,
+        "roll": -48,
+        "scale": 6.7,
         "target": [
-          0,
+          -0.25,
           0.44,
           0
         ]
       },
+      "views": [
+        { "key": "world_idle", "camera": { "yaw": 12, "pitch": 18, "roll": 0 }, "margin": 2 },
+        { "key": "world_active", "camera": { "yaw": 12, "pitch": 18, "roll": 0 }, "margin": 3 }
+      ],
       "light": {
         "yaw": -36,
         "pitch": 55

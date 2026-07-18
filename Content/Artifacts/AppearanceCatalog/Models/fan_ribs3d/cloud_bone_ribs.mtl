@@ -1,0 +1,25 @@
+# Preview colors only; ArtifactAppearance supplies final Instance colors
+
+newmtl gem__surface__emissive
+Ka 0.0422 0.1600 0.1001
+Kd 0.2640 1.0000 0.6256
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl glint__surface__emissive
+Ka 0.0860 0.1600 0.1219
+Kd 0.5376 1.0000 0.7616
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2
+
+newmtl pommel__surface__bone
+Ka 0.1216 0.1152 0.0928
+Kd 0.7600 0.7200 0.5800
+Ks 0.2200 0.2200 0.2200
+Ns 32.0000
+d 1.0000
+illum 2

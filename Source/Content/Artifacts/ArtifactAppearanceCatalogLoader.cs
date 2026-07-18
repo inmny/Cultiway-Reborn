@@ -36,13 +36,23 @@ public static class ArtifactAppearanceCatalogLoader
         int canvas = moduleFiles.FirstOrDefault()?.Canvas ?? templateFiles.FirstOrDefault()?.Canvas ?? 28;
         catalog.Canvas = canvas > 0 ? canvas : 28;
 
+        for (int fileIndex = 0; fileIndex < surfaceFiles.Length; fileIndex++)
+        {
+            ArtifactAppearanceSurfaceStyleDef[] styles = surfaceFiles[fileIndex].Styles ?? [];
+            foreach (ArtifactAppearanceSurfaceStyleDef style in styles)
+            {
+                if (style == null || string.IsNullOrEmpty(style.Key)) continue;
+                catalog.SurfaceStyles[style.Key] = style;
+            }
+        }
         for (int fileIndex = 0; fileIndex < moduleFiles.Length; fileIndex++)
         {
             ArtifactAppearanceModuleDef[] modules = moduleFiles[fileIndex].Modules ?? [];
             foreach (ArtifactAppearanceModuleDef module in modules)
             {
                 if (module == null || string.IsNullOrEmpty(module.Key)) continue;
-                if (ValidateModule(module)) catalog.Modules[module.Key] = module;
+                if (PrepareModule(root, moduleFiles[fileIndex].ModelRoot, module) && ValidateModule(module, catalog))
+                    catalog.Modules[module.Key] = module;
             }
         }
         for (int fileIndex = 0; fileIndex < templateFiles.Length; fileIndex++)
@@ -61,15 +71,6 @@ public static class ArtifactAppearanceCatalogLoader
             {
                 if (scheme == null || string.IsNullOrEmpty(scheme.Key)) continue;
                 catalog.ColorSchemes[scheme.Key] = scheme;
-            }
-        }
-        for (int fileIndex = 0; fileIndex < surfaceFiles.Length; fileIndex++)
-        {
-            ArtifactAppearanceSurfaceStyleDef[] styles = surfaceFiles[fileIndex].Styles ?? [];
-            foreach (ArtifactAppearanceSurfaceStyleDef style in styles)
-            {
-                if (style == null || string.IsNullOrEmpty(style.Key)) continue;
-                catalog.SurfaceStyles[style.Key] = style;
             }
         }
         return catalog;
@@ -107,7 +108,7 @@ public static class ArtifactAppearanceCatalogLoader
         }
     }
 
-    private static bool ValidateModule(ArtifactAppearanceModuleDef module)
+    private static bool ValidateModule(ArtifactAppearanceModuleDef module, ArtifactAppearanceCatalog catalog)
     {
         if (module.Variants == null || module.Variants.Length == 0)
         {
@@ -115,16 +116,25 @@ public static class ArtifactAppearanceCatalogLoader
             return false;
         }
         HashSet<string> anchorKeys = null;
+        HashSet<string> variantKeys = new(StringComparer.Ordinal);
         foreach (var variant in module.Variants)
         {
-            if (variant == null || string.IsNullOrEmpty(variant.Key)) return false;
+            if (variant == null || string.IsNullOrEmpty(variant.Key) || !variantKeys.Add(variant.Key)) return false;
             variant.Anchors ??= [];
             variant.Parts ??= [];
+            variant.MaterialSurfaces ??= new Dictionary<string, string>();
+            if (!string.IsNullOrEmpty(variant.Model) && variant.ModelData == null) return false;
+            if (variant.ModelData == null && variant.Parts.Length == 0)
+            {
+                ModClass.LogWarning($"法器外观 variant 没有模型或 parts: {module.Key}.{variant.Key}");
+                return false;
+            }
             HashSet<string> current = new();
             foreach (var anchor in variant.Anchors)
             {
-                if (!string.IsNullOrEmpty(anchor.Key)) current.Add(anchor.Key);
+                if (anchor == null || string.IsNullOrEmpty(anchor.Key) || !current.Add(anchor.Key)) return false;
             }
+            if (current.Count == 0) return false;
             if (anchorKeys == null)
             {
                 anchorKeys = current;
@@ -132,6 +142,40 @@ public static class ArtifactAppearanceCatalogLoader
             else if (!anchorKeys.SetEquals(current))
             {
                 ModClass.LogWarning($"法器外观模块 {module.Key} 的 variant 锚点 key 不一致: {variant.Key}");
+                return false;
+            }
+            if (variant.ModelData == null) continue;
+            for (int faceIndex = 0; faceIndex < variant.ModelData.Faces.Length; faceIndex++)
+            {
+                ArtifactAppearanceModelFace face = variant.ModelData.Faces[faceIndex];
+                string surface = variant.ResolveSurface(face.Material, face.Surface);
+                if (catalog.SurfaceStyles.ContainsKey(surface)) continue;
+                ModClass.LogWarning($"法器外观 {module.Key}.{variant.Key} 引用了不存在的表面 {surface}");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static bool PrepareModule(string root, string modelRoot, ArtifactAppearanceModuleDef module)
+    {
+        ArtifactAppearanceVariantDef[] variants = module.Variants ?? [];
+        for (int i = 0; i < variants.Length; i++)
+        {
+            ArtifactAppearanceVariantDef variant = variants[i];
+            if (variant != null && string.IsNullOrEmpty(variant.Model) && !string.IsNullOrEmpty(modelRoot))
+            {
+                variant.Model = Path.Combine(modelRoot, module.Key, $"{variant.Key}.obj");
+            }
+            if (variant == null || string.IsNullOrEmpty(variant.Model)) continue;
+            try
+            {
+                variant.ModelData = ArtifactAppearanceObjLoader.Load(root, variant.Model);
+                variant.Anchors = variant.ModelData.Anchors;
+            }
+            catch (Exception e)
+            {
+                ModClass.LogError($"读取法器模型失败: {module.Key}.{variant.Key}\n{e.Message}");
                 return false;
             }
         }
@@ -143,9 +187,20 @@ public static class ArtifactAppearanceCatalogLoader
         if (template.Placements == null || template.Placements.Length == 0) return false;
         template.Camera ??= new JObject();
         template.Light ??= new JObject();
+        template.Views ??= [];
+        HashSet<string> viewKeys = new(StringComparer.Ordinal);
+        foreach (ArtifactAppearanceViewDef view in template.Views)
+        {
+            if (view == null || string.IsNullOrEmpty(view.Key) || !viewKeys.Add(view.Key)) return false;
+            view.Camera ??= new JObject();
+            view.Light ??= new JObject();
+            if (view.Size < 0 || view.Size > 256 || view.Margin < 0) return false;
+        }
+        HashSet<string> placementSlots = new(StringComparer.Ordinal);
         foreach (var placement in template.Placements)
         {
-            if (placement == null || string.IsNullOrEmpty(placement.Module)) return false;
+            if (placement == null || string.IsNullOrEmpty(placement.Slot) ||
+                !placementSlots.Add(placement.Slot) || string.IsNullOrEmpty(placement.Module)) return false;
             if (!catalog.Modules.TryGetValue(placement.Module, out var module))
             {
                 ModClass.LogWarning($"法器外观模板 {template.Key} 引用了不存在的模块 {placement.Module}");
