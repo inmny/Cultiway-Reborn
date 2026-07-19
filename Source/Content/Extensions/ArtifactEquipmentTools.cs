@@ -31,7 +31,7 @@ public static class ArtifactEquipmentTools
         int priority = 0)
     {
         // 装备入口只接受角色实际持有的已完成法器。
-        if (!artifact.HasComponent<Artifact>() || !artifact.IsAvailable() ||
+        if (!artifact.IsAvailable() || !artifact.HasComponent<Artifact>() ||
             !Carries(actor.E, artifact)) return false;
 
         long ownerId = actor.Base.data.id;

@@ -71,7 +71,7 @@ public static class ArtifactLoadoutPlanner
         List<Entity> result = new();
         foreach (Entity item in actor.GetItems())
         {
-            if (item.HasComponent<Artifact>() && item.IsAvailable()) result.Add(item);
+            if (item.IsAvailable() && item.HasComponent<Artifact>()) result.Add(item);
         }
         return result;
     }
