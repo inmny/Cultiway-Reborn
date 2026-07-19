@@ -1,0 +1,40 @@
+{
+  "roles": [
+    {
+      "key": "body",
+      "order": 0,
+      "source_category": "Material",
+      "base": true,
+      "drives_visuals": false,
+      "prefer_distinct": false,
+      "fallback_channel": "metal",
+      "channels": [
+        "main", "metal", "left", "top", "right", "cloth", "fold", "grip", "handle", "leg"
+      ]
+    },
+    {
+      "key": "finish",
+      "order": 1,
+      "source_category": "Finish",
+      "base": false,
+      "drives_visuals": false,
+      "prefer_distinct": true,
+      "fallback_channel": "edge",
+      "channels": [
+        "edge", "ridge", "rim", "trim", "wrap", "pommel", "charm"
+      ]
+    },
+    {
+      "key": "energy",
+      "order": 2,
+      "source_category": "Shape",
+      "base": false,
+      "drives_visuals": true,
+      "prefer_distinct": true,
+      "fallback_channel": "gem",
+      "channels": [
+        "gem", "core", "fire", "water", "glass", "glint"
+      ]
+    }
+  ]
+}

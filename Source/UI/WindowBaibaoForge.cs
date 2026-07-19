@@ -178,7 +178,7 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
         _atomPicker.Hide();
         if (_draft == null || !IsDirty() || _closingApproved) return;
         _resumeAfterClose = true;
-        ModClass.I.StartCoroutine(ReopenAfterClose());
+        World.world.StartCoroutine(ReopenAfterClose());
     }
 
     private void CreateHeader(Transform root)
@@ -503,6 +503,7 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
                 selected ? UiIcons.Confirm : UiIcons.Select, selected, !selected,
                 () => SelectTemplate(template), BaibaoPavilionService.Instance.GetPreviewIcon(candidate));
         }
+        BuildColorRoleControls();
 
         if (!ArtifactAppearanceCatalogLoader.Current.Templates.TryGetValue(
                 _draft.Blueprint.Appearance.template_key, out ArtifactAppearanceTemplateDef currentTemplate))
@@ -516,21 +517,62 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
             ArtifactAppearanceModuleDef module = ArtifactAppearanceCatalogLoader.Current.Modules[placement.Module];
             BaibaoEditorRow row = _rowPool.GetNext();
             row.Setup(BaibaoPresentation.GetModuleName(module.Key),
-                $"{BaibaoPresentation.GetVariantName(module.Key, part.variant)}  ·  " +
-                BaibaoPresentation.GetColorSchemeName(part.color_scheme), string.Empty,
+                BaibaoPresentation.GetVariantName(module.Key, part.variant), string.Empty,
                 BaibaoUiIcons.Appearance, false, false, null,
                 SpriteTextureLoader.getSprite(BaibaoUiIcons.Appearance));
             ArtifactAppearanceVariantDef[] candidates = module.Variants
                 .Where(variant => variant.GetAnchor(placement.Anchor) != null).ToArray();
-            ArtifactAppearanceColorSchemeDef[] schemes = ArtifactAppearanceCatalogLoader.Current.ColorSchemes
-                .Values.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
             int variantRows = Mathf.CeilToInt(candidates.Length / 3f);
-            int colorRows = Mathf.CeilToInt(schemes.Length / 10f);
-            int controlRows = variantRows + colorRows;
-            float controlsHeight = variantRows * 24f + colorRows * 26f + Mathf.Max(0, controlRows - 1) * 2f;
+            float controlsHeight = variantRows * 24f + Mathf.Max(0, variantRows - 1) * 2f;
             Transform controls = row.UseControls(controlsHeight);
             BuildVariantControls(controls, placement, module, candidates, part);
-            BuildColorControls(controls, placement, schemes, part);
+        }
+    }
+
+    private void BuildColorRoleControls()
+    {
+        const int schemesPerLine = 12;
+        ArtifactAppearanceCatalog catalog = ArtifactAppearanceCatalogLoader.Current;
+        ArtifactAppearance appearance = _draft.Blueprint.Appearance;
+        ArtifactAppearanceColorSchemeDef[] schemes = catalog.ColorSchemes.Values
+            .OrderBy(scheme => scheme.Key, StringComparer.Ordinal)
+            .ToArray();
+        string summary = string.Join("  ·  ", catalog.ColorRoles.Select(role =>
+            $"{ColorRoleName(role.Key)} {BaibaoPresentation.GetColorSchemeName(ResolveColorRoleScheme(appearance, role))}"));
+        BaibaoEditorRow row = _rowPool.GetNext();
+        row.Setup("Cultiway.Baibao.UI.Label.ColorPlan".Localize(), summary, string.Empty,
+            BaibaoUiIcons.Appearance, false, false, null,
+            SpriteTextureLoader.getSprite(BaibaoUiIcons.Appearance));
+        row.SetTooltip("Cultiway.Baibao.UI.Label.ColorPlan".Localize(),
+            "Cultiway.Baibao.UI.Tooltip.ColorPlan".Localize());
+
+        int linesPerRole = Mathf.CeilToInt(schemes.Length / (float)schemesPerLine);
+        int totalLines = catalog.ColorRoles.Length * linesPerRole;
+        Transform controls = row.UseControls(totalLines * 22f + Mathf.Max(0, totalLines - 1) * 2f);
+        for (int roleIndex = 0; roleIndex < catalog.ColorRoles.Length; roleIndex++)
+        {
+            ArtifactAppearanceColorRoleDef role = catalog.ColorRoles[roleIndex];
+            string selectedScheme = ResolveColorRoleScheme(appearance, role);
+            for (int start = 0; start < schemes.Length; start += schemesPerLine)
+            {
+                GameObject line = UiLayout.Create(controls, $"{role.Key}{start / schemesPerLine}", true,
+                    306f, 22f, 2f, TextAnchor.MiddleLeft);
+                UiElements.CreateText(line.transform, "Role",
+                    start == 0 ? ColorRoleName(role.Key) : string.Empty,
+                    48f, 21f, 7, TextAnchor.MiddleLeft, FontStyle.Bold);
+                int count = Mathf.Min(schemesPerLine, schemes.Length - start);
+                for (int i = 0; i < count; i++)
+                {
+                    ArtifactAppearanceColorSchemeDef scheme = schemes[start + i];
+                    Button swatch = UiElements.CreateSwatchButton(line.transform, scheme.Key,
+                        BaibaoPresentation.GetColorSchemeSwatch(scheme, role), 18f,
+                        () => SelectColorRole(role.Key, scheme.Key));
+                    UiStateStyle.SetSelected(swatch, selectedScheme == scheme.Key);
+                    UiTooltip.Set(swatch.gameObject,
+                        $"{ColorRoleName(role.Key)} · {BaibaoPresentation.GetColorSchemeName(scheme.Key)}",
+                        ColorRoleDescription(role.Key));
+                }
+            }
         }
     }
 
@@ -557,28 +599,32 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
         }
     }
 
-    private void BuildColorControls(
-        Transform controls,
-        ArtifactAppearancePlacementDef placement,
-        IReadOnlyList<ArtifactAppearanceColorSchemeDef> schemes,
-        ArtifactAppearancePart selectedPart)
+    private static string ResolveColorRoleScheme(
+        ArtifactAppearance appearance,
+        ArtifactAppearanceColorRoleDef role)
     {
-        for (int start = 0; start < schemes.Count; start += 10)
+        ArtifactAppearanceColorRole[] selections = appearance.color_roles ?? [];
+        for (int i = 0; i < selections.Length; i++)
         {
-            GameObject line = UiLayout.Create(controls, $"Colors{start / 10}", true, 306f, 24f, 4f,
-                TextAnchor.MiddleLeft);
-            int count = Mathf.Min(10, schemes.Count - start);
-            for (int i = 0; i < count; i++)
-            {
-                ArtifactAppearanceColorSchemeDef scheme = schemes[start + i];
-                Button swatch = UiElements.CreateSwatchButton(line.transform, scheme.Key,
-                    BaibaoPresentation.GetColorSchemeSwatch(scheme), 24f,
-                    () => SelectColorScheme(placement.Slot, scheme.Key));
-                UiStateStyle.SetSelected(swatch, selectedPart.color_scheme == scheme.Key);
-                UiTooltip.Set(swatch.gameObject, BaibaoPresentation.GetColorSchemeName(scheme.Key),
-                    "Cultiway.Baibao.UI.Tooltip.ColorScheme".Localize());
-            }
+            if (selections[i].role == role.Key) return selections[i].color_scheme;
         }
+        ArtifactAppearancePart[] parts = appearance.parts ?? [];
+        string fallback = parts.Select(part => part.color_scheme).FirstOrDefault(key => !string.IsNullOrEmpty(key));
+        return !string.IsNullOrEmpty(fallback)
+            ? fallback
+            : ArtifactAppearanceCatalogLoader.Current.ColorSchemes.Keys
+                .OrderBy(key => key, StringComparer.Ordinal)
+                .First();
+    }
+
+    private static string ColorRoleName(string role)
+    {
+        return $"Cultiway.Baibao.Appearance.ColorRole.{role}".Localize();
+    }
+
+    private static string ColorRoleDescription(string role)
+    {
+        return $"Cultiway.Baibao.Appearance.ColorRole.{role}.Description".Localize();
     }
 
     private void BuildAbilityPage()
@@ -662,8 +708,9 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
     private ArtifactAppearance BuildAppearance(ArtifactAppearanceTemplateDef template)
     {
         ArtifactAppearanceCatalog catalog = ArtifactAppearanceCatalogLoader.Current;
-        ArtifactAppearancePart[] current = _draft.Blueprint.Appearance.parts ?? [];
-        string defaultScheme = catalog.ColorSchemes.Keys.OrderBy(key => key, StringComparer.Ordinal).FirstOrDefault();
+        ArtifactAppearance currentAppearance = _draft.Blueprint.Appearance;
+        ArtifactAppearancePart[] current = currentAppearance.parts ?? [];
+        string defaultScheme = ResolveColorRoleScheme(currentAppearance, catalog.BaseColorRole);
         List<ArtifactAppearancePart> parts = new();
         foreach (ArtifactAppearancePlacementDef placement in template.Placements.OrderBy(item => item.Z))
         {
@@ -688,7 +735,12 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
                 colors = existing.colors ?? [],
             });
         }
-        return new ArtifactAppearance { template_key = template.Key, parts = parts.ToArray() };
+        return new ArtifactAppearance
+        {
+            template_key = template.Key,
+            color_roles = currentAppearance.color_roles?.ToArray() ?? [],
+            parts = parts.ToArray(),
+        };
     }
 
     private ArtifactShapeAsset CurrentShape()
@@ -852,18 +904,38 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
         });
     }
 
-    private void SelectColorScheme(string slot, string scheme)
+    private void SelectColorRole(string roleKey, string schemeKey)
     {
         ApplyMutation(() =>
         {
             _draft.AutoAppearance = false;
+            ArtifactAppearanceCatalog catalog = ArtifactAppearanceCatalogLoader.Current;
             ArtifactAppearance appearance = _draft.Blueprint.Appearance;
+            ArtifactAppearanceColorRoleDef selectedRole = catalog.ColorRoles.First(role => role.Key == roleKey);
+            ArtifactAppearanceColorRole[] roles = new ArtifactAppearanceColorRole[catalog.ColorRoles.Length];
+            for (int i = 0; i < catalog.ColorRoles.Length; i++)
+            {
+                ArtifactAppearanceColorRoleDef role = catalog.ColorRoles[i];
+                roles[i] = new ArtifactAppearanceColorRole
+                {
+                    role = role.Key,
+                    color_scheme = role.Key == roleKey ? schemeKey : ResolveColorRoleScheme(appearance, role),
+                };
+            }
+            appearance.color_roles = roles;
+
+            string baseScheme = roles.First(role => role.role == catalog.BaseColorRole.Key).color_scheme;
+            HashSet<string> selectedChannels = new(selectedRole.Channels, StringComparer.Ordinal);
             ArtifactAppearancePart[] parts = appearance.parts.ToArray();
-            int index = Array.FindIndex(parts, part => part.slot == slot);
-            ArtifactAppearancePart part = parts[index];
-            part.color_scheme = scheme;
-            part.colors = [];
-            parts[index] = part;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                ArtifactAppearancePart part = parts[i];
+                part.color_scheme = baseScheme;
+                part.colors = (part.colors ?? [])
+                    .Where(color => !selectedChannels.Contains(color.material))
+                    .ToArray();
+                parts[i] = part;
+            }
             appearance.parts = parts;
             _draft.Blueprint.Appearance = appearance;
         });

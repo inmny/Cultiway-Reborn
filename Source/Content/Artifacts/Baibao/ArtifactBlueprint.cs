@@ -105,6 +105,7 @@ internal static class ArtifactBlueprintData
 
     internal static ArtifactAppearance Clone(ArtifactAppearance source)
     {
+        ArtifactAppearanceColorRole[] colorRoles = source.color_roles?.ToArray() ?? [];
         ArtifactAppearancePart[] parts = source.parts == null
             ? []
             : new ArtifactAppearancePart[source.parts.Length];
@@ -123,6 +124,7 @@ internal static class ArtifactBlueprintData
         return new ArtifactAppearance
         {
             template_key = source.template_key,
+            color_roles = colorRoles,
             parts = parts,
         };
     }

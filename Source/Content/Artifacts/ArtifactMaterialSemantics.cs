@@ -109,6 +109,7 @@ public static class ArtifactMaterialSemantics
         context.material_data = data;
     }
 
+    /// <summary>从单个材料实体提取来源、金丹名称、品质、元素和三花强度记录。</summary>
     public static ArtifactMaterialRecord Capture(Entity ingredient)
     {
         ItemShape shape = ingredient.GetComponent<ItemShape>();
@@ -118,7 +119,7 @@ public static class ArtifactMaterialSemantics
         {
             shape_id = shape.shape_id,
             source_asset_id = creation.creator_asset_id ?? string.Empty,
-            jindan_id = string.Empty,
+            jindan_name = string.Empty,
             quality = level,
             count = 1,
         };
@@ -147,8 +148,17 @@ public static class ArtifactMaterialSemantics
         }
         if (ingredient.TryGetComponent(out Jindan jindan))
         {
-            record.jindan_id = jindan.jindan_type ?? string.Empty;
+            record.jindan_name = jindan.GetName();
             record.jindan_strength = Mathf.Max(0f, jindan.strength);
+            var composition = jindan.GetComposition();
+            record.iron += Mathf.Max(0f, composition.iron);
+            record.wood += Mathf.Max(0f, composition.wood);
+            record.water += Mathf.Max(0f, composition.water);
+            record.fire += Mathf.Max(0f, composition.fire);
+            record.earth += Mathf.Max(0f, composition.earth);
+            record.neg += Mathf.Max(0f, composition.neg);
+            record.pos += Mathf.Max(0f, composition.pos);
+            record.entropy += Mathf.Max(0f, composition.entropy);
         }
         return record;
     }

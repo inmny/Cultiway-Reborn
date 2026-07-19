@@ -13,7 +13,9 @@ public sealed class IngredientNamingContext
     public float PrimaryElementValue;
     public float SecondaryElementValue;
     public float ElementStrength;
-    public string JindanId;
+
+    /// <summary>材料携带的金丹规范名称。</summary>
+    public string JindanName;
     public float JindanStrength;
     public int XianLevel;
     public float PowerLevel;

@@ -9,7 +9,7 @@ using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(BaseStatses))]
+[Dependency(typeof(BaseStatses), typeof(CoreFormationAtoms))]
 public partial class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
 {
     private sealed class AcquisitionRule

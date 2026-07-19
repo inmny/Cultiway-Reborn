@@ -107,7 +107,7 @@ public partial class ArtifactAtoms
             ItemShapes.Seal);
 
         Set(CloudRobe, "cloud_robe", ArtifactAtomCategory.Shape, ["流云", "无尘", "踏虚"],
-            ["robe_panel3d.wide_blue"], ["cold_crystal", "gold_jade"],
+            ["robe_panel3d.wide_blue"], ["cloud_silk", "moon_silver"],
             r => Shape(r, ItemShapes.Feather, ItemShapes.Wing, ItemShapes.Silk, ItemShapes.Flower) +
                  Semantic(r, ArtifactMaterialTraits.Pos, 0.65f),
             [
@@ -146,7 +146,7 @@ public partial class ArtifactAtoms
             ItemShapes.Mirror);
 
         Set(VoidMirror, "void_mirror", ArtifactAtomCategory.Shape, ["太虚", "幽鉴", "无相"],
-            ["mirror3d.bronze_round"], ["dark_steel", "black_gold"],
+            ["mirror3d.bronze_round"], ["void_obsidian", "dark_steel"],
             r => Shape(r, ItemShapes.Eye, ItemShapes.Liquid, ItemShapes.Stone) +
                  Semantic(r, ArtifactMaterialTraits.Entropy, 1.2f) +
                  Semantic(r, ArtifactMaterialTraits.Neg, 0.8f),

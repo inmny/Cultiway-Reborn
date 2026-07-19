@@ -1,5 +1,6 @@
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
+using Cultiway.Content.Libraries;
 using Cultiway.Content.UI.Prefab;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
@@ -43,12 +44,14 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
         if (ae.HasComponent<Jindan>())
         {
             ref Jindan jindan = ref ae.GetComponent<Jindan>();
-            tooltip.addLineText("金丹", jindan.Type.GetName(), pLocalize: false);
+            tooltip.addLineText("Cultiway.CoreFormation.Label.Jindan".Localize(), jindan.GetName(),
+                pLocalize: false);
         }
         if (ae.HasComponent<Yuanying>())
         {
             ref Yuanying yuanying = ref ae.GetComponent<Yuanying>();
-            tooltip.addLineText("元婴", yuanying.Type.GetName(), pLocalize: false);
+            tooltip.addLineText("Cultiway.CoreFormation.Label.Yuanying".Localize(), yuanying.GetName(),
+                pLocalize: false);
         }
     }
 

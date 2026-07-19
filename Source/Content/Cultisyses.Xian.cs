@@ -13,6 +13,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Progression;
+using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Patch;
 using Cultiway.Utils;
@@ -92,15 +93,15 @@ public partial class Cultisyses
             {
 
             }
-            if (ae.TryGetComponent(out Jindan jindan))
+            if (ae.HasComponent<Yuanying>())
             {
-                var jindan_asset = jindan.Type;
-                stats.MergeStats(jindan_asset.Stats, jindan.strength);
-                if (!string.IsNullOrEmpty(jindan_asset.wrapped_skill_id))
-                {
-                    //ae.tmp_all_skills.Add(jindan_asset.wrapped_skill_id);
-                    return;
-                }
+                ref var yuanying = ref ae.GetComponent<Yuanying>();
+                MergeCoreFormationStats(stats, yuanying.formation, yuanying.strength);
+            }
+            else if (ae.HasComponent<Jindan>())
+            {
+                ref var jindan = ref ae.GetComponent<Jindan>();
+                MergeCoreFormationStats(stats, jindan.formation, jindan.strength);
             }
 
             // 仅主修功法提供属性加成
@@ -140,13 +141,13 @@ public partial class Cultisyses
             if (a.HasComponent<Jindan>())
             {
                 ref Jindan jindan = ref a.GetComponent<Jindan>();
-                sb.AppendLine($"金丹: {jindan.Type.GetName()}");
+                sb.AppendLine($"金丹: {jindan.GetName()}");
             }
 
             if (a.HasComponent<Yuanying>())
             {
                 ref Yuanying yuanying = ref a.GetComponent<Yuanying>();
-                sb.AppendLine($"元婴: {yuanying.Type.GetName()}");
+                sb.AppendLine($"元婴: {yuanying.GetName()}");
             }
         });
     }
@@ -178,21 +179,31 @@ public partial class Cultisyses
                 string.Format("Cultiway.CultisysTooltip.Format.Foundation".Localize(), completed,
                     xianBase.GetStrength())));
         }
-        if (actor.TryGetComponent(out Jindan jindan))
+        if (actor.HasComponent<Jindan>())
         {
-            string name = jindan.Type?.GetName() ?? jindan.jindan_type;
+            ref var jindan = ref actor.GetComponent<Jindan>();
             lines.Add(new CultisysDisplayLine(
                 "Cultiway.CultisysTooltip.Xian.Jindan",
-                string.Format("Cultiway.CultisysTooltip.Format.Jindan".Localize(), name, jindan.stage,
+                string.Format("Cultiway.CultisysTooltip.Format.Jindan".Localize(), jindan.GetName(), jindan.stage,
                     jindan.strength)));
         }
-        if (actor.TryGetComponent(out Yuanying yuanying))
+        if (actor.HasComponent<Yuanying>())
         {
-            string name = yuanying.Type?.GetName() ?? yuanying.yuanying_type;
+            ref var yuanying = ref actor.GetComponent<Yuanying>();
             lines.Add(new CultisysDisplayLine(
                 "Cultiway.CultisysTooltip.Xian.Yuanying",
-                string.Format("Cultiway.CultisysTooltip.Format.Yuanying".Localize(), name,
+                string.Format("Cultiway.CultisysTooltip.Format.Yuanying".Localize(), yuanying.GetName(),
                     yuanying.strength)));
+        }
+    }
+
+    /// <summary>把组合快照中的属性系数按当前金丹或元婴强度写入角色属性。</summary>
+    private static void MergeCoreFormationStats(BaseStats target, CoreFormationSnapshot formation, float strength)
+    {
+        foreach (var stat in formation.stats ?? [])
+        {
+            if (string.IsNullOrEmpty(stat.stat_id) || stat.value == 0f) continue;
+            target[stat.stat_id] += stat.value * strength;
         }
     }
 
@@ -551,7 +562,7 @@ public partial class Cultisyses
         }
     }
 
-    /// <summary>根据三花五气总强度判定自然结丹，并生成匹配的金丹类型与强度。</summary>
+    /// <summary>根据三花五气总强度判定自然结丹，并组合角色独有的金丹快照。</summary>
     private static ProgressionResolution ResolveJindan(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                                         ref Xian component)
     {
@@ -559,22 +570,18 @@ public partial class Cultisyses
         var strength = xianBase.GetFiveQiStrength() * xianBase.GetThreeHuaStrength();
         if (RdUtils.NextNormal_0_6() > strength) return ProgressionResolution.Failure();
 
-        var localBase = xianBase;
-        var jindan = Libraries.Manager.JindanLibrary.GetJindan(actor, ref localBase);
-        return ProgressionResolution.Success(new JindanPayload(localBase, jindan, strength));
+        var formation = CoreFormationComposer.ComposeJindan(actor, xianBase, strength);
+        return ProgressionResolution.Success(new JindanPayload(xianBase, formation, strength));
     }
 
-    /// <summary>直接结丹时先补齐筑基；有灵根则匹配金丹，无灵根则使用普通金丹。</summary>
+    /// <summary>直接结丹时先补齐筑基，再按同一组合规则生成金丹快照。</summary>
     private static ProgressionResolution ResolveGrantedJindan(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                                                ref Xian component)
     {
         var xianBase = CompleteFoundationForGrant(actor);
-        var localBase = xianBase;
-        var jindan = actor.HasElementRoot()
-            ? Libraries.Manager.JindanLibrary.GetJindan(actor, ref localBase)
-            : Jindans.Common;
-        var strength = localBase.GetFiveQiStrength() * localBase.GetThreeHuaStrength();
-        return ProgressionResolution.Success(new JindanPayload(localBase, jindan, strength));
+        var strength = xianBase.GetFiveQiStrength() * xianBase.GetThreeHuaStrength();
+        var formation = CoreFormationComposer.ComposeJindan(actor, xianBase, strength);
+        return ProgressionResolution.Success(new JindanPayload(xianBase, formation, strength));
     }
 
     /// <summary>以角色当前资质补齐所有为零的三花五气字段，并保证每项至少为 0.01。</summary>
@@ -601,10 +608,11 @@ public partial class Cultisyses
         ref var xianBase = ref actor.GetOrAddComponent<XianBase>();
         xianBase = data.XianBase;
         ref var jindan = ref actor.GetOrAddComponent<Jindan>();
-        jindan = new Jindan(data.Asset.id, data.Strength);
+        jindan = new Jindan(data.Formation, data.Strength);
+        actor.MarkSemanticProfileDirty();
     }
 
-    /// <summary>结丹后处理植物命名，并从金丹定义中抽取和学习一项自带法术。</summary>
+    /// <summary>结丹后处理植物命名，并学习与组合快照最匹配的代表法术。</summary>
     private static void ApplyJindanReward(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                           ref Xian component, object payload)
     {
@@ -613,21 +621,20 @@ public partial class Cultisyses
         {
             var rootName = actor.HasElementRoot() ? actor.GetElementRoot().Type.GetName() : null;
             PlantNameGenerator.Instance.NewNameGenerateRequest(
-                GetPlantNameParams(actor, cultisys.GetLevelName(XianLevels.Jindan), rootName, data.Asset.GetName()),
+                GetPlantNameParams(actor, cultisys.GetLevelName(XianLevels.Jindan), rootName,
+                    data.Formation.canonical_name),
                 actor.Base);
         }
 
-        if (data.Asset.skills.Count <= 0) return;
-        var skill = data.Asset.skills[RdUtils.RandomIndexWithAccumWeight(data.Asset.skill_acc_weight)];
-        if (GeneralSettings.EnableSkillSystems)
-            actor.LearnSkillV3(new SkillContainerBuilder(skill).Build());
+        GrantRepresentativeSkill(actor, data.Formation);
     }
 
     /// <summary>按智力和当前淬炼层数判定自然淬炼，并生成成功后的强度倍率。</summary>
     private static ProgressionResolution ResolveJindanRefinement(ActorExtend actor,
         CultisysAsset<Xian> cultisys, ref Xian component)
     {
-        var jindan = actor.GetComponent<Jindan>();
+        ref var jindanRef = ref actor.GetComponent<Jindan>();
+        var jindan = jindanRef;
         if (jindan.stage >= 10000) return ProgressionResolution.NoProgress();
 
         var intelligence = actor.GetStat(S.intelligence);
@@ -655,21 +662,26 @@ public partial class Cultisyses
         component.wakan *= 0.8f;
     }
 
-    /// <summary>金丹淬炼层数加一，并应用判定载荷中的强度倍率。</summary>
+    /// <summary>金丹淬炼层数加一，并在三、六、九转推进预定的组合演化。</summary>
     private static void ApplyJindanRefinement(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                               ref Xian component, object payload)
     {
         var data = (JindanRefinementPayload)payload;
         ref var jindan = ref actor.GetComponent<Jindan>();
+        var previousStage = jindan.stage;
         jindan.stage++;
         jindan.strength *= data.StrengthMultiplier;
+        data.FormationEvolved = CoreFormationComposer.EvolveJindan(ref jindan.formation, previousStage, jindan.stage);
+        actor.MarkSemanticProfileDirty();
     }
 
-    /// <summary>没有绑定包裹法术的金丹在淬炼成功后随机强化角色法术。</summary>
+    /// <summary>普通淬炼强化法术；觉醒节点优先补充当前组合的代表法术。</summary>
     private static void ApplyJindanRefinementReward(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                                     ref Xian component, object payload)
     {
-        if (string.IsNullOrEmpty(actor.GetComponent<Jindan>().Type.wrapped_skill_id))
+        var data = (JindanRefinementPayload)payload;
+        ref var jindan = ref actor.GetComponent<Jindan>();
+        if (!data.FormationEvolved || !GrantRepresentativeSkill(actor, jindan.formation))
             actor.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeSuccess);
     }
 
@@ -680,18 +692,20 @@ public partial class Cultisyses
         component.wakan *= 0.6f;
     }
 
-    /// <summary>根据金丹类型抽取元婴，并保存结婴前的筑基与金丹数据供后续结算。</summary>
+    /// <summary>继承金丹组合并根据结婴时的神识、功法与语义生成元婴蜕变。</summary>
     private static ProgressionResolution ResolveYuanying(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                                           ref Xian component)
     {
-        var jindan = actor.GetComponent<Jindan>();
+        ref var jindanRef = ref actor.GetComponent<Jindan>();
+        var jindan = jindanRef;
         var xianBase = actor.TryGetComponent(out XianBase existing) ? existing : default;
-        var yuanying = Libraries.Manager.YuanyingLibrary.GetRandomYuanying(jindan.Type);
-        return ProgressionResolution.Success(new YuanyingPayload(yuanying, jindan.stage,
-            xianBase.GetStrength(), jindan.strength));
+        var formation = CoreFormationComposer.ComposeYuanying(actor, xianBase, jindan.formation, jindan.stage,
+            jindan.strength);
+        return ProgressionResolution.Success(new YuanyingPayload(formation, jindan.formation.DeepClone(),
+            jindan.stage, xianBase.GetStrength(), jindan.strength));
     }
 
-    /// <summary>直接结婴仍要求已有金丹；满足时复用正常的元婴类型抽取。</summary>
+    /// <summary>直接结婴仍要求已有九转金丹；满足时复用正常的继承与蜕变组合。</summary>
     private static ProgressionResolution ResolveGrantedYuanying(ActorExtend actor,
         CultisysAsset<Xian> cultisys, ref Xian component)
     {
@@ -706,11 +720,12 @@ public partial class Cultisyses
     {
         var data = (YuanyingPayload)payload;
         ref var yuanying = ref actor.GetOrAddComponent<Yuanying>();
-        yuanying = new Yuanying(data.Asset.id, data.JindanStrength);
+        yuanying = new Yuanying(data.Formation, data.SourceJindan, data.JindanStage, data.JindanStrength);
         actor.E.RemoveComponent<Jindan>();
+        actor.MarkSemanticProfileDirty();
     }
 
-    /// <summary>结婴后记录统计、处理植物命名，并学习元婴定义携带的随机法术。</summary>
+    /// <summary>结婴后记录统计、处理植物命名，并学习元婴组合的代表法术。</summary>
     private static void ApplyYuanyingReward(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                             ref Xian component, object payload)
     {
@@ -726,13 +741,28 @@ public partial class Cultisyses
             var rootName = actor.HasElementRoot() ? actor.GetElementRoot().Type.GetName() : null;
             PlantNameGenerator.Instance.NewNameGenerateRequest(
                 GetPlantNameParams(actor, cultisys.GetLevelName(XianLevels.Yuanying), rootName,
-                    data.Asset.GetName()), actor.Base);
+                    data.Formation.canonical_name), actor.Base);
         }
 
-        if (data.Asset.skills.Count <= 0) return;
-        var skill = data.Asset.skills[RdUtils.RandomIndexWithAccumWeight(data.Asset.skill_acc_weight)];
-        if (GeneralSettings.EnableSkillSystems)
-            actor.LearnSkillV3(new SkillContainerBuilder(skill).Build());
+        GrantRepresentativeSkill(actor, data.Formation);
+    }
+
+    /// <summary>学习组合快照指定的代表法术；已经掌握相同本体时不重复创建。</summary>
+    private static bool GrantRepresentativeSkill(ActorExtend actor, CoreFormationSnapshot formation)
+    {
+        if (!GeneralSettings.EnableSkillSystems || string.IsNullOrEmpty(formation.representative_skill_id))
+            return false;
+        foreach (var learned in actor.GetLearnedSkillsInOrder())
+        {
+            if (learned.IsNull || !learned.HasComponent<SkillContainer>()) continue;
+            if (learned.GetComponent<SkillContainer>().SkillEntityAssetID == formation.representative_skill_id)
+                return false;
+        }
+
+        var asset = ModClass.I.SkillV3.SkillLib.get(formation.representative_skill_id);
+        if (asset == null || !asset.CanBeLearned) return false;
+        actor.LearnSkillV3(new SkillContainerBuilder(asset).Build());
+        return true;
     }
 
     /// <summary>小境界失败时清空灵气，并按小突破失败来源随机改进法术。</summary>
@@ -751,29 +781,35 @@ public partial class Cultisyses
         actor.EnhanceSkillRandomly(SkillEnhanceSources.LargeUpgradeFailed);
     }
 
-    /// <summary>传承仙道体系时同步复制筑基、金丹和元婴三个专属组件。</summary>
+    /// <summary>传承仙道体系时同步复制筑基，并深拷贝金丹与元婴组合快照。</summary>
     private static void TransferXianExtraState(ActorExtend source, ActorExtend target,
                                                ref Xian sourceComponent, ref Xian targetComponent)
     {
         TransferComponent<XianBase>(source, target);
-        TransferComponent<Jindan>(source, target);
-        TransferComponent<Yuanying>(source, target);
+        TransferJindan(source, target);
+        TransferYuanying(source, target);
     }
 
-    /// <summary>修复金丹境界结构：补齐筑基、补建普通金丹，并移除越级残留的元婴。</summary>
+    /// <summary>修复金丹境界结构：补齐筑基、补建组合金丹，并移除越级残留的元婴。</summary>
     private static void NormalizeJindanRealm(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                               ref Xian component, object payload)
     {
         var xianBaseValue = CompleteFoundationForGrant(actor);
         ref var xianBase = ref actor.GetOrAddComponent<XianBase>();
         xianBase = xianBaseValue;
+        if (actor.HasComponent<Yuanying>())
+        {
+            actor.E.RemoveComponent<Yuanying>();
+            actor.MarkSemanticProfileDirty();
+        }
 
         if (!actor.HasComponent<Jindan>())
         {
             var strength = xianBaseValue.GetFiveQiStrength() * xianBaseValue.GetThreeHuaStrength();
-            actor.AddComponent(new Jindan(Jindans.Common.id, strength));
+            actor.AddComponent(new Jindan(CoreFormationComposer.ComposeJindan(actor, xianBaseValue, strength),
+                strength));
         }
-        if (actor.HasComponent<Yuanying>()) actor.E.RemoveComponent<Yuanying>();
+        actor.MarkSemanticProfileDirty();
     }
 
     /// <summary>修复练气境界结构：移除不应存在的筑基、金丹和元婴组件。</summary>
@@ -783,6 +819,7 @@ public partial class Cultisyses
         if (actor.HasComponent<XianBase>()) actor.E.RemoveComponent<XianBase>();
         if (actor.HasComponent<Jindan>()) actor.E.RemoveComponent<Jindan>();
         if (actor.HasComponent<Yuanying>()) actor.E.RemoveComponent<Yuanying>();
+        actor.MarkSemanticProfileDirty();
     }
 
     /// <summary>修复筑基境界结构：保留筑基进度，并移除不应存在的金丹和元婴。</summary>
@@ -791,6 +828,7 @@ public partial class Cultisyses
     {
         if (actor.HasComponent<Jindan>()) actor.E.RemoveComponent<Jindan>();
         if (actor.HasComponent<Yuanying>()) actor.E.RemoveComponent<Yuanying>();
+        actor.MarkSemanticProfileDirty();
     }
 
     /// <summary>修复元婴境界结构：补齐筑基和元婴，并移除已经消耗或越级残留的金丹。</summary>
@@ -804,10 +842,55 @@ public partial class Cultisyses
         if (!actor.HasComponent<Yuanying>())
         {
             var strength = xianBaseValue.GetFiveQiStrength() * xianBaseValue.GetThreeHuaStrength();
-            if (actor.TryGetComponent(out Jindan jindan)) strength = jindan.strength;
-            actor.AddComponent(new Yuanying(Yuanyings.Common.id, strength));
+            CoreFormationSnapshot jindanFormation;
+            var jindanStage = YuanyingRequiredJindanStage;
+            if (actor.HasComponent<Jindan>())
+            {
+                ref var jindan = ref actor.GetComponent<Jindan>();
+                strength = jindan.strength;
+                jindanStage = Mathf.Max(jindan.stage, YuanyingRequiredJindanStage);
+                jindanFormation = jindan.formation.DeepClone();
+            }
+            else
+            {
+                jindanFormation = CoreFormationComposer.ComposeJindan(actor, xianBaseValue, strength);
+                CoreFormationComposer.EvolveJindan(ref jindanFormation, 0, YuanyingRequiredJindanStage);
+            }
+
+            var formation = CoreFormationComposer.ComposeYuanying(actor, xianBaseValue, jindanFormation,
+                jindanStage, strength);
+            actor.AddComponent(new Yuanying(formation, jindanFormation, jindanStage, strength));
         }
         if (actor.HasComponent<Jindan>()) actor.E.RemoveComponent<Jindan>();
+        actor.MarkSemanticProfileDirty();
+    }
+
+    /// <summary>将来源金丹及其数组快照深拷贝给目标；来源没有金丹时同步移除目标金丹。</summary>
+    private static void TransferJindan(ActorExtend source, ActorExtend target)
+    {
+        if (source.HasComponent<Jindan>())
+        {
+            ref var sourceValue = ref source.GetComponent<Jindan>();
+            var component = sourceValue;
+            component.formation = component.formation.DeepClone();
+            ref var targetComponent = ref target.GetOrAddComponent<Jindan>();
+            targetComponent = component;
+        }
+        else if (target.HasComponent<Jindan>()) target.E.RemoveComponent<Jindan>();
+    }
+
+    /// <summary>将来源元婴及其数组快照深拷贝给目标；来源没有元婴时同步移除目标元婴。</summary>
+    private static void TransferYuanying(ActorExtend source, ActorExtend target)
+    {
+        if (source.HasComponent<Yuanying>())
+        {
+            ref var sourceValue = ref source.GetComponent<Yuanying>();
+            var component = sourceValue;
+            component.formation = component.formation.DeepClone();
+            ref var targetComponent = ref target.GetOrAddComponent<Yuanying>();
+            targetComponent = component;
+        }
+        else if (target.HasComponent<Yuanying>()) target.E.RemoveComponent<Yuanying>();
     }
 
     /// <summary>使目标角色的指定附加组件与来源完全一致；来源没有时同步移除目标组件。</summary>
@@ -859,6 +942,7 @@ public partial class Cultisyses
     /// <summary>一次筑基成功后传给结构变换的不可变数据。</summary>
     private sealed class FoundationStepPayload
     {
+        /// <summary>创建一次筑基步骤的项目与结算强度载荷。</summary>
         public FoundationStepPayload(FoundationPart part, float value)
         {
             Part = part;
@@ -875,26 +959,28 @@ public partial class Cultisyses
     /// <summary>结丹判定后传给结构变换和奖励阶段的不可变数据。</summary>
     private sealed class JindanPayload
     {
-        public JindanPayload(XianBase xianBase, JindanAsset asset, float strength)
+        /// <summary>固化结丹后的筑基数据、组合快照和初始强度。</summary>
+        public JindanPayload(XianBase xianBase, CoreFormationSnapshot formation, float strength)
         {
             XianBase = xianBase;
-            Asset = asset;
+            Formation = formation;
             Strength = strength;
         }
 
         /// <summary>金丹匹配过程中可能完成或调整后的筑基数据。</summary>
         public XianBase XianBase { get; }
 
-        /// <summary>根据筑基、灵根和金丹规则选出的金丹类型。</summary>
-        public JindanAsset Asset { get; }
+        /// <summary>根据筑基、灵根、功法与语义组合出的金丹快照。</summary>
+        public CoreFormationSnapshot Formation { get; }
 
         /// <summary>由三花强度与五气强度相乘得到的初始金丹强度。</summary>
         public float Strength { get; }
     }
 
-    /// <summary>一次金丹淬炼成功后传给结构变换的不可变数据。</summary>
+    /// <summary>一次金丹淬炼成功后在结构变换与奖励阶段间共享的结算数据。</summary>
     private sealed class JindanRefinementPayload
     {
+        /// <summary>创建一次淬炼的强度倍率载荷，组合演化结果由应用阶段回填。</summary>
         public JindanRefinementPayload(float strengthMultiplier)
         {
             StrengthMultiplier = strengthMultiplier;
@@ -902,22 +988,30 @@ public partial class Cultisyses
 
         /// <summary>本次淬炼乘到当前金丹强度上的倍率。</summary>
         public float StrengthMultiplier { get; }
+
+        /// <summary>本次淬炼是否跨越三、六、九转组合节点。</summary>
+        public bool FormationEvolved { get; set; }
     }
 
     /// <summary>结婴判定后传给结构变换、统计和奖励阶段的不可变数据。</summary>
     private sealed class YuanyingPayload
     {
-        public YuanyingPayload(YuanyingAsset asset, int jindanStage, float foundationStrength,
-                               float jindanStrength)
+        /// <summary>固化元婴组合、来源金丹谱系、继承转数及结婴前强度数据。</summary>
+        public YuanyingPayload(CoreFormationSnapshot formation, CoreFormationSnapshot sourceJindan,
+                               int jindanStage, float foundationStrength, float jindanStrength)
         {
-            Asset = asset;
+            Formation = formation;
+            SourceJindan = sourceJindan;
             JindanStage = jindanStage;
             FoundationStrength = foundationStrength;
             JindanStrength = jindanStrength;
         }
 
-        /// <summary>根据原金丹类型抽取出的元婴类型。</summary>
-        public YuanyingAsset Asset { get; }
+        /// <summary>继承金丹并加入结婴蜕变后的元婴快照。</summary>
+        public CoreFormationSnapshot Formation { get; }
+
+        /// <summary>结婴前金丹的深拷贝，用于保存谱系。</summary>
+        public CoreFormationSnapshot SourceJindan { get; }
 
         /// <summary>结婴前金丹已经完成的淬炼层数，仅用于统计和后续奖励。</summary>
         public int JindanStage { get; }

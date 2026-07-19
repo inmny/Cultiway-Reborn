@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cultiway.Abstract;
+using Cultiway.Content.Libraries;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -73,7 +74,61 @@ public static class ArtifactAppearanceCatalogLoader
                 catalog.ColorSchemes[scheme.Key] = scheme;
             }
         }
+        LoadColorRoles(colorFiles, catalog);
+        ValidateColorRoleCoverage(catalog);
         return catalog;
+    }
+
+    private static void LoadColorRoles(
+        IReadOnlyList<ArtifactAppearanceColorsFile> files,
+        ArtifactAppearanceCatalog catalog)
+    {
+        List<ArtifactAppearanceColorRoleDef> roles = new();
+        HashSet<string> keys = new(StringComparer.Ordinal);
+        HashSet<string> channels = new(StringComparer.Ordinal);
+        for (int fileIndex = 0; fileIndex < files.Count; fileIndex++)
+        {
+            ArtifactAppearanceColorRoleDef[] current = files[fileIndex].Roles ?? [];
+            for (int roleIndex = 0; roleIndex < current.Length; roleIndex++)
+            {
+                ArtifactAppearanceColorRoleDef role = current[roleIndex];
+                if (role == null || string.IsNullOrWhiteSpace(role.Key) || !keys.Add(role.Key) ||
+                    !Enum.TryParse(role.SourceCategory, true, out ArtifactAtomCategory category) ||
+                    string.IsNullOrWhiteSpace(role.FallbackChannel) || role.Channels == null ||
+                    role.Channels.Length == 0 || !role.Channels.Contains(role.FallbackChannel) ||
+                    role.Channels.Any(channel => string.IsNullOrWhiteSpace(channel) || !channels.Add(channel)) ||
+                    catalog.ColorSchemes.Values.Any(scheme => !scheme.Colors.ContainsKey(role.FallbackChannel)))
+                {
+                    throw new InvalidDataException($"法器颜色职责配置无效: {role?.Key ?? "<null>"}");
+                }
+                role.AtomCategory = category;
+                roles.Add(role);
+            }
+        }
+        if (roles.Count == 0 || roles.Count(role => role.Base) != 1 || roles.Count(role => role.DrivesVisuals) > 1)
+            throw new InvalidDataException("法器颜色职责必须包含唯一主体职责，且至多一个职责驱动能力视觉");
+        catalog.SetColorRoles(roles);
+    }
+
+    private static void ValidateColorRoleCoverage(ArtifactAppearanceCatalog catalog)
+    {
+        foreach (ArtifactAppearanceModuleDef module in catalog.Modules.Values)
+        {
+            for (int variantIndex = 0; variantIndex < module.Variants.Length; variantIndex++)
+            {
+                ArtifactAppearanceVariantDef variant = module.Variants[variantIndex];
+                if (variant.ModelData == null) continue;
+                for (int faceIndex = 0; faceIndex < variant.ModelData.Faces.Length; faceIndex++)
+                {
+                    string channel = variant.ModelData.Faces[faceIndex].Material;
+                    if (!catalog.TryGetColorRole(channel, out _))
+                    {
+                        throw new InvalidDataException(
+                            $"法器模型材质通道未分配颜色职责: {module.Key}.{variant.Key}.{channel}");
+                    }
+                }
+            }
+        }
     }
 
     private static T[] ReadJsonFiles<T>(string root, string pattern) where T : class

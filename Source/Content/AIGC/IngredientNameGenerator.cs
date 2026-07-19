@@ -114,14 +114,14 @@ public class IngredientNameGenerator : PromptNameGenerator<IngredientNameGenerat
             return GenerateDefaultName(legacyParam);
         }
 
-        var seed = NamingRuleUtils.StableHash($"{context.SourceAssetId}|{context.SourceName}|{context.ShapeId}|{context.ElementRootId}|{context.JindanId}|{context.QualityStage}|{context.QualityLevel}");
+        var seed = NamingRuleUtils.StableHash($"{context.SourceAssetId}|{context.SourceName}|{context.ShapeId}|{context.ElementRootId}|{context.JindanName}|{context.QualityStage}|{context.QualityLevel}");
         var descriptor = PickIngredientDescriptor(context, seed);
         var source = string.Empty;
         var shape = ItemShapes.PickIngredientNameCandidate(context.ShapeId, seed);
 
-        if (context.ShapeId == ItemShapes.Ball.id && !string.IsNullOrEmpty(context.JindanId))
+        if (context.ShapeId == ItemShapes.Ball.id && !string.IsNullOrEmpty(context.JindanName))
         {
-            source = NamingRuleUtils.TrimKnownSuffix(NamingRuleUtils.Localize(context.JindanId), "金丹", "丹");
+            source = NamingRuleUtils.TrimKnownSuffix(context.JindanName, "金丹", "丹");
             shape = seed % 2 == 0 ? "丹核" : "丹珠";
         }
 
@@ -179,9 +179,9 @@ public class IngredientNameGenerator : PromptNameGenerator<IngredientNameGenerat
 
     private static string PickIngredientDescriptor(IngredientNamingContext context, int seed)
     {
-        if (!string.IsNullOrEmpty(context.JindanId) && seed % 4 == 0)
+        if (!string.IsNullOrEmpty(context.JindanName) && seed % 4 == 0)
         {
-            var name = NamingRuleUtils.TrimKnownSuffix(NamingRuleUtils.Localize(context.JindanId), "金丹", "丹");
+            var name = NamingRuleUtils.TrimKnownSuffix(context.JindanName, "金丹", "丹");
             if (!string.IsNullOrEmpty(name)) return NamingRuleUtils.LimitNameLength(name, 3);
         }
 

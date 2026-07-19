@@ -11,7 +11,9 @@ public struct ArtifactMaterialRecord
 {
     public string shape_id;
     public string source_asset_id;
-    public string jindan_id;
+
+    /// <summary>材料携带的金丹规范名称；同名金丹按同一材料身份参与合并。</summary>
+    public string jindan_name;
     public int quality;
     public int count;
     public float iron;
@@ -27,12 +29,13 @@ public struct ArtifactMaterialRecord
     public float shen;
     public float jindan_strength;
 
+    /// <summary>按来源、金丹名称、品质和连续数值生成材料合并使用的稳定身份键。</summary>
     public string GetIdentityKey()
     {
         StringBuilder builder = new();
         builder.Append(shape_id).Append('|')
             .Append(source_asset_id).Append('|')
-            .Append(jindan_id).Append('|')
+            .Append(jindan_name).Append('|')
             .Append(quality);
         Append(builder, iron);
         Append(builder, wood);
