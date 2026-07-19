@@ -21,18 +21,23 @@ public struct ElixirIngredientCheck
     public bool   need_element_root;
     public string element_root_id;
     public bool   need_jindan;
-    public string jindan_id;
 
+    /// <summary>需要精确匹配的金丹规范名称；为空时仅要求材料含有金丹。</summary>
+    public string jindan_name;
+
+    /// <summary>判断该材料槽是否要求携带任意或指定类型的灵根。</summary>
     public bool NeedElementRoot()
     {
         return need_element_root || !string.IsNullOrEmpty(element_root_id);
     }
 
+    /// <summary>判断该材料槽是否要求携带任意或指定名称的金丹。</summary>
     public bool NeedJindan()
     {
-        return need_jindan || !string.IsNullOrEmpty(jindan_id);
+        return need_jindan || !string.IsNullOrEmpty(jindan_name);
     }
 
+    /// <summary>判断该材料槽是否还要求精确匹配掉落物名称。</summary>
     public bool NeedIngredientName()
     {
         return !string.IsNullOrEmpty(ingredient_name);
@@ -43,6 +48,7 @@ public struct ElixirIngredientCheck
     /// </summary>
     public int count;
 
+    /// <summary>按灵根、金丹规范名称和材料名称依次验证一个候选实体。</summary>
     public bool Check(Entity item_entity)
     {
         if (NeedElementRoot())
@@ -56,8 +62,9 @@ public struct ElixirIngredientCheck
         if (NeedJindan())
         {
             if (!item_entity.HasComponent<Jindan>()) return false;
-            if (!string.IsNullOrEmpty(jindan_id))
-                if (item_entity.GetComponent<Jindan>().Type.id != jindan_id)
+            if (!string.IsNullOrEmpty(jindan_name))
+                if (!string.Equals(item_entity.GetComponent<Jindan>().GetName(), jindan_name,
+                        StringComparison.Ordinal))
                     return false;
         }
 
@@ -70,6 +77,7 @@ public struct ElixirIngredientCheck
         return true;
     }
 
+    /// <summary>返回该材料槽最主要的可显示条件名称。</summary>
     public string GetName()
     {
         if (NeedElementRoot())
@@ -79,7 +87,7 @@ public struct ElixirIngredientCheck
 
         if (NeedJindan())
         {
-            return jindan_id.Localize();
+            return jindan_name;
         }
 
         if (NeedIngredientName())

@@ -79,6 +79,7 @@ internal sealed class ElementRootContributor : IActorSemanticContributor
     public string Id => "content.element_root";
     public int Priority => 100;
 
+    /// <summary>将角色灵根的类型与元素组成写入固有语义画像。</summary>
     public void Contribute(ActorExtend actor, SemanticProfileBuilder builder)
     {
         if (!actor.E.TryGetComponent(out ElementRoot root)) return;
@@ -97,6 +98,7 @@ internal sealed class CultibookContributor : IActorSemanticContributor
     public string Id => "content.cultibook";
     public int Priority => 200;
 
+    /// <summary>将角色主修功法和其他已学功法按掌握度写入已学习语义画像。</summary>
     public void Contribute(ActorExtend actor, SemanticProfileBuilder builder)
     {
         if (!actor.E.TryGetComponent(out ActorCultibookState state) || !state.HasMainCultibook) return;
@@ -215,14 +217,14 @@ internal sealed class JindanContributor : IActorSemanticContributor
     public string Id => "content.jindan";
     public int Priority => 500;
 
+    /// <summary>将角色当前金丹快照按强度和转数写入固有语义画像。</summary>
     public void Contribute(ActorExtend actor, SemanticProfileBuilder builder)
     {
-        if (!actor.E.TryGetComponent(out Jindan jindan)) return;
-        var asset = jindan.Type;
+        if (!actor.E.HasComponent<Jindan>() || actor.E.HasComponent<Yuanying>()) return;
+        ref var jindan = ref actor.E.GetComponent<Jindan>();
         var multiplier = 1f + Mathf.Log(1f + Mathf.Max(0f, jindan.strength), 2f) * 0.25f + jindan.stage * 0.2f;
-        var source = new SemanticSourceRef(Id, asset.id);
-        builder.Add(asset.Semantics, multiplier, SemanticScope.Intrinsic, source);
-        SemanticContributorTools.AddElements(builder, asset.composition, multiplier,
+        var source = new SemanticSourceRef(Id, jindan.formation.signature);
+        builder.Add(SemanticDescriptor.Weighted(jindan.formation.semantics), multiplier,
             SemanticScope.Intrinsic, source);
     }
 }
@@ -232,15 +234,15 @@ internal sealed class YuanyingContributor : IActorSemanticContributor
     public string Id => "content.yuanying";
     public int Priority => 600;
 
+    /// <summary>将角色当前元婴快照按强度和演化阶段写入固有语义画像。</summary>
     public void Contribute(ActorExtend actor, SemanticProfileBuilder builder)
     {
-        if (!actor.E.TryGetComponent(out Yuanying yuanying)) return;
-        var asset = yuanying.Type;
+        if (!actor.E.HasComponent<Yuanying>()) return;
+        ref var yuanying = ref actor.E.GetComponent<Yuanying>();
         var multiplier = 1.25f + Mathf.Log(1f + Mathf.Max(0f, yuanying.strength), 2f) * 0.3f +
                          yuanying.stage * 0.25f;
-        var source = new SemanticSourceRef(Id, asset.id);
-        builder.Add(asset.Semantics, multiplier, SemanticScope.Intrinsic, source);
-        SemanticContributorTools.AddElements(builder, asset.composition, multiplier,
+        var source = new SemanticSourceRef(Id, yuanying.formation.signature);
+        builder.Add(SemanticDescriptor.Weighted(yuanying.formation.semantics), multiplier,
             SemanticScope.Intrinsic, source);
     }
 }

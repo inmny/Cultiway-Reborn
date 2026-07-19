@@ -6,12 +6,10 @@ using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
-using NeoModLoader.api.attributes;
 using strings;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(Jindans))]
 public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
 {
     private const string      prefix = "Cultiway.Elixir";
@@ -43,13 +41,13 @@ public class Elixirs : ExtendLibrary<ElixirAsset, Elixirs>
             {
                 count = 1,
                 element_root_id = ElementRoots.Earth.id,
-                jindan_id = Jindans.Bentonite.id
+                jindan_name = "润土金丹"
             },
             new()
             {
                 count = 1,
                 element_root_id = ElementRoots.Wood.id,
-                jindan_id = Jindans.Condensed.id
+                jindan_name = "凝元金丹"
             },
             new()
             {

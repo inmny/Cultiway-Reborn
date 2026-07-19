@@ -150,11 +150,52 @@ internal static class NamingRuleUtils
         context.SecondaryElementValue = secondaryValue;
     }
 
+    /// <summary>把金丹名称、强度和元素组成合并进材料命名上下文。</summary>
     internal static void ApplyJindan(IngredientNamingContext context, Jindan jindan)
     {
         if (context == null) return;
-        context.JindanId = jindan.jindan_type;
+        context.JindanName = jindan.GetName();
         context.JindanStrength = jindan.strength;
+
+        var composition = jindan.GetComposition().AsArray();
+        var primary = GetMaxIndex(composition, out var primaryValue);
+        var secondary = GetSecondMaxIndex(composition, primary, out var secondaryValue);
+        MergeElementCandidate(context, primary, primaryValue);
+        MergeElementCandidate(context, secondary, secondaryValue);
+    }
+
+    /// <summary>将一个元素候选并入上下文，并始终维持主、次元素按强度降序排列。</summary>
+    private static void MergeElementCandidate(IngredientNamingContext context, int index, float value)
+    {
+        if (index == NoElement || value <= 0f) return;
+        if (index == context.PrimaryElementIndex)
+        {
+            context.PrimaryElementValue = Mathf.Max(context.PrimaryElementValue, value);
+            return;
+        }
+        if (index == context.SecondaryElementIndex)
+        {
+            context.SecondaryElementValue = Mathf.Max(context.SecondaryElementValue, value);
+            if (context.SecondaryElementValue <= context.PrimaryElementValue) return;
+            (context.PrimaryElementIndex, context.SecondaryElementIndex) =
+                (context.SecondaryElementIndex, context.PrimaryElementIndex);
+            (context.PrimaryElementValue, context.SecondaryElementValue) =
+                (context.SecondaryElementValue, context.PrimaryElementValue);
+            return;
+        }
+        if (context.PrimaryElementIndex == NoElement || value > context.PrimaryElementValue)
+        {
+            context.SecondaryElementIndex = context.PrimaryElementIndex;
+            context.SecondaryElementValue = context.PrimaryElementValue;
+            context.PrimaryElementIndex = index;
+            context.PrimaryElementValue = value;
+            return;
+        }
+        if (context.SecondaryElementIndex == NoElement || value > context.SecondaryElementValue)
+        {
+            context.SecondaryElementIndex = index;
+            context.SecondaryElementValue = value;
+        }
     }
 
     internal static string Localize(string key)

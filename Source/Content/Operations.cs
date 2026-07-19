@@ -9,7 +9,6 @@ using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
-using NeoModLoader.api.attributes;
 using UnityEngine;
 
 namespace Cultiway.Content;
@@ -17,7 +16,6 @@ namespace Cultiway.Content;
 /// <summary>
 /// DataGain一次性操作定义
 /// </summary>
-[Dependency(typeof(Jindans))]
 public class Operations : ExtendLibrary<OperationAsset, Operations>
 {
     public static OperationAsset ChangeGender { get; private set; }

@@ -327,9 +327,10 @@ public class ElixirEffectAtoms : ExtendLibrary<ElixirEffectAtomAsset, ElixirEffe
         return score;
     }
 
+    /// <summary>当丹方语义中存在主要金丹名称时返回金丹效果原子的固定适配分。</summary>
     private static float HasJindan(ElixirRecipeContext recipe)
     {
-        return string.IsNullOrEmpty(recipe.main_jindan_id) ? 0f : 3f;
+        return string.IsNullOrEmpty(recipe.main_jindan_name) ? 0f : 3f;
     }
 
     private static float Quality(ElixirRecipeContext recipe, int minStage)

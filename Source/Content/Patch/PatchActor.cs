@@ -10,6 +10,7 @@ using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Libraries;
 using Cultiway.Content.Sects;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -260,8 +261,9 @@ internal static class PatchActor
         Jindan? jindan_component = null;
         if (dead_ae.TryGetComponent(out Jindan jindan))
         {
+            jindan.formation = jindan.formation.DeepClone();
             jindan_component = jindan;
-            param.Add(jindan.Type.GetName());
+            param.Add(jindan.GetName());
         }
         var shape_asset = IngredientShapeGenerator.ResolveShapeAsset(__instance, dead_ae, param.ToArray()) ?? ItemShapes.ElementRoot;
         var shape_name = LM.Has(shape_asset.id) ? LM.Get(shape_asset.id) : shape_asset.id;

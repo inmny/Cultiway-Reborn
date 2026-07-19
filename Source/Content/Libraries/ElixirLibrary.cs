@@ -18,6 +18,7 @@ namespace Cultiway.Content.Libraries;
 
 public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
 {
+    /// <summary>初始化丹药库，并注册角色按需自动服用属性类丹药的钩子。</summary>
     public override void init()
     {
         base.init();
@@ -54,6 +55,7 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
         });
     }
 
+    /// <summary>创建一个没有预设配方内容的新丹药资产，并按需注册为动态资产。</summary>
     public ElixirAsset NewElixir(bool dynamic = true)
     {
         ElixirAsset asset = new()
@@ -68,6 +70,7 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
         return asset;
     }
 
+    /// <summary>从实际材料创建动态丹方，固化材料名称、金丹名称和效果生成语义。</summary>
     public ElixirAsset NewElixir(Entity[] ingredients, ActorExtend creator)
     {
         var asset = new ElixirAsset()
@@ -88,6 +91,10 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
             {
                 ing_check.ingredient_name = name.value;
             }
+            if (ing.TryGetComponent(out Jindan jindan))
+            {
+                ing_check.jindan_name = jindan.GetName();
+            }
 
             asset.ingredients[i] = ing_check;
         }
@@ -107,11 +114,13 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
         return asset;
     }
 
+    /// <summary>从当前已注册丹药资产中随机返回一个实例。</summary>
     public ElixirAsset GetRandom()
     {
         return list.GetRandom();
     }
 
+    /// <summary>汇总材料的元素、形态、金丹名称、强度和品质，形成稳定的丹方语义快照。</summary>
     private static ElixirRecipeContext BuildRecipeSemantic(Entity[] ingredients, ActorExtend creator)
     {
         var snapshot = new ElixirRecipeContext
@@ -143,13 +152,13 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
             strengthSum += Mathf.Max(context.ElementStrength, 0f) + Mathf.Max(context.JindanStrength, 0f);
             qualitySum += context.QualityStage * 9 + context.QualityLevel;
             NamingRuleUtils.Increment(shapeCounts, context.ShapeId);
-            NamingRuleUtils.Increment(jindanCounts, context.JindanId);
+            NamingRuleUtils.Increment(jindanCounts, context.JindanName);
         }
 
         snapshot.primary_element_index = NamingRuleUtils.GetMaxIndex(elementValues, out snapshot.primary_element_value);
         snapshot.secondary_element_index = NamingRuleUtils.GetSecondMaxIndex(elementValues, snapshot.primary_element_index, out snapshot.secondary_element_value);
         snapshot.main_shape_id = NamingRuleUtils.PickTopKey(shapeCounts);
-        snapshot.main_jindan_id = NamingRuleUtils.PickTopKey(jindanCounts);
+        snapshot.main_jindan_name = NamingRuleUtils.PickTopKey(jindanCounts);
         snapshot.strength = strengthSum / Mathf.Max(1, ingredients.Length);
 
         var avgQuality = contextCount > 0 ? qualitySum / contextCount : Mathf.Clamp(creator?.HasCultisys<Xian>() == true ? creator.GetCultisys<Xian>().CurrLevel : 0, 0, 35);
