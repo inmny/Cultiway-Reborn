@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using Friflo.Engine.ECS;
 
@@ -9,6 +10,7 @@ namespace Cultiway.Content.Components;
 public struct ArtifactAppearance : IComponent
 {
     public string template_key;
+    public ArtifactAppearanceColorRole[] color_roles = [];
     public ArtifactAppearancePart[] parts = [];
 
     public ArtifactAppearance()
@@ -18,12 +20,25 @@ public struct ArtifactAppearance : IComponent
     public string GetCacheKey()
     {
         StringBuilder builder = new(template_key);
+        ArtifactAppearanceColorRole[] roles = (ArtifactAppearanceColorRole[])(color_roles ?? []).Clone();
+        Array.Sort(roles, (left, right) => string.CompareOrdinal(left.role, right.role));
+        for (int i = 0; i < roles.Length; i++)
+        {
+            builder.Append("|color:").Append(roles[i].role).Append('=').Append(roles[i].color_scheme);
+        }
         for (int i = 0; i < parts.Length; i++)
         {
             builder.Append('|').Append(parts[i].GetCacheKey());
         }
         return builder.ToString();
     }
+}
+
+/// <summary>整件法宝在某项颜色职责上选中的配色方案。</summary>
+public struct ArtifactAppearanceColorRole
+{
+    public string role;
+    public string color_scheme;
 }
 
 /// <summary>

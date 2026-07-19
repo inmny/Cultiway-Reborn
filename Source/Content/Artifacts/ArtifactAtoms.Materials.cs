@@ -76,7 +76,7 @@ public partial class ArtifactAtoms
 
         Set(StarSilver, "star_silver", ArtifactAtomCategory.Material, ["星银", "天银", "流辉"],
             ["sword_blade3d.crystal", "sword_guard3d.crescent", "mirror3d.bronze_round"],
-            ["cold_crystal", "black_gold"],
+            ["moon_silver", "cold_crystal"],
             r => Shape(r, ItemShapes.Crystal, ItemShapes.Eye, ItemShapes.Feather, ItemShapes.Stone) +
                  Semantic(r, ArtifactMaterialTraits.Iron, 0.8f) +
                  Semantic(r, ArtifactMaterialTraits.Pos, 1f) + Quality(r, 1),
@@ -113,7 +113,7 @@ public partial class ArtifactAtoms
             ]);
 
         Set(BloodGold, "blood_gold", ArtifactAtomCategory.Material, ["血金", "赤金", "龙血"],
-            ["sword_blade3d.long_thorn", "ding3d.copper_ember"], ["copper_ember", "black_gold"],
+            ["sword_blade3d.long_thorn", "ding3d.copper_ember"], ["blood_jade", "copper_ember"],
             r => Shape(r, ItemShapes.Blood, ItemShapes.Horn, ItemShapes.Claw, ItemShapes.Tooth) +
                  Semantic(r, ArtifactMaterialTraits.Fire, 0.8f) +
                  Semantic(r, ArtifactMaterialTraits.Vitality, 1.15f),
@@ -125,7 +125,7 @@ public partial class ArtifactAtoms
             ]);
 
         Set(VoidStone, "void_stone", ArtifactAtomCategory.Material, ["虚石", "幽岩", "空冥"],
-            ["seal_mountain3d.amber", "mirror3d.bronze_round"], ["dark_steel", "black_gold"],
+            ["seal_mountain3d.amber", "mirror3d.bronze_round"], ["void_obsidian", "dark_steel"],
             r => Shape(r, ItemShapes.Stone, ItemShapes.Eye, ItemShapes.Liquid, ItemShapes.Shell) +
                  Semantic(r, ArtifactMaterialTraits.Entropy, 1.5f) +
                  Semantic(r, ArtifactMaterialTraits.Neg, 0.9f),
@@ -138,7 +138,7 @@ public partial class ArtifactAtoms
             ]);
 
         Set(CelestialSilk, "celestial_silk", ArtifactAtomCategory.Material, ["天蚕", "云锦", "玄绡"],
-            ["robe_panel3d.wide_blue", "robe_panel3d.split_green"], ["cold_crystal", "gold_jade"],
+            ["robe_panel3d.wide_blue", "robe_panel3d.split_green"], ["cloud_silk", "moon_silver"],
             r => Shape(r, ItemShapes.Silk, ItemShapes.Fur, ItemShapes.Feather, ItemShapes.Wing) +
                  Semantic(r, ArtifactMaterialTraits.Pos, 0.75f) + Quality(r, 1),
             [
@@ -164,7 +164,7 @@ public partial class ArtifactAtoms
             ]);
 
         Set(MoonWater, "moon_water", ArtifactAtomCategory.Material, ["月华", "玄水", "镜泉"],
-            ["mirror3d.jade_hex", "robe_panel3d.wide_blue"], ["cold_crystal"],
+            ["mirror3d.jade_hex", "robe_panel3d.wide_blue"], ["moon_silver", "cold_crystal"],
             r => Shape(r, ItemShapes.Liquid, ItemShapes.Lotus, ItemShapes.Eye, ItemShapes.Flower) +
                  Semantic(r, ArtifactMaterialTraits.Water, 1.2f) +
                  Semantic(r, ArtifactMaterialTraits.Neg, 0.45f),

@@ -275,6 +275,13 @@ public sealed class ArtifactAppearanceRuntimePreviewExporter : MonoBehaviour
     {
         if (source.parts.Length == 0) return source;
         string scheme = source.parts[0].color_scheme;
+        ArtifactAppearanceColorRole[] colorRoles = (source.color_roles ?? [])
+            .Select(role => new ArtifactAppearanceColorRole
+            {
+                role = role.role,
+                color_scheme = scheme,
+            })
+            .ToArray();
         ArtifactAppearancePart[] parts = new ArtifactAppearancePart[source.parts.Length];
         for (int i = 0; i < source.parts.Length; i++)
         {
@@ -285,6 +292,7 @@ public sealed class ArtifactAppearanceRuntimePreviewExporter : MonoBehaviour
         return new ArtifactAppearance
         {
             template_key = source.template_key,
+            color_roles = colorRoles,
             parts = parts,
         };
     }

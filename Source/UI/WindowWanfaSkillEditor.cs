@@ -285,7 +285,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         ReleasePreview();
         if (_draft == null || !IsDirty() || _closingApproved) return;
         _resumeAfterClose = true;
-        ModClass.I.StartCoroutine(ReopenAfterClose());
+        World.world.StartCoroutine(ReopenAfterClose());
     }
 
     private void Update()

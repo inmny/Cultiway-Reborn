@@ -52,6 +52,7 @@ internal static class BaibaoPavilionSaveDefinition
             blueprint.MaterialData.traits = blueprint.MaterialData.traits
                 .OrderBy(trait => trait.key, StringComparer.Ordinal)
                 .ToArray();
+            blueprint.Appearance.color_roles ??= [];
             blueprint.Appearance.parts ??= [];
             for (int i = 0; i < blueprint.Appearance.parts.Length; i++)
             {

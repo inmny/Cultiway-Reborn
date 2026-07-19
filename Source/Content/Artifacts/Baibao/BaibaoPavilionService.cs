@@ -340,6 +340,19 @@ public sealed class BaibaoPavilionService
         if (template.Shape != shape.appearance_family)
             return $"法宝外观模板与器形不匹配: {appearance.template_key}";
 
+        ArtifactAppearanceColorRole[] colorRoles = appearance.color_roles ?? [];
+        HashSet<string> colorRoleKeys = new(StringComparer.Ordinal);
+        for (int i = 0; i < colorRoles.Length; i++)
+        {
+            ArtifactAppearanceColorRole selection = colorRoles[i];
+            if (!colorRoleKeys.Add(selection.role) ||
+                Array.Find(catalog.ColorRoles, role => role.Key == selection.role) == null ||
+                !catalog.ColorSchemes.ContainsKey(selection.color_scheme))
+            {
+                return $"法宝颜色职责无效: {selection.role}";
+            }
+        }
+
         ArtifactAppearancePart[] parts = appearance.parts ?? [];
         if (parts.Length != template.Placements.Length) return "法宝外观槽位数量与模板不匹配";
         HashSet<string> slots = new(StringComparer.Ordinal);

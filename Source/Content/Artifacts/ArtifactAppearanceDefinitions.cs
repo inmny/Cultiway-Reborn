@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cultiway.Abstract;
+using Cultiway.Content.Libraries;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -112,6 +113,23 @@ public sealed class ArtifactAppearanceColorSchemeDef
 }
 
 /// <summary>
+/// 一类模型材质通道的配色职责。来源 Atom 类别决定候选配色，通道表决定该配色作用于模型的哪些部分。
+/// </summary>
+public sealed class ArtifactAppearanceColorRoleDef
+{
+    [JsonProperty("key")] public string Key;
+    [JsonProperty("order")] public int Order;
+    [JsonProperty("source_category")] public string SourceCategory;
+    [JsonProperty("base")] public bool Base;
+    [JsonProperty("drives_visuals")] public bool DrivesVisuals;
+    [JsonProperty("prefer_distinct")] public bool PreferDistinct;
+    [JsonProperty("fallback_channel")] public string FallbackChannel;
+    [JsonProperty("channels")] public string[] Channels = [];
+
+    [JsonIgnore] public ArtifactAtomCategory AtomCategory;
+}
+
+/// <summary>
 /// 配色方案提供给光效、粒子等外部表现使用的语义颜色，不依赖模型内部的材质通道命名。
 /// </summary>
 public sealed class ArtifactAppearanceVisualThemeDef
@@ -170,6 +188,7 @@ internal sealed class ArtifactAppearanceTemplatesFile
 internal sealed class ArtifactAppearanceColorsFile
 {
     [JsonProperty("schemes")] public ArtifactAppearanceColorSchemeDef[] Schemes = [];
+    [JsonProperty("roles")] public ArtifactAppearanceColorRoleDef[] Roles = [];
 }
 
 internal sealed class ArtifactAppearanceSurfacesFile

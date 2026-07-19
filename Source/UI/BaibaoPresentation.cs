@@ -154,23 +154,14 @@ internal static class BaibaoPresentation
         return AppearanceName("Color", key);
     }
 
-    public static Color GetColorSchemeSwatch(ArtifactAppearanceColorSchemeDef scheme)
+    public static Color GetColorSchemeSwatch(
+        ArtifactAppearanceColorSchemeDef scheme,
+        ArtifactAppearanceColorRoleDef role)
     {
-        string[] preferred = { "metal", "cloth", "top", "glass", "rim", "edge" };
-        for (int i = 0; i < preferred.Length; i++)
-        {
-            if (scheme.Colors.TryGetValue(preferred[i], out string value) &&
-                ColorUtility.TryParseHtmlString(value, out Color color))
-            {
-                return color;
-            }
-        }
-
-        foreach (string value in scheme.Colors.Values)
-        {
-            if (ColorUtility.TryParseHtmlString(value, out Color color)) return color;
-        }
-        return Color.gray;
+        return scheme.Colors.TryGetValue(role.FallbackChannel, out string value) &&
+               ColorUtility.TryParseHtmlString(value, out Color color)
+            ? color
+            : Color.gray;
     }
 
     public static string GetOrigin(ArtifactBlueprint blueprint)

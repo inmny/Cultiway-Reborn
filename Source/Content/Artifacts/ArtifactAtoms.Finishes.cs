@@ -52,7 +52,7 @@ public partial class ArtifactAtoms
     private static void ConfigureFinishAtoms()
     {
         Set(CloudPattern, "cloud_pattern", ArtifactAtomCategory.Finish, ["云纹", "流霞", "御风"],
-                    ["robe_panel3d.wide_blue", "sword_guard3d.wing"], ["cold_crystal", "gold_jade"],
+                    ["robe_panel3d.wide_blue", "sword_guard3d.wing"], ["cloud_silk", "moon_silver"],
                     r => Shape(r, ItemShapes.Feather, ItemShapes.Wing, ItemShapes.Silk, ItemShapes.Flower) +
                          Semantic(r, ArtifactMaterialTraits.Pos, 0.55f),
                     [
@@ -85,7 +85,7 @@ public partial class ArtifactAtoms
             ]);
 
         Set(WaterMoonPattern, "water_moon_pattern", ArtifactAtomCategory.Finish, ["水月", "镜花", "清辉"],
-            ["mirror3d.jade_hex", "robe_panel3d.wide_blue"], ["cold_crystal"],
+            ["mirror3d.jade_hex", "robe_panel3d.wide_blue"], ["moon_silver", "cold_crystal"],
             r => Shape(r, ItemShapes.Liquid, ItemShapes.Lotus, ItemShapes.Eye) +
                  Semantic(r, ArtifactMaterialTraits.Water, 1f) +
                  Semantic(r, ArtifactMaterialTraits.Spirituality, 0.65f),
@@ -157,7 +157,7 @@ public partial class ArtifactAtoms
 
         Set(VoidMark, "void_mark", ArtifactAtomCategory.Finish, ["虚痕", "空纹", "无间"],
             ["sword_grip3d.ringed", "mirror3d.bronze_round", "seal_mountain3d.amber"],
-            ["dark_steel", "black_gold"],
+            ["void_obsidian", "dark_steel"],
             r => Semantic(r, ArtifactMaterialTraits.Entropy, 1.4f) +
                  Semantic(r, ArtifactMaterialTraits.Spirituality, 0.45f) + Quality(r, 2),
             [

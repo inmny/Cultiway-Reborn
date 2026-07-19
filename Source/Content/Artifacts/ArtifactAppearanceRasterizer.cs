@@ -852,20 +852,22 @@ internal static class ArtifactAppearanceRasterizer
         {
             ArtifactAppearancePart part = appearance.parts[partIndex];
             if (part.slot != slot) continue;
-            ArtifactAppearanceColorSchemeDef scheme = null;
-            if (!string.IsNullOrEmpty(part.color_scheme))
-                catalog.ColorSchemes.TryGetValue(part.color_scheme, out scheme);
-            for (int colorIndex = 0; colorIndex < part.colors.Length; colorIndex++)
+            catalog.TryGetColorRole(material, out ArtifactAppearanceColorRoleDef role);
+            ArtifactAppearanceColorSchemeDef scheme = ResolveColorScheme(appearance, part, catalog, role);
+            ArtifactAppearanceColor[] colors = part.colors ?? [];
+            for (int colorIndex = 0; colorIndex < colors.Length; colorIndex++)
             {
-                if (part.colors[colorIndex].material == material)
+                if (colors[colorIndex].material == material)
                 {
                     Color32 color = ParseColor(
-                        part.colors[colorIndex].color_hex,
+                        colors[colorIndex].color_hex,
                         new Color32(154, 160, 168, 255));
                     return CreateRamp(color, scheme?.VisualTheme);
                 }
             }
-            if (scheme != null && scheme.Colors.TryGetValue(material, out string hex))
+            if (scheme != null &&
+                (scheme.Colors.TryGetValue(material, out string hex) ||
+                 role != null && scheme.Colors.TryGetValue(role.FallbackChannel, out hex)))
             {
                 Color32 color = ParseColor(hex, new Color32(154, 160, 168, 255));
                 return CreateRamp(color, scheme.VisualTheme);
@@ -873,6 +875,32 @@ internal static class ArtifactAppearanceRasterizer
             break;
         }
         return CreateRamp(new Color32(154, 160, 168, 255), null);
+    }
+
+    private static ArtifactAppearanceColorSchemeDef ResolveColorScheme(
+        ArtifactAppearance appearance,
+        ArtifactAppearancePart part,
+        ArtifactAppearanceCatalog catalog,
+        ArtifactAppearanceColorRoleDef role)
+    {
+        ArtifactAppearanceColorRole[] selections = appearance.color_roles ?? [];
+        if (role != null)
+        {
+            for (int i = 0; i < selections.Length; i++)
+            {
+                if (selections[i].role == role.Key &&
+                    catalog.ColorSchemes.TryGetValue(
+                        selections[i].color_scheme,
+                        out ArtifactAppearanceColorSchemeDef selected))
+                {
+                    return selected;
+                }
+            }
+        }
+        return !string.IsNullOrEmpty(part.color_scheme) &&
+               catalog.ColorSchemes.TryGetValue(part.color_scheme, out ArtifactAppearanceColorSchemeDef fallback)
+            ? fallback
+            : null;
     }
 
     private static ArtifactAppearanceSurfaceStyleDef ResolveSurface(

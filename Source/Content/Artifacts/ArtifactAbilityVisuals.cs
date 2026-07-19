@@ -218,6 +218,24 @@ public static class ArtifactAbilityVisuals
         ArtifactAppearance appearance,
         out ArtifactVisualTheme theme)
     {
+        ArtifactAppearanceCatalog catalog = ArtifactAppearanceCatalogLoader.Current;
+        ArtifactAppearanceColorRoleDef visualRole = catalog.VisualColorRole;
+        ArtifactAppearanceColorRole[] colorRoles = appearance.color_roles ?? [];
+        if (visualRole != null)
+        {
+            for (int i = 0; i < colorRoles.Length; i++)
+            {
+                if (colorRoles[i].role == visualRole.Key &&
+                    catalog.ColorSchemes.TryGetValue(
+                        colorRoles[i].color_scheme,
+                        out ArtifactAppearanceColorSchemeDef visualScheme) &&
+                    TryParseTheme(visualScheme.VisualTheme, out theme))
+                {
+                    return true;
+                }
+            }
+        }
+
         ArtifactAppearancePart[] parts = appearance.parts ?? [];
         Dictionary<string, int> schemeCounts = new(StringComparer.Ordinal);
         for (int i = 0; i < parts.Length; i++)
@@ -242,9 +260,7 @@ public static class ArtifactAbilityVisuals
             dominantCount = schemeCounts[schemeKey];
         }
         if (!string.IsNullOrEmpty(dominantScheme) &&
-            ArtifactAppearanceCatalogLoader.Current.ColorSchemes.TryGetValue(
-                dominantScheme,
-                out ArtifactAppearanceColorSchemeDef scheme) &&
+            catalog.ColorSchemes.TryGetValue(dominantScheme, out ArtifactAppearanceColorSchemeDef scheme) &&
             TryParseTheme(scheme.VisualTheme, out theme))
         {
             return true;

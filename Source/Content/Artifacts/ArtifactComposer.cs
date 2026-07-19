@@ -298,6 +298,8 @@ public static class ArtifactComposer
     {
         var catalog = ArtifactAppearanceCatalogLoader.Current;
         var parts = new List<ArtifactAppearancePart>();
+        ArtifactAppearanceColorRole[] colorRoles = PickColorRoles(atoms, compositionKey, template.Key);
+        string baseScheme = colorRoles.First(role => role.role == catalog.BaseColorRole.Key).color_scheme;
         var placements = template.Placements
             .OrderBy(item => item.Z)
             .ToArray();
@@ -310,8 +312,7 @@ public static class ArtifactComposer
                 slot = placement.Slot,
                 module = placement.Module,
                 variant = variant.Key,
-                color_scheme = PickColorScheme(atoms, compositionKey, template.Key, placement.Slot, module.Key,
-                    variant.Key),
+                color_scheme = baseScheme,
                 colors = [],
             });
         }
@@ -319,6 +320,7 @@ public static class ArtifactComposer
         return new ArtifactAppearance
         {
             template_key = template.Key,
+            color_roles = colorRoles,
             parts = parts.ToArray(),
         };
     }
@@ -356,29 +358,52 @@ public static class ArtifactComposer
         return score;
     }
 
-    private static string PickColorScheme(
+    private static ArtifactAppearanceColorRole[] PickColorRoles(
         IReadOnlyList<ArtifactAtomSelection> atoms,
         string compositionKey,
-        string templateKey,
-        string slot,
-        string moduleKey,
-        string variantKey)
+        string templateKey)
     {
         var catalog = ArtifactAppearanceCatalogLoader.Current;
-        if (catalog.ColorSchemes.Count == 0) return string.Empty;
         var schemes = catalog.ColorSchemes.Values.OrderBy(scheme => scheme.Key).ToArray();
-        var maxScore = schemes.Max(scheme => ColorScore(atoms, scheme.Key));
-        var best = schemes.Where(scheme => ColorScore(atoms, scheme.Key) == maxScore).ToArray();
-        return best[StableIndex(
-            $"{compositionKey}|color|{templateKey}|{slot}|{moduleKey}|{variantKey}", best.Length)].Key;
+        ArtifactAppearanceColorRoleDef[] roleDefs = catalog.ColorRoles;
+        ArtifactAppearanceColorRole[] result = new ArtifactAppearanceColorRole[roleDefs.Length];
+        HashSet<string> usedSchemes = new(StringComparer.Ordinal);
+        for (int roleIndex = 0; roleIndex < roleDefs.Length; roleIndex++)
+        {
+            ArtifactAppearanceColorRoleDef role = roleDefs[roleIndex];
+            float maxScore = schemes.Max(scheme => ColorScore(atoms, scheme.Key, role.AtomCategory));
+            ArtifactAppearanceColorSchemeDef[] best = maxScore > 0f
+                ? schemes.Where(scheme => ColorScore(atoms, scheme.Key, role.AtomCategory) == maxScore).ToArray()
+                : schemes;
+            if (role.PreferDistinct)
+            {
+                ArtifactAppearanceColorSchemeDef[] distinct = best
+                    .Where(scheme => !usedSchemes.Contains(scheme.Key))
+                    .ToArray();
+                if (distinct.Length > 0) best = distinct;
+            }
+            ArtifactAppearanceColorSchemeDef selected = best[StableIndex(
+                $"{compositionKey}|color-role|{templateKey}|{role.Key}", best.Length)];
+            result[roleIndex] = new ArtifactAppearanceColorRole
+            {
+                role = role.Key,
+                color_scheme = selected.Key,
+            };
+            usedSchemes.Add(selected.Key);
+        }
+        return result;
     }
 
-    private static float ColorScore(IReadOnlyList<ArtifactAtomSelection> atoms, string schemeKey)
+    private static float ColorScore(
+        IReadOnlyList<ArtifactAtomSelection> atoms,
+        string schemeKey,
+        ArtifactAtomCategory category)
     {
         float score = 0f;
         for (int i = 0; i < atoms.Count; i++)
         {
-            if (atoms[i].Atom.BiasesColorScheme(schemeKey)) score += atoms[i].Strength;
+            if (atoms[i].Atom.category == category && atoms[i].Atom.BiasesColorScheme(schemeKey))
+                score += atoms[i].Strength;
         }
         return score;
     }

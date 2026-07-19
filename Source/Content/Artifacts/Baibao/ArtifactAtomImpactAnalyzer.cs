@@ -172,8 +172,27 @@ public static class ArtifactAtomImpactAnalyzer
             .ToDictionary(part => part.slot, part => part.GetCacheKey(), StringComparer.Ordinal);
         Dictionary<string, string> afterParts = (after.parts ?? [])
             .ToDictionary(part => part.slot, part => part.GetCacheKey(), StringComparer.Ordinal);
+        bool colorPlanChanged = !ColorRolesEqual(before.color_roles ?? [], after.color_roles ?? []);
         return beforeParts.Keys.Union(afterParts.Keys, StringComparer.Ordinal)
-            .Count(slot => !beforeParts.TryGetValue(slot, out string beforeKey) ||
+            .Count(slot => colorPlanChanged || !beforeParts.TryGetValue(slot, out string beforeKey) ||
                            !afterParts.TryGetValue(slot, out string afterKey) || beforeKey != afterKey);
+    }
+
+    private static bool ColorRolesEqual(
+        IReadOnlyList<ArtifactAppearanceColorRole> left,
+        IReadOnlyList<ArtifactAppearanceColorRole> right)
+    {
+        if (left.Count != right.Count) return false;
+        Dictionary<string, string> rightSchemes = right.ToDictionary(
+            role => role.role,
+            role => role.color_scheme,
+            StringComparer.Ordinal);
+        for (int i = 0; i < left.Count; i++)
+        {
+            if (!rightSchemes.TryGetValue(left[i].role, out string scheme) ||
+                scheme != left[i].color_scheme)
+                return false;
+        }
+        return true;
     }
 }
