@@ -381,10 +381,39 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             // 保留同一个角色实体原地化身，身份、关系、物品和全部模组扩展数据自然保留
             var daemon = ActorTransformationService.TransformInPlace(a, transformInto);
             if (daemon == null) return false;
+            // 升魔者抛弃凡俗身份，脱离原国家并归属到对应恶魔阵营
+            AscendToDemonCamp(daemon, transformInto);
             // 界面提示：发起人化魔
             WorldLogUtils.LogDemonAscension(daemon, daemon);
             return true;
         };
+    }
+
+    /// <summary>
+    /// 升魔者抛弃凡俗身份：卸任国王与城市领主，脱离原国家与城市，归属到大魔对应的恶魔阵营。
+    /// 恶魔阵营取自 <paramref name="daemonAsset"/> 的 kingdom_id_wild（由 SetCamp 绑定），
+    /// 因此四个召唤恶魔谋划各自会归属到对应的混沌神阵营。
+    /// </summary>
+    private static void AscendToDemonCamp(Actor initiator, ActorAsset daemonAsset)
+    {
+        if (initiator == null || daemonAsset == null) return;
+
+        var demon_kingdom = World.world.kingdoms_wild.get(daemonAsset.kingdom_id_wild);
+        if (demon_kingdom == null) return;
+
+        // 卸任城市领主，避免出现"恶魔阵营的大魔仍担任凡人城市领袖"的不一致
+        if (initiator.city != null && initiator.city.leader == initiator)
+        {
+            initiator.city.removeLeader();
+        }
+        // 卸任国王，让原国家进入新王选举流程
+        if (initiator.isKing() && initiator.kingdom != null)
+        {
+            initiator.kingdom.kingLeftEvent();
+        }
+        // 先脱离凡人城市（setCity(null) 不改动 kingdom），再归属到恶魔阵营
+        initiator.setCity(null);
+        initiator.setKingdom(demon_kingdom);
     }
 
     /// <summary>
