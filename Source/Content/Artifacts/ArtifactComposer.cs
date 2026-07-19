@@ -192,23 +192,11 @@ public static class ArtifactComposer
         ArtifactRecipeContext context,
         ArtifactShapeAsset shape)
     {
-        List<ArtifactAtomSelection> atoms = new();
         ArtifactAtomAsset shapeAtom = PickBestShapeAtom(context, shape) ?? DefaultShapeAtom(shape);
-        AddIfNotNull(atoms, shapeAtom, NormalizeAtomStrength(Mathf.Max(1f, shapeAtom.ScoreFor(context))));
-
-        ArtifactAtomSelection[] matched = Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.All
-            .Where(atom => atom.category != ArtifactAtomCategory.Shape)
-            .Select(atom => new { Atom = atom, Score = atom.ScoreFor(context) })
-            .Where(candidate => candidate.Score >= candidate.Atom.minimum_score)
-            .OrderBy(candidate => candidate.Atom.category)
-            .ThenByDescending(candidate => candidate.Score)
-            .ThenBy(candidate => candidate.Atom.id, StringComparer.Ordinal)
-            .Select(candidate => new ArtifactAtomSelection(
-                candidate.Atom,
-                NormalizeAtomStrength(candidate.Score)))
-            .ToArray();
-        atoms.AddRange(matched);
-        return atoms.ToArray();
+        return ArtifactAtomSelector.Select(
+            context,
+            shapeAtom,
+            Cultiway.Content.Libraries.Manager.ArtifactAtomLibrary.All);
     }
 
     private static ArtifactAtomAsset PickBestShapeAtom(
@@ -424,11 +412,6 @@ public static class ArtifactComposer
                 .Append(atoms[i].Strength.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
         }
         return builder.ToString();
-    }
-
-    private static float NormalizeAtomStrength(float score)
-    {
-        return 0.75f + Mathf.Log(1f + Mathf.Max(0f, score), 2f) * 0.65f;
     }
 
     private static int StableIndex(string text, int count)

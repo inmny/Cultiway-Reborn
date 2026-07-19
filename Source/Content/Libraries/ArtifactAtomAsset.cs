@@ -29,6 +29,8 @@ public class ArtifactAtomAsset : Asset
     public string[] color_scheme_biases = [];
     public ArtifactMaterialTrait[] material_traits = [];
     public float minimum_score = 1f;
+    /// <summary>自然炼器时显化该 Atom 占用的表达容量；数值越高，越需要高品质且稳定的材料组合。</summary>
+    public float selection_cost = 1f;
     public int priority;
     public Func<ArtifactRecipeContext, float> ScoreRecipe;
 
