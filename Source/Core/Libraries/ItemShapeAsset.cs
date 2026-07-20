@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Core.Components;
+using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -275,6 +276,8 @@ public class Shape
 
 public class ItemShapeAsset : Asset
 {
+    /// <summary>物品形态本身稳定表达的语义，不包含来源与实体组件带来的语义。</summary>
+    public SemanticDescriptor semantics = new();
     public string major_texture_folder;
     public List<Sprite> major_textures = new();
     public List<Shape> major_shapes = new();

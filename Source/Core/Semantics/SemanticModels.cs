@@ -6,7 +6,7 @@ using Friflo.Engine.ECS;
 namespace Cultiway.Core.Semantics;
 
 /// <summary>
-/// 语义证据对角色的作用范围。查询可以只观察其中一部分。
+/// 语义证据对对象的作用范围。查询可以只观察其中一部分。
 /// </summary>
 [Flags]
 public enum SemanticScope
@@ -89,7 +89,7 @@ public struct SemanticContribution
 }
 
 /// <summary>
-/// 可挂到任意资产上的语义描述，不携带角色来源和作用范围。
+/// 可挂到任意资产上的语义描述，不携带具体来源和作用范围。
 /// </summary>
 public sealed class SemanticDescriptor
 {

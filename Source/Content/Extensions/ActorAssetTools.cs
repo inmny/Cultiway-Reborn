@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.Semantics;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using strings;
@@ -172,6 +173,24 @@ public static class ActorAssetTools
     {
         if (shape_ids == null) return asset;
         asset.GetExtend<ActorAssetExtend>().drop_item_shapes.AddIds(shape_ids);
+        return asset;
+    }
+
+    /// <summary>
+    /// 为生物种类累加稳定的先天语义。
+    /// </summary>
+    public static ActorAsset AddSemantics(this ActorAsset asset, params SemanticAsset[] semantics)
+    {
+        if (semantics == null || semantics.Length == 0) return asset;
+
+        var extend = asset.GetExtend<ActorAssetExtend>();
+        var builder = new SemanticDescriptorBuilder();
+        if (extend.semantics != null) builder.Add(extend.semantics);
+        for (var i = 0; i < semantics.Length; i++)
+        {
+            if (semantics[i] != null) builder.Add(semantics[i]);
+        }
+        extend.semantics = builder.Build();
         return asset;
     }
 

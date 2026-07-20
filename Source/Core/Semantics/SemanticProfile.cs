@@ -6,7 +6,7 @@ using System.Text;
 namespace Cultiway.Core.Semantics;
 
 /// <summary>
-/// 一条已经归属到角色的语义证据，完整保留来源和推导信息。
+/// 一条已经归属到对象的语义证据，完整保留来源和推导信息。
 /// </summary>
 public readonly struct SemanticEvidence
 {
@@ -77,7 +77,7 @@ public readonly struct SemanticQueryPolicy
 }
 
 /// <summary>
-/// 一个时点上的角色语义档案。它是派生缓存，不参与存档。
+/// 一个时点上的对象语义档案。它由当前状态派生，不参与存档。
 /// </summary>
 public sealed class SemanticProfile
 {
@@ -143,7 +143,7 @@ public readonly struct SemanticRank
 }
 
 /// <summary>
-/// 贡献器构建角色档案时使用的写入器。每条原始证据只按最强路径展开一次。
+/// 构建对象语义档案时使用的写入器。每条原始证据只按最强路径展开一次。
 /// </summary>
 public sealed class SemanticProfileBuilder
 {

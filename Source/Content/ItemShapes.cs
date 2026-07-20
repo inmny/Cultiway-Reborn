@@ -108,6 +108,7 @@ public partial class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
         };
         AddDynamicFoldersFromDisk();
         ConfigureIngredientDropRules();
+        ConfigureIngredientSemantics();
     }
 
     protected override void PostInit(ItemShapeAsset asset)

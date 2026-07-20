@@ -1,11 +1,16 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.Semantics;
 
 namespace Cultiway.Core;
 
 public class ActorAssetExtend
 {
+    /// <summary>
+    ///     该生物种类稳定表达的先天语义，不包含具体个体后天获得的状态。
+    /// </summary>
+    public SemanticDescriptor semantics = new();
     /// <summary>
     ///     是否必然有灵根
     /// </summary>

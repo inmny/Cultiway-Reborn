@@ -1,6 +1,5 @@
 using System;
 using Cultiway.Core.Libraries;
-using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -11,9 +10,6 @@ namespace Cultiway.Content.Libraries;
 /// </summary>
 public class ArtifactShapeAsset : ItemShapeAsset
 {
-    /// <summary>器形本身稳定表达的语义，不包含材料和能力带来的语义。</summary>
-    public SemanticDescriptor semantics = new();
-
     /// <summary>
     /// 外观目录中用于筛选组合模板的器形族。
     /// </summary>

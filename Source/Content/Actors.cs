@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Cultiway.Abstract;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.UI;
 using Cultiway.Utils.Extension;
@@ -14,7 +15,8 @@ using UnityEngine;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(ActorJobs), typeof(Architectures), typeof(KingdomAssets), typeof(ActorTraits), typeof(ItemShapes))]
+[Dependency(typeof(ActorJobs), typeof(Architectures), typeof(KingdomAssets), typeof(ActorTraits), typeof(ItemShapes),
+    typeof(CultivationSemantics))]
 public partial class Actors : ExtendLibrary<ActorAsset, Actors>
 {
     protected override bool AutoRegisterAssets() => true;
@@ -33,6 +35,7 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         SetupMing();
         SetupConstraintSpirit();
         SetupFantasyCreatures();
+        ConfigureSourceSemantics();
     }
 
     protected override void GlobalPostInit()
