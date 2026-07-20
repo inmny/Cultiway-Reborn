@@ -131,14 +131,14 @@ public partial class ArtifactAbilities
         Vector2 position = ArtifactManifestationTools.ResolveWorldAnchor(
             context.artifact,
             deployment.ResolveBodyAnchor());
-        ArtifactTargeting.ForEachHostile(controller, position, ability.GetNumber(EffectRadius), target =>
+        CombatTargeting.ForEachHostile(controller, position, ability.GetNumber(EffectRadius), target =>
         {
-            ArtifactDamageEffects.DealDamage(
+            CombatDamageEffects.DealDamage(
                 controller,
                 target,
                 SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
                 ElementComposition.Static.Fire);
-            ArtifactStatusEffects.ApplyTickingStatus(
+            CombatStatusEffects.ApplyTickingStatus(
                 target,
                 StatusEffects.Burn,
                 ability.GetNumber(StatusDuration),
@@ -258,21 +258,21 @@ public partial class ArtifactAbilities
             deployment.ResolveBodyAnchor());
         float totalRecovery = 0f;
         float totalWakan = 0f;
-        ArtifactTargeting.ForEachHostile(controller, position, ability.GetNumber(EffectRadius), target =>
+        CombatTargeting.ForEachHostile(controller, position, ability.GetNumber(EffectRadius), target =>
         {
             float damage = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier);
-            ArtifactDamageEffects.DealDamage(controller, target, damage, SoulComposition);
+            CombatDamageEffects.DealDamage(controller, target, damage, SoulComposition);
             totalRecovery += damage * ability.GetNumber(RestoreRatio);
-            totalWakan += ArtifactResourceEffects.DrainWakan(target, ability.GetNumber(DrainAmount));
-            ArtifactForceEffects.ApplyRadialForce(
+            totalWakan += CombatResourceEffects.DrainWakan(target, ability.GetNumber(DrainAmount));
+            CombatForceEffects.ApplyRadialForce(
                 controller,
                 target,
                 position,
                 ability.GetNumber(ForceStrength),
                 pull: true);
         });
-        ArtifactResourceEffects.RestoreHealth(controller, totalRecovery);
-        ArtifactResourceEffects.RestoreWakan(controller, totalWakan * ability.GetNumber(RestoreRatio));
+        CombatResourceEffects.RestoreHealth(controller, totalRecovery);
+        CombatResourceEffects.RestoreWakan(controller, totalWakan * ability.GetNumber(RestoreRatio));
     }
 
     private static void ConfigureHundredRefinementCore()

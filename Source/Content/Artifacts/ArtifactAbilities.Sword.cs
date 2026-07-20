@@ -285,7 +285,7 @@ public partial class ArtifactAbilities
     {
         Actor target = evt.Target.a;
         float armorLoss = Mathf.Max(1f, target.stats[S.armor] * ability.GetNumber(StatusStrength));
-        ArtifactStatusEffects.ApplyStatus(
+        CombatStatusEffects.ApplyStatus(
             target,
             StatusEffects.ArmorBreak,
             ability.GetNumber(StatusDuration),

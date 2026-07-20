@@ -108,7 +108,7 @@ public partial class ArtifactAbilities
         ArtifactIncomingDamageEvent evt)
     {
         float shield = runtime.GetNumber(ShieldCurrent);
-        float absorbed = ArtifactDamageEffects.AbsorbDamage(evt, ref shield);
+        float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield);
         runtime.SetNumber(ShieldCurrent, shield);
         ArtifactAbilityVisuals.Emit(
             context,
@@ -205,7 +205,7 @@ public partial class ArtifactAbilities
         ActiveAbilityUseOrigin __)
     {
         Actor controller = Controller(context);
-        ArtifactStatusEffects.ApplyStatus(
+        CombatStatusEffects.ApplyStatus(
             controller,
             StatusEffects.Concealed,
             ability.GetNumber(EffectDuration),
@@ -230,7 +230,7 @@ public partial class ArtifactAbilities
         ArtifactAbilityEndReason ___)
     {
         Actor controller = Controller(context);
-        ArtifactStatusEffects.RemoveStatus(controller, StatusEffects.Concealed, controller);
+        CombatStatusEffects.RemoveStatus(controller, StatusEffects.Concealed, controller);
     }
 
     private static void ApplyHeavenlyConcealmentReduction(
@@ -310,13 +310,13 @@ public partial class ArtifactAbilities
         Actor attacker = evt.Attacker.a;
         float diverted = evt.Damage * ability.GetNumber(DamageReduction);
         evt.Damage -= diverted;
-        ArtifactDamageEffects.DealRetaliationDamage(
+        CombatDamageEffects.DealRetaliationDamage(
             controller,
             attacker,
             diverted,
             evt.DamageComposition,
             evt.IgnoreDamageReduction);
-        ArtifactForceEffects.ApplyRadialForce(
+        CombatForceEffects.ApplyRadialForce(
             controller,
             attacker,
             controller.current_position,

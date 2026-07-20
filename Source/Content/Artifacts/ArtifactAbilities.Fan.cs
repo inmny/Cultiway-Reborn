@@ -97,21 +97,21 @@ public partial class ArtifactAbilities
         Actor controller = Controller(context);
         Vector2 center = controller.current_position;
         Vector2 direction = DirectionToTarget(context, target);
-        ArtifactTargeting.ForEachActorInSector(
+        CombatTargeting.ForEachActorInSector(
             controller,
             center,
             direction,
             ability.GetNumber(AttackRange),
             ability.GetNumber(ConeAngle),
-            ArtifactTargeting.TargetDisposition.Hostile,
+            CombatTargeting.TargetDisposition.Hostile,
             victim =>
             {
-                ArtifactDamageEffects.DealDamage(
+                CombatDamageEffects.DealDamage(
                     controller,
                     victim,
                     SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
                     GaleComposition);
-                ArtifactForceEffects.ApplyRadialForce(
+                CombatForceEffects.ApplyRadialForce(
                     controller,
                     victim,
                     center,
@@ -196,17 +196,17 @@ public partial class ArtifactAbilities
         Vector2 direction = DirectionToTarget(context, target);
         float damage = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier);
         ElementComposition fire = new(fire: 1f);
-        ArtifactTargeting.ForEachActorInSector(
+        CombatTargeting.ForEachActorInSector(
             controller,
             center,
             direction,
             ability.GetNumber(AttackRange),
             ability.GetNumber(ConeAngle),
-            ArtifactTargeting.TargetDisposition.Hostile,
+            CombatTargeting.TargetDisposition.Hostile,
             victim =>
             {
-                ArtifactDamageEffects.DealDamage(controller, victim, damage, fire);
-                ArtifactStatusEffects.ApplyTickingStatus(
+                CombatDamageEffects.DealDamage(controller, victim, damage, fire);
+                CombatStatusEffects.ApplyTickingStatus(
                     victim,
                     StatusEffects.Burn,
                     ability.GetNumber(StatusDuration),
@@ -292,22 +292,22 @@ public partial class ArtifactAbilities
         Vector2 direction = DirectionToTarget(context, target);
         int maxCount = ability.GetInteger(EffectCount);
         int changed = 0;
-        ArtifactTargeting.ForEachActorInSector(
+        CombatTargeting.ForEachActorInSector(
             controller,
             center,
             direction,
             ability.GetNumber(AttackRange),
             ability.GetNumber(ConeAngle),
-            ArtifactTargeting.TargetDisposition.Friendly,
-            actor => changed += ArtifactStatusEffects.CleanseNegativeStatuses(actor, maxCount));
-        ArtifactTargeting.ForEachActorInSector(
+            CombatTargeting.TargetDisposition.Friendly,
+            actor => changed += CombatStatusEffects.CleanseNegativeStatuses(actor, maxCount));
+        CombatTargeting.ForEachActorInSector(
             controller,
             center,
             direction,
             ability.GetNumber(AttackRange),
             ability.GetNumber(ConeAngle),
-            ArtifactTargeting.TargetDisposition.Hostile,
-            actor => changed += ArtifactStatusEffects.DispelPositiveStatuses(actor, maxCount));
+            CombatTargeting.TargetDisposition.Hostile,
+            actor => changed += CombatStatusEffects.DispelPositiveStatuses(actor, maxCount));
         ArtifactAbilityVisuals.Emit(
             context,
             ability,

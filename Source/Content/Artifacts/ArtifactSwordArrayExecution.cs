@@ -519,7 +519,7 @@ internal static class ArtifactSwordArrayExecution
 
     private static void CollectTargets(Actor owner, float attackRange, ListPool<Actor> targets)
     {
-        ArtifactTargeting.ForEachHostile(
+        CombatTargeting.ForEachHostile(
             owner,
             owner.current_position,
             attackRange,

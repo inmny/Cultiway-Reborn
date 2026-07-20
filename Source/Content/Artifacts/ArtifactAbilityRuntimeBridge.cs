@@ -36,7 +36,7 @@ internal static class ArtifactAbilityRuntimeBridge
             AttackType = attackType,
             Damage = damage,
             IgnoreDamageReduction = ignoreDamageReduction,
-            IsRetaliation = ArtifactDamageEffects.IsResolvingRetaliation,
+            IsRetaliation = CombatDamageEffects.IsResolvingReaction,
         };
         ArtifactAbilityDispatcher.Dispatch(self.E, evt);
         damageComposition = evt.DamageComposition;

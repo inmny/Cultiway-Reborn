@@ -174,14 +174,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             var actor = owner.GetComponent<ActorBinder>().Actor;
             if (actor == null || !actor.isAlive()) continue;
             ref var statusComp = ref statusEntity.GetComponent<StatusComponent>();
-            EventSystemHub.Publish(new GetHitEvent()
-            {
-                TargetID = actor.data.id,
-                Damage = damage,
-                Element = tickState.Element,
-                Attacker = statusComp.Source,
-                AttackerPowerLevel = statusComp.SourcePowerLevel
-            });
+            CombatDamageEffects.DealReactionDamage(statusComp.Source, actor, damage, tickState.Element,
+                attackerPowerLevel: statusComp.SourcePowerLevel);
         }
     }
 
@@ -198,14 +192,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             var actor = owner.GetComponent<ActorBinder>().Actor;
             if (actor == null || !actor.isAlive()) continue;
             ref var statusComp = ref statusEntity.GetComponent<StatusComponent>();
-            EventSystemHub.Publish(new GetHitEvent()
-            {
-                TargetID = actor.data.id,
-                Damage = damage,
-                Element = tickState.Element,
-                Attacker = statusComp.Source,
-                AttackerPowerLevel = statusComp.SourcePowerLevel
-            });
+            CombatDamageEffects.DealReactionDamage(statusComp.Source, actor, damage, tickState.Element,
+                attackerPowerLevel: statusComp.SourcePowerLevel);
         }
     }
 
@@ -222,14 +210,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             var actor = owner.GetComponent<ActorBinder>().Actor;
             if (actor == null || !actor.isAlive()) continue;
             ref var statusComp = ref statusEntity.GetComponent<StatusComponent>();
-            EventSystemHub.Publish(new GetHitEvent()
-            {
-                TargetID = actor.data.id,
-                Damage = damage,
-                Element = tickState.Element,
-                Attacker = statusComp.Source,
-                AttackerPowerLevel = statusComp.SourcePowerLevel
-            });
+            CombatDamageEffects.DealReactionDamage(statusComp.Source, actor, damage, tickState.Element,
+                attackerPowerLevel: statusComp.SourcePowerLevel);
         }
     }
 }

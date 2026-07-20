@@ -125,15 +125,15 @@ public partial class ArtifactAbilities
         Vector2 center = ArtifactManifestationTools.ResolveWorldAnchor(
             context.artifact,
             deployment.ResolveBodyAnchor());
-        ArtifactTargeting.ForEachHostile(controller, center, ability.GetNumber(EffectRadius), target =>
+        CombatTargeting.ForEachHostile(controller, center, ability.GetNumber(EffectRadius), target =>
         {
-            ArtifactDamageEffects.DealDamage(
+            CombatDamageEffects.DealDamage(
                 controller,
                 target,
                 SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
                 SoulComposition);
-            ArtifactResourceEffects.DrainWakan(target, ability.GetNumber(DrainAmount));
-            ArtifactStatusEffects.ApplyStatus(
+            CombatResourceEffects.DrainWakan(target, ability.GetNumber(DrainAmount));
+            CombatStatusEffects.ApplyStatus(
                 target,
                 StatusEffects.Weaken,
                 ability.GetNumber(StatusDuration),
@@ -242,8 +242,8 @@ public partial class ArtifactAbilities
         Vector2 center = ArtifactManifestationTools.ResolveWorldAnchor(
             context.artifact,
             deployment.ResolveBodyAnchor());
-        ArtifactTargeting.ForEachFriendly(controller, center, ability.GetNumber(EffectRadius), target =>
-            ArtifactStatusEffects.ApplyStatus(
+        CombatTargeting.ForEachFriendly(controller, center, ability.GetNumber(EffectRadius), target =>
+            CombatStatusEffects.ApplyStatus(
                 target,
                 StatusEffects.Enlighten,
                 ability.GetNumber(StatusDuration),

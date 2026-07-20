@@ -174,7 +174,7 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
         SkillHitResolver.HitTarget(FlyingSword, ref context, skillContainer, execution, target, playImpact: true);
         if (motion.impact_force > 0f && target.isActor())
         {
-            ArtifactForceEffects.ApplyRadialForce(
+            CombatForceEffects.ApplyRadialForce(
                 owner,
                 target.a,
                 owner.current_position,

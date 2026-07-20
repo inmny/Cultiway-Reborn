@@ -1,26 +1,25 @@
 using System;
-using Cultiway.Content.Components;
-using Cultiway.Content.Events;
-using Cultiway.Core;
-using Cultiway.Core.Components;
-using Cultiway.Core.EventSystem;
-using Cultiway.Core.EventSystem.Events;
-using Cultiway.Core.Libraries;
-using Cultiway.Utils.Extension;
-using Friflo.Engine.ECS;
-using strings;
 using UnityEngine;
 
-namespace Cultiway.Content.Artifacts;/// <summary>法器能力共用的目标枚举与空间筛选原语。</summary>
-public static class ArtifactTargeting
+namespace Cultiway.Content.Combat;
+
+/// <summary>内容系统共用的目标枚举与空间筛选原语。</summary>
+public static class CombatTargeting
 {
+    /// <summary>相对于能力来源的目标阵营关系。</summary>
     public enum TargetDisposition
     {
+        /// <summary>不限制阵营关系。</summary>
         Any,
+
+        /// <summary>只选择来源可以攻击的目标。</summary>
         Hostile,
+
+        /// <summary>只选择来源自身或同一王国的目标。</summary>
         Friendly,
     }
 
+    /// <summary>枚举圆形范围内满足阵营关系的单位。</summary>
     public static void ForEachActor(
         Actor source,
         Vector2 center,
@@ -28,6 +27,7 @@ public static class ArtifactTargeting
         TargetDisposition disposition,
         Action<Actor> action)
     {
+        if (source == null || source.isRekt() || action == null) return;
         WorldTile tile = World.world.GetTile(Mathf.FloorToInt(center.x), Mathf.FloorToInt(center.y));
         if (tile == null) return;
 
@@ -45,20 +45,14 @@ public static class ArtifactTargeting
         }
     }
 
-    public static void ForEachHostile(
-        Actor source,
-        Vector2 center,
-        float radius,
-        Action<Actor> action)
+    /// <summary>枚举圆形范围内来源可以攻击的单位。</summary>
+    public static void ForEachHostile(Actor source, Vector2 center, float radius, Action<Actor> action)
     {
         ForEachActor(source, center, radius, TargetDisposition.Hostile, action);
     }
 
-    public static void ForEachFriendly(
-        Actor source,
-        Vector2 center,
-        float radius,
-        Action<Actor> action)
+    /// <summary>枚举圆形范围内来源自身和同一王国单位。</summary>
+    public static void ForEachFriendly(Actor source, Vector2 center, float radius, Action<Actor> action)
     {
         ForEachActor(source, center, radius, TargetDisposition.Friendly, action);
     }
@@ -70,6 +64,7 @@ public static class ArtifactTargeting
         float radius,
         Action<Actor> action)
     {
+        if (source == null || source.isRekt() || action == null) return;
         WorldTile tile = World.world.GetTile(Mathf.FloorToInt(center.x), Mathf.FloorToInt(center.y));
         if (tile == null) return;
 
@@ -84,7 +79,7 @@ public static class ArtifactTargeting
         }
     }
 
-    /// <summary>枚举给定朝向扇形内的目标，角度使用完整张角。</summary>
+    /// <summary>枚举给定朝向扇形内满足阵营关系的单位，角度使用完整张角。</summary>
     public static void ForEachActorInSector(
         Actor source,
         Vector2 center,

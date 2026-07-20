@@ -14,6 +14,7 @@ using Cultiway.Core.Components;
 using NeoModLoader.api.attributes;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.Combat;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Patch;
 using Cultiway.Utils;
@@ -474,7 +475,16 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     private static Action<ActorExtend, BaseSimObject, float, ElementComposition, AttackType>
         action_on_damage_resolved;
     private static Action<ActorExtend, Entity, int, SkillCastFundingSource> action_on_skill_cast_completed;
+    private static readonly ActionOnFinalDamage[] action_on_final_damage =
+        new ActionOnFinalDamage[System.Enum.GetValues(typeof(FinalDamageStage)).Length];
     public delegate void ActionBeforeBeAttacked(ActorExtend self, BaseSimObject attacker, ref ElementComposition damage_composition, ref AttackType attack_type, ref float damage, ref bool ignore_damage_reduction);
+    /// <summary>在伤害扣除生命前修改最终伤害值的回调。</summary>
+    public delegate void ActionOnFinalDamage(
+        ActorExtend self,
+        BaseSimObject attacker,
+        ElementComposition damageComposition,
+        AttackType attackType,
+        ref float damage);
     private static ActionBeforeBeAttacked action_before_be_attacked;
     public float GetStat(string stat_id)
     {
@@ -656,6 +666,27 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     public static void RegisterActionBeforeBeAttacked(ActionBeforeBeAttacked action)
     {
         action_before_be_attacked += action;
+    }
+
+    /// <summary>把最终伤害修正规则注册到指定稳定阶段。</summary>
+    public static void RegisterActionOnFinalDamage(FinalDamageStage stage, ActionOnFinalDamage action)
+    {
+        if (action == null) return;
+        action_on_final_damage[(int)stage] += action;
+    }
+
+    /// <summary>按固定阶段顺序执行全部最终伤害修正规则，并禁止产生负伤害。</summary>
+    internal void ApplyFinalDamageActions(
+        BaseSimObject attacker,
+        ElementComposition composition,
+        AttackType attackType,
+        ref float damage)
+    {
+        for (var i = 0; i < action_on_final_damage.Length && damage > 0f; i++)
+        {
+            action_on_final_damage[i]?.Invoke(this, attacker, composition, attackType, ref damage);
+            damage = Mathf.Max(0f, damage);
+        }
     }
 
     /// <summary>

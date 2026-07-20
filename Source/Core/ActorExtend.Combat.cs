@@ -542,6 +542,8 @@ public partial class ActorExtend
             damage_debug.VanillaSpecialFinalDamage = damage;
         }
 
+        ApplyFinalDamageActions(attacker, damage_composition, attack_type_for_vanilla, ref damage);
+
         if (damage_debug != null)
         {
             damage_debug.FinalDamage = damage;

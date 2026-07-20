@@ -146,19 +146,19 @@ public partial class ArtifactAbilities
             context.artifact,
             deployment.ResolveBodyAnchor());
         float radius = ability.GetNumber(EffectRadius);
-        ArtifactTargeting.ForEachHostile(controller, position, radius, target =>
+        CombatTargeting.ForEachHostile(controller, position, radius, target =>
         {
-            ArtifactDamageEffects.DealDamage(
+            CombatDamageEffects.DealDamage(
                 controller,
                 target,
                 SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
                 ElementComposition.Static.Earth);
-            ArtifactStatusEffects.ApplyStatus(
+            CombatStatusEffects.ApplyStatus(
                 target,
                 StatusEffects.Daze,
                 ability.GetNumber(StatusDuration),
                 controller);
-            ArtifactForceEffects.ApplyRadialForce(
+            CombatForceEffects.ApplyRadialForce(
                 controller,
                 target,
                 position,
@@ -277,14 +277,14 @@ public partial class ArtifactAbilities
         Vector2 position = ArtifactManifestationTools.ResolveWorldAnchor(
             context.artifact,
             deployment.ResolveBodyAnchor());
-        ArtifactTargeting.ForEachHostile(controller, position, ability.GetNumber(EffectRadius), target =>
+        CombatTargeting.ForEachHostile(controller, position, ability.GetNumber(EffectRadius), target =>
         {
-            ArtifactStatusEffects.ApplyStatus(
+            CombatStatusEffects.ApplyStatus(
                 target,
                 StatusEffects.Silence,
                 ability.GetNumber(StatusDuration),
                 controller);
-            ArtifactResourceEffects.DrainWakan(target, ability.GetNumber(DrainAmount));
+            CombatResourceEffects.DrainWakan(target, ability.GetNumber(DrainAmount));
         });
     }
 
@@ -358,9 +358,9 @@ public partial class ArtifactAbilities
         Actor victim = target.Object.a;
         float strength = ability.GetNumber(StatusStrength);
         float duration = ability.GetNumber(StatusDuration);
-        ArtifactStatusEffects.ApplyStatus(victim, StatusEffects.Slow, duration, S.multiplier_speed, -strength, controller);
-        ArtifactStatusEffects.ApplyStatus(victim, StatusEffects.Weaken, duration, S.multiplier_damage, -strength, controller);
-        ArtifactResourceEffects.DrainWakan(victim, ability.GetNumber(DrainAmount));
+        CombatStatusEffects.ApplyStatus(victim, StatusEffects.Slow, duration, S.multiplier_speed, -strength, controller);
+        CombatStatusEffects.ApplyStatus(victim, StatusEffects.Weaken, duration, S.multiplier_damage, -strength, controller);
+        CombatResourceEffects.DrainWakan(victim, ability.GetNumber(DrainAmount));
         ArtifactAbilityVisuals.Emit(
             context,
             ability,

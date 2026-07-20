@@ -118,7 +118,7 @@ public partial class ArtifactAbilities
         ArtifactIncomingDamageEvent evt)
     {
         float shield = runtime.GetNumber(ShieldCurrent);
-        float absorbed = ArtifactDamageEffects.AbsorbDamage(evt, ref shield);
+        float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield);
         runtime.SetNumber(ShieldCurrent, shield);
         ArtifactAbilityVisuals.Emit(
             context,
@@ -238,7 +238,7 @@ public partial class ArtifactAbilities
         float _)
     {
         Actor controller = Controller(context);
-        ArtifactDamageEffects.DealAreaDamage(
+        CombatDamageEffects.DealAreaDamage(
             controller,
             runtime.activity_position,
             ability.GetNumber(EffectRadius),
@@ -306,7 +306,7 @@ public partial class ArtifactAbilities
         ArtifactSkillCastEvent evt)
     {
         int counted = Mathf.Min(evt.EmittedCount, ability.GetInteger(EffectCount));
-        float restored = ArtifactResourceEffects.RestoreWakan(
+        float restored = CombatResourceEffects.RestoreWakan(
             Controller(context),
             ability.GetNumber(ResonanceRestore) * Mathf.Sqrt(counted));
         ArtifactAbilityVisuals.Emit(

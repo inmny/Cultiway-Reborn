@@ -83,7 +83,7 @@ public partial class ArtifactAbilities
         Actor attacker = evt.Attacker.a;
         float reflected = evt.Damage * ability.GetNumber(ReflectRatio);
         evt.Damage -= reflected;
-        ArtifactDamageEffects.DealRetaliationDamage(
+        CombatDamageEffects.DealRetaliationDamage(
             controller,
             attacker,
             reflected,
@@ -201,16 +201,16 @@ public partial class ArtifactAbilities
             deployment.ResolveBodyAnchor());
         int maxCount = ability.GetInteger(EffectCount);
         int affected = 0;
-        ArtifactTargeting.ForEachFriendly(controller, position, ability.GetNumber(EffectRadius), target =>
-            affected += ArtifactStatusEffects.CleanseNegativeStatuses(target, maxCount));
-        ArtifactTargeting.ForEachEnemyIncludingConcealed(
+        CombatTargeting.ForEachFriendly(controller, position, ability.GetNumber(EffectRadius), target =>
+            affected += CombatStatusEffects.CleanseNegativeStatuses(target, maxCount));
+        CombatTargeting.ForEachEnemyIncludingConcealed(
             controller,
             position,
             ability.GetNumber(EffectRadius),
             target =>
             {
-                affected += ArtifactStatusEffects.RemoveStatus(target, StatusEffects.Concealed);
-                affected += ArtifactStatusEffects.DispelPositiveStatuses(target, maxCount);
+                affected += CombatStatusEffects.RemoveStatus(target, StatusEffects.Concealed);
+                affected += CombatStatusEffects.DispelPositiveStatuses(target, maxCount);
             });
         if (affected > 0)
         {
@@ -296,11 +296,11 @@ public partial class ArtifactAbilities
     {
         Actor controller = Controller(context);
         Actor victim = target.Object.a;
-        float drained = ArtifactResourceEffects.DrainWakan(victim, ability.GetNumber(DrainAmount));
-        ArtifactResourceEffects.RestoreWakan(controller, drained * ability.GetNumber(RestoreRatio));
+        float drained = CombatResourceEffects.DrainWakan(victim, ability.GetNumber(DrainAmount));
+        CombatResourceEffects.RestoreWakan(controller, drained * ability.GetNumber(RestoreRatio));
         float duration = ability.GetNumber(StatusDuration);
-        ArtifactStatusEffects.ApplyStatus(victim, StatusEffects.Daze, duration, controller);
-        ArtifactStatusEffects.ApplyStatus(victim, StatusEffects.Silence, duration, controller);
+        CombatStatusEffects.ApplyStatus(victim, StatusEffects.Daze, duration, controller);
+        CombatStatusEffects.ApplyStatus(victim, StatusEffects.Silence, duration, controller);
         ArtifactAbilityVisuals.Emit(
             context,
             ability,

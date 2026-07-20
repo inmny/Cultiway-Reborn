@@ -145,17 +145,17 @@ public partial class ArtifactAbilities
             deployment.ResolveBodyAnchor());
         float absorbedPower = 0f;
         BaseSimObject lastTarget = null;
-        ArtifactTargeting.ForEachHostile(controller, center, ability.GetNumber(EffectRadius), target =>
+        CombatTargeting.ForEachHostile(controller, center, ability.GetNumber(EffectRadius), target =>
         {
-            ArtifactDamageEffects.DealDamage(
+            CombatDamageEffects.DealDamage(
                 controller,
                 target,
                 SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
                 MaterialComposition(context));
-            float drained = ArtifactResourceEffects.DrainWakan(target, ability.GetNumber(DrainAmount));
+            float drained = CombatResourceEffects.DrainWakan(target, ability.GetNumber(DrainAmount));
             absorbedPower += Mathf.Max(drained, ability.GetNumber(StorePerTrigger));
             lastTarget = target;
-            ArtifactForceEffects.ApplyRadialForce(
+            CombatForceEffects.ApplyRadialForce(
                 controller,
                 target,
                 center,
@@ -274,7 +274,7 @@ public partial class ArtifactAbilities
             ref storage,
             ArtifactStorageOperations.Wakan,
             Mathf.Min(required, ability.GetNumber(ReleasePerTick)));
-        float restored = ArtifactResourceEffects.RestoreWakan(controller.Base, taken);
+        float restored = CombatResourceEffects.RestoreWakan(controller.Base, taken);
         if (restored < taken)
         {
             ArtifactStorageOperations.Store(ref storage, ArtifactStorageOperations.Wakan, taken - restored);
@@ -368,16 +368,16 @@ public partial class ArtifactAbilities
                        (ability.GetNumber(DamageMultiplier) + stored * ability.GetNumber(StoredPowerBonus));
         ElementComposition composition = MaterialComposition(context);
         ArtifactMaterialData material = context.artifact.GetComponent<ArtifactMaterialData>();
-        ArtifactTargeting.ForEachActorInSector(
+        CombatTargeting.ForEachActorInSector(
             controller,
             center,
             direction,
             ability.GetNumber(AttackRange),
             ability.GetNumber(ConeAngle),
-            ArtifactTargeting.TargetDisposition.Hostile,
+            CombatTargeting.TargetDisposition.Hostile,
             victim =>
             {
-                ArtifactDamageEffects.DealDamage(controller, victim, damage, composition);
+                CombatDamageEffects.DealDamage(controller, victim, damage, composition);
                 ApplyFiveEssenceStatus(controller, victim, material, ability.GetNumber(StatusDuration), damage * 0.16f);
             });
         ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime, center, direction);
@@ -400,7 +400,7 @@ public partial class ArtifactAbilities
         if (maximum <= 0f) return;
         if (maximum == fire)
         {
-            ArtifactStatusEffects.ApplyTickingStatus(
+            CombatStatusEffects.ApplyTickingStatus(
                 target,
                 StatusEffects.Burn,
                 duration,
@@ -410,7 +410,7 @@ public partial class ArtifactAbilities
         }
         else if (maximum == wood)
         {
-            ArtifactStatusEffects.ApplyTickingStatus(
+            CombatStatusEffects.ApplyTickingStatus(
                 target,
                 StatusEffects.Poison,
                 duration,
@@ -420,15 +420,15 @@ public partial class ArtifactAbilities
         }
         else if (maximum == water)
         {
-            ArtifactStatusEffects.ApplyStatus(target, StatusEffects.Slow, duration, source);
+            CombatStatusEffects.ApplyStatus(target, StatusEffects.Slow, duration, source);
         }
         else if (maximum == earth)
         {
-            ArtifactStatusEffects.ApplyStatus(target, StatusEffects.Daze, duration * 0.35f, source);
+            CombatStatusEffects.ApplyStatus(target, StatusEffects.Daze, duration * 0.35f, source);
         }
         else
         {
-            ArtifactStatusEffects.ApplyStatus(target, StatusEffects.ArmorBreak, duration, source);
+            CombatStatusEffects.ApplyStatus(target, StatusEffects.ArmorBreak, duration, source);
         }
     }
 

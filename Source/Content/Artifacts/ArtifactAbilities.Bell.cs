@@ -97,15 +97,15 @@ public partial class ArtifactAbilities
     {
         Actor controller = Controller(context);
         Vector2 center = controller.current_position;
-        ArtifactTargeting.ForEachHostile(controller, center, ability.GetNumber(EffectRadius), target =>
+        CombatTargeting.ForEachHostile(controller, center, ability.GetNumber(EffectRadius), target =>
         {
-            ArtifactDamageEffects.DealDamage(
+            CombatDamageEffects.DealDamage(
                 controller,
                 target,
                 SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
                 SoulComposition);
-            ArtifactStatusEffects.ApplyStatus(target, StatusEffects.Daze, ability.GetNumber(StatusDuration), controller);
-            ArtifactForceEffects.ApplyRadialForce(
+            CombatStatusEffects.ApplyStatus(target, StatusEffects.Daze, ability.GetNumber(StatusDuration), controller);
+            CombatForceEffects.ApplyRadialForce(
                 controller,
                 target,
                 center,
@@ -185,10 +185,10 @@ public partial class ArtifactAbilities
         int count = ability.GetInteger(EffectCount);
         float radius = ability.GetNumber(EffectRadius);
         int changed = 0;
-        ArtifactTargeting.ForEachFriendly(controller, controller.current_position, radius, target =>
-            changed += ArtifactStatusEffects.CleanseNegativeStatuses(target, count));
-        ArtifactTargeting.ForEachHostile(controller, controller.current_position, radius, target =>
-            changed += ArtifactStatusEffects.DispelPositiveStatuses(target, count));
+        CombatTargeting.ForEachFriendly(controller, controller.current_position, radius, target =>
+            changed += CombatStatusEffects.CleanseNegativeStatuses(target, count));
+        CombatTargeting.ForEachHostile(controller, controller.current_position, radius, target =>
+            changed += CombatStatusEffects.DispelPositiveStatuses(target, count));
         ArtifactAbilityVisuals.Emit(
             context,
             ability,
@@ -301,7 +301,7 @@ public partial class ArtifactAbilities
         ArtifactIncomingDamageEvent evt)
     {
         float shield = runtime.GetNumber(ShieldCurrent);
-        float absorbed = ArtifactDamageEffects.AbsorbDamage(evt, ref shield);
+        float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield);
         runtime.SetNumber(ShieldCurrent, shield);
         ArtifactAbilityVisuals.Emit(
             context,

@@ -162,16 +162,16 @@ public partial class ArtifactAbilities
             deployment.ResolveBodyAnchor());
         float radius = ability.GetNumber(FieldRadius);
         float statusDuration = ability.GetNumber(StatusDuration);
-        ArtifactTargeting.ForEachHostile(controller, position, radius, target =>
+        CombatTargeting.ForEachHostile(controller, position, radius, target =>
         {
-            ArtifactStatusEffects.ApplyStatus(
+            CombatStatusEffects.ApplyStatus(
                 target,
                 StatusEffects.Slow,
                 statusDuration,
                 S.multiplier_speed,
                 -0.45f,
                 controller);
-            ArtifactStatusEffects.ApplyStatus(
+            CombatStatusEffects.ApplyStatus(
                 target,
                 StatusEffects.Weaken,
                 statusDuration,
