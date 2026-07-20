@@ -12,6 +12,10 @@ public sealed class SemanticAsset : Asset
     public string name_key;
     public string description_key;
     public string icon_path;
+    /// <summary>用于规则化命名的候选词干；为空表示该语义不直接参与命名。</summary>
+    public string[] naming_stems = Array.Empty<string>();
+    /// <summary>语义进入规则化命名候选时的显著度倍率。</summary>
+    public float naming_salience;
     public string[] aliases = Array.Empty<string>();
     public string[] parent_ids = Array.Empty<string>();
     public SemanticImplication[] implications = Array.Empty<SemanticImplication>();

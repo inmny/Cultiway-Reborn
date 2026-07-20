@@ -268,16 +268,17 @@ internal static class PatchActor
         var shape_asset = IngredientShapeGenerator.ResolveShapeAsset(__instance, dead_ae, param.ToArray()) ?? ItemShapes.ElementRoot;
         var shape_name = LM.Has(shape_asset.id) ? LM.Get(shape_asset.id) : shape_asset.id;
         param.Add(shape_name);
-        var naming_context = IngredientNameGenerator.CreateContext(__instance, dead_ae, shape_asset);
-        var item_level = new ItemLevel
-        {
-            Stage = naming_context.QualityStage,
-            Level = naming_context.QualityLevel
-        };
+        var power_level = dead_ae.GetPowerLevel();
+        var xian_level = dead_ae.TryGetComponent(out Xian xian) ? xian.CurrLevel : 0;
+        var item_level = NamingRuleUtils.CalculateQuality(
+            power_level,
+            xian_level,
+            element_root_component.HasValue ? element_root_component.Value.GetStrength() : 0f,
+            jindan_component.HasValue ? jindan_component.Value.strength : 0f);
 
         SpecialItemUtils.Builder item_builder =
             SpecialItemUtils.StartBuild(shape_asset, __instance.data.created_time, __instance.getName(),
-                Mathf.Pow(10, Mathf.Min(dead_ae.GetPowerLevel(), 6)), __instance.asset?.id ?? string.Empty);
+                Mathf.Pow(10, Mathf.Min(power_level, 6)), __instance.asset?.id ?? string.Empty);
 
         item_builder.AddTag<TagIngredient>();
         item_builder.AddComponent(item_level);
@@ -297,21 +298,10 @@ internal static class PatchActor
         {
             item_builder.AddComponent(jindan_component.Value);
         }
-        if (dead_ae.Base.asset == Actors.Plant)
-        {
-            var plant_name = dead_ae.Base.getName();
-            if (string.IsNullOrEmpty(plant_name))
-            {
-                plant_name = IngredientNameGenerator.GenerateDefaultName(naming_context, param.ToArray());
-            }
-            item_builder.AddComponent(new EntityName(plant_name));
-        }
-        else
-        {
-            item_builder.AddComponent(new EntityName(IngredientNameGenerator.GenerateDefaultName(naming_context, param.ToArray())));
-        }
 
-        receiver.AddSpecialItem(item_builder.Build());
+        var ingredient = item_builder.Build();
+        ingredient.AddComponent(new EntityName(IngredientNameGenerator.GenerateDefaultName(ingredient)));
+        receiver.AddSpecialItem(ingredient);
     }
 
 }

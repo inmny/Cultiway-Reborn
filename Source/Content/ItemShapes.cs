@@ -152,6 +152,7 @@ public partial class ItemShapes : ExtendLibrary<ItemShapeAsset, ItemShapes>
             shape.CheckDropFeature = check_drop_feature;
         }
 
+        Set(ElementRoot, ["灵根", "根髓", "灵髓"], null);
         Set(Ball, ["珠", "核", "丸"], null);
 
         Set(Blood, ["血", "血珠", "血晶"], asset =>

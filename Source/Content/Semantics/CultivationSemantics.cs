@@ -340,69 +340,120 @@ public sealed class CultivationSemantics : ExtendLibrary<SemanticAsset, Cultivat
         Theme.Illusion = New("theme.illusion", "theme", "illusion");
         Theme.Dragon = New("theme.dragon", "theme", "dragon");
 
-        ConfigureMaterialIcons();
+        ConfigureMaterialPresentation();
     }
 
-    /// <summary>为材料档案可能直接产生的语义配置稳定图标。</summary>
-    private static void ConfigureMaterialIcons()
+    /// <summary>为材料档案可能直接产生的语义配置稳定图标和规则化命名词干。</summary>
+    private static void ConfigureMaterialPresentation()
     {
-        SetIcon(SkillSemantics.Element.Iron, "cultiway/icons/element_root/iron");
-        SetIcon(SkillSemantics.Element.Wood, "cultiway/icons/element_root/wood");
-        SetIcon(SkillSemantics.Element.Water, "cultiway/icons/element_root/water");
-        SetIcon(SkillSemantics.Element.Ice, "cultiway/icons/skill_modifiers/freeze");
-        SetIcon(SkillSemantics.Element.Poison, "cultiway/icons/skill_modifiers/poison");
-        SetIcon(SkillSemantics.Element.Fire, "cultiway/icons/element_root/fire");
-        SetIcon(SkillSemantics.Element.Earth, "cultiway/icons/element_root/earth");
-        SetIcon(SkillSemantics.Element.Neg, "cultiway/icons/element_root/neg");
-        SetIcon(SkillSemantics.Element.Pos, "cultiway/icons/element_root/pos");
-        SetIcon(SkillSemantics.Element.Entropy, "cultiway/icons/element_root/entropy");
-        SetIcon(SkillSemantics.Element.Wind, "cultiway/icons/artifact_atoms/tempest_fan");
-        SetIcon(SkillSemantics.Element.Lightning, "cultiway/icons/artifact_atoms/thunder_pattern");
-        SetIcon(SkillSemantics.Element.Generic, "cultiway/icons/element_root/common");
+        SetMaterialPresentation(SkillSemantics.Element.Iron, "cultiway/icons/element_root/iron", 1.35f,
+            "庚金", "金", "玄金");
+        SetMaterialPresentation(SkillSemantics.Element.Wood, "cultiway/icons/element_root/wood", 1.35f,
+            "青木", "青", "生");
+        SetMaterialPresentation(SkillSemantics.Element.Water, "cultiway/icons/element_root/water", 1.35f,
+            "玄水", "寒", "水");
+        SetMaterialPresentation(SkillSemantics.Element.Ice, "cultiway/icons/skill_modifiers/freeze", 1.4f,
+            "寒冰", "玄霜", "霜");
+        SetMaterialPresentation(SkillSemantics.Element.Poison, "cultiway/icons/skill_modifiers/poison", 1.45f,
+            "毒", "瘴", "蚀");
+        SetMaterialPresentation(SkillSemantics.Element.Fire, "cultiway/icons/element_root/fire", 1.35f,
+            "赤火", "炎", "赤");
+        SetMaterialPresentation(SkillSemantics.Element.Earth, "cultiway/icons/element_root/earth", 1.35f,
+            "厚土", "黄", "地");
+        SetMaterialPresentation(SkillSemantics.Element.Neg, "cultiway/icons/element_root/neg", 1.35f,
+            "幽阴", "幽", "玄");
+        SetMaterialPresentation(SkillSemantics.Element.Pos, "cultiway/icons/element_root/pos", 1.35f,
+            "阳华", "曜", "明");
+        SetMaterialPresentation(SkillSemantics.Element.Entropy, "cultiway/icons/element_root/entropy", 1.45f,
+            "混沌", "浊", "玄");
+        SetMaterialPresentation(SkillSemantics.Element.Wind, "cultiway/icons/artifact_atoms/tempest_fan", 1.4f,
+            "罡风", "风", "迅");
+        SetMaterialPresentation(SkillSemantics.Element.Lightning, "cultiway/icons/artifact_atoms/thunder_pattern", 1.45f,
+            "天雷", "雷", "霆");
+        SetMaterialPresentation(SkillSemantics.Element.Generic, "cultiway/icons/element_root/common", 0.45f,
+            "灵", "玄", "元");
 
-        SetIcon(Form.Blade, "cultiway/icons/artifact_atoms/sword_edge");
-        SetIcon(Form.Body, "cultiway/icons/artifact_atoms/vitality_robe");
-        SetIcon(Effect.ArmorBreak, "cultiway/icons/skill_modifiers/armor_break");
-        SetIcon(Effect.Binding, "cultiway/icons/artifact_atoms/soul_binding_script");
-        SetIcon(Effect.Concealment, "cultiway/icons/artifact_atoms/void_silk");
-        SetIcon(Effect.Impact, "cultiway/icons/artifact_atoms/earth_core");
-        SetIcon(Effect.Mobility, "cultiway/icons/artifact_atoms/cloud_riding_script");
-        SetIcon(Effect.Perception, "cultiway/icons/artifact_atoms/bright_mirror");
-        SetIcon(Effect.Purification, "cultiway/icons/artifact_atoms/purifying_bell");
-        SetIcon(Effect.Recovery, "cultiway/icons/artifact_atoms/vitality_ding");
-        SetIcon(Effect.Resonance, "cultiway/icons/artifact_atoms/resonance_rings");
-        SetIcon(Effect.Revealing, "cultiway/icons/artifact_atoms/soul_mirror");
-        SetIcon(Effect.Storage, "cultiway/icons/artifact_atoms/spirit_gourd");
-        SetIcon(Effect.Transformation, "cultiway/icons/artifact_atoms/transformation_pattern");
-        SetIcon(Effect.Ward, "cultiway/icons/artifact_atoms/robe_ward");
+        SetMaterialPresentation(Form.Blade, "cultiway/icons/artifact_atoms/sword_edge");
+        SetMaterialPresentation(Form.Body, "cultiway/icons/artifact_atoms/vitality_robe");
+        SetMaterialPresentation(Effect.ArmorBreak, "cultiway/icons/skill_modifiers/armor_break", 1.15f,
+            "破甲", "摧坚", "裂锋");
+        SetMaterialPresentation(Effect.Binding, "cultiway/icons/artifact_atoms/soul_binding_script", 1.15f,
+            "缚", "锁", "缠");
+        SetMaterialPresentation(Effect.Concealment, "cultiway/icons/artifact_atoms/void_silk", 1.15f,
+            "隐", "幽", "藏");
+        SetMaterialPresentation(Effect.Impact, "cultiway/icons/artifact_atoms/earth_core", 1.15f,
+            "震", "撼", "冲");
+        SetMaterialPresentation(Effect.Mobility, "cultiway/icons/artifact_atoms/cloud_riding_script", 1.15f,
+            "迅", "疾", "行");
+        SetMaterialPresentation(Effect.Perception, "cultiway/icons/artifact_atoms/bright_mirror", 1.15f,
+            "洞微", "明目", "灵视");
+        SetMaterialPresentation(Effect.Purification, "cultiway/icons/artifact_atoms/purifying_bell", 1.15f,
+            "净", "清", "无垢");
+        SetMaterialPresentation(Effect.Recovery, "cultiway/icons/artifact_atoms/vitality_ding", 1.15f,
+            "回春", "复元", "生肌");
+        SetMaterialPresentation(Effect.Resonance, "cultiway/icons/artifact_atoms/resonance_rings", 1.15f,
+            "共鸣", "回响", "灵应");
+        SetMaterialPresentation(Effect.Revealing, "cultiway/icons/artifact_atoms/soul_mirror", 1.15f,
+            "照真", "显影", "破妄");
+        SetMaterialPresentation(Effect.Storage, "cultiway/icons/artifact_atoms/spirit_gourd", 1.15f,
+            "纳灵", "藏元", "蕴");
+        SetMaterialPresentation(Effect.Transformation, "cultiway/icons/artifact_atoms/transformation_pattern", 1.15f,
+            "化生", "蜕", "幻");
+        SetMaterialPresentation(Effect.Ward, "cultiway/icons/artifact_atoms/robe_ward", 1.15f,
+            "护", "御", "障");
 
-        SetIcon(Material.Brittle, "cultiway/icons/artifact_atoms/crystal");
-        SetIcon(Material.Flexibility, "cultiway/icons/artifact_atoms/celestial_silk");
-        SetIcon(Material.Hardness, "cultiway/icons/artifact_atoms/iron");
-        SetIcon(Material.Immoveable, "cultiway/icons/artifact_atoms/heavy_seal");
-        SetIcon(Material.Lightweight, "cultiway/icons/artifact_atoms/cloud_pattern");
-        SetIcon(Material.Quality, "ui/icons/iconItemQuality");
-        SetIcon(Material.Stability, "cultiway/icons/artifact_atoms/mountain_pattern");
-        SetIcon(Material.Volatility, "cultiway/icons/artifact_atoms/ember");
+        SetMaterialPresentation(Material.Brittle, "cultiway/icons/artifact_atoms/crystal", 1.05f,
+            "晶脆", "裂", "碎");
+        SetMaterialPresentation(Material.Flexibility, "cultiway/icons/artifact_atoms/celestial_silk", 0.9f,
+            "柔", "韧", "绵");
+        SetMaterialPresentation(Material.Hardness, "cultiway/icons/artifact_atoms/iron", 0.9f,
+            "坚", "刚", "玄刚");
+        SetMaterialPresentation(Material.Immoveable, "cultiway/icons/artifact_atoms/heavy_seal", 1.1f,
+            "镇", "重", "岳");
+        SetMaterialPresentation(Material.Lightweight, "cultiway/icons/artifact_atoms/cloud_pattern", 1.1f,
+            "轻", "飘", "羽");
+        SetMaterialPresentation(Material.Quality, "ui/icons/iconItemQuality");
+        SetMaterialPresentation(Material.Stability, "cultiway/icons/artifact_atoms/mountain_pattern", 0.55f,
+            "固", "定", "凝");
+        SetMaterialPresentation(Material.Volatility, "cultiway/icons/artifact_atoms/ember", 1.15f,
+            "烈", "爆", "炽");
 
-        SetIcon(Resource.Reserve, "cultiway/icons/artifact_atoms/spirit_gourd");
-        SetIcon(Resource.Spirituality, "cultiway/icons/artifact_atoms/spirit_gathering_pattern");
-        SetIcon(Resource.Vitality, "cultiway/icons/artifact_atoms/life_pattern");
-        SetIcon(Craft.Alchemy, "cultiway/icons/iconElixirCauldron");
-        SetIcon(Craft.SpiritReservoir, "cultiway/icons/artifact_atoms/spirit_ding");
-        SetIcon(Role.Cultivation, "cultiway/icons/iconCultivation");
-        SetIcon(Theme.Dragon, "ui/icons/iconDragon");
-        SetIcon(Theme.Elemental, "cultiway/icons/artifact_atoms/element_pearl");
-        SetIcon(Theme.Illusion, "cultiway/icons/artifact_atoms/void_mirror");
-        SetIcon(Theme.Spirit, "cultiway/icons/artifact_atoms/spirit_awakening_script");
-        SetIcon(Trait.ElementRoot, "cultiway/icons/iconElement");
-        SetIcon(Realm.Jindan, "cultiway/icons/artifact_atoms/element_pearl");
-        SetIcon(Path.Sword, "cultiway/icons/artifact_atoms/sword_swarm");
+        SetMaterialPresentation(Resource.Reserve, "cultiway/icons/artifact_atoms/spirit_gourd", 0.85f,
+            "蓄灵", "蕴元", "纳气");
+        SetMaterialPresentation(Resource.Spirituality, "cultiway/icons/artifact_atoms/spirit_gathering_pattern", 0.85f,
+            "灵", "神", "玄灵");
+        SetMaterialPresentation(Resource.Vitality, "cultiway/icons/artifact_atoms/life_pattern", 0.65f,
+            "生机", "血元", "精元");
+        SetMaterialPresentation(Craft.Alchemy, "cultiway/icons/iconElixirCauldron", 1.15f,
+            "药", "丹", "炼");
+        SetMaterialPresentation(Craft.SpiritReservoir, "cultiway/icons/artifact_atoms/spirit_ding", 1.25f,
+            "灵池", "纳元", "聚灵");
+        SetMaterialPresentation(Role.Cultivation, "cultiway/icons/iconCultivation");
+        SetMaterialPresentation(Theme.Dragon, "ui/icons/iconDragon", 1.45f,
+            "龙", "苍龙", "真龙");
+        SetMaterialPresentation(Theme.Elemental, "cultiway/icons/artifact_atoms/element_pearl", 1.15f,
+            "元灵", "五行", "灵元");
+        SetMaterialPresentation(Theme.Illusion, "cultiway/icons/artifact_atoms/void_mirror", 1.25f,
+            "幻", "蜃", "虚");
+        SetMaterialPresentation(Theme.Soul, "cultiway/icons/artifact_atoms/soul_mirror", 1.25f,
+            "神魂", "魂", "魄");
+        SetMaterialPresentation(Theme.Spirit, "cultiway/icons/artifact_atoms/spirit_awakening_script", 1.25f,
+            "魂", "灵", "幽");
+        SetMaterialPresentation(Trait.ElementRoot, "cultiway/icons/iconElement");
+        SetMaterialPresentation(Realm.Jindan, "cultiway/icons/artifact_atoms/element_pearl");
+        SetMaterialPresentation(Path.Sword, "cultiway/icons/artifact_atoms/sword_swarm", 1.35f,
+            "剑意", "锋", "剑");
     }
 
-    private static void SetIcon(SemanticAsset semantic, string iconPath)
+    private static void SetMaterialPresentation(
+        SemanticAsset semantic,
+        string iconPath,
+        float namingSalience = 0f,
+        params string[] namingStems)
     {
         semantic.icon_path = iconPath;
+        semantic.naming_salience = namingSalience;
+        semantic.naming_stems = namingStems ?? Array.Empty<string>();
     }
 
     private SemanticAsset New(
