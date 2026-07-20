@@ -10,24 +10,19 @@ using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Cultiway.Content.UI.CreatureInfoPages;
 
 public class YuanyingPage : MonoBehaviour
 {
-    public Text Text { get; private set; }
+    /// <summary>金丹与元婴共用的紧凑详情布局。</summary>
+    private CoreFormationDetailView detailView;
 
     /// <summary>在角色信息页上创建元婴详情文本组件并应用基础字体样式。</summary>
     public static void Setup(CreatureInfoPage page)
     {
-        var this_page = page.gameObject.AddComponent<YuanyingPage>();
-        var text = page.gameObject.AddComponent<Text>();
-
-        text.font = Cultiway.UI.UiTheme.Current.Font;
-        text.fontSize = 8;
-
-        this_page.Text = text;
+        var thisPage = page.gameObject.AddComponent<YuanyingPage>();
+        thisPage.detailView = CoreFormationDetailView.Create(page);
     }
 
     /// <summary>根据当前角色的组合快照刷新元婴、金丹谱系、原子、组成和代表法术。</summary>
@@ -35,23 +30,25 @@ public class YuanyingPage : MonoBehaviour
     public static void Show(CreatureInfoPage page, Actor actor)
     {
         ActorExtend ae = actor.GetExtend();
-        var sb = new StringBuilder();
+        var header = new StringBuilder();
+        var footer = new StringBuilder();
 
         ref Yuanying yuanying = ref ae.GetYuanying();
-        sb.AppendLine(string.Format("Cultiway.CoreFormation.Page.Yuanying.Title".Localize(), yuanying.GetName()));
-        sb.AppendLine(string.Format("Cultiway.CoreFormation.Page.Yuanying.Strength".Localize(),
+        header.AppendLine(string.Format("Cultiway.CoreFormation.Page.Yuanying.Title".Localize(),
+            yuanying.GetName()));
+        header.AppendLine(string.Format("Cultiway.CoreFormation.Page.Yuanying.Strength".Localize(),
             yuanying.strength));
-        sb.AppendLine(string.Format("Cultiway.CoreFormation.Page.Yuanying.Lineage".Localize(),
+        header.AppendLine(string.Format("Cultiway.CoreFormation.Page.Yuanying.Lineage".Localize(),
             yuanying.source_jindan_name));
-        sb.AppendLine(string.Format("Cultiway.CoreFormation.Page.Atoms".Localize(),
-            string.Join("、", CoreFormationComposer.GetActiveAtomNames(yuanying.formation, yuanying.stage))));
-        JindanPage.AppendComposition(sb, yuanying.formation.composition);
+        string atoms = string.Format("Cultiway.CoreFormation.Page.Atoms".Localize(),
+            string.Join("、", CoreFormationComposer.GetActiveAtomNames(yuanying.formation, yuanying.stage)));
+        JindanPage.AppendComposition(footer, yuanying.formation.composition);
         var skill = yuanying.formation.representative_skill_id;
         if (!string.IsNullOrEmpty(skill))
-            sb.AppendLine(string.Format("Cultiway.CoreFormation.Page.Skill".Localize(),
+            footer.AppendLine(string.Format("Cultiway.CoreFormation.Page.Skill".Localize(),
                 LM.Has(skill) ? LM.Get(skill) : skill));
 
-        var this_page = page.GetComponent<YuanyingPage>();
-        this_page.Text.text = sb.ToString();
+        var thisPage = page.GetComponent<YuanyingPage>();
+        thisPage.detailView.SetContent(ae, header.ToString(), atoms, footer.ToString());
     }
 }
