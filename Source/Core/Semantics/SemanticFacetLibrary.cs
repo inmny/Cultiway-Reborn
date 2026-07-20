@@ -22,28 +22,29 @@ public sealed class SemanticFacetLibrary : AssetLibrary<SemanticFacetAsset>
 
     public override void init()
     {
-        Element = Add("element");
-        Form = Add("form");
-        Delivery = Add("delivery");
-        Motion = Add("motion");
-        Effect = Add("effect");
-        Role = Add("role");
-        Theme = Add("theme");
-        Craft = Add("craft");
-        Resource = Add("resource");
-        Material = Add("material");
-        Realm = Add("realm");
-        Path = Add("path");
-        Organization = Add("organization");
-        Trait = Add("trait");
+        Element = Add("element", "ui/icons/iconMana");
+        Form = Add("form", "ui/icons/iconBox");
+        Delivery = Add("delivery", "ui/icons/iconArrowDestination");
+        Motion = Add("motion", "ui/icons/iconSpeed");
+        Effect = Add("effect", "ui/icons/iconStatusBudding");
+        Role = Add("role", "ui/icons/citizen_jobs/iconCitizenJobBuilder");
+        Theme = Add("theme", "ui/icons/iconAges");
+        Craft = Add("craft", "ui/icons/iconCraftIron");
+        Resource = Add("resource", "ui/icons/iconMana");
+        Material = Add("material", "ui/icons/iconArtifact");
+        Realm = Add("realm", "ui/icons/iconLevels");
+        Path = Add("path", "ui/icons/religion_traits/religion_trait_path_of_unity");
+        Organization = Add("organization", "ui/icons/iconAlliance");
+        Trait = Add("trait", "ui/icons/iconEditTrait");
     }
 
-    private SemanticFacetAsset Add(string id)
+    private SemanticFacetAsset Add(string id, string iconPath)
     {
         return add(new SemanticFacetAsset
         {
             id = id,
-            name_key = $"Cultiway.SemanticFacet.{id}"
+            name_key = $"Cultiway.SemanticFacet.{id}",
+            icon_path = iconPath
         });
     }
 }

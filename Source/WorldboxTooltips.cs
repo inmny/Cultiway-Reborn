@@ -410,10 +410,12 @@ public partial class WorldboxGame
 
         private static void ShowSpecialItem(Tooltip tooltip, string type, TooltipData data = default)
         {
+            var specialItemTooltip = tooltip.GetComponent<SpecialItemTooltip>();
+            specialItemTooltip?.HideSemanticIcons();
             if (string.IsNullOrEmpty(data.tip_name)) return;
             Entity entity = ModClass.I.W.GetEntityById(int.Parse(data.tip_name));
             if (entity.IsNull) return;
-            tooltip.GetComponent<SpecialItemTooltip>()?.Setup(type, entity);
+            specialItemTooltip?.Setup(type, entity);
         }
     }
 }

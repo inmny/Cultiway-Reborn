@@ -339,6 +339,70 @@ public sealed class CultivationSemantics : ExtendLibrary<SemanticAsset, Cultivat
         Path.Sword = New("path.sword", "path", "sword_path", implications: [Form.Blade]);
         Theme.Illusion = New("theme.illusion", "theme", "illusion");
         Theme.Dragon = New("theme.dragon", "theme", "dragon");
+
+        ConfigureMaterialIcons();
+    }
+
+    /// <summary>为材料档案可能直接产生的语义配置稳定图标。</summary>
+    private static void ConfigureMaterialIcons()
+    {
+        SetIcon(SkillSemantics.Element.Iron, "cultiway/icons/element_root/iron");
+        SetIcon(SkillSemantics.Element.Wood, "cultiway/icons/element_root/wood");
+        SetIcon(SkillSemantics.Element.Water, "cultiway/icons/element_root/water");
+        SetIcon(SkillSemantics.Element.Ice, "cultiway/icons/skill_modifiers/freeze");
+        SetIcon(SkillSemantics.Element.Poison, "cultiway/icons/skill_modifiers/poison");
+        SetIcon(SkillSemantics.Element.Fire, "cultiway/icons/element_root/fire");
+        SetIcon(SkillSemantics.Element.Earth, "cultiway/icons/element_root/earth");
+        SetIcon(SkillSemantics.Element.Neg, "cultiway/icons/element_root/neg");
+        SetIcon(SkillSemantics.Element.Pos, "cultiway/icons/element_root/pos");
+        SetIcon(SkillSemantics.Element.Entropy, "cultiway/icons/element_root/entropy");
+        SetIcon(SkillSemantics.Element.Wind, "cultiway/icons/artifact_atoms/tempest_fan");
+        SetIcon(SkillSemantics.Element.Lightning, "cultiway/icons/artifact_atoms/thunder_pattern");
+        SetIcon(SkillSemantics.Element.Generic, "cultiway/icons/element_root/common");
+
+        SetIcon(Form.Blade, "cultiway/icons/artifact_atoms/sword_edge");
+        SetIcon(Form.Body, "cultiway/icons/artifact_atoms/vitality_robe");
+        SetIcon(Effect.ArmorBreak, "cultiway/icons/skill_modifiers/armor_break");
+        SetIcon(Effect.Binding, "cultiway/icons/artifact_atoms/soul_binding_script");
+        SetIcon(Effect.Concealment, "cultiway/icons/artifact_atoms/void_silk");
+        SetIcon(Effect.Impact, "cultiway/icons/artifact_atoms/earth_core");
+        SetIcon(Effect.Mobility, "cultiway/icons/artifact_atoms/cloud_riding_script");
+        SetIcon(Effect.Perception, "cultiway/icons/artifact_atoms/bright_mirror");
+        SetIcon(Effect.Purification, "cultiway/icons/artifact_atoms/purifying_bell");
+        SetIcon(Effect.Recovery, "cultiway/icons/artifact_atoms/vitality_ding");
+        SetIcon(Effect.Resonance, "cultiway/icons/artifact_atoms/resonance_rings");
+        SetIcon(Effect.Revealing, "cultiway/icons/artifact_atoms/soul_mirror");
+        SetIcon(Effect.Storage, "cultiway/icons/artifact_atoms/spirit_gourd");
+        SetIcon(Effect.Transformation, "cultiway/icons/artifact_atoms/transformation_pattern");
+        SetIcon(Effect.Ward, "cultiway/icons/artifact_atoms/robe_ward");
+
+        SetIcon(Material.Brittle, "cultiway/icons/artifact_atoms/crystal");
+        SetIcon(Material.Flexibility, "cultiway/icons/artifact_atoms/celestial_silk");
+        SetIcon(Material.Hardness, "cultiway/icons/artifact_atoms/iron");
+        SetIcon(Material.Immoveable, "cultiway/icons/artifact_atoms/heavy_seal");
+        SetIcon(Material.Lightweight, "cultiway/icons/artifact_atoms/cloud_pattern");
+        SetIcon(Material.Quality, "ui/icons/iconItemQuality");
+        SetIcon(Material.Stability, "cultiway/icons/artifact_atoms/mountain_pattern");
+        SetIcon(Material.Volatility, "cultiway/icons/artifact_atoms/ember");
+
+        SetIcon(Resource.Reserve, "cultiway/icons/artifact_atoms/spirit_gourd");
+        SetIcon(Resource.Spirituality, "cultiway/icons/artifact_atoms/spirit_gathering_pattern");
+        SetIcon(Resource.Vitality, "cultiway/icons/artifact_atoms/life_pattern");
+        SetIcon(Craft.Alchemy, "cultiway/icons/iconElixirCauldron");
+        SetIcon(Craft.SpiritReservoir, "cultiway/icons/artifact_atoms/spirit_ding");
+        SetIcon(Role.Cultivation, "cultiway/icons/iconCultivation");
+        SetIcon(Theme.Dragon, "ui/icons/iconDragon");
+        SetIcon(Theme.Elemental, "cultiway/icons/artifact_atoms/element_pearl");
+        SetIcon(Theme.Illusion, "cultiway/icons/artifact_atoms/void_mirror");
+        SetIcon(Theme.Spirit, "cultiway/icons/artifact_atoms/spirit_awakening_script");
+        SetIcon(Trait.ElementRoot, "cultiway/icons/iconElement");
+        SetIcon(Realm.Jindan, "cultiway/icons/artifact_atoms/element_pearl");
+        SetIcon(Path.Sword, "cultiway/icons/artifact_atoms/sword_swarm");
+    }
+
+    private static void SetIcon(SemanticAsset semantic, string iconPath)
+    {
+        semantic.icon_path = iconPath;
     }
 
     private SemanticAsset New(

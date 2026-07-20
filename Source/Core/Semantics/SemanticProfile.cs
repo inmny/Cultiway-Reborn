@@ -92,12 +92,18 @@ public sealed class SemanticProfile
 
     public SemanticScore GetScore(SemanticAsset semantic, SemanticQueryPolicy policy)
     {
+        return GetScore(semantic, policy, directOnly: false);
+    }
+
+    private SemanticScore GetScore(SemanticAsset semantic, SemanticQueryPolicy policy, bool directOnly)
+    {
         var positive = 0f;
         var negative = 0f;
         for (var i = 0; i < evidence.Length; i++)
         {
             var item = evidence[i];
-            if (item.semantic != semantic || (item.scope & policy.scopes) == 0 ||
+            if (item.semantic != semantic || (directOnly && item.inferred) ||
+                (item.scope & policy.scopes) == 0 ||
                 item.confidence < policy.minimum_confidence) continue;
             var value = item.strength * item.confidence;
             if (item.polarity == SemanticPolarity.Positive) positive += value;
@@ -123,6 +129,23 @@ public sealed class SemanticProfile
             .Distinct()
             .Where(x => facet == null || x.Facet == facet)
             .Select(x => new SemanticRank(x, GetScore(x, policy)))
+            .Where(x => x.score.Net >= policy.minimum_score)
+            .OrderByDescending(x => x.score.Net)
+            .ThenBy(x => x.semantic.id, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    /// <summary>返回直接写入档案的语义，不包含由父级与蕴含关系展开得到的语义。</summary>
+    public IReadOnlyList<SemanticRank> GetDirectRanked(
+        SemanticQueryPolicy policy,
+        SemanticFacetAsset facet = null)
+    {
+        return evidence
+            .Where(x => !x.inferred)
+            .Select(x => x.semantic)
+            .Distinct()
+            .Where(x => facet == null || x.Facet == facet)
+            .Select(x => new SemanticRank(x, GetScore(x, policy, directOnly: true)))
             .Where(x => x.score.Net >= policy.minimum_score)
             .OrderByDescending(x => x.score.Net)
             .ThenBy(x => x.semantic.id, StringComparer.Ordinal)

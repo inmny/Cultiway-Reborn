@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace Cultiway.Core.Semantics;
 
@@ -10,11 +11,13 @@ public sealed class SemanticAsset : Asset
     public string facet_id;
     public string name_key;
     public string description_key;
+    public string icon_path;
     public string[] aliases = Array.Empty<string>();
     public string[] parent_ids = Array.Empty<string>();
     public SemanticImplication[] implications = Array.Empty<SemanticImplication>();
 
     public SemanticFacetAsset Facet { get; internal set; }
+    private Sprite icon;
 
     public string GetName()
     {
@@ -28,6 +31,14 @@ public sealed class SemanticAsset : Asset
         if (string.IsNullOrEmpty(description_key)) return string.Empty;
         var localized = description_key.Localize();
         return localized == description_key ? string.Empty : localized;
+    }
+
+    /// <summary>返回语义专属图标；未配置时使用所属维度的图标。</summary>
+    public Sprite GetIcon()
+    {
+        if (icon != null) return icon;
+        if (!string.IsNullOrEmpty(icon_path)) icon = SpriteTextureLoader.getSprite(icon_path);
+        return icon != null ? icon : Facet?.GetIcon();
     }
 }
 
