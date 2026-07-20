@@ -3,6 +3,8 @@ using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
+using Cultiway.Core.Combat;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.Semantics;
 using strings;
 
@@ -12,6 +14,8 @@ namespace Cultiway.Content;
 [Dependency(typeof(BaseStatses), typeof(CultivationSemantics))]
 public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, CoreFormationAtoms>
 {
+    private const float StructureMinimumScore = 4f;
+
     /// <summary>由金元素占比决定权重的金行主相原子。</summary>
     public static CoreFormationAtomAsset ElementIron { get; private set; }
 
@@ -110,24 +114,24 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
 
         Set(StructureBalanced, "balanced", CoreFormationAtomCategory.Structure, CoreFormationRealmMask.All,
             ["混元", "归一", "浑成"],
-            context => 2f + context.ElementBalance * 5f + context.ThreeHuaBalance * 4f,
+            ScoreBalancedStructure,
             Descriptor(CultivationSemantics.Material.Stability, CultivationSemantics.Effect.Resonance),
-            Stats((S.multiplier_health, 0.08f), (S.multiplier_damage, 0.08f)));
+            Stats((S.multiplier_health, 0.08f), (S.multiplier_damage, 0.08f)), StructureMinimumScore);
         Set(StructureCondensed, "condensed", CoreFormationAtomCategory.Structure, CoreFormationRealmMask.All,
             ["凝元", "抱一", "玄凝"],
             context => 1f + context.QiRatio * 5f + context.SemanticScore(CultivationSemantics.Resource.Reserve) * 2f,
             Descriptor(CultivationSemantics.Resource.Reserve, CultivationSemantics.Effect.Storage),
-            Stats((BaseStatses.MaxWakan.id, 12f), (S.multiplier_damage, 0.05f)));
+            Stats((BaseStatses.MaxWakan.id, 12f), (S.multiplier_damage, 0.05f)), StructureMinimumScore);
         Set(StructureVital, "vital", CoreFormationAtomCategory.Structure, CoreFormationRealmMask.All,
             ["精元", "血魄", "真形"],
             context => 1f + context.JingRatio * 5f + context.SemanticScore(CultivationSemantics.Form.Body) * 2f,
             Descriptor(CultivationSemantics.Resource.Vitality, CultivationSemantics.Form.Body),
-            Stats((S.multiplier_health, 0.16f), (S.armor, 1.5f)));
+            Stats((S.multiplier_health, 0.16f), (S.armor, 1.5f)), StructureMinimumScore);
         Set(StructureSpiritual, "spiritual", CoreFormationAtomCategory.Structure, CoreFormationRealmMask.All,
             ["灵台", "神凝", "照神"],
             context => 1f + context.ShenRatio * 5f + context.SemanticScore(CultivationSemantics.Resource.Spirituality) * 2f,
             Descriptor(CultivationSemantics.Resource.Spirituality, CultivationSemantics.Effect.Perception),
-            Stats((BaseStatses.MaxWakan.id, 8f), (S.multiplier_crit, 0.06f)));
+            Stats((BaseStatses.MaxWakan.id, 8f), (S.multiplier_crit, 0.06f)), StructureMinimumScore);
 
         Set(PathSword, "sword", CoreFormationAtomCategory.Path, CoreFormationRealmMask.All,
             ["剑心", "剑魄", "玄剑"], context => context.SemanticScore(CultivationSemantics.Path.Sword) * 7f,
@@ -189,6 +193,298 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
         Set(TransformChaos, "chaos_rebirth", CoreFormationAtomCategory.Transformation,
             CoreFormationRealmMask.Yuanying, ["混沌", "归墟", "玄变"], context => context.Composition.entropy * 8f,
             Descriptor(SkillSemantics.Element.Entropy, CultivationSemantics.Effect.Transformation), [], 2.2f);
+
+        ConfigureEffects();
+    }
+
+    /// <summary>把全部 26 个形成原子绑定到可合并、可触发的实际机制。</summary>
+    private static void ConfigureEffects()
+    {
+        SetEffects(ElementIron, Effect(ElementIron, CoreFormationEffectFamilies.Iron, "iron", 1,
+            CoreFormationEffectTrigger.DamageDealt, 0.22f, 0.35f, 2.5f, CoreFormationEffectHandlers.Iron,
+            Visual(hit: Cue("cultiway/effect/gold_sword", 0.12f, fixedUpright: false))));
+        SetEffects(ElementWood, Effect(ElementWood, CoreFormationEffectFamilies.Wood, "wood", 1,
+            CoreFormationEffectTrigger.DamageDealt | CoreFormationEffectTrigger.Kill,
+            0.18f, 0.3f, 2.5f, CoreFormationEffectHandlers.Wood,
+            Visual(hit: Cue("cultiway/effect/ground_thorn", 0.11f))));
+        SetEffects(ElementWater, Effect(ElementWater, CoreFormationEffectFamilies.Water, "water", 1,
+            CoreFormationEffectTrigger.DamageDealt, 0.2f, 0.32f, 3f, CoreFormationEffectHandlers.Water,
+            Visual(hit: Cue("cultiway/effect/water_polo", 0.1f))));
+        SetEffects(ElementFire, Effect(ElementFire, CoreFormationEffectFamilies.Fire, "fire", 1,
+            CoreFormationEffectTrigger.DamageDealt, 0.2f, 0.32f, 2f, CoreFormationEffectHandlers.Fire,
+            Visual(hit: Cue("cultiway/effect/explosion_fireball", 0.1f))));
+        SetEffects(ElementEarth, Effect(ElementEarth, CoreFormationEffectFamilies.Earth, "earth", 1,
+            CoreFormationEffectTrigger.DamageDealt | CoreFormationEffectTrigger.FinalDamageIncoming,
+            0.25f, 0.4f, 1f, CoreFormationEffectHandlers.Earth,
+            Visual(charge: Cue("cultiway/effect/fire_shield", 0.085f),
+                loop: Cue("cultiway/effect/fire_shield", 0.085f, loop: true, lifeTime: 2f)),
+            FinalDamageStage.Shield));
+        SetEffects(ElementYin, Effect(ElementYin, CoreFormationEffectFamilies.Yin, "yin", 1,
+            CoreFormationEffectTrigger.DamageDealt, 0.18f, 0.3f, 3f, CoreFormationEffectHandlers.Yin,
+            Visual(hit: Cue("cultiway/effect/core_formation/yin_drain", 0.1f, fixedUpright: false,
+                motion: CoreFormationVisualMotion.Linear))));
+        SetEffects(ElementYang, Effect(ElementYang, CoreFormationEffectFamilies.Yang, "yang", 1,
+            CoreFormationEffectTrigger.SkillCastCompleted, 0.25f, 0.4f, 5f, CoreFormationEffectHandlers.Yang,
+            Visual(trigger: Cue("cultiway/effect/core_formation/yang_cleanse", 0.1f))));
+        SetEffects(ElementChaos, Effect(ElementChaos, CoreFormationEffectFamilies.Chaos, "chaos", 1,
+            CoreFormationEffectTrigger.DamageDealt, 0.15f, 0.25f, 3f, CoreFormationEffectHandlers.Chaos,
+            Visual(hit: Cue("cultiway/effect/core_formation/chaos_echo", 0.1f))));
+
+        SetEffects(StructureBalanced, Effect(StructureBalanced, CoreFormationEffectFamilies.Balanced, "balanced", 1,
+            CoreFormationEffectTrigger.FinalDamageIncoming, 0.25f, 0.4f, 1f,
+            CoreFormationEffectHandlers.Balanced,
+            Visual(charge: Cue("cultiway/effect/fire_shield", 0.075f)), FinalDamageStage.Adaptation));
+        SetEffects(StructureCondensed, Effect(StructureCondensed, CoreFormationEffectFamilies.Condensed,
+            "condensed", 1, CoreFormationEffectTrigger.SkillCastCompleted | CoreFormationEffectTrigger.DamageDealt,
+            0.25f, 0.4f, 3f, CoreFormationEffectHandlers.Condensed,
+            Visual(charge: Cue("cultiway/effect/core_formation/reservoir_orb", 0.08f),
+                hit: Cue("cultiway/effect/explosion_fireball", 0.08f),
+                loop: Cue("cultiway/effect/core_formation/reservoir_orb", 0.075f, loop: true, lifeTime: 2f))));
+        SetEffects(StructureVital, Effect(StructureVital, CoreFormationEffectFamilies.Vital, "vital", 1,
+            CoreFormationEffectTrigger.DamageTaken | CoreFormationEffectTrigger.Tick,
+            1f, 1f, 0f, CoreFormationEffectHandlers.Vital));
+        SetEffects(StructureSpiritual, Effect(StructureSpiritual, CoreFormationEffectFamilies.Spiritual,
+            "spiritual", 1, CoreFormationEffectTrigger.SkillCastCompleted,
+            0.2f, 0.35f, 5f, CoreFormationEffectHandlers.Spiritual,
+            Visual(trigger: Cue("cultiway/effect/core_formation/spirit_platform", 0.08f))));
+
+        SetEffects(PathSword, Effect(PathSword, CoreFormationEffectFamilies.Sword, "sword", 1,
+            CoreFormationEffectTrigger.DamageDealt, 0.2f, 0.35f, 2f, CoreFormationEffectHandlers.Sword,
+            Visual(hit: Cue("cultiway/effect/gold_sword", 0.13f, fixedUpright: false))));
+        SetEffects(PathBody, Effect(PathBody, CoreFormationEffectFamilies.Body, "body", 1,
+            CoreFormationEffectTrigger.DamageTaken, 0.25f, 0.4f, 4f, CoreFormationEffectHandlers.Body,
+            Visual(hit: Cue("cultiway/effect/ground_thorn", 0.12f))));
+        SetEffects(PathIllusion, Effect(PathIllusion, CoreFormationEffectFamilies.Illusion, "illusion", 1,
+            CoreFormationEffectTrigger.FinalDamageIncoming, 0.2f, 0.3f, 8f,
+            CoreFormationEffectHandlers.Illusion,
+            Visual(trigger: Cue("cultiway/effect/core_formation/illusion_decoy", 0.1f)),
+            FinalDamageStage.Avoidance));
+        SetEffects(PathReservoir, Effect(PathReservoir, CoreFormationEffectFamilies.Reservoir, "reservoir", 1,
+            CoreFormationEffectTrigger.Tick, 1f, 1f, 0f, CoreFormationEffectHandlers.Reservoir,
+            Visual(loop: Cue("cultiway/effect/core_formation/reservoir_orb", 0.075f, loop: true, lifeTime: 2f))));
+        SetEffects(ThemeDragon, Effect(ThemeDragon, CoreFormationEffectFamilies.Dragon, "dragon", 1,
+            CoreFormationEffectTrigger.DamageDealt | CoreFormationEffectTrigger.DamageTaken,
+            0.3f, 0.45f, 8f, CoreFormationEffectHandlers.Dragon,
+            Visual(trigger: Cue("cultiway/effect/core_formation/dragon_roar", 0.11f))));
+
+        SetEffects(ManifestInfant, Effect(ManifestInfant, CoreFormationEffectFamilies.Survival, "infant", 1,
+            CoreFormationEffectTrigger.FinalDamageIncoming, 1f, 1f, 60f,
+            CoreFormationEffectHandlers.Survival,
+            Visual(rebirth: Cue("cultiway/effect/core_formation/infant_guard", 0.1f)),
+            FinalDamageStage.Survival));
+        SetEffects(ManifestSwordEmbryo, Effect(ManifestSwordEmbryo, CoreFormationEffectFamilies.Sword,
+            "sword_embryo", 2, CoreFormationEffectTrigger.DamageDealt,
+            0.2f, 0.35f, 2f, CoreFormationEffectHandlers.Sword,
+            Visual(hit: Cue("cultiway/effect/gold_sword", 0.15f, fixedUpright: false),
+                activate: Cue("cultiway/effect/core_formation/infant_guard", 0.09f),
+                loop: Cue("cultiway/effect/core_formation/infant_guard", 0.09f, loop: true, lifeTime: 2f)),
+            active: Active("sword_embryo", "cultiway/icons/element_root/iron", 32f, 6f, 15f,
+                0f, 0f, ActiveAbilityTargetMode.Self, 28,
+                CoreFormationEffectHandlers.PrepareCombatBuff, CoreFormationEffectHandlers.ActivateSwordEmbryo)));
+        SetEffects(ManifestDragonAspect, Effect(ManifestDragonAspect, CoreFormationEffectFamilies.Dragon,
+            "dragon_aspect", 2,
+            CoreFormationEffectTrigger.DamageDealt | CoreFormationEffectTrigger.DamageTaken,
+            0.3f, 0.45f, 8f, CoreFormationEffectHandlers.Dragon,
+            Visual(trigger: Cue("cultiway/effect/core_formation/dragon_roar", 0.13f),
+                activate: Cue("cultiway/effect/core_formation/dragon_roar", 0.16f)),
+            active: Active("dragon_aspect", "cultiway/icons/element_root/earth", 40f, 0f, 15f,
+                12f, 4f, ActiveAbilityTargetMode.Area, 32,
+                CoreFormationEffectHandlers.PrepareCombatBuff, CoreFormationEffectHandlers.ActivateDragonAspect)));
+        SetEffects(ManifestSpiritPlatform, Effect(ManifestSpiritPlatform, CoreFormationEffectFamilies.Spiritual,
+            "spirit_platform", 2, CoreFormationEffectTrigger.SkillCastCompleted,
+            0.2f, 0.35f, 5f, CoreFormationEffectHandlers.Spiritual,
+            Visual(trigger: Cue("cultiway/effect/core_formation/spirit_platform", 0.1f),
+                activate: Cue("cultiway/effect/core_formation/spirit_platform", 0.13f),
+                loop: Cue("cultiway/effect/core_formation/spirit_platform", 0.11f, loop: true, lifeTime: 2f)),
+            active: Active("spirit_platform", "cultiway/icons/iconWakan", 48f, 8f, 20f,
+                0f, 0f, ActiveAbilityTargetMode.Self, 26,
+                CoreFormationEffectHandlers.PrepareCombatBuff, CoreFormationEffectHandlers.ActivateSpiritPlatform)));
+        SetEffects(ManifestPrimalBody, Effect(ManifestPrimalBody, CoreFormationEffectFamilies.Body,
+            "primal_body", 2,
+            CoreFormationEffectTrigger.DamageTaken | CoreFormationEffectTrigger.FinalDamageIncoming,
+            0.25f, 0.4f, 4f, CoreFormationEffectHandlers.Body,
+            Visual(hit: Cue("cultiway/effect/ground_thorn", 0.14f),
+                activate: Cue("cultiway/effect/core_formation/primal_body", 0.12f),
+                loop: Cue("cultiway/effect/core_formation/primal_body", 0.1f, loop: true, lifeTime: 2f)),
+            FinalDamageStage.Cap,
+            Active("primal_body", "cultiway/icons/element_root/earth", 40f, 8f, 20f,
+                0f, 0f, ActiveAbilityTargetMode.Self, 30,
+                CoreFormationEffectHandlers.PrepareCombatBuff, CoreFormationEffectHandlers.ActivatePrimalBody)));
+
+        SetEffects(TransformFivePhase, Effect(TransformFivePhase, CoreFormationEffectFamilies.FivePhase,
+            "five_phase", 1,
+            CoreFormationEffectTrigger.DamageDealt | CoreFormationEffectTrigger.FinalDamageIncoming |
+            CoreFormationEffectTrigger.Tick,
+            1f, 1f, 0f, CoreFormationEffectHandlers.FivePhase,
+            Visual(activate: Cue("cultiway/effect/core_formation/five_phase", 0.14f),
+                loop: Cue("cultiway/effect/core_formation/five_phase", 0.12f, loop: true, lifeTime: 2f)),
+            FinalDamageStage.Adaptation,
+            Active("five_phase", "cultiway/icons/element_root/entropy", 48f, 10f, 18f,
+                0f, 0f, ActiveAbilityTargetMode.Self, 30,
+                CoreFormationEffectHandlers.PrepareCombatBuff, CoreFormationEffectHandlers.ActivateFivePhase)));
+        SetEffects(TransformPureYang, Effect(TransformPureYang, CoreFormationEffectFamilies.Yang,
+            "pure_yang", 2, CoreFormationEffectTrigger.SkillCastCompleted,
+            0.25f, 0.4f, 5f, CoreFormationEffectHandlers.Yang,
+            Visual(trigger: Cue("cultiway/effect/core_formation/yang_cleanse", 0.12f),
+                activate: Cue("cultiway/effect/core_formation/yang_cleanse", 0.17f)),
+            active: Active("pure_yang", "cultiway/icons/element_root/pos", 56f, 0f, 18f,
+                10f, 5f, ActiveAbilityTargetMode.Area, 34,
+                CoreFormationEffectHandlers.PrepareCombatBuff, CoreFormationEffectHandlers.ActivatePureYang)));
+        SetEffects(TransformMysteriousYin, Effect(TransformMysteriousYin, CoreFormationEffectFamilies.Yin,
+            "mysterious_yin", 2, CoreFormationEffectTrigger.DamageDealt,
+            0.18f, 0.3f, 3f, CoreFormationEffectHandlers.Yin,
+            Visual(hit: Cue("cultiway/effect/core_formation/yin_drain", 0.12f, fixedUpright: false,
+                    motion: CoreFormationVisualMotion.Linear),
+                activate: Cue("cultiway/effect/core_formation/yin_drain", 0.17f)),
+            active: Active("mysterious_yin", "cultiway/icons/element_root/neg", 56f, 0f, 18f,
+                12f, 5f, ActiveAbilityTargetMode.Area, 34,
+                CoreFormationEffectHandlers.PrepareCombatBuff, CoreFormationEffectHandlers.ActivateMysteriousYin)));
+        SetEffects(TransformChaos,
+            Effect(TransformChaos, CoreFormationEffectFamilies.Chaos, "chaos_rebirth", 2,
+                CoreFormationEffectTrigger.DamageDealt, 0.22f, 0.35f, 2f,
+                CoreFormationEffectHandlers.Chaos,
+                Visual(hit: Cue("cultiway/effect/core_formation/chaos_echo", 0.13f))),
+            Effect(TransformChaos, CoreFormationEffectFamilies.Survival, "chaos_rebirth_survival", 2,
+                CoreFormationEffectTrigger.FinalDamageIncoming, 1f, 1f, 120f,
+                CoreFormationEffectHandlers.Survival,
+                Visual(rebirth: Cue("cultiway/effect/core_formation/chaos_rebirth", 0.16f)),
+                FinalDamageStage.Survival));
+    }
+
+    /// <summary>把一组机制定义写入指定形成原子。</summary>
+    private static void SetEffects(CoreFormationAtomAsset atom, params CoreFormationEffectDefinition[] effects)
+    {
+        atom.effects = effects ?? [];
+    }
+
+    /// <summary>构造一项完整效果定义，并按原子分类写入倍率参考权重。</summary>
+    private static CoreFormationEffectDefinition Effect(
+        CoreFormationAtomAsset atom,
+        string familyId,
+        string key,
+        int rank,
+        CoreFormationEffectTrigger triggers,
+        float baseChance,
+        float maxChance,
+        float cooldown,
+        CoreFormationEffectHandler handler,
+        CoreFormationEffectVisualProfile visual = null,
+        FinalDamageStage finalStage = FinalDamageStage.Adaptation,
+        CoreFormationActiveProfile active = null)
+    {
+        return new CoreFormationEffectDefinition
+        {
+            family_id = familyId,
+            rank = rank,
+            triggers = triggers,
+            base_chance = baseChance,
+            max_chance = maxChance,
+            cooldown = cooldown,
+            reference_weight = ReferenceWeight(atom.category),
+            name_key = $"Cultiway.CoreFormationEffect.{key}.Name",
+            description_key = $"Cultiway.CoreFormationEffect.{key}.Description",
+            final_damage_stage = finalStage,
+            visual = visual,
+            active = active,
+            Handle = handler,
+        };
+    }
+
+    /// <summary>构造一个使用固定灵气消耗的主动能力配置。</summary>
+    private static CoreFormationActiveProfile Active(
+        string key,
+        string iconPath,
+        float cost,
+        float duration,
+        float cooldown,
+        float range,
+        float radius,
+        ActiveAbilityTargetMode targetMode,
+        int aiWeight,
+        CoreFormationActivePrepareAction prepare,
+        CoreFormationActiveUseAction use)
+    {
+        return new CoreFormationActiveProfile
+        {
+            name_key = $"Cultiway.CoreFormationEffect.{key}.Active.Name",
+            icon_path = iconPath,
+            wakan_cost = cost,
+            duration = duration,
+            cooldown = cooldown,
+            range = range,
+            radius = radius,
+            target_mode = targetMode,
+            ai_weight = aiWeight,
+            CanPrepare = prepare,
+            Use = use,
+        };
+    }
+
+    /// <summary>构造一个只填入实际使用阶段的视觉配置。</summary>
+    private static CoreFormationEffectVisualProfile Visual(
+        CoreFormationEffectVisualCue trigger = null,
+        CoreFormationEffectVisualCue hit = null,
+        CoreFormationEffectVisualCue charge = null,
+        CoreFormationEffectVisualCue activate = null,
+        CoreFormationEffectVisualCue loop = null,
+        CoreFormationEffectVisualCue end = null,
+        CoreFormationEffectVisualCue rebirth = null)
+    {
+        return new CoreFormationEffectVisualProfile
+        {
+            trigger = trigger,
+            hit = hit,
+            charge = charge,
+            activate = activate,
+            loop = loop,
+            end = end,
+            rebirth = rebirth,
+        };
+    }
+
+    /// <summary>构造一个帧动画播放配置。</summary>
+    private static CoreFormationEffectVisualCue Cue(
+        string path,
+        float scale,
+        bool fixedUpright = true,
+        bool loop = false,
+        float lifeTime = 1f,
+        CoreFormationVisualMotion? motion = null)
+    {
+        return new CoreFormationEffectVisualCue
+        {
+            path = path,
+            scale = scale,
+            frame_interval = 0.1f,
+            life_time = lifeTime,
+            motion = motion ?? (loop
+                ? CoreFormationVisualMotion.FollowOwner
+                : CoreFormationVisualMotion.Stationary),
+            loop = loop,
+            fixed_upright = fixedUpright,
+        };
+    }
+
+    /// <summary>返回不同原子分类参与效果倍率计算时的基准权重。</summary>
+    private static float ReferenceWeight(CoreFormationAtomCategory category)
+    {
+        return category switch
+        {
+            CoreFormationAtomCategory.Element => 5f,
+            CoreFormationAtomCategory.Structure => 8f,
+            CoreFormationAtomCategory.Path => 7f,
+            CoreFormationAtomCategory.Theme => 8f,
+            CoreFormationAtomCategory.Manifestation => 8f,
+            CoreFormationAtomCategory.Transformation => 6f,
+            _ => 1f,
+        };
+    }
+
+    /// <summary>仅在元素与三花同时均衡时提高混元结构评分，避免任一维度单独补偿另一维度。</summary>
+    private static float ScoreBalancedStructure(CoreFormationContext context)
+    {
+        float jointBalance = context.ElementBalance * context.ThreeHuaBalance;
+        return 1f + jointBalance * jointBalance * 10f;
     }
 
     /// <summary>按指定元素槽位配置一个由元素占比直接评分的元素原子。</summary>

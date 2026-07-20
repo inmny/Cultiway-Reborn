@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.ActorComponents;
+using Cultiway.Content.ActiveAbilities;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Sects;
@@ -10,6 +11,7 @@ using Cultiway.Content.Systems.Logic;
 using Cultiway.Content.Systems.Render;
 using Cultiway.Core;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 
 namespace Cultiway.Content;
 
@@ -81,6 +83,9 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new SectConstructionSystem());
         ActorExtend.RegisterActionOnDeath(SectTreasureService.ReturnBorrowedOnDeath);
         ArtifactAbilityRuntimeBridge.Init();
+        CoreFormationEffectRuntimeBridge.Init();
+        ActiveAbilityService.Register(new CoreFormationActiveAbilityProvider());
+        ModClass.I.GeneralLogicSystems.Add(new CoreFormationEffectSystem());
         ModClass.I.GeneralRenderSystems.Add(new BreakthroughVisualSystem());
         ModClass.I.GeneralRenderSystems.Add(new CloudRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmAuraRenderSystem());
@@ -90,6 +95,7 @@ internal class Manager
         ModClass.I.GeneralRenderSystems.Add(new ArtifactSectManifestationSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactWorldRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactAbilityVisualSystem());
+        ModClass.I.GeneralRenderSystems.Add(new CoreFormationEffectVisualSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookImprovedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new ElixirEffectGeneratedEventSystem());

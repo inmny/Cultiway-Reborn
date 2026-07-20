@@ -152,7 +152,8 @@ public static class CoreFormationComposer
         List<CoreFormationAtomState> atoms = new(6);
 
         AddSelected(atoms, SelectBest(context, CoreFormationAtomCategory.Element), 0, false);
-        AddSelected(atoms, SelectBest(context, CoreFormationAtomCategory.Structure), 0, false);
+        AddSelected(atoms, SelectBest(context, CoreFormationAtomCategory.Structure, requireMinimum: true),
+            0, false);
 
         var latentIndex = 0;
         AddOptional(atoms, context, CoreFormationAtomCategory.Path, ref latentIndex);

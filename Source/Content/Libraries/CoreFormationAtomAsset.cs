@@ -68,6 +68,9 @@ public sealed class CoreFormationAtomAsset : Asset
     /// <summary>被选中后写入组合快照的语义。</summary>
     public SemanticDescriptor semantics = new();
 
+    /// <summary>该原子显化后提供的独立机制；同效果族按 rank 合并升级。</summary>
+    public CoreFormationEffectDefinition[] effects = [];
+
     /// <summary>低于此分数时不能直接显化，只可能成为潜在原子。</summary>
     public float minimum_score;
 

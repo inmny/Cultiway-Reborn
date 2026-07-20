@@ -499,15 +499,15 @@ public partial class Cultisyses
         return ProgressionResolution.Success(new FoundationStepPayload(part, value));
     }
 
-    /// <summary>直接授予下一筑基项，强度取对应资质绝对值且至少为 0.01。</summary>
+    /// <summary>直接授予下一筑基项，跳过失败判定但保留自然筑基的独立强度分布。</summary>
     private static ProgressionResolution ResolveGrantedFoundationStep(ActorExtend actor,
         CultisysAsset<Xian> cultisys, ref Xian component)
     {
         var xianBase = actor.TryGetComponent(out XianBase existing) ? existing : default;
         var part = GetNextFoundationPart(ref xianBase);
         if (part == FoundationPart.None) return ProgressionResolution.NoProgress();
-        return ProgressionResolution.Success(new FoundationStepPayload(part,
-            Mathf.Max(Mathf.Abs(GetFoundationAptitude(actor, part)), 0.01f)));
+        float value = ResolveGrantedFoundationValue(actor, part);
+        return ProgressionResolution.Success(new FoundationStepPayload(part, value));
     }
 
     /// <summary>按精、气、神、火、木、土、金、水顺序取得第一个尚未完成的筑基项。</summary>
@@ -584,20 +584,34 @@ public partial class Cultisyses
         return ProgressionResolution.Success(new JindanPayload(xianBase, formation, strength));
     }
 
-    /// <summary>以角色当前资质补齐所有为零的三花五气字段，并保证每项至少为 0.01。</summary>
+    /// <summary>以角色当前资质和自然强度分布补齐所有为零的三花五气字段。</summary>
     private static XianBase CompleteFoundationForGrant(ActorExtend actor)
     {
         var xianBase = actor.TryGetComponent(out XianBase existing) ? existing : default;
-        var intelligence = Mathf.Max(Mathf.Abs(actor.GetStat(S.intelligence)), 0.01f);
-        if (xianBase.jing == 0f) xianBase.jing = intelligence;
-        if (xianBase.qi == 0f) xianBase.qi = intelligence;
-        if (xianBase.shen == 0f) xianBase.shen = intelligence;
-        if (xianBase.fire == 0f) xianBase.fire = Mathf.Max(GetFoundationAptitude(actor, FoundationPart.Fire), 0.01f);
-        if (xianBase.wood == 0f) xianBase.wood = Mathf.Max(GetFoundationAptitude(actor, FoundationPart.Wood), 0.01f);
-        if (xianBase.earth == 0f) xianBase.earth = Mathf.Max(GetFoundationAptitude(actor, FoundationPart.Earth), 0.01f);
-        if (xianBase.iron == 0f) xianBase.iron = Mathf.Max(GetFoundationAptitude(actor, FoundationPart.Iron), 0.01f);
-        if (xianBase.water == 0f) xianBase.water = Mathf.Max(GetFoundationAptitude(actor, FoundationPart.Water), 0.01f);
+        if (xianBase.jing == 0f)
+            xianBase.jing = ResolveGrantedFoundationValue(actor, FoundationPart.Jing);
+        if (xianBase.qi == 0f)
+            xianBase.qi = ResolveGrantedFoundationValue(actor, FoundationPart.Qi);
+        if (xianBase.shen == 0f)
+            xianBase.shen = ResolveGrantedFoundationValue(actor, FoundationPart.Shen);
+        if (xianBase.fire == 0f)
+            xianBase.fire = ResolveGrantedFoundationValue(actor, FoundationPart.Fire);
+        if (xianBase.wood == 0f)
+            xianBase.wood = ResolveGrantedFoundationValue(actor, FoundationPart.Wood);
+        if (xianBase.earth == 0f)
+            xianBase.earth = ResolveGrantedFoundationValue(actor, FoundationPart.Earth);
+        if (xianBase.iron == 0f)
+            xianBase.iron = ResolveGrantedFoundationValue(actor, FoundationPart.Iron);
+        if (xianBase.water == 0f)
+            xianBase.water = ResolveGrantedFoundationValue(actor, FoundationPart.Water);
         return xianBase;
+    }
+
+    /// <summary>按自然筑基的半正态倍率生成强制授予值，并保证该筑基项完成。</summary>
+    private static float ResolveGrantedFoundationValue(ActorExtend actor, FoundationPart part)
+    {
+        float aptitude = Mathf.Abs(GetFoundationAptitude(actor, part));
+        return Mathf.Max(Mathf.Abs(RdUtils.NextStdNormal()) * aptitude, 0.01f);
     }
 
     /// <summary>提交结丹所需的筑基数据，并创建或替换角色金丹组件。</summary>
