@@ -186,6 +186,21 @@ public class SkillEntityAsset : Asset
         return this;
     }
 
+    /// <summary>
+    /// 追加动画变体,并按"目标循环时长"根据实际帧数自动计算 frame_interval,
+    /// 使该动画约在 <paramref name="targetCycleSeconds"/> 内播完一轮。帧间隔夹在 [0.02s, 0.12s],
+    /// 避免高帧动画过快闪烁或低帧动画过慢卡顿。适合给帧数明显偏多(如 48/60 帧)的变体加快节奏。
+    /// </summary>
+    public SkillEntityAsset AddAnimation(string effectPath, float scale, float targetCycleSeconds)
+    {
+        var frame_count = LoadOrderedFrames(effectPath).Length;
+        var settings = targetCycleSeconds > 0f && frame_count > 0
+            ? SkillEntityAnimationSettings.Inherit
+                .WithFrameInterval(Mathf.Clamp(targetCycleSeconds / frame_count, 0.02f, 0.12f))
+            : SkillEntityAnimationSettings.Inherit;
+        return AddAnimation(effectPath, scale, settings);
+    }
+
     public SkillEntityAnimation GetAnimation(int index)
     {
         return _animations[index];
