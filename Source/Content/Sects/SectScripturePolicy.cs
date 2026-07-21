@@ -142,7 +142,7 @@ public static class SectScripturePolicy
         if (book.getAsset() == BookTypes.Elixirbook && bookExtend.HasComponent<Elixirbook>())
         {
             ElixirAsset elixir = bookExtend.GetComponent<Elixirbook>().Asset;
-            if (elixir != null) return elixir.base_level;
+            if (elixir != null) return ItemLevel.FromValue(elixir.recipe_context.quality_stage * 9);
         }
 
         return default;

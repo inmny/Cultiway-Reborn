@@ -206,7 +206,9 @@ public class SectScriptureBookRow : APrefabPreview<SectScriptureBookRow>
         if (bookType == BookTypes.Elixirbook && bookExtend.HasComponent<Elixirbook>())
         {
             ElixirAsset elixir = bookExtend.GetComponent<Elixirbook>().Asset;
-            return elixir == null ? GetBookTypeShortName(bookType) : elixir.base_level.GetName();
+            return elixir == null
+                ? GetBookTypeShortName(bookType)
+                : ItemLevel.FromValue(elixir.recipe_context.quality_stage * 9).GetName();
         }
 
         return GetBookTypeShortName(bookType);

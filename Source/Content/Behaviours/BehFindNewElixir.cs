@@ -5,7 +5,6 @@ using ai.behaviours;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
-using Cultiway.Content.Const;
 using Cultiway.Core.Components;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -18,76 +17,39 @@ namespace Cultiway.Content.Behaviours;
 public class BehFindNewElixir : BehCityActor
 {
     [Hotfixable]
-    public override BehResult execute(Actor pObject)
+    public override BehResult execute(Actor actor)
     {
-        var ae = pObject.GetExtend();
-        pObject.data.get(ContentActorDataKeys.WaitingForElixirGeneration_string, out string waitingId, "");
-        if (!string.IsNullOrEmpty(waitingId))
-        {
-            var asset = Libraries.Manager.ElixirLibrary.get(waitingId);
-            if (asset == null)
-            {
-                pObject.data.set(ContentActorDataKeys.WaitingForElixirGeneration_string, "");
-                return BehResult.Stop;
-            }
+        var actorExtend = actor.GetExtend();
+        if (actorExtend.HasItem<CraftingElixir>()) return BehResult.Continue;
 
-            if (!asset.effect_ready)
-            {
-                StayInside(pObject);
-                return BehResult.RepeatStep;
-            }
+        var inventory = (IHasInventory)actorExtend;
+        using var pool = new ListPool<Entity>(inventory.GetItems().Where(item =>
+            item.Tags.Has<TagIngredient>() &&
+            !item.Tags.HasAny(Tags.Get<TagConsumed, TagOccupied, TagRecycle>())));
+        if (!pool.Any()) return BehResult.Stop;
 
-            pObject.data.set(ContentActorDataKeys.WaitingForElixirGeneration_string, "");
-            return BehResult.Continue;
-        }
+        var availableCount = ((IList<Entity>)pool).Count;
+        var ingredientCount = Math.Min(
+            Randy.randomInt(1, Mathf.FloorToInt(Mathf.Log(availableCount)) + 2),
+            availableCount);
+        var ingredients = pool.SampleOut(ingredientCount);
+        var asset = Libraries.Manager.ElixirLibrary.NewElixir(ingredients);
+        actorExtend.Master(asset, Mathf.Max(1f, actorExtend.GetMaster(asset)));
+        ModClass.LogInfo($"{actorExtend} 推演出丹方 {asset.GetName()}");
 
-        if (ae.HasItem<CraftingElixir>()) return BehResult.Continue;
-
-        var inv = (IHasInventory)ae;
-
-        using var list = new ListPool<Entity>(inv.GetItems().Where(x=>x.Tags.Has<TagIngredient>()));
-        if (!list.Any()) return BehResult.Stop;
-        var count = ((IList<Entity>)list).Count;
-
-        var ing_count = Math.Min(Randy.randomInt(1, (int)Mathf.Log(count) + 2), count);
-        
-        var ingredients = list.SampleOut(ing_count);
-        var new_asset = Libraries.Manager.ElixirLibrary.NewElixir(ingredients, ae);
-        if (new_asset == null)
-        {
-            return BehResult.Stop;
-        }
-        ae.Master(new_asset, 1);
-        ModClass.LogInfo($"{ae} creates new elixir {new_asset.name_key}");
-        Entity crafting_elixir = SpecialItemUtils
-            .StartBuild(ItemShapes.Ball, World.world.getCurWorldTime(), pObject.getName())
-            .AddComponent(new CraftingElixir
-            {
-                elixir_id = new_asset.id
-            })
+        var craftingElixir = SpecialItemUtils
+            .StartBuild(ItemShapes.Ball, World.world.getCurWorldTime(), actor.getName())
+            .AddComponent(new CraftingElixir { elixir_id = asset.id })
             .AddTag<TagUncompleted>()
             .Build();
-        ae.AddSpecialItem(crafting_elixir);
-        foreach (Entity ing in ingredients)
+        actorExtend.AddSpecialItem(craftingElixir);
+        foreach (var ingredient in ingredients)
         {
-            crafting_elixir.AddRelation(new CraftOccupyingRelation { item = ing });
-            ing.AddTag<TagConsumed>();
+            craftingElixir.AddRelation(new CraftOccupyingRelation { item = ingredient });
+            ingredient.AddTag<TagConsumed>();
         }
-        pObject.timer_action = Randy.randomFloat(TimeScales.SecPerMonth, TimeScales.SecPerYear);
-        pObject.data.set(ContentActorDataKeys.WaitingForElixirGeneration_string, new_asset.id);
-        StayInside(pObject);
-        return BehResult.RepeatStep;
-    }
 
-    private static void StayInside(Actor actor)
-    {
-        if (actor.beh_building_target != null)
-        {
-            actor.stayInBuilding(actor.beh_building_target);
-        }
-        else if (actor.inside_building != null)
-        {
-            actor.stayInBuilding(actor.inside_building);
-        }
+        actor.timer_action = Randy.randomFloat(TimeScales.SecPerMonth, TimeScales.SecPerYear);
+        return BehResult.Continue;
     }
 }

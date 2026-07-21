@@ -108,6 +108,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
 
         ElixirCrafter.addTask(ActorTasks.CraftElixir.id);
         ElixirCrafter.addCondition(new CondHasJindan());
+        ElixirCrafter.addCondition(new CondHasElixirRecipe());
         ElixirCrafter.addTask(ActorTasks.EndJob.id);
         
         ElixirFinder.addTask(ActorTasks.FindNewElixir.id);

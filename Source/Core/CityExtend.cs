@@ -76,39 +76,6 @@ public class CityExtend : ExtendComponent<City>, IHasInventory, IAsForce, IDispo
         AddSpecialItem(SpecialItemUtils.StartBuild(ItemShapes.Ball, World.world.getCurWorldTime()).Build());
     }
 
-    public void TestAddOpenElementRootElixir()
-    {
-        AddSpecialItem(
-            SpecialItemUtils.StartBuild(ItemShapes.Ball, World.world.getCurWorldTime())
-                .AddComponent(ElementRoot.Roll())
-                .AddComponent(new Elixir
-                {
-                    elixir_id = Elixirs.OpenElementRootElixir.id
-                })
-                .Build()
-        );
-    }
-
-    public void TestGiveOpenElementRootElixir()
-    {
-        var open_element_root_elixirs = GetSpecialItems<Elixir>()
-            .Where(item => item.self.GetComponent<Elixir>().elixir_id == Elixirs.OpenElementRootElixir.id).ToList();
-        if (open_element_root_elixirs.Count == 0) return;
-        ActorExtend lucky_dog = null;
-        foreach (Actor actor in Base.units)
-        {
-            ActorExtend ae = actor.GetExtend();
-            if (ae.HasElementRoot()) continue;
-            lucky_dog = ae;
-        }
-
-        if (lucky_dog == null) return;
-        SpecialItem elixir = open_element_root_elixirs.GetRandom();
-
-        lucky_dog.TryConsumeElixir(elixir.self);
-        ModClass.LogInfo(lucky_dog.Base.getName());
-    }
-
     public List<SpecialItem> GetSpecialItems()
     {
         var rels = e.GetRelations<InventoryRelation>();
