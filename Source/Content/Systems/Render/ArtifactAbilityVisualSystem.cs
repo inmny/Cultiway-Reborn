@@ -24,7 +24,7 @@ public sealed class ArtifactAbilityVisualSystem : QuerySystem<ArtifactAbilitySet
 
     public ArtifactAbilityVisualSystem()
     {
-        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagRecycle>());
+        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagUncompleted, TagRecycle>());
     }
 
     protected override void OnUpdate()

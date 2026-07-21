@@ -187,6 +187,7 @@ public static class ArtifactAbilityVisuals
 
     internal static bool IsVisible(ArtifactAbilityVisualContext context)
     {
+        if (!context.artifact.IsAvailable()) return false;
         if (context.controller.IsNull || !context.controller.HasComponent<ActorBinder>()) return false;
         Actor actor = context.controller.GetComponent<ActorBinder>().Actor;
         if (actor == null || !actor.isAlive() || !actor.is_visible) return false;

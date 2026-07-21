@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using ai.behaviours;
 using Cultiway.Content.Components;
+using Cultiway.Content.Crafting;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -16,7 +17,6 @@ public class BehFindElixirToCraft : BehCityActor
     public override BehResult execute(Actor actor)
     {
         var actorExtend = actor.GetExtend();
-        if (actorExtend.HasItem<CraftingElixir>()) return BehResult.Continue;
 
         var recipes = actorExtend.GetAllMaster<ElixirAsset>()
             .Select(entry => entry.Item1)

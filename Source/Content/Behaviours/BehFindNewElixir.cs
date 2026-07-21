@@ -5,6 +5,7 @@ using ai.behaviours;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
+using Cultiway.Content.Crafting;
 using Cultiway.Core.Components;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -20,7 +21,12 @@ public class BehFindNewElixir : BehCityActor
     public override BehResult execute(Actor actor)
     {
         var actorExtend = actor.GetExtend();
-        if (actorExtend.HasItem<CraftingElixir>()) return BehResult.Continue;
+        if (actorExtend.HasItem<CraftingElixir>())
+        {
+            CraftFailureService.Fail(
+                actorExtend.GetFirstItemWithComponent<CraftingElixir>(),
+                CraftFailureReason.Interrupted);
+        }
 
         var inventory = (IHasInventory)actorExtend;
         using var pool = new ListPool<Entity>(inventory.GetItems().Where(item =>

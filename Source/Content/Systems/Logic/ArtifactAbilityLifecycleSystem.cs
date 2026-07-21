@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
+using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 
@@ -12,6 +13,11 @@ namespace Cultiway.Content.Systems.Logic;
 public sealed class ArtifactAbilityLifecycleSystem : QuerySystem<ArtifactAbilitySet, ArtifactAbilityRuntime>
 {
     private readonly List<Entity> artifacts = new();
+
+    public ArtifactAbilityLifecycleSystem()
+    {
+        Filter.WithoutAnyTags(Tags.Get<TagUncompleted, TagRecycle>());
+    }
 
     protected override void OnUpdate()
     {

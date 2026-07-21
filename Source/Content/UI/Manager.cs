@@ -114,6 +114,20 @@ public class Manager : ICanInit
 
         SpecialItemTooltip.RegisterSetupAction((tooltip, type, entity) =>
         {
+            if (entity.TryGetComponent(out CraftWaste waste))
+            {
+                string reasonKey = waste.reason == CraftFailureReason.IngredientsMissing
+                    ? "Cultiway.CraftWaste.Tooltip.Reason.IngredientsMissing"
+                    : "Cultiway.CraftWaste.Tooltip.Reason.Interrupted";
+                tooltip.Tooltip.addDescription("\n");
+                tooltip.Tooltip.addLineText(
+                    "Cultiway.CraftWaste.Tooltip.State".Localize(),
+                    "Cultiway.CraftWaste.Tooltip.Failed".Localize(),
+                    pLocalize: false);
+                tooltip.Tooltip.addDescription($"\n{reasonKey.Localize()}");
+                return;
+            }
+
             if (entity.TryGetComponent(out Elixir elixir))
             {
                 var desc = elixir.Type.description_key;

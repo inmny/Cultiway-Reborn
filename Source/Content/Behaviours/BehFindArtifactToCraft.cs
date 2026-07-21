@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using ai.behaviours;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
+using Cultiway.Content.Crafting;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Utils;
@@ -14,9 +15,7 @@ public class BehFindArtifactToCraft : BehCityActor
 {
     public override BehResult execute(Actor pObject)
     {
-        // 已经在炼制则不再选器形
         ActorExtend ae = pObject.GetExtend();
-        if (ae.HasItem<CraftingArtifact>()) return BehResult.Continue;
 
         // 扫描背包未占用材料，具体炼器结果交给 ArtifactComposer 处理。
         var available = new List<Entity>();

@@ -1,8 +1,8 @@
 using System;
-using System.Linq;
 using ai.behaviours;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
+using Cultiway.Content.Crafting;
 using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
@@ -25,17 +25,13 @@ public class BehCraftElixir : BehCityActor
 
         ref CraftingElixir crafting_elixir = ref crafting_elixir_entity.GetComponent<CraftingElixir>();
         ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.get(crafting_elixir.elixir_id);
-        if (ingredients.Length < elixir_asset.ingredients.Length)
+        int requiredIngredientCount = elixir_asset?.ingredients?.Length ?? 0;
+        if (requiredIngredientCount == 0 || ingredients.Length < requiredIngredientCount)
         {
-            ModClass.LogWarning($"{pObject.data.id} 炼丹失败，原料不足(可能有原料过期了)");
-            crafting_elixir_entity.AddTag<TagRecycle>();
-            foreach (var ingredient in ingredients)
-            {
-                ingredient.item.AddTag<TagRecycle>();
-            }
+            CraftFailureService.Fail(crafting_elixir_entity, CraftFailureReason.IngredientsMissing);
             return BehResult.Continue;
         }
-        if (crafting_elixir.progress >= ingredients.Length)
+        if (crafting_elixir.progress >= requiredIngredientCount)
         {
             var ingredient_array = new Entity[ingredients.Length];
             for (int i = 0; i < ingredients.Length; i++)
@@ -65,6 +61,6 @@ public class BehCraftElixir : BehCityActor
         //    $"{pObject.data.id} 正在制作({crafting_elixir.progress}/{ingredients.Length}) {crafting_elixir.elixir_id}");
         pObject.timer_action = Math.Max(0.15f, step.Duration);
 
-        return BehResult.Continue;
+        return BehResult.RepeatStep;
     }
 }

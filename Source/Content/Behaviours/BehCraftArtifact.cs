@@ -2,6 +2,7 @@ using ai.behaviours;
 using Cultiway.Const;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
+using Cultiway.Content.Crafting;
 using Cultiway.Content.Events;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
@@ -28,18 +29,19 @@ public class BehCraftArtifact : BehCityActor
         var ingredients = crafting_entity.GetRelations<CraftOccupyingRelation>();
 
         ref CraftingArtifact crafting = ref crafting_entity.GetComponent<CraftingArtifact>();
-        if (ingredients.Length == 0)
+        if (!crafting_entity.TryGetComponent(out ArtifactMaterialData materialData) ||
+            materialData.ingredient_count <= 0 ||
+            ingredients.Length < materialData.ingredient_count)
         {
-            ModClass.LogWarning($"{pObject.data.id} 炼器失败，原料不足(可能有原料过期了)");
-            crafting_entity.AddTag<TagRecycle>();
+            CraftFailureService.Fail(crafting_entity, CraftFailureReason.IngredientsMissing);
             return BehResult.Continue;
         }
-        if (crafting.progress >= ingredients.Length)
+        if (crafting.progress >= materialData.ingredient_count)
         {
             ArtifactProductionResultEvent result = ArtifactProductionService.DispatchResult(
                 ae,
                 ArtifactProductionProcesses.ArtifactRefining,
-                crafting_entity.GetComponent<ArtifactMaterialData>(),
+                materialData,
                 crafting_entity);
             if (result.QualityBonus != 0)
             {
@@ -77,12 +79,12 @@ public class BehCraftArtifact : BehCityActor
         ArtifactProductionStepEvent step = ArtifactProductionService.DispatchStep(
             ae,
             ArtifactProductionProcesses.ArtifactRefining,
-            crafting_entity.GetComponent<ArtifactMaterialData>(),
+            materialData,
             crafting_entity,
             Randy.randomFloat(1f, 3f));
         crafting.progress += System.Math.Max(1, step.ProgressGain);
         pObject.timer_action = Mathf.Max(0.15f, step.Duration);
 
-        return BehResult.Continue;
+        return BehResult.RepeatStep;
     }
 }

@@ -33,3 +33,11 @@ Cultiway.ERStyle.Magic.Stage.11,十二环
 Cultiway.ERStyle.Magic.Level.0,星
 Cultiway.ERStyle.Magic.Level.1,月
 Cultiway.ERStyle.Magic.Level.2,日
+Cultiway.CraftWaste.Name.Elixir,废丹
+Cultiway.CraftWaste.Name.Elixir.Format,废丹·{0}
+Cultiway.CraftWaste.Name.Artifact,废器
+Cultiway.CraftWaste.Name.Artifact.Format,废器·{0}
+Cultiway.CraftWaste.Tooltip.State,状态
+Cultiway.CraftWaste.Tooltip.Failed,炼制失败
+Cultiway.CraftWaste.Tooltip.Reason.Interrupted,炼制过程中断，已无法继续或使用
+Cultiway.CraftWaste.Tooltip.Reason.IngredientsMissing,炼制材料缺失，已无法继续或使用
