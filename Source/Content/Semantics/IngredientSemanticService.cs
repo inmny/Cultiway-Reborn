@@ -114,6 +114,8 @@ public static class IngredientSemanticService
 
         var multiplier = 1f + Mathf.Log(1f + Mathf.Max(0f, jindan.strength), 2f) * 0.25f
                          + jindan.stage * 0.2f;
+        builder.Add(CultivationSemantics.Realm.Jindan, multiplier, SemanticScope.Intrinsic,
+            new SemanticSourceRef(JindanContributorId, ingredient, jindan.formation.signature));
         builder.Add(SemanticDescriptor.Weighted(jindan.formation.semantics), multiplier,
             SemanticScope.Intrinsic,
             new SemanticSourceRef(JindanContributorId, ingredient, jindan.formation.signature));

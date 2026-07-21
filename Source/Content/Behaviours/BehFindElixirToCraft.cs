@@ -1,6 +1,6 @@
+using System;
 using System.Linq;
 using ai.behaviours;
-using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
@@ -13,33 +13,35 @@ namespace Cultiway.Content.Behaviours;
 
 public class BehFindElixirToCraft : BehCityActor
 {
-    public override BehResult execute(Actor pObject)
+    public override BehResult execute(Actor actor)
     {
-        // 如果人物的背包里有CraftingElixir的实体，那么直接返回BehResult.Continue
-        ActorExtend ae = pObject.GetExtend();
-        if (ae.HasItem<CraftingElixir>()) return BehResult.Continue;
-        //if (!ae.HasMaster<ElixirAsset>()) return BehResult.Stop;
-        // 找配方以及材料，把材料都放到背包里，并开启一个CraftingElixir的实体，并添加到人物的背包里，并标记占用
-        ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.GetRandom();//ae.GetAllMaster<ElixirAsset>().ToList().GetRandom().Item1;
-        if (elixir_asset.QueryInventoryForIngredients(ae, out var ingredients))
+        var actorExtend = actor.GetExtend();
+        if (actorExtend.HasItem<CraftingElixir>()) return BehResult.Continue;
+
+        var recipes = actorExtend.GetAllMaster<ElixirAsset>()
+            .Select(entry => entry.Item1)
+            .Where(asset => asset != null)
+            .OrderBy(asset => asset.id, StringComparer.Ordinal)
+            .ToArray();
+        if (recipes.Length == 0) return BehResult.Stop;
+
+        var startIndex = Randy.randomInt(0, recipes.Length);
+        for (var offset = 0; offset < recipes.Length; offset++)
         {
-            ae.Master(elixir_asset, ae.GetMaster(elixir_asset) + 1);
-            Entity crafting_elixir = SpecialItemUtils
-                .StartBuild(ItemShapes.Ball, World.world.getCurWorldTime(), pObject.getName())
-                .AddComponent(new CraftingElixir
-                {
-                    elixir_id = elixir_asset.id
-                })
+            var asset = recipes[(startIndex + offset) % recipes.Length];
+            if (!asset.QueryInventoryForIngredients(actorExtend, out var ingredients)) continue;
+
+            var craftingElixir = SpecialItemUtils
+                .StartBuild(ItemShapes.Ball, World.world.getCurWorldTime(), actor.getName())
+                .AddComponent(new CraftingElixir { elixir_id = asset.id })
                 .AddTag<TagUncompleted>()
                 .Build();
-            ae.AddSpecialItem(crafting_elixir);
-            foreach (Entity ing in ingredients)
+            actorExtend.AddSpecialItem(craftingElixir);
+            foreach (var ingredient in ingredients)
             {
-                crafting_elixir.AddRelation(new CraftOccupyingRelation { item = ing });
-                ing.AddTag<TagConsumed>();
+                craftingElixir.AddRelation(new CraftOccupyingRelation { item = ingredient });
+                ingredient.AddTag<TagConsumed>();
             }
-
-            //ModClass.LogInfo($"{pObject.data.id} 开始制作 {elixir_asset.id}");
             return BehResult.Continue;
         }
 

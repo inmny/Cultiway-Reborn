@@ -39,8 +39,4 @@ public static class ContentActorDataKeys
     /// 丹药数据增益叠加计数前缀
     /// </summary>
     public const string ElixirDataGainStackPrefix = "cw.content.datagain.stack.";
-    /// <summary>
-    /// 等待丹方生成标记
-    /// </summary>
-    public const string WaitingForElixirGeneration_string = "cw.content.waiting_for_elixir_generation";
 }

@@ -4,6 +4,5 @@ public enum ElixirEffectType
 {
     DataGain,
     StatusGain,
-    DataChange,
     Restore
 }
