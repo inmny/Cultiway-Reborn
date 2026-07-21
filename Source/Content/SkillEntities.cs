@@ -18,6 +18,8 @@ namespace Cultiway.Content;
 public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
 {
     private const float UpFacingSpriteToRightOffset = -90f;
+    /// <summary>高帧动画(48/60 帧)的目标循环时长(秒);按帧数反推 frame_interval,避免默认节奏下拖沓。</summary>
+    private const float HighFrameCycleSeconds = 1.2f;
 
     public static SkillEntityAsset GoldSword { get; private set; }
     public static SkillEntityAsset GoldBlade { get; private set; }
@@ -73,20 +75,22 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
         Configure(WaterBall, water, "cultiway/effect/water_polo", SkillTrajectories.TowardsDirection, 1f, true,
             SkillHitResolver.Single(WaterBall, recycleOnHit: true, continueAfterHit: false),
             ElementTag.Water, FormTag.Ball, FormTag.Single, DeliveryTag.Projectile)
-            .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
+            .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical)
+            .AddAnimation("cultiway/effect/water_polo2", 0.025f);
         Configure(WaterBlade, water, "cultiway/effect/water_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
             SkillHitResolver.Single(WaterBlade, recycleOnHit: false, continueAfterHit: true),
-            ElementTag.Water, FormTag.Slash, FormTag.Sustain, DeliveryTag.Projectile);
+            ElementTag.Water, FormTag.Slash, FormTag.Sustain, DeliveryTag.Projectile)
+            .AddAnimation("cultiway/effect/water_blade2", 0.025f);
         Configure(Fireball, fire, "cultiway/effect/fire_polo", SkillTrajectories.TowardsDirection, 1f, true,
             SkillHitResolver.Area(Fireball, radius: 2f, recycleOnHit: true),
             ElementTag.Fire, FormTag.Ball, FormTag.Aoe, DeliveryTag.Projectile)
             .AddAnimation("cultiway/effect/flying_fireball", 0.025f)
-            .AddAnimation("cultiway/effect/flying_missile1", 0.025f)
-            .AddAnimation("cultiway/effect/flying_missile2", 0.025f)
-            .AddAnimation("cultiway/effect/flying_missile3", 0.025f)
-            .AddAnimation("cultiway/effect/flying_missile4", 0.025f)
-            .AddAnimation("cultiway/effect/flying_missile5", 0.025f)
-            .AddAnimation("cultiway/effect/flying_missile6", 0.025f)
+            .AddAnimation("cultiway/effect/flying_missile1", 0.025f, HighFrameCycleSeconds)
+            .AddAnimation("cultiway/effect/flying_missile2", 0.025f, HighFrameCycleSeconds)
+            .AddAnimation("cultiway/effect/flying_missile3", 0.025f, HighFrameCycleSeconds)
+            .AddAnimation("cultiway/effect/flying_missile4", 0.025f, HighFrameCycleSeconds)
+            .AddAnimation("cultiway/effect/flying_missile5", 0.025f, HighFrameCycleSeconds)
+            .AddAnimation("cultiway/effect/flying_missile6", 0.025f, HighFrameCycleSeconds)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
         Configure(FireBlade, fire, "cultiway/effect/fire_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
             SkillHitResolver.Single(FireBlade, recycleOnHit: false, continueAfterHit: true),
@@ -124,11 +128,11 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             .AcceptOrientations(TrajectoryOrientation.Appear)
             .AddAnimation("cultiway/effect/default_lightning2", 0.025f)
             .AddAnimation("cultiway/effect/default_lightning3", 0.025f)
-            .AddAnimation("cultiway/effect/default_lightning4", 0.025f)
-            .AddAnimation("cultiway/effect/default_lightning5", 0.025f)
-            .AddAnimation("cultiway/effect/default_lightning6", 0.025f)
-            .AddAnimation("cultiway/effect/default_lightning7", 0.025f)
-            .AddAnimation("cultiway/effect/default_lightning8", 0.025f)
+            .AddAnimation("cultiway/effect/default_lightning4", 0.025f, HighFrameCycleSeconds)
+            .AddAnimation("cultiway/effect/default_lightning5", 0.025f, HighFrameCycleSeconds)
+            .AddAnimation("cultiway/effect/default_lightning6", 0.025f, HighFrameCycleSeconds)
+            .AddAnimation("cultiway/effect/default_lightning7", 0.025f, HighFrameCycleSeconds)
+            .AddAnimation("cultiway/effect/default_lightning8", 0.025f, HighFrameCycleSeconds)
             .AddAnimation("cultiway/effect/default_lightning9", 0.025f)
             .AddAnimation("cultiway/effect/default_lightning10", 0.025f);
         Configure(LightningPolo, lightning, "cultiway/effect/lightning_polo", SkillTrajectories.LightningSnap, 1f,
