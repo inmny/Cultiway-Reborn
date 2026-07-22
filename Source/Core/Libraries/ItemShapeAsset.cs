@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Cultiway.Core.Components;
 using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
@@ -10,13 +9,80 @@ namespace Cultiway.Core.Libraries;
 
 public class Shape
 {
-    public Color[,] Direct;
-    public float[,] Dark1;
-    public float[,] Dark2;
-    public float[,] Dark3;
-    public int[,] Source;
-    private const int K = 4;
+    private const int   MaxColorRegions        = 3;
+    private const int   HueBinCount            = 36;
+    private const float AlphaThreshold         = 0.1f;
+    private const float MinSampleSaturation    = 0.06f;
+    private const float MinSampleValue         = 0.04f;
+    private const float HueCoreDistance        = 0.12f;
+    private const float HueOuterDistance       = 0.26f;
+    private const float HueSuppressionDistance = 0.19f;
+    private const float HueRefineDistance      = 0.095f;
+    private const float MinRegionSeparation    = 0.16f;
+    private const float HueVariationRetention        = 0.75f;
+    private const float SaturationVariationRetention = 0.8f;
+    private const float ValueVariationRetention      = 0.8f;
+    private const float RegionReferenceQuantile      = 0.5f;
+    private const float MinSaturationReference       = 0.15f;
 
+    /// <summary>模板原始像素，用于保留轮廓、高光与不参与换色的装饰。</summary>
+    public Color[,] Direct;
+
+    /// <summary>-1 表示透明，0 表示保留原色，1~3 表示对应的可换色区域。</summary>
+    public int[,] Source;
+
+    /// <summary>当前像素应用目标颜色的强度，用于平滑换色区边缘。</summary>
+    public float[,] ColorBlend;
+
+    /// <summary>相对所属色相族保留的少量色相变化。</summary>
+    public float[,] HueOffset;
+
+    /// <summary>像素相对所属区域代表色的饱和度比例。</summary>
+    public float[,] SaturationRatio;
+
+    /// <summary>像素相对所属区域代表色的明度偏移。</summary>
+    public float[,] ValueOffset;
+
+    private readonly struct PixelSample
+    {
+        public readonly float Hue;
+        public readonly float Saturation;
+        public readonly float Value;
+        public readonly float Alpha;
+        public readonly float Weight;
+
+        public PixelSample(float hue, float saturation, float value, float alpha, float weight)
+        {
+            Hue = hue;
+            Saturation = saturation;
+            Value = value;
+            Alpha = alpha;
+            Weight = weight;
+        }
+    }
+
+    private readonly struct WeightedValue
+    {
+        public readonly float Value;
+        public readonly float Weight;
+
+        public WeightedValue(float value, float weight)
+        {
+            Value = value;
+            Weight = weight;
+        }
+    }
+
+    private struct ColorRegion
+    {
+        public float Hue;
+        public float Score;
+        public bool  IsNeutral;
+    }
+
+    /// <summary>
+    ///     将完整彩色模板解析为稳定的色相区域、软边权重和明暗信息，供运行时替换材质颜色。
+    /// </summary>
     public Shape(Sprite sprite)
     {
         if (sprite == null)
@@ -25,252 +91,279 @@ public class Shape
             return;
         }
 
-        // 1. 获取像素数据
         Texture2D texture = sprite.texture;
         Rect rect = sprite.rect;
         int width = (int)rect.width;
         int height = (int)rect.height;
         Color[] pixels = texture.GetPixels((int)rect.x, (int)rect.y, width, height);
 
-        // 初始化数组
         Direct = new Color[width, height];
-        Dark1 = new float[width, height];
-        Dark2 = new float[width, height];
-        Dark3 = new float[width, height];
         Source = new int[width, height];
+        ColorBlend = new float[width, height];
+        HueOffset = new float[width, height];
+        SaturationRatio = new float[width, height];
+        ValueOffset = new float[width, height];
 
-        // 过滤透明像素
-        List<Color> valid_pixels = pixels.Where(p => p.a > 0.1f).ToList();
-        if (valid_pixels.Count == 0)
-        {
-            ModClass.LogWarning("No valid pixels (non-transparent) in sprite.");
-            return;
-        }
-
-        // 2. K-Means聚类获取4个主要颜色（K=4）
-        List<Color> centroids = KMeans(valid_pixels, K);
-
-        // 3. 按聚类包含的像素数量排序（确定主色优先级）
-        var sorted_centroids = GetSortedCentroidsByCount(valid_pixels, centroids).ToList();
-        Color main1 = sorted_centroids.Count >= 1 ? sorted_centroids[0] : Color.white;
-        Color main2 = sorted_centroids.Count >= 2 ? sorted_centroids[1] : Color.gray;
-        Color main3 = sorted_centroids.Count >= 3 ? sorted_centroids[2] : Color.black;
-
-        // 颜色距离阈值：超过此值视为不归属该主色（可根据需求调整，0.1~0.3较合适）
-        const float colorDistanceThreshold = 0.5f;
-
-        // 4. 填充数组（判断归属并设置对应值）
+        List<PixelSample> samples = new();
+        float[] hue_histogram = new float[HueBinCount];
+        float neutral_score = 0f;
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
             {
-                int index = y * width + x;
-                Color pixel = pixels[index];
+                Color pixel = pixels[y * width + x];
+                Direct[x, y] = pixel;
+                Source[x, y] = pixel.a < AlphaThreshold ? -1 : 0;
+                if (pixel.a < AlphaThreshold) continue;
 
-                // 透明像素直接设为默认值
-                if (pixel.a < 0.1f)
+                Color.RGBToHSV(pixel, out float hue, out float saturation, out float value);
+                neutral_score += GetNeutralBlend(saturation, value) * pixel.a;
+                if (saturation < MinSampleSaturation || value < MinSampleValue) continue;
+
+                float weight = pixel.a * (0.2f + 0.8f * saturation) *
+                               (0.35f + 0.65f * Mathf.Sqrt(value));
+                samples.Add(new PixelSample(hue, saturation, value, pixel.a, weight));
+                int hue_bin = Mathf.Clamp(Mathf.FloorToInt(hue * HueBinCount), 0, HueBinCount - 1);
+                hue_histogram[hue_bin] += weight;
+            }
+        }
+
+        if (samples.Count == 0 && neutral_score <= 0f)
+        {
+            ModClass.LogWarning("No recolorable pixels in item shape sprite.");
+            return;
+        }
+
+        List<ColorRegion> regions = BuildColorRegions(samples, hue_histogram, neutral_score);
+        if (regions.Count == 0) return;
+
+        List<WeightedValue>[] region_saturations = new List<WeightedValue>[regions.Count];
+        List<WeightedValue>[] region_values = new List<WeightedValue>[regions.Count];
+        for (int i = 0; i < regions.Count; i++)
+        {
+            region_saturations[i] = new List<WeightedValue>();
+            region_values[i] = new List<WeightedValue>();
+        }
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                Color pixel = Direct[x, y];
+                if (pixel.a < AlphaThreshold) continue;
+
+                Color.RGBToHSV(pixel, out float hue, out float saturation, out float value);
+                int best_region = -1;
+                float best_blend = 0f;
+                for (int i = 0; i < regions.Count; i++)
                 {
-                    Direct[x, y] = Color.clear;
-                    Dark1[x, y] = 0;
-                    Dark2[x, y] = 0;
-                    Dark3[x, y] = 0;
-                    Source[x, y] = -1;
-                    continue;
+                    ColorRegion region = regions[i];
+                    float blend = region.IsNeutral
+                        ? GetNeutralBlend(saturation, value)
+                        : GetHueBlend(hue, saturation, region.Hue);
+                    if (blend <= best_blend) continue;
+                    best_region = i;
+                    best_blend = blend;
                 }
 
-                // 计算像素与三个主色的距离（RGB空间）
-                float dist1 = ColorDistance(pixel, main1);
-                float dist2 = ColorDistance(pixel, main2);
-                float dist3 = ColorDistance(pixel, main3);
+                if (best_region < 0 || best_blend <= 0f) continue;
 
-                // 找到最近的主色（并判断是否在阈值内）
-                float min_dist = Mathf.Min(dist1, dist2, dist3);
-                bool is_assigned = min_dist <= colorDistanceThreshold * colorDistanceThreshold; // 用平方比较避免开方
+                ColorRegion selected_region = regions[best_region];
+                Source[x, y] = best_region + 1;
+                ColorBlend[x, y] = best_blend;
+                HueOffset[x, y] = selected_region.IsNeutral
+                    ? 0f
+                    : SignedHueDelta(hue, selected_region.Hue) * HueVariationRetention;
+                SaturationRatio[x, y] = saturation;
+                ValueOffset[x, y] = value;
+                if (best_blend > 0.05f)
+                {
+                    region_saturations[best_region].Add(new WeightedValue(saturation, best_blend * pixel.a));
+                    region_values[best_region].Add(new WeightedValue(value, best_blend * pixel.a));
+                }
+            }
+        }
 
-                Direct[x, y] = pixel; 
-                if (is_assigned)
-                {
-                    if (min_dist == dist1)
-                    {
-                        // 归属main1
-                        Dark1[x, y] = CalculateDarkValue(pixel, main1, 1e-3f);
-                        Dark2[x, y] = 0;
-                        Dark3[x, y] = 0;
-                        Source[x, y] = 1;
-                    }
-                    else if (min_dist == dist2)
-                    {
-                        // 归属main2
-                        Dark1[x, y] = 0;
-                        Dark2[x, y] = CalculateDarkValue(pixel, main2, 1e-3f);
-                        Dark3[x, y] = 0;
-                        Source[x, y] = 2;
-                    }
-                    else
-                    {
-                        // 归属main3
-                        Dark1[x, y] = 0;
-                        Dark2[x, y] = 0;
-                        Dark3[x, y] = CalculateDarkValue(pixel, main3, 1e-3f);
-                        Source[x, y] = 3;
-                    }
-                }
-                else
-                {
-                    // 不归属任何主色：Direct设为原像素，所有dark设为0// 保留原像素颜色（包括alpha）
-                    Dark1[x, y] = 0;
-                    Dark2[x, y] = 0;
-                    Dark3[x, y] = 0;
-                    Source[x, y] = 0;
-                }
+        float[] base_saturations = new float[regions.Count];
+        float[] base_values = new float[regions.Count];
+        for (int i = 0; i < regions.Count; i++)
+        {
+            base_saturations[i] = Mathf.Max(MinSaturationReference,
+                WeightedQuantile(region_saturations[i], RegionReferenceQuantile));
+            base_values[i] = WeightedQuantile(region_values[i], RegionReferenceQuantile);
+        }
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                int source = Source[x, y];
+                if (source <= 0) continue;
+
+                int region_index = source - 1;
+                SaturationRatio[x, y] = regions[region_index].IsNeutral
+                    ? 1f
+                    : Mathf.Pow(SaturationRatio[x, y] / base_saturations[region_index],
+                        SaturationVariationRetention);
+                ValueOffset[x, y] = (ValueOffset[x, y] - base_values[region_index]) *
+                                    ValueVariationRetention;
             }
         }
     }
 
-// 核心方法：计算调暗系数（基于RGB三个通道的平均值）
-    private float CalculateDarkValue(Color pixel, Color mainColor, float minChannelValue)
+    /// <summary>从色相直方图中确定最多三个稳定色相族，并让中性色主体参与面积排序。</summary>
+    private static List<ColorRegion> BuildColorRegions(List<PixelSample> samples, float[] histogram,
+        float neutral_score)
     {
-        // 分别计算每个通道的调暗系数
-        float r_dark = CalculateSingleChannelDarkValue(pixel.r, mainColor.r, minChannelValue);
-        float g_dark = CalculateSingleChannelDarkValue(pixel.g, mainColor.g, minChannelValue);
-        float b_dark = CalculateSingleChannelDarkValue(pixel.b, mainColor.b, minChannelValue);
-
-        // 取三个通道的平均值作为最终darkValue（确保各通道调暗一致）
-        float dark_value = (r_dark + g_dark + b_dark) / 3f;
-
-        // 限制范围：0~1（0=不调暗，1=完全变黑）
-        return Mathf.Clamp01(dark_value);
-    }
-
-// 辅助方法：计算单个通道的调暗系数
-    private float CalculateSingleChannelDarkValue(float pixelChannel, float mainChannel, float minChannelValue)
-    {
-        // 主通道值过小时，直接返回0（避免除以0或异常大的系数）
-        if (mainChannel < minChannelValue)
-            return 0f;
-
-        // 公式：darkValue = 1 - (像素通道值 / 主色通道值)
-        float ratio = pixelChannel / mainChannel;
-        return 1f - ratio;
-    }
-
-    // 简化版K-Means聚类（颜色聚类）
-    private List<Color> KMeans(List<Color> pixels, int k)
-    {
-        if (pixels.Count <= k)
-            return pixels.Distinct().Take(k).ToList(); // 像素太少时直接取独特颜色
-
-        // 1. 随机初始化聚类中心（避免重复）
-        HashSet<int> init_indices = new HashSet<int>();
-        List<Color> centroids = new List<Color>();
-        while (init_indices.Count < k)
+        float[] smoothed = new float[HueBinCount];
+        for (int i = 0; i < HueBinCount; i++)
         {
-            int idx = Randy.randomInt(0, pixels.Count);
-            if (init_indices.Add(idx))
-                centroids.Add(pixels[idx]);
+            smoothed[i] =
+                histogram[PositiveMod(i - 2, HueBinCount)] +
+                histogram[PositiveMod(i - 1, HueBinCount)] * 2f +
+                histogram[i] * 3f +
+                histogram[(i + 1) % HueBinCount] * 2f +
+                histogram[(i + 2) % HueBinCount];
         }
 
-        // 2. 迭代聚类（最多20次，避免无限循环）
-        for (int iter = 0; iter < 20; iter++)
+        float[] remaining = (float[])smoothed.Clone();
+        List<ColorRegion> candidates = new();
+        int attempts = 0;
+        while (candidates.Count < MaxColorRegions && attempts++ < HueBinCount)
         {
-            // 为每个像素分配到最近的中心
-            List<List<Color>> clusters = Enumerable.Range(0, k).Select(_ => new List<Color>()).ToList();
-            foreach (var pixel in pixels)
+            int peak_index = 0;
+            for (int i = 1; i < HueBinCount; i++)
+                if (remaining[i] > remaining[peak_index])
+                    peak_index = i;
+
+            if (remaining[peak_index] <= 0f) break;
+
+            float seed_hue = (peak_index + 0.5f) / HueBinCount;
+            float x = 0f;
+            float y = 0f;
+            foreach (PixelSample sample in samples)
             {
-                int closest_idx = GetClosestCentroidIndex(pixel, centroids);
-                clusters[closest_idx].Add(pixel);
+                if (CircularHueDistance(sample.Hue, seed_hue) >= HueRefineDistance) continue;
+                float angle = sample.Hue * Mathf.PI * 2f;
+                x += Mathf.Cos(angle) * sample.Weight;
+                y += Mathf.Sin(angle) * sample.Weight;
             }
 
-            // 3. 更新聚类中心（取平均值）
-            List<Color> new_centroids = new List<Color>();
-            foreach (var cluster in clusters)
+            float hue = x == 0f && y == 0f
+                ? seed_hue
+                : Mathf.Repeat(Mathf.Atan2(y, x) / (Mathf.PI * 2f), 1f);
+            SuppressHueRange(remaining, seed_hue);
+            SuppressHueRange(remaining, hue);
+
+            bool duplicate = false;
+            foreach (ColorRegion candidate in candidates)
             {
-                if (cluster.Count == 0)
-                {
-                    // 空聚类时随机重置一个中心
-                    new_centroids.Add(pixels[Randy.randomInt(0, pixels.Count)]);
-                }
-                else
-                {
-                    // 计算聚类的平均颜色（RGB分别平均）
-                    float r = 0, g = 0, b = 0;
-                    foreach (var c in cluster)
-                    {
-                        r += c.r;
-                        g += c.g;
-                        b += c.b;
-                    }
-
-                    new_centroids.Add(new Color(r / cluster.Count, g / cluster.Count, b / cluster.Count));
-                }
-            }
-
-            // 4. 检查收敛（中心变化小于阈值）
-            if (CentroidsConverged(centroids, new_centroids, 0.01f))
+                if (candidate.IsNeutral || CircularHueDistance(candidate.Hue, hue) >= MinRegionSeparation) continue;
+                duplicate = true;
                 break;
-
-            centroids = new_centroids;
-        }
-
-        return centroids;
-    }
-
-    // 找到最近的聚类中心索引（基于RGB距离）
-    private int GetClosestCentroidIndex(Color pixel, List<Color> centroids)
-    {
-        int closest_idx = 0;
-        float min_dist = float.MaxValue;
-        for (int i = 0; i < centroids.Count; i++)
-        {
-            float dist = ColorDistance(pixel, centroids[i]);
-            if (dist < min_dist)
-            {
-                min_dist = dist;
-                closest_idx = i;
             }
+
+            if (duplicate) continue;
+            candidates.Add(new ColorRegion
+            {
+                Hue = hue,
+                Score = CalculateRegionScore(samples, hue)
+            });
         }
 
-        return closest_idx;
+        if (neutral_score > 0f)
+            candidates.Add(new ColorRegion
+            {
+                IsNeutral = true,
+                Score = neutral_score
+            });
+
+        candidates.Sort((left, right) => right.Score.CompareTo(left.Score));
+        if (candidates.Count > MaxColorRegions)
+            candidates.RemoveRange(MaxColorRegions, candidates.Count - MaxColorRegions);
+        return candidates;
     }
 
-    // 计算两个颜色的距离（RGB空间欧氏距离）
-    private float ColorDistance(Color a, Color b)
+    /// <summary>按实际可见像素计算色相族面积，确保主换色区不受初始化顺序影响。</summary>
+    private static float CalculateRegionScore(List<PixelSample> samples, float hue)
     {
-        float dr = a.r - b.r;
-        float dg = a.g - b.g;
-        float db = a.b - b.b;
-        return dr * dr + dg * dg + db * db; // 省略开方，不影响比较
+        float score = 0f;
+        foreach (PixelSample sample in samples)
+            score += GetHueBlend(sample.Hue, sample.Saturation, hue) * sample.Alpha;
+        return score;
     }
 
-    // 检查聚类中心是否收敛（变化小于阈值）
-    private bool CentroidsConverged(List<Color> old, List<Color> @new, float threshold)
+    /// <summary>抑制已选色相附近的直方图区间，避免把同一颜色的高光和阴影重复选为多个区域。</summary>
+    private static void SuppressHueRange(float[] histogram, float hue)
     {
-        for (int i = 0; i < old.Count; i++)
+        for (int i = 0; i < HueBinCount; i++)
+            if (CircularHueDistance((i + 0.5f) / HueBinCount, hue) < HueSuppressionDistance)
+                histogram[i] = 0f;
+    }
+
+    /// <summary>计算像素对指定色相族的软归属权重。</summary>
+    private static float GetHueBlend(float hue, float saturation, float region_hue)
+    {
+        float hue_blend = 1f - SmoothStep(HueCoreDistance, HueOuterDistance,
+            CircularHueDistance(hue, region_hue));
+        float saturation_blend = SmoothStep(0.025f, 0.14f, saturation);
+        return hue_blend * saturation_blend;
+    }
+
+    /// <summary>计算灰白主体的软归属权重，同时排除黑色轮廓和纯白高光。</summary>
+    private static float GetNeutralBlend(float saturation, float value)
+    {
+        float saturation_blend = 1f - SmoothStep(0.04f, 0.2f, saturation);
+        float shadow_blend = SmoothStep(0.08f, 0.25f, value);
+        float highlight_blend = 1f - SmoothStep(0.86f, 1f, value);
+        return saturation_blend * shadow_blend * highlight_blend;
+    }
+
+    /// <summary>计算带平滑端点的 0~1 插值。</summary>
+    private static float SmoothStep(float min, float max, float value)
+    {
+        float t = Mathf.Clamp01((value - min) / (max - min));
+        return t * t * (3f - 2f * t);
+    }
+
+    /// <summary>返回环形色相空间中的最短无符号距离。</summary>
+    private static float CircularHueDistance(float left, float right)
+    {
+        float distance = Mathf.Abs(left - right);
+        return Mathf.Min(distance, 1f - distance);
+    }
+
+    /// <summary>返回从基准色相到像素色相的最短有符号偏移。</summary>
+    private static float SignedHueDelta(float hue, float basis)
+    {
+        return Mathf.Repeat(hue - basis + 0.5f, 1f) - 0.5f;
+    }
+
+    /// <summary>按像素归属权重取得数值分位点，用于计算每个分色区的代表饱和度和明度。</summary>
+    private static float WeightedQuantile(List<WeightedValue> values, float quantile)
+    {
+        if (values.Count == 0) return 1f;
+        values.Sort((left, right) => left.Value.CompareTo(right.Value));
+        float total_weight = 0f;
+        foreach (WeightedValue value in values) total_weight += value.Weight;
+        if (total_weight <= 0f) return 1f;
+
+        float threshold = total_weight * quantile;
+        float accumulated = 0f;
+        foreach (WeightedValue value in values)
         {
-            if (ColorDistance(old[i], @new[i]) > threshold * threshold)
-                return false;
+            accumulated += value.Weight;
+            if (accumulated >= threshold) return value.Value;
         }
 
-        return true;
+        return values[^1].Value;
     }
 
-    // 按聚类包含的像素数量排序中心
-    private IEnumerable<Color> GetSortedCentroidsByCount(List<Color> pixels, List<Color> centroids)
+    /// <summary>返回非负取模，供环形直方图访问使用。</summary>
+    private static int PositiveMod(int value, int modulus)
     {
-        // 用索引代替颜色作为键（避免颜色重复问题）
-        int[] cluster_counts = new int[centroids.Count];
-
-        foreach (var pixel in pixels)
-        {
-            int closest_idx = GetClosestCentroidIndex(pixel, centroids);
-            cluster_counts[closest_idx]++; // 统计每个聚类的像素数量
-        }
-
-        // 按数量降序排序，返回对应的中心颜色
-        return centroids
-            .Select((color, index) => new { Color = color, Count = cluster_counts[index] })
-            .OrderByDescending(item => item.Count)
-            .Select(item => item.Color);
+        int result = value % modulus;
+        return result < 0 ? result + modulus : result;
     }
 }
 
@@ -299,12 +392,11 @@ public class ItemShapeAsset : Asset
     public void LoadTextures()
     {
         major_textures.Clear();
+        major_shapes.Clear();
         if (!string.IsNullOrEmpty(major_texture_folder))
             major_textures.AddRange(SpriteTextureLoader.getSpriteList(major_texture_folder));
-        foreach (var sprite in major_textures)
-        {
+        foreach (Sprite sprite in major_textures)
             major_shapes.Add(new Shape(sprite));
-        }
     }
 
     public Sprite GetSprite(int idx)

@@ -246,10 +246,11 @@ internal static class PatchActor
         {
             element_root_component = er;
 
-            var color = ColorUtils.FromElement(er.Iron, er.Wood, er.Water, er.Fire, er.Earth, er.Neg, er.Pos, er.Entropy);
+            var composition = new ElementComposition(
+                er.Iron, er.Wood, er.Water, er.Fire, er.Earth, er.Neg, er.Pos, er.Entropy);
             icon_data_component = new ItemIconData()
             {
-                ColorHex1 = Toolbox.colorToHex(color)
+                ColorHex1 = composition.HexColor()
             };
             param.Add(er.Type.GetName());
         }

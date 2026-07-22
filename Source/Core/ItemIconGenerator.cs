@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
-using Cultiway.Utils;
 using UnityEngine;
 
 namespace Cultiway.Core;
@@ -48,29 +47,9 @@ public static class ItemIconGenerator
 
         var shape = shape_list[hash % shape_list.Count];
 
-        Color color1 = Color.clear;
-        var color1_available = false;
-        if (icon_data.ColorHex1 != null)
-        {
-            color1_available = true;
-            ColorUtility.TryParseHtmlString(icon_data.ColorHex1, out color1);
-        }
-
-        Color color2 = Color.clear;
-        var color2_available = false;
-        if (icon_data.ColorHex2 != null)
-        {
-            color2_available = true;
-            ColorUtility.TryParseHtmlString(icon_data.ColorHex2, out color2);
-        }
-
-        Color color3 = Color.clear;
-        var color3_available = false;
-        if (icon_data.ColorHex3 != null)
-        {
-            color3_available = true;
-            ColorUtility.TryParseHtmlString(icon_data.ColorHex3, out color3);
-        }
+        bool color1_available = TryParseColor(icon_data.ColorHex1, out Color color1);
+        bool color2_available = TryParseColor(icon_data.ColorHex2, out Color color2);
+        bool color3_available = TryParseColor(icon_data.ColorHex3, out Color color3);
 
         var decorations = new List<Color[]>();
         if (icon_data.Decorations != null)
@@ -106,9 +85,6 @@ public static class ItemIconGenerator
                 int shape_y = Mathf.Clamp(Mathf.RoundToInt(target_y * scale_y), 0, shape_height - 1);
 
                 Color direct_color = shape.Direct[shape_x, shape_y];
-                float dark1 = shape.Dark1[shape_x, shape_y];
-                float dark2 = shape.Dark2[shape_x, shape_y];
-                float dark3 = shape.Dark3[shape_x, shape_y];
                 var source = shape.Source[shape_x, shape_y];
                 if (source == -1)
                 {
@@ -118,17 +94,14 @@ public static class ItemIconGenerator
                 {
                     texture.SetPixel(target_x, target_y, direct_color);
                 }
-                else if (source == 1 && color1_available)
+                else if (TryGetRegionColor(source,
+                             color1_available, color1,
+                             color2_available, color2,
+                             color3_available, color3,
+                             out Color target_color))
                 {
-                    texture.SetPixel(target_x, target_y, ColorUtils.Darken(color1, dark1));
-                }
-                else if (source == 2 && color2_available)
-                {
-                    texture.SetPixel(target_x, target_y, ColorUtils.Darken(color2, dark2));
-                }
-                else if (source == 3 && color3_available)
-                {
-                    texture.SetPixel(target_x, target_y, ColorUtils.Darken(color3, dark3));
+                    texture.SetPixel(target_x, target_y,
+                        RecolorPixel(direct_color, target_color, shape, shape_x, shape_y));
                 }
                 else
                 {
@@ -159,5 +132,54 @@ public static class ItemIconGenerator
         texture.Apply();
 
         return texture;
+    }
+
+    /// <summary>解析可选的 HTML 颜色；空值与非法值都不会启用对应换色区。</summary>
+    private static bool TryParseColor(string color_hex, out Color color)
+    {
+        if (string.IsNullOrWhiteSpace(color_hex))
+        {
+            color = Color.clear;
+            return false;
+        }
+
+        return ColorUtility.TryParseHtmlString(color_hex, out color);
+    }
+
+    /// <summary>按模板区域编号取得调用方提供的目标颜色。</summary>
+    private static bool TryGetRegionColor(int source,
+        bool color1_available, Color color1,
+        bool color2_available, Color color2,
+        bool color3_available, Color color3,
+        out Color color)
+    {
+        switch (source)
+        {
+            case 1 when color1_available:
+                color = color1;
+                return true;
+            case 2 when color2_available:
+                color = color2;
+                return true;
+            case 3 when color3_available:
+                color = color3;
+                return true;
+            default:
+                color = Color.clear;
+                return false;
+        }
+    }
+
+    /// <summary>应用目标色相，同时保留模板像素的明暗、材质变化、软边与透明度。</summary>
+    private static Color RecolorPixel(Color source, Color target, Shape shape, int x, int y)
+    {
+        Color.RGBToHSV(target, out float hue, out float saturation, out float value);
+        hue = Mathf.Repeat(hue + shape.HueOffset[x, y], 1f);
+        saturation = Mathf.Clamp01(saturation * shape.SaturationRatio[x, y]);
+        value = Mathf.Clamp01(value + shape.ValueOffset[x, y]);
+
+        Color recolored = Color.HSVToRGB(hue, saturation, value);
+        recolored.a = source.a;
+        return Color.Lerp(source, recolored, shape.ColorBlend[x, y]);
     }
 }
