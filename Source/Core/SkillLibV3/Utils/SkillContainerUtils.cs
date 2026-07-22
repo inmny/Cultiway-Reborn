@@ -1,4 +1,5 @@
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Core.SkillLibV3.Utils;
@@ -12,6 +13,11 @@ public static class SkillContainerUtils
     {
         ref var container = ref skillContainer.GetComponent<SkillContainer>();
         container.VfxElement = ModClass.I.SkillV3.VfxElementLib.Resolve(container, skillContainer);
+        var preferredSemantic = container.VfxElement.PreferVisualSemantic
+            ? container.VfxElement.VisualSemantic
+            : null;
+        container.ColorPalette = SemanticColorResolver.Resolve(
+            SkillSemanticCollector.BuildProfile(skillContainer), preferredSemantic);
     }
 
     /// <summary>

@@ -1,6 +1,6 @@
 using Cultiway.Core.Components;
+using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3.Components;
-using Cultiway.Utils;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -43,9 +43,8 @@ public static class SkillVfxColor
 
     public static Color GetElementColor(ElementComposition element)
     {
-        element.Normalize();
-        var color = ColorUtils.FromElement(element.iron, element.wood, element.water, element.fire, element.earth,
-            element.neg, element.pos, element.entropy);
+        var palette = SemanticColorResolver.Resolve(ElementSemanticProfileService.Build(element));
+        var color = palette.GetColor(0, Color.white);
         color.a = 0.82f;
         return color;
     }

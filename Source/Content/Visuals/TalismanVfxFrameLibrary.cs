@@ -68,7 +68,7 @@ internal static class TalismanVfxFrameLibrary
     private static Color[] BuildBurnFrame(Color[] source, Color color, Color accentColor, float t)
     {
         var frame = CreateEmptyPixels();
-        var fireColor = Color.Lerp(new Color(1f, 0.52f, 0.08f, 1f), accentColor, 0.35f);
+        var burnEdgeColor = Color.Lerp(color, accentColor, 0.7f);
         var progress = Mathf.Lerp(0.06f, 1.18f, FastBurnProgress(t));
         var center = (CanvasSize - 1) * 0.5f;
 
@@ -92,7 +92,7 @@ internal static class TalismanVfxFrameLibrary
                 if (front < 0.09f)
                 {
                     var heat = Mathf.Clamp01(1f - front / 0.09f);
-                    var c = Color.Lerp(accentColor, fireColor, 0.55f + noise * 0.35f);
+                    var c = Color.Lerp(accentColor, burnEdgeColor, 0.55f + noise * 0.35f);
                     c.a = pixel.a * Mathf.Lerp(0.42f, 1f, heat);
                     frame[index] = c;
                     continue;

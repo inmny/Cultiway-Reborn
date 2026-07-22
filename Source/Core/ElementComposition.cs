@@ -1,6 +1,7 @@
 using System;
 using Cultiway.Const;
-using Cultiway.Utils;
+using Cultiway.Core.Semantics;
+using UnityEngine;
 
 namespace Cultiway.Core;
 
@@ -126,7 +127,7 @@ public struct ElementComposition
 
     public string HexColor()
     {
-        Normalize();
-        return Toolbox.colorToHex(ColorUtils.FromElement(iron, wood, water, fire, earth, neg, pos, entropy));
+        var palette = SemanticColorResolver.Resolve(ElementSemanticProfileService.Build(this));
+        return Toolbox.colorToHex(palette.GetColor(0, Color.white));
     }
 }

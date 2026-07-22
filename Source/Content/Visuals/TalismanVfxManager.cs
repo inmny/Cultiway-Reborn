@@ -1,4 +1,5 @@
 using Cultiway.Core.Components;
+using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Utils.Extension;
@@ -24,8 +25,13 @@ public static class TalismanVfxManager
         if (skillAsset == null) return;
 
         var element = skill.VfxElement;
-        var color = SkillVfxColor.GetElementColor(skillAsset.Element);
-        var accentColor = element.GetAccentColor(color);
+        var colorPalette = skill.ColorPalette;
+        var color = colorPalette.GetColor(0, SkillVfxColor.GetElementColor(skillAsset.Element));
+        color.a = 0.82f;
+        var accentColor = colorPalette.Count > 1
+            ? SemanticColorResolver.ToVfxColor(colorPalette.Secondary)
+            : element.GetAccentColor(color);
+        accentColor.a = element.AccentAlpha;
         var frames = TalismanVfxFrameLibrary.GetActivationFrames(icon, color, accentColor);
         if (frames.Length == 0) return;
 

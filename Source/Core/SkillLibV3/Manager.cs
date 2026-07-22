@@ -175,6 +175,7 @@ public class Manager
         ref var skill_entity = ref data.Get<SkillEntity>();
         skill_entity.SkillContainer = skill_container;
         skill_entity.VfxElement = container.VfxElement;
+        skill_entity.ColorPalette = container.ColorPalette;
         context.TargetPos = target_pos;
         context.TargetDir = base_dir;
         ref var pos = ref data.Get<Position>();

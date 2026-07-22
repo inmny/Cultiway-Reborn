@@ -40,8 +40,10 @@ public class BehCraftTalisman : BehaviourActionActor
         skill_v3 = skill_v3.Store.CloneEntity(skill_v3);
         xian.wakan -= wakan_to_take;
         var power_level = ae.GetPowerLevel();
+        var skillContainer = skill_v3.GetComponent<SkillContainer>();
+        var colorPalette = skillContainer.ColorPalette;
 
-        string skill_name = skill_v3.HasName ? skill_v3.Name.value : skill_v3.GetComponent<SkillContainer>().Asset.id;
+        string skill_name = skill_v3.HasName ? skill_v3.Name.value : skillContainer.Asset.id;
         var item = SpecialItemUtils.StartBuild(ItemShapes.Talisman, WorldboxGame.I.GetWorldTime(), pObject.getName(), Mathf.Pow(power_level, 2)*10)
             .AddComponent(new Talisman()
             {
@@ -51,7 +53,9 @@ public class BehCraftTalisman : BehaviourActionActor
             })
             .AddComponent(new ItemIconData()
             {
-                ColorHex1 = skill_v3.GetComponent<SkillContainer>().Asset.Element.HexColor()
+                ColorHex1 = colorPalette.GetHex(0),
+                ColorHex2 = colorPalette.GetHex(1),
+                ColorHex3 = colorPalette.GetHex(2)
             })
             .AddComponent(new EntityName(TalismanNameGenerator.Instance.GenerateName([skill_name])))
             .Build();

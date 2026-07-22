@@ -1,4 +1,5 @@
 using UnityEngine;
+using Cultiway.Core.Semantics;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
 
@@ -11,17 +12,21 @@ public static class SkillGroundFx
     /// <summary>
     /// 法术飞行掠过时对地面的轻量影响。由 <see cref="Systems.LogicSkillGroundFxRecordSystem"/> 按距离节流调用。
     /// </summary>
-    public static void OnFlyOver(Vector3 pos, float colliderRadius, SkillVfxElementAsset element)
+    public static void OnFlyOver(
+        Vector3 pos,
+        float colliderRadius,
+        SkillVfxElementAsset element,
+        SemanticColorPalette colorPalette)
     {
         var tile = GetTile(pos);
         if (tile == null) return;
 
-        ActivateCollisionAreaParticles(pos, colliderRadius, element);
+        ActivateCollisionAreaParticles(pos, colliderRadius, element, colorPalette);
         element.ApplyGroundFlyOver(tile);
     }
 
     private static void ActivateCollisionAreaParticles(Vector3 pos, float colliderRadius,
-        SkillVfxElementAsset element)
+        SkillVfxElementAsset element, SemanticColorPalette colorPalette)
     {
         // 与 LogicActorCollisionSystem 的距离阈值保持一致，覆盖扫掠碰撞实际检查的地块。
         var radius = colliderRadius + 1f;
@@ -41,7 +46,7 @@ public static class SkillGroundFx
             var affectedTile = World.world.GetTile(x, y);
             if (affectedTile != null)
             {
-                SkillFlyOverParticleEmitter.Activate(affectedTile, element);
+                SkillFlyOverParticleEmitter.Activate(affectedTile, element, colorPalette);
             }
         }
     }

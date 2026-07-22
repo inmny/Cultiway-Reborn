@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.Semantics;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
@@ -31,7 +32,10 @@ public static class SkillFlyOverParticleEmitter
         }
     };
 
-    public static void Activate(WorldTile tile, SkillVfxElementAsset element)
+    public static void Activate(
+        WorldTile tile,
+        SkillVfxElementAsset element,
+        SemanticColorPalette colorPalette)
     {
         if (!MapBox.isRenderGameplay()) return;
 
@@ -39,9 +43,11 @@ public static class SkillFlyOverParticleEmitter
         var style = element.FlyOverParticles;
         if (style.ParticlesPerEmission <= 0 || !IsVisible(tile.posV3)) return;
 
-        var key = new EmissionSourceKey(tile.pos.x, tile.pos.y, element);
-        var color = element.AccentColor;
+        var color = colorPalette.HasColor
+            ? SemanticColorResolver.ToVfxColor(colorPalette.Primary)
+            : element.AccentColor;
         color.a = style.Alpha;
+        var key = new EmissionSourceKey(tile.pos.x, tile.pos.y, element, color);
         if (EmissionSources.TryGetValue(key, out var existing))
         {
             existing.Style = style;
@@ -237,17 +243,20 @@ public static class SkillFlyOverParticleEmitter
         private readonly int _x;
         private readonly int _y;
         private readonly SkillVfxElementAsset _element;
+        private readonly Color32 _color;
 
-        public EmissionSourceKey(int x, int y, SkillVfxElementAsset element)
+        public EmissionSourceKey(int x, int y, SkillVfxElementAsset element, Color color)
         {
             _x = x;
             _y = y;
             _element = element;
+            _color = color;
         }
 
         public bool Equals(EmissionSourceKey other)
         {
-            return _x == other._x && _y == other._y && ReferenceEquals(_element, other._element);
+            return _x == other._x && _y == other._y && ReferenceEquals(_element, other._element) &&
+                   _color.Equals(other._color);
         }
 
         public override bool Equals(object obj)
@@ -262,6 +271,7 @@ public static class SkillFlyOverParticleEmitter
                 var hashCode = _x;
                 hashCode = hashCode * 397 ^ _y;
                 hashCode = hashCode * 397 ^ _element.GetHashCode();
+                hashCode = hashCode * 397 ^ _color.GetHashCode();
                 return hashCode;
             }
         }

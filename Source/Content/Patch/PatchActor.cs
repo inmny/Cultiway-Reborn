@@ -12,6 +12,7 @@ using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Sects;
+using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Utils;
@@ -241,17 +242,9 @@ internal static class PatchActor
         }
         param.Add(type);
         ElementRoot? element_root_component = null;
-        ItemIconData? icon_data_component = null;
         if (dead_ae.TryGetComponent(out ElementRoot er))
         {
             element_root_component = er;
-
-            var composition = new ElementComposition(
-                er.Iron, er.Wood, er.Water, er.Fire, er.Earth, er.Neg, er.Pos, er.Entropy);
-            icon_data_component = new ItemIconData()
-            {
-                ColorHex1 = composition.HexColor()
-            };
             param.Add(er.Type.GetName());
         }
         XianBase? xian_base_component = null;
@@ -287,10 +280,6 @@ internal static class PatchActor
         {
             item_builder.AddComponent(element_root_component.Value);
         }
-        if (icon_data_component.HasValue)
-        {
-            item_builder.AddComponent(icon_data_component.Value);
-        }
         if (xian_base_component.HasValue)
         {
             item_builder.AddComponent(xian_base_component.Value);
@@ -301,6 +290,7 @@ internal static class PatchActor
         }
 
         var ingredient = item_builder.Build();
+        IngredientColorService.Apply(ingredient);
         ingredient.AddComponent(new EntityName(IngredientNameGenerator.GenerateDefaultName(ingredient)));
         receiver.AddSpecialItem(ingredient);
     }

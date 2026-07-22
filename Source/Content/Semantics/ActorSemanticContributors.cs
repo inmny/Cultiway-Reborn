@@ -5,8 +5,7 @@ using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.Semantics;
-using Cultiway.Core.SkillLibV3.Components;
-using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -38,40 +37,8 @@ internal static class SemanticContributorTools
         SemanticScope scope,
         SemanticSourceRef source)
     {
-        var total = Mathf.Max(0f, composition.iron)
-                    + Mathf.Max(0f, composition.wood)
-                    + Mathf.Max(0f, composition.water)
-                    + Mathf.Max(0f, composition.fire)
-                    + Mathf.Max(0f, composition.earth)
-                    + Mathf.Max(0f, composition.neg)
-                    + Mathf.Max(0f, composition.pos)
-                    + Mathf.Max(0f, composition.entropy);
-        if (total <= 0f) builder.Add(SkillSemantics.Element.Generic, multiplier, scope, source);
-        else
-        {
-            AddElement(builder, SkillSemantics.Element.Iron, composition.iron / total, multiplier, scope, source);
-            AddElement(builder, SkillSemantics.Element.Wood, composition.wood / total, multiplier, scope, source);
-            AddElement(builder, SkillSemantics.Element.Water, composition.water / total, multiplier, scope, source);
-            AddElement(builder, SkillSemantics.Element.Fire, composition.fire / total, multiplier, scope, source);
-            AddElement(builder, SkillSemantics.Element.Earth, composition.earth / total, multiplier, scope, source);
-            AddElement(builder, SkillSemantics.Element.Neg, composition.neg / total, multiplier, scope, source);
-            AddElement(builder, SkillSemantics.Element.Pos, composition.pos / total, multiplier, scope, source);
-            AddElement(builder, SkillSemantics.Element.Entropy, composition.entropy / total, multiplier, scope, source);
-        }
+        ElementSemanticProfileService.Contribute(builder, composition, multiplier, scope, source);
     }
-
-    private static void AddElement(
-        SemanticProfileBuilder builder,
-        SemanticAsset semantic,
-        float value,
-        float multiplier,
-        SemanticScope scope,
-        SemanticSourceRef source)
-    {
-        var strength = Mathf.Max(0f, value);
-        if (strength > 0f) builder.Add(semantic, strength * multiplier, scope, source);
-    }
-
 }
 
 internal sealed class ElementRootContributor : IActorSemanticContributor
@@ -125,29 +92,8 @@ internal sealed class LearnedSkillContributor : IActorSemanticContributor
 
     private void ContributeSkill(Entity container, SemanticProfileBuilder builder)
     {
-        var skill = container.GetComponent<SkillContainer>();
-        var asset = skill.Asset;
         var levelMultiplier = container.TryGetComponent(out ItemLevel level) ? 1f + (int)level / 35f : 1f;
-        var source = new SemanticSourceRef(Id, container, asset.id);
-
-        builder.Add(asset.Semantics, levelMultiplier, SemanticScope.Learned, source);
-        SemanticContributorTools.AddElements(builder, asset.Element, levelMultiplier,
-            SemanticScope.Learned, source);
-
-        foreach (var type in container.GetComponentTypes())
-        {
-            if (!typeof(IModifier).IsAssignableFrom(type)) continue;
-            var modifier = (IModifier)container.GetComponent(type);
-            var modifierAsset = modifier.ModifierAsset;
-            var modifierSource = new SemanticSourceRef(Id, container, modifierAsset.id);
-            builder.Add(modifierAsset.Semantics, levelMultiplier, SemanticScope.Learned, modifierSource);
-        }
-
-        var trajectory = container.HasComponent<Trajectory>()
-            ? container.GetComponent<Trajectory>().Asset
-            : asset.PrefabEntity.GetComponent<Trajectory>().Asset;
-        builder.Add(trajectory.Semantics, levelMultiplier, SemanticScope.Learned,
-            new SemanticSourceRef(Id, container, trajectory.id));
+        SkillSemanticCollector.ContributeProfile(container, builder, levelMultiplier, SemanticScope.Learned, Id);
     }
 }
 

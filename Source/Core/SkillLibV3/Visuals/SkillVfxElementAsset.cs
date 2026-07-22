@@ -19,7 +19,16 @@ public class SkillVfxElementAsset : Asset
 
     private readonly List<SkillSemanticMatchRule> _matchRules = new();
 
-    public Color AccentColor = Color.white;
+    private Color fallbackAccentColor = Color.white;
+
+    /// <summary>该视觉形态最能代表的语义，用于复合技能强制确定主色。</summary>
+    public SemanticAsset VisualSemantic;
+    /// <summary>是否应让代表语义覆盖技能档案中的普通主色；通用兜底形态会关闭此项。</summary>
+    public bool PreferVisualSemantic = true;
+    /// <summary>由代表语义的规范色派生出的特效色；语义未配置颜色时使用显式兜底色。</summary>
+    public Color AccentColor => VisualSemantic?.HasVisualColor == true
+        ? SemanticColorResolver.ToVfxColor(VisualSemantic.visual_color)
+        : fallbackAccentColor;
     public float AccentBlend = 0.35f;
     public float AccentAlpha = 0.75f;
     public SkillVfxGroundFlyOver GroundFlyOver = NoFlyOver;
@@ -32,7 +41,21 @@ public class SkillVfxElementAsset : Asset
 
     public SkillVfxElementAsset SetAccent(Color color, float blend = 0.35f, float alpha = 0.75f)
     {
-        AccentColor = color;
+        fallbackAccentColor = color;
+        AccentBlend = blend;
+        AccentAlpha = alpha;
+        return this;
+    }
+
+    /// <summary>声明视觉形态的代表语义，并配置沿用原行为的混色与透明度参数。</summary>
+    public SkillVfxElementAsset SetVisualSemantic(
+        SemanticAsset semantic,
+        float blend = 0.35f,
+        float alpha = 0.75f,
+        bool prefer = true)
+    {
+        VisualSemantic = semantic;
+        PreferVisualSemantic = prefer;
         AccentBlend = blend;
         AccentAlpha = alpha;
         return this;

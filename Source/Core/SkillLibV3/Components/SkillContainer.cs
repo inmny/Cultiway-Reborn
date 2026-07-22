@@ -1,4 +1,6 @@
 using Friflo.Engine.ECS;
+using Friflo.Json.Fliox;
+using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3.Motions;
 using Cultiway.Core.SkillLibV3.Visuals;
 
@@ -31,6 +33,10 @@ public struct SkillContainer : IComponent
     /// 构建完成时解析出的视觉元素，供生成的技能实体直接继承。
     /// </summary>
     public SkillVfxElementAsset VfxElement;
+
+    /// <summary>由技能完整语义解析出的运行时调色板，不参与技能容器存档。</summary>
+    [Ignore]
+    public SemanticColorPalette ColorPalette;
 
     /// <summary>
     /// 构建完成时解析出的运动配置，供生成的法术实体直接继承。

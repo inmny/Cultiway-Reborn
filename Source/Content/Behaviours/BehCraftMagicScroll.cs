@@ -35,6 +35,7 @@ public sealed class BehCraftMagicScroll : BehaviourActionActor
         if (manaCost <= 0 || pObject.getMana() < manaCost) return BehResult.Stop;
 
         var skillComponent = skillContainer.GetComponent<SkillContainer>();
+        var colorPalette = skillComponent.ColorPalette;
         var powerLevel = actor.GetPowerLevel();
         var skillName = skillContainer.HasName ? skillContainer.Name.value : skillComponent.Asset.id;
         var scroll = SpecialItemUtils
@@ -48,7 +49,9 @@ public sealed class BehCraftMagicScroll : BehaviourActionActor
             })
             .AddComponent(new ItemIconData
             {
-                ColorHex1 = skillComponent.Asset.Element.HexColor()
+                ColorHex1 = colorPalette.GetHex(0),
+                ColorHex2 = colorPalette.GetHex(1),
+                ColorHex3 = colorPalette.GetHex(2)
             })
             .AddComponent(new EntityName($"{skillName}卷轴"))
             .Build();

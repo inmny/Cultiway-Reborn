@@ -12,9 +12,51 @@ namespace Cultiway.Core.SkillLibV3.Utils;
 /// </summary>
 public static class SkillSemanticCollector
 {
+    private const string ProfileContributorId = "core.skill_container";
+
     public static HashSet<SemanticAsset> NewSet()
     {
         return new HashSet<SemanticAsset>();
+    }
+
+    /// <summary>根据技能资产、元素组成、实际词条与最终轨迹构建带权语义档案。</summary>
+    public static SemanticProfile BuildProfile(Entity containerEntity)
+    {
+        var builder = new SemanticProfileBuilder(ModClass.L.SemanticLibrary);
+        ContributeProfile(containerEntity, builder, 1f, SemanticScope.Intrinsic, ProfileContributorId);
+        return builder.Build();
+    }
+
+    /// <summary>将一个技能容器的完整语义按指定倍率和范围写入外部档案。</summary>
+    public static void ContributeProfile(
+        Entity containerEntity,
+        SemanticProfileBuilder builder,
+        float multiplier,
+        SemanticScope scope,
+        string contributorId)
+    {
+        if (containerEntity.IsNull || !containerEntity.HasComponent<SkillContainer>()) return;
+
+        var container = containerEntity.GetComponent<SkillContainer>();
+        var asset = container.Asset;
+        var source = new SemanticSourceRef(contributorId, containerEntity, asset.id);
+        builder.Add(asset.Semantics, multiplier, scope, source);
+        ElementSemanticProfileService.Contribute(builder, asset.Element, multiplier, scope, source);
+
+        foreach (var type in containerEntity.GetComponentTypes())
+        {
+            if (!typeof(IModifier).IsAssignableFrom(type)) continue;
+            var modifier = (IModifier)containerEntity.GetComponent(type);
+            var modifierAsset = modifier.ModifierAsset;
+            builder.Add(modifierAsset.Semantics, multiplier, scope,
+                new SemanticSourceRef(contributorId, containerEntity, modifierAsset.id));
+        }
+
+        var trajectory = containerEntity.HasComponent<Trajectory>()
+            ? containerEntity.GetComponent<Trajectory>().Asset
+            : asset.PrefabEntity.GetComponent<Trajectory>().Asset;
+        builder.Add(trajectory.Semantics, multiplier, scope,
+            new SemanticSourceRef(contributorId, containerEntity, trajectory.id));
     }
 
     public static void CollectAssetSemantics(SkillEntityAsset asset, HashSet<SemanticAsset> semantics)

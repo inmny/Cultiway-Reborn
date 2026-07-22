@@ -19,7 +19,8 @@ public class SkillVfxElementLibrary : AssetLibrary<SkillVfxElementAsset>
         {
             id = "Cultiway.SkillVfxElement.Generic"
         });
-        Generic.SetAccent(Color.white)
+        Generic.SetVisualSemantic(SkillSemantics.Element.Generic, prefer: false)
+            .SetAccent(Color.white)
             .SetGrantDrop(WorldboxGame.Drops.WanfaEntropy)
             .SetImpactSound("event:/SFX/HIT/HitGeneric")
             .MatchAny(0, SkillSemantics.Element.Generic);

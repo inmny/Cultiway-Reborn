@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Core.Components;
+using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
@@ -54,7 +55,8 @@ public class LogicSkillGroundFxRecordSystem :
             {
                 var t = sampleDistance / distance;
                 var samplePos = new Vector3(fxState.LastX + dx * t, fxState.LastY + dy * t, currentPos.z);
-                _pendingEffects.Add(new PendingGroundEffect(samplePos, effectRadius, skillEntity.VfxElement));
+                _pendingEffects.Add(new PendingGroundEffect(
+                    samplePos, effectRadius, skillEntity.VfxElement, skillEntity.ColorPalette));
             }
 
             var totalDistance = fxState.DistanceAccumulator + distance;
@@ -66,14 +68,19 @@ public class LogicSkillGroundFxRecordSystem :
         for (int i = 0; i < _pendingEffects.Count; i++)
         {
             PendingGroundEffect effect = _pendingEffects[i];
-            SkillGroundFx.OnFlyOver(effect.Position, effect.Radius, effect.Element);
+            SkillGroundFx.OnFlyOver(effect.Position, effect.Radius, effect.Element, effect.ColorPalette);
         }
     }
 
-    private readonly struct PendingGroundEffect(Vector3 position, float radius, SkillVfxElementAsset element)
+    private readonly struct PendingGroundEffect(
+        Vector3 position,
+        float radius,
+        SkillVfxElementAsset element,
+        SemanticColorPalette colorPalette)
     {
         public Vector3 Position { get; } = position;
         public float Radius { get; } = radius;
         public SkillVfxElementAsset Element { get; } = element;
+        public SemanticColorPalette ColorPalette { get; } = colorPalette;
     }
 }
