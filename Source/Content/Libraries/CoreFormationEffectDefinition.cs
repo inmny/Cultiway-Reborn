@@ -64,6 +64,9 @@ public enum CoreFormationVisualChannel : byte
     /// <summary>效果在施法者身上触发。</summary>
     Trigger,
 
+    /// <summary>持续状态或印记被施加到受影响目标。</summary>
+    Apply,
+
     /// <summary>效果在受影响目标处命中。</summary>
     Hit,
 
@@ -142,6 +145,9 @@ public sealed class CoreFormationEffectVisualProfile
     /// <summary>效果在施法者处触发时的表现。</summary>
     public CoreFormationEffectVisualCue trigger;
 
+    /// <summary>持续状态或印记施加到目标时的表现。</summary>
+    public CoreFormationEffectVisualCue apply;
+
     /// <summary>效果在目标处命中时的表现。</summary>
     public CoreFormationEffectVisualCue hit;
 
@@ -166,6 +172,7 @@ public sealed class CoreFormationEffectVisualProfile
         return channel switch
         {
             CoreFormationVisualChannel.Trigger => trigger,
+            CoreFormationVisualChannel.Apply => apply,
             CoreFormationVisualChannel.Hit => hit,
             CoreFormationVisualChannel.Charge => charge,
             CoreFormationVisualChannel.Activate => activate,

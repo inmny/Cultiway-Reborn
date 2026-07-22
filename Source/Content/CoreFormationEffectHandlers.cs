@@ -89,14 +89,15 @@ internal static class CoreFormationEffectHandlers
             CombatStatusEffects.RemoveStatus(target, StatusEffects.Burn, owner.Base);
             CombatDamageEffects.DealAreaReactionDamage(owner.Base, target.current_position, 2.5f,
                 evt.Damage * 0.35f * effect.Potency, ElementComposition.Static.Fire);
+            Emit(effect, owner, target, CoreFormationVisualChannel.Hit);
         }
         else
         {
             float totalDamage = evt.Damage * 0.2f * effect.Potency;
             CombatStatusEffects.ApplyTickingStatus(target, StatusEffects.Burn, 4f, totalDamage / 4f,
                 ElementComposition.Static.Fire, owner.Base);
+            Emit(effect, owner, target, CoreFormationVisualChannel.Apply);
         }
-        Emit(effect, owner, target, CoreFormationVisualChannel.Hit);
     }
 
     /// <summary>根据输出伤害积累土行护盾，并在最终伤害阶段消耗护盾。</summary>
@@ -314,7 +315,7 @@ internal static class CoreFormationEffectHandlers
             ElementComposition.Static.Earth);
         CombatForceEffects.ApplyRadialForce(owner.Base, attacker, owner.Base.current_position, 2f * effect.Potency,
             false);
-        Emit(effect, owner, attacker, CoreFormationVisualChannel.Hit);
+        Emit(effect, owner, owner.Base, CoreFormationVisualChannel.Hit);
     }
 
     /// <summary>把超过最大生命八成之一的单次命中化为幻影并短暂隐匿。</summary>

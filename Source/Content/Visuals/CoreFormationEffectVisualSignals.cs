@@ -14,7 +14,7 @@ public readonly struct CoreFormationEffectVisualSignal
     /// <summary>可选的受影响目标。</summary>
     public readonly Actor Target;
 
-    /// <summary>没有有效目标时使用的世界坐标。</summary>
+    /// <summary>没有有效目标时使用的动画坐标，其中 y 为地面位置、z 为显示高度。</summary>
     public readonly Vector3 Position;
 
     /// <summary>效果族 ID。</summary>
@@ -73,10 +73,13 @@ public static class CoreFormationEffectVisualSignals
         if (LastSignalTimes.TryGetValue(key, out float previous) && now - previous < MergeWindow) return;
         LastSignalTimes[key] = now;
         if (Pending.Count >= MaxPendingSignals) Pending.RemoveAt(0);
+        Vector3 resolvedPosition = position ?? (!target.isRekt()
+            ? CoreFormationVisualCoordinates.FromActor(target)
+            : CoreFormationVisualCoordinates.FromActor(owner.Base));
         Pending.Add(new CoreFormationEffectVisualSignal(
             owner.Base,
             target,
-            position ?? target?.cur_transform_position ?? owner.Base.cur_transform_position,
+            resolvedPosition,
             effect.Definition.family_id,
             channel,
             cue,
@@ -90,5 +93,34 @@ public static class CoreFormationEffectVisualSignals
         output.AddRange(Pending);
         Pending.Clear();
         if (LastSignalTimes.Count > 512) LastSignalTimes.Clear();
+    }
+}
+
+/// <summary>在原版角色显示坐标与通用动画 ECS 坐标之间进行无损转换。</summary>
+internal static class CoreFormationVisualCoordinates
+{
+    /// <summary>
+    /// 把已经在 y 中包含高度的角色显示坐标转换为渲染器需要的地面 y 与独立 z 高度。
+    /// </summary>
+    public static Vector3 FromActor(Actor actor)
+    {
+        Vector3 position = actor.cur_transform_position;
+        position.y -= position.z;
+        return position;
+    }
+
+    /// <summary>把动画 ECS 坐标还原为 Unity 粒子等直接消费的显示坐标。</summary>
+    public static Vector3 ToUnityPosition(Vector3 position)
+    {
+        position.y += position.z;
+        return position;
+    }
+
+    /// <summary>把动画 ECS 方向投影到 Unity 实际显示平面。</summary>
+    public static Vector3 ToUnityDirection(Vector3 direction)
+    {
+        direction.y += direction.z;
+        direction.z = 0f;
+        return direction;
     }
 }

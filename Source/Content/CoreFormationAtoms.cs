@@ -15,6 +15,8 @@ namespace Cultiway.Content;
 public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, CoreFormationAtoms>
 {
     private const float StructureMinimumScore = 4f;
+    private const float VisualFrameInterval = 0.05f;
+    private const float VisualOneShotLifeTime = 0.65f;
 
     /// <summary>由金元素占比决定权重的金行主相原子。</summary>
     public static CoreFormationAtomAsset ElementIron { get; private set; }
@@ -202,22 +204,27 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
     {
         SetEffects(ElementIron, Effect(ElementIron, CoreFormationEffectFamilies.Iron, "iron", 1,
             CoreFormationEffectTrigger.DamageDealt, 0.22f, 0.35f, 2.5f, CoreFormationEffectHandlers.Iron,
-            Visual(hit: Cue("cultiway/effect/gold_sword", 0.12f, fixedUpright: false))));
+            Visual(hit: Cue("cultiway/effect/core_formation/iron_severance", 0.09f,
+                fixedUpright: false))));
         SetEffects(ElementWood, Effect(ElementWood, CoreFormationEffectFamilies.Wood, "wood", 1,
             CoreFormationEffectTrigger.DamageDealt | CoreFormationEffectTrigger.Kill,
             0.18f, 0.3f, 2.5f, CoreFormationEffectHandlers.Wood,
-            Visual(hit: Cue("cultiway/effect/ground_thorn", 0.11f))));
+            Visual(trigger: Cue("cultiway/effect/core_formation/wood_life_return", 0.08f),
+                hit: Cue("cultiway/effect/core_formation/wood_venom_bloom", 0.09f))));
         SetEffects(ElementWater, Effect(ElementWater, CoreFormationEffectFamilies.Water, "water", 1,
             CoreFormationEffectTrigger.DamageDealt, 0.2f, 0.32f, 3f, CoreFormationEffectHandlers.Water,
-            Visual(hit: Cue("cultiway/effect/water_polo", 0.1f))));
+            Visual(hit: Cue("cultiway/effect/core_formation/water_frost_bind", 0.09f))));
         SetEffects(ElementFire, Effect(ElementFire, CoreFormationEffectFamilies.Fire, "fire", 1,
             CoreFormationEffectTrigger.DamageDealt, 0.2f, 0.32f, 2f, CoreFormationEffectHandlers.Fire,
-            Visual(hit: Cue("cultiway/effect/explosion_fireball", 0.1f))));
+            Visual(apply: Cue("cultiway/effect/core_formation/fire_brand", 0.075f),
+                hit: Cue("cultiway/effect/core_formation/fire_ember_burst", 0.1f))));
         SetEffects(ElementEarth, Effect(ElementEarth, CoreFormationEffectFamilies.Earth, "earth", 1,
             CoreFormationEffectTrigger.DamageDealt | CoreFormationEffectTrigger.FinalDamageIncoming,
             0.25f, 0.4f, 1f, CoreFormationEffectHandlers.Earth,
-            Visual(charge: Cue("cultiway/effect/fire_shield", 0.085f),
-                loop: Cue("cultiway/effect/fire_shield", 0.085f, loop: true, lifeTime: 2f)),
+            Visual(hit: Cue("cultiway/effect/core_formation/earth_ward_impact", 0.085f),
+                charge: Cue("cultiway/effect/core_formation/earth_ward", 0.09f),
+                loop: Cue("cultiway/effect/core_formation/earth_ward_loop", 0.09f, loop: true,
+                    lifeTime: 2f)),
             FinalDamageStage.Shield));
         SetEffects(ElementYin, Effect(ElementYin, CoreFormationEffectFamilies.Yin, "yin", 1,
             CoreFormationEffectTrigger.DamageDealt, 0.18f, 0.3f, 3f, CoreFormationEffectHandlers.Yin,
@@ -233,27 +240,30 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
         SetEffects(StructureBalanced, Effect(StructureBalanced, CoreFormationEffectFamilies.Balanced, "balanced", 1,
             CoreFormationEffectTrigger.FinalDamageIncoming, 0.25f, 0.4f, 1f,
             CoreFormationEffectHandlers.Balanced,
-            Visual(charge: Cue("cultiway/effect/fire_shield", 0.075f)), FinalDamageStage.Adaptation));
+            Visual(charge: Cue("cultiway/effect/core_formation/balanced_adaptation", 0.09f)),
+            FinalDamageStage.Adaptation));
         SetEffects(StructureCondensed, Effect(StructureCondensed, CoreFormationEffectFamilies.Condensed,
             "condensed", 1, CoreFormationEffectTrigger.SkillCastCompleted | CoreFormationEffectTrigger.DamageDealt,
             0.25f, 0.4f, 3f, CoreFormationEffectHandlers.Condensed,
             Visual(charge: Cue("cultiway/effect/core_formation/reservoir_orb", 0.08f),
-                hit: Cue("cultiway/effect/explosion_fireball", 0.08f),
-                loop: Cue("cultiway/effect/core_formation/reservoir_orb", 0.075f, loop: true, lifeTime: 2f))));
+                hit: Cue("cultiway/effect/core_formation/condensed_release", 0.09f),
+                loop: Cue("cultiway/effect/core_formation/reservoir_orb_loop", 0.075f, loop: true,
+                    lifeTime: 2f))));
         SetEffects(StructureVital, Effect(StructureVital, CoreFormationEffectFamilies.Vital, "vital", 1,
             CoreFormationEffectTrigger.DamageTaken | CoreFormationEffectTrigger.Tick,
             1f, 1f, 0f, CoreFormationEffectHandlers.Vital));
         SetEffects(StructureSpiritual, Effect(StructureSpiritual, CoreFormationEffectFamilies.Spiritual,
             "spiritual", 1, CoreFormationEffectTrigger.SkillCastCompleted,
             0.2f, 0.35f, 5f, CoreFormationEffectHandlers.Spiritual,
-            Visual(trigger: Cue("cultiway/effect/core_formation/spirit_platform", 0.08f))));
+            Visual(trigger: Cue("cultiway/effect/core_formation/spirit_echo", 0.08f))));
 
         SetEffects(PathSword, Effect(PathSword, CoreFormationEffectFamilies.Sword, "sword", 1,
             CoreFormationEffectTrigger.DamageDealt, 0.2f, 0.35f, 2f, CoreFormationEffectHandlers.Sword,
-            Visual(hit: Cue("cultiway/effect/gold_sword", 0.13f, fixedUpright: false))));
+            Visual(hit: Cue("cultiway/effect/core_formation/sword_chase", 0.09f,
+                fixedUpright: false, motion: CoreFormationVisualMotion.Linear))));
         SetEffects(PathBody, Effect(PathBody, CoreFormationEffectFamilies.Body, "body", 1,
             CoreFormationEffectTrigger.DamageTaken, 0.25f, 0.4f, 4f, CoreFormationEffectHandlers.Body,
-            Visual(hit: Cue("cultiway/effect/ground_thorn", 0.12f))));
+            Visual(hit: Cue("cultiway/effect/core_formation/body_counter", 0.09f))));
         SetEffects(PathIllusion, Effect(PathIllusion, CoreFormationEffectFamilies.Illusion, "illusion", 1,
             CoreFormationEffectTrigger.FinalDamageIncoming, 0.2f, 0.3f, 8f,
             CoreFormationEffectHandlers.Illusion,
@@ -261,11 +271,12 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
             FinalDamageStage.Avoidance));
         SetEffects(PathReservoir, Effect(PathReservoir, CoreFormationEffectFamilies.Reservoir, "reservoir", 1,
             CoreFormationEffectTrigger.Tick, 1f, 1f, 0f, CoreFormationEffectHandlers.Reservoir,
-            Visual(loop: Cue("cultiway/effect/core_formation/reservoir_orb", 0.075f, loop: true, lifeTime: 2f))));
+            Visual(loop: Cue("cultiway/effect/core_formation/reservoir_orb_loop", 0.075f, loop: true,
+                lifeTime: 2f))));
         SetEffects(ThemeDragon, Effect(ThemeDragon, CoreFormationEffectFamilies.Dragon, "dragon", 1,
             CoreFormationEffectTrigger.DamageDealt | CoreFormationEffectTrigger.DamageTaken,
             0.3f, 0.45f, 8f, CoreFormationEffectHandlers.Dragon,
-            Visual(trigger: Cue("cultiway/effect/core_formation/dragon_roar", 0.11f))));
+            Visual(trigger: Cue("cultiway/effect/core_formation/dragon_might", 0.11f))));
 
         SetEffects(ManifestInfant, Effect(ManifestInfant, CoreFormationEffectFamilies.Survival, "infant", 1,
             CoreFormationEffectTrigger.FinalDamageIncoming, 1f, 1f, 60f,
@@ -275,9 +286,11 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
         SetEffects(ManifestSwordEmbryo, Effect(ManifestSwordEmbryo, CoreFormationEffectFamilies.Sword,
             "sword_embryo", 2, CoreFormationEffectTrigger.DamageDealt,
             0.2f, 0.35f, 2f, CoreFormationEffectHandlers.Sword,
-            Visual(hit: Cue("cultiway/effect/gold_sword", 0.15f, fixedUpright: false),
-                activate: Cue("cultiway/effect/core_formation/infant_guard", 0.09f),
-                loop: Cue("cultiway/effect/core_formation/infant_guard", 0.09f, loop: true, lifeTime: 2f)),
+            Visual(hit: Cue("cultiway/effect/core_formation/sword_embryo_strike", 0.11f,
+                fixedUpright: false, motion: CoreFormationVisualMotion.Linear),
+                activate: Cue("cultiway/effect/core_formation/sword_embryo_aura", 0.1f),
+                loop: Cue("cultiway/effect/core_formation/sword_embryo_aura_loop", 0.1f, loop: true,
+                    lifeTime: 2f)),
             active: Active("sword_embryo", "cultiway/icons/element_root/iron", 32f, 6f, 15f,
                 0f, 0f, ActiveAbilityTargetMode.Self, 28,
                 CoreFormationEffectHandlers.PrepareCombatBuff, CoreFormationEffectHandlers.ActivateSwordEmbryo)));
@@ -285,17 +298,18 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
             "dragon_aspect", 2,
             CoreFormationEffectTrigger.DamageDealt | CoreFormationEffectTrigger.DamageTaken,
             0.3f, 0.45f, 8f, CoreFormationEffectHandlers.Dragon,
-            Visual(trigger: Cue("cultiway/effect/core_formation/dragon_roar", 0.13f),
-                activate: Cue("cultiway/effect/core_formation/dragon_roar", 0.16f)),
+            Visual(trigger: Cue("cultiway/effect/core_formation/dragon_might", 0.13f),
+                activate: Cue("cultiway/effect/core_formation/dragon_aspect_burst", 0.16f)),
             active: Active("dragon_aspect", "cultiway/icons/element_root/earth", 40f, 0f, 15f,
                 12f, 4f, ActiveAbilityTargetMode.Area, 32,
                 CoreFormationEffectHandlers.PrepareCombatBuff, CoreFormationEffectHandlers.ActivateDragonAspect)));
         SetEffects(ManifestSpiritPlatform, Effect(ManifestSpiritPlatform, CoreFormationEffectFamilies.Spiritual,
             "spirit_platform", 2, CoreFormationEffectTrigger.SkillCastCompleted,
             0.2f, 0.35f, 5f, CoreFormationEffectHandlers.Spiritual,
-            Visual(trigger: Cue("cultiway/effect/core_formation/spirit_platform", 0.1f),
+            Visual(trigger: Cue("cultiway/effect/core_formation/spirit_echo", 0.1f),
                 activate: Cue("cultiway/effect/core_formation/spirit_platform", 0.13f),
-                loop: Cue("cultiway/effect/core_formation/spirit_platform", 0.11f, loop: true, lifeTime: 2f)),
+                loop: Cue("cultiway/effect/core_formation/spirit_platform_loop", 0.11f, loop: true,
+                    lifeTime: 2f)),
             active: Active("spirit_platform", "cultiway/icons/iconWakan", 48f, 8f, 20f,
                 0f, 0f, ActiveAbilityTargetMode.Self, 26,
                 CoreFormationEffectHandlers.PrepareCombatBuff, CoreFormationEffectHandlers.ActivateSpiritPlatform)));
@@ -303,9 +317,10 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
             "primal_body", 2,
             CoreFormationEffectTrigger.DamageTaken | CoreFormationEffectTrigger.FinalDamageIncoming,
             0.25f, 0.4f, 4f, CoreFormationEffectHandlers.Body,
-            Visual(hit: Cue("cultiway/effect/ground_thorn", 0.14f),
+            Visual(hit: Cue("cultiway/effect/core_formation/primal_body_counter", 0.11f),
                 activate: Cue("cultiway/effect/core_formation/primal_body", 0.12f),
-                loop: Cue("cultiway/effect/core_formation/primal_body", 0.1f, loop: true, lifeTime: 2f)),
+                loop: Cue("cultiway/effect/core_formation/primal_body_loop", 0.1f, loop: true,
+                    lifeTime: 2f)),
             FinalDamageStage.Cap,
             Active("primal_body", "cultiway/icons/element_root/earth", 40f, 8f, 20f,
                 0f, 0f, ActiveAbilityTargetMode.Self, 30,
@@ -316,8 +331,10 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
             CoreFormationEffectTrigger.DamageDealt | CoreFormationEffectTrigger.FinalDamageIncoming |
             CoreFormationEffectTrigger.Tick,
             1f, 1f, 0f, CoreFormationEffectHandlers.FivePhase,
-            Visual(activate: Cue("cultiway/effect/core_formation/five_phase", 0.14f),
-                loop: Cue("cultiway/effect/core_formation/five_phase", 0.12f, loop: true, lifeTime: 2f)),
+            Visual(hit: Cue("cultiway/effect/core_formation/five_phase_strike", 0.09f),
+                activate: Cue("cultiway/effect/core_formation/five_phase", 0.14f),
+                loop: Cue("cultiway/effect/core_formation/five_phase_loop", 0.12f, loop: true,
+                    lifeTime: 2f)),
             FinalDamageStage.Adaptation,
             Active("five_phase", "cultiway/icons/element_root/entropy", 48f, 10f, 18f,
                 0f, 0f, ActiveAbilityTargetMode.Self, 30,
@@ -326,7 +343,7 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
             "pure_yang", 2, CoreFormationEffectTrigger.SkillCastCompleted,
             0.25f, 0.4f, 5f, CoreFormationEffectHandlers.Yang,
             Visual(trigger: Cue("cultiway/effect/core_formation/yang_cleanse", 0.12f),
-                activate: Cue("cultiway/effect/core_formation/yang_cleanse", 0.17f)),
+                activate: Cue("cultiway/effect/core_formation/pure_yang_domain", 0.17f)),
             active: Active("pure_yang", "cultiway/icons/element_root/pos", 56f, 0f, 18f,
                 10f, 5f, ActiveAbilityTargetMode.Area, 34,
                 CoreFormationEffectHandlers.PrepareCombatBuff, CoreFormationEffectHandlers.ActivatePureYang)));
@@ -335,7 +352,7 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
             0.18f, 0.3f, 3f, CoreFormationEffectHandlers.Yin,
             Visual(hit: Cue("cultiway/effect/core_formation/yin_drain", 0.12f, fixedUpright: false,
                     motion: CoreFormationVisualMotion.Linear),
-                activate: Cue("cultiway/effect/core_formation/yin_drain", 0.17f)),
+                activate: Cue("cultiway/effect/core_formation/mysterious_yin_domain", 0.17f)),
             active: Active("mysterious_yin", "cultiway/icons/element_root/neg", 56f, 0f, 18f,
                 12f, 5f, ActiveAbilityTargetMode.Area, 34,
                 CoreFormationEffectHandlers.PrepareCombatBuff, CoreFormationEffectHandlers.ActivateMysteriousYin)));
@@ -423,6 +440,7 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
     /// <summary>构造一个只填入实际使用阶段的视觉配置。</summary>
     private static CoreFormationEffectVisualProfile Visual(
         CoreFormationEffectVisualCue trigger = null,
+        CoreFormationEffectVisualCue apply = null,
         CoreFormationEffectVisualCue hit = null,
         CoreFormationEffectVisualCue charge = null,
         CoreFormationEffectVisualCue activate = null,
@@ -433,6 +451,7 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
         return new CoreFormationEffectVisualProfile
         {
             trigger = trigger,
+            apply = apply,
             hit = hit,
             charge = charge,
             activate = activate,
@@ -448,14 +467,14 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
         float scale,
         bool fixedUpright = true,
         bool loop = false,
-        float lifeTime = 1f,
+        float lifeTime = VisualOneShotLifeTime,
         CoreFormationVisualMotion? motion = null)
     {
         return new CoreFormationEffectVisualCue
         {
             path = path,
             scale = scale,
-            frame_interval = 0.1f,
+            frame_interval = VisualFrameInterval,
             life_time = lifeTime,
             motion = motion ?? (loop
                 ? CoreFormationVisualMotion.FollowOwner

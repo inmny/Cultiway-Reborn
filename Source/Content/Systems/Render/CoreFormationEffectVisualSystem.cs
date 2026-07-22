@@ -52,9 +52,9 @@ public sealed class CoreFormationEffectVisualSystem : QuerySystem<ActorBinder, C
     private void SpawnSignal(CoreFormationEffectVisualSignal signal)
     {
         if (signal.Owner == null || signal.Owner.isRekt() || !signal.Owner.is_visible || signal.Cue == null) return;
-        Vector3 start = signal.Owner.cur_transform_position;
+        Vector3 start = CoreFormationVisualCoordinates.FromActor(signal.Owner);
         Vector3 end = signal.Target != null && !signal.Target.isRekt()
-            ? signal.Target.cur_transform_position
+            ? CoreFormationVisualCoordinates.FromActor(signal.Target)
             : signal.Position;
         Vector3 position = ResolvePosition(signal.Cue.motion, start, end);
         Vector3 direction = end - start;
@@ -76,7 +76,10 @@ public sealed class CoreFormationEffectVisualSystem : QuerySystem<ActorBinder, C
             BaseScale = signal.Cue.scale * Mathf.Lerp(0.9f, 1.2f, Mathf.InverseLerp(0.75f, 2.5f,
                 signal.Potency)),
         });
-        EmitParticles(signal, position, direction);
+        EmitParticles(
+            signal,
+            CoreFormationVisualCoordinates.ToUnityPosition(position),
+            CoreFormationVisualCoordinates.ToUnityDirection(direction));
     }
 
     /// <summary>推进跟随、直线和缩放运动，并回收已经结束的临时记录。</summary>
@@ -93,10 +96,10 @@ public sealed class CoreFormationEffectVisualSystem : QuerySystem<ActorBinder, C
 
             float progress = Mathf.Clamp01((Time.time - visual.StartedAt) / visual.LifeTime);
             Vector3 ownerPosition = visual.Owner != null && !visual.Owner.isRekt()
-                ? visual.Owner.cur_transform_position
+                ? CoreFormationVisualCoordinates.FromActor(visual.Owner)
                 : visual.Start;
             Vector3 targetPosition = visual.Target != null && !visual.Target.isRekt()
-                ? visual.Target.cur_transform_position
+                ? CoreFormationVisualCoordinates.FromActor(visual.Target)
                 : visual.End;
             ref Position position = ref visual.Entity.GetComponent<Position>();
             position.value = visual.Cue.motion switch
@@ -162,12 +165,13 @@ public sealed class CoreFormationEffectVisualSystem : QuerySystem<ActorBinder, C
     {
         if (!loops.TryGetValue(key, out LoopVisual loop) || !IsAlive(loop.Entity))
         {
-            Entity entity = Spawn(cue, actor.cur_transform_position, Vector3.right, potency, true);
+            Entity entity = Spawn(cue, CoreFormationVisualCoordinates.FromActor(actor), Vector3.right, potency,
+                true);
             loop = new LoopVisual { Entity = entity, Actor = actor, Cue = cue };
             loops[key] = loop;
         }
         if (!IsAlive(loop.Entity)) return;
-        loop.Entity.GetComponent<Position>().value = actor.cur_transform_position;
+        loop.Entity.GetComponent<Position>().value = CoreFormationVisualCoordinates.FromActor(actor);
         loop.Entity.GetComponent<AliveTimer>().value = 0f;
         loop.Entity.GetComponent<AliveTimeLimit>().value = Mathf.Max(0.5f, cue.life_time);
     }
