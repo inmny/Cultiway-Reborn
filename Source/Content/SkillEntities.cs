@@ -50,15 +50,15 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
         var wind = new ElementComposition(water: 0.5f, wood: 0.5f);
         var lightning = new ElementComposition(water: 0.5f, fire: 0.5f);
 
-        Configure(GoldSword, metal, "cultiway/effect/gold_sword", SkillTrajectories.TowardsDirection, 1f, true,
+        Configure(GoldSword, metal, "cultiway/effect/gold_sword", SkillTrajectories.TowardsDirection, 1f, true,//金剑术
             SkillHitResolver.Single(GoldSword, recycleOnHit: true, continueAfterHit: false),
             SeriesTag.Metal, FormTag.Slash, FormTag.Single, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
-        Configure(GoldBlade, metal, "cultiway/effect/gold_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
+        Configure(GoldBlade, metal, "cultiway/effect/gold_blade", SkillTrajectories.TowardsDirection, 1.5f, false,//金刃术
             SkillHitResolver.Single(GoldBlade, recycleOnHit: false, continueAfterHit: true),
             SeriesTag.Metal, FormTag.Slash, FormTag.Sustain, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
-        Configure(WoodThorn, wood, "cultiway/effect/wood_thorn", SkillTrajectories.TowardsDirection, 1.2f, false,
+        Configure(WoodThorn, wood, "cultiway/effect/wood_thorn", SkillTrajectories.TowardsDirection, 1.2f, false,//木刺术
             VisualRotation.FollowRotation(UpFacingSpriteToRightOffset),
             SkillHitResolver.Single(WoodThorn, recycleOnHit: false, continueAfterHit: true),
             ElementTag.Wood, FormTag.Pierce, FormTag.Single, DeliveryTag.Projectile)
@@ -71,7 +71,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
         Configure(WaterArrow, water, "cultiway/effect/single_water_sword", SkillTrajectories.TowardsDirection, 1f,
             true, SkillHitResolver.Single(WaterArrow, recycleOnHit: true, continueAfterHit: false),
             ElementTag.Water, FormTag.Pierce, FormTag.Single, DeliveryTag.Projectile)
-            .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
+            .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical)
+            .AddAnimation("cultiway/effect/single_water_sword2", 0.025f, HighFrameCycleSeconds);
         Configure(WaterBall, water, "cultiway/effect/water_polo", SkillTrajectories.TowardsDirection, 1f, true,
             SkillHitResolver.Single(WaterBall, recycleOnHit: true, continueAfterHit: false),
             ElementTag.Water, FormTag.Ball, FormTag.Single, DeliveryTag.Projectile)
@@ -85,6 +86,9 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             SkillHitResolver.Area(Fireball, radius: 2f, recycleOnHit: true),
             ElementTag.Fire, FormTag.Ball, FormTag.Aoe, DeliveryTag.Projectile)
             .AddAnimation("cultiway/effect/flying_fireball", 0.025f)
+            .AddAnimation("cultiway/effect/fire_polo2", 0.025f, HighFrameCycleSeconds)
+            .AddAnimation("cultiway/effect/fire_polo3", 0.025f, HighFrameCycleSeconds)
+            .AddAnimation("cultiway/effect/fire_polo4", 0.025f, HighFrameCycleSeconds)
             .AddAnimation("cultiway/effect/flying_missile1", 0.025f, HighFrameCycleSeconds)
             .AddAnimation("cultiway/effect/flying_missile2", 0.025f, HighFrameCycleSeconds)
             .AddAnimation("cultiway/effect/flying_missile3", 0.025f, HighFrameCycleSeconds)
@@ -100,12 +104,15 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             SkillHitResolver.Single(FallStone, recycleOnHit: true, continueAfterHit: true),
             ElementTag.Earth, FormTag.Pierce, FormTag.Single, MotionTag.Falling, DeliveryTag.Projectile)
             .SetModifierWeightMultiplier(SkillModifiers.Huge, 4f)
-            .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical);
+            .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical)
+            .AddAnimation("cultiway/effect/fall_rock2", 0.025f, HighFrameCycleSeconds);
         Configure(StoneThorn, earth, "cultiway/effect/ground_thorn", SkillTrajectories.GroundCrawl, 1.2f, false,
             VisualRotation.FollowRotation(UpFacingSpriteToRightOffset),
             SkillHitResolver.Single(StoneThorn, recycleOnHit: false, continueAfterHit: true),
             ElementTag.Earth, FormTag.Pierce, FormTag.Sustain, DeliveryTag.Projectile)
-            .AcceptOrientations(TrajectoryOrientation.Ground);
+            .AcceptOrientations(TrajectoryOrientation.Ground)
+            .AddAnimation("cultiway/effect/ground_thorn2", 0.025f, HighFrameCycleSeconds)
+            .AddAnimation("cultiway/effect/ground_thorn3", 0.025f, HighFrameCycleSeconds);
         Configure(WindBlade, wind, "cultiway/effect/wind_blade", SkillTrajectories.TowardsDirection, 1.5f, false,
             SkillHitResolver.Single(WindBlade, recycleOnHit: false, continueAfterHit: true),
             ElementTag.Wind, FormTag.Slash, FormTag.Sustain, DeliveryTag.Projectile);
@@ -139,7 +146,8 @@ public class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntities>
             true, SkillHitResolver.Single(LightningPolo, recycleOnHit: true, continueAfterHit: false),
             ElementTag.Lightning, FormTag.Ball, FormTag.Single, DeliveryTag.Projectile)
             .AcceptOrientations(TrajectoryOrientation.Horizontal | TrajectoryOrientation.Vertical)
-            .AddAnimation("cultiway/effect/lightning_polo2", 0.025f);
+            .AddAnimation("cultiway/effect/lightning_polo2", 0.025f)
+            .AddAnimation("cultiway/effect/lightning_polo3", 0.025f, HighFrameCycleSeconds);
     }
 
     private static SkillEntityAsset Configure(SkillEntityAsset asset, ElementComposition element, string effectPath,
