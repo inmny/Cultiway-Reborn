@@ -77,24 +77,43 @@ public class AnimFrameUpdateSystem : QuerySystem<AnimData, AnimController>
             }
         }
 
-        if (!loop && animData.frame_idx >= len - 1) return;
+        if (!loop && animData.frame_idx >= len - 1)
+        {
+            if (deltaTime <= 0f) return;
+            if (animData.frame_timer < 0f) animData.frame_timer = 0f;
+            animData.frame_timer = Mathf.Min(frameInterval, animData.frame_timer + deltaTime);
+            return;
+        }
         if (deltaTime <= 0f) return;
         if (animData.frame_timer < 0f) animData.frame_timer = 0f;
 
-        var oldFrameIdx = animData.frame_idx;
-        var oldFrameTimer = animData.frame_timer;
         animData.frame_timer += deltaTime;
         if (animData.frame_timer < frameInterval) return;
 
+        float accumulatedTime = animData.frame_timer;
         var deltaFrameNr = Mathf.FloorToInt(animData.frame_timer / frameInterval);
-        animData.frame_timer -= deltaFrameNr * frameInterval;
-        animData.frame_idx += deltaFrameNr;
         if (loop)
-            animData.frame_idx %= len;
-        else if (animData.frame_idx >= len)
         {
-            animData.frame_idx = len - 1;
-            animData.frame_timer = 0f;
+            animData.frame_timer -= deltaFrameNr * frameInterval;
+            animData.frame_idx += deltaFrameNr;
+            animData.frame_idx %= len;
+        }
+        else
+        {
+            int framesToLast = len - 1 - animData.frame_idx;
+            if (deltaFrameNr >= framesToLast)
+            {
+                animData.frame_idx = len - 1;
+                animData.frame_timer = Mathf.Clamp(
+                    accumulatedTime - framesToLast * frameInterval,
+                    0f,
+                    frameInterval);
+            }
+            else
+            {
+                animData.frame_idx += deltaFrameNr;
+                animData.frame_timer -= deltaFrameNr * frameInterval;
+            }
         }
     }
 

@@ -10,7 +10,7 @@ public class LogicTrajectorySystem : QuerySystem<SkillContext, PrevPosition, Pos
 {
     public LogicTrajectorySystem()
     {
-        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
+        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagRecycle, TagSkillAnimationNoMovement>());
     }
     protected override void OnUpdate()
     {

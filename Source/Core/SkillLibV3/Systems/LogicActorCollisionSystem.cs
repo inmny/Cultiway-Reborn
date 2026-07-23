@@ -17,7 +17,7 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
 
     public LogicActorCollisionSystem()
     {
-        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
+        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagRecycle, TagSkillAnimationNoCollision>());
     }
 
     protected override void OnUpdate()

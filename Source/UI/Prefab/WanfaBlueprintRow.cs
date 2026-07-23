@@ -79,7 +79,7 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
         Sprite[] frames = null;
         if (entity != null && entity.IsAnimationIndexValid(blueprint.AnimationIndex))
         {
-            frames = entity.GetAnimation(blueprint.AnimationIndex).Frames;
+            frames = entity.GetAnimation(blueprint.AnimationIndex).Runtime.Frames;
         }
         _icon.sprite = frames is { Length: > 0 } ? frames[0] : null;
         UiTooltip.Set(_icon.gameObject, () => SkillTooltip.Show(_icon.gameObject, blueprint));

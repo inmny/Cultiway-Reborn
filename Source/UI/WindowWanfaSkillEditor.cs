@@ -82,10 +82,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     private UiModal _confirmModal;
     private CanvasGroup _editorCanvasGroup;
     private Entity _previewContainer;
-    private Sprite[] _frames = Array.Empty<Sprite>();
-    private int _frameIndex;
-    private float _frameTimer;
-    private float _frameInterval = 0.1f;
+    private readonly SkillAnimationPreviewPlayer _animationPreview = new();
 
     public static void Open(SkillBlueprint blueprint, bool existing)
     {
@@ -290,12 +287,10 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
 
     private void Update()
     {
-        if (_frames.Length == 0) return;
-        _frameTimer += Time.unscaledDeltaTime;
-        if (_frameTimer < _frameInterval) return;
-        _frameTimer = 0f;
-        _frameIndex = (_frameIndex + 1) % _frames.Length;
-        _previewImage.sprite = _frames[_frameIndex];
+        if (_animationPreview.Advance(Time.unscaledDeltaTime))
+        {
+            _previewImage.sprite = _animationPreview.CurrentSprite;
+        }
     }
 
     private IEnumerator ReopenAfterClose()
@@ -351,18 +346,14 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             : ModClass.I.SkillV3.SkillLib.get(_draft.EntityAssetId);
         if (entity == null || !entity.IsAnimationIndexValid(_draft.AnimationIndex))
         {
-            _frames = Array.Empty<Sprite>();
-            _frameInterval = 0.1f;
+            _animationPreview.Clear();
         }
         else
         {
             var animation = entity.GetAnimation(_draft.AnimationIndex);
-            _frames = animation.Frames;
-            _frameInterval = animation.Settings.ResolveFrameInterval(0.1f);
+            _animationPreview.Configure(animation, 0.1f);
         }
-        _frameIndex = 0;
-        _frameTimer = 0f;
-        _previewImage.sprite = _frames.Length == 0 ? null : _frames[0];
+        _previewImage.sprite = _animationPreview.CurrentSprite;
         var entityName = string.IsNullOrWhiteSpace(_draft.EntityAssetId)
             ? "Cultiway.Wanfa.UI.State.NoEntity".Localize()
             : _draft.EntityAssetId.Localize();
@@ -462,7 +453,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         preview.transform.SetParent(controls, false);
         UiLayout.SetSize(preview.transform, 20f, 20f);
         var previewImage = preview.GetComponent<Image>();
-        previewImage.sprite = animation == null || animation.Frames.Length == 0 ? null : animation.Frames[0];
+        previewImage.sprite = animation == null ? null : animation.Runtime.Frames[0];
         previewImage.preserveAspect = true;
         previewImage.raycastTarget = false;
 

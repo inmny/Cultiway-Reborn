@@ -16,7 +16,7 @@ public class LogicSkillTravelSystem : QuerySystem<SkillEntity>
     public LogicSkillTravelSystem()
     {
         Filter.AllTags(Tags.Get<TagHasOnTravel>());
-        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
+        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagRecycle, TagSkillAnimationNoTravelEffects>());
     }
     
     protected override void OnUpdate()

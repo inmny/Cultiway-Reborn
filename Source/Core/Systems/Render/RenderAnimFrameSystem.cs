@@ -124,6 +124,11 @@ public class RenderAnimFrameSystem : BaseSystem
                     ref var rotation = ref rotations[i];
                     ref var afterimage = ref afterimages[i];
                     var entity = entities.EntityAt(i);
+                    if (entity.Tags.Has<TagSuppressAnimAfterimage>())
+                    {
+                        renderer.HideAfterimage();
+                        continue;
+                    }
                     var localBackDirection = AnimVisualUtils.GetLocalBackDirection(entity, ref rotation);
                     var movementAngle = AnimVisualUtils.GetRotationAngle(ref rotation);
                     renderer.SetAfterimage(animData[i].CurrentFrame, renderer.bind.color, ref afterimage,

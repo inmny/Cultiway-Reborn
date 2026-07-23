@@ -8,6 +8,7 @@ using Cultiway.Core.SkillLibV3.Editor;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Motions;
 using Cultiway.Core.SkillLibV3.Systems;
+using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
@@ -38,6 +39,7 @@ public class Manager
         Game = game;
         World = ModClass.I.W;
         
+        ModClass.I.LogicPrepareRecycleSystemGroup.Add(new PrepareSkillAnimationDissipationSystem());
         //ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleSkillContainerSystem());
         ModClass.I.LogicPrepareRecycleSystemGroup.Add(new ReleaseSkillExecutionBodiesSystem());
         ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleNonMasteredSkillContainerSystem());
@@ -46,6 +48,7 @@ public class Manager
         ActiveAbilityService.Register(new LearnedSkillActiveAbilityProvider());
 
         SkillLogicSystemGroup.Add(new LogicSkillCastSequenceSystem());
+        SkillLogicSystemGroup.Add(new LogicSkillAnimationLifecycleSystem());
         SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
         SkillLogicSystemGroup.Add(new LogicSkillExecutionBodySyncSystem());
         SkillLogicSystemGroup.Add(new LogicSkillGroundFxRecordSystem());
@@ -185,8 +188,6 @@ public class Manager
         rot.value = initial_dir;
 
         ApplyMotionProfile(entity, container.MotionProfile, source_pos, target_pos);
-        ref var animController = ref entity.GetComponent<AnimController>();
-        animation.Settings.Apply(ref animController.meta);
 
         if (delay > 0f)
         {
@@ -202,6 +203,11 @@ public class Manager
         }
 
         ApplyTrajectoryAfterimage(entity, container.MotionProfile);
+        SkillAnimationLifecycle.Initialize(
+            entity,
+            animation,
+            container.MotionProfile.FrameInterval,
+            container.Asset.DefaultAnimationLoop);
         return entity;
     }
 

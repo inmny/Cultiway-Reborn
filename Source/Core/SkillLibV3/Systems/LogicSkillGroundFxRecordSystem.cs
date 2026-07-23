@@ -24,7 +24,7 @@ public class LogicSkillGroundFxRecordSystem :
 
     public LogicSkillGroundFxRecordSystem()
     {
-        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
+        Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagRecycle, TagSkillAnimationNoTravelEffects>());
     }
 
     protected override void OnUpdate()

@@ -9,6 +9,7 @@ public class AliveTimerCheckSystem : QuerySystem<AliveTimer, AliveTimeLimit>
     public AliveTimerCheckSystem()
     {
         Filter.WithoutAllTags(Tags.Get<TagPrefab, TagRecycle>());
+        Filter.WithoutAnyTags(Tags.Get<TagSuspendAliveTimeLimit>());
     }
     protected override void OnUpdate()
     {

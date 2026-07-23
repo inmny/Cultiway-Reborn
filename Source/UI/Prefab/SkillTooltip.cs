@@ -27,8 +27,8 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         public string Summary;
         public string Description;
         public string BottomDescription;
-        public Sprite[] Frames = Array.Empty<Sprite>();
-        public float FrameInterval = 0.1f;
+        public SkillEntityAnimation Animation;
+        public float BaseFrameInterval = 0.1f;
         public readonly List<(string Label, string Value, string Color)> Lines = new();
         public readonly List<SkillModifierTooltipModel> Modifiers = new();
     }
@@ -43,10 +43,7 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
     private GameObject _modifierGrid;
     private LayoutElement _modifierGridLayout;
     private ObjectPoolGenericMono<SkillModifierIcon> _modifierPool;
-    private Sprite[] _frames = Array.Empty<Sprite>();
-    private int _frameIndex;
-    private float _frameTimer;
-    private float _frameInterval = 0.1f;
+    private readonly SkillAnimationPreviewPlayer _animationPreview = new();
 
     protected override void OnInit()
     {
@@ -104,12 +101,9 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         }
         _tooltip.setBottomDescription(model.BottomDescription);
 
-        _frames = model.Frames;
-        _frameInterval = model.FrameInterval;
-        _frameIndex = 0;
-        _frameTimer = 0f;
-        _avatar.sprite = _frames.Length == 0 ? null : _frames[0];
-        _avatar.transform.parent.gameObject.SetActive(_frames.Length > 0);
+        _animationPreview.Configure(model.Animation, model.BaseFrameInterval);
+        _avatar.sprite = _animationPreview.CurrentSprite;
+        _avatar.transform.parent.gameObject.SetActive(_animationPreview.CurrentSprite != null);
 
         _modifierPool.clear();
         foreach (var modifier in model.Modifiers)
@@ -128,13 +122,10 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
 
     private void Update()
     {
-        if (_frames.Length < 2) return;
-        _frameTimer += Time.unscaledDeltaTime;
-        if (_frameTimer < _frameInterval) return;
-
-        _frameTimer = 0f;
-        _frameIndex = (_frameIndex + 1) % _frames.Length;
-        _avatar.sprite = _frames[_frameIndex];
+        if (_animationPreview.Advance(Time.unscaledDeltaTime))
+        {
+            _avatar.sprite = _animationPreview.CurrentSprite;
+        }
     }
 
     private static ViewModel Build(SkillBlueprint blueprint, Entity runtimeContainer, string nameOverride)
@@ -153,8 +144,7 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         if (entity != null && entity.IsAnimationIndexValid(blueprint.AnimationIndex))
         {
             animation = entity.GetAnimation(blueprint.AnimationIndex);
-            model.Frames = animation.Frames;
-            model.FrameInterval = animation.Settings.ResolveFrameInterval(model.FrameInterval);
+            model.Animation = animation;
         }
 
         var trajectory = string.IsNullOrWhiteSpace(blueprint.TrajectoryAssetId)
@@ -191,7 +181,7 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
             var container = compiled.GetComponent<SkillContainer>();
             if (animation != null)
             {
-                model.FrameInterval = animation.Settings.ResolveFrameInterval(container.MotionProfile.FrameInterval);
+                model.BaseFrameInterval = container.MotionProfile.FrameInterval;
             }
             AddLine(model, "Cultiway.Wanfa.UI.Overview.ItemLevel".Localize(),
                 SkillCastResourceFormatter.FormatItemLevel(container.CastResourceRequirement,

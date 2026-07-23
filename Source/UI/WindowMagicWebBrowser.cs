@@ -76,8 +76,8 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         public string[] ModifierNames;
         public SemanticAsset[] Semantics;
         public string SearchText;
-        public Sprite[] Frames;
-        public float FrameInterval;
+        public SkillEntityAnimation Animation;
+        public float BaseFrameInterval;
     }
 
     private sealed class GroupModel
@@ -170,10 +170,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
     private Text _detailSemantics;
     private Text _detailModifiers;
     private Text _detailCompatibility;
-    private Sprite[] _detailFrames = Array.Empty<Sprite>();
-    private int _detailFrameIndex;
-    private float _detailFrameTimer;
-    private float _detailFrameInterval = 0.1f;
+    private readonly SkillAnimationPreviewPlayer _detailAnimationPreview = new();
     private GroupMode _groupMode;
     private SortMode _sortMode;
     private SourceFilter _sourceFilter;
@@ -241,12 +238,10 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
             RefreshList();
         }
 
-        if (_detailFrames.Length < 2) return;
-        _detailFrameTimer += Time.unscaledDeltaTime;
-        if (_detailFrameTimer < _detailFrameInterval) return;
-        _detailFrameTimer = 0f;
-        _detailFrameIndex = (_detailFrameIndex + 1) % _detailFrames.Length;
-        _detailIcon.sprite = _detailFrames[_detailFrameIndex];
+        if (_detailAnimationPreview.Advance(Time.unscaledDeltaTime))
+        {
+            _detailIcon.sprite = _detailAnimationPreview.CurrentSprite;
+        }
     }
 
     private void CreateToolbar(Transform parent)
@@ -436,8 +431,6 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         var animation = skill.Asset.IsAnimationIndexValid(skill.AnimationIndex)
             ? skill.Asset.GetAnimation(skill.AnimationIndex)
             : null;
-        var frames = animation?.Frames ?? Array.Empty<Sprite>();
-        var frameInterval = animation?.Settings.ResolveFrameInterval(skill.MotionProfile.FrameInterval) ?? 0.1f;
         var entityName = entityId.Localize();
         var trajectoryName = trajectoryId.Localize();
         var searchParts = new List<string>
@@ -463,8 +456,8 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
             ModifierNames = modifierNames,
             Semantics = semantics,
             SearchText = string.Join("\n", searchParts),
-            Frames = frames,
-            FrameInterval = frameInterval
+            Animation = animation,
+            BaseFrameInterval = skill.MotionProfile.FrameInterval
         };
     }
 
@@ -553,7 +546,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
                     currentEntry.Entry.IsDefault
                         ? "Cultiway.MagicWeb.UI.Source.Native".Localize()
                         : "Cultiway.MagicWeb.UI.Source.Uploaded".Localize());
-                var icon = currentEntry.Frames.Length == 0 ? null : currentEntry.Frames[0];
+                var icon = currentEntry.Animation?.Runtime.Frames[0];
                 _rowPool.GetNext().SetupEntry(currentEntry.Entry.Container, icon, currentEntry.Name, detail,
                     currentEntry.ItemLevelName,
                     currentEntry.Entry.Container.Id == _selectedEntityId,
@@ -701,11 +694,8 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
             entry.ItemLevelName, SkillCastResources.Mana.id.Localize(),
             entry.ManaDemand.ToString("0.##", CultureInfo.InvariantCulture), entry.EntityName,
             entry.TrajectoryName);
-        _detailFrames = entry.Frames;
-        _detailFrameIndex = 0;
-        _detailFrameTimer = 0f;
-        _detailFrameInterval = entry.FrameInterval;
-        _detailIcon.sprite = _detailFrames.Length == 0 ? null : _detailFrames[0];
+        _detailAnimationPreview.Configure(entry.Animation, entry.BaseFrameInterval);
+        _detailIcon.sprite = _detailAnimationPreview.CurrentSprite;
         UiTooltip.Set(_detailIcon.gameObject,
             () => SkillTooltip.Show(_detailIcon.gameObject, entry.Entry.Container));
 
@@ -757,7 +747,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
 
     private void ShowEmptyDetail()
     {
-        _detailFrames = Array.Empty<Sprite>();
+        _detailAnimationPreview.Clear();
         _detailIcon.sprite = null;
         _detailName.text = "Cultiway.MagicWeb.UI.State.NoResults".Localize();
         _detailSummary.text = string.Empty;

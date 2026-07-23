@@ -21,6 +21,8 @@ public class SkillEntityAsset : Asset
     private readonly Dictionary<string, float> _modifierWeightMultipliers = new(StringComparer.Ordinal);
     private readonly List<SkillEntityAnimation> _animations = new();
 
+    internal float DefaultAnimationFrameInterval { get; private set; } = 0.1f;
+    internal bool DefaultAnimationLoop { get; private set; } = true;
     public Entity PrefabEntity;
     public ElementComposition Element;
     public SemanticDescriptor Semantics { get; set; } = new();
@@ -129,6 +131,19 @@ public class SkillEntityAsset : Asset
     public SkillEntityAsset SetupCommonPrefab(string effect_path, float scale, bool anim_loop,
         SkillEntityAnimationSettings animationSettings)
     {
+        if (animationSettings == null) throw new ArgumentNullException(nameof(animationSettings));
+
+        return SetupCommonPrefab(
+            SkillEntityAnimation.Create(effect_path, scale, animationSettings),
+            anim_loop);
+    }
+
+    public SkillEntityAsset SetupCommonPrefab(SkillEntityAnimation animation, bool animLoop = true)
+    {
+        if (animation == null) throw new ArgumentNullException(nameof(animation));
+
+        DefaultAnimationFrameInterval = 0.1f;
+        DefaultAnimationLoop = animLoop;
         PrefabEntity = World.CreateEntity(
             new SkillEntity()
             {
@@ -138,14 +153,14 @@ public class SkillEntityAsset : Asset
             new SkillContext(),
             new Position(),
             new Rotation(Vector3.right),
-            new Scale(scale),
+            new Scale(animation.Scale),
             new AnimBindRenderer(),
             new AnimController()
             {
                 meta = new ()
                 {
-                    frame_interval = 0.1f,
-                    loop = anim_loop
+                    frame_interval = DefaultAnimationFrameInterval,
+                    loop = DefaultAnimationLoop
                 }
             },
             new AnimData()
@@ -161,7 +176,7 @@ public class SkillEntityAsset : Asset
                 value  = 5f
             },
             Tags.Get<TagPrefab>());
-        AddAnimation(effect_path, scale, animationSettings);
+        AddAnimation(animation);
         return this;
     }
 
@@ -174,14 +189,20 @@ public class SkillEntityAsset : Asset
     {
         if (settings == null) throw new ArgumentNullException(nameof(settings));
 
-        var animation = new SkillEntityAnimation(effectPath, LoadOrderedFrames(effectPath), scale, settings);
+        return AddAnimation(SkillEntityAnimation.Create(effectPath, scale, settings));
+    }
+
+    public SkillEntityAsset AddAnimation(SkillEntityAnimation animation)
+    {
+        if (animation == null) throw new ArgumentNullException(nameof(animation));
+
         _animations.Add(animation);
         if (_animations.Count == 1)
         {
-            PrefabEntity.GetComponent<AnimData>().frames = animation.Frames;
+            PrefabEntity.GetComponent<AnimData>().frames = animation.Runtime.Frames;
             PrefabEntity.GetComponent<Scale>().value = Vector3.one * animation.Scale;
             ref var controller = ref PrefabEntity.GetComponent<AnimController>();
-            animation.Settings.Apply(ref controller.meta);
+            animation.Runtime.Settings.Apply(ref controller.meta);
         }
         return this;
     }
@@ -241,12 +262,14 @@ public class SkillEntityAsset : Asset
         var entity = NewEntity();
         var animation = GetAnimation(animationIndex);
         ref var animData = ref entity.GetComponent<AnimData>();
-        animData.frames = animation.Frames;
+        animData.frames = animation.Runtime.Frames;
         animData.frame_idx = 0;
         animData.frame_timer = 0f;
         entity.GetComponent<Scale>().value = Vector3.one * animation.Scale;
         ref var controller = ref entity.GetComponent<AnimController>();
-        animation.Settings.Apply(ref controller.meta);
+        controller.meta.frame_interval = DefaultAnimationFrameInterval;
+        controller.meta.loop = DefaultAnimationLoop;
+        animation.Runtime.Settings.Apply(ref controller.meta);
         return entity;
     }
 
