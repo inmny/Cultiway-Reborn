@@ -3,6 +3,7 @@ using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Patch;
 using NeoModLoader.General.Game.extensions;
+using strings;
 
 namespace Cultiway.Content;
 
@@ -20,11 +21,16 @@ public class BaseStatses : ExtendLibrary<BaseStatAsset, BaseStatses>
     [AssetId(nameof(MaxVigor))] public static BaseStatAsset MaxVigor { get; private set; }
     /// <summary>骑士的闪避几率（自定义 stat；WorldBox 无原生闪避数值）。</summary>
     [AssetId(nameof(KnightEvasion))] public static BaseStatAsset KnightEvasion { get; private set; }
+    /// <summary>单位抵消外力与攻击击退效果的内部抗性。</summary>
+    [AssetId(S.knockback_reduction)] public static BaseStatAsset KnockbackReduction { get; private set; }
     private static StringBuilder all_stats_ids = new();
     internal static string AllStatsIds => all_stats_ids.ToString();
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
+        KnockbackReduction.hidden = true;
+        KnockbackReduction.translation_key = KnockbackReduction.id;
+
         PatchWindowCreatureInfo.RegisterInfoDisplay((ae, sb) =>
         {
             if (!ae.HasCultisys<Xian>()) return;

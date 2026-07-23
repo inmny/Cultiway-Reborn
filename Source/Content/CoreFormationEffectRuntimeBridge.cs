@@ -8,7 +8,6 @@ using Cultiway.Core.Progression;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
-using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;
@@ -239,7 +238,7 @@ internal static class CoreFormationEffectRuntimeBridge
         if (!owner.E.TryGetComponent(out CoreFormationEffectRuntime runtime)) return;
         int index = runtime.FindIndex(CoreFormationEffectFamilies.Body);
         if (index < 0 || runtime.entries[index].rank < 2 || runtime.entries[index].active_remaining <= 0f) return;
-        stats[S.knockback_reduction] += 8f;
+        stats[BaseStatses.KnockbackReduction.id] += 8f;
     }
 
     /// <summary>角色死亡时结束所有主动形态，防止复用实体时残留状态。</summary>

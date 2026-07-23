@@ -1,7 +1,7 @@
 using ai;
+using Cultiway.Content;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
-using strings;
 
 namespace Cultiway.Patch;
 
@@ -10,7 +10,7 @@ internal static class PatchActorTool
     [HarmonyPrefix, HarmonyPatch(typeof(ActorTool), nameof(ActorTool.applyForceToUnit))]
     private static void applyForceToUnit_prefix(AttackData pData, BaseSimObject pTargetToCheck, ref float pMod)
     {
-        var reduction = pTargetToCheck.stats[S.knockback_reduction];
+        var reduction = pTargetToCheck.stats[BaseStatses.KnockbackReduction.id];
         var attacker = pData.initiator;
         var attacker_power_level = attacker.isActor() ? attacker.a.GetExtend().GetPowerLevel() : 0;
         var power_level = pTargetToCheck.isActor() ? pTargetToCheck.a.GetExtend().GetPowerLevel() : 0;

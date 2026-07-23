@@ -215,7 +215,7 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             y /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - source_power_level);
             z /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - source_power_level);
         }
-        var reduction = Base.stats[S.knockback_reduction];
+        var reduction = Base.stats[BaseStatses.KnockbackReduction.id];
         if (reduction >= 0)
         {
             var ratio = 1 / (1 + reduction);
