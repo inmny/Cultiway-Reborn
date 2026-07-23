@@ -231,8 +231,10 @@ public sealed class WanfaPavilionService
 
     public SkillBlueprint CreateDraft()
     {
-        var entity = ModClass.I.SkillV3.SkillLib.list.FirstOrDefault(item =>
-            item.CanBeLearned && item.EditorSelectable && ActivePolicy.IsEntityAvailable(item.id));
+        var entity = ModClass.I.SkillV3.SkillLib.list
+            .Where(item => item.CanBeLearned && item.EditorSelectable && ActivePolicy.IsEntityAvailable(item.id))
+            .OrderBy(item => item.EditorSortOrder)
+            .FirstOrDefault();
         if (entity == null)
         {
             return new SkillBlueprint
@@ -263,7 +265,7 @@ public sealed class WanfaPavilionService
         foreach (var trajectory in ModClass.I.SkillV3.TrajLib.list.OrderBy(item => item.EditorSortOrder))
         {
             if (!trajectory.EditorSelectable || !ActivePolicy.IsTrajectoryAvailable(trajectory.id)) continue;
-            if ((trajectory.Orientations & entity.AcceptedOrientations) != TrajectoryOrientation.None)
+            if (SkillTrajectoryCompatibility.IsCompatible(entity, trajectory))
             {
                 return trajectory.id;
             }
@@ -281,7 +283,7 @@ public sealed class WanfaPavilionService
         return trajectory != null &&
                !string.IsNullOrEmpty(trajectory.EditorDescriptionKey) &&
                (trajectory.EditorSelectable || trajectory.EditorPersistWhenHidden) &&
-               (trajectory.Orientations & entity.AcceptedOrientations) != TrajectoryOrientation.None;
+               SkillTrajectoryCompatibility.IsCompatible(entity, trajectory);
     }
 
     public WanfaPavilionSaveResult SaveNew(SkillBlueprint draft)

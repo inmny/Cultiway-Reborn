@@ -20,10 +20,12 @@ public sealed class ArtifactSkillTrajectories : ExtendLibrary<TrajectoryAsset, A
     {
         FlyingSword.CanBeSelectedByModifier = false;
         FlyingSword.Orientations = TrajectoryOrientation.Horizontal;
+        FlyingSword.WithDomains(SkillTrajectoryDomain.FlyingBody);
         FlyingSword.Action = ArtifactSpatialAttackExecution.Update;
 
         SwordArray.CanBeSelectedByModifier = false;
         SwordArray.Orientations = TrajectoryOrientation.Appear;
+        SwordArray.WithDomains(SkillTrajectoryDomain.TargetManifest);
         SwordArray.Action = ArtifactSwordArrayExecution.Update;
     }
 }

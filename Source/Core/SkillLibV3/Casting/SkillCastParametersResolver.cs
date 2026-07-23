@@ -13,6 +13,8 @@ public static class SkillCastParametersResolver
     public static SkillCastParameters Refresh(Entity skill)
     {
         var parameters = SkillCastParameters.Default;
+        var impactProfile = skill.GetComponent<SkillContainer>().Asset.ImpactProfile;
+        parameters.CostMultiplier *= impactProfile.CostMultiplier;
         foreach (var componentType in skill.GetComponentTypes())
         {
             if (!typeof(IModifier).IsAssignableFrom(componentType)) continue;

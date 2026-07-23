@@ -7,6 +7,8 @@ using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Editor;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Motions;
+using Cultiway.Core.SkillLibV3.Impacts;
+using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Visuals;
@@ -30,6 +32,8 @@ public class Manager
     public TrajectoryLibrary TrajLib { get; } = new TrajectoryLibrary();
     public SkillVfxElementLibrary VfxElementLib { get; } = new();
     public SkillMotionProfileLibrary MotionProfileLib { get; } = new();
+    public SkillImpactProfileLibrary ImpactProfileLib { get; } = new();
+    public SkillUseProfileLibrary UseProfileLib { get; } = new();
     public WanfaPavilionPolicyLibrary WanfaPolicyLib { get; } = new();
     public SkillCastResourceLibrary CastResourceLib { get; } = new();
     public SkillCastBudgetRuleLibrary CastBudgetRuleLib { get; } = new();
@@ -50,9 +54,11 @@ public class Manager
         SkillLogicSystemGroup.Add(new LogicSkillCastSequenceSystem());
         SkillLogicSystemGroup.Add(new LogicSkillAnimationLifecycleSystem());
         SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
+        SkillLogicSystemGroup.Add(new LogicSkillPositionImpactSystem());
         SkillLogicSystemGroup.Add(new LogicSkillExecutionBodySyncSystem());
         SkillLogicSystemGroup.Add(new LogicSkillGroundFxRecordSystem());
         SkillLogicSystemGroup.Add(new LogicSkillTravelSystem());
+        SkillLogicSystemGroup.Add(new LogicSkillPersistentSystem(World));
         SkillLogicSystemGroup.Add(new LogicActorCollisionSystem());
     }
 
@@ -63,6 +69,8 @@ public class Manager
         AssetManager._instance.add(TrajLib, "cultiway.trajectories");
         AssetManager._instance.add(VfxElementLib, "cultiway.skill_vfx_elements");
         AssetManager._instance.add(MotionProfileLib, "cultiway.skill_motion_profiles");
+        AssetManager._instance.add(ImpactProfileLib, "cultiway.skill_impact_profiles");
+        AssetManager._instance.add(UseProfileLib, "cultiway.skill_use_profiles");
         AssetManager._instance.add(WanfaPolicyLib, "cultiway.wanfa_pavilion_policy");
         AssetManager._instance.add(CastResourceLib, "cultiway.skill_cast_resources");
         AssetManager._instance.add(CastBudgetRuleLib, "cultiway.skill_cast_budget_rules");
@@ -202,6 +210,7 @@ public class Manager
             container.OnSetup(entity);
         }
 
+        SkillImpactRuntime.Initialize(entity);
         ApplyTrajectoryAfterimage(entity, container.MotionProfile);
         SkillAnimationLifecycle.Initialize(
             entity,
@@ -241,8 +250,13 @@ public class Manager
         if (!entity.TryGetComponent(out Trajectory trajectory)) return;
 
         var trajectoryAsset = trajectory.Asset;
-        var afterimageOrientations = TrajectoryOrientation.Horizontal | TrajectoryOrientation.Melee;
-        if ((trajectoryAsset.Orientations & afterimageOrientations) == TrajectoryOrientation.None)
+        const SkillTrajectoryDomain movingDomains = SkillTrajectoryDomain.FlyingBody |
+                                                    SkillTrajectoryDomain.FlyingWave |
+                                                    SkillTrajectoryDomain.Ballistic |
+                                                    SkillTrajectoryDomain.GroundTravel |
+                                                    SkillTrajectoryDomain.MobileField |
+                                                    SkillTrajectoryDomain.Melee;
+        if ((trajectoryAsset.Domains & movingDomains) == SkillTrajectoryDomain.None)
         {
             if (entity.HasComponent<AnimAfterimage>())
             {

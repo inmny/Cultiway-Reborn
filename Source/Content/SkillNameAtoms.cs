@@ -16,6 +16,8 @@ internal class SkillNameAtoms : ExtendLibrary<SkillNameAtomAsset, SkillNameAtoms
     public static SkillNameAtomAsset ElementIron { get; private set; }
     public static SkillNameAtomAsset ElementWood { get; private set; }
     public static SkillNameAtomAsset ElementWater { get; private set; }
+    public static SkillNameAtomAsset ElementIce { get; private set; }
+    public static SkillNameAtomAsset ElementPoison { get; private set; }
     public static SkillNameAtomAsset ElementFire { get; private set; }
     public static SkillNameAtomAsset ElementEarth { get; private set; }
     public static SkillNameAtomAsset ElementNeg { get; private set; }
@@ -32,6 +34,17 @@ internal class SkillNameAtoms : ExtendLibrary<SkillNameAtomAsset, SkillNameAtoms
     public static SkillNameAtomAsset FormFalling { get; private set; }
     public static SkillNameAtomAsset FormSustain { get; private set; }
     public static SkillNameAtomAsset FormSpell { get; private set; }
+    public static SkillNameAtomAsset FormSword { get; private set; }
+    public static SkillNameAtomAsset FormNeedle { get; private set; }
+    public static SkillNameAtomAsset FormSpear { get; private set; }
+    public static SkillNameAtomAsset FormSpike { get; private set; }
+    public static SkillNameAtomAsset FormWave { get; private set; }
+    public static SkillNameAtomAsset FormBeam { get; private set; }
+    public static SkillNameAtomAsset FormWall { get; private set; }
+    public static SkillNameAtomAsset FormShield { get; private set; }
+    public static SkillNameAtomAsset FormMist { get; private set; }
+    public static SkillNameAtomAsset FormPool { get; private set; }
+    public static SkillNameAtomAsset FormRift { get; private set; }
 
     public static SkillNameAtomAsset MotionFalling { get; private set; }
     public static SkillNameAtomAsset MotionGround { get; private set; }
@@ -41,6 +54,8 @@ internal class SkillNameAtoms : ExtendLibrary<SkillNameAtomAsset, SkillNameAtoms
     public static SkillNameAtomAsset MotionReturn { get; private set; }
     public static SkillNameAtomAsset MotionZigzag { get; private set; }
     public static SkillNameAtomAsset MotionWave { get; private set; }
+    public static SkillNameAtomAsset MotionGroundManifest { get; private set; }
+    public static SkillNameAtomAsset MotionChain { get; private set; }
 
     public static SkillNameAtomAsset ModifierDeathSentence { get; private set; }
     public static SkillNameAtomAsset ModifierEternalCurse { get; private set; }
@@ -79,6 +94,8 @@ internal class SkillNameAtoms : ExtendLibrary<SkillNameAtomAsset, SkillNameAtoms
             [ElementSemantic.Iron, ThemeSemantic.Metal], ElementIndex.Iron);
         SetElement(ElementWood, ElementSemantic.Wood, ["木", "青木", "苍"], [ElementSemantic.Wood], ElementIndex.Wood);
         SetElement(ElementWater, ElementSemantic.Water, ["水", "寒", "玄水"], [ElementSemantic.Water], ElementIndex.Water);
+        SetElement(ElementIce, ElementSemantic.Ice, ["冰", "霜", "玄冰"], [ElementSemantic.Ice]);
+        SetElement(ElementPoison, ElementSemantic.Poison, ["毒", "瘴", "蚀"], [ElementSemantic.Poison]);
         SetElement(ElementFire, ElementSemantic.Fire, ["火", "炎", "赤"], [ElementSemantic.Fire], ElementIndex.Fire);
         SetElement(ElementEarth, ElementSemantic.Earth, ["土", "岩", "岳"], [ElementSemantic.Earth], ElementIndex.Earth);
         SetElement(ElementNeg, ElementSemantic.Neg, ["阴", "幽", "玄"], [ElementSemantic.Neg], ElementIndex.Neg);
@@ -102,6 +119,28 @@ internal class SkillNameAtoms : ExtendLibrary<SkillNameAtomAsset, SkillNameAtoms
             ["{element}{form}", "{motion}{form}", "{element}{motion}", "{base}"], ["幕", "轮", "流"]);
         SetForm(FormSpell, FormSemantic.Spell, ["术", "法", "咒"], [],
             ["{element}{form}", "{element}{ending}", "{motion}{form}", "{base}"], ["术", "法", "诀", "咒"]);
+        SetForm(FormSword, FormSemantic.Sword, ["剑", "锋", "光"], [FormSemantic.Sword],
+            ["{element}{form}", "{motion}{form}", "{element}{motion}", "{base}"], ["剑", "诀", "式"], 130);
+        SetForm(FormNeedle, FormSemantic.Needle, ["针", "芒", "毫"], [FormSemantic.Needle],
+            ["{element}{form}", "{motion}{form}", "{element}{motion}", "{base}"], ["针", "芒", "诀"], 130);
+        SetForm(FormSpear, FormSemantic.Spear, ["枪", "矛", "槊"], [FormSemantic.Spear],
+            ["{element}{form}", "{motion}{form}", "{element}{motion}", "{base}"], ["枪", "矛", "式"], 130);
+        SetForm(FormSpike, FormSemantic.Spike, ["刺", "锥", "棱"], [FormSemantic.Spike],
+            ["{element}{form}", "{motion}{form}", "{element}{motion}", "{base}"], ["刺", "锥", "术"], 130);
+        SetForm(FormWave, FormSemantic.Wave, ["潮", "浪", "波"], [FormSemantic.Wave],
+            ["{element}{form}", "{motion}{form}", "{element}{motion}", "{base}"], ["潮", "浪", "诀"], 130);
+        SetForm(FormBeam, FormSemantic.Beam, ["光", "虹", "束"], [FormSemantic.Beam],
+            ["{element}{form}", "{motion}{form}", "{element}{motion}", "{base}"], ["光", "虹", "术"], 130);
+        SetForm(FormWall, FormSemantic.Wall, ["壁", "垣", "墙"], [FormSemantic.Wall],
+            ["{element}{form}", "{motion}{form}", "{element}{motion}", "{base}"], ["壁", "垣", "阵"], 130);
+        SetForm(FormShield, FormSemantic.Shield, ["盾", "护", "罩"], [FormSemantic.Shield],
+            ["{element}{form}", "{motion}{form}", "{element}{motion}", "{base}"], ["盾", "罩", "印"], 130);
+        SetForm(FormMist, FormSemantic.Mist, ["雾", "烟", "瘴"], [FormSemantic.Mist],
+            ["{element}{form}", "{motion}{form}", "{element}{motion}", "{base}"], ["雾", "瘴", "域"], 130);
+        SetForm(FormPool, FormSemantic.Pool, ["池", "潭", "泽"], [FormSemantic.Pool],
+            ["{element}{form}", "{motion}{form}", "{element}{motion}", "{base}"], ["池", "潭", "域"], 130);
+        SetForm(FormRift, FormSemantic.Rift, ["裂", "隙", "墟"], [FormSemantic.Rift],
+            ["{element}{form}", "{motion}{form}", "{element}{motion}", "{base}"], ["隙", "裂", "界"], 130);
 
         SetMotion(MotionFalling, MotionSemantic.Falling, ["落", "坠", "陨"],
             ["{element}{motion}", "{motion}{form}"], [MotionSemantic.Falling], ["FallingStrike"]);
@@ -119,6 +158,11 @@ internal class SkillNameAtoms : ExtendLibrary<SkillNameAtomAsset, SkillNameAtoms
             ["{motion}{form}", "{element}{motion}"], [], ["Zigzag"]);
         SetMotion(MotionWave, MotionSemantic.Wave, ["波", "澜"],
             ["{element}{motion}", "{motion}{form}"], [], ["SineWave"]);
+        SetMotion(MotionGroundManifest, MotionSemantic.GroundManifest, ["涌", "突", "生"],
+            ["{element}{motion}", "{motion}{form}"], [MotionSemantic.GroundManifest],
+            ["GroundEruptAtTarget"], 130);
+        SetMotion(MotionChain, MotionSemantic.Chain, ["链", "跃", "连"],
+            ["{element}{motion}", "{motion}{form}"], [MotionSemantic.Chain], ["ChainTargets"], 130);
 
         SetModifier(ModifierDeathSentence, SkillModifiers.DeathSentence.id, ["终焉", "诛", "灭"], 395,
             ["{modifier}{core}", "{modifier}{element}{form}", "{modifier}{base}", "{modifier}{ending}"],
@@ -248,7 +292,7 @@ internal class SkillNameAtoms : ExtendLibrary<SkillNameAtomAsset, SkillNameAtoms
 
     private static void SetForm(SkillNameAtomAsset atom, SemanticAsset semantic, string[] stems,
         SemanticAsset[] matchSemantics,
-        string[] corePatterns, string[] endingStems)
+        string[] corePatterns, string[] endingStems, int priority = 100)
     {
         atom.semantic = semantic;
         atom.category = SkillNameAtomCategory.Form;
@@ -256,12 +300,12 @@ internal class SkillNameAtoms : ExtendLibrary<SkillNameAtomAsset, SkillNameAtoms
         atom.match_semantics = matchSemantics;
         atom.core_patterns = corePatterns;
         atom.ending_stems = endingStems;
-        atom.priority = 100;
+        atom.priority = priority;
         atom.ScoreContext = context => context.FormSemantic == semantic ? 10f : 0f;
     }
 
     private static void SetMotion(SkillNameAtomAsset atom, SemanticAsset semantic, string[] stems,
-        string[] corePatterns, SemanticAsset[] matchSemantics, string[] trajectorySuffixes)
+        string[] corePatterns, SemanticAsset[] matchSemantics, string[] trajectorySuffixes, int priority = 100)
     {
         atom.semantic = semantic;
         atom.category = SkillNameAtomCategory.Motion;
@@ -270,7 +314,7 @@ internal class SkillNameAtoms : ExtendLibrary<SkillNameAtomAsset, SkillNameAtoms
         atom.trajectory_suffixes = trajectorySuffixes;
         atom.core_pattern = corePatterns[0];
         atom.core_patterns = corePatterns;
-        atom.priority = 100;
+        atom.priority = priority;
         atom.ScoreContext = context => context.MotionSemantic == semantic ? 10f : 0f;
     }
 

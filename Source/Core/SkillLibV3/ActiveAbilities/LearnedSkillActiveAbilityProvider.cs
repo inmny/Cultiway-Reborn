@@ -1,6 +1,10 @@
 using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Impacts;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using strings;
@@ -18,11 +22,13 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
 
     public void Collect(ActorExtend caster, ICollection<ActiveAbilityHandle> output)
     {
-        if (!GeneralSettings.EnableSkillSystems || caster.all_attack_skills == null) return;
-        for (int i = 0; i < caster.all_attack_skills.Count; i++)
+        if (!GeneralSettings.EnableSkillSystems) return;
+        IReadOnlyList<Entity> learnedSkills = caster.GetLearnedSkillsInOrder();
+        for (int i = 0; i < learnedSkills.Count; i++)
         {
-            Entity skill = caster.all_attack_skills[i];
-            if (!skill.IsNull && skill.HasComponent<SkillContainer>())
+            Entity skill = learnedSkills[i];
+            if (!skill.IsNull && skill.HasComponent<SkillContainer>() &&
+                skill.GetComponent<SkillContainer>().Asset.Type is SkillEntityType.Attack or SkillEntityType.Defense)
             {
                 output.Add(new ActiveAbilityHandle(Id, skill));
             }
@@ -44,7 +50,7 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
             name,
             null,
             ActiveAbilityChannel.Combat,
-            ActiveAbilityTargetMode.ObjectOrPoint,
+            skill.GetComponent<SkillContainer>().Asset.UseProfile.TargetMode,
             ActiveAbilityActivationMode.Instant);
     }
 
@@ -52,6 +58,11 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
     {
         Entity skill = handle.Source;
         if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
+        SkillUseProfileAsset useProfile = skill.GetComponent<SkillContainer>().Asset.UseProfile;
+        if (useProfile.Placement == SkillUsePlacement.CasterSelf)
+        {
+            return SkillCastCost.GetAffordableStepLimit(caster, skill) > 0;
+        }
         if (target != null && !target.isRekt()) return caster.CanPrepareSkillContainer(skill, target);
         return SkillCastCost.GetAffordableStepLimit(caster, skill) > 0;
     }
@@ -60,6 +71,14 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
     {
         Entity skill = handle.Source;
         if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
+        SkillUseProfileAsset useProfile = skill.GetComponent<SkillContainer>().Asset.UseProfile;
+        if (useProfile.Placement == SkillUsePlacement.CasterSelf)
+        {
+            int selfStepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill);
+            SkillCastPlan selfPlan = SkillCastPlanner.CreatePointPlan(
+                caster, skill, caster.Base.GetSimPos(), selfStepLimit);
+            return SkillCastCost.CanPay(caster, skill, selfPlan);
+        }
         if (target.Object != null && !target.Object.isRekt())
         {
             return caster.CanUseSkillContainerAtCurrentDistance(skill, target.Object);
@@ -72,16 +91,41 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         return SkillCastCost.CanPay(caster, skill, plan);
     }
 
-    public int ResolveAiWeight(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target) => 1;
+    public int ResolveAiWeight(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
+    {
+        SkillEntityAsset asset = handle.Source.GetComponent<SkillContainer>().Asset;
+        SkillUseProfileAsset useProfile = asset.UseProfile;
+        int weight = useProfile.BaseAiWeight;
+        if (useProfile.ThreatenedAiWeight > 0 &&
+            caster.Base.data.health <= caster.Base.stats[strings.S.health] * 0.5f)
+        {
+            weight += useProfile.ThreatenedAiWeight;
+        }
+        if (asset.ImpactProfile.IsField && target != null && !target.isRekt())
+        {
+            int nearbyEnemies = 0;
+            foreach (BaseSimObject _ in SkillUtils.IterEnemyInSphere(
+                         target.current_position, asset.ImpactProfile.EffectRadius * 2f, caster.Base))
+            {
+                nearbyEnemies++;
+                if (nearbyEnemies >= 3) break;
+            }
+            weight += nearbyEnemies;
+        }
+        return weight;
+    }
 
     public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
-        return caster.GetSkillCastRange(target);
+        SkillUseProfileAsset profile = handle.Source.GetComponent<SkillContainer>().Asset.UseProfile;
+        return caster.GetSkillCastRange(target) * profile.RangeMultiplier;
     }
 
     public float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        return 0f;
+        Entity skill = handle.Source;
+        SkillImpactProfileAsset profile = skill.GetComponent<SkillContainer>().Asset.ImpactProfile;
+        return SkillEffectRadius.ResolveContainer(skill, profile.EffectRadius);
     }
 
     public bool TryUse(
@@ -93,7 +137,12 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         Entity skill = handle.Source;
         int stepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill);
         SkillCastPlan plan;
-        if (target.Object != null && !target.Object.isRekt())
+        SkillUseProfileAsset useProfile = skill.GetComponent<SkillContainer>().Asset.UseProfile;
+        if (useProfile.Placement == SkillUsePlacement.CasterSelf)
+        {
+            plan = SkillCastPlanner.CreatePointPlan(caster, skill, caster.Base.GetSimPos(), stepLimit);
+        }
+        else if (target.Object != null && !target.Object.isRekt())
         {
             plan = SkillCastPlanner.CreatePlan(
                 caster,

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core.Components;
@@ -16,9 +17,11 @@ public class RenderAnimFrameSystem : BaseSystem
     private readonly ArchetypeQuery<Position, AnimBindRenderer>                  pos_query;
     private readonly ArchetypeQuery<Rotation, AnimBindRenderer>                  rot_query;
     private readonly ArchetypeQuery<Scale, AnimBindRenderer>                     scale_query;
+    private readonly ArchetypeQuery<AnimLinearLayout, Scale, AnimBindRenderer>           linear_layout_query;
     private readonly ArchetypeQuery<AnimTint, AnimBindRenderer>                  tint_query;
     private readonly ArchetypeQuery<AnimData, AnimAfterimage, Rotation, AnimBindRenderer> afterimage_query;
     private readonly ArchetypeQuery<AnimBindRenderer>                            single_query;
+    private readonly Dictionary<Sprite, Sprite>                                  full_rect_sprites = new();
 
     public RenderAnimFrameSystem(EntityStore world)
     {
@@ -38,6 +41,7 @@ public class RenderAnimFrameSystem : BaseSystem
         pos_query = world.Query<Position, AnimBindRenderer>(filter);
         rot_query = world.Query<Rotation, AnimBindRenderer>(filter);
         scale_query = world.Query<Scale, AnimBindRenderer>(filter);
+        linear_layout_query = world.Query<AnimLinearLayout, Scale, AnimBindRenderer>(filter);
         tint_query = world.Query<AnimTint, AnimBindRenderer>(filter);
         afterimage_query = world.Query<AnimData, AnimAfterimage, Rotation, AnimBindRenderer>(filter);
     }
@@ -50,8 +54,8 @@ public class RenderAnimFrameSystem : BaseSystem
                 (ref Position pos, ref Scale scale, ref AnimData anim_data, ref AnimBindRenderer bind_renderer,
                     Entity entity) =>
                 {
-                    Sprite sprite = anim_data.CurrentFrame;
-                    if (!NeedRender(sprite, ref pos, ref scale))
+                    Sprite sprite = ResolveRenderSprite(entity, anim_data.CurrentFrame);
+                    if (!NeedRender(entity, sprite, ref pos, ref scale))
                     {
                         if (bind_renderer.value != null && bind_renderer.value.gameObject.activeSelf)
                         {
@@ -94,6 +98,25 @@ public class RenderAnimFrameSystem : BaseSystem
                 if (bind_renderer.value == null) return;
                 bind_renderer.value.transform.localScale = scale.value;
             });
+            linear_layout_query.ForEachComponents(
+                (ref AnimLinearLayout layout, ref Scale scale, ref AnimBindRenderer bindRenderer) =>
+                {
+                    if (bindRenderer.value == null) return;
+
+                    SpriteRenderer spriteRenderer = bindRenderer.value.bind;
+                    if (layout.Mode == AnimLinearLayoutMode.Tile)
+                    {
+                        spriteRenderer.drawMode = SpriteDrawMode.Tiled;
+                        spriteRenderer.tileMode = SpriteTileMode.Continuous;
+                        spriteRenderer.size = new Vector2(
+                            layout.WorldLength / scale.x,
+                            spriteRenderer.sprite.bounds.size.y);
+                    }
+                    else
+                    {
+                        spriteRenderer.drawMode = SpriteDrawMode.Simple;
+                    }
+                });
             tint_query.ForEachComponents((ref AnimTint tint, ref AnimBindRenderer bind_renderer) =>
             {
                 if (bind_renderer.value == null) return;
@@ -156,10 +179,18 @@ public class RenderAnimFrameSystem : BaseSystem
         */
     }
     [Hotfixable]
-    private bool NeedRender(Sprite sprite, ref Position pos, ref Scale scale)
+    private bool NeedRender(Entity entity, Sprite sprite, ref Position pos, ref Scale scale)
     {
         if (sprite == null) return false;
         var size = sprite.rect.size;
+        if (entity.HasComponent<AnimLinearLayout>())
+        {
+            ref AnimLinearLayout layout = ref entity.GetComponent<AnimLinearLayout>();
+            if (layout.Mode == AnimLinearLayoutMode.Tile)
+            {
+                size.x = layout.WorldLength / scale.x;
+            }
+        }
         // 先转换到屏幕坐标
         var screen_pos = World.world.camera.WorldToScreenPoint(new Vector3(pos.x, pos.y + pos.z));
         var screen_rect = new Rect(screen_pos.x - size.x * scale.value.x / 2, screen_pos.y - size.y * scale.value.y / 2, size.x * scale.value.x, size.y * scale.value.y);
@@ -167,5 +198,34 @@ public class RenderAnimFrameSystem : BaseSystem
         var screen = new Rect(0, 0, Screen.width, Screen.height);
         if (!ShapeUtils.OverlapRect(screen, screen_rect)) return false;
         return true;
+    }
+
+    private Sprite GetFullRectSprite(Sprite source)
+    {
+        if (full_rect_sprites.TryGetValue(source, out Sprite fullRect)) return fullRect;
+
+        Rect rect = source.rect;
+        Vector2 pivot = new(source.pivot.x / rect.width, source.pivot.y / rect.height);
+        fullRect = Sprite.Create(
+            source.texture,
+            rect,
+            pivot,
+            source.pixelsPerUnit,
+            1,
+            SpriteMeshType.FullRect,
+            source.border);
+        fullRect.name = $"{source.name}_full_rect";
+        full_rect_sprites.Add(source, fullRect);
+        return fullRect;
+    }
+
+    private Sprite ResolveRenderSprite(Entity entity, Sprite source)
+    {
+        if (!entity.HasComponent<AnimLinearLayout>()) return source;
+
+        ref AnimLinearLayout layout = ref entity.GetComponent<AnimLinearLayout>();
+        return layout.Mode == AnimLinearLayoutMode.Tile
+            ? GetFullRectSprite(source)
+            : source;
     }
 }

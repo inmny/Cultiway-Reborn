@@ -417,18 +417,24 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                 selected ? _draft.TrajectoryAssetId : null);
             var semanticNames = entity.Semantics.Resolve(ModClass.L.SemanticLibrary)
                 .Select(semantic => semantic.GetName());
-            var detail = $"{entity.EditorCategoryKey.Localize()} · {string.Join("、", semanticNames)}";
+            var profileName = entity.ImpactProfile.id.Localize();
+            var domainNames = SkillTrajectoryDomainFormatter.Format(entity.AcceptedTrajectoryDomains);
+            var detail = $"{entity.EditorCategoryKey.Localize()} · {profileName} · {domainNames}";
             if (trajectoryId == null)
             {
                 detail += " · " + "Cultiway.Wanfa.UI.Detail.NoAvailableTrajectory".Localize();
             }
+            var tooltipDetail = $"{entity.EditorDescriptionKey.Localize()}\n" +
+                                $"{string.Join("、", semanticNames)}\n{domainNames}";
             var row = _rowPool.GetNext();
             row.Setup(entity.id.Localize(), detail,
                 selected
                     ? "Cultiway.Wanfa.UI.Action.Selected".Localize()
                     : "Cultiway.Wanfa.UI.Action.Select".Localize(),
                 !selected && trajectoryId != null, () => SelectEntity(entity.id),
-                selected ? UiIcons.Confirm : UiIcons.Select);
+                selected ? UiIcons.Confirm : UiIcons.Select,
+                assetIconSprite: GetEntityPreviewSprite(entity),
+                rowTooltipDescription: tooltipDetail);
             if (selected && entity.Animations.Count > 1)
             {
                 BuildAnimationControls(row, entity);
@@ -479,30 +485,47 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
 
     private void BuildTrajectoryPage()
     {
-        foreach (var trajectory in ModClass.I.SkillV3.TrajLib.list
-                     .Where(item => item.EditorSelectable || item.id == _draft.TrajectoryAssetId)
-                     .OrderBy(item => item.EditorSortOrder))
+        var trajectoryGroups = ModClass.I.SkillV3.TrajLib.list
+            .Where(item => item.EditorSelectable || item.id == _draft.TrajectoryAssetId)
+            .GroupBy(item => SkillTrajectoryDomainFormatter.GetPrimary(item.Domains))
+            .OrderBy(group => SkillTrajectoryDomainFormatter.GetSortOrder(group.Key));
+        foreach (var group in trajectoryGroups)
         {
-            var candidate = _draft.DeepClone();
-            candidate.TrajectoryAssetId = trajectory.id;
-            var selected = trajectory.id == _draft.TrajectoryAssetId;
-            var compatibility = trajectory.CheckEditorCompatibility(SkillEditContext.Create(candidate), !selected);
-            if (!WanfaPavilionService.Instance.ActivePolicy.IsTrajectoryAvailable(trajectory.id))
+            var groupName = SkillTrajectoryDomainFormatter.GetName(group.Key);
+            _rowPool.GetNext().Setup(groupName,
+                SkillTrajectoryDomainFormatter.GetDescription(group.Key), string.Empty, false, null);
+            foreach (var trajectory in group.OrderBy(item => item.EditorSortOrder))
             {
-                compatibility.AddErrorKey("policy.trajectory_locked",
-                    "Cultiway.Wanfa.Validation.policy.trajectory_locked", trajectory.id);
+                var candidate = _draft.DeepClone();
+                candidate.TrajectoryAssetId = trajectory.id;
+                var selected = trajectory.id == _draft.TrajectoryAssetId;
+                var compatibility = trajectory.CheckEditorCompatibility(SkillEditContext.Create(candidate), !selected);
+                if (!WanfaPavilionService.Instance.ActivePolicy.IsTrajectoryAvailable(trajectory.id))
+                {
+                    compatibility.AddErrorKey("policy.trajectory_locked",
+                        "Cultiway.Wanfa.Validation.policy.trajectory_locked", trajectory.id);
+                }
+                var reason = compatibility.IsCompatible
+                    ? trajectory.EditorDescriptionKey.Localize()
+                    : string.Join("；", compatibility.Issues.Select(issue => issue.Message));
+                var domains = SkillTrajectoryDomainFormatter.Format(trajectory.Domains);
+                _rowPool.GetNext().Setup(trajectory.id.Localize(), reason,
+                    selected
+                        ? "Cultiway.Wanfa.UI.Action.Selected".Localize()
+                        : "Cultiway.Wanfa.UI.Action.Select".Localize(),
+                    compatibility.IsCompatible && !selected,
+                    () => ApplyMutation(() => _draft.TrajectoryAssetId = trajectory.id),
+                    selected ? UiIcons.Confirm : UiIcons.Select,
+                    rowTooltipDescription: $"{trajectory.EditorDescriptionKey.Localize()}\n{domains}");
             }
-            var reason = compatibility.IsCompatible
-                ? trajectory.EditorDescriptionKey.Localize()
-                : string.Join("；", compatibility.Issues.Select(issue => issue.Message));
-            _rowPool.GetNext().Setup(trajectory.id.Localize(), reason,
-                selected
-                    ? "Cultiway.Wanfa.UI.Action.Selected".Localize()
-                    : "Cultiway.Wanfa.UI.Action.Select".Localize(),
-                compatibility.IsCompatible && !selected,
-                () => ApplyMutation(() => _draft.TrajectoryAssetId = trajectory.id),
-                selected ? UiIcons.Confirm : UiIcons.Select);
         }
+    }
+
+    private static Sprite GetEntityPreviewSprite(SkillEntityAsset entity)
+    {
+        if (entity.Animations.Count == 0) return null;
+        Sprite[] frames = entity.GetAnimation(0).Runtime.Frames;
+        return frames.Length == 0 ? null : frames[0];
     }
 
     private void BuildModifierPage()
@@ -796,15 +819,33 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         if (compiled.Success)
         {
             var container = compiled.Container.GetComponent<SkillContainer>();
+            var entity = container.Asset;
+            var trajectory = ModClass.I.SkillV3.TrajLib.get(_draft.TrajectoryAssetId);
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.ItemLevel".Localize(),
                 SkillCastResourceFormatter.FormatItemLevel(container.CastResourceRequirement,
                     compiled.Container.GetComponent<ItemLevel>()));
+            AddOverviewLine("Cultiway.Wanfa.UI.Overview.EntityType".Localize(),
+                entity.EditorCategoryKey.Localize());
+            AddOverviewLine("Cultiway.Wanfa.UI.Overview.ImpactProfile".Localize(),
+                entity.ImpactProfile.id.Localize());
+            AddOverviewLine("Cultiway.Wanfa.UI.Overview.TrajectoryDomain".Localize(),
+                SkillTrajectoryDomainFormatter.Format(trajectory.Domains));
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.VfxElement".Localize(),
                 container.VfxElement.id.Localize());
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.MotionProfile".Localize(),
                 container.MotionProfile.id.Localize());
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.CollisionRadius".Localize(),
                 ResolveCollisionRadius(compiled.Container).ToString("0.##", CultureInfo.InvariantCulture));
+            if (entity.ImpactProfile.EffectRadius > 0f)
+            {
+                var effectRadius = SkillEffectRadius.ResolveContainer(compiled.Container,
+                    entity.ImpactProfile.EffectRadius * entity.ImpactTuning.EffectRadiusMultiplier);
+                AddOverviewLine("Cultiway.Wanfa.UI.Overview.EffectRadius".Localize(),
+                    effectRadius.ToString("0.##", CultureInfo.InvariantCulture));
+            }
+            AddOverviewLine("Cultiway.Wanfa.UI.Overview.Lifetime".Localize(),
+                (entity.ImpactProfile.Lifetime * entity.ImpactTuning.LifetimeMultiplier)
+                .ToString("0.##", CultureInfo.InvariantCulture));
             AddModifierRadiusOverviews(compiled.Container);
             AddOverviewLine("Cultiway.Wanfa.UI.Overview.CastResource".Localize(),
                 SkillCastResourceFormatter.Format(container.CastResourceRequirement));
@@ -859,7 +900,8 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     private float ResolveCollisionRadius(Entity compiled)
     {
         var entity = ModClass.I.SkillV3.SkillLib.get(_draft.EntityAssetId);
-        var radius = entity.PrefabEntity.GetComponent<ColliderSphere>().Radius;
+        if (!entity.PrefabEntity.TryGetComponent(out ColliderSphere collider)) return 0f;
+        var radius = collider.Radius;
         return SkillEffectRadius.ResolveContainer(compiled, radius);
     }
 

@@ -137,20 +137,12 @@ public class SkillModifierLibrary : AssetLibrary<SkillModifierAsset>
 
     private static TrajectoryAsset GetRandomTrajectoryForModifier(SkillEntityAsset asset)
     {
-        // 法术可接受的方向姿态；缺省按水平处理（向后兼容）。
-        var accepted = asset?.AcceptedOrientations ?? TrajectoryOrientation.Horizontal;
-        if (accepted == TrajectoryOrientation.None)
-        {
-            accepted = TrajectoryOrientation.Horizontal;
-        }
-
         var candidates = new List<TrajectoryAsset>();
         foreach (var trajectory in ModClass.I.SkillV3.TrajLib.list)
         {
             if (trajectory == null) continue;
             if (!trajectory.CanBeSelectedByModifier) continue;
-            // 方向姿态必须与法术可接受集合有交集，否则会视觉穿帮（例如把竖直播放的落雷换成水平位移）。
-            if ((trajectory.Orientations & accepted) == TrajectoryOrientation.None) continue;
+            if (!SkillTrajectoryCompatibility.IsCompatible(asset, trajectory)) continue;
             candidates.Add(trajectory);
         }
 

@@ -150,9 +150,18 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         var trajectory = string.IsNullOrWhiteSpace(blueprint.TrajectoryAssetId)
             ? null
             : ModClass.I.SkillV3.TrajLib.get(blueprint.TrajectoryAssetId);
-        model.Description = trajectory == null || string.IsNullOrEmpty(trajectory.EditorDescriptionKey)
+        var descriptions = new List<string>();
+        if (entity != null && !string.IsNullOrEmpty(entity.EditorDescriptionKey))
+        {
+            descriptions.Add(entity.EditorDescriptionKey.Localize());
+        }
+        if (trajectory != null && !string.IsNullOrEmpty(trajectory.EditorDescriptionKey))
+        {
+            descriptions.Add(trajectory.EditorDescriptionKey.Localize());
+        }
+        model.Description = descriptions.Count == 0
             ? "Cultiway.Wanfa.UI.Tooltip.Skill.Description".Localize()
-            : trajectory.EditorDescriptionKey.Localize();
+            : string.Join("\n", descriptions);
 
         var entityName = GetAssetName(blueprint.EntityAssetId, "Cultiway.Wanfa.UI.State.NoEntity");
         var trajectoryName = GetAssetName(blueprint.TrajectoryAssetId, "Cultiway.Wanfa.UI.State.NoTrajectory");
@@ -162,6 +171,18 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
         {
             AddLine(model, "Cultiway.Wanfa.UI.Overview.Tags".Localize(),
                 string.Join("、", entitySemantics.Select(semantic => semantic.GetName())));
+        }
+        if (entity != null)
+        {
+            AddLine(model, "Cultiway.Wanfa.UI.Overview.EntityType".Localize(),
+                entity.EditorCategoryKey.Localize());
+            AddLine(model, "Cultiway.Wanfa.UI.Overview.ImpactProfile".Localize(),
+                entity.ImpactProfile.id.Localize());
+        }
+        if (trajectory != null)
+        {
+            AddLine(model, "Cultiway.Wanfa.UI.Overview.TrajectoryDomain".Localize(),
+                SkillTrajectoryDomainFormatter.Format(trajectory.Domains));
         }
 
         var compiled = runtimeContainer;
@@ -191,6 +212,29 @@ public sealed class SkillTooltip : APrefabPreview<SkillTooltip>
                 container.MotionProfile.id.Localize());
             AddLine(model, "Cultiway.Wanfa.UI.Overview.CollisionRadius".Localize(),
                 ResolveCollisionRadius(compiled, entity).ToString("0.##", CultureInfo.InvariantCulture));
+            var profile = entity.ImpactProfile;
+            if (profile.EffectRadius > 0f)
+            {
+                var effectRadius = SkillEffectRadius.ResolveContainer(compiled,
+                    profile.EffectRadius * entity.ImpactTuning.EffectRadiusMultiplier);
+                AddLine(model, "Cultiway.Wanfa.UI.Overview.EffectRadius".Localize(),
+                    effectRadius.ToString("0.##", CultureInfo.InvariantCulture));
+            }
+            AddLine(model, "Cultiway.Wanfa.UI.Overview.Lifetime".Localize(),
+                (profile.Lifetime * entity.ImpactTuning.LifetimeMultiplier)
+                .ToString("0.##", CultureInfo.InvariantCulture));
+            if (profile.MaxTargets > 1)
+            {
+                AddLine(model, "Cultiway.Wanfa.UI.Overview.MaxTargets".Localize(),
+                    profile.MaxTargets.ToString(CultureInfo.InvariantCulture));
+            }
+            if (profile.IsBarrier)
+            {
+                var barrierLength = SkillEffectRadius.ResolveContainer(compiled,
+                    profile.BarrierLength * entity.ImpactTuning.BarrierLengthMultiplier);
+                AddLine(model, "Cultiway.Wanfa.UI.Overview.BarrierLength".Localize(),
+                    barrierLength.ToString("0.##", CultureInfo.InvariantCulture));
+            }
             AddLine(model, "Cultiway.Wanfa.UI.Overview.CastResource".Localize(),
                 SkillCastResourceFormatter.Format(container.CastResourceRequirement));
             AddLine(model, "Cultiway.Wanfa.UI.Overview.StepDemand".Localize(),

@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Components.TrajParams;
+using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -42,11 +43,23 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             var delta = curr - prev;
             var sweepStart = prev;
             var sweepEnd = curr;
-            if (entity.TryGetComponent(out ColliderLinearExtent linearExtent) && delta.sqrMagnitude > 0.0001f)
+            if (entity.TryGetComponent(out ColliderLinearExtent linearExtent))
             {
-                Vector2 direction = delta.normalized;
-                sweepStart -= direction * Mathf.Max(0f, linearExtent.Backward);
-                sweepEnd += direction * Mathf.Max(0f, linearExtent.Forward);
+                Vector3 rotation = entity.GetComponent<Rotation>().value;
+                Vector2 rotationDirection = new(rotation.x, rotation.y);
+                Vector2 direction = linearExtent.UseEntityRotation || delta.sqrMagnitude <= 0.0001f
+                    ? rotationDirection.normalized
+                    : delta.normalized;
+                if (linearExtent.UseEntityRotation)
+                {
+                    sweepStart = curr - direction * Mathf.Max(0f, linearExtent.Backward);
+                    sweepEnd = curr + direction * Mathf.Max(0f, linearExtent.Forward);
+                }
+                else
+                {
+                    sweepStart -= direction * Mathf.Max(0f, linearExtent.Backward);
+                    sweepEnd += direction * Mathf.Max(0f, linearExtent.Forward);
+                }
             }
 
             // 扫描 AABB：覆盖本帧完整扫掠胶囊体两侧的 radius 范围。
@@ -131,16 +144,42 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             if (entity.HasComponent<SkillHitMemory>())
             {
                 ref SkillHitMemory hitMemory = ref entity.GetComponent<SkillHitMemory>();
-                if (!hitMemory.TargetIds.Add(GetTargetKey(target))) continue;
+                long targetKey = GetTargetKey(target);
+                SkillImpactProfileAsset profile = entity.GetComponent<SkillEntity>().Asset.ImpactProfile;
+                if (profile != null && profile.RepeatHitInterval > 0f)
+                {
+                    float elapsed = entity.GetComponent<AliveTimer>().value;
+                    if (hitMemory.NextHitTimes.TryGetValue(targetKey, out float nextHit) && elapsed < nextHit) continue;
+                    hitMemory.NextHitTimes[targetKey] = elapsed + profile.RepeatHitInterval;
+                }
+                else if (!hitMemory.TargetIds.Add(targetKey))
+                {
+                    continue;
+                }
             }
 
             ref SkillContext context = ref entity.GetComponent<SkillContext>();
             ref SkillEntity skillEntity = ref entity.GetComponent<SkillEntity>();
-            if (!skillEntity.Asset.OnObjCollision(ref context, skillEntity.SkillContainer, entity, target))
+            bool continueAfterHit =
+                skillEntity.Asset.OnObjCollision(ref context, skillEntity.SkillContainer, entity, target);
+            if (continueAfterHit)
+            {
+                MarkExplicitTargetPassed(entity, ref context, target);
+            }
+            else
             {
                 _stoppedSkillIds.Add(entity.Id);
             }
         }
+    }
+
+    private static void MarkExplicitTargetPassed(Entity entity, ref SkillContext context, BaseSimObject target)
+    {
+        if (context.TargetObj != target || !entity.HasComponent<TrajectoryRuntimeState>()) return;
+
+        ref TrajectoryRuntimeState state = ref entity.GetComponent<TrajectoryRuntimeState>();
+        state.TargetPhase = TrajectoryTargetPhase.PassedTarget;
+        state.TargetExitDirection = entity.GetComponent<Rotation>().value;
     }
 
     private static long GetTargetKey(BaseSimObject target)

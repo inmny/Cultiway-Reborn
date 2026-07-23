@@ -36,6 +36,9 @@ public class AnimRenderer : MonoBehaviour
         bind.flipY = false;
         bind.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
         bind.sortingOrder = 0;
+        bind.drawMode = SpriteDrawMode.Simple;
+        bind.tileMode = SpriteTileMode.Continuous;
+        bind.size = Vector2.one;
         if (defaultMaterial != null)
         {
             bind.sharedMaterial = defaultMaterial;

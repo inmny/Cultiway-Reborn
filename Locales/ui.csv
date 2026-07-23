@@ -546,9 +546,16 @@ Cultiway.Wanfa.UI.CastResource.Mode.AllOf,同时消耗
 Cultiway.Wanfa.UI.CastResource.EntityDefault,本体默认消耗
 Cultiway.Wanfa.UI.Overview.Name,名称
 Cultiway.Wanfa.UI.Overview.EntityTrajectory,本体 / 轨迹
+Cultiway.Wanfa.UI.Overview.EntityType,用途
+Cultiway.Wanfa.UI.Overview.ImpactProfile,命中形态
+Cultiway.Wanfa.UI.Overview.TrajectoryDomain,运行形态
 Cultiway.Wanfa.UI.Overview.VfxElement,视觉元素
 Cultiway.Wanfa.UI.Overview.MotionProfile,运动配置
 Cultiway.Wanfa.UI.Overview.CollisionRadius,碰撞半径
+Cultiway.Wanfa.UI.Overview.EffectRadius,作用半径
+Cultiway.Wanfa.UI.Overview.Lifetime,持续时间
+Cultiway.Wanfa.UI.Overview.MaxTargets,最大目标
+Cultiway.Wanfa.UI.Overview.BarrierLength,屏障长度
 Cultiway.Wanfa.UI.Overview.ExplosionRadius,爆炸作用半径
 Cultiway.Wanfa.UI.Overview.GravityRadius,牵引作用半径
 Cultiway.Wanfa.UI.Overview.CastResource,施法资源

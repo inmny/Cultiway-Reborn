@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
-using Cultiway.Core.SkillLibV3.Components.TrajParams;
 using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.SkillLibV3.Impacts;
+using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -13,7 +14,8 @@ namespace Cultiway.Core.SkillLibV3;
 
 public enum SkillEntityType
 {
-    Attack
+    Attack,
+    Defense
 }
 public delegate bool OnObjCollision(ref SkillContext context, Entity skill_container, Entity skill_entity, BaseSimObject target);
 public class SkillEntityAsset : Asset
@@ -28,6 +30,7 @@ public class SkillEntityAsset : Asset
     public SemanticDescriptor Semantics { get; set; } = new();
     public IReadOnlyList<SkillEntityAnimation> Animations => _animations;
     public string EditorCategoryKey;
+    public string EditorDescriptionKey;
     public int EditorSortOrder;
     public bool EditorSelectable;
     /// <summary>该实体能否作为角色持有、改进和释放的技能容器模板。</summary>
@@ -35,6 +38,9 @@ public class SkillEntityAsset : Asset
     public EntityStore World => ModClass.I.SkillV3.World;
     public OnObjCollision OnObjCollision;
     public SkillEntityType Type;
+    public SkillImpactProfileAsset ImpactProfile { get; private set; }
+    public SkillImpactTuning ImpactTuning { get; } = new();
+    public SkillUseProfileAsset UseProfile { get; private set; }
     public SkillCastResourceRequirement DefaultCastResourceRequirement { get; private set; }
 
     /// <summary>
@@ -54,26 +60,18 @@ public class SkillEntityAsset : Asset
     /// <summary>声明该实体具备创建可学习技能容器的语义；内部动画和执行体保持默认关闭。</summary>
     public SkillEntityAsset AllowLearning()
     {
+        if (ImpactProfile == null) throw new InvalidOperationException($"{id} 缺少命中配置");
+        if (UseProfile == null) throw new InvalidOperationException($"{id} 缺少施法用途配置");
+        if (DefaultCastResourceRequirement == null)
+            throw new InvalidOperationException($"{id} 缺少施法资源需求");
+        if (AcceptedTrajectoryDomains == SkillTrajectoryDomain.None)
+            throw new InvalidOperationException($"{id} 缺少可接受的轨迹运行形态");
         CanBeLearned = true;
         return this;
     }
 
-    /// <summary>
-    /// 该法术视觉上可接受的方向姿态集合（按位或）。
-    /// 默认 <see cref="TrajectoryOrientation.Horizontal"/>，兼容现有绝大多数水平移动法术。
-    /// 由 <see cref="SkillModifierLibrary.SetTrajectory"/> 词条在随机选取轨迹时，
-    /// 与候选 <see cref="TrajectoryAsset.Orientations"/> 取交集过滤，避免方向不兼容的轨迹替换。
-    /// </summary>
-    public TrajectoryOrientation AcceptedOrientations { get; set; } = TrajectoryOrientation.Horizontal;
-
-    /// <summary>
-    /// 流式声明该法术可接受的方向姿态，便于在 <c>Configure(...)</c> 之后链式调用。
-    /// </summary>
-    public SkillEntityAsset AcceptOrientations(TrajectoryOrientation orientations)
-    {
-        AcceptedOrientations = orientations;
-        return this;
-    }
+    /// <summary>该法术实体允许采用的运行形态轨迹。</summary>
+    public SkillTrajectoryDomain AcceptedTrajectoryDomains { get; private set; }
 
     /// <summary>
     /// 设置该法术实体抽取指定词条时的权重倍率。倍率只参与候选加权，不绕过稀有度、冲突和相似度规则。
@@ -180,6 +178,71 @@ public class SkillEntityAsset : Asset
         return this;
     }
 
+    /// <summary>绑定通用命中配置，并将其碰撞参数写入实体预制体。</summary>
+    public SkillEntityAsset SetupImpactProfile(SkillImpactProfileAsset profile, ColliderConfig config)
+    {
+        ImpactProfile = profile ?? throw new ArgumentNullException(nameof(profile));
+        OnObjCollision = SkillHitResolver.ResolveProfile;
+        if (profile.CollisionRadius > 0f)
+        {
+            SetupColliderSphere(profile.CollisionRadius, config);
+        }
+        if (profile.LinearForward > 0f || profile.LinearBackward > 0f)
+        {
+            PrefabEntity.AddComponent(new ColliderLinearExtent
+            {
+                Forward = profile.LinearForward,
+                Backward = profile.LinearBackward
+            });
+        }
+        if (profile.IsBeam || profile.Kind == SkillImpactKind.Wall)
+        {
+            PrefabEntity.AddComponent(new AnimLinearLayout
+            {
+                Mode = profile.Kind == SkillImpactKind.Wall
+                    ? AnimLinearLayoutMode.Tile
+                    : AnimLinearLayoutMode.Stretch
+            });
+        }
+        if (profile.HitOncePerTarget || profile.RepeatHitInterval > 0f)
+        {
+            PrefabEntity.AddComponent(SkillHitMemory.Create());
+        }
+        if (profile.CanResolveAtPosition)
+        {
+            PrefabEntity.AddComponent(new SkillPositionImpactState());
+        }
+        PrefabEntity.GetComponent<AliveTimeLimit>().value = profile.Lifetime;
+        return this;
+    }
+
+    /// <summary>绑定法术对 AI 与玩家控制层公开的目标模式。</summary>
+    public SkillEntityAsset SetupUseProfile(SkillUseProfileAsset profile)
+    {
+        UseProfile = profile ?? throw new ArgumentNullException(nameof(profile));
+        return this;
+    }
+
+    public SkillEntityAsset TuneImpact(float damageMultiplier = 1f, float effectRadiusMultiplier = 1f,
+        float lifetimeMultiplier = 1f, float barrierLengthMultiplier = 1f, bool contactDamage = false,
+        float contactForce = 0f)
+    {
+        ImpactTuning.DamageMultiplier = damageMultiplier;
+        ImpactTuning.EffectRadiusMultiplier = effectRadiusMultiplier;
+        ImpactTuning.LifetimeMultiplier = lifetimeMultiplier;
+        ImpactTuning.BarrierLengthMultiplier = barrierLengthMultiplier;
+        ImpactTuning.ContactDamage = contactDamage;
+        ImpactTuning.ContactForce = contactForce;
+        return this;
+    }
+
+    /// <summary>声明该法术实体允许采用的运行形态轨迹。</summary>
+    public SkillEntityAsset AcceptTrajectoryDomains(SkillTrajectoryDomain domains)
+    {
+        AcceptedTrajectoryDomains = domains;
+        return this;
+    }
+
     public SkillEntityAsset AddAnimation(string effectPath, float scale = 0.1f)
     {
         return AddAnimation(effectPath, scale, SkillEntityAnimationSettings.Inherit);
@@ -265,7 +328,8 @@ public class SkillEntityAsset : Asset
         animData.frames = animation.Runtime.Frames;
         animData.frame_idx = 0;
         animData.frame_timer = 0f;
-        entity.GetComponent<Scale>().value = Vector3.one * animation.Scale;
+        Vector3 intrinsicScale = Vector3.one * animation.Scale;
+        entity.GetComponent<Scale>().value = intrinsicScale;
         ref var controller = ref entity.GetComponent<AnimController>();
         controller.meta.frame_interval = DefaultAnimationFrameInterval;
         controller.meta.loop = DefaultAnimationLoop;

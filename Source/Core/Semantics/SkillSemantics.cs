@@ -57,6 +57,28 @@ public static class SkillSemantics
         public static SemanticAsset Spell { get; internal set; }
         /// <summary>表示主要作用于单个目标的形式。</summary>
         public static SemanticAsset Single { get; internal set; }
+        /// <summary>表示以飞剑或剑形本体承载法术。</summary>
+        public static SemanticAsset Sword { get; internal set; }
+        /// <summary>表示以细针、金针或毒针承载法术。</summary>
+        public static SemanticAsset Needle { get; internal set; }
+        /// <summary>表示以长枪、长矛或长梭形本体贯穿目标。</summary>
+        public static SemanticAsset Spear { get; internal set; }
+        /// <summary>表示以尖刺、石锥或冰棱从局部空间突起。</summary>
+        public static SemanticAsset Spike { get; internal set; }
+        /// <summary>表示以横向扩展的浪潮、剑气或冲击波推进。</summary>
+        public static SemanticAsset Wave { get; internal set; }
+        /// <summary>表示以连续或瞬时光束连接施术者与目标。</summary>
+        public static SemanticAsset Beam { get; internal set; }
+        /// <summary>表示形成具有方向和长度的阻挡墙体。</summary>
+        public static SemanticAsset Wall { get; internal set; }
+        /// <summary>表示环绕施术者并随之移动的防护层。</summary>
+        public static SemanticAsset Shield { get; internal set; }
+        /// <summary>表示以弥散雾气持续覆盖一片区域。</summary>
+        public static SemanticAsset Mist { get; internal set; }
+        /// <summary>表示在地面形成持续存在的池状区域。</summary>
+        public static SemanticAsset Pool { get; internal set; }
+        /// <summary>表示撕裂空间或地面形成短暂裂隙。</summary>
+        public static SemanticAsset Rift { get; internal set; }
     }
 
     /// <summary>技能从施术者抵达作用位置的传递方式。</summary>
@@ -101,6 +123,10 @@ public static class SkillSemantics
         public static SemanticAsset Orbit { get; internal set; }
         /// <summary>表示直接在指定位置显现。</summary>
         public static SemanticAsset Appear { get; internal set; }
+        /// <summary>表示从目标脚下或地表原地突生。</summary>
+        public static SemanticAsset GroundManifest { get; internal set; }
+        /// <summary>表示在多个目标之间依次跃迁。</summary>
+        public static SemanticAsset Chain { get; internal set; }
         /// <summary>表示围绕施术者完成近战扇扫。</summary>
         public static SemanticAsset MeleeSweep { get; internal set; }
     }
@@ -210,6 +236,27 @@ public static class SkillSemantics
         Form.Sustain = Add(library, "semantic.form.sustain", "form", "sustain");
         Form.Spell = Add(library, "semantic.form.spell", "form", "spell");
         Form.Single = Add(library, "semantic.form.single", "form", "single");
+        Form.Sword = Add(library, "semantic.form.sword", "form", "sword");
+        Form.Needle = Add(library, "semantic.form.needle", "form", "needle",
+            implications: Implies(Form.Pierce, 0.8f));
+        Form.Spear = Add(library, "semantic.form.spear", "form", "spear",
+            implications: Implies(Form.Pierce, 0.8f));
+        Form.Spike = Add(library, "semantic.form.spike", "form", "spike",
+            implications: Implies(Form.Pierce, 0.7f));
+        Form.Wave = Add(library, "semantic.form.wave", "form", "wave_form",
+            implications: Implies(Form.Aoe, 0.5f));
+        Form.Beam = Add(library, "semantic.form.beam", "form", "beam",
+            implications: Implies(Form.Pierce, 0.7f));
+        Form.Wall = Add(library, "semantic.form.wall", "form", "wall",
+            implications: Implies(Form.Sustain, 0.8f));
+        Form.Shield = Add(library, "semantic.form.shield", "form", "shield_form",
+            implications: Implies(Form.Sustain, 0.8f));
+        Form.Mist = Add(library, "semantic.form.mist", "form", "mist",
+            implications: Implies(Form.Aoe, 0.7f));
+        Form.Pool = Add(library, "semantic.form.pool", "form", "pool",
+            implications: Implies(Form.Aoe, 0.7f));
+        Form.Rift = Add(library, "semantic.form.rift", "form", "rift",
+            implications: Implies(Form.Aoe, 0.7f));
 
         Delivery.Projectile = Add(library, "semantic.delivery.projectile", "delivery",
             "delivery_projectile", "projectile");
@@ -230,6 +277,8 @@ public static class SkillSemantics
         Motion.Spiral = Add(library, "semantic.motion.spiral", "motion", "spiral");
         Motion.Orbit = Add(library, "semantic.motion.orbit", "motion", "orbit");
         Motion.Appear = Add(library, "semantic.motion.appear", "motion", "appear");
+        Motion.GroundManifest = Add(library, "semantic.motion.ground_manifest", "motion", "ground_manifest");
+        Motion.Chain = Add(library, "semantic.motion.chain", "motion", "chain");
         Motion.MeleeSweep = Add(library, "semantic.motion.melee_sweep", "motion", "melee_sweep");
 
         Effect.Control = Add(library, "semantic.effect.control", "effect", "control");

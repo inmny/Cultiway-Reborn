@@ -34,7 +34,12 @@ public class LogicSkillGroundFxRecordSystem :
             ref Trajectory trajectory, ref ColliderSphere collider, Entity entity) =>
         {
             var currentPos = pos.value;
-            if ((trajectory.Asset.Orientations & TrajectoryOrientation.Horizontal) == TrajectoryOrientation.None)
+            const SkillTrajectoryDomain flyoverDomains = SkillTrajectoryDomain.FlyingBody |
+                                                         SkillTrajectoryDomain.FlyingWave |
+                                                         SkillTrajectoryDomain.Ballistic |
+                                                         SkillTrajectoryDomain.GroundTravel |
+                                                         SkillTrajectoryDomain.MobileField;
+            if ((trajectory.Asset.Domains & flyoverDomains) == SkillTrajectoryDomain.None)
             {
                 fxState.DistanceAccumulator = 0f;
                 fxState.LastX = currentPos.x;

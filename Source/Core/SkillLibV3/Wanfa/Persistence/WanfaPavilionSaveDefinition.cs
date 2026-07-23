@@ -10,7 +10,7 @@ namespace Cultiway.Core.SkillLibV3.Wanfa.Persistence;
 internal static class WanfaPavilionSaveDefinition
 {
     public const string DocumentId = "wanfa_pavilion";
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     public static SaveDocumentDefinition<WanfaPavilionData> Create()
     {
@@ -19,7 +19,12 @@ internal static class WanfaPavilionSaveDefinition
             "Saves/global/wanfa_pavilion",
             CurrentVersion,
             () => new WanfaPavilionData(),
-            new ISaveMigration[] { new WanfaPavilionV1ToV2(), new WanfaPavilionV2ToV3() },
+            new ISaveMigration[]
+            {
+                new WanfaPavilionV1ToV2(),
+                new WanfaPavilionV2ToV3(),
+                new WanfaPavilionV3ToV4()
+            },
             Normalize,
             Validate,
             new[]
@@ -63,6 +68,11 @@ internal static class WanfaPavilionSaveDefinition
                 blueprint.Modifiers[i].Parameters ??= new Dictionary<string, string>(StringComparer.Ordinal);
             }
         }
+
+        var validator = new SkillBlueprintValidator();
+        data.Blueprints.RemoveAll(blueprint => !validator.Validate(blueprint).IsCompatible);
+        seenIds.Clear();
+        foreach (var blueprint in data.Blueprints) seenIds.Add(blueprint.Id);
 
         data.SelectedBlueprintIds ??= new List<string>();
         data.SelectedBlueprintIds = data.SelectedBlueprintIds

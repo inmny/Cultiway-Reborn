@@ -31,16 +31,17 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
 
     internal void Setup(string title, string detail, string actionLabel, bool interactable, Action action,
         string actionIconPath = UiIcons.Select, SkillModifierTooltipModel modifierIcon = null,
-        string assetIconPath = null, string actionTooltipDescription = null)
+        string assetIconPath = null, string actionTooltipDescription = null, Sprite assetIconSprite = null,
+        string rowTooltipDescription = null)
     {
         Init();
         ClearControls();
         _modifierIcon.gameObject.SetActive(modifierIcon != null);
         if (modifierIcon != null) _modifierIcon.Setup(modifierIcon);
-        _assetIcon.gameObject.SetActive(!string.IsNullOrWhiteSpace(assetIconPath));
-        if (!string.IsNullOrWhiteSpace(assetIconPath))
+        _assetIcon.gameObject.SetActive(!string.IsNullOrWhiteSpace(assetIconPath) || assetIconSprite != null);
+        if (!string.IsNullOrWhiteSpace(assetIconPath) || assetIconSprite != null)
         {
-            _assetIcon.sprite = SpriteTextureLoader.getSprite(assetIconPath);
+            _assetIcon.sprite = assetIconSprite ?? SpriteTextureLoader.getSprite(assetIconPath);
             UiTooltip.Set(_assetIcon.gameObject, title, detail);
         }
         _title.text = title;
@@ -56,6 +57,7 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
             UiTooltip.Set(_action.gameObject, actionLabel,
                 actionTooltipDescription == null ? detail : actionTooltipDescription);
         }
+        UiTooltip.Set(gameObject, title, rowTooltipDescription ?? detail);
         SetHeight(32f);
     }
 

@@ -9,12 +9,14 @@ namespace Cultiway.Core.SkillLibV3.Components;
 public struct SkillHitMemory : IComponent
 {
     public HashSet<long> TargetIds;
+    public Dictionary<long, float> NextHitTimes;
 
     public static SkillHitMemory Create()
     {
         return new SkillHitMemory
         {
-            TargetIds = new HashSet<long>()
+            TargetIds = new HashSet<long>(),
+            NextHitTimes = new Dictionary<long, float>()
         };
     }
 }

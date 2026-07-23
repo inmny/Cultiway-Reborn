@@ -26,20 +26,28 @@ public class TrajectoryAsset : Asset
     public HashSet<string> EditorCompatibilityKeys { get; } = new(StringComparer.Ordinal);
     public Func<SkillEditContext, SkillCompatibilityResult> EditorCompatibility;
 
+    /// <summary>该轨迹能够承载的法术运行形态。</summary>
+    public SkillTrajectoryDomain Domains { get; private set; }
+
     /// <summary>
-    /// 该轨迹能够给法术提供的方向姿态（按位或）。
-    /// 默认 <see cref="TrajectoryOrientation.Horizontal"/>，兼容现有绝大多数水平位移轨迹。
-    /// 由 <see cref="SkillModifierLibrary.SetTrajectory"/> 词条在随机选取时与法术的
-    /// <see cref="SkillEntityAsset.AcceptedOrientations"/> 取交集过滤。
+    /// 轨迹的视觉方向姿态（按位或），用于描述动画应按水平、竖直、地面或显现方式呈现。
+    /// 运行形态兼容性只由 <see cref="Domains"/> 决定。
     /// </summary>
     public TrajectoryOrientation Orientations { get; set; } = TrajectoryOrientation.Horizontal;
 
     /// <summary>
-    /// 流式声明该轨迹支持的方向姿态，便于在 Setup 方法链式调用。
+    /// 流式声明该轨迹的视觉方向姿态，便于在 Setup 方法链式调用。
     /// </summary>
     public TrajectoryAsset WithOrientations(TrajectoryOrientation orientations)
     {
         Orientations = orientations;
+        return this;
+    }
+
+    /// <summary>声明该轨迹能够承载的法术运行形态。</summary>
+    public TrajectoryAsset WithDomains(SkillTrajectoryDomain domains)
+    {
+        Domains = domains;
         return this;
     }
 
@@ -67,10 +75,9 @@ public class TrajectoryAsset : Asset
             return result;
         }
 
-        if (context.EntityAsset != null &&
-            (context.EntityAsset.AcceptedOrientations & Orientations) == TrajectoryOrientation.None)
+        if (context.EntityAsset != null)
         {
-            result.AddError("trajectory.orientation", id);
+            result.Merge(SkillTrajectoryCompatibility.Check(context.EntityAsset, this));
         }
 
         if (EditorCompatibility != null)
