@@ -1,17 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.EventSystem.Events;
-using Cultiway.Core.GeoLib.Components;
 using Cultiway.Utils.Extension;
-using Friflo.Engine.ECS;
 
 namespace Cultiway.Core;
 
 public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
 {
+    private GeoRegionMembershipIndex membership;
+
     public GeoRegionManager()
     {
         type_id = WorldboxGame.HistoryMetaDatas.GeoRegion.id;
@@ -19,8 +18,70 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
 
     public override void clear()
     {
+        ClearMembership();
         GeoRegionShapeSpriteCache.Clear();
         base.clear();
+    }
+
+    internal bool IsMembershipReady =>
+        membership != null &&
+        World.world != null &&
+        membership.Matches(World.world.tiles_list);
+
+    internal void InstallMembership(GeoRegionMembershipIndex value)
+    {
+        if (value == null) throw new ArgumentNullException(nameof(value));
+        if (World.world == null || !value.Matches(World.world.tiles_list))
+        {
+            throw new InvalidOperationException("不能安装不属于当前世界的 GeoRegion 索引");
+        }
+
+        membership = value;
+    }
+
+    internal void ClearMembership()
+    {
+        membership = null;
+    }
+
+    internal GeoRegion GetRegionForTile(int tileId, GeoRegionLayer layer)
+    {
+        return IsMembershipReady ? membership.GetRegion(tileId, layer) : null;
+    }
+
+    internal IEnumerable<GeoRegion> EnumerateRegionsForTile(int tileId)
+    {
+        if (!IsMembershipReady) yield break;
+
+        foreach (GeoRegion region in membership.EnumerateRegions(tileId))
+        {
+            yield return region;
+        }
+    }
+
+    internal bool TileHasRegion(int tileId, GeoRegion region)
+    {
+        if (!IsMembershipReady || region == null) return false;
+
+        GeoRegion current = membership.GetRegion(tileId, region.data.Layer);
+        return ReferenceEquals(current, region);
+    }
+
+    public bool AssignTileToRegion(WorldTile tile, GeoRegionLayer layer, GeoRegion region)
+    {
+        if (!IsMembershipReady || tile == null || region == null) return false;
+        return membership.AssignTile(tile.data.tile_id, layer, region);
+    }
+
+    public bool RemoveTileFromRegion(WorldTile tile, GeoRegionLayer layer)
+    {
+        if (!IsMembershipReady || tile == null) return false;
+        return membership.RemoveTile(tile.data.tile_id, layer);
+    }
+
+    public int GetTileCount(GeoRegion region)
+    {
+        return IsMembershipReady ? membership.GetTileCount(region) : 0;
     }
 
     public override void updateDirtyUnits()
@@ -58,23 +119,22 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
         if (oldTile == newTile) return;
         if (!CanRefreshUnits()) return;
 
-        TileExtend oldExtend = oldTile?.GetExtend();
-        TileExtend newExtend = newTile?.GetExtend();
-
-        if (oldExtend != null)
+        if (oldTile != null)
         {
-            foreach (GeoRegion geoRegion in oldExtend.GetGeoRegions())
+            foreach (GeoRegion geoRegion in oldTile.GetExtend().GetGeoRegions())
             {
-                if (geoRegion.isRekt() || (newExtend != null && newExtend.HasGeoRegion(geoRegion))) continue;
+                if (geoRegion.isRekt() ||
+                    (newTile != null && newTile.GetExtend().HasGeoRegion(geoRegion))) continue;
                 setDirtyUnits(geoRegion);
             }
         }
 
-        if (newExtend != null)
+        if (newTile != null)
         {
-            foreach (GeoRegion geoRegion in newExtend.GetGeoRegions())
+            foreach (GeoRegion geoRegion in newTile.GetExtend().GetGeoRegions())
             {
-                if (geoRegion.isRekt() || (oldExtend != null && oldExtend.HasGeoRegion(geoRegion))) continue;
+                if (geoRegion.isRekt() ||
+                    (oldTile != null && oldTile.GetExtend().HasGeoRegion(geoRegion))) continue;
                 setDirtyUnits(geoRegion);
             }
         }
@@ -212,7 +272,7 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
     public void RefreshTileCount(GeoRegion region)
     {
         if (region?.data == null || region.E.IsNull) return;
-        region.data.TileCount = region.E.GetIncomingLinks<BelongToRelation>().Count;
+        region.data.TileCount = GetTileCount(region);
     }
 
     public List<GeoRegion> GetOverlappingRegions(GeoRegion region, int maxCount = 8)
@@ -380,12 +440,13 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
     {
         if (!CanQueryRegionTiles(region)) yield break;
 
-        foreach (EntityLink<BelongToRelation> link in region.E.GetIncomingLinks<BelongToRelation>())
+        IReadOnlyList<int> tileIds = membership.GetTileIds(region);
+        WorldTile[] tiles = World.world.tiles_list;
+        for (int i = 0; i < tileIds.Count; i++)
         {
-            Entity tileEntity = link.Entity;
-            if (!tileEntity.HasComponent<TileBinder>()) continue;
-
-            WorldTile tile = tileEntity.GetComponent<TileBinder>().Tile;
+            int tileId = tileIds[i];
+            if ((uint)tileId >= (uint)tiles.Length) continue;
+            WorldTile tile = tiles[tileId];
             if (tile != null) yield return tile;
         }
     }
@@ -567,7 +628,9 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
 
     private bool CanResolveTiles()
     {
-        return ModClass.I?.TileExtendManager != null && ModClass.I.TileExtendManager.Ready();
+        return ModClass.I?.TileExtendManager != null &&
+               ModClass.I.TileExtendManager.Ready() &&
+               IsMembershipReady;
     }
 
     public override void addObject(GeoRegion pObject)

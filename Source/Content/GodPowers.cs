@@ -6,12 +6,9 @@ using Cultiway.Content.Const;
 using Cultiway.Content.Attributes;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
-using Cultiway.Core.Components;
-using Cultiway.Core.GeoLib.Components;
 using Cultiway.UI;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
-using Friflo.Engine.ECS;
 using NeoModLoader.General;
 using strings;
 using UnityEngine;
@@ -107,72 +104,64 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
     private static GeoRegion _current_geo_region = null;
     private static bool InitializeGeoRegionAction(WorldTile tile, string power_id)
     {
-        var te = tile.GetExtend();
-        var rels = te.E.GetRelations<BelongToRelation>();
-        foreach (var rel in rels)
+        GeoRegionManager manager = WorldboxGame.I.GeoRegions;
+        GeoRegion existing = tile.GetExtend().GetGeoRegion(GeoRegionLayer.Primary);
+        if (existing != null)
         {
-            if (rel.layer != GeoRegionLayer.Primary) continue;
-            if (rel.entity.HasComponent<GeoRegionBinder>())
-            {
-                _current_geo_region = rel.entity.GetComponent<GeoRegionBinder>().GeoRegion;
-                WorldboxGame.I.GeoRegions.RefreshTileCount(_current_geo_region);
-                return true;
-            }
+            _current_geo_region = existing;
+            manager.RefreshTileCount(existing);
+            return true;
         }
+
         // 创建一个空的geo region
-        var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
-        te.E.AddRelation(new BelongToRelation { entity = region.E, layer = GeoRegionLayer.Primary });
-        var category = WorldboxGame.I.GeoRegions.InitializePrimaryRegionFromTile(region, tile);
-        ModClass.LogInfo($"InitializeGeoRegionAction: Create new geo region {region.E} category={category?.id ?? "null"} with links: {region.E.GetIncomingLinks<BelongToRelation>().Count}");
+        GeoRegion region = manager.BuildGeoRegion(null);
+        var category = manager.InitializePrimaryRegionFromTile(region, tile);
+        if (!manager.AssignTileToRegion(tile, GeoRegionLayer.Primary, region))
+        {
+            manager.removeObject(region);
+            return false;
+        }
+
+        ModClass.LogInfo(
+            $"InitializeGeoRegionAction: Create new geo region {region.E} category={category?.id ?? "null"} tiles={region.data.TileCount}");
         _current_geo_region = region;
         ModClass.I.CustomMapModeManager?.SetTileDirty(tile);
-        
+
         return true;
     }
+
     private static bool ExtendGeoRegionAction(WorldTile tile, string power_id)
     {
-        var te = tile.GetExtend();
-        var rels = te.E.GetRelations<BelongToRelation>();
-        if (rels.Length != 0)
+        if (_current_geo_region == null || _current_geo_region.isRekt())
         {
-            foreach (var rel in rels)
-            {
-                if (rel.layer != GeoRegionLayer.Primary) continue;
-                if (rel.entity.HasComponent<GeoRegionBinder>())
-                {
-                    if (rel.entity == _current_geo_region.E)
-                    {
-                        return true;
-                    }
-                    te.E.RemoveRelation<BelongToRelation>(rel.entity);
-                    break;
-                }
-            }
+            return false;
         }
-        te.E.AddRelation(new BelongToRelation { entity = _current_geo_region.E, layer = GeoRegionLayer.Primary });
-        WorldboxGame.I.GeoRegions.RefreshTileCount(_current_geo_region);
+
+        GeoRegion existing = tile.GetExtend().GetGeoRegion(GeoRegionLayer.Primary);
+        if (ReferenceEquals(existing, _current_geo_region))
+        {
+            return true;
+        }
+
+        if (!WorldboxGame.I.GeoRegions.AssignTileToRegion(
+                tile,
+                GeoRegionLayer.Primary,
+                _current_geo_region))
+        {
+            return false;
+        }
+
         ModClass.I.CustomMapModeManager?.SetTileDirty(tile);
         return true;
     }
+
     private static bool RemoveGeoRegionAction(WorldTile tile, string power_id)
     {
-        var te = tile.GetExtend();
-        var rels = te.E.GetRelations<BelongToRelation>();
-        if (rels.Length != 0)
+        if (WorldboxGame.I.GeoRegions.RemoveTileFromRegion(tile, GeoRegionLayer.Primary))
         {
-            foreach (var rel in rels)
-            {
-                if (rel.layer != GeoRegionLayer.Primary) continue;
-                if (rel.entity.HasComponent<GeoRegionBinder>())
-                {
-                    var region = rel.entity.GetComponent<GeoRegionBinder>().GeoRegion;
-                    te.E.RemoveRelation<BelongToRelation>(rel.entity);
-                    WorldboxGame.I.GeoRegions.RefreshTileCount(region);
-                    ModClass.I.CustomMapModeManager?.SetTileDirty(tile);
-                    break;
-                }
-            }
+            ModClass.I.CustomMapModeManager?.SetTileDirty(tile);
         }
+
         return true;
     }
     private void SetupCommonBuildingPlacePower()

@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
-using Cultiway.Core.Components;
+using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.GeoLib.Components;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.Performance;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Core.EventSystem.Systems;
@@ -14,25 +17,136 @@ namespace Cultiway.Core.EventSystem.Systems;
 /// 1) 预计算 tile 基础属性（陆/水/坑/山、Primary 编码、Landform 编码、海滩距离场）。
 /// 2) 依次生成 Primary / Landform / Landmass 三个“基础层”。
 /// 3) 基于基础层和形态启发式生成 Peninsula / Strait / Archipelago 三个“叠加层”。
-/// 4) 每创建一个 GeoRegion 都发布 GeoRegionGeneratedEvent，由后续系统自动分类命名。
+/// 4) 后台构建紧凑双向索引，主线程仅创建少量 GeoRegion 并完成分类命名。
 /// </summary>
-public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<WorldGeneratedEvent>
+public class WorldGeneratedPartitionGeoRegionsEventSystem :
+    GenericEventSystem<WorldGeneratedEvent>,
+    ICooperativeSystemStep
 {
-    protected override int MaxEventsPerUpdate => 4;
+    private static WorldGeneratedPartitionGeoRegionsEventSystem instance;
+
+    protected override int MaxEventsPerUpdate => 1;
 
     private int _lastWorldSeedId;
     private int _lastWidth;
     private int _lastHeight;
+    private PartitionWork _work;
+
+    public WorldGeneratedPartitionGeoRegionsEventSystem()
+    {
+        instance = this;
+    }
+
+    internal static bool BlocksSimulation => instance?._work != null;
+
+    internal static void CancelPendingWork()
+    {
+        instance?.CancelPendingWorkInternal(true);
+    }
 
     /// <summary>
-    /// WorldGeneratedEvent 主入口：完成一次完整的多层 GeoRegion 划分。
+    /// 存档边界必须拿到完整索引；显式存档时允许等待后台计算并一次性提交。
+    /// </summary>
+    internal static void DrainPendingWork()
+    {
+        WorldGeneratedPartitionGeoRegionsEventSystem system = instance;
+        while (system?._work != null)
+        {
+            system._work.BuildTask.GetAwaiter().GetResult();
+            ((ICooperativeSystemStep)system).StepCooperatively();
+        }
+    }
+
+    string ICooperativeSystemStep.CooperativePhaseName
+    {
+        get
+        {
+            PartitionWork work = _work;
+            if (work == null)
+            {
+                return "geo.partition.dequeue";
+            }
+
+            if (!work.BuildTask.IsCompleted)
+            {
+                return "geo.partition.compute";
+            }
+
+            if (work.Result == null || work.RegionIndex >= work.Result.Regions.Count)
+            {
+                return "geo.partition.complete";
+            }
+
+            return "geo.partition.materialize." +
+                   work.Result.Regions[work.RegionIndex].GeneratedEvent.Layer;
+        }
+    }
+
+    bool ICooperativeSystemStep.StepCooperatively()
+    {
+        if (_work == null)
+        {
+            base.OnUpdateGroup();
+            if (_work == null)
+            {
+                return true;
+            }
+        }
+
+        PartitionWork work = _work;
+        if (!IsCurrentWorld(work))
+        {
+            CancelPendingWorkInternal(true);
+            return true;
+        }
+
+        if (!work.BuildTask.IsCompleted)
+        {
+            // 本轮不在主线程忙等；让其他 Cultiway 系统完成本帧，下轮再检查后台结果。
+            return true;
+        }
+
+        try
+        {
+            if (work.Result == null)
+            {
+                work.Result = work.BuildTask.GetAwaiter().GetResult();
+                work.MaterializeStartedTimestamp = Stopwatch.GetTimestamp();
+                GeoRegionAutoClassifyAndNameEventSystem.BeginDirectGeneration(work.WorldSeedId);
+                ModClass.LogInfo(
+                    $"[FramePriority] GeoRegion 后台分区完成: regions={work.Result.Regions.Count}, " +
+                    work.Result.GetTimingSummary());
+            }
+
+            return MaterializeNextRegion(work);
+        }
+        catch (OperationCanceledException)
+        {
+            FailWork(work, null);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            FailWork(work, exception);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// WorldGeneratedEvent 主入口：启动后台分区计算，地区对象创建由协作步骤跨帧完成。
     /// </summary>
     protected override void HandleEvent(WorldGeneratedEvent evt)
     {
-        if (evt.Width <= 0 || evt.Height <= 0) return;
+        if (evt.Width <= 0 || evt.Height <= 0)
+        {
+            throw new InvalidOperationException("世界生成事件缺少有效地图尺寸");
+        }
 
         // 避免重复触发（有些情况下 finishMakingWorld 可能被调用多次）
-        if (evt.WorldSeedId == _lastWorldSeedId && evt.Width == _lastWidth && evt.Height == _lastHeight)
+        if (evt.WorldSeedId == _lastWorldSeedId &&
+            evt.Width == _lastWidth &&
+            evt.Height == _lastHeight &&
+            (_work != null || WorldboxGame.I?.GeoRegions?.IsMembershipReady == true))
         {
             return;
         }
@@ -43,14 +157,13 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
 
         if (ModClass.I?.TileExtendManager == null || !ModClass.I.TileExtendManager.Ready())
         {
-            // 理论上这里已经 FitNewWorld，但为了稳定性加一道保险
-            return;
+            throw new InvalidOperationException("TileExtend 尚未完成，不能开始 GeoRegion 分区");
         }
 
         var tiles = World.world.tiles_list;
         if (tiles == null || tiles.Length == 0)
         {
-            return;
+            throw new InvalidOperationException("当前世界没有可用于 GeoRegion 分区的地块");
         }
 
         var width = evt.Width;
@@ -63,10 +176,83 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
 
         var geoRegionLib = ModClass.L.GeoRegionLibrary;
 
-        // 旧世界切换到新世界时，先清理历史关系实体，避免残留关系污染本次划分。
+        // 旧世界切换到新世界时，清理低数量的 GeoRegion 绑定实体。
         CleanupOldGeoRegionBinders();
 
-        // 基础数组：后续所有层级都依赖这些预计算结果。
+        var cancellation = new CancellationTokenSource();
+        var work = new PartitionWork(evt.WorldSeedId, tiles, width, height, cancellation);
+        work.BuildTask = StartPartitionBuild(
+            evt,
+            tiles,
+            width,
+            height,
+            geoRegionLib,
+            cancellation.Token);
+        _ = work.BuildTask.ContinueWith(
+            task =>
+            {
+                _ = task.Exception;
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
+        _work = work;
+        ModClass.LogInfoConcurrent(
+            $"[FramePriority] GeoRegion 后台分区开始: tiles={tiles.Length}");
+    }
+
+    private static Task<PartitionResult> StartPartitionBuild(
+        WorldGeneratedEvent evt,
+        WorldTile[] tiles,
+        int width,
+        int height,
+        GeoRegionLibrary geoRegionLib,
+        CancellationToken cancellationToken)
+    {
+        var completion = new TaskCompletionSource<PartitionResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                completion.SetResult(
+                    BuildPartitionResult(
+                        evt,
+                        tiles,
+                        width,
+                        height,
+                        geoRegionLib,
+                        cancellationToken));
+            }
+            catch (OperationCanceledException)
+            {
+                completion.SetCanceled();
+            }
+            catch (Exception exception)
+            {
+                completion.SetException(exception);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "CultiwayGeoRegionPartition",
+            Priority = ThreadPriority.BelowNormal
+        };
+        thread.Start();
+        return completion.Task;
+    }
+
+    private static PartitionResult BuildPartitionResult(
+        WorldGeneratedEvent evt,
+        WorldTile[] tiles,
+        int width,
+        int height,
+        GeoRegionLibrary geoRegionLib,
+        CancellationToken cancellationToken)
+    {
+        var result = new PartitionResult();
+        var totalTimer = Stopwatch.StartNew();
+        var stageTimer = Stopwatch.StartNew();
         var total = tiles.Length;
         var isLand = new bool[total];
         var isWater = new bool[total];
@@ -74,30 +260,304 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         var primarySignature = new byte[total];
         var landformCode = new byte[total];
 
-        // 统一做一遍 tile 级预计算（材料、邻接、签名、海滩距离）。
-        BuildBaseArrays(tiles, width, height, geoRegionLib, isLand, isWater, primaryCategoryCode, primarySignature, landformCode);
+        BuildBaseArrays(
+            tiles,
+            width,
+            height,
+            geoRegionLib,
+            isLand,
+            isWater,
+            primaryCategoryCode,
+            primarySignature,
+            landformCode);
+        cancellationToken.ThrowIfCancellationRequested();
+        result.BaseArraysMilliseconds = stageTimer.Elapsed.TotalMilliseconds;
 
         var queue = new int[total];
+        stageTimer.Restart();
+        GeneratePrimary(
+            evt,
+            tiles,
+            width,
+            height,
+            geoRegionLib,
+            primarySignature,
+            landformCode,
+            isLand,
+            isWater,
+            queue,
+            result.Regions);
+        cancellationToken.ThrowIfCancellationRequested();
+        result.PrimaryMilliseconds = stageTimer.Elapsed.TotalMilliseconds;
 
-        // 基础层：Primary（地表主分类 + 水体细分）。
-        GeneratePrimary(evt, tiles, width, height, geoRegionLib, primarySignature, landformCode, isLand, isWater, queue);
-        // 基础层：Landform（平原/山地/峡谷/盆地）。
-        GenerateLandform(evt, tiles, width, height, geoRegionLib, landformCode, primaryCategoryCode, queue);
+        stageTimer.Restart();
+        GenerateLandform(
+            evt,
+            tiles,
+            width,
+            height,
+            geoRegionLib,
+            landformCode,
+            primaryCategoryCode,
+            queue,
+            result.Regions);
+        cancellationToken.ThrowIfCancellationRequested();
+        result.LandformMilliseconds = stageTimer.Elapsed.TotalMilliseconds;
 
-        // 基础层：Landmass（大陆/岛屿），并产出后续群岛层候选。
         var islandCandidates = new List<IslandInfo>(64);
-        GenerateLandmass(evt, tiles, width, height, geoRegionLib, isLand, primaryCategoryCode, landformCode, queue, islandCandidates);
+        stageTimer.Restart();
+        GenerateLandmass(
+            evt,
+            tiles,
+            width,
+            height,
+            geoRegionLib,
+            isLand,
+            primaryCategoryCode,
+            landformCode,
+            queue,
+            islandCandidates,
+            result.Regions);
+        cancellationToken.ThrowIfCancellationRequested();
+        result.LandmassMilliseconds = stageTimer.Elapsed.TotalMilliseconds;
 
-        // 叠加形态层：半岛、海峡、群岛。
-        GeneratePeninsula(evt, tiles, width, height, geoRegionLib, isLand, isWater, primaryCategoryCode, landformCode, queue);
-        GenerateStrait(evt, tiles, width, height, geoRegionLib, isLand, isWater, queue);
-        GenerateArchipelago(evt, tiles, width, height, geoRegionLib, primaryCategoryCode, landformCode, islandCandidates);
+        stageTimer.Restart();
+        GeneratePeninsula(
+            evt,
+            tiles,
+            width,
+            height,
+            geoRegionLib,
+            isLand,
+            isWater,
+            primaryCategoryCode,
+            landformCode,
+            queue,
+            result.Regions);
+        cancellationToken.ThrowIfCancellationRequested();
+        result.PeninsulaMilliseconds = stageTimer.Elapsed.TotalMilliseconds;
 
-        ModClass.I.CustomMapModeManager?.SetAllDirty();
+        stageTimer.Restart();
+        GenerateStrait(
+            evt,
+            tiles,
+            width,
+            height,
+            geoRegionLib,
+            isLand,
+            isWater,
+            queue,
+            result.Regions);
+        cancellationToken.ThrowIfCancellationRequested();
+        result.StraitMilliseconds = stageTimer.Elapsed.TotalMilliseconds;
+
+        stageTimer.Restart();
+        GenerateArchipelago(
+            evt,
+            tiles,
+            width,
+            height,
+            geoRegionLib,
+            primaryCategoryCode,
+            landformCode,
+            islandCandidates,
+            result.Regions);
+        cancellationToken.ThrowIfCancellationRequested();
+        result.ArchipelagoMilliseconds = stageTimer.Elapsed.TotalMilliseconds;
+
+        stageTimer.Restart();
+        BuildMembershipArrays(result, total, cancellationToken);
+        result.IndexMilliseconds = stageTimer.Elapsed.TotalMilliseconds;
+        result.TotalMilliseconds = totalTimer.Elapsed.TotalMilliseconds;
+        return result;
     }
 
     /// <summary>
-    /// 清理旧世界遗留的 GeoRegion 关系绑定实体。
+    /// 主线程每次只创建并分类一个地区。tile 归属已经在后台构建完成，
+    /// 因此这里的工作量只与地区数相关，不再与地图 tile 数相关。
+    /// </summary>
+    private bool MaterializeNextRegion(PartitionWork work)
+    {
+        if (work.RegionIndex < work.Result.Regions.Count)
+        {
+            PendingRegion pending = work.Result.Regions[work.RegionIndex];
+            pending.Region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
+            GeoRegionGeneratedEvent generatedEvent = pending.GeneratedEvent;
+            generatedEvent.RegionId = pending.Region.getID();
+            GeoRegionAutoClassifyAndNameEventSystem.FinalizeDirect(generatedEvent);
+            work.RegionIndex++;
+            return false;
+        }
+
+        var entries = new List<GeoRegionMembershipEntry>(work.Result.Regions.Count);
+        for (int i = 0; i < work.Result.Regions.Count; i++)
+        {
+            PendingRegion pending = work.Result.Regions[i];
+            if (pending.Region == null)
+            {
+                throw new InvalidOperationException($"GeoRegion 尚未物化: index={i}");
+            }
+
+            entries.Add(new GeoRegionMembershipEntry(
+                pending.Region,
+                pending.GeneratedEvent.Layer,
+                pending.TileIds));
+        }
+
+        var membership = new GeoRegionMembershipIndex(
+            work.Tiles,
+            work.Result.RegionSlotByTileLayer,
+            work.Result.PositionInRegionByTileLayer,
+            entries);
+        WorldboxGame.I.GeoRegions.InstallMembership(membership);
+        ModClass.I.CustomMapModeManager?.SetAllDirty();
+        ModClass.I.TileExtendManager.CompleteWorldInitialization(work.Tiles);
+        work.Cancellation.Dispose();
+        _work = null;
+        double materializeMilliseconds = GetElapsedMilliseconds(work.MaterializeStartedTimestamp);
+        ModClass.LogInfo(
+            $"[FramePriority] GeoRegion 紧凑索引提交完成: regions={work.Result.Regions.Count}, " +
+            $"memberships={work.Result.MembershipCount}, persistent={work.Result.EstimatedPersistentBytes / 1048576d:0.0}MiB, " +
+            $"materialize={materializeMilliseconds:0.0}ms");
+        return true;
+    }
+
+    private static void BuildMembershipArrays(
+        PartitionResult result,
+        int tileCount,
+        CancellationToken cancellationToken)
+    {
+        int indexLength = checked(tileCount * GeoRegionMembershipIndex.LayerCount);
+        result.RegionSlotByTileLayer = new int[indexLength];
+        result.PositionInRegionByTileLayer = new int[indexLength];
+        for (int i = 0; i < indexLength; i++)
+        {
+            result.RegionSlotByTileLayer[i] = -1;
+            result.PositionInRegionByTileLayer[i] = -1;
+        }
+
+        int membershipCount = 0;
+        for (int regionSlot = 0; regionSlot < result.Regions.Count; regionSlot++)
+        {
+            PendingRegion pending = result.Regions[regionSlot];
+            int layer = (int)pending.GeneratedEvent.Layer;
+            if ((uint)layer >= GeoRegionMembershipIndex.LayerCount)
+            {
+                throw new InvalidOperationException(
+                    $"GeoRegion 层级超出索引范围: region={regionSlot}, layer={pending.GeneratedEvent.Layer}");
+            }
+
+            List<int> tileIds = pending.TileIds;
+            for (int position = 0; position < tileIds.Count; position++)
+            {
+                if ((membershipCount & 4095) == 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                }
+
+                int tileId = tileIds[position];
+                if ((uint)tileId >= (uint)tileCount)
+                {
+                    throw new InvalidOperationException(
+                        $"GeoRegion 包含越界 tile: region={regionSlot}, tile={tileId}, count={tileCount}");
+                }
+
+                int flatIndex = tileId * GeoRegionMembershipIndex.LayerCount + layer;
+                int existingSlot = result.RegionSlotByTileLayer[flatIndex];
+                if (existingSlot >= 0)
+                {
+                    throw new InvalidOperationException(
+                        $"同一 tile 在同层重复归属: tile={tileId}, layer={pending.GeneratedEvent.Layer}, " +
+                        $"regions={existingSlot},{regionSlot}");
+                }
+
+                result.RegionSlotByTileLayer[flatIndex] = regionSlot;
+                result.PositionInRegionByTileLayer[flatIndex] = position;
+                membershipCount++;
+            }
+        }
+
+        result.MembershipCount = membershipCount;
+        result.EstimatedPersistentBytes =
+            (long)result.RegionSlotByTileLayer.Length * sizeof(int) +
+            (long)result.PositionInRegionByTileLayer.Length * sizeof(int) +
+            (long)membershipCount * sizeof(int);
+    }
+
+    private static bool IsCurrentWorld(PartitionWork work)
+    {
+        return World.world != null &&
+               ReferenceEquals(World.world.tiles_list, work.Tiles) &&
+               MapBox.width == work.Width &&
+               MapBox.height == work.Height;
+    }
+
+    private void FailWork(PartitionWork work, Exception exception)
+    {
+        if (!ReferenceEquals(_work, work)) return;
+
+        _work = null;
+        work.Cancellation.Cancel();
+        RollbackMaterializedRegions(work);
+        WorldboxGame.I?.GeoRegions?.ClearMembership();
+        ModClass.I?.TileExtendManager?.FailWorldInitialization(work.Tiles);
+        work.Cancellation.Dispose();
+        ClearQueuedEvents();
+
+        if (exception != null)
+        {
+            ModClass.LogError(
+                $"[FramePriority] GeoRegion 世界初始化失败，已回滚本轮地区:\n{exception}");
+        }
+    }
+
+    private void CancelPendingWorkInternal(bool resetWorldIdentity)
+    {
+        PartitionWork work = _work;
+        _work = null;
+        if (work != null)
+        {
+            work.Cancellation.Cancel();
+            RollbackMaterializedRegions(work);
+            work.Cancellation.Dispose();
+        }
+
+        ClearQueuedEvents();
+        if (resetWorldIdentity)
+        {
+            _lastWorldSeedId = 0;
+            _lastWidth = 0;
+            _lastHeight = 0;
+            ModClass.I?.TileExtendManager?.CancelFitNewWorld();
+        }
+    }
+
+    /// <summary>
+    /// 回滚尚未原子提交的地区对象。
+    /// </summary>
+    private static void RollbackMaterializedRegions(PartitionWork work)
+    {
+        if (work?.Result == null) return;
+
+        GeoRegionManager manager = WorldboxGame.I?.GeoRegions;
+        if (manager == null) return;
+
+        for (int i = 0; i < work.Result.Regions.Count; i++)
+        {
+            GeoRegion region = work.Result.Regions[i].Region;
+            if (region == null || region.isRekt()) continue;
+            manager.removeObject(region);
+        }
+    }
+
+    private static double GetElapsedMilliseconds(long startedTimestamp)
+    {
+        if (startedTimestamp <= 0) return 0;
+        return (Stopwatch.GetTimestamp() - startedTimestamp) * 1000d / Stopwatch.Frequency;
+    }
+
+    /// <summary>
+    /// 清理旧世界遗留的 GeoRegion 绑定实体。
     /// </summary>
     private static void CleanupOldGeoRegionBinders()
     {
@@ -394,7 +854,8 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         byte[] landformCode,
         bool[] isLand,
         bool[] isWater,
-        int[] queue)
+        int[] queue,
+        List<PendingRegion> pendingRegions)
     {
         var components = new List<MutableRegionComponent>(256);
         var componentOfTile = new int[tiles.Length];
@@ -437,25 +898,12 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 landformDominantCategoryId = ResolveDominantLandformCategoryId(geoRegionLib, landformCode, component.TileIds);
             }
 
-            var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
-            for (var k = 0; k < component.TileIds.Count; k++)
-            {
-                var tileId = component.TileIds[k];
-                var tileEntity = ModClass.I.TileExtendManager.Get(tileId).E;
-                tileEntity.AddRelation(new BelongToRelation
-                {
-                    entity = region.E,
-                    layer = GeoRegionLayer.Primary
-                });
-            }
-
-            EventSystemHub.Publish(new GeoRegionGeneratedEvent
+            pendingRegions.Add(new PendingRegion(component.TileIds, new GeoRegionGeneratedEvent
             {
                 WorldSeedId = evt.WorldSeedId,
                 Width = width,
                 Height = height,
                 Layer = GeoRegionLayer.Primary,
-                RegionId = region.getID(),
                 BaseLayerType = baseLayerType,
                 WaterKind = waterKind,
                 TouchesEdge = component.TouchesEdge,
@@ -464,7 +912,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 TileCount = count,
                 BiomeDominantCategoryId = biomeDominantCategoryId,
                 LandformDominantCategoryId = landformDominantCategoryId
-            });
+            }));
         }
     }
 
@@ -1076,7 +1524,8 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         GeoRegionLibrary geoRegionLib,
         byte[] landformCode,
         byte[] primaryCategoryCode,
-        int[] queue)
+        int[] queue,
+        List<PendingRegion> pendingRegions)
     {
         var visited = new bool[tiles.Length];
         var components = new List<MutableRegionComponent>(256);
@@ -1118,25 +1567,12 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             var biomeDominantCategoryId = ResolveDominantPrimaryCategoryId(geoRegionLib, primaryCategoryCode, component.TileIds);
             var landformDominantCategoryId = LandformCategoryIdFromCode(geoRegionLib, (byte)component.Signature);
 
-            var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
-            for (var k = 0; k < component.TileIds.Count; k++)
-            {
-                var tileId = component.TileIds[k];
-                var tileEntity = ModClass.I.TileExtendManager.Get(tileId).E;
-                tileEntity.AddRelation(new BelongToRelation
-                {
-                    entity = region.E,
-                    layer = GeoRegionLayer.Landform
-                });
-            }
-
-            EventSystemHub.Publish(new GeoRegionGeneratedEvent
+            pendingRegions.Add(new PendingRegion(component.TileIds, new GeoRegionGeneratedEvent
             {
                 WorldSeedId = evt.WorldSeedId,
                 Width = width,
                 Height = height,
                 Layer = GeoRegionLayer.Landform,
-                RegionId = region.getID(),
                 BaseLayerType = TileLayerType.Ground,
                 WaterKind = PrimaryWaterKind.None,
                 TouchesEdge = component.TouchesEdge,
@@ -1145,7 +1581,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 TileCount = count,
                 BiomeDominantCategoryId = biomeDominantCategoryId,
                 LandformDominantCategoryId = landformDominantCategoryId
-            });
+            }));
         }
     }
 
@@ -1162,7 +1598,8 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         byte[] primaryCategoryCode,
         byte[] landformCode,
         int[] queue,
-        List<IslandInfo> islandCandidates)
+        List<IslandInfo> islandCandidates,
+        List<PendingRegion> pendingRegions)
     {
         var visited = new bool[tiles.Length];
         var islandMaxTiles = Math.Max(0, geoRegionLib.Archipelago?.IslandMaxTiles ?? 0);
@@ -1186,25 +1623,13 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             var biomeDominantCategoryId = ResolveDominantPrimaryCategoryId(geoRegionLib, primaryCategoryCode, queue, count);
             var landformDominantCategoryId = ResolveDominantLandformCategoryId(geoRegionLib, landformCode, queue, count);
 
-            var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
-            for (var k = 0; k < count; k++)
-            {
-                var tileId = queue[k];
-                var tileEntity = ModClass.I.TileExtendManager.Get(tileId).E;
-                tileEntity.AddRelation(new BelongToRelation
-                {
-                    entity = region.E,
-                    layer = GeoRegionLayer.Landmass
-                });
-            }
-
-            EventSystemHub.Publish(new GeoRegionGeneratedEvent
+            List<int> tileIds = CopyTileIdList(queue, count);
+            pendingRegions.Add(new PendingRegion(tileIds, new GeoRegionGeneratedEvent
             {
                 WorldSeedId = evt.WorldSeedId,
                 Width = width,
                 Height = height,
                 Layer = GeoRegionLayer.Landmass,
-                RegionId = region.getID(),
                 BaseLayerType = TileLayerType.Ground,
                 WaterKind = PrimaryWaterKind.None,
                 TouchesEdge = touchesEdge,
@@ -1213,13 +1638,11 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 TileCount = count,
                 BiomeDominantCategoryId = biomeDominantCategoryId,
                 LandformDominantCategoryId = landformDominantCategoryId
-            });
+            }));
 
             if (!touchesEdge && islandMaxTiles > 0 && count <= islandMaxTiles)
             {
-                var indices = new int[count];
-                Array.Copy(queue, 0, indices, 0, count);
-                islandCandidates.Add(new IslandInfo(indices, count, sumX, sumY, minX, minY, maxX, maxY));
+                islandCandidates.Add(new IslandInfo(tileIds, count, sumX, sumY, minX, minY, maxX, maxY));
             }
         }
     }
@@ -1238,7 +1661,8 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         bool[] isWater,
         byte[] primaryCategoryCode,
         byte[] landformCode,
-        int[] queue)
+        int[] queue,
+        List<PendingRegion> pendingRegions)
     {
         var asset = geoRegionLib.Peninsula;
         if (asset == null) return;
@@ -1330,25 +1754,12 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             var biomeDominantCategoryId = ResolveDominantPrimaryCategoryId(geoRegionLib, primaryCategoryCode, queue, count);
             var landformDominantCategoryId = ResolveDominantLandformCategoryId(geoRegionLib, landformCode, queue, count);
 
-            var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
-            for (var k = 0; k < count; k++)
-            {
-                var tileId = queue[k];
-                var tileEntity = ModClass.I.TileExtendManager.Get(tileId).E;
-                tileEntity.AddRelation(new BelongToRelation
-                {
-                    entity = region.E,
-                    layer = GeoRegionLayer.Peninsula
-                });
-            }
-
-            EventSystemHub.Publish(new GeoRegionGeneratedEvent
+            pendingRegions.Add(new PendingRegion(CopyTileIdList(queue, count), new GeoRegionGeneratedEvent
             {
                 WorldSeedId = evt.WorldSeedId,
                 Width = width,
                 Height = height,
                 Layer = GeoRegionLayer.Peninsula,
-                RegionId = region.getID(),
                 BaseLayerType = TileLayerType.Ground,
                 WaterKind = PrimaryWaterKind.None,
                 TouchesEdge = touchesEdge,
@@ -1357,7 +1768,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 TileCount = count,
                 BiomeDominantCategoryId = biomeDominantCategoryId,
                 LandformDominantCategoryId = landformDominantCategoryId
-            });
+            }));
         }
     }
 
@@ -1373,7 +1784,8 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         GeoRegionLibrary geoRegionLib,
         bool[] isLand,
         bool[] isWater,
-        int[] queue)
+        int[] queue,
+        List<PendingRegion> pendingRegions)
     {
         var asset = geoRegionLib.Strait;
         if (asset == null) return;
@@ -1446,25 +1858,12 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             var centerX = (sumX + count / 2) / count;
             var centerY = (sumY + count / 2) / count;
 
-            var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
-            for (var k = 0; k < count; k++)
-            {
-                var tileId = queue[k];
-                var tileEntity = ModClass.I.TileExtendManager.Get(tileId).E;
-                tileEntity.AddRelation(new BelongToRelation
-                {
-                    entity = region.E,
-                    layer = GeoRegionLayer.Strait
-                });
-            }
-
-            EventSystemHub.Publish(new GeoRegionGeneratedEvent
+            pendingRegions.Add(new PendingRegion(CopyTileIdList(queue, count), new GeoRegionGeneratedEvent
             {
                 WorldSeedId = evt.WorldSeedId,
                 Width = width,
                 Height = height,
                 Layer = GeoRegionLayer.Strait,
-                RegionId = region.getID(),
                 BaseLayerType = TileLayerType.Ocean,
                 WaterKind = PrimaryWaterKind.None,
                 TouchesEdge = touchesEdge,
@@ -1473,7 +1872,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 TileCount = count,
                 BiomeDominantCategoryId = null,
                 LandformDominantCategoryId = null
-            });
+            }));
         }
     }
 
@@ -1489,7 +1888,8 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         GeoRegionLibrary geoRegionLib,
         byte[] primaryCategoryCode,
         byte[] landformCode,
-        List<IslandInfo> islandCandidates)
+        List<IslandInfo> islandCandidates,
+        List<PendingRegion> pendingRegions)
     {
         var asset = geoRegionLib.Archipelago;
         if (asset == null) return;
@@ -1584,24 +1984,17 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
 
             if (totalTiles < minTotalTiles) continue;
 
-            // 创建一个可非连通的群岛 GeoRegion
-            var region = WorldboxGame.I.GeoRegions.BuildGeoRegion(null);
-
             var primaryCounts = new int[12];
             var landformCounts = new int[5];
+            var tileIds = new List<int>(totalTiles);
 
             for (var i = 0; i < cluster.Count; i++)
             {
                 var island = islandCandidates[cluster[i]];
-                for (var k = 0; k < island.TileIndices.Length; k++)
+                for (var k = 0; k < island.TileIndices.Count; k++)
                 {
                     var tileId = island.TileIndices[k];
-                    var tileEntity = ModClass.I.TileExtendManager.Get(tileId).E;
-                    tileEntity.AddRelation(new BelongToRelation
-                    {
-                        entity = region.E,
-                        layer = GeoRegionLayer.Archipelago
-                    });
+                    tileIds.Add(tileId);
 
                     var pc = primaryCategoryCode[tileId];
                     if (pc > 0 && pc < primaryCounts.Length) primaryCounts[pc]++;
@@ -1616,13 +2009,12 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
             var biomeDominantCategoryId = PrimaryCategoryIdFromCode(geoRegionLib, (byte)ArgMax(primaryCounts));
             var landformDominantCategoryId = LandformCategoryIdFromCode(geoRegionLib, (byte)ArgMax(landformCounts));
 
-            EventSystemHub.Publish(new GeoRegionGeneratedEvent
+            pendingRegions.Add(new PendingRegion(tileIds, new GeoRegionGeneratedEvent
             {
                 WorldSeedId = evt.WorldSeedId,
                 Width = width,
                 Height = height,
                 Layer = GeoRegionLayer.Archipelago,
-                RegionId = region.getID(),
                 BaseLayerType = TileLayerType.Ground,
                 WaterKind = PrimaryWaterKind.None,
                 TouchesEdge = false,
@@ -1631,7 +2023,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
                 TileCount = totalTiles,
                 BiomeDominantCategoryId = biomeDominantCategoryId,
                 LandformDominantCategoryId = landformDominantCategoryId
-            });
+            }));
         }
     }
 
@@ -2368,6 +2760,17 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         return ((long)x << 32) ^ (uint)y;
     }
 
+    private static List<int> CopyTileIdList(int[] source, int count)
+    {
+        var result = new List<int>(count);
+        for (int i = 0; i < count; i++)
+        {
+            result.Add(source[i]);
+        }
+
+        return result;
+    }
+
     /// <summary>
     /// 向下取整除法（支持负数）。
     /// </summary>
@@ -2386,6 +2789,74 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         Sea = 101,
         Lake = 102,
         River = 103
+    }
+
+    private sealed class PartitionWork
+    {
+        public PartitionWork(
+            int worldSeedId,
+            WorldTile[] tiles,
+            int width,
+            int height,
+            CancellationTokenSource cancellation)
+        {
+            WorldSeedId = worldSeedId;
+            Tiles = tiles;
+            Width = width;
+            Height = height;
+            Cancellation = cancellation;
+        }
+
+        public int WorldSeedId { get; }
+        public WorldTile[] Tiles { get; }
+        public int Width { get; }
+        public int Height { get; }
+        public CancellationTokenSource Cancellation { get; }
+        public Task<PartitionResult> BuildTask { get; set; }
+        public PartitionResult Result { get; set; }
+        public int RegionIndex { get; set; }
+        public long MaterializeStartedTimestamp { get; set; }
+    }
+
+    private sealed class PartitionResult
+    {
+        public List<PendingRegion> Regions { get; } = new(256);
+        public int[] RegionSlotByTileLayer { get; set; }
+        public int[] PositionInRegionByTileLayer { get; set; }
+        public int MembershipCount { get; set; }
+        public long EstimatedPersistentBytes { get; set; }
+        public double BaseArraysMilliseconds { get; set; }
+        public double PrimaryMilliseconds { get; set; }
+        public double LandformMilliseconds { get; set; }
+        public double LandmassMilliseconds { get; set; }
+        public double PeninsulaMilliseconds { get; set; }
+        public double StraitMilliseconds { get; set; }
+        public double ArchipelagoMilliseconds { get; set; }
+        public double IndexMilliseconds { get; set; }
+        public double TotalMilliseconds { get; set; }
+
+        public string GetTimingSummary()
+        {
+            return
+                $"memberships={MembershipCount}, total={TotalMilliseconds:0.0}ms " +
+                $"[base={BaseArraysMilliseconds:0.0}, primary={PrimaryMilliseconds:0.0}, " +
+                $"landform={LandformMilliseconds:0.0}, landmass={LandmassMilliseconds:0.0}, " +
+                $"peninsula={PeninsulaMilliseconds:0.0}, strait={StraitMilliseconds:0.0}, " +
+                $"archipelago={ArchipelagoMilliseconds:0.0}, index={IndexMilliseconds:0.0}]ms";
+        }
+    }
+
+    private sealed class PendingRegion
+    {
+        public PendingRegion(List<int> tileIds, GeoRegionGeneratedEvent generatedEvent)
+        {
+            TileIds = tileIds ?? throw new ArgumentNullException(nameof(tileIds));
+            GeneratedEvent = generatedEvent;
+        }
+
+        public List<int> TileIds { get; }
+        public GeoRegionGeneratedEvent GeneratedEvent { get; }
+        public GeoRegion Region { get; set; }
     }
 
     /// <summary>
@@ -2416,7 +2887,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
     /// </summary>
     private readonly struct IslandInfo
     {
-        public readonly int[] TileIndices;
+        public readonly List<int> TileIndices;
         public readonly int TileCount;
         public readonly int SumX;
         public readonly int SumY;
@@ -2425,9 +2896,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem : GenericEventSystem<W
         public readonly int MaxX;
         public readonly int MaxY;
 
-        public IslandInfo(int[] tileIndices, int tileCount, int sumX, int sumY, int minX, int minY, int maxX, int maxY)
+        public IslandInfo(List<int> tileIndices, int tileCount, int sumX, int sumY, int minX, int minY, int maxX, int maxY)
         {
-            TileIndices = tileIndices ?? Array.Empty<int>();
+            TileIndices = tileIndices ?? new List<int>();
             TileCount = tileCount;
             SumX = sumX;
             SumY = sumY;

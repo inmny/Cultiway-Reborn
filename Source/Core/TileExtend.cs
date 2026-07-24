@@ -1,21 +1,20 @@
-using Cultiway.Abstract;
-using Cultiway.Core.Components;
-using Cultiway.Core.GeoLib.Components;
-using Friflo.Engine.ECS;
 using System.Collections.Generic;
 
 namespace Cultiway.Core;
 
-public class TileExtend : ExtendComponent<WorldTile>
+/// <summary>
+/// WorldTile 的轻量查询视图，不再为每个 tile 创建 ECS Entity。
+/// </summary>
+public readonly struct TileExtend
 {
-    private readonly Entity e;
+    private readonly int tileId;
 
-    public TileExtend(Entity e)
+    internal TileExtend(int tileId)
     {
-        this.e = e;
+        this.tileId = tileId;
     }
-    public override Entity E => e;
-    public override WorldTile Base => e.GetComponent<TileBinder>().Tile;
+
+    public WorldTile Base => ModClass.I.TileExtendManager.GetTile(tileId);
 
     public GeoRegion GetGeoRegion()
     {
@@ -24,57 +23,26 @@ public class TileExtend : ExtendComponent<WorldTile>
 
     public GeoRegion GetGeoRegion(GeoRegionLayer layer)
     {
-        var rels = e.GetRelations<BelongToRelation>();
-        foreach (var rel in rels)
-        {
-            if (rel.layer != layer) continue;
-            if (rel.entity.HasComponent<GeoRegionBinder>())
-            {
-                return rel.entity.GetComponent<GeoRegionBinder>().GeoRegion;
-            }
-        }
-        return null;
+        return WorldboxGame.I.GeoRegions.GetRegionForTile(tileId, layer);
     }
 
     public IEnumerable<GeoRegion> GetGeoRegions(GeoRegionLayer layer)
     {
-        var rels = e.GetRelations<BelongToRelation>();
-        foreach (var rel in rels)
+        GeoRegion region = GetGeoRegion(layer);
+        if (region != null)
         {
-            if (rel.layer != layer) continue;
-            if (rel.entity.HasComponent<GeoRegionBinder>())
-            {
-                yield return rel.entity.GetComponent<GeoRegionBinder>().GeoRegion;
-            }
+            yield return region;
         }
     }
 
     public IEnumerable<GeoRegion> GetGeoRegions()
     {
-        var rels = e.GetRelations<BelongToRelation>();
-        foreach (var rel in rels)
-        {
-            if (rel.entity.HasComponent<GeoRegionBinder>())
-            {
-                var geoRegion = rel.entity.GetComponent<GeoRegionBinder>().GeoRegion;
-                if (geoRegion != null)
-                {
-                    yield return geoRegion;
-                }
-            }
-        }
+        return WorldboxGame.I.GeoRegions.EnumerateRegionsForTile(tileId);
     }
 
     public bool HasGeoRegion(GeoRegion geoRegion)
     {
-        if (geoRegion == null) return false;
-
-        foreach (GeoRegion current in GetGeoRegions())
-        {
-            if (ReferenceEquals(current, geoRegion)) return true;
-        }
-
-        return false;
+        return geoRegion != null && WorldboxGame.I.GeoRegions.TileHasRegion(tileId, geoRegion);
     }
 
     public bool HasGeoRegion()

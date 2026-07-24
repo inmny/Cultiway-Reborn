@@ -1,38 +1,100 @@
+using System;
 using Cultiway.Abstract;
-using Cultiway.Core.Components;
+using Cultiway.Core.EventSystem;
+using Cultiway.Core.EventSystem.Events;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Core;
 
 public class TileExtendManager : ExtendComponentManager<TileExtend>
 {
-    public readonly EntityStore  World;
-    private         TileExtend[] _tile_extends;
+    // GeoRegion 等低数量运行时实体继续共用该 Store；这里不再存放逐 tile 实体。
+    public readonly EntityStore World;
+    private WorldTile[] currentTiles;
+
+    internal bool IsWorldInitializationPending { get; private set; }
 
     internal TileExtendManager()
     {
         World = new EntityStore();
     }
 
-    public TileExtend Get(int tile_id)
+    public TileExtend Get(int tileId)
     {
-        return _tile_extends[tile_id];
+        GetTile(tileId);
+        return new TileExtend(tileId);
+    }
+
+    internal WorldTile GetTile(int tileId)
+    {
+        if (!Ready())
+        {
+            throw new InvalidOperationException("TileExtend 尚未绑定当前世界");
+        }
+
+        if ((uint)tileId >= (uint)currentTiles.Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(tileId), tileId, $"tile id 超出范围: count={currentTiles.Length}");
+        }
+
+        return currentTiles[tileId];
     }
 
     public bool Ready()
     {
-        return _tile_extends != null && _tile_extends.Length == global::World.world.tiles_list.Length;
+        return currentTiles != null &&
+               global::World.world != null &&
+               ReferenceEquals(currentTiles, global::World.world.tiles_list);
     }
 
-    internal void FitNewWorld()
+    internal void BeginFitNewWorld(int worldSeedId, int width, int height)
     {
-        World.Query<TileBinder>().ForEachEntity((ref TileBinder _, Entity e) => e.DeleteEntity());
-        var tiles = global::World.world.tiles_list;
-        _tile_extends = new TileExtend[tiles.Length];
-
-        for (int i = 0; i < tiles.Length; i++)
+        WorldTile[] tiles = global::World.world?.tiles_list ??
+                            throw new InvalidOperationException("当前世界没有 tiles_list");
+        if (ReferenceEquals(currentTiles, tiles) &&
+            (IsWorldInitializationPending ||
+             WorldboxGame.I?.GeoRegions?.IsMembershipReady == true))
         {
-            _tile_extends[i] = new(World.CreateEntity(new TileBinder(i)));
+            return;
+        }
+
+        currentTiles = tiles;
+        IsWorldInitializationPending = true;
+        WorldboxGame.I?.GeoRegions?.ClearMembership();
+
+        EventSystemHub.Publish(new WorldGeneratedEvent
+        {
+            WorldSeedId = worldSeedId,
+            Width = width,
+            Height = height
+        });
+
+        ModClass.LogInfo(
+            $"[FramePriority] TileExtend 已绑定当前世界: tiles={currentTiles.Length}");
+    }
+
+    internal void CancelFitNewWorld()
+    {
+        currentTiles = null;
+        IsWorldInitializationPending = false;
+        WorldboxGame.I?.GeoRegions?.ClearMembership();
+    }
+
+    internal void CompleteWorldInitialization(WorldTile[] expectedTiles)
+    {
+        if (ReferenceEquals(currentTiles, expectedTiles) &&
+            ReferenceEquals(global::World.world?.tiles_list, expectedTiles))
+        {
+            IsWorldInitializationPending = false;
+        }
+    }
+
+    internal void FailWorldInitialization(WorldTile[] expectedTiles)
+    {
+        if (ReferenceEquals(currentTiles, expectedTiles))
+        {
+            WorldboxGame.I?.GeoRegions?.ClearMembership();
+            IsWorldInitializationPending = false;
         }
     }
 }

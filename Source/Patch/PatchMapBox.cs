@@ -9,8 +9,6 @@ using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
-using Cultiway.Core.EventSystem;
-using Cultiway.Core.EventSystem.Events;
 using HarmonyLib;
 using UnityEngine;
 using Cultiway.Core.Pathfinding;
@@ -75,13 +73,10 @@ internal static class PatchMapBox
     [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.finishMakingWorld))]
     private static void finishMakingWorld_postfix()
     {
-        ModClass.I.TileExtendManager.FitNewWorld();
-        EventSystemHub.Publish(new WorldGeneratedEvent
-        {
-            WorldSeedId = MapBox.current_world_seed_id,
-            Width = MapBox.width,
-            Height = MapBox.height
-        });
+        ModClass.I.TileExtendManager.BeginFitNewWorld(
+            MapBox.current_world_seed_id,
+            MapBox.width,
+            MapBox.height);
     }
     [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.clearWorld))]
     private static void clearWorld_postfix()

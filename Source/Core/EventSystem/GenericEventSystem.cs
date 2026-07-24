@@ -26,6 +26,14 @@ public abstract class GenericEventSystem<TEvent> : BaseEventSystem
         _queue.Enqueue(evt);
     }
 
+    protected void ClearQueuedEvents()
+    {
+        _buffer.Clear();
+        while (_queue.TryDequeue(out _))
+        {
+        }
+    }
+
     protected override void ProcessEvents()
     {
         _buffer.Clear();

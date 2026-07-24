@@ -148,7 +148,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
 
     private static bool TryGetTileExtend(WorldTile worldTile, out TileExtend tileExtend)
     {
-        tileExtend = null;
+        tileExtend = default;
         if (worldTile == null) return false;
         if (ModClass.I?.TileExtendManager == null || !ModClass.I.TileExtendManager.Ready()) return false;
 
@@ -156,7 +156,7 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
         if (tileId < 0 || tileId >= World.world.tiles_list.Length) return false;
 
         tileExtend = ModClass.I.TileExtendManager.Get(tileId);
-        return tileExtend != null;
+        return true;
     }
 
     public override CustomMapModeAsset add(CustomMapModeAsset pAsset)

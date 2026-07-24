@@ -4,9 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Cultiway.Const;
 using Cultiway.Core;
-using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
-using Friflo.Engine.ECS;
 using UnityEngine.UI;
 
 namespace Cultiway.UI.Components
@@ -85,10 +83,7 @@ namespace Cultiway.UI.Components
 
         private static int sortByArea(GeoRegion a, GeoRegion b)
         {
-            return b.E
-                .GetIncomingLinks<BelongToRelation>()
-                .Count()
-                .CompareTo(a.E.GetIncomingLinks<BelongToRelation>().Count());
+            return b.data.TileCount.CompareTo(a.data.TileCount);
         }
     }
 }

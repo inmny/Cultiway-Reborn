@@ -1,6 +1,5 @@
 using System.Text;
 using Cultiway.Const;
-using Cultiway.Core.Components;
 using Cultiway.Core.GeoLib.Components;
 using Cultiway.Core.GeoLib.Systems;
 using Cultiway.Core.Libraries;
@@ -16,6 +15,9 @@ public class Manager
 {
     private SystemRoot _system_root;
     private SystemRoot _basic_geo_system_root;
+    internal SystemRoot LogicSystemRoot => _system_root;
+    internal SystemRoot BasicSystemRoot => _basic_geo_system_root;
+
     internal Manager(WorldboxGame game)
     {
         Game = game;
@@ -24,7 +26,6 @@ public class Manager
 
         _system_root.Add(new ErosionSystem());
         _system_root.Add(new AntiErosionSystem());
-        _system_root.Add(new RiverTrackSystem());
         _basic_geo_system_root.Add(new RecycleDefaultEntitySystem());
     }
 

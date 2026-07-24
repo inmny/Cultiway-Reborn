@@ -9,10 +9,44 @@ namespace Cultiway.Core.EventSystem.Systems;
 /// </summary>
 public class GeoRegionAutoClassifyAndNameEventSystem : GenericEventSystem<GeoRegionGeneratedEvent>
 {
+    private static GeoRegionAutoClassifyAndNameEventSystem instance;
+
     protected override int MaxEventsPerUpdate => 4096;
     private int _currentSeedId;
     private readonly HashSet<string> _usedResolvedNames = new();
     private readonly Dictionary<string, int> _baseNameCounters = new();
+
+    public GeoRegionAutoClassifyAndNameEventSystem()
+    {
+        instance = this;
+    }
+
+    /// <summary>
+    /// 世界分区采用同步提交时，提前清空本轮命名去重状态。
+    /// </summary>
+    internal static void BeginDirectGeneration(int worldSeedId)
+    {
+        if (instance == null)
+        {
+            throw new System.InvalidOperationException("GeoRegion 自动分类系统尚未初始化");
+        }
+
+        instance.ClearQueuedEvents();
+        instance.ResetWorld(worldSeedId);
+    }
+
+    /// <summary>
+    /// 直接完成单个地区的分类和命名，避免把全部事件堆到队列后再集中处理。
+    /// </summary>
+    internal static void FinalizeDirect(GeoRegionGeneratedEvent evt)
+    {
+        if (instance == null)
+        {
+            throw new System.InvalidOperationException("GeoRegion 自动分类系统尚未初始化");
+        }
+
+        instance.HandleEvent(evt);
+    }
 
     protected override void HandleEvent(GeoRegionGeneratedEvent evt)
     {
@@ -24,9 +58,7 @@ public class GeoRegionAutoClassifyAndNameEventSystem : GenericEventSystem<GeoReg
 
         if (evt.WorldSeedId != _currentSeedId)
         {
-            _currentSeedId = evt.WorldSeedId;
-            _usedResolvedNames.Clear();
-            _baseNameCounters.Clear();
+            ResetWorld(evt.WorldSeedId);
         }
 
         var region = WorldboxGame.I?.GeoRegions?.get(evt.RegionId);
@@ -55,6 +87,13 @@ public class GeoRegionAutoClassifyAndNameEventSystem : GenericEventSystem<GeoReg
         var normalizedName = NormalizeDirectionalWord(categoryName);
         region.data.name = MakeUniqueName(normalizedName, evt);
         region.data.custom_name = false;
+    }
+
+    private void ResetWorld(int worldSeedId)
+    {
+        _currentSeedId = worldSeedId;
+        _usedResolvedNames.Clear();
+        _baseNameCounters.Clear();
     }
 
     /// <summary>

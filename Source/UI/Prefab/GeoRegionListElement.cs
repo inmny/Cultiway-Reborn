@@ -1,8 +1,6 @@
 using Cultiway;
 using Cultiway.Core;
-using Cultiway.Core.Components;
 using Cultiway.Debug;
-using Friflo.Engine.ECS;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -46,7 +44,7 @@ public class GeoRegionListElement : WindowListElementBase<GeoRegion, GeoRegionDa
         name_text.text = region.name;
         type_icon.sprite = region.GetCategory().GetSpriteIcon();
         age.setValue(region.getAge());
-        tiles.setValue(region.E.GetIncomingLinks<BelongToRelation>().Count);
+        tiles.setValue(region.data.TileCount);
         pop.setValue(0);
         cities.setValue(0);
     }

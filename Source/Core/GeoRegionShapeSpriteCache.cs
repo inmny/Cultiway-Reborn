@@ -32,7 +32,7 @@ public static class GeoRegionShapeSpriteCache
             if (region.data.TileCount > 0)
             {
                 throw new InvalidOperationException(
-                    $"GeoRegion tile 关系为空但 TileCount 非零: id={region.getID()}, tiles={region.data.TileCount}");
+                    $"GeoRegion tile 索引为空但 TileCount 非零: id={region.getID()}, tiles={region.data.TileCount}");
             }
 
             return region.GetCategory().GetSpriteIcon();

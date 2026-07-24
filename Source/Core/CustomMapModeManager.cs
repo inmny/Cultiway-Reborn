@@ -172,6 +172,8 @@ public class CustomMapModeManager
                 }
         });
         thread.IsBackground = true;
+        thread.Name = "CultiwayMapModePixels";
+        thread.Priority = System.Threading.ThreadPriority.BelowNormal;
         thread.Start();
     }
 
@@ -260,14 +262,14 @@ public class CustomMapModeManager
 
     private static bool TryGetTileExtend(WorldTile tile, out TileExtend tileExtend)
     {
-        tileExtend = null;
+        tileExtend = default;
         if (tile == null || tile.data == null) return false;
         if (ModClass.I?.TileExtendManager == null || !ModClass.I.TileExtendManager.Ready()) return false;
 
         int tileId = tile.data.tile_id;
-        if (tileId < 0) return false;
+        if ((uint)tileId >= (uint)World.world.tiles_list.Length) return false;
 
         tileExtend = ModClass.I.TileExtendManager.Get(tileId);
-        return tileExtend != null;
+        return true;
     }
 }

@@ -39,7 +39,8 @@ public class GeoRegion : MetaObject<GeoRegionData>
     }
     public override bool isReadyForRemoval()
     {
-        return base.isReadyForRemoval() && E.GetIncomingLinks<BelongToRelation>().Count == 0;
+        return base.isReadyForRemoval() &&
+               (WorldboxGame.I?.GeoRegions?.GetTileCount(this) ?? 0) == 0;
     }
     public void BaseSetup()
     {
