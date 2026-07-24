@@ -25,6 +25,7 @@ public class TeleportArraySystem : BaseSystem
     private readonly Dictionary<PortalRequest, RequestState> _states = new();
     private readonly HashSet<long> _pendingActorIds = new();
     private readonly List<PendingTeleport> _pendingTeleports = new();
+    private int _worldGeneration = -1;
 
     public static void RequestRebuild()
     {
@@ -44,6 +45,7 @@ public class TeleportArraySystem : BaseSystem
             return;
         }
 
+        ResetForNewWorld();
         if (_graphDirty)
         {
             RebuildGraph();
@@ -53,6 +55,21 @@ public class TeleportArraySystem : BaseSystem
         double now = SimulationTime.Now;
         ProcessPendingTeleports(now);
         ProcessRequests(now);
+    }
+
+    private void ResetForNewWorld()
+    {
+        int worldGeneration = SimulationTime.Generation;
+        if (_worldGeneration == worldGeneration)
+        {
+            return;
+        }
+
+        _worldGeneration = worldGeneration;
+        _states.Clear();
+        _pendingActorIds.Clear();
+        _pendingTeleports.Clear();
+        _graphDirty = true;
     }
 
     private static void RebuildGraph()

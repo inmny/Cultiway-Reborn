@@ -13,6 +13,17 @@ namespace Cultiway.Core.Pathfinding
     {
         public static PortalManager Instance { get; } = new();
         private List<PortalRequest> _requests = new();
+
+        internal static void ClearWorldState()
+        {
+            foreach (var request in Instance._requests)
+            {
+                request?.Cancel();
+            }
+
+            Instance._requests.Clear();
+        }
+
         protected override void OnUpdateGroup()
         {
             base.OnUpdateGroup();

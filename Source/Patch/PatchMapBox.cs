@@ -6,12 +6,14 @@ using System.Reflection.Emit;
 using ai;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content;
 using Cultiway.Core;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using UnityEngine;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Core.Performance;
 using Cultiway.Core.SkillLibV3.Wanfa;
 
 namespace Cultiway.Patch;
@@ -71,8 +73,10 @@ internal static class PatchMapBox
     }
 
     [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.finishMakingWorld))]
-    private static void finishMakingWorld_postfix()
+    private static void finishMakingWorld_postfix(MapBox __instance)
     {
+        PerformanceSettings.ApplyParallelBudget(__instance);
+        SimulationTime.BindWorld(__instance);
         ModClass.I.TileExtendManager.BeginFitNewWorld(
             MapBox.current_world_seed_id,
             MapBox.width,
@@ -89,6 +93,10 @@ internal static class PatchMapBox
             }
         }
         PathFinder.Instance.Clear();
+        PortalManager.ClearWorldState();
+        PortalRegistry.Instance.Clear();
+        PathRecoveryManager.Clear();
+        TrainTrackRepairSystem.ClearWorldState();
         _actionOnClearWorld?.Invoke();
         ModClass.I.ActorExtendManager.Clear();
         ModClass.I.BookExtendManager.Clear();

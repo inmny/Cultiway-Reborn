@@ -45,6 +45,7 @@ namespace Cultiway.Content
         private readonly Dictionary<long, double> _stationCooldown = new();
         private readonly Dictionary<long, double> _experimentalNextDispatch = new();
         private readonly Dictionary<long, int> _experimentalTargetCursor = new();
+        private int _worldGeneration = -1;
 
         protected override void OnUpdateGroup()
         {
@@ -54,6 +55,7 @@ namespace Cultiway.Content
                 return;
             }
 
+            ResetForNewWorld();
             var snapshot = PortalManager.SnapshotRequests();
             CleanupMissing(snapshot);
             TryScheduleExperimentalRequests(snapshot);
@@ -91,6 +93,21 @@ namespace Cultiway.Content
                         break;
                 }
             }
+        }
+
+        private void ResetForNewWorld()
+        {
+            int worldGeneration = SimulationTime.Generation;
+            if (_worldGeneration == worldGeneration)
+            {
+                return;
+            }
+
+            _worldGeneration = worldGeneration;
+            _rides.Clear();
+            _stationCooldown.Clear();
+            _experimentalNextDispatch.Clear();
+            _experimentalTargetCursor.Clear();
         }
 
         private void CleanupMissing(List<PortalRequest> snapshot)

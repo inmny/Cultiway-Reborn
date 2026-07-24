@@ -15,10 +15,12 @@ namespace Cultiway.Content.Systems.Logic;
 public class ArtifactEquipmentSystem : QuerySystem<ActorBinder, ArtifactLoadoutState>
 {
     private const float EvaluationInterval = 2f;
+    private int _worldGeneration = -1;
     private double _lastEvaluationTime = double.MinValue;
 
     protected override void OnUpdate()
     {
+        ResetForNewWorld();
         if (!GeneralSettings.EnableArtifactSystems) return;
 
         double now = SimulationTime.Now;
@@ -44,5 +46,17 @@ public class ArtifactEquipmentSystem : QuerySystem<ActorBinder, ArtifactLoadoutS
                 actor.E.RemoveComponent<ArtifactLoadoutState>();
             }
         }
+    }
+
+    private void ResetForNewWorld()
+    {
+        int worldGeneration = SimulationTime.Generation;
+        if (_worldGeneration == worldGeneration)
+        {
+            return;
+        }
+
+        _worldGeneration = worldGeneration;
+        _lastEvaluationTime = double.MinValue;
     }
 }

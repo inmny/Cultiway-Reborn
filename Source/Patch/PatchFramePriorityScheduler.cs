@@ -205,6 +205,7 @@ internal static class PatchFramePriorityScheduler
         ModClass.I?.AbortPerformanceSchedulers();
         ModClass.I?.TileExtendManager?.CancelFitNewWorld();
         WorldGeneratedPartitionGeoRegionsEventSystem.CancelPendingWork();
+        SimulationTime.UnbindWorld();
     }
 
     [HarmonyPostfix]

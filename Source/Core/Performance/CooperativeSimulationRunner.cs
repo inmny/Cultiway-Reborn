@@ -91,11 +91,13 @@ internal sealed class CooperativeSimulationRunner
     public long LogicalTicksCompleted => logicalTicksCompleted;
     public float RequestedSpeed => requestedSpeed;
     public float ActualSpeed => actualSpeed;
+    public double AdmissionCredits => admissionCredits;
 
     public void RunFrame(MapBox map, bool allowNewCycles = true)
     {
         FramePriorityGovernor.BeginFrame();
-        ConfigureWorkers(map);
+        JobConst.MAX_ELEMENTS = PerformanceSettings.SimulationBatchSize;
+        PerformanceSettings.ApplyParallelBudget(map);
         lastControlledFrame = UnityEngine.Time.frameCount;
 
         if (Active && !ReferenceEquals(world, map))
@@ -154,6 +156,7 @@ internal sealed class CooperativeSimulationRunner
             ModClass.I?.LogicScheduler.Abort();
         }
 
+        SimulationTime.CancelTick();
         mapLayers.Clear();
         mapModules.Clear();
         worldBehaviours.Clear();
@@ -163,7 +166,6 @@ internal sealed class CooperativeSimulationRunner
         admissionCredits = 0.0;
         ownsCultiwayCycle = false;
         advancingGameDelayedActions = false;
-        SimulationTime.CancelTick();
         PresentationInterpolator.Reset();
         FramePriorityGovernor.SetPhase(SimulationDomain.Vanilla, "idle");
         FramePriorityGovernor.SetPhase(SimulationDomain.Cultiway, "idle");
@@ -182,7 +184,7 @@ internal sealed class CooperativeSimulationRunner
         world = map;
         cycleElapsed = PerformanceSettings.FixedSimulationStepSeconds;
         cyclePaused = map.isPaused();
-        SimulationTime.BeginTick(cycleElapsed);
+        SimulationTime.BeginTick(map, cycleElapsed);
         mapLayers.Clear();
         mapLayers.AddRange(map._map_layers);
         mapModules.Clear();
@@ -357,7 +359,11 @@ internal sealed class CooperativeSimulationRunner
 
                 world.units.checkContainer();
                 JobManagerActors actorManager = world.units.getJobManager();
-                actorRunner.Start(actorManager, actorManager.active_batches, cycleElapsed);
+                actorRunner.Start(
+                    actorManager,
+                    actorManager.active_batches,
+                    cycleElapsed,
+                    world.parallel_options);
                 stage = SimulationStage.Actors;
                 break;
             case SimulationStage.Actors:
@@ -380,7 +386,8 @@ internal sealed class CooperativeSimulationRunner
                 buildingRunner.Start(
                     buildingManager,
                     buildingManager._batches_active,
-                    cycleElapsed);
+                    cycleElapsed,
+                    world.parallel_options);
                 stage = SimulationStage.Buildings;
                 break;
             case SimulationStage.Buildings:
@@ -525,7 +532,7 @@ internal sealed class CooperativeSimulationRunner
 
     private void CompleteCycle()
     {
-        SimulationTime.CompleteTick();
+        SimulationTime.CompleteTick(world);
         mapLayers.Clear();
         mapModules.Clear();
         worldBehaviours.Clear();
@@ -541,15 +548,6 @@ internal sealed class CooperativeSimulationRunner
     private void Advance(SimulationStage nextStage)
     {
         stage = nextStage;
-    }
-
-    private static void ConfigureWorkers(MapBox map)
-    {
-        JobConst.MAX_ELEMENTS = PerformanceSettings.SimulationBatchSize;
-        if (map?.parallel_options != null)
-        {
-            map.parallel_options.MaxDegreeOfParallelism = PerformanceSettings.WorkerCount;
-        }
     }
 
     private void PrepareAdmissionCredits(MapBox map, bool allowNewCycles)
@@ -577,8 +575,11 @@ internal sealed class CooperativeSimulationRunner
         }
 
         // 额度只是“允许开始”的节奏许可，不代表已经创建的逻辑 tick。
-        // 容量饱和后停止生成许可，从源头背压，避免形成必须追赶或丢弃的无限债务。
-        double capacity = Math.Max(1.0, requestedSpeed);
+        // 最多保留一秒的目标 tick，既允许低帧率下一帧启动足量 tick，
+        // 又避免性能不足时形成必须无限追赶的长期债务。
+        double capacity = Math.Max(
+            1.0,
+            PerformanceSettings.BaseSimulationTicksPerSecond * requestedSpeed);
         double generatedCredits =
             Math.Max(0f, UnityEngine.Time.unscaledDeltaTime) *
             PerformanceSettings.BaseSimulationTicksPerSecond *

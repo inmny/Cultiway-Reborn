@@ -19,7 +19,19 @@ public static class PerformanceSettings
     public const float FixedSimulationStepSeconds = 0.02f;
     public const float BaseSimulationTicksPerSecond = 1f / FixedSimulationStepSeconds;
 
-    public static int WorkerCount => Math.Max(1, Environment.ProcessorCount - 2);
+    public static int TotalParallelBudget => Math.Max(1, Environment.ProcessorCount - 2);
+    public static int PathfindingWorkerCount =>
+        Math.Min(4, Math.Max(1, TotalParallelBudget / 4));
+    public static int ForegroundParallelism =>
+        Math.Max(1, TotalParallelBudget - PathfindingWorkerCount);
+
+    internal static void ApplyParallelBudget(MapBox map)
+    {
+        if (map?.parallel_options != null)
+        {
+            map.parallel_options.MaxDegreeOfParallelism = ForegroundParallelism;
+        }
+    }
 
     public static void SwitchFramePriorityScheduler(bool value)
     {
@@ -33,7 +45,7 @@ public static class PerformanceSettings
 
     public static void SetMaxSimulationMillisecondsPerFrame(float value)
     {
-        MaxSimulationMillisecondsPerFrame = Mathf.Clamp(value, 0.5f, 12f);
+        MaxSimulationMillisecondsPerFrame = Mathf.Clamp(value, 0.5f, 1000f);
     }
 
     public static void SwitchPresentationSmoothing(bool value)

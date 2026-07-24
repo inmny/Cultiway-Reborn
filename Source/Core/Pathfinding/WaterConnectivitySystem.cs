@@ -65,7 +65,7 @@ internal static class WaterConnectivityUpdater
         var componentEdges = new ConcurrentBag<(int A, int B)>();
         var componentSet = new ConcurrentDictionary<int, byte>();
 
-        Parallel.ForEach(portals, portal =>
+        Parallel.ForEach(portals, map.parallel_options, portal =>
         {
             // 从portal对应建筑的tiles中，找到海洋地块，并取其region
             var tiles = portal.Portal?.building?.tiles;

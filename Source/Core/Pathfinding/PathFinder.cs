@@ -102,7 +102,7 @@ public class PathFinder
                 return;
             }
 
-            int workerCount = Math.Min(4, PerformanceSettings.WorkerCount);
+            int workerCount = PerformanceSettings.PathfindingWorkerCount;
             for (int i = 0; i < workerCount; i++)
             {
                 var worker = new Thread(WorkerLoop)

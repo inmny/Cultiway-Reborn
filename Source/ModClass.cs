@@ -152,7 +152,7 @@ namespace Cultiway
                 else if (!Game.IsPaused())
                 {
                     float logicDeltaTime = Game.GetLogicDeltaTime();
-                    SimulationTime.AdvanceWithoutTransaction(logicDeltaTime);
+                    SimulationTime.SynchronizeFromWorld(World.world);
                     var logicUpdateTick = new UpdateTick(logicDeltaTime, SimulationTime.NowFloat);
                     GeneralLogicSystems.Update(logicUpdateTick);
                     TileLogicSystems.Update(logicUpdateTick);
@@ -407,7 +407,7 @@ namespace Cultiway
             {
                 W = new EntityStore()
                 {
-                    JobRunner = new ParallelJobRunner(PerformanceSettings.WorkerCount)
+                    JobRunner = new ParallelJobRunner(PerformanceSettings.ForegroundParallelism)
                 };
                 CommandBuffer = W.GetCommandBuffer();
                 CommandBuffer.ReuseBuffer = true;
@@ -508,6 +508,11 @@ namespace Cultiway
             }
             PerformanceBenchmarkRunner.Install(gameObject);
             PathFinder.Instance.UseGenerator(new PortalAwarePathGenerator(PortalRegistry.Instance, new PathfindingConfig()));
+            if (Config.game_loaded && !SmoothLoader.isLoading() && World.world?.map_stats != null)
+            {
+                PerformanceSettings.ApplyParallelBudget(World.world);
+                SimulationTime.BindWorld(World.world);
+            }
         }
 
         private void OnApplicationQuit()

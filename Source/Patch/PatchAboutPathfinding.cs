@@ -538,9 +538,6 @@ namespace Cultiway.Patch
         [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.clearWorld))]
         private static void clearWorld_prefix()
         {
-            PathFinder.Instance.Clear();
-            PortalRegistry.Instance.Clear();
-            PathRecoveryManager.Clear();
             CalibrationStates.Clear();
         }
         [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.Dispose))]

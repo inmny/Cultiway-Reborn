@@ -12,6 +12,7 @@ namespace Cultiway.Content.Systems.Logic;
 /// </summary>
 public class SectConstructionSystem : BaseSystem
 {
+    private int _worldGeneration = -1;
     private double _nextTickTime;
 
     protected override void OnUpdateGroup()
@@ -19,6 +20,7 @@ public class SectConstructionSystem : BaseSystem
         base.OnUpdateGroup();
 
         if (!Config.game_loaded) return;
+        ResetForNewWorld();
         double now = SimulationTime.Now;
         if (now < _nextTickTime) return;
 
@@ -33,5 +35,17 @@ public class SectConstructionSystem : BaseSystem
             sect.RefreshSectJobs();
             SectConstructionService.TryOpen(sect);
         }
+    }
+
+    private void ResetForNewWorld()
+    {
+        int worldGeneration = SimulationTime.Generation;
+        if (_worldGeneration == worldGeneration)
+        {
+            return;
+        }
+
+        _worldGeneration = worldGeneration;
+        _nextTickTime = 0.0;
     }
 }

@@ -217,7 +217,7 @@ internal static class FramePriorityGovernor
         CooperativeSimulationRunner runner = CooperativeSimulationRunner.Instance;
         return string.Format(
             CultureInfo.InvariantCulture,
-            "target={0:0.#}fps budget={1:0.00}ms baselineP90={2:0.00}ms sim={3:0.00}ms(vanilla={4:0.00},cultiway={5:0.00}) phase={6}/{7} cycles={8}/{9} speed={10:0.#}x/{11:0.00}x ticks={12}/{13} longest={14}:{15:0.00}ms",
+            "target={0:0.#}fps budget={1:0.00}ms baselineP90={2:0.00}ms sim={3:0.00}ms(vanilla={4:0.00},cultiway={5:0.00}) phase={6}/{7} cycles={8}/{9} speed={10:0.#}x/{11:0.00}x credits={12:0.0} ticks={13}/{14} longest={15}:{16:0.00}ms workers={17}/{18}/{19}(total/fg/path) world={20}:{21}@{22:0.00}",
             PerformanceSettings.TargetRenderFps,
             frameBudgetMilliseconds,
             baselineP90,
@@ -230,10 +230,17 @@ internal static class FramePriorityGovernor
             CultiwayCyclesCompleted,
             runner.RequestedSpeed,
             runner.ActualSpeed,
+            runner.AdmissionCredits,
             runner.LogicalTicksAdmitted,
             runner.LogicalTicksCompleted,
             longestPhase,
-            longestPhaseMilliseconds);
+            longestPhaseMilliseconds,
+            PerformanceSettings.TotalParallelBudget,
+            PerformanceSettings.ForegroundParallelism,
+            PerformanceSettings.PathfindingWorkerCount,
+            SimulationTime.BoundWorldSeedId,
+            SimulationTime.Generation,
+            SimulationTime.DiagnosticTime);
     }
 
     private static void FinalizePreviousFrame()

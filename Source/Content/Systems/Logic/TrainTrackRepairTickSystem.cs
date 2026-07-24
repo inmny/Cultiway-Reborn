@@ -24,6 +24,15 @@ namespace Cultiway.Content
         private static double _nextTickTime;
         private static bool _dirtyConnectivity;
 
+        internal static void ClearWorldState()
+        {
+            Links.Clear();
+            TileMap.Clear();
+            Pending.Clear();
+            _nextTickTime = 0.0;
+            _dirtyConnectivity = false;
+        }
+
         internal static void RegisterLink(Building stationA, Building stationB, IReadOnlyList<WorldTile> tiles)
         {
             if (stationA == null || stationB == null || tiles == null || tiles.Count == 0)
