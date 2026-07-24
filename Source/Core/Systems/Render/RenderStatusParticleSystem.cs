@@ -47,9 +47,10 @@ public class RenderStatusParticleSystem : QuerySystem<StatusComponent, StatusPar
 
             state.timer += deltaTime;
             var interval = Mathf.Max(settings.interval, 0.05f);
-            while (state.timer >= interval)
+            if (state.timer >= interval)
             {
-                state.timer -= interval;
+                // 表现层不追赶历史发射次数，避免长帧后集中喷发。
+                state.timer %= interval;
                 SpawnForOwners(entity, settings);
             }
         }));

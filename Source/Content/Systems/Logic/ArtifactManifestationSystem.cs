@@ -3,6 +3,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Components;
+using Cultiway.Core.Performance;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -25,7 +26,7 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
 
     protected override void OnUpdate()
     {
-        float time = Time.time;
+        float time = SimulationTime.NowFloat;
         _updates.Clear();
         Query.ForEachEntity((ref ActorBinder binder, ref ArtifactLoadoutState _, Entity owner) =>
         {

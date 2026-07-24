@@ -2,8 +2,8 @@ using Cultiway.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Sects;
 using Cultiway.Core;
+using Cultiway.Core.Performance;
 using Friflo.Engine.ECS.Systems;
-using UnityEngine;
 
 namespace Cultiway.Content.Systems.Logic;
 
@@ -12,16 +12,17 @@ namespace Cultiway.Content.Systems.Logic;
 /// </summary>
 public class SectConstructionSystem : BaseSystem
 {
-    private float _nextTickTime;
+    private double _nextTickTime;
 
     protected override void OnUpdateGroup()
     {
         base.OnUpdateGroup();
 
         if (!Config.game_loaded) return;
-        if (Time.time < _nextTickTime) return;
+        double now = SimulationTime.Now;
+        if (now < _nextTickTime) return;
 
-        _nextTickTime = Time.time + SectConst.SectConstructionCheckInterval;
+        _nextTickTime = now + SectConst.SectConstructionCheckInterval;
 
         SectManager manager = WorldboxGame.I?.Sects;
         if (manager == null) return;

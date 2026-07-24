@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cultiway.Utils;
 using Cultiway;
+using Cultiway.Const;
 using Cultiway.Debug;
 using System.Collections.Generic;
 
@@ -101,13 +102,14 @@ public class PathFinder
                 return;
             }
 
-            int workerCount = Math.Max(1, Math.Min(4, Environment.ProcessorCount - 1));
+            int workerCount = Math.Min(4, PerformanceSettings.WorkerCount);
             for (int i = 0; i < workerCount; i++)
             {
                 var worker = new Thread(WorkerLoop)
                 {
                     IsBackground = true,
-                    Name = $"CultiwayPathFinder-{i}"
+                    Name = $"CultiwayPathFinder-{i}",
+                    Priority = ThreadPriority.BelowNormal
                 };
                 worker.Start();
             }

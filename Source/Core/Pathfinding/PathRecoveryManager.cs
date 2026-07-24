@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading;
+using Cultiway.Core.Performance;
 using UnityEngine;
 
 namespace Cultiway.Core.Pathfinding;
@@ -12,7 +13,7 @@ internal static class PathRecoveryManager
     private sealed class State
     {
         public int Failures;
-        public float NextRetryTime;
+        public double NextRetryTime;
         public PathFailureReason LastReason;
     }
 
@@ -75,7 +76,7 @@ internal static class PathRecoveryManager
             }
 
             var delay = Mathf.Clamp(0.3f * Mathf.Pow(2, state.Failures - 1), 0.3f, 2f);
-            state.NextRetryTime = Time.time + delay;
+            state.NextRetryTime = SimulationTime.Now + delay;
         }
 
         return TryRequest(actor);
@@ -99,9 +100,10 @@ internal static class PathRecoveryManager
             return false;
         }
 
-        if (state != null && Time.time < state.NextRetryTime)
+        double now = SimulationTime.Now;
+        if (state != null && now < state.NextRetryTime)
         {
-            var wait = state.NextRetryTime - Time.time;
+            float wait = (float)(state.NextRetryTime - now);
             actor.timer_action = Mathf.Max(actor.timer_action, wait);
             actor.setNotMoving();
             return true;

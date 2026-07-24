@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using Cultiway.Core;
+using Cultiway.Core.Performance;
 using UnityEngine;
 
 namespace Cultiway.Debug;
@@ -77,6 +79,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private bool _quitOnComplete;
     private bool _configured;
     private bool _initialUnitsSpawned;
+    private int _initialHumansProcessed;
     private float _stateElapsed;
     private float _runElapsed;
     private float _logElapsed;
@@ -110,9 +113,9 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         _mode = mode.Trim();
         _mapSize = GetEnvString("CULTIWAY_PERF_MAP_SIZE", MapSizeLibrary.iceberg);
         _mapTemplate = GetEnvString("CULTIWAY_PERF_MAP_TEMPLATE", Config.current_map_template);
-        _speedId = GetEnvString("CULTIWAY_PERF_SPEED", "x20");
-        _initialHumans = GetEnvInt("CULTIWAY_PERF_INITIAL_HUMANS", 200);
-        _startMeasureUnits = GetEnvInt("CULTIWAY_PERF_START_MEASURE_UNITS", 3000);
+        _speedId = GetEnvString("CULTIWAY_PERF_SPEED", "x40");
+        _initialHumans = GetEnvInt("CULTIWAY_PERF_INITIAL_HUMANS", 10000);
+        _startMeasureUnits = GetEnvInt("CULTIWAY_PERF_START_MEASURE_UNITS", 10000);
         _durationSeconds = GetEnvFloat("CULTIWAY_PERF_DURATION", 180f);
         _warmupMaxSeconds = GetEnvFloat("CULTIWAY_PERF_WARMUP_MAX", 900f);
         _logIntervalSeconds = Math.Max(5f, GetEnvFloat("CULTIWAY_PERF_LOG_INTERVAL", 30f));
@@ -204,17 +207,23 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
     private void UpdateWaitingForWorldLoaded()
     {
-        if (SmoothLoader.isLoading() || _stateElapsed < SetupDelaySeconds)
+        if (SmoothLoader.isLoading() ||
+            _stateElapsed < SetupDelaySeconds ||
+            !IsCultiwayWorldReady())
         {
             return;
         }
 
+        ModClass.LogInfo(
+            $"{Prefix} 世界与 GeoRegion 索引均已就绪 elapsed={_stateElapsed:0.0}s");
         SetState(RunnerState.SpawningInitialUnits);
     }
 
     private void UpdateSpawningInitialUnits()
     {
-        if (SmoothLoader.isLoading() || _stateElapsed < SetupDelaySeconds)
+        if (SmoothLoader.isLoading() ||
+            _stateElapsed < SetupDelaySeconds ||
+            !IsCultiwayWorldReady())
         {
             return;
         }
@@ -224,9 +233,17 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
         if (!_initialUnitsSpawned && _initialHumans > 0)
         {
-            int spawned = SpawnInitialHumans(_initialHumans);
-            _initialUnitsSpawned = true;
-            ModClass.LogInfo($"{Prefix} 初始人类投放 requested={_initialHumans} spawned={spawned} units={CountUnits()} cities={CountCities()}");
+            int requestCount = Math.Min(250, _initialHumans - _initialHumansProcessed);
+            int spawned = SpawnInitialHumans(requestCount);
+            _initialHumansProcessed += requestCount;
+            _initialUnitsSpawned = _initialHumansProcessed >= _initialHumans;
+            if (!_initialUnitsSpawned)
+            {
+                return;
+            }
+
+            ModClass.LogInfo(
+                $"{Prefix} 初始人类投放完成 requested={_initialHumans} units={CountUnits()} cities={CountCities()} lastBatchSpawned={spawned}");
         }
 
         if (_startMeasureUnits > 0 && CountUnits() < _startMeasureUnits)
@@ -339,6 +356,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         AppendBenchSummary(sb, "main", "game_total", "main", 8);
         AppendBenchSummary(sb, "game_total", "game_total", "main", 12, DefaultGameTotalEntries);
         AppendBenchSummary(sb, "actors", "actors", "game_total", 16, DefaultActorEntries);
+        sb.Append("  scheduler ").Append(FramePriorityGovernor.GetDiagnostics()).AppendLine();
         ModClass.LogInfo(sb.ToString());
     }
 
@@ -774,6 +792,16 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private static int CountKingdoms()
     {
         return World.world?.kingdoms?.Count ?? 0;
+    }
+
+    private static bool IsCultiwayWorldReady()
+    {
+        TileExtendManager tileManager = ModClass.I?.TileExtendManager;
+        GeoRegionManager geoRegions = WorldboxGame.I?.GeoRegions;
+        return tileManager != null &&
+               tileManager.Ready() &&
+               !tileManager.IsWorldInitializationPending &&
+               geoRegions?.IsMembershipReady == true;
     }
 
     private static string FormatMs(double seconds)

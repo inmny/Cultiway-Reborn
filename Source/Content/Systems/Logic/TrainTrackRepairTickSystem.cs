@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEngine;
 using Friflo.Engine.ECS.Systems;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Core.Performance;
 using Cultiway.Utils.Extension;
 using Cultiway.Core.BuildingComponents;
 
@@ -20,7 +21,7 @@ namespace Cultiway.Content
         private static readonly Dictionary<LinkKey, LinkInfo> Links = new();
         private static readonly Dictionary<int, HashSet<LinkKey>> TileMap = new();
         private static readonly HashSet<LinkKey> Pending = new();
-        private static float _nextTickTime;
+        private static double _nextTickTime;
         private static bool _dirtyConnectivity;
 
         internal static void RegisterLink(Building stationA, Building stationB, IReadOnlyList<WorldTile> tiles)
@@ -39,7 +40,7 @@ namespace Cultiway.Content
             var info = new LinkInfo(key, stationA.id, stationB.id, new List<WorldTile>(tiles))
             {
                 Status = LinkStatus.Normal,
-                NextRepairTime = 0f,
+                NextRepairTime = 0.0,
                 FailCount = 0
             };
             Links[key] = info;
@@ -72,7 +73,7 @@ namespace Cultiway.Content
                 }
 
                 link.Status = LinkStatus.Pending;
-                link.NextRepairTime = Time.time;
+                link.NextRepairTime = SimulationTime.Now;
                 Pending.Add(key);
             }
         }
@@ -311,7 +312,7 @@ namespace Cultiway.Content
             public long StationAId { get; }
             public long StationBId { get; }
             public List<WorldTile> Tiles { get; }
-            public float NextRepairTime { get; set; }
+            public double NextRepairTime { get; set; }
             public int FailCount { get; set; }
             public LinkStatus Status { get; set; }
         }
@@ -372,12 +373,13 @@ namespace Cultiway.Content
                 return;
             }
 
-            if (Time.time < _nextTickTime)
+            double now = SimulationTime.Now;
+            if (now < _nextTickTime)
             {
                 return;
             }
 
-            _nextTickTime = Time.time + RepairInterval;
+            _nextTickTime = now + RepairInterval;
             int handled = 0;
 
             foreach (var key in Pending.ToList())
@@ -399,7 +401,7 @@ namespace Cultiway.Content
                     continue;
                 }
 
-                if (link.NextRepairTime > Time.time)
+                if (link.NextRepairTime > now)
                 {
                     continue;
                 }
@@ -409,7 +411,7 @@ namespace Cultiway.Content
                 {
                     link.Status = LinkStatus.Normal;
                     link.FailCount = 0;
-                    link.NextRepairTime = Time.time + Cooldown;
+                    link.NextRepairTime = now + Cooldown;
                     Pending.Remove(key);
                     _dirtyConnectivity = true;
                 }
@@ -417,7 +419,7 @@ namespace Cultiway.Content
                 {
                     link.FailCount++;
                     link.Status = LinkStatus.Pending;
-                    link.NextRepairTime = Time.time + RetryDelay;
+                    link.NextRepairTime = now + RetryDelay;
                     if (link.FailCount >= MaxFail)
                     {
                         link.Status = LinkStatus.Disabled;

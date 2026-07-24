@@ -27,10 +27,14 @@ public class StatusTickSystem : QuerySystem<StatusComponent, StatusTickState>
 
             var interval = Mathf.Max(settings.interval, 0.05f);
             tickState.Timer += deltaTime;
-            while (tickState.Timer >= interval)
+            if (tickState.Timer >= interval)
             {
-                tickState.Timer -= interval;
-                _pendingTicks.Add(new PendingTick(entity, settings.Action, interval));
+                int dueTicks = Mathf.FloorToInt(tickState.Timer / interval);
+                tickState.Timer -= dueTicks * interval;
+                for (int i = 0; i < dueTicks; i++)
+                {
+                    _pendingTicks.Add(new PendingTick(entity, settings.Action, interval));
+                }
             }
         }));
 

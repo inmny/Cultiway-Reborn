@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Core.BuildingComponents;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Core.Performance;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -49,7 +50,7 @@ public class TeleportArraySystem : BaseSystem
             _graphDirty = false;
         }
 
-        var now = Time.time;
+        double now = SimulationTime.Now;
         ProcessPendingTeleports(now);
         ProcessRequests(now);
     }
@@ -147,7 +148,7 @@ public class TeleportArraySystem : BaseSystem
         return unchecked(-(buildingId * PortalEntryIdStride + index + 1));
     }
 
-    private void ProcessRequests(float now)
+    private void ProcessRequests(double now)
     {
         var requests = PortalManager.SnapshotRequests()
             .Where(r => r != null && !r.IsCompleted() && r.PortalType == Portals.TeleportArray)
@@ -170,7 +171,7 @@ public class TeleportArraySystem : BaseSystem
         }
     }
 
-    private void ProcessRequest(PortalRequest request, RequestState state, float now)
+    private void ProcessRequest(PortalRequest request, RequestState state, double now)
     {
         if (request.Portals == null || request.Portals.Count == 0)
         {
@@ -214,7 +215,7 @@ public class TeleportArraySystem : BaseSystem
         }
     }
 
-    private void ExecuteBatch(PortalRequest request, PortalRequest.SinglePortal entry, float now)
+    private void ExecuteBatch(PortalRequest request, PortalRequest.SinglePortal entry, double now)
     {
         foreach (var passenger in entry.ToLoad.ToList())
         {
@@ -252,7 +253,7 @@ public class TeleportArraySystem : BaseSystem
     }
 
     private void QueueTeleport(PortalRequest request, PortalRequest.SinglePortal entry, PortalRequest.SinglePortal exit,
-        Actor passenger, WorldTile targetTile, float now)
+        Actor passenger, WorldTile targetTile, double now)
     {
         var sourceTile = entry.GetLoadTile(passenger) ?? passenger.current_tile ?? entry.PortalTile ??
                          entry.PortalBuilding?.getConstructionTile();
@@ -268,7 +269,7 @@ public class TeleportArraySystem : BaseSystem
         SpawnChargeEffects(sourceTile, targetTile, passenger);
     }
 
-    private void ProcessPendingTeleports(float now)
+    private void ProcessPendingTeleports(double now)
     {
         for (var i = _pendingTeleports.Count - 1; i >= 0; i--)
         {
@@ -468,19 +469,19 @@ public class TeleportArraySystem : BaseSystem
 
     private sealed class RequestState
     {
-        public RequestState(float createdAt)
+        public RequestState(double createdAt)
         {
             CreatedAt = createdAt;
         }
 
-        public float CreatedAt { get; }
-        public Dictionary<long, float> FirstWaitingAt { get; } = new();
+        public double CreatedAt { get; }
+        public Dictionary<long, double> FirstWaitingAt { get; } = new();
     }
 
     private sealed class PendingTeleport
     {
         public PendingTeleport(PortalRequest request, PortalRequest.SinglePortal entry, PortalRequest.SinglePortal exit,
-            Actor passenger, long actorId, WorldTile sourceTile, WorldTile targetTile, float now)
+            Actor passenger, long actorId, WorldTile sourceTile, WorldTile targetTile, double now)
         {
             Request = request;
             Entry = entry;
@@ -500,7 +501,7 @@ public class TeleportArraySystem : BaseSystem
         public long ActorId { get; }
         public WorldTile SourceTile { get; }
         public WorldTile TargetTile { get; }
-        public float TransferAt { get; }
-        public float NextPulseAt { get; set; }
+        public double TransferAt { get; }
+        public double NextPulseAt { get; set; }
     }
 }

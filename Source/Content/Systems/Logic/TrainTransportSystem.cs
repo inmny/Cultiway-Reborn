@@ -4,6 +4,7 @@ using System.Linq;
 using ai;
 using Cultiway.Core.BuildingComponents;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Core.Performance;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -31,18 +32,18 @@ namespace Cultiway.Content
             public PortalRequest Request;
             public Actor Train;
             public RideStage Stage;
-            public float PrepareDeadline;
-            public float StopBaseDeadline;
-            public float StopHardDeadline;
-            public float StopStartTime;
+            public double PrepareDeadline;
+            public double StopBaseDeadline;
+            public double StopHardDeadline;
+            public double StopStartTime;
             public List<WorldTile> CurrentTrack;
             public PortalRequest.SinglePortal CurrentPortal;
             public readonly HashSet<Actor> Carrying = new();
         }
 
         private readonly Dictionary<PortalRequest, RideState> _rides = new();
-        private readonly Dictionary<long, float> _stationCooldown = new();
-        private readonly Dictionary<long, float> _experimentalNextDispatch = new();
+        private readonly Dictionary<long, double> _stationCooldown = new();
+        private readonly Dictionary<long, double> _experimentalNextDispatch = new();
         private readonly Dictionary<long, int> _experimentalTargetCursor = new();
 
         protected override void OnUpdateGroup()
@@ -72,7 +73,7 @@ namespace Cultiway.Content
                     {
                         Request = request,
                         Stage = RideStage.Preparing,
-                        PrepareDeadline = Time.time + TrainConfig.PrepareWaitMax
+                        PrepareDeadline = SimulationTime.Now + TrainConfig.PrepareWaitMax
                     };
                     _rides[request] = state;
                 }
@@ -143,7 +144,7 @@ namespace Cultiway.Content
             }
 
             // 乘客太久未到，不再等待。
-            var now = Time.time;
+            double now = SimulationTime.Now;
             var readyAt = Math.Max(state.PrepareDeadline, GetStationCooldown(origin.PortalBuilding.id));
             if (now < readyAt)
             {
@@ -201,7 +202,7 @@ namespace Cultiway.Content
             DropPassengers(state, portal);
             BoardPassengers(state, portal);
 
-            var now = Time.time;
+            double now = SimulationTime.Now;
             bool baseElapsed = now >= state.StopBaseDeadline;
             bool hardElapsed = now >= state.StopHardDeadline;
             bool loadFinished = portal.ToLoad.Count == 0;
@@ -280,7 +281,7 @@ namespace Cultiway.Content
             trainComp.Hide();
             state.Stage = RideStage.StationStop;
             state.Request.State = PortalRequestState.WaitingPassengers;
-            state.StopStartTime = Time.time;
+            state.StopStartTime = SimulationTime.Now;
             state.StopBaseDeadline = state.StopStartTime + TrainConfig.StopBaseWait;
             state.StopHardDeadline = state.StopBaseDeadline + TrainConfig.StopExtraWaitMax;
         }
@@ -440,7 +441,7 @@ namespace Cultiway.Content
                 return;
             }
 
-            var now = Time.time;
+            double now = SimulationTime.Now;
             var interval = Math.Max(TrainConfig.MinDepartInterval, TrainConfig.ExperimentalTimedDispatchInterval);
             var aliveStationIds = new HashSet<long>();
             foreach (var station in stationSnapshots)
@@ -549,13 +550,13 @@ namespace Cultiway.Content
             return false;
         }
 
-        private float GetStationCooldown(long stationId)
+        private double GetStationCooldown(long stationId)
         {
             if (_stationCooldown.TryGetValue(stationId, out var ready))
             {
                 return ready;
             }
-            return 0f;
+            return 0.0;
         }
 
         private static bool IsPortalAlive(PortalRequest.SinglePortal portal)

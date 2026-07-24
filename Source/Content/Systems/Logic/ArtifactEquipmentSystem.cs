@@ -5,6 +5,7 @@ using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.Performance;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -20,7 +21,7 @@ public class ArtifactEquipmentSystem : QuerySystem<ActorBinder, ArtifactLoadoutS
     {
         if (!GeneralSettings.EnableArtifactSystems) return;
 
-        double now = World.world.getCurSessionTime();
+        double now = SimulationTime.Now;
         if (_lastEvaluationTime != double.MinValue && now - _lastEvaluationTime < EvaluationInterval) return;
         
         float elapsed = _lastEvaluationTime == double.MinValue

@@ -15,6 +15,7 @@ using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Localization;
 using Cultiway.Core.Logging;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Core.Performance;
 using Cultiway.Core.Persistence;
 using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Core.SkillLibV3.Wanfa;
@@ -72,23 +73,51 @@ namespace Cultiway
             L.PostInit();
         }
 
-        private float accum_time = 0;
         private float time_for_log_perf = 0;
         private float time_for_save_loggers = 0;
+        private float time_for_scheduler_diagnostics = 0;
+        private readonly CultiwayLogicScheduler logicScheduler = new();
+        private bool schedulerHookFailureReported;
+        internal CultiwayLogicScheduler LogicScheduler => logicScheduler;
 
         private void Update()
         {
-            if (!Game.IsLoaded()) return; 
-            //DebugConfig.setOption(DebugOption.ParallelJobsUpdater, false);
-            var render_update_tick = new UpdateTick(Game.GetRenderDeltaTime(), Game.GetGameTime());
+            if (!Game.IsLoaded()) return;
+            if (SmoothLoader.isLoading())
+            {
+                logicScheduler.Abort();
+                return;
+            }
+
+            long hostMeasurement = FramePriorityGovernor.StartHostMeasurement();
             try
             {
+                if (PerformanceSettings.EnableFramePriorityScheduler &&
+                    !FramePriorityGovernor.CriticalHookInstalled)
+                {
+                    if (!schedulerHookFailureReported)
+                    {
+                        schedulerHookFailureReported = true;
+                        LogError("帧优先调度器未能接管原版模拟入口，已暂停游戏。");
+                    }
+
+                    Game.Pause();
+                    return;
+                }
+
+                var render_update_tick = new UpdateTick(Time.unscaledDeltaTime, Game.GetGameTime());
+                GeneralRenderSystems.Update(render_update_tick);
+                TileRenderSystems.Update(render_update_tick);
+
                 time_for_save_loggers += Time.deltaTime;
                 if (time_for_save_loggers > 60)
                 {
                     time_for_save_loggers = 0;
                     PersistentLogger.Save();
                 }
+                bool initializationPending =
+                    TileExtendManager.IsWorldInitializationPending ||
+                    WorldGeneratedPartitionGeoRegionsEventSystem.BlocksSimulation;
                 if (!Game.IsPaused())
                 {
                     time_for_log_perf += Time.deltaTime;
@@ -97,36 +126,70 @@ namespace Cultiway
                         time_for_log_perf = 0;
                         LogPerf();
                     }
-
-                    if (TimeScales.precise_simulate)
-                        accum_time += Mathf.Sqrt(Config.time_scale_asset.multiplier);
-                    var logic_update_tick = new UpdateTick(Game.GetLogicDeltaTime(), Game.GetGameTime());
-                    if (TimeScales.precise_simulate)
-                    {
-                        while (accum_time > 1)
-                        {
-                            accum_time -= 1;
-                            GeneralLogicSystems.Update(logic_update_tick);
-                            TileLogicSystems.Update(logic_update_tick);
-                            Geo.UpdateLogic(logic_update_tick);
-                        }
-                    }
-                    else
-                    {
-                        GeneralLogicSystems.Update(render_update_tick);
-                        TileLogicSystems.Update(render_update_tick);
-                        Geo.UpdateLogic(render_update_tick);
-                    }
                 }
 
-                GeneralRenderSystems.Update(render_update_tick);
-                TileRenderSystems.Update(render_update_tick);
+                CooperativeSimulationRunner simulationRunner = CooperativeSimulationRunner.Instance;
+                bool runnerControlsLogic =
+                    PerformanceSettings.EnableFramePriorityScheduler ||
+                    simulationRunner.Active ||
+                    simulationRunner.ControlledThisFrame ||
+                    logicScheduler.Active;
+                if (initializationPending)
+                {
+                    if (!simulationRunner.Active)
+                    {
+                        var initializationTick = new UpdateTick(0f, SimulationTime.NowFloat);
+                        logicScheduler.RunFrame(initializationTick, true);
+                    }
+                }
+                else if (runnerControlsLogic)
+                {
+                    if (logicScheduler.Active && !simulationRunner.OwnsCultiwayCycle)
+                    {
+                        logicScheduler.RunFrame(default, false);
+                    }
+                }
+                else if (!Game.IsPaused())
+                {
+                    float logicDeltaTime = Game.GetLogicDeltaTime();
+                    SimulationTime.AdvanceWithoutTransaction(logicDeltaTime);
+                    var logicUpdateTick = new UpdateTick(logicDeltaTime, SimulationTime.NowFloat);
+                    GeneralLogicSystems.Update(logicUpdateTick);
+                    TileLogicSystems.Update(logicUpdateTick);
+                    Geo.UpdateLogic(logicUpdateTick);
+                }
+
+                if (PerformanceSettings.EnableSchedulerDiagnostics)
+                {
+                    time_for_scheduler_diagnostics += Time.unscaledDeltaTime;
+                    if (time_for_scheduler_diagnostics >= 10f)
+                    {
+                        time_for_scheduler_diagnostics = 0f;
+                        LogInfo("[FramePriority] " + FramePriorityGovernor.GetDiagnostics());
+                    }
+                }
             }
             catch (Exception e)
             {
                 LogError(SystemUtils.GetFullExceptionMessage(e));
+                logicScheduler.Abort();
+                FramePriorityGovernor.MarkFault(e);
                 Game.Pause();
             }
+            finally
+            {
+                FramePriorityGovernor.EndHostMeasurement(hostMeasurement);
+            }
+        }
+
+        internal void AbortPerformanceSchedulers()
+        {
+            logicScheduler.Abort();
+        }
+
+        internal void DrainPerformanceSchedulers()
+        {
+            logicScheduler.DrainToBoundary();
         }
 
         public void LogPerf(bool force = false)
@@ -331,6 +394,7 @@ namespace Cultiway
             SyncCultiLogFromPlayerConfig(true);
 
             Game = new WorldboxGame();
+            FramePriorityGovernor.Initialize();
             Try.Start(() =>
             {
                 L = new Core.Libraries.Manager();
@@ -343,7 +407,7 @@ namespace Cultiway
             {
                 W = new EntityStore()
                 {
-                    JobRunner = new ParallelJobRunner(Environment.ProcessorCount)
+                    JobRunner = new ParallelJobRunner(PerformanceSettings.WorkerCount)
                 };
                 CommandBuffer = W.GetCommandBuffer();
                 CommandBuffer.ReuseBuffer = true;
