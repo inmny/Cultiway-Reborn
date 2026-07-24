@@ -81,6 +81,42 @@
             "Callback": "GeneralSettings:SwitchTrainExperimentalTimedDispatch"
         }
     ],
+    "PerformanceSettings": [
+        {
+            "Id": "ENABLE_FRAME_PRIORITY_SCHEDULER",
+            "Type": "SWITCH",
+            "BoolVal": false,
+            "Callback": "PerformanceSettings:SwitchFramePriorityScheduler"
+        },
+        {
+            "Id": "TARGET_RENDER_FPS",
+            "Type": "SLIDER",
+            "FloatVal": 60,
+            "MinFloatVal": 30,
+            "MaxFloatVal": 144,
+            "Callback": "PerformanceSettings:SetTargetRenderFps"
+        },
+        {
+            "Id": "MAX_SIMULATION_MS_PER_FRAME",
+            "Type": "SLIDER",
+            "FloatVal": 16,
+            "MinFloatVal": 0.5,
+            "MaxFloatVal": 1000,
+            "Callback": "PerformanceSettings:SetMaxSimulationMillisecondsPerFrame"
+        },
+        {
+            "Id": "ENABLE_PRESENTATION_SMOOTHING",
+            "Type": "SWITCH",
+            "BoolVal": false,
+            "Callback": "PerformanceSettings:SwitchPresentationSmoothing"
+        },
+        {
+            "Id": "ENABLE_SCHEDULER_DIAGNOSTICS",
+            "Type": "SWITCH",
+            "BoolVal": false,
+            "Callback": "PerformanceSettings:SwitchSchedulerDiagnostics"
+        }
+    ],
     "AIGCSettings": [
         {
             "Id": "BASE_URL",

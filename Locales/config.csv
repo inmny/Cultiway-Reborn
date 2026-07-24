@@ -24,6 +24,17 @@ ENABLE_NATURAL_WAKAN_RESTORE,启用自然灵气吸收
 ENABLE_NATURAL_WAKAN_RESTORE Description,启用修士按月从脚下地块自然吸收灵气
 ENABLE_NATURAL_MAGIC_RESTORE,启用魔法资源自然恢复
 ENABLE_NATURAL_MAGIC_RESTORE Description,启用魔法师按月自然恢复 mana 和精神力；精神力只会恢复到上限的六成
+PerformanceSettings,性能设置
+ENABLE_FRAME_PRIORITY_SCHEDULER,启用帧优先调度
+ENABLE_FRAME_PRIORITY_SCHEDULER Description,在完整执行每个逻辑 tick 的前提下将模拟工作分摊到多个渲染帧，优先维持画面帧率
+TARGET_RENDER_FPS,目标渲染帧率
+TARGET_RENDER_FPS Description,调度器尝试维持的目标帧率；目标越高，每帧可用于模拟的时间越少
+MAX_SIMULATION_MS_PER_FRAME,每帧最大模拟时间
+MAX_SIMULATION_MS_PER_FRAME Description,单个渲染帧允许用于模拟的最大时间，单位为毫秒；数值越高模拟更快，但更容易降低帧率
+ENABLE_PRESENTATION_SMOOTHING,启用角色表现平滑
+ENABLE_PRESENTATION_SMOOTHING Description,对可见角色的渲染位置进行预测和平滑处理；关闭后直接使用逻辑位置，仅影响画面表现
+ENABLE_SCHEDULER_DIAGNOSTICS,启用调度诊断日志
+ENABLE_SCHEDULER_DIAGNOSTICS Description,定期输出帧预算、当前阶段、实际模拟速度和逻辑 tick 完成情况，供性能诊断使用
 AIGCSettings,AI生成内容相关设置
 BASE_URL,模型供应Base URL
 API_KEY,API密钥
