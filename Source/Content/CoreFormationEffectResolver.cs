@@ -53,9 +53,19 @@ public static class CoreFormationEffectResolver
     public static void Resolve(ActorExtend actor, IList<CoreFormationResolvedEffect> output)
     {
         if (output == null) throw new ArgumentNullException(nameof(output));
-        output.Clear();
-        if (!TryGetFormation(actor, out FormationSource source)) return;
+        if (!TryGetFormation(actor, out FormationSource source))
+        {
+            output.Clear();
+            return;
+        }
+        Resolve(source, output);
+    }
 
+    /// <summary>使用已取得的形成来源解析效果，避免同一次推进重复查询角色组件。</summary>
+    internal static void Resolve(in FormationSource source, IList<CoreFormationResolvedEffect> output)
+    {
+        if (output == null) throw new ArgumentNullException(nameof(output));
+        output.Clear();
         CoreFormationAtomState[] states = source.Snapshot.atoms ?? [];
         for (var i = 0; i < states.Length; i++)
         {
@@ -86,16 +96,32 @@ public static class CoreFormationEffectResolver
     public static bool Synchronize(ActorExtend actor, IList<CoreFormationResolvedEffect> resolved = null)
     {
         if (actor == null || actor.Base == null || actor.Base.isRekt()) return false;
+        if (!TryGetFormation(actor, out FormationSource source))
+        {
+            RemoveRuntime(actor);
+            return false;
+        }
         if (resolved == null)
         {
             using var effects = new ListPool<CoreFormationResolvedEffect>();
-            Resolve(actor, effects);
-            return Synchronize(actor, effects);
+            Resolve(source, effects);
+            return Synchronize(actor, source, effects);
         }
-        if (!TryGetFormation(actor, out FormationSource source) || resolved.Count == 0)
+
+        return Synchronize(actor, source, resolved);
+    }
+
+    /// <summary>使用同一次推进取得的形成来源同步运行时，保留各效果族已有状态。</summary>
+    internal static bool Synchronize(
+        ActorExtend actor,
+        in FormationSource source,
+        IList<CoreFormationResolvedEffect> resolved)
+    {
+        if (actor == null || actor.Base == null || actor.Base.isRekt()) return false;
+        if (resolved == null) throw new ArgumentNullException(nameof(resolved));
+        if (resolved.Count == 0)
         {
-            if (actor.E.HasComponent<CoreFormationEffectRuntime>())
-                actor.E.RemoveComponent<CoreFormationEffectRuntime>();
+            RemoveRuntime(actor);
             return false;
         }
 
@@ -127,6 +153,12 @@ public static class CoreFormationEffectResolver
         else
             actor.E.AddComponent(runtime);
         return true;
+    }
+
+    private static void RemoveRuntime(ActorExtend actor)
+    {
+        if (actor.E.HasComponent<CoreFormationEffectRuntime>())
+            actor.E.RemoveComponent<CoreFormationEffectRuntime>();
     }
 
     /// <summary>判断已有运行时是否已经与当前形成签名及效果族解析结果一致。</summary>

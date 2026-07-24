@@ -174,15 +174,17 @@ internal static class CoreFormationEffectRuntimeBridge
     internal static void Advance(ActorExtend owner, float deltaTime)
     {
         if (deltaTime <= 0f) return;
-        if (!CoreFormationEffectResolver.TryGetFormation(owner, out _))
+        if (!CoreFormationEffectResolver.TryGetFormation(
+                owner,
+                out CoreFormationEffectResolver.FormationSource source))
         {
             if (owner.E.HasComponent<CoreFormationEffectRuntime>())
                 owner.E.RemoveComponent<CoreFormationEffectRuntime>();
             return;
         }
         using var effects = new ListPool<CoreFormationResolvedEffect>();
-        CoreFormationEffectResolver.Resolve(owner, effects);
-        if (!CoreFormationEffectResolver.Synchronize(owner, effects)) return;
+        CoreFormationEffectResolver.Resolve(source, effects);
+        if (!CoreFormationEffectResolver.Synchronize(owner, source, effects)) return;
         ref CoreFormationEffectRuntime runtime = ref owner.E.GetComponent<CoreFormationEffectRuntime>();
         for (var i = 0; i < runtime.entries.Length; i++)
         {
