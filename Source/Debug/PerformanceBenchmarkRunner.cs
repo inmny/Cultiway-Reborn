@@ -31,27 +31,6 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         "end_checks"
     };
 
-    private static readonly string[] DefaultActorEntries =
-    {
-        "update_jobs_parallel",
-        "b6_update_ai",
-        "b5_checkPathMovement",
-        "u10_checkSmoothMovement",
-        "b3_findEnemyTarget",
-        "b6_0_update_decision",
-        "u5_curTileAction",
-        "u1_checkInside",
-        "b2_checkCurrentEnemyTarget",
-        "b1_checkUnderForce",
-        "b4_checkTaskVerifier",
-        "update_stats",
-        "update_timers",
-        "update_visibility",
-        "prepare",
-        "clear_parallel_results",
-        "apply_parallel_results"
-    };
-
     private enum RunnerState
     {
         WaitingForGame,
@@ -355,8 +334,8 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
         AppendBenchSummary(sb, "main", "game_total", "main", 8);
         AppendBenchSummary(sb, "game_total", "game_total", "main", 12, DefaultGameTotalEntries);
-        AppendBenchSummary(sb, "actors", "actors", "game_total", 16, DefaultActorEntries);
         sb.Append("  scheduler ").Append(FramePriorityGovernor.GetDiagnostics()).AppendLine();
+        SimulationTickBenchmark.AppendReport(sb, 12, 10);
         ModClass.LogInfo(sb.ToString());
     }
 

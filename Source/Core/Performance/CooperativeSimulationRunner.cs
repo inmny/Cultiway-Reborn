@@ -162,6 +162,7 @@ internal sealed class CooperativeSimulationRunner
         actorRunner.Abort();
         buildingRunner.Abort();
         maintenanceRunner.Abort();
+        SimulationTickBenchmark.AbortCurrentTick();
         if (ownsCultiwayCycle)
         {
             ModClass.I?.LogicScheduler.Abort();
@@ -187,9 +188,17 @@ internal sealed class CooperativeSimulationRunner
 
     public void DrainToBoundary()
     {
-        while (Active)
+        SimulationTickBenchmark.Suspend();
+        try
         {
-            ExecuteCurrentStage();
+            while (Active)
+            {
+                ExecuteCurrentStage();
+            }
+        }
+        finally
+        {
+            SimulationTickBenchmark.Resume();
         }
     }
 
@@ -219,6 +228,7 @@ internal sealed class CooperativeSimulationRunner
     private void StartSimulationPass()
     {
         SimulationTime.BeginTick(world, cycleElapsed);
+        SimulationTickBenchmark.BeginTick(cycleElapsed, cycleUsesVanillaLargeStep);
         mapLayers.Clear();
         mapLayers.AddRange(world._map_layers);
         mapModules.Clear();
@@ -577,6 +587,7 @@ internal sealed class CooperativeSimulationRunner
     private void CompleteCycle()
     {
         SimulationTime.CompleteTick(world);
+        SimulationTickBenchmark.MarkTickCompleted();
         simulatedSecondsCompleted += cycleElapsed;
         mapLayers.Clear();
         mapModules.Clear();

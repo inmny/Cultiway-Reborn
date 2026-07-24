@@ -165,7 +165,11 @@ namespace Cultiway
                     if (time_for_scheduler_diagnostics >= 10f)
                     {
                         time_for_scheduler_diagnostics = 0f;
-                        LogInfo("[FramePriority] " + FramePriorityGovernor.GetDiagnostics());
+                        var diagnostics = new StringBuilder();
+                        diagnostics.Append("[FramePriority] ")
+                            .Append(FramePriorityGovernor.GetDiagnostics());
+                        SimulationTickBenchmark.AppendReport(diagnostics);
+                        LogInfo(diagnostics.ToString());
                     }
                 }
             }
@@ -473,6 +477,7 @@ namespace Cultiway
             _patch.Init();
             SkillV3.Init();
             _content.Init();
+            SimulationTickBenchmark.Initialize();
             Wanfa = new WanfaPavilionService();
             Wanfa.Init();
             Content.UI.Manager.Instance.InitWanfa(Wanfa);

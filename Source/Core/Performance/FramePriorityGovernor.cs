@@ -61,6 +61,7 @@ internal static class FramePriorityGovernor
 
     public static void BeginFrame()
     {
+        SimulationTickBenchmark.SyncCaptureState();
         int currentFrame = Time.frameCount;
         if (frameId == currentFrame)
         {
@@ -119,6 +120,8 @@ internal static class FramePriorityGovernor
 
     public static void RunPhase(SimulationDomain domain, string phase, Action action)
     {
+        SimulationTickBenchmark.TickCapture benchmarkTick =
+            SimulationTickBenchmark.CapturePhaseTarget();
         long startedAt = Stopwatch.GetTimestamp();
         simulationPhaseDepth++;
         double elapsed;
@@ -160,6 +163,9 @@ internal static class FramePriorityGovernor
         {
             PhaseEstimates[phase] = Math.Max(PerformanceSettings.MinimumSliceMilliseconds, elapsed);
         }
+
+        SimulationTickBenchmark.RecordPhase(benchmarkTick, domain, phase, elapsed);
+        SimulationTickBenchmark.FlushCompleted();
     }
 
     public static void SetPhase(SimulationDomain domain, string phase)

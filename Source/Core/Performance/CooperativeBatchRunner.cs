@@ -27,6 +27,7 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
     private bool parallelEnabled;
     private int parallelGroupSize;
     private ParallelOptions parallelOptions;
+    private bool collectJobBenchmarks;
 
     public CooperativeBatchRunner(string phasePrefix)
     {
@@ -59,7 +60,12 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
             batches.Sort(comparison);
         }
 
-        manager.clearJobBenchmarks();
+        collectJobBenchmarks = SimulationTickBenchmark.IsCapturing;
+        if (collectJobBenchmarks)
+        {
+            manager.clearJobBenchmarks();
+        }
+
         batchIndex = 0;
         stage = RunnerStage.Pre;
     }
@@ -127,12 +133,19 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
                     stage = RunnerStage.Finish;
                     continue;
                 case RunnerStage.Finish:
-                    manager.saveJobBenchmarks();
+                    if (collectJobBenchmarks)
+                    {
+                        SimulationTickBenchmark.RecordBatchJobs<TBatch, TObject>(
+                            manager.benchmark_id,
+                            batches);
+                    }
+
                     batches.Clear();
                     manager = null;
                     parallelOptions = null;
                     parallelEnabled = false;
                     parallelGroupSize = 0;
+                    collectJobBenchmarks = false;
                     stage = RunnerStage.Idle;
                     return true;
                 default:
@@ -148,6 +161,7 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         parallelOptions = null;
         parallelEnabled = false;
         parallelGroupSize = 0;
+        collectJobBenchmarks = false;
         stage = RunnerStage.Idle;
         batchIndex = 0;
     }
