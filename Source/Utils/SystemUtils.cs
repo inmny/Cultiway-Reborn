@@ -5,6 +5,16 @@ namespace Cultiway.Utils;
 
 public static class SystemUtils
 {
+    private const string DeveloperUserName = "Inmny";
+
+    public static bool IsUnderDeveloper()
+    {
+        return string.Equals(
+            Environment.UserName,
+            DeveloperUserName,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
     public static string GetFullExceptionMessage(Exception e)
     {
         StringBuilder sb = new();

@@ -20,18 +20,26 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
 
     private readonly List<TBatch> batches = new();
     private readonly string phasePrefix;
+    private readonly ICooperativeBatchPostRunner<TBatch, TObject> postRunner;
+    private readonly Action<int> runCurrentParallelJob;
     private JobManagerBase<TBatch, TObject> manager;
     private RunnerStage stage;
     private float elapsed;
     private int batchIndex;
+    private int parallelJobIndex;
     private bool parallelEnabled;
     private int parallelGroupSize;
     private ParallelOptions parallelOptions;
     private bool collectJobBenchmarks;
+    private bool useCustomPostRunner;
 
-    public CooperativeBatchRunner(string phasePrefix)
+    public CooperativeBatchRunner(
+        string phasePrefix,
+        ICooperativeBatchPostRunner<TBatch, TObject> postRunner = null)
     {
         this.phasePrefix = phasePrefix;
+        this.postRunner = postRunner;
+        runCurrentParallelJob = RunCurrentParallelJob;
     }
 
     public bool Active => stage != RunnerStage.Idle;
@@ -46,8 +54,11 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         manager = jobManager;
         elapsed = cycleElapsed;
         parallelEnabled = Config.parallel_jobs_updater;
-        parallelGroupSize = parallelEnabled ? PerformanceSettings.ForegroundParallelism : 1;
+        parallelGroupSize = parallelEnabled
+            ? Math.Max(1, PerformanceSettings.ForegroundParallelism * 4)
+            : 1;
         parallelOptions = cycleParallelOptions;
+        useCustomPostRunner = parallelEnabled && postRunner != null;
         if (parallelEnabled && parallelOptions == null)
         {
             throw new InvalidOperationException("并行批处理缺少 ParallelOptions");
@@ -67,6 +78,7 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         }
 
         batchIndex = 0;
+        parallelJobIndex = 0;
         stage = RunnerStage.Pre;
     }
 
@@ -77,14 +89,60 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
             return phasePrefix + ".idle";
         }
 
-        if (stage == RunnerStage.Parallel && batchIndex < batches.Count)
+        if (stage == RunnerStage.Parallel)
         {
-            return phasePrefix + ".parallel.batch_group." + batchIndex;
+            if (parallelEnabled)
+            {
+                int nextJobIndex = parallelJobIndex;
+                int nextBatchIndex = batchIndex;
+                int jobCount = batches.Count == 0
+                    ? 0
+                    : batches[0].jobs_parallel.Count;
+                while (nextJobIndex < jobCount &&
+                       nextBatchIndex >= batches.Count)
+                {
+                    nextJobIndex++;
+                    nextBatchIndex = 0;
+                }
+
+                if (nextJobIndex < jobCount)
+                {
+                    Job<TObject> job = batches[0].jobs_parallel[nextJobIndex];
+                    return phasePrefix +
+                           ".parallel." +
+                           job.id +
+                           ".batch_group." +
+                           nextBatchIndex;
+                }
+            }
+            else if (batchIndex < batches.Count)
+            {
+                return phasePrefix + ".parallel.batch." + batchIndex;
+            }
+
+            return phasePrefix + ".applyparallelresults";
         }
 
         if (stage is RunnerStage.Pre or RunnerStage.Post)
         {
-            return phasePrefix + "." + stage.ToString().ToLowerInvariant() + ".batch." + batchIndex;
+            if (stage == RunnerStage.Post && useCustomPostRunner)
+            {
+                return postRunner.GetNextPhaseName(phasePrefix);
+            }
+
+            int nextBatchIndex = FindNextMainThreadBatchIndex(stage);
+            if (nextBatchIndex >= 0)
+            {
+                return phasePrefix +
+                       "." +
+                       stage.ToString().ToLowerInvariant() +
+                       ".batch." +
+                       nextBatchIndex;
+            }
+
+            return stage == RunnerStage.Pre
+                ? phasePrefix + ".clearparallelresults"
+                : phasePrefix + ".finish";
         }
 
         return phasePrefix + "." + stage.ToString().ToLowerInvariant();
@@ -106,13 +164,16 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
 
                     stage = RunnerStage.ClearParallelResults;
                     batchIndex = 0;
+                    parallelJobIndex = 0;
                     continue;
                 case RunnerStage.ClearParallelResults:
                     manager.clearParallelResults();
                     stage = RunnerStage.Parallel;
                     return false;
                 case RunnerStage.Parallel:
-                    if (TryRunNextParallelBatchGroup())
+                    if (parallelEnabled
+                            ? TryRunNextParallelJobGroup()
+                            : TryRunNextParallelBatch())
                     {
                         return false;
                     }
@@ -123,9 +184,16 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
                 case RunnerStage.ApplyParallelResults:
                     manager.applyParallelResults();
                     stage = RunnerStage.Post;
+                    if (useCustomPostRunner)
+                    {
+                        postRunner.Start(batches, elapsed, parallelOptions);
+                    }
+
                     return false;
                 case RunnerStage.Post:
-                    if (TryRunNextMainThreadBatch(RunnerStage.Post))
+                    if (useCustomPostRunner
+                            ? !postRunner.Step()
+                            : TryRunNextMainThreadBatch(RunnerStage.Post))
                     {
                         return false;
                     }
@@ -146,6 +214,7 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
                     parallelEnabled = false;
                     parallelGroupSize = 0;
                     collectJobBenchmarks = false;
+                    useCustomPostRunner = false;
                     stage = RunnerStage.Idle;
                     return true;
                 default:
@@ -157,13 +226,16 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
     public void Abort()
     {
         batches.Clear();
+        postRunner?.Abort();
         manager = null;
         parallelOptions = null;
         parallelEnabled = false;
         parallelGroupSize = 0;
         collectJobBenchmarks = false;
+        useCustomPostRunner = false;
         stage = RunnerStage.Idle;
         batchIndex = 0;
+        parallelJobIndex = 0;
     }
 
     private bool TryRunNextMainThreadBatch(RunnerStage jobStage)
@@ -193,35 +265,67 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         return false;
     }
 
-    private bool TryRunNextParallelBatchGroup()
+    private bool TryRunNextParallelJobGroup()
+    {
+        int jobCount = batches.Count == 0 ? 0 : batches[0].jobs_parallel.Count;
+        while (parallelJobIndex < jobCount)
+        {
+            if (batchIndex >= batches.Count)
+            {
+                parallelJobIndex++;
+                batchIndex = 0;
+                continue;
+            }
+
+            int startIndex = batchIndex;
+            int groupSize = Math.Min(parallelGroupSize, batches.Count - startIndex);
+            int endIndex = startIndex + groupSize;
+
+            if (groupSize > 1)
+            {
+                Parallel.For(
+                    startIndex,
+                    endIndex,
+                    parallelOptions,
+                    runCurrentParallelJob);
+            }
+            else
+            {
+                RunParallelJob(startIndex, parallelJobIndex);
+            }
+
+            batchIndex = endIndex;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryRunNextParallelBatch()
     {
         if (batchIndex >= batches.Count)
         {
             return false;
         }
 
-        int startIndex = batchIndex;
-        int groupSize = Math.Min(parallelGroupSize, batches.Count - startIndex);
-        int endIndex = startIndex + groupSize;
-
-        if (parallelEnabled && groupSize > 1)
-        {
-            Parallel.For(startIndex, endIndex, parallelOptions, RunParallelBatch);
-        }
-        else
-        {
-            RunParallelBatch(startIndex);
-        }
-
-        batchIndex = endIndex;
+        TBatch batch = batches[batchIndex++];
+        batch._elapsed = elapsed;
+        batch.updateJobsParallel(elapsed);
         return true;
     }
 
-    private void RunParallelBatch(int index)
+    private void RunParallelJob(int batchListIndex, int jobListIndex)
     {
-        TBatch batch = batches[index];
+        TBatch batch = batches[batchListIndex];
+        Job<TObject> job = batch.jobs_parallel[jobListIndex];
         batch._elapsed = elapsed;
-        batch.updateJobsParallel(elapsed);
+        batch._cur_container = job.container;
+        job.job_updater();
+    }
+
+    private void RunCurrentParallelJob(int batchListIndex)
+    {
+        RunParallelJob(batchListIndex, parallelJobIndex);
     }
 
     private static List<Job<TObject>> GetJobs(TBatch batch, RunnerStage jobStage)
@@ -233,5 +337,18 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
             RunnerStage.Post => batch.jobs_post,
             _ => throw new ArgumentOutOfRangeException(nameof(jobStage))
         };
+    }
+
+    private int FindNextMainThreadBatchIndex(RunnerStage jobStage)
+    {
+        for (int i = batchIndex; i < batches.Count; i++)
+        {
+            if (GetJobs(batches[i], jobStage).Count > 0)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 }

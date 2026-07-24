@@ -47,6 +47,7 @@ Cultiway.WorldAgeClock.Unit.GameYears,{0} 年
 Cultiway.WorldAgeClock.Unit.RealSeconds,{0} 秒
 Cultiway.WorldAgeClock.Unit.RealMinutes,{0} 分钟
 Cultiway.WorldAgeClock.Unit.RealHours,{0} 小时
+Cultiway.Benchmark.ActorTileActions,Cultiway 角色地块行为（抽样估算）
 Cultiway.UI.WindowModInfo.Tab.Warhammer,混沌降临
 Cultiway.UI.WindowModInfo.Tab.Warhammer Description,战锤四神、魔神化、魔塔、秩序阵营
 Cultiway.UI.WindowModInfo.Tab.AIGC,AI 演化

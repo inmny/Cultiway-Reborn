@@ -57,7 +57,8 @@ internal sealed class CooperativeSimulationRunner
 
     public static CooperativeSimulationRunner Instance { get; } = new();
 
-    private readonly CooperativeBatchRunner<BatchActors, Actor> actorRunner = new("vanilla.actors");
+    private readonly CooperativeBatchRunner<BatchActors, Actor> actorRunner =
+        new("vanilla.actors", new CooperativeActorPostRunner());
     private readonly CooperativeBatchRunner<BatchBuildings, Building> buildingRunner = new("vanilla.buildings");
     private readonly CooperativeWorldMaintenanceRunner maintenanceRunner = new();
     private readonly List<MapLayer> mapLayers = new();

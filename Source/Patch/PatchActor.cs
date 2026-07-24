@@ -184,17 +184,10 @@ internal static class PatchActor
     private static void b3_findEnemyTarget_postfix(Actor __instance, bool __state)
     {
         if (!__state) return;
-        if (__instance == null || __instance.has_attack_target) return;
-        if (__instance._timeout_targets <= 0f) return;
-
-        var timeScale = Config.time_scale_asset?.multiplier ?? 1f;
-        var scale = Mathf.Clamp(timeScale * 0.25f, 1f, 5f);
-        if (scale <= 1f) return;
-
-        __instance._timeout_targets *= scale;
+        ApplyEnemySearchBackoff(__instance);
     }
 
-    private static bool ShouldBackoffEmptyEnemySearch(Actor actor)
+    internal static bool ShouldBackoffEmptyEnemySearch(Actor actor)
     {
         if (actor == null) return false;
         if (actor.has_attack_target) return false;
@@ -203,6 +196,18 @@ internal static class PatchActor
         if (!actor.isAllowedToLookForEnemies()) return false;
         if (actor.isInWaterAndCantAttack()) return false;
         return true;
+    }
+
+    internal static void ApplyEnemySearchBackoff(Actor actor)
+    {
+        if (actor == null || actor.has_attack_target) return;
+        if (actor._timeout_targets <= 0f) return;
+
+        var timeScale = Config.time_scale_asset?.multiplier ?? 1f;
+        var scale = Mathf.Clamp(timeScale * 0.25f, 1f, 5f);
+        if (scale <= 1f) return;
+
+        actor._timeout_targets *= scale;
     }
     
     [HarmonyReversePatch(HarmonyReversePatchType.Snapshot), HarmonyPatch(typeof(Actor), nameof(Actor.getHit))]

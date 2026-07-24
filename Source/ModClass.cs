@@ -198,7 +198,7 @@ namespace Cultiway
 
         public void LogPerf(bool force = false)
         {
-            if (Environment.UserName != "Inmny" && !force) return;
+            if (!SystemUtils.IsUnderDeveloper() && !force) return;
             StringBuilder sb = new();
             sb.Append('\n');
             GeneralLogicSystems.AppendPerfLog(sb);
@@ -349,7 +349,7 @@ namespace Cultiway
                 ?.Invoke(null,
                     new object[] { Path.Combine(GetDeclaration().FolderPath, "GameResources") });
             _content.OnReload();
-            if (Environment.UserName == "Inmny")
+            if (SystemUtils.IsUnderDeveloper())
             {
                 ArtifactAppearanceRuntimePreviewExporter.Install(gameObject, GetDeclaration().FolderPath);
             }
@@ -497,7 +497,7 @@ namespace Cultiway
             GeneralLogicSystems.Add(new RecycleDefaultEntitySystem());
             GeneralLogicSystems.Add(new RemoveDirtyTagSystem());
 
-            if (Environment.UserName == "Inmny")
+            if (SystemUtils.IsUnderDeveloper())
             {
                 Config.isEditor = true;
                 DebugConfig.setOption(DebugOption.FastCultures, true);

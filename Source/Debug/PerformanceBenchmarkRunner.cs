@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Cultiway.Core;
 using Cultiway.Core.Performance;
+using Cultiway.Utils;
 using UnityEngine;
 
 namespace Cultiway.Debug;
@@ -54,7 +55,6 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private float _warmupMaxSeconds;
     private float _logIntervalSeconds;
     private bool _createWorld;
-    private bool _enableAiBench;
     private bool _quitOnComplete;
     private bool _configured;
     private bool _initialUnitsSpawned;
@@ -99,12 +99,11 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         _warmupMaxSeconds = GetEnvFloat("CULTIWAY_PERF_WARMUP_MAX", 900f);
         _logIntervalSeconds = Math.Max(5f, GetEnvFloat("CULTIWAY_PERF_LOG_INTERVAL", 30f));
         _createWorld = GetEnvBool("CULTIWAY_PERF_CREATE_WORLD", true);
-        _enableAiBench = GetEnvBool("CULTIWAY_PERF_AI_BENCH", false);
         _quitOnComplete = GetEnvBool("CULTIWAY_PERF_QUIT_ON_DONE", false);
         _configured = true;
 
         ModClass.LogInfo(
-            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s aiBench={_enableAiBench}");
+            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s aiBench={SystemUtils.IsUnderDeveloper()}");
     }
 
     private void Update()
@@ -266,8 +265,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private void StartMeasurement()
     {
         Bench.bench_enabled = true;
-        DebugConfig.setOption(DebugOption.BenchAiEnabled, _enableAiBench);
-        Bench.bench_ai_enabled = _enableAiBench;
+        SimulationTickBenchmark.ApplyAiDetailsPolicy();
         ResetFrameStats();
         _runElapsed = 0f;
         _logElapsed = 0f;

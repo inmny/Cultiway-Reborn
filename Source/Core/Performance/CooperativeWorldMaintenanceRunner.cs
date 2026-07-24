@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Cultiway.Const;
 using life.taxi;
 
@@ -7,6 +8,11 @@ namespace Cultiway.Core.Performance;
 
 internal sealed class CooperativeWorldMaintenanceRunner
 {
+    private const string DirtyManagerPhasePrefix =
+        "vanilla.maintenance.dirtymanagers.";
+
+    private static readonly Dictionary<Type, string> DirtyManagerPhaseNames = new();
+
     private enum MaintenanceStage
     {
         Idle,
@@ -56,6 +62,12 @@ internal sealed class CooperativeWorldMaintenanceRunner
 
     public string GetNextPhaseName()
     {
+        if (stage == MaintenanceStage.DirtyManagers &&
+            index < metaManagers.Count)
+        {
+            return GetDirtyManagerPhaseName(metaManagers[index]);
+        }
+
         return "vanilla.maintenance." + stage.ToString().ToLowerInvariant();
     }
 
@@ -116,7 +128,19 @@ internal sealed class CooperativeWorldMaintenanceRunner
                     BaseSystemManager manager = metaManagers[index++];
                     if (manager.isUnitsDirty())
                     {
+                        long startedAt = SimulationTickBenchmark.IsCapturing
+                            ? Stopwatch.GetTimestamp()
+                            : 0L;
                         manager.parallelDirtyUnitsCheck();
+                        if (startedAt != 0L)
+                        {
+                            double seconds =
+                                (Stopwatch.GetTimestamp() - startedAt) /
+                                (double)Stopwatch.Frequency;
+                            SimulationTickBenchmark.RecordDirtyManagerMetric(
+                                GetManagerBenchmarkId(manager),
+                                seconds);
+                        }
                     }
                 }
                 else
@@ -374,5 +398,22 @@ internal sealed class CooperativeWorldMaintenanceRunner
     {
         actors.Clear();
         actors.AddRange(world.units.getSimpleList());
+    }
+
+    private static string GetManagerBenchmarkId(BaseSystemManager manager)
+    {
+        return manager.GetType().FullName ?? manager.GetType().Name;
+    }
+
+    private static string GetDirtyManagerPhaseName(BaseSystemManager manager)
+    {
+        Type type = manager.GetType();
+        if (!DirtyManagerPhaseNames.TryGetValue(type, out string phase))
+        {
+            phase = DirtyManagerPhasePrefix + (type.FullName ?? type.Name);
+            DirtyManagerPhaseNames.Add(type, phase);
+        }
+
+        return phase;
     }
 }

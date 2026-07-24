@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using Cultiway.Utils;
 using UnityEngine;
 
 namespace Cultiway.Core.Performance;
@@ -11,12 +12,18 @@ internal static class SimulationTickBenchmark
     internal const string TotalsGroupId = "cultiway_tick_totals";
     internal const string PhasesGroupId = "cultiway_tick_phases";
     internal const string ActorsGroupId = "cultiway_tick_actors";
+    internal const string ActorPostJobsGroupId = "cultiway_tick_actor_post_jobs";
+    internal const string ActorTileActionsGroupId = "cultiway_tick_actor_tile_actions";
+    internal const string DirtyManagersGroupId = "cultiway_tick_dirty_managers";
     internal const string BuildingsGroupId = "cultiway_tick_buildings";
     internal const string WorldBehavioursGroupId = "cultiway_tick_world_behaviours";
     internal const string CultiwaySystemsGroupId = "cultiway_tick_systems";
 
     internal const string TickTotalId = "tick_total";
     internal const string ActorsTotalId = "actors_total";
+    internal const string ActorPostJobsTotalId = "actor_post_jobs_total";
+    internal const string ActorTileActionsTotalId = "actor_tile_actions_total";
+    internal const string DirtyManagersTotalId = "dirty_managers_total";
     internal const string BuildingsTotalId = "buildings_total";
     internal const string WorldBehavioursTotalId = "world_behaviours_total";
     internal const string CultiwayTotalId = "cultiway_total";
@@ -25,6 +32,7 @@ internal static class SimulationTickBenchmark
     private const string BenchmarkAllId = "Benchmark All";
     private const string TickToolId = "Benchmark Cultiway Tick";
     private const string ActorsToolId = "Benchmark Cultiway Tick Actors";
+    private const string ActorTileActionsToolId = "Benchmark Cultiway Tile Actions";
     private const string BuildingsToolId = "Benchmark Cultiway Tick Buildings";
     private const string WorldBehavioursToolId = "Benchmark Cultiway Tick World Beh";
     private const string CultiwaySystemsToolId = "Benchmark Cultiway Tick Systems";
@@ -36,6 +44,12 @@ internal static class SimulationTickBenchmark
     private static readonly BenchmarkGroupState TotalsGroup = new(TotalsGroupId);
     private static readonly BenchmarkGroupState PhasesGroup = new(PhasesGroupId);
     private static readonly BenchmarkGroupState ActorsGroup = new(ActorsGroupId);
+    private static readonly BenchmarkGroupState ActorPostJobsGroup =
+        new(ActorPostJobsGroupId, true);
+    private static readonly BenchmarkGroupState ActorTileActionsGroup =
+        new(ActorTileActionsGroupId);
+    private static readonly BenchmarkGroupState DirtyManagersGroup =
+        new(DirtyManagersGroupId, true);
     private static readonly BenchmarkGroupState BuildingsGroup = new(BuildingsGroupId);
     private static readonly BenchmarkGroupState WorldBehavioursGroup =
         new(WorldBehavioursGroupId);
@@ -49,6 +63,8 @@ internal static class SimulationTickBenchmark
     private static bool debugToolsRegistered;
 
     internal static bool IsCapturing => current != null && !current.Cancelled;
+    internal static bool ShouldCollectAiDetails =>
+        Bench.bench_enabled && SystemUtils.IsUnderDeveloper();
 
     internal static void Initialize()
     {
@@ -58,6 +74,7 @@ internal static class SimulationTickBenchmark
 
     internal static void SyncCaptureState()
     {
+        ApplyAiDetailsPolicy();
         bool enabled = Bench.bench_enabled;
         if (!benchStateInitialized)
         {
@@ -82,6 +99,20 @@ internal static class SimulationTickBenchmark
         {
             ResetSession();
         }
+    }
+
+    internal static void ApplyAiDetailsPolicy()
+    {
+        bool enabled = ShouldCollectAiDetails;
+        if (DebugConfig.isOn(DebugOption.BenchAiEnabled) != enabled)
+        {
+            DebugConfig.setOption(
+                DebugOption.BenchAiEnabled,
+                enabled,
+                pUpdateSpecialSettings: false);
+        }
+
+        Bench.bench_ai_enabled = enabled;
     }
 
     internal static void BeginTick(float simulatedSeconds, bool largeStep)
@@ -218,7 +249,69 @@ internal static class SimulationTickBenchmark
             TBatch batch = batches[i];
             RecordJobList(target, batch.jobs_pre);
             RecordJobList(target, batch.jobs_post);
+            if (benchmarkId.Equals("actors", StringComparison.Ordinal))
+            {
+                RecordJobList(capture.ActorPostJobs, batch.jobs_post);
+            }
         }
+    }
+
+    internal static void RecordActorJobMetric(
+        string id,
+        double seconds,
+        long counter)
+    {
+        TickCapture capture = current;
+        if (capture == null || capture.Cancelled || !Bench.bench_enabled)
+        {
+            return;
+        }
+
+        AddMetric(
+            capture.ActorJobs,
+            id,
+            Math.Max(0.0, seconds),
+            counter);
+        AddMetric(
+            capture.ActorPostJobs,
+            id,
+            Math.Max(0.0, seconds),
+            counter);
+    }
+
+    internal static void RecordDirtyManagerMetric(
+        string id,
+        double seconds)
+    {
+        TickCapture capture = current;
+        if (capture == null || capture.Cancelled || !Bench.bench_enabled)
+        {
+            return;
+        }
+
+        AddMetric(
+            capture.DirtyManagers,
+            id,
+            Math.Max(0.0, seconds),
+            1L);
+    }
+
+    internal static void RecordActorTileActionMetric(
+        string id,
+        double seconds,
+        long counter)
+    {
+        TickCapture capture = current;
+        if (capture == null || capture.Cancelled || !Bench.bench_enabled)
+        {
+            return;
+        }
+
+        AddMetric(
+            capture.ActorTileActions,
+            id,
+            Math.Max(0.0, seconds),
+            counter);
     }
 
     internal static void AbortCurrentTick()
@@ -276,6 +369,46 @@ internal static class SimulationTickBenchmark
 
         AppendTopRows(sb, "phases", PhasesGroupId, TickTotalId, phaseLimit);
         AppendTopRows(sb, "actors", ActorsGroupId, ActorsTotalId, detailLimit);
+        AppendTopRows(
+            sb,
+            "actor_post",
+            ActorPostJobsGroupId,
+            ActorPostJobsTotalId,
+            detailLimit,
+            TotalsGroupId,
+            ActorPostJobsGroup);
+        AppendTopRows(
+            sb,
+            "dirty_managers",
+            DirtyManagersGroupId,
+            DirtyManagersTotalId,
+            detailLimit,
+            TotalsGroupId,
+            DirtyManagersGroup);
+        AppendTopRows(
+            sb,
+            "tile_actions",
+            ActorTileActionsGroupId,
+            ActorTileActionsTotalId,
+            detailLimit);
+        if (ShouldCollectAiDetails)
+        {
+            AppendTopRows(
+                sb,
+                "ai_tasks",
+                "ai_tasks",
+                "ai_tasks",
+                detailLimit,
+                "ai_tasks_total");
+            AppendTopRows(
+                sb,
+                "ai_actions",
+                "ai_actions",
+                "ai_actions",
+                detailLimit,
+                "ai_actions_total");
+        }
+
         AppendTopRows(sb, "buildings", BuildingsGroupId, BuildingsTotalId, detailLimit);
         AppendTopRows(
             sb,
@@ -296,6 +429,15 @@ internal static class SimulationTickBenchmark
         capture.SetTotal("vanilla_total", capture.VanillaSeconds);
         capture.SetTotal(CultiwayTotalId, capture.CultiwaySeconds);
         capture.SetTotal(ActorsTotalId, capture.ActorsSeconds);
+        capture.SetTotal(
+            ActorPostJobsTotalId,
+            SumMetricSeconds(capture.ActorPostJobs));
+        capture.SetTotal(
+            ActorTileActionsTotalId,
+            SumMetricSeconds(capture.ActorTileActions));
+        capture.SetTotal(
+            DirtyManagersTotalId,
+            SumMetricSeconds(capture.DirtyManagers));
         capture.SetTotal(BuildingsTotalId, capture.BuildingsSeconds);
         capture.SetTotal(WorldBehavioursTotalId, capture.WorldBehavioursSeconds);
 
@@ -303,6 +445,9 @@ internal static class SimulationTickBenchmark
         PublishGroup(TotalsGroup, capture.Totals, previousSamples);
         PublishGroup(PhasesGroup, capture.Phases, previousSamples);
         PublishGroup(ActorsGroup, capture.ActorJobs, previousSamples);
+        PublishGroup(ActorPostJobsGroup, capture.ActorPostJobs, previousSamples);
+        PublishGroup(ActorTileActionsGroup, capture.ActorTileActions, previousSamples);
+        PublishGroup(DirtyManagersGroup, capture.DirtyManagers, previousSamples);
         PublishGroup(BuildingsGroup, capture.BuildingJobs, previousSamples);
         PublishGroup(WorldBehavioursGroup, capture.WorldBehaviours, previousSamples);
         PublishGroup(CultiwaySystemsGroup, capture.CultiwaySystems, previousSamples);
@@ -364,9 +509,15 @@ internal static class SimulationTickBenchmark
         double seconds)
     {
         string id = null;
-        if (phase.Contains(".parallel.", StringComparison.Ordinal))
+        const string parallelMarker = ".parallel.";
+        int parallelIndex = phase.IndexOf(parallelMarker, StringComparison.Ordinal);
+        if (parallelIndex >= 0)
         {
-            id = "update_jobs_parallel";
+            int jobStart = parallelIndex + parallelMarker.Length;
+            int groupIndex = phase.IndexOf(".batch_group.", jobStart, StringComparison.Ordinal);
+            id = groupIndex > jobStart
+                ? "parallel." + phase.Substring(jobStart, groupIndex - jobStart)
+                : "update_jobs_parallel";
         }
         else if (phase.EndsWith(".clearparallelresults", StringComparison.Ordinal))
         {
@@ -390,6 +541,11 @@ internal static class SimulationTickBenchmark
         for (int i = 0; i < jobs.Count; i++)
         {
             Job<TObject> job = jobs[i];
+            if (job.id.Equals("b3_findEnemyTarget", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             AddMetric(target, job.id, Math.Max(0.0, job.time_benchmark), job.counter);
         }
     }
@@ -413,6 +569,12 @@ internal static class SimulationTickBenchmark
 
     private static string NormalizePhase(string phase)
     {
+        const string dirtyManagerPrefix = "vanilla.maintenance.dirtymanagers.";
+        if (phase.StartsWith(dirtyManagerPrefix, StringComparison.Ordinal))
+        {
+            return "vanilla.maintenance.dirtymanagers";
+        }
+
         int index = phase.IndexOf(".batch_group.", StringComparison.Ordinal);
         if (index >= 0)
         {
@@ -437,6 +599,18 @@ internal static class SimulationTickBenchmark
 
         metric.Seconds += seconds;
         metric.Counter += counter;
+        metric.MaximumSeconds = Math.Max(metric.MaximumSeconds, seconds);
+    }
+
+    private static double SumMetricSeconds(Dictionary<string, Metric> entries)
+    {
+        double total = 0.0;
+        foreach (Metric metric in entries.Values)
+        {
+            total += metric.Seconds;
+        }
+
+        return total;
     }
 
     private static void PublishGroup(
@@ -449,6 +623,7 @@ internal static class SimulationTickBenchmark
             if (state.KnownEntries.Add(id))
             {
                 SeedMissingSamples(state.GroupId, id, previousSamples);
+                state.SeedMaximum(id, previousSamples);
             }
         }
 
@@ -459,6 +634,7 @@ internal static class SimulationTickBenchmark
             int counter = ClampCounter(metric?.Counter ?? 0L);
             Bench.benchSave(id, seconds, counter, state.GroupId);
             Bench.saveAverageCounter(id, state.GroupId);
+            state.RecordMaximum(id, metric?.MaximumSeconds ?? 0.0);
         }
     }
 
@@ -516,6 +692,9 @@ internal static class SimulationTickBenchmark
         ResetGroup(TotalsGroup);
         ResetGroup(PhasesGroup);
         ResetGroup(ActorsGroup);
+        ResetGroup(ActorPostJobsGroup);
+        ResetGroup(ActorTileActionsGroup);
+        ResetGroup(DirtyManagersGroup);
         ResetGroup(BuildingsGroup);
         ResetGroup(WorldBehavioursGroup);
         ResetGroup(CultiwaySystemsGroup);
@@ -524,6 +703,7 @@ internal static class SimulationTickBenchmark
     private static void ResetGroup(BenchmarkGroupState state)
     {
         state.KnownEntries.Clear();
+        state.MaximumHistory.Clear();
         Bench.getGroup(state.GroupId).dict_data.Clear();
     }
 
@@ -580,6 +760,13 @@ internal static class SimulationTickBenchmark
 
         RegisterDebugTool(library, template, TickToolId, PhasesGroupId, TickTotalId);
         RegisterDebugTool(library, template, ActorsToolId, ActorsGroupId, ActorsTotalId);
+        RegisterDebugTool(
+            library,
+            template,
+            ActorTileActionsToolId,
+            ActorTileActionsGroupId,
+            ActorTileActionsTotalId,
+            "Cultiway.Benchmark.ActorTileActions");
         RegisterDebugTool(library, template, BuildingsToolId, BuildingsGroupId, BuildingsTotalId);
         RegisterDebugTool(
             library,
@@ -601,7 +788,8 @@ internal static class SimulationTickBenchmark
         DebugToolAsset template,
         string id,
         string groupId,
-        string totalId)
+        string totalId,
+        string nameLocaleKey = null)
     {
         if (library.has(id))
         {
@@ -611,7 +799,7 @@ internal static class SimulationTickBenchmark
         library.add(new DebugToolAsset
         {
             id = id,
-            name = id,
+            name = nameLocaleKey == null ? id : nameLocaleKey.Localize(),
             type = DebugToolType.Benchmarks,
             priority = 2,
             benchmark_group_id = groupId,
@@ -686,9 +874,11 @@ internal static class SimulationTickBenchmark
         string label,
         string groupId,
         string totalId,
-        int limit)
+        int limit,
+        string totalGroupId = TotalsGroupId,
+        BenchmarkGroupState maximumState = null)
     {
-        double total = GetAverage(totalId, TotalsGroupId);
+        double total = GetAverage(totalId, totalGroupId);
         if (total <= 0.0)
         {
             return;
@@ -703,7 +893,11 @@ internal static class SimulationTickBenchmark
                 continue;
             }
 
-            rows.Add(new BenchmarkRow(data.id, seconds, data.getAverageCount()));
+            rows.Add(new BenchmarkRow(
+                data.id,
+                seconds,
+                data.getAverageCount(),
+                maximumState?.GetMaximum(data.id) ?? 0.0));
         }
 
         rows.Sort((left, right) => right.Seconds.CompareTo(left.Seconds));
@@ -723,8 +917,13 @@ internal static class SimulationTickBenchmark
 
             BenchmarkRow row = rows[i];
             sb.Append(row.Id)
-                .Append('=').Append(FormatMilliseconds(row.Seconds))
-                .Append('(')
+                .Append('=').Append(FormatMilliseconds(row.Seconds));
+            if (row.MaximumSeconds > 0.0)
+            {
+                sb.Append("|max=").Append(FormatMilliseconds(row.MaximumSeconds));
+            }
+
+            sb.Append('(')
                 .Append((row.Seconds / total * 100.0).ToString("0.0", CultureInfo.InvariantCulture))
                 .Append('%');
             if (row.Counter > 0)
@@ -754,6 +953,12 @@ internal static class SimulationTickBenchmark
         internal readonly Dictionary<string, Metric> Totals = new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> Phases = new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> ActorJobs = new(StringComparer.Ordinal);
+        internal readonly Dictionary<string, Metric> ActorPostJobs =
+            new(StringComparer.Ordinal);
+        internal readonly Dictionary<string, Metric> ActorTileActions =
+            new(StringComparer.Ordinal);
+        internal readonly Dictionary<string, Metric> DirtyManagers =
+            new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> BuildingJobs = new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> WorldBehaviours = new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> CultiwaySystems = new(StringComparer.Ordinal);
@@ -790,6 +995,9 @@ internal static class SimulationTickBenchmark
             ResetMetrics(Totals);
             ResetMetrics(Phases);
             ResetMetrics(ActorJobs);
+            ResetMetrics(ActorPostJobs);
+            ResetMetrics(ActorTileActions);
+            ResetMetrics(DirtyManagers);
             ResetMetrics(BuildingJobs);
             ResetMetrics(WorldBehaviours);
             ResetMetrics(CultiwaySystems);
@@ -815,6 +1023,7 @@ internal static class SimulationTickBenchmark
             {
                 metric.Seconds = 0.0;
                 metric.Counter = 0L;
+                metric.MaximumSeconds = 0.0;
             }
         }
     }
@@ -823,17 +1032,74 @@ internal static class SimulationTickBenchmark
     {
         internal double Seconds;
         internal long Counter;
+        internal double MaximumSeconds;
     }
 
     private sealed class BenchmarkGroupState
     {
-        internal BenchmarkGroupState(string groupId)
+        internal BenchmarkGroupState(
+            string groupId,
+            bool trackMaximum = false)
         {
             GroupId = groupId;
+            TrackMaximum = trackMaximum;
         }
 
         internal string GroupId { get; }
+        internal bool TrackMaximum { get; }
         internal HashSet<string> KnownEntries { get; } = new(StringComparer.Ordinal);
+        internal Dictionary<string, Queue<double>> MaximumHistory { get; } =
+            new(StringComparer.Ordinal);
+
+        internal void SeedMaximum(string id, int count)
+        {
+            if (!TrackMaximum)
+            {
+                return;
+            }
+
+            var values = new Queue<double>(HistoryCapacity);
+            int seedCount = Math.Min(count, HistoryCapacity);
+            for (int i = 0; i < seedCount; i++)
+            {
+                values.Enqueue(0.0);
+            }
+
+            MaximumHistory.Add(id, values);
+        }
+
+        internal void RecordMaximum(string id, double seconds)
+        {
+            if (!TrackMaximum)
+            {
+                return;
+            }
+
+            Queue<double> values = MaximumHistory[id];
+            if (values.Count >= HistoryCapacity)
+            {
+                values.Dequeue();
+            }
+
+            values.Enqueue(Math.Max(0.0, seconds));
+        }
+
+        internal double GetMaximum(string id)
+        {
+            if (!TrackMaximum ||
+                !MaximumHistory.TryGetValue(id, out Queue<double> values))
+            {
+                return 0.0;
+            }
+
+            double maximum = 0.0;
+            foreach (double value in values)
+            {
+                maximum = Math.Max(maximum, value);
+            }
+
+            return maximum;
+        }
     }
 
     private readonly struct TickSnapshot
@@ -900,15 +1166,21 @@ internal static class SimulationTickBenchmark
 
     private readonly struct BenchmarkRow
     {
-        internal BenchmarkRow(string id, double seconds, long counter)
+        internal BenchmarkRow(
+            string id,
+            double seconds,
+            long counter,
+            double maximumSeconds)
         {
             Id = id;
             Seconds = seconds;
             Counter = counter;
+            MaximumSeconds = maximumSeconds;
         }
 
         internal string Id { get; }
         internal double Seconds { get; }
         internal long Counter { get; }
+        internal double MaximumSeconds { get; }
     }
 }
