@@ -6,6 +6,7 @@ namespace Cultiway.Const;
 public static class PerformanceSettings
 {
     public static bool EnableFramePriorityScheduler { get; private set; } = true;
+    public static bool EnableVanillaLargeSimulationStep { get; private set; }
     public static float TargetRenderFps { get; private set; } = 60f;
     public static float MaxSimulationMillisecondsPerFrame { get; private set; } = 8f;
     public static bool EnablePresentationSmoothing { get; private set; } = true;
@@ -36,6 +37,11 @@ public static class PerformanceSettings
     public static void SwitchFramePriorityScheduler(bool value)
     {
         EnableFramePriorityScheduler = value;
+    }
+
+    public static void SwitchVanillaLargeSimulationStep(bool value)
+    {
+        EnableVanillaLargeSimulationStep = value;
     }
 
     public static void SetTargetRenderFps(float value)

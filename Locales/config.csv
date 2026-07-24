@@ -27,6 +27,8 @@ ENABLE_NATURAL_MAGIC_RESTORE Description,启用魔法师按月自然恢复 mana 
 PerformanceSettings,性能设置
 ENABLE_FRAME_PRIORITY_SCHEDULER,启用帧优先调度
 ENABLE_FRAME_PRIORITY_SCHEDULER Description,在完整执行每个逻辑 tick 的前提下将模拟工作分摊到多个渲染帧，优先维持画面帧率
+ENABLE_VANILLA_LARGE_SIMULATION_STEP,启用原版大步模拟
+ENABLE_VANILLA_LARGE_SIMULATION_STEP Description,帧优先调度开启时按原版方式放大单次模拟时间步并减少完整模拟轮次；运行速度更快，但不再等价于重复执行一倍速，可能跳过中间状态
 TARGET_RENDER_FPS,目标渲染帧率
 TARGET_RENDER_FPS Description,调度器尝试维持的目标帧率；目标越高，每帧可用于模拟的时间越少
 MAX_SIMULATION_MS_PER_FRAME,每帧最大模拟时间

@@ -64,19 +64,25 @@ internal sealed class CooperativeSimulationRunner
     private readonly List<BaseModule> mapModules = new();
     private readonly List<WorldBehaviourAsset> worldBehaviours = new();
     private MapBox world;
+    private WorldTimeScaleAsset cycleTimeScale;
     private SimulationStage stage;
     private float cycleElapsed;
+    private float logicCycleElapsed;
     private bool cyclePaused;
+    private bool cycleUsesVanillaLargeStep;
+    private int simulationPassesRemaining;
     private int listIndex;
     private double admissionCredits;
     private float lastRequestedSpeed = -1f;
+    private bool lastLargeStepMode;
     private WorldTimeScaleAsset lastTimeScaleAsset;
     private int lastControlledFrame = -1;
     private bool ownsCultiwayCycle;
     private bool advancingGameDelayedActions;
     private long logicalTicksAdmitted;
     private long logicalTicksCompleted;
-    private long completedAtRateWindowStart;
+    private double simulatedSecondsCompleted;
+    private double simulatedSecondsAtRateWindowStart;
     private float rateWindowStartedAt = -1f;
     private float requestedSpeed;
     private float actualSpeed;
@@ -92,6 +98,11 @@ internal sealed class CooperativeSimulationRunner
     public float RequestedSpeed => requestedSpeed;
     public float ActualSpeed => actualSpeed;
     public double AdmissionCredits => admissionCredits;
+    public string AdmissionMode => !PerformanceSettings.EnableFramePriorityScheduler
+        ? "native"
+        : PerformanceSettings.EnableVanillaLargeSimulationStep
+            ? "large"
+            : "fixed";
 
     public void RunFrame(MapBox map, bool allowNewCycles = true)
     {
@@ -127,7 +138,7 @@ internal sealed class CooperativeSimulationRunner
                 FramePriorityGovernor.RunPhase(
                     SimulationDomain.Vanilla,
                     startPhase,
-                    () => StartCycle(map));
+                    () => StartAdmissionCycle(map));
                 continue;
             }
 
@@ -161,9 +172,12 @@ internal sealed class CooperativeSimulationRunner
         mapModules.Clear();
         worldBehaviours.Clear();
         world = null;
+        cycleTimeScale = null;
         stage = SimulationStage.Idle;
         listIndex = 0;
         admissionCredits = 0.0;
+        simulationPassesRemaining = 0;
+        cycleUsesVanillaLargeStep = false;
         ownsCultiwayCycle = false;
         advancingGameDelayedActions = false;
         PresentationInterpolator.Reset();
@@ -179,16 +193,36 @@ internal sealed class CooperativeSimulationRunner
         }
     }
 
-    private void StartCycle(MapBox map)
+    private void StartAdmissionCycle(MapBox map)
     {
         world = map;
-        cycleElapsed = PerformanceSettings.FixedSimulationStepSeconds;
         cyclePaused = map.isPaused();
-        SimulationTime.BeginTick(map, cycleElapsed);
+        cycleUsesVanillaLargeStep = PerformanceSettings.EnableVanillaLargeSimulationStep;
+        cycleTimeScale = Config.time_scale_asset;
+        if (cycleUsesVanillaLargeStep)
+        {
+            cycleElapsed = PerformanceSettings.FixedSimulationStepSeconds *
+                           Math.Max(0f, cycleTimeScale.multiplier);
+            logicCycleElapsed = PerformanceSettings.FixedSimulationStepSeconds;
+            simulationPassesRemaining = Math.Max(1, cycleTimeScale.ticks);
+        }
+        else
+        {
+            cycleElapsed = PerformanceSettings.FixedSimulationStepSeconds;
+            logicCycleElapsed = cycleElapsed;
+            simulationPassesRemaining = 1;
+        }
+
+        StartSimulationPass();
+    }
+
+    private void StartSimulationPass()
+    {
+        SimulationTime.BeginTick(world, cycleElapsed);
         mapLayers.Clear();
-        mapLayers.AddRange(map._map_layers);
+        mapLayers.AddRange(world._map_layers);
         mapModules.Clear();
-        mapModules.AddRange(map._map_modules);
+        mapModules.AddRange(world._map_modules);
         worldBehaviours.Clear();
         worldBehaviours.AddRange(AssetManager.world_behaviours.list);
         listIndex = 0;
@@ -227,7 +261,13 @@ internal sealed class CooperativeSimulationRunner
 
     private void ExecuteCurrentStage()
     {
-        FixedStepSimulationContext.Run(world, cyclePaused, ExecuteCurrentStageCore);
+        SimulationStepContext.Run(
+            world,
+            cyclePaused,
+            cycleElapsed,
+            !cycleUsesVanillaLargeStep,
+            cycleTimeScale,
+            ExecuteCurrentStageCore);
     }
 
     private void ExecuteCurrentStageCore()
@@ -488,11 +528,15 @@ internal sealed class CooperativeSimulationRunner
                 break;
             case SimulationStage.Era:
                 world.era_manager.update(cycleElapsed);
-                Advance(SimulationStage.DelayedActions);
+                // 原版会先完成本帧全部 ticks，再执行一次帧级延迟动作和 Mod 逻辑。
+                Advance(cycleUsesVanillaLargeStep && simulationPassesRemaining > 1
+                    ? SimulationStage.Complete
+                    : SimulationStage.DelayedActions);
                 break;
             case SimulationStage.CultiwayStart:
                 CultiwayLogicScheduler logicScheduler = ModClass.I.LogicScheduler;
-                logicScheduler.StartCycle(new Friflo.Engine.ECS.UpdateTick(cycleElapsed, SimulationTime.NowFloat));
+                logicScheduler.StartCycle(
+                    new Friflo.Engine.ECS.UpdateTick(logicCycleElapsed, SimulationTime.NowFloat));
                 ownsCultiwayCycle = logicScheduler.Active;
                 Advance(ownsCultiwayCycle
                     ? SimulationStage.Cultiway
@@ -507,7 +551,7 @@ internal sealed class CooperativeSimulationRunner
 
                 break;
             case SimulationStage.DelayedActions:
-                // 游戏速度相关的延迟动作逐基础 tick 推进；真实时间动作仍由 MapBox.Update 处理。
+                // 游戏速度相关的延迟动作按当前模拟步推进；真实时间动作仍由 MapBox.Update 处理。
                 advancingGameDelayedActions = true;
                 try
                 {
@@ -533,14 +577,25 @@ internal sealed class CooperativeSimulationRunner
     private void CompleteCycle()
     {
         SimulationTime.CompleteTick(world);
+        simulatedSecondsCompleted += cycleElapsed;
         mapLayers.Clear();
         mapModules.Clear();
         worldBehaviours.Clear();
-        world = null;
         listIndex = 0;
-        stage = SimulationStage.Idle;
         logicalTicksCompleted++;
         FramePriorityGovernor.RecordVanillaCycleCompleted();
+
+        simulationPassesRemaining--;
+        if (simulationPassesRemaining > 0)
+        {
+            StartSimulationPass();
+            return;
+        }
+
+        world = null;
+        cycleTimeScale = null;
+        stage = SimulationStage.Idle;
+        cycleUsesVanillaLargeStep = false;
         FramePriorityGovernor.SetPhase(SimulationDomain.Vanilla, "idle");
         FramePriorityGovernor.SetPhase(SimulationDomain.Cultiway, "idle");
     }
@@ -555,12 +610,15 @@ internal sealed class CooperativeSimulationRunner
         UpdateActualSpeed();
 
         WorldTimeScaleAsset timeScale = Config.time_scale_asset;
+        bool largeStepMode = PerformanceSettings.EnableVanillaLargeSimulationStep;
         float nextRequestedSpeed = Math.Max(0f, timeScale.multiplier) * Math.Max(1, timeScale.ticks);
         if (!ReferenceEquals(timeScale, lastTimeScaleAsset) ||
+            largeStepMode != lastLargeStepMode ||
             Math.Abs(nextRequestedSpeed - lastRequestedSpeed) > 0.001f)
         {
             admissionCredits = 0.0;
             lastTimeScaleAsset = timeScale;
+            lastLargeStepMode = largeStepMode;
             lastRequestedSpeed = nextRequestedSpeed;
         }
 
@@ -575,15 +633,16 @@ internal sealed class CooperativeSimulationRunner
         }
 
         // 额度只是“允许开始”的节奏许可，不代表已经创建的逻辑 tick。
-        // 最多保留一秒的目标 tick，既允许低帧率下一帧启动足量 tick，
+        // 大步模式的一份额度会按原版 ticks 连续执行多轮放大时间步，
+        // 固定步模式的一份额度仍只代表一个 0.02 秒完整 tick。
+        double admissionRate = PerformanceSettings.BaseSimulationTicksPerSecond *
+                               (largeStepMode ? 1.0 : requestedSpeed);
+        // 最多保留一秒的目标额度，既允许低帧率下一帧启动足量工作，
         // 又避免性能不足时形成必须无限追赶的长期债务。
-        double capacity = Math.Max(
-            1.0,
-            PerformanceSettings.BaseSimulationTicksPerSecond * requestedSpeed);
+        double capacity = Math.Max(1.0, admissionRate);
         double generatedCredits =
             Math.Max(0f, UnityEngine.Time.unscaledDeltaTime) *
-            PerformanceSettings.BaseSimulationTicksPerSecond *
-            requestedSpeed;
+            admissionRate;
         admissionCredits = Math.Min(capacity, admissionCredits + generatedCredits);
     }
 
@@ -602,7 +661,7 @@ internal sealed class CooperativeSimulationRunner
         if (rateWindowStartedAt < 0f)
         {
             rateWindowStartedAt = now;
-            completedAtRateWindowStart = logicalTicksCompleted;
+            simulatedSecondsAtRateWindowStart = simulatedSecondsCompleted;
             return;
         }
 
@@ -612,9 +671,10 @@ internal sealed class CooperativeSimulationRunner
             return;
         }
 
-        long completed = logicalTicksCompleted - completedAtRateWindowStart;
-        actualSpeed = completed * PerformanceSettings.FixedSimulationStepSeconds / elapsed;
+        double completedSimulationSeconds =
+            simulatedSecondsCompleted - simulatedSecondsAtRateWindowStart;
+        actualSpeed = (float)(completedSimulationSeconds / elapsed);
         rateWindowStartedAt = now;
-        completedAtRateWindowStart = logicalTicksCompleted;
+        simulatedSecondsAtRateWindowStart = simulatedSecondsCompleted;
     }
 }

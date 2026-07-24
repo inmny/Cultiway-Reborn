@@ -89,6 +89,12 @@
             "Callback": "PerformanceSettings:SwitchFramePriorityScheduler"
         },
         {
+            "Id": "ENABLE_VANILLA_LARGE_SIMULATION_STEP",
+            "Type": "SWITCH",
+            "BoolVal": false,
+            "Callback": "PerformanceSettings:SwitchVanillaLargeSimulationStep"
+        },
+        {
             "Id": "TARGET_RENDER_FPS",
             "Type": "SLIDER",
             "FloatVal": 60,

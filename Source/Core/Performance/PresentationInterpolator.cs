@@ -17,7 +17,9 @@ internal static class PresentationInterpolator
     {
         preparedFrame = Time.frameCount;
         presentationDelta = Mathf.Clamp(Time.unscaledDeltaTime, 0f, 0.1f);
-        presentationTimeScale = Mathf.Max(0f, Config.time_scale_asset?.multiplier ?? 1f);
+        WorldTimeScaleAsset timeScale = Config.time_scale_asset;
+        presentationTimeScale = Mathf.Max(0f, timeScale?.multiplier ?? 1f) *
+                                Mathf.Max(1, timeScale?.ticks ?? 1);
         presentationClock = Time.unscaledTime;
     }
 
