@@ -32,6 +32,21 @@ Cultiway.UI.WindowModInfo.Tab.Items,丹器符药
 Cultiway.UI.WindowModInfo.Tab.Items Description,功法、丹方、术法、丹药、符箓、材料
 Cultiway.UI.WindowModInfo.Tab.World,大千世界
 Cultiway.UI.WindowModInfo.Tab.World Description,百族争锋、地理演化、灵气地图、交通
+Cultiway.WorldAgeClock.Tooltip.Title,世界时间换算
+Cultiway.WorldAgeClock.Tooltip.RealToGame,现实 1 秒 ≈ 游戏 {0}
+Cultiway.WorldAgeClock.Tooltip.GameToReal,游戏 1 年 ≈ 现实 {0}
+Cultiway.WorldAgeClock.Tooltip.Speed,近期实际速度 {0}× · 设定速度 {1}×
+Cultiway.WorldAgeClock.Tooltip.ConfiguredSpeed,设定速度 {0}×
+Cultiway.WorldAgeClock.Tooltip.Measuring,正在测量实际游戏速度
+Cultiway.WorldAgeClock.Tooltip.NotAdvancing,世界时间当前没有推进
+Cultiway.WorldAgeClock.Tooltip.Paused,游戏已暂停，世界时间不会推进
+Cultiway.WorldAgeClock.Tooltip.WorldUnavailable,载入世界后显示现实时间与游戏时间的换算
+Cultiway.WorldAgeClock.Unit.GameDays,{0} 天
+Cultiway.WorldAgeClock.Unit.GameMonths,{0} 个月
+Cultiway.WorldAgeClock.Unit.GameYears,{0} 年
+Cultiway.WorldAgeClock.Unit.RealSeconds,{0} 秒
+Cultiway.WorldAgeClock.Unit.RealMinutes,{0} 分钟
+Cultiway.WorldAgeClock.Unit.RealHours,{0} 小时
 Cultiway.UI.WindowModInfo.Tab.Warhammer,混沌降临
 Cultiway.UI.WindowModInfo.Tab.Warhammer Description,战锤四神、魔神化、魔塔、秩序阵营
 Cultiway.UI.WindowModInfo.Tab.AIGC,AI 演化
