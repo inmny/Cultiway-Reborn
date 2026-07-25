@@ -1,12 +1,11 @@
-using System.Linq;
 using ai.behaviours;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Utils.Extension;
+using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
-using strings;
 
 namespace Cultiway.Content.Behaviours.Apprentices;
 
@@ -15,6 +14,10 @@ namespace Cultiway.Content.Behaviours.Apprentices;
 /// </summary>
 public class BehSeekMaster : BehaviourActionActor
 {
+    private const int MaxSearchDistanceSquared = 100 * 100;
+
+    private static ArchetypeQuery<Xian, ActorBinder> candidateQuery;
+
     [Hotfixable]
     public override BehResult execute(Actor pObject)
     {
@@ -32,8 +35,20 @@ public class BehSeekMaster : BehaviourActionActor
             return BehResult.Stop;
         }
         
-        // 寻找合适的师傅
-        var potentialMaster = FindPotentialMaster(pObject);
+        ref Xian apprenticeXian = ref ae.GetCultisys<Xian>();
+        Actor potentialMaster = GetCachedPotentialMaster(
+            pObject,
+            ae,
+            apprenticeXian.CurrLevel);
+        if (potentialMaster == null)
+        {
+            potentialMaster = FindPotentialMaster(
+                pObject,
+                ae,
+                apprenticeXian.CurrLevel);
+            pObject.beh_actor_target = potentialMaster;
+        }
+
         if (potentialMaster == null)
         {
             return BehResult.Stop;
@@ -61,41 +76,99 @@ public class BehSeekMaster : BehaviourActionActor
     /// <summary>
     /// 寻找潜在的师傅
     /// </summary>
-    private Actor FindPotentialMaster(Actor apprentice)
+    private static Actor FindPotentialMaster(
+        Actor apprentice,
+        ActorExtend apprenticeAe,
+        int apprenticeLevel)
     {
-        var apprenticeAe = apprentice.GetExtend();
-        var apprenticeXian = apprenticeAe.GetCultisys<Xian>();
-        var allActors = World.world.units.units_only_alive;
-        
-        // 过滤条件：
-        // 1. 境界高于自己
-        // 2. 有修仙状态
-        // 3. 可以收徒
-        // 4. 在附近（距离不超过一定范围）
-        var candidates = allActors
-            .Where(a =>
+        WorldTile apprenticeTile = apprentice.current_tile;
+        Actor closestMaster = null;
+        int closestDistanceSquared = MaxSearchDistanceSquared + 1;
+
+        GetCandidateQuery().ForEachEntity(
+            (ref Xian masterXian, ref ActorBinder binder, Entity _) =>
             {
-                var ae = a.GetExtend();
-                if (!ae.HasCultisys<Xian>()) return false;
-                if (!ae.CanRecruit(apprenticeAe)) return false;
-                
-                // 检查境界
-                ref var masterXian = ref ae.GetCultisys<Xian>();
-                if (masterXian.CurrLevel <= apprenticeXian.CurrLevel) return false;
-                
-                // 检查距离（不超过100格）
-                var distance = Toolbox.DistTile(apprentice.current_tile, a.current_tile);
-                if (distance > 100) return false;
-                
-                return true;
-            })
-            .OrderBy(a => Toolbox.DistTile(apprentice.current_tile, a.current_tile))
-            .ToList();
-        
-        if (candidates.Count == 0) return null;
-        
-        // 选择最近的候选者
-        return candidates.First();
+                if (masterXian.CurrLevel <= apprenticeLevel)
+                {
+                    return;
+                }
+
+                Actor master = binder.Actor;
+                if (master == null ||
+                    master == apprentice ||
+                    master.isRekt())
+                {
+                    return;
+                }
+
+                int distanceSquared = Toolbox.SquaredDistTile(
+                    apprenticeTile,
+                    master.current_tile);
+                if (distanceSquared >= closestDistanceSquared)
+                {
+                    return;
+                }
+
+                ActorExtend masterAe = binder.AE;
+                if (!masterAe.CanRecruit(apprenticeAe))
+                {
+                    return;
+                }
+
+                closestMaster = master;
+                closestDistanceSquared = distanceSquared;
+            });
+
+        return closestMaster;
+    }
+
+    private static Actor GetCachedPotentialMaster(
+        Actor apprentice,
+        ActorExtend apprenticeAe,
+        int apprenticeLevel)
+    {
+        Actor master = apprentice.beh_actor_target?.a;
+        if (master == null ||
+            master == apprentice ||
+            master.isRekt())
+        {
+            apprentice.beh_actor_target = null;
+            return null;
+        }
+
+        int distanceSquared = Toolbox.SquaredDistTile(
+            apprentice.current_tile,
+            master.current_tile);
+        if (distanceSquared > MaxSearchDistanceSquared)
+        {
+            apprentice.beh_actor_target = null;
+            return null;
+        }
+
+        ActorExtend masterAe = master.GetExtend();
+        if (!masterAe.HasCultisys<Xian>() ||
+            masterAe.GetCultisys<Xian>().CurrLevel <= apprenticeLevel ||
+            !masterAe.CanRecruit(apprenticeAe))
+        {
+            apprentice.beh_actor_target = null;
+            return null;
+        }
+
+        return master;
+    }
+
+    private static ArchetypeQuery<Xian, ActorBinder> GetCandidateQuery()
+    {
+        if (candidateQuery != null)
+        {
+            return candidateQuery;
+        }
+
+        var filter = new QueryFilter();
+        filter.WithoutAnyTags(Tags.Get<TagRecycle>());
+        candidateQuery = ModClass.I.W.Query<Xian, ActorBinder>(filter);
+        candidateQuery.FreezeFilter();
+        return candidateQuery;
     }
     
     /// <summary>
