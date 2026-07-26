@@ -1,7 +1,5 @@
 using System.Collections.Generic;
-using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
-using Cultiway.Content.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.Progression;
@@ -12,10 +10,10 @@ using UnityEngine;
 
 namespace Cultiway.Content;
 
-/// <summary>把角色战斗、施法和进阶事件接入核心形成效果运行时。</summary>
-internal static class CoreFormationEffectRuntimeBridge
+/// <summary>把角色战斗、施法和进阶事件接入形成来源授予 Skill。</summary>
+internal static class CoreFormationSkillBridge
 {
-    /// <summary>注册全部事件桥、最终伤害阶段和主动形态属性贡献。</summary>
+    /// <summary>注册全部事件桥和最终伤害阶段。</summary>
     internal static void Init()
     {
         ActorExtend.RegisterActionOnFinalDamage(FinalDamageStage.Avoidance, ApplyAvoidance);
@@ -27,7 +25,6 @@ internal static class CoreFormationEffectRuntimeBridge
         ActorExtend.RegisterActionOnKill(Killed);
         ActorExtend.RegisterActionOnSkillCastCompleted(SkillCastCompleted);
         ActorExtend.RegisterActionOnDeath(InterruptActiveStates);
-        ActorExtend.RegisterCachedStatsBuilder(ContributeActiveStats);
         ProgressionLifecycle.RegisterCommitted(OnProgressionCommitted);
     }
 
@@ -178,36 +175,22 @@ internal static class CoreFormationEffectRuntimeBridge
                 owner,
                 out CoreFormationEffectResolver.FormationSource source))
         {
-            if (owner.E.HasComponent<CoreFormationEffectRuntime>())
-                owner.E.RemoveComponent<CoreFormationEffectRuntime>();
+            CoreFormationEffectResolver.Synchronize(owner);
             return;
         }
         using var effects = new ListPool<CoreFormationResolvedEffect>();
         CoreFormationEffectResolver.Resolve(source, effects);
         if (!CoreFormationEffectResolver.Synchronize(owner, source, effects)) return;
-        ref CoreFormationEffectRuntime runtime = ref owner.E.GetComponent<CoreFormationEffectRuntime>();
-        for (var i = 0; i < runtime.entries.Length; i++)
+        var tickEvent = new CoreFormationEffectEvent
         {
-            ref CoreFormationEffectRuntimeEntry entry = ref runtime.entries[i];
-            entry.cooldown_remaining = Mathf.Max(0f, entry.cooldown_remaining - deltaTime);
-            entry.active_cooldown_remaining = Mathf.Max(0f, entry.active_cooldown_remaining - deltaTime);
-            float previousActive = entry.active_remaining;
-            entry.active_remaining = Mathf.Max(0f, entry.active_remaining - deltaTime);
-
+            Kind = CoreFormationEffectEventKind.Tick,
+            DeltaTime = deltaTime,
+        };
+        for (var i = 0; i < effects.Count; i++)
+        {
             CoreFormationResolvedEffect effect = effects[i];
-            if (previousActive > 0f && entry.active_remaining <= 0f)
-            {
-                CoreFormationEffectVisualSignals.Emit(effect, owner, owner.Base,
-                    CoreFormationVisualChannel.End);
-                if (entry.family_id == CoreFormationEffectFamilies.Body) owner.MarkCultiwayStatsDirty();
-            }
-            if ((effect.Definition.triggers & CoreFormationEffectTrigger.Tick) == 0 ||
-                effect.Definition.Handle == null) continue;
-            effect.Definition.Handle(effect, owner, ref entry, new CoreFormationEffectEvent
-            {
-                Kind = CoreFormationEffectEventKind.Tick,
-                DeltaTime = deltaTime,
-            });
+            if ((effect.Definition.triggers & CoreFormationEffectTrigger.Tick) == 0) continue;
+            effect.Definition.Handle?.Invoke(effect, owner, tickEvent);
         }
     }
 
@@ -222,40 +205,19 @@ internal static class CoreFormationEffectRuntimeBridge
         using var effects = new ListPool<CoreFormationResolvedEffect>();
         CoreFormationEffectResolver.Resolve(owner, effects);
         if (!CoreFormationEffectResolver.Synchronize(owner, effects)) return;
-        ref CoreFormationEffectRuntime runtime = ref owner.E.GetComponent<CoreFormationEffectRuntime>();
         for (var i = 0; i < effects.Count; i++)
         {
             CoreFormationResolvedEffect effect = effects[i];
-            if ((effect.Definition.triggers & trigger) == 0 || effect.Definition.Handle == null) continue;
+            if ((effect.Definition.triggers & trigger) == 0) continue;
             if (finalStage.HasValue && effect.Definition.final_damage_stage != finalStage.Value) continue;
-            int runtimeIndex = runtime.FindIndex(effect.Definition.family_id);
-            if (runtimeIndex < 0) continue;
-            effect.Definition.Handle(effect, owner, ref runtime.entries[runtimeIndex], evt);
+            effect.Definition.Handle?.Invoke(effect, owner, evt);
         }
     }
 
-    /// <summary>让真身主动形态向角色属性缓存贡献抗击退值。</summary>
-    private static void ContributeActiveStats(ActorExtend owner, BaseStats stats)
-    {
-        if (!owner.E.TryGetComponent(out CoreFormationEffectRuntime runtime)) return;
-        int index = runtime.FindIndex(CoreFormationEffectFamilies.Body);
-        if (index < 0 || runtime.entries[index].rank < 2 || runtime.entries[index].active_remaining <= 0f) return;
-        stats[BaseStatses.KnockbackReduction.id] += 8f;
-    }
-
-    /// <summary>角色死亡时结束所有主动形态，防止复用实体时残留状态。</summary>
+    /// <summary>角色死亡时清除自身形成状态和形成技能冷却。</summary>
     private static void InterruptActiveStates(ActorExtend owner)
     {
-        if (!owner.E.TryGetComponent(out CoreFormationEffectRuntime runtime) || runtime.entries == null) return;
-        bool bodyChanged = false;
-        for (var i = 0; i < runtime.entries.Length; i++)
-        {
-            if (runtime.entries[i].active_remaining <= 0f) continue;
-            bodyChanged |= runtime.entries[i].family_id == CoreFormationEffectFamilies.Body;
-            runtime.entries[i].active_remaining = 0f;
-        }
-        owner.E.GetComponent<CoreFormationEffectRuntime>() = runtime;
-        if (bodyChanged) owner.MarkCultiwayStatsDirty();
+        CoreFormationEffectResolver.ClearGrantedState(owner);
     }
 
     /// <summary>仙道进阶提交后立即同步形成效果，避免等待下一次逻辑扫描。</summary>

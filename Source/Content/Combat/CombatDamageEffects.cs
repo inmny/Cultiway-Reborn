@@ -1,5 +1,5 @@
-using System;
 using Cultiway.Core;
+using Cultiway.Core.Combat;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Utils.Extension;
@@ -10,11 +10,8 @@ namespace Cultiway.Content.Combat;
 /// <summary>内容系统共用的直接伤害、反应伤害与护盾结算原语。</summary>
 public static class CombatDamageEffects
 {
-    [ThreadStatic]
-    private static int reactionDepth;
-
-    /// <summary>当前同步伤害链是否由反射、反击、持续伤害或其他二次反应发起。</summary>
-    public static bool IsResolvingReaction => reactionDepth > 0;
+    /// <summary>当前实际伤害结算是否由反射、反击、持续伤害或其他二次反应发起。</summary>
+    public static bool IsResolvingReaction => DamageResolutionContext.IsReaction;
 
     /// <summary>通过标准受击事件对单个目标结算伤害。</summary>
     public static void DealDamage(
@@ -23,7 +20,8 @@ public static class CombatDamageEffects
         float damage,
         ElementComposition composition,
         bool ignoreDamageReduction = false,
-        float? attackerPowerLevel = null)
+        float? attackerPowerLevel = null,
+        DamageOrigin damageOrigin = DamageOrigin.Primary)
     {
         if (damage <= 0f || target == null || target.isRekt()) return;
         float powerLevel = attackerPowerLevel ??
@@ -38,6 +36,7 @@ public static class CombatDamageEffects
             Attacker = source,
             AttackerPowerLevel = powerLevel,
             IgnoreDamageReduction = ignoreDamageReduction,
+            DamageOrigin = damageOrigin,
         });
     }
 
@@ -48,10 +47,12 @@ public static class CombatDamageEffects
         float radius,
         float damage,
         ElementComposition composition,
-        bool ignoreDamageReduction = false)
+        bool ignoreDamageReduction = false,
+        DamageOrigin damageOrigin = DamageOrigin.Primary)
     {
         CombatTargeting.ForEachHostile(source, center, radius, target =>
-            DealDamage(source, target, damage, composition, ignoreDamageReduction));
+            DealDamage(source, target, damage, composition, ignoreDamageReduction,
+                damageOrigin: damageOrigin));
     }
 
     /// <summary>在递归截断标记内通过标准受击入口结算一次二次反应伤害。</summary>
@@ -63,15 +64,8 @@ public static class CombatDamageEffects
         bool ignoreDamageReduction = false,
         float? attackerPowerLevel = null)
     {
-        reactionDepth++;
-        try
-        {
-            DealDamage(source, target, damage, composition, ignoreDamageReduction, attackerPowerLevel);
-        }
-        finally
-        {
-            reactionDepth--;
-        }
+        DealDamage(source, target, damage, composition, ignoreDamageReduction, attackerPowerLevel,
+            DamageOrigin.Reaction);
     }
 
     /// <summary>在递归截断标记内对范围内的所有敌对单位结算二次反应伤害。</summary>
@@ -83,15 +77,8 @@ public static class CombatDamageEffects
         ElementComposition composition,
         bool ignoreDamageReduction = false)
     {
-        reactionDepth++;
-        try
-        {
-            DealAreaDamage(source, center, radius, damage, composition, ignoreDamageReduction);
-        }
-        finally
-        {
-            reactionDepth--;
-        }
+        DealAreaDamage(source, center, radius, damage, composition, ignoreDamageReduction,
+            DamageOrigin.Reaction);
     }
 
     /// <summary>兼容既有反击调用的语义化别名。</summary>

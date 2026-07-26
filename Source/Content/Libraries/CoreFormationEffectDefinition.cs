@@ -4,6 +4,7 @@ using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.Libraries;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
 using UnityEngine;
@@ -58,133 +59,7 @@ public enum CoreFormationEffectEventKind : byte
     Tick,
 }
 
-/// <summary>核心形成特效信号所对应的表现阶段。</summary>
-public enum CoreFormationVisualChannel : byte
-{
-    /// <summary>效果在施法者身上触发。</summary>
-    Trigger,
-
-    /// <summary>持续状态或印记被施加到受影响目标。</summary>
-    Apply,
-
-    /// <summary>效果在受影响目标处命中。</summary>
-    Hit,
-
-    /// <summary>效果进入蓄力或资源充盈状态。</summary>
-    Charge,
-
-    /// <summary>主动形态开始。</summary>
-    Activate,
-
-    /// <summary>权威状态存续期间的循环表现。</summary>
-    Loop,
-
-    /// <summary>主动形态或蓄力状态结束。</summary>
-    End,
-
-    /// <summary>保命或重生被成功结算。</summary>
-    Rebirth,
-}
-
-/// <summary>帧动画在世界中的空间跟随方式。</summary>
-public enum CoreFormationVisualMotion : byte
-{
-    /// <summary>固定在触发点。</summary>
-    Stationary,
-
-    /// <summary>跟随效果持有者。</summary>
-    FollowOwner,
-
-    /// <summary>跟随受影响目标。</summary>
-    FollowTarget,
-
-    /// <summary>从持有者向目标做直线移动。</summary>
-    Linear,
-
-    /// <summary>在触发点逐步放大。</summary>
-    Expand,
-
-    /// <summary>在触发点逐步缩小。</summary>
-    Contract,
-}
-
-/// <summary>单个核心形成帧动画通道的资源和播放参数。</summary>
-public sealed class CoreFormationEffectVisualCue
-{
-    /// <summary>按帧命名的资源目录。</summary>
-    public string path;
-
-    /// <summary>世界渲染缩放。</summary>
-    public float scale = 0.1f;
-
-    /// <summary>相邻帧的播放间隔。</summary>
-    public float frame_interval = 0.1f;
-
-    /// <summary>循环实例的最长兜底寿命。</summary>
-    public float life_time = 1f;
-
-    /// <summary>空间跟随方式。</summary>
-    public CoreFormationVisualMotion motion;
-
-    /// <summary>是否允许帧序列自身循环。</summary>
-    public bool loop;
-
-    /// <summary>是否始终保持贴图竖直，不继承移动方向。</summary>
-    public bool fixed_upright = true;
-
-    /// <summary>可选的统一染色。</summary>
-    public Color tint = Color.white;
-
-    /// <summary>是否应用统一染色。</summary>
-    public bool use_tint;
-}
-
-/// <summary>一个效果在触发、命中、激活和循环阶段使用的表现资源。</summary>
-public sealed class CoreFormationEffectVisualProfile
-{
-    /// <summary>效果在施法者处触发时的表现。</summary>
-    public CoreFormationEffectVisualCue trigger;
-
-    /// <summary>持续状态或印记施加到目标时的表现。</summary>
-    public CoreFormationEffectVisualCue apply;
-
-    /// <summary>效果在目标处命中时的表现。</summary>
-    public CoreFormationEffectVisualCue hit;
-
-    /// <summary>进入蓄力或资源充盈状态时的表现。</summary>
-    public CoreFormationEffectVisualCue charge;
-
-    /// <summary>主动形态开始时的表现。</summary>
-    public CoreFormationEffectVisualCue activate;
-
-    /// <summary>权威状态存续期间的循环表现。</summary>
-    public CoreFormationEffectVisualCue loop;
-
-    /// <summary>主动形态结束时的表现。</summary>
-    public CoreFormationEffectVisualCue end;
-
-    /// <summary>保命或重生成功时的表现。</summary>
-    public CoreFormationEffectVisualCue rebirth;
-
-    /// <summary>取得指定表现阶段的播放配置。</summary>
-    public CoreFormationEffectVisualCue Get(CoreFormationVisualChannel channel)
-    {
-        return channel switch
-        {
-            CoreFormationVisualChannel.Trigger => trigger,
-            CoreFormationVisualChannel.Apply => apply,
-            CoreFormationVisualChannel.Hit => hit,
-            CoreFormationVisualChannel.Charge => charge,
-            CoreFormationVisualChannel.Activate => activate,
-            CoreFormationVisualChannel.Loop => loop,
-            CoreFormationVisualChannel.End => end,
-            CoreFormationVisualChannel.Rebirth => rebirth,
-            _ => null,
-        };
-    }
-}
-
-/// <summary>主动核心形成能力的固定消耗、作用范围和执行委托。</summary>
+/// <summary>主动核心形成能力的作用范围、冷却和实际技能容器。</summary>
 public sealed class CoreFormationActiveProfile
 {
     /// <summary>主动能力显示名称的本地化键。</summary>
@@ -192,9 +67,6 @@ public sealed class CoreFormationActiveProfile
 
     /// <summary>主动能力图标路径。</summary>
     public string icon_path;
-
-    /// <summary>每次成功释放扣除的固定灵气。</summary>
-    public float wakan_cost;
 
     /// <summary>主动形态的持续秒数；瞬发能力为零。</summary>
     public float duration;
@@ -220,8 +92,8 @@ public sealed class CoreFormationActiveProfile
     /// <summary>判断当前战斗环境是否值得准备该能力。</summary>
     internal CoreFormationActivePrepareAction CanPrepare;
 
-    /// <summary>执行能力并写回运行时状态。</summary>
-    internal CoreFormationActiveUseAction Use;
+    /// <summary>由形成来源授予并通过标准施法序列生成执行体的只读技能容器。</summary>
+    public Entity SkillContainer;
 
     /// <summary>取得主动能力的本地化显示名称。</summary>
     public string GetName()
@@ -301,23 +173,13 @@ public readonly struct CoreFormationResolvedEffect
 public delegate void CoreFormationEffectHandler(
     in CoreFormationResolvedEffect effect,
     ActorExtend owner,
-    ref CoreFormationEffectRuntimeEntry runtime,
     CoreFormationEffectEvent evt);
 
 /// <summary>判断 AI 是否应准备一个主动形成能力的委托。</summary>
 public delegate bool CoreFormationActivePrepareAction(
     in CoreFormationResolvedEffect effect,
     ActorExtend owner,
-    in CoreFormationEffectRuntimeEntry runtime,
     BaseSimObject target);
-
-/// <summary>执行一个主动形成能力的委托。</summary>
-public delegate bool CoreFormationActiveUseAction(
-    in CoreFormationResolvedEffect effect,
-    ActorExtend owner,
-    ref CoreFormationEffectRuntimeEntry runtime,
-    in ActiveAbilityTarget target,
-    ActiveAbilityUseOrigin origin);
 
 /// <summary>由形成原子提供、可按效果族合并升级的一项实际机制。</summary>
 public sealed class CoreFormationEffectDefinition
@@ -352,14 +214,20 @@ public sealed class CoreFormationEffectDefinition
     /// <summary>最终伤害规则所属的固定执行阶段。</summary>
     public FinalDamageStage final_damage_stage;
 
-    /// <summary>效果的帧动画与粒子表现配置。</summary>
-    public CoreFormationEffectVisualProfile visual;
+    /// <summary>简单效果默认触发的真实来源授予技能；分支效果可在处理器中选择其他明确技能。</summary>
+    public Entity TriggerSkill;
+
+    /// <summary>普通触发概率与内部冷却使用的稳定技能身份。</summary>
+    public Entity CooldownSkill;
+
+    /// <summary>负责事件筛选、同步伤害规则和技能请求构造的处理器。</summary>
+    public CoreFormationEffectHandler Handle;
+
+    /// <summary>保存持续机制数据和循环表现的普通共享状态。</summary>
+    public StatusEffectAsset StateStatus;
 
     /// <summary>存在时把该效果暴露为统一主动能力。</summary>
     public CoreFormationActiveProfile active;
-
-    /// <summary>处理自动事件的委托。</summary>
-    internal CoreFormationEffectHandler Handle;
 
     /// <summary>取得效果的本地化显示名称。</summary>
     public string GetName()

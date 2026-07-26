@@ -15,11 +15,36 @@ public static class CombatStatusEffects
     public static bool HasStatus(Actor target, StatusEffectAsset effect, Actor source = null)
     {
         if (target == null || effect == null) return false;
-        foreach (Entity status in target.GetExtend().GetStatuses())
+        var relations = target.GetExtend().E.GetRelations<StatusRelation>();
+        for (var i = 0; i < relations.Length; i++)
         {
+            Entity status = relations[i].status;
             StatusComponent component = status.GetComponent<StatusComponent>();
             if (component.Type == effect && (source == null || component.Source == source)) return true;
         }
+        return false;
+    }
+
+    /// <summary>取得指定类型且来自指定来源的共享状态实体。</summary>
+    public static bool TryGetStatus(
+        Actor target,
+        StatusEffectAsset effect,
+        Actor source,
+        out Entity statusEntity)
+    {
+        if (target != null && effect != null)
+        {
+            var relations = target.GetExtend().E.GetRelations<StatusRelation>();
+            for (var i = 0; i < relations.Length; i++)
+            {
+                Entity status = relations[i].status;
+                StatusComponent component = status.GetComponent<StatusComponent>();
+                if (component.Type != effect || source != null && component.Source != source) continue;
+                statusEntity = status;
+                return true;
+            }
+        }
+        statusEntity = default;
         return false;
     }
 
@@ -96,6 +121,24 @@ public static class CombatStatusEffects
             status => ConfigureStatusHeader(status, duration, source), effect?.stats);
     }
 
+    /// <summary>
+    /// 施加或刷新带自定义运行时组件的共享状态。
+    /// 配置委托在通用持续时间和来源信息写入后执行。
+    /// </summary>
+    public static Entity ApplyStateStatus(
+        Actor target,
+        StatusEffectAsset effect,
+        float duration,
+        Actor source,
+        Action<Entity> configure)
+    {
+        return ApplyConfiguredStatus(target, effect, source, status =>
+        {
+            ConfigureStatusHeader(status, duration, source);
+            configure?.Invoke(status);
+        }, effect?.stats);
+    }
+
     /// <summary>施加带独立周期强度和元素构成的持续状态。</summary>
     public static void ApplyTickingStatus(
         Actor target,
@@ -122,17 +165,19 @@ public static class CombatStatusEffects
     }
 
     /// <summary>刷新同源状态或创建新状态，并按需恢复资产默认属性。</summary>
-    private static void ApplyConfiguredStatus(
+    private static Entity ApplyConfiguredStatus(
         Actor target,
         StatusEffectAsset effect,
         Actor source,
         Action<Entity> configure,
         BaseStats defaultStats = null)
     {
-        if (target == null || target.isRekt() || effect == null || source == null || source.isRekt()) return;
+        if (target == null || target.isRekt() || effect == null || source == null || source.isRekt()) return default;
         ActorExtend targetExtend = target.GetExtend();
-        foreach (Entity status in targetExtend.GetStatuses())
+        var relations = targetExtend.E.GetRelations<StatusRelation>();
+        for (var i = 0; i < relations.Length; i++)
         {
+            Entity status = relations[i].status;
             StatusComponent component = status.GetComponent<StatusComponent>();
             if (component.Type != effect || component.Source != source) continue;
             configure(status);
@@ -144,12 +189,14 @@ public static class CombatStatusEffects
                 status.GetComponent<StatusOverwriteStats>() = overwrite;
             }
             target.setStatsDirty();
-            return;
+            return status;
         }
 
         Entity created = effect.NewEntity();
         configure(created);
-        if (!targetExtend.AddSharedStatus(created)) ModClass.I.CommandBuffer.AddTag<TagRecycle>(created.Id);
+        if (targetExtend.AddSharedStatus(created)) return created;
+        ModClass.I.CommandBuffer.AddTag<TagRecycle>(created.Id);
+        return default;
     }
 
     /// <summary>写入共享状态头部和单项属性覆盖。</summary>

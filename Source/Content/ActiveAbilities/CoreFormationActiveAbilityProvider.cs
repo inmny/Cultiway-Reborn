@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
-using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
+using Cultiway.Core.Combat;
+using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Content.ActiveAbilities;
@@ -29,14 +32,17 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
         {
             CoreFormationEffectDefinition definition = effects[i].Definition;
             if (definition.active != null)
-                output.Add(new ActiveAbilityHandle(Id, caster.E, definition.family_id));
+                output.Add(new ActiveAbilityHandle(
+                    Id,
+                    definition.active.SkillContainer,
+                    definition.family_id));
         }
     }
 
     /// <summary>形成主动能力只参与战斗通道。</summary>
     public ActiveAbilityChannel GetChannels(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        return TryResolve(caster, handle, out _, out _)
+        return TryResolve(caster, handle, out _)
             ? ActiveAbilityChannel.Combat
             : ActiveAbilityChannel.None;
     }
@@ -59,17 +65,20 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
     /// <summary>检查冷却、固定灵气消耗和定义提供的战斗环境条件。</summary>
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
-        if (!TryResolve(caster, handle, out ResolvedActive active, out CoreFormationEffectRuntimeEntry runtime))
-            return false;
-        return runtime.active_cooldown_remaining <= 0f && CanAfford(caster, active.Profile.wakan_cost) &&
-               (active.Profile.CanPrepare?.Invoke(active.Effect, caster, runtime, target) ?? true);
+        if (!TryResolve(caster, handle, out ResolvedActive active)) return false;
+        SkillCastPlan plan = CreatePlan(caster, active.Profile, target, caster.Base.GetSimPos());
+        return SkillCooldownService.IsReady(caster, active.Profile.SkillContainer) &&
+               SkillCastCost.CanPay(caster, active.Profile.SkillContainer, plan) &&
+               (active.Profile.CanPrepare?.Invoke(active.Effect, caster, target) ?? true);
     }
 
     /// <summary>检查能力准备条件、目标模式和实际作用距离。</summary>
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
     {
-        if (!TryResolve(caster, handle, out ResolvedActive active, out CoreFormationEffectRuntimeEntry runtime) ||
-            runtime.active_cooldown_remaining > 0f || !CanAfford(caster, active.Profile.wakan_cost)) return false;
+        if (!TryResolve(caster, handle, out ResolvedActive active) ||
+            !SkillCooldownService.IsReady(caster, active.Profile.SkillContainer)) return false;
+        SkillCastPlan plan = CreatePlan(caster, active.Profile, target.Object, target.Position);
+        if (!SkillCastCost.CanPay(caster, active.Profile.SkillContainer, plan)) return false;
         if (active.Profile.target_mode == ActiveAbilityTargetMode.Self) return true;
         Vector3 center = !target.Object.isRekt() ? target.Object.GetSimPos() : target.Position;
         float range = Mathf.Max(0f, active.Profile.range);
@@ -79,7 +88,7 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
     /// <summary>按基础权重和当前生命压力调整 AI 释放倾向。</summary>
     public int ResolveAiWeight(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
-        if (!TryResolve(caster, handle, out ResolvedActive active, out _)) return 0;
+        if (!TryResolve(caster, handle, out ResolvedActive active)) return 0;
         int weight = Mathf.Max(0, active.Profile.ai_weight);
         float healthRatio = caster.Base.stats[strings.S.health] <= 0f
             ? 1f
@@ -91,7 +100,7 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
     /// <summary>返回主动配置声明的选择距离。</summary>
     public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
-        return TryResolve(caster, handle, out ResolvedActive active, out _)
+        return TryResolve(caster, handle, out ResolvedActive active)
             ? active.Profile.range
             : 0f;
     }
@@ -99,12 +108,12 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
     /// <summary>返回主动配置声明的实际影响半径。</summary>
     public float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        return TryResolve(caster, handle, out ResolvedActive active, out _)
+        return TryResolve(caster, handle, out ResolvedActive active)
             ? active.Profile.radius
             : 0f;
     }
 
-    /// <summary>支付固定灵气、执行定义委托，并在成功后写入主动冷却。</summary>
+    /// <summary>通过来源授予技能支付灵气并启动标准一步式施法，成功后写入通用技能冷却。</summary>
     public bool TryUse(
         ActorExtend caster,
         ActiveAbilityHandle handle,
@@ -112,57 +121,68 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
         ActiveAbilityUseOrigin origin)
     {
         if (!CanUse(caster, handle, target) ||
-            !TryResolve(caster, handle, out ResolvedActive active, out _)) return false;
-        if (!CombatResourceEffects.TrySpendWakan(caster.Base, active.Profile.wakan_cost)) return false;
-
-        CoreFormationEffectRuntime runtime = caster.E.GetComponent<CoreFormationEffectRuntime>();
-        int index = runtime.FindIndex(active.Effect.Definition.family_id);
-        if (index < 0 || active.Profile.Use == null)
-        {
-            CombatResourceEffects.RestoreWakan(caster.Base, active.Profile.wakan_cost);
-            return false;
-        }
-        bool used = active.Profile.Use(active.Effect, caster, ref runtime.entries[index], target, origin);
-        if (!used)
-        {
-            CombatResourceEffects.RestoreWakan(caster.Base, active.Profile.wakan_cost);
-            return false;
-        }
-        runtime.entries[index].active_cooldown_remaining = active.Profile.cooldown;
-        caster.E.GetComponent<CoreFormationEffectRuntime>() = runtime;
+            !TryResolve(caster, handle, out ResolvedActive active)) return false;
+        SkillCastPlan plan = CreatePlan(caster, active.Profile, target.Object, target.Position);
+        if (plan.Steps.Count == 0) return false;
+        SkillCastRuntimeData runtimeData =
+            SkillCastRuntimeData.Create(active.Effect.Potency, DamageOrigin.Primary);
+        bool used = ModClass.I.SkillV3.StartSkillSequence(
+            caster,
+            active.Profile.SkillContainer,
+            plan,
+            caster.Base.stats[S.damage],
+            caster.GetPowerLevel(),
+            SkillCastFundingSource.CasterResources,
+            target.AttackKingdom,
+            runtimeData);
+        if (!used) return false;
+        SkillCooldownService.Start(caster, active.Profile.SkillContainer, active.Profile.cooldown);
         return true;
     }
 
-    /// <summary>判断角色当前是否拥有足够灵气支付固定能力消耗。</summary>
-    private static bool CanAfford(ActorExtend caster, float cost)
+    /// <summary>按主动目标模式构造恰好包含一个释放步骤的计划。</summary>
+    private static SkillCastPlan CreatePlan(
+        ActorExtend caster,
+        CoreFormationActiveProfile profile,
+        BaseSimObject target,
+        Vector3 targetPosition)
     {
-        return cost <= 0f || caster.HasCultisys<Xian>() && caster.GetCultisys<Xian>().wakan + 0.0001f >= cost;
+        var plan = new SkillCastPlan();
+        if (caster?.Base == null || caster.Base.isRekt()) return plan;
+        if (profile.target_mode == ActiveAbilityTargetMode.Self)
+        {
+            plan.Steps.Add(new SkillCastStep(caster.Base, 0f));
+        }
+        else if (!target.isRekt())
+        {
+            plan.Steps.Add(new SkillCastStep(target, 0f));
+        }
+        else
+        {
+            plan.Steps.Add(new SkillCastStep(targetPosition, 0f));
+        }
+        return plan;
     }
 
     /// <summary>解析主动能力句柄，不存在时抛出明确异常。</summary>
     private static ResolvedActive Resolve(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        if (TryResolve(caster, handle, out ResolvedActive active, out _)) return active;
+        if (TryResolve(caster, handle, out ResolvedActive active)) return active;
         throw new InvalidOperationException($"核心形成主动能力不存在: {handle.EntryId}");
     }
 
-    /// <summary>验证句柄归属，并解析效果定义及其当前运行时状态。</summary>
+    /// <summary>验证句柄归属，并解析效果定义及其当前来源授予技能。</summary>
     private static bool TryResolve(
         ActorExtend caster,
         ActiveAbilityHandle handle,
-        out ResolvedActive active,
-        out CoreFormationEffectRuntimeEntry runtimeEntry)
+        out ResolvedActive active)
     {
         active = default;
-        runtimeEntry = default;
-        if (caster == null || handle.Source != caster.E || string.IsNullOrEmpty(handle.EntryId) ||
+        if (caster == null || string.IsNullOrEmpty(handle.EntryId) ||
             !CoreFormationEffectResolver.TryResolveFamily(caster, handle.EntryId,
                 out CoreFormationResolvedEffect effect) || effect.Definition.active == null) return false;
-        if (!caster.E.TryGetComponent(out CoreFormationEffectRuntime runtime)) return false;
-        int index = runtime.FindIndex(handle.EntryId);
-        if (index < 0) return false;
+        if (handle.Source != effect.Definition.active.SkillContainer) return false;
         active = new ResolvedActive(effect);
-        runtimeEntry = runtime.entries[index];
         return true;
     }
 

@@ -7,8 +7,8 @@ using Friflo.Engine.ECS.Systems;
 
 namespace Cultiway.Content.Systems.Logic;
 
-/// <summary>只推进已经拥有核心形成运行时的角色。</summary>
-public sealed class CoreFormationEffectSystem : QuerySystem<ActorBinder, CoreFormationEffectRuntime>
+/// <summary>只推进已经同步形成授予清单的角色。</summary>
+public sealed class CoreFormationEffectSystem : QuerySystem<ActorBinder, CoreFormationGrantRuntime>
 {
     private readonly List<ActorExtend> actors = new();
 
@@ -18,15 +18,15 @@ public sealed class CoreFormationEffectSystem : QuerySystem<ActorBinder, CoreFor
         Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagRecycle>());
     }
 
-    /// <summary>先收集运行时角色，离开查询迭代后再安全增删运行时组件。</summary>
+    /// <summary>先收集角色，离开查询迭代后再安全增删授予和状态组件。</summary>
     protected override void OnUpdate()
     {
         actors.Clear();
-        Query.ForEachComponents((ref ActorBinder binder, ref CoreFormationEffectRuntime _) =>
+        Query.ForEachComponents((ref ActorBinder binder, ref CoreFormationGrantRuntime _) =>
         {
             actors.Add(binder.AE);
         });
         for (var i = 0; i < actors.Count; i++)
-            CoreFormationEffectRuntimeBridge.Advance(actors[i], Tick.deltaTime);
+            CoreFormationSkillBridge.Advance(actors[i], Tick.deltaTime);
     }
 }

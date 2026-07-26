@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
+using Cultiway.Core.SkillLibV3;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 
@@ -88,8 +89,8 @@ public static class CoreFormationEffectResolver
         }
 
         SortByFamily(output);
-        if (output.Count > CoreFormationEffectRuntime.MaxEntries)
-            while (output.Count > CoreFormationEffectRuntime.MaxEntries) output.RemoveAt(output.Count - 1);
+        if (output.Count > CoreFormationGrantRuntime.MaxEffects)
+            while (output.Count > CoreFormationGrantRuntime.MaxEffects) output.RemoveAt(output.Count - 1);
     }
 
     /// <summary>确保角色运行时与当前合并效果族一致，并按效果族保留已有状态。</summary>
@@ -98,7 +99,7 @@ public static class CoreFormationEffectResolver
         if (actor == null || actor.Base == null || actor.Base.isRekt()) return false;
         if (!TryGetFormation(actor, out FormationSource source))
         {
-            RemoveRuntime(actor);
+            RemoveGrant(actor);
             return false;
         }
         if (resolved == null)
@@ -111,7 +112,7 @@ public static class CoreFormationEffectResolver
         return Synchronize(actor, source, resolved);
     }
 
-    /// <summary>使用同一次推进取得的形成来源同步运行时，保留各效果族已有状态。</summary>
+    /// <summary>使用同一次推进取得的形成来源同步授予清单。</summary>
     internal static bool Synchronize(
         ActorExtend actor,
         in FormationSource source,
@@ -121,61 +122,74 @@ public static class CoreFormationEffectResolver
         if (resolved == null) throw new ArgumentNullException(nameof(resolved));
         if (resolved.Count == 0)
         {
-            RemoveRuntime(actor);
+            RemoveGrant(actor);
             return false;
         }
 
-        CoreFormationEffectRuntime previous = actor.E.TryGetComponent(out CoreFormationEffectRuntime current)
+        CoreFormationGrantRuntime previous = actor.E.TryGetComponent(out CoreFormationGrantRuntime current)
             ? current
             : default;
-        if (MatchesCurrentRuntime(previous, source.Snapshot.signature, resolved)) return true;
+        if (MatchesCurrentGrant(previous, source.Snapshot.signature, source.Stage, resolved)) return true;
+        if (actor.E.HasComponent<CoreFormationGrantRuntime>()) ClearGrantedState(actor);
 
-        var entries = new CoreFormationEffectRuntimeEntry[resolved.Count];
+        var grants = new CoreFormationGrantedEffect[resolved.Count];
         for (var i = 0; i < resolved.Count; i++)
         {
-            CoreFormationResolvedEffect effect = resolved[i];
-            int previousIndex = previous.FindIndex(effect.Definition.family_id);
-            CoreFormationEffectRuntimeEntry entry = previousIndex >= 0
-                ? previous.entries[previousIndex]
-                : new CoreFormationEffectRuntimeEntry { family_id = effect.Definition.family_id };
-            entry.family_id = effect.Definition.family_id;
-            entry.rank = effect.Definition.rank;
-            entries[i] = entry;
+            CoreFormationEffectDefinition definition = resolved[i].Definition;
+            grants[i] = new CoreFormationGrantedEffect
+            {
+                family_id = definition.family_id,
+                rank = definition.rank,
+            };
         }
 
-        var runtime = new CoreFormationEffectRuntime
+        var grant = new CoreFormationGrantRuntime
         {
             signature = source.Snapshot.signature,
-            entries = entries,
+            stage = source.Stage,
+            effects = grants,
         };
-        if (actor.E.HasComponent<CoreFormationEffectRuntime>())
-            actor.E.GetComponent<CoreFormationEffectRuntime>() = runtime;
+        if (actor.E.HasComponent<CoreFormationGrantRuntime>())
+            actor.E.GetComponent<CoreFormationGrantRuntime>() = grant;
         else
-            actor.E.AddComponent(runtime);
+            actor.E.AddComponent(grant);
         return true;
     }
 
-    private static void RemoveRuntime(ActorExtend actor)
+    /// <summary>撤销角色自身由当前形成维护的状态和形成技能冷却。</summary>
+    internal static void ClearGrantedState(ActorExtend actor)
     {
-        if (actor.E.HasComponent<CoreFormationEffectRuntime>())
-            actor.E.RemoveComponent<CoreFormationEffectRuntime>();
+        if (actor == null) return;
+        CoreFormationStateService.ClearSelfStates(actor);
+        CoreFormationSkills.ClearCooldowns(actor);
     }
 
-    /// <summary>判断已有运行时是否已经与当前形成签名及效果族解析结果一致。</summary>
-    private static bool MatchesCurrentRuntime(
-        CoreFormationEffectRuntime runtime,
+    /// <summary>撤销形成授予并移除同步标记组件。</summary>
+    private static void RemoveGrant(ActorExtend actor)
+    {
+        if (!actor.E.HasComponent<CoreFormationGrantRuntime>()) return;
+        ClearGrantedState(actor);
+        actor.E.RemoveComponent<CoreFormationGrantRuntime>();
+    }
+
+    /// <summary>判断已有授予清单是否已经与当前形成来源及解析结果完全一致。</summary>
+    private static bool MatchesCurrentGrant(
+        CoreFormationGrantRuntime grant,
         string signature,
+        int stage,
         IList<CoreFormationResolvedEffect> resolved)
     {
-        if (!string.Equals(runtime.signature, signature, StringComparison.Ordinal) ||
-            runtime.entries == null || runtime.entries.Length != resolved.Count)
+        if (!string.Equals(grant.signature, signature, StringComparison.Ordinal) ||
+            grant.stage != stage ||
+            grant.effects == null ||
+            grant.effects.Length != resolved.Count)
             return false;
         for (var i = 0; i < resolved.Count; i++)
         {
             CoreFormationEffectDefinition definition = resolved[i].Definition;
-            CoreFormationEffectRuntimeEntry entry = runtime.entries[i];
-            if (!string.Equals(entry.family_id, definition.family_id, StringComparison.Ordinal) ||
-                entry.rank != definition.rank)
+            CoreFormationGrantedEffect granted = grant.effects[i];
+            if (!string.Equals(granted.family_id, definition.family_id, StringComparison.Ordinal) ||
+                granted.rank != definition.rank)
                 return false;
         }
         return true;

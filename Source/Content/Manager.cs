@@ -84,7 +84,7 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new SectConstructionSystem());
         ActorExtend.RegisterActionOnDeath(SectTreasureService.ReturnBorrowedOnDeath);
         ArtifactAbilityRuntimeBridge.Init();
-        CoreFormationEffectRuntimeBridge.Init();
+        CoreFormationSkillBridge.Init();
         ActiveAbilityService.Register(new CoreFormationActiveAbilityProvider());
         ModClass.I.GeneralLogicSystems.Add(new CoreFormationEffectSystem());
         ModClass.I.GeneralRenderSystems.Add(new BreakthroughVisualSystem());
@@ -96,7 +96,6 @@ internal class Manager
         ModClass.I.GeneralRenderSystems.Add(new ArtifactSectManifestationSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactWorldRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactAbilityVisualSystem());
-        ModClass.I.GeneralRenderSystems.Add(new CoreFormationEffectVisualSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookImprovedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new MagicSpellCastCompletedEventSystem());
