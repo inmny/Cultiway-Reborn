@@ -46,7 +46,7 @@ public static class PerformanceSettings
 
     public static void SetTargetRenderFps(float value)
     {
-        TargetRenderFps = Mathf.Clamp(value, 30f, 144f);
+        TargetRenderFps = Mathf.Clamp(value, 3f, 144f);
     }
 
     public static void SetMaxSimulationMillisecondsPerFrame(float value)

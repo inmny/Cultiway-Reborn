@@ -98,7 +98,7 @@
             "Id": "TARGET_RENDER_FPS",
             "Type": "SLIDER",
             "FloatVal": 60,
-            "MinFloatVal": 30,
+            "MinFloatVal": 3,
             "MaxFloatVal": 144,
             "Callback": "PerformanceSettings:SetTargetRenderFps"
         },
