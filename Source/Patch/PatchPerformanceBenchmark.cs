@@ -18,11 +18,29 @@ internal static class PatchPerformanceBenchmark
         new(ReferenceComparer<BehaviourActionActor>.Instance);
     private static readonly Dictionary<string, AiMetric> ActionMetrics =
         new(StringComparer.Ordinal);
+    private static readonly Dictionary<RateCounter, ActionCounterInfo> ActionPerformanceCounters =
+        new(ReferenceComparer<RateCounter>.Instance);
+    private static bool actionCountersMapped;
 
     [HarmonyPrefix, HarmonyPatch(typeof(MapBox), "Update")]
     private static void MapBoxUpdatePrefix()
     {
         SimulationTickBenchmark.ApplyAiDetailsPolicy();
+        if (!SimulationTickBenchmark.ShouldCollectAiDetails)
+        {
+            if (actionCountersMapped)
+            {
+                ActionPerformanceCounters.Clear();
+                actionCountersMapped = false;
+            }
+
+            return;
+        }
+
+        if (!actionCountersMapped)
+        {
+            RegisterActionCounters();
+        }
     }
 
     [HarmonyPrefix]
@@ -52,6 +70,10 @@ internal static class PatchPerformanceBenchmark
         if (SimulationTickBenchmark.ShouldCollectAiDetails)
         {
             RegisterEvent(__instance, pValue);
+            if (ActionPerformanceCounters.TryGetValue(__instance, out ActionCounterInfo action))
+            {
+                GoToProfiler.CompleteAction(action.Kind, action.Id, pValue);
+            }
         }
 
         return false;
@@ -115,6 +137,7 @@ internal static class PatchPerformanceBenchmark
                     continue;
                 }
 
+                RegisterActionCounter(action);
                 AiMetric metric = ReadMetric(action);
                 if (ActionMetrics.TryGetValue(action.id, out AiMetric current))
                 {
@@ -140,6 +163,38 @@ internal static class PatchPerformanceBenchmark
             AiActionsGroupId,
             new AiMetric(totalSeconds, totalCalls),
             AiActionsTotalGroupId);
+    }
+
+    private static void RegisterActionCounters()
+    {
+        if (AssetManager.tasks_actor == null)
+        {
+            return;
+        }
+
+        List<BehaviourTaskActor> tasks = AssetManager.tasks_actor.list;
+        for (int i = 0; i < tasks.Count; i++)
+        {
+            List<BehaviourActionActor> actions = tasks[i].list;
+            for (int j = 0; j < actions.Count; j++)
+            {
+                RegisterActionCounter(actions[j]);
+            }
+        }
+
+        actionCountersMapped = ActionPerformanceCounters.Count > 0;
+    }
+
+    private static void RegisterActionCounter(BehaviourActionActor action)
+    {
+        if (action?.rate_counter_performance == null)
+        {
+            return;
+        }
+
+        ActionPerformanceCounters[action.rate_counter_performance] =
+            new ActionCounterInfo(action.id, GoToProfiler.Classify(action));
+        actionCountersMapped = true;
     }
 
     private static AiMetric ReadMetric(BehaviourElementAI element)
@@ -181,6 +236,18 @@ internal static class PatchPerformanceBenchmark
         {
             return new AiMetric(Seconds + other.Seconds, Calls + other.Calls);
         }
+    }
+
+    private readonly struct ActionCounterInfo
+    {
+        internal ActionCounterInfo(string id, GoToActionKind kind)
+        {
+            Id = id;
+            Kind = kind;
+        }
+
+        internal string Id { get; }
+        internal GoToActionKind Kind { get; }
     }
 
     private sealed class ReferenceComparer<T> : IEqualityComparer<T>

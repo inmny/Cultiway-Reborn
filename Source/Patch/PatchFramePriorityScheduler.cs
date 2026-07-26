@@ -35,9 +35,10 @@ internal static class PatchFramePriorityScheduler
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(MapBox), "Update")]
-    private static void AfterMapBoxUpdate(long __state)
+    private static void AfterMapBoxUpdate(MapBox __instance, long __state)
     {
         FramePriorityGovernor.EndHostMeasurement(__state);
+        WorldTimeRateTracker.Update(__instance);
     }
 
     [HarmonyPrefix]

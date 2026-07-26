@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
+using Cultiway.Core.Performance;
 using Cultiway.Utils;
 using Cultiway;
 using Cultiway.Const;
@@ -35,12 +36,20 @@ public class PathFinder
         {
             return false;
         }
-        if (TryReuseActiveRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions))
+        PathfindingProfiler.Measurement reuseMeasurement = PathfindingProfiler.Start();
+        bool reused = TryReuseActiveRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions);
+        reuseMeasurement.Complete(
+            reused
+                ? PathfindingBenchmarkMetric.Reuse
+                : PathfindingBenchmarkMetric.ReuseMiss);
+        if (reused)
         {
             return true;
         }
 
+        PathfindingProfiler.Measurement createMeasurement = PathfindingProfiler.Start();
         var request = new PathRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions);
+        createMeasurement.Complete(PathfindingBenchmarkMetric.Create);
 
         return RequestPathCore(request, true, true);
     }
@@ -63,8 +72,19 @@ public class PathFinder
 
         if (!alreadyCheckedReuse)
         {
-            if (TryReuseActiveRequest(request.Actor, request.Target, request.PathOnWater, request.WalkOnBlocks,
-                    request.WalkOnLava, request.RegionLimit))
+            PathfindingProfiler.Measurement reuseMeasurement = PathfindingProfiler.Start();
+            bool reused = TryReuseActiveRequest(
+                request.Actor,
+                request.Target,
+                request.PathOnWater,
+                request.WalkOnBlocks,
+                request.WalkOnLava,
+                request.RegionLimit);
+            reuseMeasurement.Complete(
+                reused
+                    ? PathfindingBenchmarkMetric.Reuse
+                    : PathfindingBenchmarkMetric.ReuseMiss);
+            if (reused)
             {
                 return true;
             }
@@ -74,8 +94,10 @@ public class PathFinder
             request.WalkOnBlocks, request.WalkOnLava, request.RegionLimit);
         Cancel(request.Actor);
 
-        var task = new PathfindingTask(request);
+        PathfindingProfiler.Measurement taskCreateMeasurement = PathfindingProfiler.Start();
+        var task = new PathfindingTask(request, taskCreateMeasurement.Session);
         _tasks[request.Actor.data.id] = task;
+        taskCreateMeasurement.Complete(PathfindingBenchmarkMetric.TaskCreate);
 
         EnqueueTask(task);
         return true;
@@ -83,9 +105,13 @@ public class PathFinder
 
     private void EnqueueTask(PathfindingTask task)
     {
+        PathfindingProfiler.Measurement enqueueMeasurement =
+            PathfindingProfiler.Start(task.BenchmarkSession);
         EnsureWorkersStarted();
+        task.MarkEnqueued();
         _pendingTasks.Enqueue(task);
         _pendingSignal.Set();
+        enqueueMeasurement.Complete(PathfindingBenchmarkMetric.Enqueue);
     }
 
     private void EnsureWorkersStarted()
@@ -128,7 +154,11 @@ public class PathFinder
                 continue;
             }
 
+            task.MarkDequeued();
+            PathfindingProfiler.Measurement backgroundMeasurement =
+                PathfindingProfiler.Start(task.BenchmarkSession);
             RunGenerator(task);
+            backgroundMeasurement.Complete(PathfindingBenchmarkMetric.BackgroundPath);
             task.MarkWorkerFinished();
         }
     }
@@ -210,11 +240,16 @@ public class PathFinder
         _lastRequests[actor.data.id] = new PathRequestOptions(target, true, true, true, 0);
         Cancel(actor);
 
-        var task = new PathfindingTask(new PathRequest(actor, target, true, true, true, 0));
+        PathfindingProfiler.Measurement createMeasurement = PathfindingProfiler.Start();
+        var request = new PathRequest(actor, target, true, true, true, 0);
+        createMeasurement.Complete(PathfindingBenchmarkMetric.Create);
+        PathfindingProfiler.Measurement taskCreateMeasurement = PathfindingProfiler.Start();
+        var task = new PathfindingTask(request, taskCreateMeasurement.Session);
         task.Stream.AddStep(new PathStep(target, MovementMethod.Walk, TraversalEstimate.Direct));
         task.Stream.Complete();
         task.MarkWorkerFinished();
         _tasks[actor.data.id] = task;
+        taskCreateMeasurement.Complete(PathfindingBenchmarkMetric.TaskCreate);
     }
 
     public bool IsActorPathing(Actor actor)
@@ -447,12 +482,19 @@ public class PathFinder
             return;
         }
 
-        if (_tasks.TryRemove(actor.data.id, out var task))
+        PathfindingProfiler.Measurement cancelMeasurement = PathfindingProfiler.Start();
+        bool cancelled = _tasks.TryRemove(actor.data.id, out var task);
+        if (cancelled)
         {
             task.Stream.Cancel(reason);
             task.Cancellation.Cancel();
             task.DisposeWhenWorkerFinished();
         }
+
+        cancelMeasurement.Complete(
+            cancelled
+                ? PathfindingBenchmarkMetric.Cancel
+                : PathfindingBenchmarkMetric.CancelEmpty);
     }
 
     private void RunGenerator(PathfindingTask task)
@@ -538,8 +580,16 @@ public class PathFinder
             return false;
         }
 
-        return RequestPath(new PathRequest(actor, target, opt.PathOnWater, opt.WalkOnBlocks, opt.WalkOnLava,
-            opt.RegionLimit));
+        PathfindingProfiler.Measurement createMeasurement = PathfindingProfiler.Start();
+        var request = new PathRequest(
+            actor,
+            target,
+            opt.PathOnWater,
+            opt.WalkOnBlocks,
+            opt.WalkOnLava,
+            opt.RegionLimit);
+        createMeasurement.Complete(PathfindingBenchmarkMetric.Create);
+        return RequestPath(request);
     }
 }
 
@@ -549,16 +599,32 @@ internal sealed class PathfindingTask : IDisposable
     private int _disposed;
     private int _workerFinished;
 
-    public PathfindingTask(PathRequest request)
+    private long enqueuedAt;
+
+    public PathfindingTask(
+        PathRequest request,
+        PathfindingProfiler.Session benchmarkSession = null)
     {
         Request = request;
         Stream = new PathStream();
         Cancellation = new CancellationTokenSource();
+        BenchmarkSession = benchmarkSession;
     }
 
     public PathRequest Request { get; }
     public PathStream Stream { get; }
     public CancellationTokenSource Cancellation { get; }
+    internal PathfindingProfiler.Session BenchmarkSession { get; }
+
+    internal void MarkEnqueued()
+    {
+        enqueuedAt = PathfindingProfiler.MarkEnqueued(BenchmarkSession);
+    }
+
+    internal void MarkDequeued()
+    {
+        PathfindingProfiler.RecordQueueWait(BenchmarkSession, enqueuedAt);
+    }
 
     public void MarkWorkerFinished()
     {

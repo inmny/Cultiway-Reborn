@@ -82,11 +82,7 @@ internal sealed class CooperativeSimulationRunner
     private bool advancingGameDelayedActions;
     private long logicalTicksAdmitted;
     private long logicalTicksCompleted;
-    private double simulatedSecondsCompleted;
-    private double simulatedSecondsAtRateWindowStart;
-    private float rateWindowStartedAt = -1f;
     private float requestedSpeed;
-    private float actualSpeed;
 
     public bool Active => stage != SimulationStage.Idle;
     public bool IsAtCycleBoundary => !Active;
@@ -97,7 +93,7 @@ internal sealed class CooperativeSimulationRunner
     public long LogicalTicksAdmitted => logicalTicksAdmitted;
     public long LogicalTicksCompleted => logicalTicksCompleted;
     public float RequestedSpeed => requestedSpeed;
-    public float ActualSpeed => actualSpeed;
+    public float ActualSpeed => WorldTimeRateTracker.ActualSpeed;
     public double AdmissionCredits => admissionCredits;
     public string AdmissionMode => !PerformanceSettings.EnableFramePriorityScheduler
         ? "native"
@@ -589,7 +585,6 @@ internal sealed class CooperativeSimulationRunner
     {
         SimulationTime.CompleteTick(world);
         SimulationTickBenchmark.MarkTickCompleted();
-        simulatedSecondsCompleted += cycleElapsed;
         mapLayers.Clear();
         mapModules.Clear();
         worldBehaviours.Clear();
@@ -619,8 +614,6 @@ internal sealed class CooperativeSimulationRunner
 
     private void PrepareAdmissionCredits(MapBox map, bool allowNewCycles)
     {
-        UpdateActualSpeed();
-
         WorldTimeScaleAsset timeScale = Config.time_scale_asset;
         bool largeStepMode = PerformanceSettings.EnableVanillaLargeSimulationStep;
         float nextRequestedSpeed = Math.Max(0f, timeScale.multiplier) * Math.Max(1, timeScale.ticks);
@@ -665,28 +658,5 @@ internal sealed class CooperativeSimulationRunner
                admissionCredits >= 1.0 &&
                !map.isPaused() &&
                ModClass.I?.LogicScheduler.Active != true;
-    }
-
-    private void UpdateActualSpeed()
-    {
-        float now = UnityEngine.Time.unscaledTime;
-        if (rateWindowStartedAt < 0f)
-        {
-            rateWindowStartedAt = now;
-            simulatedSecondsAtRateWindowStart = simulatedSecondsCompleted;
-            return;
-        }
-
-        float elapsed = now - rateWindowStartedAt;
-        if (elapsed < 0.5f)
-        {
-            return;
-        }
-
-        double completedSimulationSeconds =
-            simulatedSecondsCompleted - simulatedSecondsAtRateWindowStart;
-        actualSpeed = (float)(completedSimulationSeconds / elapsed);
-        rateWindowStartedAt = now;
-        simulatedSecondsAtRateWindowStart = simulatedSecondsCompleted;
     }
 }

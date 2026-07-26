@@ -14,6 +14,8 @@ internal static class SimulationTickBenchmark
     internal const string ActorsGroupId = "cultiway_tick_actors";
     internal const string ActorPostJobsGroupId = "cultiway_tick_actor_post_jobs";
     internal const string ActorTileActionsGroupId = "cultiway_tick_actor_tile_actions";
+    internal const string GoToGroupId = "cultiway_tick_goto";
+    internal const string PathfindingGroupId = "cultiway_tick_pathfinding";
     internal const string DirtyManagersGroupId = "cultiway_tick_dirty_managers";
     internal const string BuildingsGroupId = "cultiway_tick_buildings";
     internal const string WorldBehavioursGroupId = "cultiway_tick_world_behaviours";
@@ -23,6 +25,8 @@ internal static class SimulationTickBenchmark
     internal const string ActorsTotalId = "actors_total";
     internal const string ActorPostJobsTotalId = "actor_post_jobs_total";
     internal const string ActorTileActionsTotalId = "actor_tile_actions_total";
+    internal const string GoToTotalId = "goto_total";
+    internal const string PathfindingTotalId = "pathfinding_total";
     internal const string DirtyManagersTotalId = "dirty_managers_total";
     internal const string BuildingsTotalId = "buildings_total";
     internal const string WorldBehavioursTotalId = "world_behaviours_total";
@@ -33,6 +37,7 @@ internal static class SimulationTickBenchmark
     private const string TickToolId = "Benchmark Cultiway Tick";
     private const string ActorsToolId = "Benchmark Cultiway Tick Actors";
     private const string ActorTileActionsToolId = "Benchmark Cultiway Tile Actions";
+    private const string PathfindingToolId = "Benchmark Cultiway Pathfinding";
     private const string BuildingsToolId = "Benchmark Cultiway Tick Buildings";
     private const string WorldBehavioursToolId = "Benchmark Cultiway Tick World Beh";
     private const string CultiwaySystemsToolId = "Benchmark Cultiway Tick Systems";
@@ -48,6 +53,10 @@ internal static class SimulationTickBenchmark
         new(ActorPostJobsGroupId, true);
     private static readonly BenchmarkGroupState ActorTileActionsGroup =
         new(ActorTileActionsGroupId);
+    private static readonly BenchmarkGroupState GoToGroup =
+        new(GoToGroupId, true);
+    private static readonly BenchmarkGroupState PathfindingGroup =
+        new(PathfindingGroupId, true);
     private static readonly BenchmarkGroupState DirtyManagersGroup =
         new(DirtyManagersGroupId, true);
     private static readonly BenchmarkGroupState BuildingsGroup = new(BuildingsGroupId);
@@ -113,6 +122,7 @@ internal static class SimulationTickBenchmark
         }
 
         Bench.bench_ai_enabled = enabled;
+        PathfindingProfiler.SetEnabled(enabled);
     }
 
     internal static void BeginTick(float simulatedSeconds, bool largeStep)
@@ -132,7 +142,11 @@ internal static class SimulationTickBenchmark
         current.SimulatedSeconds = Math.Max(0f, simulatedSeconds);
         current.StartFrame = Time.frameCount;
         current.StartedAt = Time.realtimeSinceStartupAsDouble;
+        current.StartGen0Collections = GC.CollectionCount(0);
+        current.StartGen1Collections = GC.CollectionCount(1);
+        current.StartGen2Collections = GC.CollectionCount(2);
         current.Mode = largeStep ? "large" : "fixed";
+        current.PathfindingStart = PathfindingProfiler.CaptureSnapshot();
     }
 
     internal static void MarkTickCompleted()
@@ -314,6 +328,72 @@ internal static class SimulationTickBenchmark
             counter);
     }
 
+    internal static void RecordGoToActionMetric(string id, double seconds)
+    {
+        TickCapture capture = current;
+        if (capture == null || capture.Cancelled || !Bench.bench_enabled)
+        {
+            return;
+        }
+
+        seconds = Math.Max(0.0, seconds);
+        AddMetric(capture.GoTo, id, seconds, 1L);
+        capture.GoToActionSeconds += seconds;
+    }
+
+    internal static void RecordGoToDetailMetric(string id, double seconds)
+    {
+        TickCapture capture = current;
+        if (capture == null || capture.Cancelled || !Bench.bench_enabled)
+        {
+            return;
+        }
+
+        AddMetric(capture.GoTo, id, Math.Max(0.0, seconds), 1L);
+    }
+
+    internal static bool TryClaimGoToSpikeLog()
+    {
+        TickCapture capture = current;
+        if (capture == null || capture.Cancelled || capture.GoToSpikeLogs >= 4)
+        {
+            return false;
+        }
+
+        capture.GoToSpikeLogs++;
+        return true;
+    }
+
+    internal static void QueueGoToSpike(string message)
+    {
+        TickCapture capture = current;
+        if (capture == null || capture.Cancelled || string.IsNullOrEmpty(message))
+        {
+            return;
+        }
+
+        capture.GoToSpikeMessages.Add(message);
+    }
+
+    internal static void GetCurrentGcDeltas(
+        out int gen0Collections,
+        out int gen1Collections,
+        out int gen2Collections)
+    {
+        TickCapture capture = current;
+        if (capture == null || capture.Cancelled)
+        {
+            gen0Collections = 0;
+            gen1Collections = 0;
+            gen2Collections = 0;
+            return;
+        }
+
+        gen0Collections = Math.Max(0, GC.CollectionCount(0) - capture.StartGen0Collections);
+        gen1Collections = Math.Max(0, GC.CollectionCount(1) - capture.StartGen1Collections);
+        gen2Collections = Math.Max(0, GC.CollectionCount(2) - capture.StartGen2Collections);
+    }
+
     internal static void AbortCurrentTick()
     {
         DiscardCaptures();
@@ -409,6 +489,22 @@ internal static class SimulationTickBenchmark
                 "ai_actions_total");
         }
 
+        AppendTopRows(
+            sb,
+            "goto",
+            GoToGroupId,
+            GoToTotalId,
+            Math.Max(detailLimit, 12),
+            TotalsGroupId,
+            GoToGroup);
+        AppendTopRows(
+            sb,
+            "pathfinding",
+            PathfindingGroupId,
+            PathfindingTotalId,
+            Math.Max(detailLimit, 12),
+            TotalsGroupId,
+            PathfindingGroup);
         AppendTopRows(sb, "buildings", BuildingsGroupId, BuildingsTotalId, detailLimit);
         AppendTopRows(
             sb,
@@ -424,6 +520,7 @@ internal static class SimulationTickBenchmark
     {
         AddUnattributedOverhead(capture.ActorJobs, capture.ActorsSeconds);
         AddUnattributedOverhead(capture.BuildingJobs, capture.BuildingsSeconds);
+        RecordPathfindingMetrics(capture);
 
         capture.SetTotal(TickTotalId, capture.TotalSeconds);
         capture.SetTotal("vanilla_total", capture.VanillaSeconds);
@@ -435,6 +532,10 @@ internal static class SimulationTickBenchmark
         capture.SetTotal(
             ActorTileActionsTotalId,
             SumMetricSeconds(capture.ActorTileActions));
+        capture.SetTotal(GoToTotalId, capture.GoToActionSeconds);
+        capture.SetTotal(
+            PathfindingTotalId,
+            SumMetricSeconds(capture.Pathfinding));
         capture.SetTotal(
             DirtyManagersTotalId,
             SumMetricSeconds(capture.DirtyManagers));
@@ -447,6 +548,8 @@ internal static class SimulationTickBenchmark
         PublishGroup(ActorsGroup, capture.ActorJobs, previousSamples);
         PublishGroup(ActorPostJobsGroup, capture.ActorPostJobs, previousSamples);
         PublishGroup(ActorTileActionsGroup, capture.ActorTileActions, previousSamples);
+        PublishGroup(GoToGroup, capture.GoTo, previousSamples);
+        PublishGroup(PathfindingGroup, capture.Pathfinding, previousSamples);
         PublishGroup(DirtyManagersGroup, capture.DirtyManagers, previousSamples);
         PublishGroup(BuildingsGroup, capture.BuildingJobs, previousSamples);
         PublishGroup(WorldBehavioursGroup, capture.WorldBehaviours, previousSamples);
@@ -464,6 +567,38 @@ internal static class SimulationTickBenchmark
             Math.Max(1, capture.EndFrame - capture.StartFrame + 1),
             Math.Max(0.0, capture.CompletedAt - capture.StartedAt),
             capture.Mode));
+        for (int i = 0; i < capture.GoToSpikeMessages.Count; i++)
+        {
+            ModClass.LogInfo(capture.GoToSpikeMessages[i]);
+        }
+    }
+
+    private static void RecordPathfindingMetrics(TickCapture capture)
+    {
+        PathfindingProfiler.Snapshot delta =
+            PathfindingProfiler.CaptureSnapshot().DeltaFrom(capture.PathfindingStart);
+        AddPathfindingMetric(capture.Pathfinding, "reuse", delta.Reuse);
+        AddPathfindingMetric(capture.Pathfinding, "reuse_miss", delta.ReuseMiss);
+        AddPathfindingMetric(capture.Pathfinding, "create", delta.Create);
+        AddPathfindingMetric(capture.Pathfinding, "task_create", delta.TaskCreate);
+        AddPathfindingMetric(capture.Pathfinding, "cancel", delta.Cancel);
+        AddPathfindingMetric(capture.Pathfinding, "cancel_empty", delta.CancelEmpty);
+        AddPathfindingMetric(capture.Pathfinding, "enqueue", delta.Enqueue);
+        AddPathfindingMetric(capture.Pathfinding, "queue_wait", delta.QueueWait);
+        AddPathfindingMetric(capture.Pathfinding, "background_path", delta.BackgroundPath);
+    }
+
+    private static void AddPathfindingMetric(
+        Dictionary<string, Metric> target,
+        string id,
+        PathfindingProfiler.MetricSnapshot metric)
+    {
+        if (metric.Counter == 0L && metric.ElapsedTicks == 0L)
+        {
+            return;
+        }
+
+        AddMetric(target, id, metric.Seconds, metric.Counter);
     }
 
     private static void RecordSpecializedPhase(
@@ -694,6 +829,8 @@ internal static class SimulationTickBenchmark
         ResetGroup(ActorsGroup);
         ResetGroup(ActorPostJobsGroup);
         ResetGroup(ActorTileActionsGroup);
+        ResetGroup(GoToGroup);
+        ResetGroup(PathfindingGroup);
         ResetGroup(DirtyManagersGroup);
         ResetGroup(BuildingsGroup);
         ResetGroup(WorldBehavioursGroup);
@@ -767,6 +904,19 @@ internal static class SimulationTickBenchmark
             ActorTileActionsGroupId,
             ActorTileActionsTotalId,
             "Cultiway.Benchmark.ActorTileActions");
+        if (SystemUtils.IsUnderDeveloper())
+        {
+            RegisterDebugTool(
+                library,
+                template,
+                PathfindingToolId,
+                PathfindingGroupId,
+                PathfindingTotalId,
+                "Cultiway.Benchmark.Pathfinding",
+                ConfigurePathfindingDebugTool,
+                ShowPathfindingDebugHeader);
+        }
+
         RegisterDebugTool(library, template, BuildingsToolId, BuildingsGroupId, BuildingsTotalId);
         RegisterDebugTool(
             library,
@@ -789,7 +939,9 @@ internal static class SimulationTickBenchmark
         string id,
         string groupId,
         string totalId,
-        string nameLocaleKey = null)
+        string nameLocaleKey = null,
+        DebugToolAssetAction configureAction = null,
+        DebugToolAssetAction headerAction = null)
     {
         if (library.has(id))
         {
@@ -808,8 +960,8 @@ internal static class SimulationTickBenchmark
             split_benchmark = true,
             show_benchmark_buttons = true,
             update_timeout = 0.2f,
-            action_start = ConfigureDebugTool,
-            action_1 = ShowDebugHeader,
+            action_start = configureAction ?? ConfigureDebugTool,
+            action_1 = headerAction ?? ShowDebugHeader,
             action_2 = template.action_2
         });
     }
@@ -826,6 +978,36 @@ internal static class SimulationTickBenchmark
         tool.state = DebugToolState.Percent;
         tool.paused = false;
         tool.percentage_slowest = false;
+    }
+
+    private static void ConfigurePathfindingDebugTool(DebugTool tool)
+    {
+        ConfigureDebugTool(tool);
+        tool.state = DebugToolState.Values;
+    }
+
+    private static void ShowPathfindingDebugHeader(DebugTool tool)
+    {
+        TickWindowStats stats = GetWindowStats();
+        tool.setText(
+            "Cultiway.Benchmark.Pathfinding.Samples".Localize() + ":",
+            stats.Count);
+        if (stats.Count == 0)
+        {
+            tool.setSeparator();
+            return;
+        }
+
+        tool.setText(
+            "Cultiway.Benchmark.Pathfinding.Measured".Localize() + ":",
+            FormatMilliseconds(GetAverage(PathfindingTotalId, TotalsGroupId)));
+        tool.setText(
+            "Cultiway.Benchmark.Pathfinding.Format".Localize() + ":",
+            "Cultiway.Benchmark.Pathfinding.FormatValue".Localize());
+        tool.setText(
+            "Cultiway.Benchmark.Pathfinding.Note".Localize() + ":",
+            "Cultiway.Benchmark.Pathfinding.WorkerNote".Localize());
+        tool.setSeparator();
     }
 
     private static void ShowDebugHeader(DebugTool tool)
@@ -851,7 +1033,12 @@ internal static class SimulationTickBenchmark
             stats.AverageSimulatedSeconds.ToString("0.000", CultureInfo.InvariantCulture) + " s");
         tool.setText("frames/tick:", stats.AverageFrames.ToString("0.00", CultureInfo.InvariantCulture));
         tool.setText(
-            "theoretical:",
+            "Cultiway.Benchmark.Tick.ActualSpeed".Localize() + ":",
+            WorldTimeRateTracker.HasActualSpeed
+                ? WorldTimeRateTracker.ActualSpeed.ToString("0.00", CultureInfo.InvariantCulture) + "x"
+                : "Cultiway.Benchmark.Tick.Measuring".Localize());
+        tool.setText(
+            "Cultiway.Benchmark.Tick.WorkCapacity".Localize() + ":",
             stats.TheoreticalTicksPerSecond.ToString("0.00", CultureInfo.InvariantCulture) +
             " TPS | " +
             stats.TheoreticalSpeed.ToString("0.00", CultureInfo.InvariantCulture) +
@@ -957,11 +1144,16 @@ internal static class SimulationTickBenchmark
             new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> ActorTileActions =
             new(StringComparer.Ordinal);
+        internal readonly Dictionary<string, Metric> GoTo =
+            new(StringComparer.Ordinal);
+        internal readonly Dictionary<string, Metric> Pathfinding =
+            new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> DirtyManagers =
             new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> BuildingJobs = new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> WorldBehaviours = new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> CultiwaySystems = new(StringComparer.Ordinal);
+        internal readonly List<string> GoToSpikeMessages = new(4);
 
         internal float SimulatedSeconds;
         internal int StartFrame;
@@ -975,8 +1167,14 @@ internal static class SimulationTickBenchmark
         internal double ActorsSeconds;
         internal double BuildingsSeconds;
         internal double WorldBehavioursSeconds;
+        internal double GoToActionSeconds;
+        internal int GoToSpikeLogs;
+        internal int StartGen0Collections;
+        internal int StartGen1Collections;
+        internal int StartGen2Collections;
         internal string Mode = string.Empty;
         internal bool Cancelled;
+        internal PathfindingProfiler.Snapshot PathfindingStart;
 
         internal void SetTotal(string id, double seconds)
         {
@@ -997,6 +1195,8 @@ internal static class SimulationTickBenchmark
             ResetMetrics(ActorJobs);
             ResetMetrics(ActorPostJobs);
             ResetMetrics(ActorTileActions);
+            ResetMetrics(GoTo);
+            ResetMetrics(Pathfinding);
             ResetMetrics(DirtyManagers);
             ResetMetrics(BuildingJobs);
             ResetMetrics(WorldBehaviours);
@@ -1013,8 +1213,15 @@ internal static class SimulationTickBenchmark
             ActorsSeconds = 0.0;
             BuildingsSeconds = 0.0;
             WorldBehavioursSeconds = 0.0;
+            GoToActionSeconds = 0.0;
+            GoToSpikeLogs = 0;
+            GoToSpikeMessages.Clear();
+            StartGen0Collections = 0;
+            StartGen1Collections = 0;
+            StartGen2Collections = 0;
             Mode = string.Empty;
             Cancelled = false;
+            PathfindingStart = default;
         }
 
         private static void ResetMetrics(Dictionary<string, Metric> entries)

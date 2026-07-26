@@ -10,6 +10,7 @@ using ai.behaviours;
 using Cultiway.Core.BuildingComponents;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Core.Performance;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using life.taxi;
@@ -36,37 +37,55 @@ namespace Cultiway.Patch
             bool pPathOnWater = false, bool pWalkOnBlocks = false, bool pWalkOnLava = false,
             int pLimitPathfindingRegions = 0)
         {
+            GoToProfiler.CallMeasurement measurement = GoToProfiler.StartCall(__instance);
             //AbortPath(__instance);
             if (__instance?.data == null || pTile == null)
             {
                 __result = ExecuteEvent.False;
+                measurement.Complete(GoToTraceOutcome.Invalid);
                 return false;
             }
 
             if (__instance.current_tile == pTile)
             {
+                long sameTileStartedAt = measurement.StartSegment();
                 PathFinder.Instance.Cancel(__instance);
                 __instance.clearOldPath();
                 __instance.setTileTarget(pTile);
                 __instance.moveTo(pTile);
+                measurement.CompleteSegment(GoToTraceSegment.SameTile, sameTileStartedAt);
                 __result = ExecuteEvent.True;
+                measurement.Complete(GoToTraceOutcome.SameTile);
                 return false;
             }
 
-            if (!PathFinder.Instance.CanAcceptRequest(__instance, pTile, out _))
+            long validateStartedAt = measurement.StartSegment();
+            bool canAcceptRequest = PathFinder.Instance.CanAcceptRequest(__instance, pTile, out _);
+            measurement.CompleteSegment(GoToTraceSegment.Validate, validateStartedAt);
+            if (!canAcceptRequest)
             {
                 __result = ExecuteEvent.False;
+                measurement.Complete(GoToTraceOutcome.Rejected);
                 return false;
             }
 
+            long setupStartedAt = measurement.StartSegment();
             __instance.setTileTarget(pTile);
             __instance.next_step_position = __instance.current_tile?.posV3 ?? __instance.next_step_position;
             __instance.setNotMoving();
+            measurement.CompleteSegment(GoToTraceSegment.Setup, setupStartedAt);
 
-            __result = PathFinder.Instance.RequestPath(__instance, pTile, pPathOnWater, pWalkOnBlocks, pWalkOnLava,
-                pLimitPathfindingRegions)
-                ? ExecuteEvent.True
-                : ExecuteEvent.False;
+            long requestStartedAt = measurement.StartSegment();
+            bool requested = PathFinder.Instance.RequestPath(
+                __instance,
+                pTile,
+                pPathOnWater,
+                pWalkOnBlocks,
+                pWalkOnLava,
+                pLimitPathfindingRegions);
+            measurement.CompleteSegment(GoToTraceSegment.Request, requestStartedAt);
+            __result = requested ? ExecuteEvent.True : ExecuteEvent.False;
+            measurement.Complete(requested ? GoToTraceOutcome.Requested : GoToTraceOutcome.Rejected);
             return false;
         }
 

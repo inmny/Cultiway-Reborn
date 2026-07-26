@@ -48,6 +48,16 @@ Cultiway.WorldAgeClock.Unit.RealSeconds,{0} 秒
 Cultiway.WorldAgeClock.Unit.RealMinutes,{0} 分钟
 Cultiway.WorldAgeClock.Unit.RealHours,{0} 小时
 Cultiway.Benchmark.ActorTileActions,Cultiway 角色地块行为（抽样估算）
+Cultiway.Benchmark.Tick.ActualSpeed,实际速度
+Cultiway.Benchmark.Tick.WorkCapacity,纯工作容量
+Cultiway.Benchmark.Tick.Measuring,测量中
+Cultiway.Benchmark.Pathfinding,Cultiway 寻路生命周期
+Cultiway.Benchmark.Pathfinding.Samples,逻辑 tick 样本
+Cultiway.Benchmark.Pathfinding.Measured,分项累计
+Cultiway.Benchmark.Pathfinding.Format,行格式
+Cultiway.Benchmark.Pathfinding.FormatValue,最大值 | 次数 | 平均毫秒/tick
+Cultiway.Benchmark.Pathfinding.Note,说明
+Cultiway.Benchmark.Pathfinding.WorkerNote,后台时间为各工作线程耗时之和
 Cultiway.UI.WindowModInfo.Tab.Warhammer,混沌降临
 Cultiway.UI.WindowModInfo.Tab.Warhammer Description,战锤四神、魔神化、魔塔、秩序阵营
 Cultiway.UI.WindowModInfo.Tab.AIGC,AI 演化

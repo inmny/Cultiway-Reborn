@@ -1,5 +1,5 @@
-using System;
 using System.Globalization;
+using Cultiway.Core.Performance;
 using UnityEngine;
 
 namespace Cultiway.UI;
@@ -7,21 +7,10 @@ namespace Cultiway.UI;
 /// <summary>为原版 WorldAgeClock 提供基于实际世界时间推进量的现实时间换算。</summary>
 internal sealed class WorldAgeClockTooltipAdapter : MonoBehaviour
 {
-    private const float SampleWindowSeconds = 0.75f;
-    private const float SampleSmoothing = 0.35f;
     private const double WorldSecondsPerMonth = 5.0;
     private const double WorldSecondsPerYear = 60.0;
     private const double GameDaysPerWorldSecond = 6.0;
 
-    private MapStats sampledMapStats;
-    private int sampledWorldSeedId = -1;
-    private double previousWorldTime;
-    private double accumulatedWorldTime;
-    private float accumulatedRealTime;
-    private float actualSpeed;
-    private float sampledRequestedSpeed = -1f;
-    private bool hasActualSpeed;
-    private bool sampledPaused;
     private bool bound;
 
     public static void Attach(UiWorldAgeInfo worldAgeInfo)
@@ -44,65 +33,6 @@ internal sealed class WorldAgeClockTooltipAdapter : MonoBehaviour
         TipButton tipButton = GetComponent<TipButton>();
         tipButton.showOnClick = false;
         tipButton.setHoverAction(ShowTooltip, false);
-        ResetMeasurement();
-    }
-
-    private void OnEnable()
-    {
-        ResetMeasurement();
-    }
-
-    private void Update()
-    {
-        if (!bound)
-        {
-            return;
-        }
-
-        MapBox world = World.world;
-        MapStats mapStats = world?.map_stats;
-        if (!Config.game_loaded || mapStats == null)
-        {
-            ResetMeasurement();
-            return;
-        }
-
-        int worldSeedId = MapBox.current_world_seed_id;
-        double worldTime = mapStats.world_time;
-        bool paused = world.isPaused();
-        float requestedSpeed = GetRequestedSpeed();
-        if (!ReferenceEquals(sampledMapStats, mapStats) ||
-            sampledWorldSeedId != worldSeedId ||
-            worldTime < previousWorldTime ||
-            Math.Abs(requestedSpeed - sampledRequestedSpeed) > 0.001f ||
-            paused != sampledPaused)
-        {
-            BeginMeasurement(mapStats, worldSeedId, worldTime, requestedSpeed, paused);
-            return;
-        }
-
-        double worldDelta = Math.Max(0.0, worldTime - previousWorldTime);
-        previousWorldTime = worldTime;
-        if (paused)
-        {
-            return;
-        }
-
-        float realDelta = Math.Max(0f, Time.unscaledDeltaTime);
-        accumulatedWorldTime += worldDelta;
-        accumulatedRealTime += realDelta;
-        if (accumulatedRealTime < SampleWindowSeconds)
-        {
-            return;
-        }
-
-        float sampledSpeed = (float)(accumulatedWorldTime / accumulatedRealTime);
-        actualSpeed = hasActualSpeed
-            ? Mathf.Lerp(actualSpeed, sampledSpeed, SampleSmoothing)
-            : sampledSpeed;
-        hasActualSpeed = true;
-        accumulatedWorldTime = 0.0;
-        accumulatedRealTime = 0f;
     }
 
     private void ShowTooltip()
@@ -110,7 +40,8 @@ internal sealed class WorldAgeClockTooltipAdapter : MonoBehaviour
         string title = "Cultiway.WorldAgeClock.Tooltip.Title".Localize();
         string description;
         string detail;
-        float requestedSpeed = GetRequestedSpeed();
+        float requestedSpeed = WorldTimeRateTracker.GetRequestedSpeed();
+        float actualSpeed = WorldTimeRateTracker.ActualSpeed;
 
         MapBox world = World.world;
         if (!Config.game_loaded || world?.map_stats == null)
@@ -125,7 +56,7 @@ internal sealed class WorldAgeClockTooltipAdapter : MonoBehaviour
                 "Cultiway.WorldAgeClock.Tooltip.ConfiguredSpeed",
                 FormatNumber(requestedSpeed));
         }
-        else if (!hasActualSpeed)
+        else if (!WorldTimeRateTracker.HasActualSpeed)
         {
             description = "Cultiway.WorldAgeClock.Tooltip.Measuring".Localize();
             detail = FormatLocalized(
@@ -160,48 +91,6 @@ internal sealed class WorldAgeClockTooltipAdapter : MonoBehaviour
             tip_description = description,
             tip_description_2 = detail
         });
-    }
-
-    private void BeginMeasurement(
-        MapStats mapStats,
-        int worldSeedId,
-        double worldTime,
-        float requestedSpeed,
-        bool paused)
-    {
-        sampledMapStats = mapStats;
-        sampledWorldSeedId = worldSeedId;
-        previousWorldTime = worldTime;
-        sampledRequestedSpeed = requestedSpeed;
-        sampledPaused = paused;
-        accumulatedWorldTime = 0.0;
-        accumulatedRealTime = 0f;
-        actualSpeed = 0f;
-        hasActualSpeed = false;
-    }
-
-    private void ResetMeasurement()
-    {
-        sampledMapStats = null;
-        sampledWorldSeedId = -1;
-        previousWorldTime = 0.0;
-        sampledRequestedSpeed = -1f;
-        sampledPaused = false;
-        accumulatedWorldTime = 0.0;
-        accumulatedRealTime = 0f;
-        actualSpeed = 0f;
-        hasActualSpeed = false;
-    }
-
-    private static float GetRequestedSpeed()
-    {
-        WorldTimeScaleAsset timeScale = Config.time_scale_asset;
-        if (timeScale == null)
-        {
-            return 0f;
-        }
-
-        return Math.Max(0f, timeScale.multiplier) * Math.Max(1, timeScale.ticks);
     }
 
     private static string FormatGameDuration(double worldSeconds)
