@@ -464,6 +464,7 @@ namespace Cultiway
             
             GeneralRenderSystems.Add(new RenderAnimFrameSystem(W));
             GeneralRenderSystems.Add(new RenderStatusParticleSystem());
+            GeneralRenderSystems.Add(new RenderStatusAnimationSystem());
             GeneralRenderSystems.Add(new RenderSkillFlyOverParticleSystem());
 
             CustomMapModeManager = new();

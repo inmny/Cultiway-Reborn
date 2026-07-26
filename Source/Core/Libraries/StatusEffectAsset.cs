@@ -1,5 +1,6 @@
 using System;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
@@ -39,6 +40,22 @@ public class StatusTickSettings
     };
 }
 
+/// <summary>共享状态在持有者身上播放的 Skill 帧动画配置。</summary>
+public sealed class StatusAnimationSettings
+{
+    /// <summary>包含出现、运行和消散阶段的通用 Skill 动画。</summary>
+    public SkillEntityAnimation Animation;
+
+    /// <summary>未被动画片段覆盖时使用的基础帧间隔。</summary>
+    public float FrameInterval = 0.1f;
+
+    /// <summary>是否始终保持贴图竖直。</summary>
+    public bool FixedUpright = true;
+
+    /// <summary>关闭状态动画时使用的空配置。</summary>
+    public static StatusAnimationSettings Disabled => new();
+}
+
 public class StatusEffectAsset : Asset
 {
     public const string DefaultIconPath = "cultiway/icons/iconWakan";
@@ -47,6 +64,7 @@ public class StatusEffectAsset : Asset
     public string IconPath;
     public StatusParticleSettings ParticleSettings { get; private set; } = StatusParticleSettings.Disabled;
     public StatusTickSettings TickSettings { get; private set; } = StatusTickSettings.Disabled;
+    public StatusAnimationSettings AnimationSettings { get; private set; } = StatusAnimationSettings.Disabled;
     private Entity _prefab;
     private EntityStore _world;
     public StatusEffectAsset()
@@ -123,6 +141,12 @@ public class StatusEffectAsset : Asset
     {
         settings.interval = Mathf.Max(0.05f, settings.interval);
         settings.enabled = settings.enabled && settings.Action != null;
+        return settings;
+    }
+
+    private static StatusAnimationSettings NormalizeAnimationSettings(StatusAnimationSettings settings)
+    {
+        settings.FrameInterval = Mathf.Max(0.01f, settings.FrameInterval);
         return settings;
     }
     
@@ -205,6 +229,32 @@ public class StatusEffectAsset : Asset
                 Action = action
             });
         }
+        /// <summary>让状态直接持有一套通用 Skill 帧动画生命周期。</summary>
+        public Builder SetAnimation(StatusAnimationSettings settings)
+        {
+            _under_build.AnimationSettings =
+                NormalizeAnimationSettings(settings ?? throw new ArgumentNullException(nameof(settings)));
+            return this;
+        }
+        /// <summary>使用常用参数启用状态帧动画。</summary>
+        public Builder EnableAnimation(
+            SkillEntityAnimation animation,
+            float frameInterval = 0.1f,
+            bool fixedUpright = true)
+        {
+            return SetAnimation(new StatusAnimationSettings
+            {
+                Animation = animation ?? throw new ArgumentNullException(nameof(animation)),
+                FrameInterval = frameInterval,
+                FixedUpright = fixedUpright
+            });
+        }
+        /// <summary>向状态预制体加入由具体内容系统解释的运行时组件。</summary>
+        public Builder AddComponent<T>(T component) where T : struct, IComponent
+        {
+            _under_build._prefab.AddComponent(component);
+            return this;
+        }
         public StatusEffectAsset Build()
         {
             ModClass.L.StatusEffectLibrary.add(_under_build);
@@ -217,6 +267,13 @@ public class StatusEffectAsset : Asset
             if (_under_build.TickSettings.enabled)
             {
                 _under_build._prefab.AddComponent(new StatusTickState());
+            }
+            if (_under_build.AnimationSettings.Animation != null)
+            {
+                _under_build._prefab.AddComponent(new StatusAnimationState
+                {
+                    ScaleMultiplier = 1f
+                });
             }
             return _under_build;
         }
