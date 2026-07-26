@@ -110,6 +110,7 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
         if (target == null || target.isRekt()) return;
 
         bool explicitTarget = context.TargetObj == target;
+        if (config.ExplicitTargetOnly && !explicitTarget) return;
         if (!explicitTarget)
         {
             bool enemy = (casterKingdom?.isEnemy(target.kingdom) ?? true) && target != context.SourceObj;

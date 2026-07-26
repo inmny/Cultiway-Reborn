@@ -14,7 +14,7 @@ public enum SkillImpactKind
     ChannelBeam,
     Chain,
     Wall,
-    Shield
+    Shield,
 }
 
 /// <summary>

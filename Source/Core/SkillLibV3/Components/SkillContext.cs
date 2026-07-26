@@ -15,4 +15,14 @@ public struct SkillContext : IComponent
     public Kingdom AttackKingdom;
     public Vector3 TargetPos;
     public Vector3 TargetDir;
+    public SkillCastRuntimeData RuntimeData;
+
+    /// <summary>返回本次释放规范化后的效果倍率。</summary>
+    public readonly float EffectScale => RuntimeData.ResolveEffectScale();
+
+    /// <summary>解析本次释放实际采用的元素构成。</summary>
+    public readonly ElementComposition ResolveElement(ElementComposition fallback)
+    {
+        return RuntimeData.ResolveElement(fallback);
+    }
 }

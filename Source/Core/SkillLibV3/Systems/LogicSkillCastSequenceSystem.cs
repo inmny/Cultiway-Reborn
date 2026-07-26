@@ -12,6 +12,7 @@ namespace Cultiway.Core.SkillLibV3.Systems;
 public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
 {
     private readonly List<SpawnSkillRequest> _spawnRequests = new();
+    private readonly List<SkillCastCompletedRequest> _completedRequests = new();
 
     public LogicSkillCastSequenceSystem()
     {
@@ -22,6 +23,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
     {
         var dt = Tick.deltaTime;
         _spawnRequests.Clear();
+        _completedRequests.Clear();
         Query.ForEachEntity((ref SkillCastSequence sequence, Entity entity) =>
         {
             if (!IsSequenceValid(ref sequence))
@@ -50,7 +52,8 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                     Strength = sequence.Strength,
                     PowerLevel = sequence.PowerLevel,
                     InitialAngleOffsetDegrees = step.InitialAngleOffsetDegrees,
-                    AttackKingdom = sequence.AttackKingdom
+                    AttackKingdom = sequence.AttackKingdom,
+                    RuntimeData = sequence.RuntimeData,
                 });
                 sequence.EmittedCount++;
                 emitted++;
@@ -60,16 +63,31 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
             {
                 if (sequence.EmittedCount > 0)
                 {
-                    EventSystemHub.TryPublish(new SkillCastCompletedEvent(sequence.Caster,
-                        sequence.SkillContainer, sequence.EmittedCount, sequence.FundingSource));
-                    sequence.Caster.OnSkillCastCompleted(
-                        sequence.SkillContainer,
-                        sequence.EmittedCount,
-                        sequence.FundingSource);
+                    _completedRequests.Add(new SkillCastCompletedRequest
+                    {
+                        Caster = sequence.Caster,
+                        SkillContainer = sequence.SkillContainer,
+                        EmittedCount = sequence.EmittedCount,
+                        FundingSource = sequence.FundingSource,
+                    });
                 }
                 CommandBuffer.AddTag<TagRecycle>(entity.Id);
             }
         });
+        // 完成回调允许创建状态、回响技能等实体，必须离开查询迭代后再执行。
+        foreach (var request in _completedRequests)
+        {
+            if (request.Caster?.Base == null || request.Caster.Base.isRekt()) continue;
+            EventSystemHub.TryPublish(new SkillCastCompletedEvent(
+                request.Caster,
+                request.SkillContainer,
+                request.EmittedCount,
+                request.FundingSource));
+            request.Caster.OnSkillCastCompleted(
+                request.SkillContainer,
+                request.EmittedCount,
+                request.FundingSource);
+        }
         foreach (var request in _spawnRequests)
         {
             if (request.SkillContainer.IsNull
@@ -79,7 +97,8 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
             ModClass.I.SkillV3.SpawnSkill(request.SkillContainer, request.Source, request.Target, request.TargetPos,
                 request.Strength, power_level: request.PowerLevel,
                 initial_angle_offset_degrees: request.InitialAngleOffsetDegrees,
-                attack_kingdom: request.AttackKingdom);
+                attack_kingdom: request.AttackKingdom,
+                runtime_data: request.RuntimeData);
         }
         CommandBuffer.Playback();
     }
@@ -102,5 +121,14 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         public float PowerLevel;
         public float InitialAngleOffsetDegrees;
         public Kingdom AttackKingdom;
+        public SkillCastRuntimeData RuntimeData;
+    }
+
+    private struct SkillCastCompletedRequest
+    {
+        public ActorExtend Caster;
+        public Entity SkillContainer;
+        public int EmittedCount;
+        public SkillCastFundingSource FundingSource;
     }
 }

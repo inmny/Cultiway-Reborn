@@ -239,21 +239,24 @@ public static class SkillHitResolver
     private static void ApplyDamage(SkillEntityAsset asset, ref SkillContext context, BaseSimObject target,
         float damageMultiplier)
     {
+        float damage = context.Strength * context.EffectScale * damageMultiplier;
+        if (damage <= 0f) return;
         var attacker = context.SourceObj;
         if (target.isActor())
         {
             EventSystemHub.Publish(new GetHitEvent
             {
                 TargetID = target.a.data.id,
-                Damage = context.Strength * damageMultiplier,
-                Element = asset.Element,
+                Damage = damage,
+                Element = context.ResolveElement(asset.Element),
                 Attacker = attacker,
-                AttackerPowerLevel = context.PowerLevel
+                AttackerPowerLevel = context.PowerLevel,
+                DamageOrigin = context.RuntimeData.DamageOrigin,
             });
             return;
         }
 
-        target.b.getHit(context.Strength * damageMultiplier, pAttacker: attacker);
+        target.b.getHit(damage, pAttacker: attacker);
     }
 
     private static long GetTargetKey(BaseSimObject target)

@@ -12,7 +12,13 @@ public enum SkillContainerBuildMode
 {
     Runtime,
     Preview,
-    RuleOnly
+    RuleOnly,
+
+    /// <summary>
+    /// 构建由体系、装备或其他来源直接授予的只读技能。
+    /// 这类容器不要求模板可学习，也不会进入随机命名、改进或上传流程。
+    /// </summary>
+    SourceGranted
 }
 
 public class SkillContainerBuilder
@@ -116,7 +122,7 @@ public class SkillContainerBuilder
     {
         if (_containerEntity.IsNull)
         {
-            if (!_entityAsset.CanBeLearned)
+            if (mode != SkillContainerBuildMode.SourceGranted && !_entityAsset.CanBeLearned)
                 throw new InvalidOperationException($"技能实体 {_entityAsset.id} 未声明为可学习技能模板");
             if (_entityAsset.Animations.Count == 0)
                 throw new InvalidOperationException($"技能实体 {_entityAsset.id} 没有可用动画");
@@ -128,7 +134,9 @@ public class SkillContainerBuilder
             var animationIndex = _animationIndex;
             if (animationIndex < 0)
             {
-                animationIndex = mode == SkillContainerBuildMode.Runtime
+                animationIndex = _entityAsset.Animations.Count == 0
+                    ? -1
+                    : mode == SkillContainerBuildMode.Runtime
                     ? _entityAsset.GetRandomAnimationIndex()
                     : 0;
             }
@@ -190,7 +198,7 @@ public class SkillContainerBuilder
         {
             SkillNameGenerator.Instance.GenerateFor(_containerEntity);
         }
-        else
+        else if (mode != SkillContainerBuildMode.SourceGranted)
         {
             SkillNameGenerator.Instance.GenerateRuleFor(_containerEntity);
         }
@@ -198,6 +206,12 @@ public class SkillContainerBuilder
         if (mode == SkillContainerBuildMode.Preview)
         {
             _containerEntity.AddTag<TagOccupied>();
+        }
+        else if (mode == SkillContainerBuildMode.SourceGranted)
+        {
+            if (!_containerEntity.HasComponent<SourceGrantedSkill>())
+                _containerEntity.AddComponent(new SourceGrantedSkill());
+            SourceGrantedSkillRegistry.Master(_containerEntity);
         }
         return _containerEntity;
     }

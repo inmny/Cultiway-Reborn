@@ -6,6 +6,7 @@ public sealed class SkillUseProfileLibrary : AssetLibrary<SkillUseProfileAsset>
 {
     public static SkillUseProfileAsset EnemyObjectOrPoint { get; private set; }
     public static SkillUseProfileAsset EnemyPoint { get; private set; }
+    public static SkillUseProfileAsset EnemyArea { get; private set; }
     public static SkillUseProfileAsset CasterSelf { get; private set; }
     public static SkillUseProfileAsset BetweenCasterAndEnemy { get; private set; }
 
@@ -15,6 +16,8 @@ public sealed class SkillUseProfileLibrary : AssetLibrary<SkillUseProfileAsset>
         EnemyObjectOrPoint = Add("EnemyObjectOrPoint", ActiveAbilityTargetMode.ObjectOrPoint,
             SkillUsePlacement.EnemyObjectOrPoint, 1, 0);
         EnemyPoint = Add("EnemyPoint", ActiveAbilityTargetMode.Point,
+            SkillUsePlacement.EnemyPoint, 2, 0);
+        EnemyArea = Add("EnemyArea", ActiveAbilityTargetMode.Area,
             SkillUsePlacement.EnemyPoint, 2, 0);
         CasterSelf = Add("CasterSelf", ActiveAbilityTargetMode.Self,
             SkillUsePlacement.CasterSelf, 1, 5);

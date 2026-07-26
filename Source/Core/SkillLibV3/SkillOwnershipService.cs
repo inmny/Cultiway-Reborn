@@ -22,7 +22,8 @@ public static class SkillOwnershipService
     public static SkillOwnershipResult Learn(ActorExtend owner, Entity container, bool clone = false)
     {
         if (!GeneralSettings.EnableSkillSystems) return SkillOwnershipResult.Disabled;
-        if (container.IsNull || !container.HasComponent<SkillContainer>()) return SkillOwnershipResult.Invalid;
+        if (container.IsNull || !container.HasComponent<SkillContainer>() ||
+            container.HasComponent<SourceGrantedSkill>()) return SkillOwnershipResult.Invalid;
 
         if (clone)
         {
@@ -59,7 +60,8 @@ public static class SkillOwnershipService
     {
         if (!GeneralSettings.EnableSkillSystems) return SkillOwnershipResult.Disabled;
         if (!owner.OwnsLearnedSkill(oldContainer)) return SkillOwnershipResult.NotOwned;
-        if (newContainer.IsNull || !newContainer.HasComponent<SkillContainer>()) return SkillOwnershipResult.Invalid;
+        if (newContainer.IsNull || !newContainer.HasComponent<SkillContainer>() ||
+            newContainer.HasComponent<SourceGrantedSkill>()) return SkillOwnershipResult.Invalid;
 
         var signature = SkillContainerSignature.Build(newContainer);
         foreach (var owned in owner.GetLearnedSkillsInOrder())

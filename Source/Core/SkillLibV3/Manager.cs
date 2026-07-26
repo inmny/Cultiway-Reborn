@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Text;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
@@ -14,6 +15,7 @@ using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
+using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -23,6 +25,7 @@ namespace Cultiway.Core.SkillLibV3;
 
 public class Manager
 {
+    private readonly ConcurrentQueue<QueuedSkillCast> queuedSkillCasts = new();
     
     public WorldboxGame Game { get; private set; }
 
@@ -48,10 +51,11 @@ public class Manager
         ModClass.I.LogicPrepareRecycleSystemGroup.Add(new ReleaseSkillExecutionBodiesSystem());
         ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleNonMasteredSkillContainerSystem());
         ModClass.I.GeneralLogicSystems.Add(SkillLogicSystemGroup);
-
         ActiveAbilityService.Register(new LearnedSkillActiveAbilityProvider());
 
+        SkillLogicSystemGroup.Add(new LogicQueuedSkillCastSystem());
         SkillLogicSystemGroup.Add(new LogicSkillCastSequenceSystem());
+        SkillLogicSystemGroup.Add(new SkillCooldownSystem());
         SkillLogicSystemGroup.Add(new LogicSkillAnimationLifecycleSystem());
         SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
         SkillLogicSystemGroup.Add(new LogicSkillPositionImpactSystem());
@@ -74,6 +78,61 @@ public class Manager
         AssetManager._instance.add(WanfaPolicyLib, "cultiway.wanfa_pavilion_policy");
         AssetManager._instance.add(CastResourceLib, "cultiway.skill_cast_resources");
         AssetManager._instance.add(CastBudgetRuleLib, "cultiway.skill_cast_budget_rules");
+        PatchMapBox.RegisterActionOnClearWorld(ClearQueuedSkillSequences);
+    }
+
+    /// <summary>
+    /// 把可能来自并行战斗回调的标准施法请求提交到技能系统主线程阶段。
+    /// 返回值只表示请求已进入队列，实际资源校验和序列创建仍由
+    /// <see cref="StartSkillSequence"/> 完成。
+    /// </summary>
+    public bool QueueSkillSequence(
+        ActorExtend caster,
+        Entity skillContainer,
+        SkillCastPlan plan,
+        float strength,
+        float? powerLevel = null,
+        SkillCastFundingSource fundingSource = SkillCastFundingSource.CasterResources,
+        Kingdom attackKingdom = null,
+        SkillCastRuntimeData runtimeData = default)
+    {
+        if (caster?.Base == null || caster.Base.isRekt() || skillContainer.IsNull ||
+            plan == null || plan.Steps.Count == 0) return false;
+        queuedSkillCasts.Enqueue(new QueuedSkillCast(
+            caster,
+            skillContainer,
+            plan,
+            strength,
+            powerLevel,
+            fundingSource,
+            attackKingdom,
+            runtimeData));
+        return true;
+    }
+
+    /// <summary>在技能系统的无查询阶段消费当前全部标准施法请求。</summary>
+    internal void FlushQueuedSkillSequences()
+    {
+        while (queuedSkillCasts.TryDequeue(out QueuedSkillCast request))
+        {
+            StartSkillSequence(
+                request.Caster,
+                request.SkillContainer,
+                request.Plan,
+                request.Strength,
+                request.PowerLevel,
+                request.FundingSource,
+                request.AttackKingdom,
+                request.RuntimeData);
+        }
+    }
+
+    /// <summary>切换世界时丢弃尚未进入施法序列的旧世界请求。</summary>
+    private void ClearQueuedSkillSequences()
+    {
+        while (queuedSkillCasts.TryDequeue(out _))
+        {
+        }
     }
 
     public Entity SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
@@ -119,7 +178,7 @@ public class Manager
 
     public bool StartSkillSequence(ActorExtend caster, Entity skill_container, SkillCastPlan plan, float strength,
         float? power_level = null, SkillCastFundingSource funding_source = SkillCastFundingSource.CasterResources,
-        Kingdom attack_kingdom = null)
+        Kingdom attack_kingdom = null, SkillCastRuntimeData runtime_data = default)
     {
         if (caster == null || plan == null || plan.Steps.Count == 0) return false;
         if (!SkillCastCost.TryPay(caster, skill_container, plan, funding_source)) return false;
@@ -133,6 +192,7 @@ public class Manager
             FundingSource = funding_source,
             Strength = strength,
             PowerLevel = power_level ?? caster.GetPowerLevel(),
+            RuntimeData = runtime_data,
             MaxEmitPerTick = 8
         });
         sequence_entity.AddRelation(new SkillMasterRelation
@@ -142,17 +202,52 @@ public class Manager
         return true;
     }
 
+    /// <summary>跨线程队列持有的一次不可变标准施法请求。</summary>
+    private readonly struct QueuedSkillCast
+    {
+        public readonly ActorExtend Caster;
+        public readonly Entity SkillContainer;
+        public readonly SkillCastPlan Plan;
+        public readonly float Strength;
+        public readonly float? PowerLevel;
+        public readonly SkillCastFundingSource FundingSource;
+        public readonly Kingdom AttackKingdom;
+        public readonly SkillCastRuntimeData RuntimeData;
+
+        /// <summary>保存启动施法序列所需的完整参数。</summary>
+        public QueuedSkillCast(
+            ActorExtend caster,
+            Entity skillContainer,
+            SkillCastPlan plan,
+            float strength,
+            float? powerLevel,
+            SkillCastFundingSource fundingSource,
+            Kingdom attackKingdom,
+            SkillCastRuntimeData runtimeData)
+        {
+            Caster = caster;
+            SkillContainer = skillContainer;
+            Plan = plan;
+            Strength = strength;
+            PowerLevel = powerLevel;
+            FundingSource = fundingSource;
+            AttackKingdom = attackKingdom;
+            RuntimeData = runtimeData;
+        }
+    }
+
     public Entity SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, float strength,
-        float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f)
+        float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f,
+        SkillCastRuntimeData runtime_data = default)
     {
         var target_pos = target.isRekt() ? source.GetSimPos() + Vector3.right : target.GetSimPos();
         return SpawnSkill(skill_container, source, target, target_pos, strength, delay, power_level,
-            initial_angle_offset_degrees);
+            initial_angle_offset_degrees, runtime_data: runtime_data);
     }
 
     public Entity SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, Vector3 target_pos,
         float strength, float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f,
-        Kingdom attack_kingdom = null)
+        Kingdom attack_kingdom = null, SkillCastRuntimeData runtime_data = default)
     {
         ref var container = ref skill_container.GetComponent<SkillContainer>();
         var source_pos = source.GetSimPos();
@@ -170,6 +265,7 @@ public class Manager
 
         var animation = container.Asset.GetAnimation(container.AnimationIndex);
         var entity = container.Asset.NewEntity(container.AnimationIndex);
+        entity.GetComponent<Scale>().value *= runtime_data.ResolveEffectScale();
         entity.AddRelation(new SkillMasterRelation()
         {
             SkillContainer = skill_container
@@ -183,6 +279,7 @@ public class Manager
         context.SourceObj = source;
         context.TargetObj = target.isRekt() ? null : target;
         context.AttackKingdom = attack_kingdom;
+        context.RuntimeData = runtime_data;
         ref var skill_entity = ref data.Get<SkillEntity>();
         skill_entity.SkillContainer = skill_container;
         skill_entity.VfxElement = container.VfxElement;

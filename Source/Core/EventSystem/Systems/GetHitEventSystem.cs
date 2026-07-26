@@ -1,3 +1,4 @@
+using Cultiway.Core.Combat;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Utils.Extension;
 
@@ -23,9 +24,12 @@ public class GetHitEventSystem : GenericEventSystem<GetHitEvent>
             return;
         }
 
-        var element = evt.Element;
-        actor.GetExtend().GetHit(evt.Damage, ref element, evt.Attacker,
-            ignore_damage_reduction: evt.IgnoreDamageReduction,
-            attacker_power_level_override: evt.AttackerPowerLevel);
+        using (DamageResolutionContext.Enter(evt.DamageOrigin))
+        {
+            var element = evt.Element;
+            actor.GetExtend().GetHit(evt.Damage, ref element, evt.Attacker,
+                ignore_damage_reduction: evt.IgnoreDamageReduction,
+                attacker_power_level_override: evt.AttackerPowerLevel);
+        }
     }
 }
