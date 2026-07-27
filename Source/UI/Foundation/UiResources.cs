@@ -47,6 +47,7 @@ internal static class UiIcons
 {
     public const string Search = "ui/icons/iconBrowse";
     public const string Favorite = "ui/icons/iconFavoriteStar";
+    public const string Equipped = "ui/icons/iconFavoriteWeapon";
     public const string Sort = "ui/icons/iconArrows";
     public const string MoveUp = "ui/icons/iconArrowMetaRight";
     public const string MoveDown = "ui/icons/iconArrowMetaLeft";

@@ -393,6 +393,13 @@ xian.jindan_missing,缺少金丹
 magic.spirit_not_full,精神力尚未充盈
 knight.vigor_not_full,斗气尚未充盈
 InventoryPage,背包
+Cultiway.Inventory.Filter.All,全部
+Cultiway.Inventory.Filter.All.Description,显示背包中的全部特殊物品
+Cultiway.Inventory.Count,物品数量
+Cultiway.Inventory.Count.Description,当前分类显示数量 / 背包物品总数
+Cultiway.Inventory.Format.Count,{0}/{1}
+Cultiway.Inventory.Empty,背包中没有特殊物品
+Cultiway.Inventory.FilterEmpty,此分类暂无物品
 ForcePage,相关势力
 SectPage,宗门
 StatusEffectPage,状态效果

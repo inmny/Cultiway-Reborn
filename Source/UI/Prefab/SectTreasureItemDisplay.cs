@@ -47,7 +47,7 @@ public class SectTreasureItemDisplay : APrefabPreview<SectTreasureItemDisplay>
         markerRect.sizeDelta = new Vector2(7f, 7f);
 
         Image markerImage = marker.GetComponent<Image>();
-        markerImage.sprite = SpriteTextureLoader.getSprite("ui/icons/iconFavoriteWeapon");
+        UiResources.SetImage(markerImage, UiIcons.Equipped);
         markerImage.raycastTarget = false;
         marker.SetActive(false);
 
