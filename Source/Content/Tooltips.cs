@@ -1,6 +1,7 @@
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.UI.CreatureInfoPages;
 using Cultiway.Content.UI.Prefab;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
@@ -14,6 +15,9 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
     [CloneSource(S_Tooltip.book)]
     public static TooltipAsset Cultibook { get; private set; }
 
+    [CloneSource(S_Tooltip.tip)]
+    public static TooltipAsset CoreFormationEffect { get; private set; }
+
     protected override bool AutoRegisterAssets() => true;
     
     protected override void OnInit()
@@ -22,6 +26,8 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
         Cultibook.prefab_id = "tooltips/tooltip_cultiway_cultibook";
         Cultibook.callback = ShowCultibookTooltip;
         CultibookTooltip.PatchTo<Tooltip>(Cultibook.prefab_id);
+
+        CoreFormationEffect.callback = ShowCoreFormationEffect;
 
         WorldboxGame.Tooltips.Actor.callback += ShowActorCultiwayInfo;
         WorldboxGame.Tooltips.ActorKing.callback += ShowActorCultiwayInfo;
@@ -78,6 +84,11 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
         
         var cultibookTooltip = tooltip.GetComponent<CultibookTooltip>();
         cultibookTooltip?.Setup(book);
+    }
+
+    private static void ShowCoreFormationEffect(Tooltip tooltip, string type, TooltipData data)
+    {
+        CoreFormationEffectTooltip.SetupPending(tooltip);
     }
 
 }

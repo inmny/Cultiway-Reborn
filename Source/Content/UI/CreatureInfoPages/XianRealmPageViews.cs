@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
@@ -91,23 +92,20 @@ internal sealed class RealmEmblemView : MonoBehaviour
     }
 }
 
-/// <summary>三个修仙境界页共用的纹章、名称、摘要和效果入口。</summary>
+/// <summary>三个修仙境界页共用的纹章、名称和摘要。</summary>
 internal sealed class XianRealmHeaderView
 {
     private readonly RealmEmblemView emblem;
     private readonly Text name;
     private readonly Text primary;
     private readonly Text secondary;
-    private readonly Button effectsButton;
 
-    private XianRealmHeaderView(RealmEmblemView emblem, Text name, Text primary, Text secondary,
-        Button effectsButton)
+    private XianRealmHeaderView(RealmEmblemView emblem, Text name, Text primary, Text secondary)
     {
         this.emblem = emblem;
         this.name = name;
         this.primary = primary;
         this.secondary = secondary;
-        this.effectsButton = effectsButton;
     }
 
     /// <summary>创建 52 像素高的公共境界页头部。</summary>
@@ -130,31 +128,21 @@ internal sealed class XianRealmHeaderView
         secondary.color = UiTheme.Current.Palette.MutedText;
         ConfigureBestFit(secondary, 5, 7);
 
-        Button effects = UiElements.CreateIconButton(root.transform, "Effects", UiIcons.Info,
-            20f, 20f, null, 4f);
-        return new XianRealmHeaderView(emblem, name, primary, secondary, effects);
+        return new XianRealmHeaderView(emblem, name, primary, secondary);
     }
 
-    /// <summary>刷新头部文字、纹章以及可选的形成效果 Tooltip。</summary>
+    /// <summary>刷新头部文字和纹章。</summary>
     public void Set(
         RealmEmblemPresentation emblemPresentation,
         string displayName,
         string primaryText,
-        string secondaryText,
-        ActorExtend effectsActor = null)
+        string secondaryText)
     {
         emblem.SetPresentation(emblemPresentation);
         name.text = displayName;
         primary.text = primaryText;
         secondary.text = secondaryText;
         secondary.gameObject.SetActive(!string.IsNullOrEmpty(secondaryText));
-        effectsButton.gameObject.SetActive(effectsActor != null);
-        if (effectsActor != null)
-        {
-            UiTooltip.Set(effectsButton.gameObject,
-                "Cultiway.CoreFormation.Page.Effects.Title".Localize(),
-                CoreFormationEffectPresentation.BuildTooltip(effectsActor));
-        }
     }
 
     private static void ConfigureBestFit(Text text, int minSize, int maxSize)
@@ -324,6 +312,7 @@ internal sealed class CoreFormationAtomEntry
     private readonly GameObject root;
     private readonly Image icon;
     private readonly Text label;
+    private CoreFormationEffectTooltipModel tooltipModel;
 
     private CoreFormationAtomEntry(GameObject root, Image icon, Text label)
     {
@@ -354,11 +343,18 @@ internal sealed class CoreFormationAtomEntry
         label.resizeTextForBestFit = true;
         label.resizeTextMinSize = 4;
         label.resizeTextMaxSize = 6;
-        return new CoreFormationAtomEntry(root, icon, label);
+        var entry = new CoreFormationAtomEntry(root, icon, label);
+        UiTooltip.Set(root, entry.ShowTooltip);
+        return entry;
     }
 
-    /// <summary>刷新原子图标、名称和继承来源提示。</summary>
-    public void SetValue(CoreFormationAtomPresentation atom, CoreFormationRealm realm)
+    /// <summary>刷新原子图标、名称、继承来源和该原子提供的特殊效果提示。</summary>
+    public void SetValue(
+        CoreFormationAtomPresentation atom,
+        CoreFormationRealm realm,
+        ActorExtend actor,
+        IList<CoreFormationResolvedEffect> resolvedEffects,
+        bool includeRuntimeState)
     {
         root.SetActive(true);
         icon.sprite = SpriteTextureLoader.getSprite(atom.Asset.icon_path);
@@ -375,13 +371,24 @@ internal sealed class CoreFormationAtomEntry
             : realm == CoreFormationRealm.Yuanying
                 ? "Cultiway.RealmPage.Atom.Manifested".Localize()
                 : "Cultiway.RealmPage.Atom.Active".Localize();
-        UiTooltip.Set(root, atom.Asset.GetName(), origin);
+        tooltipModel = CoreFormationEffectPresentation.BuildAtomTooltip(
+            actor,
+            atom.Asset,
+            origin,
+            resolvedEffects,
+            includeRuntimeState);
     }
 
     /// <summary>隐藏当前未使用的固定槽位。</summary>
     public void Hide()
     {
         root.SetActive(false);
+    }
+
+    /// <summary>在当前条目上打开已经绑定的核心构成特殊效果 Tooltip。</summary>
+    private void ShowTooltip()
+    {
+        CoreFormationEffectTooltip.Show(root, tooltipModel);
     }
 }
 

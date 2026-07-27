@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Content.Components;
+using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.UI;
 using Cultiway.UI.Prefab;
@@ -26,6 +27,8 @@ internal sealed class CoreFormationDetailView : MonoBehaviour
     private GameObject manifestedLegend;
     private CoreFormationAtomEntry[] atomEntries;
     private RepresentativeSkillView representativeSkill;
+    private readonly List<CoreFormationResolvedEffect> resolvedEffects =
+        new(CoreFormationGrantRuntime.MaxEffects);
 
     /// <summary>在原版人物信息页的固定内容区创建共享布局。</summary>
     public static CoreFormationDetailView Create(CreatureInfoPage page)
@@ -52,7 +55,7 @@ internal sealed class CoreFormationDetailView : MonoBehaviour
         string summary = jindan
             ? string.Format("Cultiway.RealmPage.Jindan.Summary".Localize(), model.Stage, strength)
             : string.Format("Cultiway.RealmPage.Yuanying.Summary".Localize(), strength);
-        header.Set(model.Emblem, model.Name, quality, summary, model.Actor);
+        header.Set(model.Emblem, model.Name, quality, summary);
 
         RefreshContext(model);
         RefreshComposition(model.Formation.composition);
@@ -179,13 +182,39 @@ internal sealed class CoreFormationDetailView : MonoBehaviour
         inheritedLegend.SetActive(yuanying);
         manifestedLegend.SetActive(yuanying);
 
+        var source = new CoreFormationEffectResolver.FormationSource(
+            model.Formation,
+            model.Stage,
+            model.Strength);
+        CoreFormationEffectResolver.Resolve(source, resolvedEffects);
+        bool includeRuntimeState = IsCurrentFormation(model);
         List<CoreFormationAtomPresentation> atoms =
             XianRealmPagePresentation.ResolveActiveAtoms(model.Formation, model.Stage);
         for (var i = 0; i < atomEntries.Length; i++)
         {
-            if (i < atoms.Count) atomEntries[i].SetValue(atoms[i], model.Realm);
+            if (i < atoms.Count)
+                atomEntries[i].SetValue(
+                    atoms[i],
+                    model.Realm,
+                    model.Actor,
+                    resolvedEffects,
+                    includeRuntimeState);
             else atomEntries[i].Hide();
         }
+    }
+
+    /// <summary>判断页面展示的快照是否就是角色当前运行中的核心形成。</summary>
+    private static bool IsCurrentFormation(CoreFormationPageModel model)
+    {
+        if (!CoreFormationEffectResolver.TryGetFormation(
+                model.Actor,
+                out CoreFormationEffectResolver.FormationSource current))
+            return false;
+        return current.Stage == model.Stage &&
+               string.Equals(
+                   current.Snapshot.signature,
+                   model.Formation.signature,
+                   System.StringComparison.Ordinal);
     }
 
     private static GameObject CreateOriginLegend(
