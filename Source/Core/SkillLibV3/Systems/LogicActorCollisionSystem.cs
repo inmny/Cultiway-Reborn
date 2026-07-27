@@ -73,7 +73,7 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
             lb_fixed.Clamp(world_min, world_max);
             rt_fixed.Clamp(world_min, world_max);
 
-            var caster_kingdom = context.AttackKingdom ?? context.SourceObj?.kingdom;
+            var caster_kingdom = context.ResolveAttackKingdom();
 
             for (var x = lb_fixed.x; x <= rt_fixed.x; x++)
             for (var y = lb_fixed.y; y <= rt_fixed.y; y++)

@@ -76,14 +76,13 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
             var snapshot = new PersistentSnapshot(
                 entity,
                 state,
-                context.AttackKingdom ?? context.SourceObj.kingdom,
+                context.ResolveAttackKingdom(),
                 position.v2,
                 Normalize(rotation.value),
                 entity.GetComponent<AliveTimer>().value);
             persistent.Add(snapshot);
 
-            long sourceId = context.SourceObj.getID();
-            var key = new PersistentKey(sourceId, skillEntity.SkillContainer.Id, state.Kind);
+            var key = new PersistentKey(context.SourceId, skillEntity.SkillContainer.Id, state.Kind);
             if (!groups.TryGetValue(key, out List<PersistentSnapshot> entries))
             {
                 entries = new List<PersistentSnapshot>();
@@ -121,7 +120,7 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
                                                         SkillTrajectoryDomain.Skyfall;
             if ((domains & interceptable) == SkillTrajectoryDomain.None) return;
 
-            Kingdom incomingKingdom = incomingContext.AttackKingdom ?? incomingContext.SourceObj.kingdom;
+            Kingdom incomingKingdom = incomingContext.ResolveAttackKingdom();
             Vector2 end = incomingPosition.v2;
             Vector2 start = incomingEntity.TryGetComponent(out PrevPosition previous) ? previous.Value : end;
             for (int i = 0; i < persistent.Count; i++)

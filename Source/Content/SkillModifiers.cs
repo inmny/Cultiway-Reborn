@@ -1408,9 +1408,6 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         var backlash = trialDamage * Mathf.Clamp(trial.BacklashRatio, 0f, 10f);
         if (backlash <= 0f) return;
 
-        var backlashContext = context;
-        backlashContext.SourceObj = target;
-        backlashContext.TargetDir = -context.TargetDir;
         SkillGroundFx.OnImpact(context.SourceObj.GetSimPos(), skill.VfxElement, 0, isArea: false, sourceObj: target);
         EventSystemHub.Publish(new GetHitEvent
         {
@@ -1477,7 +1474,8 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         SkillGroundFx.OnImpact(explosionPos, skill.VfxElement, radius, isArea: true, sourceObj: attacker);
 
         // 对范围内的敌人造成伤害
-        foreach (var obj in SkillUtils.IterEnemyInSphere(explosionPos, radius, attacker, context.AttackKingdom))
+        foreach (var obj in SkillUtils.IterEnemyInSphere(
+                     explosionPos, radius, attacker, context.ResolveAttackKingdom()))
         {
             DealDamage(obj, damage, element, context);
         }
@@ -1807,7 +1805,8 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         var attacker = context.SourceObj;
 
         // 对范围内的敌人施加引力
-        foreach (var obj in SkillUtils.IterEnemyInSphere(skillPos.v2, radius, attacker, context.AttackKingdom))
+        foreach (var obj in SkillUtils.IterEnemyInSphere(
+                     skillPos.v2, radius, attacker, context.ResolveAttackKingdom()))
         {
             if (!obj.isActor()) continue;
 

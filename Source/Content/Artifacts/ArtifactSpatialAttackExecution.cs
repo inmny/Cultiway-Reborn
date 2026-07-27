@@ -104,7 +104,8 @@ internal static class ArtifactSpatialAttackExecution
         float worldTime)
     {
         BaseSimObject target = context.TargetObj;
-        if (!ArtifactSpatialTargeting.IsValidTarget(owner, target, motion.control_range, context.AttackKingdom))
+        if (!ArtifactSpatialTargeting.IsValidTarget(
+                owner, target, motion.control_range, context.ResolveAttackKingdom()))
         {
             if (motion.mode == ArtifactSpatialAttackMode.StrikeAndReturn)
             {
@@ -278,7 +279,7 @@ internal static class ArtifactSpatialAttackExecution
                 executionPosition,
                 ref motion,
                 worldTime,
-                context.AttackKingdom,
+                context.ResolveAttackKingdom(),
                 out BaseSimObject target))
         {
             context.TargetObj = null;

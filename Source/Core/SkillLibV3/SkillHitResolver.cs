@@ -112,7 +112,7 @@ public static class SkillHitResolver
             SkillGroundFx.OnImpact(position, vfxElement, effectRadius, isArea: true, sourceObj: context.SourceObj);
 
             foreach (var obj in SkillUtils.IterEnemyInSphere(position, effectRadius, context.SourceObj,
-                         context.AttackKingdom))
+                         context.ResolveAttackKingdom()))
             {
                 HitTarget(asset, ref context, skillContainer, skillEntity, obj, playImpact: false);
             }
@@ -164,7 +164,7 @@ public static class SkillHitResolver
         SkillGroundFx.OnImpact(position, vfxElement, effectRadius, isArea: true, sourceObj: context.SourceObj);
 
         foreach (BaseSimObject obj in SkillUtils.IterEnemyInSphere(
-                     position, effectRadius, context.SourceObj, context.AttackKingdom))
+                     position, effectRadius, context.SourceObj, context.ResolveAttackKingdom()))
         {
             HitTarget(asset, ref context, skillContainer, skillEntity, obj, false,
                 profile.DamageMultiplier * asset.ImpactTuning.DamageMultiplier,
@@ -190,7 +190,7 @@ public static class SkillHitResolver
             float nearestSqrDistance = float.MaxValue;
             Vector2 currentPosition = current.current_position;
             foreach (BaseSimObject candidate in SkillUtils.IterEnemyInSphere(
-                         currentPosition, jumpRadius, context.SourceObj, context.AttackKingdom))
+                         currentPosition, jumpRadius, context.SourceObj, context.ResolveAttackKingdom()))
             {
                 if (candidate == null || candidate.isRekt() || visited.Contains(GetTargetKey(candidate))) continue;
                 float sqrDistance = (candidate.current_position - currentPosition).sqrMagnitude;

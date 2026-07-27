@@ -276,7 +276,7 @@ public class Manager
         context.PowerLevel = power_level ?? ((source?.isActor() ?? false) && !source.isRekt()
             ? source.a.GetExtend().GetPowerLevel()
             : 0f);
-        context.SourceObj = source;
+        context.BindSource(source);
         context.TargetObj = target.isRekt() ? null : target;
         context.AttackKingdom = attack_kingdom;
         context.RuntimeData = runtime_data;

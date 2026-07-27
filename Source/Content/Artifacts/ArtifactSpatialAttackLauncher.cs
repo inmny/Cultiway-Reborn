@@ -62,7 +62,7 @@ internal static class ArtifactSpatialAttackLauncher
 
         execution = ArtifactSkillExecutions.FlyingSword.NewEntity();
         ref SkillContext skillContext = ref execution.GetComponent<SkillContext>();
-        skillContext.SourceObj = controller;
+        skillContext.BindSource(controller);
         skillContext.TargetObj = request.target;
         skillContext.TargetPos = request.target.GetSimPos();
         skillContext.TargetDir = direction.normalized;

@@ -112,7 +112,7 @@ public partial class ArtifactAbilities
         Actor controller = Controller(context);
         Entity execution = ArtifactSkillExecutions.SwordArray.NewEntity();
         ref SkillContext skillContext = ref execution.GetComponent<SkillContext>();
-        skillContext.SourceObj = controller;
+        skillContext.BindSource(controller);
         skillContext.TargetPos = controller.GetSimPos();
         skillContext.TargetDir = Vector2.up;
         skillContext.AttackKingdom = target.AttackKingdom;

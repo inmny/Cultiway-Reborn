@@ -162,7 +162,8 @@ public sealed class ArtifactSkillExecutions : ExtendLibrary<SkillEntityAsset, Ar
 
         Actor owner = context.SourceObj.a;
         ref ArtifactSpatialAttackMotion motion = ref execution.GetComponent<ArtifactSpatialAttackMotion>();
-        if (!ArtifactSpatialTargeting.IsValidTarget(owner, target, motion.control_range, context.AttackKingdom))
+        if (!ArtifactSpatialTargeting.IsValidTarget(
+                owner, target, motion.control_range, context.ResolveAttackKingdom()))
             return true;
 
         long targetKey = ArtifactSpatialTargeting.GetTargetKey(target);
