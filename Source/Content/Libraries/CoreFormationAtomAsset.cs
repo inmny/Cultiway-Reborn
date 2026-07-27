@@ -59,6 +59,9 @@ public sealed class CoreFormationAtomAsset : Asset
     /// <summary>原子效果说明的本地化键。</summary>
     public string description_key;
 
+    /// <summary>人物境界页和其他只读展示使用的图标路径。</summary>
+    public string icon_path;
+
     /// <summary>规则命名时可选择的短词干。</summary>
     public string[] name_stems = [];
 
