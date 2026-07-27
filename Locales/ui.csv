@@ -382,8 +382,8 @@ Cultiway.CultisysTooltip.Magic.SpellCapacity,法术掌握
 Cultiway.CultisysTooltip.Knight.SuccessChance,自然突破率
 Cultiway.CultisysTooltip.Format.ElementRoot,{0} · 强度 {1:0.##}
 Cultiway.CultisysTooltip.Format.Foundation,{0}/8 · 强度 {1:0.##}
-Cultiway.CultisysTooltip.Format.Jindan,{0} · {1}转 · 强度 {2:0.##}
-Cultiway.CultisysTooltip.Format.Yuanying,{0} · 强度 {1:0.##}
+Cultiway.CultisysTooltip.Format.Jindan,{0} · {1} · {2}转 · 强度 {3:0.##}
+Cultiway.CultisysTooltip.Format.Yuanying,{0} · {1} · 强度 {2:0.##}
 Cultiway.CultisysTooltip.Format.Ring,{0} 环
 progression.not_approaching,尚未接近突破条件
 progression.not_available,当前境界没有可用进阶

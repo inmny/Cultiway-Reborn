@@ -73,12 +73,12 @@ Cultiway.RealmPage.Foundation.Qi,气
 Cultiway.RealmPage.Foundation.Shen,神
 Cultiway.RealmPage.Foundation.Unformed,未凝
 Cultiway.RealmPage.Foundation.RawStrength,原始强度 {0}
-Cultiway.RealmPage.Jindan.Strength,金丹强度 {0}
-Cultiway.RealmPage.Jindan.Stage,{0}转金丹
+Cultiway.RealmPage.CoreFormation.Quality,品阶 {0}
+Cultiway.RealmPage.Jindan.Summary,{0}转 · 强度 {1}
 Cultiway.RealmPage.Jindan.Evolution,演化进度
 Cultiway.RealmPage.Jindan.NextEvolution,下一节点 {0}转
 Cultiway.RealmPage.Jindan.EvolutionComplete,演化完成
-Cultiway.RealmPage.Yuanying.Strength,元婴强度 {0}
+Cultiway.RealmPage.Yuanying.Summary,强度 {0}
 Cultiway.RealmPage.Yuanying.Lineage,金丹谱系
 Cultiway.RealmPage.Yuanying.LineageEmpty,无
 Cultiway.RealmPage.Elements,元素构成

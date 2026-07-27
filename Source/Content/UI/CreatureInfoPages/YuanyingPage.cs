@@ -20,7 +20,7 @@ public sealed class YuanyingPage : MonoBehaviour
         component.detailView = CoreFormationDetailView.Create(page);
     }
 
-    /// <summary>刷新当前元婴名称、强度品阶、金丹谱系、构成和代表法术。</summary>
+    /// <summary>刷新当前元婴名称、品阶、原始强度、金丹谱系、构成和代表法术。</summary>
     [Hotfixable]
     public static void Show(CreatureInfoPage page, Actor actor)
     {

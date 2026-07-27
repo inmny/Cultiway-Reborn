@@ -41,21 +41,18 @@ internal sealed class CoreFormationDetailView : MonoBehaviour
         return view;
     }
 
-    /// <summary>刷新金丹或元婴的名称、进度、组成、原子和代表法术。</summary>
+    /// <summary>刷新金丹或元婴的名称、品阶、强度、进度、组成、原子和代表法术。</summary>
     public void SetContent(CoreFormationPageModel model)
     {
         bool jindan = model.Realm == CoreFormationRealm.Jindan;
-        string strengthValue =
-            StrengthLevelFormatter.GetLevelName(model.Strength, Cultisyses.Xian.DisplayStyle);
-        string strength = string.Format(
-            jindan
-                ? "Cultiway.RealmPage.Jindan.Strength".Localize()
-                : "Cultiway.RealmPage.Yuanying.Strength".Localize(),
-            strengthValue);
-        string stage = jindan
-            ? string.Format("Cultiway.RealmPage.Jindan.Stage".Localize(), model.Stage)
-            : string.Empty;
-        header.Set(model.Emblem, model.Name, strength, stage, model.Actor);
+        string quality = string.Format(
+            "Cultiway.RealmPage.CoreFormation.Quality".Localize(),
+            model.Formation.quality.GetName());
+        string strength = XianRealmPagePresentation.FormatNumber(model.Strength);
+        string summary = jindan
+            ? string.Format("Cultiway.RealmPage.Jindan.Summary".Localize(), model.Stage, strength)
+            : string.Format("Cultiway.RealmPage.Yuanying.Summary".Localize(), strength);
+        header.Set(model.Emblem, model.Name, quality, summary, model.Actor);
 
         RefreshContext(model);
         RefreshComposition(model.Formation.composition);

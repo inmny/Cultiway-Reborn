@@ -184,8 +184,8 @@ public partial class Cultisyses
             ref var jindan = ref actor.GetComponent<Jindan>();
             lines.Add(new CultisysDisplayLine(
                 "Cultiway.CultisysTooltip.Xian.Jindan",
-                string.Format("Cultiway.CultisysTooltip.Format.Jindan".Localize(), jindan.GetName(), jindan.stage,
-                    jindan.strength)));
+                string.Format("Cultiway.CultisysTooltip.Format.Jindan".Localize(), jindan.GetName(),
+                    jindan.GetQuality().GetName(), jindan.stage, jindan.strength)));
         }
         if (actor.HasComponent<Yuanying>())
         {
@@ -193,7 +193,7 @@ public partial class Cultisyses
             lines.Add(new CultisysDisplayLine(
                 "Cultiway.CultisysTooltip.Xian.Yuanying",
                 string.Format("Cultiway.CultisysTooltip.Format.Yuanying".Localize(), yuanying.GetName(),
-                    yuanying.strength)));
+                    yuanying.GetQuality().GetName(), yuanying.strength)));
         }
     }
 

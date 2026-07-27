@@ -21,7 +21,7 @@ public sealed class JindanPage : MonoBehaviour
         component.detailView = CoreFormationDetailView.Create(page);
     }
 
-    /// <summary>刷新当前金丹名称、强度品阶、演化节点、构成和代表法术。</summary>
+    /// <summary>刷新当前金丹名称、品阶、原始强度、演化节点、构成和代表法术。</summary>
     [Hotfixable]
     public static void Show(CreatureInfoPage page, Actor actor)
     {
