@@ -47,6 +47,8 @@ internal sealed class UiPalette
     public Color Error => new(1f, 0.45f, 0.38f, 1f);
     public Color ErrorSurface => new(1f, 0.62f, 0.58f, 1f);
     public Color InnerPanelTint => new(0.82f, 0.82f, 0.82f, 0.94f);
+    public Color SegmentTrack => new(0.08f, 0.09f, 0.085f, 0.72f);
+    public Color SegmentDivider => new(0.05f, 0.05f, 0.05f, 0.8f);
 }
 
 internal enum UiSurface

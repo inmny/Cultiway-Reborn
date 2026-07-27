@@ -63,6 +63,7 @@ Foundation 不得引用 ECS 实体、法宝、宗门、法术或其他 Content �
 - `UiModal`：统一打开、关闭以及所属窗口 `CanvasGroup` 的恢复。
 - `UiListRowChrome`：只管理 Row 表面、点击区域和语义状态。
 - `UiEmptyState`：统一空内容提示。
+- `UiWeightedSegmentBar`：按非负权重绘制连续分段比例条，领域层只提供权重与分段颜色。
 
 复合控件应返回有类型对象并暴露稳定槽位，不应只返回一个需要调用方继续按名称查找的 `GameObject`。Options/Config 只描述尺寸、行为和语义 Variant，不携带任意共享颜色或任意公共 sprite 路径。
 
