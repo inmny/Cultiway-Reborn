@@ -1,50 +1,26 @@
-using Cultiway.Utils;
-using System.Text;
-using Cultiway.Const;
-using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
-using Cultiway.Core;
-using Cultiway.UI.CreatureInfoPages;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
-using NeoModLoader.General;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Cultiway.Content.UI.CreatureInfoPages;
 
-public class XianBasePage : MonoBehaviour
+/// <summary>人物信息窗口中的筑基三花五气详情页。</summary>
+public sealed class XianBasePage : MonoBehaviour
 {
-    public Text Text { get; private set; }
+    private FoundationDetailView detailView;
+
+    /// <summary>创建固定尺寸的筑基详情布局。</summary>
     public static void Setup(CreatureInfoPage page)
     {
-        var this_page = page.gameObject.AddComponent<XianBasePage>();
-        var text = page.gameObject.AddComponent<Text>();
-
-        text.font = Cultiway.UI.UiTheme.Current.Font;
-        text.fontSize = 8;
-
-        this_page.Text = text;
+        var component = page.gameObject.AddComponent<XianBasePage>();
+        component.detailView = FoundationDetailView.Create(page);
     }
 
+    /// <summary>使用角色当前筑基组件刷新完成度、比例和强度。</summary>
     public static void Show(CreatureInfoPage page, Actor actor)
     {
-        ActorExtend ae = actor.GetExtend();
-        var sb = new StringBuilder();
-
-        XianBase xian_base = ae.GetXianBase();
-        sb.AppendLine("精气神三花强度:");
-        sb.AppendLine($"\t精: {xian_base.jing}");
-        sb.AppendLine($"\t气: {xian_base.qi}");
-        sb.AppendLine($"\t神: {xian_base.shen}");
-        sb.AppendLine("五行五气强度:");
-        sb.AppendLine($"\t火: {xian_base.fire}");
-        sb.AppendLine($"\t木: {xian_base.wood}");
-        sb.AppendLine($"\t土: {xian_base.earth}");
-        sb.AppendLine($"\t金: {xian_base.iron}");
-        sb.AppendLine($"\t水: {xian_base.water}");
-
-        var this_page = page.GetComponent<XianBasePage>();
-        this_page.Text.text = sb.ToString();
+        XianBasePage component = page.GetComponent<XianBasePage>();
+        component.detailView.SetContent(new FoundationPageModel(actor.GetExtend().GetXianBase()));
     }
 }

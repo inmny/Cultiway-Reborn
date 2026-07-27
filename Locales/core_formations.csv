@@ -63,6 +63,31 @@ Cultiway.CoreFormation.Page.Elements,元素：{0}
 Cultiway.CoreFormation.Page.Skill,代表法术：{0}
 Cultiway.CoreFormation.Label.Jindan,金丹
 Cultiway.CoreFormation.Label.Yuanying,元婴
+Cultiway.RealmPage.Foundation.Name,筑基
+Cultiway.RealmPage.Foundation.Progress,道基完成 {0}/{1}
+Cultiway.RealmPage.Foundation.Rating,综合评级 {0}
+Cultiway.RealmPage.Foundation.ThreeFlowers,精气神三花
+Cultiway.RealmPage.Foundation.FiveQi,五行五气
+Cultiway.RealmPage.Foundation.Jing,精
+Cultiway.RealmPage.Foundation.Qi,气
+Cultiway.RealmPage.Foundation.Shen,神
+Cultiway.RealmPage.Foundation.Unformed,未凝
+Cultiway.RealmPage.Foundation.RawStrength,原始强度 {0}
+Cultiway.RealmPage.Jindan.Strength,金丹强度 {0}
+Cultiway.RealmPage.Jindan.Stage,{0}转金丹
+Cultiway.RealmPage.Jindan.Evolution,演化进度
+Cultiway.RealmPage.Jindan.NextEvolution,下一节点 {0}转
+Cultiway.RealmPage.Jindan.EvolutionComplete,演化完成
+Cultiway.RealmPage.Yuanying.Strength,元婴强度 {0}
+Cultiway.RealmPage.Yuanying.Lineage,金丹谱系
+Cultiway.RealmPage.Yuanying.LineageEmpty,无
+Cultiway.RealmPage.Elements,元素构成
+Cultiway.RealmPage.Atoms,核心构成
+Cultiway.RealmPage.Atom.Inherited,金丹传承
+Cultiway.RealmPage.Atom.Manifested,元婴显化
+Cultiway.RealmPage.Atom.Active,当前已显化
+Cultiway.RealmPage.Skill.Title,代表法术
+Cultiway.RealmPage.Skill.Empty,尚未形成代表法术
 Cultiway.CoreFormation.Page.Effects.Title,核心形成特殊效果
 Cultiway.CoreFormation.Page.Effects.Empty,当前没有已显化的特殊效果。
 Cultiway.CoreFormation.Effect.Source,{0} · {1}
