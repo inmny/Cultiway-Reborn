@@ -256,6 +256,7 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
         if (string.IsNullOrEmpty(_current_page) ||
             !_pages.TryGetValue(_current_page, out CreatureInfoPage current_page)) return;
         current_page.gameObject.SetActive(true);
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_page_container.GetComponent<RectTransform>());
         _page_registrations.Find(x => x.id == _current_page).show_action?.Invoke(current_page, _actor);
         _page_entry_pool.ActiveObjs.First(x => x.name == _current_page).Button.interactable = false;
     }
