@@ -214,18 +214,17 @@ public static class CoreFormationEffectResolver
         return false;
     }
 
-    /// <summary>按境界、品质、形成强度和原子贡献计算 0.75 至 2.5 的有界倍率。</summary>
+    /// <summary>按境界、形成强度和原子贡献计算 0.75 至 2.5 的有界倍率。</summary>
     private static float ResolvePotency(
         FormationSource source,
         CoreFormationAtomState state,
         CoreFormationEffectDefinition definition)
     {
         float realm = source.Snapshot.realm == CoreFormationRealm.Yuanying ? 1.25f : 1f;
-        float quality = 1f + 0.1f * Mathf.Clamp(source.Snapshot.quality, 0, 3);
         float strength = 1f + 0.12f * Mathf.Log(1f + Mathf.Clamp(source.Strength, 0f, 31f), 2f);
         float reference = Mathf.Max(0.01f, definition.reference_weight);
         float weight = Mathf.Lerp(0.85f, 1.15f, Mathf.Clamp01(state.weight / reference));
-        return Mathf.Clamp(realm * quality * strength * weight, 0.75f, 2.5f);
+        return Mathf.Clamp(realm * strength * weight, 0.75f, 2.5f);
     }
 
     /// <summary>把新解析结果合并进列表，同族优先 rank，其次优先效果倍率。</summary>

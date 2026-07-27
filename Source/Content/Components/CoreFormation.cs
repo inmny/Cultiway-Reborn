@@ -1,5 +1,6 @@
 using System;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Cultiway.Core.Semantics;
 
 namespace Cultiway.Content.Components;
@@ -59,7 +60,7 @@ public struct CoreFormationStatValue
 /// </summary>
 public struct CoreFormationSnapshot
 {
-    public const int CurrentVersion = 1;
+    public const int CurrentVersion = 2;
 
     /// <summary>快照数据版本。</summary>
     public int version;
@@ -73,8 +74,8 @@ public struct CoreFormationSnapshot
     /// <summary>该快照属于金丹还是元婴。</summary>
     public CoreFormationRealm realm;
 
-    /// <summary>当前组合的品质层级，范围为 0-3。</summary>
-    public int quality;
+    /// <summary>当前组合形成时确定的黄、玄、地、天四阶九品品阶。</summary>
+    public ItemLevel quality;
 
     /// <summary>五行、阴阳和混沌的连续组成。</summary>
     public ElementComposition composition;

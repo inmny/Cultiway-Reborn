@@ -108,6 +108,10 @@ public static class CoreFormationComposer
     private const float FiveQiWeight = 0.7f;
     private const float ElementRootWeight = 0.3f;
     private const int MaxLatentAtoms = 2;
+    private const float ProfoundQualityThreshold = 1.25f;
+    private const float EarthQualityThreshold = 2.5f;
+    private const float HeavenQualityThreshold = 4f;
+    private const float MaximumQualityScore = 5.5f;
 
     private static readonly int[] AwakeningStages = [3, 6];
     private static readonly string[] ArmorStats =
@@ -200,7 +204,7 @@ public static class CoreFormationComposer
         {
             version = CoreFormationSnapshot.CurrentVersion,
             realm = CoreFormationRealm.Yuanying,
-            quality = Mathf.Max(jindan.quality, ResolveQuality(strength, context)),
+            quality = ResolveQuality(strength, context),
             composition = jindan.composition,
             atoms = atoms.ToArray(),
             stats = [],
@@ -226,7 +230,6 @@ public static class CoreFormationComposer
 
         if (previousStage < 9 && currentStage >= 9)
         {
-            snapshot.quality = 3;
             StrengthenAllActiveAtoms(ref snapshot, currentStage);
             changed = true;
         }
@@ -295,15 +298,44 @@ public static class CoreFormationComposer
         return values;
     }
 
-    /// <summary>综合初始强度、三花均衡和元素均衡，将组合评定为 0-3 级品质。</summary>
-    private static int ResolveQuality(float strength, CoreFormationContext context)
+    /// <summary>
+    /// 综合初始强度、三花均衡和元素均衡，在原有四个品阶区间内进一步评定九个小品。
+    /// </summary>
+    private static ItemLevel ResolveQuality(float strength, CoreFormationContext context)
     {
-        var score = Mathf.Log(Mathf.Max(0f, strength) + 1f, 2f) +
-                    context.ThreeHuaBalance + context.ElementBalance * 0.5f;
-        if (score >= 4f) return 3;
-        if (score >= 2.5f) return 2;
-        if (score >= 1.25f) return 1;
-        return 0;
+        float score = Mathf.Log(Mathf.Max(0f, strength) + 1f, 2f) +
+                      context.ThreeHuaBalance + context.ElementBalance * 0.5f;
+        int stage;
+        float lowerBound;
+        float upperBound;
+        if (score >= HeavenQualityThreshold)
+        {
+            stage = 3;
+            lowerBound = HeavenQualityThreshold;
+            upperBound = MaximumQualityScore;
+        }
+        else if (score >= EarthQualityThreshold)
+        {
+            stage = 2;
+            lowerBound = EarthQualityThreshold;
+            upperBound = HeavenQualityThreshold;
+        }
+        else if (score >= ProfoundQualityThreshold)
+        {
+            stage = 1;
+            lowerBound = ProfoundQualityThreshold;
+            upperBound = EarthQualityThreshold;
+        }
+        else
+        {
+            stage = 0;
+            lowerBound = 0f;
+            upperBound = ProfoundQualityThreshold;
+        }
+
+        float progress = Mathf.InverseLerp(lowerBound, upperBound, score);
+        int level = Mathf.Clamp(Mathf.FloorToInt(progress * 9f), 0, 8);
+        return ItemLevel.FromValue(stage * 9 + level);
     }
 
     /// <summary>将达标的可选原子立即显化，或将部分未达标原子安排到三、六转觉醒。</summary>
@@ -478,11 +510,11 @@ public static class CoreFormationComposer
         return builder.Build().contributions;
     }
 
-    /// <summary>将境界、品质、阶段、元素和原子状态编码后计算稳定的 64 位组合签名。</summary>
+    /// <summary>将境界、品阶、阶段、元素和原子状态编码后计算稳定的 64 位组合签名。</summary>
     private static string ComposeSignature(CoreFormationSnapshot snapshot, int stage)
     {
         StringBuilder builder = new();
-        builder.Append((int)snapshot.realm).Append('|').Append(snapshot.quality).Append('|')
+        builder.Append((int)snapshot.realm).Append('|').Append((int)snapshot.quality).Append('|')
             .Append(stage >= 9 ? 3 : stage >= 6 ? 2 : stage >= 3 ? 1 : 0);
         var composition = snapshot.composition.AsArray();
         for (var i = 0; i < composition.Length; i++)
@@ -566,7 +598,7 @@ public static class CoreFormationComposer
 /// <summary>由已激活原子生成 4-6 个汉字的稳定规则名称。</summary>
 internal static class CoreFormationNameComposer
 {
-    /// <summary>从品质、阶段和主导原子中提炼一个短而稳定的规范名称。</summary>
+    /// <summary>从品阶、阶段和主导原子中提炼一个短而稳定的规范名称。</summary>
     public static string Compose(CoreFormationSnapshot snapshot,
         List<(CoreFormationAtomState state, CoreFormationAtomAsset asset)> active, int stage)
     {
@@ -574,9 +606,9 @@ internal static class CoreFormationNameComposer
         var prefix = snapshot.realm == CoreFormationRealm.Jindan
             ? stage >= 9
                 ? "九转"
-                : snapshot.quality >= 3
+                : snapshot.quality.Stage >= 3
                     ? NamingRuleUtils.Pick(seed, "无垢", "太清")
-                    : snapshot.quality >= 2
+                    : snapshot.quality.Stage >= 2
                         ? "天元"
                         : string.Empty
             : string.Empty;

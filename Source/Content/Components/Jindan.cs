@@ -1,5 +1,6 @@
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
+using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Content.Components;
@@ -27,6 +28,12 @@ public struct Jindan : IComponent
     public string GetName()
     {
         return formation.IsValid ? formation.canonical_name : string.Empty;
+    }
+
+    /// <summary>返回金丹形成时固化的品阶。</summary>
+    public ItemLevel GetQuality()
+    {
+        return formation.quality;
     }
 
     /// <summary>返回当前转数已经显化的组合原子说明。</summary>
