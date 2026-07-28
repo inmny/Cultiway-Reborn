@@ -8,9 +8,9 @@ using Cultiway.Core.Pathfinding;
 namespace Cultiway.Core.Performance;
 
 /// <summary>
-/// 在一个角色 AI 小批次内收集已经通过校验的寻路请求。
+/// 在一个完整角色 post 周期内收集已经通过校验的寻路请求。
 /// 角色字段和原版容器仍在主线程按原顺序修改；独立角色的请求快照、
-/// 取消、任务创建与入队集中交给 worker 并行执行。
+/// 取消、任务创建与入队在周期末集中交给 worker 并行执行。
 /// </summary>
 internal static class DeferredPathRequestBatch
 {
@@ -19,6 +19,7 @@ internal static class DeferredPathRequestBatch
     private static readonly List<RequestWorkItem> Requests = new(64);
     private static readonly Action<int> ProcessAction = ProcessAt;
 
+    private static bool cycleActive;
     private static bool accepting;
     private static long capturedRequests;
     private static long completedBatches;
@@ -28,12 +29,26 @@ internal static class DeferredPathRequestBatch
     private static long maximumProcessingTicks;
     private static int maximumBatchSize;
 
-    internal static void Begin()
+    internal static bool HasPendingRequests =>
+        cycleActive && Requests.Count > 0;
+
+    internal static void StartCycle()
     {
-        if (accepting || Requests.Count != 0)
+        if (cycleActive || accepting || Requests.Count != 0)
         {
             throw new InvalidOperationException(
-                "延迟寻路请求批次发生重入");
+                "延迟寻路请求周期发生重入");
+        }
+
+        cycleActive = true;
+    }
+
+    internal static void BeginCapture()
+    {
+        if (!cycleActive || accepting)
+        {
+            throw new InvalidOperationException(
+                "延迟寻路请求采集发生重入");
         }
 
         accepting = true;
@@ -63,18 +78,29 @@ internal static class DeferredPathRequestBatch
         return true;
     }
 
-    internal static void Complete()
+    internal static void EndCapture()
     {
-        if (!accepting)
+        if (!cycleActive || !accepting)
         {
             throw new InvalidOperationException(
-                "延迟寻路请求批次尚未开始");
+                "延迟寻路请求采集尚未开始");
         }
 
         accepting = false;
+    }
+
+    internal static void CompleteCycle()
+    {
+        if (!cycleActive || accepting)
+        {
+            throw new InvalidOperationException(
+                "延迟寻路请求周期状态无效");
+        }
+
         int count = Requests.Count;
         if (count == 0)
         {
+            cycleActive = false;
             return;
         }
 
@@ -105,12 +131,14 @@ internal static class DeferredPathRequestBatch
                 count,
                 Stopwatch.GetTimestamp() - startedAt);
             Requests.Clear();
+            cycleActive = false;
         }
     }
 
-    internal static void Abort()
+    internal static void AbortCycle()
     {
         accepting = false;
+        cycleActive = false;
         Requests.Clear();
     }
 

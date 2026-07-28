@@ -66,6 +66,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         searchScheduleCompletedAt = 0L;
         aggressionCandidates.Clear();
         tileActionProfiler.Start(batches.Count);
+        DeferredPathRequestBatch.StartCycle();
 
         if (batches.Count == 0)
         {
@@ -141,7 +142,9 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         if (stage == PostStage.AfterEnemySearch &&
             batchIndex >= batches.Count)
         {
-            return phasePrefix + ".post.finish";
+            return DeferredPathRequestBatch.HasPendingRequests
+                ? phasePrefix + ".post.path_requests.flush"
+                : phasePrefix + ".post.finish";
         }
 
         return stage switch
@@ -168,7 +171,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     enemySearchJobIndex + 1,
                     int.MaxValue,
                     "after_b3"),
-            PostStage.Finish => phasePrefix + ".post.finish",
+            PostStage.Finish =>
+                DeferredPathRequestBatch.HasPendingRequests
+                    ? phasePrefix + ".post.path_requests.flush"
+                    : phasePrefix + ".post.finish",
             _ => phasePrefix + ".post.idle"
         };
     }
@@ -264,6 +270,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     stage = PostStage.Finish;
                     continue;
                 case PostStage.Finish:
+                    DeferredPathRequestBatch.CompleteCycle();
                     tileActionProfiler.Finish();
                     ResetCycleReferences();
                     stage = PostStage.Idle;
@@ -282,6 +289,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             searchTicket = default;
         }
 
+        DeferredPathRequestBatch.AbortCycle();
         tileActionProfiler.Abort();
         ResetCycleReferences();
         stage = PostStage.Idle;
@@ -355,7 +363,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             job.id.Equals(UpdateAiJobId, StringComparison.Ordinal);
         if (deferPathRequests)
         {
-            DeferredPathRequestBatch.Begin();
+            DeferredPathRequestBatch.BeginCapture();
         }
 
         bool completed = false;
@@ -378,11 +386,11 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             {
                 if (completed)
                 {
-                    DeferredPathRequestBatch.Complete();
+                    DeferredPathRequestBatch.EndCapture();
                 }
                 else
                 {
-                    DeferredPathRequestBatch.Abort();
+                    DeferredPathRequestBatch.AbortCycle();
                 }
             }
         }
