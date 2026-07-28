@@ -19,7 +19,9 @@ public static class PerformanceSettings
     // 即使渲染本身已经超过目标帧时长，也必须每帧推进一个安全切片；
     // 否则高负载世界会在零预算状态下永久停在同一逻辑阶段。
     public const int StarvationFrameInterval = 1;
-    public const int SimulationBatchSize = 64;
+    // 与原版 JobConst.MAX_ELEMENTS 保持一致。过小的 batch 会让万人场景中
+    // 每个 post job 重复执行数百次容器检查与调度，吞吐反而显著下降。
+    public const int SimulationBatchSize = 256;
     public const float FixedSimulationStepSeconds = 0.02f;
     public const float BaseSimulationTicksPerSecond = 1f / FixedSimulationStepSeconds;
 
