@@ -54,6 +54,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private int _startMeasureUnits;
     private float _durationSeconds;
     private float _warmupMaxSeconds;
+    private float _settleSeconds;
     private float _logIntervalSeconds;
     private bool _createWorld;
     private bool _quitOnComplete;
@@ -118,6 +119,9 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         _startMeasureUnits = GetEnvInt("CULTIWAY_PERF_START_MEASURE_UNITS", 10000);
         _durationSeconds = GetEnvFloat("CULTIWAY_PERF_DURATION", 180f);
         _warmupMaxSeconds = GetEnvFloat("CULTIWAY_PERF_WARMUP_MAX", 900f);
+        _settleSeconds = Math.Max(
+            0f,
+            GetEnvFloat("CULTIWAY_PERF_SETTLE_DURATION", 0f));
         _logIntervalSeconds = Math.Max(5f, GetEnvFloat("CULTIWAY_PERF_LOG_INTERVAL", 30f));
         _createWorld = GetEnvBool("CULTIWAY_PERF_CREATE_WORLD", true);
         _quitOnComplete = GetEnvBool("CULTIWAY_PERF_QUIT_ON_DONE", false);
@@ -131,10 +135,12 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             GetEnvBool(
                 "CULTIWAY_PERF_PRESENTATION_SMOOTHING",
                 PerformanceSettings.EnablePresentationSmoothing));
+        SimulationTickBenchmark.SetAiDetailsOverride(
+            GetEnvNullableBool("CULTIWAY_PERF_AI_DETAILS"));
         _configured = true;
 
         ModClass.LogInfo(
-            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s targetFps={PerformanceSettings.TargetRenderFps:0.#} maxSimulation={PerformanceSettings.MaxSimulationMillisecondsPerFrame:0.#}ms smoothing={PerformanceSettings.EnablePresentationSmoothing} aiBench={SystemUtils.IsUnderDeveloper()}");
+            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s settle={_settleSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s targetFps={PerformanceSettings.TargetRenderFps:0.#} maxSimulation={PerformanceSettings.MaxSimulationMillisecondsPerFrame:0.#}ms smoothing={PerformanceSettings.EnablePresentationSmoothing} aiBench={SimulationTickBenchmark.ShouldCollectAiDetails}");
     }
 
     private void Update()
@@ -257,7 +263,9 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
         PreparePresentationScene();
 
-        if (_startMeasureUnits > 0 && CountUnits() < _startMeasureUnits)
+        if ((_startMeasureUnits > 0 &&
+             CountUnits() < _startMeasureUnits) ||
+            _settleSeconds > 0f)
         {
             ResetFrameStats();
             SetState(RunnerState.WarmingUp);
@@ -273,9 +281,13 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         _runElapsed += delta;
         _logElapsed += delta;
 
-        if (CountUnits() >= _startMeasureUnits)
+        bool populationReady =
+            _startMeasureUnits <= 0 ||
+            CountUnits() >= _startMeasureUnits;
+        if (populationReady && _runElapsed >= _settleSeconds)
         {
-            ModClass.LogInfo($"{Prefix} 人口达到统计阈值 units={CountUnits()} elapsed={_runElapsed:0.0}s");
+            ModClass.LogInfo(
+                $"{Prefix} 预热完成 units={CountUnits()} elapsed={_runElapsed:0.0}s settle={_settleSeconds:0.0}s");
             StartMeasurement();
             return;
         }
@@ -1121,6 +1133,17 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
                value.Equals("true", StringComparison.OrdinalIgnoreCase) ||
                value.Equals("yes", StringComparison.OrdinalIgnoreCase) ||
                value.Equals("on", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool? GetEnvNullableBool(string key)
+    {
+        string value = Environment.GetEnvironmentVariable(key);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return GetEnvBool(key, false);
     }
 
     private readonly struct BenchRow

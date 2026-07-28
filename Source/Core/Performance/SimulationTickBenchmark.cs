@@ -70,10 +70,12 @@ internal static class SimulationTickBenchmark
     private static bool benchStateInitialized;
     private static bool lastBenchEnabled;
     private static bool debugToolsRegistered;
+    private static bool? collectAiDetailsOverride;
 
     internal static bool IsCapturing => current != null && !current.Cancelled;
     internal static bool ShouldCollectAiDetails =>
-        Bench.bench_enabled && SystemUtils.IsUnderDeveloper();
+        Bench.bench_enabled &&
+        (collectAiDetailsOverride ?? SystemUtils.IsUnderDeveloper());
 
     internal static void Initialize()
     {
@@ -123,6 +125,12 @@ internal static class SimulationTickBenchmark
 
         Bench.bench_ai_enabled = enabled;
         PathfindingProfiler.SetEnabled(enabled);
+    }
+
+    internal static void SetAiDetailsOverride(bool? enabled)
+    {
+        collectAiDetailsOverride = enabled;
+        ApplyAiDetailsPolicy();
     }
 
     internal static void BeginTick(float simulatedSeconds, bool largeStep)
