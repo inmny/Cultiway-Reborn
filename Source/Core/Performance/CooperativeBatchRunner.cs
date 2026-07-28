@@ -388,7 +388,11 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
             }
 
             // 原版按 batch 顺序完整执行全部主线程 job；batch 本身已经是可跨帧的安全边界。
-            if (jobStage == RunnerStage.Pre)
+            if (!collectJobBenchmarks)
+            {
+                RunMainThreadJobsWithoutBenchmark(batch, jobs);
+            }
+            else if (jobStage == RunnerStage.Pre)
             {
                 batch.updateJobsPre(elapsed);
             }
@@ -401,6 +405,31 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         }
 
         return false;
+    }
+
+    private void RunMainThreadJobsWithoutBenchmark(
+        TBatch batch,
+        List<Job<TObject>> jobs)
+    {
+        batch._elapsed = elapsed;
+        for (int i = 0; i < jobs.Count; i++)
+        {
+            Job<TObject> job = jobs[i];
+            batch._cur_container = job.container;
+            if (job.current_skips > 0)
+            {
+                job.current_skips--;
+                continue;
+            }
+
+            job.job_updater();
+            if (job.random_tick_skips > 0)
+            {
+                job.current_skips = Randy.randomInt(
+                    0,
+                    job.random_tick_skips);
+            }
+        }
     }
 
     private bool TryRunNextParallelJobGroup()
