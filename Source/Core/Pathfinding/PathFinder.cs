@@ -17,8 +17,10 @@ public class PathFinder
     public static PathFinder Instance { get; } = new();
     internal static readonly object ActorSyncLock = new object();
 
-    private readonly ConcurrentDictionary<long, PathfindingTask> _tasks = new();
-    private readonly ConcurrentDictionary<long, PathRequestOptions> _lastRequests = new();
+    // 路径 worker 只持有 PathfindingTask/PathStream，不访问任务表。
+    // 任务表由有序模拟提交线程独占写入；批量准备阶段只做并发只读。
+    private readonly Dictionary<long, PathfindingTask> _tasks = new();
+    private readonly Dictionary<long, PathRequestOptions> _lastRequests = new();
     private readonly ConcurrentQueue<PathfindingTask> _pendingTasks = new();
     private readonly AutoResetEvent _pendingSignal = new(false);
     private readonly object _workerLock = new();
@@ -109,7 +111,7 @@ public class PathFinder
     {
         PathfindingProfiler.Measurement reuseMeasurement =
             PathfindingProfiler.Start();
-        bool reused = TryReuseActiveRequest(
+        bool reused = TryReuseActiveRequestReadOnly(
             actor,
             target,
             pathOnWater,
@@ -362,6 +364,38 @@ public class PathFinder
 
         Cleanup(actorId, task);
         return false;
+    }
+
+    private bool TryReuseActiveRequestReadOnly(
+        Actor actor,
+        WorldTile target,
+        bool pathOnWater,
+        bool walkOnBlocks,
+        bool walkOnLava,
+        int limitRegions)
+    {
+        if (actor?.data == null || target == null)
+        {
+            return false;
+        }
+
+        if (!_tasks.TryGetValue(
+                actor.data.id,
+                out PathfindingTask task) ||
+            !task.Request.HasSameTargetAndOptions(
+                target,
+                pathOnWater,
+                walkOnBlocks,
+                walkOnLava,
+                limitRegions))
+        {
+            return false;
+        }
+
+        PathRequestState state = task.Stream.State;
+        return state == PathRequestState.Pending ||
+               state == PathRequestState.Streaming ||
+               task.Stream.HasPendingSteps;
     }
 
     public bool CanAcceptRequest(Actor actor, WorldTile target, out PathFailureReason failureReason)
@@ -653,7 +687,10 @@ public class PathFinder
         }
 
         PathfindingProfiler.Measurement cancelMeasurement = PathfindingProfiler.Start();
-        bool cancelled = _tasks.TryRemove(actor.data.id, out var task);
+        long actorId = actor.data.id;
+        bool cancelled =
+            _tasks.TryGetValue(actorId, out PathfindingTask task) &&
+            _tasks.Remove(actorId);
         if (cancelled)
         {
             task.Stream.Cancel(reason);
@@ -698,11 +735,14 @@ public class PathFinder
     }
     public void Cleanup(long actorId)
     {
-        if (_tasks.TryRemove(actorId, out var task))
+        if (_tasks.TryGetValue(
+                actorId,
+                out PathfindingTask task) &&
+            _tasks.Remove(actorId))
         {
             task.DisposeWhenWorkerFinished();
         }
-        _lastRequests.TryRemove(actorId, out _);
+        _lastRequests.Remove(actorId);
     }
 
     public void Clear()
