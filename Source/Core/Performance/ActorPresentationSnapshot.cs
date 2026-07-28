@@ -244,6 +244,8 @@ internal struct ResourceThrowPresentationSample
 /// </summary>
 internal sealed class ActorPresentationSnapshot
 {
+    private const int ColoredSpriteGenerationLimit = 64;
+
     private ActorPresentationSample[] samples = Array.Empty<ActorPresentationSample>();
     private ActorStatusPresentationSample[] statuses =
         Array.Empty<ActorStatusPresentationSample>();
@@ -286,6 +288,9 @@ internal sealed class ActorPresentationSnapshot
     private int profiledVisibleActors;
     private int profiledColoredSpriteMisses;
     private int profiledColoredSpriteFastHits;
+    private int profiledColoredSpriteGenerations;
+    private int profiledColoredSpriteDeferred;
+    private int coloredSpriteGenerationsRemaining;
     private string captureBreakdown = "none";
 
     internal int WorldGeneration { get; private set; }
@@ -311,7 +316,10 @@ internal sealed class ActorPresentationSnapshot
         updateDynamicSampleAt = UpdateDynamicSampleAt;
     }
 
-    internal void Capture(MapBox world, long tickSequence)
+    internal void Capture(
+        MapBox world,
+        long tickSequence,
+        ActorPresentationSnapshot source)
     {
         if (world?.units == null)
         {
@@ -329,6 +337,10 @@ internal sealed class ActorPresentationSnapshot
         profiledVisibleActors = 0;
         profiledColoredSpriteMisses = 0;
         profiledColoredSpriteFastHits = 0;
+        profiledColoredSpriteGenerations = 0;
+        profiledColoredSpriteDeferred = 0;
+        coloredSpriteGenerationsRemaining =
+            ColoredSpriteGenerationLimit;
 
         world.units.checkContainer();
         world.units.prepareArray();
@@ -373,6 +385,12 @@ internal sealed class ActorPresentationSnapshot
             }
 
             long actorId = actor.data.id;
+            ActorPresentationSample sourceSample = default;
+            bool hasSourceSample =
+                source != null &&
+                source.TryGet(
+                    actorId,
+                    out sourceSample);
             ActorPresentationFlags flags = ActorPresentationFlags.None;
             if (actor.isAlive())
             {
@@ -457,20 +475,26 @@ internal sealed class ActorPresentationSnapshot
                 : 0L;
             if (normalRender)
             {
-                mainSprite = actor.calculateMainSprite();
+                Sprite baseSprite = actor.calculateMainSprite();
+                mainSprite = baseSprite;
                 if (actor.hasColoredSprite())
                 {
                     bool localCacheMiss =
-                        actor.isColoredSpriteNeedsCheck(mainSprite);
+                        actor.isColoredSpriteNeedsCheck(baseSprite);
                     if (profileCapture && localCacheMiss)
                     {
                         profiledColoredSpriteMisses++;
                     }
 
-                    if (localCacheMiss &&
+                    if (!localCacheMiss)
+                    {
+                        mainSprite =
+                            actor.calculateColoredSprite(baseSprite);
+                    }
+                    else if (
                         TryGetCachedColoredSprite(
                             actor,
-                            mainSprite,
+                            baseSprite,
                             out Sprite cachedColoredSprite))
                     {
                         mainSprite = cachedColoredSprite;
@@ -479,10 +503,28 @@ internal sealed class ActorPresentationSnapshot
                             profiledColoredSpriteFastHits++;
                         }
                     }
+                    else if (coloredSpriteGenerationsRemaining > 0)
+                    {
+                        coloredSpriteGenerationsRemaining--;
+                        mainSprite =
+                            actor.calculateColoredSprite(baseSprite);
+                        if (profileCapture)
+                        {
+                            profiledColoredSpriteGenerations++;
+                        }
+                    }
                     else
                     {
-                        mainSprite =
-                            actor.calculateColoredSprite(mainSprite);
+                        // 动态着色图集写入是串行 Unity 工作。超过本次上限后，
+                        // 沿用上一稳定 Sprite；首次出现的角色暂用基础帧。
+                        mainSprite = hasSourceSample &&
+                                     sourceSample.MainSprite != null
+                            ? sourceSample.MainSprite
+                            : baseSprite;
+                        if (profileCapture)
+                        {
+                            profiledColoredSpriteDeferred++;
+                        }
                     }
                 }
 
@@ -724,7 +766,8 @@ internal sealed class ActorPresentationSnapshot
         {
             captureBreakdown = string.Format(
                 CultureInfo.InvariantCulture,
-                "full actors={0}/{1}(visible={2},color_miss={3},color_fast={12}) " +
+                "full actors={0}/{1}(visible={2},color_miss={3}," +
+                "color_fast={12},color_gen={13},color_defer={14}) " +
                 "prepare={4:0.00}ms actor={5:0.00}ms" +
                 "[item={6:0.00},sprite={7:0.00},light={8:0.00},status={9:0.00}] " +
                 "buildings={10:0.00}ms world_objects={11:0.00}ms",
@@ -745,7 +788,9 @@ internal sealed class ActorPresentationSnapshot
                 TicksToMilliseconds(
                     worldObjectsCompletedAt -
                     buildingsCompletedAt),
-                profiledColoredSpriteFastHits);
+                profiledColoredSpriteFastHits,
+                profiledColoredSpriteGenerations,
+                profiledColoredSpriteDeferred);
         }
     }
 
@@ -1168,14 +1213,14 @@ internal sealed class ActorPresentationSnapshot
             return false;
         }
 
-        actor.animation_container.dict_frame_data.TryGetValue(
-            mainSprite.name,
-            out actor.frame_data);
         if (actor.dirty_sprite_head)
         {
             return false;
         }
 
+        actor.animation_container.dict_frame_data.TryGetValue(
+            mainSprite.name,
+            out actor.frame_data);
         long headId = 0L;
         if (actor.has_rendered_sprite_head)
         {
@@ -1980,7 +2025,8 @@ internal static class ActorPresentationSnapshots
     private const double CaptureCpuBudgetMillisecondsPerSecond = 60.0;
     private const double MaximumCaptureRate = 30.0;
     private const double MinimumCaptureRate = 3.0;
-    private const double FullCaptureRealIntervalSeconds = 1.0 / 15.0;
+    private const double MinimumFullCaptureRealIntervalSeconds = 1.0 / 15.0;
+    private const double MaximumFullCaptureRealIntervalSeconds = 0.5;
     private const double FullCaptureSimulationIntervalSeconds = 0.1;
 
     private static readonly object gate = new();
@@ -2097,7 +2143,10 @@ internal static class ActorPresentationSnapshots
         bool fullCapture = ShouldCaptureFull(source, startedAt);
         if (fullCapture)
         {
-            writer.Capture(world, tickSequence);
+            writer.Capture(
+                world,
+                tickSequence,
+                source);
             Volatile.Write(
                 ref lastFullCaptureBreakdown,
                 writer.CaptureBreakdown);
@@ -2321,9 +2370,21 @@ internal static class ActorPresentationSnapshots
         double simulationElapsed =
             SimulationTime.DiagnosticTime -
             lastFullCaptureSimulationTime;
-        return realElapsed >= FullCaptureRealIntervalSeconds &&
+        return realElapsed >=
+               GetFullCaptureRealIntervalSeconds() &&
                simulationElapsed >=
                FullCaptureSimulationIntervalSeconds;
+    }
+
+    private static double GetFullCaptureRealIntervalSeconds()
+    {
+        double multiplier =
+            Config.time_scale_asset?.multiplier ?? 1.0;
+        return Math.Max(
+            MinimumFullCaptureRealIntervalSeconds,
+            Math.Min(
+                MaximumFullCaptureRealIntervalSeconds,
+                multiplier / 15.0));
     }
 
     private static long GetCaptureRequestIntervalTicks()
