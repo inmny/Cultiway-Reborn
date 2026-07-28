@@ -14,6 +14,9 @@ namespace Cultiway.Core.Performance;
 internal static class NearbyStatusTargetIndex
 {
     private const int SparseMembershipScanThreshold = 64;
+    private const int InitialDenseActorHashCapacity = 4096;
+    private const int MaximumDenseActorHashCapacity =
+        4 * 1024 * 1024;
 
     private static readonly Dictionary<MapChunk, List<IndexedActor>>
         ActorsByChunk = new();
@@ -26,6 +29,8 @@ internal static class NearbyStatusTargetIndex
         new(StringComparer.Ordinal);
     private static readonly HashSet<string> GlobalStatusIds =
         new(StringComparer.Ordinal);
+    private static bool[] indexedActorHashFlags =
+        Array.Empty<bool>();
 
     private static int indexedGeneration = -1;
     private static int indexedUnitMembershipVersion = -1;
@@ -120,7 +125,7 @@ internal static class NearbyStatusTargetIndex
             return;
         }
 
-        bool newlyIndexed = IndexedActors.Add(actor);
+        bool newlyIndexed = AddIndexedActor(actor);
         GlobalStatusIds.Add(statusAsset.id);
         if (!newlyIndexed ||
             !IsCurrentIndex())
@@ -154,7 +159,7 @@ internal static class NearbyStatusTargetIndex
 
         if (!HasAnyTrackedStatus(actor))
         {
-            if (IndexedActors.Remove(actor) &&
+            if (RemoveIndexedActor(actor) &&
                 IsCurrentIndex() &&
                 RemoveActorMembership(actor))
             {
@@ -168,7 +173,7 @@ internal static class NearbyStatusTargetIndex
         BaseSimObject simObject)
     {
         if (simObject is not Actor actor ||
-            !IndexedActors.Remove(actor))
+            !RemoveIndexedActor(actor))
         {
             return;
         }
@@ -226,6 +231,14 @@ internal static class NearbyStatusTargetIndex
     {
         RecycleActorLists();
         IndexedActors.Clear();
+        if (indexedActorHashFlags.Length > 0)
+        {
+            Array.Clear(
+                indexedActorHashFlags,
+                0,
+                indexedActorHashFlags.Length);
+        }
+
         TrackedStatusIds.Clear();
         GlobalStatusIds.Clear();
         indexedGeneration = -1;
@@ -246,9 +259,11 @@ internal static class NearbyStatusTargetIndex
     {
         long startedAt = Stopwatch.GetTimestamp();
         RecycleActorLists();
-        GlobalStatusIds.Clear();
-        RemoveInvalidTrackedActors();
-        RefreshGlobalStatusIds();
+        // 状态增删补丁已增量维护 IndexedActors。这里若再次逐角色检查
+        // 全部已追踪状态，会把共享的 World.units 遍历重新退化成
+        // O(索引角色 × 状态种类)。GlobalStatusIds 只用于快速否定，
+        // 在当前世界中保持单调集合只会产生安全的假阳性；最终候选仍由
+        // HasRequestedStatus 校验。死亡或漏删成员也不会进入本轮活体成员表。
         fusedRebuildActorEntries = 0;
         fusedRebuildStartedAt = startedAt;
         fusedRebuildInProgress = true;
@@ -265,7 +280,8 @@ internal static class NearbyStatusTargetIndex
         int unitIndex)
     {
         if (!fusedRebuildInProgress ||
-            !IndexedActors.Contains(actor))
+            !actor.hasAnyStatusEffect() ||
+            !IsIndexedActor(actor))
         {
             return;
         }
@@ -694,9 +710,20 @@ internal static class NearbyStatusTargetIndex
     {
         IndexedActors.RemoveWhere(
             actor =>
-                actor == null ||
-                !actor.isAlive() ||
-                !HasAnyTrackedStatus(actor));
+            {
+                bool remove =
+                    actor == null ||
+                    !actor.isAlive() ||
+                    !HasAnyTrackedStatus(actor);
+                if (remove)
+                {
+                    SetActorIndexed(
+                        actor,
+                        false);
+                }
+
+                return remove;
+            });
     }
 
     private static void RefreshGlobalStatusIds()
@@ -792,7 +819,7 @@ internal static class NearbyStatusTargetIndex
                 actor.hasStatus(statusId))
             {
                 GlobalStatusIds.Add(statusId);
-                if (IndexedActors.Add(actor) &&
+                if (AddIndexedActor(actor) &&
                     updateCurrentMembership &&
                     !TryAddCurrentMembership(
                         World.world,
@@ -805,6 +832,79 @@ internal static class NearbyStatusTargetIndex
         }
 
         return complete;
+    }
+
+    private static bool AddIndexedActor(Actor actor)
+    {
+        bool added = IndexedActors.Add(actor);
+        SetActorIndexed(actor, true);
+        return added;
+    }
+
+    private static bool RemoveIndexedActor(Actor actor)
+    {
+        bool removed = IndexedActors.Remove(actor);
+        if (removed)
+        {
+            SetActorIndexed(actor, false);
+        }
+
+        return removed;
+    }
+
+    /// <summary>
+    /// NanoObject 的 hash 由 BaseSystemManager 单调分配，并在对象池复用时
+    /// 保持不变。常见范围直接用稠密标记，避免 SimObjectsZones 每轮为
+    /// 每个活体角色执行一次对象 HashSet 探测；极长进程中的高 hash
+    /// 仍回退到权威集合。
+    /// </summary>
+    private static bool IsIndexedActor(Actor actor)
+    {
+        int hash = actor.GetHashCode();
+        if ((uint)hash <
+            (uint)indexedActorHashFlags.Length)
+        {
+            return indexedActorHashFlags[hash];
+        }
+
+        return IndexedActors.Contains(actor);
+    }
+
+    private static void SetActorIndexed(
+        Actor actor,
+        bool indexed)
+    {
+        if (actor == null)
+        {
+            return;
+        }
+
+        int hash = actor.GetHashCode();
+        if (indexed &&
+            hash >= 0 &&
+            hash < MaximumDenseActorHashCapacity &&
+            hash >= indexedActorHashFlags.Length)
+        {
+            int capacity = Math.Max(
+                InitialDenseActorHashCapacity,
+                indexedActorHashFlags.Length);
+            while (capacity <= hash)
+            {
+                capacity = Math.Min(
+                    MaximumDenseActorHashCapacity,
+                    capacity << 1);
+            }
+
+            Array.Resize(
+                ref indexedActorHashFlags,
+                capacity);
+        }
+
+        if ((uint)hash <
+            (uint)indexedActorHashFlags.Length)
+        {
+            indexedActorHashFlags[hash] = indexed;
+        }
     }
 
     private static List<IndexedActor> RentActorList()
