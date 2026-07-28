@@ -265,8 +265,10 @@ internal sealed class ActorPresentationSnapshot
         Array.Empty<ProjectilePresentationSample>();
     private ResourceThrowPresentationSample[] resourceThrows =
         Array.Empty<ResourceThrowPresentationSample>();
-    private bool[] presentSamples = Array.Empty<bool>();
-    private readonly Dictionary<long, int> indexes = new(4096);
+    private Dictionary<long, int> indexes = new(4096);
+    private readonly Action<int> updateDynamicSampleAt;
+    private int dynamicUpdateCount;
+    private int dynamicInvalidCount;
     private int statusCount;
     private int statusFrameCount;
     private int lightCount;
@@ -277,6 +279,14 @@ internal sealed class ActorPresentationSnapshot
     private int fireCount;
     private int projectileCount;
     private int resourceThrowCount;
+    private long profiledActorItemTicks;
+    private long profiledActorSpriteTicks;
+    private long profiledActorLightTicks;
+    private long profiledActorStatusTicks;
+    private int profiledVisibleActors;
+    private int profiledColoredSpriteMisses;
+    private int profiledColoredSpriteFastHits;
+    private string captureBreakdown = "none";
 
     internal int WorldGeneration { get; private set; }
     internal long TickSequence { get; private set; }
@@ -294,6 +304,12 @@ internal sealed class ActorPresentationSnapshot
     internal int FireCount => fireCount;
     internal int ProjectileCount => projectileCount;
     internal int ResourceThrowCount => resourceThrowCount;
+    internal string CaptureBreakdown => captureBreakdown;
+
+    internal ActorPresentationSnapshot()
+    {
+        updateDynamicSampleAt = UpdateDynamicSampleAt;
+    }
 
     internal void Capture(MapBox world, long tickSequence)
     {
@@ -302,12 +318,25 @@ internal sealed class ActorPresentationSnapshot
             throw new InvalidOperationException("无法从尚未初始化的世界采集角色表现快照");
         }
 
+        bool profileCapture = Bench.bench_enabled;
+        long captureStartedAt = profileCapture
+            ? Stopwatch.GetTimestamp()
+            : 0L;
+        profiledActorItemTicks = 0L;
+        profiledActorSpriteTicks = 0L;
+        profiledActorLightTicks = 0L;
+        profiledActorStatusTicks = 0L;
+        profiledVisibleActors = 0;
+        profiledColoredSpriteMisses = 0;
+        profiledColoredSpriteFastHits = 0;
+
         world.units.checkContainer();
         world.units.prepareArray();
         Actor[] actors = world.units.getSimpleArray();
         int actorCount = world.units.Count;
         EnsureCapacity(actorCount);
-        indexes.Clear();
+        indexes = new Dictionary<long, int>(
+            Math.Max(4096, actorCount));
         statusCount = 0;
         statusFrameCount = 0;
         lightCount = 0;
@@ -322,6 +351,9 @@ internal sealed class ActorPresentationSnapshot
         bool checkUnexplored =
             PowerLibrary.inspect_unit?.isSelected() == true &&
             !WorldLawLibrary.world_law_cursed_world.isEnabled();
+        long actorLoopStartedAt = profileCapture
+            ? Stopwatch.GetTimestamp()
+            : 0L;
 
         int worldGeneration = SimulationTime.Generation;
         double sessionTime = world.getCurSessionTime();
@@ -332,6 +364,12 @@ internal sealed class ActorPresentationSnapshot
             if (actor?.data == null || !actor.exists)
             {
                 continue;
+            }
+
+            if (profileCapture &&
+                actor.current_tile?.zone?.visible == true)
+            {
+                profiledVisibleActors++;
             }
 
             long actorId = actor.data.id;
@@ -385,6 +423,9 @@ internal sealed class ActorPresentationSnapshot
             bool normalRender = !asset.ignore_generic_render;
             bool hasItem = actor.checkHasRenderedItem();
             Sprite itemSprite = null;
+            long actorItemStartedAt = profileCapture
+                ? Stopwatch.GetTimestamp()
+                : 0L;
             if (hasItem)
             {
                 Sprite renderedItemSprite = actor.getRenderedItemSprite();
@@ -403,15 +444,55 @@ internal sealed class ActorPresentationSnapshot
                     flags |= ActorPresentationFlags.HasItem;
                 }
             }
+            if (profileCapture)
+            {
+                profiledActorItemTicks +=
+                    Stopwatch.GetTimestamp() -
+                    actorItemStartedAt;
+            }
 
             Sprite mainSprite = null;
+            long actorSpriteStartedAt = profileCapture
+                ? Stopwatch.GetTimestamp()
+                : 0L;
             if (normalRender)
             {
                 mainSprite = actor.calculateMainSprite();
-                mainSprite = actor.hasColoredSprite()
-                    ? actor.calculateColoredSprite(mainSprite)
-                    : mainSprite;
+                if (actor.hasColoredSprite())
+                {
+                    bool localCacheMiss =
+                        actor.isColoredSpriteNeedsCheck(mainSprite);
+                    if (profileCapture && localCacheMiss)
+                    {
+                        profiledColoredSpriteMisses++;
+                    }
+
+                    if (localCacheMiss &&
+                        TryGetCachedColoredSprite(
+                            actor,
+                            mainSprite,
+                            out Sprite cachedColoredSprite))
+                    {
+                        mainSprite = cachedColoredSprite;
+                        if (profileCapture)
+                        {
+                            profiledColoredSpriteFastHits++;
+                        }
+                    }
+                    else
+                    {
+                        mainSprite =
+                            actor.calculateColoredSprite(mainSprite);
+                    }
+                }
+
                 flags |= ActorPresentationFlags.NormalRender;
+            }
+            if (profileCapture)
+            {
+                profiledActorSpriteTicks +=
+                    Stopwatch.GetTimestamp() -
+                    actorSpriteStartedAt;
             }
 
             float visualScale = actor.stats[strings.S.scale];
@@ -620,16 +701,52 @@ internal sealed class ActorPresentationSnapshot
             capturedCount++;
         }
 
+        long actorLoopCompletedAt = profileCapture
+            ? Stopwatch.GetTimestamp()
+            : 0L;
         CaptureBuildings(world);
+        long buildingsCompletedAt = profileCapture
+            ? Stopwatch.GetTimestamp()
+            : 0L;
         CaptureProjectiles(world);
         CaptureResourceThrows(world);
         CaptureWorldLights(world);
+        long worldObjectsCompletedAt = profileCapture
+            ? Stopwatch.GetTimestamp()
+            : 0L;
         WorldGeneration = worldGeneration;
         TickSequence = tickSequence;
         SimulationTimeValue = SimulationTime.DiagnosticTime;
         CapturedAt = Stopwatch.GetTimestamp();
         StatusCapturedAt = CapturedAt;
         Count = capturedCount;
+        if (profileCapture)
+        {
+            captureBreakdown = string.Format(
+                CultureInfo.InvariantCulture,
+                "full actors={0}/{1}(visible={2},color_miss={3},color_fast={12}) " +
+                "prepare={4:0.00}ms actor={5:0.00}ms" +
+                "[item={6:0.00},sprite={7:0.00},light={8:0.00},status={9:0.00}] " +
+                "buildings={10:0.00}ms world_objects={11:0.00}ms",
+                capturedCount,
+                actorCount,
+                profiledVisibleActors,
+                profiledColoredSpriteMisses,
+                TicksToMilliseconds(
+                    actorLoopStartedAt - captureStartedAt),
+                TicksToMilliseconds(
+                    actorLoopCompletedAt - actorLoopStartedAt),
+                TicksToMilliseconds(profiledActorItemTicks),
+                TicksToMilliseconds(profiledActorSpriteTicks),
+                TicksToMilliseconds(profiledActorLightTicks),
+                TicksToMilliseconds(profiledActorStatusTicks),
+                TicksToMilliseconds(
+                    buildingsCompletedAt - actorLoopCompletedAt),
+                TicksToMilliseconds(
+                    worldObjectsCompletedAt -
+                    buildingsCompletedAt),
+                profiledColoredSpriteFastHits);
+        }
     }
 
     internal void CaptureDynamic(
@@ -645,47 +762,64 @@ internal sealed class ActorPresentationSnapshot
                 "无法从无效的基础快照采集角色动态表现");
         }
 
+        bool profileCapture = Bench.bench_enabled;
+        long captureStartedAt = profileCapture
+            ? Stopwatch.GetTimestamp()
+            : 0L;
         CopyStableDataFrom(source);
-        world.units.checkContainer();
-        world.units.prepareArray();
-        Actor[] actors = world.units.getSimpleArray();
+        long stableCopyCompletedAt = profileCapture
+            ? Stopwatch.GetTimestamp()
+            : 0L;
         int actorCount = world.units.Count;
-        EnsurePresentSampleCapacity(source.Count);
-        Array.Clear(presentSamples, 0, source.Count);
+        long actorUpdateStartedAt = profileCapture
+            ? Stopwatch.GetTimestamp()
+            : 0L;
 
-        for (int i = 0; i < actorCount; i++)
+        dynamicUpdateCount = source.Count;
+        dynamicInvalidCount = 0;
+        if (dynamicUpdateCount > 1)
         {
-            Actor actor = actors[i];
-            if (actor?.data == null ||
-                !actor.exists ||
-                !source.indexes.TryGetValue(
-                    actor.data.id,
-                    out int sampleIndex))
-            {
-                continue;
-            }
-
-            presentSamples[sampleIndex] = true;
-            UpdateDynamicSample(
-                ref samples[sampleIndex],
-                actor);
+            SimulationWorkerPool.Instance.RunIndexed(
+                0,
+                dynamicUpdateCount,
+                updateDynamicSampleAt);
+        }
+        else if (dynamicUpdateCount == 1)
+        {
+            UpdateDynamicSampleAt(0);
         }
 
-        indexes.Clear();
-        int capturedCount = 0;
-        for (int i = 0; i < source.Count; i++)
+        long actorUpdateCompletedAt = profileCapture
+            ? Stopwatch.GetTimestamp()
+            : 0L;
+        int capturedCount;
+        if (Volatile.Read(ref dynamicInvalidCount) == 0)
         {
-            if (!presentSamples[i])
+            capturedCount = source.Count;
+            indexes = source.indexes;
+        }
+        else
+        {
+            indexes = new Dictionary<long, int>(
+                Math.Max(4096, source.Count));
+            capturedCount = 0;
+            for (int i = 0; i < source.Count; i++)
             {
-                continue;
-            }
+                ActorPresentationSample sample = samples[i];
+                if (sample.ActorReference == null)
+                {
+                    continue;
+                }
 
-            ActorPresentationSample sample = samples[i];
-            samples[capturedCount] = sample;
-            indexes[sample.Handle.ActorId] = capturedCount;
-            capturedCount++;
+                samples[capturedCount] = sample;
+                indexes[sample.Handle.ActorId] = capturedCount;
+                capturedCount++;
+            }
         }
 
+        long compactCompletedAt = profileCapture
+            ? Stopwatch.GetTimestamp()
+            : 0L;
         projectileCount = 0;
         resourceThrowCount = 0;
         worldLightCount = 0;
@@ -693,12 +827,36 @@ internal sealed class ActorPresentationSnapshot
         CaptureProjectiles(world);
         CaptureResourceThrows(world);
         CaptureWorldLights(world);
+        long worldObjectsCompletedAt = profileCapture
+            ? Stopwatch.GetTimestamp()
+            : 0L;
         WorldGeneration = SimulationTime.Generation;
         TickSequence = tickSequence;
         SimulationTimeValue = SimulationTime.DiagnosticTime;
         CapturedAt = Stopwatch.GetTimestamp();
         StatusCapturedAt = source.StatusCapturedAt;
         Count = capturedCount;
+        if (profileCapture)
+        {
+            captureBreakdown = string.Format(
+                CultureInfo.InvariantCulture,
+                "dynamic actors={0}/{1} source={2} " +
+                "copy={3:0.00}ms prepare={4:0.00}ms update={5:0.00}ms " +
+                "compact={6:0.00}ms world_objects={7:0.00}ms",
+                capturedCount,
+                actorCount,
+                source.Count,
+                TicksToMilliseconds(
+                    stableCopyCompletedAt - captureStartedAt),
+                TicksToMilliseconds(
+                    actorUpdateStartedAt - stableCopyCompletedAt),
+                TicksToMilliseconds(
+                    actorUpdateCompletedAt - actorUpdateStartedAt),
+                TicksToMilliseconds(
+                    compactCompletedAt - actorUpdateCompletedAt),
+                TicksToMilliseconds(
+                    worldObjectsCompletedAt - compactCompletedAt));
+        }
     }
 
     internal ref readonly ActorStatusPresentationSample GetStatusAt(int index)
@@ -835,7 +993,7 @@ internal sealed class ActorPresentationSnapshot
 
     internal void Reset()
     {
-        indexes.Clear();
+        indexes = new Dictionary<long, int>(4096);
         WorldGeneration = 0;
         TickSequence = 0;
         SimulationTimeValue = 0.0;
@@ -852,6 +1010,9 @@ internal sealed class ActorPresentationSnapshot
         fireCount = 0;
         projectileCount = 0;
         resourceThrowCount = 0;
+        captureBreakdown = "none";
+        dynamicUpdateCount = 0;
+        dynamicInvalidCount = 0;
     }
 
     private void CopyStableDataFrom(
@@ -959,7 +1120,6 @@ internal sealed class ActorPresentationSnapshot
         sample.MovementSpeed =
             actor._current_combined_movement_speed;
         sample.ZoneId = actor.current_tile?.zone?.id ?? -1;
-        sample.AvatarTransform = actor.avatar?.transform;
         sample.HealthRatio = actor.getHealthRatio();
         sample.ScaleMod = actor.getScaleMod();
         sample.VisualScale = actor.stats[strings.S.scale];
@@ -967,6 +1127,88 @@ internal sealed class ActorPresentationSnapshot
             ? Color.white
             : actor.kingdom.getColor().getColorText();
         sample.Flags = flags;
+    }
+
+    private void UpdateDynamicSampleAt(int index)
+    {
+        if ((uint)index >= (uint)dynamicUpdateCount)
+        {
+            return;
+        }
+
+        ref ActorPresentationSample sample = ref samples[index];
+        Actor actor = sample.ActorReference;
+        if (actor?.data == null ||
+            !actor.exists ||
+            actor.data.id != sample.Handle.ActorId)
+        {
+            sample.ActorReference = null;
+            Interlocked.Increment(ref dynamicInvalidCount);
+            return;
+        }
+
+        UpdateDynamicSample(ref sample, actor);
+    }
+
+    /// <summary>
+    /// Actor 自身只缓存上一动画帧的着色结果。万人场景切换动画帧时，
+    /// 逐个调用 calculateColoredSprite 会重复执行相同的全局缓存键计算。
+    /// 这里直接读取原版 DynamicSprites 全局缓存；只有头部或组合尚未生成
+    /// 时才回退原版路径。
+    /// </summary>
+    private static bool TryGetCachedColoredSprite(
+        Actor actor,
+        Sprite mainSprite,
+        out Sprite coloredSprite)
+    {
+        coloredSprite = null;
+        if (mainSprite == null ||
+            actor.animation_container == null)
+        {
+            return false;
+        }
+
+        actor.animation_container.dict_frame_data.TryGetValue(
+            mainSprite.name,
+            out actor.frame_data);
+        if (actor.dirty_sprite_head)
+        {
+            return false;
+        }
+
+        long headId = 0L;
+        if (actor.has_rendered_sprite_head)
+        {
+            if (!ActorAnimationLoader.int_ids_heads.TryGetValue(
+                    actor.cached_sprite_head,
+                    out int cachedHeadId) ||
+                cachedHeadId == 0)
+            {
+                return false;
+            }
+
+            headId = cachedHeadId;
+        }
+
+        ColorAsset kingdomColor = actor.kingdom?.getColor();
+        long colorId = kingdomColor == null
+            ? 0L
+            : kingdomColor.index_id + 1L;
+        long phenotypeId = actor.data.phenotype_index;
+        long shadeId = phenotypeId == 0L
+            ? 0L
+            : actor.data.phenotype_shade + 1L;
+        long bodyId =
+            DynamicSpriteCreator.getBodySpriteSmallID(mainSprite);
+        long spriteId =
+            colorId * 1_000_000_000_000L +
+            headId * 1_000_000_000L +
+            bodyId * 1_000_000L +
+            phenotypeId * 1_000L +
+            shadeId;
+        coloredSprite =
+            DynamicSpritesLibrary.units.getSprite(spriteId);
+        return coloredSprite != null;
     }
 
     private void EnsureCapacity(int capacity)
@@ -985,20 +1227,18 @@ internal sealed class ActorPresentationSnapshot
         Array.Resize(ref samples, nextCapacity);
     }
 
-    private void EnsurePresentSampleCapacity(int capacity)
-    {
-        if (presentSamples.Length < capacity)
-        {
-            Array.Resize(ref presentSamples, capacity);
-        }
-    }
-
     private void CaptureStatuses(Actor actor)
     {
+        long startedAt = Bench.bench_enabled
+            ? Stopwatch.GetTimestamp()
+            : 0L;
         ActorAsset actorAsset = actor.asset;
         if (!actorAsset.render_status_effects ||
             !actor.hasAnyStatusEffectToRender())
         {
+            RecordProfiledSection(
+                ref profiledActorStatusTicks,
+                startedAt);
             return;
         }
 
@@ -1064,18 +1304,31 @@ internal sealed class ActorPresentationSnapshot
                 HasRotation = asset.rotation_z != 0f
             };
         }
+
+        RecordProfiledSection(
+            ref profiledActorStatusTicks,
+            startedAt);
     }
 
     private void CaptureLights(Actor actor)
     {
+        long startedAt = Bench.bench_enabled
+            ? Stopwatch.GetTimestamp()
+            : 0L;
         if (actor.a.has_tag_generate_light)
         {
             AddLight(new Vector2(0f, actor.getHeight()), 0.3f);
+            RecordProfiledSection(
+                ref profiledActorLightTicks,
+                startedAt);
             return;
         }
 
         if (!actor.hasAnyStatusEffect())
         {
+            RecordProfiledSection(
+                ref profiledActorLightTicks,
+                startedAt);
             return;
         }
 
@@ -1087,6 +1340,10 @@ internal sealed class ActorPresentationSnapshot
                 AddLight(default, asset.draw_light_size);
             }
         }
+
+        RecordProfiledSection(
+            ref profiledActorLightTicks,
+            startedAt);
     }
 
     private void CaptureBuildings(MapBox world)
@@ -1669,6 +1926,21 @@ internal sealed class ActorPresentationSnapshot
         Array.Resize(ref resourceThrows, nextCapacity);
     }
 
+    private static void RecordProfiledSection(
+        ref long totalTicks,
+        long startedAt)
+    {
+        if (startedAt > 0L)
+        {
+            totalTicks += Stopwatch.GetTimestamp() - startedAt;
+        }
+    }
+
+    private static double TicksToMilliseconds(long ticks)
+    {
+        return ticks * 1000.0 / Stopwatch.Frequency;
+    }
+
     private static MetaType GetRequestedMetaType()
     {
         if (SelectedObjects.isNanoObjectSet())
@@ -1742,6 +2014,9 @@ internal static class ActorPresentationSnapshots
     private static double lastFullCaptureSimulationTime;
     private static long fullCaptures;
     private static long dynamicCaptures;
+    private static string lastCaptureBreakdown = "none";
+    private static string lastFullCaptureBreakdown = "none";
+    private static string lastDynamicCaptureBreakdown = "none";
 
     static ActorPresentationSnapshots()
     {
@@ -1823,6 +2098,9 @@ internal static class ActorPresentationSnapshots
         if (fullCapture)
         {
             writer.Capture(world, tickSequence);
+            Volatile.Write(
+                ref lastFullCaptureBreakdown,
+                writer.CaptureBreakdown);
             Interlocked.Exchange(
                 ref lastFullCaptureAt,
                 Stopwatch.GetTimestamp());
@@ -1836,9 +2114,15 @@ internal static class ActorPresentationSnapshots
                 world,
                 tickSequence,
                 source);
+            Volatile.Write(
+                ref lastDynamicCaptureBreakdown,
+                writer.CaptureBreakdown);
             Interlocked.Increment(ref dynamicCaptures);
         }
 
+        Volatile.Write(
+            ref lastCaptureBreakdown,
+            writer.CaptureBreakdown);
         RecordCaptureDuration(Stopwatch.GetTimestamp() - startedAt);
         PublishWriter(requestGeneration, writer.Count);
         return true;
@@ -1895,6 +2179,15 @@ internal static class ActorPresentationSnapshots
             Interlocked.Exchange(ref recentCaptureTicks, 0L);
             Interlocked.Exchange(ref lastFullCaptureAt, 0L);
             lastFullCaptureSimulationTime = 0.0;
+            Volatile.Write(
+                ref lastCaptureBreakdown,
+                "none");
+            Volatile.Write(
+                ref lastFullCaptureBreakdown,
+                "none");
+            Volatile.Write(
+                ref lastDynamicCaptureBreakdown,
+                "none");
         }
     }
 
@@ -1909,7 +2202,8 @@ internal static class ActorPresentationSnapshots
             "statuses={7}/{8} lights={12}+{18} buildings={13} " +
             "stockpile_resources={16} building_lights={17} " +
             "projectiles={14} throws={15} fires={19} " +
-            "capture={9:0.00}ms(avg={10:0.00},max={11:0.00})",
+            "capture={9:0.00}ms(avg={10:0.00},max={11:0.00}) parts={26} " +
+            "full_parts={27} dynamic_parts={28}",
             Volatile.Read(ref requestedGeneration),
             Interlocked.Read(ref completedCaptures),
             Interlocked.Read(ref acquiredCaptures),
@@ -1936,7 +2230,10 @@ internal static class ActorPresentationSnapshots
             Interlocked.Read(ref throttledCaptureRequests),
             GetLastRequestedRate(),
             Interlocked.Read(ref fullCaptures),
-            Interlocked.Read(ref dynamicCaptures));
+            Interlocked.Read(ref dynamicCaptures),
+            Volatile.Read(ref lastCaptureBreakdown),
+            Volatile.Read(ref lastFullCaptureBreakdown),
+            Volatile.Read(ref lastDynamicCaptureBreakdown));
     }
 
     private static void PublishWriter(int requestGeneration, int actorCount)
