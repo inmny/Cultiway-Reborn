@@ -101,7 +101,27 @@ internal sealed class SimulationCoordinatorThread
         }
 
         long startedAt = Stopwatch.GetTimestamp();
-        workCompleted.Wait();
+        int idleSpins = 0;
+        while (!workCompleted.IsSet)
+        {
+            if (SimulationWorkerPool.Instance
+                .TryAssistActiveOperation())
+            {
+                idleSpins = 0;
+                continue;
+            }
+
+            if (idleSpins++ < 64)
+            {
+                Thread.SpinWait(64);
+            }
+            else
+            {
+                Thread.Yield();
+                idleSpins = 0;
+            }
+        }
+
         Interlocked.Add(
             ref operationWaitTicks,
             Stopwatch.GetTimestamp() - startedAt);
@@ -125,6 +145,7 @@ internal sealed class SimulationCoordinatorThread
             1L,
             (long)(maximumMilliseconds * Stopwatch.Frequency / 1000.0));
         long deadline = startedAt + maximumTicks;
+        int idleSpins = 0;
         while (!workCompleted.IsSet)
         {
             if (Stopwatch.GetTimestamp() >= deadline)
@@ -135,7 +156,20 @@ internal sealed class SimulationCoordinatorThread
                 return false;
             }
 
-            Thread.SpinWait(64);
+            if (SimulationWorkerPool.Instance
+                .TryAssistActiveOperation())
+            {
+                idleSpins = 0;
+            }
+            else if (idleSpins++ < 64)
+            {
+                Thread.SpinWait(64);
+            }
+            else
+            {
+                Thread.Yield();
+                idleSpins = 0;
+            }
         }
 
         Interlocked.Add(

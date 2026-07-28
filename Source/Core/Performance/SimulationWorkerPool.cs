@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.ExceptionServices;
@@ -15,10 +14,10 @@ internal sealed class SimulationWorkerPool
 {
     internal static SimulationWorkerPool Instance { get; } = new();
 
-    private readonly BlockingCollection<int> workQueue = new();
     private readonly ManualResetEventSlim operationCompleted = new(true);
     private readonly object operationLock = new();
     private readonly Thread[] workers;
+    private readonly AutoResetEvent[] workerSignals;
 
     private Action<int> operationAction;
     private ExceptionDispatchInfo operationException;
@@ -32,6 +31,7 @@ internal sealed class SimulationWorkerPool
     private int executedItems;
     private int itemCount;
     private int workerSlots;
+    private int assistantJoined;
     private long operationStartedAt;
     private long operationCompletedAt;
     private long participantBusyTicks;
@@ -47,13 +47,16 @@ internal sealed class SimulationWorkerPool
     private long completedMainWaitTicks;
     private long completedParticipantSlots;
     private long completedParticipantCapacityTicks;
+    private long completedAssistedOperations;
 
     private SimulationWorkerPool()
     {
         int workerCount = Math.Max(0, PerformanceSettings.ForegroundParallelism - 1);
         workers = new Thread[workerCount];
+        workerSignals = new AutoResetEvent[workerCount];
         for (int i = 0; i < workers.Length; i++)
         {
+            workerSignals[i] = new AutoResetEvent(false);
             var worker = new Thread(WorkerLoop)
             {
                 IsBackground = true,
@@ -61,7 +64,7 @@ internal sealed class SimulationWorkerPool
                 Priority = ThreadPriority.Normal
             };
             workers[i] = worker;
-            worker.Start();
+            worker.Start(i);
         }
     }
 
@@ -118,6 +121,55 @@ internal sealed class SimulationWorkerPool
     {
         ValidateActiveTicket(ticket);
         return operationCompleted.IsSet;
+    }
+
+    /// <summary>
+    /// 等待协调线程时，主线程可以作为额外参与者领取尚未开始的 work item。
+    /// 参与者计数先用 CAS 加一，确保最后一个固定 worker 不会在协助者
+    /// 仍访问 operationAction 时提前发布完成屏障。
+    /// </summary>
+    internal bool TryAssistActiveOperation()
+    {
+        int generation = Volatile.Read(ref activeGeneration);
+        if (generation == 0 ||
+            Volatile.Read(ref completionMarked) != 0 ||
+            Volatile.Read(ref nextIndex) >=
+            Volatile.Read(ref endIndex) - 1)
+        {
+            return false;
+        }
+
+        while (true)
+        {
+            int participants =
+                Volatile.Read(ref remainingParticipants);
+            if (participants <= 0 ||
+                generation != Volatile.Read(ref activeGeneration) ||
+                Volatile.Read(ref completionMarked) != 0)
+            {
+                return false;
+            }
+
+            if (Interlocked.CompareExchange(
+                    ref remainingParticipants,
+                    participants + 1,
+                    participants) == participants)
+            {
+                break;
+            }
+        }
+
+        Interlocked.Exchange(ref assistantJoined, 1);
+        try
+        {
+            ExecuteItems(generation);
+        }
+        finally
+        {
+            SignalParticipantCompleted(generation);
+        }
+
+        return true;
     }
 
     internal void Wait(WorkTicket ticket)
@@ -188,7 +240,8 @@ internal sealed class SimulationWorkerPool
                 Math.Max(0L, Interlocked.Read(ref participantBusyTicks)),
                 Math.Max(0L, Interlocked.Read(ref mainWaitTicks)),
                 workerSlots,
-                operationAsynchronous);
+                operationAsynchronous,
+                Volatile.Read(ref assistantJoined) != 0);
             exception = operationException;
             if (exception == null && result.ExecutedItems != result.ScheduledItems)
             {
@@ -210,6 +263,7 @@ internal sealed class SimulationWorkerPool
             remainingParticipants = 0;
             itemCount = 0;
             workerSlots = 0;
+            assistantJoined = 0;
         }
 
         RecordCompletedOperation(result);
@@ -227,6 +281,8 @@ internal sealed class SimulationWorkerPool
         long waitTicks = Interlocked.Read(ref completedMainWaitTicks);
         long participantSlots = Interlocked.Read(ref completedParticipantSlots);
         long participantCapacityTicks = Interlocked.Read(ref completedParticipantCapacityTicks);
+        long assistedOperations =
+            Interlocked.Read(ref completedAssistedOperations);
         double wallSeconds = wallTicks / (double)Stopwatch.Frequency;
         double busySeconds = busyTicks / (double)Stopwatch.Frequency;
         double waitSeconds = waitTicks / (double)Stopwatch.Frequency;
@@ -250,7 +306,7 @@ internal sealed class SimulationWorkerPool
 
         return string.Format(
             CultureInfo.InvariantCulture,
-            "ops={0}(async={1}) items={2} wall={3:0.0}ms busy={4:0.0}ms wait={5:0.0}ms parallel={6:0.00}x slots={7:0.00} util={8:0.0}% blocked={9:0.0}% active={10}",
+            "ops={0}(async={1},assist={11}) items={2} wall={3:0.0}ms busy={4:0.0}ms wait={5:0.0}ms parallel={6:0.00}x slots={7:0.00} util={8:0.0}% blocked={9:0.0}% active={10}",
             operations,
             asynchronousOperations,
             items,
@@ -261,7 +317,8 @@ internal sealed class SimulationWorkerPool
             averageSlots,
             utilization,
             blockedShare,
-            active);
+            active,
+            assistedOperations);
     }
 
     internal void WaitAndDiscard(WorkTicket ticket)
@@ -317,6 +374,7 @@ internal sealed class SimulationWorkerPool
             executedItems = 0;
             participantBusyTicks = 0L;
             mainWaitTicks = 0L;
+            assistantJoined = 0;
             operationStartedAt = Stopwatch.GetTimestamp();
             operationCompletedAt = 0L;
             operationCompleted.Reset();
@@ -325,16 +383,26 @@ internal sealed class SimulationWorkerPool
 
         for (int i = 0; i < backgroundWorkers; i++)
         {
-            workQueue.Add(ticket.Generation);
+            workerSignals[i].Set();
         }
 
         return ticket;
     }
 
-    private void WorkerLoop()
+    private void WorkerLoop(object state)
     {
-        foreach (int generation in workQueue.GetConsumingEnumerable())
+        int workerIndex = (int)state;
+        AutoResetEvent signal = workerSignals[workerIndex];
+        while (true)
         {
+            signal.WaitOne();
+            int generation =
+                Volatile.Read(ref activeGeneration);
+            if (generation == 0)
+            {
+                continue;
+            }
+
             ExecuteItems(generation);
             SignalParticipantCompleted(generation);
         }
@@ -346,6 +414,10 @@ internal sealed class SimulationWorkerPool
         if (result.RanAsynchronously)
         {
             Interlocked.Increment(ref completedAsynchronousOperations);
+        }
+        if (result.Assisted)
+        {
+            Interlocked.Increment(ref completedAssistedOperations);
         }
 
         Interlocked.Add(ref completedItems, result.ExecutedItems);
@@ -476,7 +548,8 @@ internal sealed class SimulationWorkerPool
             long participantBusyTicks,
             long mainWaitTicks,
             int workerSlots,
-            bool ranAsynchronously)
+            bool ranAsynchronously,
+            bool assisted)
         {
             ScheduledItems = scheduledItems;
             ExecutedItems = executedItems;
@@ -490,7 +563,11 @@ internal sealed class SimulationWorkerPool
             MainWaitSeconds = MainWaitTicks / (double)Stopwatch.Frequency;
             WorkerSlots = workerSlots;
             RanAsynchronously = ranAsynchronously;
-            ParticipantSlots = workerSlots + (ranAsynchronously ? 0 : 1);
+            Assisted = assisted;
+            ParticipantSlots =
+                workerSlots +
+                (ranAsynchronously ? 0 : 1) +
+                (assisted ? 1 : 0);
         }
 
         internal int ScheduledItems { get; }
@@ -505,6 +582,7 @@ internal sealed class SimulationWorkerPool
         internal double MainWaitSeconds { get; }
         internal int WorkerSlots { get; }
         internal bool RanAsynchronously { get; }
+        internal bool Assisted { get; }
         internal int ParticipantSlots { get; }
     }
 }
