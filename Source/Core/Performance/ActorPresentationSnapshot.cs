@@ -1319,12 +1319,19 @@ internal sealed class ActorPresentationSnapshot
                 frameInterval = Math.Max(0.0001f, asset.animation_speed);
             }
 
+            StatusPresentationAnimationClock.Resolve(
+                status,
+                frameCount,
+                frameInterval,
+                out int capturedFrame,
+                out float timeUntilNextFrame);
             statuses[statusCount++] = new ActorStatusPresentationSample
             {
                 FrameStart = frameStart,
                 FrameCount = frameCount,
-                CapturedFrame = Mathf.Clamp(status.anim_frame, 0, frameCount - 1),
-                TimeUntilNextFrame = Math.Max(0f, status._anim_timer),
+                CapturedFrame = capturedFrame,
+                TimeUntilNextFrame =
+                    timeUntilNextFrame,
                 FrameInterval = frameInterval,
                 Scale = actor.current_scale.y * asset.scale,
                 BaseOffset = new Vector2(
@@ -1543,17 +1550,20 @@ internal sealed class ActorPresentationSnapshot
                     asset.animation_speed);
             }
 
+            StatusPresentationAnimationClock.Resolve(
+                status,
+                frameCount,
+                frameInterval,
+                out int capturedFrame,
+                out float timeUntilNextFrame);
             statuses[statusCount++] =
                 new ActorStatusPresentationSample
                 {
                     FrameStart = frameStart,
                     FrameCount = frameCount,
-                    CapturedFrame = Mathf.Clamp(
-                        status.anim_frame,
-                        0,
-                        frameCount - 1),
+                    CapturedFrame = capturedFrame,
                     TimeUntilNextFrame =
-                        Math.Max(0f, status._anim_timer),
+                        timeUntilNextFrame,
                     FrameInterval = frameInterval,
                     Scale =
                         building.current_scale.y * asset.scale,

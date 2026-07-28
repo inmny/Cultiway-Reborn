@@ -30,6 +30,51 @@ internal static class PatchFramePriorityScheduler
     private static long geoInitializationBlocks;
 
     [HarmonyPrefix]
+    [HarmonyPatch(typeof(StatusManager), nameof(StatusManager.update))]
+    private static bool UpdateStatusLogicWithoutTickAnimation(
+        StatusManager __instance,
+        float pElapsed)
+    {
+        bool useSnapshotAnimation =
+            PerformanceSettings.EnableFramePriorityScheduler;
+        StatusPresentationAnimationClock.SetSnapshotMode(
+            useSnapshotAnimation);
+        if (!useSnapshotAnimation)
+        {
+            return true;
+        }
+
+        float worldTime =
+            (float)World.world.getCurWorldTime();
+        bool paused = World.world.isPaused();
+        List<Status> statuses = __instance.list;
+        for (int i = 0; i < statuses.Count; i++)
+        {
+            Status status = statuses[i];
+            if (!status.is_finished &&
+                !paused)
+            {
+                status.update(
+                    pElapsed,
+                    worldTime);
+            }
+        }
+
+        for (int i = statuses.Count - 1;
+             i >= 0;
+             i--)
+        {
+            Status status = statuses[i];
+            if (status.is_finished)
+            {
+                __instance.removeObject(status);
+            }
+        }
+
+        return false;
+    }
+
+    [HarmonyPrefix]
     [HarmonyPatch(typeof(MapBox), "Update")]
     private static void BeforeMapBoxUpdate(
         out MapBoxUpdateScope __state)
