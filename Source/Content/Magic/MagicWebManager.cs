@@ -62,6 +62,23 @@ public sealed class MagicWebEntryView
     public double LastAccessWorldTime { get; internal set; }
 }
 
+internal readonly struct MagicWebStudyEntryView
+{
+    internal MagicWebStudyEntryView(
+        Entity container,
+        MagicSpellProfile profile,
+        bool isDefault)
+    {
+        Container = container;
+        Profile = profile;
+        IsDefault = isDefault;
+    }
+
+    internal Entity Container { get; }
+    internal MagicSpellProfile Profile { get; }
+    internal bool IsDefault { get; }
+}
+
 /// <summary>
 /// 管理当前世界的魔网实体、公开法术去重索引和语义倒排索引。
 /// 被收录的法术容器视为不可变对象；改进法术必须先克隆，再上传新容器。
@@ -69,6 +86,9 @@ public sealed class MagicWebEntryView
 [Dependency(typeof(SkillEntities), typeof(SkillCastResources))]
 public sealed class MagicWebManager : ICanInit, ICanReload
 {
+    [ThreadStatic]
+    private static QueryScratch queryScratch;
+
     private sealed class Entry
     {
         public Entity Container;
@@ -180,42 +200,15 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         if (query == null || query.MaxResults <= 0) return Array.Empty<MagicWebEntryView>();
 
         var maxRing = Math.Clamp(query.MaxRing, 0, 12);
-        HashSet<Entity> candidates = null;
-        foreach (var semantic in query.RequiredSemantics)
+        List<OrderedQueryCandidate> candidates =
+            PrepareOrderedQueryCandidates(query, maxRing);
+        var result = new List<MagicWebEntryView>(
+            Math.Min(candidates.Count, query.MaxResults));
+        for (var i = 0; i < candidates.Count; i++)
         {
-            if (!_containersBySemantic.TryGetValue(semantic, out var matched))
-                return Array.Empty<MagicWebEntryView>();
-            if (candidates == null || matched.Count < candidates.Count) candidates = matched;
-        }
-
-        HashSet<Entity> ownedCandidates = null;
-        if (candidates == null && query.AnySemantics.Count > 0)
-        {
-            ownedCandidates = new HashSet<Entity>();
-            foreach (var semantic in query.AnySemantics)
-            {
-                if (_containersBySemantic.TryGetValue(semantic, out var matched)) ownedCandidates.UnionWith(matched);
-            }
-            candidates = ownedCandidates;
-        }
-
-        if (candidates == null)
-        {
-            ownedCandidates = new HashSet<Entity>();
-            for (var ring = 0; ring <= maxRing; ring++) ownedCandidates.UnionWith(_containersByRing[ring]);
-            candidates = ownedCandidates;
-        }
-
-        var result = new List<MagicWebEntryView>(Math.Min(candidates.Count, query.MaxResults));
-        foreach (var container in candidates
-                     .OrderBy(entity => ResolveQueryOrder(entity.Id, query.SelectionSeed))
-                     .ThenBy(entity => entity.Id))
-        {
+            Entity container = candidates[i].Container;
             if (!TryGetEntry(container, out var entry)) continue;
-            if (entry.Profile.Ring > maxRing) continue;
-            if (query.RequiredSemantics.Any(semantic => !entry.Semantics.Contains(semantic))) continue;
-            if (query.AnySemantics.Count > 0 && !query.AnySemantics.Any(entry.Semantics.Contains)) continue;
-            if (query.ExcludedSemantics.Any(entry.Semantics.Contains)) continue;
+            if (!MatchesQuery(entry, query, maxRing)) continue;
 
             result.Add(new MagicWebEntryView
             {
@@ -235,6 +228,160 @@ public sealed class MagicWebManager : ICanInit, ICanReload
         return result;
     }
 
+    /// <summary>
+    /// 研究热路径只需要容器、档案和默认条目标记。避免为每位研究者
+    /// 构造 UI 视图以及重复排序每个条目的语义数组。
+    /// </summary>
+    internal void QueryStudyEntries(
+        MagicWebQuery query,
+        List<MagicWebStudyEntryView> result)
+    {
+        if (result == null)
+        {
+            throw new ArgumentNullException(nameof(result));
+        }
+
+        result.Clear();
+        if (query == null || query.MaxResults <= 0)
+        {
+            return;
+        }
+
+        int maxRing = Math.Clamp(query.MaxRing, 0, 12);
+        List<OrderedQueryCandidate> candidates =
+            PrepareOrderedQueryCandidates(query, maxRing);
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            Entity container = candidates[i].Container;
+            if (!TryGetEntry(container, out Entry entry) ||
+                !MatchesQuery(entry, query, maxRing))
+            {
+                continue;
+            }
+
+            result.Add(new MagicWebStudyEntryView(
+                container,
+                entry.Profile,
+                entry.IsDefault));
+            if (result.Count >= query.MaxResults)
+            {
+                break;
+            }
+        }
+    }
+
+    private List<OrderedQueryCandidate> PrepareOrderedQueryCandidates(
+        MagicWebQuery query,
+        int maxRing)
+    {
+        QueryScratch scratch = queryScratch ??= new QueryScratch();
+        scratch.OwnedCandidates.Clear();
+        scratch.OrderedCandidates.Clear();
+
+        HashSet<Entity> candidates = null;
+        foreach (SemanticAsset semantic in query.RequiredSemantics)
+        {
+            if (!_containersBySemantic.TryGetValue(
+                    semantic,
+                    out HashSet<Entity> matched))
+            {
+                return scratch.OrderedCandidates;
+            }
+
+            if (candidates == null || matched.Count < candidates.Count)
+            {
+                candidates = matched;
+            }
+        }
+
+        if (candidates == null && query.AnySemantics.Count > 0)
+        {
+            foreach (SemanticAsset semantic in query.AnySemantics)
+            {
+                if (_containersBySemantic.TryGetValue(
+                        semantic,
+                        out HashSet<Entity> matched))
+                {
+                    scratch.OwnedCandidates.UnionWith(matched);
+                }
+            }
+
+            candidates = scratch.OwnedCandidates;
+        }
+
+        if (candidates == null)
+        {
+            for (int ring = 0; ring <= maxRing; ring++)
+            {
+                scratch.OwnedCandidates.UnionWith(
+                    _containersByRing[ring]);
+            }
+
+            candidates = scratch.OwnedCandidates;
+        }
+
+        foreach (Entity container in candidates)
+        {
+            scratch.OrderedCandidates.Add(
+                new OrderedQueryCandidate(
+                    container,
+                    ResolveQueryOrder(
+                        container.Id,
+                        query.SelectionSeed)));
+        }
+
+        scratch.OrderedCandidates.Sort(
+            OrderedQueryCandidateComparer.Instance);
+        return scratch.OrderedCandidates;
+    }
+
+    private static bool MatchesQuery(
+        Entry entry,
+        MagicWebQuery query,
+        int maxRing)
+    {
+        if (entry.Profile.Ring > maxRing)
+        {
+            return false;
+        }
+
+        foreach (SemanticAsset semantic in query.RequiredSemantics)
+        {
+            if (!entry.Semantics.Contains(semantic))
+            {
+                return false;
+            }
+        }
+
+        if (query.AnySemantics.Count > 0)
+        {
+            bool matchedAny = false;
+            foreach (SemanticAsset semantic in query.AnySemantics)
+            {
+                if (entry.Semantics.Contains(semantic))
+                {
+                    matchedAny = true;
+                    break;
+                }
+            }
+
+            if (!matchedAny)
+            {
+                return false;
+            }
+        }
+
+        foreach (SemanticAsset semantic in query.ExcludedSemantics)
+        {
+            if (entry.Semantics.Contains(semantic))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static int ResolveQueryOrder(int entityId, int selectionSeed)
     {
         unchecked
@@ -246,6 +393,42 @@ public sealed class MagicWebManager : ICanInit, ICanReload
             value *= 0x846ca68b;
             value ^= value >> 16;
             return (int)(value & 0x7fffffff);
+        }
+    }
+
+    private sealed class QueryScratch
+    {
+        internal readonly HashSet<Entity> OwnedCandidates = new();
+        internal readonly List<OrderedQueryCandidate>
+            OrderedCandidates = new();
+    }
+
+    private readonly struct OrderedQueryCandidate
+    {
+        internal OrderedQueryCandidate(Entity container, int order)
+        {
+            Container = container;
+            Order = order;
+        }
+
+        internal Entity Container { get; }
+        internal int Order { get; }
+    }
+
+    private sealed class OrderedQueryCandidateComparer :
+        IComparer<OrderedQueryCandidate>
+    {
+        internal static readonly OrderedQueryCandidateComparer Instance =
+            new();
+
+        public int Compare(
+            OrderedQueryCandidate left,
+            OrderedQueryCandidate right)
+        {
+            int order = left.Order.CompareTo(right.Order);
+            return order != 0
+                ? order
+                : left.Container.Id.CompareTo(right.Container.Id);
         }
     }
 

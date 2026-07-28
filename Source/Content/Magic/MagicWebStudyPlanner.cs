@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
@@ -40,6 +39,11 @@ public readonly struct MagicWebStudyCandidate
 /// </summary>
 public static class MagicWebStudyPlanner
 {
+    private const int WeightedSelectionLimit = 8;
+
+    [ThreadStatic]
+    private static StudyScratch studyScratch;
+
     private static readonly SemanticAsset[] ElementSemantics =
     {
         SkillSemantics.Element.Iron, SkillSemantics.Element.Wood, SkillSemantics.Element.Water,
@@ -68,22 +72,29 @@ public static class MagicWebStudyPlanner
         var manager = MagicWebManager.Instance;
         if (manager == null) return false;
 
+        StudyScratch scratch = studyScratch ??= new StudyScratch();
+        scratch.Reset();
         ref var magic = ref actor.GetCultisys<Magic>();
         var maxRing = Cultisyses.GetMaxSpellRing(magic.CurrLevel);
         var capacity = Cultisyses.GetKnownSpellCapacity(magic.CurrLevel);
         var root = actor.GetElementRoot();
-        var known = GetKnownSpellEntries(actor);
-        var knownFamilies = new HashSet<string>(known.Select(item => item.Profile.FamilySignature),
-            StringComparer.Ordinal);
-        var knownPrimaryElements = new HashSet<SemanticAsset>(known.Select(item => item.Profile.PrimaryElement));
-
-        var query = new MagicWebQuery
+        GetKnownSpellEntries(actor, scratch.KnownSpells);
+        for (int i = 0; i < scratch.KnownSpells.Count; i++)
         {
-            MaxRing = maxRing,
-            MaxResults = MagicSetting.MagicStudyQueryLimit,
-            SelectionSeed = unchecked(actor.E.Id * 397 ^
-                                      (int)(GetWorldTime() / (TimeScales.SecPerYear * 5f)))
-        };
+            KnownSpellEntry known = scratch.KnownSpells[i];
+            scratch.KnownFamilies.Add(
+                known.Profile.FamilySignature);
+            scratch.KnownPrimaryElements.Add(
+                known.Profile.PrimaryElement);
+        }
+
+        MagicWebQuery query = scratch.Query;
+        query.MaxRing = maxRing;
+        query.MaxResults = MagicSetting.MagicStudyQueryLimit;
+        query.SelectionSeed = unchecked(
+            actor.E.Id * 397 ^
+            (int)(GetWorldTime() /
+                  (TimeScales.SecPerYear * 5f)));
         query.AnySemantics.Add(SkillSemantics.Element.Generic);
         var strongestElementIndex = 0;
         var strongestElementAffinity = float.MinValue;
@@ -100,28 +111,57 @@ public static class MagicWebStudyPlanner
         }
         query.AnySemantics.Add(ElementSemantics[strongestElementIndex]);
 
-        var candidates = new List<MagicWebStudyCandidate>();
-        foreach (var entry in manager.Query(query))
+        manager.QueryStudyEntries(
+            query,
+            scratch.QueryEntries);
+        for (int i = 0; i < scratch.QueryEntries.Count; i++)
         {
+            MagicWebStudyEntryView entry =
+                scratch.QueryEntries[i];
             var profile = entry.Profile;
-            if (knownFamilies.Contains(profile.FamilySignature)) continue;
+            if (scratch.KnownFamilies.Contains(
+                    profile.FamilySignature))
+            {
+                continue;
+            }
+
             var affinity = profile.ElementRequirement.GetWeightedAffinity(root);
             if (affinity < MagicSetting.MagicStudyAffinityThreshold) continue;
 
-            var novelty = knownPrimaryElements.Contains(profile.PrimaryElement) ? 0f : 1f;
+            var novelty = scratch.KnownPrimaryElements.Contains(
+                profile.PrimaryElement)
+                ? 0f
+                : 1f;
             var score = Score(profile, affinity, maxRing, novelty, entry.IsDefault);
             var replacement = default(Entity);
-            if (known.Count >= capacity)
+            if (scratch.KnownSpells.Count >= capacity)
             {
-                if (!TryFindReplacement(known, profile, score, root, maxRing, out replacement)) continue;
+                if (!TryFindReplacement(
+                        scratch.KnownSpells,
+                        profile,
+                        score,
+                        root,
+                        maxRing,
+                        out replacement))
+                {
+                    continue;
+                }
             }
 
-            candidates.Add(new MagicWebStudyCandidate(entry.Container, replacement, profile, affinity, score,
-                ResolveDifficulty(profile)));
+            scratch.Candidates.Add(
+                new MagicWebStudyCandidate(
+                    entry.Container,
+                    replacement,
+                    profile,
+                    affinity,
+                    score,
+                    ResolveDifficulty(profile)));
         }
 
-        if (candidates.Count == 0) return false;
-        selected = WeightedSelect(candidates);
+        if (scratch.Candidates.Count == 0) return false;
+        selected = WeightedSelect(
+            scratch.Candidates,
+            scratch.TopCandidates);
         return true;
     }
 
@@ -146,9 +186,11 @@ public static class MagicWebStudyPlanner
         return true;
     }
 
-    private static List<KnownSpellEntry> GetKnownSpellEntries(ActorExtend actor)
+    private static void GetKnownSpellEntries(
+        ActorExtend actor,
+        List<KnownSpellEntry> result)
     {
-        var result = new List<KnownSpellEntry>();
+        result.Clear();
         foreach (var container in actor.GetLearnedSkillsInOrder())
         {
             if (container.IsNull ||
@@ -156,7 +198,6 @@ public static class MagicWebStudyPlanner
             var profile = MagicSpellProfile.Resolve(container);
             if (profile != null) result.Add(new KnownSpellEntry(container, profile));
         }
-        return result;
     }
 
     private static bool TryFindReplacement(IReadOnlyList<KnownSpellEntry> known, MagicSpellProfile candidate,
@@ -164,10 +205,20 @@ public static class MagicWebStudyPlanner
     {
         replacement = default;
         var dominantElement = ResolveDominantElement(root);
-        var dominantCount = known.Count(item => item.Profile.PrimaryElement == dominantElement);
-        var weakestScore = float.MaxValue;
-        foreach (var item in known)
+        int dominantCount = 0;
+        for (int i = 0; i < known.Count; i++)
         {
+            if (known[i].Profile.PrimaryElement ==
+                dominantElement)
+            {
+                dominantCount++;
+            }
+        }
+
+        var weakestScore = float.MaxValue;
+        for (int i = 0; i < known.Count; i++)
+        {
+            KnownSpellEntry item = known[i];
             if (item.Profile.PrimaryElement == dominantElement && dominantCount <= 1) continue;
             var affinity = item.Profile.ElementRequirement.GetWeightedAffinity(root);
             var score = Score(item.Profile, affinity, maxRing, 0f, false);
@@ -191,17 +242,48 @@ public static class MagicWebStudyPlanner
         return MagicSetting.MagicStudyBaseDifficulty * Mathf.Pow(profile.Ring + 1f, 2f);
     }
 
-    private static MagicWebStudyCandidate WeightedSelect(List<MagicWebStudyCandidate> candidates)
+    private static MagicWebStudyCandidate WeightedSelect(
+        List<MagicWebStudyCandidate> candidates,
+        List<MagicWebStudyCandidate> top)
     {
-        var top = candidates.OrderByDescending(candidate => candidate.Score).Take(8).ToArray();
-        var total = top.Sum(candidate => Mathf.Max(0.01f, candidate.Score));
-        var roll = Randy.randomFloat(0f, total);
-        foreach (var candidate in top)
+        top.Clear();
+        for (int i = 0; i < candidates.Count; i++)
         {
+            MagicWebStudyCandidate candidate = candidates[i];
+            int insertIndex = 0;
+            while (insertIndex < top.Count &&
+                   top[insertIndex].Score >= candidate.Score)
+            {
+                insertIndex++;
+            }
+
+            if (insertIndex >= WeightedSelectionLimit)
+            {
+                continue;
+            }
+
+            top.Insert(insertIndex, candidate);
+            if (top.Count > WeightedSelectionLimit)
+            {
+                top.RemoveAt(WeightedSelectionLimit);
+            }
+        }
+
+        float total = 0f;
+        for (int i = 0; i < top.Count; i++)
+        {
+            total += Mathf.Max(0.01f, top[i].Score);
+        }
+
+        var roll = Randy.randomFloat(0f, total);
+        for (int i = 0; i < top.Count; i++)
+        {
+            MagicWebStudyCandidate candidate = top[i];
             roll -= Mathf.Max(0.01f, candidate.Score);
             if (roll <= 0f) return candidate;
         }
-        return top[top.Length - 1];
+
+        return top[top.Count - 1];
     }
 
     private static SemanticAsset ResolveDominantElement(ElementRoot root)
@@ -226,6 +308,35 @@ public static class MagicWebStudyPlanner
         {
             Container = container;
             Profile = profile;
+        }
+    }
+
+    private sealed class StudyScratch
+    {
+        internal readonly MagicWebQuery Query = new();
+        internal readonly List<KnownSpellEntry> KnownSpells = new();
+        internal readonly HashSet<string> KnownFamilies =
+            new(StringComparer.Ordinal);
+        internal readonly HashSet<SemanticAsset>
+            KnownPrimaryElements = new();
+        internal readonly List<MagicWebStudyEntryView>
+            QueryEntries = new();
+        internal readonly List<MagicWebStudyCandidate>
+            Candidates = new();
+        internal readonly List<MagicWebStudyCandidate>
+            TopCandidates = new(WeightedSelectionLimit);
+
+        internal void Reset()
+        {
+            Query.RequiredSemantics.Clear();
+            Query.AnySemantics.Clear();
+            Query.ExcludedSemantics.Clear();
+            KnownSpells.Clear();
+            KnownFamilies.Clear();
+            KnownPrimaryElements.Clear();
+            QueryEntries.Clear();
+            Candidates.Clear();
+            TopCandidates.Clear();
         }
     }
 }
