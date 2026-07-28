@@ -176,6 +176,14 @@ namespace Cultiway
                             .Append("  [SimulationWorkerPool] ")
                             .Append(SimulationWorkerPool.Instance.GetDiagnostics())
                             .AppendLine()
+                            .Append("  [ActorParallel] ")
+                            .Append(CooperativeActorParallelJobRunner.GetDiagnostics())
+                            .AppendLine()
+                            .Append("  [GeoRegionUnits] ")
+                            .Append(WorldboxGame.I?.GeoRegions
+                                ?.GetUnitMembershipDiagnostics() ??
+                                    "unavailable")
+                            .AppendLine()
                             .Append("  [SimulationCoordinator] ")
                             .Append(SimulationCoordinatorThread.Instance.GetDiagnostics())
                             .AppendLine()

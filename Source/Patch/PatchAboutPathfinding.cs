@@ -156,6 +156,126 @@ namespace Cultiway.Patch
             return true;
         }
 
+        internal enum ParallelPathMovementResult
+        {
+            NoPath,
+            Handled,
+            RequiresSerial
+        }
+
+        internal readonly struct PreparedPathMovement
+        {
+            internal PreparedPathMovement(bool vanilla)
+            {
+                Vanilla = vanilla;
+                Poll = default;
+                Cursor = default;
+            }
+
+            internal PreparedPathMovement(
+                PathPollResult poll,
+                PathFinder.ReadyPathCursor cursor)
+            {
+                Vanilla = false;
+                Poll = poll;
+                Cursor = cursor;
+            }
+
+            internal bool Vanilla { get; }
+            internal PathPollResult Poll { get; }
+            internal PathFinder.ReadyPathCursor Cursor { get; }
+        }
+
+        /// <summary>
+        /// b5 worker 只直接提交无全局副作用的等待态与普通移动步。
+        /// 传送门、船、地块 step action 等路径仍交回有序模拟线程。
+        /// </summary>
+        internal static ParallelPathMovementResult
+            TryRunParallelSafePathMovement(
+                Actor actor,
+                out PreparedPathMovement prepared)
+        {
+            prepared = default;
+            if (actor.isFollowingLocalPath() ||
+                actor.current_path_global != null)
+            {
+                prepared = new PreparedPathMovement(vanilla: true);
+                return ParallelPathMovementResult.RequiresSerial;
+            }
+
+            PathPollResult poll =
+                PathFinder.Instance.OpenReadyCursor(
+                    actor,
+                    out PathFinder.ReadyPathCursor cursor);
+            if (poll.Kind is not
+                (PathPollKind.StepReady or PathPollKind.Waiting))
+            {
+                return ParallelPathMovementResult.NoPath;
+            }
+
+            if (poll.Kind == PathPollKind.StepReady &&
+                !CanRunPathStepInParallel(actor, poll.Step))
+            {
+                prepared = new PreparedPathMovement(poll, cursor);
+                return ParallelPathMovementResult.RequiresSerial;
+            }
+
+            TryHandleCustomPathPoll(
+                actor,
+                poll,
+                ref cursor,
+                handleNoRequest: true);
+            return ParallelPathMovementResult.Handled;
+        }
+
+        internal static bool CommitPreparedPathMovement(
+            Actor actor,
+            PreparedPathMovement prepared)
+        {
+            if (prepared.Vanilla)
+            {
+                actor.updatePathMovement();
+                return true;
+            }
+
+            PathFinder.ReadyPathCursor cursor =
+                prepared.Cursor;
+            TryHandleCustomPathPoll(
+                actor,
+                prepared.Poll,
+                ref cursor,
+                handleNoRequest: true);
+            return true;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool CanRunPathStepInParallel(
+            Actor actor,
+            PathStep step)
+        {
+            if (actor?.data == null ||
+                actor.asset == null ||
+                actor.current_tile == null ||
+                actor.asset.is_boat ||
+                step.Method is not
+                    (MovementMethod.Walk or MovementMethod.Swim))
+            {
+                return false;
+            }
+
+            WorldTile tile = step.Tile;
+            TileTypeBase type = tile?.Type;
+            if (type == null ||
+                type.damaged_when_walked)
+            {
+                return false;
+            }
+
+            return (step.Hazards & HazardFlags.Fire) != 0 ||
+                   GetFastMoveBlockReason(tile) ==
+                   SlowMoveReason.None;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool TryHandleCustomPathPoll(
             Actor actor,

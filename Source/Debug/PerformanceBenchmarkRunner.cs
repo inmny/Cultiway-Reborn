@@ -459,6 +459,12 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             .AppendLine();
         sb.Append("  cultiway_scheduler ").Append(ModClass.I.LogicScheduler.GetDiagnostics()).AppendLine();
         sb.Append("  worker_pool ").Append(SimulationWorkerPool.Instance.GetDiagnostics()).AppendLine();
+        sb.Append("  actor_parallel ")
+            .Append(CooperativeActorParallelJobRunner.GetDiagnostics())
+            .AppendLine();
+        sb.Append("  inside_boat_index ")
+            .Append(InsideBoatActorIndex.GetDiagnostics())
+            .AppendLine();
         sb.Append("  pathfinder_runtime ")
             .Append(global::Cultiway.Core.Pathfinding.PathFinder.Instance.GetDiagnostics())
             .AppendLine();
@@ -482,6 +488,11 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         sb.Append("  actor_snapshots ").Append(ActorPresentationSnapshots.GetDiagnostics()).AppendLine();
         sb.Append("  nearby_status_targets ")
             .Append(NearbyStatusTargetIndex.GetDiagnostics())
+            .AppendLine();
+        sb.Append("  geo_region_units ")
+            .Append(WorldboxGame.I?.GeoRegions
+                ?.GetUnitMembershipDiagnostics() ??
+                    "unavailable")
             .AppendLine();
         sb.Append("  free_tile_search ")
             .Append(FreeTileSearchIndex.GetDiagnostics())

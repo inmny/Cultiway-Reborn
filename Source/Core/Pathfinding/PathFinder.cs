@@ -17,9 +17,10 @@ public class PathFinder
     public static PathFinder Instance { get; } = new();
     internal static readonly object ActorSyncLock = new object();
 
-    // 路径 worker 只持有 PathfindingTask/PathStream，不访问任务表。
-    // 任务表由有序模拟提交线程独占写入；批量准备阶段只做并发只读。
-    private readonly Dictionary<long, PathfindingTask> _tasks = new();
+    // b5 的安全路径推进按 actor batch 并行；路径 worker 仍只持有
+    // PathfindingTask/PathStream，不直接访问任务表。
+    private readonly ConcurrentDictionary<long, PathfindingTask> _tasks =
+        new();
     private readonly Dictionary<long, PathRequestOptions> _lastRequests = new();
     private readonly ConcurrentQueue<PathfindingTask> _pendingTasks = new();
     private readonly ConcurrentQueue<PathfindingTask> _workerUpdates = new();
@@ -775,8 +776,9 @@ public class PathFinder
         PathfindingProfiler.Measurement cancelMeasurement = PathfindingProfiler.Start();
         long actorId = actor.data.id;
         bool cancelled =
-            _tasks.TryGetValue(actorId, out PathfindingTask task) &&
-            _tasks.Remove(actorId);
+            _tasks.TryRemove(
+                actorId,
+                out PathfindingTask task);
         if (cancelled)
         {
             task.Stream.Cancel(reason);
@@ -821,10 +823,9 @@ public class PathFinder
     }
     public void Cleanup(long actorId)
     {
-        if (_tasks.TryGetValue(
+        if (_tasks.TryRemove(
                 actorId,
-                out PathfindingTask task) &&
-            _tasks.Remove(actorId))
+                out PathfindingTask task))
         {
             task.DisposeWhenWorkerFinished();
         }
