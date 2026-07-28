@@ -8,6 +8,7 @@ using Cultiway.Core;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Core.Performance;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -19,6 +20,16 @@ namespace Cultiway.Patch;
 
 internal static class PatchActor
 {
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), "setKingdom")]
+    private static void setKingdom_partition_prefix(
+        Actor __instance,
+        Kingdom pKingdomToSet)
+    {
+        ActorMetaPartitionVersion.MarkKingdomChange(
+            __instance,
+            pKingdomToSet);
+    }
+
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.addChildren))]
     private static void addChildren_postfix(Actor __instance)
     {

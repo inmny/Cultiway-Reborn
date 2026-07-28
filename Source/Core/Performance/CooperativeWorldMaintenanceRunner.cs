@@ -25,6 +25,7 @@ internal sealed class CooperativeWorldMaintenanceRunner
         PrepareActors,
         DirtyManagersStart,
         DirtyManagers,
+        DirtyManagersParallel,
         DirtyMetaObjectsFirst,
         DestroyMetaObjects,
         DestroyObjects,
@@ -45,14 +46,24 @@ internal sealed class CooperativeWorldMaintenanceRunner
     private readonly List<Actor> actors = new();
     private readonly List<Building> occupiedBuildings = new();
     private readonly List<BaseSystemManager> metaManagers = new();
+    private readonly Action<int> dirtyManagerWorkItemAction;
     private MapBox world;
     private MaintenanceStage stage;
     private int index;
     private bool windowOnScreen;
     private int preparedWorldGeneration = -1;
     private int preparedActorVersion = -1;
+    private int preparedActorPartitionVersion = -1;
+    private int lastAnythingChangedFrame = -1;
     private bool actorPartitionsReady;
     private bool hasDirtyMetaManagers;
+    private int dirtyMetaManagerCount;
+    private long[] dirtyManagerTicks = Array.Empty<long>();
+
+    internal CooperativeWorldMaintenanceRunner()
+    {
+        dirtyManagerWorkItemAction = RunDirtyManagerAt;
+    }
 
     public bool Active => stage != MaintenanceStage.Idle;
 
@@ -65,6 +76,8 @@ internal sealed class CooperativeWorldMaintenanceRunner
         {
             preparedWorldGeneration = worldGeneration;
             preparedActorVersion = -1;
+            preparedActorPartitionVersion = -1;
+            lastAnythingChangedFrame = -1;
             actorPartitionsReady = false;
         }
 
@@ -119,11 +132,12 @@ internal sealed class CooperativeWorldMaintenanceRunner
                     !actorPartitionsReady ||
                     preparedActorVersion !=
                     world.units.version ||
-                    hasDirtyMetaManagers;
+                    preparedActorPartitionVersion !=
+                    ActorMetaPartitionVersion.Version;
                 if (!actorPartitionsDirty)
                 {
                     stage =
-                        MaintenanceStage.DirtyMetaObjectsFirst;
+                        MaintenanceStage.DirtyManagersStart;
                     break;
                 }
 
@@ -143,6 +157,8 @@ internal sealed class CooperativeWorldMaintenanceRunner
                 {
                     preparedActorVersion =
                         world.units.version;
+                    preparedActorPartitionVersion =
+                        ActorMetaPartitionVersion.Version;
                     actorPartitionsReady = true;
                     stage = MaintenanceStage.DirtyManagersStart;
                 }
@@ -150,9 +166,21 @@ internal sealed class CooperativeWorldMaintenanceRunner
                 break;
             case MaintenanceStage.DirtyManagersStart:
                 index = 0;
-                stage = hasDirtyMetaManagers
-                    ? MaintenanceStage.DirtyManagers
-                    : MaintenanceStage.DirtyMetaObjectsFirst;
+                if (!hasDirtyMetaManagers)
+                {
+                    stage =
+                        MaintenanceStage.DirtyMetaObjectsFirst;
+                }
+                else if (dirtyMetaManagerCount >= 3)
+                {
+                    stage =
+                        MaintenanceStage.DirtyManagersParallel;
+                }
+                else
+                {
+                    stage = MaintenanceStage.DirtyManagers;
+                }
+
                 break;
             case MaintenanceStage.DirtyManagers:
                 if (index < metaManagers.Count)
@@ -180,6 +208,10 @@ internal sealed class CooperativeWorldMaintenanceRunner
                     stage = MaintenanceStage.DirtyMetaObjectsFirst;
                 }
 
+                break;
+            case MaintenanceStage.DirtyManagersParallel:
+                RunDirtyManagersParallel();
+                stage = MaintenanceStage.DirtyMetaObjectsFirst;
                 break;
             case MaintenanceStage.DirtyMetaObjectsFirst:
                 world.checkDirtyMetaObjects();
@@ -291,7 +323,13 @@ internal sealed class CooperativeWorldMaintenanceRunner
                 stage = MaintenanceStage.AnythingChanged;
                 break;
             case MaintenanceStage.AnythingChanged:
-                world.checkAnyMetaAddedRemoved();
+                int frame = UnityEngine.Time.frameCount;
+                if (lastAnythingChangedFrame != frame)
+                {
+                    world.checkAnyMetaAddedRemoved();
+                    lastAnythingChangedFrame = frame;
+                }
+
                 stage = MaintenanceStage.Complete;
                 break;
             case MaintenanceStage.Complete:
@@ -316,15 +354,66 @@ internal sealed class CooperativeWorldMaintenanceRunner
 
     private bool HasDirtyMetaManagers()
     {
+        dirtyMetaManagerCount = 0;
         for (int i = 0; i < metaManagers.Count; i++)
         {
             if (metaManagers[i].isUnitsDirty())
             {
-                return true;
+                dirtyMetaManagerCount++;
             }
         }
 
-        return false;
+        return dirtyMetaManagerCount > 0;
+    }
+
+    private void RunDirtyManagersParallel()
+    {
+        int count = metaManagers.Count;
+        if (dirtyManagerTicks.Length < count)
+        {
+            dirtyManagerTicks = new long[count];
+        }
+
+        SimulationWorkerPool.Instance.RunIndexed(
+            0,
+            count,
+            dirtyManagerWorkItemAction);
+        if (!SimulationTickBenchmark.IsCapturing)
+        {
+            return;
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            long ticks = dirtyManagerTicks[i];
+            if (ticks <= 0L)
+            {
+                continue;
+            }
+
+            SimulationTickBenchmark.RecordDirtyManagerMetric(
+                GetManagerBenchmarkId(metaManagers[i]),
+                ticks / (double)Stopwatch.Frequency);
+        }
+    }
+
+    private void RunDirtyManagerAt(int managerIndex)
+    {
+        BaseSystemManager manager =
+            metaManagers[managerIndex];
+        if (!manager.isUnitsDirty())
+        {
+            dirtyManagerTicks[managerIndex] = 0L;
+            return;
+        }
+
+        long startedAt = SimulationTickBenchmark.IsCapturing
+            ? Stopwatch.GetTimestamp()
+            : 0L;
+        manager.parallelDirtyUnitsCheck();
+        dirtyManagerTicks[managerIndex] = startedAt == 0L
+            ? 0L
+            : Stopwatch.GetTimestamp() - startedAt;
     }
 
     private void ProcessActorMetaBatch()
