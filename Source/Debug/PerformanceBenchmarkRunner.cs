@@ -333,6 +333,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         AppendBenchSummary(sb, "main", "game_total", "main", 8);
         AppendBenchSummary(sb, "game_total", "game_total", "main", 12, DefaultGameTotalEntries);
         sb.Append("  scheduler ").Append(FramePriorityGovernor.GetDiagnostics()).AppendLine();
+        sb.Append("  worker_pool ").Append(SimulationWorkerPool.Instance.GetDiagnostics()).AppendLine();
         SimulationTickBenchmark.AppendReport(sb, 12, 10);
         ModClass.LogInfo(sb.ToString());
     }

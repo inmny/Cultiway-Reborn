@@ -167,7 +167,10 @@ namespace Cultiway
                         time_for_scheduler_diagnostics = 0f;
                         var diagnostics = new StringBuilder();
                         diagnostics.Append("[FramePriority] ")
-                            .Append(FramePriorityGovernor.GetDiagnostics());
+                            .Append(FramePriorityGovernor.GetDiagnostics())
+                            .AppendLine()
+                            .Append("  [SimulationWorkerPool] ")
+                            .Append(SimulationWorkerPool.Instance.GetDiagnostics());
                         SimulationTickBenchmark.AppendReport(diagnostics);
                         LogInfo(diagnostics.ToString());
                     }
