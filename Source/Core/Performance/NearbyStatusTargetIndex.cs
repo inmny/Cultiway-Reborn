@@ -20,13 +20,15 @@ internal static class NearbyStatusTargetIndex
     private static readonly Stack<List<IndexedActor>>
         ActorListPool = new();
     private static readonly HashSet<Actor> IndexedActors = new();
+    private static readonly Dictionary<Actor, MapChunk>
+        IndexedActorChunks = new();
     private static readonly HashSet<string> TrackedStatusIds =
         new(StringComparer.Ordinal);
     private static readonly HashSet<string> GlobalStatusIds =
         new(StringComparer.Ordinal);
 
     private static int indexedGeneration = -1;
-    private static long indexedSimulationTimeBits;
+    private static int indexedUnitMembershipVersion = -1;
     private static bool indexAvailable;
 
     private static long queries;
@@ -40,6 +42,8 @@ internal static class NearbyStatusTargetIndex
     private static long lastBuildTicks;
     private static long statusChecks;
     private static long unitChecks;
+    private static long incrementalAdds;
+    private static long incrementalRemoves;
     private static int indexedChunkCount;
     private static int indexedActorEntryCount;
 
@@ -110,10 +114,25 @@ internal static class NearbyStatusTargetIndex
             return;
         }
 
-        IndexedActors.Add(actor);
-        // 状态在本 tick 中途加入时，下次稀疏查询统一重建一次空间表。
-        // 即便角色已因另一状态被索引，也必须刷新 GlobalStatusIds。
-        indexAvailable = false;
+        bool newlyIndexed = IndexedActors.Add(actor);
+        GlobalStatusIds.Add(statusAsset.id);
+        if (!newlyIndexed ||
+            !IsCurrentIndex())
+        {
+            return;
+        }
+
+        long checkedUnits = 0L;
+        if (TryAddCurrentMembership(
+                World.world,
+                actor,
+                ref checkedUnits))
+        {
+            Interlocked.Increment(ref incrementalAdds);
+            UpdateIndexedEntryDiagnostics();
+        }
+
+        Interlocked.Add(ref unitChecks, checkedUnits);
     }
 
     internal static void NotifyStatusRemoved(
@@ -129,10 +148,14 @@ internal static class NearbyStatusTargetIndex
 
         if (!HasAnyTrackedStatus(actor))
         {
-            IndexedActors.Remove(actor);
+            if (IndexedActors.Remove(actor) &&
+                IsCurrentIndex() &&
+                RemoveActorMembership(actor))
+            {
+                Interlocked.Increment(
+                    ref incrementalRemoves);
+            }
         }
-
-        indexAvailable = false;
     }
 
     internal static void NotifyAllStatusesRemoved(
@@ -144,7 +167,11 @@ internal static class NearbyStatusTargetIndex
             return;
         }
 
-        indexAvailable = false;
+        if (IsCurrentIndex() &&
+            RemoveActorMembership(actor))
+        {
+            Interlocked.Increment(ref incrementalRemoves);
+        }
     }
 
     internal static string GetDiagnostics()
@@ -156,6 +183,7 @@ internal static class NearbyStatusTargetIndex
             "fallback={4} rebuilds={5} chunks={6} " +
             "actor_entries={7} tracked_actors={13} " +
             "status_checks={8} unit_checks={9} " +
+            "incremental={14}/{15}(add/remove) " +
             "build={10:0.000}ms(avg={11:0.000},max={12:0.000})",
             Interlocked.Read(ref queries),
             Interlocked.Read(ref handledQueries),
@@ -174,7 +202,9 @@ internal static class NearbyStatusTargetIndex
                     Interlocked.Read(ref totalBuildTicks)) / buildCount,
             TicksToMilliseconds(
                 Interlocked.Read(ref maximumBuildTicks)),
-            IndexedActors.Count);
+            IndexedActors.Count,
+            Interlocked.Read(ref incrementalAdds),
+            Interlocked.Read(ref incrementalRemoves));
     }
 
     internal static void Reset()
@@ -184,7 +214,7 @@ internal static class NearbyStatusTargetIndex
         TrackedStatusIds.Clear();
         GlobalStatusIds.Clear();
         indexedGeneration = -1;
-        indexedSimulationTimeBits = 0L;
+        indexedUnitMembershipVersion = -1;
         indexAvailable = false;
         Volatile.Write(ref indexedChunkCount, 0);
         Volatile.Write(ref indexedActorEntryCount, 0);
@@ -335,9 +365,9 @@ internal static class NearbyStatusTargetIndex
         }
 
         indexedGeneration = SimulationTime.Generation;
-        indexedSimulationTimeBits =
-            BitConverter.DoubleToInt64Bits(
-                SimulationTime.DiagnosticTime);
+        indexedUnitMembershipVersion =
+            ParallelSimObjectZoneUnits
+                .UnitMembershipVersion;
         indexAvailable = true;
         Interlocked.Add(ref unitChecks, checkedUnits);
         Volatile.Write(
@@ -357,49 +387,12 @@ internal static class NearbyStatusTargetIndex
         int actorEntries = 0;
         foreach (Actor actor in IndexedActors)
         {
-            MapChunk origin = actor.current_tile?.chunk;
-            bool found = false;
-            if (origin != null)
+            if (TryAddCurrentMembership(
+                    world,
+                    actor,
+                    ref checkedUnits))
             {
-                MapChunk[] nearby =
-                    ChunkWindowIndex.Get(origin, 1);
-                for (int i = 0;
-                     i < nearby.Length;
-                     i++)
-                {
-                    if (TryAddActorMembership(
-                            actor,
-                            nearby[i],
-                            ref checkedUnits))
-                    {
-                        actorEntries++;
-                        found = true;
-                        break;
-                    }
-                }
-            }
-
-            if (found)
-            {
-                continue;
-            }
-
-            // 传送或 chunk 成员表延迟过久时，邻域可能找不到角色。
-            // 极端路径才全图兜底，以保持与原版成员表完全一致。
-            MapChunk[] allChunks =
-                world.map_chunk_manager.chunks;
-            for (int i = 0;
-                 i < allChunks.Length;
-                 i++)
-            {
-                if (TryAddActorMembership(
-                        actor,
-                        allChunks[i],
-                        ref checkedUnits))
-                {
-                    actorEntries++;
-                    break;
-                }
+                actorEntries++;
             }
         }
 
@@ -435,6 +428,7 @@ internal static class NearbyStatusTargetIndex
                 candidates ??= RentActorList();
                 candidates.Add(
                     new IndexedActor(actor, unitIndex));
+                IndexedActorChunks.Add(actor, chunk);
                 actorEntries++;
             }
 
@@ -445,6 +439,59 @@ internal static class NearbyStatusTargetIndex
         }
 
         return actorEntries;
+    }
+
+    private static bool TryAddCurrentMembership(
+        MapBox world,
+        Actor actor,
+        ref long checkedUnits)
+    {
+        MapChunk origin = actor.current_tile?.chunk;
+        if (origin != null)
+        {
+            if (TryAddActorMembership(
+                    actor,
+                    origin,
+                    ref checkedUnits))
+            {
+                return true;
+            }
+
+            MapChunk[] nearby =
+                ChunkWindowIndex.Get(origin, 1);
+            for (int i = 0; i < nearby.Length; i++)
+            {
+                if (ReferenceEquals(nearby[i], origin))
+                {
+                    continue;
+                }
+
+                if (TryAddActorMembership(
+                        actor,
+                        nearby[i],
+                        ref checkedUnits))
+                {
+                    return true;
+                }
+            }
+        }
+
+        // 传送或 chunk 成员表延迟过久时，邻域可能找不到角色。
+        // 极端路径才全图兜底，以保持与原版成员表完全一致。
+        MapChunk[] allChunks =
+            world.map_chunk_manager.chunks;
+        for (int i = 0; i < allChunks.Length; i++)
+        {
+            if (TryAddActorMembership(
+                    actor,
+                    allChunks[i],
+                    ref checkedUnits))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool TryAddActorMembership(
@@ -477,10 +524,58 @@ internal static class NearbyStatusTargetIndex
             candidates.Insert(
                 insertIndex,
                 new IndexedActor(actor, unitIndex));
+            IndexedActorChunks.Add(actor, chunk);
             return true;
         }
 
         return false;
+    }
+
+    private static bool RemoveActorMembership(Actor actor)
+    {
+        if (!IndexedActorChunks.TryGetValue(
+                actor,
+                out MapChunk chunk) ||
+            !ActorsByChunk.TryGetValue(
+                chunk,
+                out List<IndexedActor> candidates))
+        {
+            return false;
+        }
+
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            if (!ReferenceEquals(
+                    candidates[i].Actor,
+                    actor))
+            {
+                continue;
+            }
+
+            candidates.RemoveAt(i);
+            IndexedActorChunks.Remove(actor);
+            if (candidates.Count == 0)
+            {
+                ActorsByChunk.Remove(chunk);
+                candidates.Clear();
+                ActorListPool.Push(candidates);
+            }
+
+            UpdateIndexedEntryDiagnostics();
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void UpdateIndexedEntryDiagnostics()
+    {
+        Volatile.Write(
+            ref indexedChunkCount,
+            ActorsByChunk.Count);
+        Volatile.Write(
+            ref indexedActorEntryCount,
+            IndexedActorChunks.Count);
     }
 
     private static void RemoveInvalidTrackedActors()
@@ -524,9 +619,9 @@ internal static class NearbyStatusTargetIndex
     {
         return indexAvailable &&
                indexedGeneration == SimulationTime.Generation &&
-               indexedSimulationTimeBits ==
-               BitConverter.DoubleToInt64Bits(
-                   SimulationTime.DiagnosticTime);
+               indexedUnitMembershipVersion ==
+               ParallelSimObjectZoneUnits
+                   .UnitMembershipVersion;
     }
 
     private static void RegisterTrackedStatusIds(
@@ -588,6 +683,7 @@ internal static class NearbyStatusTargetIndex
         }
 
         ActorsByChunk.Clear();
+        IndexedActorChunks.Clear();
     }
 
     private static void RecordBuildDuration(long elapsedTicks)

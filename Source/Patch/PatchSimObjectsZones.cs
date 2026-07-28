@@ -23,4 +23,12 @@ internal static class PatchSimObjectsZones
         return !ParallelSimObjectZoneUnits.TryRebuild(
             ____to_clear_tiles);
     }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(SimObjectsZones), "checkUnits")]
+    private static void checkUnits_postfix()
+    {
+        ParallelSimObjectZoneUnits
+            .NotifyUnitMembershipRebuilt();
+    }
 }

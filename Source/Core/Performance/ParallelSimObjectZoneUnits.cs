@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Cultiway.Const;
 
 namespace Cultiway.Core.Performance;
@@ -22,6 +23,19 @@ internal static class ParallelSimObjectZoneUnits
     private static int preparedGeneration = -1;
     private static int tileMarkGeneration;
     private static int pendingIslandGeneration = -1;
+    private static int unitMembershipVersion;
+
+    /// <summary>
+    /// 原版 chunk.objects.units_all 成员表的提交版本。
+    /// 只有 checkUnits 完整结束后才推进，因此读方不会观察到半提交状态。
+    /// </summary>
+    internal static int UnitMembershipVersion =>
+        Volatile.Read(ref unitMembershipVersion);
+
+    internal static void NotifyUnitMembershipRebuilt()
+    {
+        Interlocked.Increment(ref unitMembershipVersion);
+    }
 
     internal static bool TryDeferIslandRebuild(
         IslandsCalculator calculator)
