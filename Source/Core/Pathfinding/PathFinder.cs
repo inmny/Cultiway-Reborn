@@ -67,11 +67,123 @@ public class PathFinder
             return true;
         }
 
-        PathfindingProfiler.Measurement createMeasurement = PathfindingProfiler.Start();
-        var request = new PathRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions);
-        createMeasurement.Complete(PathfindingBenchmarkMetric.Create);
+        PathRequest request = PrepareValidatedRequest(
+            actor,
+            target,
+            pathOnWater,
+            walkOnBlocks,
+            walkOnLava,
+            limitRegions);
 
         return RequestPathCore(request, true, true);
+    }
+
+    internal PathRequest PrepareValidatedRequest(
+        Actor actor,
+        WorldTile target,
+        bool pathOnWater,
+        bool walkOnBlocks,
+        bool walkOnLava,
+        int limitRegions)
+    {
+        PathfindingProfiler.Measurement createMeasurement =
+            PathfindingProfiler.Start();
+        var request = new PathRequest(
+            actor,
+            target,
+            pathOnWater,
+            walkOnBlocks,
+            walkOnLava,
+            limitRegions);
+        createMeasurement.Complete(PathfindingBenchmarkMetric.Create);
+        return request;
+    }
+
+    internal PathRequest TryPrepareValidatedRequest(
+        Actor actor,
+        WorldTile target,
+        bool pathOnWater,
+        bool walkOnBlocks,
+        bool walkOnLava,
+        int limitRegions)
+    {
+        PathfindingProfiler.Measurement reuseMeasurement =
+            PathfindingProfiler.Start();
+        bool reused = TryReuseActiveRequest(
+            actor,
+            target,
+            pathOnWater,
+            walkOnBlocks,
+            walkOnLava,
+            limitRegions);
+        reuseMeasurement.Complete(
+            reused
+                ? PathfindingBenchmarkMetric.Reuse
+                : PathfindingBenchmarkMetric.ReuseMiss);
+        return reused
+            ? null
+            : PrepareValidatedRequest(
+                actor,
+                target,
+                pathOnWater,
+                walkOnBlocks,
+                walkOnLava,
+                limitRegions);
+    }
+
+    /// <summary>
+    /// 路径快照可以并行构建，但活动任务表必须按原调用顺序提交。
+    /// 这样同一角色在一个 AI 周期内多次 goTo 时，最后一次请求仍然获胜，
+    /// 同时避免多个 worker 争用任务字典和逐请求唤醒寻路线程。
+    /// </summary>
+    internal void RequestPreparedBatch(
+        IReadOnlyList<PathRequest> requests,
+        int count)
+    {
+        if (count <= 0)
+        {
+            return;
+        }
+
+        EnsureWorkersStarted();
+        int enqueuedCount = 0;
+        for (int i = 0; i < count; i++)
+        {
+            PathRequest request = requests[i];
+            if (request == null)
+            {
+                continue;
+            }
+
+            PathfindingProfiler.Measurement reuseMeasurement =
+                PathfindingProfiler.Start();
+            bool reused = TryReuseActiveRequest(
+                request.Actor,
+                request.Target,
+                request.PathOnWater,
+                request.WalkOnBlocks,
+                request.WalkOnLava,
+                request.RegionLimit);
+            reuseMeasurement.Complete(
+                reused
+                    ? PathfindingBenchmarkMetric.Reuse
+                    : PathfindingBenchmarkMetric.ReuseMiss);
+            if (reused)
+            {
+                continue;
+            }
+
+            if (RequestPathCore(
+                    request,
+                    alreadyValidated: true,
+                    alreadyCheckedReuse: true,
+                    signalWorker: false))
+            {
+                enqueuedCount++;
+            }
+        }
+
+        SignalPendingWorkers(enqueuedCount);
     }
 
     public bool RequestPath(PathRequest request)
@@ -80,7 +192,7 @@ public class PathFinder
     }
 
     private bool RequestPathCore(PathRequest request, bool alreadyValidated,
-        bool alreadyCheckedReuse)
+        bool alreadyCheckedReuse, bool signalWorker = true)
     {
         if (!alreadyValidated)
         {
@@ -119,19 +231,36 @@ public class PathFinder
         _tasks[request.Actor.data.id] = task;
         taskCreateMeasurement.Complete(PathfindingBenchmarkMetric.TaskCreate);
 
-        EnqueueTask(task);
+        EnqueueTask(task, signalWorker);
         return true;
     }
 
-    private void EnqueueTask(PathfindingTask task)
+    private void EnqueueTask(
+        PathfindingTask task,
+        bool signalWorker)
     {
         PathfindingProfiler.Measurement enqueueMeasurement =
             PathfindingProfiler.Start(task.BenchmarkSession);
         EnsureWorkersStarted();
         task.MarkEnqueued();
         _pendingTasks.Enqueue(task);
-        _pendingSignal.Set();
+        if (signalWorker)
+        {
+            _pendingSignal.Set();
+        }
+
         enqueueMeasurement.Complete(PathfindingBenchmarkMetric.Enqueue);
+    }
+
+    private void SignalPendingWorkers(int enqueuedCount)
+    {
+        int signals = Math.Min(
+            Math.Max(0, enqueuedCount),
+            Math.Max(1, Volatile.Read(ref _workerCount)));
+        for (int i = 0; i < signals; i++)
+        {
+            _pendingSignal.Set();
+        }
     }
 
     private void EnsureWorkersStarted()

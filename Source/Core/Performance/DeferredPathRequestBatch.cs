@@ -17,7 +17,8 @@ internal static class DeferredPathRequestBatch
     private const int ParallelThreshold = 2;
 
     private static readonly List<RequestWorkItem> Requests = new(64);
-    private static readonly Action<int> ProcessAction = ProcessAt;
+    private static readonly List<PathRequest> PreparedRequests = new(64);
+    private static readonly Action<int> PrepareAction = PrepareAt;
 
     private static bool cycleActive;
     private static bool accepting;
@@ -107,12 +108,13 @@ internal static class DeferredPathRequestBatch
         long startedAt = Stopwatch.GetTimestamp();
         try
         {
+            EnsurePreparedCapacity(count);
             if (count < ParallelThreshold)
             {
                 Interlocked.Increment(ref serialBatches);
                 for (int i = 0; i < count; i++)
                 {
-                    ProcessAt(i);
+                    PrepareAt(i);
                 }
             }
             else
@@ -122,8 +124,12 @@ internal static class DeferredPathRequestBatch
                 SimulationWorkerPool.Instance.RunIndexed(
                     0,
                     count,
-                    ProcessAction);
+                    PrepareAction);
             }
+
+            PathFinder.Instance.RequestPreparedBatch(
+                PreparedRequests,
+                count);
         }
         finally
         {
@@ -131,6 +137,7 @@ internal static class DeferredPathRequestBatch
                 count,
                 Stopwatch.GetTimestamp() - startedAt);
             Requests.Clear();
+            PreparedRequests.Clear();
             cycleActive = false;
         }
     }
@@ -140,11 +147,26 @@ internal static class DeferredPathRequestBatch
         accepting = false;
         cycleActive = false;
         Requests.Clear();
+        PreparedRequests.Clear();
     }
 
-    private static void ProcessAt(int index)
+    private static void PrepareAt(int index)
     {
-        Requests[index].Execute();
+        PreparedRequests[index] =
+            Requests[index].Prepare();
+    }
+
+    private static void EnsurePreparedCapacity(int count)
+    {
+        if (PreparedRequests.Capacity < count)
+        {
+            PreparedRequests.Capacity = count;
+        }
+
+        while (PreparedRequests.Count < count)
+        {
+            PreparedRequests.Add(null);
+        }
     }
 
     internal static string GetDiagnostics()
@@ -250,9 +272,9 @@ internal static class DeferredPathRequestBatch
             this.regionLimit = regionLimit;
         }
 
-        internal void Execute()
+        internal PathRequest Prepare()
         {
-            PathFinder.Instance.RequestPathValidated(
+            return PathFinder.Instance.TryPrepareValidatedRequest(
                 actor,
                 target,
                 pathOnWater,
