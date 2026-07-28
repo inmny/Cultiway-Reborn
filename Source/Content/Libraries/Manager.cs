@@ -13,6 +13,7 @@ public class Manager
     public static BloodlineLibrary BloodlineLibrary { get; } = new();
     public static CultibookRuleProfileLibrary CultibookRuleProfileLibrary { get; } = new();
     public static CultivateMethodLibrary CultivateMethodLibrary { get; } = new();
+    public static SectNameAtomLibrary SectNameAtomLibrary { get; } = new();
 
     /// <summary>将内容层资产库注册到 WorldBox 资产管理器，并完成统一后初始化。</summary>
     internal static void Init()
@@ -28,6 +29,7 @@ public class Manager
         AssetManager._instance.add(BloodlineLibrary, "bloodlines");
         AssetManager._instance.add(CultibookRuleProfileLibrary, "cultibook_rule_profiles");
         AssetManager._instance.add(CultivateMethodLibrary, "cultivate_methods");
+        AssetManager._instance.add(SectNameAtomLibrary, "sect_name_atoms");
         
         PostInit();
     }
@@ -45,5 +47,6 @@ public class Manager
         CultibookLibrary.post_init();
         CultibookRuleProfileLibrary.post_init();
         CultivateMethodLibrary.post_init();
+        SectNameAtomLibrary.post_init();
     }
 }

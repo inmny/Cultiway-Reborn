@@ -84,7 +84,6 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
         data.FounderActorName = founder.getName();
         data.FounderActorID = founder.data.id;
         data.FoundedTime = (float)World.world.getCurWorldTime();
-        data.name = founder.generateName(meta_type, getID());
         AddFoundingResidenceStrategy(founder);
         AddFoundingPolicies();
 
@@ -99,6 +98,12 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
         if (doctrineCultibook != null)
         {
             SetDoctrineCultibook(doctrineCultibook);
+        }
+
+        data.name = SectNamingService.GenerateName(this, founder);
+        data.custom_name = false;
+        if (doctrineCultibook != null)
+        {
             SectScriptureService.CreateDoctrineBook(this, founder, doctrineCultibook, founder.GetExtend().GetMainCultibookMastery());
         }
 
