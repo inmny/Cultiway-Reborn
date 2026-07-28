@@ -13,6 +13,8 @@ namespace Cultiway.Core.Performance;
 /// </summary>
 internal static class NearbyStatusTargetIndex
 {
+    private const int SparseMembershipScanThreshold = 64;
+
     private static readonly Dictionary<MapChunk, List<IndexedActor>>
         ActorsByChunk = new();
     private static readonly Stack<List<IndexedActor>>
@@ -317,52 +319,18 @@ internal static class NearbyStatusTargetIndex
         if (IndexedActors.Count > 0 &&
             world.map_chunk_manager != null)
         {
-            foreach (Actor actor in IndexedActors)
+            if (IndexedActors.Count <=
+                SparseMembershipScanThreshold)
             {
-                MapChunk origin = actor.current_tile?.chunk;
-                bool found = false;
-                if (origin != null)
-                {
-                    MapChunk[] nearby =
-                        ChunkWindowIndex.Get(origin, 1);
-                    for (int i = 0;
-                         i < nearby.Length;
-                         i++)
-                    {
-                        if (TryAddActorMembership(
-                                actor,
-                                nearby[i],
-                                ref checkedUnits))
-                        {
-                            actorEntries++;
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (found)
-                {
-                    continue;
-                }
-
-                // 传送或 chunk 成员表延迟过久时，邻域可能找不到角色。
-                // 极端路径才全图兜底，以保持与原版成员表完全一致。
-                MapChunk[] allChunks =
-                    world.map_chunk_manager.chunks;
-                for (int i = 0;
-                     i < allChunks.Length;
-                     i++)
-                {
-                    if (TryAddActorMembership(
-                            actor,
-                            allChunks[i],
-                            ref checkedUnits))
-                    {
-                        actorEntries++;
-                        break;
-                    }
-                }
+                actorEntries = BuildSparseMembership(
+                    world,
+                    ref checkedUnits);
+            }
+            else
+            {
+                actorEntries = BuildDenseMembership(
+                    world,
+                    ref checkedUnits);
             }
         }
 
@@ -380,6 +348,103 @@ internal static class NearbyStatusTargetIndex
             actorEntries);
         RecordBuildDuration(
             Stopwatch.GetTimestamp() - startedAt);
+    }
+
+    private static int BuildSparseMembership(
+        MapBox world,
+        ref long checkedUnits)
+    {
+        int actorEntries = 0;
+        foreach (Actor actor in IndexedActors)
+        {
+            MapChunk origin = actor.current_tile?.chunk;
+            bool found = false;
+            if (origin != null)
+            {
+                MapChunk[] nearby =
+                    ChunkWindowIndex.Get(origin, 1);
+                for (int i = 0;
+                     i < nearby.Length;
+                     i++)
+                {
+                    if (TryAddActorMembership(
+                            actor,
+                            nearby[i],
+                            ref checkedUnits))
+                    {
+                        actorEntries++;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+
+            if (found)
+            {
+                continue;
+            }
+
+            // 传送或 chunk 成员表延迟过久时，邻域可能找不到角色。
+            // 极端路径才全图兜底，以保持与原版成员表完全一致。
+            MapChunk[] allChunks =
+                world.map_chunk_manager.chunks;
+            for (int i = 0;
+                 i < allChunks.Length;
+                 i++)
+            {
+                if (TryAddActorMembership(
+                        actor,
+                        allChunks[i],
+                        ref checkedUnits))
+                {
+                    actorEntries++;
+                    break;
+                }
+            }
+        }
+
+        return actorEntries;
+    }
+
+    private static int BuildDenseMembership(
+        MapBox world,
+        ref long checkedUnits)
+    {
+        int actorEntries = 0;
+        MapChunk[] chunks =
+            world.map_chunk_manager.chunks;
+        for (int chunkIndex = 0;
+             chunkIndex < chunks.Length;
+             chunkIndex++)
+        {
+            MapChunk chunk = chunks[chunkIndex];
+            List<Actor> units = chunk.objects.units_all;
+            int count = units.Count;
+            checkedUnits += count;
+            List<IndexedActor> candidates = null;
+            for (int unitIndex = 0;
+                 unitIndex < count;
+                 unitIndex++)
+            {
+                Actor actor = units[unitIndex];
+                if (!IndexedActors.Contains(actor))
+                {
+                    continue;
+                }
+
+                candidates ??= RentActorList();
+                candidates.Add(
+                    new IndexedActor(actor, unitIndex));
+                actorEntries++;
+            }
+
+            if (candidates != null)
+            {
+                ActorsByChunk.Add(chunk, candidates);
+            }
+        }
+
+        return actorEntries;
     }
 
     private static bool TryAddActorMembership(
