@@ -56,6 +56,26 @@ public class ActorExtendManager : ExtendComponentManager<ActorExtend>
         return _actor_to_extend.TryGetValue(actor.data, out var val);
     }
 
+    internal bool TryGetPathfindingSnapshot(
+        Actor actor,
+        out float powerLevel,
+        out bool hasXianCultisys)
+    {
+        if (actor?.data != null &&
+            _actor_to_extend.TryGetValue(actor.data, out ActorExtend actorExtend) &&
+            actorExtend.ActorId == actor.data.id)
+        {
+            actorExtend.GetPathfindingSnapshot(
+                out powerLevel,
+                out hasXianCultisys);
+            return true;
+        }
+
+        powerLevel = 0f;
+        hasXianCultisys = false;
+        return false;
+    }
+
     public void Remove(Actor actor)
     {
         _actor_to_extend.TryRemove(actor.data, out _);
@@ -73,6 +93,11 @@ public class ActorExtendManager : ExtendComponentManager<ActorExtend>
 
     public void AllStatsDirty()
     {
-        World.Query<ActorBinder>().ForEachEntity((ref ActorBinder ab, Entity e) => ab.Actor?.setStatsDirty());
+        World.Query<ActorBinder>().ForEachEntity(
+            (ref ActorBinder ab, Entity e) =>
+            {
+                ab.AE?.RefreshPathfindingSnapshot();
+                ab.Actor?.setStatsDirty();
+            });
     }
 }

@@ -125,19 +125,21 @@ public sealed class PathRequest
             return default;
         }
 
-        try
+        ActorExtendManager manager = ModClass.I?.ActorExtendManager;
+        if (manager != null &&
+            manager.TryGetPathfindingSnapshot(
+                actor,
+                out float powerLevel,
+                out bool hasXianCultisys))
         {
-            lock (EntityStoreLock.GlobalLock)
-            {
-                var ae = actor.GetExtend();
-                return new ActorExtendSnapshot(ae?.GetPowerLevel() ?? 0f, ae != null && ae.HasCultisys<Xian>());
-            }
+            return new ActorExtendSnapshot(
+                powerLevel,
+                hasXianCultisys);
         }
-        catch (Exception e)
-        {
-            ModClass.LogErrorConcurrent(SystemUtils.GetFullExceptionMessage(e));
-            return default;
-        }
+
+        // 寻路不负责为旧数据补建 ActorExtend；没有扩展时的原语义
+        // 本来就是 0 境界且不具有修仙体系。
+        return default;
     }
 
     private readonly struct ActorExtendSnapshot

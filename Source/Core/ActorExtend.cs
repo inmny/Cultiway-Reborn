@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content;
@@ -37,6 +38,9 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     private readonly BaseStats       _cached_cultiway_stats = new();
     private bool                     _cached_cultiway_stats_dirty = true;
     private bool                     _skill_cache_dirty = true;
+    private readonly long            _actor_id;
+    private float                    _pathfinding_power_level;
+    private int                      _pathfinding_has_xian;
     private Entity          e;
     public HashSet<Entity> all_skills = new();
     public List<Entity> all_attack_skills = new();
@@ -93,8 +97,33 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     public ActorExtend(Entity e)
     {
         this.e = e;
-        e.GetComponent<ActorBinder>()._ae = this;
-        _ = e.GetComponent<ActorBinder>().Actor;
+        ref ActorBinder binder = ref e.GetComponent<ActorBinder>();
+        _actor_id = binder.ID;
+        binder._ae = this;
+        _ = binder.Actor;
+    }
+
+    internal long ActorId => _actor_id;
+
+    internal void GetPathfindingSnapshot(
+        out float powerLevel,
+        out bool hasXianCultisys)
+    {
+        powerLevel = Volatile.Read(ref _pathfinding_power_level);
+        hasXianCultisys =
+            Volatile.Read(ref _pathfinding_has_xian) != 0;
+    }
+
+    internal void RefreshPathfindingSnapshot()
+    {
+        Volatile.Write(
+            ref _pathfinding_power_level,
+            E.TryGetComponent(out PowerLevel powerLevel)
+                ? powerLevel.value
+                : 0f);
+        Volatile.Write(
+            ref _pathfinding_has_xian,
+            E.HasComponent<Xian>() ? 1 : 0);
     }
 
     public void Dispose()
@@ -251,15 +280,22 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
 
     public void UpgradePowerLevel(float min_level)
     {
+        float nextPowerLevel;
         if (E.HasComponent<PowerLevel>())
         {
             ref var power_level = ref E.GetComponent<PowerLevel>();
             power_level.value = Mathf.Max(power_level.value, min_level);
+            nextPowerLevel = power_level.value;
         }
         else
         {
-            E.AddComponent(new PowerLevel { value = min_level });
+            nextPowerLevel = min_level;
+            E.AddComponent(new PowerLevel { value = nextPowerLevel });
         }
+
+        Volatile.Write(
+            ref _pathfinding_power_level,
+            nextPowerLevel);
     }
 
     /// <summary>
@@ -621,6 +657,11 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     {
         e.AddComponent(cultisys.DefaultComponent);
         cultisys.OnGetAction?.Invoke(this, cultisys, ref e.GetComponent<T>());
+        if (typeof(T) == typeof(Xian))
+        {
+            Volatile.Write(ref _pathfinding_has_xian, 1);
+        }
+
         SkillCastResourceResolver.Invalidate(this);
         MarkCultiwayStatsDirty();
     }
