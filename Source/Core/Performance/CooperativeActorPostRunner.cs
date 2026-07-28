@@ -21,10 +21,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private const string PathMovementJobId = "b5_checkPathMovement";
     private const string NaturalDeathJobId = "b55_update_natural_death";
     private const string UpdateAiJobId = "b6_update_ai";
+    private const string SmoothMovementJobId =
+        "u10_checkSmoothMovement";
 
     private readonly ActorTileActionProfiler tileActionProfiler = new();
     private readonly Action<int> searchWorkItemAction;
     private readonly Action<int> pathMovementWorkItemAction;
+    private readonly Action<int> smoothMovementWorkItemAction;
 
     private enum PostStage
     {
@@ -39,6 +42,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         AwaitPathMovement,
         CommitPathMovement,
         AfterPathMovement,
+        ScheduleSmoothMovement,
+        AwaitSmoothMovement,
+        CommitSmoothMovement,
+        AfterSmoothMovement,
         Finish
     }
 
@@ -46,6 +53,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private SearchWorkItem[] workItems = Array.Empty<SearchWorkItem>();
     private PathMovementBatchWork[] pathMovementWorkItems =
         Array.Empty<PathMovementBatchWork>();
+    private SmoothMovementBatchWork[] smoothMovementWorkItems =
+        Array.Empty<SmoothMovementBatchWork>();
     private Actor[][] activeBehaviorActorsByBatch =
         Array.Empty<Actor[]>();
     private int[] activeBehaviorActorCounts =
@@ -57,25 +66,32 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private float elapsed;
     private int enemySearchJobIndex;
     private int pathMovementJobIndex;
+    private int smoothMovementJobIndex;
     private int batchIndex;
     private int postJobIndex;
     private int workIndex;
     private int workCount;
     private int pathCommitIndex;
+    private int smoothCommitIndex;
     private int workGroupSize;
     private bool splitPostJobs;
     private SimulationWorkerPool.WorkTicket searchTicket;
     private SimulationWorkerPool.WorkTicket pathMovementTicket;
+    private SimulationWorkerPool.WorkTicket smoothMovementTicket;
     private long searchScheduleStartedAt;
     private long searchScheduleCompletedAt;
     private long pathMovementScheduleStartedAt;
     private long pathMovementScheduleCompletedAt;
+    private long smoothMovementScheduleStartedAt;
+    private long smoothMovementScheduleCompletedAt;
 
     internal CooperativeActorPostRunner()
     {
         searchWorkItemAction = SearchWorkItemAt;
         pathMovementWorkItemAction =
             RunPathMovementWorkItemAt;
+        smoothMovementWorkItemAction =
+            RunSmoothMovementWorkItemAt;
     }
 
     public void Start(
@@ -90,13 +106,17 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         workIndex = 0;
         workCount = 0;
         pathCommitIndex = 0;
+        smoothCommitIndex = 0;
         splitPostJobs = SimulationTickBenchmark.IsCapturing;
         searchTicket = default;
         pathMovementTicket = default;
+        smoothMovementTicket = default;
         searchScheduleStartedAt = 0L;
         searchScheduleCompletedAt = 0L;
         pathMovementScheduleStartedAt = 0L;
         pathMovementScheduleCompletedAt = 0L;
+        smoothMovementScheduleStartedAt = 0L;
+        smoothMovementScheduleCompletedAt = 0L;
         aggressionCandidates.Clear();
         PathFinder.Instance.ApplyWorkerWakeups();
         PrepareActiveBehaviorPartitions(batches.Count);
@@ -125,14 +145,25 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 "Actor post jobs 中 b5_checkPathMovement 顺序无效");
         }
 
+        smoothMovementJobIndex = FindPostJobIndex(
+            batches[0].jobs_post,
+            SmoothMovementJobId);
+        if (smoothMovementJobIndex <= pathMovementJobIndex)
+        {
+            throw new InvalidOperationException(
+                "Actor post jobs 中 u10_checkSmoothMovement 顺序无效");
+        }
+
         stage = PostStage.BeforeEnemySearch;
     }
 
     public bool WaitingForBackgroundWork =>
-        stage == PostStage.AwaitEnemySearch &&
-        searchTicket.IsValid ||
-        stage == PostStage.AwaitPathMovement &&
-        pathMovementTicket.IsValid;
+        (stage == PostStage.AwaitEnemySearch &&
+         searchTicket.IsValid) ||
+        (stage == PostStage.AwaitPathMovement &&
+         pathMovementTicket.IsValid) ||
+        (stage == PostStage.AwaitSmoothMovement &&
+         smoothMovementTicket.IsValid);
 
     public bool IsBackgroundWorkCompleted =>
         stage switch
@@ -141,6 +172,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 SimulationWorkerPool.Instance.IsCompleted(searchTicket),
             PostStage.AwaitPathMovement when pathMovementTicket.IsValid =>
                 SimulationWorkerPool.Instance.IsCompleted(pathMovementTicket),
+            PostStage.AwaitSmoothMovement when smoothMovementTicket.IsValid =>
+                SimulationWorkerPool.Instance.IsCompleted(smoothMovementTicket),
             _ => false
         };
 
@@ -155,6 +188,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             PostStage.AwaitPathMovement when pathMovementTicket.IsValid =>
                 SimulationWorkerPool.Instance.TryWait(
                     pathMovementTicket,
+                    maximumMilliseconds),
+            PostStage.AwaitSmoothMovement when smoothMovementTicket.IsValid =>
+                SimulationWorkerPool.Instance.TryWait(
+                    smoothMovementTicket,
                     maximumMilliseconds),
             _ => true
         };
@@ -171,6 +208,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                  pathMovementTicket.IsValid)
         {
             SimulationWorkerPool.Instance.Wait(pathMovementTicket);
+        }
+        else if (stage == PostStage.AwaitSmoothMovement &&
+                 smoothMovementTicket.IsValid)
+        {
+            SimulationWorkerPool.Instance.Wait(
+                smoothMovementTicket);
         }
     }
 
@@ -219,12 +262,29 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             return GetNextPostRangePhaseName(
                 phasePrefix,
                 pathMovementJobIndex + 1,
-                int.MaxValue,
-                "after_b5",
+                smoothMovementJobIndex,
+                "before_u10",
                 restartRange: true);
         }
 
         if (stage == PostStage.AfterPathMovement &&
+            batchIndex >= batches.Count)
+        {
+            return phasePrefix + ".post.u10.schedule";
+        }
+
+        if (stage == PostStage.CommitSmoothMovement &&
+            smoothCommitIndex >= batches.Count)
+        {
+            return GetNextPostRangePhaseName(
+                phasePrefix,
+                smoothMovementJobIndex + 1,
+                int.MaxValue,
+                "after_u10",
+                restartRange: true);
+        }
+
+        if (stage == PostStage.AfterSmoothMovement &&
             batchIndex >= batches.Count)
         {
             return DeferredPathRequestBatch.HasPendingRequests
@@ -269,8 +329,23 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 GetNextPostRangePhaseName(
                     phasePrefix,
                     pathMovementJobIndex + 1,
+                    smoothMovementJobIndex,
+                    "before_u10"),
+            PostStage.ScheduleSmoothMovement =>
+                phasePrefix + ".post.u10.schedule",
+            PostStage.AwaitSmoothMovement =>
+                IsBackgroundWorkCompleted
+                    ? phasePrefix + ".post.u10.complete"
+                    : phasePrefix + ".post.u10.await",
+            PostStage.CommitSmoothMovement =>
+                phasePrefix + ".post.u10.commit.batch." +
+                smoothCommitIndex,
+            PostStage.AfterSmoothMovement =>
+                GetNextPostRangePhaseName(
+                    phasePrefix,
+                    smoothMovementJobIndex + 1,
                     int.MaxValue,
-                    "after_b5"),
+                    "after_u10"),
             PostStage.Finish =>
                 DeferredPathRequestBatch.HasPendingRequests
                     ? phasePrefix + ".post.path_requests.flush"
@@ -428,6 +503,72 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 case PostStage.AfterPathMovement:
                     if (TryRunNextPostRange(
                             pathMovementJobIndex + 1,
+                            smoothMovementJobIndex))
+                    {
+                        return false;
+                    }
+
+                    PrepareSmoothMovementWorkItems();
+                    stage = PostStage.ScheduleSmoothMovement;
+                    continue;
+                case PostStage.ScheduleSmoothMovement:
+                    smoothMovementScheduleStartedAt =
+                        StartBenchmarkMeasurement();
+                    try
+                    {
+                        smoothMovementTicket =
+                            SimulationWorkerPool.Instance.BeginIndexed(
+                                0,
+                                batches.Count,
+                                smoothMovementWorkItemAction);
+                    }
+                    finally
+                    {
+                        if (smoothMovementScheduleStartedAt != 0L)
+                        {
+                            smoothMovementScheduleCompletedAt =
+                                Stopwatch.GetTimestamp();
+                        }
+                    }
+
+                    stage = PostStage.AwaitSmoothMovement;
+                    return false;
+                case PostStage.AwaitSmoothMovement:
+                    SimulationWorkerPool.Instance.Wait(
+                        smoothMovementTicket);
+                    SimulationWorkerPool.WorkResult smoothResult;
+                    try
+                    {
+                        smoothResult =
+                            SimulationWorkerPool.Instance.Complete(
+                                smoothMovementTicket);
+                    }
+                    finally
+                    {
+                        smoothMovementTicket = default;
+                    }
+
+                    RecordSmoothMovementBenchmark(
+                        smoothResult);
+                    smoothCommitIndex = 0;
+                    stage = PostStage.CommitSmoothMovement;
+                    return false;
+                case PostStage.CommitSmoothMovement:
+                    if (smoothCommitIndex < batches.Count)
+                    {
+                        CommitSmoothMovementWorkItem(
+                            smoothCommitIndex++);
+                        return false;
+                    }
+
+                    batchIndex = 0;
+                    postJobIndex =
+                        smoothMovementJobIndex + 1;
+                    stage = PostStage.AfterSmoothMovement;
+                    continue;
+                case PostStage.AfterSmoothMovement:
+                    if (TryRunNextPostRange(
+                            smoothMovementJobIndex + 1,
                             int.MaxValue))
                     {
                         return false;
@@ -460,6 +601,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             SimulationWorkerPool.Instance.WaitAndDiscard(
                 pathMovementTicket);
             pathMovementTicket = default;
+        }
+
+        if (smoothMovementTicket.IsValid)
+        {
+            SimulationWorkerPool.Instance.WaitAndDiscard(
+                smoothMovementTicket);
+            smoothMovementTicket = default;
         }
 
         DeferredPathRequestBatch.AbortCycle();
@@ -1147,6 +1295,122 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         work.Reset();
     }
 
+    private void PrepareSmoothMovementWorkItems()
+    {
+        int count = batches.Count;
+        if (smoothMovementWorkItems.Length < count)
+        {
+            int previousLength =
+                smoothMovementWorkItems.Length;
+            Array.Resize(
+                ref smoothMovementWorkItems,
+                count);
+            for (int i = previousLength; i < count; i++)
+            {
+                smoothMovementWorkItems[i] =
+                    new SmoothMovementBatchWork();
+            }
+        }
+
+        bool paused = World.world.isPaused();
+        for (int i = 0; i < count; i++)
+        {
+            BatchActors batch = batches[i];
+            Job<Actor> job =
+                batch.jobs_post[smoothMovementJobIndex];
+            SmoothMovementBatchWork work =
+                smoothMovementWorkItems[i];
+            batch._elapsed = elapsed;
+            batch._cur_container = job.container;
+            if (job.current_skips > 0)
+            {
+                job.current_skips--;
+                work.ConfigureSkipped(batch, job);
+                continue;
+            }
+
+            if (paused)
+            {
+                work.ConfigureSkipped(batch, job);
+                continue;
+            }
+
+            ObjectContainer<Actor> container =
+                job.container;
+            if (container.Count == 0 &&
+                !container.isDirtyContainer())
+            {
+                work.Configure(
+                    batch,
+                    job,
+                    Array.Empty<Actor>(),
+                    0,
+                    elapsed);
+                continue;
+            }
+
+            container.checkAddRemove();
+            Actor[] actors =
+                container.getFastSimpleArray();
+            int actorCount = container.Count;
+            batch._array = actors;
+            batch._count = actorCount;
+            work.Configure(
+                batch,
+                job,
+                actors,
+                actorCount,
+                elapsed);
+        }
+    }
+
+    private void RunSmoothMovementWorkItemAt(int index)
+    {
+        smoothMovementWorkItems[index].RunParallel();
+    }
+
+    private void CommitSmoothMovementWorkItem(int index)
+    {
+        SmoothMovementBatchWork work =
+            smoothMovementWorkItems[index];
+        Job<Actor> job = work.Job;
+        if (work.Skipped)
+        {
+            work.Reset();
+            return;
+        }
+
+        long startedAt = StartBenchmarkMeasurement();
+        Actor[] actors = work.Actors;
+        bool[] requiresSerial =
+            work.RequiresSerial;
+        for (int i = 0; i < work.Count; i++)
+        {
+            if (requiresSerial[i])
+            {
+                actors[i].u10_checkSmoothMovement(
+                    elapsed);
+            }
+        }
+
+        if (job.random_tick_skips > 0)
+        {
+            job.current_skips = Randy.randomInt(
+                0,
+                job.random_tick_skips);
+        }
+
+        if (splitPostJobs)
+        {
+            job.time_benchmark +=
+                (Stopwatch.GetTimestamp() - startedAt) /
+                (double)Stopwatch.Frequency;
+            job.counter += work.Checked;
+        }
+
+        work.Reset();
+    }
+
     private void RunPathMovementJob(
         ObjectContainer<Actor> container)
     {
@@ -1540,9 +1804,17 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             pathMovementWorkItems[i]?.Reset();
         }
 
+        for (int i = 0;
+             i < smoothMovementWorkItems.Length;
+             i++)
+        {
+            smoothMovementWorkItems[i]?.Reset();
+        }
+
         workCount = 0;
         workIndex = 0;
         pathCommitIndex = 0;
+        smoothCommitIndex = 0;
         batchIndex = 0;
         postJobIndex = 0;
         aggressionCandidates.Clear();
@@ -1550,10 +1822,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         splitPostJobs = false;
         searchTicket = default;
         pathMovementTicket = default;
+        smoothMovementTicket = default;
         searchScheduleStartedAt = 0L;
         searchScheduleCompletedAt = 0L;
         pathMovementScheduleStartedAt = 0L;
         pathMovementScheduleCompletedAt = 0L;
+        smoothMovementScheduleStartedAt = 0L;
+        smoothMovementScheduleCompletedAt = 0L;
     }
 
     private static int FindEnemySearchJobIndex(List<Job<Actor>> jobs)
@@ -1659,6 +1934,45 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             result.WallSeconds,
             backgroundSeconds,
             actorsChecked);
+    }
+
+    private void RecordSmoothMovementBenchmark(
+        SimulationWorkerPool.WorkResult result)
+    {
+        if (!SimulationTickBenchmark.IsCapturing)
+        {
+            return;
+        }
+
+        int actorsHandled = 0;
+        for (int i = 0; i < batches.Count; i++)
+        {
+            SmoothMovementBatchWork work =
+                smoothMovementWorkItems[i];
+            actorsHandled +=
+                work.Checked -
+                work.SerialCount;
+        }
+
+        long mainThreadOverlap =
+            CalculateOverlap(
+                result.StartedAt,
+                result.CompletedAt,
+                smoothMovementScheduleStartedAt,
+                smoothMovementScheduleCompletedAt) +
+            Math.Min(
+                result.WallTicks,
+                result.MainWaitTicks);
+        double backgroundSeconds = Math.Max(
+            0L,
+            result.WallTicks - mainThreadOverlap) /
+            (double)Stopwatch.Frequency;
+        SimulationTickBenchmark.RecordActorBackgroundMetric(
+            "u10_checkSmoothMovement.parallel",
+            "vanilla.actors.post.u10.background",
+            result.WallSeconds,
+            backgroundSeconds,
+            actorsHandled);
     }
 
     private static long CalculateOverlap(
@@ -1831,6 +2145,106 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             Checked = 0;
             Fallback = false;
             Skipped = false;
+        }
+    }
+
+    private sealed class SmoothMovementBatchWork
+    {
+        internal Job<Actor> Job { get; private set; }
+        internal Actor[] Actors { get; private set; }
+        internal int Count { get; private set; }
+        internal int Checked { get; private set; }
+        internal int SerialCount { get; private set; }
+        internal bool Skipped { get; private set; }
+        internal float Elapsed { get; private set; }
+        internal bool[] RequiresSerial { get; private set; } =
+            Array.Empty<bool>();
+
+        internal void Configure(
+            BatchActors batch,
+            Job<Actor> job,
+            Actor[] actors,
+            int count,
+            float elapsed)
+        {
+            Job = job;
+            Actors = actors;
+            Count = count;
+            Checked = 0;
+            SerialCount = 0;
+            Skipped = false;
+            Elapsed = elapsed;
+            if (RequiresSerial.Length < count)
+            {
+                RequiresSerial =
+                    new bool[
+                        Math.Max(
+                            PerformanceSettings.SimulationBatchSize,
+                            count)];
+            }
+        }
+
+        internal void ConfigureSkipped(
+            BatchActors batch,
+            Job<Actor> job)
+        {
+            Job = job;
+            Actors = null;
+            Count = 0;
+            Checked = 0;
+            SerialCount = 0;
+            Skipped = true;
+            Elapsed = 0f;
+        }
+
+        internal void RunParallel()
+        {
+            if (Skipped ||
+                Count == 0)
+            {
+                return;
+            }
+
+            int serialCount = 0;
+            for (int i = 0; i < Count; i++)
+            {
+                bool requiresSerial =
+                    PatchAboutPathfinding
+                        .TryRunParallelSafeSmoothMovement(
+                            Actors[i],
+                            Elapsed) ==
+                    PatchAboutPathfinding
+                        .ParallelSmoothMovementResult
+                        .RequiresSerial;
+                RequiresSerial[i] =
+                    requiresSerial;
+                if (requiresSerial)
+                {
+                    serialCount++;
+                }
+            }
+
+            Checked = Count;
+            SerialCount = serialCount;
+        }
+
+        internal void Reset()
+        {
+            if (Count > 0)
+            {
+                Array.Clear(
+                    RequiresSerial,
+                    0,
+                    Count);
+            }
+
+            Job = null;
+            Actors = null;
+            Count = 0;
+            Checked = 0;
+            SerialCount = 0;
+            Skipped = false;
+            Elapsed = 0f;
         }
     }
 

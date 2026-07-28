@@ -163,6 +163,12 @@ namespace Cultiway.Patch
             RequiresSerial
         }
 
+        internal enum ParallelSmoothMovementResult
+        {
+            Handled,
+            RequiresSerial
+        }
+
         internal readonly struct PreparedPathMovement
         {
             internal PreparedPathMovement(bool vanilla)
@@ -246,6 +252,111 @@ namespace Cultiway.Patch
                 ref cursor,
                 handleNoRequest: true);
             return true;
+        }
+
+        /// <summary>
+        /// u10 worker 只推进不会越过路径节点的线性位移。
+        /// 节点切换、路径副作用和目标位置重校准仍按原顺序串行执行。
+        /// </summary>
+        internal static ParallelSmoothMovementResult
+            TryRunParallelSafeSmoothMovement(
+                Actor actor,
+                float elapsed)
+        {
+            if (actor._update_done ||
+                actor.is_immovable)
+            {
+                return ParallelSmoothMovementResult.Handled;
+            }
+
+            if (!Config.time_scale_asset.sonic &&
+                RequiresSerialCalibration(actor))
+            {
+                return ParallelSmoothMovementResult.RequiresSerial;
+            }
+
+            Vector2 current = actor.current_position;
+            Vector2 target = actor.next_step_position;
+            float movementDelta =
+                actor._current_combined_movement_speed *
+                elapsed;
+            if (movementDelta < 0f)
+            {
+                movementDelta = 0f;
+            }
+
+            float dx = target.x - current.x;
+            float dy = target.y - current.y;
+            float distanceSquared =
+                dx * dx + dy * dy;
+            float movementSquared =
+                movementDelta * movementDelta;
+            if (!(distanceSquared >= movementSquared))
+            {
+                return ParallelSmoothMovementResult.RequiresSerial;
+            }
+
+            if (actor.asset.can_flip &&
+                actor.checkFlip())
+            {
+                actor.setFlip(current.x < target.x);
+            }
+
+            if (movementDelta > 0f &&
+                distanceSquared > 0f)
+            {
+                float scale =
+                    movementDelta /
+                    Mathf.Sqrt(distanceSquared);
+                actor.current_position = new Vector2(
+                    current.x + dx * scale,
+                    current.y + dy * scale);
+            }
+
+            return ParallelSmoothMovementResult.Handled;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool RequiresSerialCalibration(
+            Actor actor)
+        {
+            BaseSimObject target =
+                actor.beh_actor_target;
+            if (target == null ||
+                actor.hasRangeAttack())
+            {
+                return false;
+            }
+
+            ai.behaviours.BehaviourActionActor action =
+                actor.hasTask()
+                    ? actor.ai.action
+                    : null;
+            if (action == null ||
+                !action.calibrate_target_position ||
+                !target.isActor())
+            {
+                return false;
+            }
+
+            WorldTile targetTile =
+                target.a?.current_tile;
+            WorldTile tileTarget =
+                actor.tile_target;
+            if (targetTile == null ||
+                tileTarget == null)
+            {
+                return false;
+            }
+
+            float dx =
+                targetTile.x - tileTarget.x;
+            float dy =
+                targetTile.y - tileTarget.y;
+            float maximumDistance =
+                action.check_actor_target_position_distance;
+            return dx * dx + dy * dy >
+                   maximumDistance * maximumDistance;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
