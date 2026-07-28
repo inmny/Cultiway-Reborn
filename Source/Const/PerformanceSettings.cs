@@ -16,7 +16,9 @@ public static class PerformanceSettings
     public const float MinimumSliceMilliseconds = 0.15f;
     public const float BackgroundJoinMilliseconds = 0.2f;
     public const float StarvationSliceMilliseconds = 0.5f;
-    public const int StarvationFrameInterval = 8;
+    // 即使渲染本身已经超过目标帧时长，也必须每帧推进一个安全切片；
+    // 否则高负载世界会在零预算状态下永久停在同一逻辑阶段。
+    public const int StarvationFrameInterval = 1;
     public const int SimulationBatchSize = 64;
     public const float FixedSimulationStepSeconds = 0.02f;
     public const float BaseSimulationTicksPerSecond = 1f / FixedSimulationStepSeconds;

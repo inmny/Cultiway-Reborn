@@ -136,10 +136,11 @@ namespace Cultiway
                     logicScheduler.Active;
                 if (initializationPending)
                 {
-                    if (!simulationRunner.Active)
+                    if (!PerformanceSettings.EnableFramePriorityScheduler &&
+                        !simulationRunner.Active)
                     {
                         var initializationTick = new UpdateTick(0f, SimulationTime.NowFloat);
-                        logicScheduler.RunFrame(initializationTick, true);
+                        logicScheduler.RunInitializationFrame(initializationTick);
                     }
                 }
                 else if (runnerControlsLogic)
@@ -169,8 +170,33 @@ namespace Cultiway
                         diagnostics.Append("[FramePriority] ")
                             .Append(FramePriorityGovernor.GetDiagnostics())
                             .AppendLine()
+                            .Append("  [CultiwayLogicScheduler] ")
+                            .Append(logicScheduler.GetDiagnostics())
+                            .AppendLine()
                             .Append("  [SimulationWorkerPool] ")
-                            .Append(SimulationWorkerPool.Instance.GetDiagnostics());
+                            .Append(SimulationWorkerPool.Instance.GetDiagnostics())
+                            .AppendLine()
+                            .Append("  [SimulationCoordinator] ")
+                            .Append(SimulationCoordinatorThread.Instance.GetDiagnostics())
+                            .AppendLine()
+                            .Append("  [ActorPresentationOverlap] ")
+                            .Append(simulationRunner.GetPresentationOverlapDiagnostics())
+                            .AppendLine()
+                            .Append("  [BuildingPresentationOverlap] ")
+                            .Append(simulationRunner
+                                .GetBuildingPresentationOverlapDiagnostics())
+                            .AppendLine()
+                            .Append("  [PresentationCommands] ")
+                            .Append(PresentationCommandQueue.GetDiagnostics())
+                            .AppendLine()
+                            .Append("  [ActorPresentationSnapshots] ")
+                            .Append(ActorPresentationSnapshots.GetDiagnostics())
+                            .AppendLine()
+                            .Append("  [ActorPresentationRenderer] ")
+                            .Append(ActorPresentationRenderer.GetDiagnostics())
+                            .AppendLine()
+                            .Append("  [WorldObjectPresentationRenderer] ")
+                            .Append(WorldObjectPresentationRenderer.GetDiagnostics());
                         SimulationTickBenchmark.AppendReport(diagnostics);
                         LogInfo(diagnostics.ToString());
                     }
@@ -179,7 +205,9 @@ namespace Cultiway
             catch (Exception e)
             {
                 LogError(SystemUtils.GetFullExceptionMessage(e));
+                CooperativeSimulationRunner.Instance.Abort();
                 logicScheduler.Abort();
+                PresentationCommandQueue.Clear();
                 FramePriorityGovernor.MarkFault(e);
                 Game.Pause();
             }
@@ -347,12 +375,16 @@ namespace Cultiway
         [Hotfixable]
         public void Reload()
         {
+            CooperativeSimulationRunner.Instance.Abort();
+            logicScheduler.Abort();
+            PresentationCommandQueue.Clear();
             LoadLocales();
             typeof(ResourcesPatch).GetMethod("LoadResourceFromFolder", BindingFlags.Static | BindingFlags.NonPublic)
                 ?.Invoke(null,
                     new object[] { Path.Combine(GetDeclaration().FolderPath, "GameResources") });
             _content.OnReload();
-            if (SystemUtils.IsUnderDeveloper())
+            if (SystemUtils.IsUnderDeveloper() &&
+                !PerformanceBenchmarkRunner.IsAutomationRequested)
             {
                 ArtifactAppearanceRuntimePreviewExporter.Install(gameObject, GetDeclaration().FolderPath);
             }
@@ -513,7 +545,12 @@ namespace Cultiway
                 GeneralLogicSystems.SetMonitorPerf(true);
                 GeneralRenderSystems.SetMonitorPerf(true);
                 Geo.SetMonitorPerf(true);
-                ArtifactAppearanceRuntimePreviewExporter.Install(gameObject, GetDeclaration().FolderPath);
+                if (!PerformanceBenchmarkRunner.IsAutomationRequested)
+                {
+                    ArtifactAppearanceRuntimePreviewExporter.Install(
+                        gameObject,
+                        GetDeclaration().FolderPath);
+                }
             }
             PerformanceBenchmarkRunner.Install(gameObject);
             PathFinder.Instance.UseGenerator(new PortalAwarePathGenerator(PortalRegistry.Instance, new PathfindingConfig()));
@@ -526,6 +563,10 @@ namespace Cultiway
 
         private void OnApplicationQuit()
         {
+            // Unity 开始销毁世界对象前，先确保后台任务不再持有本轮世界数据。
+            CooperativeSimulationRunner.Instance.Abort();
+            logicScheduler.Abort();
+            PresentationCommandQueue.Clear();
             PersistentLogger.Save();
             CultiLog.Shutdown();
         }

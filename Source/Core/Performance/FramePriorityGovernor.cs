@@ -31,6 +31,7 @@ internal static class FramePriorityGovernor
     private static double vanillaCpuMilliseconds;
     private static double cultiwayCpuMilliseconds;
     private static double lastFrameDeltaMilliseconds;
+    private static double lastFrameSimulationMilliseconds;
     private static double frameBudgetMilliseconds;
     private static int lastVanillaRunFrame = -PerformanceSettings.StarvationFrameInterval;
     private static int lastCultiwayRunFrame = -PerformanceSettings.StarvationFrameInterval;
@@ -223,7 +224,7 @@ internal static class FramePriorityGovernor
         CooperativeSimulationRunner runner = CooperativeSimulationRunner.Instance;
         return string.Format(
             CultureInfo.InvariantCulture,
-            "target={0:0.#}fps budget={1:0.00}ms baselineP90={2:0.00}ms sim={3:0.00}ms(vanilla={4:0.00},cultiway={5:0.00}) phase={6}/{7} cycles={8}/{9} speed={10:0.#}x/{11:0.00}x credits={12:0.0} ticks={13}/{14} longest={15}:{16:0.00}ms workers={17}/{18}/{19}(total/fg/path) world={20}:{21}@{22:0.00} mode={23}",
+            "target={0:0.#}fps budget={1:0.00}ms baselineP90={2:0.00}ms sim={3:0.00}ms(vanilla={4:0.00},cultiway={5:0.00}) phase={6}/{7} cycles={8}/{9} speed={10:0.#}x/{11:0.00}x credits={12:0.0} admit={24} ticks={13}/{14} longest={15}:{16:0.00}ms workers={17}/{18}/{19}(total/fg/path) world={20}:{21}@{22:0.00} mode={23} fault={25}",
             PerformanceSettings.TargetRenderFps,
             frameBudgetMilliseconds,
             baselineP90,
@@ -247,7 +248,9 @@ internal static class FramePriorityGovernor
             SimulationTime.BoundWorldSeedId,
             SimulationTime.Generation,
             SimulationTime.DiagnosticTime,
-            runner.AdmissionMode);
+            runner.AdmissionMode,
+            runner.AdmissionBlockReason,
+            faulted ? faultMessage : "none");
     }
 
     private static void FinalizePreviousFrame()
@@ -262,13 +265,22 @@ internal static class FramePriorityGovernor
         }
 
         lastFrameDeltaMilliseconds = Time.unscaledDeltaTime * 1000.0;
+        lastFrameSimulationMilliseconds = simulationCpuMilliseconds;
     }
 
     private static void RecalculateBudget()
     {
         double targetMilliseconds = 1000.0 / PerformanceSettings.TargetRenderFps;
         double rawBudget = targetMilliseconds - PerformanceSettings.RenderReserveMilliseconds - baselineP90;
-        double previousFrameOverrun = Math.Max(0.0, lastFrameDeltaMilliseconds - targetMilliseconds - 1.0);
+        // 只回收上一帧确实由模拟消耗的超时。渲染、加载或其他 Mod
+        // 造成的超时不能反过来永久饿死模拟。
+        double previousFrameOverrun = Math.Min(
+            lastFrameSimulationMilliseconds,
+            Math.Max(
+                0.0,
+                lastFrameDeltaMilliseconds -
+                targetMilliseconds -
+                1.0));
         rawBudget -= previousFrameOverrun;
         frameBudgetMilliseconds = Math.Max(
             0.0,

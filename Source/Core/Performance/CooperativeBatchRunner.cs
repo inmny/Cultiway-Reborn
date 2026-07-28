@@ -21,7 +21,9 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
     private readonly List<TBatch> batches = new();
     private readonly string phasePrefix;
     private readonly ICooperativeBatchPostRunner<TBatch, TObject> postRunner;
+    private readonly bool deferParallelToPresentation;
     private readonly Action<int> runCurrentParallelJob;
+    private readonly Action runParallelStageInBackground;
     private int[] activeParallelBatchIndices = Array.Empty<int>();
     private JobManagerBase<TBatch, TObject> manager;
     private RunnerStage stage;
@@ -33,28 +35,55 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
     private int parallelGroupSize;
     private bool collectJobBenchmarks;
     private bool useCustomPostRunner;
+    private bool parallelStageFinishedInBackground;
+    private SimulationCoordinatorThread.WorkTicket parallelStageTicket;
 
     public CooperativeBatchRunner(
         string phasePrefix,
-        ICooperativeBatchPostRunner<TBatch, TObject> postRunner = null)
+        ICooperativeBatchPostRunner<TBatch, TObject> postRunner = null,
+        bool deferParallelToPresentation = false)
     {
         this.phasePrefix = phasePrefix;
         this.postRunner = postRunner;
+        this.deferParallelToPresentation = deferParallelToPresentation;
         runCurrentParallelJob = RunCurrentParallelJob;
+        runParallelStageInBackground = RunParallelStageInBackground;
     }
 
     public bool Active => stage != RunnerStage.Idle;
     public bool WaitingForBackgroundWork =>
+        MutatingParallelWorkInFlight ||
         stage == RunnerStage.Post &&
         useCustomPostRunner &&
         postRunner.WaitingForBackgroundWork;
     public bool IsBackgroundWorkCompleted =>
-        WaitingForBackgroundWork &&
-        postRunner.IsBackgroundWorkCompleted;
+        MutatingParallelWorkInFlight
+            ? SimulationCoordinatorThread.Instance.IsCompleted(
+                parallelStageTicket)
+            : stage == RunnerStage.Post &&
+              useCustomPostRunner &&
+              postRunner.IsBackgroundWorkCompleted;
+    public bool WaitingForPresentationDispatch =>
+        deferParallelToPresentation &&
+        parallelEnabled &&
+        stage == RunnerStage.Parallel &&
+        !parallelStageTicket.IsValid &&
+        !parallelStageFinishedInBackground;
+    public bool MutatingParallelWorkInFlight =>
+        stage == RunnerStage.Parallel &&
+        parallelStageTicket.IsValid;
 
     public bool TryJoinBackgroundWork(double maximumMilliseconds)
     {
-        return !WaitingForBackgroundWork ||
+        if (MutatingParallelWorkInFlight)
+        {
+            return SimulationCoordinatorThread.Instance.TryWait(
+                parallelStageTicket,
+                maximumMilliseconds);
+        }
+
+        return stage != RunnerStage.Post ||
+               !useCustomPostRunner ||
                postRunner.TryJoinBackgroundWork(maximumMilliseconds);
     }
 
@@ -93,6 +122,8 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         batchIndex = 0;
         parallelJobIndex = 0;
         activeParallelBatchCount = 0;
+        parallelStageFinishedInBackground = false;
+        parallelStageTicket = default;
         stage = RunnerStage.Pre;
     }
 
@@ -101,6 +132,16 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         if (!Active)
         {
             return phasePrefix + ".idle";
+        }
+
+        if (MutatingParallelWorkInFlight)
+        {
+            return phasePrefix + ".parallel.presentation.await";
+        }
+
+        if (WaitingForPresentationDispatch)
+        {
+            return phasePrefix + ".parallel.presentation.dispatch";
         }
 
         if (stage == RunnerStage.Parallel)
@@ -185,6 +226,30 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
                     stage = RunnerStage.Parallel;
                     return false;
                 case RunnerStage.Parallel:
+                    if (parallelStageTicket.IsValid)
+                    {
+                        if (!SimulationCoordinatorThread.Instance.IsCompleted(
+                                parallelStageTicket))
+                        {
+                            return false;
+                        }
+
+                        CompleteParallelPresentationWork();
+                        continue;
+                    }
+
+                    if (parallelStageFinishedInBackground)
+                    {
+                        stage = RunnerStage.ApplyParallelResults;
+                        batchIndex = 0;
+                        continue;
+                    }
+
+                    if (deferParallelToPresentation && parallelEnabled)
+                    {
+                        return false;
+                    }
+
                     if (parallelEnabled
                             ? TryRunNextParallelJobGroup()
                             : TryRunNextParallelBatch())
@@ -229,6 +294,8 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
                     activeParallelBatchCount = 0;
                     collectJobBenchmarks = false;
                     useCustomPostRunner = false;
+                    parallelStageFinishedInBackground = false;
+                    parallelStageTicket = default;
                     stage = RunnerStage.Idle;
                     return true;
                 default:
@@ -239,6 +306,13 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
 
     public void Abort()
     {
+        if (parallelStageTicket.IsValid)
+        {
+            SimulationCoordinatorThread.Instance.WaitAndDiscard(
+                parallelStageTicket);
+            parallelStageTicket = default;
+        }
+
         batches.Clear();
         postRunner?.Abort();
         manager = null;
@@ -247,6 +321,7 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         activeParallelBatchCount = 0;
         collectJobBenchmarks = false;
         useCustomPostRunner = false;
+        parallelStageFinishedInBackground = false;
         stage = RunnerStage.Idle;
         batchIndex = 0;
         parallelJobIndex = 0;
@@ -254,9 +329,50 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
 
     public void WaitForBackgroundWork()
     {
-        if (WaitingForBackgroundWork)
+        if (MutatingParallelWorkInFlight)
+        {
+            SimulationCoordinatorThread.Instance.Wait(parallelStageTicket);
+        }
+        else if (stage == RunnerStage.Post &&
+                 useCustomPostRunner &&
+                 postRunner.WaitingForBackgroundWork)
         {
             postRunner.WaitForBackgroundWork();
+        }
+    }
+
+    public bool BeginParallelPresentationWork()
+    {
+        if (!WaitingForPresentationDispatch)
+        {
+            return false;
+        }
+
+        parallelStageTicket = SimulationCoordinatorThread.Instance.Begin(
+            phasePrefix + ".parallel.presentation",
+            runParallelStageInBackground);
+        return true;
+    }
+
+    public SimulationCoordinatorThread.WorkResult
+        CompleteParallelPresentationWork()
+    {
+        if (!parallelStageTicket.IsValid)
+        {
+            return default;
+        }
+
+        SimulationCoordinatorThread.WorkTicket ticket = parallelStageTicket;
+        SimulationCoordinatorThread.Instance.Wait(ticket);
+        try
+        {
+            SimulationCoordinatorThread.WorkResult result =
+                SimulationCoordinatorThread.Instance.Complete(ticket);
+            return result;
+        }
+        finally
+        {
+            parallelStageTicket = default;
         }
     }
 
@@ -375,6 +491,41 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         RunParallelJob(
             activeParallelBatchIndices[activeBatchIndex],
             parallelJobIndex);
+    }
+
+    private void RunParallelStageInBackground()
+    {
+        if (!TryRunNextParallelJobGroup())
+        {
+            parallelStageFinishedInBackground = true;
+            return;
+        }
+
+        // 每次表现窗口只执行一个 job 组。这样单次后台任务可以在下一帧
+        // 输入边界前完成，而不是把整个 parallel 阶段重新同步成一次长等待。
+        parallelStageFinishedInBackground =
+            !HasRemainingParallelJobGroups();
+    }
+
+    private bool HasRemainingParallelJobGroups()
+    {
+        int jobCount = batches.Count == 0
+            ? 0
+            : batches[0].jobs_parallel.Count;
+        int nextJobIndex = parallelJobIndex;
+        int nextBatchIndex = batchIndex;
+        while (nextJobIndex < jobCount)
+        {
+            if (nextBatchIndex < batches.Count)
+            {
+                return true;
+            }
+
+            nextJobIndex++;
+            nextBatchIndex = 0;
+        }
+
+        return false;
     }
 
     private static List<Job<TObject>> GetJobs(TBatch batch, RunnerStage jobStage)

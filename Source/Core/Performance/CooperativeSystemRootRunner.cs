@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -23,8 +24,29 @@ internal sealed class CooperativeSystemRootRunner
     private UpdateTick tick;
 
     public bool Active => stack.Count > 0;
+    public bool IsAtGroupCommitBoundary =>
+        stack.Count > 0 &&
+        stack.Peek().ChildIndex >= stack.Peek().Children.Length;
 
-    public void Start(SystemRoot root, UpdateTick updateTick)
+    public string GetDiagnostics()
+    {
+        if (stack.Count == 0)
+        {
+            return "depth=0";
+        }
+
+        GroupFrame frame = stack.Peek();
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "depth={0} group={1} child={2}/{3} commit={4}",
+            stack.Count,
+            frame.Group.Name,
+            frame.ChildIndex,
+            frame.Children.Length,
+            IsAtGroupCommitBoundary);
+    }
+
+    public void Start(SystemGroup root, UpdateTick updateTick)
     {
         Abort();
         tick = updateTick;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Performance;
 using Cultiway.Utils;
@@ -58,10 +59,22 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private bool _quitOnComplete;
     private bool _configured;
     private bool _initialUnitsSpawned;
+    private bool _presentationScenePrepared;
+    private bool _presentationStressEnabled;
     private int _initialHumansProcessed;
+    private Actor _cameraAnchor;
+    private Actor _presentationTarget;
+    private Building _presentationBuilding;
+    private ResourceAsset _presentationThrowResource;
+    private WorldTile _presentationFireTile;
     private float _stateElapsed;
     private float _runElapsed;
     private float _logElapsed;
+    private float _presentationStressElapsed;
+    private int _presentationProjectileCount;
+    private int _presentationThrowCount;
+    private int _presentationMissingBuildingCount;
+    private int _presentationMissingResourceSpriteCount;
     private double _frameTimeSumMs;
     private float _frameTimeMaxMs;
     private int _framesOver33Ms;
@@ -69,6 +82,10 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private int _framesOver100Ms;
     private readonly HashSet<string> _reportedInvalidHandRenderers = new();
     private float _handRendererScanElapsed;
+
+    internal static bool IsAutomationRequested =>
+        !string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable("CULTIWAY_PERF_AUTO"));
 
     public static void Install(GameObject host)
     {
@@ -90,6 +107,10 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private void Configure(string mode)
     {
         _mode = mode.Trim();
+        _presentationStressEnabled =
+            _mode.IndexOf(
+                "presentation_snapshot",
+                StringComparison.OrdinalIgnoreCase) >= 0;
         _mapSize = GetEnvString("CULTIWAY_PERF_MAP_SIZE", MapSizeLibrary.iceberg);
         _mapTemplate = GetEnvString("CULTIWAY_PERF_MAP_TEMPLATE", Config.current_map_template);
         _speedId = GetEnvString("CULTIWAY_PERF_SPEED", "x40");
@@ -100,10 +121,20 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         _logIntervalSeconds = Math.Max(5f, GetEnvFloat("CULTIWAY_PERF_LOG_INTERVAL", 30f));
         _createWorld = GetEnvBool("CULTIWAY_PERF_CREATE_WORLD", true);
         _quitOnComplete = GetEnvBool("CULTIWAY_PERF_QUIT_ON_DONE", false);
+        PerformanceSettings.SetTargetRenderFps(
+            GetEnvFloat("CULTIWAY_PERF_TARGET_FPS", PerformanceSettings.TargetRenderFps));
+        PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(
+            GetEnvFloat(
+                "CULTIWAY_PERF_MAX_SIMULATION_MS",
+                PerformanceSettings.MaxSimulationMillisecondsPerFrame));
+        PerformanceSettings.SwitchPresentationSmoothing(
+            GetEnvBool(
+                "CULTIWAY_PERF_PRESENTATION_SMOOTHING",
+                PerformanceSettings.EnablePresentationSmoothing));
         _configured = true;
 
         ModClass.LogInfo(
-            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s aiBench={SystemUtils.IsUnderDeveloper()}");
+            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s targetFps={PerformanceSettings.TargetRenderFps:0.#} maxSimulation={PerformanceSettings.MaxSimulationMillisecondsPerFrame:0.#}ms smoothing={PerformanceSettings.EnablePresentationSmoothing} aiBench={SystemUtils.IsUnderDeveloper()}");
     }
 
     private void Update()
@@ -120,6 +151,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         {
             RecordFrame(delta);
             ScanInvalidHandRenderers(delta);
+            UpdatePresentationStress(delta);
         }
 
         try
@@ -168,7 +200,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         Bench.bench_enabled = false;
         DebugConfig.setOption(DebugOption.BenchAiEnabled, false);
         Bench.bench_ai_enabled = false;
-        Config.paused = false;
+        EnsureSimulationRunning();
 
         if (_createWorld)
         {
@@ -206,8 +238,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             return;
         }
 
-        Config.paused = false;
-        Config.setWorldSpeed(_speedId);
+        EnsureSimulationRunning();
 
         if (!_initialUnitsSpawned && _initialHumans > 0)
         {
@@ -224,6 +255,8 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
                 $"{Prefix} 初始人类投放完成 requested={_initialHumans} units={CountUnits()} cities={CountCities()} lastBatchSpawned={spawned}");
         }
 
+        PreparePresentationScene();
+
         if (_startMeasureUnits > 0 && CountUnits() < _startMeasureUnits)
         {
             ResetFrameStats();
@@ -236,8 +269,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
     private void UpdateWarmingUp(float delta)
     {
-        Config.paused = false;
-        Config.setWorldSpeed(_speedId);
+        EnsureSimulationRunning();
         _runElapsed += delta;
         _logElapsed += delta;
 
@@ -275,8 +307,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
     private void UpdateMeasuring(float delta)
     {
-        Config.paused = false;
-        Config.setWorldSpeed(_speedId);
+        EnsureSimulationRunning();
         _runElapsed += delta;
         _logElapsed += delta;
 
@@ -308,6 +339,19 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         ResetFrameStats();
     }
 
+    private void EnsureSimulationRunning()
+    {
+        if (ScrollWindow.isWindowActive())
+        {
+            // 批处理启动时可能保留加载页或模组窗口。MapBox 会把窗口状态计入暂停，
+            // 因此仅设置 Config.paused=false 并不足以启动自动化模拟。
+            ScrollWindow.moveAllToRightAndRemove(false);
+        }
+
+        Config.paused = false;
+        Config.setWorldSpeed(_speedId);
+    }
+
     private void LogMeasurement(string phase)
     {
         var frameStats = SnapshotFrameStats();
@@ -333,7 +377,43 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         AppendBenchSummary(sb, "main", "game_total", "main", 8);
         AppendBenchSummary(sb, "game_total", "game_total", "main", 12, DefaultGameTotalEntries);
         sb.Append("  scheduler ").Append(FramePriorityGovernor.GetDiagnostics()).AppendLine();
+        sb.Append("  initialization_gate ")
+            .Append(global::Cultiway.Patch.PatchFramePriorityScheduler.GetInitializationDiagnostics())
+            .AppendLine();
+        sb.Append("  cultiway_scheduler ").Append(ModClass.I.LogicScheduler.GetDiagnostics()).AppendLine();
         sb.Append("  worker_pool ").Append(SimulationWorkerPool.Instance.GetDiagnostics()).AppendLine();
+        sb.Append("  simulation_coordinator ")
+            .Append(SimulationCoordinatorThread.Instance.GetDiagnostics())
+            .AppendLine();
+        sb.Append("  actor_presentation_overlap ")
+            .Append(CooperativeSimulationRunner.Instance
+                .GetPresentationOverlapDiagnostics())
+            .AppendLine();
+        sb.Append("  building_presentation_overlap ")
+            .Append(CooperativeSimulationRunner.Instance
+                .GetBuildingPresentationOverlapDiagnostics())
+            .AppendLine();
+        sb.Append("  presentation_commands ")
+            .Append(PresentationCommandQueue.GetDiagnostics())
+            .AppendLine();
+        sb.Append("  actor_snapshots ").Append(ActorPresentationSnapshots.GetDiagnostics()).AppendLine();
+        sb.Append("  actor_presentation ").Append(ActorPresentationRenderer.GetDiagnostics()).AppendLine();
+        sb.Append("  world_object_presentation ")
+            .Append(WorldObjectPresentationRenderer.GetDiagnostics())
+            .AppendLine();
+        if (_presentationStressEnabled)
+        {
+            sb.Append("  presentation_stress projectiles_spawned=")
+                .Append(_presentationProjectileCount)
+                .Append(" throws_spawned=")
+                .Append(_presentationThrowCount)
+                .Append(" missing_building=")
+                .Append(_presentationMissingBuildingCount)
+                .Append(" missing_resource_sprite=")
+                .Append(_presentationMissingResourceSpriteCount)
+                .AppendLine();
+        }
+
         SimulationTickBenchmark.AppendReport(sb, 12, 10);
         ModClass.LogInfo(sb.ToString());
     }
@@ -466,11 +546,230 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
                 pSpawnHeight: 0f, pSubspecies: null, pGiveOwnerlessItems: false, pAdultAge: true);
             if (actor != null)
             {
+                _cameraAnchor ??= actor;
                 spawned++;
             }
         }
 
         return spawned;
+    }
+
+    private void PreparePresentationScene()
+    {
+        if (_presentationScenePrepared ||
+            _cameraAnchor?.data == null ||
+            !_cameraAnchor.exists)
+        {
+            return;
+        }
+
+        World.world.move_camera.focusOn(_cameraAnchor.current_position);
+        World.world.move_camera.forceZoom(20f);
+        World.world.zone_camera.fullClear();
+        SelectedUnit.clear();
+        SelectedUnit.select(_cameraAnchor);
+        if (_presentationStressEnabled)
+        {
+            _cameraAnchor.addStatusEffect("shield", 30f);
+            _presentationFireTile =
+                FindPresentationFireTile(_cameraAnchor.current_tile);
+            _presentationFireTile?.setFireData(true);
+            FindPresentationResource();
+            FindPresentationTargets();
+        }
+
+        _presentationScenePrepared = true;
+        ModClass.LogInfo(
+            $"{Prefix} 表现测试场景已就绪 actor={_cameraAnchor.data.id} position={_cameraAnchor.current_position} stress={_presentationStressEnabled}");
+    }
+
+    private void UpdatePresentationStress(float delta)
+    {
+        if (!_presentationStressEnabled ||
+            _cameraAnchor?.data == null ||
+            !_cameraAnchor.exists ||
+            !_cameraAnchor.isAlive() ||
+            ActorPresentationSnapshots.Current == null)
+        {
+            return;
+        }
+
+        _presentationStressElapsed += delta;
+        if (_presentationStressElapsed < 0.2f)
+        {
+            return;
+        }
+
+        _presentationStressElapsed = 0f;
+        _cameraAnchor.addStatusEffect("shield", 30f);
+        if (_presentationFireTile != null &&
+            !_presentationFireTile.isOnFire())
+        {
+            _presentationFireTile.setFireData(true);
+        }
+
+        if (_presentationTarget?.data == null ||
+            !_presentationTarget.exists ||
+            !_presentationTarget.isAlive())
+        {
+            FindPresentationTargets();
+        }
+
+        if (_presentationTarget != null)
+        {
+            Vector3 start = _cameraAnchor.current_position;
+            Vector3 end = _presentationTarget.current_position;
+            start.y += _cameraAnchor.getHeight();
+            end.y += _presentationTarget.getHeight();
+            if (World.world.projectiles.spawn(
+                    _cameraAnchor,
+                    _presentationTarget,
+                    "arrow",
+                    start,
+                    end,
+                    _presentationTarget.getHeight(),
+                    _cameraAnchor.getHeight()) != null)
+            {
+                _presentationProjectileCount++;
+            }
+        }
+
+        if (_presentationBuilding?.data == null ||
+            !_presentationBuilding.exists ||
+            !_presentationBuilding.isAlive())
+        {
+            FindPresentationTargets();
+        }
+
+        if (_presentationBuilding == null)
+        {
+            _presentationMissingBuildingCount++;
+            return;
+        }
+
+        if (_presentationThrowResource?.getGameplaySprite() == null)
+        {
+            FindPresentationResource();
+        }
+
+        if (_presentationThrowResource?.getGameplaySprite() == null)
+        {
+            _presentationMissingResourceSpriteCount++;
+            return;
+        }
+
+        _presentationBuilding.addStatusEffect("shield", 30f);
+        World.world.resource_throw_manager.addNew(
+            _cameraAnchor.current_position,
+            _presentationBuilding.current_position,
+            4f,
+            _presentationThrowResource.id,
+            1,
+            2f,
+            _presentationBuilding);
+        _presentationThrowCount++;
+    }
+
+    private void FindPresentationTargets()
+    {
+        _presentationTarget = null;
+        List<Actor> actors = World.world.units.getSimpleList();
+        for (int i = 0; i < actors.Count; i++)
+        {
+            Actor actor = actors[i];
+            if (ReferenceEquals(actor, _cameraAnchor) ||
+                actor?.data == null ||
+                !actor.exists ||
+                !actor.isAlive())
+            {
+                continue;
+            }
+
+            _presentationTarget = actor;
+            break;
+        }
+
+        _presentationBuilding = null;
+        BuildingManager buildingManager = World.world.buildings;
+        buildingManager.checkContainer();
+        List<Building> buildings = buildingManager.getSimpleList();
+        for (int i = 0; i < buildings.Count; i++)
+        {
+            Building building = buildings[i];
+            if (building?.data == null ||
+                !building.exists ||
+                !building.isAlive())
+            {
+                continue;
+            }
+
+            _presentationBuilding = building;
+            break;
+        }
+
+        if (_presentationBuilding != null)
+        {
+            return;
+        }
+
+        ActorPresentationSnapshot snapshot =
+            ActorPresentationSnapshots.Current;
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < snapshot.BuildingCount; i++)
+        {
+            Building building = buildingManager.get(
+                snapshot.GetBuildingAt(i).BuildingId);
+            if (building?.data == null ||
+                !building.exists ||
+                !building.isAlive())
+            {
+                continue;
+            }
+
+            _presentationBuilding = building;
+            break;
+        }
+    }
+
+    private void FindPresentationResource()
+    {
+        _presentationThrowResource = null;
+        foreach (ResourceAsset resource in AssetManager.resources.list)
+        {
+            if (resource?.gameplay_sprites == null ||
+                resource.gameplay_sprites.Length == 0 ||
+                resource.gameplay_sprites[0] == null)
+            {
+                continue;
+            }
+
+            _presentationThrowResource = resource;
+            return;
+        }
+    }
+
+    private static WorldTile FindPresentationFireTile(WorldTile anchor)
+    {
+        WorldTile[] tiles = anchor?.zone?.tiles;
+        if (tiles == null)
+        {
+            return anchor;
+        }
+
+        for (int i = 0; i < tiles.Length; i++)
+        {
+            WorldTile tile = tiles[i];
+            if (tile?.Type?.ocean == false)
+            {
+                return tile;
+            }
+        }
+
+        return anchor;
     }
 
     private static WorldTile FindSpawnTile(TileZone zone)

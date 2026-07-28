@@ -129,6 +129,6 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
 
     public bool IsLoaded()
     {
-        return Config.LOAD_TIME_GENERATE > 0;
+        return Config.game_loaded && World.world != null;
     }
 }
