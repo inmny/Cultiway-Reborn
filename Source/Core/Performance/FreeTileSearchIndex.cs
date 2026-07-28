@@ -24,7 +24,6 @@ internal static class FreeTileSearchIndex
     private static MapChunk[] queryChunkBuffer;
 
     private static int indexedGeneration = -1;
-    private static long indexedSimulationTimeBits;
     private static bool indexAvailable;
 
     private static long queries;
@@ -54,7 +53,7 @@ internal static class FreeTileSearchIndex
             return false;
         }
 
-        EnsureCurrentTick();
+        EnsureCurrentWorld();
         MapChunk[] chunks =
             queryChunkBuffer ??= new MapChunk[9];
         chunks[0] = origin.chunk;
@@ -133,25 +132,19 @@ internal static class FreeTileSearchIndex
     {
         RecycleCache();
         indexedGeneration = -1;
-        indexedSimulationTimeBits = 0L;
         indexAvailable = false;
     }
 
-    private static void EnsureCurrentTick()
+    private static void EnsureCurrentWorld()
     {
-        long simulationTimeBits =
-            BitConverter.DoubleToInt64Bits(
-                SimulationTime.DiagnosticTime);
         if (indexAvailable &&
-            indexedGeneration == SimulationTime.Generation &&
-            indexedSimulationTimeBits == simulationTimeBits)
+            indexedGeneration == SimulationTime.Generation)
         {
             return;
         }
 
         RecycleCache();
         indexedGeneration = SimulationTime.Generation;
-        indexedSimulationTimeBits = simulationTimeBits;
         indexAvailable = true;
     }
 
