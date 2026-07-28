@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Threading;
+using Cultiway.Const;
 using UnityEngine;
 
 namespace Cultiway.Core.Performance;
@@ -264,6 +265,7 @@ internal sealed class ActorPresentationSnapshot
         Array.Empty<ProjectilePresentationSample>();
     private ResourceThrowPresentationSample[] resourceThrows =
         Array.Empty<ResourceThrowPresentationSample>();
+    private bool[] presentSamples = Array.Empty<bool>();
     private readonly Dictionary<long, int> indexes = new(4096);
     private int statusCount;
     private int statusFrameCount;
@@ -280,6 +282,7 @@ internal sealed class ActorPresentationSnapshot
     internal long TickSequence { get; private set; }
     internal double SimulationTimeValue { get; private set; }
     internal long CapturedAt { get; private set; }
+    internal long StatusCapturedAt { get; private set; }
     internal int Count { get; private set; }
     internal int StatusCount => statusCount;
     internal int StatusFrameCount => statusFrameCount;
@@ -625,6 +628,76 @@ internal sealed class ActorPresentationSnapshot
         TickSequence = tickSequence;
         SimulationTimeValue = SimulationTime.DiagnosticTime;
         CapturedAt = Stopwatch.GetTimestamp();
+        StatusCapturedAt = CapturedAt;
+        Count = capturedCount;
+    }
+
+    internal void CaptureDynamic(
+        MapBox world,
+        long tickSequence,
+        ActorPresentationSnapshot source)
+    {
+        if (world?.units == null ||
+            source == null ||
+            source.WorldGeneration != SimulationTime.Generation)
+        {
+            throw new InvalidOperationException(
+                "无法从无效的基础快照采集角色动态表现");
+        }
+
+        CopyStableDataFrom(source);
+        world.units.checkContainer();
+        world.units.prepareArray();
+        Actor[] actors = world.units.getSimpleArray();
+        int actorCount = world.units.Count;
+        EnsurePresentSampleCapacity(source.Count);
+        Array.Clear(presentSamples, 0, source.Count);
+
+        for (int i = 0; i < actorCount; i++)
+        {
+            Actor actor = actors[i];
+            if (actor?.data == null ||
+                !actor.exists ||
+                !source.indexes.TryGetValue(
+                    actor.data.id,
+                    out int sampleIndex))
+            {
+                continue;
+            }
+
+            presentSamples[sampleIndex] = true;
+            UpdateDynamicSample(
+                ref samples[sampleIndex],
+                actor);
+        }
+
+        indexes.Clear();
+        int capturedCount = 0;
+        for (int i = 0; i < source.Count; i++)
+        {
+            if (!presentSamples[i])
+            {
+                continue;
+            }
+
+            ActorPresentationSample sample = samples[i];
+            samples[capturedCount] = sample;
+            indexes[sample.Handle.ActorId] = capturedCount;
+            capturedCount++;
+        }
+
+        projectileCount = 0;
+        resourceThrowCount = 0;
+        worldLightCount = 0;
+        fireCount = 0;
+        CaptureProjectiles(world);
+        CaptureResourceThrows(world);
+        CaptureWorldLights(world);
+        WorldGeneration = SimulationTime.Generation;
+        TickSequence = tickSequence;
+        SimulationTimeValue = SimulationTime.DiagnosticTime;
+        CapturedAt = Stopwatch.GetTimestamp();
+        StatusCapturedAt = source.StatusCapturedAt;
         Count = capturedCount;
     }
 
@@ -767,6 +840,7 @@ internal sealed class ActorPresentationSnapshot
         TickSequence = 0;
         SimulationTimeValue = 0.0;
         CapturedAt = 0L;
+        StatusCapturedAt = 0L;
         Count = 0;
         statusCount = 0;
         statusFrameCount = 0;
@@ -778,6 +852,121 @@ internal sealed class ActorPresentationSnapshot
         fireCount = 0;
         projectileCount = 0;
         resourceThrowCount = 0;
+    }
+
+    private void CopyStableDataFrom(
+        ActorPresentationSnapshot source)
+    {
+        EnsureCapacity(source.Count);
+        Array.Copy(source.samples, samples, source.Count);
+
+        statusCount = source.statusCount;
+        EnsureStatusCapacity(statusCount);
+        Array.Copy(source.statuses, statuses, statusCount);
+
+        statusFrameCount = source.statusFrameCount;
+        EnsureStatusFrameCapacity(statusFrameCount);
+        Array.Copy(
+            source.statusFrames,
+            statusFrames,
+            statusFrameCount);
+
+        lightCount = source.lightCount;
+        EnsureLightCapacity(lightCount);
+        Array.Copy(source.lights, lights, lightCount);
+
+        buildingCount = source.buildingCount;
+        EnsureBuildingCapacity(buildingCount);
+        Array.Copy(source.buildings, buildings, buildingCount);
+
+        stockpileResourceCount = source.stockpileResourceCount;
+        EnsureStockpileResourceCapacity(stockpileResourceCount);
+        Array.Copy(
+            source.stockpileResources,
+            stockpileResources,
+            stockpileResourceCount);
+
+        buildingLightCount = source.buildingLightCount;
+        EnsureBuildingLightCapacity(buildingLightCount);
+        Array.Copy(
+            source.buildingLights,
+            buildingLights,
+            buildingLightCount);
+    }
+
+    private static void UpdateDynamicSample(
+        ref ActorPresentationSample sample,
+        Actor actor)
+    {
+        const ActorPresentationFlags dynamicFlags =
+            ActorPresentationFlags.Alive |
+            ActorPresentationFlags.InMagnet |
+            ActorPresentationFlags.InsideSomething |
+            ActorPresentationFlags.Moving |
+            ActorPresentationFlags.HasAvatar |
+            ActorPresentationFlags.Favorite |
+            ActorPresentationFlags.ArmyCaptain;
+        ActorPresentationFlags flags =
+            sample.Flags & ~dynamicFlags;
+        ActorAsset asset = actor.asset;
+        if (actor.isAlive())
+        {
+            flags |= ActorPresentationFlags.Alive;
+        }
+
+        if (actor.isInMagnet())
+        {
+            flags |= ActorPresentationFlags.InMagnet;
+        }
+
+        if (actor.isInsideSomething())
+        {
+            flags |= ActorPresentationFlags.InsideSomething;
+        }
+
+        if (actor.is_moving)
+        {
+            flags |= ActorPresentationFlags.Moving;
+        }
+
+        if (asset?.has_avatar_prefab == true &&
+            actor.avatar != null)
+        {
+            flags |= ActorPresentationFlags.HasAvatar;
+        }
+
+        if (actor.isFavorite() &&
+            asset?.hide_favorite_icon != true)
+        {
+            flags |= ActorPresentationFlags.Favorite;
+        }
+
+        if (actor.is_army_captain)
+        {
+            flags |= ActorPresentationFlags.ArmyCaptain;
+        }
+
+        sample.ActorReference = actor;
+        sample.Position = actor.current_position;
+        sample.NextStepPosition = actor.next_step_position;
+        sample.ShakeOffset = actor.shake_offset;
+        sample.JumpOffset = actor.move_jump_offset;
+        sample.Scale = actor.current_scale;
+        sample.Rotation = actor.target_angle;
+        sample.Color = actor.color;
+        sample.Flip = actor.flip;
+        sample.PositionHeight = actor.position_height;
+        sample.MovementSpeed =
+            actor._current_combined_movement_speed;
+        sample.ZoneId = actor.current_tile?.zone?.id ?? -1;
+        sample.AvatarTransform = actor.avatar?.transform;
+        sample.HealthRatio = actor.getHealthRatio();
+        sample.ScaleMod = actor.getScaleMod();
+        sample.VisualScale = actor.stats[strings.S.scale];
+        sample.BannerColor = actor.kingdom == null
+            ? Color.white
+            : actor.kingdom.getColor().getColorText();
+        sample.Flags = flags;
     }
 
     private void EnsureCapacity(int capacity)
@@ -794,6 +983,14 @@ internal sealed class ActorPresentationSnapshot
         }
 
         Array.Resize(ref samples, nextCapacity);
+    }
+
+    private void EnsurePresentSampleCapacity(int capacity)
+    {
+        if (presentSamples.Length < capacity)
+        {
+            Array.Resize(ref presentSamples, capacity);
+        }
     }
 
     private void CaptureStatuses(Actor actor)
@@ -1508,6 +1705,11 @@ internal sealed class ActorPresentationSnapshot
 internal static class ActorPresentationSnapshots
 {
     private const int SlotCount = 3;
+    private const double CaptureCpuBudgetMillisecondsPerSecond = 60.0;
+    private const double MaximumCaptureRate = 30.0;
+    private const double MinimumCaptureRate = 3.0;
+    private const double FullCaptureRealIntervalSeconds = 1.0 / 15.0;
+    private const double FullCaptureSimulationIntervalSeconds = 0.1;
 
     private static readonly object gate = new();
     private static readonly ActorPresentationSnapshot[] slots =
@@ -1523,6 +1725,10 @@ internal static class ActorPresentationSnapshots
     private static int renderIndex = -1;
     private static int requestedGeneration;
     private static int capturedRequestGeneration;
+    private static long nextCaptureRequestAt;
+    private static long captureRequestCalls;
+    private static long admittedCaptureRequests;
+    private static long throttledCaptureRequests;
     private static long completedCaptures;
     private static long acquiredCaptures;
     private static long supersededCaptures;
@@ -1530,6 +1736,12 @@ internal static class ActorPresentationSnapshots
     private static long totalCaptureTicks;
     private static long maximumCaptureTicks;
     private static long lastCaptureTicks;
+    private static long recentCaptureTicks;
+    private static long lastRequestedIntervalTicks;
+    private static long lastFullCaptureAt;
+    private static double lastFullCaptureSimulationTime;
+    private static long fullCaptures;
+    private static long dynamicCaptures;
 
     static ActorPresentationSnapshots()
     {
@@ -1565,6 +1777,23 @@ internal static class ActorPresentationSnapshots
 
     internal static void RequestCapture()
     {
+        Interlocked.Increment(ref captureRequestCalls);
+        long now = Stopwatch.GetTimestamp();
+        long nextRequestAt = Interlocked.Read(ref nextCaptureRequestAt);
+        if (now < nextRequestAt)
+        {
+            Interlocked.Increment(ref throttledCaptureRequests);
+            return;
+        }
+
+        long intervalTicks = GetCaptureRequestIntervalTicks();
+        Interlocked.Exchange(
+            ref nextCaptureRequestAt,
+            now + intervalTicks);
+        Interlocked.Exchange(
+            ref lastRequestedIntervalTicks,
+            intervalTicks);
+        Interlocked.Increment(ref admittedCaptureRequests);
         Interlocked.Increment(ref requestedGeneration);
     }
 
@@ -1577,13 +1806,39 @@ internal static class ActorPresentationSnapshots
         }
 
         ActorPresentationSnapshot writer;
+        ActorPresentationSnapshot source;
         lock (gate)
         {
             writer = slots[writerIndex];
+            int sourceIndex = readyIndex >= 0
+                ? readyIndex
+                : renderIndex;
+            source = sourceIndex >= 0
+                ? slots[sourceIndex]
+                : null;
         }
 
         long startedAt = Stopwatch.GetTimestamp();
-        writer.Capture(world, tickSequence);
+        bool fullCapture = ShouldCaptureFull(source, startedAt);
+        if (fullCapture)
+        {
+            writer.Capture(world, tickSequence);
+            Interlocked.Exchange(
+                ref lastFullCaptureAt,
+                Stopwatch.GetTimestamp());
+            lastFullCaptureSimulationTime =
+                writer.SimulationTimeValue;
+            Interlocked.Increment(ref fullCaptures);
+        }
+        else
+        {
+            writer.CaptureDynamic(
+                world,
+                tickSequence,
+                source);
+            Interlocked.Increment(ref dynamicCaptures);
+        }
+
         RecordCaptureDuration(Stopwatch.GetTimestamp() - startedAt);
         PublishWriter(requestGeneration, writer.Count);
         return true;
@@ -1635,6 +1890,11 @@ internal static class ActorPresentationSnapshots
             ResetSlotOwnership();
             Volatile.Write(ref capturedRequestGeneration, 0);
             Volatile.Write(ref requestedGeneration, 0);
+            Interlocked.Exchange(ref nextCaptureRequestAt, 0L);
+            Interlocked.Exchange(ref lastRequestedIntervalTicks, 0L);
+            Interlocked.Exchange(ref recentCaptureTicks, 0L);
+            Interlocked.Exchange(ref lastFullCaptureAt, 0L);
+            lastFullCaptureSimulationTime = 0.0;
         }
     }
 
@@ -1643,7 +1903,8 @@ internal static class ActorPresentationSnapshots
         ActorPresentationSnapshot current = Current;
         return string.Format(
             CultureInfo.InvariantCulture,
-            "requested={0} captured={1} acquired={2} superseded={3} " +
+            "requests={20}/{21}(throttled={22},generation={0}) rate={23:0.0}hz " +
+            "captured={1}(full={24},dynamic={25}) acquired={2} superseded={3} " +
             "actors={4} current_tick={5} current_count={6} " +
             "statuses={7}/{8} lights={12}+{18} buildings={13} " +
             "stockpile_resources={16} building_lights={17} " +
@@ -1669,7 +1930,13 @@ internal static class ActorPresentationSnapshots
             current?.StockpileResourceCount ?? 0,
             current?.BuildingLightCount ?? 0,
             current?.WorldLightCount ?? 0,
-            current?.FireCount ?? 0);
+            current?.FireCount ?? 0,
+            Interlocked.Read(ref captureRequestCalls),
+            Interlocked.Read(ref admittedCaptureRequests),
+            Interlocked.Read(ref throttledCaptureRequests),
+            GetLastRequestedRate(),
+            Interlocked.Read(ref fullCaptures),
+            Interlocked.Read(ref dynamicCaptures));
     }
 
     private static void PublishWriter(int requestGeneration, int actorCount)
@@ -1714,6 +1981,11 @@ internal static class ActorPresentationSnapshots
     {
         Interlocked.Exchange(ref lastCaptureTicks, elapsedTicks);
         Interlocked.Add(ref totalCaptureTicks, elapsedTicks);
+        long recent = Interlocked.Read(ref recentCaptureTicks);
+        long nextRecent = recent <= 0L
+            ? elapsedTicks
+            : (recent * 7L + elapsedTicks) / 8L;
+        Interlocked.Exchange(ref recentCaptureTicks, nextRecent);
         long maximum = Interlocked.Read(ref maximumCaptureTicks);
         while (elapsedTicks > maximum)
         {
@@ -1728,6 +2000,72 @@ internal static class ActorPresentationSnapshots
 
             maximum = previous;
         }
+    }
+
+    private static bool ShouldCaptureFull(
+        ActorPresentationSnapshot source,
+        long now)
+    {
+        if (source == null ||
+            source.WorldGeneration != SimulationTime.Generation ||
+            source.Count == 0)
+        {
+            return true;
+        }
+
+        long lastAt = Interlocked.Read(ref lastFullCaptureAt);
+        if (lastAt <= 0L)
+        {
+            return true;
+        }
+
+        double realElapsed =
+            (now - lastAt) / (double)Stopwatch.Frequency;
+        double simulationElapsed =
+            SimulationTime.DiagnosticTime -
+            lastFullCaptureSimulationTime;
+        return realElapsed >= FullCaptureRealIntervalSeconds &&
+               simulationElapsed >=
+               FullCaptureSimulationIntervalSeconds;
+    }
+
+    private static long GetCaptureRequestIntervalTicks()
+    {
+        double maximumRate = Math.Max(
+            MinimumCaptureRate,
+            Math.Min(
+                MaximumCaptureRate,
+                PerformanceSettings.TargetRenderFps));
+        long recentTicks = Interlocked.Read(ref recentCaptureTicks);
+        double rate = maximumRate;
+        if (recentTicks > 0L)
+        {
+            double recentMilliseconds =
+                TicksToMilliseconds(recentTicks);
+            if (recentMilliseconds > 0.0)
+            {
+                rate = Math.Min(
+                    maximumRate,
+                    CaptureCpuBudgetMillisecondsPerSecond /
+                    recentMilliseconds);
+            }
+        }
+
+        rate = Math.Max(
+            Math.Min(MinimumCaptureRate, maximumRate),
+            rate);
+        return Math.Max(
+            1L,
+            (long)Math.Ceiling(Stopwatch.Frequency / rate));
+    }
+
+    private static double GetLastRequestedRate()
+    {
+        long intervalTicks =
+            Interlocked.Read(ref lastRequestedIntervalTicks);
+        return intervalTicks <= 0L
+            ? 0.0
+            : Stopwatch.Frequency / (double)intervalTicks;
     }
 
     private static double TicksToMilliseconds(long ticks)

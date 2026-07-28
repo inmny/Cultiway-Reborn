@@ -819,7 +819,7 @@ internal static class ActorPresentationOverlays
     {
         snapshotAge = (float)Math.Max(
             0.0,
-            (Stopwatch.GetTimestamp() - snapshot.CapturedAt) /
+            (Stopwatch.GetTimestamp() - snapshot.StatusCapturedAt) /
             (double)Stopwatch.Frequency);
         if (World.world.isPaused())
         {
