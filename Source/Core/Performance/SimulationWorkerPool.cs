@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.ExceptionServices;
 using System.Threading;
 using Cultiway.Const;
@@ -34,8 +35,18 @@ internal sealed class SimulationWorkerPool
     private long operationStartedAt;
     private long operationCompletedAt;
     private long participantBusyTicks;
+    private long mainWaitTicks;
     private bool operationActive;
     private bool operationAsynchronous;
+
+    private long completedOperations;
+    private long completedAsynchronousOperations;
+    private long completedItems;
+    private long completedWallTicks;
+    private long completedParticipantBusyTicks;
+    private long completedMainWaitTicks;
+    private long completedParticipantSlots;
+    private long completedParticipantCapacityTicks;
 
     private SimulationWorkerPool()
     {
@@ -112,7 +123,47 @@ internal sealed class SimulationWorkerPool
     internal void Wait(WorkTicket ticket)
     {
         ValidateActiveTicket(ticket);
+        if (operationCompleted.IsSet)
+        {
+            return;
+        }
+
+        long startedAt = Stopwatch.GetTimestamp();
         operationCompleted.Wait();
+        Interlocked.Add(ref mainWaitTicks, Stopwatch.GetTimestamp() - startedAt);
+    }
+
+    internal bool TryWait(WorkTicket ticket, double maximumMilliseconds)
+    {
+        ValidateActiveTicket(ticket);
+        if (operationCompleted.IsSet)
+        {
+            return true;
+        }
+
+        if (maximumMilliseconds <= 0.0)
+        {
+            return false;
+        }
+
+        long startedAt = Stopwatch.GetTimestamp();
+        long maximumTicks = Math.Max(
+            1L,
+            (long)(maximumMilliseconds * Stopwatch.Frequency / 1000.0));
+        long deadline = startedAt + maximumTicks;
+        while (!operationCompleted.IsSet)
+        {
+            if (Stopwatch.GetTimestamp() >= deadline)
+            {
+                Interlocked.Add(ref mainWaitTicks, Stopwatch.GetTimestamp() - startedAt);
+                return false;
+            }
+
+            Thread.SpinWait(64);
+        }
+
+        Interlocked.Add(ref mainWaitTicks, Stopwatch.GetTimestamp() - startedAt);
+        return true;
     }
 
     internal WorkResult Complete(WorkTicket ticket)
@@ -135,6 +186,7 @@ internal sealed class SimulationWorkerPool
                 operationStartedAt,
                 completedAt,
                 Math.Max(0L, Interlocked.Read(ref participantBusyTicks)),
+                Math.Max(0L, Interlocked.Read(ref mainWaitTicks)),
                 workerSlots,
                 operationAsynchronous);
             exception = operationException;
@@ -160,8 +212,56 @@ internal sealed class SimulationWorkerPool
             workerSlots = 0;
         }
 
+        RecordCompletedOperation(result);
         exception?.Throw();
         return result;
+    }
+
+    internal string GetDiagnostics()
+    {
+        long operations = Interlocked.Read(ref completedOperations);
+        long asynchronousOperations = Interlocked.Read(ref completedAsynchronousOperations);
+        long items = Interlocked.Read(ref completedItems);
+        long wallTicks = Interlocked.Read(ref completedWallTicks);
+        long busyTicks = Interlocked.Read(ref completedParticipantBusyTicks);
+        long waitTicks = Interlocked.Read(ref completedMainWaitTicks);
+        long participantSlots = Interlocked.Read(ref completedParticipantSlots);
+        long participantCapacityTicks = Interlocked.Read(ref completedParticipantCapacityTicks);
+        double wallSeconds = wallTicks / (double)Stopwatch.Frequency;
+        double busySeconds = busyTicks / (double)Stopwatch.Frequency;
+        double waitSeconds = waitTicks / (double)Stopwatch.Frequency;
+        double parallelism = wallTicks > 0L
+            ? busyTicks / (double)wallTicks
+            : 0.0;
+        double averageSlots = operations > 0L
+            ? participantSlots / (double)operations
+            : 0.0;
+        double utilization = participantCapacityTicks > 0L
+            ? busyTicks / (double)participantCapacityTicks * 100.0
+            : 0.0;
+        double blockedShare = wallTicks > 0L
+            ? waitTicks / (double)wallTicks * 100.0
+            : 0.0;
+        bool active;
+        lock (operationLock)
+        {
+            active = operationActive;
+        }
+
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "ops={0}(async={1}) items={2} wall={3:0.0}ms busy={4:0.0}ms wait={5:0.0}ms parallel={6:0.00}x slots={7:0.00} util={8:0.0}% blocked={9:0.0}% active={10}",
+            operations,
+            asynchronousOperations,
+            items,
+            wallSeconds * 1000.0,
+            busySeconds * 1000.0,
+            waitSeconds * 1000.0,
+            parallelism,
+            averageSlots,
+            utilization,
+            blockedShare,
+            active);
     }
 
     internal void WaitAndDiscard(WorkTicket ticket)
@@ -216,6 +316,7 @@ internal sealed class SimulationWorkerPool
             stopRequested = 0;
             executedItems = 0;
             participantBusyTicks = 0L;
+            mainWaitTicks = 0L;
             operationStartedAt = Stopwatch.GetTimestamp();
             operationCompletedAt = 0L;
             operationCompleted.Reset();
@@ -237,6 +338,24 @@ internal sealed class SimulationWorkerPool
             ExecuteItems(generation);
             SignalParticipantCompleted(generation);
         }
+    }
+
+    private void RecordCompletedOperation(WorkResult result)
+    {
+        Interlocked.Increment(ref completedOperations);
+        if (result.RanAsynchronously)
+        {
+            Interlocked.Increment(ref completedAsynchronousOperations);
+        }
+
+        Interlocked.Add(ref completedItems, result.ExecutedItems);
+        Interlocked.Add(ref completedWallTicks, result.WallTicks);
+        Interlocked.Add(ref completedParticipantBusyTicks, result.ParticipantBusyTicks);
+        Interlocked.Add(ref completedMainWaitTicks, result.MainWaitTicks);
+        Interlocked.Add(ref completedParticipantSlots, result.ParticipantSlots);
+        Interlocked.Add(
+            ref completedParticipantCapacityTicks,
+            result.WallTicks * result.ParticipantSlots);
     }
 
     private void ExecuteItems(int generation)
@@ -355,6 +474,7 @@ internal sealed class SimulationWorkerPool
             long startedAt,
             long completedAt,
             long participantBusyTicks,
+            long mainWaitTicks,
             int workerSlots,
             bool ranAsynchronously)
         {
@@ -364,9 +484,13 @@ internal sealed class SimulationWorkerPool
             CompletedAt = completedAt;
             WallTicks = Math.Max(0L, completedAt - startedAt);
             WallSeconds = WallTicks / (double)Stopwatch.Frequency;
-            ParticipantBusySeconds = participantBusyTicks / (double)Stopwatch.Frequency;
+            ParticipantBusyTicks = participantBusyTicks;
+            ParticipantBusySeconds = ParticipantBusyTicks / (double)Stopwatch.Frequency;
+            MainWaitTicks = mainWaitTicks;
+            MainWaitSeconds = MainWaitTicks / (double)Stopwatch.Frequency;
             WorkerSlots = workerSlots;
             RanAsynchronously = ranAsynchronously;
+            ParticipantSlots = workerSlots + (ranAsynchronously ? 0 : 1);
         }
 
         internal int ScheduledItems { get; }
@@ -375,8 +499,12 @@ internal sealed class SimulationWorkerPool
         internal long CompletedAt { get; }
         internal long WallTicks { get; }
         internal double WallSeconds { get; }
+        internal long ParticipantBusyTicks { get; }
         internal double ParticipantBusySeconds { get; }
+        internal long MainWaitTicks { get; }
+        internal double MainWaitSeconds { get; }
         internal int WorkerSlots { get; }
         internal bool RanAsynchronously { get; }
+        internal int ParticipantSlots { get; }
     }
 }

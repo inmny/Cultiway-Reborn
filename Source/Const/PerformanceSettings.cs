@@ -14,6 +14,7 @@ public static class PerformanceSettings
 
     public const float RenderReserveMilliseconds = 2f;
     public const float MinimumSliceMilliseconds = 0.15f;
+    public const float BackgroundJoinMilliseconds = 0.2f;
     public const float StarvationSliceMilliseconds = 0.5f;
     public const int StarvationFrameInterval = 8;
     public const int SimulationBatchSize = 64;

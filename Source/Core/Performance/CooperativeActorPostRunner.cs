@@ -90,6 +90,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         WaitingForBackgroundWork &&
         SimulationWorkerPool.Instance.IsCompleted(searchTicket);
 
+    public bool TryJoinBackgroundWork(double maximumMilliseconds)
+    {
+        return !WaitingForBackgroundWork ||
+               SimulationWorkerPool.Instance.TryWait(searchTicket, maximumMilliseconds);
+    }
+
     public void WaitForBackgroundWork()
     {
         if (WaitingForBackgroundWork)
@@ -223,11 +229,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     stage = PostStage.AwaitEnemySearch;
                     return false;
                 case PostStage.AwaitEnemySearch:
-                    long searchWaitStartedAt = StartBenchmarkMeasurement();
                     SimulationWorkerPool.Instance.Wait(searchTicket);
-                    long searchWaitCompletedAt = searchWaitStartedAt == 0L
-                        ? 0L
-                        : Stopwatch.GetTimestamp();
                     SimulationWorkerPool.WorkResult searchResult;
                     try
                     {
@@ -238,10 +240,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                         searchTicket = default;
                     }
 
-                    RecordSearchBenchmark(
-                        searchResult,
-                        searchWaitStartedAt,
-                        searchWaitCompletedAt);
+                    RecordSearchBenchmark(searchResult);
                     workIndex = 0;
                     stage = PostStage.CommitEnemySearch;
                     return false;
@@ -495,7 +494,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             randomOffset,
             aggressionStart,
             aggressionCandidates.Count - aggressionStart,
-            aggressionSourceCount > 0,
+            aggressionSourceCount,
             applyBackoff);
     }
 
@@ -652,10 +651,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         SimulationTickBenchmark.RecordActorJobMetric(id, seconds, counter);
     }
 
-    private void RecordSearchBenchmark(
-        SimulationWorkerPool.WorkResult result,
-        long waitStartedAt,
-        long waitCompletedAt)
+    private void RecordSearchBenchmark(SimulationWorkerPool.WorkResult result)
     {
         if (!SimulationTickBenchmark.IsCapturing)
         {
@@ -668,11 +664,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 result.CompletedAt,
                 searchScheduleStartedAt,
                 searchScheduleCompletedAt) +
-            CalculateOverlap(
-                result.StartedAt,
-                result.CompletedAt,
-                waitStartedAt,
-                waitCompletedAt);
+            Math.Min(result.WallTicks, result.MainWaitTicks);
         double backgroundSeconds = Math.Max(
             0L,
             result.WallTicks - mainThreadOverlap) /
@@ -712,6 +704,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         private int randomOffset;
         private int aggressionStart;
         private int aggressionCount;
+        private int originalAggressionCount;
         private bool hadAggressionTargets;
         private bool applyBackoff;
         private bool clearAggressionTargets;
@@ -724,7 +717,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             int sourceRandomOffset,
             int sourceAggressionStart,
             int sourceAggressionCount,
-            bool sourceHadAggressionTargets,
+            int sourceOriginalAggressionCount,
             bool sourceApplyBackoff)
         {
             actor = sourceActor;
@@ -733,7 +726,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             randomOffset = sourceRandomOffset;
             aggressionStart = sourceAggressionStart;
             aggressionCount = sourceAggressionCount;
-            hadAggressionTargets = sourceHadAggressionTargets;
+            originalAggressionCount = sourceOriginalAggressionCount;
+            hadAggressionTargets = sourceOriginalAggressionCount > 0;
             applyBackoff = sourceApplyBackoff;
             clearAggressionTargets = false;
             result = null;
@@ -788,9 +782,26 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         internal void Commit()
         {
+            // 搜索可能跨过渲染帧，提交前不能用旧结果覆盖期间产生的新战斗状态。
+            if (actor.isRekt() || actor.has_attack_target)
+            {
+                return;
+            }
+
+            if (result != null &&
+                (result.isRekt() ||
+                 !actor.canAttackTarget(
+                     result,
+                     pCheckForFactions: true,
+                     pAttackBuildings: actor.asset.can_attack_buildings)))
+            {
+                result = null;
+            }
+
             if (result == null)
             {
-                if (clearAggressionTargets)
+                if (clearAggressionTargets &&
+                    actor._aggression_targets.Count == originalAggressionCount)
                 {
                     actor._aggression_targets.Clear();
                 }

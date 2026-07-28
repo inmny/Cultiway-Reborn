@@ -117,6 +117,33 @@ internal sealed class CooperativeSimulationRunner
 
         while (true)
         {
+            if (actorRunner.WaitingForBackgroundWork &&
+                !actorRunner.IsBackgroundWorkCompleted)
+            {
+                // 先用极短窗口吸收即将完成的任务；超时后立刻交还渲染帧，
+                // 下一帧仍从同一有序提交屏障继续。
+                string awaitPhase = actorRunner.GetNextPhaseName();
+                if (!FramePriorityGovernor.CanRun(SimulationDomain.Vanilla, awaitPhase))
+                {
+                    FramePriorityGovernor.SetPhase(SimulationDomain.Vanilla, awaitPhase);
+                    break;
+                }
+
+                bool joined = false;
+                FramePriorityGovernor.RunPhase(
+                    SimulationDomain.Vanilla,
+                    awaitPhase,
+                    () => joined = actorRunner.TryJoinBackgroundWork(
+                        PerformanceSettings.BackgroundJoinMilliseconds));
+                if (!joined)
+                {
+                    FramePriorityGovernor.SetPhase(SimulationDomain.Vanilla, awaitPhase);
+                    break;
+                }
+
+                continue;
+            }
+
             if (!Active)
             {
                 if (!CanAdmitCycle(map, allowNewCycles))

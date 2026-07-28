@@ -15,6 +15,8 @@ internal interface ICooperativeBatchPostRunner<TBatch, TObject>
 
     bool IsBackgroundWorkCompleted { get; }
 
+    bool TryJoinBackgroundWork(double maximumMilliseconds);
+
     void WaitForBackgroundWork();
 
     bool Step();
