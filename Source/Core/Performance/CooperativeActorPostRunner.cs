@@ -26,6 +26,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     private readonly ActorTileActionProfiler tileActionProfiler = new();
     private readonly Action<int> tileActionWorkItemAction;
+    private readonly Action<int> enemyPrepareWorkItemAction;
     private readonly Action<int> searchWorkItemAction;
     private readonly Action<int> pathMovementWorkItemAction;
     private readonly Action<int> smoothMovementWorkItemAction;
@@ -54,9 +55,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         Finish
     }
 
-    private readonly List<BaseSimObject> aggressionCandidates = new();
     private TileActionBatchWork[] tileActionWorkItems =
         Array.Empty<TileActionBatchWork>();
+    private EnemyPrepareBatchWork[] enemyPrepareWorkItems =
+        Array.Empty<EnemyPrepareBatchWork>();
     private SearchWorkItem[] workItems = Array.Empty<SearchWorkItem>();
     private PathMovementBatchWork[] pathMovementWorkItems =
         Array.Empty<PathMovementBatchWork>();
@@ -101,6 +103,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     {
         tileActionWorkItemAction =
             RunTileActionWorkItemAt;
+        enemyPrepareWorkItemAction =
+            RunEnemyPrepareWorkItemAt;
         searchWorkItemAction = SearchWorkItemAt;
         pathMovementWorkItemAction =
             RunPathMovementWorkItemAt;
@@ -135,7 +139,6 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         pathMovementScheduleCompletedAt = 0L;
         smoothMovementScheduleStartedAt = 0L;
         smoothMovementScheduleCompletedAt = 0L;
-        aggressionCandidates.Clear();
         PathFinder.Instance.ApplyWorkerWakeups();
         PrepareActiveBehaviorPartitions(batches.Count);
         tileActionProfiler.Start(batches.Count);
@@ -514,6 +517,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     batchIndex = 0;
                     postJobIndex =
                         tileActionJobIndex + 1;
+                    PrepareEnemySearchClassifications();
                     stage = PostStage.PrepareEnemySearch;
                     continue;
                 case PostStage.PrepareEnemySearch:
@@ -1769,6 +1773,122 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             : writeIndex;
     }
 
+    private void PrepareEnemySearchClassifications()
+    {
+        int count = batches.Count;
+        if (enemyPrepareWorkItems.Length < count)
+        {
+            int previousLength =
+                enemyPrepareWorkItems.Length;
+            Array.Resize(
+                ref enemyPrepareWorkItems,
+                count);
+            for (int i = previousLength;
+                 i < count;
+                 i++)
+            {
+                enemyPrepareWorkItems[i] =
+                    new EnemyPrepareBatchWork();
+            }
+        }
+
+        bool paused = World.world.isPaused();
+        int actorsClassified = 0;
+        for (int i = 0; i < count; i++)
+        {
+            BatchActors batch = batches[i];
+            Job<Actor> job =
+                batch.jobs_post[enemySearchJobIndex];
+            EnemyPrepareBatchWork work =
+                enemyPrepareWorkItems[i];
+            batch._elapsed = elapsed;
+            batch._cur_container = job.container;
+            if (job.current_skips > 0)
+            {
+                job.current_skips--;
+                work.ConfigureSkipped(batch, job);
+                continue;
+            }
+
+            ObjectContainer<Actor> container =
+                job.container;
+            if (container.Count == 0 &&
+                !container.isDirtyContainer())
+            {
+                work.Configure(
+                    batch,
+                    job,
+                    Array.Empty<Actor>(),
+                    0,
+                    activePartition: false);
+                continue;
+            }
+
+            if (container.isDirtyContainer())
+            {
+                activeBehaviorPartitionsValid[i] =
+                    false;
+            }
+
+            container.checkAddRemove();
+            Actor[] containerActors =
+                container.getFastSimpleArray();
+            int containerCount = container.Count;
+            batch._array = containerActors;
+            batch._count = containerCount;
+            if (paused)
+            {
+                work.Configure(
+                    batch,
+                    job,
+                    Array.Empty<Actor>(),
+                    0,
+                    activePartition: false);
+                continue;
+            }
+
+            bool activePartition =
+                activeBehaviorPartitionsValid[i];
+            Actor[] actors = activePartition
+                ? activeBehaviorActorsByBatch[i]
+                : containerActors;
+            int actorCount = activePartition
+                ? activeBehaviorActorCounts[i]
+                : containerCount;
+            work.Configure(
+                batch,
+                job,
+                actors,
+                actorCount,
+                activePartition);
+            actorsClassified += actorCount;
+        }
+
+        long startedAt = StartBenchmarkMeasurement();
+        if (count > 1)
+        {
+            SimulationWorkerPool.Instance.RunIndexed(
+                0,
+                count,
+                enemyPrepareWorkItemAction);
+        }
+        else if (count == 1)
+        {
+            RunEnemyPrepareWorkItemAt(0);
+        }
+
+        RecordBenchmarkMeasurement(
+            "b3_findEnemyTarget.classify_parallel",
+            startedAt,
+            actorsClassified);
+    }
+
+    private void RunEnemyPrepareWorkItemAt(int index)
+    {
+        enemyPrepareWorkItems[index]
+            .RunParallel();
+    }
+
     private bool TryPrepareNextBatch()
     {
         if (batchIndex >= batches.Count)
@@ -1777,24 +1897,25 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         }
 
         int currentBatchIndex = batchIndex++;
-        BatchActors batch = batches[currentBatchIndex];
-        Job<Actor> job = batch.jobs_post[enemySearchJobIndex];
-        batch._elapsed = elapsed;
-        batch._cur_container = job.container;
-        if (job.current_skips > 0)
+        EnemyPrepareBatchWork work =
+            enemyPrepareWorkItems[currentBatchIndex];
+        if (work.Skipped)
         {
-            job.current_skips--;
+            work.Reset();
             return true;
         }
 
         long startedAt = StartBenchmarkMeasurement();
-        int actorsChecked = PrepareEnemySearchBatch(
-            batch,
-            job.container,
-            currentBatchIndex);
+        int actorsChecked =
+            CommitEnemySearchClassification(
+                work,
+                currentBatchIndex);
+        Job<Actor> job = work.Job;
         if (job.random_tick_skips > 0)
         {
-            job.current_skips = Randy.randomInt(0, job.random_tick_skips);
+            job.current_skips = Randy.randomInt(
+                0,
+                job.random_tick_skips);
         }
 
         job.counter += actorsChecked;
@@ -1802,82 +1923,67 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             "b3_findEnemyTarget.prepare",
             startedAt,
             actorsChecked);
+        work.Reset();
         return true;
     }
 
-    private int PrepareEnemySearchBatch(
-        BatchActors batch,
-        ObjectContainer<Actor> container,
+    private int CommitEnemySearchClassification(
+        EnemyPrepareBatchWork work,
         int currentBatchIndex)
     {
-        if (container.Count == 0 && !container.isDirtyContainer())
+        Actor[] actors = work.Actors;
+        EnemyPrepareKind[] kinds = work.Kinds;
+        int retainedCount = 0;
+        int actorsChecked = 0;
+        for (int i = 0; i < work.Count; i++)
         {
-            return 0;
-        }
-
-        if (container.isDirtyContainer())
-        {
-            activeBehaviorPartitionsValid[currentBatchIndex] =
-                false;
-        }
-
-        container.checkAddRemove();
-        Actor[] containerActors =
-            container.getFastSimpleArray();
-        int containerCount = container.Count;
-        batch._array = containerActors;
-        batch._count = containerCount;
-        if (World.world.isPaused())
-        {
-            return 0;
-        }
-
-        Actor[] array = containerActors;
-        int count = containerCount;
-        if (activeBehaviorPartitionsValid[currentBatchIndex])
-        {
-            array =
-                activeBehaviorActorsByBatch[currentBatchIndex];
-            count =
-                activeBehaviorActorCounts[currentBatchIndex];
-            int writeIndex = -1;
-            int actorsChecked = 0;
-            for (int i = 0; i < count; i++)
+            EnemyPrepareKind kind = kinds[i];
+            if (kind == EnemyPrepareKind.Inactive)
             {
-                Actor actor = array[i];
-                if (actor._update_done ||
-                    actor._beh_skip)
-                {
-                    if (writeIndex < 0)
-                    {
-                        writeIndex = i;
-                    }
-
-                    continue;
-                }
-
-                actorsChecked++;
-                if (writeIndex >= 0)
-                {
-                    array[writeIndex++] = actor;
-                }
-
-                PrepareEnemySearch(actor);
+                continue;
             }
 
-            activeBehaviorActorCounts[currentBatchIndex] =
-                writeIndex < 0
-                    ? count
-                    : writeIndex;
+            Actor actor = actors[i];
+            if (work.ActivePartition)
+            {
+                actors[retainedCount++] = actor;
+                actorsChecked++;
+            }
+
+            switch (kind)
+            {
+                case EnemyPrepareKind.AttackTarget:
+                    if (!actor.hasTask() ||
+                        !actor.ai.task.in_combat)
+                    {
+                        actor.setTask(
+                            "fighting",
+                            pClean: true,
+                            pCleanJob: true);
+                    }
+
+                    break;
+                case EnemyPrepareKind.Search:
+                    PrepareEnemySearch(
+                        actor,
+                        applyBackoff: false);
+                    break;
+                case EnemyPrepareKind.SearchWithBackoff:
+                    PrepareEnemySearch(
+                        actor,
+                        applyBackoff: true);
+                    break;
+            }
+        }
+
+        if (work.ActivePartition)
+        {
+            activeBehaviorActorCounts[
+                currentBatchIndex] = retainedCount;
             return actorsChecked;
         }
 
-        for (int i = 0; i < count; i++)
-        {
-            PrepareEnemySearch(array[i]);
-        }
-
-        return count;
+        return work.Count;
     }
 
     private void ClearActiveBehaviorPartitions()
@@ -1904,39 +2010,18 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             activeBehaviorPartitionsValid.Length);
     }
 
-    private void PrepareEnemySearch(Actor actor)
+    private void PrepareEnemySearch(
+        Actor actor,
+        bool applyBackoff)
     {
-        bool applyBackoff = PatchActor.ShouldBackoffEmptyEnemySearch(actor);
-        if (actor._update_done || actor._beh_skip)
-        {
-            return;
-        }
-
-        if (!actor.isAllowedToLookForEnemies() ||
-            actor.isInWaterAndCantAttack() ||
-            actor._has_status_strange_urge)
-        {
-            return;
-        }
-
-        if (actor.has_attack_target)
-        {
-            if (!actor.hasTask() || !actor.ai.task.in_combat)
-            {
-                actor.setTask("fighting", pClean: true, pCleanJob: true);
-            }
-
-            return;
-        }
-
-        if (actor._timeout_targets > 0f)
-        {
-            return;
-        }
-
-        actor._timeout_targets = 0.1f + Randy.randomFloat(0f, 1f);
-        EnemyFinderData enemyData = EnemiesFinder.findEnemiesFrom(actor.current_tile, actor.kingdom);
-        List<BaseSimObject> primaryCandidates = enemyData.list;
+        actor._timeout_targets =
+            0.1f + Randy.randomFloat(0f, 1f);
+        EnemyFinderData enemyData =
+            EnemiesFinder.findEnemiesFrom(
+                actor.current_tile,
+                actor.kingdom);
+        List<BaseSimObject> primaryCandidates =
+            enemyData.list;
         bool findClosest = true;
         int randomOffset = 0;
         if (primaryCandidates.Count > 50)
@@ -1944,39 +2029,27 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             findClosest = Randy.randomChance(0.6f);
             if (!findClosest)
             {
-                randomOffset = Randy.randomInt(0, primaryCandidates.Count);
+                randomOffset = Randy.randomInt(
+                    0,
+                    primaryCandidates.Count);
             }
         }
 
-        int aggressionStart = aggressionCandidates.Count;
-        int aggressionSourceCount = actor._aggression_targets.Count;
-        if (aggressionSourceCount > 0)
-        {
-            foreach (long targetId in actor._aggression_targets)
-            {
-                Actor target = World.world.units.get(targetId);
-                if (!target.isRekt())
-                {
-                    aggressionCandidates.Add(target);
-                }
-            }
-        }
-
+        int aggressionSourceCount =
+            actor._aggression_targets.Count;
         SearchWorkItem item = RentWorkItem();
         item.Configure(
             actor,
             primaryCandidates,
             findClosest,
             randomOffset,
-            aggressionStart,
-            aggressionCandidates.Count - aggressionStart,
             aggressionSourceCount,
             applyBackoff);
     }
 
     private void SearchWorkItemAt(int index)
     {
-        workItems[index].Search(aggressionCandidates);
+        workItems[index].Search();
     }
 
     private bool TryCommitNextGroup()
@@ -2089,6 +2162,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         }
 
         for (int i = 0;
+             i < enemyPrepareWorkItems.Length;
+             i++)
+        {
+            enemyPrepareWorkItems[i]?.Reset();
+        }
+
+        for (int i = 0;
              i < pathMovementWorkItems.Length;
              i++)
         {
@@ -2109,7 +2189,6 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         smoothCommitIndex = 0;
         batchIndex = 0;
         postJobIndex = 0;
-        aggressionCandidates.Clear();
         batches = null;
         splitPostJobs = false;
         tileActionTicket = default;
@@ -2325,6 +2404,122 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         long overlapStart = Math.Max(startedAt, rangeStartedAt);
         long overlapEnd = Math.Min(completedAt, rangeCompletedAt);
         return Math.Max(0L, overlapEnd - overlapStart);
+    }
+
+    private enum EnemyPrepareKind : byte
+    {
+        NoSearch,
+        Inactive,
+        AttackTarget,
+        Search,
+        SearchWithBackoff
+    }
+
+    private sealed class EnemyPrepareBatchWork
+    {
+        internal BatchActors Batch { get; private set; }
+        internal Job<Actor> Job { get; private set; }
+        internal Actor[] Actors { get; private set; }
+        internal int Count { get; private set; }
+        internal bool ActivePartition { get; private set; }
+        internal bool Skipped { get; private set; }
+        internal EnemyPrepareKind[] Kinds { get; private set; } =
+            Array.Empty<EnemyPrepareKind>();
+
+        internal void Configure(
+            BatchActors batch,
+            Job<Actor> job,
+            Actor[] actors,
+            int count,
+            bool activePartition)
+        {
+            Batch = batch;
+            Job = job;
+            Actors = actors;
+            Count = count;
+            ActivePartition = activePartition;
+            Skipped = false;
+            if (Kinds.Length < count)
+            {
+                Kinds = new EnemyPrepareKind[
+                    Math.Max(
+                        PerformanceSettings.SimulationBatchSize,
+                        count)];
+            }
+        }
+
+        internal void ConfigureSkipped(
+            BatchActors batch,
+            Job<Actor> job)
+        {
+            Batch = batch;
+            Job = job;
+            Actors = null;
+            Count = 0;
+            ActivePartition = false;
+            Skipped = true;
+        }
+
+        internal void RunParallel()
+        {
+            if (Skipped ||
+                Count == 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < Count; i++)
+            {
+                Actor actor = Actors[i];
+                EnemyPrepareKind kind;
+                if (actor._update_done ||
+                    actor._beh_skip)
+                {
+                    kind = EnemyPrepareKind.Inactive;
+                }
+                else if (
+                    !actor.isAllowedToLookForEnemies() ||
+                    actor.isInWaterAndCantAttack() ||
+                    actor._has_status_strange_urge)
+                {
+                    kind = EnemyPrepareKind.NoSearch;
+                }
+                else if (actor.has_attack_target)
+                {
+                    kind = EnemyPrepareKind.AttackTarget;
+                }
+                else if (actor._timeout_targets > 0f)
+                {
+                    kind = EnemyPrepareKind.NoSearch;
+                }
+                else
+                {
+                    kind =
+                        !actor.is_moving &&
+                        !actor.isUsingPath()
+                            ? EnemyPrepareKind
+                                .SearchWithBackoff
+                            : EnemyPrepareKind.Search;
+                }
+
+                Kinds[i] = kind;
+            }
+        }
+
+        internal void Reset()
+        {
+            if (Count > 0)
+            {
+                Array.Clear(Kinds, 0, Count);
+            }
+
+            Batch = null;
+            Job = null;
+            Actors = null;
+            Count = 0;
+            ActivePartition = false;
+            Skipped = false;
+        }
     }
 
     private enum PathMovementWorkKind : byte
@@ -2686,12 +2881,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private sealed class SearchWorkItem
     {
         private readonly CandidateView candidateView = new();
+        private readonly List<BaseSimObject>
+            aggressionCandidates = new();
         private Actor actor;
         private List<BaseSimObject> primaryCandidates;
         private bool findClosest;
         private int randomOffset;
-        private int aggressionStart;
-        private int aggressionCount;
         private int originalAggressionCount;
         private bool hadAggressionTargets;
         private bool applyBackoff;
@@ -2703,8 +2898,6 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             List<BaseSimObject> sourcePrimaryCandidates,
             bool sourceFindClosest,
             int sourceRandomOffset,
-            int sourceAggressionStart,
-            int sourceAggressionCount,
             int sourceOriginalAggressionCount,
             bool sourceApplyBackoff)
         {
@@ -2712,8 +2905,6 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             primaryCandidates = sourcePrimaryCandidates;
             findClosest = sourceFindClosest;
             randomOffset = sourceRandomOffset;
-            aggressionStart = sourceAggressionStart;
-            aggressionCount = sourceAggressionCount;
             originalAggressionCount = sourceOriginalAggressionCount;
             hadAggressionTargets = sourceOriginalAggressionCount > 0;
             applyBackoff = sourceApplyBackoff;
@@ -2721,7 +2912,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             result = null;
         }
 
-        internal void Search(List<BaseSimObject> allAggressionCandidates)
+        internal void Search()
         {
             if (primaryCandidates.Count > 0)
             {
@@ -2749,16 +2940,28 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 return;
             }
 
-            if (aggressionCount == 0)
+            aggressionCandidates.Clear();
+            foreach (long targetId in
+                     actor._aggression_targets)
+            {
+                Actor target =
+                    World.world.units.get(targetId);
+                if (!target.isRekt())
+                {
+                    aggressionCandidates.Add(target);
+                }
+            }
+
+            if (aggressionCandidates.Count == 0)
             {
                 clearAggressionTargets = true;
                 return;
             }
 
             candidateView.Configure(
-                allAggressionCandidates,
-                aggressionStart,
-                aggressionCount,
+                aggressionCandidates,
+                0,
+                aggressionCandidates.Count,
                 0);
             result = actor.checkObjectList(
                 candidateView,
@@ -2811,6 +3014,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         {
             actor = null;
             primaryCandidates = null;
+            aggressionCandidates.Clear();
             result = null;
             candidateView.ResetSource();
         }
