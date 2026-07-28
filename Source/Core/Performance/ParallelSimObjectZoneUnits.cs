@@ -24,6 +24,7 @@ internal static class ParallelSimObjectZoneUnits
     private static int tileMarkGeneration;
     private static int pendingIslandGeneration = -1;
     private static int unitMembershipVersion;
+    private static bool statusIndexRebuildPrepared;
 
     /// <summary>
     /// 原版 chunk.objects.units_all 成员表的提交版本。
@@ -34,7 +35,14 @@ internal static class ParallelSimObjectZoneUnits
 
     internal static void NotifyUnitMembershipRebuilt()
     {
-        Interlocked.Increment(ref unitMembershipVersion);
+        int version =
+            Interlocked.Increment(
+                ref unitMembershipVersion);
+        NearbyStatusTargetIndex
+            .NotifyUnitMembershipRebuilt(
+                version,
+                statusIndexRebuildPrepared);
+        statusIndexRebuildPrepared = false;
     }
 
     internal static bool TryDeferIslandRebuild(
@@ -63,6 +71,7 @@ internal static class ParallelSimObjectZoneUnits
     internal static bool TryRebuild(
         List<WorldTile> tilesToClear)
     {
+        statusIndexRebuildPrepared = false;
         MapBox world = World.world;
         List<Actor> source =
             world?.units?.getSimpleList();
@@ -82,100 +91,125 @@ internal static class ParallelSimObjectZoneUnits
             actorsByChunk[i].Clear();
         }
 
-        int tileMark = NextTileMark(world.tiles_list.Length);
-        bool rebuildIslands =
-            pendingIslandGeneration ==
-            SimulationTime.Generation;
-        int aliveCount = 0;
-        bool benchmark = Bench.bench_enabled;
-        if (benchmark)
-        {
-            Bench.bench(
-                "checkUnits.parallel_prepare",
-                "sim_zones");
-        }
-
-        for (int i = 0; i < source.Count; i++)
-        {
-            Actor actor = source[i];
-            if (!actor.isAlive())
-            {
-                continue;
-            }
-
-            WorldTile tile = actor.current_tile;
-            aliveCount++;
-            if (rebuildIslands)
-            {
-                tile.region.island.actors.Add(actor);
-            }
-
-            actorsByChunk[tile.chunk.id].Add(actor);
-            int tileId = tile.tile_id;
-            if (tileMarks[tileId] != tileMark)
-            {
-                tileMarks[tileId] = tileMark;
-                tilesToClear.Add(tile);
-            }
-        }
-
-        pendingIslandGeneration = -1;
-        if (benchmark)
-        {
-            Bench.benchEnd(
-                "checkUnits.parallel_prepare",
-                "sim_zones",
-                pSaveCounter: true,
-                aliveCount);
-            Bench.bench(
-                "checkUnits.parallel_commit",
-                "sim_zones");
-        }
-
-        activeChunks = chunks;
+        NearbyStatusTargetIndex
+            .BeginUnitMembershipRebuild();
+        statusIndexRebuildPrepared = true;
         try
         {
-            SimulationWorkerPool.Instance.RunIndexed(
-                0,
-                chunks.Length,
-                rebuildChunkAction);
-        }
-        finally
-        {
-            activeChunks = null;
-        }
-
-        if (benchmark)
-        {
-            Bench.benchEnd(
-                "checkUnits.parallel_commit",
-                "sim_zones",
-                pSaveCounter: true,
-                aliveCount);
-            Bench.bench(
-                "checkUnits.city_membership",
-                "sim_zones");
-        }
-
-        for (int i = 0; i < source.Count; i++)
-        {
-            Actor actor = source[i];
-            if (actor.isAlive())
+            int tileMark =
+                NextTileMark(world.tiles_list.Length);
+            bool rebuildIslands =
+                pendingIslandGeneration ==
+                SimulationTime.Generation;
+            int aliveCount = 0;
+            bool benchmark = Bench.bench_enabled;
+            if (benchmark)
             {
-                UpdateCityMembership(actor);
+                Bench.bench(
+                    "checkUnits.parallel_prepare",
+                    "sim_zones");
             }
-        }
 
-        if (benchmark)
+            for (int i = 0; i < source.Count; i++)
+            {
+                Actor actor = source[i];
+                if (!actor.isAlive())
+                {
+                    continue;
+                }
+
+                WorldTile tile = actor.current_tile;
+                aliveCount++;
+                if (rebuildIslands)
+                {
+                    tile.region.island.actors.Add(actor);
+                }
+
+                List<Actor> chunkActors =
+                    actorsByChunk[tile.chunk.id];
+                int unitIndex = chunkActors.Count;
+                chunkActors.Add(actor);
+                NearbyStatusTargetIndex
+                    .AddUnitMembership(
+                        actor,
+                        tile.chunk,
+                        unitIndex);
+                int tileId = tile.tile_id;
+                if (tileMarks[tileId] != tileMark)
+                {
+                    tileMarks[tileId] = tileMark;
+                    tilesToClear.Add(tile);
+                }
+            }
+
+            pendingIslandGeneration = -1;
+            if (benchmark)
+            {
+                Bench.benchEnd(
+                    "checkUnits.parallel_prepare",
+                    "sim_zones",
+                    pSaveCounter: true,
+                    aliveCount);
+                Bench.bench(
+                    "checkUnits.parallel_commit",
+                    "sim_zones");
+            }
+
+            activeChunks = chunks;
+            try
+            {
+                SimulationWorkerPool.Instance
+                    .RunIndexed(
+                        0,
+                        chunks.Length,
+                        rebuildChunkAction);
+            }
+            finally
+            {
+                activeChunks = null;
+            }
+
+            if (benchmark)
+            {
+                Bench.benchEnd(
+                    "checkUnits.parallel_commit",
+                    "sim_zones",
+                    pSaveCounter: true,
+                    aliveCount);
+                Bench.bench(
+                    "checkUnits.city_membership",
+                    "sim_zones");
+            }
+
+            for (int i = 0;
+                 i < source.Count;
+                 i++)
+            {
+                Actor actor = source[i];
+                if (actor.isAlive())
+                {
+                    UpdateCityMembership(actor);
+                }
+            }
+
+            if (benchmark)
+            {
+                Bench.benchEnd(
+                    "checkUnits.city_membership",
+                    "sim_zones",
+                    pSaveCounter: true,
+                    aliveCount);
+            }
+
+            return true;
+        }
+        catch
         {
-            Bench.benchEnd(
-                "checkUnits.city_membership",
-                "sim_zones",
-                pSaveCounter: true,
-                aliveCount);
+            NearbyStatusTargetIndex
+                .AbortUnitMembershipRebuild();
+            statusIndexRebuildPrepared = false;
+            throw;
         }
-
-        return true;
     }
 
     private static void EnsureChunkLists(

@@ -30,6 +30,9 @@ internal static class NearbyStatusTargetIndex
     private static int indexedGeneration = -1;
     private static int indexedUnitMembershipVersion = -1;
     private static bool indexAvailable;
+    private static bool fusedRebuildInProgress;
+    private static long fusedRebuildStartedAt;
+    private static int fusedRebuildActorEntries;
 
     private static long queries;
     private static long handledQueries;
@@ -37,7 +40,10 @@ internal static class NearbyStatusTargetIndex
     private static long foundQueries;
     private static long fallbackQueries;
     private static long rebuilds;
+    private static long queryRebuilds;
+    private static long fusedRebuilds;
     private static long totalBuildTicks;
+    private static long fusedBuildTicks;
     private static long maximumBuildTicks;
     private static long lastBuildTicks;
     private static long statusChecks;
@@ -181,10 +187,12 @@ internal static class NearbyStatusTargetIndex
             CultureInfo.InvariantCulture,
             "queries={0} handled={1} fast_negative={2} found={3} " +
             "fallback={4} rebuilds={5} chunks={6} " +
+            "(query={16},fused={17}) " +
             "actor_entries={7} tracked_actors={13} " +
             "status_checks={8} unit_checks={9} " +
             "incremental={14}/{15}(add/remove) " +
-            "build={10:0.000}ms(avg={11:0.000},max={12:0.000})",
+            "build={10:0.000}ms(avg={11:0.000},max={12:0.000}) " +
+            "fused_avg={18:0.000}ms",
             Interlocked.Read(ref queries),
             Interlocked.Read(ref handledQueries),
             Interlocked.Read(ref fastNegativeQueries),
@@ -204,7 +212,14 @@ internal static class NearbyStatusTargetIndex
                 Interlocked.Read(ref maximumBuildTicks)),
             IndexedActors.Count,
             Interlocked.Read(ref incrementalAdds),
-            Interlocked.Read(ref incrementalRemoves));
+            Interlocked.Read(ref incrementalRemoves),
+            Interlocked.Read(ref queryRebuilds),
+            Interlocked.Read(ref fusedRebuilds),
+            Interlocked.Read(ref fusedRebuilds) == 0L
+                ? 0.0
+                : TicksToMilliseconds(
+                    Interlocked.Read(ref fusedBuildTicks)) /
+                  Interlocked.Read(ref fusedRebuilds));
     }
 
     internal static void Reset()
@@ -216,8 +231,104 @@ internal static class NearbyStatusTargetIndex
         indexedGeneration = -1;
         indexedUnitMembershipVersion = -1;
         indexAvailable = false;
+        fusedRebuildInProgress = false;
+        fusedRebuildStartedAt = 0L;
+        fusedRebuildActorEntries = 0;
         Volatile.Write(ref indexedChunkCount, 0);
         Volatile.Write(ref indexedActorEntryCount, 0);
+    }
+
+    /// <summary>
+    /// 与 SimObjectsZones 的角色成员表共用同一次全量遍历。
+    /// 当前索引在成员表提交前不可见，避免查询观察到半成品。
+    /// </summary>
+    internal static void BeginUnitMembershipRebuild()
+    {
+        long startedAt = Stopwatch.GetTimestamp();
+        RecycleActorLists();
+        GlobalStatusIds.Clear();
+        RemoveInvalidTrackedActors();
+        RefreshGlobalStatusIds();
+        fusedRebuildActorEntries = 0;
+        fusedRebuildStartedAt = startedAt;
+        fusedRebuildInProgress = true;
+        indexAvailable = false;
+    }
+
+    /// <summary>
+    /// actor 按原版 World.units 顺序进入 chunk 列表，因此直接追加即可
+    /// 保持 Finder 使用的 chunk 内成员顺序。
+    /// </summary>
+    internal static void AddUnitMembership(
+        Actor actor,
+        MapChunk chunk,
+        int unitIndex)
+    {
+        if (!fusedRebuildInProgress ||
+            !IndexedActors.Contains(actor))
+        {
+            return;
+        }
+
+        if (!ActorsByChunk.TryGetValue(
+                chunk,
+                out List<IndexedActor> candidates))
+        {
+            candidates = RentActorList();
+            ActorsByChunk.Add(chunk, candidates);
+        }
+
+        candidates.Add(
+            new IndexedActor(actor, unitIndex));
+        IndexedActorChunks.Add(actor, chunk);
+        fusedRebuildActorEntries++;
+    }
+
+    internal static void NotifyUnitMembershipRebuilt(
+        int membershipVersion,
+        bool fusedIndexPrepared)
+    {
+        if (!fusedIndexPrepared ||
+            !fusedRebuildInProgress)
+        {
+            indexAvailable = false;
+            fusedRebuildInProgress = false;
+            fusedRebuildStartedAt = 0L;
+            fusedRebuildActorEntries = 0;
+            return;
+        }
+
+        indexedGeneration = SimulationTime.Generation;
+        indexedUnitMembershipVersion = membershipVersion;
+        indexAvailable = true;
+        fusedRebuildInProgress = false;
+        Volatile.Write(
+            ref indexedChunkCount,
+            ActorsByChunk.Count);
+        Volatile.Write(
+            ref indexedActorEntryCount,
+            fusedRebuildActorEntries);
+        long elapsedTicks =
+            Stopwatch.GetTimestamp() -
+            fusedRebuildStartedAt;
+        fusedRebuildStartedAt = 0L;
+        fusedRebuildActorEntries = 0;
+        Interlocked.Increment(ref fusedRebuilds);
+        Interlocked.Add(ref fusedBuildTicks, elapsedTicks);
+        RecordBuildDuration(elapsedTicks);
+    }
+
+    internal static void AbortUnitMembershipRebuild()
+    {
+        if (fusedRebuildInProgress)
+        {
+            RecycleActorLists();
+        }
+
+        fusedRebuildInProgress = false;
+        fusedRebuildStartedAt = 0L;
+        fusedRebuildActorEntries = 0;
+        indexAvailable = false;
     }
 
     private static Actor FindClosest(
@@ -376,6 +487,7 @@ internal static class NearbyStatusTargetIndex
         Volatile.Write(
             ref indexedActorEntryCount,
             actorEntries);
+        Interlocked.Increment(ref queryRebuilds);
         RecordBuildDuration(
             Stopwatch.GetTimestamp() - startedAt);
     }
@@ -627,32 +739,50 @@ internal static class NearbyStatusTargetIndex
     private static void RegisterTrackedStatusIds(
         string[] statusIds)
     {
+        bool currentIndex = IsCurrentIndex();
         bool added = false;
+        bool membershipComplete = true;
+        long checkedUnits = 0L;
         for (int i = 0; i < statusIds.Length; i++)
         {
             string statusId = statusIds[i];
             if (statusId != null &&
                 TrackedStatusIds.Add(statusId))
             {
-                InitializeTrackedStatus(statusId);
+                membershipComplete &=
+                    InitializeTrackedStatus(
+                        statusId,
+                        currentIndex,
+                        ref checkedUnits);
                 added = true;
             }
         }
 
-        if (added)
+        Interlocked.Add(ref unitChecks, checkedUnits);
+        if (added &&
+            (!currentIndex ||
+             !membershipComplete))
         {
             indexAvailable = false;
         }
+        else if (added)
+        {
+            UpdateIndexedEntryDiagnostics();
+        }
     }
 
-    private static void InitializeTrackedStatus(string statusId)
+    private static bool InitializeTrackedStatus(
+        string statusId,
+        bool updateCurrentMembership,
+        ref long checkedUnits)
     {
         StatusManager manager = World.world?.statuses;
         if (manager == null)
         {
-            return;
+            return true;
         }
 
+        bool complete = true;
         foreach (Status status in manager)
         {
             Interlocked.Increment(ref statusChecks);
@@ -661,9 +791,20 @@ internal static class NearbyStatusTargetIndex
                 actor.isAlive() &&
                 actor.hasStatus(statusId))
             {
-                IndexedActors.Add(actor);
+                GlobalStatusIds.Add(statusId);
+                if (IndexedActors.Add(actor) &&
+                    updateCurrentMembership &&
+                    !TryAddCurrentMembership(
+                        World.world,
+                        actor,
+                        ref checkedUnits))
+                {
+                    complete = false;
+                }
             }
         }
+
+        return complete;
     }
 
     private static List<IndexedActor> RentActorList()
