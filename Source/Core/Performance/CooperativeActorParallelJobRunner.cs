@@ -14,6 +14,7 @@ namespace Cultiway.Core.Performance;
 internal sealed class CooperativeActorParallelJobRunner :
     ICooperativeBatchParallelJobRunner<BatchActors, Actor>
 {
+    private const string PrepareJobId = "prepare";
     private const string UpdateTimersJobId = "update_timers";
     private const string UpdateVisibilityJobId = "update_visibility";
 
@@ -35,6 +36,16 @@ internal sealed class CooperativeActorParallelJobRunner :
         Job<Actor> job,
         float elapsed)
     {
+        if (job.id.Equals(
+                PrepareJobId,
+                StringComparison.Ordinal))
+        {
+            // Batch.prepare 会先遍历角色 batch 的全部容器；后续每个
+            // 实际 job 的 check 又会提交自己的增删并准备数组。协作式
+            // runner 保留后者即可，避免每 tick 重复检查全部容器。
+            return true;
+        }
+
         if (job.id.Equals(
                 UpdateTimersJobId,
                 StringComparison.Ordinal))
