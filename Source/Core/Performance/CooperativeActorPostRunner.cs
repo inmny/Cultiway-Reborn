@@ -12,7 +12,11 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 {
     private const string EnemySearchJobId = "b3_findEnemyTarget";
     private const string TileActionJobId = "u5_curTileAction";
+    private const string UpdateTimersJobId = "u8_checkUpdateTimers";
+    private const string UnderForceJobId = "b1_checkUnderForce";
+    private const string TaskVerifierJobId = "b4_checkTaskVerifier";
     private const string PathMovementJobId = "b5_checkPathMovement";
+    private const string NaturalDeathJobId = "b55_update_natural_death";
     private const string UpdateAiJobId = "b6_update_ai";
 
     private readonly ActorTileActionProfiler tileActionProfiler = new();
@@ -32,6 +36,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     private readonly List<BaseSimObject> aggressionCandidates = new();
     private SearchWorkItem[] workItems = Array.Empty<SearchWorkItem>();
+    private Actor[][] activeBehaviorActorsByBatch =
+        Array.Empty<Actor[]>();
+    private int[] activeBehaviorActorCounts =
+        Array.Empty<int>();
+    private bool[] activeBehaviorPartitionsValid =
+        Array.Empty<bool>();
     private List<BatchActors> batches;
     private PostStage stage;
     private float elapsed;
@@ -67,6 +77,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         searchScheduleStartedAt = 0L;
         searchScheduleCompletedAt = 0L;
         aggressionCandidates.Clear();
+        PrepareActiveBehaviorPartitions(batches.Count);
         tileActionProfiler.Start(batches.Count);
         DeferredPathRequestBatch.StartCycle();
 
@@ -293,6 +304,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         DeferredPathRequestBatch.AbortCycle();
         tileActionProfiler.Abort();
+        ClearActiveBehaviorPartitions();
         ResetCycleReferences();
         stage = PostStage.Idle;
     }
@@ -357,7 +369,9 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             return;
         }
 
-        double startedAt = Time.realtimeSinceStartupAsDouble;
+        double startedAt = splitPostJobs
+            ? Time.realtimeSinceStartupAsDouble
+            : 0.0;
         bool profileTileAction =
             tileActionProfiler.Active &&
             ReferenceEquals(job.container, batch.c_main_tile_action);
@@ -372,10 +386,23 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         try
         {
             if (job.id.Equals(
+                    UpdateTimersJobId,
+                    StringComparison.Ordinal))
+            {
+                RunUpdateTimersJob(
+                    job.container,
+                    currentBatchIndex);
+            }
+            else if (job.id.Equals(
                     PathMovementJobId,
                     StringComparison.Ordinal))
             {
-                RunPathMovementJob(job.container);
+                if (!TryRunActiveBehaviorJob(
+                        job,
+                        currentBatchIndex))
+                {
+                    RunPathMovementJob(job.container);
+                }
             }
             else if (job.id.Equals(
                          TileActionJobId,
@@ -387,6 +414,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                           currentBatchIndex)))
             {
                 RunTileActionJob(job.container);
+            }
+            else if (IsActiveBehaviorJob(job.id) &&
+                     TryRunActiveBehaviorJob(
+                         job,
+                         currentBatchIndex))
+            {
             }
             else if (!profileTileAction ||
                      !tileActionProfiler.TryRunSampledJob(
@@ -424,8 +457,165 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             job.current_skips = Randy.randomInt(0, job.random_tick_skips);
         }
 
-        job.time_benchmark += Time.realtimeSinceStartupAsDouble - startedAt;
-        job.counter += batch._cur_container.Count;
+        if (splitPostJobs)
+        {
+            job.time_benchmark +=
+                Time.realtimeSinceStartupAsDouble - startedAt;
+            job.counter += batch._cur_container.Count;
+        }
+    }
+
+    private void PrepareActiveBehaviorPartitions(int batchCount)
+    {
+        if (activeBehaviorActorsByBatch.Length < batchCount)
+        {
+            Array.Resize(
+                ref activeBehaviorActorsByBatch,
+                batchCount);
+            Array.Resize(
+                ref activeBehaviorActorCounts,
+                batchCount);
+            Array.Resize(
+                ref activeBehaviorPartitionsValid,
+                batchCount);
+        }
+
+        Array.Clear(
+            activeBehaviorActorCounts,
+            0,
+            batchCount);
+        Array.Clear(
+            activeBehaviorPartitionsValid,
+            0,
+            batchCount);
+    }
+
+    private void RunUpdateTimersJob(
+        ObjectContainer<Actor> container,
+        int currentBatchIndex)
+    {
+        activeBehaviorActorCounts[currentBatchIndex] = 0;
+        activeBehaviorPartitionsValid[currentBatchIndex] = false;
+        if (container.Count == 0 &&
+            !container.isDirtyContainer())
+        {
+            activeBehaviorPartitionsValid[currentBatchIndex] = true;
+            return;
+        }
+
+        container.checkAddRemove();
+        if (World.world.isPaused())
+        {
+            return;
+        }
+
+        Actor[] actors = container.getFastSimpleArray();
+        int count = container.Count;
+        Actor[] activeActors =
+            activeBehaviorActorsByBatch[currentBatchIndex];
+        if (activeActors == null ||
+            activeActors.Length < count)
+        {
+            int capacity = Math.Max(
+                PerformanceSettings.SimulationBatchSize,
+                count);
+            activeActors = new Actor[capacity];
+            activeBehaviorActorsByBatch[currentBatchIndex] =
+                activeActors;
+        }
+
+        int activeCount = 0;
+        for (int i = 0; i < count; i++)
+        {
+            Actor actor = actors[i];
+            actor.u8_checkUpdateTimers(elapsed);
+            if (!actor._update_done)
+            {
+                activeActors[activeCount++] = actor;
+            }
+        }
+
+        activeBehaviorActorCounts[currentBatchIndex] =
+            activeCount;
+        activeBehaviorPartitionsValid[currentBatchIndex] =
+            true;
+    }
+
+    private bool TryRunActiveBehaviorJob(
+        Job<Actor> job,
+        int currentBatchIndex)
+    {
+        if (!activeBehaviorPartitionsValid[currentBatchIndex])
+        {
+            return false;
+        }
+
+        ObjectContainer<Actor> container = job.container;
+        if (container.isDirtyContainer())
+        {
+            // u8 之后发生角色增删时，旧分区不再代表原版容器顺序；
+            // 本 tick 剩余阶段全部退回原路径。
+            activeBehaviorPartitionsValid[currentBatchIndex] =
+                false;
+            return false;
+        }
+
+        Actor[] actors =
+            activeBehaviorActorsByBatch[currentBatchIndex];
+        int count =
+            activeBehaviorActorCounts[currentBatchIndex];
+        switch (job.id)
+        {
+            case UnderForceJobId:
+                for (int i = 0; i < count; i++)
+                {
+                    actors[i].b1_checkUnderForce(elapsed);
+                }
+
+                return true;
+            case TaskVerifierJobId:
+                for (int i = 0; i < count; i++)
+                {
+                    actors[i].b4_checkTaskVerifier(elapsed);
+                }
+
+                return true;
+            case PathMovementJobId:
+                RunPathMovementJob(actors, count);
+                return true;
+            case NaturalDeathJobId:
+                for (int i = 0; i < count; i++)
+                {
+                    actors[i].b55_updateNaturalDeaths(elapsed);
+                }
+
+                return true;
+            case UpdateAiJobId:
+                for (int i = 0; i < count; i++)
+                {
+                    actors[i].b6_updateAI(elapsed);
+                }
+
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static bool IsActiveBehaviorJob(string jobId)
+    {
+        return jobId.Equals(
+                   UnderForceJobId,
+                   StringComparison.Ordinal) ||
+               jobId.Equals(
+                   TaskVerifierJobId,
+                   StringComparison.Ordinal) ||
+               jobId.Equals(
+                   NaturalDeathJobId,
+                   StringComparison.Ordinal) ||
+               jobId.Equals(
+                   UpdateAiJobId,
+                   StringComparison.Ordinal);
     }
 
     private static void RunTileActionJob(
@@ -503,8 +693,15 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             return;
         }
 
-        Actor[] actors = container.getFastSimpleArray();
-        int count = container.Count;
+        RunPathMovementJob(
+            container.getFastSimpleArray(),
+            container.Count);
+    }
+
+    private static void RunPathMovementJob(
+        Actor[] actors,
+        int count)
+    {
         for (int i = 0; i < count; i++)
         {
             Actor actor = actors[i];
@@ -527,7 +724,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             return false;
         }
 
-        BatchActors batch = batches[batchIndex++];
+        int currentBatchIndex = batchIndex++;
+        BatchActors batch = batches[currentBatchIndex];
         Job<Actor> job = batch.jobs_post[enemySearchJobIndex];
         batch._elapsed = elapsed;
         batch._cur_container = job.container;
@@ -538,7 +736,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         }
 
         long startedAt = StartBenchmarkMeasurement();
-        PrepareEnemySearchBatch(batch, job.container);
+        PrepareEnemySearchBatch(
+            batch,
+            job.container,
+            currentBatchIndex);
         if (job.random_tick_skips > 0)
         {
             job.current_skips = Randy.randomInt(0, job.random_tick_skips);
@@ -555,27 +756,69 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     private void PrepareEnemySearchBatch(
         BatchActors batch,
-        ObjectContainer<Actor> container)
+        ObjectContainer<Actor> container,
+        int currentBatchIndex)
     {
         if (container.Count == 0 && !container.isDirtyContainer())
         {
             return;
         }
 
+        if (container.isDirtyContainer())
+        {
+            activeBehaviorPartitionsValid[currentBatchIndex] =
+                false;
+        }
+
         container.checkAddRemove();
-        Actor[] array = container.getFastSimpleArray();
-        int count = container.Count;
-        batch._array = array;
-        batch._count = count;
+        Actor[] containerActors =
+            container.getFastSimpleArray();
+        int containerCount = container.Count;
+        batch._array = containerActors;
+        batch._count = containerCount;
         if (World.world.isPaused())
         {
             return;
+        }
+
+        Actor[] array = containerActors;
+        int count = containerCount;
+        if (activeBehaviorPartitionsValid[currentBatchIndex])
+        {
+            array =
+                activeBehaviorActorsByBatch[currentBatchIndex];
+            count =
+                activeBehaviorActorCounts[currentBatchIndex];
         }
 
         for (int i = 0; i < count; i++)
         {
             PrepareEnemySearch(array[i]);
         }
+    }
+
+    private void ClearActiveBehaviorPartitions()
+    {
+        for (int i = 0;
+             i < activeBehaviorActorsByBatch.Length;
+             i++)
+        {
+            Actor[] actors =
+                activeBehaviorActorsByBatch[i];
+            if (actors != null)
+            {
+                Array.Clear(actors, 0, actors.Length);
+            }
+        }
+
+        Array.Clear(
+            activeBehaviorActorCounts,
+            0,
+            activeBehaviorActorCounts.Length);
+        Array.Clear(
+            activeBehaviorPartitionsValid,
+            0,
+            activeBehaviorPartitionsValid.Length);
     }
 
     private void PrepareEnemySearch(Actor actor)
