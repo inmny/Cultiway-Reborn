@@ -31,21 +31,45 @@ internal sealed class CooperativeActorParallelJobRunner :
     private static long visibilityFrames;
     private static long visibilityActors;
 
-    public bool TryRun(
-        BatchActors batch,
+    public bool TrySkipAllBatches(
         Job<Actor> job,
+        int batchCount,
         float elapsed)
     {
         if (job.id.Equals(
                 PrepareJobId,
                 StringComparison.Ordinal))
         {
-            // Batch.prepare 会先遍历角色 batch 的全部容器；后续每个
-            // 实际 job 的 check 又会提交自己的增删并准备数组。协作式
-            // runner 保留后者即可，避免每 tick 重复检查全部容器。
+            // 每个真实 job 都会自行提交容器增删并准备数组，
+            // 因而无需再为 Batch.prepare 唤醒一轮 worker。
             return true;
         }
 
+        if (!job.id.Equals(
+                UpdateVisibilityJobId,
+                StringComparison.Ordinal) ||
+            !PerformanceSettings.EnableFramePriorityScheduler)
+        {
+            return false;
+        }
+
+        // 可见性由每个渲染帧统一刷新，不再为每个逻辑 tick
+        // 调度一轮只返回的空 worker 工作。
+        if (Bench.bench_enabled)
+        {
+            Interlocked.Add(
+                ref visibilityJobsSkipped,
+                batchCount);
+        }
+
+        return true;
+    }
+
+    public bool TryRun(
+        BatchActors batch,
+        Job<Actor> job,
+        float elapsed)
+    {
         if (job.id.Equals(
                 UpdateTimersJobId,
                 StringComparison.Ordinal))
@@ -54,20 +78,6 @@ internal sealed class CooperativeActorParallelJobRunner :
                 batch,
                 job.container,
                 elapsed);
-            return true;
-        }
-
-        if (job.id.Equals(
-                UpdateVisibilityJobId,
-                StringComparison.Ordinal) &&
-            PerformanceSettings.EnableFramePriorityScheduler)
-        {
-            if (Bench.bench_enabled)
-            {
-                Interlocked.Increment(
-                    ref visibilityJobsSkipped);
-            }
-
             return true;
         }
 
@@ -178,9 +188,16 @@ internal sealed class CooperativeActorParallelJobRunner :
 
         MapBox world = World.world;
         bool paused = world.isPaused();
-        float deltaTime = world.delta_time;
+        // 该阶段可能与主线程表现阶段重叠，不能读取正在变化的渲染帧时间。
+        // elapsed 由本轮逻辑 tick 固定下来：固定步模式为 0.02 秒，
+        // 原版大步模式为 0.02 秒乘当前倍率。
+        float deltaTime =
+            PerformanceSettings.FixedSimulationStepSeconds;
         float timeScaleMultiplier =
-            Config.time_scale_asset.multiplier;
+            Math.Max(
+                0f,
+                elapsed /
+                PerformanceSettings.FixedSimulationStepSeconds);
         bool collectDiagnostics =
             Bench.bench_enabled;
         int tileRefreshCount = 0;

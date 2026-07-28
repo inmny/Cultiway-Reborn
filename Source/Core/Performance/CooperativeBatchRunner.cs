@@ -442,6 +442,18 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         int jobCount = batches.Count == 0 ? 0 : batches[0].jobs_parallel.Count;
         while (parallelJobIndex < jobCount)
         {
+            if (batchIndex == 0 &&
+                parallelJobRunner != null &&
+                parallelJobRunner.TrySkipAllBatches(
+                    batches[0].jobs_parallel[
+                        parallelJobIndex],
+                    batches.Count,
+                    elapsed))
+            {
+                parallelJobIndex++;
+                continue;
+            }
+
             if (batchIndex >= batches.Count)
             {
                 parallelJobIndex++;
