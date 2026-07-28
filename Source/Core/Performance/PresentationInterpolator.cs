@@ -79,18 +79,42 @@ internal static class PresentationInterpolator
         out Vector3 transformPosition,
         out Vector2 shadowPosition)
     {
+        return TryResolve(
+            in sample,
+            selected,
+            controlled,
+            out transformPosition,
+            out shadowPosition,
+            out _);
+    }
+
+    internal static bool TryResolve(
+        in ActorPresentationSample sample,
+        bool selected,
+        bool controlled,
+        out Vector3 transformPosition,
+        out Vector2 shadowPosition,
+        out bool requiresContinuousUpdate)
+    {
         Vector2 target = sample.Position;
         if (!IsFinite(target))
         {
             transformPosition = default;
             shadowPosition = default;
+            requiresContinuousUpdate = false;
             return false;
         }
 
         Vector2 presented = target;
+        requiresContinuousUpdate = false;
         if (PerformanceSettings.EnablePresentationSmoothing)
         {
-            presented = ResolveSmoothedPosition(in sample, target, selected, controlled);
+            presented = ResolveSmoothedPosition(
+                in sample,
+                target,
+                selected,
+                controlled,
+                out requiresContinuousUpdate);
         }
 
         Vector2 shake = sample.ShakeOffset;
@@ -109,7 +133,8 @@ internal static class PresentationInterpolator
         in ActorPresentationSample sample,
         Vector2 target,
         bool selected,
-        bool controlled)
+        bool controlled,
+        out bool requiresContinuousUpdate)
     {
         if (!states.TryGetValue(
                 sample.Handle,
@@ -198,6 +223,15 @@ internal static class PresentationInterpolator
         }
 
         presented = state.Presented;
+        Vector2 nextStep = sample.NextStepPosition;
+        bool predictingMovement =
+            sample.HasFlag(ActorPresentationFlags.Moving) &&
+            IsFinite(nextStep) &&
+            (nextStep - target).sqrMagnitude > 0.0001f;
+        Vector2 settledTarget =
+            predictingMovement ? nextStep : target;
+        requiresContinuousUpdate =
+            (presented - settledTarget).sqrMagnitude > 0.0001f;
         return presented;
     }
 

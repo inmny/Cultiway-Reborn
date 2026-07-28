@@ -22,6 +22,8 @@ internal static class ActorPresentationRenderer
 
     private static ActorPresentationSnapshot preparedSnapshot;
     private static int[] visibleSampleIndices = Array.Empty<int>();
+    private static int[] renderDataIndices = Array.Empty<int>();
+    private static int[] continuousSampleIndices = Array.Empty<int>();
     private static Vector3[] presentedPositions = Array.Empty<Vector3>();
     private static Vector2[] presentedShadowPositions = Array.Empty<Vector2>();
     private static bool[] baseVisibleSamples = Array.Empty<bool>();
@@ -30,6 +32,7 @@ internal static class ActorPresentationRenderer
     private static long lastSnapshotTick;
     private static int lastSnapshotCount;
     private static int lastVisibleCount;
+    private static int continuousSampleCount;
     private static int lastBridgedActorCount;
     private static int lastMissingActorCount;
     private static int lastPreparedFrame = -1;
@@ -39,9 +42,13 @@ internal static class ActorPresentationRenderer
     private static MetaType selectedMetaType;
     private static long selectedMetaId;
     private static long preparedFrames;
+    private static long fullPreparedFrames;
+    private static long reusedPreparedFrames;
     private static long totalPrepareTicks;
     private static long maximumPrepareTicks;
     private static long lastPrepareTicks;
+    private static ulong lastVisibilitySignature;
+    private static bool lastSmoothingEnabled;
 
     internal static bool TryPrepare(
         ActorManager manager,
@@ -57,12 +64,29 @@ internal static class ActorPresentationRenderer
         }
 
         long startedAt = Stopwatch.GetTimestamp();
-        PrepareArrays(manager, snapshot.Count);
         EnsurePresentationCapacity(snapshot.Count);
         RefreshSelectionHandles();
         bool renderGameplay = MapBox.isRenderGameplay();
+        ulong visibilitySignature =
+            PresentationVisibility.GetSignature(renderGameplay);
+        if (ReferenceEquals(snapshot, preparedSnapshot) &&
+            visibilitySignature == lastVisibilitySignature &&
+            lastSmoothingEnabled ==
+            PerformanceSettings.EnablePresentationSmoothing)
+        {
+            RefreshContinuousPresentation(manager, snapshot);
+            Interlocked.Increment(ref reusedPreparedFrames);
+            lastPreparedFrame = Time.frameCount;
+            ActorTransientPresentationFrame.Prepare();
+            RecordPrepareDuration(Stopwatch.GetTimestamp() - startedAt);
+            return true;
+        }
+
+        PrepareArrays(manager, snapshot.Count);
+        Interlocked.Increment(ref fullPreparedFrames);
         ActorRenderData renderData = manager.render_data;
         int visibleCount = 0;
+        continuousSampleCount = 0;
 
         for (int i = 0; i < snapshot.Count; i++)
         {
@@ -85,6 +109,7 @@ internal static class ActorPresentationRenderer
             baseVisibleSamples[i] = false;
             presentationVisibleSamples[i] = presentationVisible;
             zoneVisibleSamples[i] = zoneVisible;
+            renderDataIndices[i] = -1;
             if (!renderGameplay || !zoneVisible || !presentationVisible)
             {
                 continue;
@@ -97,12 +122,14 @@ internal static class ActorPresentationRenderer
                     selected,
                     controlled,
                     out Vector3 transformPosition,
-                    out Vector2 shadowPosition))
+                    out Vector2 shadowPosition,
+                    out bool requiresContinuousUpdate))
             {
                 continue;
             }
 
             visibleSampleIndices[visibleCount] = i;
+            renderDataIndices[i] = visibleCount;
             presentedPositions[i] = transformPosition;
             presentedShadowPositions[i] = shadowPosition;
             baseVisibleSamples[i] = true;
@@ -112,6 +139,11 @@ internal static class ActorPresentationRenderer
                 in sample,
                 transformPosition,
                 shadowPosition);
+            if (requiresContinuousUpdate)
+            {
+                continuousSampleIndices[continuousSampleCount++] = i;
+            }
+
             visibleCount++;
         }
 
@@ -121,6 +153,9 @@ internal static class ActorPresentationRenderer
         lastSnapshotTick = snapshot.TickSequence;
         lastSnapshotCount = snapshot.Count;
         lastVisibleCount = visibleCount;
+        lastVisibilitySignature = visibilitySignature;
+        lastSmoothingEnabled =
+            PerformanceSettings.EnablePresentationSmoothing;
         lastMissingActorCount = missingActorCount;
         ActorTransientPresentationFrame.Prepare();
         RecordPrepareDuration(Stopwatch.GetTimestamp() - startedAt);
@@ -414,7 +449,10 @@ internal static class ActorPresentationRenderer
     {
         return string.Format(
             CultureInfo.InvariantCulture,
-            "tick={0} snapshot={1} visible={2} bridged={3} missing={4} prepare={5:0.00}ms(avg={6:0.00},max={7:0.00})",
+            "tick={0} snapshot={1} visible={2} active={8} " +
+            "prepare_frames={9}/{10}(full/reuse) " +
+            "bridged={3} missing={4} " +
+            "prepare={5:0.00}ms(avg={6:0.00},max={7:0.00})",
             lastSnapshotTick,
             lastSnapshotCount,
             lastVisibleCount,
@@ -423,7 +461,10 @@ internal static class ActorPresentationRenderer
             TicksToMilliseconds(Interlocked.Read(ref lastPrepareTicks)),
             TicksToMilliseconds(Interlocked.Read(ref totalPrepareTicks)) /
             Math.Max(1L, Interlocked.Read(ref preparedFrames)),
-            TicksToMilliseconds(Interlocked.Read(ref maximumPrepareTicks)));
+            TicksToMilliseconds(Interlocked.Read(ref maximumPrepareTicks)),
+            continuousSampleCount,
+            Interlocked.Read(ref fullPreparedFrames),
+            Interlocked.Read(ref reusedPreparedFrames));
     }
 
     internal static void Reset()
@@ -441,8 +482,11 @@ internal static class ActorPresentationRenderer
         lastSnapshotTick = 0;
         lastSnapshotCount = 0;
         lastVisibleCount = 0;
+        continuousSampleCount = 0;
         lastBridgedActorCount = 0;
         lastMissingActorCount = 0;
+        lastVisibilitySignature = 0UL;
+        lastSmoothingEnabled = false;
         ActorTransientPresentationFrame.Reset();
     }
 
@@ -470,12 +514,61 @@ internal static class ActorPresentationRenderer
             }
 
             Array.Resize(ref visibleSampleIndices, nextCapacity);
+            Array.Resize(ref renderDataIndices, nextCapacity);
+            Array.Resize(ref continuousSampleIndices, nextCapacity);
             Array.Resize(ref presentedPositions, nextCapacity);
             Array.Resize(ref presentedShadowPositions, nextCapacity);
             Array.Resize(ref baseVisibleSamples, nextCapacity);
             Array.Resize(ref presentationVisibleSamples, nextCapacity);
             Array.Resize(ref zoneVisibleSamples, nextCapacity);
         }
+    }
+
+    private static void RefreshContinuousPresentation(
+        ActorManager manager,
+        ActorPresentationSnapshot snapshot)
+    {
+        ActorRenderData renderData = manager.render_data;
+        int writeIndex = 0;
+        for (int i = 0; i < continuousSampleCount; i++)
+        {
+            int sampleIndex = continuousSampleIndices[i];
+            int renderIndex = renderDataIndices[sampleIndex];
+            if (renderIndex < 0)
+            {
+                continue;
+            }
+
+            ref readonly ActorPresentationSample sample =
+                ref snapshot.GetAt(sampleIndex);
+            long actorId = sample.Handle.ActorId;
+            if (!PresentationInterpolator.TryResolve(
+                    in sample,
+                    selectedActorIds.Contains(actorId),
+                    actorId == controlledActorId,
+                    out Vector3 transformPosition,
+                    out Vector2 shadowPosition,
+                    out bool requiresContinuousUpdate))
+            {
+                continue;
+            }
+
+            presentedPositions[sampleIndex] = transformPosition;
+            presentedShadowPositions[sampleIndex] = shadowPosition;
+            FillDynamicRenderData(
+                renderData,
+                renderIndex,
+                in sample,
+                transformPosition,
+                shadowPosition);
+            if (requiresContinuousUpdate)
+            {
+                continuousSampleIndices[writeIndex++] = sampleIndex;
+            }
+        }
+
+        continuousSampleCount = writeIndex;
+        manager.visible_units.count = lastVisibleCount;
     }
 
     private static void RefreshSelectionHandles()
@@ -633,6 +726,40 @@ internal static class ActorPresentationRenderer
         renderData.shadows[index] = hasShadow;
         renderData.shadow_sprites[index] = sample.ShadowSprite;
         if (hasShadow)
+        {
+            CalculateShadow(
+                in sample,
+                shadowPosition,
+                out Vector3 finalShadowPosition,
+                out Vector3 finalShadowScale);
+            renderData.shadow_position[index] = finalShadowPosition;
+            renderData.shadow_scales[index] = finalShadowScale;
+        }
+    }
+
+    private static void FillDynamicRenderData(
+        ActorRenderData renderData,
+        int index,
+        in ActorPresentationSample sample,
+        Vector3 transformPosition,
+        Vector2 shadowPosition)
+    {
+        renderData.positions[index] = transformPosition;
+        if (sample.HasFlag(ActorPresentationFlags.HasItem))
+        {
+            float itemScale =
+                DebugConfig.isOn(DebugOption.RenderBigItems)
+                    ? 10f
+                    : 1f;
+            renderData.item_scale[index] = sample.Scale * itemScale;
+            renderData.item_pos[index] = CalculateItemPosition(
+                transformPosition,
+                sample.Rotation,
+                sample.Scale,
+                sample.ItemOffset);
+        }
+
+        if (sample.HasFlag(ActorPresentationFlags.HasShadow))
         {
             CalculateShadow(
                 in sample,

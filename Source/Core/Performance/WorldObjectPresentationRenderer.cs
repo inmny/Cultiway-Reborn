@@ -46,8 +46,12 @@ internal static class WorldObjectPresentationRenderer
     private static int worldLightCount;
     private static int visibleFireCount;
     private static long preparedFrames;
+    private static long fullPreparedFrames;
+    private static long reusedPreparedFrames;
     private static long totalPrepareTicks;
     private static long maximumPrepareTicks;
+    private static ulong lastVisibilitySignature;
+    private static bool lastRenderBuildings;
 
     internal static ActorPresentationSnapshot PreparedSnapshot =>
         GetPreparedSnapshot();
@@ -66,9 +70,26 @@ internal static class WorldObjectPresentationRenderer
         }
 
         long startedAt = Stopwatch.GetTimestamp();
+        bool renderBuildings =
+            World.world.quality_changer.shouldRenderBuildings();
+        ulong visibilitySignature =
+            PresentationVisibility.GetSignature(
+                MapBox.isRenderGameplay());
+        if (ReferenceEquals(snapshot, preparedSnapshot) &&
+            visibilitySignature == lastVisibilitySignature &&
+            renderBuildings == lastRenderBuildings)
+        {
+            System.Threading.Interlocked.Increment(
+                ref reusedPreparedFrames);
+            lastPreparedFrame = Time.frameCount;
+            RecordPrepareDuration(Stopwatch.GetTimestamp() - startedAt);
+            return true;
+        }
+
         Building[] visibleBuildings =
             VisibleBuildingsField.GetValue(manager) as Building[] ??
             Array.Empty<Building>();
+        System.Threading.Interlocked.Increment(ref fullPreparedFrames);
         if (visibleBuildings.Length < snapshot.BuildingCount)
         {
             Array.Resize(
@@ -94,7 +115,7 @@ internal static class WorldObjectPresentationRenderer
         buildingLightCount = 0;
         buildingStatusCount = 0;
         worldLightCount = 0;
-        if (World.world.quality_changer.shouldRenderBuildings())
+        if (renderBuildings)
         {
             for (int i = 0; i < snapshot.BuildingCount; i++)
             {
@@ -138,6 +159,8 @@ internal static class WorldObjectPresentationRenderer
         VisibleBuildingCountField.SetValue(manager, visibleBuildingCount);
         preparedSnapshot = snapshot;
         lastPreparedFrame = Time.frameCount;
+        lastVisibilitySignature = visibilitySignature;
+        lastRenderBuildings = renderBuildings;
         RecordPrepareDuration(Stopwatch.GetTimestamp() - startedAt);
         return true;
     }
@@ -623,8 +646,8 @@ internal static class WorldObjectPresentationRenderer
             "frame={0} buildings={1} snapshot_buildings={2} " +
             "stockpiles={7}/{8} projectiles={3} throws={4} " +
             "windows={9} lights={10}+{12} statuses={11} fires={13} " +
-            "prepare_avg={5:0.00}ms " +
-            "max={6:0.00}ms",
+            "prepare_frames={14}/{15}(full/reuse) " +
+            "prepare_avg={5:0.00}ms max={6:0.00}ms",
             lastPreparedFrame,
             visibleBuildingCount,
             preparedSnapshot?.BuildingCount ?? 0,
@@ -638,7 +661,9 @@ internal static class WorldObjectPresentationRenderer
             buildingLightCount,
             buildingStatusCount,
             worldLightCount,
-            visibleFireCount);
+            visibleFireCount,
+            System.Threading.Interlocked.Read(ref fullPreparedFrames),
+            System.Threading.Interlocked.Read(ref reusedPreparedFrames));
     }
 
     internal static void Reset()
@@ -653,6 +678,8 @@ internal static class WorldObjectPresentationRenderer
         buildingStatusCount = 0;
         worldLightCount = 0;
         visibleFireCount = 0;
+        lastVisibilitySignature = 0UL;
+        lastRenderBuildings = false;
         BuildingSnapshotIndexes.Clear();
     }
 
