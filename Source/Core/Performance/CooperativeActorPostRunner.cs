@@ -25,6 +25,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         "u10_checkSmoothMovement";
 
     private readonly ActorTileActionProfiler tileActionProfiler = new();
+    private readonly Action<int> tileActionWorkItemAction;
     private readonly Action<int> searchWorkItemAction;
     private readonly Action<int> pathMovementWorkItemAction;
     private readonly Action<int> smoothMovementWorkItemAction;
@@ -32,6 +33,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private enum PostStage
     {
         Idle,
+        BeforeTileAction,
+        ScheduleTileAction,
+        AwaitTileAction,
+        CommitTileAction,
         BeforeEnemySearch,
         PrepareEnemySearch,
         ScheduleEnemySearch,
@@ -50,6 +55,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     }
 
     private readonly List<BaseSimObject> aggressionCandidates = new();
+    private TileActionBatchWork[] tileActionWorkItems =
+        Array.Empty<TileActionBatchWork>();
     private SearchWorkItem[] workItems = Array.Empty<SearchWorkItem>();
     private PathMovementBatchWork[] pathMovementWorkItems =
         Array.Empty<PathMovementBatchWork>();
@@ -64,6 +71,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private List<BatchActors> batches;
     private PostStage stage;
     private float elapsed;
+    private int tileActionJobIndex;
     private int enemySearchJobIndex;
     private int pathMovementJobIndex;
     private int smoothMovementJobIndex;
@@ -71,15 +79,19 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private int postJobIndex;
     private int workIndex;
     private int workCount;
+    private int tileActionCommitIndex;
     private int pathCommitIndex;
     private int smoothCommitIndex;
     private int workGroupSize;
     private bool splitPostJobs;
+    private SimulationWorkerPool.WorkTicket tileActionTicket;
     private SimulationWorkerPool.WorkTicket searchTicket;
     private SimulationWorkerPool.WorkTicket pathMovementTicket;
     private SimulationWorkerPool.WorkTicket smoothMovementTicket;
     private long searchScheduleStartedAt;
     private long searchScheduleCompletedAt;
+    private long tileActionScheduleStartedAt;
+    private long tileActionScheduleCompletedAt;
     private long pathMovementScheduleStartedAt;
     private long pathMovementScheduleCompletedAt;
     private long smoothMovementScheduleStartedAt;
@@ -87,6 +99,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     internal CooperativeActorPostRunner()
     {
+        tileActionWorkItemAction =
+            RunTileActionWorkItemAt;
         searchWorkItemAction = SearchWorkItemAt;
         pathMovementWorkItemAction =
             RunPathMovementWorkItemAt;
@@ -105,14 +119,18 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         postJobIndex = 0;
         workIndex = 0;
         workCount = 0;
+        tileActionCommitIndex = 0;
         pathCommitIndex = 0;
         smoothCommitIndex = 0;
         splitPostJobs = SimulationTickBenchmark.IsCapturing;
+        tileActionTicket = default;
         searchTicket = default;
         pathMovementTicket = default;
         smoothMovementTicket = default;
         searchScheduleStartedAt = 0L;
         searchScheduleCompletedAt = 0L;
+        tileActionScheduleStartedAt = 0L;
+        tileActionScheduleCompletedAt = 0L;
         pathMovementScheduleStartedAt = 0L;
         pathMovementScheduleCompletedAt = 0L;
         smoothMovementScheduleStartedAt = 0L;
@@ -136,6 +154,16 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             throw new InvalidOperationException("Actor post jobs 中不存在 b3_findEnemyTarget");
         }
 
+        tileActionJobIndex = FindPostJobIndex(
+            batches[0].jobs_post,
+            TileActionJobId);
+        if (tileActionJobIndex < 0 ||
+            tileActionJobIndex >= enemySearchJobIndex)
+        {
+            throw new InvalidOperationException(
+                "Actor post jobs 中 u5_curTileAction 顺序无效");
+        }
+
         pathMovementJobIndex = FindPostJobIndex(
             batches[0].jobs_post,
             PathMovementJobId);
@@ -154,10 +182,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 "Actor post jobs 中 u10_checkSmoothMovement 顺序无效");
         }
 
-        stage = PostStage.BeforeEnemySearch;
+        stage = PostStage.BeforeTileAction;
     }
 
     public bool WaitingForBackgroundWork =>
+        (stage == PostStage.AwaitTileAction &&
+         tileActionTicket.IsValid) ||
         (stage == PostStage.AwaitEnemySearch &&
          searchTicket.IsValid) ||
         (stage == PostStage.AwaitPathMovement &&
@@ -168,6 +198,9 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     public bool IsBackgroundWorkCompleted =>
         stage switch
         {
+            PostStage.AwaitTileAction when tileActionTicket.IsValid =>
+                SimulationWorkerPool.Instance.IsCompleted(
+                    tileActionTicket),
             PostStage.AwaitEnemySearch when searchTicket.IsValid =>
                 SimulationWorkerPool.Instance.IsCompleted(searchTicket),
             PostStage.AwaitPathMovement when pathMovementTicket.IsValid =>
@@ -181,6 +214,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     {
         return stage switch
         {
+            PostStage.AwaitTileAction when tileActionTicket.IsValid =>
+                SimulationWorkerPool.Instance.TryWait(
+                    tileActionTicket,
+                    maximumMilliseconds),
             PostStage.AwaitEnemySearch when searchTicket.IsValid =>
                 SimulationWorkerPool.Instance.TryWait(
                     searchTicket,
@@ -199,7 +236,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     public void WaitForBackgroundWork()
     {
-        if (stage == PostStage.AwaitEnemySearch &&
+        if (stage == PostStage.AwaitTileAction &&
+            tileActionTicket.IsValid)
+        {
+            SimulationWorkerPool.Instance.Wait(
+                tileActionTicket);
+        }
+        else if (stage == PostStage.AwaitEnemySearch &&
             searchTicket.IsValid)
         {
             SimulationWorkerPool.Instance.Wait(searchTicket);
@@ -219,6 +262,23 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     public string GetNextPhaseName(string phasePrefix)
     {
+        if (stage == PostStage.BeforeTileAction &&
+            batchIndex >= batches.Count)
+        {
+            return phasePrefix + ".post.u5.schedule";
+        }
+
+        if (stage == PostStage.CommitTileAction &&
+            tileActionCommitIndex >= batches.Count)
+        {
+            return GetNextPostRangePhaseName(
+                phasePrefix,
+                tileActionJobIndex + 1,
+                enemySearchJobIndex,
+                "before_b3",
+                restartRange: true);
+        }
+
         if (stage == PostStage.BeforeEnemySearch &&
             batchIndex >= batches.Count)
         {
@@ -294,10 +354,25 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         return stage switch
         {
-            PostStage.BeforeEnemySearch =>
+            PostStage.BeforeTileAction =>
                 GetNextPostRangePhaseName(
                     phasePrefix,
                     0,
+                    tileActionJobIndex,
+                    "before_u5"),
+            PostStage.ScheduleTileAction =>
+                phasePrefix + ".post.u5.schedule",
+            PostStage.AwaitTileAction =>
+                IsBackgroundWorkCompleted
+                    ? phasePrefix + ".post.u5.complete"
+                    : phasePrefix + ".post.u5.await",
+            PostStage.CommitTileAction =>
+                phasePrefix + ".post.u5.commit.batch." +
+                tileActionCommitIndex,
+            PostStage.BeforeEnemySearch =>
+                GetNextPostRangePhaseName(
+                    phasePrefix,
+                    tileActionJobIndex + 1,
                     enemySearchJobIndex,
                     "before_b3"),
             PostStage.PrepareEnemySearch =>
@@ -362,14 +437,83 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             {
                 case PostStage.Idle:
                     return true;
+                case PostStage.BeforeTileAction:
+                    if (TryRunNextPostRange(
+                            0,
+                            tileActionJobIndex))
+                    {
+                        return false;
+                    }
+
+                    PrepareTileActionWorkItems();
+                    stage = PostStage.ScheduleTileAction;
+                    continue;
+                case PostStage.ScheduleTileAction:
+                    tileActionScheduleStartedAt =
+                        StartBenchmarkMeasurement();
+                    try
+                    {
+                        tileActionTicket =
+                            SimulationWorkerPool.Instance
+                                .BeginIndexed(
+                                    0,
+                                    batches.Count,
+                                    tileActionWorkItemAction);
+                    }
+                    finally
+                    {
+                        if (tileActionScheduleStartedAt != 0L)
+                        {
+                            tileActionScheduleCompletedAt =
+                                Stopwatch.GetTimestamp();
+                        }
+                    }
+
+                    stage = PostStage.AwaitTileAction;
+                    return false;
+                case PostStage.AwaitTileAction:
+                    SimulationWorkerPool.Instance.Wait(
+                        tileActionTicket);
+                    SimulationWorkerPool.WorkResult tileResult;
+                    try
+                    {
+                        tileResult =
+                            SimulationWorkerPool.Instance
+                                .Complete(tileActionTicket);
+                    }
+                    finally
+                    {
+                        tileActionTicket = default;
+                    }
+
+                    RecordTileActionBenchmark(tileResult);
+                    tileActionCommitIndex = 0;
+                    stage = PostStage.CommitTileAction;
+                    return false;
+                case PostStage.CommitTileAction:
+                    if (tileActionCommitIndex < batches.Count)
+                    {
+                        CommitTileActionWorkItem(
+                            tileActionCommitIndex++);
+                        return false;
+                    }
+
+                    batchIndex = 0;
+                    postJobIndex =
+                        tileActionJobIndex + 1;
+                    stage = PostStage.BeforeEnemySearch;
+                    continue;
                 case PostStage.BeforeEnemySearch:
-                    if (TryRunNextPostRange(0, enemySearchJobIndex))
+                    if (TryRunNextPostRange(
+                            tileActionJobIndex + 1,
+                            enemySearchJobIndex))
                     {
                         return false;
                     }
 
                     batchIndex = 0;
-                    postJobIndex = 0;
+                    postJobIndex =
+                        tileActionJobIndex + 1;
                     stage = PostStage.PrepareEnemySearch;
                     continue;
                 case PostStage.PrepareEnemySearch:
@@ -590,6 +734,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     public void Abort()
     {
+        if (tileActionTicket.IsValid)
+        {
+            SimulationWorkerPool.Instance.WaitAndDiscard(
+                tileActionTicket);
+            tileActionTicket = default;
+        }
+
         if (searchTicket.IsValid)
         {
             SimulationWorkerPool.Instance.WaitAndDiscard(searchTicket);
@@ -1077,6 +1228,139 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                jobId.Equals(
                    UpdateAiJobId,
                    StringComparison.Ordinal);
+    }
+
+    private void PrepareTileActionWorkItems()
+    {
+        int count = batches.Count;
+        if (tileActionWorkItems.Length < count)
+        {
+            int previousLength =
+                tileActionWorkItems.Length;
+            Array.Resize(
+                ref tileActionWorkItems,
+                count);
+            for (int i = previousLength; i < count; i++)
+            {
+                tileActionWorkItems[i] =
+                    new TileActionBatchWork();
+            }
+        }
+
+        bool paused = World.world.isPaused();
+        bool[] fires =
+            World.world.tile_manager.fires;
+        for (int i = 0; i < count; i++)
+        {
+            BatchActors batch = batches[i];
+            Job<Actor> job =
+                batch.jobs_post[tileActionJobIndex];
+            TileActionBatchWork work =
+                tileActionWorkItems[i];
+            batch._elapsed = elapsed;
+            batch._cur_container = job.container;
+            if (job.current_skips > 0)
+            {
+                job.current_skips--;
+                work.ConfigureSkipped(batch, job);
+                continue;
+            }
+
+            if (paused)
+            {
+                work.ConfigureSkipped(batch, job);
+                continue;
+            }
+
+            ObjectContainer<Actor> container =
+                job.container;
+            if (container.Count == 0 &&
+                !container.isDirtyContainer())
+            {
+                work.Configure(
+                    batch,
+                    job,
+                    Array.Empty<Actor>(),
+                    0,
+                    fires);
+                continue;
+            }
+
+            container.checkAddRemove();
+            Actor[] actors =
+                container.getFastSimpleArray();
+            int actorCount = container.Count;
+            batch._array = actors;
+            batch._count = actorCount;
+            work.Configure(
+                batch,
+                job,
+                actors,
+                actorCount,
+                fires);
+        }
+    }
+
+    private void RunTileActionWorkItemAt(int index)
+    {
+        tileActionWorkItems[index]
+            .RunParallel();
+    }
+
+    private void CommitTileActionWorkItem(int index)
+    {
+        TileActionBatchWork work =
+            tileActionWorkItems[index];
+        if (work.Skipped)
+        {
+            work.Reset();
+            return;
+        }
+
+        Job<Actor> job = work.Job;
+        long startedAt = StartBenchmarkMeasurement();
+        bool profiled =
+            tileActionProfiler.Active &&
+            tileActionProfiler.TryRunSampledJob(
+                work.Batch,
+                job,
+                index);
+        if (!profiled)
+        {
+            Actor[] actors = work.Actors;
+            bool[] requiresSerial =
+                work.RequiresSerial;
+            for (int i = 0; i < work.Count; i++)
+            {
+                if (requiresSerial[i])
+                {
+                    actors[i].u5_curTileAction();
+                }
+            }
+        }
+
+        if (tileActionProfiler.Active)
+        {
+            tileActionProfiler.RecordFullCalls(
+                job.container);
+        }
+
+        if (job.random_tick_skips > 0)
+        {
+            job.current_skips = Randy.randomInt(
+                0,
+                job.random_tick_skips);
+        }
+
+        if (splitPostJobs)
+        {
+            job.time_benchmark +=
+                (Stopwatch.GetTimestamp() - startedAt) /
+                (double)Stopwatch.Frequency;
+            job.counter += work.Checked;
+        }
+
+        work.Reset();
     }
 
     private static void RunTileActionJob(
@@ -1798,6 +2082,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         }
 
         for (int i = 0;
+             i < tileActionWorkItems.Length;
+             i++)
+        {
+            tileActionWorkItems[i]?.Reset();
+        }
+
+        for (int i = 0;
              i < pathMovementWorkItems.Length;
              i++)
         {
@@ -1813,6 +2104,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         workCount = 0;
         workIndex = 0;
+        tileActionCommitIndex = 0;
         pathCommitIndex = 0;
         smoothCommitIndex = 0;
         batchIndex = 0;
@@ -1820,9 +2112,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         aggressionCandidates.Clear();
         batches = null;
         splitPostJobs = false;
+        tileActionTicket = default;
         searchTicket = default;
         pathMovementTicket = default;
         smoothMovementTicket = default;
+        tileActionScheduleStartedAt = 0L;
+        tileActionScheduleCompletedAt = 0L;
         searchScheduleStartedAt = 0L;
         searchScheduleCompletedAt = 0L;
         pathMovementScheduleStartedAt = 0L;
@@ -1872,6 +2167,45 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         double seconds = (Stopwatch.GetTimestamp() - startedAt) / (double)Stopwatch.Frequency;
         SimulationTickBenchmark.RecordActorJobMetric(id, seconds, counter);
+    }
+
+    private void RecordTileActionBenchmark(
+        SimulationWorkerPool.WorkResult result)
+    {
+        if (!SimulationTickBenchmark.IsCapturing)
+        {
+            return;
+        }
+
+        int actorsHandled = 0;
+        for (int i = 0; i < batches.Count; i++)
+        {
+            TileActionBatchWork work =
+                tileActionWorkItems[i];
+            actorsHandled +=
+                work.Checked -
+                work.SerialCount;
+        }
+
+        long mainThreadOverlap =
+            CalculateOverlap(
+                result.StartedAt,
+                result.CompletedAt,
+                tileActionScheduleStartedAt,
+                tileActionScheduleCompletedAt) +
+            Math.Min(
+                result.WallTicks,
+                result.MainWaitTicks);
+        double backgroundSeconds = Math.Max(
+            0L,
+            result.WallTicks - mainThreadOverlap) /
+            (double)Stopwatch.Frequency;
+        SimulationTickBenchmark.RecordActorBackgroundMetric(
+            "u5_curTileAction.classify_parallel",
+            "vanilla.actors.post.u5.background",
+            result.WallSeconds,
+            backgroundSeconds,
+            actorsHandled);
     }
 
     private void RecordSearchBenchmark(SimulationWorkerPool.WorkResult result)
@@ -2006,6 +2340,107 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         internal PathMovementWorkKind Kind;
         internal PatchAboutPathfinding.PreparedPathMovement
             Prepared;
+    }
+
+    private sealed class TileActionBatchWork
+    {
+        internal BatchActors Batch { get; private set; }
+        internal Job<Actor> Job { get; private set; }
+        internal Actor[] Actors { get; private set; }
+        internal int Count { get; private set; }
+        internal int Checked { get; private set; }
+        internal int SerialCount { get; private set; }
+        internal bool Skipped { get; private set; }
+        internal bool[] Fires { get; private set; }
+        internal bool[] RequiresSerial { get; private set; } =
+            Array.Empty<bool>();
+
+        internal void Configure(
+            BatchActors batch,
+            Job<Actor> job,
+            Actor[] actors,
+            int count,
+            bool[] fires)
+        {
+            Batch = batch;
+            Job = job;
+            Actors = actors;
+            Count = count;
+            Checked = 0;
+            SerialCount = 0;
+            Skipped = false;
+            Fires = fires;
+            if (RequiresSerial.Length < count)
+            {
+                RequiresSerial =
+                    new bool[
+                        Math.Max(
+                            PerformanceSettings.SimulationBatchSize,
+                            count)];
+            }
+        }
+
+        internal void ConfigureSkipped(
+            BatchActors batch,
+            Job<Actor> job)
+        {
+            Batch = batch;
+            Job = job;
+            Actors = null;
+            Count = 0;
+            Checked = 0;
+            SerialCount = 0;
+            Skipped = true;
+            Fires = null;
+        }
+
+        internal void RunParallel()
+        {
+            if (Skipped ||
+                Count == 0)
+            {
+                return;
+            }
+
+            int serialCount = 0;
+            for (int i = 0; i < Count; i++)
+            {
+                bool requiresSerial =
+                    Fires == null ||
+                    !CanSkipSafeGroundTileAction(
+                        Actors[i],
+                        Fires);
+                RequiresSerial[i] =
+                    requiresSerial;
+                if (requiresSerial)
+                {
+                    serialCount++;
+                }
+            }
+
+            Checked = Count;
+            SerialCount = serialCount;
+        }
+
+        internal void Reset()
+        {
+            if (Count > 0)
+            {
+                Array.Clear(
+                    RequiresSerial,
+                    0,
+                    Count);
+            }
+
+            Batch = null;
+            Job = null;
+            Actors = null;
+            Count = 0;
+            Checked = 0;
+            SerialCount = 0;
+            Skipped = false;
+            Fires = null;
+        }
     }
 
     private sealed class PathMovementBatchWork
