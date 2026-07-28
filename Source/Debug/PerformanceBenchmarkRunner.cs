@@ -86,6 +86,9 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private int _framesOver100Ms;
     private readonly HashSet<string> _reportedInvalidHandRenderers = new();
     private float _handRendererScanElapsed;
+    private double _measurementStartWorldTime;
+    private long _measurementStartLogicalTicks;
+    private long _measurementStartedAt;
 
     internal static bool IsAutomationRequested =>
         !string.IsNullOrWhiteSpace(
@@ -346,8 +349,16 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         ResetFrameStats();
         _runElapsed = 0f;
         _logElapsed = 0f;
+        _measurementStartWorldTime =
+            World.world?.map_stats?.world_time ?? 0.0;
+        _measurementStartLogicalTicks =
+            CooperativeSimulationRunner.Instance
+                .LogicalTicksCompleted;
+        _measurementStartedAt =
+            System.Diagnostics.Stopwatch.GetTimestamp();
         SetState(RunnerState.Measuring);
-        ModClass.LogInfo($"{Prefix} 开始统计 units={CountUnits()} cities={CountCities()} speed={_speedId}");
+        ModClass.LogInfo(
+            $"{Prefix} 开始统计 units={CountUnits()} cities={CountCities()} speed={_speedId} world={_measurementStartWorldTime:0.000} ticks={_measurementStartLogicalTicks}");
     }
 
     private void UpdateMeasuring(float delta)
@@ -412,10 +423,49 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     {
         var frameStats = SnapshotFrameStats();
         var sb = new StringBuilder(2048);
+        double measurementWallSeconds =
+            _measurementStartedAt <= 0L
+                ? Math.Max(0.0, _runElapsed)
+                : Math.Max(
+                    0.0,
+                    (System.Diagnostics.Stopwatch.GetTimestamp() -
+                     _measurementStartedAt) /
+                    (double)System.Diagnostics.Stopwatch.Frequency);
+        double currentWorldTime =
+            World.world?.map_stats?.world_time ??
+            _measurementStartWorldTime;
+        double measurementWorldSeconds =
+            Math.Max(
+                0.0,
+                currentWorldTime -
+                _measurementStartWorldTime);
+        long currentLogicalTicks =
+            CooperativeSimulationRunner.Instance
+                .LogicalTicksCompleted;
+        long measurementLogicalTicks =
+            Math.Max(
+                0L,
+                currentLogicalTicks -
+                _measurementStartLogicalTicks);
+        double measuredActualSpeed =
+            measurementWallSeconds > 0.0
+                ? measurementWorldSeconds /
+                  measurementWallSeconds
+                : 0.0;
+        double measuredTicksPerSecond =
+            measurementWallSeconds > 0.0
+                ? measurementLogicalTicks /
+                  measurementWallSeconds
+                : 0.0;
         sb.Append(Prefix)
             .Append(' ')
             .Append(phase)
             .Append(" elapsed=").Append(_runElapsed.ToString("0.0", CultureInfo.InvariantCulture)).Append('s')
+            .Append(" wall=").Append(measurementWallSeconds.ToString("0.000", CultureInfo.InvariantCulture)).Append('s')
+            .Append(" worldDelta=").Append(measurementWorldSeconds.ToString("0.000", CultureInfo.InvariantCulture)).Append('s')
+            .Append(" measured=").Append(measuredActualSpeed.ToString("0.00", CultureInfo.InvariantCulture)).Append('x')
+            .Append(" ticksDelta=").Append(measurementLogicalTicks)
+            .Append(" tickRate=").Append(measuredTicksPerSecond.ToString("0.0", CultureInfo.InvariantCulture)).Append("/s")
             .Append(" units=").Append(CountUnits())
             .Append(" cities=").Append(CountCities())
             .Append(" kingdoms=").Append(CountKingdoms())
