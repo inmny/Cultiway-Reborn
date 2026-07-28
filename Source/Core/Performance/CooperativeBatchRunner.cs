@@ -21,6 +21,8 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
     private readonly List<TBatch> batches = new();
     private readonly string phasePrefix;
     private readonly ICooperativeBatchPostRunner<TBatch, TObject> postRunner;
+    private readonly ICooperativeBatchParallelJobRunner<TBatch, TObject>
+        parallelJobRunner;
     private readonly bool deferParallelToPresentation;
     private readonly Action<int> runCurrentParallelJob;
     private readonly Action runParallelStageInBackground;
@@ -41,10 +43,13 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
     public CooperativeBatchRunner(
         string phasePrefix,
         ICooperativeBatchPostRunner<TBatch, TObject> postRunner = null,
+        ICooperativeBatchParallelJobRunner<TBatch, TObject>
+            parallelJobRunner = null,
         bool deferParallelToPresentation = false)
     {
         this.phasePrefix = phasePrefix;
         this.postRunner = postRunner;
+        this.parallelJobRunner = parallelJobRunner;
         this.deferParallelToPresentation = deferParallelToPresentation;
         runCurrentParallelJob = RunCurrentParallelJob;
         runParallelStageInBackground = RunParallelStageInBackground;
@@ -512,7 +517,14 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         Job<TObject> job = batch.jobs_parallel[jobListIndex];
         batch._elapsed = elapsed;
         batch._cur_container = job.container;
-        job.job_updater();
+        if (parallelJobRunner == null ||
+            !parallelJobRunner.TryRun(
+                batch,
+                job,
+                elapsed))
+        {
+            job.job_updater();
+        }
     }
 
     private void RunCurrentParallelJob(int activeBatchIndex)

@@ -64,6 +64,7 @@ internal sealed class CooperativeSimulationRunner
         new(
             "vanilla.actors",
             new CooperativeActorPostRunner(),
+            new CooperativeActorParallelJobRunner(),
             deferParallelToPresentation: true);
     private readonly CooperativeBatchRunner<BatchBuildings, Building> buildingRunner =
         new(

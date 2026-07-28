@@ -36,6 +36,8 @@ internal static class PatchFramePriorityScheduler
     {
         EnsureActorReadBoundary("mapbox.frame_begin");
         EnsureBuildingReadBoundary("mapbox.frame_begin");
+        CooperativeActorParallelJobRunner
+            .RefreshFrameVisibility();
         PathFinder.Instance.ApplyWorkerWakeups();
         PresentationCommandQueue.DrainMainThread();
         __state = new MapBoxUpdateScope
