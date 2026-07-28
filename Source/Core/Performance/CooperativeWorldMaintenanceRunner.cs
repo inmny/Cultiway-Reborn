@@ -49,6 +49,10 @@ internal sealed class CooperativeWorldMaintenanceRunner
     private MaintenanceStage stage;
     private int index;
     private bool windowOnScreen;
+    private int preparedWorldGeneration = -1;
+    private int preparedActorVersion = -1;
+    private bool actorPartitionsReady;
+    private bool hasDirtyMetaManagers;
 
     public bool Active => stage != MaintenanceStage.Idle;
 
@@ -56,6 +60,14 @@ internal sealed class CooperativeWorldMaintenanceRunner
     {
         Abort();
         world = map;
+        int worldGeneration = SimulationTime.Generation;
+        if (preparedWorldGeneration != worldGeneration)
+        {
+            preparedWorldGeneration = worldGeneration;
+            preparedActorVersion = -1;
+            actorPartitionsReady = false;
+        }
+
         windowOnScreen = map.isWindowOnScreen();
         stage = MaintenanceStage.BuildingZones;
     }
@@ -98,6 +110,23 @@ internal sealed class CooperativeWorldMaintenanceRunner
                 stage = MaintenanceStage.PrepareActorsStart;
                 break;
             case MaintenanceStage.PrepareActorsStart:
+                metaManagers.Clear();
+                metaManagers.AddRange(
+                    world._list_meta_main_managers);
+                hasDirtyMetaManagers =
+                    HasDirtyMetaManagers();
+                bool actorPartitionsDirty =
+                    !actorPartitionsReady ||
+                    preparedActorVersion !=
+                    world.units.version ||
+                    hasDirtyMetaManagers;
+                if (!actorPartitionsDirty)
+                {
+                    stage =
+                        MaintenanceStage.DirtyMetaObjectsFirst;
+                    break;
+                }
+
                 actors.Clear();
                 actors.AddRange(world.units.getSimpleList());
                 world.units.units_only_wild.Clear();
@@ -112,15 +141,18 @@ internal sealed class CooperativeWorldMaintenanceRunner
                 ProcessActorMetaBatch();
                 if (index >= actors.Count)
                 {
+                    preparedActorVersion =
+                        world.units.version;
+                    actorPartitionsReady = true;
                     stage = MaintenanceStage.DirtyManagersStart;
                 }
 
                 break;
             case MaintenanceStage.DirtyManagersStart:
-                metaManagers.Clear();
-                metaManagers.AddRange(world._list_meta_main_managers);
                 index = 0;
-                stage = MaintenanceStage.DirtyManagers;
+                stage = hasDirtyMetaManagers
+                    ? MaintenanceStage.DirtyManagers
+                    : MaintenanceStage.DirtyMetaObjectsFirst;
                 break;
             case MaintenanceStage.DirtyManagers:
                 if (index < metaManagers.Count)
@@ -280,6 +312,19 @@ internal sealed class CooperativeWorldMaintenanceRunner
         world = null;
         stage = MaintenanceStage.Idle;
         index = 0;
+    }
+
+    private bool HasDirtyMetaManagers()
+    {
+        for (int i = 0; i < metaManagers.Count; i++)
+        {
+            if (metaManagers[i].isUnitsDirty())
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void ProcessActorMetaBatch()
