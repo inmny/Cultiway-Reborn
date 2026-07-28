@@ -409,6 +409,9 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             .Append(PresentationCommandQueue.GetDiagnostics())
             .AppendLine();
         sb.Append("  actor_snapshots ").Append(ActorPresentationSnapshots.GetDiagnostics()).AppendLine();
+        sb.Append("  nearby_status_targets ")
+            .Append(NearbyStatusTargetIndex.GetDiagnostics())
+            .AppendLine();
         sb.Append("  actor_presentation ").Append(ActorPresentationRenderer.GetDiagnostics()).AppendLine();
         sb.Append("  world_object_presentation ")
             .Append(WorldObjectPresentationRenderer.GetDiagnostics())
