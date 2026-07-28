@@ -267,7 +267,7 @@ internal sealed class ActorPresentationSnapshot
         Array.Empty<ProjectilePresentationSample>();
     private ResourceThrowPresentationSample[] resourceThrows =
         Array.Empty<ResourceThrowPresentationSample>();
-    private Dictionary<long, int> indexes = new(4096);
+    private readonly Dictionary<long, int> indexes = new(4096);
     private readonly Action<int> updateDynamicSampleAt;
     private int dynamicUpdateCount;
     private int dynamicInvalidCount;
@@ -347,8 +347,7 @@ internal sealed class ActorPresentationSnapshot
         Actor[] actors = world.units.getSimpleArray();
         int actorCount = world.units.Count;
         EnsureCapacity(actorCount);
-        indexes = new Dictionary<long, int>(
-            Math.Max(4096, actorCount));
+        indexes.Clear();
         statusCount = 0;
         statusFrameCount = 0;
         lightCount = 0;
@@ -837,29 +836,21 @@ internal sealed class ActorPresentationSnapshot
         long actorUpdateCompletedAt = profileCapture
             ? Stopwatch.GetTimestamp()
             : 0L;
-        int capturedCount;
-        if (Volatile.Read(ref dynamicInvalidCount) == 0)
+        // 每个三缓冲槽永久拥有自己的索引字典。不能把 source 字典引用
+        // 交给 writer，否则后续复用槽位时只能重新分配万人字典并制造 GC 峰值。
+        indexes.Clear();
+        int capturedCount = 0;
+        for (int i = 0; i < source.Count; i++)
         {
-            capturedCount = source.Count;
-            indexes = source.indexes;
-        }
-        else
-        {
-            indexes = new Dictionary<long, int>(
-                Math.Max(4096, source.Count));
-            capturedCount = 0;
-            for (int i = 0; i < source.Count; i++)
+            ActorPresentationSample sample = samples[i];
+            if (sample.ActorReference == null)
             {
-                ActorPresentationSample sample = samples[i];
-                if (sample.ActorReference == null)
-                {
-                    continue;
-                }
-
-                samples[capturedCount] = sample;
-                indexes[sample.Handle.ActorId] = capturedCount;
-                capturedCount++;
+                continue;
             }
+
+            samples[capturedCount] = sample;
+            indexes[sample.Handle.ActorId] = capturedCount;
+            capturedCount++;
         }
 
         long compactCompletedAt = profileCapture
@@ -1038,7 +1029,7 @@ internal sealed class ActorPresentationSnapshot
 
     internal void Reset()
     {
-        indexes = new Dictionary<long, int>(4096);
+        indexes.Clear();
         WorldGeneration = 0;
         TickSequence = 0;
         SimulationTimeValue = 0.0;
