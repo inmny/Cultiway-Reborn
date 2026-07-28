@@ -306,16 +306,26 @@ internal static class FramePriorityGovernor
     private static bool CanUseStarvationSlice(SimulationDomain domain)
     {
         int lastRunFrame = domain == SimulationDomain.Vanilla ? lastVanillaRunFrame : lastCultiwayRunFrame;
-        if (frameId - lastRunFrame < PerformanceSettings.StarvationFrameInterval)
+        // 同一帧已经开始保底推进后，允许继续执行小阶段，直到用完
+        // 保底 CPU 配额。原先这里每帧只允许一个阶段；角色按 64 人
+        // 分批后，157 个 AI 批次即使总计只需几十毫秒，也会被强制
+        // 拉长到 157 帧以上。
+        if (lastRunFrame != frameId &&
+            frameId - lastRunFrame <
+            PerformanceSettings.StarvationFrameInterval)
         {
             return false;
         }
 
+        double starvationBudget = Math.Min(
+            PerformanceSettings.StarvationSliceMilliseconds,
+            PerformanceSettings.MaxSimulationMillisecondsPerFrame);
         double domainSpent = domain == SimulationDomain.Vanilla
             ? vanillaCpuMilliseconds
             : cultiwayCpuMilliseconds;
-        return domainSpent < PerformanceSettings.StarvationSliceMilliseconds &&
-               simulationCpuMilliseconds < frameBudgetMilliseconds + PerformanceSettings.StarvationSliceMilliseconds;
+        return domainSpent < starvationBudget &&
+               simulationCpuMilliseconds <
+               frameBudgetMilliseconds + starvationBudget;
     }
 
     private static double GetPhaseEstimate(string phase)

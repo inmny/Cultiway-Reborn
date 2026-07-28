@@ -691,8 +691,32 @@ internal static class PatchFramePriorityScheduler
     [HarmonyPatch(typeof(MapBox), "updateDebugGroupSystem")]
     private static void GuardActorDebugRendering()
     {
+        if (!RequiresLiveDebugTextBoundary())
+        {
+            return;
+        }
+
         EnsureActorReadBoundary("mapbox.debug_render");
         EnsureBuildingReadBoundary("mapbox.debug_render");
+    }
+
+    private static bool RequiresLiveDebugTextBoundary()
+    {
+        return DebugConfig.isOn(DebugOption.OverlaySoundsAttached) ||
+               DebugConfig.isOn(DebugOption.OverlayBoatTransport) ||
+               DebugConfig.isOn(DebugOption.OverlayActorCivs) ||
+               DebugConfig.isOn(DebugOption.OverlayCursorActor) ||
+               DebugConfig.isOn(DebugOption.OverlayActorGroupLeaderOnly) ||
+               DebugConfig.isOn(DebugOption.OverlayActorFavoritesOnly) ||
+               DebugConfig.isOn(DebugOption.OverlayActorMobs) ||
+               DebugConfig.isOn(DebugOption.OverlayTrees) ||
+               DebugConfig.isOn(DebugOption.OverlayPlants) ||
+               DebugConfig.isOn(DebugOption.OverlayCivBuildings) ||
+               DebugConfig.isOn(DebugOption.OverlayOtherBuildings) ||
+               DebugConfig.isOn(DebugOption.OverlayArmies) ||
+               DebugConfig.isOn(DebugOption.OverlayCity) ||
+               DebugConfig.isOn(DebugOption.OverlayCityTasks) ||
+               DebugConfig.isOn(DebugOption.OverlayKingdom);
     }
 
     [HarmonyPrefix]
