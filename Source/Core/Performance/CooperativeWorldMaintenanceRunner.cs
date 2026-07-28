@@ -23,6 +23,7 @@ internal sealed class CooperativeWorldMaintenanceRunner
         SimObjectZones,
         PrepareActorsStart,
         PrepareActors,
+        GeoRegionUnits,
         DirtyManagersStart,
         DirtyManagers,
         DirtyManagersParallel,
@@ -126,8 +127,6 @@ internal sealed class CooperativeWorldMaintenanceRunner
                 metaManagers.Clear();
                 metaManagers.AddRange(
                     world._list_meta_main_managers);
-                hasDirtyMetaManagers =
-                    HasDirtyMetaManagers();
                 bool actorPartitionsDirty =
                     !actorPartitionsReady ||
                     preparedActorVersion !=
@@ -137,7 +136,7 @@ internal sealed class CooperativeWorldMaintenanceRunner
                 if (!actorPartitionsDirty)
                 {
                     stage =
-                        MaintenanceStage.DirtyManagersStart;
+                        MaintenanceStage.GeoRegionUnits;
                     break;
                 }
 
@@ -160,9 +159,16 @@ internal sealed class CooperativeWorldMaintenanceRunner
                     preparedActorPartitionVersion =
                         ActorMetaPartitionVersion.Version;
                     actorPartitionsReady = true;
-                    stage = MaintenanceStage.DirtyManagersStart;
+                    stage = MaintenanceStage.GeoRegionUnits;
                 }
 
+                break;
+            case MaintenanceStage.GeoRegionUnits:
+                WorldboxGame.I?.GeoRegions
+                    ?.ApplyPendingUnitChanges();
+                hasDirtyMetaManagers =
+                    HasDirtyMetaManagers();
+                stage = MaintenanceStage.DirtyManagersStart;
                 break;
             case MaintenanceStage.DirtyManagersStart:
                 index = 0;

@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Utils.Extension;
@@ -10,6 +14,18 @@ namespace Cultiway.Core;
 public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
 {
     private GeoRegionMembershipIndex membership;
+    private readonly ConcurrentQueue<UnitMembershipChange>
+        pendingUnitChanges = new();
+    private readonly Dictionary<GeoRegion, Dictionary<Actor, int>>
+        unitPositions = new();
+    private readonly HashSet<GeoRegion> changedUnitRegions = new();
+    private bool unitPositionsValid;
+    private int pendingUnitChangeCount;
+    private long unitChangesEnqueued;
+    private long unitChangesApplied;
+    private long unitChangesDiscarded;
+    private long unitMembershipAdds;
+    private long unitMembershipRemoves;
 
     public GeoRegionManager()
     {
@@ -19,6 +35,10 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
     public override void clear()
     {
         ClearMembership();
+        ClearPendingUnitChanges();
+        unitPositions.Clear();
+        changedUnitRegions.Clear();
+        unitPositionsValid = false;
         GeoRegionShapeSpriteCache.Clear();
         base.clear();
     }
@@ -42,6 +62,10 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
     internal void ClearMembership()
     {
         membership = null;
+        ClearPendingUnitChanges();
+        unitPositions.Clear();
+        changedUnitRegions.Clear();
+        unitPositionsValid = false;
     }
 
     internal GeoRegion GetRegionForTile(int tileId, GeoRegionLayer layer)
@@ -103,6 +127,12 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
         }
     }
 
+    public override void finishDirtyUnits()
+    {
+        base.finishDirtyUnits();
+        RebuildUnitPositions();
+    }
+
     public void SetDirtyUnitsForTile(WorldTile tile)
     {
         if (!CanRefreshUnits() || tile == null) return;
@@ -114,30 +144,107 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
         }
     }
 
-    public void SetDirtyUnitsForTileChange(WorldTile oldTile, WorldTile newTile)
+    /// <summary>
+    /// 记录角色跨 GeoRegion 的成员变化。模拟阶段只写入并发队列，
+    /// 下一 tick 的维护阶段再串行提交，时间边界与原版脏重建一致。
+    /// </summary>
+    public void NotifyUnitTileChange(
+        Actor actor,
+        WorldTile oldTile,
+        WorldTile newTile)
     {
-        if (oldTile == newTile) return;
+        if (actor == null || oldTile == newTile) return;
         if (!CanRefreshUnits()) return;
+        if (HaveSameUnitMembership(oldTile, newTile)) return;
 
-        if (oldTile != null)
+        pendingUnitChanges.Enqueue(
+            new UnitMembershipChange(
+                actor,
+                oldTile,
+                newTile));
+        Interlocked.Increment(
+            ref pendingUnitChangeCount);
+        Interlocked.Increment(
+            ref unitChangesEnqueued);
+    }
+
+    public void NotifyUnitRemoved(
+        Actor actor,
+        WorldTile tile)
+    {
+        NotifyUnitTileChange(
+            actor,
+            tile,
+            null);
+    }
+
+    internal void ApplyPendingUnitChanges()
+    {
+        if (Volatile.Read(
+                ref pendingUnitChangeCount) == 0)
         {
-            foreach (GeoRegion geoRegion in oldTile.GetExtend().GetGeoRegions())
-            {
-                if (geoRegion.isRekt() ||
-                    (newTile != null && newTile.GetExtend().HasGeoRegion(geoRegion))) continue;
-                setDirtyUnits(geoRegion);
-            }
+            return;
         }
 
-        if (newTile != null)
+        if (!CanRefreshUnits() ||
+            isUnitsDirty())
         {
-            foreach (GeoRegion geoRegion in newTile.GetExtend().GetGeoRegions())
-            {
-                if (geoRegion.isRekt() ||
-                    (oldTile != null && oldTile.GetExtend().HasGeoRegion(geoRegion))) continue;
-                setDirtyUnits(geoRegion);
-            }
+            long discarded =
+                DrainPendingUnitChanges();
+            Interlocked.Add(
+                ref unitChangesDiscarded,
+                discarded);
+            unitPositionsValid = false;
+            return;
         }
+
+        EnsureUnitPositions();
+        changedUnitRegions.Clear();
+        long applied = 0L;
+        long adds = 0L;
+        long removes = 0L;
+        while (pendingUnitChanges.TryDequeue(
+                   out UnitMembershipChange change))
+        {
+            Interlocked.Decrement(
+                ref pendingUnitChangeCount);
+            ApplyUnitMembershipChange(
+                in change,
+                ref adds,
+                ref removes);
+            applied++;
+        }
+
+        foreach (GeoRegion region in changedUnitRegions)
+        {
+            region.unDirty();
+        }
+
+        changedUnitRegions.Clear();
+        Interlocked.Add(
+            ref unitChangesApplied,
+            applied);
+        Interlocked.Add(
+            ref unitMembershipAdds,
+            adds);
+        Interlocked.Add(
+            ref unitMembershipRemoves,
+            removes);
+    }
+
+    internal string GetUnitMembershipDiagnostics()
+    {
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "pending={0} changes={1}/{2}/{3}(queued/applied/discarded) " +
+            "members={4}/{5}(add/remove) indexed_regions={6}",
+            Volatile.Read(ref pendingUnitChangeCount),
+            Interlocked.Read(ref unitChangesEnqueued),
+            Interlocked.Read(ref unitChangesApplied),
+            Interlocked.Read(ref unitChangesDiscarded),
+            Interlocked.Read(ref unitMembershipAdds),
+            Interlocked.Read(ref unitMembershipRemoves),
+            unitPositions.Count);
     }
 
     public GeoRegion ResolveGeoRegion(WorldTile tile, CustomMapModeAsset mapMode)
@@ -645,5 +752,253 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
         geoRegion.Setup(founder);
 
         return geoRegion;
+    }
+
+    private bool HaveSameUnitMembership(
+        WorldTile oldTile,
+        WorldTile newTile)
+    {
+        int oldTileId =
+            oldTile?.tile_id ?? -1;
+        int newTileId =
+            newTile?.tile_id ?? -1;
+        for (int layer = 0;
+             layer < GeoRegionMembershipIndex.LayerCount;
+             layer++)
+        {
+            GeoRegion oldRegion = oldTileId >= 0
+                ? membership.GetRegion(
+                    oldTileId,
+                    (GeoRegionLayer)layer)
+                : null;
+            GeoRegion newRegion = newTileId >= 0
+                ? membership.GetRegion(
+                    newTileId,
+                    (GeoRegionLayer)layer)
+                : null;
+            if (!ReferenceEquals(
+                    oldRegion,
+                    newRegion))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void ApplyUnitMembershipChange(
+        in UnitMembershipChange change,
+        ref long adds,
+        ref long removes)
+    {
+        int oldTileId =
+            change.OldTile?.tile_id ?? -1;
+        int newTileId =
+            change.NewTile?.tile_id ?? -1;
+        bool addToNewRegions =
+            change.Actor.isAlive();
+        for (int layer = 0;
+             layer < GeoRegionMembershipIndex.LayerCount;
+             layer++)
+        {
+            GeoRegion oldRegion = oldTileId >= 0
+                ? membership.GetRegion(
+                    oldTileId,
+                    (GeoRegionLayer)layer)
+                : null;
+            GeoRegion newRegion = newTileId >= 0
+                ? membership.GetRegion(
+                    newTileId,
+                    (GeoRegionLayer)layer)
+                : null;
+            if (ReferenceEquals(
+                    oldRegion,
+                    newRegion))
+            {
+                continue;
+            }
+
+            if (oldRegion != null &&
+                !oldRegion.isRekt() &&
+                RemoveUnit(
+                    oldRegion,
+                    change.Actor))
+            {
+                removes++;
+                changedUnitRegions.Add(
+                    oldRegion);
+            }
+
+            if (addToNewRegions &&
+                newRegion != null &&
+                !newRegion.isRekt() &&
+                AddUnit(
+                    newRegion,
+                    change.Actor))
+            {
+                adds++;
+                changedUnitRegions.Add(
+                    newRegion);
+            }
+        }
+    }
+
+    private bool RemoveUnit(
+        GeoRegion region,
+        Actor actor)
+    {
+        Dictionary<Actor, int> positions =
+            GetOrBuildUnitPositions(region);
+        if (!positions.TryGetValue(
+                actor,
+                out int index))
+        {
+            return false;
+        }
+
+        List<Actor> units = region.units;
+        int lastIndex = units.Count - 1;
+        Actor movedActor = units[lastIndex];
+        if (index != lastIndex)
+        {
+            units[index] = movedActor;
+            positions[movedActor] = index;
+        }
+
+        units.RemoveAt(lastIndex);
+        positions.Remove(actor);
+        if (units.Count == 0)
+        {
+            region.clearListUnits();
+        }
+
+        return true;
+    }
+
+    private bool AddUnit(
+        GeoRegion region,
+        Actor actor)
+    {
+        Dictionary<Actor, int> positions =
+            GetOrBuildUnitPositions(region);
+        if (positions.ContainsKey(actor))
+        {
+            return false;
+        }
+
+        positions.Add(
+            actor,
+            region.units.Count);
+        region.units.Add(actor);
+        return true;
+    }
+
+    private Dictionary<Actor, int>
+        GetOrBuildUnitPositions(
+            GeoRegion region)
+    {
+        if (unitPositions.TryGetValue(
+                region,
+                out Dictionary<Actor, int> positions))
+        {
+            return positions;
+        }
+
+        positions = new Dictionary<Actor, int>(
+            region.units.Count,
+            ActorReferenceComparer.Instance);
+        for (int i = 0;
+             i < region.units.Count;
+             i++)
+        {
+            positions[region.units[i]] = i;
+        }
+
+        unitPositions.Add(
+            region,
+            positions);
+        return positions;
+    }
+
+    private void EnsureUnitPositions()
+    {
+        if (!unitPositionsValid)
+        {
+            RebuildUnitPositions();
+        }
+    }
+
+    private void RebuildUnitPositions()
+    {
+        unitPositions.Clear();
+        foreach (GeoRegion region in this)
+        {
+            GetOrBuildUnitPositions(region);
+        }
+
+        unitPositionsValid = true;
+    }
+
+    private long DrainPendingUnitChanges()
+    {
+        long discarded = 0L;
+        while (pendingUnitChanges.TryDequeue(out _))
+        {
+            Interlocked.Decrement(
+                ref pendingUnitChangeCount);
+            discarded++;
+        }
+
+        return discarded;
+    }
+
+    private void ClearPendingUnitChanges()
+    {
+        while (pendingUnitChanges.TryDequeue(out _))
+        {
+        }
+
+        Volatile.Write(
+            ref pendingUnitChangeCount,
+            0);
+    }
+
+    private readonly struct UnitMembershipChange
+    {
+        internal UnitMembershipChange(
+            Actor actor,
+            WorldTile oldTile,
+            WorldTile newTile)
+        {
+            Actor = actor;
+            OldTile = oldTile;
+            NewTile = newTile;
+        }
+
+        internal Actor Actor { get; }
+        internal WorldTile OldTile { get; }
+        internal WorldTile NewTile { get; }
+    }
+
+    private sealed class ActorReferenceComparer :
+        IEqualityComparer<Actor>
+    {
+        internal static ActorReferenceComparer Instance { get; } =
+            new();
+
+        public bool Equals(
+            Actor left,
+            Actor right)
+        {
+            return ReferenceEquals(
+                left,
+                right);
+        }
+
+        public int GetHashCode(Actor actor)
+        {
+            return RuntimeHelpers.GetHashCode(actor);
+        }
     }
 }

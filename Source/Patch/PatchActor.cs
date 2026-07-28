@@ -343,7 +343,12 @@ internal static class PatchActor
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.clearManagers))]
     private static void clearManagers_postfix(Actor __instance)
     {
-        WorldboxGame.I.GeoRegions.SetDirtyUnitsForTile(__instance.current_tile);
+        InsideBoatActorIndex.Notify(
+            __instance,
+            isInsideBoat: false);
+        WorldboxGame.I.GeoRegions.NotifyUnitRemoved(
+            __instance,
+            __instance.current_tile);
 
         var ae = __instance.GetExtend();
         if (__instance.HasSect())
@@ -368,7 +373,10 @@ internal static class PatchActor
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.setCurrentTile))]
     private static void setCurrentTile_prefix(Actor __instance, WorldTile pTile)
     {
-        WorldboxGame.I.GeoRegions.SetDirtyUnitsForTileChange(__instance.current_tile, pTile);
+        WorldboxGame.I.GeoRegions.NotifyUnitTileChange(
+            __instance,
+            __instance.current_tile,
+            pTile);
     }
 
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.newKillAction))]
@@ -388,6 +396,9 @@ internal static class PatchActor
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.Dispose))]
     private static void Dispose_prefix(Actor __instance)
     {
+        InsideBoatActorIndex.Notify(
+            __instance,
+            isInsideBoat: false);
         if (!__instance.CheckExtend())
         {
             return;

@@ -334,6 +334,7 @@ internal static class PatchFramePriorityScheduler
         ActorPresentationSnapshots.Reset();
         WorldObjectPresentationRenderer.Reset();
         PresentationCommandQueue.Clear();
+        InsideBoatActorIndex.Reset();
         SimulationTime.UnbindWorld();
     }
 
@@ -347,6 +348,7 @@ internal static class PatchFramePriorityScheduler
         ActorPresentationSnapshots.Reset();
         WorldObjectPresentationRenderer.Reset();
         PresentationCommandQueue.Clear();
+        InsideBoatActorIndex.Reset();
         FramePriorityGovernor.ResetFault();
     }
 

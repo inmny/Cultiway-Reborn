@@ -328,7 +328,7 @@ namespace Cultiway.Patch
             actor._next_step_tile = tile;
             if (adjacentStep)
             {
-                actor.current_tile = tile;
+                SetCurrentTile(actor, tile);
             }
             else if ((float)Toolbox.SquaredDistTile(actor.current_tile, tile) > 4f)
             {
@@ -336,8 +336,27 @@ namespace Cultiway.Patch
             }
             else
             {
-                actor.current_tile = tile;
+                SetCurrentTile(actor, tile);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void SetCurrentTile(
+            Actor actor,
+            WorldTile tile)
+        {
+            WorldTile previous = actor.current_tile;
+            if (ReferenceEquals(previous, tile))
+            {
+                return;
+            }
+
+            WorldboxGame.I.GeoRegions
+                .NotifyUnitTileChange(
+                    actor,
+                    previous,
+                    tile);
+            actor.current_tile = tile;
         }
 
         private static void ApplyStepActionForCurrentTile(Actor actor)
@@ -694,12 +713,31 @@ namespace Cultiway.Patch
                 if (actor == null)
                 {
                     __instance.is_inside_boat = false;
+                    InsideBoatActorIndex.Notify(
+                        __instance,
+                        isInsideBoat: false);
                     return false;
                 }
                 __instance.setCurrentTilePosition(actor.current_tile);
                 __instance.skipUpdates();
             }
             return false;
+        }
+
+        [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.embarkInto))]
+        private static void embarkInto_postfix(Actor __instance)
+        {
+            InsideBoatActorIndex.Notify(
+                __instance,
+                isInsideBoat: true);
+        }
+
+        [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.exitBoat))]
+        private static void exitBoat_postfix(Actor __instance)
+        {
+            InsideBoatActorIndex.Notify(
+                __instance,
+                isInsideBoat: false);
         }
 
 
@@ -754,6 +792,9 @@ namespace Cultiway.Patch
                 passenger.data.transportID = actor.data.id;
                 passenger.is_inside_boat = true;
                 passenger.inside_boat = boat;
+                InsideBoatActorIndex.Notify(
+                    passenger,
+                    isInsideBoat: true);
                 to_add.Add(passenger);
             }
             foreach (var passenger in to_add)

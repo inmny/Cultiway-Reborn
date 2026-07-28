@@ -322,6 +322,9 @@ namespace Cultiway.Content
                 if (state.Carrying.Contains(passenger))
                 {
                     passenger.is_inside_boat = false;
+                    InsideBoatActorIndex.Notify(
+                        passenger,
+                        isInsideBoat: false);
                 }
 
                 if (unloadTile != null)
@@ -365,6 +368,9 @@ namespace Cultiway.Content
 
                 passenger.is_inside_boat = true;
                 passenger.data.transportID = state.Train.data.id;
+                InsideBoatActorIndex.Notify(
+                    passenger,
+                    isInsideBoat: true);
                 state.Carrying.Add(passenger);
                 portal.ToLoad.Remove(passenger);
 
@@ -413,6 +419,9 @@ namespace Cultiway.Content
             {
                 if (passenger == null || passenger.isRekt()) continue;
                 passenger.is_inside_boat = false;
+                InsideBoatActorIndex.Notify(
+                    passenger,
+                    isInsideBoat: false);
                 if (unload_tile != null)
                 {
                     passenger.spawnOn(unload_tile, 0f);
