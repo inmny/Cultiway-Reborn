@@ -2051,6 +2051,9 @@ internal static class ActorPresentationSnapshots
     private static double lastFullCaptureSimulationTime;
     private static long fullCaptures;
     private static long dynamicCaptures;
+    private static long invalidSourceFullCaptures;
+    private static long unitCountFullCaptures;
+    private static long intervalFullCaptures;
     private static string lastCaptureBreakdown = "none";
     private static string lastFullCaptureBreakdown = "none";
     private static string lastDynamicCaptureBreakdown = "none";
@@ -2131,7 +2134,11 @@ internal static class ActorPresentationSnapshots
         }
 
         long startedAt = Stopwatch.GetTimestamp();
-        bool fullCapture = ShouldCaptureFull(source, startedAt);
+        bool fullCapture = ShouldCaptureFull(
+            world,
+            source,
+            startedAt,
+            out FullCaptureReason fullCaptureReason);
         if (fullCapture)
         {
             writer.Capture(
@@ -2147,6 +2154,7 @@ internal static class ActorPresentationSnapshots
             lastFullCaptureSimulationTime =
                 writer.SimulationTimeValue;
             Interlocked.Increment(ref fullCaptures);
+            RecordFullCaptureReason(fullCaptureReason);
         }
         else
         {
@@ -2243,6 +2251,8 @@ internal static class ActorPresentationSnapshots
             "stockpile_resources={16} building_lights={17} " +
             "projectiles={14} throws={15} fires={19} " +
             "capture={9:0.00}ms(avg={10:0.00},max={11:0.00}) parts={26} " +
+            "full_reasons={29}/{30}/{31}(source/count/interval) " +
+            "full_interval={32:0.000}s multiplier={33:0.0} " +
             "full_parts={27} dynamic_parts={28}",
             Volatile.Read(ref requestedGeneration),
             Interlocked.Read(ref completedCaptures),
@@ -2273,7 +2283,12 @@ internal static class ActorPresentationSnapshots
             Interlocked.Read(ref dynamicCaptures),
             Volatile.Read(ref lastCaptureBreakdown),
             Volatile.Read(ref lastFullCaptureBreakdown),
-            Volatile.Read(ref lastDynamicCaptureBreakdown));
+            Volatile.Read(ref lastDynamicCaptureBreakdown),
+            Interlocked.Read(ref invalidSourceFullCaptures),
+            Interlocked.Read(ref unitCountFullCaptures),
+            Interlocked.Read(ref intervalFullCaptures),
+            GetFullCaptureRealIntervalSeconds(),
+            Config.time_scale_asset?.multiplier ?? 1.0);
     }
 
     private static void PublishWriter(int requestGeneration, int actorCount)
@@ -2340,19 +2355,30 @@ internal static class ActorPresentationSnapshots
     }
 
     private static bool ShouldCaptureFull(
+        MapBox world,
         ActorPresentationSnapshot source,
-        long now)
+        long now,
+        out FullCaptureReason reason)
     {
         if (source == null ||
             source.WorldGeneration != SimulationTime.Generation ||
-            source.Count == 0)
+            source.Count == 0 ||
+            world?.units == null)
         {
+            reason = FullCaptureReason.InvalidSource;
+            return true;
+        }
+
+        if (world.units.Count != source.Count)
+        {
+            reason = FullCaptureReason.UnitCountChanged;
             return true;
         }
 
         long lastAt = Interlocked.Read(ref lastFullCaptureAt);
         if (lastAt <= 0L)
         {
+            reason = FullCaptureReason.InvalidSource;
             return true;
         }
 
@@ -2361,10 +2387,43 @@ internal static class ActorPresentationSnapshots
         double simulationElapsed =
             SimulationTime.DiagnosticTime -
             lastFullCaptureSimulationTime;
-        return realElapsed >=
-               GetFullCaptureRealIntervalSeconds() &&
-               simulationElapsed >=
-               FullCaptureSimulationIntervalSeconds;
+        bool capture =
+            realElapsed >=
+            GetFullCaptureRealIntervalSeconds() &&
+            simulationElapsed >=
+            FullCaptureSimulationIntervalSeconds;
+        reason = capture
+            ? FullCaptureReason.Interval
+            : FullCaptureReason.None;
+        return capture;
+    }
+
+    private static void RecordFullCaptureReason(
+        FullCaptureReason reason)
+    {
+        switch (reason)
+        {
+            case FullCaptureReason.InvalidSource:
+                Interlocked.Increment(
+                    ref invalidSourceFullCaptures);
+                break;
+            case FullCaptureReason.UnitCountChanged:
+                Interlocked.Increment(
+                    ref unitCountFullCaptures);
+                break;
+            case FullCaptureReason.Interval:
+                Interlocked.Increment(
+                    ref intervalFullCaptures);
+                break;
+        }
+    }
+
+    private enum FullCaptureReason : byte
+    {
+        None,
+        InvalidSource,
+        UnitCountChanged,
+        Interval
     }
 
     private static double GetFullCaptureRealIntervalSeconds()
