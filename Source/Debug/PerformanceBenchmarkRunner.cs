@@ -50,6 +50,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private string _mapSize;
     private string _mapTemplate;
     private string _speedId;
+    private int _worldSeed;
     private int _initialHumans;
     private int _startMeasureUnits;
     private float _durationSeconds;
@@ -117,6 +118,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         _mapSize = GetEnvString("CULTIWAY_PERF_MAP_SIZE", MapSizeLibrary.iceberg);
         _mapTemplate = GetEnvString("CULTIWAY_PERF_MAP_TEMPLATE", Config.current_map_template);
         _speedId = GetEnvString("CULTIWAY_PERF_SPEED", "x40");
+        _worldSeed = GetEnvInt("CULTIWAY_PERF_WORLD_SEED", 0);
         _initialHumans = GetEnvInt("CULTIWAY_PERF_INITIAL_HUMANS", 10000);
         _startMeasureUnits = GetEnvInt("CULTIWAY_PERF_START_MEASURE_UNITS", 10000);
         _durationSeconds = GetEnvFloat("CULTIWAY_PERF_DURATION", 180f);
@@ -142,7 +144,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         _configured = true;
 
         ModClass.LogInfo(
-            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s settle={_settleSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s targetFps={PerformanceSettings.TargetRenderFps:0.#} maxSimulation={PerformanceSettings.MaxSimulationMillisecondsPerFrame:0.#}ms smoothing={PerformanceSettings.EnablePresentationSmoothing} aiBench={SimulationTickBenchmark.ShouldCollectAiDetails}");
+            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} seed={_worldSeed} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s settle={_settleSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s targetFps={PerformanceSettings.TargetRenderFps:0.#} maxSimulation={PerformanceSettings.MaxSimulationMillisecondsPerFrame:0.#}ms smoothing={PerformanceSettings.EnablePresentationSmoothing} aiBench={SimulationTickBenchmark.ShouldCollectAiDetails}");
     }
 
     private void Update()
@@ -214,6 +216,11 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         {
             Config.customMapSize = _mapSize;
             Config.current_map_template = _mapTemplate;
+            if (_worldSeed != 0)
+            {
+                Randy.resetSeed(_worldSeed);
+            }
+
             ModClass.LogInfo($"{Prefix} 生成新世界 mapSize={_mapSize} template={_mapTemplate}");
             World.world.generateNewMap();
             SetState(RunnerState.WaitingForWorldLoaded);
