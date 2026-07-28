@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Cultiway.Core.Performance;
@@ -32,6 +33,14 @@ public class PathFinder
     private long workerUpdateSignals;
     private long workerWakeupsApplied;
     private long workerWakeupsIgnored;
+    private long enqueuedTasks;
+    private long dequeuedTasks;
+    private long cancelledBeforeRunTasks;
+    private long cancelledDuringRunTasks;
+    private long completedWorkerTasks;
+    private long queueWaitTicks;
+    private long maximumQueueWaitTicks;
+    private long workerBusyTicks;
 
     public void UseGenerator(IPathGenerator generator)
     {
@@ -254,6 +263,7 @@ public class PathFinder
         EnsureWorkersStarted();
         task.MarkEnqueued();
         _pendingTasks.Enqueue(task);
+        Interlocked.Increment(ref enqueuedTasks);
         if (signalWorker)
         {
             _pendingSignal.Set();
@@ -328,7 +338,26 @@ public class PathFinder
                 Interlocked.Read(ref workerUpdateSignals),
                 Interlocked.Read(ref workerWakeupsApplied),
                 Interlocked.Read(ref workerWakeupsIgnored),
-                _workerUpdates.Count);
+                _workerUpdates.Count) +
+            string.Format(
+                CultureInfo.InvariantCulture,
+                " lifecycle={0}/{1}/{2}/{3}/{4}(enqueue/dequeue/skip/cancel/complete)" +
+                " queue={5:0.00}/{6:0.00}ms(avg/max) busy={7:0.0}ms gc={8}/{9}/{10}",
+                Interlocked.Read(ref enqueuedTasks),
+                Interlocked.Read(ref dequeuedTasks),
+                Interlocked.Read(ref cancelledBeforeRunTasks),
+                Interlocked.Read(ref cancelledDuringRunTasks),
+                Interlocked.Read(ref completedWorkerTasks),
+                AverageMilliseconds(
+                    Interlocked.Read(ref queueWaitTicks),
+                    Interlocked.Read(ref dequeuedTasks)),
+                TicksToMilliseconds(
+                    Interlocked.Read(ref maximumQueueWaitTicks)),
+                TicksToMilliseconds(
+                    Interlocked.Read(ref workerBusyTicks)),
+                GC.CollectionCount(0),
+                GC.CollectionCount(1),
+                GC.CollectionCount(2));
     }
 
     private void QueueWorkerUpdate(PathfindingTask task)
@@ -377,12 +406,74 @@ public class PathFinder
                 continue;
             }
 
-            task.MarkDequeued();
+            long queueTicks = task.MarkDequeued();
+            Interlocked.Increment(ref dequeuedTasks);
+            Interlocked.Add(ref queueWaitTicks, queueTicks);
+            UpdateMaximum(ref maximumQueueWaitTicks, queueTicks);
             PathfindingProfiler.Measurement backgroundMeasurement =
                 PathfindingProfiler.Start(task.BenchmarkSession);
+            long workerStartedAt = Stopwatch.GetTimestamp();
+            if (task.Cancellation.IsCancellationRequested)
+            {
+                Interlocked.Increment(
+                    ref cancelledBeforeRunTasks);
+                backgroundMeasurement.Complete(
+                    PathfindingBenchmarkMetric.BackgroundPath);
+                task.MarkWorkerFinished();
+                continue;
+            }
+
             RunGenerator(task);
+            Interlocked.Add(
+                ref workerBusyTicks,
+                Stopwatch.GetTimestamp() - workerStartedAt);
+            if (task.Cancellation.IsCancellationRequested)
+            {
+                Interlocked.Increment(
+                    ref cancelledDuringRunTasks);
+            }
+            else
+            {
+                Interlocked.Increment(
+                    ref completedWorkerTasks);
+            }
+
             backgroundMeasurement.Complete(PathfindingBenchmarkMetric.BackgroundPath);
             task.MarkWorkerFinished();
+        }
+    }
+
+    private static double AverageMilliseconds(
+        long ticks,
+        long count)
+    {
+        return count <= 0L
+            ? 0.0
+            : TicksToMilliseconds(ticks) / count;
+    }
+
+    private static double TicksToMilliseconds(long ticks)
+    {
+        return ticks * 1000.0 / Stopwatch.Frequency;
+    }
+
+    private static void UpdateMaximum(
+        ref long target,
+        long value)
+    {
+        long current = Volatile.Read(ref target);
+        while (value > current)
+        {
+            long observed = Interlocked.CompareExchange(
+                ref target,
+                value,
+                current);
+            if (observed == current)
+            {
+                return;
+            }
+
+            current = observed;
         }
     }
 
@@ -903,6 +994,7 @@ internal sealed class PathfindingTask : IDisposable
     private readonly Action<PathfindingTask> _onWorkerUpdate;
 
     private long enqueuedAt;
+    private long profilerEnqueuedAt;
 
     public PathfindingTask(
         PathRequest request,
@@ -954,12 +1046,19 @@ internal sealed class PathfindingTask : IDisposable
 
     internal void MarkEnqueued()
     {
-        enqueuedAt = PathfindingProfiler.MarkEnqueued(BenchmarkSession);
+        enqueuedAt = Stopwatch.GetTimestamp();
+        profilerEnqueuedAt =
+            PathfindingProfiler.MarkEnqueued(BenchmarkSession);
     }
 
-    internal void MarkDequeued()
+    internal long MarkDequeued()
     {
-        PathfindingProfiler.RecordQueueWait(BenchmarkSession, enqueuedAt);
+        PathfindingProfiler.RecordQueueWait(
+            BenchmarkSession,
+            profilerEnqueuedAt);
+        return Math.Max(
+            0L,
+            Stopwatch.GetTimestamp() - enqueuedAt);
     }
 
     public void MarkWorkerFinished()
