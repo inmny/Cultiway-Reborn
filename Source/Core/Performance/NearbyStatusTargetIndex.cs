@@ -19,6 +19,8 @@ internal static class NearbyStatusTargetIndex
         new(StringComparer.Ordinal);
     private static readonly HashSet<string> SpatiallyUncertainStatusIds =
         new(StringComparer.Ordinal);
+    private static readonly HashSet<string> GlobalStatusIds =
+        new(StringComparer.Ordinal);
 
     private static int indexedGeneration = -1;
     private static long indexedSimulationTimeBits;
@@ -61,28 +63,42 @@ internal static class NearbyStatusTargetIndex
             }
         }
 
-        MapChunk origin = actor.current_tile.chunk;
-        MapChunkManager manager = World.world.map_chunk_manager;
-        for (int x = origin.x - 1; x <= origin.x + 1; x++)
+        bool existsGlobally = false;
+        for (int i = 0; i < statusIds.Length; i++)
         {
-            for (int y = origin.y - 1; y <= origin.y + 1; y++)
+            if (GlobalStatusIds.Contains(statusIds[i]))
             {
-                MapChunk chunk = manager.get(x, y);
-                if (chunk == null ||
-                    !StatusIdsByChunk.TryGetValue(
-                        chunk,
-                        out HashSet<string> chunkStatusIds))
-                {
-                    continue;
-                }
+                existsGlobally = true;
+                break;
+            }
+        }
 
-                for (int i = 0; i < statusIds.Length; i++)
+        if (!existsGlobally)
+        {
+            Interlocked.Increment(ref fastNegativeQueries);
+            return false;
+        }
+
+        MapChunk origin = actor.current_tile.chunk;
+        MapChunk[] chunks =
+            ChunkWindowIndex.Get(origin, 1);
+        for (int chunkIndex = 0;
+             chunkIndex < chunks.Length;
+             chunkIndex++)
+        {
+            if (!StatusIdsByChunk.TryGetValue(
+                    chunks[chunkIndex],
+                    out HashSet<string> chunkStatusIds))
+            {
+                continue;
+            }
+
+            for (int i = 0; i < statusIds.Length; i++)
+            {
+                if (chunkStatusIds.Contains(statusIds[i]))
                 {
-                    if (chunkStatusIds.Contains(statusIds[i]))
-                    {
-                        Interlocked.Increment(ref possibleQueries);
-                        return true;
-                    }
+                    Interlocked.Increment(ref possibleQueries);
+                    return true;
                 }
             }
         }
@@ -143,6 +159,7 @@ internal static class NearbyStatusTargetIndex
         RecycleStatusSets();
         TrackedStatusIds.Clear();
         SpatiallyUncertainStatusIds.Clear();
+        GlobalStatusIds.Clear();
         indexedGeneration = -1;
         indexedSimulationTimeBits = 0L;
         indexAvailable = false;
@@ -161,6 +178,7 @@ internal static class NearbyStatusTargetIndex
         long startedAt = Stopwatch.GetTimestamp();
         RecycleStatusSets();
         SpatiallyUncertainStatusIds.Clear();
+        GlobalStatusIds.Clear();
 
         MapBox world = World.world;
         long checkedStatuses = 0L;
@@ -182,6 +200,7 @@ internal static class NearbyStatusTargetIndex
                     continue;
                 }
 
+                GlobalStatusIds.Add(statusId);
                 // 原版 chunk 成员表按 0.1 模拟秒重建，而角色位置每 tick
                 // 都会变化。向相邻 chunk 保守扩张只会增加原版回退扫描，
                 // 不会让索引直接返回一个原版找不到的目标。

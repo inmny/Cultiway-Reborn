@@ -9,15 +9,6 @@ namespace Cultiway.Patch;
 internal static class PatchOptimizeVanilla
 {
     [ThreadStatic]
-    private static MapChunk[] nearbyChunkBuffer;
-
-    [ThreadStatic]
-    private static MapChunk[] loverChunkBuffer;
-
-    [ThreadStatic]
-    private static MapChunk[] socializeChunkBuffer;
-
-    [ThreadStatic]
     private static List<Actor> socializeBestTargets;
 
     [ThreadStatic]
@@ -214,24 +205,9 @@ internal static class PatchOptimizeVanilla
     private static Actor FindNearbyLover(Actor actor)
     {
         WorldTile origin = actor.current_tile;
-        MapChunk[] chunks = loverChunkBuffer ??= new MapChunk[9];
-        int chunkCount = 0;
-        MapChunkManager manager = World.world.map_chunk_manager;
-        for (int x = origin.chunk.x - 1;
-             x <= origin.chunk.x + 1;
-             x++)
-        {
-            for (int y = origin.chunk.y - 1;
-                 y <= origin.chunk.y + 1;
-                 y++)
-            {
-                MapChunk chunk = manager.get(x, y);
-                if (chunk != null)
-                {
-                    chunks[chunkCount++] = chunk;
-                }
-            }
-        }
+        MapChunk[] chunks =
+            ChunkWindowIndex.Get(origin.chunk, 1);
+        int chunkCount = chunks.Length;
 
         int chunkOffset = Randy.randomInt(0, chunkCount);
         for (int i = 0; i < chunkCount; i++)
@@ -351,13 +327,11 @@ internal static class PatchOptimizeVanilla
                 normalTargets);
         }
 
-        MapChunk[] chunks =
-            socializeChunkBuffer ??= new MapChunk[25];
         int radius = telepathic ? 2 : 1;
-        int chunkCount = FillChunks(
-            actor.current_tile,
-            radius,
-            chunks);
+        MapChunk[] chunks = ChunkWindowIndex.Get(
+            actor.current_tile.chunk,
+            radius);
+        int chunkCount = chunks.Length;
         int chunkOffset = Randy.randomInt(0, chunkCount);
         bool actorIsKingdomCiv = actor.isKingdomCiv();
         bool stopSearch = false;
@@ -470,33 +444,6 @@ internal static class PatchOptimizeVanilla
         }
     }
 
-    private static int FillChunks(
-        WorldTile origin,
-        int radius,
-        MapChunk[] chunks)
-    {
-        int count = 0;
-        MapChunkManager manager =
-            World.world.map_chunk_manager;
-        for (int x = origin.chunk.x - radius;
-             x <= origin.chunk.x + radius;
-             x++)
-        {
-            for (int y = origin.chunk.y - radius;
-                 y <= origin.chunk.y + radius;
-                 y++)
-            {
-                MapChunk chunk = manager.get(x, y);
-                if (chunk != null)
-                {
-                    chunks[count++] = chunk;
-                }
-            }
-        }
-
-        return count;
-    }
-
     [HarmonyPostfix]
     [HarmonyPatch(
         typeof(StatusManager),
@@ -518,25 +465,9 @@ internal static class PatchOptimizeVanilla
         WorldTile origin)
     {
         bool randomizeUnits = Randy.randomBool();
-        MapChunk[] chunkBuffer =
-            nearbyChunkBuffer ??= new MapChunk[9];
-        int chunkCount = 0;
-        MapChunkManager manager = World.world.map_chunk_manager;
-        for (int x = origin.chunk.x - 1;
-             x <= origin.chunk.x + 1;
-             x++)
-        {
-            for (int y = origin.chunk.y - 1;
-                 y <= origin.chunk.y + 1;
-                 y++)
-            {
-                MapChunk chunk = manager.get(x, y);
-                if (chunk != null)
-                {
-                    chunkBuffer[chunkCount++] = chunk;
-                }
-            }
-        }
+        MapChunk[] chunks =
+            ChunkWindowIndex.Get(origin.chunk, 1);
+        int chunkCount = chunks.Length;
 
         int chunkOffset = Randy.randomInt(0, chunkCount);
         if (!randomizeUnits || chunkCount == 0)
@@ -547,7 +478,7 @@ internal static class PatchOptimizeVanilla
         for (int i = 0; i < chunkCount; i++)
         {
             MapChunk chunk =
-                chunkBuffer[(i + chunkOffset) % chunkCount];
+                chunks[(i + chunkOffset) % chunkCount];
             Randy.randomInt(
                 0,
                 chunk.objects.units_all.Count);

@@ -98,6 +98,7 @@ internal static class PatchMapBox
         PathRecoveryManager.Clear();
         FreeTileSearchIndex.Reset();
         NearbyStatusTargetIndex.Reset();
+        ChunkWindowIndex.Reset();
         TrainTrackRepairSystem.ClearWorldState();
         _actionOnClearWorld?.Invoke();
         ModClass.I.ActorExtendManager.Clear();
