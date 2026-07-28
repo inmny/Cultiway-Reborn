@@ -100,21 +100,49 @@ internal static class NearbyStatusTargetIndex
         BaseSimObject simObject,
         StatusAsset statusAsset)
     {
-        if (!indexAvailable ||
-            simObject is not Actor actor ||
+        if (simObject is not Actor actor ||
             statusAsset == null ||
             !TrackedStatusIds.Contains(statusAsset.id) ||
-            !actor.isAlive() ||
-            !IsCurrentIndex())
+            !actor.isAlive())
         {
             return;
         }
 
-        GlobalStatusIds.Add(statusAsset.id);
-        if (IndexedActors.Add(actor))
+        IndexedActors.Add(actor);
+        // 状态在本 tick 中途加入时，下次稀疏查询统一重建一次空间表。
+        // 即便角色已因另一状态被索引，也必须刷新 GlobalStatusIds。
+        indexAvailable = false;
+    }
+
+    internal static void NotifyStatusRemoved(
+        BaseSimObject simObject,
+        StatusAsset statusAsset)
+    {
+        if (simObject is not Actor actor ||
+            statusAsset == null ||
+            !TrackedStatusIds.Contains(statusAsset.id))
         {
-            AddActorFromCurrentChunkMembership(actor);
+            return;
         }
+
+        if (!HasAnyTrackedStatus(actor))
+        {
+            IndexedActors.Remove(actor);
+        }
+
+        indexAvailable = false;
+    }
+
+    internal static void NotifyAllStatusesRemoved(
+        BaseSimObject simObject)
+    {
+        if (simObject is not Actor actor ||
+            !IndexedActors.Remove(actor))
+        {
+            return;
+        }
+
+        indexAvailable = false;
     }
 
     internal static string GetDiagnostics()
@@ -123,7 +151,8 @@ internal static class NearbyStatusTargetIndex
         return string.Format(
             CultureInfo.InvariantCulture,
             "queries={0} handled={1} fast_negative={2} found={3} " +
-            "fallback={4} rebuilds={5} chunks={6} actor_entries={7} " +
+            "fallback={4} rebuilds={5} chunks={6} " +
+            "actor_entries={7} tracked_actors={13} " +
             "status_checks={8} unit_checks={9} " +
             "build={10:0.000}ms(avg={11:0.000},max={12:0.000})",
             Interlocked.Read(ref queries),
@@ -142,7 +171,8 @@ internal static class NearbyStatusTargetIndex
                 : TicksToMilliseconds(
                     Interlocked.Read(ref totalBuildTicks)) / buildCount,
             TicksToMilliseconds(
-                Interlocked.Read(ref maximumBuildTicks)));
+                Interlocked.Read(ref maximumBuildTicks)),
+            IndexedActors.Count);
     }
 
     internal static void Reset()
@@ -277,63 +307,61 @@ internal static class NearbyStatusTargetIndex
 
         long startedAt = Stopwatch.GetTimestamp();
         RecycleActorLists();
-        IndexedActors.Clear();
         GlobalStatusIds.Clear();
 
         MapBox world = World.world;
-        long checkedStatuses = 0L;
         long checkedUnits = 0L;
         int actorEntries = 0;
-        if (world?.statuses?.Count > 0 &&
+        RemoveInvalidTrackedActors();
+        RefreshGlobalStatusIds();
+        if (IndexedActors.Count > 0 &&
             world.map_chunk_manager != null)
         {
-            foreach (Status status in world.statuses)
+            foreach (Actor actor in IndexedActors)
             {
-                checkedStatuses++;
-                string statusId = status?.asset?.id;
-                if (statusId == null ||
-                    !TrackedStatusIds.Contains(statusId) ||
-                    status.sim_object is not Actor actor ||
-                    !actor.isAlive() ||
-                    !actor.hasStatus(statusId))
+                MapChunk origin = actor.current_tile?.chunk;
+                bool found = false;
+                if (origin != null)
+                {
+                    MapChunk[] nearby =
+                        ChunkWindowIndex.Get(origin, 1);
+                    for (int i = 0;
+                         i < nearby.Length;
+                         i++)
+                    {
+                        if (TryAddActorMembership(
+                                actor,
+                                nearby[i],
+                                ref checkedUnits))
+                        {
+                            actorEntries++;
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (found)
                 {
                     continue;
                 }
 
-                GlobalStatusIds.Add(statusId);
-                IndexedActors.Add(actor);
-            }
-
-            MapChunk[] chunks =
-                world.map_chunk_manager.chunks;
-            for (int chunkIndex = 0;
-                 chunkIndex < chunks.Length;
-                 chunkIndex++)
-            {
-                MapChunk chunk = chunks[chunkIndex];
-                List<Actor> units = chunk.objects.units_all;
-                List<IndexedActor> candidates = null;
-                int count = units.Count;
-                checkedUnits += count;
-                for (int unitIndex = 0;
-                     unitIndex < count;
-                     unitIndex++)
+                // 传送或 chunk 成员表延迟过久时，邻域可能找不到角色。
+                // 极端路径才全图兜底，以保持与原版成员表完全一致。
+                MapChunk[] allChunks =
+                    world.map_chunk_manager.chunks;
+                for (int i = 0;
+                     i < allChunks.Length;
+                     i++)
                 {
-                    Actor actor = units[unitIndex];
-                    if (!IndexedActors.Contains(actor))
+                    if (TryAddActorMembership(
+                            actor,
+                            allChunks[i],
+                            ref checkedUnits))
                     {
-                        continue;
+                        actorEntries++;
+                        break;
                     }
-
-                    candidates ??= RentActorList();
-                    candidates.Add(
-                        new IndexedActor(actor, unitIndex));
-                    actorEntries++;
-                }
-
-                if (candidates != null)
-                {
-                    ActorsByChunk.Add(chunk, candidates);
                 }
             }
         }
@@ -343,7 +371,6 @@ internal static class NearbyStatusTargetIndex
             BitConverter.DoubleToInt64Bits(
                 SimulationTime.DiagnosticTime);
         indexAvailable = true;
-        Interlocked.Add(ref statusChecks, checkedStatuses);
         Interlocked.Add(ref unitChecks, checkedUnits);
         Volatile.Write(
             ref indexedChunkCount,
@@ -355,59 +382,77 @@ internal static class NearbyStatusTargetIndex
             Stopwatch.GetTimestamp() - startedAt);
     }
 
-    private static void AddActorFromCurrentChunkMembership(
-        Actor actor)
+    private static bool TryAddActorMembership(
+        Actor actor,
+        MapChunk chunk,
+        ref long checkedUnits)
     {
-        MapChunk[] chunks =
-            World.world.map_chunk_manager.chunks;
-        int addedEntries = 0;
-        long checkedUnits = 0L;
-        for (int chunkIndex = 0;
-             chunkIndex < chunks.Length;
-             chunkIndex++)
+        List<Actor> units = chunk.objects.units_all;
+        int count = units.Count;
+        checkedUnits += count;
+        for (int unitIndex = 0;
+             unitIndex < count;
+             unitIndex++)
         {
-            MapChunk chunk = chunks[chunkIndex];
-            List<Actor> units = chunk.objects.units_all;
-            int count = units.Count;
-            checkedUnits += count;
-            for (int unitIndex = 0;
-                 unitIndex < count;
-                 unitIndex++)
+            if (!ReferenceEquals(units[unitIndex], actor))
             {
-                if (!ReferenceEquals(units[unitIndex], actor))
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                if (!ActorsByChunk.TryGetValue(
-                        chunk,
-                        out List<IndexedActor> candidates))
-                {
-                    candidates = RentActorList();
-                    ActorsByChunk.Add(chunk, candidates);
-                }
+            if (!ActorsByChunk.TryGetValue(
+                    chunk,
+                    out List<IndexedActor> candidates))
+            {
+                candidates = RentActorList();
+                ActorsByChunk.Add(chunk, candidates);
+            }
 
-                int insertIndex =
-                    LowerBound(candidates, unitIndex);
-                candidates.Insert(
-                    insertIndex,
-                    new IndexedActor(actor, unitIndex));
-                addedEntries++;
+            int insertIndex =
+                LowerBound(candidates, unitIndex);
+            candidates.Insert(
+                insertIndex,
+                new IndexedActor(actor, unitIndex));
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void RemoveInvalidTrackedActors()
+    {
+        IndexedActors.RemoveWhere(
+            actor =>
+                actor == null ||
+                !actor.isAlive() ||
+                !HasAnyTrackedStatus(actor));
+    }
+
+    private static void RefreshGlobalStatusIds()
+    {
+        foreach (Actor actor in IndexedActors)
+        {
+            foreach (string statusId in TrackedStatusIds)
+            {
+                Interlocked.Increment(ref statusChecks);
+                if (actor.hasStatus(statusId))
+                {
+                    GlobalStatusIds.Add(statusId);
+                }
+            }
+        }
+    }
+
+    private static bool HasAnyTrackedStatus(Actor actor)
+    {
+        foreach (string statusId in TrackedStatusIds)
+        {
+            if (actor.hasStatus(statusId))
+            {
+                return true;
             }
         }
 
-        Interlocked.Add(ref unitChecks, checkedUnits);
-        if (addedEntries == 0)
-        {
-            return;
-        }
-
-        Volatile.Write(
-            ref indexedChunkCount,
-            ActorsByChunk.Count);
-        Interlocked.Add(
-            ref indexedActorEntryCount,
-            addedEntries);
+        return false;
     }
 
     private static bool IsCurrentIndex()
@@ -429,6 +474,7 @@ internal static class NearbyStatusTargetIndex
             if (statusId != null &&
                 TrackedStatusIds.Add(statusId))
             {
+                InitializeTrackedStatus(statusId);
                 added = true;
             }
         }
@@ -436,6 +482,27 @@ internal static class NearbyStatusTargetIndex
         if (added)
         {
             indexAvailable = false;
+        }
+    }
+
+    private static void InitializeTrackedStatus(string statusId)
+    {
+        StatusManager manager = World.world?.statuses;
+        if (manager == null)
+        {
+            return;
+        }
+
+        foreach (Status status in manager)
+        {
+            Interlocked.Increment(ref statusChecks);
+            if (status?.asset?.id == statusId &&
+                status.sim_object is Actor actor &&
+                actor.isAlive() &&
+                actor.hasStatus(statusId))
+            {
+                IndexedActors.Add(actor);
+            }
         }
     }
 

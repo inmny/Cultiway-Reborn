@@ -459,4 +459,26 @@ internal static class PatchOptimizeVanilla
             pAsset);
     }
 
+    [HarmonyPostfix]
+    [HarmonyPatch(
+        typeof(BaseSimObject),
+        nameof(BaseSimObject.removeFinishedStatusEffect))]
+    private static void RemovedStatusPostfix(
+        BaseSimObject __instance,
+        Status pStatusData)
+    {
+        NearbyStatusTargetIndex.NotifyStatusRemoved(
+            __instance,
+            pStatusData?.asset);
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(BaseSimObject), "finishAllStatusEffects")]
+    private static void RemovedAllStatusesPostfix(
+        BaseSimObject __instance)
+    {
+        NearbyStatusTargetIndex.NotifyAllStatusesRemoved(
+            __instance);
+    }
+
 }
