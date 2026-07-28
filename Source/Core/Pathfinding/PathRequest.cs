@@ -25,6 +25,7 @@ public sealed class PathRequest
         ActorDiesOnBlocks = movementSnapshot.DiesOnBlocks;
         ActorIsBoat = movementSnapshot.IsBoat;
         ActorIsWaterCreature = movementSnapshot.IsWaterCreature;
+        ActorForceLandCreature = movementSnapshot.ForceLandCreature;
         ActorIsFlying = movementSnapshot.IsFlying;
         ActorIsFireImmune = movementSnapshot.IsFireImmune;
         ActorIsDamagedByOcean = movementSnapshot.IsDamagedByOcean;
@@ -54,6 +55,7 @@ public sealed class PathRequest
     public bool ActorDiesOnBlocks { get; }
     public bool ActorIsBoat { get; }
     public bool ActorIsWaterCreature { get; }
+    public bool ActorForceLandCreature { get; }
     public bool ActorIsFlying { get; }
     public bool ActorIsFireImmune { get; }
     public bool ActorIsDamagedByOcean { get; }
@@ -98,6 +100,7 @@ public sealed class PathRequest
                 actor.asset?.die_on_blocks ?? false,
                 actor.asset?.is_boat ?? false,
                 actor.isWaterCreature(),
+                actor.asset?.force_land_creature ?? false,
                 actor.isFlying(),
                 isFireImmune,
                 actor.isDamagedByOcean(),
@@ -157,7 +160,8 @@ public sealed class PathRequest
     private readonly struct ActorMovementSnapshot
     {
         public ActorMovementSnapshot(bool ignoresBlocks, bool diesOnBlocks, bool isBoat, bool isWaterCreature,
-            bool isFlying, bool isFireImmune, bool isDamagedByOcean, bool hasFastSwimming, bool isLavaDamaging,
+            bool forceLandCreature, bool isFlying, bool isFireImmune, bool isDamagedByOcean, bool hasFastSwimming,
+            bool isLavaDamaging,
             float currentStamina, float maxStamina, float currentHealth, float maxHealth, float baseSpeed,
             float waterDamagePerSecond, float staminaRegenPerSecond)
         {
@@ -165,6 +169,7 @@ public sealed class PathRequest
             DiesOnBlocks = diesOnBlocks;
             IsBoat = isBoat;
             IsWaterCreature = isWaterCreature;
+            ForceLandCreature = forceLandCreature;
             IsFlying = isFlying;
             IsFireImmune = isFireImmune;
             IsDamagedByOcean = isDamagedByOcean;
@@ -183,6 +188,7 @@ public sealed class PathRequest
         public bool DiesOnBlocks { get; }
         public bool IsBoat { get; }
         public bool IsWaterCreature { get; }
+        public bool ForceLandCreature { get; }
         public bool IsFlying { get; }
         public bool IsFireImmune { get; }
         public bool IsDamagedByOcean { get; }
@@ -198,7 +204,7 @@ public sealed class PathRequest
 
         public static ActorMovementSnapshot Default(float staminaRegenPerSecond)
         {
-            return new ActorMovementSnapshot(false, false, false, false, false, false, false, false, false,
+            return new ActorMovementSnapshot(false, false, false, false, false, false, false, false, false, false,
                 0f, 1f, 1f, 1f, 5f, 0.3333f, staminaRegenPerSecond);
         }
     }

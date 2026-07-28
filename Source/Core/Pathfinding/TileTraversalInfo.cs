@@ -4,13 +4,14 @@ namespace Cultiway.Core.Pathfinding;
 
 internal readonly struct TileTraversalInfo
 {
-    private TileTraversalInfo(int tileId, int x, int y, bool hasType, bool block, bool lava, bool ocean,
+    private TileTraversalInfo(int tileId, int x, int y, bool hasType, bool ground, bool block, bool lava, bool ocean,
         bool liquid, bool damageUnits, float damage, float walkMultiplier, string typeId, bool isOnFire)
     {
         TileId = tileId;
         X = x;
         Y = y;
         HasType = hasType;
+        Ground = ground;
         Block = block;
         Lava = lava;
         Ocean = ocean;
@@ -28,6 +29,7 @@ internal readonly struct TileTraversalInfo
     public int X { get; }
     public int Y { get; }
     public bool HasType { get; }
+    public bool Ground { get; }
     public bool Block { get; }
     public bool Lava { get; }
     public bool Ocean { get; }
@@ -88,6 +90,7 @@ internal readonly struct TileTraversalInfo
             tile.x,
             tile.y,
             type != null,
+            type?.ground ?? false,
             type?.block ?? false,
             type?.lava ?? false,
             type?.ocean ?? false,

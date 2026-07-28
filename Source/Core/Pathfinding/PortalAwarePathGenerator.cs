@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -14,6 +15,10 @@ public class PortalAwarePathGenerator : IPathGenerator
 {
     [ThreadStatic]
     private static List<PathStep> directPathBuffer;
+    [ThreadStatic]
+    private static FastPathWorkspace fastPathWorkspace;
+    [ThreadStatic]
+    private static FullPathWorkspace fullPathWorkspace;
 
     private readonly PortalRegistry _registry;
     private readonly PathfindingConfig _config;
@@ -21,6 +26,14 @@ public class PortalAwarePathGenerator : IPathGenerator
     private long directHits;
     private long directSteps;
     private long fullSearches;
+    private long directHitTicks;
+    private long fullSearchTicks;
+    private long maximumDirectHitTicks;
+    private long maximumFullSearchTicks;
+    private long fastPathAttempts;
+    private long fastPathHits;
+    private long fastPathAttemptTicks;
+    private long maximumFastPathAttemptTicks;
 
     public PortalAwarePathGenerator(PortalRegistry registry, PathfindingConfig config)
     {
@@ -63,6 +76,7 @@ public class PortalAwarePathGenerator : IPathGenerator
 
     private void GenerateInternal(PathRequest request, IPathStreamWriter stream, CancellationToken token)
     {
+        long startedAt = Stopwatch.GetTimestamp();
         var profile = MovementProfile.Build(request, _config);
         Interlocked.Increment(ref directAttempts);
         if (TryBuildDirectPath(
@@ -78,76 +92,146 @@ public class PortalAwarePathGenerator : IPathGenerator
 
             Interlocked.Increment(ref directHits);
             Interlocked.Add(ref directSteps, directPath.Count);
+            long elapsedTicks =
+                Stopwatch.GetTimestamp() - startedAt;
+            Interlocked.Add(ref directHitTicks, elapsedTicks);
+            UpdateMaximum(
+                ref maximumDirectHitTicks,
+                elapsedTicks);
+            return;
+        }
+
+        Interlocked.Increment(ref fastPathAttempts);
+        long fastPathStartedAt = Stopwatch.GetTimestamp();
+        bool foundFastPath = TryBuildFastPath(
+            request,
+            profile,
+            token,
+            out List<PathStep> fastPath);
+        long fastPathElapsedTicks =
+            Stopwatch.GetTimestamp() - fastPathStartedAt;
+        Interlocked.Add(
+            ref fastPathAttemptTicks,
+            fastPathElapsedTicks);
+        UpdateMaximum(
+            ref maximumFastPathAttemptTicks,
+            fastPathElapsedTicks);
+        if (foundFastPath)
+        {
+            Interlocked.Increment(ref fastPathHits);
+            for (int i = 0; i < fastPath.Count; i++)
+            {
+                token.ThrowIfCancellationRequested();
+                stream.AddStep(fastPath[i]);
+            }
+
+            return;
+        }
+
+        if (_registry.IsEmpty)
+        {
+            // 无传送门时，单标签搜索已经完整遍历所有可通行地块；
+            // 多标签只会重复同一拓扑搜索，无法创造新的连通路线。
+            stream.Fail(PathFailureReason.Unreachable);
             return;
         }
 
         Interlocked.Increment(ref fullSearches);
-
-        var direct = TryBuildLocalPath(request.StartTileId, request.TargetTileId, profile, useLongRange: true, token);
-        RouteCandidate bestCandidate = null;
-        var failureReason = FailureReasonFrom(direct);
-        var bestCost = float.MaxValue;
-        if (direct.IsSuccess)
+        try
         {
-            bestCandidate = RouteCandidate.FromSegments(direct.Steps, direct.Cost);
-            bestCost = direct.Cost;
-            failureReason = PathFailureReason.None;
-        }
-
-        if (!profile.IsBoat)
-        {
-            var estimates = BuildPortalEstimates(request, profile);
-            var bestEstimate = estimates.Count > 0 ? estimates.OrderBy(e => e.EstCost).First() : null;
-            if (bestEstimate != null)
+            var direct = TryBuildLocalPath(
+                request,
+                request.StartTileId,
+                request.TargetTileId,
+                profile,
+                useLongRange: true,
+                token);
+            RouteCandidate bestCandidate = null;
+            var failureReason = FailureReasonFrom(direct);
+            var bestCost = float.MaxValue;
+            if (direct.IsSuccess)
             {
-                if (bestCandidate != null && bestEstimate.EstCost >= bestCost)
-                {
-                    EmitCandidate(bestCandidate, stream, token);
-                    return;
-                }
+                bestCandidate = RouteCandidate.FromSegments(direct.Steps, direct.Cost);
+                bestCost = direct.Cost;
+                failureReason = PathFailureReason.None;
+            }
 
-                token.ThrowIfCancellationRequested();
-
-                var toEntry = TryBuildLocalPath(request.StartTileId, TileTraversalInfo.TileIdOf(bestEstimate.Entry.Tile), profile,
-                    useLongRange: true, token);
-                if (!toEntry.IsSuccess)
+            if (!profile.IsBoat)
+            {
+                var estimates = BuildPortalEstimates(request, profile);
+                var bestEstimate = estimates.Count > 0 ? estimates.OrderBy(e => e.EstCost).First() : null;
+                if (bestEstimate != null)
                 {
-                    failureReason = MoreSpecificFailure(failureReason, FailureReasonFrom(toEntry));
-                    goto OUTSIDE;
-                }
-
-                var exitToTarget = TryBuildLocalPath(TileTraversalInfo.TileIdOf(bestEstimate.Exit.Tile), request.TargetTileId, profile,
-                    useLongRange: true, token);
-                if (!exitToTarget.IsSuccess)
-                {
-                    failureReason = MoreSpecificFailure(failureReason, FailureReasonFrom(exitToTarget));
-                    goto OUTSIDE;
-                }
-
-                var portalCost = bestEstimate.Entry.WaitTime + bestEstimate.Link.TravelTime + bestEstimate.Exit.TransferTime;
-                var realCost = toEntry.Cost + portalCost + exitToTarget.Cost;
-                if (realCost < bestCost)
-                {
-                    bestCost = realCost;
-                    var legs = new List<RouteLeg>
+                    if (bestCandidate != null && bestEstimate.EstCost >= bestCost)
                     {
-                        new MovementLeg(toEntry.Steps, toEntry.Cost),
-                        new PortalLeg(bestEstimate.Entry, bestEstimate.Exit, portalCost),
-                        new MovementLeg(exitToTarget.Steps, exitToTarget.Cost)
-                    };
-                    bestCandidate = RouteCandidate.FromLegs(legs, realCost);
+                        EmitCandidate(bestCandidate, stream, token);
+                        return;
+                    }
+
+                    token.ThrowIfCancellationRequested();
+
+                    var toEntry = TryBuildLocalPath(
+                        request,
+                        request.StartTileId,
+                        TileTraversalInfo.TileIdOf(
+                            bestEstimate.Entry.Tile),
+                        profile,
+                        useLongRange: true,
+                        token);
+                    if (!toEntry.IsSuccess)
+                    {
+                        failureReason = MoreSpecificFailure(failureReason, FailureReasonFrom(toEntry));
+                        goto OUTSIDE;
+                    }
+
+                    var exitToTarget = TryBuildLocalPath(
+                        request,
+                        TileTraversalInfo.TileIdOf(
+                            bestEstimate.Exit.Tile),
+                        request.TargetTileId,
+                        profile,
+                        useLongRange: true,
+                        token);
+                    if (!exitToTarget.IsSuccess)
+                    {
+                        failureReason = MoreSpecificFailure(failureReason, FailureReasonFrom(exitToTarget));
+                        goto OUTSIDE;
+                    }
+
+                    var portalCost = bestEstimate.Entry.WaitTime + bestEstimate.Link.TravelTime + bestEstimate.Exit.TransferTime;
+                    var realCost = toEntry.Cost + portalCost + exitToTarget.Cost;
+                    if (realCost < bestCost)
+                    {
+                        bestCost = realCost;
+                        var legs = new List<RouteLeg>
+                        {
+                            new MovementLeg(toEntry.Steps, toEntry.Cost),
+                            new PortalLeg(bestEstimate.Entry, bestEstimate.Exit, portalCost),
+                            new MovementLeg(exitToTarget.Steps, exitToTarget.Cost)
+                        };
+                        bestCandidate = RouteCandidate.FromLegs(legs, realCost);
+                    }
                 }
             }
-        }
 
-        OUTSIDE:
-        if (bestCandidate == null)
+            OUTSIDE:
+            if (bestCandidate == null)
+            {
+                stream.Fail(failureReason == PathFailureReason.None ? PathFailureReason.Unreachable : failureReason);
+                return;
+            }
+
+            EmitCandidate(bestCandidate, stream, token);
+        }
+        finally
         {
-            stream.Fail(failureReason == PathFailureReason.None ? PathFailureReason.Unreachable : failureReason);
-            return;
+            long elapsedTicks =
+                Stopwatch.GetTimestamp() - startedAt;
+            Interlocked.Add(ref fullSearchTicks, elapsedTicks);
+            UpdateMaximum(
+                ref maximumFullSearchTicks,
+                elapsedTicks);
         }
-
-        EmitCandidate(bestCandidate, stream, token);
     }
 
     internal string GetDiagnostics()
@@ -156,14 +240,68 @@ public class PortalAwarePathGenerator : IPathGenerator
         long hits = Interlocked.Read(ref directHits);
         return string.Format(
             CultureInfo.InvariantCulture,
-            "direct={0}/{1}({2:0.0}%) steps={3} full={4}",
+            "direct={0}/{1}({2:0.0}%) steps={3}" +
+            " safe={4}/{5} time={6:0.000}/{7:0.00}ms(avg/max)" +
+            " full={8} time={9:0.000}ms(avg) max={10:0.00}ms" +
+            " direct_time={11:0.000}/{12:0.00}ms(avg/max)",
             hits,
             attempts,
             attempts == 0L
                 ? 0.0
                 : hits * 100.0 / attempts,
             Interlocked.Read(ref directSteps),
-            Interlocked.Read(ref fullSearches));
+            Interlocked.Read(ref fastPathHits),
+            Interlocked.Read(ref fastPathAttempts),
+            AverageMilliseconds(
+                Interlocked.Read(ref fastPathAttemptTicks),
+                Interlocked.Read(ref fastPathAttempts)),
+            TicksToMilliseconds(
+                Interlocked.Read(ref maximumFastPathAttemptTicks)),
+            Interlocked.Read(ref fullSearches),
+            AverageMilliseconds(
+                Interlocked.Read(ref fullSearchTicks),
+                Interlocked.Read(ref fullSearches)),
+            TicksToMilliseconds(
+                Interlocked.Read(ref maximumFullSearchTicks)),
+            AverageMilliseconds(
+                Interlocked.Read(ref directHitTicks),
+                hits),
+            TicksToMilliseconds(
+                Interlocked.Read(ref maximumDirectHitTicks)));
+    }
+
+    private static double AverageMilliseconds(
+        long ticks,
+        long count)
+    {
+        return count <= 0L
+            ? 0.0
+            : TicksToMilliseconds(ticks) / count;
+    }
+
+    private static double TicksToMilliseconds(long ticks)
+    {
+        return ticks * 1000.0 / Stopwatch.Frequency;
+    }
+
+    private static void UpdateMaximum(
+        ref long target,
+        long value)
+    {
+        long current = Volatile.Read(ref target);
+        while (value > current)
+        {
+            long observed = Interlocked.CompareExchange(
+                ref target,
+                value,
+                current);
+            if (observed == current)
+            {
+                return;
+            }
+
+            current = observed;
+        }
     }
 
     /// <summary>
@@ -316,6 +454,176 @@ public class PortalAwarePathGenerator : IPathGenerator
                !profile.IsDamagedByOcean;
     }
 
+    /// <summary>
+    /// 原版允许寻路不保证最优。直线失败后先用线程本地数组执行权重 A*，
+    /// 并严格应用原版的地面、海洋、障碍、熔岩和火焰通行约束。
+    /// 找不到路线时仍交给多标签搜索处理复杂环境状态与传送门语义。
+    /// </summary>
+    private static bool TryBuildFastPath(
+        PathRequest request,
+        MovementProfile profile,
+        CancellationToken token,
+        out List<PathStep> result)
+    {
+        FastPathWorkspace workspace =
+            fastPathWorkspace ??= new FastPathWorkspace();
+        result = workspace.Result;
+        result.Clear();
+
+        WorldTile[] tiles = World.world?.tiles_list;
+        if (tiles == null ||
+            request.StartTileId < 0 ||
+            request.TargetTileId < 0 ||
+            request.StartTileId >= tiles.Length ||
+            request.TargetTileId >= tiles.Length)
+        {
+            return false;
+        }
+
+        workspace.BeginSearch(tiles.Length);
+        if (!workspace.TryGetTileInfo(
+                request.StartTileId,
+                out TileTraversalInfo startInfo) ||
+            !workspace.TryGetTileInfo(
+                request.TargetTileId,
+                out TileTraversalInfo targetInfo))
+        {
+            return false;
+        }
+
+        TraversalRules rules =
+            TraversalRules.Build(
+                request,
+                startInfo,
+                targetInfo);
+        if (!rules.CanReachTarget ||
+            !rules.CanTraverse(targetInfo))
+        {
+            return false;
+        }
+
+        TraversalState startState =
+            TraversalState.Start(profile);
+        workspace.SetBest(
+            request.StartTileId,
+            0f,
+            -1,
+            MovementMethod.Walk,
+            default,
+            startState);
+        workspace.Enqueue(
+            new SafeOpenNode(
+                request.StartTileId,
+                0f,
+                Heuristic(
+                    startInfo,
+                    targetInfo,
+                    profile) * 2f));
+
+        int expanded = 0;
+        int maximumExpanded = tiles.Length;
+        while (workspace.OpenCount > 0 &&
+               expanded < maximumExpanded)
+        {
+            token.ThrowIfCancellationRequested();
+            SafeOpenNode openNode = workspace.Dequeue();
+            if (!workspace.IsCurrentBest(
+                    openNode.TileId,
+                    openNode.G) ||
+                !workspace.TryClose(
+                    openNode.TileId))
+            {
+                continue;
+            }
+
+            expanded++;
+            if (openNode.TileId == request.TargetTileId)
+            {
+                return workspace.BuildResult(
+                    request.StartTileId,
+                    request.TargetTileId);
+            }
+
+            if (!workspace.TryGetTileInfo(
+                    openNode.TileId,
+                    out TileTraversalInfo currentInfo))
+            {
+                continue;
+            }
+
+            WorldTile currentTile =
+                TileTraversalInfo.ResolveTile(openNode.TileId);
+            WorldTile[] neighbours =
+                currentTile?.neighboursAll ??
+                currentTile?.neighbours;
+            if (neighbours == null)
+            {
+                continue;
+            }
+
+            TraversalState currentState =
+                workspace.GetState(openNode.TileId);
+            for (int i = 0; i < neighbours.Length; i++)
+            {
+                int neighbourId =
+                    TileTraversalInfo.TileIdOf(neighbours[i]);
+                if (workspace.IsClosed(neighbourId) ||
+                    !workspace.TryGetTileInfo(
+                        neighbourId,
+                        out TileTraversalInfo neighbour) ||
+                    !rules.CanTraverse(neighbour) ||
+                    IsDiagonalOutsideMap(
+                        currentInfo,
+                        neighbour))
+                {
+                    continue;
+                }
+
+                MovementMethod method =
+                    DecideMethod(neighbour, profile);
+                TraversalEstimate estimate =
+                    EstimateTraversal(
+                        currentInfo,
+                        neighbour,
+                        method,
+                        currentState,
+                        profile);
+                TraversalState nextState =
+                    currentState.Advance(
+                        estimate,
+                        profile);
+                float nextG =
+                    openNode.G +
+                    profile.CostOf(
+                        estimate,
+                        nextState);
+                if (!workspace.TryImprove(
+                        neighbourId,
+                        nextG,
+                        openNode.TileId,
+                        method,
+                        estimate,
+                        nextState))
+                {
+                    continue;
+                }
+
+                workspace.Enqueue(
+                    new SafeOpenNode(
+                        neighbourId,
+                        nextG,
+                        nextG +
+                        Heuristic(
+                            neighbour,
+                            targetInfo,
+                            profile) * 2f));
+            }
+        }
+
+        result.Clear();
+        return false;
+    }
+
     private static PathFailureReason FailureReasonFrom(LocalPathResult result)
     {
         return result.HitNodeLimit ? PathFailureReason.SearchLimitExceeded : PathFailureReason.Unreachable;
@@ -401,7 +709,12 @@ public class PortalAwarePathGenerator : IPathGenerator
         }
     }
 
-    private LocalPathResult TryBuildLocalPath(int startId, int targetId, MovementProfile profile, bool useLongRange,
+    private LocalPathResult TryBuildLocalPath(
+        PathRequest request,
+        int startId,
+        int targetId,
+        MovementProfile profile,
+        bool useLongRange,
         CancellationToken token)
     {
         if (startId == targetId)
@@ -409,15 +722,36 @@ public class PortalAwarePathGenerator : IPathGenerator
             return LocalPathResult.Success(Array.Empty<PathStep>(), 0);
         }
 
-        var tileInfoCache = new Dictionary<int, TileTraversalInfo>(512);
-        if (!TryGetTileInfo(tileInfoCache, startId, out var startInfo) ||
-            !TryGetTileInfo(tileInfoCache, targetId, out var targetInfo))
+        WorldTile[] tiles = World.world?.tiles_list;
+        if (tiles == null)
+        {
+            return LocalPathResult.Fail();
+        }
+
+        FullPathWorkspace workspace =
+            fullPathWorkspace ??= new FullPathWorkspace();
+        workspace.BeginLocalPath(
+            tiles.Length,
+            profile.MaxLabelsPerTile);
+        if (!workspace.TryGetTileInfo(startId, out var startInfo) ||
+            !workspace.TryGetTileInfo(targetId, out var targetInfo))
+        {
+            return LocalPathResult.Fail();
+        }
+
+        TraversalRules rules =
+            TraversalRules.Build(
+                request,
+                startInfo,
+                targetInfo);
+        if (!rules.CanReachTarget ||
+            !rules.CanTraverse(targetInfo))
         {
             return LocalPathResult.Fail();
         }
 
         var maxNodes = useLongRange ? profile.MaxNodesLong : profile.MaxNodesShort;
-        var result = TryBuildLocalPathCore(startId, targetId, startInfo, targetInfo, tileInfoCache, profile, maxNodes,
+        var result = TryBuildLocalPathCore(startId, targetId, startInfo, targetInfo, workspace, profile, rules, maxNodes,
             corridorLimit: 0, token);
         if (result.IsSuccess || !useLongRange || !result.HitNodeLimit)
         {
@@ -428,40 +762,45 @@ public class PortalAwarePathGenerator : IPathGenerator
         var detour = Mathf.Max(profile.FallbackCorridorMinDetour,
             Mathf.RoundToInt(directDistance * profile.FallbackCorridorDetourScale));
         var fallbackNodes = Mathf.Max(profile.MaxNodesLongFallback, profile.MaxNodesLong);
-        return TryBuildLocalPathCore(startId, targetId, startInfo, targetInfo, tileInfoCache, profile, fallbackNodes,
+        return TryBuildLocalPathCore(startId, targetId, startInfo, targetInfo, workspace, profile, rules, fallbackNodes,
             directDistance + detour, token);
     }
 
     private LocalPathResult TryBuildLocalPathCore(int startId, int targetId, TileTraversalInfo startInfo,
-        TileTraversalInfo targetInfo, Dictionary<int, TileTraversalInfo> tileInfoCache, MovementProfile profile,
+        TileTraversalInfo targetInfo, FullPathWorkspace workspace, MovementProfile profile, TraversalRules rules,
         int maxNodes, int corridorLimit, CancellationToken token)
     {
         maxNodes = Mathf.Max(1, maxNodes);
-        var open = new PriorityQueuePreview<PathNode>(128, PathNodeComparer.Instance);
-        var labelsByTile = new Dictionary<int, List<PathNode>>(256);
-        var startNode = new PathNode(startId, null, MovementMethod.Walk, default,
-            TraversalState.Start(profile), 0, Heuristic(startInfo, targetInfo, profile));
-
-        AddLabel(labelsByTile, startNode, profile);
-        open.Enqueue(startNode);
+        workspace.BeginGraphSearch();
+        int startNode = workspace.AddStart(
+            startId,
+            TraversalState.Start(profile),
+            Heuristic(startInfo, targetInfo, profile));
+        workspace.Enqueue(startNode);
 
         var expanded = 0;
-        while (open.Count > 0 && expanded < maxNodes)
+        while (workspace.OpenCount > 0 && expanded < maxNodes)
         {
             token.ThrowIfCancellationRequested();
-            var current = open.Dequeue();
-            if (!IsActiveLabel(labelsByTile, current))
+            int currentIndex = workspace.Dequeue();
+            if (!workspace.IsActive(currentIndex))
             {
                 continue;
             }
 
+            FullPathNode current =
+                workspace.GetNode(currentIndex);
             expanded++;
             if (current.TileId == targetId)
             {
-                return BuildResult(current);
+                return LocalPathResult.Success(
+                    workspace.BuildResult(currentIndex),
+                    current.G);
             }
 
-            if (!TryGetTileInfo(tileInfoCache, current.TileId, out var currentInfo))
+            if (!workspace.TryGetTileInfo(
+                    current.TileId,
+                    out var currentInfo))
             {
                 continue;
             }
@@ -476,7 +815,10 @@ public class PortalAwarePathGenerator : IPathGenerator
             for (int i = 0; i < neighbours.Length; i++)
             {
                 var neighbourId = TileTraversalInfo.TileIdOf(neighbours[i]);
-                if (!TryGetTileInfo(tileInfoCache, neighbourId, out var neighbour) || !neighbour.HasType)
+                if (!workspace.TryGetTileInfo(
+                        neighbourId,
+                        out var neighbour) ||
+                    !rules.CanTraverse(neighbour))
                 {
                     continue;
                 }
@@ -495,108 +837,30 @@ public class PortalAwarePathGenerator : IPathGenerator
                 var estimate = EstimateTraversal(currentInfo, neighbour, method, current.State, profile);
                 var nextState = current.State.Advance(estimate, profile);
                 var stepCost = profile.CostOf(estimate, nextState);
-                var node = new PathNode(neighbourId, current, method, estimate, nextState,
-                    current.G + stepCost, Heuristic(neighbour, targetInfo, profile));
-
-                if (!TryAddLabel(labelsByTile, node, profile))
+                int nodeIndex = workspace.TryAddLabel(
+                    neighbourId,
+                    currentIndex,
+                    method,
+                    estimate,
+                    nextState,
+                    current.G + stepCost,
+                    Heuristic(
+                        neighbour,
+                        targetInfo,
+                        profile),
+                    profile.MaxLabelsPerTile);
+                if (nodeIndex < 0)
                 {
                     continue;
                 }
 
-                open.Enqueue(node);
+                workspace.Enqueue(nodeIndex);
             }
         }
 
-        return LocalPathResult.Fail(open.Count > 0 && expanded >= maxNodes);
-    }
-
-    private static bool IsActiveLabel(Dictionary<int, List<PathNode>> labelsByTile, PathNode node)
-    {
-        return labelsByTile.TryGetValue(node.TileId, out var labels) && labels.Contains(node);
-    }
-
-    private static void AddLabel(Dictionary<int, List<PathNode>> labelsByTile, PathNode node, MovementProfile profile)
-    {
-        if (!labelsByTile.TryGetValue(node.TileId, out var labels))
-        {
-            labels = new List<PathNode>(profile.MaxLabelsPerTile);
-            labelsByTile.Add(node.TileId, labels);
-        }
-
-        labels.Add(node);
-    }
-
-    private static bool TryAddLabel(Dictionary<int, List<PathNode>> labelsByTile, PathNode node,
-        MovementProfile profile)
-    {
-        if (!labelsByTile.TryGetValue(node.TileId, out var labels))
-        {
-            labels = new List<PathNode>(profile.MaxLabelsPerTile);
-            labelsByTile.Add(node.TileId, labels);
-        }
-
-        for (int i = 0; i < labels.Count; i++)
-        {
-            if (Dominates(labels[i], node))
-            {
-                return false;
-            }
-        }
-
-        for (int i = labels.Count - 1; i >= 0; i--)
-        {
-            if (Dominates(node, labels[i]))
-            {
-                labels.RemoveAt(i);
-            }
-        }
-
-        labels.Add(node);
-        if (labels.Count > profile.MaxLabelsPerTile)
-        {
-            var worstIndex = 0;
-            var worstScore = labels[0].F;
-            for (int i = 1; i < labels.Count; i++)
-            {
-                if (labels[i].F > worstScore)
-                {
-                    worstScore = labels[i].F;
-                    worstIndex = i;
-                }
-            }
-
-            if (labels[worstIndex] == node)
-            {
-                labels.RemoveAt(worstIndex);
-                return false;
-            }
-
-            labels.RemoveAt(worstIndex);
-        }
-
-        return true;
-    }
-
-    private static bool Dominates(PathNode a, PathNode b)
-    {
-        return a.G <= b.G + 0.001f
-               && a.State.Stamina >= b.State.Stamina - 0.001f
-               && a.State.Health >= b.State.Health - 0.001f
-               && a.State.Risk <= b.State.Risk + 0.001f;
-    }
-
-    private LocalPathResult BuildResult(PathNode node)
-    {
-        var reversed = new List<PathStep>();
-        var current = node;
-        while (current.Parent != null)
-        {
-            reversed.Add(new PathStep(current.TileId, current.Method, current.Estimate));
-            current = current.Parent;
-        }
-
-        reversed.Reverse();
-        return LocalPathResult.Success(reversed, node.G);
+        return LocalPathResult.Fail(
+            workspace.OpenCount > 0 &&
+            expanded >= maxNodes);
     }
 
     private static bool IsDiagonalOutsideMap(TileTraversalInfo from, TileTraversalInfo to)
@@ -610,29 +874,6 @@ public class PortalAwarePathGenerator : IPathGenerator
 
         return !TileTraversalInfo.TryGetAt(from.X + dx, from.Y, out _) ||
                !TileTraversalInfo.TryGetAt(from.X, from.Y + dy, out _);
-    }
-
-    private static bool TryGetTileInfo(Dictionary<int, TileTraversalInfo> cache, int tileId,
-        out TileTraversalInfo info)
-    {
-        if (tileId < 0)
-        {
-            info = default;
-            return false;
-        }
-
-        if (cache.TryGetValue(tileId, out info))
-        {
-            return info.Exists;
-        }
-
-        if (!TileTraversalInfo.TryGet(tileId, out info))
-        {
-            return false;
-        }
-
-        cache[tileId] = info;
-        return true;
     }
 
     private static TraversalEstimate EstimateTraversal(TileTraversalInfo from, TileTraversalInfo to,
@@ -742,6 +983,919 @@ public class PortalAwarePathGenerator : IPathGenerator
         return Mathf.Abs(a.X - info.X) + Mathf.Abs(a.Y - info.Y);
     }
 
+    private readonly struct TraversalRules
+    {
+        private TraversalRules(
+            bool isBoat,
+            bool allowGround,
+            bool allowOcean,
+            bool allowBlocks,
+            bool allowLava,
+            bool allowFire,
+            bool canReachTarget)
+        {
+            IsBoat = isBoat;
+            AllowGround = allowGround;
+            AllowOcean = allowOcean;
+            AllowBlocks = allowBlocks;
+            AllowLava = allowLava;
+            AllowFire = allowFire;
+            CanReachTarget = canReachTarget;
+        }
+
+        private bool IsBoat { get; }
+        private bool AllowGround { get; }
+        private bool AllowOcean { get; }
+        private bool AllowBlocks { get; }
+        private bool AllowLava { get; }
+        private bool AllowFire { get; }
+        internal bool CanReachTarget { get; }
+
+        internal static TraversalRules Build(
+            PathRequest request,
+            TileTraversalInfo start,
+            TileTraversalInfo target)
+        {
+            bool startInWater =
+                start.Ocean ||
+                (start.Liquid && !start.Lava);
+            bool allowOcean =
+                request.ActorIsWaterCreature ||
+                startInWater ||
+                request.PathOnWater &&
+                !request.ActorIsDamagedByOcean;
+            WorldTile startTile =
+                TileTraversalInfo.ResolveTile(
+                    start.TileId);
+            WorldTile targetTile =
+                TileTraversalInfo.ResolveTile(
+                    target.TileId);
+            TileIsland startIsland =
+                startTile?.region?.island;
+            TileIsland targetIsland =
+                targetTile?.region?.island;
+            bool sameIsland =
+                startIsland != null &&
+                ReferenceEquals(
+                    startIsland,
+                    targetIsland);
+            if (sameIsland &&
+                !startInWater &&
+                !request.ActorIsWaterCreature)
+            {
+                // 与原版 ActorMove.goTo 一致：陆地单位在同岛移动时
+                // 不会仅因调用方传入 pathOnWater 就横穿海洋。
+                allowOcean = false;
+            }
+
+            bool islandsConnected =
+                sameIsland ||
+                startIsland != null &&
+                targetIsland != null &&
+                startIsland.isConnectedWith(
+                    targetIsland);
+            bool canReachTarget =
+                islandsConnected ||
+                allowOcean ||
+                request.ActorIsBoat;
+            return new TraversalRules(
+                request.ActorIsBoat,
+                !request.ActorIsWaterCreature ||
+                request.ActorForceLandCreature ||
+                !startInWater,
+                allowOcean,
+                request.WalkOnBlocks ||
+                request.ActorIgnoresBlocks,
+                request.WalkOnLava ||
+                request.ActorIsFireImmune ||
+                start.Lava,
+                request.ActorIsFireImmune ||
+                start.IsOnFire,
+                canReachTarget);
+        }
+
+        internal bool CanTraverse(
+            TileTraversalInfo tile)
+        {
+            if (!tile.HasType ||
+                tile.IsOnFire &&
+                !AllowFire)
+            {
+                return false;
+            }
+
+            if (IsBoat)
+            {
+                return !tile.Lava &&
+                       (tile.Ocean ||
+                        tile.Liquid);
+            }
+
+            if (tile.Block)
+            {
+                return AllowBlocks;
+            }
+
+            if (tile.Lava)
+            {
+                return AllowLava;
+            }
+
+            if (tile.Ocean ||
+                tile.Liquid)
+            {
+                return AllowOcean;
+            }
+
+            return tile.Ground &&
+                   AllowGround;
+        }
+    }
+
+    private readonly struct SafeOpenNode
+    {
+        public SafeOpenNode(
+            int tileId,
+            float g,
+            float f)
+        {
+            TileId = tileId;
+            G = g;
+            F = f;
+        }
+
+        public int TileId { get; }
+        public float G { get; }
+        public float F { get; }
+    }
+
+    private sealed class FastPathWorkspace
+    {
+        private int generation;
+        private int[] tileInfoGenerations = Array.Empty<int>();
+        private TileTraversalInfo[] tileInfos =
+            Array.Empty<TileTraversalInfo>();
+        private int[] bestGenerations = Array.Empty<int>();
+        private int[] closedGenerations =
+            Array.Empty<int>();
+        private float[] bestCosts = Array.Empty<float>();
+        private int[] parents = Array.Empty<int>();
+        private MovementMethod[] methods =
+            Array.Empty<MovementMethod>();
+        private TraversalEstimate[] estimates =
+            Array.Empty<TraversalEstimate>();
+        private TraversalState[] states =
+            Array.Empty<TraversalState>();
+        private SafeOpenNode[] open =
+            new SafeOpenNode[256];
+
+        internal List<PathStep> Result { get; } = new(64);
+        internal int OpenCount { get; private set; }
+
+        internal void BeginSearch(int tileCount)
+        {
+            EnsureCapacity(tileCount);
+            generation++;
+            if (generation == int.MaxValue)
+            {
+                Array.Clear(
+                    tileInfoGenerations,
+                    0,
+                    tileInfoGenerations.Length);
+                Array.Clear(
+                    bestGenerations,
+                    0,
+                    bestGenerations.Length);
+                Array.Clear(
+                    closedGenerations,
+                    0,
+                    closedGenerations.Length);
+                generation = 1;
+            }
+
+            OpenCount = 0;
+            Result.Clear();
+        }
+
+        internal bool TryGetTileInfo(
+            int tileId,
+            out TileTraversalInfo info)
+        {
+            if (tileId < 0 ||
+                tileId >= tileInfos.Length)
+            {
+                info = default;
+                return false;
+            }
+
+            if (tileInfoGenerations[tileId] == generation)
+            {
+                info = tileInfos[tileId];
+                return info.Exists;
+            }
+
+            bool exists =
+                TileTraversalInfo.TryGet(
+                    tileId,
+                    out info);
+            tileInfoGenerations[tileId] = generation;
+            tileInfos[tileId] = info;
+            return exists;
+        }
+
+        internal void SetBest(
+            int tileId,
+            float cost,
+            int parent,
+            MovementMethod method,
+            TraversalEstimate estimate,
+            TraversalState state)
+        {
+            bestGenerations[tileId] = generation;
+            bestCosts[tileId] = cost;
+            parents[tileId] = parent;
+            methods[tileId] = method;
+            estimates[tileId] = estimate;
+            states[tileId] = state;
+        }
+
+        internal bool TryImprove(
+            int tileId,
+            float cost,
+            int parent,
+            MovementMethod method,
+            TraversalEstimate estimate,
+            TraversalState state)
+        {
+            if (bestGenerations[tileId] == generation &&
+                bestCosts[tileId] <= cost + 0.001f)
+            {
+                return false;
+            }
+
+            SetBest(
+                tileId,
+                cost,
+                parent,
+                method,
+                estimate,
+                state);
+            return true;
+        }
+
+        internal bool IsCurrentBest(
+            int tileId,
+            float cost)
+        {
+            return tileId >= 0 &&
+                   tileId < bestGenerations.Length &&
+                   bestGenerations[tileId] == generation &&
+                   cost <= bestCosts[tileId] + 0.001f;
+        }
+
+        internal TraversalState GetState(int tileId)
+        {
+            return states[tileId];
+        }
+
+        internal bool TryClose(int tileId)
+        {
+            if (closedGenerations[tileId] == generation)
+            {
+                return false;
+            }
+
+            closedGenerations[tileId] = generation;
+            return true;
+        }
+
+        internal bool IsClosed(int tileId)
+        {
+            return tileId >= 0 &&
+                   tileId < closedGenerations.Length &&
+                   closedGenerations[tileId] == generation;
+        }
+
+        internal void Enqueue(SafeOpenNode node)
+        {
+            if (OpenCount == open.Length)
+            {
+                Array.Resize(
+                    ref open,
+                    open.Length * 2);
+            }
+
+            int index = OpenCount++;
+            while (index > 0)
+            {
+                int parent = (index - 1) >> 1;
+                if (Compare(
+                        node,
+                        open[parent]) >= 0)
+                {
+                    break;
+                }
+
+                open[index] = open[parent];
+                index = parent;
+            }
+
+            open[index] = node;
+        }
+
+        internal SafeOpenNode Dequeue()
+        {
+            SafeOpenNode first = open[0];
+            SafeOpenNode last =
+                open[--OpenCount];
+            if (OpenCount == 0)
+            {
+                return first;
+            }
+
+            int index = 0;
+            while (true)
+            {
+                int left = index * 2 + 1;
+                if (left >= OpenCount)
+                {
+                    break;
+                }
+
+                int right = left + 1;
+                int child =
+                    right < OpenCount &&
+                    Compare(
+                        open[right],
+                        open[left]) < 0
+                        ? right
+                        : left;
+                if (Compare(
+                        last,
+                        open[child]) <= 0)
+                {
+                    break;
+                }
+
+                open[index] = open[child];
+                index = child;
+            }
+
+            open[index] = last;
+            return first;
+        }
+
+        internal bool BuildResult(
+            int startTileId,
+            int targetTileId)
+        {
+            Result.Clear();
+            int current = targetTileId;
+            int remaining = parents.Length;
+            while (current != startTileId &&
+                   remaining-- > 0)
+            {
+                if (current < 0 ||
+                    current >= bestGenerations.Length ||
+                    bestGenerations[current] != generation)
+                {
+                    Result.Clear();
+                    return false;
+                }
+
+                Result.Add(
+                    new PathStep(
+                        current,
+                        methods[current],
+                        estimates[current]));
+                current = parents[current];
+            }
+
+            if (current != startTileId)
+            {
+                Result.Clear();
+                return false;
+            }
+
+            Result.Reverse();
+            return true;
+        }
+
+        private static int Compare(
+            SafeOpenNode left,
+            SafeOpenNode right)
+        {
+            int result = left.F.CompareTo(right.F);
+            return result != 0
+                ? result
+                : left.TileId.CompareTo(right.TileId);
+        }
+
+        private void EnsureCapacity(int capacity)
+        {
+            if (tileInfos.Length >= capacity)
+            {
+                return;
+            }
+
+            int nextCapacity =
+                Math.Max(
+                    capacity,
+                    Math.Max(256, tileInfos.Length * 2));
+            Array.Resize(
+                ref tileInfoGenerations,
+                nextCapacity);
+            Array.Resize(
+                ref tileInfos,
+                nextCapacity);
+            Array.Resize(
+                ref bestGenerations,
+                nextCapacity);
+            Array.Resize(
+                ref closedGenerations,
+                nextCapacity);
+            Array.Resize(
+                ref bestCosts,
+                nextCapacity);
+            Array.Resize(
+                ref parents,
+                nextCapacity);
+            Array.Resize(
+                ref methods,
+                nextCapacity);
+            Array.Resize(
+                ref estimates,
+                nextCapacity);
+            Array.Resize(
+                ref states,
+                nextCapacity);
+        }
+    }
+
+    private struct FullPathNode
+    {
+        internal int TileId;
+        internal int ParentIndex;
+        internal MovementMethod Method;
+        internal TraversalEstimate Estimate;
+        internal TraversalState State;
+        internal float G;
+        internal float H;
+        internal bool Active;
+
+        internal float F => G + H;
+    }
+
+    /// <summary>
+    /// 完整多标签 A* 的线程本地工作区。标签支配和裁剪规则与原实现一致，
+    /// 但节点、地块缓存、标签槽和开放堆都跨请求复用，不再为每个扩展节点
+    /// 创建对象和字典项。
+    /// </summary>
+    private sealed class FullPathWorkspace
+    {
+        private int tileGeneration;
+        private int graphGeneration;
+        private int labelSlotCapacity;
+        private int nodeCount;
+        private int[] tileInfoGenerations =
+            Array.Empty<int>();
+        private TileTraversalInfo[] tileInfos =
+            Array.Empty<TileTraversalInfo>();
+        private int[] labelGenerations =
+            Array.Empty<int>();
+        private int[] labelCounts =
+            Array.Empty<int>();
+        private int[] labelIndices =
+            Array.Empty<int>();
+        private FullPathNode[] nodes =
+            new FullPathNode[1024];
+        private int[] open = new int[1024];
+
+        internal int OpenCount { get; private set; }
+
+        internal void BeginLocalPath(
+            int tileCount,
+            int maximumLabels)
+        {
+            EnsureTileCapacity(
+                tileCount,
+                Math.Max(1, maximumLabels) + 1);
+            tileGeneration++;
+            if (tileGeneration == int.MaxValue)
+            {
+                Array.Clear(
+                    tileInfoGenerations,
+                    0,
+                    tileInfoGenerations.Length);
+                tileGeneration = 1;
+            }
+        }
+
+        internal void BeginGraphSearch()
+        {
+            graphGeneration++;
+            if (graphGeneration == int.MaxValue)
+            {
+                Array.Clear(
+                    labelGenerations,
+                    0,
+                    labelGenerations.Length);
+                graphGeneration = 1;
+            }
+
+            nodeCount = 0;
+            OpenCount = 0;
+        }
+
+        internal bool TryGetTileInfo(
+            int tileId,
+            out TileTraversalInfo info)
+        {
+            if (tileId < 0 ||
+                tileId >= tileInfos.Length)
+            {
+                info = default;
+                return false;
+            }
+
+            if (tileInfoGenerations[tileId] ==
+                tileGeneration)
+            {
+                info = tileInfos[tileId];
+                return info.Exists;
+            }
+
+            bool exists =
+                TileTraversalInfo.TryGet(
+                    tileId,
+                    out info);
+            tileInfoGenerations[tileId] =
+                tileGeneration;
+            tileInfos[tileId] = info;
+            return exists;
+        }
+
+        internal int AddStart(
+            int tileId,
+            TraversalState state,
+            float heuristic)
+        {
+            int nodeIndex = AddNode(
+                new FullPathNode
+                {
+                    TileId = tileId,
+                    ParentIndex = -1,
+                    Method = MovementMethod.Walk,
+                    Estimate = default,
+                    State = state,
+                    G = 0f,
+                    H = heuristic,
+                    Active = true
+                });
+            InitializeLabels(tileId);
+            labelIndices[
+                LabelOffset(tileId)] = nodeIndex;
+            labelCounts[tileId] = 1;
+            return nodeIndex;
+        }
+
+        internal int TryAddLabel(
+            int tileId,
+            int parentIndex,
+            MovementMethod method,
+            TraversalEstimate estimate,
+            TraversalState state,
+            float g,
+            float h,
+            int maximumLabels)
+        {
+            InitializeLabels(tileId);
+            var candidate =
+                new FullPathNode
+                {
+                    TileId = tileId,
+                    ParentIndex = parentIndex,
+                    Method = method,
+                    Estimate = estimate,
+                    State = state,
+                    G = g,
+                    H = h,
+                    Active = true
+                };
+            int count = labelCounts[tileId];
+            int offset = LabelOffset(tileId);
+            for (int i = 0; i < count; i++)
+            {
+                if (Dominates(
+                        nodes[labelIndices[offset + i]],
+                        candidate))
+                {
+                    return -1;
+                }
+            }
+
+            for (int i = count - 1; i >= 0; i--)
+            {
+                int existingIndex =
+                    labelIndices[offset + i];
+                if (!Dominates(
+                        candidate,
+                        nodes[existingIndex]))
+                {
+                    continue;
+                }
+
+                SetInactive(existingIndex);
+                RemoveLabelAt(
+                    offset,
+                    ref count,
+                    i);
+            }
+
+            int nodeIndex = AddNode(candidate);
+            labelIndices[offset + count++] = nodeIndex;
+            if (count > maximumLabels)
+            {
+                int worstPosition = 0;
+                float worstScore =
+                    nodes[labelIndices[offset]].F;
+                for (int i = 1; i < count; i++)
+                {
+                    float score =
+                        nodes[labelIndices[offset + i]].F;
+                    if (score > worstScore)
+                    {
+                        worstScore = score;
+                        worstPosition = i;
+                    }
+                }
+
+                int worstNode =
+                    labelIndices[offset + worstPosition];
+                SetInactive(worstNode);
+                RemoveLabelAt(
+                    offset,
+                    ref count,
+                    worstPosition);
+                labelCounts[tileId] = count;
+                return worstNode == nodeIndex
+                    ? -1
+                    : nodeIndex;
+            }
+
+            labelCounts[tileId] = count;
+            return nodeIndex;
+        }
+
+        internal FullPathNode GetNode(int nodeIndex)
+        {
+            return nodes[nodeIndex];
+        }
+
+        internal bool IsActive(int nodeIndex)
+        {
+            return nodeIndex >= 0 &&
+                   nodeIndex < nodeCount &&
+                   nodes[nodeIndex].Active;
+        }
+
+        internal void Enqueue(int nodeIndex)
+        {
+            EnsureOpenCapacity(OpenCount + 1);
+            int index = OpenCount++;
+            while (index > 0)
+            {
+                int parent = (index - 1) >> 1;
+                if (CompareNodes(
+                        nodeIndex,
+                        open[parent]) >= 0)
+                {
+                    break;
+                }
+
+                open[index] = open[parent];
+                index = parent;
+            }
+
+            open[index] = nodeIndex;
+        }
+
+        internal int Dequeue()
+        {
+            int first = open[0];
+            int last = open[--OpenCount];
+            if (OpenCount == 0)
+            {
+                return first;
+            }
+
+            int index = 0;
+            while (true)
+            {
+                int left = index * 2 + 1;
+                if (left >= OpenCount)
+                {
+                    break;
+                }
+
+                int right = left + 1;
+                int child =
+                    right < OpenCount &&
+                    CompareNodes(
+                        open[right],
+                        open[left]) < 0
+                        ? right
+                        : left;
+                if (CompareNodes(
+                        last,
+                        open[child]) <= 0)
+                {
+                    break;
+                }
+
+                open[index] = open[child];
+                index = child;
+            }
+
+            open[index] = last;
+            return first;
+        }
+
+        internal List<PathStep> BuildResult(
+            int nodeIndex)
+        {
+            var result = new List<PathStep>(64);
+            int remaining = nodeCount;
+            while (nodeIndex >= 0 &&
+                   remaining-- > 0)
+            {
+                FullPathNode node =
+                    nodes[nodeIndex];
+                if (node.ParentIndex < 0)
+                {
+                    break;
+                }
+
+                result.Add(
+                    new PathStep(
+                        node.TileId,
+                        node.Method,
+                        node.Estimate));
+                nodeIndex = node.ParentIndex;
+            }
+
+            result.Reverse();
+            return result;
+        }
+
+        private static bool Dominates(
+            FullPathNode left,
+            FullPathNode right)
+        {
+            return left.G <= right.G + 0.001f &&
+                   left.State.Stamina >=
+                   right.State.Stamina - 0.001f &&
+                   left.State.Health >=
+                   right.State.Health - 0.001f &&
+                   left.State.Risk <=
+                   right.State.Risk + 0.001f;
+        }
+
+        private int AddNode(FullPathNode node)
+        {
+            EnsureNodeCapacity(nodeCount + 1);
+            int index = nodeCount++;
+            nodes[index] = node;
+            return index;
+        }
+
+        private void SetInactive(int nodeIndex)
+        {
+            FullPathNode node = nodes[nodeIndex];
+            node.Active = false;
+            nodes[nodeIndex] = node;
+        }
+
+        private void InitializeLabels(int tileId)
+        {
+            if (labelGenerations[tileId] ==
+                graphGeneration)
+            {
+                return;
+            }
+
+            labelGenerations[tileId] =
+                graphGeneration;
+            labelCounts[tileId] = 0;
+        }
+
+        private int LabelOffset(int tileId)
+        {
+            return tileId * labelSlotCapacity;
+        }
+
+        private void RemoveLabelAt(
+            int offset,
+            ref int count,
+            int position)
+        {
+            for (int i = position; i < count - 1; i++)
+            {
+                labelIndices[offset + i] =
+                    labelIndices[offset + i + 1];
+            }
+
+            count--;
+        }
+
+        private int CompareNodes(
+            int leftIndex,
+            int rightIndex)
+        {
+            return nodes[leftIndex].F.CompareTo(
+                nodes[rightIndex].F);
+        }
+
+        private void EnsureTileCapacity(
+            int tileCapacity,
+            int requiredLabelSlots)
+        {
+            bool growTiles =
+                tileInfos.Length < tileCapacity;
+            bool growLabels =
+                labelSlotCapacity <
+                requiredLabelSlots;
+            if (!growTiles && !growLabels)
+            {
+                return;
+            }
+
+            int nextTileCapacity =
+                growTiles
+                    ? Math.Max(
+                        tileCapacity,
+                        Math.Max(
+                            256,
+                            tileInfos.Length * 2))
+                    : tileInfos.Length;
+            int nextLabelSlots =
+                Math.Max(
+                    labelSlotCapacity,
+                    requiredLabelSlots);
+            Array.Resize(
+                ref tileInfoGenerations,
+                nextTileCapacity);
+            Array.Resize(
+                ref tileInfos,
+                nextTileCapacity);
+            Array.Resize(
+                ref labelGenerations,
+                nextTileCapacity);
+            Array.Resize(
+                ref labelCounts,
+                nextTileCapacity);
+            labelIndices =
+                new int[
+                    nextTileCapacity *
+                    nextLabelSlots];
+            labelSlotCapacity =
+                nextLabelSlots;
+            Array.Clear(
+                labelGenerations,
+                0,
+                labelGenerations.Length);
+            graphGeneration = 0;
+        }
+
+        private void EnsureNodeCapacity(int capacity)
+        {
+            if (nodes.Length >= capacity)
+            {
+                return;
+            }
+
+            Array.Resize(
+                ref nodes,
+                Math.Max(
+                    capacity,
+                    nodes.Length * 2));
+        }
+
+        private void EnsureOpenCapacity(int capacity)
+        {
+            if (open.Length >= capacity)
+            {
+                return;
+            }
+
+            Array.Resize(
+                ref open,
+                Math.Max(
+                    capacity,
+                    open.Length * 2));
+        }
+    }
+
     private sealed class MovementLeg : RouteLeg
     {
         public MovementLeg(IReadOnlyList<PathStep> steps, float cost)
@@ -807,39 +1961,6 @@ public class PortalAwarePathGenerator : IPathGenerator
         public PortalDefinition Exit { get; }
         public PortalConnection Link { get; }
         public float EstCost { get; }
-    }
-
-    private sealed class PathNode
-    {
-        public PathNode(int tileId, PathNode parent, MovementMethod method, TraversalEstimate estimate,
-            TraversalState state, float g, float h)
-        {
-            TileId = tileId;
-            Parent = parent;
-            Method = method;
-            Estimate = estimate;
-            State = state;
-            G = g;
-            H = h;
-        }
-
-        public int TileId { get; }
-        public PathNode Parent { get; }
-        public MovementMethod Method { get; }
-        public TraversalEstimate Estimate { get; }
-        public TraversalState State { get; }
-        public float G { get; }
-        public float H { get; }
-        public float F => G + H;
-    }
-
-    private sealed class PathNodeComparer : IComparer<PathNode>
-    {
-        public static readonly PathNodeComparer Instance = new();
-        public int Compare(PathNode x, PathNode y)
-        {
-            return x.F.CompareTo(y.F);
-        }
     }
 
     private sealed class LocalPathResult

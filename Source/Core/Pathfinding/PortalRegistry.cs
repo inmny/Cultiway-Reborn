@@ -11,6 +11,8 @@ public sealed class PortalRegistry
 
     private readonly ConcurrentDictionary<long, PortalDefinition> _portals = new();
 
+    internal bool IsEmpty => _portals.IsEmpty;
+
     public void RegisterOrUpdate(PortalDefinition portal)
     {
         if (portal == null || portal.Id == 0 || portal.Tile == null)
