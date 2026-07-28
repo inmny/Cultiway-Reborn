@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using Cultiway.Const;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Patch;
@@ -637,10 +638,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         Actor[] actors = container.getFastSimpleArray();
         int count = container.Count;
+        bool[] fires = World.world.tile_manager.fires;
         for (int i = 0; i < count; i++)
         {
             Actor actor = actors[i];
-            if (CanSkipSafeGroundTileAction(actor))
+            if (CanSkipSafeGroundTileAction(
+                    actor,
+                    fires))
             {
                 continue;
             }
@@ -649,35 +653,41 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         }
     }
 
-    private static bool CanSkipSafeGroundTileAction(Actor actor)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool CanSkipSafeGroundTileAction(
+        Actor actor,
+        bool[] fires)
     {
-        if (actor._update_done ||
-            actor.position_height > 0f ||
-            actor.isFlying())
+        if (actor._update_done)
         {
             return true;
         }
 
         WorldTile tile = actor.current_tile;
         TileTypeBase type = tile.Type;
-        if (type.block ||
-            !type.ground ||
-            tile.isOnFire() ||
-            actor.asset.is_boat ||
-            type.damage_units)
-        {
-            return false;
-        }
-
-        if (actor.isWaterCreature() &&
-            !actor.asset.force_land_creature)
-        {
-            return false;
-        }
-
+        ActorAsset asset = actor.asset;
         Building building = tile.building;
-        return building == null ||
-               !building.asset.has_step_action;
+        if (type.ground &&
+            !type.block &&
+            !type.damage_units &&
+            !fires[tile.tile_id] &&
+            !asset.is_boat &&
+            (building == null ||
+             !building.asset.has_step_action))
+        {
+            bool waterCreature =
+                asset.force_ocean_creature ||
+                actor.subspecies
+                    ?.has_trait_water_creature == true;
+            if (!waterCreature ||
+                asset.force_land_creature)
+            {
+                return true;
+            }
+        }
+
+        return actor.position_height > 0f ||
+               actor.isFlying();
     }
 
     private void RunPathMovementJob(
