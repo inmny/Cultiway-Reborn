@@ -12,9 +12,14 @@ namespace Cultiway.Core.Performance;
 internal static class ParallelSimObjectZoneUnits
 {
     private const int ParallelThreshold = 1024;
+    private const int ParallelTileClearThreshold = 256;
 
     private static readonly Action<int> rebuildChunkAction =
         RebuildChunk;
+    private static readonly Action<int> clearTileAction =
+        ClearTile;
+    private static readonly Action<int> clearChunkAction =
+        ClearChunk;
 
     private static List<Actor>[] actorsByChunk =
         Array.Empty<List<Actor>>();
@@ -25,6 +30,9 @@ internal static class ParallelSimObjectZoneUnits
     private static int pendingIslandGeneration = -1;
     private static int unitMembershipVersion;
     private static bool statusIndexRebuildPrepared;
+    private static List<WorldTile> activeTilesToClear;
+    private static MapChunk[] activeChunksToClear;
+    private static bool forceClearBuildings;
 
     /// <summary>
     /// 原版 chunk.objects.units_all 成员表的提交版本。
@@ -32,6 +40,64 @@ internal static class ParallelSimObjectZoneUnits
     /// </summary>
     internal static int UnitMembershipVersion =>
         Volatile.Read(ref unitMembershipVersion);
+
+    internal static bool TryClearTileUnits(
+        List<WorldTile> tilesToClear)
+    {
+        if (!ShouldUseParallelClear() ||
+            tilesToClear == null ||
+            tilesToClear.Count <
+            ParallelTileClearThreshold)
+        {
+            return false;
+        }
+
+        activeTilesToClear = tilesToClear;
+        try
+        {
+            SimulationWorkerPool.Instance.RunIndexed(
+                0,
+                tilesToClear.Count,
+                clearTileAction);
+        }
+        finally
+        {
+            activeTilesToClear = null;
+        }
+
+        tilesToClear.Clear();
+        return true;
+    }
+
+    internal static bool TryClearChunkObjects(
+        bool clearBuildings)
+    {
+        MapChunk[] chunks =
+            World.world?.map_chunk_manager?.chunks;
+        if (!ShouldUseParallelClear() ||
+            chunks == null ||
+            chunks.Length < 2)
+        {
+            return false;
+        }
+
+        activeChunksToClear = chunks;
+        forceClearBuildings = clearBuildings;
+        try
+        {
+            SimulationWorkerPool.Instance.RunIndexed(
+                0,
+                chunks.Length,
+                clearChunkAction);
+        }
+        finally
+        {
+            activeChunksToClear = null;
+            forceClearBuildings = false;
+        }
+
+        return true;
+    }
 
     internal static void NotifyUnitMembershipRebuilt()
     {
@@ -264,6 +330,30 @@ internal static class ParallelSimObjectZoneUnits
             Actor actor = actors[i];
             actor.current_tile.addUnit(actor);
             chunk.objects.addActor(actor);
+        }
+    }
+
+    private static bool ShouldUseParallelClear()
+    {
+        return PerformanceSettings
+                   .EnableFramePriorityScheduler &&
+               World.world?.units?.Count >=
+               ParallelThreshold;
+    }
+
+    private static void ClearTile(int index)
+    {
+        activeTilesToClear[index].clearUnits();
+    }
+
+    private static void ClearChunk(int index)
+    {
+        MapChunk chunk =
+            activeChunksToClear[index];
+        if (!chunk.objects.isEmpty())
+        {
+            chunk.clearObjects(
+                forceClearBuildings);
         }
     }
 
