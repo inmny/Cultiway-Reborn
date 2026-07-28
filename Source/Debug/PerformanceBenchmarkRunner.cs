@@ -107,6 +107,8 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
     private void Configure(string mode)
     {
+        // 自动基准常以隐藏窗口运行；不允许 Unity 因失焦把主循环降到约 1 FPS。
+        Application.runInBackground = true;
         _mode = mode.Trim();
         _presentationStressEnabled =
             _mode.IndexOf(
@@ -206,7 +208,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         Bench.bench_enabled = false;
         DebugConfig.setOption(DebugOption.BenchAiEnabled, false);
         Bench.bench_ai_enabled = false;
-        EnsureSimulationRunning();
+        EnsureSimulationPaused();
 
         if (_createWorld)
         {
@@ -223,6 +225,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
     private void UpdateWaitingForWorldLoaded()
     {
+        EnsureSimulationPaused();
         if (SmoothLoader.isLoading() ||
             _stateElapsed < SetupDelaySeconds ||
             !IsCultiwayWorldReady())
@@ -244,7 +247,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             return;
         }
 
-        EnsureSimulationRunning();
+        EnsureSimulationPaused();
 
         if (!_initialUnitsSpawned && _initialHumans > 0)
         {
@@ -353,15 +356,26 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
     private void EnsureSimulationRunning()
     {
+        CloseBlockingWindows();
+        Config.paused = false;
+        Config.setWorldSpeed(_speedId);
+    }
+
+    private void EnsureSimulationPaused()
+    {
+        CloseBlockingWindows();
+        Config.paused = true;
+        Config.setWorldSpeed(_speedId);
+    }
+
+    private static void CloseBlockingWindows()
+    {
         if (ScrollWindow.isWindowActive())
         {
             // 批处理启动时可能保留加载页或模组窗口。MapBox 会把窗口状态计入暂停，
             // 因此仅设置 Config.paused=false 并不足以启动自动化模拟。
             ScrollWindow.moveAllToRightAndRemove(false);
         }
-
-        Config.paused = false;
-        Config.setWorldSpeed(_speedId);
     }
 
     private void LogMeasurement(string phase)
