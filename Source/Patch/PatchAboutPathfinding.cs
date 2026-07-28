@@ -221,6 +221,7 @@ namespace Cultiway.Patch
                     if (cursor.IsValid &&
                         !cursor.InitializeWaiting)
                     {
+                        actor.timer_action = 0.05f;
                         return true;
                     }
 

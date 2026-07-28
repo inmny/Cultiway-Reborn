@@ -22,11 +22,15 @@ public class PathFinder
     private readonly Dictionary<long, PathfindingTask> _tasks = new();
     private readonly Dictionary<long, PathRequestOptions> _lastRequests = new();
     private readonly ConcurrentQueue<PathfindingTask> _pendingTasks = new();
+    private readonly ConcurrentQueue<PathfindingTask> _workerUpdates = new();
     private readonly AutoResetEvent _pendingSignal = new(false);
     private readonly object _workerLock = new();
     private IPathGenerator _generator;
     private bool _workersStarted;
     private int _workerCount;
+    private long workerUpdateSignals;
+    private long workerWakeupsApplied;
+    private long workerWakeupsIgnored;
 
     public void UseGenerator(IPathGenerator generator)
     {
@@ -229,7 +233,10 @@ public class PathFinder
         Cancel(request.Actor);
 
         PathfindingProfiler.Measurement taskCreateMeasurement = PathfindingProfiler.Start();
-        var task = new PathfindingTask(request, taskCreateMeasurement.Session);
+        var task = new PathfindingTask(
+            request,
+            taskCreateMeasurement.Session,
+            QueueWorkerUpdate);
         _tasks[request.Actor.data.id] = task;
         taskCreateMeasurement.Complete(PathfindingBenchmarkMetric.TaskCreate);
 
@@ -313,7 +320,50 @@ public class PathFinder
             _tasks.Count,
             _pendingTasks.Count,
             Volatile.Read(ref _workerCount),
-            generatorDiagnostics);
+            generatorDiagnostics) +
+            string.Format(
+                CultureInfo.InvariantCulture,
+                " wake={0}/{1}/{2}(signal/apply/ignore) queued={3}",
+                Interlocked.Read(ref workerUpdateSignals),
+                Interlocked.Read(ref workerWakeupsApplied),
+                Interlocked.Read(ref workerWakeupsIgnored),
+                _workerUpdates.Count);
+    }
+
+    private void QueueWorkerUpdate(PathfindingTask task)
+    {
+        _workerUpdates.Enqueue(task);
+        Interlocked.Increment(ref workerUpdateSignals);
+    }
+
+    /// <summary>
+    /// worker 只发布任务引用；角色计时器仍由有序模拟线程修改。
+    /// 仅唤醒已经进入等待态且仍是当前请求的角色，旧请求通知不会改变角色。
+    /// </summary>
+    internal void ApplyWorkerWakeups()
+    {
+        while (_workerUpdates.TryDequeue(
+                   out PathfindingTask task))
+        {
+            Actor actor = task.Request.Actor;
+            if (actor?.data == null ||
+                !actor.isAlive() ||
+                !task.WaitingInitialized ||
+                !task.HasWorkerUpdate ||
+                !_tasks.TryGetValue(
+                    actor.data.id,
+                    out PathfindingTask current) ||
+                !ReferenceEquals(current, task))
+            {
+                Interlocked.Increment(
+                    ref workerWakeupsIgnored);
+                continue;
+            }
+
+            actor.timer_action = -1f;
+            Interlocked.Increment(
+                ref workerWakeupsApplied);
+        }
     }
 
     private void WorkerLoop()
@@ -448,7 +498,10 @@ public class PathFinder
         var request = new PathRequest(actor, target, true, true, true, 0);
         createMeasurement.Complete(PathfindingBenchmarkMetric.Create);
         PathfindingProfiler.Measurement taskCreateMeasurement = PathfindingProfiler.Start();
-        var task = new PathfindingTask(request, taskCreateMeasurement.Session);
+        var task = new PathfindingTask(
+            request,
+            taskCreateMeasurement.Session,
+            QueueWorkerUpdate);
         task.Stream.AddStep(new PathStep(target, MovementMethod.Walk, TraversalEstimate.Direct));
         task.Stream.Complete();
         task.MarkWorkerFinished();
@@ -789,6 +842,9 @@ public class PathFinder
         }
         _tasks.Clear();
         _lastRequests.Clear();
+        while (_workerUpdates.TryDequeue(out _))
+        {
+        }
     }
 
     internal bool TryGetLastRequestOptions(Actor actor, out PathRequestOptions options)
@@ -843,17 +899,20 @@ internal sealed class PathfindingTask : IDisposable
     private int _workerFinished;
     private int _workerUpdate;
     private int _waitingInitialized;
+    private readonly Action<PathfindingTask> _onWorkerUpdate;
 
     private long enqueuedAt;
 
     public PathfindingTask(
         PathRequest request,
-        PathfindingProfiler.Session benchmarkSession = null)
+        PathfindingProfiler.Session benchmarkSession = null,
+        Action<PathfindingTask> onWorkerUpdate = null)
     {
         Request = request;
         Stream = new PathStream(SignalWorkerUpdate);
         Cancellation = new CancellationTokenSource();
         BenchmarkSession = benchmarkSession;
+        _onWorkerUpdate = onWorkerUpdate;
     }
 
     public PathRequest Request { get; }
@@ -884,7 +943,12 @@ internal sealed class PathfindingTask : IDisposable
 
     private void SignalWorkerUpdate()
     {
-        Volatile.Write(ref _workerUpdate, 1);
+        if (Interlocked.Exchange(
+                ref _workerUpdate,
+                1) == 0)
+        {
+            _onWorkerUpdate?.Invoke(this);
+        }
     }
 
     internal void MarkEnqueued()

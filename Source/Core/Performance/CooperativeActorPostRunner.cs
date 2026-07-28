@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Cultiway.Const;
+using Cultiway.Core.Pathfinding;
 using Cultiway.Patch;
 using UnityEngine;
 
@@ -77,6 +78,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         searchScheduleStartedAt = 0L;
         searchScheduleCompletedAt = 0L;
         aggressionCandidates.Clear();
+        PathFinder.Instance.ApplyWorkerWakeups();
         PrepareActiveBehaviorPartitions(batches.Count);
         tileActionProfiler.Start(batches.Count);
         DeferredPathRequestBatch.StartCycle();

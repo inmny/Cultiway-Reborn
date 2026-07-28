@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Cultiway.Const;
 using Cultiway.Core.EventSystem.Systems;
+using Cultiway.Core.Pathfinding;
 using Cultiway.Core.Performance;
 using HarmonyLib;
 using UnityEngine;
@@ -35,6 +36,7 @@ internal static class PatchFramePriorityScheduler
     {
         EnsureActorReadBoundary("mapbox.frame_begin");
         EnsureBuildingReadBoundary("mapbox.frame_begin");
+        PathFinder.Instance.ApplyWorkerWakeups();
         PresentationCommandQueue.DrainMainThread();
         __state = new MapBoxUpdateScope
         {
