@@ -59,6 +59,8 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private float _logIntervalSeconds;
     private bool _createWorld;
     private bool _quitOnComplete;
+    private bool _captureDetails;
+    private bool _scanInvalidHandRenderers;
     private bool _configured;
     private bool _initialUnitsSpawned;
     private bool _presentationScenePrepared;
@@ -129,6 +131,12 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         _logIntervalSeconds = Math.Max(5f, GetEnvFloat("CULTIWAY_PERF_LOG_INTERVAL", 30f));
         _createWorld = GetEnvBool("CULTIWAY_PERF_CREATE_WORLD", true);
         _quitOnComplete = GetEnvBool("CULTIWAY_PERF_QUIT_ON_DONE", false);
+        _captureDetails = GetEnvBool(
+            "CULTIWAY_PERF_CAPTURE_DETAILS",
+            true);
+        _scanInvalidHandRenderers = GetEnvBool(
+            "CULTIWAY_PERF_SCAN_INVALID_HAND_RENDERERS",
+            false);
         PerformanceSettings.SetTargetRenderFps(
             GetEnvFloat("CULTIWAY_PERF_TARGET_FPS", PerformanceSettings.TargetRenderFps));
         PerformanceSettings.SetMaxSimulationMillisecondsPerFrame(
@@ -144,7 +152,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         _configured = true;
 
         ModClass.LogInfo(
-            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} seed={_worldSeed} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s settle={_settleSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s targetFps={PerformanceSettings.TargetRenderFps:0.#} maxSimulation={PerformanceSettings.MaxSimulationMillisecondsPerFrame:0.#}ms smoothing={PerformanceSettings.EnablePresentationSmoothing} aiBench={SimulationTickBenchmark.ShouldCollectAiDetails}");
+            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} seed={_worldSeed} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s settle={_settleSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s targetFps={PerformanceSettings.TargetRenderFps:0.#} maxSimulation={PerformanceSettings.MaxSimulationMillisecondsPerFrame:0.#}ms smoothing={PerformanceSettings.EnablePresentationSmoothing} details={_captureDetails} handScan={_scanInvalidHandRenderers} aiBench={SimulationTickBenchmark.ShouldCollectAiDetails}");
     }
 
     private void Update()
@@ -160,7 +168,11 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         if (_state is RunnerState.WarmingUp or RunnerState.Measuring)
         {
             RecordFrame(delta);
-            ScanInvalidHandRenderers(delta);
+            if (_scanInvalidHandRenderers)
+            {
+                ScanInvalidHandRenderers(delta);
+            }
+
             UpdatePresentationStress(delta);
         }
 
@@ -318,8 +330,19 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
     private void StartMeasurement()
     {
-        Bench.bench_enabled = true;
-        SimulationTickBenchmark.ApplyAiDetailsPolicy();
+        Bench.bench_enabled = _captureDetails;
+        if (_captureDetails)
+        {
+            SimulationTickBenchmark.ApplyAiDetailsPolicy();
+        }
+        else
+        {
+            DebugConfig.setOption(
+                DebugOption.BenchAiEnabled,
+                false);
+            Bench.bench_ai_enabled = false;
+        }
+
         ResetFrameStats();
         _runElapsed = 0f;
         _logElapsed = 0f;
@@ -407,8 +430,29 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             .Append(" over100=").Append(frameStats.Over100)
             .AppendLine();
 
-        AppendBenchSummary(sb, "main", "game_total", "main", 8);
-        AppendBenchSummary(sb, "game_total", "game_total", "main", 12, DefaultGameTotalEntries);
+        if (_captureDetails)
+        {
+            AppendBenchSummary(
+                sb,
+                "main",
+                "game_total",
+                "main",
+                8);
+            AppendBenchSummary(
+                sb,
+                "game_total",
+                "game_total",
+                "main",
+                12,
+                DefaultGameTotalEntries);
+            AppendBenchSummary(
+                sb,
+                "sim_zones",
+                "sim_zones",
+                "game_total",
+                12);
+        }
+
         sb.Append("  scheduler ").Append(FramePriorityGovernor.GetDiagnostics()).AppendLine();
         sb.Append("  initialization_gate ")
             .Append(global::Cultiway.Patch.PatchFramePriorityScheduler.GetInitializationDiagnostics())
@@ -459,10 +503,18 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
                 .AppendLine();
         }
 
-        int detailLimit = SimulationTickBenchmark.ShouldCollectAiDetails
-            ? 30
-            : 10;
-        SimulationTickBenchmark.AppendReport(sb, 12, detailLimit);
+        if (_captureDetails)
+        {
+            int detailLimit =
+                SimulationTickBenchmark.ShouldCollectAiDetails
+                    ? 30
+                    : 10;
+            SimulationTickBenchmark.AppendReport(
+                sb,
+                12,
+                detailLimit);
+        }
+
         ModClass.LogInfo(sb.ToString());
     }
 
