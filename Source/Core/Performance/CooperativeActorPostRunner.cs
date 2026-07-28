@@ -11,6 +11,8 @@ namespace Cultiway.Core.Performance;
 internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<BatchActors, Actor>
 {
     private const string EnemySearchJobId = "b3_findEnemyTarget";
+    private const string TileActionJobId = "u5_curTileAction";
+    private const string PathMovementJobId = "b5_checkPathMovement";
     private const string UpdateAiJobId = "b6_update_ai";
 
     private readonly ActorTileActionProfiler tileActionProfiler = new();
@@ -369,11 +371,28 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         bool completed = false;
         try
         {
-            if (!profileTileAction ||
-                !tileActionProfiler.TryRunSampledJob(
-                    batch,
-                    job,
-                    currentBatchIndex))
+            if (job.id.Equals(
+                    PathMovementJobId,
+                    StringComparison.Ordinal))
+            {
+                RunPathMovementJob(job.container);
+            }
+            else if (job.id.Equals(
+                         TileActionJobId,
+                         StringComparison.Ordinal) &&
+                     (!profileTileAction ||
+                      !tileActionProfiler.TryRunSampledJob(
+                          batch,
+                          job,
+                          currentBatchIndex)))
+            {
+                RunTileActionJob(job.container);
+            }
+            else if (!profileTileAction ||
+                     !tileActionProfiler.TryRunSampledJob(
+                         batch,
+                         job,
+                         currentBatchIndex))
             {
                 job.job_updater();
             }
@@ -407,6 +426,98 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         job.time_benchmark += Time.realtimeSinceStartupAsDouble - startedAt;
         job.counter += batch._cur_container.Count;
+    }
+
+    private static void RunTileActionJob(
+        ObjectContainer<Actor> container)
+    {
+        if (container.Count == 0 &&
+            !container.isDirtyContainer())
+        {
+            return;
+        }
+
+        container.checkAddRemove();
+        if (World.world.isPaused())
+        {
+            return;
+        }
+
+        Actor[] actors = container.getFastSimpleArray();
+        int count = container.Count;
+        for (int i = 0; i < count; i++)
+        {
+            Actor actor = actors[i];
+            if (CanSkipSafeGroundTileAction(actor))
+            {
+                continue;
+            }
+
+            actor.u5_curTileAction();
+        }
+    }
+
+    private static bool CanSkipSafeGroundTileAction(Actor actor)
+    {
+        if (actor._update_done ||
+            actor.position_height > 0f ||
+            actor.isFlying())
+        {
+            return true;
+        }
+
+        WorldTile tile = actor.current_tile;
+        TileTypeBase type = tile.Type;
+        if (type.block ||
+            !type.ground ||
+            tile.isOnFire() ||
+            actor.asset.is_boat ||
+            type.damage_units)
+        {
+            return false;
+        }
+
+        if (actor.isWaterCreature() &&
+            !actor.asset.force_land_creature)
+        {
+            return false;
+        }
+
+        Building building = tile.building;
+        return building == null ||
+               !building.asset.has_step_action;
+    }
+
+    private void RunPathMovementJob(
+        ObjectContainer<Actor> container)
+    {
+        if (container.Count == 0 &&
+            !container.isDirtyContainer())
+        {
+            return;
+        }
+
+        container.checkAddRemove();
+        if (World.world.isPaused())
+        {
+            return;
+        }
+
+        Actor[] actors = container.getFastSimpleArray();
+        int count = container.Count;
+        for (int i = 0; i < count; i++)
+        {
+            Actor actor = actors[i];
+            if (actor._update_done ||
+                actor._beh_skip ||
+                !PatchAboutPathfinding
+                    .TryUpdateActivePathMovement(actor))
+            {
+                continue;
+            }
+
+            actor.skipBehaviour();
+        }
     }
 
     private bool TryPrepareNextBatch()

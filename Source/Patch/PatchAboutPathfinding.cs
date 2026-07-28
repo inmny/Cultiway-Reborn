@@ -121,6 +121,41 @@ namespace Cultiway.Patch
             return TryHandleCustomPathPoll(actor, poll, ref cursor, handleNoRequest);
         }
 
+        /// <summary>
+        /// 供角色 post job 使用的一次查询路径更新。原版 b5 会先经
+        /// isUsingPath 查询任务表，随后 updatePathMovement 再查询一次。
+        /// 这里把“活跃判定”和 ready cursor 合并，同时保留本地路径优先级。
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool TryUpdateActivePathMovement(Actor actor)
+        {
+            if (actor.isFollowingLocalPath() ||
+                actor.current_path_global != null)
+            {
+                actor.updatePathMovement();
+                return true;
+            }
+
+            PathPollResult poll =
+                PathFinder.Instance.OpenReadyCursor(
+                    actor,
+                    out PathFinder.ReadyPathCursor cursor);
+            if (poll.Kind is not
+                (PathPollKind.StepReady or PathPollKind.Waiting))
+            {
+                // 与 isUsingPath 保持一致：完成、失败、取消或没有请求时，
+                // 本 tick 不截断后续 AI；OpenReadyCursor 已清理终态任务。
+                return false;
+            }
+
+            TryHandleCustomPathPoll(
+                actor,
+                poll,
+                ref cursor,
+                handleNoRequest: true);
+            return true;
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool TryHandleCustomPathPoll(
             Actor actor,
