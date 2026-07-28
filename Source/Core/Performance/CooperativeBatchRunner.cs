@@ -495,37 +495,14 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
 
     private void RunParallelStageInBackground()
     {
-        if (!TryRunNextParallelJobGroup())
+        while (TryRunNextParallelJobGroup())
         {
-            parallelStageFinishedInBackground = true;
-            return;
+            // 同一 parallel 阶段的 job 之间已经由 worker 返回形成有序屏障。
+            // 表现快照隔离了渲染读，因此没有必要再把每个 job 组人为拆到
+            // 不同渲染帧；否则一个计算量很小的 tick 也会固定消耗十余帧。
         }
 
-        // 每次表现窗口只执行一个 job 组。这样单次后台任务可以在下一帧
-        // 输入边界前完成，而不是把整个 parallel 阶段重新同步成一次长等待。
-        parallelStageFinishedInBackground =
-            !HasRemainingParallelJobGroups();
-    }
-
-    private bool HasRemainingParallelJobGroups()
-    {
-        int jobCount = batches.Count == 0
-            ? 0
-            : batches[0].jobs_parallel.Count;
-        int nextJobIndex = parallelJobIndex;
-        int nextBatchIndex = batchIndex;
-        while (nextJobIndex < jobCount)
-        {
-            if (nextBatchIndex < batches.Count)
-            {
-                return true;
-            }
-
-            nextJobIndex++;
-            nextBatchIndex = 0;
-        }
-
-        return false;
+        parallelStageFinishedInBackground = true;
     }
 
     private static List<Job<TObject>> GetJobs(TBatch batch, RunnerStage jobStage)

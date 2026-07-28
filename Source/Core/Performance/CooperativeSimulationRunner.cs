@@ -94,6 +94,7 @@ internal sealed class CooperativeSimulationRunner
     private float requestedSpeed;
     private string admissionBlockReason = "not_prepared";
     private long presentationOverlapLaunches;
+    private long presentationOverlapEagerLaunches;
     private long presentationOverlapCompletions;
     private long presentationOverlapFallbacks;
     private long presentationOverlapForcedJoins;
@@ -106,6 +107,7 @@ internal sealed class CooperativeSimulationRunner
     private long presentationReadOnlyWaitTicks;
     private string lastPresentationBoundaryReason = "none";
     private long buildingPresentationOverlapLaunches;
+    private long buildingPresentationOverlapEagerLaunches;
     private long buildingPresentationOverlapCompletions;
     private long buildingPresentationOverlapFallbacks;
     private long buildingPresentationOverlapForcedJoins;
@@ -157,10 +159,45 @@ internal sealed class CooperativeSimulationRunner
                 (stage == SimulationStage.Buildings &&
                  buildingRunner.WaitingForPresentationDispatch))
             {
-                FramePriorityGovernor.SetPhase(
+                string dispatchPhase = GetNextPhaseName();
+                if (!FramePriorityGovernor.CanRun(
+                        SimulationDomain.Vanilla,
+                        dispatchPhase))
+                {
+                    FramePriorityGovernor.SetPhase(
+                        SimulationDomain.Vanilla,
+                        dispatchPhase);
+                    break;
+                }
+
+                bool dispatched = false;
+                FramePriorityGovernor.RunPhase(
                     SimulationDomain.Vanilla,
-                    GetNextPhaseName());
-                break;
+                    dispatchPhase,
+                    () => dispatched =
+                        TryBeginDeferredParallelWorkEagerly());
+                if (!dispatched)
+                {
+                    break;
+                }
+
+                continue;
+            }
+
+            if (actorRunner.MutatingParallelWorkInFlight &&
+                actorRunner.IsBackgroundWorkCompleted)
+            {
+                CompleteActorPresentationWork(true, "run_frame.completed");
+                continue;
+            }
+
+            if (buildingRunner.MutatingParallelWorkInFlight &&
+                buildingRunner.IsBackgroundWorkCompleted)
+            {
+                CompleteBuildingPresentationWork(
+                    true,
+                    "run_frame.completed");
+                continue;
             }
 
             bool actorBackgroundPending =
@@ -183,18 +220,37 @@ internal sealed class CooperativeSimulationRunner
                 }
 
                 bool joined = false;
+                double joinMilliseconds = Math.Max(
+                    PerformanceSettings.BackgroundJoinMilliseconds,
+                    FramePriorityGovernor
+                        .GetRemainingSimulationBudgetMilliseconds());
                 FramePriorityGovernor.RunPhase(
                     SimulationDomain.Vanilla,
                     awaitPhase,
                     () => joined = actorBackgroundPending
                         ? actorRunner.TryJoinBackgroundWork(
-                            PerformanceSettings.BackgroundJoinMilliseconds)
+                            joinMilliseconds)
                         : buildingRunner.TryJoinBackgroundWork(
-                            PerformanceSettings.BackgroundJoinMilliseconds));
+                            joinMilliseconds));
                 if (!joined)
                 {
                     FramePriorityGovernor.SetPhase(SimulationDomain.Vanilla, awaitPhase);
                     break;
+                }
+
+                if (actorRunner.MutatingParallelWorkInFlight &&
+                    actorRunner.IsBackgroundWorkCompleted)
+                {
+                    CompleteActorPresentationWork(
+                        false,
+                        "run_frame.join");
+                }
+                else if (buildingRunner.MutatingParallelWorkInFlight &&
+                         buildingRunner.IsBackgroundWorkCompleted)
+                {
+                    CompleteBuildingPresentationWork(
+                        false,
+                        "run_frame.join");
                 }
 
                 continue;
@@ -249,7 +305,7 @@ internal sealed class CooperativeSimulationRunner
     public bool TryBeginActorPresentationOverlap()
     {
         if (!PerformanceSettings.EnableFramePriorityScheduler ||
-            ActorPresentationRenderer.PreparedSnapshot == null ||
+            !ActorPresentationSnapshots.HasPublishedSnapshot ||
             stage != SimulationStage.Actors ||
             !actorRunner.BeginParallelPresentationWork())
         {
@@ -260,6 +316,59 @@ internal sealed class CooperativeSimulationRunner
         return true;
     }
 
+    private bool TryBeginDeferredParallelWorkEagerly()
+    {
+        if (stage == SimulationStage.Actors)
+        {
+            if (!TryBeginActorPresentationOverlap())
+            {
+                return false;
+            }
+
+            Interlocked.Increment(
+                ref presentationOverlapEagerLaunches);
+            return true;
+        }
+
+        if (stage != SimulationStage.Buildings ||
+            !TryBeginBuildingPresentationOverlap())
+        {
+            return false;
+        }
+
+        Interlocked.Increment(
+            ref buildingPresentationOverlapEagerLaunches);
+        return true;
+    }
+
+    private void CompleteActorPresentationWork(
+        bool completedBeforeWait,
+        string reason)
+    {
+        SimulationCoordinatorThread.WorkResult result =
+            actorRunner.CompleteParallelPresentationWork();
+        Interlocked.Increment(ref presentationOverlapCompletions);
+        if (!completedBeforeWait)
+        {
+            Interlocked.Increment(ref presentationOverlapForcedJoins);
+        }
+
+        Interlocked.Add(
+            ref presentationOverlapWallTicks,
+            result.WallTicks);
+        Interlocked.Add(
+            ref presentationOverlapWaitTicks,
+            result.WaitTicks);
+        Interlocked.Exchange(
+            ref lastPresentationOverlapWallTicks,
+            result.WallTicks);
+        Interlocked.Exchange(
+            ref lastPresentationOverlapWaitTicks,
+            result.WaitTicks);
+        lastPresentationBoundaryReason =
+            string.IsNullOrEmpty(reason) ? "unknown" : reason;
+    }
+
     public bool EnsureActorReadBoundary(string reason)
     {
         bool reachedBoundary = false;
@@ -267,28 +376,7 @@ internal sealed class CooperativeSimulationRunner
         {
             reachedBoundary = true;
             bool completedBeforeWait = actorRunner.IsBackgroundWorkCompleted;
-            SimulationCoordinatorThread.WorkResult result =
-                actorRunner.CompleteParallelPresentationWork();
-            Interlocked.Increment(ref presentationOverlapCompletions);
-            if (!completedBeforeWait)
-            {
-                Interlocked.Increment(ref presentationOverlapForcedJoins);
-            }
-
-            Interlocked.Add(
-                ref presentationOverlapWallTicks,
-                result.WallTicks);
-            Interlocked.Add(
-                ref presentationOverlapWaitTicks,
-                result.WaitTicks);
-            Interlocked.Exchange(
-                ref lastPresentationOverlapWallTicks,
-                result.WallTicks);
-            Interlocked.Exchange(
-                ref lastPresentationOverlapWaitTicks,
-                result.WaitTicks);
-            lastPresentationBoundaryReason =
-                string.IsNullOrEmpty(reason) ? "unknown" : reason;
+            CompleteActorPresentationWork(completedBeforeWait, reason);
         }
 
         if (!actorRunner.WaitingForBackgroundWork)
@@ -323,7 +411,7 @@ internal sealed class CooperativeSimulationRunner
     public bool TryBeginBuildingPresentationOverlap()
     {
         if (!PerformanceSettings.EnableFramePriorityScheduler ||
-            WorldObjectPresentationRenderer.PreparedSnapshot == null ||
+            !ActorPresentationSnapshots.HasPublishedSnapshot ||
             stage != SimulationStage.Buildings ||
             !buildingRunner.BeginParallelPresentationWork())
         {
@@ -342,9 +430,18 @@ internal sealed class CooperativeSimulationRunner
         }
 
         bool completedBeforeWait = buildingRunner.IsBackgroundWorkCompleted;
+        CompleteBuildingPresentationWork(completedBeforeWait, reason);
+        return true;
+    }
+
+    private void CompleteBuildingPresentationWork(
+        bool completedBeforeWait,
+        string reason)
+    {
         SimulationCoordinatorThread.WorkResult result =
             buildingRunner.CompleteParallelPresentationWork();
-        Interlocked.Increment(ref buildingPresentationOverlapCompletions);
+        Interlocked.Increment(
+            ref buildingPresentationOverlapCompletions);
         if (!completedBeforeWait)
         {
             Interlocked.Increment(
@@ -365,7 +462,6 @@ internal sealed class CooperativeSimulationRunner
             result.WaitTicks);
         lastBuildingPresentationBoundaryReason =
             string.IsNullOrEmpty(reason) ? "unknown" : reason;
-        return true;
     }
 
     public void FinishPresentationFrame()
@@ -402,7 +498,7 @@ internal sealed class CooperativeSimulationRunner
             Interlocked.Read(ref presentationOverlapCompletions);
         return string.Format(
             CultureInfo.InvariantCulture,
-            "launch={0} complete={1} fallback={2} forced_join={3} " +
+            "launch={0}(eager={14}) complete={1} fallback={2} forced_join={3} " +
             "wall={4:0.0}ms wait={5:0.0}ms last={6:0.00}/{7:0.00}ms " +
             "readonly={11}/{12}/{13:0.0}ms " +
             "boundary={8} dispatch_wait={9} inflight={10}",
@@ -425,7 +521,8 @@ internal sealed class CooperativeSimulationRunner
             Interlocked.Read(ref presentationReadOnlyForcedWaits),
             TicksToMilliseconds(
                 Interlocked.Read(
-                    ref presentationReadOnlyWaitTicks)));
+                    ref presentationReadOnlyWaitTicks)),
+            Interlocked.Read(ref presentationOverlapEagerLaunches));
     }
 
     public string GetBuildingPresentationOverlapDiagnostics()
@@ -436,7 +533,7 @@ internal sealed class CooperativeSimulationRunner
             Interlocked.Read(ref buildingPresentationOverlapCompletions);
         return string.Format(
             CultureInfo.InvariantCulture,
-            "launch={0} complete={1} fallback={2} forced_join={3} " +
+            "launch={0}(eager={11}) complete={1} fallback={2} forced_join={3} " +
             "wall={4:0.0}ms wait={5:0.0}ms last={6:0.00}/{7:0.00}ms " +
             "boundary={8} dispatch_wait={9} inflight={10}",
             launches,
@@ -455,7 +552,8 @@ internal sealed class CooperativeSimulationRunner
                     ref lastBuildingPresentationOverlapWaitTicks)),
             lastBuildingPresentationBoundaryReason,
             buildingRunner.WaitingForPresentationDispatch,
-            buildingRunner.MutatingParallelWorkInFlight);
+            buildingRunner.MutatingParallelWorkInFlight,
+            Interlocked.Read(ref buildingPresentationOverlapEagerLaunches));
     }
 
     public void Abort()

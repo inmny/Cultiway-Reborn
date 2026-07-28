@@ -1547,6 +1547,22 @@ internal static class ActorPresentationSnapshots
         }
     }
 
+    internal static bool HasPublishedSnapshot
+    {
+        get
+        {
+            lock (gate)
+            {
+                int index = readyIndex >= 0
+                    ? readyIndex
+                    : renderIndex;
+                return index >= 0 &&
+                       slots[index].WorldGeneration ==
+                       SimulationTime.Generation;
+            }
+        }
+    }
+
     internal static void RequestCapture()
     {
         Interlocked.Increment(ref requestedGeneration);

@@ -119,6 +119,22 @@ internal static class FramePriorityGovernor
         return CanUseStarvationSlice(domain);
     }
 
+    public static double GetRemainingSimulationBudgetMilliseconds()
+    {
+        BeginFrame();
+        double targetMilliseconds =
+            1000.0 / PerformanceSettings.TargetRenderFps;
+        double deadlineRemaining =
+            targetMilliseconds -
+            PerformanceSettings.RenderReserveMilliseconds -
+            ElapsedMilliseconds(frameStartedAt);
+        double budgetRemaining =
+            frameBudgetMilliseconds - simulationCpuMilliseconds;
+        return Math.Max(
+            0.0,
+            Math.Min(deadlineRemaining, budgetRemaining));
+    }
+
     public static void RunPhase(SimulationDomain domain, string phase, Action action)
     {
         SimulationTickBenchmark.TickCapture benchmarkTick =
