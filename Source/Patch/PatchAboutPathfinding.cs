@@ -169,6 +169,15 @@ namespace Cultiway.Patch
             RequiresSerial
         }
 
+        internal enum PreparedSmoothMovementKind : byte
+        {
+            None,
+            Calibration,
+            VanillaPath,
+            CustomPath,
+            StopMovement
+        }
+
         internal readonly struct PreparedPathMovement
         {
             internal PreparedPathMovement(bool vanilla)
@@ -188,6 +197,26 @@ namespace Cultiway.Patch
             }
 
             internal bool Vanilla { get; }
+            internal PathPollResult Poll { get; }
+            internal PathFinder.ReadyPathCursor Cursor { get; }
+        }
+
+        internal readonly struct PreparedSmoothMovement
+        {
+            internal PreparedSmoothMovement(
+                PreparedSmoothMovementKind kind,
+                float walkedDistance = 0f,
+                PathPollResult poll = default,
+                PathFinder.ReadyPathCursor cursor = default)
+            {
+                Kind = kind;
+                WalkedDistance = walkedDistance;
+                Poll = poll;
+                Cursor = cursor;
+            }
+
+            internal PreparedSmoothMovementKind Kind { get; }
+            internal float WalkedDistance { get; }
             internal PathPollResult Poll { get; }
             internal PathFinder.ReadyPathCursor Cursor { get; }
         }
@@ -255,14 +284,17 @@ namespace Cultiway.Patch
         }
 
         /// <summary>
-        /// u10 worker 只推进不会越过路径节点的线性位移。
-        /// 节点切换、路径副作用和目标位置重校准仍按原顺序串行执行。
+        /// u10 worker 推进线性位移和无共享副作用的普通路径步。
+        /// 目标位置重校准、原版路径、特殊路径步和停止移动仍按原顺序
+        /// 交给模拟线程提交。
         /// </summary>
         internal static ParallelSmoothMovementResult
             TryRunParallelSafeSmoothMovement(
                 Actor actor,
-                float elapsed)
+                float elapsed,
+                out PreparedSmoothMovement prepared)
         {
+            prepared = default;
             if (actor._update_done ||
                 actor.is_immovable)
             {
@@ -272,48 +304,200 @@ namespace Cultiway.Patch
             if (!Config.time_scale_asset.sonic &&
                 RequiresSerialCalibration(actor))
             {
+                prepared = new PreparedSmoothMovement(
+                    PreparedSmoothMovementKind.Calibration);
                 return ParallelSmoothMovementResult.RequiresSerial;
             }
 
-            Vector2 current = actor.current_position;
-            Vector2 target = actor.next_step_position;
-            float movementDelta =
+            float movementBudget =
                 actor._current_combined_movement_speed *
                 elapsed;
-            if (movementDelta < 0f)
+            bool canFlip =
+                actor.asset.can_flip &&
+                actor.checkFlip();
+            float walkedDistance = 0f;
+            PathFinder.ReadyPathCursor customPathCursor =
+                default;
+            for (int i = 0; i < 256; i++)
             {
-                movementDelta = 0f;
-            }
+                Vector2 current = actor.current_position;
+                Vector2 target = actor.next_step_position;
+                if (canFlip)
+                {
+                    actor.setFlip(current.x < target.x);
+                }
 
-            float dx = target.x - current.x;
-            float dy = target.y - current.y;
-            float distanceSquared =
-                dx * dx + dy * dy;
-            float movementSquared =
-                movementDelta * movementDelta;
-            if (!(distanceSquared >= movementSquared))
-            {
-                return ParallelSmoothMovementResult.RequiresSerial;
-            }
+                float movementDelta =
+                    movementBudget - walkedDistance;
+                if (movementDelta < 0f)
+                {
+                    movementDelta = 0f;
+                }
 
-            if (actor.asset.can_flip &&
-                actor.checkFlip())
-            {
-                actor.setFlip(current.x < target.x);
-            }
+                float dx = target.x - current.x;
+                float dy = target.y - current.y;
+                float distanceSquared =
+                    dx * dx + dy * dy;
+                float movementSquared =
+                    movementDelta * movementDelta;
+                if (distanceSquared >= movementSquared)
+                {
+                    if (movementDelta > 0f &&
+                        distanceSquared > 0f)
+                    {
+                        float scale =
+                            movementDelta /
+                            Mathf.Sqrt(distanceSquared);
+                        actor.current_position =
+                            new Vector2(
+                                current.x + dx * scale,
+                                current.y + dy * scale);
+                    }
 
-            if (movementDelta > 0f &&
-                distanceSquared > 0f)
-            {
-                float scale =
-                    movementDelta /
-                    Mathf.Sqrt(distanceSquared);
-                actor.current_position = new Vector2(
-                    current.x + dx * scale,
-                    current.y + dy * scale);
+                    return ParallelSmoothMovementResult.Handled;
+                }
+
+                actor.current_position = target;
+                walkedDistance +=
+                    GetBoundaryWalkedDistance(
+                        distanceSquared);
+                if (!TryContinueSmoothMovementInParallel(
+                        actor,
+                        ref customPathCursor,
+                        walkedDistance,
+                        out prepared))
+                {
+                    return ParallelSmoothMovementResult
+                        .RequiresSerial;
+                }
+
+                if (!actor.is_moving)
+                {
+                    return ParallelSmoothMovementResult.Handled;
+                }
             }
 
             return ParallelSmoothMovementResult.Handled;
+        }
+
+        internal static void CommitPreparedSmoothMovement(
+            Actor actor,
+            float elapsed,
+            PreparedSmoothMovement prepared)
+        {
+            switch (prepared.Kind)
+            {
+                case PreparedSmoothMovementKind.Calibration:
+                    CheckCalibrateTargetPositionOptimized(
+                        actor);
+                    UpdateMovementOptimized(
+                        actor,
+                        elapsed,
+                        0f);
+                    return;
+                case PreparedSmoothMovementKind.VanillaPath:
+                    actor.updatePathMovement();
+                    break;
+                case PreparedSmoothMovementKind.CustomPath:
+                    PathFinder.ReadyPathCursor cursor =
+                        prepared.Cursor;
+                    if (!TryHandleCustomPathPoll(
+                            actor,
+                            prepared.Poll,
+                            ref cursor,
+                            handleNoRequest: false))
+                    {
+                        actor.stopMovement();
+                    }
+
+                    break;
+                case PreparedSmoothMovementKind.StopMovement:
+                    actor.stopMovement();
+                    return;
+                case PreparedSmoothMovementKind.None:
+                default:
+                    return;
+            }
+
+            if (actor.is_moving)
+            {
+                UpdateMovementOptimized(
+                    actor,
+                    elapsed,
+                    prepared.WalkedDistance);
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool TryContinueSmoothMovementInParallel(
+            Actor actor,
+            ref PathFinder.ReadyPathCursor customPathCursor,
+            float walkedDistance,
+            out PreparedSmoothMovement prepared)
+        {
+            if (actor.isFollowingLocalPath() ||
+                actor.current_path_global != null)
+            {
+                prepared = new PreparedSmoothMovement(
+                    PreparedSmoothMovementKind.VanillaPath,
+                    walkedDistance);
+                return false;
+            }
+
+            if (actor.tile_target == null)
+            {
+                prepared = new PreparedSmoothMovement(
+                    PreparedSmoothMovementKind.StopMovement,
+                    walkedDistance);
+                return false;
+            }
+
+            PathPollResult poll =
+                customPathCursor.IsValid
+                    ? customPathCursor.Poll()
+                    : PathFinder.Instance.OpenReadyCursor(
+                        actor,
+                        out customPathCursor);
+            if (poll.Kind == PathPollKind.StepReady)
+            {
+                if (!CanRunPathStepInParallel(
+                        actor,
+                        poll.Step))
+                {
+                    prepared = new PreparedSmoothMovement(
+                        PreparedSmoothMovementKind.CustomPath,
+                        walkedDistance,
+                        poll,
+                        customPathCursor);
+                    return false;
+                }
+
+                TryHandleCustomPathPoll(
+                    actor,
+                    poll,
+                    ref customPathCursor,
+                    handleNoRequest: false);
+                prepared = default;
+                return true;
+            }
+
+            if (poll.Kind == PathPollKind.Waiting)
+            {
+                TryHandleCustomPathPoll(
+                    actor,
+                    poll,
+                    ref customPathCursor,
+                    handleNoRequest: false);
+                prepared = default;
+                return true;
+            }
+
+            prepared = new PreparedSmoothMovement(
+                PreparedSmoothMovementKind.CustomPath,
+                walkedDistance,
+                poll,
+                customPathCursor);
+            return false;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

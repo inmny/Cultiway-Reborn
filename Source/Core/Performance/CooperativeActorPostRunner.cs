@@ -1670,14 +1670,21 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         long startedAt = StartBenchmarkMeasurement();
         Actor[] actors = work.Actors;
-        bool[] requiresSerial =
-            work.RequiresSerial;
+        PatchAboutPathfinding.PreparedSmoothMovement[]
+            entries = work.Entries;
         for (int i = 0; i < work.Count; i++)
         {
-            if (requiresSerial[i])
+            PatchAboutPathfinding.PreparedSmoothMovement
+                entry = entries[i];
+            if (entry.Kind !=
+                PatchAboutPathfinding
+                    .PreparedSmoothMovementKind.None)
             {
-                actors[i].u10_checkSmoothMovement(
-                    elapsed);
+                PatchAboutPathfinding
+                    .CommitPreparedSmoothMovement(
+                        actors[i],
+                        work.Elapsed,
+                        entry);
             }
         }
 
@@ -2787,8 +2794,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         internal int SerialCount { get; private set; }
         internal bool Skipped { get; private set; }
         internal float Elapsed { get; private set; }
-        internal bool[] RequiresSerial { get; private set; } =
-            Array.Empty<bool>();
+        internal PatchAboutPathfinding
+            .PreparedSmoothMovement[] Entries
+        {
+            get;
+            private set;
+        } = Array.Empty<PatchAboutPathfinding
+            .PreparedSmoothMovement>();
 
         internal void Configure(
             BatchActors batch,
@@ -2804,10 +2816,11 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             SerialCount = 0;
             Skipped = false;
             Elapsed = elapsed;
-            if (RequiresSerial.Length < count)
+            if (Entries.Length < count)
             {
-                RequiresSerial =
-                    new bool[
+                Entries =
+                    new PatchAboutPathfinding
+                        .PreparedSmoothMovement[
                         Math.Max(
                             PerformanceSettings.SimulationBatchSize,
                             count)];
@@ -2838,17 +2851,20 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             int serialCount = 0;
             for (int i = 0; i < Count; i++)
             {
-                bool requiresSerial =
+                PatchAboutPathfinding
+                    .ParallelSmoothMovementResult result =
                     PatchAboutPathfinding
                         .TryRunParallelSafeSmoothMovement(
                             Actors[i],
-                            Elapsed) ==
+                            Elapsed,
+                            out PatchAboutPathfinding
+                                .PreparedSmoothMovement
+                                prepared);
+                Entries[i] = prepared;
+                if (result ==
                     PatchAboutPathfinding
                         .ParallelSmoothMovementResult
-                        .RequiresSerial;
-                RequiresSerial[i] =
-                    requiresSerial;
-                if (requiresSerial)
+                        .RequiresSerial)
                 {
                     serialCount++;
                 }
@@ -2863,7 +2879,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             if (Count > 0)
             {
                 Array.Clear(
-                    RequiresSerial,
+                    Entries,
                     0,
                     Count);
             }
