@@ -2016,9 +2016,10 @@ internal static class ActorPresentationSnapshots
     private const double CaptureCpuBudgetMillisecondsPerSecond = 60.0;
     private const double MaximumCaptureRate = 30.0;
     private const double MinimumCaptureRate = 3.0;
-    private const double MinimumFullCaptureRealIntervalSeconds = 1.0 / 15.0;
-    private const double MaximumFullCaptureRealIntervalSeconds = 0.5;
+    private const double FullCaptureRealIntervalSeconds = 1.0;
     private const double FullCaptureSimulationIntervalSeconds = 0.1;
+    private const int DeferredUnitCountDeltaMinimum = 64;
+    private const double DeferredUnitCountDeltaRatio = 0.01;
 
     private static readonly object gate = new();
     private static readonly ActorPresentationSnapshot[] slots =
@@ -2369,7 +2370,16 @@ internal static class ActorPresentationSnapshots
             return true;
         }
 
-        if (world.units.Count != source.Count)
+        int unitCountDelta =
+            Math.Abs(world.units.Count - source.Count);
+        int maximumDeferredUnitCountDelta =
+            Math.Max(
+                DeferredUnitCountDeltaMinimum,
+                (int)Math.Ceiling(
+                    source.Count *
+                    DeferredUnitCountDeltaRatio));
+        if (unitCountDelta >=
+            maximumDeferredUnitCountDelta)
         {
             reason = FullCaptureReason.UnitCountChanged;
             return true;
@@ -2428,13 +2438,7 @@ internal static class ActorPresentationSnapshots
 
     private static double GetFullCaptureRealIntervalSeconds()
     {
-        double multiplier =
-            Config.time_scale_asset?.multiplier ?? 1.0;
-        return Math.Max(
-            MinimumFullCaptureRealIntervalSeconds,
-            Math.Min(
-                MaximumFullCaptureRealIntervalSeconds,
-                multiplier / 15.0));
+        return FullCaptureRealIntervalSeconds;
     }
 
     private static long GetCaptureRequestIntervalTicks()
