@@ -161,13 +161,15 @@ internal static class PatchOptimizeVanilla
         string[] __1,
         ref Actor __result)
     {
-        if (NearbyStatusTargetIndex.MayContainNearby(__0, __1))
+        if (!NearbyStatusTargetIndex.TryFindClosest(
+                __0,
+                __1,
+                out Actor target))
         {
             return true;
         }
 
-        ConsumeEmptyNearbyStatusSearchRandoms(__0.current_tile);
-        __result = null;
+        __result = target;
         return false;
     }
 
@@ -457,31 +459,4 @@ internal static class PatchOptimizeVanilla
             pAsset);
     }
 
-    /// <summary>
-    /// 原版在没有匹配目标时仍会为 chunk 和角色列表生成随机起点。
-    /// 快速排除扫描后补回同样的随机调用，避免扰动后续玩法随机序列。
-    /// </summary>
-    private static void ConsumeEmptyNearbyStatusSearchRandoms(
-        WorldTile origin)
-    {
-        bool randomizeUnits = Randy.randomBool();
-        MapChunk[] chunks =
-            ChunkWindowIndex.Get(origin.chunk, 1);
-        int chunkCount = chunks.Length;
-
-        int chunkOffset = Randy.randomInt(0, chunkCount);
-        if (!randomizeUnits || chunkCount == 0)
-        {
-            return;
-        }
-
-        for (int i = 0; i < chunkCount; i++)
-        {
-            MapChunk chunk =
-                chunks[(i + chunkOffset) % chunkCount];
-            Randy.randomInt(
-                0,
-                chunk.objects.units_all.Count);
-        }
-    }
 }
