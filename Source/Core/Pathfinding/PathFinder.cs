@@ -535,10 +535,35 @@ public class PathFinder
             return PathPollResult.NoRequest();
         }
 
+        if (task.WaitingInitialized &&
+            !task.HasWorkerUpdate)
+        {
+            cursor = new ReadyPathCursor(
+                this,
+                actorId,
+                task,
+                initializeWaiting: false);
+            return PathPollResult.Waiting();
+        }
+
+        task.ClearWorkerUpdate();
         var result = GetPollResult(actorId, task);
         if (result.Kind == PathPollKind.StepReady)
         {
-            cursor = new ReadyPathCursor(this, actorId, task);
+            task.ResetWaitingInitialized();
+            cursor = new ReadyPathCursor(
+                this,
+                actorId,
+                task,
+                initializeWaiting: false);
+        }
+        else if (result.Kind == PathPollKind.Waiting)
+        {
+            cursor = new ReadyPathCursor(
+                this,
+                actorId,
+                task,
+                task.MarkWaitingInitialized());
         }
 
         return result;
@@ -629,15 +654,23 @@ public class PathFinder
         private readonly PathFinder _owner;
         private readonly long _actorId;
         private readonly PathfindingTask _task;
+        private readonly bool _initializeWaiting;
 
-        internal ReadyPathCursor(PathFinder owner, long actorId, PathfindingTask task)
+        internal ReadyPathCursor(
+            PathFinder owner,
+            long actorId,
+            PathfindingTask task,
+            bool initializeWaiting)
         {
             _owner = owner;
             _actorId = actorId;
             _task = task;
+            _initializeWaiting = initializeWaiting;
         }
 
         public bool IsValid => _owner != null && _task != null;
+        internal bool InitializeWaiting =>
+            _initializeWaiting;
 
         public PathPollResult Poll()
         {
@@ -808,6 +841,8 @@ internal sealed class PathfindingTask : IDisposable
     private int _disposeRequested;
     private int _disposed;
     private int _workerFinished;
+    private int _workerUpdate;
+    private int _waitingInitialized;
 
     private long enqueuedAt;
 
@@ -816,7 +851,7 @@ internal sealed class PathfindingTask : IDisposable
         PathfindingProfiler.Session benchmarkSession = null)
     {
         Request = request;
-        Stream = new PathStream();
+        Stream = new PathStream(SignalWorkerUpdate);
         Cancellation = new CancellationTokenSource();
         BenchmarkSession = benchmarkSession;
     }
@@ -825,6 +860,32 @@ internal sealed class PathfindingTask : IDisposable
     public PathStream Stream { get; }
     public CancellationTokenSource Cancellation { get; }
     internal PathfindingProfiler.Session BenchmarkSession { get; }
+    internal bool HasWorkerUpdate =>
+        Volatile.Read(ref _workerUpdate) != 0;
+    internal bool WaitingInitialized =>
+        Volatile.Read(ref _waitingInitialized) != 0;
+
+    internal void ClearWorkerUpdate()
+    {
+        Interlocked.Exchange(ref _workerUpdate, 0);
+    }
+
+    internal bool MarkWaitingInitialized()
+    {
+        return Interlocked.Exchange(
+                   ref _waitingInitialized,
+                   1) == 0;
+    }
+
+    internal void ResetWaitingInitialized()
+    {
+        Volatile.Write(ref _waitingInitialized, 0);
+    }
+
+    private void SignalWorkerUpdate()
+    {
+        Volatile.Write(ref _workerUpdate, 1);
+    }
 
     internal void MarkEnqueued()
     {

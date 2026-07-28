@@ -9,14 +9,21 @@ namespace Cultiway.Core.Pathfinding;
 public sealed class PathStream : IPathStreamWriter
 {
     private readonly ConcurrentQueue<PathStep> _steps = new();
+    private readonly Action _onUpdated;
     private int _status;
     private PathFailureReason _failureReason;
     private Exception _error;
+
+    internal PathStream(Action onUpdated = null)
+    {
+        _onUpdated = onUpdated;
+    }
 
     public void AddStep(PathStep step)
     {
         if (!step.HasTile || IsFinalized) return;
         _steps.Enqueue(step);
+        _onUpdated?.Invoke();
     }
 
     public bool TryDequeue(out PathStep step)
@@ -35,7 +42,13 @@ public sealed class PathStream : IPathStreamWriter
 
     public void Complete()
     {
-        Interlocked.CompareExchange(ref _status, 1, 0);
+        if (Interlocked.CompareExchange(
+                ref _status,
+                1,
+                0) == 0)
+        {
+            _onUpdated?.Invoke();
+        }
     }
 
     public void Cancel(PathFailureReason reason = PathFailureReason.CancelledByNewRequest)
@@ -46,7 +59,13 @@ public sealed class PathStream : IPathStreamWriter
         }
 
         _failureReason = reason;
-        Interlocked.CompareExchange(ref _status, 2, 0);
+        if (Interlocked.CompareExchange(
+                ref _status,
+                2,
+                0) == 0)
+        {
+            _onUpdated?.Invoke();
+        }
     }
 
     public void Fail(PathFailureReason reason, Exception error = null)
@@ -58,7 +77,13 @@ public sealed class PathStream : IPathStreamWriter
 
         _failureReason = reason == PathFailureReason.None ? PathFailureReason.GeneratorException : reason;
         _error = error;
-        Interlocked.CompareExchange(ref _status, 3, 0);
+        if (Interlocked.CompareExchange(
+                ref _status,
+                3,
+                0) == 0)
+        {
+            _onUpdated?.Invoke();
+        }
     }
 
     public void Fail(Exception error)

@@ -218,6 +218,12 @@ namespace Cultiway.Patch
             switch (poll.Kind)
             {
                 case PathPollKind.Waiting:
+                    if (cursor.IsValid &&
+                        !cursor.InitializeWaiting)
+                    {
+                        return true;
+                    }
+
                     actor.setNotMoving();
                     actor.next_step_position = actor.current_tile?.posV3 ?? actor.next_step_position;
                     actor.timer_action = 0.05f;
