@@ -412,6 +412,9 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         sb.Append("  nearby_status_targets ")
             .Append(NearbyStatusTargetIndex.GetDiagnostics())
             .AppendLine();
+        sb.Append("  free_tile_search ")
+            .Append(FreeTileSearchIndex.GetDiagnostics())
+            .AppendLine();
         sb.Append("  actor_presentation ").Append(ActorPresentationRenderer.GetDiagnostics()).AppendLine();
         sb.Append("  world_object_presentation ")
             .Append(WorldObjectPresentationRenderer.GetDiagnostics())

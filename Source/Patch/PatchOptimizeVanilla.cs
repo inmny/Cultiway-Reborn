@@ -131,6 +131,25 @@ internal static class PatchOptimizeVanilla
     }
 
     [HarmonyPrefix]
+    [HarmonyPatch(typeof(Finder), nameof(Finder.findTileInChunk))]
+    private static bool FindTileInChunkPrefix(
+        WorldTile pTile,
+        TileFinderType pTileType,
+        ref WorldTile __result)
+    {
+        if (pTileType != TileFinderType.FreeTile ||
+            !FreeTileSearchIndex.TryFind(
+                pTile,
+                out WorldTile tile))
+        {
+            return true;
+        }
+
+        __result = tile;
+        return false;
+    }
+
+    [HarmonyPrefix]
     [HarmonyPatch(
         typeof(BehTryFindTargetWithStatusNearby),
         "getClosestActorWithStatus")]

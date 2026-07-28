@@ -96,6 +96,7 @@ internal static class PatchMapBox
         PortalManager.ClearWorldState();
         PortalRegistry.Instance.Clear();
         PathRecoveryManager.Clear();
+        FreeTileSearchIndex.Reset();
         NearbyStatusTargetIndex.Reset();
         TrainTrackRepairSystem.ClearWorldState();
         _actionOnClearWorld?.Invoke();
