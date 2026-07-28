@@ -126,10 +126,10 @@ internal static class ArtifactPresentationMotion
                     (profile.sway_amplitude + activity * profile.sway_activity);
         return new ArtifactPresentationPose
         {
-            position = context.actor.cur_transform_position + local * context.actor_scale,
+            position = context.actor_position + local * context.actor_scale,
             rotation = rotation,
             world_size = context.actor_scale * profile.world_size * context.control_state.GetStateScale(),
-            flip_x = profile.flip_with_actor && context.actor.flip,
+            flip_x = profile.flip_with_actor && context.actor_flip,
         };
     }
 
@@ -186,7 +186,7 @@ internal static class ArtifactPresentationMotion
     {
         return layout switch
         {
-            ArtifactMotionLayout.FacingSide => context.actor.flip ? -1f : 1f,
+            ArtifactMotionLayout.FacingSide => context.actor_flip ? -1f : 1f,
             ArtifactMotionLayout.AlternatingSides => context.index % 2 == 0 ? 1f : -1f,
             _ => 0f,
         };
@@ -210,7 +210,8 @@ internal static class ArtifactPresentationMotion
 /// </summary>
 public readonly struct ArtifactPresentationContext
 {
-    public readonly Actor actor;
+    public readonly Vector3 actor_position;
+    public readonly bool actor_flip;
     public readonly ArtifactControlState control_state;
     public readonly int index;
     public readonly int count;
@@ -218,14 +219,16 @@ public readonly struct ArtifactPresentationContext
     public readonly float time;
 
     public ArtifactPresentationContext(
-        Actor actor,
+        Vector3 actorPosition,
+        bool actorFlip,
         ArtifactControlState controlState,
         int index,
         int count,
         float actorScale,
         float time)
     {
-        this.actor = actor;
+        actor_position = actorPosition;
+        actor_flip = actorFlip;
         control_state = controlState;
         this.index = index;
         this.count = count;

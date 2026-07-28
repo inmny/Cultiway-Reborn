@@ -2,6 +2,7 @@ using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Core.Components;
+using Cultiway.Core.Performance;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
@@ -53,8 +54,18 @@ public class RealmIndicatorRenderSystem : QuerySystem<ActorBinder, RealmVisual>
                 var sprite = manager.GetIndicatorSprite(visual.indicator_flags);
                 if (sprite == null) return;
 
-                var actor = binder.Actor;
-                if (actor == null || !actor.isAlive() || !actor.is_visible) return;
+                if (!ActorPresentationRenderer.TryGetPresentationStateForRender(
+                        binder.ID,
+                        binder.Actor,
+                        out ActorPresentationSample sample,
+                        out Vector3 position,
+                        out bool visible,
+                        out _) ||
+                    !visible ||
+                    !sample.HasFlag(ActorPresentationFlags.Alive))
+                {
+                    return;
+                }
 
                 var def = manager.GetDefinition(visual.definition_index);
                 if (def == null) return;
@@ -90,7 +101,8 @@ public class RealmIndicatorRenderSystem : QuerySystem<ActorBinder, RealmVisual>
                 color.a = alpha;
                 indicator.sprite_renderer.color = color;
 
-                var actorScale = Mathf.Max(actor.stats[S.scale], 0.1f) * Mathf.Max(def.ScaleMultiplier, 0.1f);
+                var actorScale = Mathf.Max(sample.VisualScale, 0.1f) *
+                                 Mathf.Max(def.ScaleMultiplier, 0.1f);
                 
                 // 根据sprite的实际尺寸调整缩放，兼容不同尺寸的图标（如28x28）
                 // 基准尺寸为32x32，如果使用28x28则自动调整
@@ -105,7 +117,6 @@ public class RealmIndicatorRenderSystem : QuerySystem<ActorBinder, RealmVisual>
                 
                 indicator.transform.localScale = Vector3.one * finalScale;
 
-                var position = actor.cur_transform_position;
                 position.y += 0.2f * actorScale;
                 indicator.transform.localPosition = position;
                 indicator.transform.localRotation = Quaternion.identity;

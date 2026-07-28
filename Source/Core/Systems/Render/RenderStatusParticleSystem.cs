@@ -1,6 +1,7 @@
 using Cultiway.Const;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.Performance;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using HarmonyLib;
@@ -69,21 +70,37 @@ public class RenderStatusParticleSystem : QuerySystem<StatusComponent, StatusPar
         {
             if (!owner.HasComponent<ActorBinder>()) continue;
             var binder = owner.GetComponent<ActorBinder>();
-            var actor = binder.Actor;
-            if (actor.isRekt()) continue;
+            if (!ActorPresentationRenderer.TryGetPresentationStateForRender(
+                    binder.ID,
+                    binder.Actor,
+                    out ActorPresentationSample sample,
+                    out Vector3 position,
+                    out bool visible,
+                    out _) ||
+                !visible ||
+                !sample.HasFlag(ActorPresentationFlags.Alive))
+            {
+                continue;
+            }
 
-            EmitParticles(actor, settings);
+            EmitParticles(in sample, position, settings);
         }
     }
 
-    private static void EmitParticles(Actor actor, StatusParticleSettings settings)
+    private static void EmitParticles(
+        in ActorPresentationSample sample,
+        Vector3 position,
+        StatusParticleSettings settings)
     {
         if (!MapBox.isRenderGameplay())
         {
             return;
         }
 
-        GetVisualData(actor, out var position, out var sprite_size);
+        Vector2 spriteSize = sample.MainSprite == null
+            ? Vector2.zero
+            : sample.MainSprite.bounds.size *
+              new Vector2(sample.Scale.x, sample.Scale.y);
 
         var emitter = GetEmitter();
         if (emitter == null)
@@ -99,8 +116,10 @@ public class RenderStatusParticleSystem : QuerySystem<StatusComponent, StatusPar
             }
 
             var jittered = position;
-            jittered.x += Randy.randomFloat(-sprite_size.x / 2f, sprite_size.x / 2f);
-            jittered.y += Randy.randomFloat(0, sprite_size.y);
+            jittered.x += Randy.randomFloat(
+                -spriteSize.x / 2f,
+                spriteSize.x / 2f);
+            jittered.y += Randy.randomFloat(0, spriteSize.y);
 
             var emitParams = new ParticleSystem.EmitParams
             {
@@ -109,21 +128,6 @@ public class RenderStatusParticleSystem : QuerySystem<StatusComponent, StatusPar
                 startSize = ParticleSize
             };
             emitter.Emit(emitParams, 1);
-        }
-    }
-
-    private static void GetVisualData(Actor actor, out Vector3 position, out Vector2 sprite_size)
-    {
-        var sprite = actor._last_main_sprite;
-        position = actor.cur_transform_position;
-        if (sprite == null)
-        {
-            sprite_size = Vector2.zero;
-        }
-        else
-        {
-            var scale = actor.current_scale;
-            sprite_size = sprite.bounds.size * new Vector2(scale.x, scale.y);
         }
     }
 

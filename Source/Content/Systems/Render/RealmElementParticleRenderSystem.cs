@@ -2,6 +2,7 @@ using System;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Core.Components;
+using Cultiway.Core.Performance;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
@@ -66,8 +67,18 @@ public class RealmElementParticleRenderSystem : QuerySystem<ActorBinder, RealmVi
             var def = manager.GetDefinition(visual.definition_index);
             if (def == null) return;
 
-            var actor = binder.Actor;
-            if (actor == null || !actor.isAlive() || !actor.is_visible) return;
+            if (!ActorPresentationRenderer.TryGetPresentationStateForRender(
+                    binder.ID,
+                    binder.Actor,
+                    out ActorPresentationSample sample,
+                    out Vector3 position,
+                    out bool visible,
+                    out _) ||
+                !visible ||
+                !sample.HasFlag(ActorPresentationFlags.Alive))
+            {
+                return;
+            }
 
             var baseCount = Mathf.Clamp(def.BaseParticleCount, 0, manager.MaxParticlesPerActor);
             if (baseCount <= 0) return;
@@ -75,10 +86,9 @@ public class RealmElementParticleRenderSystem : QuerySystem<ActorBinder, RealmVi
             var total = elementRoot.ElementSum();
             if (total <= 0f) total = 1f;
 
-            var scale = Mathf.Max(actor.stats[S.scale], 0.2f);
+            var scale = Mathf.Max(sample.VisualScale, 0.2f);
             var radiusBase = 0.35f * scale * def.ScaleMultiplier;
             var time = Time.time;
-            var position = actor.cur_transform_position;
             var emitted = 0;
 
             float EmitCountFor(float value)

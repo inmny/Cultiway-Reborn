@@ -37,10 +37,30 @@ public static class ArtifactManifestationTools
     /// </summary>
     public static float ResolveActiveWorldSize(Entity artifact, Actor controller)
     {
-        ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
-        Sprite artifactSprite = ResolveWorldScaleSprite(artifact, true);
         Sprite controllerSprite = controller.calculateMainSprite();
-        float controllerPixelSize = controller.current_scale.y / controllerSprite.pixelsPerUnit;
+        return ResolveActiveWorldSize(
+            artifact,
+            controllerSprite,
+            controller.current_scale.y);
+    }
+
+    public static float ResolveActiveWorldSize(
+        Entity artifact,
+        Sprite controllerSprite,
+        float controllerScaleY)
+    {
+        ArtifactShapeAsset shape =
+            (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
+        Sprite artifactSprite = ResolveWorldScaleSprite(artifact, true);
+        if (artifactSprite == null ||
+            controllerSprite == null ||
+            controllerSprite.pixelsPerUnit <= 0f)
+        {
+            return 0f;
+        }
+
+        float controllerPixelSize =
+            controllerScaleY / controllerSprite.pixelsPerUnit;
         float artifactPixelSpan = Mathf.Max(artifactSprite.bounds.size.x, artifactSprite.bounds.size.y) *
                                   artifactSprite.pixelsPerUnit;
         return artifactPixelSpan * controllerPixelSize * shape.presentation.active_pixel_scale;

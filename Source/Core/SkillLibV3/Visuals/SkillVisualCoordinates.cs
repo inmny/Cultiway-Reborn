@@ -11,7 +11,11 @@ public static class SkillVisualCoordinates
     /// </summary>
     public static Vector3 FromActor(Actor actor)
     {
-        Vector3 position = actor.cur_transform_position;
+        return FromPresentation(actor.cur_transform_position);
+    }
+
+    public static Vector3 FromPresentation(Vector3 position)
+    {
         position.y -= position.z;
         return position;
     }

@@ -2,6 +2,7 @@ using System;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Core.Components;
+using Cultiway.Core.Performance;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
@@ -41,33 +42,6 @@ public class BreakthroughVisualSystem : QuerySystem<ActorBinder, RealmVisual, Xi
     [Hotfixable]
     protected override void OnUpdate()
     {
-        var delta = Tick.deltaTime > 0 ? Tick.deltaTime : Time.deltaTime;
-        
-        // 第一部分：处理计时器减少和组件回收（总是执行）
-        Query.ForEachEntity((ref ActorBinder binder, ref RealmVisual visual, ref XianBreakthroughState state, Entity entity) =>
-        {
-            var actor = binder.Actor;
-            if (actor == null || !actor.isAlive())
-            {
-                return;
-            }
-            state.visual_timer -= delta;
-
-            if (state.visual_timer <= 0f)
-            {
-                state.visual_timer = 0f;
-                if (visual.visual_state == RealmVisual.VisualStateBreakthrough)
-                {
-                    visual.visual_state = RealmVisual.VisualStateDefault;
-                }
-                CommandBuffer.RemoveComponent<XianBreakthroughState>(entity.Id);
-                return;
-            }
-        });
-        
-        CommandBuffer.Playback();
-
-        // 第二部分：处理粒子渲染（只在渲染时执行）
         var manager = BreakthroughVisualManager.Instance;
         if (manager == null || !manager.Enabled)
         {
@@ -92,8 +66,15 @@ public class BreakthroughVisualSystem : QuerySystem<ActorBinder, RealmVisual, Xi
 
         Query.ForEachEntity((ref ActorBinder binder, ref RealmVisual visual, ref XianBreakthroughState state, Entity entity) =>
         {
-            var actor = binder.Actor;
-            if (actor == null || !actor.isAlive() || !actor.is_visible)
+            if (!ActorPresentationRenderer.TryGetPresentationStateForRender(
+                    binder.ID,
+                    binder.Actor,
+                    out ActorPresentationSample sample,
+                    out Vector3 position,
+                    out bool visible,
+                    out _) ||
+                !visible ||
+                !sample.HasFlag(ActorPresentationFlags.Alive))
             {
                 return;
             }
@@ -104,8 +85,7 @@ public class BreakthroughVisualSystem : QuerySystem<ActorBinder, RealmVisual, Xi
             }
             visual.visual_state = RealmVisual.VisualStateBreakthrough;
 
-            var scale = Mathf.Max(actor.stats[S.scale], 0.35f);
-            var position = actor.cur_transform_position;
+            var scale = Mathf.Max(sample.VisualScale, 0.35f);
             var time = Time.time;
             switch (def.ToLevel)
             {

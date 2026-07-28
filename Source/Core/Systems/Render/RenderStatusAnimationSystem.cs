@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.Performance;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Utils.Extension;
@@ -45,11 +46,24 @@ public sealed class RenderStatusAnimationSystem :
             foreach (Entity ownerEntity in statusEntity.GetIncomingLinks<StatusRelation>().Entities)
             {
                 if (!ownerEntity.HasComponent<ActorBinder>()) continue;
-                Actor actor = ownerEntity.GetComponent<ActorBinder>().Actor;
-                if (actor == null || actor.isRekt() || !actor.is_visible) continue;
+                ActorBinder binder =
+                    ownerEntity.GetComponent<ActorBinder>();
+                if (!ActorPresentationRenderer.TryGetPresentationStateForRender(
+                        binder.ID,
+                        binder.Actor,
+                        out ActorPresentationSample sample,
+                        out Vector3 position,
+                        out bool visible,
+                        out _) ||
+                    !visible ||
+                    !sample.HasFlag(ActorPresentationFlags.Alive))
+                {
+                    continue;
+                }
+
                 desired.Add(new DesiredVisual(
-                    new VisualKey(statusEntity.Id, actor.data.id),
-                    actor,
+                    new VisualKey(statusEntity.Id, binder.ID),
+                    SkillVisualCoordinates.FromPresentation(position),
                     settings,
                     state.ScaleMultiplier > 0f ? state.ScaleMultiplier : 1f));
             }
@@ -74,12 +88,11 @@ public sealed class RenderStatusAnimationSystem :
     /// <summary>创建新状态的出现阶段，或刷新现有运行阶段的位置。</summary>
     private void Ensure(DesiredVisual desiredVisual)
     {
-        Vector3 position = SkillVisualCoordinates.FromActor(desiredVisual.Actor);
+        Vector3 position = desiredVisual.Position;
         if (!visuals.TryGetValue(desiredVisual.Key, out RuntimeVisual runtime))
         {
             runtime = new RuntimeVisual
             {
-                Actor = desiredVisual.Actor,
                 Settings = desiredVisual.Settings,
                 ScaleMultiplier = desiredVisual.ScaleMultiplier,
                 LastPosition = position,
@@ -105,7 +118,6 @@ public sealed class RenderStatusAnimationSystem :
             visuals.Add(desiredVisual.Key, runtime);
         }
 
-        runtime.Actor = desiredVisual.Actor;
         runtime.ScaleMultiplier = desiredVisual.ScaleMultiplier;
         runtime.LastPosition = position;
         if (!IsAlive(runtime.Runtime) && Time.time >= runtime.RuntimeStartsAt)
@@ -248,18 +260,18 @@ public sealed class RenderStatusAnimationSystem :
     private readonly struct DesiredVisual
     {
         public readonly VisualKey Key;
-        public readonly Actor Actor;
+        public readonly Vector3 Position;
         public readonly StatusAnimationSettings Settings;
         public readonly float ScaleMultiplier;
 
         public DesiredVisual(
             VisualKey key,
-            Actor actor,
+            Vector3 position,
             StatusAnimationSettings settings,
             float scaleMultiplier)
         {
             Key = key;
-            Actor = actor;
+            Position = position;
             Settings = settings;
             ScaleMultiplier = scaleMultiplier;
         }
@@ -268,7 +280,6 @@ public sealed class RenderStatusAnimationSystem :
     /// <summary>一个状态动画生命周期的运行时实体引用。</summary>
     private sealed class RuntimeVisual
     {
-        public Actor Actor;
         public StatusAnimationSettings Settings;
         public float ScaleMultiplier;
         public Entity Appearance;

@@ -120,6 +120,8 @@ public readonly struct ArtifactAbilityVisualContext
     public readonly Vector3 position;
     public readonly Vector3 direction;
     public readonly BaseSimObject target;
+    public readonly Vector3 target_position;
+    public readonly bool has_target_position;
     public readonly float intensity;
     public readonly ArtifactAbilityEndReason? end_reason;
 
@@ -135,6 +137,8 @@ public readonly struct ArtifactAbilityVisualContext
         Vector3 position = default,
         Vector3 direction = default,
         BaseSimObject target = null,
+        Vector3 targetPosition = default,
+        bool hasTargetPosition = false,
         float intensity = 1f,
         ArtifactAbilityEndReason? endReason = null)
     {
@@ -149,6 +153,8 @@ public readonly struct ArtifactAbilityVisualContext
         this.position = position;
         this.direction = direction;
         this.target = target;
+        target_position = targetPosition;
+        has_target_position = hasTargetPosition;
         this.intensity = intensity;
         end_reason = endReason;
     }
@@ -167,6 +173,8 @@ public readonly struct ArtifactAbilityVisualContext
             position,
             direction,
             target,
+            target_position,
+            has_target_position,
             value,
             end_reason);
     }

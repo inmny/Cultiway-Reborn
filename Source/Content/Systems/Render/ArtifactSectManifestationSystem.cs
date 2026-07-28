@@ -5,6 +5,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.Performance;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -37,10 +38,12 @@ public sealed class ArtifactSectManifestationSystem : QuerySystem<SectInventoryB
             }
             artifacts.Sort((left, right) => left.Id.CompareTo(right.Id));
 
-            Building building = sect == null || sect.isRekt()
-                ? null
-                : ArtifactSectService.ResolveInstallationBuilding(sect);
-            if (building == null)
+            if (sect == null ||
+                sect.isRekt() ||
+                !TryResolveInstallationBuilding(
+                    sect,
+                    out BuildingPresentationSample buildingSample,
+                    out bool buildingVisible))
             {
                 for (int i = 0; i < artifacts.Count; i++)
                 {
@@ -53,7 +56,7 @@ public sealed class ArtifactSectManifestationSystem : QuerySystem<SectInventoryB
             for (int i = 0; i < count; i++)
             {
                 float angle = Time.time * 0.35f + i * Mathf.PI * 2f / Math.Max(1, count);
-                Vector3 position = building.cur_transform_position + new Vector3(
+                Vector3 position = buildingSample.Position + new Vector3(
                     Mathf.Cos(angle) * (0.62f + count * 0.025f),
                     0.72f + Mathf.Sin(angle) * 0.12f,
                     -0.02f);
@@ -61,11 +64,55 @@ public sealed class ArtifactSectManifestationSystem : QuerySystem<SectInventoryB
                     artifacts[i],
                     position,
                     Mathf.Sin(angle) * 4f,
-                    building.is_visible));
+                    buildingVisible));
             }
         });
 
         for (int i = 0; i < poses.Count; i++) ApplyPose(poses[i]);
+    }
+
+    private static bool TryResolveInstallationBuilding(
+        Sect sect,
+        out BuildingPresentationSample sample,
+        out bool visible)
+    {
+        return TryFindUsable(
+                   sect.GetBuildingListOfID(
+                       Buildings.SectTreasurePavilion.id),
+                   out sample,
+                   out visible) ||
+               TryFindUsable(
+                   sect.GetBuildingListOfID(
+                       Buildings.SectHall.id),
+                   out sample,
+                   out visible);
+    }
+
+    private static bool TryFindUsable(
+        List<Building> buildings,
+        out BuildingPresentationSample sample,
+        out bool visible)
+    {
+        if (buildings != null)
+        {
+            for (int i = 0; i < buildings.Count; i++)
+            {
+                if (WorldObjectPresentationRenderer
+                        .TryGetPresentationStateForRender(
+                            buildings[i],
+                            out sample,
+                            out visible) &&
+                    sample.Usable &&
+                    !sample.UnderConstruction)
+                {
+                    return true;
+                }
+            }
+        }
+
+        sample = default;
+        visible = false;
+        return false;
     }
 
     private static void ApplyPose(InstallationPose pose)

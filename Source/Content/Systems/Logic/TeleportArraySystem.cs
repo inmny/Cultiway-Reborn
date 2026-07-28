@@ -457,11 +457,11 @@ public class TeleportArraySystem : BaseSystem
             effectId = "fx_teleport_blue";
         }
 
-        var effect = EffectsLibrary.spawnAt(effectId, position, scale);
-        if (arrival && effect?.sprite_animation != null)
-        {
-            effect.sprite_animation.setFrameIndex(9);
-        }
+        PresentationCommandQueue.EnqueueEffectAt(
+            effectId,
+            position,
+            scale,
+            arrival ? 9 : -1);
     }
 
     private static void SpawnTileEffect(string effectId, WorldTile tile, float scale)
@@ -471,7 +471,10 @@ public class TeleportArraySystem : BaseSystem
             return;
         }
 
-        EffectsLibrary.spawnAtTile(effectId, tile, Mathf.Max(0.1f, scale));
+        PresentationCommandQueue.EnqueueEffectAtTile(
+            effectId,
+            tile,
+            Mathf.Max(0.1f, scale));
     }
 
     private static float GetEffectScale(Actor passenger)

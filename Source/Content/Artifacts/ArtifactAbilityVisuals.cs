@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Components;
+using Cultiway.Core.Performance;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using strings;
@@ -55,9 +57,14 @@ public static class ArtifactAbilityVisuals
         if (profile == null || !profile.TryGetSignal(channel, out ArtifactAbilityVisualSignal signal)) return;
 
         Vector3 resolvedPosition = position ?? ResolveSnapshotPosition(execution.controller, execution.artifact);
-        if (direction.sqrMagnitude < 0.0001f && target != null && !target.isRekt())
+        bool hasTargetPosition =
+            target != null && !target.isRekt();
+        Vector3 targetPosition = hasTargetPosition
+            ? target.GetSimPos()
+            : default;
+        if (direction.sqrMagnitude < 0.0001f && hasTargetPosition)
         {
-            direction = target.GetSimPos() - resolvedPosition;
+            direction = targetPosition - resolvedPosition;
         }
 
         ArtifactAbilityVisualContext context = new(
@@ -72,6 +79,8 @@ public static class ArtifactAbilityVisuals
             resolvedPosition,
             direction,
             target,
+            targetPosition,
+            hasTargetPosition,
             Mathf.Max(0f, intensity),
             endReason);
         PendingSignals.Add(new ArtifactVisualSignalRequest(
@@ -161,9 +170,9 @@ public static class ArtifactAbilityVisuals
                 }
                 break;
             case ArtifactVisualAnchorKind.Target:
-                if (context.target != null && !context.target.isRekt())
+                if (context.has_target_position)
                 {
-                    position = context.target.GetSimPos();
+                    position = context.target_position;
                     return true;
                 }
                 break;
@@ -180,17 +189,29 @@ public static class ArtifactAbilityVisuals
 
     internal static float ResolveActorScale(ArtifactAbilityVisualContext context)
     {
-        if (context.controller.IsNull || !context.controller.HasComponent<ActorBinder>()) return 1f;
-        Actor actor = context.controller.GetComponent<ActorBinder>().Actor;
-        return Mathf.Max(actor.stats[S.scale], 0.1f) * 10f;
+        return TryResolveControllerPresentation(
+            context.controller,
+            out ActorPresentationSample sample,
+            out _,
+            out _)
+            ? Mathf.Max(sample.VisualScale, 0.1f) * 10f
+            : 1f;
     }
 
     internal static bool IsVisible(ArtifactAbilityVisualContext context)
     {
         if (!context.artifact.IsAvailable()) return false;
-        if (context.controller.IsNull || !context.controller.HasComponent<ActorBinder>()) return false;
-        Actor actor = context.controller.GetComponent<ActorBinder>().Actor;
-        if (actor == null || !actor.isAlive() || !actor.is_visible) return false;
+        if (!TryResolveControllerPresentation(
+                context.controller,
+                out ActorPresentationSample sample,
+                out _,
+                out bool visible) ||
+            !visible ||
+            !sample.HasFlag(ActorPresentationFlags.Alive))
+        {
+            return false;
+        }
+
         return !context.artifact.TryGetComponent(out ArtifactManifestation manifestation) || manifestation.visible;
     }
 
@@ -303,16 +324,69 @@ public static class ArtifactAbilityVisuals
 
     private static bool TryResolveControllerPosition(Entity controller, out Vector3 position)
     {
-        if (!controller.IsNull && controller.HasComponent<ActorBinder>())
+        if (TryResolveControllerPresentation(
+                controller,
+                out _,
+                out position,
+                out _))
         {
-            Actor actor = controller.GetComponent<ActorBinder>().Actor;
+            return true;
+        }
+
+        position = default;
+        return false;
+    }
+
+    private static bool TryResolveControllerPresentation(
+        Entity controller,
+        out ActorPresentationSample sample,
+        out Vector3 position,
+        out bool visible)
+    {
+        if (controller.IsNull ||
+            !controller.HasComponent<ActorBinder>())
+        {
+            sample = default;
+            position = default;
+            visible = false;
+            return false;
+        }
+
+        ActorBinder binder = controller.GetComponent<ActorBinder>();
+        if (ActorPresentationRenderer.TryGetPresentationState(
+                binder.ID,
+                out sample,
+                out position,
+                out visible,
+                out _))
+        {
+            return true;
+        }
+
+        if ((!PerformanceSettings.EnableFramePriorityScheduler &&
+             !CooperativeSimulationRunner.Instance
+                 .HasMutatingPresentationWorkInFlight) ||
+            FramePriorityGovernor.IsExecutingSimulationPhase)
+        {
+            Actor actor = binder.Actor;
             if (actor != null && !actor.isRekt())
             {
+                sample = default;
+                sample.Position = actor.current_position;
+                sample.Scale = actor.current_scale;
+                sample.VisualScale = actor.stats[S.scale];
+                sample.Flags = actor.isAlive()
+                    ? ActorPresentationFlags.Alive
+                    : ActorPresentationFlags.None;
                 position = actor.GetSimPos();
+                visible = actor.is_visible;
                 return true;
             }
         }
+
+        sample = default;
         position = default;
+        visible = false;
         return false;
     }
 }

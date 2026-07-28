@@ -2,6 +2,7 @@ using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Core.Components;
+using Cultiway.Core.Performance;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -50,8 +51,18 @@ public class RealmAuraRenderSystem : QuerySystem<ActorBinder, RealmVisual>
             Query.ForEachEntity((ref ActorBinder binder, ref RealmVisual visual, Entity entity) =>
             {
                 if (!visual.HasDefinition) return;
-                var actor = binder.Actor;
-                if (actor == null || !actor.isAlive() || !actor.is_visible) return;
+                if (!ActorPresentationRenderer.TryGetPresentationStateForRender(
+                        binder.ID,
+                        binder.Actor,
+                        out ActorPresentationSample sample,
+                        out Vector3 position,
+                        out bool visible,
+                        out _) ||
+                    !visible ||
+                    !sample.HasFlag(ActorPresentationFlags.Alive))
+                {
+                    return;
+                }
 
                 var definition = manager.GetDefinition(visual.definition_index);
                 if (definition == null || definition.AuraSprite == null) return;
@@ -71,7 +82,8 @@ public class RealmAuraRenderSystem : QuerySystem<ActorBinder, RealmVisual>
                 baseColor.a = alpha;
                 renderer.color = baseColor;
 
-                var scale = Mathf.Max(actor.stats[S.scale], 0.1f) * Mathf.Max(definition.ScaleMultiplier, 0.1f);
+                var scale = Mathf.Max(sample.VisualScale, 0.1f) *
+                            Mathf.Max(definition.ScaleMultiplier, 0.1f);
                 var breathScale = 1f + Mathf.Sin(breathPhase) * definition.BreathAmplitude;
                 if (visual.visual_state == RealmVisual.VisualStateBreakthrough)
                 {
@@ -80,7 +92,7 @@ public class RealmAuraRenderSystem : QuerySystem<ActorBinder, RealmVisual>
 
                 aura.transform.localScale = Vector3.one * scale * breathScale;
                 aura.transform.localRotation = Quaternion.identity;
-                aura.transform.localPosition = actor.cur_transform_position;
+                aura.transform.localPosition = position;
             });
         }
 

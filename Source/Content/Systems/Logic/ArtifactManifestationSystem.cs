@@ -8,7 +8,6 @@ using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
-using strings;
 using UnityEngine;
 
 namespace Cultiway.Content.Systems.Logic;
@@ -28,17 +27,30 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
     {
         float time = SimulationTime.NowFloat;
         _updates.Clear();
-        Query.ForEachEntity((ref ActorBinder binder, ref ArtifactLoadoutState _, Entity owner) =>
+        Query.ForEachEntity((
+            ref ActorBinder binder,
+            ref ArtifactLoadoutState loadout,
+            Entity owner) =>
         {
-            Actor actor = binder.Actor;
-            if (actor == null || !actor.isAlive()) return;
+            if (!ActorPresentationRenderer.TryGetPresentationStateForRender(
+                    binder.ID,
+                    binder.Actor,
+                    out ActorPresentationSample actorSample,
+                    out Vector3 actorPosition,
+                    out bool actorVisible,
+                    out _) ||
+                !actorSample.HasFlag(ActorPresentationFlags.Alive))
+            {
+                return;
+            }
 
             CollectRelations(owner);
             if (_relations.Count == 0) return;
             ResolveVehicle(owner);
 
             CountPresentationGroups();
-            float actorScale = Mathf.Max(actor.stats[S.scale], 0.1f) * 10f;
+            float actorScale =
+                Mathf.Max(actorSample.VisualScale, 0.1f) * 10f;
             for (int i = 0; i < _relations.Count; i++)
             {
                 EquippedArtifactRelation relation = _relations[i];
@@ -56,7 +68,8 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
                     ? ResolvePose(
                         presentation,
                         new ArtifactPresentationContext(
-                            actor,
+                            actorPosition,
+                            actorSample.Flip,
                             relation.state,
                             groupIndex,
                             _groupCounts[presentation],
@@ -65,13 +78,16 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
                         vehicle)
                     : default;
                 float activeWorldSize = active
-                    ? ArtifactManifestationTools.ResolveActiveWorldSize(artifact, actor)
+                    ? ArtifactManifestationTools.ResolveActiveWorldSize(
+                        artifact,
+                        actorSample.MainSprite,
+                        actorSample.Scale.y)
                     : 0f;
                 _updates.Add(new ManifestationUpdate(
                     artifact,
                     relation.state,
                     presentation.body_radius,
-                    actor.is_visible,
+                    actorVisible,
                     followsOwner,
                     active,
                     activeWorldSize,

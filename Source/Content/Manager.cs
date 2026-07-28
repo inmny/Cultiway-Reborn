@@ -87,6 +87,8 @@ internal class Manager
         CoreFormationSkillBridge.Init();
         ActiveAbilityService.Register(new CoreFormationActiveAbilityProvider());
         ModClass.I.GeneralLogicSystems.Add(new CoreFormationEffectSystem());
+        ModClass.I.GeneralLogicSystems.Add(
+            new BreakthroughVisualLifetimeSystem());
         ModClass.I.GeneralRenderSystems.Add(new BreakthroughVisualSystem());
         ModClass.I.GeneralRenderSystems.Add(new CloudRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmAuraRenderSystem());
