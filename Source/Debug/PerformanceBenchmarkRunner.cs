@@ -394,6 +394,12 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             .AppendLine();
         sb.Append("  cultiway_scheduler ").Append(ModClass.I.LogicScheduler.GetDiagnostics()).AppendLine();
         sb.Append("  worker_pool ").Append(SimulationWorkerPool.Instance.GetDiagnostics()).AppendLine();
+        sb.Append("  pathfinder_runtime ")
+            .Append(global::Cultiway.Core.Pathfinding.PathFinder.Instance.GetDiagnostics())
+            .AppendLine();
+        sb.Append("  deferred_path_requests ")
+            .Append(DeferredPathRequestBatch.GetDiagnostics())
+            .AppendLine();
         sb.Append("  simulation_coordinator ")
             .Append(SimulationCoordinatorThread.Instance.GetDiagnostics())
             .AppendLine();
@@ -432,7 +438,10 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
                 .AppendLine();
         }
 
-        SimulationTickBenchmark.AppendReport(sb, 12, 10);
+        int detailLimit = SimulationTickBenchmark.ShouldCollectAiDetails
+            ? 30
+            : 10;
+        SimulationTickBenchmark.AppendReport(sb, 12, detailLimit);
         ModClass.LogInfo(sb.ToString());
     }
 

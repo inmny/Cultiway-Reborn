@@ -8,6 +8,7 @@ using Cultiway;
 using Cultiway.Const;
 using Cultiway.Debug;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace Cultiway.Core.Pathfinding;
 
@@ -23,6 +24,7 @@ public class PathFinder
     private readonly object _workerLock = new();
     private IPathGenerator _generator;
     private bool _workersStarted;
+    private int _workerCount;
 
     public void UseGenerator(IPathGenerator generator)
     {
@@ -36,6 +38,24 @@ public class PathFinder
         {
             return false;
         }
+
+        return RequestPathValidated(
+            actor,
+            target,
+            pathOnWater,
+            walkOnBlocks,
+            walkOnLava,
+            limitRegions);
+    }
+
+    internal bool RequestPathValidated(
+        Actor actor,
+        WorldTile target,
+        bool pathOnWater,
+        bool walkOnBlocks,
+        bool walkOnLava,
+        int limitRegions)
+    {
         PathfindingProfiler.Measurement reuseMeasurement = PathfindingProfiler.Start();
         bool reused = TryReuseActiveRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions);
         reuseMeasurement.Complete(
@@ -140,8 +160,29 @@ public class PathFinder
                 worker.Start();
             }
 
+            _workerCount = workerCount;
             _workersStarted = true;
         }
+    }
+
+    internal void EnsureWorkersReady()
+    {
+        EnsureWorkersStarted();
+    }
+
+    internal string GetDiagnostics()
+    {
+        string generatorDiagnostics =
+            _generator is PortalAwarePathGenerator portalAware
+                ? portalAware.GetDiagnostics()
+                : _generator?.GetType().Name ?? "none";
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "active={0} pending={1} workers={2} generator=[{3}]",
+            _tasks.Count,
+            _pendingTasks.Count,
+            Volatile.Read(ref _workerCount),
+            generatorDiagnostics);
     }
 
     private void WorkerLoop()

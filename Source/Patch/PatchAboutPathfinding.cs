@@ -76,13 +76,21 @@ namespace Cultiway.Patch
             measurement.CompleteSegment(GoToTraceSegment.Setup, setupStartedAt);
 
             long requestStartedAt = measurement.StartSegment();
-            bool requested = PathFinder.Instance.RequestPath(
-                __instance,
-                pTile,
-                pPathOnWater,
-                pWalkOnBlocks,
-                pWalkOnLava,
-                pLimitPathfindingRegions);
+            bool requested =
+                DeferredPathRequestBatch.TryCapture(
+                    __instance,
+                    pTile,
+                    pPathOnWater,
+                    pWalkOnBlocks,
+                    pWalkOnLava,
+                    pLimitPathfindingRegions) ||
+                PathFinder.Instance.RequestPathValidated(
+                    __instance,
+                    pTile,
+                    pPathOnWater,
+                    pWalkOnBlocks,
+                    pWalkOnLava,
+                    pLimitPathfindingRegions);
             measurement.CompleteSegment(GoToTraceSegment.Request, requestStartedAt);
             __result = requested ? ExecuteEvent.True : ExecuteEvent.False;
             measurement.Complete(requested ? GoToTraceOutcome.Requested : GoToTraceOutcome.Rejected);

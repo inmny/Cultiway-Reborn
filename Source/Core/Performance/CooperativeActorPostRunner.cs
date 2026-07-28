@@ -11,6 +11,7 @@ namespace Cultiway.Core.Performance;
 internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<BatchActors, Actor>
 {
     private const string EnemySearchJobId = "b3_findEnemyTarget";
+    private const string UpdateAiJobId = "b6_update_ai";
 
     private readonly ActorTileActionProfiler tileActionProfiler = new();
     private readonly Action<int> searchWorkItemAction;
@@ -350,10 +351,40 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         bool profileTileAction =
             tileActionProfiler.Active &&
             ReferenceEquals(job.container, batch.c_main_tile_action);
-        if (!profileTileAction ||
-            !tileActionProfiler.TryRunSampledJob(batch, job, currentBatchIndex))
+        bool deferPathRequests =
+            job.id.Equals(UpdateAiJobId, StringComparison.Ordinal);
+        if (deferPathRequests)
         {
-            job.job_updater();
+            DeferredPathRequestBatch.Begin();
+        }
+
+        bool completed = false;
+        try
+        {
+            if (!profileTileAction ||
+                !tileActionProfiler.TryRunSampledJob(
+                    batch,
+                    job,
+                    currentBatchIndex))
+            {
+                job.job_updater();
+            }
+
+            completed = true;
+        }
+        finally
+        {
+            if (deferPathRequests)
+            {
+                if (completed)
+                {
+                    DeferredPathRequestBatch.Complete();
+                }
+                else
+                {
+                    DeferredPathRequestBatch.Abort();
+                }
+            }
         }
 
         if (profileTileAction)
