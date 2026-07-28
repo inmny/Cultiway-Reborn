@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,8 +12,15 @@ namespace Cultiway.Core.Pathfinding;
 
 public class PortalAwarePathGenerator : IPathGenerator
 {
+    [ThreadStatic]
+    private static List<PathStep> directPathBuffer;
+
     private readonly PortalRegistry _registry;
     private readonly PathfindingConfig _config;
+    private long directAttempts;
+    private long directHits;
+    private long directSteps;
+    private long fullSearches;
 
     public PortalAwarePathGenerator(PortalRegistry registry, PathfindingConfig config)
     {
@@ -56,6 +64,24 @@ public class PortalAwarePathGenerator : IPathGenerator
     private void GenerateInternal(PathRequest request, IPathStreamWriter stream, CancellationToken token)
     {
         var profile = MovementProfile.Build(request, _config);
+        Interlocked.Increment(ref directAttempts);
+        if (TryBuildDirectPath(
+                request,
+                profile,
+                token,
+                out List<PathStep> directPath))
+        {
+            for (int i = 0; i < directPath.Count; i++)
+            {
+                stream.AddStep(directPath[i]);
+            }
+
+            Interlocked.Increment(ref directHits);
+            Interlocked.Add(ref directSteps, directPath.Count);
+            return;
+        }
+
+        Interlocked.Increment(ref fullSearches);
 
         var direct = TryBuildLocalPath(request.StartTileId, request.TargetTileId, profile, useLongRange: true, token);
         RouteCandidate bestCandidate = null;
@@ -122,6 +148,172 @@ public class PortalAwarePathGenerator : IPathGenerator
         }
 
         EmitCandidate(bestCandidate, stream, token);
+    }
+
+    internal string GetDiagnostics()
+    {
+        long attempts = Interlocked.Read(ref directAttempts);
+        long hits = Interlocked.Read(ref directHits);
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "direct={0}/{1}({2:0.0}%) steps={3} full={4}",
+            hits,
+            attempts,
+            attempts == 0L
+                ? 0.0
+                : hits * 100.0 / attempts,
+            Interlocked.Read(ref directSteps),
+            Interlocked.Read(ref fullSearches));
+    }
+
+    /// <summary>
+    /// 原版会先尝试无遮挡射线路径。这里只接受无环境伤害的同岛短路径；
+    /// 任一格不满足条件就交回完整多标签 A*，不会截断或丢弃寻路请求。
+    /// </summary>
+    private bool TryBuildDirectPath(
+        PathRequest request,
+        MovementProfile profile,
+        CancellationToken token,
+        out List<PathStep> result)
+    {
+        result = directPathBuffer ??= new List<PathStep>(64);
+        result.Clear();
+        if (!TileTraversalInfo.TryGet(
+                request.StartTileId,
+                out TileTraversalInfo current) ||
+            !TileTraversalInfo.TryGet(
+                request.TargetTileId,
+                out TileTraversalInfo target))
+        {
+            return false;
+        }
+
+        if (request.StartTileId == request.TargetTileId)
+        {
+            return true;
+        }
+
+        if (profile.IsFlying)
+        {
+            TraversalState flyingState =
+                TraversalState.Start(profile);
+            MovementMethod method =
+                DecideMethod(target, profile);
+            TraversalEstimate estimate =
+                EstimateTraversal(
+                    current,
+                    target,
+                    method,
+                    flyingState,
+                    profile);
+            result.Add(new PathStep(
+                target.TileId,
+                method,
+                estimate));
+            return true;
+        }
+
+        WorldTile startTile =
+            TileTraversalInfo.ResolveTile(request.StartTileId);
+        WorldTile targetTile =
+            TileTraversalInfo.ResolveTile(request.TargetTileId);
+        if (startTile?.region?.island == null ||
+            !ReferenceEquals(
+                startTile.region.island,
+                targetTile?.region?.island) ||
+            DistTile(current, target) > _config.LongRangeTiles)
+        {
+            return false;
+        }
+
+        int x = current.X;
+        int y = current.Y;
+        int targetX = target.X;
+        int targetY = target.Y;
+        int deltaX = Math.Abs(targetX - x);
+        int stepX = x < targetX ? 1 : -1;
+        int deltaY = -Math.Abs(targetY - y);
+        int stepY = y < targetY ? 1 : -1;
+        int error = deltaX + deltaY;
+        TraversalState state = TraversalState.Start(profile);
+        while (x != targetX || y != targetY)
+        {
+            token.ThrowIfCancellationRequested();
+            int doubledError = error * 2;
+            if (doubledError >= deltaY)
+            {
+                error += deltaY;
+                x += stepX;
+            }
+
+            if (doubledError <= deltaX)
+            {
+                error += deltaX;
+                y += stepY;
+            }
+
+            if (!TileTraversalInfo.TryGetAt(
+                    x,
+                    y,
+                    out TileTraversalInfo next) ||
+                !IsSafeDirectTile(next, profile))
+            {
+                result.Clear();
+                return false;
+            }
+
+            MovementMethod method =
+                DecideMethod(next, profile);
+            TraversalEstimate estimate =
+                EstimateTraversal(
+                    current,
+                    next,
+                    method,
+                    state,
+                    profile);
+            state = state.Advance(estimate, profile);
+            if (state.Health <= 0f)
+            {
+                result.Clear();
+                return false;
+            }
+
+            result.Add(new PathStep(
+                next.TileId,
+                method,
+                estimate));
+            current = next;
+        }
+
+        return true;
+    }
+
+    private static bool IsSafeDirectTile(
+        TileTraversalInfo tile,
+        MovementProfile profile)
+    {
+        if (!tile.HasType ||
+            tile.Block ||
+            tile.Lava ||
+            tile.DamageUnits ||
+            (tile.IsOnFire && !profile.IsFireImmune))
+        {
+            return false;
+        }
+
+        if (profile.IsBoat)
+        {
+            return tile.Ocean ||
+                   (tile.Liquid && !tile.Lava);
+        }
+
+        if (!tile.Liquid && !tile.Ocean)
+        {
+            return true;
+        }
+
+        return profile.IsWaterCreature &&
+               !profile.IsDamagedByOcean;
     }
 
     private static PathFailureReason FailureReasonFrom(LocalPathResult result)
