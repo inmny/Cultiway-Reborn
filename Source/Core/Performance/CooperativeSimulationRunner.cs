@@ -190,6 +190,7 @@ internal sealed class CooperativeSimulationRunner
         {
             while (Active)
             {
+                actorRunner.WaitForBackgroundWork();
                 ExecuteCurrentStage();
             }
         }

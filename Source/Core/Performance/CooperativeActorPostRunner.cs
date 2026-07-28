@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using Cultiway.Const;
 using Cultiway.Patch;
 using UnityEngine;
@@ -21,7 +20,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         Idle,
         BeforeEnemySearch,
         PrepareEnemySearch,
-        SearchEnemies,
+        ScheduleEnemySearch,
+        AwaitEnemySearch,
         CommitEnemySearch,
         AfterEnemySearch,
         Finish
@@ -30,14 +30,18 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private readonly List<BaseSimObject> aggressionCandidates = new();
     private SearchWorkItem[] workItems = Array.Empty<SearchWorkItem>();
     private List<BatchActors> batches;
-    private ParallelOptions parallelOptions;
     private PostStage stage;
     private float elapsed;
     private int enemySearchJobIndex;
     private int batchIndex;
+    private int postJobIndex;
     private int workIndex;
     private int workCount;
     private int workGroupSize;
+    private bool splitPostJobs;
+    private SimulationWorkerPool.WorkTicket searchTicket;
+    private long searchScheduleStartedAt;
+    private long searchScheduleCompletedAt;
 
     internal CooperativeActorPostRunner()
     {
@@ -46,16 +50,19 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     public void Start(
         List<BatchActors> activeBatches,
-        float cycleElapsed,
-        ParallelOptions cycleParallelOptions)
+        float cycleElapsed)
     {
         batches = activeBatches;
         elapsed = cycleElapsed;
-        parallelOptions = cycleParallelOptions;
         workGroupSize = Math.Max(1, PerformanceSettings.ForegroundParallelism * 4);
         batchIndex = 0;
+        postJobIndex = 0;
         workIndex = 0;
         workCount = 0;
+        splitPostJobs = SimulationTickBenchmark.IsCapturing;
+        searchTicket = default;
+        searchScheduleStartedAt = 0L;
+        searchScheduleCompletedAt = 0L;
         aggressionCandidates.Clear();
         tileActionProfiler.Start(batches.Count);
 
@@ -75,6 +82,22 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         stage = PostStage.BeforeEnemySearch;
     }
 
+    public bool WaitingForBackgroundWork =>
+        stage == PostStage.AwaitEnemySearch &&
+        searchTicket.IsValid;
+
+    public bool IsBackgroundWorkCompleted =>
+        WaitingForBackgroundWork &&
+        SimulationWorkerPool.Instance.IsCompleted(searchTicket);
+
+    public void WaitForBackgroundWork()
+    {
+        if (WaitingForBackgroundWork)
+        {
+            SimulationWorkerPool.Instance.Wait(searchTicket);
+        }
+    }
+
     public string GetNextPhaseName(string phasePrefix)
     {
         if (stage == PostStage.BeforeEnemySearch &&
@@ -89,20 +112,23 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             batchIndex >= batches.Count)
         {
             return workCount > 0
-                ? phasePrefix + ".post.b3.search.batch_group.0"
-                : phasePrefix + ".post.after_b3.batch.0";
-        }
-
-        if (stage == PostStage.SearchEnemies && workIndex >= workCount)
-        {
-            return workCount > 0
-                ? phasePrefix + ".post.b3.commit.batch_group.0"
-                : phasePrefix + ".post.after_b3.batch.0";
+                ? phasePrefix + ".post.b3.search.schedule"
+                : GetNextPostRangePhaseName(
+                    phasePrefix,
+                    enemySearchJobIndex + 1,
+                    int.MaxValue,
+                    "after_b3",
+                    restartRange: true);
         }
 
         if (stage == PostStage.CommitEnemySearch && workIndex >= workCount)
         {
-            return phasePrefix + ".post.after_b3.batch.0";
+            return GetNextPostRangePhaseName(
+                phasePrefix,
+                enemySearchJobIndex + 1,
+                int.MaxValue,
+                "after_b3",
+                restartRange: true);
         }
 
         if (stage == PostStage.AfterEnemySearch &&
@@ -114,15 +140,27 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         return stage switch
         {
             PostStage.BeforeEnemySearch =>
-                phasePrefix + ".post.before_b3.batch." + batchIndex,
+                GetNextPostRangePhaseName(
+                    phasePrefix,
+                    0,
+                    enemySearchJobIndex,
+                    "before_b3"),
             PostStage.PrepareEnemySearch =>
                 phasePrefix + ".post.b3.prepare.batch." + batchIndex,
-            PostStage.SearchEnemies =>
-                phasePrefix + ".post.b3.search.batch_group." + workIndex,
+            PostStage.ScheduleEnemySearch =>
+                phasePrefix + ".post.b3.search.schedule",
+            PostStage.AwaitEnemySearch =>
+                IsBackgroundWorkCompleted
+                    ? phasePrefix + ".post.b3.search.complete"
+                    : phasePrefix + ".post.b3.search.await",
             PostStage.CommitEnemySearch =>
                 phasePrefix + ".post.b3.commit.batch_group." + workIndex,
             PostStage.AfterEnemySearch =>
-                phasePrefix + ".post.after_b3.batch." + batchIndex,
+                GetNextPostRangePhaseName(
+                    phasePrefix,
+                    enemySearchJobIndex + 1,
+                    int.MaxValue,
+                    "after_b3"),
             PostStage.Finish => phasePrefix + ".post.finish",
             _ => phasePrefix + ".post.idle"
         };
@@ -143,6 +181,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     }
 
                     batchIndex = 0;
+                    postJobIndex = 0;
                     stage = PostStage.PrepareEnemySearch;
                     continue;
                 case PostStage.PrepareEnemySearch:
@@ -152,17 +191,60 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     }
 
                     workIndex = 0;
-                    stage = PostStage.SearchEnemies;
-                    continue;
-                case PostStage.SearchEnemies:
-                    if (TrySearchNextGroup())
+                    if (workCount == 0)
                     {
-                        return false;
+                        batchIndex = 0;
+                        postJobIndex = enemySearchJobIndex + 1;
+                        stage = PostStage.AfterEnemySearch;
+                        continue;
                     }
 
+                    stage = PostStage.ScheduleEnemySearch;
+                    continue;
+                case PostStage.ScheduleEnemySearch:
+                    // 搜索阶段只读取准备好的候选集；模拟停在此屏障，
+                    // worker 完成后再由主线程按 workItems 原顺序提交。
+                    searchScheduleStartedAt = StartBenchmarkMeasurement();
+                    try
+                    {
+                        searchTicket = SimulationWorkerPool.Instance.BeginIndexed(
+                            0,
+                            workCount,
+                            searchWorkItemAction);
+                    }
+                    finally
+                    {
+                        if (searchScheduleStartedAt != 0L)
+                        {
+                            searchScheduleCompletedAt = Stopwatch.GetTimestamp();
+                        }
+                    }
+
+                    stage = PostStage.AwaitEnemySearch;
+                    return false;
+                case PostStage.AwaitEnemySearch:
+                    long searchWaitStartedAt = StartBenchmarkMeasurement();
+                    SimulationWorkerPool.Instance.Wait(searchTicket);
+                    long searchWaitCompletedAt = searchWaitStartedAt == 0L
+                        ? 0L
+                        : Stopwatch.GetTimestamp();
+                    SimulationWorkerPool.WorkResult searchResult;
+                    try
+                    {
+                        searchResult = SimulationWorkerPool.Instance.Complete(searchTicket);
+                    }
+                    finally
+                    {
+                        searchTicket = default;
+                    }
+
+                    RecordSearchBenchmark(
+                        searchResult,
+                        searchWaitStartedAt,
+                        searchWaitCompletedAt);
                     workIndex = 0;
                     stage = PostStage.CommitEnemySearch;
-                    continue;
+                    return false;
                 case PostStage.CommitEnemySearch:
                     if (TryCommitNextGroup())
                     {
@@ -170,6 +252,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     }
 
                     batchIndex = 0;
+                    postJobIndex = enemySearchJobIndex + 1;
                     stage = PostStage.AfterEnemySearch;
                     continue;
                 case PostStage.AfterEnemySearch:
@@ -193,6 +276,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     public void Abort()
     {
+        if (searchTicket.IsValid)
+        {
+            SimulationWorkerPool.Instance.WaitAndDiscard(searchTicket);
+            searchTicket = default;
+        }
+
         tileActionProfiler.Abort();
         ResetCycleReferences();
         stage = PostStage.Idle;
@@ -200,18 +289,46 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     private bool TryRunNextPostRange(int startJobIndex, int endJobIndex)
     {
+        if (splitPostJobs)
+        {
+            while (batchIndex < batches.Count)
+            {
+                int currentBatchIndex = batchIndex;
+                BatchActors batch = batches[currentBatchIndex];
+                List<Job<Actor>> jobs = batch.jobs_post;
+                int end = Math.Min(endJobIndex, jobs.Count);
+                postJobIndex = Math.Max(postJobIndex, startJobIndex);
+                if (postJobIndex < end)
+                {
+                    RunPostJob(batch, jobs[postJobIndex++], currentBatchIndex);
+                    if (postJobIndex >= end)
+                    {
+                        batchIndex++;
+                        postJobIndex = startJobIndex;
+                    }
+
+                    return true;
+                }
+
+                batchIndex++;
+                postJobIndex = startJobIndex;
+            }
+
+            return false;
+        }
+
         if (batchIndex >= batches.Count)
         {
             return false;
         }
 
-        int currentBatchIndex = batchIndex;
-        BatchActors batch = batches[batchIndex++];
-        List<Job<Actor>> jobs = batch.jobs_post;
-        int end = Math.Min(endJobIndex, jobs.Count);
-        for (int i = startJobIndex; i < end; i++)
+        int aggregateBatchIndex = batchIndex;
+        BatchActors aggregateBatch = batches[batchIndex++];
+        List<Job<Actor>> aggregateJobs = aggregateBatch.jobs_post;
+        int aggregateEnd = Math.Min(endJobIndex, aggregateJobs.Count);
+        for (int i = startJobIndex; i < aggregateEnd; i++)
         {
-            RunPostJob(batch, jobs[i], currentBatchIndex);
+            RunPostJob(aggregateBatch, aggregateJobs[i], aggregateBatchIndex);
         }
 
         return true;
@@ -382,33 +499,6 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             applyBackoff);
     }
 
-    private bool TrySearchNextGroup()
-    {
-        if (workIndex >= workCount)
-        {
-            return false;
-        }
-
-        int startIndex = workIndex;
-        int endIndex = Math.Min(workCount, startIndex + workGroupSize);
-        long startedAt = StartBenchmarkMeasurement();
-        if (endIndex - startIndex > 1)
-        {
-            Parallel.For(startIndex, endIndex, parallelOptions, searchWorkItemAction);
-        }
-        else
-        {
-            SearchWorkItemAt(startIndex);
-        }
-
-        workIndex = endIndex;
-        RecordBenchmarkMeasurement(
-            "b3_findEnemyTarget.search_parallel",
-            startedAt,
-            endIndex - startIndex);
-        return true;
-    }
-
     private void SearchWorkItemAt(int index)
     {
         workItems[index].Search(aggressionCandidates);
@@ -453,6 +543,62 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         return workItems[workCount++];
     }
 
+    private string GetNextPostRangePhaseName(
+        string phasePrefix,
+        int startJobIndex,
+        int endJobIndex,
+        string aggregateName,
+        bool restartRange = false)
+    {
+        int phaseBatchIndex = restartRange ? 0 : batchIndex;
+        int phaseJobIndex = restartRange ? startJobIndex : postJobIndex;
+        if (splitPostJobs &&
+            TryPeekNextPostJob(
+                startJobIndex,
+                endJobIndex,
+                phaseBatchIndex,
+                phaseJobIndex,
+                out Job<Actor> nextJob))
+        {
+            return phasePrefix +
+                   ".post.serial." +
+                   nextJob.id;
+        }
+
+        return phasePrefix +
+               ".post." +
+               aggregateName +
+               ".batch." +
+               phaseBatchIndex;
+    }
+
+    private bool TryPeekNextPostJob(
+        int startJobIndex,
+        int endJobIndex,
+        int initialBatchIndex,
+        int initialJobIndex,
+        out Job<Actor> nextJob)
+    {
+        int candidateBatchIndex = initialBatchIndex;
+        int candidateJobIndex = Math.Max(initialJobIndex, startJobIndex);
+        while (candidateBatchIndex < batches.Count)
+        {
+            List<Job<Actor>> jobs = batches[candidateBatchIndex].jobs_post;
+            int end = Math.Min(endJobIndex, jobs.Count);
+            if (candidateJobIndex < end)
+            {
+                nextJob = jobs[candidateJobIndex];
+                return true;
+            }
+
+            candidateBatchIndex++;
+            candidateJobIndex = startJobIndex;
+        }
+
+        nextJob = null;
+        return false;
+    }
+
     private void ResetCycleReferences()
     {
         for (int i = 0; i < workCount; i++)
@@ -463,9 +609,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         workCount = 0;
         workIndex = 0;
         batchIndex = 0;
+        postJobIndex = 0;
         aggressionCandidates.Clear();
         batches = null;
-        parallelOptions = null;
+        splitPostJobs = false;
+        searchTicket = default;
+        searchScheduleStartedAt = 0L;
+        searchScheduleCompletedAt = 0L;
     }
 
     private static int FindEnemySearchJobIndex(List<Job<Actor>> jobs)
@@ -500,6 +650,57 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         double seconds = (Stopwatch.GetTimestamp() - startedAt) / (double)Stopwatch.Frequency;
         SimulationTickBenchmark.RecordActorJobMetric(id, seconds, counter);
+    }
+
+    private void RecordSearchBenchmark(
+        SimulationWorkerPool.WorkResult result,
+        long waitStartedAt,
+        long waitCompletedAt)
+    {
+        if (!SimulationTickBenchmark.IsCapturing)
+        {
+            return;
+        }
+
+        long mainThreadOverlap =
+            CalculateOverlap(
+                result.StartedAt,
+                result.CompletedAt,
+                searchScheduleStartedAt,
+                searchScheduleCompletedAt) +
+            CalculateOverlap(
+                result.StartedAt,
+                result.CompletedAt,
+                waitStartedAt,
+                waitCompletedAt);
+        double backgroundSeconds = Math.Max(
+            0L,
+            result.WallTicks - mainThreadOverlap) /
+            (double)Stopwatch.Frequency;
+        SimulationTickBenchmark.RecordActorBackgroundMetric(
+            "b3_findEnemyTarget.search_parallel",
+            "vanilla.actors.post.b3.search.background",
+            result.WallSeconds,
+            backgroundSeconds,
+            result.ExecutedItems);
+    }
+
+    private static long CalculateOverlap(
+        long startedAt,
+        long completedAt,
+        long rangeStartedAt,
+        long rangeCompletedAt)
+    {
+        if (rangeStartedAt == 0L ||
+            rangeCompletedAt <= rangeStartedAt ||
+            completedAt <= startedAt)
+        {
+            return 0L;
+        }
+
+        long overlapStart = Math.Max(startedAt, rangeStartedAt);
+        long overlapEnd = Math.Min(completedAt, rangeCompletedAt);
+        return Math.Max(0L, overlapEnd - overlapStart);
     }
 
     private sealed class SearchWorkItem

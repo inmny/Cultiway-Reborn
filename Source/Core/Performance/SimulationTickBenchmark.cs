@@ -293,6 +293,37 @@ internal static class SimulationTickBenchmark
             counter);
     }
 
+    internal static void RecordActorBackgroundMetric(
+        string id,
+        string phase,
+        double workerSeconds,
+        double backgroundSeconds,
+        long counter)
+    {
+        TickCapture capture = current;
+        if (capture == null || capture.Cancelled || !Bench.bench_enabled)
+        {
+            return;
+        }
+
+        workerSeconds = Math.Max(0.0, workerSeconds);
+        backgroundSeconds = Math.Max(0.0, backgroundSeconds);
+        capture.TotalSeconds += backgroundSeconds;
+        capture.VanillaSeconds += backgroundSeconds;
+        capture.ActorsSeconds += backgroundSeconds;
+        if (backgroundSeconds > 0.0)
+        {
+            AddMetric(
+                capture.Phases,
+                NormalizePhase(phase),
+                backgroundSeconds,
+                1L);
+        }
+
+        AddMetric(capture.ActorJobs, id, workerSeconds, counter);
+        AddMetric(capture.ActorPostJobs, id, workerSeconds, counter);
+    }
+
     internal static void RecordDirtyManagerMetric(
         string id,
         double seconds)

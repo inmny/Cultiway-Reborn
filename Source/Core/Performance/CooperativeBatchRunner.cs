@@ -29,7 +29,6 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
     private int parallelJobIndex;
     private bool parallelEnabled;
     private int parallelGroupSize;
-    private ParallelOptions parallelOptions;
     private bool collectJobBenchmarks;
     private bool useCustomPostRunner;
 
@@ -43,6 +42,13 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
     }
 
     public bool Active => stage != RunnerStage.Idle;
+    public bool WaitingForBackgroundWork =>
+        stage == RunnerStage.Post &&
+        useCustomPostRunner &&
+        postRunner.WaitingForBackgroundWork;
+    public bool IsBackgroundWorkCompleted =>
+        WaitingForBackgroundWork &&
+        postRunner.IsBackgroundWorkCompleted;
 
     public void Start(
         JobManagerBase<TBatch, TObject> jobManager,
@@ -57,9 +63,8 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         parallelGroupSize = parallelEnabled
             ? Math.Max(1, PerformanceSettings.ForegroundParallelism * 4)
             : 1;
-        parallelOptions = cycleParallelOptions;
         useCustomPostRunner = parallelEnabled && postRunner != null;
-        if (parallelEnabled && parallelOptions == null)
+        if (parallelEnabled && cycleParallelOptions == null)
         {
             throw new InvalidOperationException("并行批处理缺少 ParallelOptions");
         }
@@ -186,7 +191,7 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
                     stage = RunnerStage.Post;
                     if (useCustomPostRunner)
                     {
-                        postRunner.Start(batches, elapsed, parallelOptions);
+                        postRunner.Start(batches, elapsed);
                     }
 
                     return false;
@@ -210,7 +215,6 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
 
                     batches.Clear();
                     manager = null;
-                    parallelOptions = null;
                     parallelEnabled = false;
                     parallelGroupSize = 0;
                     collectJobBenchmarks = false;
@@ -228,7 +232,6 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         batches.Clear();
         postRunner?.Abort();
         manager = null;
-        parallelOptions = null;
         parallelEnabled = false;
         parallelGroupSize = 0;
         collectJobBenchmarks = false;
@@ -236,6 +239,14 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         stage = RunnerStage.Idle;
         batchIndex = 0;
         parallelJobIndex = 0;
+    }
+
+    public void WaitForBackgroundWork()
+    {
+        if (WaitingForBackgroundWork)
+        {
+            postRunner.WaitForBackgroundWork();
+        }
     }
 
     private bool TryRunNextMainThreadBatch(RunnerStage jobStage)
@@ -283,10 +294,11 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
 
             if (groupSize > 1)
             {
-                Parallel.For(
+                // 同一 job 的 batch 由长驻 worker 动态领取；返回后才进入下一 job，
+                // 因而保留原版 job 顺序与跨 job 屏障。
+                SimulationWorkerPool.Instance.RunIndexed(
                     startIndex,
                     endIndex,
-                    parallelOptions,
                     runCurrentParallelJob);
             }
             else

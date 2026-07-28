@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace Cultiway.Core.Performance;
 
@@ -8,10 +7,15 @@ internal interface ICooperativeBatchPostRunner<TBatch, TObject>
 {
     void Start(
         List<TBatch> activeBatches,
-        float elapsed,
-        ParallelOptions parallelOptions);
+        float elapsed);
 
     string GetNextPhaseName(string phasePrefix);
+
+    bool WaitingForBackgroundWork { get; }
+
+    bool IsBackgroundWorkCompleted { get; }
+
+    void WaitForBackgroundWork();
 
     bool Step();
 
