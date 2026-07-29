@@ -490,7 +490,20 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
                     StringComparison.Ordinal)
                     ? Stopwatch.GetTimestamp()
                     : 0L;
-            if (activeParallelBatchCount > 1)
+            bool handledAsGroup =
+                activeParallelBatchCount > 0 &&
+                parallelJobRunner != null &&
+                parallelJobRunner.TryRunGroup(
+                    batches,
+                    parallelJobIndex,
+                    activeParallelBatchIndices,
+                    activeParallelBatchCount,
+                    elapsed);
+            if (handledAsGroup)
+            {
+                // 自定义 runner 已经完成整个 job，并在返回前建立屏障。
+            }
+            else if (activeParallelBatchCount > 1)
             {
                 // 同一 job 的 batch 由长驻 worker 动态领取；返回后才进入下一 job，
                 // 因而保留原版 job 顺序与跨 job 屏障。

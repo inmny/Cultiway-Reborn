@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using Cultiway.Const;
@@ -17,6 +18,18 @@ internal sealed class CooperativeActorParallelJobRunner :
     private const string PrepareJobId = "prepare";
     private const string UpdateTimersJobId = "update_timers";
     private const string UpdateVisibilityJobId = "update_visibility";
+    private const int TimerRangeSize = 128;
+
+    private readonly Action<int> runTimerRangeAction;
+    private TimerRange[] timerRanges =
+        Array.Empty<TimerRange>();
+    private TimerRangeMetrics[] timerRangeMetrics =
+        Array.Empty<TimerRangeMetrics>();
+    private float activeTimerElapsed;
+    private float activeTimerDeltaTime;
+    private float activeTimerTimeScaleMultiplier;
+    private bool activeTimerPaused;
+    private bool collectTimerDiagnostics;
 
     private static int lastVisibilityFrame = -1;
     private static long timerJobBatches;
@@ -30,6 +43,11 @@ internal sealed class CooperativeActorParallelJobRunner :
     private static long visibilityJobsSkipped;
     private static long visibilityFrames;
     private static long visibilityActors;
+
+    internal CooperativeActorParallelJobRunner()
+    {
+        runTimerRangeAction = RunTimerRange;
+    }
 
     public bool TrySkipAllBatches(
         Job<Actor> job,
@@ -65,22 +83,132 @@ internal sealed class CooperativeActorParallelJobRunner :
         return true;
     }
 
+    public bool TryRunGroup(
+        IReadOnlyList<BatchActors> batches,
+        int jobIndex,
+        int[] activeBatchIndices,
+        int activeBatchCount,
+        float elapsed)
+    {
+        if (activeBatchCount == 0 ||
+            !batches[activeBatchIndices[0]]
+                .jobs_parallel[jobIndex]
+                .id
+                .Equals(
+                    UpdateTimersJobId,
+                    StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        int rangeCount = 0;
+        int actorCount = 0;
+        EnsureTimerRangeCapacity(
+            activeBatchCount * 2);
+        for (int i = 0;
+             i < activeBatchCount;
+             i++)
+        {
+            BatchActors batch =
+                batches[
+                    activeBatchIndices[i]];
+            ObjectContainer<Actor> container =
+                batch.jobs_parallel[
+                        jobIndex]
+                    .container;
+            if (container.Count <= 0 &&
+                !container.isDirtyContainer())
+            {
+                batch._array =
+                    Array.Empty<Actor>();
+                batch._count = 0;
+                continue;
+            }
+
+            container.checkAddRemove();
+            Actor[] actors =
+                container.getFastSimpleArray() ??
+                Array.Empty<Actor>();
+            int count = container.Count;
+            batch._array = actors;
+            batch._count = count;
+            actorCount += count;
+            int batchRangeCount =
+                (count + TimerRangeSize - 1) /
+                TimerRangeSize;
+            EnsureTimerRangeCapacity(
+                rangeCount +
+                batchRangeCount);
+            for (int start = 0;
+                 start < count;
+                 start += TimerRangeSize)
+            {
+                timerRanges[rangeCount++] =
+                    new TimerRange(
+                        actors,
+                        start,
+                        Math.Min(
+                            count,
+                            start +
+                            TimerRangeSize));
+            }
+        }
+
+        activeTimerElapsed = elapsed;
+        activeTimerDeltaTime =
+            PerformanceSettings
+                .FixedSimulationStepSeconds;
+        activeTimerTimeScaleMultiplier =
+            Math.Max(
+                0f,
+                elapsed /
+                PerformanceSettings
+                    .FixedSimulationStepSeconds);
+        activeTimerPaused =
+            World.world.isPaused();
+        collectTimerDiagnostics =
+            Bench.bench_enabled;
+        if (collectTimerDiagnostics)
+        {
+            Array.Clear(
+                timerRangeMetrics,
+                0,
+                rangeCount);
+        }
+
+        try
+        {
+            SimulationWorkerPool.Instance
+                .RunIndexed(
+                    0,
+                    rangeCount,
+                    runTimerRangeAction);
+            if (collectTimerDiagnostics)
+            {
+                CommitTimerDiagnostics(
+                    activeBatchCount,
+                    actorCount,
+                    rangeCount);
+            }
+        }
+        finally
+        {
+            activeTimerElapsed = 0f;
+            activeTimerDeltaTime = 0f;
+            activeTimerTimeScaleMultiplier =
+                0f;
+            activeTimerPaused = false;
+            collectTimerDiagnostics = false;
+        }
+
+        return true;
+    }
+
     public bool TryRun(
         BatchActors batch,
         Job<Actor> job,
         float elapsed)
     {
-        if (job.id.Equals(
-                UpdateTimersJobId,
-                StringComparison.Ordinal))
-        {
-            RunUpdateTimers(
-                batch,
-                job.container,
-                elapsed);
-            return true;
-        }
-
         return false;
     }
 
@@ -168,54 +296,24 @@ internal sealed class CooperativeActorParallelJobRunner :
             Interlocked.Read(ref visibilityActors));
     }
 
-    private static void RunUpdateTimers(
-        BatchActors batch,
-        ObjectContainer<Actor> container,
-        float elapsed)
+    private void RunTimerRange(
+        int rangeIndex)
     {
-        if (container.Count <= 0 &&
-            !container.isDirtyContainer())
+        TimerRange range =
+            timerRanges[rangeIndex];
+        TimerRangeMetrics metrics = default;
+        for (int i = range.Start;
+             i < range.End;
+             i++)
         {
-            return;
-        }
-
-        container.checkAddRemove();
-        Actor[] actors =
-            container.getFastSimpleArray();
-        int count = container.Count;
-        batch._array = actors;
-        batch._count = count;
-
-        MapBox world = World.world;
-        bool paused = world.isPaused();
-        // 该阶段可能与主线程表现阶段重叠，不能读取正在变化的渲染帧时间。
-        // elapsed 由本轮逻辑 tick 固定下来：固定步模式为 0.02 秒，
-        // 原版大步模式为 0.02 秒乘当前倍率。
-        float deltaTime =
-            PerformanceSettings.FixedSimulationStepSeconds;
-        float timeScaleMultiplier =
-            Math.Max(
-                0f,
-                elapsed /
-                PerformanceSettings.FixedSimulationStepSeconds);
-        bool collectDiagnostics =
-            Bench.bench_enabled;
-        int tileRefreshCount = 0;
-        int fallCount = 0;
-        int flipCount = 0;
-        int rotationCount = 0;
-        int jumpCount = 0;
-        int speedCount = 0;
-
-        for (int i = 0; i < count; i++)
-        {
-            Actor actor = actors[i];
+            Actor actor = range.Actors[i];
             actor._update_done = false;
             actor._beh_skip = false;
 
             if (actor.timer_jump_animation > 0f)
             {
-                actor.timer_jump_animation -= elapsed;
+                actor.timer_jump_animation -=
+                    activeTimerElapsed;
             }
 
             if (actor.dirty_current_tile ||
@@ -225,7 +323,7 @@ internal sealed class CooperativeActorParallelJobRunner :
                      actor._next_step_tile) > 4f))
             {
                 actor.findCurrentTile();
-                tileRefreshCount++;
+                metrics.TileRefreshes++;
             }
 
             bool alive = actor.isAlive();
@@ -239,13 +337,14 @@ internal sealed class CooperativeActorParallelJobRunner :
                 alive &&
                 actor.isFlying() &&
                 actor.data.hasFlag(
-                    ContentActorDataKeys.IsFlying_flag);
+                    ContentActorDataKeys
+                        .IsFlying_flag);
             if (cultiwayFlying ||
                 (actor.asset.update_z &&
                  actor.position_height != 0f))
             {
                 actor.updateFall();
-                fallCount++;
+                metrics.FallUpdates++;
             }
 
             if (actor.attackedBy != null &&
@@ -261,22 +360,23 @@ internal sealed class CooperativeActorParallelJobRunner :
 
             if (NeedsFlipUpdate(actor))
             {
-                actor.updateFlipRotation(elapsed);
-                flipCount++;
+                actor.updateFlipRotation(
+                    activeTimerElapsed);
+                metrics.FlipUpdates++;
             }
 
             if (actor.under_forces)
             {
                 for (int forceStep = 0;
                      (float)forceStep <
-                     timeScaleMultiplier;
+                     activeTimerTimeScaleMultiplier;
                      forceStep++)
                 {
                     actor.updateVelocity();
                 }
             }
 
-            if (paused || !alive)
+            if (activeTimerPaused || !alive)
             {
                 continue;
             }
@@ -285,69 +385,117 @@ internal sealed class CooperativeActorParallelJobRunner :
                 actor.is_unconscious ||
                 actor.target_angle.z != 0f)
             {
-                actor.updateRotations(elapsed);
-                rotationCount++;
+                actor.updateRotations(
+                    activeTimerElapsed);
+                metrics.RotationUpdates++;
             }
 
             if (actor.attack_timer >= 0f)
             {
-                actor.attack_timer -= elapsed;
+                actor.attack_timer -=
+                    activeTimerElapsed;
             }
 
             if (MayUpdateWalkJump(actor))
             {
-                actor.updateWalkJump(deltaTime);
-                jumpCount++;
+                actor.updateWalkJump(
+                    activeTimerDeltaTime);
+                metrics.WalkJumpUpdates++;
             }
 
             if (actor._timeout_targets >= 0f)
             {
-                actor._timeout_targets -= deltaTime;
+                actor._timeout_targets -=
+                    activeTimerDeltaTime;
             }
 
             if (actor.timer_action >= 0f)
             {
-                actor.timer_action -= elapsed;
+                actor.timer_action -=
+                    activeTimerElapsed;
             }
 
             if (actor.isAllowedToLookForEnemies())
             {
-                actor.targets_to_ignore_timer.update(elapsed);
+                actor.targets_to_ignore_timer
+                    .update(activeTimerElapsed);
             }
 
-            if (actor.actor_scale != actor.target_scale)
+            if (actor.actor_scale !=
+                actor.target_scale)
             {
-                actor.updateChangeScale(elapsed);
+                actor.updateChangeScale(
+                    activeTimerElapsed);
             }
 
             if (!actor.is_immovable &&
                 actor.is_moving)
             {
-                if (actor._precalc_movement_speed_skips > 0)
+                if (actor
+                        ._precalc_movement_speed_skips >
+                    0)
                 {
-                    actor._precalc_movement_speed_skips--;
+                    actor
+                        ._precalc_movement_speed_skips--;
                 }
                 else
                 {
                     actor.precalcMovementSpeed();
                 }
 
-                speedCount++;
+                metrics.MovementSpeedUpdates++;
             }
         }
 
-        if (!collectDiagnostics)
+        if (collectTimerDiagnostics)
         {
-            return;
+            timerRangeMetrics[rangeIndex] =
+                metrics;
+        }
+    }
+
+    private void CommitTimerDiagnostics(
+        int batchCount,
+        int actorCount,
+        int rangeCount)
+    {
+        long tileRefreshCount = 0L;
+        long fallCount = 0L;
+        long flipCount = 0L;
+        long rotationCount = 0L;
+        long jumpCount = 0L;
+        long speedCount = 0L;
+        for (int i = 0; i < rangeCount; i++)
+        {
+            TimerRangeMetrics metrics =
+                timerRangeMetrics[i];
+            tileRefreshCount +=
+                metrics.TileRefreshes;
+            fallCount += metrics.FallUpdates;
+            flipCount += metrics.FlipUpdates;
+            rotationCount +=
+                metrics.RotationUpdates;
+            jumpCount +=
+                metrics.WalkJumpUpdates;
+            speedCount +=
+                metrics.MovementSpeedUpdates;
         }
 
-        Interlocked.Increment(ref timerJobBatches);
-        Interlocked.Add(ref timerActors, count);
+        Interlocked.Add(
+            ref timerJobBatches,
+            batchCount);
+        Interlocked.Add(
+            ref timerActors,
+            actorCount);
         Interlocked.Add(
             ref currentTileRefreshes,
             tileRefreshCount);
-        Interlocked.Add(ref fallUpdates, fallCount);
-        Interlocked.Add(ref flipUpdates, flipCount);
+        Interlocked.Add(
+            ref fallUpdates,
+            fallCount);
+        Interlocked.Add(
+            ref flipUpdates,
+            flipCount);
         Interlocked.Add(
             ref rotationUpdates,
             rotationCount);
@@ -357,6 +505,26 @@ internal sealed class CooperativeActorParallelJobRunner :
         Interlocked.Add(
             ref movementSpeedUpdates,
             speedCount);
+    }
+
+    private void EnsureTimerRangeCapacity(
+        int capacity)
+    {
+        if (timerRanges.Length >= capacity)
+        {
+            return;
+        }
+
+        int nextCapacity = Math.Max(
+            PerformanceSettings
+                .SimulationBatchSize,
+            capacity);
+        Array.Resize(
+            ref timerRanges,
+            nextCapacity);
+        Array.Resize(
+            ref timerRangeMetrics,
+            nextCapacity);
     }
 
     private static bool NeedsFlipUpdate(Actor actor)
@@ -386,5 +554,32 @@ internal sealed class CooperativeActorParallelJobRunner :
         return actor.is_moving ||
                actor.move_jump_offset.y != 0f ||
                actor._jump_time != 0f;
+    }
+
+    private readonly struct TimerRange
+    {
+        internal TimerRange(
+            Actor[] actors,
+            int start,
+            int end)
+        {
+            Actors = actors;
+            Start = start;
+            End = end;
+        }
+
+        internal Actor[] Actors { get; }
+        internal int Start { get; }
+        internal int End { get; }
+    }
+
+    private struct TimerRangeMetrics
+    {
+        internal int TileRefreshes;
+        internal int FallUpdates;
+        internal int FlipUpdates;
+        internal int RotationUpdates;
+        internal int WalkJumpUpdates;
+        internal int MovementSpeedUpdates;
     }
 }
