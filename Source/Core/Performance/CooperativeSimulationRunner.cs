@@ -1149,7 +1149,9 @@ internal sealed class CooperativeSimulationRunner
                 Advance(SimulationStage.StackEffects);
                 break;
             case SimulationStage.StackEffects:
-                world.stack_effects.update(cycleElapsed);
+                ActiveStackEffectsUpdater.Update(
+                    world.stack_effects,
+                    cycleElapsed);
                 Advance(SimulationStage.ResourceThrows);
                 break;
             case SimulationStage.ResourceThrows:

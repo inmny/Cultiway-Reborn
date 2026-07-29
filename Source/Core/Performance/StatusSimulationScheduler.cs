@@ -65,9 +65,17 @@ internal static class StatusSimulationScheduler
     }
 
     private const long Never = long.MaxValue;
+    private const int TimingWheelSize = 4096;
+    private const int TimingWheelMask =
+        TimingWheelSize - 1;
 
     private static readonly ConcurrentQueue<Mutation> mutations = new();
     private static readonly Dictionary<Status, Entry> entries = new();
+    private static readonly List<HeapNode>[] timingWheel =
+        new List<HeapNode>[TimingWheelSize];
+    private static readonly Stack<List<HeapNode>> timingWheelListPool =
+        new();
+    // 这里只保存本 tick 已到期的节点，远期节点位于 timingWheel。
     private static readonly List<HeapNode> heap = new();
     private static readonly List<Entry> removals = new();
     private static readonly Comparison<Entry> reverseOrderComparison =
@@ -87,6 +95,10 @@ internal static class StatusSimulationScheduler
     private static long rebuilds;
     private static long listSyncs;
     private static long listSyncSkips;
+    private static long timingWheelNodes;
+    private static long timingWheelVisits;
+    private static long timingWheelDeferred;
+    private static long processingTick = Never;
 
     internal static bool Enabled =>
         PerformanceSettings.EnableFramePriorityScheduler &&
@@ -116,6 +128,8 @@ internal static class StatusSimulationScheduler
         long currentTick = ++updateTick;
         float worldTime =
             (float)World.world.getCurWorldTime();
+        processingTick = currentTick;
+        PrepareDueNodes(currentTick);
         DrainMutations(
             currentTick,
             long.MinValue,
@@ -218,6 +232,7 @@ internal static class StatusSimulationScheduler
             currentTick,
             long.MaxValue,
             worldTime);
+        processingTick = Never;
         RemoveFinished(statusManager);
         updates++;
         return true;
@@ -283,11 +298,13 @@ internal static class StatusSimulationScheduler
     {
         return string.Format(
             CultureInfo.InvariantCulture,
-            "active={0} statuses={1} heap={2} mutations={3} " +
+            "active={0} statuses={1} scheduled={2} mutations={3} " +
             "updates={4} due={5} actions={6} expirations={7} removed={8} " +
-            "stale={9} rebuilds={10} list_sync={11}/{12}(run/skip)",
+            "stale={9} rebuilds={10} list_sync={11}/{12}(run/skip) " +
+            "wheel={13}/{14}(visit/defer)",
             manager != null,
             entries.Count,
+            Interlocked.Read(ref timingWheelNodes) +
             heap.Count,
             mutations.Count,
             Interlocked.Read(ref updates),
@@ -298,7 +315,9 @@ internal static class StatusSimulationScheduler
             Interlocked.Read(ref staleHeapNodes),
             Interlocked.Read(ref rebuilds),
             Interlocked.Read(ref listSyncs),
-            Interlocked.Read(ref listSyncSkips));
+            Interlocked.Read(ref listSyncSkips),
+            Interlocked.Read(ref timingWheelVisits),
+            Interlocked.Read(ref timingWheelDeferred));
     }
 
     private static void Enqueue(
@@ -367,6 +386,22 @@ internal static class StatusSimulationScheduler
 
         entries.Clear();
         heap.Clear();
+        for (int i = 0;
+             i < timingWheel.Length;
+             i++)
+        {
+            List<HeapNode> bucket =
+                timingWheel[i];
+            if (bucket == null)
+            {
+                continue;
+            }
+
+            bucket.Clear();
+            timingWheel[i] = null;
+        }
+
+        timingWheelListPool.Clear();
         removals.Clear();
         while (mutations.TryDequeue(out _))
         {
@@ -377,6 +412,8 @@ internal static class StatusSimulationScheduler
         updateTick = 0L;
         nextOrder = 0L;
         lastListSyncFrame = -1;
+        timingWheelNodes = 0L;
+        processingTick = Never;
     }
 
     private static void Register(
@@ -621,7 +658,75 @@ internal static class StatusSimulationScheduler
             return;
         }
 
-        Push(new HeapNode(entry, dueTick));
+        var node = new HeapNode(
+            entry,
+            dueTick);
+        if (processingTick != Never &&
+            dueTick <= processingTick)
+        {
+            Push(node);
+            return;
+        }
+
+        AddToTimingWheel(node);
+    }
+
+    private static void PrepareDueNodes(
+        long currentTick)
+    {
+        int bucketIndex =
+            (int)(currentTick &
+                  TimingWheelMask);
+        List<HeapNode> bucket =
+            timingWheel[bucketIndex];
+        if (bucket == null)
+        {
+            return;
+        }
+
+        timingWheel[bucketIndex] = null;
+        timingWheelNodes -= bucket.Count;
+        for (int i = 0;
+             i < bucket.Count;
+             i++)
+        {
+            HeapNode node = bucket[i];
+            timingWheelVisits++;
+            if (node.DueTick <= currentTick)
+            {
+                Push(node);
+            }
+            else
+            {
+                AddToTimingWheel(node);
+                timingWheelDeferred++;
+            }
+        }
+
+        bucket.Clear();
+        timingWheelListPool.Push(bucket);
+    }
+
+    private static void AddToTimingWheel(
+        HeapNode node)
+    {
+        int bucketIndex =
+            (int)(node.DueTick &
+                  TimingWheelMask);
+        List<HeapNode> bucket =
+            timingWheel[bucketIndex];
+        if (bucket == null)
+        {
+            bucket =
+                timingWheelListPool.Count > 0
+                    ? timingWheelListPool.Pop()
+                    : new List<HeapNode>(4);
+            timingWheel[bucketIndex] =
+                bucket;
+        }
+
+        bucket.Add(node);
+        timingWheelNodes++;
     }
 
     private static void QueueRemoval(Entry entry)
