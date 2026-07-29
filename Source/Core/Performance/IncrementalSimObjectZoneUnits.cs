@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Cultiway.Const;
+using Cultiway.Utils;
 using HarmonyLib;
 
 namespace Cultiway.Core.Performance;
@@ -9,7 +10,7 @@ namespace Cultiway.Core.Performance;
 /// <summary>
 /// 在完整重建得到稳定基线后，仅维护发生变化的角色空间成员关系。
 /// 容器结构变化时退回完整重建；建筑按脏 chunk 更新，
-/// 岛屿角色表则保持原版每轮完整重建的语义。
+/// 岛屿角色表在拓扑稳定时按角色脏标记更新。
 /// </summary>
 internal static class IncrementalSimObjectZoneUnits
 {
@@ -25,6 +26,8 @@ internal static class IncrementalSimObjectZoneUnits
 
     private static readonly Dictionary<Actor, int>
         ActorRanks = new();
+    private static readonly Dictionary<TileIsland, int>
+        IslandRanks = new();
     private static readonly SortedSet<int>
         CityMembershipActorRanks = new();
     private static readonly HashSet<WorldTile>
@@ -38,23 +41,36 @@ internal static class IncrementalSimObjectZoneUnits
         Array.Empty<List<Actor>>();
     private static WorldTile[] committedTiles =
         Array.Empty<WorldTile>();
+    private static TileIsland[] committedIslands =
+        Array.Empty<TileIsland>();
+    private static long[] committedKingdomIds =
+        Array.Empty<long>();
     private static byte[] committedAlive =
         Array.Empty<byte>();
     private static byte[] cityMembershipFlags =
         Array.Empty<byte>();
     private static int[] dirtyChunkMarks =
         Array.Empty<int>();
+    private static int[] islandValidationCursors =
+        Array.Empty<int>();
+    private static TileIsland[] preparedIslandSequence =
+        Array.Empty<TileIsland>();
     private static List<Actor> preparedSource;
     private static MapChunk[] preparedChunks;
     private static List<WorldTile> preparedTilesToClear;
+    private static ListPool<TileIsland> preparedIslands;
     private static int preparedGeneration = -1;
     private static int preparedStructuralVersion = -1;
     private static int dirtyChunkMark;
+    private static int committedAliveCount;
+    private static int islandValidationCounter;
     private static bool ready;
     private static long attempts;
     private static long handled;
     private static long fullRebuilds;
     private static long islandRebuilds;
+    private static long islandIncrementalPasses;
+    private static long islandMembershipChanges;
     private static long rejectedDisabled;
     private static long rejectedNotReady;
     private static long rejectedBuildings;
@@ -74,10 +90,19 @@ internal static class IncrementalSimObjectZoneUnits
         ActorRanks.Clear();
         CityMembershipActorRanks.Clear();
         TrackedTiles.Clear();
+        committedAliveCount = 0;
         Array.Clear(
             committedTiles,
             0,
             committedTiles.Length);
+        Array.Clear(
+            committedIslands,
+            0,
+            committedIslands.Length);
+        Array.Clear(
+            committedKingdomIds,
+            0,
+            committedKingdomIds.Length);
         Array.Clear(
             committedAlive,
             0,
@@ -105,6 +130,11 @@ internal static class IncrementalSimObjectZoneUnits
             WorldTile tile = actor.current_tile;
             committedAlive[i] = 1;
             committedTiles[i] = tile;
+            committedIslands[i] =
+                tile.region.island;
+            committedKingdomIds[i] =
+                actor.kingdom.id;
+            committedAliveCount++;
             actorsByChunk[tile.chunk.id].Add(actor);
             if (ParallelSimObjectZoneUnits
                 .ShouldQueueCityMembership(actor))
@@ -118,6 +148,7 @@ internal static class IncrementalSimObjectZoneUnits
         preparedSource = source;
         preparedChunks = chunks;
         preparedTilesToClear = tilesToClear;
+        CaptureIslandTopology();
         preparedGeneration = SimulationTime.Generation;
         preparedStructuralVersion =
             ActorMetaPartitionVersion
@@ -125,6 +156,7 @@ internal static class IncrementalSimObjectZoneUnits
                     World.world.units.version);
         DirtyActors.Clear();
         DirtyChunks.Clear();
+        islandValidationCounter = 0;
         fullRebuilds++;
         ready = true;
     }
@@ -234,7 +266,10 @@ internal static class IncrementalSimObjectZoneUnits
         }
 
         DirtyActors.Sort(CompareDirtyActors);
-        ValidateDirtyActors();
+        bool islandMembershipCurrent =
+            IsPreparedIslandMembershipCurrent();
+        ValidateDirtyActors(
+            islandMembershipCurrent);
 
         if (benchmark)
         {
@@ -243,11 +278,23 @@ internal static class IncrementalSimObjectZoneUnits
                 "sim_zones");
         }
 
-        // 原版每次 recalc 都会完整重建岛屿角色表。
-        // 岛屿对象可能在角色没有移动时被原版拓扑流程替换，
-        // 因而不能只依赖角色脏标记维护这层成员关系。
-        RebuildIslandMembership();
-        islandRebuilds++;
+        int islandChanges;
+        if (islandMembershipCurrent)
+        {
+            islandChanges =
+                ApplyIslandMembershipChanges();
+            islandIncrementalPasses++;
+            islandMembershipChanges +=
+                islandChanges;
+        }
+        else
+        {
+            RebuildIslandMembership();
+            CaptureIslandMembership();
+            islandRebuilds++;
+            islandChanges =
+                committedAliveCount;
+        }
 
         if (benchmark)
         {
@@ -255,7 +302,7 @@ internal static class IncrementalSimObjectZoneUnits
                 "checkUnits.incremental_islands",
                 "sim_zones",
                 pSaveCounter: true,
-                dirtyCount);
+                islandChanges);
             Bench.bench(
                 "checkUnits.incremental_membership",
                 "sim_zones");
@@ -264,11 +311,6 @@ internal static class IncrementalSimObjectZoneUnits
         bool chunkMembershipChanged =
             ApplyUnitMembershipChanges(
                 tilesToClear);
-        if (buildingsDirty)
-        {
-            MarkDirtyBuildingChunks(
-                dirtyBuildingChunks);
-        }
 
         if (benchmark)
         {
@@ -282,7 +324,11 @@ internal static class IncrementalSimObjectZoneUnits
                 "sim_zones");
         }
 
-        RebuildDirtyChunks();
+        if (buildingsDirty)
+        {
+            RebuildDirtyBuildingChunks(
+                dirtyBuildingChunks);
+        }
 
         if (benchmark)
         {
@@ -346,6 +392,7 @@ internal static class IncrementalSimObjectZoneUnits
 
         DirtyActors.Clear();
         DirtyChunks.Clear();
+        ValidateIslandMembershipSampled();
         handled++;
         return true;
     }
@@ -354,13 +401,16 @@ internal static class IncrementalSimObjectZoneUnits
     {
         return string.Format(
             CultureInfo.InvariantCulture,
-            "attempts={0} handled={1} full={2} islands={3} " +
-            "reject=disabled:{4},not_ready:{5},buildings:{6}," +
-            "world:{7},tiles:{8},disposed:{9}",
+            "attempts={0} handled={1} full={2} " +
+            "islands={3}/{4}/{5}(full/incremental/changes) " +
+            "reject=disabled:{6},not_ready:{7},buildings:{8}," +
+            "world:{9},tiles:{10},disposed:{11}",
             attempts,
             handled,
             fullRebuilds,
             islandRebuilds,
+            islandIncrementalPasses,
+            islandMembershipChanges,
             rejectedDisabled,
             rejectedNotReady,
             rejectedBuildings,
@@ -375,6 +425,7 @@ internal static class IncrementalSimObjectZoneUnits
         preparedSource = null;
         preparedChunks = null;
         preparedTilesToClear = null;
+        preparedIslands = null;
         DirtyActors.Clear();
         DirtyChunks.Clear();
     }
@@ -444,7 +495,8 @@ internal static class IncrementalSimObjectZoneUnits
                        world.units.version);
     }
 
-    private static void ValidateDirtyActors()
+    private static void ValidateDirtyActors(
+        bool islandMembershipCurrent)
     {
         for (int i = 0; i < DirtyActors.Count; i++)
         {
@@ -507,6 +559,23 @@ internal static class IncrementalSimObjectZoneUnits
                 throw new InvalidOperationException(
                     "chunk 角色成员表与增量基线不一致");
             }
+
+            TileIsland oldIsland =
+                committedIslands[actorRank];
+            TileIsland newIsland =
+                newAlive
+                    ? newTile.region.island
+                    : null;
+            if (islandMembershipCurrent &&
+                !ReferenceEquals(
+                    oldIsland,
+                    newIsland) &&
+                (oldIsland == null ||
+                 !oldIsland.actors.Contains(actor)))
+            {
+                throw new InvalidOperationException(
+                    "island 角色成员表与增量基线不一致");
+            }
         }
     }
 
@@ -514,6 +583,301 @@ internal static class IncrementalSimObjectZoneUnits
     {
         ParallelIslandActorMembership
             .Rebuild(preparedSource);
+    }
+
+    private static bool
+        IsPreparedIslandMembershipCurrent()
+    {
+        ListPool<TileIsland> islands =
+            World.world.islands_calculator.islands;
+        if (preparedIslandSequence.Length !=
+            islands.Count)
+        {
+            return false;
+        }
+
+        int actorCount = 0;
+        for (int i = 0; i < islands.Count; i++)
+        {
+            TileIsland island = islands[i];
+            if (!ReferenceEquals(
+                    preparedIslandSequence[i],
+                    island))
+            {
+                return false;
+            }
+
+            actorCount += island.actors.Count;
+        }
+
+        if (actorCount != committedAliveCount)
+        {
+            return false;
+        }
+
+        // clearDirty 会替换 ListPool 外壳，即使岛屿对象序列未变。
+        // 成员关系由 TileIsland 持有，只需接纳新的容器引用。
+        preparedIslands = islands;
+        return true;
+    }
+
+    private static void CaptureIslandMembership()
+    {
+        committedAliveCount = 0;
+        Array.Clear(
+            committedIslands,
+            0,
+            committedIslands.Length);
+        for (int i = 0;
+             i < preparedSource.Count;
+             i++)
+        {
+            Actor actor = preparedSource[i];
+            if (!actor.isAlive())
+            {
+                continue;
+            }
+
+            committedIslands[i] =
+                actor.current_tile
+                    .region
+                    .island;
+            committedAliveCount++;
+        }
+
+        CaptureIslandTopology();
+    }
+
+    private static void CaptureIslandTopology()
+    {
+        ListPool<TileIsland> islands =
+            World.world.islands_calculator.islands;
+        if (preparedIslandSequence.Length !=
+            islands.Count)
+        {
+            preparedIslandSequence =
+                new TileIsland[islands.Count];
+        }
+
+        for (int i = 0; i < islands.Count; i++)
+        {
+            preparedIslandSequence[i] =
+                islands[i];
+        }
+
+        preparedIslands = islands;
+    }
+
+    private static int ApplyIslandMembershipChanges()
+    {
+        int changes = 0;
+        for (int i = 0; i < DirtyActors.Count; i++)
+        {
+            Actor actor = DirtyActors[i].Actor;
+            int actorRank = ActorRanks[actor];
+            bool oldAlive =
+                committedAlive[actorRank] != 0;
+            bool newAlive = actor.isAlive();
+            TileIsland oldIsland =
+                committedIslands[actorRank];
+            TileIsland newIsland =
+                newAlive
+                    ? actor.current_tile
+                        .region
+                        .island
+                    : null;
+            if (ReferenceEquals(
+                    oldIsland,
+                    newIsland))
+            {
+                continue;
+            }
+
+            if (oldAlive &&
+                (oldIsland == null ||
+                 !oldIsland.actors.Remove(actor)))
+            {
+                throw new InvalidOperationException(
+                    "无法从旧岛屿成员表移除角色");
+            }
+
+            if (newAlive)
+            {
+                InsertActorAtRank(
+                    newIsland.actors,
+                    actor,
+                    actorRank);
+            }
+
+            if (oldAlive != newAlive)
+            {
+                committedAliveCount +=
+                    newAlive
+                        ? 1
+                        : -1;
+            }
+
+            committedIslands[actorRank] =
+                newIsland;
+            changes++;
+        }
+
+        return changes;
+    }
+
+    private static void
+        ValidateIslandMembershipSampled()
+    {
+        if (!SystemUtils.IsUnderDeveloper())
+        {
+            return;
+        }
+
+        int validationIndex =
+            unchecked(++islandValidationCounter);
+        if (validationIndex <= 0)
+        {
+            islandValidationCounter = 1;
+            validationIndex = 1;
+        }
+
+        if (validationIndex > 32 &&
+            validationIndex % 256 != 0)
+        {
+            return;
+        }
+
+        if (!IsPreparedIslandMembershipCurrent())
+        {
+            throw new InvalidOperationException(
+                "岛屿角色成员容器在增量提交后失效");
+        }
+
+        ListPool<TileIsland> islands =
+            preparedIslands;
+        IslandRanks.Clear();
+        if (islandValidationCursors.Length <
+            islands.Count)
+        {
+            islandValidationCursors =
+                new int[islands.Count];
+        }
+        else
+        {
+            Array.Clear(
+                islandValidationCursors,
+                0,
+                islands.Count);
+        }
+
+        for (int i = 0; i < islands.Count; i++)
+        {
+            IslandRanks.Add(
+                islands[i],
+                i);
+        }
+
+        int aliveCount = 0;
+        for (int actorRank = 0;
+             actorRank < preparedSource.Count;
+             actorRank++)
+        {
+            Actor actor =
+                preparedSource[actorRank];
+            bool alive = actor.isAlive();
+            if ((committedAlive[actorRank] != 0) !=
+                alive)
+            {
+                throw new InvalidOperationException(
+                    "角色存活状态变更未写入空间脏索引");
+            }
+
+            WorldTile tile =
+                alive
+                    ? actor.current_tile
+                    : null;
+            if (!ReferenceEquals(
+                    committedTiles[actorRank],
+                    tile))
+            {
+                throw new InvalidOperationException(
+                    "角色 tile 变更未写入空间脏索引");
+            }
+
+            TileIsland island =
+                alive
+                    ? tile?.region?.island
+                    : null;
+            if (!ReferenceEquals(
+                    committedIslands[actorRank],
+                    island))
+            {
+                throw new InvalidOperationException(
+                    "角色 island 变更未写入空间脏索引");
+            }
+
+            if (!alive)
+            {
+                continue;
+            }
+
+            if (committedKingdomIds[actorRank] !=
+                actor.kingdom.id)
+            {
+                throw new InvalidOperationException(
+                    "角色 kingdom 变更未写入空间脏索引");
+            }
+
+            if (!IslandRanks.TryGetValue(
+                    island,
+                    out int islandRank))
+            {
+                throw new InvalidOperationException(
+                    "活体角色所在岛屿不属于当前拓扑");
+            }
+
+            int cursor =
+                islandValidationCursors[
+                    islandRank]++;
+            List<Actor> islandActors =
+                island.actors;
+            if (cursor >= islandActors.Count ||
+                !ReferenceEquals(
+                    islandActors[cursor],
+                    actor))
+            {
+                throw new InvalidOperationException(
+                    "岛屿角色成员顺序与 World.units 不一致");
+            }
+
+            aliveCount++;
+        }
+
+        for (int i = 0; i < islands.Count; i++)
+        {
+            if (islandValidationCursors[i] !=
+                islands[i].actors.Count)
+            {
+                throw new InvalidOperationException(
+                    "岛屿角色成员数量与 World.units 不一致");
+            }
+        }
+
+        if (aliveCount != committedAliveCount)
+        {
+            throw new InvalidOperationException(
+                "岛屿角色存活计数与增量基线不一致");
+        }
+
+        for (int i = 0;
+             i < preparedChunks.Length;
+             i++)
+        {
+            IncrementalChunkActorMembership
+                .Validate(
+                    preparedChunks[i].objects,
+                    actorsByChunk[i]);
+        }
     }
 
     private static bool ApplyUnitMembershipChanges(
@@ -567,10 +931,26 @@ internal static class IncrementalSimObjectZoneUnits
                 newAlive
                     ? newTile.chunk.id
                     : -1;
+            long oldKingdomId =
+                oldAlive
+                    ? committedKingdomIds[
+                        actorRank]
+                    : 0L;
+            long newKingdomId =
+                newAlive
+                    ? actor.kingdom.id
+                    : 0L;
             if (oldChunkIndex != newChunkIndex)
             {
                 if (oldChunkIndex >= 0)
                 {
+                    IncrementalChunkActorMembership
+                        .Remove(
+                            preparedChunks[
+                                    oldChunkIndex]
+                                .objects,
+                            actor,
+                            oldKingdomId);
                     actorsByChunk[
                             oldChunkIndex]
                         .Remove(actor);
@@ -580,6 +960,15 @@ internal static class IncrementalSimObjectZoneUnits
 
                 if (newChunkIndex >= 0)
                 {
+                    IncrementalChunkActorMembership
+                        .Add(
+                            preparedChunks[
+                                    newChunkIndex]
+                                .objects,
+                            actor,
+                            newKingdomId,
+                            actorRank,
+                            ActorRanks);
                     InsertActorAtRank(
                         actorsByChunk[
                             newChunkIndex],
@@ -592,10 +981,19 @@ internal static class IncrementalSimObjectZoneUnits
                 chunkMembershipChanged = true;
             }
             else if (newChunkIndex >= 0 &&
-                     (entry.Kind &
-                      ActorZoneDirtyKind
-                          .ChunkMetadata) != 0)
+                     oldKingdomId !=
+                     newKingdomId)
             {
+                IncrementalChunkActorMembership
+                    .ChangeKingdom(
+                        preparedChunks[
+                                newChunkIndex]
+                            .objects,
+                        actor,
+                        oldKingdomId,
+                        newKingdomId,
+                        actorRank,
+                        ActorRanks);
                 MarkDirtyChunk(newChunkIndex);
             }
 
@@ -613,6 +1011,8 @@ internal static class IncrementalSimObjectZoneUnits
                     ? (byte)1
                     : (byte)0;
             committedTiles[actorRank] = newTile;
+            committedKingdomIds[actorRank] =
+                newKingdomId;
         }
 
         return chunkMembershipChanged;
@@ -648,17 +1048,16 @@ internal static class IncrementalSimObjectZoneUnits
         }
     }
 
-    private static void RebuildDirtyChunks()
+    private static void RebuildDirtyBuildingChunks(
+        HashSet<MapChunk> dirtyBuildingChunks)
     {
-        for (int i = 0; i < DirtyChunks.Count; i++)
+        foreach (MapChunk chunk in
+                 dirtyBuildingChunks)
         {
-            int chunkIndex = DirtyChunks[i];
-            MapChunk chunk =
-                preparedChunks[chunkIndex];
             chunk.clearObjects(
                 pForceClearBuildings: false);
             List<Actor> actors =
-                actorsByChunk[chunkIndex];
+                actorsByChunk[chunk.id];
             for (int actorIndex = 0;
                  actorIndex < actors.Count;
                  actorIndex++)
@@ -666,16 +1065,6 @@ internal static class IncrementalSimObjectZoneUnits
                 chunk.objects.addActor(
                     actors[actorIndex]);
             }
-        }
-    }
-
-    private static void MarkDirtyBuildingChunks(
-        HashSet<MapChunk> dirtyBuildingChunks)
-    {
-        foreach (MapChunk chunk in
-                 dirtyBuildingChunks)
-        {
-            MarkDirtyChunk(chunk.id);
         }
     }
 
@@ -818,6 +1207,10 @@ internal static class IncrementalSimObjectZoneUnits
         {
             committedTiles =
                 new WorldTile[actorCount];
+            committedIslands =
+                new TileIsland[actorCount];
+            committedKingdomIds =
+                new long[actorCount];
             committedAlive =
                 new byte[actorCount];
             cityMembershipFlags =

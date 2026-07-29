@@ -772,6 +772,9 @@ namespace Cultiway.Patch
                     previous,
                     tile);
             actor.current_tile = tile;
+            ActorZoneMembershipDirtyIndex.Mark(
+                actor,
+                ActorZoneDirtyKind.Spatial);
         }
 
         private static void ApplyStepActionForCurrentTile(Actor actor)
