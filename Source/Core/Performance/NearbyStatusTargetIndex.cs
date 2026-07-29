@@ -300,6 +300,18 @@ internal static class NearbyStatusTargetIndex
         fusedRebuildActorEntries++;
     }
 
+    /// <summary>
+    /// 供 SimObjectsZones 的 chunk worker 生成紧凑候选。
+    /// 此时状态集合只读，真正的共享字典写入仍在 worker 全部结束后串行提交。
+    /// </summary>
+    internal static bool ShouldAddUnitMembership(
+        Actor actor)
+    {
+        return fusedRebuildInProgress &&
+               actor.hasAnyStatusEffect() &&
+               IsIndexedActor(actor);
+    }
+
     internal static void NotifyUnitMembershipRebuilt(
         int membershipVersion,
         bool fusedIndexPrepared)

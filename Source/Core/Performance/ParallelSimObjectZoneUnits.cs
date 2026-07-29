@@ -30,6 +30,12 @@ internal static class ParallelSimObjectZoneUnits
         Array.Empty<Actor[]>();
     private static int[] actorCountsByChunk =
         Array.Empty<int>();
+    private static Actor[][] statusActorsByChunk =
+        Array.Empty<Actor[]>();
+    private static int[][] statusUnitIndicesByChunk =
+        Array.Empty<int[]>();
+    private static int[] statusActorCountsByChunk =
+        Array.Empty<int>();
     private static List<WorldTile>[] occupiedTilesByChunk =
         Array.Empty<List<WorldTile>>();
     private static int[] unitChunkIndices =
@@ -313,6 +319,12 @@ internal static class ParallelSimObjectZoneUnits
                 new Actor[chunkCount][];
             actorCountsByChunk =
                 new int[chunkCount];
+            statusActorsByChunk =
+                new Actor[chunkCount][];
+            statusUnitIndicesByChunk =
+                new int[chunkCount][];
+            statusActorCountsByChunk =
+                new int[chunkCount];
             occupiedTilesByChunk =
                 new List<WorldTile>[chunkCount];
             int initialCapacity = Math.Max(
@@ -323,6 +335,10 @@ internal static class ParallelSimObjectZoneUnits
             {
                 actorsByChunk[i] =
                     new Actor[initialCapacity];
+                statusActorsByChunk[i] =
+                    new Actor[initialCapacity];
+                statusUnitIndicesByChunk[i] =
+                    new int[initialCapacity];
                 occupiedTilesByChunk[i] =
                     new List<WorldTile>(
                         Math.Min(
@@ -337,7 +353,8 @@ internal static class ParallelSimObjectZoneUnits
                 PerformanceSettings.SimulationBatchSize,
                 actorCount);
             unitChunkIndices = new int[capacity];
-            cityMembershipFlags = new byte[capacity];
+            cityMembershipFlags =
+                new byte[capacity];
         }
 
         activeUnitWorkCount =
@@ -466,6 +483,19 @@ internal static class ParallelSimObjectZoneUnits
 
             actorCountsByChunk[chunkIndex] =
                 total;
+            if (statusActorsByChunk[
+                    chunkIndex].Length < total)
+            {
+                int capacity =
+                    actorsByChunk[
+                        chunkIndex].Length;
+                statusActorsByChunk[
+                    chunkIndex] =
+                    new Actor[capacity];
+                statusUnitIndicesByChunk[
+                    chunkIndex] =
+                    new int[capacity];
+            }
         }
     }
 
@@ -551,9 +581,14 @@ internal static class ParallelSimObjectZoneUnits
              chunkIndex++)
         {
             Actor[] actors =
-                actorsByChunk[chunkIndex];
+                statusActorsByChunk[
+                    chunkIndex];
+            int[] unitIndices =
+                statusUnitIndicesByChunk[
+                    chunkIndex];
             int count =
-                actorCountsByChunk[chunkIndex];
+                statusActorCountsByChunk[
+                    chunkIndex];
             MapChunk chunk =
                 activeChunks[chunkIndex];
             for (int unitIndex = 0;
@@ -564,7 +599,7 @@ internal static class ParallelSimObjectZoneUnits
                     .AddUnitMembership(
                         actors[unitIndex],
                         chunk,
-                        unitIndex);
+                        unitIndices[unitIndex]);
             }
         }
     }
@@ -595,6 +630,15 @@ internal static class ParallelSimObjectZoneUnits
         int count = actorCountsByChunk[chunkIndex];
         List<WorldTile> occupiedTiles =
             occupiedTilesByChunk[chunkIndex];
+        Actor[] statusActors =
+            statusActorsByChunk[chunkIndex];
+        int[] statusUnitIndices =
+            statusUnitIndicesByChunk[
+                chunkIndex];
+        int previousStatusCount =
+            statusActorCountsByChunk[
+                chunkIndex];
+        int statusCount = 0;
         occupiedTiles.Clear();
         int tileMark = activeTileMark;
         for (int i = 0; i < count; i++)
@@ -610,7 +654,28 @@ internal static class ParallelSimObjectZoneUnits
 
             tile.addUnit(actor);
             chunk.objects.addActor(actor);
+            if (NearbyStatusTargetIndex
+                .ShouldAddUnitMembership(actor))
+            {
+                statusActors[statusCount] =
+                    actor;
+                statusUnitIndices[statusCount] =
+                    i;
+                statusCount++;
+            }
         }
+
+        if (previousStatusCount > statusCount)
+        {
+            Array.Clear(
+                statusActors,
+                statusCount,
+                previousStatusCount -
+                statusCount);
+        }
+
+        statusActorCountsByChunk[
+            chunkIndex] = statusCount;
     }
 
     private static bool ShouldUseParallelClear()
