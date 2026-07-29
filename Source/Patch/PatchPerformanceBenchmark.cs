@@ -22,6 +22,23 @@ internal static class PatchPerformanceBenchmark
         new(ReferenceComparer<RateCounter>.Instance);
     private static bool actionCountersMapped;
 
+    internal static void FlushAiMetricsForReport()
+    {
+        if (!SimulationTickBenchmark.ShouldCollectAiDetails ||
+            AssetManager.tasks_actor == null)
+        {
+            return;
+        }
+
+        if (!actionCountersMapped)
+        {
+            RegisterActionCounters();
+        }
+
+        FinishTaskMetrics();
+        FinishActionMetrics();
+    }
+
     [HarmonyPrefix, HarmonyPatch(typeof(MapBox), "Update")]
     private static void MapBoxUpdatePrefix()
     {
@@ -82,14 +99,7 @@ internal static class PatchPerformanceBenchmark
     [HarmonyPrefix, HarmonyPatch(typeof(Bench), "finishSplitBenchmarkGroupAI")]
     private static bool FinishSplitBenchmarkGroupAiPrefix()
     {
-        if (!SimulationTickBenchmark.ShouldCollectAiDetails ||
-            AssetManager.tasks_actor == null)
-        {
-            return false;
-        }
-
-        FinishTaskMetrics();
-        FinishActionMetrics();
+        FlushAiMetricsForReport();
         return false;
     }
 

@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Performance;
+using Cultiway.Patch;
 using Cultiway.Utils;
 using UnityEngine;
 
@@ -50,6 +52,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private string _mapSize;
     private string _mapTemplate;
     private string _speedId;
+    private string _worldSnapshotPath;
     private int _worldSeed;
     private int _initialHumans;
     private int _startMeasureUnits;
@@ -66,6 +69,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private bool _presentationScenePrepared;
     private bool _presentationStressEnabled;
     private int _initialHumansProcessed;
+    private ulong _spawnLayoutHash = 1469598103934665603UL;
     private Actor _cameraAnchor;
     private Actor _presentationTarget;
     private Building _presentationBuilding;
@@ -123,6 +127,9 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         _mapSize = GetEnvString("CULTIWAY_PERF_MAP_SIZE", MapSizeLibrary.iceberg);
         _mapTemplate = GetEnvString("CULTIWAY_PERF_MAP_TEMPLATE", Config.current_map_template);
         _speedId = GetEnvString("CULTIWAY_PERF_SPEED", "x40");
+        _worldSnapshotPath =
+            Environment.GetEnvironmentVariable(
+                "CULTIWAY_PERF_WORLD_SNAPSHOT");
         _worldSeed = GetEnvInt("CULTIWAY_PERF_WORLD_SEED", 0);
         _initialHumans = GetEnvInt("CULTIWAY_PERF_INITIAL_HUMANS", 10000);
         _startMeasureUnits = GetEnvInt("CULTIWAY_PERF_START_MEASURE_UNITS", 10000);
@@ -152,10 +159,14 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
                 PerformanceSettings.EnablePresentationSmoothing));
         SimulationTickBenchmark.SetAiDetailsOverride(
             GetEnvNullableBool("CULTIWAY_PERF_AI_DETAILS"));
+        SimulationTickBenchmark.SetFineActorJobBreakdown(
+            GetEnvBool(
+                "CULTIWAY_PERF_FINE_ACTOR_JOBS",
+                false));
         _configured = true;
 
         ModClass.LogInfo(
-            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} seed={_worldSeed} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s settle={_settleSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s targetFps={PerformanceSettings.TargetRenderFps:0.#} maxSimulation={PerformanceSettings.MaxSimulationMillisecondsPerFrame:0.#}ms smoothing={PerformanceSettings.EnablePresentationSmoothing} details={_captureDetails} handScan={_scanInvalidHandRenderers} aiBench={SimulationTickBenchmark.ShouldCollectAiDetails}");
+            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} seed={_worldSeed} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s settle={_settleSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s targetFps={PerformanceSettings.TargetRenderFps:0.#} maxSimulation={PerformanceSettings.MaxSimulationMillisecondsPerFrame:0.#}ms smoothing={PerformanceSettings.EnablePresentationSmoothing} details={_captureDetails} fineActorJobs={SimulationTickBenchmark.FineActorJobBreakdownEnabled} handScan={_scanInvalidHandRenderers} aiBench={SimulationTickBenchmark.ShouldCollectAiDetails}");
     }
 
     private void Update()
@@ -229,6 +240,20 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
         if (_createWorld)
         {
+            string snapshotFile =
+                GetWorldSnapshotFile();
+            if (snapshotFile != null &&
+                File.Exists(snapshotFile))
+            {
+                ModClass.LogInfo(
+                    $"{Prefix} 加载固定世界快照 file={snapshotFile}");
+                SaveManager.loadMapFromBytes(
+                    File.ReadAllBytes(snapshotFile));
+                SetState(
+                    RunnerState.WaitingForWorldLoaded);
+                return;
+            }
+
             Config.customMapSize = _mapSize;
             Config.current_map_template = _mapTemplate;
             if (_worldSeed != 0)
@@ -257,7 +282,42 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
         ModClass.LogInfo(
             $"{Prefix} 世界与 GeoRegion 索引均已就绪 elapsed={_stateElapsed:0.0}s");
+        SaveWorldSnapshotIfNeeded();
         SetState(RunnerState.SpawningInitialUnits);
+    }
+
+    private string GetWorldSnapshotFile()
+    {
+        if (string.IsNullOrWhiteSpace(
+                _worldSnapshotPath))
+        {
+            return null;
+        }
+
+        return Path.Combine(
+            _worldSnapshotPath,
+            "map.wbox");
+    }
+
+    private void SaveWorldSnapshotIfNeeded()
+    {
+        string snapshotFile =
+            GetWorldSnapshotFile();
+        if (snapshotFile == null ||
+            File.Exists(snapshotFile))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(
+            _worldSnapshotPath);
+        SavedMap snapshot =
+            SaveManager.currentWorldToSavedMap();
+        File.WriteAllBytes(
+            snapshotFile,
+            snapshot.toZip());
+        ModClass.LogInfo(
+            $"{Prefix} 已保存固定世界快照 file={snapshotFile}");
     }
 
     private void UpdateSpawningInitialUnits()
@@ -283,7 +343,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             }
 
             ModClass.LogInfo(
-                $"{Prefix} 初始人类投放完成 requested={_initialHumans} units={CountUnits()} cities={CountCities()} lastBatchSpawned={spawned}");
+                $"{Prefix} 初始人类投放完成 requested={_initialHumans} units={CountUnits()} cities={CountCities()} lastBatchSpawned={spawned} layout={_spawnLayoutHash:X16}");
         }
 
         PreparePresentationScene();
@@ -512,6 +572,14 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         sb.Append("  actor_parallel ")
             .Append(CooperativeActorParallelJobRunner.GetDiagnostics())
             .AppendLine();
+        sb.Append("  enemy_finder ")
+            .Append(CooperativeActorPostRunner
+                .GetEnemyFinderDiagnostics())
+            .AppendLine();
+        sb.Append("  enemy_presence ")
+            .Append(EnemyPresenceCache
+                .GetDiagnostics())
+            .AppendLine();
         sb.Append("  status_scheduler ")
             .Append(StatusSimulationScheduler.GetDiagnostics())
             .AppendLine();
@@ -569,13 +637,18 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
         if (_captureDetails)
         {
+            PatchPerformanceBenchmark
+                .FlushAiMetricsForReport();
             int detailLimit =
                 SimulationTickBenchmark.ShouldCollectAiDetails
                     ? 30
                     : 10;
+            int phaseLimit = GetEnvInt(
+                "CULTIWAY_PERF_PHASE_LIMIT",
+                12);
             SimulationTickBenchmark.AppendReport(
                 sb,
-                12,
+                phaseLimit,
                 detailLimit);
         }
 
@@ -695,11 +768,22 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             return 0;
         }
 
-        candidates.Shuffle();
+        candidates.Sort(
+            static (left, right) =>
+                left.centerTile.data.tile_id.CompareTo(
+                    right.centerTile.data.tile_id));
+        Randy.resetSeed(
+            unchecked(
+                _worldSeed * 397 ^
+                _initialHumansProcessed ^
+                0x5EED5EED));
         int spawned = 0;
         for (int i = 0; i < amount; i++)
         {
-            var zone = candidates[i % candidates.Count];
+            int globalIndex =
+                _initialHumansProcessed + i;
+            var zone =
+                candidates[globalIndex % candidates.Count];
             var tile = FindSpawnTile(zone);
             if (tile == null)
             {
@@ -711,6 +795,11 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             if (actor != null)
             {
                 _cameraAnchor ??= actor;
+                _spawnLayoutHash =
+                    unchecked(
+                        (_spawnLayoutHash ^
+                         (uint)tile.data.tile_id) *
+                        1099511628211UL);
                 spawned++;
             }
         }

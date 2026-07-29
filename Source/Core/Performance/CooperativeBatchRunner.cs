@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Cultiway.Const;
 
@@ -464,15 +465,31 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
             int scannedCount = Math.Min(parallelGroupSize, batches.Count - batchIndex);
             EnsureActiveParallelBatchCapacity(scannedCount);
             activeParallelBatchCount = 0;
+            long actorCount = 0L;
             int endIndex = batchIndex + scannedCount;
             for (; batchIndex < endIndex; batchIndex++)
             {
                 if (HasParallelJobWork(batchIndex, parallelJobIndex))
                 {
                     activeParallelBatchIndices[activeParallelBatchCount++] = batchIndex;
+                    ObjectContainer<TObject> container =
+                        batches[batchIndex]
+                            .jobs_parallel[parallelJobIndex]
+                            .container;
+                    if (container != null)
+                    {
+                        actorCount += container.Count;
+                    }
                 }
             }
 
+            long startedAt =
+                collectJobBenchmarks &&
+                manager.benchmark_id.Equals(
+                    "actors",
+                    StringComparison.Ordinal)
+                    ? Stopwatch.GetTimestamp()
+                    : 0L;
             if (activeParallelBatchCount > 1)
             {
                 // 同一 job 的 batch 由长驻 worker 动态领取；返回后才进入下一 job，
@@ -485,6 +502,19 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
             else if (activeParallelBatchCount == 1)
             {
                 RunParallelJob(activeParallelBatchIndices[0], parallelJobIndex);
+            }
+
+            if (startedAt != 0L)
+            {
+                Job<TObject> job =
+                    batches[0]
+                        .jobs_parallel[parallelJobIndex];
+                SimulationTickBenchmark
+                    .RecordActorParallelJobMetric(
+                        job.id,
+                        (Stopwatch.GetTimestamp() - startedAt) /
+                        (double)Stopwatch.Frequency,
+                        actorCount);
             }
 
             return true;
