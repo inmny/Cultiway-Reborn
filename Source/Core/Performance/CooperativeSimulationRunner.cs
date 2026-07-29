@@ -1003,6 +1003,16 @@ internal sealed class CooperativeSimulationRunner
 
     private void CompleteCycle()
     {
+        if (!cycleUsesVanillaLargeStep &&
+            world.timer_nutrition_decay <= 0f)
+        {
+            // 固定步模式的一轮就是一次完整的一倍速逻辑 tick。
+            // 原版只在渲染帧尾重置该计时器；一帧连续补跑多轮时，
+            // 若不在逻辑边界重置，后续每轮都会重复扣除全体角色营养。
+            world.timer_nutrition_decay =
+                SimGlobals.m.interval_nutrition_decay;
+        }
+
         SimulationTime.CompleteTick(world);
         ActorPresentationSnapshots.CaptureIfRequested(
             world,
