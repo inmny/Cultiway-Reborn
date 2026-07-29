@@ -18,6 +18,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private const string InsideBoatJobId = "u1_checkInside";
     private const string UpdateTimersJobId = "u8_checkUpdateTimers";
     private const string UnderForceJobId = "b1_checkUnderForce";
+    private const string CurrentEnemyTargetJobId =
+        "b2_checkCurrentEnemyTarget";
     private const string TaskVerifierJobId = "b4_checkTaskVerifier";
     private const string PathMovementJobId = "b5_checkPathMovement";
     private const string NaturalDeathJobId = "b55_update_natural_death";
@@ -27,6 +29,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     private readonly ActorTileActionProfiler tileActionProfiler = new();
     private readonly Action<int> tileActionWorkItemAction;
+    private readonly Action<int> updateEligibilityWorkItemAction;
     private readonly Action<int> enemyPrepareWorkItemAction;
     private readonly Action<int> taskVerifierWorkItemAction;
     private readonly Action<int> searchWorkItemAction;
@@ -40,6 +43,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         ScheduleTileAction,
         AwaitTileAction,
         CommitTileAction,
+        BeforeUpdateEligibility,
         BeforeEnemySearch,
         PrepareEnemySearch,
         ScheduleEnemySearch,
@@ -59,6 +63,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     private TileActionBatchWork[] tileActionWorkItems =
         Array.Empty<TileActionBatchWork>();
+    private UpdateEligibilityBatchWork[] updateEligibilityWorkItems =
+        Array.Empty<UpdateEligibilityBatchWork>();
     private EnemyPrepareBatchWork[] enemyPrepareWorkItems =
         Array.Empty<EnemyPrepareBatchWork>();
     private TaskVerifierBatchWork[] taskVerifierWorkItems =
@@ -80,6 +86,9 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private PostStage stage;
     private float elapsed;
     private int tileActionJobIndex;
+    private int updateTimersJobIndex;
+    private int underForceJobIndex;
+    private int currentEnemyTargetJobIndex;
     private int enemySearchJobIndex;
     private int taskVerifierJobIndex;
     private int pathMovementJobIndex;
@@ -111,6 +120,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     {
         tileActionWorkItemAction =
             RunTileActionWorkItemAt;
+        updateEligibilityWorkItemAction =
+            RunUpdateEligibilityWorkItemAt;
         enemyPrepareWorkItemAction =
             RunEnemyPrepareWorkItemAt;
         taskVerifierWorkItemAction =
@@ -177,6 +188,26 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             throw new InvalidOperationException(
                 "Actor post jobs 中 u5_curTileAction 顺序无效");
         }
+
+        updateTimersJobIndex = FindPostJobIndex(
+            batches[0].jobs_post,
+            UpdateTimersJobId);
+        underForceJobIndex = FindPostJobIndex(
+            batches[0].jobs_post,
+            UnderForceJobId);
+        currentEnemyTargetJobIndex = FindPostJobIndex(
+            batches[0].jobs_post,
+            CurrentEnemyTargetJobId);
+        if (updateTimersJobIndex <= tileActionJobIndex ||
+            underForceJobIndex != updateTimersJobIndex + 1 ||
+            currentEnemyTargetJobIndex != underForceJobIndex + 1 ||
+            enemySearchJobIndex != currentEnemyTargetJobIndex + 1)
+        {
+            throw new InvalidOperationException(
+                "Actor post jobs 中 u8/b1/b2/b3 顺序无效");
+        }
+
+        ValidateUpdateEligibilityJobs();
 
         pathMovementJobIndex = FindPostJobIndex(
             batches[0].jobs_post,
@@ -294,9 +325,15 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             return GetNextPostRangePhaseName(
                 phasePrefix,
                 tileActionJobIndex + 1,
-                enemySearchJobIndex,
-                "before_b3",
+                updateTimersJobIndex,
+                "before_u8",
                 restartRange: true);
+        }
+
+        if (stage == PostStage.BeforeUpdateEligibility &&
+            batchIndex >= batches.Count)
+        {
+            return phasePrefix + ".post.u8_b1.parallel";
         }
 
         if (stage == PostStage.BeforeEnemySearch &&
@@ -389,10 +426,16 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             PostStage.CommitTileAction =>
                 phasePrefix + ".post.u5.commit.batch." +
                 tileActionCommitIndex,
-            PostStage.BeforeEnemySearch =>
+            PostStage.BeforeUpdateEligibility =>
                 GetNextPostRangePhaseName(
                     phasePrefix,
                     tileActionJobIndex + 1,
+                    updateTimersJobIndex,
+                    "before_u8"),
+            PostStage.BeforeEnemySearch =>
+                GetNextPostRangePhaseName(
+                    phasePrefix,
+                    currentEnemyTargetJobIndex,
                     enemySearchJobIndex,
                     "before_b3"),
             PostStage.PrepareEnemySearch =>
@@ -517,11 +560,37 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     batchIndex = 0;
                     postJobIndex =
                         tileActionJobIndex + 1;
-                    stage = PostStage.BeforeEnemySearch;
+                    stage =
+                        PostStage.BeforeUpdateEligibility;
                     continue;
-                case PostStage.BeforeEnemySearch:
+                case PostStage.BeforeUpdateEligibility:
                     if (TryRunNextPostRange(
                             tileActionJobIndex + 1,
+                            updateTimersJobIndex))
+                    {
+                        return false;
+                    }
+
+                    PrepareUpdateEligibilityWorkItems();
+                    SimulationWorkerPool.WorkResult
+                        eligibilityResult =
+                            SimulationWorkerPool.Instance
+                                .RunIndexed(
+                                    0,
+                                    batches.Count,
+                                    updateEligibilityWorkItemAction);
+
+                    RecordUpdateEligibilityBenchmark(
+                        eligibilityResult);
+                    CommitUpdateEligibilityWorkItems();
+                    batchIndex = 0;
+                    postJobIndex =
+                        currentEnemyTargetJobIndex;
+                    stage = PostStage.BeforeEnemySearch;
+                    return false;
+                case PostStage.BeforeEnemySearch:
+                    if (TryRunNextPostRange(
+                            currentEnemyTargetJobIndex,
                             enemySearchJobIndex))
                     {
                         return false;
@@ -529,7 +598,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
                     batchIndex = 0;
                     postJobIndex =
-                        tileActionJobIndex + 1;
+                        currentEnemyTargetJobIndex;
                     PrepareEnemySearchClassifications();
                     stage = PostStage.PrepareEnemySearch;
                     continue;
@@ -863,16 +932,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         try
         {
             if (job.id.Equals(
-                    UpdateTimersJobId,
+                    InsideBoatJobId,
                     StringComparison.Ordinal))
-            {
-                RunUpdateTimersJob(
-                    job.container,
-                    currentBatchIndex);
-            }
-            else if (job.id.Equals(
-                         InsideBoatJobId,
-                         StringComparison.Ordinal))
             {
                 actorsChecked = RunInsideBoatJob(batch);
             }
@@ -1015,62 +1076,157 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             batchCount);
     }
 
-    private void RunUpdateTimersJob(
-        ObjectContainer<Actor> container,
-        int currentBatchIndex)
+    private void ValidateUpdateEligibilityJobs()
     {
-        activeBehaviorActorCounts[currentBatchIndex] = 0;
-        underForceCheckedCounts[currentBatchIndex] = 0;
-        activeBehaviorPartitionsValid[currentBatchIndex] = false;
-        if (container.Count == 0 &&
-            !container.isDirtyContainer())
+        for (int i = 0; i < batches.Count; i++)
         {
-            activeBehaviorPartitionsValid[currentBatchIndex] = true;
-            return;
-        }
+            List<Job<Actor>> jobs = batches[i].jobs_post;
+            if (jobs.Count <= currentEnemyTargetJobIndex)
+            {
+                throw new InvalidOperationException(
+                    "Actor post jobs 数量不足，无法并行 u8/b1");
+            }
 
-        container.checkAddRemove();
-        if (World.world.isPaused())
+            Job<Actor> updateTimersJob =
+                jobs[updateTimersJobIndex];
+            Job<Actor> underForceJob =
+                jobs[underForceJobIndex];
+            Job<Actor> currentEnemyTargetJob =
+                jobs[currentEnemyTargetJobIndex];
+            if (!updateTimersJob.id.Equals(
+                    UpdateTimersJobId,
+                    StringComparison.Ordinal) ||
+                !underForceJob.id.Equals(
+                    UnderForceJobId,
+                    StringComparison.Ordinal) ||
+                !currentEnemyTargetJob.id.Equals(
+                    CurrentEnemyTargetJobId,
+                    StringComparison.Ordinal) ||
+                !ReferenceEquals(
+                    updateTimersJob.container,
+                    underForceJob.container) ||
+                updateTimersJob.random_tick_skips != 0 ||
+                underForceJob.random_tick_skips != 0)
+            {
+                throw new InvalidOperationException(
+                    "Actor post jobs 的 u8/b1 并行不变量已改变");
+            }
+        }
+    }
+
+    private void PrepareUpdateEligibilityWorkItems()
+    {
+        int count = batches.Count;
+        if (updateEligibilityWorkItems.Length < count)
         {
-            return;
-        }
-
-        Actor[] actors = container.getFastSimpleArray();
-        int count = container.Count;
-        Actor[] activeActors =
-            EnsureActiveBehaviorActorCapacity(
-                currentBatchIndex,
+            int previousLength =
+                updateEligibilityWorkItems.Length;
+            Array.Resize(
+                ref updateEligibilityWorkItems,
                 count);
+            for (int i = previousLength; i < count; i++)
+            {
+                updateEligibilityWorkItems[i] =
+                    new UpdateEligibilityBatchWork();
+            }
+        }
 
-        int activeCount = 0;
-        int underForceChecked = 0;
+        bool paused = World.world.isPaused();
         for (int i = 0; i < count; i++)
         {
-            Actor actor = actors[i];
-            actor.u8_checkUpdateTimers(elapsed);
-            if (actor._update_done)
+            BatchActors batch = batches[i];
+            Job<Actor> updateTimersJob =
+                batch.jobs_post[updateTimersJobIndex];
+            Job<Actor> underForceJob =
+                batch.jobs_post[underForceJobIndex];
+            UpdateEligibilityBatchWork work =
+                updateEligibilityWorkItems[i];
+            activeBehaviorActorCounts[i] = 0;
+            underForceCheckedCounts[i] = 0;
+            activeBehaviorPartitionsValid[i] = false;
+            if (updateTimersJob.current_skips != 0 ||
+                underForceJob.current_skips != 0)
             {
+                throw new InvalidOperationException(
+                    "u8/b1 不应具有运行时跳帧状态");
+            }
+
+            batch._elapsed = elapsed;
+            batch._cur_container =
+                updateTimersJob.container;
+            if (paused)
+            {
+                work.ConfigureSkipped(
+                    batch,
+                    updateTimersJob,
+                    underForceJob);
                 continue;
             }
 
-            underForceChecked++;
-            if (actor.under_forces ||
-                actor.asset.update_z &&
-                actor.position_height != 0f)
+            ObjectContainer<Actor> container =
+                updateTimersJob.container;
+            if (container.Count > 0 ||
+                container.isDirtyContainer())
             {
-                actor.skipBehaviour();
-                continue;
+                container.checkAddRemove();
             }
 
-            activeActors[activeCount++] = actor;
+            Actor[] actors =
+                container.getFastSimpleArray() ??
+                Array.Empty<Actor>();
+            int actorCount = container.Count;
+            batch._array = actors;
+            batch._count = actorCount;
+            Actor[] activeActors =
+                actorCount == 0
+                    ? Array.Empty<Actor>()
+                    : EnsureActiveBehaviorActorCapacity(
+                        i,
+                        actorCount);
+            work.Configure(
+                batch,
+                updateTimersJob,
+                underForceJob,
+                actors,
+                actorCount,
+                activeActors,
+                elapsed);
         }
+    }
 
-        activeBehaviorActorCounts[currentBatchIndex] =
-            activeCount;
-        underForceCheckedCounts[currentBatchIndex] =
-            underForceChecked;
-        activeBehaviorPartitionsValid[currentBatchIndex] =
-            true;
+    private void RunUpdateEligibilityWorkItemAt(int index)
+    {
+        updateEligibilityWorkItems[index]
+            .RunParallel();
+    }
+
+    private void CommitUpdateEligibilityWorkItems()
+    {
+        for (int i = 0; i < batches.Count; i++)
+        {
+            UpdateEligibilityBatchWork work =
+                updateEligibilityWorkItems[i];
+            if (work.Skipped)
+            {
+                work.Reset();
+                continue;
+            }
+
+            activeBehaviorActorCounts[i] =
+                work.ActiveCount;
+            underForceCheckedCounts[i] =
+                work.UnderForceChecked;
+            activeBehaviorPartitionsValid[i] = true;
+            if (splitPostJobs)
+            {
+                work.UpdateTimersJob.counter +=
+                    work.Count;
+                work.UnderForceJob.counter +=
+                    work.UnderForceChecked;
+            }
+
+            work.Reset();
+        }
     }
 
     private Actor[] EnsureActiveBehaviorActorCapacity(
@@ -2169,24 +2325,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         EnemyPrepareBatchWork work,
         int currentBatchIndex)
     {
-        Actor[] actors = work.Actors;
-        EnemyPrepareKind[] kinds = work.Kinds;
-        int retainedCount = 0;
-        int actorsChecked = 0;
-        for (int i = 0; i < work.Count; i++)
+        Actor[] actionActors = work.ActionActors;
+        EnemyPrepareKind[] actionKinds =
+            work.ActionKinds;
+        for (int i = 0; i < work.ActionCount; i++)
         {
-            EnemyPrepareKind kind = kinds[i];
-            if (kind == EnemyPrepareKind.Inactive)
-            {
-                continue;
-            }
-
-            Actor actor = actors[i];
-            if (work.ActivePartition)
-            {
-                actors[retainedCount++] = actor;
-                actorsChecked++;
-            }
+            EnemyPrepareKind kind = actionKinds[i];
+            Actor actor = actionActors[i];
 
             switch (kind)
             {
@@ -2217,8 +2362,9 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         if (work.ActivePartition)
         {
             activeBehaviorActorCounts[
-                currentBatchIndex] = retainedCount;
-            return actorsChecked;
+                currentBatchIndex] =
+                work.RetainedCount;
+            return work.Checked;
         }
 
         return work.Count;
@@ -2404,6 +2550,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         }
 
         for (int i = 0;
+             i < updateEligibilityWorkItems.Length;
+             i++)
+        {
+            updateEligibilityWorkItems[i]?.Reset();
+        }
+
+        for (int i = 0;
              i < enemyPrepareWorkItems.Length;
              i++)
         {
@@ -2533,6 +2686,27 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             "vanilla.actors.post.u5.background",
             result.WallSeconds,
             backgroundSeconds,
+            actorsHandled);
+    }
+
+    private void RecordUpdateEligibilityBenchmark(
+        SimulationWorkerPool.WorkResult result)
+    {
+        if (!SimulationTickBenchmark.IsCapturing)
+        {
+            return;
+        }
+
+        int actorsHandled = 0;
+        for (int i = 0; i < batches.Count; i++)
+        {
+            actorsHandled +=
+                updateEligibilityWorkItems[i].Count;
+        }
+
+        SimulationTickBenchmark.RecordActorJobMetric(
+            "u8_b1.parallel",
+            result.WallSeconds,
             actorsHandled);
     }
 
@@ -2766,7 +2940,6 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private enum EnemyPrepareKind : byte
     {
         NoSearch,
-        Inactive,
         AttackTarget,
         Search,
         SearchWithBackoff
@@ -2780,8 +2953,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         internal int Count { get; private set; }
         internal bool ActivePartition { get; private set; }
         internal bool Skipped { get; private set; }
-        internal EnemyPrepareKind[] Kinds { get; private set; } =
+        internal Actor[] ActionActors { get; private set; } =
+            Array.Empty<Actor>();
+        internal EnemyPrepareKind[] ActionKinds { get; private set; } =
             Array.Empty<EnemyPrepareKind>();
+        internal int ActionCount { get; private set; }
+        internal int RetainedCount { get; private set; }
+        internal int Checked { get; private set; }
 
         internal void Configure(
             BatchActors batch,
@@ -2796,12 +2974,17 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             Count = count;
             ActivePartition = activePartition;
             Skipped = false;
-            if (Kinds.Length < count)
+            ActionCount = 0;
+            RetainedCount = 0;
+            Checked = 0;
+            if (ActionActors.Length < count)
             {
-                Kinds = new EnemyPrepareKind[
-                    Math.Max(
-                        PerformanceSettings.SimulationBatchSize,
-                        count)];
+                int capacity = Math.Max(
+                    PerformanceSettings.SimulationBatchSize,
+                    count);
+                ActionActors = new Actor[capacity];
+                ActionKinds =
+                    new EnemyPrepareKind[capacity];
             }
         }
 
@@ -2815,6 +2998,9 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             Count = 0;
             ActivePartition = false;
             Skipped = true;
+            ActionCount = 0;
+            RetainedCount = 0;
+            Checked = 0;
         }
 
         internal void RunParallel()
@@ -2825,16 +3011,30 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 return;
             }
 
+            Actor[] actors = Actors;
+            Actor[] actionActors = ActionActors;
+            EnemyPrepareKind[] actionKinds =
+                ActionKinds;
+            int actionCount = 0;
+            int retainedCount = 0;
+            int checkedActors = 0;
             for (int i = 0; i < Count; i++)
             {
-                Actor actor = Actors[i];
+                Actor actor = actors[i];
                 EnemyPrepareKind kind;
                 if (actor._update_done ||
                     actor._beh_skip)
                 {
-                    kind = EnemyPrepareKind.Inactive;
+                    continue;
                 }
-                else if (
+
+                checkedActors++;
+                if (ActivePartition)
+                {
+                    actors[retainedCount++] = actor;
+                }
+
+                if (
                     !actor.isAllowedToLookForEnemies() ||
                     actor.isInWaterAndCantAttack() ||
                     actor._has_status_strange_urge)
@@ -2859,15 +3059,37 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                             : EnemyPrepareKind.Search;
                 }
 
-                Kinds[i] = kind;
+                if (kind is EnemyPrepareKind.AttackTarget or
+                    EnemyPrepareKind.Search or
+                    EnemyPrepareKind.SearchWithBackoff)
+                {
+                    actionActors[actionCount] = actor;
+                    actionKinds[actionCount] = kind;
+                    actionCount++;
+                }
             }
+
+            ActionCount = actionCount;
+            RetainedCount = ActivePartition
+                ? retainedCount
+                : Count;
+            Checked = ActivePartition
+                ? checkedActors
+                : Count;
         }
 
         internal void Reset()
         {
-            if (Count > 0)
+            if (ActionCount > 0)
             {
-                Array.Clear(Kinds, 0, Count);
+                Array.Clear(
+                    ActionActors,
+                    0,
+                    ActionCount);
+                Array.Clear(
+                    ActionKinds,
+                    0,
+                    ActionCount);
             }
 
             Batch = null;
@@ -2876,6 +3098,9 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             Count = 0;
             ActivePartition = false;
             Skipped = false;
+            ActionCount = 0;
+            RetainedCount = 0;
+            Checked = 0;
         }
     }
 
@@ -2892,6 +3117,106 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         internal PathMovementWorkKind Kind;
         internal PatchAboutPathfinding.PreparedPathMovement
             Prepared;
+    }
+
+    private sealed class UpdateEligibilityBatchWork
+    {
+        internal BatchActors Batch { get; private set; }
+        internal Job<Actor> UpdateTimersJob { get; private set; }
+        internal Job<Actor> UnderForceJob { get; private set; }
+        internal Actor[] Actors { get; private set; }
+        internal Actor[] ActiveActors { get; private set; }
+        internal int Count { get; private set; }
+        internal int ActiveCount { get; private set; }
+        internal int UnderForceChecked { get; private set; }
+        internal float Elapsed { get; private set; }
+        internal bool Skipped { get; private set; }
+
+        internal void Configure(
+            BatchActors batch,
+            Job<Actor> updateTimersJob,
+            Job<Actor> underForceJob,
+            Actor[] actors,
+            int count,
+            Actor[] activeActors,
+            float elapsed)
+        {
+            Batch = batch;
+            UpdateTimersJob = updateTimersJob;
+            UnderForceJob = underForceJob;
+            Actors = actors;
+            ActiveActors = activeActors;
+            Count = count;
+            ActiveCount = 0;
+            UnderForceChecked = 0;
+            Elapsed = elapsed;
+            Skipped = false;
+        }
+
+        internal void ConfigureSkipped(
+            BatchActors batch,
+            Job<Actor> updateTimersJob,
+            Job<Actor> underForceJob)
+        {
+            Batch = batch;
+            UpdateTimersJob = updateTimersJob;
+            UnderForceJob = underForceJob;
+            Actors = null;
+            ActiveActors = null;
+            Count = 0;
+            ActiveCount = 0;
+            UnderForceChecked = 0;
+            Elapsed = 0f;
+            Skipped = true;
+        }
+
+        internal void RunParallel()
+        {
+            if (Skipped ||
+                Count == 0)
+            {
+                return;
+            }
+
+            Actor[] actors = Actors;
+            Actor[] activeActors = ActiveActors;
+            float elapsed = Elapsed;
+            int activeCount = 0;
+            int underForceChecked = 0;
+            for (int i = 0; i < Count; i++)
+            {
+                Actor actor = actors[i];
+                actor.u8_checkUpdateTimers(elapsed);
+                if (actor._update_done)
+                {
+                    continue;
+                }
+
+                underForceChecked++;
+                actor.b1_checkUnderForce(elapsed);
+                if (!actor._beh_skip)
+                {
+                    activeActors[activeCount++] = actor;
+                }
+            }
+
+            ActiveCount = activeCount;
+            UnderForceChecked = underForceChecked;
+        }
+
+        internal void Reset()
+        {
+            Batch = null;
+            UpdateTimersJob = null;
+            UnderForceJob = null;
+            Actors = null;
+            ActiveActors = null;
+            Count = 0;
+            ActiveCount = 0;
+            UnderForceChecked = 0;
+            Elapsed = 0f;
+            Skipped = false;
+        }
     }
 
     private sealed class TileActionBatchWork
