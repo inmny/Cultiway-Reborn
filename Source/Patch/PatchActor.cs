@@ -20,6 +20,26 @@ namespace Cultiway.Patch;
 
 internal static class PatchActor
 {
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.setAlive))]
+    private static void setAlive_partition_prefix(
+        Actor __instance,
+        out bool __state)
+    {
+        __state = __instance.isAlive();
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.setAlive))]
+    private static void setAlive_partition_postfix(
+        Actor __instance,
+        bool pValue,
+        bool __state)
+    {
+        ActorMetaPartitionVersion.MarkAliveCall(
+            __instance,
+            __state,
+            pValue);
+    }
+
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), "setKingdom")]
     private static void setKingdom_partition_prefix(
         Actor __instance,

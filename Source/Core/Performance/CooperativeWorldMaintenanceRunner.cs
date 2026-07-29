@@ -28,6 +28,7 @@ internal sealed class CooperativeWorldMaintenanceRunner
         SimObjectZones,
         PrepareActorsStart,
         PrepareActors,
+        PrepareActorsIncremental,
         GeoRegionUnits,
         DirtyActorIndex,
         DirtyManagersStart,
@@ -51,6 +52,10 @@ internal sealed class CooperativeWorldMaintenanceRunner
     }
 
     private readonly List<Actor> actors = new();
+    private readonly List<Actor> dirtyActorPartitions =
+        new();
+    private readonly Dictionary<Actor, int> actorMetaIndices =
+        new();
     private readonly List<Building> occupiedBuildings = new();
     private readonly List<BaseSystemManager> metaManagers = new();
     private readonly Action<int> dirtyManagerWorkItemAction;
@@ -63,6 +68,7 @@ internal sealed class CooperativeWorldMaintenanceRunner
     private int preparedWorldGeneration = -1;
     private int preparedActorVersion = -1;
     private int preparedActorPartitionVersion = -1;
+    private int pendingActorPartitionVersion = -1;
     private int lastAnythingChangedFrame = -1;
     private bool actorPartitionsReady;
     private bool hasDirtyMetaManagers;
@@ -103,8 +109,10 @@ internal sealed class CooperativeWorldMaintenanceRunner
             preparedWorldGeneration = worldGeneration;
             preparedActorVersion = -1;
             preparedActorPartitionVersion = -1;
+            pendingActorPartitionVersion = -1;
             lastAnythingChangedFrame = -1;
             actorPartitionsReady = false;
+            actorMetaIndices.Clear();
             DirtyMetaActorIndex.Clear();
         }
 
@@ -153,16 +161,34 @@ internal sealed class CooperativeWorldMaintenanceRunner
                 metaManagers.Clear();
                 metaManagers.AddRange(
                     world._list_meta_main_managers);
-                bool actorPartitionsDirty =
+                int actorStructuralVersion =
+                    ActorMetaPartitionVersion
+                        .GetStructuralVersion(
+                            world.units.version);
+                bool actorStructureDirty =
                     !actorPartitionsReady ||
                     preparedActorVersion !=
-                    world.units.version ||
+                    actorStructuralVersion;
+                bool actorPartitionsDirty =
+                    actorStructureDirty ||
                     preparedActorPartitionVersion !=
                     ActorMetaPartitionVersion.Version;
                 if (!actorPartitionsDirty)
                 {
                     stage =
                         MaintenanceStage.GeoRegionUnits;
+                    break;
+                }
+
+                pendingActorPartitionVersion =
+                    ActorMetaPartitionVersion
+                        .ConsumeDirtyActors(
+                            dirtyActorPartitions);
+                if (!actorStructureDirty)
+                {
+                    stage =
+                        MaintenanceStage
+                            .PrepareActorsIncremental;
                     break;
                 }
 
@@ -178,13 +204,28 @@ internal sealed class CooperativeWorldMaintenanceRunner
                 break;
             case MaintenanceStage.PrepareActors:
                 RebuildActorMetaPartitions();
+                RebuildActorMetaIndices();
                 preparedActorVersion =
-                    world.units.version;
+                    ActorMetaPartitionVersion
+                        .GetStructuralVersion(
+                            world.units.version);
                 preparedActorPartitionVersion =
-                    ActorMetaPartitionVersion.Version;
+                    pendingActorPartitionVersion;
+                dirtyActorPartitions.Clear();
                 actorPartitionsReady = true;
                 stage = MaintenanceStage.GeoRegionUnits;
 
+                break;
+            case MaintenanceStage.PrepareActorsIncremental:
+                ApplyActorMetaPartitionChanges();
+                preparedActorVersion =
+                    ActorMetaPartitionVersion
+                        .GetStructuralVersion(
+                            world.units.version);
+                preparedActorPartitionVersion =
+                    pendingActorPartitionVersion;
+                dirtyActorPartitions.Clear();
+                stage = MaintenanceStage.GeoRegionUnits;
                 break;
             case MaintenanceStage.GeoRegionUnits:
                 WorldboxGame.I?.GeoRegions
@@ -388,6 +429,7 @@ internal sealed class CooperativeWorldMaintenanceRunner
     {
         DirtyMetaActorIndex.End();
         actors.Clear();
+        dirtyActorPartitions.Clear();
         occupiedBuildings.Clear();
         metaManagers.Clear();
         world = null;
@@ -603,6 +645,198 @@ internal sealed class CooperativeWorldMaintenanceRunner
         actorMetaWorkCount = 0;
     }
 
+    private void RebuildActorMetaIndices()
+    {
+        actorMetaIndices.Clear();
+        for (int i = 0; i < actors.Count; i++)
+        {
+            actorMetaIndices.Add(actors[i], i);
+        }
+    }
+
+    private void ApplyActorMetaPartitionChanges()
+    {
+        List<Actor> alive =
+            world.units.units_only_alive;
+        List<Actor> wild =
+            world.units.units_only_wild;
+        List<Actor> civilized =
+            world.units.units_only_civ;
+        List<Actor> dying =
+            world.units.units_only_dying;
+
+        for (int i = 0;
+             i < dirtyActorPartitions.Count;
+             i++)
+        {
+            Actor actor = dirtyActorPartitions[i];
+            int actorIndex = actorMetaIndices[actor];
+            ActorMetaPartitionKind previous =
+                actorMetaPartitions[actorIndex];
+            ActorMetaPartitionKind next =
+                GetActorMetaPartition(actor);
+            if (previous == next)
+            {
+                continue;
+            }
+
+            bool previousAlive =
+                previous != ActorMetaPartitionKind.Dying;
+            bool nextAlive =
+                next != ActorMetaPartitionKind.Dying;
+            if (previousAlive != nextAlive)
+            {
+                if (previousAlive)
+                {
+                    RemoveActorAtRank(
+                        alive,
+                        actor,
+                        actorIndex);
+                }
+                else
+                {
+                    InsertActorAtRank(
+                        alive,
+                        actor,
+                        actorIndex);
+                }
+            }
+
+            switch (previous)
+            {
+                case ActorMetaPartitionKind.AliveWild:
+                    RemoveActorAtRank(
+                        wild,
+                        actor,
+                        actorIndex);
+                    break;
+                case ActorMetaPartitionKind.AliveCivilized:
+                    RemoveActorAtRank(
+                        civilized,
+                        actor,
+                        actorIndex);
+                    break;
+                case ActorMetaPartitionKind.Dying:
+                    RemoveActorAtRank(
+                        dying,
+                        actor,
+                        actorIndex);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            actorMetaPartitions[actorIndex] = next;
+            switch (next)
+            {
+                case ActorMetaPartitionKind.AliveWild:
+                    InsertActorAtRank(
+                        wild,
+                        actor,
+                        actorIndex);
+                    break;
+                case ActorMetaPartitionKind.AliveCivilized:
+                    InsertActorAtRank(
+                        civilized,
+                        actor,
+                        actorIndex);
+                    break;
+                case ActorMetaPartitionKind.Dying:
+                    InsertActorAtRank(
+                        dying,
+                        actor,
+                        actorIndex);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        CopyActorListToBuffer(
+            alive,
+            ref aliveActors,
+            ref bufferedAliveActorCount);
+        CopyActorListToBuffer(
+            dying,
+            ref dyingActors,
+            ref bufferedDyingActorCount);
+        world.units.have_dying_units =
+            dying.Count > 0;
+    }
+
+    private void RemoveActorAtRank(
+        List<Actor> source,
+        Actor actor,
+        int actorIndex)
+    {
+        int indexAtRank =
+            FindActorRankIndex(source, actorIndex);
+        if (indexAtRank >= source.Count ||
+            !ReferenceEquals(
+                source[indexAtRank],
+                actor))
+        {
+            throw new InvalidOperationException(
+                "角色元数据分区顺序与容器索引不一致");
+        }
+
+        source.RemoveAt(indexAtRank);
+    }
+
+    private void InsertActorAtRank(
+        List<Actor> target,
+        Actor actor,
+        int actorIndex)
+    {
+        target.Insert(
+            FindActorRankIndex(target, actorIndex),
+            actor);
+    }
+
+    private int FindActorRankIndex(
+        List<Actor> source,
+        int actorIndex)
+    {
+        int low = 0;
+        int high = source.Count;
+        while (low < high)
+        {
+            int middle = low + (high - low) / 2;
+            int middleActorIndex =
+                actorMetaIndices[source[middle]];
+            if (middleActorIndex < actorIndex)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                high = middle;
+            }
+        }
+
+        return low;
+    }
+
+    private static void CopyActorListToBuffer(
+        List<Actor> source,
+        ref Actor[] buffer,
+        ref int previousCount)
+    {
+        int count = source.Count;
+        EnsureActorBufferCapacity(
+            ref buffer,
+            count);
+        if (count > 0)
+        {
+            source.CopyTo(buffer, 0);
+        }
+
+        ClearStaleActorReferences(
+            buffer,
+            count,
+            ref previousCount);
+    }
+
     private void ClassifyActorMetaRange(int workIndex)
     {
         int start =
@@ -618,27 +852,23 @@ internal sealed class CooperativeWorldMaintenanceRunner
         for (int i = start; i < end; i++)
         {
             Actor actor = actors[i];
-            ActorMetaPartitionKind partition;
-            if (!actor.isAlive())
+            ActorMetaPartitionKind partition =
+                GetActorMetaPartition(actor);
+            switch (partition)
             {
-                partition =
-                    ActorMetaPartitionKind.Dying;
-                dyingCount++;
-            }
-            else if (actor.kingdom.wild)
-            {
-                partition =
-                    ActorMetaPartitionKind.AliveWild;
-                aliveCount++;
-                wildCount++;
-            }
-            else
-            {
-                partition =
-                    ActorMetaPartitionKind
-                        .AliveCivilized;
-                aliveCount++;
-                civilizedCount++;
+                case ActorMetaPartitionKind.AliveWild:
+                    aliveCount++;
+                    wildCount++;
+                    break;
+                case ActorMetaPartitionKind.AliveCivilized:
+                    aliveCount++;
+                    civilizedCount++;
+                    break;
+                case ActorMetaPartitionKind.Dying:
+                    dyingCount++;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
 
             actorMetaPartitions[i] = partition;
@@ -659,6 +889,19 @@ internal sealed class CooperativeWorldMaintenanceRunner
         actorMetaPartitionCounts[
             slot + DyingPartitionIndex] =
             dyingCount;
+    }
+
+    private static ActorMetaPartitionKind
+        GetActorMetaPartition(Actor actor)
+    {
+        if (!actor.isAlive())
+        {
+            return ActorMetaPartitionKind.Dying;
+        }
+
+        return actor.kingdom.wild
+            ? ActorMetaPartitionKind.AliveWild
+            : ActorMetaPartitionKind.AliveCivilized;
     }
 
     private void ScatterActorMetaRange(int workIndex)
