@@ -14,6 +14,88 @@ internal static class PatchOptimizeVanilla
     [ThreadStatic]
     private static List<Actor> socializeNormalTargets;
 
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(BehFindBuilding), nameof(BehFindBuilding.execute))]
+    private static bool FindBuildingExecutePrefix(
+        BehFindBuilding __instance,
+        Actor pActor,
+        ref BehResult __result)
+    {
+        Building target = FindBuilding(
+            pActor,
+            __instance._type,
+            __instance._only_non_targeted,
+            __instance._only_with_resources);
+        pActor.beh_building_target = target;
+        __result = target == null
+            ? BehResult.Stop
+            : BehResult.Continue;
+        return false;
+    }
+
+    /// <summary>
+    /// 保留原版两层随机起点和候选顺序，直接扫描 chunk 成员表。
+    /// 原实现会为每个相邻 chunk 再创建两层迭代器，并反复写入
+    /// Toolbox/Finder 的共享临时数组。
+    /// </summary>
+    private static Building FindBuilding(
+        Actor actor,
+        string type,
+        bool onlyNonTargeted,
+        bool onlyWithResources)
+    {
+        MapChunk origin = actor.current_tile.chunk;
+        MapChunk[] neighbours = origin.neighbours_all;
+        int chunkCount = neighbours.Length + 1;
+        int chunkOffset = Randy.randomInt(0, chunkCount);
+        Building fallback = null;
+        for (int i = 0; i < chunkCount; i++)
+        {
+            int logicalIndex =
+                (i + chunkOffset) % chunkCount;
+            MapChunk chunk = logicalIndex == 0
+                ? origin
+                : neighbours[logicalIndex - 1];
+
+            // Finder.getBuildingsFromChunk(radius: 0) 会为唯一 chunk
+            // 创建 RandomArrayEnumerator；保留它消耗的随机数。
+            Randy.randomInt(0, 1);
+
+            List<Building> buildings =
+                chunk.objects.buildings_all;
+            int buildingCount = buildings.Count;
+            int buildingOffset =
+                Randy.randomInt(0, buildingCount);
+            for (int j = 0; j < buildingCount; j++)
+            {
+                Building building =
+                    buildings[
+                        (j + buildingOffset) %
+                        buildingCount];
+                if (!building.isAlive() ||
+                    building.asset.type != type ||
+                    (onlyWithResources &&
+                     !building.hasResourcesToCollect()) ||
+                    !building.isUsable() ||
+                    (onlyNonTargeted &&
+                     building.current_tile.isTargeted()))
+                {
+                    continue;
+                }
+
+                if (building.current_tile.isSameIsland(
+                        actor.current_tile))
+                {
+                    return building;
+                }
+
+                fallback = building;
+            }
+        }
+
+        return fallback;
+    }
+
     [HarmonyPrefix, HarmonyPatch(typeof(Toolbox), "getBuildingsTypeFromChunk")]
     private static bool GetBuildingsTypeFromChunkPrefix(
         MapChunk pChunk,
@@ -81,31 +163,64 @@ internal static class PatchOptimizeVanilla
         int chunkRadius = Randy.randomInt(1, 3);
         MeatTargetType targetType = __instance._meat_target_type;
         bool checkForFactions = __instance._check_for_factions;
-        foreach (Actor target in Finder.getUnitsFromChunk(
-                     origin,
-                     chunkRadius,
-                     0f,
-                     stopEarly))
+        MapChunk[] chunks =
+            ChunkWindowIndex.Get(
+                origin.chunk,
+                chunkRadius);
+        int chunkCount = chunks.Length;
+        int chunkOffset =
+            Randy.randomInt(0, chunkCount);
+        for (int i = 0; i < chunkCount; i++)
         {
-            float distanceSquared = Toolbox.SquaredDistTile(
-                target.current_tile,
-                origin);
-            if (distanceSquared >= closestDistanceSquared ||
-                target == pActor ||
-                !IsMatchingMeatSource(pActor, target, targetType) ||
-                target.asset.actor_size > pActor.asset.actor_size ||
-                !target.current_tile.isSameIsland(origin) ||
-                !pActor.canAttackTarget(target, checkForFactions))
+            List<Actor> units =
+                chunks[(i + chunkOffset) % chunkCount]
+                    .objects.units_all;
+            int unitCount = units.Count;
+            int unitOffset = stopEarly
+                ? Randy.randomInt(0, unitCount)
+                : 0;
+            for (int j = 0; j < unitCount; j++)
             {
-                continue;
-            }
+                Actor target =
+                    units[
+                        (j + unitOffset) %
+                        unitCount];
+                if (!target.isAlive())
+                {
+                    continue;
+                }
 
-            closestDistanceSquared = distanceSquared;
-            closest = target;
-            if (stopEarly &&
-                Randy.randomBool())
-            {
-                break;
+                float distanceSquared =
+                    Toolbox.SquaredDistTile(
+                        target.current_tile,
+                        origin);
+                if (distanceSquared >=
+                        closestDistanceSquared ||
+                    target == pActor ||
+                    !IsMatchingMeatSource(
+                        pActor,
+                        target,
+                        targetType) ||
+                    target.asset.actor_size >
+                    pActor.asset.actor_size ||
+                    !target.current_tile.isSameIsland(
+                        origin) ||
+                    !pActor.canAttackTarget(
+                        target,
+                        checkForFactions))
+                {
+                    continue;
+                }
+
+                closestDistanceSquared =
+                    distanceSquared;
+                closest = target;
+                if (stopEarly &&
+                    Randy.randomBool())
+                {
+                    __result = closest;
+                    return false;
+                }
             }
         }
 
@@ -131,6 +246,86 @@ internal static class PatchOptimizeVanilla
             default:
                 return true;
         }
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(
+        typeof(BehFindTargetForHunter),
+        nameof(BehFindTargetForHunter.execute))]
+    private static bool FindHunterTargetExecutePrefix(
+        Actor pActor,
+        ref BehResult __result)
+    {
+        BaseSimObject currentTarget =
+            pActor.beh_actor_target;
+        if (currentTarget != null &&
+            pActor.isTargetOkToAttack(
+                currentTarget.a))
+        {
+            __result = BehResult.Continue;
+            return false;
+        }
+
+        Actor target =
+            FindClosestHunterTarget(pActor);
+        pActor.beh_actor_target = target;
+        __result = target == null
+            ? BehResult.Stop
+            : BehResult.Continue;
+        return false;
+    }
+
+    /// <summary>
+    /// 原实现先把半径三格 chunk 内的全部候选放入共享临时列表，
+    /// 再做第二遍最近距离扫描。这里按相同随机 chunk 起点单遍选出
+    /// 最近目标，并在昂贵的阵营攻击判定前完成肉源、年龄和岛屿过滤。
+    /// </summary>
+    private static Actor FindClosestHunterTarget(
+        Actor hunter)
+    {
+        WorldTile origin = hunter.current_tile;
+        MapChunk[] chunks =
+            ChunkWindowIndex.Get(origin.chunk, 3);
+        int chunkCount = chunks.Length;
+        int chunkOffset =
+            Randy.randomInt(0, chunkCount);
+        Actor closest = null;
+        int closestDistanceSquared = int.MaxValue;
+        for (int i = 0; i < chunkCount; i++)
+        {
+            List<Actor> units =
+                chunks[(i + chunkOffset) % chunkCount]
+                    .objects.units_all;
+            int unitCount = units.Count;
+            for (int j = 0; j < unitCount; j++)
+            {
+                Actor target = units[j];
+                if (!target.isAlive() ||
+                    target.isSameKingdom(hunter) ||
+                    !target.asset.source_meat ||
+                    target.getAge() < 3 ||
+                    !hunter.isTargetOkToAttack(target))
+                {
+                    continue;
+                }
+
+                int distanceSquared =
+                    Toolbox.SquaredDistTile(
+                        target.current_tile,
+                        origin);
+                if (distanceSquared >=
+                    closestDistanceSquared)
+                {
+                    continue;
+                }
+
+                closestDistanceSquared =
+                    distanceSquared;
+                closest = target;
+            }
+        }
+
+        return closest;
     }
 
     [HarmonyPrefix]
