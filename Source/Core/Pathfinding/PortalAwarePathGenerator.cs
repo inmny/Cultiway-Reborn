@@ -346,11 +346,18 @@ public class PortalAwarePathGenerator : IPathGenerator
     {
         result = directPathBuffer ??= new List<PathStep>(64);
         result.Clear();
-        if (!TileTraversalInfo.TryGet(
-                request.StartTileId,
+        WorldTile[] tiles =
+            World.world?.tiles_list;
+        if (tiles == null ||
+            request.StartTileId < 0 ||
+            request.TargetTileId < 0 ||
+            request.StartTileId >= tiles.Length ||
+            request.TargetTileId >= tiles.Length ||
+            !TileTraversalInfo.TryCreate(
+                tiles[request.StartTileId],
                 out TileTraversalInfo current) ||
-            !TileTraversalInfo.TryGet(
-                request.TargetTileId,
+            !TileTraversalInfo.TryCreate(
+                tiles[request.TargetTileId],
                 out TileTraversalInfo target))
         {
             return false;
@@ -420,9 +427,10 @@ public class PortalAwarePathGenerator : IPathGenerator
                 y += stepY;
             }
 
-            if (!TileTraversalInfo.TryGetAt(
-                    x,
-                    y,
+            int tileId =
+                x + y * MapBox.width;
+            if (!TileTraversalInfo.TryCreate(
+                    tiles[tileId],
                     out TileTraversalInfo next) ||
                 !IsSafeDirectTile(next, profile))
             {
@@ -561,6 +569,8 @@ public class PortalAwarePathGenerator : IPathGenerator
                     profile) *
                 heuristicWeight));
 
+        int mapWidth = MapBox.width;
+        int mapHeight = MapBox.height;
         int expanded = 0;
         int checkedEdges = 0;
         int improvedEdges = 0;
@@ -599,31 +609,81 @@ public class PortalAwarePathGenerator : IPathGenerator
                 continue;
             }
 
-            WorldTile currentTile =
-                TileTraversalInfo.ResolveTile(openNode.TileId);
-            WorldTile[] neighbours =
-                currentTile?.neighboursAll ??
-                currentTile?.neighbours;
-            if (neighbours == null)
-            {
-                continue;
-            }
-
             TraversalState currentState =
                 workspace.GetState(openNode.TileId);
-            for (int i = 0; i < neighbours.Length; i++)
+            for (int i = 0; i < 8; i++)
             {
+                int neighbourX;
+                int neighbourY;
+                switch (i)
+                {
+                    case 0:
+                        neighbourX =
+                            currentInfo.X - 1;
+                        neighbourY =
+                            currentInfo.Y;
+                        break;
+                    case 1:
+                        neighbourX =
+                            currentInfo.X + 1;
+                        neighbourY =
+                            currentInfo.Y;
+                        break;
+                    case 2:
+                        neighbourX =
+                            currentInfo.X;
+                        neighbourY =
+                            currentInfo.Y - 1;
+                        break;
+                    case 3:
+                        neighbourX =
+                            currentInfo.X;
+                        neighbourY =
+                            currentInfo.Y + 1;
+                        break;
+                    case 4:
+                        neighbourX =
+                            currentInfo.X - 1;
+                        neighbourY =
+                            currentInfo.Y - 1;
+                        break;
+                    case 5:
+                        neighbourX =
+                            currentInfo.X - 1;
+                        neighbourY =
+                            currentInfo.Y + 1;
+                        break;
+                    case 6:
+                        neighbourX =
+                            currentInfo.X + 1;
+                        neighbourY =
+                            currentInfo.Y - 1;
+                        break;
+                    default:
+                        neighbourX =
+                            currentInfo.X + 1;
+                        neighbourY =
+                            currentInfo.Y + 1;
+                        break;
+                }
+
+                if ((uint)neighbourX >=
+                        (uint)mapWidth ||
+                    (uint)neighbourY >=
+                        (uint)mapHeight)
+                {
+                    continue;
+                }
+
                 checkedEdges++;
                 int neighbourId =
-                    TileTraversalInfo.TileIdOf(neighbours[i]);
+                    neighbourX +
+                    neighbourY * mapWidth;
                 if (workspace.IsClosed(neighbourId) ||
                     !workspace.TryGetTileInfo(
                         neighbourId,
                         out TileTraversalInfo neighbour) ||
-                    !rules.CanTraverse(neighbour) ||
-                    IsDiagonalOutsideMap(
-                        currentInfo,
-                        neighbour))
+                    !rules.CanTraverse(neighbour))
                 {
                     continue;
                 }

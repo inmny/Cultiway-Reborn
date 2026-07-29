@@ -468,6 +468,7 @@ internal static class PatchFramePriorityScheduler
         WorldObjectPresentationRenderer.Reset();
         PresentationCommandQueue.Clear();
         InsideBoatActorIndex.Reset();
+        TileTraversalInfo.ClearCache();
         SimulationTime.UnbindWorld();
     }
 

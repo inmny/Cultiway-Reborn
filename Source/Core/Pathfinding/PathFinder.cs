@@ -327,11 +327,12 @@ public class PathFinder
                 : _generator?.GetType().Name ?? "none";
         return string.Format(
             CultureInfo.InvariantCulture,
-            "active={0} pending={1} workers={2} generator=[{3}]",
+            "active={0} pending={1} workers={2} generator=[{3}] traversal=[{4}]",
             _tasks.Count,
             _pendingTasks.Count,
             Volatile.Read(ref _workerCount),
-            generatorDiagnostics) +
+            generatorDiagnostics,
+            TileTraversalInfo.GetCacheDiagnostics()) +
             string.Format(
                 CultureInfo.InvariantCulture,
                 " wake={0}/{1}/{2}(signal/apply/ignore) queued={3}",
