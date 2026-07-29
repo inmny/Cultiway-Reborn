@@ -9,6 +9,11 @@ namespace Cultiway.Core.Performance;
 /// </summary>
 internal static class SimulationStepContext
 {
+    [ThreadStatic]
+    private static int depth;
+
+    internal static bool IsActive => depth > 0;
+
     public static void Run(
         MapBox map,
         bool paused,
@@ -43,12 +48,14 @@ internal static class SimulationStepContext
             timeScale.sonic = false;
         }
 
+        depth++;
         try
         {
             action();
         }
         finally
         {
+            depth--;
             timeScale.multiplier = previousMultiplier;
             timeScale.ticks = previousTicks;
             timeScale.conway_ticks = previousConwayTicks;

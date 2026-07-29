@@ -512,6 +512,9 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         sb.Append("  actor_parallel ")
             .Append(CooperativeActorParallelJobRunner.GetDiagnostics())
             .AppendLine();
+        sb.Append("  status_scheduler ")
+            .Append(StatusSimulationScheduler.GetDiagnostics())
+            .AppendLine();
         sb.Append("  inside_boat_index ")
             .Append(InsideBoatActorIndex.GetDiagnostics())
             .AppendLine();

@@ -44,6 +44,13 @@ internal static class PatchFramePriorityScheduler
             return true;
         }
 
+        if (StatusSimulationScheduler.TryUpdate(
+                __instance,
+                pElapsed))
+        {
+            return false;
+        }
+
         float worldTime =
             (float)World.world.getCurWorldTime();
         bool paused = World.world.isPaused();
@@ -72,6 +79,87 @@ internal static class PatchFramePriorityScheduler
         }
 
         return false;
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(
+        typeof(MapBox),
+        nameof(MapBox.checkSimManagerLists))]
+    private static bool GateStatusListRebuild(
+        MapBox __instance)
+    {
+        bool updateStatuses =
+            StatusSimulationScheduler
+                .ShouldRunListSync();
+        List<BaseSystemManager> managers =
+            __instance.list_all_sim_managers;
+        for (int i = 0; i < managers.Count; i++)
+        {
+            BaseSystemManager manager = managers[i];
+            if (!updateStatuses &&
+                manager is StatusManager)
+            {
+                continue;
+            }
+
+            manager.checkLists();
+        }
+
+        return false;
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(
+        typeof(StatusManager),
+        nameof(StatusManager.newStatus))]
+    private static void RegisterScheduledStatus(
+        Status __result)
+    {
+        StatusSimulationScheduler.NotifyAdded(
+            __result);
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(
+        typeof(Status),
+        nameof(Status.setDuration))]
+    private static void RescheduleStatusDuration(
+        Status __instance)
+    {
+        StatusSimulationScheduler
+            .NotifyDurationChanged(__instance);
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(
+        typeof(Status),
+        nameof(Status.finish))]
+    private static void ScheduleFinishedStatus(
+        Status __instance)
+    {
+        StatusSimulationScheduler.NotifyFinished(
+            __instance);
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(
+        typeof(StatusManager),
+        nameof(StatusManager.removeObject))]
+    private static void UnregisterScheduledStatus(
+        Status pObject)
+    {
+        StatusSimulationScheduler.NotifyRemoved(
+            pObject);
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(
+        typeof(ActorManager),
+        nameof(ActorManager.checkSleepingUnits))]
+    private static void SyncStatusesBeforeSleepingQuery()
+    {
+        StatusSimulationScheduler.EnsureListCurrent(
+            World.world?.statuses);
     }
 
     [HarmonyPrefix]

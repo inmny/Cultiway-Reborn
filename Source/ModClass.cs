@@ -179,6 +179,9 @@ namespace Cultiway
                             .Append("  [ActorParallel] ")
                             .Append(CooperativeActorParallelJobRunner.GetDiagnostics())
                             .AppendLine()
+                            .Append("  [StatusScheduler] ")
+                            .Append(StatusSimulationScheduler.GetDiagnostics())
+                            .AppendLine()
                             .Append("  [GeoRegionUnits] ")
                             .Append(WorldboxGame.I?.GeoRegions
                                 ?.GetUnitMembershipDiagnostics() ??
