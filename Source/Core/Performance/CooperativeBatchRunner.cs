@@ -360,6 +360,17 @@ internal sealed class CooperativeBatchRunner<TBatch, TObject> where TBatch : Bat
         return true;
     }
 
+    public bool RunDeferredParallelWorkSynchronously()
+    {
+        if (!WaitingForPresentationDispatch)
+        {
+            return false;
+        }
+
+        RunParallelStageInBackground();
+        return true;
+    }
+
     public SimulationCoordinatorThread.WorkResult
         CompleteParallelPresentationWork()
     {

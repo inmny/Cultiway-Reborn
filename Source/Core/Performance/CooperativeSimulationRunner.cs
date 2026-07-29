@@ -14,6 +14,9 @@ internal sealed class CooperativeSimulationRunner
     private const double MinimumBurstMilliseconds = 0.25;
     private const double MaximumBurstMilliseconds = 2.0;
     private const double TargetFrameBurstRatio = 0.01;
+    private const double InitialActorParallelStageMilliseconds = 2.0;
+    private const double InitialBuildingParallelStageMilliseconds = 0.5;
+    private const double SynchronousStageHeadroomRatio = 1.25;
 
     private enum SimulationStage
     {
@@ -113,6 +116,7 @@ internal sealed class CooperativeSimulationRunner
     private string admissionBlockReason = "not_prepared";
     private long presentationOverlapLaunches;
     private long presentationOverlapEagerLaunches;
+    private long presentationSynchronousRuns;
     private long presentationOverlapCompletions;
     private long presentationOverlapFallbacks;
     private long presentationOverlapForcedJoins;
@@ -126,6 +130,7 @@ internal sealed class CooperativeSimulationRunner
     private string lastPresentationBoundaryReason = "none";
     private long buildingPresentationOverlapLaunches;
     private long buildingPresentationOverlapEagerLaunches;
+    private long buildingPresentationSynchronousRuns;
     private long buildingPresentationOverlapCompletions;
     private long buildingPresentationOverlapFallbacks;
     private long buildingPresentationOverlapForcedJoins;
@@ -145,6 +150,10 @@ internal sealed class CooperativeSimulationRunner
     private long activeStageBurstDeadline;
     private int activeStageBurstSteps;
     private StageBurstStopReason activeStageBurstStopReason;
+    private double actorParallelStageEstimateMilliseconds =
+        InitialActorParallelStageMilliseconds;
+    private double buildingParallelStageEstimateMilliseconds =
+        InitialBuildingParallelStageMilliseconds;
 
     private CooperativeSimulationRunner()
     {
@@ -357,6 +366,22 @@ internal sealed class CooperativeSimulationRunner
     {
         if (stage == SimulationStage.Actors)
         {
+            if (CanRunDeferredParallelWorkSynchronously(
+                    actorParallelStageEstimateMilliseconds))
+            {
+                long startedAt = Stopwatch.GetTimestamp();
+                if (actorRunner
+                    .RunDeferredParallelWorkSynchronously())
+                {
+                    UpdateParallelStageEstimate(
+                        ref actorParallelStageEstimateMilliseconds,
+                        startedAt);
+                    Interlocked.Increment(
+                        ref presentationSynchronousRuns);
+                    return true;
+                }
+            }
+
             if (!TryBeginActorPresentationOverlap())
             {
                 return false;
@@ -367,8 +392,28 @@ internal sealed class CooperativeSimulationRunner
             return true;
         }
 
-        if (stage != SimulationStage.Buildings ||
-            !TryBeginBuildingPresentationOverlap())
+        if (stage != SimulationStage.Buildings)
+        {
+            return false;
+        }
+
+        if (CanRunDeferredParallelWorkSynchronously(
+                buildingParallelStageEstimateMilliseconds))
+        {
+            long startedAt = Stopwatch.GetTimestamp();
+            if (buildingRunner
+                .RunDeferredParallelWorkSynchronously())
+            {
+                UpdateParallelStageEstimate(
+                    ref buildingParallelStageEstimateMilliseconds,
+                    startedAt);
+                Interlocked.Increment(
+                    ref buildingPresentationSynchronousRuns);
+                return true;
+            }
+        }
+
+        if (!TryBeginBuildingPresentationOverlap())
         {
             return false;
         }
@@ -376,6 +421,38 @@ internal sealed class CooperativeSimulationRunner
         Interlocked.Increment(
             ref buildingPresentationOverlapEagerLaunches);
         return true;
+    }
+
+    private static bool CanRunDeferredParallelWorkSynchronously(
+        double estimatedMilliseconds)
+    {
+        return FramePriorityGovernor
+                   .GetRemainingSimulationBudgetMilliseconds() >=
+               Math.Max(
+                   PerformanceSettings.MinimumSliceMilliseconds,
+                   estimatedMilliseconds *
+                   SynchronousStageHeadroomRatio);
+    }
+
+    private static void UpdateParallelStageEstimate(
+        ref double estimateMilliseconds,
+        long startedAt)
+    {
+        double elapsedMilliseconds =
+            TicksToMilliseconds(
+                Stopwatch.GetTimestamp() - startedAt);
+        if (elapsedMilliseconds >= estimateMilliseconds)
+        {
+            estimateMilliseconds =
+                elapsedMilliseconds;
+            return;
+        }
+
+        estimateMilliseconds =
+            Math.Max(
+                PerformanceSettings.MinimumSliceMilliseconds,
+                estimateMilliseconds * 0.9 +
+                elapsedMilliseconds * 0.1);
     }
 
     private void CompleteActorPresentationWork(
@@ -535,10 +612,10 @@ internal sealed class CooperativeSimulationRunner
             Interlocked.Read(ref presentationOverlapCompletions);
         return string.Format(
             CultureInfo.InvariantCulture,
-            "launch={0}(eager={14}) complete={1} fallback={2} forced_join={3} " +
+            "launch={0}(eager={14},sync={15}) complete={1} fallback={2} forced_join={3} " +
             "wall={4:0.0}ms wait={5:0.0}ms last={6:0.00}/{7:0.00}ms " +
             "readonly={11}/{12}/{13:0.0}ms " +
-            "boundary={8} dispatch_wait={9} inflight={10}",
+            "estimate={16:0.00}ms boundary={8} dispatch_wait={9} inflight={10}",
             launches,
             completions,
             Interlocked.Read(ref presentationOverlapFallbacks),
@@ -559,7 +636,9 @@ internal sealed class CooperativeSimulationRunner
             TicksToMilliseconds(
                 Interlocked.Read(
                     ref presentationReadOnlyWaitTicks)),
-            Interlocked.Read(ref presentationOverlapEagerLaunches));
+            Interlocked.Read(ref presentationOverlapEagerLaunches),
+            Interlocked.Read(ref presentationSynchronousRuns),
+            actorParallelStageEstimateMilliseconds);
     }
 
     public string GetBuildingPresentationOverlapDiagnostics()
@@ -570,9 +649,9 @@ internal sealed class CooperativeSimulationRunner
             Interlocked.Read(ref buildingPresentationOverlapCompletions);
         return string.Format(
             CultureInfo.InvariantCulture,
-            "launch={0}(eager={11}) complete={1} fallback={2} forced_join={3} " +
+            "launch={0}(eager={11},sync={12}) complete={1} fallback={2} forced_join={3} " +
             "wall={4:0.0}ms wait={5:0.0}ms last={6:0.00}/{7:0.00}ms " +
-            "boundary={8} dispatch_wait={9} inflight={10}",
+            "estimate={13:0.00}ms boundary={8} dispatch_wait={9} inflight={10}",
             launches,
             completions,
             Interlocked.Read(ref buildingPresentationOverlapFallbacks),
@@ -590,7 +669,9 @@ internal sealed class CooperativeSimulationRunner
             lastBuildingPresentationBoundaryReason,
             buildingRunner.WaitingForPresentationDispatch,
             buildingRunner.MutatingParallelWorkInFlight,
-            Interlocked.Read(ref buildingPresentationOverlapEagerLaunches));
+            Interlocked.Read(ref buildingPresentationOverlapEagerLaunches),
+            Interlocked.Read(ref buildingPresentationSynchronousRuns),
+            buildingParallelStageEstimateMilliseconds);
     }
 
     public string GetStageBurstDiagnostics()
