@@ -14,7 +14,7 @@ internal static class EnemyPresenceCache
     private static readonly Dictionary<Kingdom, bool> Cache =
         new();
     private static readonly Dictionary<
-        EnemyFinderContainer,
+        Kingdom,
         HashSet<int>> NegativeKeys = new();
     private static readonly EnemyFinderData EmptyResult =
         new();
@@ -47,12 +47,17 @@ internal static class EnemyPresenceCache
         Cache.Clear();
     }
 
-    internal static bool HasNegativeKey(
-        EnemyFinderContainer container,
+    internal static bool TryGetNegativeResult(
+        Kingdom kingdom,
         int key)
     {
+        if (kingdom == null)
+        {
+            return false;
+        }
+
         if (!NegativeKeys.TryGetValue(
-                container,
+                kingdom,
                 out HashSet<int> keys) ||
             !keys.Contains(key))
         {
@@ -68,27 +73,73 @@ internal static class EnemyPresenceCache
         return true;
     }
 
-    internal static void AddNegativeKey(
-        EnemyFinderContainer container,
-        int key)
+    internal static bool TryGetPreparationEmptyResult(
+        WorldTile tile,
+        Kingdom kingdom,
+        int range,
+        out EnemyFinderData result)
+    {
+        if (!preparationActive ||
+            tile == null ||
+            kingdom == null ||
+            HasPopulatedEnemy(kingdom))
+        {
+            result = null;
+            return false;
+        }
+
+        int key =
+            tile.chunk.id * 10000 +
+            range;
+        if (TryGetNegativeResult(
+                kingdom,
+                key))
+        {
+            EnemiesFinder.counter_reused++;
+            result = EmptyResult;
+            return true;
+        }
+
+        AddNegativeResult(
+            kingdom,
+            key,
+            range);
+        result = EmptyResult;
+        return true;
+    }
+
+    internal static void AddNegativeResult(
+        Kingdom kingdom,
+        int key,
+        int range)
     {
         if (!NegativeKeys.TryGetValue(
-                container,
+                kingdom,
                 out HashSet<int> keys))
         {
             keys = new HashSet<int>();
             NegativeKeys.Add(
-                container,
+                kingdom,
                 keys);
         }
 
         keys.Add(key);
+        if (!kingdom.asset.force_look_all_chunks &&
+            range != 0)
+        {
+            Randy.randomChance(0.8f);
+        }
+
+        RecordSkippedChunkBuild();
     }
 
     internal static void ClearNegativeKeys(
-        EnemyFinderContainer container)
+        Kingdom kingdom)
     {
-        NegativeKeys.Remove(container);
+        if (kingdom != null)
+        {
+            NegativeKeys.Remove(kingdom);
+        }
     }
 
     internal static bool HasPopulatedEnemy(

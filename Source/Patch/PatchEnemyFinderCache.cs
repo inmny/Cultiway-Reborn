@@ -38,8 +38,11 @@ internal static class PatchEnemyFinderCache
             return false;
         }
 
-        if (EnemyPresenceCache.HasNegativeKey(
-                __instance,
+        Kingdom kingdom =
+            KingdomField(__instance);
+        if (kingdom != null &&
+            EnemyPresenceCache.TryGetNegativeResult(
+                kingdom,
                 key))
         {
             EnemiesFinder.counter_reused++;
@@ -49,8 +52,6 @@ internal static class PatchEnemyFinderCache
             return false;
         }
 
-        Kingdom kingdom =
-            KingdomField(__instance);
         if (!EnemyPresenceCache
                 .IsPreparationActive ||
             kingdom == null ||
@@ -60,17 +61,10 @@ internal static class PatchEnemyFinderCache
             return true;
         }
 
-        EnemyPresenceCache.AddNegativeKey(
-            __instance,
-            key);
-        if (!kingdom.asset.force_look_all_chunks &&
-            pRange != 0)
-        {
-            Randy.randomChance(0.8f);
-        }
-
-        EnemyPresenceCache
-            .RecordSkippedChunkBuild();
+        EnemyPresenceCache.AddNegativeResult(
+            kingdom,
+            key,
+            pRange);
         __result =
             EnemyPresenceCache
                 .SharedEmptyResult;
@@ -85,7 +79,8 @@ internal static class PatchEnemyFinderCache
         EnemyFinderContainer __instance)
     {
         EnemyPresenceCache
-            .ClearNegativeKeys(__instance);
+            .ClearNegativeKeys(
+                KingdomField(__instance));
     }
 
     [HarmonyPostfix]

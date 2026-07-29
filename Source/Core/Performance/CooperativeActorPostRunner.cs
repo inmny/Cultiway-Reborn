@@ -1826,22 +1826,47 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
             ObjectContainer<Actor> container =
                 job.container;
-            if (container.isDirtyContainer())
+            bool containerDirty =
+                container.isDirtyContainer();
+            if (containerDirty)
             {
                 activeBehaviorPartitionsValid[i] =
                     false;
             }
 
-            if (container.Count > 0 ||
-                container.isDirtyContainer())
-            {
-                container.checkAddRemove();
-            }
-
             if (paused)
             {
+                if (containerDirty)
+                {
+                    container.checkAddRemove();
+                }
+
                 work.ConfigureSkipped(batch, job);
                 continue;
+            }
+
+            bool activePartition =
+                activeBehaviorPartitionsValid[i];
+            if (activePartition)
+            {
+                Actor[] activeActors =
+                    activeBehaviorActorsByBatch[i];
+                int activeCount =
+                    activeBehaviorActorCounts[i];
+                work.Configure(
+                    batch,
+                    job,
+                    activeActors,
+                    activeCount,
+                    activePartition: true);
+                actorsClassified += activeCount;
+                continue;
+            }
+
+            if (container.Count > 0 ||
+                containerDirty)
+            {
+                container.checkAddRemove();
             }
 
             Actor[] containerActors =
@@ -1850,21 +1875,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             int containerCount = container.Count;
             batch._array = containerActors;
             batch._count = containerCount;
-            bool activePartition =
-                activeBehaviorPartitionsValid[i];
-            Actor[] actors = activePartition
-                ? activeBehaviorActorsByBatch[i]
-                : containerActors;
-            int actorCount = activePartition
-                ? activeBehaviorActorCounts[i]
-                : containerCount;
             work.Configure(
                 batch,
                 job,
-                actors ?? Array.Empty<Actor>(),
-                actorCount,
-                activePartition);
-            actorsClassified += actorCount;
+                containerActors,
+                containerCount,
+                activePartition: false);
+            actorsClassified += containerCount;
         }
 
         long startedAt = StartBenchmarkMeasurement();
@@ -2561,32 +2578,21 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
             ObjectContainer<Actor> container =
                 job.container;
-            if (container.Count == 0 &&
-                !container.isDirtyContainer())
-            {
-                work.Configure(
-                    batch,
-                    job,
-                    Array.Empty<Actor>(),
-                    0,
-                    activePartition: false);
-                continue;
-            }
-
-            if (container.isDirtyContainer())
+            bool containerDirty =
+                container.isDirtyContainer();
+            if (containerDirty)
             {
                 activeBehaviorPartitionsValid[i] =
                     false;
             }
 
-            container.checkAddRemove();
-            Actor[] containerActors =
-                container.getFastSimpleArray();
-            int containerCount = container.Count;
-            batch._array = containerActors;
-            batch._count = containerCount;
             if (paused)
             {
+                if (containerDirty)
+                {
+                    container.checkAddRemove();
+                }
+
                 work.Configure(
                     batch,
                     job,
@@ -2598,19 +2604,47 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
             bool activePartition =
                 activeBehaviorPartitionsValid[i];
-            Actor[] actors = activePartition
-                ? activeBehaviorActorsByBatch[i]
-                : containerActors;
-            int actorCount = activePartition
-                ? activeBehaviorActorCounts[i]
-                : containerCount;
+            if (activePartition)
+            {
+                Actor[] activeActors =
+                    activeBehaviorActorsByBatch[i];
+                int activeCount =
+                    activeBehaviorActorCounts[i];
+                work.Configure(
+                    batch,
+                    job,
+                    activeActors,
+                    activeCount,
+                    activePartition: true);
+                actorsClassified += activeCount;
+                continue;
+            }
+
+            if (container.Count == 0 &&
+                !containerDirty)
+            {
+                work.Configure(
+                    batch,
+                    job,
+                    Array.Empty<Actor>(),
+                    0,
+                    activePartition: false);
+                continue;
+            }
+
+            container.checkAddRemove();
+            Actor[] containerActors =
+                container.getFastSimpleArray();
+            int containerCount = container.Count;
+            batch._array = containerActors;
+            batch._count = containerCount;
             work.Configure(
                 batch,
                 job,
-                actors,
-                actorCount,
-                activePartition);
-            actorsClassified += actorCount;
+                containerActors,
+                containerCount,
+                activePartition: false);
+            actorsClassified += containerCount;
         }
 
         long startedAt = StartBenchmarkMeasurement();
@@ -2702,14 +2736,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
                     break;
                 case EnemyPrepareKind.Search:
-                    PrepareEnemySearch(
-                        actor,
-                        applyBackoff: false);
-                    break;
-                case EnemyPrepareKind.SearchWithBackoff:
-                    PrepareEnemySearch(
-                        actor,
-                        applyBackoff: true);
+                    PrepareEnemySearch(actor);
                     break;
             }
         }
@@ -2754,8 +2781,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     }
 
     private void PrepareEnemySearch(
-        Actor actor,
-        bool applyBackoff)
+        Actor actor)
     {
         actor._timeout_targets =
             0.1f + Randy.randomFloat(0f, 1f);
@@ -2765,10 +2791,20 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             collectDiagnostics
                 ? EnemiesFinder.counter_reused
                 : 0;
-        EnemyFinderData enemyData =
-            EnemiesFinder.findEnemiesFrom(
-                actor.current_tile,
-                actor.kingdom);
+        EnemyFinderData enemyData;
+        if (!EnemyPresenceCache
+                .TryGetPreparationEmptyResult(
+                    actor.current_tile,
+                    actor.kingdom,
+                    SimGlobals.m.unit_chunk_sight_range,
+                    out enemyData))
+        {
+            enemyData =
+                EnemiesFinder.findEnemiesFrom(
+                    actor.current_tile,
+                    actor.kingdom);
+        }
+
         List<BaseSimObject> primaryCandidates =
             enemyData.list;
         if (collectDiagnostics)
@@ -2818,14 +2854,19 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         int aggressionSourceCount =
             actor._aggression_targets.Count;
+        if (primaryCandidates.Count == 0 &&
+            aggressionSourceCount == 0)
+        {
+            return;
+        }
+
         SearchWorkItem item = RentWorkItem();
         item.Configure(
             actor,
             primaryCandidates,
             findClosest,
             randomOffset,
-            aggressionSourceCount,
-            applyBackoff);
+            aggressionSourceCount);
     }
 
     private static void UpdateMaximum(
@@ -3366,8 +3407,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     {
         NoSearch,
         AttackTarget,
-        Search,
-        SearchWithBackoff
+        Search
     }
 
     private sealed class EnemyPrepareBatchWork
@@ -3476,17 +3516,11 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 }
                 else
                 {
-                    kind =
-                        !actor.is_moving &&
-                        !actor.isUsingPath()
-                            ? EnemyPrepareKind
-                                .SearchWithBackoff
-                            : EnemyPrepareKind.Search;
+                    kind = EnemyPrepareKind.Search;
                 }
 
                 if (kind is EnemyPrepareKind.AttackTarget or
-                    EnemyPrepareKind.Search or
-                    EnemyPrepareKind.SearchWithBackoff)
+                    EnemyPrepareKind.Search)
                 {
                     actionActors[actionCount] = actor;
                     actionKinds[actionCount] = kind;
@@ -4136,7 +4170,6 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         private int randomOffset;
         private int originalAggressionCount;
         private bool hadAggressionTargets;
-        private bool applyBackoff;
         private bool clearAggressionTargets;
         private BaseSimObject result;
 
@@ -4145,8 +4178,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             List<BaseSimObject> sourcePrimaryCandidates,
             bool sourceFindClosest,
             int sourceRandomOffset,
-            int sourceOriginalAggressionCount,
-            bool sourceApplyBackoff)
+            int sourceOriginalAggressionCount)
         {
             actor = sourceActor;
             primaryCandidates = sourcePrimaryCandidates;
@@ -4154,7 +4186,6 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             randomOffset = sourceRandomOffset;
             originalAggressionCount = sourceOriginalAggressionCount;
             hadAggressionTargets = sourceOriginalAggressionCount > 0;
-            applyBackoff = sourceApplyBackoff;
             clearAggressionTargets = false;
             result = null;
         }
@@ -4242,11 +4273,6 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     actor._aggression_targets.Count == originalAggressionCount)
                 {
                     actor._aggression_targets.Clear();
-                }
-
-                if (applyBackoff)
-                {
-                    PatchActor.ApplyEnemySearchBackoff(actor);
                 }
 
                 return;
