@@ -203,6 +203,7 @@ internal sealed class SimulationWorkerPool
             1L,
             (long)(maximumMilliseconds * Stopwatch.Frequency / 1000.0));
         long deadline = startedAt + maximumTicks;
+        int idleSpins = 0;
         while (!operationCompleted.IsSet)
         {
             if (Stopwatch.GetTimestamp() >= deadline)
@@ -211,10 +212,114 @@ internal sealed class SimulationWorkerPool
                 return false;
             }
 
-            Thread.SpinWait(64);
+            if (TryAssistActiveOperationUntil(deadline))
+            {
+                idleSpins = 0;
+            }
+            else if (idleSpins++ < 64)
+            {
+                Thread.SpinWait(64);
+            }
+            else
+            {
+                Thread.Yield();
+                idleSpins = 0;
+            }
         }
 
         Interlocked.Add(ref mainWaitTicks, Stopwatch.GetTimestamp() - startedAt);
+        return true;
+    }
+
+    /// <summary>
+    /// 等待线程在截止时间前作为临时参与者领取工作。
+    /// 截止检查位于工作项边界，因此最多只会越过一个不可拆分批次，
+    /// 不会在角色或容器更新到一半时交还渲染帧。
+    /// </summary>
+    private bool TryAssistActiveOperationUntil(
+        long deadline)
+    {
+        int generation =
+            Volatile.Read(ref activeGeneration);
+        if (generation == 0 ||
+            Volatile.Read(ref completionMarked) != 0 ||
+            Volatile.Read(ref nextIndex) >=
+            Volatile.Read(ref endIndex) - 1)
+        {
+            return false;
+        }
+
+        while (true)
+        {
+            int participants =
+                Volatile.Read(ref remainingParticipants);
+            if (participants <= 0 ||
+                generation !=
+                Volatile.Read(ref activeGeneration) ||
+                Volatile.Read(ref completionMarked) != 0)
+            {
+                return false;
+            }
+
+            if (Interlocked.CompareExchange(
+                    ref remainingParticipants,
+                    participants + 1,
+                    participants) == participants)
+            {
+                break;
+            }
+        }
+
+        Interlocked.Exchange(
+            ref assistantJoined,
+            1);
+        long busyStartedAt =
+            Stopwatch.GetTimestamp();
+        try
+        {
+            while (
+                Volatile.Read(ref stopRequested) == 0 &&
+                Stopwatch.GetTimestamp() < deadline)
+            {
+                int index =
+                    Interlocked.Increment(
+                        ref nextIndex);
+                if (index >=
+                    Volatile.Read(ref endIndex))
+                {
+                    break;
+                }
+
+                try
+                {
+                    operationAction(index);
+                    Interlocked.Increment(
+                        ref executedItems);
+                }
+                catch (Exception exception)
+                {
+                    Interlocked.CompareExchange(
+                        ref operationException,
+                        ExceptionDispatchInfo.Capture(
+                            exception),
+                        null);
+                    Volatile.Write(
+                        ref stopRequested,
+                        1);
+                    break;
+                }
+            }
+        }
+        finally
+        {
+            Interlocked.Add(
+                ref participantBusyTicks,
+                Stopwatch.GetTimestamp() -
+                busyStartedAt);
+            SignalParticipantCompleted(
+                generation);
+        }
+
         return true;
     }
 
