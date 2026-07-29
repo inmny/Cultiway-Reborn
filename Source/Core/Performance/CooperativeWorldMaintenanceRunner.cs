@@ -48,6 +48,7 @@ internal sealed class CooperativeWorldMaintenanceRunner
     private readonly List<Building> occupiedBuildings = new();
     private readonly List<BaseSystemManager> metaManagers = new();
     private readonly Action<int> dirtyManagerWorkItemAction;
+    private readonly Action<int> classifyActorMetaWorkItemAction;
     private MapBox world;
     private MaintenanceStage stage;
     private int index;
@@ -60,10 +61,15 @@ internal sealed class CooperativeWorldMaintenanceRunner
     private bool hasDirtyMetaManagers;
     private int dirtyMetaManagerCount;
     private long[] dirtyManagerTicks = Array.Empty<long>();
+    private ActorMetaPartitionKind[] actorMetaPartitions =
+        Array.Empty<ActorMetaPartitionKind>();
+    private int actorMetaWorkCount;
 
     internal CooperativeWorldMaintenanceRunner()
     {
         dirtyManagerWorkItemAction = RunDirtyManagerAt;
+        classifyActorMetaWorkItemAction =
+            ClassifyActorMetaRange;
     }
 
     public bool Active => stage != MaintenanceStage.Idle;
@@ -151,16 +157,13 @@ internal sealed class CooperativeWorldMaintenanceRunner
                 stage = MaintenanceStage.PrepareActors;
                 break;
             case MaintenanceStage.PrepareActors:
-                ProcessActorMetaBatch();
-                if (index >= actors.Count)
-                {
-                    preparedActorVersion =
-                        world.units.version;
-                    preparedActorPartitionVersion =
-                        ActorMetaPartitionVersion.Version;
-                    actorPartitionsReady = true;
-                    stage = MaintenanceStage.GeoRegionUnits;
-                }
+                RebuildActorMetaPartitions();
+                preparedActorVersion =
+                    world.units.version;
+                preparedActorPartitionVersion =
+                    ActorMetaPartitionVersion.Version;
+                actorPartitionsReady = true;
+                stage = MaintenanceStage.GeoRegionUnits;
 
                 break;
             case MaintenanceStage.GeoRegionUnits:
@@ -356,6 +359,7 @@ internal sealed class CooperativeWorldMaintenanceRunner
         world = null;
         stage = MaintenanceStage.Idle;
         index = 0;
+        actorMetaWorkCount = 0;
     }
 
     private bool HasDirtyMetaManagers()
@@ -422,30 +426,78 @@ internal sealed class CooperativeWorldMaintenanceRunner
             : Stopwatch.GetTimestamp() - startedAt;
     }
 
-    private void ProcessActorMetaBatch()
+    private void RebuildActorMetaPartitions()
     {
-        int end = Math.Min(actors.Count, index + PerformanceSettings.SimulationBatchSize);
-        for (; index < end; index++)
+        int count = actors.Count;
+        if (actorMetaPartitions.Length < count)
         {
-            Actor actor = actors[index];
-            if (actor.isAlive())
-            {
-                if (actor.kingdom.wild)
-                {
-                    world.units.units_only_wild.Add(actor);
-                }
-                else
-                {
-                    world.units.units_only_civ.Add(actor);
-                }
+            actorMetaPartitions =
+                new ActorMetaPartitionKind[
+                    Math.Max(
+                        PerformanceSettings.SimulationBatchSize,
+                        count)];
+        }
 
-                world.units.units_only_alive.Add(actor);
-            }
-            else
+        actorMetaWorkCount =
+            (count +
+             PerformanceSettings.SimulationBatchSize -
+             1) /
+            PerformanceSettings.SimulationBatchSize;
+        if (actorMetaWorkCount > 1)
+        {
+            SimulationWorkerPool.Instance.RunIndexed(
+                0,
+                actorMetaWorkCount,
+                classifyActorMetaWorkItemAction);
+        }
+        else if (actorMetaWorkCount == 1)
+        {
+            ClassifyActorMetaRange(0);
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            Actor actor = actors[i];
+            switch (actorMetaPartitions[i])
             {
-                world.units.units_only_dying.Add(actor);
-                world.units.have_dying_units = true;
+                case ActorMetaPartitionKind.AliveWild:
+                    world.units.units_only_wild.Add(actor);
+                    world.units.units_only_alive.Add(actor);
+                    break;
+                case ActorMetaPartitionKind.AliveCivilized:
+                    world.units.units_only_civ.Add(actor);
+                    world.units.units_only_alive.Add(actor);
+                    break;
+                case ActorMetaPartitionKind.Dying:
+                    world.units.units_only_dying.Add(actor);
+                    world.units.have_dying_units = true;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
+        }
+
+        index = count;
+        actorMetaWorkCount = 0;
+    }
+
+    private void ClassifyActorMetaRange(int workIndex)
+    {
+        int start =
+            workIndex *
+            PerformanceSettings.SimulationBatchSize;
+        int end = Math.Min(
+            actors.Count,
+            start + PerformanceSettings.SimulationBatchSize);
+        for (int i = start; i < end; i++)
+        {
+            Actor actor = actors[i];
+            actorMetaPartitions[i] =
+                !actor.isAlive()
+                    ? ActorMetaPartitionKind.Dying
+                    : actor.kingdom.wild
+                        ? ActorMetaPartitionKind.AliveWild
+                        : ActorMetaPartitionKind.AliveCivilized;
         }
     }
 
@@ -555,5 +607,12 @@ internal sealed class CooperativeWorldMaintenanceRunner
         }
 
         return phase;
+    }
+
+    private enum ActorMetaPartitionKind : byte
+    {
+        AliveWild,
+        AliveCivilized,
+        Dying
     }
 }
