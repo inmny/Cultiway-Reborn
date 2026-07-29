@@ -29,6 +29,7 @@ internal sealed class CooperativeWorldMaintenanceRunner
         PrepareActorsStart,
         PrepareActors,
         GeoRegionUnits,
+        DirtyActorIndex,
         DirtyManagersStart,
         DirtyManagers,
         DirtyManagersParallel,
@@ -104,6 +105,7 @@ internal sealed class CooperativeWorldMaintenanceRunner
             preparedActorPartitionVersion = -1;
             lastAnythingChangedFrame = -1;
             actorPartitionsReady = false;
+            DirtyMetaActorIndex.Clear();
         }
 
         windowOnScreen = map.isWindowOnScreen();
@@ -189,6 +191,17 @@ internal sealed class CooperativeWorldMaintenanceRunner
                     ?.ApplyPendingUnitChanges();
                 hasDirtyMetaManagers =
                     HasDirtyMetaManagers();
+                stage = hasDirtyMetaManagers
+                    ? MaintenanceStage.DirtyActorIndex
+                    : MaintenanceStage.DirtyManagersStart;
+                break;
+            case MaintenanceStage.DirtyActorIndex:
+                DirtyMetaActorIndex.Prepare(
+                    metaManagers,
+                    aliveActors,
+                    bufferedAliveActorCount,
+                    dyingActors,
+                    bufferedDyingActorCount);
                 stage = MaintenanceStage.DirtyManagersStart;
                 break;
             case MaintenanceStage.DirtyManagersStart:
@@ -232,12 +245,14 @@ internal sealed class CooperativeWorldMaintenanceRunner
                 }
                 else
                 {
+                    DirtyMetaActorIndex.End();
                     stage = MaintenanceStage.DirtyMetaObjectsFirst;
                 }
 
                 break;
             case MaintenanceStage.DirtyManagersParallel:
                 RunDirtyManagersParallel();
+                DirtyMetaActorIndex.End();
                 stage = MaintenanceStage.DirtyMetaObjectsFirst;
                 break;
             case MaintenanceStage.DirtyMetaObjectsFirst:
@@ -371,6 +386,7 @@ internal sealed class CooperativeWorldMaintenanceRunner
 
     public void Abort()
     {
+        DirtyMetaActorIndex.End();
         actors.Clear();
         occupiedBuildings.Clear();
         metaManagers.Clear();
