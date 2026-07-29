@@ -335,7 +335,7 @@ public class PortalAwarePathGenerator : IPathGenerator
     }
 
     /// <summary>
-    /// 原版会先尝试无遮挡射线路径。这里只接受无环境伤害的同岛短路径；
+    /// 原版会先尝试无遮挡射线路径。这里只接受无环境伤害的同岛路径；
     /// 任一格不满足条件就交回完整多标签 A*，不会截断或丢弃寻路请求。
     /// </summary>
     private bool TryBuildDirectPath(
@@ -395,8 +395,7 @@ public class PortalAwarePathGenerator : IPathGenerator
         if (startTile?.region?.island == null ||
             !ReferenceEquals(
                 startTile.region.island,
-                targetTile?.region?.island) ||
-            DistTile(current, target) > _config.LongRangeTiles)
+                targetTile?.region?.island))
         {
             return false;
         }
