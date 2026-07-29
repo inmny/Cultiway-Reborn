@@ -93,6 +93,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         Array.Empty<Actor[]>();
     private int[] activeBehaviorActorCounts =
         Array.Empty<int>();
+    private Actor[][] enemyDueActorsByBatch =
+        Array.Empty<Actor[]>();
+    private int[] enemyDueActorCounts =
+        Array.Empty<int>();
     private int[] underForceCheckedCounts =
         Array.Empty<int>();
     private bool[] activeBehaviorPartitionsValid =
@@ -1239,6 +1243,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 ref activeBehaviorActorCounts,
                 batchCount);
             Array.Resize(
+                ref enemyDueActorsByBatch,
+                batchCount);
+            Array.Resize(
+                ref enemyDueActorCounts,
+                batchCount);
+            Array.Resize(
                 ref underForceCheckedCounts,
                 batchCount);
             Array.Resize(
@@ -1248,6 +1258,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         Array.Clear(
             activeBehaviorActorCounts,
+            0,
+            batchCount);
+        Array.Clear(
+            enemyDueActorCounts,
             0,
             batchCount);
         Array.Clear(
@@ -1277,6 +1291,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 jobs[underForceJobIndex];
             Job<Actor> currentEnemyTargetJob =
                 jobs[currentEnemyTargetJobIndex];
+            Job<Actor> enemySearchJob =
+                jobs[enemySearchJobIndex];
             if (!updateTimersJob.id.Equals(
                     UpdateTimersJobId,
                     StringComparison.Ordinal) ||
@@ -1289,6 +1305,9 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 !ReferenceEquals(
                     updateTimersJob.container,
                     underForceJob.container) ||
+                !ReferenceEquals(
+                    updateTimersJob.container,
+                    enemySearchJob.container) ||
                 updateTimersJob.random_tick_skips != 0 ||
                 underForceJob.random_tick_skips != 0)
             {
@@ -1501,6 +1520,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             UpdateEligibilityBatchWork work =
                 updateEligibilityWorkItems[i];
             activeBehaviorActorCounts[i] = 0;
+            enemyDueActorCounts[i] = 0;
             underForceCheckedCounts[i] = 0;
             activeBehaviorPartitionsValid[i] = false;
             if (updateTimersJob.current_skips != 0 ||
@@ -1542,6 +1562,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     : EnsureActiveBehaviorActorCapacity(
                         i,
                         actorCount);
+            Actor[] enemyDueActors =
+                actorCount == 0
+                    ? Array.Empty<Actor>()
+                    : EnsureEnemyDueActorCapacity(
+                        i,
+                        actorCount);
             work.Configure(
                 batch,
                 updateTimersJob,
@@ -1549,6 +1575,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 actors,
                 actorCount,
                 activeActors,
+                enemyDueActors,
                 elapsed);
         }
     }
@@ -1573,6 +1600,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
             activeBehaviorActorCounts[i] =
                 work.ActiveCount;
+            enemyDueActorCounts[i] =
+                work.EnemyDueCount;
             underForceCheckedCounts[i] =
                 work.UnderForceChecked;
             activeBehaviorPartitionsValid[i] = true;
@@ -1605,6 +1634,27 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             count);
         actors = new Actor[capacity];
         activeBehaviorActorsByBatch[currentBatchIndex] =
+            actors;
+        return actors;
+    }
+
+    private Actor[] EnsureEnemyDueActorCapacity(
+        int currentBatchIndex,
+        int count)
+    {
+        Actor[] actors =
+            enemyDueActorsByBatch[currentBatchIndex];
+        if (actors != null &&
+            actors.Length >= count)
+        {
+            return actors;
+        }
+
+        int capacity = Math.Max(
+            PerformanceSettings.SimulationBatchSize,
+            count);
+        actors = new Actor[capacity];
+        enemyDueActorsByBatch[currentBatchIndex] =
             actors;
         return actors;
     }
@@ -2606,17 +2656,17 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 activeBehaviorPartitionsValid[i];
             if (activePartition)
             {
-                Actor[] activeActors =
-                    activeBehaviorActorsByBatch[i];
-                int activeCount =
-                    activeBehaviorActorCounts[i];
+                Actor[] dueActors =
+                    enemyDueActorsByBatch[i];
+                int dueCount =
+                    enemyDueActorCounts[i];
                 work.Configure(
                     batch,
                     job,
-                    activeActors,
-                    activeCount,
-                    activePartition: true);
-                actorsClassified += activeCount;
+                    dueActors,
+                    dueCount,
+                    activePartition: false);
+                actorsClassified += dueCount;
                 continue;
             }
 
@@ -2770,6 +2820,25 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             activeBehaviorActorCounts,
             0,
             activeBehaviorActorCounts.Length);
+        for (int i = 0;
+             i < enemyDueActorsByBatch.Length;
+             i++)
+        {
+            Actor[] actors =
+                enemyDueActorsByBatch[i];
+            if (actors != null)
+            {
+                Array.Clear(
+                    actors,
+                    0,
+                    actors.Length);
+            }
+        }
+
+        Array.Clear(
+            enemyDueActorCounts,
+            0,
+            enemyDueActorCounts.Length);
         Array.Clear(
             underForceCheckedCounts,
             0,
@@ -3704,8 +3773,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         internal Job<Actor> UnderForceJob { get; private set; }
         internal Actor[] Actors { get; private set; }
         internal Actor[] ActiveActors { get; private set; }
+        internal Actor[] EnemyDueActors { get; private set; }
         internal int Count { get; private set; }
         internal int ActiveCount { get; private set; }
+        internal int EnemyDueCount { get; private set; }
         internal int UnderForceChecked { get; private set; }
         internal float Elapsed { get; private set; }
         internal bool Skipped { get; private set; }
@@ -3717,6 +3788,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             Actor[] actors,
             int count,
             Actor[] activeActors,
+            Actor[] enemyDueActors,
             float elapsed)
         {
             Batch = batch;
@@ -3724,8 +3796,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             UnderForceJob = underForceJob;
             Actors = actors;
             ActiveActors = activeActors;
+            EnemyDueActors = enemyDueActors;
             Count = count;
             ActiveCount = 0;
+            EnemyDueCount = 0;
             UnderForceChecked = 0;
             Elapsed = elapsed;
             Skipped = false;
@@ -3741,8 +3815,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             UnderForceJob = underForceJob;
             Actors = null;
             ActiveActors = null;
+            EnemyDueActors = null;
             Count = 0;
             ActiveCount = 0;
+            EnemyDueCount = 0;
             UnderForceChecked = 0;
             Elapsed = 0f;
             Skipped = true;
@@ -3758,8 +3834,11 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
             Actor[] actors = Actors;
             Actor[] activeActors = ActiveActors;
+            Actor[] enemyDueActors =
+                EnemyDueActors;
             float elapsed = Elapsed;
             int activeCount = 0;
+            int enemyDueCount = 0;
             int underForceChecked = 0;
             for (int i = 0; i < Count; i++)
             {
@@ -3775,10 +3854,17 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 if (!actor._beh_skip)
                 {
                     activeActors[activeCount++] = actor;
+                    if (actor.has_attack_target ||
+                        actor._timeout_targets <= 0f)
+                    {
+                        enemyDueActors[
+                            enemyDueCount++] = actor;
+                    }
                 }
             }
 
             ActiveCount = activeCount;
+            EnemyDueCount = enemyDueCount;
             UnderForceChecked = underForceChecked;
         }
 
@@ -3789,8 +3875,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             UnderForceJob = null;
             Actors = null;
             ActiveActors = null;
+            EnemyDueActors = null;
             Count = 0;
             ActiveCount = 0;
+            EnemyDueCount = 0;
             UnderForceChecked = 0;
             Elapsed = 0f;
             Skipped = false;
