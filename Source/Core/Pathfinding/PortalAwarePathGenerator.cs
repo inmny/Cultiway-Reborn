@@ -34,6 +34,13 @@ public class PortalAwarePathGenerator : IPathGenerator
     private long fastPathHits;
     private long fastPathAttemptTicks;
     private long maximumFastPathAttemptTicks;
+    private long fastPathCompletedSearches;
+    private long fastPathRejectedSearches;
+    private long fastPathFailedSearches;
+    private long fastPathExpandedNodes;
+    private long fastPathCheckedEdges;
+    private long fastPathImprovedEdges;
+    private long maximumFastPathExpandedNodes;
 
     public PortalAwarePathGenerator(PortalRegistry registry, PathfindingConfig config)
     {
@@ -242,6 +249,8 @@ public class PortalAwarePathGenerator : IPathGenerator
             CultureInfo.InvariantCulture,
             "direct={0}/{1}({2:0.0}%) steps={3}" +
             " safe={4}/{5} time={6:0.000}/{7:0.00}ms(avg/max)" +
+            " work={13:0.0}/{14:0.0}/{15:0.0}(nodes/edges/improved)" +
+            " max_nodes={16} rejected={17} failed={18}" +
             " full={8} time={9:0.000}ms(avg) max={10:0.00}ms" +
             " direct_time={11:0.000}/{12:0.00}ms(avg/max)",
             hits,
@@ -267,7 +276,28 @@ public class PortalAwarePathGenerator : IPathGenerator
                 Interlocked.Read(ref directHitTicks),
                 hits),
             TicksToMilliseconds(
-                Interlocked.Read(ref maximumDirectHitTicks)));
+                Interlocked.Read(ref maximumDirectHitTicks)),
+            AverageCount(
+                Interlocked.Read(ref fastPathExpandedNodes),
+                Interlocked.Read(ref fastPathCompletedSearches)),
+            AverageCount(
+                Interlocked.Read(ref fastPathCheckedEdges),
+                Interlocked.Read(ref fastPathCompletedSearches)),
+            AverageCount(
+                Interlocked.Read(ref fastPathImprovedEdges),
+                Interlocked.Read(ref fastPathCompletedSearches)),
+            Interlocked.Read(ref maximumFastPathExpandedNodes),
+            Interlocked.Read(ref fastPathRejectedSearches),
+            Interlocked.Read(ref fastPathFailedSearches));
+    }
+
+    private static double AverageCount(
+        long count,
+        long samples)
+    {
+        return samples <= 0L
+            ? 0.0
+            : count / (double)samples;
     }
 
     private static double AverageMilliseconds(
@@ -459,7 +489,7 @@ public class PortalAwarePathGenerator : IPathGenerator
     /// 并严格应用原版的地面、海洋、障碍、熔岩和火焰通行约束。
     /// 找不到路线时仍交给多标签搜索处理复杂环境状态与传送门语义。
     /// </summary>
-    private static bool TryBuildFastPath(
+    private bool TryBuildFastPath(
         PathRequest request,
         MovementProfile profile,
         CancellationToken token,
@@ -477,6 +507,8 @@ public class PortalAwarePathGenerator : IPathGenerator
             request.StartTileId >= tiles.Length ||
             request.TargetTileId >= tiles.Length)
         {
+            Interlocked.Increment(
+                ref fastPathRejectedSearches);
             return false;
         }
 
@@ -488,6 +520,8 @@ public class PortalAwarePathGenerator : IPathGenerator
                 request.TargetTileId,
                 out TileTraversalInfo targetInfo))
         {
+            Interlocked.Increment(
+                ref fastPathRejectedSearches);
             return false;
         }
 
@@ -499,11 +533,17 @@ public class PortalAwarePathGenerator : IPathGenerator
         if (!rules.CanReachTarget ||
             !rules.CanTraverse(targetInfo))
         {
+            Interlocked.Increment(
+                ref fastPathRejectedSearches);
             return false;
         }
 
         TraversalState startState =
             TraversalState.Start(profile);
+        float heuristicWeight =
+            Mathf.Max(
+                1f,
+                _config.FastPathHeuristicWeight);
         workspace.SetBest(
             request.StartTileId,
             0f,
@@ -518,9 +558,12 @@ public class PortalAwarePathGenerator : IPathGenerator
                 Heuristic(
                     startInfo,
                     targetInfo,
-                    profile) * 2f));
+                    profile) *
+                heuristicWeight));
 
         int expanded = 0;
+        int checkedEdges = 0;
+        int improvedEdges = 0;
         int maximumExpanded = tiles.Length;
         while (workspace.OpenCount > 0 &&
                expanded < maximumExpanded)
@@ -539,6 +582,11 @@ public class PortalAwarePathGenerator : IPathGenerator
             expanded++;
             if (openNode.TileId == request.TargetTileId)
             {
+                RecordFastPathWork(
+                    true,
+                    expanded,
+                    checkedEdges,
+                    improvedEdges);
                 return workspace.BuildResult(
                     request.StartTileId,
                     request.TargetTileId);
@@ -565,6 +613,7 @@ public class PortalAwarePathGenerator : IPathGenerator
                 workspace.GetState(openNode.TileId);
             for (int i = 0; i < neighbours.Length; i++)
             {
+                checkedEdges++;
                 int neighbourId =
                     TileTraversalInfo.TileIdOf(neighbours[i]);
                 if (workspace.IsClosed(neighbourId) ||
@@ -608,6 +657,7 @@ public class PortalAwarePathGenerator : IPathGenerator
                     continue;
                 }
 
+                improvedEdges++;
                 workspace.Enqueue(
                     new SafeOpenNode(
                         neighbourId,
@@ -616,12 +666,45 @@ public class PortalAwarePathGenerator : IPathGenerator
                         Heuristic(
                             neighbour,
                             targetInfo,
-                            profile) * 2f));
+                            profile) *
+                        heuristicWeight));
             }
         }
 
         result.Clear();
+        RecordFastPathWork(
+            false,
+            expanded,
+            checkedEdges,
+            improvedEdges);
         return false;
+    }
+
+    private void RecordFastPathWork(
+        bool success,
+        int expanded,
+        int checkedEdges,
+        int improvedEdges)
+    {
+        Interlocked.Increment(
+            ref fastPathCompletedSearches);
+        Interlocked.Add(
+            ref fastPathExpandedNodes,
+            expanded);
+        Interlocked.Add(
+            ref fastPathCheckedEdges,
+            checkedEdges);
+        Interlocked.Add(
+            ref fastPathImprovedEdges,
+            improvedEdges);
+        UpdateMaximum(
+            ref maximumFastPathExpandedNodes,
+            expanded);
+        if (!success)
+        {
+            Interlocked.Increment(
+                ref fastPathFailedSearches);
+        }
     }
 
     private static PathFailureReason FailureReasonFrom(LocalPathResult result)
@@ -1146,6 +1229,10 @@ public class PortalAwarePathGenerator : IPathGenerator
             Array.Empty<TraversalEstimate>();
         private TraversalState[] states =
             Array.Empty<TraversalState>();
+        private int[] openPositionGenerations =
+            Array.Empty<int>();
+        private int[] openPositions =
+            Array.Empty<int>();
         private SafeOpenNode[] open =
             new SafeOpenNode[256];
 
@@ -1170,6 +1257,10 @@ public class PortalAwarePathGenerator : IPathGenerator
                     closedGenerations,
                     0,
                     closedGenerations.Length);
+                Array.Clear(
+                    openPositionGenerations,
+                    0,
+                    openPositionGenerations.Length);
                 generation = 1;
             }
 
@@ -1278,6 +1369,18 @@ public class PortalAwarePathGenerator : IPathGenerator
 
         internal void Enqueue(SafeOpenNode node)
         {
+            if (openPositionGenerations[node.TileId] ==
+                generation)
+            {
+                int currentIndex =
+                    openPositions[node.TileId];
+                open[currentIndex] = node;
+                MoveUp(
+                    currentIndex,
+                    node);
+                return;
+            }
+
             if (OpenCount == open.Length)
             {
                 Array.Resize(
@@ -1286,6 +1389,17 @@ public class PortalAwarePathGenerator : IPathGenerator
             }
 
             int index = OpenCount++;
+            openPositionGenerations[node.TileId] =
+                generation;
+            MoveUp(
+                index,
+                node);
+        }
+
+        private void MoveUp(
+            int index,
+            SafeOpenNode node)
+        {
             while (index > 0)
             {
                 int parent = (index - 1) >> 1;
@@ -1296,16 +1410,24 @@ public class PortalAwarePathGenerator : IPathGenerator
                     break;
                 }
 
-                open[index] = open[parent];
+                SafeOpenNode moved =
+                    open[parent];
+                open[index] = moved;
+                openPositions[moved.TileId] =
+                    index;
                 index = parent;
             }
 
             open[index] = node;
+            openPositions[node.TileId] =
+                index;
         }
 
         internal SafeOpenNode Dequeue()
         {
             SafeOpenNode first = open[0];
+            openPositionGenerations[first.TileId] =
+                0;
             SafeOpenNode last =
                 open[--OpenCount];
             if (OpenCount == 0)
@@ -1337,11 +1459,17 @@ public class PortalAwarePathGenerator : IPathGenerator
                     break;
                 }
 
-                open[index] = open[child];
+                SafeOpenNode moved =
+                    open[child];
+                open[index] = moved;
+                openPositions[moved.TileId] =
+                    index;
                 index = child;
             }
 
             open[index] = last;
+            openPositions[last.TileId] =
+                index;
             return first;
         }
 
@@ -1428,6 +1556,12 @@ public class PortalAwarePathGenerator : IPathGenerator
                 nextCapacity);
             Array.Resize(
                 ref states,
+                nextCapacity);
+            Array.Resize(
+                ref openPositionGenerations,
+                nextCapacity);
+            Array.Resize(
+                ref openPositions,
                 nextCapacity);
         }
     }

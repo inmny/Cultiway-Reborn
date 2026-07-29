@@ -16,6 +16,7 @@ public class PathfindingConfig
     public float WalkSpeedScale { get; set; } = 0.4f;
     public float SwimSpeedScale { get; set; } = 0.25f;
     public float SailSpeedScale { get; set; } = 0.6f;
+    public float FastPathHeuristicWeight { get; set; } = 8f;
     public int MaxLabelsPerTile { get; set; } = 4;
     public float StaminaCostWeight { get; set; } = 0.08f;
     public float HealthCostWeight { get; set; } = 4f;
