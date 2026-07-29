@@ -99,7 +99,8 @@ internal static class PatchFixVanillaBugs
         ResourceAsset __instance,
         ref Sprite __result)
     {
-        if (__instance?.gameplay_sprites is { Length: > 0 })
+        if (__instance?.gameplay_sprites is { Length: > 0 } sprites &&
+            sprites[0] != null)
         {
             return true;
         }
@@ -107,6 +108,15 @@ internal static class PatchFixVanillaBugs
         // 资源仍可参与库存与经济逻辑；缺少表现贴图时只跳过绘制。
         __result = null;
         return false;
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(QuantumSpriteLibrary), "drawResourceIconOnStockpile")]
+    private static bool SkipMissingStockpileResourceSprite(Sprite pSprite)
+    {
+        // getGameplaySprite 的空值保护只能避免资源自身解引用；
+        // 原版绘制入口仍会对空 Sprite 调用 GetHashCode，因此必须在这里跳过。
+        return pSprite != null;
     }
 
     [HarmonyPrefix, HarmonyPatch(typeof(EffectsCamera), "LateUpdate")]
