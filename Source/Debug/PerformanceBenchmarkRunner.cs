@@ -603,6 +603,10 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             .Append(CooperativeSimulationRunner.Instance
                 .GetBuildingPresentationOverlapDiagnostics())
             .AppendLine();
+        sb.Append("  simulation_stage_bursts ")
+            .Append(CooperativeSimulationRunner.Instance
+                .GetStageBurstDiagnostics())
+            .AppendLine();
         sb.Append("  presentation_commands ")
             .Append(PresentationCommandQueue.GetDiagnostics())
             .AppendLine();

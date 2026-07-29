@@ -10,6 +10,11 @@ namespace Cultiway.Core.Performance;
 
 internal sealed class CooperativeSimulationRunner
 {
+    private const int MaximumStagesPerBurst = 256;
+    private const double MinimumBurstMilliseconds = 0.25;
+    private const double MaximumBurstMilliseconds = 2.0;
+    private const double TargetFrameBurstRatio = 0.01;
+
     private enum SimulationStage
     {
         Idle,
@@ -58,6 +63,16 @@ internal sealed class CooperativeSimulationRunner
         Complete
     }
 
+    private enum StageBurstStopReason
+    {
+        None,
+        Completed,
+        AsyncBoundary,
+        DomainBoundary,
+        Deadline,
+        StageLimit
+    }
+
     public static CooperativeSimulationRunner Instance { get; } = new();
 
     private readonly CooperativeBatchRunner<BatchActors, Actor> actorRunner =
@@ -74,6 +89,8 @@ internal sealed class CooperativeSimulationRunner
     private readonly List<MapLayer> mapLayers = new();
     private readonly List<BaseModule> mapModules = new();
     private readonly List<WorldBehaviourAsset> worldBehaviours = new();
+    private readonly Action executeCurrentStageCoreAction;
+    private readonly Action executeVanillaStageBurstCoreAction;
     private MapBox world;
     private WorldTimeScaleAsset cycleTimeScale;
     private SimulationStage stage;
@@ -117,6 +134,25 @@ internal sealed class CooperativeSimulationRunner
     private long lastBuildingPresentationOverlapWallTicks;
     private long lastBuildingPresentationOverlapWaitTicks;
     private string lastBuildingPresentationBoundaryReason = "none";
+    private long vanillaStageBursts;
+    private long vanillaStageBurstSteps;
+    private int maximumVanillaStageBurstSteps;
+    private long vanillaStageBurstCompletedStops;
+    private long vanillaStageBurstAsyncStops;
+    private long vanillaStageBurstDomainStops;
+    private long vanillaStageBurstDeadlineStops;
+    private long vanillaStageBurstLimitStops;
+    private long activeStageBurstDeadline;
+    private int activeStageBurstSteps;
+    private StageBurstStopReason activeStageBurstStopReason;
+
+    private CooperativeSimulationRunner()
+    {
+        executeCurrentStageCoreAction =
+            ExecuteCurrentStageCore;
+        executeVanillaStageBurstCoreAction =
+            ExecuteVanillaStageBurstCore;
+    }
 
     public bool Active => stage != SimulationStage.Idle;
     public bool IsAtCycleBoundary => !Active;
@@ -295,7 +331,7 @@ internal sealed class CooperativeSimulationRunner
             FramePriorityGovernor.RunPhase(
                 domain,
                 phase,
-                ExecuteCurrentStage);
+                ExecuteCurrentStageBurst);
             if (forceBoundaryCommit)
             {
                 break;
@@ -557,6 +593,28 @@ internal sealed class CooperativeSimulationRunner
             Interlocked.Read(ref buildingPresentationOverlapEagerLaunches));
     }
 
+    public string GetStageBurstDiagnostics()
+    {
+        long bursts = vanillaStageBursts;
+        return string.Format(
+            CultureInfo.InvariantCulture,
+            "bursts={0} steps={1} avg={2:0.00} max={3} " +
+            "stops={4}/{5}/{6}/{7}/{8}" +
+            "(completed/async/domain/deadline/limit)",
+            bursts,
+            vanillaStageBurstSteps,
+            bursts == 0L
+                ? 0.0
+                : vanillaStageBurstSteps /
+                  (double)bursts,
+            maximumVanillaStageBurstSteps,
+            vanillaStageBurstCompletedStops,
+            vanillaStageBurstAsyncStops,
+            vanillaStageBurstDomainStops,
+            vanillaStageBurstDeadlineStops,
+            vanillaStageBurstLimitStops);
+    }
+
     public void Abort()
     {
         actorRunner.Abort();
@@ -694,7 +752,143 @@ internal sealed class CooperativeSimulationRunner
             cycleElapsed,
             !cycleUsesVanillaLargeStep,
             cycleTimeScale,
-            ExecuteCurrentStageCore);
+            executeCurrentStageCoreAction);
+    }
+
+    private void ExecuteCurrentStageBurst()
+    {
+        if (Bench.bench_enabled ||
+            GetCurrentDomain() !=
+            SimulationDomain.Vanilla)
+        {
+            ExecuteCurrentStage();
+            return;
+        }
+
+        double targetFrameMilliseconds =
+            1000.0 /
+            PerformanceSettings.TargetRenderFps;
+        double desiredBurstMilliseconds =
+            Math.Max(
+                MinimumBurstMilliseconds,
+                Math.Min(
+                    MaximumBurstMilliseconds,
+                    targetFrameMilliseconds *
+                    TargetFrameBurstRatio));
+        double remainingMilliseconds =
+            FramePriorityGovernor
+                .GetRemainingSimulationBudgetMilliseconds();
+        double burstMilliseconds =
+            remainingMilliseconds > 0.0
+                ? Math.Min(
+                    desiredBurstMilliseconds,
+                    Math.Max(
+                        MinimumBurstMilliseconds,
+                        remainingMilliseconds))
+                : MinimumBurstMilliseconds;
+        long burstStartedAt =
+            Stopwatch.GetTimestamp();
+        activeStageBurstDeadline =
+            burstStartedAt +
+            Math.Max(
+                1L,
+                (long)(
+                    burstMilliseconds *
+                    Stopwatch.Frequency /
+                    1000.0));
+        activeStageBurstSteps = 0;
+        activeStageBurstStopReason =
+            StageBurstStopReason.None;
+
+        SimulationStepContext.Run(
+            world,
+            cyclePaused,
+            cycleElapsed,
+            !cycleUsesVanillaLargeStep,
+            cycleTimeScale,
+            executeVanillaStageBurstCoreAction);
+
+        vanillaStageBursts++;
+        vanillaStageBurstSteps +=
+            activeStageBurstSteps;
+        if (activeStageBurstSteps >
+            maximumVanillaStageBurstSteps)
+        {
+            maximumVanillaStageBurstSteps =
+                activeStageBurstSteps;
+        }
+
+        switch (activeStageBurstStopReason)
+        {
+            case StageBurstStopReason.Completed:
+                vanillaStageBurstCompletedStops++;
+                break;
+            case StageBurstStopReason.AsyncBoundary:
+                vanillaStageBurstAsyncStops++;
+                break;
+            case StageBurstStopReason.DomainBoundary:
+                vanillaStageBurstDomainStops++;
+                break;
+            case StageBurstStopReason.Deadline:
+                vanillaStageBurstDeadlineStops++;
+                break;
+            case StageBurstStopReason.StageLimit:
+                vanillaStageBurstLimitStops++;
+                break;
+        }
+    }
+
+    private void ExecuteVanillaStageBurstCore()
+    {
+        while (true)
+        {
+            ExecuteCurrentStageCore();
+            activeStageBurstSteps++;
+
+            if (!Active)
+            {
+                activeStageBurstStopReason =
+                    StageBurstStopReason.Completed;
+                return;
+            }
+
+            if (GetCurrentDomain() !=
+                SimulationDomain.Vanilla)
+            {
+                activeStageBurstStopReason =
+                    StageBurstStopReason.DomainBoundary;
+                return;
+            }
+
+            if ((stage == SimulationStage.Actors &&
+                 (actorRunner.WaitingForPresentationDispatch ||
+                  actorRunner.WaitingForBackgroundWork)) ||
+                (stage == SimulationStage.Buildings &&
+                 (buildingRunner.WaitingForPresentationDispatch ||
+                  buildingRunner.WaitingForBackgroundWork)))
+            {
+                activeStageBurstStopReason =
+                    StageBurstStopReason.AsyncBoundary;
+                return;
+            }
+
+            if (activeStageBurstSteps >=
+                MaximumStagesPerBurst)
+            {
+                activeStageBurstStopReason =
+                    StageBurstStopReason.StageLimit;
+                return;
+            }
+
+            if ((activeStageBurstSteps & 3) == 0 &&
+                Stopwatch.GetTimestamp() >=
+                activeStageBurstDeadline)
+            {
+                activeStageBurstStopReason =
+                    StageBurstStopReason.Deadline;
+                return;
+            }
+        }
     }
 
     private void ExecuteCurrentStageCore()
