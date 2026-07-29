@@ -13,18 +13,39 @@ internal static class ParallelSimObjectZoneUnits
 {
     private const int ParallelThreshold = 1024;
     private const int ParallelTileClearThreshold = 256;
+    private const int TilesPerChunk = 256;
 
     private static readonly Action<int> rebuildChunkAction =
         RebuildChunk;
+    private static readonly Action<int> classifyUnitRangeAction =
+        ClassifyUnitRange;
+    private static readonly Action<int> scatterUnitRangeAction =
+        ScatterUnitRange;
     private static readonly Action<int> clearTileAction =
         ClearTile;
     private static readonly Action<int> clearChunkAction =
         ClearChunk;
 
-    private static List<Actor>[] actorsByChunk =
-        Array.Empty<List<Actor>>();
+    private static Actor[][] actorsByChunk =
+        Array.Empty<Actor[]>();
+    private static int[] actorCountsByChunk =
+        Array.Empty<int>();
+    private static List<WorldTile>[] occupiedTilesByChunk =
+        Array.Empty<List<WorldTile>>();
+    private static int[] unitChunkIndices =
+        Array.Empty<int>();
+    private static byte[] cityMembershipFlags =
+        Array.Empty<byte>();
+    private static int[] workChunkCounts =
+        Array.Empty<int>();
+    private static int[] workChunkOffsets =
+        Array.Empty<int>();
     private static int[] tileMarks = Array.Empty<int>();
+    private static List<Actor> activeSource;
     private static MapChunk[] activeChunks;
+    private static int activeChunkCount;
+    private static int activeUnitWorkCount;
+    private static int activeTileMark;
     private static int preparedGeneration = -1;
     private static int tileMarkGeneration;
     private static int pendingIslandGeneration = -1;
@@ -151,15 +172,15 @@ internal static class ParallelSimObjectZoneUnits
             return false;
         }
 
-        EnsureChunkLists(chunks, source.Count);
-        for (int i = 0; i < actorsByChunk.Length; i++)
-        {
-            actorsByChunk[i].Clear();
-        }
-
+        PrepareUnitPartitionStorage(
+            chunks,
+            source.Count);
         NearbyStatusTargetIndex
             .BeginUnitMembershipRebuild();
         statusIndexRebuildPrepared = true;
+        activeSource = source;
+        activeChunks = chunks;
+        activeChunkCount = chunks.Length;
         try
         {
             int tileMark =
@@ -167,7 +188,6 @@ internal static class ParallelSimObjectZoneUnits
             bool rebuildIslands =
                 pendingIslandGeneration ==
                 SimulationTime.Generation;
-            int aliveCount = 0;
             bool benchmark = Bench.bench_enabled;
             if (benchmark)
             {
@@ -176,36 +196,21 @@ internal static class ParallelSimObjectZoneUnits
                     "sim_zones");
             }
 
-            for (int i = 0; i < source.Count; i++)
+            RunUnitClassification();
+            PrepareStableChunkOffsets();
+            RunUnitScatter();
+
+            int aliveCount = 0;
+            for (int i = 0;
+                 i < actorCountsByChunk.Length;
+                 i++)
             {
-                Actor actor = source[i];
-                if (!actor.isAlive())
-                {
-                    continue;
-                }
+                aliveCount += actorCountsByChunk[i];
+            }
 
-                WorldTile tile = actor.current_tile;
-                aliveCount++;
-                if (rebuildIslands)
-                {
-                    tile.region.island.actors.Add(actor);
-                }
-
-                List<Actor> chunkActors =
-                    actorsByChunk[tile.chunk.id];
-                int unitIndex = chunkActors.Count;
-                chunkActors.Add(actor);
-                NearbyStatusTargetIndex
-                    .AddUnitMembership(
-                        actor,
-                        tile.chunk,
-                        unitIndex);
-                int tileId = tile.tile_id;
-                if (tileMarks[tileId] != tileMark)
-                {
-                    tileMarks[tileId] = tileMark;
-                    tilesToClear.Add(tile);
-                }
+            if (rebuildIslands)
+            {
+                RebuildIslandMembership(source);
             }
 
             pendingIslandGeneration = -1;
@@ -221,24 +226,32 @@ internal static class ParallelSimObjectZoneUnits
                     "sim_zones");
             }
 
-            activeChunks = chunks;
-            try
-            {
-                SimulationWorkerPool.Instance
-                    .RunIndexed(
-                        0,
-                        chunks.Length,
-                        rebuildChunkAction);
-            }
-            finally
-            {
-                activeChunks = null;
-            }
+            activeTileMark = tileMark;
+            SimulationWorkerPool.Instance
+                .RunIndexed(
+                    0,
+                    chunks.Length,
+                    rebuildChunkAction);
+            MergeOccupiedTiles(tilesToClear);
 
             if (benchmark)
             {
                 Bench.benchEnd(
                     "checkUnits.parallel_commit",
+                    "sim_zones",
+                    pSaveCounter: true,
+                    aliveCount);
+                Bench.bench(
+                    "checkUnits.status_membership",
+                    "sim_zones");
+            }
+
+            RebuildNearbyStatusMembership();
+
+            if (benchmark)
+            {
+                Bench.benchEnd(
+                    "checkUnits.status_membership",
                     "sim_zones",
                     pSaveCounter: true,
                     aliveCount);
@@ -251,10 +264,9 @@ internal static class ParallelSimObjectZoneUnits
                  i < source.Count;
                  i++)
             {
-                Actor actor = source[i];
-                if (actor.isAlive())
+                if (cityMembershipFlags[i] != 0)
                 {
-                    UpdateCityMembership(actor);
+                    UpdateCityMembership(source[i]);
                 }
             }
 
@@ -276,29 +288,284 @@ internal static class ParallelSimObjectZoneUnits
             statusIndexRebuildPrepared = false;
             throw;
         }
+        finally
+        {
+            activeSource = null;
+            activeChunks = null;
+            activeChunkCount = 0;
+            activeUnitWorkCount = 0;
+            activeTileMark = 0;
+        }
     }
 
-    private static void EnsureChunkLists(
+    private static void PrepareUnitPartitionStorage(
         MapChunk[] chunks,
         int actorCount)
     {
         int generation = SimulationTime.Generation;
-        if (preparedGeneration == generation &&
-            actorsByChunk.Length == chunks.Length)
+        int chunkCount = chunks.Length;
+        if (preparedGeneration != generation ||
+            actorsByChunk.Length != chunkCount)
         {
-            return;
+            preparedGeneration = generation;
+            tileMarkGeneration = 0;
+            actorsByChunk =
+                new Actor[chunkCount][];
+            actorCountsByChunk =
+                new int[chunkCount];
+            occupiedTilesByChunk =
+                new List<WorldTile>[chunkCount];
+            int initialCapacity = Math.Max(
+                16,
+                actorCount /
+                Math.Max(1, chunkCount));
+            for (int i = 0; i < chunkCount; i++)
+            {
+                actorsByChunk[i] =
+                    new Actor[initialCapacity];
+                occupiedTilesByChunk[i] =
+                    new List<WorldTile>(
+                        Math.Min(
+                            TilesPerChunk,
+                            initialCapacity));
+            }
         }
 
-        preparedGeneration = generation;
-        tileMarkGeneration = 0;
-        int capacity = Math.Max(
-            16,
-            actorCount / Math.Max(1, chunks.Length));
-        actorsByChunk = new List<Actor>[chunks.Length];
-        for (int i = 0; i < actorsByChunk.Length; i++)
+        if (unitChunkIndices.Length < actorCount)
         {
-            actorsByChunk[i] =
-                new List<Actor>(capacity);
+            int capacity = Math.Max(
+                PerformanceSettings.SimulationBatchSize,
+                actorCount);
+            unitChunkIndices = new int[capacity];
+            cityMembershipFlags = new byte[capacity];
+        }
+
+        activeUnitWorkCount =
+            (actorCount +
+             PerformanceSettings.SimulationBatchSize -
+             1) /
+            PerformanceSettings.SimulationBatchSize;
+        int workCellCount =
+            activeUnitWorkCount *
+            chunkCount;
+        if (workChunkCounts.Length < workCellCount)
+        {
+            workChunkCounts =
+                new int[workCellCount];
+            workChunkOffsets =
+                new int[workCellCount];
+        }
+        else
+        {
+            Array.Clear(
+                workChunkCounts,
+                0,
+                workCellCount);
+        }
+    }
+
+    private static void RunUnitClassification()
+    {
+        if (activeUnitWorkCount > 1)
+        {
+            SimulationWorkerPool.Instance.RunIndexed(
+                0,
+                activeUnitWorkCount,
+                classifyUnitRangeAction);
+        }
+        else if (activeUnitWorkCount == 1)
+        {
+            ClassifyUnitRange(0);
+        }
+    }
+
+    private static void ClassifyUnitRange(int workIndex)
+    {
+        int start =
+            workIndex *
+            PerformanceSettings.SimulationBatchSize;
+        int end = Math.Min(
+            activeSource.Count,
+            start +
+            PerformanceSettings.SimulationBatchSize);
+        int countOffset =
+            workIndex *
+            activeChunkCount;
+        for (int i = start; i < end; i++)
+        {
+            Actor actor = activeSource[i];
+            if (!actor.isAlive())
+            {
+                unitChunkIndices[i] = -1;
+                cityMembershipFlags[i] = 0;
+                continue;
+            }
+
+            WorldTile tile = actor.current_tile;
+            int chunkIndex = tile.chunk.id;
+            unitChunkIndices[i] = chunkIndex;
+            workChunkCounts[
+                countOffset +
+                chunkIndex]++;
+            City city = tile.zone_city;
+            cityMembershipFlags[i] =
+                city != null &&
+                !actor.isInsideSomething() &&
+                (actor.profession_asset.can_capture ||
+                 !actor.kingdom.isCiv())
+                    ? (byte)1
+                    : (byte)0;
+        }
+    }
+
+    /// <summary>
+    /// 按连续 World.units 分区计算每个 worker 在各 chunk 中的写入区间。
+    /// worker 只写自己的区间，因此无需锁；分区前缀按 workIndex 递增，
+    /// chunk 内角色顺序仍与原版 World.units 完全一致。
+    /// </summary>
+    private static void PrepareStableChunkOffsets()
+    {
+        for (int chunkIndex = 0;
+             chunkIndex < activeChunkCount;
+             chunkIndex++)
+        {
+            int total = 0;
+            for (int workIndex = 0;
+                 workIndex < activeUnitWorkCount;
+                 workIndex++)
+            {
+                int cell =
+                    workIndex *
+                    activeChunkCount +
+                    chunkIndex;
+                workChunkOffsets[cell] = total;
+                total += workChunkCounts[cell];
+            }
+
+            Actor[] actors =
+                actorsByChunk[chunkIndex];
+            int previousCount =
+                actorCountsByChunk[chunkIndex];
+            if (actors.Length < total)
+            {
+                int capacity = Math.Max(
+                    total,
+                    Math.Max(
+                        16,
+                        actors.Length * 2));
+                actorsByChunk[chunkIndex] =
+                    new Actor[capacity];
+            }
+            else if (previousCount > total)
+            {
+                Array.Clear(
+                    actors,
+                    total,
+                    previousCount - total);
+            }
+
+            actorCountsByChunk[chunkIndex] =
+                total;
+        }
+    }
+
+    private static void RunUnitScatter()
+    {
+        if (activeUnitWorkCount > 1)
+        {
+            SimulationWorkerPool.Instance.RunIndexed(
+                0,
+                activeUnitWorkCount,
+                scatterUnitRangeAction);
+        }
+        else if (activeUnitWorkCount == 1)
+        {
+            ScatterUnitRange(0);
+        }
+    }
+
+    private static void ScatterUnitRange(int workIndex)
+    {
+        int start =
+            workIndex *
+            PerformanceSettings.SimulationBatchSize;
+        int end = Math.Min(
+            activeSource.Count,
+            start +
+            PerformanceSettings.SimulationBatchSize);
+        int offsetBase =
+            workIndex *
+            activeChunkCount;
+        for (int i = start; i < end; i++)
+        {
+            int chunkIndex =
+                unitChunkIndices[i];
+            if (chunkIndex < 0)
+            {
+                continue;
+            }
+
+            int offsetCell =
+                offsetBase +
+                chunkIndex;
+            int targetIndex =
+                workChunkOffsets[offsetCell]++;
+            actorsByChunk[chunkIndex][
+                targetIndex] = activeSource[i];
+        }
+    }
+
+    private static void RebuildIslandMembership(
+        List<Actor> source)
+    {
+        for (int i = 0; i < source.Count; i++)
+        {
+            if (unitChunkIndices[i] >= 0)
+            {
+                Actor actor = source[i];
+                actor.current_tile
+                    .region
+                    .island
+                    .actors
+                    .Add(actor);
+            }
+        }
+    }
+
+    private static void MergeOccupiedTiles(
+        List<WorldTile> tilesToClear)
+    {
+        for (int i = 0;
+             i < occupiedTilesByChunk.Length;
+             i++)
+        {
+            tilesToClear.AddRange(
+                occupiedTilesByChunk[i]);
+        }
+    }
+
+    private static void RebuildNearbyStatusMembership()
+    {
+        for (int chunkIndex = 0;
+             chunkIndex < activeChunkCount;
+             chunkIndex++)
+        {
+            Actor[] actors =
+                actorsByChunk[chunkIndex];
+            int count =
+                actorCountsByChunk[chunkIndex];
+            MapChunk chunk =
+                activeChunks[chunkIndex];
+            for (int unitIndex = 0;
+                 unitIndex < count;
+                 unitIndex++)
+            {
+                NearbyStatusTargetIndex
+                    .AddUnitMembership(
+                        actors[unitIndex],
+                        chunk,
+                        unitIndex);
+            }
         }
     }
 
@@ -324,11 +591,24 @@ internal static class ParallelSimObjectZoneUnits
     private static void RebuildChunk(int chunkIndex)
     {
         MapChunk chunk = activeChunks[chunkIndex];
-        List<Actor> actors = actorsByChunk[chunkIndex];
-        for (int i = 0; i < actors.Count; i++)
+        Actor[] actors = actorsByChunk[chunkIndex];
+        int count = actorCountsByChunk[chunkIndex];
+        List<WorldTile> occupiedTiles =
+            occupiedTilesByChunk[chunkIndex];
+        occupiedTiles.Clear();
+        int tileMark = activeTileMark;
+        for (int i = 0; i < count; i++)
         {
             Actor actor = actors[i];
-            actor.current_tile.addUnit(actor);
+            WorldTile tile = actor.current_tile;
+            int tileId = tile.tile_id;
+            if (tileMarks[tileId] != tileMark)
+            {
+                tileMarks[tileId] = tileMark;
+                occupiedTiles.Add(tile);
+            }
+
+            tile.addUnit(actor);
             chunk.objects.addActor(actor);
         }
     }
