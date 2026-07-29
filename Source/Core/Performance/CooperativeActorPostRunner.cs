@@ -15,6 +15,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 {
     private const string EnemySearchJobId = "b3_findEnemyTarget";
     private const string TileActionJobId = "u5_curTileAction";
+    private const string DeadCheckJobId = "u4_deadCheck";
+    private const string FrozenCheckJobId = "u6_checkFrozen";
     private const string InsideBoatJobId = "u1_checkInside";
     private const string UpdateTimersJobId = "u8_checkUpdateTimers";
     private const string UnderForceJobId = "b1_checkUnderForce";
@@ -28,6 +30,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         "u10_checkSmoothMovement";
 
     private readonly ActorTileActionProfiler tileActionProfiler = new();
+    private readonly Action<int> actorGateWorkItemAction;
     private readonly Action<int> tileActionWorkItemAction;
     private readonly Action<int> updateEligibilityWorkItemAction;
     private readonly Action<int> enemyPrepareWorkItemAction;
@@ -39,10 +42,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private enum PostStage
     {
         Idle,
+        BeforeDeadCheck,
         BeforeTileAction,
         ScheduleTileAction,
         AwaitTileAction,
         CommitTileAction,
+        BeforeFrozenCheck,
         BeforeUpdateEligibility,
         BeforeEnemySearch,
         PrepareEnemySearch,
@@ -61,6 +66,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         Finish
     }
 
+    private ActorGateBatchWork[] actorGateWorkItems =
+        Array.Empty<ActorGateBatchWork>();
     private TileActionBatchWork[] tileActionWorkItems =
         Array.Empty<TileActionBatchWork>();
     private UpdateEligibilityBatchWork[] updateEligibilityWorkItems =
@@ -85,7 +92,9 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private List<BatchActors> batches;
     private PostStage stage;
     private float elapsed;
+    private int deadCheckJobIndex;
     private int tileActionJobIndex;
+    private int frozenCheckJobIndex;
     private int updateTimersJobIndex;
     private int underForceJobIndex;
     private int currentEnemyTargetJobIndex;
@@ -118,6 +127,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     internal CooperativeActorPostRunner()
     {
+        actorGateWorkItemAction =
+            RunActorGateWorkItemAt;
         tileActionWorkItemAction =
             RunTileActionWorkItemAt;
         updateEligibilityWorkItemAction =
@@ -189,6 +200,20 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 "Actor post jobs 中 u5_curTileAction 顺序无效");
         }
 
+        deadCheckJobIndex = FindPostJobIndex(
+            batches[0].jobs_post,
+            DeadCheckJobId);
+        frozenCheckJobIndex = FindPostJobIndex(
+            batches[0].jobs_post,
+            FrozenCheckJobId);
+        if (deadCheckJobIndex < 0 ||
+            deadCheckJobIndex >= tileActionJobIndex ||
+            frozenCheckJobIndex <= tileActionJobIndex)
+        {
+            throw new InvalidOperationException(
+                "Actor post jobs 中 u4/u5/u6 顺序无效");
+        }
+
         updateTimersJobIndex = FindPostJobIndex(
             batches[0].jobs_post,
             UpdateTimersJobId);
@@ -208,6 +233,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         }
 
         ValidateUpdateEligibilityJobs();
+        ValidateActorGateJobs();
 
         pathMovementJobIndex = FindPostJobIndex(
             batches[0].jobs_post,
@@ -233,7 +259,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 "Actor post jobs 中 u10_checkSmoothMovement 顺序无效");
         }
 
-        stage = PostStage.BeforeTileAction;
+        stage = PostStage.BeforeDeadCheck;
     }
 
     public bool WaitingForBackgroundWork =>
@@ -313,6 +339,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     public string GetNextPhaseName(string phasePrefix)
     {
+        if (stage == PostStage.BeforeDeadCheck &&
+            batchIndex >= batches.Count)
+        {
+            return phasePrefix + ".post.u4.parallel";
+        }
+
         if (stage == PostStage.BeforeTileAction &&
             batchIndex >= batches.Count)
         {
@@ -325,9 +357,15 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             return GetNextPostRangePhaseName(
                 phasePrefix,
                 tileActionJobIndex + 1,
-                updateTimersJobIndex,
-                "before_u8",
+                frozenCheckJobIndex,
+                "before_u6",
                 restartRange: true);
+        }
+
+        if (stage == PostStage.BeforeFrozenCheck &&
+            batchIndex >= batches.Count)
+        {
+            return phasePrefix + ".post.u6.parallel";
         }
 
         if (stage == PostStage.BeforeUpdateEligibility &&
@@ -411,10 +449,16 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         return stage switch
         {
-            PostStage.BeforeTileAction =>
+            PostStage.BeforeDeadCheck =>
                 GetNextPostRangePhaseName(
                     phasePrefix,
                     0,
+                    deadCheckJobIndex,
+                    "before_u4"),
+            PostStage.BeforeTileAction =>
+                GetNextPostRangePhaseName(
+                    phasePrefix,
+                    deadCheckJobIndex + 1,
                     tileActionJobIndex,
                     "before_u5"),
             PostStage.ScheduleTileAction =>
@@ -426,10 +470,16 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             PostStage.CommitTileAction =>
                 phasePrefix + ".post.u5.commit.batch." +
                 tileActionCommitIndex,
-            PostStage.BeforeUpdateEligibility =>
+            PostStage.BeforeFrozenCheck =>
                 GetNextPostRangePhaseName(
                     phasePrefix,
                     tileActionJobIndex + 1,
+                    frozenCheckJobIndex,
+                    "before_u6"),
+            PostStage.BeforeUpdateEligibility =>
+                GetNextPostRangePhaseName(
+                    phasePrefix,
+                    frozenCheckJobIndex + 1,
                     updateTimersJobIndex,
                     "before_u8"),
             PostStage.BeforeEnemySearch =>
@@ -496,9 +546,26 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             {
                 case PostStage.Idle:
                     return true;
-                case PostStage.BeforeTileAction:
+                case PostStage.BeforeDeadCheck:
                     if (TryRunNextPostRange(
                             0,
+                            deadCheckJobIndex))
+                    {
+                        return false;
+                    }
+
+                    RunActorGateJobs(
+                        deadCheckJobIndex,
+                        ActorGateKind.DeadCheck,
+                        DeadCheckJobId);
+                    batchIndex = 0;
+                    postJobIndex =
+                        deadCheckJobIndex + 1;
+                    stage = PostStage.BeforeTileAction;
+                    return false;
+                case PostStage.BeforeTileAction:
+                    if (TryRunNextPostRange(
+                            deadCheckJobIndex + 1,
                             tileActionJobIndex))
                     {
                         return false;
@@ -552,8 +619,19 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 case PostStage.CommitTileAction:
                     if (tileActionCommitIndex < batches.Count)
                     {
-                        CommitTileActionWorkItem(
-                            tileActionCommitIndex++);
+                        int tileCommitEnd = splitPostJobs
+                            ? tileActionCommitIndex + 1
+                            : Math.Min(
+                                batches.Count,
+                                tileActionCommitIndex +
+                                workGroupSize);
+                        while (tileActionCommitIndex <
+                               tileCommitEnd)
+                        {
+                            CommitTileActionWorkItem(
+                                tileActionCommitIndex++);
+                        }
+
                         return false;
                     }
 
@@ -561,11 +639,29 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     postJobIndex =
                         tileActionJobIndex + 1;
                     stage =
-                        PostStage.BeforeUpdateEligibility;
+                        PostStage.BeforeFrozenCheck;
                     continue;
-                case PostStage.BeforeUpdateEligibility:
+                case PostStage.BeforeFrozenCheck:
                     if (TryRunNextPostRange(
                             tileActionJobIndex + 1,
+                            frozenCheckJobIndex))
+                    {
+                        return false;
+                    }
+
+                    RunActorGateJobs(
+                        frozenCheckJobIndex,
+                        ActorGateKind.FrozenCheck,
+                        FrozenCheckJobId);
+                    batchIndex = 0;
+                    postJobIndex =
+                        frozenCheckJobIndex + 1;
+                    stage =
+                        PostStage.BeforeUpdateEligibility;
+                    return false;
+                case PostStage.BeforeUpdateEligibility:
+                    if (TryRunNextPostRange(
+                            frozenCheckJobIndex + 1,
                             updateTimersJobIndex))
                     {
                         return false;
@@ -603,7 +699,17 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     stage = PostStage.PrepareEnemySearch;
                     continue;
                 case PostStage.PrepareEnemySearch:
-                    if (TryPrepareNextBatch())
+                    int prepareEnd = splitPostJobs
+                        ? batchIndex + 1
+                        : Math.Min(
+                            batches.Count,
+                            batchIndex + workGroupSize);
+                    while (batchIndex < prepareEnd &&
+                           TryPrepareNextBatch())
+                    {
+                    }
+
+                    if (batchIndex < batches.Count)
                     {
                         return false;
                     }
@@ -721,8 +827,19 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 case PostStage.CommitPathMovement:
                     if (pathCommitIndex < batches.Count)
                     {
-                        CommitPathMovementWorkItem(
-                            pathCommitIndex++);
+                        int pathCommitEnd = splitPostJobs
+                            ? pathCommitIndex + 1
+                            : Math.Min(
+                                batches.Count,
+                                pathCommitIndex +
+                                workGroupSize);
+                        while (pathCommitIndex <
+                               pathCommitEnd)
+                        {
+                            CommitPathMovementWorkItem(
+                                pathCommitIndex++);
+                        }
+
                         return false;
                     }
 
@@ -786,8 +903,19 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 case PostStage.CommitSmoothMovement:
                     if (smoothCommitIndex < batches.Count)
                     {
-                        CommitSmoothMovementWorkItem(
-                            smoothCommitIndex++);
+                        int smoothCommitEnd = splitPostJobs
+                            ? smoothCommitIndex + 1
+                            : Math.Min(
+                                batches.Count,
+                                smoothCommitIndex +
+                                workGroupSize);
+                        while (smoothCommitIndex <
+                               smoothCommitEnd)
+                        {
+                            CommitSmoothMovementWorkItem(
+                                smoothCommitIndex++);
+                        }
+
                         return false;
                     }
 
@@ -889,13 +1017,28 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             return false;
         }
 
-        int aggregateBatchIndex = batchIndex;
-        BatchActors aggregateBatch = batches[batchIndex++];
-        List<Job<Actor>> aggregateJobs = aggregateBatch.jobs_post;
-        int aggregateEnd = Math.Min(endJobIndex, aggregateJobs.Count);
-        for (int i = startJobIndex; i < aggregateEnd; i++)
+        int batchEnd = Math.Min(
+            batches.Count,
+            batchIndex + workGroupSize);
+        while (batchIndex < batchEnd)
         {
-            RunPostJob(aggregateBatch, aggregateJobs[i], aggregateBatchIndex);
+            int aggregateBatchIndex = batchIndex;
+            BatchActors aggregateBatch =
+                batches[batchIndex++];
+            List<Job<Actor>> aggregateJobs =
+                aggregateBatch.jobs_post;
+            int aggregateEnd = Math.Min(
+                endJobIndex,
+                aggregateJobs.Count);
+            for (int i = startJobIndex;
+                 i < aggregateEnd;
+                 i++)
+            {
+                RunPostJob(
+                    aggregateBatch,
+                    aggregateJobs[i],
+                    aggregateBatchIndex);
+            }
         }
 
         return true;
@@ -1112,6 +1255,181 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     "Actor post jobs 的 u8/b1 并行不变量已改变");
             }
         }
+    }
+
+    private void ValidateActorGateJobs()
+    {
+        for (int i = 0; i < batches.Count; i++)
+        {
+            List<Job<Actor>> jobs =
+                batches[i].jobs_post;
+            if (jobs.Count <= frozenCheckJobIndex)
+            {
+                throw new InvalidOperationException(
+                    "Actor post jobs 数量不足，无法并行 u4/u6");
+            }
+
+            Job<Actor> deadCheckJob =
+                jobs[deadCheckJobIndex];
+            Job<Actor> frozenCheckJob =
+                jobs[frozenCheckJobIndex];
+            if (!deadCheckJob.id.Equals(
+                    DeadCheckJobId,
+                    StringComparison.Ordinal) ||
+                !frozenCheckJob.id.Equals(
+                    FrozenCheckJobId,
+                    StringComparison.Ordinal) ||
+                !ReferenceEquals(
+                    deadCheckJob.container,
+                    frozenCheckJob.container) ||
+                deadCheckJob.random_tick_skips != 0 ||
+                frozenCheckJob.random_tick_skips != 0)
+            {
+                throw new InvalidOperationException(
+                    "Actor post jobs 的 u4/u6 并行不变量已改变");
+            }
+        }
+    }
+
+    private void RunActorGateJobs(
+        int jobIndex,
+        ActorGateKind kind,
+        string benchmarkId)
+    {
+        int count = batches.Count;
+        if (actorGateWorkItems.Length < count)
+        {
+            int previousLength =
+                actorGateWorkItems.Length;
+            Array.Resize(
+                ref actorGateWorkItems,
+                count);
+            for (int i = previousLength;
+                 i < count;
+                 i++)
+            {
+                actorGateWorkItems[i] =
+                    new ActorGateBatchWork();
+            }
+        }
+
+        bool enabled =
+            kind != ActorGateKind.FrozenCheck ||
+            !World.world.isPaused();
+        int actorsClassified = 0;
+        for (int i = 0; i < count; i++)
+        {
+            BatchActors batch = batches[i];
+            Job<Actor> job =
+                batch.jobs_post[jobIndex];
+            ActorGateBatchWork work =
+                actorGateWorkItems[i];
+            batch._elapsed = elapsed;
+            batch._cur_container = job.container;
+            if (job.current_skips > 0)
+            {
+                job.current_skips--;
+                work.ConfigureSkipped(job);
+                continue;
+            }
+
+            ObjectContainer<Actor> container =
+                job.container;
+            if (container.Count > 0 ||
+                container.isDirtyContainer())
+            {
+                container.checkAddRemove();
+            }
+
+            Actor[] actors =
+                container.getFastSimpleArray() ??
+                Array.Empty<Actor>();
+            int actorCount = container.Count;
+            batch._array = actors;
+            batch._count = actorCount;
+            work.Configure(
+                job,
+                actors,
+                actorCount,
+                kind,
+                enabled);
+            actorsClassified +=
+                enabled
+                    ? actorCount
+                    : 0;
+        }
+
+        SimulationWorkerPool.WorkResult result =
+            SimulationWorkerPool.Instance.RunIndexed(
+                0,
+                count,
+                actorGateWorkItemAction);
+        if (SimulationTickBenchmark.IsCapturing)
+        {
+            SimulationTickBenchmark.RecordActorJobMetric(
+                benchmarkId + ".classify_parallel",
+                result.WallSeconds,
+                actorsClassified);
+        }
+
+        long commitStartedAt =
+            StartBenchmarkMeasurement();
+        int actorsChecked = 0;
+        for (int i = 0; i < count; i++)
+        {
+            ActorGateBatchWork work =
+                actorGateWorkItems[i];
+            if (work.Skipped)
+            {
+                work.Reset();
+                continue;
+            }
+
+            long jobStartedAt = splitPostJobs
+                ? Stopwatch.GetTimestamp()
+                : 0L;
+            Actor[] serialActors =
+                work.SerialActors;
+            for (int actorIndex = 0;
+                 actorIndex < work.SerialCount;
+                 actorIndex++)
+            {
+                Actor actor =
+                    serialActors[actorIndex];
+                if (kind ==
+                    ActorGateKind.DeadCheck)
+                {
+                    actor.u4_deadCheck(elapsed);
+                }
+                else
+                {
+                    actor.u6_checkFrozen(elapsed);
+                }
+            }
+
+            actorsChecked += work.Count;
+            if (splitPostJobs)
+            {
+                work.Job.time_benchmark +=
+                    (Stopwatch.GetTimestamp() -
+                     jobStartedAt) /
+                    (double)Stopwatch.Frequency;
+                work.Job.counter += work.Count;
+            }
+
+            work.Reset();
+        }
+
+        RecordBenchmarkMeasurement(
+            benchmarkId,
+            commitStartedAt,
+            actorsChecked);
+    }
+
+    private void RunActorGateWorkItemAt(int index)
+    {
+        actorGateWorkItems[index]
+            .RunParallel();
     }
 
     private void PrepareUpdateEligibilityWorkItems()
@@ -2056,23 +2374,20 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         }
 
         long startedAt = StartBenchmarkMeasurement();
-        Actor[] actors = work.Actors;
+        Actor[] actors = work.SerialActors;
         PatchAboutPathfinding.PreparedSmoothMovement[]
             entries = work.Entries;
-        for (int i = 0; i < work.Count; i++)
+        for (int i = 0;
+             i < work.SerialCount;
+             i++)
         {
             PatchAboutPathfinding.PreparedSmoothMovement
                 entry = entries[i];
-            if (entry.Kind !=
-                PatchAboutPathfinding
-                    .PreparedSmoothMovementKind.None)
-            {
-                PatchAboutPathfinding
-                    .CommitPreparedSmoothMovement(
-                        actors[i],
-                        work.Elapsed,
-                        entry);
-            }
+            PatchAboutPathfinding
+                .CommitPreparedSmoothMovement(
+                    actors[i],
+                    work.Elapsed,
+                    entry);
         }
 
         if (job.random_tick_skips > 0)
@@ -2540,6 +2855,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         for (int i = 0; i < workCount; i++)
         {
             workItems[i].Reset();
+        }
+
+        for (int i = 0;
+             i < actorGateWorkItems.Length;
+             i++)
+        {
+            actorGateWorkItems[i]?.Reset();
         }
 
         for (int i = 0;
@@ -3112,6 +3434,125 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         Inactive
     }
 
+    private enum ActorGateKind : byte
+    {
+        DeadCheck,
+        FrozenCheck
+    }
+
+    private sealed class ActorGateBatchWork
+    {
+        internal Job<Actor> Job { get; private set; }
+        internal Actor[] Actors { get; private set; }
+        internal Actor[] SerialActors { get; private set; } =
+            Array.Empty<Actor>();
+        internal int Count { get; private set; }
+        internal int SerialCount { get; private set; }
+        internal ActorGateKind Kind { get; private set; }
+        internal bool Enabled { get; private set; }
+        internal bool Skipped { get; private set; }
+
+        internal void Configure(
+            Job<Actor> job,
+            Actor[] actors,
+            int count,
+            ActorGateKind kind,
+            bool enabled)
+        {
+            Job = job;
+            Actors = actors;
+            Count = count;
+            SerialCount = 0;
+            Kind = kind;
+            Enabled = enabled;
+            Skipped = false;
+            if (SerialActors.Length < count)
+            {
+                SerialActors =
+                    new Actor[
+                        Math.Max(
+                            PerformanceSettings
+                                .SimulationBatchSize,
+                            count)];
+            }
+        }
+
+        internal void ConfigureSkipped(Job<Actor> job)
+        {
+            Job = job;
+            Actors = null;
+            Count = 0;
+            SerialCount = 0;
+            Kind = default;
+            Enabled = false;
+            Skipped = true;
+        }
+
+        internal void RunParallel()
+        {
+            if (Skipped ||
+                !Enabled ||
+                Count == 0)
+            {
+                return;
+            }
+
+            int serialCount = 0;
+            Actor[] actors = Actors;
+            Actor[] serialActors = SerialActors;
+            if (Kind == ActorGateKind.DeadCheck)
+            {
+                for (int i = 0; i < Count; i++)
+                {
+                    Actor actor = actors[i];
+                    if (!actor._update_done &&
+                        (!actor.isAlive() ||
+                         actor.isInMagnet() ||
+                         actor.under_forces))
+                    {
+                        serialActors[serialCount++] =
+                            actor;
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < Count; i++)
+                {
+                    Actor actor = actors[i];
+                    if (!actor._update_done &&
+                        (actor.is_ai_frozen ||
+                         actor.is_unconscious))
+                    {
+                        serialActors[serialCount++] =
+                            actor;
+                    }
+                }
+            }
+
+            SerialCount = serialCount;
+        }
+
+        internal void Reset()
+        {
+            if (SerialCount > 0)
+            {
+                Array.Clear(
+                    SerialActors,
+                    0,
+                    SerialCount);
+            }
+
+            Job = null;
+            Actors = null;
+            Count = 0;
+            SerialCount = 0;
+            Kind = default;
+            Enabled = false;
+            Skipped = false;
+        }
+    }
+
     private struct PathMovementWorkEntry
     {
         internal PathMovementWorkKind Kind;
@@ -3464,6 +3905,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     {
         internal Job<Actor> Job { get; private set; }
         internal Actor[] Actors { get; private set; }
+        internal Actor[] SerialActors { get; private set; } =
+            Array.Empty<Actor>();
         internal int Count { get; private set; }
         internal int Checked { get; private set; }
         internal int SerialCount { get; private set; }
@@ -3493,12 +3936,15 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             Elapsed = elapsed;
             if (Entries.Length < count)
             {
+                int capacity = Math.Max(
+                    PerformanceSettings.SimulationBatchSize,
+                    count);
+                SerialActors =
+                    new Actor[capacity];
                 Entries =
                     new PatchAboutPathfinding
                         .PreparedSmoothMovement[
-                        Math.Max(
-                            PerformanceSettings.SimulationBatchSize,
-                            count)];
+                        capacity];
             }
         }
 
@@ -3535,12 +3981,15 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                             out PatchAboutPathfinding
                                 .PreparedSmoothMovement
                                 prepared);
-                Entries[i] = prepared;
                 if (result ==
                     PatchAboutPathfinding
                         .ParallelSmoothMovementResult
-                        .RequiresSerial)
+                    .RequiresSerial)
                 {
+                    SerialActors[serialCount] =
+                        Actors[i];
+                    Entries[serialCount] =
+                        prepared;
                     serialCount++;
                 }
             }
@@ -3551,12 +4000,16 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         internal void Reset()
         {
-            if (Count > 0)
+            if (SerialCount > 0)
             {
+                Array.Clear(
+                    SerialActors,
+                    0,
+                    SerialCount);
                 Array.Clear(
                     Entries,
                     0,
-                    Count);
+                    SerialCount);
             }
 
             Job = null;
