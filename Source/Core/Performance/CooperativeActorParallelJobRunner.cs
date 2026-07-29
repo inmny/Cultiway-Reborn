@@ -237,6 +237,7 @@ internal sealed class CooperativeActorParallelJobRunner :
 
             bool cultiwayFlying =
                 alive &&
+                actor.isFlying() &&
                 actor.data.hasFlag(
                     ContentActorDataKeys.IsFlying_flag);
             if (cultiwayFlying ||
@@ -275,7 +276,7 @@ internal sealed class CooperativeActorParallelJobRunner :
                 }
             }
 
-            if (paused || !actor.isAlive())
+            if (paused || !alive)
             {
                 continue;
             }
