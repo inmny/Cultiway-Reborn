@@ -410,6 +410,7 @@ namespace Cultiway
             Game.Init();
             Persistence = new ModSaveManager(new GlobalFileSaveStorage(
                 Path.Combine(Application.persistentDataPath, "Cultiway")));
+            Core.Combat.SourcelessDamageLevels.Initialize(Persistence);
             Try.Start(() =>
             {
                 W = new EntityStore()

@@ -254,6 +254,7 @@ internal static class PatchActor
             Damage = pDamage,
             Element = element,
             Attacker = pAttacker,
+            AttackType = pAttackType,
             IgnoreDamageReduction = !pCheckDamageReduction
         });
         return false;

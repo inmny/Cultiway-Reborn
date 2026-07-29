@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
 using Cultiway.Debug;
 using NeoModLoader.api.attributes;
@@ -446,7 +447,7 @@ public partial class ActorExtend
         var attacker_power_level = attacker_power_level_override ??
                                    (((attacker?.isActor() ?? false) && !attacker.isRekt())
                                        ? attacker.a.GetExtend().GetPowerLevel()
-                                       : 0);
+                                       : SourcelessDamageLevels.GetLevel(attack_type_for_vanilla));
         var power_level = GetDefensePowerLevel(attacker_power_level, damage);
         var power_level_gap = power_level - attacker_power_level;
         var should_apply_minimum_damage = ShouldApplyMinimumDamage(damage, power_level_gap);

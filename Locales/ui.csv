@@ -20,6 +20,29 @@ Cultiway.UI.WindowWorldWakan Title,世界灵气
 Cultiway.UI.WindowNewCreatureInfo Title,生物详细信息
 Cultiway.UI.WindowModInfo Title,模组介绍
 Cultiway.UI.WindowModInfo Title Description,查看修真之路的模组介绍
+Cultiway.UI.WindowSourcelessDamageLevelConfig Title,无来源伤害等级配置
+Cultiway.UI.WindowSourcelessDamageLevelConfig Title Description,配置各类无来源伤害（缺失攻击者）替代的境界等级
+Cultiway.SourcelessDamage.Header,无来源替代境界等级
+Cultiway.SourcelessDamage.AttackType.Acid,酸蚀
+Cultiway.SourcelessDamage.AttackType.Fire,火焰
+Cultiway.SourcelessDamage.AttackType.Plague,瘟疫
+Cultiway.SourcelessDamage.AttackType.Infection,感染
+Cultiway.SourcelessDamage.AttackType.Tumor,肿瘤
+Cultiway.SourcelessDamage.AttackType.Other,其他
+Cultiway.SourcelessDamage.AttackType.Divine,神圣
+Cultiway.SourcelessDamage.AttackType.AshFever,灰热病
+Cultiway.SourcelessDamage.AttackType.Metamorphosis,变形
+Cultiway.SourcelessDamage.AttackType.Starvation,饥饿
+Cultiway.SourcelessDamage.AttackType.Eaten,被吞噬
+Cultiway.SourcelessDamage.AttackType.Age,衰老
+Cultiway.SourcelessDamage.AttackType.Weapon,武器
+Cultiway.SourcelessDamage.AttackType.None,无
+Cultiway.SourcelessDamage.AttackType.Poison,中毒
+Cultiway.SourcelessDamage.AttackType.Gravity,重力
+Cultiway.SourcelessDamage.AttackType.Drowning,溺水
+Cultiway.SourcelessDamage.AttackType.Water,水
+Cultiway.SourcelessDamage.AttackType.Explosion,爆炸
+Cultiway.SourcelessDamage.AttackType.Smile,微笑
 Cultiway.UI.WindowModInfo.Tab.Overview,概览
 Cultiway.UI.WindowModInfo.Tab.Overview Description,查看模组定位、核心循环和当前目标
 Cultiway.UI.WindowModInfo.Tab.Cultivation,修真炼气

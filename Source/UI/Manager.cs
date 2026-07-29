@@ -605,6 +605,14 @@ public class Manager
                 SpriteTextureLoader.getSprite("cultiway/icons/iconCultivation")
             )
         );
+        WindowSourcelessDamageLevelConfig.CreateAndInit(WindowSourcelessDamageLevelConfig.Id);
+        AddButton(TabButtonType.INFO,
+            PowerButtonCreator.CreateWindowButton(
+                $"{WindowSourcelessDamageLevelConfig.Id} Title",
+                WindowSourcelessDamageLevelConfig.Id,
+                SpriteTextureLoader.getSprite("ui/icons/iconDamage")
+            )
+        );
         WindowNewCreatureInfo.CreateAndInit("Cultiway.UI.WindowNewCreatureInfo");
         GeoRegionWindow.Init();
         SectWindow.Init();

@@ -65,6 +65,7 @@ internal class Manager
         ModClass.I.LogicRestoreStatusSystemGroup.Add(new RestoreMagicResourceSystem());
         ModClass.I.LogicRestoreStatusSystemGroup.Add(new KnightAcquisitionSystem());
         ModClass.I.LogicRestoreStatusSystemGroup.Add(new KnightBreakthroughSystem());
+        ModClass.I.LogicRestoreStatusSystemGroup.Add(new ForgePendingSystem());
         ModClass.I.GeneralLogicSystems.Add(new WakanSpreadSystem());
         ModClass.I.GeneralLogicSystems.Add(new TrainTrackRepairSystem());
         ModClass.I.GeneralLogicSystems.Add(new TrainTransportSystem());
@@ -103,6 +104,7 @@ internal class Manager
         CultivateMethodTriggers.Init();
         KnightCombatTriggers.Init();
         KnightBloodline.Init();
+        KnightForge.Init();
         Train.Init();
     }
 
