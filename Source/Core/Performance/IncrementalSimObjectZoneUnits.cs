@@ -9,7 +9,7 @@ namespace Cultiway.Core.Performance;
 
 /// <summary>
 /// 在完整重建得到稳定基线后，仅维护发生变化的角色空间成员关系。
-/// 容器结构变化时退回完整重建；建筑按脏 chunk 更新，
+/// 容器结构变化时按稳定角色顺序协调增删；建筑按脏 chunk 更新，
 /// 岛屿角色表在拓扑稳定时按角色脏标记更新。
 /// </summary>
 internal static class IncrementalSimObjectZoneUnits
@@ -26,6 +26,8 @@ internal static class IncrementalSimObjectZoneUnits
 
     private static readonly Dictionary<Actor, int>
         ActorRanks = new();
+    private static readonly Dictionary<Actor, int>
+        ReconciledActorRanks = new();
     private static readonly Dictionary<TileIsland, int>
         IslandRanks = new();
     private static readonly SortedSet<int>
@@ -36,9 +38,15 @@ internal static class IncrementalSimObjectZoneUnits
         DirtyActors = new();
     private static readonly List<int>
         DirtyChunks = new();
+    private static readonly HashSet<int>
+        StructuralDirtyChunks = new();
 
     private static List<Actor>[] actorsByChunk =
         Array.Empty<List<Actor>>();
+    private static Actor[] committedActors =
+        Array.Empty<Actor>();
+    private static long[] committedActorIds =
+        Array.Empty<long>();
     private static WorldTile[] committedTiles =
         Array.Empty<WorldTile>();
     private static TileIsland[] committedIslands =
@@ -49,6 +57,22 @@ internal static class IncrementalSimObjectZoneUnits
         Array.Empty<byte>();
     private static byte[] cityMembershipFlags =
         Array.Empty<byte>();
+    private static Actor[] reconcileActors =
+        Array.Empty<Actor>();
+    private static long[] reconcileActorIds =
+        Array.Empty<long>();
+    private static WorldTile[] reconcileTiles =
+        Array.Empty<WorldTile>();
+    private static TileIsland[] reconcileIslands =
+        Array.Empty<TileIsland>();
+    private static long[] reconcileKingdomIds =
+        Array.Empty<long>();
+    private static byte[] reconcileAlive =
+        Array.Empty<byte>();
+    private static byte[] reconcileCityMembershipFlags =
+        Array.Empty<byte>();
+    private static int[] previousRanksByCurrent =
+        Array.Empty<int>();
     private static int[] dirtyChunkMarks =
         Array.Empty<int>();
     private static int[] islandValidationCursors =
@@ -62,12 +86,19 @@ internal static class IncrementalSimObjectZoneUnits
     private static int preparedGeneration = -1;
     private static int preparedStructuralVersion = -1;
     private static int dirtyChunkMark;
+    private static int committedActorCount;
     private static int committedAliveCount;
     private static int islandValidationCounter;
     private static bool ready;
+    private static bool structuralMembershipChanged;
+    private static bool structureReconciledThisPass;
     private static long attempts;
     private static long handled;
     private static long fullRebuilds;
+    private static long structuralReconciliations;
+    private static long structuralAdditions;
+    private static long structuralRemovals;
+    private static long rejectedStructuralOrder;
     private static long islandRebuilds;
     private static long islandIncrementalPasses;
     private static long islandMembershipChanges;
@@ -90,7 +121,19 @@ internal static class IncrementalSimObjectZoneUnits
         ActorRanks.Clear();
         CityMembershipActorRanks.Clear();
         TrackedTiles.Clear();
+        StructuralDirtyChunks.Clear();
+        structuralMembershipChanged = false;
+        structureReconciledThisPass = false;
+        committedActorCount = source.Count;
         committedAliveCount = 0;
+        Array.Clear(
+            committedActors,
+            0,
+            committedActors.Length);
+        Array.Clear(
+            committedActorIds,
+            0,
+            committedActorIds.Length);
         Array.Clear(
             committedTiles,
             0,
@@ -122,6 +165,9 @@ internal static class IncrementalSimObjectZoneUnits
         {
             Actor actor = source[i];
             ActorRanks.Add(actor, i);
+            committedActors[i] = actor;
+            committedActorIds[i] =
+                actor.getID();
             if (!actor.isAlive())
             {
                 continue;
@@ -168,6 +214,7 @@ internal static class IncrementalSimObjectZoneUnits
     {
         MapBox world = World.world;
         attempts++;
+        structureReconciledThisPass = false;
         if (!CanUseIncremental(
                 world,
                 buildingsDirty,
@@ -266,6 +313,7 @@ internal static class IncrementalSimObjectZoneUnits
         }
 
         DirtyActors.Sort(CompareDirtyActors);
+        RemoveDisposedDirtyActors();
         bool islandMembershipCurrent =
             IsPreparedIslandMembershipCurrent();
         ValidateDirtyActors(
@@ -392,6 +440,7 @@ internal static class IncrementalSimObjectZoneUnits
 
         DirtyActors.Clear();
         DirtyChunks.Clear();
+        structureReconciledThisPass = false;
         ValidateIslandMembershipSampled();
         handled++;
         return true;
@@ -403,20 +452,25 @@ internal static class IncrementalSimObjectZoneUnits
             CultureInfo.InvariantCulture,
             "attempts={0} handled={1} full={2} " +
             "islands={3}/{4}/{5}(full/incremental/changes) " +
-            "reject=disabled:{6},not_ready:{7},buildings:{8}," +
-            "world:{9},tiles:{10},disposed:{11}",
+            "structural={6}/{7}/{8}(passes/add/remove) " +
+            "reject=disabled:{9},not_ready:{10},buildings:{11}," +
+            "world:{12},tiles:{13},disposed:{14},order:{15}",
             attempts,
             handled,
             fullRebuilds,
             islandRebuilds,
             islandIncrementalPasses,
             islandMembershipChanges,
+            structuralReconciliations,
+            structuralAdditions,
+            structuralRemovals,
             rejectedDisabled,
             rejectedNotReady,
             rejectedBuildings,
             rejectedWorld,
             rejectedTiles,
-            rejectedAfterDisposed);
+            rejectedAfterDisposed,
+            rejectedStructuralOrder);
     }
 
     internal static void Invalidate()
@@ -428,6 +482,9 @@ internal static class IncrementalSimObjectZoneUnits
         preparedIslands = null;
         DirtyActors.Clear();
         DirtyChunks.Clear();
+        StructuralDirtyChunks.Clear();
+        structuralMembershipChanged = false;
+        structureReconciledThisPass = false;
     }
 
     private static bool CanUseIncremental(
@@ -466,7 +523,8 @@ internal static class IncrementalSimObjectZoneUnits
             return false;
         }
 
-        if (!IsPreparedWorldCurrent(world))
+        if (!IsPreparedWorldIdentityCurrent(world) ||
+            !TryReconcileStructure(world))
         {
             rejectedWorld++;
             return false;
@@ -478,6 +536,21 @@ internal static class IncrementalSimObjectZoneUnits
     private static bool IsPreparedWorldCurrent(
         MapBox world)
     {
+        return IsPreparedWorldIdentityCurrent(
+                   world) &&
+               preparedSource.Count ==
+               world.units.Count &&
+               committedActorCount ==
+               preparedSource.Count &&
+               preparedStructuralVersion ==
+               ActorMetaPartitionVersion
+                   .GetStructuralVersion(
+                       world.units.version);
+    }
+
+    private static bool IsPreparedWorldIdentityCurrent(
+        MapBox world)
+    {
         return world != null &&
                preparedGeneration ==
                SimulationTime.Generation &&
@@ -486,13 +559,349 @@ internal static class IncrementalSimObjectZoneUnits
                    world.units.getSimpleList()) &&
                ReferenceEquals(
                    preparedChunks,
-                   world.map_chunk_manager.chunks) &&
-               preparedSource.Count ==
-               world.units.Count &&
-               preparedStructuralVersion ==
-               ActorMetaPartitionVersion
-                   .GetStructuralVersion(
-                       world.units.version);
+                   world.map_chunk_manager.chunks);
+    }
+
+    private static bool TryReconcileStructure(
+        MapBox world)
+    {
+        int structuralVersion =
+            ActorMetaPartitionVersion
+                .GetStructuralVersion(
+                    world.units.version);
+        List<Actor> source =
+            world.units.getSimpleList();
+        int currentCount = source.Count;
+        if (preparedStructuralVersion ==
+                structuralVersion &&
+            committedActorCount ==
+                currentCount &&
+            currentCount == world.units.Count)
+        {
+            return true;
+        }
+
+        if (currentCount != world.units.Count)
+        {
+            return false;
+        }
+
+        EnsureReconcileStorage(currentCount);
+        ReconciledActorRanks.Clear();
+        int previousRank = -1;
+        for (int i = 0; i < currentCount; i++)
+        {
+            Actor actor = source[i];
+            if (actor?.data == null ||
+                ReconciledActorRanks.ContainsKey(
+                    actor))
+            {
+                ReconciledActorRanks.Clear();
+                rejectedStructuralOrder++;
+                return false;
+            }
+
+            ReconciledActorRanks.Add(actor, i);
+            int oldRank = -1;
+            if (ActorRanks.TryGetValue(
+                    actor,
+                    out int candidateRank) &&
+                candidateRank >= 0 &&
+                candidateRank <
+                committedActorCount &&
+                ReferenceEquals(
+                    committedActors[
+                        candidateRank],
+                    actor) &&
+                committedActorIds[
+                    candidateRank] ==
+                actor.getID())
+            {
+                oldRank = candidateRank;
+                if (oldRank <= previousRank)
+                {
+                    ReconciledActorRanks.Clear();
+                    rejectedStructuralOrder++;
+                    return false;
+                }
+
+                previousRank = oldRank;
+            }
+
+            previousRanksByCurrent[i] =
+                oldRank;
+        }
+
+        bool islandMembershipCurrent =
+            IsPreparedIslandMembershipCurrent();
+        StructuralDirtyChunks.Clear();
+        structuralMembershipChanged = false;
+        int removed = 0;
+        for (int oldRank = 0;
+             oldRank < committedActorCount;
+             oldRank++)
+        {
+            Actor actor =
+                committedActors[oldRank];
+            bool retained =
+                actor != null &&
+                ReconciledActorRanks
+                    .TryGetValue(
+                        actor,
+                        out int currentRank) &&
+                previousRanksByCurrent[
+                    currentRank] ==
+                oldRank;
+            if (retained)
+            {
+                continue;
+            }
+
+            RemoveCommittedActorMembership(
+                actor,
+                oldRank,
+                islandMembershipCurrent);
+            removed++;
+        }
+
+        ActorRanks.Clear();
+        foreach (KeyValuePair<Actor, int> pair in
+                 ReconciledActorRanks)
+        {
+            ActorRanks.Add(
+                pair.Key,
+                pair.Value);
+        }
+
+        CityMembershipActorRanks.Clear();
+        int added = 0;
+        for (int currentRank = 0;
+             currentRank < currentCount;
+             currentRank++)
+        {
+            Actor actor = source[currentRank];
+            int oldRank =
+                previousRanksByCurrent[
+                    currentRank];
+            reconcileActors[currentRank] =
+                actor;
+            reconcileActorIds[currentRank] =
+                actor.getID();
+            if (oldRank >= 0)
+            {
+                CopyCommittedActorState(
+                    oldRank,
+                    currentRank);
+            }
+            else
+            {
+                AddCommittedActorMembership(
+                    actor,
+                    currentRank,
+                    islandMembershipCurrent);
+                added++;
+            }
+
+            if (reconcileCityMembershipFlags[
+                    currentRank] != 0)
+            {
+                CityMembershipActorRanks.Add(
+                    currentRank);
+            }
+        }
+
+        int previousCount =
+            committedActorCount;
+        Swap(
+            ref committedActors,
+            ref reconcileActors);
+        Swap(
+            ref committedActorIds,
+            ref reconcileActorIds);
+        Swap(
+            ref committedTiles,
+            ref reconcileTiles);
+        Swap(
+            ref committedIslands,
+            ref reconcileIslands);
+        Swap(
+            ref committedKingdomIds,
+            ref reconcileKingdomIds);
+        Swap(
+            ref committedAlive,
+            ref reconcileAlive);
+        Swap(
+            ref cityMembershipFlags,
+            ref reconcileCityMembershipFlags);
+        ClearReconcileStorage(
+            previousCount);
+
+        committedActorCount =
+            currentCount;
+        preparedStructuralVersion =
+            structuralVersion;
+        structureReconciledThisPass = true;
+        structuralReconciliations++;
+        structuralAdditions += added;
+        structuralRemovals += removed;
+        ReconciledActorRanks.Clear();
+        return true;
+    }
+
+    private static void RemoveCommittedActorMembership(
+        Actor actor,
+        int actorRank,
+        bool updateIslandMembership)
+    {
+        if (committedAlive[actorRank] == 0)
+        {
+            return;
+        }
+
+        WorldTile tile =
+            committedTiles[actorRank];
+        if (actor == null ||
+            tile?.chunk == null ||
+            tile.region?.island == null)
+        {
+            throw new InvalidOperationException(
+                "待移除角色缺少已提交空间成员");
+        }
+
+        if (!TileUnitsField(tile).Remove(actor))
+        {
+            throw new InvalidOperationException(
+                "tile 角色成员表缺少待移除角色");
+        }
+
+        int chunkIndex = tile.chunk.id;
+        IncrementalChunkActorMembership
+            .Remove(
+                preparedChunks[
+                        chunkIndex]
+                    .objects,
+                actor,
+                committedKingdomIds[
+                    actorRank]);
+        if (!actorsByChunk[
+                chunkIndex]
+            .Remove(actor))
+        {
+            throw new InvalidOperationException(
+                "chunk 角色基线缺少待移除角色");
+        }
+
+        StructuralDirtyChunks.Add(
+            chunkIndex);
+        structuralMembershipChanged = true;
+        if (updateIslandMembership &&
+            !committedIslands[actorRank]
+                .actors
+                .Remove(actor))
+        {
+            throw new InvalidOperationException(
+                "island 角色成员表缺少待移除角色");
+        }
+
+        committedAliveCount--;
+    }
+
+    private static void AddCommittedActorMembership(
+        Actor actor,
+        int actorRank,
+        bool updateIslandMembership)
+    {
+        bool alive = actor.isAlive();
+        reconcileAlive[actorRank] =
+            alive
+                ? (byte)1
+                : (byte)0;
+        if (!alive)
+        {
+            return;
+        }
+
+        WorldTile tile =
+            actor.current_tile;
+        if (tile?.chunk == null ||
+            tile.region?.island == null ||
+            actor.kingdom == null)
+        {
+            throw new InvalidOperationException(
+                "新增活体角色缺少有效空间成员");
+        }
+
+        TileIsland island =
+            tile.region.island;
+        long kingdomId =
+            actor.kingdom.id;
+        reconcileTiles[actorRank] =
+            tile;
+        reconcileIslands[actorRank] =
+            island;
+        reconcileKingdomIds[actorRank] =
+            kingdomId;
+        List<Actor> tileUnits =
+            TileUnitsField(tile);
+        InsertActorAtRank(
+            tileUnits,
+            actor,
+            actorRank);
+        if (TrackedTiles.Add(tile))
+        {
+            preparedTilesToClear.Add(tile);
+        }
+
+        int chunkIndex = tile.chunk.id;
+        IncrementalChunkActorMembership
+            .Add(
+                preparedChunks[
+                        chunkIndex]
+                    .objects,
+                actor,
+                kingdomId,
+                actorRank,
+                ActorRanks);
+        InsertActorAtRank(
+            actorsByChunk[
+                chunkIndex],
+            actor,
+            actorRank);
+        StructuralDirtyChunks.Add(
+            chunkIndex);
+        structuralMembershipChanged = true;
+        if (updateIslandMembership)
+        {
+            InsertActorAtRank(
+                island.actors,
+                actor,
+                actorRank);
+        }
+
+        committedAliveCount++;
+        if (ParallelSimObjectZoneUnits
+            .ShouldQueueCityMembership(actor))
+        {
+            reconcileCityMembershipFlags[
+                actorRank] = 1;
+        }
+    }
+
+    private static void CopyCommittedActorState(
+        int oldRank,
+        int currentRank)
+    {
+        reconcileTiles[currentRank] =
+            committedTiles[oldRank];
+        reconcileIslands[currentRank] =
+            committedIslands[oldRank];
+        reconcileKingdomIds[currentRank] =
+            committedKingdomIds[oldRank];
+        reconcileAlive[currentRank] =
+            committedAlive[oldRank];
+        reconcileCityMembershipFlags[
+            currentRank] =
+            cityMembershipFlags[oldRank];
     }
 
     private static void ValidateDirtyActors(
@@ -884,7 +1293,16 @@ internal static class IncrementalSimObjectZoneUnits
         List<WorldTile> tilesToClear)
     {
         NextDirtyChunkMark();
-        bool chunkMembershipChanged = false;
+        foreach (int chunkIndex in
+                 StructuralDirtyChunks)
+        {
+            MarkDirtyChunk(chunkIndex);
+        }
+
+        bool chunkMembershipChanged =
+            structuralMembershipChanged;
+        StructuralDirtyChunks.Clear();
+        structuralMembershipChanged = false;
         for (int i = 0; i < DirtyActors.Count; i++)
         {
             ActorZoneDirtyEntry entry =
@@ -1016,6 +1434,39 @@ internal static class IncrementalSimObjectZoneUnits
         }
 
         return chunkMembershipChanged;
+    }
+
+    private static void RemoveDisposedDirtyActors()
+    {
+        if (!structureReconciledThisPass)
+        {
+            return;
+        }
+
+        int writeIndex = 0;
+        for (int i = 0;
+             i < DirtyActors.Count;
+             i++)
+        {
+            ActorZoneDirtyEntry entry =
+                DirtyActors[i];
+            if (!ActorRanks.ContainsKey(
+                    entry.Actor))
+            {
+                continue;
+            }
+
+            DirtyActors[writeIndex++] =
+                entry;
+        }
+
+        if (writeIndex < DirtyActors.Count)
+        {
+            DirtyActors.RemoveRange(
+                writeIndex,
+                DirtyActors.Count -
+                writeIndex);
+        }
     }
 
     private static void UpdateCityMembershipCandidate(
@@ -1199,12 +1650,94 @@ internal static class IncrementalSimObjectZoneUnits
             : leftRank.CompareTo(rightRank);
     }
 
+    private static void EnsureReconcileStorage(
+        int actorCount)
+    {
+        if (reconcileActors.Length >=
+                actorCount &&
+            previousRanksByCurrent.Length >=
+                actorCount)
+        {
+            return;
+        }
+
+        int capacity = Math.Max(
+            PerformanceSettings
+                .SimulationBatchSize,
+            actorCount);
+        reconcileActors =
+            new Actor[capacity];
+        reconcileActorIds =
+            new long[capacity];
+        reconcileTiles =
+            new WorldTile[capacity];
+        reconcileIslands =
+            new TileIsland[capacity];
+        reconcileKingdomIds =
+            new long[capacity];
+        reconcileAlive =
+            new byte[capacity];
+        reconcileCityMembershipFlags =
+            new byte[capacity];
+        previousRanksByCurrent =
+            new int[capacity];
+    }
+
+    private static void ClearReconcileStorage(
+        int actorCount)
+    {
+        int count = Math.Min(
+            actorCount,
+            reconcileActors.Length);
+        Array.Clear(
+            reconcileActors,
+            0,
+            count);
+        Array.Clear(
+            reconcileActorIds,
+            0,
+            count);
+        Array.Clear(
+            reconcileTiles,
+            0,
+            count);
+        Array.Clear(
+            reconcileIslands,
+            0,
+            count);
+        Array.Clear(
+            reconcileKingdomIds,
+            0,
+            count);
+        Array.Clear(
+            reconcileAlive,
+            0,
+            count);
+        Array.Clear(
+            reconcileCityMembershipFlags,
+            0,
+            count);
+    }
+
+    private static void Swap<T>(
+        ref T[] left,
+        ref T[] right)
+    {
+        T[] temporary = left;
+        left = right;
+        right = temporary;
+    }
+
     private static void EnsureStorage(
         int actorCount,
         int chunkCount)
     {
         if (committedTiles.Length < actorCount)
         {
+            committedActors =
+                new Actor[actorCount];
+            committedActorIds =
+                new long[actorCount];
             committedTiles =
                 new WorldTile[actorCount];
             committedIslands =
