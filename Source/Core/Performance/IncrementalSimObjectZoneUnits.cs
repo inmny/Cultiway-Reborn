@@ -512,27 +512,8 @@ internal static class IncrementalSimObjectZoneUnits
 
     private static void RebuildIslandMembership()
     {
-        ListPool<TileIsland> islands =
-            World.world.islands_calculator.islands;
-        for (int i = 0; i < islands.Count; i++)
-        {
-            islands[i].actors.Clear();
-        }
-
-        for (int i = 0;
-             i < preparedSource.Count;
-             i++)
-        {
-            Actor actor = preparedSource[i];
-            if (actor.isAlive())
-            {
-                actor.current_tile
-                    .region
-                    .island
-                    .actors
-                    .Add(actor);
-            }
-        }
+        ParallelIslandActorMembership
+            .Rebuild(preparedSource);
     }
 
     private static bool ApplyUnitMembershipChanges(

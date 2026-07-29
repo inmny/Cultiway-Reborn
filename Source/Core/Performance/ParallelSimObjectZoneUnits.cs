@@ -661,18 +661,8 @@ internal static class ParallelSimObjectZoneUnits
     private static void RebuildIslandMembership(
         List<Actor> source)
     {
-        for (int i = 0; i < source.Count; i++)
-        {
-            if (unitChunkIndices[i] >= 0)
-            {
-                Actor actor = source[i];
-                actor.current_tile
-                    .region
-                    .island
-                    .actors
-                    .Add(actor);
-            }
-        }
+        ParallelIslandActorMembership
+            .Rebuild(source);
     }
 
     private static void MergeOccupiedTiles(
