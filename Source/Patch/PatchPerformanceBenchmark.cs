@@ -67,7 +67,7 @@ internal static class PatchPerformanceBenchmark
         new Type[] { })]
     private static bool RateCounterRegisterEventPrefix(RateCounter __instance)
     {
-        if (SimulationTickBenchmark.ShouldCollectAiDetails)
+        if (SimulationTickBenchmark.IsCollectingAiDetails)
         {
             RegisterEvent(__instance, 0.0);
         }
@@ -84,7 +84,7 @@ internal static class PatchPerformanceBenchmark
         RateCounter __instance,
         double pValue)
     {
-        if (SimulationTickBenchmark.ShouldCollectAiDetails)
+        if (SimulationTickBenchmark.IsCollectingAiDetails)
         {
             RegisterEvent(__instance, pValue);
             if (ActionPerformanceCounters.TryGetValue(__instance, out ActionCounterInfo action))

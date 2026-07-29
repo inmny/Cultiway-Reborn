@@ -53,12 +53,14 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private string _mapTemplate;
     private string _speedId;
     private string _worldSnapshotPath;
+    private string _measurementSnapshotPath;
     private int _worldSeed;
     private int _initialHumans;
     private int _startMeasureUnits;
     private float _durationSeconds;
     private float _warmupMaxSeconds;
     private float _settleSeconds;
+    private long _settleTicks;
     private float _logIntervalSeconds;
     private bool _createWorld;
     private bool _quitOnComplete;
@@ -68,6 +70,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private bool _initialUnitsSpawned;
     private bool _presentationScenePrepared;
     private bool _presentationStressEnabled;
+    private bool _loadedMeasurementSnapshot;
     private int _initialHumansProcessed;
     private ulong _spawnLayoutHash = 1469598103934665603UL;
     private Actor _cameraAnchor;
@@ -93,6 +96,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
     private double _measurementStartWorldTime;
     private long _measurementStartLogicalTicks;
     private long _measurementStartedAt;
+    private long _warmupStartLogicalTicks;
 
     internal static bool IsAutomationRequested =>
         !string.IsNullOrWhiteSpace(
@@ -130,6 +134,9 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         _worldSnapshotPath =
             Environment.GetEnvironmentVariable(
                 "CULTIWAY_PERF_WORLD_SNAPSHOT");
+        _measurementSnapshotPath =
+            Environment.GetEnvironmentVariable(
+                "CULTIWAY_PERF_MEASUREMENT_SNAPSHOT");
         _worldSeed = GetEnvInt("CULTIWAY_PERF_WORLD_SEED", 0);
         _initialHumans = GetEnvInt("CULTIWAY_PERF_INITIAL_HUMANS", 10000);
         _startMeasureUnits = GetEnvInt("CULTIWAY_PERF_START_MEASURE_UNITS", 10000);
@@ -138,6 +145,11 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         _settleSeconds = Math.Max(
             0f,
             GetEnvFloat("CULTIWAY_PERF_SETTLE_DURATION", 0f));
+        _settleTicks = Math.Max(
+            0,
+            GetEnvInt(
+                "CULTIWAY_PERF_SETTLE_TICKS",
+                0));
         _logIntervalSeconds = Math.Max(5f, GetEnvFloat("CULTIWAY_PERF_LOG_INTERVAL", 30f));
         _createWorld = GetEnvBool("CULTIWAY_PERF_CREATE_WORLD", true);
         _quitOnComplete = GetEnvBool("CULTIWAY_PERF_QUIT_ON_DONE", false);
@@ -163,10 +175,14 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             GetEnvBool(
                 "CULTIWAY_PERF_FINE_ACTOR_JOBS",
                 false));
+        SimulationTickBenchmark.SetCaptureSampleInterval(
+            GetEnvInt(
+                "CULTIWAY_PERF_CAPTURE_INTERVAL",
+                1));
         _configured = true;
 
         ModClass.LogInfo(
-            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} seed={_worldSeed} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s settle={_settleSeconds:0.#}s warmupMax={_warmupMaxSeconds:0.#}s targetFps={PerformanceSettings.TargetRenderFps:0.#} maxSimulation={PerformanceSettings.MaxSimulationMillisecondsPerFrame:0.#}ms smoothing={PerformanceSettings.EnablePresentationSmoothing} details={_captureDetails} fineActorJobs={SimulationTickBenchmark.FineActorJobBreakdownEnabled} handScan={_scanInvalidHandRenderers} aiBench={SimulationTickBenchmark.ShouldCollectAiDetails}");
+            $"{Prefix} 已启用 mode={_mode} mapSize={_mapSize} template={_mapTemplate} speed={_speedId} seed={_worldSeed} initialHumans={_initialHumans} startMeasureUnits={_startMeasureUnits} duration={_durationSeconds:0.#}s settle={_settleSeconds:0.#}s/{_settleTicks}ticks warmupMax={_warmupMaxSeconds:0.#}s targetFps={PerformanceSettings.TargetRenderFps:0.#} maxSimulation={PerformanceSettings.MaxSimulationMillisecondsPerFrame:0.#}ms smoothing={PerformanceSettings.EnablePresentationSmoothing} details={_captureDetails} captureInterval={SimulationTickBenchmark.CaptureSampleInterval} fineActorJobs={SimulationTickBenchmark.FineActorJobBreakdownEnabled} handScan={_scanInvalidHandRenderers} aiBench={SimulationTickBenchmark.ShouldCollectAiDetails}");
     }
 
     private void Update()
@@ -240,6 +256,22 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
         if (_createWorld)
         {
+            if (!string.IsNullOrWhiteSpace(
+                    _measurementSnapshotPath) &&
+                File.Exists(
+                    _measurementSnapshotPath))
+            {
+                _loadedMeasurementSnapshot = true;
+                ModClass.LogInfo(
+                    $"{Prefix} 加载固定测量快照 file={_measurementSnapshotPath}");
+                SaveManager.loadMapFromBytes(
+                    File.ReadAllBytes(
+                        _measurementSnapshotPath));
+                SetState(
+                    RunnerState.WaitingForWorldLoaded);
+                return;
+            }
+
             string snapshotFile =
                 GetWorldSnapshotFile();
             if (snapshotFile != null &&
@@ -282,6 +314,16 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
         ModClass.LogInfo(
             $"{Prefix} 世界与 GeoRegion 索引均已就绪 elapsed={_stateElapsed:0.0}s");
+        if (_loadedMeasurementSnapshot)
+        {
+            _initialUnitsSpawned = true;
+            _initialHumansProcessed =
+                _initialHumans;
+            _presentationScenePrepared = true;
+            StartMeasurement();
+            return;
+        }
+
         SaveWorldSnapshotIfNeeded();
         SetState(RunnerState.SpawningInitialUnits);
     }
@@ -350,9 +392,13 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
 
         if ((_startMeasureUnits > 0 &&
              CountUnits() < _startMeasureUnits) ||
-            _settleSeconds > 0f)
+            _settleSeconds > 0f ||
+            _settleTicks > 0L)
         {
             ResetFrameStats();
+            _warmupStartLogicalTicks =
+                CooperativeSimulationRunner.Instance
+                    .LogicalTicksCompleted;
             SetState(RunnerState.WarmingUp);
             return;
         }
@@ -369,10 +415,20 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         bool populationReady =
             _startMeasureUnits <= 0 ||
             CountUnits() >= _startMeasureUnits;
-        if (populationReady && _runElapsed >= _settleSeconds)
+        long settledTicks =
+            CooperativeSimulationRunner.Instance
+                .LogicalTicksCompleted -
+            _warmupStartLogicalTicks;
+        bool settleReady =
+            _settleTicks > 0L
+                ? settledTicks >= _settleTicks
+                : _runElapsed >= _settleSeconds;
+        if (populationReady && settleReady)
         {
+            EnsureSimulationPaused();
+            SaveMeasurementSnapshotIfNeeded();
             ModClass.LogInfo(
-                $"{Prefix} 预热完成 units={CountUnits()} elapsed={_runElapsed:0.0}s settle={_settleSeconds:0.0}s");
+                $"{Prefix} 预热完成 units={CountUnits()} elapsed={_runElapsed:0.0}s ticks={settledTicks} settle={_settleSeconds:0.0}s/{_settleTicks}ticks");
             StartMeasurement();
             return;
         }
@@ -419,6 +475,33 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         SetState(RunnerState.Measuring);
         ModClass.LogInfo(
             $"{Prefix} 开始统计 units={CountUnits()} cities={CountCities()} speed={_speedId} world={_measurementStartWorldTime:0.000} ticks={_measurementStartLogicalTicks}");
+    }
+
+    private void SaveMeasurementSnapshotIfNeeded()
+    {
+        if (string.IsNullOrWhiteSpace(
+                _measurementSnapshotPath) ||
+            File.Exists(
+                _measurementSnapshotPath))
+        {
+            return;
+        }
+
+        string directory =
+            Path.GetDirectoryName(
+                _measurementSnapshotPath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        SavedMap snapshot =
+            SaveManager.currentWorldToSavedMap();
+        File.WriteAllBytes(
+            _measurementSnapshotPath,
+            snapshot.toZip());
+        ModClass.LogInfo(
+            $"{Prefix} 已保存固定测量快照 file={_measurementSnapshotPath} units={CountUnits()} cities={CountCities()} ticks={CooperativeSimulationRunner.Instance.LogicalTicksCompleted}");
     }
 
     private void UpdateMeasuring(float delta)
@@ -582,6 +665,10 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
             .AppendLine();
         sb.Append("  status_scheduler ")
             .Append(StatusSimulationScheduler.GetDiagnostics())
+            .AppendLine();
+        sb.Append("  stack_effects_active ")
+            .Append(ActiveStackEffectsUpdater
+                .GetDiagnostics())
             .AppendLine();
         sb.Append("  inside_boat_index ")
             .Append(InsideBoatActorIndex.GetDiagnostics())

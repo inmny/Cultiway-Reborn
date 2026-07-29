@@ -838,7 +838,7 @@ internal sealed class CooperativeSimulationRunner
 
     private void ExecuteCurrentStageBurst()
     {
-        if (Bench.bench_enabled ||
+        if (SimulationTickBenchmark.IsCapturing ||
             GetCurrentDomain() !=
             SimulationDomain.Vanilla)
         {

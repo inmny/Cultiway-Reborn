@@ -72,15 +72,25 @@ internal static class SimulationTickBenchmark
     private static bool debugToolsRegistered;
     private static bool? collectAiDetailsOverride;
     private static bool fineActorJobBreakdown;
+    private static int captureSampleInterval = 1;
+    private static int captureTicksUntilNext;
+    private static uint captureSampleState =
+        0x9E3779B9u;
 
     internal static bool IsCapturing => current != null && !current.Cancelled;
     internal static bool ShouldSplitActorPostJobs =>
         IsCapturing && fineActorJobBreakdown;
     internal static bool FineActorJobBreakdownEnabled =>
         fineActorJobBreakdown;
+    internal static int CaptureSampleInterval =>
+        captureSampleInterval;
     internal static bool ShouldCollectAiDetails =>
         Bench.bench_enabled &&
         (collectAiDetailsOverride ?? SystemUtils.IsUnderDeveloper());
+    internal static bool IsCollectingAiDetails =>
+        ShouldCollectAiDetails &&
+        (captureSampleInterval <= 1 ||
+         IsCapturing);
 
     internal static void Initialize()
     {
@@ -119,7 +129,7 @@ internal static class SimulationTickBenchmark
 
     internal static void ApplyAiDetailsPolicy()
     {
-        bool enabled = ShouldCollectAiDetails;
+        bool enabled = IsCollectingAiDetails;
         if (DebugConfig.isOn(DebugOption.BenchAiEnabled) != enabled)
         {
             DebugConfig.setOption(
@@ -129,7 +139,10 @@ internal static class SimulationTickBenchmark
         }
 
         Bench.bench_ai_enabled = enabled;
-        PathfindingProfiler.SetEnabled(enabled);
+        // 后台寻路可能跨越采样 tick，保持其会话连续；
+        // AI task/action 的同步计时则只在命中的 tick 开启。
+        PathfindingProfiler.SetEnabled(
+            ShouldCollectAiDetails);
     }
 
     internal static void SetAiDetailsOverride(bool? enabled)
@@ -143,11 +156,31 @@ internal static class SimulationTickBenchmark
         fineActorJobBreakdown = enabled;
     }
 
+    internal static void SetCaptureSampleInterval(int interval)
+    {
+        captureSampleInterval = Math.Max(1, interval);
+        ResetCaptureSampler();
+    }
+
     internal static void BeginTick(float simulatedSeconds, bool largeStep)
     {
         if (!Bench.bench_enabled || suspendDepth > 0)
         {
+            ApplyAiDetailsPolicy();
             return;
+        }
+
+        if (captureSampleInterval > 1 &&
+            captureTicksUntilNext-- > 0)
+        {
+            ApplyAiDetailsPolicy();
+            return;
+        }
+
+        if (captureSampleInterval > 1)
+        {
+            captureTicksUntilNext =
+                NextCaptureGap() - 1;
         }
 
         if (current != null)
@@ -165,6 +198,7 @@ internal static class SimulationTickBenchmark
         current.StartGen2Collections = GC.CollectionCount(2);
         current.Mode = largeStep ? "large" : "fixed";
         current.PathfindingStart = PathfindingProfiler.CaptureSnapshot();
+        ApplyAiDetailsPolicy();
     }
 
     internal static void MarkTickCompleted()
@@ -183,6 +217,7 @@ internal static class SimulationTickBenchmark
 
         PendingCompleted.Add(current);
         current = null;
+        ApplyAiDetailsPolicy();
     }
 
     internal static TickCapture CapturePhaseTarget()
@@ -887,11 +922,13 @@ internal static class SimulationTickBenchmark
         }
 
         PendingCompleted.Clear();
+        ApplyAiDetailsPolicy();
     }
 
     private static void ResetSession()
     {
         DiscardCaptures();
+        ResetCaptureSampler();
         History.Clear();
         ResetGroup(TotalsGroup);
         ResetGroup(PhasesGroup);
@@ -904,6 +941,34 @@ internal static class SimulationTickBenchmark
         ResetGroup(BuildingsGroup);
         ResetGroup(WorldBehavioursGroup);
         ResetGroup(CultiwaySystemsGroup);
+    }
+
+    /// <summary>
+    /// 采样间隔加入确定性抖动，避免与每 256 tick 等周期任务整除混叠。
+    /// 随机数只在命中采样时推进，未采样 tick 只有一次递减和比较。
+    /// </summary>
+    private static int NextCaptureGap()
+    {
+        captureSampleState =
+            captureSampleState * 1664525u +
+            1013904223u;
+        int jitterRadius =
+            Math.Max(
+                1,
+                captureSampleInterval / 4);
+        int jitter =
+            (int)(captureSampleState %
+                  (uint)(jitterRadius * 2 + 1)) -
+            jitterRadius;
+        return Math.Max(
+            1,
+            captureSampleInterval + jitter);
+    }
+
+    private static void ResetCaptureSampler()
+    {
+        captureTicksUntilNext = 0;
+        captureSampleState = 0x9E3779B9u;
     }
 
     private static void ResetGroup(BenchmarkGroupState state)
