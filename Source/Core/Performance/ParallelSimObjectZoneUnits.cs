@@ -42,9 +42,16 @@ internal static class ParallelSimObjectZoneUnits
         Array.Empty<int>();
     private static byte[] cityMembershipFlags =
         Array.Empty<byte>();
+    private static Actor[] cityMembershipActors =
+        Array.Empty<Actor>();
+    private static int cityMembershipActorCount;
     private static int[] workChunkCounts =
         Array.Empty<int>();
     private static int[] workChunkOffsets =
+        Array.Empty<int>();
+    private static int[] workCityCounts =
+        Array.Empty<int>();
+    private static int[] workCityOffsets =
         Array.Empty<int>();
     private static int[] tileMarks = Array.Empty<int>();
     private static List<Actor> activeSource;
@@ -60,6 +67,8 @@ internal static class ParallelSimObjectZoneUnits
     private static List<WorldTile> activeTilesToClear;
     private static MapChunk[] activeChunksToClear;
     private static bool forceClearBuildings;
+    private static readonly List<ActorZoneDirtyEntry>
+        dirtySpatialActors = new();
 
     /// <summary>
     /// 原版 chunk.objects.units_all 成员表的提交版本。
@@ -138,6 +147,35 @@ internal static class ParallelSimObjectZoneUnits
         statusIndexRebuildPrepared = false;
     }
 
+    internal static void
+        NotifyUnitMembershipIncrementallyRebuilt(
+            IReadOnlyList<int> dirtyChunks,
+            MapChunk[] chunks)
+    {
+        int previousVersion =
+            Volatile.Read(
+                ref unitMembershipVersion);
+        int version =
+            Interlocked.Increment(
+                ref unitMembershipVersion);
+        bool applied =
+            NearbyStatusTargetIndex
+                .TryApplyChunkMembershipChanges(
+                    previousVersion,
+                    version,
+                    dirtyChunks,
+                    chunks);
+        if (!applied)
+        {
+            NearbyStatusTargetIndex
+                .NotifyUnitMembershipRebuilt(
+                    version,
+                    fusedIndexPrepared: false);
+        }
+
+        statusIndexRebuildPrepared = false;
+    }
+
     internal static bool TryDeferIslandRebuild(
         IslandsCalculator calculator)
     {
@@ -175,12 +213,33 @@ internal static class ParallelSimObjectZoneUnits
             chunks == null ||
             source.Count < ParallelThreshold)
         {
+            IncrementalSimObjectZoneUnits.Invalidate();
             return false;
         }
 
         PrepareUnitPartitionStorage(
             chunks,
             source.Count);
+        bool benchmark = Bench.bench_enabled;
+        if (benchmark)
+        {
+            Bench.bench(
+                "checkUnits.dirty_spatial",
+                "sim_zones");
+        }
+
+        int dirtySpatialActorCount =
+            ActorZoneMembershipDirtyIndex
+                .Consume(dirtySpatialActors);
+        if (benchmark)
+        {
+            Bench.benchEnd(
+                "checkUnits.dirty_spatial",
+                "sim_zones",
+                pSaveCounter: true,
+                dirtySpatialActorCount);
+        }
+
         NearbyStatusTargetIndex
             .BeginUnitMembershipRebuild();
         statusIndexRebuildPrepared = true;
@@ -194,7 +253,6 @@ internal static class ParallelSimObjectZoneUnits
             bool rebuildIslands =
                 pendingIslandGeneration ==
                 SimulationTime.Generation;
-            bool benchmark = Bench.bench_enabled;
             if (benchmark)
             {
                 Bench.bench(
@@ -267,13 +325,11 @@ internal static class ParallelSimObjectZoneUnits
             }
 
             for (int i = 0;
-                 i < source.Count;
+                 i < cityMembershipActorCount;
                  i++)
             {
-                if (cityMembershipFlags[i] != 0)
-                {
-                    UpdateCityMembership(source[i]);
-                }
+                UpdateCityMembership(
+                    cityMembershipActors[i]);
             }
 
             if (benchmark)
@@ -282,9 +338,14 @@ internal static class ParallelSimObjectZoneUnits
                     "checkUnits.city_membership",
                     "sim_zones",
                     pSaveCounter: true,
-                    aliveCount);
+                    cityMembershipActorCount);
             }
 
+            IncrementalSimObjectZoneUnits
+                .CompleteFullRebuild(
+                    source,
+                    chunks,
+                    tilesToClear);
             return true;
         }
         catch
@@ -301,6 +362,7 @@ internal static class ParallelSimObjectZoneUnits
             activeChunkCount = 0;
             activeUnitWorkCount = 0;
             activeTileMark = 0;
+            dirtySpatialActors.Clear();
         }
     }
 
@@ -355,6 +417,8 @@ internal static class ParallelSimObjectZoneUnits
             unitChunkIndices = new int[capacity];
             cityMembershipFlags =
                 new byte[capacity];
+            cityMembershipActors =
+                new Actor[capacity];
         }
 
         activeUnitWorkCount =
@@ -378,6 +442,22 @@ internal static class ParallelSimObjectZoneUnits
                 workChunkCounts,
                 0,
                 workCellCount);
+        }
+
+        if (workCityCounts.Length <
+            activeUnitWorkCount)
+        {
+            workCityCounts =
+                new int[activeUnitWorkCount];
+            workCityOffsets =
+                new int[activeUnitWorkCount];
+        }
+        else
+        {
+            Array.Clear(
+                workCityCounts,
+                0,
+                activeUnitWorkCount);
         }
     }
 
@@ -427,11 +507,13 @@ internal static class ParallelSimObjectZoneUnits
             City city = tile.zone_city;
             cityMembershipFlags[i] =
                 city != null &&
-                !actor.isInsideSomething() &&
-                (actor.profession_asset.can_capture ||
-                 !actor.kingdom.isCiv())
+                ShouldQueueCityMembership(actor)
                     ? (byte)1
                     : (byte)0;
+            if (cityMembershipFlags[i] != 0)
+            {
+                workCityCounts[workIndex]++;
+            }
         }
     }
 
@@ -497,6 +579,29 @@ internal static class ParallelSimObjectZoneUnits
                     new int[capacity];
             }
         }
+
+        int previousCityCount =
+            cityMembershipActorCount;
+        int cityCount = 0;
+        for (int workIndex = 0;
+             workIndex < activeUnitWorkCount;
+             workIndex++)
+        {
+            workCityOffsets[workIndex] =
+                cityCount;
+            cityCount +=
+                workCityCounts[workIndex];
+        }
+
+        if (previousCityCount > cityCount)
+        {
+            Array.Clear(
+                cityMembershipActors,
+                cityCount,
+                previousCityCount - cityCount);
+        }
+
+        cityMembershipActorCount = cityCount;
     }
 
     private static void RunUnitScatter()
@@ -542,6 +647,14 @@ internal static class ParallelSimObjectZoneUnits
                 workChunkOffsets[offsetCell]++;
             actorsByChunk[chunkIndex][
                 targetIndex] = activeSource[i];
+            if (cityMembershipFlags[i] != 0)
+            {
+                int cityTargetIndex =
+                    workCityOffsets[workIndex]++;
+                cityMembershipActors[
+                    cityTargetIndex] =
+                    activeSource[i];
+            }
         }
     }
 
@@ -702,7 +815,16 @@ internal static class ParallelSimObjectZoneUnits
         }
     }
 
-    private static void UpdateCityMembership(Actor actor)
+    internal static bool ShouldQueueCityMembership(
+        Actor actor)
+    {
+        return actor.isAlive() &&
+               !actor.isInsideSomething() &&
+               (actor.profession_asset.can_capture ||
+                !actor.kingdom.isCiv());
+    }
+
+    internal static void UpdateCityMembership(Actor actor)
     {
         WorldTile tile = actor.current_tile;
         City city = tile.zone_city;

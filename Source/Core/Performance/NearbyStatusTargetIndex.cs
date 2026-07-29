@@ -55,6 +55,9 @@ internal static class NearbyStatusTargetIndex
     private static long unitChecks;
     private static long incrementalAdds;
     private static long incrementalRemoves;
+    private static long incrementalChunkRebuilds;
+    private static long incrementalChunkScans;
+    private static long incrementalChunkBuildTicks;
     private static int indexedChunkCount;
     private static int indexedActorEntryCount;
 
@@ -197,7 +200,9 @@ internal static class NearbyStatusTargetIndex
             "status_checks={8} unit_checks={9} " +
             "incremental={14}/{15}(add/remove) " +
             "build={10:0.000}ms(avg={11:0.000},max={12:0.000}) " +
-            "fused_avg={18:0.000}ms",
+            "fused_avg={18:0.000}ms " +
+            "chunk_incremental={19}/{20} rebuild/scan " +
+            "avg={21:0.000}ms",
             Interlocked.Read(ref queries),
             Interlocked.Read(ref handledQueries),
             Interlocked.Read(ref fastNegativeQueries),
@@ -224,7 +229,16 @@ internal static class NearbyStatusTargetIndex
                 ? 0.0
                 : TicksToMilliseconds(
                     Interlocked.Read(ref fusedBuildTicks)) /
-                  Interlocked.Read(ref fusedRebuilds));
+                  Interlocked.Read(ref fusedRebuilds),
+            Interlocked.Read(ref incrementalChunkRebuilds),
+            Interlocked.Read(ref incrementalChunkScans),
+            Interlocked.Read(ref incrementalChunkRebuilds) == 0L
+                ? 0.0
+                : TicksToMilliseconds(
+                    Interlocked.Read(
+                        ref incrementalChunkBuildTicks)) /
+                  Interlocked.Read(
+                      ref incrementalChunkRebuilds));
     }
 
     internal static void Reset()
@@ -344,6 +358,112 @@ internal static class NearbyStatusTargetIndex
         Interlocked.Increment(ref fusedRebuilds);
         Interlocked.Add(ref fusedBuildTicks, elapsedTicks);
         RecordBuildDuration(elapsedTicks);
+    }
+
+    /// <summary>
+    /// chunk 成员顺序发生局部变化时，先移除所有受影响分块的旧候选，
+    /// 再按新的 units_all 顺序重建这些分块，避免查询端整表补建。
+    /// </summary>
+    internal static bool TryApplyChunkMembershipChanges(
+        int previousMembershipVersion,
+        int nextMembershipVersion,
+        IReadOnlyList<int> dirtyChunkIndices,
+        MapChunk[] chunks)
+    {
+        if (!indexAvailable ||
+            fusedRebuildInProgress ||
+            indexedGeneration !=
+            SimulationTime.Generation ||
+            indexedUnitMembershipVersion !=
+            previousMembershipVersion)
+        {
+            return false;
+        }
+
+        long startedAt = Stopwatch.GetTimestamp();
+        for (int i = 0;
+             i < dirtyChunkIndices.Count;
+             i++)
+        {
+            MapChunk chunk =
+                chunks[dirtyChunkIndices[i]];
+            if (!ActorsByChunk.TryGetValue(
+                    chunk,
+                    out List<IndexedActor> candidates))
+            {
+                continue;
+            }
+
+            for (int candidateIndex = 0;
+                 candidateIndex < candidates.Count;
+                 candidateIndex++)
+            {
+                IndexedActorChunks.Remove(
+                    candidates[candidateIndex].Actor);
+            }
+
+            ActorsByChunk.Remove(chunk);
+            candidates.Clear();
+            ActorListPool.Push(candidates);
+        }
+
+        long scannedUnits = 0L;
+        for (int i = 0;
+             i < dirtyChunkIndices.Count;
+             i++)
+        {
+            MapChunk chunk =
+                chunks[dirtyChunkIndices[i]];
+            List<Actor> units =
+                chunk.objects.units_all;
+            scannedUnits += units.Count;
+            List<IndexedActor> candidates = null;
+            for (int unitIndex = 0;
+                 unitIndex < units.Count;
+                 unitIndex++)
+            {
+                Actor actor = units[unitIndex];
+                if (!actor.hasAnyStatusEffect() ||
+                    !IsIndexedActor(actor))
+                {
+                    continue;
+                }
+
+                candidates ??= RentActorList();
+                candidates.Add(
+                    new IndexedActor(
+                        actor,
+                        unitIndex));
+                IndexedActorChunks.Add(
+                    actor,
+                    chunk);
+            }
+
+            if (candidates != null)
+            {
+                ActorsByChunk.Add(
+                    chunk,
+                    candidates);
+            }
+        }
+
+        indexedUnitMembershipVersion =
+            nextMembershipVersion;
+        Volatile.Write(
+            ref indexedChunkCount,
+            ActorsByChunk.Count);
+        Volatile.Write(
+            ref indexedActorEntryCount,
+            IndexedActorChunks.Count);
+        Interlocked.Increment(
+            ref incrementalChunkRebuilds);
+        Interlocked.Add(
+            ref incrementalChunkScans,
+            scannedUnits);
+        Interlocked.Add(
+            ref incrementalChunkBuildTicks,
+            Stopwatch.GetTimestamp() - startedAt);
+        return true;
     }
 
     internal static void AbortUnitMembershipRebuild()

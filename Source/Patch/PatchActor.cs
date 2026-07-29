@@ -38,6 +38,37 @@ internal static class PatchActor
             __instance,
             __state,
             pValue);
+        if (__state != pValue)
+        {
+            ActorZoneMembershipDirtyIndex.Mark(
+                __instance,
+                ActorZoneDirtyKind.Spatial |
+                ActorZoneDirtyKind.CityEligibility);
+        }
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(Actor), "setCurrentTile")]
+    private static void setCurrentTile_membership_prefix(
+        Actor __instance,
+        out WorldTile __state)
+    {
+        __state = __instance.current_tile;
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(Actor), "setCurrentTile")]
+    private static void setCurrentTile_membership_postfix(
+        Actor __instance,
+        WorldTile pTile,
+        WorldTile __state)
+    {
+        if (!ReferenceEquals(__state, pTile))
+        {
+            ActorZoneMembershipDirtyIndex.Mark(
+                __instance,
+                ActorZoneDirtyKind.Spatial);
+        }
     }
 
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), "setKingdom")]
@@ -48,6 +79,49 @@ internal static class PatchActor
         ActorMetaPartitionVersion.MarkKingdomChange(
             __instance,
             pKingdomToSet);
+        if (!ReferenceEquals(
+                __instance.kingdom,
+                pKingdomToSet))
+        {
+            ActorZoneMembershipDirtyIndex.Mark(
+                __instance,
+                ActorZoneDirtyKind.ChunkMetadata |
+                ActorZoneDirtyKind.CityEligibility);
+        }
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(Actor), "setProfession")]
+    private static void setProfession_city_postfix(
+        Actor __instance)
+    {
+        ActorZoneMembershipDirtyIndex.Mark(
+            __instance,
+            ActorZoneDirtyKind.CityEligibility);
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(Actor), nameof(Actor.stayInBuilding))]
+    private static void stayInBuilding_city_postfix(
+        Actor __instance)
+    {
+        MarkCityEligibilityDirty(__instance);
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(Actor), "exitBuilding")]
+    private static void exitBuilding_city_postfix(
+        Actor __instance)
+    {
+        MarkCityEligibilityDirty(__instance);
+    }
+
+    private static void MarkCityEligibilityDirty(
+        Actor actor)
+    {
+        ActorZoneMembershipDirtyIndex.Mark(
+            actor,
+            ActorZoneDirtyKind.CityEligibility);
     }
 
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.addChildren))]

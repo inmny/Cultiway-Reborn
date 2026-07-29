@@ -38,6 +38,9 @@ internal static class InsideBoatActorIndex
             return;
         }
 
+        ActorZoneMembershipDirtyIndex.Mark(
+            actor,
+            ActorZoneDirtyKind.CityEligibility);
         lock (Gate)
         {
             ActorPartitions.TryGetValue(

@@ -610,6 +610,10 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         sb.Append("  nearby_status_targets ")
             .Append(NearbyStatusTargetIndex.GetDiagnostics())
             .AppendLine();
+        sb.Append("  sim_zones_incremental ")
+            .Append(IncrementalSimObjectZoneUnits
+                .GetDiagnostics())
+            .AppendLine();
         sb.Append("  geo_region_units ")
             .Append(WorldboxGame.I?.GeoRegions
                 ?.GetUnitMembershipDiagnostics() ??
