@@ -10,6 +10,11 @@ internal sealed class CooperativeWorldMaintenanceRunner
 {
     private const string DirtyManagerPhasePrefix =
         "vanilla.maintenance.dirtymanagers.";
+    private const int ActorMetaPartitionStride = 4;
+    private const int AlivePartitionIndex = 0;
+    private const int WildPartitionIndex = 1;
+    private const int CivilizedPartitionIndex = 2;
+    private const int DyingPartitionIndex = 3;
 
     private static readonly Dictionary<Type, string> DirtyManagerPhaseNames = new();
 
@@ -49,6 +54,7 @@ internal sealed class CooperativeWorldMaintenanceRunner
     private readonly List<BaseSystemManager> metaManagers = new();
     private readonly Action<int> dirtyManagerWorkItemAction;
     private readonly Action<int> classifyActorMetaWorkItemAction;
+    private readonly Action<int> scatterActorMetaWorkItemAction;
     private MapBox world;
     private MaintenanceStage stage;
     private int index;
@@ -63,6 +69,16 @@ internal sealed class CooperativeWorldMaintenanceRunner
     private long[] dirtyManagerTicks = Array.Empty<long>();
     private ActorMetaPartitionKind[] actorMetaPartitions =
         Array.Empty<ActorMetaPartitionKind>();
+    private int[] actorMetaPartitionCounts = Array.Empty<int>();
+    private int[] actorMetaPartitionOffsets = Array.Empty<int>();
+    private Actor[] aliveActors = Array.Empty<Actor>();
+    private Actor[] wildActors = Array.Empty<Actor>();
+    private Actor[] civilizedActors = Array.Empty<Actor>();
+    private Actor[] dyingActors = Array.Empty<Actor>();
+    private int bufferedAliveActorCount;
+    private int bufferedWildActorCount;
+    private int bufferedCivilizedActorCount;
+    private int bufferedDyingActorCount;
     private int actorMetaWorkCount;
 
     internal CooperativeWorldMaintenanceRunner()
@@ -70,6 +86,8 @@ internal sealed class CooperativeWorldMaintenanceRunner
         dirtyManagerWorkItemAction = RunDirtyManagerAt;
         classifyActorMetaWorkItemAction =
             ClassifyActorMetaRange;
+        scatterActorMetaWorkItemAction =
+            ScatterActorMetaRange;
     }
 
     public bool Active => stage != MaintenanceStage.Idle;
@@ -443,6 +461,18 @@ internal sealed class CooperativeWorldMaintenanceRunner
              PerformanceSettings.SimulationBatchSize -
              1) /
             PerformanceSettings.SimulationBatchSize;
+        int partitionSlotCount =
+            actorMetaWorkCount *
+            ActorMetaPartitionStride;
+        if (actorMetaPartitionCounts.Length <
+            partitionSlotCount)
+        {
+            actorMetaPartitionCounts =
+                new int[partitionSlotCount];
+            actorMetaPartitionOffsets =
+                new int[partitionSlotCount];
+        }
+
         if (actorMetaWorkCount > 1)
         {
             SimulationWorkerPool.Instance.RunIndexed(
@@ -455,27 +485,103 @@ internal sealed class CooperativeWorldMaintenanceRunner
             ClassifyActorMetaRange(0);
         }
 
-        for (int i = 0; i < count; i++)
+        int aliveCount = 0;
+        int wildCount = 0;
+        int civilizedCount = 0;
+        int dyingCount = 0;
+        for (int workIndex = 0;
+             workIndex < actorMetaWorkCount;
+             workIndex++)
         {
-            Actor actor = actors[i];
-            switch (actorMetaPartitions[i])
-            {
-                case ActorMetaPartitionKind.AliveWild:
-                    world.units.units_only_wild.Add(actor);
-                    world.units.units_only_alive.Add(actor);
-                    break;
-                case ActorMetaPartitionKind.AliveCivilized:
-                    world.units.units_only_civ.Add(actor);
-                    world.units.units_only_alive.Add(actor);
-                    break;
-                case ActorMetaPartitionKind.Dying:
-                    world.units.units_only_dying.Add(actor);
-                    world.units.have_dying_units = true;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
+            int slot =
+                workIndex *
+                ActorMetaPartitionStride;
+            actorMetaPartitionOffsets[
+                slot + AlivePartitionIndex] =
+                aliveCount;
+            actorMetaPartitionOffsets[
+                slot + WildPartitionIndex] =
+                wildCount;
+            actorMetaPartitionOffsets[
+                slot + CivilizedPartitionIndex] =
+                civilizedCount;
+            actorMetaPartitionOffsets[
+                slot + DyingPartitionIndex] =
+                dyingCount;
+            aliveCount +=
+                actorMetaPartitionCounts[
+                    slot + AlivePartitionIndex];
+            wildCount +=
+                actorMetaPartitionCounts[
+                    slot + WildPartitionIndex];
+            civilizedCount +=
+                actorMetaPartitionCounts[
+                    slot + CivilizedPartitionIndex];
+            dyingCount +=
+                actorMetaPartitionCounts[
+                    slot + DyingPartitionIndex];
         }
+
+        EnsureActorBufferCapacity(
+            ref aliveActors,
+            aliveCount);
+        EnsureActorBufferCapacity(
+            ref wildActors,
+            wildCount);
+        EnsureActorBufferCapacity(
+            ref civilizedActors,
+            civilizedCount);
+        EnsureActorBufferCapacity(
+            ref dyingActors,
+            dyingCount);
+
+        if (actorMetaWorkCount > 1)
+        {
+            SimulationWorkerPool.Instance.RunIndexed(
+                0,
+                actorMetaWorkCount,
+                scatterActorMetaWorkItemAction);
+        }
+        else if (actorMetaWorkCount == 1)
+        {
+            ScatterActorMetaRange(0);
+        }
+
+        ClearStaleActorReferences(
+            aliveActors,
+            aliveCount,
+            ref bufferedAliveActorCount);
+        ClearStaleActorReferences(
+            wildActors,
+            wildCount,
+            ref bufferedWildActorCount);
+        ClearStaleActorReferences(
+            civilizedActors,
+            civilizedCount,
+            ref bufferedCivilizedActorCount);
+        ClearStaleActorReferences(
+            dyingActors,
+            dyingCount,
+            ref bufferedDyingActorCount);
+
+        AddActorRange(
+            world.units.units_only_alive,
+            aliveActors,
+            aliveCount);
+        AddActorRange(
+            world.units.units_only_wild,
+            wildActors,
+            wildCount);
+        AddActorRange(
+            world.units.units_only_civ,
+            civilizedActors,
+            civilizedCount);
+        AddActorRange(
+            world.units.units_only_dying,
+            dyingActors,
+            dyingCount);
+        world.units.have_dying_units =
+            dyingCount > 0;
 
         index = count;
         actorMetaWorkCount = 0;
@@ -489,16 +595,149 @@ internal sealed class CooperativeWorldMaintenanceRunner
         int end = Math.Min(
             actors.Count,
             start + PerformanceSettings.SimulationBatchSize);
+        int aliveCount = 0;
+        int wildCount = 0;
+        int civilizedCount = 0;
+        int dyingCount = 0;
         for (int i = start; i < end; i++)
         {
             Actor actor = actors[i];
-            actorMetaPartitions[i] =
-                !actor.isAlive()
-                    ? ActorMetaPartitionKind.Dying
-                    : actor.kingdom.wild
-                        ? ActorMetaPartitionKind.AliveWild
-                        : ActorMetaPartitionKind.AliveCivilized;
+            ActorMetaPartitionKind partition;
+            if (!actor.isAlive())
+            {
+                partition =
+                    ActorMetaPartitionKind.Dying;
+                dyingCount++;
+            }
+            else if (actor.kingdom.wild)
+            {
+                partition =
+                    ActorMetaPartitionKind.AliveWild;
+                aliveCount++;
+                wildCount++;
+            }
+            else
+            {
+                partition =
+                    ActorMetaPartitionKind
+                        .AliveCivilized;
+                aliveCount++;
+                civilizedCount++;
+            }
+
+            actorMetaPartitions[i] = partition;
         }
+
+        int slot =
+            workIndex *
+            ActorMetaPartitionStride;
+        actorMetaPartitionCounts[
+            slot + AlivePartitionIndex] =
+            aliveCount;
+        actorMetaPartitionCounts[
+            slot + WildPartitionIndex] =
+            wildCount;
+        actorMetaPartitionCounts[
+            slot + CivilizedPartitionIndex] =
+            civilizedCount;
+        actorMetaPartitionCounts[
+            slot + DyingPartitionIndex] =
+            dyingCount;
+    }
+
+    private void ScatterActorMetaRange(int workIndex)
+    {
+        int start =
+            workIndex *
+            PerformanceSettings.SimulationBatchSize;
+        int end = Math.Min(
+            actors.Count,
+            start + PerformanceSettings.SimulationBatchSize);
+        int slot =
+            workIndex *
+            ActorMetaPartitionStride;
+        int aliveIndex =
+            actorMetaPartitionOffsets[
+                slot + AlivePartitionIndex];
+        int wildIndex =
+            actorMetaPartitionOffsets[
+                slot + WildPartitionIndex];
+        int civilizedIndex =
+            actorMetaPartitionOffsets[
+                slot + CivilizedPartitionIndex];
+        int dyingIndex =
+            actorMetaPartitionOffsets[
+                slot + DyingPartitionIndex];
+        for (int i = start; i < end; i++)
+        {
+            Actor actor = actors[i];
+            switch (actorMetaPartitions[i])
+            {
+                case ActorMetaPartitionKind.AliveWild:
+                    aliveActors[aliveIndex++] = actor;
+                    wildActors[wildIndex++] = actor;
+                    break;
+                case ActorMetaPartitionKind.AliveCivilized:
+                    aliveActors[aliveIndex++] = actor;
+                    civilizedActors[civilizedIndex++] =
+                        actor;
+                    break;
+                case ActorMetaPartitionKind.Dying:
+                    dyingActors[dyingIndex++] = actor;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+    }
+
+    private static void EnsureActorBufferCapacity(
+        ref Actor[] buffer,
+        int required)
+    {
+        if (buffer.Length >= required)
+        {
+            return;
+        }
+
+        buffer =
+            new Actor[
+                Math.Max(
+                    PerformanceSettings.SimulationBatchSize,
+                    required)];
+    }
+
+    private static void ClearStaleActorReferences(
+        Actor[] buffer,
+        int currentCount,
+        ref int previousCount)
+    {
+        if (previousCount > currentCount)
+        {
+            Array.Clear(
+                buffer,
+                currentCount,
+                previousCount - currentCount);
+        }
+
+        previousCount = currentCount;
+    }
+
+    private static void AddActorRange(
+        List<Actor> target,
+        Actor[] source,
+        int count)
+    {
+        if (count == 0)
+        {
+            return;
+        }
+
+        target.AddRange(
+            new ArraySegment<Actor>(
+                source,
+                0,
+                count));
     }
 
     private void ProcessUnitDestroyBatch()
