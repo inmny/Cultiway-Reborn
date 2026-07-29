@@ -71,8 +71,13 @@ internal static class SimulationTickBenchmark
     private static bool lastBenchEnabled;
     private static bool debugToolsRegistered;
     private static bool? collectAiDetailsOverride;
+    private static bool fineActorJobBreakdown;
 
     internal static bool IsCapturing => current != null && !current.Cancelled;
+    internal static bool ShouldSplitActorPostJobs =>
+        IsCapturing && fineActorJobBreakdown;
+    internal static bool FineActorJobBreakdownEnabled =>
+        fineActorJobBreakdown;
     internal static bool ShouldCollectAiDetails =>
         Bench.bench_enabled &&
         (collectAiDetailsOverride ?? SystemUtils.IsUnderDeveloper());
@@ -131,6 +136,11 @@ internal static class SimulationTickBenchmark
     {
         collectAiDetailsOverride = enabled;
         ApplyAiDetailsPolicy();
+    }
+
+    internal static void SetFineActorJobBreakdown(bool enabled)
+    {
+        fineActorJobBreakdown = enabled;
     }
 
     internal static void BeginTick(float simulatedSeconds, bool largeStep)
@@ -297,6 +307,26 @@ internal static class SimulationTickBenchmark
         AddMetric(
             capture.ActorPostJobs,
             id,
+            Math.Max(0.0, seconds),
+            counter);
+    }
+
+    internal static void RecordActorParallelJobMetric(
+        string id,
+        double seconds,
+        long counter)
+    {
+        TickCapture capture = current;
+        if (capture == null ||
+            capture.Cancelled ||
+            !Bench.bench_enabled)
+        {
+            return;
+        }
+
+        AddMetric(
+            capture.ActorJobs,
+            "parallel." + id,
             Math.Max(0.0, seconds),
             counter);
     }

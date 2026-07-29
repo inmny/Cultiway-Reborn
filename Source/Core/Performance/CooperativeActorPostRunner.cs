@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Cultiway.Const;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Patch;
@@ -28,6 +29,13 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private const string UpdateAiJobId = "b6_update_ai";
     private const string SmoothMovementJobId =
         "u10_checkSmoothMovement";
+
+    private static long enemyFinderCalls;
+    private static long enemyFinderReuses;
+    private static long enemyFinderEmptyResults;
+    private static long enemyFinderLargeResults;
+    private static long enemyFinderCandidates;
+    private static long enemyFinderMaximumCandidates;
 
     private readonly ActorTileActionProfiler tileActionProfiler = new();
     private readonly Action<int> actorGateWorkItemAction;
@@ -144,10 +152,37 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             RunSmoothMovementWorkItemAt;
     }
 
+    internal static string GetEnemyFinderDiagnostics()
+    {
+        long calls =
+            Interlocked.Read(ref enemyFinderCalls);
+        long candidates =
+            Interlocked.Read(ref enemyFinderCandidates);
+        return string.Format(
+            System.Globalization.CultureInfo.InvariantCulture,
+            "calls={0} reused={1} ({2:0.0}%) empty={3} large={4} " +
+            "candidates={5:0.0}(avg) max={6}",
+            calls,
+            Interlocked.Read(ref enemyFinderReuses),
+            calls == 0L
+                ? 0.0
+                : Interlocked.Read(ref enemyFinderReuses) *
+                  100.0 /
+                  calls,
+            Interlocked.Read(ref enemyFinderEmptyResults),
+            Interlocked.Read(ref enemyFinderLargeResults),
+            calls == 0L
+                ? 0.0
+                : candidates / (double)calls,
+            Interlocked.Read(
+                ref enemyFinderMaximumCandidates));
+    }
+
     public void Start(
         List<BatchActors> activeBatches,
         float cycleElapsed)
     {
+        EnemyPresenceCache.EndPreparation();
         batches = activeBatches;
         elapsed = cycleElapsed;
         workGroupSize = Math.Max(1, PerformanceSettings.ForegroundParallelism * 4);
@@ -158,7 +193,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         tileActionCommitIndex = 0;
         pathCommitIndex = 0;
         smoothCommitIndex = 0;
-        splitPostJobs = SimulationTickBenchmark.IsCapturing;
+        splitPostJobs =
+            SimulationTickBenchmark.ShouldSplitActorPostJobs;
         taskVerifierStageCompleted = false;
         tileActionTicket = default;
         searchTicket = default;
@@ -696,6 +732,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                     postJobIndex =
                         currentEnemyTargetJobIndex;
                     PrepareEnemySearchClassifications();
+                    EnemyPresenceCache.BeginPreparation();
                     stage = PostStage.PrepareEnemySearch;
                     continue;
                 case PostStage.PrepareEnemySearch:
@@ -714,6 +751,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                         return false;
                     }
 
+                    EnemyPresenceCache.EndPreparation();
                     workIndex = 0;
                     if (workCount == 0)
                     {
@@ -937,7 +975,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 case PostStage.Finish:
                     DeferredPathRequestBatch.CompleteCycle();
                     tileActionProfiler.Finish();
-                    ResetCycleReferences();
+                    ResetCycleReferences(
+                        clearPendingWork: false);
                     stage = PostStage.Idle;
                     return true;
                 default:
@@ -976,9 +1015,11 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         }
 
         DeferredPathRequestBatch.AbortCycle();
+        EnemyPresenceCache.EndPreparation();
         tileActionProfiler.Abort();
         ClearActiveBehaviorPartitions();
-        ResetCycleReferences();
+        ResetCycleReferences(
+            clearPendingWork: true);
         stage = PostStage.Idle;
     }
 
@@ -2036,15 +2077,14 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 index);
         if (!profiled)
         {
-            Actor[] actors = work.Actors;
-            bool[] requiresSerial =
-                work.RequiresSerial;
-            for (int i = 0; i < work.Count; i++)
+            Actor[] serialActors =
+                work.SerialActors;
+            for (int i = 0;
+                 i < work.SerialCount;
+                 i++)
             {
-                if (requiresSerial[i])
-                {
-                    actors[i].u5_curTileAction();
-                }
+                serialActors[i]
+                    .u5_curTileAction();
             }
         }
 
@@ -2719,12 +2759,50 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     {
         actor._timeout_targets =
             0.1f + Randy.randomFloat(0f, 1f);
+        bool collectDiagnostics =
+            Bench.bench_enabled;
+        int reusedBefore =
+            collectDiagnostics
+                ? EnemiesFinder.counter_reused
+                : 0;
         EnemyFinderData enemyData =
             EnemiesFinder.findEnemiesFrom(
                 actor.current_tile,
                 actor.kingdom);
         List<BaseSimObject> primaryCandidates =
             enemyData.list;
+        if (collectDiagnostics)
+        {
+            int candidateCount =
+                primaryCandidates.Count;
+            Interlocked.Increment(
+                ref enemyFinderCalls);
+            if (EnemiesFinder.counter_reused >
+                reusedBefore)
+            {
+                Interlocked.Increment(
+                    ref enemyFinderReuses);
+            }
+
+            if (candidateCount == 0)
+            {
+                Interlocked.Increment(
+                    ref enemyFinderEmptyResults);
+            }
+            else if (candidateCount > 50)
+            {
+                Interlocked.Increment(
+                    ref enemyFinderLargeResults);
+            }
+
+            Interlocked.Add(
+                ref enemyFinderCandidates,
+                candidateCount);
+            UpdateMaximum(
+                ref enemyFinderMaximumCandidates,
+                candidateCount);
+        }
+
         bool findClosest = true;
         int randomOffset = 0;
         if (primaryCandidates.Count > 50)
@@ -2748,6 +2826,27 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             randomOffset,
             aggressionSourceCount,
             applyBackoff);
+    }
+
+    private static void UpdateMaximum(
+        ref long target,
+        long value)
+    {
+        long maximum = Interlocked.Read(ref target);
+        while (value > maximum)
+        {
+            long previous =
+                Interlocked.CompareExchange(
+                    ref target,
+                    value,
+                    maximum);
+            if (previous == maximum)
+            {
+                return;
+            }
+
+            maximum = previous;
+        }
     }
 
     private void SearchWorkItemAt(int index)
@@ -2850,60 +2949,64 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         return false;
     }
 
-    private void ResetCycleReferences()
+    private void ResetCycleReferences(
+        bool clearPendingWork)
     {
         for (int i = 0; i < workCount; i++)
         {
             workItems[i].Reset();
         }
 
-        for (int i = 0;
-             i < actorGateWorkItems.Length;
-             i++)
+        if (clearPendingWork)
         {
-            actorGateWorkItems[i]?.Reset();
-        }
+            for (int i = 0;
+                 i < actorGateWorkItems.Length;
+                 i++)
+            {
+                actorGateWorkItems[i]?.Reset();
+            }
 
-        for (int i = 0;
-             i < tileActionWorkItems.Length;
-             i++)
-        {
-            tileActionWorkItems[i]?.Reset();
-        }
+            for (int i = 0;
+                 i < tileActionWorkItems.Length;
+                 i++)
+            {
+                tileActionWorkItems[i]?.Reset();
+            }
 
-        for (int i = 0;
-             i < updateEligibilityWorkItems.Length;
-             i++)
-        {
-            updateEligibilityWorkItems[i]?.Reset();
-        }
+            for (int i = 0;
+                 i < updateEligibilityWorkItems.Length;
+                 i++)
+            {
+                updateEligibilityWorkItems[i]?.Reset();
+            }
 
-        for (int i = 0;
-             i < enemyPrepareWorkItems.Length;
-             i++)
-        {
-            enemyPrepareWorkItems[i]?.Reset();
-        }
+            for (int i = 0;
+                 i < enemyPrepareWorkItems.Length;
+                 i++)
+            {
+                enemyPrepareWorkItems[i]?.Reset();
+            }
 
-        for (int i = 0;
-             i < taskVerifierWorkItems.Length;
-             i++)
-        {
-            taskVerifierWorkItems[i]?.Reset();
-        }
+            for (int i = 0;
+                 i < taskVerifierWorkItems.Length;
+                 i++)
+            {
+                taskVerifierWorkItems[i]?.Reset();
+            }
 
-        for (int i = 0;
-             i < pathMovementWorkItems.Length;
-             i++)
-        {
-            pathMovementWorkItems[i]?.Reset();
-        }
+            for (int i = 0;
+                 i < pathMovementWorkItems.Length;
+                 i++)
+            {
+                pathMovementWorkItems[i]?.Reset();
+            }
 
-        for (int i = 0;
-             i < smoothMovementWorkItems.Length;
-             i++)
-        {
-            smoothMovementWorkItems[i]?.Reset();
+            for (int i = 0;
+                 i < smoothMovementWorkItems.Length;
+                 i++)
+            {
+                smoothMovementWorkItems[i]?.Reset();
+            }
         }
 
         workCount = 0;
@@ -3670,8 +3773,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         internal int SerialCount { get; private set; }
         internal bool Skipped { get; private set; }
         internal bool[] Fires { get; private set; }
-        internal bool[] RequiresSerial { get; private set; } =
-            Array.Empty<bool>();
+        internal Actor[] SerialActors { get; private set; } =
+            Array.Empty<Actor>();
 
         internal void Configure(
             BatchActors batch,
@@ -3688,10 +3791,10 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             SerialCount = 0;
             Skipped = false;
             Fires = fires;
-            if (RequiresSerial.Length < count)
+            if (SerialActors.Length < count)
             {
-                RequiresSerial =
-                    new bool[
+                SerialActors =
+                    new Actor[
                         Math.Max(
                             PerformanceSettings.SimulationBatchSize,
                             count)];
@@ -3721,18 +3824,18 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             }
 
             int serialCount = 0;
+            Actor[] serialActors =
+                SerialActors;
             for (int i = 0; i < Count; i++)
             {
-                bool requiresSerial =
-                    Fires == null ||
+                Actor actor = Actors[i];
+                if (Fires == null ||
                     !CanSkipSafeGroundTileAction(
-                        Actors[i],
-                        Fires);
-                RequiresSerial[i] =
-                    requiresSerial;
-                if (requiresSerial)
+                        actor,
+                        Fires))
                 {
-                    serialCount++;
+                    serialActors[serialCount++] =
+                        actor;
                 }
             }
 
@@ -3742,12 +3845,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         internal void Reset()
         {
-            if (Count > 0)
+            if (SerialCount > 0)
             {
                 Array.Clear(
-                    RequiresSerial,
+                    SerialActors,
                     0,
-                    Count);
+                    SerialCount);
             }
 
             Batch = null;

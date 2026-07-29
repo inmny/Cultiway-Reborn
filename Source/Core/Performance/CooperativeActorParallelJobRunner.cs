@@ -323,7 +323,15 @@ internal sealed class CooperativeActorParallelJobRunner :
             if (!actor.is_immovable &&
                 actor.is_moving)
             {
-                actor.precalcMovementSpeed();
+                if (actor._precalc_movement_speed_skips > 0)
+                {
+                    actor._precalc_movement_speed_skips--;
+                }
+                else
+                {
+                    actor.precalcMovementSpeed();
+                }
+
                 speedCount++;
             }
         }
