@@ -1,4 +1,5 @@
 using System.Globalization;
+using Cultiway.Content;
 using Cultiway.Core.Components;
 using Cultiway.Core.WorldTools;
 using Cultiway.UI.Components;
@@ -88,6 +89,9 @@ public sealed class WindowElementRootRainConfig : AbstractWideWindow<WindowEleme
             ElementRootDiagramDetail.Large);
         _summary = UiElements.CreateText(preview.transform, "Summary", string.Empty,
             PreviewWidth, PreviewHeight - DiagramSize - 4f, 7, TextAnchor.MiddleCenter, FontStyle.Bold);
+        UiTooltip.Set(_summary.gameObject,
+            "Cultiway.ElementRootRain.UI.ExpectedCultivationRate",
+            "Cultiway.ElementRootRain.UI.ExpectedCultivationRate.Description");
 
         CreateStrengthRow(section.transform);
     }
@@ -159,8 +163,17 @@ public sealed class WindowElementRootRainConfig : AbstractWideWindow<WindowEleme
         {
             var root = new ElementRoot(composition);
             var strengthText = root.GetStrength().ToString("0.###", CultureInfo.CurrentCulture);
-            _summary.text = string.Format("Cultiway.ElementRootRain.UI.Format.Summary".Localize(),
-                root.Type.GetName(), strengthText);
+            var efficiency = CultivationEfficiencyResolver.Resolve(
+                root,
+                CultivationEfficiencyResolver.NeutralAffinity,
+                1f);
+            var rateText = efficiency.FinalMultiplier.ToString("0.##", CultureInfo.CurrentCulture);
+            _summary.text =
+                string.Format("Cultiway.ElementRootRain.UI.Format.Summary".Localize(),
+                    root.Type.GetName(), strengthText) +
+                "\n" +
+                string.Format("Cultiway.ElementRootRain.UI.Format.ExpectedCultivationRate".Localize(),
+                    rateText);
             _summary.color = UiTheme.Current.Palette.PrimaryText;
             _diagram.SetValues(weights, root.Type.GetName(),
                 string.Format("Cultiway.ElementRootDiagram.Tooltip.Strength".Localize(), strengthText));
