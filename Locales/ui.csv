@@ -887,6 +887,9 @@ Cultiway.ElementRootRain.UI.Action.DecreaseStrength.Description,将目标综合�
 Cultiway.ElementRootRain.UI.Action.IncreaseStrength,提高强度
 Cultiway.ElementRootRain.UI.Action.IncreaseStrength.Description,将目标综合强度提高 0.1。
 Cultiway.ElementRootRain.UI.Format.Summary,预览：{0} · 综合强度 {1}
+Cultiway.ElementRootRain.UI.Format.ExpectedCultivationRate,预期修炼速率 ×{0}
+Cultiway.ElementRootRain.UI.ExpectedCultivationRate,预期修炼速率
+Cultiway.ElementRootRain.UI.ExpectedCultivationRate.Description,按当前灵根的强度与纯度估算，主修功法契合按中性 50%、修炼方式按标准 1 倍计算；实际角色会受自身主修功法和修炼方式影响。
 Cultiway.ElementRootRain.UI.Format.Normalization,总权重 {0} → 归一化 100%
 Cultiway.ElementRootRain.UI.Normalization.Title,权重归一化
 Cultiway.ElementRootRain.UI.InvalidRatios,至少一个元素比例必须大于零

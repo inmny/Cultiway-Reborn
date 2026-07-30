@@ -31,6 +31,8 @@ internal sealed class CultibookRuleContext
     public float MasteryBias = 0.5f;
     public float ArmorBias = 0.5f;
     public int AlignedSkillCount;
+    public SemanticDescriptor RootSemantics;
+    public SemanticAsset RootElementSemantic;
     public readonly float[] RootValues = new float[8];
     public readonly float[] ElementScores = new float[8];
     public readonly List<CultibookSkillCandidate> Skills = new();
@@ -41,6 +43,7 @@ internal sealed class CultibookSkillCandidate
     public Entity Skill;
     public string Signature;
     public float[] Elements;
+    public SemanticDescriptor Semantics;
     public int ModifierCount;
 }
 
@@ -353,13 +356,16 @@ public static class CultibookRuleComposer
     private static void ApplyRootEvidence(CultibookRuleContext context)
     {
         if (context.Creator == null || !context.Creator.HasElementRoot()) return;
-        var values = NamingRuleUtils.GetElementValues(context.Creator.GetElementRoot());
+        ref var root = ref context.Creator.GetElementRoot();
+        var values = NamingRuleUtils.GetElementValues(root);
         var sum = values.Sum(value => Mathf.Max(0f, value));
         for (var i = 0; i < values.Length; i++)
         {
             context.RootValues[i] = Mathf.Max(0f, values[i]);
             if (sum > 0f) context.ElementScores[i] += context.RootValues[i] / sum * 8f;
         }
+        context.RootSemantics = root.Type.Semantics;
+        context.RootElementSemantic = ElementSemanticProfileService.ResolveDominant(root);
     }
 
     private static void ApplySkillEvidence(CultibookRuleContext context)
@@ -388,6 +394,7 @@ public static class CultibookRuleComposer
                 Skill = skill,
                 Signature = SkillContainerSignature.Build(skill),
                 Elements = elements,
+                Semantics = asset.Semantics,
                 ModifierCount = skill.GetComponentTypes().Count(type => typeof(IModifier).IsAssignableFrom(type))
             });
         }
@@ -501,7 +508,7 @@ public static class CultibookRuleComposer
 
     private static float ScoreMethod(CultivateMethodAsset method, CultibookRuleContext context)
     {
-        var efficiency = Mathf.Max(0f, method.GetEfficiency?.Invoke(context.Creator) ?? 1f);
+        var efficiency = Mathf.Max(0f, method.GetMethodMultiplier?.Invoke(context.Creator) ?? 1f);
         var score = efficiency;
         if (CultivateMethods.Standard != null && method.id == CultivateMethods.Standard.id) score += 5f;
         if (CultivateMethods.WaterMeditation != null && method.id == CultivateMethods.WaterMeditation.id)
@@ -717,6 +724,15 @@ public static class CultibookRuleComposer
                 score += candidate.Elements[context.SecondaryElement] * 6f * profile.SecondaryElementWeight;
             }
         }
+        if (SemanticDescriptorResolver.TryGetAffinity(
+                context.RootSemantics,
+                candidate.Semantics,
+                ModClass.L.SemanticLibrary,
+                ModClass.L.SemanticFacetLibrary.Element,
+                out var semanticAffinity))
+        {
+            score += semanticAffinity * 6f;
+        }
         return score + TieBreak(context.Seed, candidate.Signature);
     }
 
@@ -765,7 +781,9 @@ public static class CultibookRuleComposer
     private static string ComposeName(CultibookRuleContext context, CultibookRuleProfileAsset profile,
         ItemLevel level)
     {
-        var elementStem = PickElementStem(context.PrimaryElement, context.Seed);
+        var elementStem = PickSemanticStem(context.RootElementSemantic, context.Seed);
+        if (string.IsNullOrEmpty(elementStem))
+            elementStem = PickElementStem(context.PrimaryElement, context.Seed);
         var profileStem = profile.PickNameStem(context.Seed / 3 + 17);
         var suffix = profile.PickSuffix(context.Seed / 5 + 29);
         var qualityPrefix = PickQualityPrefix(level, context.Seed);
@@ -856,6 +874,14 @@ public static class CultibookRuleComposer
             ElementIndex.Entropy => NamingRuleUtils.Pick(seed, "混沌", "归墟", "浊玄"),
             _ => string.Empty
         };
+    }
+
+    /// <summary>从元素语义自身配置的词干中选择功法命名片段。</summary>
+    private static string PickSemanticStem(SemanticAsset semantic, int seed)
+    {
+        return semantic?.naming_stems == null || semantic.naming_stems.Length == 0
+            ? string.Empty
+            : NamingRuleUtils.Pick(seed, semantic.naming_stems);
     }
 
     private static string PickQualityPrefix(ItemLevel level, int seed)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Const;
 using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
@@ -89,14 +90,8 @@ public static class SkillSemanticCollector
     public static void CollectElementSemantics(ElementComposition element, HashSet<SemanticAsset> semantics)
     {
         var any = false;
-        any |= AddElement(semantics, element.iron, SkillSemantics.Element.Iron);
-        any |= AddElement(semantics, element.wood, SkillSemantics.Element.Wood);
-        any |= AddElement(semantics, element.water, SkillSemantics.Element.Water);
-        any |= AddElement(semantics, element.fire, SkillSemantics.Element.Fire);
-        any |= AddElement(semantics, element.earth, SkillSemantics.Element.Earth);
-        any |= AddElement(semantics, element.neg, SkillSemantics.Element.Neg);
-        any |= AddElement(semantics, element.pos, SkillSemantics.Element.Pos);
-        any |= AddElement(semantics, element.entropy, SkillSemantics.Element.Entropy);
+        for (var i = 0; i < ElementIndex.Count; i++)
+            any |= AddElement(semantics, element[i], ElementSemanticProfileService.GetIndexedSemantic(i));
         if (!any) AddExpanded(SkillSemantics.Element.Generic, semantics);
     }
 

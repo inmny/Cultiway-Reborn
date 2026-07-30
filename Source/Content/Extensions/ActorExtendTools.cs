@@ -271,7 +271,7 @@ public static class ActorExtendTools
         float affinity = 0;
         if (ae.HasElementRoot())
         {
-            affinity = newCultibook.ElementReq.GetAffinity(ae.GetElementRoot());
+            affinity = ElementRootAffinityResolver.Resolve(ae.GetElementRoot(), newCultibook).Combined;
         }
         float affinityBonus = affinity * 0.1f;
         
@@ -787,7 +787,7 @@ public static class ActorExtendTools
         float affinity = 1f;
         if (ae.HasElementRoot())
         {
-            affinity = cultibook.ElementReq.GetAffinity(ae.GetElementRoot());
+            affinity = ElementRootAffinityResolver.Resolve(ae.GetElementRoot(), cultibook).Combined;
         }
         score += affinity * 10f;
         

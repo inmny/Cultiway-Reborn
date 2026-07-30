@@ -53,8 +53,8 @@ public class ContinuousCultivateSystem : QuerySystem<Xian, ActorBinder>
             if (xian.wakan >= maxWakan) return;
 
             // 持续修炼的收益计算（这里简化处理，实际应该由修炼方式自己定义）
-            var efficiency = method.GetEfficiency?.Invoke(ae) ?? 1f;
-            var baseGain = 0.1f * efficiency; // 每秒基础收益
+            var efficiency = CultivationEfficiencyResolver.Resolve(ae, mainCultibook, method);
+            var baseGain = 0.1f * efficiency.FinalMultiplier; // 每秒基础收益
             var wakanGain = baseGain * UpdateInterval;
 
             wakanGain = Mathf.Min(wakanGain, maxWakan - xian.wakan);

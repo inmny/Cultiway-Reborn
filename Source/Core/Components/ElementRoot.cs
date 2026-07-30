@@ -23,11 +23,17 @@ public struct ElementRoot : IComponent
     [Ignore]
     public ElementRootAsset Type    { get; private set; }
     [Ignore]
+    public float TypeSimilarity { get; private set; }
+    [Ignore]
     public BaseStats        Stats   { get; }
 
     public ElementRoot(float[] composition)
     {
-        for (var i = 0; i < 8; i++)
+        if (composition == null || composition.Length < ElementIndex.Count)
+            throw new ArgumentException($"Element root composition requires {ElementIndex.Count} values.",
+                nameof(composition));
+
+        for (var i = 0; i < ElementIndex.Count; i++)
         {
             var value = composition[i];
             switch (i)
@@ -65,27 +71,20 @@ public struct ElementRoot : IComponent
 
     public static ElementRoot Roll()
     {
-        var composition = new float[8];
-        for (var i = 0; i < 8; i++) composition[i] = Mathf.Abs(RdUtils.NextStdNormal());
-
-        return new ElementRoot(composition);
+        return new ElementRoot(ModClass.L.ElementRootLibrary.RollComposition());
     }
 
     public float GetStrength()
     {
-        return Mathf.Exp(
-            (
-                (Iron  + Wood + Water + Fire + Earth) / 5
-                + (Neg + Pos)                         / 2
-                + Entropy
-            ) / 3
-        );
+        return Mathf.Exp(ElementRootLibrary.CalculateLogStrength(
+            Iron, Wood, Water, Fire, Earth, Neg, Pos, Entropy));
     }
 
     private void Update()
     {
         Type = ModClass.L.ElementRootLibrary.GetRootType([Iron, Wood, Water, Fire, Earth, Neg, Pos, Entropy],
             out var sim);
+        TypeSimilarity = sim;
         Stats.clear();
         Stats.MergeStats(Type.base_stats, sim);
         Stats[nameof(WorldboxGame.BaseStats.IronArmor)] = Iron;

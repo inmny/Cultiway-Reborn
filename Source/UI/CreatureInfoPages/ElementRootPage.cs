@@ -1,6 +1,8 @@
 using System.Text;
 using Cultiway.Const;
 using Cultiway.Content;
+using Cultiway.Content.Components;
+using Cultiway.Content.Extensions;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.UI.Components;
@@ -79,6 +81,24 @@ public class ElementRootPage : MonoBehaviour
 
         var overallLevel = StrengthLevelFormatter.GetLevelName(Mathf.Log(er.GetStrength()), style);
         sb.AppendLine($"{overall_lbl}: {overallLevel}");
+
+        if (ae.HasCultisys<Xian>())
+        {
+            var efficiency = CultivationEfficiencyResolver.Resolve(ae);
+            var mainCultibook = ae.GetMainCultibook();
+            sb.AppendLine();
+            sb.AppendLine($"{LM.Get("Cultiway.ER.Aptitude.Intensity")}: {efficiency.Intensity:P0}");
+            sb.AppendLine($"{LM.Get("Cultiway.ER.Aptitude.Purity")}: {efficiency.Purity:P0}");
+            var affinity = mainCultibook == null
+                ? LM.Get("Cultiway.ER.Aptitude.Undetermined")
+                : efficiency.MainCultibookAffinity.ToString("P0");
+            sb.AppendLine($"{LM.Get("Cultiway.ER.Aptitude.Affinity")}: {affinity}");
+            sb.AppendLine(
+                $"{LM.Get("Cultiway.ER.Aptitude.Multiplier")}: ×{efficiency.AptitudeMultiplier:0.##}");
+            sb.AppendLine(
+                $"{LM.Get("Cultiway.ER.Aptitude.MethodMultiplier")}: ×{efficiency.MethodMultiplier:0.##}");
+            sb.AppendLine($"{LM.Get("Cultiway.ER.Aptitude.FinalMultiplier")}: ×{efficiency.FinalMultiplier:0.##}");
+        }
 
         var er_page = page.GetComponent<ElementRootPage>();
         er_page.Text.text = sb.ToString();

@@ -26,7 +26,7 @@ public partial class SkillEntities
 
     private static void ConfigureWind()
     {
-        var wind = new ElementComposition(water: 0.5f, wood: 0.5f);
+        var wind = ElementComposition.Static.Wind;
         Configure(
             WindBlade,
             wind,

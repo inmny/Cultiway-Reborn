@@ -23,7 +23,7 @@ public partial class SkillEntities
 
     private static void ConfigureIce()
     {
-        var ice = new ElementComposition(water: 1f);
+        var ice = ElementComposition.Static.Ice;
         Configure(
             IceShard,
             ice,

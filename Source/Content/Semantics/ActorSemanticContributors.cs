@@ -52,11 +52,12 @@ internal sealed class ElementRootContributor : IActorSemanticContributor
         if (!actor.E.TryGetComponent(out ElementRoot root)) return;
         var source = new SemanticSourceRef(Id, root.Type.id);
         var multiplier = 1f + Mathf.Log(1f + root.GetStrength(), 2f) * 0.25f;
-        builder.Add(root.Type.Semantics, multiplier, SemanticScope.Intrinsic, source);
-        SemanticContributorTools.AddElements(builder,
-            new ElementComposition([root.Iron, root.Wood, root.Water, root.Fire, root.Earth, root.Neg, root.Pos,
-                root.Entropy]),
-            multiplier, SemanticScope.Intrinsic, source);
+        ElementSemanticProfileService.Contribute(
+            builder,
+            root,
+            multiplier,
+            SemanticScope.Intrinsic,
+            source);
     }
 }
 

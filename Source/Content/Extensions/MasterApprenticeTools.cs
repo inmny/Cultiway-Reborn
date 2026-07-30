@@ -275,8 +275,7 @@ public static class MasterApprenticeTools
         if (mainCultibook != null && apprentice.HasElementRoot() && master.HasElementRoot())
         {
             var apprenticeRoot = apprentice.GetElementRoot();
-            var masterRoot = master.GetElementRoot();
-            affinityBonus = mainCultibook.ElementReq.GetAffinity(apprenticeRoot) * 0.2f;
+            affinityBonus = ElementRootAffinityResolver.Resolve(apprenticeRoot, mainCultibook).Combined * 0.2f;
         }
         
         // 关系系数（暂时简单处理）

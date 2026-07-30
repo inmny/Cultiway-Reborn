@@ -24,7 +24,33 @@ public struct ElementComposition
         public static readonly ElementComposition Water = new(water: 1f, normalize: true);
         public static readonly ElementComposition Fire = new(fire: 1f, normalize: true);
         public static readonly ElementComposition Earth = new(earth: 1f, normalize: true);
-        public static readonly ElementComposition Poison = new([0f, 0.5f, 0.5f, 0f, 0f, 0f, 1f, 0f], true);
+        public static readonly ElementComposition IronWood =
+            new(iron: 0.5f, wood: 0.5f, normalize: true);
+        public static readonly ElementComposition IronWater =
+            new(iron: 0.5f, water: 0.5f, normalize: true);
+        public static readonly ElementComposition IronFire =
+            new(iron: 0.5f, fire: 0.5f, normalize: true);
+        public static readonly ElementComposition IronEarth =
+            new(iron: 0.5f, earth: 0.5f, normalize: true);
+        public static readonly ElementComposition WoodWater =
+            new(wood: 0.5f, water: 0.5f, normalize: true);
+        public static readonly ElementComposition WoodFire =
+            new(wood: 0.5f, fire: 0.5f, normalize: true);
+        public static readonly ElementComposition WoodEarth =
+            new(wood: 0.5f, earth: 0.5f, normalize: true);
+        public static readonly ElementComposition WaterFire =
+            new(water: 0.5f, fire: 0.5f, normalize: true);
+        public static readonly ElementComposition WaterEarth =
+            new(water: 0.5f, earth: 0.5f, normalize: true);
+        public static readonly ElementComposition FireEarth =
+            new(fire: 0.5f, earth: 0.5f, normalize: true);
+        public static readonly ElementComposition Wind =
+            new(wood: 0.425f, water: 0.425f, entropy: 0.15f, normalize: true);
+        public static readonly ElementComposition Ice = new(water: 0.7f, neg: 0.3f, normalize: true);
+        public static readonly ElementComposition Lightning =
+            new(iron: 0.25f, pos: 0.5f, entropy: 0.25f, normalize: true);
+        public static readonly ElementComposition Poison =
+            new(wood: 0.4f, water: 0.25f, neg: 0.35f, normalize: true);
     }
 
     public void Normalize()
