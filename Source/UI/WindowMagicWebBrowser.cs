@@ -787,7 +787,11 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
 
     private static Compatibility ResolveCompatibility(EntryModel entry, MageContext mage)
     {
-        var affinity = entry.Entry.Profile.ElementRequirement.GetWeightedAffinity(mage.Root);
+        var profile = entry.Entry.Profile;
+        var affinity = ElementRootAffinityResolver.Resolve(
+            mage.Root,
+            profile.ElementRequirement,
+            profile.Semantics).Combined;
         return new Compatibility(affinity, entry.Entry.Profile.Ring <= mage.MaxRing,
             affinity >= MagicSetting.MagicStudyAffinityThreshold,
             mage.KnownFamilies.Contains(entry.Entry.Profile.FamilySignature),

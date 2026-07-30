@@ -52,8 +52,8 @@ public static class CultivateMethodTriggers
         
         // 根据目标强度计算灵力收益
         var victimPower = victim.GetExtend().GetPowerLevel() + 1;
-        var efficiency = method.GetEfficiency?.Invoke(killer) ?? 1f;
-        var wakanGain = victimPower * efficiency;
+        var efficiency = CultivationEfficiencyResolver.Resolve(killer, mainCultibook, method);
+        var wakanGain = victimPower * efficiency.FinalMultiplier;
         
         var maxWakan = killer.Base.stats[BaseStatses.MaxWakan.id];
         wakanGain = Mathf.Min(wakanGain, maxWakan - xian.wakan);
@@ -88,9 +88,9 @@ public static class CultivateMethodTriggers
         if (!attacker.HasCultisys<Xian>()) return;
         ref var xian = ref attacker.GetCultisys<Xian>();
         
-        var efficiency = method.GetEfficiency?.Invoke(attacker) ?? 1f;
+        var efficiency = CultivationEfficiencyResolver.Resolve(attacker, mainCultibook, method);
         var basePower = attacker.GetPowerLevel() + 1;
-        var wakanGain = basePower * 0.1f * efficiency;
+        var wakanGain = basePower * 0.1f * efficiency.FinalMultiplier;
         
         var maxWakan = attacker.Base.stats[BaseStatses.MaxWakan.id];
         wakanGain = Mathf.Min(wakanGain, maxWakan - xian.wakan);
@@ -126,12 +126,12 @@ public static class CultivateMethodTriggers
         if (!victim.HasCultisys<Xian>()) return;
         ref var xian = ref victim.GetCultisys<Xian>();
         
-        var efficiency = method.GetEfficiency?.Invoke(victim) ?? 1f;
+        var efficiency = CultivationEfficiencyResolver.Resolve(victim, mainCultibook, method);
         var attackerPower = !attacker.isRekt() 
             ? attacker.a.GetExtend().GetPowerLevel() + 1 
             : 1f;
         // 根据受到的伤害和攻击者强度计算灵力收益（受伤越重，收益越高）
-        var wakanGain = damage * 0.05f * attackerPower * efficiency;
+        var wakanGain = damage * 0.05f * attackerPower * efficiency.FinalMultiplier;
         
         var maxWakan = victim.Base.stats[BaseStatses.MaxWakan.id];
         wakanGain = Mathf.Min(wakanGain, maxWakan - xian.wakan);

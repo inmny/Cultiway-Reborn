@@ -1070,9 +1070,10 @@ public partial class Cultisyses
         var total = WakanMap.I.map[tile_pos.x, tile_pos.y];
         var to_take = Mathf.Log10(total + 1);
 
-        var cultivate_method = actor_extend.GetMainCultibook()?.GetCultivateMethod() ?? CultivateMethods.Standard;
-
-        to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * cultivate_method.GetEfficiency?.Invoke(actor_extend) ?? 1f);
+        var cultibook = actor_extend.GetMainCultibook();
+        var cultivate_method = cultibook?.GetCultivateMethod() ?? CultivateMethods.Standard;
+        var efficiency = CultivationEfficiencyResolver.Resolve(actor_extend, cultibook, cultivate_method);
+        to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * efficiency.FinalMultiplier);
         xian.wakan += to_take;
         WakanMap.I.map[tile_pos.x, tile_pos.y] -= to_take;
     }
@@ -1084,8 +1085,10 @@ public partial class Cultisyses
         var total = WakanMap.I.map[tile_pos.x, tile_pos.y];
         var to_take = Mathf.Log10(total + 1);
 
-        var cultivate_method = actor_extend.GetMainCultibook()?.GetCultivateMethod() ?? CultivateMethods.Standard;
-        to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * cultivate_method.GetEfficiency?.Invoke(actor_extend) ?? 1f);
+        var cultibook = actor_extend.GetMainCultibook();
+        var cultivate_method = cultibook?.GetCultivateMethod() ?? CultivateMethods.Standard;
+        var efficiency = CultivationEfficiencyResolver.Resolve(actor_extend, cultibook, cultivate_method);
+        to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * efficiency.FinalMultiplier);
         xian.wakan += to_take;
         var dirty_wakan_to_take = Mathf.Min(DirtyWakanMap.I.map[tile_pos.x, tile_pos.y],
             to_take * ContentSetting.DirtyWakanToWakanRatio);

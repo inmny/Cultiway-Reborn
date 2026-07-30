@@ -22,6 +22,7 @@ public sealed class MagicSpellProfile
     public ElementRequirement ElementRequirement { get; internal set; }
     public string FamilySignature { get; internal set; }
     public SemanticAsset PrimaryElement { get; internal set; }
+    public SemanticDescriptor Semantics { get; internal set; }
 
     /// <summary>
     /// 优先读取魔网收录时冻结的档案，非魔网技能则即时计算。
@@ -52,7 +53,8 @@ public sealed class MagicSpellProfile
             Element = asset.Element,
             ElementRequirement = ElementRequirement.FromComposition(asset.Element),
             FamilySignature = BuildFamilySignature(container),
-            PrimaryElement = ResolvePrimaryElement(asset.Element)
+            PrimaryElement = ElementSemanticProfileService.ResolveDominant(asset.Element, asset.Semantics),
+            Semantics = asset.Semantics
         };
     }
 
@@ -63,24 +65,5 @@ public sealed class MagicSpellProfile
         result.Blueprint.TrajectoryAssetId = SkillBlueprintTrajectory.ResolveDefaultId(
             container.GetComponent<SkillContainer>().Asset);
         return SkillBlueprintSignature.Build(result.Blueprint);
-    }
-
-    private static SemanticAsset ResolvePrimaryElement(ElementComposition element)
-    {
-        var semantics = new[]
-        {
-            SkillSemantics.Element.Iron, SkillSemantics.Element.Wood, SkillSemantics.Element.Water,
-            SkillSemantics.Element.Fire, SkillSemantics.Element.Earth, SkillSemantics.Element.Neg,
-            SkillSemantics.Element.Pos, SkillSemantics.Element.Entropy
-        };
-        var bestIndex = -1;
-        var bestValue = 0f;
-        for (var i = 0; i < semantics.Length; i++)
-        {
-            if (element[i] <= bestValue) continue;
-            bestValue = element[i];
-            bestIndex = i;
-        }
-        return bestIndex < 0 ? SkillSemantics.Element.Generic : semantics[bestIndex];
     }
 }

@@ -161,7 +161,7 @@ public static class SectScriptureStudyPlanner
 
         if (ae.HasElementRoot())
         {
-            score += cultibook.ElementReq.GetAffinity(ae.GetElementRoot()) * 80f;
+            score += ElementRootAffinityResolver.Resolve(ae.GetElementRoot(), cultibook).Combined * 80f;
         }
 
         if (ae.TryGetComponent(out Xian xian))

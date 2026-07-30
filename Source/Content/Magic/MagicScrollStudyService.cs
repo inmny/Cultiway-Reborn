@@ -165,7 +165,10 @@ public static class MagicScrollStudyService
         ref var magic = ref actor.GetCultisys<Magic>();
         if (profile.Ring > Cultisyses.GetMaxSpellRing(magic.CurrLevel)) return false;
 
-        var affinity = profile.ElementRequirement.GetWeightedAffinity(actor.GetElementRoot());
+        var affinity = ElementRootAffinityResolver.Resolve(
+            actor.GetElementRoot(),
+            profile.ElementRequirement,
+            profile.Semantics).Combined;
         if (affinity < MagicSetting.MagicStudyAffinityThreshold) return false;
 
         MagicKnowledgeService.Synchronize(actor);

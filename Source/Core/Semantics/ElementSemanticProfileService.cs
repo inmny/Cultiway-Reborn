@@ -1,3 +1,6 @@
+using System;
+using Cultiway.Const;
+using Cultiway.Core.Components;
 using UnityEngine;
 
 namespace Cultiway.Core.Semantics;
@@ -9,13 +12,60 @@ public static class ElementSemanticProfileService
 {
     private const string ContributorId = "core.element_composition";
 
-    /// <summary>为一组元素组成构建只包含固有元素证据的语义档案。</summary>
-    public static SemanticProfile Build(ElementComposition composition)
+    /// <summary>为连续元素组成和可选的具名元素描述构建固有语义档案。</summary>
+    public static SemanticProfile Build(
+        ElementComposition composition,
+        SemanticDescriptor descriptor = null)
     {
         var builder = new SemanticProfileBuilder(ModClass.L.SemanticLibrary);
+        if (descriptor != null)
+            builder.Add(descriptor, 1f, SemanticScope.Intrinsic, new SemanticSourceRef(ContributorId));
         Contribute(builder, composition, 1f, SemanticScope.Intrinsic,
             new SemanticSourceRef(ContributorId));
         return builder.Build();
+    }
+
+    /// <summary>为灵根的具名语义与连续元素组成构建统一档案。</summary>
+    public static SemanticProfile Build(in ElementRoot root)
+    {
+        return Build(ToComposition(root), root.Type.Semantics);
+    }
+
+    /// <summary>从元素组成和可选的具名语义中解析得分最高的元素语义。</summary>
+    public static SemanticAsset ResolveDominant(
+        ElementComposition composition,
+        SemanticDescriptor descriptor = null)
+    {
+        var ranked = Build(composition, descriptor).GetRanked(
+            SemanticQueryPolicy.Default,
+            ModClass.L.SemanticFacetLibrary.Element);
+        return ranked.Count > 0 ? ranked[0].semantic : SkillSemantics.Element.Generic;
+    }
+
+    /// <summary>从灵根的具名语义与连续组成中解析得分最高的元素语义。</summary>
+    public static SemanticAsset ResolveDominant(in ElementRoot root)
+    {
+        var ranked = Build(root).GetRanked(
+            SemanticQueryPolicy.Default,
+            ModClass.L.SemanticFacetLibrary.Element);
+        return ranked.Count > 0 ? ranked[0].semantic : SkillSemantics.Element.Generic;
+    }
+
+    /// <summary>返回八维元素组成中指定索引对应的规范元素语义。</summary>
+    public static SemanticAsset GetIndexedSemantic(int index)
+    {
+        return index switch
+        {
+            ElementIndex.Iron    => SkillSemantics.Element.Iron,
+            ElementIndex.Wood    => SkillSemantics.Element.Wood,
+            ElementIndex.Water   => SkillSemantics.Element.Water,
+            ElementIndex.Fire    => SkillSemantics.Element.Fire,
+            ElementIndex.Earth   => SkillSemantics.Element.Earth,
+            ElementIndex.Neg     => SkillSemantics.Element.Neg,
+            ElementIndex.Pos     => SkillSemantics.Element.Pos,
+            ElementIndex.Entropy => SkillSemantics.Element.Entropy,
+            _ => throw new ArgumentOutOfRangeException(nameof(index), index, null)
+        };
     }
 
     /// <summary>按归一化后的元素比例向现有语义档案写入元素证据。</summary>
@@ -26,28 +76,28 @@ public static class ElementSemanticProfileService
         SemanticScope scope,
         SemanticSourceRef source)
     {
-        var total = Mathf.Max(0f, composition.iron)
-                    + Mathf.Max(0f, composition.wood)
-                    + Mathf.Max(0f, composition.water)
-                    + Mathf.Max(0f, composition.fire)
-                    + Mathf.Max(0f, composition.earth)
-                    + Mathf.Max(0f, composition.neg)
-                    + Mathf.Max(0f, composition.pos)
-                    + Mathf.Max(0f, composition.entropy);
+        var total = 0f;
+        for (var i = 0; i < ElementIndex.Count; i++) total += Mathf.Max(0f, composition[i]);
         if (total <= 0f)
         {
             builder.Add(SkillSemantics.Element.Generic, multiplier, scope, source);
             return;
         }
 
-        Add(builder, SkillSemantics.Element.Iron, composition.iron / total, multiplier, scope, source);
-        Add(builder, SkillSemantics.Element.Wood, composition.wood / total, multiplier, scope, source);
-        Add(builder, SkillSemantics.Element.Water, composition.water / total, multiplier, scope, source);
-        Add(builder, SkillSemantics.Element.Fire, composition.fire / total, multiplier, scope, source);
-        Add(builder, SkillSemantics.Element.Earth, composition.earth / total, multiplier, scope, source);
-        Add(builder, SkillSemantics.Element.Neg, composition.neg / total, multiplier, scope, source);
-        Add(builder, SkillSemantics.Element.Pos, composition.pos / total, multiplier, scope, source);
-        Add(builder, SkillSemantics.Element.Entropy, composition.entropy / total, multiplier, scope, source);
+        for (var i = 0; i < ElementIndex.Count; i++)
+            Add(builder, GetIndexedSemantic(i), composition[i] / total, multiplier, scope, source);
+    }
+
+    /// <summary>将灵根的具名语义和连续元素组成一并写入现有语义档案。</summary>
+    public static void Contribute(
+        SemanticProfileBuilder builder,
+        in ElementRoot root,
+        float multiplier,
+        SemanticScope scope,
+        SemanticSourceRef source)
+    {
+        builder.Add(root.Type.Semantics, multiplier, scope, source);
+        Contribute(builder, ToComposition(root), multiplier, scope, source);
     }
 
     private static void Add(
@@ -60,5 +110,19 @@ public static class ElementSemanticProfileService
     {
         var strength = Mathf.Max(0f, value);
         if (strength > 0f) builder.Add(semantic, strength * multiplier, scope, source);
+    }
+
+    /// <summary>将灵根组件转换为通用八维元素组成。</summary>
+    private static ElementComposition ToComposition(in ElementRoot root)
+    {
+        return new ElementComposition(
+            root.Iron,
+            root.Wood,
+            root.Water,
+            root.Fire,
+            root.Earth,
+            root.Neg,
+            root.Pos,
+            root.Entropy);
     }
 }

@@ -73,7 +73,7 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
 
         Standard.TriggerType = CultivateTriggerType.Active;
         Standard.CanCultivate = ae => ae.HasCultisys<Xian>();
-        Standard.GetEfficiency = ae => ae.HasElementRoot() ? ae.GetElementRoot().GetStrength() : 1f;
+        Standard.GetMethodMultiplier = _ => 1f;
         Standard.GetBehaviourJobId = ae => {
             if (ae.Base.hasHouse())
             {
@@ -87,7 +87,7 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
         
         WaterMeditation.TriggerType = CultivateTriggerType.Active;
         WaterMeditation.CanCultivate = ae => ae.HasCultisys<Xian>();
-        WaterMeditation.GetEfficiency = ae => {
+        WaterMeditation.GetMethodMultiplier = ae => {
             if (!ae.Base.current_tile.IsWater()) return 0.5f; // 不在水中效率减半
             if (!ae.HasElementRoot()) return 1.5f;
             // 水中效率提升，且与水系灵根强度成正比
@@ -101,7 +101,7 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
         BattleCultivate.PassiveTriggerEvents.Add(PassiveTriggerEvents.OnAttack);
         BattleCultivate.PassiveTriggerEvents.Add(PassiveTriggerEvents.OnBeAttacked);
         BattleCultivate.CanCultivate = ae => ae.HasCultisys<Xian>();
-        BattleCultivate.GetEfficiency = ae => {
+        BattleCultivate.GetMethodMultiplier = ae => {
             // 基础效率1.0，可以根据战斗状态调整
             // 暂时简化处理，后续可以根据战斗强度、敌人数量等因素调整
             return 1.0f;
@@ -114,7 +114,7 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
         KillAbsorb.TriggerType = CultivateTriggerType.Passive;
         KillAbsorb.PassiveTriggerEvents.Add(PassiveTriggerEvents.OnKill);
         KillAbsorb.CanCultivate = ae => ae.HasCultisys<Xian>();
-        KillAbsorb.GetEfficiency = ae => {
+        KillAbsorb.GetMethodMultiplier = ae => {
             // 基础效率1.0，可以根据杀人数调整
             // 暂时简化处理，后续可以根据累计杀人数调整
             return 1.0f;
@@ -133,7 +133,7 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
             var isCityLeader = actor.city != null && actor.city.leader == actor;
             return isKing || isCityLeader;
         };
-        KingdomFortune.GetEfficiency = ae => {
+        KingdomFortune.GetMethodMultiplier = ae => {
             // 检查是否是国王或城主
             var actor = ae.Base;
             var isKing = actor.kingdom != null && actor.kingdom.king == actor;

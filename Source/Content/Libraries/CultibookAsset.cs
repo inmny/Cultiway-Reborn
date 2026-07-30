@@ -181,6 +181,40 @@ public struct ElementRequirement
     }
 
     /// <summary>
+    /// 将灵根和需求都视为八维方向并计算余弦契合；无元素需求时返回中性值 0.5。
+    /// 该值不包含绝对强度，供修炼资质与元素语义契合组合使用。
+    /// </summary>
+    public float GetCompositionAffinity(ElementRoot root)
+    {
+        var dot = root.Iron * MinIron
+                  + root.Wood * MinWood
+                  + root.Water * MinWater
+                  + root.Fire * MinFire
+                  + root.Earth * MinEarth
+                  + root.Neg * MinNeg
+                  + root.Pos * MinPos
+                  + root.Entropy * MinEntropy;
+        var rootMagnitude = root.Iron * root.Iron
+                            + root.Wood * root.Wood
+                            + root.Water * root.Water
+                            + root.Fire * root.Fire
+                            + root.Earth * root.Earth
+                            + root.Neg * root.Neg
+                            + root.Pos * root.Pos
+                            + root.Entropy * root.Entropy;
+        var requirementMagnitude = MinIron * MinIron
+                                   + MinWood * MinWood
+                                   + MinWater * MinWater
+                                   + MinFire * MinFire
+                                   + MinEarth * MinEarth
+                                   + MinNeg * MinNeg
+                                   + MinPos * MinPos
+                                   + MinEntropy * MinEntropy;
+        var denominator = Mathf.Sqrt(rootMagnitude * requirementMagnitude);
+        return denominator > 0f ? Mathf.Clamp01(dot / denominator) : 0.5f;
+    }
+
+    /// <summary>
     /// 将单项灵根强度转换为 0-1 的指数饱和亲和度。
     /// </summary>
     public static float GetElementAffinity(float elementStrength)

@@ -40,13 +40,6 @@ public readonly struct MagicWebStudyCandidate
 /// </summary>
 public static class MagicWebStudyPlanner
 {
-    private static readonly SemanticAsset[] ElementSemantics =
-    {
-        SkillSemantics.Element.Iron, SkillSemantics.Element.Wood, SkillSemantics.Element.Water,
-        SkillSemantics.Element.Fire, SkillSemantics.Element.Earth, SkillSemantics.Element.Neg,
-        SkillSemantics.Element.Pos, SkillSemantics.Element.Entropy
-    };
-
     /// <summary>
     /// 判断魔法师当前是否应该尝试从魔网研究法术。
     /// </summary>
@@ -87,7 +80,7 @@ public static class MagicWebStudyPlanner
         query.AnySemantics.Add(SkillSemantics.Element.Generic);
         var strongestElementIndex = 0;
         var strongestElementAffinity = float.MinValue;
-        for (var i = 0; i < ElementSemantics.Length; i++)
+        for (var i = 0; i < ElementIndex.Count; i++)
         {
             var elementalAffinity = ElementRequirement.GetElementAffinity(root[i]);
             if (elementalAffinity > strongestElementAffinity)
@@ -96,16 +89,21 @@ public static class MagicWebStudyPlanner
                 strongestElementIndex = i;
             }
             if (elementalAffinity >= MagicSetting.MagicStudyAffinityThreshold)
-                query.AnySemantics.Add(ElementSemantics[i]);
+                query.AnySemantics.Add(ElementSemanticProfileService.GetIndexedSemantic(i));
         }
-        query.AnySemantics.Add(ElementSemantics[strongestElementIndex]);
+        query.AnySemantics.Add(ElementSemanticProfileService.GetIndexedSemantic(strongestElementIndex));
+        SemanticDescriptorResolver.CollectFacet(
+            root.Type.Semantics,
+            ModClass.L.SemanticLibrary,
+            ModClass.L.SemanticFacetLibrary.Element,
+            query.AnySemantics);
 
         var candidates = new List<MagicWebStudyCandidate>();
         foreach (var entry in manager.Query(query))
         {
             var profile = entry.Profile;
             if (knownFamilies.Contains(profile.FamilySignature)) continue;
-            var affinity = profile.ElementRequirement.GetWeightedAffinity(root);
+            var affinity = ResolveAffinity(root, profile);
             if (affinity < MagicSetting.MagicStudyAffinityThreshold) continue;
 
             var novelty = knownPrimaryElements.Contains(profile.PrimaryElement) ? 0f : 1f;
@@ -140,7 +138,7 @@ public static class MagicWebStudyPlanner
             !manager.TryGetProfile(state.Candidate, out profile)) return false;
         if (!state.Replacement.IsNull && !actor.OwnsLearnedSkill(state.Replacement)) return false;
 
-        affinity = profile.ElementRequirement.GetWeightedAffinity(actor.GetElementRoot());
+        affinity = ResolveAffinity(actor.GetElementRoot(), profile);
         if (affinity < MagicSetting.MagicStudyAffinityThreshold) return false;
         difficulty = ResolveDifficulty(profile);
         return true;
@@ -169,7 +167,7 @@ public static class MagicWebStudyPlanner
         foreach (var item in known)
         {
             if (item.Profile.PrimaryElement == dominantElement && dominantCount <= 1) continue;
-            var affinity = item.Profile.ElementRequirement.GetWeightedAffinity(root);
+            var affinity = ResolveAffinity(root, item.Profile);
             var score = Score(item.Profile, affinity, maxRing, 0f, false);
             if (score >= weakestScore) continue;
             weakestScore = score;
@@ -206,10 +204,13 @@ public static class MagicWebStudyPlanner
 
     private static SemanticAsset ResolveDominantElement(ElementRoot root)
     {
-        var bestIndex = 0;
-        for (var i = 1; i < ElementSemantics.Length; i++)
-            if (root[i] > root[bestIndex]) bestIndex = i;
-        return ElementSemantics[bestIndex];
+        return ElementSemanticProfileService.ResolveDominant(root);
+    }
+
+    /// <summary>统一使用组成和元素语义计算魔法学习契合。</summary>
+    private static float ResolveAffinity(in ElementRoot root, MagicSpellProfile profile)
+    {
+        return ElementRootAffinityResolver.Resolve(root, profile.ElementRequirement, profile.Semantics).Combined;
     }
 
     private static double GetWorldTime()

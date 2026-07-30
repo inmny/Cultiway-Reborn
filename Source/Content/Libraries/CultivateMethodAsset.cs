@@ -48,11 +48,11 @@ public class CultivateMethodAsset : Asset
     public Func<ActorExtend, bool> CanCultivate;
     
     /// <summary>
-    /// 计算修炼效率系数
+    /// 计算修炼方式自身的环境或事件倍率，不包含灵根资质
     /// </summary>
     /// <param name="actor">修炼者</param>
     /// <returns>效率系数（1.0为标准）</returns>
-    public Func<ActorExtend, float> GetEfficiency;
+    public Func<ActorExtend, float> GetMethodMultiplier;
     
     /// <summary>
     /// 修炼副作用（如魔道的杀业积累）
