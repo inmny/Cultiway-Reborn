@@ -12,6 +12,7 @@ public static class ElementIndex
     public const int Neg     = 5;
     public const int Pos     = 6;
     public const int Entropy = 7;
+    public const int Count   = Entropy + 1;
 
     public static readonly ReadOnlyCollection<string> ElementNames = new(new[]
     {

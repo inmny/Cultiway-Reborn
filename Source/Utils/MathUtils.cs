@@ -18,7 +18,8 @@ public static class MathUtils
             b_v += b[i] * b[i];
         }
 
-        return ab / Mathf.Sqrt(a_v * b_v);
+        var denominator = Mathf.Sqrt(a_v * b_v);
+        return denominator > 0f ? ab / denominator : 0f;
     }
 
     public static float Normal(float x, float mean, float std)

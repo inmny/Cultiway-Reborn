@@ -4,6 +4,20 @@ using UnityEngine;
 
 namespace Cultiway.Core.Libraries;
 
+/// <summary>灵根资产的自然生成与资质配置。</summary>
+public sealed class ElementRootArchetypeProfile
+{
+    /// <summary>自然生成时使用的相对权重。</summary>
+    public float NaturalWeight;
+
+    /// <summary>自然生成该原型时采用的最低目标相似度，不参与灵根类型判定。</summary>
+    public float NaturalSimilarityFloor;
+
+    /// <summary>将原型相似度换算为修炼资质纯度时采用的零点，不参与灵根类型判定。</summary>
+    public float PuritySimilarityBaseline;
+
+}
+
 public class ElementRootAsset : Asset
 {
     /// <summary>灵根类型稳定表达的先天语义；实际元素比例由组件数值贡献。</summary>
@@ -11,10 +25,12 @@ public class ElementRootAsset : Asset
 
     public readonly BaseStats base_stats = new();
     public readonly ElementComposition composition;
-    public string icon_path;
+    public readonly ElementRootArchetypeProfile Archetype = new();
+    public string IconPath;
+
     public Sprite GetSprite()
     {
-        return SpriteTextureLoader.getSprite($"cultiway/icons/element_root/{icon_path}");
+        return SpriteTextureLoader.getSprite(IconPath);
     }
 
     private string f_desc_key;

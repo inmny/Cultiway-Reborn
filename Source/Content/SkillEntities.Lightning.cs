@@ -26,7 +26,7 @@ public partial class SkillEntities
 
     private static void ConfigureLightning()
     {
-        var lightning = new ElementComposition(pos: 0.5f, entropy: 0.5f, normalize: true);
+        var lightning = ElementComposition.Static.Lightning;
 
         Configure(
             ThunderOrb,
