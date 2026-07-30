@@ -20,7 +20,7 @@ public partial class SkillEntities
 
     private static void ConfigureGeneric()
     {
-        var generic = new ElementComposition(normalize: true);
+        var generic = new ElementComposition();
 
         Configure(
             SpiritBolt,

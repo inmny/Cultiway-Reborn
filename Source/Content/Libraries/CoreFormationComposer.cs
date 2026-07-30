@@ -112,6 +112,7 @@ public static class CoreFormationComposer
     private const float EarthQualityThreshold = 2.5f;
     private const float HeavenQualityThreshold = 4f;
     private const float MaximumQualityScore = 5.5f;
+    private const float RepresentativeSkillSemanticWeight = 0.3f;
 
     private static readonly int[] AwakeningStages = [3, 6];
     private static readonly string[] ArmorStats =
@@ -525,30 +526,74 @@ public static class CoreFormationComposer
         return StableHash64(builder.ToString()).ToString("X16", CultureInfo.InvariantCulture);
     }
 
-    /// <summary>按元素相似度和语义重合度选择最能代表当前组合的可学习法术。</summary>
+    /// <summary>
+    /// 优先按元素相似度和非元素语义契合选择代表法术；通用法术只在没有元素候选时兜底。
+    /// </summary>
     private static string ResolveRepresentativeSkill(CoreFormationSnapshot snapshot)
     {
-        var semanticIds = new HashSet<string>((snapshot.semantics ?? []).Select(value => value.semantic_id),
-            StringComparer.Ordinal);
+        var snapshotSemantics = CollectNonElementSemantics(
+            SemanticDescriptor.Weighted(snapshot.semantics ?? []));
         var seed = NamingRuleUtils.StableHash(snapshot.signature);
-        SkillEntityAsset best = null;
-        var bestScore = float.MinValue;
+        SkillEntityAsset bestElemental = null;
+        SkillEntityAsset bestGeneric = null;
+        var bestElementalScore = float.MinValue;
+        var bestGenericScore = float.MinValue;
         foreach (var asset in ModClass.I.SkillV3.SkillLib.list)
         {
             if (asset == null || !asset.CanBeLearned) continue;
+            var semanticSimilarity = ResolveNonElementSemanticSimilarity(snapshotSemantics, asset.Semantics);
+            var tieBreak = (NamingRuleUtils.StableHash($"{seed}|{asset.id}") % 1000) / 1000000f;
+            if (IsGenericSkill(asset))
+            {
+                var genericScore = semanticSimilarity * RepresentativeSkillSemanticWeight + tieBreak;
+                if (genericScore <= bestGenericScore) continue;
+                bestGeneric = asset;
+                bestGenericScore = genericScore;
+                continue;
+            }
+
             var similarity = MathUtils.CosineSimilarity(snapshot.composition.AsArray(), asset.Element.AsArray());
             if (float.IsNaN(similarity) || float.IsInfinity(similarity)) similarity = 0f;
-            var semantics = SkillSemanticCollector.NewSet();
-            SkillSemanticCollector.CollectAssetSemantics(asset, semantics);
-            var overlap = semantics.Count(value => semanticIds.Contains(value.id));
-            if (similarity <= 0f && overlap == 0) continue;
-            var score = similarity + overlap * 0.15f +
-                        (NamingRuleUtils.StableHash($"{seed}|{asset.id}") % 1000) / 1000000f;
-            if (score <= bestScore) continue;
-            best = asset;
-            bestScore = score;
+            if (similarity <= 0f) continue;
+            var score = similarity + semanticSimilarity * RepresentativeSkillSemanticWeight + tieBreak;
+            if (score <= bestElementalScore) continue;
+            bestElemental = asset;
+            bestElementalScore = score;
         }
-        return best?.id;
+        return bestElemental?.id ?? bestGeneric?.id;
+    }
+
+    /// <summary>判断法术是否显式声明了通用元素语义。</summary>
+    private static bool IsGenericSkill(SkillEntityAsset asset)
+    {
+        return asset.Semantics.ContainsExpanded(ModClass.L.SemanticLibrary, SkillSemantics.Element.Generic);
+    }
+
+    /// <summary>展开描述并移除元素维度，避免元素组成和元素标签被重复计分。</summary>
+    private static HashSet<SemanticAsset> CollectNonElementSemantics(SemanticDescriptor descriptor)
+    {
+        var semantics = SkillSemanticCollector.NewSet();
+        SkillSemanticCollector.CollectDescriptorSemantics(descriptor, semantics);
+        semantics.RemoveWhere(semantic => semantic.Facet == ModClass.L.SemanticFacetLibrary.Element);
+        return semantics;
+    }
+
+    /// <summary>使用 Dice 系数计算有界的非元素语义契合度，避免按标签数量线性叠加。</summary>
+    private static float ResolveNonElementSemanticSimilarity(
+        HashSet<SemanticAsset> snapshotSemantics,
+        SemanticDescriptor skillSemantics)
+    {
+        if (snapshotSemantics.Count == 0 || skillSemantics == null) return 0f;
+        var candidateSemantics = CollectNonElementSemantics(skillSemantics);
+        if (candidateSemantics.Count == 0) return 0f;
+
+        var intersection = 0;
+        foreach (var semantic in candidateSemantics)
+        {
+            if (snapshotSemantics.Contains(semantic)) intersection++;
+        }
+
+        return 2f * intersection / (snapshotSemantics.Count + candidateSemantics.Count);
     }
 
     /// <summary>惰性枚举当前阶段已显化且定义仍存在的原子资产。</summary>
