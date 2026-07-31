@@ -26,6 +26,67 @@ internal static class PatchActor
         CombatWorldService.ValidateCriticalPatches();
     }
 
+    /// <summary>
+    /// 战术任务内部保持单一 BehaviourTaskActor，但角色信息界面显示当前真实活动。
+    /// </summary>
+    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.getTaskText))]
+    private static void getTaskText_postfix(Actor __instance, ref string __result)
+    {
+        if (World.world == null ||
+            !CombatWorldService.TryGetDisplayedActivity(
+                __instance,
+                out CombatActivityPresentation activity,
+                out double startedAt))
+            return;
+
+        string movementText = ResolveCombatMovementLocaleKey(activity.Movement);
+        string actionText = ResolveCombatActionLocaleKey(activity.Action);
+        string activityText = string.IsNullOrEmpty(movementText)
+            ? actionText.Localize()
+            : string.IsNullOrEmpty(actionText)
+                ? movementText.Localize()
+                : movementText.Localize() + " · " + actionText.Localize();
+        string activityTime = Date.formatSeconds(
+            World.world.getWorldTimeElapsedSince(startedAt));
+        __result = activityText + " " +
+                   activityTime.ColorHex(ColorStyleLibrary.m.color_text_grey_dark);
+    }
+
+    /// <summary>将移动或站位状态映射到任务栏本地化键。</summary>
+    private static string ResolveCombatMovementLocaleKey(CombatActivityMovement movement)
+    {
+        return movement switch
+        {
+            CombatActivityMovement.Observe => "Task.Unit.Cultiway.TacticalCombat.Movement.Observe",
+            CombatActivityMovement.Advance => "Task.Unit.Cultiway.TacticalCombat.Movement.Advance",
+            CombatActivityMovement.Reposition => "Task.Unit.Cultiway.TacticalCombat.Movement.Reposition",
+            CombatActivityMovement.Regroup => "Task.Unit.Cultiway.TacticalCombat.Movement.Regroup",
+            CombatActivityMovement.Retreat => "Task.Unit.Cultiway.TacticalCombat.Movement.Retreat",
+            CombatActivityMovement.Assist => "Task.Unit.Cultiway.TacticalCombat.Movement.Assist",
+            CombatActivityMovement.Protect => "Task.Unit.Cultiway.TacticalCombat.Movement.Protect",
+            CombatActivityMovement.Hold => "Task.Unit.Cultiway.TacticalCombat.Movement.Hold",
+            _ => string.Empty
+        };
+    }
+
+    /// <summary>将动作阶段映射到任务栏本地化键。</summary>
+    private static string ResolveCombatActionLocaleKey(CombatActivityAction action)
+    {
+        return action switch
+        {
+            CombatActivityAction.Ready => "Task.Unit.Cultiway.TacticalCombat.Action.Ready",
+            CombatActivityAction.PrepareAttack => "Task.Unit.Cultiway.TacticalCombat.Action.PrepareAttack",
+            CombatActivityAction.PrepareDefense => "Task.Unit.Cultiway.TacticalCombat.Action.PrepareDefense",
+            CombatActivityAction.PrepareControl => "Task.Unit.Cultiway.TacticalCombat.Action.PrepareControl",
+            CombatActivityAction.PrepareSupport => "Task.Unit.Cultiway.TacticalCombat.Action.PrepareSupport",
+            CombatActivityAction.Attack => "Task.Unit.Cultiway.TacticalCombat.Action.Attack",
+            CombatActivityAction.Defend => "Task.Unit.Cultiway.TacticalCombat.Action.Defend",
+            CombatActivityAction.Control => "Task.Unit.Cultiway.TacticalCombat.Action.Control",
+            CombatActivityAction.Support => "Task.Unit.Cultiway.TacticalCombat.Action.Support",
+            _ => string.Empty
+        };
+    }
+
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.addChildren))]
     private static void addChildren_postfix(Actor __instance)
     {
