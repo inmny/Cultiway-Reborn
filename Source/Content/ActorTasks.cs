@@ -5,6 +5,7 @@ using Cultiway.Content.Behaviours;
 using Cultiway.Content.Behaviours.Apprentices;
 using Cultiway.Content.Behaviours.Masters;
 using Cultiway.Content.Const;
+using Cultiway.Core.Combat.Tactical;
 
 namespace Cultiway.Content;
 
@@ -54,6 +55,10 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor TeachApprentice { get; private set; }
     public static BehaviourTaskActor SeekMaster { get; private set; }
     public static BehaviourTaskActor FollowMaster { get; private set; }
+
+    /// <summary>仅维持战斗占用状态，由战术规划器负责目标、站位和出手。</summary>
+    [AssetId(TacticalCombatSettings.TacticalTaskId)]
+    public static BehaviourTaskActor TacticalCombat { get; private set; }
     
     [GetOnly("random_move")] public static BehaviourTaskActor RandomMove { get; private set; }
 
@@ -323,6 +328,10 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         FollowMaster.addBeh(new BehFollowMaster());
         FollowMaster.addBeh(new BehEndJob());
         FollowMaster.setIcon("cultiway/icons/iconMasterApprentice");
+
+        TacticalCombat.in_combat = true;
+        TacticalCombat.addBeh(new BehMaintainTacticalCombat());
+        TacticalCombat.setIcon("ui/Icons/iconWar");
     }
     protected override void PostInit(BehaviourTaskActor asset)
     {

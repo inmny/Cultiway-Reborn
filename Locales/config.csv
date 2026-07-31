@@ -24,6 +24,8 @@ ENABLE_NATURAL_WAKAN_RESTORE,启用自然灵气吸收
 ENABLE_NATURAL_WAKAN_RESTORE Description,启用修士按月从脚下地块自然吸收灵气
 ENABLE_NATURAL_MAGIC_RESTORE,启用魔法资源自然恢复
 ENABLE_NATURAL_MAGIC_RESTORE Description,启用魔法师按月自然恢复 mana 和精神力；精神力只会恢复到上限的六成
+ENABLE_TACTICAL_COMBAT,启用战术战斗
+ENABLE_TACTICAL_COMBAT Description,启用目标、站位、动作、支援、撤退与溃逃的统一战斗规划；关闭后恢复原版自主战斗逻辑
 PerformanceSettings,性能设置
 ENABLE_FRAME_PRIORITY_SCHEDULER,启用帧优先调度
 ENABLE_FRAME_PRIORITY_SCHEDULER Description,在完整执行每个逻辑 tick 的前提下将模拟工作分摊到多个渲染帧，优先维持画面帧率

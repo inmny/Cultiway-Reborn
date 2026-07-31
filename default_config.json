@@ -75,6 +75,12 @@
             "Callback": "GeneralSettings:SwitchNaturalMagicRestore"
         },
         {
+            "Id": "ENABLE_TACTICAL_COMBAT",
+            "Type": "SWITCH",
+            "BoolVal": true,
+            "Callback": "GeneralSettings:SwitchTacticalCombat"
+        },
+        {
             "Id": "TRAIN_STATION_TIMED_DISPATCH_EXPERIMENTAL",
             "Type": "SWITCH",
             "BoolVal": false,

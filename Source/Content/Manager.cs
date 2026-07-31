@@ -10,6 +10,7 @@ using Cultiway.Content.Sects;
 using Cultiway.Content.Systems.Logic;
 using Cultiway.Content.Systems.Render;
 using Cultiway.Core;
+using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 
@@ -56,6 +57,7 @@ internal class Manager
 
         // Content 的语义扩展已经全部注册，此时统一解析别名、父级和蕴含关系。
         ModClass.L.SemanticLibrary.LinkAndValidate();
+        CombatWorldService.Initialize();
 
         new Patch.Manager().Init();
         ModClass.I.GeneralLogicSystems.Add(new FlyCancelSystem());

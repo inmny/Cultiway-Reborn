@@ -1,4 +1,5 @@
 using Cultiway.Content;
+using Cultiway.Core.Combat.Tactical;
 
 namespace Cultiway.Const;
 
@@ -54,6 +55,10 @@ public static class GeneralSettings
     /// 魔法师自然恢复 mana 和精神力。
     /// </summary>
     public static bool EnableNaturalMagicRestore { get; private set; } = true;
+    /// <summary>
+    /// 战术战斗层。关键补丁失败时该值也会随集中开关自动变为 false。
+    /// </summary>
+    public static bool EnableTacticalCombat => TacticalCombatSettings.Enabled;
     public static void SetElementRootSpawnNaturally(float value)
     {
         SpawnNaturally = value;
@@ -115,6 +120,11 @@ public static class GeneralSettings
     public static void SwitchNaturalMagicRestore(bool value)
     {
         EnableNaturalMagicRestore = value;
+    }
+
+    public static void SwitchTacticalCombat(bool value)
+    {
+        TacticalCombatSettings.SetEnabled(value);
     }
 
     public static void SwitchTrainExperimentalTimedDispatch(bool value)
