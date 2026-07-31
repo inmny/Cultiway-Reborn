@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Impacts;
@@ -16,6 +17,8 @@ namespace Cultiway.Core.SkillLibV3.Systems;
 /// </summary>
 public sealed class LogicSkillPersistentSystem : BaseSystem
 {
+    private static SkillPersistentCombatSnapshot[] publishedCombatSnapshots =
+        Array.Empty<SkillPersistentCombatSnapshot>();
     private readonly ArchetypeQuery<SkillPersistentState, SkillContext, Position, Rotation, SkillEntity>
         persistentQuery;
     private readonly ArchetypeQuery<SkillContext, Position, SkillEntity, Trajectory> skillQuery;
@@ -41,6 +44,7 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
     {
         CollectPersistentEntities();
         EnforceInstanceLimits();
+        PublishCombatSnapshots();
         if (HasProjectileInterceptor())
         {
             InterceptSkillEntities();
@@ -51,6 +55,29 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
             previousProjectilePositions.Clear();
         }
         BlockGroundActors();
+    }
+
+    /// <summary>
+    /// 在主线程复制指定区域内的场域和屏障，供战斗规划构造不可变快照。
+    /// </summary>
+    public static void CopyCombatSnapshots(
+        Vector2 center,
+        float radius,
+        ICollection<SkillPersistentCombatSnapshot> output)
+    {
+        float radiusSquared = Mathf.Max(0f, radius) * Mathf.Max(0f, radius);
+        SkillPersistentCombatSnapshot[] snapshots = publishedCombatSnapshots;
+        for (int i = 0; i < snapshots.Length; i++)
+        {
+            if ((snapshots[i].Position - center).sqrMagnitude <= radiusSquared)
+                output.Add(snapshots[i]);
+        }
+    }
+
+    /// <summary>清除跨帧发布的战场占位快照，避免新世界读取上一世界的屏障。</summary>
+    public static void ClearCombatSnapshots()
+    {
+        publishedCombatSnapshots = Array.Empty<SkillPersistentCombatSnapshot>();
     }
 
     private bool HasProjectileInterceptor()
@@ -76,6 +103,7 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
             var snapshot = new PersistentSnapshot(
                 entity,
                 state,
+                context.SourceId,
                 context.ResolveAttackKingdom(),
                 position.v2,
                 Normalize(rotation.value),
@@ -105,6 +133,36 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
                 if (!entity.Tags.Has<TagRecycle>()) entity.AddTag<TagRecycle>();
             }
         }
+    }
+
+    private void PublishCombatSnapshots()
+    {
+        if (persistent.Count == 0)
+        {
+            publishedCombatSnapshots = Array.Empty<SkillPersistentCombatSnapshot>();
+            return;
+        }
+
+        var snapshots = new SkillPersistentCombatSnapshot[persistent.Count];
+        int count = 0;
+        for (int i = 0; i < persistent.Count; i++)
+        {
+            PersistentSnapshot source = persistent[i];
+            if (source.Entity.IsNull ||
+                source.Entity.Tags.Has<TagRecycle>() ||
+                source.State.Durability <= 0f) continue;
+            snapshots[count++] = new SkillPersistentCombatSnapshot(
+                source.SourceId,
+                source.Kingdom,
+                source.State.Kind,
+                source.Position,
+                source.Direction,
+                source.State.Length,
+                source.State.Width,
+                source.State.Durability);
+        }
+        if (count != snapshots.Length) Array.Resize(ref snapshots, count);
+        publishedCombatSnapshots = snapshots;
     }
 
     private void InterceptSkillEntities()
@@ -255,12 +313,20 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
         if (barrier.State.Kind == SkillPersistentKind.Shield)
         {
             float radius = barrier.State.Length * 0.5f + barrier.State.Width;
-            return SegmentIntersectsCircle(start, end, barrier.Position, radius);
+            return CombatGeometry.SegmentIntersectsCircle(
+                start,
+                end,
+                barrier.Position,
+                radius);
         }
 
         Vector2 side = new(-barrier.Direction.y, barrier.Direction.x);
         Vector2 half = side * (barrier.State.Length * 0.5f);
-        return SegmentDistanceSquared(start, end, barrier.Position - half, barrier.Position + half) <=
+        return CombatGeometry.SegmentDistanceSquared(
+                   start,
+                   end,
+                   barrier.Position - half,
+                   barrier.Position + half) <=
                barrier.State.Width * barrier.State.Width;
     }
 
@@ -291,62 +357,6 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
     {
         var result = new Vector2(direction.x, direction.y);
         return result.sqrMagnitude > 0.0001f ? result.normalized : Vector2.right;
-    }
-
-    private static bool SegmentIntersectsCircle(Vector2 start, Vector2 end, Vector2 center, float radius)
-    {
-        Vector2 segment = end - start;
-        float lengthSquared = segment.sqrMagnitude;
-        float t = lengthSquared > 0.0001f
-            ? Mathf.Clamp01(Vector2.Dot(center - start, segment) / lengthSquared)
-            : 0f;
-        return (center - (start + segment * t)).sqrMagnitude <= radius * radius;
-    }
-
-    private static float SegmentDistanceSquared(Vector2 a0, Vector2 a1, Vector2 b0, Vector2 b1)
-    {
-        if (SegmentsIntersect(a0, a1, b0, b1)) return 0f;
-        return Mathf.Min(
-            Mathf.Min(PointSegmentDistanceSquared(a0, b0, b1), PointSegmentDistanceSquared(a1, b0, b1)),
-            Mathf.Min(PointSegmentDistanceSquared(b0, a0, a1), PointSegmentDistanceSquared(b1, a0, a1)));
-    }
-
-    private static bool SegmentsIntersect(Vector2 a0, Vector2 a1, Vector2 b0, Vector2 b1)
-    {
-        const float epsilon = 0.0001f;
-        float d1 = Cross(a1 - a0, b0 - a0);
-        float d2 = Cross(a1 - a0, b1 - a0);
-        float d3 = Cross(b1 - b0, a0 - b0);
-        float d4 = Cross(b1 - b0, a1 - b0);
-        if (Mathf.Abs(d1) <= epsilon && IsOnSegment(b0, a0, a1)) return true;
-        if (Mathf.Abs(d2) <= epsilon && IsOnSegment(b1, a0, a1)) return true;
-        if (Mathf.Abs(d3) <= epsilon && IsOnSegment(a0, b0, b1)) return true;
-        if (Mathf.Abs(d4) <= epsilon && IsOnSegment(a1, b0, b1)) return true;
-        return (d1 > 0f) != (d2 > 0f) && (d3 > 0f) != (d4 > 0f);
-    }
-
-    private static bool IsOnSegment(Vector2 point, Vector2 start, Vector2 end)
-    {
-        const float epsilon = 0.0001f;
-        return point.x >= Mathf.Min(start.x, end.x) - epsilon &&
-               point.x <= Mathf.Max(start.x, end.x) + epsilon &&
-               point.y >= Mathf.Min(start.y, end.y) - epsilon &&
-               point.y <= Mathf.Max(start.y, end.y) + epsilon;
-    }
-
-    private static float PointSegmentDistanceSquared(Vector2 point, Vector2 start, Vector2 end)
-    {
-        Vector2 segment = end - start;
-        float lengthSquared = segment.sqrMagnitude;
-        float t = lengthSquared > 0.0001f
-            ? Mathf.Clamp01(Vector2.Dot(point - start, segment) / lengthSquared)
-            : 0f;
-        return (point - (start + segment * t)).sqrMagnitude;
-    }
-
-    private static float Cross(Vector2 left, Vector2 right)
-    {
-        return left.x * right.y - left.y * right.x;
     }
 
     private readonly struct PersistentKey : IEquatable<PersistentKey>
@@ -385,20 +395,57 @@ public sealed class LogicSkillPersistentSystem : BaseSystem
     {
         public readonly Entity Entity;
         public readonly SkillPersistentState State;
+        public readonly long SourceId;
         public readonly Kingdom Kingdom;
         public readonly Vector2 Position;
         public readonly Vector2 Direction;
         public readonly float Elapsed;
 
-        public PersistentSnapshot(Entity entity, SkillPersistentState state, Kingdom kingdom,
+        public PersistentSnapshot(Entity entity, SkillPersistentState state, long sourceId, Kingdom kingdom,
             Vector2 position, Vector2 direction, float elapsed)
         {
             Entity = entity;
             State = state;
+            SourceId = sourceId;
             Kingdom = kingdom;
             Position = position;
             Direction = direction;
             Elapsed = elapsed;
         }
+    }
+}
+
+/// <summary>
+/// 持久技能系统向其他模块公开的只读战场占位信息。
+/// </summary>
+public readonly struct SkillPersistentCombatSnapshot
+{
+    public readonly long SourceId;
+    public readonly Kingdom Kingdom;
+    public readonly SkillPersistentKind Kind;
+    public readonly Vector2 Position;
+    public readonly Vector2 Direction;
+    public readonly float Length;
+    public readonly float Width;
+    public readonly float Durability;
+
+    public SkillPersistentCombatSnapshot(
+        long sourceId,
+        Kingdom kingdom,
+        SkillPersistentKind kind,
+        Vector2 position,
+        Vector2 direction,
+        float length,
+        float width,
+        float durability)
+    {
+        SourceId = sourceId;
+        Kingdom = kingdom;
+        Kind = kind;
+        Position = position;
+        Direction = direction;
+        Length = length;
+        Width = width;
+        Durability = durability;
     }
 }
