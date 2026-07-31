@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Impacts;
+using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -134,6 +136,8 @@ public readonly struct ActiveAbilityTacticalProfile
     public readonly float ResourceDemand;
     public readonly float ExpectedTargets;
     public readonly SkillImpactKind? ImpactKind;
+    /// <summary>不带用途含义的通用效用评级。</summary>
+    public readonly float Utility;
 
     public ActiveAbilityTacticalProfile(
         float offensive,
@@ -143,7 +147,8 @@ public readonly struct ActiveAbilityTacticalProfile
         float power,
         float resourceDemand,
         float expectedTargets,
-        SkillImpactKind? impactKind = null)
+        SkillImpactKind? impactKind = null,
+        float utility = 0f)
     {
         Offensive = Mathf.Max(0f, offensive);
         Defensive = Mathf.Max(0f, defensive);
@@ -153,6 +158,7 @@ public readonly struct ActiveAbilityTacticalProfile
         ResourceDemand = Mathf.Max(0f, resourceDemand);
         ExpectedTargets = Mathf.Max(1f, expectedTargets);
         ImpactKind = impactKind;
+        Utility = Mathf.Max(0f, utility);
     }
 
     /// <summary>
@@ -180,21 +186,34 @@ public readonly struct ActiveAbilityTacticalProfile
         bool defensive = forceDefensive ||
                          asset.Type == SkillEntityType.Defense ||
                          impact.Kind is SkillImpactKind.Wall or SkillImpactKind.Shield;
-        bool wall = impact.Kind == SkillImpactKind.Wall;
         float utility = evaluated ? evaluation.Utility : 0f;
-        if (defensive && !wall) utility = Mathf.Max(0.25f, utility);
+        var semantics = new HashSet<SemanticAsset>();
+        SkillSemanticCollector.CollectAssetSemantics(asset, semantics);
+        SkillSemanticCollector.CollectModifierSemantics(skill, semantics);
+        SkillSemanticCollector.CollectTrajectorySemantics(asset, skill, semantics);
+        bool explicitSupport = semantics.Contains(SkillSemantics.Role.Support);
+        bool explicitDefense = semantics.Contains(SkillSemantics.Role.Defensive);
+        bool explicitOffense = semantics.Contains(SkillSemantics.Role.Offensive);
+        defensive |= explicitDefense;
+        float support = explicitSupport
+            ? Mathf.Max(0.25f, Mathf.Max(utility, power * 0.5f))
+            : 0f;
+        float offense = explicitOffense || (!defensive && !explicitSupport)
+            ? directPower
+            : 0f;
 
         return new ActiveAbilityTacticalProfile(
-            defensive ? 0f : directPower,
+            offense,
             defensive ? power : 0f,
-            defensive ? utility : evaluated ? evaluation.Utility : 0f,
+            support,
             evaluated ? evaluation.Control : 0f,
             power,
             evaluated ? evaluation.ResourceDemandPerStep : 0f,
             evaluated && evaluation.ExpectedTargets > 0f
                 ? evaluation.ExpectedTargets
                 : impact.ExpectedTargets,
-            impact.Kind);
+            impact.Kind,
+            utility);
     }
 }
 

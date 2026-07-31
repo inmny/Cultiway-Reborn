@@ -119,6 +119,33 @@ public static class CombatWorldService
     }
 
     /// <summary>
+    /// 返回任务栏应显示的粗粒度战术活动及该活动的开始时间。
+    /// 内部任务仍保持为战术交战，避免展示变化重置行为和路径。
+    /// </summary>
+    public static bool TryGetDisplayedActivity(
+        Actor actor,
+        out CombatActivityPresentation activity,
+        out double startedAt)
+    {
+        activity = default;
+        startedAt = 0d;
+        if (actor == null ||
+            !actor.isTask(TacticalCombatSettings.TacticalTaskId) ||
+            !ActorStates.TryGetValue(actor.getID(), out CombatActorRuntime runtime) ||
+            !runtime.IsEngaged)
+            return false;
+
+        double now = CurrentTime;
+        activity = ResolveDisplayedActivity(actor, runtime, now);
+        if (activity.Movement == CombatActivityMovement.None &&
+            activity.Action == CombatActivityAction.None)
+            return false;
+        SetDisplayedActivity(runtime, activity, now);
+        startedAt = runtime.DisplayedActivityStartedAt;
+        return true;
+    }
+
+    /// <summary>
     /// 角色离开战术接管条件时释放自主计划，但保留冷却、观察以及外部仍可能使用的攻击目标。
     /// </summary>
     public static void ReleaseActorTakeover(Actor actor)
@@ -136,6 +163,7 @@ public static class CombatWorldService
             runtime.TargetPathFailures = 0;
             runtime.LastProgressAt = CurrentTime;
             runtime.LastProgressPosition = actor.current_position;
+            ResetDisplayedActivity(runtime);
             runtime.TouchRevision();
             CombatMovementService.Clear(
                 actor,
@@ -177,7 +205,10 @@ public static class CombatWorldService
             return false;
 
         BaseSimObject enemy = runtime.Plan.PrimaryEnemy.Object;
-        if (!IsValidEnemy(actor, enemy))
+        if (!IsValidEnemy(
+                actor,
+                enemy,
+                runtime.Plan.PrimaryEnemy.ThreatSource != CombatThreatSource.None))
         {
             RequestMovementRefresh(runtime, clearBearing: true);
             return false;
@@ -208,6 +239,7 @@ public static class CombatWorldService
             actionTarget,
             targetPosition);
         CombatActionCandidate executedAction = runtime.Plan.Action;
+        CombatActionUse executedUse = runtime.Plan.ActionUse;
         CombatExecutionStatus result = CombatActionService.Execute(executedAction, context);
         if (result != CombatExecutionStatus.Started && runtime.Plan.BackupAction != null)
         {
@@ -227,7 +259,10 @@ public static class CombatWorldService
                     runtime.Plan.BackupAction,
                     backupContext);
                 if (backupResult == CombatExecutionStatus.Started)
+                {
                     executedAction = runtime.Plan.BackupAction;
+                    executedUse = runtime.Plan.BackupActionUse;
+                }
                 result = backupResult;
             }
         }
@@ -238,6 +273,9 @@ public static class CombatWorldService
             runtime.NextActionAttemptAt = 0d;
             runtime.TargetPathFailures = 0;
             runtime.LastProgressAt = now;
+            runtime.ActiveActionUse = executedUse;
+            runtime.ActionPresentationUntil = now +
+                                              TacticalCombatSettings.ActionPresentationDuration;
             switch (executedAction.Profile.MovementMode)
             {
                 case CombatActionMovementMode.BriefStop:
@@ -401,10 +439,19 @@ public static class CombatWorldService
         PublishObservationToArmy(source, sourceRuntime.Observations[target.getID()], now);
 
         CombatActorRuntime targetRuntime = GetOrCreateActorState(target);
-        targetRuntime.RecentAttackers[source.getID()] = now;
-        CombatObservationService.ObserveVisible(targetRuntime, target, source, now);
+        CombatObservation incomingObservation = CombatObservationService.ObserveVisible(
+            targetRuntime,
+            target,
+            source,
+            now);
+        RecordIncomingThreat(
+            source,
+            target,
+            targetRuntime,
+            incomingObservation,
+            0.2f,
+            now);
         targetRuntime.Morale = Mathf.Clamp01(targetRuntime.Morale - 0.005f);
-        RequestDecisionRefresh(targetRuntime);
     }
 
     /// <summary>
@@ -428,9 +475,18 @@ public static class CombatWorldService
         PublishObservationToArmy(attacker, observation, now);
 
         CombatActorRuntime targetRuntime = GetOrCreateActorState(target);
-        targetRuntime.RecentAttackers[attacker.getID()] = now;
-        CombatObservationService.ObserveVisible(targetRuntime, target, attacker, now);
-        RequestDecisionRefresh(targetRuntime);
+        CombatObservation incomingObservation = CombatObservationService.ObserveVisible(
+            targetRuntime,
+            target,
+            attacker,
+            now);
+        RecordIncomingThreat(
+            attacker,
+            target,
+            targetRuntime,
+            incomingObservation,
+            0.2f,
+            now);
     }
 
     /// <summary>记录攻击的最终伤害结算，用于更新认知、士气和重新选策。</summary>
@@ -460,12 +516,22 @@ public static class CombatWorldService
         CombatActorRuntime targetRuntime = GetOrCreateActorState(target);
         float maxHealth = Mathf.Max(1f, target.getMaxHealth());
         float pressure = Mathf.Clamp01(Mathf.Max(0f, damage) / maxHealth);
+        CombatObservation incomingObservation = CombatObservationService.ObserveVisible(
+            targetRuntime,
+            target,
+            source,
+            now);
+        RecordIncomingThreat(
+            source,
+            target,
+            targetRuntime,
+            incomingObservation,
+            Mathf.Clamp01(0.2f + pressure),
+            now);
         targetRuntime.Morale = Mathf.Clamp01(
             targetRuntime.Morale - pressure * 0.45f - (ineffective ? 0f : 0.01f));
         sourceRuntime.Morale = Mathf.Clamp01(
             sourceRuntime.Morale + (damage > 0f ? 0.015f : -0.005f));
-        ReduceArmyMorale(target, pressure * 0.3f);
-        RequestDecisionRefresh(targetRuntime);
     }
 
     /// <summary>通知战斗层某角色的寻路失败，并在重复失败后更换目标。</summary>
@@ -565,9 +631,36 @@ public static class CombatWorldService
         double now = CurrentTime;
         runtime.Plan = plan;
         runtime.NextPlanAt = now + ResolvePlanInterval(actor, snapshot.HighFidelity, snapshot.Revision);
-        if (plan == null || !plan.HasEnemy || !IsValidEnemy(actor, plan.PrimaryEnemy.Object))
+        if (plan == null ||
+            !plan.HasEnemy ||
+            !IsValidEnemy(
+                actor,
+                plan.PrimaryEnemy.Object,
+                plan.PrimaryEnemy.ThreatSource != CombatThreatSource.None))
         {
             UpdateArmyRout(actor, default, true);
+            if (runtime.IsEngaged)
+            {
+                if (runtime.LostContactSince <= 0d) runtime.LostContactSince = now;
+                if (now - runtime.LostContactSince < TacticalCombatSettings.LostContactGrace)
+                {
+                    runtime.CurrentTargetId = 0;
+                    CombatMovementService.Clear(
+                        actor,
+                        runtime,
+                        stopMovement: true,
+                        clearBearing: true);
+                    if (!actor.attack_target.isRekt()) actor.clearAttackTarget();
+                    if (!actor.isTask(TacticalCombatSettings.TacticalTaskId))
+                    {
+                        actor.setTask(
+                            TacticalCombatSettings.TacticalTaskId,
+                            pClean: false,
+                            pCleanJob: true);
+                    }
+                    return;
+                }
+            }
             LeaveCombat(actor, runtime);
             actor._timeout_targets = Mathf.Max(
                 actor._timeout_targets,
@@ -576,6 +669,7 @@ public static class CombatWorldService
         }
 
         BaseSimObject enemy = plan.PrimaryEnemy.Object;
+        runtime.LostContactSince = 0d;
         runtime.IsEngaged = true;
         runtime.CurrentTargetId = enemy.getID();
         actor.setAttackTarget(enemy);
@@ -635,16 +729,28 @@ public static class CombatWorldService
             FormationCohesion = 1f,
             CurrentTargetId = runtime.CurrentTargetId,
             CurrentActionKey = runtime.Plan?.Action?.Key,
+            CurrentActionUse = runtime.Plan?.ActionUse ?? CombatActionUse.None,
+            CurrentIntent = runtime.Plan?.Intent ?? CombatIntent.None,
             CanRetreat = CanRetreat(actor),
             HighFidelity = highFidelity,
             ArmyRouted = armyRuntime?.Routed ?? false,
             Directive = directive
         };
 
+        using var nearbyAllies = new ListPool<Actor>();
+        CollectNearbyCombatAllies(actor, nearbyAllies);
+        Dictionary<long, CombatThreatContext> threatContexts = CollectRelevantThreats(
+            actor,
+            runtime,
+            armyRuntime,
+            nearbyAllies,
+            now);
+
         List<BaseSimObject> enemyObjects = CollectEnemyObjects(
             actor,
             runtime,
             armyRuntime,
+            threatContexts,
             directive,
             enemyCap,
             now,
@@ -658,12 +764,22 @@ public static class CombatWorldService
             armyRuntime,
             enemyObjects,
             visibleEnemyIds,
+            threatContexts,
             obstacles,
             now);
-        CombatantSnapshot[] allies = BuildAllySnapshots(actor, allyCap);
+        long preferredThreatenedAllyId = ResolvePreferredThreatenedAllyId(
+            threatContexts,
+            actor.getID());
+        CombatantSnapshot[] allies = BuildAllySnapshots(
+            actor,
+            nearbyAllies,
+            allyCap,
+            preferredThreatenedAllyId);
         snapshot.FormationCohesion = ResolveFormationCohesion(snapshot.Position, allies);
-        Actor preferredAlly = ResolvePreferredAlly(allies);
         CombatantSnapshot provisionalEnemy = ResolveProvisionalEnemy(actor, enemies);
+        Actor preferredAlly = ResolvePreferredAlly(
+            allies,
+            provisionalEnemy.ThreatenedAllyId);
         Vector2 engagementBearing = CombatMovementService.ResolveEngagementBearing(
             actor,
             runtime,
@@ -703,10 +819,161 @@ public static class CombatWorldService
         return snapshot;
     }
 
+    /// <summary>
+    /// 合并个人受袭、军队共享与同国近邻的近期威胁。结果按攻击者去重，避免同一目标重复进入快照。
+    /// </summary>
+    private static Dictionary<long, CombatThreatContext> CollectRelevantThreats(
+        Actor actor,
+        CombatActorRuntime runtime,
+        CombatArmyRuntime armyRuntime,
+        IReadOnlyList<Actor> nearbyAllies,
+        double now)
+    {
+        var result = new Dictionary<long, CombatThreatContext>();
+        AddRelevantThreats(
+            actor,
+            runtime.IncomingThreats,
+            CombatThreatSource.Personal,
+            float.MaxValue,
+            now,
+            result,
+            allowSameKingdom: true);
+
+        if (armyRuntime != null)
+        {
+            AddRelevantThreats(
+                actor,
+                armyRuntime.SharedThreats,
+                CombatThreatSource.Army,
+                TacticalCombatSettings.ArmyAssistRadius,
+                now,
+                result,
+                allowSameKingdom: false);
+        }
+
+        if (actor.kingdom == null) return result;
+        for (int i = 0; i < nearbyAllies.Count; i++)
+        {
+            Actor ally = nearbyAllies[i];
+            if (Toolbox.SquaredDistVec2Float(actor.current_position, ally.current_position) >
+                TacticalCombatSettings.NearbyAssistRadius *
+                TacticalCombatSettings.NearbyAssistRadius)
+                continue;
+            if (!ActorStates.TryGetValue(ally.getID(), out CombatActorRuntime allyRuntime))
+                continue;
+            AddRelevantThreats(
+                actor,
+                allyRuntime.IncomingThreats,
+                CombatThreatSource.NearbyAlly,
+                TacticalCombatSettings.NearbyAssistRadius,
+                now,
+                result,
+                allowSameKingdom: false);
+        }
+        return result;
+    }
+
+    /// <summary>筛选指定来源中仍新鲜、合法且位于响应半径内的威胁。</summary>
+    private static void AddRelevantThreats(
+        Actor actor,
+        IReadOnlyDictionary<CombatThreatKey, CombatThreatSignal> source,
+        CombatThreatSource threatSource,
+        float radius,
+        double now,
+        IDictionary<long, CombatThreatContext> output,
+        bool allowSameKingdom)
+    {
+        float radiusSquared = radius * radius;
+        foreach (CombatThreatSignal signal in source.Values)
+        {
+            if (!IsUsableThreatSignal(actor, signal, allowSameKingdom, now)) continue;
+            if (radius < float.MaxValue)
+            {
+                float victimDistance = Toolbox.SquaredDistVec2Float(
+                    actor.current_position,
+                    signal.VictimPosition);
+                float attackerDistance = Toolbox.SquaredDistVec2Float(
+                    actor.current_position,
+                    signal.AttackerPosition);
+                if (victimDistance > radiusSquared && attackerDistance > radiusSquared)
+                    continue;
+            }
+
+            var candidate = new CombatThreatContext(signal, threatSource);
+            if (!output.TryGetValue(signal.AttackerId, out CombatThreatContext current) ||
+                ShouldReplaceThreat(current, candidate))
+                output[signal.AttackerId] = candidate;
+        }
+    }
+
+    /// <summary>验证威胁关系本身，不在这里执行目标阵营判断。</summary>
+    private static bool IsUsableThreatSignal(
+        Actor actor,
+        CombatThreatSignal signal,
+        bool allowSameKingdom,
+        double now)
+    {
+        if (signal == null ||
+            signal.Attacker.isRekt() ||
+            signal.Victim.isRekt() ||
+            now - signal.LastThreatAt > TacticalCombatSettings.ThreatLifetime)
+            return false;
+        if (signal.Victim != actor && signal.Victim.kingdom != actor.kingdom) return false;
+        return allowSameKingdom || signal.Attacker.kingdom != actor.kingdom;
+    }
+
+    /// <summary>个人威胁优先于军队和近邻，同来源时保留更严重或更新的记录。</summary>
+    private static bool ShouldReplaceThreat(
+        CombatThreatContext current,
+        CombatThreatContext candidate)
+    {
+        int currentPriority = ResolveThreatSourcePriority(current.Source);
+        int candidatePriority = ResolveThreatSourcePriority(candidate.Source);
+        if (currentPriority != candidatePriority) return candidatePriority < currentPriority;
+        if (!Mathf.Approximately(current.Signal.Severity, candidate.Signal.Severity))
+            return candidate.Signal.Severity > current.Signal.Severity;
+        return candidate.Signal.LastThreatAt > current.Signal.LastThreatAt;
+    }
+
+    /// <summary>返回越小越优先的威胁来源顺序。</summary>
+    private static int ResolveThreatSourcePriority(CombatThreatSource source)
+    {
+        return source switch
+        {
+            CombatThreatSource.Personal => 0,
+            CombatThreatSource.Army => 1,
+            CombatThreatSource.NearbyAlly => 2,
+            _ => 3
+        };
+    }
+
+    /// <summary>选择最应被保留在友军快照中的受援者。</summary>
+    private static long ResolvePreferredThreatenedAllyId(
+        IReadOnlyDictionary<long, CombatThreatContext> threats,
+        long actorId)
+    {
+        long result = 0;
+        float severity = float.MinValue;
+        double time = double.MinValue;
+        foreach (CombatThreatContext context in threats.Values)
+        {
+            CombatThreatSignal signal = context.Signal;
+            if (signal.VictimId == actorId) continue;
+            if (signal.Severity < severity ||
+                Mathf.Approximately(signal.Severity, severity) && signal.LastThreatAt <= time)
+                continue;
+            result = signal.VictimId;
+            severity = signal.Severity;
+            time = signal.LastThreatAt;
+        }
+        return result;
+    }
+
     private static List<BaseSimObject> CollectEnemyObjects(
         Actor actor,
         CombatActorRuntime runtime,
         CombatArmyRuntime armyRuntime,
+        IReadOnlyDictionary<long, CombatThreatContext> threatContexts,
         CombatDirective directive,
         int cap,
         double now,
@@ -717,6 +984,18 @@ public static class CombatWorldService
         var visible = new HashSet<long>();
         visibleEnemyIds = visible;
         AddEnemyCandidate(actor, actor.attack_target, runtime, now, seen, result);
+
+        foreach (CombatThreatContext context in threatContexts.Values)
+        {
+            AddEnemyCandidate(
+                actor,
+                context.Signal.Attacker,
+                runtime,
+                now,
+                seen,
+                result,
+                confirmedThreat: true);
+        }
 
         EnemyFinderData enemyData = EnemiesFinder.findEnemiesFrom(actor.current_tile, actor.kingdom);
         List<BaseSimObject> primary = enemyData.list;
@@ -733,7 +1012,8 @@ public static class CombatWorldService
                 runtime,
                 now,
                 seen,
-                result);
+                result,
+                confirmedThreat: true);
         }
         foreach (long attackerId in runtime.RecentAttackers.Keys)
         {
@@ -743,7 +1023,8 @@ public static class CombatWorldService
                 runtime,
                 now,
                 seen,
-                result);
+                result,
+                confirmedThreat: true);
         }
         if (armyRuntime != null &&
             directive is CombatDirective.Attack or CombatDirective.Protect)
@@ -760,7 +1041,7 @@ public static class CombatWorldService
                     runtime,
                     now,
                     seen,
-                result);
+                    result);
             }
         }
         for (int i = 0; i < result.Count; i++)
@@ -775,23 +1056,42 @@ public static class CombatWorldService
 
         result.Sort((left, right) =>
         {
+            bool leftThreat = threatContexts.TryGetValue(
+                left.getID(),
+                out CombatThreatContext leftContext);
+            bool rightThreat = threatContexts.TryGetValue(
+                right.getID(),
+                out CombatThreatContext rightContext);
+            if (leftThreat != rightThreat) return leftThreat ? -1 : 1;
+            if (leftThreat)
+            {
+                int source = ResolveThreatSourcePriority(leftContext.Source)
+                             .CompareTo(ResolveThreatSourcePriority(rightContext.Source));
+                if (source != 0) return source;
+                int severity = rightContext.Signal.Severity.CompareTo(leftContext.Signal.Severity);
+                if (severity != 0) return severity;
+            }
             bool leftRecent = runtime.RecentAttackers.ContainsKey(left.getID());
             bool rightRecent = runtime.RecentAttackers.ContainsKey(right.getID());
             if (leftRecent != rightRecent) return leftRecent ? -1 : 1;
             float leftDistance = Toolbox.SquaredDistVec2Float(
                 actor.current_position,
-                ResolveKnownPosition(
-                    left,
-                    visible,
-                    runtime,
-                    armyRuntime));
+                leftThreat
+                    ? leftContext.Signal.AttackerPosition
+                    : ResolveKnownPosition(
+                        left,
+                        visible,
+                        runtime,
+                        armyRuntime));
             float rightDistance = Toolbox.SquaredDistVec2Float(
                 actor.current_position,
-                ResolveKnownPosition(
-                    right,
-                    visible,
-                    runtime,
-                    armyRuntime));
+                rightThreat
+                    ? rightContext.Signal.AttackerPosition
+                    : ResolveKnownPosition(
+                        right,
+                        visible,
+                        runtime,
+                        armyRuntime));
             return leftDistance.CompareTo(rightDistance);
         });
         if (result.Count > cap) result.RemoveRange(cap, result.Count - cap);
@@ -823,18 +1123,32 @@ public static class CombatWorldService
         ISet<long> seen,
         ICollection<BaseSimObject> output)
     {
+        AddEnemyCandidate(actor, candidate, runtime, now, seen, output, confirmedThreat: false);
+    }
+
+    /// <summary>验证普通敌人或已由真实事件确认的攻击者，并加入去重后的目标池。</summary>
+    private static void AddEnemyCandidate(
+        Actor actor,
+        BaseSimObject candidate,
+        CombatActorRuntime runtime,
+        double now,
+        ISet<long> seen,
+        ICollection<BaseSimObject> output,
+        bool confirmedThreat)
+    {
         if (candidate.isRekt() || candidate == actor) return;
         long id = candidate.getID();
-        if (!seen.Add(id)) return;
+        if (seen.Contains(id)) return;
         if (runtime.IgnoreCurrentTargetUntil > now &&
             runtime.IgnoredTargetId == id)
             return;
         if (actor.shouldIgnoreTarget(candidate)) return;
         if (!actor.canAttackTarget(
                 candidate,
-                pCheckForFactions: true,
+                pCheckForFactions: !confirmedThreat,
                 pAttackBuildings: actor.asset.can_attack_buildings))
             return;
+        seen.Add(id);
         output.Add(candidate);
     }
 
@@ -844,6 +1158,7 @@ public static class CombatWorldService
         CombatArmyRuntime armyRuntime,
         IReadOnlyList<BaseSimObject> enemies,
         ISet<long> visibleEnemyIds,
+        IReadOnlyDictionary<long, CombatThreatContext> threatContexts,
         IReadOnlyList<CombatObstacleSnapshot> obstacles,
         double now)
     {
@@ -852,16 +1167,40 @@ public static class CombatWorldService
         {
             BaseSimObject enemy = enemies[i];
             bool visible = visibleEnemyIds.Contains(enemy.getID());
-            CombatObservation observation = CombatObservationService.ResolveKnown(
-                runtime,
-                armyRuntime,
-                actor,
-                enemy,
-                now,
-                visible);
+            bool hasThreat = threatContexts.TryGetValue(
+                enemy.getID(),
+                out CombatThreatContext threatContext);
+            CombatObservation observation = visible || !hasThreat
+                ? CombatObservationService.ResolveKnown(
+                    runtime,
+                    armyRuntime,
+                    actor,
+                    enemy,
+                    now,
+                    visible)
+                : null;
             Vector2 knownPosition = visible
                 ? enemy.current_position
-                : observation.LastPosition;
+                : hasThreat
+                    ? threatContext.Signal.AttackerPosition
+                    : observation.LastPosition;
+            float healthRatio = visible
+                ? ResolveHealthRatio(enemy)
+                : hasThreat
+                    ? threatContext.Signal.AttackerHealthRatio
+                    : observation.LastHealthRatio;
+            float estimatedPower = hasThreat && !visible
+                ? threatContext.Signal.AttackerPower
+                : observation.EstimatedPower;
+            float confidence = hasThreat && !visible
+                ? threatContext.Signal.Confidence
+                : observation.Confidence;
+            float size = hasThreat && !visible
+                ? threatContext.Signal.AttackerSize
+                : observation.LastSize;
+            bool airborne = hasThreat && !visible
+                ? threatContext.Signal.AttackerAirborne
+                : observation.LastAirborne;
             bool attackingPlanner = visible &&
                                     enemy.isActor() &&
                                     enemy.a.has_attack_target &&
@@ -871,35 +1210,49 @@ public static class CombatWorldService
                 i,
                 enemy.getID(),
                 knownPosition,
-                visible ? ResolveHealthRatio(enemy) : observation.LastHealthRatio,
-                observation.EstimatedPower,
-                observation.Confidence,
-                observation.LastSize,
+                healthRatio,
+                estimatedPower,
+                confidence,
+                size,
                 enemy.isActor(),
-                observation.LastAirborne,
+                airborne,
                 runtime.RecentAttackers.TryGetValue(enemy.getID(), out double attackedAt) &&
                 now - attackedAt <= TacticalCombatSettings.TacticalLocationLifetime,
                 attackingPlanner,
                 !CombatPlanner.IsShotBlocked(
                     actor.current_position,
                     knownPosition,
-                    obstacles));
+                    obstacles),
+                hasThreat ? threatContext.Signal.VictimId : 0,
+                hasThreat ? threatContext.Signal.VictimPosition : default,
+                hasThreat ? threatContext.Signal.Severity : 0f,
+                hasThreat ? threatContext.Source : CombatThreatSource.None);
         }
         return result;
     }
 
-    private static CombatantSnapshot[] BuildAllySnapshots(Actor actor, int cap)
+    /// <summary>收集明确局部半径内、能够实际参加战斗的同国单位。</summary>
+    private static void CollectNearbyCombatAllies(Actor actor, ListPool<Actor> output)
     {
-        using var nearby = new ListPool<Actor>();
+        float radiusSquared = TacticalCombatSettings.LocalCombatRadius *
+                              TacticalCombatSettings.LocalCombatRadius;
         foreach (Actor candidate in Finder.getUnitsFromChunk(actor.current_tile, 3))
         {
             if (candidate.isRekt() ||
                 candidate == actor ||
-                candidate.kingdom != actor.kingdom)
+                candidate.kingdom != actor.kingdom ||
+                candidate.current_tile == null ||
+                candidate.asset.skip_fight_logic ||
+                candidate.is_unconscious ||
+                !candidate.isAllowedToLookForEnemies() ||
+                Toolbox.SquaredDistVec2Float(
+                    actor.current_position,
+                    candidate.current_position) > radiusSquared)
                 continue;
-            nearby.Add(candidate);
+            output.Add(candidate);
         }
-        nearby.Sort((left, right) =>
+
+        output.Sort((left, right) =>
         {
             float leftDistance = Toolbox.SquaredDistVec2Float(
                 actor.current_position,
@@ -909,12 +1262,33 @@ public static class CombatWorldService
                 right.current_position);
             return leftDistance.CompareTo(rightDistance);
         });
+    }
 
+    /// <summary>将局部友军冻结为规划快照，并保证受援者不会因数量上限被遗漏。</summary>
+    private static CombatantSnapshot[] BuildAllySnapshots(
+        Actor actor,
+        IReadOnlyList<Actor> nearby,
+        int cap,
+        long preferredThreatenedAllyId)
+    {
         int count = Math.Min(cap, nearby.Count);
+        if (count <= 0) return Array.Empty<CombatantSnapshot>();
+        var selected = new Actor[count];
+        for (int i = 0; i < count; i++) selected[i] = nearby[i];
+        if (preferredThreatenedAllyId != 0)
+        {
+            for (int i = count; i < nearby.Count; i++)
+            {
+                if (nearby[i].getID() != preferredThreatenedAllyId) continue;
+                selected[count - 1] = nearby[i];
+                break;
+            }
+        }
+
         var result = new CombatantSnapshot[count];
         for (int i = 0; i < count; i++)
         {
-            Actor ally = nearby[i];
+            Actor ally = selected[i];
             result[i] = new CombatantSnapshot(
                 ally,
                 -1,
@@ -951,12 +1325,16 @@ public static class CombatWorldService
         return Mathf.Clamp01(cohesion / count);
     }
 
-    private static Actor ResolvePreferredAlly(IReadOnlyList<CombatantSnapshot> allies)
+    private static Actor ResolvePreferredAlly(
+        IReadOnlyList<CombatantSnapshot> allies,
+        long threatenedAllyId)
     {
         Actor result = null;
         float health = 1f;
         for (int i = 0; i < allies.Count; i++)
         {
+            if (threatenedAllyId != 0 && allies[i].Id == threatenedAllyId)
+                return allies[i].Object.a;
             if (!allies[i].IsActor || allies[i].HealthRatio >= health) continue;
             result = allies[i].Object.a;
             health = allies[i].HealthRatio;
@@ -1139,6 +1517,15 @@ public static class CombatWorldService
                 seen,
                 result);
         }
+        AddAssistancePositionCandidates(
+            actor,
+            provisionalEnemy,
+            allies,
+            enemies,
+            obstacles,
+            cap,
+            seen,
+            result);
         AddSafePositionCandidates(
             actor,
             provisionalEnemy,
@@ -1215,6 +1602,61 @@ public static class CombatWorldService
             seen,
             result);
         return result.ToArray();
+    }
+
+    /// <summary>围绕受袭友军生成援助槽位和攻击者方向上的插入槽位。</summary>
+    private static void AddAssistancePositionCandidates(
+        Actor actor,
+        CombatantSnapshot threat,
+        IReadOnlyList<CombatantSnapshot> allies,
+        IReadOnlyList<CombatantSnapshot> enemies,
+        IReadOnlyList<CombatObstacleSnapshot> obstacles,
+        int cap,
+        ISet<int> seen,
+        ICollection<CombatPositionCandidate> output)
+    {
+        if (threat.ThreatenedAllyId == 0 ||
+            threat.ThreatenedAllyId == actor.getID() ||
+            output.Count >= cap)
+            return;
+
+        Vector2 threatenedPosition = threat.ThreatenedAllyPosition;
+        for (int i = 0; i < allies.Count; i++)
+        {
+            if (allies[i].Id != threat.ThreatenedAllyId) continue;
+            threatenedPosition = allies[i].Position;
+            break;
+        }
+        AddPositionCandidate(
+            actor,
+            ResolveRallySlotTile(actor, threatenedPosition, 2f),
+            CombatPositionRole.AssistRally,
+            threat,
+            allies,
+            enemies,
+            obstacles,
+            seen,
+            output,
+            threat.ThreatenedAllyId);
+        if (output.Count >= cap) return;
+
+        Vector2 direction = threat.Position - threatenedPosition;
+        if (direction.sqrMagnitude < 0.01f) direction = Vector2.right;
+        else direction.Normalize();
+        Vector2 interpose = threatenedPosition + direction * 2f;
+        AddPositionCandidate(
+            actor,
+            World.world.GetTile(
+                Mathf.RoundToInt(interpose.x),
+                Mathf.RoundToInt(interpose.y)),
+            CombatPositionRole.Interpose,
+            threat,
+            allies,
+            enemies,
+            obstacles,
+            seen,
+            output,
+            threat.ThreatenedAllyId);
     }
 
     /// <summary>
@@ -1360,7 +1802,8 @@ public static class CombatWorldService
         IReadOnlyList<CombatantSnapshot> enemies,
         IReadOnlyList<CombatObstacleSnapshot> obstacles,
         ISet<int> seen,
-        ICollection<CombatPositionCandidate> output)
+        ICollection<CombatPositionCandidate> output,
+        long relatedAllyId = 0)
     {
         if (tile == null || tile.Type == null) return;
         int key = unchecked(tile.x * 397 ^ tile.y);
@@ -1408,7 +1851,8 @@ public static class CombatWorldService
             enemyPressure,
             allySupport,
             crowding,
-            clearShotMask));
+            clearShotMask,
+            relatedAllyId));
     }
 
     /// <summary>判断候选移动线段是否穿过会真实阻挡该角色的敌对墙体。</summary>
@@ -1456,9 +1900,13 @@ public static class CombatWorldService
         runtime.LastUpdatedAt = now;
         float newCasualties = Mathf.Max(0f, casualties - runtime.LastCasualtyRatio);
         runtime.LastCasualtyRatio = casualties;
+        RemoveExpiredOutcomeReports(runtime, now);
         runtime.Morale = Mathf.Clamp01(
-            runtime.Morale + (float)elapsed * 0.005f - newCasualties * 0.8f);
+            runtime.Morale +
+            (runtime.OutcomeReports.Count == 0 ? (float)elapsed * 0.005f : 0f) -
+            newCasualties * 1.2f);
         CombatObservationService.RemoveExpired(runtime.SharedObservations, now);
+        RemoveExpiredThreats(runtime.SharedThreats, now);
         Actor captain = actor.army.getCaptain();
         long captainId = captain.isRekt() ? 0 : captain.getID();
         if (runtime.LastCaptainId != 0 &&
@@ -1470,10 +1918,25 @@ public static class CombatWorldService
             {
                 runtime.RecordedLostCaptainId = runtime.LastCaptainId;
                 runtime.LastCaptainLossAt = now;
+                runtime.Morale = Mathf.Clamp01(runtime.Morale - 0.2f);
             }
         }
         if (captainId != 0) runtime.LastCaptainId = captainId;
         return runtime;
+    }
+
+    /// <summary>移除不再代表当前局部战况的成员报告。</summary>
+    private static void RemoveExpiredOutcomeReports(
+        CombatArmyRuntime runtime,
+        double now)
+    {
+        using var stale = new ListPool<long>();
+        foreach (KeyValuePair<long, CombatOutcomeReport> pair in runtime.OutcomeReports)
+        {
+            if (now - pair.Value.ReportedAt > TacticalCombatSettings.ArmyRoutReportLifetime)
+                stale.Add(pair.Key);
+        }
+        for (int i = 0; i < stale.Count; i++) runtime.OutcomeReports.Remove(stale[i]);
     }
 
     private static CombatDirective ResolveDirective(
@@ -1501,26 +1964,80 @@ public static class CombatWorldService
             return false;
         bool routedBefore = armyRuntime.Routed;
 
+        if (noEnemies)
+        {
+            armyRuntime.OutcomeReports.Remove(actor.getID());
+        }
+        else
+        {
+            if (!armyRuntime.OutcomeReports.TryGetValue(
+                    actor.getID(),
+                    out CombatOutcomeReport report))
+            {
+                report = new CombatOutcomeReport();
+                armyRuntime.OutcomeReports.Add(actor.getID(), report);
+            }
+            report.StrengthRatio = outcome.StrengthRatio;
+            report.Survival = outcome.Survival;
+            report.ReportedAt = CurrentTime;
+        }
+        RemoveExpiredOutcomeReports(armyRuntime, CurrentTime);
+
         int alive = 0;
+        int engaged = 0;
         for (int i = 0; i < actor.army.units.Count; i++)
         {
-            if (!actor.army.units[i].isRekt()) alive++;
+            Actor member = actor.army.units[i];
+            if (member.isRekt()) continue;
+            alive++;
+            if (ActorStates.TryGetValue(member.getID(), out CombatActorRuntime memberRuntime) &&
+                memberRuntime.IsEngaged)
+                engaged++;
         }
         float casualties = armyRuntime.PeakMemberCount <= 0
             ? 0f
             : 1f - alive / (float)armyRuntime.PeakMemberCount;
-        bool captainLost = armyRuntime.LastCaptainLossAt > 0d &&
-                           CurrentTime - armyRuntime.LastCaptainLossAt <=
-                           TacticalCombatSettings.TacticalLocationLifetime;
-        if (!noEnemies &&
-            !armyRuntime.Routed &&
-            ((armyRuntime.Morale <= TacticalCombatSettings.ArmyRoutMorale &&
-              outcome.StrengthRatio < TacticalCombatSettings.ArmyRoutLocalRatio) ||
-             (captainLost &&
-              casualties >= TacticalCombatSettings.ArmyCaptainLossCasualtyRatio)))
+        int reportCount = armyRuntime.OutcomeReports.Count;
+        int requiredReports = Math.Min(
+            8,
+            Math.Max(2, Mathf.CeilToInt(Mathf.Max(engaged, reportCount) * 0.35f)));
+        int unfavorableReports = 0;
+        foreach (CombatOutcomeReport report in armyRuntime.OutcomeReports.Values)
+        {
+            if (report.StrengthRatio < TacticalCombatSettings.ArmyRoutLocalRatio)
+                unfavorableReports++;
+        }
+        bool consensus = reportCount >= requiredReports &&
+                         unfavorableReports >= Mathf.CeilToInt(
+                             reportCount * TacticalCombatSettings.ArmyRoutConsensusRatio);
+        bool routePressure = !armyRuntime.Routed &&
+                             casualties >= TacticalCombatSettings.ArmyRoutMinimumCasualtyRatio &&
+                             armyRuntime.Morale <= TacticalCombatSettings.ArmyRoutMorale &&
+                             consensus;
+        if (routePressure)
+        {
+            if (armyRuntime.RoutPressureSince <= 0d)
+                armyRuntime.RoutPressureSince = CurrentTime;
+        }
+        else
+        {
+            armyRuntime.RoutPressureSince = 0d;
+        }
+
+        if (!armyRuntime.Routed &&
+            armyRuntime.RoutPressureSince > 0d &&
+            CurrentTime - armyRuntime.RoutPressureSince >=
+            TacticalCombatSettings.ArmyRoutConsensusDuration)
         {
             armyRuntime.Routed = true;
-            CombatDiagnostics.RecordArmyRout();
+            armyRuntime.RoutPressureSince = 0d;
+            CombatDiagnostics.RecordArmyRout(
+                actor.army.id,
+                armyRuntime.Morale,
+                casualties,
+                unfavorableReports,
+                reportCount,
+                requiredReports);
             armyRuntime.Directive = CombatDirective.Retreat;
             armyRuntime.DirectiveExpiresAt = double.MaxValue;
             RequestArmyReplan(
@@ -1530,7 +2047,8 @@ public static class CombatWorldService
         }
 
         if (!armyRuntime.Routed) return routedBefore != armyRuntime.Routed;
-        if (noEnemies)
+        bool armySafe = armyRuntime.OutcomeReports.Count == 0;
+        if (armySafe)
         {
             if (armyRuntime.SafeSince <= 0d)
             {
@@ -1552,6 +2070,7 @@ public static class CombatWorldService
             armyRuntime.Morale >= TacticalCombatSettings.ArmyRecoverMorale)
         {
             armyRuntime.Routed = false;
+            armyRuntime.RoutPressureSince = 0d;
             armyRuntime.Directive = CombatDirective.Hold;
             armyRuntime.DirectiveExpiresAt = CurrentTime + 1d;
             armyRuntime.SafeSince = 0d;
@@ -1654,6 +2173,7 @@ public static class CombatWorldService
         runtime.IsEngaged = false;
         runtime.CurrentTargetId = 0;
         runtime.NextActionAttemptAt = 0d;
+        ResetDisplayedActivity(runtime);
         CombatMovementService.Clear(
             actor,
             runtime,
@@ -1663,12 +2183,121 @@ public static class CombatWorldService
         if (actor.isTask(TacticalCombatSettings.TacticalTaskId)) actor.cancelAllBeh();
     }
 
-    private static bool IsValidEnemy(Actor actor, BaseSimObject target)
+    /// <summary>分别解析移动状态和动作阶段，供任务栏组合展示。</summary>
+    private static CombatActivityPresentation ResolveDisplayedActivity(
+        Actor actor,
+        CombatActorRuntime runtime,
+        double now)
+    {
+        CombatActivityMovement movement = ResolveMovementActivity(actor, runtime);
+        CombatActivityAction action = CombatActivityAction.None;
+        if (runtime.ActionPresentationUntil > now)
+        {
+            action = ResolveActionActivity(runtime.ActiveActionUse, preparing: false);
+        }
+        else if (actor.attack_timer > 0f)
+        {
+            action = CombatActivityAction.Ready;
+        }
+        else if (runtime.Plan?.Action != null)
+        {
+            action = ResolveActionActivity(runtime.Plan.ActionUse, preparing: true);
+        }
+        else if (runtime.Plan?.HasEnemy == true &&
+                 movement is not (CombatActivityMovement.Retreat or CombatActivityMovement.Observe))
+        {
+            action = CombatActivityAction.Ready;
+        }
+        return new CombatActivityPresentation(movement, action);
+    }
+
+    /// <summary>从实际路径订单和计划意图解析移动或站位状态。</summary>
+    private static CombatActivityMovement ResolveMovementActivity(
+        Actor actor,
+        CombatActorRuntime runtime)
+    {
+        if (runtime.LostContactSince > 0d && runtime.Plan?.HasEnemy != true)
+            return CombatActivityMovement.Observe;
+        if (actor.is_moving || actor.isUsingPath())
+        {
+            return runtime.Movement.Kind switch
+            {
+                CombatMovementKind.Advance => CombatActivityMovement.Advance,
+                CombatMovementKind.Reposition => CombatActivityMovement.Reposition,
+                CombatMovementKind.Regroup => CombatActivityMovement.Regroup,
+                CombatMovementKind.Retreat => CombatActivityMovement.Retreat,
+                CombatMovementKind.Assist => CombatActivityMovement.Assist,
+                CombatMovementKind.Protect => CombatActivityMovement.Protect,
+                _ => CombatActivityMovement.Reposition
+            };
+        }
+
+        return runtime.Plan?.Intent switch
+        {
+            CombatIntent.Hold => CombatActivityMovement.Hold,
+            CombatIntent.Reposition => CombatActivityMovement.Reposition,
+            CombatIntent.Assist => CombatActivityMovement.Assist,
+            CombatIntent.Protect => CombatActivityMovement.Protect,
+            CombatIntent.Regroup => CombatActivityMovement.Regroup,
+            CombatIntent.Disengage => CombatActivityMovement.Retreat,
+            CombatIntent.None => CombatActivityMovement.Observe,
+            _ => CombatActivityMovement.None
+        };
+    }
+
+    /// <summary>根据本轮选择的单值用途区分准备阶段和实际启动阶段。</summary>
+    private static CombatActivityAction ResolveActionActivity(
+        CombatActionUse use,
+        bool preparing)
+    {
+        return use switch
+        {
+            CombatActionUse.Defense => preparing
+                ? CombatActivityAction.PrepareDefense
+                : CombatActivityAction.Defend,
+            CombatActionUse.Support => preparing
+                ? CombatActivityAction.PrepareSupport
+                : CombatActivityAction.Support,
+            CombatActionUse.Control => preparing
+                ? CombatActivityAction.PrepareControl
+                : CombatActivityAction.Control,
+            CombatActionUse.Offense => preparing
+                ? CombatActivityAction.PrepareAttack
+                : CombatActivityAction.Attack,
+            _ => CombatActivityAction.None
+        };
+    }
+
+    /// <summary>切换展示活动时记录独立计时起点。</summary>
+    private static void SetDisplayedActivity(
+        CombatActorRuntime runtime,
+        CombatActivityPresentation activity,
+        double now)
+    {
+        if (runtime.DisplayedActivity == activity) return;
+        runtime.DisplayedActivity = activity;
+        runtime.DisplayedActivityStartedAt = now;
+    }
+
+    /// <summary>角色离开战术交战时清除仅供界面使用的活动状态。</summary>
+    private static void ResetDisplayedActivity(CombatActorRuntime runtime)
+    {
+        runtime.ActiveActionUse = CombatActionUse.None;
+        runtime.ActionPresentationUntil = 0d;
+        runtime.LostContactSince = 0d;
+        runtime.DisplayedActivity = default;
+        runtime.DisplayedActivityStartedAt = 0d;
+    }
+
+    private static bool IsValidEnemy(
+        Actor actor,
+        BaseSimObject target,
+        bool confirmedThreat)
     {
         return !target.isRekt() &&
                actor.canAttackTarget(
                    target,
-                   pCheckForFactions: true,
+                   pCheckForFactions: !confirmedThreat,
                    pAttackBuildings: actor.asset.can_attack_buildings);
     }
 
@@ -1689,9 +2318,10 @@ public static class CombatWorldService
             ? plan.BackupActionTarget
             : plan.ActionTarget;
         if (!plannedTarget.Object.isRekt()) return plannedTarget.Object;
-        if (candidate != null &&
-            candidate.Profile.HasPurpose(CombatActionPurpose.Support) &&
-            !candidate.Profile.HasPurpose(CombatActionPurpose.Offense))
+        CombatActionUse use = ReferenceEquals(candidate, plan.BackupAction)
+            ? plan.BackupActionUse
+            : plan.ActionUse;
+        if (candidate != null && use is CombatActionUse.Defense or CombatActionUse.Support)
             return actor;
         return plan.PrimaryEnemy.Object;
     }
@@ -1782,6 +2412,7 @@ public static class CombatWorldService
         double now)
     {
         CombatObservationService.RemoveExpired(runtime.Observations, now);
+        RemoveExpiredThreats(runtime.IncomingThreats, now);
         if (runtime.IgnoreCurrentTargetUntil <= now)
         {
             runtime.IgnoredTargetId = 0;
@@ -1803,6 +2434,23 @@ public static class CombatWorldService
         }
         for (int i = 0; i < staleCooldowns.Count; i++)
             runtime.Cooldowns.Remove(staleCooldowns[i]);
+    }
+
+    /// <summary>移除超过响应窗口或任一参与者已经失效的威胁。</summary>
+    private static void RemoveExpiredThreats(
+        IDictionary<CombatThreatKey, CombatThreatSignal> threats,
+        double now)
+    {
+        using var stale = new ListPool<CombatThreatKey>();
+        foreach (KeyValuePair<CombatThreatKey, CombatThreatSignal> pair in threats)
+        {
+            CombatThreatSignal signal = pair.Value;
+            if (signal.Attacker.isRekt() ||
+                signal.Victim.isRekt() ||
+                now - signal.LastThreatAt > TacticalCombatSettings.ThreatLifetime)
+                stale.Add(pair.Key);
+        }
+        for (int i = 0; i < stale.Count; i++) threats.Remove(stale[i]);
     }
 
     /// <summary>在没有持续威胁时缓慢恢复个人士气，避免一次受创永久改变后续所有战斗。</summary>
@@ -1830,6 +2478,101 @@ public static class CombatWorldService
         for (int i = 0; i < stale.Count; i++) ArmyStates.Remove(stale[i]);
     }
 
+    /// <summary>
+    /// 将一次真实敌对行为记录到受害者侧，并仅把外部威胁发布给受害者所属军队。
+    /// </summary>
+    private static void RecordIncomingThreat(
+        Actor attacker,
+        Actor victim,
+        CombatActorRuntime victimRuntime,
+        CombatObservation observation,
+        float severity,
+        double now)
+    {
+        victimRuntime.RecentAttackers[attacker.getID()] = now;
+        CombatThreatSignal personal = UpsertThreatSignal(
+            victimRuntime.IncomingThreats,
+            attacker,
+            victim,
+            observation,
+            severity,
+            now,
+            TacticalCombatSettings.PersonalThreatLimit);
+        if (victim.army != null &&
+            victim.kingdom != null &&
+            attacker.kingdom != victim.kingdom)
+        {
+            UpsertThreatSignal(
+                GetOrCreateArmyState(victim.army).SharedThreats,
+                attacker,
+                victim,
+                observation,
+                personal.Severity,
+                now,
+                TacticalCombatSettings.ArmyThreatLimit);
+        }
+        victimRuntime.LostContactSince = 0d;
+        RequestDecisionRefresh(victimRuntime);
+        CombatDiagnostics.RecordThreatSignal();
+    }
+
+    /// <summary>更新一条威胁并按最旧访问时间维持字典上限。</summary>
+    private static CombatThreatSignal UpsertThreatSignal(
+        IDictionary<CombatThreatKey, CombatThreatSignal> threats,
+        Actor attacker,
+        Actor victim,
+        CombatObservation observation,
+        float severity,
+        double now,
+        int limit)
+    {
+        var key = new CombatThreatKey(attacker.getID(), victim.getID());
+        if (!threats.TryGetValue(key, out CombatThreatSignal signal))
+        {
+            signal = new CombatThreatSignal
+            {
+                Attacker = attacker,
+                Victim = victim,
+                AttackerId = attacker.getID(),
+                VictimId = victim.getID()
+            };
+            threats.Add(key, signal);
+        }
+
+        signal.Attacker = attacker;
+        signal.Victim = victim;
+        signal.AttackerPosition = observation.LastPosition;
+        signal.VictimPosition = victim.current_position;
+        signal.AttackerHealthRatio = observation.LastHealthRatio;
+        signal.AttackerPower = observation.EstimatedPower;
+        signal.AttackerSize = observation.LastSize;
+        signal.AttackerAirborne = observation.LastAirborne;
+        signal.Confidence = observation.Confidence;
+        signal.Severity = Mathf.Max(signal.Severity, Mathf.Clamp01(severity));
+        signal.LastThreatAt = now;
+        TrimThreats(threats, limit);
+        return signal;
+    }
+
+    /// <summary>移除威胁字典中最久未更新的记录，保持运行时引用有界。</summary>
+    private static void TrimThreats(
+        IDictionary<CombatThreatKey, CombatThreatSignal> threats,
+        int limit)
+    {
+        while (threats.Count > limit)
+        {
+            CombatThreatKey oldestKey = default;
+            double oldestTime = double.MaxValue;
+            foreach (KeyValuePair<CombatThreatKey, CombatThreatSignal> pair in threats)
+            {
+                if (pair.Value.LastThreatAt >= oldestTime) continue;
+                oldestKey = pair.Key;
+                oldestTime = pair.Value.LastThreatAt;
+            }
+            threats.Remove(oldestKey);
+        }
+    }
+
     private static void PublishObservationToArmy(
         Actor actor,
         CombatObservation observation,
@@ -1840,13 +2583,6 @@ public static class CombatWorldService
             GetOrCreateArmyState(actor.army),
             observation,
             now);
-    }
-
-    private static void ReduceArmyMorale(Actor actor, float amount)
-    {
-        if (actor?.army == null) return;
-        CombatArmyRuntime runtime = GetOrCreateArmyState(actor.army);
-        runtime.Morale = Mathf.Clamp01(runtime.Morale - Mathf.Max(0f, amount));
     }
 
     private static CombatActorRuntime GetOrCreateActorState(Actor actor)

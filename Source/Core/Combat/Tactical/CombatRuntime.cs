@@ -15,15 +15,29 @@ public static class TacticalCombatSettings
     public const string TacticalTaskId = "Cultiway.TacticalCombat";
     public const int PersonalObservationLimit = 16;
     public const int ArmyObservationLimit = 64;
+    public const int PersonalThreatLimit = 16;
+    public const int ArmyThreatLimit = 64;
     public const float TacticalLocationLifetime = 10f;
+    public const float ThreatLifetime = 6f;
+    public const float LocalCombatRadius = 24f;
+    public const float NearbyAssistRadius = 20f;
+    public const float ArmyAssistRadius = 40f;
+    public const float LostContactGrace = 2f;
+    public const float ActionPresentationDuration = 0.65f;
     public const float NoProgressHighFidelitySeconds = 1.5f;
     public const float NoProgressLowFidelitySeconds = 3f;
     public const float TargetSwitchImprovement = 0.25f;
     public const float NearOptimalScoreWindow = 0.15f;
-    public const float ArmyRoutMorale = 0.25f;
+    public const float RegroupEnterCohesion = 0.42f;
+    public const float RegroupExitCohesion = 0.65f;
+    public const float RepositionScoreImprovement = 0.75f;
+    public const float ArmyRoutMorale = 0.55f;
     public const float ArmyRecoverMorale = 0.55f;
     public const float ArmyRoutLocalRatio = 0.7f;
-    public const float ArmyCaptainLossCasualtyRatio = 0.35f;
+    public const float ArmyRoutMinimumCasualtyRatio = 0.12f;
+    public const float ArmyRoutReportLifetime = 2f;
+    public const float ArmyRoutConsensusRatio = 0.6f;
+    public const float ArmyRoutConsensusDuration = 2f;
 
     private static bool enabled = true;
     private static bool criticalFailure;
@@ -63,6 +77,75 @@ public static class TacticalCombatSettings
     }
 }
 
+/// <summary>唯一标识一名攻击者对一名受害者形成的近期威胁。</summary>
+internal readonly struct CombatThreatKey : IEquatable<CombatThreatKey>
+{
+    internal readonly long AttackerId;
+    internal readonly long VictimId;
+
+    internal CombatThreatKey(long attackerId, long victimId)
+    {
+        AttackerId = attackerId;
+        VictimId = victimId;
+    }
+
+    public bool Equals(CombatThreatKey other)
+    {
+        return AttackerId == other.AttackerId && VictimId == other.VictimId;
+    }
+
+    public override bool Equals(object obj)
+    {
+        return obj is CombatThreatKey other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return unchecked((AttackerId.GetHashCode() * 397) ^ VictimId.GetHashCode());
+    }
+}
+
+/// <summary>
+/// 一次受袭关系的有界运行时记录。位置与数值均取自事件发生时受害者掌握的信息。
+/// </summary>
+internal sealed class CombatThreatSignal
+{
+    internal Actor Attacker;
+    internal Actor Victim;
+    internal long AttackerId;
+    internal long VictimId;
+    internal Vector2 AttackerPosition;
+    internal Vector2 VictimPosition;
+    internal float AttackerHealthRatio;
+    internal float AttackerPower;
+    internal float AttackerSize;
+    internal bool AttackerAirborne;
+    internal float Confidence;
+    internal float Severity;
+    internal double LastThreatAt;
+}
+
+/// <summary>规划者本轮可消费的威胁及其传播来源。</summary>
+internal readonly struct CombatThreatContext
+{
+    internal readonly CombatThreatSignal Signal;
+    internal readonly CombatThreatSource Source;
+
+    internal CombatThreatContext(CombatThreatSignal signal, CombatThreatSource source)
+    {
+        Signal = signal;
+        Source = source;
+    }
+}
+
+/// <summary>军队成员最近一次局部胜负判断。</summary>
+internal sealed class CombatOutcomeReport
+{
+    internal float StrengthRatio;
+    internal float Survival;
+    internal double ReportedAt;
+}
+
 /// <summary>
 /// 对某个敌人的不完整认知。该数据只在当前世界运行期存在。
 /// </summary>
@@ -99,6 +182,7 @@ internal sealed class CombatActorRuntime
 {
     internal readonly Dictionary<long, CombatObservation> Observations = new();
     internal readonly Dictionary<long, double> RecentAttackers = new();
+    internal readonly Dictionary<CombatThreatKey, CombatThreatSignal> IncomingThreats = new();
     internal readonly Dictionary<CombatActionKey, double> Cooldowns = new();
     internal int Revision;
     internal CombatPlan Plan;
@@ -117,6 +201,11 @@ internal sealed class CombatActorRuntime
     internal bool IsEngaged;
     internal readonly CombatMovementOrder Movement = new();
     internal double MovementPausedUntil;
+    internal CombatActionUse ActiveActionUse;
+    internal double ActionPresentationUntil;
+    internal double LostContactSince;
+    internal CombatActivityPresentation DisplayedActivity;
+    internal double DisplayedActivityStartedAt;
 
     internal void TouchRevision()
     {
@@ -168,6 +257,8 @@ internal enum CombatMovementKind
     Reposition,
     Regroup,
     Retreat,
+    Assist,
+    Protect,
 }
 
 /// <summary>
@@ -176,6 +267,8 @@ internal enum CombatMovementKind
 internal sealed class CombatArmyRuntime
 {
     internal readonly Dictionary<long, CombatObservation> SharedObservations = new();
+    internal readonly Dictionary<CombatThreatKey, CombatThreatSignal> SharedThreats = new();
+    internal readonly Dictionary<long, CombatOutcomeReport> OutcomeReports = new();
     internal CombatDirective Directive = CombatDirective.Hold;
     internal double DirectiveExpiresAt;
     internal float Morale = 1f;
@@ -185,6 +278,7 @@ internal sealed class CombatArmyRuntime
     internal long RecordedLostCaptainId;
     internal double LastCaptainLossAt;
     internal bool Routed;
+    internal double RoutPressureSince;
     internal double SafeSince;
     internal double LastRoutRecoveryAt;
     internal double LastUpdatedAt;

@@ -427,17 +427,17 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
             ActiveAbilityDescriptor descriptor = ActiveAbilityService.Describe(caster, handle);
             ActiveAbilityTacticalProfile tactical =
                 ActiveAbilityService.ResolveTacticalProfile(caster, handle, context.PrimaryEnemy);
+            CombatActionPurpose purpose = ResolvePurpose(tactical);
             BaseSimObject prepareTarget = ResolveTarget(
                 caster.Base,
                 context.PrimaryEnemy,
                 context.PreferredAlly,
                 descriptor.TargetMode,
-                tactical);
+                purpose);
             if (!ActiveAbilityService.CanPrepare(caster, handle, prepareTarget)) continue;
 
             float range = ActiveAbilityService.ResolveRange(caster, handle, prepareTarget);
             float radius = ActiveAbilityService.ResolveEffectRadius(caster, handle);
-            CombatActionPurpose purpose = ResolvePurpose(tactical);
             long sourcePid = handle.Source.IsNull ? 0 : handle.Source.Pid;
             float resourceRatio = tactical.ResourceDemand /
                                   Mathf.Max(1f, tactical.ResourceDemand + 20f);
@@ -458,7 +458,9 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
                     tactical.ExpectedTargets,
                     tactical.Power + tactical.Offensive,
                     tactical.Control,
-                    tactical.Support + tactical.Defensive,
+                    Mathf.Max(
+                        tactical.Utility,
+                        Mathf.Max(tactical.Support, tactical.Defensive)),
                     resourceRatio,
                     0f,
                     1f,
@@ -501,10 +503,11 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
         BaseSimObject enemy,
         Actor ally,
         ActiveAbilityTargetMode targetMode,
-        ActiveAbilityTacticalProfile tactical)
+        CombatActionPurpose purpose)
     {
         if (targetMode == ActiveAbilityTargetMode.Self) return caster;
-        if (tactical.Support > tactical.Offensive)
+        if ((purpose & (CombatActionPurpose.Defense | CombatActionPurpose.Support)) != 0 &&
+            (purpose & CombatActionPurpose.Offense) == 0)
             return !ally.isRekt() ? ally : caster;
         return enemy;
     }

@@ -15,9 +15,102 @@ public enum CombatIntent
     Engage,
     Hold,
     Reposition,
+    Assist,
     Protect,
     Regroup,
     Disengage,
+}
+
+/// <summary>
+/// 战术任务向角色信息界面公开的移动或站位状态。
+/// </summary>
+public enum CombatActivityMovement
+{
+    /// <summary>当前没有需要单独展示的移动或站位。</summary>
+    None,
+    /// <summary>暂时失去目标，仍在观察最近的交战区域。</summary>
+    Observe,
+    /// <summary>沿移动订单接近交战目标。</summary>
+    Advance,
+    /// <summary>改变站位或维持合适交战距离。</summary>
+    Reposition,
+    /// <summary>向分散的友军或队长所在位置集结。</summary>
+    Regroup,
+    /// <summary>脱离当前交战区域。</summary>
+    Retreat,
+    /// <summary>赶往正在受袭的友军处接敌。</summary>
+    Assist,
+    /// <summary>围绕受袭友军进行护卫或插入攻击路线。</summary>
+    Protect,
+    /// <summary>保持当前战斗阵地。</summary>
+    Hold,
+}
+
+/// <summary>
+/// 战术任务向角色信息界面公开的动作阶段。该状态可与移动状态同时存在。
+/// </summary>
+public enum CombatActivityAction
+{
+    /// <summary>当前没有需要单独展示的动作。</summary>
+    None,
+    /// <summary>动作正在公共攻击恢复中，等待下一次出手机会。</summary>
+    Ready,
+    /// <summary>当前计划准备执行普通攻击。</summary>
+    PrepareAttack,
+    /// <summary>当前计划准备执行防御动作。</summary>
+    PrepareDefense,
+    /// <summary>当前计划准备执行控制动作。</summary>
+    PrepareControl,
+    /// <summary>当前计划准备执行支援动作。</summary>
+    PrepareSupport,
+    /// <summary>攻击动作已经成功启动。</summary>
+    Attack,
+    /// <summary>防御或屏障动作已经成功启动。</summary>
+    Defend,
+    /// <summary>控制动作已经成功启动。</summary>
+    Control,
+    /// <summary>真实的友军支援动作已经成功启动。</summary>
+    Support,
+}
+
+/// <summary>
+/// 任务栏使用的战术活动快照。移动与动作互相独立，因此可组合展示。
+/// </summary>
+public readonly struct CombatActivityPresentation : IEquatable<CombatActivityPresentation>
+{
+    public readonly CombatActivityMovement Movement;
+    public readonly CombatActivityAction Action;
+
+    public CombatActivityPresentation(
+        CombatActivityMovement movement,
+        CombatActivityAction action)
+    {
+        Movement = movement;
+        Action = action;
+    }
+
+    public bool Equals(CombatActivityPresentation other)
+    {
+        return Movement == other.Movement && Action == other.Action;
+    }
+
+    public override bool Equals(object obj)
+    {
+        return obj is CombatActivityPresentation other && Equals(other);
+    }
+
+    public override int GetHashCode()
+    {
+        return ((int)Movement * 397) ^ (int)Action;
+    }
+
+    public static bool operator ==(
+        CombatActivityPresentation left,
+        CombatActivityPresentation right) => left.Equals(right);
+
+    public static bool operator !=(
+        CombatActivityPresentation left,
+        CombatActivityPresentation right) => !left.Equals(right);
 }
 
 /// <summary>
@@ -53,6 +146,30 @@ public enum CombatPositionRole
     AllyRally,
     CaptainRally,
     CityRetreat,
+    AssistRally,
+    Interpose,
+}
+
+/// <summary>
+/// 本次规划选择动作时希望利用的主要用途。它与动作可具备的多用途标记分离。
+/// </summary>
+public enum CombatActionUse
+{
+    None,
+    Offense,
+    Defense,
+    Support,
+    Control,
+    Mobility,
+}
+
+/// <summary>角色得知某个友军威胁的途径。</summary>
+public enum CombatThreatSource
+{
+    None,
+    Personal,
+    Army,
+    NearbyAlly,
 }
 
 /// <summary>
@@ -326,6 +443,14 @@ public readonly struct CombatantSnapshot
     public readonly bool IsRecentAttacker;
     public readonly bool IsAttackingPlanner;
     public readonly bool HasLineOfFire;
+    /// <summary>该目标最近正在威胁的友军；零表示没有援助关系。</summary>
+    public readonly long ThreatenedAllyId;
+    /// <summary>受威胁友军最后被确认的位置。</summary>
+    public readonly Vector2 ThreatenedAllyPosition;
+    /// <summary>最近威胁的归一化严重度。</summary>
+    public readonly float ThreatSeverity;
+    /// <summary>规划者通过何种协作关系得知该威胁。</summary>
+    public readonly CombatThreatSource ThreatSource;
 
     public CombatantSnapshot(
         BaseSimObject obj,
@@ -340,7 +465,11 @@ public readonly struct CombatantSnapshot
         bool isAirborne,
         bool isRecentAttacker,
         bool isAttackingPlanner,
-        bool hasLineOfFire)
+        bool hasLineOfFire,
+        long threatenedAllyId = 0,
+        Vector2 threatenedAllyPosition = default,
+        float threatSeverity = 0f,
+        CombatThreatSource threatSource = CombatThreatSource.None)
     {
         Object = obj;
         SnapshotIndex = snapshotIndex;
@@ -355,6 +484,10 @@ public readonly struct CombatantSnapshot
         IsRecentAttacker = isRecentAttacker;
         IsAttackingPlanner = isAttackingPlanner;
         HasLineOfFire = hasLineOfFire;
+        ThreatenedAllyId = threatenedAllyId;
+        ThreatenedAllyPosition = threatenedAllyPosition;
+        ThreatSeverity = Mathf.Clamp01(threatSeverity);
+        ThreatSource = threatSource;
     }
 }
 
@@ -369,6 +502,8 @@ public readonly struct CombatPositionCandidate
     public readonly float EnemyPressure;
     public readonly float AllySupport;
     public readonly float Crowding;
+    /// <summary>援助或保护站位对应的友军；普通站位为零。</summary>
+    public readonly long RelatedAllyId;
     private readonly ulong clearShotMask;
 
     public CombatPositionCandidate(
@@ -378,7 +513,8 @@ public readonly struct CombatPositionCandidate
         float enemyPressure,
         float allySupport,
         float crowding,
-        ulong clearShotMask)
+        ulong clearShotMask,
+        long relatedAllyId = 0)
     {
         Tile = tile;
         Role = role;
@@ -386,6 +522,7 @@ public readonly struct CombatPositionCandidate
         EnemyPressure = Mathf.Max(0f, enemyPressure);
         AllySupport = Mathf.Max(0f, allySupport);
         Crowding = Mathf.Max(0f, crowding);
+        RelatedAllyId = relatedAllyId;
         this.clearShotMask = clearShotMask;
     }
 
@@ -454,6 +591,8 @@ public sealed class CombatPlanningSnapshot
     public float FormationCohesion;
     public long CurrentTargetId;
     public CombatActionKey? CurrentActionKey;
+    public CombatActionUse CurrentActionUse;
+    public CombatIntent CurrentIntent;
     public bool CanRetreat;
     public bool HighFidelity;
     public bool ArmyRouted;
@@ -496,6 +635,12 @@ public sealed class CombatPlan
     public CombatantSnapshot BackupActionTarget;
     public CombatActionCandidate Action;
     public CombatActionCandidate BackupAction;
+    /// <summary>本轮选择当前动作时采用的主要战术用途。</summary>
+    public CombatActionUse ActionUse;
+    /// <summary>备用动作对应的主要战术用途。</summary>
+    public CombatActionUse BackupActionUse;
+    /// <summary>本轮援助或保护的具体友军；零表示普通交战。</summary>
+    public long AssistedAllyId;
     /// <summary>用于维持职责和距离的动作画像；动作冷却中也会保留。</summary>
     public CombatActionProfile? PositioningProfile;
     public CombatPositionCandidate Position;

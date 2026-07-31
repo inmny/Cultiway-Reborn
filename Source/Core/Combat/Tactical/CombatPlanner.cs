@@ -32,6 +32,8 @@ public static class CombatPlanner
         plan.PrimaryEnemy = enemy;
         plan.TargetScore = targetScore;
         plan.Intent = ResolveIntent(snapshot, plan.Outcome, enemy, plan.Role);
+        if (plan.Intent is CombatIntent.Assist or CombatIntent.Protect)
+            plan.AssistedAllyId = enemy.ThreatenedAllyId;
         SelectActions(snapshot, plan);
         plan.PositioningProfile = ResolvePositioningProfile(snapshot, plan);
         SelectActionTargets(snapshot, plan);
@@ -101,6 +103,17 @@ public static class CombatPlanner
                 enemy.Confidence * 0.15f;
             if (enemy.IsRecentAttacker) score += 1.35f;
             if (enemy.IsAttackingPlanner) score += 0.85f;
+            if (enemy.ThreatenedAllyId != 0 &&
+                enemy.ThreatenedAllyId != snapshot.ActorId)
+            {
+                float sourcePriority = enemy.ThreatSource switch
+                {
+                    CombatThreatSource.Army => 0.9f,
+                    CombatThreatSource.NearbyAlly => 0.75f,
+                    _ => 1f
+                };
+                score += 1.15f + enemy.ThreatSeverity * sourcePriority * 1.4f;
+            }
             if (enemy.IsAirborne && !CanReachAirTarget(snapshot.Actions)) score -= 2f;
             if (outcome.StrengthRatio < EvenRatio)
             {
@@ -153,6 +166,14 @@ public static class CombatPlanner
         if (snapshot.Directive == CombatDirective.Retreat || snapshot.ArmyRouted)
             return snapshot.CanRetreat ? CombatIntent.Disengage : CombatIntent.Reposition;
 
+        if (enemy.ThreatenedAllyId != 0 &&
+            enemy.ThreatenedAllyId != snapshot.ActorId)
+        {
+            return HasProtectiveAction(snapshot.Actions)
+                ? CombatIntent.Protect
+                : CombatIntent.Assist;
+        }
+
         bool woundedAlly = false;
         for (int i = 0; i < snapshot.Allies.Length; i++)
         {
@@ -162,11 +183,12 @@ public static class CombatPlanner
         }
         if (snapshot.Directive == CombatDirective.Protect && woundedAlly)
             return CombatIntent.Protect;
-        float enemyDistance = Vector2.Distance(snapshot.Position, enemy.Position);
-        bool canFightNow = HasUsableHostileAction(snapshot.Actions, enemyDistance, enemy.Size);
         bool needsRegroup = snapshot.Allies.Length > 0 &&
-                            snapshot.FormationCohesion < 0.55f &&
-                            !canFightNow;
+                            (snapshot.CurrentIntent == CombatIntent.Regroup
+                                ? snapshot.FormationCohesion < TacticalCombatSettings.RegroupExitCohesion
+                                : snapshot.FormationCohesion < TacticalCombatSettings.RegroupEnterCohesion) &&
+                            !enemy.IsRecentAttacker &&
+                            !enemy.IsAttackingPlanner;
         if (!HasHostileAction(snapshot.Actions))
             return needsRegroup ? CombatIntent.Regroup : CombatIntent.Reposition;
 
@@ -192,11 +214,27 @@ public static class CombatPlanner
             if (IsBacklineRole(role)) return CombatIntent.Reposition;
             return CombatIntent.Hold;
         }
+        if (needsRegroup && effectiveRatio < DominantRatio)
+            return CombatIntent.Regroup;
         if (snapshot.HealthRatio < 0.35f && outcome.StrengthRatio < FavorableRatio)
             return CombatIntent.Reposition;
         if (snapshot.Directive == CombatDirective.Hold)
             return CombatIntent.Hold;
         return CombatIntent.Engage;
+    }
+
+    /// <summary>判断角色是否拥有能直接围绕友军执行护卫的动作。</summary>
+    private static bool HasProtectiveAction(IReadOnlyList<CombatActionCandidate> actions)
+    {
+        for (int i = 0; i < actions.Count; i++)
+        {
+            CombatActionProfile profile = actions[i].Profile;
+            if (profile.HasPurpose(CombatActionPurpose.Defense) ||
+                profile.HasPurpose(CombatActionPurpose.Barrier) ||
+                profile.HasPurpose(CombatActionPurpose.Support))
+                return true;
+        }
+        return false;
     }
 
     /// <summary>判断职责是否应在局部劣势时主动维持距离，而不是继续顶向敌方。</summary>
@@ -216,25 +254,6 @@ public static class CombatPlanner
             CombatActionProfile profile = actions[i].Profile;
             if (profile.HasPurpose(CombatActionPurpose.Offense) ||
                 profile.HasPurpose(CombatActionPurpose.Control))
-                return true;
-        }
-        return false;
-    }
-
-    /// <summary>判断当前距离是否已有可直接压制目标的动作，避免接敌后仍脱离去集结。</summary>
-    private static bool HasUsableHostileAction(
-        IReadOnlyList<CombatActionCandidate> actions,
-        float distance,
-        float targetSize)
-    {
-        for (int i = 0; i < actions.Count; i++)
-        {
-            if (!actions[i].IsReady) continue;
-            CombatActionProfile profile = actions[i].Profile;
-            if (!profile.HasPurpose(CombatActionPurpose.Offense) &&
-                !profile.HasPurpose(CombatActionPurpose.Control))
-                continue;
-            if (distance >= profile.MinRange && distance <= profile.MaxRange + targetSize)
                 return true;
         }
         return false;
@@ -274,20 +293,18 @@ public static class CombatPlanner
     private static void SelectActions(CombatPlanningSnapshot snapshot, CombatPlan plan)
     {
         if (snapshot.Actions.Length == 0) return;
-        var scored = new List<ScoredAction>(snapshot.Actions.Length);
-        float distance = Vector2.Distance(snapshot.Position, plan.PrimaryEnemy.Position);
+        var scored = new List<ScoredAction>(snapshot.Actions.Length * 2);
+        float enemyDistance = Vector2.Distance(snapshot.Position, plan.PrimaryEnemy.Position);
         int reserveActions = ResolveResourceReserve(plan.Outcome.StrengthRatio);
         for (int i = 0; i < snapshot.Actions.Length; i++)
         {
             CombatActionCandidate candidate = snapshot.Actions[i];
             if (!candidate.IsReady) continue;
-            float score = ScoreAction(
-                snapshot,
-                plan,
-                candidate,
-                distance,
-                reserveActions);
-            if (score > 0f) scored.Add(new ScoredAction(candidate, score));
+            AddScoredUse(scored, snapshot, plan, candidate, CombatActionUse.Offense, enemyDistance, reserveActions);
+            AddScoredUse(scored, snapshot, plan, candidate, CombatActionUse.Control, enemyDistance, reserveActions);
+            AddScoredUse(scored, snapshot, plan, candidate, CombatActionUse.Defense, enemyDistance, reserveActions);
+            AddScoredUse(scored, snapshot, plan, candidate, CombatActionUse.Support, enemyDistance, reserveActions);
+            AddScoredUse(scored, snapshot, plan, candidate, CombatActionUse.Mobility, enemyDistance, reserveActions);
         }
         if (scored.Count == 0) return;
 
@@ -308,7 +325,9 @@ public static class CombatPlanner
             CombatActionKey currentKey = snapshot.CurrentActionKey.Value;
             for (int i = 0; i < nearOptimalCount; i++)
             {
-                if (scored[i].Candidate.Key != currentKey) continue;
+                if (scored[i].Candidate.Key != currentKey ||
+                    scored[i].Use != snapshot.CurrentActionUse)
+                    continue;
                 selectedIndex = i;
                 break;
             }
@@ -327,72 +346,165 @@ public static class CombatPlanner
         }
 
         plan.Action = scored[selectedIndex].Candidate;
+        plan.ActionUse = scored[selectedIndex].Use;
         plan.ActionScore = scored[selectedIndex].Score;
         for (int i = 0; i < scored.Count; i++)
         {
-            if (i == selectedIndex) continue;
+            if (i == selectedIndex ||
+                scored[i].Candidate.Key == plan.Action.Key)
+                continue;
             plan.BackupAction = scored[i].Candidate;
+            plan.BackupActionUse = scored[i].Use;
             break;
         }
+    }
+
+    /// <summary>仅在动作确实具备指定用途时，将该用途的情境评分加入候选池。</summary>
+    private static void AddScoredUse(
+        ICollection<ScoredAction> output,
+        CombatPlanningSnapshot snapshot,
+        CombatPlan plan,
+        CombatActionCandidate candidate,
+        CombatActionUse use,
+        float enemyDistance,
+        int reserveActions)
+    {
+        if (!SupportsUse(candidate.Profile, use)) return;
+        float distance = ResolveActionDistance(
+            snapshot,
+            plan,
+            candidate.Profile,
+            use,
+            enemyDistance,
+            out Vector2 targetPosition,
+            out float targetSize);
+        float score = ScoreAction(
+            snapshot,
+            plan,
+            candidate,
+            use,
+            distance,
+            targetPosition,
+            targetSize,
+            reserveActions);
+        if (score > 0f) output.Add(new ScoredAction(candidate, use, score));
+    }
+
+    /// <summary>将单值用途映射回动作公开的能力标记。</summary>
+    private static bool SupportsUse(CombatActionProfile profile, CombatActionUse use)
+    {
+        return use switch
+        {
+            CombatActionUse.Offense => profile.HasPurpose(CombatActionPurpose.Offense),
+            CombatActionUse.Defense => profile.HasPurpose(CombatActionPurpose.Defense) ||
+                                       profile.HasPurpose(CombatActionPurpose.Barrier),
+            CombatActionUse.Support => profile.HasPurpose(CombatActionPurpose.Support),
+            CombatActionUse.Control => profile.HasPurpose(CombatActionPurpose.Control),
+            CombatActionUse.Mobility => profile.HasPurpose(CombatActionPurpose.Mobility),
+            _ => false
+        };
+    }
+
+    /// <summary>防御和支援按友军距离评分，其余用途按敌方距离评分。</summary>
+    private static float ResolveActionDistance(
+        CombatPlanningSnapshot snapshot,
+        CombatPlan plan,
+        CombatActionProfile profile,
+        CombatActionUse use,
+        float enemyDistance,
+        out Vector2 targetPosition,
+        out float targetSize)
+    {
+        if (profile.TargetMode == ActiveAbilityTargetMode.Self)
+        {
+            targetPosition = snapshot.Position;
+            targetSize = 0f;
+            return 0f;
+        }
+        if (use is not (CombatActionUse.Defense or CombatActionUse.Support))
+        {
+            targetPosition = plan.PrimaryEnemy.Position;
+            targetSize = plan.PrimaryEnemy.Size;
+            return enemyDistance;
+        }
+
+        if (TryResolveFriendlyActionTarget(snapshot, plan, out CombatantSnapshot ally))
+        {
+            targetPosition = ally.Position;
+            targetSize = ally.Size;
+            return Vector2.Distance(snapshot.Position, targetPosition);
+        }
+
+        targetPosition = snapshot.Position;
+        targetSize = 0f;
+        return 0f;
     }
 
     private static float ScoreAction(
         CombatPlanningSnapshot snapshot,
         CombatPlan plan,
         CombatActionCandidate candidate,
+        CombatActionUse use,
         float distance,
+        Vector2 targetPosition,
+        float targetSize,
         int reserveActions)
     {
         CombatActionProfile profile = candidate.Profile;
         bool inRange = distance >= profile.MinRange &&
-                       distance <= profile.MaxRange + plan.PrimaryEnemy.Size;
+                       distance <= profile.MaxRange + targetSize;
         float score = profile.BaseWeight * 0.08f +
                       profile.Reliability * 0.5f;
 
-        if (profile.HasPurpose(CombatActionPurpose.Offense))
+        switch (use)
         {
-            score += profile.Power *
-                     Mathf.Sqrt(profile.ExpectedTargets) *
-                     Mathf.Lerp(0.65f, 1.25f, 1f - plan.PrimaryEnemy.HealthRatio);
-        }
-        if (profile.HasPurpose(CombatActionPurpose.Control))
-        {
-            score += profile.Control *
-                     (plan.Outcome.StrengthRatio < FavorableRatio ? 1.35f : 0.85f);
-        }
-        if (profile.HasPurpose(CombatActionPurpose.Defense))
-        {
-            score += (profile.Utility + profile.Power) *
-                     Mathf.Lerp(0.2f, 1.5f, 1f - snapshot.HealthRatio);
-        }
-        if (profile.HasPurpose(CombatActionPurpose.Support))
-        {
-            score += profile.Utility * ResolveSupportNeed(snapshot);
-        }
-        if (profile.HasPurpose(CombatActionPurpose.Mobility))
-        {
-            if (profile.HasPurpose(CombatActionPurpose.Advance))
-            {
-                if (plan.Intent is CombatIntent.Reposition or CombatIntent.Regroup or CombatIntent.Disengage)
-                    return 0f;
-                score += distance > profile.PreferredRange ? 2.5f : 0.25f;
-            }
-            else if (profile.HasPurpose(CombatActionPurpose.Escape))
-            {
-                score += plan.Intent is CombatIntent.Reposition or CombatIntent.Regroup or CombatIntent.Disengage
-                    ? 2.8f
-                    : 0.75f;
-            }
-            else
-            {
-                score += 0.25f;
-            }
+            case CombatActionUse.Offense:
+                score += profile.Power *
+                         Mathf.Sqrt(profile.ExpectedTargets) *
+                         Mathf.Lerp(0.65f, 1.25f, 1f - plan.PrimaryEnemy.HealthRatio);
+                break;
+            case CombatActionUse.Control:
+                float controlNeed = plan.Outcome.StrengthRatio < FavorableRatio ? 1.35f : 0.85f;
+                if (plan.Intent is CombatIntent.Assist or CombatIntent.Protect) controlNeed += 0.9f;
+                if (plan.PrimaryEnemy.ThreatSeverity > 0f)
+                    controlNeed += plan.PrimaryEnemy.ThreatSeverity * 0.5f;
+                score += profile.Control * controlNeed;
+                break;
+            case CombatActionUse.Defense:
+                float defenseNeed = Mathf.Lerp(0.2f, 1.5f, 1f - snapshot.HealthRatio);
+                if (plan.Intent == CombatIntent.Protect) defenseNeed += 1.4f;
+                else if (plan.PrimaryEnemy.IsRecentAttacker) defenseNeed += 0.55f;
+                score += (profile.Utility + profile.Power) * defenseNeed;
+                break;
+            case CombatActionUse.Support:
+                float supportNeed = ResolveSupportNeed(snapshot);
+                if (plan.Intent is CombatIntent.Assist or CombatIntent.Protect) supportNeed += 1.25f;
+                score += profile.Utility * supportNeed;
+                break;
+            case CombatActionUse.Mobility:
+                if (profile.HasPurpose(CombatActionPurpose.Advance))
+                {
+                    if (plan.Intent is CombatIntent.Reposition or CombatIntent.Regroup or CombatIntent.Disengage)
+                        return 0f;
+                    score += distance > profile.PreferredRange ? 2.5f : 0.25f;
+                }
+                else if (profile.HasPurpose(CombatActionPurpose.Escape))
+                {
+                    score += plan.Intent is CombatIntent.Reposition or CombatIntent.Regroup or CombatIntent.Disengage
+                        ? 2.8f
+                        : 0.75f;
+                }
+                else
+                {
+                    score += 0.25f;
+                }
+                break;
         }
 
         if (profile.HasPurpose(CombatActionPurpose.Barrier) ||
             profile.HasPurpose(CombatActionPurpose.Field))
         {
-            score *= HasEquivalentPersistentEffect(snapshot, profile, plan.PrimaryEnemy.Position)
+            score *= HasEquivalentPersistentEffect(snapshot, profile, targetPosition)
                 ? 0.2f
                 : 1.15f;
         }
@@ -437,8 +549,12 @@ public static class CombatPlanner
 
     private static void SelectActionTargets(CombatPlanningSnapshot snapshot, CombatPlan plan)
     {
-        plan.ActionTarget = ResolveActionTarget(snapshot, plan, plan.Action);
-        plan.BackupActionTarget = ResolveActionTarget(snapshot, plan, plan.BackupAction);
+        plan.ActionTarget = ResolveActionTarget(snapshot, plan, plan.Action, plan.ActionUse);
+        plan.BackupActionTarget = ResolveActionTarget(
+            snapshot,
+            plan,
+            plan.BackupAction,
+            plan.BackupActionUse);
     }
 
     /// <summary>
@@ -478,29 +594,43 @@ public static class CombatPlanner
     private static CombatantSnapshot ResolveActionTarget(
         CombatPlanningSnapshot snapshot,
         CombatPlan plan,
-        CombatActionCandidate action)
+        CombatActionCandidate action,
+        CombatActionUse use)
     {
         if (action == null) return plan.PrimaryEnemy;
         CombatActionProfile profile = action.Profile;
         if (profile.TargetMode == ActiveAbilityTargetMode.Self)
             return default;
-        if (profile.HasPurpose(CombatActionPurpose.Support) &&
-            !profile.HasPurpose(CombatActionPurpose.Offense))
-        {
-            float lowestHealth = snapshot.HealthRatio;
-            CombatantSnapshot ally = default;
-            bool found = false;
-            for (int i = 0; i < snapshot.Allies.Length; i++)
-            {
-                if (snapshot.Allies[i].HealthRatio >= lowestHealth) continue;
-                lowestHealth = snapshot.Allies[i].HealthRatio;
-                ally = snapshot.Allies[i];
-                found = true;
-            }
-            if (found) return ally;
-            return default;
-        }
+        if (use is CombatActionUse.Defense or CombatActionUse.Support)
+            return TryResolveFriendlyActionTarget(snapshot, plan, out CombatantSnapshot ally)
+                ? ally
+                : default;
         return plan.PrimaryEnemy;
+    }
+
+    /// <summary>优先选择本轮受援者，否则选择比施法者伤势更重的最近友军。</summary>
+    private static bool TryResolveFriendlyActionTarget(
+        CombatPlanningSnapshot snapshot,
+        CombatPlan plan,
+        out CombatantSnapshot target)
+    {
+        float lowestHealth = snapshot.HealthRatio;
+        target = default;
+        bool found = false;
+        for (int i = 0; i < snapshot.Allies.Length; i++)
+        {
+            CombatantSnapshot ally = snapshot.Allies[i];
+            if (plan.AssistedAllyId != 0 && ally.Id == plan.AssistedAllyId)
+            {
+                target = ally;
+                return true;
+            }
+            if (plan.AssistedAllyId != 0 || ally.HealthRatio >= lowestHealth) continue;
+            lowestHealth = ally.HealthRatio;
+            target = ally;
+            found = true;
+        }
+        return found;
     }
 
     private static void SelectPosition(CombatPlanningSnapshot snapshot, CombatPlan plan)
@@ -514,12 +644,9 @@ public static class CombatPlanner
                               currentDistance <= positioningProfile.Value.MaxRange + plan.PrimaryEnemy.Size &&
                               (!RequiresClearShot(positioningProfile.Value) ||
                                plan.PrimaryEnemy.HasLineOfFire);
-        if (currentUsable &&
-            plan.Intent != CombatIntent.Reposition &&
-            plan.Intent != CombatIntent.Disengage)
-            return;
 
         float bestScore = float.MinValue;
+        float currentScore = float.MinValue;
         CombatPositionCandidate best = default;
         for (int i = 0; i < snapshot.Positions.Length; i++)
         {
@@ -565,8 +692,21 @@ public static class CombatPlanner
                 case CombatIntent.Reposition:
                     score -= enemyPressure * 0.9f;
                     break;
+                case CombatIntent.Assist:
+                    score += allySupport * 0.55f;
+                    if (position.RelatedAllyId == plan.AssistedAllyId)
+                    {
+                        if (position.Role == CombatPositionRole.AssistRally) score += 4f;
+                        if (position.Role == CombatPositionRole.Interpose) score += 1.5f;
+                    }
+                    break;
                 case CombatIntent.Protect:
                     score += allySupport * 0.7f;
+                    if (position.RelatedAllyId == plan.AssistedAllyId)
+                    {
+                        if (position.Role == CombatPositionRole.Interpose) score += 5f;
+                        if (position.Role == CombatPositionRole.AssistRally) score += 3f;
+                    }
                     break;
                 case CombatIntent.Hold:
                     float holdMovePenalty =
@@ -579,6 +719,8 @@ public static class CombatPlanner
             if (plan.Intent is CombatIntent.Engage or CombatIntent.Hold &&
                 position.Role == CombatPositionRole.CityRetreat)
                 score -= 5f;
+            if (Vector2.Distance(snapshot.Position, position.Position) < 0.25f)
+                currentScore = score;
             if (score <= bestScore) continue;
             bestScore = score;
             best = position;
@@ -587,6 +729,15 @@ public static class CombatPlanner
         if (bestScore == float.MinValue ||
             Vector2.Distance(snapshot.Position, best.Position) < 0.75f)
             return;
+        bool tacticalRelocation = currentUsable &&
+                                  plan.Intent is CombatIntent.Engage or CombatIntent.Hold;
+        if (tacticalRelocation)
+        {
+            if (currentScore != float.MinValue &&
+                bestScore - currentScore < TacticalCombatSettings.RepositionScoreImprovement)
+                return;
+            plan.Intent = CombatIntent.Reposition;
+        }
         plan.Position = best;
         plan.HasPosition = true;
     }
@@ -675,11 +826,16 @@ public static class CombatPlanner
     private readonly struct ScoredAction
     {
         internal readonly CombatActionCandidate Candidate;
+        internal readonly CombatActionUse Use;
         internal readonly float Score;
 
-        internal ScoredAction(CombatActionCandidate candidate, float score)
+        internal ScoredAction(
+            CombatActionCandidate candidate,
+            CombatActionUse use,
+            float score)
         {
             Candidate = candidate;
+            Use = use;
             Score = score;
         }
     }

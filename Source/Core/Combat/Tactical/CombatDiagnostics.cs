@@ -18,6 +18,8 @@ public readonly struct CombatDiagnosticsSnapshot
     public readonly long Replans;
     public readonly long PathFailures;
     public readonly long ArmyRouts;
+    public readonly long ThreatSignals;
+    public readonly long AssistPlans;
     public readonly long MovementOrdersIssued;
     public readonly long MovementOrdersRetained;
     public readonly long ForcedMovementOrders;
@@ -34,6 +36,8 @@ public readonly struct CombatDiagnosticsSnapshot
         long replans,
         long pathFailures,
         long armyRouts,
+        long threatSignals,
+        long assistPlans,
         long movementOrdersIssued,
         long movementOrdersRetained,
         long forcedMovementOrders,
@@ -49,6 +53,8 @@ public readonly struct CombatDiagnosticsSnapshot
         Replans = replans;
         PathFailures = pathFailures;
         ArmyRouts = armyRouts;
+        ThreatSignals = threatSignals;
+        AssistPlans = assistPlans;
         MovementOrdersIssued = movementOrdersIssued;
         MovementOrdersRetained = movementOrdersRetained;
         ForcedMovementOrders = forcedMovementOrders;
@@ -104,6 +110,9 @@ public readonly struct CombatDecisionTrace
     public readonly float StrengthRatio;
     public readonly long TargetId;
     public readonly string Action;
+    public readonly CombatActionUse ActionUse;
+    public readonly long AssistedAllyId;
+    public readonly CombatThreatSource ThreatSource;
     public readonly CombatPositionRole PositionRole;
     public readonly bool HasPosition;
 
@@ -120,10 +129,45 @@ public readonly struct CombatDecisionTrace
         StrengthRatio = plan?.Outcome.StrengthRatio ?? 0f;
         TargetId = plan?.HasEnemy == true ? plan.PrimaryEnemy.Id : 0;
         Action = plan?.Action?.Key.ToString() ?? string.Empty;
+        ActionUse = plan?.ActionUse ?? CombatActionUse.None;
+        AssistedAllyId = plan?.AssistedAllyId ?? 0;
+        ThreatSource = plan?.HasEnemy == true
+            ? plan.PrimaryEnemy.ThreatSource
+            : CombatThreatSource.None;
         PositionRole = plan?.HasPosition == true
             ? plan.Position.Role
             : CombatPositionRole.Tactical;
         HasPosition = plan?.HasPosition == true;
+    }
+}
+
+/// <summary>一次整军溃退发生时的共识输入，不持有军队或角色对象。</summary>
+public readonly struct CombatArmyRoutTrace
+{
+    public readonly long Sequence;
+    public readonly long ArmyId;
+    public readonly float Morale;
+    public readonly float CasualtyRatio;
+    public readonly int UnfavorableReports;
+    public readonly int ReportCount;
+    public readonly int RequiredReports;
+
+    internal CombatArmyRoutTrace(
+        long sequence,
+        long armyId,
+        float morale,
+        float casualtyRatio,
+        int unfavorableReports,
+        int reportCount,
+        int requiredReports)
+    {
+        Sequence = sequence;
+        ArmyId = armyId;
+        Morale = morale;
+        CasualtyRatio = casualtyRatio;
+        UnfavorableReports = unfavorableReports;
+        ReportCount = reportCount;
+        RequiredReports = requiredReports;
     }
 }
 
@@ -136,6 +180,7 @@ public static class CombatDiagnostics
     private static readonly object TraceLock = new();
     private static readonly Queue<CombatDecisionTrace> Traces = new(TraceLimit);
     private static readonly Queue<CombatMovementTrace> MovementTraces = new(TraceLimit);
+    private static readonly Queue<CombatArmyRoutTrace> ArmyRoutTraces = new(TraceLimit);
     private static long sequence;
     private static long highFidelityPlans;
     private static long lowFidelityPlans;
@@ -147,6 +192,8 @@ public static class CombatDiagnostics
     private static long replans;
     private static long pathFailures;
     private static long armyRouts;
+    private static long threatSignals;
+    private static long assistPlans;
     private static long movementOrdersIssued;
     private static long movementOrdersRetained;
     private static long forcedMovementOrders;
@@ -166,6 +213,8 @@ public static class CombatDiagnostics
             Interlocked.Read(ref replans),
             Interlocked.Read(ref pathFailures),
             Interlocked.Read(ref armyRouts),
+            Interlocked.Read(ref threatSignals),
+            Interlocked.Read(ref assistPlans),
             Interlocked.Read(ref movementOrdersIssued),
             Interlocked.Read(ref movementOrdersRetained),
             Interlocked.Read(ref forcedMovementOrders),
@@ -190,11 +239,22 @@ public static class CombatDiagnostics
         }
     }
 
+    /// <summary>按发生顺序复制仍在环形窗口内的整军溃退摘要。</summary>
+    public static void CopyRecentArmyRouts(ICollection<CombatArmyRoutTrace> output)
+    {
+        lock (TraceLock)
+        {
+            foreach (CombatArmyRoutTrace trace in ArmyRoutTraces) output.Add(trace);
+        }
+    }
+
     internal static void RecordPlan(CombatPlanningSnapshot snapshot, CombatPlan plan)
     {
         if (snapshot.HighFidelity) Interlocked.Increment(ref highFidelityPlans);
         else Interlocked.Increment(ref lowFidelityPlans);
         if (plan?.HasEnemy != true) return;
+        if (plan.Intent is CombatIntent.Assist or CombatIntent.Protect)
+            Interlocked.Increment(ref assistPlans);
 
         var trace = new CombatDecisionTrace(
             Interlocked.Increment(ref sequence),
@@ -239,9 +299,33 @@ public static class CombatDiagnostics
         Interlocked.Increment(ref pathFailures);
     }
 
-    internal static void RecordArmyRout()
+    internal static void RecordThreatSignal()
+    {
+        Interlocked.Increment(ref threatSignals);
+    }
+
+    internal static void RecordArmyRout(
+        long armyId,
+        float morale,
+        float casualtyRatio,
+        int unfavorableReports,
+        int reportCount,
+        int requiredReports)
     {
         Interlocked.Increment(ref armyRouts);
+        var trace = new CombatArmyRoutTrace(
+            Interlocked.Increment(ref sequence),
+            armyId,
+            morale,
+            casualtyRatio,
+            unfavorableReports,
+            reportCount,
+            requiredReports);
+        lock (TraceLock)
+        {
+            while (ArmyRoutTraces.Count >= TraceLimit) ArmyRoutTraces.Dequeue();
+            ArmyRoutTraces.Enqueue(trace);
+        }
     }
 
     internal static void RecordMovementIssued(long actorId, WorldTile desired, bool forced)
@@ -301,6 +385,8 @@ public static class CombatDiagnostics
         Interlocked.Exchange(ref replans, 0);
         Interlocked.Exchange(ref pathFailures, 0);
         Interlocked.Exchange(ref armyRouts, 0);
+        Interlocked.Exchange(ref threatSignals, 0);
+        Interlocked.Exchange(ref assistPlans, 0);
         Interlocked.Exchange(ref movementOrdersIssued, 0);
         Interlocked.Exchange(ref movementOrdersRetained, 0);
         Interlocked.Exchange(ref forcedMovementOrders, 0);
@@ -309,6 +395,7 @@ public static class CombatDiagnostics
         {
             Traces.Clear();
             MovementTraces.Clear();
+            ArmyRoutTraces.Clear();
         }
     }
 }

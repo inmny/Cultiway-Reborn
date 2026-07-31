@@ -269,6 +269,8 @@ internal static class CombatMovementService
             CombatIntent.Disengage => CombatMovementKind.Retreat,
             CombatIntent.Regroup => CombatMovementKind.Regroup,
             CombatIntent.Reposition => CombatMovementKind.Reposition,
+            CombatIntent.Assist => CombatMovementKind.Assist,
+            CombatIntent.Protect => CombatMovementKind.Protect,
             _ => CombatMovementKind.Advance
         };
     }
@@ -276,7 +278,10 @@ internal static class CombatMovementService
     private static float ResolveGoalDrift(CombatRole role, CombatMovementKind kind)
     {
         if (kind == CombatMovementKind.Retreat) return RetreatGoalDrift;
-        if (kind == CombatMovementKind.Regroup) return RegroupGoalDrift;
+        if (kind is CombatMovementKind.Regroup
+            or CombatMovementKind.Assist
+            or CombatMovementKind.Protect)
+            return RegroupGoalDrift;
         return role is CombatRole.Ranged
             or CombatRole.Skirmisher
             or CombatRole.Controller
@@ -293,7 +298,10 @@ internal static class CombatMovementService
     {
         float min;
         float spread;
-        if (kind is CombatMovementKind.Retreat or CombatMovementKind.Regroup)
+        if (kind is CombatMovementKind.Retreat
+            or CombatMovementKind.Regroup
+            or CombatMovementKind.Assist
+            or CombatMovementKind.Protect)
         {
             min = 0.55f;
             spread = 0.25f;
