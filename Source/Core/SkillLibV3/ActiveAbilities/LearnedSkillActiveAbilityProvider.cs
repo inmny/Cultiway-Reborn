@@ -115,6 +115,15 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         return weight;
     }
 
+    /// <summary>把技能评估器和命中配置转换为体系无关的战术画像。</summary>
+    public ActiveAbilityTacticalProfile ResolveTacticalProfile(
+        ActorExtend caster,
+        ActiveAbilityHandle handle,
+        BaseSimObject target)
+    {
+        return ActiveAbilityTacticalProfile.FromSkill(handle.Source);
+    }
+
     public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         SkillUseProfileAsset profile = handle.Source.GetComponent<SkillContainer>().Asset.UseProfile;

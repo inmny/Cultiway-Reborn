@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Impacts;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -28,6 +30,19 @@ public enum ActiveAbilityActivationMode
     Instant,
     Sustained,
     Toggle,
+}
+
+/// <summary>
+/// 主动能力在释放期间对施法者移动的约束。
+/// </summary>
+public enum ActiveAbilityCastMobility
+{
+    /// <summary>释放动作不阻断现有移动。</summary>
+    Mobile,
+    /// <summary>释放成功后短暂停止平滑位移，但不清除现有路径。</summary>
+    BriefStop,
+    /// <summary>从释放成功到公共攻击恢复结束期间冻结平滑位移。</summary>
+    StationaryDuringRecovery,
 }
 
 public enum ActiveAbilityUseOrigin
@@ -87,19 +102,99 @@ public readonly struct ActiveAbilityDescriptor
     public readonly ActiveAbilityChannel Channels;
     public readonly ActiveAbilityTargetMode TargetMode;
     public readonly ActiveAbilityActivationMode ActivationMode;
+    public readonly ActiveAbilityCastMobility CastMobility;
 
     public ActiveAbilityDescriptor(
         string name,
         Sprite icon,
         ActiveAbilityChannel channels,
         ActiveAbilityTargetMode targetMode,
-        ActiveAbilityActivationMode activationMode)
+        ActiveAbilityActivationMode activationMode,
+        ActiveAbilityCastMobility castMobility = ActiveAbilityCastMobility.Mobile)
     {
         Name = name ?? string.Empty;
         Icon = icon;
         Channels = channels;
         TargetMode = targetMode;
         ActivationMode = activationMode;
+        CastMobility = castMobility;
+    }
+}
+
+/// <summary>
+/// 主动能力向通用战斗规划器公开的用途和强度，不包含具体体系类型。
+/// </summary>
+public readonly struct ActiveAbilityTacticalProfile
+{
+    public readonly float Offensive;
+    public readonly float Defensive;
+    public readonly float Support;
+    public readonly float Control;
+    public readonly float Power;
+    public readonly float ResourceDemand;
+    public readonly float ExpectedTargets;
+    public readonly SkillImpactKind? ImpactKind;
+
+    public ActiveAbilityTacticalProfile(
+        float offensive,
+        float defensive,
+        float support,
+        float control,
+        float power,
+        float resourceDemand,
+        float expectedTargets,
+        SkillImpactKind? impactKind = null)
+    {
+        Offensive = Mathf.Max(0f, offensive);
+        Defensive = Mathf.Max(0f, defensive);
+        Support = Mathf.Max(0f, support);
+        Control = Mathf.Max(0f, control);
+        Power = Mathf.Max(0f, power);
+        ResourceDemand = Mathf.Max(0f, resourceDemand);
+        ExpectedTargets = Mathf.Max(1f, expectedTargets);
+        ImpactKind = impactKind;
+    }
+
+    /// <summary>
+    /// 将技能容器的通用评级与命中形态转换为战术画像，供不同来源的主动能力共享同一口径。
+    /// </summary>
+    public static ActiveAbilityTacticalProfile FromSkill(
+        Entity skill,
+        float potency = 1f,
+        bool forceDefensive = false)
+    {
+        if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return default;
+
+        SkillEntityAsset asset = skill.GetComponent<SkillContainer>().Asset;
+        SkillImpactProfileAsset impact = asset.ImpactProfile;
+        bool evaluated = SkillContainerEvaluator.TryEvaluate(
+            skill,
+            out SkillEvaluationResult evaluation);
+        float fallbackPower = Mathf.Max(0.1f, impact.DamageMultiplier);
+        float power = (evaluated
+            ? Mathf.Max(0.1f, evaluation.PowerScore)
+            : fallbackPower) * Mathf.Max(0f, potency);
+        float directPower = (evaluated
+            ? Mathf.Max(0.1f, evaluation.DirectPower)
+            : fallbackPower) * Mathf.Max(0f, potency);
+        bool defensive = forceDefensive ||
+                         asset.Type == SkillEntityType.Defense ||
+                         impact.Kind is SkillImpactKind.Wall or SkillImpactKind.Shield;
+        bool wall = impact.Kind == SkillImpactKind.Wall;
+        float utility = evaluated ? evaluation.Utility : 0f;
+        if (defensive && !wall) utility = Mathf.Max(0.25f, utility);
+
+        return new ActiveAbilityTacticalProfile(
+            defensive ? 0f : directPower,
+            defensive ? power : 0f,
+            defensive ? utility : evaluated ? evaluation.Utility : 0f,
+            evaluated ? evaluation.Control : 0f,
+            power,
+            evaluated ? evaluation.ResourceDemandPerStep : 0f,
+            evaluated && evaluation.ExpectedTargets > 0f
+                ? evaluation.ExpectedTargets
+                : impact.ExpectedTargets,
+            impact.Kind);
     }
 }
 
@@ -147,6 +242,11 @@ public interface IActiveAbilityProvider
     bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target);
 
     int ResolveAiWeight(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target);
+
+    ActiveAbilityTacticalProfile ResolveTacticalProfile(
+        ActorExtend caster,
+        ActiveAbilityHandle handle,
+        BaseSimObject target);
 
     float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target);
 

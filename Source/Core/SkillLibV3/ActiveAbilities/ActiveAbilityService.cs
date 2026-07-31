@@ -137,6 +137,28 @@ public static class ActiveAbilityService
         return totalWeight;
     }
 
+    /// <summary>解析主动能力提供者声明的通用战术画像。</summary>
+    public static ActiveAbilityTacticalProfile ResolveTacticalProfile(
+        ActorExtend caster,
+        ActiveAbilityHandle handle,
+        BaseSimObject target)
+    {
+        return TryResolveProvider(handle, out IActiveAbilityProvider provider)
+            ? provider.ResolveTacticalProfile(caster, handle, target)
+            : default;
+    }
+
+    /// <summary>返回 Provider 为指定战斗上下文声明的基础 AI 权重。</summary>
+    public static int ResolveAiWeight(
+        ActorExtend caster,
+        ActiveAbilityHandle handle,
+        BaseSimObject target)
+    {
+        return TryResolveProvider(handle, out IActiveAbilityProvider provider)
+            ? Math.Max(0, provider.ResolveAiWeight(caster, handle, target))
+            : 0;
+    }
+
     public static bool TrySelectForAi(
         ActorExtend caster,
         BaseSimObject target,

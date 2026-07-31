@@ -69,15 +69,28 @@ public readonly struct SkillEvaluationResult
     public readonly ItemLevel ItemLevel;
     public readonly float ResourceDemandPerStep;
     public readonly float PowerScore;
+    public readonly float DirectPower;
+    public readonly float Control;
+    public readonly float Utility;
     public readonly float Complexity;
     public readonly float ExpectedTargets;
 
-    public SkillEvaluationResult(ItemLevel itemLevel, float resourceDemandPerStep, float powerScore, float complexity,
+    public SkillEvaluationResult(
+        ItemLevel itemLevel,
+        float resourceDemandPerStep,
+        float powerScore,
+        float directPower,
+        float control,
+        float utility,
+        float complexity,
         float expectedTargets)
     {
         ItemLevel = itemLevel;
         ResourceDemandPerStep = resourceDemandPerStep;
         PowerScore = powerScore;
+        DirectPower = directPower;
+        Control = control;
+        Utility = utility;
         Complexity = complexity;
         ExpectedTargets = expectedTargets;
     }
@@ -145,8 +158,15 @@ public static class SkillContainerEvaluator
             Mathf.Log(Mathf.Max(1f, resourceDemandPerStep), 2f) * ResourceDemandScale +
             Mathf.Sqrt(context.Complexity) * ComplexityScale);
 
-        result = new SkillEvaluationResult(ItemLevel.FromValue(itemLevelValue), resourceDemandPerStep, powerScore,
-            context.Complexity, context.ExpectedTargets);
+        result = new SkillEvaluationResult(
+            ItemLevel.FromValue(itemLevelValue),
+            resourceDemandPerStep,
+            powerScore,
+            Mathf.Max(0.1f, context.DirectPower + context.AdditionalPower),
+            context.Control,
+            context.Utility,
+            context.Complexity,
+            context.ExpectedTargets);
         return true;
     }
 }

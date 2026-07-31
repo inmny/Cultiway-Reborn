@@ -66,6 +66,18 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
 
     public abstract int ResolveAiWeight(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target);
 
+    /// <summary>使用卷轴或符箓内封存技能的评估结果生成战术画像。</summary>
+    public ActiveAbilityTacticalProfile ResolveTacticalProfile(
+        ActorExtend caster,
+        ActiveAbilityHandle handle,
+        BaseSimObject target)
+    {
+        if (!TryResolve(caster, handle, out SkillPayload payload))
+            return new ActiveAbilityTacticalProfile(0f, 0f, 0f, 0f, 0f, 0f, 1f);
+
+        return ActiveAbilityTacticalProfile.FromSkill(payload.Skill);
+    }
+
     public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         return caster.GetSkillCastRange(target);

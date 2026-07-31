@@ -97,6 +97,21 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
         return weight;
     }
 
+    /// <summary>把形成主动技能的评估结果和目标模式转换成战术画像。</summary>
+    public ActiveAbilityTacticalProfile ResolveTacticalProfile(
+        ActorExtend caster,
+        ActiveAbilityHandle handle,
+        BaseSimObject target)
+    {
+        if (!TryResolve(caster, handle, out ResolvedActive active))
+            return new ActiveAbilityTacticalProfile(0f, 0f, 0f, 0f, 0f, 0f, 1f);
+
+        return ActiveAbilityTacticalProfile.FromSkill(
+            active.Profile.SkillContainer,
+            active.Effect.Potency,
+            active.Profile.target_mode == ActiveAbilityTargetMode.Self);
+    }
+
     /// <summary>返回主动配置声明的选择距离。</summary>
     public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {

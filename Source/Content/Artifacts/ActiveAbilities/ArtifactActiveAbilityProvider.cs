@@ -94,6 +94,38 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
             : 0;
     }
 
+    /// <summary>直接复用法器能力资产声明的用途权重，避免战斗层按能力 ID 写死。</summary>
+    public ActiveAbilityTacticalProfile ResolveTacticalProfile(
+        ActorExtend caster,
+        ActiveAbilityHandle handle,
+        BaseSimObject target)
+    {
+        if (!TryResolve(caster, handle, out ResolvedAbility resolved))
+            return new ActiveAbilityTacticalProfile(0f, 0f, 0f, 0f, 0f, 0f, 1f);
+
+        ArtifactUseProfile use = resolved.Asset.use_profile;
+        ArtifactAbilityExecutionContext context =
+            new(caster.E, handle.Source, resolved.Relation.state);
+        float resource = resolved.Asset.lifecycle.ResolveActivationCost?.Invoke(
+            context,
+            resolved.Ability) ?? 0f;
+        float power = Mathf.Max(
+            0.1f,
+            resolved.Asset.active_use.ai_weight * 0.1f +
+            use.offensive + use.defensive + use.support);
+        float radius = Mathf.Max(0f, resolved.Asset.active_use.ResolveEffectRadius?.Invoke(
+            context,
+            resolved.Ability) ?? 0f);
+        return new ActiveAbilityTacticalProfile(
+            use.offensive,
+            use.defensive,
+            use.support,
+            0f,
+            power,
+            resource,
+            1f + radius * 0.25f);
+    }
+
     public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         if (!TryResolve(caster, handle, out ResolvedAbility resolved)) return 0f;
