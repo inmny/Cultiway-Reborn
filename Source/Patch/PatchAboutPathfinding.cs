@@ -10,6 +10,7 @@ using ai.behaviours;
 using Cultiway.Core.BuildingComponents;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Performance;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -353,6 +354,10 @@ namespace Cultiway.Patch
             }
 
             PathRecoveryManager.Clear(actor);
+            if (CombatWorldService.ReportPathFailure(actor))
+            {
+                return;
+            }
             actor.cancelAllBeh();
         }
 
@@ -452,6 +457,8 @@ namespace Cultiway.Patch
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void UpdateMovementOptimized(Actor actor, float elapsed, float walkedDistance)
         {
+            if (CombatWorldService.ShouldPauseMovement(actor)) return;
+
             var movementBudget = actor._current_combined_movement_speed * elapsed;
             var canFlip = actor.asset.can_flip && actor.checkFlip();
             var customPathCursor = default(PathFinder.ReadyPathCursor);
@@ -489,6 +496,8 @@ namespace Cultiway.Patch
 
                 actor.current_position = target;
                 var walked = GetBoundaryWalkedDistance(distSq);
+
+                if (CombatWorldService.TryCompletePendingMovementStop(actor)) return;
 
                 ContinuePathMovementFromSmooth(actor, ref customPathCursor);
 

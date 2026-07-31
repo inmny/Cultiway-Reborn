@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using Cultiway.Debug;
+using Cultiway.Core.Combat.Tactical;
 using HarmonyLib;
 
 namespace Cultiway.Patch;
@@ -29,6 +30,11 @@ internal class Manager
                 catch (Exception)
                 {
                     ModClass.LogError($"Failed to patch {t.Name}");
+                    if (t == typeof(PatchActor) || t == typeof(PatchAboutPathfinding))
+                    {
+                        TacticalCombatSettings.DisableForCriticalFailure(
+                            $"关键补丁类型 {t.Name} 安装失败");
+                    }
                     throw;
                 }
             });

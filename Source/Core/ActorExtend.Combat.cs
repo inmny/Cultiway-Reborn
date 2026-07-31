@@ -6,6 +6,7 @@ using System.Text;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core.Combat;
+using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Components;
 using Cultiway.Debug;
 using NeoModLoader.api.attributes;
@@ -30,6 +31,13 @@ public partial class ActorExtend
         action_on_attack += action;
     }
     private static Action<ActorExtend, BaseSimObject, ListPool<CombatActionAsset>> action_on_attack;
+
+    /// <summary>注册战斗动作已经真实启动后的副作用。</summary>
+    public static void RegisterActionOnCombatStarted(Action<ActorExtend, BaseSimObject> action)
+    {
+        action_on_combat_started += action;
+    }
+    private static Action<ActorExtend, BaseSimObject> action_on_combat_started;
     private const float MinSkillCastRange = 18f;
     private const float MaxSkillCastRange = 64f;
     private const float CloseCombatCasterChance = 0.25f;
@@ -38,6 +46,16 @@ public partial class ActorExtend
     [Hotfixable]
     public bool TryToAttack(BaseSimObject target, Action kill_action = null, float bonus_area_effect = 0, bool do_checks = true)
     {
+        if (TacticalCombatSettings.Enabled)
+        {
+            return CombatWorldService.TryExecuteImmediate(
+                this,
+                target,
+                kill_action,
+                bonus_area_effect,
+                do_checks);
+        }
+
         var actor = Base;
         if (do_checks)
         {
@@ -122,6 +140,7 @@ public partial class ActorExtend
         }
         
         finishAttackAttempt(combatAction, combatActionDone);
+        NotifyCombatActionStarted(target);
         return true;
 
         [Hotfixable]
@@ -142,6 +161,12 @@ public partial class ActorExtend
             }
             // TODO: 后坐力
         }
+    }
+
+    /// <summary>在统一执行器确认动作已启动后触发一次攻击侧副作用。</summary>
+    internal void NotifyCombatActionStarted(BaseSimObject target)
+    {
+        action_on_combat_started?.Invoke(this, target);
     }
 
     /// <summary>
@@ -421,20 +446,28 @@ public partial class ActorExtend
         AttackType attack_type_for_vanilla = AttackType.Other, bool ignore_damage_reduction = false,
         float? attacker_power_level_override = null)
     {
+        if (Base == attacker) return;
+        if (Base.isAlive() && Base.data.health > 0)
+        {
+            RecordRecentAttacker(attacker);
+            CombatWorldService.RecordAttackAttempt(attacker, Base);
+        }
 
-        if (!Base.isAlive() || Base.hasStatus("invincible") || Base.data.health <= 0)
+        if (!Base.isAlive() || Base.data.health <= 0)
         {
             return;
         }
-
-        if (Base == attacker) return;
+        if (Base.hasStatus("invincible"))
+        {
+            CombatWorldService.RecordDamageOutcome(attacker, Base, 0f, true);
+            return;
+        }
 
         var damage_debug = CombatDamageDebug.ShouldLog(this, attacker)
             ? CombatDamageDebug.StartRecord(this, attacker, damage, ref damage_composition, attack_type_for_vanilla,
                 ignore_damage_reduction)
             : null;
 
-        RecordRecentAttacker(attacker);
         action_before_be_attacked?.Invoke(this, attacker, ref damage_composition, ref attack_type_for_vanilla, ref damage, ref ignore_damage_reduction);
         if (damage_debug != null)
         {
@@ -510,6 +543,7 @@ public partial class ActorExtend
                 damage_debug.FinalDamage = 0f;
                 CombatDamageDebug.Log(damage_debug);
             }
+            CombatWorldService.RecordDamageOutcome(attacker, Base, 0f, true);
             ResolveIneffectiveHit(attacker);
             return;
         }
@@ -550,6 +584,7 @@ public partial class ActorExtend
             damage_debug.FinalDamage = damage;
             CombatDamageDebug.Log(damage_debug);
         }
+        CombatWorldService.RecordDamageOutcome(attacker, Base, damage, false);
         if (damage > 0f)
         {
             OnDamageResolved(attacker, damage, damage_composition, attack_type_for_vanilla);
@@ -640,6 +675,7 @@ public partial class ActorExtend
     private void ResolveIneffectiveHit(BaseSimObject attacker)
     {
         if (attacker.isRekt() || !attacker.isActor()) return;
+        if (TacticalCombatSettings.Enabled) return;
 
         var actor = attacker.a;
         if (actor.has_attack_target && actor.attack_target == Base)

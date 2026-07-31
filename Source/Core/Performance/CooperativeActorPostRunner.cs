@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Cultiway.Core.Combat.Tactical;
 using Cultiway.Const;
 using Cultiway.Patch;
 using UnityEngine;
@@ -430,12 +431,21 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
     private void PrepareEnemySearch(Actor actor)
     {
-        bool applyBackoff = PatchActor.ShouldBackoffEmptyEnemySearch(actor);
         if (actor._update_done || actor._beh_skip)
         {
             return;
         }
 
+        if (TacticalCombatSettings.Enabled)
+        {
+            if (!CombatWorldService.ShouldTakeOver(actor)) return;
+            CombatPlanningWorkItem planning = CombatWorldService.PreparePlanning(actor);
+            if (planning == null) return;
+            RentWorkItem().Configure(planning);
+            return;
+        }
+
+        bool applyBackoff = PatchActor.ShouldBackoffEmptyEnemySearch(actor);
         if (!actor.isAllowedToLookForEnemies() ||
             actor.isInWaterAndCantAttack() ||
             actor._has_status_strange_urge)
@@ -698,6 +708,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
     private sealed class SearchWorkItem
     {
         private readonly CandidateView candidateView = new();
+        private CombatPlanningWorkItem tacticalPlanning;
         private Actor actor;
         private List<BaseSimObject> primaryCandidates;
         private bool findClosest;
@@ -710,6 +721,14 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
         private bool clearAggressionTargets;
         private BaseSimObject result;
 
+        internal void Configure(CombatPlanningWorkItem planning)
+        {
+            tacticalPlanning = planning;
+            actor = null;
+            primaryCandidates = null;
+            result = null;
+        }
+
         internal void Configure(
             Actor sourceActor,
             List<BaseSimObject> sourcePrimaryCandidates,
@@ -720,6 +739,7 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
             int sourceOriginalAggressionCount,
             bool sourceApplyBackoff)
         {
+            tacticalPlanning = null;
             actor = sourceActor;
             primaryCandidates = sourcePrimaryCandidates;
             findClosest = sourceFindClosest;
@@ -735,6 +755,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         internal void Search(List<BaseSimObject> allAggressionCandidates)
         {
+            if (tacticalPlanning != null)
+            {
+                tacticalPlanning.Plan();
+                return;
+            }
+
             if (primaryCandidates.Count > 0)
             {
                 IEnumerable<BaseSimObject> candidates = primaryCandidates;
@@ -782,6 +808,12 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         internal void Commit()
         {
+            if (tacticalPlanning != null)
+            {
+                tacticalPlanning.Commit();
+                return;
+            }
+
             // 搜索可能跨过渲染帧，提交前不能用旧结果覆盖期间产生的新战斗状态。
             if (actor.isRekt() || actor.has_attack_target)
             {
@@ -821,6 +853,8 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
 
         internal void Reset()
         {
+            tacticalPlanning?.Reset();
+            tacticalPlanning = null;
             actor = null;
             primaryCandidates = null;
             result = null;

@@ -7,6 +7,7 @@ using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
+using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -19,6 +20,12 @@ namespace Cultiway.Patch;
 
 internal static class PatchActor
 {
+    /// <summary>在本类型全部 Harmony 补丁安装后验证战斗接管入口。</summary>
+    public static void SpecialPatch()
+    {
+        CombatWorldService.ValidateCriticalPatches();
+    }
+
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.addChildren))]
     private static void addChildren_postfix(Actor __instance)
     {
@@ -99,6 +106,44 @@ internal static class PatchActor
     }
 
     /// <summary>
+    /// 用具体动作冷却替代原版所有高级战斗动作共享的 recovery_combat_action。
+    /// 原版调用点仍负责立即调用选中动作的委托。
+    /// </summary>
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.tryToUseAdvancedCombatAction))]
+    private static bool tryToUseAdvancedCombatAction_prefix(
+        Actor __instance,
+        List<CombatActionAsset> pCombatActionAssetsCategory,
+        BaseSimObject pAttackTarget,
+        ref CombatActionAsset pResultCombatAsset,
+        ref bool __result)
+    {
+        if (!TacticalCombatSettings.Enabled) return true;
+        __result = CombatImmediateActionService.TrySelect(
+            __instance,
+            pCombatActionAssetsCategory,
+            pAttackTarget,
+            out pResultCombatAsset);
+        return false;
+    }
+
+    /// <summary>
+    /// 新战斗层启用时完全替换原版当前目标检查，只推进已经提交的动作计划。
+    /// </summary>
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.b2_checkCurrentEnemyTarget))]
+    private static bool b2_checkCurrentEnemyTarget_prefix(Actor __instance, float pElapsed)
+    {
+        if (!CombatWorldService.ShouldTakeOver(__instance))
+        {
+            CombatWorldService.ReleaseActorTakeover(__instance);
+            return true;
+        }
+        if (__instance._update_done || __instance._beh_skip) return false;
+        if (CombatWorldService.TickExecution(__instance, pElapsed))
+            __instance.skipBehaviour();
+        return false;
+    }
+
+    /// <summary>
     /// 将原版“是否在攻击范围内”的出手判定替换为 Mod 的综合战斗动作距离判定。
     /// </summary>
     [Hotfixable]
@@ -175,9 +220,27 @@ internal static class PatchActor
     }
 
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.b3_findEnemyTarget))]
-    private static void b3_findEnemyTarget_prefix(Actor __instance, out bool __state)
+    private static bool b3_findEnemyTarget_prefix(Actor __instance, out bool __state)
     {
+        if (CombatWorldService.ShouldTakeOver(__instance))
+        {
+            __state = false;
+            if (__instance._update_done || __instance._beh_skip) return false;
+            CombatWorldService.PlanSynchronously(__instance);
+            return false;
+        }
         __state = ShouldBackoffEmptyEnemySearch(__instance);
+        return true;
+    }
+
+    /// <summary>
+    /// 战术任务已经接管角色时只屏蔽原版效用决策，保留后续 AI、路径与平滑移动更新。
+    /// </summary>
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.b6_0_updateDecision))]
+    private static bool b6_0_updateDecision_prefix(Actor __instance)
+    {
+        return !CombatWorldService.ShouldTakeOver(__instance) ||
+               !CombatWorldService.IsEngaged(__instance);
     }
 
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.b3_findEnemyTarget))]
@@ -384,6 +447,7 @@ internal static class PatchActor
         }
         var ae = __instance.GetExtend();
         PathFinder.Instance.Cleanup(__instance.data.id);
+        CombatWorldService.RemoveActor(__instance);
         ae.Dispose();
     }
 }

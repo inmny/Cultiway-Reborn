@@ -25,7 +25,7 @@ public static class CultivateMethodTriggers
     public static void Init()
     {
         ActorExtend.RegisterActionOnKill(OnKillTrigger);
-        ActorExtend.RegisterCombatActionOnAttack(OnAttackTrigger);
+        ActorExtend.RegisterActionOnCombatStarted(OnAttackTrigger);
         ActorExtend.RegisterActionOnBeAttacked(OnBeAttackedTrigger);
     }
     
@@ -69,8 +69,7 @@ public static class CultivateMethodTriggers
     /// 攻击事件触发
     /// </summary>
     [Hotfixable]
-    private static void OnAttackTrigger(ActorExtend attacker, BaseSimObject target, 
-        ListPool<CombatActionAsset> actionPool)
+    private static void OnAttackTrigger(ActorExtend attacker, BaseSimObject target)
     {
         var mainCultibook = attacker.GetMainCultibook();
         if (mainCultibook == null) return;
