@@ -47,6 +47,9 @@ internal static class UiTooltip
 
     private static TipButton Prepare(GameObject target)
     {
+        if (target.GetComponent<UiListRowRootMarker>() != null)
+            throw new InvalidOperationException($"列表条目根节点 {target.name} 不能承载 TipButton，请绑定到具体图标或按钮");
+
         if (!target.TryGetComponent<Button>(out _) && !target.TryGetComponent<Slider>(out _))
         {
             if (target.GetComponent<Selectable>() != null)

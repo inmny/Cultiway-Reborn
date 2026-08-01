@@ -243,13 +243,15 @@ public sealed class WanfaPavilionService
             };
         }
         var trajectoryId = ResolveAvailableTrajectoryId(entity);
-        return new SkillBlueprint
+        var draft = new SkillBlueprint
         {
             EntityAssetId = entity.id,
             CastResourceRequirement = entity.DefaultCastResourceRequirement.DeepClone(),
             TrajectoryAssetId = trajectoryId,
             Origin = new SkillBlueprintOriginData { Kind = SkillBlueprintOriginKind.Created }
         };
+        SkillBlueprintModifierRules.EnsureRequiredModifiers(draft, entity);
+        return draft;
     }
 
     public string ResolveAvailableTrajectoryId(SkillEntityAsset entity, string preferredId = null)

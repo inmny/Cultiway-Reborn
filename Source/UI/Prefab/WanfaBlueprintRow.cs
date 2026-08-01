@@ -76,12 +76,7 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
         var entity = string.IsNullOrWhiteSpace(blueprint.EntityAssetId)
             ? null
             : ModClass.I.SkillV3.SkillLib.get(blueprint.EntityAssetId);
-        Sprite[] frames = null;
-        if (entity != null && entity.IsAnimationIndexValid(blueprint.AnimationIndex))
-        {
-            frames = entity.GetAnimation(blueprint.AnimationIndex).Runtime.Frames;
-        }
-        _icon.sprite = frames is { Length: > 0 } ? frames[0] : null;
+        _icon.sprite = entity?.ResolveIcon(blueprint.AnimationIndex);
         UiTooltip.Set(_icon.gameObject, () => SkillTooltip.Show(_icon.gameObject, blueprint));
         SetFavoriteButton(blueprint.Favorite, favorite);
         SetButton(_up, moveUp, "Cultiway.Wanfa.UI.Action.MoveUp", "Cultiway.Wanfa.UI.Tooltip.MoveUp", allowMove);

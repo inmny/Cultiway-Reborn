@@ -31,8 +31,7 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
 
     internal void Setup(string title, string detail, string actionLabel, bool interactable, Action action,
         string actionIconPath = UiIcons.Select, SkillModifierTooltipModel modifierIcon = null,
-        string assetIconPath = null, string actionTooltipDescription = null, Sprite assetIconSprite = null,
-        string rowTooltipDescription = null)
+        string assetIconPath = null, string actionTooltipDescription = null, Sprite assetIconSprite = null)
     {
         Init();
         ClearControls();
@@ -57,7 +56,6 @@ public sealed class WanfaEditorRow : APrefabPreview<WanfaEditorRow>
             UiTooltip.Set(_action.gameObject, actionLabel,
                 actionTooltipDescription == null ? detail : actionTooltipDescription);
         }
-        UiTooltip.Set(gameObject, title, rowTooltipDescription ?? detail);
         SetHeight(32f);
     }
 

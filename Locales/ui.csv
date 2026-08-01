@@ -523,6 +523,7 @@ Cultiway.Wanfa.UI.Action.Select,选择
 Cultiway.Wanfa.UI.Action.Selected,已选择
 Cultiway.Wanfa.UI.Action.Add,添加
 Cultiway.Wanfa.UI.Action.Remove,移除
+Cultiway.Wanfa.UI.State.RequiredModifier,必需词条
 Cultiway.Wanfa.UI.Action.Import,收入
 Cultiway.Wanfa.UI.Action.Imported,已收录
 Cultiway.Wanfa.UI.Action.ImportAll,全部收入万法阁

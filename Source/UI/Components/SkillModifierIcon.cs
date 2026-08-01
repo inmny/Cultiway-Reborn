@@ -128,7 +128,14 @@ internal sealed class SkillModifierIcon : MonoBehaviour
             _icon.sprite = UiResources.GetSprite(UiIcons.Edit);
         }
         _outline.parent_image = _icon;
-        _outline.show(new ContainerItemColor(model.OutlineColor, null));
+        if (_icon.sprite.texture.isReadable)
+        {
+            _outline.show(new ContainerItemColor(model.OutlineColor, null));
+        }
+        else
+        {
+            _outline.gameObject.SetActive(false);
+        }
         _tipButton.clickAction = null;
         _tipButton.setHoverAction(ShowTooltip);
     }

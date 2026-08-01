@@ -49,8 +49,7 @@ public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
         _detail.text = string.Format("Cultiway.Wanfa.UI.Format.ImportDetail".Localize(),
             SkillCastResourceFormatter.FormatItemLevel(skill.CastResourceRequirement, itemLevel),
             trajectory.Localize(), modifierCount);
-        var frames = skill.Asset.GetAnimation(skill.AnimationIndex).Runtime.Frames;
-        _icon.sprite = frames.Length == 0 ? null : frames[0];
+        _icon.sprite = skill.Asset.ResolveIcon(skill.AnimationIndex);
         UiTooltip.Set(_icon.gameObject, () => SkillTooltip.Show(_icon.gameObject, container));
 
         var signature = SkillContainerSignature.Build(container);

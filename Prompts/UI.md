@@ -96,6 +96,7 @@ Foundation 不得引用 ECS 实体、法宝、宗门、法术或其他 Content �
 - 候选项可能增长时必须支持搜索；触发按钮始终显示当前选择。
 - 二元设置使用 Toggle；互斥页面使用 `UiSegmentedTabs`；数值设置使用输入框、步进器或滑块。
 - 图标按钮使用熟悉图标并配置 Tooltip；只有清晰命令才使用图标加文字。
+- 可滚动列表条目的根节点和背景禁止绑定 `TipButton`/`UiTooltip`；说明信息只能绑定到固定尺寸的图标、按钮或字段，避免整行悬停区域阻断滚轮。
 - 模态框必须有四向内边距，正文和底部动作按钮不得贴住容器边缘。
 
 代码构建窗口的典型用法：
@@ -186,4 +187,5 @@ catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
 - 禁止为了统一外观重写 `TipButton`、`PowerButton` 或 `ScrollWindow` 的原版行为。
 - 禁止在每层调用链重复添加同一组 `null` 兜底。
 - 禁止把玩法数据、ECS 查询或 Content 类型放入 Foundation/Controls。
+- 禁止给列表 Row 的根节点或背景添加 Tooltip；公共 `UiListRowChrome` 会标记根节点并由 `UiTooltip` 拒绝此类绑定。
 - 禁止在公共类型尚未实现时，根据本文创建局部同名替代品。

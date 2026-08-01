@@ -270,12 +270,10 @@ internal static class XianRealmPagePresentation
         return string.IsNullOrEmpty(skillId) ? null : ModClass.I.SkillV3.SkillLib.get(skillId);
     }
 
-    /// <summary>取得法术实体第一套动画的首帧预览。</summary>
+    /// <summary>取得法术实体的独立 UI 图标。</summary>
     public static Sprite ResolveSkillPreview(SkillEntityAsset asset)
     {
-        if (asset == null || asset.Animations.Count == 0) return null;
-        Sprite[] frames = asset.GetAnimation(0).Runtime.Frames;
-        return frames.Length == 0 ? null : frames[0];
+        return asset?.ResolveIcon(0);
     }
 
     /// <summary>取得代表法术的本地化名称。</summary>

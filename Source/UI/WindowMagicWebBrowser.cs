@@ -546,7 +546,8 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
                     currentEntry.Entry.IsDefault
                         ? "Cultiway.MagicWeb.UI.Source.Native".Localize()
                         : "Cultiway.MagicWeb.UI.Source.Uploaded".Localize());
-                var icon = currentEntry.Animation?.Runtime.Frames[0];
+                SkillContainer skill = currentEntry.Entry.Container.GetComponent<SkillContainer>();
+                var icon = skill.Asset.ResolveIcon(skill.AnimationIndex);
                 _rowPool.GetNext().SetupEntry(currentEntry.Entry.Container, icon, currentEntry.Name, detail,
                     currentEntry.ItemLevelName,
                     currentEntry.Entry.Container.Id == _selectedEntityId,

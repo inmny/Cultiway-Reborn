@@ -44,15 +44,12 @@ public class SectScriptureBookRow : APrefabPreview<SectScriptureBookRow>
     [SerializeField]
     private SectScriptureStatValue _reads;
     [SerializeField]
-    private TipButton _tipButton;
-    [SerializeField]
     private TipButton _bookTipButton;
 
     private Book _book;
 
     protected override void OnInit()
     {
-        _tipButton ??= GetComponent<TipButton>();
         _bookTipButton ??= transform.Find("Book").GetComponent<TipButton>();
         _title ??= transform.Find("Name").GetComponent<Text>();
         _rank ??= transform.Find("Rank").GetComponent<Text>();
@@ -61,7 +58,6 @@ public class SectScriptureBookRow : APrefabPreview<SectScriptureBookRow>
         _experience ??= transform.Find("Experience").GetComponent<SectScriptureStatValue>();
         _mana ??= transform.Find("Mana").GetComponent<SectScriptureStatValue>();
         _reads ??= transform.Find("Reads").GetComponent<SectScriptureStatValue>();
-        SetupTipButton(_tipButton);
         SetupTipButton(_bookTipButton);
     }
 
@@ -103,7 +99,7 @@ public class SectScriptureBookRow : APrefabPreview<SectScriptureBookRow>
 
     private static void _init()
     {
-        GameObject obj = ModClass.NewPrefabPreview(nameof(SectScriptureBookRow), typeof(Image), typeof(Button), typeof(TipButton), typeof(LayoutElement));
+        GameObject obj = ModClass.NewPrefabPreview(nameof(SectScriptureBookRow), typeof(Image), typeof(Button), typeof(LayoutElement));
         SetRect(obj.GetComponent<RectTransform>(), new Vector2(RowWidth, RowHeight), Vector2.zero);
 
         Image background = obj.GetComponent<Image>();
@@ -134,7 +130,6 @@ public class SectScriptureBookRow : APrefabPreview<SectScriptureBookRow>
         Prefab._experience = experience;
         Prefab._mana = mana;
         Prefab._reads = reads;
-        Prefab._tipButton = obj.GetComponent<TipButton>();
         Prefab._bookTipButton = bookButton.GetComponent<TipButton>();
 
         Object.DestroyImmediate(bookButton);

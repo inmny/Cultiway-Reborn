@@ -256,6 +256,9 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         }
 
         _draft = (_pendingDraft ?? WanfaPavilionService.Instance.CreateDraft()).DeepClone();
+        SkillBlueprintModifierRules.EnsureRequiredModifiers(
+            _draft,
+            ModClass.I.SkillV3.SkillLib.get(_draft.EntityAssetId));
         _savedDraft = _draft.DeepClone();
         _isExisting = _pendingExisting;
         _actorEdit = _pendingActorEdit;
@@ -415,8 +418,6 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             var selected = entity.id == _draft.EntityAssetId;
             var trajectoryId = WanfaPavilionService.Instance.ResolveAvailableTrajectoryId(entity,
                 selected ? _draft.TrajectoryAssetId : null);
-            var semanticNames = entity.Semantics.Resolve(ModClass.L.SemanticLibrary)
-                .Select(semantic => semantic.GetName());
             var profileName = entity.ImpactProfile.id.Localize();
             var domainNames = SkillTrajectoryDomainFormatter.Format(entity.AcceptedTrajectoryDomains);
             var detail = $"{entity.EditorCategoryKey.Localize()} · {profileName} · {domainNames}";
@@ -424,8 +425,6 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
             {
                 detail += " · " + "Cultiway.Wanfa.UI.Detail.NoAvailableTrajectory".Localize();
             }
-            var tooltipDetail = $"{entity.EditorDescriptionKey.Localize()}\n" +
-                                $"{string.Join("、", semanticNames)}\n{domainNames}";
             var row = _rowPool.GetNext();
             row.Setup(entity.id.Localize(), detail,
                 selected
@@ -433,8 +432,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                     : "Cultiway.Wanfa.UI.Action.Select".Localize(),
                 !selected && trajectoryId != null, () => SelectEntity(entity.id),
                 selected ? UiIcons.Confirm : UiIcons.Select,
-                assetIconSprite: GetEntityPreviewSprite(entity),
-                rowTooltipDescription: tooltipDetail);
+                assetIconSprite: GetEntityPreviewSprite(entity));
             if (selected && entity.Animations.Count > 1)
             {
                 BuildAnimationControls(row, entity);
@@ -459,7 +457,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         preview.transform.SetParent(controls, false);
         UiLayout.SetSize(preview.transform, 20f, 20f);
         var previewImage = preview.GetComponent<Image>();
-        previewImage.sprite = animation == null ? null : animation.Runtime.Frames[0];
+        previewImage.sprite = animation == null ? null : entity.ResolveIcon(_draft.AnimationIndex);
         previewImage.preserveAspect = true;
         previewImage.raycastTarget = false;
 
@@ -508,24 +506,20 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                 var reason = compatibility.IsCompatible
                     ? trajectory.EditorDescriptionKey.Localize()
                     : string.Join("；", compatibility.Issues.Select(issue => issue.Message));
-                var domains = SkillTrajectoryDomainFormatter.Format(trajectory.Domains);
                 _rowPool.GetNext().Setup(trajectory.id.Localize(), reason,
                     selected
                         ? "Cultiway.Wanfa.UI.Action.Selected".Localize()
                         : "Cultiway.Wanfa.UI.Action.Select".Localize(),
                     compatibility.IsCompatible && !selected,
                     () => ApplyMutation(() => _draft.TrajectoryAssetId = trajectory.id),
-                    selected ? UiIcons.Confirm : UiIcons.Select,
-                    rowTooltipDescription: $"{trajectory.EditorDescriptionKey.Localize()}\n{domains}");
+                    selected ? UiIcons.Confirm : UiIcons.Select);
             }
         }
     }
 
     private static Sprite GetEntityPreviewSprite(SkillEntityAsset entity)
     {
-        if (entity.Animations.Count == 0) return null;
-        Sprite[] frames = entity.GetAnimation(0).Runtime.Frames;
-        return frames.Length == 0 ? null : frames[0];
+        return entity.ResolveIcon(0);
     }
 
     private void BuildModifierPage()
@@ -540,6 +534,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
         {
             var spec = _draft.Modifiers.FirstOrDefault(item => item.AssetId == modifier.id);
             var selected = spec != null;
+            var required = context.EntityAsset?.IsRequiredModifier(modifier.id) == true;
             var available = WanfaPavilionService.Instance.ActivePolicy.IsModifierAvailable(modifier.id);
             if (!selected && (!modifier.EditorSelectable || !available)) continue;
 
@@ -552,6 +547,10 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                 compatibility.Merge(WanfaPavilionService.Instance.Validate(candidate));
             }
             var detail = $"{modifier.EditorCategoryKey.Localize()} · {GetRarityName(modifier.Rarity)}";
+            if (required)
+            {
+                detail += $" · {"Cultiway.Wanfa.UI.State.RequiredModifier".Localize()}";
+            }
             var selectedError = selected
                 ? draftValidation.Issues.FirstOrDefault(issue =>
                     issue.Severity == SkillValidationSeverity.Error &&
@@ -571,8 +570,8 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
                 selected
                     ? "Cultiway.Wanfa.UI.Action.Remove".Localize()
                     : "Cultiway.Wanfa.UI.Action.Add".Localize(),
-                selected || compatibility.IsCompatible,
-                () => ToggleModifier(modifier), selected ? UiIcons.Remove : UiIcons.Add,
+                !required && (selected || compatibility.IsCompatible),
+                required ? null : () => ToggleModifier(modifier), selected ? UiIcons.Remove : UiIcons.Add,
                 SkillModifierTooltipModel.FromSpec(checkedSpec));
             if (!selected || !modifier.EditorSelectable || !available) continue;
 
@@ -916,9 +915,11 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     {
         ApplyMutation(() =>
         {
+            var previousEntity = ModClass.I.SkillV3.SkillLib.get(_draft.EntityAssetId);
             _draft.EntityAssetId = entityId;
             _draft.AnimationIndex = 0;
             var entity = ModClass.I.SkillV3.SkillLib.get(entityId);
+            SkillBlueprintModifierRules.RebindEntity(_draft, previousEntity, entity);
             if (!_draft.CastResourceRequirement.IsConfigured)
             {
                 _draft.CastResourceRequirement = entity.DefaultCastResourceRequirement.DeepClone();
@@ -1005,6 +1006,8 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
     {
         ApplyMutation(() =>
         {
+            var entity = ModClass.I.SkillV3.SkillLib.get(_draft.EntityAssetId);
+            if (entity?.IsRequiredModifier(modifier.id) == true) return;
             var existing = _draft.Modifiers.FindIndex(item => item.AssetId == modifier.id);
             if (existing >= 0) _draft.Modifiers.RemoveAt(existing);
             else _draft.Modifiers.Add(modifier.CreateDefaultSpec());
