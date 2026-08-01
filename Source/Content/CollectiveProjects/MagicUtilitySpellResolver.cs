@@ -47,6 +47,8 @@ internal static class MagicUtilitySpellResolver
         SkillSemantics.Effect.LowerTerrain,
         SkillSemantics.Effect.FillWater,
         SkillSemantics.Effect.DrainWater,
+        SkillSemantics.Effect.Rain,
+        SkillSemantics.Effect.Fertilize,
     };
 
     /// <summary>收集城市内至少有一名当前可施放者掌握的不同法术容器。</summary>
@@ -145,6 +147,14 @@ internal static class MagicUtilitySpellResolver
                     option.Radius,
                     tile => allowed.Contains(tile.tile_id) &&
                             CityMagicUtilityProjectRules.IsGrowthCandidate(tile, futureFarmTiles));
+            case CityMagicUtilityProjectGoal.CropFertilization:
+                return SkillEffectResolver.EvaluateTileUtility(
+                    option.Caster,
+                    option.Skill,
+                    target.posV3,
+                    option.Radius,
+                    tile => allowed.Contains(tile.tile_id) &&
+                            CityMagicUtilityProjectRules.IsFertilizableCrop(tile));
             case CityMagicUtilityProjectGoal.HousingTerrain:
             case CityMagicUtilityProjectGoal.FarmTerrain:
                 TerrainProjectDelta delta = CityMagicUtilityProjectRules.EvaluateTerrainDelta(
@@ -175,6 +185,9 @@ internal static class MagicUtilitySpellResolver
                 utility < CityMagicUtilityProjectRules.EmergencyCleanThreshold,
             CityMagicUtilityProjectGoal.NatureGrowth =>
                 utility >= Math.Max(CityMagicUtilityProjectRules.MinimumGrowthTiles,
+                    payload.MinimumUtility),
+            CityMagicUtilityProjectGoal.CropFertilization =>
+                utility >= Math.Max(CityMagicUtilityProjectRules.MinimumFertilizableCrops,
                     payload.MinimumUtility),
             CityMagicUtilityProjectGoal.HousingTerrain or CityMagicUtilityProjectGoal.FarmTerrain =>
                 utility >= Math.Max(CityMagicUtilityProjectRules.MinimumTerrainGain,
@@ -210,7 +223,7 @@ internal static class MagicUtilitySpellResolver
         for (int i = 0; i < ExclusiveWorldEffects.Length; i++)
         {
             SemanticAsset semantic = ExclusiveWorldEffects[i];
-            if (semantic != requiredEffect && semantics.Contains(semantic)) return false;
+            if (!IsRequiredEffectClosure(requiredEffect, semantic) && semantics.Contains(semantic)) return false;
         }
 
         option = new MagicUtilitySpellOption(
@@ -219,6 +232,19 @@ internal static class MagicUtilitySpellResolver
             ActiveAbilityService.ResolveEffectRadius(caster, ability),
             SkillCastCost.CalculateStepDemand(skill));
         return option.Radius > 0f;
+    }
+
+    /// <summary>
+    /// 判断一个互斥效果是否属于所需效果自身的语义闭包，例如“施肥”自然蕴含“成长”。
+    /// </summary>
+    private static bool IsRequiredEffectClosure(SemanticAsset requiredEffect, SemanticAsset candidate)
+    {
+        var expansion = ModClass.L.SemanticLibrary.Expand(requiredEffect);
+        for (int i = 0; i < expansion.Count; i++)
+        {
+            if (expansion[i].semantic == candidate) return true;
+        }
+        return false;
     }
 
     /// <summary>限制常规工程为成年非士兵；应急净化额外允许士兵参与。</summary>

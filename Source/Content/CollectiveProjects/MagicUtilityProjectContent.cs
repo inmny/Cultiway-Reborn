@@ -17,6 +17,7 @@ internal sealed class MagicUtilityProjectContent : ICanInit
 
         RegisterDefinition(CityMagicUtilityProjectIds.EmergencyClean, 100f, false);
         RegisterDefinition(CityMagicUtilityProjectIds.RoutineClean, 20f, false);
+        RegisterDefinition(CityMagicUtilityProjectIds.CropFertilization, 40f, false);
         RegisterDefinition(CityMagicUtilityProjectIds.NatureGrowth, 30f, true);
         RegisterDefinition(CityMagicUtilityProjectIds.HousingTerrain, 50f, true);
         RegisterDefinition(CityMagicUtilityProjectIds.FarmTerrain, 50f, true);

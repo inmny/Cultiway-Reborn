@@ -21,6 +21,9 @@ internal enum CityMagicUtilityProjectGoal
     /// <summary>在木材不足时催生不占用农田的本地植被。</summary>
     NatureGrowth,
 
+    /// <summary>在居民挨饿时催熟城市范围内尚未成熟的麦田。</summary>
+    CropFertilization,
+
     /// <summary>在住房压力下创造连续可建设地块。</summary>
     HousingTerrain,
 
@@ -80,6 +83,7 @@ internal static class CityMagicUtilityProjectRules
 {
     public const float EmergencyCleanThreshold = 8f;
     public const int MinimumGrowthTiles = 8;
+    public const int MinimumFertilizableCrops = 1;
     public const int MinimumTerrainGain = 6;
 
     /// <summary>依据项目快照重新检查城市需求、目标范围和最低收益。</summary>
@@ -98,6 +102,10 @@ internal static class CityMagicUtilityProjectRules
                 EvaluateHazard(target.posV3, payload.PlannedRadius, allowed) is > 0f and < EmergencyCleanThreshold,
             CityMagicUtilityProjectGoal.NatureGrowth =>
                 ValidateGrowthPlan(city, target, payload, allowed),
+            CityMagicUtilityProjectGoal.CropFertilization =>
+                HasFertilizationPressure(city) &&
+                CountFertilizableCrops(target.posV3, payload.PlannedRadius, allowed) >=
+                Math.Max(MinimumFertilizableCrops, Mathf.CeilToInt(payload.MinimumUtility)),
             CityMagicUtilityProjectGoal.HousingTerrain =>
                 HasHousingPressure(city) && IsValidTerrainPlan(
                     EvaluatePredictedTerrainDelta(
@@ -133,6 +141,8 @@ internal static class CityMagicUtilityProjectRules
                 return EvaluateHazard(payload.ExecutionFootprintTileIds) < payload.BaselineMetric;
             case CityMagicUtilityProjectGoal.NatureGrowth:
                 return CountFlora(payload.ExecutionFootprintTileIds) > payload.BaselineMetric;
+            case CityMagicUtilityProjectGoal.CropFertilization:
+                return CountFertilizableCrops(payload.ExecutionFootprintTileIds) < payload.BaselineMetric;
             case CityMagicUtilityProjectGoal.HousingTerrain:
             case CityMagicUtilityProjectGoal.FarmTerrain:
                 for (int i = 0; i < payload.BaselineUsefulTileIds.Length; i++)
@@ -184,6 +194,9 @@ internal static class CityMagicUtilityProjectRules
             case CityMagicUtilityProjectGoal.NatureGrowth:
                 payload.BaselineMetric = CountFlora(payload.ExecutionFootprintTileIds);
                 break;
+            case CityMagicUtilityProjectGoal.CropFertilization:
+                payload.BaselineMetric = CountFertilizableCrops(payload.ExecutionFootprintTileIds);
+                break;
             case CityMagicUtilityProjectGoal.HousingTerrain:
             case CityMagicUtilityProjectGoal.FarmTerrain:
                 var useful = new List<int>();
@@ -225,6 +238,45 @@ internal static class CityMagicUtilityProjectRules
     public static bool HasGrowthPressure(City city)
     {
         return city != null && city.amount_wood < Math.Max(20, Math.Max(0, city.status.population) * 2);
+    }
+
+    /// <summary>只有城市中已经存在饥饿居民时，才允许用法术抢先催熟作物。</summary>
+    public static bool HasFertilizationPressure(City city)
+    {
+        return city != null && city.status.hungry > 0;
+    }
+
+    /// <summary>判断地块上是否存在能够被施肥法术实际催熟的原版麦田。</summary>
+    public static bool IsFertilizableCrop(WorldTile tile)
+    {
+        Building crop = tile?.building;
+        return crop?.asset?.wheat == true && crop.component_wheat != null &&
+               !crop.component_wheat.isMaxLevel();
+    }
+
+    /// <summary>统计指定圆形范围内属于合法空间且尚未成熟的麦田数量。</summary>
+    public static int CountFertilizableCrops(Vector3 center, float radius, ISet<int> allowed)
+    {
+        using var area = new ListPool<WorldTile>();
+        SkillEffectResolver.CollectAreaTiles(center, radius, area);
+        int count = 0;
+        for (int i = 0; i < area.Count; i++)
+        {
+            WorldTile tile = area[i];
+            if ((allowed == null || allowed.Contains(tile.tile_id)) && IsFertilizableCrop(tile)) count++;
+        }
+        return count;
+    }
+
+    /// <summary>统计执行足迹内当前仍可被施肥的麦田数量。</summary>
+    public static int CountFertilizableCrops(IReadOnlyList<int> tileIds)
+    {
+        int count = 0;
+        for (int i = 0; i < tileIds.Count; i++)
+        {
+            if (IsFertilizableCrop(ResolveTile(tileIds[i]))) count++;
+        }
+        return count;
     }
 
     /// <summary>按火焰、热量、烧焦、冻结和荒地权重计算一个地块的净化收益。</summary>

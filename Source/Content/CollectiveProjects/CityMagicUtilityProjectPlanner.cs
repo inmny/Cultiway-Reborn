@@ -16,6 +16,7 @@ internal static class CityMagicUtilityProjectIds
     public const string EmergencyClean = "cultiway.city_magic.emergency_clean";
     public const string RoutineClean = "cultiway.city_magic.routine_clean";
     public const string NatureGrowth = "cultiway.city_magic.nature_growth";
+    public const string CropFertilization = "cultiway.city_magic.crop_fertilization";
     public const string HousingTerrain = "cultiway.city_magic.housing_terrain";
     public const string FarmTerrain = "cultiway.city_magic.farm_terrain";
     public const string EmergencyPlanner = "cultiway.city_magic.emergency_planner";
@@ -88,7 +89,7 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
     public double IntervalSeconds => TimeScales.SecPerMonth;
     public int OwnersPerUpdate => 2;
 
-    /// <summary>生成常规净化和至多一个木材/住房/农田工程提案。</summary>
+    /// <summary>生成常规净化、饥荒施肥和至多一个木材/住房/农田工程提案。</summary>
     public void CollectProposals(
         in CollectiveProjectOwnerContext owner,
         ICollection<CollectiveProjectProposal> output)
@@ -100,6 +101,7 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
         HashSet<int> allowed = ToTileIds(scope);
 
         TryAddRoutineClean(owner.Key, city, scope, allowed, output);
+        TryAddCropFertilization(owner.Key, city, scope, allowed, output);
 
         PlannedProjectCandidate permanent = default;
         bool foundPermanent = false;
@@ -156,6 +158,48 @@ internal sealed class CityRoutineMagicProjectPlanner : ICollectiveProjectPlanner
             Urgency = CollectiveProjectUrgency.Routine,
             Priority = 20f + best.Utility,
             HistoryTag = "clean.routine",
+        });
+    }
+
+    /// <summary>在城市已经有人挨饿时，为能够覆盖最多未成熟麦田的施肥法术发布项目。</summary>
+    private static void TryAddCropFertilization(
+        CollectiveProjectOwnerKey owner,
+        City city,
+        IReadOnlyList<WorldTile> scope,
+        HashSet<int> allowed,
+        ICollection<CollectiveProjectProposal> output)
+    {
+        if (!CityMagicUtilityProjectRules.HasFertilizationPressure(city)) return;
+        using var centers = new ListPool<WorldTile>();
+        for (int i = 0; i < scope.Count; i++)
+        {
+            if (CityMagicUtilityProjectRules.IsFertilizableCrop(scope[i])) centers.Add(scope[i]);
+        }
+        if (centers.Count == 0) return;
+
+        using var options = new ListPool<MagicUtilitySpellOption>();
+        MagicUtilitySpellResolver.CollectCityOptions(city, SkillSemantics.Effect.Fertilize, false, options);
+        var payload = new CityMagicUtilityProjectPayload
+        {
+            Goal = CityMagicUtilityProjectGoal.CropFertilization,
+            EffectSemantic = SkillSemantics.Effect.Fertilize,
+            MinimumUtility = CityMagicUtilityProjectRules.MinimumFertilizableCrops,
+        };
+        if (!TryFindBestArea(options, centers, payload, allowed, null,
+                out MagicUtilityPlanCandidate best)) return;
+
+        payload.PlannedRadius = best.Option.Radius;
+        payload.ExpectedUtility = best.Utility;
+        output.Add(new CollectiveProjectProposal
+        {
+            DefinitionId = CityMagicUtilityProjectIds.CropFertilization,
+            DeduplicationKey = CityMagicUtilityProjectGoal.CropFertilization.ToString(),
+            Owner = owner,
+            TargetTileId = best.Target.tile_id,
+            Payload = payload,
+            Urgency = CollectiveProjectUrgency.Routine,
+            Priority = 40f + city.status.hungry * 3f + best.Utility,
+            HistoryTag = "farm.fertilize",
         });
     }
 
