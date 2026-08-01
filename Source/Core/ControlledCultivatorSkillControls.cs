@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using strings;
@@ -122,14 +125,50 @@ internal static class ControlledCultivatorSkillControls
         for (int i = candidates.Count - 1; i >= 0; i--)
         {
             ActiveAbilityHandle candidate = candidates[i];
-            if ((ActiveAbilityService.GetChannels(caster, candidate) & ActiveAbilityChannel.Combat) == 0 ||
+            if ((ActiveAbilityService.GetChannels(caster, candidate) &
+                 (ActiveAbilityChannel.Combat | ActiveAbilityChannel.World)) == 0 ||
                 !ActiveAbilityService.CanPrepare(caster, candidate, null))
             {
                 candidates.RemoveAt(i);
             }
         }
 
+        StableSortAbilities(caster, candidates);
+
         return candidates.Count > 0;
+    }
+
+    /// <summary>按攻击、防御、辅助、功能的固定顺序整理玩家能够轮换的主动能力。</summary>
+    private static void StableSortAbilities(ActorExtend caster, IList<ActiveAbilityHandle> abilities)
+    {
+        for (int i = 1; i < abilities.Count; i++)
+        {
+            ActiveAbilityHandle value = abilities[i];
+            int group = ResolveAbilityGroup(caster, value);
+            int insert = i;
+            while (insert > 0 && ResolveAbilityGroup(caster, abilities[insert - 1]) > group)
+            {
+                abilities[insert] = abilities[insert - 1];
+                insert--;
+            }
+            abilities[insert] = value;
+        }
+    }
+
+    /// <summary>优先使用技能本体类型，其他能力则依据目标关系和战术画像推断轮换分组。</summary>
+    private static int ResolveAbilityGroup(ActorExtend caster, ActiveAbilityHandle ability)
+    {
+        if (!ability.Source.IsNull && ability.Source.HasComponent<SkillContainer>())
+        {
+            return (int)ability.Source.GetComponent<SkillContainer>().Asset.Type;
+        }
+        ActiveAbilityDescriptor descriptor = ActiveAbilityService.Describe(caster, ability);
+        if (descriptor.TargetRelation == SkillUseTargetRelation.WorldTile) return (int)SkillEntityType.Utility;
+        if (descriptor.TargetRelation == SkillUseTargetRelation.Friendly) return (int)SkillEntityType.Support;
+        ActiveAbilityTacticalProfile tactical = ActiveAbilityService.ResolveTacticalProfile(caster, ability, null);
+        if (tactical.Defensive > tactical.Offensive) return (int)SkillEntityType.Defense;
+        if (tactical.Support > 0f) return (int)SkillEntityType.Support;
+        return (int)SkillEntityType.Attack;
     }
 
     private static bool CanUseSkillControlsNow(Actor actor)
@@ -149,6 +188,7 @@ internal static class ControlledCultivatorSkillControls
         if (!TryGetSelectedAttackAbility(actor, out ActiveAbilityHandle ability)) return false;
 
         var caster = actor.GetExtend();
+        ActiveAbilityDescriptor descriptor = ActiveAbilityService.Describe(caster, ability);
         var manualTargets = selectionArea.Active
             ? CollectManualTargets(actor, selectionArea, attackKingdom)
             : null;
@@ -166,8 +206,13 @@ internal static class ControlledCultivatorSkillControls
             }
         }
 
-        var clampedTargetPos = ClampTargetPos(caster, ability, targetPos);
-        var useTrackedTarget = target != null && !target.isRekt() && IsWithinAbilityRange(caster, ability, target);
+        var clampedTargetPos = descriptor.TargetMode == ActiveAbilityTargetMode.Self
+            ? actor.GetSimPos()
+            : ClampTargetPos(caster, ability, targetPos);
+        var useTrackedTarget = descriptor.TargetRelation != SkillUseTargetRelation.WorldTile &&
+                               target != null && !target.isRekt() &&
+                               MatchesTargetRelation(actor, target, descriptor.TargetRelation) &&
+                               IsWithinAbilityRange(caster, ability, target);
         var abilityTarget = new ActiveAbilityTarget(
             useTrackedTarget ? target : null,
             useTrackedTarget ? target.GetSimPos() : clampedTargetPos,
@@ -189,9 +234,21 @@ internal static class ControlledCultivatorSkillControls
         var mousePos = (Vector3)World.world.getMousePos();
         mousePos.z = 0f;
 
-        BaseSimObject target = GetActorTargetRaycast(actor, mousePos);
-        target ??= GetActorTargetNearCursor(actor);
-        target ??= GetBuildingTargetNearCursor();
+        if (!TryGetSelectedAttackAbility(actor, out ActiveAbilityHandle ability))
+            return new ControlledSkillAim(null, mousePos);
+        ActiveAbilityDescriptor descriptor = ActiveAbilityService.Describe(actor.GetExtend(), ability);
+        if (descriptor.TargetMode == ActiveAbilityTargetMode.Self)
+            return new ControlledSkillAim(actor, actor.GetSimPos());
+        if (descriptor.TargetRelation == SkillUseTargetRelation.WorldTile)
+            return new ControlledSkillAim(null, ClampTargetPos(actor.GetExtend(), ability, mousePos));
+
+        BaseSimObject target = GetActorTargetRaycast(actor, mousePos, descriptor.TargetRelation);
+        target ??= GetActorTargetNearCursor(actor, descriptor.TargetRelation);
+        if (descriptor.TargetRelation == SkillUseTargetRelation.Hostile)
+        {
+            BaseSimObject building = GetBuildingTargetNearCursor();
+            if (MatchesTargetRelation(actor, building, descriptor.TargetRelation)) target ??= building;
+        }
         var targetPos = target == null ? mousePos : target.GetSimPos();
         targetPos = ClampTargetPos(actor.GetExtend(), targetPos);
 
@@ -211,16 +268,28 @@ internal static class ControlledCultivatorSkillControls
 
         var caster = actor.GetExtend();
         if (!TryGetSelectedAttackAbility(actor, out ActiveAbilityHandle ability)) return result;
+        ActiveAbilityDescriptor descriptor = ActiveAbilityService.Describe(caster, ability);
         var center = ClampTargetPos(caster, area.Center);
         var radius = Mathf.Max(0.1f, area.Radius);
-        foreach (var target in SkillUtils.IterEnemyInSphere(center, radius, actor, attackKingdom))
+        if (descriptor.TargetRelation == SkillUseTargetRelation.WorldTile) return result;
+        if (descriptor.TargetRelation == SkillUseTargetRelation.Self)
         {
-            if (target == null || target.isRekt()) continue;
-            if (target == actor) continue;
-            if (!IsWithinAbilityRange(caster, ability, target)) continue;
-            if (result.Contains(target)) continue;
+            result.Add(actor);
+            return result;
+        }
 
-            result.Add(target);
+        if (descriptor.TargetRelation == SkillUseTargetRelation.Friendly)
+        {
+            CollectFriendlyTargets(actor, caster, ability, center, radius, result);
+        }
+        else
+        {
+            foreach (var target in SkillUtils.IterEnemyInSphere(center, radius, actor, attackKingdom))
+            {
+                if (target == null || target.isRekt() || target == actor) continue;
+                if (!IsWithinAbilityRange(caster, ability, target)) continue;
+                if (!result.Contains(target)) result.Add(target);
+            }
         }
 
         result.Sort((a, b) =>
@@ -232,7 +301,33 @@ internal static class ControlledCultivatorSkillControls
         return result;
     }
 
-    private static Actor GetActorTargetRaycast(Actor actor, Vector2 targetPos)
+    /// <summary>收集选区内与施法者同国、同联盟或为施法者本人的全部单位。</summary>
+    private static void CollectFriendlyTargets(
+        Actor actor,
+        ActorExtend caster,
+        ActiveAbilityHandle ability,
+        Vector3 center,
+        float radius,
+        ICollection<BaseSimObject> output)
+    {
+        float radiusSquared = radius * radius;
+        WorldTile centerTile = World.world.GetTile(Mathf.FloorToInt(center.x), Mathf.FloorToInt(center.y));
+        if (centerTile == null) return;
+        int chunkRadius = Mathf.CeilToInt(radius / 16f) + 1;
+        foreach (Actor candidate in Finder.getUnitsFromChunk(centerTile, chunkRadius))
+        {
+            if (candidate == null || candidate.isRekt() ||
+                !SkillTargetRelationResolver.IsFriendly(actor, candidate) ||
+                Toolbox.SquaredDistVec2Float(center, candidate.current_position) > radiusSquared ||
+                !IsWithinAbilityRange(caster, ability, candidate) || output.Contains(candidate)) continue;
+            output.Add(candidate);
+        }
+    }
+
+    private static Actor GetActorTargetRaycast(
+        Actor actor,
+        Vector2 targetPos,
+        SkillUseTargetRelation relation)
     {
         var actorPos = actor.current_position;
         if (Toolbox.SquaredDistVec2Float(actorPos, targetPos) < 0.01f) return null;
@@ -247,7 +342,7 @@ internal static class ControlledCultivatorSkillControls
 
             tile.doUnits(candidate =>
             {
-                if (candidate == actor || candidate.isRekt()) return;
+                if (candidate.isRekt() || !MatchesTargetRelation(actor, candidate, relation)) return;
 
                 var distance = Toolbox.SquaredDistVec2Float(actorPos, candidate.current_position);
                 if (distance >= bestDistance) return;
@@ -261,11 +356,12 @@ internal static class ControlledCultivatorSkillControls
         return target;
     }
 
-    private static Actor GetActorTargetNearCursor(Actor actor)
+    private static Actor GetActorTargetNearCursor(Actor actor, SkillUseTargetRelation relation)
     {
         var target = World.world.getActorNearCursor();
-        if (target == null || target == actor || target.isRekt()) return null;
-        return target;
+        return target == null || target.isRekt() || !MatchesTargetRelation(actor, target, relation)
+            ? null
+            : target;
     }
 
     private static Building GetBuildingTargetNearCursor()
@@ -319,6 +415,43 @@ internal static class ControlledCultivatorSkillControls
                TryGetSelectedAttackAbility(caster.Base, out ActiveAbilityHandle ability)
             ? ActiveAbilityService.ResolveEffectRadius(caster, ability)
             : 0f;
+    }
+
+    /// <summary>返回玩家当前选中能力的稳定目标描述。</summary>
+    internal static bool TryDescribeSelectedAbility(
+        ActorExtend caster,
+        out ActiveAbilityHandle ability,
+        out ActiveAbilityDescriptor descriptor)
+    {
+        ability = default;
+        descriptor = default;
+        if (caster == null || caster.Base.isRekt() ||
+            !TryGetSelectedAttackAbility(caster.Base, out ability)) return false;
+        descriptor = ActiveAbilityService.Describe(caster, ability);
+        return true;
+    }
+
+    /// <summary>使用技能真实的结构化地块预检收集当前世界能力的逐格预览。</summary>
+    internal static void CollectSelectedTilePreview(
+        ActorExtend caster,
+        Vector3 center,
+        float radius,
+        ICollection<SkillTilePreviewEntry> output)
+    {
+        output.Clear();
+        if (!TryDescribeSelectedAbility(caster, out ActiveAbilityHandle ability, out ActiveAbilityDescriptor descriptor) ||
+            descriptor.TargetRelation != SkillUseTargetRelation.WorldTile || ability.Source.IsNull ||
+            !ability.Source.HasComponent<SkillContainer>()) return;
+        SkillEffectResolver.CollectTilePreview(caster, ability.Source, center, radius, output);
+    }
+
+    /// <summary>按主动能力声明的关系判断玩家光标下对象是否是合法目标。</summary>
+    private static bool MatchesTargetRelation(
+        Actor source,
+        BaseSimObject target,
+        SkillUseTargetRelation relation)
+    {
+        return SkillTargetRelationResolver.Matches(relation, source, target);
     }
 
     private static string GetAbilityName(ActorExtend caster, ActiveAbilityHandle ability)

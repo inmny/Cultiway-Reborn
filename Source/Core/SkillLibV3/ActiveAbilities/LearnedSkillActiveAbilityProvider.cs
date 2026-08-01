@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Impacts;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Utils;
@@ -14,7 +15,7 @@ namespace Cultiway.Core.SkillLibV3.ActiveAbilities;
 /// <summary>
 /// 将角色已经掌握的 SkillContainer 适配为统一主动能力。
 /// </summary>
-internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
+internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider, IActiveAbilityTargetAdvisor
 {
     public const string ProviderId = "core.learned_skill";
 
@@ -27,8 +28,7 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         for (int i = 0; i < learnedSkills.Count; i++)
         {
             Entity skill = learnedSkills[i];
-            if (!skill.IsNull && skill.HasComponent<SkillContainer>() &&
-                skill.GetComponent<SkillContainer>().Asset.Type is SkillEntityType.Attack or SkillEntityType.Defense)
+            if (!skill.IsNull && skill.HasComponent<SkillContainer>())
             {
                 output.Add(new ActiveAbilityHandle(Id, skill));
             }
@@ -37,21 +37,24 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
 
     public ActiveAbilityChannel GetChannels(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        return ActiveAbilityChannel.Combat;
+        return handle.Source.GetComponent<SkillContainer>().Asset.UseProfile.Channels;
     }
 
     public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle)
     {
         Entity skill = handle.Source;
+        SkillContainer container = skill.GetComponent<SkillContainer>();
         string name = skill.HasName
             ? skill.Name.value
-            : skill.GetComponent<SkillContainer>().SkillEntityAssetID.Localize();
+            : container.SkillEntityAssetID.Localize();
+        SkillUseProfileAsset useProfile = container.Asset.UseProfile;
         return new ActiveAbilityDescriptor(
             name,
-            null,
-            ActiveAbilityChannel.Combat,
-            skill.GetComponent<SkillContainer>().Asset.UseProfile.TargetMode,
-            ActiveAbilityActivationMode.Instant);
+            container.Asset.ResolveIcon(container.AnimationIndex),
+            useProfile.Channels,
+            useProfile.TargetMode,
+            ActiveAbilityActivationMode.Instant,
+            targetRelation: useProfile.TargetRelation);
     }
 
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
@@ -63,6 +66,9 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         {
             return SkillCastCost.GetAffordableStepLimit(caster, skill) > 0;
         }
+        if (target != null && !target.isRekt() &&
+            !SkillTargetRelationResolver.Matches(useProfile.TargetRelation, caster.Base, target))
+            return false;
         if (target != null && !target.isRekt()) return caster.CanPrepareSkillContainer(skill, target);
         return SkillCastCost.GetAffordableStepLimit(caster, skill) > 0;
     }
@@ -81,14 +87,35 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         }
         if (target.Object != null && !target.Object.isRekt())
         {
-            return caster.CanUseSkillContainerAtCurrentDistance(skill, target.Object);
+            if (!SkillTargetRelationResolver.Matches(
+                    useProfile.TargetRelation,
+                    caster.Base,
+                    target.Object)) return false;
+            float targetRange = ResolveRange(caster, handle, target.Object) + target.Object.stats[strings.S.size];
+            if (Toolbox.SquaredDistVec2Float(caster.Base.current_position, target.Object.current_position) >
+                targetRange * targetRange) return false;
+            int targetStepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill);
+            SkillCastPlan targetPlan = SkillCastPlanner.CreatePlan(
+                caster,
+                skill,
+                target.Object,
+                targetStepLimit,
+                target.ExplicitTargets,
+                target.SelectionArea.Active);
+            return SkillCastCost.CanPay(caster, skill, targetPlan);
         }
+
+        if (useProfile.TargetRelation is SkillUseTargetRelation.Friendly or SkillUseTargetRelation.Self)
+            return false;
 
         float range = ResolveRange(caster, handle, null);
         if (Toolbox.SquaredDistVec2Float(caster.Base.current_position, target.Position) > range * range) return false;
         int stepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill);
         SkillCastPlan plan = SkillCastPlanner.CreatePointPlan(caster, skill, target.Position, stepLimit);
-        return SkillCastCost.CanPay(caster, skill, plan);
+        if (!SkillCastCost.CanPay(caster, skill, plan)) return false;
+        if (useProfile.TargetRelation != SkillUseTargetRelation.WorldTile) return true;
+        float radius = ResolveEffectRadius(caster, handle);
+        return SkillEffectResolver.HasApplicableTile(caster, skill, target.Position, radius);
     }
 
     public int ResolveAiWeight(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
@@ -133,8 +160,32 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
     public float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
     {
         Entity skill = handle.Source;
-        SkillImpactProfileAsset profile = skill.GetComponent<SkillContainer>().Asset.ImpactProfile;
-        return SkillEffectRadius.ResolveContainer(skill, profile.EffectRadius);
+        SkillEntityAsset asset = skill.GetComponent<SkillContainer>().Asset;
+        return SkillEffectRadius.ResolveContainer(
+            skill,
+            asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
+    }
+
+    /// <summary>按每个结构化效果声明的边际收益选择单体或范围辅助法术的最佳中心。</summary>
+    public bool TryResolvePreferredTarget(
+        ActorExtend caster,
+        ActiveAbilityHandle handle,
+        IReadOnlyList<Actor> nearbyAllies,
+        out BaseSimObject target)
+    {
+        target = null;
+        Entity skill = handle.Source;
+        if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
+        SkillUseProfileAsset profile = skill.GetComponent<SkillContainer>().Asset.UseProfile;
+        if (profile.TargetRelation != SkillUseTargetRelation.Friendly) return false;
+
+        return SkillEffectResolver.TryResolveBestFriendlyTarget(
+            caster,
+            skill,
+            nearbyAllies,
+            ResolveEffectRadius(caster, handle),
+            profile.TargetMode == ActiveAbilityTargetMode.Area,
+            out target);
     }
 
     public bool TryUse(
@@ -176,4 +227,5 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
             SkillCastFundingSource.CasterResources,
             target.AttackKingdom);
     }
+
 }

@@ -28,6 +28,28 @@ public static class SkillSemanticCollector
         return builder.Build();
     }
 
+    /// <summary>把技能本体、实际词条和最终轨迹合并为可冻结到业务档案中的直接语义描述。</summary>
+    public static SemanticDescriptor BuildDescriptor(Entity containerEntity)
+    {
+        if (containerEntity.IsNull || !containerEntity.HasComponent<SkillContainer>())
+            return new SemanticDescriptor();
+
+        SkillContainer container = containerEntity.GetComponent<SkillContainer>();
+        SkillEntityAsset asset = container.Asset;
+        var builder = new SemanticDescriptorBuilder().Add(asset.Semantics);
+        foreach (Type type in containerEntity.GetComponentTypes())
+        {
+            if (!typeof(IModifier).IsAssignableFrom(type)) continue;
+            var modifier = (IModifier)containerEntity.GetComponent(type);
+            builder.Add(modifier.ModifierAsset.Semantics);
+        }
+        TrajectoryAsset trajectory = containerEntity.HasComponent<Trajectory>()
+            ? containerEntity.GetComponent<Trajectory>().Asset
+            : asset.PrefabEntity.GetComponent<Trajectory>().Asset;
+        builder.Add(trajectory.Semantics);
+        return builder.Build();
+    }
+
     /// <summary>将一个技能容器的完整语义按指定倍率和范围写入外部档案。</summary>
     public static void ContributeProfile(
         Entity containerEntity,

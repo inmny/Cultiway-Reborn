@@ -4,6 +4,7 @@ using Cultiway.Core.AIGCLib;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.SkillLibV3.Effects;
 using Friflo.Engine.ECS;
 
 namespace Cultiway.Core.SkillLibV3.Utils;
@@ -113,6 +114,8 @@ public class SkillContainerBuilder
 
     public void RemoveModifier<TModifier>() where TModifier : struct, IModifier
     {
+        if (EntityAsset?.IsRequiredModifier(typeof(TModifier)) == true)
+            throw new InvalidOperationException($"{EntityAsset.id} 的必选词条 {typeof(TModifier).Name} 不能删除");
         _modifiersToAdd.Remove(typeof(TModifier));
         _modifiersToSet.Remove(typeof(TModifier));
         _modifiersToRemove.Add(typeof(TModifier), default(TModifier));
@@ -120,6 +123,7 @@ public class SkillContainerBuilder
 
     public Entity Build(SkillContainerBuildMode mode = SkillContainerBuildMode.Runtime)
     {
+        ApplyRequiredModifiers();
         if (_containerEntity.IsNull)
         {
             if (mode != SkillContainerBuildMode.SourceGranted && !_entityAsset.CanBeLearned)
@@ -159,17 +163,11 @@ public class SkillContainerBuilder
         foreach (var modifier in _modifiersToAdd)
         {
             _containerEntity.AddNonGeneric(modifier.Value);
-            skill_container.OnSetup += modifier.Value.ModifierAsset.OnSetup;
-            skill_container.OnTravel += modifier.Value.ModifierAsset.OnTravel;
-            skill_container.OnEffectObj += modifier.Value.ModifierAsset.OnEffectObj;
         }
 
         foreach (var modifier in _modifiersToRemove)
         {
             _containerEntity.RemoveNonGeneric(modifier.Key);
-            skill_container.OnSetup -= modifier.Value.ModifierAsset.OnSetup;
-            skill_container.OnTravel -= modifier.Value.ModifierAsset.OnTravel;
-            skill_container.OnEffectObj -= modifier.Value.ModifierAsset.OnEffectObj;
         }
 
         foreach (var modifier in _modifiersToSet)
@@ -177,6 +175,7 @@ public class SkillContainerBuilder
             _containerEntity.SetNonGeneric(modifier.Value);
         }
 
+        RebuildRuntimePipeline(ref skill_container);
         _containerEntity.GetComponent<SkillContainer>() = skill_container;
         
         // 如果OnTravel非空，添加tag用于过滤
@@ -214,5 +213,46 @@ public class SkillContainerBuilder
             SourceGrantedSkillRegistry.Master(_containerEntity);
         }
         return _containerEntity;
+    }
+
+    /// <summary>把法术本体声明的必选词条物化到新容器或补回被外部构造遗漏的词条。</summary>
+    private void ApplyRequiredModifiers()
+    {
+        SkillEntityAsset asset = EntityAsset;
+        if (asset == null) return;
+        foreach (var spec in asset.RequiredModifiers)
+        {
+            SkillModifierAsset modifier = ModClass.I.SkillV3.ModifierLib.get(spec.AssetId);
+            if (modifier == null || modifier.EditorComponentType == null)
+                throw new InvalidOperationException($"{asset.id} 的必选词条 {spec.AssetId} 未完成注册");
+            if (_modifiersToAdd.ContainsKey(modifier.EditorComponentType) ||
+                _modifiersToSet.ContainsKey(modifier.EditorComponentType) ||
+                (!_containerEntity.IsNull && _containerEntity.HasComponent(modifier.EditorComponentType)))
+                continue;
+            modifier.Materialize(this, spec.DeepClone());
+        }
+    }
+
+    /// <summary>从法术本体和实体上的真实词条重新编译委托及类型化效果，避免增删操作留下重复回调。</summary>
+    private void RebuildRuntimePipeline(ref SkillContainer container)
+    {
+        container.OnSetup = null;
+        container.OnTravel = null;
+        container.OnEffectObj = null;
+        var effects = new List<SkillEffectDescriptor>(container.Asset.Effects);
+        foreach (Type componentType in _containerEntity.GetComponentTypes())
+        {
+            if (!typeof(IModifier).IsAssignableFrom(componentType)) continue;
+            var modifier = (IModifier)_containerEntity.GetComponent(componentType);
+            SkillModifierAsset asset = modifier.ModifierAsset;
+            if (asset == null) continue;
+            container.OnSetup += asset.OnSetup;
+            container.OnTravel += asset.OnTravel;
+            container.OnEffectObj += asset.OnEffectObj;
+            effects.AddRange(asset.Effects);
+        }
+        container.EffectPipeline = effects.Count == 0
+            ? SkillEffectPipeline.Empty
+            : new SkillEffectPipeline(effects);
     }
 }

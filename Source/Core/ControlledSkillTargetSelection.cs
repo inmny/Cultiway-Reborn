@@ -2,6 +2,9 @@ using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils.Extension;
 using strings;
 using UnityEngine;
@@ -22,6 +25,9 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
     private const string SelectionEffectPath = "effects/PrefabUnitSelectionEffect";
     private const string SelectionEffectFallbackPath = "effects/unit_selected_effect";
     private static readonly Color CastRangeColor = new(0.2f, 0.62f, 1f, 0.28f);
+    private static readonly Color FriendlyTargetColor = new(0.2f, 1f, 0.48f, 0.85f);
+    private static readonly Color ValidTileColor = new(0.2f, 0.95f, 0.42f, 0.82f);
+    private static readonly Color SkippedTileColor = new(1f, 0.28f, 0.18f, 0.68f);
 
     private static ControlledSkillTargetSelection _instance;
     private static HotkeyAsset _castHotkey;
@@ -29,6 +35,7 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
     private static HotkeyAction _vanillaZoomAction;
 
     private readonly Vector3[] _circlePoints = new Vector3[CircleSegments];
+    private readonly List<SkillTilePreviewEntry> _tilePreview = new();
     private LineRenderer _circle;
     private MeshRenderer _castRangeFill;
     private Transform _castRangeFillTransform;
@@ -388,9 +395,31 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
         var area = new SkillTargetSelectionArea(true, _center, _displayRadius);
         var targets = ControlledCultivatorSkillControls.CollectManualTargets(actor, area,
             World.world.kingdoms_wild.get("possessed"));
-        var color = effectRadius > 0f || targets.Count > 0
-            ? new Color(0.15f, 0.9f, 1f, 0.85f)
-            : new Color(1f, 0.35f, 0.2f, 0.65f);
+        ControlledCultivatorSkillControls.TryDescribeSelectedAbility(
+            caster,
+            out _,
+            out ActiveAbilityDescriptor descriptor);
+        bool worldTarget = descriptor.TargetRelation == SkillUseTargetRelation.WorldTile;
+        if (worldTarget)
+        {
+            ControlledCultivatorSkillControls.CollectSelectedTilePreview(
+                caster,
+                _center,
+                _displayRadius,
+                _tilePreview);
+        }
+        else
+        {
+            _tilePreview.Clear();
+        }
+        bool hasApplicableTile = _tilePreview.Exists(entry => entry.Applicable);
+        var color = worldTarget
+            ? hasApplicableTile ? ValidTileColor : SkippedTileColor
+            : descriptor.TargetRelation is SkillUseTargetRelation.Friendly or SkillUseTargetRelation.Self
+                ? FriendlyTargetColor
+                : effectRadius > 0f || targets.Count > 0
+                    ? new Color(0.15f, 0.9f, 1f, 0.85f)
+                    : new Color(1f, 0.35f, 0.2f, 0.65f);
 
         _circle.startColor = color;
         _circle.endColor = color;
@@ -407,7 +436,7 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
 
         _circle.SetPositions(_circlePoints);
         UpdateCastRangeFill(actor, caster);
-        UpdateSelectionMarkers(actor, targets);
+        UpdateSelectionMarkers(actor, targets, worldTarget);
     }
 
     private void UpdateCastRangeFill(Actor actor, ActorExtend caster)
@@ -426,7 +455,10 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
         _castRangeFill.enabled = true;
     }
 
-    private void UpdateSelectionMarkers(Actor actor, IReadOnlyList<BaseSimObject> targets)
+    private void UpdateSelectionMarkers(
+        Actor actor,
+        IReadOnlyList<BaseSimObject> targets,
+        bool worldTarget)
     {
         if (_selectionMarkerPool == null) return;
 
@@ -434,7 +466,19 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
         var color = World.world.getArchitectColor();
         color.a = 0.8f;
 
-        if (targets.Count == 0)
+        if (worldTarget)
+        {
+            for (int i = 0; i < _tilePreview.Count; i++)
+            {
+                SkillTilePreviewEntry entry = _tilePreview[i];
+                if (entry.Tile == null) continue;
+                ShowSelectionMarker(
+                    entry.Tile.posV3,
+                    Vector3.one * 0.12f,
+                    entry.Applicable ? ValidTileColor : SkippedTileColor);
+            }
+        }
+        else if (targets.Count == 0)
         {
             ShowSelectionMarker(_center, actor.current_scale, color);
         }

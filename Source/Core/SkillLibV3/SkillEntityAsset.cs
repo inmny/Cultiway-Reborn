@@ -6,6 +6,9 @@ using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.SkillLibV3.Blueprints;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -15,13 +18,17 @@ namespace Cultiway.Core.SkillLibV3;
 public enum SkillEntityType
 {
     Attack,
-    Defense
+    Defense,
+    Support,
+    Utility,
 }
 public delegate bool OnObjCollision(ref SkillContext context, Entity skill_container, Entity skill_entity, BaseSimObject target);
 public class SkillEntityAsset : Asset
 {
     private readonly Dictionary<string, float> _modifierWeightMultipliers = new(StringComparer.Ordinal);
     private readonly List<SkillEntityAnimation> _animations = new();
+    private readonly List<SkillEffectDescriptor> effects = new();
+    private readonly List<SkillModifierSpec> requiredModifiers = new();
 
     internal float DefaultAnimationFrameInterval { get; private set; } = 0.1f;
     internal bool DefaultAnimationLoop { get; private set; } = true;
@@ -29,10 +36,16 @@ public class SkillEntityAsset : Asset
     public ElementComposition Element;
     public SemanticDescriptor Semantics { get; set; } = new();
     public IReadOnlyList<SkillEntityAnimation> Animations => _animations;
+    public IReadOnlyList<SkillEffectDescriptor> Effects => effects;
+    public IReadOnlyList<SkillModifierSpec> RequiredModifiers => requiredModifiers;
     public string EditorCategoryKey;
     public string EditorDescriptionKey;
     public int EditorSortOrder;
     public bool EditorSelectable;
+    /// <summary>技能列表、编辑器与主动能力入口使用的独立图标。</summary>
+    public Sprite Icon { get; private set; }
+    /// <summary>技能在世界中结算时使用的结构化视觉配置。</summary>
+    public SkillWorldVisualProfile WorldVisualProfile { get; private set; }
     /// <summary>该实体能否作为角色持有、改进和释放的技能容器模板。</summary>
     public bool CanBeLearned { get; private set; }
     public EntityStore World => ModClass.I.SkillV3.World;
@@ -42,6 +55,103 @@ public class SkillEntityAsset : Asset
     public SkillImpactTuning ImpactTuning { get; } = new();
     public SkillUseProfileAsset UseProfile { get; private set; }
     public SkillCastResourceRequirement DefaultCastResourceRequirement { get; private set; }
+    public float BaseCastDemand { get; private set; } = 1f;
+    public float AreaCostBaseRadius { get; private set; }
+    public bool DealsBaseDamage { get; private set; } = true;
+    private Func<Entity, float> runtimeLifetimeResolver;
+
+    /// <summary>设置独立 UI 图标，避免把运行时动画帧当作技能图标。</summary>
+    public SkillEntityAsset SetIcon(string iconPath)
+    {
+        if (string.IsNullOrWhiteSpace(iconPath))
+            throw new ArgumentException("技能图标必须提供资源路径", nameof(iconPath));
+        Icon = SpriteTextureLoader.getSprite(iconPath);
+        if (Icon == null) throw new InvalidOperationException($"技能图标加载失败: {iconPath}");
+        return this;
+    }
+
+    /// <summary>设置技能在世界中的声明式视觉配置。</summary>
+    public SkillEntityAsset SetWorldVisual(SkillWorldVisualProfile profile)
+    {
+        WorldVisualProfile = profile ?? throw new ArgumentNullException(nameof(profile));
+        return this;
+    }
+
+    /// <summary>解析指定动画变体的 UI 图标；旧技能未声明图标时回退到运行时首帧。</summary>
+    public Sprite ResolveIcon(int animationIndex)
+    {
+        if (Icon != null) return Icon;
+        if (!IsAnimationIndexValid(animationIndex)) return null;
+        Sprite[] frames = GetAnimation(animationIndex).Runtime.Frames;
+        return frames.Length > 0 ? frames[0] : null;
+    }
+
+    /// <summary>设置每个施放步骤在词条和范围修正之前的基础资源需求。</summary>
+    public SkillEntityAsset SetBaseCastDemand(float demand)
+    {
+        BaseCastDemand = Mathf.Max(0f, demand);
+        return this;
+    }
+
+    /// <summary>设置该法术本体是否执行通用伤害结算。</summary>
+    public SkillEntityAsset SetDealsBaseDamage(bool enabled)
+    {
+        DealsBaseDamage = enabled;
+        return this;
+    }
+
+    /// <summary>设置该法术用于面积成本换算的原始半径；零表示不按面积追加成本。</summary>
+    public SkillEntityAsset SetAreaCostBaseRadius(float radius)
+    {
+        AreaCostBaseRadius = Mathf.Max(0f, radius);
+        return this;
+    }
+
+    /// <summary>声明运行时实体寿命如何从实际技能容器参数解析。</summary>
+    public SkillEntityAsset SetRuntimeLifetime(Func<Entity, float> resolver)
+    {
+        runtimeLifetimeResolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
+        return this;
+    }
+
+    /// <summary>解析当前技能容器对应的运行时实体寿命；未声明时保留命中配置寿命。</summary>
+    internal float ResolveRuntimeLifetime(Entity skillContainer, float fallback)
+    {
+        return runtimeLifetimeResolver == null
+            ? fallback
+            : Mathf.Max(0.05f, runtimeLifetimeResolver(skillContainer));
+    }
+
+    /// <summary>向法术本体追加一个不依赖词条的结构化效果。</summary>
+    public SkillEntityAsset AddEffect(SkillEffectDescriptor effect)
+    {
+        if (effect == null) throw new ArgumentNullException(nameof(effect));
+        effects.Add(effect);
+        return this;
+    }
+
+    /// <summary>
+    /// 声明法术定义所必需的词条。新建容器会自动物化默认值，蓝图必须保留该词条，
+    /// 但仍可通过编辑字段改进其参数。
+    /// </summary>
+    public SkillEntityAsset RequireModifier(SkillModifierAsset modifier)
+    {
+        if (modifier == null) throw new ArgumentNullException(nameof(modifier));
+        if (requiredModifiers.Any(spec => spec.AssetId == modifier.id)) return this;
+        requiredModifiers.Add(modifier.CreateDefaultSpec());
+        return this;
+    }
+
+    public bool IsRequiredModifier(string modifierId)
+    {
+        return requiredModifiers.Any(spec => spec.AssetId == modifierId);
+    }
+
+    public bool IsRequiredModifier(Type componentType)
+    {
+        return requiredModifiers.Any(spec =>
+            ModClass.I.SkillV3.ModifierLib.get(spec.AssetId)?.EditorComponentType == componentType);
+    }
 
     /// <summary>
     /// 设置由该法术实体新建容器时采用的默认施法资源需求。

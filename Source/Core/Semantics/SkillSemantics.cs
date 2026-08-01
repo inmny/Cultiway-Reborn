@@ -190,6 +190,24 @@ public static class SkillSemantics
         public static SemanticAsset MotionChange { get; internal set; }
         /// <summary>表示按批次或齐射方式释放多个实体。</summary>
         public static SemanticAsset Salvo { get; internal set; }
+        /// <summary>表示恢复生命值。</summary>
+        public static SemanticAsset Heal { get; internal set; }
+        /// <summary>表示持续恢复生命值。</summary>
+        public static SemanticAsset Regeneration { get; internal set; }
+        /// <summary>表示移除负面状态或地面污染。</summary>
+        public static SemanticAsset Cleanse { get; internal set; }
+        /// <summary>表示提高攻击能力。</summary>
+        public static SemanticAsset AttackBoost { get; internal set; }
+        /// <summary>表示提高防御能力。</summary>
+        public static SemanticAsset DefenseBoost { get; internal set; }
+        /// <summary>表示永久抬升地形。</summary>
+        public static SemanticAsset RaiseTerrain { get; internal set; }
+        /// <summary>表示永久降低地形。</summary>
+        public static SemanticAsset LowerTerrain { get; internal set; }
+        /// <summary>表示向可蓄水地形注水。</summary>
+        public static SemanticAsset FillWater { get; internal set; }
+        /// <summary>表示移除普通海水。</summary>
+        public static SemanticAsset DrainWater { get; internal set; }
     }
 
     /// <summary>技能在战斗、辅助或生产中的主要用途。</summary>
@@ -203,6 +221,8 @@ public static class SkillSemantics
         public static SemanticAsset Support { get; internal set; }
         /// <summary>表示以制造、炼制或资源产出为主。</summary>
         public static SemanticAsset Production { get; internal set; }
+        /// <summary>表示以改变世界地块或非战斗规则为主。</summary>
+        public static SemanticAsset Utility { get; internal set; }
     }
 
     /// <summary>不改变基础机制、但用于描述技能意象与题材的语义。</summary>
@@ -322,11 +342,23 @@ public static class SkillSemantics
         Effect.Trajectory = Add(library, "semantic.effect.trajectory", "effect", "trajectory");
         Effect.MotionChange = Add(library, "semantic.effect.motion_change", "effect", "motion");
         Effect.Salvo = Add(library, "semantic.effect.salvo", "effect", "salvo", "SalvoCount");
+        Effect.Heal = Add(library, "semantic.effect.heal", "effect", "heal");
+        Effect.Regeneration = Add(library, "semantic.effect.regeneration", "effect", "regeneration",
+            parents: Ids(Effect.Heal));
+        Effect.Cleanse = Add(library, "semantic.effect.cleanse", "effect", "cleanse");
+        Effect.AttackBoost = Add(library, "semantic.effect.attack_boost", "effect", "attack_boost",
+            parents: Ids(Effect.Power));
+        Effect.DefenseBoost = Add(library, "semantic.effect.defense_boost", "effect", "defense_boost");
+        Effect.RaiseTerrain = Add(library, "semantic.effect.raise_terrain", "effect", "raise_terrain");
+        Effect.LowerTerrain = Add(library, "semantic.effect.lower_terrain", "effect", "lower_terrain");
+        Effect.FillWater = Add(library, "semantic.effect.fill_water", "effect", "fill_water");
+        Effect.DrainWater = Add(library, "semantic.effect.drain_water", "effect", "drain_water");
 
         Role.Offensive = Add(library, "semantic.role.offensive", "role", "offensive");
         Role.Defensive = Add(library, "semantic.role.defensive", "role", "defensive");
         Role.Support = Add(library, "semantic.role.support", "role", "support");
         Role.Production = Add(library, "semantic.role.production", "role", "production");
+        Role.Utility = Add(library, "semantic.role.utility", "role", "utility");
         Theme.Metal = Add(library, "semantic.theme.metal", "theme", "metal",
             implications: Implies(Element.Iron, 0.6f));
     }

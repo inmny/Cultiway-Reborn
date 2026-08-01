@@ -57,18 +57,18 @@ public sealed class SkillBlueprintValidator
         {
             if (!seen.Add(resourceId))
             {
-                result.AddError("cast_resource.duplicate", resourceId);
+                result.AddError("cast_resource.duplicate", resourceId, resourceId.Localize());
                 continue;
             }
             var resource = ModClass.I.SkillV3.CastResourceLib.get(resourceId);
             if (resource == null)
             {
-                result.AddError("cast_resource.missing", resourceId);
+                result.AddError("cast_resource.missing", resourceId, resourceId.Localize());
                 continue;
             }
             if (!resource.EditorSelectable && !resource.EditorPersistWhenHidden)
             {
-                result.AddError("cast_resource.internal", resourceId);
+                result.AddError("cast_resource.internal", resourceId, resourceId.Localize());
             }
         }
     }
@@ -198,6 +198,14 @@ public sealed class SkillBlueprintValidator
                     conflictOwners[conflictKey] = spec.AssetId;
                 }
             }
+        }
+
+        if (context.EntityAsset == null) return;
+        foreach (var required in context.EntityAsset.RequiredModifiers)
+        {
+            if (!seenIds.Contains(required.AssetId))
+                result.AddError("modifier.required", required.AssetId,
+                    required.AssetId.Localize(), context.EntityAsset.id.Localize());
         }
     }
 

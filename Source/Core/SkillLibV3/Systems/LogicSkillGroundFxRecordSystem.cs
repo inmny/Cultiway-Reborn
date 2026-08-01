@@ -34,6 +34,13 @@ public class LogicSkillGroundFxRecordSystem :
             ref Trajectory trajectory, ref ColliderSphere collider, Entity entity) =>
         {
             var currentPos = pos.value;
+            if (skillEntity.Asset.WorldVisualProfile?.SuppressDefaultFlyOver == true)
+            {
+                fxState.DistanceAccumulator = 0f;
+                fxState.LastX = currentPos.x;
+                fxState.LastY = currentPos.y;
+                return;
+            }
             const SkillTrajectoryDomain flyoverDomains = SkillTrajectoryDomain.FlyingBody |
                                                          SkillTrajectoryDomain.FlyingWave |
                                                          SkillTrajectoryDomain.Ballistic |

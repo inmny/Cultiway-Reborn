@@ -51,6 +51,7 @@ public class Manager
         ModClass.I.LogicPrepareRecycleSystemGroup.Add(new ReleaseSkillExecutionBodiesSystem());
         ModClass.I.LogicPrepareRecycleSystemGroup.Add(new RecycleNonMasteredSkillContainerSystem());
         ModClass.I.GeneralLogicSystems.Add(SkillLogicSystemGroup);
+        ModClass.I.GeneralRenderSystems.Add(new RenderSkillWorldVisualSystem());
         ActiveAbilityService.Register(new LearnedSkillActiveAbilityProvider());
 
         SkillLogicSystemGroup.Add(new LogicQueuedSkillCastSystem());
@@ -59,6 +60,7 @@ public class Manager
         SkillLogicSystemGroup.Add(new LogicSkillAnimationLifecycleSystem());
         SkillLogicSystemGroup.Add(new LogicTrajectorySystem());
         SkillLogicSystemGroup.Add(new LogicSkillPositionImpactSystem());
+        SkillLogicSystemGroup.Add(new LogicSkillPeriodicEffectSystem());
         SkillLogicSystemGroup.Add(new LogicSkillExecutionBodySyncSystem());
         SkillLogicSystemGroup.Add(new LogicSkillGroundFxRecordSystem());
         SkillLogicSystemGroup.Add(new LogicSkillTravelSystem());
@@ -79,6 +81,7 @@ public class Manager
         AssetManager._instance.add(CastResourceLib, "cultiway.skill_cast_resources");
         AssetManager._instance.add(CastBudgetRuleLib, "cultiway.skill_cast_budget_rules");
         PatchMapBox.RegisterActionOnClearWorld(ClearQueuedSkillSequences);
+        PatchMapBox.RegisterActionOnClearWorld(SkillWorldVisualService.ClearWorldState);
     }
 
     /// <summary>
@@ -307,7 +310,19 @@ public class Manager
             container.OnSetup(entity);
         }
 
+        if (container.EffectPipeline?.HasPeriodicEffects == true)
+        {
+            float interval = container.EffectPipeline.MinimumPeriodicInterval;
+            entity.AddComponent(new SkillPeriodicEffectState
+            {
+                Interval = interval,
+                NextTick = interval
+            });
+        }
+
         SkillImpactRuntime.Initialize(entity);
+        ref AliveTimeLimit lifetime = ref entity.GetComponent<AliveTimeLimit>();
+        lifetime.value = container.Asset.ResolveRuntimeLifetime(skill_container, lifetime.value);
         ApplyTrajectoryAfterimage(entity, container.MotionProfile);
         SkillAnimationLifecycle.Initialize(
             entity,

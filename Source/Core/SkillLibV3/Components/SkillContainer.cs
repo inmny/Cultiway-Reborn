@@ -3,6 +3,7 @@ using Friflo.Json.Fliox;
 using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3.Motions;
 using Cultiway.Core.SkillLibV3.Visuals;
+using Cultiway.Core.SkillLibV3.Effects;
 
 namespace Cultiway.Core.SkillLibV3.Components;
 /// <summary>
@@ -28,6 +29,10 @@ public struct SkillContainer : IComponent
     public SetupAction OnSetup;
     public TravelAction OnTravel;
     public EffectObjAction OnEffectObj;
+
+    /// <summary>由法术本体和全部词条编译出的类型化效果管线。</summary>
+    [Ignore]
+    public SkillEffectPipeline EffectPipeline;
 
     /// <summary>
     /// 构建完成时解析出的视觉元素，供生成的技能实体直接继承。

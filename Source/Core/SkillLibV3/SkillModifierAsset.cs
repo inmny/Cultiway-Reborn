@@ -5,6 +5,7 @@ using System.Linq;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Editor;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.Semantics;
@@ -77,6 +78,11 @@ public delegate void SkillModifierCastParametersAction(Entity skillContainer,
 public delegate void SkillModifierEvaluationAction(Entity skillContainer, ref SkillEvaluationContext context);
 public class SkillModifierAsset : Asset
 {
+    private readonly List<SkillEffectDescriptor> effects = new();
+
+    /// <summary>该词条向结构化命中管线贡献的效果。</summary>
+    public IReadOnlyList<SkillEffectDescriptor> Effects => effects;
+
     /// <summary>词条实际贡献的跨系统语义；编辑器筛选标签不应写入这里。</summary>
     public SemanticDescriptor Semantics { get; set; } = new();
 
@@ -89,6 +95,9 @@ public class SkillModifierAsset : Asset
     /// 权重修正，用于细调该词条的抽取概率（默认为1）
     /// </summary>
     public float WeightMod = 1f;
+
+    /// <summary>该词条对单次施放基础需求的贡献；定义法术本体的必选词条通常为零。</summary>
+    public float CastDemand = 0.1f;
 
     /// <summary>
     /// 技术互斥键，用于阻止不能同时存在的词条组合。
@@ -123,6 +132,14 @@ public class SkillModifierAsset : Asset
     public EffectObjAction OnEffectObj;
     public AddOrUpgradeAction OnAddOrUpgrade;
     public GetDescription GetDescription;
+
+    /// <summary>向词条追加一个按目标关系结算的结构化效果。</summary>
+    public SkillModifierAsset AddEffect(SkillEffectDescriptor effect)
+    {
+        if (effect == null) throw new ArgumentNullException(nameof(effect));
+        effects.Add(effect);
+        return this;
+    }
 
     public SkillModifierAsset AddSemantics(params SemanticAsset[] semantics)
     {

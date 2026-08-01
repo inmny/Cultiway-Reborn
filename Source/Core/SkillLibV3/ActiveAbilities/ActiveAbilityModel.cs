@@ -4,6 +4,7 @@ using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.SkillLibV3.Usage;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -105,6 +106,7 @@ public readonly struct ActiveAbilityDescriptor
     public readonly ActiveAbilityTargetMode TargetMode;
     public readonly ActiveAbilityActivationMode ActivationMode;
     public readonly ActiveAbilityCastMobility CastMobility;
+    public readonly SkillUseTargetRelation TargetRelation;
 
     public ActiveAbilityDescriptor(
         string name,
@@ -112,7 +114,8 @@ public readonly struct ActiveAbilityDescriptor
         ActiveAbilityChannel channels,
         ActiveAbilityTargetMode targetMode,
         ActiveAbilityActivationMode activationMode,
-        ActiveAbilityCastMobility castMobility = ActiveAbilityCastMobility.Mobile)
+        ActiveAbilityCastMobility castMobility = ActiveAbilityCastMobility.Mobile,
+        SkillUseTargetRelation? targetRelation = null)
     {
         Name = name ?? string.Empty;
         Icon = icon;
@@ -120,6 +123,9 @@ public readonly struct ActiveAbilityDescriptor
         TargetMode = targetMode;
         ActivationMode = activationMode;
         CastMobility = castMobility;
+        TargetRelation = targetRelation ?? (targetMode == ActiveAbilityTargetMode.Self
+            ? SkillUseTargetRelation.Self
+            : SkillUseTargetRelation.Hostile);
     }
 }
 
@@ -194,11 +200,13 @@ public readonly struct ActiveAbilityTacticalProfile
         bool explicitSupport = semantics.Contains(SkillSemantics.Role.Support);
         bool explicitDefense = semantics.Contains(SkillSemantics.Role.Defensive);
         bool explicitOffense = semantics.Contains(SkillSemantics.Role.Offensive);
+        bool utilityOnly = asset.Type == SkillEntityType.Utility ||
+                           semantics.Contains(SkillSemantics.Role.Utility);
         defensive |= explicitDefense;
         float support = explicitSupport
             ? Mathf.Max(0.25f, Mathf.Max(utility, power * 0.5f))
             : 0f;
-        float offense = explicitOffense || (!defensive && !explicitSupport)
+        float offense = explicitOffense || (!defensive && !explicitSupport && !utilityOnly)
             ? directPower
             : 0f;
 
@@ -277,4 +285,14 @@ public interface IActiveAbilityProvider
         ActiveAbilityHandle handle,
         in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin);
+}
+
+/// <summary>可选的主动能力目标顾问，用于在主线程按能力自身效果选择具体友军。</summary>
+public interface IActiveAbilityTargetAdvisor
+{
+    bool TryResolvePreferredTarget(
+        ActorExtend caster,
+        ActiveAbilityHandle handle,
+        IReadOnlyList<Actor> nearbyAllies,
+        out BaseSimObject target);
 }

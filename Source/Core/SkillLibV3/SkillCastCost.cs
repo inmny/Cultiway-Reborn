@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.SkillLibV3.Utils;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -18,8 +19,6 @@ public enum SkillCastFundingSource
 /// </summary>
 public static class SkillCastCost
 {
-    private const float BaseStepDemand = 1f;
-    private const float ModifierStepDemand = 0.1f;
     private const float LegacyMultiCastStepDemand = 0.03f;
 
     public static bool CanPay(ActorExtend caster, Entity skill, SkillCastPlan plan,
@@ -113,12 +112,25 @@ public static class SkillCastCost
     {
         if (skill.IsNull) return 0f;
 
-        var modifierCount = CountModifiers(skill);
+        var modifierDemand = CalculateModifierDemand(skill);
         var repeatBias = skill.TryGetComponent(out SalvoCount salvo) ? Mathf.Max(0, salvo.Value - 1) : 0;
         var spreadBias = skill.TryGetComponent(out BurstCount burst) ? Mathf.Max(0, burst.Value - 1) : 0;
-        var demand = BaseStepDemand
-                     + modifierCount * ModifierStepDemand
+        var container = skill.GetComponent<SkillContainer>();
+        var demand = container.Asset.BaseCastDemand
+                     + modifierDemand
                      + Mathf.Clamp(repeatBias + spreadBias, 0, 20) * LegacyMultiCastStepDemand;
+        float baseRadius = container.Asset.AreaCostBaseRadius > 0f
+            ? container.Asset.AreaCostBaseRadius
+            : container.Asset.UseProfile.AreaCostBaseRadius;
+        if (baseRadius > 0f)
+        {
+            float actualRadius = SkillEffectRadius.ResolveContainer(
+                skill,
+                container.Asset.ImpactProfile.EffectRadius *
+                container.Asset.ImpactTuning.EffectRadiusMultiplier);
+            float ratio = Mathf.Max(1f, actualRadius / baseRadius);
+            demand *= ratio * ratio;
+        }
         demand *= skill.GetComponent<SkillCastParameters>().CostMultiplier;
         return demand;
     }
@@ -182,14 +194,16 @@ public static class SkillCastCost
         return Mathf.Max(0f, quoted);
     }
 
-    private static int CountModifiers(Entity skill)
+    private static float CalculateModifierDemand(Entity skill)
     {
-        var count = 0;
+        float demand = 0f;
         foreach (var componentType in skill.GetComponentTypes())
         {
-            if (typeof(IModifier).IsAssignableFrom(componentType)) count++;
+            if (!typeof(IModifier).IsAssignableFrom(componentType)) continue;
+            var modifier = (IModifier)skill.GetComponent(componentType);
+            demand += Mathf.Max(0f, modifier.ModifierAsset?.CastDemand ?? 0f);
         }
-        return count;
+        return demand;
     }
 
     private readonly struct ResourcePayment

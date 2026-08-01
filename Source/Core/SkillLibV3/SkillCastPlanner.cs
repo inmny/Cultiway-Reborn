@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
+using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -118,6 +119,8 @@ public static class SkillCastPlanner
 
     private static int DetermineCastCount(ActorExtend caster, Entity skill, BaseSimObject primaryTarget)
     {
+        if (skill.GetComponent<SkillContainer>().Asset.UseProfile.Multiplicity == SkillUseMultiplicity.Single)
+            return 1;
         var budgetResolution = SkillCastBudgetResolver.Resolve(caster, skill, primaryTarget);
         var budget = budgetResolution.MaxSteps;
         if (budget <= 1) return 1;

@@ -159,6 +159,29 @@ public static class ActiveAbilityService
             : 0;
     }
 
+    /// <summary>请求能力提供者按自身结构化效果选择收益最高的友方目标。</summary>
+    public static bool TryResolvePreferredTarget(
+        ActorExtend caster,
+        ActiveAbilityHandle handle,
+        IReadOnlyList<Actor> nearbyAllies,
+        out BaseSimObject target)
+    {
+        if (TryResolveProvider(handle, out IActiveAbilityProvider provider) &&
+            provider is IActiveAbilityTargetAdvisor advisor)
+        {
+            return advisor.TryResolvePreferredTarget(caster, handle, nearbyAllies, out target);
+        }
+        target = null;
+        return false;
+    }
+
+    /// <summary>判断能力提供者是否声明了按具体效果选择目标的顾问。</summary>
+    public static bool HasTargetAdvisor(ActiveAbilityHandle handle)
+    {
+        return TryResolveProvider(handle, out IActiveAbilityProvider provider) &&
+               provider is IActiveAbilityTargetAdvisor;
+    }
+
     public static bool TrySelectForAi(
         ActorExtend caster,
         BaseSimObject target,
