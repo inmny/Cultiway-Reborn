@@ -357,7 +357,7 @@ public static class CombatWorldService
             return false;
 
         using var candidates = new ListPool<CombatActionCandidate>();
-        CombatActionService.Collect(caster, target, null, 1f, candidates);
+        CombatActionService.Collect(caster, target, null, 1f, null, candidates);
         CombatActionCandidate best = null;
         CombatActionCandidate backup = null;
         float bestScore = float.MinValue;
@@ -796,6 +796,7 @@ public static class CombatWorldService
                 provisionalEnemy.Object,
                 preferredAlly,
                 threatRatio,
+                nearbyAllies,
                 actions);
         }
         CombatActionCandidate[] actionArray = LimitActions(actions, highFidelity ? 16 : 8);

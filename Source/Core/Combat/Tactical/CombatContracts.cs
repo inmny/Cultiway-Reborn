@@ -335,19 +335,23 @@ public sealed class CombatActionCandidate
     public readonly object Payload;
     /// <summary>该动作在快照创建时是否已经结束独立冷却。</summary>
     public readonly bool IsReady;
+    /// <summary>Provider 在主线程依据具体效果选出的友军 ID；零表示沿用通用目标规则。</summary>
+    public readonly long PreferredTargetId;
 
     public CombatActionCandidate(
         ICombatActionProvider provider,
         CombatActionKey key,
         CombatActionProfile profile,
         object payload,
-        bool isReady = true)
+        bool isReady = true,
+        long preferredTargetId = 0)
     {
         Provider = provider ?? throw new ArgumentNullException(nameof(provider));
         Key = key;
         Profile = profile;
         Payload = payload;
         IsReady = isReady;
+        PreferredTargetId = preferredTargetId;
     }
 
     /// <summary>复制动作候选并写入本轮冷却快照，不修改 Provider 创建的原对象。</summary>
@@ -355,7 +359,7 @@ public sealed class CombatActionCandidate
     {
         return IsReady == isReady
             ? this
-            : new CombatActionCandidate(Provider, Key, Profile, Payload, isReady);
+            : new CombatActionCandidate(Provider, Key, Profile, Payload, isReady, PreferredTargetId);
     }
 }
 
@@ -368,17 +372,20 @@ public readonly struct CombatActionCollectionContext
     public readonly BaseSimObject PrimaryEnemy;
     public readonly Actor PreferredAlly;
     public readonly float ThreatRatio;
+    public readonly IReadOnlyList<Actor> NearbyAllies;
 
     public CombatActionCollectionContext(
         ActorExtend caster,
         BaseSimObject primaryEnemy,
         Actor preferredAlly,
-        float threatRatio)
+        float threatRatio,
+        IReadOnlyList<Actor> nearbyAllies)
     {
         Caster = caster;
         PrimaryEnemy = primaryEnemy;
         PreferredAlly = preferredAlly;
         ThreatRatio = threatRatio;
+        NearbyAllies = nearbyAllies;
     }
 }
 

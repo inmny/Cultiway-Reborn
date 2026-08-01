@@ -373,6 +373,7 @@ public static class CombatPlanner
         float distance = ResolveActionDistance(
             snapshot,
             plan,
+            candidate,
             candidate.Profile,
             use,
             enemyDistance,
@@ -409,6 +410,7 @@ public static class CombatPlanner
     private static float ResolveActionDistance(
         CombatPlanningSnapshot snapshot,
         CombatPlan plan,
+        CombatActionCandidate candidate,
         CombatActionProfile profile,
         CombatActionUse use,
         float enemyDistance,
@@ -421,6 +423,12 @@ public static class CombatPlanner
             targetSize = 0f;
             return 0f;
         }
+        if (candidate.PreferredTargetId == snapshot.ActorId)
+        {
+            targetPosition = snapshot.Position;
+            targetSize = 0f;
+            return 0f;
+        }
         if (use is not (CombatActionUse.Defense or CombatActionUse.Support))
         {
             targetPosition = plan.PrimaryEnemy.Position;
@@ -428,7 +436,7 @@ public static class CombatPlanner
             return enemyDistance;
         }
 
-        if (TryResolveFriendlyActionTarget(snapshot, plan, out CombatantSnapshot ally))
+        if (TryResolveFriendlyActionTarget(snapshot, plan, candidate, out CombatantSnapshot ally))
         {
             targetPosition = ally.Position;
             targetSize = ally.Size;
@@ -601,8 +609,10 @@ public static class CombatPlanner
         CombatActionProfile profile = action.Profile;
         if (profile.TargetMode == ActiveAbilityTargetMode.Self)
             return default;
+        if (action.PreferredTargetId == snapshot.ActorId)
+            return default;
         if (use is CombatActionUse.Defense or CombatActionUse.Support)
-            return TryResolveFriendlyActionTarget(snapshot, plan, out CombatantSnapshot ally)
+            return TryResolveFriendlyActionTarget(snapshot, plan, action, out CombatantSnapshot ally)
                 ? ally
                 : default;
         return plan.PrimaryEnemy;
@@ -612,6 +622,7 @@ public static class CombatPlanner
     private static bool TryResolveFriendlyActionTarget(
         CombatPlanningSnapshot snapshot,
         CombatPlan plan,
+        CombatActionCandidate action,
         out CombatantSnapshot target)
     {
         float lowestHealth = snapshot.HealthRatio;
@@ -620,6 +631,11 @@ public static class CombatPlanner
         for (int i = 0; i < snapshot.Allies.Length; i++)
         {
             CombatantSnapshot ally = snapshot.Allies[i];
+            if (action?.PreferredTargetId != 0 && ally.Id == action.PreferredTargetId)
+            {
+                target = ally;
+                return true;
+            }
             if (plan.AssistedAllyId != 0 && ally.Id == plan.AssistedAllyId)
             {
                 target = ally;

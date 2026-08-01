@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Impacts;
+using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using strings;
@@ -29,6 +30,7 @@ public static class CombatActionService
         BaseSimObject primaryEnemy,
         Actor preferredAlly,
         float threatRatio,
+        IReadOnlyList<Actor> nearbyAllies,
         IList<CombatActionCandidate> output)
     {
         output.Clear();
@@ -38,7 +40,8 @@ public static class CombatActionService
             caster,
             primaryEnemy,
             preferredAlly,
-            threatRatio);
+            threatRatio,
+            nearbyAllies);
         for (int i = 0; i < Providers.Count; i++)
         {
             Providers[i].Collect(context, output);
@@ -434,6 +437,17 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
                 context.PreferredAlly,
                 descriptor.TargetMode,
                 purpose);
+            long preferredTargetId = 0;
+            if (descriptor.TargetRelation == SkillUseTargetRelation.Friendly &&
+                ActiveAbilityService.HasTargetAdvisor(handle))
+            {
+                if (!ActiveAbilityService.TryResolvePreferredTarget(
+                        caster,
+                        handle,
+                        context.NearbyAllies,
+                        out prepareTarget)) continue;
+                preferredTargetId = prepareTarget.getID();
+            }
             if (!ActiveAbilityService.CanPrepare(caster, handle, prepareTarget)) continue;
 
             float range = ActiveAbilityService.ResolveRange(caster, handle, prepareTarget);
@@ -464,9 +478,10 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
                     resourceRatio,
                     0f,
                     1f,
-                    ActiveAbilityService.ResolveAiWeight(caster, handle, context.PrimaryEnemy),
+                    ActiveAbilityService.ResolveAiWeight(caster, handle, prepareTarget),
                     ResolveMovementMode(descriptor.CastMobility)),
-                handle));
+                handle,
+                preferredTargetId: preferredTargetId));
         }
     }
 
