@@ -159,6 +159,7 @@ public static class MagicScrollStudyService
 
         var skillContainer = scroll.GetComponent<MagicScroll>().SkillContainer;
         if (!SkillCastResourceResolver.UsesResource(skillContainer, SkillCastResources.Mana)) return false;
+        if (!MagicAutonomyRules.IsAutonomousStudyCandidate(skillContainer)) return false;
         var profile = MagicSpellProfile.Resolve(skillContainer);
         if (profile == null || string.IsNullOrEmpty(profile.FamilySignature)) return false;
 

@@ -78,6 +78,7 @@ public static class MagicWebStudyPlanner
                                       (int)(GetWorldTime() / (TimeScales.SecPerYear * 5f)))
         };
         query.AnySemantics.Add(SkillSemantics.Element.Generic);
+        query.ExcludedSemantics.Add(SkillSemantics.Effect.FillWater);
         var strongestElementIndex = 0;
         var strongestElementAffinity = float.MinValue;
         for (var i = 0; i < ElementIndex.Count; i++)
@@ -133,6 +134,7 @@ public static class MagicWebStudyPlanner
         affinity = 0f;
         difficulty = 0f;
         if (actor == null || state.Candidate.IsNull || !actor.HasElementRoot()) return false;
+        if (!MagicAutonomyRules.IsAutonomousStudyCandidate(state.Candidate)) return false;
         var manager = MagicWebManager.Instance;
         if (manager == null || !manager.Contains(state.Candidate) ||
             !manager.TryGetProfile(state.Candidate, out profile)) return false;
