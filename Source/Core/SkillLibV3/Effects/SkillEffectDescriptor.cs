@@ -75,6 +75,12 @@ public enum SkillEffectOutcomeFlags : ulong
 
     /// <summary>地块上实际生成了植被。</summary>
     FloraCreated = 1UL << 12,
+
+    /// <summary>在目标地块成功生成了原版雨云实体。</summary>
+    RainCloudSummoned = 1UL << 13,
+
+    /// <summary>尚未成熟的农作物被直接催熟。</summary>
+    CropFertilized = 1UL << 14,
 }
 
 /// <summary>一次结构化效果的不可变结算结果。</summary>

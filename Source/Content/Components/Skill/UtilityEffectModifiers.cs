@@ -52,3 +52,20 @@ public struct CleanLandModifier : IModifier
     public string GetKey() => ModifierAsset.id.Localize();
     public string GetValue() => $"持续 {Duration:F1} 秒，每 0.5 秒净化地块";
 }
+
+/// <summary>召唤出的原版雨云在世界中持续存在的秒数。</summary>
+public struct SummonRainCloudModifier : IModifier
+{
+    public float Duration;
+    public SkillModifierAsset ModifierAsset => SkillModifiers.SummonRainCloud;
+    public string GetKey() => ModifierAsset.id.Localize();
+    public string GetValue() => $"雨云持续 {Duration:F1} 秒";
+}
+
+/// <summary>把范围内尚未成熟的原版麦田直接催熟。</summary>
+public struct FertilizeModifier : IModifier
+{
+    public SkillModifierAsset ModifierAsset => SkillModifiers.Fertilize;
+    public string GetKey() => ModifierAsset.id.Localize();
+    public string GetValue() => "催熟尚未成熟的麦田";
+}

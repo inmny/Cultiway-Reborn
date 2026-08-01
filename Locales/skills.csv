@@ -66,6 +66,8 @@ Cultiway.NatureGrowth,自然滋长
 Cultiway.NatureGrowthField,自然滋长领域
 Cultiway.CleanLand,净土
 Cultiway.CleanLandField,净土领域
+Cultiway.SummonRainCloud,唤雨
+Cultiway.Fertilize,施肥术
 Cultiway.FlyingSword.Description,御使剑形法器追踪并斩击敌人
 Cultiway.SwordQi.Description,释放横向展开并贯穿敌群的剑气
 Cultiway.GoldenNeedle.Description,以细小高速的金针连续贯穿目标
@@ -131,6 +133,8 @@ Cultiway.FillWater.Description,向目标区域内原版允许蓄水的地块填�
 Cultiway.DrainWater.Description,排除目标区域内的普通海水并露出同层干地
 Cultiway.NatureGrowthField.Description,在目标区域持续催生当地树木、植物与灌木
 Cultiway.CleanLandField.Description,持续清除目标区域的火焰、烧灼、冻结、热量与荒地表层
+Cultiway.SummonRainCloud.Description,在目标位置召唤一朵按原版规则移动并持续降雨的雨云
+Cultiway.Fertilize.Description,将目标区域内尚未成熟的麦田直接催熟
 Cultiway.SetTrajectory,调整轨迹
 Cultiway.SalvoCount,连续施法倾向
 Cultiway.BurstCount,分散施法倾向
@@ -271,6 +275,7 @@ Cultiway.SkillTag.blast,爆破
 Cultiway.SkillTag.speed,速度
 Cultiway.SkillTag.projectile,投射物
 Cultiway.SkillTag.growth,成长
+Cultiway.SkillTag.fertilize,施肥
 Cultiway.SkillTag.power,威力
 Cultiway.SkillTag.damage,伤害
 Cultiway.SkillTag.displace,位移

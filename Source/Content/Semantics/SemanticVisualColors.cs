@@ -42,6 +42,8 @@ public sealed class SemanticVisualColors : ICanInit
         Set(SkillSemantics.Effect.Freeze, 210, 244, 244, 1.5f);
         Set(SkillSemantics.Effect.Blast, 230, 119, 41, 1.5f);
         Set(SkillSemantics.Effect.Growth, 114, 216, 112, 1.5f);
+        Set(SkillSemantics.Effect.Rain, 104, 174, 226, 1.5f);
+        Set(SkillSemantics.Effect.Fertilize, 132, 183, 83, 1.5f);
         Set(SkillSemantics.Effect.Pull, 87, 56, 184, 1.5f);
         Set(SkillSemantics.Effect.Random, 233, 91, 225, 1.5f);
         Set(SkillSemantics.Effect.Curse, 97, 13, 128, 1.5f);

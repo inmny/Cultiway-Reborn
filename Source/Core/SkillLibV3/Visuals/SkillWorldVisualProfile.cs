@@ -54,6 +54,9 @@ public enum SkillLocalEffectVisualKind
 
     /// <summary>根据实际移除的污染类型播放对应碎屑。</summary>
     CleanLand,
+
+    /// <summary>麦田催熟时播放落下的肥料颗粒与短促生长脉冲。</summary>
+    Fertilize,
 }
 
 /// <summary>一个持续法阵中可独立旋转的环形图元配置。</summary>

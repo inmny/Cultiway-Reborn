@@ -208,6 +208,10 @@ public static class SkillSemantics
         public static SemanticAsset FillWater { get; internal set; }
         /// <summary>表示移除普通海水。</summary>
         public static SemanticAsset DrainWater { get; internal set; }
+        /// <summary>表示生成雨云或直接引发降雨。</summary>
+        public static SemanticAsset Rain { get; internal set; }
+        /// <summary>表示促进农作物成熟。</summary>
+        public static SemanticAsset Fertilize { get; internal set; }
     }
 
     /// <summary>技能在战斗、辅助或生产中的主要用途。</summary>
@@ -353,6 +357,9 @@ public static class SkillSemantics
         Effect.LowerTerrain = Add(library, "semantic.effect.lower_terrain", "effect", "lower_terrain");
         Effect.FillWater = Add(library, "semantic.effect.fill_water", "effect", "fill_water");
         Effect.DrainWater = Add(library, "semantic.effect.drain_water", "effect", "drain_water");
+        Effect.Rain = Add(library, "semantic.effect.rain", "effect", "rain");
+        Effect.Fertilize = Add(library, "semantic.effect.fertilize", "effect", "fertilize",
+            parents: Ids(Effect.Growth));
 
         Role.Offensive = Add(library, "semantic.role.offensive", "role", "offensive");
         Role.Defensive = Add(library, "semantic.role.defensive", "role", "defensive");

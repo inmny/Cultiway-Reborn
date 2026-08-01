@@ -234,6 +234,9 @@ internal static class SkillWorldVisualRuntime
             case SkillLocalEffectVisualKind.CleanLand:
                 SpawnCleanLand(in visualEvent);
                 break;
+            case SkillLocalEffectVisualKind.Fertilize:
+                SpawnFertilize(visualEvent.Position, visualEvent.Profile);
+                break;
         }
     }
 
@@ -528,6 +531,31 @@ internal static class SkillWorldVisualRuntime
         }
     }
 
+    /// <summary>播放从作物上方落下的原版肥料颗粒，并用短促脉冲强调成熟结算。</summary>
+    private static void SpawnFertilize(Vector3 position, SkillWorldVisualProfile profile)
+    {
+        SpawnArc(ArcAnimationKind.LocalHalo, position, 0.5f, 0f, 0.36f, profile.PrimaryColor, 0.75f);
+        Sprite[] fertilizerFrames = ResolveFrames("drops/drop_fertilizer");
+        if (fertilizerFrames.Length > 0)
+        {
+            for (int i = 0; i < 5; i++)
+            {
+                Sprite frame = fertilizerFrames[i % fertilizerFrames.Length];
+                Vector3 start = position + new Vector3(
+                    Randy.randomFloat(-0.24f, 0.24f),
+                    Randy.randomFloat(0.28f, 0.48f));
+                SpawnParticle(frame, start,
+                    new Vector3(Randy.randomFloat(-0.08f, 0.08f), Randy.randomFloat(-0.16f, -0.08f)),
+                    new Vector3(0f, -0.2f),
+                    0.58f, 0.14f, 0.07f,
+                    Randy.randomFloat(0f, 360f), Randy.randomFloat(-80f, 80f), Color.white, i * 0.035f);
+            }
+        }
+        SpawnParticle($"{PrimitiveRoot}/seed_light", position + new Vector3(0f, -0.05f),
+            new Vector3(0f, 0.22f), Vector3.zero,
+            0.42f, 0.09f, 0.035f, 0f, 30f, profile.GlowColor);
+    }
+
     /// <summary>按净土实际移除的污染类别播放窄带扫掠和对应碎屑。</summary>
     private static void SpawnCleanLand(in SkillWorldVisualEvent visualEvent)
     {
@@ -636,9 +664,27 @@ internal static class SkillWorldVisualRuntime
         Color color,
         float delay = 0f)
     {
-        if (Particles.Count >= MaxParticles) return;
         Sprite sprite = ResolveSprite(spritePath);
         if (sprite == null) return;
+        SpawnParticle(sprite, position, velocity, acceleration, lifetime, startWorldSize, endWorldSize,
+            rotation, angularVelocity, color, delay);
+    }
+
+    /// <summary>以已经解析的精灵创建粒子，供多帧原版资源选择具体帧后复用。</summary>
+    private static void SpawnParticle(
+        Sprite sprite,
+        Vector3 position,
+        Vector3 velocity,
+        Vector3 acceleration,
+        float lifetime,
+        float startWorldSize,
+        float endWorldSize,
+        float rotation,
+        float angularVelocity,
+        Color color,
+        float delay = 0f)
+    {
+        if (Particles.Count >= MaxParticles || sprite == null) return;
         WorldSpriteView view = SpritePool.Count > 0 ? SpritePool.Pop() : WorldSpriteView.Create(visualRoot);
         SpriteParticle particle = ParticleStatePool.Count > 0 ? ParticleStatePool.Pop() : new SpriteParticle();
         particle.Sprite = sprite;

@@ -28,7 +28,13 @@ public partial class SkillEntities
     /// <summary>维持六秒并周期清除地块污染的净土区域。</summary>
     public static SkillEntityAsset CleanLandField { get; private set; }
 
-    /// <summary>注册首批六个世界功能法术；注水仅供手动使用，其余可由组织工程按需求调度。</summary>
+    /// <summary>在目标地块召唤一朵会按原版规则移动和降雨的雨云。</summary>
+    public static SkillEntityAsset SummonRainCloud { get; private set; }
+
+    /// <summary>把目标区域内尚未成熟的原版麦田直接催熟。</summary>
+    public static SkillEntityAsset Fertilize { get; private set; }
+
+    /// <summary>注册世界功能法术；注水和雨云仅供手动使用，其余可由组织工程按确定性需求调度。</summary>
     private static void ConfigureUtility()
     {
         ConfigureInstantUtility(
@@ -113,6 +119,56 @@ public partial class SkillEntities
             .RequireModifier(SkillModifiers.CleanLand)
             .SetIcon(GetIconResourcePath(CleanLandField))
             .SetWorldVisual(SkillWorldVisualProfiles.CleanLandField);
+
+        Configure(
+                SummonRainCloud,
+                ElementComposition.Static.Water,
+                Anim(SummonRainCloud, 0, 20f),
+                SkillTrajectories.AppearAtTarget,
+                SkillImpactProfileLibrary.GroundManifest,
+                SkillTrajectoryDomain.TargetManifest,
+                SkillUseProfileLibrary.WorldArea,
+                SkillEntityType.Utility,
+                false,
+                VisualRotation.FixedUpright(),
+                SkillSemantics.Element.Water,
+                SkillSemantics.Form.Single,
+                SkillSemantics.Delivery.Instant,
+                SkillSemantics.Effect.Rain,
+                SkillSemantics.Role.Utility)
+            .RequireCastResource(SkillCastResources.Mana)
+            .SetBaseCastDemand(6f)
+            .SetDealsBaseDamage(false)
+            .TuneImpact(effectRadiusMultiplier: 0f)
+            .RequireModifier(SkillModifiers.SummonRainCloud)
+            .SetIcon("ui/icons/iconCloudRain")
+            .SetWorldVisual(SkillWorldVisualProfiles.SummonRainCloud);
+
+        Configure(
+                Fertilize,
+                ElementComposition.Static.WoodEarth,
+                Anim(Fertilize, 0, 20f),
+                SkillTrajectories.AppearAtTarget,
+                SkillImpactProfileLibrary.GroundManifest,
+                SkillTrajectoryDomain.TargetManifest,
+                SkillUseProfileLibrary.WorldArea,
+                SkillEntityType.Utility,
+                false,
+                VisualRotation.FixedUpright(),
+                SkillSemantics.Element.Wood,
+                SkillSemantics.Element.Earth,
+                SkillSemantics.Form.Aoe,
+                SkillSemantics.Delivery.Instant,
+                SkillSemantics.Effect.Fertilize,
+                SkillSemantics.Role.Utility)
+            .RequireCastResource(SkillCastResources.Mana)
+            .SetBaseCastDemand(4f)
+            .SetAreaCostBaseRadius(3f)
+            .SetDealsBaseDamage(false)
+            .TuneImpact(effectRadiusMultiplier: 3f / 1.4f)
+            .RequireModifier(SkillModifiers.Fertilize)
+            .SetIcon("ui/icons/iconFertilizer")
+            .SetWorldVisual(SkillWorldVisualProfiles.Fertilize);
     }
 
     /// <summary>以相同地表显现形态注册一种瞬时世界功能法术。</summary>

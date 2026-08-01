@@ -186,6 +186,21 @@ internal static class SkillWorldVisualProfiles
         GlowColor = Color32(239, 255, 250)
     };
 
+    /// <summary>召云本身直接由原版云实体表现，不叠加地面占位动画。</summary>
+    public static SkillWorldVisualProfile SummonRainCloud { get; } = new()
+    {
+        PrimaryColor = Color32(104, 174, 226),
+        SecondaryColor = Color32(72, 103, 137),
+        GlowColor = Color32(210, 236, 250)
+    };
+
+    /// <summary>施肥成功时使用原版肥料颗粒和低矮生长脉冲。</summary>
+    public static SkillWorldVisualProfile Fertilize { get; } = Local(
+        SkillLocalEffectVisualKind.Fertilize,
+        Color32(132, 183, 83),
+        Color32(116, 78, 43),
+        Color32(217, 232, 126));
+
     /// <summary>创建一个只包含局部成功反馈的视觉配置。</summary>
     private static SkillWorldVisualProfile Local(
         SkillLocalEffectVisualKind kind,
