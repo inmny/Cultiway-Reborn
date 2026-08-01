@@ -10,6 +10,10 @@ public static class ContentCityDataKeys
     /// <summary>城市城墙阶段：0=无墙，1=仅内墙(木)，2=内墙(石,宽2)+外墙(木)，3=内墙(石,宽2)+外墙(石,宽2)。</summary>
     public const string CityWallStage_int = "cw.content.city.wall_stage";
 
+    /// <summary>东方人族城墙调度的「下次可发起年份」(世界年)。默认 0=立即可发起。
+    /// 每成功发起一次修筑城墙谋划后 +<c>WALL_SCHEDULE_INTERVAL_YEARS</c>。满 3 阶(FORTRESS)后调度停止。</summary>
+    public const string CityWallScheduleYear_int = "cw.content.city.wall_schedule_year";
+
     /// <summary>内墙矩形 bounds（中心 cx/cy + 半宽 hx/hy），木墙阶段记录后固定。与 CityWallStage_int 配套。</summary>
     public const string CityWallInnerCX_int = "cw.content.city.wall_inner_cx";
     public const string CityWallInnerCY_int = "cw.content.city.wall_inner_cy";

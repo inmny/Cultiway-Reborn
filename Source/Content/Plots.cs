@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using ai.behaviours;
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
@@ -496,6 +497,9 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     private const int WALL_STAGE_BOTH     = 2; // 内墙（石墙，宽2）+ 外墙（木墙，宽1）
     private const int WALL_STAGE_FORTRESS = 3; // 内墙（石墙，宽2）+ 外墙（石墙，宽2）
 
+    private const int    WALL_SCHEDULE_INTERVAL_YEARS = 50;                   // 东方人族城墙调度间隔（世界年）
+    private const string EASTERN_HUMAN_ID              = "Cultiway.EasternHuman"; // 东方人族种族 id
+
     /// <summary>
     /// 配置"修筑城墙"谋划：城市领袖/国王在城市达到一定规模后自主发起，分三阶段修筑。
     /// 城墙为<b>矩形</b>，以城市全部建筑的包围盒为中心、各边外扩 <see cref="WALL_MARGIN"/>，确保包围所有建筑；
@@ -641,6 +645,51 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     {
         if (city?.data == null) return;
         city.data.set(ContentCityDataKeys.CityWallStage_int, stage);
+    }
+
+    /// <summary>东方人族城墙调度的「下次可发起年份」(世界年)，默认 0=立即可发起。</summary>
+    private static int GetScheduleYear(City city)
+    {
+        if (city?.data == null) return 0;
+        city.data.get(ContentCityDataKeys.CityWallScheduleYear_int, out int year, 0);
+        return year;
+    }
+
+    private static void SetScheduleYear(City city, int year)
+    {
+        if (city?.data == null) return;
+        city.data.set(ContentCityDataKeys.CityWallScheduleYear_int, year);
+    }
+
+    /// <summary>
+    /// 东方人族城墙修筑调度。城市拥有村庄大厅(type_hall)且城墙未满 3 阶时，按节奏强制发起
+    /// 「修筑城墙」谋划：首次(木墙)在大厅出现后立即发起，此后每 <see cref="WALL_SCHEDULE_INTERVAL_YEARS"/>
+    /// 年一次，直到满 3 阶(FORTRESS = 完成 3 次谋划)。第二、三次(石墙/要塞)仅首都发起。
+    /// 与原版 AI 自主发动并存(AI 可在间隔内额外发动)，本调度只保证「至少每 N 年」一次。
+    /// 发起成功才推进下次调度年份；发起失败(缺领袖/规模不足/同类 plot 在跑)则不推进，下次城市更新再试。
+    /// </summary>
+    public static void TryScheduleEasternHumanWall(City city)
+    {
+        if (city?.data == null) return;
+        if (city.data.original_actor_asset != EASTERN_HUMAN_ID) return;
+        if (!city.hasBuildingType("type_hall")) return;
+        int stage = GetWallStage(city);
+        if (stage >= WALL_STAGE_FORTRESS) return;
+        // 第二、三次谋划(stage 1→2、2→3，即石墙/要塞)仅首都发起；首次(stage 0→1，木墙)任意东人城市均可
+        if (stage >= WALL_STAGE_INNER && !city.isCapitalCity()) return;
+
+        Actor initiator = city.leader;
+        if (initiator == null || initiator.isRekt()) return;
+        if (World.world.plots.isPlotTypeAlreadyRunning(initiator, BuildCityWall)) return;
+
+        int now_year = (int)(World.world.getCurWorldTime() / TimeScales.SecPerYear);
+        if (now_year < GetScheduleYear(city)) return;
+
+        var plot = World.world.plots.newPlot(initiator, BuildCityWall, true);
+        if (plot == null || !plot.checkInitiatorAndTargets()) return;
+
+        initiator.setPlot(plot);
+        SetScheduleYear(city, now_year + WALL_SCHEDULE_INTERVAL_YEARS);
     }
 
     /// <summary>

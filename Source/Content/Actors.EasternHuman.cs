@@ -20,9 +20,9 @@ public partial class Actors
     { 
         EasternHuman.AddCultureTrait(CultureTraits.CultureSkin)
                     .RemoveCultureTrait(S_CultureTrait.city_layout_the_grand_arrangement)
-                    //.AddCultureTrait(S_CultureTrait.city_layout_stone_garden)
-                    //.AddCultureTrait(S_CultureTrait.city_layout_the_grand_arrangement)
-                    .AddCultureTrait(S_CultureTrait.city_layout_pebbles);
+                    .RemoveCultureTrait(S_CultureTrait.city_layout_pebbles)
+                    .RemoveCultureTrait(S_CultureTrait.city_layout_stone_garden)
+                    .AddCultureTrait(CultureTraits.HallHearth);
         EasternHuman.build_order_template_id = BuildingOrders.Classic.id;
         EasternHuman.architecture_id = Architectures.EasternHuman.id;
         EasternHuman.kingdom_id_wild = KingdomAssets.NoMadsEasternHuman.id;

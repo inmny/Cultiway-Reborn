@@ -20,7 +20,8 @@ public partial class Actors
     {
         Gui.AddCultureTrait(CultureTraits.CultureSkin)
                     .RemoveCultureTrait(S_CultureTrait.city_layout_the_grand_arrangement)
-                    .AddCultureTrait(S_CultureTrait.city_layout_pebbles);
+                    .RemoveCultureTrait(S_CultureTrait.city_layout_pebbles)
+                    .AddCultureTrait(CultureTraits.HallHearth);
         Gui.build_order_template_id = BuildingOrders.Classic.id;
         Gui.architecture_id = Architectures.Gui.id;
         Gui.kingdom_id_wild = KingdomAssets.NoMadsGui.id;
