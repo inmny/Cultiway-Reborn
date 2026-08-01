@@ -225,7 +225,8 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
             SkillContext.DefaultStrength,
             caster.GetPowerLevel(),
             SkillCastFundingSource.CasterResources,
-            target.AttackKingdom);
+            target.AttackKingdom,
+            target.RuntimeData);
     }
 
 }

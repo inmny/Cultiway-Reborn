@@ -69,6 +69,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                         SkillContainer = sequence.SkillContainer,
                         EmittedCount = sequence.EmittedCount,
                         FundingSource = sequence.FundingSource,
+                        RuntimeData = sequence.RuntimeData,
                     });
                 }
                 CommandBuffer.AddTag<TagRecycle>(entity.Id);
@@ -82,7 +83,8 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 request.Caster,
                 request.SkillContainer,
                 request.EmittedCount,
-                request.FundingSource));
+                request.FundingSource,
+                request.RuntimeData));
             request.Caster.OnSkillCastCompleted(
                 request.SkillContainer,
                 request.EmittedCount,
@@ -130,5 +132,6 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         public Entity SkillContainer;
         public int EmittedCount;
         public SkillCastFundingSource FundingSource;
+        public SkillCastRuntimeData RuntimeData;
     }
 }

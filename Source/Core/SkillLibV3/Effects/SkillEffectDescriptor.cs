@@ -171,6 +171,10 @@ public delegate bool SkillTileEffectApplicability(
 
 public delegate SkillEffectResult SkillTileEffectAction(in SkillEffectContext context, WorldTile tile);
 
+public delegate float SkillTileEffectUtility(
+    in SkillEffectEvaluationContext context,
+    WorldTile tile);
+
 /// <summary>
 /// 描述一个可组合的技能效果。目标关系、预检、实际结算和 AI 边际收益在同一处声明，
 /// 视觉元素不再承担玩法副作用。
@@ -186,6 +190,7 @@ public sealed class SkillEffectDescriptor
     public SkillObjectEffectUtility EvaluateObjectUtility;
     public SkillTileEffectApplicability CanApplyTile;
     public SkillTileEffectAction ApplyTile;
+    public SkillTileEffectUtility EvaluateTileUtility;
 
     public bool IsObjectEffect => ApplyObject != null;
     public bool IsTileEffect => ApplyTile != null;

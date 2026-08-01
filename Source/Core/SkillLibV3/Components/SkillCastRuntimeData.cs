@@ -8,6 +8,9 @@ namespace Cultiway.Core.SkillLibV3.Components;
 /// </summary>
 public struct SkillCastRuntimeData
 {
+    /// <summary>由上层行动设置的可选关联 ID，用于把完成事件精确对应到发起请求。</summary>
+    public long CorrelationId;
+
     /// <summary>伤害、状态强度和击退共同使用的效果倍率；非正数按 1 处理。</summary>
     public float EffectScale;
 
