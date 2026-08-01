@@ -27,3 +27,11 @@ Cultiway.DeathSentence,终焉死亡
 Cultiway.DeathSentence.Description,被终焉标记，生命垂危时更容易被斩杀
 Cultiway.EternalCurse,永世诅咒
 Cultiway.EternalCurse.Description,持续受到诅咒伤害并被削弱攻防
+Cultiway.Rejuvenating,回春
+Cultiway.Rejuvenating.Description,每秒恢复生命，较强的回春效果会覆盖较弱效果
+Cultiway.BattleBlessingStatus,战意祝福
+Cultiway.BattleBlessingStatus.Description,暂时提高造成的伤害
+Cultiway.GuardBlessingStatus,守护祝福
+Cultiway.GuardBlessingStatus.Description,暂时提高护甲
+Cultiway.HasteBlessingStatus,迅捷祝福
+Cultiway.HasteBlessingStatus.Description,暂时提高移动速度和攻击速度

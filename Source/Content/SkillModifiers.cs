@@ -171,6 +171,9 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         EternalCurse.OnAddOrUpgrade = AddOrUpgradeEternalCurse;
         EternalCurse.OnEffectObj = ApplyEternalCurseEffect;
 
+        ConfigureSupportModifiers();
+        ConfigureUtilityModifiers();
+
         ConfigureEvaluations();
         ConfigureEditorMetadata();
     }
@@ -391,6 +394,12 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
             }
             return null;
         };
+    }
+
+    /// <summary>让词条编辑器复用对应法术的独立 UI 图标。</summary>
+    private static void SetEditorSkillIcon(SkillModifierAsset asset, string iconName)
+    {
+        asset.EditorIconPath = $"cultiway/icons/skills/{iconName}";
     }
 
     private static bool AddModifier<TModifier>(SkillContainerBuilder builder) where TModifier : struct, IModifier

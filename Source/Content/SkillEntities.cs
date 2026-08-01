@@ -30,6 +30,8 @@ public partial class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntiti
         ConfigureYinYangEntropy();
         ConfigureWind();
         ConfigureLightning();
+        ConfigureSupport();
+        ConfigureUtility();
         ConfigureGeneric();
     }
 
@@ -59,7 +61,7 @@ public partial class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntiti
         bool contactCollision = !impactProfile.IsBarrier ||
                                 asset.ImpactTuning.ContactDamage ||
                                 asset.ImpactTuning.ContactForce > 0f;
-        asset.SetupImpactProfile(impactProfile, EnemyCollider(contactCollision))
+        asset.SetupImpactProfile(impactProfile, ResolveCollider(useProfile, contactCollision))
             .SetupDefaultTraj(trajectory)
             .SetupUseProfile(useProfile)
             .AcceptTrajectoryDomains(domains);
@@ -69,9 +71,13 @@ public partial class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntiti
                 $"{asset.id} 的默认轨迹 {trajectory.id} 不属于本体声明的运行形态");
         }
         asset.AllowLearning();
-        asset.EditorCategoryKey = type == SkillEntityType.Defense
-            ? "Cultiway.SkillEntity.Category.Defense"
-            : "Cultiway.SkillEntity.Category.Attack";
+        asset.EditorCategoryKey = type switch
+        {
+            SkillEntityType.Defense => "Cultiway.SkillEntity.Category.Defense",
+            SkillEntityType.Support => "Cultiway.SkillEntity.Category.Support",
+            SkillEntityType.Utility => "Cultiway.SkillEntity.Category.Utility",
+            _ => "Cultiway.SkillEntity.Category.Attack"
+        };
         asset.EditorDescriptionKey = $"{asset.id}.Description";
         asset.EditorSortOrder = nextEditorSortOrder++;
         asset.EditorSelectable = true;
@@ -104,6 +110,12 @@ public partial class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntiti
 
     private static string GetAnimationResourceRoot(SkillEntityAsset asset, int variantIndex)
     {
+        return $"cultiway/effect/{GetSkillResourceFolder(asset)}/{variantIndex}";
+    }
+
+    /// <summary>把技能资产局部 ID 转换为资源目录使用的 snake_case 名称。</summary>
+    private static string GetSkillResourceFolder(SkillEntityAsset asset)
+    {
         int localIdStart = asset.id.LastIndexOf('.') + 1;
         string localId = asset.id.Substring(localIdStart);
         var folder = new System.Text.StringBuilder(localId.Length + 8);
@@ -116,8 +128,13 @@ public partial class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntiti
             }
             folder.Append(char.ToLowerInvariant(character));
         }
+        return folder.ToString();
+    }
 
-        return $"cultiway/effect/{folder}/{variantIndex}";
+    /// <summary>解析技能独立 UI 图标的资源路径。</summary>
+    private static string GetIconResourcePath(SkillEntityAsset asset)
+    {
+        return $"cultiway/icons/skills/{GetSkillResourceFolder(asset)}";
     }
 
     private static string RuntimeAnimPath(SkillEntityAsset asset, int variantIndex)
@@ -134,5 +151,24 @@ public partial class SkillEntities : ExtendLibrary<SkillEntityAsset, SkillEntiti
             Actor = enabled,
             Building = enabled
         };
+    }
+
+    /// <summary>依据技能公开的目标关系创建碰撞配置，避免友方和地块技能扫描敌方对象。</summary>
+    private static ColliderConfig ResolveCollider(SkillUseProfileAsset useProfile, bool enabled)
+    {
+        if (!enabled || useProfile.TargetRelation is SkillUseTargetRelation.Self or SkillUseTargetRelation.WorldTile)
+            return default;
+        if (useProfile.TargetRelation == SkillUseTargetRelation.Friendly)
+        {
+            bool explicitTarget = useProfile.Placement == SkillUsePlacement.FriendlyObject;
+            return new ColliderConfig
+            {
+                Enabled = explicitTarget,
+                Actor = explicitTarget,
+                Alias = explicitTarget,
+                ExplicitTargetOnly = explicitTarget
+            };
+        }
+        return EnemyCollider(true);
     }
 }

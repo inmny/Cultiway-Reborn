@@ -52,6 +52,20 @@ Cultiway.LightningShield,雷盾
 Cultiway.SpiritBolt,灵弹
 Cultiway.SpiritBeam,灵光
 Cultiway.SpiritShield,灵盾
+Cultiway.HealingLight,治愈之光
+Cultiway.RejuvenationField,回春领域
+Cultiway.PurificationWave,净化之潮
+Cultiway.BattleBlessing,战意祝福
+Cultiway.GuardBlessing,守护祝福
+Cultiway.HasteBlessing,迅捷祝福
+Cultiway.RaiseTerrain,地形抬升
+Cultiway.LowerTerrain,地形沉降
+Cultiway.FillWater,注水术
+Cultiway.DrainWater,排水术
+Cultiway.NatureGrowth,自然滋长
+Cultiway.NatureGrowthField,自然滋长领域
+Cultiway.CleanLand,净土
+Cultiway.CleanLandField,净土领域
 Cultiway.FlyingSword.Description,御使剑形法器追踪并斩击敌人
 Cultiway.SwordQi.Description,释放横向展开并贯穿敌群的剑气
 Cultiway.GoldenNeedle.Description,以细小高速的金针连续贯穿目标
@@ -105,6 +119,18 @@ Cultiway.LightningShield.Description,形成随施术者移动的雷盾拦截弹�
 Cultiway.SpiritBolt.Description,发射不偏向特定元素的通用灵力弹
 Cultiway.SpiritBeam.Description,瞬间连接目标并完成一次直线灵光打击
 Cultiway.SpiritShield.Description,形成不偏向特定元素的随身灵盾
+Cultiway.HealingLight.Description,向单个友军发出治愈之光并立即恢复生命
+Cultiway.RejuvenationField.Description,在目标区域形成持续恢复友军生命的回春领域
+Cultiway.PurificationWave.Description,净化目标区域友军身上优先级最高的负面状态
+Cultiway.BattleBlessing.Description,为单个友军施加提高伤害的战意祝福
+Cultiway.GuardBlessing.Description,为单个友军施加提高护甲的守护祝福
+Cultiway.HasteBlessing.Description,为单个友军施加提高移动与攻击速度的迅捷祝福
+Cultiway.RaiseTerrain.Description,永久抬升目标区域内合法地块的一个地形层级
+Cultiway.LowerTerrain.Description,永久降低目标区域内合法地块的一个地形层级
+Cultiway.FillWater.Description,向目标区域内原版允许蓄水的地块填充海水
+Cultiway.DrainWater.Description,排除目标区域内的普通海水并露出同层干地
+Cultiway.NatureGrowthField.Description,在目标区域持续催生当地树木、植物与灌木
+Cultiway.CleanLandField.Description,持续清除目标区域的火焰、烧灼、冻结、热量与荒地表层
 Cultiway.SetTrajectory,调整轨迹
 Cultiway.SalvoCount,连续施法倾向
 Cultiway.BurstCount,分散施法倾向
@@ -160,9 +186,14 @@ Cultiway.Silence,封印
 Cultiway.DeathSentence,终焉死亡
 Cultiway.ReincarnationTrial,轮回试练
 Cultiway.EternalCurse,永世诅咒
+Cultiway.Healing,治愈
+Cultiway.Rejuvenation,回春
+Cultiway.Purification,净化
 Cultiway.MeleeSweep,近身横扫
 Cultiway.SkillEntity.Category.Attack,攻击
 Cultiway.SkillEntity.Category.Defense,防御
+Cultiway.SkillEntity.Category.Support,辅助
+Cultiway.SkillEntity.Category.Utility,功能
 Cultiway.SkillImpactProfile.NormalProjectile,触碰弹丸
 Cultiway.SkillImpactProfile.Piercing,贯穿弹丸
 Cultiway.SkillImpactProfile.Wave,横扫波
@@ -258,6 +289,16 @@ Cultiway.SkillTag.silence,封印
 Cultiway.SkillTag.execute,处决
 Cultiway.SkillTag.curse,诅咒
 Cultiway.SkillTag.trajectory,轨迹变化
+Cultiway.SkillTag.heal,治疗
+Cultiway.SkillTag.regeneration,持续恢复
+Cultiway.SkillTag.cleanse,净化
+Cultiway.SkillTag.attack_boost,攻击强化
+Cultiway.SkillTag.defense_boost,防御强化
+Cultiway.SkillTag.raise_terrain,抬升地形
+Cultiway.SkillTag.lower_terrain,降低地形
+Cultiway.SkillTag.fill_water,填充海水
+Cultiway.SkillTag.drain_water,排除海水
+Cultiway.SkillTag.utility,功能
 Cultiway.SkillTag.motion,运动模式
 Cultiway.SkillTag.salvo,齐射
 Cultiway.SkillTag.kill_override,覆盖击杀流程
@@ -327,6 +368,8 @@ Cultiway.SkillModifier.Category.Special,特殊
 Cultiway.SkillModifier.Category.Combo,连发
 Cultiway.SkillModifier.Category.Execute,终结
 Cultiway.SkillModifier.Category.Internal,内部
+Cultiway.SkillModifier.Category.Support,辅助
+Cultiway.SkillModifier.Category.Utility,功能
 Cultiway.SkillModifier.Rarity.Common,普通
 Cultiway.SkillModifier.Rarity.Rare,稀有
 Cultiway.SkillModifier.Rarity.Epic,罕见
@@ -336,7 +379,14 @@ Cultiway.Skill.Unit.Percent,%
 Cultiway.Skill.Unit.Tiles,格
 Cultiway.Skill.Unit.Multiplier,倍
 Cultiway.Skill.Unit.Degrees,度
+Cultiway.Skill.Unit.Value,点
 Cultiway.SkillModifier.Field.Duration,持续时间
+Cultiway.SkillModifier.Field.HealingAmount,治疗量
+Cultiway.SkillModifier.Field.HealingPerSecond,每秒治疗量
+Cultiway.SkillModifier.Field.CleanseCount,净化数量
+Cultiway.SkillModifier.Field.ArmorBonus,护甲加成
+Cultiway.SkillModifier.Field.MoveSpeedBonus,移动速度加成
+Cultiway.SkillModifier.Field.AttackSpeedBonus,攻击速度加成
 Cultiway.SkillModifier.Field.SlowStrength,减速比例
 Cultiway.SkillModifier.Field.TotalDamageRatio,总伤害比例
 Cultiway.SkillModifier.Field.FreezeDuration,冻结时间
@@ -439,6 +489,7 @@ Cultiway.SkillBlueprint.Validation.modifier.missing,词条资源不存在
 Cultiway.SkillBlueprint.Validation.modifier.descriptor_missing,词条缺少编辑元数据
 Cultiway.SkillBlueprint.Validation.modifier.internal,该内部词条不能直接写入蓝图
 Cultiway.SkillBlueprint.Validation.modifier.component_duplicate,多个词条写入了相同组件
+Cultiway.SkillBlueprint.Validation.modifier.required,法术实体 {1} 必须保留词条 {0}
 Cultiway.SkillBlueprint.Validation.modifier.conflict,词条与 {0} 互斥
 Cultiway.SkillBlueprint.Validation.modifier.parameters_null,词条参数表损坏
 Cultiway.SkillBlueprint.Validation.modifier.parameter_unknown,词条包含未知参数 {0}

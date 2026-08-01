@@ -5,6 +5,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
+using UnityEngine;
 
 namespace Cultiway.Content.Combat;
 
@@ -64,6 +65,66 @@ public static class CombatStatusEffects
             if (maxCount > 0 && removed >= maxCount) break;
         }
         return removed;
+    }
+
+    /// <summary>在共享状态与原版状态中移除优先级最高的一个负面状态。</summary>
+    public static bool CleanseHighestPriorityNegativeStatus(Actor target)
+    {
+        if (target == null || target.isRekt()) return false;
+        ActorExtend extend = target.GetExtend();
+        Entity selected = default;
+        string selectedVanillaId = null;
+        int selectedPriority = int.MinValue;
+        foreach (Entity status in extend.GetStatuses())
+        {
+            StatusComponent component = status.GetComponent<StatusComponent>();
+            if (!component.Type.GetExtend<StatusAssetExtend>().negative) continue;
+            int priority = ResolveCleansePriority(component.Type);
+            if (priority <= selectedPriority) continue;
+            selected = status;
+            selectedPriority = priority;
+        }
+
+        foreach (Status status in target.getStatuses())
+        {
+            StatusAsset asset = status.asset;
+            if (status.is_finished || asset == null || !asset.GetExtend<StatusAssetExtend>().negative) continue;
+            int priority = ResolveCleansePriority(asset);
+            if (priority <= selectedPriority) continue;
+            selected = default;
+            selectedVanillaId = asset.id;
+            selectedPriority = priority;
+        }
+
+        if (selectedVanillaId != null)
+        {
+            target.finishStatusEffect(selectedVanillaId);
+            return true;
+        }
+        if (selected.IsNull) return false;
+        extend.RemoveSharedStatus(selected);
+        ModClass.I.CommandBuffer.AddTag<TagRecycle>(selected.Id);
+        return true;
+    }
+
+    /// <summary>返回目标在共享状态与原版状态中的最高净化优先级；没有负面状态时返回零。</summary>
+    public static int ResolveHighestNegativePriority(Actor target)
+    {
+        if (target == null || target.isRekt()) return 0;
+        int result = 0;
+        foreach (Entity status in target.GetExtend().GetStatuses())
+        {
+            StatusComponent component = status.GetComponent<StatusComponent>();
+            if (!component.Type.GetExtend<StatusAssetExtend>().negative) continue;
+            result = Math.Max(result, ResolveCleansePriority(component.Type));
+        }
+        foreach (Status status in target.getStatuses())
+        {
+            StatusAsset asset = status.asset;
+            if (status.is_finished || asset == null || !asset.GetExtend<StatusAssetExtend>().negative) continue;
+            result = Math.Max(result, ResolveCleansePriority(asset));
+        }
+        return result;
     }
 
     /// <summary>移除最多指定数量的非负面共享状态；上限小于一表示不限制数量。</summary>
@@ -157,6 +218,58 @@ public static class CombatStatusEffects
         });
     }
 
+    /// <summary>判断目标是否已经持有强度不低于给定值的同类全局状态。</summary>
+    public static bool HasEqualOrStrongerStatus(Actor target, StatusEffectAsset effect, float potency)
+    {
+        return TryGetStrongestStatus(target, effect, out _, out float current) &&
+               current + 0.0001f >= potency;
+    }
+
+    /// <summary>返回目标指定状态当前剩余的秒数。</summary>
+    public static float GetStatusRemaining(Actor target, StatusEffectAsset effect)
+    {
+        if (!TryGetStrongestStatus(target, effect, out Entity status, out _)) return 0f;
+        float duration = status.GetComponent<AliveTimeLimit>().value;
+        float elapsed = status.GetComponent<AliveTimer>().value;
+        return Mathf.Max(0f, duration - elapsed);
+    }
+
+    /// <summary>按全局最强规则施加带运行时属性的状态。</summary>
+    public static bool ApplyStrongestStatus(
+        Actor target,
+        StatusEffectAsset effect,
+        float duration,
+        float potency,
+        Actor source,
+        BaseStats stats)
+    {
+        return ApplyStrongestConfiguredStatus(target, effect, duration, potency, source, status =>
+        {
+            ref StatusOverwriteStats overwrite = ref status.GetComponent<StatusOverwriteStats>();
+            overwrite.stats ??= new BaseStats();
+            overwrite.stats.clear();
+            if (stats != null) overwrite.stats.mergeStats(stats);
+        });
+    }
+
+    /// <summary>按全局最强规则施加带周期数值和元素构成的状态。</summary>
+    public static bool ApplyStrongestTickingStatus(
+        Actor target,
+        StatusEffectAsset effect,
+        float duration,
+        float potency,
+        float tickValue,
+        ElementComposition element,
+        Actor source)
+    {
+        return ApplyStrongestConfiguredStatus(target, effect, duration, potency, source, status =>
+        {
+            ref StatusTickState tick = ref status.GetComponent<StatusTickState>();
+            tick.Value = tickValue;
+            tick.Element = element;
+        });
+    }
+
     /// <summary>通过共享状态统一施加禁止移动和行动的空间囚禁。</summary>
     public static void ApplyImprisonment(Actor target, float duration, Actor source)
     {
@@ -197,6 +310,82 @@ public static class CombatStatusEffects
         if (targetExtend.AddSharedStatus(created)) return created;
         ModClass.I.CommandBuffer.AddTag<TagRecycle>(created.Id);
         return default;
+    }
+
+    /// <summary>复用一个全局同类状态实体完成强度比较、覆盖和刷新。</summary>
+    private static bool ApplyStrongestConfiguredStatus(
+        Actor target,
+        StatusEffectAsset effect,
+        float duration,
+        float potency,
+        Actor source,
+        Action<Entity> configure)
+    {
+        if (target == null || target.isRekt() || effect == null || source == null || source.isRekt()) return false;
+        potency = Mathf.Max(0f, potency);
+        if (TryGetStrongestStatus(target, effect, out Entity status, out float currentPotency))
+        {
+            if (currentPotency > potency + 0.0001f) return false;
+            ConfigureStatusHeader(status, duration, source);
+            status.GetComponent<StatusPotency>().Value = potency;
+            configure?.Invoke(status);
+            target.setStatsDirty();
+            return true;
+        }
+
+        status = effect.NewEntity();
+        ConfigureStatusHeader(status, duration, source);
+        status.GetComponent<StatusPotency>().Value = potency;
+        configure?.Invoke(status);
+        if (target.GetExtend().AddSharedStatus(status)) return true;
+        ModClass.I.CommandBuffer.AddTag<TagRecycle>(status.Id);
+        return false;
+    }
+
+    /// <summary>查找目标身上指定类型的最强状态。</summary>
+    private static bool TryGetStrongestStatus(
+        Actor target,
+        StatusEffectAsset effect,
+        out Entity statusEntity,
+        out float potency)
+    {
+        statusEntity = default;
+        potency = float.MinValue;
+        if (target == null || target.isRekt() || effect == null) return false;
+        var relations = target.GetExtend().E.GetRelations<StatusRelation>();
+        for (int i = 0; i < relations.Length; i++)
+        {
+            Entity candidate = relations[i].status;
+            if (candidate.GetComponent<StatusComponent>().Type != effect) continue;
+            float candidatePotency = candidate.TryGetComponent(out StatusPotency value) ? value.Value : 0f;
+            if (!statusEntity.IsNull && candidatePotency <= potency) continue;
+            statusEntity = candidate;
+            potency = candidatePotency;
+        }
+        return !statusEntity.IsNull;
+    }
+
+    /// <summary>把强控制、致命诅咒和普通减益映射到稳定的净化顺序。</summary>
+    private static int ResolveCleansePriority(StatusEffectAsset effect)
+    {
+        if (effect == StatusEffects.Imprisoned) return 100;
+        if (effect == StatusEffects.Freeze || effect == StatusEffects.Daze) return 90;
+        if (effect == StatusEffects.DeathSentence) return 85;
+        if (effect == StatusEffects.Silence) return 80;
+        if (effect == StatusEffects.EternalCurse) return 70;
+        if (effect == StatusEffects.ArmorBreak || effect == StatusEffects.Weaken) return 60;
+        if (effect == StatusEffects.Poison || effect == StatusEffects.Burn) return 50;
+        if (effect == StatusEffects.Slow) return 40;
+        return 10;
+    }
+
+    /// <summary>把仓库已标记的原版负面状态映射到与共享状态一致的净化顺序。</summary>
+    private static int ResolveCleansePriority(StatusAsset effect)
+    {
+        if (effect == WorldboxGame.StatusEffects.Frozen || effect == WorldboxGame.StatusEffects.Stunned) return 90;
+        if (effect == WorldboxGame.StatusEffects.SpellSilence) return 80;
+        if (effect == WorldboxGame.StatusEffects.Burning) return 50;
+        return 10;
     }
 
     /// <summary>写入共享状态头部和单项属性覆盖。</summary>

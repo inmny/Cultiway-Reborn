@@ -28,6 +28,10 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     public static StatusEffectAsset LayeredWard { get; private set; }
     public static StatusEffectAsset DeathSentence { get; private set; }
     public static StatusEffectAsset EternalCurse { get; private set; }
+    public static StatusEffectAsset Rejuvenating { get; private set; }
+    public static StatusEffectAsset BattleBlessing { get; private set; }
+    public static StatusEffectAsset GuardBlessing { get; private set; }
+    public static StatusEffectAsset HasteBlessing { get; private set; }
     private const float BurnTickInterval = 1f;
     private const float PoisonTickInterval = 1f;
     private const float CurseTickInterval = 1f;
@@ -135,6 +139,34 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .EnableParticle(new Color(0.25f, 0.05f, 0.45f), 1, 0.12f)
             .EnableTick(CurseTickInterval, OnCurseTick)
             .Build();
+        Rejuvenating = StatusEffectAsset.StartBuild(nameof(Rejuvenating))
+            .SetIconPath("cultiway/icons/skills/rejuvenation_field")
+            .SetDuration(1.25f)
+            .EnableParticle(new Color(0.35f, 1f, 0.55f), 1, 0.16f)
+            .EnableTick(1f, OnRejuvenatingTick)
+            .AddComponent(new StatusPotency())
+            .Build();
+        BattleBlessing = StatusEffectAsset.StartBuild("BattleBlessingStatus")
+            .SetIconPath("cultiway/icons/skills/battle_blessing")
+            .SetDuration(8f)
+            .EnableParticle(new Color(1f, 0.3f, 0.2f), 1, 0.16f)
+            .AddComponent(new StatusPotency())
+            .AddComponent(new StatusOverwriteStats { stats = new BaseStats() })
+            .Build();
+        GuardBlessing = StatusEffectAsset.StartBuild("GuardBlessingStatus")
+            .SetIconPath("cultiway/icons/skills/guard_blessing")
+            .SetDuration(8f)
+            .EnableParticle(new Color(0.35f, 0.7f, 1f), 1, 0.16f)
+            .AddComponent(new StatusPotency())
+            .AddComponent(new StatusOverwriteStats { stats = new BaseStats() })
+            .Build();
+        HasteBlessing = StatusEffectAsset.StartBuild("HasteBlessingStatus")
+            .SetIconPath("cultiway/icons/skills/haste_blessing")
+            .SetDuration(8f)
+            .EnableParticle(new Color(1f, 0.9f, 0.3f), 1, 0.14f)
+            .AddComponent(new StatusPotency())
+            .AddComponent(new StatusOverwriteStats { stats = new BaseStats() })
+            .Build();
     }
 
     // 创建冰冻状态的BaseStats，包含三个tag
@@ -212,6 +244,22 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             ref var statusComp = ref statusEntity.GetComponent<StatusComponent>();
             CombatDamageEffects.DealReactionDamage(statusComp.Source, actor, damage, tickState.Element,
                 attackerPowerLevel: statusComp.SourcePowerLevel);
+        }
+    }
+
+    /// <summary>按状态中记录的每秒治疗量恢复其持有者生命。</summary>
+    private static void OnRejuvenatingTick(Entity statusEntity, float deltaTime)
+    {
+        if (!statusEntity.TryGetComponent(out StatusTickState tickState)) return;
+        float healing = tickState.Value * deltaTime;
+        if (healing <= 0f) return;
+
+        foreach (Entity owner in statusEntity.GetIncomingLinks<StatusRelation>().Entities)
+        {
+            if (!owner.HasComponent<ActorBinder>()) continue;
+            Actor actor = owner.GetComponent<ActorBinder>().Actor;
+            if (actor == null || !actor.isAlive()) continue;
+            Combat.CombatResourceEffects.RestoreHealth(actor, healing);
         }
     }
 }

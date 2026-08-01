@@ -4,6 +4,7 @@ using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Blueprints;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.Semantics;
+using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Content.Libraries;
 using Friflo.Engine.ECS;
 
@@ -46,6 +47,7 @@ public sealed class MagicSpellProfile
         if (asset == null) return null;
         if (!container.HasComponent<ItemLevel>() && !SkillContainerEvaluator.Refresh(container)) return null;
         var itemLevel = container.GetComponent<ItemLevel>();
+        SemanticDescriptor semantics = SkillSemanticCollector.BuildDescriptor(container);
 
         return new MagicSpellProfile
         {
@@ -53,8 +55,8 @@ public sealed class MagicSpellProfile
             Element = asset.Element,
             ElementRequirement = ElementRequirement.FromComposition(asset.Element),
             FamilySignature = BuildFamilySignature(container),
-            PrimaryElement = ElementSemanticProfileService.ResolveDominant(asset.Element, asset.Semantics),
-            Semantics = asset.Semantics
+            PrimaryElement = ElementSemanticProfileService.ResolveDominant(asset.Element, semantics),
+            Semantics = semantics
         };
     }
 

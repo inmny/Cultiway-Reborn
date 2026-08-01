@@ -7,6 +7,9 @@ using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Effects;
+using Cultiway.Core.SkillLibV3.Usage;
+using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -16,7 +19,7 @@ namespace Cultiway.Content.Artifacts.ActiveAbilities;
 /// <summary>
 /// 将封存 SkillContainer 的一次性物品适配为统一主动能力。具体载体只负责权限、参数和消耗表现。
 /// </summary>
-internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityProvider
+internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityProvider, IActiveAbilityTargetAdvisor
 {
     public abstract string Id { get; }
 
@@ -32,7 +35,9 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
 
     public ActiveAbilityChannel GetChannels(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        return ActiveAbilityChannel.Combat;
+        return TryResolve(caster, handle, out SkillPayload payload)
+            ? payload.Skill.GetComponent<SkillContainer>().Asset.UseProfile.Channels
+            : ActiveAbilityChannel.None;
     }
 
     public ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle)
@@ -43,18 +48,23 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
             ? item.Name.value
             : payload.Skill.GetComponent<SkillContainer>().SkillEntityAssetID.Localize();
         Sprite icon = item.TryGetComponent(out SpecialItem specialItem) ? specialItem.GetSprite() : null;
+        SkillUseProfileAsset useProfile = payload.Skill.GetComponent<SkillContainer>().Asset.UseProfile;
         return new ActiveAbilityDescriptor(
             name,
             icon,
-            ActiveAbilityChannel.Combat,
-            ActiveAbilityTargetMode.ObjectOrPoint,
-            ActiveAbilityActivationMode.Instant);
+            useProfile.Channels,
+            useProfile.TargetMode,
+            ActiveAbilityActivationMode.Instant,
+            targetRelation: useProfile.TargetRelation);
     }
 
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         if (!TryResolve(caster, handle, out SkillPayload payload)) return false;
         if (target != null && target.isRekt()) return false;
+        SkillUseProfileAsset useProfile = payload.Skill.GetComponent<SkillContainer>().Asset.UseProfile;
+        if (useProfile.Placement != SkillUsePlacement.CasterSelf && target != null &&
+            !SkillTargetRelationResolver.Matches(useProfile.TargetRelation, caster.Base, target)) return false;
         return SkillCastCost.GetAffordableStepLimit(caster, payload.Skill, SkillCastFundingSource.Prepaid) > 0;
     }
 
@@ -80,12 +90,36 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
 
     public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
-        return caster.GetSkillCastRange(target);
+        if (!TryResolve(caster, handle, out SkillPayload payload)) return 0f;
+        SkillUseProfileAsset useProfile = payload.Skill.GetComponent<SkillContainer>().Asset.UseProfile;
+        return caster.GetSkillCastRange(target) * useProfile.RangeMultiplier;
     }
 
     public float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        return 0f;
+        return TryResolve(caster, handle, out SkillPayload payload)
+            ? ResolveEffectRadius(payload.Skill)
+            : 0f;
+    }
+
+    /// <summary>让辅助卷轴和符箓复用封存法术的真实边际收益选择友军目标。</summary>
+    public bool TryResolvePreferredTarget(
+        ActorExtend caster,
+        ActiveAbilityHandle handle,
+        IReadOnlyList<Actor> nearbyAllies,
+        out BaseSimObject target)
+    {
+        target = null;
+        if (!TryResolve(caster, handle, out SkillPayload payload)) return false;
+        SkillUseProfileAsset profile = payload.Skill.GetComponent<SkillContainer>().Asset.UseProfile;
+        if (profile.TargetRelation != SkillUseTargetRelation.Friendly) return false;
+        return SkillEffectResolver.TryResolveBestFriendlyTarget(
+            caster,
+            payload.Skill,
+            nearbyAllies,
+            ResolveEffectRadius(payload.Skill),
+            profile.TargetMode == ActiveAbilityTargetMode.Area,
+            out target);
     }
 
     public bool TryUse(
@@ -154,10 +188,20 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
         plan = null;
         int stepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill, SkillCastFundingSource.Prepaid);
         if (stepLimit <= 0) return false;
+        SkillUseProfileAsset useProfile = skill.GetComponent<SkillContainer>().Asset.UseProfile;
 
-        if (target.Object != null && !target.Object.isRekt())
+        if (useProfile.Placement == SkillUsePlacement.CasterSelf)
         {
-            float range = caster.GetSkillCastRange(target.Object) + target.Object.stats[strings.S.size];
+            plan = SkillCastPlanner.CreatePointPlan(caster, skill, caster.Base.GetSimPos(), stepLimit);
+        }
+        else if (target.Object != null && !target.Object.isRekt())
+        {
+            if (!SkillTargetRelationResolver.Matches(
+                    useProfile.TargetRelation,
+                    caster.Base,
+                    target.Object)) return false;
+            float range = caster.GetSkillCastRange(target.Object) * useProfile.RangeMultiplier +
+                          target.Object.stats[strings.S.size];
             if (Toolbox.SquaredDistVec2Float(caster.Base.current_position, target.Object.current_position) >
                 range * range) return false;
             plan = SkillCastPlanner.CreatePlan(
@@ -170,13 +214,31 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
         }
         else
         {
-            float range = caster.GetSkillCastRange(null);
+            if (useProfile.TargetRelation is SkillUseTargetRelation.Friendly or SkillUseTargetRelation.Self)
+                return false;
+            float range = caster.GetSkillCastRange(null) * useProfile.RangeMultiplier;
             if (Toolbox.SquaredDistVec2Float(caster.Base.current_position, target.Position) > range * range)
                 return false;
             plan = SkillCastPlanner.CreatePointPlan(caster, skill, target.Position, stepLimit);
         }
 
-        return plan.Steps.Count > 0 && SkillCastCost.CanPay(caster, skill, plan, SkillCastFundingSource.Prepaid);
+        if (plan.Steps.Count == 0 ||
+            !SkillCastCost.CanPay(caster, skill, plan, SkillCastFundingSource.Prepaid)) return false;
+        return useProfile.TargetRelation != SkillUseTargetRelation.WorldTile ||
+               SkillEffectResolver.HasApplicableTile(
+                   caster,
+                   skill,
+                   target.Position,
+                   ResolveEffectRadius(skill));
+    }
+
+    /// <summary>解析封存技能经过本体调谐和词条缩放后的真实效果半径。</summary>
+    private static float ResolveEffectRadius(Entity skill)
+    {
+        SkillEntityAsset asset = skill.GetComponent<SkillContainer>().Asset;
+        return SkillEffectRadius.ResolveContainer(
+            skill,
+            asset.ImpactProfile.EffectRadius * asset.ImpactTuning.EffectRadiusMultiplier);
     }
 
     protected readonly struct SkillPayload
@@ -254,6 +316,8 @@ internal sealed class MagicScrollActiveAbilityProvider : ConsumableSkillActiveAb
     public override int ResolveAiWeight(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         // 卷轴保留为个人法术不可用时的后备手段，避免 AI 无谓消耗一次性物品。
+        if (!TryResolvePayload(handle.Source, out SkillPayload payload)) return 0;
+        if (payload.Skill.GetComponent<SkillContainer>().Asset.Type != SkillEntityType.Attack) return 10;
         foreach (Entity skill in caster.all_attack_skills)
         {
             if (caster.CanUseSkillContainerAtCurrentDistance(skill, target)) return 0;
