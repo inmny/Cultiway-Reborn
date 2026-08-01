@@ -497,7 +497,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     private const int WALL_STAGE_BOTH     = 2; // 内墙（石墙，宽2）+ 外墙（木墙，宽1）
     private const int WALL_STAGE_FORTRESS = 3; // 内墙（石墙，宽2）+ 外墙（石墙，宽2）
 
-    private const int    WALL_SCHEDULE_INTERVAL_YEARS = 50;                   // 东方人族城墙调度间隔（世界年）
+    private const int    WALL_SCHEDULE_INTERVAL_YEARS = 25;                   // 东方人族城墙调度间隔（世界年）
     private const string EASTERN_HUMAN_ID              = "Cultiway.EasternHuman"; // 东方人族种族 id
 
     /// <summary>
@@ -622,12 +622,15 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         return !WallsIntact(city); // 已建成要塞：任一城墙被摧毁大半即可重建
     }
 
-    /// <summary>内墙与外墙是否都基本完好（现存比例均 ≥ 阈值）。用记录的（固定）bounds 检测。</summary>
+    /// <summary>内墙与外墙是否都基本完好（现存比例均 ≥ 阈值）。用记录的（固定）bounds 检测——
+    /// 即城墙实际所在的位置(内墙=GetInnerBounds，外墙=GetOuterBounds)。
+    /// 注意不能用动态的 OuterBounds()：城市会持续扩张，动态 bounds 会越来越大、
+    /// 偏离城墙实际位置，导致误判城墙"已被摧毁"而无限重建。</summary>
     private static bool WallsIntact(City city)
     {
         if (city == null) return false;
         var inner = GetInnerBounds(city);
-        var outer = OuterBounds(city);
+        var outer = GetOuterBounds(city);
         if (inner == null || outer == null) return false;
         float innerRatio = WallShapeHelper.ExistingWallRatio(inner.Value, 2);
         float outerRatio = WallShapeHelper.ExistingWallRatio(outer.Value, 2);
