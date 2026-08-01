@@ -6,6 +6,8 @@ using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Sects;
+using Cultiway.Core.CollectiveProjects;
+using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content
 {
@@ -18,6 +20,8 @@ namespace Cultiway.Content
         }
         public static DecisionAsset CivTravelToCity { get; private set; }
         public static DecisionAsset FindSectJob { get; private set; }
+        /// <summary>允许组织应急工程打断普通民生任务的高优先级决策。</summary>
+        public static DecisionAsset ExecuteEmergencyCollectiveProject { get; private set; }
         protected override void OnInit()
         {
             InitCivs();
@@ -40,6 +44,16 @@ namespace Cultiway.Content
             FindSectJob.action_check_launch = SectJobService.HasAssignableJob;
             FindSectJob.weight = 1.8f;
             FindSectJob.task_id = ActorTasks.FindSectJob.id;
+
+            ExecuteEmergencyCollectiveProject.priority = NeuroLayer.Layer_3_High;
+            ExecuteEmergencyCollectiveProject.path_icon = "ui/Icons/iconWarning";
+            ExecuteEmergencyCollectiveProject.cooldown = 1;
+            ExecuteEmergencyCollectiveProject.cooldown_on_launch_failure = true;
+            ExecuteEmergencyCollectiveProject.action_check_launch = actor =>
+                CollectiveProjectService.HasAssignableProject(actor.GetExtend(), true);
+            ExecuteEmergencyCollectiveProject.weight = 4f;
+            ExecuteEmergencyCollectiveProject.list_civ = true;
+            ExecuteEmergencyCollectiveProject.task_id = ActorTasks.ExecuteEmergencyCollectiveProject.id;
         }
         protected override void GlobalPostInit()
         {
