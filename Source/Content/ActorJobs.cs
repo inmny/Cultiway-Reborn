@@ -2,6 +2,7 @@ using Cultiway.Abstract;
 using Cultiway.Content.Behaviours;
 using Cultiway.Content.Behaviours.Conditions;
 using Cultiway.Core;
+using Cultiway.Core.CollectiveProjects;
 using Cultiway.Core.Progression;
 using Cultiway.Utils.Extension;
 
@@ -19,6 +20,8 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
 
     /// <summary>由通用进阶选择器主动分配、只执行一次当前候选进阶的工作。</summary>
     public static ActorJob CultivationProgression { get; private set; }
+    /// <summary>角色自然换工作时认领并执行一个所属组织的常规集体工程。</summary>
+    public static ActorJob CollectiveProject { get; private set; }
     public static ActorJob MagicWebResearcher  { get; private set; }
     public static ActorJob MagicScrollStudent  { get; private set; }
     public static ActorJob MagicSpellResearcher { get; private set; }
@@ -89,6 +92,10 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         CultivationProgression.addTask(ActorTasks.CultivationProgression.id);
         CultivationProgression.addTask(ActorTasks.EndJob.id);
         ActorJobSelectionRegistry.Register(TrySelectCultivationProgressionJob, 1000);
+
+        CollectiveProject.addTask(ActorTasks.ExecuteCollectiveProject.id);
+        CollectiveProject.addTask(ActorTasks.EndJob.id);
+        ActorJobSelectionRegistry.Register(TrySelectCollectiveProjectJob, 500);
 
         MagicWebResearcher.addTask(ActorTasks.StudyMagicWeb.id);
         MagicWebResearcher.addCondition(new CondShouldStudyMagicWeb());
@@ -215,6 +222,15 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     {
         if (!ProgressionService.CanScheduleAny(actor.GetExtend())) return false;
         jobId = CultivationProgression.id;
+        return true;
+    }
+
+    /// <summary>只在自然工作选择阶段认领常规工程，不主动打断角色当前任务。</summary>
+    private static bool TrySelectCollectiveProjectJob(Actor actor, ref string jobId)
+    {
+        if (!CollectiveProjectService.TryAssignRoutineJob(actor.GetExtend(), out string selectedJobId))
+            return false;
+        jobId = selectedJobId;
         return true;
     }
 

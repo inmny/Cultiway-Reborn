@@ -15,6 +15,7 @@ using Cultiway.Content.Sects;
 using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.CollectiveProjects;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -32,6 +33,7 @@ internal static class PatchActor
     private static void endJob_postfix(Actor __instance)
     {
         SectJobService.Release(__instance);
+        CollectiveProjectService.ReleaseAssignment(__instance.GetExtend());
     }
 
     [Hotfixable, HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.nextJobActor))]

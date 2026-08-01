@@ -5,6 +5,7 @@ using Cultiway.Content.Behaviours;
 using Cultiway.Content.Behaviours.Apprentices;
 using Cultiway.Content.Behaviours.Masters;
 using Cultiway.Content.Const;
+using Cultiway.Core.CollectiveProjects;
 using Cultiway.Core.Combat.Tactical;
 
 namespace Cultiway.Content;
@@ -20,6 +21,10 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
 
     /// <summary>调用通用进阶服务执行当前体系候选过渡的行为任务。</summary>
     public static BehaviourTaskActor CultivationProgression    { get; private set; }
+    /// <summary>执行自然工作选择器已经认领的常规集体工程。</summary>
+    public static BehaviourTaskActor ExecuteCollectiveProject  { get; private set; }
+    /// <summary>认领并执行能够抢占普通工作的应急集体工程。</summary>
+    public static BehaviourTaskActor ExecuteEmergencyCollectiveProject { get; private set; }
     public static BehaviourTaskActor StudyMagicWeb             { get; private set; }
     public static BehaviourTaskActor StudyMagicScroll          { get; private set; }
     public static BehaviourTaskActor ImproveMagicSpell         { get; private set; }
@@ -82,6 +87,18 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
 
         CultivationProgression.addBeh(new BehCultivationProgression());
         CultivationProgression.setIcon("cultiway/icons/iconCultivation");
+
+        ExecuteCollectiveProject.addBeh(new BehPrepareCollectiveProject(false));
+        ExecuteCollectiveProject.addBeh(new BehGoToTileTarget());
+        ExecuteCollectiveProject.addBeh(new BehExecuteCollectiveProject());
+        ExecuteCollectiveProject.addBeh(new BehEndJob());
+        ExecuteCollectiveProject.setIcon("ui/Icons/iconShowTasks");
+
+        ExecuteEmergencyCollectiveProject.addBeh(new BehPrepareCollectiveProject(true));
+        ExecuteEmergencyCollectiveProject.addBeh(new BehGoToTileTarget());
+        ExecuteEmergencyCollectiveProject.addBeh(new BehExecuteCollectiveProject());
+        ExecuteEmergencyCollectiveProject.addBeh(new BehEndJob());
+        ExecuteEmergencyCollectiveProject.setIcon("ui/Icons/iconWarning");
 
         StudyMagicWeb.addBeh(new BehStudyMagicWeb());
         StudyMagicWeb.setIcon("cultiway/icons/iconMagic");

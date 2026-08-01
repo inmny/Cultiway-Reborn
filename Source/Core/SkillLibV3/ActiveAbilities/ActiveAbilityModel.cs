@@ -235,19 +235,22 @@ public readonly struct ActiveAbilityTarget
     public readonly SkillTargetSelectionArea SelectionArea;
     public readonly IReadOnlyList<BaseSimObject> ExplicitTargets;
     public readonly Kingdom AttackKingdom;
+    public readonly SkillCastRuntimeData RuntimeData;
 
     public ActiveAbilityTarget(
         BaseSimObject target,
         Vector3 position,
         SkillTargetSelectionArea selectionArea = default,
         IReadOnlyList<BaseSimObject> explicitTargets = null,
-        Kingdom attackKingdom = null)
+        Kingdom attackKingdom = null,
+        SkillCastRuntimeData runtimeData = default)
     {
         Object = target;
         Position = position;
         SelectionArea = selectionArea;
         ExplicitTargets = explicitTargets;
         AttackKingdom = attackKingdom;
+        RuntimeData = runtimeData;
     }
 }
 

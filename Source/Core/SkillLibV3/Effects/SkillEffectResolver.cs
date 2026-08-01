@@ -111,6 +111,46 @@ public static class SkillEffectResolver
         return new SkillTilePreviewResult(valid, skipped);
     }
 
+    /// <summary>
+    /// 按技能真实的地块预检与效用委托，累计指定落点范围内的边际收益。
+    /// 可选过滤器用于把组织领地、禁区等外部空间约束叠加到技能自身规则上。
+    /// </summary>
+    public static float EvaluateTileUtility(
+        ActorExtend caster,
+        Entity skillContainer,
+        Vector3 position,
+        float radius,
+        Func<WorldTile, bool> filter = null)
+    {
+        if (caster == null || caster.Base.isRekt() || skillContainer.IsNull ||
+            !skillContainer.HasComponent<SkillContainer>()) return 0f;
+        SkillEffectPipeline pipeline = skillContainer.GetComponent<SkillContainer>().EffectPipeline;
+        if (pipeline == null || !pipeline.HasTileEffects) return 0f;
+
+        var evaluation = new SkillEffectEvaluationContext(caster, skillContainer, position, radius);
+        float utility = 0f;
+        foreach (WorldTile tile in EnumerateTiles(position, radius))
+        {
+            if (filter != null && !filter(tile)) continue;
+            foreach (SkillEffectDescriptor effect in pipeline.Effects)
+            {
+                if (!effect.IsTileEffect || !(effect.CanApplyTile?.Invoke(in evaluation, tile) ?? true)) continue;
+                utility += Mathf.Max(0f, effect.EvaluateTileUtility?.Invoke(in evaluation, tile) ?? 1f);
+            }
+        }
+        return utility;
+    }
+
+    /// <summary>按技能结算采用的圆形离散规则收集影响范围内的世界地块。</summary>
+    public static void CollectAreaTiles(
+        Vector3 center,
+        float radius,
+        ICollection<WorldTile> output)
+    {
+        if (output == null) throw new ArgumentNullException(nameof(output));
+        foreach (WorldTile tile in EnumerateTiles(center, radius)) output.Add(tile);
+    }
+
     /// <summary>收集落点范围内每个地块的具体可应用状态，供玩家选点预览复用真实预检规则。</summary>
     public static void CollectTilePreview(
         ActorExtend caster,
