@@ -84,7 +84,8 @@ public partial class SkillModifiers
             Trigger = SkillEffectTrigger.Periodic,
             Interval = 1f,
             CanApplyTile = CanGrowNature,
-            ApplyTile = ApplyNatureGrowth
+            ApplyTile = ApplyNatureGrowth,
+            EvaluateTileUtility = EvaluateUnitTileUtility
         });
         NatureGrowth.EvaluateLevel = EvaluateNatureGrowth;
         ConfigureEditor<NatureGrowthModifier>(NatureGrowth, "Utility",
@@ -105,7 +106,8 @@ public partial class SkillModifiers
             Trigger = SkillEffectTrigger.Periodic,
             Interval = 0.5f,
             CanApplyTile = CanCleanLand,
-            ApplyTile = ApplyCleanLand
+            ApplyTile = ApplyCleanLand,
+            EvaluateTileUtility = EvaluateCleanLandTileUtility
         });
         CleanLand.EvaluateLevel = EvaluateCleanLand;
         ConfigureEditor<CleanLandModifier>(CleanLand, "Utility",
@@ -130,7 +132,8 @@ public partial class SkillModifiers
             TargetRelation = SkillEffectTargetRelation.WorldTile,
             Trigger = SkillEffectTrigger.Impact,
             CanApplyTile = applicability,
-            ApplyTile = apply
+            ApplyTile = apply,
+            EvaluateTileUtility = EvaluateUnitTileUtility
         });
         modifier.EvaluateLevel = (Entity _, ref SkillEvaluationContext context) =>
         {
@@ -261,6 +264,25 @@ public partial class SkillModifiers
         AddRemovedFlag(hadWasteland && tile.top_type?.wasteland != true,
             SkillEffectOutcomeFlags.WastelandRemoved, ref flags, ref count);
         return count > 0 ? new SkillEffectResult(flags, count) : default;
+    }
+
+    /// <summary>给每个通过真实预检的普通功能地块提供一个单位效用。</summary>
+    private static float EvaluateUnitTileUtility(in SkillEffectEvaluationContext _, WorldTile __)
+    {
+        return 1f;
+    }
+
+    /// <summary>按照城市应急规划采用的危害权重评价一个待净化地块。</summary>
+    private static float EvaluateCleanLandTileUtility(in SkillEffectEvaluationContext _, WorldTile tile)
+    {
+        if (tile == null) return 0f;
+        float utility = 0f;
+        if (tile.isOnFire()) utility += 8f;
+        if (tile.heat > 0) utility += 4f;
+        if (tile.burned_stages > 0) utility += 3f;
+        if (tile.isTemporaryFrozen()) utility += 2f;
+        if (!tile.hasBuilding() && !tile.Type.road && tile.top_type?.wasteland == true) utility += 1f;
+        return utility;
     }
 
     /// <summary>把一个已经确认被移除的地块状态写入聚合结果。</summary>

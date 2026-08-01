@@ -28,7 +28,7 @@ public partial class SkillEntities
     /// <summary>维持六秒并周期清除地块污染的净土区域。</summary>
     public static SkillEntityAsset CleanLandField { get; private set; }
 
-    /// <summary>注册首批六个仅由玩家手动释放的世界功能法术。</summary>
+    /// <summary>注册首批六个世界功能法术；注水仅供手动使用，其余可由组织工程按需求调度。</summary>
     private static void ConfigureUtility()
     {
         ConfigureInstantUtility(

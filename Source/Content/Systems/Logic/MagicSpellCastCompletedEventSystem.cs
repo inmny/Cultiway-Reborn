@@ -1,5 +1,6 @@
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
+using Cultiway.Content.CollectiveProjects;
 
 namespace Cultiway.Content.Systems.Logic;
 
@@ -12,6 +13,7 @@ public sealed class MagicSpellCastCompletedEventSystem : GenericEventSystem<Skil
 
     protected override void HandleEvent(SkillCastCompletedEvent evt)
     {
+        MagicUtilityProjectExecutor.HandleCastCompleted(in evt);
         MagicSpellProgressionService.RecordCompletedCast(evt.Caster, evt.SkillContainer, evt.EmittedCount,
             evt.FundingSource);
     }
