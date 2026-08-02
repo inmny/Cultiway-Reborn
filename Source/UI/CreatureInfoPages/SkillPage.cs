@@ -3,6 +3,7 @@ using Cultiway.Abstract;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core.SkillLibV3.Utils;
+using Cultiway.Core.SkillLibV3;
 using Cultiway.UI;
 using Cultiway.UI.Prefab;
 using NeoModLoader.api.attributes;
@@ -15,6 +16,7 @@ public sealed class SkillPage : MonoBehaviour
 {
     private Actor _actor;
     private MonoObjPool<SkillImportRow> _rowPool;
+    private GameObject _importAll;
 
     public static void Setup(CreatureInfoPage page)
     {
@@ -22,6 +24,7 @@ public sealed class SkillPage : MonoBehaviour
         var root = UiLayout.Create(page.transform, "SkillPageRoot", false, 246f, 208f, 4f);
         var importAll = UiElements.CreateIconTextButton(root.transform, "ImportAll", UiIcons.Import,
             "Cultiway.Wanfa.UI.Action.ImportAll".Localize(), 132f, 22f, component.ImportAll);
+        component._importAll = importAll.gameObject;
         UiTooltip.Set(importAll.gameObject, "Cultiway.Wanfa.UI.Action.ImportAll",
             "Cultiway.Wanfa.UI.Tooltip.ImportAll");
         UiScrollPane skills = UiScrollPane.CreateVertical(root.transform, "Skills", 246f, 180f);
@@ -39,12 +42,26 @@ public sealed class SkillPage : MonoBehaviour
     private void Refresh()
     {
         _rowPool.Clear();
-        foreach (var container in _actor.GetExtend().GetLearnedSkillsInOrder())
+        ActorExtend actorExtend = _actor.GetExtend();
+        var learnedSkills = actorExtend.GetLearnedSkillsInOrder();
+        _importAll.SetActive(learnedSkills.Count > 0);
+        foreach (var container in learnedSkills)
         {
             var current = container;
             _rowPool.GetNext().Setup(current,
                 () => ImportOne(current),
                 () => EditImported(current));
+        }
+        using var grantedSkills = new ListPool<SourceGrantedSkillPresentation>();
+        SourceGrantedSkillService.Collect(actorExtend, grantedSkills);
+        for (var i = 0; i < grantedSkills.Count; i++)
+        {
+            SourceGrantedSkillPresentation granted = grantedSkills[i];
+            if (granted.SkillContainer.IsNull) continue;
+            string detail = string.IsNullOrEmpty(granted.DetailLocaleKey)
+                ? string.Empty
+                : granted.DetailLocaleKey.Localize();
+            _rowPool.GetNext().SetupReadOnly(granted.SkillContainer, detail);
         }
     }
 

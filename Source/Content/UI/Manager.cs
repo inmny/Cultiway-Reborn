@@ -10,6 +10,7 @@ using Cultiway.Content.UI.CreatureInfoPages;
 using Cultiway.Content.Utils;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core.WorldTools;
 using Cultiway.UI;
@@ -168,7 +169,8 @@ public class Manager : ICanInit
     {
         WindowActorTargetFilter.CreateAndInit(WindowActorTargetFilter.Id, WindowActorTargetFilter.WindowSize);
         WindowNewCreatureInfo.RegisterPage(nameof(Cultiway.UI.CreatureInfoPages.SkillPage),
-            actor => actor.GetExtend().GetLearnedSkillsInOrder().Count > 0,
+            actor => actor.GetExtend().GetLearnedSkillsInOrder().Count > 0 ||
+                     SourceGrantedSkillService.HasAny(actor.GetExtend()),
             Cultiway.UI.CreatureInfoPages.SkillPage.Setup, Cultiway.UI.CreatureInfoPages.SkillPage.Show);
 
         WindowWanfaPavilion.CreateAndInit(WindowWanfaPavilion.Id, WindowWanfaPavilion.WindowSize);

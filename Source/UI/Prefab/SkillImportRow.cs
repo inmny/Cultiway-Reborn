@@ -18,6 +18,7 @@ public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
 {
     private UiListRowChrome _chrome;
     private Image _icon;
+    private LayoutElement _labelsLayout;
     private Text _name;
     private Text _detail;
     private Button _import;
@@ -27,6 +28,7 @@ public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
     {
         _chrome = UiListRowChrome.From(gameObject);
         _icon = transform.Find("Icon").GetComponent<Image>();
+        _labelsLayout = transform.Find("Labels").GetComponent<LayoutElement>();
         _name = transform.Find("Labels/Name").GetComponent<Text>();
         _detail = transform.Find("Labels/Detail").GetComponent<Text>();
         _import = transform.Find("Import").GetComponent<Button>();
@@ -36,6 +38,9 @@ public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
     public void Setup(Entity container, Action import, Action edit)
     {
         Init();
+        _labelsLayout.preferredWidth = 132f;
+        _import.gameObject.SetActive(true);
+        _edit.gameObject.SetActive(true);
         var skill = container.GetComponent<SkillContainer>();
         _name.text = container.HasName ? container.Name.value : skill.SkillEntityAssetID.Localize();
         var trajectory = SkillBlueprintTrajectory.ResolveEffectiveId(container);
@@ -66,6 +71,21 @@ public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
         _edit.onClick.AddListener(edit.Invoke);
         UiTooltip.Set(_edit.gameObject, "Cultiway.Wanfa.UI.Action.Edit",
             imported ? "Cultiway.Wanfa.UI.Tooltip.EditActorSkill" : "Cultiway.Wanfa.UI.Tooltip.EditRequiresImport");
+    }
+
+    /// <summary>把来源授予技能显示为不可导入、不可编辑的只读条目。</summary>
+    public void SetupReadOnly(Entity container, string detail)
+    {
+        Init();
+        ref SkillContainer skill = ref container.GetComponent<SkillContainer>();
+        _name.text = container.HasName ? container.Name.value : skill.SkillEntityAssetID.Localize();
+        _detail.text = detail;
+        _icon.sprite = skill.Asset.ResolveIcon(skill.AnimationIndex);
+        UiTooltip.Set(_icon.gameObject, () => SkillTooltip.Show(_icon.gameObject, container));
+        _labelsLayout.preferredWidth = 196f;
+        _import.gameObject.SetActive(false);
+        _edit.gameObject.SetActive(false);
+        _chrome.SetState(UiControlState.Normal);
     }
 
     private static void _init()
