@@ -172,6 +172,47 @@ public class GeoRegionAsset : Asset
     }
 
     /// <summary>
+    /// 按区域坐标生成名称：若生成结果首字为方位字（东南西北中），
+    /// 则用坐标判定的实际方位替换，避免方位字随机乱指。
+    /// </summary>
+    public string GenerateName(int centerX, int centerY, int width, int height)
+    {
+        string name = GenerateName();
+        if (string.IsNullOrEmpty(name) || width <= 0 || height <= 0)
+        {
+            return name;
+        }
+
+        if (DirectionChars.IndexOf(name[0]) >= 0)
+        {
+            return DirectionFromPosition(centerX, centerY, width, height) + name.Substring(1);
+        }
+
+        return name;
+    }
+
+    private const string DirectionChars = "东南西北中";
+
+    /// <summary>
+    /// 按区域中心相对地图中心的位置判定方位字：横向三等分优先（西/中/东），
+    /// 纵向三等分其次（南/中/北），两轴均居中的中央区域为“中”。
+    /// 约定与自动分类系统的方位候选一致：y 小为南、y 大为北。
+    /// </summary>
+    public static char DirectionFromPosition(int centerX, int centerY, int width, int height)
+    {
+        int x1 = width / 3;
+        int x2 = width * 2 / 3;
+        int y1 = height / 3;
+        int y2 = height * 2 / 3;
+
+        if (centerX < x1) return '西';
+        if (centerX >= x2) return '东';
+        if (centerY < y1) return '南';
+        if (centerY >= y2) return '北';
+        return '中';
+    }
+
+    /// <summary>
     /// 允许的 biome id 列表（为空表示不限）。
     /// </summary>
     public string[] BiomeIds;

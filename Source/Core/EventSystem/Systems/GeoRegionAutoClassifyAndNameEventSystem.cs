@@ -48,6 +48,26 @@ public class GeoRegionAutoClassifyAndNameEventSystem : GenericEventSystem<GeoReg
         instance.HandleEvent(evt);
     }
 
+    /// <summary>
+    /// 手动重新分区时预占旧地区名称，使本轮新生成的地区避开与旧名称重名。
+    /// 需在 BeginDirectGeneration 之后、FinalizeDirect 之前调用。
+    /// </summary>
+    internal static void PreReserveNames(IEnumerable<string> names)
+    {
+        if (instance == null || names == null) return;
+
+        foreach (string name in names)
+        {
+            instance.ReserveName(name);
+        }
+    }
+
+    private void ReserveName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return;
+        _usedResolvedNames.Add(name);
+    }
+
     protected override void HandleEvent(GeoRegionGeneratedEvent evt)
     {
         if (evt.RegionId < 0)
@@ -83,7 +103,8 @@ public class GeoRegionAutoClassifyAndNameEventSystem : GenericEventSystem<GeoReg
         region.data.TileCount = evt.TileCount;
 
         // 先按地区类型生成名称，再做轻量去重（仅重名时才加方位词，且不使用“部”）。
-        var categoryName = category.GenerateName();
+        // 陆块命名器前缀第1字抽中方位字时，按区域坐标替换为实际方位。
+        var categoryName = category.GenerateName(evt.CenterX, evt.CenterY, evt.Width, evt.Height);
         var normalizedName = NormalizeDirectionalWord(categoryName);
         region.data.name = MakeUniqueName(normalizedName, evt);
         region.data.custom_name = false;

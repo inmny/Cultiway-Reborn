@@ -465,6 +465,7 @@ namespace Cultiway
             
             GeneralLogicSystems.Add(new WaterConnectivitySystem());
             GeneralLogicSystems.Add(PortalManager.Instance);
+            GeneralLogicSystems.Add(new GeoRegionLandmassLiveUpdateSystem());
             
             GeneralRenderSystems.Add(new RenderAnimFrameSystem(W));
             GeneralRenderSystems.Add(new RenderStatusParticleSystem());
