@@ -321,14 +321,17 @@ public class GeoRegionLandmassLiveUpdateSystem : BaseSystem
         else
         {
             string oldName = data.name;
-            string oldSuffix = oldCategory?.DisplayName;
-            string newSuffix = newCategory.DisplayName;
-            if (!string.IsNullOrEmpty(oldName) &&
-                !string.IsNullOrEmpty(oldSuffix) &&
-                !string.IsNullOrEmpty(newSuffix) &&
-                oldName.EndsWith(oldSuffix, StringComparison.Ordinal))
+            string[] oldWords = oldCategory == null ? null : GetTypeWords(lib, oldCategory);
+            string prefix = oldWords == null ? null : StripTypeSuffix(oldName, oldWords);
+            if (string.IsNullOrEmpty(prefix) && oldCategory != null)
             {
-                data.name = oldName.Substring(0, oldName.Length - oldSuffix.Length) + newSuffix;
+                prefix = StripTypeSuffix(oldName, AllTypeWords);
+            }
+
+            string[] newWords = GetTypeWords(lib, newCategory);
+            if (!string.IsNullOrEmpty(prefix) && newWords != null && newWords.Length > 0)
+            {
+                data.name = prefix + newWords[UnityEngine.Random.Range(0, newWords.Length)];
             }
             else
             {
