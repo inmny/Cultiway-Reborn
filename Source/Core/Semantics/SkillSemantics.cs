@@ -357,7 +357,7 @@ public static class SkillSemantics
         Effect.LowerTerrain = Add(library, "semantic.effect.lower_terrain", "effect", "lower_terrain");
         Effect.FillWater = Add(library, "semantic.effect.fill_water", "effect", "fill_water");
         Effect.DrainWater = Add(library, "semantic.effect.drain_water", "effect", "drain_water");
-        Effect.Rain = Add(library, "semantic.effect.rain", "effect", "rain");
+        Effect.Rain = Add(library, "semantic.effect.rain", "effect", "rainfall");
         Effect.Fertilize = Add(library, "semantic.effect.fertilize", "effect", "fertilize",
             parents: Ids(Effect.Growth));
 
