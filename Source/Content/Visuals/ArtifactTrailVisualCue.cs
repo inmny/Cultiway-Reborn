@@ -4,6 +4,7 @@ using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Libraries;
+using Cultiway.Core.Visuals;
 using UnityEngine;
 
 namespace Cultiway.Content.Visuals;
@@ -167,7 +168,7 @@ internal sealed class ArtifactTrailVisualView : MonoBehaviour
     public MeshRenderer core;
     private MaterialPropertyBlock glowBlock;
     private MaterialPropertyBlock coreBlock;
-    private ArtifactVfxPathBuffer pathBuffer;
+    private RibbonPathMeshBuffer pathBuffer;
 
     internal void Show(
         IReadOnlyList<Vector3> points,
@@ -187,7 +188,7 @@ internal sealed class ArtifactTrailVisualView : MonoBehaviour
         Color coreColor = ArtifactVisualCueTools.ResolveColor(context.theme, cue.color_role);
         Color glowColor = context.theme.glow;
         float elapsed = Time.time;
-        pathBuffer ??= new ArtifactVfxPathBuffer();
+        pathBuffer ??= new RibbonPathMeshBuffer();
         ArtifactVfxPathMesh.Build(
             core_mesh,
             pathBuffer,

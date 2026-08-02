@@ -1,6 +1,7 @@
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Libraries;
 using Cultiway.Core.Components;
+using Cultiway.Core.Visuals;
 using UnityEngine;
 
 namespace Cultiway.Content.Visuals;
@@ -8,8 +9,6 @@ namespace Cultiway.Content.Visuals;
 /// <summary>程序化法器视觉共用的锚点、配色和渲染资源工具。</summary>
 internal static class ArtifactVisualCueTools
 {
-    private static Material visualMaterial;
-
     internal static Color ResolveColor(ArtifactVisualTheme theme, ArtifactVisualColorRole role)
     {
         return role switch
@@ -49,10 +48,7 @@ internal static class ArtifactVisualCueTools
     {
         get
         {
-            if (visualMaterial != null) return visualMaterial;
-            Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Transparent");
-            visualMaterial = new Material(shader) { hideFlags = HideFlags.DontSave };
-            return visualMaterial;
+            return WorldVisualResources.TransparentSpriteMaterial;
         }
     }
 

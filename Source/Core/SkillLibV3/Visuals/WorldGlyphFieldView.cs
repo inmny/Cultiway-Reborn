@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Const;
+using Cultiway.Core.Visuals;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
@@ -139,7 +140,7 @@ internal sealed class WorldGlyphFieldView
             GameObject obj = new($"{namePrefix}_{renderers.Count:00}", typeof(SpriteRenderer));
             obj.transform.SetParent(ringRoot, false);
             SpriteRenderer renderer = obj.GetComponent<SpriteRenderer>();
-            renderer.sharedMaterial = SkillWorldVisualResources.Material;
+            renderer.sharedMaterial = WorldVisualResources.TransparentSpriteMaterial;
             renderer.sortingLayerName = RenderSortingLayerNames.EffectsBack_3;
             renderer.sortingOrder = -7;
             renderer.spriteSortPoint = SpriteSortPoint.Pivot;

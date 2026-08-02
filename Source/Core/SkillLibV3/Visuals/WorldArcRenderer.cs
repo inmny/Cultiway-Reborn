@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Const;
+using Cultiway.Core.Visuals;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
@@ -46,7 +47,7 @@ internal sealed class WorldArcRenderer : MonoBehaviour
         };
         obj.GetComponent<MeshFilter>().sharedMesh = view.mesh;
         view.meshRenderer = obj.GetComponent<MeshRenderer>();
-        view.meshRenderer.sharedMaterial = SkillWorldVisualResources.Material;
+        view.meshRenderer.sharedMaterial = WorldVisualResources.TransparentSpriteMaterial;
         view.meshRenderer.sortingLayerName = RenderSortingLayerNames.EffectsBack_3;
         view.meshRenderer.sortingOrder = sortingOrder;
         obj.SetActive(false);
@@ -151,26 +152,5 @@ internal sealed class WorldArcRenderer : MonoBehaviour
         propertyBlock.SetColor("_Color", Color.white);
         meshRenderer.SetPropertyBlock(propertyBlock);
         gameObject.SetActive(visible && vertices.Count > 0);
-    }
-}
-
-/// <summary>SkillLib 世界视觉共用的透明材质。</summary>
-internal static class SkillWorldVisualResources
-{
-    private static Material material;
-
-    public static Material Material
-    {
-        get
-        {
-            if (material != null) return material;
-            Shader shader = Shader.Find("Sprites/Default") ?? Shader.Find("Unlit/Transparent");
-            material = new Material(shader)
-            {
-                name = "Cultiway_SkillWorldVisualMaterial",
-                hideFlags = HideFlags.DontSave
-            };
-            return material;
-        }
     }
 }

@@ -467,6 +467,7 @@ namespace Cultiway
             GeneralLogicSystems.Add(PortalManager.Instance);
             
             GeneralRenderSystems.Add(new RenderAnimFrameSystem(W));
+            GeneralRenderSystems.Add(new RenderMotionRibbonTrailSystem());
             GeneralRenderSystems.Add(new RenderStatusParticleSystem());
             GeneralRenderSystems.Add(new RenderStatusAnimationSystem());
             GeneralRenderSystems.Add(new RenderSkillFlyOverParticleSystem());

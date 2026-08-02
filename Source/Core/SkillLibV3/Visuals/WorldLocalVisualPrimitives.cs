@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Const;
+using Cultiway.Core.Visuals;
 using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.Visuals;
@@ -17,7 +18,7 @@ internal sealed class WorldSpriteView
         Transform = gameObject.transform;
         Transform.SetParent(parent, false);
         Renderer = gameObject.GetComponent<SpriteRenderer>();
-        Renderer.sharedMaterial = SkillWorldVisualResources.Material;
+        Renderer.sharedMaterial = WorldVisualResources.TransparentSpriteMaterial;
         Renderer.sortingLayerName = RenderSortingLayerNames.EffectsTop_5;
         Renderer.sortingOrder = -5;
         Renderer.spriteSortPoint = SpriteSortPoint.Pivot;
@@ -72,7 +73,7 @@ internal sealed class WorldSweepRenderer
         };
         gameObject.GetComponent<MeshFilter>().sharedMesh = mesh;
         renderer = gameObject.GetComponent<MeshRenderer>();
-        renderer.sharedMaterial = SkillWorldVisualResources.Material;
+        renderer.sharedMaterial = WorldVisualResources.TransparentSpriteMaterial;
         renderer.sortingLayerName = RenderSortingLayerNames.EffectsBack_3;
         renderer.sortingOrder = -6;
         gameObject.SetActive(false);

@@ -4,6 +4,7 @@ using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Libraries;
+using Cultiway.Core.Visuals;
 using UnityEngine;
 
 namespace Cultiway.Content.Visuals;
@@ -172,7 +173,7 @@ internal sealed class ArtifactBeamVisualView : MonoBehaviour
     public SpriteRenderer end_cap;
     private MaterialPropertyBlock glowBlock;
     private MaterialPropertyBlock coreBlock;
-    private ArtifactVfxPathBuffer pathBuffer;
+    private RibbonPathMeshBuffer pathBuffer;
 
     internal void Show(
         Vector3 start,
@@ -205,7 +206,7 @@ internal sealed class ArtifactBeamVisualView : MonoBehaviour
         Color glowColor = context.theme.glow;
         ArtifactVfxPathStyleDef style = ArtifactVfxStyleCatalog.Get(cue.style_key).Path;
         ArtifactPathTextureSet textures = ArtifactVfxTextureLibrary.GetPath(cue.style_key);
-        pathBuffer ??= new ArtifactVfxPathBuffer();
+        pathBuffer ??= new RibbonPathMeshBuffer();
         ArtifactVfxPathMesh.Build(
             core_mesh,
             pathBuffer,
