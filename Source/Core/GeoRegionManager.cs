@@ -23,6 +23,28 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
         base.clear();
     }
 
+    /// <summary>
+    /// 移除当前世界全部 GeoRegion 并清空关联索引（手动重新分区前调用）。
+    /// </summary>
+    public void RemoveAllRegions()
+    {
+        ClearMembership();
+        GeoRegionShapeSpriteCache.Clear();
+
+        List<GeoRegion> toRemove = new();
+        for (int i = 0; i < list.Count; i++)
+        {
+            GeoRegion region = list[i];
+            if (region == null || region.isRekt()) continue;
+            toRemove.Add(region);
+        }
+
+        for (int i = 0; i < toRemove.Count; i++)
+        {
+            removeObject(toRemove[i]);
+        }
+    }
+
     internal bool IsMembershipReady =>
         membership != null &&
         World.world != null &&
@@ -47,6 +69,11 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
     internal GeoRegion GetRegionForTile(int tileId, GeoRegionLayer layer)
     {
         return IsMembershipReady ? membership.GetRegion(tileId, layer) : null;
+    }
+
+    internal IReadOnlyList<int> GetRegionTileIds(GeoRegion region)
+    {
+        return IsMembershipReady ? membership.GetTileIds(region) : Array.Empty<int>();
     }
 
     internal IEnumerable<GeoRegion> EnumerateRegionsForTile(int tileId)
@@ -181,6 +208,7 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
             evt.BaseLayerType,
             evt.WaterKind,
             evt.TouchesEdge,
+            evt.TileCount,
             evt.BiomeDominantCategoryId,
             evt.LandformDominantCategoryId);
     }
@@ -190,6 +218,7 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
         TileLayerType baseLayerType,
         PrimaryWaterKind waterKind,
         bool touchesEdge,
+        int tileCount,
         string biomeDominantCategoryId,
         string landformDominantCategoryId)
     {
@@ -235,7 +264,7 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
                 return lib.LandformPlain;
             }
             case GeoRegionLayer.Landmass:
-                return lib.ResolveLandmass(touchesEdge);
+                return lib.ResolveLandmass(touchesEdge, tileCount);
             case GeoRegionLayer.Peninsula:
                 return lib.Peninsula;
             case GeoRegionLayer.Strait:

@@ -9,12 +9,29 @@ public partial class WorldboxGame
     {
         private const string GeoRegionBiomePool = "青草,苍林,翠叶,金沙,霜原,荒石,红枫,花野,雨林,沼泽";
         private const string PrimaryTemplates = "prefix,core,type|core,type|prefix,core,type,suffix";
-        private const string LandmassTemplates = "biome,prefix,type|prefix,core,type|biome,core,type,suffix";
+        // 陆块三级统一结构：前缀 1~3 字随机（模板随机取其一）+ 该级随机通名；
+        // 前缀第 3 字复用第 2 字名词池（suffix 槽位）；
+        // 前缀第 1 字若抽中东南西北中，由调用方按区域坐标替换为实际方位。
+        private const string LandmassTemplates = "prefix,type|prefix,core,type|prefix,core,suffix,type";
         private const string MorphologyTemplates = "prefix,core,type|biome,prefix,type|prefix,core,type,suffix";
+        public const string LandmassIslandTypes = "岛,屿,礁,渚,汀,岙";
+        public const string LandmassContinentTypes = "洲,陆,土,原,野,泽";
+        public const string LandmassMainlandTypes = "大陆,大洲,广陆,巨野,天陆,坤舆";
 
         private const string PrimaryPool = "苍,玄,灵,碧,赤,霁,岚,潮,澜,云,霜,星|渚,汀,泽,湾,浦,岙,屿,崖,川,陂,岬,潮|境,域,地带,海隅,沿岸";
         private const string LandformPool = "苍,玄,青,赤,寒,云,星,龙,玉,峻|岭,梁,冈,坳,阜,峪,岗,垣,塬,谷|地,地带,山系,地界";
-        private const string LandmassPool = "灵,苍,玄,碧,丹,银,霁,岚,潮,霜|洲,屿,垠,岬,汀,岙,涯,浦,堤,滩|界,域,地,沿岸";
+        // 岛/大陆级：前缀第1字 30 字（东南西北中由坐标判定），第2/3字共用 22 字名词池
+        // （名词池已剔除与岛级通名池 岛,屿,礁,渚,汀,岙 重复的 渚,汀,岙，避免“雾汀汀”叠字）
+        private const string LandmassPool =
+            "东,南,西,北,中,大,小,新,古,高,深,明,暗,晴,阴,风,雨,雷,电,云,霞,雾,霜,雪,露,虹,日,月,星,辰" +
+            "|垠,岬,涯,浦,堤,滩,岸,津,泓,淀,湾,矶,山,岭,峰,川,河,湖,海,原,野,沙" +
+            "|垠,岬,涯,浦,堤,滩,岸,津,泓,淀,湾,矶,山,岭,峰,川,河,湖,海,原,野,沙";
+        // 洲级：前缀第1字 38 字，第2/3字共用 18 字名词池
+        // （名词池已剔除与洲级通名池 洲,陆,土,原,野,泽 重复的 土,原,野,泽，避免“荒泽泽”叠字）
+        private const string ContinentPool =
+            "沧,玄,寰,昊,亘,乾,坤,禹,瀛,炎,圣,泰,羲,舜,皋,瓯,燕,齐,楚,秦,汉,唐,宋,明,雍,荆,扬,益,凉,幽,并,冀,兖,青,徐,亚,澳,美" +
+            "|疆,极,荒,垠,陲,朔,漠,衢,甸,域,壤,舆,畿,塞,关,堡,城,邑" +
+            "|疆,极,荒,垠,陲,朔,漠,衢,甸,域,壤,舆,畿,塞,关,堡,城,邑";
         private const string MorphologyPool = "回,断,双,玉,玄,苍,潮,云,霜,灵|门,隘,湾,链,列,桥,脉,汊,角,岬|带,域,线,区";
         private const string LavaPool = "赤,炎,焰,烬,熔,灼,炽,焦|渊,脉,谷,壑,池,流,原,口|熔原,火境,地带";
         private const string GooPool = "腐,瘴,灰,毒,浊,疫,黯,蚀|泽,池,沼,沟,原,洼|疫境,泥沼,污地";
@@ -31,6 +48,7 @@ public partial class WorldboxGame
         private const string SpecialPool = "奇,幻,秘,灵,异,玄|境,域,地,谷,渊,界|秘境,异域,奇境";
 
         public static NameGeneratorAsset Cultibook { get; private set; }
+        public static NameGeneratorAsset Sect { get; private set; }
         public static NameGeneratorAsset GeoRegion { get; private set; }
 
         public static NameGeneratorAsset PrimarySea { get; private set; }
@@ -54,6 +72,7 @@ public partial class WorldboxGame
         public static NameGeneratorAsset LandformCanyon { get; private set; }
         public static NameGeneratorAsset LandformBasin { get; private set; }
         public static NameGeneratorAsset LandmassIsland { get; private set; }
+        public static NameGeneratorAsset LandmassContinent { get; private set; }
         public static NameGeneratorAsset LandmassMainland { get; private set; }
         public static NameGeneratorAsset Peninsula { get; private set; }
         public static NameGeneratorAsset Strait { get; private set; }
@@ -71,6 +90,15 @@ public partial class WorldboxGame
             Cultibook.addTemplate("basic,postfix");
             Cultibook.addTemplate("element,postfix");
             Cultibook.addTemplate("nature,postfix");
+
+            Sect.use_dictionary = true;
+            Sect.addDictPart("basic", "引气,纳元,聚灵,淬体,锻筋,养气,炼神,化虚");
+            Sect.addDictPart("element", "焚天,御水,青木,厚土,踏雷,风影");
+            Sect.addDictPart("nature", "鹤鸣,龙腾,星衍,月轮,云游,山岳");
+            Sect.addDictPart("postfix", string.Join(",", "宗门教派宫殿楼阁轩府寺观山谷洞庄盟会堂帮".ToCharArray()));
+            Sect.addTemplate("basic,postfix");
+            Sect.addTemplate("element,postfix");
+            Sect.addTemplate("nature,postfix");
 
             GeoRegion.use_dictionary = true;
             GeoRegion.addDictPart("prefix", "幽,灵,玄,苍,赤,青,翠,金,玉,碧,雷,云,炎,暮,澄,皓,逐,飞,落,瑶,天,渊,星,炎,风,晨,暮,浮,归,灵,玉,紫,虹,恒,寒,霜,清,岚,琅,晴,烟,雪,渺,泠,照,隐,澜,冥,明");
@@ -100,8 +128,9 @@ public partial class WorldboxGame
             ConfigureGeoRegionNameGenerator(LandformMountain, "山地", MountainPool, PrimaryTemplates);
             ConfigureGeoRegionNameGenerator(LandformCanyon, "峡谷", LandformPool, PrimaryTemplates);
             ConfigureGeoRegionNameGenerator(LandformBasin, "盆地", LandformPool, PrimaryTemplates);
-            ConfigureGeoRegionNameGenerator(LandmassIsland, "岛", LandmassPool, LandmassTemplates);
-            ConfigureGeoRegionNameGenerator(LandmassMainland, "大陆", LandmassPool, LandmassTemplates);
+            ConfigureGeoRegionNameGenerator(LandmassIsland, LandmassIslandTypes, LandmassPool, LandmassTemplates);
+            ConfigureGeoRegionNameGenerator(LandmassContinent, LandmassContinentTypes, ContinentPool, LandmassTemplates);
+            ConfigureGeoRegionNameGenerator(LandmassMainland, LandmassMainlandTypes, LandmassPool, LandmassTemplates);
             ConfigureGeoRegionNameGenerator(Peninsula, "半岛", MorphologyPool, MorphologyTemplates);
             ConfigureGeoRegionNameGenerator(Strait, "海峡", MorphologyPool, PrimaryTemplates);
             ConfigureGeoRegionNameGenerator(Archipelago, "群岛", MorphologyPool, MorphologyTemplates);
