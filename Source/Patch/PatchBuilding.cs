@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using Cultiway.Core;
+using Cultiway.Core.Combat;
 using Cultiway.Content;
 using Cultiway.Core.BuildingComponents;
 using Cultiway.Utils.Extension;
@@ -12,6 +13,13 @@ namespace Cultiway.Patch;
 
 internal static class PatchBuilding
 {
+    /// <summary>让建筑命中与单位命中共享当前原版攻击的临时伤害倍率。</summary>
+    [HarmonyPrefix, HarmonyPatch(typeof(Building), nameof(Building.getHit))]
+    private static void getHit_damage_scale_prefix(ref float pDamage)
+    {
+        pDamage = AttackDamageScaleContext.Apply(pDamage);
+    }
+
     [HarmonyTranspiler, HarmonyPatch(typeof(Building), nameof(Building.setBuilding))]
     private static IEnumerable<CodeInstruction> setBuilding_transpiler(IEnumerable<CodeInstruction> codes)
     {

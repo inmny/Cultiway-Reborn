@@ -1,4 +1,7 @@
 key,cz
+Cultiway.WeaponControl,御器
+Cultiway.WeaponControl.Description,筑基后以灵气驾驭当前武器。远程武器可升空倾泻投射物或上举形成箭雨；近战武器依器形施展扫掠、突刺与重砸。每次实际攻击消耗 1 点灵气。
+Cultiway.WeaponControl.SourceDetail,仙道来源 · 每次实际攻击消耗 1 点灵气
 Cultiway.FlyingSword,飞剑
 Cultiway.SwordQi,剑气
 Cultiway.GoldenNeedle,金针
@@ -252,6 +255,7 @@ Cultiway.SkillTag.ground,贴地
 Cultiway.SkillTag.snap,瞬闪
 Cultiway.SkillTag.vortex,涡旋
 Cultiway.SkillTag.rain,雨落
+Cultiway.SkillTag.rainfall,降雨
 Cultiway.SkillTag.return,回旋
 Cultiway.SkillTag.zigzag,折线
 Cultiway.SkillTag.wave,波形

@@ -8,6 +8,7 @@ using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content;
 using Cultiway.Core;
+using Cultiway.Core.Combat;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -21,6 +22,21 @@ namespace Cultiway.Patch;
 internal static class PatchMapBox
 {
     private static Action _actionOnClearWorld;
+
+    /// <summary>在原版攻击结算期间进入由投射物资产声明的伤害倍率作用域。</summary>
+    [HarmonyPrefix, HarmonyPatch(typeof(MapBox), nameof(MapBox.applyAttack))]
+    private static void applyAttack_damage_scale_prefix(AttackData pData, out float __state)
+    {
+        __state = AttackDamageScaleContext.Enter(pData);
+    }
+
+    /// <summary>无论原版攻击是否抛出异常，都恢复调用线程进入前的伤害倍率。</summary>
+    [HarmonyFinalizer, HarmonyPatch(typeof(MapBox), nameof(MapBox.applyAttack))]
+    private static Exception applyAttack_damage_scale_finalizer(Exception __exception, float __state)
+    {
+        AttackDamageScaleContext.Restore(__state);
+        return __exception;
+    }
 
     /// <summary>
     /// 注册原版世界清理完成后需要执行的模块清理行为。

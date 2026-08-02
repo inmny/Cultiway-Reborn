@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Cultiway.Const;
 using Cultiway.Core;
+using Cultiway.Core.Combat;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Combat.Tactical;
@@ -20,6 +21,15 @@ namespace Cultiway.Patch;
 
 internal static class PatchActor
 {
+    private static readonly List<Func<Actor, bool>> HideHandItemPredicates = new();
+
+    /// <summary>注册一个可按角色运行状态临时隐藏手持物品的判定。</summary>
+    public static void RegisterHideHandItemPredicate(Func<Actor, bool> predicate)
+    {
+        if (predicate == null) throw new ArgumentNullException(nameof(predicate));
+        HideHandItemPredicates.Add(predicate);
+    }
+
     /// <summary>在本类型全部 Harmony 补丁安装后验证战斗接管入口。</summary>
     public static void SpecialPatch()
     {
@@ -99,8 +109,18 @@ internal static class PatchActor
     private static void getHandRendererAsset_postfix(Actor __instance, ref bool __result)
     {
         if (__result == false) return;
-        if (!__instance.asset.GetExtend<ActorAssetExtend>().hide_hand_item) return;
-        __result = false;
+        if (__instance.asset.GetExtend<ActorAssetExtend>().hide_hand_item)
+        {
+            __result = false;
+            return;
+        }
+
+        for (var i = 0; i < HideHandItemPredicates.Count; i++)
+        {
+            if (!HideHandItemPredicates[i](__instance)) continue;
+            __result = false;
+            return;
+        }
     }
     /// <summary>
     /// 实现<see cref="ActorAssetExtend.sleep_standing_up"/>
@@ -371,6 +391,7 @@ internal static class PatchActor
         {
             return true;
         }
+        pDamage = AttackDamageScaleContext.Apply(pDamage);
         var element = EnumUtils.DamageCompositionFromDamageType(pAttackType);
         EventSystemHub.Publish(new GetHitEvent()
         {
