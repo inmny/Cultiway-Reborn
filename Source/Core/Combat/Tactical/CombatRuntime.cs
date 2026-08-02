@@ -314,7 +314,7 @@ internal static class CombatObservationService
                 LastAirborne = target.isFlying()
             };
             runtime.Observations.Add(targetId, observation);
-            Trim(runtime.Observations, TacticalCombatSettings.PersonalObservationLimit);
+            Trim(runtime.Observations, TacticalCombatSettings.PersonalObservationLimit, targetId);
             return observation;
         }
 
@@ -370,7 +370,7 @@ internal static class CombatObservationService
         {
             own = CopySharedObservation(shared);
             personal.Observations[targetId] = own;
-            Trim(personal.Observations, TacticalCombatSettings.PersonalObservationLimit);
+            Trim(personal.Observations, TacticalCombatSettings.PersonalObservationLimit, targetId);
             return own;
         }
 
@@ -398,7 +398,7 @@ internal static class CombatObservationService
         return own;
     }
 
-    internal static void RecordAttempt(
+    internal static CombatObservation RecordAttempt(
         CombatActorRuntime observerRuntime,
         Actor observer,
         BaseSimObject target,
@@ -407,9 +407,10 @@ internal static class CombatObservationService
         CombatObservation observation = ObserveVisible(observerRuntime, observer, target, now);
         observation.AttackAttempts++;
         observation.Confidence = Mathf.Clamp01(observation.Confidence + 0.02f);
+        return observation;
     }
 
-    internal static void RecordOutcome(
+    internal static CombatObservation RecordOutcome(
         CombatActorRuntime attackerRuntime,
         Actor attacker,
         BaseSimObject target,
@@ -430,6 +431,7 @@ internal static class CombatObservationService
             observation.EstimatedPower *= ineffective ? 1.12f : 1.04f;
         }
         observation.Confidence = Mathf.Clamp01(observation.Confidence + (ineffective ? 0.08f : 0.05f));
+        return observation;
     }
 
     internal static void PublishShared(CombatArmyRuntime army, CombatObservation source, double now)
@@ -458,7 +460,7 @@ internal static class CombatObservationService
         shared.EffectiveHits = Math.Max(shared.EffectiveHits, source.EffectiveHits);
         shared.EffectiveDamage = Mathf.Max(shared.EffectiveDamage, source.EffectiveDamage);
         shared.LastHitIneffective = source.LastHitIneffective;
-        Trim(army.SharedObservations, TacticalCombatSettings.ArmyObservationLimit);
+        Trim(army.SharedObservations, TacticalCombatSettings.ArmyObservationLimit, source.TargetId);
     }
 
     /// <summary>将军团情报复制为个人记忆，避免后续个人衰减直接修改共享对象。</summary>
@@ -576,20 +578,31 @@ internal static class CombatObservationService
             : Mathf.Clamp01(target.getHealth() / Mathf.Max(1f, target.getMaxHealth()));
     }
 
+    /// <summary>
+    /// 回收最旧的观察记录，并保证本次刚刷新记录不会因同一模拟时刻的并列而被立即移除。
+    /// </summary>
     private static void Trim(
         Dictionary<long, CombatObservation> observations,
-        int limit)
+        int limit,
+        long retainedKey)
     {
         while (observations.Count > limit)
         {
             long oldestKey = 0;
             double oldestTime = double.MaxValue;
+            bool found = false;
             foreach (KeyValuePair<long, CombatObservation> pair in observations)
             {
-                if (pair.Value.LastObservedAt >= oldestTime) continue;
+                if (pair.Key == retainedKey) continue;
+                if (found &&
+                    (pair.Value.LastObservedAt > oldestTime ||
+                     pair.Value.LastObservedAt == oldestTime && pair.Key >= oldestKey))
+                    continue;
+                found = true;
                 oldestTime = pair.Value.LastObservedAt;
                 oldestKey = pair.Key;
             }
+            if (!found) return;
             observations.Remove(oldestKey);
         }
     }

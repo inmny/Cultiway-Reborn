@@ -435,8 +435,12 @@ public static class CombatWorldService
         Actor source = attacker.a;
         double now = CurrentTime;
         CombatActorRuntime sourceRuntime = GetOrCreateActorState(source);
-        CombatObservationService.RecordAttempt(sourceRuntime, source, target, now);
-        PublishObservationToArmy(source, sourceRuntime.Observations[target.getID()], now);
+        CombatObservation observation = CombatObservationService.RecordAttempt(
+            sourceRuntime,
+            source,
+            target,
+            now);
+        PublishObservationToArmy(source, observation, now);
 
         CombatActorRuntime targetRuntime = GetOrCreateActorState(target);
         CombatObservation incomingObservation = CombatObservationService.ObserveVisible(
@@ -504,14 +508,14 @@ public static class CombatWorldService
         Actor source = attacker.a;
         double now = CurrentTime;
         CombatActorRuntime sourceRuntime = GetOrCreateActorState(source);
-        CombatObservationService.RecordOutcome(
+        CombatObservation observation = CombatObservationService.RecordOutcome(
             sourceRuntime,
             source,
             target,
             Mathf.Max(0f, damage),
             ineffective,
             now);
-        PublishObservationToArmy(source, sourceRuntime.Observations[target.getID()], now);
+        PublishObservationToArmy(source, observation, now);
 
         CombatActorRuntime targetRuntime = GetOrCreateActorState(target);
         float maxHealth = Mathf.Max(1f, target.getMaxHealth());
