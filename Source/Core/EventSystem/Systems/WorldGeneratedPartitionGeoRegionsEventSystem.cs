@@ -45,6 +45,119 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
     }
 
     /// <summary>
+    /// 手动请求对当前世界重新执行 GeoRegion 分区（地块图层按钮开启时调用）。
+    /// 玩家修改地形（增删陆地）后，遮罩与命名将跟随最新地形重建。
+    /// </summary>
+    internal static void RequestRecompute()
+    {
+        instance?.RequestRecomputeInternal();
+    }
+
+    private void RequestRecomputeInternal()
+    {
+        if (World.world == null ||
+            World.world.tiles_list == null ||
+            World.world.tiles_list.Length == 0)
+        {
+            return;
+        }
+
+        if (ModClass.I?.TileExtendManager == null || !ModClass.I.TileExtendManager.Ready())
+        {
+            return;
+        }
+
+        // 取消进行中的分区任务（保留当前世界 TileExtend 绑定）
+        CancelPendingWorkInternal(false);
+
+        // 重置世界身份，绕过 HandleEvent 的“同一世界不重复分区”守卫
+        _lastWorldSeedId = 0;
+        _lastWidth = 0;
+        _lastHeight = 0;
+
+        // 移除旧地区前先捕获名称快照，便于分区完成后还原既有命名
+        List<NameRestoreEntry> snapshot;
+        try
+        {
+            snapshot = BuildNameSnapshot();
+        }
+        catch (Exception e)
+        {
+            snapshot = null;
+            ModClass.LogError($"[FramePriority] 捕获旧名称快照失败，本次重算将重新生成全部名称:\n{e}");
+        }
+        WorldboxGame.I.GeoRegions.RemoveAllRegions();
+        WorldboxGame.I.SelectedGeoRegion = null;
+
+        HandleEvent(new WorldGeneratedEvent
+        {
+            WorldSeedId = MapBox.current_world_seed_id,
+            Width = MapBox.width,
+            Height = MapBox.height
+        });
+        if (_work != null)
+        {
+            _work.RecomputeNameSnapshot = snapshot;
+        }
+        ModClass.LogInfo("[FramePriority] 已请求重新生成 GeoRegion 分区");
+    }
+
+    /// <summary>
+    /// 捕获当前所有 GeoRegion 的名称与采样瓦片（中心 + 首/中/尾），用于分区后名称还原。
+    /// </summary>
+    private static List<NameRestoreEntry> BuildNameSnapshot()
+    {
+        GeoRegionManager manager = WorldboxGame.I?.GeoRegions;
+        if (manager == null || !manager.IsMembershipReady) return null;
+
+        WorldTile[] tiles = World.world?.tiles_list;
+        if (tiles == null || tiles.Length == 0) return null;
+
+        int width = MapBox.width;
+        var snapshot = new List<NameRestoreEntry>(manager.list.Count);
+        for (int i = 0; i < manager.list.Count; i++)
+        {
+            GeoRegion region = manager.list[i];
+            if (region?.data == null || region.isRekt()) continue;
+            if (string.IsNullOrEmpty(region.data.name)) continue;
+
+            var entry = new NameRestoreEntry
+            {
+                Layer = region.data.Layer,
+                Name = region.data.name,
+                CustomName = region.data.custom_name,
+                ColorId = region.data.color_id,
+                OriginalColorId = region.data.original_color_id
+            };
+
+            int centerTileId = region.data.CenterY * width + region.data.CenterX;
+            entry.AddSample(centerTileId, tiles.Length);
+
+            IReadOnlyList<int> tileIds = manager.GetRegionTileIds(region);
+            if (tileIds != null && tileIds.Count > 0)
+            {
+                entry.AddSample(tileIds[0], tiles.Length);
+                int last = tileIds.Count - 1;
+                if (last > 0)
+                {
+                    entry.AddSample(tileIds[last], tiles.Length);
+                }
+                if (tileIds.Count > 2)
+                {
+                    entry.AddSample(tileIds[tileIds.Count / 2], tiles.Length);
+                }
+            }
+
+            if (entry.SampleTileIds != null && entry.SampleTileIds.Length > 0)
+            {
+                snapshot.Add(entry);
+            }
+        }
+
+        return snapshot.Count > 0 ? snapshot : null;
+    }
+
+    /// <summary>
     /// 存档边界必须拿到完整索引；显式存档时允许等待后台计算并一次性提交。
     /// </summary>
     internal static void DrainPendingWork()
@@ -113,6 +226,14 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
                 work.Result = work.BuildTask.GetAwaiter().GetResult();
                 work.MaterializeStartedTimestamp = Stopwatch.GetTimestamp();
                 GeoRegionAutoClassifyAndNameEventSystem.BeginDirectGeneration(work.WorldSeedId);
+                try
+                {
+                    ReserveSnapshotNames(work);
+                }
+                catch (Exception e)
+                {
+                    ModClass.LogError($"[FramePriority] 预占旧名称失败，本次重算可能产生重名:\n{e}");
+                }
                 ModClass.LogInfo(
                     $"[FramePriority] GeoRegion 后台分区完成: regions={work.Result.Regions.Count}, " +
                     work.Result.GetTimingSummary());
@@ -410,6 +531,14 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
             work.Result.PositionInRegionByTileLayer,
             entries);
         WorldboxGame.I.GeoRegions.InstallMembership(membership);
+        try
+        {
+            RestoreNamesFromSnapshot(work);
+        }
+        catch (Exception e)
+        {
+            ModClass.LogError($"[FramePriority] 还原旧名称失败，本次重算部分地区名称可能已重新生成:\n{e}");
+        }
         ModClass.I.CustomMapModeManager?.SetAllDirty();
         ModClass.I.TileExtendManager.CompleteWorldInitialization(work.Tiles);
         work.Cancellation.Dispose();
@@ -420,6 +549,102 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
             $"memberships={work.Result.MembershipCount}, persistent={work.Result.EstimatedPersistentBytes / 1048576d:0.0}MiB, " +
             $"materialize={materializeMilliseconds:0.0}ms");
         return true;
+    }
+
+    /// <summary>
+    /// 把快照中的旧名称预占给命名去重系统，避免新地区生成时与旧名称重名。
+    /// </summary>
+    private static void ReserveSnapshotNames(PartitionWork work)
+    {
+        List<NameRestoreEntry> snapshot = work.RecomputeNameSnapshot;
+        if (snapshot == null || snapshot.Count == 0) return;
+
+        var names = new List<string>(snapshot.Count);
+        for (int i = 0; i < snapshot.Count; i++)
+        {
+            string name = snapshot[i].Name;
+            if (!string.IsNullOrEmpty(name)) names.Add(name);
+        }
+
+        if (names.Count > 0)
+        {
+            GeoRegionAutoClassifyAndNameEventSystem.PreReserveNames(names);
+        }
+    }
+
+    /// <summary>
+    /// 分区完成后，按采样瓦片在同层的归属投票，把旧名称还原到对应的新地区上。
+    /// 新出现的地区（快照未命中）保留自动生成的新名称。
+    /// </summary>
+    private static void RestoreNamesFromSnapshot(PartitionWork work)
+    {
+        List<NameRestoreEntry> snapshot = work.RecomputeNameSnapshot;
+        if (snapshot == null || snapshot.Count == 0) return;
+
+        GeoRegionManager manager = WorldboxGame.I?.GeoRegions;
+        if (manager == null) return;
+
+        var restored = new HashSet<long>();
+        int restoredCount = 0;
+        for (int i = 0; i < snapshot.Count; i++)
+        {
+            NameRestoreEntry entry = snapshot[i];
+            int[] samples = entry.SampleTileIds;
+            if (samples == null || samples.Length == 0) continue;
+
+            Dictionary<GeoRegion, int> votes = new(4);
+            for (int s = 0; s < samples.Length; s++)
+            {
+                GeoRegion candidate = manager.GetRegionForTile(samples[s], entry.Layer);
+                if (candidate == null || candidate.isRekt() || candidate.data == null) continue;
+                votes.TryGetValue(candidate, out int count);
+                votes[candidate] = count + 1;
+            }
+
+            if (votes.Count == 0) continue;
+
+            GeoRegion best = null;
+            int bestVotes = 0;
+            foreach (KeyValuePair<GeoRegion, int> pair in votes)
+            {
+                if (pair.Value > bestVotes)
+                {
+                    bestVotes = pair.Value;
+                    best = pair.Key;
+                }
+            }
+
+            if (best == null || !restored.Add(best.getID())) continue;
+
+            best.data.name = entry.Name;
+            best.data.custom_name = entry.CustomName;
+            best.data.color_id = entry.ColorId;
+            best.data.original_color_id = entry.OriginalColorId;
+            InvalidateColorCache(best);
+            restoredCount++;
+        }
+
+        if (restoredCount > 0)
+        {
+            ModClass.LogInfo(
+                $"[FramePriority] 已还原 {restoredCount}/{snapshot.Count} 个地区的原有名称与颜色");
+        }
+    }
+
+    private static readonly System.Reflection.FieldInfo CachedColorField =
+        typeof(GeoRegion).GetField("_cached_color",
+            System.Reflection.BindingFlags.Instance |
+            System.Reflection.BindingFlags.Public |
+            System.Reflection.BindingFlags.NonPublic);
+
+    /// <summary>
+    /// getColor() 会把解析结果缓存在 _cached_color；还原 color_id 后必须清掉缓存，
+    /// 否则遮罩仍显示新分配的随机颜色。
+    /// </summary>
+    private static void InvalidateColorCache(GeoRegion region)
+    {
+        if (region == null || CachedColorField == null) return;
+        CachedColorField.SetValue(region, null);
     }
 
     private static void BuildMembershipArrays(
@@ -865,7 +1090,8 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
         CollectPrimaryWaterComponents(tiles, width, height, evt.WorldSeedId, geoRegionLib, isLand, isWater, queue, components, componentOfTile);
 
         MergeOrDropTinyComponents(tiles, width, height, components, componentOfTile,
-            sig => ResolvePrimaryMinTilesBySignature(geoRegionLib, sig));
+            sig => ResolvePrimaryMinTilesBySignature(geoRegionLib, sig),
+            sig => sig >= 10);
 
         for (var i = 0; i < components.Count; i++)
         {
@@ -1514,7 +1740,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
     }
 
     /// <summary>
-    /// 生成 Landform 层：按 landformCode 连通分量划分并合并碎片。
+    /// 生成 Landform 层：按 landformCode 连通分量划分。
+    /// 低于分类最小面积阈值（当前各分类 MinTiles=21，即 20 格及以下）的连通块直接忽略，
+    /// 不生成地貌区域，避免“1 格平原”这类碎片区域。
     /// </summary>
     private static void GenerateLandform(
         WorldGeneratedEvent evt,
@@ -1541,6 +1769,9 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
                 out var sumX, out var sumY, out var touchesEdge);
             if (count <= 0) continue;
 
+            // 低于分类最小面积阈值的连通块不生成区域（阈值与陆块层一致：20 格及以下忽略）
+            if (count < ResolveLandformMinTilesBySignature(geoRegionLib, sig)) continue;
+
             var tileIds = new List<int>(count);
             for (var k = 0; k < count; k++)
             {
@@ -1553,7 +1784,8 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
         }
 
         MergeOrDropTinyComponents(tiles, width, height, components, componentOfTile,
-            sig => ResolveLandformMinTilesBySignature(geoRegionLib, sig));
+            sig => ResolveLandformMinTilesBySignature(geoRegionLib, sig),
+            _ => true);
 
         for (var i = 0; i < components.Count; i++)
         {
@@ -1603,6 +1835,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
     {
         var visited = new bool[tiles.Length];
         var islandMaxTiles = Math.Max(0, geoRegionLib.Archipelago?.IslandMaxTiles ?? 0);
+        var islandMinTiles = Math.Max(0, geoRegionLib.LandmassIsland?.MinTiles ?? 0);
 
         for (var i = 0; i < tiles.Length; i++)
         {
@@ -1612,11 +1845,11 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
                 out var sumX, out var sumY, out var touchesEdge, out var minX, out var minY, out var maxX, out var maxY);
 
             if (count <= 0) continue;
-            var minTiles = touchesEdge
-                ? Math.Max(1, geoRegionLib.LandmassMainland?.MinTiles ?? 64)
-                : Math.Max(1, geoRegionLib.LandmassIsland?.MinTiles ?? 64);
-            if (count < minTiles) continue;
 
+            // 陆地连通块小于最小岛屿阈值时不生成陆块区域（贴边碎块同样丢弃，避免一格土被命名为大陆）
+            if (islandMinTiles > 0 && count < islandMinTiles) continue;
+
+            // 陆地连通块始终生成区域：被削掉一角的小岛也必须有遮罩（不再按 MinTiles 丢弃）
             var centerX = (sumX + count / 2) / count;
             var centerY = (sumY + count / 2) / count;
 
@@ -2053,7 +2286,8 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
         int height,
         List<MutableRegionComponent> components,
         int[] componentOfTile,
-        Func<int, int> resolveMinTiles)
+        Func<int, int> resolveMinTiles,
+        Func<int, bool> keepWhenNoTarget = null)
     {
         if (components == null || components.Count == 0) return;
 
@@ -2138,6 +2372,14 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
                         targetComponent.TileIds.Add(tileId);
                         componentOfTile[tileId] = bestTarget;
                     }
+
+                    component.TileIds.Clear();
+                    component.Removed = true;
+                    changed = true;
+                }
+                else if (keepWhenNoTarget != null && keepWhenNoTarget(component.Signature))
+                {
+                    // 保留为独立区域：陆地小块（如被削掉一角的岛屿）也必须有遮罩
                 }
                 else
                 {
@@ -2145,11 +2387,11 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
                     {
                         componentOfTile[component.TileIds[t]] = -1;
                     }
-                }
 
-                component.TileIds.Clear();
-                component.Removed = true;
-                changed = true;
+                    component.TileIds.Clear();
+                    component.Removed = true;
+                    changed = true;
+                }
             }
         }
     }
@@ -2816,6 +3058,41 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
         public PartitionResult Result { get; set; }
         public int RegionIndex { get; set; }
         public long MaterializeStartedTimestamp { get; set; }
+        public List<NameRestoreEntry> RecomputeNameSnapshot { get; set; }
+    }
+
+    /// <summary>
+    /// 手动重新分区前捕获的旧地区名称与颜色快照。
+    /// 采样若干瓦片，分区完成后按同层瓦片归属投票还原名称与颜色。
+    /// </summary>
+    private sealed class NameRestoreEntry
+    {
+        public GeoRegionLayer Layer;
+        public string Name;
+        public bool CustomName;
+        public int ColorId;
+        public int OriginalColorId;
+        public int[] SampleTileIds;
+
+        public void AddSample(int tileId, int tileCount)
+        {
+            if ((uint)tileId >= (uint)tileCount) return;
+
+            if (SampleTileIds == null)
+            {
+                SampleTileIds = new[] { tileId };
+                return;
+            }
+
+            int length = SampleTileIds.Length;
+            for (int i = 0; i < length; i++)
+            {
+                if (SampleTileIds[i] == tileId) return;
+            }
+
+            Array.Resize(ref SampleTileIds, length + 1);
+            SampleTileIds[length] = tileId;
+        }
     }
 
     private sealed class PartitionResult

@@ -1,6 +1,7 @@
 using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.GeoLib.Components;
 using Cultiway.UI;
 using Cultiway.Utils.Extension;
@@ -274,6 +275,10 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
 
         PlayerConfig.saveData();
         ModClass.I.CustomMapModeManager.InvalidateCurrentMapMode();
+        if (data.boolVal && asset.geo_region_layers != null && asset.geo_region_layers.Length > 0)
+        {
+            WorldGeneratedPartitionGeoRegionsEventSystem.RequestRecompute();
+        }
         if (asset.redirect_map_mode == MetaTypeExtend.Sect)
         {
             ZoneMetaDataVisualizer.clearAll();

@@ -96,6 +96,10 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
     /// </summary>
     public GeoRegionAsset LandmassIsland { get; private set; }
     /// <summary>
+    /// 陆块分类 - 洲，不接触地图边缘的大型陆块
+    /// </summary>
+    public GeoRegionAsset LandmassContinent { get; private set; }
+    /// <summary>
     /// 陆块分类 - 大陆，接触地图边缘的主要陆块
     /// </summary>
     public GeoRegionAsset LandmassMainland { get; private set; }
@@ -266,9 +270,24 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         return LandformPlain;
     }
 
-    public GeoRegionAsset ResolveLandmass(bool touchesEdge)
+    /// <summary>
+    /// 陆块分类只按面积分档，不再看是否贴边：
+    /// 小于岛 MinTiles 的连通块在生成与实时更新时已被丢弃，不会走到这里；
+    /// &gt;= 大陆 MinTiles(10001) 为大陆，&gt;= 洲 MinTiles(3001) 为洲，其余为岛。
+    /// </summary>
+    public GeoRegionAsset ResolveLandmass(bool touchesEdge, int tileCount)
     {
-        return touchesEdge ? LandmassMainland : LandmassIsland;
+        if (LandmassMainland != null && LandmassMainland.MinTiles > 0 && tileCount >= LandmassMainland.MinTiles)
+        {
+            return LandmassMainland;
+        }
+
+        if (LandmassContinent != null && LandmassContinent.MinTiles > 0 && tileCount >= LandmassContinent.MinTiles)
+        {
+            return LandmassContinent;
+        }
+
+        return LandmassIsland;
     }
 
     private static bool MatchLandformRule(GeoRegionAsset rule, in GeoRegionTileRuleContext context)
@@ -606,7 +625,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Priority = 0,
             DisplayName = "平原",
             NameGenerator = GeoRegionNameGenerators.LandformPlain,
-            MinTiles = 128
+            MinTiles = 21
         });
         LandformMountain = add(new GeoRegionAsset
         {
@@ -615,7 +634,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Priority = 300,
             DisplayName = "山地",
             NameGenerator = GeoRegionNameGenerators.LandformMountain,
-            MinTiles = 128,
+            MinTiles = 21,
             RequireMountainFlag = true
         });
         LandformCanyon = add(new GeoRegionAsset
@@ -625,7 +644,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Priority = 260,
             DisplayName = "峡谷",
             NameGenerator = GeoRegionNameGenerators.LandformCanyon,
-            MinTiles = 64,
+            MinTiles = 21,
             RequireOceanFlag = false,
             RequireFillableWaterFlag = false,
             MinNeighborBlock = 2,
@@ -638,7 +657,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Priority = 200,
             DisplayName = "盆地",
             NameGenerator = GeoRegionNameGenerators.LandformBasin,
-            MinTiles = 64,
+            MinTiles = 21,
             RequireFillableWaterFlag = true,
             RequireOceanFlag = false
         });
@@ -656,7 +675,17 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Layer = GeoRegionLayer.Landmass,
             DisplayName = "岛",
             NameGenerator = GeoRegionNameGenerators.LandmassIsland,
-            MinTiles = 128
+            MinTiles = 21,
+            MaxTiles = 3000
+        });
+        LandmassContinent = add(new GeoRegionAsset
+        {
+            id = "Cultiway.GeoRegion.Landmass.Continent",
+            Layer = GeoRegionLayer.Landmass,
+            DisplayName = "洲",
+            NameGenerator = GeoRegionNameGenerators.LandmassContinent,
+            MinTiles = 3001,
+            MaxTiles = 10000
         });
         LandmassMainland = add(new GeoRegionAsset
         {
@@ -664,7 +693,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Layer = GeoRegionLayer.Landmass,
             DisplayName = "大陆",
             NameGenerator = GeoRegionNameGenerators.LandmassMainland,
-            MinTiles = 512
+            MinTiles = 10001
         });
     }
 
