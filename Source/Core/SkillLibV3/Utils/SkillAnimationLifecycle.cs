@@ -112,7 +112,7 @@ internal static class SkillAnimationLifecycle
     private static void ApplyRuntimeClip(Entity entity, SkillEntityAnimationClip clip, float baseFrameInterval,
         bool baseLoop)
     {
-        ResetFrames(entity, clip);
+        ResetFrames(entity, clip, true);
         ref AnimController controller = ref entity.GetComponent<AnimController>();
         controller.meta.frame_interval = clip.Settings.ResolveFrameInterval(baseFrameInterval);
         controller.meta.loop = clip.Settings.ResolveLoop(baseLoop);
@@ -120,7 +120,7 @@ internal static class SkillAnimationLifecycle
 
     private static void ApplyTransientClip(Entity entity, SkillEntityAnimationClip clip, float baseFrameInterval)
     {
-        ResetFrames(entity, clip);
+        ResetFrames(entity, clip, false);
         ref AnimController controller = ref entity.GetComponent<AnimController>();
         controller.meta.frame_interval = clip.Settings.ResolveFrameInterval(baseFrameInterval);
         controller.meta.loop = false;
@@ -130,10 +130,14 @@ internal static class SkillAnimationLifecycle
         }
     }
 
-    private static void ResetFrames(Entity entity, SkillEntityAnimationClip clip)
+    private static void ResetFrames(Entity entity, SkillEntityAnimationClip clip, bool allowRuntimeOverride)
     {
         ref AnimData animData = ref entity.GetComponent<AnimData>();
-        animData.frames = clip.Frames;
+        animData.frames = allowRuntimeOverride &&
+                          entity.TryGetComponent(out AnimRuntimeFrames runtimeFrames) &&
+                          runtimeFrames.Value is { Length: > 0 }
+            ? runtimeFrames.Value
+            : clip.Frames;
         animData.frame_idx = 0;
         animData.frame_timer = 0f;
     }

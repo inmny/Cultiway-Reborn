@@ -13,6 +13,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
 {
     private readonly List<SpawnSkillRequest> _spawnRequests = new();
     private readonly List<SkillCastCompletedRequest> _completedRequests = new();
+    private readonly List<SkillCastSequenceEndRequest> _endRequests = new();
 
     public LogicSkillCastSequenceSystem()
     {
@@ -24,10 +25,12 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         var dt = Tick.deltaTime;
         _spawnRequests.Clear();
         _completedRequests.Clear();
+        _endRequests.Clear();
         Query.ForEachEntity((ref SkillCastSequence sequence, Entity entity) =>
         {
             if (!IsSequenceValid(ref sequence))
             {
+                QueueEnd(ref sequence, SkillCastSequenceEndReason.Invalidated);
                 CommandBuffer.AddTag<TagRecycle>(entity.Id);
                 return;
             }
@@ -35,13 +38,50 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
             sequence.Elapsed += dt;
             var emitted = 0;
             var maxEmitPerTick = sequence.MaxEmitPerTick <= 0 ? 1 : sequence.MaxEmitPerTick;
+            bool ended = false;
             while (sequence.NextIndex < sequence.Steps.Length && emitted < maxEmitPerTick)
             {
-                var step = sequence.Steps[sequence.NextIndex];
-                if (step.Delay > sequence.Elapsed) break;
+                SkillCastStep scheduledStep = sequence.Steps[sequence.NextIndex];
+                if (scheduledStep.Delay > sequence.Elapsed) break;
+
+                SkillCastStepDecision decision = sequence.Options?.Hooks == null
+                    ? SkillCastStepDecision.Emit(scheduledStep)
+                    : sequence.Options.Hooks.PrepareStep(
+                        new SkillCastSequenceStepContext(
+                            sequence.Caster,
+                            sequence.SkillContainer,
+                            sequence.NextIndex,
+                            sequence.EmittedCount,
+                            sequence.Elapsed,
+                            sequence.RuntimeData),
+                        scheduledStep);
+
+                if (decision.Kind == SkillCastStepDecisionKind.Defer) break;
+                if (decision.Kind == SkillCastStepDecisionKind.Cancel)
+                {
+                    QueueEnd(ref sequence, SkillCastSequenceEndReason.Cancelled);
+                    CommandBuffer.AddTag<TagRecycle>(entity.Id);
+                    ended = true;
+                    break;
+                }
 
                 sequence.NextIndex++;
+                if (decision.Kind == SkillCastStepDecisionKind.Skip) continue;
+
+                SkillCastStep step = decision.Step;
                 if (step.TrackTarget && step.Target.isRekt()) continue;
+
+                if (sequence.Options?.PaymentTiming == SkillCastPaymentTiming.PerEmission &&
+                    !SkillCastCost.TryPayStep(
+                        sequence.Caster,
+                        sequence.SkillContainer,
+                        sequence.FundingSource))
+                {
+                    QueueEnd(ref sequence, SkillCastSequenceEndReason.InsufficientResource);
+                    CommandBuffer.AddTag<TagRecycle>(entity.Id);
+                    ended = true;
+                    break;
+                }
 
                 _spawnRequests.Add(new SpawnSkillRequest
                 {
@@ -59,7 +99,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 emitted++;
             }
 
-            if (sequence.NextIndex >= sequence.Steps.Length)
+            if (!ended && sequence.NextIndex >= sequence.Steps.Length)
             {
                 if (sequence.EmittedCount > 0)
                 {
@@ -72,6 +112,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                         RuntimeData = sequence.RuntimeData,
                     });
                 }
+                QueueEnd(ref sequence, SkillCastSequenceEndReason.Completed);
                 CommandBuffer.AddTag<TagRecycle>(entity.Id);
             }
         });
@@ -102,7 +143,29 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 attack_kingdom: request.AttackKingdom,
                 runtime_data: request.RuntimeData);
         }
+        // 结束钩子可能创建返程动画或清理角色侧组件，必须在查询和最后一批实体生成之后执行。
+        foreach (SkillCastSequenceEndRequest request in _endRequests)
+        {
+            request.Hooks?.OnEnded(request.Result);
+        }
         CommandBuffer.Playback();
+    }
+
+    /// <summary>缓存一次序列结束通知，延迟到 ECS 查询和实体生成阶段之后执行。</summary>
+    private void QueueEnd(ref SkillCastSequence sequence, SkillCastSequenceEndReason reason)
+    {
+        if (sequence.Options?.Hooks == null) return;
+        _endRequests.Add(new SkillCastSequenceEndRequest
+        {
+            Hooks = sequence.Options.Hooks,
+            Result = new SkillCastSequenceResult(
+                sequence.Caster,
+                sequence.SkillContainer,
+                sequence.EmittedCount,
+                sequence.NextIndex,
+                reason,
+                sequence.RuntimeData),
+        });
     }
 
     private static bool IsSequenceValid(ref SkillCastSequence sequence)
@@ -133,5 +196,12 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         public int EmittedCount;
         public SkillCastFundingSource FundingSource;
         public SkillCastRuntimeData RuntimeData;
+    }
+
+    /// <summary>离开查询后执行的内容侧序列结束通知。</summary>
+    private struct SkillCastSequenceEndRequest
+    {
+        public ISkillCastSequenceHooks Hooks;
+        public SkillCastSequenceResult Result;
     }
 }

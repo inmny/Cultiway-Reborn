@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Text;
 using Cultiway.Core.Components;
+using Cultiway.Core.Components.AnimOverwrite;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Components.TrajParams;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -97,7 +98,8 @@ public class Manager
         float? powerLevel = null,
         SkillCastFundingSource fundingSource = SkillCastFundingSource.CasterResources,
         Kingdom attackKingdom = null,
-        SkillCastRuntimeData runtimeData = default)
+        SkillCastRuntimeData runtimeData = default,
+        SkillCastSequenceOptions options = null)
     {
         if (caster?.Base == null || caster.Base.isRekt() || skillContainer.IsNull ||
             plan == null || plan.Steps.Count == 0) return false;
@@ -109,7 +111,8 @@ public class Manager
             powerLevel,
             fundingSource,
             attackKingdom,
-            runtimeData));
+            runtimeData,
+            options));
         return true;
     }
 
@@ -126,7 +129,8 @@ public class Manager
                 request.PowerLevel,
                 request.FundingSource,
                 request.AttackKingdom,
-                request.RuntimeData);
+                request.RuntimeData,
+                request.Options);
         }
     }
 
@@ -181,10 +185,26 @@ public class Manager
 
     public bool StartSkillSequence(ActorExtend caster, Entity skill_container, SkillCastPlan plan, float strength,
         float? power_level = null, SkillCastFundingSource funding_source = SkillCastFundingSource.CasterResources,
-        Kingdom attack_kingdom = null, SkillCastRuntimeData runtime_data = default)
+        Kingdom attack_kingdom = null, SkillCastRuntimeData runtime_data = default,
+        SkillCastSequenceOptions options = null)
     {
         if (caster == null || plan == null || plan.Steps.Count == 0) return false;
-        if (!SkillCastCost.TryPay(caster, skill_container, plan, funding_source)) return false;
+        float resolvedPowerLevel = power_level ?? caster.GetPowerLevel();
+        var startContext = new SkillCastSequenceStartContext(
+            caster,
+            skill_container,
+            plan,
+            strength,
+            resolvedPowerLevel,
+            funding_source,
+            runtime_data);
+        if (options?.Hooks != null && !options.Hooks.CanStart(startContext)) return false;
+
+        SkillCastPaymentTiming paymentTiming = options?.PaymentTiming ?? SkillCastPaymentTiming.Upfront;
+        bool canStart = paymentTiming == SkillCastPaymentTiming.PerEmission
+            ? SkillCastCost.CanPayStep(caster, skill_container, funding_source)
+            : SkillCastCost.TryPay(caster, skill_container, plan, funding_source);
+        if (!canStart) return false;
 
         var sequence_entity = World.CreateEntity(new SkillCastSequence()
         {
@@ -194,14 +214,16 @@ public class Manager
             AttackKingdom = attack_kingdom,
             FundingSource = funding_source,
             Strength = strength,
-            PowerLevel = power_level ?? caster.GetPowerLevel(),
+            PowerLevel = resolvedPowerLevel,
             RuntimeData = runtime_data,
-            MaxEmitPerTick = 8
+            MaxEmitPerTick = Math.Max(1, options?.MaxEmitPerTick ?? 8),
+            Options = options,
         });
         sequence_entity.AddRelation(new SkillMasterRelation
         {
             SkillContainer = skill_container
         });
+        options?.Hooks?.OnStarted(startContext);
         return true;
     }
 
@@ -216,6 +238,7 @@ public class Manager
         public readonly SkillCastFundingSource FundingSource;
         public readonly Kingdom AttackKingdom;
         public readonly SkillCastRuntimeData RuntimeData;
+        public readonly SkillCastSequenceOptions Options;
 
         /// <summary>保存启动施法序列所需的完整参数。</summary>
         public QueuedSkillCast(
@@ -226,7 +249,8 @@ public class Manager
             float? powerLevel,
             SkillCastFundingSource fundingSource,
             Kingdom attackKingdom,
-            SkillCastRuntimeData runtimeData)
+            SkillCastRuntimeData runtimeData,
+            SkillCastSequenceOptions options)
         {
             Caster = caster;
             SkillContainer = skillContainer;
@@ -236,6 +260,7 @@ public class Manager
             FundingSource = fundingSource;
             AttackKingdom = attackKingdom;
             RuntimeData = runtimeData;
+            Options = options;
         }
     }
 
@@ -387,6 +412,16 @@ public class Manager
         else
         {
             entity.AddComponent(afterimage);
+        }
+
+        if (!entity.TryGetComponent(out AnimAfterimageOverride runtimeOverride)) return;
+        if (entity.HasComponent<AnimAfterimage>())
+        {
+            entity.GetComponent<AnimAfterimage>() = runtimeOverride.Value;
+        }
+        else
+        {
+            entity.AddComponent(runtimeOverride.Value);
         }
     }
 

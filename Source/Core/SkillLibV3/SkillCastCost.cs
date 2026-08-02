@@ -43,7 +43,35 @@ public static class SkillCastCost
         var binding = SkillCastResourceResolver.Resolve(caster, skill);
         if (binding == null) return false;
 
-        var demand = CalculatePlanDemand(skill, plan);
+        return TryPayDemand(caster, skill, binding, CalculatePlanDemand(skill, plan));
+    }
+
+    /// <summary>检查施法者是否能支付技能的一个实际发射步骤。</summary>
+    public static bool CanPayStep(ActorExtend caster, Entity skill,
+        SkillCastFundingSource source = SkillCastFundingSource.CasterResources)
+    {
+        if (!SkillCastRequirements.Check(caster, skill, source)) return false;
+        if (source == SkillCastFundingSource.Prepaid) return true;
+
+        var binding = SkillCastResourceResolver.Resolve(caster, skill);
+        return binding != null && CanPayDemand(caster, skill, binding, CalculateStepDemand(skill));
+    }
+
+    /// <summary>在一个步骤实际发射前原子支付该步骤的资源需求。</summary>
+    public static bool TryPayStep(ActorExtend caster, Entity skill,
+        SkillCastFundingSource source = SkillCastFundingSource.CasterResources)
+    {
+        if (!SkillCastRequirements.Check(caster, skill, source)) return false;
+        if (source == SkillCastFundingSource.Prepaid) return true;
+
+        var binding = SkillCastResourceResolver.Resolve(caster, skill);
+        return binding != null && TryPayDemand(caster, skill, binding, CalculateStepDemand(skill));
+    }
+
+    /// <summary>按已经解析的资源通道原子支付指定无量纲需求。</summary>
+    private static bool TryPayDemand(ActorExtend caster, Entity skill, SkillCastResourceBinding binding,
+        float demand)
+    {
         var payments = new List<ResourcePayment>(binding.Resources.Count);
         if (binding.Mode == SkillCastResourceRequirementMode.AnyOf)
         {
