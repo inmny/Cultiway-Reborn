@@ -62,6 +62,9 @@ internal static class WeaponControlRules
 {
     private const int MaxCandidateTargets = 18;
 
+    /// <summary>突刺相对同境界普通近战控制距离的长度倍率。</summary>
+    internal const float ThrustReachMultiplier = 2.5f;
+
     /// <summary>判断角色是否已经进入筑基期并具备使用御器的体系资格。</summary>
     public static bool IsEligibleCultivator(ActorExtend actor)
     {
@@ -101,7 +104,7 @@ internal static class WeaponControlRules
                AssetManager.projectiles.get(weaponAsset.projectile) != null;
     }
 
-    /// <summary>返回当前器形在对应境界下允许选取目标的距离。</summary>
+    /// <summary>返回当前器形在对应境界下的普通控制距离。</summary>
     public static float ResolveRange(ActorExtend actor, WeaponControlCategory category)
     {
         int realm = ResolveRealm(actor);
@@ -123,6 +126,13 @@ internal static class WeaponControlRules
         };
     }
 
+    /// <summary>返回 AI 和施放入口允许搜索目标的最远距离，可突刺器形包含完整突刺距离。</summary>
+    public static float ResolveSelectionRange(ActorExtend actor, WeaponControlCategory category)
+    {
+        float range = ResolveRange(actor, category);
+        return SupportsThrust(category) ? range * ThrustReachMultiplier : range;
+    }
+
     /// <summary>按当前武器、目标压力和剩余灵气构造一次可执行的御器计划。</summary>
     public static bool TryPrepareCast(
         ActorExtend caster,
@@ -137,10 +147,26 @@ internal static class WeaponControlRules
             !TryResolveWeapon(caster, out Item weapon, out EquipmentAsset weaponAsset,
                 out WeaponControlCategory category)) return false;
 
-        float range = ResolveRange(caster, category);
-        float allowedRange = range + primaryTarget.stats[strings.S.size];
-        if ((primaryTarget.current_position - caster.Base.current_position).sqrMagnitude >
-            allowedRange * allowedRange) return false;
+        float baseRange = ResolveRange(caster, category);
+        float selectionRange = ResolveSelectionRange(caster, category);
+        float targetSize = primaryTarget.stats[strings.S.size];
+        float targetDistanceSquared =
+            (primaryTarget.current_position - caster.Base.current_position).sqrMagnitude;
+        float allowedSelectionRange = selectionRange + targetSize;
+        if (targetDistanceSquared > allowedSelectionRange * allowedSelectionRange) return false;
+
+        WeaponControlCastMode mode = WeaponControlCastMode.MeleeSweep;
+        if (category != WeaponControlCategory.Ranged)
+        {
+            float allowedBaseRange = baseRange + targetSize;
+            mode = SupportsThrust(category) && targetDistanceSquared > allowedBaseRange * allowedBaseRange
+                ? WeaponControlCastMode.MeleeThrust
+                : ResolveMode(category, 0);
+        }
+
+        float range = mode == WeaponControlCastMode.MeleeThrust ? selectionRange : baseRange;
+        float allowedRange = range + targetSize;
+        if (targetDistanceSquared > allowedRange * allowedRange) return false;
 
         var candidates = new List<BaseSimObject>(MaxCandidateTargets);
         CollectTargets(caster, primaryTarget, attackKingdom, range, category, candidates);
@@ -148,7 +174,7 @@ internal static class WeaponControlRules
         int emissionCount = ResolveEmissionCount(caster, category, primaryTarget, candidates.Count, affordable);
         if (emissionCount <= 0) return false;
 
-        WeaponControlCastMode mode = ResolveMode(category, candidates.Count);
+        if (category == WeaponControlCategory.Ranged) mode = ResolveMode(category, candidates.Count);
         float interval = ResolveEmissionInterval(caster, category);
         var plan = new SkillCastPlan();
         for (var i = 0; i < emissionCount; i++)
@@ -310,6 +336,12 @@ internal static class WeaponControlRules
                 : WeaponControlCastMode.MeleeSweep,
             _ => WeaponControlCastMode.MeleeSweep,
         };
+    }
+
+    /// <summary>判断当前器形是否拥有水平突刺动作。</summary>
+    private static bool SupportsThrust(WeaponControlCategory category)
+    {
+        return category is WeaponControlCategory.Spear or WeaponControlCategory.Staff or WeaponControlCategory.Sword;
     }
 
     /// <summary>让更高境界用更密集的节奏展开攻击，同时保留可辨认的单道动作。</summary>

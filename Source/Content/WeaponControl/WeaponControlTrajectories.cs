@@ -85,14 +85,11 @@ public sealed class WeaponControlTrajectories : ExtendLibrary<TrajectoryAsset, W
         float angle = Mathf.Lerp(state.StartAngle, state.EndAngle, eased);
         Vector3 radial = Normalize(Quaternion.AngleAxis(angle, Vector3.forward) * direction, direction);
         float breathing = 0.88f + Mathf.Sin(progress * Mathf.PI) * 0.12f;
-        position.value = owner.GetSimPos() + radial * state.Reach * breathing;
+        Vector3 origin = owner.GetSimPos();
+        position.value = origin + radial * state.Reach * breathing;
         rotation.value = radial;
-        if (entity.HasComponent<AnimAfterimage>())
-        {
-            ref AnimAfterimage afterimage = ref entity.GetComponent<AnimAfterimage>();
-            afterimage.ArcRadius = state.Reach;
-            afterimage.ArcDirection = Mathf.Sign(state.EndAngle - state.StartAngle);
-        }
+        ref MotionRibbonTrail trail = ref entity.GetComponent<MotionRibbonTrail>();
+        trail.SourceOrigin = origin;
     }
 
     /// <summary>先迅速送出武器，再以较慢节奏收回，形成清晰的水平戳刺。</summary>
@@ -107,8 +104,12 @@ public sealed class WeaponControlTrajectories : ExtendLibrary<TrajectoryAsset, W
     {
         SetColliderEnabled(entity, progress >= 0.12f && progress <= 0.72f);
         float extension = Mathf.Pow(Mathf.Sin(progress * Mathf.PI), 0.72f);
-        position.value = owner.GetSimPos() + direction * (0.35f + state.Reach * extension);
+        Vector3 origin = owner.GetSimPos();
+        position.value = origin + direction * (0.35f + state.Reach * extension);
         rotation.value = direction;
+        ref MotionRibbonTrail trail = ref entity.GetComponent<MotionRibbonTrail>();
+        trail.SourceOrigin = origin;
+        if (progress >= 0.72f) trail.Enabled = false;
     }
 
     /// <summary>将武器抬过头顶后加速砸向目标方向，碰撞只在下落阶段生效。</summary>

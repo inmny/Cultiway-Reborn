@@ -83,6 +83,8 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
             .SetupVisualRotation(VisualRotation.FollowRotation());
         WeaponControl.PrefabEntity.AddComponent(new AnimRuntimeFrames());
         WeaponControl.PrefabEntity.AddComponent(new AnimAfterimageOverride());
+        WeaponControl.PrefabEntity.AddComponent(new MotionRibbonTrail());
+        WeaponControl.PrefabEntity.AddComponent(new MotionRibbonTrailBinder());
 
         skillContainer = new SkillContainerBuilder(WeaponControl)
             .Build(SkillContainerBuildMode.SourceGranted);
@@ -222,7 +224,7 @@ internal sealed class WeaponControlAbilityProvider : IActiveAbilityProvider, ISo
         if (!CanPrepare(caster, handle, target.Object) ||
             !WeaponControlRules.TryResolveWeapon(caster, out _, out _, out WeaponControlCategory category))
             return false;
-        float range = WeaponControlRules.ResolveRange(caster, category) + target.Object.stats[S.size];
+        float range = WeaponControlRules.ResolveSelectionRange(caster, category) + target.Object.stats[S.size];
         return (target.Object.current_position - caster.Base.current_position).sqrMagnitude <= range * range;
     }
 
@@ -273,7 +275,7 @@ internal sealed class WeaponControlAbilityProvider : IActiveAbilityProvider, ISo
     public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         return WeaponControlRules.TryResolveWeapon(caster, out _, out _, out WeaponControlCategory category)
-            ? WeaponControlRules.ResolveRange(caster, category)
+            ? WeaponControlRules.ResolveSelectionRange(caster, category)
             : 0f;
     }
 
