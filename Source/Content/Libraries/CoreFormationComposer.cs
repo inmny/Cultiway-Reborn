@@ -23,6 +23,7 @@ internal sealed class CoreFormationContext
 {
     private static readonly SemanticQueryPolicy LearnedPolicy = new(SemanticScope.Learned);
     private static readonly SemanticQueryPolicy IntrinsicPolicy = new(SemanticScope.Intrinsic);
+    private static readonly SemanticQueryPolicy HistoricalPolicy = new(SemanticScope.Historical);
 
     private readonly SemanticProfile semanticProfile;
     private readonly CultibookAsset mainCultibook;
@@ -83,16 +84,17 @@ internal sealed class CoreFormationContext
                          RawSemanticScore(CultivationSemantics.Theme.Dragon, IntrinsicPolicy) > 0.15f;
     }
 
-    /// <summary>按主修 60%、其他已学内容 25%、固有来源 15% 解析语义分数。</summary>
+    /// <summary>按主修、其他已学内容、固有来源和炼气历史共同解析语义分数。</summary>
     public float SemanticScore(SemanticAsset semantic)
     {
         if (semantic == null) return 0f;
         var learned = RawSemanticScore(semantic, LearnedPolicy) * 0.25f;
         var intrinsic = RawSemanticScore(semantic, IntrinsicPolicy) * 0.15f;
+        var historical = RawSemanticScore(semantic, HistoricalPolicy) * 0.15f;
         var main = mainCultibook?.Semantics?.ContainsExpanded(ModClass.L.SemanticLibrary, semantic) == true
             ? mainMastery * 0.35f
             : 0f;
-        return Mathf.Max(0f, learned + intrinsic + main);
+        return Mathf.Max(0f, learned + intrinsic + historical + main);
     }
 
     /// <summary>按指定查询策略读取语义画像原始净分；没有画像时返回零。</summary>
@@ -102,11 +104,13 @@ internal sealed class CoreFormationContext
     }
 }
 
-/// <summary>负责金丹与元婴形成、觉醒和派生值重建的确定性组合服务。</summary>
+/// <summary>负责真气、仙基、金丹与元婴形成、继承、觉醒和派生值重建的确定性组合服务。</summary>
 public static class CoreFormationComposer
 {
-    private const float FiveQiWeight = 0.7f;
-    private const float ElementRootWeight = 0.3f;
+    private const float QiFoundationCompositionWeight = 0.6f;
+    private const float FiveQiFoundationCompositionWeight = 0.4f;
+    private const float SecondaryAtomReplacementRatio = 1.25f;
+    private const float FoundationStepStrengthScale = 0.25f;
     private const int MaxLatentAtoms = 2;
     private const float ProfoundQualityThreshold = 1.25f;
     private const float EarthQualityThreshold = 2.5f;
@@ -149,16 +153,118 @@ public static class CoreFormationComposer
         SkillSemantics.Element.Entropy
     ];
 
-    /// <summary>由筑基、灵根、功法和已学法术形成一个新的金丹实例。</summary>
+    /// <summary>凝成第一层命名真气，或在不改变核心身份的前提下继续精炼同一成果。</summary>
+    public static void RefineQi(
+        ActorExtend actor,
+        ref CoreFormationSnapshot snapshot,
+        float quality,
+        ElementComposition sampleComposition)
+    {
+        quality = Mathf.Clamp01(quality);
+        sampleComposition.Normalize();
+        if (!snapshot.IsValid)
+        {
+            var context = new CoreFormationContext(
+                actor, default, sampleComposition, CoreFormationRealm.QiRefinement);
+            List<CoreFormationAtomState> atoms = new(1);
+            AddSelected(atoms,
+                SelectBest(context, CoreFormationAtomCategory.Element, requireMinimum: true),
+                0,
+                false);
+            snapshot = new CoreFormationSnapshot
+            {
+                version = CoreFormationSnapshot.CurrentVersion,
+                realm = CoreFormationRealm.QiRefinement,
+                strength = Mathf.Max(0.01f, quality),
+                refinement = 1,
+                composition = sampleComposition,
+                atoms = atoms.ToArray(),
+                stats = [],
+                semantics = []
+            };
+            snapshot.quality = ResolveQuality(snapshot.strength, context);
+            RebuildDerived(ref snapshot, snapshot.refinement);
+            return;
+        }
+
+        int newLayer = Mathf.Max(1, snapshot.refinement + 1);
+        float blendWeight = newLayer <= Cultisyses.MinimumFoundationQiLayers
+            ? 1f / newLayer
+            : 1f / (Cultisyses.MinimumFoundationQiLayers +
+                    2f * (newLayer - Cultisyses.MinimumFoundationQiLayers));
+        snapshot.composition = BlendComposition(snapshot.composition, sampleComposition, blendWeight);
+        snapshot.strength += quality / Mathf.Sqrt(newLayer);
+        snapshot.refinement = newLayer;
+        var nextContext = new CoreFormationContext(
+            actor, default, snapshot.composition, CoreFormationRealm.QiRefinement);
+        snapshot.quality = ResolveQuality(snapshot.strength, nextContext);
+        RebuildDerived(ref snapshot, snapshot.refinement);
+    }
+
+    /// <summary>继承真气的核心身份与特殊效果，并按预期三花五气建立仙基胚胎。</summary>
+    public static CoreFormationSnapshot ComposeFoundation(
+        ActorExtend actor,
+        XianBase foundationSeed,
+        CoreFormationSnapshot qi)
+    {
+        if (!qi.IsValid) throw new ArgumentException("筑基需要有效的真气成果快照。", nameof(qi));
+        var context = new CoreFormationContext(
+            actor, foundationSeed, qi.composition, CoreFormationRealm.Foundation);
+        List<CoreFormationAtomState> atoms = CopyActiveAtoms(qi, qi.refinement);
+        AddSelected(atoms,
+            SelectBest(context, CoreFormationAtomCategory.Structure),
+            0,
+            false);
+        var snapshot = new CoreFormationSnapshot
+        {
+            version = CoreFormationSnapshot.CurrentVersion,
+            realm = CoreFormationRealm.Foundation,
+            lineage_stem = qi.lineage_stem,
+            source_signature = qi.signature,
+            source_name = qi.canonical_name,
+            source_refinement = qi.refinement,
+            quality = qi.quality,
+            strength = qi.strength,
+            refinement = 0,
+            composition = qi.composition,
+            atoms = atoms.ToArray(),
+            stats = [],
+            semantics = []
+        };
+        RebuildDerived(ref snapshot, 0);
+        return snapshot;
+    }
+
+    /// <summary>把一个三花五气步骤熬入仙基，并在新结构优势超过 25% 时演化结构原子。</summary>
+    public static void RefineFoundation(
+        ActorExtend actor,
+        ref XianBase foundation,
+        float stepStrength)
+    {
+        ref CoreFormationSnapshot snapshot = ref foundation.formation;
+        if (!snapshot.IsValid)
+            throw new InvalidOperationException("筑基步骤需要已经形成的仙基胚胎。");
+
+        snapshot.refinement = Mathf.Max(snapshot.refinement + 1, CountFoundationParts(foundation));
+        snapshot.strength += Mathf.Max(0.01f, stepStrength) * FoundationStepStrengthScale /
+                             Mathf.Sqrt(snapshot.refinement);
+        snapshot.composition = BuildFoundationComposition(actor, foundation);
+        var context = new CoreFormationContext(
+            actor, foundation, snapshot.composition, CoreFormationRealm.Foundation);
+        TryEvolveSecondaryAtom(ref snapshot, context, CoreFormationAtomCategory.Structure);
+        snapshot.quality = ResolveQuality(snapshot.strength, context);
+        RebuildDerived(ref snapshot, snapshot.refinement);
+    }
+
+    /// <summary>继承完整仙基，再由功法与已学内容补入金丹道路和主题原子。</summary>
     public static CoreFormationSnapshot ComposeJindan(ActorExtend actor, XianBase foundation, float strength)
     {
-        var composition = BuildJindanComposition(actor, foundation);
+        if (!foundation.formation.IsValid)
+            throw new ArgumentException("结丹需要有效的仙基成果快照。", nameof(foundation));
+        var composition = foundation.formation.composition;
         var context = new CoreFormationContext(actor, foundation, composition, CoreFormationRealm.Jindan);
-        List<CoreFormationAtomState> atoms = new(6);
-
-        AddSelected(atoms, SelectBest(context, CoreFormationAtomCategory.Element), 0, false);
-        AddSelected(atoms, SelectBest(context, CoreFormationAtomCategory.Structure, requireMinimum: true),
-            0, false);
+        List<CoreFormationAtomState> atoms = CopyActiveAtoms(
+            foundation.formation, foundation.formation.refinement);
 
         var latentIndex = 0;
         AddOptional(atoms, context, CoreFormationAtomCategory.Path, ref latentIndex);
@@ -168,7 +274,13 @@ public static class CoreFormationComposer
         {
             version = CoreFormationSnapshot.CurrentVersion,
             realm = CoreFormationRealm.Jindan,
+            lineage_stem = foundation.formation.lineage_stem,
+            source_signature = foundation.formation.signature,
+            source_name = foundation.formation.canonical_name,
+            source_refinement = foundation.formation.refinement,
             quality = ResolveQuality(strength, context),
+            strength = strength,
+            refinement = 0,
             composition = composition,
             atoms = atoms.ToArray(),
             stats = [],
@@ -205,7 +317,13 @@ public static class CoreFormationComposer
         {
             version = CoreFormationSnapshot.CurrentVersion,
             realm = CoreFormationRealm.Yuanying,
+            lineage_stem = jindan.lineage_stem,
+            source_signature = jindan.signature,
+            source_name = jindan.canonical_name,
+            source_refinement = jindanStage,
             quality = ResolveQuality(strength, context),
+            strength = strength,
+            refinement = 0,
             composition = jindan.composition,
             atoms = atoms.ToArray(),
             stats = [],
@@ -219,6 +337,7 @@ public static class CoreFormationComposer
     public static bool EvolveJindan(ref CoreFormationSnapshot snapshot, int previousStage, int currentStage)
     {
         if (!snapshot.IsValid || snapshot.realm != CoreFormationRealm.Jindan) return false;
+        snapshot.refinement = Mathf.Max(snapshot.refinement, currentStage);
         var changed = false;
         for (var i = 0; i < AwakeningStages.Length; i++)
         {
@@ -264,23 +383,23 @@ public static class CoreFormationComposer
         return stage < 9 ? 9 : -1;
     }
 
-    /// <summary>按筑基五气 70%、灵根 30% 合成并归一化金丹元素组成。</summary>
-    private static ElementComposition BuildJindanComposition(ActorExtend actor, XianBase foundation)
+    /// <summary>按真气 60% 与已完成五气 40% 合成仙基元素组成。</summary>
+    private static ElementComposition BuildFoundationComposition(ActorExtend actor, XianBase foundation)
     {
-        var fiveQi = Normalize([
-            foundation.iron, foundation.wood, foundation.water, foundation.fire, foundation.earth, 0f, 0f, 0f
-        ], fiveElementFallback: true);
-        if (actor == null || !actor.TryGetComponent(out ElementRoot root)) return new ElementComposition(fiveQi);
-
-        var rootRaw = new[]
+        var fiveQiRaw = new[]
         {
-            root.Iron, root.Wood, root.Water, root.Fire, root.Earth, root.Neg, root.Pos, root.Entropy
+            foundation.iron, foundation.wood, foundation.water, foundation.fire, foundation.earth, 0f, 0f, 0f
         };
-        if (rootRaw.Sum(value => Mathf.Max(0f, value)) <= 0f) return new ElementComposition(fiveQi);
-        var rootValues = Normalize(rootRaw, fiveElementFallback: false);
+        float fiveQiTotal = fiveQiRaw.Sum(value => Mathf.Max(0f, value));
+        CoreFormationSnapshot qiFormation = actor.GetComponent<QiRefinementState>().formation;
+        if (fiveQiTotal <= 0f) return qiFormation.composition;
+        float[] fiveQi = Normalize(fiveQiRaw, fiveElementFallback: false);
+        ElementComposition qi = qiFormation.composition;
+        qi.Normalize();
         var result = new float[8];
         for (var i = 0; i < result.Length; i++)
-            result[i] = fiveQi[i] * FiveQiWeight + rootValues[i] * ElementRootWeight;
+            result[i] = qi[i] * QiFoundationCompositionWeight +
+                        fiveQi[i] * FiveQiFoundationCompositionWeight;
         return new ElementComposition(result, normalize: true);
     }
 
@@ -297,6 +416,53 @@ public static class CoreFormationComposer
         var count = fiveElementFallback ? 5 : values.Length;
         for (var i = 0; i < count; i++) values[i] = 1f / count;
         return values;
+    }
+
+    /// <summary>按给定的新样本权重混合两份组成并重新归一化。</summary>
+    private static ElementComposition BlendComposition(
+        ElementComposition current,
+        ElementComposition sample,
+        float sampleWeight)
+    {
+        current.Normalize();
+        sample.Normalize();
+        sampleWeight = Mathf.Clamp01(sampleWeight);
+        var result = new float[ElementIndex.Count];
+        for (var i = 0; i < result.Length; i++)
+            result[i] = current[i] * (1f - sampleWeight) + sample[i] * sampleWeight;
+        return new ElementComposition(result, normalize: true);
+    }
+
+    /// <summary>复制来源成果当前已显化的原子，并统一标记为继承。</summary>
+    private static List<CoreFormationAtomState> CopyActiveAtoms(
+        CoreFormationSnapshot source,
+        int stage)
+    {
+        List<CoreFormationAtomState> result = new((source.atoms ?? []).Length + 2);
+        foreach (CoreFormationAtomState atom in source.atoms ?? [])
+        {
+            if (!atom.IsActive(stage)) continue;
+            CoreFormationAtomState inherited = atom;
+            inherited.awakening_stage = 0;
+            inherited.inherited = true;
+            result.Add(inherited);
+        }
+        return result;
+    }
+
+    /// <summary>统计仙基已经完成的三花五气步骤。</summary>
+    private static int CountFoundationParts(XianBase foundation)
+    {
+        var count = 0;
+        if (foundation.jing != 0f) count++;
+        if (foundation.qi != 0f) count++;
+        if (foundation.shen != 0f) count++;
+        if (foundation.iron != 0f) count++;
+        if (foundation.wood != 0f) count++;
+        if (foundation.water != 0f) count++;
+        if (foundation.fire != 0f) count++;
+        if (foundation.earth != 0f) count++;
+        return count;
     }
 
     /// <summary>
@@ -361,9 +527,13 @@ public static class CoreFormationComposer
                                                                           CoreFormationAtomCategory category,
                                                                           bool requireMinimum = false)
     {
-        var realmMask = context.Realm == CoreFormationRealm.Jindan
-            ? CoreFormationRealmMask.Jindan
-            : CoreFormationRealmMask.Yuanying;
+        var realmMask = context.Realm switch
+        {
+            CoreFormationRealm.QiRefinement => CoreFormationRealmMask.QiRefinement,
+            CoreFormationRealm.Foundation => CoreFormationRealmMask.Foundation,
+            CoreFormationRealm.Jindan => CoreFormationRealmMask.Jindan,
+            _ => CoreFormationRealmMask.Yuanying
+        };
         return Manager.CoreFormationAtomLibrary.All
             .Where(atom => atom.category == category && (atom.realms & realmMask) != 0)
             .Select(atom => (asset: atom, score: atom.ScoreFor(context)))
@@ -387,6 +557,41 @@ public static class CoreFormationComposer
             awakening_stage = awakeningStage,
             inherited = inherited
         });
+    }
+
+    /// <summary>仅当另一结构评分超过现有结构 25% 时替换，避免谱系在相近候选间抖动。</summary>
+    private static void TryEvolveSecondaryAtom(
+        ref CoreFormationSnapshot snapshot,
+        CoreFormationContext context,
+        CoreFormationAtomCategory category)
+    {
+        var selected = SelectBest(context, category);
+        if (selected.asset == null) return;
+        CoreFormationAtomState[] atoms = snapshot.atoms ?? [];
+        for (var i = 0; i < atoms.Length; i++)
+        {
+            CoreFormationAtomAsset current = Manager.CoreFormationAtomLibrary.get(atoms[i].atom_id);
+            if (current == null || current.category != category) continue;
+            if (current.id == selected.asset.id)
+            {
+                atoms[i].weight = Mathf.Max(atoms[i].weight, selected.score);
+                snapshot.atoms = atoms;
+                return;
+            }
+            if (selected.score <= atoms[i].weight * SecondaryAtomReplacementRatio) return;
+            atoms[i] = new CoreFormationAtomState
+            {
+                atom_id = selected.asset.id,
+                weight = selected.score,
+                awakening_stage = 0,
+                inherited = false
+            };
+            snapshot.atoms = atoms;
+            return;
+        }
+        List<CoreFormationAtomState> expanded = atoms.ToList();
+        AddSelected(expanded, selected, 0, false);
+        snapshot.atoms = expanded.ToArray();
     }
 
     /// <summary>强化当前权重最高的已显化非元素原子，用于没有潜在原子的觉醒节点。</summary>
@@ -421,7 +626,10 @@ public static class CoreFormationComposer
         snapshot.stats = ComposeStats(snapshot, active);
         snapshot.semantics = ComposeSemantics(snapshot, active);
         snapshot.signature = ComposeSignature(snapshot, stage);
-        snapshot.canonical_name = CoreFormationNameComposer.Compose(snapshot, active, stage);
+        if (string.IsNullOrEmpty(snapshot.lineage_stem))
+            snapshot.lineage_stem = CoreFormationNameComposer.ResolveLineageStem(
+                active, NamingRuleUtils.StableHash(snapshot.signature));
+        snapshot.canonical_name = CoreFormationNameComposer.Compose(snapshot, active);
         snapshot.representative_skill_id = ResolveRepresentativeSkill(snapshot);
     }
 
@@ -443,7 +651,13 @@ public static class CoreFormationComposer
     private static CoreFormationStatValue[] ComposeStats(CoreFormationSnapshot snapshot,
         List<(CoreFormationAtomState state, CoreFormationAtomAsset asset)> active)
     {
-        var realmScale = snapshot.realm == CoreFormationRealm.Yuanying ? 1.25f : 1f;
+        float realmScale = snapshot.realm switch
+        {
+            CoreFormationRealm.QiRefinement => 0.35f,
+            CoreFormationRealm.Foundation => 0.60f,
+            CoreFormationRealm.Jindan => 1f,
+            _ => 1.25f
+        };
         Dictionary<string, float> stats = new(StringComparer.Ordinal)
         {
             [S.multiplier_health] = 0.2f * realmScale,
@@ -470,7 +684,8 @@ public static class CoreFormationComposer
         {
             if (item.asset.category == CoreFormationAtomCategory.Element) continue;
             float normalized;
-            if (snapshot.realm == CoreFormationRealm.Yuanying && inheritedWeight > 0f && newWeight > 0f)
+            if (snapshot.realm != CoreFormationRealm.QiRefinement &&
+                inheritedWeight > 0f && newWeight > 0f)
                 normalized = item.state.inherited
                     ? item.state.weight / inheritedWeight * 0.8f
                     : item.state.weight / newWeight * 0.2f;
@@ -491,10 +706,15 @@ public static class CoreFormationComposer
     private static SemanticContribution[] ComposeSemantics(CoreFormationSnapshot snapshot,
         List<(CoreFormationAtomState state, CoreFormationAtomAsset asset)> active)
     {
+        SemanticAsset realmSemantic = snapshot.realm switch
+        {
+            CoreFormationRealm.QiRefinement => CultivationSemantics.Realm.QiRefinement,
+            CoreFormationRealm.Foundation => CultivationSemantics.Realm.Foundation,
+            CoreFormationRealm.Jindan => CultivationSemantics.Realm.Jindan,
+            _ => CultivationSemantics.Realm.Yuanying
+        };
         var builder = new SemanticDescriptorBuilder()
-            .Add(snapshot.realm == CoreFormationRealm.Jindan
-                ? CultivationSemantics.Realm.Jindan
-                : CultivationSemantics.Realm.Yuanying)
+            .Add(realmSemantic)
             .Add(CultivationSemantics.Role.Cultivation);
 
         var composition = snapshot.composition;
@@ -516,7 +736,7 @@ public static class CoreFormationComposer
     {
         StringBuilder builder = new();
         builder.Append((int)snapshot.realm).Append('|').Append((int)snapshot.quality).Append('|')
-            .Append(stage >= 9 ? 3 : stage >= 6 ? 2 : stage >= 3 ? 1 : 0);
+            .Append(stage).Append('|').Append(snapshot.source_signature ?? string.Empty);
         var composition = snapshot.composition.AsArray();
         for (var i = 0; i < composition.Length; i++)
             builder.Append('|').Append(Quantize(composition[i]));
@@ -643,48 +863,35 @@ public static class CoreFormationComposer
 /// <summary>由已激活原子生成 4-6 个汉字的稳定规则名称。</summary>
 internal static class CoreFormationNameComposer
 {
-    /// <summary>从品阶、阶段和主导原子中提炼一个短而稳定的规范名称。</summary>
+    /// <summary>从品阶和稳定谱系词干提炼规范名称；精炼次数由详情页独立展示。</summary>
     public static string Compose(CoreFormationSnapshot snapshot,
-        List<(CoreFormationAtomState state, CoreFormationAtomAsset asset)> active, int stage)
+        List<(CoreFormationAtomState state, CoreFormationAtomAsset asset)> active)
     {
-        var seed = NamingRuleUtils.StableHash(snapshot.signature);
-        var prefix = snapshot.realm == CoreFormationRealm.Jindan
-            ? stage >= 9
-                ? "九转"
-                : snapshot.quality.Stage >= 3
-                    ? NamingRuleUtils.Pick(seed, "无垢", "太清")
-                    : snapshot.quality.Stage >= 2
-                        ? "天元"
-                        : string.Empty
-            : string.Empty;
+        string identity = NamingRuleUtils.LimitNameLength(snapshot.lineage_stem, 2);
+        if (snapshot.realm == CoreFormationRealm.QiRefinement) return identity + "气";
+        if (snapshot.realm == CoreFormationRealm.Foundation) return identity + "仙基";
+        if (snapshot.realm == CoreFormationRealm.Yuanying) return identity + "元婴";
 
-        var element = Pick(active, CoreFormationAtomCategory.Element, seed + 11);
-        var lineage = Pick(active, CoreFormationAtomCategory.Theme, seed + 17);
-        var path = Pick(active, CoreFormationAtomCategory.Path, seed + 23);
-        var structure = Pick(active, CoreFormationAtomCategory.Structure, seed + 29);
-        var manifestation = Pick(active, CoreFormationAtomCategory.Manifestation, seed + 31);
-        var transformation = Pick(active, CoreFormationAtomCategory.Transformation, seed + 37);
-        var suffix = snapshot.realm == CoreFormationRealm.Jindan ? "金丹" : "元婴";
-        var core = PickDominant(active, seed + 41,
-            CoreFormationAtomCategory.Element, CoreFormationAtomCategory.Structure);
-        var identity = snapshot.realm == CoreFormationRealm.Jindan
-            ? First(lineage, path, core, element, structure)
-            : First(transformation, manifestation, lineage, path, core, element, structure);
-        identity = NamingRuleUtils.LimitNameLength(identity, 2);
-        return snapshot.realm == CoreFormationRealm.Jindan
-            ? prefix + identity + suffix
-            : identity + suffix;
+        int seed = NamingRuleUtils.StableHash(snapshot.signature);
+        string prefix = snapshot.quality.Stage >= 3
+            ? NamingRuleUtils.Pick(seed, "无垢", "太清")
+            : snapshot.quality.Stage >= 2
+                ? "天元"
+                : string.Empty;
+        return prefix + identity + "金丹";
     }
 
-    /// <summary>从指定分类中选取权重最高原子的稳定名称词干。</summary>
-    private static string Pick(List<(CoreFormationAtomState state, CoreFormationAtomAsset asset)> active,
-                               CoreFormationAtomCategory category, int seed)
+    /// <summary>首次凝气时从主元素原子提取贯穿后续境界的稳定短词干。</summary>
+    public static string ResolveLineageStem(
+        List<(CoreFormationAtomState state, CoreFormationAtomAsset asset)> active,
+        int seed)
     {
-        return active.Where(item => item.asset.category == category)
-            .OrderByDescending(item => item.state.weight)
-            .ThenBy(item => item.asset.id, StringComparer.Ordinal)
-            .Select(item => item.asset.PickNameStem(seed))
-            .FirstOrDefault() ?? string.Empty;
+        string stem = PickDominant(
+            active,
+            seed,
+            CoreFormationAtomCategory.Element,
+            CoreFormationAtomCategory.Structure);
+        return NamingRuleUtils.LimitNameLength(string.IsNullOrEmpty(stem) ? "灵元" : stem, 2);
     }
 
     /// <summary>在指定分类间按原子权重选出最能代表当前组合的稳定名称词干。</summary>
@@ -697,16 +904,6 @@ internal static class CoreFormationNameComposer
             .ThenBy(item => item.asset.id, StringComparer.Ordinal)
             .Select(item => item.asset.PickNameStem(seed))
             .FirstOrDefault() ?? string.Empty;
-    }
-
-    /// <summary>按候选顺序返回首个非空词干。</summary>
-    private static string First(params string[] values)
-    {
-        for (var i = 0; i < values.Length; i++)
-        {
-            if (!string.IsNullOrEmpty(values[i])) return values[i];
-        }
-        return string.Empty;
     }
 
 }
