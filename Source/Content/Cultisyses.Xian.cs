@@ -130,19 +130,31 @@ public partial class Cultisyses
             "#009EC7"));
 
         CoreFormationSnapshot qiFormation = actor.GetComponent<QiRefinementState>().formation;
+        string qiName = qiFormation.IsFinalized
+            ? qiFormation.canonical_name
+            : qiFormation.IsValid
+                ? "Cultiway.RealmPage.QiRefinement.Forming".Localize()
+                : "Cultiway.RealmPage.QiRefinement.Unformed".Localize();
         lines.Add(new CultisysDisplayLine(
             "Cultiway.CultisysTooltip.Xian.QiRefinement",
             string.Format("Cultiway.CultisysTooltip.Format.QiRefinement".Localize(),
-                qiFormation.IsValid ? qiFormation.canonical_name : "--",
+                qiName,
+                qiFormation.IsFinalized ? qiFormation.quality.GetName() : "--",
                 qiFormation.IsValid ? qiFormation.refinement : 0,
                 qiFormation.IsValid ? qiFormation.strength : 0f)));
 
         if (actor.TryGetComponent(out XianBase xianBase))
         {
             int completed = CountFoundationParts(ref xianBase);
+            CoreFormationSnapshot foundation = xianBase.formation;
             lines.Add(new CultisysDisplayLine(
                 "Cultiway.CultisysTooltip.Xian.Foundation",
-                string.Format("Cultiway.CultisysTooltip.Format.Foundation".Localize(), completed,
+                string.Format("Cultiway.CultisysTooltip.Format.Foundation".Localize(),
+                    foundation.IsFinalized
+                        ? foundation.canonical_name
+                        : "Cultiway.RealmPage.Foundation.Forming".Localize(),
+                    foundation.IsFinalized ? foundation.quality.GetName() : "--",
+                    completed,
                     xianBase.GetStrength())));
         }
         if (actor.HasComponent<Jindan>())

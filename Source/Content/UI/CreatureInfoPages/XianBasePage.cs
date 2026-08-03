@@ -21,6 +21,6 @@ public sealed class XianBasePage : MonoBehaviour
     public static void Show(CreatureInfoPage page, Actor actor)
     {
         XianBasePage component = page.GetComponent<XianBasePage>();
-        component.detailView.SetContent(new FoundationPageModel(actor.GetExtend().GetXianBase()));
+        component.detailView.SetContent(new FoundationPageModel(actor.GetExtend()));
     }
 }

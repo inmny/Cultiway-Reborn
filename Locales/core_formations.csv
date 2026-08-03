@@ -64,8 +64,10 @@ Cultiway.CoreFormation.Page.Skill,代表法术：{0}
 Cultiway.CoreFormation.Label.Jindan,金丹
 Cultiway.CoreFormation.Label.Yuanying,元婴
 Cultiway.RealmPage.Foundation.Name,筑基
-Cultiway.RealmPage.Foundation.Progress,道基完成 {0}/{1}
+Cultiway.RealmPage.Foundation.Forming,仙基尚未定型
+Cultiway.RealmPage.Foundation.Progress,仙基熬炼 {0}/{1}
 Cultiway.RealmPage.Foundation.Rating,综合评级 {0}
+Cultiway.RealmPage.Foundation.Result,品阶 {0} · 强度 {1}
 Cultiway.RealmPage.Foundation.ThreeFlowers,精气神三花
 Cultiway.RealmPage.Foundation.FiveQi,五行五气
 Cultiway.RealmPage.Foundation.Jing,精
@@ -73,6 +75,15 @@ Cultiway.RealmPage.Foundation.Qi,气
 Cultiway.RealmPage.Foundation.Shen,神
 Cultiway.RealmPage.Foundation.Unformed,未凝
 Cultiway.RealmPage.Foundation.RawStrength,原始强度 {0}
+Cultiway.RealmPage.QiRefinement.Name,真气
+Cultiway.RealmPage.QiRefinement.Unformed,尚未凝气
+Cultiway.RealmPage.QiRefinement.Forming,真气尚未定型
+Cultiway.RealmPage.QiRefinement.Summary,{0}层 · 强度 {1}
+Cultiway.RealmPage.QiRefinement.Refinement,真气凝练
+Cultiway.RealmPage.QiRefinement.NextMilestone,下一节点 {0}层
+Cultiway.RealmPage.QiRefinement.Finalized,九层已定型
+Cultiway.RealmPage.Archived,{0} · 已归档
+Cultiway.RealmPage.Lineage,前序谱系
 Cultiway.RealmPage.CoreFormation.Quality,品阶 {0}
 Cultiway.RealmPage.Jindan.Summary,{0}转 · 强度 {1}
 Cultiway.RealmPage.Jindan.Evolution,演化进度
@@ -83,8 +94,8 @@ Cultiway.RealmPage.Yuanying.Lineage,金丹谱系
 Cultiway.RealmPage.Yuanying.LineageEmpty,无
 Cultiway.RealmPage.Elements,元素构成
 Cultiway.RealmPage.Atoms,核心构成
-Cultiway.RealmPage.Atom.Inherited,金丹传承
-Cultiway.RealmPage.Atom.Manifested,元婴显化
+Cultiway.RealmPage.Atom.Inherited,谱系继承
+Cultiway.RealmPage.Atom.Manifested,本境显化
 Cultiway.RealmPage.Atom.Active,当前已显化
 Cultiway.RealmPage.Skill.Title,代表法术
 Cultiway.RealmPage.Skill.Empty,尚未形成代表法术

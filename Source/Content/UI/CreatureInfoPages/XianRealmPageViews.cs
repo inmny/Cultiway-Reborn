@@ -235,14 +235,14 @@ internal sealed class FoundationMetricGroup
         Color[] colors)
     {
         GameObject root = UiLayout.Create(parent, objectName, false,
-            XianRealmPagePresentation.PageWidth, 64f, 3f);
+            XianRealmPagePresentation.PageWidth, 60f, 3f);
         Text heading = UiElements.CreateText(root.transform, "Title", title,
-            XianRealmPagePresentation.PageWidth, 15f, 8, TextAnchor.MiddleLeft, FontStyle.Bold);
+            XianRealmPagePresentation.PageWidth, 13f, 8, TextAnchor.MiddleLeft, FontStyle.Bold);
         heading.color = UiTheme.Current.Palette.AccentText;
         UiWeightedSegmentBar bar = UiWeightedSegmentBar.Create(root.transform, "Composition", 246f, 8f);
 
         GameObject row = UiLayout.Create(root.transform, "Metrics", true,
-            XianRealmPagePresentation.PageWidth, 35f, 5f, TextAnchor.MiddleCenter);
+            XianRealmPagePresentation.PageWidth, 33f, 5f, TextAnchor.MiddleCenter);
         var cells = new FoundationMetricCell[labels.Length];
         for (var i = 0; i < cells.Length; i++)
         {
@@ -360,17 +360,17 @@ internal sealed class CoreFormationAtomEntry
         icon.sprite = SpriteTextureLoader.getSprite(atom.Asset.icon_path);
         label.text = atom.Asset.GetName();
 
-        bool inherited = realm == CoreFormationRealm.Yuanying && atom.State.inherited;
+        bool inherited = atom.State.inherited;
+        Color realmColor = XianRealmPagePresentation.GetRealmColor(realm);
         label.color = inherited
-            ? Color.Lerp(XianRealmPagePresentation.JindanPrimary, UiTheme.Current.Palette.MutedText, 0.35f)
-            : realm == CoreFormationRealm.Yuanying
-                ? XianRealmPagePresentation.YuanyingPrimary
-                : UiTheme.Current.Palette.PrimaryText;
+            ? Color.Lerp(
+                XianRealmPagePresentation.GetInheritedRealmColor(realm),
+                UiTheme.Current.Palette.MutedText,
+                0.35f)
+            : realmColor;
         string origin = inherited
             ? "Cultiway.RealmPage.Atom.Inherited".Localize()
-            : realm == CoreFormationRealm.Yuanying
-                ? "Cultiway.RealmPage.Atom.Manifested".Localize()
-                : "Cultiway.RealmPage.Atom.Active".Localize();
+            : "Cultiway.RealmPage.Atom.Manifested".Localize();
         tooltipModel = CoreFormationEffectPresentation.BuildAtomTooltip(
             actor,
             atom.Asset,
