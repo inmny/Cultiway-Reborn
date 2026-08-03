@@ -540,7 +540,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
                 && city.hasBuildingType("type_bonfire")
                 && !BonfireInBounds(city, stored.Value))
             {
-                RemoveWallRing(stored.Value); // 拆除旧内墙
+                RemoveWallRing(stored.Value, city); // 拆除旧内墙
                 stage = WALL_STAGE_NONE;
                 SetWallStage(city, WALL_STAGE_NONE);
                 SetInnerBounds(city, default);
@@ -558,6 +558,8 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             else if (stage == WALL_STAGE_INNER)
             {
                 // 二次：内墙升级石墙（宽2，内侧间隔箭塔）+ 外墙木墙（宽1，拆旧外墙再建）
+                RemoveWallRing(inner.Value, city);
+                RemoveWallTypeInBounds(inner.Value, TopTileLibrary.wall_wild);
                 PlaceWallRing(a, inner.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
                 ReplaceOuterWall(a, outer.Value, 1, TopTileLibrary.wall_wild, 0);
                 SetWallStage(city, WALL_STAGE_BOTH);
@@ -565,6 +567,8 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             else
             {
                 // 三次(stage 2→3) 或 被毁重建(stage 3)：内墙石墙宽2 + 外墙石墙宽2（拆旧外墙再建）
+                RemoveWallRing(inner.Value, city);
+                RemoveWallTypeInBounds(inner.Value, TopTileLibrary.wall_wild);
                 PlaceWallRing(a, inner.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
                 ReplaceOuterWall(a, outer.Value, 2, TopTileLibrary.wall_order, WALL_TOWER_INTERVAL);
                 SetWallStage(city, WALL_STAGE_FORTRESS);
@@ -573,16 +577,26 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         };
     }
 
+    /// <summary>该 tile 是否为本城市领土内的可通行陆地。城墙与箭塔都只在此范围内生成。</summary>
+    private static bool InTerritory(WorldTile tile, City city)
+    {
+        var type = tile?.Type;
+        return tile?.zone != null && tile.zone.city == city && !tile.IsWater()
+                                  && type != null && !type.mountains && !type.summit;
+    }
+
     /// <summary>
-    /// 放置矩形城墙：生成 ring → 直接设置城墙 top_tile（不拆除建筑、不改变城市 zones）。
+    /// 沿目标范围与城市陆地交集的内缘放置闭合城墙（不拆除建筑、不改变城市 zones）。
+    /// <b>只在本城市领土内的可通行陆地生成</b>，边缘随城市边界和水岸弯折，不要求保持矩形。
     /// <b>箭塔只在两格宽石墙(wall_order)的内侧圈、按 towerInterval 间距放置</b>（木墙/单格墙都不放）。
     /// </summary>
     private static void PlaceWallRing(Actor actor, WallShapeHelper.Bounds b, int width, TopTileType wall, int towerInterval)
     {
         var city = actor.city;
-        var ring = WallShapeHelper.ComputeWallRing(b, width);
+        var ring = WallShapeHelper.ComputeWallRing(b, width, city);
         foreach (var tile in ring)
         {
+            if (!InTerritory(tile, city)) continue; // 领土外不建墙
             // 直接设置城墙 top_tile；不用 MapAction.terraformTop（它会摧毁路径建筑，导致城市 zone 被放弃），
             // 也不主动拆除建筑——城墙与现有建筑共存，不影响城市 zones
             tile.setTopTileType(wall);
@@ -592,10 +606,11 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         if (towerInterval > 0 && width >= 2 && wall == TopTileLibrary.wall_order)
         {
             string tower_id = GetWatchTowerId(city);
-            var inner = WallShapeHelper.ComputeWallRing(b, 1); // 内侧圈
+            var inner = WallShapeHelper.ComputeWallRing(b, 1, city); // 内侧圈
             for (int i = 0; i < inner.Count; i += towerInterval)
             {
                 var tile = inner[i];
+                if (!InTerritory(tile, city)) continue; // 领土外不放箭塔
                 if (tile.building != null) continue;
                 var bb = World.world.buildings.addBuilding(tower_id, tile);
                 ModClass.LogInfo($"Place tower(id: {bb.data.id}), its kingdom: null?{bb.kingdom==null}, id?{bb.kingdom?.id}, asset:{bb.kingdom?.asset.id}");
@@ -632,8 +647,8 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         var inner = GetInnerBounds(city);
         var outer = GetOuterBounds(city);
         if (inner == null || outer == null) return false;
-        float innerRatio = WallShapeHelper.ExistingWallRatio(inner.Value, 2);
-        float outerRatio = WallShapeHelper.ExistingWallRatio(outer.Value, 2);
+        float innerRatio = WallShapeHelper.ExistingWallRatio(inner.Value, 2, city);
+        float outerRatio = WallShapeHelper.ExistingWallRatio(outer.Value, 2, city);
         return innerRatio >= WALL_REBUILD_RATIO && outerRatio >= WALL_REBUILD_RATIO;
     }
 
@@ -703,9 +718,9 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     {
         if (city?.data == null) return;
         var inner = GetInnerBounds(city);
-        if (inner != null) RemoveWallRing(inner.Value);
+        if (inner != null) RemoveWallRing(inner.Value, city);
         var outer = GetOuterBounds(city);
-        if (outer != null) RemoveWallRing(outer.Value);
+        if (outer != null) RemoveWallRing(outer.Value, city);
         SetInnerBounds(city, default);
         SetOuterBounds(city, default);
         SetWallStage(city, WALL_STAGE_NONE);
@@ -743,7 +758,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         if (city != null && !city.hasBuildingType("type_bonfire"))
         {
             var old = GetInnerBounds(city);
-            if (old != null) RemoveWallRing(old.Value); // 自动清除旧内墙墙体
+            if (old != null) RemoveWallRing(old.Value, city); // 自动清除旧内墙墙体
             SetInnerBounds(city, default);
         }
         var stored = GetInnerBounds(city);
@@ -785,15 +800,41 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     {
         var city = actor.city;
         var old = GetOuterBounds(city);
-        if (old != null) RemoveWallRing(old.Value); // 拆除旧外墙（2 圈覆盖宽1/宽2）
+        if (old != null) RemoveWallRing(old.Value, city); // 拆除旧外墙（2 圈覆盖宽1/宽2）
+        if (old != null && wall == TopTileLibrary.wall_order)
+            RemoveWallTypeInBounds(old.Value, TopTileLibrary.wall_wild);
         PlaceWallRing(actor, b, width, wall, towerInterval);
         SetOuterBounds(city, b); // 记录新外墙 bounds
     }
 
-    /// <summary>清除给定 bounds 上的城墙 top_tile（不拆建筑、不动地形）。用于拆除上一轮旧外墙。</summary>
-    private static void RemoveWallRing(WallShapeHelper.Bounds b)
+    /// <summary>清理记录范围内指定类型的旧墙。用于轮廓随领土变化后无法按当前边界重算出的残墙。</summary>
+    private static void RemoveWallTypeInBounds(WallShapeHelper.Bounds b, TopTileType wall)
     {
-        foreach (var tile in WallShapeHelper.ComputeWallRing(b, 2)) // 2 圈覆盖旧外墙宽度
+        int minX = Math.Max(0, b.cx - b.hx);
+        int maxX = Math.Min(MapBox.width - 1, b.cx + b.hx);
+        int minY = Math.Max(0, b.cy - b.hy);
+        int maxY = Math.Min(MapBox.height - 1, b.cy + b.hy);
+        for (int y = minY; y <= maxY; y++)
+        {
+            for (int x = minX; x <= maxX; x++)
+            {
+                var tile = World.world.GetTileSimple(x, y);
+                if (tile?.top_type == wall) tile.setTopTileType(null);
+            }
+        }
+    }
+
+    /// <summary>清除给定 bounds 上的城墙 top_tile（不拆建筑、不动地形）。用于拆除上一轮旧外墙。</summary>
+    private static void RemoveWallRing(WallShapeHelper.Bounds b, City city)
+    {
+        // 不裁剪门洞，确保升级后新增的道路/港口通道不会被旧墙堵住。
+        foreach (var tile in WallShapeHelper.ComputeWallRing(b, 2, city, false))
+        {
+            if (tile != null && tile.top_type != null && tile.top_type.wall)
+                tile.setTopTileType(null);
+        }
+        // 兼容清理旧版矩形算法留下的墙体。
+        foreach (var tile in WallShapeHelper.ComputeWallRing(b, 2))
         {
             if (tile != null && tile.top_type != null && tile.top_type.wall)
                 tile.setTopTileType(null);
