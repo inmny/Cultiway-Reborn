@@ -4,6 +4,9 @@ namespace Cultiway.Content.Components;
 
 public struct XianBase : IComponent
 {
+    /// <summary>从真气谱系继承并由三花五气持续塑造的仙基成果。</summary>
+    public CoreFormationSnapshot formation;
+
     public float jing;
     public float qi;
     public float shen;
@@ -16,7 +19,9 @@ public struct XianBase : IComponent
 
     public float GetStrength()
     {
-        return (GetThreeHuaStrength() + GetFiveQiStrength()) / 2;
+        return formation.IsValid
+            ? formation.strength
+            : (GetThreeHuaStrength() + GetFiveQiStrength()) / 2;
     }
 
     public float GetThreeHuaStrength()
@@ -27,5 +32,13 @@ public struct XianBase : IComponent
     public float GetFiveQiStrength()
     {
         return (iron + wood + water + fire + earth) / 5;
+    }
+
+    /// <summary>复制仙基成果内部数组，避免传承后的角色共享可变快照。</summary>
+    public readonly XianBase DeepClone()
+    {
+        var clone = this;
+        clone.formation = formation.DeepClone();
+        return clone;
     }
 }

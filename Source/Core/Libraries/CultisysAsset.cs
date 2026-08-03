@@ -232,7 +232,7 @@ public abstract class BaseCultisysAsset : Asset
 /// <summary>绑定具体体系组件、等级属性、技能列表和进阶图的修炼体系资产。</summary>
 public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysComponent
 {
-    /// <summary>读取体系组件时可附加执行的体系专属回调签名。</summary>
+    /// <summary>角色首次获得体系组件后执行的体系专属初始化回调签名。</summary>
     public delegate void OnGet(ActorExtend ae, CultisysAsset<T> cultisys, ref T component);
 
     /// <summary>角色首次获得本体系时使用的默认组件值。</summary>
@@ -287,11 +287,18 @@ public class CultisysAsset<T> : BaseCultisysAsset where T : struct, ICultisysCom
     /// <summary>各主等级累计可用的只读技能表。</summary>
     public ReadOnlyCollection<ReadOnlyCollection<string>> Skills { get; private set; }
 
-    /// <summary>读取体系组件时执行的可选专属回调。</summary>
+    /// <summary>角色首次获得体系组件后执行的可选专属初始化回调。</summary>
     public OnGet OnGetAction { get; private set; }
 
     /// <summary>本体系所有境界、过渡、结算和同步规则的唯一进阶定义。</summary>
     public CultisysProgressionProfile<T> Progression { get; }
+
+    /// <summary>配置角色首次获得本体系后执行的专属初始化，并返回当前资产。</summary>
+    public CultisysAsset<T> ConfigureOnAcquired(OnGet action)
+    {
+        OnGetAction = action;
+        return this;
+    }
 
     public override bool IsOwnedBy(ActorExtend actor)
     {

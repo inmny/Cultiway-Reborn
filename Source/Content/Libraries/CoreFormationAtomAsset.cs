@@ -12,14 +12,20 @@ public enum CoreFormationRealmMask : byte
     /// <summary>不参与任何境界组合。</summary>
     None = 0,
 
+    /// <summary>可在凝成命名真气时被选择。</summary>
+    QiRefinement = 1,
+
+    /// <summary>可在熬炼仙基时被选择。</summary>
+    Foundation = 2,
+
     /// <summary>可在结丹时被选择。</summary>
-    Jindan = 1,
+    Jindan = 4,
 
     /// <summary>可在结婴时被选择。</summary>
-    Yuanying = 2,
+    Yuanying = 8,
 
-    /// <summary>可用于金丹和元婴。</summary>
-    All = Jindan | Yuanying
+    /// <summary>可用于全部四种仙道成果。</summary>
+    All = QiRefinement | Foundation | Jindan | Yuanying
 }
 
 /// <summary>组合器每个槽位只能选取一个原子的分类。</summary>
@@ -44,7 +50,7 @@ public enum CoreFormationAtomCategory : byte
     Transformation
 }
 
-/// <summary>金丹与元婴组合时读取的规则原子。</summary>
+/// <summary>真气、仙基、金丹与元婴组合时读取的规则原子。</summary>
 public sealed class CoreFormationAtomAsset : Asset
 {
     /// <summary>该原子允许出现的境界。</summary>
