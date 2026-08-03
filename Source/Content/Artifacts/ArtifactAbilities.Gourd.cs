@@ -265,7 +265,7 @@ public partial class ArtifactAbilities
                 ref storage,
                 ArtifactStorageOperations.Wakan,
                 Mathf.Min(available, ability.GetNumber(StorePerTrigger)));
-            xian.wakan -= moved;
+            WakanResourceService.Spend(controller, ref xian, moved);
             return;
         }
 

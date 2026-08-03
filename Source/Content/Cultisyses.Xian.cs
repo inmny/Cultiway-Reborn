@@ -738,7 +738,7 @@ public partial class Cultisyses
     private static void ApplyJindanRefinementCost(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                                   ref Xian component, object payload)
     {
-        component.wakan *= 0.8f;
+        WakanResourceService.Set(actor, ref component, component.wakan * 0.8f);
     }
 
     /// <summary>金丹淬炼层数加一，并在三、六、九转推进预定的组合演化。</summary>
@@ -768,7 +768,7 @@ public partial class Cultisyses
     private static void ApplyJindanRefinementCapCost(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                                      ref Xian component, object payload)
     {
-        component.wakan *= 0.6f;
+        WakanResourceService.Set(actor, ref component, component.wakan * 0.6f);
     }
 
     /// <summary>继承金丹组合并根据结婴时的神识、功法与语义生成元婴蜕变。</summary>
@@ -848,7 +848,7 @@ public partial class Cultisyses
     private static void ApplySmallBreakthroughFailure(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                                       ref Xian component, object payload)
     {
-        component.wakan = 0f;
+        WakanResourceService.Clear(actor, ref component);
         actor.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeFailed);
     }
 
@@ -856,7 +856,7 @@ public partial class Cultisyses
     private static void ApplyLargeBreakthroughFailure(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                                       ref Xian component, object payload)
     {
-        component.wakan = 0f;
+        WakanResourceService.Clear(actor, ref component);
         actor.EnhanceSkillRandomly(SkillEnhanceSources.LargeUpgradeFailed);
     }
 
@@ -1139,8 +1139,8 @@ public partial class Cultisyses
         var cultivate_method = cultibook?.GetCultivateMethod() ?? CultivateMethods.Standard;
         var efficiency = CultivationEfficiencyResolver.Resolve(actor_extend, cultibook, cultivate_method);
         to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * efficiency.FinalMultiplier);
-        xian.wakan += to_take;
-        WakanMap.I.map[tile_pos.x, tile_pos.y] -= to_take;
+        float actual = WakanResourceService.Gain(actor_extend, ref xian, to_take);
+        WakanMap.I.map[tile_pos.x, tile_pos.y] -= actual;
     }
     internal static void OutWakanAndCultivate(ActorExtend actor_extend, ref Xian xian)
     {
@@ -1154,7 +1154,7 @@ public partial class Cultisyses
         var cultivate_method = cultibook?.GetCultivateMethod() ?? CultivateMethods.Standard;
         var efficiency = CultivationEfficiencyResolver.Resolve(actor_extend, cultibook, cultivate_method);
         to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * efficiency.FinalMultiplier);
-        xian.wakan += to_take;
+        WakanResourceService.Gain(actor_extend, ref xian, to_take);
         var dirty_wakan_to_take = Mathf.Min(DirtyWakanMap.I.map[tile_pos.x, tile_pos.y],
             to_take * ContentSetting.DirtyWakanToWakanRatio);
         WakanMap.I.map[tile_pos.x, tile_pos.y] += dirty_wakan_to_take;

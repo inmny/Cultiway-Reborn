@@ -78,9 +78,10 @@ public static class ActorExtendTools
         if (value <= 0) return false;
         if (!ae.HasCultisys<Xian>()) return false;
         ref Xian xian = ref ae.GetCultisys<Xian>();
-        xian.wakan = Mathf.Min(xian.wakan + value,
-            Mathf.Max(xian.wakan, ae.Base.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit));
-        return true;
+        float limit = Mathf.Max(xian.wakan,
+            ae.Base.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit);
+        return WakanResourceService.Gain(
+            ae, ref xian, Mathf.Min(value, Mathf.Max(0f, limit - xian.wakan))) > 0f;
     }
 
     public static bool HasCultibook(this ActorExtend ae)
@@ -206,7 +207,7 @@ public static class ActorExtendTools
             if (ae.HasCultisys<Xian>())
             {
                 ref var xian = ref ae.GetCultisys<Xian>();
-                xian.wakan *= 0.5f;
+                WakanResourceService.Set(ae, ref xian, xian.wakan * 0.5f);
             }
             return false;
         }

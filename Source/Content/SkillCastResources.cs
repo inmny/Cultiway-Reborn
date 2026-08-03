@@ -41,7 +41,8 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
 
     private static void WriteWakan(ActorExtend caster, float amount)
     {
-        caster.GetCultisys<Xian>().wakan = Mathf.Max(0f, amount);
+        ref Xian xian = ref caster.GetCultisys<Xian>();
+        WakanResourceService.Set(caster, ref xian, amount);
     }
 
     private static float QuoteWakan(ActorExtend caster, Entity skill, float demand)

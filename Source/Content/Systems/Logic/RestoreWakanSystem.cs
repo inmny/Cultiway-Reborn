@@ -2,6 +2,7 @@ using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core.Components;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
@@ -32,8 +33,8 @@ public class RestoreWakanSystem : QuerySystem<Xian, ActorBinder>
             Vector2Int tile_pos = a.current_tile.pos;
             var to_take = Mathf.Log10(WakanMap.I.map[tile_pos.x, tile_pos.y] + 1);
             to_take = Mathf.Min(max_wakan - xian.wakan, WakanMap.I.map[tile_pos.x, tile_pos.y], to_take * a.stats[BaseStatses.WakanRegen.id]);
-            WakanMap.I.map[tile_pos.x, tile_pos.y] -= to_take;
-            xian.wakan += to_take;
+            float actual = WakanResourceService.Gain(a.GetExtend(), ref xian, to_take);
+            WakanMap.I.map[tile_pos.x, tile_pos.y] -= actual;
         }));
     }
 }

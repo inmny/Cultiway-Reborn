@@ -57,10 +57,9 @@ public class ContinuousCultivateSystem : QuerySystem<Xian, ActorBinder>
             var baseGain = 0.1f * efficiency.FinalMultiplier; // 每秒基础收益
             var wakanGain = baseGain * UpdateInterval;
 
-            wakanGain = Mathf.Min(wakanGain, maxWakan - xian.wakan);
-            if (wakanGain > 0)
+            wakanGain = WakanResourceService.Gain(ae, ref xian, wakanGain);
+            if (wakanGain > 0f)
             {
-                xian.wakan += wakanGain;
                 if (method.OnSideEffect != null)
                 {
                     _pendingSideEffects.Add(new PendingSideEffect(method, ae, wakanGain));

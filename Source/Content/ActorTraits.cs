@@ -89,7 +89,7 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
             else
             {
                 ref var xian = ref ae.GetCultisys<Xian>();
-                xian.wakan = a.stats[BaseStatses.MaxWakan.id];
+                WakanResourceService.Set(ae, ref xian, a.stats[BaseStatses.MaxWakan.id]);
                 Cultisyses.Xian.TryAdvanceNaturally(ae);
             }
 

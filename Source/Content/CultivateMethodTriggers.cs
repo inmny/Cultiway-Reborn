@@ -55,12 +55,9 @@ public static class CultivateMethodTriggers
         var efficiency = CultivationEfficiencyResolver.Resolve(killer, mainCultibook, method);
         var wakanGain = victimPower * efficiency.FinalMultiplier;
         
-        var maxWakan = killer.Base.stats[BaseStatses.MaxWakan.id];
-        wakanGain = Mathf.Min(wakanGain, maxWakan - xian.wakan);
-        if (wakanGain > 0)
+        wakanGain = WakanResourceService.Gain(killer, ref xian, wakanGain);
+        if (wakanGain > 0f)
         {
-            xian.wakan += wakanGain;
-            
             method.OnSideEffect?.Invoke(killer, wakanGain);
         }
     }
@@ -91,12 +88,9 @@ public static class CultivateMethodTriggers
         var basePower = attacker.GetPowerLevel() + 1;
         var wakanGain = basePower * 0.1f * efficiency.FinalMultiplier;
         
-        var maxWakan = attacker.Base.stats[BaseStatses.MaxWakan.id];
-        wakanGain = Mathf.Min(wakanGain, maxWakan - xian.wakan);
-        if (wakanGain > 0)
+        wakanGain = WakanResourceService.Gain(attacker, ref xian, wakanGain);
+        if (wakanGain > 0f)
         {
-            xian.wakan += wakanGain;
-            
             method.OnSideEffect?.Invoke(attacker, wakanGain);
         }
     }
@@ -132,12 +126,9 @@ public static class CultivateMethodTriggers
         // 根据受到的伤害和攻击者强度计算灵力收益（受伤越重，收益越高）
         var wakanGain = damage * 0.05f * attackerPower * efficiency.FinalMultiplier;
         
-        var maxWakan = victim.Base.stats[BaseStatses.MaxWakan.id];
-        wakanGain = Mathf.Min(wakanGain, maxWakan - xian.wakan);
-        if (wakanGain > 0)
+        wakanGain = WakanResourceService.Gain(victim, ref xian, wakanGain);
+        if (wakanGain > 0f)
         {
-            xian.wakan += wakanGain;
-            
             method.OnSideEffect?.Invoke(victim, wakanGain);
         }
     }
