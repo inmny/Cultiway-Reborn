@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Content.Components;
+using Cultiway.Content.Const;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
@@ -15,7 +16,7 @@ public static class CoreFormationEffectResolver
     /// <summary>角色当前核心形成快照及其强度上下文。</summary>
     public readonly struct FormationSource
     {
-        /// <summary>金丹或元婴的组合快照。</summary>
+        /// <summary>角色当前境界唯一生效的成果快照。</summary>
         public readonly CoreFormationSnapshot Snapshot;
 
         /// <summary>当前显化阶段。</summary>
@@ -33,17 +34,41 @@ public static class CoreFormationEffectResolver
         }
     }
 
-    /// <summary>取得角色当前有效的元婴或金丹形成来源，元婴优先。</summary>
+    /// <summary>严格按角色当前仙道境界取得唯一生效成果，历史归档不参与运行时解析。</summary>
     public static bool TryGetFormation(ActorExtend actor, out FormationSource source)
     {
-        if (actor != null && actor.TryGetComponent(out Yuanying yuanying) && yuanying.formation.IsValid)
+        if (actor == null || !actor.HasCultisys<Xian>())
+        {
+            source = default;
+            return false;
+        }
+
+        int level = actor.GetCultisys<Xian>().CurrLevel;
+        if (level >= XianLevels.Yuanying &&
+            actor.TryGetComponent(out Yuanying yuanying) && yuanying.formation.IsValid)
         {
             source = new FormationSource(yuanying.formation, yuanying.stage, yuanying.strength);
             return true;
         }
-        if (actor != null && actor.TryGetComponent(out Jindan jindan) && jindan.formation.IsValid)
+        if (level == XianLevels.Jindan &&
+            actor.TryGetComponent(out Jindan jindan) && jindan.formation.IsValid)
         {
             source = new FormationSource(jindan.formation, jindan.stage, jindan.strength);
+            return true;
+        }
+        if (level == XianLevels.XianBase &&
+            actor.TryGetComponent(out XianBase foundation) && foundation.formation.IsValid)
+        {
+            source = new FormationSource(
+                foundation.formation,
+                foundation.formation.refinement,
+                foundation.formation.strength);
+            return true;
+        }
+        if (level == XianLevels.QiRefinement &&
+            actor.TryGetComponent(out QiRefinementState qi) && qi.formation.IsValid)
+        {
+            source = new FormationSource(qi.formation, qi.formation.refinement, qi.formation.strength);
             return true;
         }
         source = default;
@@ -214,17 +239,23 @@ public static class CoreFormationEffectResolver
         return false;
     }
 
-    /// <summary>按境界、形成强度和原子贡献计算 0.75 至 2.5 的有界倍率。</summary>
+    /// <summary>按境界、形成强度和原子贡献计算 0.4 至 2.5 的有界倍率。</summary>
     private static float ResolvePotency(
         FormationSource source,
         CoreFormationAtomState state,
         CoreFormationEffectDefinition definition)
     {
-        float realm = source.Snapshot.realm == CoreFormationRealm.Yuanying ? 1.25f : 1f;
+        float realm = source.Snapshot.realm switch
+        {
+            CoreFormationRealm.QiRefinement => 0.55f,
+            CoreFormationRealm.Foundation => 0.75f,
+            CoreFormationRealm.Jindan => 1f,
+            _ => 1.25f
+        };
         float strength = 1f + 0.12f * Mathf.Log(1f + Mathf.Clamp(source.Strength, 0f, 31f), 2f);
         float reference = Mathf.Max(0.01f, definition.reference_weight);
         float weight = Mathf.Lerp(0.85f, 1.15f, Mathf.Clamp01(state.weight / reference));
-        return Mathf.Clamp(realm * strength * weight, 0.75f, 2.5f);
+        return Mathf.Clamp(realm * strength * weight, 0.4f, 2.5f);
     }
 
     /// <summary>把新解析结果合并进列表，同族优先 rank，其次优先效果倍率。</summary>
