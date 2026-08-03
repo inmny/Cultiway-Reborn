@@ -81,6 +81,10 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         // 默认摇动；以下群系的树不摇动：血肉/墓园/巨灵/烛火/珊瑚/知识
         SetupTree(BambooTree, "biome_bamboo");
         SetupTree(CandleTree, "biome_candle", wobble: false);
+        // 烛火树：夜晚/黑暗纪元时在树冠火焰处亮起圆形光晕（原版房屋光晕机制，drawLightAreas 自动绘制）
+        CandleTree.draw_light_area = true;
+        CandleTree.draw_light_size = 0.6f;
+        CandleTree.draw_light_area_offset_y = 1.5f;
         SetupTree(CemeteryTree, "biome_cemetery", wobble: false);
         SetupTree(CoralTree, "biome_coral", wobble: false);
         SetupTree(DarkTree, "biome_dark");
@@ -132,6 +136,10 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     {
         SetupPlant(BambooPlant);
         SetupPlant(CandlePlant);
+        // 烛火植物：夜晚/黑暗纪元时亮起圆形光晕（原版房屋光晕机制）
+        CandlePlant.draw_light_area = true;
+        CandlePlant.draw_light_size = 0.3f;
+        CandlePlant.draw_light_area_offset_y = 0.4f;
         SetupPlant(CemeteryPlant);
         SetupPlant(CoralPlant);
         SetupPlant(DarkPlant);
