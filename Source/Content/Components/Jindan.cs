@@ -35,7 +35,7 @@ public struct Jindan : IComponent
     /// <summary>返回组合快照固化的规范名称。</summary>
     public string GetName()
     {
-        return formation.IsValid ? formation.canonical_name : string.Empty;
+        return formation.IsFinalized ? formation.canonical_name : string.Empty;
     }
 
     /// <summary>返回金丹形成时固化的品阶。</summary>

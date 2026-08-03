@@ -92,7 +92,7 @@ public partial class Cultisyses
         if (part == FoundationPart.None) return ProgressionResolution.NoProgress();
         float quality = ResolveQiRefinementSample(actor).Quality;
         float value = ResolveFoundationValue(actor, part, quality);
-        return ProgressionResolution.Success(new FoundationStepPayload(part, value));
+        return ProgressionResolution.Success(new FoundationStepPayload(part, value, quality));
     }
 
     /// <summary>按精、气、神、火、木、土、金、水顺序取得第一个尚未完成的筑基项。</summary>
@@ -223,7 +223,7 @@ public partial class Cultisyses
         var step = (FoundationStepPayload)payload;
         ref XianBase xianBase = ref actor.GetOrAddComponent<XianBase>();
         SetFoundationPart(ref xianBase, step.Part, step.Value);
-        CoreFormationComposer.RefineFoundation(actor, ref xianBase, step.Value);
+        CoreFormationComposer.RefineFoundation(actor, ref xianBase, step.Value, step.Quality);
         actor.MarkCultiwayStatsDirty();
         actor.MarkSemanticProfileDirty();
         CoreFormationEffectResolver.Synchronize(actor);
@@ -253,7 +253,7 @@ public partial class Cultisyses
         {
             QiRefinementSample settlement = ResolveQiRefinementSample(actor);
             CoreFormationComposer.RefineQi(
-                actor, ref qi.formation, settlement.Quality, settlement.Composition);
+                actor, ref qi, settlement.Quality, settlement.Composition, settlement.ElementSemantics);
         }
 
         XianBase xianBase = actor.TryGetComponent(out XianBase existing) ? existing : default;
@@ -266,7 +266,7 @@ public partial class Cultisyses
             float quality = ResolveQiRefinementSample(actor).Quality;
             float value = ResolveFoundationValue(actor, part, quality);
             SetFoundationPart(ref xianBase, part, value);
-            CoreFormationComposer.RefineFoundation(actor, ref xianBase, value);
+            CoreFormationComposer.RefineFoundation(actor, ref xianBase, value, quality);
         }
         return xianBase;
     }
@@ -280,7 +280,7 @@ public partial class Cultisyses
         {
             QiRefinementSample settlement = ResolveQiRefinementSample(actor);
             CoreFormationComposer.RefineQi(
-                actor, ref qi.formation, settlement.Quality, settlement.Composition);
+                actor, ref qi, settlement.Quality, settlement.Composition, settlement.ElementSemantics);
         }
         if (!actor.HasComponent<XianBase>())
         {
@@ -344,10 +344,11 @@ public partial class Cultisyses
     private sealed class FoundationStepPayload
     {
         /// <summary>创建一次筑基步骤的项目与结算强度载荷。</summary>
-        public FoundationStepPayload(FoundationPart part, float value)
+        public FoundationStepPayload(FoundationPart part, float value, float quality)
         {
             Part = part;
             Value = value;
+            Quality = Mathf.Clamp01(quality);
         }
 
         /// <summary>本次完成的三花或五气项目。</summary>
@@ -355,5 +356,8 @@ public partial class Cultisyses
 
         /// <summary>写入对应 XianBase 字段的筑基强度。</summary>
         public float Value { get; }
+
+        /// <summary>本次熬炼使用的独立品质样本。</summary>
+        public float Quality { get; }
     }
 }

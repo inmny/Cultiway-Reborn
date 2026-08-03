@@ -9,6 +9,15 @@ public struct QiRefinementState : IComponent
     /// <summary>真气的名称、品阶、强度、层数、组成、原子与谱系快照。</summary>
     public CoreFormationSnapshot formation;
 
+    /// <summary>前九层每次凝练品质的累计值。</summary>
+    public float quality_sum;
+
+    /// <summary>前九层每次元素组成与此前累计组成一致性的累计值。</summary>
+    public float composition_coherence_sum;
+
+    /// <summary>已经纳入最终品质计算的凝练样本数，最多为九。</summary>
+    public int quality_sample_count;
+
     /// <summary>已经完成的真气凝练层数；尚未形成真气时为零。</summary>
     public readonly int CompletedLayers => formation.IsValid ? formation.refinement : 0;
 

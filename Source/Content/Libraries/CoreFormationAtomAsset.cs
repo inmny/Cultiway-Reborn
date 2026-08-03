@@ -89,6 +89,9 @@ public sealed class CoreFormationAtomAsset : Asset
     /// <summary>按角色形成上下文计算适配分数的委托。</summary>
     internal Func<CoreFormationContext, float> ScoreContext;
 
+    /// <summary>结构原子在仙基定型时计算 0..1 结构契合度的委托。</summary>
+    internal Func<CoreFormationContext, float> EvaluateQualityContext;
+
     /// <summary>取得原子的本地化显示名称。</summary>
     public string GetName()
     {
@@ -114,5 +117,13 @@ public sealed class CoreFormationAtomAsset : Asset
     internal float ScoreFor(CoreFormationContext context)
     {
         return Math.Max(0f, ScoreContext?.Invoke(context) ?? 0f);
+    }
+
+    /// <summary>计算仙基定型时使用的结构契合度；结构资产必须显式配置该委托。</summary>
+    internal float EvaluateQualityFor(CoreFormationContext context)
+    {
+        if (EvaluateQualityContext == null)
+            throw new InvalidOperationException($"核心形成结构原子缺少品质评估委托: {id}");
+        return Math.Max(0f, Math.Min(1f, EvaluateQualityContext(context)));
     }
 }

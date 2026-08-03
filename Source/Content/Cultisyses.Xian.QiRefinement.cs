@@ -1,3 +1,4 @@
+using System;
 using Cultiway.Const;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
@@ -60,9 +61,10 @@ public partial class Cultisyses
         ref QiRefinementState state = ref actor.GetComponent<QiRefinementState>();
         CoreFormationComposer.RefineQi(
             actor,
-            ref state.formation,
+            ref state,
             sample.Quality,
-            sample.Composition);
+            sample.Composition,
+            sample.ElementSemantics);
         actor.MarkCultiwayStatsDirty();
         actor.MarkSemanticProfileDirty();
         CoreFormationEffectResolver.Synchronize(actor);
@@ -96,6 +98,7 @@ public partial class Cultisyses
         object payload)
     {
         CoreFormationSnapshot qi = actor.GetComponent<QiRefinementState>().formation;
+        if (!qi.IsFinalized) throw new InvalidOperationException("进入筑基前真气尚未完成九层定型。");
         XianBase seed = ResolveFoundationSeed(actor);
         ref XianBase foundation = ref actor.GetOrAddComponent<XianBase>();
         foundation = new XianBase
@@ -161,7 +164,8 @@ public partial class Cultisyses
         CultisysAsset<Xian> cultisys,
         ref Xian component)
     {
-        return actor.GetComponent<QiRefinementState>().CompletedLayers >= MinimumFoundationQiLayers
+        QiRefinementState state = actor.GetComponent<QiRefinementState>();
+        return state.CompletedLayers >= MinimumFoundationQiLayers && state.formation.IsFinalized
             ? ProgressionGateResult.Satisfied
             : ProgressionGateResult.NotReady("xian.qi_foundation_not_ready");
     }
@@ -194,7 +198,10 @@ public partial class Cultisyses
                         efficiency.Purity * 0.25f +
                         efficiency.MainCultibookAffinity * 0.30f +
                         methodQuality * 0.15f;
-        return new QiRefinementSample(quality, ResolveQiRefinementComposition(actor, cultibook, method));
+        return new QiRefinementSample(
+            quality,
+            ResolveQiRefinementComposition(actor, cultibook, method),
+            ResolveQiRefinementElementSemantics(actor, cultibook, method));
     }
 
     /// <summary>把修炼方式倍率按二倍增益映射压缩到 0..1。</summary>
@@ -277,14 +284,67 @@ public partial class Cultisyses
         for (var i = 0; i < ElementIndex.Count; i++) target[i] += source[i] * weight;
     }
 
+    /// <summary>按灵根、主修功法和修炼方式的同一组权重构造本层元素语义证据。</summary>
+    private static SemanticDescriptor ResolveQiRefinementElementSemantics(
+        ActorExtend actor,
+        CultibookAsset cultibook,
+        CultivateMethodAsset method)
+    {
+        var builder = new SemanticDescriptorBuilder();
+        ref ElementRoot root = ref actor.GetElementRoot();
+        AddQiRefinementElementEvidence(
+            builder,
+            ElementSemanticProfileService.ToComposition(root),
+            root.Type.Semantics,
+            0.5f);
+
+        if (cultibook != null)
+        {
+            TryResolveQiRefinementCultibookComposition(cultibook, out ElementComposition composition);
+            AddQiRefinementElementEvidence(builder, composition, cultibook.Semantics, 0.3f);
+        }
+
+        if (method != null)
+        {
+            ElementSemanticProfileService.TryResolveComposition(method.Semantics, out ElementComposition composition);
+            AddQiRefinementElementEvidence(builder, composition, method.Semantics, 0.2f);
+        }
+        return builder.Build();
+    }
+
+    /// <summary>把一个来源内部的元素语义归一化后按来源权重加入凝练样本。</summary>
+    private static void AddQiRefinementElementEvidence(
+        SemanticDescriptorBuilder target,
+        ElementComposition composition,
+        SemanticDescriptor descriptor,
+        float sourceWeight)
+    {
+        SemanticProfile profile = ElementSemanticProfileService.Build(composition, descriptor);
+        var ranked = profile.GetDirectRanked(
+            SemanticQueryPolicy.Default,
+            ModClass.L.SemanticFacetLibrary.Element);
+        float total = 0f;
+        for (var i = 0; i < ranked.Count; i++) total += Mathf.Max(0f, ranked[i].score.Net);
+        if (total <= 0f) throw new InvalidOperationException("凝练来源缺少可解析的元素语义。");
+        for (var i = 0; i < ranked.Count; i++)
+        {
+            float score = Mathf.Max(0f, ranked[i].score.Net);
+            if (score > 0f) target.Add(ranked[i].semantic, sourceWeight * score / total);
+        }
+    }
+
     /// <summary>一次真气凝练使用的冻结质量与元素组成。</summary>
     private readonly struct QiRefinementSample
     {
         /// <summary>创建一份已经归一化的真气凝练样本。</summary>
-        public QiRefinementSample(float quality, ElementComposition composition)
+        public QiRefinementSample(
+            float quality,
+            ElementComposition composition,
+            SemanticDescriptor elementSemantics)
         {
             Quality = Mathf.Clamp01(quality);
             Composition = composition;
+            ElementSemantics = elementSemantics;
         }
 
         /// <summary>灵根强度、纯度、功法契合与修炼方式共同决定的 0..1 质量。</summary>
@@ -292,5 +352,8 @@ public partial class Cultisyses
 
         /// <summary>灵根五成、主修功法三成、修炼方式两成形成的八元素组成。</summary>
         public ElementComposition Composition { get; }
+
+        /// <summary>与元素组成采用相同来源权重、同时保留风雷冰毒等具名元素的语义证据。</summary>
+        public SemanticDescriptor ElementSemantics { get; }
     }
 }

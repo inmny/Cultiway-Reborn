@@ -41,6 +41,7 @@ public struct Yuanying : IComponent
         this.formation.source_signature = sourceJindan.signature;
         this.formation.source_name = sourceJindan.canonical_name;
         this.formation.source_refinement = inheritedJindanStage;
+        this.formation.source_quality_score = sourceJindan.quality_score;
         this.formation.strength = strength;
         this.formation.refinement = 0;
     }
@@ -48,7 +49,7 @@ public struct Yuanying : IComponent
     /// <summary>返回组合快照固化的规范名称。</summary>
     public string GetName()
     {
-        return formation.IsValid ? formation.canonical_name : string.Empty;
+        return formation.IsFinalized ? formation.canonical_name : string.Empty;
     }
 
     /// <summary>返回结婴时独立评定并固化的品阶。</summary>
