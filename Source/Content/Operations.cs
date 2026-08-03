@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
+using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
@@ -52,7 +53,10 @@ public class Operations : ExtendLibrary<OperationAsset, Operations>
     }
     private static bool PreCheckEnhanceJindan(Actor actor)
     {
-        return actor.GetExtend().HasComponent<Jindan>();
+        ActorExtend actorExtend = actor.GetExtend();
+        return actorExtend.HasCultisys<Xian>() &&
+               actorExtend.GetCultisys<Xian>().CurrLevel == XianLevels.Jindan &&
+               actorExtend.HasComponent<Jindan>();
     }
     private static bool TryOpenElementRoot(ActorExtend ae, Dictionary<string, string> opArgs)
     {
@@ -79,10 +83,14 @@ public class Operations : ExtendLibrary<OperationAsset, Operations>
 
     private static bool TryEnhanceJindan(ActorExtend ae, Dictionary<string, string> opArgs, float multiplier)
     {
-        ref var jindan = ref ae.GetOrAddComponent<Jindan>();
-        jindan.stage = Math.Max(1, jindan.stage + 1);
+        ref Jindan jindan = ref ae.GetComponent<Jindan>();
+        int previousStage = jindan.stage;
+        jindan.stage = Math.Max(1, previousStage + 1);
         jindan.strength = Mathf.Max(jindan.strength, multiplier);
+        CoreFormationComposer.EvolveJindan(ref jindan.formation, previousStage, jindan.stage);
         ae.MarkCultiwayStatsDirty();
+        ae.MarkSemanticProfileDirty();
+        CoreFormationEffectResolver.Synchronize(ae);
         return true;
     }
 }
