@@ -110,17 +110,20 @@ internal readonly struct CoreFormationPageModel
 
         Color fallback = realm switch
         {
-            CoreFormationRealm.QiRefinement => XianRealmPagePresentation.FoundationPrimary,
+            CoreFormationRealm.QiRefinement => XianRealmPagePresentation.QiRefinementPrimary,
             CoreFormationRealm.Foundation => XianRealmPagePresentation.FoundationPrimary,
             CoreFormationRealm.Jindan => XianRealmPagePresentation.JindanPrimary,
             _ => XianRealmPagePresentation.YuanyingPrimary
         };
         (Color primary, Color secondary) = formation.IsValid
             ? XianRealmPagePresentation.ResolveCompositionColors(formation.composition, fallback)
-            : (fallback, Color.Lerp(fallback, Color.white, 0.45f));
+            : realm == CoreFormationRealm.QiRefinement
+                ? (XianRealmPagePresentation.QiRefinementPrimary,
+                    XianRealmPagePresentation.QiRefinementSecondary)
+                : (fallback, Color.Lerp(fallback, Color.white, 0.45f));
         string emblem = realm switch
         {
-            CoreFormationRealm.QiRefinement => "foundation",
+            CoreFormationRealm.QiRefinement => "qi_refinement",
             CoreFormationRealm.Foundation => "foundation",
             CoreFormationRealm.Jindan => "jindan",
             _ => "yuanying"
@@ -155,7 +158,11 @@ internal static class XianRealmPagePresentation
 {
     public const float PageWidth = 246f;
     public const float PageHeight = 208f;
+    public const float MetricCellWidth = 44f;
+    public const float MetricCellHeight = 22f;
 
+    public static readonly Color QiRefinementPrimary = new(0.24f, 0.76f, 0.96f, 1f);
+    public static readonly Color QiRefinementSecondary = new(0.69f, 0.42f, 0.94f, 1f);
     public static readonly Color FoundationPrimary = new(0.53f, 0.81f, 0.92f, 1f);
     public static readonly Color FoundationSecondary = new(0.9f, 0.95f, 1f, 1f);
     public static readonly Color JindanPrimary = new(1f, 0.78f, 0.15f, 1f);
@@ -223,7 +230,7 @@ internal static class XianRealmPagePresentation
     {
         return realm switch
         {
-            CoreFormationRealm.QiRefinement => FoundationPrimary,
+            CoreFormationRealm.QiRefinement => QiRefinementPrimary,
             CoreFormationRealm.Foundation => FoundationSecondary,
             CoreFormationRealm.Jindan => JindanPrimary,
             _ => YuanyingPrimary
@@ -235,7 +242,7 @@ internal static class XianRealmPagePresentation
     {
         return realm switch
         {
-            CoreFormationRealm.Foundation => FoundationPrimary,
+            CoreFormationRealm.Foundation => QiRefinementPrimary,
             CoreFormationRealm.Jindan => FoundationSecondary,
             CoreFormationRealm.Yuanying => JindanPrimary,
             _ => FoundationPrimary

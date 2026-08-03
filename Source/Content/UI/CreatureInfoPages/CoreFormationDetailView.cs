@@ -72,37 +72,37 @@ internal sealed class CoreFormationDetailView : MonoBehaviour
     private void CreateContext(Transform parent)
     {
         GameObject context = UiLayout.Create(parent, "Realm Context", false,
-            XianRealmPagePresentation.PageWidth, 22f, 2f);
+            XianRealmPagePresentation.PageWidth, 18f, 2f);
         contextLine = UiLayout.Create(context.transform, "Context Line", true,
-            XianRealmPagePresentation.PageWidth, 13f, 2f, TextAnchor.MiddleLeft);
-        contextLeft = UiElements.CreateText(contextLine.transform, "Left", string.Empty, 112f, 13f, 6,
+            XianRealmPagePresentation.PageWidth, 11f, 2f, TextAnchor.MiddleLeft);
+        contextLeft = UiElements.CreateText(contextLine.transform, "Left", string.Empty, 112f, 11f, 6,
             TextAnchor.MiddleLeft, FontStyle.Bold);
-        contextRight = UiElements.CreateText(contextLine.transform, "Right", string.Empty, 132f, 13f, 6,
+        contextRight = UiElements.CreateText(contextLine.transform, "Right", string.Empty, 132f, 11f, 6,
             TextAnchor.MiddleRight, FontStyle.Bold);
         contextRight.color = UiTheme.Current.Palette.MutedText;
         ConfigureBestFit(contextLeft);
         ConfigureBestFit(contextRight);
-        evolutionBar = UiWeightedSegmentBar.Create(context.transform, "Evolution", 246f, 7f);
+        evolutionBar = UiWeightedSegmentBar.Create(context.transform, "Evolution", 246f, 5f);
     }
 
     private void CreateComposition(Transform parent)
     {
         GameObject section = UiLayout.Create(parent, "Element Composition", false,
-            XianRealmPagePresentation.PageWidth, 51f, 2f);
+            XianRealmPagePresentation.PageWidth, 68f, 2f);
         Text heading = UiElements.CreateText(section.transform, "Title",
-            "Cultiway.RealmPage.Elements".Localize(), 246f, 12f, 7,
+            "Cultiway.RealmPage.Elements".Localize(), 246f, 11f, 7,
             TextAnchor.MiddleLeft, FontStyle.Bold);
         heading.color = UiTheme.Current.Palette.AccentText;
         compositionBar = UiWeightedSegmentBar.Create(section.transform, "Segments", 246f, 7f);
 
-        GameObject fivePhaseRow = UiLayout.Create(section.transform, "Five Phase Legend", true, 246f, 13f, 1f,
-            TextAnchor.MiddleLeft);
+        GameObject fivePhaseRow = UiLayout.Create(section.transform, "Five Phase Legend", true,
+            246f, XianRealmPagePresentation.MetricCellHeight, 5f, TextAnchor.MiddleCenter);
         elementLegends = new ElementLegendEntry[8];
         for (var i = ElementIndex.Iron; i <= ElementIndex.Earth; i++)
             elementLegends[i] = ElementLegendEntry.Create(fivePhaseRow.transform, i);
 
         GameObject extendedElementRow = UiLayout.Create(section.transform, "Yin Yang Chaos Legend", true,
-            246f, 13f, 1f, TextAnchor.MiddleLeft);
+            246f, XianRealmPagePresentation.MetricCellHeight, 5f, TextAnchor.MiddleCenter);
         for (var i = ElementIndex.Neg; i <= ElementIndex.Entropy; i++)
             elementLegends[i] = ElementLegendEntry.Create(extendedElementRow.transform, i);
     }
@@ -110,7 +110,7 @@ internal sealed class CoreFormationDetailView : MonoBehaviour
     private void CreateAtoms(Transform parent)
     {
         GameObject section = UiLayout.Create(parent, "Formation Atoms", false,
-            XianRealmPagePresentation.PageWidth, 52f, 2f);
+            XianRealmPagePresentation.PageWidth, 50f, 2f);
         GameObject titleRow = UiLayout.Create(section.transform, "Title Row", true, 246f, 12f, 3f,
             TextAnchor.MiddleLeft);
         Text heading = UiElements.CreateText(titleRow.transform, "Title",
@@ -126,9 +126,9 @@ internal sealed class CoreFormationDetailView : MonoBehaviour
 
         var grid = new GameObject("Grid", typeof(RectTransform), typeof(GridLayoutGroup), typeof(LayoutElement));
         grid.transform.SetParent(section.transform, false);
-        UiLayout.SetSize(grid.transform, 246f, 38f);
+        UiLayout.SetSize(grid.transform, 246f, 36f);
         GridLayoutGroup layout = grid.GetComponent<GridLayoutGroup>();
-        layout.cellSize = new Vector2(78f, 18f);
+        layout.cellSize = new Vector2(78f, 17f);
         layout.spacing = new Vector2(6f, 2f);
         layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
         layout.constraintCount = 3;
@@ -143,9 +143,9 @@ internal sealed class CoreFormationDetailView : MonoBehaviour
     {
         if (model.Realm == CoreFormationRealm.QiRefinement)
         {
-            UiLayout.SetSize(contextLine.transform, 246f, 13f);
-            UiLayout.SetSize(contextLeft.transform, 112f, 13f);
-            UiLayout.SetSize(contextRight.transform, 132f, 13f);
+            UiLayout.SetSize(contextLine.transform, 246f, 11f);
+            UiLayout.SetSize(contextLeft.transform, 112f, 11f);
+            UiLayout.SetSize(contextRight.transform, 132f, 11f);
             contextLeft.text = "Cultiway.RealmPage.QiRefinement.Refinement".Localize();
             contextRight.text = model.Formation.IsFinalized
                 ? "Cultiway.RealmPage.QiRefinement.Finalized".Localize()
@@ -158,15 +158,15 @@ internal sealed class CoreFormationDetailView : MonoBehaviour
                 : Mathf.Clamp01(model.Stage / (float)Cultisyses.MinimumFoundationQiLayers);
             evolutionBar.SetSegments(
                 new[] { progress, 1f - progress },
-                new[] { XianRealmPagePresentation.FoundationPrimary, EvolutionRemainder });
+                new[] { XianRealmPagePresentation.QiRefinementPrimary, EvolutionRemainder });
             return;
         }
 
         if (model.Realm == CoreFormationRealm.Jindan)
         {
-            UiLayout.SetSize(contextLine.transform, 246f, 13f);
-            UiLayout.SetSize(contextLeft.transform, 112f, 13f);
-            UiLayout.SetSize(contextRight.transform, 132f, 13f);
+            UiLayout.SetSize(contextLine.transform, 246f, 11f);
+            UiLayout.SetSize(contextLeft.transform, 112f, 11f);
+            UiLayout.SetSize(contextRight.transform, 132f, 11f);
             contextLeft.text = "Cultiway.RealmPage.Jindan.Evolution".Localize();
             contextRight.text = model.NextEvolutionStage > 0
                 ? string.Format("Cultiway.RealmPage.Jindan.NextEvolution".Localize(),
@@ -181,9 +181,9 @@ internal sealed class CoreFormationDetailView : MonoBehaviour
             return;
         }
 
-        UiLayout.SetSize(contextLine.transform, 246f, 22f);
-        UiLayout.SetSize(contextLeft.transform, 58f, 22f);
-        UiLayout.SetSize(contextRight.transform, 186f, 22f);
+        UiLayout.SetSize(contextLine.transform, 246f, 18f);
+        UiLayout.SetSize(contextLeft.transform, 58f, 18f);
+        UiLayout.SetSize(contextRight.transform, 186f, 18f);
         contextLeft.text = "Cultiway.RealmPage.Lineage".Localize();
         contextRight.text = string.IsNullOrEmpty(model.Lineage)
             ? "Cultiway.RealmPage.Yuanying.LineageEmpty".Localize()
