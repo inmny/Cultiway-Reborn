@@ -36,6 +36,15 @@ public partial class Cultisyses
     /// <summary>授予结婴前必须逐项结算到的最低金丹淬炼层数。</summary>
     private const int YuanyingRequiredJindanStage = 9;
 
+    /// <summary>各项来源均达到筑基境界基准时，三花采用的中性资质。</summary>
+    private const float FoundationNeutralAptitude = 3f;
+
+    /// <summary>智力没有仙道境界表基准，使用原版常见智慧种族的初始智力作为中性值。</summary>
+    private const float FoundationIntelligenceReference = 3f;
+
+    /// <summary>修炼效率以一倍效率作为中性值。</summary>
+    private const float FoundationCultivationEfficiencyReference = 1f;
+
     private void InitXian()
     {
         var progression = CreateXianProgressionProfile();
@@ -480,7 +489,7 @@ public partial class Cultisyses
         if (!actor.HasComponent<XianBase>()) actor.AddComponent(new XianBase());
     }
 
-    /// <summary>按固定顺序选择下一筑基项，并依据智力或对应灵根强度判定自然筑基。</summary>
+    /// <summary>按固定顺序选择下一筑基项，并依据三花综合资质或对应灵根强度判定自然筑基。</summary>
     private static ProgressionResolution ResolveFoundationStep(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                                                 ref Xian component)
     {
@@ -524,11 +533,18 @@ public partial class Cultisyses
         return FoundationPart.None;
     }
 
-    /// <summary>三花使用智力，五气使用灵根对应元素强度，计算指定筑基项的资质。</summary>
+    /// <summary>三花使用各自的综合资质，五气使用灵根对应元素强度，计算指定筑基项的资质。</summary>
     private static float GetFoundationAptitude(ActorExtend actor, FoundationPart part)
     {
-        if (part is FoundationPart.Jing or FoundationPart.Qi or FoundationPart.Shen)
-            return actor.GetStat(S.intelligence);
+        switch (part)
+        {
+            case FoundationPart.Jing:
+                return ResolveJingFoundationAptitude(actor);
+            case FoundationPart.Qi:
+                return ResolveQiFoundationAptitude(actor);
+            case FoundationPart.Shen:
+                return ResolveShenFoundationAptitude(actor);
+        }
         if (!actor.HasElementRoot()) return 0f;
 
         ref var root = ref actor.GetElementRoot();
@@ -541,6 +557,55 @@ public partial class Cultisyses
             FoundationPart.Water => root.Water,
             _ => 0f
         };
+    }
+
+    /// <summary>以体魄、寿命和生命恢复等权计算精之花资质。</summary>
+    private static float ResolveJingFoundationAptitude(ActorExtend actor)
+    {
+        float factorSum = ResolveFoundationStatFactor(actor, S.health)
+                          + ResolveFoundationStatFactor(actor, S.lifespan)
+                          + ResolveFoundationStatFactor(actor, WorldboxGame.BaseStats.HealthRegen.id);
+        return CombineFoundationFactors(factorSum, 3);
+    }
+
+    /// <summary>以灵气容量和当前实际修炼效率等权计算气之花资质。</summary>
+    private static float ResolveQiFoundationAptitude(ActorExtend actor)
+    {
+        float factorSum = ResolveFoundationStatFactor(actor, BaseStatses.MaxWakan.id)
+                          + ResolveFoundationFactor(
+                              CultivationEfficiencyResolver.Resolve(actor).FinalMultiplier,
+                              FoundationCultivationEfficiencyReference);
+        return CombineFoundationFactors(factorSum, 2);
+    }
+
+    /// <summary>以智力、神识和元神容量等权计算神之花资质。</summary>
+    private static float ResolveShenFoundationAptitude(ActorExtend actor)
+    {
+        float factorSum = ResolveFoundationFactor(
+                              actor.GetStat(S.intelligence),
+                              FoundationIntelligenceReference)
+                          + ResolveFoundationStatFactor(actor, WorldboxGame.BaseStats.DivineSense.id)
+                          + ResolveFoundationStatFactor(actor, WorldboxGame.BaseStats.MaxSoul.id);
+        return CombineFoundationFactors(factorSum, 3);
+    }
+
+    /// <summary>以筑基境界累计属性作为基准，把角色当前属性换算为无量纲评分。</summary>
+    private static float ResolveFoundationStatFactor(ActorExtend actor, string statId)
+    {
+        float reference = Xian.LevelAccumBaseStats[XianLevels.XianBase][statId];
+        return ResolveFoundationFactor(actor.GetStat(statId), reference);
+    }
+
+    /// <summary>将来源值按基准作对数压缩；达到基准时返回 1，翻倍后仍有收益但边际递减。</summary>
+    private static float ResolveFoundationFactor(float value, float reference)
+    {
+        return Mathf.Log(1f + Mathf.Max(0f, value) / reference, 2f);
+    }
+
+    /// <summary>等权汇总已归一化的来源，并映射回三花沿用的资质尺度。</summary>
+    private static float CombineFoundationFactors(float factorSum, int factorCount)
+    {
+        return FoundationNeutralAptitude * factorSum / factorCount;
     }
 
     /// <summary>把成功判定载荷中的强度写入对应 XianBase 筑基字段。</summary>
