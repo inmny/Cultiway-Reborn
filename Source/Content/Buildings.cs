@@ -81,6 +81,9 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         // 默认摇动；以下群系的树不摇动：血肉/墓园/巨灵/烛火/珊瑚/知识
         SetupTree(BambooTree, "biome_bamboo");
         SetupTree(CandleTree, "biome_candle", wobble: false);
+        CandleTree.draw_light_area = true;
+        CandleTree.draw_light_size = 0.3f;
+        CandleTree.draw_light_area_offset_y = 5f;
         SetupTree(CemeteryTree, "biome_cemetery", wobble: false);
         SetupTree(CoralTree, "biome_coral", wobble: false);
         SetupTree(DarkTree, "biome_dark");
