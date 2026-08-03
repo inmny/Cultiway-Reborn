@@ -211,6 +211,10 @@ public sealed class CultivationSemantics : ExtendLibrary<SemanticAsset, Cultivat
     /// <summary>修炼体系中具有明确层次含义的境界。</summary>
     public static class Realm
     {
+        /// <summary>表示修士已经凝成具有稳定名称和性质的真气。</summary>
+        public static SemanticAsset QiRefinement { get; internal set; }
+        /// <summary>表示修士已经把真气熬炼为承载三花五气的仙基。</summary>
+        public static SemanticAsset Foundation { get; internal set; }
         /// <summary>表示修士已经凝结金丹的境界或实体。</summary>
         public static SemanticAsset Jindan { get; internal set; }
         /// <summary>表示修士已经孕育元婴的境界或实体。</summary>
@@ -327,6 +331,10 @@ public sealed class CultivationSemantics : ExtendLibrary<SemanticAsset, Cultivat
 
         Trait.ElementRoot = New("trait.element_root", "trait", "element_root", implications: [Theme.Elemental]);
         Form.Cultibook = New("form.cultibook", "form", "cultibook", implications: [Role.Cultivation]);
+        Realm.QiRefinement = New("realm.qi_refinement", "realm", "qi_refinement",
+            implications: [Role.Cultivation]);
+        Realm.Foundation = New("realm.foundation", "realm", "foundation",
+            implications: [Role.Cultivation]);
         Realm.Jindan = New("realm.jindan", "realm", "jindan", implications: [Role.Cultivation]);
         Realm.Yuanying = New("realm.yuanying", "realm", "yuanying", implications: [Role.Cultivation]);
         Path.Meditation = New("path.meditation", "path", "meditation_path", implications: [Role.Cultivation]);

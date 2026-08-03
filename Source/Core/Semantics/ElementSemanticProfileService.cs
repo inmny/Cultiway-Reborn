@@ -51,6 +51,40 @@ public static class ElementSemanticProfileService
         return ranked.Count > 0 ? ranked[0].semantic : SkillSemantics.Element.Generic;
     }
 
+    /// <summary>
+    /// 尝试把描述中八种规范元素语义的净权重还原为连续元素组成。
+    /// 描述没有任何正向元素证据时返回 false，不凭空补入通用元素。
+    /// </summary>
+    public static bool TryResolveComposition(
+        SemanticDescriptor descriptor,
+        out ElementComposition composition)
+    {
+        composition = default;
+        if (descriptor == null) return false;
+
+        var builder = new SemanticProfileBuilder(ModClass.L.SemanticLibrary);
+        builder.Add(descriptor, 1f, SemanticScope.Intrinsic,
+            new SemanticSourceRef(ContributorId));
+        SemanticProfile profile = builder.Build();
+        var total = 0f;
+        for (var i = 0; i < ElementIndex.Count; i++)
+        {
+            float value = Mathf.Max(0f,
+                profile.GetScore(GetIndexedSemantic(i), SemanticQueryPolicy.Default).Net);
+            composition[i] = value;
+            total += value;
+        }
+
+        if (total <= 0.0001f)
+        {
+            composition = default;
+            return false;
+        }
+
+        for (var i = 0; i < ElementIndex.Count; i++) composition[i] /= total;
+        return true;
+    }
+
     /// <summary>返回八维元素组成中指定索引对应的规范元素语义。</summary>
     public static SemanticAsset GetIndexedSemantic(int index)
     {
@@ -113,7 +147,7 @@ public static class ElementSemanticProfileService
     }
 
     /// <summary>将灵根组件转换为通用八维元素组成。</summary>
-    private static ElementComposition ToComposition(in ElementRoot root)
+    public static ElementComposition ToComposition(in ElementRoot root)
     {
         return new ElementComposition(
             root.Iron,
