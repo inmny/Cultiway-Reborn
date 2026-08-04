@@ -23,10 +23,7 @@ public static class CombatResourceEffects
         if (!extend.HasCultisys<Xian>()) return 0f;
 
         ref Xian xian = ref extend.GetCultisys<Xian>();
-        float capacity = Mathf.Max(0f, target.stats[BaseStatses.MaxWakan.id]);
-        float restored = Mathf.Min(amount, Mathf.Max(0f, capacity - xian.wakan));
-        xian.wakan += restored;
-        return restored;
+        return WakanResourceService.Gain(extend, ref xian, amount);
     }
 
     /// <summary>扣除目标现有灵气，并返回实际扣除量。</summary>
@@ -37,9 +34,7 @@ public static class CombatResourceEffects
         if (!extend.HasCultisys<Xian>()) return 0f;
 
         ref Xian xian = ref extend.GetCultisys<Xian>();
-        float drained = Mathf.Min(amount, Mathf.Max(0f, xian.wakan));
-        xian.wakan -= drained;
-        return drained;
+        return WakanResourceService.Spend(extend, ref xian, amount);
     }
 
     /// <summary>仅在目标拥有足额灵气时一次性支付固定消耗。</summary>
@@ -51,7 +46,7 @@ public static class CombatResourceEffects
         if (!extend.HasCultisys<Xian>()) return false;
         ref Xian xian = ref extend.GetCultisys<Xian>();
         if (xian.wakan + 0.0001f < amount) return false;
-        xian.wakan -= amount;
+        WakanResourceService.Spend(extend, ref xian, amount);
         return true;
     }
 

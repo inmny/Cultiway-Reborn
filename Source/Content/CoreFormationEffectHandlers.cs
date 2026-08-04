@@ -358,7 +358,7 @@ internal static class CoreFormationEffectHandlers
             float released = Mathf.Min(state.value, 16f * effect.Potency * evt.DeltaTime,
                 maxWakan - xian.wakan);
             state.value -= released;
-            xian.wakan += released;
+            WakanResourceService.Gain(owner, ref xian, released);
             if (state.value <= 0f)
                 CoreFormationStateService.Remove(owner, effect);
             else

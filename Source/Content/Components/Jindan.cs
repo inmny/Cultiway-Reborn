@@ -11,23 +11,31 @@ public struct Jindan : IComponent
     public CoreFormationSnapshot formation;
 
     /// <summary>金丹形成与淬炼累计得到的强度倍率。</summary>
-    public float strength;
+    public float strength
+    {
+        readonly get => formation.strength;
+        set => formation.strength = value;
+    }
 
     /// <summary>已经完成的金丹淬炼转数。</summary>
-    public int stage;
+    public int stage
+    {
+        readonly get => formation.refinement;
+        set => formation.refinement = value;
+    }
 
     /// <summary>使用已完成的组合快照和初始强度创建现行金丹组件。</summary>
     public Jindan(CoreFormationSnapshot formation, float strength)
     {
         this.formation = formation;
-        this.strength = strength;
-        stage = 0;
+        this.formation.strength = strength;
+        this.formation.refinement = 0;
     }
 
     /// <summary>返回组合快照固化的规范名称。</summary>
     public string GetName()
     {
-        return formation.IsValid ? formation.canonical_name : string.Empty;
+        return formation.IsFinalized ? formation.canonical_name : string.Empty;
     }
 
     /// <summary>返回金丹形成时固化的品阶。</summary>

@@ -8,6 +8,7 @@ using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.Semantics;
 using Friflo.Engine.ECS;
 using strings;
+using UnityEngine;
 
 namespace Cultiway.Content;
 
@@ -131,25 +132,29 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
             ["混元", "归一", "浑成"],
             ScoreBalancedStructure,
             Descriptor(CultivationSemantics.Material.Stability, CultivationSemantics.Effect.Resonance),
-            Stats((S.multiplier_health, 0.08f), (S.multiplier_damage, 0.08f)), StructureMinimumScore);
+            Stats((S.multiplier_health, 0.08f), (S.multiplier_damage, 0.08f)), StructureMinimumScore,
+            EvaluateBalancedStructureQuality);
         Set(StructureCondensed, "condensed", "cultiway/icons/artifact_atoms/spirit_gourd",
             CoreFormationAtomCategory.Structure, CoreFormationRealmMask.All,
             ["凝元", "抱一", "玄凝"],
             context => 1f + context.QiRatio * 5f + context.SemanticScore(CultivationSemantics.Resource.Reserve) * 2f,
             Descriptor(CultivationSemantics.Resource.Reserve, CultivationSemantics.Effect.Storage),
-            Stats((BaseStatses.MaxWakan.id, 12f), (S.multiplier_damage, 0.05f)), StructureMinimumScore);
+            Stats((BaseStatses.MaxWakan.id, 12f), (S.multiplier_damage, 0.05f)), StructureMinimumScore,
+            context => EvaluateDominantStructureQuality(context.QiRatio));
         Set(StructureVital, "vital", "cultiway/icons/artifact_atoms/life_pattern",
             CoreFormationAtomCategory.Structure, CoreFormationRealmMask.All,
             ["精元", "血魄", "真形"],
             context => 1f + context.JingRatio * 5f + context.SemanticScore(CultivationSemantics.Form.Body) * 2f,
             Descriptor(CultivationSemantics.Resource.Vitality, CultivationSemantics.Form.Body),
-            Stats((S.multiplier_health, 0.16f), (S.armor, 1.5f)), StructureMinimumScore);
+            Stats((S.multiplier_health, 0.16f), (S.armor, 1.5f)), StructureMinimumScore,
+            context => EvaluateDominantStructureQuality(context.JingRatio));
         Set(StructureSpiritual, "spiritual", "cultiway/icons/artifact_atoms/spirit_gathering_pattern",
             CoreFormationAtomCategory.Structure, CoreFormationRealmMask.All,
             ["灵台", "神凝", "照神"],
             context => 1f + context.ShenRatio * 5f + context.SemanticScore(CultivationSemantics.Resource.Spirituality) * 2f,
             Descriptor(CultivationSemantics.Resource.Spirituality, CultivationSemantics.Effect.Perception),
-            Stats((BaseStatses.MaxWakan.id, 8f), (S.multiplier_crit, 0.06f)), StructureMinimumScore);
+            Stats((BaseStatses.MaxWakan.id, 8f), (S.multiplier_crit, 0.06f)), StructureMinimumScore,
+            context => EvaluateDominantStructureQuality(context.ShenRatio));
 
         Set(PathSword, "sword", "cultiway/icons/artifact_atoms/sword_swarm",
             CoreFormationAtomCategory.Path, CoreFormationRealmMask.All,
@@ -483,6 +488,18 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
         return 1f + jointBalance * jointBalance * 10f;
     }
 
+    /// <summary>混元结构要求三花与元素组成同时稳定均衡。</summary>
+    private static float EvaluateBalancedStructureQuality(CoreFormationContext context)
+    {
+        return Mathf.Sqrt(Mathf.Clamp01(context.ElementBalance * context.ThreeHuaBalance));
+    }
+
+    /// <summary>把三花之一从均分到完全主导的程度映射到 0..1。</summary>
+    private static float EvaluateDominantStructureQuality(float ratio)
+    {
+        return Mathf.Clamp01((ratio - 1f / 3f) / (2f / 3f));
+    }
+
     /// <summary>按指定图标与元素槽位配置一个由元素占比直接评分的元素原子。</summary>
     private static void SetElement(CoreFormationAtomAsset atom, string key, string iconPath,
                                    string[] stems, SemanticAsset semantic, int elementIndex)
@@ -496,7 +513,8 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
     private static void Set(CoreFormationAtomAsset atom, string key, string iconPath,
                             CoreFormationAtomCategory category, CoreFormationRealmMask realms,
                             string[] stems, Func<CoreFormationContext, float> score,
-                            SemanticDescriptor semantics, CoreFormationStatValue[] stats, float minimumScore = 0f)
+                            SemanticDescriptor semantics, CoreFormationStatValue[] stats, float minimumScore = 0f,
+                            Func<CoreFormationContext, float> evaluateQuality = null)
     {
         atom.category = category;
         atom.realms = realms;
@@ -505,6 +523,7 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
         atom.icon_path = iconPath;
         atom.name_stems = stems;
         atom.ScoreContext = score;
+        atom.EvaluateQualityContext = evaluateQuality;
         atom.semantics = semantics;
         atom.stats = stats;
         atom.minimum_score = minimumScore;

@@ -38,7 +38,7 @@ public class BehCraftTalisman : BehaviourActionActor
         var skill_v3 = ae.all_skills.GetRandom();
 
         skill_v3 = skill_v3.Store.CloneEntity(skill_v3);
-        xian.wakan -= wakan_to_take;
+        WakanResourceService.Spend(ae, ref xian, wakan_to_take);
         var power_level = ae.GetPowerLevel();
         var skillContainer = skill_v3.GetComponent<SkillContainer>();
         var colorPalette = skillContainer.ColorPalette;

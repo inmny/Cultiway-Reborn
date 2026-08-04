@@ -3,6 +3,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
+using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
 using UnityEngine;
@@ -40,10 +41,11 @@ public static class KnightForge
     /// <summary>注册死亡钩子。在 Manager.Init 中、KnightBloodline.Init 之后调用。</summary>
     public static void Init()
     {
+        PatchLightning.RegisterActionBeforeSkyLightningDamage(OnSkyLightning);
         ActorExtend.RegisterActionOnDeath(OnActorDeath);
     }
 
-    /// <summary>天雷命中范围内单位时（PatchLightning 调用）：给候选始祖骑士打标记。</summary>
+    /// <summary>无来源天雷进入伤害结算前，给范围内候选始祖骑士打标记。</summary>
     [Hotfixable]
     public static void OnSkyLightning(Vector2Int pPos, int pRad)
     {

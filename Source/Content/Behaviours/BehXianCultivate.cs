@@ -27,9 +27,12 @@ public class BehXianCultivate : BehCityActor
         {
             time -= TickInterval;
 
-            // 获取修炼收益
-            // TODO: 考虑天赋以及其他因素的影响
-            Cultisyses.TakeWakanAndCultivate(actor_extend, ref xian);
+            var context = new Libraries.CultivationTriggerContext(
+                actor_extend,
+                Libraries.CultivationTriggerKind.ActiveTick,
+                Libraries.CultivationActivityKind.Meditation,
+                TickInterval);
+            CultivateMethods.TryDispatch(in context);
             if (xian.wakan < pObject.stats[BaseStatses.MaxWakan.id] && time > 0f)
             {
                 pObject.data.set(ContentActorDataKeys.CultivateTime_float, time);

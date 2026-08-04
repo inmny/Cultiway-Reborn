@@ -423,23 +423,11 @@ public static class CultibookRuleComposer
 
     private static void ApplyMethodElementBias(CultibookRuleContext context)
     {
-        if (CultivateMethods.WaterMeditation != null
-            && context.CultivateMethodId == CultivateMethods.WaterMeditation.id)
-        {
-            context.ElementScores[ElementIndex.Water] += 4f;
-        }
-        else if (CultivateMethods.KillAbsorb != null
-                 && context.CultivateMethodId == CultivateMethods.KillAbsorb.id)
-        {
-            context.ElementScores[ElementIndex.Neg] += 2.5f;
-            context.ElementScores[ElementIndex.Entropy] += 1.5f;
-        }
-        else if (CultivateMethods.KingdomFortune != null
-                 && context.CultivateMethodId == CultivateMethods.KingdomFortune.id)
-        {
-            context.ElementScores[ElementIndex.Pos] += 2.5f;
-            context.ElementScores[ElementIndex.Earth] += 1.5f;
-        }
+        CultivateMethodAsset method = Manager.CultivateMethodLibrary.get(context.CultivateMethodId);
+        if (method == null ||
+            !ElementSemanticProfileService.TryResolveComposition(method.Semantics,
+                out ElementComposition composition)) return;
+        for (var i = 0; i < ElementIndex.Count; i++) context.ElementScores[i] += composition[i] * 4f;
     }
 
     private static void ResolveElements(CultibookRuleContext context)
@@ -474,18 +462,18 @@ public static class CultibookRuleComposer
     private static string DetermineCultivateMethodId(CultibookRuleContext context, string preferredMethodId)
     {
         var preferred = ResolveAvailableMethod(preferredMethodId, context.Creator);
-        if (preferred != null) return preferred.id;
-
         var mainMethod = context.Creator?.GetMainCultibook()?.CultivateMethodId;
-        preferred = ResolveAvailableMethod(mainMethod, context.Creator);
-        if (preferred != null) return preferred.id;
+        var current = ResolveAvailableMethod(mainMethod, context.Creator);
 
         var candidates = Manager.CultivateMethodLibrary.list
             .Where(method => IsMethodAvailable(method, context.Creator))
             .Select(method => new
             {
                 Method = method,
-                Score = ScoreMethod(method, context) + TieBreak(context.Seed, method.id)
+                Score = ScoreMethod(method, context)
+                        + (method == preferred ? 2f : 0f)
+                        + (method == current ? 1f : 0f)
+                        + TieBreak(context.Seed, method.id)
             })
             .OrderByDescending(entry => entry.Score)
             .ThenBy(entry => entry.Method.id, StringComparer.Ordinal)
@@ -509,27 +497,7 @@ public static class CultibookRuleComposer
     private static float ScoreMethod(CultivateMethodAsset method, CultibookRuleContext context)
     {
         var efficiency = Mathf.Max(0f, method.GetMethodMultiplier?.Invoke(context.Creator) ?? 1f);
-        var score = efficiency;
-        if (CultivateMethods.Standard != null && method.id == CultivateMethods.Standard.id) score += 5f;
-        if (CultivateMethods.WaterMeditation != null && method.id == CultivateMethods.WaterMeditation.id)
-        {
-            score += context.RootValues[ElementIndex.Water] * 3f;
-            if (context.Creator.Base.current_tile != null && context.Creator.Base.current_tile.IsWater()) score += 4f;
-        }
-        if (CultivateMethods.BattleCultivate != null && method.id == CultivateMethods.BattleCultivate.id)
-        {
-            score += Mathf.Min(context.Skills.Count, 5) * 0.7f;
-        }
-        if (CultivateMethods.KillAbsorb != null && method.id == CultivateMethods.KillAbsorb.id)
-        {
-            score += Mathf.Log(context.Creator.Base.data.kills + 1f) * 0.8f;
-            score += context.RootValues[ElementIndex.Neg] + context.RootValues[ElementIndex.Entropy];
-        }
-        if (CultivateMethods.KingdomFortune != null && method.id == CultivateMethods.KingdomFortune.id)
-        {
-            score += 8f;
-        }
-        return score;
+        return efficiency + Mathf.Max(0f, method.GetSelectionScore?.Invoke(context.Creator) ?? 0f);
     }
 
     private static CultibookRuleProfileAsset SelectProfile(CultibookRuleContext context)

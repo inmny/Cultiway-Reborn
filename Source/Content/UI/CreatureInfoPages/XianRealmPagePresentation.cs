@@ -7,6 +7,7 @@ using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.UI.Components;
+using Cultiway.Utils.Extension;
 using NeoModLoader.General;
 using UnityEngine;
 
@@ -35,14 +36,18 @@ internal readonly struct RealmEmblemPresentation
 /// <summary>筑基详情页一次刷新所需的完整只读数据。</summary>
 internal readonly struct FoundationPageModel
 {
+    public readonly ActorExtend Actor;
     public readonly XianBase Foundation;
     public readonly float[] ThreeFlowerValues;
     public readonly float[] FiveQiValues;
     public readonly int CompletedCount;
     public readonly RealmEmblemPresentation Emblem;
+    public readonly bool IsCurrent;
 
-    public FoundationPageModel(XianBase foundation)
+    public FoundationPageModel(ActorExtend actor)
     {
+        Actor = actor;
+        XianBase foundation = actor.GetComponent<XianBase>();
         Foundation = foundation;
         ThreeFlowerValues = new[] { foundation.jing, foundation.qi, foundation.shen };
         FiveQiValues = new[] { foundation.iron, foundation.wood, foundation.water, foundation.fire, foundation.earth };
@@ -57,6 +62,7 @@ internal readonly struct FoundationPageModel
             XianRealmPagePresentation.ThreeFlowerColors,
             XianRealmPagePresentation.FoundationSecondary);
         Emblem = new RealmEmblemPresentation("foundation", primary, secondary);
+        IsCurrent = actor.GetCultisys<Xian>().CurrLevel == Cultiway.Content.Const.XianLevels.XianBase;
     }
 
     private static int CountPositive(float[] values)
@@ -69,7 +75,7 @@ internal readonly struct FoundationPageModel
     }
 }
 
-/// <summary>金丹或元婴详情页一次刷新所需的完整只读数据。</summary>
+/// <summary>命名真气、金丹或元婴详情页一次刷新所需的完整只读数据。</summary>
 internal readonly struct CoreFormationPageModel
 {
     public readonly ActorExtend Actor;
@@ -81,6 +87,7 @@ internal readonly struct CoreFormationPageModel
     public readonly string Lineage;
     public readonly int NextEvolutionStage;
     public readonly RealmEmblemPresentation Emblem;
+    public readonly bool IsCurrent;
 
     public CoreFormationPageModel(
         ActorExtend actor,
@@ -101,15 +108,35 @@ internal readonly struct CoreFormationPageModel
         Lineage = lineage;
         NextEvolutionStage = nextEvolutionStage;
 
-        Color fallback = realm == CoreFormationRealm.Jindan
-            ? XianRealmPagePresentation.JindanPrimary
-            : XianRealmPagePresentation.YuanyingPrimary;
-        (Color primary, Color secondary) = XianRealmPagePresentation.ResolveCompositionColors(
-            formation.composition, fallback);
-        Emblem = new RealmEmblemPresentation(
-            realm == CoreFormationRealm.Jindan ? "jindan" : "yuanying",
-            primary,
-            secondary);
+        Color fallback = realm switch
+        {
+            CoreFormationRealm.QiRefinement => XianRealmPagePresentation.QiRefinementPrimary,
+            CoreFormationRealm.Foundation => XianRealmPagePresentation.FoundationPrimary,
+            CoreFormationRealm.Jindan => XianRealmPagePresentation.JindanPrimary,
+            _ => XianRealmPagePresentation.YuanyingPrimary
+        };
+        (Color primary, Color secondary) = formation.IsValid
+            ? XianRealmPagePresentation.ResolveCompositionColors(formation.composition, fallback)
+            : realm == CoreFormationRealm.QiRefinement
+                ? (XianRealmPagePresentation.QiRefinementPrimary,
+                    XianRealmPagePresentation.QiRefinementSecondary)
+                : (fallback, Color.Lerp(fallback, Color.white, 0.45f));
+        string emblem = realm switch
+        {
+            CoreFormationRealm.QiRefinement => "qi_refinement",
+            CoreFormationRealm.Foundation => "foundation",
+            CoreFormationRealm.Jindan => "jindan",
+            _ => "yuanying"
+        };
+        Emblem = new RealmEmblemPresentation(emblem, primary, secondary);
+        int currentLevel = actor.GetCultisys<Xian>().CurrLevel;
+        IsCurrent = realm switch
+        {
+            CoreFormationRealm.QiRefinement => currentLevel == Cultiway.Content.Const.XianLevels.QiRefinement,
+            CoreFormationRealm.Foundation => currentLevel == Cultiway.Content.Const.XianLevels.XianBase,
+            CoreFormationRealm.Jindan => currentLevel == Cultiway.Content.Const.XianLevels.Jindan,
+            _ => currentLevel >= Cultiway.Content.Const.XianLevels.Yuanying
+        };
     }
 }
 
@@ -131,7 +158,11 @@ internal static class XianRealmPagePresentation
 {
     public const float PageWidth = 246f;
     public const float PageHeight = 208f;
+    public const float MetricCellWidth = 44f;
+    public const float MetricCellHeight = 22f;
 
+    public static readonly Color QiRefinementPrimary = new(0.24f, 0.76f, 0.96f, 1f);
+    public static readonly Color QiRefinementSecondary = new(0.69f, 0.42f, 0.94f, 1f);
     public static readonly Color FoundationPrimary = new(0.53f, 0.81f, 0.92f, 1f);
     public static readonly Color FoundationSecondary = new(0.9f, 0.95f, 1f, 1f);
     public static readonly Color JindanPrimary = new(1f, 0.78f, 0.15f, 1f);
@@ -192,6 +223,30 @@ internal static class XianRealmPagePresentation
     public static Color GetElementColor(int elementIndex)
     {
         return ElementRootDiagramStyles.GetColor(elementIndex);
+    }
+
+    /// <summary>返回指定成果境界的显化色。</summary>
+    public static Color GetRealmColor(CoreFormationRealm realm)
+    {
+        return realm switch
+        {
+            CoreFormationRealm.QiRefinement => QiRefinementPrimary,
+            CoreFormationRealm.Foundation => FoundationSecondary,
+            CoreFormationRealm.Jindan => JindanPrimary,
+            _ => YuanyingPrimary
+        };
+    }
+
+    /// <summary>返回指定成果境界所继承的前序境界颜色。</summary>
+    public static Color GetInheritedRealmColor(CoreFormationRealm realm)
+    {
+        return realm switch
+        {
+            CoreFormationRealm.Foundation => QiRefinementPrimary,
+            CoreFormationRealm.Jindan => FoundationSecondary,
+            CoreFormationRealm.Yuanying => JindanPrimary,
+            _ => FoundationPrimary
+        };
     }
 
     /// <summary>把元素组成复制、归一化并清理非法值。</summary>

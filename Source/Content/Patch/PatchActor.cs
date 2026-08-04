@@ -102,16 +102,17 @@ internal static class PatchActor
             {
                 var cultivate_method = ae.GetMainCultibook()?.GetCultivateMethod() ?? CultivateMethods.Standard;
                 var can_cultivate = cultivate_method.CanCultivate?.Invoke(ae) ?? true;
+                var scheduled_cultivation_job = false;
                 if (can_cultivate && use_cultivator_job)
                 {
                     var cultivator_job = cultivate_method.GetBehaviourJobId?.Invoke(ae);
-                    if (string.IsNullOrEmpty(cultivator_job))
+                    if (!string.IsNullOrEmpty(cultivator_job))
                     {
-                        cultivator_job = ActorJobs.XianCultivator.id;
+                        pool.Add(cultivator_job);
+                        scheduled_cultivation_job = true;
                     }
-                    pool.Add(cultivator_job);
                 }
-                else
+                if (!scheduled_cultivation_job)
                 {
                     if (Randy.randomChance(pActor.hasTrait(ActorTraits.OpenSource) ? 0.5f : 0.1f))
                     {
@@ -213,7 +214,7 @@ internal static class PatchActor
         if (!__instance.isAlive()) return;
         ActorExtend dead_ae = __instance.GetExtend();
         var tile_pos = __instance.current_tile.pos;
-        DirtyWakanMap.I.map[tile_pos.x, tile_pos.y] += 100;
+        DirtyWakanMap.I.map[tile_pos.x, tile_pos.y] += CultivationResources.DeathDirtyWakanYield;
         
         if (!dead_ae.HasCultisys<Xian>()) return;
         if (!dead_ae.HasComponent<XianBase>()) return;

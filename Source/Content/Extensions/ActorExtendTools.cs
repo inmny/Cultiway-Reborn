@@ -78,9 +78,10 @@ public static class ActorExtendTools
         if (value <= 0) return false;
         if (!ae.HasCultisys<Xian>()) return false;
         ref Xian xian = ref ae.GetCultisys<Xian>();
-        xian.wakan = Mathf.Min(xian.wakan + value,
-            Mathf.Max(xian.wakan, ae.Base.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit));
-        return true;
+        float limit = Mathf.Max(xian.wakan,
+            ae.Base.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit);
+        return WakanResourceService.Gain(
+            ae, ref xian, Mathf.Min(value, Mathf.Max(0f, limit - xian.wakan))) > 0f;
     }
 
     public static bool HasCultibook(this ActorExtend ae)
@@ -153,8 +154,8 @@ public static class ActorExtendTools
         stateRef.AccumulatedTime = 0;
         stateRef.InitSkillProgress();
         
-        // 管理持续修炼标记
-        UpdateContinuousCultivateTag(ae, cultibook);
+        // 管理定时修炼标记
+        UpdateTimedCultivationTag(ae, cultibook);
         ae.MarkCultiwayStatsDirty();
     }
 
@@ -206,7 +207,7 @@ public static class ActorExtendTools
             if (ae.HasCultisys<Xian>())
             {
                 ref var xian = ref ae.GetCultisys<Xian>();
-                xian.wakan *= 0.5f;
+                WakanResourceService.Set(ae, ref xian, xian.wakan * 0.5f);
             }
             return false;
         }
@@ -227,32 +228,32 @@ public static class ActorExtendTools
         stateRef.AccumulatedTime = 0;
         stateRef.InitSkillProgress();
         
-        // 管理持续修炼标记
-        UpdateContinuousCultivateTag(ae, newCultibook);
+        // 管理定时修炼标记
+        UpdateTimedCultivationTag(ae, newCultibook);
         ae.MarkCultiwayStatsDirty();
 
         return true;
     }
 
     /// <summary>
-    /// 更新持续修炼标记（根据主修功法的修炼方式类型）
+    /// 更新定时修炼标记（根据主修功法响应的触发阶段）
     /// </summary>
-    private static void UpdateContinuousCultivateTag(ActorExtend ae, CultibookAsset cultibook)
+    private static void UpdateTimedCultivationTag(ActorExtend ae, CultibookAsset cultibook)
     {
         if (cultibook == null)
         {
-            ae.E.RemoveTag<ContinuousCultivateTag>();
+            ae.E.RemoveTag<TimedCultivationTag>();
             return;
         }
         
         var method = cultibook.GetCultivateMethod();
-        if (method != null && method.TriggerType == CultivateTriggerType.Continuous)
+        if (method != null && method.Handles(CultivationTriggerKind.TimedTick))
         {
-            ae.E.AddTag<ContinuousCultivateTag>();
+            ae.E.AddTag<TimedCultivationTag>();
         }
         else
         {
-            ae.E.RemoveTag<ContinuousCultivateTag>();
+            ae.E.RemoveTag<TimedCultivationTag>();
         }
     }
 
@@ -908,7 +909,7 @@ public static class ActorExtendTools
             stateRef.AccumulatedTime = 0;
             stateRef.InitSkillProgress();
             
-            UpdateContinuousCultivateTag(ae, improvedCultibook);
+            UpdateTimedCultivationTag(ae, improvedCultibook);
             ae.MarkCultiwayStatsDirty();
         }
         else

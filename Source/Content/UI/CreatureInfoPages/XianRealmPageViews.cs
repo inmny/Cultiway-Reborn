@@ -108,22 +108,22 @@ internal sealed class XianRealmHeaderView
         this.secondary = secondary;
     }
 
-    /// <summary>创建 52 像素高的公共境界页头部。</summary>
+    /// <summary>创建紧凑的公共境界页头部，为下方成果详情保留稳定空间。</summary>
     public static XianRealmHeaderView Create(Transform parent)
     {
         GameObject root = UiLayout.Create(parent, "Realm Header", true,
-            XianRealmPagePresentation.PageWidth, 52f, 4f, TextAnchor.MiddleLeft);
-        RealmEmblemView emblem = RealmEmblemView.Create(root.transform, 48f);
+            XianRealmPagePresentation.PageWidth, 48f, 4f, TextAnchor.MiddleLeft);
+        RealmEmblemView emblem = RealmEmblemView.Create(root.transform, 44f);
 
-        GameObject textColumn = UiLayout.Create(root.transform, "Summary", false, 170f, 50f, 1f);
-        Text name = UiElements.CreateText(textColumn.transform, "Name", string.Empty, 170f, 22f, 9,
+        GameObject textColumn = UiLayout.Create(root.transform, "Summary", false, 198f, 46f, 1f);
+        Text name = UiElements.CreateText(textColumn.transform, "Name", string.Empty, 198f, 20f, 9,
             TextAnchor.MiddleLeft, FontStyle.Bold);
         name.color = UiTheme.Current.Palette.AccentText;
         ConfigureBestFit(name, 6, 9);
-        Text primary = UiElements.CreateText(textColumn.transform, "Primary", string.Empty, 170f, 13f, 7,
+        Text primary = UiElements.CreateText(textColumn.transform, "Primary", string.Empty, 198f, 12f, 7,
             TextAnchor.MiddleLeft, FontStyle.Bold);
         ConfigureBestFit(primary, 5, 7);
-        Text secondary = UiElements.CreateText(textColumn.transform, "Secondary", string.Empty, 170f, 13f, 7,
+        Text secondary = UiElements.CreateText(textColumn.transform, "Secondary", string.Empty, 198f, 12f, 7,
             TextAnchor.MiddleLeft);
         secondary.color = UiTheme.Current.Palette.MutedText;
         ConfigureBestFit(secondary, 5, 7);
@@ -158,9 +158,6 @@ internal sealed class XianRealmHeaderView
 /// <summary>筑基三花或五气区域中的单个图标数值。</summary>
 internal sealed class FoundationMetricCell
 {
-    private const float Width = 44f;
-    private const float Height = 22f;
-
     private readonly CharacterPanelIconValue value;
     private readonly string iconPath;
     private readonly string label;
@@ -187,7 +184,9 @@ internal sealed class FoundationMetricCell
         Color activeColor)
     {
         CharacterPanelIconValue value = CharacterPanelIconValue.Instantiate(parent, false, name);
-        UiLayout.SetSize(value.transform, Width, Height);
+        UiLayout.SetSize(value.transform,
+            XianRealmPagePresentation.MetricCellWidth,
+            XianRealmPagePresentation.MetricCellHeight);
         return new FoundationMetricCell(value, iconPath, label, activeColor);
     }
 
@@ -235,14 +234,14 @@ internal sealed class FoundationMetricGroup
         Color[] colors)
     {
         GameObject root = UiLayout.Create(parent, objectName, false,
-            XianRealmPagePresentation.PageWidth, 64f, 3f);
+            XianRealmPagePresentation.PageWidth, 60f, 3f);
         Text heading = UiElements.CreateText(root.transform, "Title", title,
-            XianRealmPagePresentation.PageWidth, 15f, 8, TextAnchor.MiddleLeft, FontStyle.Bold);
+            XianRealmPagePresentation.PageWidth, 13f, 8, TextAnchor.MiddleLeft, FontStyle.Bold);
         heading.color = UiTheme.Current.Palette.AccentText;
         UiWeightedSegmentBar bar = UiWeightedSegmentBar.Create(root.transform, "Composition", 246f, 8f);
 
         GameObject row = UiLayout.Create(root.transform, "Metrics", true,
-            XianRealmPagePresentation.PageWidth, 35f, 5f, TextAnchor.MiddleCenter);
+            XianRealmPagePresentation.PageWidth, 33f, 5f, TextAnchor.MiddleCenter);
         var cells = new FoundationMetricCell[labels.Length];
         for (var i = 0; i < cells.Length; i++)
         {
@@ -260,49 +259,46 @@ internal sealed class FoundationMetricGroup
     }
 }
 
-/// <summary>八元素比例条下方的单个图例。</summary>
+/// <summary>八元素比例条下方与筑基指标统一外观的占比单元。</summary>
 internal sealed class ElementLegendEntry
 {
-    private readonly GameObject root;
-    private readonly Image icon;
-    private readonly Text value;
+    private readonly CharacterPanelIconValue value;
     private readonly int elementIndex;
 
-    private ElementLegendEntry(GameObject root, Image icon, Text value, int elementIndex)
+    private ElementLegendEntry(CharacterPanelIconValue value, int elementIndex)
     {
-        this.root = root;
-        this.icon = icon;
         this.value = value;
         this.elementIndex = elementIndex;
     }
 
-    /// <summary>创建一个紧凑元素图例。</summary>
+    /// <summary>复用原版 ui/IconValue 创建固定尺寸的元素占比单元。</summary>
     public static ElementLegendEntry Create(Transform parent, int elementIndex)
     {
-        GameObject root = UiLayout.Create(parent, $"Element {elementIndex}", true, 29f, 13f, 1f,
-            TextAnchor.MiddleLeft);
-        var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
-            typeof(LayoutElement));
-        iconObject.transform.SetParent(root.transform, false);
-        UiLayout.SetSize(iconObject.transform, 9f, 9f);
-        Image icon = iconObject.GetComponent<Image>();
-        icon.sprite = SpriteTextureLoader.getSprite(XianRealmPagePresentation.ElementIconPaths[elementIndex]);
-        icon.preserveAspect = true;
-
-        Text value = UiElements.CreateText(root.transform, "Value", string.Empty, 19f, 13f, 5,
-            TextAnchor.MiddleRight, FontStyle.Bold);
-        return new ElementLegendEntry(root, icon, value, elementIndex);
+        CharacterPanelIconValue value = CharacterPanelIconValue.Instantiate(
+            parent,
+            false,
+            $"Element {elementIndex}");
+        UiLayout.SetSize(value.transform,
+            XianRealmPagePresentation.MetricCellWidth,
+            XianRealmPagePresentation.MetricCellHeight);
+        return new ElementLegendEntry(value, elementIndex);
     }
 
-    /// <summary>按实际占比刷新图例并隐藏零占比元素。</summary>
+    /// <summary>按实际占比刷新数值；零占比仍保留槽位以稳定两行布局。</summary>
     public void SetValue(float ratio)
     {
-        bool visible = XianRealmPagePresentation.IsPositive(ratio);
-        root.SetActive(visible);
-        if (!visible) return;
-        value.text = ratio.ToString("P0");
-        value.color = XianRealmPagePresentation.GetElementColor(elementIndex);
-        UiTooltip.Set(icon.gameObject, ElementIndex.ElementNames[elementIndex].Localize(), value.text);
+        float normalized = XianRealmPagePresentation.IsPositive(ratio)
+            ? Mathf.Clamp01(ratio)
+            : 0f;
+        string percentage = normalized.ToString("P0");
+        value.Setup(new CharacterPanelIconValueState(
+            percentage,
+            XianRealmPagePresentation.ElementIconPaths[elementIndex],
+            ElementIndex.ElementNames[elementIndex].Localize(),
+            percentage,
+            textColor: normalized > 0f
+                ? XianRealmPagePresentation.GetElementColor(elementIndex)
+                : UiTheme.Current.Palette.Disabled));
     }
 }
 
@@ -360,17 +356,17 @@ internal sealed class CoreFormationAtomEntry
         icon.sprite = SpriteTextureLoader.getSprite(atom.Asset.icon_path);
         label.text = atom.Asset.GetName();
 
-        bool inherited = realm == CoreFormationRealm.Yuanying && atom.State.inherited;
+        bool inherited = atom.State.inherited;
+        Color realmColor = XianRealmPagePresentation.GetRealmColor(realm);
         label.color = inherited
-            ? Color.Lerp(XianRealmPagePresentation.JindanPrimary, UiTheme.Current.Palette.MutedText, 0.35f)
-            : realm == CoreFormationRealm.Yuanying
-                ? XianRealmPagePresentation.YuanyingPrimary
-                : UiTheme.Current.Palette.PrimaryText;
+            ? Color.Lerp(
+                XianRealmPagePresentation.GetInheritedRealmColor(realm),
+                UiTheme.Current.Palette.MutedText,
+                0.35f)
+            : realmColor;
         string origin = inherited
             ? "Cultiway.RealmPage.Atom.Inherited".Localize()
-            : realm == CoreFormationRealm.Yuanying
-                ? "Cultiway.RealmPage.Atom.Manifested".Localize()
-                : "Cultiway.RealmPage.Atom.Active".Localize();
+            : "Cultiway.RealmPage.Atom.Manifested".Localize();
         tooltipModel = CoreFormationEffectPresentation.BuildAtomTooltip(
             actor,
             atom.Asset,
@@ -410,20 +406,20 @@ internal sealed class RepresentativeSkillView
     public static RepresentativeSkillView Create(Transform parent)
     {
         GameObject root = UiLayout.Create(parent, "Representative Skill", true,
-            XianRealmPagePresentation.PageWidth, 20f, 3f, TextAnchor.MiddleLeft);
+            XianRealmPagePresentation.PageWidth, 16f, 3f, TextAnchor.MiddleLeft);
         Text title = UiElements.CreateText(root.transform, "Title",
-            "Cultiway.RealmPage.Skill.Title".Localize(), 58f, 20f, 7,
+            "Cultiway.RealmPage.Skill.Title".Localize(), 58f, 16f, 7,
             TextAnchor.MiddleLeft, FontStyle.Bold);
         title.color = UiTheme.Current.Palette.AccentText;
 
         var iconObject = new GameObject("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
             typeof(LayoutElement));
         iconObject.transform.SetParent(root.transform, false);
-        UiLayout.SetSize(iconObject.transform, 18f, 18f);
+        UiLayout.SetSize(iconObject.transform, 14f, 14f);
         Image icon = iconObject.GetComponent<Image>();
         icon.preserveAspect = true;
 
-        Text name = UiElements.CreateText(root.transform, "Name", string.Empty, 164f, 20f, 7,
+        Text name = UiElements.CreateText(root.transform, "Name", string.Empty, 168f, 16f, 7,
             TextAnchor.MiddleLeft, FontStyle.Bold);
         name.resizeTextForBestFit = true;
         name.resizeTextMinSize = 5;

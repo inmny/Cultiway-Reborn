@@ -1,5 +1,4 @@
 using ai.behaviours;
-using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
@@ -12,8 +11,12 @@ public class BehPlantXianCultivate : BehaviourActionActor
     public override BehResult execute(Actor pObject)
     {
         ActorExtend actor_extend = pObject.GetExtend();
-        ref Xian xian = ref actor_extend.GetCultisys<Xian>();
-        Cultisyses.OutWakanAndCultivate(actor_extend, ref xian);
+        var context = new Libraries.CultivationTriggerContext(
+            actor_extend,
+            Libraries.CultivationTriggerKind.ActiveTick,
+            Libraries.CultivationActivityKind.PlantPurification,
+            1f);
+        CultivateMethods.TryDispatch(in context);
         BehOutdoorCultivationWait.ClearCultivationTimers(pObject);
         return BehResult.Continue;
     }

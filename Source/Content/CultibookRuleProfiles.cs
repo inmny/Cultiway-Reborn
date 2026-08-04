@@ -10,6 +10,7 @@ internal class CultibookRuleProfiles : ExtendLibrary<CultibookRuleProfileAsset, 
     public static CultibookRuleProfileAsset Balanced { get; private set; }
     public static CultibookRuleProfileAsset Mastery { get; private set; }
     public static CultibookRuleProfileAsset Guard { get; private set; }
+    public static CultibookRuleProfileAsset Natural { get; private set; }
     public static CultibookRuleProfileAsset Water { get; private set; }
     public static CultibookRuleProfileAsset Battle { get; private set; }
     public static CultibookRuleProfileAsset Killing { get; private set; }
@@ -37,6 +38,10 @@ internal class CultibookRuleProfiles : ExtendLibrary<CultibookRuleProfileAsset, 
             context => IsStandard(context)
                 ? 8f + Math.Max(0f, context.ArmorBias - context.MasteryBias) * 8f
                 : 0f);
+
+        Set(Natural, "natural", ["天象", "地脉", "万化"], ["经", "诀", "功"],
+            "感应天地环境并调和元素流转", 0.62f, 0.38f, 0.68f, 0.58f, 0.36f, 3, 0.005f,
+            context => IsEnvironmentalMethod(context) ? 90f : 0f);
 
         Set(Water, "water", ["沧溟", "玄潮", "寒渊"], ["经", "诀", "功"],
             "借水势周流灵息并兼顾护体", 0.62f, 0.38f, 0.7f, 0.58f, 0.36f, 3, 0.005f,
@@ -82,5 +87,12 @@ internal class CultibookRuleProfiles : ExtendLibrary<CultibookRuleProfileAsset, 
     private static bool IsMethod(CultibookRuleContext context, CultivateMethodAsset method)
     {
         return context != null && method != null && context.CultivateMethodId == method.id;
+    }
+
+    /// <summary>判断上下文选中的修炼方式是否由统一环境规则驱动。</summary>
+    private static bool IsEnvironmentalMethod(CultibookRuleContext context)
+    {
+        if (context == null) return false;
+        return Libraries.Manager.CultivateMethodLibrary.get(context.CultivateMethodId)?.EnvironmentRule != null;
     }
 }

@@ -376,6 +376,7 @@ GeoRegionsListDescription,阿巴阿巴
 Drop,雨滴
 ElementRootPage,灵根详解
 CultisysOverviewPage,修炼体系
+QiRefinementPage,炼气情况
 Cultiway.CultisysOverview.UI.Format.Count,已拥有 {0} 种修炼体系
 Cultiway.CultisysOverview.UI.Format.Next,下一步：{0} · {1}
 Cultiway.CultisysOverview.UI.Kind.Minor,小境界
@@ -398,13 +399,15 @@ Cultiway.CultisysTooltip.Resource.Spirit,精神力
 Cultiway.CultisysTooltip.Resource.Mana,法力
 Cultiway.CultisysTooltip.Resource.Vigor,斗气
 Cultiway.CultisysTooltip.Xian.Foundation,筑基
+Cultiway.CultisysTooltip.Xian.QiRefinement,真气
 Cultiway.CultisysTooltip.Xian.Jindan,金丹
 Cultiway.CultisysTooltip.Xian.Yuanying,元婴
 Cultiway.CultisysTooltip.Magic.MaxRing,最高法术环
 Cultiway.CultisysTooltip.Magic.SpellCapacity,法术掌握
 Cultiway.CultisysTooltip.Knight.SuccessChance,自然突破率
 Cultiway.CultisysTooltip.Format.ElementRoot,{0} · 强度 {1:0.##}
-Cultiway.CultisysTooltip.Format.Foundation,{0}/8 · 强度 {1:0.##}
+Cultiway.CultisysTooltip.Format.Foundation,{0} · 品阶 {1} · {2}/8 · 强度 {3:0.##}
+Cultiway.CultisysTooltip.Format.QiRefinement,{0} · 品阶 {1} · {2}层 · 强度 {3:0.##}
 Cultiway.CultisysTooltip.Format.Jindan,{0} · {1} · {2}转 · 强度 {3:0.##}
 Cultiway.CultisysTooltip.Format.Yuanying,{0} · {1} · 强度 {2:0.##}
 Cultiway.CultisysTooltip.Format.Ring,{0} 环
@@ -412,6 +415,7 @@ progression.not_approaching,尚未接近突破条件
 progression.not_available,当前境界没有可用进阶
 xian.wakan_not_full,灵气尚未充盈
 xian.element_root_missing,缺少灵根
+xian.qi_foundation_not_ready,真气尚未达到九层
 xian.jindan_missing,缺少金丹
 magic.spirit_not_full,精神力尚未充盈
 knight.vigor_not_full,斗气尚未充盈

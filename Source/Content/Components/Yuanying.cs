@@ -11,36 +11,45 @@ public struct Yuanying : IComponent
     public CoreFormationSnapshot formation;
 
     /// <summary>结婴前金丹的稳定签名。</summary>
-    public string source_jindan_signature;
+    public string source_jindan_signature => formation.source_signature;
 
     /// <summary>结婴前金丹的规范名称。</summary>
-    public string source_jindan_name;
+    public string source_jindan_name => formation.source_name;
 
     /// <summary>结婴时金丹已经完成的转数。</summary>
-    public int inherited_jindan_stage;
+    public int inherited_jindan_stage => formation.source_refinement;
 
     /// <summary>元婴继承与蜕变后的总体强度倍率。</summary>
-    public float strength;
+    public float strength
+    {
+        readonly get => formation.strength;
+        set => formation.strength = value;
+    }
 
     /// <summary>元婴自身的后续演化阶段。</summary>
-    public int stage;
+    public int stage
+    {
+        readonly get => formation.refinement;
+        set => formation.refinement = value;
+    }
 
     /// <summary>使用结婴组合、来源金丹谱系和继承转数创建现行元婴组件。</summary>
     public Yuanying(CoreFormationSnapshot formation, CoreFormationSnapshot sourceJindan,
                     int inheritedJindanStage, float strength)
     {
         this.formation = formation;
-        source_jindan_signature = sourceJindan.signature;
-        source_jindan_name = sourceJindan.canonical_name;
-        inherited_jindan_stage = inheritedJindanStage;
-        this.strength = strength;
-        stage = 0;
+        this.formation.source_signature = sourceJindan.signature;
+        this.formation.source_name = sourceJindan.canonical_name;
+        this.formation.source_refinement = inheritedJindanStage;
+        this.formation.source_quality_score = sourceJindan.quality_score;
+        this.formation.strength = strength;
+        this.formation.refinement = 0;
     }
 
     /// <summary>返回组合快照固化的规范名称。</summary>
     public string GetName()
     {
-        return formation.IsValid ? formation.canonical_name : string.Empty;
+        return formation.IsFinalized ? formation.canonical_name : string.Empty;
     }
 
     /// <summary>返回结婴时独立评定并固化的品阶。</summary>

@@ -23,8 +23,8 @@ public sealed class ActorSemanticContributors : ICanInit
         SemanticContributorService.Register(new CultibookContributor());
         SemanticContributorService.Register(new LearnedSkillContributor());
         SemanticContributorService.Register(new EquippedArtifactContributor());
-        SemanticContributorService.Register(new JindanContributor());
-        SemanticContributorService.Register(new YuanyingContributor());
+        SemanticContributorService.Register(new XianAchievementContributor());
+        SemanticContributorService.Register(new CultivationPracticeContributor());
     }
 }
 
@@ -159,37 +159,58 @@ internal sealed class EquippedArtifactContributor : IActorSemanticContributor
     }
 }
 
-internal sealed class JindanContributor : IActorSemanticContributor
+/// <summary>只把角色当前境界的仙道成果写入固有语义，历史成果保持归档而不重复贡献。</summary>
+internal sealed class XianAchievementContributor : IActorSemanticContributor
 {
-    public string Id => "content.jindan";
+    public string Id => "content.xian_achievement";
     public int Priority => 500;
 
-    /// <summary>将角色当前金丹快照按强度和转数写入固有语义画像。</summary>
+    /// <summary>按当前成果境界、强度和精炼次数计算有界语义权重。</summary>
     public void Contribute(ActorExtend actor, SemanticProfileBuilder builder)
     {
-        if (!actor.E.HasComponent<Jindan>() || actor.E.HasComponent<Yuanying>()) return;
-        ref var jindan = ref actor.E.GetComponent<Jindan>();
-        var multiplier = 1f + Mathf.Log(1f + Mathf.Max(0f, jindan.strength), 2f) * 0.25f + jindan.stage * 0.2f;
-        var source = new SemanticSourceRef(Id, jindan.formation.signature);
-        builder.Add(SemanticDescriptor.Weighted(jindan.formation.semantics), multiplier,
+        if (!CoreFormationEffectResolver.TryGetFormation(actor, out var current)) return;
+        float realmScale = current.Snapshot.realm switch
+        {
+            CoreFormationRealm.QiRefinement => 0.55f,
+            CoreFormationRealm.Foundation => 0.75f,
+            CoreFormationRealm.Jindan => 1f,
+            _ => 1.25f
+        };
+        float multiplier = realmScale +
+                           Mathf.Log(1f + Mathf.Max(0f, current.Strength), 2f) * 0.25f +
+                           Mathf.Min(0.5f, current.Stage * 0.02f);
+        var source = new SemanticSourceRef(Id, current.Snapshot.signature);
+        builder.Add(SemanticDescriptor.Weighted(current.Snapshot.semantics), multiplier,
             SemanticScope.Intrinsic, source);
     }
 }
 
-internal sealed class YuanyingContributor : IActorSemanticContributor
+/// <summary>把角色按修炼方式累计的实践量转换为历史语义。</summary>
+internal sealed class CultivationPracticeContributor : IActorSemanticContributor
 {
-    public string Id => "content.yuanying";
+    private const float MaximumSemanticStrength = 4f;
+    private const float SaturationMonths = 20f;
+
+    public string Id => "content.cultivation_practice";
     public int Priority => 600;
 
-    /// <summary>将角色当前元婴快照按强度和演化阶段写入固有语义画像。</summary>
+    /// <summary>逐种修炼方式压缩长期实践，再通过当前资产派生语义。</summary>
     public void Contribute(ActorExtend actor, SemanticProfileBuilder builder)
     {
-        if (!actor.E.HasComponent<Yuanying>()) return;
-        ref var yuanying = ref actor.E.GetComponent<Yuanying>();
-        var multiplier = 1.25f + Mathf.Log(1f + Mathf.Max(0f, yuanying.strength), 2f) * 0.3f +
-                         yuanying.stage * 0.25f;
-        var source = new SemanticSourceRef(Id, yuanying.formation.signature);
-        builder.Add(SemanticDescriptor.Weighted(yuanying.formation.semantics), multiplier,
-            SemanticScope.Intrinsic, source);
+        if (!actor.TryGetComponent(out CultivationPracticeState state) || state.methods == null) return;
+        for (var i = 0; i < state.methods.Length; i++)
+        {
+            CultivationMethodPracticeEntry entry = state.methods[i];
+            if (entry.effective_months <= 0f ||
+                !Libraries.Manager.CultivateMethodLibrary.dict.TryGetValue(
+                    entry.method_id,
+                    out CultivateMethodAsset method))
+                continue;
+
+            float strength = MaximumSemanticStrength *
+                             (1f - Mathf.Exp(-entry.effective_months / SaturationMonths));
+            builder.Add(method.Semantics, strength, SemanticScope.Historical,
+                new SemanticSourceRef(Id, method.id));
+        }
     }
 }

@@ -50,6 +50,9 @@ public class Manager : ICanInit
         WindowNewCreatureInfo.RegisterPage(nameof(CultisysOverviewPage),
             a => Cultisyses.HasAnyCultisys(a.GetExtend()),
             CultisysOverviewPage.Setup, CultisysOverviewPage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(QiRefinementPage),
+            a => a.GetExtend().HasComponent<QiRefinementState>(),
+            QiRefinementPage.Setup, QiRefinementPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(XianBasePage), a => a.GetExtend().HasComponent<XianBase>(),
             XianBasePage.Setup, XianBasePage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(JindanPage), a => a.GetExtend().HasComponent<Jindan>(),

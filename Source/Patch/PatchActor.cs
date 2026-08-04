@@ -400,6 +400,7 @@ internal static class PatchActor
             Element = element,
             Attacker = pAttacker,
             AttackType = pAttackType,
+            SourceScopeId = PatchLightning.CurrentSkyLightningScopeId,
             IgnoreDamageReduction = !pCheckDamageReduction
         });
         return false;

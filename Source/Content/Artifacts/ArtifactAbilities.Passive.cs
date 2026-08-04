@@ -181,7 +181,7 @@ public partial class ArtifactAbilities
         if (!controller.HasCultisys<Xian>()) return false;
         ref Xian xian = ref controller.GetCultisys<Xian>();
         if (xian.wakan < amount) return false;
-        if (consume) xian.wakan -= amount;
+        if (consume) WakanResourceService.Spend(controller, ref xian, amount);
         return true;
     }
 }

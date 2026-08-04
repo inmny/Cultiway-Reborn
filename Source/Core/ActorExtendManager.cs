@@ -56,6 +56,13 @@ public class ActorExtendManager : ExtendComponentManager<ActorExtend>
         return _actor_to_extend.TryGetValue(actor.data, out var val);
     }
 
+    /// <summary>只读取得已经存在的角色扩展，不创建 ECS 实体。</summary>
+    public bool TryGet(Actor actor, out ActorExtend actorExtend)
+    {
+        actorExtend = null;
+        return actor?.data != null && _actor_to_extend.TryGetValue(actor.data, out actorExtend);
+    }
+
     public void Remove(Actor actor)
     {
         _actor_to_extend.TryRemove(actor.data, out _);
