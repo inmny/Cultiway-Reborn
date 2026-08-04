@@ -18,6 +18,11 @@ public static class ActorTools
     {
         return ActorExtendManager.Has(actor);
     }
+    /// <summary>只读取已经创建的扩展，适用于禁止 ECS 结构变化的并行回调。</summary>
+    public static bool TryGetExtend(this Actor actor, out ActorExtend actorExtend)
+    {
+        return ActorExtendManager.TryGet(actor, out actorExtend);
+    }
     public static bool HasSect(this Actor actor)
     {
         return actor.GetExtend().sect != null;

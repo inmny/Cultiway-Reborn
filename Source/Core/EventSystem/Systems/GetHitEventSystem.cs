@@ -24,7 +24,7 @@ public class GetHitEventSystem : GenericEventSystem<GetHitEvent>
             return;
         }
 
-        using (DamageResolutionContext.Enter(evt.DamageOrigin))
+        using (DamageResolutionContext.Enter(evt.DamageOrigin, evt.SourceScopeId))
         {
             var element = evt.Element;
             actor.GetExtend().GetHit(evt.Damage, ref element, evt.Attacker,

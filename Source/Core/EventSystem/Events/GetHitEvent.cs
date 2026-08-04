@@ -17,4 +17,7 @@ public struct GetHitEvent
 
     /// <summary>本次伤害是否属于不应再次触发同类被动的二次反应。</summary>
     public DamageOrigin DamageOrigin;
+
+    /// <summary>伤害入队时所在的外部来源作用域；零表示没有需要跨事件保留的来源。</summary>
+    public long SourceScopeId;
 }

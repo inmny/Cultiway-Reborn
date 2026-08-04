@@ -42,7 +42,13 @@ public abstract class GenericEventSystem<TEvent> : BaseEventSystem
             _buffer.Add(evt);
         }
 
-        foreach (var evt in _buffer)
+        HandleEvents(_buffer);
+    }
+
+    /// <summary>批量处理本帧已经从并发队列取出的事件；子类可覆盖以先聚合再结算。</summary>
+    protected virtual void HandleEvents(IReadOnlyList<TEvent> events)
+    {
+        foreach (var evt in events)
         {
             try
             {
