@@ -205,10 +205,7 @@ public static class CombatWorldService
             return false;
 
         BaseSimObject enemy = runtime.Plan.PrimaryEnemy.Object;
-        if (!IsValidEnemy(
-                actor,
-                enemy,
-                runtime.Plan.PrimaryEnemy.ThreatSource != CombatThreatSource.None))
+        if (!CanEngageTarget(actor, enemy))
         {
             RequestMovementRefresh(runtime, clearBearing: true);
             return false;
@@ -637,10 +634,7 @@ public static class CombatWorldService
         runtime.NextPlanAt = now + ResolvePlanInterval(actor, snapshot.HighFidelity, snapshot.Revision);
         if (plan == null ||
             !plan.HasEnemy ||
-            !IsValidEnemy(
-                actor,
-                plan.PrimaryEnemy.Object,
-                plan.PrimaryEnemy.ThreatSource != CombatThreatSource.None))
+            !CanEngageTarget(actor, plan.PrimaryEnemy.Object))
         {
             UpdateArmyRout(actor, default, true);
             if (runtime.IsEngaged)
@@ -998,8 +992,7 @@ public static class CombatWorldService
                 runtime,
                 now,
                 seen,
-                result,
-                confirmedThreat: true);
+                result);
         }
 
         EnemyFinderData enemyData = EnemiesFinder.findEnemiesFrom(actor.current_tile, actor.kingdom);
@@ -1017,8 +1010,7 @@ public static class CombatWorldService
                 runtime,
                 now,
                 seen,
-                result,
-                confirmedThreat: true);
+                result);
         }
         foreach (long attackerId in runtime.RecentAttackers.Keys)
         {
@@ -1028,8 +1020,7 @@ public static class CombatWorldService
                 runtime,
                 now,
                 seen,
-                result,
-                confirmedThreat: true);
+                result);
         }
         if (armyRuntime != null &&
             directive is CombatDirective.Attack or CombatDirective.Protect)
@@ -1120,6 +1111,7 @@ public static class CombatWorldService
         return target.current_position;
     }
 
+    /// <summary>按原版最终攻击资格验证候选目标，并加入去重后的目标池。</summary>
     private static void AddEnemyCandidate(
         Actor actor,
         BaseSimObject candidate,
@@ -1128,31 +1120,13 @@ public static class CombatWorldService
         ISet<long> seen,
         ICollection<BaseSimObject> output)
     {
-        AddEnemyCandidate(actor, candidate, runtime, now, seen, output, confirmedThreat: false);
-    }
-
-    /// <summary>验证普通敌人或已由真实事件确认的攻击者，并加入去重后的目标池。</summary>
-    private static void AddEnemyCandidate(
-        Actor actor,
-        BaseSimObject candidate,
-        CombatActorRuntime runtime,
-        double now,
-        ISet<long> seen,
-        ICollection<BaseSimObject> output,
-        bool confirmedThreat)
-    {
-        if (candidate.isRekt() || candidate == actor) return;
+        if (!CanEngageTarget(actor, candidate)) return;
         long id = candidate.getID();
         if (seen.Contains(id)) return;
         if (runtime.IgnoreCurrentTargetUntil > now &&
             runtime.IgnoredTargetId == id)
             return;
         if (actor.shouldIgnoreTarget(candidate)) return;
-        if (!actor.canAttackTarget(
-                candidate,
-                pCheckForFactions: !confirmedThreat,
-                pAttackBuildings: actor.asset.can_attack_buildings))
-            return;
         seen.Add(id);
         output.Add(candidate);
     }
@@ -2294,15 +2268,17 @@ public static class CombatWorldService
         runtime.DisplayedActivityStartedAt = 0d;
     }
 
-    private static bool IsValidEnemy(
-        Actor actor,
-        BaseSimObject target,
-        bool confirmedThreat)
+    /// <summary>
+    /// 使用与原版实际攻击入口一致的目标资格；威胁记录只改变优先级，不得绕过阵营、职业和单位状态限制。
+    /// </summary>
+    internal static bool CanEngageTarget(Actor actor, BaseSimObject target)
     {
-        return !target.isRekt() &&
+        return !actor.isRekt() &&
+               !target.isRekt() &&
+               target != actor &&
                actor.canAttackTarget(
                    target,
-                   pCheckForFactions: !confirmedThreat,
+                   pCheckForFactions: true,
                    pAttackBuildings: actor.asset.can_attack_buildings);
     }
 
