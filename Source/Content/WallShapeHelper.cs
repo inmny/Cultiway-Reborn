@@ -14,6 +14,7 @@ public static class WallShapeHelper
 {
     private const int RADIUS_MIN = 3;
     private const int RADIUS_MAX = 60;
+    private const int REMOTE_UTILITY_DISTANCE = 16;
     private const int EXIT_HALF = 1; // 出口在每条边中点附近 ±EXIT_HALF 格（共 3 格通道）
 
     /// <summary>矩形包围盒：中心 (cx,cy) + 半宽 hx + 半高 hy。</summary>
@@ -23,15 +24,21 @@ public static class WallShapeHelper
     }
 
     /// <summary>城市所有建筑的包围盒（中心 + 半宽/半高）。半宽/半高至少 <see cref="RADIUS_MIN"/>。无建筑返回 null。</summary>
-    public static Bounds? GetBuildingsBounds(City city)
+    public static Bounds? GetBuildingsBounds(City city, bool ignoreRemoteUtilities = false)
     {
         if (city == null || city.buildings.Count == 0) return null;
+        WorldTile center = null;
+        if (ignoreRemoteUtilities)
+            center = city.getBuildingOfType("type_hall")?.current_tile
+                     ?? city.getBuildingOfType("type_bonfire")?.current_tile
+                     ?? city.getTile();
         int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
         int count = 0;
         foreach (var b in city.buildings)
         {
             var t = b.current_tile;
             if (t == null) continue;
+            if (ignoreRemoteUtilities && IsRemoteUtility(b, center)) continue;
             if (t.x < minX) minX = t.x;
             if (t.x > maxX) maxX = t.x;
             if (t.y < minY) minY = t.y;
@@ -46,6 +53,15 @@ public static class WallShapeHelper
             hx = Mathf.Clamp((maxX - minX) / 2, RADIUS_MIN, RADIUS_MAX),
             hy = Mathf.Clamp((maxY - minY) / 2, RADIUS_MIN, RADIUS_MAX),
         };
+    }
+
+    private static bool IsRemoteUtility(Building building, WorldTile center)
+    {
+        if (center == null || building?.asset == null || building.current_tile == null) return false;
+        string type = building.asset.type;
+        if (type != "type_windmill" && type != "type_mine" && type != "type_crops") return false;
+        return Math.Max(Math.Abs(building.current_tile.x - center.x), Math.Abs(building.current_tile.y - center.y))
+               > REMOTE_UTILITY_DISTANCE;
     }
 
     /// <summary>

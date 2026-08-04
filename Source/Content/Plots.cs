@@ -490,7 +490,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     private const int   WALL_MARGIN         = 3;    // 内墙在所有建筑之外的余量
     private const int   WALL_SPACING        = 6;    // 外墙比内墙每边大多少
     private const float WALL_REBUILD_RATIO  = 0.3f; // 现存城墙低于完整圈的 30% 视为"被摧毁"，允许重修
-    private const int   WALL_TOWER_INTERVAL = 10;   // 沿城墙每隔多少格放置一座防御箭塔
+    private const int   WALL_TOWER_INTERVAL = 10;   // 大于 0 时在双层石墙生成箭塔
 
     private const int WALL_STAGE_NONE     = 0; // 无墙
     private const int WALL_STAGE_INNER    = 1; // 仅内墙（木墙，宽1）
@@ -591,7 +591,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     /// <summary>
     /// 沿目标范围与城市陆地交集的内缘放置闭合城墙（不拆除建筑、不改变城市 zones）。
     /// <b>只在本城市领土内的可通行陆地生成</b>，边缘随城市边界和水岸弯折，不要求保持矩形。
-    /// <b>箭塔只在两格宽石墙(wall_order)的内侧圈、按 towerInterval 间距放置</b>（木墙/单格墙都不放）。
+    /// <b>箭塔只在两格宽石墙(wall_order)的内侧圈生成：四角与出入口优先，其余每隔一个区块一座</b>。
     /// </summary>
     private static void PlaceWallRing(Actor actor, WallShapeHelper.Bounds b, int width, TopTileType wall, int towerInterval)
     {
@@ -605,20 +605,129 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             tile.setTopTileType(wall);
         }
 
-        // 箭塔只在"两格宽石墙(wall_order)"的内侧圈、按 towerInterval 间距放置
+        // 箭塔只在"两格宽石墙(wall_order)"的内侧圈生成
         if (towerInterval > 0 && width >= 2 && wall == TopTileLibrary.wall_order)
         {
             string tower_id = GetWatchTowerId(city);
             var inner = WallShapeHelper.ComputeWallRing(b, 1, city); // 内侧圈
-            for (int i = 0; i < inner.Count; i += towerInterval)
-            {
-                var tile = inner[i];
-                if (!InTerritory(tile, city)) continue; // 领土外不放箭塔
-                if (tile.building != null) continue;
-                var bb = World.world.buildings.addBuilding(tower_id, tile);
-                ModClass.LogInfo($"Place tower(id: {bb.data.id}), its kingdom: null?{bb.kingdom==null}, id?{bb.kingdom?.id}, asset:{bb.kingdom?.asset.id}");
-            }
+            var uncarvedInner = WallShapeHelper.ComputeWallRing(b, 1, city, false);
+            PlaceWallTowers(city, b, inner, uncarvedInner, tower_id);
         }
+    }
+
+    private static void PlaceWallTowers(City city, WallShapeHelper.Bounds b, List<WorldTile> ring,
+                                        List<WorldTile> uncarvedRing, string towerId)
+    {
+        var selected = new HashSet<WorldTile>();
+        PlaceCornerTower(city, ring, towerId, b.cx - b.hx, b.cy - b.hy, -1, -1, selected);
+        PlaceCornerTower(city, ring, towerId, b.cx - b.hx, b.cy + b.hy, -1, 1, selected);
+        PlaceCornerTower(city, ring, towerId, b.cx + b.hx, b.cy + b.hy, 1, 1, selected);
+        PlaceCornerTower(city, ring, towerId, b.cx + b.hx, b.cy - b.hy, 1, -1, selected);
+
+        var occupiedZones = new HashSet<TileZone>();
+        foreach (var tile in selected)
+        {
+            if (tile.zone != null) occupiedZones.Add(tile.zone);
+        }
+        foreach (var building in city.buildings)
+        {
+            if (building?.asset?.type == "type_watch_tower" && building.current_tile?.zone != null)
+                occupiedZones.Add(building.current_tile.zone);
+        }
+
+        var passages = new HashSet<WorldTile>(uncarvedRing);
+        passages.ExceptWith(ring);
+        var passageCandidates = new Dictionary<TileZone, WorldTile>();
+        foreach (var tile in ring)
+        {
+            var zone = tile?.zone;
+            if (!CanPlaceWallTower(tile, city) || selected.Contains(tile) || occupiedZones.Contains(zone)) continue;
+            int distance = DistanceToPassage(tile, passages);
+            if (distance > 2) continue;
+            if (!passageCandidates.TryGetValue(zone, out var current)
+                || distance < DistanceToPassage(current, passages))
+                passageCandidates[zone] = tile;
+        }
+        foreach (var pair in passageCandidates)
+        {
+            PlaceTower(pair.Value, towerId);
+            occupiedZones.Add(pair.Key);
+        }
+
+        var zoneCandidates = new Dictionary<TileZone, WorldTile>();
+        foreach (var tile in ring)
+        {
+            var zone = tile?.zone;
+            if (!CanPlaceWallTower(tile, city) || selected.Contains(tile) || occupiedZones.Contains(zone)) continue;
+            if (!zoneCandidates.TryGetValue(zone, out var current)
+                || SquaredDistance(tile, zone.centerTile) < SquaredDistance(current, zone.centerTile))
+                zoneCandidates[zone] = tile;
+        }
+        var ordinaryCandidates = new List<WorldTile>(zoneCandidates.Values);
+        ordinaryCandidates.Sort((first, second) =>
+            Math.Atan2(first.y - b.cy, first.x - b.cx).CompareTo(Math.Atan2(second.y - b.cy, second.x - b.cx)));
+        for (int i = 0; i < ordinaryCandidates.Count; i += 2) PlaceTower(ordinaryCandidates[i], towerId);
+    }
+
+    private static void PlaceCornerTower(City city, List<WorldTile> ring, string towerId,
+                                         int targetX, int targetY, int directionX, int directionY,
+                                         HashSet<WorldTile> selected)
+    {
+        WorldTile best = null;
+        int bestDistance = int.MaxValue;
+        foreach (var tile in ring)
+        {
+            if (tile == null || selected.Contains(tile) || !CanUseCornerTile(tile, city)) continue;
+            if ((tile.x - targetX) * directionX > 0 || (tile.y - targetY) * directionY > 0) continue;
+            int distance = SquaredDistance(tile, targetX, targetY);
+            if (distance >= bestDistance) continue;
+            best = tile;
+            bestDistance = distance;
+        }
+        if (best == null) return;
+        selected.Add(best);
+        if (best.building?.asset?.type != "type_watch_tower") PlaceTower(best, towerId);
+    }
+
+    private static bool CanUseCornerTile(WorldTile tile, City city)
+    {
+        return InTerritory(tile, city)
+               && (tile.building == null || tile.building.asset?.type == "type_watch_tower");
+    }
+
+    private static bool CanPlaceWallTower(WorldTile tile, City city)
+    {
+        return tile?.zone != null && InTerritory(tile, city) && tile.building == null;
+    }
+
+    private static int DistanceToPassage(WorldTile tile, HashSet<WorldTile> passages)
+    {
+        int best = int.MaxValue;
+        foreach (var passage in passages)
+        {
+            int distance = Math.Max(Math.Abs(tile.x - passage.x), Math.Abs(tile.y - passage.y));
+            if (distance < best) best = distance;
+        }
+        return best;
+    }
+
+    private static int SquaredDistance(WorldTile first, WorldTile second)
+    {
+        return second == null ? int.MaxValue : SquaredDistance(first, second.x, second.y);
+    }
+
+    private static int SquaredDistance(WorldTile tile, int x, int y)
+    {
+        int dx = tile.x - x;
+        int dy = tile.y - y;
+        return dx * dx + dy * dy;
+    }
+
+    private static void PlaceTower(WorldTile tile, string towerId)
+    {
+        var tower = World.world.buildings.addBuilding(towerId, tile);
+        if (tower != null)
+            ModClass.LogInfo($"Place tower(id: {tower.data.id}), its kingdom: null?{tower.kingdom==null}, id?{tower.kingdom?.id}, asset:{tower.kingdom?.asset.id}");
     }
 
     /// <summary>按城市种族选取箭塔 id（watch_tower_human/orc/elf/dwarf），无对应样式则回退人类。</summary>
@@ -773,7 +882,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         }
         var stored = GetInnerBounds(city);
         if (stored != null) return stored;
-        var bb = WallShapeHelper.GetBuildingsBounds(city);
+        var bb = WallShapeHelper.GetBuildingsBounds(city, true);
         if (bb == null) return null;
         var inner = new WallShapeHelper.Bounds
         {
@@ -834,20 +943,37 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         }
     }
 
-    /// <summary>清除给定 bounds 上的城墙 top_tile（不拆建筑、不动地形）。用于拆除上一轮旧外墙。</summary>
+    /// <summary>清除给定 bounds 上的城墙及墙线箭塔，不拆除其他建筑、不改变地形。</summary>
     private static void RemoveWallRing(WallShapeHelper.Bounds b, City city)
     {
+        var currentRing = WallShapeHelper.ComputeWallRing(b, 2, city, false);
+        var legacyRing = WallShapeHelper.ComputeWallRing(b, 2);
+        var towers = new HashSet<Building>();
+        CollectWallTowers(currentRing, city, towers);
+        CollectWallTowers(legacyRing, city, towers);
+        foreach (var tower in towers) tower.startRemove();
+
         // 不裁剪门洞，确保升级后新增的道路/港口通道不会被旧墙堵住。
-        foreach (var tile in WallShapeHelper.ComputeWallRing(b, 2, city, false))
+        foreach (var tile in currentRing)
         {
             if (tile != null && tile.top_type != null && tile.top_type.wall)
                 tile.setTopTileType(null);
         }
         // 兼容清理旧版矩形算法留下的墙体。
-        foreach (var tile in WallShapeHelper.ComputeWallRing(b, 2))
+        foreach (var tile in legacyRing)
         {
             if (tile != null && tile.top_type != null && tile.top_type.wall)
                 tile.setTopTileType(null);
+        }
+    }
+
+    private static void CollectWallTowers(List<WorldTile> ring, City city, HashSet<Building> towers)
+    {
+        foreach (var tile in ring)
+        {
+            var building = tile?.building;
+            if (building?.city == city && building.asset?.type == "type_watch_tower" && !building.isOnRemove())
+                towers.Add(building);
         }
     }
 
