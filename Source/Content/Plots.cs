@@ -78,7 +78,16 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             }
 
             var book = World.world.books.CreateNewCultibook(actor);
-            return book != null && World.world.books.TryStoreBookInCity(actor, book);
+            if (book == null || !World.world.books.TryStoreBookInCity(actor, book))
+            {
+                return false;
+            }
+
+            var cultibook = book.GetExtend().GetComponent<Cultibook>().Asset;
+            var actorExtend = actor.GetExtend();
+            actorExtend.SetMainCultibook(cultibook);
+            actorExtend.AddMainCultibookMastery(100);
+            return true;
         };
 
         NewSect.path_icon = "books/custom_book_covers/cultibook/31";
