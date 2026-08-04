@@ -105,6 +105,7 @@ internal class Manager
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultivationDamageResolvedEventSystem());
         
         CultivateMethodTriggers.Init();
+        SkavenEvolution.Init();
         KnightCombatTriggers.Init();
         KnightBloodline.Init();
         KnightForge.Init();

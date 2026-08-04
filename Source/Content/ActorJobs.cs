@@ -35,6 +35,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob SectBuilder { get; private set; }
     public static ActorJob BookWriter { get; private set; }
     public static ActorJob SpawnedUnit { get; private set; }
+    public static ActorJob SkavenGroup { get; private set; }
     
     // 师徒系统工作
     public static ActorJob MasterDuty { get; private set; }
@@ -198,6 +199,10 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         SpawnedUnit.addTask(ActorTasks.CallSourceSpawner.id);
         SpawnedUnit.addCondition(new CondHasAliveSourceSpawner(), false);
         SpawnedUnit.addTask(ActorTasks.EndJob.id);
+
+        SkavenGroup.addTask(ActorTasks.FollowSkavenLeader.id);
+        SkavenGroup.addTask(ActorTasks.RandomMove.id);
+        SkavenGroup.addTask(ActorTasks.EndJob.id);
         
         // 师傅工作
         MasterDuty.addTask(ActorTasks.TeachApprentice.id);

@@ -249,8 +249,64 @@ public partial class Actors
     public static ActorAsset  ExaltedBloodthirster { get; private set; }
     [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
     public static ActorAsset  QingDi { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV1 { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV2 { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV3 { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV4 { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV5 { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV6 { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV7 { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV8 { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV9 { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV10 { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV11 { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV12 { get; private set; }
+    [SetupButton, CommonCreatureSetup, CloneSource(ActorAssetLibrary.TEMPLATE_BASIC_UNIT_COLORED)]
+    public static ActorAsset Skaven_LV13 { get; private set; }
     private void SetupFantasyCreatures()
     {
+        ActorAsset[] skavenLevels =
+        {
+            Skaven_LV1, Skaven_LV2, Skaven_LV3, Skaven_LV4, Skaven_LV5, Skaven_LV6, Skaven_LV7,
+            Skaven_LV8, Skaven_LV9, Skaven_LV10, Skaven_LV11, Skaven_LV12, Skaven_LV13
+        };
+        for (var i = 0; i < skavenLevels.Length; i++)
+        {
+            var level = i + 1;
+            var animationFrames = level <= 2 ? "walk_0,walk_1,walk_2" : "walk_0,walk_1,walk_2,walk_3";
+            var swimFrames = level <= 2 ? "swim_0,swim_1,swim_2" : "swim_0,swim_1,swim_2,swim_3";
+            skavenLevels[i].texture_id = $"Skaven/Skaven_LV{level}";
+            skavenLevels[i].SetCamp(KingdomAssets.Skaven)
+                .SetAnimWalkRaw(animationFrames)
+                .SetAnimIdleRaw("walk_0")
+                .SetAnimSwimRaw(swimFrames)
+                .SetIcon($"actors/species/other/Skaven/Skaven_LV{level}")
+                .SetJumpAnimation(false)
+                .AddTrait(ActorTraits.SkavenEvolution)
+                .AddTrait(S_Trait.evil)
+                .AddTrait(S_Trait.deceitful)
+                .AddTrait(S_Trait.greedy)
+                .AddJob(ActorJobs.SkavenGroup)
+                .Stats(S.damage, 8 + level * 4)
+                .Stats(S.speed, 14 + level)
+                .Stats(S.health, 70 + level * level * 15)
+                .Stats(S.armor, level * 2)
+                .Stats(S.stamina, 50 + level * 10)
+                .Stats(S.lifespan, 40 + level * 10);
+        }
+
         AcaciaTreants.SetCamp(KingdomAssets.TreantsGood)//金合欢树人
             .SetAnimWalk(S_Anim.walk_1, S_Anim.walk_2, S_Anim.walk_3, S_Anim.walk_4, S_Anim.walk_5, S_Anim.walk_6, S_Anim.walk_7)
             .SetAnimSwimRaw("swim_0,swim_1,swim_2,swim_3,swim_4,swim_5,swim_6,swim_7")

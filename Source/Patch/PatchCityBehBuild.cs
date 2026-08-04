@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using ai.behaviours;
+using Cultiway.Content;
 using HarmonyLib;
 using strings;
 
@@ -18,15 +19,13 @@ namespace Cultiway.Patch;
 /// </summary>
 internal static class PatchCityBehBuild
 {
-    public const string HALL_HEARTH_ID = "Cultiway.HallHearth";
-
     /// <summary>
     /// 建筑聚集锚点。第二个 bool 参数仅为对齐 City.getTile(bool) 的调用栈（原调用点已压入默认实参 false），不使用。
     /// </summary>
     public static WorldTile GetClusteringCenter(City pCity, bool _)
     {
         if (pCity != null && pCity.hasCulture()
-            && pCity.culture.hasTrait(HALL_HEARTH_ID))
+            && pCity.culture.hasTrait(CultureTraits.HallHearthId))
         {
             Building hall = pCity.getBuildingOfType(S_BuildingType.type_hall);
             if (hall != null)

@@ -16,6 +16,9 @@ public class QuantumSprites : ExtendLibrary<QuantumSpriteAsset, QuantumSprites>
     [CloneSource(S_Quantum.status_effects)]
     public static QuantumSpriteAsset MagicShield { get; private set; }
 
+    [CloneSource("unit_banners")]
+    public static QuantumSpriteAsset SkavenLeaderBanners { get; private set; }
+
     protected override bool AutoRegisterAssets() => true;
 
     protected override void OnInit()
@@ -31,6 +34,8 @@ public class QuantumSprites : ExtendLibrary<QuantumSpriteAsset, QuantumSprites>
         SpecialItemIcon.base_scale = 4f;
 
         MagicShield.draw_call = new QuantumSpriteUpdater(MagicShieldVfx.Draw);
+
+        SkavenLeaderBanners.draw_call = new QuantumSpriteUpdater(SkavenLeaderBannerVfx.Draw);
     }
 
     protected override void PostInit(QuantumSpriteAsset asset)

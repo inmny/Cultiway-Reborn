@@ -192,8 +192,13 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.BloodcrusherKhorne, 16, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.BloodletterKhorne, 32, 2, 2)
                    .AddAdvancedSpawnerDistributedConfig(Actors.Bloodthirster, 1, 4, 1)
-                   .AddAdvancedSpawnerDistributedConfig(Actors.AnggrathUnbound, 1, 4, 1)
-                   .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedBloodthirster, 1, 4, 1);
+                    .AddAdvancedSpawnerDistributedConfig(Actors.AnggrathUnbound, 1, 4, 1)
+                    .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedBloodthirster, 1, 4, 1);
+        SkavenBlight.tower = false;
+        SkavenBlight.spawn_units_asset = null;
+        SkavenBlight.spawn_units = false;
+        SkavenBlight.kingdom = KingdomAssets.Skaven.id;
+        SkavenBlight.AddAdvancedSpawnerDistributedConfig(Actors.Skaven_LV1, 13 * 13, 4, 13);
 
         // 所有奇幻建筑血量提升到 10000
         BuildingAsset[] demon_buildings =
