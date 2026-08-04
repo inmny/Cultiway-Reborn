@@ -66,3 +66,9 @@
 - 苏流儿
 - Terragena Group
 - 弦
+
+## 支持渠道（仅Inmny一人）
+
+- [爱发电](https://afdian.com/a/inmny) 这个我能收到94%
+- [AI中转站 1](https://api.tken.me/sign-up?aff=ujKY) 计量倍率0.18x，如果需要用中转站的话，这个充值能给我返现2%余额
+- [AI中转站 2](https://shop.input.im/?code=932515d9) 超性价比按月订阅，如果需要用中转站的话，这个充值能给我返现5%余额
