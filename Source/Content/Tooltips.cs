@@ -79,10 +79,11 @@ public class Tooltips : ExtendLibrary<TooltipAsset, Tooltips>
 
     private static void ShowCultibookTooltip(Tooltip tooltip, string type, TooltipData data)
     {
+        var cultibookTooltip = tooltip.GetComponent<CultibookTooltip>();
+        if (cultibookTooltip?.SetupPending() == true) return;
+
         var book = data.book;
         if (book == null || book.getAsset() != BookTypes.Cultibook) return;
-        
-        var cultibookTooltip = tooltip.GetComponent<CultibookTooltip>();
         cultibookTooltip?.Setup(book);
     }
 
