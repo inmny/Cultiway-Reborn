@@ -23,6 +23,56 @@ public static class WallShapeHelper
         public int cx, cy, hx, hy;
     }
 
+    public sealed class WallComputationContext
+    {
+        internal readonly City City;
+        internal readonly HashSet<long> CoreLand;
+        internal readonly Dictionary<RingKey, List<WorldTile>> Rings = new();
+
+        internal WallComputationContext(City city)
+        {
+            City = city;
+            CoreLand = GetCoreLand(GetCityLand(city), city.getTile());
+        }
+    }
+
+    internal readonly struct RingKey : IEquatable<RingKey>
+    {
+        private readonly int cx, cy, hx, hy, width;
+
+        public RingKey(Bounds bounds, int ringWidth)
+        {
+            cx = bounds.cx;
+            cy = bounds.cy;
+            hx = bounds.hx;
+            hy = bounds.hy;
+            width = ringWidth;
+        }
+
+        public bool Equals(RingKey other)
+        {
+            return cx == other.cx && cy == other.cy && hx == other.hx && hy == other.hy && width == other.width;
+        }
+
+        public override bool Equals(object obj) => obj is RingKey other && Equals(other);
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = cx;
+                hash = hash * 397 ^ cy;
+                hash = hash * 397 ^ hx;
+                hash = hash * 397 ^ hy;
+                return hash * 397 ^ width;
+            }
+        }
+    }
+
+    public static WallComputationContext CreateContext(City city)
+    {
+        return city == null ? null : new WallComputationContext(city);
+    }
+
     /// <summary>城市所有建筑的包围盒（中心 + 半宽/半高）。半宽/半高至少 <see cref="RADIUS_MIN"/>。无建筑返回 null。</summary>
     public static Bounds? GetBuildingsBounds(City city, bool ignoreRemoteUtilities = false)
     {
@@ -102,9 +152,27 @@ public static class WallShapeHelper
     public static List<WorldTile> ComputeWallRing(Bounds b, int width, City city, bool carvePassages = true)
     {
         if (city == null) return ComputeWallRing(b, width);
+        return ComputeWallRing(b, width, CreateContext(city), carvePassages);
+    }
 
-        var territoryLand = GetCityLand(city);
-        var coreLand = GetCoreLand(territoryLand, city.getTile());
+    public static List<WorldTile> ComputeWallRing(Bounds b, int width, WallComputationContext context,
+                                                   bool carvePassages = true)
+    {
+        if (context == null) return ComputeWallRing(b, width);
+
+        var ringKey = new RingKey(b, width);
+        if (context.Rings.TryGetValue(ringKey, out var cached))
+        {
+            var cachedResult = new List<WorldTile>(cached);
+            if (carvePassages)
+            {
+                CarveLandGates(cachedResult, b, context.City);
+                CarveDockPassages(cachedResult, context.City, width);
+            }
+            return cachedResult;
+        }
+
+        var coreLand = context.CoreLand;
         int minX = Math.Max(0, b.cx - b.hx);
         int maxX = Math.Min(MapBox.width - 1, b.cx + b.hx);
         int minY = Math.Max(0, b.cy - b.hy);
@@ -147,10 +215,11 @@ public static class WallShapeHelper
             }
         }
 
+        context.Rings[ringKey] = new List<WorldTile>(result);
         if (carvePassages)
         {
-            CarveLandGates(result, b, city);
-            CarveDockPassages(result, city, width);
+            CarveLandGates(result, b, context.City);
+            CarveDockPassages(result, context.City, width);
         }
         return result;
     }
@@ -214,16 +283,7 @@ public static class WallShapeHelper
     public static float ExistingWallRatio(Bounds b, int width, City city = null)
     {
         if (city != null)
-        {
-            var ring = ComputeWallRing(b, width, city);
-            if (ring.Count == 0) return 0f;
-            int existingWalls = 0;
-            foreach (var tile in ring)
-            {
-                if (IsWallTop(tile)) existingWalls++;
-            }
-            return (float)existingWalls / ring.Count;
-        }
+            return ExistingWallRatio(b, width, CreateContext(city));
 
         int cx = b.cx, cy = b.cy;
         int total = 0;
@@ -239,6 +299,167 @@ public static class WallShapeHelper
             }
         }
         return total == 0 ? 0f : (float)existing / total;
+    }
+
+    public static float ExistingWallRatio(Bounds b, int width, WallComputationContext context)
+    {
+        var ring = ComputeWallRing(b, width, context);
+        if (ring.Count == 0) return 0f;
+        int existingWalls = 0;
+        foreach (var tile in ring)
+        {
+            if (IsWallTop(tile)) existingWalls++;
+        }
+        return (float)existingWalls / ring.Count;
+    }
+
+    /// <summary>校验外侧陆地能否四向到达城市核心；不可达时沿最少穿墙路径补出三格宽通道。</summary>
+    public static List<WorldTile> EnsureCoreReachable(WallComputationContext context,
+                                                       Bounds inner, int innerWidth,
+                                                       Bounds outer, int outerWidth)
+    {
+        var cleared = new List<WorldTile>();
+        if (context == null || context.CoreLand.Count == 0) return cleared;
+
+        var wallTiles = new HashSet<long>();
+        AddRingTiles(ComputeWallRing(inner, innerWidth, context, false), wallTiles);
+        AddRingTiles(ComputeWallRing(outer, outerWidth, context, false), wallTiles);
+
+        var sources = new List<WorldTile>();
+        foreach (var tile in ComputeWallRing(outer, 1, context, false))
+        {
+            if (IsPassableLand(tile) && HasExteriorLandNeighbour(tile, context.CoreLand, outer))
+                sources.Add(tile);
+        }
+        var target = FindCoreTarget(context);
+        if (sources.Count == 0 || target == null) return cleared;
+
+        long targetKey = TileKey(target.x, target.y);
+        var distances = new Dictionary<long, int>();
+        var previous = new Dictionary<long, long>();
+        var queue = new LinkedList<long>();
+        foreach (var source in sources)
+        {
+            long key = TileKey(source.x, source.y);
+            int distance = IsWallTop(source) ? 1 : 0;
+            if (distances.TryGetValue(key, out int current) && current <= distance) continue;
+            distances[key] = distance;
+            previous.Remove(key);
+            if (distance == 0) queue.AddFirst(key);
+            else queue.AddLast(key);
+        }
+
+        while (queue.Count > 0)
+        {
+            long key = queue.First.Value;
+            queue.RemoveFirst();
+            if (key == targetKey) break;
+            int x = (int)(key % MapBox.width);
+            int y = (int)(key / MapBox.width);
+            RelaxReachabilityNeighbour(x - 1, y, key, context.CoreLand, wallTiles,
+                                       distances, previous, queue);
+            RelaxReachabilityNeighbour(x + 1, y, key, context.CoreLand, wallTiles,
+                                       distances, previous, queue);
+            RelaxReachabilityNeighbour(x, y - 1, key, context.CoreLand, wallTiles,
+                                       distances, previous, queue);
+            RelaxReachabilityNeighbour(x, y + 1, key, context.CoreLand, wallTiles,
+                                       distances, previous, queue);
+        }
+
+        if (!distances.TryGetValue(targetKey, out int wallsCrossed) || wallsCrossed == 0) return cleared;
+
+        var passageWalls = new HashSet<long>();
+        long pathKey = targetKey;
+        while (true)
+        {
+            if (wallTiles.Contains(pathKey)) passageWalls.Add(pathKey);
+            if (!previous.TryGetValue(pathKey, out pathKey)) break;
+        }
+        foreach (long wallKey in passageWalls)
+        {
+            int wallX = (int)(wallKey % MapBox.width);
+            int wallY = (int)(wallKey / MapBox.width);
+            for (int y = wallY - EXIT_HALF; y <= wallY + EXIT_HALF; y++)
+            {
+                for (int x = wallX - EXIT_HALF; x <= wallX + EXIT_HALF; x++)
+                {
+                    long key = TileKey(x, y);
+                    if (!wallTiles.Contains(key)) continue;
+                    var tile = World.world.GetTileSimple(x, y);
+                    if (tile?.top_type == null || !tile.top_type.wall) continue;
+                    tile.setTopTileType(null);
+                    cleared.Add(tile);
+                }
+            }
+        }
+        return cleared;
+    }
+
+    private static void AddRingTiles(List<WorldTile> ring, HashSet<long> result)
+    {
+        foreach (var tile in ring)
+        {
+            if (tile != null) result.Add(TileKey(tile.x, tile.y));
+        }
+    }
+
+    private static bool HasExteriorLandNeighbour(WorldTile tile, HashSet<long> coreLand, Bounds outer)
+    {
+        return IsExteriorLand(tile.x - 1, tile.y, coreLand, outer)
+               || IsExteriorLand(tile.x + 1, tile.y, coreLand, outer)
+               || IsExteriorLand(tile.x, tile.y - 1, coreLand, outer)
+               || IsExteriorLand(tile.x, tile.y + 1, coreLand, outer);
+    }
+
+    private static bool IsExteriorLand(int x, int y, HashSet<long> coreLand, Bounds outer)
+    {
+        if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) return false;
+        bool outsideBounds = x < outer.cx - outer.hx || x > outer.cx + outer.hx
+                             || y < outer.cy - outer.hy || y > outer.cy + outer.hy;
+        if (!outsideBounds && coreLand.Contains(TileKey(x, y))) return false;
+        return IsPassableLand(World.world.GetTileSimple(x, y));
+    }
+
+    private static WorldTile FindCoreTarget(WallComputationContext context)
+    {
+        var center = context.City.getTile();
+        if (center != null && context.CoreLand.Contains(TileKey(center.x, center.y)) && IsPassableLand(center))
+            return center;
+
+        WorldTile best = null;
+        int bestDistance = int.MaxValue;
+        foreach (long key in context.CoreLand)
+        {
+            int x = (int)(key % MapBox.width);
+            int y = (int)(key / MapBox.width);
+            var tile = World.world.GetTileSimple(x, y);
+            if (!IsPassableLand(tile)) continue;
+            int distance = center == null ? 0 : Math.Abs(x - center.x) + Math.Abs(y - center.y);
+            if (distance >= bestDistance) continue;
+            best = tile;
+            bestDistance = distance;
+        }
+        return best;
+    }
+
+    private static void RelaxReachabilityNeighbour(int x, int y, long from,
+                                                    HashSet<long> coreLand, HashSet<long> wallTiles,
+                                                    Dictionary<long, int> distances,
+                                                    Dictionary<long, long> previous, LinkedList<long> queue)
+    {
+        if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) return;
+        long key = TileKey(x, y);
+        if (!coreLand.Contains(key)) return;
+        var tile = World.world.GetTileSimple(x, y);
+        if (!IsPassableLand(tile)) return;
+        bool wall = IsWallTop(tile);
+        if (wall && !wallTiles.Contains(key)) return;
+        int distance = distances[from] + (wall ? 1 : 0);
+        if (distances.TryGetValue(key, out int current) && current <= distance) return;
+        distances[key] = distance;
+        previous[key] = from;
+        if (wall) queue.AddLast(key);
+        else queue.AddFirst(key);
     }
 
     private static HashSet<long> GetCoreLand(HashSet<long> territoryLand, WorldTile cityCenter)
