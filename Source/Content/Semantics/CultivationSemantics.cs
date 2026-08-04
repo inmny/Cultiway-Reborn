@@ -192,6 +192,12 @@ public sealed class CultivationSemantics : ExtendLibrary<SemanticAsset, Cultivat
         public static SemanticAsset Spirituality { get; internal set; }
         /// <summary>表示生命活力、生机与肉身恢复基础。</summary>
         public static SemanticAsset Vitality { get; internal set; }
+        /// <summary>表示从真实交战中积累、可沉淀为修为的战意。</summary>
+        public static SemanticAsset BattleIntent { get; internal set; }
+        /// <summary>表示由死亡、污染或杀戮产生并可被炼化的浊气。</summary>
+        public static SemanticAsset DirtyWakan { get; internal set; }
+        /// <summary>表示由组织繁荣与国家资源转化而来的可消费气运。</summary>
+        public static SemanticAsset Fortune { get; internal set; }
     }
 
     /// <summary>修仙世界中的组织归属与组织形态。</summary>
@@ -232,6 +238,8 @@ public sealed class CultivationSemantics : ExtendLibrary<SemanticAsset, Cultivat
         public static SemanticAsset SlaughterCultivation { get; internal set; }
         /// <summary>表示以气运、机缘或命数为核心的道路。</summary>
         public static SemanticAsset FortuneCultivation { get; internal set; }
+        /// <summary>表示借助地貌、气候和天象等自然条件进行修炼的道路。</summary>
+        public static SemanticAsset NaturalCultivation { get; internal set; }
         /// <summary>表示以剑、剑意和剑术为核心的修炼道路。</summary>
         public static SemanticAsset Sword { get; internal set; }
     }
@@ -312,6 +320,9 @@ public sealed class CultivationSemantics : ExtendLibrary<SemanticAsset, Cultivat
             "affordance.transformation");
         Role.Vehicle = New("role.vehicle", "role", "vehicle", "capability.vehicle", implications: [Effect.Mobility]);
         Resource.Vitality = New("resource.vitality", "resource", "vitality", "essence.vitality");
+        Resource.BattleIntent = New("resource.battle_intent", "resource", "battle_intent");
+        Resource.DirtyWakan = New("resource.dirty_wakan", "resource", "dirty_wakan");
+        Resource.Fortune = New("resource.fortune", "resource", "fortune");
         Material.Volatility = New("material.volatility", "material", "volatility", "affordance.volatility");
 
         Material.Quality = New("material.quality", "material", "quality", "material.quality");
@@ -343,6 +354,8 @@ public sealed class CultivationSemantics : ExtendLibrary<SemanticAsset, Cultivat
         Path.SlaughterCultivation = New("path.slaughter_cultivation", "path", "slaughter_cultivation_path",
             implications: [Role.Cultivation]);
         Path.FortuneCultivation = New("path.fortune_cultivation", "path", "fortune_cultivation_path",
+            implications: [Role.Cultivation]);
+        Path.NaturalCultivation = New("path.natural_cultivation", "path", "natural_cultivation_path",
             implications: [Role.Cultivation]);
         Path.Sword = New("path.sword", "path", "sword_path", implications: [Form.Blade]);
         Theme.Illusion = New("theme.illusion", "theme", "illusion");

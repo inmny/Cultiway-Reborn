@@ -154,8 +154,8 @@ public static class ActorExtendTools
         stateRef.AccumulatedTime = 0;
         stateRef.InitSkillProgress();
         
-        // 管理持续修炼标记
-        UpdateContinuousCultivateTag(ae, cultibook);
+        // 管理定时修炼标记
+        UpdateTimedCultivationTag(ae, cultibook);
         ae.MarkCultiwayStatsDirty();
     }
 
@@ -228,32 +228,32 @@ public static class ActorExtendTools
         stateRef.AccumulatedTime = 0;
         stateRef.InitSkillProgress();
         
-        // 管理持续修炼标记
-        UpdateContinuousCultivateTag(ae, newCultibook);
+        // 管理定时修炼标记
+        UpdateTimedCultivationTag(ae, newCultibook);
         ae.MarkCultiwayStatsDirty();
 
         return true;
     }
 
     /// <summary>
-    /// 更新持续修炼标记（根据主修功法的修炼方式类型）
+    /// 更新定时修炼标记（根据主修功法响应的触发阶段）
     /// </summary>
-    private static void UpdateContinuousCultivateTag(ActorExtend ae, CultibookAsset cultibook)
+    private static void UpdateTimedCultivationTag(ActorExtend ae, CultibookAsset cultibook)
     {
         if (cultibook == null)
         {
-            ae.E.RemoveTag<ContinuousCultivateTag>();
+            ae.E.RemoveTag<TimedCultivationTag>();
             return;
         }
         
         var method = cultibook.GetCultivateMethod();
-        if (method != null && method.TriggerType == CultivateTriggerType.Continuous)
+        if (method != null && method.Handles(CultivationTriggerKind.TimedTick))
         {
-            ae.E.AddTag<ContinuousCultivateTag>();
+            ae.E.AddTag<TimedCultivationTag>();
         }
         else
         {
-            ae.E.RemoveTag<ContinuousCultivateTag>();
+            ae.E.RemoveTag<TimedCultivationTag>();
         }
     }
 
@@ -909,7 +909,7 @@ public static class ActorExtendTools
             stateRef.AccumulatedTime = 0;
             stateRef.InitSkillProgress();
             
-            UpdateContinuousCultivateTag(ae, improvedCultibook);
+            UpdateTimedCultivationTag(ae, improvedCultibook);
             ae.MarkCultiwayStatsDirty();
         }
         else

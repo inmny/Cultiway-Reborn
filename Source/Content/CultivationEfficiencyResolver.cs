@@ -174,4 +174,31 @@ public static class ElementRootAffinityResolver
     {
         return Resolve(root, cultibook?.ElementReq, cultibook?.Semantics);
     }
+
+    /// <summary>直接计算灵根八维组成与任意目标组成的余弦相似度，不依赖灵根命名类型。</summary>
+    public static float ResolveCompositionSimilarity(
+        in ElementRoot root,
+        in ElementComposition target)
+    {
+        float dot = 0f;
+        float rootLengthSquared = 0f;
+        float targetLengthSquared = 0f;
+        for (var i = 0; i < ElementIndex.Count; i++)
+        {
+            float rootValue = Mathf.Max(0f, root[i]);
+            float targetValue = Mathf.Max(0f, target[i]);
+            dot += rootValue * targetValue;
+            rootLengthSquared += rootValue * rootValue;
+            targetLengthSquared += targetValue * targetValue;
+        }
+
+        if (rootLengthSquared <= 0f || targetLengthSquared <= 0f) return 0f;
+        return Mathf.Clamp01(dot / Mathf.Sqrt(rootLengthSquared * targetLengthSquared));
+    }
+
+    /// <summary>把灵根综合强度转换为用于概率和选择权重的连续饱和因子。</summary>
+    public static float ResolveStrengthFactor(in ElementRoot root)
+    {
+        return 1f - Mathf.Exp(-Mathf.Max(0f, root.GetStrength() - 1f));
+    }
 }

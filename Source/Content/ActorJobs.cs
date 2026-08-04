@@ -13,7 +13,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
 {
     public static ActorJob XianCultivator      { get; private set; }
     public static ActorJob PlantXianCultivator { get; private set; }
-    public static ActorJob WaterCultivator     { get; private set; }
+    public static ActorJob EnvironmentalCultivator { get; private set; }
     public static ActorJob MagicCultivator     { get; private set; }
     /// <summary>骑士和平期操练工作（积累斗气）；突破由 KnightBreakthroughSystem 月度结算，故不含进阶任务。</summary>
     public static ActorJob KnightCultivator    { get; private set; }
@@ -71,14 +71,14 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         PlantXianCultivator.addCondition(new CondCanProgressCultivation());
         PlantXianCultivator.addTask(ActorTasks.EndJob.id);
 
-        WaterCultivator.addTask(ActorTasks.SwitchCultibook.id);
-        WaterCultivator.addCondition(new CondCanSwitchCultibook());
-        WaterCultivator.addTask(ActorTasks.DailyWaterCultivate.id);
-        WaterCultivator.addCondition(new CondHasXian());
-        WaterCultivator.addCondition(new CondCanProgressCultivation(), false);
-        WaterCultivator.addTask(ActorTasks.CultivationProgression.id);
-        WaterCultivator.addCondition(new CondCanProgressCultivation());
-        WaterCultivator.addTask(ActorTasks.EndJob.id);
+        EnvironmentalCultivator.addTask(ActorTasks.SwitchCultibook.id);
+        EnvironmentalCultivator.addCondition(new CondCanSwitchCultibook());
+        EnvironmentalCultivator.addTask(ActorTasks.DailyEnvironmentalCultivate.id);
+        EnvironmentalCultivator.addCondition(new CondHasXian());
+        EnvironmentalCultivator.addCondition(new CondCanProgressCultivation(), false);
+        EnvironmentalCultivator.addTask(ActorTasks.CultivationProgression.id);
+        EnvironmentalCultivator.addCondition(new CondCanProgressCultivation());
+        EnvironmentalCultivator.addTask(ActorTasks.EndJob.id);
 
         MagicCultivator.addTask(ActorTasks.DailyMagicMeditate.id);
         MagicCultivator.addCondition(new CondCanProgressCultivation(), false);

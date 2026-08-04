@@ -43,8 +43,8 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
         {
             ActorExtend ae = actor.a.GetExtend();
             if (!ae.HasCultisys<Xian>()) return false;
-            ref Xian xian = ref ae.GetCultisys<Xian>();
-            Cultisyses.TakeWakanAndCultivate(ae, ref xian);
+            CultivationEfficiencyResult efficiency = CultivationEfficiencyResolver.Resolve(ae);
+            CultivationSettlementService.AbsorbAmbientWakan(ae, efficiency.FinalMultiplier);
             if (Cultisyses.Xian.CanScheduleProgression(ae)) Cultisyses.Xian.TryAdvanceNaturally(ae);
 
             return true;

@@ -24,6 +24,7 @@ public sealed class ActorSemanticContributors : ICanInit
         SemanticContributorService.Register(new LearnedSkillContributor());
         SemanticContributorService.Register(new EquippedArtifactContributor());
         SemanticContributorService.Register(new XianAchievementContributor());
+        SemanticContributorService.Register(new CultivationPracticeContributor());
     }
 }
 
@@ -181,5 +182,35 @@ internal sealed class XianAchievementContributor : IActorSemanticContributor
         var source = new SemanticSourceRef(Id, current.Snapshot.signature);
         builder.Add(SemanticDescriptor.Weighted(current.Snapshot.semantics), multiplier,
             SemanticScope.Intrinsic, source);
+    }
+}
+
+/// <summary>把角色按修炼方式累计的实践量转换为历史语义。</summary>
+internal sealed class CultivationPracticeContributor : IActorSemanticContributor
+{
+    private const float MaximumSemanticStrength = 4f;
+    private const float SaturationMonths = 20f;
+
+    public string Id => "content.cultivation_practice";
+    public int Priority => 600;
+
+    /// <summary>逐种修炼方式压缩长期实践，再通过当前资产派生语义。</summary>
+    public void Contribute(ActorExtend actor, SemanticProfileBuilder builder)
+    {
+        if (!actor.TryGetComponent(out CultivationPracticeState state) || state.methods == null) return;
+        for (var i = 0; i < state.methods.Length; i++)
+        {
+            CultivationMethodPracticeEntry entry = state.methods[i];
+            if (entry.effective_months <= 0f ||
+                !Libraries.Manager.CultivateMethodLibrary.dict.TryGetValue(
+                    entry.method_id,
+                    out CultivateMethodAsset method))
+                continue;
+
+            float strength = MaximumSemanticStrength *
+                             (1f - Mathf.Exp(-entry.effective_months / SaturationMonths));
+            builder.Add(method.Semantics, strength, SemanticScope.Historical,
+                new SemanticSourceRef(Id, method.id));
+        }
     }
 }

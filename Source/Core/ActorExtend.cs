@@ -847,6 +847,8 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
 
         E.AddTag<TagRecycle>();
         e = cloned_entity;
+        if (e.TryGetComponent(out CultivationPracticeState practiceState))
+            e.GetComponent<CultivationPracticeState>() = practiceState.DeepClone();
         #endregion
 
         // TODO: 各种Relation复制(比如背包/自制势力)

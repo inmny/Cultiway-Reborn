@@ -1,136 +1,85 @@
-using System.Linq;
-using Cultiway.Abstract;
-using Cultiway.Const;
-using Cultiway.Content.Components;
-using Cultiway.Content.Extensions;
+using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
-using Cultiway.Utils;
+using Cultiway.Core.Combat;
+using Cultiway.Core.Components;
+using Cultiway.Core.EventSystem;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
-using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;
 
-/// <summary>
-/// 修炼方式触发器系统（处理被动修炼触发）
-/// </summary>
+/// <summary>把最终伤害与击杀回调转换为对应的修炼触发。</summary>
 public static class CultivateMethodTriggers
 {
-    /// <summary>
-    /// 初始化所有被动修炼触发器
-    /// </summary>
+    /// <summary>注册最终伤害和击杀触发桥接。</summary>
     [Hotfixable]
     public static void Init()
     {
-        ActorExtend.RegisterActionOnKill(OnKillTrigger);
-        ActorExtend.RegisterActionOnCombatStarted(OnAttackTrigger);
-        ActorExtend.RegisterActionOnBeAttacked(OnBeAttackedTrigger);
+        ActorExtend.RegisterActionOnDamageResolved(OnDamageResolved);
+        ActorExtend.RegisterActionOnKill(OnKill);
     }
-    
-    /// <summary>
-    /// 击杀事件触发
-    /// </summary>
-    [Hotfixable]
-    private static void OnKillTrigger(ActorExtend killer, Actor victim, Kingdom victimKingdom)
+
+    /// <summary>直接结算同步天雷触发，并把涉及两个角色的战斗伤害发布到主逻辑线程。</summary>
+    private static void OnDamageResolved(
+        ActorExtend target,
+        BaseSimObject attacker,
+        float damage,
+        ElementComposition composition,
+        AttackType attackType)
     {
-        var mainCultibook = killer.GetMainCultibook();
-        if (mainCultibook == null) return;
-        
-        var method = mainCultibook.GetCultivateMethod();
-        if (method == null) return;
-        
-        if (method.TriggerType != CultivateTriggerType.Passive) return;
-        if (method.PassiveTriggerEvents == null || 
-            !method.PassiveTriggerEvents.Contains(PassiveTriggerEvents.OnKill)) return;
-        
-        if (method.CanCultivate != null && !method.CanCultivate(killer)) return;
-        
-        if (!killer.HasCultisys<Xian>()) return;
-        ref var xian = ref killer.GetCultisys<Xian>();
-        
-        // 根据目标强度计算灵力收益
-        var victimPower = victim.GetExtend().GetPowerLevel() + 1;
-        var efficiency = CultivationEfficiencyResolver.Resolve(killer, mainCultibook, method);
-        var wakanGain = victimPower * efficiency.FinalMultiplier;
-        
-        wakanGain = WakanResourceService.Gain(killer, ref xian, wakanGain);
-        if (wakanGain > 0f)
+        if (target?.Base == null) return;
+        Actor victim = target.Base;
+        // 原版最终通过 (int)(-damage) 扣血，低于 1 的浮点伤害不会造成真实生命损失。
+        float actualDamage = Mathf.Min(Mathf.Floor(Mathf.Max(0f, damage)), Mathf.Max(0f, victim.data.health));
+        if (actualDamage <= 0f) return;
+
+        if (attacker == null)
         {
-            method.OnSideEffect?.Invoke(killer, wakanGain);
+            if (DamageResolutionContext.CurrentSourceScopeId == victim.data.id &&
+                actualDamage < victim.data.health)
+            {
+                var context = new CultivationTriggerContext(
+                    target,
+                    CultivationTriggerKind.HeavenlyLightningDamage,
+                    actualDamage: actualDamage,
+                    referenceMaxHealth: Mathf.Max(1f, victim.getMaxHealth()));
+                CultivateMethods.TryDispatch(in context);
+            }
+            return;
         }
-    }
-    
-    /// <summary>
-    /// 攻击事件触发
-    /// </summary>
-    [Hotfixable]
-    private static void OnAttackTrigger(ActorExtend attacker, BaseSimObject target)
-    {
-        var mainCultibook = attacker.GetMainCultibook();
-        if (mainCultibook == null) return;
-        
-        var method = mainCultibook.GetCultivateMethod();
-        if (method == null) return;
-        
-        if (method.TriggerType != CultivateTriggerType.Passive) return;
-        if (method.PassiveTriggerEvents == null || 
-            !method.PassiveTriggerEvents.Contains(PassiveTriggerEvents.OnAttack)) return;
-        
-        if (method.CanCultivate != null && !method.CanCultivate(attacker)) return;
-        
-        // 计算修炼收益（基于攻击伤害，这里简化处理）
-        if (!attacker.HasCultisys<Xian>()) return;
-        ref var xian = ref attacker.GetCultisys<Xian>();
-        
-        var efficiency = CultivationEfficiencyResolver.Resolve(attacker, mainCultibook, method);
-        var basePower = attacker.GetPowerLevel() + 1;
-        var wakanGain = basePower * 0.1f * efficiency.FinalMultiplier;
-        
-        wakanGain = WakanResourceService.Gain(attacker, ref xian, wakanGain);
-        if (wakanGain > 0f)
-        {
-            method.OnSideEffect?.Invoke(attacker, wakanGain);
-        }
-    }
-    
-    /// <summary>
-    /// 被攻击事件触发
-    /// </summary>
-    [Hotfixable]
-    private static void OnBeAttackedTrigger(ActorExtend victim, BaseSimObject attacker, float damage)
-    {
+
         if (!attacker.isActor()) return;
-        
-        var mainCultibook = victim.GetMainCultibook();
-        if (mainCultibook == null) return;
-        
-        var method = mainCultibook.GetCultivateMethod();
-        if (method == null) return;
-        
-        if (method.TriggerType != CultivateTriggerType.Passive) return;
-        if (method.PassiveTriggerEvents == null || 
-            !method.PassiveTriggerEvents.Contains(PassiveTriggerEvents.OnBeAttacked)) return;
-        
-        if (method.CanCultivate != null && !method.CanCultivate(victim)) return;
-        
-        // 计算修炼收益（基于受到的伤害）
-        if (!victim.HasCultisys<Xian>()) return;
-        ref var xian = ref victim.GetCultisys<Xian>();
-        
-        var efficiency = CultivationEfficiencyResolver.Resolve(victim, mainCultibook, method);
-        var attackerPower = !attacker.isRekt() 
-            ? attacker.a.GetExtend().GetPowerLevel() + 1 
-            : 1f;
-        // 根据受到的伤害和攻击者强度计算灵力收益（受伤越重，收益越高）
-        var wakanGain = damage * 0.05f * attackerPower * efficiency.FinalMultiplier;
-        
-        wakanGain = WakanResourceService.Gain(victim, ref xian, wakanGain);
-        if (wakanGain > 0f)
-        {
-            method.OnSideEffect?.Invoke(victim, wakanGain);
-        }
+        Actor source = attacker.a;
+        if (source == victim) return;
+        float attackerPower = source.TryGetExtend(out ActorExtend sourceExtend)
+            ? sourceExtend.GetPowerLevel()
+            : 0f;
+        EventSystemHub.Publish(new CultivationDamageResolvedEvent(
+            source.data.id,
+            victim.data.id,
+            actualDamage,
+            attackerPower,
+            target.GetPowerLevel(),
+            Mathf.Max(1f, victim.getMaxHealth())));
+    }
+
+    /// <summary>以击杀发生时的不可变数据直接结算击杀修炼。</summary>
+    private static void OnKill(ActorExtend killer, Actor victim, Kingdom _)
+    {
+        if (killer?.Base == null || victim == null || killer.Base == victim || victim.current_tile == null) return;
+        Vector2Int position = victim.current_tile.pos;
+        float victimPower = victim.TryGetExtend(out ActorExtend victimExtend)
+            ? victimExtend.GetPowerLevel()
+            : 0f;
+        var context = new CultivationTriggerContext(
+            killer,
+            CultivationTriggerKind.Kill,
+            practitionerPower: killer.GetPowerLevel(),
+            opponentPower: victimPower,
+            tileX: position.x,
+            tileY: position.y);
+        CultivateMethods.TryDispatch(in context);
     }
 }
-

@@ -83,7 +83,7 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new ArtifactSpiritSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactSpiritAvatarCleanupSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactManifestationCleanupSystem());
-        ModClass.I.GeneralLogicSystems.Add(new ContinuousCultivateSystem());
+        ModClass.I.GeneralLogicSystems.Add(new TimedCultivationSystem());
         ModClass.I.GeneralLogicSystems.Add(new SectConstructionSystem());
         ActorExtend.RegisterActionOnDeath(SectTreasureService.ReturnBorrowedOnDeath);
         ArtifactAbilityRuntimeBridge.Init();
@@ -102,6 +102,7 @@ internal class Manager
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookImprovedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new MagicSpellCastCompletedEventSystem());
+        ModClass.I.LogicEventProcessSystemGroup.Add(new CultivationDamageResolvedEventSystem());
         
         CultivateMethodTriggers.Init();
         KnightCombatTriggers.Init();

@@ -34,6 +34,7 @@ public sealed class SectNameAtoms : ExtendLibrary<SectNameAtomAsset, SectNameAto
     public static SectNameAtomAsset Entropy { get; private set; }
 
     public static SectNameAtomAsset StandardPath { get; private set; }
+    public static SectNameAtomAsset NaturalPath { get; private set; }
     public static SectNameAtomAsset WaterPath { get; private set; }
     public static SectNameAtomAsset BattlePath { get; private set; }
     public static SectNameAtomAsset SlaughterPath { get; private set; }
@@ -91,6 +92,9 @@ public sealed class SectNameAtoms : ExtendLibrary<SectNameAtomAsset, SectNameAto
         Set(StandardPath, SectNameAtomCategory.Cultivation, ["归元", "周天", "太玄"],
             ["宗", "门", "派"], CultivationPatterns, 10,
             context => context.CultivateMethodId == CultivateMethods.Standard.id ? 20f : 0f);
+        Set(NaturalPath, SectNameAtomCategory.Cultivation, ["天象", "地脉", "万化"],
+            ["宗", "门", "宫", "谷"], CultivationPatterns, 30,
+            context => IsEnvironmentalMethod(context.CultivateMethodId) ? 100f : 0f);
         Set(WaterPath, SectNameAtomCategory.Cultivation, ["沧溟", "玄潮", "寒渊"],
             ["宫", "门", "谷", "宗"], CultivationPatterns, 30,
             context => context.CultivateMethodId == CultivateMethods.WaterMeditation.id ? 120f : 0f);
@@ -210,6 +214,12 @@ public sealed class SectNameAtoms : ExtendLibrary<SectNameAtomAsset, SectNameAto
     {
         Set(atom, SectNameAtomCategory.Element, stems, ["宗", "门", "派"], ElementPatterns, 20,
             context => context.PrimaryElement == element ? 100f : 0f);
+    }
+
+    /// <summary>判断宗门主修方式是否使用统一自然环境修炼规则。</summary>
+    private static bool IsEnvironmentalMethod(string methodId)
+    {
+        return Libraries.Manager.CultivateMethodLibrary.get(methodId)?.EnvironmentRule != null;
     }
 
     private static void Set(

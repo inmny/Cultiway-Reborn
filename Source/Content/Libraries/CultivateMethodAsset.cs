@@ -1,83 +1,147 @@
 using System;
-using System.Collections.Generic;
 using Cultiway.Abstract;
-using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Semantics;
-using Cultiway.Core.Components;
-using UnityEngine;
 
 namespace Cultiway.Content.Libraries;
 
-/// <summary>
-/// 修炼触发类型
-/// </summary>
-public enum CultivateTriggerType
+/// <summary>修炼方式可以同时响应的触发阶段。</summary>
+[Flags]
+public enum CultivationTriggerKind
 {
-    Active,     // 主动修炼（需要专门的修炼行为）
-    Passive,    // 被动修炼（在特定事件时触发）
-    Continuous  // 持续修炼（如国运修炼，不影响其他行为）
+    /// <summary>不响应任何触发。</summary>
+    None = 0,
+
+    /// <summary>角色执行明确的修炼行为时触发。</summary>
+    ActiveTick = 1 << 0,
+
+    /// <summary>无需占用角色工作的定时修炼结算。</summary>
+    TimedTick = 1 << 1,
+
+    /// <summary>角色对其他单位造成最终有效伤害后触发。</summary>
+    DamageDealt = 1 << 2,
+
+    /// <summary>角色承受其他单位造成的最终有效伤害后触发。</summary>
+    DamageTaken = 1 << 3,
+
+    /// <summary>角色完成一次击杀后触发。</summary>
+    Kill = 1 << 4,
+
+    /// <summary>角色完成由内容系统认定的善行后触发。</summary>
+    GoodDeed = 1 << 5,
+
+    /// <summary>角色在主动雷霆淬体期间承受无来源天雷的实际伤害后触发。</summary>
+    HeavenlyLightningDamage = 1 << 6
 }
 
-/// <summary>
-/// 被动修炼触发事件类型
-/// </summary>
-public enum PassiveTriggerEvents
+/// <summary>主动修炼触发时所处的具体活动环境。</summary>
+public enum CultivationActivityKind
 {
-    OnKill,         // 击杀时触发
-    OnAttack,       // 攻击时触发
-    OnBeAttacked,   // 被攻击时触发
-    OnGoodDeed,     // 行善时触发
+    /// <summary>不是主动修炼行为。</summary>
+    None,
+
+    /// <summary>普通闭关或室内吐纳。</summary>
+    Meditation,
+
+    /// <summary>在功法指定的自然环境中吐纳修炼。</summary>
+    EnvironmentalMeditation,
+
+    /// <summary>植物式野外修炼，以净化浊气为能量来源。</summary>
+    PlantPurification
 }
 
-/// <summary>
-/// 修炼方式 Asset
-/// </summary>
+/// <summary>一次修炼触发的只读上下文。</summary>
+public readonly struct CultivationTriggerContext
+{
+    /// <summary>创建一条不允许调用方后续修改的修炼触发记录。</summary>
+    public CultivationTriggerContext(
+        ActorExtend practitioner,
+        CultivationTriggerKind trigger,
+        CultivationActivityKind activity = CultivationActivityKind.None,
+        float elapsedSeconds = 0f,
+        float actualDamage = 0f,
+        float practitionerPower = 0f,
+        float opponentPower = 0f,
+        float referenceMaxHealth = 0f,
+        int tileX = -1,
+        int tileY = -1)
+    {
+        Practitioner = practitioner;
+        Trigger = trigger;
+        Activity = activity;
+        ElapsedSeconds = elapsedSeconds;
+        ActualDamage = actualDamage;
+        PractitionerPower = practitionerPower;
+        OpponentPower = opponentPower;
+        ReferenceMaxHealth = referenceMaxHealth;
+        TileX = tileX;
+        TileY = tileY;
+    }
+
+    /// <summary>获得本次修炼收益的角色。</summary>
+    public ActorExtend Practitioner { get; }
+
+    /// <summary>本次进入规则的触发阶段。</summary>
+    public CultivationTriggerKind Trigger { get; }
+
+    /// <summary>主动修炼时的环境类型。</summary>
+    public CultivationActivityKind Activity { get; }
+
+    /// <summary>本次定时或主动结算覆盖的秒数。</summary>
+    public float ElapsedSeconds { get; }
+
+    /// <summary>伤害触发中已经通过最终伤害层的实际伤害。</summary>
+    public float ActualDamage { get; }
+
+    /// <summary>事件发生时修炼者的战力层级。</summary>
+    public float PractitionerPower { get; }
+
+    /// <summary>事件发生时对手的战力层级。</summary>
+    public float OpponentPower { get; }
+
+    /// <summary>伤害占比计算所使用的受击者生命上限。</summary>
+    public float ReferenceMaxHealth { get; }
+
+    /// <summary>事件发生地块的横坐标；不涉及地块时为 -1。</summary>
+    public int TileX { get; }
+
+    /// <summary>事件发生地块的纵坐标；不涉及地块时为 -1。</summary>
+    public int TileY { get; }
+}
+
+/// <summary>处理一种修炼方式在指定触发下的完整规则。</summary>
+public delegate void CultivationMethodRule(in CultivationTriggerContext context);
+
+/// <summary>修炼方式资产。</summary>
 public class CultivateMethodAsset : Asset
 {
     /// <summary>修炼方式本身表达的路径语义。</summary>
     public SemanticDescriptor Semantics = new();
 
-    // ========== 核心委托 ==========
-    
-    /// <summary>
-    /// 检查是否可以使用此修炼方式
-    /// </summary>
-    /// <param name="actor">修炼者</param>
-    /// <returns>是否满足修炼条件</returns>
+    /// <summary>检查角色是否满足使用该方式的身份与环境前置条件。</summary>
     public Func<ActorExtend, bool> CanCultivate;
-    
-    /// <summary>
-    /// 计算修炼方式自身的环境或事件倍率，不包含灵根资质
-    /// </summary>
-    /// <param name="actor">修炼者</param>
-    /// <returns>效率系数（1.0为标准）</returns>
-    public Func<ActorExtend, float> GetMethodMultiplier;
-    
-    /// <summary>
-    /// 修炼副作用（如魔道的杀业积累）
-    /// </summary>
-    /// <param name="ae">修炼者扩展</param>
-    /// <param name="wakanGained">本次获得的灵力</param>
-    public Action<ActorExtend, float> OnSideEffect;
-    
-    // ========== AI行为相关 ==========
-    
-    /// <summary>
-    /// 对应的行为任务ID（用于替换标准修炼行为）
-    /// </summary>
-    public Func<ActorExtend, string> GetBehaviourJobId;
-    
-    // ========== 触发条件 ==========
-    
-    /// <summary>
-    /// 修炼触发类型
-    /// </summary>
-    public CultivateTriggerType TriggerType = CultivateTriggerType.Active;
-    
-    /// <summary>
-    /// 被动触发时的事件类型集合（如战斗修炼在攻击时触发）
-    /// </summary>
-    public HashSet<PassiveTriggerEvents> PassiveTriggerEvents = new();
-}
 
+    /// <summary>计算方式自身的环境倍率，不包含灵根资质。</summary>
+    public Func<ActorExtend, float> GetMethodMultiplier;
+
+    /// <summary>为自动生成功法提供该方式对角色的额外适合度。</summary>
+    public Func<ActorExtend, float> GetSelectionScore;
+
+    /// <summary>返回该方式需要占用角色执行的行为任务；为空表示不需要专门工作。</summary>
+    public Func<ActorExtend, string> GetBehaviourJobId;
+
+    /// <summary>非空时表示该方式由统一环境选址与修炼行为驱动。</summary>
+    public CultivationEnvironmentRule EnvironmentRule;
+
+    /// <summary>该方式可以同时响应的全部触发阶段。</summary>
+    public CultivationTriggerKind TriggerKinds;
+
+    /// <summary>执行该方式的资源结算、实践累计及副作用。</summary>
+    public CultivationMethodRule Execute;
+
+    /// <summary>判断该方式是否响应指定触发阶段。</summary>
+    public bool Handles(CultivationTriggerKind trigger)
+    {
+        return (TriggerKinds & trigger) != 0;
+    }
+}

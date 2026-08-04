@@ -39,6 +39,8 @@ public partial class Cultisyses
     private static void InitializeXianState(ActorExtend actor, CultisysAsset<Xian> cultisys, ref Xian component)
     {
         actor.AddComponent(new QiRefinementState());
+        actor.AddComponent(new CultivationPracticeState());
+        actor.AddComponent(new CultivationResourceState());
     }
 
     /// <summary>按角色当前来源解析下一层真气，并直接返回确定性成功结算。</summary>
@@ -198,10 +200,12 @@ public partial class Cultisyses
                         efficiency.Purity * 0.25f +
                         efficiency.MainCultibookAffinity * 0.30f +
                         methodQuality * 0.15f;
-        return new QiRefinementSample(
-            quality,
-            ResolveQiRefinementComposition(actor, cultibook, method),
-            ResolveQiRefinementElementSemantics(actor, cultibook, method));
+        ResolveQiRefinementElementEvidence(
+            actor,
+            cultibook,
+            out ElementComposition composition,
+            out SemanticDescriptor elementSemantics);
+        return new QiRefinementSample(quality, composition, elementSemantics);
     }
 
     /// <summary>把修炼方式倍率按二倍增益映射压缩到 0..1。</summary>
@@ -210,41 +214,62 @@ public partial class Cultisyses
         return Mathf.Clamp01(0.5f + 0.25f * Mathf.Log(Mathf.Max(0.25f, multiplier), 2f));
     }
 
-    /// <summary>按灵根 50%、主修功法 30%、修炼方式 20% 合成元素组成。</summary>
-    private static ElementComposition ResolveQiRefinementComposition(
+    /// <summary>只解析一次灵根、主修功法和实践元素暴露，并按 50%、30%、20% 同时构造成分与语义。</summary>
+    private static void ResolveQiRefinementElementEvidence(
         ActorExtend actor,
         CultibookAsset cultibook,
-        CultivateMethodAsset method)
+        out ElementComposition composition,
+        out SemanticDescriptor elementSemantics)
     {
         const float rootWeight = 0.5f;
         const float cultibookWeight = 0.3f;
-        const float methodWeight = 0.2f;
-        ElementComposition result = default;
-        var totalWeight = 0f;
-        if (actor.HasElementRoot())
+        const float practiceWeight = 0.2f;
+        bool hasRoot = actor.HasElementRoot();
+        ElementComposition rootComposition = default;
+        SemanticDescriptor rootSemantics = null;
+        if (hasRoot)
         {
-            AddQiRefinementComposition(ref result,
-                ElementSemanticProfileService.ToComposition(actor.GetElementRoot()), rootWeight);
-            totalWeight += rootWeight;
+            ref ElementRoot root = ref actor.GetElementRoot();
+            rootComposition = ElementSemanticProfileService.ToComposition(root);
+            rootSemantics = root.Type.Semantics;
+        }
+        bool hasCultibook = TryResolveQiRefinementCultibookComposition(
+            cultibook, out ElementComposition cultibookComposition);
+        ElementComposition practiceComposition = default;
+        bool hasPractice = actor.TryGetComponent(out CultivationPracticeState practiceState) &&
+                           practiceState.TryResolveElementExposure(out practiceComposition);
+        float totalWeight = (hasRoot ? rootWeight : 0f) +
+                            (hasCultibook ? cultibookWeight : 0f) +
+                            (hasPractice ? practiceWeight : 0f);
+
+        composition = default;
+        var builder = new SemanticDescriptorBuilder();
+        if (totalWeight <= 0.0001f)
+        {
+            elementSemantics = builder.Build();
+            return;
         }
 
-        if (TryResolveQiRefinementCultibookComposition(cultibook, out ElementComposition cultibookComposition))
+        if (hasRoot)
         {
-            AddQiRefinementComposition(ref result, cultibookComposition, cultibookWeight);
-            totalWeight += cultibookWeight;
+            float weight = rootWeight / totalWeight;
+            AddQiRefinementComposition(ref composition, rootComposition, weight);
+            AddQiRefinementElementEvidence(builder, rootComposition, rootSemantics, weight);
         }
-
-        if (ElementSemanticProfileService.TryResolveComposition(method?.Semantics,
-                out ElementComposition methodComposition))
+        if (hasCultibook)
         {
-            AddQiRefinementComposition(ref result, methodComposition, methodWeight);
-            totalWeight += methodWeight;
+            float weight = cultibookWeight / totalWeight;
+            AddQiRefinementComposition(ref composition, cultibookComposition, weight);
+            AddQiRefinementElementEvidence(builder, cultibookComposition, cultibook.Semantics, weight);
         }
-
-        if (totalWeight <= 0.0001f) return ElementComposition.Static.empty;
-        for (var i = 0; i < ElementIndex.Count; i++) result[i] /= totalWeight;
-        result.Normalize();
-        return result;
+        if (hasPractice)
+        {
+            float weight = practiceWeight / totalWeight;
+            AddQiRefinementComposition(ref composition, practiceComposition, weight);
+            AddQiRefinementElementEvidence(builder, practiceComposition, null, weight);
+        }
+        composition.Normalize();
+        elementSemantics = builder.Build();
     }
 
     /// <summary>优先从功法元素需求读取组成，未声明需求时再解析功法语义。</summary>
@@ -284,34 +309,6 @@ public partial class Cultisyses
         for (var i = 0; i < ElementIndex.Count; i++) target[i] += source[i] * weight;
     }
 
-    /// <summary>按灵根、主修功法和修炼方式的同一组权重构造本层元素语义证据。</summary>
-    private static SemanticDescriptor ResolveQiRefinementElementSemantics(
-        ActorExtend actor,
-        CultibookAsset cultibook,
-        CultivateMethodAsset method)
-    {
-        var builder = new SemanticDescriptorBuilder();
-        ref ElementRoot root = ref actor.GetElementRoot();
-        AddQiRefinementElementEvidence(
-            builder,
-            ElementSemanticProfileService.ToComposition(root),
-            root.Type.Semantics,
-            0.5f);
-
-        if (cultibook != null)
-        {
-            TryResolveQiRefinementCultibookComposition(cultibook, out ElementComposition composition);
-            AddQiRefinementElementEvidence(builder, composition, cultibook.Semantics, 0.3f);
-        }
-
-        if (method != null)
-        {
-            ElementSemanticProfileService.TryResolveComposition(method.Semantics, out ElementComposition composition);
-            AddQiRefinementElementEvidence(builder, composition, method.Semantics, 0.2f);
-        }
-        return builder.Build();
-    }
-
     /// <summary>把一个来源内部的元素语义归一化后按来源权重加入凝练样本。</summary>
     private static void AddQiRefinementElementEvidence(
         SemanticDescriptorBuilder target,
@@ -325,7 +322,7 @@ public partial class Cultisyses
             ModClass.L.SemanticFacetLibrary.Element);
         float total = 0f;
         for (var i = 0; i < ranked.Count; i++) total += Mathf.Max(0f, ranked[i].score.Net);
-        if (total <= 0f) throw new InvalidOperationException("凝练来源缺少可解析的元素语义。");
+        if (total <= 0f) return;
         for (var i = 0; i < ranked.Count; i++)
         {
             float score = Mathf.Max(0f, ranked[i].score.Net);

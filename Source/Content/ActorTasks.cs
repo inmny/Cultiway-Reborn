@@ -14,7 +14,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
 {
     public static BehaviourTaskActor DailyXianCultivate        { get; private set; }
     public static BehaviourTaskActor DailyPlantXianCultivate   { get; private set; }
-    public static BehaviourTaskActor DailyWaterCultivate       { get; private set; }
+    public static BehaviourTaskActor DailyEnvironmentalCultivate { get; private set; }
     public static BehaviourTaskActor DailyMagicMeditate        { get; private set; }
     /// <summary>骑士和平期操练任务（原地积累斗气，比战斗慢）。</summary>
     public static BehaviourTaskActor DailyKnightTrain          { get; private set; }
@@ -122,10 +122,10 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         DailyPlantXianCultivate.addBeh(new BehPlantXianCultivate());
         DailyPlantXianCultivate.setIcon("cultiway/icons/iconCultivation");
 
-        DailyWaterCultivate.addBeh(new BehFindWaterTile());
-        DailyWaterCultivate.addBeh(new BehGoToTileTarget());
-        DailyWaterCultivate.addBeh(new BehWaterCultivate());
-        DailyWaterCultivate.setIcon("cultiway/icons/iconCultivation");
+        DailyEnvironmentalCultivate.addBeh(new BehFindEnvironmentalCultivationSite());
+        DailyEnvironmentalCultivate.addBeh(new BehGoToEnvironmentalCultivationSite());
+        DailyEnvironmentalCultivate.addBeh(new BehEnvironmentalCultivate());
+        DailyEnvironmentalCultivate.setIcon("cultiway/icons/iconCultivation");
 
         LookForHerbs.addBeh(new BehFindTargetForCollector());
         LookForHerbs.addBeh(new BehGoToActorTarget());

@@ -395,10 +395,13 @@ public partial class Cultisyses
         actor.EnhanceSkillRandomly(SkillEnhanceSources.LargeUpgradeFailed);
     }
 
-    /// <summary>传承仙道体系时深拷贝真气、仙基、金丹与元婴的完整成果谱系。</summary>
+    /// <summary>传承仙道体系时复制修炼实践、个人资源及各境界的完整成果谱系。</summary>
     private static void TransferXianExtraState(ActorExtend source, ActorExtend target,
                                                ref Xian sourceComponent, ref Xian targetComponent)
     {
+        target.GetComponent<CultivationPracticeState>() =
+            source.GetComponent<CultivationPracticeState>().DeepClone();
+        target.GetComponent<CultivationResourceState>() = source.GetComponent<CultivationResourceState>();
         TransferQiRefinementState(source, target);
         TransferFoundation(source, target);
         TransferJindan(source, target);
@@ -427,41 +430,6 @@ public partial class Cultisyses
         }
 
         Xian.UpdateAccumStats();
-    }
-
-    [Hotfixable]
-    internal static void TakeWakanAndCultivate(ActorExtend actor_extend, ref Xian xian)
-    {
-        var max_wakan = actor_extend.Base.stats[BaseStatses.MaxWakan.id];
-        if (xian.wakan >= max_wakan) return;
-        Vector2Int tile_pos = actor_extend.Base.current_tile.pos;
-        var total = WakanMap.I.map[tile_pos.x, tile_pos.y];
-        var to_take = Mathf.Log10(total + 1);
-
-        var cultibook = actor_extend.GetMainCultibook();
-        var cultivate_method = cultibook?.GetCultivateMethod() ?? CultivateMethods.Standard;
-        var efficiency = CultivationEfficiencyResolver.Resolve(actor_extend, cultibook, cultivate_method);
-        to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * efficiency.FinalMultiplier);
-        float actual = WakanResourceService.Gain(actor_extend, ref xian, to_take);
-        WakanMap.I.map[tile_pos.x, tile_pos.y] -= actual;
-    }
-    internal static void OutWakanAndCultivate(ActorExtend actor_extend, ref Xian xian)
-    {
-        var max_wakan = actor_extend.Base.stats[BaseStatses.MaxWakan.id];
-        if (xian.wakan >= max_wakan) return;
-        Vector2Int tile_pos = actor_extend.Base.current_tile.pos;
-        var total = WakanMap.I.map[tile_pos.x, tile_pos.y];
-        var to_take = Mathf.Log10(total + 1);
-
-        var cultibook = actor_extend.GetMainCultibook();
-        var cultivate_method = cultibook?.GetCultivateMethod() ?? CultivateMethods.Standard;
-        var efficiency = CultivationEfficiencyResolver.Resolve(actor_extend, cultibook, cultivate_method);
-        to_take = Mathf.Min(max_wakan - xian.wakan, total, to_take * efficiency.FinalMultiplier);
-        WakanResourceService.Gain(actor_extend, ref xian, to_take);
-        var dirty_wakan_to_take = Mathf.Min(DirtyWakanMap.I.map[tile_pos.x, tile_pos.y],
-            to_take * ContentSetting.DirtyWakanToWakanRatio);
-        WakanMap.I.map[tile_pos.x, tile_pos.y] += dirty_wakan_to_take;
-        DirtyWakanMap.I.map[tile_pos.x, tile_pos.y] -= dirty_wakan_to_take;
     }
 
     private static string[] GetPlantNameParams(ActorExtend ae, params string[] cultivationFactors)
