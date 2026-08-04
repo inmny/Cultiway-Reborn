@@ -356,17 +356,21 @@ public static class WallShapeHelper
         if (ring.Count == 0) return;
         int radius = EXIT_HALF;
         var removed = new HashSet<long>();
-        CarveLandGate(ring, b, radius, 0, 1, city, removed);
-        CarveLandGate(ring, b, radius, 1, 0, city, removed);
-        CarveLandGate(ring, b, radius, 0, -1, city, removed);
-        CarveLandGate(ring, b, radius, -1, 0, city, removed);
+        bool north = CarveLandGate(ring, b, radius, 0, 1, city, removed);
+        bool east = CarveLandGate(ring, b, radius, 1, 0, city, removed);
+        bool south = CarveLandGate(ring, b, radius, 0, -1, city, removed);
+        bool west = CarveLandGate(ring, b, radius, -1, 0, city, removed);
+        if (!north && !east) CarveLandGate(ring, b, radius, 1, 1, city, removed);
+        if (!east && !south) CarveLandGate(ring, b, radius, 1, -1, city, removed);
+        if (!south && !west) CarveLandGate(ring, b, radius, -1, -1, city, removed);
+        if (!west && !north) CarveLandGate(ring, b, radius, -1, 1, city, removed);
         ring.RemoveAll(tile => removed.Contains(TileKey(tile.x, tile.y)));
     }
 
-    private static void CarveLandGate(List<WorldTile> ring, Bounds b, int radius,
+    private static bool CarveLandGate(List<WorldTile> ring, Bounds b, int radius,
                                       int directionX, int directionY, City city, HashSet<long> removed)
     {
-        if (CarveRoadGate(ring, b, radius, directionX, directionY, city, removed)) return;
+        if (CarveRoadGate(ring, b, radius, directionX, directionY, city, removed)) return true;
 
         WorldTile gate = null;
         int bestLateral = int.MaxValue;
@@ -375,14 +379,15 @@ public static class WallShapeHelper
         {
             if (!IsInDirection(tile, b, directionX, directionY, out int lateral, out int projection)
                 || IsBlockingTerrain(tile)) continue;
-            WorldTile outside = GetNeighbour(tile, directionX, directionY);
-            if (outside == null || outside.IsWater() || IsBlockingTerrain(outside)) continue;
+            if (!HasPassableOutside(tile, directionX, directionY)) continue;
             if (lateral > bestLateral || lateral == bestLateral && projection <= bestProjection) continue;
             bestLateral = lateral;
             bestProjection = projection;
             gate = tile;
         }
-        if (gate != null) MarkPassage(ring, gate, radius, removed);
+        if (gate == null) return false;
+        MarkPassage(ring, gate, radius, removed);
+        return true;
     }
 
     private static bool CarveRoadGate(List<WorldTile> ring, Bounds b, int radius,
@@ -395,8 +400,7 @@ public static class WallShapeHelper
         {
             if (!IsInDirection(tile, b, directionX, directionY, out int lateral, out int projection)
                 || IsBlockingTerrain(tile) || !HasCityRoadNearby(tile, city, 6)) continue;
-            WorldTile outside = GetNeighbour(tile, directionX, directionY);
-            if (outside == null || outside.IsWater() || IsBlockingTerrain(outside)) continue;
+            if (!HasPassableOutside(tile, directionX, directionY)) continue;
             if (lateral > bestLateral || lateral == bestLateral && projection <= bestProjection) continue;
             bestLateral = lateral;
             bestProjection = projection;
@@ -438,9 +442,23 @@ public static class WallShapeHelper
 
     private static WorldTile GetNeighbour(WorldTile tile, int directionX, int directionY)
     {
-        if (directionX < 0) return tile.tile_left;
-        if (directionX > 0) return tile.tile_right;
-        return directionY < 0 ? tile.tile_down : tile.tile_up;
+        int x = tile.x + directionX;
+        int y = tile.y + directionY;
+        if (x < 0 || y < 0 || x >= MapBox.width || y >= MapBox.height) return null;
+        return World.world.GetTileSimple(x, y);
+    }
+
+    private static bool HasPassableOutside(WorldTile tile, int directionX, int directionY)
+    {
+        if (directionX != 0 && directionY != 0)
+            return IsPassableLand(GetNeighbour(tile, directionX, 0))
+                   || IsPassableLand(GetNeighbour(tile, 0, directionY));
+        return IsPassableLand(GetNeighbour(tile, directionX, directionY));
+    }
+
+    private static bool IsPassableLand(WorldTile tile)
+    {
+        return tile != null && !tile.IsWater() && !IsBlockingTerrain(tile);
     }
 
     private static void MarkPassage(List<WorldTile> ring, WorldTile passage, int radius, HashSet<long> removed)

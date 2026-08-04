@@ -23,6 +23,7 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
     public static ActorTrait PassiveXianCultivate { get; private set; }
     public static ActorTrait SignIn { get; private set; }
     public static ActorTrait Pdd {get; private set;}
+    public static ActorTrait SkavenEvolution { get; private set; }
     [GetOnly(S_Trait.immortal)]
     public  static ActorTrait Immortal { get; private set; }
 
@@ -34,6 +35,10 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
 
         Cultivator.group_id = ActorTraitGroups.Mind.id;
         Cultivator.path_icon = "cultiway/icons/traits/iconCultivator";
+
+        SkavenEvolution.group_id = ActorTraitGroups.Miscellaneous.id;
+        SkavenEvolution.path_icon = "actors/species/other/Skaven/Skaven_LV13";
+        SkavenEvolution.rarity = Rarity.R2_Epic;
 
         PassiveXianCultivate.group_id = ActorTraitGroups.System.id;
         PassiveXianCultivate.path_icon = "cultiway/icons/traits/iconPassiveXianCultivate";

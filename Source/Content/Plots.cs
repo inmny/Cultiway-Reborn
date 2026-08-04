@@ -497,7 +497,8 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     private const int WALL_STAGE_BOTH     = 2; // 内墙（石墙，宽2）+ 外墙（木墙，宽1）
     private const int WALL_STAGE_FORTRESS = 3; // 内墙（石墙，宽2）+ 外墙（石墙，宽2）
 
-    private const int    WALL_SCHEDULE_INTERVAL_YEARS = 25;                   // 东方人族城墙调度间隔（世界年）
+    private const int    WALL_SCHEDULE_INTERVAL_YEARS = 25;                   // 人类城墙调度间隔（世界年）
+    private const string HUMAN_ID                      = "human";                   // 原版人类种族 id
     private const string EASTERN_HUMAN_ID              = "Cultiway.EasternHuman"; // 东方人族种族 id
 
     /// <summary>
@@ -521,11 +522,13 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
 
         // 可行：有城 + 规模达标 + 可推进阶段(未满 或 已满但被摧毁) + 没有同类 plot 在跑
         plot.check_is_possible = a => a.hasCity()
+                                     && HasHallHearth(a.city)
                                      && a.city.zones.Count >= WALL_MIN_ZONES
                                      && CanAdvanceWallStage(a.city)
                                      && !World.world.plots.isPlotTypeAlreadyRunning(a, plot);
         plot.check_can_be_forced   = plot.check_is_possible;
         plot.check_should_continue = a => a.hasCity()
+                                         && HasHallHearth(a.city)
                                          && a.city.zones.Count >= WALL_MIN_ZONES
                                          && CanAdvanceWallStage(a.city);
 
@@ -637,6 +640,11 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         return !WallsIntact(city); // 已建成要塞：任一城墙被摧毁大半即可重建
     }
 
+    private static bool HasHallHearth(City city)
+    {
+        return city != null && city.hasCulture() && city.culture.hasTrait(CultureTraits.HallHearthId);
+    }
+
     /// <summary>内墙与外墙是否都基本完好（现存比例均 ≥ 阈值）。用记录的（固定）bounds 检测——
     /// 即城墙实际所在的位置(内墙=GetInnerBounds，外墙=GetOuterBounds)。
     /// 注意不能用动态的 OuterBounds()：城市会持续扩张，动态 bounds 会越来越大、
@@ -665,7 +673,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         city.data.set(ContentCityDataKeys.CityWallStage_int, stage);
     }
 
-    /// <summary>东方人族城墙调度的「下次可发起年份」(世界年)，默认 0=立即可发起。</summary>
+    /// <summary>人类城墙调度的「下次可发起年份」(世界年)，默认 0=立即可发起。</summary>
     private static int GetScheduleYear(City city)
     {
         if (city?.data == null) return 0;
@@ -680,20 +688,22 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     }
 
     /// <summary>
-    /// 东方人族城墙修筑调度。城市拥有村庄大厅(type_hall)且城墙未满 3 阶时，按节奏强制发起
+    /// 人类与东方人族城墙修筑调度。城市拥有村庄大厅(type_hall)且城墙未满 3 阶时，按节奏强制发起
     /// 「修筑城墙」谋划：首次(木墙)在大厅出现后立即发起，此后每 <see cref="WALL_SCHEDULE_INTERVAL_YEARS"/>
     /// 年一次，直到满 3 阶(FORTRESS = 完成 3 次谋划)。第二、三次(石墙/要塞)仅首都发起。
     /// 与原版 AI 自主发动并存(AI 可在间隔内额外发动)，本调度只保证「至少每 N 年」一次。
     /// 发起成功才推进下次调度年份；发起失败(缺领袖/规模不足/同类 plot 在跑)则不推进，下次城市更新再试。
     /// </summary>
-    public static void TryScheduleEasternHumanWall(City city)
+    public static void TryScheduleHumanWall(City city)
     {
         if (city?.data == null) return;
-        if (city.data.original_actor_asset != EASTERN_HUMAN_ID) return;
+        string race = city.data.original_actor_asset;
+        if (race != HUMAN_ID && race != EASTERN_HUMAN_ID) return;
+        if (!HasHallHearth(city)) return;
         if (!city.hasBuildingType("type_hall")) return;
         int stage = GetWallStage(city);
         if (stage >= WALL_STAGE_FORTRESS) return;
-        // 第二、三次谋划(stage 1→2、2→3，即石墙/要塞)仅首都发起；首次(stage 0→1，木墙)任意东人城市均可
+        // 第二、三次谋划(stage 1→2、2→3，即石墙/要塞)仅首都发起；首次(stage 0→1，木墙)任意人类城市均可
         if (stage >= WALL_STAGE_INNER && !city.isCapitalCity()) return;
 
         Actor initiator = city.leader;

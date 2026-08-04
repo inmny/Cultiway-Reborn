@@ -104,6 +104,7 @@ internal class Manager
         ModClass.I.LogicEventProcessSystemGroup.Add(new MagicSpellCastCompletedEventSystem());
         
         CultivateMethodTriggers.Init();
+        SkavenEvolution.Init();
         KnightCombatTriggers.Init();
         KnightBloodline.Init();
         KnightForge.Init();
