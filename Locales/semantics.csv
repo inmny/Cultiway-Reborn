@@ -73,6 +73,9 @@ Cultiway.Semantic.suppression,镇压
 Cultiway.Semantic.transformation,转化
 Cultiway.Semantic.vehicle,载具
 Cultiway.Semantic.vitality,生机
+Cultiway.Semantic.battle_intent,战意
+Cultiway.Semantic.dirty_wakan,浊气
+Cultiway.Semantic.fortune,国运
 Cultiway.Semantic.volatility,活跃
 Cultiway.Semantic.ward,结界
 Cultiway.Semantic.quality,品质
@@ -91,6 +94,7 @@ Cultiway.Semantic.meditation_path,静修
 Cultiway.Semantic.battle_cultivation_path,战修
 Cultiway.Semantic.slaughter_cultivation_path,杀伐修行
 Cultiway.Semantic.fortune_cultivation_path,气运修行
+Cultiway.Semantic.natural_cultivation_path,天地修行
 Cultiway.Semantic.sword_path,剑道
 Cultiway.Semantic.illusion,幻术
 Cultiway.Semantic.dragon,龙属
