@@ -33,12 +33,24 @@ public sealed class CultivationResources
 
     protected override void OnInit()
     {
+        WorldWakan.DisplayNameKey = "Cultiway.Cultivation.Resource.WorldWakan";
+        WorldWakan.IconPath = "cultiway/icons/iconWakan";
         WorldWakan.GetAvailable = GetWorldWakan;
         WorldWakan.WithdrawUpTo = WithdrawWorldWakan;
+
+        TileDirtyWakan.DisplayNameKey = "Cultiway.Cultivation.Resource.TileDirtyWakan";
+        TileDirtyWakan.IconPath = "cultiway/icons/iconWakan";
         TileDirtyWakan.GetAvailable = GetTileDirtyWakan;
         TileDirtyWakan.WithdrawUpTo = WithdrawTileDirtyWakan;
+
+        PersonalDirtyWakan.DisplayNameKey = "Cultiway.Cultivation.Resource.PersonalDirtyWakan";
+        PersonalDirtyWakan.IconPath = "cultiway/icons/iconWakan";
         PersonalDirtyWakan.GetAvailable = ReadPersonalDirtyWakan;
+        PersonalDirtyWakan.GetCapacity = ReadPersonalDirtyWakanCapacity;
         PersonalDirtyWakan.WithdrawUpTo = WithdrawPersonalDirtyWakan;
+
+        RoleFortune.DisplayNameKey = "Cultiway.Cultivation.Resource.RoleFortune";
+        RoleFortune.IconPath = "cultiway/icons/artifact_atoms/fortune_vein_core";
         RoleFortune.GetAvailable = GetRoleFortune;
         RoleFortune.WithdrawUpTo = WithdrawRoleFortune;
     }
@@ -120,6 +132,12 @@ public sealed class CultivationResources
     private static float ReadPersonalDirtyWakan(in CultivationResourceContext context)
     {
         return GetPersonalDirtyWakan(context.Actor);
+    }
+
+    /// <summary>为通用资源展示读取角色个人浊气容量。</summary>
+    private static float ReadPersonalDirtyWakanCapacity(in CultivationResourceContext context)
+    {
+        return GetPersonalDirtyWakanCapacity(context.Actor);
     }
 
     /// <summary>从角色个人浊气缓存中扣除资源。</summary>
