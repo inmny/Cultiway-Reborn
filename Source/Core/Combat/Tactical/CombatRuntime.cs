@@ -22,6 +22,8 @@ public static class TacticalCombatSettings
     public const float LocalCombatRadius = 24f;
     public const float NearbyAssistRadius = 20f;
     public const float ArmyAssistRadius = 40f;
+    public const float DormantProbeMinInterval = 2f;
+    public const float DormantProbeMaxInterval = 4f;
     public const float LostContactGrace = 2f;
     public const float ActionPresentationDuration = 0.65f;
     public const float NoProgressHighFidelitySeconds = 1.5f;
@@ -282,6 +284,11 @@ internal sealed class CombatArmyRuntime
     internal double SafeSince;
     internal double LastRoutRecoveryAt;
     internal double LastUpdatedAt;
+    internal double AggregateUpdatedAt = double.MinValue;
+    internal double RoutEvaluatedAt = double.MinValue;
+    internal double LatestSharedAwarenessAt = double.MinValue;
+    internal int AliveMemberCount;
+    internal int EngagedMemberCount;
 }
 
 /// <summary>
