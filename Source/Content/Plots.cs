@@ -512,7 +512,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
 
     /// <summary>
     /// 配置"修筑城墙"谋划：城市领袖/国王在城市达到一定规模后自主发起，分三阶段修筑。
-    /// 城墙为<b>矩形</b>，以城市全部建筑的包围盒为中心、各边外扩 <see cref="WALL_MARGIN"/>，确保包围所有建筑；
+    /// 城墙为<b>矩形</b>，以城市非港口建筑的包围盒为中心、各边外扩 <see cref="WALL_MARGIN"/>；
     /// 4 条边中点附近各留一个出入口通道（无箭塔）。木墙阶段（初次）记录 bounds，此后<b>固定不随城市扩张变化</b>。
     /// 1) 初次：内墙 = 木墙（宽1，无箭塔）。
     /// 2) 二次：内墙升级为石墙（宽2，内侧间隔箭塔）+ 外墙 = 木墙（宽1，内墙外 <see cref="WALL_SPACING"/>）。
@@ -848,6 +848,12 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         if (!HasHallHearth(city)) return;
         if (!city.hasBuildingType("type_hall")) return;
         int stage = GetWallStage(city);
+        if (stage > WALL_STAGE_NONE && IsDockInflatingRecordedWalls(city))
+        {
+            ClearCityWalls(city);
+            SetScheduleYear(city, 0);
+            stage = WALL_STAGE_NONE;
+        }
         if (stage >= WALL_STAGE_FORTRESS) return;
         // 第二、三次谋划(stage 1→2、2→3，即石墙/要塞)仅首都发起；首次(stage 0→1，木墙)任意人类城市均可
         if (stage >= WALL_STAGE_INNER && !city.isCapitalCity()) return;
@@ -864,6 +870,43 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
 
         initiator.setPlot(plot);
         SetScheduleYear(city, now_year + WALL_SCHEDULE_INTERVAL_YEARS);
+    }
+
+    private static bool IsDockInflatingRecordedWalls(City city)
+    {
+        var buildings = WallShapeHelper.GetBuildingsBounds(city);
+        if (buildings == null) return false;
+        var desiredInner = new WallShapeHelper.Bounds
+        {
+            cx = buildings.Value.cx,
+            cy = buildings.Value.cy,
+            hx = buildings.Value.hx + WALL_MARGIN,
+            hy = buildings.Value.hy + WALL_MARGIN
+        };
+        var desiredOuter = new WallShapeHelper.Bounds
+        {
+            cx = buildings.Value.cx,
+            cy = buildings.Value.cy,
+            hx = buildings.Value.hx + WALL_MARGIN + WALL_SPACING,
+            hy = buildings.Value.hy + WALL_MARGIN + WALL_SPACING
+        };
+        var recordedInner = GetInnerBounds(city);
+        var recordedOuter = GetOuterBounds(city);
+        foreach (var building in city.buildings)
+        {
+            if (building?.asset?.docks != true || building.current_tile == null) continue;
+            var tile = building.current_tile;
+            if (recordedInner != null && Contains(recordedInner.Value, tile) && !Contains(desiredInner, tile))
+                return true;
+            if (recordedOuter != null && Contains(recordedOuter.Value, tile) && !Contains(desiredOuter, tile))
+                return true;
+        }
+        return false;
+    }
+
+    private static bool Contains(WallShapeHelper.Bounds bounds, WorldTile tile)
+    {
+        return Math.Abs(tile.x - bounds.cx) <= bounds.hx && Math.Abs(tile.y - bounds.cy) <= bounds.hy;
     }
 
     /// <summary>

@@ -67,6 +67,22 @@ public partial class Buildings
        // AdvancedVampireTower.AddAdvancedSpawnerDistributedConfig(Actors.Bloodsucker, 10, 1, 3)
                        // .AddAdvancedSpawnerDistributedConfig(Actors.Anubis, 3, 10, 1); // 分布化的
 
+        SetFootprint(BloodCastle, 13, 6);
+        SetFootprint(FishPeopleTower, 8, 4);
+        SetFootprint(GoblinTower, 7, 4);
+        SetFootprint(MagicTower, 9, 5);
+        SetFootprint(Pyramid, 12, 8);
+        SetFootprint(RobotTower, 7, 4);
+        SetFootprint(SpriteTower, 7, 4);
+        SetFootprint(CrimsonCore, 8, 4);
+        SetFootprint(NurgleTower, 10, 6);
+        SetFootprint(SlaaneshTower, 10, 5);
+        SetFootprint(KhorneTower, 18, 8);
+        SetFootprint(TzeentchTower, 19, 7);
+        SetFootprint(VivisomaticArbor, 15, 7);
+        SetFootprint(GoldenThrone, 16, 6);
+        SetFootprint(SkavenBlight, 12, 6);
+
         BloodCastle.tower = false;
         BloodCastle.spawn_units_asset = null;
         BloodCastle.spawn_units = false;

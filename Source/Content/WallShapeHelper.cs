@@ -73,7 +73,7 @@ public static class WallShapeHelper
         return city == null ? null : new WallComputationContext(city);
     }
 
-    /// <summary>城市所有建筑的包围盒（中心 + 半宽/半高）。半宽/半高至少 <see cref="RADIUS_MIN"/>。无建筑返回 null。</summary>
+    /// <summary>城市非港口建筑的包围盒（中心 + 半宽/半高）。半宽/半高至少 <see cref="RADIUS_MIN"/>。无建筑返回 null。</summary>
     public static Bounds? GetBuildingsBounds(City city, bool ignoreRemoteUtilities = false)
     {
         if (city == null || city.buildings.Count == 0) return null;
@@ -88,6 +88,7 @@ public static class WallShapeHelper
         {
             var t = b.current_tile;
             if (t == null) continue;
+            if (b.asset?.docks == true) continue;
             if (ignoreRemoteUtilities && IsRemoteUtility(b, center)) continue;
             if (t.x < minX) minX = t.x;
             if (t.x > maxX) maxX = t.x;
