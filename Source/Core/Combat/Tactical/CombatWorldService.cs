@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using ai;
 using Cultiway.Const;
+using Cultiway.Core.Performance;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Systems;
@@ -20,8 +22,36 @@ public static class CombatWorldService
 {
     private static readonly Dictionary<long, CombatActorRuntime> ActorStates = new();
     private static readonly Dictionary<long, CombatArmyRuntime> ArmyStates = new();
+    private const int MapChunkTileSize = 16;
     private static bool initialized;
     private static double nextGlobalCleanupAt;
+
+    /// <summary>固定容量敌方候选表中的排序数据。</summary>
+    private struct EnemyCandidateEntry
+    {
+        internal readonly BaseSimObject Object;
+        internal readonly long Id;
+        internal bool Visible;
+        internal readonly int Priority;
+        internal readonly float Severity;
+        internal readonly float DistanceSquared;
+
+        internal EnemyCandidateEntry(
+            BaseSimObject obj,
+            long id,
+            bool visible,
+            int priority,
+            float severity,
+            float distanceSquared)
+        {
+            Object = obj;
+            Id = id;
+            Visible = visible;
+            Priority = priority;
+            Severity = severity;
+            DistanceSquared = distanceSquared;
+        }
+    }
 
     /// <summary>注册世界清理回调。该方法由 Content 初始化阶段调用一次。</summary>
     public static void Initialize()
@@ -73,6 +103,7 @@ public static class CombatWorldService
     {
         ActorStates.Clear();
         ArmyStates.Clear();
+        CombatSpatialAwarenessIndex.Clear();
         nextGlobalCleanupAt = 0d;
         LogicSkillPersistentSystem.ClearCombatSnapshots();
         CombatDiagnostics.Reset();
@@ -96,6 +127,7 @@ public static class CombatWorldService
         }
         ActorStates.Clear();
         ArmyStates.Clear();
+        CombatSpatialAwarenessIndex.Clear();
         nextGlobalCleanupAt = 0d;
     }
 
@@ -194,7 +226,11 @@ public static class CombatWorldService
     public static bool TickExecution(Actor actor, float elapsed)
     {
         if (!ShouldTakeOver(actor)) return false;
-        CombatActorRuntime runtime = GetOrCreateActorState(actor);
+        if (!ActorStates.TryGetValue(actor.getID(), out CombatActorRuntime runtime))
+        {
+            if (actor.attack_target.isRekt()) return false;
+            runtime = GetOrCreateActorState(actor);
+        }
         ImportExternalTarget(actor, runtime);
         if (CombatMovementService.Tick(actor, runtime, CurrentTime))
         {
@@ -205,10 +241,7 @@ public static class CombatWorldService
             return false;
 
         BaseSimObject enemy = runtime.Plan.PrimaryEnemy.Object;
-        if (!IsValidEnemy(
-                actor,
-                enemy,
-                runtime.Plan.PrimaryEnemy.ThreatSource != CombatThreatSource.None))
+        if (!CanEngageTarget(actor, enemy))
         {
             RequestMovementRefresh(runtime, clearBearing: true);
             return false;
@@ -328,15 +361,47 @@ public static class CombatWorldService
             actor._has_status_strange_urge)
             return null;
 
-        CombatActorRuntime runtime = GetOrCreateActorState(actor);
-        ImportExternalTarget(actor, runtime);
         double now = CurrentTime;
-        if (!runtime.ExternalTargetDirty && now < runtime.NextPlanAt)
+        ActorStates.TryGetValue(actor.getID(), out CombatActorRuntime runtime);
+        if (runtime != null) ImportExternalTarget(actor, runtime);
+
+        bool active = HasActivePlanningReason(actor, runtime, now);
+        if (active && runtime != null && !runtime.ExternalTargetDirty && now < runtime.NextPlanAt)
             return null;
+
+        List<BaseSimObject> primaryCandidates = null;
+        if (!active)
+        {
+            if (actor._timeout_targets > 0f) return null;
+            actor._timeout_targets = ResolveDormantProbeInterval(actor);
+
+            long probeStartedAt = StartPlanningMeasurement();
+            EnemyFinderData enemyData = EnemiesFinder.findEnemiesFrom(
+                actor.current_tile,
+                actor.kingdom);
+            primaryCandidates = enemyData.list;
+            bool nearbyThreat = primaryCandidates.Count == 0 &&
+                                CombatSpatialAwarenessIndex.HasRelevantThreat(actor, now);
+            RecordPlanningMeasurement(
+                "b3_findEnemyTarget.dormant_probe",
+                probeStartedAt,
+                primaryCandidates.Count);
+            if (!nearbyThreat &&
+                primaryCandidates.Count == 0 &&
+                actor._aggression_targets.Count == 0)
+                return null;
+        }
+
+        runtime ??= GetOrCreateActorState(actor);
+        ImportExternalTarget(actor, runtime);
 
         runtime.ExternalTargetDirty = false;
         runtime.TouchRevision();
-        CombatPlanningSnapshot snapshot = BuildSnapshot(actor, runtime, now);
+        CombatPlanningSnapshot snapshot = BuildSnapshot(
+            actor,
+            runtime,
+            now,
+            primaryCandidates);
         return new CombatPlanningWorkItem(actor, snapshot);
     }
 
@@ -615,6 +680,8 @@ public static class CombatWorldService
 
     internal static void Commit(Actor actor, CombatPlanningSnapshot snapshot, CombatPlan plan)
     {
+        // 诊断轨迹只在主线程提交阶段写入，避免所有规划工作线程争用同一把锁。
+        CombatDiagnostics.RecordPlan(snapshot, plan);
         if (!ShouldTakeOver(actor) ||
             actor._update_done ||
             actor._beh_skip ||
@@ -637,10 +704,7 @@ public static class CombatWorldService
         runtime.NextPlanAt = now + ResolvePlanInterval(actor, snapshot.HighFidelity, snapshot.Revision);
         if (plan == null ||
             !plan.HasEnemy ||
-            !IsValidEnemy(
-                actor,
-                plan.PrimaryEnemy.Object,
-                plan.PrimaryEnemy.ThreatSource != CombatThreatSource.None))
+            !CanEngageTarget(actor, plan.PrimaryEnemy.Object))
         {
             UpdateArmyRout(actor, default, true);
             if (runtime.IsEngaged)
@@ -668,7 +732,7 @@ public static class CombatWorldService
             LeaveCombat(actor, runtime);
             actor._timeout_targets = Mathf.Max(
                 actor._timeout_targets,
-                snapshot.HighFidelity ? 0.25f : 0.8f);
+                ResolveDormantProbeInterval(actor));
             return;
         }
 
@@ -703,11 +767,10 @@ public static class CombatWorldService
     private static CombatPlanningSnapshot BuildSnapshot(
         Actor actor,
         CombatActorRuntime runtime,
-        double now)
+        double now,
+        IReadOnlyList<BaseSimObject> primaryCandidates)
     {
-        bool highFidelity = actor.is_visible ||
-                            actor.isFavorite() ||
-                            actor.GetExtend().GetPowerLevel() >= 3f;
+        bool highFidelity = IsHighFidelity(actor);
         int enemyCap = highFidelity ? 12 : 6;
         // Self 不在 Allies 中，因此友军上限必须比敌军少一，双方局部样本才代表相同规模。
         int allyCap = enemyCap - 1;
@@ -715,7 +778,10 @@ public static class CombatWorldService
         RemoveExpiredRuntimeEntries(runtime, now);
         RecoverActorMorale(runtime, now);
         CleanupStaleArmyStates(now);
-        CombatArmyRuntime armyRuntime = ResolveArmyState(actor, now);
+
+        CombatArmyRuntime armyRuntime = null;
+        if (actor.army != null)
+            ArmyStates.TryGetValue(actor.army.id, out armyRuntime);
         CombatDirective directive = ResolveDirective(actor, armyRuntime, now);
         float selfPower = ResolveActualPower(actor);
         var snapshot = new CombatPlanningSnapshot
@@ -741,15 +807,18 @@ public static class CombatWorldService
             Directive = directive
         };
 
-        using var nearbyAllies = new ListPool<Actor>();
-        CollectNearbyCombatAllies(actor, nearbyAllies);
+        long threatStartedAt = StartPlanningMeasurement();
         Dictionary<long, CombatThreatContext> threatContexts = CollectRelevantThreats(
             actor,
             runtime,
             armyRuntime,
-            nearbyAllies,
             now);
+        RecordPlanningMeasurement(
+            "b3_findEnemyTarget.snapshot_threats",
+            threatStartedAt,
+            threatContexts.Count);
 
+        long enemyStartedAt = StartPlanningMeasurement();
         List<BaseSimObject> enemyObjects = CollectEnemyObjects(
             actor,
             runtime,
@@ -758,9 +827,38 @@ public static class CombatWorldService
             directive,
             enemyCap,
             now,
+            primaryCandidates,
+            out int scannedEnemies,
             out HashSet<long> visibleEnemyIds);
+        RecordPlanningMeasurement(
+            "b3_findEnemyTarget.snapshot_enemies",
+            enemyStartedAt,
+            scannedEnemies);
         if (enemyObjects.Count == 0) return snapshot;
 
+        long allyArmyStartedAt = StartPlanningMeasurement();
+        armyRuntime = ResolveArmyState(actor, now);
+        directive = ResolveDirective(actor, armyRuntime, now);
+        snapshot.ArmyRouted = armyRuntime?.Routed ?? false;
+        snapshot.Directive = directive;
+        long preferredThreatenedAllyId = ResolvePreferredThreatenedAllyId(
+            threatContexts,
+            actor.getID());
+        using var nearbyAllies = new ListPool<Actor>();
+        CollectNearbyCombatAllies(
+            actor,
+            nearbyAllies,
+            allyCap,
+            preferredThreatenedAllyId,
+            out int scannedAllies);
+        CombatantSnapshot[] allies = BuildAllySnapshots(actor, nearbyAllies);
+        snapshot.FormationCohesion = ResolveFormationCohesion(snapshot.Position, allies);
+        RecordPlanningMeasurement(
+            "b3_findEnemyTarget.snapshot_allies_army",
+            allyArmyStartedAt,
+            scannedAllies);
+
+        long actionStartedAt = StartPlanningMeasurement();
         CombatObstacleSnapshot[] obstacles = BuildObstacleSnapshots(actor);
         CombatantSnapshot[] enemies = BuildEnemySnapshots(
             actor,
@@ -771,15 +869,6 @@ public static class CombatWorldService
             threatContexts,
             obstacles,
             now);
-        long preferredThreatenedAllyId = ResolvePreferredThreatenedAllyId(
-            threatContexts,
-            actor.getID());
-        CombatantSnapshot[] allies = BuildAllySnapshots(
-            actor,
-            nearbyAllies,
-            allyCap,
-            preferredThreatenedAllyId);
-        snapshot.FormationCohesion = ResolveFormationCohesion(snapshot.Position, allies);
         CombatantSnapshot provisionalEnemy = ResolveProvisionalEnemy(actor, enemies);
         Actor preferredAlly = ResolvePreferredAlly(
             allies,
@@ -821,6 +910,10 @@ public static class CombatWorldService
         snapshot.Actions = actionArray;
         snapshot.Positions = positions;
         snapshot.Obstacles = obstacles;
+        RecordPlanningMeasurement(
+            "b3_findEnemyTarget.snapshot_actions_positions",
+            actionStartedAt,
+            actionArray.Length + positions.Length + obstacles.Length);
         return snapshot;
     }
 
@@ -831,7 +924,6 @@ public static class CombatWorldService
         Actor actor,
         CombatActorRuntime runtime,
         CombatArmyRuntime armyRuntime,
-        IReadOnlyList<Actor> nearbyAllies,
         double now)
     {
         var result = new Dictionary<long, CombatThreatContext>();
@@ -856,24 +948,17 @@ public static class CombatWorldService
                 allowSameKingdom: false);
         }
 
-        if (actor.kingdom == null) return result;
-        for (int i = 0; i < nearbyAllies.Count; i++)
+        using var nearbySignals = new ListPool<CombatThreatSignal>();
+        CombatSpatialAwarenessIndex.CopyRelevantThreats(actor, now, nearbySignals);
+        for (int i = 0; i < nearbySignals.Count; i++)
         {
-            Actor ally = nearbyAllies[i];
-            if (Toolbox.SquaredDistVec2Float(actor.current_position, ally.current_position) >
-                TacticalCombatSettings.NearbyAssistRadius *
-                TacticalCombatSettings.NearbyAssistRadius)
-                continue;
-            if (!ActorStates.TryGetValue(ally.getID(), out CombatActorRuntime allyRuntime))
-                continue;
-            AddRelevantThreats(
-                actor,
-                allyRuntime.IncomingThreats,
-                CombatThreatSource.NearbyAlly,
-                TacticalCombatSettings.NearbyAssistRadius,
-                now,
-                result,
-                allowSameKingdom: false);
+            CombatThreatSignal signal = nearbySignals[i];
+            var candidate = new CombatThreatContext(
+                signal,
+                CombatThreatSource.NearbyAlly);
+            if (!result.TryGetValue(signal.AttackerId, out CombatThreatContext current) ||
+                ShouldReplaceThreat(current, candidate))
+                result[signal.AttackerId] = candidate;
         }
         return result;
     }
@@ -982,13 +1067,23 @@ public static class CombatWorldService
         CombatDirective directive,
         int cap,
         double now,
+        IReadOnlyList<BaseSimObject> primaryCandidates,
+        out int scannedCandidates,
         out HashSet<long> visibleEnemyIds)
     {
-        var result = new List<BaseSimObject>(cap * 2);
-        var seen = new HashSet<long>();
-        var visible = new HashSet<long>();
-        visibleEnemyIds = visible;
-        AddEnemyCandidate(actor, actor.attack_target, runtime, now, seen, result);
+        var selected = new List<EnemyCandidateEntry>(cap);
+        scannedCandidates = 0;
+        AddEnemyCandidate(
+            actor,
+            actor.attack_target,
+            runtime,
+            armyRuntime,
+            threatContexts,
+            now,
+            explicitlyVisible: false,
+            cap,
+            selected,
+            ref scannedCandidates);
 
         foreach (CombatThreatContext context in threatContexts.Values)
         {
@@ -996,18 +1091,33 @@ public static class CombatWorldService
                 actor,
                 context.Signal.Attacker,
                 runtime,
+                armyRuntime,
+                threatContexts,
                 now,
-                seen,
-                result,
-                confirmedThreat: true);
+                explicitlyVisible: false,
+                cap,
+                selected,
+                ref scannedCandidates);
         }
 
-        EnemyFinderData enemyData = EnemiesFinder.findEnemiesFrom(actor.current_tile, actor.kingdom);
-        List<BaseSimObject> primary = enemyData.list;
+        IReadOnlyList<BaseSimObject> primary = primaryCandidates ??
+                                               EnemiesFinder.findEnemiesFrom(
+                                                       actor.current_tile,
+                                                       actor.kingdom)
+                                                   .list;
         for (int i = 0; i < primary.Count; i++)
         {
-            if (!primary[i].isRekt()) visible.Add(primary[i].getID());
-            AddEnemyCandidate(actor, primary[i], runtime, now, seen, result);
+            AddEnemyCandidate(
+                actor,
+                primary[i],
+                runtime,
+                armyRuntime,
+                threatContexts,
+                now,
+                explicitlyVisible: true,
+                cap,
+                selected,
+                ref scannedCandidates);
         }
         foreach (long targetId in actor._aggression_targets)
         {
@@ -1015,10 +1125,13 @@ public static class CombatWorldService
                 actor,
                 World.world.units.get(targetId),
                 runtime,
+                armyRuntime,
+                threatContexts,
                 now,
-                seen,
-                result,
-                confirmedThreat: true);
+                explicitlyVisible: false,
+                cap,
+                selected,
+                ref scannedCandidates);
         }
         foreach (long attackerId in runtime.RecentAttackers.Keys)
         {
@@ -1026,10 +1139,13 @@ public static class CombatWorldService
                 actor,
                 World.world.units.get(attackerId),
                 runtime,
+                armyRuntime,
+                threatContexts,
                 now,
-                seen,
-                result,
-                confirmedThreat: true);
+                explicitlyVisible: false,
+                cap,
+                selected,
+                ref scannedCandidates);
         }
         if (armyRuntime != null &&
             directive is CombatDirective.Attack or CombatDirective.Protect)
@@ -1044,74 +1160,36 @@ public static class CombatWorldService
                     actor,
                     observation.TargetObject,
                     runtime,
+                    armyRuntime,
+                    threatContexts,
                     now,
-                    seen,
-                    result);
+                    explicitlyVisible: false,
+                    cap,
+                    selected,
+                    ref scannedCandidates);
             }
-        }
-        for (int i = 0; i < result.Count; i++)
-        {
-            BaseSimObject candidate = result[i];
-            if (candidate.current_tile == null) continue;
-            int range = SimGlobals.m.unit_chunk_sight_range;
-            if (Math.Abs(actor.current_tile.chunk.x - candidate.current_tile.chunk.x) <= range &&
-                Math.Abs(actor.current_tile.chunk.y - candidate.current_tile.chunk.y) <= range)
-                visible.Add(candidate.getID());
         }
 
-        result.Sort((left, right) =>
+        var result = new List<BaseSimObject>(selected.Count);
+        visibleEnemyIds = new HashSet<long>();
+        for (int i = 0; i < selected.Count; i++)
         {
-            bool leftThreat = threatContexts.TryGetValue(
-                left.getID(),
-                out CombatThreatContext leftContext);
-            bool rightThreat = threatContexts.TryGetValue(
-                right.getID(),
-                out CombatThreatContext rightContext);
-            if (leftThreat != rightThreat) return leftThreat ? -1 : 1;
-            if (leftThreat)
-            {
-                int source = ResolveThreatSourcePriority(leftContext.Source)
-                             .CompareTo(ResolveThreatSourcePriority(rightContext.Source));
-                if (source != 0) return source;
-                int severity = rightContext.Signal.Severity.CompareTo(leftContext.Signal.Severity);
-                if (severity != 0) return severity;
-            }
-            bool leftRecent = runtime.RecentAttackers.ContainsKey(left.getID());
-            bool rightRecent = runtime.RecentAttackers.ContainsKey(right.getID());
-            if (leftRecent != rightRecent) return leftRecent ? -1 : 1;
-            float leftDistance = Toolbox.SquaredDistVec2Float(
-                actor.current_position,
-                leftThreat
-                    ? leftContext.Signal.AttackerPosition
-                    : ResolveKnownPosition(
-                        left,
-                        visible,
-                        runtime,
-                        armyRuntime));
-            float rightDistance = Toolbox.SquaredDistVec2Float(
-                actor.current_position,
-                rightThreat
-                    ? rightContext.Signal.AttackerPosition
-                    : ResolveKnownPosition(
-                        right,
-                        visible,
-                        runtime,
-                        armyRuntime));
-            return leftDistance.CompareTo(rightDistance);
-        });
-        if (result.Count > cap) result.RemoveRange(cap, result.Count - cap);
+            EnemyCandidateEntry entry = selected[i];
+            result.Add(entry.Object);
+            if (entry.Visible) visibleEnemyIds.Add(entry.Id);
+        }
         return result;
     }
 
-    /// <summary>返回排序时允许角色掌握的目标位置，避免不可见目标按实时坐标获得优先级。</summary>
+    /// <summary>返回有界选择时允许角色掌握的目标位置，避免不可见目标按实时坐标获得优先级。</summary>
     private static Vector2 ResolveKnownPosition(
         BaseSimObject target,
-        ISet<long> visibleEnemyIds,
+        bool visible,
         CombatActorRuntime runtime,
         CombatArmyRuntime armyRuntime)
     {
         long targetId = target.getID();
-        if (visibleEnemyIds.Contains(targetId)) return target.current_position;
+        if (visible) return target.current_position;
         if (runtime.Observations.TryGetValue(targetId, out CombatObservation personal))
             return personal.LastPosition;
         if (armyRuntime != null &&
@@ -1120,41 +1198,96 @@ public static class CombatWorldService
         return target.current_position;
     }
 
+    /// <summary>按原版最终攻击资格验证候选目标，并插入固定容量的优先队列。</summary>
     private static void AddEnemyCandidate(
         Actor actor,
         BaseSimObject candidate,
         CombatActorRuntime runtime,
+        CombatArmyRuntime armyRuntime,
+        IReadOnlyDictionary<long, CombatThreatContext> threatContexts,
         double now,
-        ISet<long> seen,
-        ICollection<BaseSimObject> output)
+        bool explicitlyVisible,
+        int cap,
+        List<EnemyCandidateEntry> output,
+        ref int scannedCandidates)
     {
-        AddEnemyCandidate(actor, candidate, runtime, now, seen, output, confirmedThreat: false);
-    }
-
-    /// <summary>验证普通敌人或已由真实事件确认的攻击者，并加入去重后的目标池。</summary>
-    private static void AddEnemyCandidate(
-        Actor actor,
-        BaseSimObject candidate,
-        CombatActorRuntime runtime,
-        double now,
-        ISet<long> seen,
-        ICollection<BaseSimObject> output,
-        bool confirmedThreat)
-    {
-        if (candidate.isRekt() || candidate == actor) return;
+        scannedCandidates++;
+        if (!CanEngageTarget(actor, candidate)) return;
         long id = candidate.getID();
-        if (seen.Contains(id)) return;
         if (runtime.IgnoreCurrentTargetUntil > now &&
             runtime.IgnoredTargetId == id)
             return;
         if (actor.shouldIgnoreTarget(candidate)) return;
-        if (!actor.canAttackTarget(
-                candidate,
-                pCheckForFactions: !confirmedThreat,
-                pAttackBuildings: actor.asset.can_attack_buildings))
-            return;
-        seen.Add(id);
-        output.Add(candidate);
+
+        bool visible = explicitlyVisible || IsInsideSightChunks(actor, candidate);
+        bool hasThreat = threatContexts.TryGetValue(id, out CombatThreatContext threat);
+        bool current = !actor.attack_target.isRekt() && actor.attack_target.getID() == id;
+        bool recent = runtime.RecentAttackers.ContainsKey(id);
+        int priority = current
+            ? 0
+            : hasThreat
+                ? 1 + ResolveThreatSourcePriority(threat.Source)
+                : recent
+                    ? 5
+                    : 6;
+        float severity = hasThreat ? threat.Signal.Severity : 0f;
+        Vector2 knownPosition = hasThreat && !visible
+            ? threat.Signal.AttackerPosition
+            : ResolveKnownPosition(candidate, visible, runtime, armyRuntime);
+        var entry = new EnemyCandidateEntry(
+            candidate,
+            id,
+            visible,
+            priority,
+            severity,
+            Toolbox.SquaredDistVec2Float(actor.current_position, knownPosition));
+
+        for (int i = 0; i < output.Count; i++)
+        {
+            if (output[i].Id != id) continue;
+            EnemyCandidateEntry previous = output[i];
+            entry.Visible |= previous.Visible;
+            output.RemoveAt(i);
+            break;
+        }
+        InsertEnemyCandidate(output, entry, cap);
+    }
+
+    /// <summary>按优先来源、严重度与距离将候选插入至最多 cap 项的有序列表。</summary>
+    private static void InsertEnemyCandidate(
+        List<EnemyCandidateEntry> output,
+        EnemyCandidateEntry candidate,
+        int cap)
+    {
+        int index = 0;
+        while (index < output.Count && CompareEnemyCandidates(output[index], candidate) <= 0)
+            index++;
+        if (index >= cap) return;
+        output.Insert(index, candidate);
+        if (output.Count > cap) output.RemoveAt(output.Count - 1);
+    }
+
+    /// <summary>比较两个候选；返回负数表示 left 应排在 right 前面。</summary>
+    private static int CompareEnemyCandidates(
+        EnemyCandidateEntry left,
+        EnemyCandidateEntry right)
+    {
+        int priority = left.Priority.CompareTo(right.Priority);
+        if (priority != 0) return priority;
+        int severity = right.Severity.CompareTo(left.Severity);
+        if (severity != 0) return severity;
+        int distance = left.DistanceSquared.CompareTo(right.DistanceSquared);
+        if (distance != 0) return distance;
+        return left.Id.CompareTo(right.Id);
+    }
+
+    /// <summary>判断候选是否位于原版单位区块视野内。</summary>
+    private static bool IsInsideSightChunks(Actor actor, BaseSimObject candidate)
+    {
+        if (actor.current_tile == null || candidate.current_tile == null) return false;
+        int range = SimGlobals.m.unit_chunk_sight_range;
+        return Math.Abs(actor.current_tile.chunk.x - candidate.current_tile.chunk.x) <= range &&
+               Math.Abs(actor.current_tile.chunk.y - candidate.current_tile.chunk.y) <= range;
     }
 
     private static CombatantSnapshot[] BuildEnemySnapshots(
@@ -1236,64 +1369,103 @@ public static class CombatWorldService
         return result;
     }
 
-    /// <summary>收集明确局部半径内、能够实际参加战斗的同国单位。</summary>
-    private static void CollectNearbyCombatAllies(Actor actor, ListPool<Actor> output)
+    /// <summary>从同阵营区块列表中保留最近的固定数量友军，避免密集战场构造并排序完整列表。</summary>
+    private static void CollectNearbyCombatAllies(
+        Actor actor,
+        ListPool<Actor> output,
+        int cap,
+        long preferredThreatenedAllyId,
+        out int scannedCandidates)
     {
+        scannedCandidates = 0;
+        if (cap <= 0 || actor.current_tile == null || actor.kingdom == null) return;
         float radiusSquared = TacticalCombatSettings.LocalCombatRadius *
                               TacticalCombatSettings.LocalCombatRadius;
-        foreach (Actor candidate in Finder.getUnitsFromChunk(actor.current_tile, 3))
+        int chunkRange = Mathf.CeilToInt(
+            TacticalCombatSettings.LocalCombatRadius / MapChunkTileSize);
+        MapChunk origin = actor.current_tile.chunk;
+        long kingdomId = actor.kingdom.id;
+        Actor preferred = null;
+        for (int y = origin.y - chunkRange; y <= origin.y + chunkRange; y++)
         {
-            if (candidate.isRekt() ||
-                candidate == actor ||
-                candidate.kingdom != actor.kingdom ||
-                candidate.current_tile == null ||
-                candidate.asset.skip_fight_logic ||
-                candidate.is_unconscious ||
-                !candidate.isAllowedToLookForEnemies() ||
-                Toolbox.SquaredDistVec2Float(
-                    actor.current_position,
-                    candidate.current_position) > radiusSquared)
-                continue;
-            output.Add(candidate);
-        }
-
-        output.Sort((left, right) =>
-        {
-            float leftDistance = Toolbox.SquaredDistVec2Float(
-                actor.current_position,
-                left.current_position);
-            float rightDistance = Toolbox.SquaredDistVec2Float(
-                actor.current_position,
-                right.current_position);
-            return leftDistance.CompareTo(rightDistance);
-        });
-    }
-
-    /// <summary>将局部友军冻结为规划快照，并保证受援者不会因数量上限被遗漏。</summary>
-    private static CombatantSnapshot[] BuildAllySnapshots(
-        Actor actor,
-        IReadOnlyList<Actor> nearby,
-        int cap,
-        long preferredThreatenedAllyId)
-    {
-        int count = Math.Min(cap, nearby.Count);
-        if (count <= 0) return Array.Empty<CombatantSnapshot>();
-        var selected = new Actor[count];
-        for (int i = 0; i < count; i++) selected[i] = nearby[i];
-        if (preferredThreatenedAllyId != 0)
-        {
-            for (int i = count; i < nearby.Count; i++)
+            for (int x = origin.x - chunkRange; x <= origin.x + chunkRange; x++)
             {
-                if (nearby[i].getID() != preferredThreatenedAllyId) continue;
-                selected[count - 1] = nearby[i];
-                break;
+                MapChunk chunk = World.world.map_chunk_manager.get(x, y);
+                if (chunk == null || !chunk.objects.kingdoms.Contains(kingdomId)) continue;
+                List<Actor> units = chunk.objects.getUnits(kingdomId);
+                for (int i = 0; i < units.Count; i++)
+                {
+                    Actor candidate = units[i];
+                    scannedCandidates++;
+                    if (!IsEligibleNearbyAlly(actor, candidate, radiusSquared)) continue;
+                    if (candidate.getID() == preferredThreatenedAllyId) preferred = candidate;
+                    InsertNearbyAlly(actor, candidate, output, cap);
+                }
             }
         }
 
+        if (preferred == null) return;
+        for (int i = 0; i < output.Count; i++)
+        {
+            if (output[i] == preferred) return;
+        }
+        if (output.Count >= cap) output.RemoveAt(output.Count - 1);
+        InsertNearbyAlly(actor, preferred, output, cap);
+    }
+
+    /// <summary>判断角色是否能够作为当前规划者的局部战斗友军。</summary>
+    private static bool IsEligibleNearbyAlly(
+        Actor actor,
+        Actor candidate,
+        float radiusSquared)
+    {
+        return !candidate.isRekt() &&
+               candidate != actor &&
+               candidate.current_tile != null &&
+               !candidate.asset.skip_fight_logic &&
+               !candidate.is_unconscious &&
+               candidate.isAllowedToLookForEnemies() &&
+               Toolbox.SquaredDistVec2Float(
+                   actor.current_position,
+                   candidate.current_position) <= radiusSquared;
+    }
+
+    /// <summary>按距离插入固定容量的友军列表。</summary>
+    private static void InsertNearbyAlly(
+        Actor actor,
+        Actor candidate,
+        ListPool<Actor> output,
+        int cap)
+    {
+        float distance = Toolbox.SquaredDistVec2Float(
+            actor.current_position,
+            candidate.current_position);
+        int index = 0;
+        while (index < output.Count)
+        {
+            if (output[index] == candidate) return;
+            float currentDistance = Toolbox.SquaredDistVec2Float(
+                actor.current_position,
+                output[index].current_position);
+            if (distance < currentDistance) break;
+            index++;
+        }
+        if (index >= cap) return;
+        output.Insert(index, candidate);
+        if (output.Count > cap) output.RemoveAt(output.Count - 1);
+    }
+
+    /// <summary>将已经完成有界选择的局部友军冻结为规划快照。</summary>
+    private static CombatantSnapshot[] BuildAllySnapshots(
+        Actor actor,
+        IReadOnlyList<Actor> nearby)
+    {
+        int count = nearby.Count;
+        if (count <= 0) return Array.Empty<CombatantSnapshot>();
         var result = new CombatantSnapshot[count];
         for (int i = 0; i < count; i++)
         {
-            Actor ally = selected[i];
+            Actor ally = nearby[i];
             result[i] = new CombatantSnapshot(
                 ally,
                 -1,
@@ -1889,12 +2061,22 @@ public static class CombatWorldService
     {
         if (actor.army == null) return null;
         CombatArmyRuntime runtime = GetOrCreateArmyState(actor.army);
+        if (runtime.AggregateUpdatedAt == now) return runtime;
+        runtime.AggregateUpdatedAt = now;
         int alive = 0;
+        int engaged = 0;
         List<Actor> units = actor.army.units;
         for (int i = 0; i < units.Count; i++)
         {
-            if (!units[i].isRekt()) alive++;
+            Actor member = units[i];
+            if (member.isRekt()) continue;
+            alive++;
+            if (ActorStates.TryGetValue(member.getID(), out CombatActorRuntime memberRuntime) &&
+                memberRuntime.IsEngaged)
+                engaged++;
         }
+        runtime.AliveMemberCount = alive;
+        runtime.EngagedMemberCount = engaged;
         runtime.PeakMemberCount = Math.Max(runtime.PeakMemberCount, alive);
         float casualties = runtime.PeakMemberCount <= 0
             ? 0f
@@ -1967,6 +2149,7 @@ public static class CombatWorldService
         if (actor.army == null ||
             !ArmyStates.TryGetValue(actor.army.id, out CombatArmyRuntime armyRuntime))
             return false;
+        double now = CurrentTime;
         bool routedBefore = armyRuntime.Routed;
 
         if (noEnemies)
@@ -1984,21 +2167,15 @@ public static class CombatWorldService
             }
             report.StrengthRatio = outcome.StrengthRatio;
             report.Survival = outcome.Survival;
-            report.ReportedAt = CurrentTime;
+            report.ReportedAt = now;
         }
-        RemoveExpiredOutcomeReports(armyRuntime, CurrentTime);
+        if (armyRuntime.RoutEvaluatedAt == now) return false;
+        armyRuntime.RoutEvaluatedAt = now;
+        armyRuntime = ResolveArmyState(actor, now);
+        RemoveExpiredOutcomeReports(armyRuntime, now);
 
-        int alive = 0;
-        int engaged = 0;
-        for (int i = 0; i < actor.army.units.Count; i++)
-        {
-            Actor member = actor.army.units[i];
-            if (member.isRekt()) continue;
-            alive++;
-            if (ActorStates.TryGetValue(member.getID(), out CombatActorRuntime memberRuntime) &&
-                memberRuntime.IsEngaged)
-                engaged++;
-        }
+        int alive = armyRuntime.AliveMemberCount;
+        int engaged = armyRuntime.EngagedMemberCount;
         float casualties = armyRuntime.PeakMemberCount <= 0
             ? 0f
             : 1f - alive / (float)armyRuntime.PeakMemberCount;
@@ -2022,7 +2199,7 @@ public static class CombatWorldService
         if (routePressure)
         {
             if (armyRuntime.RoutPressureSince <= 0d)
-                armyRuntime.RoutPressureSince = CurrentTime;
+                armyRuntime.RoutPressureSince = now;
         }
         else
         {
@@ -2031,7 +2208,7 @@ public static class CombatWorldService
 
         if (!armyRuntime.Routed &&
             armyRuntime.RoutPressureSince > 0d &&
-            CurrentTime - armyRuntime.RoutPressureSince >=
+            now - armyRuntime.RoutPressureSince >=
             TacticalCombatSettings.ArmyRoutConsensusDuration)
         {
             armyRuntime.Routed = true;
@@ -2057,27 +2234,27 @@ public static class CombatWorldService
         {
             if (armyRuntime.SafeSince <= 0d)
             {
-                armyRuntime.SafeSince = CurrentTime;
-                armyRuntime.LastRoutRecoveryAt = CurrentTime;
+                armyRuntime.SafeSince = now;
+                armyRuntime.LastRoutRecoveryAt = now;
             }
-            double elapsed = Math.Max(0d, CurrentTime - armyRuntime.LastRoutRecoveryAt);
-            armyRuntime.LastRoutRecoveryAt = CurrentTime;
+            double elapsed = Math.Max(0d, now - armyRuntime.LastRoutRecoveryAt);
+            armyRuntime.LastRoutRecoveryAt = now;
             armyRuntime.Morale = Mathf.Clamp01(
                 armyRuntime.Morale + (float)elapsed * 0.04f);
         }
         else
         {
             armyRuntime.SafeSince = 0d;
-            armyRuntime.LastRoutRecoveryAt = CurrentTime;
+            armyRuntime.LastRoutRecoveryAt = now;
         }
         if (armyRuntime.SafeSince > 0d &&
-            CurrentTime - armyRuntime.SafeSince >= 5d &&
+            now - armyRuntime.SafeSince >= 5d &&
             armyRuntime.Morale >= TacticalCombatSettings.ArmyRecoverMorale)
         {
             armyRuntime.Routed = false;
             armyRuntime.RoutPressureSince = 0d;
             armyRuntime.Directive = CombatDirective.Hold;
-            armyRuntime.DirectiveExpiresAt = CurrentTime + 1d;
+            armyRuntime.DirectiveExpiresAt = now + 1d;
             armyRuntime.SafeSince = 0d;
             RequestArmyReplan(
                 actor.army,
@@ -2128,9 +2305,7 @@ public static class CombatWorldService
             return;
         }
 
-        bool highFidelity = actor.is_visible ||
-                            actor.isFavorite() ||
-                            actor.GetExtend().GetPowerLevel() >= 3f;
+        bool highFidelity = IsHighFidelity(actor);
         float timeout = highFidelity
             ? TacticalCombatSettings.NoProgressHighFidelitySeconds
             : TacticalCombatSettings.NoProgressLowFidelitySeconds;
@@ -2294,15 +2469,17 @@ public static class CombatWorldService
         runtime.DisplayedActivityStartedAt = 0d;
     }
 
-    private static bool IsValidEnemy(
-        Actor actor,
-        BaseSimObject target,
-        bool confirmedThreat)
+    /// <summary>
+    /// 使用与原版实际攻击入口一致的目标资格；威胁记录只改变优先级，不得绕过阵营、职业和单位状态限制。
+    /// </summary>
+    internal static bool CanEngageTarget(Actor actor, BaseSimObject target)
     {
-        return !target.isRekt() &&
+        return !actor.isRekt() &&
+               !target.isRekt() &&
+               target != actor &&
                actor.canAttackTarget(
                    target,
-                   pCheckForFactions: !confirmedThreat,
+                   pCheckForFactions: true,
                    pAttackBuildings: actor.asset.can_attack_buildings);
     }
 
@@ -2367,8 +2544,8 @@ public static class CombatWorldService
         bool highFidelity,
         int revision)
     {
-        float min = highFidelity ? 0.2f : 0.8f;
-        float max = highFidelity ? 0.4f : 1.5f;
+        float min = highFidelity ? 0.35f : 1.2f;
+        float max = highFidelity ? 0.65f : 2.4f;
         unchecked
         {
             long hash = actor.getID() * 73856093L ^ revision * 19349663L;
@@ -2383,9 +2560,7 @@ public static class CombatWorldService
     /// </summary>
     private static double ResolveActionRetryDelay(Actor actor, int revision)
     {
-        bool highFidelity = actor.is_visible ||
-                            actor.isFavorite() ||
-                            actor.GetExtend().GetPowerLevel() >= 3f;
+        bool highFidelity = IsHighFidelity(actor);
         float min = highFidelity ? 0.18f : 0.55f;
         float max = highFidelity ? 0.32f : 0.9f;
         unchecked
@@ -2394,6 +2569,94 @@ public static class CombatWorldService
             float roll = (hash & 0xFFFF) / 65535f;
             return Mathf.Lerp(min, max, roll);
         }
+    }
+
+    /// <summary>
+    /// 判断角色是否已经处于需要完整规划的活动状态。仅有过期观察不会让和平角色持续活跃。
+    /// </summary>
+    private static bool HasActivePlanningReason(
+        Actor actor,
+        CombatActorRuntime runtime,
+        double now)
+    {
+        if (!actor.attack_target.isRekt() && CanEngageTarget(actor, actor.attack_target))
+            return true;
+        if (HasValidAggressionTarget(actor)) return true;
+        if (runtime != null)
+        {
+            if (runtime.ExternalTargetDirty || runtime.IsEngaged || runtime.Plan?.HasEnemy == true)
+                return true;
+            foreach (CombatThreatSignal signal in runtime.IncomingThreats.Values)
+            {
+                if (!signal.Attacker.isRekt() &&
+                    !signal.Victim.isRekt() &&
+                    now - signal.LastThreatAt <= TacticalCombatSettings.ThreatLifetime)
+                    return true;
+            }
+        }
+
+        if (actor.army == null ||
+            !ArmyStates.TryGetValue(actor.army.id, out CombatArmyRuntime armyRuntime))
+            return false;
+        if (armyRuntime.Routed) return true;
+        return armyRuntime.DirectiveExpiresAt > now &&
+               (armyRuntime.Directive is CombatDirective.Attack or CombatDirective.Protect) &&
+               now - armyRuntime.LatestSharedAwarenessAt <=
+               TacticalCombatSettings.TacticalLocationLifetime;
+    }
+
+    /// <summary>仅让当前可见或收藏角色使用高频规划；境界和战力不再提高后台刷新频率。</summary>
+    private static bool IsHighFidelity(Actor actor)
+    {
+        return actor.is_visible || actor.isFavorite();
+    }
+
+    /// <summary>验证原版强制攻击目标，并在全部失效时一次性清空陈旧 ID。</summary>
+    private static bool HasValidAggressionTarget(Actor actor)
+    {
+        if (actor._aggression_targets.Count == 0) return false;
+        foreach (long targetId in actor._aggression_targets)
+        {
+            BaseSimObject target = World.world.units.get(targetId);
+            if (CanEngageTarget(actor, target) && !actor.shouldIgnoreTarget(target))
+                return true;
+        }
+        actor._aggression_targets.Clear();
+        return false;
+    }
+
+    /// <summary>为和平状态生成稳定的角色级探测抖动，避免整批单位同时扫描敌人。</summary>
+    private static float ResolveDormantProbeInterval(Actor actor)
+    {
+        unchecked
+        {
+            long hash = actor.getID() * 1103515245L + 12345L;
+            float roll = (hash & 0xFFFF) / 65535f;
+            return Mathf.Lerp(
+                TacticalCombatSettings.DormantProbeMinInterval,
+                TacticalCombatSettings.DormantProbeMaxInterval,
+                roll);
+        }
+    }
+
+    /// <summary>只在性能采样期间读取高精度计时器。</summary>
+    private static long StartPlanningMeasurement()
+    {
+        return SimulationTickBenchmark.IsCapturing
+            ? Stopwatch.GetTimestamp()
+            : 0L;
+    }
+
+    /// <summary>向 b3 分阶段性能统计写入耗时与扫描数量。</summary>
+    private static void RecordPlanningMeasurement(
+        string id,
+        long startedAt,
+        int counter)
+    {
+        if (startedAt == 0L) return;
+        double seconds = (Stopwatch.GetTimestamp() - startedAt) /
+                         (double)Stopwatch.Frequency;
+        SimulationTickBenchmark.RecordCombatPlanningDetailMetric(id, seconds, counter);
     }
 
     private static void RequestDecisionRefresh(CombatActorRuntime runtime)
@@ -2507,18 +2770,33 @@ public static class CombatWorldService
             victim.kingdom != null &&
             attacker.kingdom != victim.kingdom)
         {
+            CombatArmyRuntime armyRuntime = GetOrCreateArmyState(victim.army);
             UpsertThreatSignal(
-                GetOrCreateArmyState(victim.army).SharedThreats,
+                armyRuntime.SharedThreats,
                 attacker,
                 victim,
                 observation,
                 personal.Severity,
                 now,
                 TacticalCombatSettings.ArmyThreatLimit);
+            armyRuntime.LatestSharedAwarenessAt = now;
         }
+        CombatSpatialAwarenessIndex.Publish(personal, now);
         victimRuntime.LostContactSince = 0d;
         RequestDecisionRefresh(victimRuntime);
         CombatDiagnostics.RecordThreatSignal();
+    }
+
+    /// <summary>
+    /// 由区块威胁索引唤醒附近友军。没有战斗运行时的角色只重置轻量探测计时，不会因此分配字典。
+    /// </summary>
+    internal static void WakeForNearbyThreat(Actor actor)
+    {
+        if (actor.isRekt()) return;
+        actor._timeout_targets = 0f;
+        if (!ActorStates.TryGetValue(actor.getID(), out CombatActorRuntime runtime)) return;
+        runtime.NextPlanAt = 0d;
+        runtime.TouchRevision();
     }
 
     /// <summary>更新一条威胁并按最旧访问时间维持字典上限。</summary>
@@ -2584,10 +2862,12 @@ public static class CombatWorldService
         double now)
     {
         if (actor.army == null) return;
+        CombatArmyRuntime runtime = GetOrCreateArmyState(actor.army);
         CombatObservationService.PublishShared(
-            GetOrCreateArmyState(actor.army),
+            runtime,
             observation,
             now);
+        runtime.LatestSharedAwarenessAt = now;
     }
 
     private static CombatActorRuntime GetOrCreateActorState(Actor actor)
@@ -2640,7 +2920,6 @@ public sealed class CombatPlanningWorkItem
     public void Plan()
     {
         plan = CombatPlanner.Plan(snapshot);
-        CombatDiagnostics.RecordPlan(snapshot, plan);
     }
 
     /// <summary>回到主线程后按版本提交计划。</summary>

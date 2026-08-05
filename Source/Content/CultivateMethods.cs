@@ -127,6 +127,10 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
             CultivationSemantics.Path.Meditation);
         Standard.TriggerKinds = CultivationTriggerKind.ActiveTick;
         Standard.CanCultivate = HasXianCultisys;
+        Standard.ResourceInputs = [CultivationResources.WorldWakan, CultivationResources.TileDirtyWakan];
+        Standard.GetContextualResourceInputs = actor => actor.Base.hasHouse()
+            ? [CultivationResources.WorldWakan]
+            : [CultivationResources.TileDirtyWakan];
         Standard.GetMethodMultiplier = _ => 1f;
         Standard.GetSelectionScore = _ => 5f;
         Standard.GetBehaviourJobId = actor => actor.Base.hasHouse()
@@ -337,6 +341,7 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
             SkillSemantics.Role.Offensive);
         BattleCultivate.TriggerKinds = CultivationTriggerKind.DamageDealt | CultivationTriggerKind.DamageTaken;
         BattleCultivate.CanCultivate = HasXianCultisys;
+        BattleCultivate.ResourceInputs = Array.Empty<CultivationResourceAsset>();
         BattleCultivate.GetMethodMultiplier = _ => 1f;
         BattleCultivate.GetSelectionScore = actor => Mathf.Min(actor.all_skills.Count, 5) * 0.7f;
         BattleCultivate.Execute = ExecuteBattleCultivation;
@@ -353,6 +358,8 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
             SkillSemantics.Element.Entropy);
         KillAbsorb.TriggerKinds = CultivationTriggerKind.Kill | CultivationTriggerKind.TimedTick;
         KillAbsorb.CanCultivate = HasXianCultisys;
+        KillAbsorb.ResourceInputs =
+            [CultivationResources.PersonalDirtyWakan, CultivationResources.TileDirtyWakan];
         KillAbsorb.GetMethodMultiplier = _ => 1f;
         KillAbsorb.GetSelectionScore = actor =>
         {
@@ -375,6 +382,7 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
             CultivationSemantics.Resource.Fortune,
             SkillSemantics.Element.Pos);
         KingdomFortune.TriggerKinds = CultivationTriggerKind.TimedTick;
+        KingdomFortune.ResourceInputs = [CultivationResources.RoleFortune];
         KingdomFortune.CanCultivate = actor =>
         {
             if (!actor.HasCultisys<Xian>()) return false;
@@ -402,6 +410,9 @@ public class CultivateMethods : ExtendLibrary<CultivateMethodAsset, CultivateMet
         method.TriggerKinds = CultivationTriggerKind.ActiveTick;
         method.CanCultivate = HasXianCultisys;
         method.EnvironmentRule = rule;
+        method.ResourceInputs = rule.Resource == null
+            ? Array.Empty<CultivationResourceAsset>()
+            : [rule.Resource];
         method.GetMethodMultiplier = rule.ResolveMultiplier;
         method.GetSelectionScore = actor => ResolveEnvironmentalSelectionScore(actor, rule);
         method.GetBehaviourJobId = _ => ActorJobs.EnvironmentalCultivator.id;

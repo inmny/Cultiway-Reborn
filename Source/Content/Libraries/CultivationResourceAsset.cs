@@ -30,11 +30,23 @@ public delegate float CultivationResourceWithdrawer(in CultivationResourceContex
 /// <summary>只读查询一项修炼资源的当前可用量。</summary>
 public delegate float CultivationResourceReader(in CultivationResourceContext context);
 
+/// <summary>只读查询一项修炼资源在当前上下文中的容量。</summary>
+public delegate float CultivationResourceCapacityReader(in CultivationResourceContext context);
+
 /// <summary>可由内容模块注册并供修炼规则消耗的资源资产。</summary>
 public class CultivationResourceAsset : Asset
 {
+    /// <summary>资源在界面中使用的本地化名称键。</summary>
+    public string DisplayNameKey;
+
+    /// <summary>资源在紧凑进度条中使用的图标路径。</summary>
+    public string IconPath;
+
     /// <summary>只读返回当前可支付量，不得在查询中修改来源状态。</summary>
     public CultivationResourceReader GetAvailable;
+
+    /// <summary>只读返回当前容量；为空表示该资源没有适合展示的固定上限。</summary>
+    public CultivationResourceCapacityReader GetCapacity;
 
     /// <summary>读取并扣除实际可支付量；返回值必须位于 0 到请求值之间。</summary>
     public CultivationResourceWithdrawer WithdrawUpTo;

@@ -13,6 +13,8 @@ internal static class SimulationTickBenchmark
     internal const string PhasesGroupId = "cultiway_tick_phases";
     internal const string ActorsGroupId = "cultiway_tick_actors";
     internal const string ActorPostJobsGroupId = "cultiway_tick_actor_post_jobs";
+    internal const string CombatPlanningDetailsGroupId =
+        "cultiway_tick_combat_planning_details";
     internal const string ActorTileActionsGroupId = "cultiway_tick_actor_tile_actions";
     internal const string GoToGroupId = "cultiway_tick_goto";
     internal const string PathfindingGroupId = "cultiway_tick_pathfinding";
@@ -51,6 +53,8 @@ internal static class SimulationTickBenchmark
     private static readonly BenchmarkGroupState ActorsGroup = new(ActorsGroupId);
     private static readonly BenchmarkGroupState ActorPostJobsGroup =
         new(ActorPostJobsGroupId, true);
+    private static readonly BenchmarkGroupState CombatPlanningDetailsGroup =
+        new(CombatPlanningDetailsGroupId, true);
     private static readonly BenchmarkGroupState ActorTileActionsGroup =
         new(ActorTileActionsGroupId);
     private static readonly BenchmarkGroupState GoToGroup =
@@ -293,6 +297,23 @@ internal static class SimulationTickBenchmark
             counter);
     }
 
+    /// <summary>
+    /// 记录战斗规划内部阶段。明细不并入 ActorJobs，避免与外层 prepare 计时重复累计。
+    /// </summary>
+    internal static void RecordCombatPlanningDetailMetric(
+        string id,
+        double seconds,
+        long counter)
+    {
+        TickCapture capture = current;
+        if (capture == null || capture.Cancelled || !Bench.bench_enabled) return;
+        AddMetric(
+            capture.CombatPlanningDetails,
+            id,
+            Math.Max(0.0, seconds),
+            counter);
+    }
+
     internal static void RecordActorBackgroundMetric(
         string id,
         string phase,
@@ -490,6 +511,14 @@ internal static class SimulationTickBenchmark
             ActorPostJobsGroup);
         AppendTopRows(
             sb,
+            "combat_planning",
+            CombatPlanningDetailsGroupId,
+            ActorPostJobsTotalId,
+            Math.Max(detailLimit, 8),
+            TotalsGroupId,
+            CombatPlanningDetailsGroup);
+        AppendTopRows(
+            sb,
             "dirty_managers",
             DirtyManagersGroupId,
             DirtyManagersTotalId,
@@ -578,6 +607,10 @@ internal static class SimulationTickBenchmark
         PublishGroup(PhasesGroup, capture.Phases, previousSamples);
         PublishGroup(ActorsGroup, capture.ActorJobs, previousSamples);
         PublishGroup(ActorPostJobsGroup, capture.ActorPostJobs, previousSamples);
+        PublishGroup(
+            CombatPlanningDetailsGroup,
+            capture.CombatPlanningDetails,
+            previousSamples);
         PublishGroup(ActorTileActionsGroup, capture.ActorTileActions, previousSamples);
         PublishGroup(GoToGroup, capture.GoTo, previousSamples);
         PublishGroup(PathfindingGroup, capture.Pathfinding, previousSamples);
@@ -859,6 +892,7 @@ internal static class SimulationTickBenchmark
         ResetGroup(PhasesGroup);
         ResetGroup(ActorsGroup);
         ResetGroup(ActorPostJobsGroup);
+        ResetGroup(CombatPlanningDetailsGroup);
         ResetGroup(ActorTileActionsGroup);
         ResetGroup(GoToGroup);
         ResetGroup(PathfindingGroup);
@@ -1173,6 +1207,8 @@ internal static class SimulationTickBenchmark
         internal readonly Dictionary<string, Metric> ActorJobs = new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> ActorPostJobs =
             new(StringComparer.Ordinal);
+        internal readonly Dictionary<string, Metric> CombatPlanningDetails =
+            new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> ActorTileActions =
             new(StringComparer.Ordinal);
         internal readonly Dictionary<string, Metric> GoTo =
@@ -1225,6 +1261,7 @@ internal static class SimulationTickBenchmark
             ResetMetrics(Phases);
             ResetMetrics(ActorJobs);
             ResetMetrics(ActorPostJobs);
+            ResetMetrics(CombatPlanningDetails);
             ResetMetrics(ActorTileActions);
             ResetMetrics(GoTo);
             ResetMetrics(Pathfinding);

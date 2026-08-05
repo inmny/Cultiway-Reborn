@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using Cultiway.Abstract;
-using Cultiway.Const;
 using Cultiway.Content.Components;
+using Cultiway.Content.UI.CreatureInfoPages;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.UI;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
 using NeoModLoader.General;
@@ -13,11 +14,13 @@ using UnityEngine;
 
 namespace Cultiway.Content.UI.Prefab;
 
-/// <summary>
-/// 功法书 Tooltip 显示
-/// </summary>
+/// <summary>展示功法静态能力，并在人物上下文中追加实际掌握与契合数据。</summary>
 public class CultibookTooltip : APrefabPreview<CultibookTooltip>
 {
+    private static CultibookAsset pendingAsset;
+    private static ActorExtend pendingActor;
+    private static float pendingMastery;
+
     public Tooltip Tooltip { get; private set; }
 
     protected override void OnInit()
@@ -25,224 +28,203 @@ public class CultibookTooltip : APrefabPreview<CultibookTooltip>
         Tooltip = GetComponent<Tooltip>();
     }
 
+    /// <summary>在指定控件旁显示一部人物已掌握或了解的功法。</summary>
+    public static void Show(GameObject source, CultibookAsset asset, ActorExtend actor, float mastery)
+    {
+        if (source == null || asset == null || actor == null) return;
+        pendingAsset = asset;
+        pendingActor = actor;
+        pendingMastery = Mathf.Clamp(mastery, 0f, 100f);
+        try
+        {
+            global::Tooltip.show(source, Tooltips.Cultibook.id, new TooltipData());
+        }
+        finally
+        {
+            pendingAsset = null;
+            pendingActor = null;
+            pendingMastery = 0f;
+        }
+    }
+
+    /// <summary>由 Tooltip 回调读取同步人物上下文；没有待展示内容时返回 false。</summary>
+    internal bool SetupPending()
+    {
+        if (pendingAsset == null || pendingActor == null) return false;
+        Setup(pendingAsset, pendingActor, pendingMastery);
+        return true;
+    }
+
+    /// <summary>以物理功法书上下文显示静态功法信息。</summary>
     [Hotfixable]
     public void Setup(Book book)
     {
         Init();
-
-        var be = book?.GetExtend();
-        if (be == null || !be.HasComponent<Cultibook>()) return;
-        var cultibook = be.GetComponent<Cultibook>().Asset;
-        if (cultibook == null) return;
-
-        Tooltip.name.text = $"《{cultibook.Name}》";
-
-        AppendDescription(cultibook);
-        AppendItemLevel(cultibook.Level);
-        AppendElementRequirements(cultibook.ElementReq);
-        AppendLevelRequirements(cultibook);
-        AppendCultivateMethod(cultibook);
-        AppendFullMasteryStats(cultibook.FinalStats);
-        AppendSkillPool(cultibook);
-        AppendBottomInfo(book);
+        BookExtend bookExtend = book?.GetExtend();
+        if (bookExtend == null || !bookExtend.HasComponent<Cultibook>()) return;
+        CultibookAsset asset = bookExtend.GetComponent<Cultibook>().Asset;
+        if (asset == null) return;
+        Setup(asset, null, 100f);
     }
 
-    /// <summary>
-    /// 追加功法书简介。
-    /// </summary>
-    private void AppendDescription(CultibookAsset cultibook)
+    private void Setup(CultibookAsset asset, ActorExtend actor, float mastery)
     {
-        if (string.IsNullOrEmpty(cultibook.Description)) return;
-        Tooltip.addDescription(cultibook.Description);
+        Init();
+        Tooltip.name.text = string.Format(
+            "Cultiway.CultibookTooltip.Format.Title".Localize(),
+            asset.Name);
+        AppendDescription(asset);
+        AppendItemLevel(asset.Level);
+        if (actor != null) AppendMastery(mastery);
+        AppendCultivateMethod(asset);
+        AppendLevelRequirements(asset);
+        if (actor != null) AppendAffinity(actor, asset);
+        AppendStats(asset.FinalStats, actor == null ? 1f : mastery / 100f);
+        AppendSkillPool(asset);
     }
 
-    /// <summary>
-    /// 追加品阶与星级。
-    /// </summary>
+    private void AppendDescription(CultibookAsset asset)
+    {
+        if (!string.IsNullOrEmpty(asset.Description)) Tooltip.addDescription(asset.Description);
+    }
+
     private void AppendItemLevel(ItemLevel level)
     {
-        var levelText = level.GetName();
-        var stars = Mathf.Clamp(level.Stage, 0, 3);
-        if (stars > 0)
-        {
-            levelText += $" {new string('★', stars)}";
-        }
-
-        Tooltip.addLineText("品阶", levelText, pLocalize: false);
+        Tooltip.addLineText(
+            "Cultiway.CultibookTooltip.Label.ItemLevel".Localize(),
+            level.GetName(),
+            pLocalize: false,
+            pLimitValue: int.MaxValue);
     }
 
-    /// <summary>
-    /// 追加灵根需求。
-    /// </summary>
-    private void AppendElementRequirements(ElementRequirement elementReq)
+    private void AppendMastery(float mastery)
     {
-        var lines = new List<string>();
-
-        AppendElementReqIfNeeded(lines, ElementIndex.Iron, elementReq.MinIron);
-        AppendElementReqIfNeeded(lines, ElementIndex.Wood, elementReq.MinWood);
-        AppendElementReqIfNeeded(lines, ElementIndex.Water, elementReq.MinWater);
-        AppendElementReqIfNeeded(lines, ElementIndex.Fire, elementReq.MinFire);
-        AppendElementReqIfNeeded(lines, ElementIndex.Earth, elementReq.MinEarth);
-        AppendElementReqIfNeeded(lines, ElementIndex.Neg, elementReq.MinNeg);
-        AppendElementReqIfNeeded(lines, ElementIndex.Pos, elementReq.MinPos);
-        AppendElementReqIfNeeded(lines, ElementIndex.Entropy, elementReq.MinEntropy);
-
-        AddLineGroup("灵根需求", lines);
+        Tooltip.addLineText(
+            "Cultiway.CultibookTooltip.Label.Mastery".Localize(),
+            $"{Mathf.Clamp(mastery, 0f, 100f):0.#}%",
+            pLocalize: false,
+            pLimitValue: int.MaxValue);
     }
 
-    /// <summary>
-    /// 追加境界限制。
-    /// </summary>
-    private void AppendLevelRequirements(CultibookAsset cultibook)
+    private void AppendCultivateMethod(CultibookAsset asset)
     {
-        if (cultibook.MinLevel <= 0 && cultibook.MaxLevel >= 20) return;
-
-        var parts = new List<string>();
-        if (cultibook.MinLevel > 0)
-        {
-            parts.Add($"{Cultisyses.Xian.GetLevelName(cultibook.MinLevel)}以上");
-        }
-
-        if (cultibook.MaxLevel < 20)
-        {
-            parts.Add($"不高于{Cultisyses.Xian.GetLevelName(cultibook.MaxLevel)}");
-        }
-
-        if (parts.Count == 0) return;
-        Tooltip.addLineText("境界要求", string.Join("，", parts), pLocalize: false);
-    }
-
-    /// <summary>
-    /// 追加修炼方式。
-    /// </summary>
-    private void AppendCultivateMethod(CultibookAsset cultibook)
-    {
-        if (string.IsNullOrEmpty(cultibook.CultivateMethodId)) return;
-
-        var method = cultibook.GetCultivateMethod();
+        CultivateMethodAsset method = asset.GetCultivateMethod();
         if (method == null) return;
+        Tooltip.addLineText(
+            "Cultiway.CultibookTooltip.Label.Method".Localize(),
+            method.id.Localize(),
+            pLocalize: false,
+            pLimitValue: int.MaxValue);
+    }
 
-        var methodName = LMTools.Has(method.id) ? LM.Get(method.id) : method.id;
-        Tooltip.addLineText("修炼方式", methodName, pLocalize: false);
-
-        var methodInfoKey = $"{method.id}.Info";
-        if (LMTools.Has(methodInfoKey))
+    private void AppendLevelRequirements(CultibookAsset asset)
+    {
+        string value;
+        if (asset.MinLevel <= 0 && asset.MaxLevel >= 20)
         {
-            Tooltip.addDescription(LM.Get(methodInfoKey));
+            value = "Cultiway.CultibookTooltip.Realm.All".Localize();
         }
-    }
-
-    /// <summary>
-    /// 追加满掌握属性加成。
-    /// </summary>
-    private void AppendFullMasteryStats(BaseStats finalStats)
-    {
-        var statLines = BuildStatLines(finalStats);
-        AddLineGroup("满掌握属性加成", statLines);
-    }
-
-    /// <summary>
-    /// 追加可领悟法术列表。
-    /// </summary>
-    private void AppendSkillPool(CultibookAsset cultibook)
-    {
-        if (cultibook.SkillPool == null || cultibook.SkillPool.Count == 0) return;
-
-        var lines = new List<string>();
-        foreach (var skillEntry in cultibook.SkillPool)
+        else if (asset.MinLevel <= 0)
         {
-            if (skillEntry.SkillContainer.IsNull || !skillEntry.SkillContainer.HasComponent<SkillContainer>()) continue;
-            var container = skillEntry.SkillContainer.GetComponent<SkillContainer>();
-            var skillId = container.SkillEntityAssetID;
+            value = string.Format(
+                "Cultiway.CultibookTooltip.Realm.AtMost".Localize(),
+                Cultisyses.Xian.GetLevelName(asset.MaxLevel));
+        }
+        else if (asset.MaxLevel >= 20)
+        {
+            value = string.Format(
+                "Cultiway.CultibookTooltip.Realm.AtLeast".Localize(),
+                Cultisyses.Xian.GetLevelName(asset.MinLevel));
+        }
+        else
+        {
+            value = string.Format(
+                "Cultiway.CultibookTooltip.Realm.Range".Localize(),
+                Cultisyses.Xian.GetLevelName(asset.MinLevel),
+                Cultisyses.Xian.GetLevelName(asset.MaxLevel));
+        }
+
+        Tooltip.addLineText(
+            "Cultiway.CultibookTooltip.Label.Realm".Localize(),
+            value,
+            pLocalize: false,
+            pLimitValue: int.MaxValue);
+    }
+
+    private void AppendAffinity(ActorExtend actor, CultibookAsset asset)
+    {
+        string value = CultibookPagePresentation.TryResolveAffinity(actor, asset, out float affinity)
+            ? CultibookPagePresentation.FormatPercent(affinity)
+            : "Cultiway.CultibookPage.Value.NoRoot".Localize();
+        Tooltip.addLineText(
+            "Cultiway.CultibookTooltip.Label.Affinity".Localize(),
+            value,
+            pLocalize: false,
+            pLimitValue: int.MaxValue);
+    }
+
+    private void AppendStats(BaseStats finalStats, float ratio)
+    {
+        List<string> lines = BuildStatLines(finalStats, Mathf.Clamp01(ratio));
+        AddLineGroup("Cultiway.CultibookTooltip.Section.Attributes".Localize(), lines);
+    }
+
+    private void AppendSkillPool(CultibookAsset asset)
+    {
+        if (asset.SkillPool == null || asset.SkillPool.Count == 0) return;
+        var lines = new List<string>();
+        foreach (SkillPoolEntry entry in asset.SkillPool)
+        {
+            if (entry.SkillContainer.IsNull || !entry.SkillContainer.HasComponent<SkillContainer>()) continue;
+            ref SkillContainer container = ref entry.SkillContainer.GetComponent<SkillContainer>();
+            string skillId = container.SkillEntityAssetID;
             if (string.IsNullOrEmpty(skillId)) continue;
-            
-            var skillName = skillEntry.SkillContainer.HasName ? skillEntry.SkillContainer.Name.value : skillId.Localize();
-
+            string skillName = entry.SkillContainer.HasName
+                ? entry.SkillContainer.Name.value
+                : skillId.Localize();
             var requirements = new List<string>();
-            if (skillEntry.MasteryThreshold > 0)
+            if (entry.MasteryThreshold > 0f)
             {
-                requirements.Add($"需{skillEntry.MasteryThreshold:F0}%掌握");
+                requirements.Add(string.Format(
+                    "Cultiway.CultibookTooltip.Skill.MasteryRequirement".Localize(),
+                    entry.MasteryThreshold));
             }
-
-            if (skillEntry.LevelRequirement > 0)
+            if (entry.LevelRequirement > 0)
             {
-                requirements.Add(Cultisyses.Xian.GetLevelName(skillEntry.LevelRequirement));
+                requirements.Add(string.Format(
+                    "Cultiway.CultibookTooltip.Skill.RealmRequirement".Localize(),
+                    Cultisyses.Xian.GetLevelName(entry.LevelRequirement)));
             }
-
-            var suffix = requirements.Count > 0 ? $" ({string.Join("，", requirements)})" : string.Empty;
-            lines.Add($"- {skillName}{suffix}");
+            lines.Add(requirements.Count == 0
+                ? skillName
+                : string.Format(
+                    "Cultiway.CultibookTooltip.Format.SkillWithRequirements".Localize(),
+                    skillName,
+                    string.Join(
+                        "Cultiway.CultibookTooltip.Format.RequirementSeparator".Localize(),
+                        requirements)));
         }
-
-        AddLineGroup("可领悟法术", lines);
+        AddLineGroup("Cultiway.CultibookTooltip.Section.Skills".Localize(), lines);
     }
 
-    /// <summary>
-    /// 追加底部附加信息。
-    /// </summary>
-    private void AppendBottomInfo(Book book)
-    {
-        var bottomLines = new List<string>();
-        if (!string.IsNullOrEmpty(book.data.author_name))
-        {
-            bottomLines.Add($"抄录者: {book.data.author_name}");
-        }
-
-        if (bottomLines.Count == 0) return;
-        Tooltip.addBottomDescription(string.Join("\n", bottomLines));
-    }
-
-    /// <summary>
-    /// 灵根需求格式化辅助。
-    /// </summary>
-    private static void AppendElementReqIfNeeded(ICollection<string> lines, int elementIndex, float minValue)
-    {
-        if (minValue <= 0) return;
-        var elementName = LM.Get(ElementIndex.ElementNames[elementIndex]);
-        lines.Add($"{elementName} ≥ {minValue:F1}");
-    }
-
-    /// <summary>
-    /// 将属性加成转为展示行。
-    /// </summary>
-    private static List<string> BuildStatLines(BaseStats finalStats)
+    private static List<string> BuildStatLines(BaseStats finalStats, float ratio)
     {
         var lines = new List<string>();
-        if (finalStats == null) return lines;
-
-        if (finalStats._stats_list is not IList<BaseStatsContainer> statsList || statsList.Count == 0)
-        {
-            return lines;
-        }
-
-        foreach (var statContainer in statsList)
-        {
-            var value = statContainer.value;
-            if (Mathf.Abs(value) < 0.01f) continue;
-
-            var statAsset = AssetManager.base_stats_library.get(statContainer.id);
-            if (statAsset == null) continue;
-
-            var sign = value >= 0 ? "+" : string.Empty;
-            var visualValue = value * statAsset.tooltip_multiply_for_visual_number;
-            var valueText = statAsset.show_as_percents ? $"{visualValue:F1}%" : $"{visualValue:F1}";
-            lines.Add($"{statAsset.translation_key.Localize()}: {sign}{valueText}");
-        }
-
+        foreach (CultisysPresentation.StatBonus stat in
+                 CultisysPresentation.BuildStatBonuses(finalStats, ratio))
+            lines.Add(string.Format(
+                "Cultiway.CultibookTooltip.Format.Stat".Localize(),
+                stat.Name,
+                stat.Value));
         return lines;
     }
 
-    /// <summary>
-    /// 渲染多行分组，首行展示标题。
-    /// </summary>
     private void AddLineGroup(string title, List<string> lines)
     {
         if (lines == null || lines.Count == 0) return;
-
-        Tooltip.addLineText(title, lines[0], pLocalize: false);
+        Tooltip.addLineText(title, lines[0], pLocalize: false, pLimitValue: int.MaxValue);
         for (var i = 1; i < lines.Count; i++)
-        {
-            Tooltip.addLineText(string.Empty, lines[i], pLocalize: false);
-        }
+            Tooltip.addLineText(string.Empty, lines[i], pLocalize: false, pLimitValue: int.MaxValue);
     }
 
     private static void _init()

@@ -133,6 +133,12 @@ public class CultivateMethodAsset : Asset
     /// <summary>非空时表示该方式由统一环境选址与修炼行为驱动。</summary>
     public CultivationEnvironmentRule EnvironmentRule;
 
+    /// <summary>该方式在全部触发阶段中可能实际消耗的修炼资源。</summary>
+    public CultivationResourceAsset[] ResourceInputs = Array.Empty<CultivationResourceAsset>();
+
+    /// <summary>按角色当前活动条件收窄需要展示的输入资源；为空时使用完整输入列表。</summary>
+    public Func<ActorExtend, CultivationResourceAsset[]> GetContextualResourceInputs;
+
     /// <summary>该方式可以同时响应的全部触发阶段。</summary>
     public CultivationTriggerKind TriggerKinds;
 
@@ -143,5 +149,11 @@ public class CultivateMethodAsset : Asset
     public bool Handles(CultivationTriggerKind trigger)
     {
         return (TriggerKinds & trigger) != 0;
+    }
+
+    /// <summary>返回角色当前实际可能使用的输入资源。</summary>
+    public CultivationResourceAsset[] ResolveResourceInputs(ActorExtend actor)
+    {
+        return GetContextualResourceInputs?.Invoke(actor) ?? ResourceInputs;
     }
 }

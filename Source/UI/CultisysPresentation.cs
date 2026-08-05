@@ -75,10 +75,12 @@ internal static class CultisysPresentation
         return string.IsNullOrEmpty(reason) || !LMTools.Has(reason) ? null : LM.Get(reason);
     }
 
-    public static List<StatBonus> BuildStatBonuses(BaseStats providedStats)
+    /// <summary>把属性集合按原版顺序转换为安全本地化的展示项，并应用指定倍率。</summary>
+    public static List<StatBonus> BuildStatBonuses(BaseStats providedStats, float ratio = 1f)
     {
         var result = new List<StatBonus>();
         if (providedStats == null) return result;
+        ratio = Mathf.Max(0f, ratio);
         List<BaseStatsContainer> stats = providedStats.getList();
 
         foreach (BaseStatsContainer container in stats
@@ -87,7 +89,7 @@ internal static class CultisysPresentation
         {
             BaseStatAsset asset = container.asset;
             if (asset == null || asset.hidden) continue;
-            float value = container.value;
+            float value = container.value * ratio;
             if (Mathf.Abs(value) < 0.005f) continue;
 
             Color color = value > 0f

@@ -1399,3 +1399,40 @@ Cultiway.ArtifactAbility.SectGuardianTreasure,镇宗宝脉
 Cultiway.ArtifactAbility.SectGuardianTreasure.Description,供奉于藏宝阁时，宗门成员最大生命提高 {0:P1}、护甲提高 {1:0.0}；同组择优生效。
 Cultiway.ArtifactAbility.ArtifactSpiritAwakening,器灵觉醒
 Cultiway.ArtifactAbility.ArtifactSpiritAwakening.Description,显化可成长器灵，继承驾驭者 {0:P1} 伤害、{1:P1} 生命并获得 {2:0.0} 护甲；战死后 {3:0.0} 秒复苏。
+Cultiway.CultibookPage.Section.Main,主修功法
+Cultiway.CultibookPage.Section.Practice,修炼实践
+Cultiway.CultibookPage.Section.Resources,修炼资源
+Cultiway.CultibookPage.Section.Known,已知其他功法
+Cultiway.CultibookPage.Format.Mastery,掌握 {0:0.#}%
+Cultiway.CultibookPage.Format.Affinity,契合 {0}
+Cultiway.CultibookPage.Format.Knowledge,了解度 {0:0.#}%
+Cultiway.CultibookPage.Format.Practice,{0}月 · {1}
+Cultiway.CultibookPage.Format.CurrentMethod,当前方式：{0}
+Cultiway.CultibookPage.Format.TotalPractice,共 {0} 月
+Cultiway.CultibookPage.Label.ElementExposure,元素暴露
+Cultiway.CultibookPage.Empty.Practice,尚无有效修炼实践
+Cultiway.CultibookPage.Empty.Main,尚未选择主修功法
+Cultiway.CultibookPage.Value.NoRoot,无灵根
+Cultiway.CultibookPage.Value.NoMainMethod,未设主修
+Cultiway.Cultivation.Resource.ActorWakan,灵气
+Cultiway.Cultivation.Resource.WorldWakan,地块灵气
+Cultiway.Cultivation.Resource.TileDirtyWakan,地块浊气
+Cultiway.Cultivation.Resource.PersonalDirtyWakan,个人浊气
+Cultiway.Cultivation.Resource.RoleFortune,可支配国运
+Cultiway.CultibookTooltip.Label.ItemLevel,品阶
+Cultiway.CultibookTooltip.Label.Mastery,掌握程度
+Cultiway.CultibookTooltip.Label.Method,修炼方式
+Cultiway.CultibookTooltip.Label.Realm,境界范围
+Cultiway.CultibookTooltip.Label.Affinity,灵根契合
+Cultiway.CultibookTooltip.Section.Attributes,属性加成
+Cultiway.CultibookTooltip.Section.Skills,可领悟法术
+Cultiway.CultibookTooltip.Format.Title,《{0}》
+Cultiway.CultibookTooltip.Format.Stat,{0}：{1}
+Cultiway.CultibookTooltip.Format.SkillWithRequirements,{0}（{1}）
+Cultiway.CultibookTooltip.Format.RequirementSeparator,，
+Cultiway.CultibookTooltip.Realm.All,全部境界
+Cultiway.CultibookTooltip.Realm.AtMost,不高于{0}
+Cultiway.CultibookTooltip.Realm.AtLeast,{0}以上
+Cultiway.CultibookTooltip.Realm.Range,{0}至{1}
+Cultiway.CultibookTooltip.Skill.MasteryRequirement,掌握{0:0.#}%
+Cultiway.CultibookTooltip.Skill.RealmRequirement,{0}
