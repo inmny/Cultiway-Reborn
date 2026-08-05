@@ -295,16 +295,34 @@ public partial class Actors
                 .SetIcon($"actors/species/other/Skaven/Skaven_LV{level}")
                 .SetJumpAnimation(false)
                 .AddTrait(ActorTraits.SkavenEvolution)
+                .AddTrait(S_Trait.immune)
                 .AddTrait(S_Trait.evil)
                 .AddTrait(S_Trait.deceitful)
                 .AddTrait(S_Trait.greedy)
-                .AddJob(ActorJobs.SkavenGroup)
                 .Stats(S.damage, 8 + level * 4)
                 .Stats(S.speed, 14 + level)
                 .Stats(S.health, 70 + level * level * 15)
                 .Stats(S.armor, level * 2)
                 .Stats(S.stamina, 50 + level * 10)
                 .Stats(S.lifespan, 40 + level * 10);
+            skavenLevels[i].job = [ActorJobs.SkavenGroup.id];
+
+            switch (level)
+            {
+                case 3: skavenLevels[i].SetDefaultWeapons(S_Item.sword_wood); break;
+                case 4: skavenLevels[i].SetDefaultWeapons(S_Item.spear_stone); break;
+                case 5: skavenLevels[i].SetDefaultWeapons(S_Item.axe_copper); break;
+                case 6: skavenLevels[i].SetDefaultWeapons(S_Item.hammer_bronze); break;
+                case 7: skavenLevels[i].SetDefaultWeapons(S_Item.bow_iron); break;
+                case 8:
+                    skavenLevels[i].SetDefaultWeapons(S_Item.plague_doctor_staff).AddTrait(ActorTraits.SkavenPlague);
+                    break;
+                case 9: skavenLevels[i].SetDefaultWeapons(S_Item.sword_mythril); break;
+                case 10: skavenLevels[i].SetDefaultWeapons(S_Item.spear_iron); break;
+                case 11: skavenLevels[i].AddTrait(S_Trait.death_bomb); break;
+                case 12: skavenLevels[i].SetDefaultWeapons(S_Item.necromancer_staff); break;
+                case 13: skavenLevels[i].SetDefaultWeapons(S_Item.axe_adamantine); break;
+            }
         }
 
         AcaciaTreants.SetCamp(KingdomAssets.TreantsGood)//金合欢树人

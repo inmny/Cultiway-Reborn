@@ -14,6 +14,8 @@ trait_Cultiway.OpenSource_info,感谢CloseAI开源
 trait_Cultiway.OpenSource_info_2,感谢马圣开源
 trait_Cultiway.SkavenEvolution,次元石进化
 trait_Cultiway.SkavenEvolution_info,每次击杀单位时均有13%概率进化为更高阶的斯卡文鼠人。
+trait_Cultiway.SkavenPlague,黑死病
+trait_Cultiway.SkavenPlague_info,携带并传播瘟疫，但斯卡文的免疫能力使其不会受到瘟疫侵害。
 culture_trait_Cultiway.CultureSkin,文化衣着
 culture_trait_Cultiway.CultureSkin_info,我的衣着我做主
 culture_trait_Cultiway.CultureSkin_info_2,该文化单位的衣着将使用文化对应的衣着皮肤

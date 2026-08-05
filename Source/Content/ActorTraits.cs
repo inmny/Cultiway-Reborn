@@ -24,6 +24,8 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
     public static ActorTrait SignIn { get; private set; }
     public static ActorTrait Pdd {get; private set;}
     public static ActorTrait SkavenEvolution { get; private set; }
+    [CloneSource(S_Trait.plague)]
+    public static ActorTrait SkavenPlague { get; private set; }
     [GetOnly(S_Trait.immortal)]
     public  static ActorTrait Immortal { get; private set; }
 
@@ -39,6 +41,14 @@ public class ActorTraits : ExtendLibrary<ActorTrait, ActorTraits>
         SkavenEvolution.group_id = ActorTraitGroups.Miscellaneous.id;
         SkavenEvolution.path_icon = "actors/species/other/Skaven/Skaven_LV13";
         SkavenEvolution.rarity = Rarity.R2_Epic;
+
+        SkavenPlague.opposite_list = null;
+        SkavenPlague.opposite_traits = null;
+        SkavenPlague.action_special_effect = (actor, _) =>
+        {
+            ActionLibrary.tickPlagueInfection(actor.a);
+            return true;
+        };
 
         PassiveXianCultivate.group_id = ActorTraitGroups.System.id;
         PassiveXianCultivate.path_icon = "cultiway/icons/traits/iconPassiveXianCultivate";
