@@ -195,8 +195,11 @@ internal static class CombatMovementService
         CombatMovementKind kind,
         double now)
     {
-        if ((actor.is_moving || actor.isUsingPath()) && now < movement.RetargetAfter)
+        bool hasActiveMovement = actor.is_moving || actor.isUsingPath();
+        if (hasActiveMovement && now < movement.RetargetAfter)
             return true;
+        if (!hasActiveMovement)
+            return false;
         if (IsCommittedGoalStillUseful(actor, movement, snapshot, plan, kind))
             return true;
 
