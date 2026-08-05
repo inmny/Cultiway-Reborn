@@ -93,6 +93,7 @@ internal static class PatchMapBox
     {
         PerformanceSettings.ApplyParallelBudget(__instance);
         SimulationTime.BindWorld(__instance);
+        PathNavigationGridService.BuildForCurrentWorld();
         ModClass.I.TileExtendManager.BeginFitNewWorld(
             MapBox.current_world_seed_id,
             MapBox.width,
@@ -111,12 +112,49 @@ internal static class PatchMapBox
         PathFinder.Instance.Clear();
         PortalManager.ClearWorldState();
         PortalRegistry.Instance.Clear();
-        PathRecoveryManager.Clear();
         TrainTrackRepairSystem.ClearWorldState();
         _actionOnClearWorld?.Invoke();
         ModClass.I.ActorExtendManager.Clear();
         ModClass.I.BookExtendManager.Clear();
         WanfaPavilionService.ClearWorldState();
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(MapBox), "updateSimulation")]
+    private static void updateSimulation_pathfinding_postfix()
+    {
+        PathFinder.Instance.Tick();
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(WorldTile), nameof(WorldTile.setTileType), new[] { typeof(TileType), typeof(bool) })]
+    private static void setTileType_pathfinding_postfix(WorldTile __instance)
+    {
+        PathNavigationGridService.MarkDirty(__instance);
+    }
+
+    [HarmonyPostfix]
+    [HarmonyPatch(typeof(WorldTile), nameof(WorldTile.setTopTileType), new[] { typeof(TopTileType), typeof(bool) })]
+    private static void setTopTileType_pathfinding_postfix(WorldTile __instance)
+    {
+        PathNavigationGridService.MarkDirty(__instance);
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(WorldTile), nameof(WorldTile.setFireData))]
+    private static void setFireData_pathfinding_postfix(WorldTile __instance)
+    {
+        PathNavigationGridService.MarkDirty(__instance);
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(WorldTile), nameof(WorldTile.freeze))]
+    private static void freeze_pathfinding_postfix(WorldTile __instance)
+    {
+        PathNavigationGridService.MarkDirty(__instance);
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(WorldTile), nameof(WorldTile.unfreeze))]
+    private static void unfreeze_pathfinding_postfix(WorldTile __instance)
+    {
+        PathNavigationGridService.MarkDirty(__instance);
     }
 
     [HarmonyTranspiler, HarmonyPatch(typeof(MapBox), nameof(MapBox.checkDirtyUnits))]

@@ -1,458 +1,555 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 using Cultiway.Const;
 using Cultiway.Utils;
 using UnityEngine;
 
 namespace Cultiway.Core.Pathfinding;
 
-public class PortalAwarePathGenerator : IPathGenerator
+/// <summary>
+/// 生成可增量消费的局部路径。工作线程只读取 PathRequest 中的标量和导航缓存。
+/// </summary>
+public sealed class PortalAwarePathGenerator : IPathGenerator
 {
-    private readonly PortalRegistry _registry;
-    private readonly PathfindingConfig _config;
+    private readonly PortalRegistry registry;
+    private readonly PathfindingConfig config;
+    private readonly RegionRouteCache regionRouteCache;
+    private readonly ThreadLocal<SearchWorkspace> workspaces = new(() => new SearchWorkspace());
 
     public PortalAwarePathGenerator(PortalRegistry registry, PathfindingConfig config)
     {
-        _registry = registry ?? PortalRegistry.Instance;
-        _config = config ?? PathfindingConfig.Default;
+        this.registry = registry ?? PortalRegistry.Instance;
+        this.config = config ?? PathfindingConfig.Default;
+        regionRouteCache = new RegionRouteCache(this.config.RegionRouteCacheSize);
     }
 
-    public Task GenerateAsync(PathRequest request, IPathStreamWriter stream, CancellationToken cancellationToken)
+    public PathGenerationResult GenerateSegment(PathRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (request.StartTileId < 0)
+        if (request == null || request.StartTileId < 0)
         {
-            stream.Fail(PathFailureReason.InvalidStart);
-            return Task.CompletedTask;
+            return PathGenerationResult.Fail(PathFailureReason.InvalidStart);
         }
 
         if (request.TargetTileId < 0)
         {
-            stream.Fail(PathFailureReason.InvalidTarget);
-            return Task.CompletedTask;
+            return PathGenerationResult.Fail(PathFailureReason.InvalidTarget);
+        }
+
+        PathNavigationGrid grid = request.NavigationGrid;
+        if (grid == null || grid.Generation != request.WorldGeneration)
+        {
+            return PathGenerationResult.Fail(PathFailureReason.NavigationGridUnavailable);
+        }
+
+        if (!grid.TryGetTile(request.StartTileId, out _))
+        {
+            return PathGenerationResult.Fail(PathFailureReason.InvalidStart);
+        }
+
+        if (!grid.TryGetTile(request.TargetTileId, out _))
+        {
+            return PathGenerationResult.Fail(PathFailureReason.InvalidTarget);
+        }
+
+        if (request.StartTileId == request.TargetTileId)
+        {
+            return PathGenerationResult.Success(Array.Empty<PathStep>(), true, request.TargetTileId,
+                endStamina: request.ActorCurrentStamina, endHealth: request.ActorCurrentHealth);
         }
 
         try
         {
-            GenerateInternal(request, stream, cancellationToken);
+            return GenerateInternal(request, grid, cancellationToken);
         }
         catch (OperationCanceledException)
         {
-            stream.Cancel();
+            throw;
         }
         catch (Exception e)
         {
             ModClass.LogErrorConcurrent(SystemUtils.GetFullExceptionMessage(e));
-            stream.Fail(PathFailureReason.GeneratorException, e);
+            return PathGenerationResult.Fail(PathFailureReason.GeneratorException, e);
         }
-
-        stream.EnsureCompleted();
-        return Task.CompletedTask;
     }
 
-    private void GenerateInternal(PathRequest request, IPathStreamWriter stream, CancellationToken token)
+    private PathGenerationResult GenerateInternal(PathRequest request, PathNavigationGrid grid,
+        CancellationToken token)
     {
-        var profile = MovementProfile.Build(request, _config);
+        MovementProfile profile = MovementProfile.Build(request, config);
+        bool usePortal = TryChoosePortal(request, grid, profile, out PortalChoice portal);
+        int objectiveTileId = usePortal ? portal.Entry.TileId : request.TargetTileId;
 
-        var direct = TryBuildLocalPath(request.StartTileId, request.TargetTileId, profile, useLongRange: true, token);
-        RouteCandidate bestCandidate = null;
-        var failureReason = FailureReasonFrom(direct);
-        var bestCost = float.MaxValue;
-        if (direct.IsSuccess)
+        if (usePortal && request.StartTileId == objectiveTileId)
         {
-            bestCandidate = RouteCandidate.FromSegments(direct.Steps, direct.Cost);
-            bestCost = direct.Cost;
-            failureReason = PathFailureReason.None;
+            PathStep portalStep = CreatePortalStep(portal);
+            return BuildSuccess(new[] { portalStep }, false, portal.Exit.TileId, profile,
+                kind: PathGenerationKind.Portal);
         }
 
-        if (!profile.IsBoat)
+        if (TryBuildStraightSegment(request.StartTileId, objectiveTileId, grid, profile,
+                config.SegmentTargetSteps, out PathStep[] straightSteps, out int straightEnd))
         {
-            var estimates = BuildPortalEstimates(request, profile);
-            var bestEstimate = estimates.Count > 0 ? estimates.OrderBy(e => e.EstCost).First() : null;
-            if (bestEstimate != null)
+            bool reachedObjective = straightEnd == objectiveTileId;
+            if (usePortal && reachedObjective && straightSteps.Length < config.SegmentTargetSteps)
             {
-                if (bestCandidate != null && bestEstimate.EstCost >= bestCost)
-                {
-                    EmitCandidate(bestCandidate, stream, token);
-                    return;
-                }
-
-                token.ThrowIfCancellationRequested();
-
-                var toEntry = TryBuildLocalPath(request.StartTileId, TileTraversalInfo.TileIdOf(bestEstimate.Entry.Tile), profile,
-                    useLongRange: true, token);
-                if (!toEntry.IsSuccess)
-                {
-                    failureReason = MoreSpecificFailure(failureReason, FailureReasonFrom(toEntry));
-                    goto OUTSIDE;
-                }
-
-                var exitToTarget = TryBuildLocalPath(TileTraversalInfo.TileIdOf(bestEstimate.Exit.Tile), request.TargetTileId, profile,
-                    useLongRange: true, token);
-                if (!exitToTarget.IsSuccess)
-                {
-                    failureReason = MoreSpecificFailure(failureReason, FailureReasonFrom(exitToTarget));
-                    goto OUTSIDE;
-                }
-
-                var portalCost = bestEstimate.Entry.WaitTime + bestEstimate.Link.TravelTime + bestEstimate.Exit.TransferTime;
-                var realCost = toEntry.Cost + portalCost + exitToTarget.Cost;
-                if (realCost < bestCost)
-                {
-                    bestCost = realCost;
-                    var legs = new List<RouteLeg>
-                    {
-                        new MovementLeg(toEntry.Steps, toEntry.Cost),
-                        new PortalLeg(bestEstimate.Entry, bestEstimate.Exit, portalCost),
-                        new MovementLeg(exitToTarget.Steps, exitToTarget.Cost)
-                    };
-                    bestCandidate = RouteCandidate.FromLegs(legs, realCost);
-                }
+                straightSteps = AppendPortal(straightSteps, portal);
+                straightEnd = portal.Exit.TileId;
+                return BuildSuccess(straightSteps, false, straightEnd, profile,
+                    kind: PathGenerationKind.Portal);
             }
+
+            bool reachedTarget = !usePortal && straightEnd == request.TargetTileId;
+            return BuildSuccess(straightSteps, reachedTarget, straightEnd, profile,
+                kind: PathGenerationKind.StraightLine);
         }
 
-        OUTSIDE:
-        if (bestCandidate == null)
+        int objectiveDistance = grid.ManhattanDistance(request.StartTileId, objectiveTileId);
+        int searchTarget = objectiveTileId;
+        int maxNodes;
+        float heuristicWeight;
+        RegionCorridor corridor = null;
+        PathGenerationKind generationKind = PathGenerationKind.Search;
+
+        if (objectiveDistance <= config.ShortRangeTiles)
         {
-            stream.Fail(failureReason == PathFailureReason.None ? PathFailureReason.Unreachable : failureReason);
+            maxNodes = config.MaxNodesShort;
+            heuristicWeight = 1f;
+        }
+        else if (objectiveDistance <= config.LongRangeTiles)
+        {
+            maxNodes = config.MaxNodesLong;
+            heuristicWeight = config.LongRangeHeuristicWeight;
+        }
+        else
+        {
+            maxNodes = config.MaxNodesLong;
+            heuristicWeight = config.LongRangeHeuristicWeight;
+            ResolveLongRangeSearch(request, grid, objectiveTileId, out searchTarget, out corridor);
+            generationKind = corridor == null ? PathGenerationKind.Search : PathGenerationKind.RegionCorridor;
+        }
+
+        SearchWorkspace workspace = workspaces.Value;
+        LocalPathResult local = TryBuildLocalPath(request.StartTileId, searchTarget, grid, profile,
+            maxNodes, heuristicWeight, corridor, workspace, token);
+        int totalExpandedNodes = local.ExpandedNodes;
+        if (!local.IsSuccess && corridor != null)
+        {
+            RegionCorridor widened = corridor.Expand();
+            local = TryBuildLocalPath(request.StartTileId, searchTarget, grid, profile,
+                maxNodes, heuristicWeight, widened, workspace, token);
+            totalExpandedNodes += local.ExpandedNodes;
+        }
+
+        if (!local.IsSuccess)
+        {
+            return PathGenerationResult.Fail(local.HitNodeLimit
+                ? PathFailureReason.SearchLimitExceeded
+                : PathFailureReason.Unreachable, expandedNodes: totalExpandedNodes);
+        }
+
+        PathStep[] segment = TrimSegment(local.Steps, config.SegmentTargetSteps);
+        if (segment.Length == 0)
+        {
+            return PathGenerationResult.Fail(PathFailureReason.Unreachable, expandedNodes: totalExpandedNodes);
+        }
+
+        int endTileId = segment[segment.Length - 1].TileId;
+        bool reachedObjectiveBySearch = local.Steps.Length <= config.SegmentTargetSteps &&
+                                        endTileId == objectiveTileId;
+        if (usePortal && reachedObjectiveBySearch && segment.Length < config.SegmentTargetSteps)
+        {
+            segment = AppendPortal(segment, portal);
+            endTileId = portal.Exit.TileId;
+            generationKind = PathGenerationKind.Portal;
+        }
+
+        bool reachedFinalTarget = !usePortal && endTileId == request.TargetTileId;
+        return BuildSuccess(segment, reachedFinalTarget, endTileId, profile, totalExpandedNodes,
+            generationKind);
+    }
+
+    private static PathGenerationResult BuildSuccess(PathStep[] steps, bool reachedTarget, int endTileId,
+        MovementProfile profile, int expandedNodes = 0,
+        PathGenerationKind kind = PathGenerationKind.Search)
+    {
+        TraversalState state = TraversalState.Start(profile);
+        for (int i = 0; i < steps.Length; i++)
+        {
+            state = state.Advance(steps[i].Estimate, profile);
+        }
+
+        return PathGenerationResult.Success(steps, reachedTarget, endTileId, expandedNodes, kind,
+            state.Stamina, state.Health);
+    }
+
+    private void ResolveLongRangeSearch(PathRequest request, PathNavigationGrid grid, int objectiveTileId,
+        out int searchTarget, out RegionCorridor corridor)
+    {
+        searchTarget = ResolveGeometricWaypoint(grid, request.StartTileId, objectiveTileId,
+            config.RegionCorridorLookaheadTiles);
+        corridor = null;
+        PathRegionTopology topology = grid.Topology;
+        if (topology == null || topology.Generation != grid.Generation ||
+            !grid.TryGetTile(request.StartTileId, out PathTileSnapshot start) ||
+            !grid.TryGetTile(objectiveTileId, out PathTileSnapshot target) ||
+            start.RegionId < 0 || target.RegionId < 0)
+        {
             return;
         }
 
-        EmitCandidate(bestCandidate, stream, token);
-    }
-
-    private static PathFailureReason FailureReasonFrom(LocalPathResult result)
-    {
-        return result.HitNodeLimit ? PathFailureReason.SearchLimitExceeded : PathFailureReason.Unreachable;
-    }
-
-    private static PathFailureReason MoreSpecificFailure(PathFailureReason current, PathFailureReason next)
-    {
-        if (current == PathFailureReason.None)
+        int traversalClass = ResolveTraversalClass(request);
+        int[] route = regionRouteCache.GetOrBuild(grid.Identity, topology, start.RegionId, target.RegionId,
+            traversalClass);
+        if (route == null || route.Length == 0)
         {
-            return next;
+            return;
         }
 
-        if (next == PathFailureReason.SearchLimitExceeded)
+        int lookaheadTarget = ResolveRegionLookahead(grid, topology, request.StartTileId, route,
+            config.RegionCorridorLookaheadTiles);
+        if (lookaheadTarget >= 0 && lookaheadTarget != request.StartTileId)
         {
-            return next;
+            searchTarget = lookaheadTarget;
         }
 
-        return current;
+        corridor = RegionCorridor.Create(topology, route);
     }
 
-    private List<PortalEstimate> BuildPortalEstimates(PathRequest request, MovementProfile profile)
+    private static int ResolveRegionLookahead(PathNavigationGrid grid, PathRegionTopology topology,
+        int startTileId, int[] route, int lookaheadTiles)
     {
-        if (!TileTraversalInfo.TryGet(request.StartTileId, out var startInfo) ||
-            !TileTraversalInfo.TryGet(request.TargetTileId, out var targetInfo))
+        int selected = -1;
+        for (int i = 1; i < route.Length; i++)
         {
-            return new List<PortalEstimate>();
-        }
-
-        var estimates = new List<PortalEstimate>();
-
-        var nearStart = _registry.Enumerate()
-            .Where(p => TileTraversalInfo.TileIdOf(p.Tile) >= 0)
-            .OrderBy(p => DistTile(startInfo, p))
-            .Take(_config.PortalCandidates)
-            .ToArray();
-        foreach (var entry in nearStart)
-        {
-            if (DistTile(startInfo, entry) > _config.PortalSearchRadius)
+            if (!topology.TryGetRegion(route[i], out PathRegionSnapshot region) || region.CenterTileId < 0)
             {
                 continue;
             }
 
-            foreach (var link in entry.Connections.OrderBy(c => c.TravelTime))
+            selected = region.CenterTileId;
+            if (grid.ManhattanDistance(startTileId, selected) >= lookaheadTiles)
             {
-                if (!_registry.TryGet(link.TargetId, out var exit))
-                {
-                    continue;
-                }
-
-                var entryDist = DistTile(startInfo, entry);
-                var exitDist = DistTile(targetInfo, exit);
-                var estEntryCost = profile.EstimateOpenTerrainCost(entryDist);
-                var estExitCost = profile.EstimateOpenTerrainCost(exitDist);
-                var estCost = estEntryCost + entry.WaitTime + link.TravelTime + exit.TransferTime + estExitCost;
-
-                estimates.Add(new PortalEstimate(entry, exit, link, estCost));
+                break;
             }
         }
 
-        return estimates;
+        return selected;
     }
 
-    private void EmitCandidate(RouteCandidate candidate, IPathStreamWriter stream, CancellationToken token)
+    private static int ResolveGeometricWaypoint(PathNavigationGrid grid, int startTileId, int targetTileId,
+        int lookaheadTiles)
     {
-        foreach (var leg in candidate.Legs)
+        int distance = grid.ManhattanDistance(startTileId, targetTileId);
+        if (distance <= Math.Max(1, lookaheadTiles)) return targetTileId;
+        int startX = grid.XOf(startTileId);
+        int startY = grid.YOf(startTileId);
+        int targetX = grid.XOf(targetTileId);
+        int targetY = grid.YOf(targetTileId);
+        float ratio = Math.Max(1, lookaheadTiles) / (float)distance;
+        int x = Mathf.RoundToInt(startX + (targetX - startX) * ratio);
+        int y = Mathf.RoundToInt(startY + (targetY - startY) * ratio);
+        if (grid.TryGetTileAt(x, y, out int tileId, out _)) return tileId;
+
+        for (int radius = 1; radius <= 3; radius++)
         {
-            token.ThrowIfCancellationRequested();
-            switch (leg)
+            for (int dy = -radius; dy <= radius; dy++)
             {
-                case MovementLeg movement:
-                    foreach (var step in movement.Steps)
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    if (Math.Abs(dx) != radius && Math.Abs(dy) != radius) continue;
+                    if (grid.TryGetTileAt(x + dx, y + dy, out tileId, out _)) return tileId;
+                }
+            }
+        }
+
+        return targetTileId;
+    }
+
+    private bool TryChoosePortal(PathRequest request, PathNavigationGrid grid, MovementProfile profile,
+        out PortalChoice choice)
+    {
+        choice = default;
+        if (profile.IsBoat) return false;
+        PathPortalSnapshot[] portals = registry.CapturePathSnapshot();
+        if (portals.Length < 2) return false;
+
+        int directDistance = grid.ManhattanDistance(request.StartTileId, request.TargetTileId);
+        if (directDistance <= config.ShortRangeTiles) return false;
+        float directCost = profile.EstimateOpenTerrainCost(directDistance);
+        float bestCost = directCost * 0.95f;
+        bool found = false;
+        int candidateCount = Math.Min(Math.Max(1, config.PortalCandidates), portals.Length);
+        var nearestIndices = new int[candidateCount];
+        var nearestDistances = new int[candidateCount];
+        for (int i = 0; i < candidateCount; i++)
+        {
+            nearestIndices[i] = -1;
+            nearestDistances[i] = int.MaxValue;
+        }
+
+        int startX = grid.XOf(request.StartTileId);
+        int startY = grid.YOf(request.StartTileId);
+        for (int i = 0; i < portals.Length; i++)
+        {
+            if (portals[i].TileId < 0) continue;
+            int distance = Math.Abs(startX - portals[i].X) + Math.Abs(startY - portals[i].Y);
+            for (int slot = 0; slot < candidateCount; slot++)
+            {
+                if (distance >= nearestDistances[slot]) continue;
+                for (int move = candidateCount - 1; move > slot; move--)
+                {
+                    nearestDistances[move] = nearestDistances[move - 1];
+                    nearestIndices[move] = nearestIndices[move - 1];
+                }
+
+                nearestDistances[slot] = distance;
+                nearestIndices[slot] = i;
+                break;
+            }
+        }
+
+        int targetX = grid.XOf(request.TargetTileId);
+        int targetY = grid.YOf(request.TargetTileId);
+        for (int candidate = 0; candidate < candidateCount; candidate++)
+        {
+            int entryIndex = nearestIndices[candidate];
+            if (entryIndex < 0) continue;
+            PathPortalSnapshot entry = portals[entryIndex];
+            int entryDistance = nearestDistances[candidate];
+            if (directDistance <= config.LongRangeTiles && entryDistance > config.PortalSearchRadius) continue;
+
+            for (int connectionIndex = 0; connectionIndex < entry.Connections.Length; connectionIndex++)
+            {
+                PortalConnection connection = entry.Connections[connectionIndex];
+                if (!TryFindPortal(portals, connection.TargetId, out PathPortalSnapshot exit)) continue;
+                int exitDistance = Math.Abs(targetX - exit.X) + Math.Abs(targetY - exit.Y);
+                if (exitDistance + 4 >= directDistance) continue;
+                float estimate = profile.EstimateOpenTerrainCost(entryDistance) + entry.WaitTime +
+                                 connection.TravelTime + exit.TransferTime +
+                                 profile.EstimateOpenTerrainCost(exitDistance);
+                if (estimate >= bestCost) continue;
+                bestCost = estimate;
+                choice = new PortalChoice(entry, exit,
+                    entry.WaitTime + connection.TravelTime + exit.TransferTime);
+                found = true;
+            }
+        }
+
+        return found;
+    }
+
+    private static bool TryFindPortal(PathPortalSnapshot[] portals, long id, out PathPortalSnapshot portal)
+    {
+        for (int i = 0; i < portals.Length; i++)
+        {
+            if (portals[i].Id != id) continue;
+            portal = portals[i];
+            return true;
+        }
+
+        portal = default;
+        return false;
+    }
+
+    private static PathStep CreatePortalStep(PortalChoice portal)
+    {
+        return new PathStep(portal.Exit.TileId, MovementMethod.Portal,
+            TraversalEstimate.Portal(portal.TransferCost), portal.Entry.Definition, portal.Exit.Definition);
+    }
+
+    private static PathStep[] AppendPortal(PathStep[] steps, PortalChoice portal)
+    {
+        var result = new PathStep[steps.Length + 1];
+        Array.Copy(steps, result, steps.Length);
+        result[steps.Length] = CreatePortalStep(portal);
+        return result;
+    }
+
+    private static PathStep[] TrimSegment(PathStep[] steps, int maximum)
+    {
+        maximum = Math.Max(1, maximum);
+        if (steps.Length <= maximum) return steps;
+        var result = new PathStep[maximum];
+        Array.Copy(steps, result, maximum);
+        return result;
+    }
+
+    private static bool TryBuildStraightSegment(int startTileId, int targetTileId, PathNavigationGrid grid,
+        MovementProfile profile, int maximumSteps, out PathStep[] steps, out int endTileId)
+    {
+        maximumSteps = Math.Max(1, maximumSteps);
+        var buffer = new PathStep[maximumSteps];
+        int count = 0;
+        int x = grid.XOf(startTileId);
+        int y = grid.YOf(startTileId);
+        int targetX = grid.XOf(targetTileId);
+        int targetY = grid.YOf(targetTileId);
+        int dx = Math.Abs(targetX - x);
+        int dy = Math.Abs(targetY - y);
+        int sx = x < targetX ? 1 : -1;
+        int sy = y < targetY ? 1 : -1;
+        int error = dx - dy;
+        TraversalState state = TraversalState.Start(profile);
+        int currentTileId = startTileId;
+
+        while ((x != targetX || y != targetY) && count < maximumSteps)
+        {
+            int previousX = x;
+            int previousY = y;
+            int doubled = error * 2;
+            if (doubled > -dy)
+            {
+                error -= dy;
+                x += sx;
+            }
+
+            if (doubled < dx)
+            {
+                error += dx;
+                y += sy;
+            }
+
+            if (!grid.TryGetTileAt(x, y, out int nextTileId, out PathTileSnapshot next) ||
+                !IsFastTileSafe(next, profile))
+            {
+                steps = null;
+                endTileId = startTileId;
+                return false;
+            }
+
+            bool diagonal = previousX != x && previousY != y;
+            if (diagonal && (!grid.TryGetTileAt(x, previousY, out _, out PathTileSnapshot sideX) ||
+                             !grid.TryGetTileAt(previousX, y, out _, out PathTileSnapshot sideY) ||
+                             !IsFastTileSafe(sideX, profile) || !IsFastTileSafe(sideY, profile)))
+            {
+                steps = null;
+                endTileId = startTileId;
+                return false;
+            }
+
+            grid.TryGetTile(currentTileId, out PathTileSnapshot current);
+            MovementMethod method = DecideMethod(next, profile);
+            TraversalEstimate estimate = EstimateTraversal(current, next, diagonal, method, state, profile);
+            state = state.Advance(estimate, profile);
+            buffer[count++] = new PathStep(nextTileId, method, estimate, plannedTileFlags: next.Flags);
+            currentTileId = nextTileId;
+        }
+
+        if (count == 0)
+        {
+            steps = Array.Empty<PathStep>();
+            endTileId = startTileId;
+            return startTileId == targetTileId;
+        }
+
+        if (count == buffer.Length)
+        {
+            steps = buffer;
+        }
+        else
+        {
+            steps = new PathStep[count];
+            Array.Copy(buffer, steps, count);
+        }
+
+        endTileId = currentTileId;
+        return true;
+    }
+
+    private static bool IsFastTileSafe(PathTileSnapshot tile, MovementProfile profile)
+    {
+        if (!tile.Exists || !tile.HasType) return false;
+        if (profile.IsBoat) return tile.Ocean && !tile.Lava && !tile.Block;
+        if (tile.Block && !profile.IgnoreBlocks && !profile.IsFlying) return false;
+        if (tile.Lava && !profile.AllowLava) return false;
+        if (tile.IsOnFire && !profile.IsFireImmune) return false;
+        if (tile.DamageUnits) return false;
+        if (tile.Liquid && !profile.IsFlying && !profile.IsWaterCreature && !profile.PreferWater) return false;
+        return true;
+    }
+
+    private static LocalPathResult TryBuildLocalPath(int startTileId, int targetTileId,
+        PathNavigationGrid grid, MovementProfile profile, int maxNodes, float heuristicWeight,
+        RegionCorridor corridor, SearchWorkspace workspace, CancellationToken token)
+    {
+        if (startTileId == targetTileId)
+        {
+            return LocalPathResult.Success(Array.Empty<PathStep>(), 0f, 0);
+        }
+
+        if (!grid.TryGetTile(startTileId, out _) || !grid.TryGetTile(targetTileId, out _))
+        {
+            return LocalPathResult.Fail(false, 0);
+        }
+
+        maxNodes = Math.Max(1, maxNodes);
+        workspace.Begin(maxNodes, profile.MaxLabelsPerTile);
+        TraversalState initialState = TraversalState.Start(profile);
+        var startNode = new SearchNode(startTileId, -1, MovementMethod.Walk, default, default, initialState,
+            0f, Heuristic(grid, startTileId, targetTileId, profile) * heuristicWeight);
+        workspace.AddStart(startNode);
+
+        int expanded = 0;
+        while (workspace.TryDequeue(out int currentIndex) && expanded < maxNodes)
+        {
+            if ((expanded & 31) == 0) token.ThrowIfCancellationRequested();
+            SearchNode current = workspace.GetNode(currentIndex);
+            if (!current.Active) continue;
+            expanded++;
+            if (current.TileId == targetTileId)
+            {
+                return LocalPathResult.Success(workspace.BuildPath(currentIndex), current.G, expanded);
+            }
+
+            int currentX = grid.XOf(current.TileId);
+            int currentY = grid.YOf(current.TileId);
+            if (!grid.TryGetTile(current.TileId, out PathTileSnapshot currentTile)) continue;
+            for (int offsetY = -1; offsetY <= 1; offsetY++)
+            {
+                for (int offsetX = -1; offsetX <= 1; offsetX++)
+                {
+                    if (offsetX == 0 && offsetY == 0) continue;
+                    if (!grid.TryGetTileAt(currentX + offsetX, currentY + offsetY,
+                            out int neighbourId, out PathTileSnapshot neighbour) || !neighbour.HasType)
                     {
-                        token.ThrowIfCancellationRequested();
-                        stream.AddStep(step);
+                        continue;
                     }
 
-                    break;
-                case PortalLeg portal:
-                    stream.AddStep(new PathStep(TileTraversalInfo.TileIdOf(portal.Exit.Tile), MovementMethod.Portal,
-                        TraversalEstimate.Portal(portal.TransferCost), portal.Entry, portal.Exit));
-                    break;
-            }
-        }
-    }
+                    if (corridor != null && !corridor.Contains(neighbour.RegionId) && neighbourId != targetTileId)
+                    {
+                        continue;
+                    }
 
-    private LocalPathResult TryBuildLocalPath(int startId, int targetId, MovementProfile profile, bool useLongRange,
-        CancellationToken token)
-    {
-        if (startId == targetId)
-        {
-            return LocalPathResult.Success(Array.Empty<PathStep>(), 0);
-        }
-
-        var tileInfoCache = new Dictionary<int, TileTraversalInfo>(512);
-        if (!TryGetTileInfo(tileInfoCache, startId, out var startInfo) ||
-            !TryGetTileInfo(tileInfoCache, targetId, out var targetInfo))
-        {
-            return LocalPathResult.Fail();
-        }
-
-        var maxNodes = useLongRange ? profile.MaxNodesLong : profile.MaxNodesShort;
-        var result = TryBuildLocalPathCore(startId, targetId, startInfo, targetInfo, tileInfoCache, profile, maxNodes,
-            corridorLimit: 0, token);
-        if (result.IsSuccess || !useLongRange || !result.HitNodeLimit)
-        {
-            return result;
-        }
-
-        var directDistance = DistTile(startInfo, targetInfo);
-        var detour = Mathf.Max(profile.FallbackCorridorMinDetour,
-            Mathf.RoundToInt(directDistance * profile.FallbackCorridorDetourScale));
-        var fallbackNodes = Mathf.Max(profile.MaxNodesLongFallback, profile.MaxNodesLong);
-        return TryBuildLocalPathCore(startId, targetId, startInfo, targetInfo, tileInfoCache, profile, fallbackNodes,
-            directDistance + detour, token);
-    }
-
-    private LocalPathResult TryBuildLocalPathCore(int startId, int targetId, TileTraversalInfo startInfo,
-        TileTraversalInfo targetInfo, Dictionary<int, TileTraversalInfo> tileInfoCache, MovementProfile profile,
-        int maxNodes, int corridorLimit, CancellationToken token)
-    {
-        maxNodes = Mathf.Max(1, maxNodes);
-        var open = new PriorityQueuePreview<PathNode>(128, PathNodeComparer.Instance);
-        var labelsByTile = new Dictionary<int, List<PathNode>>(256);
-        var startNode = new PathNode(startId, null, MovementMethod.Walk, default,
-            TraversalState.Start(profile), 0, Heuristic(startInfo, targetInfo, profile));
-
-        AddLabel(labelsByTile, startNode, profile);
-        open.Enqueue(startNode);
-
-        var expanded = 0;
-        while (open.Count > 0 && expanded < maxNodes)
-        {
-            token.ThrowIfCancellationRequested();
-            var current = open.Dequeue();
-            if (!IsActiveLabel(labelsByTile, current))
-            {
-                continue;
-            }
-
-            expanded++;
-            if (current.TileId == targetId)
-            {
-                return BuildResult(current);
-            }
-
-            if (!TryGetTileInfo(tileInfoCache, current.TileId, out var currentInfo))
-            {
-                continue;
-            }
-
-            var currentTile = TileTraversalInfo.ResolveTile(current.TileId);
-            var neighbours = currentTile?.neighboursAll ?? currentTile?.neighbours;
-            if (neighbours == null || neighbours.Length == 0)
-            {
-                continue;
-            }
-
-            for (int i = 0; i < neighbours.Length; i++)
-            {
-                var neighbourId = TileTraversalInfo.TileIdOf(neighbours[i]);
-                if (!TryGetTileInfo(tileInfoCache, neighbourId, out var neighbour) || !neighbour.HasType)
-                {
-                    continue;
-                }
-
-                if (IsDiagonalOutsideMap(currentInfo, neighbour))
-                {
-                    continue;
-                }
-
-                if (corridorLimit > 0 && DistTile(startInfo, neighbour) + DistTile(neighbour, targetInfo) > corridorLimit)
-                {
-                    continue;
-                }
-
-                var method = DecideMethod(neighbour, profile);
-                var estimate = EstimateTraversal(currentInfo, neighbour, method, current.State, profile);
-                var nextState = current.State.Advance(estimate, profile);
-                var stepCost = profile.CostOf(estimate, nextState);
-                var node = new PathNode(neighbourId, current, method, estimate, nextState,
-                    current.G + stepCost, Heuristic(neighbour, targetInfo, profile));
-
-                if (!TryAddLabel(labelsByTile, node, profile))
-                {
-                    continue;
-                }
-
-                open.Enqueue(node);
-            }
-        }
-
-        return LocalPathResult.Fail(open.Count > 0 && expanded >= maxNodes);
-    }
-
-    private static bool IsActiveLabel(Dictionary<int, List<PathNode>> labelsByTile, PathNode node)
-    {
-        return labelsByTile.TryGetValue(node.TileId, out var labels) && labels.Contains(node);
-    }
-
-    private static void AddLabel(Dictionary<int, List<PathNode>> labelsByTile, PathNode node, MovementProfile profile)
-    {
-        if (!labelsByTile.TryGetValue(node.TileId, out var labels))
-        {
-            labels = new List<PathNode>(profile.MaxLabelsPerTile);
-            labelsByTile.Add(node.TileId, labels);
-        }
-
-        labels.Add(node);
-    }
-
-    private static bool TryAddLabel(Dictionary<int, List<PathNode>> labelsByTile, PathNode node,
-        MovementProfile profile)
-    {
-        if (!labelsByTile.TryGetValue(node.TileId, out var labels))
-        {
-            labels = new List<PathNode>(profile.MaxLabelsPerTile);
-            labelsByTile.Add(node.TileId, labels);
-        }
-
-        for (int i = 0; i < labels.Count; i++)
-        {
-            if (Dominates(labels[i], node))
-            {
-                return false;
-            }
-        }
-
-        for (int i = labels.Count - 1; i >= 0; i--)
-        {
-            if (Dominates(node, labels[i]))
-            {
-                labels.RemoveAt(i);
-            }
-        }
-
-        labels.Add(node);
-        if (labels.Count > profile.MaxLabelsPerTile)
-        {
-            var worstIndex = 0;
-            var worstScore = labels[0].F;
-            for (int i = 1; i < labels.Count; i++)
-            {
-                if (labels[i].F > worstScore)
-                {
-                    worstScore = labels[i].F;
-                    worstIndex = i;
+                    bool diagonal = offsetX != 0 && offsetY != 0;
+                    MovementMethod method = DecideMethod(neighbour, profile);
+                    TraversalEstimate estimate = EstimateTraversal(currentTile, neighbour, diagonal, method,
+                        current.State, profile);
+                    TraversalState nextState = current.State.Advance(estimate, profile);
+                    float g = current.G + profile.CostOf(estimate, nextState);
+                    float h = Heuristic(grid, neighbourId, targetTileId, profile) * heuristicWeight;
+                    var candidate = new SearchNode(neighbourId, currentIndex, method, estimate, neighbour.Flags,
+                        nextState, g, h);
+                    workspace.TryAdd(candidate);
                 }
             }
-
-            if (labels[worstIndex] == node)
-            {
-                labels.RemoveAt(worstIndex);
-                return false;
-            }
-
-            labels.RemoveAt(worstIndex);
         }
 
-        return true;
+        bool hitLimit = expanded >= maxNodes || workspace.CapacityHit;
+        return LocalPathResult.Fail(hitLimit, expanded);
     }
 
-    private static bool Dominates(PathNode a, PathNode b)
-    {
-        return a.G <= b.G + 0.001f
-               && a.State.Stamina >= b.State.Stamina - 0.001f
-               && a.State.Health >= b.State.Health - 0.001f
-               && a.State.Risk <= b.State.Risk + 0.001f;
-    }
-
-    private LocalPathResult BuildResult(PathNode node)
-    {
-        var reversed = new List<PathStep>();
-        var current = node;
-        while (current.Parent != null)
-        {
-            reversed.Add(new PathStep(current.TileId, current.Method, current.Estimate));
-            current = current.Parent;
-        }
-
-        reversed.Reverse();
-        return LocalPathResult.Success(reversed, node.G);
-    }
-
-    private static bool IsDiagonalOutsideMap(TileTraversalInfo from, TileTraversalInfo to)
-    {
-        var dx = to.X - from.X;
-        var dy = to.Y - from.Y;
-        if (Math.Abs(dx) != 1 || Math.Abs(dy) != 1)
-        {
-            return false;
-        }
-
-        return !TileTraversalInfo.TryGetAt(from.X + dx, from.Y, out _) ||
-               !TileTraversalInfo.TryGetAt(from.X, from.Y + dy, out _);
-    }
-
-    private static bool TryGetTileInfo(Dictionary<int, TileTraversalInfo> cache, int tileId,
-        out TileTraversalInfo info)
-    {
-        if (tileId < 0)
-        {
-            info = default;
-            return false;
-        }
-
-        if (cache.TryGetValue(tileId, out info))
-        {
-            return info.Exists;
-        }
-
-        if (!TileTraversalInfo.TryGet(tileId, out info))
-        {
-            return false;
-        }
-
-        cache[tileId] = info;
-        return true;
-    }
-
-    private static TraversalEstimate EstimateTraversal(TileTraversalInfo from, TileTraversalInfo to,
+    private static TraversalEstimate EstimateTraversal(PathTileSnapshot from, PathTileSnapshot to, bool diagonal,
         MovementMethod method, TraversalState state, MovementProfile profile)
     {
-        var hazards = HazardFlags.None;
-        var dist = (from.X != to.X && from.Y != to.Y) ? 1.4142f : 1f;
-        var speed = profile.GetSpeed(to, method, state);
-        var time = dist / Mathf.Max(speed, 0.01f);
-        var staminaCost = 0f;
-        var healthCost = 0f;
-        var riskCost = 0f;
+        HazardFlags hazards = HazardFlags.None;
+        float distance = diagonal ? 1.4142f : 1f;
+        float speed = profile.GetSpeed(to, method, state);
+        float time = distance / Mathf.Max(speed, 0.01f);
+        float staminaCost = 0f;
+        float healthCost = 0f;
+        float riskCost = 0f;
 
         if (to.Block)
         {
@@ -467,7 +564,7 @@ public class PortalAwarePathGenerator : IPathGenerator
             }
         }
 
-        if (to.Ocean || (to.Liquid && !to.Lava))
+        if (to.Ocean || to.Liquid && !to.Lava)
         {
             hazards |= HazardFlags.Ocean;
             if (!profile.IsWaterCreature && !profile.IsFlying)
@@ -475,7 +572,7 @@ public class PortalAwarePathGenerator : IPathGenerator
                 hazards |= HazardFlags.StaminaDrain;
                 staminaCost += time * profile.WaterStaminaDrainPerSecond;
                 riskCost += profile.OceanRiskCost;
-                var exhausted = Mathf.Max(0f, staminaCost - state.Stamina);
+                float exhausted = Mathf.Max(0f, staminaCost - state.Stamina);
                 if (exhausted > 0f && profile.WaterStaminaDrainPerSecond > 0f)
                 {
                     hazards |= HazardFlags.Drowning;
@@ -506,13 +603,12 @@ public class PortalAwarePathGenerator : IPathGenerator
         if (to.DamageUnits && (!to.Lava || profile.IsLavaDamaging))
         {
             hazards |= HazardFlags.TerrainDamage;
-            var damage = time * to.Damage * profile.TerrainDamageTicksPerSecond;
+            float damage = time * to.Damage * profile.TerrainDamageTicksPerSecond;
             healthCost += profile.EstimateEnvironmentalDamage(damage);
             riskCost += profile.TerrainDamageRiskCost;
         }
 
-        var healthAfter = state.Health - healthCost;
-        if (healthAfter <= profile.LowHealthThreshold)
+        if (state.Health - healthCost <= profile.LowHealthThreshold)
         {
             hazards |= HazardFlags.LowHealth;
         }
@@ -520,159 +616,70 @@ public class PortalAwarePathGenerator : IPathGenerator
         return new TraversalEstimate(time, staminaCost, healthCost, riskCost, hazards);
     }
 
-    private static MovementMethod DecideMethod(TileTraversalInfo tile, MovementProfile profile)
+    private static MovementMethod DecideMethod(PathTileSnapshot tile, MovementProfile profile)
     {
-        if (profile.IsBoat)
-        {
-            return MovementMethod.Swim;
-        }
-
+        if (profile.IsBoat) return MovementMethod.Swim;
         return tile.Liquid ? MovementMethod.Swim : MovementMethod.Walk;
     }
 
-    private static float Heuristic(TileTraversalInfo a, TileTraversalInfo b, MovementProfile profile)
+    private static float Heuristic(PathNavigationGrid grid, int firstTileId, int secondTileId,
+        MovementProfile profile)
     {
-        return DistTile(a, b) / Mathf.Max(profile.BestCaseSpeed, 0.01f);
+        return grid.ManhattanDistance(firstTileId, secondTileId) /
+               Mathf.Max(profile.BestCaseSpeed, 0.01f);
     }
 
-    private static int DistTile(TileTraversalInfo a, TileTraversalInfo b)
+    private static int ResolveTraversalClass(PathRequest request)
     {
-        return Mathf.Abs(a.X - b.X) + Mathf.Abs(a.Y - b.Y);
+        int result = 0;
+        if (request.ActorIsBoat) result |= 1;
+        if (request.ActorIsWaterCreature) result |= 1 << 1;
+        if (request.ActorIsFlying) result |= 1 << 2;
+        if (request.ActorIgnoresBlocks) result |= 1 << 3;
+        if (request.PathOnWater) result |= 1 << 4;
+        if (request.WalkOnLava) result |= 1 << 5;
+        return result;
     }
 
-    private static int DistTile(TileTraversalInfo a, PortalDefinition b)
+    private readonly struct PortalChoice
     {
-        if (!TileTraversalInfo.TryCreate(b.Tile, out var info))
-        {
-            return int.MaxValue;
-        }
-
-        return Mathf.Abs(a.X - info.X) + Mathf.Abs(a.Y - info.Y);
-    }
-
-    private sealed class MovementLeg : RouteLeg
-    {
-        public MovementLeg(IReadOnlyList<PathStep> steps, float cost)
-        {
-            Steps = steps;
-            Cost = cost;
-        }
-
-        public IReadOnlyList<PathStep> Steps { get; }
-        public float Cost { get; }
-    }
-
-    private sealed class PortalLeg : RouteLeg
-    {
-        public PortalLeg(PortalDefinition entry, PortalDefinition exit, float transferCost)
+        internal PortalChoice(PathPortalSnapshot entry, PathPortalSnapshot exit, float transferCost)
         {
             Entry = entry;
             Exit = exit;
             TransferCost = transferCost;
         }
 
-        public PortalDefinition Entry { get; }
-        public PortalDefinition Exit { get; }
-        public float TransferCost { get; }
+        internal PathPortalSnapshot Entry { get; }
+        internal PathPortalSnapshot Exit { get; }
+        internal float TransferCost { get; }
     }
 
-    private sealed class RouteCandidate
+    private readonly struct LocalPathResult
     {
-        private RouteCandidate(IReadOnlyList<RouteLeg> legs, float cost)
-        {
-            Legs = legs;
-            Cost = cost;
-        }
-
-        public IReadOnlyList<RouteLeg> Legs { get; }
-        public float Cost { get; }
-        public int StepCount => Legs.Sum(leg => leg is MovementLeg movement ? movement.Steps.Count : 1);
-
-        public static RouteCandidate FromSegments(IReadOnlyList<PathStep> steps, float cost)
-        {
-            return new RouteCandidate(new RouteLeg[] { new MovementLeg(steps, cost) }, cost);
-        }
-
-        public static RouteCandidate FromLegs(IReadOnlyList<RouteLeg> legs, float cost)
-        {
-            return new RouteCandidate(legs, cost);
-        }
-    }
-
-    private abstract class RouteLeg;
-
-    private sealed class PortalEstimate
-    {
-        public PortalEstimate(PortalDefinition entry, PortalDefinition exit, PortalConnection link, float estCost)
-        {
-            Entry = entry;
-            Exit = exit;
-            Link = link;
-            EstCost = estCost;
-        }
-
-        public PortalDefinition Entry { get; }
-        public PortalDefinition Exit { get; }
-        public PortalConnection Link { get; }
-        public float EstCost { get; }
-    }
-
-    private sealed class PathNode
-    {
-        public PathNode(int tileId, PathNode parent, MovementMethod method, TraversalEstimate estimate,
-            TraversalState state, float g, float h)
-        {
-            TileId = tileId;
-            Parent = parent;
-            Method = method;
-            Estimate = estimate;
-            State = state;
-            G = g;
-            H = h;
-        }
-
-        public int TileId { get; }
-        public PathNode Parent { get; }
-        public MovementMethod Method { get; }
-        public TraversalEstimate Estimate { get; }
-        public TraversalState State { get; }
-        public float G { get; }
-        public float H { get; }
-        public float F => G + H;
-    }
-
-    private sealed class PathNodeComparer : IComparer<PathNode>
-    {
-        public static readonly PathNodeComparer Instance = new();
-        public int Compare(PathNode x, PathNode y)
-        {
-            return x.F.CompareTo(y.F);
-        }
-    }
-
-    private sealed class LocalPathResult
-    {
-        private LocalPathResult(bool success, IReadOnlyList<PathStep> steps, float cost, bool hitNodeLimit)
+        private LocalPathResult(bool success, PathStep[] steps, float cost, bool hitNodeLimit, int expandedNodes)
         {
             IsSuccess = success;
             Steps = steps;
             Cost = cost;
             HitNodeLimit = hitNodeLimit;
+            ExpandedNodes = expandedNodes;
         }
 
-        public bool IsSuccess { get; }
-        public IReadOnlyList<PathStep> Steps { get; }
-        public float Cost { get; }
-        public bool HitNodeLimit { get; }
+        internal bool IsSuccess { get; }
+        internal PathStep[] Steps { get; }
+        internal float Cost { get; }
+        internal bool HitNodeLimit { get; }
+        internal int ExpandedNodes { get; }
 
-        public static LocalPathResult Fail(bool hitNodeLimit = false)
+        internal static LocalPathResult Success(PathStep[] steps, float cost, int expandedNodes)
         {
-            return new LocalPathResult(false, Array.Empty<PathStep>(), float.MaxValue, hitNodeLimit);
+            return new LocalPathResult(true, steps, cost, false, expandedNodes);
         }
 
-        public static LocalPathResult Success(IReadOnlyList<PathStep> steps, float cost)
+        internal static LocalPathResult Fail(bool hitNodeLimit, int expandedNodes)
         {
-            return new LocalPathResult(true, steps, cost, false);
+            return new LocalPathResult(false, Array.Empty<PathStep>(), float.MaxValue, hitNodeLimit, expandedNodes);
         }
     }
 
@@ -685,22 +692,496 @@ public class PortalAwarePathGenerator : IPathGenerator
             Risk = risk;
         }
 
-        public float Stamina { get; }
-        public float Health { get; }
-        public float Risk { get; }
+        internal float Stamina { get; }
+        internal float Health { get; }
+        internal float Risk { get; }
 
-        public static TraversalState Start(MovementProfile profile)
+        internal static TraversalState Start(MovementProfile profile)
         {
             return new TraversalState(profile.CurrentStamina, profile.CurrentHealth, 0f);
         }
 
-        public TraversalState Advance(TraversalEstimate estimate, MovementProfile profile)
+        internal TraversalState Advance(TraversalEstimate estimate, MovementProfile profile)
         {
-            var stamina = Mathf.Clamp(Stamina - estimate.StaminaCost + estimate.TimeSeconds * profile.StaminaRegenPerSecond,
+            float stamina = Mathf.Clamp(Stamina - estimate.StaminaCost +
+                                         estimate.TimeSeconds * profile.StaminaRegenPerSecond,
                 0f, profile.MaxStamina);
-            var health = Health - estimate.HealthCost;
-            var risk = Risk + estimate.RiskCost;
-            return new TraversalState(stamina, health, risk);
+            return new TraversalState(stamina, Health - estimate.HealthCost, Risk + estimate.RiskCost);
+        }
+    }
+
+    private struct SearchNode
+    {
+        internal SearchNode(int tileId, int parentIndex, MovementMethod method, TraversalEstimate estimate,
+            PathTileFlags plannedTileFlags, TraversalState state, float g, float h)
+        {
+            TileId = tileId;
+            ParentIndex = parentIndex;
+            Method = method;
+            Estimate = estimate;
+            PlannedTileFlags = plannedTileFlags;
+            State = state;
+            G = g;
+            H = h;
+            Active = true;
+        }
+
+        internal int TileId;
+        internal int ParentIndex;
+        internal MovementMethod Method;
+        internal TraversalEstimate Estimate;
+        internal PathTileFlags PlannedTileFlags;
+        internal TraversalState State;
+        internal float G;
+        internal float H;
+        internal bool Active;
+        internal float F => G + H;
+    }
+
+    /// <summary>
+    /// 每个常驻工作线程复用一份搜索工作区，避免为每个节点创建对象、字典和标签列表。
+    /// </summary>
+    private sealed class SearchWorkspace
+    {
+        private SearchNode[] nodes = Array.Empty<SearchNode>();
+        private int[] heap = Array.Empty<int>();
+        private int[] slotStamps = Array.Empty<int>();
+        private int[] slotKeys = Array.Empty<int>();
+        private byte[] slotCounts = Array.Empty<byte>();
+        private int[] slotLabels = Array.Empty<int>();
+        private int nodeCount;
+        private int heapCount;
+        private int stamp;
+        private int slotMask;
+        private int maxLabels;
+
+        internal bool CapacityHit { get; private set; }
+
+        internal void Begin(int maxNodes, int requestedMaxLabels)
+        {
+            maxLabels = Mathf.Clamp(requestedMaxLabels, 1, 4);
+            int nodeCapacity = Math.Max(64, maxNodes * maxLabels + 8);
+            if (nodes.Length < nodeCapacity) nodes = new SearchNode[nodeCapacity];
+            if (heap.Length < nodeCapacity) heap = new int[nodeCapacity];
+
+            int slotCapacity = NextPowerOfTwo(Math.Max(128, maxNodes * 8));
+            if (slotStamps.Length < slotCapacity)
+            {
+                slotStamps = new int[slotCapacity];
+                slotKeys = new int[slotCapacity];
+                slotCounts = new byte[slotCapacity];
+            }
+
+            if (slotLabels.Length < slotStamps.Length * maxLabels)
+            {
+                slotLabels = new int[slotStamps.Length * maxLabels];
+            }
+
+            slotMask = slotStamps.Length - 1;
+            stamp++;
+            if (stamp == 0)
+            {
+                Array.Clear(slotStamps, 0, slotStamps.Length);
+                stamp = 1;
+            }
+
+            nodeCount = 0;
+            heapCount = 0;
+            CapacityHit = false;
+        }
+
+        internal SearchNode GetNode(int index)
+        {
+            return nodes[index];
+        }
+
+        internal void AddStart(SearchNode node)
+        {
+            int index = Allocate(node);
+            int slot = FindSlot(node.TileId);
+            slotCounts[slot] = 1;
+            slotLabels[slot * maxLabels] = index;
+            Enqueue(index);
+        }
+
+        internal bool TryAdd(SearchNode candidate)
+        {
+            int slot = FindSlot(candidate.TileId);
+            int offset = slot * maxLabels;
+            int count = slotCounts[slot];
+            for (int i = 0; i < count; i++)
+            {
+                SearchNode existing = nodes[slotLabels[offset + i]];
+                if (existing.Active && Dominates(existing, candidate)) return false;
+            }
+
+            int write = 0;
+            for (int i = 0; i < count; i++)
+            {
+                int existingIndex = slotLabels[offset + i];
+                SearchNode existing = nodes[existingIndex];
+                if (existing.Active && Dominates(candidate, existing))
+                {
+                    nodes[existingIndex].Active = false;
+                    continue;
+                }
+
+                slotLabels[offset + write++] = existingIndex;
+            }
+
+            count = write;
+            if (count >= maxLabels)
+            {
+                int worstPosition = -1;
+                float worstScore = candidate.F;
+                for (int i = 0; i < count; i++)
+                {
+                    float score = nodes[slotLabels[offset + i]].F;
+                    if (score <= worstScore) continue;
+                    worstScore = score;
+                    worstPosition = i;
+                }
+
+                if (worstPosition < 0) return false;
+                nodes[slotLabels[offset + worstPosition]].Active = false;
+                for (int i = worstPosition; i < count - 1; i++)
+                {
+                    slotLabels[offset + i] = slotLabels[offset + i + 1];
+                }
+
+                count--;
+            }
+
+            if (nodeCount >= nodes.Length)
+            {
+                CapacityHit = true;
+                return false;
+            }
+
+            int index = Allocate(candidate);
+            slotLabels[offset + count] = index;
+            slotCounts[slot] = (byte)(count + 1);
+            Enqueue(index);
+            return true;
+        }
+
+        internal bool TryDequeue(out int nodeIndex)
+        {
+            while (heapCount > 0)
+            {
+                nodeIndex = heap[0];
+                heapCount--;
+                if (heapCount > 0)
+                {
+                    int replacement = heap[heapCount];
+                    int index = 0;
+                    while (true)
+                    {
+                        int left = index * 2 + 1;
+                        if (left >= heapCount) break;
+                        int right = left + 1;
+                        int child = right < heapCount && Compare(heap[right], heap[left]) < 0 ? right : left;
+                        if (Compare(replacement, heap[child]) <= 0) break;
+                        heap[index] = heap[child];
+                        index = child;
+                    }
+
+                    heap[index] = replacement;
+                }
+
+                if (nodes[nodeIndex].Active) return true;
+            }
+
+            nodeIndex = -1;
+            return false;
+        }
+
+        internal PathStep[] BuildPath(int targetIndex)
+        {
+            int count = 0;
+            for (int index = targetIndex; index >= 0 && nodes[index].ParentIndex >= 0;
+                 index = nodes[index].ParentIndex)
+            {
+                count++;
+            }
+
+            var result = new PathStep[count];
+            int write = count - 1;
+            for (int index = targetIndex; index >= 0 && nodes[index].ParentIndex >= 0;
+                 index = nodes[index].ParentIndex)
+            {
+                SearchNode node = nodes[index];
+                result[write--] = new PathStep(node.TileId, node.Method, node.Estimate,
+                    plannedTileFlags: node.PlannedTileFlags);
+            }
+
+            return result;
+        }
+
+        private int Allocate(SearchNode node)
+        {
+            int index = nodeCount++;
+            nodes[index] = node;
+            return index;
+        }
+
+        private int FindSlot(int tileId)
+        {
+            int slot = unchecked(tileId * -1640531527) & slotMask;
+            while (slotStamps[slot] == stamp && slotKeys[slot] != tileId)
+            {
+                slot = (slot + 1) & slotMask;
+            }
+
+            if (slotStamps[slot] != stamp)
+            {
+                slotStamps[slot] = stamp;
+                slotKeys[slot] = tileId;
+                slotCounts[slot] = 0;
+            }
+
+            return slot;
+        }
+
+        private void Enqueue(int nodeIndex)
+        {
+            int index = heapCount++;
+            while (index > 0)
+            {
+                int parent = (index - 1) >> 1;
+                if (Compare(nodeIndex, heap[parent]) >= 0) break;
+                heap[index] = heap[parent];
+                index = parent;
+            }
+
+            heap[index] = nodeIndex;
+        }
+
+        private int Compare(int first, int second)
+        {
+            float firstF = nodes[first].F;
+            float secondF = nodes[second].F;
+            int result = firstF.CompareTo(secondF);
+            return result != 0 ? result : nodes[first].H.CompareTo(nodes[second].H);
+        }
+
+        private static bool Dominates(SearchNode first, SearchNode second)
+        {
+            return first.G <= second.G + 0.001f &&
+                   first.State.Stamina >= second.State.Stamina - 0.001f &&
+                   first.State.Health >= second.State.Health - 0.001f &&
+                   first.State.Risk <= second.State.Risk + 0.001f;
+        }
+
+        private static int NextPowerOfTwo(int value)
+        {
+            value--;
+            value |= value >> 1;
+            value |= value >> 2;
+            value |= value >> 4;
+            value |= value >> 8;
+            value |= value >> 16;
+            return value + 1;
+        }
+    }
+
+    private sealed class RegionCorridor
+    {
+        private readonly HashSet<int> regionIds;
+        private readonly int expansionDepth;
+        private readonly PathRegionTopology topology;
+
+        private RegionCorridor(HashSet<int> regionIds, int expansionDepth, PathRegionTopology topology)
+        {
+            this.regionIds = regionIds;
+            this.expansionDepth = expansionDepth;
+            this.topology = topology;
+        }
+
+        internal bool Contains(int regionId)
+        {
+            return regionId < 0 || regionIds.Contains(regionId);
+        }
+
+        internal static RegionCorridor Create(PathRegionTopology topology, int[] route)
+        {
+            var ids = new HashSet<int>(route);
+            AddNeighbourRing(topology, ids);
+            return new RegionCorridor(ids, 1, topology);
+        }
+
+        internal RegionCorridor Expand()
+        {
+            if (expansionDepth >= 2) return this;
+            var ids = new HashSet<int>(regionIds);
+            AddNeighbourRing(topology, ids);
+            return new RegionCorridor(ids, expansionDepth + 1, topology);
+        }
+
+        private static void AddNeighbourRing(PathRegionTopology topology, HashSet<int> ids)
+        {
+            var source = new int[ids.Count];
+            ids.CopyTo(source);
+            for (int i = 0; i < source.Length; i++)
+            {
+                if (!topology.TryGetRegion(source[i], out PathRegionSnapshot region)) continue;
+                for (int n = 0; n < region.Neighbours.Length; n++) ids.Add(region.Neighbours[n]);
+            }
+        }
+    }
+
+    private sealed class RegionRouteCache
+    {
+        private readonly int capacity;
+        private readonly object syncRoot = new();
+        private readonly Dictionary<RegionRouteKey, LinkedListNode<RegionRouteEntry>> entries = new();
+        private readonly LinkedList<RegionRouteEntry> lru = new();
+
+        internal RegionRouteCache(int capacity)
+        {
+            this.capacity = Math.Max(1, capacity);
+        }
+
+        internal int[] GetOrBuild(int gridIdentity, PathRegionTopology topology, int startRegion,
+            int targetRegion, int traversalClass)
+        {
+            var key = new RegionRouteKey(gridIdentity, topology.Revision, startRegion, targetRegion,
+                traversalClass);
+            lock (syncRoot)
+            {
+                if (entries.TryGetValue(key, out LinkedListNode<RegionRouteEntry> cached))
+                {
+                    lru.Remove(cached);
+                    lru.AddFirst(cached);
+                    return cached.Value.Route;
+                }
+            }
+
+            int[] route = BuildRoute(topology, startRegion, targetRegion);
+            lock (syncRoot)
+            {
+                if (entries.TryGetValue(key, out LinkedListNode<RegionRouteEntry> existing))
+                {
+                    lru.Remove(existing);
+                    lru.AddFirst(existing);
+                    return existing.Value.Route;
+                }
+
+                var node = new LinkedListNode<RegionRouteEntry>(new RegionRouteEntry(key, route));
+                lru.AddFirst(node);
+                entries.Add(key, node);
+                while (entries.Count > capacity)
+                {
+                    LinkedListNode<RegionRouteEntry> last = lru.Last;
+                    if (last == null) break;
+                    lru.RemoveLast();
+                    entries.Remove(last.Value.Key);
+                }
+            }
+
+            return route;
+        }
+
+        private static int[] BuildRoute(PathRegionTopology topology, int startRegion, int targetRegion)
+        {
+            if (startRegion == targetRegion) return new[] { startRegion };
+            if (!topology.TryGetRegion(startRegion, out _) || !topology.TryGetRegion(targetRegion, out _))
+            {
+                return null;
+            }
+
+            var parents = new Dictionary<int, int>();
+            var queue = new Queue<int>();
+            parents[startRegion] = int.MinValue;
+            queue.Enqueue(startRegion);
+            while (queue.Count > 0)
+            {
+                int current = queue.Dequeue();
+                if (!topology.TryGetRegion(current, out PathRegionSnapshot region)) continue;
+                for (int i = 0; i < region.Neighbours.Length; i++)
+                {
+                    int neighbour = region.Neighbours[i];
+                    if (parents.ContainsKey(neighbour)) continue;
+                    parents[neighbour] = current;
+                    if (neighbour == targetRegion)
+                    {
+                        return Reconstruct(parents, startRegion, targetRegion);
+                    }
+
+                    queue.Enqueue(neighbour);
+                }
+            }
+
+            return null;
+        }
+
+        private static int[] Reconstruct(Dictionary<int, int> parents, int startRegion, int targetRegion)
+        {
+            var reversed = new List<int>();
+            int current = targetRegion;
+            while (current != int.MinValue)
+            {
+                reversed.Add(current);
+                if (current == startRegion) break;
+                if (!parents.TryGetValue(current, out current)) return null;
+            }
+
+            reversed.Reverse();
+            return reversed.ToArray();
+        }
+
+        private readonly struct RegionRouteKey : IEquatable<RegionRouteKey>
+        {
+            internal RegionRouteKey(int gridIdentity, int revision, int start, int target, int traversalClass)
+            {
+                GridIdentity = gridIdentity;
+                Revision = revision;
+                Start = start;
+                Target = target;
+                TraversalClass = traversalClass;
+            }
+
+            private int GridIdentity { get; }
+            private int Revision { get; }
+            private int Start { get; }
+            private int Target { get; }
+            private int TraversalClass { get; }
+
+            public bool Equals(RegionRouteKey other)
+            {
+                return GridIdentity == other.GridIdentity && Revision == other.Revision && Start == other.Start &&
+                       Target == other.Target && TraversalClass == other.TraversalClass;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is RegionRouteKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int hash = GridIdentity;
+                    hash = hash * 397 ^ Revision;
+                    hash = hash * 397 ^ Start;
+                    hash = hash * 397 ^ Target;
+                    hash = hash * 397 ^ TraversalClass;
+                    return hash;
+                }
+            }
+        }
+
+        private readonly struct RegionRouteEntry
+        {
+            internal RegionRouteEntry(RegionRouteKey key, int[] route)
+            {
+                Key = key;
+                Route = route;
+            }
+
+            internal RegionRouteKey Key { get; }
+            internal int[] Route { get; }
         }
     }
 
@@ -712,44 +1193,41 @@ public class PortalAwarePathGenerator : IPathGenerator
         }
 
         private PathfindingConfig Config { get; }
-        public bool IgnoreBlocks { get; private set; }
-        public bool DieOnBlocks { get; private set; }
-        public bool IsBoat { get; private set; }
-        public bool IsWaterCreature { get; private set; }
-        public bool IsFlying { get; private set; }
-        public bool IsFireImmune { get; private set; }
-        public bool IsDamagedByOcean { get; private set; }
-        public bool IsLavaDamaging { get; private set; }
-        public bool HasFastSwimming { get; private set; }
-        public int MaxLabelsPerTile { get; private set; }
-        public int MaxNodesShort { get; private set; }
-        public int MaxNodesLong { get; private set; }
-        public int MaxNodesLongFallback { get; private set; }
-        public int FallbackCorridorMinDetour { get; private set; }
-        public float FallbackCorridorDetourScale { get; private set; }
-        public float CurrentStamina { get; private set; }
-        public float MaxStamina { get; private set; }
-        public float CurrentHealth { get; private set; }
-        public float MaxHealth { get; private set; }
-        public float LowHealthThreshold { get; private set; }
-        public float WalkSpeed { get; private set; }
-        public float SwimSpeed { get; private set; }
-        public float SailSpeed { get; private set; }
-        public float BestCaseSpeed { get; private set; }
-        public float PowerLevel { get; private set; }
-        public float StaminaRegenPerSecond { get; private set; }
-        public float WaterStaminaDrainPerSecond { get; private set; }
-        public float DrowningDamagePerSecond { get; private set; }
-        public float WaterDamagePerSecond { get; private set; }
-        public float TerrainDamageTicksPerSecond { get; private set; }
-        public float BlockDamagePerSecond { get; private set; }
-        public float BlockRiskCost { get; private set; }
-        public float FireRiskCost { get; private set; }
-        public float OceanRiskCost { get; private set; }
-        public float LavaRiskCost { get; private set; }
-        public float TerrainDamageRiskCost { get; private set; }
+        internal bool IgnoreBlocks { get; private set; }
+        internal bool DieOnBlocks { get; private set; }
+        internal bool IsBoat { get; private set; }
+        internal bool IsWaterCreature { get; private set; }
+        internal bool IsFlying { get; private set; }
+        internal bool IsFireImmune { get; private set; }
+        internal bool IsDamagedByOcean { get; private set; }
+        internal bool IsLavaDamaging { get; private set; }
+        internal bool HasFastSwimming { get; private set; }
+        internal bool PreferWater { get; private set; }
+        internal bool AllowLava { get; private set; }
+        internal int MaxLabelsPerTile { get; private set; }
+        internal float CurrentStamina { get; private set; }
+        internal float MaxStamina { get; private set; }
+        internal float CurrentHealth { get; private set; }
+        internal float MaxHealth { get; private set; }
+        internal float LowHealthThreshold { get; private set; }
+        internal float WalkSpeed { get; private set; }
+        internal float SwimSpeed { get; private set; }
+        internal float SailSpeed { get; private set; }
+        internal float BestCaseSpeed { get; private set; }
+        internal float PowerLevel { get; private set; }
+        internal float StaminaRegenPerSecond { get; private set; }
+        internal float WaterStaminaDrainPerSecond { get; private set; }
+        internal float DrowningDamagePerSecond { get; private set; }
+        internal float WaterDamagePerSecond { get; private set; }
+        internal float TerrainDamageTicksPerSecond { get; private set; }
+        internal float BlockDamagePerSecond { get; private set; }
+        internal float BlockRiskCost { get; private set; }
+        internal float FireRiskCost { get; private set; }
+        internal float OceanRiskCost { get; private set; }
+        internal float LavaRiskCost { get; private set; }
+        internal float TerrainDamageRiskCost { get; private set; }
 
-        public static MovementProfile Build(PathRequest request, PathfindingConfig config)
+        internal static MovementProfile Build(PathRequest request, PathfindingConfig config)
         {
             config ??= PathfindingConfig.Default;
             var profile = new MovementProfile(config)
@@ -763,12 +1241,9 @@ public class PortalAwarePathGenerator : IPathGenerator
                 IsDamagedByOcean = request.ActorIsDamagedByOcean,
                 HasFastSwimming = request.ActorHasFastSwimming,
                 IsLavaDamaging = request.ActorIsLavaDamaging,
-                MaxLabelsPerTile = Mathf.Max(1, config.MaxLabelsPerTile),
-                MaxNodesShort = config.MaxNodesShort,
-                MaxNodesLong = config.MaxNodesLong,
-                MaxNodesLongFallback = config.MaxNodesLongFallback,
-                FallbackCorridorMinDetour = config.FallbackCorridorMinDetour,
-                FallbackCorridorDetourScale = config.FallbackCorridorDetourScale,
+                PreferWater = request.PathOnWater,
+                AllowLava = request.WalkOnLava || request.ActorIsFireImmune,
+                MaxLabelsPerTile = Mathf.Clamp(config.MaxLabelsPerTile, 1, 4),
                 CurrentStamina = request.ActorCurrentStamina,
                 MaxStamina = Mathf.Max(1f, request.ActorMaxStamina),
                 CurrentHealth = request.ActorCurrentHealth,
@@ -789,8 +1264,7 @@ public class PortalAwarePathGenerator : IPathGenerator
             profile.WaterDamagePerSecond = request.ActorWaterDamagePerSecond > 0f
                 ? request.ActorWaterDamagePerSecond
                 : profile.MaxHealth * 0.1f * 3.333f;
-
-            var baseSpeed = request.ActorBaseSpeed;
+            float baseSpeed = request.ActorBaseSpeed;
             profile.WalkSpeed = Mathf.Max(0.1f, baseSpeed * config.WalkSpeedScale);
             profile.SwimSpeed = Mathf.Max(0.05f, profile.WalkSpeed * config.SwimSpeedScale);
             profile.SailSpeed = Mathf.Max(0.05f, profile.WalkSpeed * config.SailSpeedScale);
@@ -809,84 +1283,66 @@ public class PortalAwarePathGenerator : IPathGenerator
                 profile.TerrainDamageRiskCost *= 0.25f;
             }
 
-            profile.BestCaseSpeed = Mathf.Max(profile.WalkSpeed, Mathf.Max(profile.SwimSpeed, profile.SailSpeed));
+            profile.BestCaseSpeed = Mathf.Max(profile.WalkSpeed,
+                Mathf.Max(profile.SwimSpeed, profile.SailSpeed));
             return profile;
         }
 
-        public float GetSpeed(TileTraversalInfo type, MovementMethod method, TraversalState state)
+        internal float GetSpeed(PathTileSnapshot tile, MovementMethod method, TraversalState state)
         {
-            var speed = method switch
+            float speed = method switch
             {
                 MovementMethod.Swim => IsBoat ? SailSpeed : SwimSpeed,
                 MovementMethod.Portal => SailSpeed,
                 _ => WalkSpeed
             };
 
-            if (type.HasType && !IsFlying && !IsWaterCreature && method == MovementMethod.Walk)
+            if (tile.HasType && !IsFlying && !IsWaterCreature && method == MovementMethod.Walk)
             {
-                speed *= Mathf.Max(type.WalkMultiplier, 0.05f);
+                speed *= Mathf.Max(tile.WalkMultiplier, 0.05f);
             }
 
-            if (type.Lava && !IsFlying && !IsWaterCreature)
+            if (tile.Lava && !IsFlying && !IsWaterCreature)
             {
-                speed *= Mathf.Max(type.WalkMultiplier, 0.05f);
+                speed *= Mathf.Max(tile.WalkMultiplier, 0.05f);
             }
 
-            if (method == MovementMethod.Swim && !IsWaterCreature && !IsBoat && state.Stamina <= 0f && !HasFastSwimming)
+            if (method == MovementMethod.Swim && !IsWaterCreature && !IsBoat && state.Stamina <= 0f &&
+                !HasFastSwimming)
             {
                 speed *= Config.ExhaustedSwimSpeedScale;
             }
 
-            if (IsBoat && type.HasType && !type.Ocean)
-            {
-                speed *= 0.05f;
-            }
-
+            if (IsBoat && tile.HasType && !tile.Ocean) speed *= 0.05f;
             return Mathf.Max(speed, 0.01f);
         }
 
-        public float EstimateOpenTerrainCost(int distance)
+        internal float EstimateOpenTerrainCost(int distance)
         {
             return distance / Mathf.Max(WalkSpeed, 0.01f);
         }
 
-        public float EstimateEnvironmentalDamage(float rawDamage)
+        internal float EstimateEnvironmentalDamage(float rawDamage)
         {
-            if (rawDamage <= 0f)
-            {
-                return 0f;
-            }
-
-            if (PowerLevel <= 0f)
-            {
-                return rawDamage;
-            }
-
-            var divisor = Mathf.Pow(DamageCalcHyperParameters.PowerBase, PowerLevel);
-            var adjusted = Mathf.Log(Mathf.Max(rawDamage, 1f), divisor);
-            if (adjusted < 1f)
-            {
-                return 0f;
-            }
-
-            var floor = rawDamage * Config.XianEnvironmentalDamageFloor;
-            return Mathf.Max(adjusted, floor);
+            if (rawDamage <= 0f) return 0f;
+            if (PowerLevel <= 0f) return rawDamage;
+            float divisor = Mathf.Pow(DamageCalcHyperParameters.PowerBase, PowerLevel);
+            float adjusted = Mathf.Log(Mathf.Max(rawDamage, 1f), divisor);
+            if (adjusted < 1f) return 0f;
+            return Mathf.Max(adjusted, rawDamage * Config.XianEnvironmentalDamageFloor);
         }
 
-        public float CostOf(TraversalEstimate estimate, TraversalState nextState)
+        internal float CostOf(TraversalEstimate estimate, TraversalState nextState)
         {
-            var cost = estimate.TimeSeconds
-                       + estimate.StaminaCost * Config.StaminaCostWeight
-                       + estimate.HealthCost * Config.HealthCostWeight
-                       + estimate.RiskCost;
-
+            float cost = estimate.TimeSeconds + estimate.StaminaCost * Config.StaminaCostWeight +
+                         estimate.HealthCost * Config.HealthCostWeight + estimate.RiskCost;
             if (nextState.Health <= 0f)
             {
                 cost += Config.DeathRiskCost;
             }
             else if (nextState.Health <= LowHealthThreshold)
             {
-                var missing = Mathf.Clamp01((LowHealthThreshold - nextState.Health) / LowHealthThreshold);
+                float missing = Mathf.Clamp01((LowHealthThreshold - nextState.Health) / LowHealthThreshold);
                 cost += Config.LowHealthRiskCost * (0.25f + missing);
             }
 

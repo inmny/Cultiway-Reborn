@@ -10,18 +10,26 @@ public sealed class PathStream : IPathStreamWriter
 {
     private readonly ConcurrentQueue<PathStep> _steps = new();
     private int _status;
+    private int _pendingCount;
     private PathFailureReason _failureReason;
     private Exception _error;
 
     public void AddStep(PathStep step)
     {
         if (!step.HasTile || IsFinalized) return;
+        Interlocked.Increment(ref _pendingCount);
         _steps.Enqueue(step);
     }
 
     public bool TryDequeue(out PathStep step)
     {
-        return _steps.TryDequeue(out step);
+        if (!_steps.TryDequeue(out step))
+        {
+            return false;
+        }
+
+        Interlocked.Decrement(ref _pendingCount);
+        return true;
     }
 
     public List<PathStep> TryViewAll()
@@ -75,7 +83,7 @@ public sealed class PathStream : IPathStreamWriter
     }
 
     public bool HasPendingSteps => !_steps.IsEmpty;
-    public int PendingCount => _steps.Count;
+    public int PendingCount => Volatile.Read(ref _pendingCount);
     public PathRequestState State
     {
         get
@@ -91,10 +99,10 @@ public sealed class PathStream : IPathStreamWriter
             };
         }
     }
-    public bool IsFinalized => _status != 0;
+    public bool IsFinalized => Volatile.Read(ref _status) != 0;
     public bool IsFinished => IsFinalized && _steps.IsEmpty;
-    public bool IsFaulted => _status == 3;
-    public bool IsCancelled => _status == 2;
+    public bool IsFaulted => Volatile.Read(ref _status) == 3;
+    public bool IsCancelled => Volatile.Read(ref _status) == 2;
     public PathFailureReason FailureReason => _failureReason;
     public Exception Error => _error;
 }

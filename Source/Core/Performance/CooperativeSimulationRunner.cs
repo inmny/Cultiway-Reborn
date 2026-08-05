@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Const;
+using Cultiway.Core.Pathfinding;
 using life.taxi;
 
 namespace Cultiway.Core.Performance;
@@ -612,6 +613,7 @@ internal sealed class CooperativeSimulationRunner
     private void CompleteCycle()
     {
         SimulationTime.CompleteTick(world);
+        PathFinder.Instance.Tick();
         SimulationTickBenchmark.MarkTickCompleted();
         mapLayers.Clear();
         mapModules.Clear();

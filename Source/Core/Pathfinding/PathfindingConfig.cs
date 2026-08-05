@@ -8,9 +8,11 @@ public class PathfindingConfig
     public int LongRangeTiles { get; set; } = 96;
     public int MaxNodesShort { get; set; } = 3000;
     public int MaxNodesLong { get; set; } = 12000;
-    public int MaxNodesLongFallback { get; set; } = 60000;
-    public int FallbackCorridorMinDetour { get; set; } = 32;
-    public float FallbackCorridorDetourScale { get; set; } = 0.75f;
+    public int SegmentTargetSteps { get; set; } = 24;
+    public int SegmentLowWatermark { get; set; } = 8;
+    public int RegionRouteCacheSize { get; set; } = 512;
+    public float LongRangeHeuristicWeight { get; set; } = 1.15f;
+    public int RegionCorridorLookaheadTiles { get; set; } = 64;
     public int PortalCandidates { get; set; } = 2;
     public int PortalSearchRadius { get; set; } = 64;
     public float WalkSpeedScale { get; set; } = 0.4f;

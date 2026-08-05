@@ -170,7 +170,10 @@ namespace Cultiway
                             .Append(FramePriorityGovernor.GetDiagnostics())
                             .AppendLine()
                             .Append("  [SimulationWorkerPool] ")
-                            .Append(SimulationWorkerPool.Instance.GetDiagnostics());
+                            .Append(SimulationWorkerPool.Instance.GetDiagnostics())
+                            .AppendLine()
+                            .Append("  [PathFinder] ")
+                            .Append(PathFinder.Instance.GetDiagnostics());
                         SimulationTickBenchmark.AppendReport(diagnostics);
                         LogInfo(diagnostics.ToString());
                     }
@@ -518,16 +521,20 @@ namespace Cultiway
                 ArtifactAppearanceRuntimePreviewExporter.Install(gameObject, GetDeclaration().FolderPath);
             }
             PerformanceBenchmarkRunner.Install(gameObject);
-            PathFinder.Instance.UseGenerator(new PortalAwarePathGenerator(PortalRegistry.Instance, new PathfindingConfig()));
+            PathFinder.Instance.UseGenerator(new PortalAwarePathGenerator(PortalRegistry.Instance,
+                PathfindingConfig.Default));
+            PathFinder.Instance.Initialize();
             if (Config.game_loaded && !SmoothLoader.isLoading() && World.world?.map_stats != null)
             {
                 PerformanceSettings.ApplyParallelBudget(World.world);
                 SimulationTime.BindWorld(World.world);
+                PathNavigationGridService.BuildForCurrentWorld();
             }
         }
 
         private void OnApplicationQuit()
         {
+            PathFinder.Instance.Shutdown();
             PersistentLogger.Save();
             CultiLog.Shutdown();
         }

@@ -14,12 +14,15 @@ public sealed class PathRequest
         Actor = actor;
         var start = actor?.current_tile;
         Target = target;
+        ActorId = actor?.data?.id ?? 0;
         PathOnWater = pathOnWater;
         WalkOnBlocks = walkOnBlocks;
         WalkOnLava = walkOnLava;
         RegionLimit = regionLimit;
         StartTileId = TileTraversalInfo.TileIdOf(start);
         TargetTileId = TileTraversalInfo.TileIdOf(Target);
+        NavigationGrid = PathNavigationGridService.Current;
+        WorldGeneration = NavigationGrid?.Generation ?? -1;
         var movementSnapshot = SnapshotActorMovement(actor);
         ActorIgnoresBlocks = movementSnapshot.IgnoresBlocks;
         ActorDiesOnBlocks = movementSnapshot.DiesOnBlocks;
@@ -42,14 +45,51 @@ public sealed class PathRequest
         ActorHasXianCultisys = extendSnapshot.HasXianCultisys;
     }
 
+    private PathRequest(PathRequest source, int startTileId, PathNavigationGrid navigationGrid,
+        float currentStamina, float currentHealth)
+    {
+        Actor = source.Actor;
+        Target = source.Target;
+        ActorId = source.ActorId;
+        PathOnWater = source.PathOnWater;
+        WalkOnBlocks = source.WalkOnBlocks;
+        WalkOnLava = source.WalkOnLava;
+        RegionLimit = source.RegionLimit;
+        StartTileId = startTileId;
+        TargetTileId = source.TargetTileId;
+        NavigationGrid = navigationGrid;
+        WorldGeneration = navigationGrid?.Generation ?? source.WorldGeneration;
+        ActorIgnoresBlocks = source.ActorIgnoresBlocks;
+        ActorDiesOnBlocks = source.ActorDiesOnBlocks;
+        ActorIsBoat = source.ActorIsBoat;
+        ActorIsWaterCreature = source.ActorIsWaterCreature;
+        ActorIsFlying = source.ActorIsFlying;
+        ActorIsFireImmune = source.ActorIsFireImmune;
+        ActorIsDamagedByOcean = source.ActorIsDamagedByOcean;
+        ActorHasFastSwimming = source.ActorHasFastSwimming;
+        ActorIsLavaDamaging = source.ActorIsLavaDamaging;
+        ActorCurrentStamina = currentStamina;
+        ActorMaxStamina = source.ActorMaxStamina;
+        ActorCurrentHealth = currentHealth;
+        ActorMaxHealth = source.ActorMaxHealth;
+        ActorBaseSpeed = source.ActorBaseSpeed;
+        ActorWaterDamagePerSecond = source.ActorWaterDamagePerSecond;
+        StaminaRegenPerSecond = source.StaminaRegenPerSecond;
+        ActorPowerLevel = source.ActorPowerLevel;
+        ActorHasXianCultisys = source.ActorHasXianCultisys;
+    }
+
     public Actor Actor { get; }
     public WorldTile Target { get; }
+    public long ActorId { get; }
     public bool PathOnWater { get; }
     public bool WalkOnBlocks { get; }
     public bool WalkOnLava { get; }
     public int RegionLimit { get; }
     public int StartTileId { get; }
     public int TargetTileId { get; }
+    internal PathNavigationGrid NavigationGrid { get; }
+    internal int WorldGeneration { get; }
     public bool ActorIgnoresBlocks { get; }
     public bool ActorDiesOnBlocks { get; }
     public bool ActorIsBoat { get; }
@@ -68,6 +108,15 @@ public sealed class PathRequest
     public float StaminaRegenPerSecond { get; }
     public float ActorPowerLevel { get; }
     public bool ActorHasXianCultisys { get; }
+
+    /// <summary>
+    /// 为下一局部分段绑定起点、资源估值与当前世界导航缓存。
+    /// </summary>
+    internal PathRequest WithStart(int startTileId, PathNavigationGrid navigationGrid,
+        float currentStamina, float currentHealth)
+    {
+        return new PathRequest(this, startTileId, navigationGrid, currentStamina, currentHealth);
+    }
 
     public bool HasSameTargetAndOptions(WorldTile target, bool pathOnWater, bool walkOnBlocks, bool walkOnLava,
         int regionLimit)

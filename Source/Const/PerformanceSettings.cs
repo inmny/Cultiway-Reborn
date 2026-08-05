@@ -23,7 +23,7 @@ public static class PerformanceSettings
 
     public static int TotalParallelBudget => Math.Max(1, Environment.ProcessorCount - 2);
     public static int PathfindingWorkerCount =>
-        Math.Min(4, Math.Max(1, TotalParallelBudget / 4));
+        Math.Min(8, Math.Max(1, (TotalParallelBudget + 2) / 3));
     public static int ForegroundParallelism =>
         Math.Max(1, TotalParallelBudget - PathfindingWorkerCount);
 

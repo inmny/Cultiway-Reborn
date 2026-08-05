@@ -15,10 +15,11 @@ public readonly struct PathStep
         Estimate = estimate;
         Entry = entry;
         Exit = exit;
+        PlannedTileFlags = PathTileSnapshot.Capture(tile).Flags;
     }
 
     internal PathStep(int tileId, MovementMethod method, TraversalEstimate estimate = default,
-        PortalDefinition entry = null, PortalDefinition exit = null)
+        PortalDefinition entry = null, PortalDefinition exit = null, PathTileFlags plannedTileFlags = default)
     {
         _tile = null;
         TileId = tileId;
@@ -26,6 +27,7 @@ public readonly struct PathStep
         Estimate = estimate;
         Entry = entry;
         Exit = exit;
+        PlannedTileFlags = plannedTileFlags;
     }
 
     public int TileId { get; }
@@ -36,6 +38,7 @@ public readonly struct PathStep
     public HazardFlags Hazards => Estimate.Hazards;
     public PortalDefinition Entry {get;}
     public PortalDefinition Exit {get;}
+    internal PathTileFlags PlannedTileFlags { get; }
 
     private static WorldTile ResolveTile(int tileId)
     {

@@ -26,6 +26,10 @@ namespace Cultiway.Patch
         private const float DiagonalTileDistance = 1.41421356237f;
         private const float CalibrationRepeatCooldownSeconds = 0.25f;
         private const string SocializeGoToTargetTaskId = "socialize_go_to_target";
+        private const PathTileFlags RuntimeTileFlags = PathTileFlags.HasType | PathTileFlags.Block |
+                                                       PathTileFlags.Lava | PathTileFlags.Ocean |
+                                                       PathTileFlags.Liquid | PathTileFlags.DamageUnits |
+                                                       PathTileFlags.Fire;
         private static readonly ConcurrentDictionary<long, CalibrationState> CalibrationStates = new();
 
         /**寻路调整方案
@@ -72,12 +76,11 @@ namespace Cultiway.Patch
 
             long setupStartedAt = measurement.StartSegment();
             __instance.setTileTarget(pTile);
-            __instance.next_step_position = __instance.current_tile?.posV3 ?? __instance.next_step_position;
-            __instance.setNotMoving();
             measurement.CompleteSegment(GoToTraceSegment.Setup, setupStartedAt);
 
             long requestStartedAt = measurement.StartSegment();
-            bool requested = PathFinder.Instance.RequestPath(
+            bool wasMoving = __instance.is_moving;
+            PathSubmissionResult submission = PathFinder.Instance.RequestPathDetailed(
                 __instance,
                 pTile,
                 pPathOnWater,
@@ -85,8 +88,14 @@ namespace Cultiway.Patch
                 pWalkOnLava,
                 pLimitPathfindingRegions);
             measurement.CompleteSegment(GoToTraceSegment.Request, requestStartedAt);
-            __result = requested ? ExecuteEvent.True : ExecuteEvent.False;
-            measurement.Complete(requested ? GoToTraceOutcome.Requested : GoToTraceOutcome.Rejected);
+            if (submission.Accepted && !wasMoving && submission.Kind != PathSubmissionKind.Reused)
+            {
+                __instance.next_step_position = __instance.current_tile?.posV3 ?? __instance.next_step_position;
+                __instance.setNotMoving();
+            }
+
+            __result = submission.Accepted ? ExecuteEvent.True : ExecuteEvent.False;
+            measurement.Complete(submission.Accepted ? GoToTraceOutcome.Requested : GoToTraceOutcome.Rejected);
             return false;
         }
 
@@ -135,13 +144,9 @@ namespace Cultiway.Patch
                         {
                             PathFinder.Instance.ConsumeStep(actor);
                         }
-
-                        PathRecoveryManager.OnProgress(actor);
                         break;
                     case PathProcessKind.Abort:
-                        PathFinder.Instance.Cancel(actor);
-                        cursor = default;
-                        HandlePathFailure(actor, stepResult.FailureReason);
+                        HandlePathFailure(actor, stepResult.FailureReason, true, ref cursor);
                         break;
                     case PathProcessKind.Deferred:
                         actor.timer_action = 1f;
@@ -154,7 +159,6 @@ namespace Cultiway.Patch
                     PathFinder.Instance.Cancel(actor);
                     cursor = default;
                     actor.stopMovement();
-                    PathRecoveryManager.OnProgress(actor);
                 }
 
                 return true;
@@ -162,6 +166,26 @@ namespace Cultiway.Patch
 
             if (!handleNoRequest)
             {
+                if (poll.Kind == PathPollKind.Completed)
+                {
+                    bool acknowledged = cursor.Acknowledge();
+                    cursor = default;
+                    return !acknowledged;
+                }
+
+                if (poll.Kind == PathPollKind.Failed)
+                {
+                    HandlePathFailure(actor, poll.FailureReason, false, ref cursor);
+                    return true;
+                }
+
+                if (poll.Kind == PathPollKind.Cancelled)
+                {
+                    bool acknowledged = cursor.Acknowledge();
+                    cursor = default;
+                    return !acknowledged;
+                }
+
                 if (poll.Kind != PathPollKind.Waiting)
                 {
                     return false;
@@ -181,20 +205,19 @@ namespace Cultiway.Patch
                     actor.timer_action = 0.05f;
                     return true;
                 case PathPollKind.Completed:
-                    actor.setNotMoving();
-                    PathRecoveryManager.OnProgress(actor);
+                    if (cursor.Acknowledge()) actor.setNotMoving();
+                    cursor = default;
                     return true;
                 case PathPollKind.Failed:
-                    HandlePathFailure(actor, poll.FailureReason);
+                    HandlePathFailure(actor, poll.FailureReason, false, ref cursor);
                     return true;
                 case PathPollKind.Cancelled:
-                    actor.setNotMoving();
-                    PathRecoveryManager.Clear(actor);
+                    if (cursor.Acknowledge()) actor.setNotMoving();
+                    cursor = default;
                     return true;
                 case PathPollKind.NoRequest:
                     actor.setNotMoving();
                     actor.timer_action = 1f;
-                    PathRecoveryManager.TryRequest(actor);
                     return true;
             }
 
@@ -345,15 +368,25 @@ namespace Cultiway.Patch
             }
         }
 
-        private static void HandlePathFailure(Actor actor, PathFailureReason reason)
+        private static void HandlePathFailure(Actor actor, PathFailureReason reason, bool allowRecovery,
+            ref PathFinder.ReadyPathCursor cursor)
         {
-            actor.setNotMoving();
-            if (PathRecoveryManager.OnFailureAndRecover(actor, reason))
+            bool recovered = allowRecovery && (cursor.IsValid
+                ? cursor.ScheduleRecovery(actor, reason)
+                : PathFinder.Instance.ScheduleRecovery(actor, reason));
+            if (recovered)
             {
+                actor.setNotMoving();
+                cursor = default;
                 return;
             }
 
-            PathRecoveryManager.Clear(actor);
+            bool acknowledged = cursor.IsValid
+                ? cursor.Acknowledge()
+                : PathFinder.Instance.Acknowledge(actor);
+            cursor = default;
+            if (!acknowledged) return;
+            actor.setNotMoving();
             if (CombatWorldService.ReportPathFailure(actor))
             {
                 return;
@@ -632,6 +665,8 @@ namespace Cultiway.Patch
             {
                 return;
             }
+            PathNavigationGridService.MarkTopologyDirty(dirtyRegions);
+            PathNavigationGridService.MarkTopologyDirty(dirtyLinks);
             __state = true;
         }
         [HarmonyPostfix, HarmonyPatch(typeof(MapChunkManager), nameof(MapChunkManager.updateDirty))]
@@ -942,6 +977,11 @@ namespace Cultiway.Patch
                 return PathProcessResult.Abort(PathFailureReason.UnsafeStep);
             }
 
+            if ((step.Hazards & HazardFlags.Direct) == 0 && HasPathRelevantTerrainChanged(step, tile))
+            {
+                return PathProcessResult.Abort(PathFailureReason.StepBlocked);
+            }
+
             if (isBoat && !tile.isGoodForBoat())
             {
                 actor.callbacks_cancel_path_movement?.Invoke(actor);
@@ -984,6 +1024,14 @@ namespace Cultiway.Patch
             }
 
             return PathProcessResult.Consumed();
+        }
+
+        /// <summary>检查路径生成后发生的地形语义变化，变化后的成本与风险交给重新寻路评估。</summary>
+        private static bool HasPathRelevantTerrainChanged(PathStep step, WorldTile tile)
+        {
+            PathTileFlags current = PathTileSnapshot.Capture(tile).Flags & RuntimeTileFlags;
+            PathTileFlags planned = step.PlannedTileFlags & RuntimeTileFlags;
+            return current != planned;
         }
 
         private readonly struct PathProcessResult

@@ -11,6 +11,44 @@ public enum PathRequestState
     Cancelled
 }
 
+/// <summary>
+/// 一个角色寻路会话的生命周期。会话可以跨越多个局部分段和多次自动重试。
+/// </summary>
+public enum PathSessionState
+{
+    Queued,
+    Searching,
+    Streaming,
+    RetryDelay,
+    Completed,
+    Failed,
+    Cancelled
+}
+
+/// <summary>
+/// 提交寻路请求后的实际处理方式。
+/// </summary>
+public enum PathSubmissionKind
+{
+    Rejected,
+    Reused,
+    Created,
+    Replaced
+}
+
+public readonly struct PathSubmissionResult
+{
+    public PathSubmissionResult(PathSubmissionKind kind, PathFailureReason failureReason = PathFailureReason.None)
+    {
+        Kind = kind;
+        FailureReason = failureReason;
+    }
+
+    public PathSubmissionKind Kind { get; }
+    public PathFailureReason FailureReason { get; }
+    public bool Accepted => Kind != PathSubmissionKind.Rejected;
+}
+
 public enum PathPollKind
 {
     StepReady,
@@ -27,6 +65,7 @@ public enum PathFailureReason
     InvalidActor,
     InvalidStart,
     InvalidTarget,
+    NavigationGridUnavailable,
     Unreachable,
     SearchLimitExceeded,
     UnsafeStep,
