@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using Cultiway.Core;
+using Cultiway.Core.Pathfinding;
 using Cultiway.Core.Performance;
 using Cultiway.Utils;
 using UnityEngine;
@@ -334,6 +335,7 @@ public sealed class PerformanceBenchmarkRunner : MonoBehaviour
         AppendBenchSummary(sb, "game_total", "game_total", "main", 12, DefaultGameTotalEntries);
         sb.Append("  scheduler ").Append(FramePriorityGovernor.GetDiagnostics()).AppendLine();
         sb.Append("  worker_pool ").Append(SimulationWorkerPool.Instance.GetDiagnostics()).AppendLine();
+        sb.Append("  pathfinder ").Append(PathFinder.Instance.GetDiagnostics()).AppendLine();
         SimulationTickBenchmark.AppendReport(sb, 12, 10);
         ModClass.LogInfo(sb.ToString());
     }
