@@ -20,6 +20,16 @@ internal static class PatchBuilding
         pDamage = AttackDamageScaleContext.Apply(pDamage);
     }
 
+    [HarmonyPostfix, HarmonyPatch(typeof(Building), nameof(Building.getHit))]
+    private static void getHit_skaven_alert_postfix(Building __instance, float pDamage, BaseSimObject pAttacker)
+    {
+        if (pDamage > 0f && __instance.asset == Buildings.SkavenBlight &&
+            SkavenEvolution.IsHostile(pAttacker, __instance.kingdom))
+        {
+            SkavenEvolution.AlertNest(__instance);
+        }
+    }
+
     [HarmonyTranspiler, HarmonyPatch(typeof(Building), nameof(Building.setBuilding))]
     private static IEnumerable<CodeInstruction> setBuilding_transpiler(IEnumerable<CodeInstruction> codes)
     {

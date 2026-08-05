@@ -1,7 +1,7 @@
 using Cultiway.Core;
 using Cultiway.Utils.Extension;
+using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Cultiway.Content;
 
@@ -13,6 +13,11 @@ public static class SkavenEvolution
     private const string GroupDataKey = "cultiway.skaven.group";
     private const string FormationSlotDataKey = "cultiway.skaven.formation_slot";
     private const string LeaderDataKeyPrefix = "cultiway.skaven.leader.";
+    private const string PatrolCountDataKey = "cultiway.skaven.patrol_count";
+    private const string MobilizedUntilDataKey = "cultiway.skaven.mobilized_until";
+    private const string CombatStartedDataKeyPrefix = "cultiway.skaven.combat_started.";
+    private const int UnresolvedCombatDuration = 8;
+    private const int MobilizationDuration = 45;
 
     private static readonly ActorAsset[] Levels =
     {
@@ -24,6 +29,7 @@ public static class SkavenEvolution
     public static void Init()
     {
         ActorExtend.RegisterActionOnKill(OnKill);
+        ActorExtend.RegisterActionOnBeAttacked(OnBeAttacked);
     }
 
     public static bool TryGetLeader(Actor actor, out Actor leader)
@@ -41,6 +47,66 @@ public static class SkavenEvolution
         leader = ElectLeader(source.id, group);
         source.data.set(leaderKey, leader?.data.id ?? -1L);
         return leader != null;
+    }
+
+    public static bool ShouldPatrol(Actor actor, Building source)
+    {
+        if (IsMobilized(source)) return true;
+
+        var group = GetOrAssignGroup(actor);
+        source.data.get(PatrolCountDataKey, out int patrolCount, 0);
+        if (patrolCount < 1 || patrolCount > 3)
+        {
+            patrolCount = Randy.randomInt(1, 4);
+            source.data.set(PatrolCountDataKey, patrolCount);
+        }
+
+        var firstGroup = (int)(source.id % GroupCount);
+        var distance = (group - firstGroup + GroupCount) % GroupCount;
+        return distance < patrolCount;
+    }
+
+    public static void UpdatePatrolCombatState(Actor leader, Building source)
+    {
+        if (!TryGetLeader(leader, out var elected) || elected != leader) return;
+
+        var group = GetOrAssignGroup(leader);
+        if (IsMobilized(source))
+        {
+            if (IsGroupInCombat(source.id, group)) AlertNest(source);
+            return;
+        }
+
+        var combatKey = CombatStartedDataKeyPrefix + group;
+        if (!IsGroupInCombat(source.id, group))
+        {
+            source.data.set(combatKey, -1);
+            return;
+        }
+
+        var now = (int)World.world.getCurWorldTime();
+        source.data.get(combatKey, out int combatStarted, -1);
+        if (combatStarted < 0)
+        {
+            source.data.set(combatKey, now);
+        }
+        else if (now - combatStarted >= UnresolvedCombatDuration)
+        {
+            AlertNest(source);
+        }
+    }
+
+    public static bool IsMobilized(Building source)
+    {
+        if (source == null || source.isRekt()) return false;
+        source.data.get(MobilizedUntilDataKey, out int mobilizedUntil, -1);
+        return mobilizedUntil > World.world.getCurWorldTime();
+    }
+
+    public static void AlertNest(Building source)
+    {
+        if (source == null || source.isRekt() || source.asset != Buildings.SkavenBlight) return;
+        source.data.set(MobilizedUntilDataKey, (int)World.world.getCurWorldTime() + MobilizationDuration);
     }
 
     public static bool IsGroupLeader(Actor actor)
@@ -109,6 +175,50 @@ public static class SkavenEvolution
         return group;
     }
 
+    private static bool IsGroupInCombat(long sourceId, int group)
+    {
+        var inCombat = false;
+        ForEachSkaven(candidate =>
+        {
+            if (inCombat || !IsValidGroupMember(candidate, sourceId, group)) return;
+            inCombat = candidate.has_attack_target && !candidate.attack_target.isRekt() ||
+                       candidate.ai.task?.in_combat == true;
+        });
+        return inCombat;
+    }
+
+    private static void OnBeAttacked(ActorExtend victim, BaseSimObject attacker, float damage)
+    {
+        var actor = victim.Base;
+        if (damage <= 0f || !IsSkaven(actor) || !IsHostile(attacker, actor.kingdom)) return;
+
+        var source = World.world.buildings.get(actor.GetSourceSpawnerId());
+        if (source == null || source.isRekt() || source.asset != Buildings.SkavenBlight) return;
+        if (IsMobilized(source))
+        {
+            AlertNest(source);
+            return;
+        }
+
+        var group = GetOrAssignGroup(actor);
+        var combatKey = CombatStartedDataKeyPrefix + group;
+        var now = (int)World.world.getCurWorldTime();
+        source.data.get(combatKey, out int combatStarted, -1);
+        if (combatStarted < 0)
+        {
+            source.data.set(combatKey, now);
+        }
+        else if (now - combatStarted >= UnresolvedCombatDuration)
+        {
+            AlertNest(source);
+        }
+    }
+
+    public static bool IsHostile(BaseSimObject attacker, Kingdom defender)
+    {
+        return attacker != null && attacker.kingdom != null && defender != null && defender.isEnemy(attacker.kingdom);
+    }
+
     private static Actor ElectLeader(long sourceId, int group)
     {
         Actor leader = null;
@@ -157,7 +267,12 @@ public static class SkavenEvolution
         for (var i = 0; i < Levels.Length - 1; i++)
         {
             if (actor.asset != Levels[i]) continue;
-            ActorTransformationService.TransformInPlace(actor, Levels[i + 1]);
+            var targetAsset = Levels[i + 1];
+            var transformed = ActorTransformationService.TransformInPlace(actor, targetAsset);
+            if (transformed != null && targetAsset.default_weapons is { Length: > 0 })
+            {
+                transformed.createNewWeapon(targetAsset.default_weapons[0]);
+            }
             return;
         }
     }
