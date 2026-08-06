@@ -1,4 +1,5 @@
 using Cultiway.Core.AIGCLib;
+using Cultiway.Core.Coordination;
 using Cultiway.Core.Semantics;
 
 namespace Cultiway.Core.Libraries;
@@ -30,6 +31,7 @@ public class Manager
     public SkillNameAtomLibrary SkillNameAtomLibrary { get; } = new();
     public SemanticFacetLibrary SemanticFacetLibrary { get; } = new();
     public SemanticLibrary SemanticLibrary { get; } = new();
+    public CoordinatedActivityDefinitionLibrary CoordinatedActivityDefinitionLibrary { get; } = new();
 
     public void Init()
     {
@@ -58,6 +60,7 @@ public class Manager
         AssetManager._instance.add(SkillNameAtomLibrary, "skill_name_atoms");
         AssetManager._instance.add(SemanticFacetLibrary, "semantic_facets");
         AssetManager._instance.add(SemanticLibrary, "semantics");
+        AssetManager._instance.add(CoordinatedActivityDefinitionLibrary, "coordinated_activity_definitions");
     }
 
     public void LinkAssets()
@@ -87,6 +90,7 @@ public class Manager
         SkillNameAtomLibrary.linkAssets();
         SemanticFacetLibrary.linkAssets();
         SemanticLibrary.linkAssets();
+        CoordinatedActivityDefinitionLibrary.linkAssets();
     }
     public void PostInit()
     {
@@ -115,5 +119,6 @@ public class Manager
         SkillNameAtomLibrary.post_init();
         SemanticFacetLibrary.post_init();
         SemanticLibrary.post_init();
+        CoordinatedActivityDefinitionLibrary.post_init();
     }
 }
