@@ -127,6 +127,21 @@ public sealed class CoordinationActivities : ExtendLibrary<CoordinatedActivityDe
                     ActorTasks.CoordinateSkavenPack.id,
                     ActorTasks.CoordinatedActivity.id
                 ]
+            },
+            new CoordinationRoleDefinition
+            {
+                Id = SkavenPackService.SlaveRoleId,
+                MinimumCount = 0,
+                MaximumCount = 1,
+                MinimumReadyCount = 0,
+                ParticipationMode = CoordinationParticipationMode.Forced,
+                AllowLateJoin = true,
+                ParticipantLifetime = CoordinationParticipantLifetime.ActivityBound,
+                ExecutionTaskIds =
+                [
+                    ActorTasks.CoordinateSkavenPack.id,
+                    ActorTasks.CoordinatedActivity.id
+                ]
             }
         ];
     }

@@ -23,20 +23,26 @@ public static class SkavenPackService
     /// <summary>鼠群普通成员席位标识。</summary>
     public const string MemberRoleId = "member";
 
+    /// <summary>每队唯一的奴隶鼠席位标识。</summary>
+    public const string SlaveRoleId = "slave";
+
     private const string ProviderId = "cultiway.skaven_pack";
     private const string GroupDataKey = "cultiway.skaven.group";
     private const string FormationSlotDataKey = "cultiway.skaven.formation_slot";
+    private const string SlaveDataKey = "cultiway.skaven.slave";
     private const double UnresolvedCombatDuration = 8d;
     private const double MobilizationDuration = 45d;
     private const double NestHeartbeat = 0.5d;
     private const int NestUpdateBudget = 8;
+    private const int OrphanAdoptionBudget = 8;
 
     private static readonly Vector2Int[] FormationOffsets =
     [
         new(-1, -1), new(0, -1), new(1, -1),
         new(-1, 0),               new(1, 0),
         new(-1, 1),  new(0, 1),   new(1, 1),
-        new(-2, 0),  new(2, 0),   new(0, -2), new(0, 2), new(-2, -2)
+        new(-2, 0),  new(2, 0),   new(0, -2), new(0, 2), new(-2, -2),
+        new(2, 2)
     ];
 
     private static readonly Dictionary<long, NestRuntime> Nests = new();
@@ -44,6 +50,8 @@ public static class SkavenPackService
     private static readonly Queue<long> DirtyNests = new();
     private static readonly HashSet<long> DirtyNestIds = new();
     private static readonly Queue<long> HeartbeatNests = new();
+    private static readonly Queue<long> OrphanActors = new();
+    private static readonly HashSet<long> OrphanActorIds = new();
 
     private static bool initialized;
     private static bool rebuildPending = true;
@@ -74,6 +82,20 @@ public static class SkavenPackService
 
         Building nest = ResolveNest(actor.GetSourceSpawnerId());
         if (nest == null) return false;
+        actor.data.get(SlaveDataKey, out int isSlave, 0);
+        if (isSlave == 1)
+        {
+            NestRuntime runtime = GetOrCreateNest(nest);
+            actor.data.get(GroupDataKey, out int preferredGroup, -1);
+            GroupRuntime slaveGroup = preferredGroup >= 0 && preferredGroup < runtime.Groups.Length &&
+                                      runtime.Groups[preferredGroup].SlaveId == 0 &&
+                                      runtime.Groups[preferredGroup].LeaderId > 0
+                ? runtime.Groups[preferredGroup]
+                : SelectSlaveGroup(runtime);
+            if (slaveGroup == null) return false;
+            RegisterSlave(nest, slaveGroup, actor);
+            return Memberships.ContainsKey(actorId);
+        }
         RegisterActor(nest, actor);
         return Memberships.ContainsKey(actorId);
     }
@@ -194,6 +216,7 @@ public static class SkavenPackService
             ProcessNest(nest, force: false);
             processed++;
         }
+        ProcessOrphanAdoptions();
     }
 
     /// <summary>世界进入可用状态后仅执行一次全量鼠人编组重建。</summary>
@@ -203,7 +226,8 @@ public static class SkavenPackService
         rebuildPending = false;
         SkavenEvolution.ForEachSkaven(actor =>
         {
-            if (!actor.isRekt()) EnsureRegistered(actor);
+            if (actor.isRekt()) return;
+            if (!EnsureRegistered(actor)) EnqueueOrphan(actor);
         });
     }
 
@@ -329,14 +353,99 @@ public static class SkavenPackService
         if (group == null) return;
         actor.data.get(FormationSlotDataKey, out int preferredSlot, -1);
         int slot = SelectSlot(group, preferredSlot);
-        var membership = new Membership(nest.NestId, group.Index, slot);
+        var membership = new Membership(nest.NestId, group.Index, slot, false);
         group.Members.Add(actorId, membership);
         group.UsedSlots[slot] = true;
         Memberships.Add(actorId, membership);
         actor.data.set(GroupDataKey, group.Index);
         actor.data.set(FormationSlotDataKey, slot);
+        actor.data.set(SlaveDataKey, 0);
         ElectLeader(group);
         MarkNestDirty(nest.NestId);
+    }
+
+    /// <summary>把失去来源巢穴的鼠人加入有界收留队列。</summary>
+    private static void EnqueueOrphan(Actor actor)
+    {
+        if (actor.isRekt() || !SkavenEvolution.IsSkaven(actor) ||
+            Memberships.ContainsKey(actor.getID()) || !OrphanActorIds.Add(actor.getID()))
+            return;
+        OrphanActors.Enqueue(actor.getID());
+    }
+
+    /// <summary>按预算为失巢鼠人寻找同岛最近的空闲奴隶鼠位。</summary>
+    private static void ProcessOrphanAdoptions()
+    {
+        int count = Math.Min(OrphanAdoptionBudget, OrphanActors.Count);
+        for (var i = 0; i < count; i++)
+        {
+            long actorId = OrphanActors.Dequeue();
+            OrphanActorIds.Remove(actorId);
+            Actor actor = ResolveActor(actorId);
+            if (actor.isRekt() || Memberships.ContainsKey(actorId)) continue;
+
+            Building nest = FindAdoptionNest(actor, out GroupRuntime group);
+            if (nest != null && group != null)
+            {
+                RegisterSlave(nest, group, actor);
+            }
+            else
+            {
+                EnqueueOrphan(actor);
+            }
+        }
+    }
+
+    /// <summary>查找同岛、已有正式成员且仍有奴隶鼠位的最近疫巢。</summary>
+    private static Building FindAdoptionNest(Actor actor, out GroupRuntime selectedGroup)
+    {
+        selectedGroup = null;
+        Building selectedNest = null;
+        float bestDistance = float.MaxValue;
+        foreach (NestRuntime runtime in Nests.Values)
+        {
+            Building nest = ResolveNest(runtime.NestId);
+            if (nest == null || actor.current_tile == null ||
+                !actor.current_tile.isSameIsland(nest.current_tile))
+                continue;
+
+            GroupRuntime group = SelectSlaveGroup(runtime);
+            if (group == null) continue;
+            float distance = Toolbox.SquaredDistVec2Float(actor.current_position, nest.current_position);
+            if (distance >= bestDistance) continue;
+            bestDistance = distance;
+            selectedNest = nest;
+            selectedGroup = group;
+        }
+        return selectedNest;
+    }
+
+    /// <summary>按小队编号选择第一个有正式队长且奴隶位空闲的小队。</summary>
+    private static GroupRuntime SelectSlaveGroup(NestRuntime nest)
+    {
+        for (var i = 0; i < nest.Groups.Length; i++)
+        {
+            GroupRuntime group = nest.Groups[i];
+            if (group.SlaveId == 0 && group.LeaderId > 0) return group;
+        }
+        return null;
+    }
+
+    /// <summary>将失巢鼠人绑定为指定小队的奴隶鼠，不占用正式成员槽。</summary>
+    private static void RegisterSlave(Building nest, GroupRuntime group, Actor actor)
+    {
+        long actorId = actor.getID();
+        if (group.SlaveId != 0 || Memberships.ContainsKey(actorId)) return;
+        var membership = new Membership(nest.id, group.Index, SkavenEvolution.GroupSize, true);
+        group.Members.Add(actorId, membership);
+        group.SlaveId = actorId;
+        Memberships.Add(actorId, membership);
+        actor.SetSourceSpawnerId(nest.id);
+        actor.SetSourceSpawnerAssetId(nest.asset.id);
+        actor.data.set(GroupDataKey, group.Index);
+        actor.data.set(FormationSlotDataKey, SkavenEvolution.GroupSize);
+        actor.data.set(SlaveDataKey, 1);
+        MarkNestDirty(nest.id);
     }
 
     /// <summary>从增量索引移除角色，并在必要时重新选举队长。</summary>
@@ -346,7 +455,9 @@ public static class SkavenPackService
         Memberships.Remove(actorId);
         if (!TryGetGroup(membership.NestId, membership.GroupIndex, out GroupRuntime group)) return;
         group.Members.Remove(actorId);
-        if (membership.Slot >= 0 && membership.Slot < group.UsedSlots.Length)
+        if (membership.IsSlave)
+            group.SlaveId = 0;
+        else if (membership.Slot >= 0 && membership.Slot < group.UsedSlots.Length)
             group.UsedSlots[membership.Slot] = false;
         if (group.LeaderId == actorId) ElectLeader(group);
         MarkNestDirty(membership.NestId);
@@ -371,14 +482,24 @@ public static class SkavenPackService
     private static GroupRuntime SelectGroup(NestRuntime nest, int preferredGroup)
     {
         if (preferredGroup >= 0 && preferredGroup < nest.Groups.Length &&
-            nest.Groups[preferredGroup].Members.Count < SkavenEvolution.GroupSize)
+            HasFreeMemberSlot(nest.Groups[preferredGroup]))
             return nest.Groups[preferredGroup];
         for (var i = 0; i < nest.Groups.Length; i++)
         {
             GroupRuntime candidate = nest.Groups[i];
-            if (candidate.Members.Count < SkavenEvolution.GroupSize) return candidate;
+            if (HasFreeMemberSlot(candidate)) return candidate;
         }
         return null;
+    }
+
+    /// <summary>正式成员容量只由十三个普通阵位决定，不计奴隶鼠位。</summary>
+    private static bool HasFreeMemberSlot(GroupRuntime group)
+    {
+        for (var i = 0; i < group.UsedSlots.Length; i++)
+        {
+            if (!group.UsedSlots[i]) return true;
+        }
+        return false;
     }
 
     /// <summary>选择优先保留已有数据、否则编号最小的空闲阵位。</summary>
@@ -400,6 +521,7 @@ public static class SkavenPackService
         Actor selected = null;
         foreach (long actorId in group.Members.Keys)
         {
+            if (Memberships.TryGetValue(actorId, out Membership membership) && membership.IsSlave) continue;
             Actor candidate = ResolveActor(actorId);
             if (candidate.isRekt()) continue;
             if (selected == null ||
@@ -500,7 +622,11 @@ public static class SkavenPackService
         {
             GroupRuntime group = nest.Groups[i];
             CancelGroupActivity(group);
-            foreach (long actorId in group.Members.Keys) Memberships.Remove(actorId);
+            foreach (long actorId in group.Members.Keys)
+            {
+                Memberships.Remove(actorId);
+                EnqueueOrphan(ResolveActor(actorId));
+            }
         }
         Nests.Remove(nest.NestId);
         DirtyNestIds.Remove(nest.NestId);
@@ -520,6 +646,8 @@ public static class SkavenPackService
         DirtyNests.Clear();
         DirtyNestIds.Clear();
         HeartbeatNests.Clear();
+        OrphanActors.Clear();
+        OrphanActorIds.Clear();
         rebuildPending = true;
     }
 
@@ -654,6 +782,7 @@ public static class SkavenPackService
         internal int Index { get; }
         internal Dictionary<long, Membership> Members { get; } = new();
         internal bool[] UsedSlots { get; } = new bool[SkavenEvolution.GroupSize];
+        internal long SlaveId { get; set; }
         internal long LeaderId { get; set; }
         internal double CombatStartedAt { get; set; }
         internal long ActivityId { get; set; }
@@ -666,16 +795,18 @@ public static class SkavenPackService
     private readonly struct Membership
     {
         /// <summary>创建成员索引。</summary>
-        internal Membership(long nestId, int groupIndex, int slot)
+        internal Membership(long nestId, int groupIndex, int slot, bool isSlave)
         {
             NestId = nestId;
             GroupIndex = groupIndex;
             Slot = slot;
+            IsSlave = isSlave;
         }
 
         internal long NestId { get; }
         internal int GroupIndex { get; }
         internal int Slot { get; }
+        internal bool IsSlave { get; }
     }
 
     /// <summary>鼠群协调行动类别。</summary>
@@ -720,11 +851,16 @@ public static class SkavenPackService
             {
                 Actor actor = ResolveActor(actorId);
                 if (actor.isRekt()) continue;
+                bool slave = Memberships.TryGetValue(actorId, out Membership membership) && membership.IsSlave;
                 bool leader = actorId == group.LeaderId;
                 if (role.Id == LeaderRoleId && leader)
                     output.Add(new CoordinationCandidate(actor, 1000f));
+                else if (role.Id == SlaveRoleId && slave)
+                    output.Add(new CoordinationCandidate(actor, 1000f));
                 else if (role.Id == MemberRoleId && !leader)
-                    output.Add(new CoordinationCandidate(actor, SkavenEvolution.GetLevel(actor.asset)));
+                {
+                    if (!slave) output.Add(new CoordinationCandidate(actor, SkavenEvolution.GetLevel(actor.asset)));
+                }
             }
         }
 
@@ -738,9 +874,14 @@ public static class SkavenPackService
                 actor.isRekt() ||
                 !group.Members.ContainsKey(actor.getID()))
                 return false;
-            return participant.RoleId == LeaderRoleId
-                ? actor.getID() == group.LeaderId
-                : participant.RoleId == MemberRoleId && actor.getID() != group.LeaderId;
+            bool slave = Memberships.TryGetValue(actor.getID(), out Membership membership) && membership.IsSlave;
+            return participant.RoleId switch
+            {
+                LeaderRoleId => actor.getID() == group.LeaderId,
+                SlaveRoleId => slave,
+                MemberRoleId => actor.getID() != group.LeaderId && !slave,
+                _ => false
+            };
         }
 
         /// <inheritdoc />

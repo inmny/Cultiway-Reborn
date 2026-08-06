@@ -81,7 +81,7 @@ public partial class Buildings
         SetFootprint(TzeentchTower, 19, 7);
         SetFootprint(VivisomaticArbor, 15, 7);
         SetFootprint(GoldenThrone, 16, 6);
-        SetFootprint(SkavenBlight, 12, 6);
+        SetFootprint(SkavenBlight, 12, 12);
 
         BloodCastle.tower = false;
         BloodCastle.spawn_units_asset = null;
