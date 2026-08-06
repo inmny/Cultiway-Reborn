@@ -38,14 +38,19 @@ public enum PathSubmissionKind
 
 public readonly struct PathSubmissionResult
 {
-    public PathSubmissionResult(PathSubmissionKind kind, PathFailureReason failureReason = PathFailureReason.None)
+    public PathSubmissionResult(
+        PathSubmissionKind kind,
+        PathFailureReason failureReason = PathFailureReason.None,
+        long submissionToken = 0)
     {
         Kind = kind;
         FailureReason = failureReason;
+        SubmissionToken = submissionToken;
     }
 
     public PathSubmissionKind Kind { get; }
     public PathFailureReason FailureReason { get; }
+    public long SubmissionToken { get; }
     public bool Accepted => Kind != PathSubmissionKind.Rejected;
 }
 

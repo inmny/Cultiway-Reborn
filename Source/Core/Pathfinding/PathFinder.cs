@@ -20,6 +20,7 @@ public class PathFinder
 
     private readonly ConcurrentDictionary<long, PathSession> sessions = new();
     private readonly ConcurrentDictionary<long, PathRequestOptions> lastRequests = new();
+    private readonly ConcurrentDictionary<long, long> submissionTokens = new();
     private readonly ConcurrentQueue<ScheduledPathWork> starvedQueue = new();
     private readonly ConcurrentQueue<ScheduledPathWork> initialQueue = new();
     private readonly ConcurrentQueue<ScheduledPathWork> continuationQueue = new();
@@ -43,6 +44,7 @@ public class PathFinder
     private long expandedNodes;
     private long firstStepTicks;
     private long firstStepCount;
+    private long nextSubmissionToken;
 
     public PathFinder()
     {
@@ -101,14 +103,21 @@ public class PathFinder
         if (TryReuseActiveRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions))
         {
             reuseMeasurement.Complete(PathfindingBenchmarkMetric.Reuse);
-            return new PathSubmissionResult(PathSubmissionKind.Reused);
+            return new PathSubmissionResult(
+                PathSubmissionKind.Reused,
+                submissionToken: RecordSubmission(actor.data.id));
         }
 
         reuseMeasurement.Complete(PathfindingBenchmarkMetric.ReuseMiss);
         PathfindingProfiler.Measurement createMeasurement = PathfindingProfiler.Start();
         var request = new PathRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions);
         createMeasurement.Complete(PathfindingBenchmarkMetric.Create);
-        return Submit(request);
+        PathSubmissionResult result = Submit(request);
+        return result.Accepted
+            ? new PathSubmissionResult(
+                result.Kind,
+                submissionToken: RecordSubmission(actor.data.id))
+            : result;
     }
 
     public bool RequestPath(PathRequest request)
@@ -427,6 +436,7 @@ public class PathFinder
             new PathStep(target, MovementMethod.Walk, TraversalEstimate.Direct));
         if (sessions.TryGetValue(actorId, out PathSession old)) old.Cancel(PathFailureReason.CancelledByNewRequest);
         sessions[actorId] = direct;
+        RecordSubmission(actorId);
     }
 
     public bool IsActorPathing(Actor actor)
@@ -556,10 +566,34 @@ public class PathFinder
     public void Cancel(Actor actor, PathFailureReason reason = PathFailureReason.CancelledByNewRequest)
     {
         if (actor?.data == null) return;
+        submissionTokens.TryRemove(actor.data.id, out _);
         PathfindingProfiler.Measurement measurement = PathfindingProfiler.Start();
         bool removed = sessions.TryRemove(actor.data.id, out PathSession session);
         if (removed) session.Cancel(reason);
         measurement.Complete(removed ? PathfindingBenchmarkMetric.Cancel : PathfindingBenchmarkMetric.CancelEmpty);
+    }
+
+    /// <summary>只取消仍对应指定提交令牌的寻路，避免撤销后来接管的同目标请求。</summary>
+    public bool CancelOwned(
+        Actor actor,
+        long submissionToken,
+        PathFailureReason reason = PathFailureReason.CancelledByNewRequest)
+    {
+        if (actor?.data == null || submissionToken <= 0) return false;
+        long actorId = actor.data.id;
+        bool owned = ((ICollection<KeyValuePair<long, long>>)submissionTokens)
+            .Remove(new KeyValuePair<long, long>(actorId, submissionToken));
+        if (!owned) return false;
+        if (sessions.TryRemove(actorId, out PathSession session)) session.Cancel(reason);
+        return true;
+    }
+
+    /// <summary>读取角色最近一次被接受的外部寻路提交令牌。</summary>
+    public bool TryGetCurrentSubmissionToken(Actor actor, out long submissionToken)
+    {
+        submissionToken = 0;
+        return actor?.data != null &&
+               submissionTokens.TryGetValue(actor.data.id, out submissionToken);
     }
 
     private bool CleanupSession(long actorId, PathSession session, PathStream stream)
@@ -571,6 +605,7 @@ public class PathFinder
 
         bool removed = ((ICollection<KeyValuePair<long, PathSession>>)sessions)
             .Remove(new KeyValuePair<long, PathSession>(actorId, session));
+        if (removed) submissionTokens.TryRemove(actorId, out _);
         session.DisposeCompleted();
         return removed;
     }
@@ -583,6 +618,7 @@ public class PathFinder
         }
 
         lastRequests.TryRemove(actorId, out _);
+        submissionTokens.TryRemove(actorId, out _);
     }
 
     public void Clear()
@@ -594,6 +630,7 @@ public class PathFinder
 
         sessions.Clear();
         lastRequests.Clear();
+        submissionTokens.Clear();
         while (pendingRetries.TryDequeue(out _)) { }
         scheduledRetries.Clear();
         Drain(starvedQueue);
@@ -617,6 +654,14 @@ public class PathFinder
         var request = new PathRequest(actor, target, options.PathOnWater, options.WalkOnBlocks,
             options.WalkOnLava, options.RegionLimit);
         return Submit(request).Accepted;
+    }
+
+    /// <summary>为一次外部寻路命令生成单调递增的所有权令牌。</summary>
+    private long RecordSubmission(long actorId)
+    {
+        long token = Interlocked.Increment(ref nextSubmissionToken);
+        submissionTokens[actorId] = token;
+        return token;
     }
 
     public string GetDiagnostics()
