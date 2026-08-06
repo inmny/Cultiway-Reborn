@@ -168,7 +168,7 @@ public enum CombatThreatSource
 {
     None,
     Personal,
-    Army,
+    Group,
     NearbyAlly,
 }
 
@@ -602,7 +602,7 @@ public sealed class CombatPlanningSnapshot
     public CombatIntent CurrentIntent;
     public bool CanRetreat;
     public bool HighFidelity;
-    public bool ArmyRouted;
+    public bool GroupRouted;
     public CombatDirective Directive;
     public CombatantSnapshot[] Enemies = Array.Empty<CombatantSnapshot>();
     public CombatantSnapshot[] Allies = Array.Empty<CombatantSnapshot>();

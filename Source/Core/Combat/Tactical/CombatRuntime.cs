@@ -14,14 +14,15 @@ public static class TacticalCombatSettings
 {
     public const string TacticalTaskId = "Cultiway.TacticalCombat";
     public const int PersonalObservationLimit = 16;
-    public const int ArmyObservationLimit = 64;
+    public const int GroupObservationLimit = 64;
     public const int PersonalThreatLimit = 16;
-    public const int ArmyThreatLimit = 64;
+    public const int GroupThreatLimit = 64;
     public const float TacticalLocationLifetime = 10f;
     public const float ThreatLifetime = 6f;
     public const float LocalCombatRadius = 24f;
     public const float NearbyAssistRadius = 20f;
-    public const float ArmyAssistRadius = 40f;
+    public const float GroupAssistRadius = 40f;
+    public const float GroupAggregateRefreshInterval = 0.25f;
     public const float DormantProbeMinInterval = 2f;
     public const float DormantProbeMaxInterval = 4f;
     public const float LostContactGrace = 2f;
@@ -264,9 +265,9 @@ internal enum CombatMovementKind
 }
 
 /// <summary>
-/// 军队共享的指令、士气和降置信度情报。
+/// 来源无关战斗群组共享的指令、士气和降置信度情报。
 /// </summary>
-internal sealed class CombatArmyRuntime
+internal sealed class CombatGroupRuntime
 {
     internal readonly Dictionary<long, CombatObservation> SharedObservations = new();
     internal readonly Dictionary<CombatThreatKey, CombatThreatSignal> SharedThreats = new();
@@ -289,6 +290,8 @@ internal sealed class CombatArmyRuntime
     internal double LatestSharedAwarenessAt = double.MinValue;
     internal int AliveMemberCount;
     internal int EngagedMemberCount;
+    internal CombatGroupKey GroupKey;
+    internal ICombatGroupProvider Provider;
 }
 
 /// <summary>
@@ -344,11 +347,11 @@ internal static class CombatObservationService
     }
 
     /// <summary>
-    /// 解析角色当前可用的目标认知；可见目标会刷新实况，不可见目标只衰减并合并已有军团情报。
+    /// 解析角色当前可用的目标认知；可见目标会刷新实况，不可见目标只衰减并合并已有群组情报。
     /// </summary>
     internal static CombatObservation ResolveKnown(
         CombatActorRuntime personal,
-        CombatArmyRuntime army,
+        CombatGroupRuntime group,
         Actor observer,
         BaseSimObject target,
         double now,
@@ -358,13 +361,13 @@ internal static class CombatObservationService
         if (visible)
         {
             CombatObservation observed = ObserveVisible(personal, observer, target, now);
-            PublishShared(army, observed, now);
+            PublishShared(group, observed, now);
             return observed;
         }
 
         personal.Observations.TryGetValue(targetId, out CombatObservation own);
         CombatObservation shared = null;
-        if (army != null) army.SharedObservations.TryGetValue(targetId, out shared);
+        if (group != null) group.SharedObservations.TryGetValue(targetId, out shared);
         if (own == null && shared == null)
         {
             // 外部刚指定的目标至少代表角色在这一刻获知了它，之后仍按记忆衰减。
@@ -441,17 +444,17 @@ internal static class CombatObservationService
         return observation;
     }
 
-    internal static void PublishShared(CombatArmyRuntime army, CombatObservation source, double now)
+    internal static void PublishShared(CombatGroupRuntime group, CombatObservation source, double now)
     {
-        if (army == null || source == null) return;
-        if (!army.SharedObservations.TryGetValue(source.TargetId, out CombatObservation shared))
+        if (group == null || source == null) return;
+        if (!group.SharedObservations.TryGetValue(source.TargetId, out CombatObservation shared))
         {
             shared = new CombatObservation
             {
                 TargetId = source.TargetId,
                 TargetObject = source.TargetObject
             };
-            army.SharedObservations.Add(source.TargetId, shared);
+            group.SharedObservations.Add(source.TargetId, shared);
         }
 
         shared.TargetObject = source.TargetObject;
@@ -467,7 +470,7 @@ internal static class CombatObservationService
         shared.EffectiveHits = Math.Max(shared.EffectiveHits, source.EffectiveHits);
         shared.EffectiveDamage = Mathf.Max(shared.EffectiveDamage, source.EffectiveDamage);
         shared.LastHitIneffective = source.LastHitIneffective;
-        Trim(army.SharedObservations, TacticalCombatSettings.ArmyObservationLimit, source.TargetId);
+        Trim(group.SharedObservations, TacticalCombatSettings.GroupObservationLimit, source.TargetId);
     }
 
     /// <summary>将军团情报复制为个人记忆，避免后续个人衰减直接修改共享对象。</summary>

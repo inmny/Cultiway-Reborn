@@ -108,7 +108,7 @@ public static class CombatPlanner
             {
                 float sourcePriority = enemy.ThreatSource switch
                 {
-                    CombatThreatSource.Army => 0.9f,
+                    CombatThreatSource.Group => 0.9f,
                     CombatThreatSource.NearbyAlly => 0.75f,
                     _ => 1f
                 };
@@ -163,7 +163,7 @@ public static class CombatPlanner
         CombatantSnapshot enemy,
         CombatRole role)
     {
-        if (snapshot.Directive == CombatDirective.Retreat || snapshot.ArmyRouted)
+        if (snapshot.Directive == CombatDirective.Retreat || snapshot.GroupRouted)
             return snapshot.CanRetreat ? CombatIntent.Disengage : CombatIntent.Reposition;
 
         if (enemy.ThreatenedAllyId != 0 &&
@@ -695,7 +695,7 @@ public static class CombatPlanner
                         CombatPositionRole.Safe => 4f,
                         CombatPositionRole.AllyRally => 3.5f,
                         CombatPositionRole.CaptainRally => 3f,
-                        CombatPositionRole.CityRetreat => snapshot.ArmyRouted ? 5f : 2f,
+                        CombatPositionRole.CityRetreat => snapshot.GroupRouted ? 5f : 2f,
                         _ => 0f
                     };
                     break;
