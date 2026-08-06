@@ -8,9 +8,9 @@ internal static class SkavenLeaderBannerVfx
     {
         if (asset?.group_system == null) return;
 
-        SkavenEvolution.ForEachSkaven(actor =>
+        SkavenPackService.ForEachLeader(actor =>
         {
-            if (actor == null || !actor.isAlive() || !actor.is_visible || !SkavenEvolution.IsGroupLeader(actor))
+            if (actor == null || !actor.isAlive() || !actor.is_visible)
             {
                 return;
             }

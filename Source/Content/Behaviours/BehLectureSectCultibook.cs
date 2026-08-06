@@ -4,6 +4,7 @@ using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
 using Cultiway.Content.Sects;
 using Cultiway.Core;
+using Cultiway.Core.Coordination;
 using Cultiway.Core.Libraries;
 using Cultiway.Debug;
 using Cultiway.Utils;
@@ -13,12 +14,12 @@ using NeoModLoader.api.attributes;
 namespace Cultiway.Content.Behaviours;
 
 /// <summary>
-/// 长老或掌门讲法，将自身掌握的功法传给同宗成员。
+/// 长老或掌门发起一次需要真实到场的宗门讲法协调行动。
 /// </summary>
 public class BehLectureSectCultibook : BehaviourActionActor
 {
     /// <summary>
-    /// 完成一次宗门讲法，使缺少该功法的听众获得了解度，并给讲法者发放贡献。
+    /// 选定讲法内容与候选听众，并让当前角色占用讲师席位。
     /// </summary>
     [Hotfixable]
     public override BehResult execute(Actor pObject)
@@ -37,20 +38,28 @@ public class BehLectureSectCultibook : BehaviourActionActor
             return BehResult.Stop;
         }
 
-        int taughtCount = SectLectureService.ApplyLecture(pObject, sect, cultibook, audience);
-        if (taughtCount <= 0)
+        if (pObject.beh_tile_target == null)
         {
-            SectVerifyLog.Log("SectLectureTask", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} cultibook={cultibook.id} result=false reason=no_effect");
+            SectVerifyLog.Log("SectLectureTask", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} result=false reason=no_target_tile");
             return BehResult.Stop;
         }
 
-        int contribution = SectTraitRules.GetAffairContributionReward(sect, affair);
-        bool result = sect.AddContribution(pObject, contribution);
-        SectVerifyLog.Log("SectLectureTask", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} cultibook={cultibook.id} audience={taughtCount} contribution={contribution} result={result}");
-        if (result)
-        {
-            WorldLogUtils.LogSectLecture(sect, pObject, cultibook.Name, taughtCount);
-        }
-        return result ? BehResult.Continue : BehResult.Stop;
+        var group = new CoordinationGroupKey(SectCoordinationGroupProvider.ProviderId, sect.id);
+        var session = new SectLectureSession(
+            sect,
+            pObject,
+            cultibook,
+            audience,
+            pObject.beh_tile_target);
+        bool started = CoordinatedActivityService.TryStart(
+            CoordinationActivities.SectLecture,
+            group,
+            session,
+            [new CoordinationInitialParticipant(pObject, SectLectureSession.LecturerRoleId)],
+            out long activityId);
+        SectVerifyLog.Log(
+            "SectLectureTask",
+            $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pObject)} cultibook={cultibook.id} candidates={audience.Count} activity={activityId} result={started}");
+        return started ? BehResult.Continue : BehResult.Stop;
     }
 }

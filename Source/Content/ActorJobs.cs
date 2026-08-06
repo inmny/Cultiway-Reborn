@@ -3,12 +3,13 @@ using Cultiway.Content.Behaviours;
 using Cultiway.Content.Behaviours.Conditions;
 using Cultiway.Core;
 using Cultiway.Core.CollectiveProjects;
+using Cultiway.Core.Coordination;
 using Cultiway.Core.Progression;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Content;
 
-[Dependency(typeof(ActorTasks), typeof(SectAffairs))]
+[Dependency(typeof(ActorTasks), typeof(SectAffairs), typeof(CoordinationActivities))]
 public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
 {
     public static ActorJob XianCultivator      { get; private set; }
@@ -22,6 +23,8 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob CultivationProgression { get; private set; }
     /// <summary>角色自然换工作时认领并执行一个所属组织的常规集体工程。</summary>
     public static ActorJob CollectiveProject { get; private set; }
+    /// <summary>角色接受自愿邀请后持续执行的通用协调行动工作。</summary>
+    public static ActorJob CoordinatedActivity { get; private set; }
     public static ActorJob MagicWebResearcher  { get; private set; }
     public static ActorJob MagicScrollStudent  { get; private set; }
     public static ActorJob MagicSpellResearcher { get; private set; }
@@ -97,6 +100,14 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         CollectiveProject.addTask(ActorTasks.ExecuteCollectiveProject.id);
         CollectiveProject.addTask(ActorTasks.EndJob.id);
         ActorJobSelectionRegistry.Register(TrySelectCollectiveProjectJob, 500);
+
+        CoordinatedActivity.addTask(ActorTasks.CoordinatedActivity.id);
+        CoordinatedActivity.addTask(ActorTasks.EndJob.id);
+        CoordinatedActivityService.ConfigureRoutineJob(
+            CoordinatedActivity.id,
+            ActorTasks.CoordinatedActivity.id);
+        ActorJobSelectionRegistry.Register(TryContinueCoordinatedActivityJob, 2000);
+        ActorJobSelectionRegistry.Register(TrySelectCoordinatedActivityJob, 900);
 
         MagicWebResearcher.addTask(ActorTasks.StudyMagicWeb.id);
         MagicWebResearcher.addCondition(new CondShouldStudyMagicWeb());
@@ -200,7 +211,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         SpawnedUnit.addCondition(new CondHasAliveSourceSpawner(), false);
         SpawnedUnit.addTask(ActorTasks.EndJob.id);
 
-        SkavenGroup.addTask(ActorTasks.FollowSkavenLeader.id);
+        SkavenGroup.addTask(ActorTasks.CoordinateSkavenPack.id);
         SkavenGroup.addTask(ActorTasks.RandomMove.id);
         SkavenGroup.addTask(ActorTasks.EndJob.id);
         
@@ -237,6 +248,18 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
             return false;
         jobId = selectedJobId;
         return true;
+    }
+
+    /// <summary>让已经承担职责的角色优先继续当前协调行动。</summary>
+    private static bool TryContinueCoordinatedActivityJob(Actor actor, ref string jobId)
+    {
+        return CoordinatedActivityService.TryContinueAssignedJob(actor, ref jobId);
+    }
+
+    /// <summary>在自然工作选择阶段接受最高优先级的自愿协调邀请。</summary>
+    private static bool TrySelectCoordinatedActivityJob(Actor actor, ref string jobId)
+    {
+        return CoordinatedActivityService.TryAcceptVoluntaryJob(actor, ref jobId);
     }
 
     private static void AddSequentialEqualChanceTasks(ActorJob job, params EqualChanceTaskOption[] options)

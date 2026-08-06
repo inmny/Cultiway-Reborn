@@ -73,7 +73,11 @@ public static class SectLectureService
     /// <summary>
     /// 将一次讲法收益应用到听众身上，返回实际获得提升的人数。
     /// </summary>
-    public static int ApplyLecture(Actor lecturer, Sect sect, CultibookAsset cultibook, List<Actor> audience)
+    public static int ApplyLecture(
+        Actor lecturer,
+        Sect sect,
+        CultibookAsset cultibook,
+        IReadOnlyList<Actor> audience)
     {
         if (cultibook == null || audience == null || audience.Count == 0) return 0;
 
@@ -125,7 +129,8 @@ public static class SectLectureService
         return result;
     }
 
-    private static float GetKnownMastery(ActorExtend ae, CultibookAsset cultibook)
+    /// <summary>返回角色对指定功法的已知掌握程度，并合并主修功法记录。</summary>
+    public static float GetKnownMastery(ActorExtend ae, CultibookAsset cultibook)
     {
         float mastery = ae.GetMaster(cultibook);
         if (ae.GetMainCultibook() == cultibook)

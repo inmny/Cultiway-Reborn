@@ -25,6 +25,8 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor ExecuteCollectiveProject  { get; private set; }
     /// <summary>认领并执行能够抢占普通工作的应急集体工程。</summary>
     public static BehaviourTaskActor ExecuteEmergencyCollectiveProject { get; private set; }
+    /// <summary>执行角色已经接受的通用多人协调行动。</summary>
+    public static BehaviourTaskActor CoordinatedActivity { get; private set; }
     public static BehaviourTaskActor StudyMagicWeb             { get; private set; }
     public static BehaviourTaskActor StudyMagicScroll          { get; private set; }
     public static BehaviourTaskActor ImproveMagicSpell         { get; private set; }
@@ -41,7 +43,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor WriteElixirbook { get; private set; }
     public static BehaviourTaskActor WriteSkillbook { get; private set; }
     public static BehaviourTaskActor CallSourceSpawner { get; private set; }
-    public static BehaviourTaskActor FollowSkavenLeader { get; private set; }
+    public static BehaviourTaskActor CoordinateSkavenPack { get; private set; }
     public static BehaviourTaskActor SwitchCultibook { get; private set; }
     public static BehaviourTaskActor TravelToCity { get; private set; }
     public static BehaviourTaskActor FindSectJob { get; private set; }
@@ -100,6 +102,10 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         ExecuteEmergencyCollectiveProject.addBeh(new BehExecuteCollectiveProject());
         ExecuteEmergencyCollectiveProject.addBeh(new BehEndJob());
         ExecuteEmergencyCollectiveProject.setIcon("ui/Icons/iconWarning");
+
+        CoordinatedActivity.addBeh(new BehCoordinatedActivity());
+        CoordinatedActivity.addBeh(new BehEndJob());
+        CoordinatedActivity.setIcon("ui/Icons/iconShowTasks");
 
         StudyMagicWeb.addBeh(new BehStudyMagicWeb());
         StudyMagicWeb.setIcon("cultiway/icons/iconMagic");
@@ -208,7 +214,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         CallSourceSpawner.addBeh(new BehCallSourceSpawner());
         CallSourceSpawner.addBeh(new BehEndJob());
 
-        FollowSkavenLeader.addBeh(new BehFollowSkavenLeader());
+        CoordinateSkavenPack.addBeh(new BehCoordinateSkavenPack());
 
         SwitchCultibook.addBeh(new BehSwitchCultibook());
         SwitchCultibook.addBeh(new BehEndJob());
@@ -293,10 +299,8 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         LectureSectCultibook.cancellable_by_reproduction = true;
         LectureSectCultibook.cancellable_by_socialize = true;
         LectureSectCultibook.addBeh(new BehFindSectResidenceTile("SectLectureTarget"));
-        LectureSectCultibook.addBeh(new BehGoToTileTarget());
-        LectureSectCultibook.addBeh(new BehSpawnSlashTalkTowardTileTarget());
-        LectureSectCultibook.addBeh(new BehRandomWait(TimeScales.SecPerMonth, TimeScales.SecPerMonth * 2, true));
         LectureSectCultibook.addBeh(new BehLectureSectCultibook());
+        LectureSectCultibook.addBeh(new BehCoordinatedActivity());
         LectureSectCultibook.addBeh(new BehEndJob());
         LectureSectCultibook.setIcon("cultiway/icons/iconCultivation");
 

@@ -26,7 +26,7 @@ internal static class PatchBuilding
         if (pDamage > 0f && __instance.asset == Buildings.SkavenBlight &&
             SkavenEvolution.IsHostile(pAttacker, __instance.kingdom))
         {
-            SkavenEvolution.AlertNest(__instance);
+            SkavenPackService.AlertNest(__instance, pAttacker);
         }
     }
 

@@ -7,7 +7,15 @@ namespace Cultiway.Core.BuildingComponents;
 
 public class AdvancedUnitSpawner : BaseBuildingComponent
 {
+    private static Action<Building, Actor> actionOnUnitSpawned;
     private AdvancedUnitSpawnerConfig _config;
+
+    /// <summary>注册由高级生成器完成来源绑定后的单位生成回调。</summary>
+    public static void RegisterActionOnUnitSpawned(Action<Building, Actor> action)
+    {
+        actionOnUnitSpawned += action;
+    }
+
     public void Setup(AdvancedUnitSpawnerConfig config)
     {
         _config = config;
@@ -87,6 +95,7 @@ public class AdvancedUnitSpawner : BaseBuildingComponent
         building.data.set(BuildingDataKeys.AdvancedSpawnerCentralizedAliveList_str, list);
         unit.SetSourceSpawnerId(building.id);
         unit.SetSourceSpawnerAssetId(building.asset.id);
+        actionOnUnitSpawned?.Invoke(building, unit);
     }
     private void DistributedSpawnUnit(int idx, string id)
     {
@@ -97,6 +106,7 @@ public class AdvancedUnitSpawner : BaseBuildingComponent
         building.data.set(key, list);
         unit.SetSourceSpawnerId(building.id);
         unit.SetSourceSpawnerAssetId(building.asset.id);
+        actionOnUnitSpawned?.Invoke(building, unit);
     }
     public override void update(float pElapsed)
     {

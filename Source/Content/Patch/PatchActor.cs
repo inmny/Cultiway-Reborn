@@ -16,6 +16,7 @@ using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.CollectiveProjects;
+using Cultiway.Core.Coordination;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -34,6 +35,7 @@ internal static class PatchActor
     {
         SectJobService.Release(__instance);
         CollectiveProjectService.ReleaseAssignment(__instance.GetExtend());
+        CoordinatedActivityService.NotifyJobEnded(__instance);
     }
 
     [Hotfixable, HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.nextJobActor))]
@@ -58,6 +60,9 @@ internal static class PatchActor
             return;
         }*/
         var canUseCultiwayJobSelection = CanUseCultiwayJobSelection(pActor);
+        if (!canUseCultiwayJobSelection &&
+            CoordinatedActivityService.TryContinueAssignedJob(pActor, ref __result))
+            return;
         if (canUseCultiwayJobSelection && ActorJobSelectionRegistry.TrySelect(pActor, ref __result)) return;
         if (Randy.randomChance(0.4f)) return;
         if (canUseCultiwayJobSelection)
