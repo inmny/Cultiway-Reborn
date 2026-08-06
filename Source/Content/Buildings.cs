@@ -178,6 +178,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     }
     private void SetupTrainStation()
     {
+        SetFootprint(TrainStation, 10, 5);
         TrainStation.has_sprite_construction = false;
         TrainStation.build_place_batch = false;
         TrainStation.priority = 100;
@@ -187,7 +188,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     private void SetupTeleportArray()
     {
         TeleportArray.sprite_path = "buildings/Cultiway.TeleportArray";
-        TeleportArray.fundament = new BuildingFundament(3, 2, 6, 0);
+        SetFootprint(TeleportArray, 11, 4);
         TeleportArray.has_sprite_construction = false;
         TeleportArray.city_building = false;
         TeleportArray.can_be_abandoned = false;
@@ -218,17 +219,20 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     private void SetupSectBuildings()
     {
         SetupSectBuildingBase(SectHall, SectConst.BuildingTypeHall);
+        SetFootprint(SectHall, 15, 7);
         SectHall.priority = 110;
         SectHall.cost = new ConstructionCost(10, 5, 0, 30);
         SectHall.base_stats["health"] = 300f;
         SectHall.base_stats[WorldboxGame.BaseStats.TreasureCapacity.id] = SectConst.TreasureHallCapacity;
 
         SetupSectBuildingBase(SectScripturePavilion, SectConst.BuildingTypeScripturePavilion);
+        SetFootprint(SectScripturePavilion, 8, 5);
         SectScripturePavilion.priority = 90;
         SectScripturePavilion.cost = new ConstructionCost(0, 12, 2, 50);
         SectScripturePavilion.base_stats["health"] = 350f;
 
         SetupSectBuildingBase(SectTreasurePavilion, SectConst.BuildingTypeTreasurePavilion);
+        SetFootprint(SectTreasurePavilion, 11, 6);
         SectTreasurePavilion.priority = 80;
         SectTreasurePavilion.cost = new ConstructionCost(4, 16, 4, 70);
         SectTreasurePavilion.base_stats["health"] = 450f;
@@ -259,11 +263,61 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         asset.can_be_living_plant = false;
     }
 
+    private static void SetFootprint(BuildingAsset asset, int width, int height)
+    {
+        int left = width / 2;
+        asset.fundament = new BuildingFundament(left, width - left - 1, height - 1, 0);
+    }
+
+    private static void SetupCivilBuildingFootprint(BuildingAsset asset, string sourceId, bool gui)
+    {
+        (int width, int height) = (sourceId, gui) switch
+        {
+            (SB.watch_tower_human, false) => (3, 2),
+            (SB.fishing_docks_human, false) => (5, 5),
+            (SB.docks_human, false) => (5, 5),
+            (SB.barracks_human, false) => (9, 5),
+            (SB.temple_human, false) => (5, 4),
+            (SB.windmill_human_0, false) => (4, 3),
+            (SB.windmill_human_1, false) => (4, 3),
+            (SB.tent_human, false) => (3, 3),
+            (SB.house_human_0, false) => (4, 3),
+            (SB.house_human_1, false) => (5, 3),
+            (SB.house_human_2, false) => (5, 3),
+            (SB.house_human_3, false) => (6, 3),
+            (SB.house_human_4, false) => (7, 3),
+            (SB.house_human_5, false) => (7, 4),
+            (SB.hall_human_0, false) => (7, 5),
+            (SB.hall_human_1, false) => (8, 5),
+            (SB.hall_human_2, false) => (10, 6),
+            (SB.watch_tower_human, true) => (4, 2),
+            (SB.fishing_docks_human, true) => (5, 5),
+            (SB.docks_human, true) => (5, 5),
+            (SB.barracks_human, true) => (10, 6),
+            (SB.temple_human, true) => (6, 5),
+            (SB.windmill_human_0, true) => (11, 4),
+            (SB.windmill_human_1, true) => (11, 4),
+            (SB.tent_human, true) => (3, 3),
+            (SB.house_human_0, true) => (4, 3),
+            (SB.house_human_1, true) => (5, 3),
+            (SB.house_human_2, true) => (6, 3),
+            (SB.house_human_3, true) => (7, 4),
+            (SB.house_human_4, true) => (9, 4),
+            (SB.house_human_5, true) => (10, 5),
+            (SB.hall_human_0, true) => (8, 5),
+            (SB.hall_human_1, true) => (8, 5),
+            (SB.hall_human_2, true) => (8, 5),
+            _ => throw new ArgumentOutOfRangeException(nameof(sourceId), sourceId, null)
+        };
+        SetFootprint(asset, width, height);
+    }
+
     private void SetupEasternHumanBuildings()
     {
         void CloneHuman(string building_id)
         {   
             var asset = Clone(building_id.Replace(SA.human, Actors.EasternHuman.id), building_id);
+            SetupCivilBuildingFootprint(asset, building_id, gui: false);
             asset.main_path = $"buildings/civ_main/{Actors.EasternHuman.id}/";
             asset.group = Actors.EasternHuman.id;
             asset.kingdom = KingdomAssets.NoMadsEasternHuman.id;
@@ -311,6 +365,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         void CloneHuman(string building_id)
         {
             var asset = Clone(building_id.Replace(SA.human, Actors.Gui.id), building_id);
+            SetupCivilBuildingFootprint(asset, building_id, gui: true);
             asset.main_path = $"buildings/civ_main/{Actors.Gui.id}/";
             asset.group = Actors.Gui.id;
             asset.kingdom = KingdomAssets.NoMadsGui.id;
