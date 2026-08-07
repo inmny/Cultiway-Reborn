@@ -620,7 +620,9 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
     public void NewCultisys<T>(CultisysAsset<T> cultisys) where T : struct, ICultisysComponent
     {
         e.AddComponent(cultisys.DefaultComponent);
-        cultisys.OnGetAction?.Invoke(this, cultisys, ref e.GetComponent<T>());
+        ref var component = ref e.GetComponent<T>();
+        cultisys.OnGetAction?.Invoke(this, cultisys, ref component);
+        UpgradePowerLevel(cultisys.PowerLevels[component.CurrLevel]);
         SkillCastResourceResolver.Invalidate(this);
         MarkCultiwayStatsDirty();
     }
