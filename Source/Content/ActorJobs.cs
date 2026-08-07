@@ -16,7 +16,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob PlantXianCultivator { get; private set; }
     public static ActorJob EnvironmentalCultivator { get; private set; }
     public static ActorJob MagicCultivator     { get; private set; }
-    /// <summary>骑士和平期操练工作（积累斗气）；突破由 KnightBreakthroughSystem 月度结算，故不含进阶任务。</summary>
+    /// <summary>骑士和平期操练工作（积累斗气），斗气蓄满后主动执行进阶。</summary>
     public static ActorJob KnightCultivator    { get; private set; }
 
     /// <summary>由通用进阶选择器主动分配、只执行一次当前候选进阶的工作。</summary>
@@ -92,6 +92,9 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         MagicCultivator.addTask(ActorTasks.EndJob.id);
 
         KnightCultivator.addTask(ActorTasks.DailyKnightTrain.id);
+        KnightCultivator.addCondition(new CondCanProgressCultivation(), false);
+        KnightCultivator.addTask(ActorTasks.CultivationProgression.id);
+        KnightCultivator.addCondition(new CondCanProgressCultivation());
         KnightCultivator.addTask(ActorTasks.EndJob.id);
 
         CultivationProgression.addTask(ActorTasks.CultivationProgression.id);
