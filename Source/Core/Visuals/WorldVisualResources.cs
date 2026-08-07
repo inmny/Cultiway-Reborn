@@ -101,7 +101,7 @@ internal static class WorldVisualResources
     }
 
     /// <summary>从常驻 Bundle 取得指定路径的 Shader，并在资产缺失时立即报告构建错误。</summary>
-    private static Shader LoadShader(string assetPath)
+    internal static Shader LoadShader(string assetPath)
     {
         Shader shader = ShaderBundle.LoadAsset<Shader>(assetPath);
         if (shader == null)

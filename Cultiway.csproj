@@ -44,6 +44,9 @@
         <Reference Include="MathNet.Numerics">
             <HintPath>Assemblies\MathNet.Numerics.dll</HintPath>
         </Reference>
+        <Reference Include="LibTessDotNet">
+            <HintPath>Assemblies\LibTessDotNet.dll</HintPath>
+        </Reference>
         <Reference Include="NeoModLoader">
             <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader_memload.dll')">..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader_memload.dll</HintPath>
             <HintPath Condition="Exists('..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll')">..\..\worldbox_Data\StreamingAssets\mods\NeoModLoader.dll</HintPath>

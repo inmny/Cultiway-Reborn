@@ -1,4 +1,6 @@
 using Cultiway.Abstract;
+using Cultiway.Const;
+using Cultiway.Content.MapModeVisuals;
 using Cultiway.Core.Libraries;
 using NeoModLoader.api.attributes;
 using UnityEngine;
@@ -9,6 +11,7 @@ public class MapModes : ExtendLibrary<CustomMapModeAsset, MapModes>
 {
     public static CustomMapModeAsset Wakan { get; private set; }
     public static CustomMapModeAsset DirtyWakan { get; private set; }
+    public static CustomMapModeAsset StrategicKingdom { get; private set; }
 
     protected override bool AutoRegisterAssets() => false;
 
@@ -47,6 +50,14 @@ public class MapModes : ExtendLibrary<CustomMapModeAsset, MapModes>
                 out_color.b = (byte)(127 * (1-p));
                 out_color.a = byte.MaxValue;
             }
+        });
+        StrategicKingdom = Add(new CustomMapModeAsset
+        {
+            id = nameof(StrategicKingdom),
+            icon_path = "ui/icons/iconKingdomZones",
+            toggle_name = "cultiway_strategic_kingdom_layer",
+            redirect_map_mode = MetaTypeExtend.Kingdom,
+            renderer_factory = manager => new KingdomMapRenderer(manager)
         });
     }
 }
