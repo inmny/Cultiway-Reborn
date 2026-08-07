@@ -21,6 +21,9 @@ public sealed class CoordinationActivities : ExtendLibrary<CoordinatedActivityDe
     /// <summary>鼠群响应近期威胁并向目标集结的动员行动。</summary>
     public static CoordinatedActivityDefinitionAsset SkavenDefend { get; private set; }
 
+    /// <summary>一个大魔领导一支混沌战帮的常态行动。</summary>
+    public static CoordinatedActivityDefinitionAsset ChaosWarband { get; private set; }
+
     /// <inheritdoc />
     protected override bool AutoRegisterAssets() => true;
 
@@ -38,11 +41,13 @@ public sealed class CoordinationActivities : ExtendLibrary<CoordinatedActivityDe
         ConfigureSkavenActivity(SkavenGuard, priority: 100);
         ConfigureSkavenActivity(SkavenPatrol, priority: 120);
         ConfigureSkavenActivity(SkavenDefend, priority: 300);
+        ConfigureChaosWarband();
 
         CoordinatedActivityService.RegisterDefinition(SectLecture);
         CoordinatedActivityService.RegisterDefinition(SkavenGuard);
         CoordinatedActivityService.RegisterDefinition(SkavenPatrol);
         CoordinatedActivityService.RegisterDefinition(SkavenDefend);
+        CoordinatedActivityService.RegisterDefinition(ChaosWarband);
     }
 
     /// <summary>配置讲法的讲师与自愿听众席位。</summary>
@@ -142,6 +147,45 @@ public sealed class CoordinationActivities : ExtendLibrary<CoordinatedActivityDe
                     ActorTasks.CoordinateSkavenPack.id,
                     ActorTasks.CoordinatedActivity.id
                 ]
+            }
+        ];
+    }
+
+    /// <summary>配置大魔领队和同神成员组成的战帮。</summary>
+    private static void ConfigureChaosWarband()
+    {
+        ChaosWarband.Priority = 110;
+        ChaosWarband.Preemptible = true;
+        ChaosWarband.RecruitmentTimeoutSeconds = 2f;
+        ChaosWarband.AssemblyTimeoutSeconds = 6f;
+        ChaosWarband.RunningTimeoutSeconds = 0f;
+        ChaosWarband.HeartbeatSeconds = 0.25f;
+        ChaosWarband.MinimumReadyCount = 1;
+        ChaosWarband.MinimumReadyRatio = 0.25f;
+        ChaosWarband.RunningReadinessPolicy = CoordinationRunningReadinessPolicy.Ignore;
+        ChaosWarband.Roles =
+        [
+            new CoordinationRoleDefinition
+            {
+                Id = ChaosWarbandService.LeaderRoleId,
+                MinimumCount = 1,
+                MaximumCount = 1,
+                MinimumReadyCount = 1,
+                ParticipationMode = CoordinationParticipationMode.Forced,
+                AllowLateJoin = true,
+                ParticipantLifetime = CoordinationParticipantLifetime.ActivityBound,
+                ExecutionTaskIds = [ActorTasks.CoordinateChaosWarband.id, ActorTasks.CoordinatedActivity.id]
+            },
+            new CoordinationRoleDefinition
+            {
+                Id = ChaosWarbandService.MemberRoleId,
+                MinimumCount = 0,
+                MaximumCount = 64,
+                MinimumReadyCount = 0,
+                ParticipationMode = CoordinationParticipationMode.Forced,
+                AllowLateJoin = true,
+                ParticipantLifetime = CoordinationParticipantLifetime.ActivityBound,
+                ExecutionTaskIds = [ActorTasks.CoordinateChaosWarband.id, ActorTasks.CoordinatedActivity.id]
             }
         ];
     }

@@ -39,6 +39,7 @@ Task.Unit.Cultiway.CoordinateSkavenPack,执行鼠群调度
 Task.Unit.Cultiway.Skaven.Guard,留守鼠巢
 Task.Unit.Cultiway.Skaven.Patrol,随鼠群巡逻
 Task.Unit.Cultiway.Skaven.Defend,响应鼠巢动员
+Task.Unit.Cultiway.Chaos.Warband,执行混沌战帮调度
 Task.Unit.Cultiway.SwitchCultibook,转修功法
 Task.Unit.Cultiway.TravelToCity,旅游
 Task.Unit.Cultiway.FindSectJob,领取宗门事务

@@ -39,6 +39,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     public static ActorJob BookWriter { get; private set; }
     public static ActorJob SpawnedUnit { get; private set; }
     public static ActorJob SkavenGroup { get; private set; }
+    public static ActorJob ChaosWarband { get; private set; }
     
     // 师徒系统工作
     public static ActorJob MasterDuty { get; private set; }
@@ -214,6 +215,10 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         SkavenGroup.addTask(ActorTasks.CoordinateSkavenPack.id);
         SkavenGroup.addTask(ActorTasks.RandomMove.id);
         SkavenGroup.addTask(ActorTasks.EndJob.id);
+
+        ChaosWarband.addTask(ActorTasks.CoordinateChaosWarband.id);
+        ChaosWarband.addTask(ActorTasks.RandomMove.id);
+        ChaosWarband.addTask(ActorTasks.EndJob.id);
         
         // 师傅工作
         MasterDuty.addTask(ActorTasks.TeachApprentice.id);

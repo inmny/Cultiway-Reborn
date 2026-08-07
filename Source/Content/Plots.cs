@@ -391,6 +391,15 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
             // 保留同一个角色实体原地化身，身份、关系、物品和全部模组扩展数据自然保留
             var daemon = ActorTransformationService.TransformInPlace(a, transformInto);
             if (daemon == null) return false;
+            if (a.city != null)
+            {
+                foreach (var building in a.city.buildings)
+                {
+                    if (building.asset != tower) continue;
+                    ChaosWarbandService.RegisterAscendedLeader(daemon, building);
+                    break;
+                }
+            }
             // 升魔者抛弃凡俗身份，脱离原国家并归属到对应恶魔阵营
             AscendToDemonCamp(daemon, transformInto);
             // 界面提示：发起人化魔

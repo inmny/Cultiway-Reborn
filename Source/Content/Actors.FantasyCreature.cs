@@ -319,7 +319,7 @@ public partial class Actors
                     break;
                 case 9: skavenLevels[i].SetDefaultWeapons(S_Item.sword_mythril); break;
                 case 10: skavenLevels[i].SetDefaultWeapons(S_Item.spear_iron); break;
-                case 11: skavenLevels[i].AddTrait(S_Trait.death_bomb); break;
+                //case 11: skavenLevels[i].AddTrait(S_Trait.death_bomb); break;
                 case 12: skavenLevels[i].SetDefaultWeapons(S_Item.necromancer_staff); break;
                 case 13: skavenLevels[i].SetDefaultWeapons(S_Item.axe_adamantine); break;
             }
@@ -1874,7 +1874,6 @@ public partial class Actors
             .AddTrait(S_Trait.acid_blood)//酸血
             .AddTrait(S_Trait.acid_proof)//酸性
             .AddTrait(S_Trait.acid_touch)//酸性
-            .AddTrait(S_Trait.mega_heartbeat)//巨心
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
@@ -2879,6 +2878,19 @@ public partial class Actors
             creature.AddJob(ActorJobs.PlantXianCultivator);                        // 主动修炼(野外生物需要)
             //creature.AddTrait(ActorTraits.Cultivator);                          // 可选:提高主动修炼概率到 80%
         }
+
+        ActorAsset[] chaos_warband_members = [
+            UncleanCreature, NurgleSpirit, NurgleDiseaseCarrier, PlagueBringer, PlagueToad,
+            GreatUncleanOneButcher, GreatUncleanOneBellRinger, GreatUncleanOneRainFather,
+            Daemonette, Hellflayer, SlaaneshSeeker, SlaaneshMistress, SlaaneshFiend,
+            KeeperSecrets, KeeperSecretsNakari, ExaltedKeeperSecrets,
+            PinkHorrorTzeentch, BlueHorrorTzeentch, IridescentHorrorTzeentch, FlamerTzeentch, ScreamersTzeentch,
+            LordChange, KairosFateweaver, ExaltedLordChange,
+            BloodletterKhorne, FleshHoundKhorne, BloodcrusherKhorne, MinotaurKhorne, SkullCannonKhorne,
+            Bloodthirster, AnggrathUnbound, ExaltedBloodthirster
+        ];
+        foreach (ActorAsset member in chaos_warband_members)
+            member.AddJob(ActorJobs.ChaosWarband);
             
             
             

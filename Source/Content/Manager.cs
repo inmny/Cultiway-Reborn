@@ -106,6 +106,7 @@ internal class Manager
         
         CultivateMethodTriggers.Init();
         SkavenEvolution.Init();
+        ChaosWarbandService.Init();
         KnightCombatTriggers.Init();
         KnightBloodline.Init();
         KnightForge.Init();

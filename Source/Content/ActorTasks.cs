@@ -44,6 +44,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor WriteSkillbook { get; private set; }
     public static BehaviourTaskActor CallSourceSpawner { get; private set; }
     public static BehaviourTaskActor CoordinateSkavenPack { get; private set; }
+    public static BehaviourTaskActor CoordinateChaosWarband { get; private set; }
     public static BehaviourTaskActor SwitchCultibook { get; private set; }
     public static BehaviourTaskActor TravelToCity { get; private set; }
     public static BehaviourTaskActor FindSectJob { get; private set; }
@@ -215,6 +216,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         CallSourceSpawner.addBeh(new BehEndJob());
 
         CoordinateSkavenPack.addBeh(new BehCoordinateSkavenPack());
+        CoordinateChaosWarband.addBeh(new BehCoordinateChaosWarband());
 
         SwitchCultibook.addBeh(new BehSwitchCultibook());
         SwitchCultibook.addBeh(new BehEndJob());
