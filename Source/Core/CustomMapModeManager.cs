@@ -15,6 +15,10 @@ public class CustomMapModeManager
     public GeoRegion HoveredGeoRegion { get; private set; }
     public GeoRegion UiHoveredGeoRegion { get; private set; }
     private CustomMapModeAsset _cached_map_mode;
+    private readonly Dictionary<CustomMapModeAsset, ICustomMapModeRenderer> _renderers = new();
+    private bool _map_mode_invalidated = true;
+    private bool _renderer_dirty = true;
+    private CustomMapModeAsset _active_renderer_mode;
     private GeoRegion _selected_geo_region;
     private float _interaction_animation_next_refresh_time;
     private float _interaction_animation_pulse = 0.5f;
@@ -24,7 +28,7 @@ public class CustomMapModeManager
     public CustomMapModeAsset UpdateCurrentMapMode()
     {
         CustomMapModeAsset oldMapMode = _cached_map_mode;
-        if (oldMapMode != null && PlayerConfig.optionBoolEnabled(oldMapMode.toggle_name))
+        if (!_map_mode_invalidated && oldMapMode != null && PlayerConfig.optionBoolEnabled(oldMapMode.toggle_name))
         {
             return oldMapMode;
         }
@@ -39,13 +43,65 @@ public class CustomMapModeManager
             SetAllDirty();
         }
 
+        _map_mode_invalidated = false;
         return _cached_map_mode;
     }
 
     public void InvalidateCurrentMapMode()
     {
-        _cached_map_mode = null;
+        _map_mode_invalidated = true;
         SetAllDirty();
+    }
+
+    public bool IsVectorMode(CustomMapModeAsset mapMode)
+    {
+        return mapMode?.renderer_factory != null;
+    }
+
+    public void UpdateCurrentRenderer(CustomMapModeAsset mapMode, float elapsed)
+    {
+        CustomMapModeAsset rendererMode = IsVectorMode(mapMode) ? mapMode : null;
+        if (_active_renderer_mode != rendererMode)
+        {
+            GetRenderer(_active_renderer_mode)?.SetVisible(false);
+            _active_renderer_mode = rendererMode;
+            GetRenderer(_active_renderer_mode)?.SetVisible(true);
+            _renderer_dirty = true;
+        }
+
+        ICustomMapModeRenderer renderer = GetRenderer(_active_renderer_mode);
+        if (renderer == null) return;
+        if (_renderer_dirty)
+        {
+            renderer.SetAllDirty();
+            _renderer_dirty = false;
+        }
+        renderer.Update(elapsed);
+    }
+
+    public bool TryGetRenderer<T>(CustomMapModeAsset mapMode, out T renderer)
+        where T : class, ICustomMapModeRenderer
+    {
+        renderer = GetRenderer(mapMode) as T;
+        return renderer != null;
+    }
+
+    public void ClearWorldRenderers()
+    {
+        foreach (ICustomMapModeRenderer renderer in _renderers.Values)
+        {
+            renderer.ClearWorld();
+        }
+    }
+
+    private ICustomMapModeRenderer GetRenderer(CustomMapModeAsset mapMode)
+    {
+        if (mapMode?.renderer_factory == null) return null;
+        if (_renderers.TryGetValue(mapMode, out ICustomMapModeRenderer renderer)) return renderer;
+
+        renderer = mapMode.renderer_factory(this);
+        _renderers.Add(mapMode, renderer);
+        return renderer;
     }
 
     private static CustomMapModeAsset FindCurrentMapMode()
@@ -180,6 +236,7 @@ public class CustomMapModeManager
     public void SetAllDirty()
     {
         MapLayer?.SetAllDirty();
+        _renderer_dirty = true;
     }
 
     public void SetTileDirty(WorldTile tile)

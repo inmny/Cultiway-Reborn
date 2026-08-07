@@ -207,6 +207,12 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
         button.open_window_id = null;
         button.type = PowerButtonType.Special;
         button.transform.localScale = Vector3.one;
+        TipButton tip = button.GetComponent<TipButton>() ?? button.gameObject.AddComponent<TipButton>();
+        tip.textOnClick = asset.toggle_name;
+        tip.textOnClickDescription = asset.toggle_name + "_description";
+        tip.text_description_2 = "hotkey_tip_zone_switch";
+        tip.type = "normal";
+        tip.showOnClick = false;
         button.gameObject.SetActive(true);
         button.checkToggleIcon();
         return button;

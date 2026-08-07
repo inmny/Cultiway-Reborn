@@ -1,3 +1,4 @@
+using System;
 using Cultiway.Const;
 using Cultiway.Core;
 using UnityEngine;
@@ -6,6 +7,8 @@ namespace Cultiway.Core.Libraries;
 
 public class CustomMapModeAsset : Asset
 {
+    public Func<CustomMapModeManager, ICustomMapModeRenderer> renderer_factory;
+
     public delegate void Kernel(WorldTile tile, ref Color32 out_color);
 
     public string icon_path;
