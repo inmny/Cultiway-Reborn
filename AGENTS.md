@@ -1,14 +1,27 @@
 # 仓库指南
 
 ## 项目结构与模块组织
+
 核心玩法逻辑位于 `Source/`，主要子系统按职责拆分到 `Core/`（扩展与系统）、`Patch/`（Harmony 补丁）、`UI/`、`Utils/` 和 `LocaleKeys/`。资源和数据表从 `Content/` 与 `GameResources/` 发布，本地化文本位于 `Locales/`。`Scripts/` 存放数据转换和平衡性辅助脚本，编译后的程序集输出到 `bin/<Configuration>/net48/`。
 
 原版游戏源码位于 `.GameSource/`。需要核对原版资源时，优先参考 `.GameSource\Assets`，包括图标、贴图、图集、预制体、音效和资源路径命名；新增或替换 Mod 资源前，先确认原版资源结构，避免凭猜测复刻路径或命名。
 
 ## 构建、测试与开发命令
+
 - `dotnet build Cultiway.csproj -c Debug`：还原对本地 WorldBox 安装目录的引用，并将调试 DLL 输出到 `bin/Debug/net48/`。
 - `python Scripts/csv2json.py Tables/<file>.csv`：将表格源文件转换为 `Content/` 下消费的 JSON 格式。
 - `python Scripts/count_source_lines.py Source`：评审变更范围时，用于快速检查代码规模。
+- 测试通过运行本地 WorldBox (../worldbox.exe) 进行，模组加载器会自动编译并加载mod。
+
+## 编码规则
+
+- 不要保留向后兼容。删除过时的代码路径，而非添加兼容层、回退方案或迁移逻辑。
+- 选择完全满足当前需求的最简实现。避免臆测性抽象、多余配置和间接层。
+- 分层演进系统。从能端到端跑通的最小版本起步，每个新能力都叠加在已经可用的产品之上。绝不拿一个能用的产品去换半成品的复杂设计。
+- 保持组件模块化，职责边界清晰。
+- 当成熟、维护良好的库能降低整体复杂度或提升可靠性时，优先采用。没有充分理由，不要重复实现通用功能。
+- 在自己动手写实现或引入新包之前，先把项目已有的依赖和工具类用足。不查文档和类型定义，就别认定某个库缺少某项能力。
+- 架构决策要着眼于长期。不要接受那种"先这样凑合、以后再换"的临时方案。
 
 ## 编码风格与命名约定
 
@@ -22,16 +35,10 @@
 
 ## UI 开发约束
 
-涉及窗口、弹层、列表、详情页、HUD、底栏按钮、Tooltip、滚动容器、UI prefab 或 UI 资源的设计与实现时，开始修改前必须阅读 [`Prompts/UI.md`](Prompts/UI.md)。该文档规定了 UI 的现行分层、真实 API、视觉语义、原版资源复用方式、扩展规则和验证清单。
-
-公共原子元素、布局、主题和资源位于 `Source/UI/Foundation`，复合控件位于 `Source/UI/Controls`，原版 prefab 边界位于 `Source/UI/Adapters` 或拥有该 prefab 的 Window。不要恢复 `WanfaUiFactory`、`BaibaoUiFactory`、`UIUtils`，也不要新增功能专属的通用 UI 工厂。
-
-## 测试指南
-仓库没有自动化测试套件，主要通过 WorldBox 内手动验证。启动后自动通过 NeoModLoader 编译并加载 Mod，启用 `Source/Debug` 中的调试工具，并针对受影响系统（例如法术、宗门机制）创建游戏内场景验证。
-
-数据变更需要重新运行对应脚本生成派生 JSON。
+涉及窗口、弹层、列表、详情页、HUD、底栏按钮、Tooltip、滚动容器、UI prefab 或 UI 资源的设计与实现时，开始修改前必须阅读 [`Prompts/UI.md`](Prompts/UI.md)。
 
 ## 提交与 Pull Request 指南
+
 遵循 `git log -5` 中现有的 Conventional Commit 风格，例如 `feat:`、`bugfix:`、`feat(scope): 描述`。摘要保持简短、现在时，并限定在单一变更范围内。提交信息应使用中文。
 
 Pull Request 需要说明玩法影响，包含复现或验证步骤；涉及 UI 的变更应附截图或 GIF。关联相关路线图条目或 issue，标明 `GameResources/` 下新增的资源文件，并说明是否需要 Mod 用户执行手动迁移步骤。

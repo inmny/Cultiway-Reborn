@@ -119,8 +119,16 @@ public class CustomMapLayer : MapLayer
 
         if (sprRnd == null) sprRnd = GetComponent<SpriteRenderer>();
 
-        var mapMode = ModClass.I.CustomMapModeManager.UpdateCurrentMapMode();
+        CustomMapModeManager manager = ModClass.I.CustomMapModeManager;
+        var mapMode = manager.UpdateCurrentMapMode();
+        manager.UpdateCurrentRenderer(mapMode, pElapsed);
         if (mapMode == null)
+        {
+            Hide();
+            return;
+        }
+
+        if (manager.IsVectorMode(mapMode))
         {
             Hide();
             return;

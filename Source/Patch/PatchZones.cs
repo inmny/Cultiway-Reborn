@@ -12,7 +12,12 @@ internal static class PatchZones
     private static void getCurrentMapBorderMode_postfix(ref MetaType __result, bool pCheckOnlyOption = false)
     {
         if (__result != MetaType.None) return;
-        if (WorldboxGame.MetaTypes.Sect.isActive(pCheckOnlyOption))
+        CustomMapModeAsset current = ModClass.I.CustomMapModeManager.CurrMapMode;
+        if (current != null && current.redirect_map_mode != MetaTypeExtend.None)
+        {
+            __result = current.redirect_map_mode.Back();
+        }
+        else if (WorldboxGame.MetaTypes.Sect.isActive(pCheckOnlyOption))
         {
             __result = MetaTypeExtend.Sect.Back();
         }
@@ -25,5 +30,14 @@ internal static class PatchZones
         {
             __result = MetaTypeExtend.GeoRegion.Back();
         }
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(Zones), nameof(Zones.getMapMetaAsset))]
+    private static void getMapMetaAsset_postfix(ref MetaTypeAsset __result)
+    {
+        if (__result != null) return;
+        CustomMapModeAsset current = ModClass.I.CustomMapModeManager.CurrMapMode;
+        if (current == null || current.redirect_map_mode == MetaTypeExtend.None) return;
+        __result = current.redirect_map_mode.Back().getAsset();
     }
 }

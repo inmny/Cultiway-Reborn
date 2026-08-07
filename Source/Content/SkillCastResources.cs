@@ -15,6 +15,7 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
 {
     public static SkillCastResourceAsset Wakan { get; private set; }
     public static SkillCastResourceAsset Mana { get; private set; }
+    public static SkillCastResourceAsset Vigor { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
     protected override string Prefix() => "Cultiway.SkillCastResource";
@@ -27,6 +28,8 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
         Mana.Configure(HasMana, ReadMana, WriteMana, QuoteMana)
             .ConfigureEditor("Cultiway.SkillCastResource.Mana.Description", "ui/icons/iconMana", 10)
             .ConfigureItemLevelDisplay(FormatManaItemLevel);
+        Vigor.Configure(HasVigor, ReadVigor, WriteVigor, QuoteVigor)
+            .ConfigureEditor("Cultiway.SkillCastResource.Vigor.Description", "cultiway/icons/iconKnight", 20);
     }
 
     private static bool HasWakan(ActorExtend caster)
@@ -68,6 +71,27 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
     private static float QuoteMana(ActorExtend caster, Entity skill, float demand)
     {
         return Mathf.Ceil(Mathf.Max(0f, demand));
+    }
+
+    private static bool HasVigor(ActorExtend caster)
+    {
+        return caster.HasCultisys<Knight>();
+    }
+
+    private static float ReadVigor(ActorExtend caster)
+    {
+        return caster.GetCultisys<Knight>().vigor;
+    }
+
+    private static void WriteVigor(ActorExtend caster, float amount)
+    {
+        ref Knight knight = ref caster.GetCultisys<Knight>();
+        knight.vigor = Mathf.Clamp(amount, 0f, caster.Base.stats[BaseStatses.MaxVigor.id]);
+    }
+
+    private static float QuoteVigor(ActorExtend caster, Entity skill, float demand)
+    {
+        return Mathf.Max(0f, demand);
     }
 
     private static string FormatWakanItemLevel(ItemLevel itemLevel)

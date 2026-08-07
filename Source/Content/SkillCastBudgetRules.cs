@@ -10,6 +10,7 @@ public sealed class SkillCastBudgetRules : ExtendLibrary<SkillCastBudgetRuleAsse
 {
     public static SkillCastBudgetRuleAsset Xian { get; private set; }
     public static SkillCastBudgetRuleAsset Magic { get; private set; }
+    public static SkillCastBudgetRuleAsset Knight { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
     protected override string Prefix() => "Cultiway.SkillCastBudgetRule";
@@ -23,6 +24,10 @@ public sealed class SkillCastBudgetRules : ExtendLibrary<SkillCastBudgetRuleAsse
         Magic.Priority = 100;
         Magic.MatchResources(SkillCastResources.Mana);
         Magic.Resolve = ResolveMagicBudget;
+
+        Knight.Priority = 100;
+        Knight.MatchResources(SkillCastResources.Vigor);
+        Knight.Resolve = ResolveKnightBudget;
     }
 
     private static SkillCastBudgetResolution ResolveXianBudget(SkillCastBudgetContext context)
@@ -44,6 +49,22 @@ public sealed class SkillCastBudgetRules : ExtendLibrary<SkillCastBudgetRuleAsse
         if (!context.Caster.HasCultisys<Magic>()) return new SkillCastBudgetResolution(1);
 
         var level = context.Caster.GetCultisys<Magic>().CurrLevel;
+        var budget = level switch
+        {
+            0 => 1,
+            1 => 4,
+            2 => 32,
+            3 => 256,
+            _ => 1024
+        };
+        return new SkillCastBudgetResolution(budget, level >= 3);
+    }
+
+    private static SkillCastBudgetResolution ResolveKnightBudget(SkillCastBudgetContext context)
+    {
+        if (!context.Caster.HasCultisys<Components.Knight>()) return new SkillCastBudgetResolution(1);
+
+        var level = context.Caster.GetCultisys<Components.Knight>().CurrLevel;
         var budget = level switch
         {
             0 => 1,
