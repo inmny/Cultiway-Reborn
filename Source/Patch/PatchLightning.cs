@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using HarmonyLib;
 using UnityEngine;
 
@@ -15,14 +16,16 @@ internal static class PatchLightning
     [ThreadStatic]
     private static long requestedSourceScopeId;
 
+    private static long naturalSourceScopeId;
+
     [ThreadStatic]
     private static Stack<long> damageScopeStack;
 
-    /// <summary>当前调用栈所属的无来源天雷作用域 ID；不在天雷中时为零。</summary>
+    /// <summary>当前调用栈所属的天雷作用域 ID；不在天雷中时为零。</summary>
     public static long CurrentSkyLightningScopeId =>
         damageScopeStack == null || damageScopeStack.Count == 0 ? 0 : damageScopeStack.Peek();
 
-    /// <summary>注册所有无来源原版天雷进入伤害结算前的行为。</summary>
+    /// <summary>注册无来源原版天雷进入伤害结算前的行为。</summary>
     public static void RegisterActionBeforeSkyLightningDamage(Action<Vector2Int, int> action)
     {
         actionBeforeSkyLightningDamage += action;
@@ -44,7 +47,7 @@ internal static class PatchLightning
         }
     }
 
-    /// <summary>仅把主动标记传给无来源且带雷击标记的世界伤害。</summary>
+    /// <summary>建立天雷作用域，并通知内容层记录命中状态。</summary>
     [HarmonyPrefix, HarmonyPatch(typeof(MapAction), nameof(MapAction.damageWorld))]
     private static void damageWorld_prefix(
         WorldTile pTile,
@@ -54,7 +57,11 @@ internal static class PatchLightning
         out long __state)
     {
         bool isSkyLightning = pTile != null && pOptions?.lightning_effect == true && pByWho == null;
-        __state = isSkyLightning ? requestedSourceScopeId : 0;
+        __state = !isSkyLightning
+            ? 0
+            : requestedSourceScopeId > 0
+                ? requestedSourceScopeId
+                : -Interlocked.Increment(ref naturalSourceScopeId);
         damageScopeStack ??= new Stack<long>();
         damageScopeStack.Push(__state);
         if (isSkyLightning) actionBeforeSkyLightningDamage?.Invoke(pTile.pos, pRad);

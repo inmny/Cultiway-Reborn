@@ -199,36 +199,30 @@
 
 ## 10. 雷铸神兵（始祖骑士的天雷重生）
 
-**状态**：已实现（2026-07）。共识详见 [[knight-forge-design]]（记忆）。
+**状态**：已实现（2026-08）。
 
 ### 触发
 - **主体**：始祖骑士 = 9 级 Knight。
-- **事件**：仅**天雷**致死——天气雷暴 + 闪电神力（`pActor==null`）。检测靠 `PatchLightning`（`Source/Patch/PatchLightning.cs`）拦截 `MapAction.checkLightningAction`（所有 `spawnLightning*` 的唯一咽喉），给命中范围内的候选始祖骑士打"近期被雷击"时间戳；死亡钩子据此判定。
+- **事件**：天气雷暴 + 闪电神力（`pActor==null`）命中后，在 `PatchLightning`（`Source/Patch/PatchLightning.cs`）中给范围内的候选骑士添加原版 `afterglow` 状态，持续 3 秒。
 - **排除**：特性/plot/角色触发的闪电、模组自己的闪电技能（走技能系统，不经 `checkLightningAction`）。
 - **前提**：死亡时 `actor.city != null`，否则正常死亡、不触发。
 
-### 回收瞬间（`KnightForge.BeginForge`）
-- 快照（race asset id、9 级、斗气、姓名、血脉快照）+ 记 `actor.city` 与冷却月数 → 进 `_pending`（键=旧 actor id，照 `_parents` 内存态模式）。
-- 死亡地落一道**真实伤害天雷**（`MapBox.spawnLightningSmall(tile, 0.25f, null)`，级联受 `MaxCascadeDepth` 约束）。
-- **走原版死亡流程**：人口−1、掉落物归城、死亡日志、Leader/King 继承照常。重生单位是新存在（新 id），不自动复位王座。
-
-### 冷却 → 重生（`ForgePendingSystem`，月度节流）
-- 冷却：`KnightSetting.ForgeCooldownMonths`（默认 3）游戏内月数。
-- 每月 `KnightForge.TickPending`：`city.isRekt()` → 删条目（单位数据删除）；否则 `remainingMonths--`，到 0 → `Respawn`。
-- 重生（`KnightForge.Respawn`）：`spawnNewUnit` 在村庄 `getTile()` 出生 → 归属**村庄当前王国**（被征服则随新主）+ `setCity` + 保留姓名 → `Cultisyses.Knight.GrantToRealm(ae, 9)`（0→9 直接授予，Grant 模式不清空斗气）→ 恢复斗气 → **新 id 下重建血脉**（新旧后代都继续继承）→ `restoreHealth(max)` 满血。
-- **纯风味、可重复**：雷铸后机制上与普通始祖骑士无异，"雷铸神兵"仅名号；无标记，可被再次雷击再次雷铸。
+### 致死前雷铸（`KnightForge.OnFinalDamage`）
+- 在 `FinalDamageStage.Survival` 判断最终伤害是否足以扣空当前生命；只要 `afterglow` 状态仍存在，即使致死伤害来自其它来源，也会触发雷铸。
+- 原单位直接取消当前行为，移动到所属城市的其他安全地块，恢复满血后将本次伤害改为 0。
+- 重生后施加 `stunned` 状态，持续 `KnightSetting.ForgeCooldownMonths`（默认 3）个游戏内月；期间跳过 AI、行为和自然死亡更新，无法做出任何行动。
+- 不创建新单位，不改变 actor id、装备、关系、归属、血脉或人口，不触发死亡、掉落、死亡日志和继承流程。
+- 雷铸可重复触发；下一次致死天雷仍使用同一单位继续处理。
 
 ### 持久化
-- **内存态**：`_pending` / `_strikes` 同血脉系统，重载世界后丢失——重载期间被雷铸的骑士永久丢失。等"每世界存档"基础设施（与血脉持久化同一阻塞）一起持久化。
+- 无新增待重生内存态；单位和血脉数据沿用原对象。
 
 ### 落点
 | 关注点 | 文件 |
 |---|---|
 | 检测 patch | `Source/Patch/PatchLightning.cs` |
 | 核心逻辑 | `Source/Content/KnightForge.cs` |
-| 月度推进 | `Source/Content/Systems/Logic/ForgePendingSystem.cs` |
-| 旋钮 | `KnightSetting.ForgeCooldownMonths` |
-| 注册 | `Manager.Init`（`LogicRestoreStatusSystemGroup` + `KnightForge.Init()`） |
+| 注册 | `Manager.Init`（`KnightForge.Init()`） |
 
 ---
 
