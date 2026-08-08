@@ -238,15 +238,15 @@ public partial class Cultisyses
 
     /// <summary>
     /// 魔法 mana 护盾：PowerLevel 防御需消耗 mana 维持。
-    /// mana 足够时正常防御（返回真实 PL），不足时完全取消防御（返回 0）。
+    /// mana 足够时以高一级 PowerLevel 防御，不足时完全取消防御（返回 0）。
     /// 非魔法生物或 gap<=0 时返回 null（不处理，回退默认）。
     /// </summary>
     private static float? MagicDefensePowerLevelResolver(ActorExtend target, float attacker_power_level, float damage)
     {
         if (!target.E.HasComponent<Magic>()) return null;
 
-        var power_level = target.GetPowerLevel();
-        var gap = power_level - attacker_power_level + 1;
+        var shield_power_level = target.GetPowerLevel() + 1;
+        var gap = shield_power_level - attacker_power_level;
         if (gap <= 0) return null;
 
         // 按豁免量消耗 mana
@@ -262,7 +262,7 @@ public partial class Cultisyses
                 var hit_fx = EffectsLibrary.spawnAt("fx_shield_hit", target.Base.current_position, 1f);
                 hit_fx?.attachTo(target.Base.a);
             }
-            return power_level;
+            return shield_power_level;
         }
         return 0;
     }
