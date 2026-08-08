@@ -37,6 +37,10 @@
 
 涉及窗口、弹层、列表、详情页、HUD、底栏按钮、Tooltip、滚动容器、UI prefab 或 UI 资源的设计与实现时，开始修改前必须阅读 [`Prompts/UI.md`](Prompts/UI.md)。
 
+## 功能规划设计
+
+涉及一个复杂的系统、功能等的设计时，开始设计前必须阅读 [`Prompts/PLAN.md`](Prompts/PLAN.md)
+
 ## 提交与 Pull Request 指南
 
 遵循 `git log -5` 中现有的 Conventional Commit 风格，例如 `feat:`、`bugfix:`、`feat(scope): 描述`。摘要保持简短、现在时，并限定在单一变更范围内。提交信息应使用中文。
