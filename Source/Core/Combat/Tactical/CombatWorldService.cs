@@ -5,6 +5,7 @@ using ai;
 using Cultiway.Const;
 using Cultiway.Core.Performance;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Patch;
@@ -485,7 +486,7 @@ public static class CombatWorldService
         bool doChecks)
     {
         Actor actor = caster?.Base;
-        if (actor == null || actor.isRekt() || target.isRekt()) return false;
+        if (actor == null || actor.isRekt() || !CanDamageTarget(actor, target)) return false;
         if (doChecks &&
             (actor.isInWaterAndCantAttack() || !actor.isAttackPossible()))
             return false;
@@ -687,6 +688,7 @@ public static class CombatWorldService
             runtime.IgnoredTargetId = runtime.Plan.PrimaryEnemy.Id;
             runtime.IgnoreCurrentTargetUntil = CurrentTime + 3d;
             runtime.Plan = null;
+            runtime.CurrentTargetId = 0;
             actor.clearAttackTarget();
             CombatMovementService.Clear(
                 actor,
@@ -920,6 +922,10 @@ public static class CombatWorldService
             allyCap,
             preferredThreatenedAllyId,
             out int scannedAllies);
+        for (int i = 0; i < enemyObjects.Count; i++)
+        {
+            if (enemyObjects[i].isActor()) nearbyAllies.Remove(enemyObjects[i].a);
+        }
         CombatantSnapshot[] allies = BuildAllySnapshots(actor, nearbyAllies);
         snapshot.FormationCohesion = ResolveFormationCohesion(snapshot.Position, allies);
         RecordPlanningMeasurement(
@@ -1003,7 +1009,7 @@ public static class CombatWorldService
             float.MaxValue,
             now,
             result,
-            allowSameKingdom: true);
+            allowPersonalHostility: true);
 
         if (armyRuntime != null)
         {
@@ -1014,7 +1020,7 @@ public static class CombatWorldService
                 TacticalCombatSettings.GroupAssistRadius,
                 now,
                 result,
-                allowSameKingdom: false);
+                allowPersonalHostility: false);
         }
 
         using var nearbySignals = new ListPool<CombatThreatSignal>();
@@ -1040,12 +1046,12 @@ public static class CombatWorldService
         float radius,
         double now,
         IDictionary<long, CombatThreatContext> output,
-        bool allowSameKingdom)
+        bool allowPersonalHostility)
     {
         float radiusSquared = radius * radius;
         foreach (CombatThreatSignal signal in source.Values)
         {
-            if (!IsUsableThreatSignal(actor, signal, allowSameKingdom, now)) continue;
+            if (!IsUsableThreatSignal(actor, signal, allowPersonalHostility, now)) continue;
             if (radius < float.MaxValue)
             {
                 float victimDistance = Toolbox.SquaredDistVec2Float(
@@ -1069,7 +1075,7 @@ public static class CombatWorldService
     private static bool IsUsableThreatSignal(
         Actor actor,
         CombatThreatSignal signal,
-        bool allowSameKingdom,
+        bool allowPersonalHostility,
         double now)
     {
         if (signal == null ||
@@ -1078,7 +1084,7 @@ public static class CombatWorldService
             now - signal.LastThreatAt > TacticalCombatSettings.ThreatLifetime)
             return false;
         if (signal.Victim != actor && signal.Victim.kingdom != actor.kingdom) return false;
-        return allowSameKingdom || signal.Attacker.kingdom != actor.kingdom;
+        return allowPersonalHostility || IsGroupHostileTarget(actor, signal.Attacker);
     }
 
     /// <summary>个人威胁优先于战斗群组和近邻，同来源时保留更严重或更新的记录。</summary>
@@ -2402,6 +2408,7 @@ public static class CombatWorldService
             runtime.IgnoredTargetId = target.getID();
             runtime.IgnoreCurrentTargetUntil = now + 3d;
             runtime.Plan = null;
+            runtime.CurrentTargetId = 0;
             actor.clearAttackTarget();
             CombatMovementService.Clear(
                 actor,
@@ -2415,7 +2422,17 @@ public static class CombatWorldService
 
     private static void ImportExternalTarget(Actor actor, CombatActorRuntime runtime)
     {
-        if (actor.attack_target.isRekt()) return;
+        if (actor.attack_target.isRekt())
+        {
+            if (runtime.CurrentTargetId == 0) return;
+            runtime.Plan = null;
+            runtime.CurrentTargetId = 0;
+            runtime.ExternalTargetDirty = true;
+            runtime.NextPlanAt = 0d;
+            runtime.NextActionAttemptAt = 0d;
+            CombatMovementService.Invalidate(runtime, clearBearing: true);
+            return;
+        }
         long targetId = actor.attack_target.getID();
         if (runtime.Plan?.HasEnemy == true &&
             runtime.Plan.PrimaryEnemy.Id == targetId)
@@ -2554,10 +2571,8 @@ public static class CombatWorldService
         runtime.DisplayedActivityStartedAt = 0d;
     }
 
-    /// <summary>
-    /// 使用与原版实际攻击入口一致的目标资格；威胁记录只改变优先级，不得绕过阵营、职业和单位状态限制。
-    /// </summary>
-    internal static bool CanEngageTarget(Actor actor, BaseSimObject target)
+    /// <summary>判断目标当前能否受到角色攻击，不推断双方敌对关系。</summary>
+    internal static bool CanDamageTarget(Actor actor, BaseSimObject target)
     {
         return !actor.isRekt() &&
                !target.isRekt() &&
@@ -2566,6 +2581,29 @@ public static class CombatWorldService
                    target,
                    pCheckForFactions: true,
                    pAttackBuildings: actor.asset.can_attack_buildings);
+    }
+
+    /// <summary>判断目标能否作为个人战术敌人继续追击。</summary>
+    internal static bool CanEngageTarget(Actor actor, BaseSimObject target)
+    {
+        if (!CanDamageTarget(actor, target) ||
+            !SkillTargetRelationResolver.HasHostileRelation(actor, target))
+            return false;
+        if (target.isActor() &&
+            !actor.hasStatusTantrum() &&
+            !actor.areFoes(target) &&
+            target.a.is_unconscious)
+            return false;
+
+        float distance = actor.distanceToObjectTarget(target);
+        if (distance > 50f) return false;
+        return distance <= 20f || !target.isActor() || !target.a.isTask("run_away");
+    }
+
+    /// <summary>判断目标能否传播给战斗群组；个人仇恨不传播，发狂目标仍视为群组敌人。</summary>
+    internal static bool IsGroupHostileTarget(Actor actor, BaseSimObject target)
+    {
+        return SkillTargetRelationResolver.IsSharedHostile(actor, target);
     }
 
     private static BaseSimObject ResolveActionTarget(Actor actor, CombatPlan plan)
@@ -2831,7 +2869,7 @@ public static class CombatWorldService
     }
 
     /// <summary>
-    /// 将一次真实敌对行为记录到受害者侧，并仅把外部威胁发布给受害者所属战斗群组。
+    /// 将一次真实敌对行为记录到受害者侧，并仅把公开敌人或发狂目标发布给受害者所属战斗群组。
     /// </summary>
     private static void RecordIncomingThreat(
         Actor attacker,
@@ -2853,8 +2891,7 @@ public static class CombatWorldService
         CombatGroupRuntime sharedGroup = null;
         CombatGroupKey groupKey = default;
         ICombatGroupProvider groupProvider = null;
-        if (victim.kingdom != null &&
-            attacker.kingdom != victim.kingdom &&
+        if (IsGroupHostileTarget(victim, attacker) &&
             TryResolveCombatGroup(
                 victim,
                 out groupKey,
@@ -2951,6 +2988,7 @@ public static class CombatWorldService
         CombatObservation observation,
         double now)
     {
+        if (!IsGroupHostileTarget(actor, observation.TargetObject)) return;
         if (!TryResolveCombatGroup(actor, out CombatGroupKey key, out ICombatGroupProvider provider))
             return;
         CombatGroupRuntime runtime = GetOrCreateGroupState(key, provider);

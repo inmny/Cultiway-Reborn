@@ -6,6 +6,7 @@ using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using strings;
@@ -455,7 +456,8 @@ internal static class CoreFormationEffectHandlers
         ActorExtend owner,
         BaseSimObject target)
     {
-        return !target.isRekt() && owner.Base.canAttackTarget(target);
+        return !target.isRekt() &&
+               SkillTargetRelationResolver.IsHostile(owner.Base, target);
     }
 
     /// <summary>判断概率和普通内部冷却，并在成功时写入定义冷却。</summary>

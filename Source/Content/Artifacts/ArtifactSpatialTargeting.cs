@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Content.Components;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Utils.Extension;
 using strings;
 using UnityEngine;
@@ -58,14 +59,7 @@ internal sealed class ArtifactSpatialTargeting
         Kingdom attackKingdom = null)
     {
         if (target == null || target.isRekt() || target == owner) return false;
-        if (attackKingdom != null)
-        {
-            if (!attackKingdom.isEnemy(target.kingdom)) return false;
-        }
-        else if (!owner.canAttackTarget(target))
-        {
-            return false;
-        }
+        if (!SkillTargetRelationResolver.IsHostile(owner, target, attackKingdom)) return false;
 
         float range = controlRange + target.stats[S.size];
         return Toolbox.SquaredDistVec2Float(owner.current_position, target.current_position) <= range * range;

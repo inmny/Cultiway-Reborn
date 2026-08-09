@@ -178,7 +178,7 @@ internal sealed class PhysicalCombatActionProvider : ICombatActionProvider
     {
         Actor actor = context.Caster.Base;
         BaseSimObject target = context.ActionTarget;
-        if (!actor.isAttackPossible() || !CombatWorldService.CanEngageTarget(actor, target))
+        if (!actor.isAttackPossible() || !CombatWorldService.CanDamageTarget(actor, target))
             return CombatExecutionStatus.Invalid;
 
         var action = candidate.Payload as CombatActionAsset;

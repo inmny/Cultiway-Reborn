@@ -38,7 +38,7 @@ internal static class CombatSpatialAwarenessIndex
             signal.Victim.isRekt() ||
             signal.Victim.current_tile == null ||
             signal.Victim.kingdom == null ||
-            signal.Attacker.kingdom == signal.Victim.kingdom)
+            !CombatWorldService.IsGroupHostileTarget(signal.Victim, signal.Attacker))
             return;
 
         MapChunk chunk = signal.Victim.current_tile.chunk;
@@ -221,7 +221,7 @@ internal static class CombatSpatialAwarenessIndex
             signal.Victim.isRekt() ||
             now - signal.LastThreatAt > TacticalCombatSettings.ThreatLifetime ||
             signal.Victim.kingdom != actor.kingdom ||
-            signal.Attacker.kingdom == actor.kingdom)
+            !CombatWorldService.IsGroupHostileTarget(actor, signal.Attacker))
             return false;
 
         float victimDistance = Toolbox.SquaredDistVec2Float(

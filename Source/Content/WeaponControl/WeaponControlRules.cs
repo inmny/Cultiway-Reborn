@@ -5,6 +5,7 @@ using Cultiway.Content.Const;
 using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -143,7 +144,7 @@ internal static class WeaponControlRules
     {
         prepared = default;
         if (!IsEligibleCultivator(caster) || caster.Base.isFlying() || primaryTarget.isRekt() ||
-            !caster.Base.canAttackTarget(primaryTarget) ||
+            !SkillTargetRelationResolver.IsHostile(caster.Base, primaryTarget, attackKingdom) ||
             !TryResolveWeapon(caster, out Item weapon, out EquipmentAsset weaponAsset,
                 out WeaponControlCategory category)) return false;
 
@@ -234,10 +235,10 @@ internal static class WeaponControlRules
         WeaponControlCategory category,
         ICollection<BaseSimObject> output)
     {
-        AddTarget(caster.Base, primaryTarget, range, output);
+        AddTarget(caster.Base, primaryTarget, attackKingdom, range, output);
         foreach (BaseSimObject attacker in caster.GetRecentAttackersSnapshot())
         {
-            AddTarget(caster.Base, attacker, range, output);
+            AddTarget(caster.Base, attacker, attackKingdom, range, output);
             if (output.Count >= MaxCandidateTargets) return;
         }
 
@@ -248,7 +249,7 @@ internal static class WeaponControlRules
                      caster.Base,
                      attackKingdom))
         {
-            AddTarget(caster.Base, target, range, output);
+            AddTarget(caster.Base, target, attackKingdom, range, output);
             if (output.Count >= MaxCandidateTargets) return;
         }
     }
@@ -257,10 +258,12 @@ internal static class WeaponControlRules
     private static void AddTarget(
         Actor caster,
         BaseSimObject target,
+        Kingdom attackKingdom,
         float range,
         ICollection<BaseSimObject> output)
     {
-        if (target.isRekt() || target == caster || !caster.canAttackTarget(target) || output.Contains(target))
+        if (!SkillTargetRelationResolver.IsHostile(caster, target, attackKingdom) ||
+            output.Contains(target))
             return;
         float allowedRange = range + target.stats[strings.S.size];
         if ((target.current_position - caster.current_position).sqrMagnitude > allowedRange * allowedRange)

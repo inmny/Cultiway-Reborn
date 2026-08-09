@@ -27,8 +27,8 @@ public static class KnightCombatTriggers
     private static void OnKillTrigger(ActorExtend killer, Actor victim, Kingdom victimKingdom)
     {
         if (!killer.HasCultisys<Knight>()) return;
-        // 只计敌对击杀（同王国视为友伤，不计）
-        if (victimKingdom != null && killer.Base.kingdom == victimKingdom) return;
+        // 按原版外交关系判断敌对目标；和平或同盟王国的击杀不计入斗气。
+        if (killer.Base.kingdom?.isEnemy(victimKingdom) == false) return;
 
         ref var knight = ref killer.GetCultisys<Knight>();
         var maxVigor = killer.Base.stats[BaseStatses.MaxVigor.id];

@@ -284,7 +284,8 @@ public static class ProgressionService
     }
 
     /// <summary>
-    ///     无副作用地沿大境界过渡前进，遇到断链、越级、无授予结算器或未声明目标境界时停止。
+    ///     无副作用地沿大境界过渡前进，遇到断链、越级、无授予结算器或未声明中间境界时停止。
+    ///     请求达到体系最高等级时，终点本身可以没有后续境界节点。
     /// </summary>
     private static int TraverseGrantPath<T>(CultisysAsset<T> cultisys, int startLevel, int targetLimit)
         where T : struct, ICultisysComponent
@@ -298,11 +299,18 @@ public static class ProgressionService
                 || transition.TargetLevel <= currentLevel
                 || transition.TargetLevel > targetLimit
                 || transition.TargetLevel >= cultisys.LevelNumber
-                || transition.ResolveGrant == null
-                || cultisys.Progression.GetRealm(transition.TargetLevel) == null)
+                || transition.ResolveGrant == null)
             {
                 break;
             }
+
+            var isFinalTarget = transition.TargetLevel == targetLimit
+                                && targetLimit == cultisys.LevelNumber - 1;
+            if (!isFinalTarget && cultisys.Progression.GetRealm(transition.TargetLevel) == null)
+            {
+                break;
+            }
+
             currentLevel = transition.TargetLevel;
         }
         return currentLevel;

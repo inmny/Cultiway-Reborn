@@ -28,7 +28,7 @@ internal static class MagicShieldVfx
         {
             var actor = visible.array[i];
             if (actor == null || !actor.isAlive() || !actor.is_visible) continue;
-            if (!actor.GetExtend().E.HasComponent<Magic>()) continue;
+            if (!actor.GetExtend().E.HasComponent<Magic>() || actor.getMana() < 1f) continue;
 
             var qs = asset.group_system.getNext();
             qs.setSprite(frame);

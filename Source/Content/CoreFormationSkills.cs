@@ -8,6 +8,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Core.SkillLibV3.Utils;
@@ -522,7 +523,7 @@ internal sealed class CoreFormationSkills : ICanInit
     private static void OnDragonMight(Entity skillEntity, BaseSimObject value)
     {
         if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target) ||
-            target == source || !source.canAttackTarget(target)) return;
+            target == source || !SkillTargetRelationResolver.IsHostile(source, target)) return;
         CombatStatusEffects.ApplyStatus(target, StatusEffects.Daze, 0.6f, source);
         Vector2 center = skillEntity.GetComponent<Position>().v2;
         CombatForceEffects.ApplyRadialForce(source, target, center, 2.5f * context.EffectScale, false);
@@ -532,7 +533,7 @@ internal sealed class CoreFormationSkills : ICanInit
     private static void OnDragonAspectBurst(Entity skillEntity, BaseSimObject value)
     {
         if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target) ||
-            target == source || !source.canAttackTarget(target)) return;
+            target == source || !SkillTargetRelationResolver.IsHostile(source, target)) return;
         CombatDamageEffects.DealDamage(
             source,
             target,
@@ -613,14 +614,15 @@ internal sealed class CoreFormationSkills : ICanInit
     private static void OnPureYangDomain(Entity skillEntity, BaseSimObject value)
     {
         if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target)) return;
-        if (target == source || target.kingdom == source.kingdom)
+        if ((target == source || target.kingdom == source.kingdom) &&
+            !SkillTargetRelationResolver.HasHostileRelation(source, target))
         {
             CombatStatusEffects.CleanseNegativeStatuses(target, 2);
             CombatResourceEffects.RestoreHealth(
                 target,
                 target.stats[S.health] * 0.05f * context.EffectScale);
         }
-        if (target == source || !source.canAttackTarget(target)) return;
+        if (target == source || !SkillTargetRelationResolver.IsHostile(source, target)) return;
         float burnPerSecond = source.stats[S.damage] * 0.05f * context.EffectScale;
         CombatStatusEffects.ApplyTickingStatus(
             target,
@@ -635,7 +637,7 @@ internal sealed class CoreFormationSkills : ICanInit
     private static void OnMysteriousYinDomain(Entity skillEntity, BaseSimObject value)
     {
         if (!TryGetActors(skillEntity, value, out SkillContext context, out Actor source, out Actor target) ||
-            target == source || !source.canAttackTarget(target)) return;
+            target == source || !SkillTargetRelationResolver.IsHostile(source, target)) return;
         CombatStatusEffects.ApplyStatus(target, StatusEffects.Freeze, 1f, source);
         CombatStatusEffects.ApplyStatus(target, StatusEffects.Silence, 3f, source);
         float drained = CombatResourceEffects.DrainWakan(target, 12f * context.EffectScale);

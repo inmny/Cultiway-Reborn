@@ -361,7 +361,8 @@ internal static class CombatObservationService
         if (visible)
         {
             CombatObservation observed = ObserveVisible(personal, observer, target, now);
-            PublishShared(group, observed, now);
+            if (CombatWorldService.IsGroupHostileTarget(observer, target))
+                PublishShared(group, observed, now);
             return observed;
         }
 

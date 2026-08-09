@@ -45,6 +45,6 @@ public static class KnightSetting
     /// <summary>血脉回溯的最大世代数。</summary>
     public const int BloodlineMaxGenerations = 5;
 
-    /// <summary>始祖骑士雷铸重生的冷却月数：被天雷致死后，在所属村庄满血重生前需等待的游戏内月数。</summary>
+    /// <summary>始祖骑士雷铸后的停滞月数：重生后在所属城市内无法做出任何行动的游戏内月数。</summary>
     public const int ForgeCooldownMonths = 3;
 }

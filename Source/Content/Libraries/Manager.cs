@@ -15,6 +15,8 @@ public class Manager
     public static CultivateMethodLibrary CultivateMethodLibrary { get; } = new();
     public static CultivationResourceLibrary CultivationResourceLibrary { get; } = new();
     public static SectNameAtomLibrary SectNameAtomLibrary { get; } = new();
+    public static KnightStyleLibrary KnightStyleLibrary { get; } = new();
+    public static KnightTechniqueLibrary KnightTechniqueLibrary { get; } = new();
 
     /// <summary>将内容层资产库注册到 WorldBox 资产管理器，并完成统一后初始化。</summary>
     internal static void Init()
@@ -32,6 +34,8 @@ public class Manager
         AssetManager._instance.add(CultivateMethodLibrary, "cultivate_methods");
         AssetManager._instance.add(CultivationResourceLibrary, "cultivation_resources");
         AssetManager._instance.add(SectNameAtomLibrary, "sect_name_atoms");
+        AssetManager._instance.add(KnightStyleLibrary, "knight_styles");
+        AssetManager._instance.add(KnightTechniqueLibrary, "knight_techniques");
         
         PostInit();
     }
@@ -51,5 +55,7 @@ public class Manager
         CultivateMethodLibrary.post_init();
         CultivationResourceLibrary.post_init();
         SectNameAtomLibrary.post_init();
+        KnightStyleLibrary.post_init();
+        KnightTechniqueLibrary.post_init();
     }
 }

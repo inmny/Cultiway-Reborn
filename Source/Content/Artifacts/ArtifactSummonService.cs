@@ -2,6 +2,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using strings;
@@ -37,7 +38,7 @@ public static class ArtifactSummonService
             Actor spirit = World.world.units.spawnNewUnit(Actors.GhostFire.id, tile, pSpawnHeight: 0f);
             if (spirit == null) continue;
             spirit.joinKingdom(controller.kingdom);
-            if (target != null && !target.isRekt() && controller.canAttackTarget(target))
+            if (target != null && SkillTargetRelationResolver.IsHostile(controller, target))
             {
                 spirit.setAttackTarget(target);
             }

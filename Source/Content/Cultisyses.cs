@@ -33,13 +33,14 @@ public partial class Cultisyses : ExtendLibrary<BaseCultisysAsset, Cultisyses>
     }
 
     /// <summary>
-    /// 按优先级(Xian > Magic > ...)返回生物实际拥有的第一个体系资产，用于 UI 展示。
+    /// 按优先级(Xian > Magic > Knight)返回生物实际拥有的第一个体系资产，用于 UI 展示。
     /// 无任何体系返回 null。
     /// </summary>
     public static BaseCultisysAsset GetDisplayCultisys(ActorExtend ae)
     {
         if (ae.HasCultisys<Xian>()) return Xian;
         if (ae.HasCultisys<Magic>()) return Magic;
+        if (ae.HasCultisys<Knight>()) return Knight;
         return null;
     }
 

@@ -10,7 +10,7 @@ namespace Cultiway.Content.Behaviours;
 
 /// <summary>
 /// 骑士操练行为：原地按月度收益折算到每 tick 积累斗气，比战斗慢；斗气满后退出任务，
-/// 实际突破由 KnightBreakthroughSystem 月度结算。仅在和平期被分配（战时不练）。
+/// 由通用进阶任务主动突破。仅在和平期被分配（战时不练）。
 /// </summary>
 public class BehKnightTrain : BehCityActor
 {
@@ -24,7 +24,7 @@ public class BehKnightTrain : BehCityActor
         var maxVigor = pObject.stats[BaseStatses.MaxVigor.id];
         if (maxVigor <= 0f) return BehResult.Stop;
 
-        // 斗气已蓄满：退出操练，等月度突破系统结算
+        // 斗气已蓄满：退出操练，交给主动进阶任务
         if (knight.vigor >= maxVigor - 0.1f) return BehResult.Continue;
 
         var monthly_gain = maxVigor * KnightSetting.PracticeVigorGainRatioPerMonth;
