@@ -1,4 +1,5 @@
 using System;
+using Cultiway.Core.SkillLibV3.Effects;
 using UnityEngine;
 
 namespace Cultiway.Content.Combat;
@@ -36,10 +37,11 @@ public static class CombatTargeting
         foreach (Actor target in Finder.getUnitsFromChunk(tile, chunkRadius))
         {
             if (target == null || target.isRekt()) continue;
-            bool hostile = target != source && source.canAttackTarget(target);
+            bool hostile = SkillTargetRelationResolver.IsHostile(source, target);
             if (disposition == TargetDisposition.Hostile && !hostile) continue;
             if (disposition == TargetDisposition.Friendly &&
-                target != source && target.kingdom != source.kingdom) continue;
+                (target != source && target.kingdom != source.kingdom ||
+                 SkillTargetRelationResolver.HasHostileRelation(source, target))) continue;
             if (Toolbox.SquaredDistVec2Float(center, target.current_position) > radiusSquared) continue;
             action(target);
         }
@@ -73,7 +75,7 @@ public static class CombatTargeting
         foreach (Actor target in Finder.getUnitsFromChunk(tile, chunkRadius))
         {
             if (target == null || target.isRekt() || target == source) continue;
-            bool hostile = source.kingdom?.isEnemy(target.kingdom) ?? source.canAttackTarget(target);
+            bool hostile = SkillTargetRelationResolver.HasHostileRelation(source, target);
             if (!hostile || Toolbox.SquaredDistVec2Float(center, target.current_position) > radiusSquared) continue;
             action(target);
         }

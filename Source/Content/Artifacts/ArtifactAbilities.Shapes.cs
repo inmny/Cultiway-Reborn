@@ -5,6 +5,7 @@ using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -132,7 +133,7 @@ public partial class ArtifactAbilities
         if (target.Object == null || target.Object.isRekt() || !target.Object.isActor()) return false;
         Actor controller = Controller(context);
         Actor victim = target.Object.a;
-        if (!controller.canAttackTarget(victim)) return false;
+        if (!SkillTargetRelationResolver.IsHostile(controller, victim)) return false;
         float range = ability.GetNumber(AttackRange) + victim.stats[strings.S.size];
         return Toolbox.SquaredDistVec2Float(controller.current_position, victim.current_position) <= range * range;
     }

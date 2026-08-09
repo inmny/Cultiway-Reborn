@@ -10,6 +10,7 @@ using Cultiway.Core.Components.AnimOverwrite;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
+using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Impacts;
 using Cultiway.Core.SkillLibV3.Usage;
 using Cultiway.Core.SkillLibV3.Utils;
@@ -212,7 +213,7 @@ internal sealed class WeaponControlAbilityProvider : IActiveAbilityProvider, ISo
             caster.Base.isFlying() || WeaponControlRuntimeService.IsCasting(caster) ||
             !SkillCooldownService.IsReady(caster, skillContainer) ||
             !SkillCastCost.CanPayStep(caster, skillContainer) || target.isRekt() ||
-            !caster.Base.canAttackTarget(target) ||
+            !SkillTargetRelationResolver.IsHostile(caster.Base, target) ||
             !WeaponControlRules.TryResolveWeapon(caster, out _, out _, out WeaponControlCategory category))
             return false;
         return category == WeaponControlCategory.Ranged || !target.isFlying();
