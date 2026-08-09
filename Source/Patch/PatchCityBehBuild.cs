@@ -19,6 +19,15 @@ namespace Cultiway.Patch;
 /// </summary>
 internal static class PatchCityBehBuild
 {
+    [HarmonyPrefix, HarmonyPatch(typeof(City), nameof(City.hasSpecialTownPlans))]
+    private static bool hasSpecialTownPlans_prefix(City __instance, ref bool __result)
+    {
+        if (__instance == null || !__instance.hasCulture()
+                               || !__instance.culture.hasTrait(CultureTraits.HallHearthId)) return true;
+        __result = false;
+        return false;
+    }
+
     /// <summary>
     /// 建筑聚集锚点。第二个 bool 参数仅为对齐 City.getTile(bool) 的调用栈（原调用点已压入默认实参 false），不使用。
     /// </summary>

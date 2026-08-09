@@ -21,6 +21,7 @@ public partial class Actors
         Gui.AddCultureTrait(CultureTraits.CultureSkin)
                     .RemoveCultureTrait(S_CultureTrait.city_layout_the_grand_arrangement)
                     .RemoveCultureTrait(S_CultureTrait.city_layout_pebbles)
+                    .RemoveCultureTrait(S_CultureTrait.city_layout_stone_garden)
                     .AddCultureTrait(CultureTraits.HallHearth);
         Gui.build_order_template_id = BuildingOrders.Classic.id;
         Gui.architecture_id = Architectures.Gui.id;
