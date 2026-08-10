@@ -46,6 +46,11 @@ internal sealed class InventoryItemDisplay : APrefabPreview<InventoryItemDisplay
         name = $"InventoryItem_{item.self.Id}";
     }
 
+    internal void Clear()
+    {
+        _itemDisplay.Clear();
+    }
+
     /// <summary>
     /// 构建固定 28px 格子，并在绑定物品前确定内部图标尺寸。
     /// </summary>

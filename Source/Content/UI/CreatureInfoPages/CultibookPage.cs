@@ -10,7 +10,7 @@ using Object = UnityEngine.Object;
 namespace Cultiway.Content.UI.CreatureInfoPages;
 
 /// <summary>以主修功法、修炼实践、资源和已知功法组成的人物功法页。</summary>
-public sealed class CultibookPage : MonoBehaviour
+public sealed class CultibookPage : MonoBehaviour, IWorldBoundCreatureInfoPage
 {
     private const float ContentWidth = 234f;
 
@@ -115,7 +115,8 @@ public sealed class CultibookPage : MonoBehaviour
         knownSection = CreateDynamicSection(content, "KnownSection");
         CreateSectionTitle(knownSection.transform, "KnownTitle", "Cultiway.CultibookPage.Section.Known");
         GameObject knownList = CreateDynamicSection(knownSection.transform, "KnownList", 2f);
-        knownPool = new MonoObjPool<CultibookKnownRow>(CultibookKnownRow.Prefab, knownList.transform);
+        knownPool = new MonoObjPool<CultibookKnownRow>(CultibookKnownRow.Prefab, knownList.transform,
+            deactive_action: row => row.ClearWorldBinding());
     }
 
     private void Bind(Actor selectedActor)
@@ -165,6 +166,15 @@ public sealed class CultibookPage : MonoBehaviour
 
         Canvas.ForceUpdateCanvases();
         LayoutRebuilder.ForceRebuildLayoutImmediate(content);
+    }
+
+    public void ClearWorldBinding()
+    {
+        actor = null;
+        mainRow.ClearWorldBinding();
+        practicePool.Clear();
+        resourcePool.Clear();
+        knownPool.Clear();
     }
 
     private void CreatePracticeSummary(Transform parent)

@@ -1,5 +1,6 @@
 using Cultiway.Content.Components;
 using Cultiway.Core;
+using Cultiway.UI;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using UnityEngine;
@@ -7,7 +8,7 @@ using UnityEngine;
 namespace Cultiway.Content.UI.CreatureInfoPages;
 
 /// <summary>人物信息窗口中的命名真气成果页。</summary>
-public sealed class QiRefinementPage : MonoBehaviour
+public sealed class QiRefinementPage : MonoBehaviour, IWorldBoundCreatureInfoPage
 {
     private CoreFormationDetailView detailView;
     private Actor actor;
@@ -60,5 +61,10 @@ public sealed class QiRefinementPage : MonoBehaviour
             layers,
             null,
             nextMilestone));
+    }
+
+    public void ClearWorldBinding()
+    {
+        actor = null;
     }
 }

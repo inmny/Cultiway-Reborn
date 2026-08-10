@@ -13,6 +13,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core.WorldTools;
+using Cultiway.Patch;
 using Cultiway.UI;
 using Cultiway.UI.CreatureInfoPages;
 using Cultiway.UI.Prefab;
@@ -47,6 +48,7 @@ public class Manager : ICanInit
     public void Init()
     {
         Instance = this;
+        PatchMapBox.RegisterActionOnClearWorld(WindowNewCreatureInfo.ClearWorldState);
         WindowNewCreatureInfo.RegisterPage(nameof(CultisysOverviewPage),
             a => Cultisyses.HasAnyCultisys(a.GetExtend()),
             CultisysOverviewPage.Setup, CultisysOverviewPage.Show);
@@ -204,6 +206,7 @@ public class Manager : ICanInit
         WindowBaibaoPavilion.CreateAndInit(WindowBaibaoPavilion.Id, WindowBaibaoPavilion.WindowSize);
         WindowBaibaoForge.CreateAndInit(WindowBaibaoForge.Id, WindowBaibaoForge.WindowSize);
         WindowBaibaoArchive.CreateAndInit(WindowBaibaoArchive.Id, WindowBaibaoArchive.WindowSize);
+        PatchMapBox.RegisterActionOnClearWorld(WindowBaibaoArchive.ClearWorldState);
 
         PowerButton pavilionButton = PowerButtonCreator.CreateWindowButton(
             $"{WindowBaibaoPavilion.Id} Title", WindowBaibaoPavilion.Id,

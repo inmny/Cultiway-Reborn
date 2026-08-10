@@ -19,6 +19,7 @@ public sealed class WindowBaibaoArchive : AbstractWideWindow<WindowBaibaoArchive
     public static readonly Vector2 WindowSize = new(600f, 380f);
     private const float RootHeight = 338f;
     private static Actor _pendingActor;
+    private static WindowBaibaoArchive _instance;
 
     private readonly HashSet<int> _selectedArtifactIds = new();
     private Actor _actor;
@@ -41,6 +42,7 @@ public sealed class WindowBaibaoArchive : AbstractWideWindow<WindowBaibaoArchive
 
     protected override void Init()
     {
+        _instance = this;
         UiWindowContext context = UiWindowContext.Bind(BackgroundTransform);
         GameObject root = UiLayout.Create(BackgroundTransform, "BaibaoArchiveRoot", false, 520f,
             RootHeight, 4f);
@@ -52,7 +54,8 @@ public sealed class WindowBaibaoArchive : AbstractWideWindow<WindowBaibaoArchive
         UiScrollPane catalog = UiScrollPane.CreateVertical(body.transform, "ArtifactList", 318f, 284f);
         catalog.AttachOriginalScrollbar(context.ScrollbarTemplate);
         catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
-        _rowPool = new MonoObjPool<BaibaoArchiveRow>(BaibaoArchiveRow.Prefab, catalog.Content);
+        _rowPool = new MonoObjPool<BaibaoArchiveRow>(BaibaoArchiveRow.Prefab, catalog.Content,
+            deactive_action: row => row.ClearWorldBinding());
         _inspector = new BaibaoBlueprintInspector(body.transform, 198f, 284f);
     }
 
@@ -62,6 +65,26 @@ public sealed class WindowBaibaoArchive : AbstractWideWindow<WindowBaibaoArchive
         _selectedArtifactIds.Clear();
         _activeArtifactId = 0;
         Refresh();
+    }
+
+    public override void OnNormalDisable()
+    {
+        ClearWorldBinding();
+    }
+
+    internal static void ClearWorldState()
+    {
+        _pendingActor = null;
+        _instance?.ClearWorldBinding();
+    }
+
+    private void ClearWorldBinding()
+    {
+        _actor = null;
+        _selectedArtifactIds.Clear();
+        _activeArtifactId = 0;
+        _rowPool.Clear();
+        _inspector.Clear();
     }
 
     private void CreateToolbar(Transform root)

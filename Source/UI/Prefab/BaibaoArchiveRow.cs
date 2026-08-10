@@ -55,8 +55,17 @@ public sealed class BaibaoArchiveRow : APrefabPreview<BaibaoArchiveRow>
         UiStateStyle.SetSelected(_select, selected || archived);
         UiTooltip.Set(_select.gameObject,
             archived ? "Cultiway.Baibao.UI.Action.Archived" :
-                selected ? "Cultiway.Baibao.UI.Action.Deselect" : "Cultiway.Baibao.UI.Action.Select",
+            selected ? "Cultiway.Baibao.UI.Action.Deselect" : "Cultiway.Baibao.UI.Action.Select",
             archived ? "Cultiway.Baibao.UI.Tooltip.Archived" : "Cultiway.Baibao.UI.Tooltip.ArchiveSelection");
+    }
+
+    internal void ClearWorldBinding()
+    {
+        _artifact = default;
+        _row.onClick.RemoveAllListeners();
+        _select.onClick.RemoveAllListeners();
+        UiTooltip.Clear(_icon.gameObject);
+        UiTooltip.Clear(_select.gameObject);
     }
 
     private void ShowArtifactTooltip()

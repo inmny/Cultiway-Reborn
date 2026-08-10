@@ -15,9 +15,15 @@ using UnityEngine.UI;
 
 namespace Cultiway.UI;
 
+public interface IWorldBoundCreatureInfoPage
+{
+    void ClearWorldBinding();
+}
+
 public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 {
     private static readonly List<PageRegistration> _page_registrations = new();
+    private static WindowNewCreatureInfo _instance;
     internal static Transform PageScrollbarTemplate { get; private set; }
 
     private readonly List<CreatureInfoPage> _available_pages = new();
@@ -47,6 +53,7 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 
     protected override void Init()
     {
+        _instance = this;
         UiWindowContext windowContext = UiWindowContext.Bind(BackgroundTransform, false);
         VertFlexGrid stat_grid = VertFlexGrid.Instantiate(BackgroundTransform, pName: "Stat Grid");
         stat_grid.Setup(200, new Vector2(18, 25), new Vector2(4, 2));
@@ -179,8 +186,30 @@ public class WindowNewCreatureInfo : AbstractWideWindow<WindowNewCreatureInfo>
 
     public override void OnNormalDisable()
     {
+        ClearWorldBinding();
+    }
+
+    internal static void ClearWorldState()
+    {
+        _instance?.ClearWorldBinding();
+    }
+
+    private void ClearWorldBinding()
+    {
         _actor = null;
         _ae = null;
+        _current_page = null;
+        _available_pages.Clear();
+        _page_entry_pool.Clear();
+        foreach (CreatureInfoPage page in _pages.Values)
+        {
+            page.gameObject.SetActive(false);
+            foreach (IWorldBoundCreatureInfoPage binding in page.GetComponents<MonoBehaviour>()
+                         .OfType<IWorldBoundCreatureInfoPage>())
+            {
+                binding.ClearWorldBinding();
+            }
+        }
     }
 
     [Hotfixable]
