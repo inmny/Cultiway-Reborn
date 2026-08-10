@@ -11,6 +11,7 @@ public class EntityNameGeneratedEventSystem : GenericEventSystem<EntityNameGener
 {
     protected override void HandleEvent(EntityNameGeneratedEvent evt)
     {
+        if (evt.WorldSeedId != MapBox.current_world_seed_id) return;
         if (evt.Target.IsNull || string.IsNullOrEmpty(evt.Name))
         {
             return;

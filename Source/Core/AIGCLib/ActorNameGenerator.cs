@@ -18,10 +18,10 @@ public abstract class ActorNameGenerator<T> : BaseNameGenerator<T>
     {
         if (target.isRekt())
             return;
-        _ = GenerateAsync(paramList, target.data.id);
+        _ = GenerateAsync(paramList, target.data.id, MapBox.current_world_seed_id);
     }
 
-    private async Task GenerateAsync(string[] paramList, long actorId)
+    private async Task GenerateAsync(string[] paramList, long actorId, int worldSeedId)
     {
         var name = GetDefaultName(paramList);
         var key = GetStoreKey(paramList);
@@ -72,8 +72,15 @@ public abstract class ActorNameGenerator<T> : BaseNameGenerator<T>
                 }
             }
         }
-        if (World.world.units.get(actorId) == null)
+        if (worldSeedId != MapBox.current_world_seed_id)
             return;
-        EventSystemHub.Publish(new ActorNameGeneratedEvent() { ID = actorId, Name = name });
+        if (World.world?.units?.get(actorId) == null)
+            return;
+        EventSystemHub.Publish(new ActorNameGeneratedEvent
+        {
+            WorldSeedId = worldSeedId,
+            ID = actorId,
+            Name = name
+        });
     }
 }

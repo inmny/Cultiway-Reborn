@@ -5,10 +5,10 @@ namespace Cultiway.Content.Events;
 
 public struct CultibookImprovedEvent
 {
+    public int WorldSeedId;
     public long ActorId;
     public string RequestId;
     public CultibookAsset OriginalCultibook;
     public CultibookAsset ImprovedDraft;
     public float ResponseSeconds;
 }
-

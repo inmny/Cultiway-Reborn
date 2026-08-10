@@ -487,6 +487,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
     private static bool IsCurrentWorld(PartitionWork work)
     {
         return World.world != null &&
+               work.WorldSeedId == MapBox.current_world_seed_id &&
                ReferenceEquals(World.world.tiles_list, work.Tiles) &&
                MapBox.width == work.Width &&
                MapBox.height == work.Height;

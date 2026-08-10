@@ -49,16 +49,16 @@ public class CultibookGenerator
     public void RequestGeneration(ActorExtend ae, string requestId)
     {
         if (ae == null || ae.Base == null || ae.Base.isRekt()) return;
-        _ = GenerateAsync(ae, requestId);
+        _ = GenerateAsync(ae, requestId, MapBox.current_world_seed_id);
     }
 
     public void RequestImprovement(ActorExtend ae, CultibookAsset originalCultibook, string requestId)
     {
         if (ae == null || ae.Base == null || ae.Base.isRekt() || originalCultibook == null) return;
-        _ = ImproveAsync(ae, originalCultibook, requestId);
+        _ = ImproveAsync(ae, originalCultibook, requestId, MapBox.current_world_seed_id);
     }
 
-    private async Task GenerateAsync(ActorExtend ae, string requestId)
+    private async Task GenerateAsync(ActorExtend ae, string requestId, int worldSeedId)
     {
         var actor = ae.Base;
         var actorId = actor.data.id;
@@ -67,7 +67,7 @@ public class CultibookGenerator
         CultibookAsset draft = null;
         try
         {
-            draft = await LLMBuildDraftAsync(ae);
+            draft = await LLMBuildDraftAsync(ae, worldSeedId);
             stopwatch.Stop();
         }
         catch (Exception e)
@@ -75,6 +75,7 @@ public class CultibookGenerator
             stopwatch.Stop();
             ModClass.LogErrorConcurrent(e.ToString());
         }
+        if (!IsCurrentWorld(worldSeedId)) return;
         if (draft == null)
         {
             draft = FallbackBuildDraft(ae);
@@ -88,6 +89,7 @@ public class CultibookGenerator
 
         EventSystemHub.Publish(new CultibookGeneratedEvent
         {
+            WorldSeedId = worldSeedId,
             ActorId = actorId,
             RequestId = requestId,
             Draft = draft,
@@ -95,7 +97,7 @@ public class CultibookGenerator
         });
     }
 
-    private async Task ImproveAsync(ActorExtend ae, CultibookAsset originalCultibook, string requestId)
+    private async Task ImproveAsync(ActorExtend ae, CultibookAsset originalCultibook, string requestId, int worldSeedId)
     {
         var actor = ae.Base;
         var actorId = actor.data.id;
@@ -104,7 +106,7 @@ public class CultibookGenerator
         CultibookAsset improvedDraft = null;
         try
         {
-            improvedDraft = await LLMBuildImprovedDraftAsync(ae, originalCultibook);
+            improvedDraft = await LLMBuildImprovedDraftAsync(ae, originalCultibook, worldSeedId);
             stopwatch.Stop();
         }
         catch (Exception e)
@@ -113,6 +115,7 @@ public class CultibookGenerator
             ModClass.LogErrorConcurrent(e.ToString());
 
         }
+        if (!IsCurrentWorld(worldSeedId)) return;
         if (improvedDraft == null)
         {
             improvedDraft = FallbackBuildImprovedDraft(ae, originalCultibook);
@@ -126,6 +129,7 @@ public class CultibookGenerator
 
         EventSystemHub.Publish(new CultibookImprovedEvent
         {
+            WorldSeedId = worldSeedId,
             ActorId = actorId,
             RequestId = requestId,
             OriginalCultibook = originalCultibook,
@@ -139,45 +143,58 @@ public class CultibookGenerator
         return CultibookRuleComposer.CreateImprovedDraft(originalCultibook, ae);
     }
 
-    private static async Task<CultibookAsset> LLMBuildImprovedDraftAsync(ActorExtend ae, CultibookAsset originalCultibook)
+    private static async Task<CultibookAsset> LLMBuildImprovedDraftAsync(
+        ActorExtend ae,
+        CultibookAsset originalCultibook,
+        int worldSeedId)
     {
         var basePrompt = new StringBuilder();
         BuildImprovementPromptBase(ae, originalCultibook, basePrompt);
         var (prompt, clonedSkills) = PrepareSkillsForPrompt(ae, basePrompt);
 
-        var system_prompt = GetImprovementSystemPrompt();
-        var response = await Core.AIGCLib.Manager.RequestResponseContent(prompt, system_prompt, temperature: 0.7f);
-
-        response = response.PostProcessForJSON();
-        var dto = JsonConvert.DeserializeObject<LlmResponse>(response);
-        if (dto == null)
+        try
         {
-            // 清理未使用的 clone 技能
-            foreach (var clonedEntity in clonedSkills.Values)
+            var system_prompt = GetImprovementSystemPrompt();
+            var response = await Core.AIGCLib.Manager.RequestResponseContent(prompt, system_prompt, temperature: 0.7f);
+            if (!IsCurrentWorld(worldSeedId))
             {
-                clonedEntity.RemoveTag<TagOccupied>();
+                ReleaseClonedSkills(clonedSkills);
+                return null;
             }
-            return FallbackBuildImprovedDraft(ae, originalCultibook);
-        }
 
-        var skillPool = ConvertSkillPoolDtoToEntries(dto.skillPool ?? new List<SkillPoolEntryDto>(), clonedSkills);
-        var draft = new CultibookAsset
+            response = response.PostProcessForJSON();
+            var dto = JsonConvert.DeserializeObject<LlmResponse>(response);
+            if (dto == null)
+            {
+                // 清理未使用的 clone 技能
+                ReleaseClonedSkills(clonedSkills);
+                return FallbackBuildImprovedDraft(ae, originalCultibook);
+            }
+
+            var skillPool = ConvertSkillPoolDtoToEntries(dto.skillPool ?? new List<SkillPoolEntryDto>(), clonedSkills);
+            var draft = new CultibookAsset
+            {
+                id = Guid.NewGuid().ToString(),
+                Name = dto.name,
+                Description = dto.description,
+                ElementReq = dto.elementReq,
+                ElementAffinityThreshold = dto.elementAffinityThreshold,
+                MinLevel = dto.minLevel,
+                MaxLevel = dto.maxLevel,
+                CultivateMethodId = dto.cultivateMethodId,
+                SkillPool = skillPool,
+                ConflictConditions = originalCultibook.ConflictConditions?.ToArray() ??
+                                     Array.Empty<SemanticQueryExpression>(),
+                SynergyConditions = originalCultibook.SynergyConditions?.ToArray() ??
+                                    Array.Empty<SemanticQueryExpression>()
+            };
+            return CultibookRuleComposer.NormalizeDraft(draft, ae, originalCultibook);
+        }
+        catch
         {
-            id = Guid.NewGuid().ToString(),
-            Name = dto.name,
-            Description = dto.description,
-            ElementReq = dto.elementReq,
-            ElementAffinityThreshold = dto.elementAffinityThreshold,
-            MinLevel = dto.minLevel,
-            MaxLevel = dto.maxLevel,
-            CultivateMethodId = dto.cultivateMethodId,
-            SkillPool = skillPool,
-            ConflictConditions = originalCultibook.ConflictConditions?.ToArray() ??
-                                 Array.Empty<SemanticQueryExpression>(),
-            SynergyConditions = originalCultibook.SynergyConditions?.ToArray() ??
-                                Array.Empty<SemanticQueryExpression>()
-        };
-        return CultibookRuleComposer.NormalizeDraft(draft, ae, originalCultibook);
+            ReleaseClonedSkills(clonedSkills);
+            throw;
+        }
     }
 
     private static string GetImprovementSystemPrompt()
@@ -280,43 +297,66 @@ public class CultibookGenerator
         return (basePrompt.ToString(), clonedSkills);
     }
 
-    private static async Task<CultibookAsset> LLMBuildDraftAsync(ActorExtend ae)
+    private static async Task<CultibookAsset> LLMBuildDraftAsync(ActorExtend ae, int worldSeedId)
     {
         var basePrompt = new StringBuilder();
         BuildPromptBase(ae, basePrompt);
         var (prompt, clonedSkills) = PrepareSkillsForPrompt(ae, basePrompt);
 
-        var system_prompt = GetSystemPrompt();
-        var response = await Core.AIGCLib.Manager.RequestResponseContent(prompt, system_prompt, temperature: 0.7f);
-
-        response = response.PostProcessForJSON();
-        var dto = JsonConvert.DeserializeObject<LlmResponse>(response);
-        if (dto == null)
+        try
         {
-            // 清理未使用的 clone 技能
-            foreach (var clonedEntity in clonedSkills.Values)
+            var system_prompt = GetSystemPrompt();
+            var response = await Core.AIGCLib.Manager.RequestResponseContent(prompt, system_prompt, temperature: 0.7f);
+            if (!IsCurrentWorld(worldSeedId))
             {
-                clonedEntity.RemoveTag<TagOccupied>();
+                ReleaseClonedSkills(clonedSkills);
+                return null;
             }
-            return null;
-        }
 
-        var skillPool = ConvertSkillPoolDtoToEntries(dto.skillPool ?? new List<SkillPoolEntryDto>(), clonedSkills);
-        var draft = new CultibookAsset
+            response = response.PostProcessForJSON();
+            var dto = JsonConvert.DeserializeObject<LlmResponse>(response);
+            if (dto == null)
+            {
+                // 清理未使用的 clone 技能
+                ReleaseClonedSkills(clonedSkills);
+                return null;
+            }
+
+            var skillPool = ConvertSkillPoolDtoToEntries(dto.skillPool ?? new List<SkillPoolEntryDto>(), clonedSkills);
+            var draft = new CultibookAsset
+            {
+                id = Guid.NewGuid().ToString(),
+                Name = dto.name,
+                Description = dto.description,
+                ElementReq = dto.elementReq,
+                ElementAffinityThreshold = dto.elementAffinityThreshold,
+                MinLevel = dto.minLevel,
+                MaxLevel = dto.maxLevel,
+                CultivateMethodId = dto.cultivateMethodId,
+                SkillPool = skillPool,
+                ConflictConditions = Array.Empty<SemanticQueryExpression>(),
+                SynergyConditions = Array.Empty<SemanticQueryExpression>()
+            };
+            return CultibookRuleComposer.NormalizeDraft(draft, ae);
+        }
+        catch
         {
-            id = Guid.NewGuid().ToString(),
-            Name = dto.name,
-            Description = dto.description,
-            ElementReq = dto.elementReq,
-            ElementAffinityThreshold = dto.elementAffinityThreshold,
-            MinLevel = dto.minLevel,
-            MaxLevel = dto.maxLevel,
-            CultivateMethodId = dto.cultivateMethodId,
-            SkillPool = skillPool,
-            ConflictConditions = Array.Empty<SemanticQueryExpression>(),
-            SynergyConditions = Array.Empty<SemanticQueryExpression>()
-        };
-        return CultibookRuleComposer.NormalizeDraft(draft, ae);
+            ReleaseClonedSkills(clonedSkills);
+            throw;
+        }
+    }
+
+    private static bool IsCurrentWorld(int worldSeedId)
+    {
+        return worldSeedId == MapBox.current_world_seed_id;
+    }
+
+    private static void ReleaseClonedSkills(Dictionary<long, Entity> clonedSkills)
+    {
+        foreach (var clonedEntity in clonedSkills.Values)
+        {
+            if (!clonedEntity.IsNull) clonedEntity.RemoveTag<TagOccupied>();
+        }
     }
 
     private static void BuildPromptBase(ActorExtend ae, StringBuilder sb)

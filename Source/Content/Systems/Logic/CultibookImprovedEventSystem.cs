@@ -17,6 +17,7 @@ public class CultibookImprovedEventSystem : GenericEventSystem<CultibookImproved
 {
     protected override void HandleEvent(CultibookImprovedEvent evt)
     {
+        if (evt.WorldSeedId != MapBox.current_world_seed_id) return;
         if (evt.ActorId == 0 || string.IsNullOrEmpty(evt.RequestId) || evt.ImprovedDraft == null) return;
 
         var actor = World.world.units.get(evt.ActorId);
@@ -59,4 +60,3 @@ public class CultibookImprovedEventSystem : GenericEventSystem<CultibookImproved
         actor.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, 0);
     }
 }
-
