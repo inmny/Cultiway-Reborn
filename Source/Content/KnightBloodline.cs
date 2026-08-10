@@ -27,6 +27,11 @@ public static class KnightBloodline
         _parents[child_id] = (pParent1?.data.id ?? -1L, pParent2?.data.id ?? -1L);
     }
 
+    public static void ClearWorldState()
+    {
+        _parents.Clear();
+    }
+
     /// <summary>注册 9 级快照触发器与后裔加成 stats builder。在 Manager.Init 中调用。</summary>
     public static void Init()
     {

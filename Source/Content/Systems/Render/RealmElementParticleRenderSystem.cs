@@ -1,6 +1,8 @@
 using System;
+using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
+using Cultiway.Core;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -10,7 +12,9 @@ using UnityEngine;
 
 namespace Cultiway.Content.Systems.Render;
 
-public class RealmElementParticleRenderSystem : QuerySystem<ActorBinder, RealmVisual, ElementRoot>
+public class RealmElementParticleRenderSystem :
+    QuerySystem<ActorBinder, RealmVisual, ElementRoot>,
+    IWorldStateClearable
 {
     private const float ParticleSize = 0.15f;
     private const float ParticleLifetime = 2.0f;
@@ -33,6 +37,14 @@ public class RealmElementParticleRenderSystem : QuerySystem<ActorBinder, RealmVi
     public RealmElementParticleRenderSystem()
     {
         Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagRecycle>());
+    }
+
+    void IWorldStateClearable.ClearWorldState()
+    {
+        if (_sharedEmitter == null) return;
+        _sharedEmitter.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        UnityEngine.Object.Destroy(_sharedEmitter.gameObject);
+        _sharedEmitter = null;
     }
 
     [Hotfixable]

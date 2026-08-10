@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Abstract;
 using UnityEngine;
 using Friflo.Engine.ECS.Systems;
+using Cultiway.Core;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Core.Performance;
 using Cultiway.Utils.Extension;
@@ -10,7 +12,7 @@ using Cultiway.Core.BuildingComponents;
 
 namespace Cultiway.Content
 {
-    public class TrainTrackRepairSystem : BaseSystem
+    public class TrainTrackRepairSystem : BaseSystem, IWorldStateClearable
     {
         private const float RepairInterval = 2f;
         private const float RetryDelay = 5f;
@@ -24,7 +26,7 @@ namespace Cultiway.Content
         private static double _nextTickTime;
         private static bool _dirtyConnectivity;
 
-        internal static void ClearWorldState()
+        void IWorldStateClearable.ClearWorldState()
         {
             Links.Clear();
             TileMap.Clear();

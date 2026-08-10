@@ -1,3 +1,4 @@
+using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
@@ -8,7 +9,9 @@ using UnityEngine;
 
 namespace Cultiway.Core.Systems.Render;
 
-public class RenderStatusParticleSystem : QuerySystem<StatusComponent, StatusParticleState>
+public class RenderStatusParticleSystem :
+    QuerySystem<StatusComponent, StatusParticleState>,
+    IWorldStateClearable
 {
     private const float ParticleSize = 0.2f;
     private const float ParticleLifetime = 1.25f;
@@ -30,6 +33,14 @@ public class RenderStatusParticleSystem : QuerySystem<StatusComponent, StatusPar
     public RenderStatusParticleSystem()
     {
         Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagRecycle>());
+    }
+
+    void IWorldStateClearable.ClearWorldState()
+    {
+        if (_sharedEmitter == null) return;
+        _sharedEmitter.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        UnityEngine.Object.Destroy(_sharedEmitter.gameObject);
+        _sharedEmitter = null;
     }
 
     protected override void OnUpdate()

@@ -19,7 +19,7 @@ namespace Cultiway.Content.Systems.Render;
 /// 为已显化的法器实体创建世界视图。法器的位置、朝向和碰撞信息均来自 ECS 本体。
 /// </summary>
 public class ArtifactWorldRenderSystem
-    : QuerySystem<Artifact, ArtifactManifestation, ItemShape, Position, Rotation>
+    : QuerySystem<Artifact, ArtifactManifestation, ItemShape, Position, Rotation>, IWorldStateClearable
 {
     private readonly MonoObjPool<ArtifactWorldView> _pool;
 
@@ -54,6 +54,11 @@ public class ArtifactWorldRenderSystem
             prefab,
             root.transform,
             active_action: view => view.ResetVisualState());
+    }
+
+    void IWorldStateClearable.ClearWorldState()
+    {
+        _pool.Clear();
     }
 
     protected override void OnUpdate()
@@ -152,6 +157,7 @@ public class ArtifactWorldRenderSystem
 
         public void ResetVisualState()
         {
+            artifact = default;
             anim_renderer.ResetVisualState();
             sprite_renderer.sprite = null;
             emission_renderer.sprite = null;

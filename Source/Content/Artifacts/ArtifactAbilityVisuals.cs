@@ -199,6 +199,12 @@ public static class ArtifactAbilityVisuals
         AppearanceThemeCache.Clear();
     }
 
+    internal static void ClearWorldState()
+    {
+        PendingSignals.Clear();
+        AppearanceThemeCache.Clear();
+    }
+
     internal static ArtifactVisualTheme ResolveTheme(Entity artifact, ArtifactAbilityVisualProfile profile)
     {
         if (profile.explicit_theme.HasValue) return profile.explicit_theme.Value;

@@ -13,9 +13,11 @@ public class CustomMapLayer : MapLayer
     private static readonly HashSet<TileZone> _last_drawn_zones  = new();
     private readonly        object            lock_dirty         = new();
     private readonly        object            lock_pixels        = new();
+    private readonly        object            world_clear_lock   = new();
     private readonly        AutoResetEvent    dirty_event        = new(true);
     private readonly        HashSet<int>      dirty_tile_ids     = new();
     private                 bool              all_dirty          = true;
+    private                 bool              world_clear_paused;
     private                 Color32[]         mirror_pixels;
 
     private bool need_update = true;
@@ -81,6 +83,29 @@ public class CustomMapLayer : MapLayer
     internal void WaitForDirty(int pMillisecondsTimeout)
     {
         dirty_event.WaitOne(pMillisecondsTimeout);
+    }
+
+    internal void PauseForWorldClear()
+    {
+        lock (world_clear_lock)
+        {
+            world_clear_paused = true;
+            lock (lock_dirty)
+            {
+                all_dirty = false;
+                dirty_tile_ids.Clear();
+            }
+        }
+        dirty_event.Set();
+    }
+
+    internal void ResumeAfterWorldClear()
+    {
+        lock (world_clear_lock)
+        {
+            world_clear_paused = false;
+        }
+        SetAllDirty();
     }
 
     private bool ConsumeDirty(out bool rebuildAll, out int[] dirtyTileIds)
@@ -161,41 +186,45 @@ public class CustomMapLayer : MapLayer
 
     internal void PreparePixels()
     {
-        if (pixels == null || sprRnd == null || !sprRnd.enabled) return;
-
-        CustomMapModeAsset map_mode = ModClass.I.CustomMapModeManager.UpdateCurrentMapMode();
-        if (map_mode == null) return;
-        if (!CanPreparePixels()) return;
-        if (!ConsumeDirty(out bool rebuildAll, out int[] dirtyTileIds)) return;
-
-        WorldTile[] tiles = World.world.tiles_list;
-        if (rebuildAll)
+        lock (world_clear_lock)
         {
-            if (mirror_pixels == null || mirror_pixels.Length != pixels.Length) mirror_pixels = new Color32[pixels.Length];
-            ClearAll(mirror_pixels);
-            for (int i = 0; i < mirror_pixels.Length; i++)
-            {
-                RenderTile(map_mode, tiles[i], i, mirror_pixels);
-            }
+            if (world_clear_paused) return;
+            if (pixels == null || sprRnd == null || !sprRnd.enabled) return;
 
-            lock (lock_pixels)
+            CustomMapModeAsset map_mode = ModClass.I.CustomMapModeManager.UpdateCurrentMapMode();
+            if (map_mode == null) return;
+            if (!CanPreparePixels()) return;
+            if (!ConsumeDirty(out bool rebuildAll, out int[] dirtyTileIds)) return;
+
+            WorldTile[] tiles = World.world.tiles_list;
+            if (rebuildAll)
             {
-                (pixels, mirror_pixels) = (mirror_pixels, pixels);
-                need_update = true;
-            }
-        }
-        else
-        {
-            lock (lock_pixels)
-            {
-                for (int i = 0; i < dirtyTileIds.Length; i++)
+                if (mirror_pixels == null || mirror_pixels.Length != pixels.Length) mirror_pixels = new Color32[pixels.Length];
+                ClearAll(mirror_pixels);
+                for (int i = 0; i < mirror_pixels.Length; i++)
                 {
-                    int tileId = dirtyTileIds[i];
-                    if (tileId < 0 || tileId >= pixels.Length || tileId >= tiles.Length) continue;
-                    RenderTile(map_mode, tiles[tileId], tileId, pixels);
+                    RenderTile(map_mode, tiles[i], i, mirror_pixels);
                 }
 
-                need_update = true;
+                lock (lock_pixels)
+                {
+                    (pixels, mirror_pixels) = (mirror_pixels, pixels);
+                    need_update = true;
+                }
+            }
+            else
+            {
+                lock (lock_pixels)
+                {
+                    for (int i = 0; i < dirtyTileIds.Length; i++)
+                    {
+                        int tileId = dirtyTileIds[i];
+                        if (tileId < 0 || tileId >= pixels.Length || tileId >= tiles.Length) continue;
+                        RenderTile(map_mode, tiles[tileId], tileId, pixels);
+                    }
+
+                    need_update = true;
+                }
             }
         }
     }

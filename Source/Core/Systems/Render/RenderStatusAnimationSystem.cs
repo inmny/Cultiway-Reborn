@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cultiway.Abstract;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.SkillLibV3;
@@ -15,7 +16,8 @@ namespace Cultiway.Core.Systems.Render;
 /// 并在状态建立和移除时处理出现、运行及消散阶段。
 /// </summary>
 public sealed class RenderStatusAnimationSystem :
-    QuerySystem<StatusComponent, StatusAnimationState>
+    QuerySystem<StatusComponent, StatusAnimationState>,
+    IWorldStateClearable
 {
     private readonly List<DesiredVisual> desired = new();
     private readonly Dictionary<VisualKey, RuntimeVisual> visuals = new();
@@ -26,6 +28,11 @@ public sealed class RenderStatusAnimationSystem :
     public RenderStatusAnimationSystem()
     {
         Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagRecycle>());
+    }
+
+    void IWorldStateClearable.ClearWorldState()
+    {
+        Clear();
     }
 
     /// <summary>缓冲查询结果后再创建或回收动画实体，避免在 ECS 查询中发生结构变更。</summary>

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Core;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -13,7 +15,9 @@ namespace Cultiway.Content.Systems.Render;
 /// <summary>
 /// 从法器能力运行状态重建持续视觉，并在查询结束后消费短时信号。所有租约均为瞬时表现状态。
 /// </summary>
-public sealed class ArtifactAbilityVisualSystem : QuerySystem<ArtifactAbilitySet, ArtifactAbilityRuntime>
+public sealed class ArtifactAbilityVisualSystem :
+    QuerySystem<ArtifactAbilitySet, ArtifactAbilityRuntime>,
+    IWorldStateClearable
 {
     private readonly Dictionary<ArtifactVisualKey, DesiredVisual> desiredLoops = new();
     private readonly Dictionary<ArtifactVisualKey, ActiveVisual> activeLoops = new();
@@ -25,6 +29,20 @@ public sealed class ArtifactAbilityVisualSystem : QuerySystem<ArtifactAbilitySet
     public ArtifactAbilityVisualSystem()
     {
         Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagUncompleted, TagRecycle>());
+    }
+
+    void IWorldStateClearable.ClearWorldState()
+    {
+        ClearWorldStateInternal();
+        ArtifactAbilityVisuals.ClearWorldState();
+    }
+
+    private void ClearWorldStateInternal()
+    {
+        ArtifactAbilityVisuals.DrainSignals(signals);
+        EndAll();
+        staleKeys.Clear();
+        signalSerial = 0;
     }
 
     protected override void OnUpdate()

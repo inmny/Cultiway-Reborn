@@ -7,15 +7,16 @@ using ai;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content;
+using Cultiway.Content.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
+using Cultiway.Core.EventSystem;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using UnityEngine;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Core.Performance;
-using Cultiway.Core.SkillLibV3.Wanfa;
 
 namespace Cultiway.Patch;
 
@@ -94,11 +95,26 @@ internal static class PatchMapBox
         PerformanceSettings.ApplyParallelBudget(__instance);
         SimulationTime.BindWorld(__instance);
         PathNavigationGridService.BuildForCurrentWorld();
+        EventSystemHub.Resume();
         ModClass.I.TileExtendManager.BeginFitNewWorld(
             MapBox.current_world_seed_id,
             MapBox.width,
             MapBox.height);
+        ModClass.I.CustomMapModeManager.FinishWorldCreation();
     }
+
+    [HarmonyPrefix, HarmonyPatch(typeof(MapBox), nameof(MapBox.clearWorld))]
+    private static void clearWorld_prefix()
+    {
+        EventSystemHub.PauseAndClear();
+        ModClass.I.CommandBuffer.Clear();
+        ScrollWindow.hideAllEvent(false);
+        WindowHistory.clear();
+        WorldboxGame.I.ClearWorldReferences();
+        ControlledSkillTargetSelection.ClearWorldState();
+        ModClass.I.CustomMapModeManager.BeginWorldClear();
+    }
+
     [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.clearWorld))]
     private static void clearWorld_postfix()
     {
@@ -110,13 +126,37 @@ internal static class PatchMapBox
             }
         }
         PathFinder.Instance.Clear();
-        PortalManager.ClearWorldState();
         PortalRegistry.Instance.Clear();
-        TrainTrackRepairSystem.ClearWorldState();
-        _actionOnClearWorld?.Invoke();
+        KnightBloodline.ClearWorldState();
+        SpecialItemIconVfx.ClearWorldState();
+        WorldSystemLifecycle.ClearWorldState();
+        InvokeClearWorldActions();
         ModClass.I.ActorExtendManager.Clear();
         ModClass.I.BookExtendManager.Clear();
-        WanfaPavilionService.ClearWorldState();
+        ModClass.I.CityExtendManager.Clear();
+        ModClass.I.WorldRecord.ClearWorldState();
+        ModClass.I.CommandBuffer.Clear();
+        EventSystemHub.ClearQueuedEvents();
+        WorldEntityLifecycle.ClearWorldState();
+        ModClass.I.CommandBuffer.Clear();
+        EventSystemHub.ClearQueuedEvents();
+    }
+
+    private static void InvokeClearWorldActions()
+    {
+        var actions = _actionOnClearWorld;
+        if (actions == null) return;
+        foreach (Action action in actions.GetInvocationList())
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception e)
+            {
+                ModClass.LogErrorConcurrent(e.ToString());
+            }
+        }
     }
 
     [HarmonyPostfix, HarmonyPatch(typeof(MapBox), "updateSimulation")]

@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Abstract;
 using Cultiway.Core;
 using Cultiway.Core.BuildingComponents;
 using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Coordination;
-using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -65,7 +65,6 @@ public static class SkavenPackService
         ActorExtend.RegisterActionOnDeath(OnActorDied);
         CoordinatedActivityService.RegisterGroupProvider(new GroupProvider());
         CombatWorldService.RegisterGroupProvider(SkavenCombatGroupProvider.Instance, 100);
-        PatchMapBox.RegisterActionOnClearWorld(ClearWorldState);
         ModClass.I.GeneralLogicSystems.Add(new UpdateSystem());
     }
 
@@ -1011,8 +1010,13 @@ public static class SkavenPackService
     }
 
     /// <summary>鼠群服务的主线程更新入口。</summary>
-    private sealed class UpdateSystem : BaseSystem
+    private sealed class UpdateSystem : BaseSystem, IWorldStateClearable
     {
+        void IWorldStateClearable.ClearWorldState()
+        {
+            SkavenPackService.ClearWorldState();
+        }
+
         /// <inheritdoc />
         protected override void OnUpdateGroup()
         {

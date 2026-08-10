@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Cultiway.Core.Systems.Render;
 
-public class RenderAnimFrameSystem : BaseSystem
+public class RenderAnimFrameSystem : BaseSystem, IWorldStateClearable
 {
     private readonly MonoObjPool<AnimRenderer>                                  _pool;
     private readonly ArchetypeQuery<Position, Scale, AnimData, AnimBindRenderer> init_query;
@@ -21,6 +21,7 @@ public class RenderAnimFrameSystem : BaseSystem
     private readonly ArchetypeQuery<AnimTint, AnimBindRenderer>                  tint_query;
     private readonly ArchetypeQuery<AnimData, AnimAfterimage, Rotation, AnimBindRenderer> afterimage_query;
     private readonly ArchetypeQuery<AnimBindRenderer>                            single_query;
+    private readonly ArchetypeQuery<AnimBindRenderer>                            clear_query;
     private readonly Dictionary<Sprite, Sprite>                                  full_rect_sprites = new();
 
     public RenderAnimFrameSystem(EntityStore world)
@@ -37,6 +38,7 @@ public class RenderAnimFrameSystem : BaseSystem
         filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive>());
 
         single_query = world.Query<AnimBindRenderer>(filter);
+        clear_query = world.Query<AnimBindRenderer>();
         init_query = world.Query<Position, Scale, AnimData, AnimBindRenderer>(filter);
         pos_query = world.Query<Position, AnimBindRenderer>(filter);
         rot_query = world.Query<Rotation, AnimBindRenderer>(filter);
@@ -44,6 +46,21 @@ public class RenderAnimFrameSystem : BaseSystem
         linear_layout_query = world.Query<AnimLinearLayout, Scale, AnimBindRenderer>(filter);
         tint_query = world.Query<AnimTint, AnimBindRenderer>(filter);
         afterimage_query = world.Query<AnimData, AnimAfterimage, Rotation, AnimBindRenderer>(filter);
+    }
+
+    void IWorldStateClearable.ClearWorldState()
+    {
+        ClearBoundRenderers();
+    }
+
+    private void ClearBoundRenderers()
+    {
+        clear_query.ForEachComponents((ref AnimBindRenderer bindRenderer) =>
+        {
+            if (bindRenderer.value == null) return;
+            bindRenderer.value.Return();
+            bindRenderer.value = null;
+        });
     }
     [Hotfixable]
     protected override void OnUpdateGroup()

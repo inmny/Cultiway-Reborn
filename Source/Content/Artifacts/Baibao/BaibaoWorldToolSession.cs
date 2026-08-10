@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Abstract;
 using Cultiway.Core;
 using Cultiway.Core.ActorFiltering;
 using Cultiway.Core.WorldTools;
-using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api;
@@ -31,7 +31,6 @@ internal static class BaibaoWorldToolSession
         WorldboxGame.GodPowers.BaibaoArchive.click_brush_action = TryOpenArchive;
         WorldboxGame.GodPowers.BaibaoGrant.click_action = TryGrant;
         WorldboxGame.GodPowers.BaibaoGrant.click_brush_action = TryGrantBrush;
-        PatchMapBox.RegisterActionOnClearWorld(ClearWorldState);
         ModClass.I.GeneralLogicSystems.Add(new UpdateSystem());
     }
 
@@ -212,8 +211,13 @@ internal static class BaibaoWorldToolSession
         BaibaoPavilionService.Instance.GrantTargetFilter.ClearWorldExpression();
     }
 
-    private sealed class UpdateSystem : BaseSystem
+    private sealed class UpdateSystem : BaseSystem, IWorldStateClearable
     {
+        void IWorldStateClearable.ClearWorldState()
+        {
+            BaibaoWorldToolSession.ClearWorldState();
+        }
+
         protected override void OnUpdateGroup()
         {
             base.OnUpdateGroup();

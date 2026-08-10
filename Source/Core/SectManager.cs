@@ -35,6 +35,14 @@ public class SectManager : MetaSystemManager<Sect, SectData>
         setDirtyResidenceZones();
     }
 
+    public override void clear()
+    {
+        _dirty_building_sects.Clear();
+        _residence_zone_owners.Clear();
+        _dirty_residence_zones = true;
+        base.clear();
+    }
+
     public override void updateDirtyUnits()
     {
         List<Actor> units = World.world.units.units_only_alive;

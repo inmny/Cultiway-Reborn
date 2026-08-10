@@ -104,7 +104,6 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     public void Init()
     {
         Instance = this;
-        Cultiway.Patch.PatchMapBox.RegisterActionOnClearWorld(ClearWorldState);
         ModClass.I.GeneralLogicSystems.Add(new MagicWebUpdateSystem(this));
         Tick();
     }
@@ -301,9 +300,9 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     /// <summary>
     /// 清除当前世界的魔网根实体和全部运行时索引。
     /// </summary>
-    public static void ClearWorldState()
+    internal void ClearWorldState()
     {
-        Instance?.Clear();
+        Clear();
     }
 
     internal void Tick()
@@ -514,13 +513,18 @@ public sealed class MagicWebManager : ICanInit, ICanReload
     }
 }
 
-internal sealed class MagicWebUpdateSystem : BaseSystem
+internal sealed class MagicWebUpdateSystem : BaseSystem, IWorldStateClearable
 {
     private readonly MagicWebManager _manager;
 
     public MagicWebUpdateSystem(MagicWebManager manager)
     {
         _manager = manager;
+    }
+
+    void IWorldStateClearable.ClearWorldState()
+    {
+        _manager.ClearWorldState();
     }
 
     protected override void OnUpdateGroup()

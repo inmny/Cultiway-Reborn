@@ -45,4 +45,12 @@ public class CityExtendManager : ExtendComponentManager<CityExtend>
             return newExtend;
         }
     }
+
+    public void Clear()
+    {
+        lock (EntityStoreLock.GlobalLock)
+        {
+            _city_to_extend.Clear();
+        }
+    }
 }

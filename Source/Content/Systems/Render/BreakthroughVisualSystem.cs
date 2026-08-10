@@ -1,6 +1,8 @@
 using System;
+using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Components;
+using Cultiway.Core;
 using Cultiway.Core.Components;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -13,7 +15,9 @@ namespace Cultiway.Content.Systems.Render;
 /// <summary>
 ///     突破异象的粒子渲染系统。
 /// </summary>
-public class BreakthroughVisualSystem : QuerySystem<ActorBinder, RealmVisual, XianBreakthroughState>
+public class BreakthroughVisualSystem :
+    QuerySystem<ActorBinder, RealmVisual, XianBreakthroughState>,
+    IWorldStateClearable
 {
     private const float ParticleSize = 0.25f;
     private const float ParticleLifetime = 2.4f;
@@ -36,6 +40,14 @@ public class BreakthroughVisualSystem : QuerySystem<ActorBinder, RealmVisual, Xi
     public BreakthroughVisualSystem()
     {
         Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagRecycle>());
+    }
+
+    void IWorldStateClearable.ClearWorldState()
+    {
+        if (_sharedEmitter == null) return;
+        _sharedEmitter.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        UnityEngine.Object.Destroy(_sharedEmitter.gameObject);
+        _sharedEmitter = null;
     }
 
     [Hotfixable]

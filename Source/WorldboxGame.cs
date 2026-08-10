@@ -86,6 +86,13 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
     public GeoRegion SelectedGeoRegion;
     public SectManager Sects;
     public GeoRegionManager GeoRegions;
+
+    internal void ClearWorldReferences()
+    {
+        SelectedSect = null;
+        SelectedGeoRegion = null;
+    }
+
     public override float GetLogicDeltaTime()
     {
         return World.world.elapsed / Mathf.Max(0.01f, Config.time_scale_asset.multiplier);

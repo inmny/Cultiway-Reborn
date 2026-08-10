@@ -34,6 +34,11 @@ public abstract class GenericEventSystem<TEvent> : BaseEventSystem
         }
     }
 
+    internal override void ClearPendingEvents()
+    {
+        ClearQueuedEvents();
+    }
+
     protected override void ProcessEvents()
     {
         _buffer.Clear();

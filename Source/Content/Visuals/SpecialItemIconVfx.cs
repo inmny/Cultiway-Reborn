@@ -48,6 +48,14 @@ public static class SpecialItemIconVfx
         });
     }
 
+    public static void ClearWorldState()
+    {
+        while (Requests.TryDequeue(out _))
+        {
+        }
+        RunningItems.Clear();
+    }
+
     public static void Draw(QuantumSpriteAsset asset)
     {
         if (!MapBox.isRenderGameplay()) return;

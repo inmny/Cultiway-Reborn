@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Abstract;
 using Cultiway.Core.ActorFiltering;
 using Cultiway.Core.AIGCLib;
 using Cultiway.Core.SkillLibV3;
@@ -59,6 +60,7 @@ public sealed class WanfaPavilionService
 
     private sealed class PendingAiName
     {
+        public int WorldSeedId;
         public string BlueprintId;
         public int Revision;
         public string Signature;
@@ -402,28 +404,31 @@ public sealed class WanfaPavilionService
         _testContainers.Add(container);
     }
 
-    public static void ClearWorldState()
+    internal void ClearWorldState()
     {
-        if (Instance == null) return;
-        Instance.GrantTargetFilter.ClearWorldExpression();
-        Instance.WorldStateClearing?.Invoke();
-        Instance.GrantConflictsCleared?.Invoke();
-        foreach (var container in Instance._testContainers)
+        GrantTargetFilter.ClearWorldExpression();
+        WorldStateClearing?.Invoke();
+        GrantConflictsCleared?.Invoke();
+        foreach (var container in _testContainers)
         {
             SkillBlueprintCompiler.Recycle(container);
         }
-        Instance._testContainers.Clear();
-        foreach (var lease in Instance._aiPreviewLeases)
+        _testContainers.Clear();
+        foreach (var lease in _aiPreviewLeases)
         {
             SkillBlueprintCompiler.Recycle(lease.Container);
         }
-        Instance._aiPreviewLeases.Clear();
+        _aiPreviewLeases.Clear();
+        while (_pendingAiNames.TryDequeue(out _))
+        {
+        }
     }
 
     internal void Tick()
     {
         while (_pendingAiNames.TryDequeue(out var pending))
         {
+            if (pending.WorldSeedId != MapBox.current_world_seed_id) continue;
             var blueprint = _library.Get(pending.BlueprintId);
             if (blueprint != null && blueprint.Revision == pending.Revision &&
                 SkillBlueprintSignature.Build(blueprint) == pending.Signature &&
@@ -509,6 +514,7 @@ public sealed class WanfaPavilionService
             var expectedId = blueprint.Id;
             var expectedRevision = blueprint.Revision;
             var expectedSignature = SkillBlueprintSignature.Build(blueprint);
+            var worldSeedId = MapBox.current_world_seed_id;
             _aiPreviewLeases.Add(new PendingAiLease
             {
                 Container = preview.Container,
@@ -518,6 +524,7 @@ public sealed class WanfaPavilionService
             {
                 _pendingAiNames.Enqueue(new PendingAiName
                 {
+                    WorldSeedId = worldSeedId,
                     BlueprintId = expectedId,
                     Revision = expectedRevision,
                     Signature = expectedSignature,
@@ -540,13 +547,18 @@ public sealed class WanfaPavilionService
     }
 }
 
-internal sealed class WanfaPavilionUpdateSystem : BaseSystem
+internal sealed class WanfaPavilionUpdateSystem : BaseSystem, IWorldStateClearable
 {
     private readonly WanfaPavilionService _service;
 
     public WanfaPavilionUpdateSystem(WanfaPavilionService service)
     {
         _service = service;
+    }
+
+    void IWorldStateClearable.ClearWorldState()
+    {
+        _service.ClearWorldState();
     }
 
     protected override void OnUpdateGroup()
