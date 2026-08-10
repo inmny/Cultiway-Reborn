@@ -258,15 +258,16 @@ public static class SkillHitResolver
         var attacker = context.SourceObj;
         if (target.isActor())
         {
-            EventSystemHub.Publish(new GetHitEvent
+            var evt = new GetHitEvent
             {
                 TargetID = target.a.data.id,
                 Damage = damage,
                 Element = context.ResolveElement(asset.Element),
-                Attacker = attacker,
                 AttackerPowerLevel = context.PowerLevel,
                 DamageOrigin = context.RuntimeData.DamageOrigin,
-            });
+            };
+            evt.BindAttacker(attacker, context.SourceId);
+            EventSystemHub.Publish(evt);
             return;
         }
 

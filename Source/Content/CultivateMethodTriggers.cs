@@ -50,12 +50,10 @@ public static class CultivateMethodTriggers
             return;
         }
 
-        if (!attacker.isActor()) return;
+        if (attacker.isRekt() || !attacker.isActor()) return;
         Actor source = attacker.a;
-        if (source == victim) return;
-        float attackerPower = source.TryGetExtend(out ActorExtend sourceExtend)
-            ? sourceExtend.GetPowerLevel()
-            : 0f;
+        if (source == victim || !source.TryGetExtend(out ActorExtend sourceExtend)) return;
+        float attackerPower = sourceExtend.GetPowerLevel();
         EventSystemHub.Publish(new CultivationDamageResolvedEvent(
             source.data.id,
             victim.data.id,

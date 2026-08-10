@@ -356,7 +356,7 @@ public static class SkillEffectResolver
                 target,
                 context.Cast.ResolveAttackKingdom())) return default;
         var evaluation = new SkillEffectEvaluationContext(
-            context.Cast.SourceObj?.isActor() == true ? context.Cast.SourceObj.a.GetExtend() : null,
+            ResolveCaster(in context),
             context.SkillContainer,
             context.Position,
             context.Radius);
@@ -384,7 +384,7 @@ public static class SkillEffectResolver
     {
         SkillEffectResult result = default;
         var evaluation = new SkillEffectEvaluationContext(
-            context.Cast.SourceObj?.isActor() == true ? context.Cast.SourceObj.a.GetExtend() : null,
+            ResolveCaster(in context),
             context.SkillContainer,
             context.Position,
             context.Radius);
@@ -409,6 +409,12 @@ public static class SkillEffectResolver
             }
         }
         return result;
+    }
+
+    private static ActorExtend ResolveCaster(in SkillEffectContext context)
+    {
+        Actor actor = context.Cast.SourceObj?.a;
+        return actor.TryGetExtend(out ActorExtend caster) ? caster : null;
     }
 
     /// <summary>判断指定效果的独立周期是否在当前调度区间内跨过了触发边界。</summary>

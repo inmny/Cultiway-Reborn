@@ -355,16 +355,17 @@ internal static class PatchActor
         }
         pDamage = AttackDamageScaleContext.Apply(pDamage);
         var element = EnumUtils.DamageCompositionFromDamageType(pAttackType);
-        EventSystemHub.Publish(new GetHitEvent()
+        var evt = new GetHitEvent
         {
             TargetID = __instance.data.id,
             Damage = pDamage,
             Element = element,
-            Attacker = pAttacker,
             AttackType = pAttackType,
             SourceScopeId = PatchLightning.CurrentSkyLightningScopeId,
             IgnoreDamageReduction = !pCheckDamageReduction
-        });
+        };
+        evt.BindAttacker(pAttacker);
+        EventSystemHub.Publish(evt);
         return false;
     }
 

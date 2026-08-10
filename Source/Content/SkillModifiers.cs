@@ -1418,14 +1418,15 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         if (backlash <= 0f) return;
 
         SkillGroundFx.OnImpact(context.SourceObj.GetSimPos(), skill.VfxElement, 0, isArea: false, sourceObj: target);
-        EventSystemHub.Publish(new GetHitEvent
+        var evt = new GetHitEvent
         {
             TargetID = context.SourceObj.a.data.id,
             Damage = backlash,
             Element = element,
-            Attacker = target,
             AttackerPowerLevel = context.PowerLevel
-        });
+        };
+        evt.BindAttacker(target);
+        EventSystemHub.Publish(evt);
     }
 
     // 命中时施加长时诅咒，持续伤害并降低攻防
@@ -1871,15 +1872,16 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
 
         if (target.isActor())
         {
-            EventSystemHub.Publish(new GetHitEvent
+            var evt = new GetHitEvent
             {
                 TargetID = target.a.data.id,
                 Damage = damage,
                 Element = element,
-                Attacker = context.SourceObj,
                 AttackerPowerLevel = context.PowerLevel,
                 IgnoreDamageReduction = ignoreDamageReduction
-            });
+            };
+            evt.BindAttacker(context.SourceObj, context.SourceId);
+            EventSystemHub.Publish(evt);
         }
         else
         {
