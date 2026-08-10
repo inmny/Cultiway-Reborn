@@ -22,12 +22,7 @@ public class DynamicAssetLibrary<T> : AssetLibrary<T>, IDynamicAssetLibrary wher
 
     public void ClearDynamicAssets()
     {
-        list.RemoveAll(x => DynamicDict.ContainsKey(x.id));
-        foreach (var asset_id in DynamicDict.Keys)
-        {
-            dict.Remove(asset_id);
-        }
-        DynamicDict.Clear();
+        RemoveAll(DynamicDict.Keys.ToArray());
     }
 
     public IEnumerable<Asset> GetDynamicAssets()
@@ -43,9 +38,21 @@ public class DynamicAssetLibrary<T> : AssetLibrary<T>, IDynamicAssetLibrary wher
     {
         foreach (var asset_id in ids)
         {
+            if (DynamicDict.TryGetValue(asset_id, out var asset))
+            {
+                OnRemoveDynamic(asset);
+            }
             DynamicDict.Remove(asset_id);
             dict.Remove(asset_id);
         }
         list.RemoveAll(x => !dict.ContainsKey(x.id));
+    }
+
+    protected virtual void OnRemoveDynamic(T asset)
+    {
+        if (asset is IDeleteWhenUnknown deleteWhenUnknown)
+        {
+            deleteWhenUnknown.OnDelete();
+        }
     }
 }
