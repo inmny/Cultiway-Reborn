@@ -25,7 +25,7 @@ internal static class KnightLancerTechniques
                 context.Target?.isActor() == true &&
                 KnightTechniqueStatuses.Has(context.Target.a, KnightTechniqueStatuses.ArmorBreak)
                     ? 0
-                    : context.Target?.stats[S.armor] > 0.35f ? 16 : 8,
+                    : context.Target?.stats[S.armor] > 0.35f ? 6 : 3,
             ResolveTacticalProfile = _ => new ActiveAbilityTacticalProfile(
                 1.8f, 0f, 0f, 0.5f, 2f, 5f, 1f, SkillImpactKind.Piercing),
             ResolveRange = _ => 1.9f,
@@ -46,7 +46,7 @@ internal static class KnightLancerTechniques
                                    KnightTechniqueRuntimeService.IsStraightPathClear(
                                        context.Caster.Base.current_position,
                                        context.ActiveTarget.Position),
-            ResolveAiWeight = _ => 12,
+            ResolveAiWeight = ResolveFormationChargeWeight,
             ResolveTacticalProfile = _ => new ActiveAbilityTacticalProfile(
                 2.2f, 0.4f, 0f, 1.2f, 2.8f, 45f, 2f, SkillImpactKind.Piercing, 1f),
             ResolveRange = _ => 6f,
@@ -144,8 +144,23 @@ internal static class KnightLancerTechniques
             {
                 if (!actor.isFlying()) nearby++;
             });
-        if (nearby >= 4) return 20;
-        if (!context.Target.isActor()) return 8;
-        return context.Target.a.GetExtend().GetPowerLevel() >= context.Caster.GetPowerLevel() ? 14 : 0;
+        if (!KnightTechniqueAiRules.IsHighTierTarget(context.Caster, context.Target, 4, 2f)) return 0;
+        if (nearby >= 4) return 10;
+        return context.Target.isActor() &&
+               context.Target.a.GetExtend().GetPowerLevel() >= context.Caster.GetPowerLevel()
+            ? 8
+            : 6;
+    }
+
+    private static int ResolveFormationChargeWeight(KnightTechniqueContext context)
+    {
+        if (!KnightTechniqueRuntimeService.IsValidGroundTarget(context.Caster, context.Target, 2.5f, 6f) ||
+            !KnightTechniqueRuntimeService.IsStraightPathClear(
+                context.Caster.Base.current_position,
+                context.ActiveTarget.Position)) return 0;
+        float distance = Vector2.Distance(
+            context.Caster.Base.current_position,
+            context.Target.current_position);
+        return distance >= 4f ? 8 : 5;
     }
 }

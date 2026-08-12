@@ -20,7 +20,9 @@ internal static class KnightDuelistTechniques
             TargetRelation = SkillUseTargetRelation.Hostile,
             CastMobility = ActiveAbilityCastMobility.StationaryDuringRecovery,
             UseCondition = IsMeleeTarget,
-            ResolveAiWeight = context => IsIsolated(context.Target) ? 15 : 7,
+            ResolveAiWeight = context => KnightTechniqueAiRules.IsIsolated(context.Caster, context.Target) ? 6 : 3,
+            ResolveAiDamageMultiplier = context =>
+                KnightTechniqueAiRules.IsIsolated(context.Caster, context.Target) ? 1.55f : 1.25f,
             ResolveTacticalProfile = _ => new ActiveAbilityTacticalProfile(
                 2.2f, 0f, 0f, 0f, 2.2f, 5f, 1f, SkillImpactKind.Wave),
             ResolveRange = context => KnightTechniqueRuntimeService.ResolveMeleeRange(context.Caster.Base),
@@ -42,7 +44,7 @@ internal static class KnightDuelistTechniques
                     return 0;
                 int recent = context.Caster.GetRecentAttackersSnapshot().Count;
                 if (recent == 0 || context.Caster.Base.getHealthRatio() >= 0.75f) return 0;
-                return context.Caster.Base.getHealthRatio() < 0.4f ? 18 : 9;
+                return context.Caster.Base.getHealthRatio() < 0.4f ? 10 : 6;
             },
             ResolveTacticalProfile = _ => new ActiveAbilityTacticalProfile(
                 1f, 2.4f, 0f, 0.5f, 2.8f, 45f, 1f, SkillImpactKind.Shield),
@@ -62,8 +64,10 @@ internal static class KnightDuelistTechniques
             UseCondition = IsMeleeTarget,
             ResolveAiWeight = context =>
             {
-                if (context.Target?.isActor() != true || !IsIsolated(context.Target)) return 0;
-                return context.Target.a.GetExtend().GetPowerLevel() >= context.Caster.GetPowerLevel() ? 20 : 8;
+                if (context.Target?.isActor() != true ||
+                    !KnightTechniqueAiRules.IsIsolated(context.Caster, context.Target) ||
+                    !KnightTechniqueAiRules.IsHighTierTarget(context.Caster, context.Target, 4, 2f)) return 0;
+                return context.Target.a.GetExtend().GetPowerLevel() >= context.Caster.GetPowerLevel() ? 10 : 7;
             },
             ResolveTacticalProfile = _ => new ActiveAbilityTacticalProfile(
                 4.8f, 0f, 0f, 0f, 4.8f, 360f, 1f, SkillImpactKind.Wave),

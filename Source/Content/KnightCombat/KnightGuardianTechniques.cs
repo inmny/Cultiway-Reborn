@@ -198,8 +198,8 @@ internal static class KnightGuardianTechniques
         if (KnightTechniqueStatuses.Has(context.Caster.Base, KnightTechniqueStatuses.GuardStance)) return 0;
         float health = context.Caster.Base.getHealthRatio();
         int recent = context.Caster.GetRecentAttackersSnapshot().Count;
-        if (health < 0.35f || recent >= 3) return 22;
-        return health < 0.7f || recent >= 2 ? 9 : 0;
+        if (health < 0.35f || recent >= 3) return 10;
+        return health < 0.7f || recent >= 2 ? 5 : 0;
     }
 
     private static int ResolveBulwarkWeight(KnightTechniqueContext context)
@@ -217,7 +217,10 @@ internal static class KnightGuardianTechniques
                     actor.getHealthRatio() < 0.45f) wounded++;
             });
         int enemies = CountGroundHostiles(caster, 3.5f);
-        return wounded >= 2 || enemies >= 4 ? 20 : wounded == 1 ? 9 : 0;
+        if (wounded == 0 && enemies < 4 && !KnightTechniqueAiRules.IsCritical(context.Caster)) return 0;
+        if (!KnightTechniqueAiRules.IsHighTierTarget(context.Caster, context.Target, 4, 3.5f) &&
+            !KnightTechniqueAiRules.IsCritical(context.Caster)) return 0;
+        return wounded >= 2 || enemies >= 4 ? 10 : 6;
     }
 
     private static int CountGroundHostiles(Actor caster, float radius)

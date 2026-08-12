@@ -97,7 +97,9 @@ public partial class ActorExtend
             activeAbilityWeights);
         if (activeAbilityWeight > 0)
         {
-            WorldboxGame.CombatActions.CastActiveAbility.AddToPool(attack_action_pool, activeAbilityWeight);
+            WorldboxGame.CombatActions.CastActiveAbility.AddToPool(
+                attack_action_pool,
+                Mathf.Min(activeAbilityWeight, 10));
         }
         action_on_attack?.Invoke(this, target, attack_action_pool);
         

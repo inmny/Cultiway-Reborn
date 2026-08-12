@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cultiway.Const;
+using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
@@ -8,6 +9,7 @@ using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Content.KnightCombat;
@@ -92,9 +94,12 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
         var activeTarget = new ActiveAbilityTarget(
             target,
             target?.GetSimPos() ?? caster.Base.GetSimPos());
-        return TryResolveContext(caster, technique, activeTarget, false, out KnightTechniqueContext context)
-            ? Mathf.Max(0, technique.ActiveUse.ResolveAiWeight?.Invoke(context) ?? 1)
-            : 0;
+        if (!TryResolveContext(caster, technique, activeTarget, false, out KnightTechniqueContext context)) return 0;
+        KnightTechniqueActiveUseProfile profile = technique.ActiveUse;
+        if ((profile.PrepareCondition?.Invoke(context) ?? true) == false ||
+            (profile.UseCondition?.Invoke(context) ?? true) == false ||
+            profile.ResolveAiWeight == null) return 0;
+        return Mathf.Clamp(profile.ResolveAiWeight(context), 0, 10);
     }
 
     public ActiveAbilityTacticalProfile ResolveTacticalProfile(
@@ -106,9 +111,39 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
         var activeTarget = new ActiveAbilityTarget(
             target,
             target?.GetSimPos() ?? caster.Base.GetSimPos());
-        return TryResolveContext(caster, technique, activeTarget, false, out KnightTechniqueContext context)
-            ? technique.ActiveUse.ResolveTacticalProfile?.Invoke(context) ?? default
-            : default;
+        if (!TryResolveContext(caster, technique, activeTarget, false, out KnightTechniqueContext context))
+            return default;
+        ActiveAbilityTacticalProfile profile = technique.ActiveUse.ResolveTacticalProfile?.Invoke(context) ?? default;
+        float attackDamage = KnightTechniqueAiRules.ResolveAttackDamage(caster);
+        float multiplier = technique.ActiveUse.ResolveAiDamageMultiplier?.Invoke(context) ??
+                           technique.AiDamageMultiplier;
+        float segments = Mathf.Max(1, technique.AiAttackSegments);
+        float primaryPower = attackDamage * Mathf.Max(0f, multiplier) * segments;
+        float expectedTargets = Mathf.Max(1f, profile.ExpectedTargets);
+        if (technique.AiSecondaryDamageMultiplier > 0f)
+        {
+            expectedTargets = Mathf.Max(expectedTargets, 1f + profile.ExpectedTargets - 1f);
+            primaryPower += attackDamage * technique.AiSecondaryDamageMultiplier *
+                            Mathf.Max(0f, expectedTargets - 1f);
+        }
+
+        float maxVigor = caster.Base.stats[BaseStatses.MaxVigor.id];
+        float availableVigor = caster.GetCultisys<Knight>().vigor;
+        float resourceCost = maxVigor > 0f ? technique.VigorCost / maxVigor : 1f;
+        float availableRatio = maxVigor > 0f ? availableVigor / maxVigor : 0f;
+        return new ActiveAbilityTacticalProfile(
+            profile.Offensive,
+            profile.Defensive,
+            profile.Support,
+            profile.Control,
+            Mathf.Max(profile.Power, primaryPower),
+            technique.VigorCost,
+            expectedTargets,
+            profile.ImpactKind,
+            Mathf.Max(profile.Utility, primaryPower * 0.08f),
+            resourceCost,
+            availableRatio,
+            technique.AiIgnoreResourceReserveWhenCritical);
     }
 
     public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
@@ -202,4 +237,5 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
             normalized,
             out context);
     }
+
 }
