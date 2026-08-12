@@ -30,6 +30,9 @@ public static class KnightSetting
     /// <summary>弱敌战力低于自身的该比例时不给斗气（防刷弱怪）。</summary>
     public const float WeakFoePowerRatio = 0.3f;
 
+    /// <summary>骑士比较武器价值时为已掌握流派兼容武器增加的偏好分数。</summary>
+    public const int KnightWeaponPreferenceBonus = 100;
+
     /// <summary>相对于 Mod 根目录的骑士等级属性表路径。</summary>
     public const string StatsPath = "Content/Cultisys/Knight.csv";
 
