@@ -4,6 +4,25 @@ Cultiway.WeaponControl.Description,筑基后以灵气驾驭当前武器。远程
 Cultiway.WeaponControl.SourceDetail,仙道来源 · 每次实际攻击消耗 1 点灵气
 Cultiway.WeaponControlTrajectory.WeaponMotion,御器近战动作
 Cultiway.WeaponControl.Impact,御器武器命中
+Cultiway.EquippedWeaponTrajectory.Motion,真实武器动作
+Cultiway.KnightTechnique.GuardStance.Execution,格挡架势
+Cultiway.KnightTechnique.GuardStance.Execution.Impact,格挡架势命中
+Cultiway.KnightTechnique.Repulse.Execution,震退
+Cultiway.KnightTechnique.Repulse.Execution.Impact,震退命中
+Cultiway.KnightTechnique.GuardianBulwark.Execution,守护壁垒
+Cultiway.KnightTechnique.GuardianBulwark.Execution.Impact,守护壁垒命中
+Cultiway.KnightTechnique.ArmorPiercingThrust.Execution,破甲突刺
+Cultiway.KnightTechnique.ArmorPiercingThrust.Execution.Impact,破甲突刺命中
+Cultiway.KnightTechnique.FormationCharge.Execution,破阵冲锋
+Cultiway.KnightTechnique.FormationCharge.Execution.Impact,破阵冲锋命中
+Cultiway.KnightTechnique.SkyfallStrike.Execution,苍穹坠击
+Cultiway.KnightTechnique.SkyfallStrike.Execution.Impact,苍穹坠击命中
+Cultiway.KnightTechnique.CommittedStrike.Execution,蓄势重击
+Cultiway.KnightTechnique.CommittedStrike.Execution.Impact,蓄势重击命中
+Cultiway.KnightTechnique.CounterStance.Execution,反击架势
+Cultiway.KnightTechnique.CounterStance.Execution.Impact,反击架势命中
+Cultiway.KnightTechnique.LegendaryFlurry.Execution,传奇连斩
+Cultiway.KnightTechnique.LegendaryFlurry.Execution.Impact,传奇连斩命中
 Cultiway.KnightStyle.Guardian,守卫
 Cultiway.KnightStyle.Guardian.Description,以斧锤承担正面压力并保护身边战友的重武器流派
 Cultiway.KnightStyle.Lancer,枪骑

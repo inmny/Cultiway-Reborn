@@ -15,8 +15,8 @@ public static class KnightStyleMasteryService
                Array.IndexOf(mastery.style_ids, style.id) >= 0;
     }
 
-    /// <summary>掌握指定流派。</summary>
-    public static void Master(ActorExtend actor, KnightStyleAsset style)
+    /// <summary>掌握指定流派，并返回本次是否为首次掌握。</summary>
+    public static bool Master(ActorExtend actor, KnightStyleAsset style)
     {
         if (!actor.HasComponent<KnightStyleMastery>())
         {
@@ -24,15 +24,16 @@ public static class KnightStyleMasteryService
             {
                 style_ids = [style.id]
             });
-            return;
+            return true;
         }
 
         ref KnightStyleMastery mastery = ref actor.GetComponent<KnightStyleMastery>();
-        if (Array.IndexOf(mastery.style_ids, style.id) >= 0) return;
+        if (Array.IndexOf(mastery.style_ids, style.id) >= 0) return false;
 
         int length = mastery.style_ids.Length;
         Array.Resize(ref mastery.style_ids, length + 1);
         mastery.style_ids[length] = style.id;
+        return true;
     }
 
     /// <summary>移除指定流派，供管理和测试入口使用。</summary>

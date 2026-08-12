@@ -1,6 +1,7 @@
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core;
+using Cultiway.Core.Combat;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
 using UnityEngine;
@@ -9,7 +10,7 @@ namespace Cultiway.Content;
 
 /// <summary>
 /// 骑士战斗相关钩子：
-/// - 通过战斗积累斗气：杀敌（按对手战力缩放、弱敌不给）与被击中。跳过「每次攻击」、只计敌对击杀。
+/// - 通过战斗积累斗气：普通攻击、杀敌（按对手战力缩放、弱敌不给）与被击中。
 /// - 闪避：受击前按 KnightEvasion 几率判定，命中则清零伤害并播放闪避特效。
 /// </summary>
 public static class KnightCombatTriggers
@@ -19,7 +20,32 @@ public static class KnightCombatTriggers
     {
         ActorExtend.RegisterActionOnKill(OnKillTrigger);
         ActorExtend.RegisterActionOnBeAttacked(OnBeAttackedTrigger);
+        ActorExtend.RegisterActionOnDamageResolved(OnDamageResolved);
         ActorExtend.RegisterActionBeforeBeAttacked(KnightEvasionBeforeBeAttacked);
+    }
+
+    /// <summary>普通攻击造成正伤害后恢复斗气，但不能借此超过斗气上限的 60%。</summary>
+    [Hotfixable]
+    private static void OnDamageResolved(
+        ActorExtend target,
+        BaseSimObject attacker,
+        float damage,
+        ElementComposition composition,
+        AttackType attackType)
+    {
+        if (attackType != AttackType.Weapon || DamageResolutionContext.IsReaction ||
+            DamageResolutionContext.CurrentSourceScopeId != 0 || attacker?.isActor() != true ||
+            attacker == target.Base || !attacker.a.TryGetExtend(out ActorExtend source) ||
+            !source.HasCultisys<Knight>()) return;
+
+        ref Knight knight = ref source.GetCultisys<Knight>();
+        float maxVigor = source.Base.stats[BaseStatses.MaxVigor.id];
+        float recoveryLimit = maxVigor * KnightSetting.BasicAttackVigorRecoveryLimitRatio;
+        if (knight.vigor >= recoveryLimit) return;
+
+        float targetPower = target.GetPowerLevel() + 1f;
+        float gain = damage * KnightSetting.BasicAttackVigorGainRatio * targetPower;
+        knight.vigor = Mathf.Min(knight.vigor + gain, recoveryLimit);
     }
 
     /// <summary>杀敌触发：按对手战力缩放给斗气，弱敌不给，只计敌对击杀。</summary>

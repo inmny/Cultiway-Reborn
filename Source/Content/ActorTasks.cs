@@ -86,6 +86,20 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         DailyMagicMeditate.addBeh(new BehMagicMeditate());
         DailyMagicMeditate.setIcon("cultiway/icons/iconMagic");
 
+        DailyKnightTrain.addBeh(new BehFindKnightTrainingDummy());
+        DailyKnightTrain.addBeh(new BehGetTargetBuildingMainTile());
+        DailyKnightTrain.addBeh(new BehGoToTileTarget());
+        DailyKnightTrain.addBeh(new BehLookAtBuildingTarget());
+        for (int i = 0; i < TimeScales.SecPerMonth; i++)
+        {
+            DailyKnightTrain.addBeh(new BehAngleAnimation(
+                AngleAnimationTarget.Building,
+                null,
+                1f,
+                40f,
+                true,
+                true));
+        }
         DailyKnightTrain.addBeh(new BehKnightTrain());
         DailyKnightTrain.setIcon("cultiway/icons/iconCultivation");
 

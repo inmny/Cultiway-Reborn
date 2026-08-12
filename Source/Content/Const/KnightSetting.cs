@@ -18,6 +18,12 @@ public static class KnightSetting
     /// <summary>被击中时获得斗气的系数，参与 斗气 = damage × 该系数 × 攻击者战力。</summary>
     public const float BeAttackedVigorGainRatio = 0.012f;
 
+    /// <summary>普通攻击命中时按最终伤害与目标战力恢复斗气的系数。</summary>
+    public const float BasicAttackVigorGainRatio = 0.05f;
+
+    /// <summary>普通攻击最多将斗气恢复到上限的该比例。</summary>
+    public const float BasicAttackVigorRecoveryLimitRatio = 0.6f;
+
     /// <summary>和平期操练每月获得的斗气占最大斗气的比例（比战斗慢；纯练习也能蓄满，只是更久）。</summary>
     public const float PracticeVigorGainRatioPerMonth = 0.05f;
 
