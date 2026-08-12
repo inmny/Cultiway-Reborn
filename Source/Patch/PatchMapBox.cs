@@ -7,6 +7,7 @@ using ai;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content;
+using Cultiway.Content.WeaponControl;
 using Cultiway.Content.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
@@ -26,17 +27,43 @@ internal static class PatchMapBox
 
     /// <summary>在原版攻击结算期间进入由投射物资产声明的伤害倍率作用域。</summary>
     [HarmonyPrefix, HarmonyPatch(typeof(MapBox), nameof(MapBox.applyAttack))]
-    private static void applyAttack_damage_scale_prefix(AttackData pData, out float __state)
+    private static void applyAttack_damage_scale_prefix(AttackData pData, out AttackScopeState __state)
     {
-        __state = AttackDamageScaleContext.Enter(pData);
+        float previousMultiplier = AttackDamageScaleContext.Enter(pData);
+        bool weaponControlProjectile = pData.is_projectile &&
+                                       pData.projectile_id.StartsWith(
+                                           WeaponControlProjectileProxyLibrary.ProxyIdPrefix,
+                                           StringComparison.Ordinal);
+        DamageResolutionContext.Scope damageScope = weaponControlProjectile
+            ? DamageResolutionContext.Enter(DamageOrigin.Primary, long.MinValue)
+            : default;
+        __state = new AttackScopeState(previousMultiplier, weaponControlProjectile, damageScope);
     }
 
     /// <summary>无论原版攻击是否抛出异常，都恢复调用线程进入前的伤害倍率。</summary>
     [HarmonyFinalizer, HarmonyPatch(typeof(MapBox), nameof(MapBox.applyAttack))]
-    private static Exception applyAttack_damage_scale_finalizer(Exception __exception, float __state)
+    private static Exception applyAttack_damage_scale_finalizer(Exception __exception, AttackScopeState __state)
     {
-        AttackDamageScaleContext.Restore(__state);
+        if (__state.HasDamageScope) __state.DamageScope.Dispose();
+        AttackDamageScaleContext.Restore(__state.PreviousMultiplier);
         return __exception;
+    }
+
+    private readonly struct AttackScopeState
+    {
+        public readonly float PreviousMultiplier;
+        public readonly bool HasDamageScope;
+        public readonly DamageResolutionContext.Scope DamageScope;
+
+        public AttackScopeState(
+            float previousMultiplier,
+            bool hasDamageScope,
+            DamageResolutionContext.Scope damageScope)
+        {
+            PreviousMultiplier = previousMultiplier;
+            HasDamageScope = hasDamageScope;
+            DamageScope = damageScope;
+        }
     }
 
     /// <summary>

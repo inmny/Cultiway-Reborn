@@ -9,6 +9,7 @@ namespace Cultiway.Content.WeaponControl;
 /// </summary>
 internal static class WeaponControlProjectileProxyLibrary
 {
+    internal const string ProxyIdPrefix = "Cultiway.WeaponControl.Projectile.";
     private const float ProjectileDamageMultiplier = 0.22f;
     private static readonly Dictionary<string, string> ProxyIds = new(StringComparer.Ordinal);
 
@@ -22,7 +23,7 @@ internal static class WeaponControlProjectileProxyLibrary
         ProjectileAsset source = AssetManager.projectiles.get(sourceAssetId);
         if (source == null) return string.Empty;
         string suffix = mode == WeaponControlCastMode.ArrowRain ? "high_arc" : "sky";
-        string proxyId = $"Cultiway.WeaponControl.Projectile.{suffix}.{sourceAssetId}";
+        string proxyId = $"{ProxyIdPrefix}{suffix}.{sourceAssetId}";
         ProjectileAsset registered = AssetManager.projectiles.get(proxyId);
         if (registered == null)
         {
