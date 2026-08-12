@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Abstract;
+using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core;
@@ -26,7 +27,7 @@ namespace Cultiway.Content.WeaponControl;
 
 /// <summary>注册筑基后由仙道体系直接授予的只读御器技能与统一主动能力入口。</summary>
 [Dependency(typeof(SkillCastResources), typeof(SkillMotionProfiles), typeof(SkillVfxElements),
-    typeof(WeaponControlTrajectories))]
+    typeof(EquippedWeaponTrajectories))]
 public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, WeaponControlSkills>
 {
     private const string SourceDetailLocaleKey = "Cultiway.WeaponControl.SourceDetail";
@@ -78,7 +79,7 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
                 Building = true,
                 Enemy = true,
             })
-            .SetupDefaultTraj(WeaponControlTrajectories.WeaponMotion)
+            .SetupDefaultTraj(EquippedWeaponTrajectories.Motion)
             .SetupUseProfile(SkillUseProfileLibrary.EnemyObjectOrPoint)
             .AcceptTrajectoryDomains(SkillTrajectoryDomain.Melee)
             .SetupVisualRotation(VisualRotation.FollowRotation());
@@ -121,7 +122,7 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
     {
         if (context.SourceObj.isRekt() || !context.SourceObj.isActor() || target.isRekt()) return true;
         Actor owner = context.SourceObj.a;
-        ref WeaponControlMotionState state = ref execution.GetComponent<WeaponControlMotionState>();
+        ref EquippedWeaponMotionState state = ref execution.GetComponent<EquippedWeaponMotionState>();
         if (!WeaponControlRuntimeService.IsCurrentWeapon(owner, state.Weapon) ||
             !owner.canAttackTarget(target)) return true;
 
@@ -142,7 +143,12 @@ public sealed class WeaponControlSkills : ExtendLibrary<SkillEntityAsset, Weapon
         float previousMultiplier = AttackDamageScaleContext.Enter(state.DamageMultiplier);
         try
         {
-            MapBox.checkAttackFor(attack, target);
+            using (DamageResolutionContext.Enter(
+                       DamageOrigin.Primary,
+                       context.RuntimeData.CorrelationId))
+            {
+                MapBox.checkAttackFor(attack, target);
+            }
         }
         finally
         {
