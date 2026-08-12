@@ -528,10 +528,13 @@ public static class CombatPlanner
             score /= 1f + rangeError * 0.08f;
         }
 
-        float availableResource = Mathf.Max(snapshot.StaminaRatio, snapshot.ManaRatio);
+        float availableResource = profile.AvailableResourceRatio ??
+                                   Mathf.Max(snapshot.StaminaRatio, snapshot.ManaRatio);
         float reserve = reserveActions * Mathf.Min(0.18f, Mathf.Max(0.08f, profile.ResourceCost));
         if (profile.ResourceCost > availableResource) return 0f;
-        if (availableResource - profile.ResourceCost < reserve)
+        bool criticalReserveBypass = profile.IgnoreResourceReserveWhenCritical &&
+                                     snapshot.HealthRatio < 0.35f;
+        if (!criticalReserveBypass && availableResource - profile.ResourceCost < reserve)
             score *= plan.Outcome.StrengthRatio >= FavorableRatio ? 0.2f : 0.7f;
 
         return Mathf.Max(0f, score);

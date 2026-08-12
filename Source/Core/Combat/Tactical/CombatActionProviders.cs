@@ -451,10 +451,17 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
             }
             if (!ActiveAbilityService.CanPrepare(caster, handle, prepareTarget)) continue;
 
+            var abilityTarget = new ActiveAbilityTarget(
+                prepareTarget,
+                prepareTarget?.GetSimPos() ?? caster.Base.GetSimPos(),
+                attackKingdom: caster.Base.kingdom);
+            if (!ActiveAbilityService.CanUse(caster, handle, abilityTarget)) continue;
+
             float range = ActiveAbilityService.ResolveRange(caster, handle, prepareTarget);
             float radius = ActiveAbilityService.ResolveEffectRadius(caster, handle);
             long sourcePid = handle.Source.IsNull ? 0 : handle.Source.Pid;
-            float resourceRatio = tactical.ResourceDemand /
+            float resourceRatio = tactical.NormalizedResourceCost ??
+                                  tactical.ResourceDemand /
                                   Mathf.Max(1f, tactical.ResourceDemand + 20f);
             output.Add(new CombatActionCandidate(
                 this,
@@ -476,11 +483,13 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
                     Mathf.Max(
                         tactical.Utility,
                         Mathf.Max(tactical.Support, tactical.Defensive)),
-                    resourceRatio,
-                    0f,
-                    1f,
-                    ActiveAbilityService.ResolveAiWeight(caster, handle, prepareTarget),
-                    ResolveMovementMode(descriptor.CastMobility)),
+                     resourceRatio,
+                     0f,
+                     1f,
+                     ActiveAbilityService.ResolveAiWeight(caster, handle, prepareTarget),
+                     ResolveMovementMode(descriptor.CastMobility),
+                     tactical.AvailableResourceRatio,
+                     tactical.IgnoreResourceReserveWhenCritical),
                 handle,
                 preferredTargetId: preferredTargetId));
         }

@@ -281,6 +281,8 @@ public readonly struct CombatActionProfile
     public readonly float Reliability;
     public readonly int BaseWeight;
     public readonly CombatActionMovementMode MovementMode;
+    public readonly float? AvailableResourceRatio;
+    public readonly bool IgnoreResourceReserveWhenCritical;
 
     public CombatActionProfile(
         CombatActionPurpose purpose,
@@ -298,7 +300,9 @@ public readonly struct CombatActionProfile
         float cooldown,
         float reliability,
         int baseWeight,
-        CombatActionMovementMode movementMode)
+        CombatActionMovementMode movementMode,
+        float? availableResourceRatio = null,
+        bool ignoreResourceReserveWhenCritical = false)
     {
         Purpose = purpose;
         TargetMode = targetMode;
@@ -316,6 +320,10 @@ public readonly struct CombatActionProfile
         Reliability = Mathf.Clamp01(reliability);
         BaseWeight = Math.Max(0, baseWeight);
         MovementMode = movementMode;
+        AvailableResourceRatio = availableResourceRatio.HasValue
+            ? Mathf.Clamp01(availableResourceRatio.Value)
+            : null;
+        IgnoreResourceReserveWhenCritical = ignoreResourceReserveWhenCritical;
     }
 
     public bool HasPurpose(CombatActionPurpose purpose)
