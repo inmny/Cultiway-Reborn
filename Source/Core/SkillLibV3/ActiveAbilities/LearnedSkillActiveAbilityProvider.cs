@@ -28,7 +28,8 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         for (int i = 0; i < learnedSkills.Count; i++)
         {
             Entity skill = learnedSkills[i];
-            if (!skill.IsNull && skill.HasComponent<SkillContainer>())
+            if (!skill.IsNull && skill.HasComponent<SkillContainer>() &&
+                !skill.HasComponent<SpecializedActiveAbility>())
             {
                 output.Add(new ActiveAbilityHandle(Id, skill));
             }
