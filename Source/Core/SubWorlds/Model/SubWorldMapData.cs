@@ -1,8 +1,5 @@
-using System;
-
 namespace Cultiway.Core.SubWorlds.Model;
 
-[Serializable]
 internal sealed class SubWorldMapData
 {
     public int Width = 0;

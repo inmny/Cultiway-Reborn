@@ -1,8 +1,5 @@
-using System;
-
 namespace Cultiway.Core.SubWorlds.Model;
 
-[Serializable]
 internal struct SubWorldTile
 {
     public string MainAssetId;
