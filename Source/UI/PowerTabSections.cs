@@ -7,6 +7,7 @@ public static class PowerTabSections
     public const string WorldGeography = "world.geography";
     public const string WorldPavilions = "world.pavilions";
     public const string WorldRains = "world.rains";
+    public const string WorldSubWorlds = "world.subworlds";
     public const string BiomeMain = "biome.main";
     public const string RaceMain = "race.main";
     public const string CreatureMain = "creature.main";

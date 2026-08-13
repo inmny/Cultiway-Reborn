@@ -162,7 +162,7 @@ catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
 - 扩展公共 API 后同步更新本文，并迁移实际调用方。
 - 不恢复 `WanfaUiFactory`、`BaibaoUiFactory`、`UIUtils`，也不新增功能专属的通用 `FooUiFactory`。
 
-神力 Tab 分类内的按钮必须先通过 `Manager.AddSection` 声明分区，再使用带 `sectionId`、`order` 和 `stableId` 的 `AddButton`、`AddButtonPair` 或 `AddSeparator` 注册。初始化先后不能承担排序语义；反射或资产库生成的按钮使用资产 ID 作为稳定 ID。上下具有固定组合语义的工具使用 `AddButtonPair`，视觉分组边界使用显式 `AddSeparator`，不得通过空节点手工补位。
+神力 Tab 分类内的按钮必须先通过 `Manager.AddSection` 声明分区，再使用带 `sectionId`、`order` 和 `stableId` 的 `AddButton`、`AddButtonPair` 或 `AddSeparator` 注册。初始化先后不能承担排序语义；反射或资产库生成的按钮使用资产 ID 作为稳定 ID。上下具有固定组合语义的工具使用 `AddButtonPair`，视觉分组边界使用显式 `AddSeparator`，不得通过空节点手工补位。动态条目通过 `SetEntryActive` 控制显隐，并在不再使用时通过 `RemoveEntry` 删除。
 
 ## 八、检查清单
 

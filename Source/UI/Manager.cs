@@ -84,6 +84,7 @@ public class Manager
         AddSection(TabButtonType.WORLD, PowerTabSections.WorldGeography, 200);
         AddSection(TabButtonType.WORLD, PowerTabSections.WorldPavilions, 300);
         AddSection(TabButtonType.WORLD, PowerTabSections.WorldRains, 400);
+        AddSection(TabButtonType.WORLD, PowerTabSections.WorldSubWorlds, 500);
         AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldGeography, 0, "world.geography.separator");
         AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldPavilions, 0, "world.pavilions.separator");
         AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldRains, 0, "world.rains.separator");
@@ -562,6 +563,19 @@ public class Manager
         RefreshTabLayout();
     }
 
+    public static void SetEntryActive(TabButtonType type, string stableId, bool active)
+    {
+        PowerTabGroupLayout group = GetButtonGroup(type);
+        if (group.SetEntryActive(stableId, active)) RefreshTabLayout();
+    }
+
+    public static void RemoveEntry(TabButtonType type, string stableId)
+    {
+        PowerTabGroupLayout group = GetButtonGroup(type);
+        group.RemoveEntry(stableId);
+        RefreshTabLayout();
+    }
+
     private static PowerTabGroupLayout GetButtonGroup(TabButtonType type)
     {
         if (!button_groups.TryGetValue(type, out PowerTabGroupLayout group))
@@ -603,7 +617,16 @@ public class Manager
 
     private static void RefreshTabNavigation()
     {
+        if (powers_tab._asset == null) return;
+
         List<PowerButton> buttons = powers_tab._power_buttons;
+        buttons.Clear();
+        PowerButton[] tabButtons = powers_tab.GetComponentsInChildren<PowerButton>(true);
+        for (int i = 0; i < tabButtons.Length; i++)
+        {
+            if (IsActiveTabElement(tabButtons[i].transform)) buttons.Add(tabButtons[i]);
+        }
+
         var positions = new Dictionary<PowerButton, Vector2>(buttons.Count);
         for (int i = 0; i < buttons.Count; i++)
         {
@@ -672,6 +695,17 @@ public class Manager
                 button.right = FindHorizontalWrap(button, positions, findRightmost: false);
             }
         }
+    }
+
+    private static bool IsActiveTabElement(Transform element)
+    {
+        while (element != powers_tab.transform)
+        {
+            if (!element.gameObject.activeSelf) return false;
+            element = element.parent;
+        }
+
+        return true;
     }
 
     private static PowerButton FindHorizontalWrap(PowerButton source,

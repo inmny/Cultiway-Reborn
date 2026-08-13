@@ -18,7 +18,7 @@ internal sealed class PowerTabGroupLayout
 
     private readonly List<Section> sections = new();
     private readonly Dictionary<string, Section> sectionsById = new(StringComparer.Ordinal);
-    private readonly HashSet<string> entryIds = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Entry> entriesById = new(StringComparer.Ordinal);
     private readonly LayoutElement layoutElement;
 
     internal RectTransform Root { get; }
@@ -72,6 +72,37 @@ internal sealed class PowerTabGroupLayout
         Root.gameObject.SetActive(active);
     }
 
+    internal bool SetEntryActive(string stableId, bool active)
+    {
+        if (!entriesById.TryGetValue(stableId, out Entry entry))
+        {
+            throw new InvalidOperationException($"神力 Tab 条目未注册: {Root.name}/{stableId}");
+        }
+
+        if (entry.Active == active) return false;
+
+        entry.SetActive(active);
+        Rebuild();
+        return true;
+    }
+
+    internal void RemoveEntry(string stableId)
+    {
+        if (!entriesById.TryGetValue(stableId, out Entry entry))
+        {
+            throw new InvalidOperationException($"神力 Tab 条目未注册: {Root.name}/{stableId}");
+        }
+
+        for (int i = 0; i < sections.Count; i++)
+        {
+            if (sections[i].Entries.Remove(entry)) break;
+        }
+
+        entriesById.Remove(stableId);
+        entry.DestroyObjects();
+        Rebuild();
+    }
+
     private void AddEntry(string sectionId, Entry entry)
     {
         if (!sectionsById.TryGetValue(sectionId, out Section section))
@@ -79,7 +110,7 @@ internal sealed class PowerTabGroupLayout
             throw new InvalidOperationException($"神力 Tab 条目引用了未注册分区: {Root.name}/{sectionId}");
         }
 
-        if (!entryIds.Add(entry.StableId))
+        if (entriesById.ContainsKey(entry.StableId))
         {
             throw new InvalidOperationException($"神力 Tab 条目 ID 重复: {Root.name}/{entry.StableId}");
         }
@@ -87,6 +118,7 @@ internal sealed class PowerTabGroupLayout
         AttachButton(entry.TopButton);
         AttachButton(entry.BottomButton);
         section.Entries.Add(entry);
+        entriesById.Add(entry.StableId, entry);
         Rebuild();
     }
 
@@ -115,6 +147,8 @@ internal sealed class PowerTabGroupLayout
             for (int entryIndex = 0; entryIndex < entries.Count; entryIndex++)
             {
                 Entry entry = entries[entryIndex];
+                if (!entry.Active) continue;
+
                 switch (entry.Kind)
                 {
                     case EntryKind.Button:
@@ -221,6 +255,7 @@ internal sealed class PowerTabGroupLayout
         internal readonly PowerButton TopButton;
         internal readonly PowerButton BottomButton;
         internal readonly GameObject Separator;
+        internal bool Active { get; private set; } = true;
 
         internal Entry(int order, string stableId, EntryKind kind, PowerButton topButton, PowerButton bottomButton,
             GameObject separator)
@@ -231,6 +266,22 @@ internal sealed class PowerTabGroupLayout
             TopButton = topButton;
             BottomButton = bottomButton;
             Separator = separator;
+        }
+
+        internal void SetActive(bool active)
+        {
+            Active = active;
+            if (TopButton != null) TopButton.gameObject.SetActive(active);
+            if (BottomButton != null) BottomButton.gameObject.SetActive(active);
+            if (Separator != null) Separator.SetActive(active);
+        }
+
+        internal void DestroyObjects()
+        {
+            SetActive(false);
+            if (TopButton != null) Object.Destroy(TopButton.gameObject);
+            if (BottomButton != null) Object.Destroy(BottomButton.gameObject);
+            if (Separator != null) Object.Destroy(Separator);
         }
     }
 

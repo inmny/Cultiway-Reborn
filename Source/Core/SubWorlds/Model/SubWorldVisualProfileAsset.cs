@@ -10,7 +10,7 @@ namespace Cultiway.Core.SubWorlds.Model;
 /// </remarks>
 public sealed class SubWorldVisualProfileAsset : Asset
 {
-    /// <summary>底栏实例按钮使用的图标路径。</summary>
+    /// <summary>WORLD 神力分区实例按钮使用的图标路径。</summary>
     public string navigation_icon_path;
 
     /// <summary>测试 Pawn 复用的原版 Actor Asset ID。</summary>

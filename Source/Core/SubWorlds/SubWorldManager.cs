@@ -26,7 +26,7 @@ internal sealed class SubWorldManager
     private readonly SubWorldSpatialLayout spatialLayout = new();
     private readonly SubWorldViewVisibilitySystem visibilitySystem = new();
     private readonly SubWorldCameraNavigator cameraNavigator = new();
-    private readonly SubWorldNavigationBar navigationBar;
+    private readonly SubWorldNavigationSection navigationSection;
     private readonly SubWorldWorldInputRouter inputRouter;
     private long nextInstanceId;
     private bool acceptingOperations = true;
@@ -38,14 +38,14 @@ internal sealed class SubWorldManager
     internal SubWorldManager(ParallelJobRunner jobRunner)
     {
         this.jobRunner = jobRunner ?? throw new ArgumentNullException(nameof(jobRunner));
-        navigationBar = new SubWorldNavigationBar(this);
+        navigationSection = new SubWorldNavigationSection(this);
         inputRouter = new SubWorldWorldInputRouter(this, spatialLayout, worldViews);
     }
 
     /// <summary>当前会话内存活的小世界实例数量。</summary>
     internal int Count => runtimes.Count;
 
-    /// <summary>底栏当前选中的小世界；为空表示主世界。</summary>
+    /// <summary>WORLD 神力分区当前选中的小世界；为空表示主世界。</summary>
     internal long? FocusedInstanceId => cameraNavigator.FocusedInstanceId;
 
     /// <summary>
@@ -89,7 +89,7 @@ internal sealed class SubWorldManager
         var worldView = new SubWorldWorldView(runtime, slot);
         runtimes.Add(instanceId, runtime);
         worldViews.Add(instanceId, worldView);
-        navigationBar.AddRuntime(runtime);
+        navigationSection.AddRuntime(runtime);
         return instanceId;
     }
 
@@ -116,9 +116,9 @@ internal sealed class SubWorldManager
         if (!runtimes.TryGetValue(instanceId, out SubWorldRuntime runtime)) return false;
         worldViews[instanceId].Destroy();
         worldViews.Remove(instanceId);
-        navigationBar.RemoveRuntime(instanceId);
         spatialLayout.Release(instanceId);
         if (FocusedInstanceId == instanceId) cameraNavigator.Reset();
+        navigationSection.RemoveRuntime(instanceId);
         runtime.Destroy();
         runtimes.Remove(instanceId);
         return true;
@@ -173,12 +173,12 @@ internal sealed class SubWorldManager
         Get(instanceId).CommandQueue.Enqueue(command);
     }
 
-    /// <summary>聚焦主地图中心，并把底栏当前目标切回主世界。</summary>
+    /// <summary>聚焦主地图中心，并把 WORLD 神力分区当前目标切回主世界。</summary>
     internal void FocusMainWorld()
     {
         EnsureAcceptingOperations();
         cameraNavigator.FocusMainWorld();
-        navigationBar.Refresh();
+        navigationSection.Refresh();
     }
 
     /// <summary>聚焦指定小世界的地图中心。</summary>
@@ -186,10 +186,10 @@ internal sealed class SubWorldManager
     {
         EnsureAcceptingOperations();
         cameraNavigator.Focus(Get(instanceId), spatialLayout.Get(instanceId));
-        navigationBar.Refresh();
+        navigationSection.Refresh();
     }
 
-    /// <summary>聚焦当前底栏目标中的测试 Pawn。</summary>
+    /// <summary>聚焦 WORLD 神力分区当前目标中的测试 Pawn。</summary>
     internal void FocusPawn()
     {
         EnsureAcceptingOperations();
@@ -203,7 +203,7 @@ internal sealed class SubWorldManager
         EnsureAcceptingOperations();
         _ = Get(instanceId);
         cameraNavigator.Select(instanceId);
-        navigationBar.Refresh();
+        navigationSection.Refresh();
     }
 
     /// <summary>在 MoveCamera 更新后同步所有与相机视野相交的 WorldView。</summary>
@@ -211,7 +211,7 @@ internal sealed class SubWorldManager
     {
         if (!acceptingOperations || worldViews.Count == 0) return;
         visibilitySystem.Update(MoveCamera.instance.main_camera, worldViews);
-        navigationBar.Refresh();
+        navigationSection.Refresh();
     }
 
     /// <summary>路由当前指针位置的世界输入。</summary>
@@ -243,7 +243,7 @@ internal sealed class SubWorldManager
             }
             worldViews.Clear();
             spatialLayout.Clear();
-            navigationBar.Clear();
+            navigationSection.Clear();
             cameraNavigator.Reset();
             nextInstanceId = 0;
         }
