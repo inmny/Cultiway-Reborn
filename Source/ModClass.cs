@@ -20,6 +20,7 @@ using Cultiway.Core.Persistence;
 using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core.SubWorlds;
+using Cultiway.Core.SubWorlds.Model;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
 using Cultiway.Debug;
@@ -82,6 +83,8 @@ namespace Cultiway
         private float time_for_scheduler_diagnostics = 0;
         private readonly CultiwayLogicScheduler logicScheduler = new();
         private bool schedulerHookFailureReported;
+        private bool autoCreateDeveloperSubWorld;
+        private int developerSubWorldWorldId = -1;
         internal CultiwayLogicScheduler LogicScheduler => logicScheduler;
 
         private void Update()
@@ -91,6 +94,16 @@ namespace Cultiway
             {
                 logicScheduler.Abort();
                 return;
+            }
+
+            if (autoCreateDeveloperSubWorld && developerSubWorldWorldId != MapBox.current_world_seed_id)
+            {
+                long instanceId = SubWorldManager.Create(
+                    Core.SubWorlds.SubWorldManager.TestSubWorldTemplateId,
+                    new SubWorldAnchor(MapBox.width / 2, MapBox.height / 2),
+                    1);
+                SubWorldManager.Focus(instanceId);
+                developerSubWorldWorldId = MapBox.current_world_seed_id;
             }
 
             long hostMeasurement = FramePriorityGovernor.StartHostMeasurement();
@@ -357,6 +370,7 @@ namespace Cultiway
         public void Reload()
         {
             SubWorldManager.Clear();
+            developerSubWorldWorldId = -1;
             LoadLocales();
             typeof(ResourcesPatch).GetMethod("LoadResourceFromFolder", BindingFlags.Static | BindingFlags.NonPublic)
                 ?.Invoke(null,
@@ -380,7 +394,7 @@ namespace Cultiway
                     LogError($"Actor {actor.data.id} has null kingdom({actor.kingdom.id}) asset");
                 }
             }
-            
+
             foreach (var city in World.world.cities.list)
             {
                 if (city.units.Any(x => x == null))
@@ -446,7 +460,7 @@ namespace Cultiway
             LogicPrepareRecycleSystemGroup = new SystemGroup(nameof(LogicPrepareRecycleSystemGroup));
             LogicRestoreStatusSystemGroup = new SystemGroup(nameof(LogicRestoreStatusSystemGroup));
             LogicEventProcessSystemGroup = new SystemGroup(nameof(LogicEventProcessSystemGroup));
-            
+
             TileLogicSystems = new SystemRoot(nameof(TileLogicSystems));
             TileRenderSystems = new SystemRoot(nameof(TileRenderSystems));
 
@@ -454,28 +468,28 @@ namespace Cultiway
             GeneralRenderSystems.AddStore(W);
             TileLogicSystems.AddStore(TileExtendManager.World);
             TileRenderSystems.AddStore(TileExtendManager.World);
-            
+
             GeneralLogicSystems.Add(new AnimFrameUpdateSystem(W));
-            
+
             GeneralLogicSystems.Add(new AliveTimerSystem());
             GeneralLogicSystems.Add(new AliveTimerCheckSystem());
             GeneralLogicSystems.Add(new DelayActiveCheckSystem());
             GeneralLogicSystems.Add(new StatusTickSystem());
-            
+
             GeneralLogicSystems.Add(LogicRestoreStatusSystemGroup);
             LogicRestoreStatusSystemGroup.Add(new RestoreHealthSystem());
             LogicRestoreStatusSystemGroup.Add(new RestoreQiyunSystem());
-            
+
             GeneralLogicSystems.Add(LogicEventProcessSystemGroup);
             LogicEventProcessSystemGroup.Add(new ActorNameGeneratedEventSystem());
             LogicEventProcessSystemGroup.Add(new EntityNameGeneratedEventSystem());
             LogicEventProcessSystemGroup.Add(new WorldGeneratedPartitionGeoRegionsEventSystem());
             LogicEventProcessSystemGroup.Add(new GeoRegionAutoClassifyAndNameEventSystem());
             LogicEventProcessSystemGroup.Add(new GetHitEventSystem());
-            
+
             GeneralLogicSystems.Add(new WaterConnectivitySystem());
             GeneralLogicSystems.Add(PortalManager.Instance);
-            
+
             GeneralRenderSystems.Add(new RenderAnimFrameSystem(W));
             GeneralRenderSystems.Add(new RenderMotionRibbonTrailSystem());
             GeneralRenderSystems.Add(new RenderStatusParticleSystem());
@@ -503,7 +517,7 @@ namespace Cultiway
             Content.UI.Manager.Instance.InitBaibao(Baibao);
             Content.UI.Manager.Instance.InitUpgradeRain();
             Content.UI.Manager.Instance.InitElementRootRain();
-            
+
             GeneralLogicSystems.Add(new StructuralChangeSystem());
             GeneralLogicSystems.Add(LogicPrepareRecycleSystemGroup);
             //LogicPrepareRecycleSystemGroup.Add(new DisposeActorExtendSystem());
@@ -516,13 +530,14 @@ namespace Cultiway
 
             if (SystemUtils.IsUnderDeveloper())
             {
+                autoCreateDeveloperSubWorld = true;
                 Config.isEditor = true;
                 DebugConfig.setOption(DebugOption.FastCultures, true);
                 DebugConfig.setOption(DebugOption.CityInfiniteResources, true);
                 DebugConfig.setOption(DebugOption.CityFastConstruction, true);
                 DebugConfig.setOption(DebugOption.CityFastUpgrades, true);
                 CombatDamageDebug.EnableForFavoriteUnits();
-                
+
                 GeneralLogicSystems.SetMonitorPerf(true);
                 GeneralRenderSystems.SetMonitorPerf(true);
                 Geo.SetMonitorPerf(true);
