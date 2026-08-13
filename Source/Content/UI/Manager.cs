@@ -76,38 +76,44 @@ public class Manager : ICanInit
         PossessionStatusEffectsUi.Ensure();
 
         WindowWorldWakan.CreateAndInit($"Cultiway.UI.{nameof(WindowWorldWakan)}");
-        Cultiway.UI.Manager.AddButton(TabButtonType.WORLD,
+        Cultiway.UI.Manager.AddButton(TabButtonType.WORLD, PowerTabSections.WorldInfo, 100,
+            WindowWorldWakan.WindowId,
             PowerButtonCreator.CreateWindowButton(
                 $"Cultiway.UI.{nameof(WindowWorldWakan)} Title",
                 $"Cultiway.UI.{nameof(WindowWorldWakan)}",
                 SpriteTextureLoader.getSprite("cultiway/icons/iconWakan")
             )
         );
-        Cultiway.UI.Manager.AddButton(TabButtonType.WORLD,
+        Cultiway.UI.Manager.AddButton(TabButtonType.WORLD, PowerTabSections.WorldGeography, 200,
+            GodPowers.ExtendGeoRegion.id,
             PowerButtonCreator.CreateGodPowerButton(
                 GodPowers.ExtendGeoRegion.id,
                 SpriteTextureLoader.getSprite("cultiway/icons/iconExtendGeoRegion")
             )
         );
-        Cultiway.UI.Manager.AddButton(TabButtonType.WORLD,
+        Cultiway.UI.Manager.AddButton(TabButtonType.WORLD, PowerTabSections.WorldGeography, 300,
+            GodPowers.RemoveGeoRegion.id,
             PowerButtonCreator.CreateGodPowerButton(
                 GodPowers.RemoveGeoRegion.id,
                 SpriteTextureLoader.getSprite("cultiway/icons/iconRemoveGeoRegion")
             )
         );
-        Cultiway.UI.Manager.AddButton(TabButtonType.RACE,
+        Cultiway.UI.Manager.AddButton(TabButtonType.RACE, PowerTabSections.RaceMain, 100,
+            GodPowers.EasternHuman.id,
             PowerButtonCreator.CreateGodPowerButton(
                 GodPowers.EasternHuman.id,
                 SpriteTextureLoader.getSprite("cultiway/icons/races/iconEasternHuman")
             )
         );
-        Cultiway.UI.Manager.AddButton(TabButtonType.RACE,
+        Cultiway.UI.Manager.AddButton(TabButtonType.RACE, PowerTabSections.RaceMain, 200,
+            GodPowers.Gui.id,
             PowerButtonCreator.CreateGodPowerButton(
                 GodPowers.Gui.id,
                 SpriteTextureLoader.getSprite("cultiway/icons/races/iconGui")
             )
         );
-        Cultiway.UI.Manager.AddButton(TabButtonType.RACE,
+        Cultiway.UI.Manager.AddButton(TabButtonType.RACE, PowerTabSections.RaceMain, 300,
+            GodPowers.EasternHumanSkin.id,
             PowerButtonCreator.CreateGodPowerButton(
                 GodPowers.EasternHumanSkin.id,
                 SpriteTextureLoader.getSprite("cultiway/icons/traits/iconCultureSkin")
@@ -217,9 +223,12 @@ public class Manager : ICanInit
         BaibaoArchiveButton = PowerButtonCreator.CreateGodPowerButton(
             WorldboxGame.GodPowers.BaibaoArchive.id, SpriteTextureLoader.getSprite(BaibaoUiIcons.Archive));
 
-        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, _magicWebButton, BaibaoArchiveButton);
-        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, _wanfaPavilionButton, WanfaGrantButton);
-        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, pavilionButton, BaibaoGrantButton);
+        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, PowerTabSections.WorldPavilions, 100,
+            "world.pavilions.magic_web_archive", _magicWebButton, BaibaoArchiveButton);
+        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, PowerTabSections.WorldPavilions, 200,
+            "world.pavilions.wanfa", _wanfaPavilionButton, WanfaGrantButton);
+        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, PowerTabSections.WorldPavilions, 300,
+            "world.pavilions.baibao", pavilionButton, BaibaoGrantButton);
         service.ArchiveRequested += WindowBaibaoArchive.Open;
     }
 
@@ -234,7 +243,8 @@ public class Manager : ICanInit
         UiPowerButtonAdapter.ApplyWorldToolConfigStyle(configButton);
         UpgradeRainButton = PowerButtonCreator.CreateGodPowerButton(
             WorldboxGame.GodPowers.UpgradeRain.id, SpriteTextureLoader.getSprite(DiliujiangIcon));
-        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, configButton, UpgradeRainButton);
+        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, PowerTabSections.WorldRains, 100,
+            WorldboxGame.GodPowers.UpgradeRain.id, configButton, UpgradeRainButton);
     }
 
     /// <summary>初始化灵根雨配置窗口，并在世界页加入成对的配置和投放按钮。</summary>
@@ -249,7 +259,8 @@ public class Manager : ICanInit
         UiPowerButtonAdapter.ApplyWorldToolConfigStyle(configButton);
         ElementRootRainButton = PowerButtonCreator.CreateGodPowerButton(
             WorldboxGame.GodPowers.ElementRootRain.id, SpriteTextureLoader.getSprite(ElementRootRainIcon));
-        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, configButton, ElementRootRainButton);
+        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, PowerTabSections.WorldRains, 200,
+            WorldboxGame.GodPowers.ElementRootRain.id, configButton, ElementRootRainButton);
     }
 
     private static void AppendArtifactControlDetails(SpecialItemTooltip tooltip, Entity artifact)
