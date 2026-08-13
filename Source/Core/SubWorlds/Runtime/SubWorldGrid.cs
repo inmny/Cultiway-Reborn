@@ -3,12 +3,19 @@ using Cultiway.Core.SubWorlds.Model;
 
 namespace Cultiway.Core.SubWorlds.Runtime;
 
+/// <summary>
+/// 管理小世界格子坐标，并把地图中的 terrain Asset ID 解析为原版 Asset 直接引用。
+/// </summary>
 internal sealed class SubWorldGrid
 {
     private readonly SubWorldMapData mapData;
     private readonly TileType[] mainTypes;
     private readonly TopTileType[] topTypes;
 
+    /// <summary>
+    /// 验证地图形状并解析所有格子的 Main 和 Top terrain。
+    /// </summary>
+    /// <param name="mapData">由当前 Runtime 独占的地图数据。</param>
     internal SubWorldGrid(SubWorldMapData mapData)
     {
         if (mapData == null) throw new ArgumentNullException(nameof(mapData));
@@ -38,16 +45,35 @@ internal sealed class SubWorldGrid
         }
     }
 
+    /// <summary>当前 Grid 管理的地图数据。</summary>
     internal SubWorldMapData MapData => mapData;
+
+    /// <summary>地图宽度，单位为格。</summary>
     internal int Width { get; }
+
+    /// <summary>地图高度，单位为格。</summary>
     internal int Height { get; }
+
+    /// <summary>地图格子总数。</summary>
     internal int TileCount { get; }
 
+    /// <summary>
+    /// 判断格子坐标是否位于地图范围内。
+    /// </summary>
+    /// <param name="x">格子横坐标。</param>
+    /// <param name="y">格子纵坐标。</param>
+    /// <returns>坐标有效时为 <see langword="true"/>。</returns>
     internal bool Contains(int x, int y)
     {
         return (uint)x < (uint)Width && (uint)y < (uint)Height;
     }
 
+    /// <summary>
+    /// 将格子坐标转换为 row-major 索引。
+    /// </summary>
+    /// <param name="x">格子横坐标。</param>
+    /// <param name="y">格子纵坐标。</param>
+    /// <returns><c>y * Width + x</c>。</returns>
     internal int GetIndex(int x, int y)
     {
         if (!Contains(x, y))
@@ -57,36 +83,66 @@ internal sealed class SubWorldGrid
         return y * Width + x;
     }
 
+    /// <summary>
+    /// 取得 row-major 索引对应的格子横坐标。
+    /// </summary>
+    /// <param name="index">格子索引。</param>
+    /// <returns>格子横坐标。</returns>
     internal int GetX(int index)
     {
         ValidateIndex(index);
         return index % Width;
     }
 
+    /// <summary>
+    /// 取得 row-major 索引对应的格子纵坐标。
+    /// </summary>
+    /// <param name="index">格子索引。</param>
+    /// <returns>格子纵坐标。</returns>
     internal int GetY(int index)
     {
         ValidateIndex(index);
         return index / Width;
     }
 
+    /// <summary>
+    /// 取得指定格子的 map-local Asset ID 数据。
+    /// </summary>
+    /// <param name="index">格子索引。</param>
+    /// <returns>格子数据。</returns>
     internal SubWorldTile GetTile(int index)
     {
         ValidateIndex(index);
         return mapData.Tiles[index];
     }
 
+    /// <summary>
+    /// 取得指定格子解析后的原版 Main terrain Asset。
+    /// </summary>
+    /// <param name="index">格子索引。</param>
+    /// <returns>Main terrain Asset。</returns>
     internal TileType GetMainType(int index)
     {
         ValidateIndex(index);
         return mainTypes[index];
     }
 
+    /// <summary>
+    /// 取得指定格子解析后的原版 Top terrain Asset。
+    /// </summary>
+    /// <param name="index">格子索引。</param>
+    /// <returns>Top terrain Asset；该格没有 Top 时为 <see langword="null"/>。</returns>
     internal TopTileType GetTopType(int index)
     {
         ValidateIndex(index);
         return topTypes[index];
     }
 
+    /// <summary>
+    /// 取得 gameplay 使用的有效 terrain，即 <c>Top ?? Main</c>。
+    /// </summary>
+    /// <param name="index">格子索引。</param>
+    /// <returns>该格的有效原版 terrain Asset。</returns>
     internal TileTypeBase GetTerrainType(int index)
     {
         ValidateIndex(index);
@@ -94,6 +150,11 @@ internal sealed class SubWorldGrid
         return topType != null ? topType : mainTypes[index];
     }
 
+    /// <summary>
+    /// 修改一个格子的 Asset ID，并同步刷新其原版 Asset 直接引用。
+    /// </summary>
+    /// <param name="index">格子索引。</param>
+    /// <param name="tile">新的格子数据。</param>
     internal void SetTile(int index, SubWorldTile tile)
     {
         ValidateIndex(index);

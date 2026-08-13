@@ -19,6 +19,7 @@ using Cultiway.Core.Performance;
 using Cultiway.Core.Persistence;
 using Cultiway.Core.SkillLibV3.Systems;
 using Cultiway.Core.SkillLibV3.Wanfa;
+using Cultiway.Core.SubWorlds;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
 using Cultiway.Debug;
@@ -68,6 +69,9 @@ namespace Cultiway
         public BaibaoPavilionService Baibao { get; private set; }
         public        Core.GeoLib.Manager     Geo                  { get; private set; }
 
+        /// <summary>当前主世界会话的小世界实例管理器。</summary>
+        internal SubWorldManager SubWorldManager { get; private set; }
+
         private void Start()
         {
             L.PostInit();
@@ -104,6 +108,8 @@ namespace Cultiway
                     Game.Pause();
                     return;
                 }
+
+                SubWorldManager.Update(Time.unscaledDeltaTime, Game.IsPaused());
 
                 var render_update_tick = new UpdateTick(Time.unscaledDeltaTime, Game.GetGameTime());
                 GeneralRenderSystems.Update(render_update_tick);
@@ -350,6 +356,7 @@ namespace Cultiway
         [Hotfixable]
         public void Reload()
         {
+            SubWorldManager.Clear();
             LoadLocales();
             typeof(ResourcesPatch).GetMethod("LoadResourceFromFolder", BindingFlags.Static | BindingFlags.NonPublic)
                 ?.Invoke(null,
@@ -486,6 +493,7 @@ namespace Cultiway
             _patch.Init();
             SkillV3.Init();
             _content.Init();
+            SubWorldManager = new SubWorldManager(W.JobRunner);
             SimulationTickBenchmark.Initialize();
             Wanfa = new WanfaPavilionService();
             Wanfa.Init();
@@ -534,6 +542,7 @@ namespace Cultiway
 
         private void OnApplicationQuit()
         {
+            SubWorldManager?.Clear();
             PathFinder.Instance.Shutdown();
             PersistentLogger.Save();
             CultiLog.Shutdown();

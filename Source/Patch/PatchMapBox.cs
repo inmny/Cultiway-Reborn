@@ -133,6 +133,7 @@ internal static class PatchMapBox
     [HarmonyPrefix, HarmonyPatch(typeof(MapBox), nameof(MapBox.clearWorld))]
     private static void clearWorld_prefix()
     {
+        ModClass.I?.SubWorldManager?.Clear();
         EventSystemHub.PauseAndClear();
         ModClass.I.CommandBuffer.Clear();
         ScrollWindow.hideAllEvent(false);
