@@ -1,4 +1,18 @@
 key,cz
+Cultiway.SubWorld.Navigation.MainWorld,主世界
+Cultiway.SubWorld.Navigation.MainWorld.Description,聚焦主世界中心
+Cultiway.SubWorld.Navigation.Runtime,小世界 {0}
+Cultiway.SubWorld.Navigation.Runtime.Description,聚焦这个小世界
+Cultiway.SubWorld.Navigation.Pause,局部暂停
+Cultiway.SubWorld.Navigation.Pause.Description,暂停或恢复当前小世界
+Cultiway.SubWorld.Navigation.Speed1,局部速度 1x
+Cultiway.SubWorld.Navigation.Speed1.Description,将当前小世界设为 1 倍速度
+Cultiway.SubWorld.Navigation.Speed2,局部速度 2x
+Cultiway.SubWorld.Navigation.Speed2.Description,将当前小世界设为 2 倍速度
+Cultiway.SubWorld.Navigation.Speed4,局部速度 4x
+Cultiway.SubWorld.Navigation.Speed4.Description,将当前小世界设为 4 倍速度
+Cultiway.SubWorld.Navigation.FocusPawn,聚焦单位
+Cultiway.SubWorld.Navigation.FocusPawn.Description,聚焦当前小世界的测试单位
 Cultiway,修真之路
 Cultiway Description,阿巴阿巴
 AIGenerated,该内容由AI生成

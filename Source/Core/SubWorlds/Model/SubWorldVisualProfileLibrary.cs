@@ -19,7 +19,9 @@ public sealed class SubWorldVisualProfileLibrary : AssetLibrary<SubWorldVisualPr
         base.init();
         Standard = add(new SubWorldVisualProfileAsset
         {
-            id = StandardId
+            id = StandardId,
+            navigation_icon_path = "ui/icons/iconCustomWorld",
+            pawn_actor_asset_id = "human"
         });
     }
 

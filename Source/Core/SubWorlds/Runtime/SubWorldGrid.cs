@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Cultiway.Core.SubWorlds.Model;
 
 namespace Cultiway.Core.SubWorlds.Runtime;
@@ -11,6 +12,8 @@ internal sealed class SubWorldGrid
     private readonly SubWorldMapData mapData;
     private readonly TileType[] mainTypes;
     private readonly TopTileType[] topTypes;
+    private readonly HashSet<int> dirtyTiles = new();
+    private bool allTilesDirty = true;
 
     /// <summary>
     /// 验证地图形状并解析所有格子的 Main 和 Top terrain。
@@ -162,6 +165,26 @@ internal sealed class SubWorldGrid
         mapData.Tiles[index] = tile;
         mainTypes[index] = mainType;
         topTypes[index] = topType;
+        if (!allTilesDirty) dirtyTiles.Add(index);
+    }
+
+    /// <summary>
+    /// 取出自上次视觉同步后发生变化的格子；首次同步返回整张地图。
+    /// </summary>
+    /// <param name="target">接收 dirty tile index 的列表。</param>
+    internal void ConsumeDirtyTiles(List<int> target)
+    {
+        target.Clear();
+        if (allTilesDirty)
+        {
+            for (int index = 0; index < TileCount; index++) target.Add(index);
+            allTilesDirty = false;
+        }
+        else
+        {
+            target.AddRange(dirtyTiles);
+        }
+        dirtyTiles.Clear();
     }
 
     private void ValidateIndex(int index)
