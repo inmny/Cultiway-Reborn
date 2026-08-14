@@ -165,7 +165,7 @@ internal sealed class SubWorldGrid
         mapData.Tiles[index] = tile;
         mainTypes[index] = mainType;
         topTypes[index] = topType;
-        if (!allTilesDirty) dirtyTiles.Add(index);
+        if (!allTilesDirty) MarkTileAndNeighboursDirty(index);
     }
 
     /// <summary>
@@ -193,6 +193,17 @@ internal sealed class SubWorldGrid
         {
             throw new ArgumentOutOfRangeException(nameof(index), index, "SubWorld 格子索引超出地图范围");
         }
+    }
+
+    private void MarkTileAndNeighboursDirty(int index)
+    {
+        dirtyTiles.Add(index);
+        int x = index % Width;
+        int y = index / Width;
+        if (x > 0) dirtyTiles.Add(index - 1);
+        if (x + 1 < Width) dirtyTiles.Add(index + 1);
+        if (y > 0) dirtyTiles.Add(index - Width);
+        if (y + 1 < Height) dirtyTiles.Add(index + Width);
     }
 
     private static void ResolveTile(SubWorldTile tile, int index, out TileType mainType,
