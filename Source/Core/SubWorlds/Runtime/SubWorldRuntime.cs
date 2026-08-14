@@ -56,10 +56,12 @@ internal sealed class SubWorldRuntime
             JobRunner = jobRunner
         };
         systemRoot = new SystemRoot(entityStore, $"SubWorld.{instanceId}");
-        PawnEntity = entityStore.CreateEntity(new Position(
-            Grid.GetX(scene.InitialPawnTileIndex) + 0.5f,
-            Grid.GetY(scene.InitialPawnTileIndex) + 0.5f,
-            0f));
+        PawnEntity = entityStore.CreateEntity(
+            new Position(
+                Grid.GetX(scene.InitialPawnTileIndex) + 0.5f,
+                Grid.GetY(scene.InitialPawnTileIndex) + 0.5f,
+                0f),
+            new SubWorldUnitVisual(visualProfile.pawn_actor_asset_id));
 
         ObjectiveState = new SubWorldObjectiveState();
         State = SubWorldRuntimeState.Created;

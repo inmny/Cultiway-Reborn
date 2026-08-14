@@ -12,8 +12,8 @@ internal sealed class SubWorldViewVisibilitySystem
         foreach (SubWorldWorldView worldView in worldViews.Values)
         {
             bool intersects = visibleBounds.Overlaps(worldView.WorldBounds);
-            worldView.SetVisible(intersects);
-            if (intersects) worldView.SyncVisibleState();
+            bool visibilityChanged = worldView.SetVisible(intersects);
+            if (intersects || visibilityChanged) worldView.SyncVisibleState();
         }
     }
 

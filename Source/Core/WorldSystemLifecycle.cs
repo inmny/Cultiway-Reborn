@@ -14,7 +14,7 @@ internal static class WorldSystemLifecycle
         ClearSystemStates(ModClass.I.TileRenderSystems);
     }
 
-    private static void ClearSystemStates(SystemGroup group)
+    internal static void ClearSystemStates(SystemGroup group)
     {
         foreach (BaseSystem system in group.ChildSystems)
         {
