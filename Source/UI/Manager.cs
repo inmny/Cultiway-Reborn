@@ -37,15 +37,27 @@ public class Manager
 
     public static           PowersTab                                      powers_tab;
     private static readonly Dictionary<TabButtonType, PowerTabGroupLayout> button_groups = new();
+    private static readonly Dictionary<TabButtonType, PowerButton> category_buttons = new();
+    private static          RectTransform                                  tab_layout_root;
+    private static          RectTransform                                  category_separator;
     private static          RectTransform                                  top_container;
 
     public void Init()
     {
+        tab_layout_root = new GameObject("TabLayout", typeof(RectTransform)).GetComponent<RectTransform>();
+        tab_layout_root.pivot = new Vector2(0f, 0.5f);
+        tab_layout_root.sizeDelta = new Vector2(0f, PowerTabGroupLayout.GroupHeight);
+
         top_container = new GameObject("TopContainer", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter)).GetComponent<RectTransform>();
+        top_container.SetParent(tab_layout_root, false);
+        top_container.anchorMin = new Vector2(0f, 0.5f);
+        top_container.anchorMax = new Vector2(0f, 0.5f);
         top_container.pivot = new Vector2(0, 0.5f);
+        top_container.sizeDelta = new Vector2(0f, PowerTabGroupLayout.GroupHeight);
         var fitter = top_container.GetComponent<ContentSizeFitter>();
         fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
         var layout_group = top_container.GetComponent<HorizontalLayoutGroup>();
+        layout_group.childAlignment = TextAnchor.MiddleLeft;
         layout_group.childControlHeight = false;
         layout_group.childControlWidth = false;
         layout_group.childForceExpandWidth = false;
@@ -55,9 +67,21 @@ public class Manager
             SpriteTextureLoader.getSprite("cultiway/icons/iconTab"));
         powers_tab.SetLayout(new List<string>
         {
-            "Controller"
+            "Layout"
         });
-        powers_tab.PutElement("Controller", top_container, new Vector2(140, -16), true);
+        powers_tab.PutElement("Layout", tab_layout_root, Vector2.zero, true);
+
+        category_separator = Object.Instantiate(ResourcesFinder.FindResource<GameObject>("_line"), tab_layout_root)
+            .GetComponent<RectTransform>();
+        category_separator.name = "CategorySeparator";
+        category_separator.GetComponent<Image>().enabled = true;
+        category_separator.anchorMin = new Vector2(0f, 0.5f);
+        category_separator.anchorMax = new Vector2(0f, 0.5f);
+        category_separator.pivot = new Vector2(0f, 0.5f);
+        category_separator.sizeDelta = new Vector2(category_separator.sizeDelta.x,
+            PowerTabGroupLayout.SeparatorHeight);
+        category_separator.localScale = Vector3.one;
+        category_separator.gameObject.SetActive(true);
 
         ConstructTabContainer(TabButtonType.INFO,     SpriteTextureLoader.getSprite("ui/icons/iconAbout"));
         ConstructTabContainer(TabButtonType.WORLD,    SpriteTextureLoader.getSprite("ui/icons/iconWorldInfo"));
@@ -588,9 +612,24 @@ public class Manager
 
     private static void ConstructTabContainer(TabButtonType type, Sprite icon)
     {
-        powers_tab.AddPowerButton("Controller",
-            PowerButtonCreator.CreateSimpleButton(type.ToString(), () => { SwitchTab(type); },
-                icon));
+        PowerButton categoryButton = PowerButtonCreator.CreateSimpleButton(type.ToString(),
+            () => { SwitchTab(type); }, icon);
+        RectTransform rect = categoryButton.GetComponent<RectTransform>();
+        categoryButton.rect_transform = rect;
+        rect.SetParent(tab_layout_root, false);
+        rect.anchorMin = new Vector2(0f, 0.5f);
+        rect.anchorMax = new Vector2(0f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(PowerTabGroupLayout.ButtonSize, PowerTabGroupLayout.ButtonSize);
+        rect.localScale = Vector3.one;
+
+        int index = category_buttons.Count;
+        int column = index / 2;
+        rect.anchoredPosition = new Vector2(
+            column * (PowerTabGroupLayout.ButtonSize + PowerTabGroupLayout.ColumnSpacing) +
+            PowerTabGroupLayout.ButtonSize * 0.5f,
+            index % 2 == 0 ? PowerTabGroupLayout.TopRowY : PowerTabGroupLayout.BottomRowY);
+        category_buttons[type] = categoryButton;
         button_groups[type] = new PowerTabGroupLayout(type.ToString(), top_container);
     }
 
@@ -598,7 +637,9 @@ public class Manager
     {
         foreach (var pair in button_groups)
         {
-            pair.Value.SetActive(pair.Key == type);
+            bool selected = pair.Key == type;
+            pair.Value.SetActive(selected);
+            UiStateStyle.SetSelected(category_buttons[pair.Key].GetComponent<Button>(), selected);
         }
 
         RefreshTabLayout();
@@ -607,12 +648,32 @@ public class Manager
     private static void RefreshTabLayout()
     {
         LayoutRebuilder.ForceRebuildLayoutImmediate(top_container);
+        LayoutTabRoot();
         powers_tab.UpdateLayout();
         RefreshTabNavigation();
         if (powers_tab.parentObj != null)
         {
             powers_tab.setNewWidth();
         }
+    }
+
+    private static void LayoutTabRoot()
+    {
+        float categoryRightEdge = float.MinValue;
+        foreach (PowerButton button in category_buttons.Values)
+        {
+            RectTransform rect = button.GetComponent<RectTransform>();
+            categoryRightEdge = Mathf.Max(categoryRightEdge, rect.anchoredPosition.x + rect.rect.xMax);
+        }
+
+        category_separator.anchoredPosition = new Vector2(
+            categoryRightEdge + PowerTabGroupLayout.ColumnSpacing, 0f);
+
+        float contentStartX = category_separator.anchoredPosition.x + category_separator.rect.width +
+                              PowerTabGroupLayout.ColumnSpacing;
+        top_container.anchoredPosition = new Vector2(contentStartX, 0f);
+        tab_layout_root.sizeDelta = new Vector2(contentStartX + top_container.rect.width,
+            PowerTabGroupLayout.GroupHeight);
     }
 
     private static void RefreshTabNavigation()
@@ -631,6 +692,7 @@ public class Manager
         for (int i = 0; i < buttons.Count; i++)
         {
             PowerButton button = buttons[i];
+            button.rect_transform = button.GetComponent<RectTransform>();
             button.left = null;
             button.right = null;
             button.up = null;

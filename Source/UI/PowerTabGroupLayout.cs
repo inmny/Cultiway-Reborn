@@ -9,12 +9,13 @@ namespace Cultiway.UI;
 
 internal sealed class PowerTabGroupLayout
 {
-    private const float ButtonSize = 32f;
-    private const float ColumnSpacing = 4f;
-    private const float TopRowY = 34f;
-    private const float BottomRowY = -2f;
-    private const float GroupHeight = 100f;
-    private const float SeparatorHeight = ButtonSize * 2f + ColumnSpacing;
+    internal const float ButtonSize = 32f;
+    internal const float ColumnSpacing = 4f;
+    internal const float TopRowY = 18f;
+    internal const float BottomRowY = -18f;
+    private const float CenterRowY = (TopRowY + BottomRowY) * 0.5f;
+    internal const float GroupHeight = 100f;
+    internal const float SeparatorHeight = ButtonSize * 2f + ColumnSpacing;
 
     private readonly List<Section> sections = new();
     private readonly Dictionary<string, Section> sectionsById = new(StringComparer.Ordinal);
@@ -138,6 +139,7 @@ internal sealed class PowerTabGroupLayout
         float cursorX = 0f;
         float rightEdge = 0f;
         bool bottomRowNext = false;
+        bool centerUnpairedButtons = sections.Count > 1;
         int siblingIndex = 0;
 
         for (int sectionIndex = 0; sectionIndex < sections.Count; sectionIndex++)
@@ -152,6 +154,15 @@ internal sealed class PowerTabGroupLayout
                 switch (entry.Kind)
                 {
                     case EntryKind.Button:
+                        if (centerUnpairedButtons && !bottomRowNext &&
+                            !HasFollowingActiveButton(entries, entryIndex))
+                        {
+                            PlaceButton(entry.TopButton, cursorX, CenterRowY, siblingIndex++);
+                            rightEdge = Mathf.Max(rightEdge, cursorX + ButtonSize);
+                            cursorX += ButtonSize + ColumnSpacing;
+                            break;
+                        }
+
                         PlaceButton(entry.TopButton, cursorX, bottomRowNext ? BottomRowY : TopRowY, siblingIndex++);
                         rightEdge = Mathf.Max(rightEdge, cursorX + ButtonSize);
                         if (bottomRowNext)
@@ -184,6 +195,17 @@ internal sealed class PowerTabGroupLayout
         layoutElement.minWidth = rightEdge;
         layoutElement.preferredWidth = rightEdge;
         LayoutRebuilder.MarkLayoutForRebuild(Root);
+    }
+
+    private static bool HasFollowingActiveButton(List<Entry> entries, int entryIndex)
+    {
+        for (int i = entryIndex + 1; i < entries.Count; i++)
+        {
+            if (!entries[i].Active) continue;
+            return entries[i].Kind == EntryKind.Button;
+        }
+
+        return false;
     }
 
     private static void FinishPartialColumn(ref float cursorX, ref bool bottomRowNext)
