@@ -12,33 +12,64 @@ namespace Cultiway.UI.SubWorlds;
 internal sealed class SubWorldWorldView
 {
     private const int EmptyRenderLayer = int.MinValue;
-    private const int PawnSortingOrder = 200;
     private const string TilemapLayerPrefabPath = "prefabs/TilemapLayer";
+    private const string UnitRendererPrefabPath = "prefabs/PrefabUnitRenderer";
+    private const string MapSpritePrefabPath = "civ/p_mapSprite";
 
     private readonly SubWorldRuntime runtime;
     private readonly GameObject root;
+    private readonly Transform tilemapsRoot;
+    private readonly Transform wallsRoot;
+    private readonly Transform unitsRoot;
+    private readonly GameObject mapSpritePrefab;
     private readonly Dictionary<int, TerrainLayer> terrainLayers = new();
+    private readonly Dictionary<int, WallVisual> wallVisuals = new();
+    private readonly Dictionary<TopTileType, Sprite[]> wallFrames = new();
+    private readonly Stack<WallVisual> wallPool = new();
     private readonly TileTypeBase[] renderedTerrainTypes;
     private readonly int[] renderedTerrainLayers;
     private readonly int[] renderedBorderLayers;
     private readonly bool[] renderedWaterRunups;
+    private readonly HashSet<int> pendingTerrainTiles = new();
     private readonly TileType borderWaterType;
     private readonly TileType borderWaterRunupType;
     private readonly TileType borderPitType;
     private readonly SpriteRenderer pawnRenderer;
-    private readonly Material pawnMaterial;
+    private readonly SpriteRenderer overviewRenderer;
+    private readonly Texture2D overviewTexture;
+    private readonly Sprite overviewSprite;
+    private readonly byte[] overviewPixels;
     private readonly Sprite[] pawnFrames;
     private readonly float pawnAnimationSpeed;
     private readonly List<int> dirtyTileIndices = new();
+    private bool overviewTextureDirty;
+    private bool overviewMode;
     private bool visible = true;
 
     internal SubWorldWorldView(SubWorldRuntime runtime, SubWorldSpatialSlot slot)
     {
         this.runtime = runtime;
         Slot = slot;
-        root = new GameObject($"SubWorld.{runtime.InstanceId}", typeof(Grid));
+        root = new GameObject($"SubWorld.{runtime.InstanceId}");
         root.transform.SetParent(MapBox.instance.transform, false);
         root.transform.position = new Vector3(slot.WorldOrigin.x, slot.WorldOrigin.y, 0f);
+
+        tilemapsRoot = CreateContainer("Tilemaps", root.transform, typeof(Grid));
+        tilemapsRoot.localScale = new Vector3(0.25f, 0.25f, 1f);
+        Grid tilemapGrid = tilemapsRoot.GetComponent<Grid>();
+        tilemapGrid.cellSize = new Vector3(4f, 4f, 1f);
+        tilemapGrid.cellGap = new Vector3(-0.0001f, -0.0001f, 0f);
+        tilemapGrid.cellLayout = GridLayout.CellLayout.Rectangle;
+        tilemapGrid.cellSwizzle = GridLayout.CellSwizzle.XYZ;
+
+        Transform objectsRoot = CreateContainer("Objects", root.transform);
+        wallsRoot = CreateContainer("Walls", objectsRoot);
+        Transform creaturesRoot = CreateContainer("Creatures", root.transform);
+        unitsRoot = CreateContainer("Units", creaturesRoot);
+
+        mapSpritePrefab = Resources.Load<GameObject>(MapSpritePrefabPath) ??
+                          throw new InvalidOperationException(
+                              $"原版 MapSprite prefab 未找到: {MapSpritePrefabPath}");
 
         TilemapExtended layerPrefab = Resources.Load<TilemapExtended>(TilemapLayerPrefabPath) ??
                                              throw new InvalidOperationException(
@@ -54,6 +85,9 @@ internal sealed class SubWorldWorldView
         renderedTerrainLayers = CreateEmptyLayerArray(runtime.Grid.TileCount);
         renderedBorderLayers = CreateEmptyLayerArray(runtime.Grid.TileCount);
         renderedWaterRunups = new bool[runtime.Grid.TileCount];
+        overviewPixels = new byte[runtime.Grid.TileCount];
+        overviewRenderer = CreateOverviewRenderer(out overviewTexture, out overviewSprite);
+        overviewMode = MapBox.isRenderMiniMap();
 
         ActorAsset pawnAsset = AssetManager.actor_library.get(runtime.VisualProfile.pawn_actor_asset_id) ??
                                throw new InvalidOperationException(
@@ -63,12 +97,14 @@ internal sealed class SubWorldWorldView
         pawnFrames = animation.idle.frames;
         pawnAnimationSpeed = pawnAsset.animation_idle_speed;
 
-        GameObject pawn = new("Pawn", typeof(SpriteRenderer));
-        pawn.transform.SetParent(root.transform, false);
+        GameObject pawnPrefab = Resources.Load<GameObject>(UnitRendererPrefabPath) ??
+                                throw new InvalidOperationException(
+                                    $"原版 UnitRenderer prefab 未找到: {UnitRendererPrefabPath}");
+        GameObject pawn = Object.Instantiate(pawnPrefab, unitsRoot);
+        pawn.name = "Pawn";
+        float pawnScale = pawnAsset.base_stats["scale"];
+        pawn.transform.localScale = new Vector3(pawnScale, pawnScale, 1f);
         pawnRenderer = pawn.GetComponent<SpriteRenderer>();
-        pawnRenderer.sortingOrder = PawnSortingOrder;
-        pawnMaterial = new Material(LibraryMaterials.instance.mat_world_object);
-        pawnRenderer.sharedMaterial = pawnMaterial;
         SetVisible(false);
     }
 
@@ -80,20 +116,36 @@ internal sealed class SubWorldWorldView
     {
         if (visible == value) return;
         visible = value;
-        foreach (TerrainLayer layer in terrainLayers.Values) layer.Renderer.enabled = value;
-        pawnRenderer.enabled = value;
+        UpdateRendererVisibility();
     }
 
     internal void SyncVisibleState()
     {
+        SetOverviewMode(MapBox.isRenderMiniMap());
         runtime.Grid.ConsumeDirtyTiles(dirtyTileIndices);
-        if (dirtyTileIndices.Count > 0)
+        for (int i = 0; i < dirtyTileIndices.Count; i++)
         {
-            PrepareTerrainDraw();
-            for (int i = 0; i < dirtyTileIndices.Count; i++) RenderTile(dirtyTileIndices[i]);
-            FlushTerrainDraw();
+            int index = dirtyTileIndices[i];
+            overviewPixels[index] = SubWorldVisualResources.GetTerrainIndex(runtime.Grid.GetTerrainType(index));
+            overviewTextureDirty = true;
+            pendingTerrainTiles.Add(index);
         }
 
+        if (overviewMode)
+        {
+            UploadOverviewTexture();
+            return;
+        }
+
+        if (pendingTerrainTiles.Count > 0)
+        {
+            PrepareTerrainDraw();
+            foreach (int index in pendingTerrainTiles) RenderTile(index);
+            FlushTerrainDraw();
+            pendingTerrainTiles.Clear();
+        }
+
+        UpdateWalls();
         Position position = runtime.PawnEntity.GetComponent<Position>();
         pawnRenderer.transform.localPosition = position.value;
         int frame = Mathf.FloorToInt((float)runtime.Clock.LocalTime * pawnAnimationSpeed) % pawnFrames.Length;
@@ -102,8 +154,61 @@ internal sealed class SubWorldWorldView
 
     internal void Destroy()
     {
-        Object.Destroy(pawnMaterial);
+        Object.Destroy(overviewSprite);
+        Object.Destroy(overviewTexture);
         Object.Destroy(root);
+    }
+
+    private SpriteRenderer CreateOverviewRenderer(out Texture2D texture, out Sprite sprite)
+    {
+        texture = new Texture2D(runtime.Grid.Width, runtime.Grid.Height, TextureFormat.R8, false, true)
+        {
+            name = $"SubWorld.{runtime.InstanceId}.TerrainIndices",
+            filterMode = FilterMode.Point,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.DontSave
+        };
+        sprite = Sprite.Create(texture,
+            new Rect(0f, 0f, runtime.Grid.Width, runtime.Grid.Height),
+            Vector2.zero, 1f, 0, SpriteMeshType.FullRect);
+        sprite.name = $"SubWorld.{runtime.InstanceId}.Overview";
+        sprite.hideFlags = HideFlags.DontSave;
+
+        GameObject overview = new("world_layer", typeof(SpriteRenderer));
+        overview.transform.SetParent(root.transform, false);
+        SpriteRenderer renderer = overview.GetComponent<SpriteRenderer>();
+        renderer.sprite = sprite;
+        renderer.sharedMaterial = SubWorldVisualResources.OverviewMaterial;
+        SpriteRenderer worldLayerRenderer = MapBox.instance.GetComponent<SpriteRenderer>();
+        renderer.sortingLayerID = worldLayerRenderer.sortingLayerID;
+        renderer.sortingOrder = worldLayerRenderer.sortingOrder;
+        renderer.spriteSortPoint = worldLayerRenderer.spriteSortPoint;
+        renderer.renderingLayerMask = worldLayerRenderer.renderingLayerMask;
+        return renderer;
+    }
+
+    private void SetOverviewMode(bool value)
+    {
+        if (overviewMode == value) return;
+        overviewMode = value;
+        UpdateRendererVisibility();
+    }
+
+    private void UpdateRendererVisibility()
+    {
+        bool showTerrainTiles = visible && !overviewMode;
+        tilemapsRoot.gameObject.SetActive(showTerrainTiles);
+        wallsRoot.gameObject.SetActive(showTerrainTiles);
+        unitsRoot.gameObject.SetActive(showTerrainTiles);
+        overviewRenderer.enabled = visible && overviewMode;
+    }
+
+    private void UploadOverviewTexture()
+    {
+        if (!overviewTextureDirty) return;
+        overviewTexture.LoadRawTextureData(overviewPixels);
+        overviewTexture.Apply(false, false);
+        overviewTextureDirty = false;
     }
 
     private void CreateTerrainLayers(TilemapExtended layerPrefab)
@@ -123,7 +228,7 @@ internal sealed class SubWorldWorldView
     {
         if (terrainLayers.ContainsKey(terrainType.render_z)) return;
 
-        TilemapExtended layerObject = Object.Instantiate(layerPrefab, root.transform);
+        TilemapExtended layerObject = Object.Instantiate(layerPrefab, tilemapsRoot);
         Tilemap tilemap = layerObject.GetComponent<Tilemap>();
         tilemap.ClearAllTiles();
         layerObject.create(terrainType);
@@ -173,6 +278,78 @@ internal sealed class SubWorldWorldView
         }
 
         RenderBorder(index, position);
+        RenderWall(index);
+    }
+
+    private void RenderWall(int index)
+    {
+        TopTileType wallType = runtime.Grid.GetTopType(index);
+        if (wallType == null || !wallType.wall)
+        {
+            if (!wallVisuals.TryGetValue(index, out WallVisual removedWall)) return;
+            wallVisuals.Remove(index);
+            removedWall.GameObject.SetActive(false);
+            wallPool.Push(removedWall);
+            return;
+        }
+
+        if (!wallVisuals.TryGetValue(index, out WallVisual wall))
+        {
+            wall = GetWallVisual();
+            wallVisuals.Add(index, wall);
+        }
+
+        Sprite[] frames = GetWallFrames(wallType);
+        int frameOffset = GetWallFrameOffset(index, frames.Length);
+        wall.Type = wallType;
+        wall.Frames = frames;
+        wall.FrameOffset = frameOffset;
+        wall.GameObject.name = $"Wall.{index}";
+        wall.GameObject.SetActive(true);
+        wall.Renderer.sprite = frames[frameOffset];
+        wall.Renderer.sharedMaterial = wallType == TopTileLibrary.wall_light
+            ? LibraryMaterials.instance.mat_world_object_lit
+            : LibraryMaterials.instance.mat_world_object;
+
+        float x = runtime.Grid.GetX(index) + 0.5f;
+        float y = runtime.Grid.GetY(index) + 0.5f;
+        wall.Transform.localPosition = new Vector3(x, y, Mathf.Repeat(x * 0.0001f, 0.1f));
+    }
+
+    private WallVisual GetWallVisual()
+    {
+        if (wallPool.Count > 0) return wallPool.Pop();
+
+        GameObject wallObject = Object.Instantiate(mapSpritePrefab, wallsRoot);
+        SpriteRenderer renderer = wallObject.GetComponent<SpriteRenderer>();
+        renderer.sortingLayerID = SortingLayer.NameToID("Objects");
+        return new WallVisual(wallObject, renderer);
+    }
+
+    private Sprite[] GetWallFrames(TopTileType wallType)
+    {
+        if (wallFrames.TryGetValue(wallType, out Sprite[] frames)) return frames;
+        frames = SpriteTextureLoader.getSpriteList($"walls/{wallType.id}/wall_sheet");
+        wallFrames.Add(wallType, frames);
+        return frames;
+    }
+
+    private int GetWallFrameOffset(int index, int frameCount)
+    {
+        uint seed = unchecked((uint)runtime.Seed * 397u ^ (uint)index * 2654435761u);
+        return (int)(seed % (uint)frameCount);
+    }
+
+    private void UpdateWalls()
+    {
+        float scale = World.world.quality_changer.getTweenBuildingsValue() * 0.25f;
+        foreach (WallVisual wall in wallVisuals.Values)
+        {
+            wall.Transform.localScale = new Vector3(scale, scale, 1f);
+            if (!wall.Type.animated_wall) continue;
+            int frame = ((int)AnimationHelper.getAnimationGlobalTime(4f) + wall.FrameOffset) % wall.Frames.Length;
+            wall.Renderer.sprite = wall.Frames[frame];
+        }
     }
 
     private TileBase GetTerrainVariation(int index, TileTypeBase terrainType)
@@ -242,6 +419,13 @@ internal sealed class SubWorldWorldView
         return layers;
     }
 
+    private static Transform CreateContainer(string name, Transform parent, params Type[] components)
+    {
+        GameObject container = new(name, components);
+        container.transform.SetParent(parent, false);
+        return container.transform;
+    }
+
     private sealed class TerrainLayer
     {
         private readonly Tilemap tilemap;
@@ -272,5 +456,22 @@ internal sealed class SubWorldWorldView
         {
             if (positions.Count > 0) tilemap.SetTiles(positions.ToArray(), tiles.ToArray());
         }
+    }
+
+    private sealed class WallVisual
+    {
+        internal WallVisual(GameObject gameObject, SpriteRenderer renderer)
+        {
+            GameObject = gameObject;
+            Transform = gameObject.transform;
+            Renderer = renderer;
+        }
+
+        internal GameObject GameObject { get; }
+        internal Transform Transform { get; }
+        internal SpriteRenderer Renderer { get; }
+        internal TopTileType Type { get; set; }
+        internal Sprite[] Frames { get; set; }
+        internal int FrameOffset { get; set; }
     }
 }
