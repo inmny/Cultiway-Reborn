@@ -104,14 +104,15 @@ public class Manager
     {
         AddSection(TabButtonType.INFO, PowerTabSections.InfoMain, 100);
 
-        AddSection(TabButtonType.WORLD, PowerTabSections.WorldInfo, 100);
-        AddSection(TabButtonType.WORLD, PowerTabSections.WorldGeography, 200);
-        AddSection(TabButtonType.WORLD, PowerTabSections.WorldPavilions, 300);
-        AddSection(TabButtonType.WORLD, PowerTabSections.WorldRains, 400);
+        AddSection(TabButtonType.WORLD, PowerTabSections.WorldWakan, 100);
+        AddSection(TabButtonType.WORLD, PowerTabSections.WorldMapModes, 200);
+        AddSection(TabButtonType.WORLD, PowerTabSections.WorldTools, 300);
+        AddSection(TabButtonType.WORLD, PowerTabSections.WorldPavilionsAndRains, 400);
         AddSection(TabButtonType.WORLD, PowerTabSections.WorldSubWorlds, 500);
-        AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldGeography, 0, "world.geography.separator");
-        AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldPavilions, 0, "world.pavilions.separator");
-        AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldRains, 0, "world.rains.separator");
+        AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldMapModes, 0, "world.map_modes.separator");
+        AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldTools, 0, "world.tools.separator");
+        AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldPavilionsAndRains, 0,
+            "world.pavilions_and_rains.separator");
 
         AddSection(TabButtonType.BIOME, PowerTabSections.BiomeMain, 100);
         AddSection(TabButtonType.RACE, PowerTabSections.RaceMain, 100);
