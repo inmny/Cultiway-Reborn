@@ -33,44 +33,44 @@ internal static class CultivationAchievementService
     internal static void OnXianAcquired(ActorExtend actor)
     {
         if (!CanEvaluate(actor) || !actor.HasElementRoot() || !actor.HasCultisys<Xian>()) return;
-        Unlock(CultivationAchievementIds.RootAwakened);
+        Unlock(CultivationAchievements.RootAwakened);
     }
 
     internal static void OnArtifactSpiritAwakened(Entity artifact)
     {
         if (!CultivationAchievementUnlockService.CanProcessRuntimeEvent || !artifact.IsAvailable() ||
             !artifact.TryGetComponent(out ArtifactSpiritState state) || !state.awakened) return;
-        Unlock(CultivationAchievementIds.ArtifactSpiritAwakened);
+        Unlock(CultivationAchievements.ArtifactSpiritAwakened);
     }
 
     internal static void OnSectFounded(Sect sect)
     {
         if (!CanEvaluate(sect)) return;
-        Unlock(CultivationAchievementIds.SectFounded);
+        Unlock(CultivationAchievements.SectFounded);
     }
 
     internal static void OnSectMemberJoined(Sect sect)
     {
         if (!CanEvaluate(sect) || !IsGreatSect(sect, null)) return;
-        Unlock(CultivationAchievementIds.GreatSect);
+        Unlock(CultivationAchievements.GreatSect);
     }
 
     internal static void OnSectBuildingCompleted(Sect sect, Building building)
     {
         if (!CanEvaluate(sect) || !IsUsableSectBuilding(building) || !IsGreatSect(sect, building)) return;
-        Unlock(CultivationAchievementIds.GreatSect);
+        Unlock(CultivationAchievements.GreatSect);
     }
 
     internal static void OnApprenticeRecruited(ActorExtend master)
     {
         if (!CanEvaluate(master) || master.GetApprentices().Count < 5) return;
-        Unlock(CultivationAchievementIds.FiveDisciples);
+        Unlock(CultivationAchievements.FiveDisciples);
     }
 
     internal static void OnApprenticeGraduated(ActorExtend master, ActorExtend apprentice)
     {
         if (!CanEvaluate(master) || !CanEvaluate(apprentice)) return;
-        Unlock(CultivationAchievementIds.ApprenticeGraduated);
+        Unlock(CultivationAchievements.ApprenticeGraduated);
     }
 
     private static void OnProgressionCommitted(ProgressionCommittedEvent evt)
@@ -82,7 +82,7 @@ internal static class CultivationAchievementService
         {
             if (evt.TransitionId == RefineJindanTransition &&
                 evt.Actor.TryGetComponent(out Jindan refinedJindan) && refinedJindan.stage >= 9)
-                Unlock(CultivationAchievementIds.NinefoldCore);
+                Unlock(CultivationAchievements.NinefoldCore);
             return;
         }
 
@@ -90,7 +90,7 @@ internal static class CultivationAchievementService
         {
             case EnterFoundationTransition:
                 if (evt.Actor.TryGetComponent(out XianBase foundation) && foundation.formation.IsValid)
-                    Unlock(CultivationAchievementIds.FoundationEstablished);
+                    Unlock(CultivationAchievements.FoundationEstablished);
                 break;
             case FormJindanTransition:
                 CheckJindanAchievements(evt.Actor);
@@ -105,19 +105,19 @@ internal static class CultivationAchievementService
     {
         if (!actor.TryGetComponent(out Jindan jindan) || !jindan.formation.IsFinalized) return;
 
-        Unlock(CultivationAchievementIds.GoldenCoreFormed);
-        if (jindan.GetQuality().Stage == 3) Unlock(CultivationAchievementIds.HeavenGradeCore);
+        Unlock(CultivationAchievements.GoldenCoreFormed);
+        if (jindan.GetQuality().Stage == 3) Unlock(CultivationAchievements.HeavenGradeCore);
     }
 
     private static void CheckYuanyingAchievements(ActorExtend actor)
     {
         if (!actor.TryGetComponent(out Yuanying yuanying) || !yuanying.formation.IsFinalized) return;
 
-        if (yuanying.inherited_jindan_stage >= 9) Unlock(CultivationAchievementIds.NinefoldCore);
-        Unlock(CultivationAchievementIds.NascentSoulFormed);
-        if (HasFlawlessLineage(actor, yuanying)) Unlock(CultivationAchievementIds.FlawlessLineage);
+        if (yuanying.inherited_jindan_stage >= 9) Unlock(CultivationAchievements.NinefoldCore);
+        Unlock(CultivationAchievements.NascentSoulFormed);
+        if (HasFlawlessLineage(actor, yuanying)) Unlock(CultivationAchievements.FlawlessLineage);
         if (actor.HasElementRoot() && actor.GetElementRoot().Type == ModClass.L.ElementRootLibrary.Entropy)
-            Unlock(CultivationAchievementIds.ChaosNascentSoul);
+            Unlock(CultivationAchievements.ChaosNascentSoul);
     }
 
     private static bool HasFlawlessLineage(ActorExtend actor, Yuanying yuanying)
@@ -146,7 +146,7 @@ internal static class CultivationAchievementService
         ActorExtend victim = deadUnit.GetExtend();
         if (!victim.HasCultisys<Xian>() || !killer.HasCultisys<Xian>()) return;
         if (victim.GetCultisys<Xian>().CurrLevel - killer.GetCultisys<Xian>().CurrLevel < 1) return;
-        Unlock(CultivationAchievementIds.RealmDefier);
+        Unlock(CultivationAchievements.RealmDefier);
     }
 
     private static void OnProductionCompleted(ProductionCompletedEvent evt)
@@ -156,12 +156,12 @@ internal static class CultivationAchievementService
         switch (evt.Process)
         {
             case ArtifactProductionProcesses.Alchemy when evt.Product.HasComponent<Elixir>():
-                Unlock(CultivationAchievementIds.FirstElixir);
-                if (evt.FinalLevel.Stage >= 2) Unlock(CultivationAchievementIds.EarthGradeElixir);
+                Unlock(CultivationAchievements.FirstElixir);
+                if (evt.FinalLevel.Stage >= 2) Unlock(CultivationAchievements.EarthGradeElixir);
                 break;
             case ArtifactProductionProcesses.ArtifactRefining when evt.Product.HasComponent<Artifact>():
-                Unlock(CultivationAchievementIds.FirstArtifact);
-                if (evt.FinalLevel.Stage >= 2) Unlock(CultivationAchievementIds.EarthGradeArtifact);
+                Unlock(CultivationAchievements.FirstArtifact);
+                if (evt.FinalLevel.Stage >= 2) Unlock(CultivationAchievements.EarthGradeArtifact);
                 break;
         }
     }
@@ -198,8 +198,8 @@ internal static class CultivationAchievementService
                sect.data != null && !sect.isRekt();
     }
 
-    private static void Unlock(string id)
+    private static void Unlock(Achievement achievement)
     {
-        CultivationAchievementUnlockService.TryUnlock(CultivationAchievements.Get(id));
+        CultivationAchievementUnlockService.TryUnlock(achievement);
     }
 }
