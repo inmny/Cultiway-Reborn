@@ -1,87 +1,43 @@
 using System;
 using Cultiway.Content.Components;
 using Cultiway.Core;
+using Cultiway.Core.Performance;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Core.Pathfinding;
 
+/// <summary>由模拟线程创建、供寻路线程只读的一次纯数据请求。</summary>
 public sealed class PathRequest
 {
-    public PathRequest(Actor actor, WorldTile target, bool pathOnWater, bool walkOnBlocks, bool walkOnLava,
+    private PathRequest(
+        PathAgentKey agentKey,
+        int startTileId,
+        int targetTileId,
+        PathNavigationGrid navigationGrid,
+        PathTraversalProfile profile,
+        PathSearchRules searchRules,
+        bool pathOnWater,
+        bool walkOnBlocks,
+        bool walkOnLava,
         int regionLimit)
     {
-        Actor = actor;
-        var start = actor?.current_tile;
-        Target = target;
-        ActorId = actor?.data?.id ?? 0;
+        AgentKey = agentKey;
+        StartTileId = startTileId;
+        TargetTileId = targetTileId;
+        NavigationGrid = navigationGrid;
+        WorldGeneration = navigationGrid?.Generation ?? agentKey.World.Generation;
+        NavigationRevision = navigationGrid?.Revision ?? -1;
+        Profile = profile;
+        SearchRules = searchRules;
         PathOnWater = pathOnWater;
         WalkOnBlocks = walkOnBlocks;
         WalkOnLava = walkOnLava;
         RegionLimit = regionLimit;
-        StartTileId = TileTraversalInfo.TileIdOf(start);
-        TargetTileId = TileTraversalInfo.TileIdOf(Target);
-        NavigationGrid = PathNavigationGridService.Current;
-        WorldGeneration = NavigationGrid?.Generation ?? -1;
-        var movementSnapshot = SnapshotActorMovement(actor);
-        ActorIgnoresBlocks = movementSnapshot.IgnoresBlocks;
-        ActorDiesOnBlocks = movementSnapshot.DiesOnBlocks;
-        ActorIsBoat = movementSnapshot.IsBoat;
-        ActorIsWaterCreature = movementSnapshot.IsWaterCreature;
-        ActorIsFlying = movementSnapshot.IsFlying;
-        ActorIsFireImmune = movementSnapshot.IsFireImmune;
-        ActorIsDamagedByOcean = movementSnapshot.IsDamagedByOcean;
-        ActorHasFastSwimming = movementSnapshot.HasFastSwimming;
-        ActorIsLavaDamaging = movementSnapshot.IsLavaDamaging;
-        ActorCurrentStamina = movementSnapshot.CurrentStamina;
-        ActorMaxStamina = movementSnapshot.MaxStamina;
-        ActorCurrentHealth = movementSnapshot.CurrentHealth;
-        ActorMaxHealth = movementSnapshot.MaxHealth;
-        ActorBaseSpeed = movementSnapshot.BaseSpeed;
-        ActorWaterDamagePerSecond = movementSnapshot.WaterDamagePerSecond;
-        StaminaRegenPerSecond = movementSnapshot.StaminaRegenPerSecond;
-        var extendSnapshot = SnapshotActorExtend(actor);
-        ActorPowerLevel = extendSnapshot.PowerLevel;
-        ActorHasXianCultisys = extendSnapshot.HasXianCultisys;
     }
 
-    private PathRequest(PathRequest source, int startTileId, PathNavigationGrid navigationGrid,
-        float currentStamina, float currentHealth)
-    {
-        Actor = source.Actor;
-        Target = source.Target;
-        ActorId = source.ActorId;
-        PathOnWater = source.PathOnWater;
-        WalkOnBlocks = source.WalkOnBlocks;
-        WalkOnLava = source.WalkOnLava;
-        RegionLimit = source.RegionLimit;
-        StartTileId = startTileId;
-        TargetTileId = source.TargetTileId;
-        NavigationGrid = navigationGrid;
-        WorldGeneration = navigationGrid?.Generation ?? source.WorldGeneration;
-        ActorIgnoresBlocks = source.ActorIgnoresBlocks;
-        ActorDiesOnBlocks = source.ActorDiesOnBlocks;
-        ActorIsBoat = source.ActorIsBoat;
-        ActorIsWaterCreature = source.ActorIsWaterCreature;
-        ActorIsFlying = source.ActorIsFlying;
-        ActorIsFireImmune = source.ActorIsFireImmune;
-        ActorIsDamagedByOcean = source.ActorIsDamagedByOcean;
-        ActorHasFastSwimming = source.ActorHasFastSwimming;
-        ActorIsLavaDamaging = source.ActorIsLavaDamaging;
-        ActorCurrentStamina = currentStamina;
-        ActorMaxStamina = source.ActorMaxStamina;
-        ActorCurrentHealth = currentHealth;
-        ActorMaxHealth = source.ActorMaxHealth;
-        ActorBaseSpeed = source.ActorBaseSpeed;
-        ActorWaterDamagePerSecond = source.ActorWaterDamagePerSecond;
-        StaminaRegenPerSecond = source.StaminaRegenPerSecond;
-        ActorPowerLevel = source.ActorPowerLevel;
-        ActorHasXianCultisys = source.ActorHasXianCultisys;
-    }
-
-    public Actor Actor { get; }
-    public WorldTile Target { get; }
-    public long ActorId { get; }
+    public PathAgentKey AgentKey { get; }
+    public long ActorId => AgentKey.AgentId;
     public bool PathOnWater { get; }
     public bool WalkOnBlocks { get; }
     public bool WalkOnLava { get; }
@@ -90,38 +46,132 @@ public sealed class PathRequest
     public int TargetTileId { get; }
     internal PathNavigationGrid NavigationGrid { get; }
     internal int WorldGeneration { get; }
-    public bool ActorIgnoresBlocks { get; }
-    public bool ActorDiesOnBlocks { get; }
-    public bool ActorIsBoat { get; }
-    public bool ActorIsWaterCreature { get; }
-    public bool ActorIsFlying { get; }
-    public bool ActorIsFireImmune { get; }
-    public bool ActorIsDamagedByOcean { get; }
-    public bool ActorHasFastSwimming { get; }
-    public bool ActorIsLavaDamaging { get; }
-    public float ActorCurrentStamina { get; }
-    public float ActorMaxStamina { get; }
-    public float ActorCurrentHealth { get; }
-    public float ActorMaxHealth { get; }
-    public float ActorBaseSpeed { get; }
-    public float ActorWaterDamagePerSecond { get; }
-    public float StaminaRegenPerSecond { get; }
-    public float ActorPowerLevel { get; }
-    public bool ActorHasXianCultisys { get; }
+    internal long NavigationRevision { get; }
+    internal PathTraversalProfile Profile { get; }
+    internal PathSearchRules SearchRules { get; }
 
-    /// <summary>
-    /// 为下一局部分段绑定起点、资源估值与当前世界导航缓存。
-    /// </summary>
-    internal PathRequest WithStart(int startTileId, PathNavigationGrid navigationGrid,
-        float currentStamina, float currentHealth)
+    public bool ActorIgnoresBlocks => Profile.IgnoresBlocks;
+    public bool ActorDiesOnBlocks => Profile.DiesOnBlocks;
+    public bool ActorIsBoat => Profile.IsBoat;
+    public bool ActorIsWaterCreature => Profile.IsWaterCreature;
+    public bool ActorIsFlying => Profile.IsFlying;
+    public bool ActorIsFireImmune => Profile.IsFireImmune;
+    public bool ActorIsDamagedByOcean => Profile.IsDamagedByOcean;
+    public bool ActorHasFastSwimming => Profile.HasFastSwimming;
+    public bool ActorIsLavaDamaging => Profile.IsLavaDamaging;
+    public float ActorCurrentStamina => Profile.CurrentStamina;
+    public float ActorMaxStamina => Profile.MaxStamina;
+    public float ActorCurrentHealth => Profile.CurrentHealth;
+    public float ActorMaxHealth => Profile.MaxHealth;
+    public float ActorBaseSpeed => Profile.BaseSpeed;
+    public float ActorWaterDamagePerSecond => Profile.WaterDamagePerSecond;
+    public float StaminaRegenPerSecond => Profile.StaminaRegenPerSecond;
+    public float ActorPowerLevel => Profile.PowerLevel;
+    public bool ActorHasXianCultisys => Profile.HasXianCultisys;
+
+    internal bool IsValid => AgentKey.IsValid && NavigationGrid != null &&
+                             NavigationGrid.WorldKey == AgentKey.World &&
+                             StartTileId >= 0 && TargetTileId >= 0;
+
+    internal static PathRequest CreateMainWorld(Actor actor, WorldTile target, bool pathOnWater,
+        bool walkOnBlocks, bool walkOnLava, int regionLimit)
     {
-        return new PathRequest(this, startTileId, navigationGrid, currentStamina, currentHealth);
+        PathNavigationGrid grid = PathNavigationGridService.Current;
+        PathWorldKey worldKey = grid?.WorldKey ?? PathWorldKey.MainWorld(SimulationTime.Generation);
+        var agentKey = new PathAgentKey(worldKey, actor?.data?.id ?? 0);
+        ActorMovementSnapshot movement = SnapshotActorMovement(actor);
+        ActorExtendSnapshot extend = SnapshotActorExtend(actor);
+        var profile = new PathTraversalProfile(
+            movement.IgnoresBlocks,
+            movement.DiesOnBlocks,
+            movement.IsBoat,
+            movement.IsWaterCreature,
+            movement.IsFlying,
+            movement.IsFireImmune,
+            movement.IsDamagedByOcean,
+            movement.HasFastSwimming,
+            movement.IsLavaDamaging,
+            movement.CurrentStamina,
+            movement.MaxStamina,
+            movement.CurrentHealth,
+            movement.MaxHealth,
+            movement.BaseSpeed,
+            movement.WaterDamagePerSecond,
+            movement.StaminaRegenPerSecond,
+            extend.PowerLevel,
+            extend.HasXianCultisys);
+        return new PathRequest(
+            agentKey,
+            TileTraversalInfo.TileIdOf(actor?.current_tile),
+            TileTraversalInfo.TileIdOf(target),
+            grid,
+            profile,
+            PathSearchRules.MainWorld,
+            pathOnWater,
+            walkOnBlocks,
+            walkOnLava,
+            regionLimit);
     }
 
-    public bool HasSameTargetAndOptions(WorldTile target, bool pathOnWater, bool walkOnBlocks, bool walkOnLava,
-        int regionLimit)
+    internal static PathRequest CreateSubWorld(
+        PathAgentKey agentKey,
+        int startTileId,
+        int targetTileId,
+        PathNavigationGrid navigationGrid,
+        PathTraversalProfile profile)
     {
-        return TargetTileId == TileTraversalInfo.TileIdOf(target) &&
+        return new PathRequest(
+            agentKey,
+            startTileId,
+            targetTileId,
+            navigationGrid,
+            profile,
+            PathSearchRules.ForSubWorld(navigationGrid?.TileCount ?? 0),
+            false,
+            false,
+            false,
+            0);
+    }
+
+    /// <summary>为下一局部分段绑定起点和资源估值，世界快照保持不变。</summary>
+    internal PathRequest WithStart(int startTileId, float currentStamina, float currentHealth)
+    {
+        var profile = new PathTraversalProfile(
+            Profile.IgnoresBlocks,
+            Profile.DiesOnBlocks,
+            Profile.IsBoat,
+            Profile.IsWaterCreature,
+            Profile.IsFlying,
+            Profile.IsFireImmune,
+            Profile.IsDamagedByOcean,
+            Profile.HasFastSwimming,
+            Profile.IsLavaDamaging,
+            currentStamina,
+            Profile.MaxStamina,
+            currentHealth,
+            Profile.MaxHealth,
+            Profile.BaseSpeed,
+            Profile.WaterDamagePerSecond,
+            Profile.StaminaRegenPerSecond,
+            Profile.PowerLevel,
+            Profile.HasXianCultisys);
+        return new PathRequest(
+            AgentKey,
+            startTileId,
+            TargetTileId,
+            NavigationGrid,
+            profile,
+            SearchRules,
+            PathOnWater,
+            WalkOnBlocks,
+            WalkOnLava,
+            RegionLimit);
+    }
+
+    internal bool HasSameTargetAndOptions(int targetTileId, bool pathOnWater, bool walkOnBlocks,
+        bool walkOnLava, int regionLimit)
+    {
+        return TargetTileId == targetTileId &&
                PathOnWater == pathOnWater &&
                WalkOnBlocks == walkOnBlocks &&
                WalkOnLava == walkOnLava &&
@@ -130,7 +180,7 @@ public sealed class PathRequest
 
     private static ActorMovementSnapshot SnapshotActorMovement(Actor actor)
     {
-        var staminaRegen = SimGlobals.m != null
+        float staminaRegen = SimGlobals.m != null
             ? SimGlobals.m.stamina_change / Math.Max(SimGlobals.m.interval_stamina, 0.01f)
             : 0.5f;
         if (actor == null)
@@ -140,8 +190,8 @@ public sealed class PathRequest
 
         try
         {
-            var isFireImmune = actor.isImmuneToFire();
-            var maxHealth = actor.getMaxHealth();
+            bool isFireImmune = actor.isImmuneToFire();
+            float maxHealth = actor.getMaxHealth();
             return new ActorMovementSnapshot(
                 actor.ignoresBlocks(),
                 actor.asset?.die_on_blocks ?? false,
@@ -178,7 +228,7 @@ public sealed class PathRequest
         {
             lock (EntityStoreLock.GlobalLock)
             {
-                var ae = actor.GetExtend();
+                ActorExtend ae = actor.GetExtend();
                 return new ActorExtendSnapshot(ae?.GetPowerLevel() ?? 0f, ae != null && ae.HasCultisys<Xian>());
             }
         }
@@ -191,19 +241,19 @@ public sealed class PathRequest
 
     private readonly struct ActorExtendSnapshot
     {
-        public ActorExtendSnapshot(float powerLevel, bool hasXianCultisys)
+        internal ActorExtendSnapshot(float powerLevel, bool hasXianCultisys)
         {
             PowerLevel = powerLevel;
             HasXianCultisys = hasXianCultisys;
         }
 
-        public float PowerLevel { get; }
-        public bool HasXianCultisys { get; }
+        internal float PowerLevel { get; }
+        internal bool HasXianCultisys { get; }
     }
 
     private readonly struct ActorMovementSnapshot
     {
-        public ActorMovementSnapshot(bool ignoresBlocks, bool diesOnBlocks, bool isBoat, bool isWaterCreature,
+        internal ActorMovementSnapshot(bool ignoresBlocks, bool diesOnBlocks, bool isBoat, bool isWaterCreature,
             bool isFlying, bool isFireImmune, bool isDamagedByOcean, bool hasFastSwimming, bool isLavaDamaging,
             float currentStamina, float maxStamina, float currentHealth, float maxHealth, float baseSpeed,
             float waterDamagePerSecond, float staminaRegenPerSecond)
@@ -226,24 +276,24 @@ public sealed class PathRequest
             StaminaRegenPerSecond = staminaRegenPerSecond;
         }
 
-        public bool IgnoresBlocks { get; }
-        public bool DiesOnBlocks { get; }
-        public bool IsBoat { get; }
-        public bool IsWaterCreature { get; }
-        public bool IsFlying { get; }
-        public bool IsFireImmune { get; }
-        public bool IsDamagedByOcean { get; }
-        public bool HasFastSwimming { get; }
-        public bool IsLavaDamaging { get; }
-        public float CurrentStamina { get; }
-        public float MaxStamina { get; }
-        public float CurrentHealth { get; }
-        public float MaxHealth { get; }
-        public float BaseSpeed { get; }
-        public float WaterDamagePerSecond { get; }
-        public float StaminaRegenPerSecond { get; }
+        internal bool IgnoresBlocks { get; }
+        internal bool DiesOnBlocks { get; }
+        internal bool IsBoat { get; }
+        internal bool IsWaterCreature { get; }
+        internal bool IsFlying { get; }
+        internal bool IsFireImmune { get; }
+        internal bool IsDamagedByOcean { get; }
+        internal bool HasFastSwimming { get; }
+        internal bool IsLavaDamaging { get; }
+        internal float CurrentStamina { get; }
+        internal float MaxStamina { get; }
+        internal float CurrentHealth { get; }
+        internal float MaxHealth { get; }
+        internal float BaseSpeed { get; }
+        internal float WaterDamagePerSecond { get; }
+        internal float StaminaRegenPerSecond { get; }
 
-        public static ActorMovementSnapshot Default(float staminaRegenPerSecond)
+        internal static ActorMovementSnapshot Default(float staminaRegenPerSecond)
         {
             return new ActorMovementSnapshot(false, false, false, false, false, false, false, false, false,
                 0f, 1f, 1f, 1f, 5f, 0.3333f, staminaRegenPerSecond);

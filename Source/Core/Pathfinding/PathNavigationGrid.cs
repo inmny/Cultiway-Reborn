@@ -45,6 +45,23 @@ internal readonly struct PathTileSnapshot
     internal bool DamageUnits => (Flags & PathTileFlags.DamageUnits) != 0;
     internal bool IsOnFire => (Flags & PathTileFlags.Fire) != 0;
 
+    /// <summary>从原版 terrain 资产提取不依赖 WorldTile 的寻路语义。</summary>
+    internal static PathTileSnapshot Capture(TileTypeBase type)
+    {
+        if (type == null)
+        {
+            return default;
+        }
+
+        PathTileFlags flags = PathTileFlags.Exists | PathTileFlags.HasType;
+        if (type.block) flags |= PathTileFlags.Block;
+        if (type.lava) flags |= PathTileFlags.Lava;
+        if (type.ocean) flags |= PathTileFlags.Ocean;
+        if (type.liquid) flags |= PathTileFlags.Liquid;
+        if (type.damage_units) flags |= PathTileFlags.DamageUnits;
+        return new PathTileSnapshot(flags, type.damage, type.walk_multiplier, -1);
+    }
+
     /// <summary>在模拟线程上提取一个地块的寻路语义。</summary>
     internal static PathTileSnapshot Capture(WorldTile tile)
     {
@@ -201,6 +218,8 @@ internal sealed class PathRegionTopology
 /// </summary>
 internal sealed class PathNavigationGrid
 {
+    internal const float DiagonalDistance = 1.41421356f;
+
     private static int nextIdentity;
     private readonly int[] flags;
     private readonly float[] damage;
@@ -208,30 +227,38 @@ internal sealed class PathNavigationGrid
     private readonly int[] regionIds;
     private PathRegionTopology topology;
     private int topologyRevision;
+    private long revision;
 
-    private PathNavigationGrid(int generation, int width, int height, int tileCount)
+    private PathNavigationGrid(PathWorldKey worldKey, int width, int height, int tileCount)
     {
         Identity = Interlocked.Increment(ref nextIdentity);
-        Generation = generation;
+        WorldKey = worldKey;
+        Generation = worldKey.Generation;
         Width = width;
         Height = height;
         TileCount = tileCount;
+        MaxWalkMultiplier = 1f;
         flags = new int[tileCount];
         damage = new float[tileCount];
         walkMultipliers = new float[tileCount];
         regionIds = new int[tileCount];
+        revision = 1;
     }
 
     internal int Identity { get; }
+    internal PathWorldKey WorldKey { get; }
     internal int Generation { get; }
+    internal long Revision => Volatile.Read(ref revision);
     internal int Width { get; }
     internal int Height { get; }
     internal int TileCount { get; }
+    internal float MaxWalkMultiplier { get; private set; }
     internal PathRegionTopology Topology => Volatile.Read(ref topology);
 
     internal bool MatchesCurrentWorld(WorldTile[] tiles)
     {
-        return tiles != null && tiles.Length == TileCount && Width == MapBox.width && Height == MapBox.height &&
+        return WorldKey.Kind == PathWorldKind.MainWorld &&
+               tiles != null && tiles.Length == TileCount && Width == MapBox.width && Height == MapBox.height &&
                Generation == SimulationTime.Generation;
     }
 
@@ -287,6 +314,35 @@ internal sealed class PathNavigationGrid
                Math.Abs(YOf(firstTileId) - YOf(secondTileId));
     }
 
+    internal float OctileDistance(int firstTileId, int secondTileId)
+    {
+        int dx = Math.Abs(XOf(firstTileId) - XOf(secondTileId));
+        int dy = Math.Abs(YOf(firstTileId) - YOf(secondTileId));
+        int diagonal = Math.Min(dx, dy);
+        return Math.Max(dx, dy) + (DiagonalDistance - 1f) * diagonal;
+    }
+
+    /// <summary>从纯标量 tile 快照创建非主世界导航网格。</summary>
+    internal static PathNavigationGrid Create(PathWorldKey worldKey, int width, int height,
+        IReadOnlyList<PathTileSnapshot> tiles, long revision = 1)
+    {
+        int tileCount = checked(width * height);
+        if (width <= 0 || height <= 0 || tiles == null || tiles.Count != tileCount)
+        {
+            throw new ArgumentException("寻路网格尺寸或 tile 数量无效", nameof(tiles));
+        }
+
+        var grid = new PathNavigationGrid(worldKey, width, height, tileCount);
+        for (int i = 0; i < tileCount; i++)
+        {
+            PathTileSnapshot tile = tiles[i];
+            if (tile.WalkMultiplier > grid.MaxWalkMultiplier) grid.MaxWalkMultiplier = tile.WalkMultiplier;
+            grid.WriteTile(i, tile);
+        }
+        grid.revision = Math.Max(1L, revision);
+        return grid;
+    }
+
     internal static PathNavigationGrid Capture(MapBox world, int generation)
     {
         WorldTile[] tiles = world?.tiles_list;
@@ -297,7 +353,7 @@ internal sealed class PathNavigationGrid
             return null;
         }
 
-        var grid = new PathNavigationGrid(generation, width, height, tiles.Length);
+        var grid = new PathNavigationGrid(PathWorldKey.MainWorld(generation), width, height, tiles.Length);
         for (int i = 0; i < tiles.Length; i++)
         {
             grid.WriteTile(i, PathTileSnapshot.Capture(tiles[i]));
@@ -322,13 +378,16 @@ internal sealed class PathNavigationGrid
             WriteTile(tileId, PathTileSnapshot.Capture(worldTiles[tileId]));
         }
 
+        Interlocked.Increment(ref revision);
     }
 
     internal void ReplaceTopology(MapBox world)
     {
-        int revision = Interlocked.Increment(ref topologyRevision);
-        PathRegionTopology next = PathRegionTopology.Capture(world, world?.tiles_list, Generation, revision);
+        int nextTopologyRevision = Interlocked.Increment(ref topologyRevision);
+        PathRegionTopology next = PathRegionTopology.Capture(world, world?.tiles_list, Generation,
+            nextTopologyRevision);
         Volatile.Write(ref topology, next);
+        Interlocked.Increment(ref revision);
     }
 
     private void WriteTile(int tileId, PathTileSnapshot tile)

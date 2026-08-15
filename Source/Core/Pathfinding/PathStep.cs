@@ -2,14 +2,13 @@ using System;
 
 namespace Cultiway.Core.Pathfinding;
 
+/// <summary>一段路径中的纯 tile index 步骤，不隐式解析任何世界对象。</summary>
 public readonly struct PathStep
 {
-    private readonly WorldTile _tile;
-
     public PathStep(WorldTile tile, MovementMethod method, TraversalEstimate estimate = default,
         PortalDefinition entry = null, PortalDefinition exit = null)
     {
-        _tile = tile ?? throw new ArgumentNullException(nameof(tile));
+        if (tile == null) throw new ArgumentNullException(nameof(tile));
         TileId = tile.data?.tile_id ?? -1;
         Method = method;
         Estimate = estimate;
@@ -21,7 +20,6 @@ public readonly struct PathStep
     internal PathStep(int tileId, MovementMethod method, TraversalEstimate estimate = default,
         PortalDefinition entry = null, PortalDefinition exit = null, PathTileFlags plannedTileFlags = default)
     {
-        _tile = null;
         TileId = tileId;
         Method = method;
         Estimate = estimate;
@@ -31,25 +29,13 @@ public readonly struct PathStep
     }
 
     public int TileId { get; }
-    public bool HasTile => _tile != null || TileId >= 0;
-    public WorldTile Tile => _tile ?? ResolveTile(TileId);
+    public bool HasTile => TileId >= 0;
     public MovementMethod Method { get; }
     public TraversalEstimate Estimate { get; }
     public HazardFlags Hazards => Estimate.Hazards;
-    public PortalDefinition Entry {get;}
-    public PortalDefinition Exit {get;}
+    public PortalDefinition Entry { get; }
+    public PortalDefinition Exit { get; }
     internal PathTileFlags PlannedTileFlags { get; }
-
-    private static WorldTile ResolveTile(int tileId)
-    {
-        var tiles = World.world?.tiles_list;
-        if (tiles == null || tileId < 0 || tileId >= tiles.Length)
-        {
-            return null;
-        }
-
-        return tiles[tileId];
-    }
 }
 
 [Flags]

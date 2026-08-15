@@ -117,7 +117,7 @@ internal static class PatchAboutFly
         var last_tile = __instance.current_tile;
         foreach (var step in steps)
         {
-            var tile = step.Tile;
+            WorldTile tile = TileTraversalInfo.ResolveTile(step.TileId);
             len += Toolbox.DistTile(last_tile, tile);
             last_tile = tile;
             if (len >= ContentSetting.MinFlyDist) break;
