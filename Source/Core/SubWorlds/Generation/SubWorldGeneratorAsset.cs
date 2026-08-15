@@ -18,7 +18,7 @@ public abstract class SubWorldGeneratorAsset : Asset
     /// 创建一个尚未绑定 Runtime 的完整初始场景。
     /// </summary>
     /// <param name="template">决定地图尺寸和相关配置引用的模板。</param>
-    /// <param name="seed">本次创建使用的确定性随机种子。</param>
+    /// <param name="seed">本次场景生成使用的创建种子。</param>
     /// <param name="anchor">该实例在主世界中的锚点。</param>
     /// <param name="parameters">本次创建的附加参数。</param>
     /// <returns>地图数据和初始实体放置结果。</returns>

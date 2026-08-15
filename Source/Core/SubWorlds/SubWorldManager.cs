@@ -53,7 +53,7 @@ internal sealed class SubWorldManager
     /// </summary>
     /// <param name="templateId">小世界模板 Asset ID。</param>
     /// <param name="anchor">实例在主世界中的入口锚点。</param>
-    /// <param name="seed">实例的确定性随机种子。</param>
+    /// <param name="seed">场景生成与视觉变体使用的创建种子。</param>
     /// <param name="parameters">可选的创建参数。</param>
     /// <returns>当前主世界会话内唯一的实例 ID。</returns>
     internal long Create(

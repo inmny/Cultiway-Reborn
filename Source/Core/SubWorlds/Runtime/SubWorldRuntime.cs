@@ -1,31 +1,31 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Core.Components;
+using Cultiway.Core.Pathfinding;
 using Cultiway.Core.SubWorlds.Generation;
 using Cultiway.Core.SubWorlds.Model;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
+using UnityEngine;
 
 namespace Cultiway.Core.SubWorlds.Runtime;
 
 /// <summary>
-/// 拥有一个小世界实例的地图、ECS、时钟、随机状态和边界队列。
+/// 拥有一个小世界实例的地图、ECS、时钟和边界队列。
 /// </summary>
 internal sealed class SubWorldRuntime
 {
     private const int MaxCommandsPerBoundary = 32;
-    private const int MaxEventsPerTick = 32;
 
     private readonly EntityStore entityStore;
     private readonly SystemRoot systemRoot;
-    private readonly Random random;
 
     /// <summary>
     /// 从已生成场景构造一个尚未启动的小世界 Runtime。
     /// </summary>
     /// <param name="instanceId">当前主世界会话内唯一的实例 ID。</param>
     /// <param name="template">创建此实例的模板。</param>
-    /// <param name="seed">实例的确定性随机种子。</param>
+    /// <param name="seed">场景生成与视觉变体使用的创建种子。</param>
     /// <param name="anchor">实例在主世界中的入口锚点。</param>
     /// <param name="scene">生成完成的初始场景。</param>
     /// <param name="clockProfile">实例绑定的时钟配置。</param>
@@ -47,25 +47,29 @@ internal sealed class SubWorldRuntime
         Anchor = anchor;
         MapData = scene.MapData;
         Grid = new SubWorldGrid(MapData);
+        Navigation = new SubWorldNavigationContext(instanceId, Grid);
         ClockProfile = clockProfile;
         VisualProfile = visualProfile;
         Clock = new SubWorldClock(clockProfile);
-        random = new Random(seed);
         entityStore = new EntityStore
         {
             JobRunner = jobRunner
         };
         systemRoot = new SystemRoot(entityStore, $"SubWorld.{instanceId}");
+        int pawnTileIndex = scene.InitialPawnTileIndex;
+        Vector3 pawnPosition = new(
+            Grid.GetX(pawnTileIndex) + 0.5f,
+            Grid.GetY(pawnTileIndex) + 0.5f,
+            0f);
         PawnEntity = entityStore.CreateEntity(
-            new Position(
-                Grid.GetX(scene.InitialPawnTileIndex) + 0.5f,
-                Grid.GetY(scene.InitialPawnTileIndex) + 0.5f,
-                0f),
-            new SubWorldUnitVisual(visualProfile.pawn_actor_asset_id));
+            new Position(pawnPosition),
+            new SubWorldUnitVisual(visualProfile.pawn_actor_asset_id),
+            new SubWorldMovement(4f, pawnTileIndex));
+        systemRoot.Add(new SubWorldMovementSystem(this));
 
-        ObjectiveState = new SubWorldObjectiveState();
         State = SubWorldRuntimeState.Created;
         Revision = 0;
+        MapRevision = 0;
     }
 
     /// <summary>当前主世界会话内唯一的实例 ID。</summary>
@@ -74,7 +78,7 @@ internal sealed class SubWorldRuntime
     /// <summary>创建此实例的模板 Asset ID。</summary>
     internal string TemplateId { get; }
 
-    /// <summary>实例的确定性随机种子。</summary>
+    /// <summary>场景生成与视觉变体使用的创建种子。</summary>
     internal int Seed { get; }
 
     /// <summary>实例在主世界中的入口锚点。</summary>
@@ -98,6 +102,9 @@ internal sealed class SubWorldRuntime
     /// <summary>实例私有的地图坐标与 terrain 引用缓存。</summary>
     internal SubWorldGrid Grid { get; }
 
+    /// <summary>向共享 PathFinder 发布本实例的 terrain 导航快照。</summary>
+    internal SubWorldNavigationContext Navigation { get; }
+
     /// <summary>实例绑定的静态时钟配置。</summary>
     internal SubWorldClockProfileAsset ClockProfile { get; }
 
@@ -107,23 +114,17 @@ internal sealed class SubWorldRuntime
     /// <summary>实例私有的固定时钟。</summary>
     internal SubWorldClock Clock { get; }
 
-    /// <summary>实例私有的确定性随机数生成器。</summary>
-    internal Random Random => random;
-
     /// <summary>等待在 Runtime 边界验证的外部命令。</summary>
     internal Queue<ISubWorldCommand> CommandQueue { get; } = new();
 
     /// <summary>已经通过边界验证、等待移动系统处理的命令。</summary>
     internal Queue<MoveToTileCommand> MoveCommandQueue { get; } = new();
 
-    /// <summary>等待在固定 tick 内派发的领域事件。</summary>
-    internal Queue<ISubWorldEvent> EventQueue { get; } = new();
-
-    /// <summary>第一阶段测试目标的运行状态。</summary>
-    internal SubWorldObjectiveState ObjectiveState { get; }
-
     /// <summary>地图或实体结构每次变更后递增的版本号。</summary>
     internal long Revision { get; private set; }
+
+    /// <summary>terrain 数据成功变更的版本号。</summary>
+    internal long MapRevision { get; private set; }
 
     /// <summary>将新建 Runtime 切换到可推进状态。</summary>
     internal void Start()
@@ -148,13 +149,12 @@ internal sealed class SubWorldRuntime
     }
 
     /// <summary>
-    /// 执行一个完整固定 tick，并在所有系统和事件完成后提交时钟。
+    /// 执行一个完整固定 tick，并在所有系统完成后提交时钟。
     /// </summary>
     internal void RunTick()
     {
         var tick = new UpdateTick(Clock.Profile.fixed_step, (float)Clock.NextLocalTime);
         systemRoot.Update(tick);
-        ProcessEvents();
         Clock.CompleteTick();
     }
 
@@ -164,11 +164,21 @@ internal sealed class SubWorldRuntime
         Revision++;
     }
 
+    /// <summary>通过单一边界修改 terrain，并同步发布导航与版本。</summary>
+    internal void SetTile(int tileIndex, SubWorldTile tile)
+    {
+        Grid.SetTile(tileIndex, tile);
+        Navigation.PublishTerrainChange();
+        MapRevision++;
+        Revision++;
+    }
+
     /// <summary>
     /// 删除实例 Entity、解绑 ECS Store、清空队列并进入销毁状态。
     /// </summary>
     internal void Destroy()
     {
+        PathFinder.Instance.CancelWorld(Navigation.WorldKey, PathFailureReason.ClearWorld);
         EntityList entities = entityStore.Entities.ToEntityList();
         for (int i = entities.Count - 1; i >= 0; i--)
         {
@@ -180,7 +190,6 @@ internal sealed class SubWorldRuntime
         systemRoot.RemoveStore(entityStore);
         CommandQueue.Clear();
         MoveCommandQueue.Clear();
-        EventQueue.Clear();
         State = SubWorldRuntimeState.Collapsed;
     }
 
@@ -213,17 +222,9 @@ internal sealed class SubWorldRuntime
     {
         if (command.Revision != Revision || (uint)command.TargetTileIndex >= (uint)Grid.TileCount) return;
 
-        Entity entity = entityStore.GetEntityById(command.EntityId);
-        if (entity.IsNull || entity != PawnEntity) return;
+        Entity entity = command.Entity;
+        if (entity.IsNull || entity.Store != entityStore || !entity.HasComponent<Position>() ||
+            !entity.HasComponent<SubWorldMovement>()) return;
         MoveCommandQueue.Enqueue(command);
-    }
-
-    private void ProcessEvents()
-    {
-        int eventCount = Math.Min(MaxEventsPerTick, EventQueue.Count);
-        for (int i = 0; i < eventCount; i++)
-        {
-            EventQueue.Dequeue();
-        }
     }
 }

@@ -1,4 +1,3 @@
-using System;
 using Cultiway.Core.SubWorlds.Model;
 
 namespace Cultiway.Core.SubWorlds.Generation;
@@ -41,7 +40,7 @@ public sealed class TestSubWorldGeneratorAsset : SubWorldGeneratorAsset
             SetWall(tiles, width, width - 1, y);
         }
 
-        PlaceSeededObstacles(tiles, width, height, middleY, seed);
+        PlacePathfindingFixture(tiles, width, height, middleY);
 
         int entryIndex = middleY * width + entryX;
         int exitIndex = middleY * width + exitX;
@@ -60,29 +59,15 @@ public sealed class TestSubWorldGeneratorAsset : SubWorldGeneratorAsset
         return new SubWorldGeneratedScene(mapData, entryIndex);
     }
 
-    private static void PlaceSeededObstacles(SubWorldTile[] tiles, int width, int height, int middleY, int seed)
+    private static void PlacePathfindingFixture(SubWorldTile[] tiles, int width, int height, int middleY)
     {
-        var random = new Random(seed);
-        int obstacleCount = 6;
-
-        for (int i = 0; i < obstacleCount; i++)
+        int barrierX = width / 2;
+        int upperGapY = middleY - 6;
+        int lowerGapY = middleY + 6;
+        for (int y = 3; y < height - 3; y++)
         {
-            bool upper = random.Next(2) == 0;
-            int obstacleWidth = 2 + random.Next(5);
-            int obstacleHeight = 2 + random.Next(4);
-            int xRange = width - obstacleWidth - 3;
-            int x = 2 + random.Next(xRange);
-            int yMin = upper ? 2 : middleY + 2;
-            int yMax = upper ? middleY - obstacleHeight - 1 : height - obstacleHeight - 2;
-            int y = yMin + random.Next(yMax - yMin + 1);
-
-            for (int obstacleY = y; obstacleY < y + obstacleHeight; obstacleY++)
-            {
-                for (int obstacleX = x; obstacleX < x + obstacleWidth; obstacleX++)
-                {
-                    SetWall(tiles, width, obstacleX, obstacleY);
-                }
-            }
+            if (y == upperGapY || y == lowerGapY) continue;
+            SetWall(tiles, width, barrierX, y);
         }
     }
 

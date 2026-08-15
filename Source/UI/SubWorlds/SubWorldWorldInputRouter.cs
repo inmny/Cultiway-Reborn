@@ -53,7 +53,7 @@ internal sealed class SubWorldWorldInputRouter
         manager.IssueCommand(runtime.InstanceId, new MoveToTileCommand(
             runtime.InstanceId,
             runtime.Revision,
-            runtime.PawnEntity.Id,
+            runtime.PawnEntity,
             targetTileIndex));
     }
 }

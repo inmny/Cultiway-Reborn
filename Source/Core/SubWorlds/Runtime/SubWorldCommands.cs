@@ -1,3 +1,5 @@
+using Friflo.Engine.ECS;
+
 namespace Cultiway.Core.SubWorlds.Runtime;
 
 /// <summary>
@@ -10,13 +12,13 @@ internal sealed class MoveToTileCommand : ISubWorldCommand
     /// </summary>
     /// <param name="instanceId">目标小世界实例 ID。</param>
     /// <param name="revision">提交命令时观察到的 Runtime Revision。</param>
-    /// <param name="entityId">待移动实体在目标 Runtime Store 中的 ID。</param>
+    /// <param name="entity">待移动实体绑定 Store 和 generation 的句柄。</param>
     /// <param name="targetTileIndex">目标格子的 row-major 索引。</param>
-    internal MoveToTileCommand(long instanceId, long revision, int entityId, int targetTileIndex)
+    internal MoveToTileCommand(long instanceId, long revision, Entity entity, int targetTileIndex)
     {
         InstanceId = instanceId;
         Revision = revision;
-        EntityId = entityId;
+        Entity = entity;
         TargetTileIndex = targetTileIndex;
     }
 
@@ -26,8 +28,8 @@ internal sealed class MoveToTileCommand : ISubWorldCommand
     /// <summary>提交命令时观察到的 Runtime Revision。</summary>
     internal long Revision { get; }
 
-    /// <summary>待移动实体在目标 Runtime Store 中的 ID。</summary>
-    internal int EntityId { get; }
+    /// <summary>待移动实体绑定 Store 和 generation 的句柄。</summary>
+    internal Entity Entity { get; }
 
     /// <summary>目标格子的 row-major 索引。</summary>
     internal int TargetTileIndex { get; }

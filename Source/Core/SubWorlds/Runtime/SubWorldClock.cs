@@ -10,6 +10,7 @@ internal sealed class SubWorldClock
 {
     private double accumulator;
     private float runningLocalSpeed = 1f;
+    private bool blockedByParentPause;
 
     /// <summary>
     /// 使用指定时钟配置创建实例时钟。
@@ -37,7 +38,7 @@ internal sealed class SubWorldClock
     internal bool IsPaused => LocalSpeed == 0f;
 
     /// <summary>累计时间是否足够执行一个完整固定 tick。</summary>
-    internal bool HasPendingTick => !IsPaused && accumulator >= Profile.fixed_step;
+    internal bool HasPendingTick => !IsPaused && !blockedByParentPause && accumulator >= Profile.fixed_step;
 
     /// <summary>下一个完整 tick 结束时的局部时间。</summary>
     internal double NextLocalTime => LocalTime + Profile.fixed_step;
@@ -49,7 +50,8 @@ internal sealed class SubWorldClock
     /// <param name="parentPaused">主世界当前是否暂停。</param>
     internal void Accumulate(float unscaledDeltaTime, bool parentPaused)
     {
-        if (IsPaused || parentPaused && !Profile.runs_while_parent_paused) return;
+        blockedByParentPause = parentPaused && !Profile.runs_while_parent_paused;
+        if (IsPaused || blockedByParentPause) return;
         accumulator += unscaledDeltaTime * Profile.default_local_rate * LocalSpeed;
     }
 
