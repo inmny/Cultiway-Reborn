@@ -28,6 +28,7 @@ public static class ArtifactSpiritService
         state.awakened = true;
         state.level = 1;
         state.bond = 1f;
+        CultivationAchievementService.OnArtifactSpiritAwakened(artifact);
         return true;
     }
 

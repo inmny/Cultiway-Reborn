@@ -95,7 +95,7 @@ public sealed class KnightTechniqueSkills : ICanInit
 
     private static void OnProgressionCommitted(ProgressionCommittedEvent evt)
     {
-        if (evt.Cultisys != Cultisyses.Knight) return;
+        if (evt.Cultisys != Cultisyses.Knight || evt.Kind != ProgressionKind.Major) return;
 
         IReadOnlyList<Libraries.KnightTechniqueAsset> techniques = KnightTechniqueCatalog.All;
         for (var i = 0; i < techniques.Count; i++)

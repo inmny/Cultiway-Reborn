@@ -201,6 +201,7 @@ public partial class Cultisyses
             PlantNameGenerator.Instance.NewNameGenerateRequest(GetPlantNameParams(ae,
                 Xian.GetLevelName(ae.GetCultisys<Xian>().CurrLevel), elementRoot.Type.GetName()), ae.Base);
         }
+        CultivationAchievementService.OnXianAcquired(ae);
         return true;
     }
 

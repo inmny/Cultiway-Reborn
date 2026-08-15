@@ -226,6 +226,7 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
         {
             WorldLogUtils.LogSectJoined(this, actor);
         }
+        CultivationAchievementService.OnSectMemberJoined(this);
 
         return true;
     }

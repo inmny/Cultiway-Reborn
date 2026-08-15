@@ -66,6 +66,7 @@ public class SectManager : MetaSystemManager<Sect, SectData>
 
         var sect = newObject();
         sect.Setup(founder);
+        CultivationAchievementService.OnSectFounded(sect);
 
         return sect;
     }

@@ -96,6 +96,8 @@ namespace Cultiway
                 return;
             }
 
+            CultivationAchievementUnlockService.UpdatePresentation();
+
             if (autoCreateDeveloperSubWorld && developerSubWorldWorldId != MapBox.current_world_seed_id)
             {
                 long instanceId = SubWorldManager.Create(
