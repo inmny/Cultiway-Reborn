@@ -3,7 +3,7 @@ using Friflo.Engine.ECS;
 
 namespace Cultiway.Core.SubWorlds.Runtime;
 
-/// <summary>小世界移动实体的终身组件，包含完整移动配置和由固定 tick 独占写入的运行状态。</summary>
+/// <summary>小世界移动实体的终身组件，保存移动意图、未来路线和已经认领的当前移动段。</summary>
 internal struct SubWorldMovement : IComponent
 {
     internal SubWorldMovement(float moveSpeedTilesPerSecond, int currentTileIndex)
@@ -20,50 +20,57 @@ internal struct SubWorldMovement : IComponent
     internal int TargetTileIndex;
 
     internal PathHandle Handle;
-    internal int NextTileIndex;
     internal long NavigationRevision;
+
+    internal int NextTileIndex;
     internal PathTileFlags PlannedTileFlags;
 
-    internal void BeginIntent(int targetTileIndex)
+    internal void SetTarget(int targetTileIndex)
     {
         TargetTileIndex = targetTileIndex;
-        ClearPathState();
     }
 
-    internal void BindRequest(PathHandle handle, long navigationRevision)
+    internal void BindRoute(PathHandle handle, long navigationRevision)
     {
         Handle = handle;
         NavigationRevision = navigationRevision;
-        ClearCurrentStep();
     }
 
-    internal void SetCurrentStep(PathStep step)
+    internal void ClearRoute()
+    {
+        Handle = default;
+        NavigationRevision = 0;
+    }
+
+    internal void CommitStep(PathStep step)
     {
         NextTileIndex = step.TileId;
         PlannedTileFlags = step.PlannedTileFlags;
     }
 
-    internal void ClearCurrentStep()
+    internal void ClearCommittedStep()
     {
         NextTileIndex = -1;
         PlannedTileFlags = default;
     }
 
-    internal void PrepareReplan()
+    internal void BeginRetreat()
     {
-        ClearPathState();
+        ClearRoute();
+        NextTileIndex = CurrentTileIndex;
+        PlannedTileFlags = default;
+    }
+
+    internal void StopAtCommittedDestination()
+    {
+        TargetTileIndex = NextTileIndex;
+        ClearRoute();
     }
 
     internal void CompleteIntent()
     {
         TargetTileIndex = -1;
-        ClearPathState();
-    }
-
-    private void ClearPathState()
-    {
-        Handle = default;
-        NavigationRevision = 0;
-        ClearCurrentStep();
+        ClearRoute();
+        ClearCommittedStep();
     }
 }

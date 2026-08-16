@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.Pathfinding;
 using Friflo.Engine.ECS;
@@ -7,10 +8,11 @@ using UnityEngine;
 
 namespace Cultiway.Core.SubWorlds.Runtime;
 
-/// <summary>查询小世界移动实体，在固定 tick 内提交、验证并执行共享 PathFinder 路径。</summary>
+/// <summary>查询小世界移动实体，在固定 tick 内认领共享 PathFinder 路径步并推进真实位置。</summary>
 internal sealed class SubWorldMovementSystem : QuerySystem<Position, SubWorldMovement>
 {
     private readonly SubWorldRuntime runtime;
+    private readonly Dictionary<Entity, MoveToTileCommand> latestMoveCommands = new();
 
     internal SubWorldMovementSystem(SubWorldRuntime runtime)
     {
@@ -28,49 +30,97 @@ internal sealed class SubWorldMovementSystem : QuerySystem<Position, SubWorldMov
 
     private void ApplyMoveCommands()
     {
-        int commandCount = 0;
-        while (commandCount++ < 32 && runtime.MoveCommandQueue.Count > 0)
+        latestMoveCommands.Clear();
+        while (runtime.MoveCommandQueue.Count > 0)
         {
             MoveToTileCommand command = runtime.MoveCommandQueue.Dequeue();
             if (command.Revision != runtime.Revision) continue;
+            latestMoveCommands[command.Entity] = command;
+        }
+
+        foreach (MoveToTileCommand command in latestMoveCommands.Values)
+        {
             Entity entity = command.Entity;
             if (entity.IsNull || entity.Store != runtime.EntityStore || !entity.HasComponent<Position>() ||
                 !entity.HasComponent<SubWorldMovement>()) continue;
 
-            ref Position position = ref entity.GetComponent<Position>();
             ref SubWorldMovement movement = ref entity.GetComponent<SubWorldMovement>();
             CancelHandle(movement.Handle);
-            SnapToCurrentTile(ref position, movement.CurrentTileIndex);
-            movement.BeginIntent(command.TargetTileIndex);
+            movement.ClearRoute();
+            movement.SetTarget(command.TargetTileIndex);
         }
+
+        latestMoveCommands.Clear();
     }
 
     private void UpdateEntity(Entity entity, ref Position position, ref SubWorldMovement movement)
     {
-        if (movement.TargetTileIndex < 0) return;
-
-        if (!movement.Handle.IsValid)
+        if (movement.NextTileIndex >= 0)
         {
-            SubmitPath(entity, ref movement);
-        }
-
-        if (movement.TargetTileIndex < 0) return;
-        if (movement.NextTileIndex < 0)
-        {
-            PollPath(ref position, ref movement);
-        }
-
-        if (movement.TargetTileIndex < 0 || movement.NextTileIndex < 0) return;
-        if (!ValidateStep(ref movement, movement.NextTileIndex, movement.PlannedTileFlags))
-        {
-            ReplanBlockedPath(ref position, ref movement);
+            UpdateCommittedMovement(entity, ref position, ref movement);
             return;
         }
 
-        AdvanceCurrentStep(entity, ref position, ref movement);
+        if (movement.TargetTileIndex < 0) return;
+        if (movement.CurrentTileIndex == movement.TargetTileIndex)
+        {
+            CompleteIntent(ref movement);
+            return;
+        }
+
+        EnsureFutureRoute(entity, ref movement);
+        if (movement.TargetTileIndex < 0 || !movement.Handle.IsValid) return;
+        PollRoute(ref movement);
+        if (movement.NextTileIndex >= 0)
+        {
+            AdvanceCommittedMovement(entity, ref position, ref movement);
+        }
     }
 
-    private void SubmitPath(Entity entity, ref SubWorldMovement movement)
+    private void UpdateCommittedMovement(Entity entity, ref Position position, ref SubWorldMovement movement)
+    {
+        bool retreating = movement.NextTileIndex == movement.CurrentTileIndex;
+        if (!retreating && !IsStepLocallyValid(ref movement, movement.NextTileIndex,
+                movement.PlannedTileFlags))
+        {
+            CancelHandle(movement.Handle, PathFailureReason.StepBlocked);
+            movement.BeginRetreat();
+            retreating = true;
+        }
+
+        if (!retreating && movement.TargetTileIndex >= 0)
+        {
+            EnsureFutureRoute(entity, ref movement);
+        }
+
+        AdvanceCommittedMovement(entity, ref position, ref movement);
+    }
+
+    private void EnsureFutureRoute(Entity entity, ref SubWorldMovement movement)
+    {
+        if (movement.TargetTileIndex < 0) return;
+        int routeStartTile = movement.NextTileIndex >= 0 &&
+                             movement.NextTileIndex != movement.CurrentTileIndex
+            ? movement.NextTileIndex
+            : movement.CurrentTileIndex;
+        if (routeStartTile == movement.TargetTileIndex)
+        {
+            CancelHandle(movement.Handle);
+            movement.ClearRoute();
+            return;
+        }
+
+        if (movement.Handle.IsValid)
+        {
+            if (!IsRequestSnapshotStale(ref movement)) return;
+            CancelHandle(movement.Handle, PathFailureReason.StepBlocked);
+            movement.ClearRoute();
+        }
+
+        SubmitPath(entity, routeStartTile, ref movement);
+    }
+
+    private void SubmitPath(Entity entity, int startTileIndex, ref SubWorldMovement movement)
     {
         float baseSpeed = Math.Max(0.05f, movement.MoveSpeedTilesPerSecond /
             Math.Max(0.05f, PathfindingConfig.Default.WalkSpeedScale));
@@ -78,7 +128,7 @@ internal sealed class SubWorldMovementSystem : QuerySystem<Position, SubWorldMov
         PathAgentKey agentKey = new(runtime.Navigation.WorldKey, entity.Id);
         PathRequest request = PathRequest.CreateSubWorld(
             agentKey,
-            movement.CurrentTileIndex,
+            startTileIndex,
             movement.TargetTileIndex,
             runtime.Navigation.CurrentGrid,
             profile);
@@ -88,114 +138,112 @@ internal sealed class SubWorldMovementSystem : QuerySystem<Position, SubWorldMov
             PathFailureReason reason = submission.FailureReason == PathFailureReason.None
                 ? PathFailureReason.GeneratorException
                 : submission.FailureReason;
-            FailPath(ref movement, reason);
+            FailFutureRoute(ref movement, reason);
             return;
         }
 
-        movement.BindRequest(
+        movement.BindRoute(
             new PathHandle(agentKey, submission.SubmissionToken),
             request.NavigationRevision);
     }
 
-    private void PollPath(ref Position position, ref SubWorldMovement movement)
+    private void PollRoute(ref SubWorldMovement movement)
     {
         if (IsRequestSnapshotStale(ref movement))
         {
-            ReplanBlockedPath(ref position, ref movement);
+            CancelHandle(movement.Handle, PathFailureReason.StepBlocked);
+            movement.ClearRoute();
             return;
         }
 
-        PathPollResult poll = PathFinder.Instance.OpenReadyCursor(movement.Handle, out _);
+        PathPollResult poll = PathFinder.Instance.OpenReadyCursor(
+            movement.Handle, out PathFinder.ReadyPathCursor cursor);
         switch (poll.Kind)
         {
             case PathPollKind.Waiting:
                 return;
             case PathPollKind.StepReady:
-                if (!ValidateStep(ref movement, poll.Step.TileId, poll.Step.PlannedTileFlags))
+                if (!cursor.TryClaimCurrentStep(out PathStep claimedStep))
                 {
-                    ReplanBlockedPath(ref position, ref movement);
+                    movement.ClearRoute();
                     return;
                 }
 
-                movement.SetCurrentStep(poll.Step);
+                if (!IsStepLocallyValid(ref movement, claimedStep.TileId, claimedStep.PlannedTileFlags))
+                {
+                    CancelHandle(movement.Handle, PathFailureReason.StepBlocked);
+                    movement.ClearRoute();
+                    return;
+                }
+
+                movement.CommitStep(claimedStep);
                 return;
             case PathPollKind.Completed:
-                ArriveAtTarget(ref position, ref movement);
+                if (movement.CurrentTileIndex == movement.TargetTileIndex)
+                {
+                    CompleteIntent(ref movement);
+                }
+                else
+                {
+                    movement.ClearRoute();
+                }
                 return;
             case PathPollKind.Failed:
-                FailPath(ref movement, poll.FailureReason);
+                FailFutureRoute(ref movement, poll.FailureReason);
                 return;
             case PathPollKind.Cancelled:
             case PathPollKind.NoRequest:
-                SnapToCurrentTile(ref position, movement.CurrentTileIndex);
-                movement.PrepareReplan();
+                movement.ClearRoute();
                 return;
         }
     }
 
-    private bool TryOpenCurrentStep(ref SubWorldMovement movement,
-        out PathFinder.ReadyPathCursor cursor)
-    {
-        PathPollResult poll = PathFinder.Instance.OpenReadyCursor(movement.Handle, out cursor);
-        return poll.Kind == PathPollKind.StepReady && poll.Step.TileId == movement.NextTileIndex;
-    }
-
-    private void AdvanceCurrentStep(Entity entity, ref Position position, ref SubWorldMovement movement)
+    private void AdvanceCommittedMovement(Entity entity, ref Position position, ref SubWorldMovement movement)
     {
         float remainingTime = runtime.Clock.Profile.fixed_step;
-        while (remainingTime > 0.0001f && movement.TargetTileIndex >= 0 && movement.NextTileIndex >= 0)
+        while (remainingTime > 0.0001f && movement.NextTileIndex >= 0)
         {
-            int nextTile = movement.NextTileIndex;
-            int x = runtime.Grid.GetX(nextTile);
-            int y = runtime.Grid.GetY(nextTile);
-            Vector3 target = new(x + 0.5f, y + 0.5f, position.z);
-            Vector3 delta = target - position.value;
+            int destinationTile = movement.NextTileIndex;
+            bool retreating = destinationTile == movement.CurrentTileIndex;
+            int x = runtime.Grid.GetX(destinationTile);
+            int y = runtime.Grid.GetY(destinationTile);
+            Vector3 destination = new(x + 0.5f, y + 0.5f, position.z);
+            Vector3 delta = destination - position.value;
             float distance = delta.magnitude;
             float speed = Math.Max(0.01f, movement.MoveSpeedTilesPerSecond *
-                runtime.Navigation.GetWalkMultiplier(nextTile));
+                runtime.Navigation.GetWalkMultiplier(destinationTile));
             float movementBudget = speed * remainingTime;
-            int previousTile = movement.CurrentTileIndex;
-            if (!TryOpenCurrentStep(ref movement, out PathFinder.ReadyPathCursor cursor) ||
-                !cursor.TryExecuteCurrentStep(
-                    step => AdvanceOwnedStep(step, entity, nextTile, target, delta, distance, movementBudget),
-                    out StepAdvanceResult advanceResult) ||
-                advanceResult == StepAdvanceResult.Invalid)
+            if (distance > movementBudget)
+            {
+                position.value += delta / Math.Max(distance, 0.0001f) * movementBudget;
+                return;
+            }
+
+            position.value = destination;
+            remainingTime -= distance / speed;
+            if (!retreating)
+            {
+                movement.CurrentTileIndex = destinationTile;
+            }
+            movement.ClearCommittedStep();
+
+            if (movement.TargetTileIndex < 0)
             {
                 CancelHandle(movement.Handle);
-                SnapToCurrentTile(ref position, previousTile);
-                movement.PrepareReplan();
+                movement.ClearRoute();
                 return;
             }
 
-            if (advanceResult == StepAdvanceResult.Partial) return;
-            remainingTime -= distance / speed;
-            cursor.Consume();
-            if (nextTile == movement.TargetTileIndex)
+            if (movement.CurrentTileIndex == movement.TargetTileIndex)
             {
-                ArriveAtTarget(ref position, ref movement);
+                CompleteIntent(ref movement);
                 return;
             }
 
-            movement.ClearCurrentStep();
-            PollPath(ref position, ref movement);
+            EnsureFutureRoute(entity, ref movement);
+            if (movement.TargetTileIndex < 0 || !movement.Handle.IsValid) return;
+            PollRoute(ref movement);
         }
-    }
-
-    private static StepAdvanceResult AdvanceOwnedStep(PathStep step, Entity entity, int expectedTile,
-        Vector3 target, Vector3 delta, float distance, float movementBudget)
-    {
-        if (step.TileId != expectedTile) return StepAdvanceResult.Invalid;
-
-        ref Position position = ref entity.GetComponent<Position>();
-        if (distance > movementBudget)
-        {
-            position.value += delta / Math.Max(distance, 0.0001f) * movementBudget;
-            return StepAdvanceResult.Partial;
-        }
-
-        position.value = target;
-        entity.GetComponent<SubWorldMovement>().CurrentTileIndex = expectedTile;
-        return StepAdvanceResult.Reached;
     }
 
     private bool IsRequestSnapshotStale(ref SubWorldMovement movement)
@@ -203,10 +251,9 @@ internal sealed class SubWorldMovementSystem : QuerySystem<Position, SubWorldMov
         return movement.NavigationRevision != runtime.Navigation.CurrentGrid.Revision;
     }
 
-    private bool ValidateStep(ref SubWorldMovement movement, int nextTile,
+    private bool IsStepLocallyValid(ref SubWorldMovement movement, int nextTile,
         PathTileFlags plannedTileFlags)
     {
-        if (movement.NavigationRevision != runtime.Navigation.CurrentGrid.Revision) return false;
         if ((uint)nextTile >= (uint)runtime.Grid.TileCount) return false;
 
         int currentTile = movement.CurrentTileIndex;
@@ -230,24 +277,21 @@ internal sealed class SubWorldMovementSystem : QuerySystem<Position, SubWorldMov
                tile.Flags == plannedTileFlags;
     }
 
-    private void ReplanBlockedPath(ref Position position, ref SubWorldMovement movement)
+    private void FailFutureRoute(ref SubWorldMovement movement, PathFailureReason reason)
     {
-        int currentTile = movement.CurrentTileIndex;
-        CancelHandle(movement.Handle, PathFailureReason.StepBlocked);
-        SnapToCurrentTile(ref position, currentTile);
-        movement.PrepareReplan();
-    }
+        CancelHandle(movement.Handle, reason);
+        if (movement.NextTileIndex >= 0 && movement.NextTileIndex != movement.CurrentTileIndex)
+        {
+            movement.StopAtCommittedDestination();
+            return;
+        }
 
-    private void ArriveAtTarget(ref Position position, ref SubWorldMovement movement)
-    {
-        SnapToCurrentTile(ref position, movement.CurrentTileIndex);
-        CancelHandle(movement.Handle, PathFailureReason.None);
         movement.CompleteIntent();
     }
 
-    private void FailPath(ref SubWorldMovement movement, PathFailureReason reason)
+    private void CompleteIntent(ref SubWorldMovement movement)
     {
-        CancelHandle(movement.Handle, reason);
+        CancelHandle(movement.Handle, PathFailureReason.None);
         movement.CompleteIntent();
     }
 
@@ -255,20 +299,5 @@ internal sealed class SubWorldMovementSystem : QuerySystem<Position, SubWorldMov
         PathFailureReason reason = PathFailureReason.CancelledByNewRequest)
     {
         if (handle.IsValid) PathFinder.Instance.Cancel(handle, reason);
-    }
-
-    private enum StepAdvanceResult : byte
-    {
-        Invalid,
-        Partial,
-        Reached
-    }
-
-    private void SnapToCurrentTile(ref Position position, int tileIndex)
-    {
-        position.value = new Vector3(
-            runtime.Grid.GetX(tileIndex) + 0.5f,
-            runtime.Grid.GetY(tileIndex) + 0.5f,
-            position.z);
     }
 }
