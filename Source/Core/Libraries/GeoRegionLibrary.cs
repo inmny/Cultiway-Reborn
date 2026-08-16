@@ -92,11 +92,15 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
     public GeoRegionAsset LandformBasin { get; private set; }
 
     /// <summary>
-    /// 陆块分类 - 岛屿，不接触地图边缘的独立陆块
+    /// 陆块分类 - 岛，面积为 21～3000 格的连通陆地。
     /// </summary>
     public GeoRegionAsset LandmassIsland { get; private set; }
     /// <summary>
-    /// 陆块分类 - 大陆，接触地图边缘的主要陆块
+    /// 陆块分类 - 洲，面积为 3001～10000 格的连通陆地。
+    /// </summary>
+    public GeoRegionAsset LandmassContinent { get; private set; }
+    /// <summary>
+    /// 陆块分类 - 大陆，面积至少为 10001 格的连通陆地。
     /// </summary>
     public GeoRegionAsset LandmassMainland { get; private set; }
 
@@ -266,9 +270,22 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         return LandformPlain;
     }
 
-    public GeoRegionAsset ResolveLandmass(bool touchesEdge)
+    /// <summary>
+    /// 根据连通陆地面积解析岛、洲或大陆。
+    /// </summary>
+    public GeoRegionAsset ResolveLandmass(int tileCount)
     {
-        return touchesEdge ? LandmassMainland : LandmassIsland;
+        if (tileCount >= LandmassMainland.MinTiles)
+        {
+            return LandmassMainland;
+        }
+
+        if (tileCount >= LandmassContinent.MinTiles)
+        {
+            return LandmassContinent;
+        }
+
+        return LandmassIsland;
     }
 
     private static bool MatchLandformRule(GeoRegionAsset rule, in GeoRegionTileRuleContext context)
@@ -656,7 +673,17 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Layer = GeoRegionLayer.Landmass,
             DisplayName = "岛",
             NameGenerator = GeoRegionNameGenerators.LandmassIsland,
-            MinTiles = 128
+            MinTiles = 21,
+            MaxTiles = 3000
+        });
+        LandmassContinent = add(new GeoRegionAsset
+        {
+            id = "Cultiway.GeoRegion.Landmass.Continent",
+            Layer = GeoRegionLayer.Landmass,
+            DisplayName = "洲",
+            NameGenerator = GeoRegionNameGenerators.LandmassContinent,
+            MinTiles = 3001,
+            MaxTiles = 10000
         });
         LandmassMainland = add(new GeoRegionAsset
         {
@@ -664,7 +691,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Layer = GeoRegionLayer.Landmass,
             DisplayName = "大陆",
             NameGenerator = GeoRegionNameGenerators.LandmassMainland,
-            MinTiles = 512
+            MinTiles = 10001
         });
     }
 
