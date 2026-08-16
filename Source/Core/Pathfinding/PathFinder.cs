@@ -636,7 +636,15 @@ public class PathFinder
     private void Consume(PathAgentKey agentKey, PathSession session, PathStream stream)
     {
         if (!IsCurrent(agentKey, session)) return;
-        PathConsumeResult result = session.TryConsume(stream, PathfindingConfig.Default.SegmentLowWatermark);
+        PathConsumeResult result = session.TryClaim(
+            stream, PathfindingConfig.Default.SegmentLowWatermark, out _);
+        CompleteConsume(agentKey, session, stream, result);
+    }
+
+    private void CompleteConsume(PathAgentKey agentKey, PathSession session, PathStream stream,
+        PathConsumeResult result)
+    {
+        if (!result.Consumed) return;
         if (result.ScheduleContinuation)
         {
             Schedule(session, result.Starved ? PathWorkPriority.Starved : PathWorkPriority.Continuation);
@@ -893,6 +901,21 @@ public class PathFinder
         }
     }
 
+    private bool TryClaimCursorStep(PathAgentKey agentKey, PathSession session, PathStream stream,
+        bool tokenBound, long submissionToken, out PathStep claimedStep)
+    {
+        lock (sessionOwnershipLock)
+        {
+            claimedStep = default;
+            if (!IsCursorCurrentLocked(agentKey, session, stream, tokenBound, submissionToken)) return false;
+            PathConsumeResult result = session.TryClaim(
+                stream, PathfindingConfig.Default.SegmentLowWatermark, out claimedStep);
+            if (!result.Consumed) return false;
+            CompleteConsume(agentKey, session, stream, result);
+            return true;
+        }
+    }
+
     private bool AcknowledgeCursor(PathAgentKey agentKey, PathSession session, PathStream stream,
         bool tokenBound, long submissionToken)
     {
@@ -1030,6 +1053,19 @@ public class PathFinder
                 agentKey, session, stream, tokenBound, submissionToken, actor, reason);
         }
 
+        /// <summary>原子认领并消费当前路径步；成功后该步的执行所有权移交给调用方。</summary>
+        public bool TryClaimCurrentStep(out PathStep claimedStep)
+        {
+            if (owner != null)
+            {
+                return owner.TryClaimCursorStep(
+                    agentKey, session, stream, tokenBound, submissionToken, out claimedStep);
+            }
+
+            claimedStep = default;
+            return false;
+        }
+
         public bool TryExecuteCurrentStep<T>(Func<PathStep, T> action, out T result)
         {
             if (owner != null)
@@ -1106,13 +1142,15 @@ internal readonly struct PathSessionCompletion
 
 internal readonly struct PathConsumeResult
 {
-    internal PathConsumeResult(bool scheduleContinuation, bool starved, bool finished)
+    internal PathConsumeResult(bool consumed, bool scheduleContinuation, bool starved, bool finished)
     {
+        Consumed = consumed;
         ScheduleContinuation = scheduleContinuation;
         Starved = starved;
         Finished = finished;
     }
 
+    internal bool Consumed { get; }
     internal bool ScheduleContinuation { get; }
     internal bool Starved { get; }
     internal bool Finished { get; }
@@ -1414,12 +1452,13 @@ internal sealed class PathSession
         }
     }
 
-    internal PathConsumeResult TryConsume(PathStream expectedStream, int lowWatermark)
+    internal PathConsumeResult TryClaim(PathStream expectedStream, int lowWatermark, out PathStep claimedStep)
     {
         lock (syncRoot)
         {
-            if (cancelled || !ReferenceEquals(stream, expectedStream) || !stream.TryDequeue(out _))
+            if (cancelled || !ReferenceEquals(stream, expectedStream) || !stream.TryDequeue(out claimedStep))
             {
+                claimedStep = default;
                 return default;
             }
 
@@ -1431,7 +1470,7 @@ internal sealed class PathSession
                             (!queued && pendingSteps <= Math.Max(1, lowWatermark) ||
                              queued && queuedPriority != PathWorkPriority.Starved && pendingSteps == 0);
             bool starved = schedule && pendingSteps == 0;
-            return new PathConsumeResult(schedule, starved, finished);
+            return new PathConsumeResult(true, schedule, starved, finished);
         }
     }
 
