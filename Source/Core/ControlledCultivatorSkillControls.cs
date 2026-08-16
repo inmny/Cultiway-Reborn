@@ -15,7 +15,7 @@ namespace Cultiway.Core;
 
 internal static class ControlledCultivatorSkillControls
 {
-    private static readonly Dictionary<long, int> SelectedAbilityIndexes = new();
+    private static readonly Dictionary<long, ActiveAbilityHandle> SelectedAbilities = new();
 
     internal static bool CastSelectedSkill()
     {
@@ -82,12 +82,11 @@ internal static class ControlledCultivatorSkillControls
     {
         ability = default;
         using var candidates = new ListPool<ActiveAbilityHandle>();
-        if (!TryCollectAvailableAttackAbilities(actor.GetExtend(), candidates)) return false;
+        int selectedIndex = CollectSelectableAbilities(actor, candidates);
+        if (selectedIndex < 0) return false;
 
-        var count = candidates.Count;
-        var next = GetSelectedAbilityIndex(actor);
-        next = Mod(next + Math.Sign(direction == 0 ? 1 : direction), count);
-        SelectedAbilityIndexes[actor.data.id] = next;
+        int next = Mod(selectedIndex + Math.Sign(direction == 0 ? 1 : direction), candidates.Count);
+        SelectedAbilities[actor.data.id] = candidates[next];
         ability = candidates[next];
         return true;
     }
@@ -105,13 +104,49 @@ internal static class ControlledCultivatorSkillControls
         ability = default;
         count = 0;
         using var candidates = new ListPool<ActiveAbilityHandle>();
-        if (!TryCollectAvailableAttackAbilities(actor.GetExtend(), candidates)) return false;
+        int selectedIndex = CollectSelectableAbilities(actor, candidates);
+        if (selectedIndex < 0) return false;
 
         count = candidates.Count;
-        var index = Mod(GetSelectedAbilityIndex(actor), count);
-        SelectedAbilityIndexes[actor.data.id] = index;
-        ability = candidates[index];
+        ability = candidates[selectedIndex];
         return true;
+    }
+
+    /// <summary>按玩家控制使用的固定顺序收集全部当前可选能力，并返回当前选中下标。</summary>
+    internal static int CollectSelectableAbilities(Actor actor, IList<ActiveAbilityHandle> candidates)
+    {
+        candidates.Clear();
+        if (actor == null || actor.isRekt() ||
+            !TryCollectAvailableAttackAbilities(actor.GetExtend(), candidates)) return -1;
+
+        if (SelectedAbilities.TryGetValue(actor.data.id, out ActiveAbilityHandle selected))
+        {
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                if (candidates[i] == selected) return i;
+            }
+        }
+        else
+        {
+            SelectedAbilities[actor.data.id] = candidates[0];
+        }
+        return 0;
+    }
+
+    /// <summary>从当前可选能力中直接选择指定句柄，供附体能力带点击使用。</summary>
+    internal static bool SelectAbility(Actor actor, ActiveAbilityHandle ability)
+    {
+        if (!TryGetControlledActor(out Actor controlledActor) || controlledActor != actor) return false;
+
+        using var candidates = new ListPool<ActiveAbilityHandle>();
+        if (CollectSelectableAbilities(actor, candidates) < 0) return false;
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            if (candidates[i] != ability) continue;
+            SelectedAbilities[actor.data.id] = ability;
+            return true;
+        }
+        return false;
     }
 
     private static bool TryCollectAvailableAttackAbilities(
@@ -458,11 +493,6 @@ internal static class ControlledCultivatorSkillControls
     {
         string name = ActiveAbilityService.Describe(caster, ability).Name;
         return string.IsNullOrEmpty(name) ? "未知能力" : name;
-    }
-
-    private static int GetSelectedAbilityIndex(Actor actor)
-    {
-        return actor != null && SelectedAbilityIndexes.TryGetValue(actor.data.id, out var index) ? index : 0;
     }
 
     private static int Mod(int value, int divisor)
