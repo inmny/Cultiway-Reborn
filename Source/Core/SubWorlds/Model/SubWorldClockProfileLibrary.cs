@@ -20,7 +20,7 @@ public sealed class SubWorldClockProfileLibrary : AssetLibrary<SubWorldClockProf
         Standard = add(new SubWorldClockProfileAsset
         {
             id = StandardId,
-            fixed_step = 0.1f,
+            fixed_step = 1f / 24f,
             default_local_rate = 1f,
             allowed_local_speed_options = [0f, 1f, 2f, 4f],
             runs_while_parent_paused = true,
