@@ -196,6 +196,28 @@ public enum CombatActionMovementMode
 }
 
 /// <summary>
+/// 动作成功启动后是否占用角色的公共攻击恢复。
+/// </summary>
+public enum CombatActionRecoveryMode
+{
+    /// <summary>动作只使用自身冷却，不推迟下一次普通攻击。</summary>
+    Independent,
+    /// <summary>动作与普通攻击共享角色的攻击恢复。</summary>
+    SharedAttack,
+}
+
+/// <summary>规划器对现有战术移动订单作出的显式处理。</summary>
+public enum CombatMovementCommand
+{
+    /// <summary>没有新的移动要求，保留仍然有效的现有订单。</summary>
+    NoChange,
+    /// <summary>向计划选出的战术位置移动。</summary>
+    Move,
+    /// <summary>已经处于可接受交战位置，应平滑结束现有订单。</summary>
+    HoldPosition,
+}
+
+/// <summary>
 /// 动作的主要战术用途。一个动作可以同时具备多种用途。
 /// </summary>
 [Flags]
@@ -281,6 +303,7 @@ public readonly struct CombatActionProfile
     public readonly float Reliability;
     public readonly int BaseWeight;
     public readonly CombatActionMovementMode MovementMode;
+    public readonly CombatActionRecoveryMode RecoveryMode;
     public readonly float? AvailableResourceRatio;
     public readonly bool IgnoreResourceReserveWhenCritical;
 
@@ -301,6 +324,7 @@ public readonly struct CombatActionProfile
         float reliability,
         int baseWeight,
         CombatActionMovementMode movementMode,
+        CombatActionRecoveryMode recoveryMode,
         float? availableResourceRatio = null,
         bool ignoreResourceReserveWhenCritical = false)
     {
@@ -320,6 +344,7 @@ public readonly struct CombatActionProfile
         Reliability = Mathf.Clamp01(reliability);
         BaseWeight = Math.Max(0, baseWeight);
         MovementMode = movementMode;
+        RecoveryMode = recoveryMode;
         AvailableResourceRatio = availableResourceRatio.HasValue
             ? Mathf.Clamp01(availableResourceRatio.Value)
             : null;
@@ -405,6 +430,7 @@ public readonly struct CombatActionExecutionContext
     public readonly ActorExtend Caster;
     public readonly BaseSimObject PrimaryEnemy;
     public readonly BaseSimObject ActionTarget;
+    public readonly CombatActionUse Use;
     public readonly Vector3 TargetPosition;
     public readonly Action KillAction;
     public readonly float BonusAreaEffect;
@@ -413,6 +439,7 @@ public readonly struct CombatActionExecutionContext
         ActorExtend caster,
         BaseSimObject primaryEnemy,
         BaseSimObject actionTarget,
+        CombatActionUse use,
         Vector3 targetPosition,
         Action killAction = null,
         float bonusAreaEffect = 0f)
@@ -420,6 +447,7 @@ public readonly struct CombatActionExecutionContext
         Caster = caster;
         PrimaryEnemy = primaryEnemy;
         ActionTarget = actionTarget;
+        Use = use;
         TargetPosition = targetPosition;
         KillAction = killAction;
         BonusAreaEffect = bonusAreaEffect;
@@ -519,6 +547,8 @@ public readonly struct CombatPositionCandidate
     public readonly float Crowding;
     /// <summary>援助或保护站位对应的友军；普通站位为零。</summary>
     public readonly long RelatedAllyId;
+    /// <summary>该候选是否代表规划快照中的角色当前格。</summary>
+    public readonly bool IsCurrentPosition;
     private readonly ulong clearShotMask;
 
     public CombatPositionCandidate(
@@ -529,7 +559,8 @@ public readonly struct CombatPositionCandidate
         float allySupport,
         float crowding,
         ulong clearShotMask,
-        long relatedAllyId = 0)
+        long relatedAllyId = 0,
+        bool isCurrentPosition = false)
     {
         Tile = tile;
         Role = role;
@@ -538,6 +569,7 @@ public readonly struct CombatPositionCandidate
         AllySupport = Mathf.Max(0f, allySupport);
         Crowding = Mathf.Max(0f, crowding);
         RelatedAllyId = relatedAllyId;
+        IsCurrentPosition = isCurrentPosition;
         this.clearShotMask = clearShotMask;
     }
 
@@ -607,7 +639,9 @@ public sealed class CombatPlanningSnapshot
     public long CurrentTargetId;
     public CombatActionKey? CurrentActionKey;
     public CombatActionUse CurrentActionUse;
+    public CombatActionKey? CurrentStanceKey;
     public CombatIntent CurrentIntent;
+    public bool CanReachAirborneTarget;
     public bool CanRetreat;
     public bool HighFidelity;
     public bool GroupRouted;
@@ -617,6 +651,8 @@ public sealed class CombatPlanningSnapshot
     public CombatActionCandidate[] Actions = Array.Empty<CombatActionCandidate>();
     public CombatPositionCandidate[] Positions = Array.Empty<CombatPositionCandidate>();
     public CombatObstacleSnapshot[] Obstacles = Array.Empty<CombatObstacleSnapshot>();
+    /// <summary>主线程已经确定、后续动作与站位共同绑定的目标。</summary>
+    public long CommittedTargetId;
 }
 
 /// <summary>
@@ -646,21 +682,38 @@ public sealed class CombatPlan
     public CombatRole Role;
     public CombatOutcomeEstimate Outcome;
     public CombatantSnapshot PrimaryEnemy;
-    public CombatantSnapshot ActionTarget;
-    public CombatantSnapshot BackupActionTarget;
-    public CombatActionCandidate Action;
-    public CombatActionCandidate BackupAction;
-    /// <summary>本轮选择当前动作时采用的主要战术用途。</summary>
-    public CombatActionUse ActionUse;
-    /// <summary>备用动作对应的主要战术用途。</summary>
-    public CombatActionUse BackupActionUse;
+    /// <summary>按即时执行优先级排列的全部动作选择。</summary>
+    public CombatPlannedAction[] ActionSequence = Array.Empty<CombatPlannedAction>();
+    public CombatActionCandidate PrimaryAction =>
+        ActionSequence.Length > 0 ? ActionSequence[0].Candidate : null;
+    public CombatActionUse PrimaryActionUse =>
+        ActionSequence.Length > 0 ? ActionSequence[0].Use : CombatActionUse.None;
     /// <summary>本轮援助或保护的具体友军；零表示普通交战。</summary>
     public long AssistedAllyId;
     /// <summary>用于维持职责和距离的动作画像；动作冷却中也会保留。</summary>
     public CombatActionProfile? PositioningProfile;
+    public CombatActionKey? PositioningActionKey;
     public CombatPositionCandidate Position;
-    public float TargetScore;
-    public float ActionScore;
+    public CombatMovementCommand MovementCommand;
     public bool HasEnemy;
-    public bool HasPosition;
+}
+
+/// <summary>
+/// 低频规划器交给高频执行层的一项动作选择。动作、用途和目标在同一记录中提交。
+/// </summary>
+public readonly struct CombatPlannedAction
+{
+    public readonly CombatActionCandidate Candidate;
+    public readonly CombatActionUse Use;
+    public readonly CombatantSnapshot Target;
+
+    public CombatPlannedAction(
+        CombatActionCandidate candidate,
+        CombatActionUse use,
+        CombatantSnapshot target)
+    {
+        Candidate = candidate;
+        Use = use;
+        Target = target;
+    }
 }

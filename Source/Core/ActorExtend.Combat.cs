@@ -46,7 +46,7 @@ public partial class ActorExtend
     [Hotfixable]
     public bool TryToAttack(BaseSimObject target, Action kill_action = null, float bonus_area_effect = 0, bool do_checks = true)
     {
-        if (TacticalCombatSettings.Enabled)
+        if (CombatWorldService.ShouldExecuteImmediateAttack(Base, target))
         {
             return CombatWorldService.TryExecuteImmediate(
                 this,

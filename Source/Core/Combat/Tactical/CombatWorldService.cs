@@ -4,6 +4,7 @@ using System.Diagnostics;
 using ai;
 using Cultiway.Const;
 using Cultiway.Core.Performance;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Effects;
 using Cultiway.Core.SkillLibV3.Impacts;
@@ -52,6 +53,23 @@ public static class CombatWorldService
             Priority = priority;
             Severity = severity;
             DistanceSquared = distanceSquared;
+        }
+    }
+
+    private readonly struct ImmediateActionChoice
+    {
+        internal readonly CombatActionCandidate Candidate;
+        internal readonly CombatActionUse Use;
+        internal readonly float Score;
+
+        internal ImmediateActionChoice(
+            CombatActionCandidate candidate,
+            CombatActionUse use,
+            float score)
+        {
+            Candidate = candidate;
+            Use = use;
+            Score = score;
         }
     }
 
@@ -167,6 +185,12 @@ public static class CombatWorldService
                !ControllableUnit.isControllingUnit(actor);
     }
 
+    /// <summary>判断直接 tryToAttack 调用是否属于战术层负责的敌对攻击。</summary>
+    internal static bool ShouldExecuteImmediateAttack(Actor actor, BaseSimObject target)
+    {
+        return ShouldTakeOver(actor) && CanEngageTarget(actor, target);
+    }
+
     /// <summary>返回角色当前是否处在由战术层维持的战斗任务中。</summary>
     public static bool IsEngaged(Actor actor)
     {
@@ -259,6 +283,7 @@ public static class CombatWorldService
             runtime.Plan = null;
             runtime.IsEngaged = false;
             runtime.CurrentTargetId = 0;
+            ClearStance(runtime);
             runtime.ExternalTargetDirty = false;
             runtime.NextPlanAt = 0d;
             runtime.NextActionAttemptAt = 0d;
@@ -307,10 +332,11 @@ public static class CombatWorldService
             runtime.LastProgressAt = CurrentTime;
             return true;
         }
-        if (runtime.Plan == null || !runtime.Plan.HasEnemy)
+        CombatPlan plan = runtime.Plan;
+        if (plan == null || !plan.HasEnemy)
             return false;
 
-        BaseSimObject enemy = runtime.Plan.PrimaryEnemy.Object;
+        BaseSimObject enemy = plan.PrimaryEnemy.Object;
         if (!CanEngageTarget(actor, enemy))
         {
             RequestMovementRefresh(runtime, clearBearing: true);
@@ -323,97 +349,107 @@ public static class CombatWorldService
             return false;
         }
         UpdateProgress(actor, enemy, runtime);
-        if (runtime.Plan == null || runtime.Plan.Action == null) return false;
+        if (plan.ActionSequence.Length == 0) return false;
         double now = CurrentTime;
         if (now < runtime.NextActionAttemptAt) return false;
 
-        BaseSimObject actionTarget = ResolveActionTarget(actor, runtime.Plan);
-        if (actionTarget.isRekt())
+        bool attempted = false;
+        bool hostileAttempted = false;
+        bool pressureFirst = plan.Intent is not (CombatIntent.Protect or CombatIntent.Disengage);
+        int passes = pressureFirst ? 2 : 1;
+        for (int pass = 0; pass < passes; pass++)
         {
-            RequestDecisionRefresh(runtime);
-            return false;
-        }
-        if (!IsWithinActionRange(actor, actionTarget, runtime.Plan.Action.Profile)) return false;
-
-        Vector3 targetPosition = actionTarget.GetSimPos();
-        var context = new CombatActionExecutionContext(
-            actor.GetExtend(),
-            enemy,
-            actionTarget,
-            targetPosition);
-        CombatActionCandidate executedAction = runtime.Plan.Action;
-        CombatActionUse executedUse = runtime.Plan.ActionUse;
-        CombatExecutionStatus result = CombatActionService.Execute(executedAction, context);
-        if (result != CombatExecutionStatus.Started && runtime.Plan.BackupAction != null)
-        {
-            BaseSimObject backupTarget = ResolveActionTarget(
-                actor,
-                runtime.Plan,
-                runtime.Plan.BackupAction);
-            if (!backupTarget.isRekt() &&
-                IsWithinActionRange(actor, backupTarget, runtime.Plan.BackupAction.Profile))
+            for (int i = 0; i < plan.ActionSequence.Length; i++)
             {
-                var backupContext = new CombatActionExecutionContext(
+                CombatPlannedAction plannedAction = plan.ActionSequence[i];
+                CombatActionCandidate candidate = plannedAction.Candidate;
+                bool hostile = plannedAction.Use is
+                    CombatActionUse.Offense or CombatActionUse.Control;
+                if (pressureFirst && (pass == 0) != hostile) continue;
+
+                BaseSimObject actionTarget = ResolveActionTarget(actor, plan, plannedAction);
+                if (actionTarget.isRekt() ||
+                    !IsWithinPlannedActionRange(actor, plan, plannedAction, actionTarget))
+                    continue;
+
+                attempted = true;
+                hostileAttempted |= hostile;
+                var context = new CombatActionExecutionContext(
                     actor.GetExtend(),
                     enemy,
-                    backupTarget,
-                    backupTarget.GetSimPos());
-                CombatExecutionStatus backupResult = CombatActionService.Execute(
-                    runtime.Plan.BackupAction,
-                    backupContext);
-                if (backupResult == CombatExecutionStatus.Started)
-                {
-                    executedAction = runtime.Plan.BackupAction;
-                    executedUse = runtime.Plan.BackupActionUse;
-                }
-                result = backupResult;
+                    actionTarget,
+                    plannedAction.Use,
+                    actionTarget.GetSimPos());
+                CombatExecutionStatus result = CombatActionService.Execute(candidate, context);
+                CombatDiagnostics.RecordExecution(result);
+                if (result != CombatExecutionStatus.Started) continue;
+
+                runtime.NextActionAttemptAt = 0d;
+                runtime.TargetPathFailures = 0;
+                runtime.LastProgressAt = now;
+                runtime.ActiveActionUse = plannedAction.Use;
+                runtime.ActionPresentationUntil = now +
+                                                  TacticalCombatSettings.ActionPresentationDuration;
+                if (i > 0) CombatDiagnostics.RecordFallbackActionStarted();
+
+                bool protectPause = !hostile && plan.Intent == CombatIntent.Protect;
+                return ApplyActionMovementConstraint(
+                    actor,
+                    runtime,
+                    candidate,
+                    now,
+                    protectPause);
             }
         }
 
-        bool blockMovementForAction = false;
-        if (result == CombatExecutionStatus.Started)
-        {
-            runtime.NextActionAttemptAt = 0d;
-            runtime.TargetPathFailures = 0;
-            runtime.LastProgressAt = now;
-            runtime.ActiveActionUse = executedUse;
-            runtime.ActionPresentationUntil = now +
-                                              TacticalCombatSettings.ActionPresentationDuration;
-            switch (executedAction.Profile.MovementMode)
-            {
-                case CombatActionMovementMode.BriefStop:
-                    CombatMovementService.PauseBriefly(actor, runtime, now);
-                    blockMovementForAction = true;
-                    break;
-                case CombatActionMovementMode.StationaryDuringRecovery:
-                    CombatMovementService.LockUntilRecovery(actor, runtime, now);
-                    blockMovementForAction = true;
-                    break;
-            }
-        }
-        else
+        if (hostileAttempted) CombatDiagnostics.RecordMissedHostileOpportunity();
+        if (attempted)
         {
             runtime.NextActionAttemptAt = now + ResolveActionRetryDelay(actor, runtime.Revision);
             RequestDecisionRefresh(runtime);
         }
-        CombatDiagnostics.RecordExecution(result);
-        return result == CombatExecutionStatus.Started && blockMovementForAction;
+        return false;
+    }
+
+    private static bool ApplyActionMovementConstraint(
+        Actor actor,
+        CombatActorRuntime runtime,
+        CombatActionCandidate action,
+        double now,
+        bool forceBriefPause)
+    {
+        if (forceBriefPause)
+        {
+            CombatMovementService.PauseBriefly(actor, runtime, now);
+            return true;
+        }
+        switch (action.Profile.MovementMode)
+        {
+            case CombatActionMovementMode.BriefStop:
+                CombatMovementService.PauseBriefly(actor, runtime, now);
+                return true;
+            case CombatActionMovementMode.StationaryDuringRecovery:
+                if (action.Profile.RecoveryMode == CombatActionRecoveryMode.SharedAttack)
+                    CombatMovementService.LockUntilRecovery(actor, runtime, now);
+                else
+                    CombatMovementService.PauseBriefly(actor, runtime, now);
+                return true;
+            default:
+                return false;
+        }
     }
 
     /// <summary>供平滑移动入口查询战术动作是否暂时冻结位移。</summary>
     internal static bool ShouldPauseMovement(Actor actor)
     {
-        return actor?.data != null &&
-               ActorStates.TryGetValue(actor.getID(), out CombatActorRuntime runtime) &&
-               runtime.IsEngaged &&
+        return ActorStates.TryGetValue(actor.getID(), out CombatActorRuntime runtime) &&
                CombatMovementService.ShouldPause(runtime, CurrentTime);
     }
 
     /// <summary>在格子边界落实战术层请求的平滑停步。</summary>
     internal static bool TryCompletePendingMovementStop(Actor actor)
     {
-        return actor?.data != null &&
-               ActorStates.TryGetValue(actor.getID(), out CombatActorRuntime runtime) &&
+        return ActorStates.TryGetValue(actor.getID(), out CombatActorRuntime runtime) &&
                runtime.IsEngaged &&
                CombatMovementService.TryCompletePendingStopAtBoundary(actor, runtime);
     }
@@ -478,85 +514,74 @@ public static class CombatWorldService
     /// <summary>
     /// 供原版或其他 Mod 的直接 tryToAttack 调用使用；不启动自主规划，但沿用统一执行副作用。
     /// </summary>
-    public static bool TryExecuteImmediate(
+    internal static bool TryExecuteImmediate(
         ActorExtend caster,
         BaseSimObject target,
         Action killAction,
         float bonusAreaEffect,
         bool doChecks)
     {
-        Actor actor = caster?.Base;
-        if (actor == null || actor.isRekt() || !CanDamageTarget(actor, target)) return false;
+        Actor actor = caster.Base;
         if (doChecks &&
             (actor.isInWaterAndCantAttack() || !actor.isAttackPossible()))
             return false;
 
         using var candidates = new ListPool<CombatActionCandidate>();
+        using var choices = new ListPool<ImmediateActionChoice>();
         CombatActionService.Collect(caster, target, null, 1f, null, candidates);
-        CombatActionCandidate best = null;
-        CombatActionCandidate backup = null;
-        float bestScore = float.MinValue;
-        float backupScore = float.MinValue;
         for (int i = 0; i < candidates.Count; i++)
         {
             CombatActionCandidate candidate = candidates[i];
             if (!candidate.IsReady) continue;
-            if (!candidate.Profile.HasPurpose(CombatActionPurpose.Offense) &&
-                !candidate.Profile.HasPurpose(CombatActionPurpose.Control) &&
-                !candidate.Profile.HasPurpose(CombatActionPurpose.Mobility))
+            CombatActionUse use;
+            if (candidate.Profile.HasPurpose(CombatActionPurpose.Offense))
+                use = CombatActionUse.Offense;
+            else if (candidate.Profile.HasPurpose(CombatActionPurpose.Control))
+                use = CombatActionUse.Control;
+            else
                 continue;
             BaseSimObject actionTarget = candidate.Profile.TargetMode ==
                                          SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self
                 ? actor
                 : target;
-            if (!IsWithinActionRange(actor, actionTarget, candidate.Profile)) continue;
+            if (!IsWithinImmediateActionRange(actor, target, actionTarget, candidate))
+                continue;
             float score = candidate.Profile.Power +
                           candidate.Profile.Control +
                           candidate.Profile.Utility +
                           candidate.Profile.BaseWeight * 0.1f;
-            if (score > bestScore)
-            {
-                backup = best;
-                backupScore = bestScore;
-                best = candidate;
-                bestScore = score;
-            }
-            else if (score > backupScore)
-            {
-                backup = candidate;
-                backupScore = score;
-            }
+            choices.Add(new ImmediateActionChoice(candidate, use, score));
         }
-        if (best == null) return false;
+        if (choices.Count == 0) return false;
+        choices.Sort((left, right) => right.Score.CompareTo(left.Score));
 
-        BaseSimObject bestTarget = best.Profile.TargetMode ==
-                                   SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self
-            ? actor
-            : target;
-        var context = new CombatActionExecutionContext(
-            caster,
-            target,
-            bestTarget,
-            bestTarget.GetSimPos(),
-            killAction,
-            bonusAreaEffect);
-        CombatExecutionStatus result = CombatActionService.Execute(best, context);
-        if (result == CombatExecutionStatus.Started || backup == null)
-            return result == CombatExecutionStatus.Started;
+        for (int i = 0; i < choices.Count; i++)
+        {
+            ImmediateActionChoice choice = choices[i];
+            CombatActionCandidate candidate = choice.Candidate;
+            BaseSimObject actionTarget = candidate.Profile.TargetMode ==
+                                         SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self
+                ? actor
+                : target;
+            var context = new CombatActionExecutionContext(
+                caster,
+                target,
+                actionTarget,
+                choice.Use,
+                actionTarget.GetSimPos(),
+                killAction,
+                bonusAreaEffect);
+            CombatExecutionStatus result = CombatActionService.Execute(candidate, context);
+            CombatDiagnostics.RecordExecution(result);
+            if (result != CombatExecutionStatus.Started) continue;
 
-        BaseSimObject backupTarget = backup.Profile.TargetMode ==
-                                     SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self
-            ? actor
-            : target;
-        var backupContext = new CombatActionExecutionContext(
-            caster,
-            target,
-            backupTarget,
-            backupTarget.GetSimPos(),
-            killAction,
-            bonusAreaEffect);
-        return CombatActionService.Execute(backup, backupContext) ==
-               CombatExecutionStatus.Started;
+            CombatActorRuntime runtime = GetOrCreateActorState(actor);
+            ApplyActionMovementConstraint(actor, runtime, candidate, CurrentTime, false);
+            if (i > 0) CombatDiagnostics.RecordFallbackActionStarted();
+            return true;
+        }
+        CombatDiagnostics.RecordMissedHostileOpportunity();
+        return false;
     }
 
     /// <summary>记录一次攻击尝试，包括最终无效或零伤害的攻击。</summary>
@@ -689,6 +714,7 @@ public static class CombatWorldService
             runtime.IgnoreCurrentTargetUntil = CurrentTime + 3d;
             runtime.Plan = null;
             runtime.CurrentTargetId = 0;
+            ClearStance(runtime);
             actor.clearAttackTarget();
             CombatMovementService.Clear(
                 actor,
@@ -770,9 +796,20 @@ public static class CombatWorldService
             CombatDiagnostics.RecordCommit(false);
             return;
         }
+        if (plan?.HasEnemy == true &&
+            (snapshot.CommittedTargetId == 0 ||
+             plan.PrimaryEnemy.Id != snapshot.CommittedTargetId ||
+             !HasValidHostileBindings(plan)))
+        {
+            CombatDiagnostics.RecordTargetBindingMismatch();
+            RequestDecisionRefresh(runtime);
+            CombatDiagnostics.RecordCommit(false);
+            return;
+        }
         CombatDiagnostics.RecordCommit(true);
 
         double now = CurrentTime;
+        CombatPlan previousPlan = runtime.Plan;
         runtime.Plan = plan;
         runtime.NextPlanAt = now + ResolvePlanInterval(actor, snapshot.HighFidelity, snapshot.Revision);
         if (plan == null ||
@@ -780,25 +817,17 @@ public static class CombatWorldService
             !CanEngageTarget(actor, plan.PrimaryEnemy.Object))
         {
             UpdateArmyRout(actor, default, true);
-            if (runtime.IsEngaged)
+            if (runtime.IsEngaged &&
+                previousPlan?.HasEnemy == true &&
+                previousPlan.PrimaryEnemy.Object == actor.attack_target &&
+                !actor.attack_target.isRekt() &&
+                CanEngageTarget(actor, actor.attack_target))
             {
                 if (runtime.LostContactSince <= 0d) runtime.LostContactSince = now;
                 if (now - runtime.LostContactSince < TacticalCombatSettings.LostContactGrace)
                 {
-                    runtime.CurrentTargetId = 0;
-                    CombatMovementService.Clear(
-                        actor,
-                        runtime,
-                        stopMovement: true,
-                        clearBearing: true);
-                    if (!actor.attack_target.isRekt()) actor.clearAttackTarget();
-                    if (!actor.isTask(TacticalCombatSettings.TacticalTaskId))
-                    {
-                        actor.setTask(
-                            TacticalCombatSettings.TacticalTaskId,
-                            pClean: false,
-                            pCleanJob: true);
-                    }
+                    runtime.Plan = previousPlan;
+                    runtime.NextPlanAt = now + 0.2d;
                     return;
                 }
             }
@@ -813,6 +842,7 @@ public static class CombatWorldService
         runtime.LostContactSince = 0d;
         runtime.IsEngaged = true;
         runtime.CurrentTargetId = enemy.getID();
+        UpdateStance(runtime, plan);
         actor.setAttackTarget(enemy);
         actor.beh_actor_target = enemy;
         if (!actor.isTask(TacticalCombatSettings.TacticalTaskId))
@@ -835,6 +865,28 @@ public static class CombatWorldService
         }
 
         CombatMovementService.Apply(actor, runtime, snapshot, plan, now);
+    }
+
+    private static bool CanReachAirborneTarget(Actor actor)
+    {
+        if (actor.hasRangeAttack() || actor.hasSpells()) return true;
+        ActorExtend caster = actor.GetExtend();
+        using var handles = new ListPool<ActiveAbilityHandle>();
+        ActiveAbilityService.Collect(caster, handles);
+        for (int i = 0; i < handles.Count; i++)
+        {
+            ActiveAbilityHandle handle = handles[i];
+            if ((ActiveAbilityService.GetChannels(caster, handle) & ActiveAbilityChannel.Combat) == 0)
+                continue;
+            ActiveAbilityTacticalProfile tactical =
+                ActiveAbilityService.ResolveTacticalProfile(caster, handle, actor);
+            if (tactical.Offensive <= 0f && tactical.Control <= 0f) continue;
+            float reach = Mathf.Max(
+                ActiveAbilityService.ResolveRange(caster, handle),
+                ActiveAbilityService.ResolveEffectRadius(caster, handle));
+            if (reach > 2f) return true;
+        }
+        return false;
     }
 
     private static CombatPlanningSnapshot BuildSnapshot(
@@ -869,9 +921,13 @@ public static class CombatWorldService
             Rationality = Mathf.Clamp(actor.stats["personality_rationality"], -1f, 1f),
             FormationCohesion = 1f,
             CurrentTargetId = runtime.CurrentTargetId,
-            CurrentActionKey = runtime.Plan?.Action?.Key,
-            CurrentActionUse = runtime.Plan?.ActionUse ?? CombatActionUse.None,
+            CurrentActionKey = runtime.Plan?.PrimaryAction?.Key,
+            CurrentActionUse = runtime.Plan?.PrimaryActionUse ?? CombatActionUse.None,
+            CurrentStanceKey = runtime.StanceTargetId == runtime.CurrentTargetId
+                ? runtime.StanceActionKey
+                : null,
             CurrentIntent = runtime.Plan?.Intent ?? CombatIntent.None,
+            CanReachAirborneTarget = CanReachAirborneTarget(actor),
             CanRetreat = CanRetreat(actor),
             HighFidelity = highFidelity,
             GroupRouted = armyRuntime?.Routed ?? false,
@@ -944,33 +1000,39 @@ public static class CombatWorldService
             threatContexts,
             obstacles,
             now);
-        CombatantSnapshot provisionalEnemy = ResolveProvisionalEnemy(actor, enemies);
-        Actor preferredAlly = ResolvePreferredAlly(
-            allies,
-            provisionalEnemy.ThreatenedAllyId);
-        Vector2 engagementBearing = CombatMovementService.ResolveEngagementBearing(
-            actor,
-            runtime,
-            provisionalEnemy);
+        snapshot.Enemies = enemies;
+        snapshot.Allies = allies;
+        snapshot.Obstacles = obstacles;
+
         float hostilePower = 0f;
         for (int i = 0; i < enemies.Length; i++) hostilePower += enemies[i].EstimatedPower;
         float threatRatio = hostilePower / Mathf.Max(0.01f, selfPower);
+        int actionCap = highFidelity ? 16 : 8;
+        if (!CombatPlanner.TrySelectPrimaryEnemy(
+                snapshot,
+                out CombatantSnapshot committedEnemy))
+            return snapshot;
 
-        using var actions = new ListPool<CombatActionCandidate>();
-        if (!provisionalEnemy.Object.isRekt())
-        {
-            CombatActionService.Collect(
-                actor.GetExtend(),
-                provisionalEnemy.Object,
-                preferredAlly,
-                threatRatio,
-                nearbyAllies,
-                actions);
-        }
-        CombatActionCandidate[] actionArray = LimitActions(actions, highFidelity ? 16 : 8);
+        Actor committedAlly = ResolvePreferredAlly(
+            allies,
+            committedEnemy.ThreatenedAllyId);
+        CombatActionCandidate[] actionArray = CollectPlanningActions(
+            actor,
+            committedEnemy,
+            committedAlly,
+            threatRatio,
+            nearbyAllies,
+            actionCap);
+        snapshot.Actions = actionArray;
+        snapshot.CommittedTargetId = committedEnemy.Id;
+
+        Vector2 engagementBearing = CombatMovementService.ResolveEngagementBearing(
+            actor,
+            runtime,
+            committedEnemy);
         CombatPositionCandidate[] positions = BuildPositionCandidates(
             actor,
-            provisionalEnemy,
+            committedEnemy,
             allies,
             enemies,
             actionArray,
@@ -979,17 +1041,34 @@ public static class CombatWorldService
             positionCap,
             directive,
             armyRuntime?.Routed ?? false);
-
-        snapshot.Enemies = enemies;
-        snapshot.Allies = allies;
-        snapshot.Actions = actionArray;
         snapshot.Positions = positions;
-        snapshot.Obstacles = obstacles;
         RecordPlanningMeasurement(
             "b3_findEnemyTarget.snapshot_actions_positions",
             actionStartedAt,
             actionArray.Length + positions.Length + obstacles.Length);
         return snapshot;
+    }
+
+    private static CombatActionCandidate[] CollectPlanningActions(
+        Actor actor,
+        CombatantSnapshot enemy,
+        Actor preferredAlly,
+        float threatRatio,
+        IReadOnlyList<Actor> nearbyAllies,
+        int cap)
+    {
+        using var actions = new ListPool<CombatActionCandidate>();
+        if (!enemy.Object.isRekt())
+        {
+            CombatActionService.Collect(
+                actor.GetExtend(),
+                enemy.Object,
+                preferredAlly,
+                threatRatio,
+                nearbyAllies,
+                actions);
+        }
+        return LimitActions(actions, cap);
     }
 
     /// <summary>
@@ -1594,20 +1673,6 @@ public static class CombatWorldService
         return result;
     }
 
-    private static CombatantSnapshot ResolveProvisionalEnemy(
-        Actor actor,
-        IReadOnlyList<CombatantSnapshot> enemies)
-    {
-        if (!actor.attack_target.isRekt())
-        {
-            for (int i = 0; i < enemies.Count; i++)
-            {
-                if (enemies[i].Object == actor.attack_target) return enemies[i];
-            }
-        }
-        return enemies.Count > 0 ? enemies[0] : default;
-    }
-
     private static CombatActionCandidate[] LimitActions(
         IList<CombatActionCandidate> actions,
         int cap)
@@ -1617,6 +1682,8 @@ public static class CombatWorldService
         for (int i = 0; i < actions.Count; i++) ordered[i] = actions[i];
         Array.Sort(ordered, (left, right) =>
         {
+            int readiness = right.IsReady.CompareTo(left.IsReady);
+            if (readiness != 0) return readiness;
             float leftValue = left.Profile.Power + left.Profile.Control + left.Profile.Utility +
                               left.Profile.BaseWeight * 0.1f;
             float rightValue = right.Profile.Power + right.Profile.Control + right.Profile.Utility +
@@ -1629,6 +1696,11 @@ public static class CombatWorldService
         for (int i = 0; i < ordered.Length && selected.Count < cap; i++)
         {
             if (ordered[i].Key.ProviderId == PhysicalCombatActionProvider.ProviderId)
+                selected.Add(ordered[i]);
+        }
+        for (int i = 0; i < ordered.Length && selected.Count < cap; i++)
+        {
+            if (ordered[i].IsReady && !selected.Contains(ordered[i]))
                 selected.Add(ordered[i]);
         }
         AddBestAction(
@@ -1712,7 +1784,7 @@ public static class CombatWorldService
 
     private static CombatPositionCandidate[] BuildPositionCandidates(
         Actor actor,
-        CombatantSnapshot provisionalEnemy,
+        CombatantSnapshot primaryEnemy,
         IReadOnlyList<CombatantSnapshot> allies,
         IReadOnlyList<CombatantSnapshot> enemies,
         IReadOnlyList<CombatActionCandidate> actions,
@@ -1722,7 +1794,7 @@ public static class CombatWorldService
         CombatDirective directive,
         bool armyRouted)
     {
-        if (provisionalEnemy.Object.isRekt()) return Array.Empty<CombatPositionCandidate>();
+        if (primaryEnemy.Object.isRekt()) return Array.Empty<CombatPositionCandidate>();
 
         var result = new List<CombatPositionCandidate>(cap);
         var seen = new HashSet<int>();
@@ -1730,7 +1802,7 @@ public static class CombatWorldService
             actor,
             actor.current_tile,
             CombatPositionRole.Tactical,
-            provisionalEnemy,
+            primaryEnemy,
             allies,
             enemies,
             obstacles,
@@ -1745,7 +1817,7 @@ public static class CombatWorldService
                 actor,
                 actor.city.getTile(),
                 CombatPositionRole.CityRetreat,
-                provisionalEnemy,
+                primaryEnemy,
                 allies,
                 enemies,
                 obstacles,
@@ -1758,7 +1830,7 @@ public static class CombatWorldService
         {
             AddRangePositionCandidates(
                 actor,
-                provisionalEnemy,
+                primaryEnemy,
                 allies,
                 enemies,
                 obstacles,
@@ -1771,7 +1843,7 @@ public static class CombatWorldService
         }
         AddAssistancePositionCandidates(
             actor,
-            provisionalEnemy,
+            primaryEnemy,
             allies,
             enemies,
             obstacles,
@@ -1780,7 +1852,7 @@ public static class CombatWorldService
             result);
         AddSafePositionCandidates(
             actor,
-            provisionalEnemy,
+            primaryEnemy,
             allies,
             enemies,
             obstacles,
@@ -1796,7 +1868,7 @@ public static class CombatWorldService
                 actor,
                 ResolveRallySlotTile(actor, center, 2.25f),
                 CombatPositionRole.AllyRally,
-                provisionalEnemy,
+                primaryEnemy,
                 allies,
                 enemies,
                 obstacles,
@@ -1814,7 +1886,7 @@ public static class CombatWorldService
                         ? actor.current_tile
                         : ResolveRallySlotTile(actor, captain.current_position, 2.5f),
                     CombatPositionRole.CaptainRally,
-                    provisionalEnemy,
+                    primaryEnemy,
                     allies,
                     enemies,
                     obstacles,
@@ -1826,7 +1898,7 @@ public static class CombatWorldService
         {
             AddRangePositionCandidates(
                 actor,
-                provisionalEnemy,
+                primaryEnemy,
                 allies,
                 enemies,
                 obstacles,
@@ -1843,7 +1915,7 @@ public static class CombatWorldService
             : [60f, -60f, 180f];
         AddRangePositionCandidates(
             actor,
-            provisionalEnemy,
+            primaryEnemy,
             allies,
             enemies,
             obstacles,
@@ -2104,7 +2176,8 @@ public static class CombatWorldService
             allySupport,
             crowding,
             clearShotMask,
-            relatedAllyId));
+            relatedAllyId,
+            tile == actor.current_tile));
     }
 
     /// <summary>判断候选移动线段是否穿过会真实阻挡该角色的敌对墙体。</summary>
@@ -2385,13 +2458,70 @@ public static class CombatWorldService
         CombatActorRuntime runtime)
     {
         double now = CurrentTime;
+        float targetDistance = Vector2.Distance(actor.current_position, target.current_position);
         if (runtime.LastProgressAt <= 0d ||
-            runtime.LastProgressTargetId != target.getID() ||
-            Vector2.Distance(runtime.LastProgressPosition, actor.current_position) >= 0.4f)
+            runtime.LastProgressTargetId != target.getID())
         {
             runtime.LastProgressAt = now;
             runtime.LastProgressPosition = actor.current_position;
             runtime.LastProgressTargetId = target.getID();
+            runtime.LastProgressTargetDistance = targetDistance;
+            runtime.LastProgressGoalTile = runtime.Movement.GoalTile;
+            runtime.TargetPathFailures = 0;
+            return;
+        }
+
+        WorldTile progressGoal = runtime.Movement.GoalTile;
+        bool goalChanged = progressGoal != runtime.LastProgressGoalTile;
+        if (goalChanged)
+        {
+            runtime.LastProgressGoalTile = progressGoal;
+            runtime.LastProgressPosition = actor.current_position;
+        }
+        bool moved = !goalChanged &&
+                     Vector2.Distance(runtime.LastProgressPosition, actor.current_position) >= 0.4f;
+        bool progressed = false;
+        if (moved)
+        {
+            CombatIntent intent = runtime.Plan?.Intent ?? CombatIntent.None;
+            if (intent == CombatIntent.Disengage)
+            {
+                progressed = targetDistance >= runtime.LastProgressTargetDistance + 0.2f;
+            }
+            else if (intent is CombatIntent.Regroup or CombatIntent.Protect)
+            {
+                if (progressGoal != null)
+                {
+                    float oldGoalDistance = Vector2.Distance(
+                        runtime.LastProgressPosition,
+                        progressGoal.posV);
+                    float newGoalDistance = Vector2.Distance(
+                        actor.current_position,
+                        progressGoal.posV);
+                    progressed = newGoalDistance + 0.2f <= oldGoalDistance ||
+                                 newGoalDistance < 0.75f;
+                }
+            }
+            else if (runtime.StanceProfile.HasValue)
+            {
+                float preferred = runtime.StanceProfile.Value.PreferredRange;
+                float oldError = Mathf.Abs(runtime.LastProgressTargetDistance - preferred);
+                float newError = Mathf.Abs(targetDistance - preferred);
+                progressed = newError + 0.2f <= oldError ||
+                             targetDistance >= runtime.StanceProfile.Value.MinRange &&
+                             targetDistance <= runtime.StanceProfile.Value.MaxRange + target.stats[S.size];
+            }
+            else
+            {
+                progressed = targetDistance + 0.2f <= runtime.LastProgressTargetDistance;
+            }
+        }
+        if (progressed)
+        {
+            runtime.LastProgressAt = now;
+            runtime.LastProgressPosition = actor.current_position;
+            runtime.LastProgressTargetDistance = targetDistance;
+            runtime.LastProgressGoalTile = progressGoal;
             runtime.TargetPathFailures = 0;
             return;
         }
@@ -2409,6 +2539,7 @@ public static class CombatWorldService
             runtime.IgnoreCurrentTargetUntil = now + 3d;
             runtime.Plan = null;
             runtime.CurrentTargetId = 0;
+            ClearStance(runtime);
             actor.clearAttackTarget();
             CombatMovementService.Clear(
                 actor,
@@ -2427,6 +2558,7 @@ public static class CombatWorldService
             if (runtime.CurrentTargetId == 0) return;
             runtime.Plan = null;
             runtime.CurrentTargetId = 0;
+            ClearStance(runtime);
             runtime.ExternalTargetDirty = true;
             runtime.NextPlanAt = 0d;
             runtime.NextActionAttemptAt = 0d;
@@ -2437,6 +2569,7 @@ public static class CombatWorldService
         if (runtime.Plan?.HasEnemy == true &&
             runtime.Plan.PrimaryEnemy.Id == targetId)
             return;
+        if (runtime.StanceTargetId != targetId) ClearStance(runtime);
         runtime.CurrentTargetId = targetId;
         runtime.ExternalTargetDirty = true;
         runtime.NextPlanAt = 0d;
@@ -2449,11 +2582,35 @@ public static class CombatWorldService
         }
     }
 
+    private static void UpdateStance(CombatActorRuntime runtime, CombatPlan plan)
+    {
+        if (!plan.PositioningProfile.HasValue || !plan.PositioningActionKey.HasValue)
+        {
+            ClearStance(runtime);
+            return;
+        }
+        bool changed = runtime.StanceTargetId != plan.PrimaryEnemy.Id ||
+                       !runtime.StanceActionKey.HasValue ||
+                       runtime.StanceActionKey.Value != plan.PositioningActionKey.Value;
+        runtime.StanceTargetId = plan.PrimaryEnemy.Id;
+        runtime.StanceActionKey = plan.PositioningActionKey;
+        runtime.StanceProfile = plan.PositioningProfile;
+        if (changed) CombatDiagnostics.RecordStanceSwitch();
+    }
+
+    private static void ClearStance(CombatActorRuntime runtime)
+    {
+        runtime.StanceTargetId = 0;
+        runtime.StanceActionKey = null;
+        runtime.StanceProfile = null;
+    }
+
     private static void LeaveCombat(Actor actor, CombatActorRuntime runtime)
     {
         runtime.Plan = null;
         runtime.IsEngaged = false;
         runtime.CurrentTargetId = 0;
+        ClearStance(runtime);
         runtime.NextActionAttemptAt = 0d;
         ResetDisplayedActivity(runtime);
         CombatMovementService.Clear(
@@ -2481,9 +2638,9 @@ public static class CombatWorldService
         {
             action = CombatActivityAction.Ready;
         }
-        else if (runtime.Plan?.Action != null)
+        else if (runtime.Plan?.PrimaryAction != null)
         {
-            action = ResolveActionActivity(runtime.Plan.ActionUse, preparing: true);
+            action = ResolveActionActivity(runtime.Plan.PrimaryActionUse, preparing: true);
         }
         else if (runtime.Plan?.HasEnemy == true &&
                  movement is not (CombatActivityMovement.Retreat or CombatActivityMovement.Observe))
@@ -2606,29 +2763,67 @@ public static class CombatWorldService
         return SkillTargetRelationResolver.IsSharedHostile(actor, target);
     }
 
-    private static BaseSimObject ResolveActionTarget(Actor actor, CombatPlan plan)
+    private static bool HasValidHostileBindings(CombatPlan plan)
     {
-        return ResolveActionTarget(actor, plan, plan.Action);
+        for (int i = 0; i < plan.ActionSequence.Length; i++)
+        {
+            CombatPlannedAction action = plan.ActionSequence[i];
+            if (action.Use is not (CombatActionUse.Offense or CombatActionUse.Control) ||
+                action.Candidate.Profile.TargetMode ==
+                SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self)
+                continue;
+            if (action.Target.Id != plan.PrimaryEnemy.Id) return false;
+        }
+        return true;
     }
 
     private static BaseSimObject ResolveActionTarget(
         Actor actor,
         CombatPlan plan,
-        CombatActionCandidate candidate)
+        in CombatPlannedAction plannedAction)
     {
-        if (candidate?.Profile.TargetMode ==
+        CombatActionCandidate candidate = plannedAction.Candidate;
+        if (candidate.Profile.TargetMode ==
             SkillLibV3.ActiveAbilities.ActiveAbilityTargetMode.Self)
             return actor;
-        CombatantSnapshot plannedTarget = ReferenceEquals(candidate, plan.BackupAction)
-            ? plan.BackupActionTarget
-            : plan.ActionTarget;
-        if (!plannedTarget.Object.isRekt()) return plannedTarget.Object;
-        CombatActionUse use = ReferenceEquals(candidate, plan.BackupAction)
-            ? plan.BackupActionUse
-            : plan.ActionUse;
-        if (candidate != null && use is CombatActionUse.Defense or CombatActionUse.Support)
+        if (plannedAction.Target.Object != null &&
+            !plannedAction.Target.Object.isRekt())
+            return plannedAction.Target.Object;
+        if (plannedAction.Use is CombatActionUse.Defense or CombatActionUse.Support)
             return actor;
         return plan.PrimaryEnemy.Object;
+    }
+
+    private static bool IsWithinImmediateActionRange(
+        Actor actor,
+        BaseSimObject enemy,
+        BaseSimObject actionTarget,
+        CombatActionCandidate candidate)
+    {
+        CombatActionProfile profile = candidate.Profile;
+        bool selfCenteredHostile = actionTarget == actor;
+        if (!selfCenteredHostile)
+            return IsWithinActionRange(actor, actionTarget, profile);
+        float effectRange = Mathf.Max(profile.MaxRange, profile.EffectRadius) + enemy.stats[S.size];
+        return Vector2.Distance(actor.current_position, enemy.current_position) <= effectRange;
+    }
+
+    private static bool IsWithinPlannedActionRange(
+        Actor actor,
+        CombatPlan plan,
+        in CombatPlannedAction plannedAction,
+        BaseSimObject actionTarget)
+    {
+        CombatActionProfile profile = plannedAction.Candidate.Profile;
+        bool selfCenteredHostile =
+            actionTarget == actor &&
+            plannedAction.Use is CombatActionUse.Offense or CombatActionUse.Control;
+        if (!selfCenteredHostile)
+            return IsWithinActionRange(actor, actionTarget, profile);
+
+        BaseSimObject enemy = plan.PrimaryEnemy.Object;
+        float effectRange = Mathf.Max(profile.MaxRange, profile.EffectRadius) + enemy.stats[S.size];
+        return Vector2.Distance(actor.current_position, enemy.current_position) <= effectRange;
     }
 
     private static bool IsWithinActionRange(
@@ -2636,7 +2831,6 @@ public static class CombatWorldService
         BaseSimObject target,
         CombatActionProfile profile)
     {
-        if (target.isRekt()) return false;
         if (target == actor) return true;
         float distance = Vector2.Distance(actor.current_position, target.current_position);
         float maxRange = profile.MaxRange + target.stats[S.size];
@@ -2754,9 +2948,14 @@ public static class CombatWorldService
         {
             long hash = actor.getID() * 1103515245L + 12345L;
             float roll = (hash & 0xFFFF) / 65535f;
+            bool highFidelity = IsHighFidelity(actor);
             return Mathf.Lerp(
-                TacticalCombatSettings.DormantProbeMinInterval,
-                TacticalCombatSettings.DormantProbeMaxInterval,
+                highFidelity
+                    ? TacticalCombatSettings.VisibleDormantProbeMinInterval
+                    : TacticalCombatSettings.BackgroundDormantProbeMinInterval,
+                highFidelity
+                    ? TacticalCombatSettings.VisibleDormantProbeMaxInterval
+                    : TacticalCombatSettings.BackgroundDormantProbeMaxInterval,
                 roll);
         }
     }

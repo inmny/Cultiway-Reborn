@@ -52,15 +52,28 @@ internal static class CombatMovementService
         double now)
     {
         CombatMovementOrder movement = runtime.Movement;
-        if (!plan.HasPosition || plan.Position.Tile == null)
+        if (plan.MovementCommand == CombatMovementCommand.NoChange)
+        {
+            movement.PendingStop = false;
+            if (movement.GoalTile != null)
+            {
+                CombatDiagnostics.RecordMovementRetained(
+                    actor.getID(),
+                    movement.GoalTile,
+                    movement.GoalTile);
+            }
+            return;
+        }
+        if (plan.MovementCommand == CombatMovementCommand.HoldPosition)
         {
             RequestSmoothStop(actor, runtime);
             return;
         }
+        if (plan.Position.Tile == null) return;
 
-        WorldTile desired = plan.Position.Tile;
         CombatMovementKind kind = ResolveMovementKind(plan);
         long targetId = plan.PrimaryEnemy.Id;
+        WorldTile desired = plan.Position.Tile;
         movement.PendingStop = false;
 
         if (desired == actor.current_tile)
@@ -85,6 +98,10 @@ internal static class CombatMovementService
             return;
         }
 
+        bool reversesDirection = IsDirectionReversal(
+            actor.current_position,
+            movement.GoalTile,
+            desired);
         ExecuteEvent result = actor.goTo(
             desired,
             pPathOnWater: actor.isWaterCreature());
@@ -100,6 +117,7 @@ internal static class CombatMovementService
         movement.GoalIssuedAt = now;
         movement.RetargetAfter = now + ResolveMinimumLifetime(actor, plan.Role, kind, targetId);
         movement.ForceRefresh = false;
+        if (reversesDirection) CombatDiagnostics.RecordMovementReversal();
         CombatDiagnostics.RecordMovementIssued(actor.getID(), desired, force);
     }
 
@@ -184,6 +202,21 @@ internal static class CombatMovementService
         }
         CompleteStop(actor, runtime);
         return true;
+    }
+
+    private static bool IsDirectionReversal(
+        Vector2 actorPosition,
+        WorldTile oldGoal,
+        WorldTile newGoal)
+    {
+        if (oldGoal == null || newGoal == null || oldGoal == newGoal) return false;
+        Vector2 oldGoalPosition = oldGoal.posV;
+        Vector2 newGoalPosition = newGoal.posV;
+        Vector2 oldDirection = oldGoalPosition - actorPosition;
+        Vector2 newDirection = newGoalPosition - actorPosition;
+        if (oldDirection.sqrMagnitude < 0.25f || newDirection.sqrMagnitude < 0.25f)
+            return false;
+        return Vector2.Dot(oldDirection.normalized, newDirection.normalized) < -0.35f;
     }
 
     private static bool ShouldRetainOrder(

@@ -25,18 +25,16 @@ public static class CombatPlanner
             Role = ResolveRole(snapshot.Actions),
             Outcome = EstimateOutcome(snapshot)
         };
-        if (!TrySelectEnemy(snapshot, plan.Outcome, out CombatantSnapshot enemy, out float targetScore))
+        if (!TryResolveCommittedEnemy(snapshot, out CombatantSnapshot enemy))
             return plan;
 
         plan.HasEnemy = true;
         plan.PrimaryEnemy = enemy;
-        plan.TargetScore = targetScore;
         plan.Intent = ResolveIntent(snapshot, plan.Outcome, enemy, plan.Role);
         if (plan.Intent is CombatIntent.Assist or CombatIntent.Protect)
             plan.AssistedAllyId = enemy.ThreatenedAllyId;
         SelectActions(snapshot, plan);
-        plan.PositioningProfile = ResolvePositioningProfile(snapshot, plan);
-        SelectActionTargets(snapshot, plan);
+        ResolvePositioningProfile(snapshot, plan);
         SelectPosition(snapshot, plan);
         return plan;
     }
@@ -78,6 +76,28 @@ public static class CombatPlanner
         return new CombatOutcomeEstimate(ratio, survival, confidence);
     }
 
+    /// <summary>在动作和站位构造前确定本轮唯一交战目标。</summary>
+    internal static bool TrySelectPrimaryEnemy(
+        CombatPlanningSnapshot snapshot,
+        out CombatantSnapshot selected)
+    {
+        return TrySelectEnemy(snapshot, EstimateOutcome(snapshot), out selected, out _);
+    }
+
+    private static bool TryResolveCommittedEnemy(
+        CombatPlanningSnapshot snapshot,
+        out CombatantSnapshot selected)
+    {
+        for (int i = 0; i < snapshot.Enemies.Length; i++)
+        {
+            if (snapshot.Enemies[i].Id != snapshot.CommittedTargetId) continue;
+            selected = snapshot.Enemies[i];
+            return true;
+        }
+        selected = default;
+        return false;
+    }
+
     private static bool TrySelectEnemy(
         CombatPlanningSnapshot snapshot,
         CombatOutcomeEstimate outcome,
@@ -114,7 +134,7 @@ public static class CombatPlanner
                 };
                 score += 1.15f + enemy.ThreatSeverity * sourcePriority * 1.4f;
             }
-            if (enemy.IsAirborne && !CanReachAirTarget(snapshot.Actions)) score -= 2f;
+            if (enemy.IsAirborne && !snapshot.CanReachAirborneTarget) score -= 2f;
             if (outcome.StrengthRatio < EvenRatio)
             {
                 score += vulnerability * 0.7f;
@@ -144,19 +164,6 @@ public static class CombatPlanner
         return true;
     }
 
-    private static bool CanReachAirTarget(IReadOnlyList<CombatActionCandidate> actions)
-    {
-        for (int i = 0; i < actions.Count; i++)
-        {
-            CombatActionProfile profile = actions[i].Profile;
-            if (profile.MaxRange > 2f &&
-                (profile.HasPurpose(CombatActionPurpose.Offense) ||
-                 profile.HasPurpose(CombatActionPurpose.Control)))
-                return true;
-        }
-        return false;
-    }
-
     private static CombatIntent ResolveIntent(
         CombatPlanningSnapshot snapshot,
         CombatOutcomeEstimate outcome,
@@ -166,13 +173,12 @@ public static class CombatPlanner
         if (snapshot.Directive == CombatDirective.Retreat || snapshot.GroupRouted)
             return snapshot.CanRetreat ? CombatIntent.Disengage : CombatIntent.Reposition;
 
-        if (enemy.ThreatenedAllyId != 0 &&
-            enemy.ThreatenedAllyId != snapshot.ActorId)
-        {
-            return HasProtectiveAction(snapshot.Actions)
-                ? CombatIntent.Protect
-                : CombatIntent.Assist;
-        }
+        bool protectingThreatenedAlly =
+            snapshot.Directive == CombatDirective.Protect &&
+            enemy.ThreatenedAllyId != 0 &&
+            enemy.ThreatenedAllyId != snapshot.ActorId &&
+            HasProtectiveAction(snapshot.Actions);
+        if (protectingThreatenedAlly) return CombatIntent.Protect;
 
         bool woundedAlly = false;
         for (int i = 0; i < snapshot.Allies.Length; i++)
@@ -183,7 +189,11 @@ public static class CombatPlanner
         }
         if (snapshot.Directive == CombatDirective.Protect && woundedAlly)
             return CombatIntent.Protect;
-        bool needsRegroup = snapshot.Allies.Length > 0 &&
+        bool maintainingPressure = snapshot.CurrentTargetId == enemy.Id &&
+                                   snapshot.CurrentIntent is not (CombatIntent.None or
+                                       CombatIntent.Regroup or CombatIntent.Disengage);
+        bool needsRegroup = !maintainingPressure &&
+                            snapshot.Allies.Length > 0 &&
                             (snapshot.CurrentIntent == CombatIntent.Regroup
                                 ? snapshot.FormationCohesion < TacticalCombatSettings.RegroupExitCohesion
                                 : snapshot.FormationCohesion < TacticalCombatSettings.RegroupEnterCohesion) &&
@@ -214,8 +224,6 @@ public static class CombatPlanner
             if (IsBacklineRole(role)) return CombatIntent.Reposition;
             return CombatIntent.Hold;
         }
-        if (needsRegroup && effectiveRatio < DominantRatio)
-            return CombatIntent.Regroup;
         if (snapshot.HealthRatio < 0.35f && outcome.StrengthRatio < FavorableRatio)
             return CombatIntent.Reposition;
         if (snapshot.Directive == CombatDirective.Hold)
@@ -345,17 +353,29 @@ public static class CombatPlanner
             }
         }
 
-        plan.Action = scored[selectedIndex].Candidate;
-        plan.ActionUse = scored[selectedIndex].Use;
-        plan.ActionScore = scored[selectedIndex].Score;
+        ScoredAction selectedAction = scored[selectedIndex];
+        var sequence = new List<CombatPlannedAction>(snapshot.Actions.Length);
+        var added = new HashSet<CombatActionKey>();
+        AddChoice(selectedAction);
         for (int i = 0; i < scored.Count; i++)
         {
-            if (i == selectedIndex ||
-                scored[i].Candidate.Key == plan.Action.Key)
-                continue;
-            plan.BackupAction = scored[i].Candidate;
-            plan.BackupActionUse = scored[i].Use;
-            break;
+            if (i == selectedIndex) continue;
+            AddChoice(scored[i]);
+        }
+        plan.ActionSequence = sequence.ToArray();
+
+        void AddChoice(ScoredAction choice)
+        {
+            if (!added.Add(choice.Candidate.Key)) return;
+            CombatantSnapshot target = ResolveActionTarget(
+                snapshot,
+                plan,
+                choice.Candidate,
+                choice.Use);
+            sequence.Add(new CombatPlannedAction(
+                choice.Candidate,
+                choice.Use,
+                target));
         }
     }
 
@@ -558,48 +578,71 @@ public static class CombatPlanner
         return 0.25f + need * 1.5f;
     }
 
-    private static void SelectActionTargets(CombatPlanningSnapshot snapshot, CombatPlan plan)
-    {
-        plan.ActionTarget = ResolveActionTarget(snapshot, plan, plan.Action, plan.ActionUse);
-        plan.BackupActionTarget = ResolveActionTarget(
-            snapshot,
-            plan,
-            plan.BackupAction,
-            plan.BackupActionUse);
-    }
-
     /// <summary>
-    /// 选择长期站位所依据的动作画像。当前动作进入冷却时仍保留它的距离，避免远程角色突然按近战距离移动。
+    /// 选择长期站位所依据的稳定敌对动作。即时动作冷却和支援动作不得改写战斗姿态。
     /// </summary>
-    private static CombatActionProfile? ResolvePositioningProfile(
+    private static void ResolvePositioningProfile(
         CombatPlanningSnapshot snapshot,
         CombatPlan plan)
     {
-        if (plan.Action != null) return plan.Action.Profile;
-        if (snapshot.CurrentActionKey.HasValue)
+        for (int i = 0; i < snapshot.Actions.Length; i++)
         {
-            CombatActionKey currentKey = snapshot.CurrentActionKey.Value;
+            CombatActionCandidate candidate = snapshot.Actions[i];
+            if (candidate.Key.ProviderId != PhysicalCombatActionProvider.ProviderId ||
+                !CanAnchorStance(candidate) ||
+                plan.PrimaryEnemy.IsAirborne && candidate.Profile.MaxRange <= 2f)
+                continue;
+            plan.PositioningProfile = candidate.Profile;
+            plan.PositioningActionKey = candidate.Key;
+            return;
+        }
+
+        if (snapshot.CurrentTargetId == plan.PrimaryEnemy.Id &&
+            snapshot.CurrentStanceKey.HasValue)
+        {
+            CombatActionKey currentKey = snapshot.CurrentStanceKey.Value;
             for (int i = 0; i < snapshot.Actions.Length; i++)
             {
                 CombatActionCandidate candidate = snapshot.Actions[i];
-                if (candidate.Key == currentKey) return candidate.Profile;
+                if (candidate.Key != currentKey || !CanAnchorStance(candidate)) continue;
+                plan.PositioningProfile = candidate.Profile;
+                plan.PositioningActionKey = candidate.Key;
+                return;
             }
         }
 
-        CombatActionProfile? best = null;
+        CombatActionCandidate best = null;
         float bestScore = float.MinValue;
         for (int i = 0; i < snapshot.Actions.Length; i++)
         {
-            CombatActionProfile profile = snapshot.Actions[i].Profile;
-            if (!profile.HasPurpose(CombatActionPurpose.Offense) &&
-                !profile.HasPurpose(CombatActionPurpose.Control))
-                continue;
-            float score = profile.Power + profile.Control + profile.BaseWeight * 0.1f;
+            CombatActionCandidate candidate = snapshot.Actions[i];
+            if (!CanAnchorStance(candidate)) continue;
+            CombatActionProfile profile = candidate.Profile;
+            if (plan.PrimaryEnemy.IsAirborne && profile.MaxRange <= 2f) continue;
+
+            float value = profile.Power + profile.Control * 0.8f + profile.BaseWeight * 0.1f;
+            float reliability = Mathf.Lerp(0.5f, 1f, profile.Reliability);
+            float burden = 1f + profile.ResourceCost * 1.5f + profile.Cooldown * 0.25f;
+            float score = value * reliability / burden;
+            if (candidate.Key.ProviderId == PhysicalCombatActionProvider.ProviderId)
+                score += 0.75f;
             if (score <= bestScore) continue;
-            best = profile;
+            best = candidate;
             bestScore = score;
         }
-        return best;
+        if (best == null) return;
+        plan.PositioningProfile = best.Profile;
+        plan.PositioningActionKey = best.Key;
+    }
+
+    private static bool CanAnchorStance(CombatActionCandidate candidate)
+    {
+        if (candidate.Key.ProviderId == AdvancedCombatActionProvider.ProviderId ||
+            candidate.Profile.TargetMode == ActiveAbilityTargetMode.Self)
+            return false;
+        CombatActionProfile profile = candidate.Profile;
+        return profile.HasPurpose(CombatActionPurpose.Offense) ||
+               profile.HasPurpose(CombatActionPurpose.Control);
     }
 
     private static CombatantSnapshot ResolveActionTarget(
@@ -608,7 +651,6 @@ public static class CombatPlanner
         CombatActionCandidate action,
         CombatActionUse use)
     {
-        if (action == null) return plan.PrimaryEnemy;
         CombatActionProfile profile = action.Profile;
         if (profile.TargetMode == ActiveAbilityTargetMode.Self)
             return default;
@@ -658,11 +700,22 @@ public static class CombatPlanner
         CombatActionProfile? positioningProfile = plan.PositioningProfile;
         float preferredRange = positioningProfile?.PreferredRange ?? 1f;
         float currentDistance = Vector2.Distance(snapshot.Position, plan.PrimaryEnemy.Position);
+        bool retainingStance = snapshot.CurrentTargetId == plan.PrimaryEnemy.Id &&
+                               snapshot.CurrentStanceKey.HasValue &&
+                               plan.PositioningActionKey.HasValue &&
+                               snapshot.CurrentStanceKey.Value == plan.PositioningActionKey.Value;
+        float currentMinRange = positioningProfile.HasValue
+            ? Mathf.Max(0f, positioningProfile.Value.MinRange - (retainingStance ? 1f : 0f))
+            : 0f;
+        float currentMaxRange = positioningProfile.HasValue
+            ? positioningProfile.Value.MaxRange + plan.PrimaryEnemy.Size + (retainingStance ? 1.5f : 0f)
+            : 0f;
         bool currentUsable = positioningProfile.HasValue &&
-                             currentDistance >= positioningProfile.Value.MinRange &&
-                              currentDistance <= positioningProfile.Value.MaxRange + plan.PrimaryEnemy.Size &&
-                              (!RequiresClearShot(positioningProfile.Value) ||
-                               plan.PrimaryEnemy.HasLineOfFire);
+                             currentDistance >= currentMinRange &&
+                             currentDistance <= currentMaxRange &&
+                             (!RequiresClearShot(positioningProfile.Value) ||
+                              plan.PrimaryEnemy.HasLineOfFire);
+        bool hasImmediateAttack = HasImmediateHostileAction(plan, currentDistance);
 
         float bestScore = float.MinValue;
         float currentScore = float.MinValue;
@@ -738,27 +791,59 @@ public static class CombatPlanner
             if (plan.Intent is CombatIntent.Engage or CombatIntent.Hold &&
                 position.Role == CombatPositionRole.CityRetreat)
                 score -= 5f;
-            if (Vector2.Distance(snapshot.Position, position.Position) < 0.25f)
+            if (position.IsCurrentPosition)
                 currentScore = score;
             if (score <= bestScore) continue;
             bestScore = score;
             best = position;
         }
 
-        if (bestScore == float.MinValue ||
-            Vector2.Distance(snapshot.Position, best.Position) < 0.75f)
+        if (bestScore == float.MinValue) return;
+        bool pressureIntent = plan.Intent is CombatIntent.Engage or CombatIntent.Hold;
+        if (pressureIntent && currentUsable && hasImmediateAttack)
+        {
+            plan.MovementCommand = CombatMovementCommand.HoldPosition;
             return;
-        bool tacticalRelocation = currentUsable &&
-                                  plan.Intent is CombatIntent.Engage or CombatIntent.Hold;
+        }
+        if (best.IsCurrentPosition ||
+            Vector2.Distance(snapshot.Position, best.Position) < 0.75f)
+        {
+            plan.MovementCommand = CombatMovementCommand.HoldPosition;
+            return;
+        }
+        bool tacticalRelocation = currentUsable && pressureIntent;
         if (tacticalRelocation)
         {
             if (currentScore != float.MinValue &&
                 bestScore - currentScore < TacticalCombatSettings.RepositionScoreImprovement)
+            {
+                plan.MovementCommand = CombatMovementCommand.HoldPosition;
                 return;
+            }
             plan.Intent = CombatIntent.Reposition;
         }
         plan.Position = best;
-        plan.HasPosition = true;
+        plan.MovementCommand = CombatMovementCommand.Move;
+    }
+
+    private static bool HasImmediateHostileAction(CombatPlan plan, float enemyDistance)
+    {
+        for (int i = 0; i < plan.ActionSequence.Length; i++)
+        {
+            CombatPlannedAction action = plan.ActionSequence[i];
+            bool selfCentered = action.Candidate.Profile.TargetMode == ActiveAbilityTargetMode.Self;
+            if (action.Use is not (CombatActionUse.Offense or CombatActionUse.Control) ||
+                !selfCentered && action.Target.Id != plan.PrimaryEnemy.Id)
+                continue;
+            CombatActionProfile profile = action.Candidate.Profile;
+            float maxRange = selfCentered
+                ? Mathf.Max(profile.MaxRange, profile.EffectRadius)
+                : profile.MaxRange;
+            if (enemyDistance >= (selfCentered ? 0f : profile.MinRange) &&
+                enemyDistance <= maxRange + plan.PrimaryEnemy.Size)
+                return true;
+        }
+        return false;
     }
 
     private static bool RequiresClearShot(CombatActionProfile? nullableProfile)
