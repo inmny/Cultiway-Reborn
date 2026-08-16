@@ -8,6 +8,7 @@ using Cultiway.Const;
 using Cultiway.Content;
 using Cultiway.Content.Artifacts.Baibao;
 using Cultiway.Content.Components;
+using Cultiway.Content.SubWorlds;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
@@ -100,12 +101,27 @@ namespace Cultiway
 
             if (autoCreateDeveloperSubWorld && developerSubWorldWorldId != MapBox.current_world_seed_id)
             {
-                long instanceId = SubWorldManager.Create(
-                    Core.SubWorlds.SubWorldManager.TestSubWorldTemplateId,
-                    new SubWorldAnchor(MapBox.width / 2, MapBox.height / 2),
-                    1);
-                SubWorldManager.Focus(instanceId);
-                developerSubWorldWorldId = MapBox.current_world_seed_id;
+                long testInstanceId = -1;
+                long ruinInstanceId = -1;
+                try
+                {
+                    testInstanceId = SubWorldManager.Create(
+                        Core.SubWorlds.SubWorldManager.TestSubWorldTemplateId,
+                        new SubWorldAnchor(MapBox.width / 2, MapBox.height / 2),
+                        1);
+                    ruinInstanceId = SubWorldManager.Create(
+                        SubWorldTemplates.RuinedDaoGround.id,
+                        new SubWorldAnchor(MapBox.width / 2, MapBox.height / 2),
+                        MapBox.current_world_seed_id);
+                    SubWorldManager.Focus(ruinInstanceId);
+                    developerSubWorldWorldId = MapBox.current_world_seed_id;
+                }
+                catch
+                {
+                    if (ruinInstanceId > 0) SubWorldManager.Destroy(ruinInstanceId);
+                    if (testInstanceId > 0) SubWorldManager.Destroy(testInstanceId);
+                    throw;
+                }
             }
 
             long hostMeasurement = FramePriorityGovernor.StartHostMeasurement();

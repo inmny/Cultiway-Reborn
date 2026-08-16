@@ -75,22 +75,45 @@ internal sealed class SubWorldManager
             anchor,
             parameters ?? SubWorldCreationParameters.Empty);
         long instanceId = ++nextInstanceId;
-        var runtime = new SubWorldRuntime(
-            instanceId,
-            template,
-            seed,
-            anchor,
-            scene,
-            clockProfile,
-            visualProfile,
-            jobRunner);
-        runtime.Start();
-        SubWorldSpatialSlot slot = spatialLayout.Allocate(instanceId, runtime.Grid.Width, runtime.Grid.Height);
-        var worldView = new SubWorldWorldView(runtime, slot);
-        runtimes.Add(instanceId, runtime);
-        worldViews.Add(instanceId, worldView);
-        navigationSection.AddRuntime(runtime);
-        return instanceId;
+        SubWorldRuntime runtime = null;
+        SubWorldWorldView worldView = null;
+        bool slotAllocated = false;
+        bool registered = false;
+        try
+        {
+            runtime = new SubWorldRuntime(
+                instanceId,
+                template,
+                seed,
+                anchor,
+                scene,
+                clockProfile,
+                visualProfile,
+                jobRunner);
+            runtime.InitializeScene(scene);
+            runtime.Start();
+            SubWorldSpatialSlot slot = spatialLayout.Allocate(instanceId, runtime.Grid.Width, runtime.Grid.Height);
+            slotAllocated = true;
+            worldView = new SubWorldWorldView(runtime, slot);
+            runtimes.Add(instanceId, runtime);
+            worldViews.Add(instanceId, worldView);
+            registered = true;
+            navigationSection.AddRuntime(runtime);
+            return instanceId;
+        }
+        catch
+        {
+            if (registered)
+            {
+                navigationSection.RemoveRuntime(instanceId);
+                worldViews.Remove(instanceId);
+                runtimes.Remove(instanceId);
+            }
+            worldView?.Destroy();
+            if (slotAllocated) spatialLayout.Release(instanceId);
+            runtime?.Destroy();
+            throw;
+        }
     }
 
     /// <summary>
@@ -193,8 +216,14 @@ internal sealed class SubWorldManager
     internal void FocusPawn()
     {
         EnsureAcceptingOperations();
+        if (!FocusedInstanceId.HasValue) return;
         long instanceId = FocusedInstanceId.Value;
         cameraNavigator.FocusPawn(Get(instanceId), spatialLayout.Get(instanceId));
+    }
+
+    internal bool HasDebugControllableActor(long instanceId)
+    {
+        return Get(instanceId).TryGetDebugControllableActor(out _);
     }
 
     /// <summary>由 WorldView 左键选择实例，但不移动相机。</summary>

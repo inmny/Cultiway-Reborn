@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Core.Components;
 using Cultiway.Core.SubWorlds.Model;
+using UnityEngine;
 
 namespace Cultiway.Core.SubWorlds.Runtime;
 
@@ -84,6 +86,16 @@ internal sealed class SubWorldGrid
             throw new ArgumentOutOfRangeException(nameof(x), $"SubWorld 格子坐标超出地图范围: ({x}, {y})");
         }
         return y * Width + x;
+    }
+
+    /// <summary>取得 Position 所在格子的 row-major 索引。</summary>
+    /// <param name="position">地图局部坐标。</param>
+    /// <returns>Position 所在格子的索引。</returns>
+    internal int GetAnchorTileIndex(in Position position)
+    {
+        return GetIndex(
+            Mathf.FloorToInt(position.value.x),
+            Mathf.FloorToInt(position.value.y));
     }
 
     /// <summary>

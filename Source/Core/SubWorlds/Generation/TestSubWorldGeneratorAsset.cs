@@ -56,7 +56,21 @@ public sealed class TestSubWorldGeneratorAsset : SubWorldGeneratorAsset
             ExitTileIndices = [exitIndex]
         };
 
-        return new SubWorldGeneratedScene(mapData, entryIndex);
+        SubWorldVisualProfileAsset visualProfile = ModClass.L.SubWorldVisualProfileLibrary.GetRequired(
+            template.visual_profile_id);
+        return new SubWorldGeneratedScene(
+            mapData,
+            [
+                new SubWorldSpawnPoint(SubWorldSpawnPointNames.Entry, entryIndex),
+                new SubWorldSpawnPoint(SubWorldSpawnPointNames.Exit, exitIndex)
+            ],
+            [
+                new SubWorldActorPlacement(
+                    visualProfile.pawn_actor_asset_id,
+                    entryIndex,
+                    4f,
+                    debugControllable: true)
+            ]);
     }
 
     private static void PlacePathfindingFixture(SubWorldTile[] tiles, int width, int height, int middleY)

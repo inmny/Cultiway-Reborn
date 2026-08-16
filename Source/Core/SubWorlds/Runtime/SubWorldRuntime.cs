@@ -4,6 +4,7 @@ using Cultiway.Core.Components;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Core.SubWorlds.Generation;
 using Cultiway.Core.SubWorlds.Model;
+using Cultiway.Core.SubWorlds.Objects;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -19,6 +20,8 @@ internal sealed class SubWorldRuntime
 
     private readonly EntityStore entityStore;
     private readonly SystemRoot systemRoot;
+    private Entity debugControllableActor;
+    private bool sceneInitialized;
 
     /// <summary>
     /// 从已生成场景构造一个尚未启动的小世界 Runtime。
@@ -47,6 +50,7 @@ internal sealed class SubWorldRuntime
         Anchor = anchor;
         MapData = scene.MapData;
         Grid = new SubWorldGrid(MapData);
+        SpawnPoints = new SubWorldSpawnPointCollection(scene.SpawnPoints, Grid.TileCount);
         Navigation = new SubWorldNavigationContext(instanceId, Grid);
         ClockProfile = clockProfile;
         VisualProfile = visualProfile;
@@ -56,15 +60,8 @@ internal sealed class SubWorldRuntime
             JobRunner = jobRunner
         };
         systemRoot = new SystemRoot(entityStore, $"SubWorld.{instanceId}");
-        int pawnTileIndex = scene.InitialPawnTileIndex;
-        Vector3 pawnPosition = new(
-            Grid.GetX(pawnTileIndex) + 0.5f,
-            Grid.GetY(pawnTileIndex) + 0.5f,
-            0f);
-        PawnEntity = entityStore.CreateEntity(
-            new Position(pawnPosition),
-            new SubWorldUnitVisual(visualProfile.pawn_actor_asset_id),
-            new SubWorldMovement(4f, pawnTileIndex));
+        LocalObjectIds = new SubWorldLocalObjectIdAllocator();
+        Buildings = new SubWorldBuildingSpatialIndex(this, Grid.TileCount);
         systemRoot.Add(new SubWorldMovementSystem(this));
 
         State = SubWorldRuntimeState.Created;
@@ -96,8 +93,14 @@ internal sealed class SubWorldRuntime
     /// <summary>驱动此实例 ECS 系统的根节点。</summary>
     internal SystemRoot SystemRoot => systemRoot;
 
-    /// <summary>第一阶段创建的测试 Pawn Entity。</summary>
-    internal Entity PawnEntity { get; }
+    /// <summary>用途 Generator 声明的命名出生点。</summary>
+    internal SubWorldSpawnPointCollection SpawnPoints { get; }
+
+    /// <summary>Runtime-local 且不复用的 Building ID 分配器。</summary>
+    internal SubWorldLocalObjectIdAllocator LocalObjectIds { get; }
+
+    /// <summary>LocalObjectId 与 Tile 到 Building Entity 的空间索引。</summary>
+    internal SubWorldBuildingSpatialIndex Buildings { get; }
 
     /// <summary>实例私有的地图坐标与 terrain 引用缓存。</summary>
     internal SubWorldGrid Grid { get; }
@@ -120,6 +123,62 @@ internal sealed class SubWorldRuntime
     /// <summary>已经通过边界验证、等待移动系统处理的命令。</summary>
     internal Queue<MoveToTileCommand> MoveCommandQueue { get; } = new();
 
+    /// <summary>在 Runtime 启动前物化 Generator 声明的初始 Actor 和 Building。</summary>
+    internal void InitializeScene(SubWorldGeneratedScene scene)
+    {
+        if (scene == null) throw new ArgumentNullException(nameof(scene));
+        if (sceneInitialized) throw new InvalidOperationException($"SubWorld Runtime 已完成场景物化: {InstanceId}");
+        if (State != SubWorldRuntimeState.Created)
+            throw new InvalidOperationException($"SubWorld Runtime 只能在 Created 状态物化场景: {InstanceId}");
+
+        for (int i = 0; i < scene.BuildingPlacements.Length; i++)
+        {
+            SubWorldBuildingPlacement placement = scene.BuildingPlacements[i];
+            Vector3 position = GetTileCenter(placement.AnchorTileIndex);
+            Entity building = entityStore.CreateEntity(
+                new Position(position),
+                new SubWorldBuilding(placement.LocalObjectId, placement.BuildingAssetId),
+                new SubWorldVisual(placement.VisualVariantIndex, placement.VisualState));
+            Buildings.Register(building);
+        }
+
+        for (int i = 0; i < scene.ActorPlacements.Length; i++)
+        {
+            SubWorldActorPlacement placement = scene.ActorPlacements[i];
+            Entity actor = entityStore.CreateEntity(
+                new Position(GetTileCenter(placement.TileIndex)),
+                new SubWorldActor(placement.ActorAssetId),
+                new SubWorldVisual(placement.VisualVariantIndex, placement.VisualState),
+                new SubWorldMovement(placement.MoveSpeedTilesPerSecond, placement.TileIndex));
+            if (placement.DebugControllable) SetDebugControllableActor(actor);
+        }
+
+        sceneInitialized = true;
+    }
+
+    private Vector3 GetTileCenter(int tileIndex)
+    {
+        return new Vector3(Grid.GetX(tileIndex) + 0.5f, Grid.GetY(tileIndex) + 0.5f, 0f);
+    }
+
+    /// <summary>注册 Debug 地图唯一可由右键命令控制的 Actor。</summary>
+    internal void SetDebugControllableActor(Entity entity)
+    {
+        if (entity.IsNull || entity.Store != entityStore || !entity.HasComponent<SubWorldActor>() ||
+            !entity.HasComponent<Position>() || !entity.HasComponent<SubWorldVisual>() ||
+            !entity.HasComponent<SubWorldMovement>())
+            throw new InvalidOperationException("Debug controllable Actor 缺少类别、Position、Visual 或 Movement");
+        if (!debugControllableActor.IsNull)
+            throw new InvalidOperationException($"SubWorld Runtime 已存在 Debug controllable Actor: {InstanceId}");
+        debugControllableActor = entity;
+    }
+
+    internal bool TryGetDebugControllableActor(out Entity entity)
+    {
+        entity = debugControllableActor;
+        return !entity.IsNull && entity.Store == entityStore;
+    }
+
     /// <summary>地图或实体结构每次变更后递增的版本号。</summary>
     internal long Revision { get; private set; }
 
@@ -131,6 +190,8 @@ internal sealed class SubWorldRuntime
     {
         if (State != SubWorldRuntimeState.Created)
             throw new InvalidOperationException($"SubWorld Runtime 不能从当前状态启动: instance={InstanceId}, state={State}");
+        if (!sceneInitialized)
+            throw new InvalidOperationException($"SubWorld Runtime 尚未完成场景物化: instance={InstanceId}");
         State = SubWorldRuntimeState.Running;
     }
 
@@ -178,7 +239,10 @@ internal sealed class SubWorldRuntime
     /// </summary>
     internal void Destroy()
     {
+        if (State == SubWorldRuntimeState.Collapsed) return;
         PathFinder.Instance.CancelWorld(Navigation.WorldKey, PathFailureReason.ClearWorld);
+        Buildings.Clear();
+        debugControllableActor = default;
         EntityList entities = entityStore.Entities.ToEntityList();
         for (int i = entities.Count - 1; i >= 0; i--)
         {

@@ -46,6 +46,7 @@ internal sealed class SubWorldWorldInputRouter
         if (!InputHelpers.mouseSupported || !InputHelpers.GetMouseButtonUp(1)) return;
 
         SubWorldRuntime runtime = manager.Get(worldView.InstanceId);
+        if (!runtime.TryGetDebugControllableActor(out Friflo.Engine.ECS.Entity debugActor)) return;
         Vector2 localPosition = worldView.Slot.ToLocal(worldPosition);
         int x = Mathf.FloorToInt(localPosition.x);
         int y = Mathf.FloorToInt(localPosition.y);
@@ -53,7 +54,7 @@ internal sealed class SubWorldWorldInputRouter
         manager.IssueCommand(runtime.InstanceId, new MoveToTileCommand(
             runtime.InstanceId,
             runtime.Revision,
-            runtime.PawnEntity,
+            debugActor,
             targetTileIndex));
     }
 }

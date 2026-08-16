@@ -58,12 +58,12 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
     }
     protected void RegisterAssets()
     {
-        if (typeof(TAsset).GetConstructors().All(x => x.GetParameters().Length > 0)) return;
-
+        if (!typeof(TAsset).IsAbstract &&
+            typeof(TAsset).GetConstructors().All(x => x.GetParameters().Length > 0)) return;
 
         var props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
         foreach (PropertyInfo prop in props)
-            if (prop.PropertyType == typeof(TAsset))
+            if (typeof(TAsset).IsAssignableFrom(prop.PropertyType))
             {
                 TAsset item;
                 var get_only_attr = prop.GetCustomAttribute<GetOnlyAttribute>();
@@ -85,7 +85,10 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
                     }
                     else
                     {
-                        item = Activator.CreateInstance<TAsset>();
+                        if (prop.PropertyType.IsAbstract || prop.PropertyType.GetConstructor(Type.EmptyTypes) == null)
+                            continue;
+
+                        item = (TAsset)Activator.CreateInstance(prop.PropertyType);
                         item.id = item_id;
                         ActionAfterCreation(prop, item);
                         item = Add(item);

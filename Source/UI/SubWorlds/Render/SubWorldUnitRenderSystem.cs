@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Core.Components;
+using Cultiway.Core.SubWorlds.Objects;
 using Cultiway.Core.SubWorlds.Runtime;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -9,8 +10,8 @@ using UnityEngine;
 
 namespace Cultiway.UI.SubWorlds.Render;
 
-/// <summary>查询小世界单位视觉组件，并使用原版 UnitRenderer prefab 提交 Sprite。</summary>
-internal sealed class SubWorldUnitRenderSystem : QuerySystem<Position, SubWorldUnitVisual>, IWorldStateClearable
+/// <summary>查询 Actor 类别与共享视觉状态，并使用原版 UnitRenderer prefab 提交 Sprite。</summary>
+internal sealed class SubWorldUnitRenderSystem : QuerySystem<Position, SubWorldActor, SubWorldVisual>, IWorldStateClearable
 {
     private const string UnitRendererPrefabPath = "prefabs/PrefabUnitRenderer";
 
@@ -47,9 +48,11 @@ internal sealed class SubWorldUnitRenderSystem : QuerySystem<Position, SubWorldU
         unitPool.ResetToStart();
         if (state.GameplayVisible)
         {
-            Query.ForEachEntity((ref Position position, ref SubWorldUnitVisual visual, Entity _) =>
+            Query.ForEachEntity((ref Position position, ref SubWorldActor actor, ref SubWorldVisual visual, Entity _) =>
             {
-                UnitVisualDefinition definition = GetDefinition(visual.actorAssetId);
+                if (visual.State != SubWorldVisualState.Default)
+                    throw new InvalidOperationException($"Actor 不支持当前视觉阶段: {visual.State}");
+                UnitVisualDefinition definition = GetDefinition(actor.ActorAssetId);
                 GroupSpriteObject view = unitPool.GetNext();
                 int frame = Mathf.FloorToInt(Tick.time * definition.AnimationSpeed) % definition.Frames.Length;
                 view.setSprite(definition.Frames[frame]);

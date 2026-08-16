@@ -31,6 +31,7 @@ internal sealed class SubWorldNavigationSection
     private bool built;
     private bool navigationVisible;
     private bool controlsVisible;
+    private bool focusPawnVisible;
 
     internal SubWorldNavigationSection(SubWorldManager manager)
     {
@@ -78,6 +79,7 @@ internal sealed class SubWorldNavigationSection
 
         bool hasFocusedRuntime = focused.HasValue && runtimeButtons.ContainsKey(focused.Value);
         SetControlsVisible(hasFocusedRuntime);
+        SetFocusPawnVisible(hasFocusedRuntime && manager.HasDebugControllableActor(focused.Value));
         if (!hasFocusedRuntime) return;
 
         SubWorldRuntime runtime = manager.Get(focused.Value);
@@ -98,6 +100,7 @@ internal sealed class SubWorldNavigationSection
         }
         runtimeButtons.Clear();
         SetControlsVisible(false);
+        SetFocusPawnVisible(false);
         SetNavigationVisible(false);
     }
 
@@ -134,7 +137,9 @@ internal sealed class SubWorldNavigationSection
         built = true;
         navigationVisible = true;
         controlsVisible = true;
+        focusPawnVisible = true;
         SetControlsVisible(false);
+        SetFocusPawnVisible(false);
         SetNavigationVisible(false);
     }
 
@@ -185,6 +190,12 @@ internal sealed class SubWorldNavigationSection
         controlsVisible = visible;
         Cultiway.UI.Manager.SetEntryActive(TabButtonType.WORLD, PauseSpeedEntryId, visible);
         Cultiway.UI.Manager.SetEntryActive(TabButtonType.WORLD, SpeedEntryId, visible);
+    }
+
+    private void SetFocusPawnVisible(bool visible)
+    {
+        if (!built || focusPawnVisible == visible) return;
+        focusPawnVisible = visible;
         Cultiway.UI.Manager.SetEntryActive(TabButtonType.WORLD, FocusPawnEntryId, visible);
     }
 

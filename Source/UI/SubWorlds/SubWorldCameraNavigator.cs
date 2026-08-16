@@ -23,8 +23,9 @@ internal sealed class SubWorldCameraNavigator
 
     internal void FocusPawn(SubWorldRuntime runtime, SubWorldSpatialSlot slot)
     {
+        if (!runtime.TryGetDebugControllableActor(out Friflo.Engine.ECS.Entity pawn)) return;
         FocusedInstanceId = runtime.InstanceId;
-        Vector2 localPosition = runtime.PawnEntity.GetComponent<Position>().v2;
+        Vector2 localPosition = pawn.GetComponent<Position>().v2;
         MoveCamera.instance.focusOn(slot.ToWorld(localPosition));
     }
 
