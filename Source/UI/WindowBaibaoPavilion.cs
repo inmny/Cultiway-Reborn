@@ -71,7 +71,7 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
             TextAnchor.UpperLeft);
         UiScrollPane catalog = UiScrollPane.CreateVertical(body.transform, "BlueprintList", 318f, 284f);
         catalog.AttachOriginalScrollbar(context.ScrollbarTemplate);
-        catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
+        catalog.SetWindowFrame(UiTheme.Current.Metrics.SpacingMd);
         _rowPool = new MonoObjPool<BaibaoArtifactRow>(BaibaoArtifactRow.Prefab, catalog.Content);
         _inspector = new BaibaoBlueprintInspector(body.transform, 198f, 284f);
         _optionMenu = new UiOptionMenu(BackgroundTransform, _rootCanvas, context.ScrollbarTemplate,
@@ -358,15 +358,15 @@ public sealed class WindowBaibaoPavilion : AbstractWideWindow<WindowBaibaoPavili
 
     private void CreateDeleteConfirmation()
     {
-        _deleteConfirmation = UiLayout.Create(BackgroundTransform, "DeleteConfirmation", false,
-            274f, 94f, 6f, TextAnchor.MiddleCenter);
+        UiWindowFrame frame = UiWindowFrame.CreateContentSize(BackgroundTransform, "DeleteConfirmation",
+            264f, 74f, UiTheme.Current.Metrics.SpacingSm);
+        _deleteConfirmation = frame.Root.gameObject;
         _deleteConfirmation.transform.localPosition = Vector3.zero;
-        Image background = _deleteConfirmation.AddComponent<Image>();
-        background.sprite = UiResources.GetSprite(UiResources.WindowEmpty);
-        background.type = Image.Type.Sliced;
-        _deleteMessage = UiElements.CreateText(_deleteConfirmation.transform, "Message", string.Empty, 264f,
+        GameObject panelContent = UiLayout.Create(frame.Content, "Layout", false, 264f, 74f, 6f,
+            TextAnchor.MiddleCenter);
+        _deleteMessage = UiElements.CreateText(panelContent.transform, "Message", string.Empty, 264f,
             34f, 8, TextAnchor.MiddleCenter, FontStyle.Bold);
-        GameObject actions = UiLayout.Create(_deleteConfirmation.transform, "Actions", true, 264f,
+        GameObject actions = UiLayout.Create(panelContent.transform, "Actions", true, 264f,
             25f, 6f, TextAnchor.MiddleCenter);
         Button confirm = UiElements.CreateIconTextButton(actions.transform, "Confirm", UiIcons.Delete,
             "Cultiway.Baibao.UI.Action.ConfirmDelete".Localize(), 104f, 23f, ConfirmDelete);

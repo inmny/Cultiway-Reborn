@@ -3,6 +3,31 @@ using UnityEngine.UI;
 
 namespace Cultiway.UI;
 
+/// <summary>WindowEmpty 可见边框以内的内容安全区；方向与 RectOffset 一致。</summary>
+internal readonly struct UiFrameInsets
+{
+    public float Left { get; }
+    public float Right { get; }
+    public float Top { get; }
+    public float Bottom { get; }
+    public float Horizontal => Left + Right;
+    public float Vertical => Top + Bottom;
+
+    public UiFrameInsets(float left, float right, float top, float bottom)
+    {
+        Left = left;
+        Right = right;
+        Top = top;
+        Bottom = bottom;
+    }
+
+    public RectOffset ToRectOffset()
+    {
+        return new RectOffset(Mathf.CeilToInt(Left), Mathf.CeilToInt(Right),
+            Mathf.CeilToInt(Top), Mathf.CeilToInt(Bottom));
+    }
+}
+
 /// <summary>原版公共 UI 资源的唯一声明和加载入口。</summary>
 internal static class UiResources
 {
@@ -24,7 +49,6 @@ internal static class UiResources
         {
             UiSurface.Button => Button,
             UiSurface.WindowInner => WindowInner,
-            UiSurface.WindowEmpty => WindowEmpty,
             UiSurface.DestructiveButton => DestructiveButton,
             UiSurface.ToggleBox => ToggleBox,
             _ => null,
@@ -32,6 +56,29 @@ internal static class UiResources
         image.sprite = path == null ? null : GetSprite(path);
         image.type = Image.Type.Sliced;
         image.color = tint ?? UiTheme.Current.Palette.Normal;
+    }
+
+    /// <summary>
+    /// 应用带可见边框的 WindowEmpty，并返回已经包含九宫格边界和额外间距的内容安全区。
+    /// WindowEmpty 不能通过 ApplySurface 使用；子元素必须放入按该安全区内缩的 Content。
+    /// </summary>
+    public static UiFrameInsets ApplyWindowFrame(Image image, float minimumContentInset = 0f,
+        Color? tint = null)
+    {
+        Sprite sprite = GetSprite(WindowEmpty);
+        image.sprite = sprite;
+        image.type = Image.Type.Sliced;
+        image.color = tint ?? UiTheme.Current.Palette.Normal;
+
+        Vector4 border = sprite != null ? sprite.border : Vector4.zero;
+        float pixelsPerUnit = Mathf.Max(0.001f, image.pixelsPerUnit);
+        float gap = UiTheme.Current.Metrics.WindowFrameContentGap;
+        float minimum = Mathf.Max(minimumContentInset, UiTheme.Current.Metrics.WindowFrameMinimumInset);
+        float left = Mathf.Ceil(Mathf.Max(minimum, border.x / pixelsPerUnit + gap));
+        float bottom = Mathf.Ceil(Mathf.Max(minimum, border.y / pixelsPerUnit + gap));
+        float right = Mathf.Ceil(Mathf.Max(minimum, border.z / pixelsPerUnit + gap));
+        float top = Mathf.Ceil(Mathf.Max(minimum, border.w / pixelsPerUnit + gap));
+        return new UiFrameInsets(left, right, top, bottom);
     }
 
     public static void SetImage(Image image, string path, bool preserveAspect = true)

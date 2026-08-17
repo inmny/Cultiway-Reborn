@@ -24,7 +24,8 @@ public class InventoryPage : MonoBehaviour, IWorldBoundCreatureInfoPage
     private const string AllItemsIconPath = "ui/icons/iconFavoriteItems";
     private const float FilterBarHeight = 24f;
     private const float FilterBarSpacing = 4f;
-    private const int ColumnCount = 7;
+    // 生物信息页扣除 WindowEmpty 边框和滚动条槽后只能稳定容纳六列 28px 单元格。
+    private const int ColumnCount = 6;
 
     private static readonly Vector2 CellSpacing = new(2f, 2f);
 
@@ -110,7 +111,7 @@ public class InventoryPage : MonoBehaviour, IWorldBoundCreatureInfoPage
             0f,
             FilterBarHeight + FilterBarSpacing);
         _itemsPane.AttachOriginalScrollbar(WindowNewCreatureInfo.PageScrollbarTemplate);
-        _itemsPane.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingSm);
+        _itemsPane.SetWindowFrame(UiTheme.Current.Metrics.SpacingSm);
         GridLayoutGroup itemGrid = _itemsPane.Content.GetComponent<GridLayoutGroup>();
         itemGrid.childAlignment = TextAnchor.UpperLeft;
         itemGrid.padding = new RectOffset(4, 4, 4, 4);

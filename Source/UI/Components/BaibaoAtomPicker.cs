@@ -22,7 +22,6 @@ internal sealed class BaibaoAtomPicker
         Contribution,
     }
 
-    private const float PanelWidth = 510f;
     private const float InnerWidth = 498f;
     private const float BodyHeight = 244f;
 
@@ -63,24 +62,22 @@ internal sealed class BaibaoAtomPicker
         _getAutoAppearance = getAutoAppearance;
         _toggle = toggle;
 
-        GameObject panel = UiLayout.Create(parent, "BaibaoAtomPicker", false, PanelWidth, 338f, 4f,
+        UiWindowFrame panel = UiWindowFrame.CreateContentSize(parent, "BaibaoAtomPicker",
+            InnerWidth, 324f, UiTheme.Current.Metrics.SpacingMd);
+        panel.Root.localPosition = new Vector3(0f, -4f);
+        GameObject panelContent = UiLayout.Create(panel.Content, "Layout", false, InnerWidth, 324f, 4f,
             TextAnchor.UpperCenter);
-        panel.transform.localPosition = new Vector3(0f, -4f);
-        VerticalLayoutGroup panelLayout = panel.GetComponent<VerticalLayoutGroup>();
-        panelLayout.padding = new RectOffset(6, 6, 6, 6);
-        Image background = panel.AddComponent<Image>();
-        UiResources.ApplySurface(background, UiSurface.WindowEmpty);
 
-        GameObject header = UiLayout.Create(panel.transform, "Header", true, InnerWidth, 24f, 4f);
+        GameObject header = UiLayout.Create(panelContent.transform, "Header", true, InnerWidth, 24f, 4f);
         _title = UiElements.CreateText(header.transform, "Title", string.Empty, 466f, 24f, 9,
             TextAnchor.MiddleLeft, FontStyle.Bold);
         Button close = UiElements.CreateIconButton(header.transform, "Close", UiIcons.Cancel, 28f, 22f, Hide);
         UiTooltip.Set(close.gameObject, "Cultiway.Baibao.UI.AtomPicker.Close".Localize(),
             "Cultiway.Baibao.UI.AtomPicker.Close.Description".Localize());
 
-        CreateCategoryTabs(panel.transform);
+        CreateCategoryTabs(panelContent.transform);
 
-        GameObject toolbar = UiLayout.Create(panel.transform, "Toolbar", true, InnerWidth, 22f, 4f);
+        GameObject toolbar = UiLayout.Create(panelContent.transform, "Toolbar", true, InnerWidth, 22f, 4f);
         _search = UiSearchField.Create(toolbar.transform, "Search", string.Empty,
             "Cultiway.Baibao.UI.AtomPicker.Search".Localize(), 342f, 22f).Input;
         _search.onValueChanged.AddListener(_ => RefreshCatalog(true));
@@ -91,7 +88,7 @@ internal sealed class BaibaoAtomPicker
         _resultCount = UiElements.CreateText(toolbar.transform, "Count", string.Empty, 44f, 22f, 6,
             TextAnchor.MiddleRight);
 
-        GameObject body = UiLayout.Create(panel.transform, "Body", true, InnerWidth, BodyHeight, 4f,
+        GameObject body = UiLayout.Create(panelContent.transform, "Body", true, InnerWidth, BodyHeight, 4f,
             TextAnchor.UpperLeft);
         UiScrollPane facets = UiScrollPane.CreateVertical(body.transform, "SemanticFilters", 96f, BodyHeight);
         facets.AttachOriginalScrollbar(scrollbarTemplate);
@@ -108,7 +105,7 @@ internal sealed class BaibaoAtomPicker
         _detailPane = UiScrollPane.CreateVertical(body.transform, "Details", 146f, BodyHeight);
         _detailPane.AttachOriginalScrollbar(scrollbarTemplate);
         _detailPane.SetSurface(UiSurface.WindowInner, UiTheme.Current.Metrics.SpacingXs);
-        _modal = new UiModal(panel, owner);
+        _modal = new UiModal(panel.Root.gameObject, owner);
         UpdateSortLabel();
     }
 

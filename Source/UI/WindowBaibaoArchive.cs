@@ -53,7 +53,7 @@ public sealed class WindowBaibaoArchive : AbstractWideWindow<WindowBaibaoArchive
             TextAnchor.UpperLeft);
         UiScrollPane catalog = UiScrollPane.CreateVertical(body.transform, "ArtifactList", 318f, 284f);
         catalog.AttachOriginalScrollbar(context.ScrollbarTemplate);
-        catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
+        catalog.SetWindowFrame(UiTheme.Current.Metrics.SpacingMd);
         _rowPool = new MonoObjPool<BaibaoArchiveRow>(BaibaoArchiveRow.Prefab, catalog.Content,
             deactive_action: row => row.ClearWorldBinding());
         _inspector = new BaibaoBlueprintInspector(body.transform, 198f, 284f);

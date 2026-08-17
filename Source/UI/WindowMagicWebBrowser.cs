@@ -336,7 +336,7 @@ public sealed class WindowMagicWebBrowser : AbstractWideWindow<WindowMagicWebBro
         _body = UiLayout.Create(parent, "Body", true, RootWidth, BodyCollapsedHeight, 4f);
         UiScrollPane left = UiScrollPane.CreateVertical(_body.transform, "GroupedEntries", LeftWidth,
             BodyCollapsedHeight);
-        left.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingXs, false);
+        left.SetWindowFrame(UiTheme.Current.Metrics.SpacingXs, false);
         _leftScroll = left.Root.gameObject;
         _rowPool = new MonoObjPool<MagicWebBrowserRow>(MagicWebBrowserRow.Prefab, left.Content);
 

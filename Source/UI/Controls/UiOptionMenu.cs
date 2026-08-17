@@ -43,6 +43,7 @@ internal sealed class UiOptionMenu
     private const float PanelSpacing = 4f;
 
     private readonly UiOptionMenuConfig _config;
+    private readonly UiWindowFrame _frame;
     private readonly float _innerWidth;
     private readonly float _scrollWidth;
     private readonly float _cellWidth;
@@ -59,28 +60,29 @@ internal sealed class UiOptionMenu
         UiOptionMenuConfig config)
     {
         _config = config;
-        _innerWidth = config.PanelWidth - PanelPadding * 2f;
+        _frame = UiWindowFrame.CreateOuterSize(parent, "OptionMenu", config.PanelWidth, 120f, PanelPadding);
+        _frame.Root.localPosition = new Vector3(0f, -4f);
+        _innerWidth = config.PanelWidth - _frame.Insets.Horizontal;
         _scrollWidth = _innerWidth - ViewportInset * 2f;
-        _cellWidth = (_scrollWidth - ViewportInset * 2f - UiTheme.Current.Metrics.ScrollbarReservedWidth -
+        float scrollbarSlotWidth = UiTheme.Current.Metrics.ScrollbarSlotWidth;
+        _cellWidth = (_scrollWidth - ViewportInset * 2f - scrollbarSlotWidth -
                       ContentPadding * 2f - GridSpacing * (config.ColumnCount - 1)) / config.ColumnCount;
 
-        GameObject panel = UiLayout.Create(parent, "OptionMenu", false, config.PanelWidth, 120f, PanelSpacing,
-            TextAnchor.UpperCenter);
-        panel.transform.localPosition = new Vector3(0f, -4f);
-        VerticalLayoutGroup panelLayout = panel.GetComponent<VerticalLayoutGroup>();
-        panelLayout.padding = new RectOffset((int)PanelPadding, (int)PanelPadding, (int)PanelPadding,
-            (int)PanelPadding);
+        VerticalLayoutGroup panelLayout = _frame.Content.gameObject.AddComponent<VerticalLayoutGroup>();
+        panelLayout.spacing = PanelSpacing;
+        panelLayout.childAlignment = TextAnchor.UpperCenter;
+        panelLayout.childControlWidth = true;
+        panelLayout.childControlHeight = false;
         panelLayout.childForceExpandWidth = false;
-        Image background = panel.AddComponent<Image>();
-        UiResources.ApplySurface(background, UiSurface.WindowEmpty);
+        panelLayout.childForceExpandHeight = false;
 
-        _title = UiElements.CreateText(panel.transform, "Title", string.Empty, _innerWidth, TitleHeight, 8,
+        _title = UiElements.CreateText(_frame.Content, "Title", string.Empty, _innerWidth, TitleHeight, 8,
             TextAnchor.MiddleCenter, FontStyle.Bold);
-        _search = UiSearchField.Create(panel.transform, "Search", string.Empty, config.SearchPlaceholder,
+        _search = UiSearchField.Create(_frame.Content, "Search", string.Empty, config.SearchPlaceholder,
             _innerWidth, SearchHeight).Input;
         _search.onValueChanged.AddListener(FilterOptions);
 
-        _optionsPane = UiScrollPane.CreateGrid(panel.transform, "Options", _scrollWidth, 64f,
+        _optionsPane = UiScrollPane.CreateGrid(_frame.Content, "Options", _scrollWidth, 64f,
             config.ColumnCount, new Vector2(_cellWidth, config.CellHeight), new Vector2(GridSpacing, GridSpacing));
         GridLayoutGroup optionLayout = _optionsPane.Content.GetComponent<GridLayoutGroup>();
         optionLayout.childAlignment = TextAnchor.UpperCenter;
@@ -90,13 +92,13 @@ internal sealed class UiOptionMenu
         _optionsPane.SetSurface(UiSurface.WindowInner, ViewportInset);
         _empty = new UiEmptyState(_optionsPane.Root, config.EmptyText, _scrollWidth - 8f, 24f);
 
-        GameObject footer = UiLayout.Create(panel.transform, "Footer", true, _innerWidth, FooterHeight, 0f,
+        GameObject footer = UiLayout.Create(_frame.Content, "Footer", true, _innerWidth, FooterHeight, 0f,
             TextAnchor.MiddleCenter);
         footer.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(6, 6, 4, 4);
         Button close = UiElements.CreateIconTextButton(footer.transform, "Close", UiIcons.Cancel,
             config.CloseText, _innerWidth - 12f, CloseHeight, Hide);
         UiTooltip.Set(close.gameObject, config.CloseTooltipTitle, config.CloseTooltipDescription);
-        _modal = new UiModal(panel, owner);
+        _modal = new UiModal(_frame.Root.gameObject, owner);
     }
 
     public void Show(string title, IReadOnlyList<UiOptionMenuOption> options, bool searchable = false)
@@ -162,10 +164,10 @@ internal sealed class UiOptionMenu
         _optionsPane.SetScrollbarVisible(scrollable);
         _optionsPane.ResetToTop();
 
-        float panelHeight = PanelPadding * 2f + TitleHeight + scrollHeight + FooterHeight + PanelSpacing * 2f;
-        if (_searchVisible) panelHeight += SearchHeight + PanelSpacing;
-        UiLayout.SetSize(_modal.Panel.transform, _config.PanelWidth, panelHeight);
-        LayoutRebuilder.ForceRebuildLayoutImmediate((RectTransform)_modal.Panel.transform);
+        float frameContentHeight = TitleHeight + scrollHeight + FooterHeight + PanelSpacing * 2f;
+        if (_searchVisible) frameContentHeight += SearchHeight + PanelSpacing;
+        _frame.ResizeContent(_innerWidth, frameContentHeight);
+        LayoutRebuilder.ForceRebuildLayoutImmediate(_frame.Content);
     }
 
     private void ClearOptions()

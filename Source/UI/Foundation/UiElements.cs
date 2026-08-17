@@ -212,6 +212,10 @@ internal static class UiElements
         return toggle;
     }
 
+    /// <summary>
+    /// 创建不带独立可见外框的普通布局面板。WindowEmpty 已从 UiSurface 移除；
+    /// 需要窗口外框时必须使用 UiWindowFrame，并把业务元素挂到其 Content。
+    /// </summary>
     public static GameObject CreatePanel(Transform parent, string name, bool horizontal, float width, float height,
         float spacing = 3f, TextAnchor? alignment = null, UiSurface surface = UiSurface.WindowInner,
         int padding = 6)

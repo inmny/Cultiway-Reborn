@@ -213,7 +213,7 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
 
         UiScrollPane editor = UiScrollPane.CreateVertical(root.transform, "EditorContent", 520f,
             EditorContentHeight);
-        editor.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingXs, false);
+        editor.SetWindowFrame(UiTheme.Current.Metrics.SpacingXs, false);
         _rowPool = new MonoObjPool<WanfaEditorRow>(WanfaEditorRow.Prefab, editor.Content);
 
         var footer = UiLayout.Create(root.transform, "Footer", true, 520f, 25f, 4f);
@@ -1330,13 +1330,16 @@ public sealed class WindowWanfaSkillEditor : AbstractWideWindow<WindowWanfaSkill
 
     private void CreateConfirmationPanel()
     {
-        _confirmPanel = UiElements.CreatePanel(BackgroundTransform, "UnsavedConfirmation", false,
-            310f, 108f, 6f, TextAnchor.MiddleCenter, UiSurface.WindowEmpty, 10);
+        UiWindowFrame frame = UiWindowFrame.CreateContentSize(BackgroundTransform, "UnsavedConfirmation",
+            290f, 88f, 10f);
+        _confirmPanel = frame.Root.gameObject;
         _confirmPanel.transform.localPosition = Vector3.zero;
-        UiElements.CreateText(_confirmPanel.transform, "Message",
+        GameObject panelContent = UiLayout.Create(frame.Content, "Layout", false, 290f, 88f, 6f,
+            TextAnchor.MiddleCenter);
+        UiElements.CreateText(panelContent.transform, "Message",
             "Cultiway.Wanfa.UI.Tip.UnsavedChanges".Localize(), 290f, 30f, 9, TextAnchor.MiddleCenter,
             FontStyle.Bold);
-        var actions = UiLayout.Create(_confirmPanel.transform, "Actions", true, 290f, 28f, 6f,
+        var actions = UiLayout.Create(panelContent.transform, "Actions", true, 290f, 28f, 6f,
             TextAnchor.MiddleCenter);
         actions.GetComponent<HorizontalLayoutGroup>().padding = new RectOffset(8, 8, 2, 2);
         var saveClose = UiElements.CreateIconTextButton(actions.transform, "SaveClose", UiIcons.Save,

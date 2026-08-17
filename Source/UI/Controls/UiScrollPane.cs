@@ -13,6 +13,13 @@ internal sealed class UiScrollPane
     public ScrollRect ScrollRect { get; }
     public GameObject ScrollbarMask { get; private set; }
 
+    private Image surfaceBackground;
+    private UiSurface surface;
+    private float minimumContentInset;
+    private bool excludeScrollbar;
+    private bool usesWindowFrame;
+    private bool surfaceConfigured;
+
     private UiScrollPane(RectTransform root, RectTransform viewport, Transform content, ScrollRect scrollRect)
     {
         Root = root;
@@ -101,7 +108,7 @@ internal sealed class UiScrollPane
 
         ScrollRect.scrollSensitivity = 60f;
         Viewport.offsetMax = new Vector2(
-            -(UiTheme.Current.Metrics.ScrollbarReservedWidth + UiTheme.Current.Metrics.SpacingXs),
+            -UiTheme.Current.Metrics.ScrollbarSlotWidth,
             Viewport.offsetMax.y);
 
         GameObject maskObject = UnityEngine.Object.Instantiate(scrollbarTemplate.gameObject, Root, false);
@@ -149,10 +156,56 @@ internal sealed class UiScrollPane
         ScrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
         ScrollRect.verticalScrollbarSpacing = 0f;
         ScrollbarMask = maskObject;
+        if (surfaceConfigured) ApplySurfaceLayout(true);
     }
 
-    public void SetSurface(UiSurface surface, float contentInset = 0f, bool excludeScrollbar = true)
+    /// <summary>应用无独立外框语义的普通表面和统一 Viewport 留白。</summary>
+    public void SetSurface(UiSurface targetSurface, float contentInset = 0f, bool reserveScrollbarSlot = true)
     {
+        surface = targetSurface;
+        minimumContentInset = contentInset;
+        excludeScrollbar = reserveScrollbarSlot;
+        usesWindowFrame = false;
+        surfaceConfigured = true;
+        ApplySurfaceLayout(ScrollbarMask != null && ScrollbarMask.activeSelf);
+    }
+
+    /// <summary>
+    /// 应用 WindowEmpty 外框。Viewport 会自动避开 Sprite 的九宫格边界，调用方不得再把它当普通表面。
+    /// </summary>
+    public void SetWindowFrame(float minimumInset = 0f, bool reserveScrollbarSlot = true)
+    {
+        minimumContentInset = minimumInset;
+        excludeScrollbar = reserveScrollbarSlot;
+        usesWindowFrame = true;
+        surfaceConfigured = true;
+        ApplySurfaceLayout(ScrollbarMask != null && ScrollbarMask.activeSelf);
+    }
+
+    private void ApplySurfaceLayout(bool scrollbarVisible)
+    {
+        EnsureSurfaceBackground();
+        float reserved = excludeScrollbar && ScrollbarMask != null && scrollbarVisible
+            ? UiTheme.Current.Metrics.ScrollbarSlotWidth
+            : 0f;
+        UiLayout.Stretch(surfaceBackground.rectTransform, 0f, reserved);
+
+        if (usesWindowFrame)
+        {
+            UiFrameInsets insets = UiResources.ApplyWindowFrame(surfaceBackground, minimumContentInset);
+            Viewport.offsetMin = new Vector2(insets.Left, insets.Bottom);
+            Viewport.offsetMax = new Vector2(-(reserved + insets.Right), -insets.Top);
+            return;
+        }
+
+        UiResources.ApplySurface(surfaceBackground, surface);
+        Viewport.offsetMin = new Vector2(minimumContentInset, minimumContentInset);
+        Viewport.offsetMax = new Vector2(-(reserved + minimumContentInset), -minimumContentInset);
+    }
+
+    private void EnsureSurfaceBackground()
+    {
+        if (surfaceBackground != null) return;
         Transform existing = Root.Find("Background");
         GameObject backgroundObject;
         if (existing == null)
@@ -165,32 +218,16 @@ internal sealed class UiScrollPane
         {
             backgroundObject = existing.gameObject;
         }
-
-        float reserved = excludeScrollbar && ScrollbarMask != null
-            ? UiTheme.Current.Metrics.ScrollbarReservedWidth + UiTheme.Current.Metrics.SpacingXs
-            : 0f;
-        UiLayout.Stretch(backgroundObject.GetComponent<RectTransform>(), 0f, reserved);
-        Image background = backgroundObject.GetComponent<Image>();
-        UiResources.ApplySurface(background, surface);
-        background.raycastTarget = false;
-
-        Viewport.offsetMin = new Vector2(contentInset, contentInset);
-        Viewport.offsetMax = new Vector2(-(reserved + contentInset), -contentInset);
-    }
-
-    public void SetViewportInsets(float inset, bool reserveScrollbar)
-    {
-        float reserved = reserveScrollbar && ScrollbarMask != null
-            ? UiTheme.Current.Metrics.ScrollbarReservedWidth
-            : 0f;
-        Viewport.offsetMin = new Vector2(inset, inset);
-        Viewport.offsetMax = new Vector2(-(reserved + inset), -inset);
+        surfaceBackground = backgroundObject.GetComponent<Image>() ?? backgroundObject.AddComponent<Image>();
+        surfaceBackground.raycastTarget = false;
     }
 
     public void SetScrollbarVisible(bool visible)
     {
+        if (ScrollbarMask == null)
+            throw new InvalidOperationException("设置滚动条显隐前必须先绑定原版滚动条模板");
         ScrollbarMask.SetActive(visible);
-        SetViewportInsets(UiTheme.Current.Metrics.SpacingMd, visible);
+        if (surfaceConfigured) ApplySurfaceLayout(visible);
     }
 
     public void Resize(float width, float height)

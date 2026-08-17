@@ -56,7 +56,8 @@ Foundation 不得引用 ECS 实体、法宝、宗门、法术或其他 Content �
 
 ### 3.2 Controls
 
-- `UiScrollPane`：统一滚动表面、Viewport 留白和原版滚动条槽位。
+- `UiScrollPane`：统一滚动表面、Viewport 留白和原版滚动条槽位；使用 `WindowEmpty` 时必须调用 `SetWindowFrame()`，由控件自动避开边框。
+- `UiWindowFrame`：统一 `WindowEmpty` 的 `Root` 外框与 `Content` 安全区；安全区根据 Sprite 九宫格 border 和主题最小间距计算。
 - `UiSearchField`：统一搜索输入的结构和状态。
 - `UiSegmentedTabs`：统一互斥选择及中性灰色选中态。
 - `UiOptionMenu`：统一遮罩、搜索、自适应列数、最大可见行数、滚动区和关闭区。
@@ -98,6 +99,9 @@ Foundation 不得引用 ECS 实体、法宝、宗门、法术或其他 Content �
 - 图标按钮使用熟悉图标并配置 Tooltip；只有清晰命令才使用图标加文字。
 - 可滚动列表条目的根节点和背景禁止绑定 `TipButton`/`UiTooltip`；说明信息只能绑定到固定尺寸的图标、按钮或字段，避免整行悬停区域阻断滚轮。
 - 模态框必须有四向内边距，正文和底部动作按钮不得贴住容器边缘。
+- `WindowEmpty` 是带可见边框的窗口框架，不是普通背景。手工面板必须使用 `UiWindowFrame`，并且所有标题、正文、列表和按钮只能放到 `frame.Content`，不得直接挂到 `frame.Root`。
+- 需要固定外部尺寸时使用 `UiWindowFrame.CreateOuterSize()`；需要保持既有内容尺寸时使用 `CreateContentSize()`。不得从外框总尺寸手算一组重复 padding。
+- 滚动容器需要 `WindowEmpty` 时只调用 `UiScrollPane.SetWindowFrame()`；`SetSurface()` 只接受没有独立内容边界的普通表面。
 
 代码构建窗口的典型用法：
 
@@ -105,7 +109,10 @@ Foundation 不得引用 ECS 实体、法宝、宗门、法术或其他 Content �
 UiWindowContext context = UiWindowContext.Bind(BackgroundTransform);
 UiScrollPane catalog = UiScrollPane.CreateVertical(parent, "Catalog", 318f, 284f);
 catalog.AttachOriginalScrollbar(context.ScrollbarTemplate);
-catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
+catalog.SetWindowFrame(UiTheme.Current.Metrics.SpacingMd);
+
+UiWindowFrame frame = UiWindowFrame.CreateContentSize(parent, "Inspector", 300f, 180f);
+BuildInspector(frame.Content); // 业务元素只进入 Content，不进入带边框的 Root
 ```
 
 ## 五、视觉规范
@@ -121,7 +128,7 @@ catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
 ### 5.2 表面与状态
 
 - `UiSurface.WindowInner`（`windowInnerSliced`）：菜单、筛选区、紧凑控制区和普通滚动容器。
-- `UiSurface.WindowEmpty`（`windowEmptyFrame`）：大面积目录、工作区和空白预览区。
+- `WindowEmpty`（`windowEmptyFrame`）：大面积目录、工作区和空白预览区的带边框框架。它不属于 `UiSurface`，只能通过 `UiWindowFrame` 或 `UiScrollPane.SetWindowFrame()` 使用；通用 `ApplySurface()` 不接受它。
 - 普通按钮使用统一按钮表面；选中状态使用中性灰色，不使用棕色强调。
 - 禁用、警告、错误和破坏性操作必须使用对应语义状态，不能靠调用点临时改色。
 - Row 左侧不得添加没有状态含义的装饰竖条。品质、选中或警告标记必须具有明确且一致的语义。
@@ -129,6 +136,7 @@ catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
 ### 5.3 间距与滚动区
 
 - 窗口内容、面板内容、菜单内容和动作区都必须保留四向内边距。
+- `WindowEmpty` 的 Sprite border 占用真实布局空间；`UiWindowFrame.Insets` 已包含该边界和最小呼吸间距，业务代码不得用 `Root.rect` 作为内容区域，也不得把 `Content` 再拉伸回边框。
 - 滚动框与外层背景之间必须保留外边距，不能横向撑满并紧贴边框。
 - 滚动条位于独立右侧槽位，其左缘邻接滚动框右缘，不得覆盖内容或放进框内左侧。
 - Viewport 必须预留滚动条宽度；滚动条显隐时正文左侧位置不得跳动。
@@ -172,7 +180,7 @@ catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
 2. 核对 `.GameSource/Assets` 中的原版 prefab、组件、sprite 和资源路径。
 3. 使用现有公共控件或功能族组件，没有建立重复工厂。
 4. 共享颜色、尺寸、字体、图标和 sprite 路径没有写在业务窗口中。
-5. 四周留白、滚动条槽、Row 图标左间距和右侧动作区稳定。
+5. 四周留白、滚动条槽、Row 图标左间距和右侧动作区稳定；所有 `WindowEmpty` 子内容位于 `UiWindowFrame.Content` 或 `SetWindowFrame()` 管理的 Viewport 内。
 6. 普通、悬停、选中、禁用、空状态和模态关闭行为完整。
 7. 所有文本和 Tooltip 已本地化，长文本不会覆盖控件。
 8. 重复列表使用对象池，事件只绑定一次，关闭后无残留订阅。
@@ -191,3 +199,4 @@ catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
 - 禁止把玩法数据、ECS 查询或 Content 类型放入 Foundation/Controls。
 - 禁止给列表 Row 的根节点或背景添加 Tooltip；公共 `UiListRowChrome` 会标记根节点并由 `UiTooltip` 拒绝此类绑定。
 - 禁止在公共类型尚未实现时，根据本文创建局部同名替代品。
+- 禁止直接加载 `ui/special/windowEmptyFrame`、直接给 `Image` 赋该 Sprite，或把业务子元素挂在 `UiWindowFrame.Root`；这些路径都会绕过可见边框的内容安全区。

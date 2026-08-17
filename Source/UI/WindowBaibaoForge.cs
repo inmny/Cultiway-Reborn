@@ -131,7 +131,7 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
         UiScrollPane editorPane = UiScrollPane.CreateVertical(editor.transform, "EditorContent", 358f,
             EditorContentHeight);
         editorPane.AttachOriginalScrollbar(context.ScrollbarTemplate);
-        editorPane.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
+        editorPane.SetWindowFrame(UiTheme.Current.Metrics.SpacingMd);
         _rowPool = new MonoObjPool<BaibaoEditorRow>(BaibaoEditorRow.Prefab, editorPane.Content);
 
         CreateFooter(root.transform);
@@ -1077,11 +1077,11 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
 
     private void CreateConfirmationPanel()
     {
-        GameObject panel = UiLayout.Create(BackgroundTransform, "UnsavedConfirmation", false, 282f,
-            94f, 6f, TextAnchor.MiddleCenter);
-        panel.transform.localPosition = Vector3.zero;
-        Image background = panel.AddComponent<Image>();
-        UiResources.ApplySurface(background, UiSurface.WindowEmpty);
+        UiWindowFrame frame = UiWindowFrame.CreateContentSize(BackgroundTransform, "UnsavedConfirmation",
+            272f, 74f, UiTheme.Current.Metrics.SpacingMd);
+        frame.Root.localPosition = Vector3.zero;
+        GameObject panel = UiLayout.Create(frame.Content, "Layout", false, 272f, 74f, 6f,
+            TextAnchor.MiddleCenter);
         UiElements.CreateText(panel.transform, "Message",
             "Cultiway.Baibao.UI.Tip.UnsavedChanges".Localize(), 272f, 30f, 9,
             TextAnchor.MiddleCenter, FontStyle.Bold);
@@ -1102,7 +1102,7 @@ public sealed class WindowBaibaoForge : AbstractWideWindow<WindowBaibaoForge>
             "Cultiway.Baibao.UI.Action.Discard".Localize(), 82f, 24f, CompleteExit);
         UiElements.CreateIconTextButton(actions.transform, "Continue", UiIcons.Edit,
             "Cultiway.Baibao.UI.Action.ContinueEditing".Localize(), 94f, 24f, () => SetConfirmation(false));
-        _confirmation = new UiModal(panel, _editorCanvas);
+        _confirmation = new UiModal(frame.Root.gameObject, _editorCanvas);
     }
 
     private void SetConfirmation(bool visible)

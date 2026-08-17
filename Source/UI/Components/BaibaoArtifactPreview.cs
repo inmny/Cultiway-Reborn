@@ -45,19 +45,16 @@ internal sealed class BaibaoArtifactPreview
 
         GameObject summary = UiLayout.Create(root.transform, "Summary", true, innerWidth,
             summaryHeight, spacing, TextAnchor.UpperLeft);
-        GameObject previewFrame = new("Preview", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-        previewFrame.transform.SetParent(summary.transform, false);
-        UiLayout.SetSize(previewFrame.transform, frameSize, frameSize);
-        Image frame = previewFrame.GetComponent<Image>();
-        UiResources.ApplySurface(frame, UiSurface.WindowEmpty);
+        UiWindowFrame previewFrame = UiWindowFrame.CreateOuterSize(summary.transform, "Preview",
+            frameSize, frameSize, UiTheme.Current.Metrics.SpacingSm, false);
 
         GameObject imageObject = new("Image", typeof(RectTransform), typeof(Image));
-        imageObject.transform.SetParent(previewFrame.transform, false);
+        imageObject.transform.SetParent(previewFrame.Content, false);
         RectTransform imageRect = imageObject.GetComponent<RectTransform>();
-        imageRect.anchorMin = imageRect.anchorMax = new Vector2(0.5f, 0.5f);
-        imageRect.sizeDelta = new Vector2(frameSize - 8f, frameSize - 8f);
+        UiLayout.Stretch(imageRect);
         _preview = imageObject.GetComponent<Image>();
         _preview.preserveAspect = true;
+        _preview.raycastTarget = false;
 
         GameObject information = UiLayout.Create(summary.transform, "Information", false,
             informationWidth, summaryHeight, 0f, TextAnchor.UpperLeft);

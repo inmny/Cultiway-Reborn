@@ -85,7 +85,7 @@ public sealed class WindowWanfaPavilion : AbstractWideWindow<WindowWanfaPavilion
         UiScrollPane catalog = UiScrollPane.CreateVertical(root.transform, "BlueprintList", 520f,
             BlueprintListHeight);
         catalog.AttachOriginalScrollbar(context.ScrollbarTemplate);
-        catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
+        catalog.SetWindowFrame(UiTheme.Current.Metrics.SpacingMd);
         _rowPool = new MonoObjPool<WanfaBlueprintRow>(WanfaBlueprintRow.Prefab, catalog.Content);
         _optionMenu = new UiOptionMenu(BackgroundTransform, _rootCanvas, context.ScrollbarTemplate,
             new UiOptionMenuConfig

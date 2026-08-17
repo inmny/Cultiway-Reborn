@@ -29,7 +29,10 @@ internal sealed class UiMetrics
     public float ControlMedium => 24f;
     public float ControlLarge => 28f;
     public float ScrollbarReservedWidth => 18f;
+    public float ScrollbarSlotWidth => ScrollbarReservedWidth + SpacingXs;
     public float OriginalScrollbarWidth => 17.5f;
+    public float WindowFrameMinimumInset => 8f;
+    public float WindowFrameContentGap => 2f;
 }
 
 /// <summary>普通控件状态使用的语义颜色；领域可视化颜色仍由所属功能维护。</summary>
@@ -56,7 +59,6 @@ internal enum UiSurface
     None,
     Button,
     WindowInner,
-    WindowEmpty,
     DestructiveButton,
     ToggleBox,
 }
