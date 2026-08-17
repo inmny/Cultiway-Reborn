@@ -7,6 +7,7 @@ using Cultiway.Content.Events;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.ControlledTasks;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
@@ -16,51 +17,73 @@ namespace Cultiway.Content.Behaviours;
 public class BehCraftElixir : BehCityActor
 {
     [Hotfixable]
-    public override BehResult execute(Actor pObject)
+    public override BehResult execute(Actor actor)
     {
-        ActorExtend ae = pObject.GetExtend();
-        if (!ae.HasItem<CraftingElixir>()) return BehResult.Continue;
-        Entity crafting_elixir_entity = ae.GetFirstItemWithComponent<CraftingElixir>();
-        var ingredients = crafting_elixir_entity.GetRelations<CraftOccupyingRelation>();
-
-        ref CraftingElixir crafting_elixir = ref crafting_elixir_entity.GetComponent<CraftingElixir>();
-        ElixirAsset elixir_asset = Libraries.Manager.ElixirLibrary.get(crafting_elixir.elixir_id);
-        int requiredIngredientCount = elixir_asset?.ingredients?.Length ?? 0;
-        if (requiredIngredientCount == 0 || ingredients.Length < requiredIngredientCount)
+        ActorExtend extend = actor.GetExtend();
+        if (!extend.HasItem<CraftingElixir>())
         {
-            CraftFailureService.Fail(crafting_elixir_entity, CraftFailureReason.IngredientsMissing);
+            ControlledTaskOrderService.ReportExecutionFailure(actor,
+                "Cultiway.ControlledTask.Reason.CraftingProcessMissing");
             return BehResult.Continue;
         }
-        if (crafting_elixir.progress >= requiredIngredientCount)
+
+        Entity craftingItem = extend.GetFirstItemWithComponent<CraftingElixir>();
+        if (!CraftSessionService.ValidateSession(actor, craftingItem, CraftProcessType.Alchemy,
+                out string sessionReason))
         {
-            var ingredient_array = new Entity[ingredients.Length];
-            for (int i = 0; i < ingredients.Length; i++)
+            ControlledTaskOrderService.ReportExecutionFailure(actor, sessionReason);
+            CraftFailureService.Fail(craftingItem, CraftFailureReason.Interrupted);
+            return BehResult.Continue;
+        }
+
+        var ingredients = craftingItem.GetRelations<CraftOccupyingRelation>();
+        ref CraftingElixir crafting = ref craftingItem.GetComponent<CraftingElixir>();
+        ElixirAsset recipe = Libraries.Manager.ElixirLibrary.get(crafting.elixir_id);
+        int requiredIngredientCount = recipe?.ingredients?.Length ?? 0;
+        if (requiredIngredientCount == 0 || ingredients.Length < requiredIngredientCount)
+        {
+            ControlledTaskOrderService.ReportExecutionFailure(actor,
+                "Cultiway.ControlledTask.Reason.IngredientsMissing");
+            CraftFailureService.Fail(craftingItem, CraftFailureReason.IngredientsMissing);
+            return BehResult.Continue;
+        }
+
+        if (crafting.progress >= requiredIngredientCount)
+        {
+            var ingredientArray = new Entity[ingredients.Length];
+            for (int i = 0; i < ingredients.Length; i++) ingredientArray[i] = ingredients[i].item;
+            try
             {
-                ingredient_array[i] = ingredients[i].item;
+                recipe.Craft(extend, craftingItem, actor.city.GetExtend(), ingredientArray);
+                if (craftingItem.HasComponent<CraftSession>()) craftingItem.RemoveComponent<CraftSession>();
+                extend.Master(recipe, extend.GetMaster(recipe) + 1);
+                ControlledTaskOrderService.MarkExecutionCompleted(actor);
+                ModClass.LogInfo($"{actor.data.id} 完成制作 {recipe.GetName()} 送与 {actor.city.name}");
             }
-            elixir_asset.Craft(ae, crafting_elixir_entity, pObject.city.GetExtend(),
-                ingredient_array);
-            ae.Master(elixir_asset, ae.GetMaster(elixir_asset) + 1);
-            ModClass.LogInfo($"{pObject.data.id} 完成制作 {elixir_asset.GetName()} 送与 {pObject.city.name}");
+            catch (Exception exception)
+            {
+                ModClass.LogError($"[CraftSession] elixir completion failed actor={actor.getID()}: {exception}");
+                ControlledTaskOrderService.ReportExecutionFailure(actor,
+                    "Cultiway.ControlledTask.Reason.CraftingCompletionFailed");
+                CraftFailureService.Fail(craftingItem, CraftProcessType.Alchemy,
+                    CraftFailureReason.InvalidProcess);
+            }
             return BehResult.Continue;
         }
 
         ArtifactProductionStepEvent productionStep = ArtifactProductionService.DispatchStep(
-            ae,
+            extend,
             ArtifactProductionProcesses.Alchemy,
-            elixir_asset,
-            crafting_elixir_entity,
+            recipe,
+            craftingItem,
             Randy.randomFloat(1f, 3f));
-        ElixirCraftStepEvent step = new(elixir_asset, crafting_elixir_entity, productionStep.Duration)
+        ElixirCraftStepEvent step = new(recipe, craftingItem, productionStep.Duration)
         {
             ProgressGain = productionStep.ProgressGain,
         };
-        ArtifactAbilityDispatcher.Dispatch(ae.E, step);
-        crafting_elixir.progress += Math.Max(1, step.ProgressGain);
-        //ModClass.LogInfo(
-        //    $"{pObject.data.id} 正在制作({crafting_elixir.progress}/{ingredients.Length}) {crafting_elixir.elixir_id}");
-        pObject.timer_action = Math.Max(0.15f, step.Duration);
-
+        ArtifactAbilityDispatcher.Dispatch(extend.E, step);
+        crafting.progress += Math.Max(1, step.ProgressGain);
+        actor.timer_action = Math.Max(0.15f, step.Duration);
         return BehResult.RepeatStep;
     }
 }

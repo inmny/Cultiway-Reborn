@@ -40,6 +40,8 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
     private UiScrollPane commandPane;
     private MonoObjPool<ControlledTaskCommandSlot> slotPool;
     private UiSegmentedTabs categoryTabs;
+    private CanvasGroup commandCanvasGroup;
+    private ControlledTaskParameterPicker parameterPicker;
     private ControlledTaskCategory? selectedCategory;
     private string selectedCommandId;
     private string confirmationCommandId;
@@ -83,6 +85,9 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
         if (instance == null) return false;
         if (instance.entryButton != null && instance.entryButton.gameObject.activeInHierarchy &&
             ContainsPointer(instance.entryRect))
+            return true;
+        if (instance.parameterPicker != null && instance.parameterPicker.IsVisible &&
+            ContainsPointer(instance.parameterPicker.Root))
             return true;
         return instance.panelOpen && instance.panelRect != null && ContainsPointer(instance.panelRect);
     }
@@ -145,6 +150,11 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
         }
 
         long actorId = actor.getID();
+        if (sessionActorId > 0 && sessionActorId != actorId)
+        {
+            CloseSession();
+            return;
+        }
         if (actorId != entryActorId || entryLibraryRevision != CommandLibrary.Revision ||
             Time.unscaledTime >= nextEntryRefreshAt)
         {
@@ -153,7 +163,7 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
             nextEntryRefreshAt = Time.unscaledTime + 0.5f;
             UpdateEntryState(actor);
         }
-        if (!panelOpen || Time.unscaledTime < nextRefreshAt) return;
+        if (!panelOpen || parameterPicker?.IsVisible == true || Time.unscaledTime < nextRefreshAt) return;
         nextRefreshAt = Time.unscaledTime + RefreshInterval;
         RefreshCommands();
     }
@@ -192,12 +202,18 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
         panelRect = panel.Root;
         panelRect.anchorMin = panelRect.anchorMax = new Vector2(0.5f, 0f);
         panelRect.pivot = new Vector2(0.5f, 0f);
+        commandCanvasGroup = panel.Root.gameObject.AddComponent<CanvasGroup>();
 
         BuildHeader(panel.Content);
         BuildCategories(panel.Content);
         BuildSearch(panel.Content);
         BuildCommandGrid(panel.Content);
         BuildDetails(panel.Content);
+        parameterPicker = new ControlledTaskParameterPicker(
+            transform,
+            commandCanvasGroup,
+            SubmitParameterizedCommand,
+            CancelParameterizedCommand);
 
         panel.Root.gameObject.SetActive(false);
         visualsBuilt = true;
@@ -354,6 +370,7 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
 
     private void CloseSession()
     {
+        parameterPicker?.CancelSilently();
         panelOpen = false;
         if (panelRect != null) panelRect.gameObject.SetActive(false);
         sessionActorId = 0;
@@ -365,6 +382,7 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
 
     private void EndSessionAfterHandoff()
     {
+        parameterPicker?.CancelSilently();
         panelOpen = false;
         if (panelRect != null) panelRect.gameObject.SetActive(false);
         sessionActorId = 0;
@@ -449,7 +467,9 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
         detailTitle.text = resolved.Command.NameLocaleKey.Localize();
         targetModeText.text = resolved.Command.TargetMode == ControlledTaskTargetMode.WorldTile
             ? "Cultiway.ControlledTask.Target.WorldTile".Localize()
-            : "Cultiway.ControlledTask.Target.None".Localize();
+            : resolved.Command.Parameters.Count > 0
+                ? "Cultiway.ControlledTask.Target.Parameters".Localize()
+                : "Cultiway.ControlledTask.Target.None".Localize();
 
         if (!string.IsNullOrEmpty(submissionReasonLocaleKey))
         {
@@ -475,6 +495,8 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
         actionButton.interactable = resolved.Availability.Enabled;
         if (resolved.Command.TargetMode == ControlledTaskTargetMode.WorldTile)
             actionButtonText.text = "Cultiway.ControlledTask.UI.SelectLocation".Localize();
+        else if (resolved.Command.Parameters.Count > 0)
+            actionButtonText.text = "Cultiway.ControlledTask.UI.SelectParameters".Localize();
         else if (confirmationCommandId == resolved.Command.id)
             actionButtonText.text = "Cultiway.ControlledTask.UI.ConfirmExecute".Localize();
         else
@@ -514,8 +536,37 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
             return;
         }
 
+        if (resolved.Command.Parameters.Count > 0)
+        {
+            parameterPicker?.Show(actor, resolved.Command, ControlledTaskInvocation.Empty);
+            return;
+        }
+
+        SubmitInvocation(ControlledTaskInvocation.Empty);
+    }
+
+    private void SubmitParameterizedCommand(ControlledTaskInvocation invocation)
+    {
+        SubmitInvocation(invocation);
+    }
+
+    private void CancelParameterizedCommand()
+    {
+        submissionReasonLocaleKey = null;
+        RefreshDetails();
+    }
+
+    private void SubmitInvocation(ControlledTaskInvocation invocation)
+    {
+        if (!TryResolveSessionActor(out Actor actor) ||
+            !TryGetResolved(selectedCommandId, out ResolvedCommand resolved))
+        {
+            CloseSession();
+            return;
+        }
+
         ControlledTaskStartResult result = ControlledTaskOrderService.TryBegin(
-            actor.getID(), resolved.Command.id, ControlledTaskTarget.None);
+            actor.getID(), resolved.Command.id, invocation);
         if (!result.Success)
         {
             submissionReasonLocaleKey = result.ReasonLocaleKey;

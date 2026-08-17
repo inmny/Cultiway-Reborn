@@ -1,3 +1,4 @@
+using System;
 using ai.behaviours;
 using Cultiway.Const;
 using Cultiway.Content.Artifacts;
@@ -7,6 +8,7 @@ using Cultiway.Content.Events;
 using Cultiway.Content.Extensions;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.ControlledTasks;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
@@ -14,85 +16,125 @@ using UnityEngine;
 
 namespace Cultiway.Content.Behaviours;
 
-/// <summary>
-/// 逐材料推进炼制；进度满时把进行中的 CraftingArtifact 实体就地升级为成品法器。
-/// 器形、名字、等级、atom 和图标实例在开工时已经写入实体组件。
-/// </summary>
 public class BehCraftArtifact : BehCityActor
 {
     [Hotfixable]
-    public override BehResult execute(Actor pObject)
+    public override BehResult execute(Actor actor)
     {
-        ActorExtend ae = pObject.GetExtend();
-        if (!ae.HasItem<CraftingArtifact>()) return BehResult.Continue;
-        Entity crafting_entity = ae.GetFirstItemWithComponent<CraftingArtifact>();
-        var ingredients = crafting_entity.GetRelations<CraftOccupyingRelation>();
-
-        ref CraftingArtifact crafting = ref crafting_entity.GetComponent<CraftingArtifact>();
-        if (!crafting_entity.TryGetComponent(out ArtifactMaterialData materialData) ||
-            materialData.ingredient_count <= 0 ||
-            ingredients.Length < materialData.ingredient_count)
+        ActorExtend extend = actor.GetExtend();
+        if (!extend.HasItem<CraftingArtifact>())
         {
-            CraftFailureService.Fail(crafting_entity, CraftFailureReason.IngredientsMissing);
+            ControlledTaskOrderService.ReportExecutionFailure(actor,
+                "Cultiway.ControlledTask.Reason.CraftingProcessMissing");
             return BehResult.Continue;
         }
+
+        Entity craftingItem = extend.GetFirstItemWithComponent<CraftingArtifact>();
+        if (!CraftSessionService.ValidateSession(actor, craftingItem, CraftProcessType.ArtifactRefining,
+                out string sessionReason))
+        {
+            ControlledTaskOrderService.ReportExecutionFailure(actor, sessionReason);
+            CraftFailureService.Fail(craftingItem, CraftFailureReason.Interrupted);
+            return BehResult.Continue;
+        }
+
+        var ingredients = craftingItem.GetRelations<CraftOccupyingRelation>();
+        ref CraftingArtifact crafting = ref craftingItem.GetComponent<CraftingArtifact>();
+        if (!craftingItem.TryGetComponent(out ArtifactMaterialData materialData) ||
+            materialData.ingredient_count <= 0 || ingredients.Length < materialData.ingredient_count)
+        {
+            ControlledTaskOrderService.ReportExecutionFailure(actor,
+                "Cultiway.ControlledTask.Reason.IngredientsMissing");
+            CraftFailureService.Fail(craftingItem, CraftFailureReason.IngredientsMissing);
+            return BehResult.Continue;
+        }
+
         if (crafting.progress >= materialData.ingredient_count)
         {
-            ArtifactProductionResultEvent result = ArtifactProductionService.DispatchResult(
-                ae,
-                ArtifactProductionProcesses.ArtifactRefining,
-                materialData,
-                crafting_entity);
-            if (result.QualityBonus != 0)
+            var spawned = new System.Collections.Generic.List<Entity>();
+            bool committed = false;
+            try
             {
-                ref ItemLevel level = ref crafting_entity.GetComponent<ItemLevel>();
-                level = ItemLevel.FromValue(level + result.QualityBonus);
-            }
+                ArtifactProductionResultEvent result = ArtifactProductionService.DispatchResult(
+                    extend,
+                    ArtifactProductionProcesses.ArtifactRefining,
+                    materialData,
+                    craftingItem);
+                if (result.QualityBonus != 0)
+                {
+                    ref ItemLevel level = ref craftingItem.GetComponent<ItemLevel>();
+                    level = ItemLevel.FromValue(level + result.QualityBonus);
+                }
 
-            // 先完整拷贝材料数组，再删除——DeleteEntity 会移除 crafting_entity 上的
-            // CraftOccupyingRelation，导致 relations 快照失效，故不能边遍历边删。
-            var ingredient_array = new Entity[ingredients.Length];
-            for (int i = 0; i < ingredients.Length; i++)
-            {
-                ingredient_array[i] = ingredients[i].item;
-            }
-            for (int i = 0; i < ingredient_array.Length; i++)
-            {
-                ingredient_array[i].DeleteEntity();
-            }
+                var ingredientArray = new Entity[ingredients.Length];
+                for (int i = 0; i < ingredients.Length; i++) ingredientArray[i] = ingredients[i].item;
+                for (int i = 0; i < ingredientArray.Length; i++) ingredientArray[i].DeleteEntity();
 
-            crafting_entity.RemoveComponent<CraftingArtifact>();
-            crafting_entity.RemoveTag<TagUncompleted>();
-            crafting_entity.AddComponent(new Artifact());
-            crafting_entity.GetComponent<AliveTimeLimit>().value = crafting_entity.GetComponent<ItemLevel>() * 10 * TimeScales.SecPerYear;
-            int outputCount = ArtifactProductionService.ResolveOutputCount(result.YieldMultiplier);
-            for (int i = 1; i < outputCount; i++)
-            {
-                ae.AddSpecialItem(ArtifactProductionService.CloneProduct(crafting_entity));
-            }
-            ae.EquipArtifact(crafting_entity);
-            ItemLevel finalLevel = crafting_entity.GetComponent<ItemLevel>();
-            ProductionLifecycle.PublishCompleted(new ProductionCompletedEvent(
-                ae,
-                ArtifactProductionProcesses.ArtifactRefining,
-                materialData,
-                crafting_entity,
-                finalLevel,
-                outputCount));
+                craftingItem.RemoveComponent<CraftingArtifact>();
+                craftingItem.RemoveTag<TagUncompleted>();
+                craftingItem.AddComponent(new Artifact());
+                craftingItem.GetComponent<AliveTimeLimit>().value =
+                    craftingItem.GetComponent<ItemLevel>() * 10 * TimeScales.SecPerYear;
+                int outputCount = ArtifactProductionService.ResolveOutputCount(result.YieldMultiplier);
+                for (int i = 1; i < outputCount; i++)
+                {
+                    Entity clone = ArtifactProductionService.CloneProduct(craftingItem);
+                    if (clone.HasComponent<CraftSession>()) clone.RemoveComponent<CraftSession>();
+                    spawned.Add(clone);
+                    extend.AddSpecialItem(clone);
+                }
+                extend.EquipArtifact(craftingItem);
 
-            ModClass.LogInfo($"{pObject.getName()}[{pObject.data.id}] 完成炼制 {crafting_entity.Name} x{outputCount}");
+                // 成品已完成装备和副产物转移，此处之后只允许记录事件，不能再回滚成品。
+                if (craftingItem.HasComponent<CraftSession>()) craftingItem.RemoveComponent<CraftSession>();
+                committed = true;
+                ControlledTaskOrderService.MarkExecutionCompleted(actor);
+                ItemLevel finalLevel = craftingItem.GetComponent<ItemLevel>();
+                try
+                {
+                    ProductionLifecycle.PublishCompleted(new ProductionCompletedEvent(
+                        extend,
+                        ArtifactProductionProcesses.ArtifactRefining,
+                        materialData,
+                        craftingItem,
+                        finalLevel,
+                        outputCount));
+                }
+                catch (Exception publishException)
+                {
+                    ModClass.LogError($"[CraftSession] artifact completion event failed actor={actor.getID()}: {publishException}");
+                }
+                ModClass.LogInfo($"{actor.getName()}[{actor.data.id}] 完成炼制 {craftingItem.Name} x{outputCount}");
+            }
+            catch (Exception exception)
+            {
+                ModClass.LogError($"[CraftSession] artifact completion failed actor={actor.getID()}: {exception}");
+                if (committed)
+                {
+                    ControlledTaskOrderService.MarkExecutionCompleted(actor);
+                }
+                else
+                {
+                    extend.UnequipArtifact(craftingItem, suppressAutoEquip: true);
+                    for (int i = 0; i < spawned.Count; i++)
+                        if (!spawned[i].IsNull) spawned[i].DeleteEntity();
+                    ControlledTaskOrderService.ReportExecutionFailure(actor,
+                        "Cultiway.ControlledTask.Reason.CraftingCompletionFailed");
+                    CraftFailureService.Fail(craftingItem, CraftProcessType.ArtifactRefining,
+                        CraftFailureReason.InvalidProcess);
+                }
+            }
             return BehResult.Continue;
         }
 
         ArtifactProductionStepEvent step = ArtifactProductionService.DispatchStep(
-            ae,
+            extend,
             ArtifactProductionProcesses.ArtifactRefining,
             materialData,
-            crafting_entity,
+            craftingItem,
             Randy.randomFloat(1f, 3f));
-        crafting.progress += System.Math.Max(1, step.ProgressGain);
-        pObject.timer_action = Mathf.Max(0.15f, step.Duration);
-
+        crafting.progress += Math.Max(1, step.ProgressGain);
+        actor.timer_action = Mathf.Max(0.15f, step.Duration);
         return BehResult.RepeatStep;
     }
 }

@@ -1,14 +1,16 @@
 using Cultiway.Content.AIGC;
-using Cultiway.Content.Libraries;
 
 namespace Cultiway.Content.Events;
 
 public struct CultibookImprovedEvent
 {
-    public int WorldSeedId;
+    public long WorldSessionId;
     public long ActorId;
+    public long OrderId;
     public string RequestId;
-    public CultibookAsset OriginalCultibook;
-    public CultibookAsset ImprovedDraft;
+    public string OriginalCultibookId;
+    public CultibookDraftDto ImprovedDraft;
+    public bool UsedFallback;
+    public string GeneratorError;
     public float ResponseSeconds;
 }

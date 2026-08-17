@@ -1,14 +1,10 @@
 using System;
 using System.Linq;
 using ai.behaviours;
-using Cultiway.Content.Components;
 using Cultiway.Content.Crafting;
 using Cultiway.Content.Libraries;
-using Cultiway.Core;
-using Cultiway.Core.Components;
-using Cultiway.Utils;
+using Cultiway.Core.ControlledTasks;
 using Cultiway.Utils.Extension;
-using Friflo.Engine.ECS;
 
 namespace Cultiway.Content.Behaviours;
 
@@ -16,35 +12,40 @@ public class BehFindElixirToCraft : BehCityActor
 {
     public override BehResult execute(Actor actor)
     {
-        var actorExtend = actor.GetExtend();
+        if (ControlledTaskOrderService.TryGetActiveOrderId(actor.getID(), out long orderId))
+        {
+            if (!ControlledTaskOrderService.TryTakeExecutionContext(actor.getID(),
+                    out ControlledElixirCraftContext context))
+            {
+                ControlledTaskOrderService.ReportExecutionFailure(actor,
+                    "Cultiway.ControlledTask.Reason.ExecutionContextMissing");
+                return BehResult.Continue;
+            }
 
-        var recipes = actorExtend.GetAllMaster<ElixirAsset>()
+            if (CraftSessionService.TryBeginElixir(actor, context.RecipeId, orderId,
+                    out _, out string reasonLocaleKey))
+                ControlledTaskOrderService.MarkExecutionCommitted(actor, true);
+            else
+                ControlledTaskOrderService.ReportExecutionFailure(actor, reasonLocaleKey);
+            return BehResult.Continue;
+        }
+
+        var recipes = actor.GetExtend().GetAllMaster<ElixirAsset>()
             .Select(entry => entry.Item1)
             .Where(asset => asset != null)
             .OrderBy(asset => asset.id, StringComparer.Ordinal)
             .ToArray();
         if (recipes.Length == 0) return BehResult.Stop;
 
-        var startIndex = Randy.randomInt(0, recipes.Length);
-        for (var offset = 0; offset < recipes.Length; offset++)
+        int startIndex = Randy.randomInt(0, recipes.Length);
+        for (int offset = 0; offset < recipes.Length; offset++)
         {
-            var asset = recipes[(startIndex + offset) % recipes.Length];
-            if (!asset.QueryInventoryForIngredients(actorExtend, out var ingredients)) continue;
-
-            var craftingElixir = SpecialItemUtils
-                .StartBuild(ItemShapes.Ball, World.world.getCurWorldTime(), actor.getName())
-                .AddComponent(new CraftingElixir { elixir_id = asset.id })
-                .AddTag<TagUncompleted>()
-                .Build();
-            actorExtend.AddSpecialItem(craftingElixir);
-            foreach (var ingredient in ingredients)
-            {
-                craftingElixir.AddRelation(new CraftOccupyingRelation { item = ingredient });
-                ingredient.AddTag<TagConsumed>();
-            }
-            return BehResult.Continue;
+            ElixirAsset recipe = recipes[(startIndex + offset) % recipes.Length];
+            if (!recipe.QueryInventoryForIngredients(actor.GetExtend(), out _)) continue;
+            return CraftSessionService.TryBeginElixir(actor, recipe.id, 0, out _, out _)
+                ? BehResult.Continue
+                : BehResult.Stop;
         }
-
         return BehResult.Stop;
     }
 }

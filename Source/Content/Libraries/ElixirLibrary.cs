@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
@@ -43,12 +44,18 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
         });
     }
 
-    /// <summary>按材料语义构造运行时丹方；规范签名相同的配方复用同一资产。</summary>
-    public ElixirAsset NewElixir(Entity[] ingredients)
+    /// <summary>提交已验证的丹方定义；同签名丹方复用现有动态资产。</summary>
+    public ElixirAsset GetOrAddDefinition(ElixirRecipeDefinition definition, out bool created)
     {
-        var definition = ElixirRecipeBuilder.Build(ingredients);
-        var existing = get(definition.AssetId);
-        if (existing != null) return existing;
+        if (definition == null || string.IsNullOrEmpty(definition.AssetId) ||
+            definition.Ingredients == null || definition.Ingredients.Length == 0)
+            throw new ArgumentException("丹方定义无效", nameof(definition));
+        ElixirAsset existing = get(definition.AssetId);
+        if (existing != null)
+        {
+            created = false;
+            return existing;
+        }
 
         var asset = new ElixirAsset
         {
@@ -57,8 +64,30 @@ public class ElixirLibrary : DynamicAssetLibrary<ElixirAsset>
             recipe_context = definition.Context,
             composition_seed = definition.Seed
         };
-        ElixirEffectGenerator.GenerateElixirActions(asset);
-        AddDynamic(asset);
-        return asset;
+        try
+        {
+            ElixirEffectGenerator.GenerateElixirActions(asset);
+            AddDynamic(asset);
+            created = true;
+            return asset;
+        }
+        catch
+        {
+            ModClass.L.StatusEffectLibrary.RemoveAll(new[] { asset.id });
+            throw;
+        }
+    }
+
+    /// <summary>从材料构造并提交运行时丹方。</summary>
+    public ElixirAsset NewElixir(Entity[] ingredients)
+    {
+        ElixirRecipeDefinition definition = ElixirRecipeBuilder.Build(ingredients);
+        return GetOrAddDefinition(definition, out _);
+    }
+
+    protected override void OnRemoveDynamic(ElixirAsset asset)
+    {
+        ModClass.L.StatusEffectLibrary.RemoveAll(new[] { asset.id });
+        base.OnRemoveDynamic(asset);
     }
 }

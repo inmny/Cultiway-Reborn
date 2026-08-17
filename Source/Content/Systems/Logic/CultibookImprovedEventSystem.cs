@@ -1,62 +1,35 @@
 using Cultiway.Content.AIGC;
-using Cultiway.Content.Components;
-using Cultiway.Content.Const;
-using Cultiway.Content.Extensions;
 using Cultiway.Content.Events;
-using Cultiway.Utils.Extension;
-using strings;
-using UnityEngine;
 using Cultiway.Core.EventSystem;
+using Cultiway.Core.ControlledTasks;
 
 namespace Cultiway.Content.Systems.Logic;
 
-/// <summary>
-/// 处理 LLM 返回的功法改进结果，落地生成改进版功法并转修。
-/// </summary>
-public class CultibookImprovedEventSystem : GenericEventSystem<CultibookImprovedEvent>
+public sealed class CultibookImprovedEventSystem : GenericEventSystem<CultibookImprovedEvent>
 {
     protected override void HandleEvent(CultibookImprovedEvent evt)
     {
-        if (evt.WorldSeedId != MapBox.current_world_seed_id) return;
-        if (evt.ActorId == 0 || string.IsNullOrEmpty(evt.RequestId) || evt.ImprovedDraft == null) return;
-
-        var actor = World.world.units.get(evt.ActorId);
-        if (actor == null || actor.isRekt()) return;
-
-        var ae = actor.GetExtend();
-        var mainCultibook = ae.GetMainCultibook();
-        if (mainCultibook == null || mainCultibook.id != evt.OriginalCultibook.id) return;
-
-        // 计算成功率（基于智慧）
-        float intelligence = ae.GetStat(S.intelligence);
-        float successRate = Mathf.Clamp(0.5f + intelligence / 10f * 0.01f, 0.5f, 0.9f);
-
-        if (!Randy.randomChance(successRate))
+        if (!CultibookRequestService.TryMatchPending(evt.RequestId, CultibookRequestKind.Improve,
+                evt.ActorId, evt.OrderId, evt.WorldSessionId, out CultibookRequestRecord request))
+            return;
+        if (evt.OriginalCultibookId != request.OriginalCultibookId)
         {
-            // 改进失败，不影响功法
-            actor.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, 0);
+            CultibookRequestService.MarkFailed(request,
+                "Cultiway.ControlledTask.Reason.MainCultibookChanged",
+                evt.UsedFallback, evt.GeneratorError);
             return;
         }
 
-        if (!actor.hasCity() || !actor.hasLanguage() || !actor.city.hasBookSlots())
+        CultibookCommitResult result = CultibookCommitService.TryCommit(
+            request, evt.ImprovedDraft, evt.UsedFallback);
+        if (result.Success)
         {
-            actor.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, 0);
-            return;
+            CultibookRequestService.MarkSucceeded(request, evt.UsedFallback, evt.GeneratorError);
+            Actor actor = World.world?.units?.get(evt.ActorId);
+            ControlledTaskOrderService.MarkExecutionCommitted(actor);
         }
-
-        // 创建改进版功法书并添加到城市
-        var newBook = World.world.books.CreateCultibookFromDraft(actor, evt.ImprovedDraft);
-        if (newBook == null || !World.world.books.TryStoreBookInCity(actor, newBook))
-        {
-            actor.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, 0);
-            return;
-        }
-
-        var improvedCultibook = evt.ImprovedDraft;
-
-        ae.SetMainCultibook(improvedCultibook);
-        ae.AddMainCultibookMastery(100f);
-
-        actor.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, 0);
+        else
+            CultibookRequestService.MarkFailed(request, result.ReasonLocaleKey,
+                evt.UsedFallback, evt.GeneratorError);
     }
 }

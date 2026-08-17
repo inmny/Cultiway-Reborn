@@ -4,6 +4,7 @@ using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.Content.ActorComponents;
 using Cultiway.Content.ActiveAbilities;
+using Cultiway.Content.AIGC;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.KnightCombat;
@@ -59,6 +60,7 @@ internal class Manager
         // Content 的语义扩展已经全部注册，此时统一解析别名、父级和蕴含关系。
         ModClass.L.SemanticLibrary.LinkAndValidate();
         CombatWorldService.Initialize();
+        CultibookRequestService.Initialize();
 
         new Patch.Manager().Init();
         ModClass.I.GeneralLogicSystems.Add(new FlyCancelSystem());

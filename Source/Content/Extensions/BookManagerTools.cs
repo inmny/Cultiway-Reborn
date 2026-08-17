@@ -1,3 +1,4 @@
+using System;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
@@ -19,14 +20,23 @@ public static class BookManagerTools
         var book = manager.NewBook(creator, BookTypes.Cultibook);
         if (book == null) return null;
 
-        var bookExtend = book.GetExtend();
-        bookExtend.AddComponent(new Cultibook(cultibook.id));
-        bookExtend.AddComponent(cultibook.Level);
-        bookExtend.Master(cultibook, mastery);
-        book.data.name = cultibook.Name;
-        SectVerifyLog.Log("WriteScriptureBook",
-            $"type=cultibook creator={SectVerifyLog.Actor(creator)} book={SectVerifyLog.Book(book)} cultibook={cultibook.id} mastery={mastery:F1}");
-        return book;
+        try
+        {
+            var bookExtend = book.GetExtend();
+            bookExtend.AddComponent(new Cultibook(cultibook.id));
+            bookExtend.AddComponent(cultibook.Level);
+            bookExtend.Master(cultibook, mastery);
+            book.data.name = cultibook.Name;
+            SectVerifyLog.Log("WriteScriptureBook",
+                $"type=cultibook creator={SectVerifyLog.Actor(creator)} book={SectVerifyLog.Book(book)} cultibook={cultibook.id} mastery={mastery:F1}");
+            return book;
+        }
+        catch (Exception exception)
+        {
+            ModClass.LogError($"[ScriptureWriting] cultibook construction failed: {exception}");
+            manager.DisposeUncommittedBook(book);
+            return null;
+        }
     }
 
     public static Book WriteElixirRecipeBook(this BookManager manager, Actor creator, ElixirAsset elixir,
@@ -35,13 +45,22 @@ public static class BookManagerTools
         var book = manager.NewBook(creator, BookTypes.Elixirbook);
         if (book == null) return null;
 
-        var bookExtend = book.GetExtend();
-        bookExtend.AddComponent(new Elixirbook(elixir.id));
-        bookExtend.Master(elixir, mastery);
-        book.data.name = elixir.GetName() + "丹方";
-        SectVerifyLog.Log("WriteScriptureBook",
-            $"type=elixir creator={SectVerifyLog.Actor(creator)} book={SectVerifyLog.Book(book)} elixir={elixir.id} mastery={mastery:F1}");
-        return book;
+        try
+        {
+            var bookExtend = book.GetExtend();
+            bookExtend.AddComponent(new Elixirbook(elixir.id));
+            bookExtend.Master(elixir, mastery);
+            book.data.name = elixir.GetName() + "丹方";
+            SectVerifyLog.Log("WriteScriptureBook",
+                $"type=elixir creator={SectVerifyLog.Actor(creator)} book={SectVerifyLog.Book(book)} elixir={elixir.id} mastery={mastery:F1}");
+            return book;
+        }
+        catch (Exception exception)
+        {
+            ModClass.LogError($"[ScriptureWriting] elixirbook construction failed: {exception}");
+            manager.DisposeUncommittedBook(book);
+            return null;
+        }
     }
 
     public static Book WriteSkillbookBook(this BookManager manager, Actor creator, Entity skillContainer)
@@ -49,19 +68,30 @@ public static class BookManagerTools
         var book = manager.NewBook(creator, BookTypes.Skillbook);
         if (book == null) return null;
 
-        var bookExtend = book.GetExtend();
-        var clonedSkillContainer = skillContainer.Store.CloneEntity(skillContainer);
-        bookExtend.AddComponent(new Skillbook
+        Entity clonedSkillContainer = default;
+        try
         {
-            SkillContainer = clonedSkillContainer
-        });
-        bookExtend.E.AddRelation(new SkillMasterRelation
+            var bookExtend = book.GetExtend();
+            clonedSkillContainer = skillContainer.Store.CloneEntity(skillContainer);
+            bookExtend.AddComponent(new Skillbook
+            {
+                SkillContainer = clonedSkillContainer
+            });
+            bookExtend.E.AddRelation(new SkillMasterRelation
+            {
+                SkillContainer = clonedSkillContainer
+            });
+            SectVerifyLog.Log("WriteScriptureBook",
+                $"type=skill creator={SectVerifyLog.Actor(creator)} book={SectVerifyLog.Book(book)} skill={clonedSkillContainer.Id}");
+            return book;
+        }
+        catch (Exception exception)
         {
-            SkillContainer = clonedSkillContainer
-        });
-        SectVerifyLog.Log("WriteScriptureBook",
-            $"type=skill creator={SectVerifyLog.Actor(creator)} book={SectVerifyLog.Book(book)} skill={clonedSkillContainer.Id}");
-        return book;
+            ModClass.LogError($"[ScriptureWriting] skillbook construction failed: {exception}");
+            if (!clonedSkillContainer.IsNull) clonedSkillContainer.DeleteEntity();
+            manager.DisposeUncommittedBook(book);
+            return null;
+        }
     }
 
     public static Book CreateNewSkillbook(this BookManager manager, Actor creator, Entity skillContainer)
@@ -78,7 +108,7 @@ public static class BookManagerTools
         {
             foreach (var entry in draftAsset.SkillPool)
             {
-                if (entry?.SkillContainer.IsNull == false) entry.SkillContainer.RemoveTag<TagOccupied>();
+                if (entry?.SkillContainer.IsNull == false) entry.SkillContainer.DeleteEntity();
             }
             return null;
         }

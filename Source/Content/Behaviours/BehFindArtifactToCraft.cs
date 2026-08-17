@@ -1,11 +1,9 @@
 using System.Collections.Generic;
+using System.Linq;
 using ai.behaviours;
 using Cultiway.Content.Artifacts;
-using Cultiway.Content.Components;
 using Cultiway.Content.Crafting;
-using Cultiway.Core;
-using Cultiway.Core.Components;
-using Cultiway.Utils;
+using Cultiway.Core.ControlledTasks;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 
@@ -13,48 +11,33 @@ namespace Cultiway.Content.Behaviours;
 
 public class BehFindArtifactToCraft : BehCityActor
 {
-    public override BehResult execute(Actor pObject)
+    public override BehResult execute(Actor actor)
     {
-        ActorExtend ae = pObject.GetExtend();
-
-        // 扫描背包未占用材料，具体炼器结果交给 ArtifactComposer 处理。
-        var available = new List<Entity>();
-        foreach (Entity item in ae.GetItems())
+        if (ControlledTaskOrderService.TryGetActiveOrderId(actor.getID(), out long orderId))
         {
-            if (item.Tags.HasAny(Tags.Get<TagConsumed, TagOccupied>())) continue;
-            if (!item.Tags.Has<TagIngredient>()) continue;
-            available.Add(item);
-        }
-
-        if (available.Count == 0) return BehResult.Stop;
-
-        Entity[] ingredients = ArtifactIngredientPlanner.Select(pObject, available);
-        var result = ArtifactComposer.Compose(ingredients);
-        Entity crafting_artifact = SpecialItemUtils
-            .StartBuild(result.Shape, World.world.getCurWorldTime(), pObject.getName())
-            .AddComponent(new CraftingArtifact
+            if (!ControlledTaskOrderService.TryTakeExecutionContext(actor.getID(),
+                    out ControlledArtifactCraftContext context))
             {
-                progress = 0,
-            })
-            .AddComponent(result.Level)
-            .AddComponent(new EntityName(result.Name))
-            .AddComponent(result.ToAtomData())
-            .AddComponent(result.MaterialData)
-            .AddComponent(result.ToControlProfile())
-            .AddComponent(result.AbilitySet)
-            .AddComponent(result.AbilityRuntime)
-            .AddComponent(new ArtifactStorageState())
-            .AddComponent(new ArtifactSpiritState())
-            .AddComponent(result.Appearance)
-            .AddTag<TagUncompleted>()
-            .Build();
-        ae.AddSpecialItem(crafting_artifact);
-        foreach (Entity ing in ingredients)
-        {
-            crafting_artifact.AddRelation(new CraftOccupyingRelation { item = ing });
-            ing.AddTag<TagConsumed>();
+                ControlledTaskOrderService.ReportExecutionFailure(actor,
+                    "Cultiway.ControlledTask.Reason.ExecutionContextMissing");
+                return BehResult.Continue;
+            }
+
+            if (CraftSessionService.TryBeginArtifact(actor, context.Materials, orderId,
+                    out _, out string reasonLocaleKey))
+                ControlledTaskOrderService.MarkExecutionCommitted(actor, true);
+            else
+                ControlledTaskOrderService.ReportExecutionFailure(actor, reasonLocaleKey);
+            return BehResult.Continue;
         }
 
-        return BehResult.Continue;
+        List<Entity> available = actor.GetExtend().GetItems()
+            .Where(ArtifactCraftCommandConfigurator.IsValidMaterial)
+            .ToList();
+        if (available.Count == 0) return BehResult.Stop;
+        Entity[] ingredients = ArtifactIngredientPlanner.Select(actor, available);
+        return CraftSessionService.TryBeginArtifact(actor, ingredients, 0, out _, out _)
+            ? BehResult.Continue
+            : BehResult.Stop;
     }
 }

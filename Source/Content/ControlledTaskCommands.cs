@@ -2,8 +2,11 @@ using System;
 using ai.behaviours;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content.AIGC;
 using Cultiway.Content.Behaviours;
 using Cultiway.Content.Components;
+using Cultiway.Content.Const;
+using Cultiway.Content.Crafting;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.KnightCombat;
 using Cultiway.Content.Libraries;
@@ -29,12 +32,34 @@ public sealed class ControlledTaskCommands : ExtendLibrary<ControlledTaskCommand
     public static ControlledTaskCommandAsset StudyMagicWeb { get; private set; }
     public static ControlledTaskCommandAsset StudyMagicScroll { get; private set; }
     public static ControlledTaskCommandAsset ImproveMagicSpell { get; private set; }
+    public static ControlledTaskCommandAsset CreateCultibook { get; private set; }
+    public static ControlledTaskCommandAsset ImproveCultibook { get; private set; }
+    public static ControlledTaskCommandAsset FindNewElixir { get; private set; }
     public static ControlledTaskCommandAsset CraftMagicScroll { get; private set; }
+    public static ControlledTaskCommandAsset CraftElixir { get; private set; }
+    public static ControlledTaskCommandAsset CraftArtifact { get; private set; }
     public static ControlledTaskCommandAsset CraftTalisman { get; private set; }
+    public static ControlledTaskCommandAsset WriteCultibook { get; private set; }
+    public static ControlledTaskCommandAsset WriteElixirbook { get; private set; }
+    public static ControlledTaskCommandAsset WriteSkillbook { get; private set; }
     public static ControlledTaskCommandAsset FoundSect { get; private set; }
     public static ControlledTaskCommandAsset StudySectScripture { get; private set; }
     public static ControlledTaskCommandAsset DoSectChore { get; private set; }
     public static ControlledTaskCommandAsset OrganizeSectScripture { get; private set; }
+
+    private static readonly CultibookControlledTaskConfigurator CultibookCreator =
+        new(CultibookRequestKind.Create);
+    private static readonly CultibookControlledTaskConfigurator CultibookImprover =
+        new(CultibookRequestKind.Improve);
+    private static readonly ElixirDiscoveryCommandConfigurator ElixirDiscoverer = new();
+    private static readonly ElixirCraftCommandConfigurator ElixirCrafter = new();
+    private static readonly ArtifactCraftCommandConfigurator ArtifactCrafter = new();
+    private static readonly ScriptureCommandConfigurator CultibookWriter =
+        new(ControlledScriptureKind.Cultibook);
+    private static readonly ScriptureCommandConfigurator ElixirbookWriter =
+        new(ControlledScriptureKind.ElixirRecipe);
+    private static readonly ScriptureCommandConfigurator SkillbookWriter =
+        new(ControlledScriptureKind.Skill);
 
     protected override bool AutoRegisterAssets() => true;
     protected override string Prefix() => "Cultiway.ControlledTaskCommand";
@@ -76,15 +101,58 @@ public sealed class ControlledTaskCommands : ExtendLibrary<ControlledTaskCommand
             "cultiway/icons/iconMagic", ControlledTaskCategory.Research, 30,
             evaluate: EvaluateMagicSpellImprovement,
             requiresConfirmation: true);
+        Set(CreateCultibook, ActorTasks.CreateCultibook,
+            "cultiway/icons/iconCultivation", ControlledTaskCategory.Research, 40,
+            evaluate: CultibookRequestService.EvaluateCreate,
+            requiresConfirmation: true,
+            configurator: CultibookCreator);
+        Set(ImproveCultibook, ActorTasks.ImproveCultibook,
+            "cultiway/icons/iconCultivation", ControlledTaskCategory.Research, 50,
+            evaluate: CultibookRequestService.EvaluateImprove,
+            requiresConfirmation: true,
+            configurator: CultibookImprover);
+        Set(FindNewElixir, ActorTasks.FindNewElixir,
+            "cultiway/icons/iconElixirCauldron", ControlledTaskCategory.Research, 60,
+            evaluate: EvaluateElixirDiscovery,
+            requiresConfirmation: true,
+            configurator: ElixirDiscoverer);
         Set(CraftMagicScroll, ActorTasks.CraftMagicScroll,
             "cultiway/icons/iconCraftMagicScroll", ControlledTaskCategory.Crafting, 0,
             evaluate: actor => AvailableWhen(actor, BehCraftMagicScroll.CanCraft(actor?.GetExtend()),
                 "Cultiway.ControlledTask.Reason.CannotCraftMagicScroll"),
             requiresConfirmation: true);
+        Set(CraftElixir, ActorTasks.CraftElixir,
+            "cultiway/icons/iconElixirCauldron", ControlledTaskCategory.Crafting, 10,
+            evaluate: EvaluateElixirCrafting,
+            requiresConfirmation: true,
+            configurator: ElixirCrafter);
+        Set(CraftArtifact, ActorTasks.CraftArtifact,
+            "ui/icons/iconArtifact", ControlledTaskCategory.Crafting, 20,
+            evaluate: EvaluateArtifactCrafting,
+            requiresConfirmation: true,
+            configurator: ArtifactCrafter);
         Set(CraftTalisman, ActorTasks.CraftTalisman,
-            "ui/icons/iconArtifact", ControlledTaskCategory.Crafting, 10,
+            "ui/icons/iconArtifact", ControlledTaskCategory.Crafting, 30,
             evaluate: EvaluateTalismanCrafting,
             requiresConfirmation: true);
+        Set(WriteCultibook, ActorTasks.WriteCultibook,
+            "cultiway/icons/iconWriting", ControlledTaskCategory.Crafting, 40,
+            evaluate: actor => EvaluateConfigurator(actor, CultibookWriter,
+                "Cultiway.ControlledTask.Reason.CannotWriteCultibook"),
+            requiresConfirmation: true,
+            configurator: CultibookWriter);
+        Set(WriteElixirbook, ActorTasks.WriteElixirbook,
+            "cultiway/icons/iconWriting", ControlledTaskCategory.Crafting, 50,
+            evaluate: actor => EvaluateConfigurator(actor, ElixirbookWriter,
+                "Cultiway.ControlledTask.Reason.CannotWriteElixirbook"),
+            requiresConfirmation: true,
+            configurator: ElixirbookWriter);
+        Set(WriteSkillbook, ActorTasks.WriteSkillbook,
+            "cultiway/icons/iconWriting", ControlledTaskCategory.Crafting, 60,
+            evaluate: actor => EvaluateConfigurator(actor, SkillbookWriter,
+                "Cultiway.ControlledTask.Reason.CannotWriteSkillbook"),
+            requiresConfirmation: true,
+            configurator: SkillbookWriter);
         Set(FoundSect, ActorTasks.BuildSect,
             "ui/icons/iconKingdom", ControlledTaskCategory.Sect, 0,
             evaluate: actor => AvailableWhen(actor, SectRules.CanFoundSect(actor),
@@ -115,7 +183,8 @@ public sealed class ControlledTaskCommands : ExtendLibrary<ControlledTaskCommand
         Func<Actor, ControlledTaskAvailability> evaluate = null,
         Func<Actor, WorldTile, ControlledTaskAvailability> validateTarget = null,
         Action<Actor, WorldTile> applyTarget = null,
-        bool requiresConfirmation = false)
+        bool requiresConfirmation = false,
+        IControlledTaskCommandConfigurator configurator = null)
     {
         string localeSuffix = asset.id.Substring(asset.id.LastIndexOf('.') + 1);
         asset.Task = task;
@@ -128,6 +197,7 @@ public sealed class ControlledTaskCommands : ExtendLibrary<ControlledTaskCommand
         asset.EvaluateActor = evaluate;
         asset.ValidateWorldTile = validateTarget;
         asset.ApplyWorldTileContext = applyTarget;
+        asset.Configurator = configurator;
         asset.RequiresConfirmation = requiresConfirmation;
     }
 
@@ -267,6 +337,55 @@ public sealed class ControlledTaskCommands : ExtendLibrary<ControlledTaskCommand
             "Cultiway.ControlledTask.Reason.CannotImproveMagicSpell");
     }
 
+    private static ControlledTaskAvailability EvaluateElixirDiscovery(Actor actor)
+    {
+        ControlledTaskAvailability common = EvaluateCommon(actor);
+        if (!common.Enabled) return common;
+        if (!actor.hasHouse() || !actor.hasCity())
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresHome");
+        if (!actor.GetExtend().TryGetComponent(out Xian xian) || xian.CurrLevel < 2)
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresJindan");
+        if (CraftSessionService.HasActiveCraft(actor))
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.CraftingAlreadyActive");
+        return ElixirDiscoverer.GetOptions(actor, ElixirDiscoveryCommandConfigurator.MaterialsParameter,
+                   ControlledTaskInvocation.Empty).Count > 0
+            ? ControlledTaskAvailability.Available
+            : ControlledTaskAvailability.Unavailable(
+                "Cultiway.ControlledTask.Reason.CannotDiscoverElixir");
+    }
+
+    private static ControlledTaskAvailability EvaluateElixirCrafting(Actor actor)
+    {
+        ControlledTaskAvailability common = EvaluateCommon(actor);
+        if (!common.Enabled) return common;
+        if (!actor.hasHouse() || !actor.hasCity())
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresHome");
+        if (!actor.GetExtend().TryGetComponent(out Xian xian) || xian.CurrLevel < 2)
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresJindan");
+        if (CraftSessionService.HasActiveCraft(actor))
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.CraftingAlreadyActive");
+        return ElixirCrafter.GetOptions(actor, ElixirCraftCommandConfigurator.RecipeParameter,
+                   ControlledTaskInvocation.Empty).Count > 0
+            ? ControlledTaskAvailability.Available
+            : ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.CannotCraftElixir");
+    }
+
+    private static ControlledTaskAvailability EvaluateArtifactCrafting(Actor actor)
+    {
+        ControlledTaskAvailability common = EvaluateCommon(actor);
+        if (!common.Enabled) return common;
+        if (!actor.hasHouse() || !actor.hasCity())
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresHome");
+        if (!actor.GetExtend().TryGetComponent(out Xian xian) || xian.CurrLevel < XianLevels.Yuanying)
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresYuanying");
+        if (CraftSessionService.HasActiveCraft(actor))
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.CraftingAlreadyActive");
+        return ArtifactCrafter.GetOptions(actor, ArtifactCraftCommandConfigurator.MaterialsParameter,
+                   ControlledTaskInvocation.Empty).Count > 0
+            ? ControlledTaskAvailability.Available
+            : ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.CannotCraftArtifact");
+    }
+
     private static ControlledTaskAvailability EvaluateTalismanCrafting(Actor actor)
     {
         ControlledTaskAvailability common = EvaluateCommon(actor);
@@ -275,6 +394,21 @@ public sealed class ControlledTaskCommands : ExtendLibrary<ControlledTaskCommand
             return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresXian");
         return AvailableWhen(actor, BehCraftTalisman.CanCraft(actor.GetExtend()),
             "Cultiway.ControlledTask.Reason.CannotCraftTalisman");
+    }
+
+    private static ControlledTaskAvailability EvaluateConfigurator(
+        Actor actor,
+        IControlledTaskCommandConfigurator configurator,
+        string reasonLocaleKey)
+    {
+        ControlledTaskAvailability common = EvaluateCommon(actor);
+        if (!common.Enabled) return common;
+        if (!actor.hasHouse() || !actor.hasCity() || !actor.hasLanguage())
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresHome");
+        ControlledTaskParameterDefinition source = configurator.Parameters[0];
+        return configurator.GetOptions(actor, source.Key, ControlledTaskInvocation.Empty).Count > 0
+            ? ControlledTaskAvailability.Available
+            : ControlledTaskAvailability.Unavailable(reasonLocaleKey);
     }
 
     private static ControlledTaskAvailability AvailableWhen(Actor actor, bool condition, string reasonLocaleKey)

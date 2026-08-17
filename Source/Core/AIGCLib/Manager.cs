@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
@@ -55,14 +56,16 @@ public class Manager
         public string type;
     }
 
-    public static async Task<string> RequestResponseContent(string prompt, string system_prompt="You are a helpful assistant", int index = 0, float temperature = 1.5f)
+    public static async Task<string> RequestResponseContent(string prompt,
+        string system_prompt = "You are a helpful assistant", int index = 0, float temperature = 1.5f,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(BaseURL) || string.IsNullOrEmpty(APIKey))
         {
             return string.Empty;
         }
-        var client = new HttpClient();
-        var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseURL}/chat/completions");
+        using var client = new HttpClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseURL}/chat/completions");
         request.Headers.Add("Accept", "application/json");
         request.Headers.Add("Authorization", $"Bearer {APIKey}");
         
@@ -95,8 +98,10 @@ public class Manager
             null,
             "application/json");
         request.Content = content;
-        var response = await client.SendAsync(request);
+        using var response = await client.SendAsync(request, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
         var res = await response.Content.ReadAsStringAsync();
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
             response.EnsureSuccessStatusCode();

@@ -4,9 +4,8 @@ using System.Linq;
 using ai.behaviours;
 using Cultiway.Abstract;
 using Cultiway.Const;
-using Cultiway.Content.Components;
 using Cultiway.Content.Crafting;
-using Cultiway.Core.Components;
+using Cultiway.Core.ControlledTasks;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -15,46 +14,41 @@ using UnityEngine;
 
 namespace Cultiway.Content.Behaviours;
 
-public class BehFindNewElixir : BehCityActor
+public sealed class BehFindNewElixir : BehCityActor
 {
     [Hotfixable]
     public override BehResult execute(Actor actor)
     {
-        var actorExtend = actor.GetExtend();
-        if (actorExtend.HasItem<CraftingElixir>())
+        if (ControlledTaskOrderService.TryGetActiveOrderId(actor.getID(), out _))
         {
-            CraftFailureService.Fail(
-                actorExtend.GetFirstItemWithComponent<CraftingElixir>(),
-                CraftFailureReason.Interrupted);
+            if (!ControlledTaskOrderService.TryTakeExecutionContext(actor.getID(),
+                    out ControlledElixirDiscoveryContext context))
+            {
+                ControlledTaskOrderService.ReportExecutionFailure(actor,
+                    "Cultiway.ControlledTask.Reason.ExecutionContextMissing");
+                return BehResult.Continue;
+            }
+            if (ElixirDiscoveryService.TryDiscover(actor, context.Materials,
+                    out _, out string reasonLocaleKey))
+                ControlledTaskOrderService.MarkExecutionCommitted(actor);
+            else
+                ControlledTaskOrderService.ReportExecutionFailure(actor, reasonLocaleKey);
+            return BehResult.Continue;
         }
 
-        var inventory = (IHasInventory)actorExtend;
-        using var pool = new ListPool<Entity>(inventory.GetItems().Where(item =>
-            item.Tags.Has<TagIngredient>() &&
-            !item.Tags.HasAny(Tags.Get<TagConsumed, TagOccupied, TagRecycle>())));
+        if (CraftSessionService.HasActiveCraft(actor)) return BehResult.Stop;
+        IHasInventory inventory = actor.GetExtend();
+        using var pool = new ListPool<Entity>(inventory.GetItems()
+            .Where(ElixirDiscoveryCommandConfigurator.IsValidMaterial));
         if (!pool.Any()) return BehResult.Stop;
 
-        var availableCount = ((IList<Entity>)pool).Count;
-        var ingredientCount = Math.Min(
+        int availableCount = ((IList<Entity>)pool).Count;
+        int ingredientCount = Math.Min(
             Randy.randomInt(1, Mathf.FloorToInt(Mathf.Log(availableCount)) + 2),
             availableCount);
-        var ingredients = pool.SampleOut(ingredientCount);
-        var asset = Libraries.Manager.ElixirLibrary.NewElixir(ingredients);
-        actorExtend.Master(asset, Mathf.Max(1f, actorExtend.GetMaster(asset)));
-        ModClass.LogInfo($"{actorExtend} 推演出丹方 {asset.GetName()}");
-
-        var craftingElixir = SpecialItemUtils
-            .StartBuild(ItemShapes.Ball, World.world.getCurWorldTime(), actor.getName())
-            .AddComponent(new CraftingElixir { elixir_id = asset.id })
-            .AddTag<TagUncompleted>()
-            .Build();
-        actorExtend.AddSpecialItem(craftingElixir);
-        foreach (var ingredient in ingredients)
-        {
-            craftingElixir.AddRelation(new CraftOccupyingRelation { item = ingredient });
-            ingredient.AddTag<TagConsumed>();
-        }
-
+        Entity[] materials = pool.SampleOut(ingredientCount).ToArray();
+        if (!ElixirDiscoveryService.TryDiscover(actor, materials, out _, out _))
+            return BehResult.Stop;
         actor.timer_action = Randy.randomFloat(TimeScales.SecPerMonth, TimeScales.SecPerYear);
         return BehResult.Continue;
     }

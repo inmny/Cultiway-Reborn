@@ -1,59 +1,46 @@
-using System;
 using ai.behaviours;
-using Cultiway.Const;
 using Cultiway.Content.AIGC;
-using Cultiway.Content.Components;
-using Cultiway.Content.Const;
-using Cultiway.Content.Extensions;
-using Cultiway.Utils.Extension;
-using UnityEngine;
+using Cultiway.Core.ControlledTasks;
 
 namespace Cultiway.Content.Behaviours;
 
-/// <summary>
-/// 改进功法行为（使用 LLM）
-/// </summary>
-public class BehImproveCultibook : BehCityActor
+public sealed class BehImproveCultibook : BehCityActor
 {
-    public override BehResult execute(Actor pObject)
+    public override BehResult execute(Actor actor)
     {
-        var ae = pObject.GetExtend();
-
-        pObject.data.get(ContentActorDataKeys.WaitingForCultibookImprovement_int, out int state, -1);
-        if (state == -1)
+        if (!CultibookRequestService.TryGetActive(actor.getID(), CultibookRequestKind.Improve,
+                out CultibookRequestRecord request))
         {
-            var mainCultibook = ae.GetMainCultibook();
-            if (mainCultibook == null)
+            long orderId = ControlledTaskOrderService.TryGetActiveOrderId(actor.getID(), out long activeOrderId)
+                ? activeOrderId
+                : 0;
+            if (!CultibookRequestService.TryStartImprove(actor, orderId, out request,
+                    out string reasonLocaleKey))
             {
-                return BehResult.Stop;
+                ControlledTaskOrderService.ReportExecutionFailure(actor, reasonLocaleKey);
+                CultibookRequestService.RemoveTerminal(request?.RequestId);
+                return BehResult.Continue;
             }
+        }
 
-            var requestId = Guid.NewGuid().ToString();
-            var improvementDuration = Randy.randomFloat(TimeScales.SecPerYear, TimeScales.SecPerYear * 3);
-            pObject.timer_action = improvementDuration;
-            StayInside(pObject);
-            pObject.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, 1);
-            CultibookGenerator.Instance.RequestImprovement(ae, mainCultibook, requestId);
-            return BehResult.RepeatStep;
-        }
-        if (state == 1)
+        if (request.State == CultibookRequestState.Pending)
         {
-            StayInside(pObject);
+            StayInside(actor);
+            actor.timer_action = 0.25f;
             return BehResult.RepeatStep;
         }
+
+        if (request.State != CultibookRequestState.Succeeded)
+            ControlledTaskOrderService.ReportExecutionFailure(actor, request.ErrorReasonLocaleKey);
+        CultibookRequestService.RemoveTerminal(request.RequestId);
         return BehResult.Continue;
     }
 
     private static void StayInside(Actor actor)
     {
         if (actor.beh_building_target != null)
-        {
             actor.stayInBuilding(actor.beh_building_target);
-        }
         else if (actor.inside_building != null)
-        {
             actor.stayInBuilding(actor.inside_building);
-        }
     }
 }
-

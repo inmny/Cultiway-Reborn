@@ -12,6 +12,7 @@ public enum CraftFailureReason
 {
     Interrupted,
     IngredientsMissing,
+    InvalidProcess,
 }
 
 /// <summary>

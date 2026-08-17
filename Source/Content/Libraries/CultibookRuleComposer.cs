@@ -58,24 +58,32 @@ public static class CultibookRuleComposer
         {
             id = Guid.NewGuid().ToString()
         };
-        var context = CreateContext(creator, draft.id, null, null);
-        var profile = SelectProfile(context);
-        ComposeLevelRange(context, profile, out var minLevel, out var maxLevel);
+        try
+        {
+            var context = CreateContext(creator, draft.id, null, null);
+            var profile = SelectProfile(context);
+            ComposeLevelRange(context, profile, out var minLevel, out var maxLevel);
 
-        draft.FinalStats = ComposeStats(context, profile);
-        draft.ElementReq = ComposeElementRequirement(context, profile);
-        draft.ElementAffinityThreshold = profile.AffinityThreshold;
-        draft.MinLevel = minLevel;
-        draft.MaxLevel = maxLevel;
-        draft.CultivateMethodId = context.CultivateMethodId;
-        draft.SkillPool = ComposeSkillPool(context, profile, minLevel, maxLevel);
-        draft.Level = CalculateLevel(draft.FinalStats, draft.SkillPool, draft.CultivateMethodId, creator);
-        draft.Name = ComposeName(context, profile, draft.Level);
-        draft.Description = ComposeDescription(context, profile, draft.SkillPool);
-        draft.ConflictConditions = Array.Empty<SemanticQueryExpression>();
-        draft.SynergyConditions = Array.Empty<SemanticQueryExpression>();
-        draft.Semantics = ComposeSemantics(draft);
-        return draft;
+            draft.FinalStats = ComposeStats(context, profile);
+            draft.ElementReq = ComposeElementRequirement(context, profile);
+            draft.ElementAffinityThreshold = profile.AffinityThreshold;
+            draft.MinLevel = minLevel;
+            draft.MaxLevel = maxLevel;
+            draft.CultivateMethodId = context.CultivateMethodId;
+            draft.SkillPool = ComposeSkillPool(context, profile, minLevel, maxLevel);
+            draft.Level = CalculateLevel(draft.FinalStats, draft.SkillPool, draft.CultivateMethodId, creator);
+            draft.Name = ComposeName(context, profile, draft.Level);
+            draft.Description = ComposeDescription(context, profile, draft.SkillPool);
+            draft.ConflictConditions = Array.Empty<SemanticQueryExpression>();
+            draft.SynergyConditions = Array.Empty<SemanticQueryExpression>();
+            draft.Semantics = ComposeSemantics(draft);
+            return draft;
+        }
+        catch
+        {
+            DeleteOwnedSkillPool(draft.SkillPool);
+            throw;
+        }
     }
 
     public static CultibookAsset CreateImprovedDraft(CultibookAsset original, ActorExtend creator)
@@ -86,29 +94,37 @@ public static class CultibookRuleComposer
         {
             id = Guid.NewGuid().ToString()
         };
-        var context = CreateContext(creator, draft.id, original.CultivateMethodId, original);
-        var profile = SelectProfile(context);
-        var creatorLevel = context.CreatorLevel;
+        try
+        {
+            var context = CreateContext(creator, draft.id, original.CultivateMethodId, original);
+            var profile = SelectProfile(context);
+            var creatorLevel = context.CreatorLevel;
 
-        draft.FinalStats = ComposeImprovedStats(original, context, profile);
-        draft.ElementReq = ComposeImprovedRequirement(original, context, profile);
-        draft.ElementAffinityThreshold = Mathf.Clamp(
-            Mathf.Max(original.ElementAffinityThreshold, profile.AffinityThreshold), 0.15f, 0.75f);
-        draft.MinLevel = Mathf.Clamp(Mathf.Min(original.MinLevel, creatorLevel), 0, MaxCultivationLevel);
-        draft.MaxLevel = Mathf.Clamp(Mathf.Max(Mathf.Max(original.MaxLevel + 1, creatorLevel), draft.MinLevel),
-            0, MaxCultivationLevel);
-        draft.CultivateMethodId = context.CultivateMethodId;
-        draft.SkillPool = ComposeImprovedSkillPool(original, context, profile, draft.MinLevel, draft.MaxLevel);
-        var calculatedLevel = CalculateLevel(draft.FinalStats, draft.SkillPool, draft.CultivateMethodId, creator);
-        draft.Level = MaxItemLevel(original.Level, calculatedLevel);
-        draft.Name = ComposeImprovedName(original.Name, context, profile, draft.Level);
-        draft.Description = ComposeImprovedDescription(original.Name, context, profile, draft.SkillPool);
-        draft.ConflictConditions = original.ConflictConditions?.ToArray() ??
-                                   Array.Empty<SemanticQueryExpression>();
-        draft.SynergyConditions = original.SynergyConditions?.ToArray() ??
-                                  Array.Empty<SemanticQueryExpression>();
-        draft.Semantics = ComposeSemantics(draft);
-        return draft;
+            draft.FinalStats = ComposeImprovedStats(original, context, profile);
+            draft.ElementReq = ComposeImprovedRequirement(original, context, profile);
+            draft.ElementAffinityThreshold = Mathf.Clamp(
+                Mathf.Max(original.ElementAffinityThreshold, profile.AffinityThreshold), 0.15f, 0.75f);
+            draft.MinLevel = Mathf.Clamp(Mathf.Min(original.MinLevel, creatorLevel), 0, MaxCultivationLevel);
+            draft.MaxLevel = Mathf.Clamp(Mathf.Max(Mathf.Max(original.MaxLevel + 1, creatorLevel), draft.MinLevel),
+                0, MaxCultivationLevel);
+            draft.CultivateMethodId = context.CultivateMethodId;
+            draft.SkillPool = ComposeImprovedSkillPool(original, context, profile, draft.MinLevel, draft.MaxLevel);
+            var calculatedLevel = CalculateLevel(draft.FinalStats, draft.SkillPool, draft.CultivateMethodId, creator);
+            draft.Level = MaxItemLevel(original.Level, calculatedLevel);
+            draft.Name = ComposeImprovedName(original.Name, context, profile, draft.Level);
+            draft.Description = ComposeImprovedDescription(original.Name, context, profile, draft.SkillPool);
+            draft.ConflictConditions = original.ConflictConditions?.ToArray() ??
+                                       Array.Empty<SemanticQueryExpression>();
+            draft.SynergyConditions = original.SynergyConditions?.ToArray() ??
+                                      Array.Empty<SemanticQueryExpression>();
+            draft.Semantics = ComposeSemantics(draft);
+            return draft;
+        }
+        catch
+        {
+            DeleteOwnedSkillPool(draft.SkillPool);
+            throw;
+        }
     }
 
     public static CultibookAsset NormalizeDraft(CultibookAsset draft, ActorExtend creator,
@@ -618,49 +634,68 @@ public static class CultibookRuleComposer
             _ => 1
         };
         targetCount = Mathf.Min(targetCount, profile.MaxSkillCount);
-        return RankSkills(context, profile)
-            .Take(targetCount)
-            .Select((candidate, index) => CreateSkillPoolEntry(candidate.Skill, index, profile,
-                minLevel, maxLevel))
-            .Where(entry => entry != null)
-            .ToList();
+        var result = new List<SkillPoolEntry>();
+        try
+        {
+            int index = 0;
+            foreach (CultibookSkillCandidate candidate in RankSkills(context, profile).Take(targetCount))
+            {
+                SkillPoolEntry entry = CreateSkillPoolEntry(candidate.Skill, index, profile, minLevel, maxLevel);
+                if (entry != null) result.Add(entry);
+                index++;
+            }
+            return result;
+        }
+        catch
+        {
+            DeleteOwnedSkillPool(result);
+            throw;
+        }
     }
 
     private static List<SkillPoolEntry> ComposeImprovedSkillPool(CultibookAsset original,
         CultibookRuleContext context, CultibookRuleProfileAsset profile, int minLevel, int maxLevel)
     {
         var result = new List<SkillPoolEntry>();
-        var signatures = new HashSet<string>(StringComparer.Ordinal);
-        if (original.SkillPool != null)
+        try
         {
-            foreach (var entry in original.SkillPool)
+            var signatures = new HashSet<string>(StringComparer.Ordinal);
+            if (original.SkillPool != null)
             {
-                if (entry?.SkillContainer.IsNull != false
-                    || !entry.SkillContainer.HasComponent<SkillContainer>()) continue;
-                var signature = SkillContainerSignature.Build(entry.SkillContainer);
-                if (!signatures.Add(signature)) continue;
-                var clone = entry.SkillContainer.Store.CloneEntity(entry.SkillContainer);
-                clone.AddTag<TagOccupied>();
-                result.Add(new SkillPoolEntry
+                foreach (var entry in original.SkillPool)
                 {
-                    SkillContainer = clone,
-                    BaseChance = Mathf.Clamp(entry.BaseChance * 1.15f, 0.02f, 0.25f),
-                    MasteryThreshold = Mathf.Clamp(entry.MasteryThreshold * 0.9f, 0f, 100f),
-                    LevelRequirement = Mathf.Clamp(entry.LevelRequirement - 1, minLevel, maxLevel)
-                });
+                    if (entry?.SkillContainer.IsNull != false
+                        || !entry.SkillContainer.HasComponent<SkillContainer>()) continue;
+                    var signature = SkillContainerSignature.Build(entry.SkillContainer);
+                    if (!signatures.Add(signature)) continue;
+                    var clone = entry.SkillContainer.Store.CloneEntity(entry.SkillContainer);
+                    clone.AddTag<TagOccupied>();
+                    result.Add(new SkillPoolEntry
+                    {
+                        SkillContainer = clone,
+                        BaseChance = Mathf.Clamp(entry.BaseChance * 1.15f, 0.02f, 0.25f),
+                        MasteryThreshold = Mathf.Clamp(entry.MasteryThreshold * 0.9f, 0f, 100f),
+                        LevelRequirement = Mathf.Clamp(entry.LevelRequirement - 1, minLevel, maxLevel)
+                    });
+                }
             }
+
+            if (result.Count == 0) return ComposeSkillPool(context, profile, minLevel, maxLevel);
+            if (result.Count >= profile.MaxSkillCount) return result;
+
+            var addition = RankSkills(context, profile).FirstOrDefault(candidate => signatures.Add(candidate.Signature));
+            if (addition != null)
+            {
+                var entry = CreateSkillPoolEntry(addition.Skill, result.Count, profile, minLevel, maxLevel);
+                if (entry != null) result.Add(entry);
+            }
+            return result;
         }
-
-        if (result.Count == 0) return ComposeSkillPool(context, profile, minLevel, maxLevel);
-        if (result.Count >= profile.MaxSkillCount) return result;
-
-        var addition = RankSkills(context, profile).FirstOrDefault(candidate => signatures.Add(candidate.Signature));
-        if (addition != null)
+        catch
         {
-            var entry = CreateSkillPoolEntry(addition.Skill, result.Count, profile, minLevel, maxLevel);
-            if (entry != null) result.Add(entry);
+            DeleteOwnedSkillPool(result);
+            throw;
         }
-        return result;
     }
 
     private static IEnumerable<CultibookSkillCandidate> RankSkills(CultibookRuleContext context,
@@ -721,6 +756,13 @@ public static class CultibookRuleComposer
         };
     }
 
+    private static void DeleteOwnedSkillPool(IEnumerable<SkillPoolEntry> skillPool)
+    {
+        if (skillPool == null) return;
+        foreach (SkillPoolEntry entry in skillPool)
+            if (entry?.SkillContainer.IsNull == false) entry.SkillContainer.DeleteEntity();
+    }
+
     private static List<SkillPoolEntry> NormalizeSkillPool(IEnumerable<SkillPoolEntry> skillPool,
         int minLevel, int maxLevel)
     {
@@ -733,7 +775,7 @@ public static class CultibookRuleComposer
             var signature = SkillContainerSignature.Build(entry.SkillContainer);
             if (!signatures.Add(signature))
             {
-                entry.SkillContainer.RemoveTag<TagOccupied>();
+                entry.SkillContainer.DeleteEntity();
                 continue;
             }
 

@@ -17,6 +17,7 @@ public static class ControlledTaskOrderService
     private static readonly Dictionary<long, ActorTaskRuntime> RuntimeByActor = new();
     private static readonly Dictionary<AiSystemActor, long> ActorByAiSystem = new();
     private static readonly List<long> ScratchIds = new();
+    private static readonly List<long> ScratchActorIds = new();
 
     private static bool initialized;
     private static bool ticking;
@@ -31,36 +32,41 @@ public static class ControlledTaskOrderService
 
     public static ControlledTaskStartResult TryBegin(long actorId, string commandId, ControlledTaskTarget target)
     {
-        if (!ModClass.L.ControlledTaskCommandLibrary.TryGet(commandId, out ControlledTaskCommandAsset command))
+        return TryBegin(actorId, commandId, new ControlledTaskInvocation(target, null));
+    }
+
+    public static ControlledTaskStartResult TryBegin(
+        long actorId,
+        string commandId,
+        ControlledTaskInvocation invocation)
+    {
+        if (!ModClass.L.ControlledTaskCommandLibrary.TryGet(commandId,
+                out ControlledTaskCommandAsset command))
             return ControlledTaskStartResult.Rejected("Cultiway.ControlledTask.Reason.CommandMissing");
 
         Actor actor = ResolveActor(actorId);
         ControlledTaskAvailability actorAvailability = ValidateControlledActor(actor);
         if (!actorAvailability.Enabled) return ControlledTaskStartResult.Rejected(actorAvailability.ReasonLocaleKey);
-        if (target.Mode != command.TargetMode)
+        if (invocation.Target.Mode != command.TargetMode)
             return ControlledTaskStartResult.Rejected("Cultiway.ControlledTask.Reason.TargetModeChanged");
 
         BehaviourTaskActor taskAsset = command.Task;
         if (taskAsset == null || !ReferenceEquals(AssetManager.tasks_actor.get(taskAsset.id), taskAsset))
             return ControlledTaskStartResult.Rejected("Cultiway.ControlledTask.Reason.TaskMissing");
 
-        WorldTile tile = target.ResolveTile();
-        if (command.TargetMode == ControlledTaskTargetMode.None)
-        {
-            tile = null;
-        }
-        else if (tile == null)
-        {
+        WorldTile tile = invocation.Target.ResolveTile();
+        if (command.TargetMode == ControlledTaskTargetMode.None) tile = null;
+        if (command.TargetMode == ControlledTaskTargetMode.WorldTile && tile == null)
             return ControlledTaskStartResult.Rejected("Cultiway.ControlledTask.Reason.TargetMissing");
-        }
 
         try
         {
             ControlledTaskAvailability availability = command.Evaluate(actor);
             if (!availability.Enabled) return ControlledTaskStartResult.Rejected(availability.ReasonLocaleKey);
-            ControlledTaskAvailability targetAvailability = command.ValidateTarget(actor, tile);
-            if (!targetAvailability.Enabled)
-                return ControlledTaskStartResult.Rejected(targetAvailability.ReasonLocaleKey);
+
+            ControlledTaskAvailability invocationAvailability = command.ValidateInvocation(actor, invocation);
+            if (!invocationAvailability.Enabled)
+                return ControlledTaskStartResult.Rejected(invocationAvailability.ReasonLocaleKey);
         }
         catch (Exception exception)
         {
@@ -70,9 +76,34 @@ public static class ControlledTaskOrderService
         }
 
         ActorTaskRuntime runtime = EnsureRuntime(actor);
+
+        long orderId = nextOrderId++;
+        IControlledTaskExecutionContext context;
+        try
+        {
+            context = command.PrepareInvocation(actor, invocation);
+        }
+        catch (Exception exception)
+        {
+            ModClass.LogError(
+                $"[ControlledTaskOrder] preparation failed command={command.id} actor={actorId}: {exception}");
+            return ControlledTaskStartResult.Rejected("Cultiway.ControlledTask.Reason.InternalError");
+        }
+
         if (ActiveOrderByActor.TryGetValue(actorId, out long priorOrderId))
             Finish(priorOrderId, ControlledTaskOrderState.Interrupted,
                 "Cultiway.ControlledTask.Reason.ExternalInterrupt");
+
+        var order = new ControlledTaskOrder(
+            orderId,
+            actorId,
+            actor.getName(),
+            command,
+            taskAsset,
+            runtime.Revision,
+            Time.realtimeSinceStartup);
+        Orders.Add(orderId, order);
+        if (context != null) ControlledTaskExecutionContextStore.Put(orderId, context);
 
         try
         {
@@ -92,21 +123,11 @@ public static class ControlledTaskOrderService
             ModClass.LogError(
                 $"[ControlledTaskOrder] startup failed command={command.id} actor={actorId}: {exception}");
             if (actor != null && !actor.isRekt()) actor.cancelAllBeh();
-            long failedOrderId = AddTerminalOrder(actor, command, taskAsset, runtime.Revision,
-                ControlledTaskOrderState.Failed, "Cultiway.ControlledTask.Reason.StartFailed");
-            return ControlledTaskStartResult.Started(failedOrderId);
+            Finish(orderId, ControlledTaskOrderState.Failed, "Cultiway.ControlledTask.Reason.StartFailed");
+            return ControlledTaskStartResult.Rejected("Cultiway.ControlledTask.Reason.StartFailed");
         }
 
-        long orderId = nextOrderId++;
-        var order = new ControlledTaskOrder(
-            orderId,
-            actorId,
-            actor.getName(),
-            command,
-            taskAsset,
-            runtime.Revision,
-            Time.realtimeSinceStartup);
-        Orders.Add(orderId, order);
+        order.TaskRevision = runtime.Revision;
         ActiveOrderByActor[actorId] = orderId;
         return ControlledTaskStartResult.Started(orderId);
     }
@@ -114,7 +135,8 @@ public static class ControlledTaskOrderService
     public static bool TryCancel(long orderId)
     {
         TickOrders();
-        if (!Orders.TryGetValue(orderId, out ControlledTaskOrder order) || order.State != ControlledTaskOrderState.Running)
+        if (!Orders.TryGetValue(orderId, out ControlledTaskOrder order) ||
+            order.State != ControlledTaskOrderState.Running)
             return false;
 
         Actor actor = ResolveActor(order.ActorId);
@@ -135,6 +157,70 @@ public static class ControlledTaskOrderService
         if (order.State == ControlledTaskOrderState.Running)
             Finish(orderId, ControlledTaskOrderState.Cancelled,
                 "Cultiway.ControlledTask.Reason.Cancelled");
+        return true;
+    }
+
+    public static bool TryGetActiveOrderId(long actorId, out long orderId)
+    {
+        TickOrders();
+        return ActiveOrderByActor.TryGetValue(actorId, out orderId);
+    }
+
+    public static bool TryGetExecutionContext<T>(long actorId, out T context)
+        where T : class, IControlledTaskExecutionContext
+    {
+        if (TryGetActiveOrderId(actorId, out long orderId))
+            return ControlledTaskExecutionContextStore.TryGet(orderId, out context);
+        context = null;
+        return false;
+    }
+
+    public static bool TryTakeExecutionContext<T>(long actorId, out T context)
+        where T : class, IControlledTaskExecutionContext
+    {
+        if (!TryGetActiveOrderId(actorId, out long orderId) ||
+            !ControlledTaskExecutionContextStore.Remove(orderId, out T typed))
+        {
+            context = null;
+            return false;
+        }
+
+        context = typed;
+        return true;
+    }
+
+    public static bool MarkExecutionCommitted(Actor actor, bool keepOrderRunning = false)
+    {
+        if (actor == null || !TryGetActiveOrderId(actor.getID(), out long orderId) ||
+            !Orders.TryGetValue(orderId, out ControlledTaskOrder order) ||
+            order.State != ControlledTaskOrderState.Running || !OwnsCurrentTask(order, actor))
+            return false;
+
+        order.ExecutionCommitted = true;
+        if (!keepOrderRunning)
+            Finish(orderId, ControlledTaskOrderState.Completed, string.Empty);
+        return true;
+    }
+
+    public static bool MarkExecutionCompleted(Actor actor)
+    {
+        if (actor == null || !TryGetActiveOrderId(actor.getID(), out long orderId) ||
+            !Orders.TryGetValue(orderId, out ControlledTaskOrder order) ||
+            order.State != ControlledTaskOrderState.Running || !order.ExecutionCommitted)
+            return false;
+        Finish(orderId, ControlledTaskOrderState.Completed, string.Empty);
+        return true;
+    }
+
+    public static bool ReportExecutionFailure(Actor actor, string reasonLocaleKey)
+    {
+        if (actor == null || !TryGetActiveOrderId(actor.getID(), out long orderId) ||
+            !Orders.TryGetValue(orderId, out ControlledTaskOrder order) ||
+            order.State != ControlledTaskOrderState.Running || !OwnsCurrentTask(order, actor))
+            return false;
+
+        order.ExecutionFailed = true;
+        if (!string.IsNullOrEmpty(reasonLocaleKey)) order.ExecutionFailureReasonLocaleKey = reasonLocaleKey;
         return true;
     }
 
@@ -204,19 +290,28 @@ public static class ControlledTaskOrderService
             return;
         }
 
-        Finish(orderId,
-            completedTaskSequence ? ControlledTaskOrderState.Completed : ControlledTaskOrderState.Failed,
-            completedTaskSequence ? string.Empty : "Cultiway.ControlledTask.Reason.ExecutionFailed");
+        if (!completedTaskSequence || order.ExecutionFailed)
+        {
+            Finish(orderId, ControlledTaskOrderState.Failed,
+                string.IsNullOrEmpty(order.ExecutionFailureReasonLocaleKey)
+                    ? "Cultiway.ControlledTask.Reason.ExecutionFailed"
+                    : order.ExecutionFailureReasonLocaleKey);
+            return;
+        }
+
+        Finish(orderId, ControlledTaskOrderState.Completed, string.Empty);
     }
 
     private static ControlledTaskAvailability ValidateControlledActor(Actor actor)
     {
         if (actor == null || actor.isRekt())
             return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.ActorLost");
-        if (actor.is_unconscious || actor.asset == null || actor.asset.id == "crabzilla" || actor.asset.skip_fight_logic)
+        if (actor.is_unconscious || actor.asset == null || actor.asset.id == "crabzilla" ||
+            actor.asset.skip_fight_logic)
             return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.ActorUnavailable");
         if (!ControllableUnit.isControllingUnit() || ControllableUnit.count() != 1 ||
-            !ReferenceEquals(ControllableUnit.getControllableUnit(), actor) || !ControllableUnit.isControllingUnit(actor))
+            !ReferenceEquals(ControllableUnit.getControllableUnit(), actor) ||
+            !ControllableUnit.isControllingUnit(actor))
             return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.NotSingleControlledActor");
         return ControlledTaskAvailability.Available;
     }
@@ -224,15 +319,23 @@ public static class ControlledTaskOrderService
     private static ActorTaskRuntime EnsureRuntime(Actor actor)
     {
         long actorId = actor.getID();
-        if (RuntimeByActor.TryGetValue(actorId, out ActorTaskRuntime runtime) && ReferenceEquals(runtime.Actor, actor))
+        if (RuntimeByActor.TryGetValue(actorId, out ActorTaskRuntime runtime) &&
+            ReferenceEquals(runtime.Actor, actor))
             return runtime;
         if (runtime?.Actor?.ai != null) ActorByAiSystem.Remove(runtime.Actor.ai);
 
         runtime = new ActorTaskRuntime(actor);
         RuntimeByActor[actorId] = runtime;
         ActorByAiSystem[actor.ai] = actorId;
-        actor.ai.subscribeToTaskSwitch(() => NotifyTaskSwitch(actor));
+        actor.ai.subscribeToTaskSwitch(() => NotifyTaskSwitchById(actorId));
         return runtime;
+    }
+
+    private static void NotifyTaskSwitchById(long actorId)
+    {
+        Actor actor = ResolveActor(actorId);
+        if (actor == null) return;
+        NotifyTaskSwitch(actor);
     }
 
     private static void NotifyTaskSwitch(Actor actor)
@@ -294,6 +397,22 @@ public static class ControlledTaskOrderService
                     : OtherRetentionSeconds;
                 if (order.FinishedAt >= 0f && now - order.FinishedAt >= retention) Orders.Remove(orderId);
             }
+
+            ScratchActorIds.Clear();
+            foreach (KeyValuePair<long, ActorTaskRuntime> entry in RuntimeByActor)
+            {
+                Actor runtimeActor = entry.Value.Actor;
+                if (runtimeActor == null || runtimeActor.isRekt()) ScratchActorIds.Add(entry.Key);
+            }
+            for (var i = 0; i < ScratchActorIds.Count; i++)
+            {
+                long actorId = ScratchActorIds[i];
+                if (!RuntimeByActor.TryGetValue(actorId, out ActorTaskRuntime runtime)) continue;
+                RuntimeByActor.Remove(actorId);
+                if (runtime.Actor?.ai != null && ActorByAiSystem.TryGetValue(runtime.Actor.ai, out long mapped) &&
+                    mapped == actorId)
+                    ActorByAiSystem.Remove(runtime.Actor.ai);
+            }
         }
         finally
         {
@@ -301,41 +420,47 @@ public static class ControlledTaskOrderService
         }
     }
 
-    private static long AddTerminalOrder(Actor actor, ControlledTaskCommandAsset command,
-        BehaviourTaskActor taskAsset, long revision, ControlledTaskOrderState state, string reasonLocaleKey)
-    {
-        long orderId = nextOrderId++;
-        var order = new ControlledTaskOrder(
-            orderId,
-            actor?.getID() ?? 0,
-            actor?.getName() ?? string.Empty,
-            command,
-            taskAsset,
-            revision,
-            Time.realtimeSinceStartup);
-        Orders.Add(orderId, order);
-        Finish(orderId, state, reasonLocaleKey);
-        return orderId;
-    }
-
     private static void Finish(long orderId, ControlledTaskOrderState state, string reasonLocaleKey)
     {
         if (!Orders.TryGetValue(orderId, out ControlledTaskOrder order) ||
             order.State != ControlledTaskOrderState.Running)
             return;
+
         order.State = state;
         order.ReasonLocaleKey = reasonLocaleKey ?? string.Empty;
         order.FinishedAt = Time.realtimeSinceStartup;
         if (ActiveOrderByActor.TryGetValue(order.ActorId, out long current) && current == orderId)
             ActiveOrderByActor.Remove(order.ActorId);
+
+        if (!ControlledTaskExecutionContextStore.Remove(orderId,
+                out IControlledTaskExecutionContext context)) return;
+        try
+        {
+            context.OnOrderFinished(state, order.ReasonLocaleKey);
+        }
+        catch (Exception exception)
+        {
+            ModClass.LogError($"[ControlledTaskOrder] context cleanup failed order={orderId}: {exception}");
+        }
     }
 
     private static void ClearWorldState()
     {
+        ScratchIds.Clear();
+        foreach (long orderId in Orders.Keys) ScratchIds.Add(orderId);
+        for (int i = 0; i < ScratchIds.Count; i++)
+        {
+            if (Orders.TryGetValue(ScratchIds[i], out ControlledTaskOrder order) &&
+                order.State == ControlledTaskOrderState.Running)
+                Finish(order.OrderId, ControlledTaskOrderState.ActorLost,
+                    "Cultiway.ControlledTask.Reason.ActorLost");
+        }
+
         Orders.Clear();
         ActiveOrderByActor.Clear();
         RuntimeByActor.Clear();
         ActorByAiSystem.Clear();
+        ControlledTaskExecutionContextStore.Clear();
         ScratchIds.Clear();
         nextOrderId = 1;
     }
@@ -358,11 +483,14 @@ public static class ControlledTaskOrderService
         public string ActorName { get; }
         public ControlledTaskCommandAsset Command { get; }
         public BehaviourTaskActor TaskAsset { get; }
-        public long TaskRevision { get; }
+        public long TaskRevision { get; set; }
         public float StartedAt { get; }
         public ControlledTaskOrderState State { get; set; } = ControlledTaskOrderState.Running;
         public string ReasonLocaleKey { get; set; } = string.Empty;
         public float FinishedAt { get; set; } = -1f;
+        public bool ExecutionFailed { get; set; }
+        public bool ExecutionCommitted { get; set; }
+        public string ExecutionFailureReasonLocaleKey { get; set; } = string.Empty;
 
         public ControlledTaskOrder(long orderId, long actorId, string actorName,
             ControlledTaskCommandAsset command, BehaviourTaskActor taskAsset, long taskRevision,

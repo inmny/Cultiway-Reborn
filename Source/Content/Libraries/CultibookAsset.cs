@@ -78,8 +78,9 @@ public class CultibookAsset : Asset, IDeleteWhenUnknown
         ModClass.LogInfo($"To delete Cultibook {id}");
         foreach (var entry in SkillPool)
         {
-            ModClass.LogInfo($"Remove tag for {entry.SkillContainer.Id}");
-            entry.SkillContainer.RemoveTag<TagOccupied>();
+            if (entry?.SkillContainer.IsNull != false) continue;
+            ModClass.LogInfo($"Delete owned skill {entry.SkillContainer.Id}");
+            entry.SkillContainer.DeleteEntity();
         }
     }
 }

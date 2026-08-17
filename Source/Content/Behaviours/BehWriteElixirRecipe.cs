@@ -1,20 +1,35 @@
 using ai.behaviours;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Sects;
+using Cultiway.Core.ControlledTasks;
 
 namespace Cultiway.Content.Behaviours;
 
 public class BehWriteElixirRecipe : BehCityActor
 {
-    public override BehResult execute(Actor pObject)
+    public override BehResult execute(Actor actor)
     {
-        if (!SectScriptureContributionPlanner.TryPickElixirRecipeTarget(pObject, out var target, out var elixir, out float mastery))
+        if (ControlledTaskOrderService.TryGetActiveOrderId(actor.getID(), out _))
         {
+            if (!ControlledTaskOrderService.TryTakeExecutionContext(actor.getID(),
+                    out ControlledScriptureWriteContext context))
+            {
+                ControlledTaskOrderService.ReportExecutionFailure(actor,
+                    "Cultiway.ControlledTask.Reason.ExecutionContextMissing");
+                return BehResult.Continue;
+            }
+
+            if (ScriptureWritingService.TryWrite(actor, context, out string reasonLocaleKey))
+                ControlledTaskOrderService.MarkExecutionCommitted(actor);
+            else
+                ControlledTaskOrderService.ReportExecutionFailure(actor, reasonLocaleKey);
             return BehResult.Continue;
         }
 
-        var new_book = World.world.books.WriteElixirRecipeBook(pObject, elixir, mastery);
-        target.StoreBook(pObject, new_book);
+        if (!SectScriptureContributionPlanner.TryPickElixirRecipeTarget(actor,
+                out ScriptureBookDestination target, out var elixir, out float mastery))
+            return BehResult.Continue;
+        ScriptureWritingService.TryWriteElixirRecipe(actor, target, elixir, mastery, out _);
         return BehResult.Continue;
     }
 }

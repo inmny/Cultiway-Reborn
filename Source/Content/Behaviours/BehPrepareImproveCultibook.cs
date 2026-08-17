@@ -1,14 +1,13 @@
 using ai.behaviours;
-using Cultiway.Content.Const;
+using Cultiway.Content.AIGC;
 
 namespace Cultiway.Content.Behaviours;
 
-public class BehPrepareImproveCultibook : BehCityActor
+public sealed class BehPrepareImproveCultibook : BehCityActor
 {
-    public override BehResult execute(Actor pObject)
+    public override BehResult execute(Actor actor)
     {
-        pObject.data.set(ContentActorDataKeys.WaitingForCultibookImprovement_int, -1);
+        CultibookRequestService.CancelActorRequests(actor.getID());
         return BehResult.Continue;
     }
 }
-

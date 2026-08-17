@@ -173,7 +173,6 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
         FindNewElixir.addBeh(new BehGoToTileTarget());
         FindNewElixir.addBeh(new BehStayInBuildingTarget());
         FindNewElixir.addBeh(new BehFindNewElixir());
-        FindNewElixir.addBeh(new BehCraftElixir());
         FindNewElixir.addBeh(new BehExitBuilding());
         FindNewElixir.setIcon("cultiway/icons/iconElixirCauldron");
         

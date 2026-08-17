@@ -83,18 +83,12 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
                 throw new ArgumentOutOfRangeException();
         }
 
+        // 能力结算与配方回调都在材料销毁前执行；这里抛错仍可由半成品失败事务处理。
         craft_action?.Invoke(ae, craftingElixir, batch);
         var value = craftingElixir.GetComponent<Elixir>().value;
         var potencyLevel = Mathf.FloorToInt(Mathf.Log10(Mathf.Max(0f, value) + 1f));
         var level = ItemLevel.FromValue(batchLevel + potencyLevel);
-
-        for (var i = 0; i < batch.Length; i++) batch[i].DeleteEntity();
-
-        craftingElixir.RemoveComponent<CraftingElixir>();
-        craftingElixir.RemoveTag<TagUncompleted>();
-        craftingElixir.AddComponent(new EntityName(GetName()));
-
-        var productionResult = ArtifactProductionService.DispatchResult(
+        ArtifactProductionResultEvent productionResult = ArtifactProductionService.DispatchResult(
             ae,
             ArtifactProductionProcesses.Alchemy,
             this,
@@ -105,20 +99,83 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
         };
         ArtifactAbilityDispatcher.Dispatch(ae.E, result);
         level = ItemLevel.FromValue(level + result.QualityBonus);
-        if (craftingElixir.HasComponent<ItemLevel>())
-            craftingElixir.GetComponent<ItemLevel>() = level;
-        else
-            craftingElixir.AddComponent(level);
+        int outputCount = ArtifactProductionService.ResolveOutputCount(productionResult.YieldMultiplier);
+        string finalName = GetName();
 
-        var outputCount = ArtifactProductionService.ResolveOutputCount(productionResult.YieldMultiplier);
-        ArtifactProductionService.AddOutputs(receiver, craftingElixir, outputCount);
-        ProductionLifecycle.PublishCompleted(new ProductionCompletedEvent(
-            ae,
-            ArtifactProductionProcesses.Alchemy,
-            this,
-            craftingElixir,
-            level,
-            outputCount));
+        // 从销毁材料开始即进入不可逆提交区；此后的附加通知不得把已提交成品重新判为失败。
+        try
+        {
+            for (var i = 0; i < batch.Length; i++) batch[i].DeleteEntity();
+            craftingElixir.RemoveComponent<CraftingElixir>();
+            if (craftingElixir.HasComponent<CraftSession>()) craftingElixir.RemoveComponent<CraftSession>();
+            craftingElixir.RemoveTag<TagUncompleted>();
+            craftingElixir.AddComponent(new EntityName(finalName));
+            if (craftingElixir.HasComponent<ItemLevel>())
+                craftingElixir.GetComponent<ItemLevel>() = level;
+            else
+                craftingElixir.AddComponent(level);
+
+            try
+            {
+                ArtifactProductionService.AddOutputs(receiver, craftingElixir, outputCount);
+            }
+            catch (Exception exception)
+            {
+                // 原件已是有效成品且仍有库存所有者；输出转移异常不回滚材料和成品。
+                ModClass.LogError($"[ElixirCraft] output transfer failed recipe={id}: {exception}");
+            }
+
+            try
+            {
+                ProductionLifecycle.PublishCompleted(new ProductionCompletedEvent(
+                    ae,
+                    ArtifactProductionProcesses.Alchemy,
+                    this,
+                    craftingElixir,
+                    level,
+                    outputCount));
+            }
+            catch (Exception exception)
+            {
+                ModClass.LogError($"[ElixirCraft] completion event failed recipe={id}: {exception}");
+            }
+        }
+        catch (Exception exception)
+        {
+            // ECS 定型操作极少失败；即使失败，也将半成品收口为可识别的完成品，避免重复消费。
+            ModClass.LogError($"[ElixirCraft] commit finalization failed recipe={id}: {exception}");
+            for (var i = 0; i < batch.Length; i++)
+            {
+                try
+                {
+                    if (!batch[i].IsNull) batch[i].DeleteEntity();
+                }
+                catch (Exception ingredientException)
+                {
+                    ModClass.LogError($"[ElixirCraft] ingredient cleanup failed recipe={id}: {ingredientException}");
+                }
+            }
+            try
+            {
+                if (craftingElixir.HasComponent<CraftingElixir>())
+                    craftingElixir.RemoveComponent<CraftingElixir>();
+                if (craftingElixir.HasComponent<CraftSession>())
+                    craftingElixir.RemoveComponent<CraftSession>();
+                craftingElixir.RemoveTag<TagUncompleted>();
+                if (craftingElixir.HasComponent<ItemLevel>())
+                    craftingElixir.GetComponent<ItemLevel>() = level;
+                else
+                    craftingElixir.AddComponent(level);
+                if (craftingElixir.HasName)
+                    craftingElixir.GetComponent<EntityName>().value = finalName;
+                else
+                    craftingElixir.AddComponent(new EntityName(finalName));
+            }
+            catch (Exception fallbackException)
+            {
+                ModClass.LogError($"[ElixirCraft] commit recovery failed recipe={id}: {fallbackException}");
+            }
+        }
     }
 
     public bool QueryInventoryForIngredients(IHasInventory inventory, out Entity[] matchingIngredients)
