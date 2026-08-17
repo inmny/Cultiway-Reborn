@@ -4,6 +4,7 @@ Task.Unit.Cultiway.DailyPlantXianCultivate,日常修炼(仙路)
 Task.Unit.Cultiway.DailyEnvironmentalCultivate,寻觅灵地修炼
 Task.Unit.Cultiway.DailyMagicMeditate,魔法冥想
 Task.Unit.Cultiway.DailyKnightTrain,骑士操练
+Task.Unit.Cultiway.ControlledMoveToTile,前往指定位置
 Task.Unit.Cultiway.CultivationProgression,尝试突破
 Task.Unit.Cultiway.ExecuteCollectiveProject,执行集体工程
 Task.Unit.Cultiway.ExecuteEmergencyCollectiveProject,处理应急工程

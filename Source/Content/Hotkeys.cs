@@ -20,8 +20,11 @@ internal class Hotkeys : ExtendLibrary<HotkeyAsset, Hotkeys>
     {
         ControlledCultivatorFlightControls.Init();
 
-        WorldboxGame.Hotkeys.ConfigureUnitControlHotkey(ToggleControlledFlight, KeyCode.C,
-            _ => ControlledCultivatorFlightControls.ToggleManualFlight());
+        WorldboxGame.Hotkeys.ConfigureUnitControlHotkey(ToggleControlledFlight, KeyCode.C, _ =>
+        {
+            if (!ControlledPossessionInputGate.BlocksPossessionActions)
+                ControlledCultivatorFlightControls.ToggleManualFlight();
+        });
 
         ControlledCultivatorPossessionUi.Register(
             ToggleControlledFlightId,

@@ -1,5 +1,6 @@
 using Cultiway.Core.AIGCLib;
 using Cultiway.Core.Coordination;
+using Cultiway.Core.ControlledTasks;
 using Cultiway.Core.Semantics;
 using Cultiway.Core.SubWorlds.Generation;
 using Cultiway.Core.SubWorlds.Model;
@@ -34,6 +35,7 @@ public class Manager
     public SemanticFacetLibrary SemanticFacetLibrary { get; } = new();
     public SemanticLibrary SemanticLibrary { get; } = new();
     public CoordinatedActivityDefinitionLibrary CoordinatedActivityDefinitionLibrary { get; } = new();
+    public ControlledTaskCommandLibrary ControlledTaskCommandLibrary { get; } = new();
 
     /// <summary>小世界场景生成器资产库。</summary>
     public SubWorldGeneratorLibrary SubWorldGeneratorLibrary { get; } = new();
@@ -75,6 +77,7 @@ public class Manager
         AssetManager._instance.add(SemanticFacetLibrary, "semantic_facets");
         AssetManager._instance.add(SemanticLibrary, "semantics");
         AssetManager._instance.add(CoordinatedActivityDefinitionLibrary, "coordinated_activity_definitions");
+        AssetManager._instance.add(ControlledTaskCommandLibrary, "controlled_task_commands");
         AssetManager._instance.add(SubWorldGeneratorLibrary, "cultiway.sub_world_generators");
         AssetManager._instance.add(SubWorldClockProfileLibrary, "cultiway.sub_world_clock_profiles");
         AssetManager._instance.add(SubWorldVisualProfileLibrary, "cultiway.sub_world_visual_profiles");
@@ -109,6 +112,7 @@ public class Manager
         SemanticFacetLibrary.linkAssets();
         SemanticLibrary.linkAssets();
         CoordinatedActivityDefinitionLibrary.linkAssets();
+        ControlledTaskCommandLibrary.linkAssets();
         SubWorldGeneratorLibrary.linkAssets();
         SubWorldClockProfileLibrary.linkAssets();
         SubWorldVisualProfileLibrary.linkAssets();
@@ -142,6 +146,7 @@ public class Manager
         SemanticFacetLibrary.post_init();
         SemanticLibrary.post_init();
         CoordinatedActivityDefinitionLibrary.post_init();
+        ControlledTaskCommandLibrary.post_init();
         SubWorldGeneratorLibrary.post_init();
         SubWorldClockProfileLibrary.post_init();
         SubWorldVisualProfileLibrary.post_init();

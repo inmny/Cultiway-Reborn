@@ -1,6 +1,7 @@
 key,cz
 hotkey_cultiway_control_cast_skill,释放主动能力
 hotkey_cultiway_control_cycle_skill,切换主动能力
+hotkey_cultiway_control_issue_task,下达角色任务
 hotkey_cultiway_control_toggle_flight,切换飞行
 cultiway_control_action_cast_skill,能力
 cultiway_control_action_cast_skill_hint,长按选敌 / 滚轮缩放 / 右键取消

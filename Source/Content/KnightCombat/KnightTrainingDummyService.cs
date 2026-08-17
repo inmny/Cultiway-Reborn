@@ -7,6 +7,8 @@ public static class KnightTrainingDummyService
 {
     public static bool TryFind(Actor actor, out Building trainingDummy)
     {
+        trainingDummy = null;
+        if (actor?.city == null) return false;
         for (int i = 0; i < actor.city.buildings.Count; i++)
         {
             Building building = actor.city.buildings[i];
@@ -17,7 +19,6 @@ public static class KnightTrainingDummyService
             return true;
         }
 
-        trainingDummy = null;
         return false;
     }
 }

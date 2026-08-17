@@ -82,7 +82,8 @@ internal sealed class ControlledActiveAbilityBar : MonoBehaviour
 
     private void Update()
     {
-        if (!EnsureBound() || !ControlledCultivatorSkillControls.TryGetControlledActor(out Actor actor))
+        if (ControlledPossessionInputGate.BlocksPossessionActions || !EnsureBound() ||
+            !ControlledCultivatorSkillControls.TryGetControlledActor(out Actor actor))
         {
             Hide();
             return;

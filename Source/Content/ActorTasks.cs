@@ -38,6 +38,8 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     public static BehaviourTaskActor CraftArtifact { get; private set; }
     public static BehaviourTaskActor CreateCultibook { get; private set; }
     public static BehaviourTaskActor ImproveCultibook { get; private set; }
+    /// <summary>玩家结束附体后前往指定世界地块的专用任务。</summary>
+    public static BehaviourTaskActor ControlledMoveToTile { get; private set; }
     public static BehaviourTaskActor BuildSect { get; private set; }
     public static BehaviourTaskActor WriteCultibook { get; private set; }
     public static BehaviourTaskActor WriteElixirbook { get; private set; }
@@ -75,6 +77,9 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
+        ControlledMoveToTile.addBeh(new BehGoToTileTarget());
+        ControlledMoveToTile.setIcon("ui/icons/iconArrowDestination");
+
         DailyXianCultivate.addBeh(new BehBuildingTargetHome());
         DailyXianCultivate.addBeh(new BehGetTargetBuildingMainTile());
         DailyXianCultivate.addBeh(new BehGoToTileTarget());

@@ -18,6 +18,7 @@ using HarmonyLib;
 using UnityEngine;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Core.Performance;
+using Cultiway.UI;
 
 namespace Cultiway.Patch;
 
@@ -140,6 +141,8 @@ internal static class PatchMapBox
         WindowHistory.clear();
         WorldboxGame.I.ClearWorldReferences();
         ControlledSkillTargetSelection.ClearWorldState();
+        ControlledTaskTargetSelection.ClearWorldState();
+        ControlledTaskCommandPalette.ClearWorldState();
         ModClass.I.CustomMapModeManager.BeginWorldClear();
     }
 

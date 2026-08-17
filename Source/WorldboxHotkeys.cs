@@ -11,6 +11,7 @@ public partial class WorldboxGame
     {
         public const string CastControlledSkillId = "hotkey_cultiway_control_cast_skill";
         public const string CycleControlledSkillId = "hotkey_cultiway_control_cycle_skill";
+        public const string IssueControlledTaskId = "hotkey_cultiway_control_issue_task";
 
         private const string CastLabelKey = "cultiway_control_action_cast_skill";
         private const string CastHintKey = "cultiway_control_action_cast_skill_hint";
@@ -20,17 +21,27 @@ public partial class WorldboxGame
         public static HotkeyAsset CastControlledSkill { get; private set; }
         [AssetId(CycleControlledSkillId)]
         public static HotkeyAsset CycleControlledSkill { get; private set; }
+        [AssetId(IssueControlledTaskId)]
+        public static HotkeyAsset IssueControlledTask { get; private set; }
 
         protected override bool AutoRegisterAssets() => true;
 
         protected override void OnInit()
         {
-            ConfigureUnitControlHotkey(CastControlledSkill, KeyCode.R,
-                _ => ControlledSkillTargetSelection.Begin(CastControlledSkill));
+            ConfigureUnitControlHotkey(CastControlledSkill, KeyCode.R, _ =>
+            {
+                if (!ControlledPossessionInputGate.BlocksPossessionActions)
+                    ControlledSkillTargetSelection.Begin(CastControlledSkill);
+            });
             ControlledSkillTargetSelection.Configure(CastControlledSkill);
             ControlledSkillTargetSelection.InstallCameraZoomGate();
-            ConfigureUnitControlHotkey(CycleControlledSkill, KeyCode.E,
-                _ => ControlledCultivatorSkillControls.CycleSelectedSkill());
+            ConfigureUnitControlHotkey(CycleControlledSkill, KeyCode.E, _ =>
+            {
+                if (!ControlledPossessionInputGate.BlocksPossessionActions)
+                    ControlledCultivatorSkillControls.CycleSelectedSkill();
+            });
+            ConfigureUnitControlHotkey(IssueControlledTask, KeyCode.B,
+                _ => ControlledTaskCommandPalette.ToggleFromHotkey());
 
             ControlledCultivatorPossessionUi.Register(
                 CastControlledSkillId,
@@ -44,6 +55,10 @@ public partial class WorldboxGame
                 () => CycleLabelKey,
                 () => GetHotkeyText(CycleControlledSkill, "E"));
             ControlledActiveAbilityBar.Ensure();
+            ControlledTaskCommandPalette.Ensure();
+            ControlledTaskTargetSelection.Ensure();
+            ControlledTaskOrderTracker.Ensure();
+            ControlledPossessionInputGate.InstallControlUnitHotkeyGate();
 
             AssetManager.hotkey_library.linkAssets();
         }
