@@ -88,7 +88,8 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
                 kind: PathGenerationKind.Portal);
         }
 
-        if (TryBuildStraightSegment(request.StartTileId, objectiveTileId, grid, profile,
+        if (request.AgentKey.World.Kind != PathWorldKind.SubWorld &&
+            TryBuildStraightSegment(request, request.StartTileId, objectiveTileId, grid, profile,
                 config.SegmentTargetSteps, out PathStep[] straightSteps, out int straightEnd))
         {
             bool reachedObjective = straightEnd == objectiveTileId;
@@ -112,7 +113,12 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
         RegionCorridor corridor = null;
         PathGenerationKind generationKind = PathGenerationKind.Search;
 
-        if (objectiveDistance <= config.ShortRangeTiles)
+        if (request.AgentKey.World.Kind == PathWorldKind.SubWorld)
+        {
+            maxNodes = request.SearchRules.MaxExpandedNodes;
+            heuristicWeight = 1f;
+        }
+        else if (objectiveDistance <= config.ShortRangeTiles)
         {
             maxNodes = config.MaxNodesShort;
             heuristicWeight = 1f;
@@ -130,14 +136,19 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
             generationKind = corridor == null ? PathGenerationKind.Search : PathGenerationKind.RegionCorridor;
         }
 
+        if (request.SearchRules.MaxExpandedNodes > 0)
+        {
+            maxNodes = Math.Min(maxNodes, request.SearchRules.MaxExpandedNodes);
+        }
+
         SearchWorkspace workspace = workspaces.Value;
-        LocalPathResult local = TryBuildLocalPath(request.StartTileId, searchTarget, grid, profile,
+        LocalPathResult local = TryBuildLocalPath(request, request.StartTileId, searchTarget, grid, profile,
             maxNodes, heuristicWeight, corridor, workspace, token);
         int totalExpandedNodes = local.ExpandedNodes;
         if (!local.IsSuccess && corridor != null)
         {
             RegionCorridor widened = corridor.Expand();
-            local = TryBuildLocalPath(request.StartTileId, searchTarget, grid, profile,
+            local = TryBuildLocalPath(request, request.StartTileId, searchTarget, grid, profile,
                 maxNodes, heuristicWeight, widened, workspace, token);
             totalExpandedNodes += local.ExpandedNodes;
         }
@@ -271,7 +282,7 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
         out PortalChoice choice)
     {
         choice = default;
-        if (profile.IsBoat) return false;
+        if (!request.SearchRules.AllowPortals || profile.IsBoat) return false;
         PathPortalSnapshot[] portals = registry.CapturePathSnapshot();
         if (portals.Length < 2) return false;
 
@@ -376,8 +387,9 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
         return result;
     }
 
-    private static bool TryBuildStraightSegment(int startTileId, int targetTileId, PathNavigationGrid grid,
-        MovementProfile profile, int maximumSteps, out PathStep[] steps, out int endTileId)
+    private static bool TryBuildStraightSegment(PathRequest request, int startTileId, int targetTileId,
+        PathNavigationGrid grid, MovementProfile profile, int maximumSteps, out PathStep[] steps,
+        out int endTileId)
     {
         maximumSteps = Math.Max(1, maximumSteps);
         var buffer = new PathStep[maximumSteps];
@@ -412,7 +424,7 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
             }
 
             if (!grid.TryGetTileAt(x, y, out int nextTileId, out PathTileSnapshot next) ||
-                !IsFastTileSafe(next, profile))
+                !IsFastTileSafe(next, profile, request))
             {
                 steps = null;
                 endTileId = startTileId;
@@ -422,16 +434,17 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
             bool diagonal = previousX != x && previousY != y;
             if (diagonal && (!grid.TryGetTileAt(x, previousY, out _, out PathTileSnapshot sideX) ||
                              !grid.TryGetTileAt(previousX, y, out _, out PathTileSnapshot sideY) ||
-                             !IsFastTileSafe(sideX, profile) || !IsFastTileSafe(sideY, profile)))
+                             !IsFastTileSafe(sideX, profile, request) ||
+                             !IsFastTileSafe(sideY, profile, request)))
             {
                 steps = null;
                 endTileId = startTileId;
                 return false;
             }
 
-            grid.TryGetTile(currentTileId, out PathTileSnapshot current);
             MovementMethod method = DecideMethod(next, profile);
-            TraversalEstimate estimate = EstimateTraversal(current, next, diagonal, method, state, profile);
+            TraversalEstimate estimate = EstimateTraversal(next, diagonal, method,
+                state, profile);
             state = state.Advance(estimate, profile);
             buffer[count++] = new PathStep(nextTileId, method, estimate, plannedTileFlags: next.Flags);
             currentTileId = nextTileId;
@@ -458,9 +471,11 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
         return true;
     }
 
-    private static bool IsFastTileSafe(PathTileSnapshot tile, MovementProfile profile)
+    private static bool IsFastTileSafe(PathTileSnapshot tile, MovementProfile profile,
+        PathRequest request)
     {
         if (!tile.Exists || !tile.HasType) return false;
+        if (request.SearchRules.HardBlockTerrain && tile.Block) return false;
         if (profile.IsBoat) return tile.Ocean && !tile.Lava && !tile.Block;
         if (tile.Block && !profile.IgnoreBlocks && !profile.IsFlying) return false;
         if (tile.Lava && !profile.AllowLava) return false;
@@ -470,7 +485,7 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
         return true;
     }
 
-    private static LocalPathResult TryBuildLocalPath(int startTileId, int targetTileId,
+    private static LocalPathResult TryBuildLocalPath(PathRequest request, int startTileId, int targetTileId,
         PathNavigationGrid grid, MovementProfile profile, int maxNodes, float heuristicWeight,
         RegionCorridor corridor, SearchWorkspace workspace, CancellationToken token)
     {
@@ -479,7 +494,9 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
             return LocalPathResult.Success(Array.Empty<PathStep>(), 0f, 0);
         }
 
-        if (!grid.TryGetTile(startTileId, out _) || !grid.TryGetTile(targetTileId, out _))
+        if (!grid.TryGetTile(startTileId, out _) ||
+            !grid.TryGetTile(targetTileId, out PathTileSnapshot targetTile) ||
+            !CanSearchTile(targetTile, profile, request))
         {
             return LocalPathResult.Fail(false, 0);
         }
@@ -505,14 +522,14 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
 
             int currentX = grid.XOf(current.TileId);
             int currentY = grid.YOf(current.TileId);
-            if (!grid.TryGetTile(current.TileId, out PathTileSnapshot currentTile)) continue;
             for (int offsetY = -1; offsetY <= 1; offsetY++)
             {
                 for (int offsetX = -1; offsetX <= 1; offsetX++)
                 {
                     if (offsetX == 0 && offsetY == 0) continue;
                     if (!grid.TryGetTileAt(currentX + offsetX, currentY + offsetY,
-                            out int neighbourId, out PathTileSnapshot neighbour) || !neighbour.HasType)
+                            out int neighbourId, out PathTileSnapshot neighbour) || !neighbour.HasType ||
+                        !CanSearchTile(neighbour, profile, request))
                     {
                         continue;
                     }
@@ -523,9 +540,20 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
                     }
 
                     bool diagonal = offsetX != 0 && offsetY != 0;
+                    if (diagonal && request.SearchRules.PreventCornerCutting &&
+                        (!grid.TryGetTileAt(currentX + offsetX, currentY, out _,
+                             out PathTileSnapshot sideX) ||
+                         !grid.TryGetTileAt(currentX, currentY + offsetY, out _,
+                             out PathTileSnapshot sideY) ||
+                         !CanSearchTile(sideX, profile, request) ||
+                         !CanSearchTile(sideY, profile, request)))
+                    {
+                        continue;
+                    }
+
                     MovementMethod method = DecideMethod(neighbour, profile);
-                    TraversalEstimate estimate = EstimateTraversal(currentTile, neighbour, diagonal, method,
-                        current.State, profile);
+                    TraversalEstimate estimate = EstimateTraversal(neighbour, diagonal,
+                        method, current.State, profile);
                     TraversalState nextState = current.State.Advance(estimate, profile);
                     float g = current.G + profile.CostOf(estimate, nextState);
                     float h = Heuristic(grid, neighbourId, targetTileId, profile) * heuristicWeight;
@@ -540,11 +568,17 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
         return LocalPathResult.Fail(hitLimit, expanded);
     }
 
-    private static TraversalEstimate EstimateTraversal(PathTileSnapshot from, PathTileSnapshot to, bool diagonal,
+    private static bool CanSearchTile(PathTileSnapshot tile, MovementProfile profile, PathRequest request)
+    {
+        if (!tile.Exists || !tile.HasType) return false;
+        return !request.SearchRules.HardBlockTerrain || IsFastTileSafe(tile, profile, request);
+    }
+
+    private static TraversalEstimate EstimateTraversal(PathTileSnapshot to, bool diagonal,
         MovementMethod method, TraversalState state, MovementProfile profile)
     {
         HazardFlags hazards = HazardFlags.None;
-        float distance = diagonal ? 1.4142f : 1f;
+        float distance = diagonal ? PathNavigationGrid.DiagonalDistance : 1f;
         float speed = profile.GetSpeed(to, method, state);
         float time = distance / Mathf.Max(speed, 0.01f);
         float staminaCost = 0f;
@@ -625,7 +659,7 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
     private static float Heuristic(PathNavigationGrid grid, int firstTileId, int secondTileId,
         MovementProfile profile)
     {
-        return grid.ManhattanDistance(firstTileId, secondTileId) /
+        return grid.OctileDistance(firstTileId, secondTileId) /
                Mathf.Max(profile.BestCaseSpeed, 0.01f);
     }
 
@@ -750,6 +784,7 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
         private byte[] slotCounts = Array.Empty<byte>();
         private int[] slotLabels = Array.Empty<int>();
         private int nodeCount;
+        private int nodeLimit;
         private int heapCount;
         private int stamp;
         private int slotMask;
@@ -760,7 +795,10 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
         internal void Begin(int maxNodes, int requestedMaxLabels)
         {
             maxLabels = Mathf.Clamp(requestedMaxLabels, 1, 4);
-            int nodeCapacity = Math.Max(64, maxNodes * maxLabels + 8);
+            int nodeCapacity = maxLabels == 1
+                ? Math.Max(64, maxNodes * 8 + 8)
+                : Math.Max(64, maxNodes * maxLabels + 8);
+            nodeLimit = nodeCapacity;
             if (nodes.Length < nodeCapacity) nodes = new SearchNode[nodeCapacity];
             if (heap.Length < nodeCapacity) heap = new int[nodeCapacity];
 
@@ -852,7 +890,7 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
                 count--;
             }
 
-            if (nodeCount >= nodes.Length)
+            if (nodeCount >= nodeLimit)
             {
                 CapacityHit = true;
                 return false;
@@ -962,11 +1000,14 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
             float firstF = nodes[first].F;
             float secondF = nodes[second].F;
             int result = firstF.CompareTo(secondF);
-            return result != 0 ? result : nodes[first].H.CompareTo(nodes[second].H);
+            if (result != 0) return result;
+            result = nodes[first].H.CompareTo(nodes[second].H);
+            return result != 0 ? result : nodes[first].TileId.CompareTo(nodes[second].TileId);
         }
 
-        private static bool Dominates(SearchNode first, SearchNode second)
+        private bool Dominates(SearchNode first, SearchNode second)
         {
+            if (maxLabels == 1) return first.G <= second.G;
             return first.G <= second.G + 0.001f &&
                    first.State.Stamina >= second.State.Stamina - 0.001f &&
                    first.State.Health >= second.State.Health - 0.001f &&
@@ -1243,7 +1284,9 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
                 IsLavaDamaging = request.ActorIsLavaDamaging,
                 PreferWater = request.PathOnWater,
                 AllowLava = request.WalkOnLava || request.ActorIsFireImmune,
-                MaxLabelsPerTile = Mathf.Clamp(config.MaxLabelsPerTile, 1, 4),
+                MaxLabelsPerTile = request.AgentKey.World.Kind == PathWorldKind.SubWorld
+                    ? 1
+                    : Mathf.Clamp(config.MaxLabelsPerTile, 1, 4),
                 CurrentStamina = request.ActorCurrentStamina,
                 MaxStamina = Mathf.Max(1f, request.ActorMaxStamina),
                 CurrentHealth = request.ActorCurrentHealth,
@@ -1260,7 +1303,9 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
                 TerrainDamageRiskCost = config.TerrainDamageRiskCost
             };
 
-            profile.LowHealthThreshold = Mathf.Max(1f, profile.MaxHealth * 0.15f);
+            profile.LowHealthThreshold = request.AgentKey.World.Kind == PathWorldKind.SubWorld
+                ? 0f
+                : Mathf.Max(1f, profile.MaxHealth * 0.15f);
             profile.WaterDamagePerSecond = request.ActorWaterDamagePerSecond > 0f
                 ? request.ActorWaterDamagePerSecond
                 : profile.MaxHealth * 0.1f * 3.333f;
@@ -1283,8 +1328,12 @@ public sealed class PortalAwarePathGenerator : IPathGenerator
                 profile.TerrainDamageRiskCost *= 0.25f;
             }
 
-            profile.BestCaseSpeed = Mathf.Max(profile.WalkSpeed,
+            float bestBaseSpeed = Mathf.Max(profile.WalkSpeed,
                 Mathf.Max(profile.SwimSpeed, profile.SailSpeed));
+            float maxWalkMultiplier = request.AgentKey.World.Kind == PathWorldKind.SubWorld
+                ? Mathf.Max(1f, request.NavigationGrid?.MaxWalkMultiplier ?? 1f)
+                : 1f;
+            profile.BestCaseSpeed = bestBaseSpeed * maxWalkMultiplier;
             return profile;
         }
 

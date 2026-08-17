@@ -125,6 +125,20 @@ public class StatusEffectAsset : Asset
         return entity;
     }
 
+    internal void DeletePrefab()
+    {
+        if (_prefab.IsNull) return;
+
+        var entities = new EntityList(_world);
+        entities.AddTree(_prefab);
+        for (var i = entities.Count - 1; i >= 0; i--)
+        {
+            var entity = entities[i];
+            if (!entity.IsNull) entity.DeleteEntity();
+        }
+        _prefab = default;
+    }
+
     public static Builder StartBuild(string id)
     {
         return new Builder(id);
@@ -257,7 +271,24 @@ public class StatusEffectAsset : Asset
         }
         public StatusEffectAsset Build()
         {
-            ModClass.L.StatusEffectLibrary.add(_under_build);
+            return Build(false);
+        }
+
+        public StatusEffectAsset BuildDynamic()
+        {
+            return Build(true);
+        }
+
+        private StatusEffectAsset Build(bool dynamic)
+        {
+            if (dynamic)
+            {
+                ModClass.L.StatusEffectLibrary.AddDynamic(_under_build);
+            }
+            else
+            {
+                ModClass.L.StatusEffectLibrary.add(_under_build);
+            }
             _under_build.GetExtend<StatusAssetExtend>().negative = _negative;
 
             if (_under_build.ParticleSettings.enabled)

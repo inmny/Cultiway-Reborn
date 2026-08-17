@@ -135,6 +135,9 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     {
         SetupPlant(BambooPlant);
         SetupPlant(CandlePlant);
+        CandlePlant.draw_light_area = true;
+        CandlePlant.draw_light_size = 0.3f;
+        CandlePlant.draw_light_area_offset_y = 0.4f;
         SetupPlant(CemeteryPlant);
         SetupPlant(CoralPlant);
         SetupPlant(DarkPlant);

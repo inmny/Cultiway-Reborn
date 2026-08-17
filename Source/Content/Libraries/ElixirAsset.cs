@@ -112,6 +112,13 @@ public class ElixirAsset : Asset, IDeleteWhenUnknown
 
         var outputCount = ArtifactProductionService.ResolveOutputCount(productionResult.YieldMultiplier);
         ArtifactProductionService.AddOutputs(receiver, craftingElixir, outputCount);
+        ProductionLifecycle.PublishCompleted(new ProductionCompletedEvent(
+            ae,
+            ArtifactProductionProcesses.Alchemy,
+            this,
+            craftingElixir,
+            level,
+            outputCount));
     }
 
     public bool QueryInventoryForIngredients(IHasInventory inventory, out Entity[] matchingIngredients)

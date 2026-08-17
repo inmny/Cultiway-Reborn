@@ -20,6 +20,7 @@ public class CultibookGeneratedEventSystem : GenericEventSystem<CultibookGenerat
 {
     protected override void HandleEvent(CultibookGeneratedEvent evt)
     {
+        if (evt.WorldSeedId != MapBox.current_world_seed_id) return;
         if (evt.ActorId == 0 || string.IsNullOrEmpty(evt.RequestId)) return;
 
         var actor = World.world.units.get(evt.ActorId);

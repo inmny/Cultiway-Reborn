@@ -366,7 +366,7 @@ public static class ProgressionService
     }
 
     /// <summary>
-    ///     执行一条已经选定的过渡。该方法统一规定各效果阶段的顺序，并且是大境界 CurrLevel 的提交入口。
+    ///     执行一条已经选定的过渡。该方法统一规定各效果阶段的顺序，并发布所有成功提交。
     /// </summary>
     private static ProgressionResult Execute<T>(CultisysAsset<T> cultisys, ActorExtend actor,
                                                  ProgressionTransitionAsset<T> transition,
@@ -419,19 +419,26 @@ public static class ProgressionService
 
         actor.MarkCultiwayStatsDirty();
         var toLevel = actor.GetCultisys<T>().CurrLevel;
+        if (transition.Kind == ProgressionKind.Major)
+        {
+            actor.UpgradePowerLevel(cultisys.PowerLevels[toLevel]);
+        }
+
+        if (mode != ProgressionMode.Synchronize)
+        {
+            if (transition.Kind == ProgressionKind.Major)
+            {
+                ref var committedComponent = ref actor.GetCultisys<T>();
+                ModClass.I.WorldRecord.CheckAndLogFirstLevelup(cultisys.id, actor, ref committedComponent);
+            }
+            ProgressionLifecycle.PublishCommitted(new ProgressionCommittedEvent(actor, cultisys, transition.Id,
+                transition.Kind, mode, fromLevel, toLevel));
+        }
+
         if (transition.Kind == ProgressionKind.Minor)
         {
             return new ProgressionResult(ProgressionResultCode.MinorAdvanced, transition.Id, fromLevel,
                 toLevel);
-        }
-
-        actor.UpgradePowerLevel(cultisys.PowerLevels[toLevel]);
-        if (mode != ProgressionMode.Synchronize)
-        {
-            ref var committedComponent = ref actor.GetCultisys<T>();
-            ModClass.I.WorldRecord.CheckAndLogFirstLevelup(cultisys.id, actor, ref committedComponent);
-            ProgressionLifecycle.PublishCommitted(new ProgressionCommittedEvent(actor, cultisys, transition.Id,
-                transition.Kind, mode, fromLevel, toLevel));
         }
 
         return new ProgressionResult(mode == ProgressionMode.Synchronize

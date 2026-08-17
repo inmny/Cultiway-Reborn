@@ -64,6 +64,9 @@ public class BuildingOrders : ExtendLibrary<CityBuildOrderAsset, BuildingOrders>
 
         addBuilding(S_BuildOrder.order_barracks, 1, 50, 16, pMinZones: 20);
         b.requirements_orders = [S_BuildOrder.order_hall_1];
+
+        addBuilding(S_BuildOrder.order_training_dummy, 1, 30, 8);
+        b.requirements_orders = [S_BuildOrder.order_hall_0, S_BuildOrder.order_barracks];
         
         
         Classic.prepareForAssetGeneration();

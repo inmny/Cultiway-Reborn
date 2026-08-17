@@ -91,6 +91,9 @@
         <Reference Include="UnityEngine.TilemapModule">
             <HintPath>..\..\worldbox_Data\Managed\UnityEngine.TilemapModule.dll</HintPath>
         </Reference>
+        <Reference Include="UnityEngine.GridModule">
+            <HintPath>..\..\worldbox_Data\Managed\UnityEngine.GridModule.dll</HintPath>
+        </Reference>
         <Reference Include="UnityEngine.ImageConversionModule">
             <HintPath>..\..\worldbox_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath>
         </Reference>

@@ -2,11 +2,11 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
+using Cultiway.Content.Combat;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
 using Cultiway.Core.Components.AnimOverwrite;
-using Cultiway.Core.Semantics;
 using Cultiway.Core.SkillLibV3;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils;
@@ -71,11 +71,7 @@ internal static class WeaponControlRuntimeService
     }
 
     /// <summary>判断角色当前仍持有施放开始时的同一个武器对象。</summary>
-    public static bool IsCurrentWeapon(Actor owner, Item weapon)
-    {
-        return !owner.isRekt() && weapon != null && weapon.isAlive() && !weapon.isBroken() &&
-               owner.hasWeapon() && ReferenceEquals(owner.getWeapon(), weapon);
-    }
+    public static bool IsCurrentWeapon(Actor owner, Item weapon) => EquippedWeaponVisualService.IsCurrent(owner, weapon);
 
     /// <summary>供角色渲染补丁判断手中武器是否已被御器执行体借出。</summary>
     public static bool IsWeaponDetached(Actor actor)
@@ -139,8 +135,6 @@ internal static class WeaponControlRuntimeService
 /// <summary>一次御器施放的动态步骤钩子和武器快照。</summary>
 internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
 {
-    /// <summary>原版常见单位贴图使用的标准缩放值。</summary>
-    private const float ReferenceActorScale = 0.25f;
     private readonly Entity skillContainer;
     private readonly EquipmentAsset weaponAsset;
     private readonly WeaponControlCategory category;
@@ -194,7 +188,11 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         this.sequenceDuration = sequenceDuration;
         CorrelationId = correlationId;
         CasterActorId = caster.Base.getID();
-        ResolveWeaponTrailColors(out trailCoreColor, out trailGlowColor);
+        EquippedWeaponVisualService.ResolveTrailColors(
+            Caster.Base,
+            weaponAsset,
+            out trailCoreColor,
+            out trailGlowColor);
     }
 
     /// <summary>在扣除第一点灵气前重新检查境界、飞行状态和武器一致性。</summary>
@@ -488,7 +486,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         execution.GetComponent<Scale>().value = Vector3.one * (actorScale * 1.85f);
         execution.GetComponent<VisualRotation>() = VisualRotation.FollowRotation(ResolveSpriteAngle(sprite));
 
-        ref WeaponControlMotionState state = ref execution.GetComponent<WeaponControlMotionState>();
+        ref EquippedWeaponMotionState state = ref execution.GetComponent<EquippedWeaponMotionState>();
         state.Weapon = Weapon;
         state.Kind = ResolveMotionKind();
         state.Elapsed = 0f;
@@ -496,14 +494,15 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         state.Reach = ResolveReach(execution.GetComponent<SkillContext>(), state.Kind);
         state.DamageMultiplier = ResolveDamageMultiplier();
         state.Direction = execution.GetComponent<Rotation>().value;
+        state.CollisionEnabled = true;
         ResolveSweepAngles(index, out state.StartAngle, out state.EndAngle);
 
         ref ColliderConfig collider = ref execution.GetComponent<ColliderConfig>();
-        collider.Enabled = state.Kind != WeaponControlMotionKind.Crush;
+        collider.Enabled = state.Kind != EquippedWeaponMotionKind.Crush;
         collider.ExplicitTargetOnly = false;
         execution.GetComponent<AliveTimeLimit>().value = state.Duration + 0.1f;
         execution.GetComponent<AnimAfterimageOverride>().Value = ResolveAfterimage(ref state);
-        float worldVisualScale = ResolveWorldVisualScale(actorScale);
+        float worldVisualScale = EquippedWeaponVisualService.ResolveWorldVisualScale(Caster.Base);
         ConfigureMotionTrail(execution, state.Kind, worldVisualScale, state.Reach);
         ref MotionRibbonTrail trail = ref execution.GetComponent<MotionRibbonTrail>();
         ref ColliderSphere sphere = ref execution.GetComponent<ColliderSphere>();
@@ -511,13 +510,13 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
     }
 
     /// <summary>按整体施放形态解析近战运动类型。</summary>
-    private WeaponControlMotionKind ResolveMotionKind()
+    private EquippedWeaponMotionKind ResolveMotionKind()
     {
         return mode switch
         {
-            WeaponControlCastMode.MeleeThrust => WeaponControlMotionKind.Thrust,
-            WeaponControlCastMode.MeleeCrush => WeaponControlMotionKind.Crush,
-            _ => WeaponControlMotionKind.Sweep,
+            WeaponControlCastMode.MeleeThrust => EquippedWeaponMotionKind.Thrust,
+            WeaponControlCastMode.MeleeCrush => EquippedWeaponMotionKind.Crush,
+            _ => EquippedWeaponMotionKind.Sweep,
         };
     }
 
@@ -533,7 +532,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
     }
 
     /// <summary>按器形和目标距离解析动作长度；突刺以旧控制距离为基准整体延长到 2.5 倍。</summary>
-    private float ResolveReach(SkillContext context, WeaponControlMotionKind kind)
+    private float ResolveReach(SkillContext context, EquippedWeaponMotionKind kind)
     {
         float size = Mathf.Clamp(Caster.Base.stats[S.size], 0.5f, 4f);
         float baseReach = category switch
@@ -549,17 +548,17 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             ? context.TargetPos
             : context.TargetObj.current_position;
         float targetDistance = Vector2.Distance(Caster.Base.current_position, targetPosition);
-        float maximum = kind == WeaponControlMotionKind.Thrust
+        float maximum = kind == EquippedWeaponMotionKind.Thrust
             ? WeaponControlRules.ResolveRange(Caster, category)
             : range;
         float resolved = Mathf.Clamp(targetDistance, baseReach, maximum);
-        return kind == WeaponControlMotionKind.Thrust
+        return kind == EquippedWeaponMotionKind.Thrust
             ? resolved * WeaponControlRules.ThrustReachMultiplier
             : resolved;
     }
 
     /// <summary>让突刺命中胶囊覆盖可见钻头主体，其余动作保留原有碰撞宽度。</summary>
-    private float ResolveCollisionRadius(WeaponControlMotionKind kind, float trailCoreWidth)
+    private float ResolveCollisionRadius(EquippedWeaponMotionKind kind, float trailCoreWidth)
     {
         float baseRadius = category switch
         {
@@ -568,7 +567,7 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
             WeaponControlCategory.Spear => 0.52f,
             _ => 0.72f,
         };
-        return kind == WeaponControlMotionKind.Thrust
+        return kind == EquippedWeaponMotionKind.Thrust
             ? Mathf.Max(baseRadius, trailCoreWidth * 0.55f)
             : baseRadius;
     }
@@ -605,11 +604,11 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
     }
 
     /// <summary>只为砸落保留角向武器贴图残影；突刺和扫掠分别使用程序化几何。</summary>
-    private static AnimAfterimage ResolveAfterimage(ref WeaponControlMotionState state)
+    private static AnimAfterimage ResolveAfterimage(ref EquippedWeaponMotionState state)
     {
         return state.Kind switch
         {
-            WeaponControlMotionKind.Crush => new AnimAfterimage
+            EquippedWeaponMotionKind.Crush => new AnimAfterimage
             {
                 Count = 8,
                 Layout = AnimAfterimageLayout.Angular,
@@ -627,15 +626,15 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
     /// <summary>按近战动作选择径向扫掠扇面、轴向突刺钻头或关闭程序化轨迹。</summary>
     private void ConfigureMotionTrail(
         Entity execution,
-        WeaponControlMotionKind kind,
+        EquippedWeaponMotionKind kind,
         float worldVisualScale,
         float reach)
     {
         ref MotionRibbonTrail trail = ref execution.GetComponent<MotionRibbonTrail>();
         trail = kind switch
         {
-            WeaponControlMotionKind.Sweep => CreateSweepTrail(worldVisualScale),
-            WeaponControlMotionKind.Thrust => CreateThrustTrail(worldVisualScale, reach),
+            EquippedWeaponMotionKind.Sweep => CreateSweepTrail(worldVisualScale),
+            EquippedWeaponMotionKind.Thrust => CreateThrustTrail(worldVisualScale, reach),
             _ => default,
         };
     }
@@ -725,62 +724,15 @@ internal sealed class WeaponControlCastSession : ISkillCastSequenceHooks
         };
     }
 
-    /// <summary>把原版贴图缩放值换算为以常见 0.25 单位为基准的世界视觉倍率。</summary>
-    private static float ResolveWorldVisualScale(float actorScale)
-    {
-        return Mathf.Clamp(actorScale / ReferenceActorScale, 0.4f, 4f);
-    }
-
-    /// <summary>从武器材质语义解析轨迹主色，并叠加彩色武器的实际阵营色。</summary>
-    private void ResolveWeaponTrailColors(out Color coreColor, out Color glowColor)
-    {
-        SemanticAsset materialSemantic = ResolveWeaponMaterialSemantic(weaponAsset.material);
-        var builder = new SemanticProfileBuilder(ModClass.L.SemanticLibrary);
-        builder.Add(
-            materialSemantic,
-            1f,
-            SemanticScope.Intrinsic,
-            new SemanticSourceRef("content.weapon_control.material", weaponAsset.id));
-        SemanticColorPalette palette = SemanticColorResolver.Resolve(builder.Build(), materialSemantic, 2);
-        coreColor = SemanticColorResolver.ToVfxColor(palette.GetColor(0, new Color(0.78f, 0.82f, 0.88f)));
-        glowColor = palette.Count > 1
-            ? SemanticColorResolver.ToVfxColor(palette.Secondary)
-            : Color.Lerp(coreColor, Color.white, 0.42f);
-
-        ColorAsset kingdomColor = Caster.Base.kingdom?.getColor();
-        if (!weaponAsset.is_colored || kingdomColor == null) return;
-        Color tint = SemanticColorResolver.ToVfxColor(kingdomColor.getColorMain());
-        coreColor = Color.Lerp(coreColor, tint, 0.78f);
-        glowColor = Color.Lerp(glowColor, tint, 0.52f);
-    }
-
-    /// <summary>把原版武器材质归入统一元素语义，未知或无材质武器保持通用语义。</summary>
-    private static SemanticAsset ResolveWeaponMaterialSemantic(string material)
-    {
-        return material switch
-        {
-            "wood" => SkillSemantics.Element.Wood,
-            "stone" => SkillSemantics.Element.Earth,
-            "copper" or "bronze" or "silver" or "iron" or "steel" or "mythril" or "adamantine" =>
-                SkillSemantics.Element.Iron,
-            _ => SkillSemantics.Element.Generic,
-        };
-    }
-
     /// <summary>将横向和纵向武器贴图统一校正到运动方向。</summary>
     private static float ResolveSpriteAngle(Sprite sprite)
     {
-        return sprite.rect.width >= sprite.rect.height ? 0f : -90f;
+        return EquippedWeaponVisualService.ResolveSpriteAngle(sprite);
     }
 
     /// <summary>取得与原版手持渲染一致的武器帧，并保留彩色武器的阵营配色。</summary>
     private Sprite ResolveWeaponSprite()
     {
-        Sprite sprite = ItemRendering.getItemMainSpriteFrame(weaponAsset);
-        if (sprite == null || !weaponAsset.is_colored) return sprite;
-
-        ColorAsset color = Caster.Base.kingdom.getColor();
-        long spriteId = DynamicSprites.getItemSpriteID(sprite, color);
-        return DynamicSprites.getCachedAtlasItemSprite(spriteId, sprite, color);
+        return EquippedWeaponVisualService.ResolveSprite(Caster.Base, weaponAsset);
     }
 }

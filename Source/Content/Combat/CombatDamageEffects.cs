@@ -28,16 +28,17 @@ public static class CombatDamageEffects
                            (source != null && source.isActor() && !source.isRekt()
                                ? source.a.GetExtend().GetPowerLevel()
                                : 0f);
-        EventSystemHub.Publish(new GetHitEvent
+        var evt = new GetHitEvent
         {
             TargetID = target.data.id,
             Damage = damage,
             Element = composition,
-            Attacker = source,
             AttackerPowerLevel = powerLevel,
             IgnoreDamageReduction = ignoreDamageReduction,
             DamageOrigin = damageOrigin,
-        });
+        };
+        evt.BindAttacker(source);
+        EventSystemHub.Publish(evt);
     }
 
     /// <summary>通过标准受击事件对范围内的所有敌对单位结算伤害。</summary>

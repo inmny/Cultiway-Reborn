@@ -6,6 +6,7 @@ using Cultiway.Content.Extensions;
 using Cultiway.Content.Utils;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.UI;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -18,7 +19,7 @@ namespace Cultiway.Content.UI.CreatureInfoPages;
 /// <summary>
 /// 单位信息窗口的"法宝"页：列出已装备法器，并用图标状态区分待命、运转与超载。
 /// </summary>
-public class ArtifactPage : MonoBehaviour
+public class ArtifactPage : MonoBehaviour, IWorldBoundCreatureInfoPage
 {
     private MonoObjPool<SpecialItemDisplay> _special_item_pool;
     private static Vector2 _size;
@@ -34,7 +35,8 @@ public class ArtifactPage : MonoBehaviour
         grid.spacing = new(2, 2);
         grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
 
-        this_page._special_item_pool = new MonoObjPool<SpecialItemDisplay>(SpecialItemDisplay.Prefab, page.transform);
+        this_page._special_item_pool = new MonoObjPool<SpecialItemDisplay>(SpecialItemDisplay.Prefab,
+            page.transform, deactive_action: display => display.Clear());
     }
 
     public static void Show(CreatureInfoPage page, Actor actor)
@@ -80,5 +82,10 @@ public class ArtifactPage : MonoBehaviour
         ArtifactLoadoutState state = actor.GetArtifactLoadoutState();
         float used = state.prepared_load + state.operating_load;
         return $"{LM.Get(nameof(ArtifactPage))} {used:0.#}/{actor.Base.stats[WorldboxGame.BaseStats.DivineSense.id]:0.#}";
+    }
+
+    public void ClearWorldBinding()
+    {
+        _special_item_pool.Clear();
     }
 }

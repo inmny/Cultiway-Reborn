@@ -18,11 +18,20 @@ public static class KnightSetting
     /// <summary>被击中时获得斗气的系数，参与 斗气 = damage × 该系数 × 攻击者战力。</summary>
     public const float BeAttackedVigorGainRatio = 0.012f;
 
+    /// <summary>普通攻击命中时按最终伤害与目标战力恢复斗气的系数。</summary>
+    public const float BasicAttackVigorGainRatio = 0.05f;
+
+    /// <summary>普通攻击最多将斗气恢复到上限的该比例。</summary>
+    public const float BasicAttackVigorRecoveryLimitRatio = 0.6f;
+
     /// <summary>和平期操练每月获得的斗气占最大斗气的比例（比战斗慢；纯练习也能蓄满，只是更久）。</summary>
     public const float PracticeVigorGainRatioPerMonth = 0.05f;
 
     /// <summary>弱敌战力低于自身的该比例时不给斗气（防刷弱怪）。</summary>
     public const float WeakFoePowerRatio = 0.3f;
+
+    /// <summary>骑士比较武器价值时为已掌握流派兼容武器增加的偏好分数。</summary>
+    public const int KnightWeaponPreferenceBonus = 100;
 
     /// <summary>相对于 Mod 根目录的骑士等级属性表路径。</summary>
     public const string StatsPath = "Content/Cultisys/Knight.csv";

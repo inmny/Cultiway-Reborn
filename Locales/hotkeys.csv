@@ -12,3 +12,23 @@ cultiway_control_action_current_skill,当前能力
 cultiway_control_action_castable_skill_count,可用能力
 cultiway_control_action_flight_on_description,开启操控飞行
 cultiway_control_action_flight_off_description,关闭操控飞行
+cultiway_control_ability_bar_format,当前能力 {0}/{1} · {2}
+cultiway_control_ability_tooltip_summary,目标：{0} · 形态：{1} · {2}
+cultiway_control_ability_tooltip_detail,施放：{0} · 点击选择 · {1} 释放 · {2} 切换
+cultiway_control_ability_unknown,未知能力
+cultiway_control_ability_relation_hostile,敌方
+cultiway_control_ability_relation_friendly,友方
+cultiway_control_ability_relation_self,自身
+cultiway_control_ability_relation_world,世界地块
+cultiway_control_ability_target_none,无目标
+cultiway_control_ability_target_self,自身
+cultiway_control_ability_target_object,单体
+cultiway_control_ability_target_point,位置
+cultiway_control_ability_target_object_or_point,单位或位置
+cultiway_control_ability_target_area,范围
+cultiway_control_ability_activation_instant,瞬发
+cultiway_control_ability_activation_sustained,持续
+cultiway_control_ability_activation_toggle,切换
+cultiway_control_ability_range_self,作用于自身
+cultiway_control_ability_range_format,距离 {0:0.#}
+cultiway_control_ability_range_unlimited,无固定距离

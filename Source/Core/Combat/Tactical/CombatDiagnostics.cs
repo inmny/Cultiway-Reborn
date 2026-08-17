@@ -24,6 +24,11 @@ public readonly struct CombatDiagnosticsSnapshot
     public readonly long MovementOrdersRetained;
     public readonly long ForcedMovementOrders;
     public readonly long MovementStops;
+    public readonly long FallbackActionsStarted;
+    public readonly long StanceSwitches;
+    public readonly long TargetBindingMismatches;
+    public readonly long MissedHostileOpportunities;
+    public readonly long MovementReversals;
 
     internal CombatDiagnosticsSnapshot(
         long highFidelityPlans,
@@ -41,7 +46,12 @@ public readonly struct CombatDiagnosticsSnapshot
         long movementOrdersIssued,
         long movementOrdersRetained,
         long forcedMovementOrders,
-        long movementStops)
+        long movementStops,
+        long fallbackActionsStarted,
+        long stanceSwitches,
+        long targetBindingMismatches,
+        long missedHostileOpportunities,
+        long movementReversals)
     {
         HighFidelityPlans = highFidelityPlans;
         LowFidelityPlans = lowFidelityPlans;
@@ -59,6 +69,11 @@ public readonly struct CombatDiagnosticsSnapshot
         MovementOrdersRetained = movementOrdersRetained;
         ForcedMovementOrders = forcedMovementOrders;
         MovementStops = movementStops;
+        FallbackActionsStarted = fallbackActionsStarted;
+        StanceSwitches = stanceSwitches;
+        TargetBindingMismatches = targetBindingMismatches;
+        MissedHostileOpportunities = missedHostileOpportunities;
+        MovementReversals = movementReversals;
     }
 }
 
@@ -128,16 +143,17 @@ public readonly struct CombatDecisionTrace
         Intent = plan?.Intent ?? CombatIntent.None;
         StrengthRatio = plan?.Outcome.StrengthRatio ?? 0f;
         TargetId = plan?.HasEnemy == true ? plan.PrimaryEnemy.Id : 0;
-        Action = plan?.Action?.Key.ToString() ?? string.Empty;
-        ActionUse = plan?.ActionUse ?? CombatActionUse.None;
+        Action = plan?.PrimaryAction?.Key.ToString() ?? string.Empty;
+        ActionUse = plan?.PrimaryActionUse ?? CombatActionUse.None;
         AssistedAllyId = plan?.AssistedAllyId ?? 0;
         ThreatSource = plan?.HasEnemy == true
             ? plan.PrimaryEnemy.ThreatSource
             : CombatThreatSource.None;
-        PositionRole = plan?.HasPosition == true
+        bool hasPosition = plan?.MovementCommand == CombatMovementCommand.Move;
+        PositionRole = hasPosition
             ? plan.Position.Role
             : CombatPositionRole.Tactical;
-        HasPosition = plan?.HasPosition == true;
+        HasPosition = hasPosition;
     }
 }
 
@@ -198,6 +214,11 @@ public static class CombatDiagnostics
     private static long movementOrdersRetained;
     private static long forcedMovementOrders;
     private static long movementStops;
+    private static long fallbackActionsStarted;
+    private static long stanceSwitches;
+    private static long targetBindingMismatches;
+    private static long missedHostileOpportunities;
+    private static long movementReversals;
 
     /// <summary>复制当前累计计数。</summary>
     public static CombatDiagnosticsSnapshot GetSnapshot()
@@ -218,7 +239,12 @@ public static class CombatDiagnostics
             Interlocked.Read(ref movementOrdersIssued),
             Interlocked.Read(ref movementOrdersRetained),
             Interlocked.Read(ref forcedMovementOrders),
-            Interlocked.Read(ref movementStops));
+            Interlocked.Read(ref movementStops),
+            Interlocked.Read(ref fallbackActionsStarted),
+            Interlocked.Read(ref stanceSwitches),
+            Interlocked.Read(ref targetBindingMismatches),
+            Interlocked.Read(ref missedHostileOpportunities),
+            Interlocked.Read(ref movementReversals));
     }
 
     /// <summary>按发生顺序复制仍在环形窗口内的规划摘要。</summary>
@@ -287,6 +313,31 @@ public static class CombatDiagnostics
                 Interlocked.Increment(ref invalidActions);
                 break;
         }
+    }
+
+    internal static void RecordFallbackActionStarted()
+    {
+        Interlocked.Increment(ref fallbackActionsStarted);
+    }
+
+    internal static void RecordStanceSwitch()
+    {
+        Interlocked.Increment(ref stanceSwitches);
+    }
+
+    internal static void RecordTargetBindingMismatch()
+    {
+        Interlocked.Increment(ref targetBindingMismatches);
+    }
+
+    internal static void RecordMissedHostileOpportunity()
+    {
+        Interlocked.Increment(ref missedHostileOpportunities);
+    }
+
+    internal static void RecordMovementReversal()
+    {
+        Interlocked.Increment(ref movementReversals);
     }
 
     internal static void RecordReplan()
@@ -391,6 +442,11 @@ public static class CombatDiagnostics
         Interlocked.Exchange(ref movementOrdersRetained, 0);
         Interlocked.Exchange(ref forcedMovementOrders, 0);
         Interlocked.Exchange(ref movementStops, 0);
+        Interlocked.Exchange(ref fallbackActionsStarted, 0);
+        Interlocked.Exchange(ref stanceSwitches, 0);
+        Interlocked.Exchange(ref targetBindingMismatches, 0);
+        Interlocked.Exchange(ref missedHostileOpportunities, 0);
+        Interlocked.Exchange(ref movementReversals, 0);
         lock (TraceLock)
         {
             Traces.Clear();

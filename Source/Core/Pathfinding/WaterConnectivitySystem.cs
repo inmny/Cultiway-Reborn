@@ -3,14 +3,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Cultiway.Abstract;
 using Cultiway.Core.Libraries;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
 
 namespace Cultiway.Core.Pathfinding;
 
-public class WaterConnectivitySystem : BaseSystem
+public class WaterConnectivitySystem : BaseSystem, IWorldStateClearable
 {
+    void IWorldStateClearable.ClearWorldState()
+    {
+        WaterConnectivityUpdater.ClearWorldState();
+    }
+
     protected override void OnUpdateGroup()
     {
         base.OnUpdateGroup();
@@ -27,6 +33,15 @@ internal static class WaterConnectivityUpdater
     public static void RequestRebuild()
     {
         _dirty = true;
+    }
+
+    public static void ClearWorldState()
+    {
+        lock (SyncRoot)
+        {
+            _dirty = false;
+            Components.Clear();
+        }
     }
 
     public static void TryProcess()

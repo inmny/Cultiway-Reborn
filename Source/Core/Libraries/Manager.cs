@@ -1,6 +1,8 @@
 using Cultiway.Core.AIGCLib;
 using Cultiway.Core.Coordination;
 using Cultiway.Core.Semantics;
+using Cultiway.Core.SubWorlds.Generation;
+using Cultiway.Core.SubWorlds.Model;
 
 namespace Cultiway.Core.Libraries;
 
@@ -33,6 +35,18 @@ public class Manager
     public SemanticLibrary SemanticLibrary { get; } = new();
     public CoordinatedActivityDefinitionLibrary CoordinatedActivityDefinitionLibrary { get; } = new();
 
+    /// <summary>小世界场景生成器资产库。</summary>
+    public SubWorldGeneratorLibrary SubWorldGeneratorLibrary { get; } = new();
+
+    /// <summary>小世界模板资产库。</summary>
+    public SubWorldTemplateLibrary SubWorldTemplateLibrary { get; } = new();
+
+    /// <summary>小世界时钟配置资产库。</summary>
+    public SubWorldClockProfileLibrary SubWorldClockProfileLibrary { get; } = new();
+
+    /// <summary>小世界视觉配置资产库。</summary>
+    public SubWorldVisualProfileLibrary SubWorldVisualProfileLibrary { get; } = new();
+
     public void Init()
     {
         AssetManager._instance.add(CultisysLibrary,      "cultisyses");
@@ -61,6 +75,10 @@ public class Manager
         AssetManager._instance.add(SemanticFacetLibrary, "semantic_facets");
         AssetManager._instance.add(SemanticLibrary, "semantics");
         AssetManager._instance.add(CoordinatedActivityDefinitionLibrary, "coordinated_activity_definitions");
+        AssetManager._instance.add(SubWorldGeneratorLibrary, "cultiway.sub_world_generators");
+        AssetManager._instance.add(SubWorldClockProfileLibrary, "cultiway.sub_world_clock_profiles");
+        AssetManager._instance.add(SubWorldVisualProfileLibrary, "cultiway.sub_world_visual_profiles");
+        AssetManager._instance.add(SubWorldTemplateLibrary, "cultiway.sub_world_templates");
     }
 
     public void LinkAssets()
@@ -91,6 +109,10 @@ public class Manager
         SemanticFacetLibrary.linkAssets();
         SemanticLibrary.linkAssets();
         CoordinatedActivityDefinitionLibrary.linkAssets();
+        SubWorldGeneratorLibrary.linkAssets();
+        SubWorldClockProfileLibrary.linkAssets();
+        SubWorldVisualProfileLibrary.linkAssets();
+        SubWorldTemplateLibrary.linkAssets();
     }
     public void PostInit()
     {
@@ -120,5 +142,9 @@ public class Manager
         SemanticFacetLibrary.post_init();
         SemanticLibrary.post_init();
         CoordinatedActivityDefinitionLibrary.post_init();
+        SubWorldGeneratorLibrary.post_init();
+        SubWorldClockProfileLibrary.post_init();
+        SubWorldVisualProfileLibrary.post_init();
+        SubWorldTemplateLibrary.post_init();
     }
 }

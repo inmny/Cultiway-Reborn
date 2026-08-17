@@ -12,7 +12,7 @@ using Cultiway.Utils.Extension;
 
 namespace Cultiway.UI.CreatureInfoPages;
 
-public sealed class SkillPage : MonoBehaviour
+public sealed class SkillPage : MonoBehaviour, IWorldBoundCreatureInfoPage
 {
     private Actor _actor;
     private MonoObjPool<SkillImportRow> _rowPool;
@@ -28,7 +28,8 @@ public sealed class SkillPage : MonoBehaviour
         UiTooltip.Set(importAll.gameObject, "Cultiway.Wanfa.UI.Action.ImportAll",
             "Cultiway.Wanfa.UI.Tooltip.ImportAll");
         UiScrollPane skills = UiScrollPane.CreateVertical(root.transform, "Skills", 246f, 180f);
-        component._rowPool = new MonoObjPool<SkillImportRow>(SkillImportRow.Prefab, skills.Content);
+        component._rowPool = new MonoObjPool<SkillImportRow>(SkillImportRow.Prefab, skills.Content,
+            deactive_action: row => row.ClearWorldBinding());
     }
 
     [Hotfixable]
@@ -63,6 +64,12 @@ public sealed class SkillPage : MonoBehaviour
                 : granted.DetailLocaleKey.Localize();
             _rowPool.GetNext().SetupReadOnly(granted.SkillContainer, detail);
         }
+    }
+
+    public void ClearWorldBinding()
+    {
+        _actor = null;
+        _rowPool.Clear();
     }
 
     private void ImportOne(Friflo.Engine.ECS.Entity container)

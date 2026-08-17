@@ -9,7 +9,9 @@ using UnityEngine;
 namespace Cultiway.Core.Systems.Render;
 
 /// <summary>记录带有 MotionRibbonTrail 的实体运动历史，并维护离体后继续消散的池化视图。</summary>
-internal sealed class RenderMotionRibbonTrailSystem : QuerySystem<Position, MotionRibbonTrail, MotionRibbonTrailBinder>
+internal sealed class RenderMotionRibbonTrailSystem :
+    QuerySystem<Position, MotionRibbonTrail, MotionRibbonTrailBinder>,
+    IWorldStateClearable
 {
     private readonly MonoObjPool<MotionRibbonTrailView> pool;
     private readonly List<MotionRibbonTrailView> activeViews = new();
@@ -28,6 +30,11 @@ internal sealed class RenderMotionRibbonTrailSystem : QuerySystem<Position, Moti
             view => view.ResetView(),
             view => view.ResetView());
         Filter.WithoutAnyTags(Tags.Get<TagPrefab, TagInactive, TagRecycle>());
+    }
+
+    void IWorldStateClearable.ClearWorldState()
+    {
+        Clear();
     }
 
     /// <summary>采样活动实体，再让已结束实体的历史轨迹独立淡出。</summary>
@@ -87,10 +94,13 @@ internal sealed class RenderMotionRibbonTrailSystem : QuerySystem<Position, Moti
     /// <summary>离开世界渲染态时解除活动绑定并立即回收全部视图。</summary>
     private void Clear()
     {
-        Query.ForEachComponents((
-            ref Position _,
-            ref MotionRibbonTrail _,
-            ref MotionRibbonTrailBinder binder) => binder.Value = null);
+        if (Query != null)
+        {
+            Query.ForEachComponents((
+                ref Position _,
+                ref MotionRibbonTrail _,
+                ref MotionRibbonTrailBinder binder) => binder.Value = null);
+        }
         for (int i = activeViews.Count - 1; i >= 0; i--) pool.Return(activeViews[i]);
         activeViews.Clear();
     }

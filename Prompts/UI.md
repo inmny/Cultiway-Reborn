@@ -21,7 +21,7 @@
 | 重复动态条目 | 列表 Row、图标格、预览实体 | `APrefabPreview<T>` / `MonoObjPool<T>` |
 | 生物信息页 | CreatureInfoPages | 页面负责领域数据，复用公共视觉与滚动结构 |
 | HUD/世界覆盖层 | 附体界面、世界标记、选中信息 | 独立 Overlay，共用主题和资源，不套窗口结构 |
-| 底栏与力量按钮 | `PowerButton`、Tab、能力入口 | 只注册并适配原版交互语义 |
+| 底栏与神力按钮 | `PowerButton`、Tab、能力入口 | 只注册并适配原版交互语义 |
 
 按以下边界决定代码位置：
 
@@ -30,7 +30,7 @@
 3. 只在一个窗口出现：留在窗口内部，不为潜在复用提前抽象。
 4. 依赖原版 prefab 固定节点：放入对应 Adapter 或该 prefab 的唯一拥有者。
 
-注册职责必须保持单一：`Source/UI/Manager.cs` 初始化公共基础设施和窗口壳，`Source/Content/UI/Manager.cs` 注册具体玩法窗口、页面与力量按钮。
+注册职责必须保持单一：`Source/UI/Manager.cs` 初始化公共基础设施和窗口壳，`Source/Content/UI/Manager.cs` 注册具体玩法窗口、页面与神力按钮。
 
 ## 三、架构分层
 
@@ -161,6 +161,8 @@ catalog.SetSurface(UiSurface.WindowEmpty, UiTheme.Current.Metrics.SpacingMd);
 - 新增原版资源路径前检查 `.GameSource/Assets`，新增固定节点查找时放入 Adapter 或唯一拥有者。
 - 扩展公共 API 后同步更新本文，并迁移实际调用方。
 - 不恢复 `WanfaUiFactory`、`BaibaoUiFactory`、`UIUtils`，也不新增功能专属的通用 `FooUiFactory`。
+
+神力 Tab 分类内的按钮必须先通过 `Manager.AddSection` 声明分区，再使用带 `sectionId`、`order` 和 `stableId` 的 `AddButton`、`AddButtonPair` 或 `AddSeparator` 注册。初始化先后不能承担排序语义；反射或资产库生成的按钮使用资产 ID 作为稳定 ID。上下具有固定组合语义的工具使用 `AddButtonPair`，视觉分组边界使用显式 `AddSeparator`，不得通过空节点手工补位。动态条目通过 `SetEntryActive` 控制显隐，并在不再使用时通过 `RemoveEntry` 删除。
 
 ## 八、检查清单
 

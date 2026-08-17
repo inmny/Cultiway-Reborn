@@ -181,6 +181,7 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
             evt.BaseLayerType,
             evt.WaterKind,
             evt.TouchesEdge,
+            evt.TileCount,
             evt.BiomeDominantCategoryId,
             evt.LandformDominantCategoryId);
     }
@@ -190,6 +191,7 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
         TileLayerType baseLayerType,
         PrimaryWaterKind waterKind,
         bool touchesEdge,
+        int tileCount,
         string biomeDominantCategoryId,
         string landformDominantCategoryId)
     {
@@ -235,7 +237,7 @@ public class GeoRegionManager : MetaSystemManager<GeoRegion, GeoRegionData>
                 return lib.LandformPlain;
             }
             case GeoRegionLayer.Landmass:
-                return lib.ResolveLandmass(touchesEdge);
+                return lib.ResolveLandmass(tileCount);
             case GeoRegionLayer.Peninsula:
                 return lib.Peninsula;
             case GeoRegionLayer.Strait:

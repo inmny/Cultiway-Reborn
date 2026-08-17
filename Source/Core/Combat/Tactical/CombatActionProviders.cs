@@ -13,7 +13,7 @@ namespace Cultiway.Core.Combat.Tactical;
 /// <summary>
 /// 汇总战斗动作 Provider，并保证成功启动后才写入通用攻击恢复和独立动作冷却。
 /// </summary>
-public static class CombatActionService
+internal static class CombatActionService
 {
     private const string OriginalActionProviderId = "core.original_combat_action";
     private static readonly List<ICombatActionProvider> Providers =
@@ -25,7 +25,7 @@ public static class CombatActionService
     ];
 
     /// <summary>收集角色当前具备条件的全部战斗动作，并单独记录本轮冷却是否结束。</summary>
-    public static void Collect(
+    internal static void Collect(
         ActorExtend caster,
         BaseSimObject primaryEnemy,
         Actor preferredAlly,
@@ -34,8 +34,6 @@ public static class CombatActionService
         IList<CombatActionCandidate> output)
     {
         output.Clear();
-        if (caster == null || caster.Base.isRekt()) return;
-
         var context = new CombatActionCollectionContext(
             caster,
             primaryEnemy,
@@ -50,6 +48,7 @@ public static class CombatActionService
         {
             CombatActionCandidate candidate = output[i];
             output[i] = candidate.WithReadiness(
+                candidate.IsReady &&
                 CombatWorldService.IsActionReady(caster.Base, candidate.Key));
         }
     }
@@ -57,30 +56,26 @@ public static class CombatActionService
     /// <summary>
     /// 重新验证并执行动作；只有 Provider 确认效果已经启动后才开始公共攻击恢复和独立冷却。
     /// </summary>
-    public static CombatExecutionStatus Execute(
+    internal static CombatExecutionStatus Execute(
         CombatActionCandidate candidate,
         in CombatActionExecutionContext context)
     {
-        if (candidate == null || context.Caster == null || context.Caster.Base.isRekt())
-            return CombatExecutionStatus.Invalid;
-        if (!CombatWorldService.IsActionReady(context.Caster.Base, candidate.Key))
+        Actor actor = context.Caster.Base;
+        if (!CombatWorldService.IsActionReady(actor, candidate.Key))
             return CombatExecutionStatus.TemporarilyBlocked;
 
         CombatExecutionStatus result = candidate.Provider.TryExecute(candidate, context);
         if (result != CombatExecutionStatus.Started) return result;
 
-        Actor actor = context.Caster.Base;
-        bool hostileAction =
-            (candidate.Profile.HasPurpose(CombatActionPurpose.Offense) ||
-             candidate.Profile.HasPurpose(CombatActionPurpose.Control)) &&
-            context.ActionTarget == context.PrimaryEnemy;
+        bool hostileAction = context.Use is CombatActionUse.Offense or CombatActionUse.Control;
         if (hostileAction)
         {
-            context.Caster.NotifyCombatActionStarted(context.ActionTarget);
-            if (context.ActionTarget.isActor())
-                CombatWorldService.RecordThreateningAction(actor, context.ActionTarget.a);
+            context.Caster.NotifyCombatActionStarted(context.PrimaryEnemy);
+            if (context.PrimaryEnemy.isActor())
+                CombatWorldService.RecordThreateningAction(actor, context.PrimaryEnemy.a);
         }
-        actor.startAttackCooldown();
+        if (candidate.Profile.RecoveryMode == CombatActionRecoveryMode.SharedAttack)
+            actor.startAttackCooldown();
         CombatWorldService.StartActionCooldown(actor, candidate.Key, candidate.Profile.Cooldown);
         return CombatExecutionStatus.Started;
     }
@@ -142,7 +137,8 @@ internal sealed class PhysicalCombatActionProvider : ICombatActionProvider
                     0f,
                     1f,
                     WorldboxGame.CombatActions.AttackMelee.rate,
-                    CombatActionMovementMode.BriefStop),
+                    CombatActionMovementMode.StationaryDuringRecovery,
+                    CombatActionRecoveryMode.SharedAttack),
                 WorldboxGame.CombatActions.AttackMelee));
         }
 
@@ -167,7 +163,8 @@ internal sealed class PhysicalCombatActionProvider : ICombatActionProvider
                     0f,
                     Mathf.Clamp01(actor.stats[S.accuracy] * 0.1f),
                     WorldboxGame.CombatActions.AttackRange.rate,
-                    CombatActionMovementMode.Mobile),
+                    CombatActionMovementMode.Mobile,
+                    CombatActionRecoveryMode.SharedAttack),
                 WorldboxGame.CombatActions.AttackRange));
         }
     }
@@ -289,7 +286,7 @@ internal sealed class VanillaSpellCombatActionProvider : ICombatActionProvider
     public void Collect(in CombatActionCollectionContext context, IList<CombatActionCandidate> output)
     {
         Actor actor = context.Caster.Base;
-        if (!actor.hasSpells() || !actor.canUseSpells()) return;
+        if (!actor.hasSpells()) return;
 
         using var spells = new ListPool<SpellAsset>();
         var unique = new HashSet<SpellAsset>();
@@ -304,7 +301,8 @@ internal sealed class VanillaSpellCombatActionProvider : ICombatActionProvider
             BaseSimObject target = spell.cast_target == CastTarget.Himself
                 ? actor
                 : context.PrimaryEnemy;
-            if (!CanPrepare(actor, spell, target)) continue;
+            if (!CanTarget(spell, target)) continue;
+            bool ready = CanPrepare(actor, spell, target);
 
             bool self = spell.cast_target == CastTarget.Himself;
             float range = self ? 0f : context.Caster.GetSkillCastRange(context.PrimaryEnemy);
@@ -336,8 +334,12 @@ internal sealed class VanillaSpellCombatActionProvider : ICombatActionProvider
                     reliability,
                     Mathf.Max(1, Mathf.RoundToInt(
                         WorldboxGame.CombatActions.CastVanillaSpell.rate * reliability)),
-                    CombatActionMovementMode.Mobile),
-                spell));
+                    CombatActionMovementMode.Mobile,
+                    self
+                        ? CombatActionRecoveryMode.Independent
+                        : CombatActionRecoveryMode.SharedAttack),
+                spell,
+                isReady: ready));
         }
     }
 
@@ -387,13 +389,19 @@ internal sealed class VanillaSpellCombatActionProvider : ICombatActionProvider
         }
     }
 
-    private static bool CanPrepare(Actor actor, SpellAsset spell, BaseSimObject target)
+    private static bool CanTarget(SpellAsset spell, BaseSimObject target)
     {
         if (spell == null || !spell.can_be_used_in_combat || target.isRekt()) return false;
-        if (!actor.canUseSpells() || !actor.hasEnoughMana(spell.cost_mana) ||
-            !actor.hasEnoughStamina(WorldboxGame.CombatActions.CastVanillaSpell.cost_stamina)) return false;
         if (spell.cast_entity == CastEntity.BuildingsOnly && target.isActor()) return false;
         if (spell.cast_entity == CastEntity.UnitsOnly && target.isBuilding()) return false;
+        return true;
+    }
+
+    private static bool CanPrepare(Actor actor, SpellAsset spell, BaseSimObject target)
+    {
+        if (!CanTarget(spell, target)) return false;
+        if (!actor.canUseSpells() || !actor.hasEnoughMana(spell.cost_mana) ||
+            !actor.hasEnoughStamina(WorldboxGame.CombatActions.CastVanillaSpell.cost_stamina)) return false;
         if (spell.health_ratio > 0f && spell.health_ratio <= actor.getHealthRatio()) return false;
         return true;
     }
@@ -449,12 +457,19 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
                         out prepareTarget)) continue;
                 preferredTargetId = prepareTarget.getID();
             }
-            if (!ActiveAbilityService.CanPrepare(caster, handle, prepareTarget)) continue;
+            bool ready = ActiveAbilityService.CanPrepare(caster, handle, prepareTarget);
+
+            var abilityTarget = new ActiveAbilityTarget(
+                prepareTarget,
+                prepareTarget?.GetSimPos() ?? caster.Base.GetSimPos(),
+                attackKingdom: caster.Base.kingdom);
+            ready = ready && ActiveAbilityService.CanUse(caster, handle, abilityTarget);
 
             float range = ActiveAbilityService.ResolveRange(caster, handle, prepareTarget);
             float radius = ActiveAbilityService.ResolveEffectRadius(caster, handle);
             long sourcePid = handle.Source.IsNull ? 0 : handle.Source.Pid;
-            float resourceRatio = tactical.ResourceDemand /
+            float resourceRatio = tactical.NormalizedResourceCost ??
+                                  tactical.ResourceDemand /
                                   Mathf.Max(1f, tactical.ResourceDemand + 20f);
             output.Add(new CombatActionCandidate(
                 this,
@@ -476,12 +491,16 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
                     Mathf.Max(
                         tactical.Utility,
                         Mathf.Max(tactical.Support, tactical.Defensive)),
-                    resourceRatio,
-                    0f,
-                    1f,
-                    ActiveAbilityService.ResolveAiWeight(caster, handle, prepareTarget),
-                    ResolveMovementMode(descriptor.CastMobility)),
+                     resourceRatio,
+                     0f,
+                     1f,
+                     ActiveAbilityService.ResolveAiWeight(caster, handle, prepareTarget),
+                     ResolveMovementMode(descriptor.CastMobility),
+                     ResolveRecoveryMode(purpose),
+                     tactical.AvailableResourceRatio,
+                     tactical.IgnoreResourceReserveWhenCritical),
                 handle,
+                isReady: ready,
                 preferredTargetId: preferredTargetId));
         }
     }
@@ -556,6 +575,13 @@ internal sealed class ActiveAbilityCombatActionProvider : ICombatActionProvider
             _ => CombatActionMovementMode.Mobile
         };
     }
+
+    private static CombatActionRecoveryMode ResolveRecoveryMode(CombatActionPurpose purpose)
+    {
+        return (purpose & (CombatActionPurpose.Offense | CombatActionPurpose.Control)) != 0
+            ? CombatActionRecoveryMode.SharedAttack
+            : CombatActionRecoveryMode.Independent;
+    }
 }
 
 /// <summary>把原版战斗动作池中的冲刺、后撤、投掷等动作纳入独立冷却和统一选择。</summary>
@@ -627,6 +653,7 @@ internal sealed class AdvancedCombatActionProvider : ICombatActionProvider
 
             bool advance = action == CombatActionLibrary.combat_action_dash;
             bool escape = action == CombatActionLibrary.combat_action_backstep;
+            bool thrown = action.id is "combat_throw_bomb" or "combat_throw_torch";
             bool mobility = advance || escape;
             CombatActionPurpose purpose = CombatActionPurpose.Offense;
             if (advance)
@@ -636,6 +663,21 @@ internal sealed class AdvancedCombatActionProvider : ICombatActionProvider
             float range = rangedPool
                 ? Mathf.Max(actor.getAttackRange(), 8f)
                 : Mathf.Max(actor.getAttackRange(), 5f);
+            float minRange = advance ? 3f : thrown ? 6f : 0f;
+            float maxRange = advance
+                ? 50f
+                : escape
+                    ? Mathf.Max(0.5f, actor.getAttackRange() * 0.7f)
+                    : thrown
+                        ? 50f
+                        : range;
+            float preferredRange = advance
+                ? range
+                : escape
+                    ? 0f
+                    : thrown
+                        ? Mathf.Max(8f, range)
+                        : range * 0.75f;
             output.Add(new CombatActionCandidate(
                 this,
                 CombatActionService.CreateOriginalActionKey(action),
@@ -643,9 +685,9 @@ internal sealed class AdvancedCombatActionProvider : ICombatActionProvider
                     purpose,
                     ActiveAbilityTargetMode.Object,
                     null,
-                    0f,
-                    mobility ? 50f : range,
-                    mobility ? range : range * 0.75f,
+                    minRange,
+                    maxRange,
+                    preferredRange,
                     0f,
                     1f,
                     mobility ? 0f : 1f + action.cost_stamina * 0.1f,
@@ -660,7 +702,8 @@ internal sealed class AdvancedCombatActionProvider : ICombatActionProvider
                     Mathf.Max(1, Mathf.RoundToInt(action.chance * 10f)),
                     mobility || rangedPool
                         ? CombatActionMovementMode.Mobile
-                        : CombatActionMovementMode.BriefStop),
+                        : CombatActionMovementMode.BriefStop,
+                    CombatActionRecoveryMode.Independent),
                 new AdvancedActionPayload(action, rangedPool)));
         }
     }

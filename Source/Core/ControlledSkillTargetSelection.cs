@@ -77,6 +77,13 @@ internal sealed class ControlledSkillTargetSelection : MonoBehaviour
         _instance.BeginInternal();
     }
 
+    internal static void ClearWorldState()
+    {
+        if (_instance == null) return;
+        _instance.Cancel();
+        _instance._tilePreview.Clear();
+    }
+
     private static void Ensure()
     {
         if (_instance != null) return;

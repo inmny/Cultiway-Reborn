@@ -56,6 +56,12 @@ internal sealed class CultibookSummaryRow : APrefabPreview<CultibookSummaryRow>
             () => CultibookTooltip.Show(icon.gameObject, model.Asset, actor, model.Mastery));
     }
 
+    internal void ClearWorldBinding()
+    {
+        if (!Initialized) return;
+        UiTooltip.Clear(icon.gameObject);
+    }
+
     private static void _init()
     {
         GameObject root = UiLayout.Create(ModClass.I.PrefabLibrary, nameof(CultibookSummaryRow), true,
@@ -151,6 +157,11 @@ internal sealed class CultibookKnownRow : APrefabPreview<CultibookKnownRow>
         masteryStrip.Set(model.Mastery / 100f);
         UiTooltip.Set(icon.gameObject,
             () => CultibookTooltip.Show(icon.gameObject, model.Asset, actor, model.Mastery));
+    }
+
+    internal void ClearWorldBinding()
+    {
+        UiTooltip.Clear(icon.gameObject);
     }
 
     private static void _init()

@@ -83,7 +83,7 @@ public class GeoRegionAutoClassifyAndNameEventSystem : GenericEventSystem<GeoReg
         region.data.TileCount = evt.TileCount;
 
         // 先按地区类型生成名称，再做轻量去重（仅重名时才加方位词，且不使用“部”）。
-        var categoryName = category.GenerateName();
+        var categoryName = category.GenerateName(evt.CenterX, evt.CenterY, evt.Width, evt.Height);
         var normalizedName = NormalizeDirectionalWord(categoryName);
         region.data.name = MakeUniqueName(normalizedName, evt);
         region.data.custom_name = false;

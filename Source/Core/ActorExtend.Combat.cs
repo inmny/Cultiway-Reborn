@@ -46,7 +46,7 @@ public partial class ActorExtend
     [Hotfixable]
     public bool TryToAttack(BaseSimObject target, Action kill_action = null, float bonus_area_effect = 0, bool do_checks = true)
     {
-        if (TacticalCombatSettings.Enabled)
+        if (CombatWorldService.ShouldExecuteImmediateAttack(Base, target))
         {
             return CombatWorldService.TryExecuteImmediate(
                 this,
@@ -97,7 +97,9 @@ public partial class ActorExtend
             activeAbilityWeights);
         if (activeAbilityWeight > 0)
         {
-            WorldboxGame.CombatActions.CastActiveAbility.AddToPool(attack_action_pool, activeAbilityWeight);
+            WorldboxGame.CombatActions.CastActiveAbility.AddToPool(
+                attack_action_pool,
+                Mathf.Min(activeAbilityWeight, 10));
         }
         action_on_attack?.Invoke(this, target, attack_action_pool);
         

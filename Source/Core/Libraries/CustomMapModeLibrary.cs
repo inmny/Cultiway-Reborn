@@ -179,7 +179,8 @@ public class CustomMapModeLibrary : AssetLibrary<CustomMapModeAsset>
         AssetManager.powers.add(power);
         if (!pAsset.uses_meta_layer_button)
         {
-            UI.Manager.AddButton(TabButtonType.WORLD, CreateMapModeButton(pAsset));
+            UI.Manager.AddButton(TabButtonType.WORLD, PowerTabSections.WorldMapModes, 100, pAsset.id,
+                CreateMapModeButton(pAsset));
         }
 
         return asset;

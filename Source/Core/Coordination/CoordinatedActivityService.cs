@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Cultiway.Patch;
+using Cultiway.Abstract;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS.Systems;
@@ -45,7 +45,6 @@ public static class CoordinatedActivityService
     {
         if (initialized) return;
         initialized = true;
-        PatchMapBox.RegisterActionOnClearWorld(ClearWorldState);
         ModClass.I.GeneralLogicSystems.Add(new UpdateSystem());
         ActorActivityPresentationRegistry.Register(TryResolvePresentation, 100);
     }
@@ -1520,8 +1519,13 @@ public static class CoordinatedActivityService
     }
 
     /// <summary>通用协调服务的系统更新入口。</summary>
-    private sealed class UpdateSystem : BaseSystem
+    private sealed class UpdateSystem : BaseSystem, IWorldStateClearable
     {
+        void IWorldStateClearable.ClearWorldState()
+        {
+            CoordinatedActivityService.ClearWorldState();
+        }
+
         /// <inheritdoc />
         protected override void OnUpdateGroup()
         {

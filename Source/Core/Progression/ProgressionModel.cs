@@ -502,7 +502,7 @@ public sealed class CultisysProgressionProfile<T> where T : struct, ICultisysCom
 }
 
 /// <summary>
-///     主等级提交完成后发出的只读事件，供表现层和其他观察者响应。
+///     小境界或大境界成功提交后发出的只读事件，供表现层和其他观察者响应。
 /// </summary>
 public readonly struct ProgressionCommittedEvent
 {
@@ -542,14 +542,14 @@ public readonly struct ProgressionCommittedEvent
 }
 
 /// <summary>
-///     支持多个观察者的进阶生命周期入口，避免把体系专属表现写进通用结算层。
+///     支持多个观察者的进阶生命周期入口，避免把体系专属观察逻辑写进通用结算层。
 /// </summary>
 public static class ProgressionLifecycle
 {
     /// <summary>按注册顺序保存提交观察者；重复委托不会再次加入。</summary>
     private static readonly List<Action<ProgressionCommittedEvent>> _committedHandlers = new();
 
-    /// <summary>注册一个主等级提交后的观察者；同一委托不会重复注册。</summary>
+    /// <summary>注册一个成功进阶提交后的观察者；同一委托不会重复注册。</summary>
     public static void RegisterCommitted(Action<ProgressionCommittedEvent> handler)
     {
         if (handler == null || _committedHandlers.Contains(handler)) return;

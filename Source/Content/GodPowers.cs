@@ -98,7 +98,7 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         t.name = localeName;
         t.drop_id = seed.id;
         Sprite icon = SpriteTextureLoader.getSprite($"cultiway/icons/biomes/{biomeIcon}");
-        Cultiway.UI.Manager.AddButton(TabButtonType.BIOME,
+        Cultiway.UI.Manager.AddButton(TabButtonType.BIOME, PowerTabSections.BiomeMain, 100, power_id,
             PowerButtonCreator.CreateGodPowerButton(power_id, icon));
     }
     private static GeoRegion _current_geo_region = null;
@@ -182,9 +182,8 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
 
                     var all_sprites = item.loadBuildingSpriteList();
                     var icon = all_sprites.FirstOrDefault(x => x.name.Contains("main")) ?? all_sprites.FirstOrDefault();
-                    Cultiway.UI.Manager.AddButton(TabButtonType.BUILDING, PowerButtonCreator.CreateGodPowerButton(
-                        power_id, icon
-                    ));
+                    Cultiway.UI.Manager.AddButton(TabButtonType.BUILDING, PowerTabSections.BuildingMain, 100,
+                        power_id, PowerButtonCreator.CreateGodPowerButton(power_id, icon));
                 }
             }
     }
@@ -206,9 +205,8 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
                     t.drop_id = item.id;
 
                     var icon = SpriteTextureLoader.getSprite("ui/icons/iconRain");
-                    Cultiway.UI.Manager.AddButton(TabButtonType.DROP, PowerButtonCreator.CreateGodPowerButton(
-                        power_id, icon
-                    ));
+                    Cultiway.UI.Manager.AddButton(TabButtonType.DROP, PowerTabSections.DropMain, 100, power_id,
+                        PowerButtonCreator.CreateGodPowerButton(power_id, icon));
                 }
             }
     }
@@ -228,9 +226,8 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
                     t.name = item.getLocaleID();
                     t.actor_asset_id = power_id;
                     
-                    Cultiway.UI.Manager.AddButton(TabButtonType.CREATURE, PowerButtonCreator.CreateGodPowerButton(
-                        power_id, item.getSpriteIcon()
-                    ));
+                    Cultiway.UI.Manager.AddButton(TabButtonType.CREATURE, PowerTabSections.CreatureMain, 100,
+                        power_id, PowerButtonCreator.CreateGodPowerButton(power_id, item.getSpriteIcon()));
                 }
             }
     }

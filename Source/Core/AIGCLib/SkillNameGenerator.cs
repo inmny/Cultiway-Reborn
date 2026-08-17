@@ -150,6 +150,8 @@ public class SkillNameGenerator : EntityNameGenerator<SkillNameGenerator>
             return;
         }
 
+        var worldSeedId = MapBox.current_world_seed_id;
+
         var key = context.StoreKey;
         string name = null;
 
@@ -189,6 +191,7 @@ public class SkillNameGenerator : EntityNameGenerator<SkillNameGenerator>
             name = GetCachedName(key);
         }
 
+        if (worldSeedId != MapBox.current_world_seed_id) return;
         if (string.IsNullOrEmpty(name) || target.IsNull || SkillContainerSignature.Build(target) != context.Signature)
         {
             completed?.Invoke(null);
@@ -197,6 +200,7 @@ public class SkillNameGenerator : EntityNameGenerator<SkillNameGenerator>
 
         EventSystemHub.Publish(new EntityNameGeneratedEvent
         {
+            WorldSeedId = worldSeedId,
             Target = target,
             Name = name
         });

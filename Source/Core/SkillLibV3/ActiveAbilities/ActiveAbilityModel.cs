@@ -144,6 +144,12 @@ public readonly struct ActiveAbilityTacticalProfile
     public readonly SkillImpactKind? ImpactKind;
     /// <summary>不带用途含义的通用效用评级。</summary>
     public readonly float Utility;
+    /// <summary>本次动作总资源需求占对应资源上限的比例；未提供时由战斗层采用旧算法。</summary>
+    public readonly float? NormalizedResourceCost;
+    /// <summary>施法者当前对应资源占上限的比例；未提供时由战斗层采用体力或法力。</summary>
+    public readonly float? AvailableResourceRatio;
+    /// <summary>生命危急时是否可以跳过通用资源保留。</summary>
+    public readonly bool IgnoreResourceReserveWhenCritical;
 
     public ActiveAbilityTacticalProfile(
         float offensive,
@@ -154,7 +160,10 @@ public readonly struct ActiveAbilityTacticalProfile
         float resourceDemand,
         float expectedTargets,
         SkillImpactKind? impactKind = null,
-        float utility = 0f)
+        float utility = 0f,
+        float? normalizedResourceCost = null,
+        float? availableResourceRatio = null,
+        bool ignoreResourceReserveWhenCritical = false)
     {
         Offensive = Mathf.Max(0f, offensive);
         Defensive = Mathf.Max(0f, defensive);
@@ -165,6 +174,32 @@ public readonly struct ActiveAbilityTacticalProfile
         ExpectedTargets = Mathf.Max(1f, expectedTargets);
         ImpactKind = impactKind;
         Utility = Mathf.Max(0f, utility);
+        NormalizedResourceCost = normalizedResourceCost.HasValue
+            ? Mathf.Clamp01(normalizedResourceCost.Value)
+            : null;
+        AvailableResourceRatio = availableResourceRatio.HasValue
+            ? Mathf.Clamp01(availableResourceRatio.Value)
+            : null;
+        IgnoreResourceReserveWhenCritical = ignoreResourceReserveWhenCritical;
+    }
+
+    public ActiveAbilityTacticalProfile WithResourceState(
+        float normalizedResourceCost,
+        float availableResourceRatio)
+    {
+        return new ActiveAbilityTacticalProfile(
+            Offensive,
+            Defensive,
+            Support,
+            Control,
+            Power,
+            ResourceDemand,
+            ExpectedTargets,
+            ImpactKind,
+            Utility,
+            normalizedResourceCost,
+            availableResourceRatio,
+            IgnoreResourceReserveWhenCritical);
     }
 
     /// <summary>

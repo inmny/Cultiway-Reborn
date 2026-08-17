@@ -9,6 +9,7 @@ public class ActorNameGeneratedEventSystem : GenericEventSystem<ActorNameGenerat
 {
     protected override void HandleEvent(ActorNameGeneratedEvent evt)
     {
+        if (evt.WorldSeedId != MapBox.current_world_seed_id) return;
         if (evt.ID == 0 || string.IsNullOrEmpty(evt.Name))
         {
             return;

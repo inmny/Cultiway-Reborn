@@ -71,6 +71,14 @@ public class BehCraftArtifact : BehCityActor
                 ae.AddSpecialItem(ArtifactProductionService.CloneProduct(crafting_entity));
             }
             ae.EquipArtifact(crafting_entity);
+            ItemLevel finalLevel = crafting_entity.GetComponent<ItemLevel>();
+            ProductionLifecycle.PublishCompleted(new ProductionCompletedEvent(
+                ae,
+                ArtifactProductionProcesses.ArtifactRefining,
+                materialData,
+                crafting_entity,
+                finalLevel,
+                outputCount));
 
             ModClass.LogInfo($"{pObject.getName()}[{pObject.data.id}] 完成炼制 {crafting_entity.Name} x{outputCount}");
             return BehResult.Continue;

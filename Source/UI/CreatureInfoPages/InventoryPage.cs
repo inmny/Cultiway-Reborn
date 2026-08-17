@@ -19,7 +19,7 @@ namespace Cultiway.UI.CreatureInfoPages;
 /// <summary>
 /// 单位信息窗口的背包页，按特殊物品分类提供筛选、排序和滚动浏览。
 /// </summary>
-public class InventoryPage : MonoBehaviour
+public class InventoryPage : MonoBehaviour, IWorldBoundCreatureInfoPage
 {
     private const string AllItemsIconPath = "ui/icons/iconFavoriteItems";
     private const float FilterBarHeight = 24f;
@@ -117,7 +117,8 @@ public class InventoryPage : MonoBehaviour
 
         _itemPool = new MonoObjPool<InventoryItemDisplay>(
             InventoryItemDisplay.Prefab,
-            _itemsPane.Content);
+            _itemsPane.Content,
+            deactive_action: display => display.Clear());
         _emptyState = new UiEmptyState(
             _itemsPane.Viewport,
             "Cultiway.Inventory.Empty".Localize(),
@@ -201,6 +202,14 @@ public class InventoryPage : MonoBehaviour
             _selectedCategory = null;
         }
         Refresh(actorChanged);
+    }
+
+    public void ClearWorldBinding()
+    {
+        _actor = null;
+        _actorExtend = null;
+        _selectedCategory = null;
+        _itemPool.Clear();
     }
 
     /// <summary>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Cultiway.Abstract;
 using Cultiway.Core.BuildingComponents;
 using Friflo.Engine.ECS.Systems;
 using Cultiway.Utils.Extension;
@@ -9,19 +10,19 @@ using Cultiway.Core.Libraries;
 
 namespace Cultiway.Core.Pathfinding
 {
-    public class PortalManager : BaseSystem
+    public class PortalManager : BaseSystem, IWorldStateClearable
     {
         public static PortalManager Instance { get; } = new();
         private List<PortalRequest> _requests = new();
 
-        internal static void ClearWorldState()
+        void IWorldStateClearable.ClearWorldState()
         {
-            foreach (var request in Instance._requests)
+            foreach (var request in _requests)
             {
                 request?.Cancel();
             }
 
-            Instance._requests.Clear();
+            _requests.Clear();
         }
 
         protected override void OnUpdateGroup()

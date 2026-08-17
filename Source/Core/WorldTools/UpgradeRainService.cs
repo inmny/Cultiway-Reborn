@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Cultiway.Abstract;
 using Cultiway.Core.ActorFiltering;
 using Cultiway.Core.Progression;
-using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api;
@@ -133,7 +133,6 @@ public static class UpgradeRainService
 
         if (_initialized) return;
         _initialized = true;
-        PatchMapBox.RegisterActionOnClearWorld(ClearWorldState);
         ModClass.I.GeneralLogicSystems.Add(new UpdateSystem());
     }
 
@@ -306,8 +305,13 @@ public static class UpgradeRainService
         Settings.Filter.ClearWorldExpression();
     }
 
-    private sealed class UpdateSystem : BaseSystem
+    private sealed class UpdateSystem : BaseSystem, IWorldStateClearable
     {
+        void IWorldStateClearable.ClearWorldState()
+        {
+            UpgradeRainService.ClearWorldState();
+        }
+
         protected override void OnUpdateGroup()
         {
             base.OnUpdateGroup();

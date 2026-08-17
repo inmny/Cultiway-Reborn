@@ -27,6 +27,11 @@ public static class KnightBloodline
         _parents[child_id] = (pParent1?.data.id ?? -1L, pParent2?.data.id ?? -1L);
     }
 
+    public static void ClearWorldState()
+    {
+        _parents.Clear();
+    }
+
     /// <summary>注册 9 级快照触发器与后裔加成 stats builder。在 Manager.Init 中调用。</summary>
     public static void Init()
     {
@@ -37,7 +42,7 @@ public static class KnightBloodline
     /// <summary>骑士突破到 9 级 → 备份血脉 + 触发毕业钩子。</summary>
     private static void OnKnightCommitted(ProgressionCommittedEvent evt)
     {
-        if (evt.Cultisys != Cultisyses.Knight) return;
+        if (evt.Cultisys != Cultisyses.Knight || evt.Kind != ProgressionKind.Major) return;
         if (evt.ToLevel != KnightSetting.LevelNumber - 1) return; // 到 9 级
         SnapshotAncestor(evt.Actor);
         KnightGraduation.OnGraduated(evt.Actor); // 毕业钩子（当前空操作，未来接"转入其他体系"）

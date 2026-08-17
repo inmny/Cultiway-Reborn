@@ -137,10 +137,8 @@ public static class MasterApprenticeTools
             }
         }
         
-        // TODO: 触发事件
-        // MasterApprenticeEvents.OnRecruit(master, apprentice);
-        
         SectVerifyLog.Log("RecruitApprentice", $"master={SectVerifyLog.Actor(master.Base)} apprentice={SectVerifyLog.Actor(apprentice.Base)} relation={SectVerifyLog.Relation(type)} masterSect={SectVerifyLog.Sect(master.sect)} apprenticeSect={SectVerifyLog.Sect(apprentice.sect)}");
+        CultivationAchievementService.OnApprenticeRecruited(master);
         
         return true;
     }
@@ -187,18 +185,16 @@ public static class MasterApprenticeTools
         }
         
         if (!canGraduate) return false;
-        
-        // 执行出师
-        // TODO: MasterApprenticeEvents.OnGraduate(master, ae);
-        
-        // 移除师徒关系
+
+        string relationTypeId = relation.RelationTypeId;
         ae.E.RemoveRelation<MasterApprenticeRelation>(master.GetExtend().E);
         
         // 更新师傅状态
         ref var state = ref master.GetExtend().GetOrAddComponent<MasterApprenticeState>();
         state.ApprenticeCount--;
         
-        SectVerifyLog.Log("GraduateApprentice", $"apprentice={SectVerifyLog.Actor(ae.Base)} master={SectVerifyLog.Actor(master)} relation={SectVerifyLog.Relation(ModClass.L.MasterApprenticeTypeLibrary.GetOrDefault(relation.RelationTypeId))}");
+        SectVerifyLog.Log("GraduateApprentice", $"apprentice={SectVerifyLog.Actor(ae.Base)} master={SectVerifyLog.Actor(master)} relation={SectVerifyLog.Relation(ModClass.L.MasterApprenticeTypeLibrary.GetOrDefault(relationTypeId))}");
+        CultivationAchievementService.OnApprenticeGraduated(master.GetExtend(), ae);
         
         return true;
     }

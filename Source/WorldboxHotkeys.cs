@@ -43,6 +43,7 @@ public partial class WorldboxGame
                 () => ControlledCultivatorSkillControls.GetState().CanCycleSkill,
                 () => CycleLabelKey,
                 () => GetHotkeyText(CycleControlledSkill, "E"));
+            ControlledActiveAbilityBar.Ensure();
 
             AssetManager.hotkey_library.linkAssets();
         }

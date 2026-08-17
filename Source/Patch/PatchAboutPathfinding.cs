@@ -132,18 +132,17 @@ namespace Cultiway.Patch
         {
             if (poll.Kind == PathPollKind.StepReady)
             {
-                var stepResult = HandleStep(actor, poll.Step);
+                if (!cursor.TryExecuteCurrentStep(
+                        step => HandleStep(actor, step), out PathProcessResult stepResult))
+                {
+                    actor.setNotMoving();
+                    actor.timer_action = 0.05f;
+                    return true;
+                }
                 switch (stepResult.Kind)
                 {
                     case PathProcessKind.Consumed:
-                        if (cursor.IsValid)
-                        {
-                            cursor.Consume();
-                        }
-                        else
-                        {
-                            PathFinder.Instance.ConsumeStep(actor);
-                        }
+                        cursor.Consume();
                         break;
                     case PathProcessKind.Abort:
                         HandlePathFailure(actor, stepResult.FailureReason, true, ref cursor);
@@ -371,9 +370,7 @@ namespace Cultiway.Patch
         private static void HandlePathFailure(Actor actor, PathFailureReason reason, bool allowRecovery,
             ref PathFinder.ReadyPathCursor cursor)
         {
-            bool recovered = allowRecovery && (cursor.IsValid
-                ? cursor.ScheduleRecovery(actor, reason)
-                : PathFinder.Instance.ScheduleRecovery(actor, reason));
+            bool recovered = allowRecovery && cursor.ScheduleRecovery(actor, reason);
             if (recovered)
             {
                 actor.setNotMoving();
@@ -381,9 +378,7 @@ namespace Cultiway.Patch
                 return;
             }
 
-            bool acknowledged = cursor.IsValid
-                ? cursor.Acknowledge()
-                : PathFinder.Instance.Acknowledge(actor);
+            bool acknowledged = cursor.Acknowledge();
             cursor = default;
             if (!acknowledged) return;
             actor.setNotMoving();
@@ -964,7 +959,7 @@ namespace Cultiway.Patch
                 return PathProcessResult.Abort(PathFailureReason.InvalidStart);
             }
 
-            var tile = step.Tile;
+            WorldTile tile = TileTraversalInfo.ResolveTile(step.TileId);
             if (tile == null)
             {
                 return PathProcessResult.Abort(PathFailureReason.UnsafeStep);

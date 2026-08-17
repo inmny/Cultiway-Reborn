@@ -18,9 +18,10 @@ public class PathFinder
     public static PathFinder Instance { get; } = new();
     internal static readonly object ActorSyncLock = new();
 
-    private readonly ConcurrentDictionary<long, PathSession> sessions = new();
-    private readonly ConcurrentDictionary<long, PathRequestOptions> lastRequests = new();
-    private readonly ConcurrentDictionary<long, long> submissionTokens = new();
+    private readonly ConcurrentDictionary<PathAgentKey, PathSession> sessions = new();
+    private readonly ConcurrentDictionary<PathAgentKey, PathRequestOptions> lastRequests = new();
+    private readonly ConcurrentDictionary<PathAgentKey, long> submissionTokens = new();
+    private readonly object sessionOwnershipLock = new();
     private readonly ConcurrentQueue<ScheduledPathWork> starvedQueue = new();
     private readonly ConcurrentQueue<ScheduledPathWork> initialQueue = new();
     private readonly ConcurrentQueue<ScheduledPathWork> continuationQueue = new();
@@ -31,6 +32,7 @@ public class PathFinder
     private readonly List<Thread> workers = new();
     private IPathGenerator generator;
     private bool workersStarted;
+    private bool clearing;
     private volatile bool shuttingDown;
     private int queueDepth;
     private int queueHighWatermark;
@@ -99,54 +101,82 @@ public class PathFinder
             return new PathSubmissionResult(PathSubmissionKind.Rejected, failureReason);
         }
 
-        PathfindingProfiler.Measurement reuseMeasurement = PathfindingProfiler.Start();
-        if (TryReuseActiveRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions))
+        PathRequest request = PathRequest.CreateMainWorld(
+            actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions);
+        PathAgentKey agentKey = request.AgentKey;
+        lock (sessionOwnershipLock)
         {
-            reuseMeasurement.Complete(PathfindingBenchmarkMetric.Reuse);
-            return new PathSubmissionResult(
-                PathSubmissionKind.Reused,
-                submissionToken: RecordSubmission(actor.data.id));
+            PathfindingProfiler.Measurement reuseMeasurement = PathfindingProfiler.Start();
+            if (TryReuseActiveRequest(agentKey, request.TargetTileId, pathOnWater, walkOnBlocks, walkOnLava,
+                    limitRegions))
+            {
+                reuseMeasurement.Complete(PathfindingBenchmarkMetric.Reuse);
+                return new PathSubmissionResult(
+                    PathSubmissionKind.Reused,
+                    submissionToken: RecordSubmission(agentKey));
+            }
+
+            reuseMeasurement.Complete(PathfindingBenchmarkMetric.ReuseMiss);
+            PathfindingProfiler.Measurement createMeasurement = PathfindingProfiler.Start();
+            lastRequests[agentKey] = new PathRequestOptions(target, pathOnWater, walkOnBlocks, walkOnLava,
+                limitRegions);
+            createMeasurement.Complete(PathfindingBenchmarkMetric.Create);
+            PathSubmissionResult result = Submit(request);
+            return result.Accepted
+                ? new PathSubmissionResult(result.Kind, submissionToken: RecordSubmission(agentKey))
+                : result;
+        }
+    }
+
+    /// <summary>提交已经在所属模拟线程完成快照化的通用寻路请求。</summary>
+    public PathSubmissionResult RequestPathDetailed(PathRequest request)
+    {
+        if (request == null || !request.AgentKey.IsValid)
+        {
+            return new PathSubmissionResult(PathSubmissionKind.Rejected, PathFailureReason.InvalidActor);
+        }
+        if (request.NavigationGrid == null || request.NavigationGrid.WorldKey != request.AgentKey.World)
+        {
+            return new PathSubmissionResult(PathSubmissionKind.Rejected,
+                PathFailureReason.NavigationGridUnavailable);
+        }
+        if (request.StartTileId < 0 || request.StartTileId >= request.NavigationGrid.TileCount)
+        {
+            return new PathSubmissionResult(PathSubmissionKind.Rejected, PathFailureReason.InvalidStart);
+        }
+        if (request.TargetTileId < 0 || request.TargetTileId >= request.NavigationGrid.TileCount)
+        {
+            return new PathSubmissionResult(PathSubmissionKind.Rejected, PathFailureReason.InvalidTarget);
         }
 
-        reuseMeasurement.Complete(PathfindingBenchmarkMetric.ReuseMiss);
-        PathfindingProfiler.Measurement createMeasurement = PathfindingProfiler.Start();
-        var request = new PathRequest(actor, target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions);
-        createMeasurement.Complete(PathfindingBenchmarkMetric.Create);
-        PathSubmissionResult result = Submit(request);
-        return result.Accepted
-            ? new PathSubmissionResult(
-                result.Kind,
-                submissionToken: RecordSubmission(actor.data.id))
-            : result;
+        lock (sessionOwnershipLock)
+        {
+            PathSubmissionResult result = Submit(request);
+            return result.Accepted
+                ? new PathSubmissionResult(result.Kind, submissionToken: RecordSubmission(request.AgentKey))
+                : result;
+        }
     }
 
     public bool RequestPath(PathRequest request)
     {
-        if (request?.Actor == null || request.Target == null)
-        {
-            return false;
-        }
-
-        return RequestPathDetailed(request.Actor, request.Target, request.PathOnWater, request.WalkOnBlocks,
-            request.WalkOnLava, request.RegionLimit).Accepted;
+        return RequestPathDetailed(request).Accepted;
     }
 
     private PathSubmissionResult Submit(PathRequest request)
     {
-        long actorId = request.ActorId;
-        if (actorId == 0)
+        PathAgentKey agentKey = request.AgentKey;
+        if (!agentKey.IsValid)
         {
             return new PathSubmissionResult(PathSubmissionKind.Rejected, PathFailureReason.InvalidActor);
         }
 
-        lastRequests[actorId] = new PathRequestOptions(request.Target, request.PathOnWater, request.WalkOnBlocks,
-            request.WalkOnLava, request.RegionLimit);
-        while (sessions.TryGetValue(actorId, out PathSession existing))
+        while (sessions.TryGetValue(agentKey, out PathSession existing))
         {
             if (!existing.TryReplace(request))
             {
-                ((ICollection<KeyValuePair<long, PathSession>>)sessions)
-                    .Remove(new KeyValuePair<long, PathSession>(actorId, existing));
+                ((ICollection<KeyValuePair<PathAgentKey, PathSession>>)sessions)
+                    .Remove(new KeyValuePair<PathAgentKey, PathSession>(agentKey, existing));
                 continue;
             }
 
@@ -157,7 +187,7 @@ public class PathFinder
 
         PathfindingProfiler.Measurement taskCreateMeasurement = PathfindingProfiler.Start();
         var session = new PathSession(request, taskCreateMeasurement.Session);
-        if (!sessions.TryAdd(actorId, session))
+        if (!sessions.TryAdd(agentKey, session))
         {
             session.Cancel(PathFailureReason.CancelledByNewRequest);
             return Submit(request);
@@ -168,30 +198,32 @@ public class PathFinder
         return new PathSubmissionResult(PathSubmissionKind.Created);
     }
 
-    private bool TryReuseActiveRequest(Actor actor, WorldTile target, bool pathOnWater, bool walkOnBlocks,
-        bool walkOnLava, int limitRegions)
+    private bool TryReuseActiveRequest(PathAgentKey agentKey, int targetTileId, bool pathOnWater,
+        bool walkOnBlocks, bool walkOnLava, int limitRegions)
     {
-        if (actor?.data == null || target == null ||
-            !sessions.TryGetValue(actor.data.id, out PathSession session))
+        if (!agentKey.IsValid || !sessions.TryGetValue(agentKey, out PathSession session))
         {
             return false;
         }
 
-        return session.CanReuse(target, pathOnWater, walkOnBlocks, walkOnLava, limitRegions);
+        return session.CanReuse(targetTileId, pathOnWater, walkOnBlocks, walkOnLava, limitRegions);
     }
 
     private void Schedule(PathSession session, PathWorkPriority priority)
     {
-        if (session == null || shuttingDown) return;
-        EnsureWorkersStarted();
-        if (!session.TrySchedule(priority, out ScheduledPathWork work)) return;
-        PathfindingProfiler.Measurement enqueueMeasurement = PathfindingProfiler.Start(session.BenchmarkSession);
-        work = work.WithEnqueuedAt(PathfindingProfiler.MarkEnqueued(session.BenchmarkSession));
-        QueueFor(priority).Enqueue(work);
-        int depth = Interlocked.Increment(ref queueDepth);
-        UpdateHighWatermark(depth);
-        pendingSignal.Release();
-        enqueueMeasurement.Complete(PathfindingBenchmarkMetric.Enqueue);
+        lock (sessionOwnershipLock)
+        {
+            if (session == null || shuttingDown || clearing) return;
+            EnsureWorkersStarted();
+            if (!session.TrySchedule(priority, out ScheduledPathWork work)) return;
+            PathfindingProfiler.Measurement enqueueMeasurement = PathfindingProfiler.Start(session.BenchmarkSession);
+            work = work.WithEnqueuedAt(PathfindingProfiler.MarkEnqueued(session.BenchmarkSession));
+            QueueFor(priority).Enqueue(work);
+            int depth = Interlocked.Increment(ref queueDepth);
+            UpdateHighWatermark(depth);
+            pendingSignal.Release();
+            enqueueMeasurement.Complete(PathfindingBenchmarkMetric.Enqueue);
+        }
     }
 
     private ConcurrentQueue<ScheduledPathWork> QueueFor(PathWorkPriority priority)
@@ -347,17 +379,22 @@ public class PathFinder
 
     private void ActivateRetry(ScheduledRetry retry)
     {
-        if (!sessions.TryGetValue(retry.Session.ActorId, out PathSession current) ||
-            !ReferenceEquals(current, retry.Session))
+        PathAgentKey agentKey = retry.Session.AgentKey;
+        if (agentKey.World.Kind != PathWorldKind.MainWorld ||
+            !sessions.TryGetValue(agentKey, out PathSession current) ||
+            !ReferenceEquals(current, retry.Session) ||
+            !retry.Session.TryGetRetryRequest(retry.Version, out _))
         {
             return;
         }
 
-        if (!retry.Session.TryGetRetryRequest(retry.Version, out Actor actor, out PathRequestOptions options))
+        if (!lastRequests.TryGetValue(agentKey, out PathRequestOptions options))
         {
+            retry.Session.FailRetry(retry.Version, PathFailureReason.InvalidActor);
             return;
         }
 
+        Actor actor = World.world?.units?.get(agentKey.AgentId);
         WorldTile target = actor?.tile_target ?? options.Target;
         if (!CanAcceptRequest(actor, target, out PathFailureReason failureReason))
         {
@@ -365,8 +402,15 @@ public class PathFinder
             return;
         }
 
-        var request = new PathRequest(actor, target, options.PathOnWater, options.WalkOnBlocks,
-            options.WalkOnLava, options.RegionLimit);
+        PathRequest request = PathRequest.CreateMainWorld(
+            actor, target, options.PathOnWater, options.WalkOnBlocks, options.WalkOnLava,
+            options.RegionLimit);
+        if (request.AgentKey.World != agentKey.World)
+        {
+            retry.Session.FailRetry(retry.Version, PathFailureReason.ClearWorld);
+            return;
+        }
+
         if (retry.Session.ActivateRetry(retry.Version, request))
         {
             Schedule(retry.Session, PathWorkPriority.Starved);
@@ -378,18 +422,19 @@ public class PathFinder
     /// </summary>
     public bool ScheduleRecovery(Actor actor, PathFailureReason reason)
     {
-        if (actor?.data == null || !sessions.TryGetValue(actor.data.id, out PathSession session))
+        PathAgentKey agentKey = ResolveMainWorldAgentKey(actor);
+        if (!agentKey.IsValid || !sessions.TryGetValue(agentKey, out PathSession session))
         {
             return false;
         }
 
-        return ScheduleRecovery(actor.data.id, session, session.CurrentStream, actor, reason);
+        return ScheduleRecovery(agentKey, session, session.CurrentStream, actor, reason);
     }
 
-    private bool ScheduleRecovery(long actorId, PathSession session, PathStream stream, Actor actor,
+    private bool ScheduleRecovery(PathAgentKey agentKey, PathSession session, PathStream stream, Actor actor,
         PathFailureReason reason)
     {
-        if (!IsCurrent(actorId, session)) return false;
+        if (!IsCurrent(agentKey, session)) return false;
         int startTileId = TileTraversalInfo.TileIdOf(actor?.current_tile);
         if (!session.PrepareExternalRetry(stream, reason, startTileId, out RetryTicket retry)) return false;
         pendingRetries.Enqueue(retry);
@@ -429,52 +474,63 @@ public class PathFinder
     public void RequestDirectPath(Actor actor, WorldTile target)
     {
         if (!CanAcceptRequest(actor, target, out _)) return;
-        long actorId = actor.data.id;
-        lastRequests[actorId] = new PathRequestOptions(target, true, true, true, 0);
-        var request = new PathRequest(actor, target, true, true, true, 0);
-        var direct = PathSession.CreateDirect(request,
-            new PathStep(target, MovementMethod.Walk, TraversalEstimate.Direct));
-        if (sessions.TryGetValue(actorId, out PathSession old)) old.Cancel(PathFailureReason.CancelledByNewRequest);
-        sessions[actorId] = direct;
-        RecordSubmission(actorId);
+        PathRequest request = PathRequest.CreateMainWorld(actor, target, true, true, true, 0);
+        PathAgentKey agentKey = request.AgentKey;
+        lock (sessionOwnershipLock)
+        {
+            lastRequests[agentKey] = new PathRequestOptions(target, true, true, true, 0);
+            var direct = PathSession.CreateDirect(request,
+                new PathStep(target, MovementMethod.Walk, TraversalEstimate.Direct));
+            if (sessions.TryGetValue(agentKey, out PathSession old))
+            {
+                old.Cancel(PathFailureReason.CancelledByNewRequest);
+            }
+            sessions[agentKey] = direct;
+            RecordSubmission(agentKey);
+        }
     }
 
     public bool IsActorPathing(Actor actor)
     {
-        return actor?.data != null && sessions.TryGetValue(actor.data.id, out PathSession session) &&
+        PathAgentKey agentKey = ResolveMainWorldAgentKey(actor);
+        return agentKey.IsValid && sessions.TryGetValue(agentKey, out PathSession session) &&
                session.IsVisibleToPoller;
     }
 
     public List<PathStep> TryViewAll(Actor actor)
     {
-        if (actor?.data == null || !sessions.TryGetValue(actor.data.id, out PathSession session)) return null;
-        return session.CurrentStream.TryViewAll();
+        PathAgentKey agentKey = ResolveMainWorldAgentKey(actor);
+        return agentKey.IsValid && sessions.TryGetValue(agentKey, out PathSession session)
+            ? session.CurrentStream.TryViewAll()
+            : null;
     }
 
     public PathPollResult PollStep(Actor actor)
     {
-        if (actor?.data == null) return PathPollResult.Failed(PathFailureReason.InvalidActor);
-        if (!sessions.TryGetValue(actor.data.id, out PathSession session)) return PathPollResult.NoRequest();
+        PathAgentKey agentKey = ResolveMainWorldAgentKey(actor);
+        if (!agentKey.IsValid) return PathPollResult.Failed(PathFailureReason.InvalidActor);
+        if (!sessions.TryGetValue(agentKey, out PathSession session)) return PathPollResult.NoRequest();
         PathStream stream = session.CurrentStream;
-        PathPollResult result = GetPollResult(actor.data.id, session, stream);
-        if (IsTerminal(result.Kind)) CleanupSession(actor.data.id, session, stream);
+        PathPollResult result = GetPollResult(agentKey, session, stream);
+        if (IsTerminal(result.Kind)) CleanupSession(agentKey, session, stream);
         return result;
     }
 
     public PathPollResult PeekReadyStep(Actor actor, out ReadyPathStep readyStep)
     {
         readyStep = default;
-        if (actor?.data == null) return PathPollResult.Failed(PathFailureReason.InvalidActor);
-        if (!sessions.TryGetValue(actor.data.id, out PathSession session)) return PathPollResult.NoRequest();
+        PathAgentKey agentKey = ResolveMainWorldAgentKey(actor);
+        if (!agentKey.IsValid) return PathPollResult.Failed(PathFailureReason.InvalidActor);
+        if (!sessions.TryGetValue(agentKey, out PathSession session)) return PathPollResult.NoRequest();
         PathStream stream = session.CurrentStream;
-        PathPollResult result = GetPollResult(actor.data.id, session, stream);
+        PathPollResult result = GetPollResult(agentKey, session, stream);
         if (result.Kind == PathPollKind.StepReady)
         {
-            readyStep = new ReadyPathStep(this, actor.data.id, session, stream, result.Step);
+            readyStep = new ReadyPathStep(this, agentKey, session, stream, result.Step);
         }
         else if (IsTerminal(result.Kind))
         {
-            CleanupSession(actor.data.id, session, stream);
+            CleanupSession(agentKey, session, stream);
         }
 
         return result;
@@ -482,14 +538,38 @@ public class PathFinder
 
     public PathPollResult OpenReadyCursor(Actor actor, out ReadyPathCursor cursor)
     {
-        cursor = default;
-        if (actor?.data == null) return PathPollResult.Failed(PathFailureReason.InvalidActor);
-        long actorId = actor.data.id;
-        if (!sessions.TryGetValue(actorId, out PathSession session)) return PathPollResult.NoRequest();
-        PathStream stream = session.CurrentStream;
-        PathPollResult result = GetPollResult(actorId, session, stream);
-        cursor = new ReadyPathCursor(this, actorId, session, stream);
+        PathAgentKey agentKey = ResolveMainWorldAgentKey(actor);
+        lock (sessionOwnershipLock)
+        {
+            return OpenReadyCursor(agentKey, false, 0, out cursor);
+        }
+    }
 
+    /// <summary>按提交 handle 打开游标；token 不匹配时旧调用方只能看到 NoRequest。</summary>
+    public PathPollResult OpenReadyCursor(PathHandle handle, out ReadyPathCursor cursor)
+    {
+        lock (sessionOwnershipLock)
+        {
+            cursor = default;
+            if (!handle.IsValid || !submissionTokens.TryGetValue(handle.Agent, out long currentToken) ||
+                currentToken != handle.SubmissionToken)
+            {
+                return PathPollResult.NoRequest();
+            }
+
+            return OpenReadyCursor(handle.Agent, true, handle.SubmissionToken, out cursor);
+        }
+    }
+
+    private PathPollResult OpenReadyCursor(PathAgentKey agentKey, bool tokenBound, long token,
+        out ReadyPathCursor cursor)
+    {
+        cursor = default;
+        if (!agentKey.IsValid) return PathPollResult.Failed(PathFailureReason.InvalidActor);
+        if (!sessions.TryGetValue(agentKey, out PathSession session)) return PathPollResult.NoRequest();
+        PathStream stream = session.CurrentStream;
+        PathPollResult result = GetPollResult(agentKey, session, stream);
+        cursor = new ReadyPathCursor(this, agentKey, session, stream, tokenBound, token);
         return result;
     }
 
@@ -508,9 +588,9 @@ public class PathFinder
         return false;
     }
 
-    private PathPollResult GetPollResult(long actorId, PathSession session, PathStream stream)
+    private PathPollResult GetPollResult(PathAgentKey agentKey, PathSession session, PathStream stream)
     {
-        if (!IsCurrent(actorId, session)) return PathPollResult.NoRequest();
+        if (!IsCurrent(agentKey, session)) return PathPollResult.NoRequest();
         if (!session.IsCurrentStream(stream)) return PathPollResult.Waiting();
         if (stream.TryPeek(out PathStep step)) return PathPollResult.StepReady(step);
         PathSessionState state = session.State;
@@ -541,109 +621,178 @@ public class PathFinder
 
     public bool Acknowledge(Actor actor)
     {
-        if (actor?.data == null || !sessions.TryGetValue(actor.data.id, out PathSession session)) return false;
-        return CleanupSession(actor.data.id, session, session.CurrentStream);
+        PathAgentKey agentKey = ResolveMainWorldAgentKey(actor);
+        if (!agentKey.IsValid || !sessions.TryGetValue(agentKey, out PathSession session)) return false;
+        return CleanupSession(agentKey, session, session.CurrentStream);
     }
 
     public void ConsumeStep(Actor actor)
     {
-        if (actor?.data == null || !sessions.TryGetValue(actor.data.id, out PathSession session)) return;
-        Consume(actor.data.id, session, session.CurrentStream);
+        PathAgentKey agentKey = ResolveMainWorldAgentKey(actor);
+        if (!agentKey.IsValid || !sessions.TryGetValue(agentKey, out PathSession session)) return;
+        Consume(agentKey, session, session.CurrentStream);
     }
 
-    private void Consume(long actorId, PathSession session, PathStream stream)
+    private void Consume(PathAgentKey agentKey, PathSession session, PathStream stream)
     {
-        if (!IsCurrent(actorId, session)) return;
-        PathConsumeResult result = session.TryConsume(stream, PathfindingConfig.Default.SegmentLowWatermark);
+        if (!IsCurrent(agentKey, session)) return;
+        PathConsumeResult result = session.TryClaim(
+            stream, PathfindingConfig.Default.SegmentLowWatermark, out _);
+        CompleteConsume(agentKey, session, stream, result);
+    }
+
+    private void CompleteConsume(PathAgentKey agentKey, PathSession session, PathStream stream,
+        PathConsumeResult result)
+    {
+        if (!result.Consumed) return;
         if (result.ScheduleContinuation)
         {
             Schedule(session, result.Starved ? PathWorkPriority.Starved : PathWorkPriority.Continuation);
         }
 
-        if (result.Finished) CleanupSession(actorId, session, stream);
+        if (result.Finished) CleanupSession(agentKey, session, stream);
     }
 
     public void Cancel(Actor actor, PathFailureReason reason = PathFailureReason.CancelledByNewRequest)
     {
-        if (actor?.data == null) return;
-        submissionTokens.TryRemove(actor.data.id, out _);
-        PathfindingProfiler.Measurement measurement = PathfindingProfiler.Start();
-        bool removed = sessions.TryRemove(actor.data.id, out PathSession session);
-        if (removed) session.Cancel(reason);
-        measurement.Complete(removed ? PathfindingBenchmarkMetric.Cancel : PathfindingBenchmarkMetric.CancelEmpty);
+        PathAgentKey agentKey = ResolveMainWorldAgentKey(actor);
+        if (agentKey.IsValid) Cancel(agentKey, reason);
+    }
+
+    public bool Cancel(PathHandle handle, PathFailureReason reason = PathFailureReason.CancelledByNewRequest)
+    {
+        if (!handle.IsValid) return false;
+        lock (sessionOwnershipLock)
+        {
+            bool owned = ((ICollection<KeyValuePair<PathAgentKey, long>>)submissionTokens)
+                .Remove(new KeyValuePair<PathAgentKey, long>(handle.Agent, handle.SubmissionToken));
+            if (!owned) return false;
+            if (sessions.TryRemove(handle.Agent, out PathSession session)) session.Cancel(reason);
+            return true;
+        }
+    }
+
+    public void Cancel(PathAgentKey agentKey,
+        PathFailureReason reason = PathFailureReason.CancelledByNewRequest)
+    {
+        if (!agentKey.IsValid) return;
+        lock (sessionOwnershipLock)
+        {
+            submissionTokens.TryRemove(agentKey, out _);
+            PathfindingProfiler.Measurement measurement = PathfindingProfiler.Start();
+            bool removed = sessions.TryRemove(agentKey, out PathSession session);
+            if (removed) session.Cancel(reason);
+            measurement.Complete(removed ? PathfindingBenchmarkMetric.Cancel : PathfindingBenchmarkMetric.CancelEmpty);
+        }
     }
 
     /// <summary>只取消仍对应指定提交令牌的寻路，避免撤销后来接管的同目标请求。</summary>
-    public bool CancelOwned(
-        Actor actor,
-        long submissionToken,
+    public bool CancelOwned(Actor actor, long submissionToken,
         PathFailureReason reason = PathFailureReason.CancelledByNewRequest)
     {
-        if (actor?.data == null || submissionToken <= 0) return false;
-        long actorId = actor.data.id;
-        bool owned = ((ICollection<KeyValuePair<long, long>>)submissionTokens)
-            .Remove(new KeyValuePair<long, long>(actorId, submissionToken));
-        if (!owned) return false;
-        if (sessions.TryRemove(actorId, out PathSession session)) session.Cancel(reason);
-        return true;
+        PathAgentKey agentKey = ResolveMainWorldAgentKey(actor);
+        return agentKey.IsValid && Cancel(new PathHandle(agentKey, submissionToken), reason);
     }
 
     /// <summary>读取角色最近一次被接受的外部寻路提交令牌。</summary>
     public bool TryGetCurrentSubmissionToken(Actor actor, out long submissionToken)
     {
+        PathAgentKey agentKey = ResolveMainWorldAgentKey(actor);
         submissionToken = 0;
-        return actor?.data != null &&
-               submissionTokens.TryGetValue(actor.data.id, out submissionToken);
+        lock (sessionOwnershipLock)
+        {
+            return agentKey.IsValid && submissionTokens.TryGetValue(agentKey, out submissionToken) &&
+                   sessions.ContainsKey(agentKey);
+        }
     }
 
-    private bool CleanupSession(long actorId, PathSession session, PathStream stream)
+    private bool CleanupSession(PathAgentKey agentKey, PathSession session, PathStream stream)
     {
-        if (!IsCurrent(actorId, session) || !session.TryDetach(stream))
+        lock (sessionOwnershipLock)
         {
-            return false;
-        }
+            if (!IsCurrent(agentKey, session) || !session.TryDetach(stream))
+            {
+                return false;
+            }
 
-        bool removed = ((ICollection<KeyValuePair<long, PathSession>>)sessions)
-            .Remove(new KeyValuePair<long, PathSession>(actorId, session));
-        if (removed) submissionTokens.TryRemove(actorId, out _);
-        session.DisposeCompleted();
-        return removed;
+            bool removed = ((ICollection<KeyValuePair<PathAgentKey, PathSession>>)sessions)
+                .Remove(new KeyValuePair<PathAgentKey, PathSession>(agentKey, session));
+            if (removed) submissionTokens.TryRemove(agentKey, out _);
+            session.DisposeCompleted();
+            return removed;
+        }
     }
 
     public void Cleanup(long actorId)
     {
-        if (sessions.TryRemove(actorId, out PathSession session))
+        PathWorldKey world = PathNavigationGridService.Current?.WorldKey ??
+                             PathWorldKey.MainWorld(SimulationTime.Generation);
+        PathAgentKey agentKey = new(world, actorId);
+        lock (sessionOwnershipLock)
         {
-            session.Cancel(PathFailureReason.ActorDead);
-        }
+            if (sessions.TryRemove(agentKey, out PathSession session))
+            {
+                session.Cancel(PathFailureReason.ActorDead);
+            }
 
-        lastRequests.TryRemove(actorId, out _);
-        submissionTokens.TryRemove(actorId, out _);
+            lastRequests.TryRemove(agentKey, out _);
+            submissionTokens.TryRemove(agentKey, out _);
+        }
+    }
+
+    public void CancelWorld(PathWorldKey world,
+        PathFailureReason reason = PathFailureReason.ClearWorld)
+    {
+        lock (sessionOwnershipLock)
+        {
+            foreach (KeyValuePair<PathAgentKey, PathSession> pair in sessions)
+            {
+                if (pair.Key.World != world) continue;
+                if (((ICollection<KeyValuePair<PathAgentKey, PathSession>>)sessions).Remove(pair))
+                {
+                    pair.Value.Cancel(reason);
+                }
+                lastRequests.TryRemove(pair.Key, out _);
+                submissionTokens.TryRemove(pair.Key, out _);
+            }
+        }
     }
 
     public void Clear()
     {
-        foreach (KeyValuePair<long, PathSession> pair in sessions)
+        lock (sessionOwnershipLock)
         {
-            pair.Value.Cancel(PathFailureReason.ClearWorld);
-        }
+            clearing = true;
+            try
+            {
+                foreach (KeyValuePair<PathAgentKey, PathSession> pair in sessions)
+                {
+                    pair.Value.Cancel(PathFailureReason.ClearWorld);
+                }
 
-        sessions.Clear();
-        lastRequests.Clear();
-        submissionTokens.Clear();
-        while (pendingRetries.TryDequeue(out _)) { }
-        scheduledRetries.Clear();
-        Drain(starvedQueue);
-        Drain(initialQueue);
-        Drain(continuationQueue);
-        while (pendingSignal.Wait(0)) { }
-        PathNavigationGridService.Clear();
+                sessions.Clear();
+                lastRequests.Clear();
+                submissionTokens.Clear();
+                while (pendingRetries.TryDequeue(out _)) { }
+                scheduledRetries.Clear();
+                Drain(starvedQueue);
+                Drain(initialQueue);
+                Drain(continuationQueue);
+                while (pendingSignal.Wait(0)) { }
+                PathNavigationGridService.Clear();
+            }
+            finally
+            {
+                clearing = false;
+            }
+        }
     }
 
     internal bool TryGetLastRequestOptions(Actor actor, out PathRequestOptions options)
     {
+        PathAgentKey agentKey = ResolveMainWorldAgentKey(actor);
         options = default;
-        return actor?.data != null && lastRequests.TryGetValue(actor.data.id, out options);
+        return agentKey.IsValid && lastRequests.TryGetValue(agentKey, out options);
     }
 
     internal bool TryRequestRecover(Actor actor, WorldTile overrideTarget = null)
@@ -651,17 +800,28 @@ public class PathFinder
         if (actor?.data == null || !TryGetLastRequestOptions(actor, out PathRequestOptions options)) return false;
         WorldTile target = overrideTarget ?? actor.tile_target ?? options.Target;
         if (!CanAcceptRequest(actor, target, out _)) return false;
-        var request = new PathRequest(actor, target, options.PathOnWater, options.WalkOnBlocks,
-            options.WalkOnLava, options.RegionLimit);
-        return Submit(request).Accepted;
+        PathRequest request = PathRequest.CreateMainWorld(
+            actor, target, options.PathOnWater, options.WalkOnBlocks, options.WalkOnLava,
+            options.RegionLimit);
+        lock (sessionOwnershipLock)
+        {
+            return Submit(request).Accepted;
+        }
     }
 
     /// <summary>为一次外部寻路命令生成单调递增的所有权令牌。</summary>
-    private long RecordSubmission(long actorId)
+    private long RecordSubmission(PathAgentKey agentKey)
     {
         long token = Interlocked.Increment(ref nextSubmissionToken);
-        submissionTokens[actorId] = token;
+        submissionTokens[agentKey] = token;
         return token;
+    }
+
+    private static PathAgentKey ResolveMainWorldAgentKey(Actor actor)
+    {
+        PathWorldKey world = PathNavigationGridService.Current?.WorldKey ??
+                             PathWorldKey.MainWorld(SimulationTime.Generation);
+        return new PathAgentKey(world, actor?.data?.id ?? 0);
     }
 
     public string GetDiagnostics()
@@ -670,8 +830,18 @@ public class PathFinder
         double firstMilliseconds = firstCount == 0
             ? 0d
             : Interlocked.Read(ref firstStepTicks) * 1000d / Stopwatch.Frequency / firstCount;
-        var builder = new StringBuilder(256);
+        int mainSessions = 0;
+        int subWorldSessions = 0;
+        foreach (PathAgentKey key in sessions.Keys)
+        {
+            if (key.World.Kind == PathWorldKind.MainWorld) mainSessions++;
+            else subWorldSessions++;
+        }
+
+        var builder = new StringBuilder(288);
         builder.Append("sessions=").Append(sessions.Count)
+            .Append(" main=").Append(mainSessions)
+            .Append(" sub=").Append(subWorldSessions)
             .Append(" queue=").Append(Math.Max(0, Volatile.Read(ref queueDepth)))
             .Append(" high=").Append(Volatile.Read(ref queueHighWatermark))
             .Append(" active=").Append(Volatile.Read(ref activeWorkers))
@@ -686,9 +856,102 @@ public class PathFinder
         return builder.ToString();
     }
 
-    private bool IsCurrent(long actorId, PathSession session)
+    private bool IsCurrent(PathAgentKey agentKey, PathSession session)
     {
-        return sessions.TryGetValue(actorId, out PathSession current) && ReferenceEquals(current, session);
+        return sessions.TryGetValue(agentKey, out PathSession current) && ReferenceEquals(current, session);
+    }
+
+    private bool IsCursorCurrent(PathAgentKey agentKey, PathSession session, PathStream stream,
+        bool tokenBound, long submissionToken)
+    {
+        lock (sessionOwnershipLock)
+        {
+            return IsCursorCurrentLocked(agentKey, session, stream, tokenBound, submissionToken);
+        }
+    }
+
+    private bool IsCursorCurrentLocked(PathAgentKey agentKey, PathSession session, PathStream stream,
+        bool tokenBound, long submissionToken)
+    {
+        if (!IsCurrent(agentKey, session) || !session.IsCurrentStream(stream)) return false;
+        return !tokenBound || submissionToken > 0 &&
+               submissionTokens.TryGetValue(agentKey, out long current) && current == submissionToken;
+    }
+
+    private PathPollResult PollCursor(PathAgentKey agentKey, PathSession session, PathStream stream,
+        bool tokenBound, long submissionToken)
+    {
+        lock (sessionOwnershipLock)
+        {
+            return IsCursorCurrentLocked(agentKey, session, stream, tokenBound, submissionToken)
+                ? GetPollResult(agentKey, session, stream)
+                : PathPollResult.NoRequest();
+        }
+    }
+
+    private void ConsumeCursor(PathAgentKey agentKey, PathSession session, PathStream stream,
+        bool tokenBound, long submissionToken)
+    {
+        lock (sessionOwnershipLock)
+        {
+            if (IsCursorCurrentLocked(agentKey, session, stream, tokenBound, submissionToken))
+            {
+                Consume(agentKey, session, stream);
+            }
+        }
+    }
+
+    private bool TryClaimCursorStep(PathAgentKey agentKey, PathSession session, PathStream stream,
+        bool tokenBound, long submissionToken, out PathStep claimedStep)
+    {
+        lock (sessionOwnershipLock)
+        {
+            claimedStep = default;
+            if (!IsCursorCurrentLocked(agentKey, session, stream, tokenBound, submissionToken)) return false;
+            PathConsumeResult result = session.TryClaim(
+                stream, PathfindingConfig.Default.SegmentLowWatermark, out claimedStep);
+            if (!result.Consumed) return false;
+            CompleteConsume(agentKey, session, stream, result);
+            return true;
+        }
+    }
+
+    private bool AcknowledgeCursor(PathAgentKey agentKey, PathSession session, PathStream stream,
+        bool tokenBound, long submissionToken)
+    {
+        lock (sessionOwnershipLock)
+        {
+            return IsCursorCurrentLocked(agentKey, session, stream, tokenBound, submissionToken) &&
+                   CleanupSession(agentKey, session, stream);
+        }
+    }
+
+    private bool ScheduleRecoveryCursor(PathAgentKey agentKey, PathSession session, PathStream stream,
+        bool tokenBound, long submissionToken, Actor actor, PathFailureReason reason)
+    {
+        lock (sessionOwnershipLock)
+        {
+            return IsCursorCurrentLocked(agentKey, session, stream, tokenBound, submissionToken) &&
+                   ScheduleRecovery(agentKey, session, stream, actor, reason);
+        }
+    }
+
+    private bool TryExecuteCursorStep<T>(PathAgentKey agentKey, PathSession session, PathStream stream,
+        bool tokenBound, long submissionToken, Func<PathStep, T> action, out T result)
+    {
+        lock (sessionOwnershipLock)
+        {
+            if (action == null ||
+                !IsCursorCurrentLocked(agentKey, session, stream, tokenBound, submissionToken) ||
+                !stream.TryPeek(out PathStep step))
+            {
+                result = default;
+                return false;
+            }
+
+            result = action(step);
+            return true;
+        }
     }
 
     private static bool IsTerminal(PathPollKind kind)
@@ -721,14 +984,15 @@ public class PathFinder
     public readonly struct ReadyPathStep
     {
         private readonly PathFinder owner;
-        private readonly long actorId;
+        private readonly PathAgentKey agentKey;
         private readonly PathSession session;
         private readonly PathStream stream;
 
-        internal ReadyPathStep(PathFinder owner, long actorId, PathSession session, PathStream stream, PathStep step)
+        internal ReadyPathStep(PathFinder owner, PathAgentKey agentKey, PathSession session, PathStream stream,
+            PathStep step)
         {
             this.owner = owner;
-            this.actorId = actorId;
+            this.agentKey = agentKey;
             this.session = session;
             this.stream = stream;
             Step = step;
@@ -738,44 +1002,80 @@ public class PathFinder
         public bool IsValid => owner != null && session != null && stream != null;
         public void Consume()
         {
-            if (IsValid) owner.Consume(actorId, session, stream);
+            if (IsValid) owner.Consume(agentKey, session, stream);
         }
     }
 
     public readonly struct ReadyPathCursor
     {
         private readonly PathFinder owner;
-        private readonly long actorId;
+        private readonly PathAgentKey agentKey;
         private readonly PathSession session;
         private readonly PathStream stream;
+        private readonly bool tokenBound;
+        private readonly long submissionToken;
 
-        internal ReadyPathCursor(PathFinder owner, long actorId, PathSession session, PathStream stream)
+        internal ReadyPathCursor(PathFinder owner, PathAgentKey agentKey, PathSession session, PathStream stream,
+            bool tokenBound, long submissionToken)
         {
             this.owner = owner;
-            this.actorId = actorId;
+            this.agentKey = agentKey;
             this.session = session;
             this.stream = stream;
+            this.tokenBound = tokenBound;
+            this.submissionToken = submissionToken;
         }
 
-        public bool IsValid => owner != null && session != null && stream != null;
+        public bool IsValid => owner != null && session != null && stream != null &&
+                               owner.IsCursorCurrent(
+                                   agentKey, session, stream, tokenBound, submissionToken);
         public PathPollResult Poll()
         {
-            return IsValid ? owner.GetPollResult(actorId, session, stream) : PathPollResult.NoRequest();
+            return owner == null
+                ? PathPollResult.NoRequest()
+                : owner.PollCursor(agentKey, session, stream, tokenBound, submissionToken);
         }
 
         public void Consume()
         {
-            if (IsValid) owner.Consume(actorId, session, stream);
+            owner?.ConsumeCursor(agentKey, session, stream, tokenBound, submissionToken);
         }
 
         public bool Acknowledge()
         {
-            return IsValid && owner.CleanupSession(actorId, session, stream);
+            return owner != null &&
+                   owner.AcknowledgeCursor(agentKey, session, stream, tokenBound, submissionToken);
         }
 
         public bool ScheduleRecovery(Actor actor, PathFailureReason reason)
         {
-            return IsValid && owner.ScheduleRecovery(actorId, session, stream, actor, reason);
+            return owner != null && owner.ScheduleRecoveryCursor(
+                agentKey, session, stream, tokenBound, submissionToken, actor, reason);
+        }
+
+        /// <summary>原子认领并消费当前路径步；成功后该步的执行所有权移交给调用方。</summary>
+        public bool TryClaimCurrentStep(out PathStep claimedStep)
+        {
+            if (owner != null)
+            {
+                return owner.TryClaimCursorStep(
+                    agentKey, session, stream, tokenBound, submissionToken, out claimedStep);
+            }
+
+            claimedStep = default;
+            return false;
+        }
+
+        public bool TryExecuteCurrentStep<T>(Func<PathStep, T> action, out T result)
+        {
+            if (owner != null)
+            {
+                return owner.TryExecuteCursorStep(
+                    agentKey, session, stream, tokenBound, submissionToken, action, out result);
+            }
+
+            result = default;
+            return false;
         }
     }
 }
@@ -842,13 +1142,15 @@ internal readonly struct PathSessionCompletion
 
 internal readonly struct PathConsumeResult
 {
-    internal PathConsumeResult(bool scheduleContinuation, bool starved, bool finished)
+    internal PathConsumeResult(bool consumed, bool scheduleContinuation, bool starved, bool finished)
     {
+        Consumed = consumed;
         ScheduleContinuation = scheduleContinuation;
         Starved = starved;
         Finished = finished;
     }
 
+    internal bool Consumed { get; }
     internal bool ScheduleContinuation { get; }
     internal bool Starved { get; }
     internal bool Finished { get; }
@@ -911,7 +1213,7 @@ internal sealed class PathSession
     internal PathSession(PathRequest request, PathfindingProfiler.Session benchmarkSession = null)
     {
         this.request = request;
-        ActorId = request.ActorId;
+        AgentKey = request.AgentKey;
         stream = new PathStream();
         state = PathSessionState.Queued;
         continuationStartTileId = request.StartTileId;
@@ -921,7 +1223,7 @@ internal sealed class PathSession
         BenchmarkSession = benchmarkSession;
     }
 
-    internal long ActorId { get; }
+    internal PathAgentKey AgentKey { get; }
     internal PathfindingProfiler.Session BenchmarkSession { get; }
     internal PathStream CurrentStream
     {
@@ -963,12 +1265,14 @@ internal sealed class PathSession
         return session;
     }
 
-    internal bool CanReuse(WorldTile target, bool pathOnWater, bool walkOnBlocks, bool walkOnLava, int regionLimit)
+    internal bool CanReuse(int targetTileId, bool pathOnWater, bool walkOnBlocks, bool walkOnLava,
+        int regionLimit)
     {
         lock (syncRoot)
         {
             if (cancelled || state is PathSessionState.Failed or PathSessionState.Cancelled) return false;
-            return request.HasSameTargetAndOptions(target, pathOnWater, walkOnBlocks, walkOnLava, regionLimit) &&
+            return request.HasSameTargetAndOptions(targetTileId, pathOnWater, walkOnBlocks, walkOnLava,
+                       regionLimit) &&
                    (state != PathSessionState.Completed || stream.HasPendingSteps);
         }
     }
@@ -1052,8 +1356,7 @@ internal sealed class PathSession
             state = PathSessionState.Searching;
             requestCancellation ??= new CancellationTokenSource();
             activeCancellation = requestCancellation;
-            PathNavigationGrid grid = PathNavigationGridService.Current;
-            PathRequest segmentRequest = request.WithStart(continuationStartTileId, grid,
+            PathRequest segmentRequest = request.WithStart(continuationStartTileId,
                 continuationStamina, continuationHealth);
             context = new PathWorkContext(requestGeneration, segmentRequest, activeCancellation);
             return true;
@@ -1149,12 +1452,13 @@ internal sealed class PathSession
         }
     }
 
-    internal PathConsumeResult TryConsume(PathStream expectedStream, int lowWatermark)
+    internal PathConsumeResult TryClaim(PathStream expectedStream, int lowWatermark, out PathStep claimedStep)
     {
         lock (syncRoot)
         {
-            if (cancelled || !ReferenceEquals(stream, expectedStream) || !stream.TryDequeue(out _))
+            if (cancelled || !ReferenceEquals(stream, expectedStream) || !stream.TryDequeue(out claimedStep))
             {
+                claimedStep = default;
                 return default;
             }
 
@@ -1166,7 +1470,7 @@ internal sealed class PathSession
                             (!queued && pendingSteps <= Math.Max(1, lowWatermark) ||
                              queued && queuedPriority != PathWorkPriority.Starved && pendingSteps == 0);
             bool starved = schedule && pendingSteps == 0;
-            return new PathConsumeResult(schedule, starved, finished);
+            return new PathConsumeResult(true, schedule, starved, finished);
         }
     }
 
@@ -1201,16 +1505,17 @@ internal sealed class PathSession
         }
     }
 
-    internal bool TryGetRetryRequest(int expectedVersion, out Actor actor, out PathRequestOptions options)
+    internal bool TryGetRetryRequest(int expectedVersion, out PathRequest retryRequest)
     {
         lock (syncRoot)
         {
-            actor = null;
-            options = default;
-            if (cancelled || state != PathSessionState.RetryDelay || retryVersion != expectedVersion) return false;
-            actor = request.Actor;
-            options = new PathRequestOptions(request.Target, request.PathOnWater, request.WalkOnBlocks,
-                request.WalkOnLava, request.RegionLimit);
+            retryRequest = null;
+            if (cancelled || state != PathSessionState.RetryDelay || retryVersion != expectedVersion)
+            {
+                return false;
+            }
+
+            retryRequest = request;
             return true;
         }
     }
@@ -1320,7 +1625,7 @@ internal sealed class PathSession
     private bool TryPrepareRetry(PathFailureReason reason, out RetryTicket retry)
     {
         retry = default;
-        if (!CanRecover(reason)) return false;
+        if (request.SearchRules.RetryMode != PathRetryMode.TimedMainWorld || !CanRecover(reason)) return false;
         if (lastFailure != reason)
         {
             retryCount = 0;

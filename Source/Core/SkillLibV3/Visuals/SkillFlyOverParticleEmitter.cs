@@ -142,6 +142,19 @@ public static class SkillFlyOverParticleEmitter
         }
     }
 
+    public static void ClearWorldState()
+    {
+        EmissionSources.Clear();
+        ActiveKeys.Clear();
+        if (_sharedEmitter != null)
+        {
+            _sharedEmitter.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            UnityEngine.Object.Destroy(_sharedEmitter.gameObject);
+        }
+        _sharedEmitter = null;
+        _worldRoot = null;
+    }
+
     private static void EmitParticles(EmissionSource source)
     {
         EmitParticles(source, source.Style.ParticlesPerEmission, 0.35f, Vector3.zero, 0f);

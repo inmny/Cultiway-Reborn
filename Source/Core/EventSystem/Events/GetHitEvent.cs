@@ -8,7 +8,9 @@ public struct GetHitEvent
     public long TargetID;
     public float Damage;
     public ElementComposition Element;
-    public BaseSimObject Attacker;
+    public long AttackerID;
+    public bool AttackerIsActor;
+    public bool HasAttacker;
     public float? AttackerPowerLevel;
     public bool IgnoreDamageReduction;
 
@@ -20,4 +22,16 @@ public struct GetHitEvent
 
     /// <summary>伤害入队时所在的外部来源作用域；零表示没有需要跨事件保留的来源。</summary>
     public long SourceScopeId;
+
+    /// <summary>在事件边界只保存攻击源身份，不持有可能被回收的世界对象。</summary>
+    public void BindAttacker(BaseSimObject attacker, long? stableID = null)
+    {
+        if (attacker == null) return;
+        BaseObjectData data = attacker.getData();
+        long attackerID = stableID ?? data?.id ?? LongExtension.NULL;
+        if (!attackerID.hasValue()) return;
+        AttackerID = attackerID;
+        AttackerIsActor = attacker.isActor();
+        HasAttacker = true;
+    }
 }

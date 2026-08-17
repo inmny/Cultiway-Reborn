@@ -92,6 +92,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         MagicCultivator.addTask(ActorTasks.EndJob.id);
 
         KnightCultivator.addTask(ActorTasks.DailyKnightTrain.id);
+        KnightCultivator.addCondition(new CondHasKnightTrainingDummy());
         KnightCultivator.addCondition(new CondCanProgressCultivation(), false);
         KnightCultivator.addTask(ActorTasks.CultivationProgression.id);
         KnightCultivator.addCondition(new CondCanProgressCultivation());

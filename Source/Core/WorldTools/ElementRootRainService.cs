@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content;
 using Cultiway.Core.ActorFiltering;
 using Cultiway.Core.Components;
-using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api;
@@ -178,7 +178,6 @@ public static class ElementRootRainService
 
         if (_initialized) return;
         _initialized = true;
-        PatchMapBox.RegisterActionOnClearWorld(ClearWorldState);
         ModClass.I.GeneralLogicSystems.Add(new UpdateSystem());
     }
 
@@ -309,8 +308,13 @@ public static class ElementRootRainService
         Settings.Filter.ClearWorldExpression();
     }
 
-    private sealed class UpdateSystem : BaseSystem
+    private sealed class UpdateSystem : BaseSystem, IWorldStateClearable
     {
+        void IWorldStateClearable.ClearWorldState()
+        {
+            ElementRootRainService.ClearWorldState();
+        }
+
         protected override void OnUpdateGroup()
         {
             base.OnUpdateGroup();

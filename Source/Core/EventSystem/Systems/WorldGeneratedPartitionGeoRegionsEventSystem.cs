@@ -487,6 +487,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
     private static bool IsCurrentWorld(PartitionWork work)
     {
         return World.world != null &&
+               work.WorldSeedId == MapBox.current_world_seed_id &&
                ReferenceEquals(World.world.tiles_list, work.Tiles) &&
                MapBox.width == work.Width &&
                MapBox.height == work.Height;
@@ -1603,6 +1604,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
     {
         var visited = new bool[tiles.Length];
         var islandMaxTiles = Math.Max(0, geoRegionLib.Archipelago?.IslandMaxTiles ?? 0);
+        var islandMinTiles = Math.Max(1, geoRegionLib.LandmassIsland?.MinTiles ?? 21);
 
         for (var i = 0; i < tiles.Length; i++)
         {
@@ -1612,10 +1614,7 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
                 out var sumX, out var sumY, out var touchesEdge, out var minX, out var minY, out var maxX, out var maxY);
 
             if (count <= 0) continue;
-            var minTiles = touchesEdge
-                ? Math.Max(1, geoRegionLib.LandmassMainland?.MinTiles ?? 64)
-                : Math.Max(1, geoRegionLib.LandmassIsland?.MinTiles ?? 64);
-            if (count < minTiles) continue;
+            if (count < islandMinTiles) continue;
 
             var centerX = (sumX + count / 2) / count;
             var centerY = (sumY + count / 2) / count;

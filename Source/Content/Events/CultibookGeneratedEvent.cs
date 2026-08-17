@@ -5,6 +5,7 @@ namespace Cultiway.Content.Events;
 
 public struct CultibookGeneratedEvent
 {
+    public int WorldSeedId;
     public long ActorId;
     public string RequestId;
     public CultibookAsset Draft;

@@ -172,6 +172,38 @@ public class GeoRegionAsset : Asset
     }
 
     /// <summary>
+    /// 按地区坐标修正自动名称开头的方位字，避免随机方位与实际位置冲突。
+    /// </summary>
+    public string GenerateName(int centerX, int centerY, int width, int height)
+    {
+        string name = GenerateName();
+        if (string.IsNullOrEmpty(name) || width <= 0 || height <= 0)
+        {
+            return name;
+        }
+
+        return DirectionChars.IndexOf(name[0]) >= 0
+            ? DirectionFromPosition(centerX, centerY, width, height) + name.Substring(1)
+            : name;
+    }
+
+    private const string DirectionChars = "东南西北中";
+
+    public static char DirectionFromPosition(int centerX, int centerY, int width, int height)
+    {
+        int x1 = width / 3;
+        int x2 = width * 2 / 3;
+        int y1 = height / 3;
+        int y2 = height * 2 / 3;
+
+        if (centerX < x1) return '西';
+        if (centerX >= x2) return '东';
+        if (centerY < y1) return '南';
+        if (centerY >= y2) return '北';
+        return '中';
+    }
+
+    /// <summary>
     /// 允许的 biome id 列表（为空表示不限）。
     /// </summary>
     public string[] BiomeIds;

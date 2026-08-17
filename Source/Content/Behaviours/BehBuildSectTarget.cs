@@ -41,6 +41,7 @@ public class BehBuildSectTarget : BehaviourActionActor
             int contribution = SectTraitRules.GetBuildContributionReward(sect);
             sect.AddContribution(pActor, contribution);
             SectVerifyLog.Log("SectConstructionComplete", $"sect={SectVerifyLog.Sect(sect)} actor={SectVerifyLog.Actor(pActor)} building={building.asset?.id ?? "null"} contribution={contribution}");
+            CultivationAchievementService.OnSectBuildingCompleted(sect, building);
         }
 
         return BehResult.Continue;

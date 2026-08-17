@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Abstract;
 using Cultiway.Core;
 using Cultiway.Core.BuildingComponents;
 using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Coordination;
-using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -44,7 +44,6 @@ public static class ChaosWarbandService
         ActorExtend.RegisterActionOnDeath(actor => Remove(actor?.Base));
         CoordinatedActivityService.RegisterGroupProvider(new GroupProvider());
         CombatWorldService.RegisterGroupProvider(CombatProvider.Instance, 90);
-        PatchMapBox.RegisterActionOnClearWorld(ClearWorldState);
         ModClass.I.GeneralLogicSystems.Add(new UpdateSystem());
     }
 
@@ -240,7 +239,11 @@ public static class ChaosWarbandService
         Towers.Clear(); Memberships.Clear(); rebuildPending = true;
     }
 
-    private sealed class UpdateSystem : BaseSystem { protected override void OnUpdateGroup() { Update(); } }
+    private sealed class UpdateSystem : BaseSystem, IWorldStateClearable
+    {
+        void IWorldStateClearable.ClearWorldState() { ChaosWarbandService.ClearWorldState(); }
+        protected override void OnUpdateGroup() { Update(); }
+    }
     private sealed class TowerRuntime
     {
         internal TowerRuntime(long id, BuildingAsset asset) { TowerId = id; Asset = asset; Groups = [new GroupRuntime(id, 0), new GroupRuntime(id, 1), new GroupRuntime(id, 2)]; }

@@ -13,8 +13,11 @@ public abstract class BaseEventSystem : BaseSystem
     protected override void OnUpdateGroup()
     {
         base.OnUpdateGroup();
+        if (EventSystemHub.IsPaused) return;
         ProcessEvents();
     }
+
+    internal abstract void ClearPendingEvents();
 
     /// <summary>
     /// 由子类实现事件处理逻辑。

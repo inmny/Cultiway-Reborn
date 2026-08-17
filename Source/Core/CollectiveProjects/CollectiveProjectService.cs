@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core.Performance;
-using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS.Systems;
 using UnityEngine;
@@ -48,7 +48,6 @@ public static class CollectiveProjectService
     {
         if (_initialized) return;
         _initialized = true;
-        PatchMapBox.RegisterActionOnClearWorld(ClearWorldState);
         ModClass.I.GeneralLogicSystems.Add(new UpdateSystem());
     }
 
@@ -295,7 +294,7 @@ public static class CollectiveProjectService
     }
 
     /// <summary>清除当前世界项目、认领和历史，同时保留模块注册。</summary>
-    public static void ClearWorldState()
+    private static void ClearWorldState()
     {
         ICollectiveProjectExecutor[] executors;
         lock (Sync)
@@ -1080,8 +1079,13 @@ public static class CollectiveProjectService
     }
 
     /// <summary>通用逻辑系统入口。</summary>
-    private sealed class UpdateSystem : BaseSystem
+    private sealed class UpdateSystem : BaseSystem, IWorldStateClearable
     {
+        void IWorldStateClearable.ClearWorldState()
+        {
+            CollectiveProjectService.ClearWorldState();
+        }
+
         protected override void OnUpdateGroup()
         {
             base.OnUpdateGroup();

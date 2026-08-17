@@ -37,6 +37,12 @@ public class SpecialItemDisplay : APrefabPreview<SpecialItemDisplay>
         Icon.SetColor(color ?? Color.white);
     }
 
+    internal void Clear()
+    {
+        _item = default;
+        Button.onClick.RemoveAllListeners();
+    }
+
     private static void _init()
     {
         GameObject obj = MultiLayerIcon.Instantiate(ModClass.I.PrefabLibrary, pName: nameof(SpecialItemDisplay))

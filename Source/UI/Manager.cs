@@ -35,17 +35,29 @@ public class Manager
 {
     private const string DebugIconRoot       = "cultiway/icons/cultilog/";
 
-    public static           PowersTab                            powers_tab;
-    private static readonly Dictionary<TabButtonType, Transform> button_groups = new();
-    private static          RectTransform                        top_container;
+    public static           PowersTab                                      powers_tab;
+    private static readonly Dictionary<TabButtonType, PowerTabGroupLayout> button_groups = new();
+    private static readonly Dictionary<TabButtonType, PowerButton> category_buttons = new();
+    private static          RectTransform                                  tab_layout_root;
+    private static          RectTransform                                  category_separator;
+    private static          RectTransform                                  top_container;
 
     public void Init()
     {
+        tab_layout_root = new GameObject("TabLayout", typeof(RectTransform)).GetComponent<RectTransform>();
+        tab_layout_root.pivot = new Vector2(0f, 0.5f);
+        tab_layout_root.sizeDelta = new Vector2(0f, PowerTabGroupLayout.GroupHeight);
+
         top_container = new GameObject("TopContainer", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter)).GetComponent<RectTransform>();
+        top_container.SetParent(tab_layout_root, false);
+        top_container.anchorMin = new Vector2(0f, 0.5f);
+        top_container.anchorMax = new Vector2(0f, 0.5f);
         top_container.pivot = new Vector2(0, 0.5f);
+        top_container.sizeDelta = new Vector2(0f, PowerTabGroupLayout.GroupHeight);
         var fitter = top_container.GetComponent<ContentSizeFitter>();
         fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
         var layout_group = top_container.GetComponent<HorizontalLayoutGroup>();
+        layout_group.childAlignment = TextAnchor.MiddleLeft;
         layout_group.childControlHeight = false;
         layout_group.childControlWidth = false;
         layout_group.childForceExpandWidth = false;
@@ -55,9 +67,21 @@ public class Manager
             SpriteTextureLoader.getSprite("cultiway/icons/iconTab"));
         powers_tab.SetLayout(new List<string>
         {
-            "Controller", "Container"
+            "Layout"
         });
-        powers_tab.PutElement("Container", top_container, new Vector2(-4, -19));
+        powers_tab.PutElement("Layout", tab_layout_root, Vector2.zero, true);
+
+        category_separator = Object.Instantiate(ResourcesFinder.FindResource<GameObject>("_line"), tab_layout_root)
+            .GetComponent<RectTransform>();
+        category_separator.name = "CategorySeparator";
+        category_separator.GetComponent<Image>().enabled = true;
+        category_separator.anchorMin = new Vector2(0f, 0.5f);
+        category_separator.anchorMax = new Vector2(0f, 0.5f);
+        category_separator.pivot = new Vector2(0f, 0.5f);
+        category_separator.sizeDelta = new Vector2(category_separator.sizeDelta.x,
+            PowerTabGroupLayout.SeparatorHeight);
+        category_separator.localScale = Vector3.one;
+        category_separator.gameObject.SetActive(true);
 
         ConstructTabContainer(TabButtonType.INFO,     SpriteTextureLoader.getSprite("ui/icons/iconAbout"));
         ConstructTabContainer(TabButtonType.WORLD,    SpriteTextureLoader.getSprite("ui/icons/iconWorldInfo"));
@@ -68,12 +92,34 @@ public class Manager
         ConstructTabContainer(TabButtonType.DROP,     SpriteTextureLoader.getSprite("ui/icons/iconRain"));
         ConstructTabContainer(TabButtonType.DEBUG,    SpriteTextureLoader.getSprite("ui/icons/iconDebug"));
 
-
+        RegisterTabSections();
         AddButtonsForDebug();
 
         powers_tab.UpdateLayout();
 
         SwitchTab(TabButtonType.INFO);
+    }
+
+    private static void RegisterTabSections()
+    {
+        AddSection(TabButtonType.INFO, PowerTabSections.InfoMain, 100);
+
+        AddSection(TabButtonType.WORLD, PowerTabSections.WorldWakan, 100);
+        AddSection(TabButtonType.WORLD, PowerTabSections.WorldMapModes, 200);
+        AddSection(TabButtonType.WORLD, PowerTabSections.WorldTools, 300);
+        AddSection(TabButtonType.WORLD, PowerTabSections.WorldPavilionsAndRains, 400);
+        AddSection(TabButtonType.WORLD, PowerTabSections.WorldSubWorlds, 500);
+        AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldMapModes, 0, "world.map_modes.separator");
+        AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldTools, 0, "world.tools.separator");
+        AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldPavilionsAndRains, 0,
+            "world.pavilions_and_rains.separator");
+
+        AddSection(TabButtonType.BIOME, PowerTabSections.BiomeMain, 100);
+        AddSection(TabButtonType.RACE, PowerTabSections.RaceMain, 100);
+        AddSection(TabButtonType.CREATURE, PowerTabSections.CreatureMain, 100);
+        AddSection(TabButtonType.BUILDING, PowerTabSections.BuildingMain, 100);
+        AddSection(TabButtonType.DROP, PowerTabSections.DropMain, 100);
+        AddSection(TabButtonType.DEBUG, PowerTabSections.DebugMain, 100);
     }
 
     private static string[] kingdom_window_content_to_remove = [
@@ -429,44 +475,45 @@ public class Manager
 
     private void AddButtonsForDebug()
     {
-        AddDebugButton("Cultiway.UI.Buttons.LogPerf", () => { ModClass.I.LogPerf(true); }, "log_action_perf");
-        AddDebugToggleButton("Cultiway.UI.Buttons.ToggleCultiLog", CultiLogPlayerOptions.Enabled, () => { ModClass.I.OnCultiLogEnabledToggled(); }, "log_toggle");
-        AddDebugToggleButton("Cultiway.UI.Buttons.ToggleCultiLogDisk", CultiLogPlayerOptions.DiskEnabled, () => { ModClass.I.OnCultiLogDiskToggled(); }, "log_disk");
-        AddDebugButton("Cultiway.UI.Buttons.CycleCultiLogLevel", () => { ModClass.I.CycleCultiLogMinLevel(); }, "log_level");
+        AddDebugButton(100, "Cultiway.UI.Buttons.LogPerf", () => { ModClass.I.LogPerf(true); }, "log_action_perf");
+        AddDebugToggleButton(200, "Cultiway.UI.Buttons.ToggleCultiLog", CultiLogPlayerOptions.Enabled, () => { ModClass.I.OnCultiLogEnabledToggled(); }, "log_toggle");
+        AddDebugToggleButton(300, "Cultiway.UI.Buttons.ToggleCultiLogDisk", CultiLogPlayerOptions.DiskEnabled, () => { ModClass.I.OnCultiLogDiskToggled(); }, "log_disk");
+        AddDebugButton(400, "Cultiway.UI.Buttons.CycleCultiLogLevel", () => { ModClass.I.CycleCultiLogMinLevel(); }, "log_level");
 
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogGeneral", CultiLogCategory.General, "log_cat_general");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogCombat", CultiLogCategory.Combat, "log_cat_combat");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogSect", CultiLogCategory.Sect, "log_cat_sect");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogCultivation", CultiLogCategory.Cultivation, "log_cat_cultivation");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogBook", CultiLogCategory.Book, "log_cat_book");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogSkill", CultiLogCategory.Skill, "log_cat_skill");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogPathfinding", CultiLogCategory.Pathfinding, "log_cat_pathfinding");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogItem", CultiLogCategory.Item, "log_cat_item");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogTrain", CultiLogCategory.Train, "log_cat_train");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogGeo", CultiLogCategory.Geo, "log_cat_geo");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogAI", CultiLogCategory.AI, "log_cat_ai");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogUI", CultiLogCategory.UI, "log_cat_ui");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogPerf", CultiLogCategory.Perf, "log_cat_perf");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogAIGC", CultiLogCategory.AIGC, "log_cat_aigc");
-        AddDebugLogCategoryButton("Cultiway.UI.Buttons.ToggleCultiLogError", CultiLogCategory.Error, "log_cat_error");
+        AddDebugLogCategoryButton(500, "Cultiway.UI.Buttons.ToggleCultiLogGeneral", CultiLogCategory.General, "log_cat_general");
+        AddDebugLogCategoryButton(600, "Cultiway.UI.Buttons.ToggleCultiLogCombat", CultiLogCategory.Combat, "log_cat_combat");
+        AddDebugLogCategoryButton(700, "Cultiway.UI.Buttons.ToggleCultiLogSect", CultiLogCategory.Sect, "log_cat_sect");
+        AddDebugLogCategoryButton(800, "Cultiway.UI.Buttons.ToggleCultiLogCultivation", CultiLogCategory.Cultivation, "log_cat_cultivation");
+        AddDebugLogCategoryButton(900, "Cultiway.UI.Buttons.ToggleCultiLogBook", CultiLogCategory.Book, "log_cat_book");
+        AddDebugLogCategoryButton(1000, "Cultiway.UI.Buttons.ToggleCultiLogSkill", CultiLogCategory.Skill, "log_cat_skill");
+        AddDebugLogCategoryButton(1100, "Cultiway.UI.Buttons.ToggleCultiLogPathfinding", CultiLogCategory.Pathfinding, "log_cat_pathfinding");
+        AddDebugLogCategoryButton(1200, "Cultiway.UI.Buttons.ToggleCultiLogItem", CultiLogCategory.Item, "log_cat_item");
+        AddDebugLogCategoryButton(1300, "Cultiway.UI.Buttons.ToggleCultiLogTrain", CultiLogCategory.Train, "log_cat_train");
+        AddDebugLogCategoryButton(1400, "Cultiway.UI.Buttons.ToggleCultiLogGeo", CultiLogCategory.Geo, "log_cat_geo");
+        AddDebugLogCategoryButton(1500, "Cultiway.UI.Buttons.ToggleCultiLogAI", CultiLogCategory.AI, "log_cat_ai");
+        AddDebugLogCategoryButton(1600, "Cultiway.UI.Buttons.ToggleCultiLogUI", CultiLogCategory.UI, "log_cat_ui");
+        AddDebugLogCategoryButton(1700, "Cultiway.UI.Buttons.ToggleCultiLogPerf", CultiLogCategory.Perf, "log_cat_perf");
+        AddDebugLogCategoryButton(1800, "Cultiway.UI.Buttons.ToggleCultiLogAIGC", CultiLogCategory.AIGC, "log_cat_aigc");
+        AddDebugLogCategoryButton(1900, "Cultiway.UI.Buttons.ToggleCultiLogError", CultiLogCategory.Error, "log_cat_error");
 
-        AddDebugButton("Cultiway.UI.Buttons.ExportCultiLog", () => { ModClass.I.ExportCultiLog(); }, "log_export");
-        AddDebugButton("Cultiway.UI.Buttons.ClearCultiLog", () => { ModClass.I.ClearCultiLog(); }, "log_clear");
-        AddDebugButton("Cultiway.UI.Buttons.CultiLogStats", () => { ModClass.I.LogCultiLogStats(); }, "log_stats");
+        AddDebugButton(2000, "Cultiway.UI.Buttons.ExportCultiLog", () => { ModClass.I.ExportCultiLog(); }, "log_export");
+        AddDebugButton(2100, "Cultiway.UI.Buttons.ClearCultiLog", () => { ModClass.I.ClearCultiLog(); }, "log_clear");
+        AddDebugButton(2200, "Cultiway.UI.Buttons.CultiLogStats", () => { ModClass.I.LogCultiLogStats(); }, "log_stats");
     }
 
-    private static void AddDebugLogCategoryButton(string key, CultiLogCategory category, string iconName)
+    private static void AddDebugLogCategoryButton(int order, string key, CultiLogCategory category, string iconName)
     {
-        AddDebugToggleButton(key, CultiLogPlayerOptions.GetCategoryOptionId(category), () => { ModClass.I.OnCultiLogCategoryToggled(category); }, iconName);
+        AddDebugToggleButton(order, key, CultiLogPlayerOptions.GetCategoryOptionId(category), () => { ModClass.I.OnCultiLogCategoryToggled(category); }, iconName);
     }
 
-    private static void AddDebugButton(string key, UnityAction action, string iconName)
+    private static void AddDebugButton(int order, string key, UnityAction action, string iconName)
     {
         Sprite icon = SpriteTextureLoader.getSprite(DebugIconRoot + iconName);
-        AddButton(TabButtonType.DEBUG, PowerButtonCreator.CreateSimpleButton(key, action, icon));
+        AddButton(TabButtonType.DEBUG, PowerTabSections.DebugMain, order, key,
+            PowerButtonCreator.CreateSimpleButton(key, action, icon));
     }
 
-    private static void AddDebugToggleButton(string key, string optionId, UnityAction action, string iconName)
+    private static void AddDebugToggleButton(int order, string key, string optionId, UnityAction action, string iconName)
     {
         Sprite icon = SpriteTextureLoader.getSprite(DebugIconRoot + iconName);
         RegisterDebugTogglePower(key, optionId);
@@ -488,7 +535,7 @@ public class Manager
                 : "Cultiway.UI.Buttons.ToggleStatus.Disabled";
             tip.showTooltipDefault();
         });
-        AddButton(TabButtonType.DEBUG, button);
+        AddButton(TabButtonType.DEBUG, PowerTabSections.DebugMain, order, key, button);
     }
 
     private static void RegisterDebugTogglePower(string key, string optionId)
@@ -511,86 +558,241 @@ public class Manager
                data.boolVal;
     }
 
-    public static void AddButton(TabButtonType type, PowerButton button)
+    public static void AddSection(TabButtonType type, string sectionId, int order)
     {
-        if (!button_groups.TryGetValue(type, out Transform group))
-        {
-            ConstructTabContainer(type, null);
-            group = button_groups[type];
-        }
-
-        button.transform.SetParent(group);
-        button.transform.localScale = Vector3.one;
+        PowerTabGroupLayout group = GetButtonGroup(type);
+        group.AddSection(sectionId, order);
+        RefreshTabLayout();
     }
 
-    public static void AddButtonPair(TabButtonType type, PowerButton topButton, PowerButton bottomButton)
+    public static void AddButton(TabButtonType type, string sectionId, int order, string stableId,
+        PowerButton button)
     {
-        if (!button_groups.TryGetValue(type, out Transform group))
+        PowerTabGroupLayout group = GetButtonGroup(type);
+        group.AddButton(sectionId, order, stableId, button);
+        RefreshTabLayout();
+    }
+
+    public static void AddButtonPair(TabButtonType type, string sectionId, int order, string stableId,
+        PowerButton topButton, PowerButton bottomButton)
+    {
+        PowerTabGroupLayout group = GetButtonGroup(type);
+        group.AddButtonPair(sectionId, order, stableId, topButton, bottomButton);
+        RefreshTabLayout();
+    }
+
+    public static void AddSeparator(TabButtonType type, string sectionId, int order, string stableId)
+    {
+        PowerTabGroupLayout group = GetButtonGroup(type);
+        group.AddSeparator(sectionId, order, stableId);
+        RefreshTabLayout();
+    }
+
+    public static void SetEntryActive(TabButtonType type, string stableId, bool active)
+    {
+        PowerTabGroupLayout group = GetButtonGroup(type);
+        if (group.SetEntryActive(stableId, active)) RefreshTabLayout();
+    }
+
+    public static void RemoveEntry(TabButtonType type, string stableId)
+    {
+        PowerTabGroupLayout group = GetButtonGroup(type);
+        group.RemoveEntry(stableId);
+        RefreshTabLayout();
+    }
+
+    private static PowerTabGroupLayout GetButtonGroup(TabButtonType type)
+    {
+        if (!button_groups.TryGetValue(type, out PowerTabGroupLayout group))
         {
-            ConstructTabContainer(type, null);
-            group = button_groups[type];
+            throw new InvalidOperationException($"神力 Tab 分类未注册: {type}");
         }
 
-        if ((group.childCount & 1) != 0)
-        {
-            var space = new GameObject("_space", typeof(RectTransform));
-            space.transform.SetParent(group, false);
-        }
-
-        topButton.transform.SetParent(group, false);
-        topButton.transform.localScale = Vector3.one;
-
-        bottomButton.transform.SetParent(group, false);
-        bottomButton.transform.localScale = Vector3.one;
+        return group;
     }
 
     private static void ConstructTabContainer(TabButtonType type, Sprite icon)
     {
-        powers_tab.AddPowerButton("Controller",
-            PowerButtonCreator.CreateSimpleButton(type.ToString(), () => { SwitchTab(type); },
-                icon));
-        Transform transform = new GameObject(type.ToString(), typeof(GridLayoutGroup), typeof(ContentSizeFitter))
-            .transform;
-        transform.SetParent(top_container);
-        transform.localPosition = Vector3.zero;
-        transform.localScale = Vector3.one;
-        ((RectTransform)transform).pivot = new Vector2(0, 0.5f);
+        PowerButton categoryButton = PowerButtonCreator.CreateSimpleButton(type.ToString(),
+            () => { SwitchTab(type); }, icon);
+        RectTransform rect = categoryButton.GetComponent<RectTransform>();
+        categoryButton.rect_transform = rect;
+        rect.SetParent(tab_layout_root, false);
+        rect.anchorMin = new Vector2(0f, 0.5f);
+        rect.anchorMax = new Vector2(0f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(PowerTabGroupLayout.ButtonSize, PowerTabGroupLayout.ButtonSize);
+        rect.localScale = Vector3.one;
 
-        var layout = transform.GetComponent<GridLayoutGroup>();
-        layout.spacing = new Vector2(4, 4);
-        layout.startAxis = GridLayoutGroup.Axis.Vertical;
-        layout.constraint = GridLayoutGroup.Constraint.FixedRowCount;
-        layout.constraintCount = 2;
-        layout.cellSize = new Vector2(32, 32);
-
-        var fitter = transform.GetComponent<ContentSizeFitter>();
-        fitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
-        fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-        button_groups[type] = transform;
+        int index = category_buttons.Count;
+        int column = index / 2;
+        rect.anchoredPosition = new Vector2(
+            column * (PowerTabGroupLayout.ButtonSize + PowerTabGroupLayout.ColumnSpacing) +
+            PowerTabGroupLayout.ButtonSize * 0.5f,
+            index % 2 == 0 ? PowerTabGroupLayout.TopRowY : PowerTabGroupLayout.BottomRowY);
+        category_buttons[type] = categoryButton;
+        button_groups[type] = new PowerTabGroupLayout(type.ToString(), top_container);
     }
 
     private static void SwitchTab(TabButtonType type)
     {
         foreach (var pair in button_groups)
         {
-            pair.Value.gameObject.SetActive(pair.Key == type);
-            if (pair.Key == type)
+            bool selected = pair.Key == type;
+            pair.Value.SetActive(selected);
+            UiStateStyle.SetSelected(category_buttons[pair.Key].GetComponent<Button>(), selected);
+        }
+
+        RefreshTabLayout();
+    }
+
+    private static void RefreshTabLayout()
+    {
+        LayoutRebuilder.ForceRebuildLayoutImmediate(top_container);
+        LayoutTabRoot();
+        powers_tab.UpdateLayout();
+        RefreshTabNavigation();
+        if (powers_tab.parentObj != null)
+        {
+            powers_tab.setNewWidth();
+        }
+    }
+
+    private static void LayoutTabRoot()
+    {
+        float categoryRightEdge = float.MinValue;
+        foreach (PowerButton button in category_buttons.Values)
+        {
+            RectTransform rect = button.GetComponent<RectTransform>();
+            categoryRightEdge = Mathf.Max(categoryRightEdge, rect.anchoredPosition.x + rect.rect.xMax);
+        }
+
+        category_separator.anchoredPosition = new Vector2(
+            categoryRightEdge + PowerTabGroupLayout.ColumnSpacing, 0f);
+
+        float contentStartX = category_separator.anchoredPosition.x + category_separator.rect.width +
+                              PowerTabGroupLayout.ColumnSpacing;
+        top_container.anchoredPosition = new Vector2(contentStartX, 0f);
+        tab_layout_root.sizeDelta = new Vector2(contentStartX + top_container.rect.width,
+            PowerTabGroupLayout.GroupHeight);
+    }
+
+    private static void RefreshTabNavigation()
+    {
+        if (powers_tab._asset == null) return;
+
+        List<PowerButton> buttons = powers_tab._power_buttons;
+        buttons.Clear();
+        PowerButton[] tabButtons = powers_tab.GetComponentsInChildren<PowerButton>(true);
+        for (int i = 0; i < tabButtons.Length; i++)
+        {
+            if (IsActiveTabElement(tabButtons[i].transform)) buttons.Add(tabButtons[i]);
+        }
+
+        var positions = new Dictionary<PowerButton, Vector2>(buttons.Count);
+        for (int i = 0; i < buttons.Count; i++)
+        {
+            PowerButton button = buttons[i];
+            button.rect_transform = button.GetComponent<RectTransform>();
+            button.left = null;
+            button.right = null;
+            button.up = null;
+            button.down = null;
+            Vector3 worldCenter = button.rect_transform.TransformPoint(button.rect_transform.rect.center);
+            positions[button] = powers_tab.transform.InverseTransformPoint(worldCenter);
+        }
+
+        for (int i = 0; i < buttons.Count; i++)
+        {
+            PowerButton button = buttons[i];
+            Vector2 position = positions[button];
+            float leftDistance = float.MaxValue;
+            float rightDistance = float.MaxValue;
+            float upDistance = float.MaxValue;
+            float downDistance = float.MaxValue;
+
+            for (int j = 0; j < buttons.Count; j++)
             {
-                LayoutRebuilder.ForceRebuildLayoutImmediate(pair.Value.GetComponent<RectTransform>());
+                if (i == j) continue;
+
+                PowerButton candidate = buttons[j];
+                Vector2 candidatePosition = positions[candidate];
+                float deltaX = candidatePosition.x - position.x;
+                float deltaY = candidatePosition.y - position.y;
+                if (Mathf.Abs(deltaY) < 0.1f)
+                {
+                    if (deltaX < 0f && -deltaX < leftDistance)
+                    {
+                        button.left = candidate;
+                        leftDistance = -deltaX;
+                    }
+                    else if (deltaX > 0f && deltaX < rightDistance)
+                    {
+                        button.right = candidate;
+                        rightDistance = deltaX;
+                    }
+                }
+
+                if (Mathf.Abs(deltaX) < 0.1f)
+                {
+                    if (deltaY > 0f && deltaY < upDistance)
+                    {
+                        button.up = candidate;
+                        upDistance = deltaY;
+                    }
+                    else if (deltaY < 0f && -deltaY < downDistance)
+                    {
+                        button.down = candidate;
+                        downDistance = -deltaY;
+                    }
+                }
+            }
+
+            if (button.left == null)
+            {
+                button.left = FindHorizontalWrap(button, positions, findRightmost: true);
+            }
+
+            if (button.right == null)
+            {
+                button.right = FindHorizontalWrap(button, positions, findRightmost: false);
             }
         }
-        
-        if (powers_tab.parentObj == null) return;
-        
-        LayoutRebuilder.ForceRebuildLayoutImmediate(top_container);
-        powers_tab.setNewWidth();
+    }
+
+    private static bool IsActiveTabElement(Transform element)
+    {
+        while (element != powers_tab.transform)
+        {
+            if (!element.gameObject.activeSelf) return false;
+            element = element.parent;
+        }
+
+        return true;
+    }
+
+    private static PowerButton FindHorizontalWrap(PowerButton source,
+        IReadOnlyDictionary<PowerButton, Vector2> positions, bool findRightmost)
+    {
+        Vector2 sourcePosition = positions[source];
+        PowerButton result = null;
+        float selectedX = findRightmost ? float.MinValue : float.MaxValue;
+        foreach (var pair in positions)
+        {
+            if (pair.Key == source || Mathf.Abs(pair.Value.y - sourcePosition.y) >= 0.1f) continue;
+            if (findRightmost ? pair.Value.x <= selectedX : pair.Value.x >= selectedX) continue;
+
+            result = pair.Key;
+            selectedX = pair.Value.x;
+        }
+
+        return result;
     }
 
     public void PostInit()
     {
         WindowModInfo.Init();
-        AddButton(TabButtonType.INFO,
+        AddButton(TabButtonType.INFO, PowerTabSections.InfoMain, 100, WindowModInfo.WindowId,
             PowerButtonCreator.CreateWindowButton(
                 "Cultiway.UI.WindowModInfo Title",
                 WindowModInfo.WindowId,
@@ -598,7 +800,7 @@ public class Manager
             )
         );
         WindowRealmNames.Init();
-        AddButton(TabButtonType.INFO,
+        AddButton(TabButtonType.INFO, PowerTabSections.InfoMain, 200, WindowRealmNames.WindowId,
             PowerButtonCreator.CreateWindowButton(
                 "Cultiway.UI.WindowRealmNames Title",
                 WindowRealmNames.WindowId,
@@ -606,7 +808,7 @@ public class Manager
             )
         );
         WindowSourcelessDamageLevelConfig.CreateAndInit(WindowSourcelessDamageLevelConfig.Id);
-        AddButton(TabButtonType.INFO,
+        AddButton(TabButtonType.INFO, PowerTabSections.InfoMain, 300, WindowSourcelessDamageLevelConfig.Id,
             PowerButtonCreator.CreateWindowButton(
                 $"{WindowSourcelessDamageLevelConfig.Id} Title",
                 WindowSourcelessDamageLevelConfig.Id,

@@ -88,6 +88,13 @@ public sealed class SkillImportRow : APrefabPreview<SkillImportRow>
         _chrome.SetState(UiControlState.Normal);
     }
 
+    internal void ClearWorldBinding()
+    {
+        _import.onClick.RemoveAllListeners();
+        _edit.onClick.RemoveAllListeners();
+        UiTooltip.Clear(_icon.gameObject);
+    }
+
     private static void _init()
     {
         var obj = UiLayout.Create(ModClass.I.PrefabLibrary, nameof(SkillImportRow), true, 238f, 38f, 3f);

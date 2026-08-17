@@ -8,13 +8,22 @@ namespace Cultiway.Core;
 public class WorldRecord
 {
     private readonly HashSet<string> recordKeys = new();
+    private readonly EntityStore world;
+    private Entity e;
 
     public WorldRecord(EntityStore world)
     {
-        E = world.CreateEntity();
+        this.world = world;
     }
 
-    public Entity E { get; private set; }
+    public Entity E => e.IsNull ? e = world.CreateEntity() : e;
+
+    public void ClearWorldState()
+    {
+        recordKeys.Clear();
+        if (!e.IsNull) e.DeleteEntity();
+        e = default;
+    }
 
     public void CheckAndLogFirstLevelup<T>(string cultisys, ActorExtend ae, ref T component)
         where T : ICultisysComponent

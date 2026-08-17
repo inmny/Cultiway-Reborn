@@ -45,6 +45,14 @@ internal static class UiTooltip
         tipButton.setHoverAction(action);
     }
 
+    public static void Clear(GameObject target)
+    {
+        TipButton tipButton = target.GetComponent<TipButton>();
+        if (tipButton == null) return;
+        tipButton.clickAction = null;
+        tipButton.setHoverAction(null);
+    }
+
     private static TipButton Prepare(GameObject target)
     {
         if (target.GetComponent<UiListRowRootMarker>() != null)

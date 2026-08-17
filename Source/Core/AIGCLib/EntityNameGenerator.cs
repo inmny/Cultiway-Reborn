@@ -15,11 +15,11 @@ public abstract class EntityNameGenerator<T> : BaseNameGenerator<T> where T : En
 {
     public void NewNameGenerateRequest(string[] param_list, Entity target)
     {
-        _ = GenerateAsync(param_list, target);
+        _ = GenerateAsync(param_list, target, MapBox.current_world_seed_id);
     }
 
     private async Task
-        GenerateAsync(string[] param_list, Entity target)
+        GenerateAsync(string[] param_list, Entity target, int worldSeedId)
     {
         if (target.IsNull)
         {
@@ -67,8 +67,10 @@ public abstract class EntityNameGenerator<T> : BaseNameGenerator<T> where T : En
                 }
             }
         }
+        if (worldSeedId != MapBox.current_world_seed_id) return;
         EventSystemHub.Publish(new EntityNameGeneratedEvent()
         {
+            WorldSeedId = worldSeedId,
             Target = target,
             Name = name
         });

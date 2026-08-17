@@ -16,7 +16,6 @@ using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Systems.Logic;
 using Cultiway.Core.Systems.Render;
-using Cultiway.Patch;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using Friflo.Engine.ECS.Systems;
@@ -81,8 +80,6 @@ public class Manager
         AssetManager._instance.add(WanfaPolicyLib, "cultiway.wanfa_pavilion_policy");
         AssetManager._instance.add(CastResourceLib, "cultiway.skill_cast_resources");
         AssetManager._instance.add(CastBudgetRuleLib, "cultiway.skill_cast_budget_rules");
-        PatchMapBox.RegisterActionOnClearWorld(ClearQueuedSkillSequences);
-        PatchMapBox.RegisterActionOnClearWorld(SkillWorldVisualService.ClearWorldState);
     }
 
     /// <summary>
@@ -135,7 +132,7 @@ public class Manager
     }
 
     /// <summary>切换世界时丢弃尚未进入施法序列的旧世界请求。</summary>
-    private void ClearQueuedSkillSequences()
+    internal void ClearQueuedSkillSequences()
     {
         while (queuedSkillCasts.TryDequeue(out _))
         {

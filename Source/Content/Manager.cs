@@ -6,6 +6,7 @@ using Cultiway.Content.ActorComponents;
 using Cultiway.Content.ActiveAbilities;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Extensions;
+using Cultiway.Content.KnightCombat;
 using Cultiway.Content.Sects;
 using Cultiway.Content.Systems.Logic;
 using Cultiway.Content.Systems.Render;
@@ -88,6 +89,8 @@ internal class Manager
         CoreFormationSkillBridge.Init();
         ActiveAbilityService.Register(new CoreFormationActiveAbilityProvider());
         ModClass.I.GeneralLogicSystems.Add(new CoreFormationEffectSystem());
+        ModClass.I.GeneralLogicSystems.Add(new KnightTechniqueMovementSystem());
+        ModClass.I.GeneralLogicSystems.Add(new KnightTechniqueStatusSystem());
         ModClass.I.GeneralRenderSystems.Add(new BreakthroughVisualSystem());
         ModClass.I.GeneralRenderSystems.Add(new CloudRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmAuraRenderSystem());

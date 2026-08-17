@@ -60,7 +60,7 @@ public static class ElixirEffectGenerator
             .SetStats(bonusStats)
             .SetName(elixir.name_key + "药效")
             .SetDescription(elixir.description_key)
-            .Build();
+            .BuildDynamic();
         elixir.craft_action += (_, elixirEntity, _) =>
             elixirEntity.AddComponent(new StatusOverwriteStats { stats = bonusStats });
         elixir.SetupStatusGain((ActorExtend actor, Entity _, ref Elixir component) =>

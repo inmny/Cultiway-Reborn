@@ -7,15 +7,17 @@ using ai;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content;
+using Cultiway.Content.WeaponControl;
+using Cultiway.Content.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
+using Cultiway.Core.EventSystem;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
 using UnityEngine;
 using Cultiway.Core.Pathfinding;
 using Cultiway.Core.Performance;
-using Cultiway.Core.SkillLibV3.Wanfa;
 
 namespace Cultiway.Patch;
 
@@ -25,17 +27,43 @@ internal static class PatchMapBox
 
     /// <summary>在原版攻击结算期间进入由投射物资产声明的伤害倍率作用域。</summary>
     [HarmonyPrefix, HarmonyPatch(typeof(MapBox), nameof(MapBox.applyAttack))]
-    private static void applyAttack_damage_scale_prefix(AttackData pData, out float __state)
+    private static void applyAttack_damage_scale_prefix(AttackData pData, out AttackScopeState __state)
     {
-        __state = AttackDamageScaleContext.Enter(pData);
+        float previousMultiplier = AttackDamageScaleContext.Enter(pData);
+        bool weaponControlProjectile = pData.is_projectile &&
+                                       pData.projectile_id.StartsWith(
+                                           WeaponControlProjectileProxyLibrary.ProxyIdPrefix,
+                                           StringComparison.Ordinal);
+        DamageResolutionContext.Scope damageScope = weaponControlProjectile
+            ? DamageResolutionContext.Enter(DamageOrigin.Primary, long.MinValue)
+            : default;
+        __state = new AttackScopeState(previousMultiplier, weaponControlProjectile, damageScope);
     }
 
     /// <summary>无论原版攻击是否抛出异常，都恢复调用线程进入前的伤害倍率。</summary>
     [HarmonyFinalizer, HarmonyPatch(typeof(MapBox), nameof(MapBox.applyAttack))]
-    private static Exception applyAttack_damage_scale_finalizer(Exception __exception, float __state)
+    private static Exception applyAttack_damage_scale_finalizer(Exception __exception, AttackScopeState __state)
     {
-        AttackDamageScaleContext.Restore(__state);
+        if (__state.HasDamageScope) __state.DamageScope.Dispose();
+        AttackDamageScaleContext.Restore(__state.PreviousMultiplier);
         return __exception;
+    }
+
+    private readonly struct AttackScopeState
+    {
+        public readonly float PreviousMultiplier;
+        public readonly bool HasDamageScope;
+        public readonly DamageResolutionContext.Scope DamageScope;
+
+        public AttackScopeState(
+            float previousMultiplier,
+            bool hasDamageScope,
+            DamageResolutionContext.Scope damageScope)
+        {
+            PreviousMultiplier = previousMultiplier;
+            HasDamageScope = hasDamageScope;
+            DamageScope = damageScope;
+        }
     }
 
     /// <summary>
@@ -94,11 +122,27 @@ internal static class PatchMapBox
         PerformanceSettings.ApplyParallelBudget(__instance);
         SimulationTime.BindWorld(__instance);
         PathNavigationGridService.BuildForCurrentWorld();
+        EventSystemHub.Resume();
         ModClass.I.TileExtendManager.BeginFitNewWorld(
             MapBox.current_world_seed_id,
             MapBox.width,
             MapBox.height);
+        ModClass.I.CustomMapModeManager.FinishWorldCreation();
     }
+
+    [HarmonyPrefix, HarmonyPatch(typeof(MapBox), nameof(MapBox.clearWorld))]
+    private static void clearWorld_prefix()
+    {
+        ModClass.I?.SubWorldManager?.Clear();
+        EventSystemHub.PauseAndClear();
+        ModClass.I.CommandBuffer.Clear();
+        ScrollWindow.hideAllEvent(false);
+        WindowHistory.clear();
+        WorldboxGame.I.ClearWorldReferences();
+        ControlledSkillTargetSelection.ClearWorldState();
+        ModClass.I.CustomMapModeManager.BeginWorldClear();
+    }
+
     [HarmonyPostfix, HarmonyPatch(typeof(MapBox), nameof(MapBox.clearWorld))]
     private static void clearWorld_postfix()
     {
@@ -110,13 +154,37 @@ internal static class PatchMapBox
             }
         }
         PathFinder.Instance.Clear();
-        PortalManager.ClearWorldState();
         PortalRegistry.Instance.Clear();
-        TrainTrackRepairSystem.ClearWorldState();
-        _actionOnClearWorld?.Invoke();
+        KnightBloodline.ClearWorldState();
+        SpecialItemIconVfx.ClearWorldState();
+        WorldSystemLifecycle.ClearWorldState();
+        InvokeClearWorldActions();
         ModClass.I.ActorExtendManager.Clear();
         ModClass.I.BookExtendManager.Clear();
-        WanfaPavilionService.ClearWorldState();
+        ModClass.I.CityExtendManager.Clear();
+        ModClass.I.WorldRecord.ClearWorldState();
+        ModClass.I.CommandBuffer.Clear();
+        EventSystemHub.ClearQueuedEvents();
+        WorldEntityLifecycle.ClearWorldState();
+        ModClass.I.CommandBuffer.Clear();
+        EventSystemHub.ClearQueuedEvents();
+    }
+
+    private static void InvokeClearWorldActions()
+    {
+        var actions = _actionOnClearWorld;
+        if (actions == null) return;
+        foreach (Action action in actions.GetInvocationList())
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception e)
+            {
+                ModClass.LogErrorConcurrent(e.ToString());
+            }
+        }
     }
 
     [HarmonyPostfix, HarmonyPatch(typeof(MapBox), "updateSimulation")]

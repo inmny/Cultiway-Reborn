@@ -54,6 +54,7 @@ public sealed class KnightTechniqueActiveUseProfile
     public KnightTechniqueCondition PrepareCondition;
     public KnightTechniqueCondition UseCondition;
     public KnightTechniqueAiWeightResolver ResolveAiWeight;
+    public KnightTechniqueFloatResolver ResolveAiDamageMultiplier;
     public KnightTechniqueTacticalProfileResolver ResolveTacticalProfile;
     public KnightTechniqueFloatResolver ResolveRange;
     public KnightTechniqueFloatResolver ResolveEffectRadius;
@@ -80,6 +81,18 @@ public sealed class KnightTechniqueAsset : Asset
 
     /// <summary>一次完整动作消耗的斗气。</summary>
     public float VigorCost;
+
+    /// <summary>战术 AI 计算该战技直接伤害时，每段真实武器攻击采用的倍率。</summary>
+    public float AiDamageMultiplier;
+
+    /// <summary>战技固定执行的真实武器攻击段数。</summary>
+    public int AiAttackSegments;
+
+    /// <summary>范围附带攻击相对于每个额外目标采用的倍率。</summary>
+    public float AiSecondaryDamageMultiplier;
+
+    /// <summary>生命危急时是否允许 AI 忽略斗气保留。</summary>
+    public bool AiIgnoreResourceReserveWhenCritical;
 
     /// <summary>后续执行层在施放成功后采用的独立冷却秒数。</summary>
     public float Cooldown;

@@ -94,6 +94,24 @@ public class CustomMapModeManager
         }
     }
 
+    public void BeginWorldClear()
+    {
+        MapLayer?.PauseForWorldClear();
+        HoveredGeoRegion = null;
+        UiHoveredGeoRegion = null;
+        _selected_geo_region = null;
+        _cached_map_mode = null;
+        _map_mode_invalidated = true;
+        _renderer_dirty = true;
+        ClearWorldRenderers();
+    }
+
+    public void FinishWorldCreation()
+    {
+        MapLayer?.ResumeAfterWorldClear();
+        SetAllDirty();
+    }
+
     private ICustomMapModeRenderer GetRenderer(CustomMapModeAsset mapMode)
     {
         if (mapMode?.renderer_factory == null) return null;
