@@ -119,4 +119,6 @@ internal static class UiIcons
     public const string Info = "ui/icons/iconMainInfo";
     public const string Color = "ui/icons/iconColorCustomization";
     public const string World = "ui/icons/iconWorldInfo";
+    public const string ToggleOn = "ui/icons/iconOn";
+    public const string ToggleOff = "ui/icons/iconOff";
 }

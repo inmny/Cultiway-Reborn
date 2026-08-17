@@ -122,6 +122,48 @@ internal static class UiElements
         return toggle;
     }
 
+    public static Toggle CreateStateIconToggle(Transform parent, string name, string inactiveIconPath,
+        string activeIconPath, bool value, float width, float height)
+    {
+        GameObject obj = new(name, typeof(RectTransform), typeof(Image), typeof(Toggle), typeof(LayoutElement));
+        obj.transform.SetParent(parent, false);
+        UiLayout.SetSize(obj.transform, width, height);
+        Image background = obj.GetComponent<Image>();
+        UiResources.ApplySurface(background, UiSurface.Button);
+
+        GameObject inactiveIcon = new("Inactive", typeof(RectTransform), typeof(Image));
+        inactiveIcon.transform.SetParent(obj.transform, false);
+        UiLayout.Stretch(inactiveIcon.GetComponent<RectTransform>(), 4f, 4f, 3f, 3f);
+        Image inactiveImage = inactiveIcon.GetComponent<Image>();
+        UiResources.SetImage(inactiveImage, inactiveIconPath);
+        inactiveImage.color = Color.white;
+        inactiveImage.raycastTarget = false;
+
+        GameObject activeIcon = new("Active", typeof(RectTransform), typeof(Image));
+        activeIcon.transform.SetParent(obj.transform, false);
+        UiLayout.Stretch(activeIcon.GetComponent<RectTransform>(), 4f, 4f, 3f, 3f);
+        Image activeImage = activeIcon.GetComponent<Image>();
+        UiResources.SetImage(activeImage, activeIconPath);
+        activeImage.color = Color.white;
+        activeImage.raycastTarget = false;
+
+        Toggle toggle = obj.GetComponent<Toggle>();
+        toggle.targetGraphic = background;
+        toggle.graphic = activeImage;
+        toggle.isOn = value;
+        inactiveIcon.SetActive(!value);
+        toggle.onValueChanged.AddListener(isOn => inactiveIcon.SetActive(!isOn));
+        return toggle;
+    }
+
+    public static void SetStateIconToggleWithoutNotify(Toggle toggle, bool value)
+    {
+        toggle.SetIsOnWithoutNotify(value);
+        Transform inactiveIcon = toggle.transform.Find("Inactive") ??
+                                 throw new InvalidOperationException("状态图标 Toggle 缺少 Inactive 节点");
+        inactiveIcon.gameObject.SetActive(!value);
+    }
+
     public static void SetButtonIcon(Button button, string iconPath, bool flipHorizontal = false)
     {
         Image icon = button.transform.Find("Icon").GetComponent<Image>();

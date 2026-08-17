@@ -101,25 +101,21 @@ namespace Cultiway
 
             if (autoCreateDeveloperSubWorld && developerSubWorldWorldId != MapBox.current_world_seed_id)
             {
-                long testInstanceId = -1;
-                long ruinInstanceId = -1;
+                long naturalWorldInstanceId = -1;
                 try
                 {
-                    testInstanceId = SubWorldManager.Create(
-                        Core.SubWorlds.SubWorldManager.TestSubWorldTemplateId,
+                    long worldIdentity = World.world.map_stats.life_dna;
+                    int generationSeed = unchecked((int)(worldIdentity ^ (worldIdentity >> 32)));
+                    naturalWorldInstanceId = SubWorldManager.Create(
+                        SubWorldTemplates.NaturalWorld.id,
                         new SubWorldAnchor(MapBox.width / 2, MapBox.height / 2),
-                        1);
-                    ruinInstanceId = SubWorldManager.Create(
-                        SubWorldTemplates.RuinedDaoGround.id,
-                        new SubWorldAnchor(MapBox.width / 2, MapBox.height / 2),
-                        MapBox.current_world_seed_id);
-                    SubWorldManager.Focus(ruinInstanceId);
+                        generationSeed);
+                    SubWorldManager.Focus(naturalWorldInstanceId);
                     developerSubWorldWorldId = MapBox.current_world_seed_id;
                 }
                 catch
                 {
-                    if (ruinInstanceId > 0) SubWorldManager.Destroy(ruinInstanceId);
-                    if (testInstanceId > 0) SubWorldManager.Destroy(testInstanceId);
+                    if (naturalWorldInstanceId > 0) SubWorldManager.Destroy(naturalWorldInstanceId);
                     throw;
                 }
             }

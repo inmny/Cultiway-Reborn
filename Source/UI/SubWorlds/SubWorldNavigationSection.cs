@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using Cultiway.Core.SubWorlds;
 using Cultiway.Core.SubWorlds.Runtime;
 using Cultiway.Utils.Extension;
 using NeoModLoader.General;
+using UnityEngine;
 using UnityEngine.UI;
 
 namespace Cultiway.UI.SubWorlds;
@@ -15,6 +17,7 @@ internal sealed class SubWorldNavigationSection
     private const string SpeedTwoIcon = "ui/icons/iconClockX2";
     private const string SpeedFourIcon = "ui/icons/iconClockX4";
     private const string SeparatorEntryId = "subworld.separator";
+    private const string CreateEntryId = "subworld.create";
     private const string MainWorldEntryId = "subworld.main_world";
     private const string PauseSpeedEntryId = "subworld.controls.pause_speed1";
     private const string SpeedEntryId = "subworld.controls.speed2_speed4";
@@ -22,6 +25,7 @@ internal sealed class SubWorldNavigationSection
 
     private readonly SubWorldManager manager;
     private readonly SortedDictionary<long, PowerButton> runtimeButtons = new();
+    private PowerButton createButton;
     private PowerButton mainWorldButton;
     private PowerButton pauseButton;
     private PowerButton speedOneButton;
@@ -36,6 +40,11 @@ internal sealed class SubWorldNavigationSection
     internal SubWorldNavigationSection(SubWorldManager manager)
     {
         this.manager = manager;
+    }
+
+    internal void Build()
+    {
+        EnsureBuilt();
     }
 
     internal void AddRuntime(SubWorldRuntime runtime)
@@ -62,7 +71,6 @@ internal sealed class SubWorldNavigationSection
         if (runtimeButtons.Count == 0)
         {
             SetControlsVisible(false);
-            SetNavigationVisible(false);
         }
         Refresh();
     }
@@ -99,9 +107,10 @@ internal sealed class SubWorldNavigationSection
             Cultiway.UI.Manager.RemoveEntry(TabButtonType.WORLD, RuntimeEntryId(instanceIds[i]));
         }
         runtimeButtons.Clear();
+        SubWorldCreationWindow.CloseIfOpen();
         SetControlsVisible(false);
         SetFocusPawnVisible(false);
-        SetNavigationVisible(false);
+        SetNavigationVisible(true);
     }
 
     private void EnsureBuilt()
@@ -110,6 +119,13 @@ internal sealed class SubWorldNavigationSection
 
         Cultiway.UI.Manager.AddSeparator(TabButtonType.WORLD, PowerTabSections.WorldSubWorlds, 0,
             SeparatorEntryId);
+        createButton = CreatePowerButton("Create", UiIcons.Add, OpenCreationWindow);
+        UiTooltip.Set(createButton.gameObject,
+            "Cultiway.SubWorld.Navigation.Create".Localize(),
+            "Cultiway.SubWorld.Navigation.Create.Description".Localize());
+        Cultiway.UI.Manager.AddButton(TabButtonType.WORLD, PowerTabSections.WorldSubWorlds, 50,
+            CreateEntryId, createButton);
+
         mainWorldButton = CreatePowerButton("MainWorld", UiIcons.World,
             manager.FocusMainWorld);
         UiTooltip.Set(mainWorldButton.gameObject,
@@ -140,7 +156,19 @@ internal sealed class SubWorldNavigationSection
         focusPawnVisible = true;
         SetControlsVisible(false);
         SetFocusPawnVisible(false);
-        SetNavigationVisible(false);
+        SetNavigationVisible(true);
+    }
+
+    private void OpenCreationWindow()
+    {
+        try
+        {
+            SubWorldCreationWindow.Open(manager);
+        }
+        catch (Exception exception)
+        {
+            UnityEngine.Debug.LogException(exception);
+        }
     }
 
     private PowerButton CreateSpeedButton(string name, string icon, float speed)

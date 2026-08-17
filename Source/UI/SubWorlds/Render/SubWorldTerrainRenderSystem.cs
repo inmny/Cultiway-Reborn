@@ -93,6 +93,7 @@ internal sealed class SubWorldTerrainRenderSystem : BaseSystem, IWorldStateClear
         Tilemap tilemap = layerObject.GetComponent<Tilemap>();
         tilemap.ClearAllTiles();
         layerObject.create(terrainType);
+        if (terrainType.id == "deep_ocean") layerObject.gameObject.SetActive(true);
         terrainLayers.Add(terrainType.render_z,
             new TerrainLayer(tilemap, layerObject.GetComponent<TilemapRenderer>()));
     }
@@ -134,7 +135,7 @@ internal sealed class SubWorldTerrainRenderSystem : BaseSystem, IWorldStateClear
         if (terrainType.force_edge_variation && y + 1 < grid.Height &&
             grid.GetTerrainType(index + grid.Width) != terrainType)
             return terrainType.sprites.getVariation(terrainType.force_edge_variation_frame);
-        return terrainType.sprites.getRandom();
+        return terrainType.sprites.main;
     }
 
     private void RenderBorder(int index, Vector3Int position)

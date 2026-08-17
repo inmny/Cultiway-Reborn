@@ -39,6 +39,7 @@ internal sealed class SubWorldManager
     {
         this.jobRunner = jobRunner ?? throw new ArgumentNullException(nameof(jobRunner));
         navigationSection = new SubWorldNavigationSection(this);
+        navigationSection.Build();
         inputRouter = new SubWorldWorldInputRouter(this, spatialLayout, worldViews);
     }
 
@@ -69,11 +70,22 @@ internal sealed class SubWorldManager
             template.clock_profile_id);
         SubWorldVisualProfileAsset visualProfile = ModClass.L.SubWorldVisualProfileLibrary.GetRequired(
             template.visual_profile_id);
+        SubWorldCreationParameters creationParameters = parameters ?? SubWorldCreationParameters.Empty;
+        int requestedWidth = creationParameters.Width > 0 ? creationParameters.Width : template.width;
+        int requestedHeight = creationParameters.Height > 0 ? creationParameters.Height : template.height;
+        ValidateCreationSize(template, creationParameters, requestedWidth, requestedHeight);
         SubWorldGeneratedScene scene = generator.Generate(
             template,
             seed,
             anchor,
-            parameters ?? SubWorldCreationParameters.Empty);
+            creationParameters);
+        if (scene.MapData.Width != requestedWidth || scene.MapData.Height != requestedHeight)
+        {
+            throw new InvalidOperationException(
+                $"SubWorld Generator 返回尺寸与请求不一致: template={template.id}, " +
+                $"requested={requestedWidth}x{requestedHeight}, " +
+                $"actual={scene.MapData.Width}x{scene.MapData.Height}");
+        }
         long instanceId = ++nextInstanceId;
         SubWorldRuntime runtime = null;
         SubWorldWorldView worldView = null;
@@ -117,9 +129,62 @@ internal sealed class SubWorldManager
     }
 
     /// <summary>
+    /// 从当前主世界创建一个由用户选择模板和尺寸的小世界，并聚焦该实例。
+    /// </summary>
+    /// <param name="templateId">小世界模板 Asset ID。</param>
+    /// <param name="width">本次创建的地图宽度。</param>
+    /// <param name="height">本次创建的地图高度。</param>
+    /// <param name="settings">本次创建冻结的自然地图参数。</param>
+    /// <returns>新创建的小世界实例 ID。</returns>
+    internal long CreateFromWorld(
+        string templateId,
+        int width,
+        int height,
+        SubWorldGenerationSettings settings)
+    {
+        EnsureAcceptingOperations();
+        if (World.world == null || World.world.map_stats == null)
+            throw new InvalidOperationException("当前没有可用的主世界");
+
+        long worldIdentity = World.world.map_stats.life_dna;
+        long instanceSeed = worldIdentity ^ (worldIdentity >> 32) ^ ((nextInstanceId + 1) * 397L);
+        int seed = unchecked((int)instanceSeed);
+        long instanceId = Create(templateId,
+            new SubWorldAnchor(MapBox.width / 2, MapBox.height / 2),
+            seed,
+            new SubWorldCreationParameters(width, height, settings));
+        Focus(instanceId);
+        return instanceId;
+    }
+
+    private static void ValidateCreationSize(
+        SubWorldTemplateAsset template,
+        SubWorldCreationParameters parameters,
+        int width,
+        int height)
+    {
+        if ((parameters.Width > 0) != (parameters.Height > 0))
+            throw new InvalidOperationException($"SubWorld 创建尺寸必须同时提供宽度和高度: {template.id}");
+        if (width < 8 || height < 8)
+            throw new InvalidOperationException($"SubWorld 创建尺寸不能小于 8: {width}x{height}");
+        if (width > SubWorldSpatialLayout.MaxTemplateSize || height > SubWorldSpatialLayout.MaxTemplateSize)
+        {
+            throw new InvalidOperationException(
+                $"SubWorld 创建尺寸超过槽位上限: {width}x{height}, " +
+                $"max={SubWorldSpatialLayout.MaxTemplateSize}");
+        }
+        if (!template.allow_custom_size && (width != template.width || height != template.height))
+        {
+            throw new InvalidOperationException(
+                $"SubWorld 模板不支持自定义尺寸: template={template.id}, " +
+                $"default={template.width}x{template.height}");
+        }
+    }
+
+    /// <summary>
     /// 取得当前会话中已经存在的小世界 Runtime。
     /// </summary>
-    /// <param name="instanceId">实例 ID。</param>
+    /// <param name="instanceId">小世界实例 ID。</param>
     /// <returns>匹配的 Runtime。</returns>
     /// <exception cref="KeyNotFoundException">实例不存在时抛出。</exception>
     internal SubWorldRuntime Get(long instanceId)
