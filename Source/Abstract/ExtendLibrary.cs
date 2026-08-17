@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Reflection;
 
 namespace Cultiway.Abstract;
@@ -56,14 +55,19 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
     {
         
     }
+
+    protected virtual TAsset CreateAsset(PropertyInfo prop)
+    {
+        Type assetType = typeof(TAsset);
+        if (assetType.IsAbstract || assetType.GetConstructor(Type.EmptyTypes) == null) return null;
+        return Activator.CreateInstance<TAsset>();
+    }
+
     protected void RegisterAssets()
     {
-        if (!typeof(TAsset).IsAbstract &&
-            typeof(TAsset).GetConstructors().All(x => x.GetParameters().Length > 0)) return;
-
         var props = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Static | BindingFlags.NonPublic);
         foreach (PropertyInfo prop in props)
-            if (typeof(TAsset).IsAssignableFrom(prop.PropertyType))
+            if (prop.PropertyType == typeof(TAsset))
             {
                 TAsset item;
                 var get_only_attr = prop.GetCustomAttribute<GetOnlyAttribute>();
@@ -85,10 +89,9 @@ public abstract class ExtendLibrary<TAsset, T> : ICanInit, ICanReload
                     }
                     else
                     {
-                        if (prop.PropertyType.IsAbstract || prop.PropertyType.GetConstructor(Type.EmptyTypes) == null)
-                            continue;
+                        item = CreateAsset(prop);
+                        if (item == null) continue;
 
-                        item = (TAsset)Activator.CreateInstance(prop.PropertyType);
                         item.id = item_id;
                         ActionAfterCreation(prop, item);
                         item = Add(item);
