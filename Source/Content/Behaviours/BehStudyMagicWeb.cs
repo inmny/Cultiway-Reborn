@@ -20,11 +20,11 @@ public sealed class BehStudyMagicWeb : BehCityActor
     public override BehResult execute(Actor pObject)
     {
         var actor = pObject.GetExtend();
-        if (!actor.HasCultisys<Magic>()) return BehResult.Continue;
+        if (!actor.HasCultisys<Magic>()) return BehResult.Stop;
         ref var magic = ref actor.GetCultisys<Magic>();
         ref var state = ref actor.GetOrAddComponent<MagicStudyState>();
         var now = World.world.map_stats.world_time;
-        if (now < state.NextStudyWorldTime) return BehResult.Continue;
+        if (now < state.NextStudyWorldTime) return BehResult.Stop;
 
         if (!MagicWebStudyPlanner.TryResolve(actor, state, out _, out var affinity, out var difficulty))
         {
@@ -33,7 +33,7 @@ public sealed class BehStudyMagicWeb : BehCityActor
             {
                 state.NextStudyWorldTime = now +
                                            MagicSetting.MagicStudyNoCandidateBackoffYears * TimeScales.SecPerYear;
-                return BehResult.Continue;
+                return BehResult.Stop;
             }
 
             state.Candidate = candidate.Container;
@@ -59,7 +59,7 @@ public sealed class BehStudyMagicWeb : BehCityActor
             state.NextStudyWorldTime = now + (learned
                 ? MagicSetting.MagicStudySuccessCooldownYears
                 : MagicSetting.MagicStudyNoCandidateBackoffYears) * TimeScales.SecPerYear;
-            return BehResult.Continue;
+            return learned ? BehResult.Continue : BehResult.Stop;
         }
 
         if (state.SessionRemaining <= 0f)

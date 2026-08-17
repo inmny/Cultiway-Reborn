@@ -52,11 +52,31 @@ public static class MagicWebStudyPlanner
     }
 
     /// <summary>
+    /// 无副作用地判断当前是否存在可以开始或继续的魔网研习目标。
+    /// </summary>
+    public static bool CanStudyNow(ActorExtend actor)
+    {
+        if (!ShouldStudy(actor) || !actor.HasElementRoot()) return false;
+        if (actor.TryGetComponent(out MagicStudyState state) &&
+            TryResolve(actor, state, out _, out _, out _)) return true;
+        return TryBuildCandidates(actor, out _, false);
+    }
+
+    /// <summary>
     /// 从有界魔网查询结果中为魔法师选出研究目标，并在容量已满时给出可替换法术。
     /// </summary>
     public static bool TrySelectCandidate(ActorExtend actor, out MagicWebStudyCandidate selected)
     {
         selected = default;
+        if (!TryBuildCandidates(actor, out var candidates, true)) return false;
+        selected = WeightedSelect(candidates);
+        return true;
+    }
+
+    private static bool TryBuildCandidates(ActorExtend actor, out List<MagicWebStudyCandidate> candidates,
+        bool refreshProfiles)
+    {
+        candidates = null;
         if (actor == null || !actor.HasCultisys<Magic>() || !actor.HasElementRoot()) return false;
         var manager = MagicWebManager.Instance;
         if (manager == null) return false;
@@ -65,7 +85,7 @@ public static class MagicWebStudyPlanner
         var maxRing = Cultisyses.GetMaxSpellRing(magic.CurrLevel);
         var capacity = Cultisyses.GetKnownSpellCapacity(magic.CurrLevel);
         var root = actor.GetElementRoot();
-        var known = GetKnownSpellEntries(actor);
+        var known = GetKnownSpellEntries(actor, refreshProfiles);
         var knownFamilies = new HashSet<string>(known.Select(item => item.Profile.FamilySignature),
             StringComparer.Ordinal);
         var knownPrimaryElements = new HashSet<SemanticAsset>(known.Select(item => item.Profile.PrimaryElement));
@@ -99,7 +119,7 @@ public static class MagicWebStudyPlanner
             ModClass.L.SemanticFacetLibrary.Element,
             query.AnySemantics);
 
-        var candidates = new List<MagicWebStudyCandidate>();
+        candidates = new List<MagicWebStudyCandidate>();
         foreach (var entry in manager.Query(query))
         {
             var profile = entry.Profile;
@@ -119,9 +139,7 @@ public static class MagicWebStudyPlanner
                 ResolveDifficulty(profile)));
         }
 
-        if (candidates.Count == 0) return false;
-        selected = WeightedSelect(candidates);
-        return true;
+        return candidates.Count > 0;
     }
 
     /// <summary>
@@ -146,14 +164,16 @@ public static class MagicWebStudyPlanner
         return true;
     }
 
-    private static List<KnownSpellEntry> GetKnownSpellEntries(ActorExtend actor)
+    private static List<KnownSpellEntry> GetKnownSpellEntries(ActorExtend actor, bool refreshProfiles)
     {
         var result = new List<KnownSpellEntry>();
         foreach (var container in actor.GetLearnedSkillsInOrder())
         {
             if (container.IsNull ||
                 !SkillCastResourceResolver.UsesResource(container, SkillCastResources.Mana)) continue;
-            var profile = MagicSpellProfile.Resolve(container);
+            var profile = refreshProfiles
+                ? MagicSpellProfile.Resolve(container)
+                : MagicSpellProfile.ResolveReadOnly(container);
             if (profile != null) result.Add(new KnownSpellEntry(container, profile));
         }
         return result;

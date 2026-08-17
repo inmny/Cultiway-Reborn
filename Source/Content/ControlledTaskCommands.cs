@@ -25,7 +25,12 @@ public sealed class ControlledTaskCommands : ExtendLibrary<ControlledTaskCommand
     public static ControlledTaskCommandAsset EnvironmentalCultivate { get; private set; }
     public static ControlledTaskCommandAsset MagicMeditate { get; private set; }
     public static ControlledTaskCommandAsset KnightTrain { get; private set; }
+    public static ControlledTaskCommandAsset CultivationProgression { get; private set; }
+    public static ControlledTaskCommandAsset StudyMagicWeb { get; private set; }
+    public static ControlledTaskCommandAsset StudyMagicScroll { get; private set; }
+    public static ControlledTaskCommandAsset ImproveMagicSpell { get; private set; }
     public static ControlledTaskCommandAsset CraftMagicScroll { get; private set; }
+    public static ControlledTaskCommandAsset CraftTalisman { get; private set; }
     public static ControlledTaskCommandAsset FoundSect { get; private set; }
     public static ControlledTaskCommandAsset StudySectScripture { get; private set; }
     public static ControlledTaskCommandAsset DoSectChore { get; private set; }
@@ -40,25 +45,45 @@ public sealed class ControlledTaskCommands : ExtendLibrary<ControlledTaskCommand
             "ui/icons/iconArrowDestination", ControlledTaskCategory.Movement, 0,
             ControlledTaskTargetMode.WorldTile, EvaluateMovement, ValidateMovementTarget,
             (actor, tile) => actor.beh_tile_target = tile);
-        Set(XianCultivate, ActorTasks.DailyXianCultivate,
+        Set(CultivationProgression, ActorTasks.CultivationProgression,
             "cultiway/icons/iconCultivation", ControlledTaskCategory.Cultivation, 0,
+            evaluate: EvaluateCultivationProgression,
+            requiresConfirmation: true);
+        Set(XianCultivate, ActorTasks.DailyXianCultivate,
+            "cultiway/icons/iconCultivation", ControlledTaskCategory.Cultivation, 10,
             evaluate: actor => EvaluateXianCultivation(actor, ActorJobs.XianCultivator.id));
         Set(PlantCultivate, ActorTasks.DailyPlantXianCultivate,
-            "cultiway/icons/iconCultivation", ControlledTaskCategory.Cultivation, 10,
+            "cultiway/icons/iconCultivation", ControlledTaskCategory.Cultivation, 20,
             evaluate: actor => EvaluateXianCultivation(actor, ActorJobs.PlantXianCultivator.id));
         Set(EnvironmentalCultivate, ActorTasks.DailyEnvironmentalCultivate,
-            "cultiway/icons/iconCultivation", ControlledTaskCategory.Cultivation, 20,
+            "cultiway/icons/iconCultivation", ControlledTaskCategory.Cultivation, 30,
             evaluate: EvaluateEnvironmentalCultivation);
         Set(MagicMeditate, ActorTasks.DailyMagicMeditate,
-            "cultiway/icons/iconMagic", ControlledTaskCategory.Cultivation, 30,
+            "cultiway/icons/iconMagic", ControlledTaskCategory.Cultivation, 40,
             evaluate: EvaluateMagicMeditation);
         Set(KnightTrain, ActorTasks.DailyKnightTrain,
-            "cultiway/icons/iconCultivation", ControlledTaskCategory.Cultivation, 40,
+            "cultiway/icons/iconCultivation", ControlledTaskCategory.Cultivation, 50,
             evaluate: EvaluateKnightTraining);
+        Set(StudyMagicWeb, ActorTasks.StudyMagicWeb,
+            "cultiway/icons/iconMagic", ControlledTaskCategory.Research, 10,
+            evaluate: EvaluateMagicWebStudy,
+            requiresConfirmation: true);
+        Set(StudyMagicScroll, ActorTasks.StudyMagicScroll,
+            "cultiway/icons/iconCraftMagicScroll", ControlledTaskCategory.Research, 20,
+            evaluate: EvaluateMagicScrollStudy,
+            requiresConfirmation: true);
+        Set(ImproveMagicSpell, ActorTasks.ImproveMagicSpell,
+            "cultiway/icons/iconMagic", ControlledTaskCategory.Research, 30,
+            evaluate: EvaluateMagicSpellImprovement,
+            requiresConfirmation: true);
         Set(CraftMagicScroll, ActorTasks.CraftMagicScroll,
             "cultiway/icons/iconCraftMagicScroll", ControlledTaskCategory.Crafting, 0,
             evaluate: actor => AvailableWhen(actor, BehCraftMagicScroll.CanCraft(actor?.GetExtend()),
                 "Cultiway.ControlledTask.Reason.CannotCraftMagicScroll"),
+            requiresConfirmation: true);
+        Set(CraftTalisman, ActorTasks.CraftTalisman,
+            "ui/icons/iconArtifact", ControlledTaskCategory.Crafting, 10,
+            evaluate: EvaluateTalismanCrafting,
             requiresConfirmation: true);
         Set(FoundSect, ActorTasks.BuildSect,
             "ui/icons/iconKingdom", ControlledTaskCategory.Sect, 0,
@@ -198,6 +223,58 @@ public sealed class ControlledTaskCommands : ExtendLibrary<ControlledTaskCommand
         return KnightTrainingDummyService.TryFind(actor, out _)
             ? ControlledTaskAvailability.Available
             : ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresTrainingDummy");
+    }
+
+    private static ControlledTaskAvailability EvaluateCultivationProgression(Actor actor)
+    {
+        ControlledTaskAvailability common = EvaluateCommon(actor);
+        if (!common.Enabled) return common;
+        return ProgressionService.CanScheduleAny(actor.GetExtend())
+            ? ControlledTaskAvailability.Available
+            : ControlledTaskAvailability.Unavailable(
+                "Cultiway.ControlledTask.Reason.CannotCultivationProgression");
+    }
+
+    private static ControlledTaskAvailability EvaluateMagicWebStudy(Actor actor)
+    {
+        ControlledTaskAvailability common = EvaluateCommon(actor);
+        if (!common.Enabled) return common;
+        if (!actor.GetExtend().HasCultisys<Magic>())
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresMagic");
+        if (actor.city == null || actor.city.isRekt())
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresCity");
+        return AvailableWhen(actor, MagicWebStudyPlanner.CanStudyNow(actor.GetExtend()),
+            "Cultiway.ControlledTask.Reason.CannotStudyMagicWeb");
+    }
+
+    private static ControlledTaskAvailability EvaluateMagicScrollStudy(Actor actor)
+    {
+        ControlledTaskAvailability common = EvaluateCommon(actor);
+        if (!common.Enabled) return common;
+        if (!actor.GetExtend().HasCultisys<Magic>())
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresMagic");
+        return AvailableWhen(actor, MagicScrollStudyService.CanStudyNow(actor.GetExtend()),
+            "Cultiway.ControlledTask.Reason.CannotStudyMagicScroll");
+    }
+
+    private static ControlledTaskAvailability EvaluateMagicSpellImprovement(Actor actor)
+    {
+        ControlledTaskAvailability common = EvaluateCommon(actor);
+        if (!common.Enabled) return common;
+        if (!actor.GetExtend().HasCultisys<Magic>())
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresMagic");
+        return AvailableWhen(actor, MagicSpellProgressionService.CanImproveNow(actor.GetExtend()),
+            "Cultiway.ControlledTask.Reason.CannotImproveMagicSpell");
+    }
+
+    private static ControlledTaskAvailability EvaluateTalismanCrafting(Actor actor)
+    {
+        ControlledTaskAvailability common = EvaluateCommon(actor);
+        if (!common.Enabled) return common;
+        if (!actor.GetExtend().HasCultisys<Xian>())
+            return ControlledTaskAvailability.Unavailable("Cultiway.ControlledTask.Reason.RequiresXian");
+        return AvailableWhen(actor, BehCraftTalisman.CanCraft(actor.GetExtend()),
+            "Cultiway.ControlledTask.Reason.CannotCraftTalisman");
     }
 
     private static ControlledTaskAvailability AvailableWhen(Actor actor, bool condition, string reasonLocaleKey)

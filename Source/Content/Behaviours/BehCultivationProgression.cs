@@ -17,6 +17,13 @@ public sealed class BehCultivationProgression : BehaviourActionActor
         {
             pObject.changeHappiness(HappinessAssets.LevelUp.id);
         }
-        return BehResult.Continue;
+        return result.Code is ProgressionResultCode.PreparationStarted
+            or ProgressionResultCode.ChallengeStarted
+            or ProgressionResultCode.MinorAdvanced
+            or ProgressionResultCode.MajorAdvanced
+            or ProgressionResultCode.Synchronized
+            or ProgressionResultCode.Transferred
+            ? BehResult.Continue
+            : BehResult.Stop;
     }
 }

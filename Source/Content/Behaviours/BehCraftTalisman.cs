@@ -1,9 +1,11 @@
 using ai.behaviours;
 using Cultiway.Abstract;
+using Cultiway.Const;
 using Cultiway.Content.AIGC;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
 using Cultiway.Content.Events;
+using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils;
@@ -17,10 +19,27 @@ namespace Cultiway.Content.Behaviours;
 
 public class BehCraftTalisman : BehaviourActionActor
 {
+    internal static bool CanCraft(ActorExtend actor)
+    {
+        if (actor == null || actor.Base.isRekt() || !actor.HasCultisys<Xian>()) return false;
+
+        ref var xian = ref actor.GetCultisys<Xian>();
+        var maximumWakan = actor.Base.stats[BaseStatses.MaxWakan.id];
+        var wakanCost = maximumWakan * 0.01f;
+        if (maximumWakan <= 0f || xian.wakan < wakanCost) return false;
+
+        foreach (var skill in actor.all_skills)
+        {
+            if (!skill.IsNull && skill.HasComponent<SkillContainer>()) return true;
+        }
+        return false;
+    }
+
     [Hotfixable]
     public override BehResult execute(Actor pObject)
     {
         var ae = pObject.GetExtend();
+        if (!CanCraft(ae)) return BehResult.Stop;
         
         ref var xian = ref ae.GetCultisys<Xian>();
 
@@ -31,11 +50,13 @@ public class BehCraftTalisman : BehaviourActionActor
             return BehResult.Stop;
         }
 
-        if (ae.all_skills.Count == 0)
+        using var candidates = new ListPool<Entity>();
+        foreach (var skill in ae.all_skills)
         {
-            return BehResult.Stop;
+            if (!skill.IsNull && skill.HasComponent<SkillContainer>()) candidates.Add(skill);
         }
-        var skill_v3 = ae.all_skills.GetRandom();
+        if (!candidates.Any()) return BehResult.Stop;
+        var skill_v3 = candidates.GetRandom();
 
         skill_v3 = skill_v3.Store.CloneEntity(skill_v3);
         WakanResourceService.Spend(ae, ref xian, wakan_to_take);

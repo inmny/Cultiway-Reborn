@@ -57,6 +57,22 @@ public static class MagicScrollStudyService
     }
 
     /// <summary>
+    /// 无副作用地判断当前是否存在可以开始或继续的卷轴研读目标。
+    /// </summary>
+    public static bool CanStudyNow(ActorExtend actor)
+    {
+        if (!CanStartStudy(actor)) return false;
+        if (actor.TryGetComponent(out MagicScrollStudyState state) &&
+            TryResolveStudyPure(actor, state, out _)) return true;
+
+        foreach (var item in actor.GetItems())
+        {
+            if (TryResolveCandidate(actor, item, out _, false, false)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// 从魔法师个人物品中随机选择一份当前可以学习的卷轴。
     /// </summary>
     public static bool TrySelectStudyCandidate(ActorExtend actor, out MagicScrollStudyCandidate selected)
@@ -95,6 +111,15 @@ public static class MagicScrollStudyService
             return false;
         }
         if (!TryResolveCandidate(actor, state.Scroll, out candidate)) return false;
+        return candidate.Replacement == state.Replacement;
+    }
+
+    private static bool TryResolveStudyPure(ActorExtend actor, in MagicScrollStudyState state,
+        out MagicScrollStudyCandidate candidate)
+    {
+        candidate = default;
+        if (!OwnsScroll(actor, state.Scroll)) return false;
+        if (!TryResolveCandidate(actor, state.Scroll, out candidate, false, false)) return false;
         return candidate.Replacement == state.Replacement;
     }
 
@@ -152,7 +177,8 @@ public static class MagicScrollStudyService
     }
 
     private static bool TryResolveCandidate(ActorExtend actor, Entity scroll,
-        out MagicScrollStudyCandidate candidate)
+        out MagicScrollStudyCandidate candidate, bool synchronizeKnowledge = true,
+        bool refreshItemLevel = true)
     {
         candidate = default;
         if (scroll.IsNull || !scroll.HasComponent<MagicScroll>()) return false;
@@ -160,7 +186,9 @@ public static class MagicScrollStudyService
         var skillContainer = scroll.GetComponent<MagicScroll>().SkillContainer;
         if (!SkillCastResourceResolver.UsesResource(skillContainer, SkillCastResources.Mana)) return false;
         if (!MagicAutonomyRules.IsAutonomousStudyCandidate(skillContainer)) return false;
-        var profile = MagicSpellProfile.Resolve(skillContainer);
+        var profile = refreshItemLevel
+            ? MagicSpellProfile.Resolve(skillContainer)
+            : MagicSpellProfile.ResolveReadOnly(skillContainer);
         if (profile == null || string.IsNullOrEmpty(profile.FamilySignature)) return false;
 
         ref var magic = ref actor.GetCultisys<Magic>();
@@ -172,25 +200,34 @@ public static class MagicScrollStudyService
             profile.Semantics).Combined;
         if (affinity < MagicSetting.MagicStudyAffinityThreshold) return false;
 
-        MagicKnowledgeService.Synchronize(actor);
+        if (synchronizeKnowledge) MagicKnowledgeService.Synchronize(actor);
         var candidateSignature = SkillContainerSignature.Build(skillContainer);
         if (string.IsNullOrEmpty(candidateSignature)) return false;
         Entity replacement = default;
+        var knownSpellCount = 0;
         foreach (var known in actor.GetLearnedSkillsInOrder())
         {
-            if (known.IsNull) continue;
+            if (known.IsNull ||
+                !SkillCastResourceResolver.UsesResource(known, SkillCastResources.Mana)) continue;
+            knownSpellCount++;
             if (SkillContainerSignature.Build(known) == candidateSignature) return false;
 
-            var knownProfile = MagicSpellProfile.Resolve(known);
+            var knownProfile = refreshItemLevel
+                ? MagicSpellProfile.Resolve(known)
+                : MagicSpellProfile.ResolveReadOnly(known);
             if (knownProfile?.FamilySignature != profile.FamilySignature) continue;
-            if (replacement.IsNull || GetItemLevelValue(known) > GetItemLevelValue(replacement))
+            if (replacement.IsNull || GetItemLevelValue(known, refreshItemLevel) >
+                GetItemLevelValue(replacement, refreshItemLevel))
                 replacement = known;
         }
 
-        if (!replacement.IsNull && !IsStrictUpgrade(skillContainer, replacement)) return false;
+        if (!replacement.IsNull && !IsStrictUpgrade(skillContainer, replacement, refreshItemLevel)) return false;
 
-        if (replacement.IsNull && actor.E.GetRelations<MagicSpellKnowledgeRelation>().Length >=
-            Cultisyses.GetKnownSpellCapacity(magic.CurrLevel)) return false;
+        var knownKnowledgeCount = synchronizeKnowledge
+            ? actor.E.GetRelations<MagicSpellKnowledgeRelation>().Length
+            : knownSpellCount;
+        if (replacement.IsNull && knownKnowledgeCount >= Cultisyses.GetKnownSpellCapacity(magic.CurrLevel))
+            return false;
 
         var difficulty = MagicSetting.MagicStudyBaseDifficulty * Mathf.Pow(profile.Ring + 1f, 2f) *
                          MagicSetting.MagicScrollStudyDifficultyFactor;
@@ -213,15 +250,23 @@ public static class MagicScrollStudyService
         return false;
     }
 
-    private static bool IsStrictUpgrade(Entity candidate, Entity known)
+    private static bool IsStrictUpgrade(Entity candidate, Entity known, bool refreshItemLevel = true)
     {
-        return GetItemLevelValue(candidate) > GetItemLevelValue(known);
+        return GetItemLevelValue(candidate, refreshItemLevel) > GetItemLevelValue(known, refreshItemLevel);
     }
 
-    private static int GetItemLevelValue(Entity container)
+    private static int GetItemLevelValue(Entity container, bool refreshItemLevel = true)
     {
-        if (!container.HasComponent<ItemLevel>() && !SkillContainerEvaluator.Refresh(container)) return -1;
-        return container.GetComponent<ItemLevel>();
+        if (container.HasComponent<ItemLevel>()) return container.GetComponent<ItemLevel>();
+        if (refreshItemLevel)
+        {
+            return SkillContainerEvaluator.Refresh(container)
+                ? container.GetComponent<ItemLevel>()
+                : -1;
+        }
+        return SkillContainerEvaluator.TryEvaluate(container, out var evaluation)
+            ? evaluation.ItemLevel
+            : -1;
     }
 
     private static double GetWorldTime()

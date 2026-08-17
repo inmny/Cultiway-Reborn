@@ -32,7 +32,17 @@ public sealed class MagicSpellProfile
     {
         return MagicWebManager.Instance?.TryGetProfile(container, out var profile) == true
             ? profile
-            : Evaluate(container);
+            : Evaluate(container, true);
+    }
+
+    /// <summary>
+    /// 只读取已经存在的通用技能等级；缺少等级时返回 null，不在资格查询中修复实体。
+    /// </summary>
+    public static MagicSpellProfile ResolveReadOnly(Entity container)
+    {
+        return MagicWebManager.Instance?.TryGetProfile(container, out var profile) == true
+            ? profile
+            : Evaluate(container, false);
     }
 
     /// <summary>
@@ -40,13 +50,31 @@ public sealed class MagicSpellProfile
     /// </summary>
     public static MagicSpellProfile Evaluate(Entity container)
     {
+        return Evaluate(container, true);
+    }
+
+    private static MagicSpellProfile Evaluate(Entity container, bool refreshItemLevel)
+    {
         if (container.IsNull || !container.HasComponent<SkillContainer>()) return null;
 
         var skill = container.GetComponent<SkillContainer>();
         var asset = skill.Asset;
         if (asset == null) return null;
-        if (!container.HasComponent<ItemLevel>() && !SkillContainerEvaluator.Refresh(container)) return null;
-        var itemLevel = container.GetComponent<ItemLevel>();
+        ItemLevel itemLevel;
+        if (container.HasComponent<ItemLevel>())
+        {
+            itemLevel = container.GetComponent<ItemLevel>();
+        }
+        else if (refreshItemLevel)
+        {
+            if (!SkillContainerEvaluator.Refresh(container)) return null;
+            itemLevel = container.GetComponent<ItemLevel>();
+        }
+        else
+        {
+            if (!SkillContainerEvaluator.TryEvaluate(container, out var evaluation)) return null;
+            itemLevel = evaluation.ItemLevel;
+        }
         SemanticDescriptor semantics = SkillSemanticCollector.BuildDescriptor(container);
 
         return new MagicSpellProfile

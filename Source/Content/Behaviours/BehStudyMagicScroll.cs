@@ -20,7 +20,7 @@ public sealed class BehStudyMagicScroll : BehaviourActionActor
     public override BehResult execute(Actor pObject)
     {
         var actor = pObject.GetExtend();
-        if (!actor.HasCultisys<Magic>()) return BehResult.Continue;
+        if (!actor.HasCultisys<Magic>()) return BehResult.Stop;
 
         ref var magic = ref actor.GetCultisys<Magic>();
         ref var state = ref actor.GetOrAddComponent<MagicScrollStudyState>();
@@ -28,7 +28,7 @@ public sealed class BehStudyMagicScroll : BehaviourActionActor
         {
             MagicScrollStudyService.ClearState(ref state);
             if (!MagicScrollStudyService.TrySelectStudyCandidate(actor, out candidate))
-                return BehResult.Continue;
+                return BehResult.Stop;
 
             state.Scroll = candidate.Scroll;
             state.Replacement = candidate.Replacement;
@@ -46,9 +46,9 @@ public sealed class BehStudyMagicScroll : BehaviourActionActor
         state.SessionRemaining -= TickInterval;
         if (state.Progress >= candidate.Difficulty)
         {
-            MagicScrollStudyService.CompleteStudy(actor, state);
+            var completed = MagicScrollStudyService.CompleteStudy(actor, state);
             MagicScrollStudyService.ClearState(ref state);
-            return BehResult.Continue;
+            return completed ? BehResult.Continue : BehResult.Stop;
         }
 
         if (state.SessionRemaining <= 0f)

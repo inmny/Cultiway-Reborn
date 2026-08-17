@@ -60,6 +60,28 @@ public static class MagicSpellProgressionService
     }
 
     /// <summary>
+    /// 无副作用地判断现有知识关系中是否存在已经达到改良阈值的法术。
+    /// </summary>
+    public static bool CanImproveNow(ActorExtend actor)
+    {
+        if (!CanImprove(actor)) return false;
+
+        var now = GetWorldTime();
+        foreach (var knowledge in actor.E.GetRelations<MagicSpellKnowledgeRelation>())
+        {
+            var source = knowledge.SkillContainer;
+            if (source.IsNull || !actor.OwnsLearnedSkill(source)) continue;
+            if (!SkillCastResourceResolver.UsesResource(source, SkillCastResources.Mana)) continue;
+
+            var profile = MagicSpellProfile.ResolveReadOnly(source);
+            if (profile == null || now < knowledge.NextImprovementAttemptWorldTime) continue;
+            var threshold = ResolveImprovementThreshold(actor, profile, knowledge.ImprovementCount);
+            if (knowledge.ImprovementProgress >= threshold) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
     /// 从所有达到使用阈值的法术中选择一个，在当前研究任务中尝试改进并上传魔网。
     /// </summary>
     public static bool TryImproveAndPublish(ActorExtend actor)
