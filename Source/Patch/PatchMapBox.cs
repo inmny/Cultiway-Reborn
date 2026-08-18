@@ -140,6 +140,7 @@ internal static class PatchMapBox
         ScrollWindow.hideAllEvent(false);
         WindowHistory.clear();
         WorldboxGame.I.ClearWorldReferences();
+        ControlledPossessionMiniMap.ClearWorldState();
         ControlledSkillTargetSelection.ClearWorldState();
         ControlledTaskTargetSelection.ClearWorldState();
         ControlledTaskCommandPalette.ClearWorldState();

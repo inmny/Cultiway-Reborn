@@ -55,6 +55,7 @@ public partial class WorldboxGame
                 () => CycleLabelKey,
                 () => GetHotkeyText(CycleControlledSkill, "E"));
             ControlledActiveAbilityBar.Ensure();
+            ControlledPossessionMiniMap.Ensure();
             ControlledTaskCommandPalette.Ensure();
             ControlledTaskTargetSelection.Ensure();
             ControlledTaskOrderTracker.Ensure();
