@@ -262,6 +262,17 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         }
     }
 
+    /// <summary>直接替换当前活动战力等级，用于换体或其他允许降阶的流程。</summary>
+    public void SetPowerLevel(float value)
+    {
+        if (E.HasComponent<PowerLevel>())
+            E.GetComponent<PowerLevel>().value = value;
+        else
+            E.AddComponent(new PowerLevel { value = value });
+        SkillCastResourceResolver.Invalidate(this);
+        MarkCultiwayStatsDirty();
+    }
+
     /// <summary>
     ///     防御 PowerLevel 解析器：target 在受击时可消耗资源调整自己的防御 PL。
     ///     返回 null 表示不处理（回退默认 GetPowerLevel）；返回 float 表示调整后的防御 PL。

@@ -406,6 +406,31 @@ public static class CoreFormationComposer
         return changed;
     }
 
+    /// <summary>处理元婴跨越的三、六、九层节点，并保留其原始金丹谱系。</summary>
+    public static bool EvolveYuanying(ref CoreFormationSnapshot snapshot, int previousStage, int currentStage)
+    {
+        if (!snapshot.IsFinalized || snapshot.realm != CoreFormationRealm.Yuanying) return false;
+        snapshot.refinement = Mathf.Max(snapshot.refinement, currentStage);
+        var changed = false;
+        for (var i = 0; i < AwakeningStages.Length; i++)
+        {
+            var stage = AwakeningStages[i];
+            if (previousStage >= stage || currentStage < stage) continue;
+            changed = true;
+            if ((snapshot.atoms ?? []).Any(atom => atom.awakening_stage == stage)) continue;
+            StrengthenPrimaryAtom(ref snapshot);
+        }
+
+        if (previousStage < 9 && currentStage >= 9)
+        {
+            StrengthenAllActiveAtoms(ref snapshot, currentStage);
+            changed = true;
+        }
+
+        if (changed) RebuildDerived(ref snapshot, currentStage);
+        return changed;
+    }
+
     /// <summary>组合当前阶段已显化原子的说明文本。</summary>
     public static string GetDescription(CoreFormationSnapshot snapshot, int stage)
     {

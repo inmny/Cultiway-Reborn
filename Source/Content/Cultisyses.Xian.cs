@@ -39,7 +39,7 @@ public partial class Cultisyses
                 GetQiRefinementDetailedLevel,
                 GetFoundationDetailedLevel,
                 GetJindanDetailedLevel,
-                null, null, null, null, null,
+                GetYuanyingDetailedLevel, null, null, null, null,
                 null, null,
                 null, null, null, null, null, null, null, null,
                 null, null,
@@ -327,6 +327,7 @@ public partial class Cultisyses
         };
         formYuanying.Requirements.Add(RequireFullWakan);
         formYuanying.Requirements.Add(RequireJindan);
+        formYuanying.Requirements.Add(RequireSeedAwakeningReady);
         formYuanying.Transformations.Add(ApplyYuanyingTransformation);
         formYuanying.Rewards.Add(ApplyYuanyingReward);
 
@@ -339,7 +340,22 @@ public partial class Cultisyses
         jindanRealm.SynchronizationEffects.Add(NormalizeJindanRealm);
         profile.AddRealm(jindanRealm);
 
+        var refineYuanying = new ProgressionTransitionAsset<Xian>(
+            "xian.refine_yuanying", ProgressionKind.Minor, XianLevels.Yuanying, XianLevels.Yuanying)
+        {
+            IsApproaching = IsYuanyingRefinementApproaching,
+            ResolveNatural = ResolveYuanyingRefinement,
+            ResolveGrant = ResolveGrantedYuanyingRefinement
+        };
+        refineYuanying.Requirements.Add(RequireFullWakan);
+        refineYuanying.Requirements.Add(RequireYuanying);
+        refineYuanying.SuccessCosts.Add(ApplyYuanyingRefinementCost);
+        refineYuanying.Transformations.Add(ApplyYuanyingRefinement);
+        refineYuanying.Rewards.Add(ApplyYuanyingRefinementReward);
+        refineYuanying.FailureEffects.Add(ApplySmallBreakthroughFailure);
+
         var yuanyingRealm = new RealmProgressionAsset<Xian>(XianLevels.Yuanying);
+        yuanyingRealm.Transitions.Add(refineYuanying);
         yuanyingRealm.SynchronizationEffects.Add(NormalizeYuanyingRealm);
         profile.AddRealm(yuanyingRealm);
 

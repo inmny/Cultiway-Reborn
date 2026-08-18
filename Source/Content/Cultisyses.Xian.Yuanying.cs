@@ -1,3 +1,4 @@
+using Cultiway.Const;
 using Cultiway.Content.AIGC;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
@@ -7,6 +8,7 @@ using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Progression;
 using Cultiway.Utils;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Content;
@@ -14,10 +16,54 @@ namespace Cultiway.Content;
 /// <summary>仙道元婴境界的结婴、奖励、同步与传承规则。</summary>
 public partial class Cultisyses
 {
+    private const int MaximumYuanyingStage = 9;
+
+    /// <summary>将元婴精炼层数映射到元婴境界的细分排序区间。</summary>
+    private static float GetYuanyingDetailedLevel(ActorExtend actor)
+    {
+        return actor.TryGetComponent(out Yuanying yuanying)
+            ? 0.01f + 0.89f * Mathf.Clamp01((float)yuanying.stage / MaximumYuanyingStage)
+            : 0f;
+    }
+
+    private static ProgressionGateResult RequireYuanying(ActorExtend actor, CultisysAsset<Xian> cultisys,
+                                                           ref Xian component)
+    {
+        return actor.HasComponent<Yuanying>()
+            ? ProgressionGateResult.Satisfied
+            : ProgressionGateResult.Blocked("xian.yuanying_missing");
+    }
+
+    /// <summary>休眠种子只能在宿主金丹完成九转后唤醒；普通结婴保持既有规则。</summary>
+    private static ProgressionGateResult RequireSeedAwakeningReady(
+        ActorExtend actor,
+        CultisysAsset<Xian> cultisys,
+        ref Xian component)
+    {
+        if (!actor.TryGetComponent(out YuanyingSeed seed) || !seed.IsValid)
+            return ProgressionGateResult.Satisfied;
+        return actor.TryGetComponent(out Jindan jindan) && jindan.stage >= YuanyingRequiredJindanStage
+            ? ProgressionGateResult.Satisfied
+            : ProgressionGateResult.NotReady("xian.seed_requires_ninefold_jindan");
+    }
+
+    private static bool IsYuanyingRefinementApproaching(
+        ActorExtend actor,
+        CultisysAsset<Xian> cultisys,
+        ref Xian component)
+    {
+        return actor.TryGetComponent(out Yuanying yuanying)
+               && yuanying.stage < MaximumYuanyingStage
+               && IsXianApproachingBreakthrough(actor, cultisys, ref component);
+    }
+
     /// <summary>继承金丹组合并根据结婴时的神识、功法与语义生成元婴蜕变。</summary>
     private static ProgressionResolution ResolveYuanying(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                                           ref Xian component)
     {
+        if (actor.TryGetComponent(out YuanyingSeed seed) && seed.IsValid)
+            return ResolveSeedAwakening(actor, seed);
+
         Jindan jindan = actor.GetComponent<Jindan>();
         XianBase xianBase = actor.TryGetComponent(out XianBase existing) ? existing : default;
         CoreFormationSnapshot formation = CoreFormationComposer.ComposeYuanying(
@@ -35,13 +81,42 @@ public partial class Cultisyses
             : ProgressionResolution.Failure(reason: "xian.jindan_missing");
     }
 
+    private static ProgressionResolution ResolveSeedAwakening(ActorExtend actor, YuanyingSeed seed)
+    {
+        CoreFormationSnapshot formation = seed.formation.DeepClone();
+        float compatibility = actor.HasElementRoot()
+            ? SoulContestResolver.CalculateCompatibility(formation, actor.GetElementRoot())
+            : 0f;
+        float jindanSupport = actor.TryGetComponent(out Jindan hostJindan)
+            ? Mathf.Clamp01(Mathf.Log10(1f + Mathf.Max(0f, hostJindan.strength)) / 2f)
+            : 0f;
+        formation.strength = seed.strength * (0.9f + compatibility * 0.15f + jindanSupport * 0.05f);
+        return ProgressionResolution.Success(new YuanyingPayload(
+            formation,
+            default,
+            formation.source_refinement,
+            0f,
+            formation.strength,
+            fromSeed: true,
+            seedPowerLevel: seed.source_power_level));
+    }
+
     /// <summary>创建或替换元婴组件，并保留金丹作为只读谱系归档。</summary>
     private static void ApplyYuanyingTransformation(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                                      ref Xian component, object payload)
     {
         var data = (YuanyingPayload)payload;
         ref Yuanying yuanying = ref actor.GetOrAddComponent<Yuanying>();
-        yuanying = new Yuanying(data.Formation, data.SourceJindan, data.JindanStage, data.JindanStrength);
+        if (data.FromSeed)
+        {
+            yuanying = new Yuanying { formation = data.Formation.DeepClone() };
+            if (actor.HasComponent<YuanyingSeed>()) actor.E.RemoveComponent<YuanyingSeed>();
+            YuanyingPossessionService.QueuePowerRestore(actor, data.SeedPowerLevel);
+        }
+        else
+        {
+            yuanying = new Yuanying(data.Formation, data.SourceJindan, data.JindanStage, data.JindanStrength);
+        }
         actor.MarkSemanticProfileDirty();
     }
 
@@ -50,7 +125,7 @@ public partial class Cultisyses
                                             ref Xian component, object payload)
     {
         var data = (YuanyingPayload)payload;
-        if (!actor.Base.hasTrait(WorldboxGame.ActorTraits.ScarOfDivinity.id))
+        if (!data.FromSeed && !actor.Base.hasTrait(WorldboxGame.ActorTraits.ScarOfDivinity.id))
         {
             PersistentLogger.Get("JindanStats.log").Log(
                 $"{data.JindanStage}, {data.FoundationStrength}, {data.JindanStrength}");
@@ -67,6 +142,70 @@ public partial class Cultisyses
         GrantRepresentativeSkill(actor, data.Formation);
     }
 
+    private static ProgressionResolution ResolveYuanyingRefinement(
+        ActorExtend actor,
+        CultisysAsset<Xian> cultisys,
+        ref Xian component)
+    {
+        Yuanying yuanying = actor.GetComponent<Yuanying>();
+        if (yuanying.stage >= MaximumYuanyingStage) return ProgressionResolution.NoProgress();
+        float intelligence = actor.GetStat(S.intelligence);
+        if (Mathf.Abs(RdUtils.NextNormal_0_6()) * (yuanying.stage + 1) >= intelligence)
+            return ProgressionResolution.Failure();
+        return ProgressionResolution.Success(new YuanyingRefinementPayload(
+            1f + 0.15f * Randy.randomFloat(intelligence / (10f + intelligence), 1f)));
+    }
+
+    private static ProgressionResolution ResolveGrantedYuanyingRefinement(
+        ActorExtend actor,
+        CultisysAsset<Xian> cultisys,
+        ref Xian component)
+    {
+        if (!actor.TryGetComponent(out Yuanying yuanying))
+            return ProgressionResolution.Failure(reason: "xian.yuanying_missing");
+        return yuanying.stage < MaximumYuanyingStage
+            ? ProgressionResolution.Success(new YuanyingRefinementPayload(1.15f))
+            : ProgressionResolution.NoProgress(reason: "xian.yuanying_refinement_capped");
+    }
+
+    private static void ApplyYuanyingRefinementCost(
+        ActorExtend actor,
+        CultisysAsset<Xian> cultisys,
+        ref Xian component,
+        object payload)
+    {
+        WakanResourceService.Set(actor, ref component, component.wakan * 0.75f);
+    }
+
+    private static void ApplyYuanyingRefinement(
+        ActorExtend actor,
+        CultisysAsset<Xian> cultisys,
+        ref Xian component,
+        object payload)
+    {
+        var data = (YuanyingRefinementPayload)payload;
+        ref Yuanying yuanying = ref actor.GetComponent<Yuanying>();
+        int previousStage = yuanying.stage;
+        yuanying.stage = Mathf.Min(MaximumYuanyingStage, previousStage + 1);
+        yuanying.strength *= data.StrengthMultiplier;
+        data.FormationEvolved = CoreFormationComposer.EvolveYuanying(
+            ref yuanying.formation, previousStage, yuanying.stage);
+        actor.MarkSemanticProfileDirty();
+        CoreFormationEffectResolver.Synchronize(actor);
+    }
+
+    private static void ApplyYuanyingRefinementReward(
+        ActorExtend actor,
+        CultisysAsset<Xian> cultisys,
+        ref Xian component,
+        object payload)
+    {
+        var data = (YuanyingRefinementPayload)payload;
+        ref Yuanying yuanying = ref actor.GetComponent<Yuanying>();
+        if (!data.FormationEvolved || !GrantRepresentativeSkill(actor, yuanying.formation))
+            actor.EnhanceSkillRandomly(SkillEnhanceSources.SmallUpgradeSuccess);
+    }
+
     /// <summary>同步到元婴境界时补齐完整前置谱系，并保留金丹归档。</summary>
     private static void NormalizeYuanyingRealm(ActorExtend actor, CultisysAsset<Xian> cultisys,
                                                 ref Xian component, object payload)
@@ -77,6 +216,15 @@ public partial class Cultisyses
 
         if (!actor.HasComponent<Yuanying>())
         {
+            if (actor.TryGetComponent(out YuanyingSeed seed) && seed.IsValid)
+            {
+                actor.AddComponent(seed.Restore());
+                actor.SetPowerLevel(seed.source_power_level);
+                actor.E.RemoveComponent<YuanyingSeed>();
+                actor.MarkSemanticProfileDirty();
+                return;
+            }
+
             float strength = xianBaseValue.GetStrength();
             CoreFormationSnapshot jindanFormation;
             int jindanStage = YuanyingRequiredJindanStage;
@@ -123,13 +271,16 @@ public partial class Cultisyses
     {
         /// <summary>固化元婴组合、来源金丹谱系、继承转数及结婴前强度数据。</summary>
         public YuanyingPayload(CoreFormationSnapshot formation, CoreFormationSnapshot sourceJindan,
-                               int jindanStage, float foundationStrength, float jindanStrength)
+                               int jindanStage, float foundationStrength, float jindanStrength,
+                               bool fromSeed = false, float seedPowerLevel = 0f)
         {
             Formation = formation;
             SourceJindan = sourceJindan;
             JindanStage = jindanStage;
             FoundationStrength = foundationStrength;
             JindanStrength = jindanStrength;
+            FromSeed = fromSeed;
+            SeedPowerLevel = seedPowerLevel;
         }
 
         /// <summary>继承金丹并加入结婴蜕变后的元婴快照。</summary>
@@ -146,5 +297,19 @@ public partial class Cultisyses
 
         /// <summary>结婴前最终金丹强度，同时作为新元婴的初始强度。</summary>
         public float JindanStrength { get; }
+
+        public bool FromSeed { get; }
+        public float SeedPowerLevel { get; }
+    }
+
+    private sealed class YuanyingRefinementPayload
+    {
+        public YuanyingRefinementPayload(float strengthMultiplier)
+        {
+            StrengthMultiplier = strengthMultiplier;
+        }
+
+        public float StrengthMultiplier { get; }
+        public bool FormationEvolved { get; set; }
     }
 }

@@ -32,6 +32,14 @@ public struct Jindan : IComponent
         this.formation.refinement = 0;
     }
 
+    /// <summary>深拷贝组合快照，避免不同角色共享内部数组。</summary>
+    public readonly Jindan DeepClone()
+    {
+        var clone = this;
+        clone.formation = formation.DeepClone();
+        return clone;
+    }
+
     /// <summary>返回组合快照固化的规范名称。</summary>
     public string GetName()
     {

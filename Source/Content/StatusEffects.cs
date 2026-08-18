@@ -32,6 +32,9 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     public static StatusEffectAsset BattleBlessing { get; private set; }
     public static StatusEffectAsset GuardBlessing { get; private set; }
     public static StatusEffectAsset HasteBlessing { get; private set; }
+    public static StatusEffectAsset YuanyingEscape { get; private set; }
+    public static StatusEffectAsset BodyDisharmony { get; private set; }
+    public static StatusEffectAsset SoulTrauma { get; private set; }
     private const float BurnTickInterval = 1f;
     private const float PoisonTickInterval = 1f;
     private const float CurseTickInterval = 1f;
@@ -167,6 +170,44 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .AddComponent(new StatusPotency())
             .AddComponent(new StatusOverwriteStats { stats = new BaseStats() })
             .Build();
+        YuanyingEscape = StatusEffectAsset.StartBuild(nameof(YuanyingEscape))
+            .SetIconPath("cultiway/icons/achievements/nascent_soul_formed")
+            .SetDuration(YuanyingPossessionRules.SoulLifetime)
+            .EnableParticle(new Color(0.55f, 0.9f, 1f), 1, 0.12f)
+            .Build();
+        BodyDisharmony = StatusEffectAsset.StartBuild(nameof(BodyDisharmony))
+            .SetNegative()
+            .SetIconPath("cultiway/icons/achievements/nascent_soul_formed")
+            .SetDuration(YuanyingPossessionRules.BodyDisharmonyDuration)
+            .SetStats(CreateBodyDisharmonyStats())
+            .EnableParticle(new Color(0.65f, 0.45f, 0.85f), 1, 0.2f)
+            .Build();
+        SoulTrauma = StatusEffectAsset.StartBuild(nameof(SoulTrauma))
+            .SetNegative()
+            .SetIconPath("cultiway/icons/artifact_atoms/soul_crystal")
+            .SetDuration(YuanyingPossessionRules.SoulTraumaDuration)
+            .SetStats(CreateSoulTraumaStats())
+            .EnableParticle(new Color(0.35f, 0.2f, 0.55f), 1, 0.16f)
+            .Build();
+    }
+
+    private static BaseStats CreateBodyDisharmonyStats()
+    {
+        return new BaseStats
+        {
+            [S.multiplier_speed] = -0.25f,
+            [S.multiplier_damage] = -0.25f,
+            [WorldboxGame.BaseStats.StatsToModStats[WorldboxGame.BaseStats.DivineSense.id]] = -0.25f
+        };
+    }
+
+    private static BaseStats CreateSoulTraumaStats()
+    {
+        return new BaseStats
+        {
+            [WorldboxGame.BaseStats.StatsToModStats[WorldboxGame.BaseStats.MaxSoul.id]] = -0.25f,
+            [WorldboxGame.BaseStats.StatsToModStats[WorldboxGame.BaseStats.DivineSense.id]] = -0.25f
+        };
     }
 
     // 创建冰冻状态的BaseStats，包含三个tag

@@ -4,6 +4,7 @@ using Cultiway.Core;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
 using NeoModLoader.api.attributes;
+using strings;
 using UnityEngine;
 
 namespace Cultiway.Content.UI.CreatureInfoPages;
@@ -25,15 +26,37 @@ public sealed class YuanyingPage : MonoBehaviour
     public static void Show(CreatureInfoPage page, Actor actor)
     {
         ActorExtend actorExtend = actor.GetExtend();
-        ref Yuanying yuanying = ref actorExtend.GetYuanying();
+        CoreFormationSnapshot formation;
+        string name;
+        float strength;
+        int stage;
+        string sourceJindanName;
+        if (actorExtend.TryGetComponent(out Yuanying active))
+        {
+            formation = active.formation;
+            name = active.GetName();
+            strength = active.strength;
+            stage = active.stage;
+            sourceJindanName = active.source_jindan_name;
+        }
+        else
+        {
+            YuanyingSeed seed = actorExtend.GetComponent<YuanyingSeed>();
+            formation = seed.formation;
+            name = $"{seed.formation.canonical_name} ({"Cultiway.YuanyingSeed.Dormant".Localize()})";
+            strength = seed.strength;
+            stage = seed.formation.refinement;
+            sourceJindanName = seed.formation.source_name;
+        }
+
         var model = new CoreFormationPageModel(
             actorExtend,
             CoreFormationRealm.Yuanying,
-            yuanying.formation,
-            yuanying.GetName(),
-            yuanying.strength,
-            yuanying.stage,
-            yuanying.source_jindan_name,
+            formation,
+            name,
+            strength,
+            stage,
+            sourceJindanName,
             -1);
         page.GetComponent<YuanyingPage>().detailView.SetContent(model);
     }

@@ -19,6 +19,8 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     /// <summary>骑士和平期操练任务（原地积累斗气，比战斗慢）。</summary>
     public static BehaviourTaskActor DailyKnightTrain          { get; private set; }
 
+    /// <summary>元婴离体后持续寻主、接近并结算一次夺舍。</summary>
+    public static BehaviourTaskActor YuanyingPossession { get; private set; }
     /// <summary>调用通用进阶服务执行当前体系候选过渡的行为任务。</summary>
     public static BehaviourTaskActor CultivationProgression    { get; private set; }
     /// <summary>执行自然工作选择器已经认领的常规集体工程。</summary>
@@ -77,6 +79,9 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
+        YuanyingPossession.addBeh(new BehYuanyingPossession());
+        YuanyingPossession.setIcon("cultiway/icons/achievements/nascent_soul_formed");
+
         ControlledMoveToTile.addBeh(new BehGoToTileTarget());
         ControlledMoveToTile.setIcon("ui/icons/iconArrowDestination");
 

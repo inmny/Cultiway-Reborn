@@ -17,4 +17,7 @@ public enum FinalDamageStage : byte
 
     /// <summary>在确定会致命时执行保命与重生规则。</summary>
     Survival,
+
+    /// <summary>在全部常规保命规则失败后执行最后手段。</summary>
+    LastResort,
 }

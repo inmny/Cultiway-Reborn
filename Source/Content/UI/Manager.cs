@@ -59,7 +59,8 @@ public class Manager : ICanInit
             XianBasePage.Setup, XianBasePage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(JindanPage), a => a.GetExtend().HasComponent<Jindan>(),
             JindanPage.Setup, JindanPage.Show);
-        WindowNewCreatureInfo.RegisterPage(nameof(YuanyingPage), a => a.GetExtend().HasComponent<Yuanying>(),
+        WindowNewCreatureInfo.RegisterPage(nameof(YuanyingPage),
+            a => a.GetExtend().HasComponent<Yuanying>() || a.GetExtend().HasComponent<YuanyingSeed>(),
             YuanyingPage.Setup, YuanyingPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(CultibookPage), a=>a.GetExtend().HasCultibook(), CultibookPage.Setup, CultibookPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(ElixirPage), a=> a.GetExtend().HasMaster<ElixirAsset>(), ElixirPage.Setup, ElixirPage.Show);

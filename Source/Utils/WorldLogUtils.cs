@@ -46,6 +46,34 @@ public static class WorldLogUtils
         worldLog.add();
     }
 
+    public static void LogYuanyingEscape(Actor actor)
+    {
+        AddPossessionLog(WorldLogs.LogYuanyingEscape, actor, actor?.getName(), null);
+    }
+
+    public static void LogYuanyingPossessionSuccess(Actor actor, string actorName, string hostName)
+    {
+        AddPossessionLog(WorldLogs.LogYuanyingPossessionSuccess, actor, actorName, hostName);
+    }
+
+    public static void LogYuanyingPossessionFailure(Actor actor, Actor host)
+    {
+        AddPossessionLog(WorldLogs.LogYuanyingPossessionFailure, actor, actor?.getName(), host?.getName());
+    }
+
+    private static void AddPossessionLog(WorldLogAsset asset, Actor actor, string actorName, string hostName)
+    {
+        if (asset == null || actor == null) return;
+        var worldLog = new WorldLogMessage(asset, actorName, hostName)
+        {
+            unit = actor,
+            location = actor.current_position
+        };
+        if (actor.kingdom?.getColor() != null)
+            worldLog.color_special1 = actor.kingdom.getColor().getColorText();
+        worldLog.add();
+    }
+
     public static void LogSectFounded(Sect sect, Actor founder)
     {
         LogSect(WorldLogs.LogSectFounded, sect, founder, sect?.data.DoctrineCultibookName);

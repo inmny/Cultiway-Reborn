@@ -19,6 +19,8 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     /// <summary>骑士和平期操练工作（积累斗气），斗气蓄满后主动执行进阶。</summary>
     public static ActorJob KnightCultivator    { get; private set; }
 
+    /// <summary>元婴离体后强制执行的寻主工作。</summary>
+    public static ActorJob YuanyingPossession { get; private set; }
     /// <summary>由通用进阶选择器主动分配、只执行一次当前候选进阶的工作。</summary>
     public static ActorJob CultivationProgression { get; private set; }
     /// <summary>角色自然换工作时认领并执行一个所属组织的常规集体工程。</summary>
@@ -97,6 +99,10 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         KnightCultivator.addTask(ActorTasks.CultivationProgression.id);
         KnightCultivator.addCondition(new CondCanProgressCultivation());
         KnightCultivator.addTask(ActorTasks.EndJob.id);
+
+        YuanyingPossession.addTask(ActorTasks.YuanyingPossession.id);
+        YuanyingPossession.addTask(ActorTasks.EndJob.id);
+        ActorJobSelectionRegistry.Register(TrySelectYuanyingPossessionJob, 10000);
 
         CultivationProgression.addTask(ActorTasks.CultivationProgression.id);
         CultivationProgression.addTask(ActorTasks.EndJob.id);
@@ -240,6 +246,14 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
         ApprenticeDuty.addCondition(new CondNeedMaster());
         ApprenticeDuty.addCondition(new CondHasMaster(), false);
         ApprenticeDuty.addTask(ActorTasks.EndJob.id);
+    }
+
+    /// <summary>离体元婴始终抢占普通工作并继续唯一一次夺舍流程。</summary>
+    private static bool TrySelectYuanyingPossessionJob(Actor actor, ref string jobId)
+    {
+        if (!YuanyingPossessionService.IsEscapedSoul(actor)) return false;
+        jobId = YuanyingPossession.id;
+        return true;
     }
 
     /// <summary>角色存在可调度进阶时抢占普通随机工作，并返回统一进阶工作标识。</summary>

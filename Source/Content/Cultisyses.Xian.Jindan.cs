@@ -46,6 +46,10 @@ public partial class Cultisyses
     {
         RealmProgressionAsset<Xian> realm = cultisys.Progression.GetRealm(XianLevels.Jindan);
         if (!actor.TryGetComponent(out Jindan jindan)) return realm.GetMinorTransition();
+        if (actor.TryGetComponent(out YuanyingSeed seed) && seed.IsValid)
+            return jindan.stage >= YuanyingRequiredJindanStage
+                ? realm.GetMajorTransition()
+                : realm.GetMinorTransition();
         return jindan.stage >= YuanyingRequiredJindanStage || MustAttemptYuanyingForLifespan(actor.Base)
             ? realm.GetMajorTransition()
             : realm.GetMinorTransition();
@@ -67,6 +71,10 @@ public partial class Cultisyses
     {
         RealmProgressionAsset<Xian> realm = cultisys.Progression.GetRealm(XianLevels.Jindan);
         if (!actor.TryGetComponent(out Jindan jindan)) return realm.GetMinorTransition();
+        if (actor.TryGetComponent(out YuanyingSeed seed) && seed.IsValid)
+            return jindan.stage >= YuanyingRequiredJindanStage
+                ? realm.GetMajorTransition()
+                : realm.GetMinorTransition();
 
         bool shouldFormYuanying = jindan.stage >= YuanyingRequiredJindanStage
                                   && Randy.randomChance(actor.Base.hasTrait(WorldboxGame.ActorTraits.Ambitious.id)
