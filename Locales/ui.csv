@@ -427,6 +427,10 @@ Cultiway.WorldLog.SectLeaderKilled,$sect$ 掌门 $actor$ 遇害，凶手为 $val
 Cultiway.WorldLog.SectScriptureContributed,$actor$ 将《$value$》收入 $sect$ 藏经阁
 Cultiway.WorldLog.SectLecture,$actor$ 在 $sect$ 开坛讲法：$value$
 Cultiway.WorldLog.DemonAscension,$actor$ 献祭己身，化身为 $daemon$ 降临世间！
+Cultiway.WorldLog.YuanyingEscape,$actor$ 肉身毁灭，元婴遁出寻找宿主
+Cultiway.WorldLog.YuanyingPossessionSuccess,$actor$ 成功夺舍 $host$ 的肉身
+Cultiway.WorldLog.YuanyingPossessionFailure,$actor$ 夺舍 $host$ 失败，元婴随之消亡
+Cultiway.YuanyingSeed.Dormant,休眠
 Cultiway.Sect.Permission.EvaluatePersonnel,评定人事
 Cultiway.Sect.Permission.EvaluatePersonnel.Info,允许执行宗门人事评定
 Cultiway.Sect.Permission.PromoteMember,任免门人

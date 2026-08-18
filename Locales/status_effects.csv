@@ -35,3 +35,9 @@ Cultiway.GuardBlessingStatus,守护祝福
 Cultiway.GuardBlessingStatus.Description,暂时提高护甲
 Cultiway.HasteBlessingStatus,迅捷祝福
 Cultiway.HasteBlessingStatus.Description,暂时提高移动速度和攻击速度
+Cultiway.YuanyingEscape,元婴出逃
+Cultiway.YuanyingEscape.Description,肉身已毁，元婴必须在消散前找到合适宿主
+Cultiway.BodyDisharmony,肉身不合
+Cultiway.BodyDisharmony.Description,神魂尚未适应新肉身，速度、伤害与神识降低，期间无法再次元婴出逃
+Cultiway.SoulTrauma,神魂创伤
+Cultiway.SoulTrauma.Description,抵御夺舍留下的神魂损伤，暂时降低神魂与神识上限
