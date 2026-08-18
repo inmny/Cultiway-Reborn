@@ -11,27 +11,40 @@ using Object = UnityEngine.Object;
 
 namespace Cultiway.UI.Components;
 
+/// <summary>
+/// 地区选中底栏各内容区域的共同基础，负责创建图标或旗帜、按内容调整尺寸并复用暂时隐藏的条目。
+/// </summary>
 internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
 {
+    // 地区和城市旗帜在选中底栏中的显示比例与默认占位尺寸。
     private const float BannerScale = 0.75f;
     private const float DefaultBannerWidth = 34f;
     private const float DefaultBannerHeight = 44f;
 
+    // 当前显示的条目，以及暂时隐藏、可在下次刷新继续使用的图标和旗帜。
     private readonly List<GameObject> _spawnedObjects = new();
+    private readonly Stack<GeoRegionSelectedInfoIcon> _iconPool = new();
+    private readonly Stack<GeoRegionBanner> _geoRegionBannerPool = new();
+    private readonly Stack<CityBanner> _cityBannerPool = new();
+    // 当前内容区域和整个底栏条目的尺寸基准，以及实际显示的条目数量。
     private RectTransform _hostRect;
     private RectTransform _tabElementRect;
     private float _baseHostWidth;
     private float _baseTabElementWidth;
     private int _itemsCount;
+    // 上次显示的地区和内容标记，用于名单未变时只更新文字与图案。
     private GeoRegion _lastRefreshRegion;
     private string _lastRefreshKey;
     private bool _hasRefreshKey;
+    // 记录条目是否直接放在原版区域、原版内容位置和背景标题。
     private bool _gridIsHost;
     private Transform _originalContentRoot;
     private Text _backgroundTitle;
     private LocalizedText _backgroundTitleLocalization;
+    /// <summary>实际承载地区图标或旗帜的排列区域。</summary>
     protected Transform Grid { get; private set; }
 
+    // 子类可调整四周留白、最小尺寸、行列数量和条目排列方向。
     protected virtual float LeftPadding => 0f;
     protected virtual float RightPadding => 0f;
     protected virtual float TopPadding => 0f;
@@ -42,23 +55,31 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
     protected virtual GridLayoutGroupExtended.Constraint ConstraintType => GridLayoutGroupExtended.Constraint.FixedRowCount;
     protected virtual GridLayoutGroupExtended.Axis StartAxis => GridLayoutGroupExtended.Axis.Horizontal;
     protected virtual TextAnchor ChildAlignment => TextAnchor.MiddleLeft;
+    // 每个条目的固定尺寸与间距。
     protected virtual Vector2 CellSize => new(GeoRegionSelectedInfoIcon.DefaultSize, GeoRegionSelectedInfoIcon.DefaultSize);
     protected virtual Vector2 GridSpacing => new(3f, 3f);
+    // 控制空内容是否保留区域、条目放置方式和单行间距。
     protected virtual bool KeepVisibleWhenEmpty => false;
     protected virtual bool AnchorGridToTop => false;
     protected virtual bool UseHostAsGrid => false;
     protected virtual bool UseFlexibleOneRowSpacing => ConstraintType == GridLayoutGroupExtended.Constraint.FixedRowCount && ConstraintCount == 1;
     protected virtual int FlexibleBonusSpacingX => Mathf.RoundToInt(GridSpacing.x);
+    // 条目换位动画时长和依次开始动画的数量限制。
+    protected virtual float LayoutMoveDuration => 0.12f;
+    protected virtual int LayoutDelayItems => 8;
+    // 背景标题的备用文字、本地化文本编号、字号和颜色。
     protected virtual string BackgroundTitle => null;
     protected virtual string BackgroundTitleKey => null;
     protected virtual int BackgroundTitleFontSize => 20;
     protected virtual Color BackgroundTitleColor => new(0.34f, 0.25f, 0.13f, 0.58f);
 
+    /// <summary>记录原版区域放置条目的位置，替换内容时尽量保留原有框架和标题。</summary>
     internal void SetOriginalContentRoot(Transform contentRoot)
     {
         _originalContentRoot = contentRoot;
     }
 
+    /// <summary>首次使用时整理原版节点，创建条目排列区域并应用子类指定的尺寸和间距。</summary>
     internal void Initialize()
     {
         if (Grid != null) return;
@@ -134,8 +155,8 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         layout.childAlignment = ChildAlignment;
         layout.constraint = ConstraintType;
         layout.constraintCount = Mathf.Max(1, ConstraintCount);
-        layout.moveDuration = 0.12f;
-        layout.delayItems = 8;
+        layout.moveDuration = LayoutMoveDuration;
+        layout.delayItems = LayoutDelayItems;
 
         if (UseFlexibleOneRowSpacing)
         {
@@ -146,6 +167,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         ApplyLayoutSize(Vector2.zero);
     }
 
+    /// <summary>设置区域背后的淡色标题；没有标题文字时隐藏它。</summary>
     protected void SetBackgroundTitle(string titleKey, string fallbackTitle)
     {
         if (string.IsNullOrWhiteSpace(titleKey) && string.IsNullOrWhiteSpace(fallbackTitle))
@@ -179,16 +201,18 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         }
     }
 
-    internal void Refresh(GeoRegion region)
+    /// <summary>
+    /// 更新区域内容。名单变化时重新摆放条目，只是数值变化时保留当前条目；返回是否需要重算底栏大小。
+    /// </summary>
+    internal bool Refresh(GeoRegion region)
     {
         Initialize();
 
         string refreshKey = GetRefreshKey(region);
         if (_hasRefreshKey && ReferenceEquals(_lastRefreshRegion, region) && _lastRefreshKey == refreshKey)
         {
-            RefreshExisting(region);
-            gameObject.SetActive(_spawnedObjects.Count > 0 || KeepVisibleWhenEmpty);
-            return;
+            RefreshContent(region);
+            return false;
         }
 
         ClearSpawned(false);
@@ -197,39 +221,46 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         _lastRefreshKey = refreshKey;
         _hasRefreshKey = true;
         ApplyLayoutSize(GetContentSize());
-        gameObject.SetActive(_spawnedObjects.Count > 0 || KeepVisibleWhenEmpty);
+        SetContainerActive(_spawnedObjects.Count > 0 || KeepVisibleWhenEmpty);
+        return true;
     }
 
+    /// <summary>由子类为当前地区添加玩家可见的图标或旗帜。</summary>
     protected abstract void Build(GeoRegion region);
 
-    protected virtual void RefreshExisting(GeoRegion region)
+    /// <summary>名单不变时由子类更新现有条目的文字、图案或数值。</summary>
+    protected virtual void RefreshContent(GeoRegion region)
     {
     }
 
-    protected virtual string GetRefreshKey(GeoRegion region)
-    {
-        if (region == null) throw new System.InvalidOperationException("GeoRegion 为空");
-        if (region.data == null) throw new System.InvalidOperationException($"GeoRegion 数据为空: id={region.getID()}");
+    /// <summary>返回代表当前显示名单的文字；结果变化时会重新创建和排列条目。</summary>
+    protected abstract string GetRefreshKey(GeoRegion region);
 
-        GeoRegionData data = region.data;
-        return $"{region.getID()}|{data.name}|{data.CategoryId}|{(int)data.Layer}|{data.TileCount}|{data.CenterX}|{data.CenterY}|{data.color_id}|{data.BannerBackgroundIndex}|{data.BannerIconIndex}";
-    }
-
+    /// <summary>子类可在首次准备区域时移除会干扰地区内容的原版组件。</summary>
     protected virtual void CleanupOriginalChildren()
     {
     }
 
+    /// <summary>添加一个带说明和可选点击动作的信息图标，优先复用之前隐藏的图标。</summary>
     protected GeoRegionSelectedInfoIcon AddIcon(Sprite sprite, string title, string description, Color? color = null, UnityEngine.Events.UnityAction clickAction = null)
     {
-        GeoRegionSelectedInfoIcon icon = GeoRegionSelectedInfoIcon.Create(Grid, "GeoRegionInfoIcon", CellSize.x);
+        GeoRegionSelectedInfoIcon icon = _iconPool.Count > 0
+            ? _iconPool.Pop()
+            : GeoRegionSelectedInfoIcon.Create(Grid, "GeoRegionInfoIcon", CellSize.x);
+        icon.transform.SetParent(Grid, false);
+        icon.gameObject.SetActive(true);
         icon.Setup(sprite, title, description, color, clickAction);
         Track(icon.gameObject);
         return icon;
     }
 
+    /// <summary>添加可点击进入详情的地区旗帜，优先复用之前隐藏的旗帜。</summary>
     protected GeoRegionBanner AddGeoRegionBanner(GeoRegion region)
     {
-        GeoRegionBanner banner = Object.Instantiate(GeoRegionBanner.Prefab, Grid);
+        GeoRegionBanner banner = _geoRegionBannerPool.Count > 0
+            ? _geoRegionBannerPool.Pop()
+            : Object.Instantiate(GeoRegionBanner.Prefab, Grid);
+        banner.transform.SetParent(Grid, false);
         banner.gameObject.SetActive(true);
         banner.transform.localScale = Vector3.one * BannerScale;
         banner.enable_default_click = false;
@@ -240,6 +271,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         return banner;
     }
 
+    /// <summary>添加可点击进入详情的城市旗帜，优先复用之前隐藏的旗帜。</summary>
     protected CityBanner AddCityBanner(City city)
     {
         CityBanner prefab = Resources.Load<CityBanner>("ui/PrefabBannerCity");
@@ -248,7 +280,10 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
             throw new System.InvalidOperationException("找不到原版城市 banner prefab: ui/PrefabBannerCity");
         }
 
-        CityBanner banner = Object.Instantiate(prefab, Grid);
+        CityBanner banner = _cityBannerPool.Count > 0
+            ? _cityBannerPool.Pop()
+            : Object.Instantiate(prefab, Grid);
+        banner.transform.SetParent(Grid, false);
         banner.gameObject.SetActive(true);
         banner.transform.localScale = Vector3.one * 0.75f;
         banner.enable_default_click = false;
@@ -259,29 +294,34 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         return banner;
     }
 
+    /// <summary>载入指定图标；资源不存在时显示默认地区图标。</summary>
     protected static Sprite LoadSprite(string path)
     {
         Sprite sprite = string.IsNullOrEmpty(path) ? null : SpriteTextureLoader.getSprite(path);
         return sprite != null ? sprite : SpriteTextureLoader.getSprite(GeoRegionAsset.DefaultIconPath);
     }
 
+    /// <summary>取得适合覆盖在信息图标上的半透明地区颜色。</summary>
     protected static Color RegionColor(GeoRegion region)
     {
         Color32 color = region.getColor().getColorMain32();
         return new Color(color.r / 255f, color.g / 255f, color.b / 255f, 0.82f);
     }
 
+    /// <summary>将目标设为玩家当前选中地区并打开其详情。</summary>
     protected static void SelectGeoRegion(GeoRegion region)
     {
         AssetManager.meta_type_library.getAsset(region.meta_type).selectAndInspect(region, false, true, false);
     }
 
+    /// <summary>记录一个当前正在显示的条目，并增加布局使用的数量。</summary>
     private void Track(GameObject obj)
     {
         _spawnedObjects.Add(obj);
         _itemsCount++;
     }
 
+    /// <summary>原版区域没有可用标题时，创建不会挡住点击的淡色背景标题。</summary>
     private Text CreateBackgroundTitle()
     {
         GameObject titleObject = new("GeoRegionContainerTitle", typeof(RectTransform), typeof(Text), typeof(Shadow), typeof(LayoutElement));
@@ -316,6 +356,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         return text;
     }
 
+    /// <summary>在原版区域中寻找可沿用的标题，同时避开原本放置图标的内容节点。</summary>
     private Transform FindOriginalTitleRoot(Transform contentRoot)
     {
         _backgroundTitle = null;
@@ -351,6 +392,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         return null;
     }
 
+    /// <summary>判断一个文字节点是否像区域标题，而不是条目内容中的文字。</summary>
     private bool IsTitleCandidate(Transform candidate, Transform contentRoot)
     {
         if (candidate == null || candidate == transform) return false;
@@ -366,6 +408,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         return localizedText != null && !string.IsNullOrEmpty(localizedText.key) && localizedText.key != LocalizedText.DEFAULT_KEY;
     }
 
+    /// <summary>从深层标题向上找到本区域的直接子节点，便于整体保留标题装饰。</summary>
     private Transform GetImmediateChildUnderSelf(Transform child)
     {
         Transform current = child;
@@ -377,6 +420,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         return current;
     }
 
+    /// <summary>判断整理原版区域时是否应保留标题或原内容位置。</summary>
     private bool ShouldKeepOriginalChild(Transform child, Transform titleRoot, Transform contentRoot)
     {
         if (child == null) return false;
@@ -384,6 +428,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         return contentRoot != null && (child == contentRoot || contentRoot.IsChildOf(child));
     }
 
+    /// <summary>清空原版条目，防止国家、盟友或战争内容与地区内容重叠。</summary>
     private static void ClearOriginalContentRoot(Transform contentRoot)
     {
         for (int i = contentRoot.childCount - 1; i >= 0; i--)
@@ -394,6 +439,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         }
     }
 
+    /// <summary>条目直接放在区域根节点时，隐藏不再使用的原版内容位置。</summary>
     private void HideOriginalContentRoot(Transform contentRoot)
     {
         if (contentRoot == null || contentRoot == transform) return;
@@ -402,12 +448,14 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         EnsureIgnoredByLayout(contentRoot.gameObject);
     }
 
+    /// <summary>让保留的标题或隐藏节点不占用地区条目的排列空间。</summary>
     private static void EnsureIgnoredByLayout(GameObject obj)
     {
         LayoutElement layoutElement = obj.GetComponent<LayoutElement>() ?? obj.AddComponent<LayoutElement>();
         layoutElement.ignoreLayout = true;
     }
 
+    /// <summary>隐藏当前条目并按类型收好以便复用，同时可选择忘记上次显示名单。</summary>
     private void ClearSpawned(bool invalidateRefreshKey = true)
     {
         KillLayoutTweens(Grid);
@@ -419,7 +467,22 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
 
             KillLayoutTweens(obj.transform);
             obj.SetActive(false);
-            Object.Destroy(obj);
+            if (obj.TryGetComponent(out GeoRegionSelectedInfoIcon icon))
+            {
+                _iconPool.Push(icon);
+            }
+            else if (obj.TryGetComponent(out GeoRegionBanner geoRegionBanner))
+            {
+                _geoRegionBannerPool.Push(geoRegionBanner);
+            }
+            else if (obj.TryGetComponent(out CityBanner cityBanner))
+            {
+                _cityBannerPool.Push(cityBanner);
+            }
+            else
+            {
+                Object.Destroy(obj);
+            }
         }
 
         _spawnedObjects.Clear();
@@ -431,16 +494,32 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         _hasRefreshKey = false;
     }
 
-    private void OnDisable()
+    /// <summary>按是否有内容显示或隐藏整个区域。</summary>
+    private void SetContainerActive(bool active)
     {
-        ClearSpawned();
+        if (gameObject.activeSelf != active) gameObject.SetActive(active);
     }
 
+    /// <summary>底栏销毁时清理当前条目和所有暂存的图标、旗帜。</summary>
     private void OnDestroy()
     {
         ClearSpawned();
+        DestroyPool(_iconPool);
+        DestroyPool(_geoRegionBannerPool);
+        DestroyPool(_cityBannerPool);
     }
 
+    /// <summary>销毁一类不再使用的暂存条目。</summary>
+    private static void DestroyPool<T>(Stack<T> pool) where T : Component
+    {
+        while (pool.Count > 0)
+        {
+            T component = pool.Pop();
+            if (component != null) Object.Destroy(component.gameObject);
+        }
+    }
+
+    /// <summary>停止条目尚未结束的移动动画，避免刷新后继续滑向旧位置。</summary>
     private static void KillLayoutTweens(Transform root)
     {
         if (root == null) return;
@@ -454,6 +533,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         }
     }
 
+    /// <summary>根据条目数量、行列和间距计算内容完整显示所需的宽高。</summary>
     private Vector2 GetContentSize()
     {
         if (_itemsCount == 0) return Vector2.zero;
@@ -484,6 +564,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         return new Vector2(width, height);
     }
 
+    /// <summary>将内容所需尺寸应用到当前区域和整个底栏，避免图标被裁切。</summary>
     private void ApplyLayoutSize(Vector2 contentSize)
     {
         float width = Mathf.Max(MinimumWidth, _baseHostWidth, contentSize.x);
@@ -510,6 +591,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         LayoutRebuilder.MarkLayoutForRebuild(_hostRect);
     }
 
+    /// <summary>为旗帜设置固定占位尺寸和居中位置，使多枚旗帜排列整齐。</summary>
     private float SetupBannerLayout(GameObject bannerObject)
     {
         RectTransform rect = bannerObject.GetComponent<RectTransform>();
@@ -544,6 +626,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         return width;
     }
 
+    /// <summary>按子类要求把条目区域固定在左侧中部或左上角。</summary>
     private void SetGridAnchor(RectTransform rect)
     {
         if (rect == null) return;
@@ -561,6 +644,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         rect.pivot = new Vector2(0f, 0.5f);
     }
 
+    /// <summary>根据四周留白计算条目区域的位置。</summary>
     private Vector2 GetGridAnchoredPosition()
     {
         return AnchorGridToTop
@@ -568,6 +652,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
             : new Vector2(LeftPadding, (BottomPadding - TopPadding) * 0.5f);
     }
 
+    /// <summary>向上寻找整个选中底栏条目，以便内容变宽或变高时同步扩展外层。</summary>
     private RectTransform FindTabElementRect()
     {
         Transform current = transform;
@@ -584,6 +669,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         return _hostRect;
     }
 
+    /// <summary>读取一个界面区域当前可用宽度。</summary>
     private static float GetRectWidth(RectTransform rect)
     {
         if (rect == null) return 0f;
@@ -592,6 +678,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         return Mathf.Max(0f, rect.sizeDelta.x);
     }
 
+    /// <summary>扩展界面区域到所需宽高，不缩小原版已有高度。</summary>
     private static void SetRectSize(RectTransform rect, float width, float height)
     {
         if (rect == null) return;
@@ -601,6 +688,7 @@ internal abstract class GeoRegionSelectedContainerBase : MonoBehaviour
         rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Mathf.Max(currentHeight, height));
     }
 
+    /// <summary>计算子区域最右侧相对外层的位置，用于确定底栏总宽度。</summary>
     private static float GetChildRightEdge(RectTransform parent, RectTransform child)
     {
         if (parent == null || child == null) return 0f;

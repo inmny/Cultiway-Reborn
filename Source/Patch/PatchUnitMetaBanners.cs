@@ -32,6 +32,12 @@ internal static class PatchUnitMetaBanners
     {
         AddBanners(__instance);
     }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(ActorSelectedMetaBanners), nameof(ActorSelectedMetaBanners.update))]
+    private static void update_postfix(ActorSelectedMetaBanners __instance, Actor pActor)
+    {
+        __instance.GetComponent<GeoRegionUnitMetaBannerBinding>()?.CaptureCurrentState(pActor);
+    }
     private static void AddBanners(UnitMetaBanners container)
     {
         if (container._banners.Count == 0) return;
@@ -46,15 +52,27 @@ internal static class PatchUnitMetaBanners
             });
         }
 
-        if (!HasBanner<GeoRegionBanner>(container))
+        MetaBannerElement geoRegionElement = FindBanner<GeoRegionBanner>(container);
+        if (geoRegionElement == null)
         {
-            container._banners.Add(new MetaBannerElement()
+            geoRegionElement = new MetaBannerElement
             {
                 banner = Object.Instantiate(GeoRegionBanner.Prefab, container._banners[0].banner.transform.parent),
                 check = () => GetGeoRegion(container) != null,
                 nano = () => GetGeoRegion(container),
-            });
+            };
+            container._banners.Add(geoRegionElement);
         }
+
+        GeoRegionUnitMetaBannerBinding binding =
+            container.GetComponent<GeoRegionUnitMetaBannerBinding>() ??
+            container.gameObject.AddComponent<GeoRegionUnitMetaBannerBinding>();
+        binding.Configure(container, geoRegionElement);
+    }
+
+    private static MetaBannerElement FindBanner<TBanner>(UnitMetaBanners container) where TBanner : Component
+    {
+        return container._banners.FirstOrDefault(x => x.banner != null && x.banner.HasComponent<TBanner>());
     }
 
     private static bool HasBanner<TBanner>(UnitMetaBanners container) where TBanner : Component
@@ -71,10 +89,15 @@ internal static class PatchUnitMetaBanners
         return sect == null || sect.isRekt() ? null : sect;
     }
 
-    private static GeoRegion GetGeoRegion(UnitMetaBanners container)
+    internal static Actor GetActor(UnitMetaBanners container)
     {
-        Actor actor = container.actor;
-        if (actor == null || actor.isRekt()) return null;
+        Actor actor = container?.actor;
+        return actor == null || actor.isRekt() ? null : actor;
+    }
+
+    internal static GeoRegion GetGeoRegion(UnitMetaBanners container)
+    {
+        Actor actor = GetActor(container);
 
         GeoRegion geoRegion = WorldboxGame.I?.GeoRegions?.GetPrimaryGeoRegionForTile(actor.current_tile);
         return geoRegion == null || geoRegion.isRekt() ? null : geoRegion;

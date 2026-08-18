@@ -82,7 +82,9 @@ public partial class WorldboxGame
             GeoRegion.option_1_get = () => I.SelectedGeoRegion.data.BannerBackgroundIndex;            
             GeoRegion.option_1_set = delegate(int pValue)
             {
-                I.SelectedGeoRegion.data.BannerBackgroundIndex = pValue;    
+                GeoRegion region = I.SelectedGeoRegion;
+                region.data.BannerBackgroundIndex = pValue;
+                I.GeoRegions.NotifyRegionPresentationChanged(region);
             };
             GeoRegion.option_1_editable = false;
             GeoRegion.option_2_editable = false;
@@ -90,12 +92,16 @@ public partial class WorldboxGame
             GeoRegion.option_2_get = () => I.SelectedGeoRegion.data.BannerIconIndex;
             GeoRegion.option_2_set = delegate(int pValue)
             {
-                I.SelectedGeoRegion.data.BannerIconIndex = pValue;
+                GeoRegion region = I.SelectedGeoRegion;
+                region.data.BannerIconIndex = pValue;
+                I.GeoRegions.NotifyRegionPresentationChanged(region);
             };
             GeoRegion.color_get = () => I.SelectedGeoRegion.data.color_id;
             GeoRegion.color_set = delegate(int pValue)
             {
-                I.SelectedGeoRegion.data.setColorID(pValue);
+                GeoRegion region = I.SelectedGeoRegion;
+                ColorAsset color = AssetManager.families_colors_library.list[pValue];
+                region.updateColor(color);
             };
             GeoRegion.color_library = () => AssetManager.families_colors_library;
             GeoRegion.option_1_count = () => 1;

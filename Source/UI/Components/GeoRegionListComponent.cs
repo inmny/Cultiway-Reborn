@@ -9,16 +9,19 @@ using UnityEngine.UI;
 
 namespace Cultiway.UI.Components
 {
+    /// <summary>地区列表窗口控制器，列出全部地区并提供年龄、声望、人口和面积排序。</summary>
     public class GeoRegionListComponent
         : ComponentListBase<GeoRegionListElement, GeoRegion, GeoRegionData, GeoRegionListComponent>
     {
+        /// <summary>声明列表中的每一项都是地理区域。</summary>
         public override MetaType meta_type => MetaTypeExtend.GeoRegion.Back();
 
+        /// <summary>注册地区列表窗口，并为顶部插图补充悬停说明。</summary>
         internal static void Init()
         {
             var windowId = WorldboxGame.ListWindows.GeoRegionList.id;
 
-            // 需要 WindowAsset，避免 WindowToolbar 等逻辑对 null 解引用
+            // 补齐窗口登记信息，确保玩家能正常使用工具栏和返回按钮。
             EnsureWindowAsset(windowId, MetaTypeExtend.GeoRegion.Back().getAsset());
 
             var meta_window = Manager.CreateListMetaWindow(windowId, MetaTypeExtend.GeoRegion);
@@ -36,6 +39,7 @@ namespace Cultiway.UI.Components
             });
         }
 
+        /// <summary>补齐地区列表的窗口登记信息，使列表可以从菜单正常打开和返回。</summary>
         private static void EnsureWindowAsset(string windowId, MetaTypeAsset metaTypeAsset)
         {
             if (!AssetManager.window_library.has(windowId))
@@ -58,6 +62,7 @@ namespace Cultiway.UI.Components
             }
         }
 
+        /// <summary>创建排序按钮；玩家可按年龄、声望、人口或地区面积排列列表。</summary>
         public override void setupSortingTabs()
         {
             genericMetaSortByAge(new Comparison<GeoRegion>(sortByAge));
@@ -81,6 +86,7 @@ namespace Cultiway.UI.Components
             );
         }
 
+        /// <summary>按地块数量从大到小排列地区。</summary>
         private static int sortByArea(GeoRegion a, GeoRegion b)
         {
             return b.data.TileCount.CompareTo(a.data.TileCount);

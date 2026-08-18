@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cultiway.Core.Libraries;
@@ -73,6 +73,25 @@ public class CustomMapLayer : MapLayer
             foreach (WorldTile tile in tiles)
             {
                 if (!TryGetTileId(tile, out int tileId)) continue;
+                hasDirty |= dirty_tile_ids.Add(tileId);
+            }
+        }
+
+        if (hasDirty) dirty_event.Set();
+    }
+
+    internal void SetTileIdsDirty(IReadOnlyCollection<int> tileIds)
+    {
+        if (tileIds == null || tileIds.Count == 0) return;
+
+        bool hasDirty = false;
+        lock (lock_dirty)
+        {
+            if (all_dirty) return;
+            int tileCount = World.world?.tiles_list?.Length ?? 0;
+            foreach (int tileId in tileIds)
+            {
+                if ((uint)tileId >= (uint)tileCount) continue;
                 hasDirty |= dirty_tile_ids.Add(tileId);
             }
         }
@@ -193,6 +212,11 @@ public class CustomMapLayer : MapLayer
 
             CustomMapModeAsset map_mode = ModClass.I.CustomMapModeManager.UpdateCurrentMapMode();
             if (map_mode == null) return;
+
+            bool usesGeoRegions = map_mode.geo_region_layers is { Length: > 0 };
+            GeoRegionManager geoRegionManager = usesGeoRegions ? WorldboxGame.I?.GeoRegions : null;
+            using GeoRegionMembershipReadLease membershipLease = geoRegionManager?.AcquireMembershipReadLease();
+            if (usesGeoRegions && membershipLease?.IsValid != true) return;
             if (!CanPreparePixels()) return;
             if (!ConsumeDirty(out bool rebuildAll, out int[] dirtyTileIds)) return;
 

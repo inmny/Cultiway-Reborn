@@ -9,22 +9,33 @@ using Object = UnityEngine.Object;
 
 namespace Cultiway.UI.Components;
 
+/// <summary>地区详情窗口的组成与关系区域，显示其中的国家城市，以及重叠和相邻地区。</summary>
 internal class GeoRegionWindowDetailsPanel : MonoBehaviour
 {
+    // 窗口最多展示八个国家或城市，以及各四个重叠、相邻地区。
     private const int MaxCompositionItems = 8;
     private const int MaxRelationItems = 4;
+    // 整体区域、组成区和关系区的固定高度。
     private const float PreferredHeight = 84f;
     private const float CompositionSectionHeight = 46f;
     private const float RelationSectionHeight = 24f;
+    // 关系图标、组成旗帜的占位尺寸和旗帜显示比例。
     private const float IconCellSize = 18f;
     private const float BannerCellSize = 40f;
     private const float CompositionBannerScale = 0.85f;
 
+    // 详情内容根节点，以及国家城市、重叠地区和相邻地区三个区域。
     private RectTransform _root;
     private Section _compositionSection;
     private Section _overlappingSection;
     private Section _adjacentSection;
+    // 上次显示的地区及三类内容变化编号，用于只重画有变化的区域。
+    private GeoRegion _lastRegion;
+    private int _lastCompositionRevision;
+    private int _lastOverlappingRevision;
+    private int _lastAdjacentRevision;
 
+    /// <summary>首次打开时创建国家城市、重叠地区和相邻地区三个展示区域。</summary>
     internal void Initialize()
     {
         if (_root != null) return;
@@ -54,26 +65,63 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
             new Vector2(IconCellSize, IconCellSize));
     }
 
+    /// <summary>
+    /// 地区内容变化时分别更新受影响的区域；地区无效时清空全部条目。
+    /// </summary>
     internal void Refresh(GeoRegion region)
     {
         Initialize();
-        ClearSection(_compositionSection);
-        ClearSection(_overlappingSection);
-        ClearSection(_adjacentSection);
-
         if (region == null || region.isRekt())
         {
+            ClearSection(_compositionSection);
+            ClearSection(_overlappingSection);
+            ClearSection(_adjacentSection);
+            _lastRegion = null;
             return;
         }
 
-        FillComposition(_compositionSection.ContentRoot, region);
-        FillOverlappingRelations(_overlappingSection.ContentRoot, region);
-        FillAdjacentRelations(_adjacentSection.ContentRoot, region);
+        bool regionChanged = !ReferenceEquals(_lastRegion, region);
+        int compositionRevision = CombineRevisions(region.CrossLayerRevision, region.CompositionRevision);
+        bool layoutDirty = false;
 
+        if (regionChanged || _lastCompositionRevision != compositionRevision)
+        {
+            ClearSection(_compositionSection);
+            FillComposition(_compositionSection.ContentRoot, region);
+            _lastCompositionRevision = compositionRevision;
+            layoutDirty = true;
+        }
+        if (regionChanged || _lastOverlappingRevision != region.CrossLayerRevision)
+        {
+            ClearSection(_overlappingSection);
+            FillOverlappingRelations(_overlappingSection.ContentRoot, region);
+            _lastOverlappingRevision = region.CrossLayerRevision;
+            layoutDirty = true;
+        }
+        if (regionChanged || _lastAdjacentRevision != region.AdjacencyRevision)
+        {
+            ClearSection(_adjacentSection);
+            FillAdjacentRelations(_adjacentSection.ContentRoot, region);
+            _lastAdjacentRevision = region.AdjacencyRevision;
+            layoutDirty = true;
+        }
+
+        _lastRegion = region;
+        if (!layoutDirty) return;
         LayoutRebuilder.ForceRebuildLayoutImmediate(_root);
         LayoutRebuilder.MarkLayoutForRebuild((RectTransform)transform);
     }
 
+    /// <summary>把两类变化编号合成一个值，用于判断国家城市展示是否需要更新。</summary>
+    private static int CombineRevisions(int left, int right)
+    {
+        unchecked
+        {
+            return (left * 397) ^ right;
+        }
+    }
+
+    /// <summary>先列出地区内的国家，再用城市补足空位，总数最多八个。</summary>
     private void FillComposition(Transform parent, GeoRegion region)
     {
         GeoRegionManager manager = WorldboxGame.I.GeoRegions;
@@ -102,6 +150,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         }
     }
 
+    /// <summary>列出最多四个与当前地区范围重叠的其他地区。</summary>
     private void FillOverlappingRelations(Transform parent, GeoRegion region)
     {
         GeoRegionManager manager = WorldboxGame.I.GeoRegions;
@@ -113,6 +162,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         }
     }
 
+    /// <summary>列出最多四个与当前地区同层相邻的其他地区。</summary>
     private void FillAdjacentRelations(Transform parent, GeoRegion region)
     {
         GeoRegionManager manager = WorldboxGame.I.GeoRegions;
@@ -124,6 +174,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         }
     }
 
+    /// <summary>添加关系地区图标；点击打开目标详情，悬停在地图上突出显示。</summary>
     private static void AddRegionIcon(Transform parent, GeoRegion target)
     {
         GeoRegionSelectedInfoIcon icon = GeoRegionSelectedInfoIcon.Create(parent, "GeoRegionWindowRegionIcon", IconCellSize);
@@ -137,6 +188,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         icon.SetHoverGeoRegion(target);
     }
 
+    /// <summary>添加地区内国家的旗帜，点击可查看该国家。</summary>
     private static void AddKingdomBanner(Transform parent, Kingdom kingdom)
     {
         KingdomBanner prefab = Resources.Load<KingdomBanner>("ui/PrefabBannerKingdom");
@@ -149,6 +201,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         SetupCompositionBanner(banner, kingdom);
     }
 
+    /// <summary>添加地区内城市的旗帜，点击可查看该城市。</summary>
     private static void AddCityBanner(Transform parent, City city)
     {
         CityBanner prefab = Resources.Load<CityBanner>("ui/PrefabBannerCity");
@@ -161,6 +214,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         SetupCompositionBanner(banner, city);
     }
 
+    /// <summary>载入国家或城市旗帜，并允许玩家点击进入对应详情。</summary>
     private static void SetupCompositionBanner<TMeta, TData>(BannerGeneric<TMeta, TData> banner, TMeta meta)
         where TMeta : CoreSystemObject<TData>
         where TData : BaseSystemData
@@ -173,6 +227,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         SetupCompositionBannerLayout(banner.gameObject);
     }
 
+    /// <summary>固定国家和城市旗帜的占位尺寸，使最多八个条目排列稳定。</summary>
     private static void SetupCompositionBannerLayout(GameObject bannerObject)
     {
         RectTransform rect = bannerObject.GetComponent<RectTransform>();
@@ -193,6 +248,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         layout.preferredHeight = BannerCellSize;
     }
 
+    /// <summary>创建一个带淡色标题和单行条目区的详情小节。</summary>
     private static Section AddSection(Transform parent, string name, string titleKey, float height, Vector2 cellSize)
     {
         GameObject sectionObject = new(name, typeof(RectTransform), typeof(Image), typeof(LayoutElement));
@@ -215,6 +271,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         return new Section(content);
     }
 
+    /// <summary>创建不会遮挡点击的本地化淡色背景标题。</summary>
     private static void CreateBackgroundTitle(Transform parent, string titleKey)
     {
         GameObject titleObject = new("GeoRegionWindowSectionTitle", typeof(RectTransform), typeof(Text), typeof(Shadow), typeof(LayoutElement));
@@ -251,6 +308,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         localizedText.setKeyAndUpdate(titleKey);
     }
 
+    /// <summary>创建单行条目位置，使图标或旗帜在可用宽度内均匀排列。</summary>
     private static Transform CreateSectionContent(Transform parent, Vector2 cellSize)
     {
         GameObject contentObject = new("GeoRegionWindowSectionContent", typeof(RectTransform), typeof(GridLayoutGroupExtended), typeof(FlexibleOneRowGrid));
@@ -280,6 +338,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         return contentObject.transform;
     }
 
+    /// <summary>移除被改造成地区详情区域的原版内容和无关组件。</summary>
     private void RemoveOriginalWindowContent()
     {
         for (int i = transform.childCount - 1; i >= 0; i--)
@@ -305,6 +364,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         }
     }
 
+    /// <summary>设置详情区域的透明背景和固定高度，不阻挡窗口中的点击。</summary>
     private void ConfigureHost()
     {
         Image background = GetComponent<Image>() ?? gameObject.AddComponent<Image>();
@@ -319,6 +379,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         layout.flexibleWidth = 1f;
     }
 
+    /// <summary>创建上下排列的详情内容根节点。</summary>
     private void CreateRoot()
     {
         GameObject rootObject = new("GeoRegionDetailsRoot", typeof(RectTransform), typeof(VerticalLayoutGroup));
@@ -341,6 +402,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         layout.childForceExpandHeight = false;
     }
 
+    /// <summary>创建横向关系行，让重叠地区和相邻地区并排显示。</summary>
     private Transform CreateRelationsRow()
     {
         GameObject rowObject = new("GeoRegionRelationsRow", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
@@ -370,6 +432,7 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         return rowObject.transform;
     }
 
+    /// <summary>删除某一小节的旧条目，为重新显示最新名单做准备。</summary>
     private static void ClearSection(Section section)
     {
         if (section?.ContentRoot == null) return;
@@ -382,10 +445,13 @@ internal class GeoRegionWindowDetailsPanel : MonoBehaviour
         }
     }
 
+    /// <summary>保存一个详情小节实际放置图标或旗帜的位置。</summary>
     private class Section
     {
+        /// <summary>小节中承载玩家可见条目的节点。</summary>
         internal readonly Transform ContentRoot;
 
+        /// <summary>记录新建小节的条目位置。</summary>
         internal Section(Transform contentRoot)
         {
             ContentRoot = contentRoot;

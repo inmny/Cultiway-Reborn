@@ -85,14 +85,6 @@ public class Manager : ICanInit
                 SpriteTextureLoader.getSprite("cultiway/icons/iconWakan")
             )
         );
-        PowerButton extendGeoRegionButton = PowerButtonCreator.CreateGodPowerButton(
-            GodPowers.ExtendGeoRegion.id,
-            SpriteTextureLoader.getSprite("cultiway/icons/iconExtendGeoRegion"));
-        PowerButton removeGeoRegionButton = PowerButtonCreator.CreateGodPowerButton(
-            GodPowers.RemoveGeoRegion.id,
-            SpriteTextureLoader.getSprite("cultiway/icons/iconRemoveGeoRegion"));
-        Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, PowerTabSections.WorldTools, 100,
-            "world.tools.geo_regions", extendGeoRegionButton, removeGeoRegionButton);
         Cultiway.UI.Manager.AddButton(TabButtonType.RACE, PowerTabSections.RaceMain, 100,
             GodPowers.EasternHuman.id,
             PowerButtonCreator.CreateGodPowerButton(

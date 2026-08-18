@@ -12,6 +12,8 @@ using Cultiway.Content.Visuals;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.EventSystem;
+using Cultiway.Core.EventSystem.Systems;
+using Cultiway.Core.GeoRegions;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -197,18 +199,40 @@ internal static class PatchMapBox
         PathFinder.Instance.Tick();
     }
 
+    [HarmonyPostfix, HarmonyPatch(typeof(MapBox), "Update")]
+    private static void update_geo_region_repartition_postfix()
+    {
+        GeoRegionRepartitionCoordinator.Tick();
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(WorldTile), nameof(WorldTile.setTileType), new[] { typeof(TileType), typeof(bool) })]
+    private static void setTileType_geo_region_prefix(WorldTile __instance, out GeoRegionTerrainState __state)
+    {
+        __state = GeoRegionTerrainState.Capture(__instance);
+    }
+
     [HarmonyPostfix]
     [HarmonyPatch(typeof(WorldTile), nameof(WorldTile.setTileType), new[] { typeof(TileType), typeof(bool) })]
-    private static void setTileType_pathfinding_postfix(WorldTile __instance)
+    private static void setTileType_pathfinding_postfix(WorldTile __instance, GeoRegionTerrainState __state)
     {
         PathNavigationGridService.MarkDirty(__instance);
+        NotifyGeoRegionTerrainChanged(__instance, __state);
+    }
+
+    [HarmonyPrefix]
+    [HarmonyPatch(typeof(WorldTile), nameof(WorldTile.setTopTileType), new[] { typeof(TopTileType), typeof(bool) })]
+    private static void setTopTileType_geo_region_prefix(WorldTile __instance, out GeoRegionTerrainState __state)
+    {
+        __state = GeoRegionTerrainState.Capture(__instance);
     }
 
     [HarmonyPostfix]
     [HarmonyPatch(typeof(WorldTile), nameof(WorldTile.setTopTileType), new[] { typeof(TopTileType), typeof(bool) })]
-    private static void setTopTileType_pathfinding_postfix(WorldTile __instance)
+    private static void setTopTileType_pathfinding_postfix(WorldTile __instance, GeoRegionTerrainState __state)
     {
         PathNavigationGridService.MarkDirty(__instance);
+        NotifyGeoRegionTerrainChanged(__instance, __state);
     }
 
     [HarmonyPostfix, HarmonyPatch(typeof(WorldTile), nameof(WorldTile.setFireData))]
@@ -217,16 +241,75 @@ internal static class PatchMapBox
         PathNavigationGridService.MarkDirty(__instance);
     }
 
+    [HarmonyPrefix, HarmonyPatch(typeof(WorldTile), nameof(WorldTile.freeze))]
+    private static void freeze_geo_region_prefix(WorldTile __instance, out GeoRegionTerrainState __state)
+    {
+        __state = GeoRegionTerrainState.Capture(__instance);
+    }
+
     [HarmonyPostfix, HarmonyPatch(typeof(WorldTile), nameof(WorldTile.freeze))]
-    private static void freeze_pathfinding_postfix(WorldTile __instance)
+    private static void freeze_pathfinding_postfix(WorldTile __instance, GeoRegionTerrainState __state)
     {
         PathNavigationGridService.MarkDirty(__instance);
+        NotifyGeoRegionTerrainChanged(__instance, __state);
+    }
+
+    [HarmonyPrefix, HarmonyPatch(typeof(WorldTile), nameof(WorldTile.unfreeze))]
+    private static void unfreeze_geo_region_prefix(WorldTile __instance, out GeoRegionTerrainState __state)
+    {
+        __state = GeoRegionTerrainState.Capture(__instance);
     }
 
     [HarmonyPostfix, HarmonyPatch(typeof(WorldTile), nameof(WorldTile.unfreeze))]
-    private static void unfreeze_pathfinding_postfix(WorldTile __instance)
+    private static void unfreeze_pathfinding_postfix(WorldTile __instance, GeoRegionTerrainState __state)
     {
         PathNavigationGridService.MarkDirty(__instance);
+        NotifyGeoRegionTerrainChanged(__instance, __state);
+    }
+
+    private static void NotifyGeoRegionTerrainChanged(WorldTile tile, GeoRegionTerrainState previousState)
+    {
+        if (previousState.Matches(tile)) return;
+        WorldGeneratedPartitionGeoRegionsEventSystem.RecordTerrainMutation(tile);
+        GeoRegionRepartitionCoordinator.NotifyTerrainChanged(tile);
+    }
+
+    private readonly struct GeoRegionTerrainState
+    {
+        private readonly TileType mainType;
+        private readonly TopTileType topType;
+        private readonly TileTypeBase currentType;
+        private readonly bool frozen;
+
+        private GeoRegionTerrainState(
+            TileType mainType,
+            TopTileType topType,
+            TileTypeBase currentType,
+            bool frozen)
+        {
+            this.mainType = mainType;
+            this.topType = topType;
+            this.currentType = currentType;
+            this.frozen = frozen;
+        }
+
+        internal static GeoRegionTerrainState Capture(WorldTile tile)
+        {
+            return new GeoRegionTerrainState(
+                tile?.main_type,
+                tile?.top_type,
+                tile?.Type,
+                tile?.data?.frozen == true);
+        }
+
+        internal bool Matches(WorldTile tile)
+        {
+            return tile != null &&
+                   ReferenceEquals(mainType, tile.main_type) &&
+                   ReferenceEquals(topType, tile.top_type) &&
+                   ReferenceEquals(currentType, tile.Type) &&
+                   frozen == (tile.data?.frozen == true);
+        }
     }
 
     [HarmonyTranspiler, HarmonyPatch(typeof(MapBox), nameof(MapBox.checkDirtyUnits))]

@@ -23,10 +23,6 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
     public static GodPower EasternHuman { get; private set; }
     [CloneSource(PowerLibrary.TEMPLATE_SPAWN_ACTOR)]
     public static GodPower Gui { get; private set; }
-    [CloneSource(PowerLibrary.TEMPLATE_TERRAFORM_TILES)]
-    public static GodPower ExtendGeoRegion { get; private set; }
-    [CloneSource(PowerLibrary.TEMPLATE_TERRAFORM_TILES)]
-    public static GodPower RemoveGeoRegion { get; private set; }
     [CloneSource(PowerLibrary.TEMPLATE_WALL)]
     public static GodPower EasternHumanWall { get; private set; }
     public static GodPower EasternHumanSkin { get; private set; }
@@ -40,8 +36,6 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         EasternHuman.actor_asset_id = Actors.EasternHuman.id;
         Gui.name = Actors.Gui.getLocaleID();
         Gui.actor_asset_id = Actors.Gui.id;
-        ExtendGeoRegion.name = "Extend Geo Region";
-        RemoveGeoRegion.name = "Remove Geo Region";
         EasternHumanWall.name = "eastern_human_wall";
         EasternHumanWall.top_tile_type = TopTileTypes.EasternHumanWall.id;
         EasternHumanWall.path_icon = "iconWallEasternHuman";
@@ -55,11 +49,6 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         EasternHumanSkin.requires_premium = false;
         EasternHumanSkin.rank = PowerRank.Rank0_free;
 
-        ExtendGeoRegion.click_action = ExtendGeoRegionAction;
-        ExtendGeoRegion.click_brush_action = InitializeGeoRegionAction + ExtendGeoRegion.click_brush_action;
-        ExtendGeoRegion.force_map_mode = MetaTypeExtend.GeoRegion.Back();
-        RemoveGeoRegion.click_action = RemoveGeoRegionAction;
-        RemoveGeoRegion.force_map_mode = MetaTypeExtend.GeoRegion.Back();
         SetupCommonCreaturePlacePower();
         SetupCommonBuildingPlacePower();
         SetupCommonDropPlacePower();
@@ -100,69 +89,6 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         Sprite icon = SpriteTextureLoader.getSprite($"cultiway/icons/biomes/{biomeIcon}");
         Cultiway.UI.Manager.AddButton(TabButtonType.BIOME, PowerTabSections.BiomeMain, 100, power_id,
             PowerButtonCreator.CreateGodPowerButton(power_id, icon));
-    }
-    private static GeoRegion _current_geo_region = null;
-    private static bool InitializeGeoRegionAction(WorldTile tile, string power_id)
-    {
-        GeoRegionManager manager = WorldboxGame.I.GeoRegions;
-        GeoRegion existing = tile.GetExtend().GetGeoRegion(GeoRegionLayer.Primary);
-        if (existing != null)
-        {
-            _current_geo_region = existing;
-            manager.RefreshTileCount(existing);
-            return true;
-        }
-
-        // 创建一个空的geo region
-        GeoRegion region = manager.BuildGeoRegion(null);
-        var category = manager.InitializePrimaryRegionFromTile(region, tile);
-        if (!manager.AssignTileToRegion(tile, GeoRegionLayer.Primary, region))
-        {
-            manager.removeObject(region);
-            return false;
-        }
-
-        ModClass.LogInfo(
-            $"InitializeGeoRegionAction: Create new geo region {region.E} category={category?.id ?? "null"} tiles={region.data.TileCount}");
-        _current_geo_region = region;
-        ModClass.I.CustomMapModeManager?.SetTileDirty(tile);
-
-        return true;
-    }
-
-    private static bool ExtendGeoRegionAction(WorldTile tile, string power_id)
-    {
-        if (_current_geo_region == null || _current_geo_region.isRekt())
-        {
-            return false;
-        }
-
-        GeoRegion existing = tile.GetExtend().GetGeoRegion(GeoRegionLayer.Primary);
-        if (ReferenceEquals(existing, _current_geo_region))
-        {
-            return true;
-        }
-
-        if (!WorldboxGame.I.GeoRegions.AssignTileToRegion(
-                tile,
-                GeoRegionLayer.Primary,
-                _current_geo_region))
-        {
-            return false;
-        }
-
-        ModClass.I.CustomMapModeManager?.SetTileDirty(tile);
-        return true;
-    }
-
-    private static bool RemoveGeoRegionAction(WorldTile tile, string power_id)
-    {
-        if (WorldboxGame.I.GeoRegions.RemoveTileFromRegion(tile, GeoRegionLayer.Primary))
-        {
-            ModClass.I.CustomMapModeManager?.SetTileDirty(tile);
-        }
-
-        return true;
     }
     private void SetupCommonBuildingPlacePower()
     {

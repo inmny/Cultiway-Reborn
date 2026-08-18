@@ -8,16 +8,21 @@ using UnityEngine.UI;
 
 namespace Cultiway.UI.Components;
 
+/// <summary>选中栏和详情窗口中的地区信息图标，可显示说明、响应点击并在地图上高亮相关地区。</summary>
 internal class GeoRegionSelectedInfoIcon : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
 {
+    /// <summary>信息图标的默认边长。</summary>
     internal const float DefaultSize = 24f;
 
+    // 透明点击区域、可见图案、点击按钮和悬停说明。
     private Image _hitbox;
     private Image _icon;
     private Button _button;
     private TipButton _tipButton;
+    // 鼠标停留时需要在地图上高亮的地区。
     private GeoRegion _hoverGeoRegion;
 
+    /// <summary>创建一个固定尺寸的信息图标，避免内容变化时挤动选中栏布局。</summary>
     internal static GeoRegionSelectedInfoIcon Create(Transform parent, string name, float size = DefaultSize)
     {
         GameObject root = new(name, typeof(RectTransform), typeof(Image), typeof(Button), typeof(TipButton), typeof(LayoutElement));
@@ -63,6 +68,7 @@ internal class GeoRegionSelectedInfoIcon : MonoBehaviour, IPointerEnterHandler, 
         return icon;
     }
 
+    /// <summary>设置玩家看到的图案、说明和点击动作；没有点击动作时点击会显示说明。</summary>
     internal void Setup(Sprite sprite, string title, string description, Color? color = null, UnityAction clickAction = null)
     {
         _icon.sprite = sprite != null ? sprite : SpriteTextureLoader.getSprite(GeoRegionAsset.DefaultIconPath);
@@ -80,11 +86,13 @@ internal class GeoRegionSelectedInfoIcon : MonoBehaviour, IPointerEnterHandler, 
         }
     }
 
+    /// <summary>指定鼠标停留时要在地图上高亮的地区。</summary>
     internal void SetHoverGeoRegion(GeoRegion region)
     {
         _hoverGeoRegion = region;
     }
 
+    /// <summary>将通用说明改为地区详情提示，玩家悬停时可看到该地区信息。</summary>
     internal void SetGeoRegionTooltip(GeoRegion region)
     {
         if (region == null)
@@ -98,12 +106,14 @@ internal class GeoRegionSelectedInfoIcon : MonoBehaviour, IPointerEnterHandler, 
         _tipButton.text_description_2 = "";
     }
 
+    /// <summary>鼠标进入图标时，在地图上突出显示关联地区。</summary>
     public void OnPointerEnter(PointerEventData eventData)
     {
         if (_hoverGeoRegion == null || _hoverGeoRegion.isRekt()) return;
         ModClass.I?.CustomMapModeManager?.SetUiHoveredGeoRegion(_hoverGeoRegion);
     }
 
+    /// <summary>鼠标离开图标时，取消地图上的关联地区高亮。</summary>
     public void OnPointerExit(PointerEventData eventData)
     {
         ClearHoverGeoRegion();
@@ -119,6 +129,7 @@ internal class GeoRegionSelectedInfoIcon : MonoBehaviour, IPointerEnterHandler, 
         ClearHoverGeoRegion();
     }
 
+    /// <summary>在鼠标离开、控件关闭或销毁时清除地图高亮。</summary>
     private void ClearHoverGeoRegion()
     {
         if (_hoverGeoRegion == null) return;

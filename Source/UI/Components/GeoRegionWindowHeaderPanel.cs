@@ -8,22 +8,28 @@ using Object = UnityEngine.Object;
 
 namespace Cultiway.UI.Components;
 
+/// <summary>地区详情窗口顶部概览，显示旗帜、类别、层级、面积、中心、年龄和城市数量。</summary>
 internal class GeoRegionWindowHeaderPanel : MonoBehaviour
 {
+    // 顶部数值的颜色和自动缩放字号范围。
     private static readonly Color HeaderValueColor = new(1f, 0.60730225f, 0.1102941f, 1f);
     private const int HeaderTextMinSize = 6;
     private const int HeaderTextMaxSize = 10;
 
+    // 玩家在顶部左右两列看到的六项地区概况。
     private StatsIcon _categoryStat;
     private StatsIcon _layerStat;
     private StatsIcon _tilesStat;
     private StatsIcon _centerStat;
     private StatsIcon _ageStat;
     private StatsIcon _citiesStat;
+    // 当前地区旗帜及其地图悬停高亮处理。
     private GeoRegionBanner _banner;
     private GeoRegionWindowRegionHover _bannerHover;
+    // 防止重复整理原版顶部节点。
     private bool _initialized;
 
+    /// <summary>首次打开窗口时，将原版顶部区域准备成地区旗帜和六项概况。</summary>
     internal void Initialize()
     {
         if (_initialized) return;
@@ -53,6 +59,7 @@ internal class GeoRegionWindowHeaderPanel : MonoBehaviour
         _initialized = true;
     }
 
+    /// <summary>显示当前地区的概况；地区无效时隐藏整个顶部区域。</summary>
     internal void Refresh(GeoRegion region)
     {
         Initialize();
@@ -81,6 +88,7 @@ internal class GeoRegionWindowHeaderPanel : MonoBehaviour
         _bannerHover.Setup(region);
     }
 
+    /// <summary>显示类别、层级或中心等文字概况，并提供悬停说明。</summary>
     private static void SetTextStat(StatsIcon stat, Sprite icon, string value, string titleKey)
     {
         stat.gameObject.SetActive(true);
@@ -96,6 +104,7 @@ internal class GeoRegionWindowHeaderPanel : MonoBehaviour
         SetupTooltip(stat, titleKey, value);
     }
 
+    /// <summary>显示面积、年龄或城市数等数字概况，并保留数字变化动画。</summary>
     private static void SetNumericStat(StatsIcon stat, Sprite icon, int value, string titleKey)
     {
         stat.gameObject.SetActive(true);
@@ -115,6 +124,7 @@ internal class GeoRegionWindowHeaderPanel : MonoBehaviour
         SetupTooltip(stat, titleKey, value.ToString());
     }
 
+    /// <summary>设置顶部文字样式，并在内容过长时自动缩小字号。</summary>
     private static void ApplyTextStyle(Text text, string value)
     {
         text.text = value;
@@ -128,6 +138,7 @@ internal class GeoRegionWindowHeaderPanel : MonoBehaviour
         text.verticalOverflow = VerticalWrapMode.Truncate;
     }
 
+    /// <summary>为概况图标添加悬停说明，显示项目名称和当前值。</summary>
     private static void SetupTooltip(StatsIcon stat, string titleKey, string value)
     {
         TipButton tipButton = stat.GetComponent<TipButton>() ?? stat.gameObject.AddComponent<TipButton>();
@@ -146,6 +157,7 @@ internal class GeoRegionWindowHeaderPanel : MonoBehaviour
                 }));
     }
 
+    /// <summary>取得原版顶部的一项统计位置；结构缺失时给出明确错误。</summary>
     private static StatsIcon RequireStat(Transform column, string name)
     {
         Transform row = column.Find(name)
@@ -162,6 +174,7 @@ internal class GeoRegionWindowHeaderPanel : MonoBehaviour
         return stat;
     }
 
+    /// <summary>将原版国家旗帜位置替换为地区旗帜，同时保留原有图像引用。</summary>
     private static GeoRegionBanner SetupBanner(Transform bannerContainer)
     {
         Transform bannerTransform = bannerContainer.Find("Main Banner")
@@ -182,11 +195,13 @@ internal class GeoRegionWindowHeaderPanel : MonoBehaviour
         return geoRegionBanner;
     }
 
+    /// <summary>隐藏顶部与地区无关的原版彩蛋装饰。</summary>
     private static void HideOriginalHeaderIcons(Transform bannerContainer)
     {
         bannerContainer.HideChildrenByPath("easter_egg_container");
     }
 
+    /// <summary>从原版界面图标目录载入概况图案。</summary>
     private static Sprite LoadUiIcon(string iconName)
     {
         return SpriteTextureLoader.getSprite("ui/Icons/" + iconName);

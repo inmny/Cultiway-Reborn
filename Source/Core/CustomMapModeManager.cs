@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Cultiway.Core.GeoRegions;
 using Cultiway.Core.Libraries;
 using Cultiway.Utils;
 using UnityEngine;
@@ -157,7 +158,8 @@ public class CustomMapModeManager
         GeoRegion oldHovered = HoveredGeoRegion;
         GeoRegion oldSelected = _selected_geo_region;
         HoveredGeoRegion = WorldboxGame.I.GeoRegions.ResolveGeoRegion(World.world.getMouseTilePosCachedFrame(), mapMode);
-        _selected_geo_region = WorldboxGame.I.SelectedGeoRegion;
+        GeoRegion selectedRegion = WorldboxGame.I.SelectedGeoRegion;
+        _selected_geo_region = IsRegionVisibleInMapMode(selectedRegion, mapMode) ? selectedRegion : null;
 
         if (oldHovered != HoveredGeoRegion || oldSelected != _selected_geo_region)
         {
@@ -167,7 +169,8 @@ public class CustomMapModeManager
 
     public void UpdateInteractionAnimation(CustomMapModeAsset mapMode)
     {
-        if (mapMode?.geo_region_layers == null || mapMode.geo_region_layers.Length == 0 || !HasAnyInteractionRegion()) return;
+        if (mapMode?.geo_region_layers == null || mapMode.geo_region_layers.Length == 0 ||
+            !HasAnyInteractionRegion(mapMode)) return;
 
         float time = Time.unscaledTime;
         if (time < _interaction_animation_next_refresh_time) return;
@@ -194,8 +197,9 @@ public class CustomMapModeManager
 
     public bool TryGetForcedInteractionRegion(WorldTile tile, out GeoRegion region)
     {
-        if (TryGetRegionOnTile(tile, UiHoveredGeoRegion, out region)) return true;
-        if (TryGetRegionOnTile(tile, _selected_geo_region, out region)) return true;
+        CustomMapModeAsset mapMode = UpdateCurrentMapMode();
+        if (TryGetRegionOnTile(tile, UiHoveredGeoRegion, mapMode, out region)) return true;
+        if (TryGetRegionOnTile(tile, _selected_geo_region, mapMode, out region)) return true;
         return false;
     }
 
@@ -251,6 +255,32 @@ public class CustomMapModeManager
         thread.Start();
     }
 
+    internal void OnGeoRegionMembershipReplaced(GeoRegionRuntimeChangeSet changeSet)
+    {
+        if (changeSet == null) throw new ArgumentNullException(nameof(changeSet));
+
+        GeoRegionManager manager = WorldboxGame.I?.GeoRegions;
+        if (HoveredGeoRegion != null && manager?.GetTileCount(HoveredGeoRegion) == 0)
+        {
+            HoveredGeoRegion = null;
+        }
+        if (UiHoveredGeoRegion != null && manager?.GetTileCount(UiHoveredGeoRegion) == 0)
+        {
+            UiHoveredGeoRegion = null;
+        }
+
+        _selected_geo_region = WorldboxGame.I?.SelectedGeoRegion;
+        MapLayer?.SetTileIdsDirty(changeSet.MapDirtyTileIds);
+        _renderer_dirty = true;
+    }
+
+    internal void OnGeoRegionPresentationChanged(GeoRegion region)
+    {
+        CustomMapModeAsset mapMode = UpdateCurrentMapMode();
+        SetGeoRegionsDirty(mapMode, region);
+        _renderer_dirty = true;
+    }
+
     public void SetAllDirty()
     {
         MapLayer?.SetAllDirty();
@@ -270,18 +300,18 @@ public class CustomMapModeManager
         for (int i = 0; i < regions.Length; i++)
         {
             GeoRegion region = regions[i];
-            if (!CanRefreshRegion(region)) continue;
+            if (!IsRegionVisibleInMapMode(region, mapMode)) continue;
             if (!uniqueRegions.Add(region)) continue;
 
             MapLayer.SetTilesDirty(WorldboxGame.I.GeoRegions.EnumerateRegionTiles(region));
         }
     }
 
-    private bool HasAnyInteractionRegion()
+    private bool HasAnyInteractionRegion(CustomMapModeAsset mapMode)
     {
-        return CanRefreshRegion(UiHoveredGeoRegion) ||
-               CanRefreshRegion(_selected_geo_region) ||
-               CanRefreshRegion(HoveredGeoRegion);
+        return IsRegionVisibleInMapMode(UiHoveredGeoRegion, mapMode) ||
+               IsRegionVisibleInMapMode(_selected_geo_region, mapMode) ||
+               IsRegionVisibleInMapMode(HoveredGeoRegion, mapMode);
     }
 
     private static bool CanRefreshRegion(GeoRegion region)
@@ -289,10 +319,28 @@ public class CustomMapModeManager
         return region != null && !region.isRekt() && region.data != null;
     }
 
-    private static bool TryGetRegionOnTile(WorldTile tile, GeoRegion candidate, out GeoRegion region)
+    private static bool IsRegionVisibleInMapMode(GeoRegion region, CustomMapModeAsset mapMode)
+    {
+        if (!CanRefreshRegion(region)) return false;
+
+        GeoRegionLayer[] layers = mapMode?.geo_region_layers;
+        if (layers == null) return false;
+        for (int i = 0; i < layers.Length; i++)
+        {
+            if (layers[i] == region.data.Layer) return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetRegionOnTile(
+        WorldTile tile,
+        GeoRegion candidate,
+        CustomMapModeAsset mapMode,
+        out GeoRegion region)
     {
         region = null;
-        if (tile == null || candidate == null || candidate.isRekt() || candidate.data == null) return false;
+        if (tile == null || !IsRegionVisibleInMapMode(candidate, mapMode)) return false;
 
         if (!TryGetTileExtend(tile, out TileExtend tileExtend)) return false;
         GeoRegion current = tileExtend.GetGeoRegion(candidate.data.Layer);

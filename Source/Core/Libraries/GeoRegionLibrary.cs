@@ -1,11 +1,12 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Cultiway.Core;
-using GeoRegionNameGenerators = Cultiway.WorldboxGame.NameGenerators;
 
 namespace Cultiway.Core.Libraries;
 
+/// <summary>
+/// 集中保存游戏内置的全部地理地区分类配置。世界划分地区时按属性引用这些固定分类，
+/// 地区详情和地图图例也从同一处取得名称与图标，避免各系统重复创建配置。
+/// </summary>
 public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
 {
     /// <summary>
@@ -117,15 +118,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
     /// </summary>
     public GeoRegionAsset Archipelago { get; private set; }
 
-    /// <summary>
-    /// 生物群系ID到主要分类资产的映射字典
-    /// </summary>
-    private readonly Dictionary<string, GeoRegionAsset> _biomeIdToPrimaryClass = new();
-    /// <summary>
-    /// 地貌规则资产数组，用于按优先级匹配地貌分类
-    /// </summary>
-    private GeoRegionAsset[] _landformRules;
-
+    /// <summary>初始化分类库，并依次登记主要地表、地貌、陆块和特殊形态分类。</summary>
     public override void init()
     {
         base.init();
@@ -133,9 +126,9 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         InitLandform();
         InitLandmass();
         InitMorphology();
-        BuildBiomeMapping();
     }
 
+    /// <summary>登记分类配置；未指定图标路径时先按分类编号生成约定路径。</summary>
     public override GeoRegionAsset add(GeoRegionAsset pAsset)
     {
         if (string.IsNullOrEmpty(pAsset.IconPath))
@@ -146,6 +139,9 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         return base.add(pAsset);
     }
 
+    /// <summary>
+    /// 把分类编号转换为默认图标资源路径，例如去掉公共前缀并把分隔点改为下划线。
+    /// </summary>
     private static string GetDefaultIconPath(GeoRegionAsset asset)
     {
         const string prefix = "Cultiway.GeoRegion.";
@@ -163,310 +159,7 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
         return "cultiway/icons/geo_regions/" + iconId.Replace('.', '_').ToLowerInvariant();
     }
 
-    public bool TryGetPrimaryClassByBiome(string biomeId, out GeoRegionAsset category)
-    {
-        if (string.IsNullOrEmpty(biomeId))
-        {
-            category = PrimarySpecial;
-            return false;
-        }
-        return _biomeIdToPrimaryClass.TryGetValue(biomeId, out category);
-    }
-
-    /// <summary>
-    /// 根据 Primary 层水体细分类获取对应资产。
-    /// </summary>
-    public GeoRegionAsset ResolvePrimaryWater(PrimaryWaterKind waterKind)
-    {
-        return waterKind switch
-        {
-            PrimaryWaterKind.Sea => PrimarySea,
-            PrimaryWaterKind.River => PrimaryRiver,
-            PrimaryWaterKind.Lake => PrimaryLake,
-            _ => PrimaryLake
-        };
-    }
-
-    /// <summary>
-    /// 根据水域连通块形态判定 Sea/Lake/River。
-    /// </summary>
-    public PrimaryWaterKind ResolvePrimaryWaterKind(bool touchesEdge, int tileCount, int bboxWidth, int bboxHeight)
-    {
-        if (touchesEdge) return PrimaryWaterKind.Sea;
-
-        var river = PrimaryRiver;
-        if (river != null)
-        {
-            var minTiles = Math.Max(1, river.MinTiles);
-            var maxTiles = river.MaxTiles;
-            var minAspectRatio = river.MinAspectRatio > 0f ? river.MinAspectRatio : 3f;
-            var aspectRatio = Math.Max(bboxWidth, bboxHeight) / (float)Math.Max(1, Math.Min(bboxWidth, bboxHeight));
-
-            if (tileCount >= minTiles &&
-                (maxTiles <= 0 || tileCount <= maxTiles) &&
-                aspectRatio >= minAspectRatio)
-            {
-                return PrimaryWaterKind.River;
-            }
-        }
-
-        return PrimaryWaterKind.Lake;
-    }
-
-    public GeoRegionAsset ResolvePrimaryLandByBiome(string biomeId)
-    {
-        return _biomeIdToPrimaryClass.TryGetValue(biomeId ?? string.Empty, out var category) ? category : PrimarySpecial;
-    }
-
-    /// <summary>
-    /// 基于 tile type / biome / 邻接统计解析 Primary 地表分类（包含海滩覆盖规则）。
-    /// </summary>
-    public GeoRegionAsset ResolvePrimaryLandByContext(in GeoRegionTileRuleContext context)
-    {
-        if (PrimaryBeach != null && MatchPrimaryBeachRule(PrimaryBeach, context))
-        {
-            return PrimaryBeach;
-        }
-
-        return ResolvePrimaryLandByBiome(context.BiomeId);
-    }
-
-    /// <summary>
-    /// 依据 tile 层级与标记解析 Primary 特殊地块分类。
-    /// </summary>
-    public GeoRegionAsset ResolvePrimarySpecial(TileLayerType layerType, bool isLavaFlag = false, bool isGooFlag = false, bool isMountainFlag = false)
-    {
-        if (layerType == TileLayerType.Lava || isLavaFlag)
-        {
-            return PrimaryLava;
-        }
-
-        if (layerType == TileLayerType.Goo || isGooFlag)
-        {
-            return PrimaryGoo;
-        }
-
-        if (layerType == TileLayerType.Block || isMountainFlag)
-        {
-            return PrimaryMountains;
-        }
-
-        return PrimarySpecial;
-    }
-
-    /// <summary>
-    /// 基于 tile type / biome / 邻接统计解析地貌分类。
-    /// </summary>
-    public GeoRegionAsset ResolveLandform(in GeoRegionTileRuleContext context)
-    {
-        foreach (var rule in _landformRules)
-        {
-            if (rule == null) continue;
-            if (MatchLandformRule(rule, context))
-            {
-                return rule;
-            }
-        }
-        return LandformPlain;
-    }
-
-    /// <summary>
-    /// 根据连通陆地面积解析岛、洲或大陆。
-    /// </summary>
-    public GeoRegionAsset ResolveLandmass(int tileCount)
-    {
-        if (tileCount >= LandmassMainland.MinTiles)
-        {
-            return LandmassMainland;
-        }
-
-        if (tileCount >= LandmassContinent.MinTiles)
-        {
-            return LandmassContinent;
-        }
-
-        return LandmassIsland;
-    }
-
-    private static bool MatchLandformRule(GeoRegionAsset rule, in GeoRegionTileRuleContext context)
-    {
-        if (!MatchString(rule.TileTypeIds, context.TileTypeId))
-        {
-            return false;
-        }
-
-        if (!MatchLayer(rule.LayerTypes, context.LayerType))
-        {
-            return false;
-        }
-
-        if (!MatchString(rule.BiomeIds, context.BiomeId))
-        {
-            return false;
-        }
-
-        if (rule.RequireOceanFlag.HasValue && context.IsOceanFlag != rule.RequireOceanFlag.Value)
-        {
-            return false;
-        }
-
-        if (rule.RequireFillableWaterFlag.HasValue && context.IsFillableWaterFlag != rule.RequireFillableWaterFlag.Value)
-        {
-            return false;
-        }
-
-        if (rule.RequireLavaFlag.HasValue && context.IsLavaFlag != rule.RequireLavaFlag.Value)
-        {
-            return false;
-        }
-
-        if (rule.RequireGooFlag.HasValue && context.IsGooFlag != rule.RequireGooFlag.Value)
-        {
-            return false;
-        }
-
-        if (rule.RequireMountainFlag.HasValue && context.IsMountainFlag != rule.RequireMountainFlag.Value)
-        {
-            return false;
-        }
-
-        if (rule.MinNeighborWater > 0 && context.NeighborWaterCount < rule.MinNeighborWater)
-        {
-            return false;
-        }
-
-        if (rule.MinNeighborBlock > 0 && context.NeighborBlockCount < rule.MinNeighborBlock)
-        {
-            return false;
-        }
-
-        if (rule.MinNeighborPit > 0 && context.NeighborPitCount < rule.MinNeighborPit)
-        {
-            return false;
-        }
-
-        if (rule.RequireOppositeBlockPair && !context.HasOppositeBlockPair)
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// 海滩规则：支持“贴海宽度 + 对角邻水补偿”，避免海岸线漏判与窄判。
-    /// </summary>
-    private static bool MatchPrimaryBeachRule(GeoRegionAsset rule, in GeoRegionTileRuleContext context)
-    {
-        if (!MatchLayer(rule.LayerTypes, context.LayerType))
-        {
-            return false;
-        }
-
-        var hasBiomeRestriction = rule.BiomeIds != null && rule.BiomeIds.Length > 0;
-        var hasTileTypeRestriction = rule.TileTypeIds != null && rule.TileTypeIds.Length > 0;
-        if (hasBiomeRestriction || hasTileTypeRestriction)
-        {
-            var matchBiome = hasBiomeRestriction && MatchString(rule.BiomeIds, context.BiomeId);
-            var matchTileType = hasTileTypeRestriction && MatchString(rule.TileTypeIds, context.TileTypeId);
-            if (!matchBiome && !matchTileType)
-            {
-                return false;
-            }
-        }
-
-        if (rule.RequireOceanFlag.HasValue && context.IsOceanFlag != rule.RequireOceanFlag.Value)
-        {
-            return false;
-        }
-
-        if (rule.RequireFillableWaterFlag.HasValue && context.IsFillableWaterFlag != rule.RequireFillableWaterFlag.Value)
-        {
-            return false;
-        }
-
-        if (rule.RequireLavaFlag.HasValue && context.IsLavaFlag != rule.RequireLavaFlag.Value)
-        {
-            return false;
-        }
-
-        if (rule.RequireGooFlag.HasValue && context.IsGooFlag != rule.RequireGooFlag.Value)
-        {
-            return false;
-        }
-
-        if (rule.RequireMountainFlag.HasValue && context.IsMountainFlag != rule.RequireMountainFlag.Value)
-        {
-            return false;
-        }
-
-        if (rule.MaxDistanceToWater >= 0)
-        {
-            if (context.DistanceToWater < 0 || context.DistanceToWater > rule.MaxDistanceToWater)
-            {
-                return false;
-            }
-        }
-
-        if (rule.MinNeighborWater > 0)
-        {
-            var orthogonalWater = context.NeighborWaterCount;
-            if (orthogonalWater < rule.MinNeighborWater)
-            {
-                var diagonalWater = Math.Max(0, context.NeighborWater8Count - orthogonalWater);
-                var compensatedWater = orthogonalWater + (diagonalWater >= 2 ? 1 : 0);
-                if (compensatedWater < rule.MinNeighborWater)
-                {
-                    return false;
-                }
-            }
-        }
-
-        if (rule.MinNeighborBlock > 0 && context.NeighborBlockCount < rule.MinNeighborBlock)
-        {
-            return false;
-        }
-
-        if (rule.MinNeighborPit > 0 && context.NeighborPitCount < rule.MinNeighborPit)
-        {
-            return false;
-        }
-
-        if (rule.RequireOppositeBlockPair && !context.HasOppositeBlockPair)
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static bool MatchString(string[] candidates, string value)
-    {
-        if (candidates == null || candidates.Length == 0) return true;
-        if (string.IsNullOrEmpty(value)) return false;
-
-        for (var i = 0; i < candidates.Length; i++)
-        {
-            var candidate = candidates[i];
-            if (string.IsNullOrEmpty(candidate)) continue;
-            if (string.Equals(candidate, value, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static bool MatchLayer(TileLayerType[] candidates, TileLayerType value)
-    {
-        if (candidates == null || candidates.Length == 0) return true;
-        for (var i = 0; i < candidates.Length; i++)
-        {
-            if (candidates[i] == value) return true;
-        }
-        return false;
-    }
-
+    /// <summary>登记水域、特殊地块和各类生物群系使用的默认主层分类。</summary>
     private void InitPrimary()
     {
         PrimarySea = add(new GeoRegionAsset
@@ -474,7 +167,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Sea",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "海",
-            NameGenerator = GeoRegionNameGenerators.PrimarySea,
             MinTiles = 32
         });
         PrimaryLake = add(new GeoRegionAsset
@@ -482,7 +174,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Lake",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "湖",
-            NameGenerator = GeoRegionNameGenerators.PrimaryLake,
             MinTiles = 32
         });
         PrimaryRiver = add(new GeoRegionAsset
@@ -490,7 +181,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.River",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "河",
-            NameGenerator = GeoRegionNameGenerators.PrimaryRiver,
             MinTiles = 16,
             MaxTiles = 2048,
             MinAspectRatio = 3.0f
@@ -500,7 +190,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Lava",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "熔岩地带",
-            NameGenerator = GeoRegionNameGenerators.PrimaryLava,
             MinTiles = 32
         });
         PrimaryGoo = add(new GeoRegionAsset
@@ -508,7 +197,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Goo",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "灰疫之地",
-            NameGenerator = GeoRegionNameGenerators.PrimaryGoo,
             MinTiles = 32
         });
         PrimaryMountains = add(new GeoRegionAsset
@@ -516,7 +204,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Mountains",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "山脉",
-            NameGenerator = GeoRegionNameGenerators.PrimaryMountains,
             MinTiles = 64
         });
 
@@ -525,7 +212,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Grassland",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "草原",
-            NameGenerator = GeoRegionNameGenerators.PrimaryGrassland,
             MinTiles = 64,
             BiomeIds = new[] { "biome_grass", "biome_savanna", "biome_clover", "biome_flower" }
         });
@@ -534,7 +220,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Forest",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "森林",
-            NameGenerator = GeoRegionNameGenerators.PrimaryForest,
             MinTiles = 64,
             BiomeIds = new[] { "biome_birch", "biome_maple" }
         });
@@ -543,7 +228,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Jungle",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "丛林",
-            NameGenerator = GeoRegionNameGenerators.PrimaryJungle,
             MinTiles = 64,
             BiomeIds = new[] { "biome_jungle" }
         });
@@ -552,7 +236,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Swamp",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "沼泽",
-            NameGenerator = GeoRegionNameGenerators.PrimarySwamp,
             MinTiles = 64,
             BiomeIds = new[] { "biome_swamp" }
         });
@@ -561,7 +244,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Desert",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "沙漠",
-            NameGenerator = GeoRegionNameGenerators.PrimaryDesert,
             MinTiles = 64,
             BiomeIds = new[] { "biome_desert", "biome_sand" }
         });
@@ -570,7 +252,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Beach",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "海滩",
-            NameGenerator = GeoRegionNameGenerators.PrimaryBeach,
             MinTiles = 32,
             BiomeIds = new[] { "biome_sand" },
             TileTypeIds = new[] { "sand", "snow_sand" },
@@ -582,7 +263,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Tundra",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "雪原",
-            NameGenerator = GeoRegionNameGenerators.PrimaryTundra,
             MinTiles = 64,
             BiomeIds = new[] { "biome_permafrost" }
         });
@@ -591,7 +271,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Highlands",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "高地",
-            NameGenerator = GeoRegionNameGenerators.PrimaryHighlands,
             MinTiles = 64,
             BiomeIds = new[] { "biome_hill", "biome_rocklands" }
         });
@@ -600,7 +279,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Wasteland",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "荒原",
-            NameGenerator = GeoRegionNameGenerators.PrimaryWasteland,
             MinTiles = 64,
             BiomeIds = new[] { "biome_wasteland" }
         });
@@ -609,11 +287,11 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Primary.Special",
             Layer = GeoRegionLayer.Primary,
             DisplayName = "奇境",
-            NameGenerator = GeoRegionNameGenerators.PrimarySpecial,
             MinTiles = 64
         });
     }
 
+    /// <summary>登记平原、山地、峡谷和盆地等地貌分类及其识别限制。</summary>
     private void InitLandform()
     {
         LandformPlain = add(new GeoRegionAsset
@@ -622,7 +300,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Layer = GeoRegionLayer.Landform,
             Priority = 0,
             DisplayName = "平原",
-            NameGenerator = GeoRegionNameGenerators.LandformPlain,
             MinTiles = 128
         });
         LandformMountain = add(new GeoRegionAsset
@@ -631,7 +308,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Layer = GeoRegionLayer.Landform,
             Priority = 300,
             DisplayName = "山地",
-            NameGenerator = GeoRegionNameGenerators.LandformMountain,
             MinTiles = 128,
             RequireMountainFlag = true
         });
@@ -641,7 +317,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Layer = GeoRegionLayer.Landform,
             Priority = 260,
             DisplayName = "峡谷",
-            NameGenerator = GeoRegionNameGenerators.LandformCanyon,
             MinTiles = 64,
             RequireOceanFlag = false,
             RequireFillableWaterFlag = false,
@@ -654,17 +329,13 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             Layer = GeoRegionLayer.Landform,
             Priority = 200,
             DisplayName = "盆地",
-            NameGenerator = GeoRegionNameGenerators.LandformBasin,
             MinTiles = 64,
             RequireFillableWaterFlag = true,
             RequireOceanFlag = false
         });
-
-        _landformRules = list.Where(a => a.Layer == GeoRegionLayer.Landform)
-            .OrderByDescending(a => a.Priority)
-            .ToArray();
     }
 
+    /// <summary>按连通陆地面积范围登记岛、洲和大陆分类。</summary>
     private void InitLandmass()
     {
         LandmassIsland = add(new GeoRegionAsset
@@ -672,7 +343,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Landmass.Island",
             Layer = GeoRegionLayer.Landmass,
             DisplayName = "岛",
-            NameGenerator = GeoRegionNameGenerators.LandmassIsland,
             MinTiles = 21,
             MaxTiles = 3000
         });
@@ -681,7 +351,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Landmass.Continent",
             Layer = GeoRegionLayer.Landmass,
             DisplayName = "洲",
-            NameGenerator = GeoRegionNameGenerators.LandmassContinent,
             MinTiles = 3001,
             MaxTiles = 10000
         });
@@ -690,11 +359,11 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Landmass.Mainland",
             Layer = GeoRegionLayer.Landmass,
             DisplayName = "大陆",
-            NameGenerator = GeoRegionNameGenerators.LandmassMainland,
             MinTiles = 10001
         });
     }
 
+    /// <summary>登记半岛、海峡和群岛分类，并设置各自的形状与规模条件。</summary>
     private void InitMorphology()
     {
         Peninsula = add(new GeoRegionAsset
@@ -702,7 +371,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Morphology.Peninsula",
             Layer = GeoRegionLayer.Peninsula,
             DisplayName = "半岛",
-            NameGenerator = GeoRegionNameGenerators.Peninsula,
             MinTiles = 128,
             MaxTiles = 8192,
             MaxThickness = 2,
@@ -714,7 +382,6 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Morphology.Strait",
             Layer = GeoRegionLayer.Strait,
             DisplayName = "海峡",
-            NameGenerator = GeoRegionNameGenerators.Strait,
             MinTiles = 24,
             MaxTiles = 4096,
             MaxHalfWidth = 1,
@@ -726,44 +393,10 @@ public class GeoRegionLibrary : AssetLibrary<GeoRegionAsset>
             id = "Cultiway.GeoRegion.Morphology.Archipelago",
             Layer = GeoRegionLayer.Archipelago,
             DisplayName = "群岛",
-            NameGenerator = GeoRegionNameGenerators.Archipelago,
             MinIslands = 3,
             MinTotalTiles = 512,
             IslandMaxTiles = 2048,
             MaxGap = 8
         });
-    }
-
-    private void BuildBiomeMapping()
-    {
-        _biomeIdToPrimaryClass.Clear();
-        var primaryClasses = new List<GeoRegionAsset>
-        {
-            PrimaryGrassland,
-            PrimaryForest,
-            PrimaryJungle,
-            PrimarySwamp,
-            PrimaryDesert,
-            PrimaryTundra,
-            PrimaryHighlands,
-            PrimaryWasteland
-        };
-
-        foreach (var category in primaryClasses)
-        {
-            if (category?.BiomeIds == null) continue;
-            foreach (var biomeId in category.BiomeIds)
-            {
-                if (string.IsNullOrEmpty(biomeId)) continue;
-                _biomeIdToPrimaryClass[biomeId] = category;
-            }
-        }
-
-        foreach (var biome in AssetManager.biome_library.list)
-        {
-            if (biome == null || string.IsNullOrEmpty(biome.id)) continue;
-            if (_biomeIdToPrimaryClass.ContainsKey(biome.id)) continue;
-            _biomeIdToPrimaryClass[biome.id] = PrimarySpecial;
-        }
     }
 }
