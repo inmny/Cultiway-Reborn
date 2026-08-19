@@ -74,9 +74,7 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
         SkillCastPlan plan = CreatePlan(caster, active.Profile, null, caster.Base.GetSimPos());
         if (!SkillCastCost.CanPay(caster, active.Profile.SkillContainer, plan))
             return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.InsufficientResource);
-        return active.Profile.CanPrepare?.Invoke(active.Effect, caster, null) ?? true
-            ? ActiveAbilityControlState.Ready
-            : new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
+        return ActiveAbilityControlState.Ready;
     }
 
     /// <summary>检查冷却、固定灵气消耗和定义提供的战斗环境条件。</summary>
