@@ -344,6 +344,38 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
             SB.tent_human, SB.house_human_0, SB.house_human_1, SB.house_human_2, SB.house_human_3, SB.house_human_4, SB.house_human_5, 
             SB.hall_human_0, SB.hall_human_1, SB.hall_human_2
         );
+
+        string house5Id = $"house_{Actors.EasternHuman.id}_5";
+        string house6Id = $"house_{Actors.EasternHuman.id}_6";
+        string house7Id = $"house_{Actors.EasternHuman.id}_7";
+        BuildingAsset house5 = AssetManager.buildings.get(house5Id);
+        BuildingAsset house6 = Clone(house6Id, house5Id);
+        BuildingAsset house7 = Clone(house7Id, house6Id);
+
+        house5.can_be_upgraded = true;
+        house5.upgrade_to = house6Id;
+
+        house6.main_path = $"buildings/civ_main/{Actors.EasternHuman.id}/";
+        house6.upgrade_level = 6;
+        house6.upgraded_from = house5Id;
+        house6.upgrade_to = house7Id;
+        house6.can_be_upgraded = true;
+        house6.cost = new ConstructionCost(0, 25, 3, 15);
+        house6.setHousingSlots(8);
+        house6.loot_generation = 7;
+        house6.housing_happiness = 12;
+        house6.base_stats["health"] = 450f;
+
+        house7.main_path = $"buildings/civ_main/{Actors.EasternHuman.id}/";
+        house7.upgrade_level = 7;
+        house7.upgraded_from = house6Id;
+        house7.upgrade_to = string.Empty;
+        house7.can_be_upgraded = false;
+        house7.cost = new ConstructionCost(0, 30, 4, 20);
+        house7.setHousingSlots(9);
+        house7.loot_generation = 8;
+        house7.housing_happiness = 13;
+        house7.base_stats["health"] = 500f;
 /*
         AssetManager.buildings.get($"tent_{Races.Ming.id}").fundament = new BuildingFundament(1,        1, 1,  0);
         AssetManager.buildings.get($"house_{Races.Ming.id}_0").fundament = new BuildingFundament(3,     3, 4,  0);

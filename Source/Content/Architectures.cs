@@ -84,5 +84,9 @@ public class Architectures : ExtendLibrary<ArchitectureAsset, Architectures>
         {
             asset.addBuildingOrderKey(S_BuildOrder.order_bonfire, $"bonfire_{Ming.id}");
         }
+        else if (asset == EasternHuman)
+        {
+            asset.addBuildingOrderKey(BuildingOrders.OrderHouse6, $"house_{EasternHuman.id}_6");
+        }
     }
 }
