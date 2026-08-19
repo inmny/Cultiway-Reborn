@@ -17,6 +17,7 @@ internal static class ControlledPossessionInputGate
     internal static bool ConsumesPointerInput()
     {
         return ControlledActiveAbilityBar.ConsumesPointerInput() ||
+               ControlledPossessionInfoButtons.ConsumesPointerInput() ||
                ControlledTaskCommandPalette.ConsumesPointerInput() ||
                ControlledTaskTargetSelection.ConsumesPointerInput() ||
                ControlledTaskOrderTracker.ConsumesPointerInput();
