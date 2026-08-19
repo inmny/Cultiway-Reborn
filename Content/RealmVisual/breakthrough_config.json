@@ -47,6 +47,22 @@
       "lightning_chance": 0.35,
       "funnel": false,
       "extra_intensity": 0.9
+    },
+    {
+      "id": "yuanying_to_huashen",
+      "from": 3,
+      "to": 4,
+      "duration": 7.0,
+      "base_particle": 84,
+      "radius": 6.0,
+      "height_offset": 0.6,
+      "primary_color": "#A8C4C8",
+      "secondary_color": "#715A8C",
+      "shockwave": true,
+      "cloud": true,
+      "lightning_chance": 0.15,
+      "funnel": true,
+      "extra_intensity": 1.1
     }
   ]
 }

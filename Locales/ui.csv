@@ -430,6 +430,9 @@ Cultiway.WorldLog.DemonAscension,$actor$ 献祭己身，化身为 $daemon$ 降�
 Cultiway.WorldLog.YuanyingEscape,$actor$ 肉身毁灭，元婴遁出寻找宿主
 Cultiway.WorldLog.YuanyingPossessionSuccess,$actor$ 成功夺舍 $host$ 的肉身
 Cultiway.WorldLog.YuanyingPossessionFailure,$actor$ 夺舍 $host$ 失败，元婴随之消亡
+Cultiway.WorldLog.BalefulWindTribulationStarted,$actor$ 引动九重煞风劫，凶风开始削骨炼魂
+Cultiway.WorldLog.BalefulWindTribulationSurvived,$actor$ 熬过九重煞风，化神之门已开
+Cultiway.WorldLog.BalefulWindTribulationFailed,$actor$ 的肉身被煞风撕毁，化神失败
 Cultiway.YuanyingSeed.Dormant,休眠
 Cultiway.Sect.Permission.EvaluatePersonnel,评定人事
 Cultiway.Sect.Permission.EvaluatePersonnel.Info,允许执行宗门人事评定
@@ -493,8 +496,8 @@ Cultiway.CultisysOverview.UI.State.Unavailable,暂无可用进阶
 Cultiway.CultisysOverview.UI.State.Accumulating,积累中
 Cultiway.CultisysOverview.UI.State.Ready,可尝试突破
 Cultiway.CultisysOverview.UI.State.NotReady,条件未满足
-Cultiway.CultisysOverview.UI.State.NeedsStart,待开始准备
-Cultiway.CultisysOverview.UI.State.InProgress,准备中
+Cultiway.CultisysOverview.UI.State.NeedsStart,待启动进阶流程
+Cultiway.CultisysOverview.UI.State.InProgress,进阶进行中
 Cultiway.CultisysOverview.UI.State.Blocked,突破受阻
 Cultiway.CultisysOverview.UI.UnknownRealm,未知境界
 Cultiway.CultisysOverview.UI.Empty,当前没有修炼体系
@@ -510,6 +513,7 @@ Cultiway.CultisysTooltip.Xian.Foundation,筑基
 Cultiway.CultisysTooltip.Xian.QiRefinement,真气
 Cultiway.CultisysTooltip.Xian.Jindan,金丹
 Cultiway.CultisysTooltip.Xian.Yuanying,元婴
+Cultiway.CultisysTooltip.Xian.BalefulWindTribulation,九重煞风劫
 Cultiway.CultisysTooltip.Magic.MaxRing,最高法术环
 Cultiway.CultisysTooltip.Magic.SpellCapacity,法术掌握
 Cultiway.CultisysTooltip.Knight.SuccessChance,自然突破率
@@ -525,6 +529,12 @@ xian.wakan_not_full,灵气尚未充盈
 xian.element_root_missing,缺少灵根
 xian.qi_foundation_not_ready,真气尚未达到九层
 xian.jindan_missing,缺少金丹
+xian.yuanying_missing,缺少元婴
+xian.yuanying_not_ninefold,元婴尚未完成九转
+xian.baleful_wind_not_started,元婴九转已成，必须引动九重煞风劫
+xian.baleful_wind_in_progress,九重煞风劫正在进行
+xian.baleful_wind_actor_invalid,渡劫者已经失去有效肉身
+xian.baleful_wind_transition_invalid,当前进阶无法引动煞风劫
 magic.spirit_not_full,精神力尚未充盈
 knight.vigor_not_full,斗气尚未充盈
 InventoryPage,背包

@@ -15,6 +15,9 @@ public class WorldLogs : ExtendLibrary<WorldLogAsset, WorldLogs>
     public static WorldLogAsset LogSectScriptureContributed { get; private set; }
     public static WorldLogAsset LogSectLecture { get; private set; }
     public static WorldLogAsset LogDemonAscension { get; private set; }
+    public static WorldLogAsset LogBalefulWindTribulationStarted { get; private set; }
+    public static WorldLogAsset LogBalefulWindTribulationSurvived { get; private set; }
+    public static WorldLogAsset LogBalefulWindTribulationFailed { get; private set; }
     public static WorldLogAsset LogYuanyingEscape { get; private set; }
     public static WorldLogAsset LogYuanyingPossessionSuccess { get; private set; }
     public static WorldLogAsset LogYuanyingPossessionFailure { get; private set; }
@@ -52,11 +55,28 @@ public class WorldLogs : ExtendLibrary<WorldLogAsset, WorldLogs>
             AssetManager.world_log_library.updateText(ref text, message, "$daemon$", 2);
         };
 
+        SetupCultivationActorLog(LogBalefulWindTribulationStarted,
+            "Cultiway.WorldLog.BalefulWindTribulationStarted", Toolbox.color_log_warning);
+        SetupCultivationActorLog(LogBalefulWindTribulationSurvived,
+            "Cultiway.WorldLog.BalefulWindTribulationSurvived", Toolbox.color_log_good);
+        SetupCultivationActorLog(LogBalefulWindTribulationFailed,
+            "Cultiway.WorldLog.BalefulWindTribulationFailed", Toolbox.color_log_warning);
+
         SetupPossessionLog(LogYuanyingEscape, "Cultiway.WorldLog.YuanyingEscape", Toolbox.color_log_warning);
         SetupPossessionLog(LogYuanyingPossessionSuccess, "Cultiway.WorldLog.YuanyingPossessionSuccess",
             Toolbox.color_log_good);
         SetupPossessionLog(LogYuanyingPossessionFailure, "Cultiway.WorldLog.YuanyingPossessionFailure",
             Toolbox.color_log_warning);
+    }
+
+    private static void SetupCultivationActorLog(WorldLogAsset asset, string localeId, UnityEngine.Color color)
+    {
+        asset.locale_id = localeId;
+        asset.path_icon = "cultiway/icons/element_root/entropy";
+        asset.color = color;
+        asset.group = HistoryGroups.Cultivations.id;
+        asset.text_replacer = (WorldLogMessage message, ref string text) =>
+            AssetManager.world_log_library.updateText(ref text, message, "$actor$", 1);
     }
 
     private static void SetupPossessionLog(WorldLogAsset asset, string localeId, UnityEngine.Color color)

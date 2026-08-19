@@ -196,7 +196,8 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             Base?.setStatsDirty();
         }
     }
-    public void GetForce(BaseSimObject source, float x, float y, float z)
+    public void GetForce(BaseSimObject source, float x, float y, float z,
+        float? source_power_level_override = null)
     {
         var actor = Base;
         if (!actor.asset.can_be_moved_by_powers)
@@ -208,7 +209,10 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
             return;
         }
         var power_level = GetPowerLevel();
-        var source_power_level = (source?.isActor()??false) ? (source.isRekt() ? 0 : source.a.GetExtend().GetPowerLevel()) : 0;
+        var source_power_level = source_power_level_override ??
+                                 ((source?.isActor() ?? false)
+                                     ? (source.isRekt() ? 0 : source.a.GetExtend().GetPowerLevel())
+                                     : 0);
         if (power_level > source_power_level)
         {
             x /= Mathf.Pow(DamageCalcHyperParameters.PowerBase, power_level - source_power_level);

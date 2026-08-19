@@ -274,8 +274,25 @@ public class Manager
         float strength, float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f,
         Kingdom attack_kingdom = null, SkillCastRuntimeData runtime_data = default)
     {
+        return SpawnSkillFromPosition(skill_container, source, source.GetSimPos(), target, target_pos, strength, delay,
+            power_level, initial_angle_offset_degrees, attack_kingdom, runtime_data);
+    }
+
+    /// <summary>从给定世界坐标生成没有施法者的技能实体。</summary>
+    public Entity SpawnSourcelessSkill(Entity skill_container, Vector3 source_pos, BaseSimObject target,
+        Vector3 target_pos, float strength, float power_level, float delay = 0f,
+        float initial_angle_offset_degrees = 0f, Kingdom attack_kingdom = null,
+        SkillCastRuntimeData runtime_data = default)
+    {
+        return SpawnSkillFromPosition(skill_container, null, source_pos, target, target_pos, strength, delay,
+            power_level, initial_angle_offset_degrees, attack_kingdom, runtime_data);
+    }
+
+    private Entity SpawnSkillFromPosition(Entity skill_container, BaseSimObject source, Vector3 source_pos,
+        BaseSimObject target, Vector3 target_pos, float strength, float delay, float? power_level,
+        float initial_angle_offset_degrees, Kingdom attack_kingdom, SkillCastRuntimeData runtime_data)
+    {
         ref var container = ref skill_container.GetComponent<SkillContainer>();
-        var source_pos = source.GetSimPos();
 
         var base_dir = target_pos - source_pos;
         if (base_dir.sqrMagnitude < 0.0001f)
@@ -302,7 +319,7 @@ public class Manager
             ? source.a.GetExtend().GetPowerLevel()
             : 0f);
         context.BindSource(source);
-        context.TargetObj = target.isRekt() ? null : target;
+        context.TargetObj = target == null || target.isRekt() ? null : target;
         context.AttackKingdom = attack_kingdom;
         context.RuntimeData = runtime_data;
         ref var skill_entity = ref data.Get<SkillEntity>();

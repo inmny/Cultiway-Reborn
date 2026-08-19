@@ -63,6 +63,7 @@ internal class Manager
         ModClass.L.SemanticLibrary.LinkAndValidate();
         CombatWorldService.Initialize();
         CultibookRequestService.Initialize();
+        BalefulWindTribulationSkillService.Initialize();
 
         new Patch.Manager().Init();
         ModClass.I.GeneralLogicSystems.Add(new FlyCancelSystem());
@@ -90,6 +91,7 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new ArtifactSpiritAvatarCleanupSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactManifestationCleanupSystem());
         ModClass.I.GeneralLogicSystems.Add(new TimedCultivationSystem());
+        ModClass.I.GeneralLogicSystems.Add(new BalefulWindTribulationSystem(ModClass.I.W));
         ModClass.I.GeneralLogicSystems.Add(new YuanyingSoulLifetimeSystem());
         ModClass.I.GeneralLogicSystems.Add(new SectConstructionSystem());
         ActorExtend.RegisterActionOnDeath(SectTreasureService.ReturnBorrowedOnDeath);

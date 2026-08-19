@@ -143,6 +143,23 @@ internal sealed class BreakthroughVisualManager : ICanInit, ICanReload
             lightningChance: 0.35f,
             useFunnel: false,
             extraIntensity: 0.9f);
+
+        // 元婴→化神
+        _definitions[4] = new BreakthroughVisualDefinition(
+            "yuanying_to_huashen",
+            3,
+            4,
+            7f,
+            42,
+            1.5f,
+            0.6f,
+            new Color(0.66f, 0.77f, 0.78f, 1f),
+            new Color(0.44f, 0.35f, 0.55f, 1f),
+            shockwave: true,
+            useCloud: true,
+            lightningChance: 0.15f,
+            useFunnel: true,
+            extraIntensity: 1.1f);
     }
 
     private static Color ParseColor(string value, Color fallback)
