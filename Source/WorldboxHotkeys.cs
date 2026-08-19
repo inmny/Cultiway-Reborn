@@ -56,6 +56,7 @@ public partial class WorldboxGame
                 () => GetHotkeyText(CycleControlledSkill, "E"));
             ControlledActiveAbilityBar.Ensure();
             ControlledPossessionMiniMap.Ensure();
+            ControlledPossessionInfoButtons.Ensure();
             ControlledTaskCommandPalette.Ensure();
             ControlledTaskTargetSelection.Ensure();
             ControlledTaskOrderTracker.Ensure();

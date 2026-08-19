@@ -37,6 +37,22 @@ internal static class UiResources
     public const string DestructiveButton = "ui/special/special_buttonRed_insides";
     public const string ToggleBox = "ui/button";
     public const string SettingButtonPrefab = "ui/SettingButton";
+    public const string ScrollWindowPrefab = "ui/ScrollWindowPref";
+
+    private const string OriginalScrollbarPath = "Background/Scroll View/Scrollbar Vertical Mask";
+    private static Transform originalScrollbarTemplate;
+
+    public static Transform GetOriginalScrollbarTemplate()
+    {
+        if (originalScrollbarTemplate != null) return originalScrollbarTemplate;
+        GameObject prefab = Resources.Load<GameObject>(ScrollWindowPrefab) ??
+                            throw new System.InvalidOperationException(
+                                $"无法加载原版滚动窗口预制体: {ScrollWindowPrefab}");
+        originalScrollbarTemplate = prefab.transform.Find(OriginalScrollbarPath) ??
+                                    throw new System.InvalidOperationException(
+                                        $"原版滚动窗口缺少节点: {OriginalScrollbarPath}");
+        return originalScrollbarTemplate;
+    }
 
     public static Sprite GetSprite(string path)
     {

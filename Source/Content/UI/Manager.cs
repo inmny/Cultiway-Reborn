@@ -30,10 +30,14 @@ public class Manager : ICanInit
     private const string WanfaPavilionIcon = "cultiway/icons/world_tools/iconWanfaPavilion";
     private const string DiliujiangIcon = "cultiway/icons/world_tools/iconDiliujiang";
     private const string ElementRootRainIcon = "cultiway/icons/world_tools/iconElementRootRain";
+    private const string CharacterPanelStaminaTitle = "Cultiway.UI.CharacterPanel.Stamina";
+    private const string CharacterPanelStaminaDescription = "Cultiway.UI.CharacterPanel.Stamina Description";
     private const string CharacterPanelWakanTitle = "Cultiway.UI.CharacterPanel.Wakan";
     private const string CharacterPanelWakanDescription = "Cultiway.UI.CharacterPanel.Wakan Description";
     private const string CharacterPanelSpiritTitle = "Cultiway.UI.CharacterPanel.Spirit";
     private const string CharacterPanelSpiritDescription = "Cultiway.UI.CharacterPanel.Spirit Description";
+    private const string CharacterPanelVigorTitle = "Cultiway.UI.CharacterPanel.Vigor";
+    private const string CharacterPanelVigorDescription = "Cultiway.UI.CharacterPanel.Vigor Description";
 
     public static Manager Instance { get; private set; }
     public PowerButton WanfaGrantButton { get; private set; }
@@ -68,12 +72,18 @@ public class Manager : ICanInit
         WindowNewCreatureInfo.RegisterPage(nameof(ArtifactPage),
             a => a.GetExtend().HasEquippedArtifacts(),
             ArtifactPage.Setup, ArtifactPage.Show, ArtifactPage.GetTitle);
+        CharacterPanelExtensions.RegisterProgressBar("cultiway_stamina",
+            a => !a.asset.force_hide_stamina,
+            ReadStaminaPanelValue);
         CharacterPanelExtensions.RegisterProgressBar("cultiway_wakan",
             a => a.GetExtend().HasCultisys<Xian>(),
             ReadWakanPanelValue);
         CharacterPanelExtensions.RegisterProgressBar("cultiway_spirit",
             a => a.GetExtend().HasCultisys<Magic>(),
             ReadSpiritPanelValue);
+        CharacterPanelExtensions.RegisterProgressBar("cultiway_vigor",
+            a => a.GetExtend().HasCultisys<Knight>(),
+            ReadVigorPanelValue);
         PossessionStatusEffectsUi.Ensure();
 
         WindowWorldWakan.CreateAndInit($"Cultiway.UI.{nameof(WindowWorldWakan)}");
@@ -321,6 +331,22 @@ public class Manager : ICanInit
         }
     }
 
+    private static CharacterPanelProgressBarState ReadStaminaPanelValue(Actor actor)
+    {
+        float max = Mathf.Max(0f, actor.getMaxStamina());
+        float current = Mathf.Clamp(actor.getStamina(), 0f, max);
+
+        return new CharacterPanelProgressBarState(
+            current,
+            max,
+            "ui/icons/iconStamina",
+            CharacterPanelStaminaTitle,
+            CharacterPanelStaminaDescription,
+            $"{FormatWholeNumber(current)} / {FormatWholeNumber(max)}",
+            new Color(0.01f, 0.585f, 0f, 1f)
+        );
+    }
+
     private static CharacterPanelProgressBarState ReadWakanPanelValue(Actor actor)
     {
         var ae = actor.GetExtend();
@@ -354,6 +380,24 @@ public class Manager : ICanInit
             CharacterPanelSpiritDescription,
             $"{FormatWholeNumber(current)} / {FormatWholeNumber(max)}",
             new Color(0.55f, 0.35f, 0.85f, 1f)
+        );
+    }
+
+    private static CharacterPanelProgressBarState ReadVigorPanelValue(Actor actor)
+    {
+        ActorExtend actorExtend = actor.GetExtend();
+        ref Knight knight = ref actorExtend.GetCultisys<Knight>();
+        float current = Mathf.Max(0f, knight.vigor);
+        float max = Mathf.Max(0f, actor.stats[BaseStatses.MaxVigor.id]);
+
+        return new CharacterPanelProgressBarState(
+            current,
+            max,
+            Cultisyses.Knight.IconPath,
+            CharacterPanelVigorTitle,
+            CharacterPanelVigorDescription,
+            $"{FormatWholeNumber(current)} / {FormatWholeNumber(max)}",
+            new Color(0.953f, 0.588f, 0.122f, 1f)
         );
     }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cultiway.Abstract;
 using Cultiway.Core.ControlledTasks;
 using strings;
 using UnityEngine;
@@ -13,7 +14,11 @@ internal sealed class ControlledTaskParameterPicker
 {
     private const float PanelWidth = 390f;
     private const float PanelHeight = 318f;
-    private const float BodyHeight = 178f;
+    private const float BodyHeight = 144f;
+    private const float FullWidthOptionWidth = PanelWidth - 12f;
+    private const float CompactOptionWidth = 248f;
+    private const int GridColumnCount = 10;
+    private const float GridSpacing = 3f;
 
     private readonly UiWindowFrame frame;
     private readonly UiModal modal;
@@ -22,12 +27,17 @@ internal sealed class ControlledTaskParameterPicker
     private readonly Text summary;
     private readonly Text error;
     private readonly InputField search;
-    private readonly UiScrollPane optionsPane;
+    private readonly UiScrollPane listOptionsPane;
+    private readonly UiScrollPane gridOptionsPane;
+    private readonly MonoObjPool<ControlledTaskOptionListRow> listOptionPool;
+    private readonly MonoObjPool<ControlledTaskOptionGridCell> gridOptionPool;
     private readonly Button previousButton;
     private readonly Button nextButton;
     private readonly Text nextButtonLabel;
     private readonly Dictionary<string, List<string>> selections = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> optionLabels = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ControlledTaskOption> visibleOptions =
+        new(StringComparer.Ordinal);
 
     private ControlledTaskCommandAsset command;
     private Actor actor;
@@ -74,8 +84,39 @@ internal sealed class ControlledTaskParameterPicker
             "Cultiway.ControlledTask.UI.SearchOptions".Localize(), PanelWidth, 22f).Input;
         search.onValueChanged.AddListener(_ => RefreshOptions(false));
 
-        optionsPane = UiScrollPane.CreateVertical(layoutObject.transform, "Options", PanelWidth, BodyHeight);
-        optionsPane.SetSurface(UiSurface.WindowInner, UiTheme.Current.Metrics.SpacingXs, false);
+        listOptionsPane = UiScrollPane.CreateVertical(layoutObject.transform, "ListOptions", PanelWidth, BodyHeight);
+        listOptionsPane.SetSurface(UiSurface.WindowInner, UiTheme.Current.Metrics.SpacingXs, false);
+        VerticalLayoutGroup listLayout = listOptionsPane.Content.GetComponent<VerticalLayoutGroup>();
+        listLayout.childControlWidth = false;
+        listLayout.childForceExpandWidth = false;
+        listLayout.childAlignment = TextAnchor.UpperLeft;
+
+        gridOptionsPane = UiScrollPane.CreateGrid(layoutObject.transform, "GridOptions", PanelWidth, BodyHeight,
+            GridColumnCount, new Vector2(ControlledTaskOptionGridCell.CellSize,
+                ControlledTaskOptionGridCell.CellSize), new Vector2(GridSpacing, GridSpacing));
+        gridOptionsPane.SetSurface(UiSurface.WindowInner, UiTheme.Current.Metrics.SpacingXs, false);
+        gridOptionsPane.Content.GetComponent<GridLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+        gridOptionsPane.Root.gameObject.SetActive(false);
+
+        ControlledTaskOptionListRow listTemplate =
+            ControlledTaskOptionListRow.CreateTemplate(listOptionsPane.Content, FullWidthOptionWidth);
+        listTemplate.gameObject.SetActive(false);
+        listOptionPool = new MonoObjPool<ControlledTaskOptionListRow>(
+            listTemplate,
+            listOptionsPane.Content,
+            row => row.Initialize(ToggleByKey),
+            null,
+            row => row.Clear());
+
+        ControlledTaskOptionGridCell gridTemplate =
+            ControlledTaskOptionGridCell.CreateTemplate(gridOptionsPane.Content);
+        gridTemplate.gameObject.SetActive(false);
+        gridOptionPool = new MonoObjPool<ControlledTaskOptionGridCell>(
+            gridTemplate,
+            gridOptionsPane.Content,
+            cell => cell.Initialize(ToggleByKey),
+            null,
+            cell => cell.Clear());
 
         summary = UiElements.CreateText(layoutObject.transform, "Summary", string.Empty, PanelWidth, 25f, 6,
             TextAnchor.MiddleLeft);
@@ -109,6 +150,7 @@ internal sealed class ControlledTaskParameterPicker
         parameterIndex = 0;
         selections.Clear();
         optionLabels.Clear();
+        visibleOptions.Clear();
         foreach (ControlledTaskParameterDefinition definition in parameters)
         {
             List<string> values = new();
@@ -143,7 +185,11 @@ internal sealed class ControlledTaskParameterPicker
     {
         if (!visible || command == null || parameterIndex < 0 || parameterIndex >= parameters.Count) return;
         ControlledTaskParameterDefinition definition = parameters[parameterIndex];
+        bool useGrid = definition.Layout == ControlledTaskParameterLayout.ItemGrid;
+        listOptionsPane.Root.gameObject.SetActive(!useGrid);
+        gridOptionsPane.Root.gameObject.SetActive(useGrid);
         parameterLabel.text = definition.NameLocaleKey.Localize();
+
         IReadOnlyList<ControlledTaskOption> options;
         try
         {
@@ -158,43 +204,58 @@ internal sealed class ControlledTaskParameterPicker
         }
 
         List<string> current = GetSelection(definition.Key);
-        var validKeys = new HashSet<string>(options
+        HashSet<string> validKeys = new(options
             .Where(option => option?.Enabled == true)
             .Select(option => option.Key), StringComparer.Ordinal);
         current.RemoveAll(value => !validKeys.Contains(value));
 
-        UiLayout.ClearChildren(optionsPane.Content, true);
         string query = search.text?.Trim() ?? string.Empty;
-        List<ControlledTaskOption> visibleOptions = options
+        List<ControlledTaskOption> filteredOptions = options
             .Where(option => option != null &&
                              (query.Length == 0 || option.SearchText.IndexOf(query,
                                  StringComparison.OrdinalIgnoreCase) >= 0))
             .ToList();
-
-        for (int i = 0; i < visibleOptions.Count; i++)
+        visibleOptions.Clear();
+        for (int i = 0; i < filteredOptions.Count; i++)
         {
-            ControlledTaskOption option = visibleOptions[i];
+            ControlledTaskOption option = filteredOptions[i];
             optionLabels[option.Key] = option.Label;
-            bool selected = current.Contains(option.Key);
-            Button button = UiElements.CreateIconTextButton(optionsPane.Content,
-                $"Option{i}", selected ? UiIcons.Confirm : option.IconPath,
-                option.Label, PanelWidth - 12f, 25f, () => Toggle(definition, option));
-            button.interactable = option.Enabled;
-            UiStateStyle.SetSelected(button, selected);
-            Text label = button.GetComponentInChildren<Text>();
-            label.resizeTextForBestFit = true;
-            label.resizeTextMinSize = 5;
-            label.resizeTextMaxSize = 7;
-            string tooltip = string.IsNullOrEmpty(option.Summary)
-                ? option.ReasonLocaleKey.Localize()
-                : option.Summary;
-            if (!string.IsNullOrEmpty(tooltip)) UiTooltip.Set(button.gameObject, option.Label, tooltip);
-            if (!option.Enabled) UiStateStyle.ApplyVisual(button, UiControlState.Disabled);
+            visibleOptions[option.Key] = option;
         }
 
-        if (resetScroll) optionsPane.ResetToTop();
-        UpdateFooter(definition);
+        listOptionPool.Clear();
+        gridOptionPool.Clear();
+        for (int i = 0; i < filteredOptions.Count; i++)
+        {
+            ControlledTaskOption option = filteredOptions[i];
+            bool selected = current.Contains(option.Key);
+            if (useGrid)
+            {
+                gridOptionPool.GetNext().Setup(option, selected);
+            }
+            else
+            {
+                float width = definition.Layout == ControlledTaskParameterLayout.CompactList
+                    ? CompactOptionWidth
+                    : FullWidthOptionWidth;
+                listOptionPool.GetNext().Setup(option, selected, width);
+            }
+        }
+
+        if (resetScroll)
+        {
+            if (useGrid) gridOptionsPane.ResetToTop();
+            else listOptionsPane.ResetToTop();
+        }
+        UpdateFooter();
         UpdateSummary();
+    }
+
+    private void ToggleByKey(string key)
+    {
+        if (!visible || parameterIndex < 0 || parameterIndex >= parameters.Count ||
+            !visibleOptions.TryGetValue(key, out ControlledTaskOption option)) return;
+        Toggle(parameters[parameterIndex], option);
     }
 
     private void Toggle(ControlledTaskParameterDefinition definition, ControlledTaskOption option)
@@ -284,7 +345,7 @@ internal sealed class ControlledTaskParameterPicker
         return false;
     }
 
-    private void UpdateFooter(ControlledTaskParameterDefinition definition)
+    private void UpdateFooter()
     {
         previousButton.interactable = parameterIndex > 0;
         UiStateStyle.ApplyVisual(previousButton,
@@ -304,8 +365,10 @@ internal sealed class ControlledTaskParameterPicker
         {
             List<string> selected = GetSelection(definition.Key);
             if (selected.Count == 0) continue;
-            string text = string.Join(", ", selected.Select(value =>
-                optionLabels.TryGetValue(value, out string label) ? label : value));
+            string text = definition.Layout == ControlledTaskParameterLayout.ItemGrid
+                ? string.Format("Cultiway.ControlledTask.UI.SelectedCount".Localize(), selected.Count)
+                : string.Join(", ", selected.Select(value =>
+                    optionLabels.TryGetValue(value, out string label) ? label : value));
             values.Add($"{definition.NameLocaleKey.Localize()}: {text}");
         }
         string invocationSummary = string.Empty;
