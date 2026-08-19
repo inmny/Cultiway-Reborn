@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Content.Artifacts;
@@ -249,7 +250,11 @@ public class InventoryPage : MonoBehaviour, IWorldBoundCreatureInfoPage
             if (_selectedCategory != null && entry.Category != _selectedCategory) continue;
 
             Entity item = entry.Item;
-            UnityAction clickAction = entry.IsArtifact ? () => ToggleArtifact(item) : null;
+            UnityAction clickAction = entry.IsArtifact
+                ? () => ToggleArtifact(item)
+                : entry.IsElixir && IsCurrentControlledActor()
+                    ? () => ConsumeElixir(item)
+                    : null;
             _itemPool.GetNext().Setup(
                 item.GetComponent<SpecialItem>(),
                 clickAction,
@@ -290,6 +295,7 @@ public class InventoryPage : MonoBehaviour, IWorldBoundCreatureInfoPage
         {
             SpecialItemCategoryAsset category = categories.Resolve(item);
             bool isArtifact = item.HasComponent<Artifact>();
+            bool isElixir = item.HasComponent<Elixir>();
             EquippedArtifactRelation relation = default;
             bool equipped = isArtifact &&
                             _actorExtend.TryGetArtifactEquipRelation(
@@ -302,6 +308,7 @@ public class InventoryPage : MonoBehaviour, IWorldBoundCreatureInfoPage
                 item,
                 category,
                 isArtifact,
+                isElixir,
                 equipped,
                 equipped ? relation.state : default,
                 level));
@@ -382,6 +389,38 @@ public class InventoryPage : MonoBehaviour, IWorldBoundCreatureInfoPage
         Refresh(false);
     }
 
+    /// <summary>只有当前唯一受控角色能从自己的背包手动服用丹药。</summary>
+    private bool IsCurrentControlledActor()
+    {
+        return _actor != null && !_actor.isRekt() && ControllableUnit.count() == 1 &&
+               ReferenceEquals(ControllableUnit.getControllableUnit(), _actor) &&
+               ControllableUnit.isControllingUnit(_actor);
+    }
+
+    private void ConsumeElixir(Entity item)
+    {
+        if (!IsCurrentControlledActor() || item.IsNull || !item.HasComponent<Elixir>()) return;
+
+        Elixir elixir = item.GetComponent<Elixir>();
+        string name = elixir.Type?.GetName() ?? "Cultiway.Inventory.Elixir.Unknown".Localize();
+        if (!_actorExtend.TryConsumeElixir(item))
+        {
+            ShowTip(string.Format("Cultiway.Inventory.Elixir.CannotConsume".Localize(), name));
+            return;
+        }
+
+        _actorExtend.MarkCultiwayStatsDirty();
+        _actor.setStatsDirty();
+        _actor.updateStats();
+        ShowTip(string.Format("Cultiway.Inventory.Elixir.Consumed".Localize(), name));
+        Refresh(false);
+    }
+
+    private static void ShowTip(string text)
+    {
+        if (!string.IsNullOrEmpty(text)) WorldTip.showNow(text, false, "top", 2.5f);
+    }
+
     /// <summary>
     /// 分类按钮及其对应分类；分类为 null 时表示“全部”。
     /// </summary>
@@ -405,6 +444,7 @@ public class InventoryPage : MonoBehaviour, IWorldBoundCreatureInfoPage
         public readonly Entity Item;
         public readonly SpecialItemCategoryAsset Category;
         public readonly bool IsArtifact;
+        public readonly bool IsElixir;
         public readonly bool Equipped;
         public readonly ArtifactControlState State;
         public readonly int Level;
@@ -413,6 +453,7 @@ public class InventoryPage : MonoBehaviour, IWorldBoundCreatureInfoPage
             Entity item,
             SpecialItemCategoryAsset category,
             bool isArtifact,
+            bool isElixir,
             bool equipped,
             ArtifactControlState state,
             int level)
@@ -420,6 +461,7 @@ public class InventoryPage : MonoBehaviour, IWorldBoundCreatureInfoPage
             Item = item;
             Category = category;
             IsArtifact = isArtifact;
+            IsElixir = isElixir;
             Equipped = equipped;
             State = state;
             Level = level;

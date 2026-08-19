@@ -535,6 +535,9 @@ Cultiway.Inventory.Count.Description,当前分类显示数量 / 背包物品总�
 Cultiway.Inventory.Format.Count,{0}/{1}
 Cultiway.Inventory.Empty,背包中没有特殊物品
 Cultiway.Inventory.FilterEmpty,此分类暂无物品
+Cultiway.Inventory.Elixir.Unknown,未知丹药
+Cultiway.Inventory.Elixir.Consumed,已服用：{0}
+Cultiway.Inventory.Elixir.CannotConsume,当前无法服用：{0}
 ForcePage,相关势力
 SectPage,宗门
 StatusEffectPage,状态效果
