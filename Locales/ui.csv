@@ -94,7 +94,7 @@ Cultiway.SubWorld.Settings.PerlinStage2,细节噪声
 Cultiway.SubWorld.Settings.PerlinStage3,微观噪声
 Cultiway.SubWorld.Settings.RandomBiomes,随机生物群落
 Cultiway.SubWorld.Settings.MountainEdges,山脉边缘
-Cultiway.SubWorld.Settings.Vegetation,生成植被地块
+Cultiway.SubWorld.Settings.Vegetation,生成自然植被
 Cultiway.SubWorld.Settings.CenterLake,中心湖泊
 Cultiway.SubWorld.Settings.CenterLand,中心陆地
 Cultiway.SubWorld.Settings.RoundEdges,圆形边缘

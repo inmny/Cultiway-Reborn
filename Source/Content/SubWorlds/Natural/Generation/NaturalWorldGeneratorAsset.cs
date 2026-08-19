@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Cultiway.Core.SubWorlds.Generation;
 using Cultiway.Core.SubWorlds.Model;
+using Cultiway.Core.SubWorlds.Objects;
 using UnityEngine;
 using Random = System.Random;
 
@@ -23,6 +24,11 @@ public sealed class NaturalWorldGeneratorAsset : SubWorldGeneratorAsset
     private const string Hills = "hills";
     private const string Mountains = "mountains";
     private const string Summit = "summit";
+    private const int NaturalBuildingMinimum = 8;
+    private const int NaturalBuildingMaximum = 256;
+    private const int NaturalBuildingTilesPerBuilding = 64;
+    private const int NaturalBuildingAttemptMultiplier = 16;
+    private const int EntryBuildingClearRadius = 4;
 
     /// <summary>按原版模板名称创建隔离生成器使用的默认参数。</summary>
     internal static SubWorldGenerationSettings CreateDefaultSettings(string profileId)
@@ -197,6 +203,10 @@ public sealed class NaturalWorldGeneratorAsset : SubWorldGeneratorAsset
             tiles[entryTileIndex] = new SubWorldTile(SoilLow);
         }
 
+        SubWorldBuildingPlacement[] buildingPlacements = settings.add_vegetation
+            ? BuildNaturalBuildings(tiles, width, height, entryTileIndex, random)
+            : Array.Empty<SubWorldBuildingPlacement>();
+
         return new SubWorldGeneratedScene(
             new SubWorldMapData
             {
@@ -210,7 +220,8 @@ public sealed class NaturalWorldGeneratorAsset : SubWorldGeneratorAsset
             {
                 new SubWorldSpawnPoint(SubWorldSpawnPointNames.Entry, entryTileIndex),
                 new SubWorldSpawnPoint(SubWorldSpawnPointNames.Exit, entryTileIndex)
-            });
+            },
+            buildingPlacements: buildingPlacements);
     }
 
     private static void GenerateTerrain(
@@ -493,7 +504,6 @@ public sealed class NaturalWorldGeneratorAsset : SubWorldGeneratorAsset
         Random random,
         SubWorldGenerationSettings settings)
     {
-        if (!settings.add_vegetation) return;
         List<BiomeAsset> candidates = GetBiomeCandidates();
         if (candidates.Count == 0) return;
 
@@ -614,6 +624,172 @@ public sealed class NaturalWorldGeneratorAsset : SubWorldGeneratorAsset
         }
 
         return regions[nearestIndex].Biome;
+    }
+
+    private static SubWorldBuildingPlacement[] BuildNaturalBuildings(
+        SubWorldTile[] tiles,
+        int width,
+        int height,
+        int entryTileIndex,
+        Random random)
+    {
+        int naturalGroundCount = CountNaturalBuildingGround(tiles);
+        if (naturalGroundCount == 0) return Array.Empty<SubWorldBuildingPlacement>();
+
+        int targetCount = Math.Min(
+            NaturalBuildingMaximum,
+            Math.Max(NaturalBuildingMinimum, naturalGroundCount / NaturalBuildingTilesPerBuilding));
+        var occupied = new bool[tiles.Length];
+        var placements = new List<SubWorldBuildingPlacement>(targetCount);
+        int attemptCount = targetCount * NaturalBuildingAttemptMultiplier;
+
+        for (int attempt = 0; attempt < attemptCount && placements.Count < targetCount; attempt++)
+        {
+            int anchorTileIndex = random.Next(tiles.Length);
+            BiomeAsset biome = GetNaturalBiome(tiles[anchorTileIndex]);
+            if (biome == null) continue;
+
+            int anchorX = anchorTileIndex % width;
+            int anchorY = anchorTileIndex / width;
+            BuildingAsset asset = PickNaturalBuildingAsset(biome, random);
+            if (asset == null || asset.fundament == null) continue;
+
+            SubWorldBuildingBounds bounds = SubWorldBuildingGeometry.GetBounds(
+                anchorX, anchorY, asset.fundament);
+            if (!CanPlaceNaturalBuilding(
+                    tiles, width, height, entryTileIndex, biome, asset, bounds, occupied))
+            {
+                continue;
+            }
+
+            MarkNaturalBuildingFootprint(occupied, width, bounds);
+            placements.Add(new SubWorldBuildingPlacement(
+                new LocalObjectId(placements.Count + 1),
+                asset.id,
+                anchorTileIndex));
+        }
+
+        return placements.ToArray();
+    }
+
+    private static int CountNaturalBuildingGround(SubWorldTile[] tiles)
+    {
+        int count = 0;
+        for (int i = 0; i < tiles.Length; i++)
+        {
+            if (IsNaturalBuildingGround(tiles[i])) count++;
+        }
+
+        return count;
+    }
+
+    private static BiomeAsset GetNaturalBiome(SubWorldTile tile)
+    {
+        if (string.IsNullOrEmpty(tile.TopAssetId)) return null;
+
+        TopTileType topTile = AssetManager.top_tiles.get(tile.TopAssetId);
+        if (topTile?.biome_asset != null && topTile.biome_asset.grow_vegetation_auto)
+            return topTile.biome_asset;
+
+        for (int i = 0; i < AssetManager.biome_library.list.Count; i++)
+        {
+            BiomeAsset biome = AssetManager.biome_library.list[i];
+            if (!biome.grow_vegetation_auto) continue;
+            if (biome.tile_low == tile.TopAssetId || biome.tile_high == tile.TopAssetId)
+                return biome;
+        }
+
+        return null;
+    }
+
+    private static BuildingAsset PickNaturalBuildingAsset(BiomeAsset biome, Random random)
+    {
+        int roll = random.Next(100);
+        int preferredCategory = roll < 45 ? 0 : roll < 85 ? 1 : 2;
+        for (int offset = 0; offset < 3; offset++)
+        {
+            int category = (preferredCategory + offset) % 3;
+            List<string> pool = category switch
+            {
+                0 => biome.pot_trees_spawn,
+                1 => biome.pot_plants_spawn,
+                _ => biome.pot_bushes_spawn
+            };
+            if (pool == null || pool.Count == 0) continue;
+
+            int start = random.Next(pool.Count);
+            for (int i = 0; i < pool.Count; i++)
+            {
+                string assetId = pool[(start + i) % pool.Count];
+                if (string.IsNullOrWhiteSpace(assetId)) continue;
+                BuildingAsset asset = AssetManager.buildings.get(assetId);
+                if (asset == null || !asset.is_vegetation || asset.fundament == null) continue;
+                return asset;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool CanPlaceNaturalBuilding(
+        SubWorldTile[] tiles,
+        int width,
+        int height,
+        int entryTileIndex,
+        BiomeAsset biome,
+        BuildingAsset asset,
+        SubWorldBuildingBounds bounds,
+        bool[] occupied)
+    {
+        if (bounds.MinX < 0 || bounds.MinY < 0 || bounds.MaxX >= width || bounds.MaxY >= height)
+            return false;
+
+        int entryX = entryTileIndex % width;
+        int entryY = entryTileIndex / width;
+        int clearDistanceSquared = EntryBuildingClearRadius * EntryBuildingClearRadius;
+        for (int y = bounds.MinY; y <= bounds.MaxY; y++)
+        for (int x = bounds.MinX; x <= bounds.MaxX; x++)
+        {
+            int dx = x - entryX;
+            int dy = y - entryY;
+            if (dx * dx + dy * dy <= clearDistanceSquared) return false;
+
+            int tileIndex = y * width + x;
+            SubWorldTile tile = tiles[tileIndex];
+            if (occupied[tileIndex] || !CanNaturalBuildingOccupyTile(tile, asset)) return false;
+            if (tile.TopAssetId != biome.tile_low && tile.TopAssetId != biome.tile_high)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool CanNaturalBuildingOccupyTile(SubWorldTile tile, BuildingAsset asset)
+    {
+        if (!IsNaturalBuildingGround(tile)) return false;
+        TopTileType topTile = AssetManager.top_tiles.get(tile.TopAssetId);
+        if (topTile == null) return false;
+        if (topTile.liquid && !asset.can_be_placed_on_liquid) return false;
+        if (topTile.block && !asset.can_be_placed_on_blocks) return false;
+        return true;
+    }
+
+    private static bool IsNaturalBuildingGround(SubWorldTile tile)
+    {
+        return (tile.MainAssetId == SoilLow || tile.MainAssetId == SoilHigh) &&
+               !string.IsNullOrEmpty(tile.TopAssetId);
+    }
+
+    private static void MarkNaturalBuildingFootprint(
+        bool[] occupied,
+        int width,
+        SubWorldBuildingBounds bounds)
+    {
+        for (int y = bounds.MinY; y <= bounds.MaxY; y++)
+        for (int x = bounds.MinX; x <= bounds.MaxX; x++)
+            occupied[y * width + x] = true;
     }
 
     private static int FindEntryTile(SubWorldTile[] tiles, int width, int height)
