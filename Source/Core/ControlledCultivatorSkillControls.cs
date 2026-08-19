@@ -26,9 +26,17 @@ internal static class ControlledCultivatorSkillControls
     {
         if (!TryGetControlledActor(out var actor)) return false;
 
-        if (!TryGetSelectedAttackAbility(actor, out _))
+        if (!TryGetSelectedAttackAbility(actor, out ActiveAbilityHandle ability))
         {
             ShowTip("没有可释放的主动能力");
+            return false;
+        }
+
+        ActiveAbilityControlState controlState =
+            ActiveAbilityService.ResolveControlState(actor.GetExtend(), ability);
+        if (!controlState.CanUse)
+        {
+            ShowBlockedState(controlState);
             return false;
         }
 
@@ -149,6 +157,19 @@ internal static class ControlledCultivatorSkillControls
         return false;
     }
 
+    /// <summary>按能力栏显示顺序选择前十个主动能力。</summary>
+    internal static bool SelectAbilityAtIndex(int index)
+    {
+        if (index < 0 || !TryGetControlledActor(out Actor actor)) return false;
+
+        using var candidates = new ListPool<ActiveAbilityHandle>();
+        if (CollectSelectableAbilities(actor, candidates) < 0 || index >= candidates.Count) return false;
+        ActiveAbilityHandle ability = candidates[index];
+        SelectedAbilities[actor.data.id] = ability;
+        ShowTip($"当前能力：{GetAbilityName(actor.GetExtend(), ability)}");
+        return true;
+    }
+
     private static bool TryCollectAvailableAttackAbilities(
         ActorExtend caster,
         IList<ActiveAbilityHandle> candidates)
@@ -161,8 +182,7 @@ internal static class ControlledCultivatorSkillControls
         {
             ActiveAbilityHandle candidate = candidates[i];
             if ((ActiveAbilityService.GetChannels(caster, candidate) &
-                 (ActiveAbilityChannel.Combat | ActiveAbilityChannel.World)) == 0 ||
-                !ActiveAbilityService.CanPrepare(caster, candidate, null))
+                 (ActiveAbilityChannel.Combat | ActiveAbilityChannel.World)) == 0)
             {
                 candidates.RemoveAt(i);
             }
@@ -500,6 +520,26 @@ internal static class ControlledCultivatorSkillControls
         if (divisor <= 0) return 0;
         var result = value % divisor;
         return result < 0 ? result + divisor : result;
+    }
+
+    private static void ShowBlockedState(ActiveAbilityControlState state)
+    {
+        if (state.IsActive)
+        {
+            ShowTip("cultiway_control_ability_state_active".Localize());
+            return;
+        }
+
+        string text = state.BlockReason switch
+        {
+            ActiveAbilityControlBlockReason.Cooldown => string.Format(
+                "cultiway_control_ability_state_cooldown".Localize(),
+                Mathf.CeilToInt(state.CooldownRemaining)),
+            ActiveAbilityControlBlockReason.InsufficientResource =>
+                "cultiway_control_ability_state_resource".Localize(),
+            _ => "cultiway_control_ability_state_unavailable".Localize(),
+        };
+        ShowTip(text);
     }
 
     private static void ShowTip(string text)

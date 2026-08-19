@@ -60,6 +60,23 @@ internal sealed class KnightTechniqueAbilityProvider : IActiveAbilityProvider
             profile.TargetRelation);
     }
 
+    public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
+    {
+        if (!TryResolveHandle(caster, handle, out KnightTechniqueAsset technique, out Entity container) ||
+            !KnightTechniqueAccessService.TryResolveCurrentWeapon(caster, technique, out _, out _) ||
+            KnightTechniqueRuntimeService.IsBusy(caster) || !KnightTechniqueRuntimeService.CanAct(caster))
+        {
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
+        }
+
+        float cooldown = SkillCooldownService.GetRemaining(caster, container);
+        if (cooldown > 0f)
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Cooldown, cooldown);
+        return SkillCastCost.CanPayStep(caster, container)
+            ? ActiveAbilityControlState.Ready
+            : new ActiveAbilityControlState(ActiveAbilityControlBlockReason.InsufficientResource);
+    }
+
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         if (!TryResolveHandle(caster, handle, out KnightTechniqueAsset technique, out Entity container) ||

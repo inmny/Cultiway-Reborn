@@ -107,15 +107,19 @@ internal sealed class ControlledActiveAbilityBar : MonoBehaviour
         {
             ActiveAbilityHandle handle = _abilities[i];
             ActiveAbilityDescriptor descriptor = ActiveAbilityService.Describe(caster, handle);
+            ActiveAbilityControlState controlState = ActiveAbilityService.ResolveControlState(caster, handle);
+            string shortcut = ResolveShortcutLabel(i);
             if (i == selectedIndex) selectedDescriptor = descriptor;
             ControlledActiveAbilitySlot slot = _slotPool.GetNext();
             slot.transform.SetSiblingIndex(i + 1);
             slot.Setup(
                 handle,
                 descriptor,
+                controlState,
+                shortcut,
                 i == selectedIndex,
                 BuildTooltipSummary(caster, handle, descriptor),
-                BuildTooltipDetail(descriptor));
+                BuildTooltipDetail(descriptor, controlState, shortcut));
         }
         _slotPool.ClearUnsed();
 
@@ -287,12 +291,51 @@ internal sealed class ControlledActiveAbilityBar : MonoBehaviour
         return string.Format(TooltipSummaryKey.Localize(), relation, targetMode, rangeText);
     }
 
-    private static string BuildTooltipDetail(ActiveAbilityDescriptor descriptor)
+    private static string BuildTooltipDetail(
+        ActiveAbilityDescriptor descriptor,
+        ActiveAbilityControlState controlState,
+        string shortcut)
     {
         string castHotkey = WorldboxGame.Hotkeys.GetHotkeyText(WorldboxGame.Hotkeys.CastControlledSkill, "R");
         string cycleHotkey = WorldboxGame.Hotkeys.GetHotkeyText(WorldboxGame.Hotkeys.CycleControlledSkill, "E");
-        return string.Format(TooltipDetailKey.Localize(), ResolveActivationMode(descriptor.ActivationMode),
+        string detail = string.Format(TooltipDetailKey.Localize(), ResolveActivationMode(descriptor.ActivationMode),
             castHotkey, cycleHotkey);
+        detail += "\n" + string.Format(
+            "cultiway_control_ability_tooltip_status".Localize(),
+            ResolveControlState(controlState));
+        if (!string.IsNullOrEmpty(shortcut))
+        {
+            detail += " · " + string.Format(
+                "cultiway_control_ability_tooltip_shortcut".Localize(),
+                shortcut);
+        }
+        return detail;
+    }
+
+    private static string ResolveShortcutLabel(int index)
+    {
+        return index switch
+        {
+            >= 0 and < 9 => (index + 1).ToString(),
+            9 => "0",
+            _ => string.Empty,
+        };
+    }
+
+    private static string ResolveControlState(ActiveAbilityControlState state)
+    {
+        if (state.IsActive) return "cultiway_control_ability_state_active".Localize();
+        return state.BlockReason switch
+        {
+            ActiveAbilityControlBlockReason.Cooldown => string.Format(
+                "cultiway_control_ability_state_cooldown".Localize(),
+                Mathf.CeilToInt(state.CooldownRemaining)),
+            ActiveAbilityControlBlockReason.InsufficientResource =>
+                "cultiway_control_ability_state_resource".Localize(),
+            ActiveAbilityControlBlockReason.Unavailable =>
+                "cultiway_control_ability_state_unavailable".Localize(),
+            _ => "cultiway_control_ability_state_ready".Localize(),
+        };
     }
 
     private static string ResolveAbilityName(ActiveAbilityDescriptor descriptor)
@@ -375,6 +418,11 @@ internal sealed class ControlledActiveAbilitySlot : MonoBehaviour
     private Action<ActiveAbilityHandle> _select;
     private Button _button;
     private Image _icon;
+    private Image _cooldownOverlay;
+    private Text _cooldownText;
+    private Image _activeMarker;
+    private Text _resourceMarker;
+    private Text _shortcutLabel;
     private Sprite _displayedIcon;
     private string _tooltipTitle;
     private string _tooltipSummary;
@@ -388,7 +436,8 @@ internal sealed class ControlledActiveAbilitySlot : MonoBehaviour
             typeof(TipButton), typeof(ControlledActiveAbilitySlot));
         root.transform.SetParent(parent, false);
         RectTransform rootRect = root.GetComponent<RectTransform>();
-        float size = UiTheme.Current.Metrics.ControlLarge;
+        UiMetrics metrics = UiTheme.Current.Metrics;
+        float size = metrics.ControlLarge;
         rootRect.sizeDelta = new Vector2(size, size);
 
         Image background = root.GetComponent<Image>();
@@ -405,7 +454,73 @@ internal sealed class ControlledActiveAbilitySlot : MonoBehaviour
             UiTheme.Current.Metrics.SpacingSm);
         icon.preserveAspect = true;
         icon.raycastTarget = false;
+
+        GameObject cooldownOverlayObject = new("CooldownOverlay", typeof(RectTransform), typeof(Image));
+        cooldownOverlayObject.transform.SetParent(root.transform, false);
+        Image cooldownOverlay = cooldownOverlayObject.GetComponent<Image>();
+        UiLayout.Stretch(cooldownOverlay.rectTransform, metrics.SpacingXs, metrics.SpacingXs,
+            metrics.SpacingXs, metrics.SpacingXs);
+        cooldownOverlay.color = new Color(0f, 0f, 0f, 0.58f);
+        cooldownOverlay.raycastTarget = false;
+        cooldownOverlayObject.SetActive(false);
+
+        Text cooldownText = CreateOverlayText(root.transform, "CooldownText", 9, TextAnchor.MiddleCenter);
+        UiLayout.Stretch(cooldownText.rectTransform);
+        cooldownText.gameObject.SetActive(false);
+
+        GameObject activeMarkerObject = new("ActiveMarker", typeof(RectTransform), typeof(Image));
+        activeMarkerObject.transform.SetParent(root.transform, false);
+        Image activeMarker = activeMarkerObject.GetComponent<Image>();
+        RectTransform activeMarkerRect = activeMarker.rectTransform;
+        activeMarkerRect.anchorMin = activeMarkerRect.anchorMax = Vector2.one;
+        activeMarkerRect.pivot = Vector2.one;
+        activeMarkerRect.anchoredPosition = new Vector2(-1f, -1f);
+        activeMarkerRect.sizeDelta = new Vector2(9f, 9f);
+        UiResources.SetImage(activeMarker, UiIcons.ToggleOn);
+        activeMarker.color = UiTheme.Current.Palette.Success;
+        activeMarker.raycastTarget = false;
+        activeMarkerObject.SetActive(false);
+
+        Text resourceMarker = CreateOverlayText(root.transform, "ResourceMarker", 10, TextAnchor.MiddleCenter);
+        RectTransform resourceMarkerRect = resourceMarker.rectTransform;
+        resourceMarkerRect.anchorMin = resourceMarkerRect.anchorMax = Vector2.one;
+        resourceMarkerRect.pivot = Vector2.one;
+        resourceMarkerRect.anchoredPosition = new Vector2(-1f, -1f);
+        resourceMarkerRect.sizeDelta = new Vector2(9f, 9f);
+        resourceMarker.text = "!";
+        resourceMarker.color = UiTheme.Current.Palette.Error;
+        resourceMarker.gameObject.SetActive(false);
+
+        Text shortcutLabel = CreateOverlayText(root.transform, "Shortcut", 7, TextAnchor.MiddleCenter);
+        RectTransform shortcutRect = shortcutLabel.rectTransform;
+        shortcutRect.anchorMin = shortcutRect.anchorMax = Vector2.zero;
+        shortcutRect.pivot = Vector2.zero;
+        shortcutRect.anchoredPosition = new Vector2(1f, 1f);
+        shortcutRect.sizeDelta = new Vector2(9f, 9f);
+        shortcutLabel.color = UiTheme.Current.Palette.AccentText;
+        Outline shortcutOutline = shortcutLabel.gameObject.AddComponent<Outline>();
+        shortcutOutline.effectColor = new Color(0f, 0f, 0f, 0.9f);
+        shortcutOutline.effectDistance = new Vector2(0.6f, -0.6f);
+
         return root.GetComponent<ControlledActiveAbilitySlot>();
+    }
+
+    private static Text CreateOverlayText(
+        Transform parent,
+        string name,
+        int fontSize,
+        TextAnchor alignment)
+    {
+        GameObject textObject = new(name, typeof(RectTransform), typeof(Text));
+        textObject.transform.SetParent(parent, false);
+        Text text = textObject.GetComponent<Text>();
+        text.font = UiTheme.Current.Font;
+        text.fontSize = fontSize;
+        text.fontStyle = FontStyle.Bold;
+        text.alignment = alignment;
+        text.color = UiTheme.Current.Palette.PrimaryText;
+        text.raycastTarget = false;
+        return text;
     }
 
     internal void Initialize(Action<ActiveAbilityHandle> select)
@@ -414,6 +529,11 @@ internal sealed class ControlledActiveAbilitySlot : MonoBehaviour
         if (_initialized) return;
         _button = GetComponent<Button>();
         _icon = transform.Find("Icon").GetComponent<Image>();
+        _cooldownOverlay = transform.Find("CooldownOverlay").GetComponent<Image>();
+        _cooldownText = transform.Find("CooldownText").GetComponent<Text>();
+        _activeMarker = transform.Find("ActiveMarker").GetComponent<Image>();
+        _resourceMarker = transform.Find("ResourceMarker").GetComponent<Text>();
+        _shortcutLabel = transform.Find("Shortcut").GetComponent<Text>();
         _button.onClick.RemoveAllListeners();
         _button.onClick.AddListener(Select);
         _initialized = true;
@@ -422,6 +542,8 @@ internal sealed class ControlledActiveAbilitySlot : MonoBehaviour
     internal void Setup(
         ActiveAbilityHandle handle,
         ActiveAbilityDescriptor descriptor,
+        ActiveAbilityControlState controlState,
+        string shortcut,
         bool selected,
         string tooltipSummary,
         string tooltipDetail)
@@ -434,7 +556,24 @@ internal sealed class ControlledActiveAbilitySlot : MonoBehaviour
             _icon.sprite = icon;
             _icon.overrideSprite = icon;
         }
-        _icon.color = UiTheme.Current.Palette.PrimaryText;
+
+        bool cooldown = !controlState.IsActive &&
+                        controlState.BlockReason == ActiveAbilityControlBlockReason.Cooldown &&
+                        controlState.CooldownRemaining > 0f;
+        bool resourceMissing = !controlState.IsActive &&
+                               controlState.BlockReason == ActiveAbilityControlBlockReason.InsufficientResource;
+        bool unavailable = !controlState.IsActive &&
+                           controlState.BlockReason == ActiveAbilityControlBlockReason.Unavailable;
+        _icon.color = resourceMissing || unavailable
+            ? UiTheme.Current.Palette.Disabled
+            : UiTheme.Current.Palette.PrimaryText;
+        _cooldownOverlay.gameObject.SetActive(cooldown);
+        _cooldownText.gameObject.SetActive(cooldown);
+        if (cooldown) _cooldownText.text = Mathf.CeilToInt(controlState.CooldownRemaining).ToString();
+        _activeMarker.gameObject.SetActive(controlState.IsActive);
+        _resourceMarker.gameObject.SetActive(resourceMissing);
+        _shortcutLabel.text = shortcut;
+        _shortcutLabel.gameObject.SetActive(!string.IsNullOrEmpty(shortcut));
 
         string title = string.IsNullOrWhiteSpace(descriptor.Name)
             ? "cultiway_control_ability_unknown".Localize()
@@ -455,7 +594,13 @@ internal sealed class ControlledActiveAbilitySlot : MonoBehaviour
     internal void Clear()
     {
         _handle = default;
-        if (!_initialized || !_selected) return;
+        if (!_initialized) return;
+        _cooldownOverlay.gameObject.SetActive(false);
+        _cooldownText.gameObject.SetActive(false);
+        _activeMarker.gameObject.SetActive(false);
+        _resourceMarker.gameObject.SetActive(false);
+        _shortcutLabel.gameObject.SetActive(false);
+        if (!_selected) return;
         _selected = false;
         transform.localRotation = Quaternion.identity;
     }

@@ -29,6 +29,23 @@ public static partial class ArtifactAbilityLifecycle
         };
     }
 
+    /// <summary>取得法器能力当前剩余冷却秒数。</summary>
+    internal static float GetCooldownRemaining(ArtifactAbilityRuntimeEntry runtime)
+    {
+        return Mathf.Max(0f, (float)(runtime.cooldown_until - Now));
+    }
+
+    /// <summary>检查当前法器控制者是否能支付一次主动能力启动消耗。</summary>
+    internal static bool CanPayActivationCost(
+        ArtifactAbilityAsset asset,
+        ArtifactAbilityExecutionContext context,
+        ArtifactAbilityInstance ability)
+    {
+        ArtifactAbilityLifecycleProfile profile = asset.lifecycle;
+        float cost = ResolveCost(profile.ResolveActivationCost, profile, context, ability);
+        return cost <= 0f || profile.Resource?.Invoke(context, ability, cost, false) == true;
+    }
+
     internal static void EnsureInitialized(
         ArtifactAbilityAsset asset,
         ArtifactAbilityExecutionContext context,

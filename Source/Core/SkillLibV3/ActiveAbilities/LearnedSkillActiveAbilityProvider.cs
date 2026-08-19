@@ -58,6 +58,16 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
             targetRelation: useProfile.TargetRelation);
     }
 
+    public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
+    {
+        Entity skill = handle.Source;
+        if (skill.IsNull || !skill.HasComponent<SkillContainer>())
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
+        return SkillCastCost.CanPayStep(caster, skill)
+            ? ActiveAbilityControlState.Ready
+            : new ActiveAbilityControlState(ActiveAbilityControlBlockReason.InsufficientResource);
+    }
+
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         Entity skill = handle.Source;

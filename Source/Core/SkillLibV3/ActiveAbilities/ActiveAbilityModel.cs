@@ -35,6 +35,37 @@ public enum ActiveAbilityActivationMode
     Toggle,
 }
 
+/// <summary>玩家操控界面需要区分的主动能力阻断原因。</summary>
+public enum ActiveAbilityControlBlockReason
+{
+    None,
+    Cooldown,
+    InsufficientResource,
+    Unavailable,
+}
+
+/// <summary>主动能力当前面向玩家的可用状态。</summary>
+public readonly struct ActiveAbilityControlState
+{
+    public static ActiveAbilityControlState Ready => new();
+
+    public readonly ActiveAbilityControlBlockReason BlockReason;
+    public readonly float CooldownRemaining;
+    public readonly bool IsActive;
+
+    public bool CanUse => BlockReason == ActiveAbilityControlBlockReason.None;
+
+    public ActiveAbilityControlState(
+        ActiveAbilityControlBlockReason blockReason,
+        float cooldownRemaining = 0f,
+        bool isActive = false)
+    {
+        BlockReason = blockReason;
+        CooldownRemaining = Mathf.Max(0f, cooldownRemaining);
+        IsActive = isActive;
+    }
+}
+
 /// <summary>
 /// 主动能力在释放期间对施法者移动的约束。
 /// </summary>
@@ -301,6 +332,8 @@ public interface IActiveAbilityProvider
     ActiveAbilityChannel GetChannels(ActorExtend caster, ActiveAbilityHandle handle);
 
     ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle);
+
+    ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle);
 
     bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target);
 
