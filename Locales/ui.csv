@@ -545,10 +545,14 @@ CultibookPage,功法情况
 ElixirPage,丹方情况
 SkillPage,法术
 ArtifactPage,法宝
+Cultiway.UI.CharacterPanel.Stamina,体力
+Cultiway.UI.CharacterPanel.Stamina Description,当前体力 / 体力上限
 Cultiway.UI.CharacterPanel.Wakan,灵气
 Cultiway.UI.CharacterPanel.Wakan Description,当前灵气 / 灵气上限
 Cultiway.UI.CharacterPanel.Spirit,精神力
 Cultiway.UI.CharacterPanel.Spirit Description,当前精神力 / 精神力上限
+Cultiway.UI.CharacterPanel.Vigor,斗气
+Cultiway.UI.CharacterPanel.Vigor Description,当前斗气 / 斗气上限
 Cultiway.ERStyle.Magic.PageTitle,元素亲和详解
 Cultiway.UI.WindowWanfaPavilion Title,万法阁
 Cultiway.UI.WindowWanfaPavilion Title Description,打开全局法术蓝图库，\n并选择赐法雨使用的法术。
