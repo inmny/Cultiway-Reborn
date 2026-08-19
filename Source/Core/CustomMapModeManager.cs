@@ -281,6 +281,13 @@ public class CustomMapModeManager
         _renderer_dirty = true;
     }
 
+    /// <summary>仅刷新逐格着色地图，不让当前矢量地图重建几何。</summary>
+    internal void SetRasterMapDirty()
+    {
+        CustomMapModeAsset mapMode = UpdateCurrentMapMode();
+        if (!IsVectorMode(mapMode)) MapLayer?.SetAllDirty();
+    }
+
     public void SetAllDirty()
     {
         MapLayer?.SetAllDirty();

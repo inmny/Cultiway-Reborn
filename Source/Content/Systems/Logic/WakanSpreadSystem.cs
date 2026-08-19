@@ -1,3 +1,4 @@
+using Cultiway.Abstract;
 using Cultiway.Const;
 using Friflo.Engine.ECS.Systems;
 using NeoModLoader.api.attributes;
@@ -5,70 +6,82 @@ using UnityEngine;
 
 namespace Cultiway.Content.Systems.Logic;
 
-public class WakanSpreadSystem : BaseSystem
+/// <summary>按少量地块逐步把洁净灵气向邻格摊开。</summary>
+public class WakanSpreadSystem : BaseSystem, IWorldStateClearable
 {
-    private const int check_tile_count_per_frame = 64;
+    private const int CheckTileCountPerFrame = 64;
 
-    private int[] _check_tile_ids;
+    private int[] checkTileIds;
+    private int lastCheckIndex;
+    private int totalTileCount;
 
-    private int _last_check_idx;
-
-    private float[,] _map;
-    private int total_tile_count;
     protected override void OnUpdateGroup()
     {
-        if (!GeneralSettings.EnableWakanSpread) return;
-        if (MapGenerator._tilesMap != null) return;
-        if (_check_tile_ids == null || _check_tile_ids.Length != World.world.tiles_list.Length)
+        if (!GeneralSettings.EnableWakanSpread || MapGenerator._tilesMap != null ||
+            World.world?.tiles_list == null || !WorldWakanService.IsInitialized)
         {
-            RegenerateCheckIDs(true);
+            return;
         }
 
-        System.Diagnostics.Debug.Assert(_check_tile_ids != null, nameof(_check_tile_ids) + " != null");
-        _map = WakanMap.I.map;
-        for (int i = 0; i < check_tile_count_per_frame; i++)
+        if (checkTileIds == null || checkTileIds.Length != World.world.tiles_list.Length)
         {
-            int check_idx = _last_check_idx + 1;
-            if (check_idx >= _check_tile_ids.Length)
+            RegenerateCheckIds(true);
+        }
+
+        int count = Mathf.Min(CheckTileCountPerFrame, checkTileIds.Length);
+        for (int i = 0; i < count; i++)
+        {
+            int checkIndex = lastCheckIndex + 1;
+            if (checkIndex >= checkTileIds.Length)
             {
-                RegenerateCheckIDs(false);
-                check_idx = 0;
+                RegenerateCheckIds(false);
+                checkIndex = 0;
             }
 
-            CheckSingleTile(World.world.tiles_list[_check_tile_ids[check_idx]]);
-            _last_check_idx = check_idx;
+            WorldTile tile = World.world.tiles_list[checkTileIds[checkIndex]];
+            if (tile != null) CheckSingleTile(tile);
+            lastCheckIndex = checkIndex;
         }
     }
 
-    private void RegenerateCheckIDs(bool new_array)
+    private void RegenerateCheckIds(bool newArray)
     {
-        if (new_array)
+        if (newArray)
         {
-            _check_tile_ids = new int[World.world.tiles_list.Length];
-            for (int i = 0; i < _check_tile_ids.Length; i++)
-            {
-                _check_tile_ids[i] = i;
-            }
+            checkTileIds = new int[World.world.tiles_list.Length];
+            for (int i = 0; i < checkTileIds.Length; i++) checkTileIds[i] = i;
+            lastCheckIndex = -1;
         }
 
-        _check_tile_ids.Shuffle();
-        total_tile_count = _check_tile_ids.Length;
+        checkTileIds.Shuffle();
+        totalTileCount = checkTileIds.Length;
     }
 
+    [Hotfixable]
     private void CheckSingleTile(WorldTile tile)
     {
-        foreach (var neighbor in tile.neighbours)
+        if (tile.neighbours == null) return;
+        int tileId = tile.data.tile_id;
+        foreach (WorldTile neighbor in tile.neighbours)
         {
-            var tile_v = Mathf.Max(0,     _map[tile.x, tile.y]);
-            var neighbor_v = Mathf.Max(0, _map[neighbor.x, neighbor.y]);
-
-            var delta = tile_v - neighbor_v;
-            // ReSharper disable once PossibleLossOfFraction
-            var flow = Mathf.Sign(delta) * Mathf.Abs(delta) *
-                Mathf.Clamp(Mathf.Log10(total_tile_count / check_tile_count_per_frame) * 0.1f, 0, 1f);
-
-            _map[tile.x, tile.y] = tile_v             - flow;
-            _map[neighbor.x, neighbor.y] = neighbor_v + flow;
+            if (neighbor?.data == null) continue;
+            float tileValue = WorldWakanService.GetClean(tileId);
+            float neighborValue = WorldWakanService.GetClean(neighbor.data.tile_id);
+            float delta = tileValue - neighborValue;
+            float flow = Mathf.Sign(delta) * Mathf.Abs(delta) *
+                Mathf.Clamp(Mathf.Log10(Mathf.Max(1f, totalTileCount / (float)CheckTileCountPerFrame)) * 0.1f,
+                    0f, 1f);
+            if (flow > 0f)
+                WorldWakanService.TransferClean(tileId, neighbor.data.tile_id, flow);
+            else if (flow < 0f)
+                WorldWakanService.TransferClean(neighbor.data.tile_id, tileId, -flow);
         }
+    }
+
+    public void ClearWorldState()
+    {
+        checkTileIds = null;
+        lastCheckIndex = 0;
+        totalTileCount = 0;
     }
 }

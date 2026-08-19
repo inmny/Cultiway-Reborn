@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Cultiway.Abstract;
 using Cultiway.Const;
+using Cultiway.Content.SpiritVeins;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.UI;
@@ -21,9 +22,34 @@ public partial class WorldboxGame
 
         public static MetaTypeAsset Sect { get; private set; }
         public static MetaTypeAsset GeoRegion { get; private set; }
+        public static MetaTypeAsset SpiritVein { get; private set; }
         protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
         {
+            SpiritVein.map_mode = MetaTypeExtend.SpiritVein.Back();
+            SpiritVein.option_id = "spirit_vein_layer";
+            SpiritVein.power_option_zone_id = "spirit_vein_layer";
+            SpiritVein.draw_zones = _ => { };
+            SpiritVein.check_cursor_highlight = (_, _, _) => { };
+            SpiritVein.check_tile_has_meta = (_, _, _) => GetSpiritVeinUnderCursor() != null;
+            SpiritVein.check_cursor_tooltip = (_, _, _) => false;
+            SpiritVein.tile_get_metaobject = (_, _) => GetSpiritVeinUnderCursor();
+            SpiritVein.tile_get_metaobject_0 = _ => GetSpiritVeinUnderCursor();
+            SpiritVein.tile_get_metaobject_1 = _ => GetSpiritVeinUnderCursor();
+            SpiritVein.tile_get_metaobject_2 = _ => GetSpiritVeinUnderCursor();
+            SpiritVein.cursor_tooltip_action = _ => { };
+            SpiritVein.click_action_zone = SelectSpiritVeinAtTile;
+            SpiritVein.window_action_clear = () => I.SelectedSpiritVein = null;
+            SpiritVein.selected_tab_action = () => { };
+            SpiritVein.window_name = ListWindows.SpiritVeinListId;
+            SpiritVein.get_selected = () => I.SelectedSpiritVein;
+            SpiritVein.set_selected = value => I.SelectedSpiritVein = value as SpiritVein;
+            SpiritVein.get_list = () => I.SpiritVeins;
+            SpiritVein.get = id => I.SpiritVeins.get(id);
+            SpiritVein.has_any = () => I.SpiritVeins.Count > 0;
+            SpiritVein.icon_list = "../../cultiway/icons/iconSpiritVein";
+            SpiritVein.icon_single_path = "../../cultiway/icons/iconSpiritVein";
+
             GeoRegion.map_mode = MetaTypeExtend.GeoRegion.Back();
             GeoRegion.option_id = CustomMapModeLibrary.GeoRegion.toggle_name;
             GeoRegion.power_option_zone_id = CustomMapModeLibrary.GeoRegion.toggle_name;
@@ -338,6 +364,23 @@ public partial class WorldboxGame
                 tooltip_scale = 0.7f,
                 is_sim_tooltip = true
             });
+        }
+
+        private static IMetaObject GetSpiritVeinUnderCursor()
+        {
+            WorldTile tile = World.world?.getMouseTilePosCachedFrame();
+            return tile?.data == null ? null : I?.SpiritVeins?.GetVeinAtTile(tile.data.tile_id);
+        }
+
+        private static bool SelectSpiritVeinAtTile(WorldTile tile, string power = null)
+        {
+            if (tile?.data == null) return false;
+            SpiritVein vein = I?.SpiritVeins?.GetVeinAtTile(tile.data.tile_id);
+            if (vein == null || vein.isRekt()) return false;
+
+            I.SelectedSpiritVein = vein;
+            SelectedObjects.setNanoObject(vein);
+            return true;
         }
 
         private static bool CheckGeoRegionTileHasMeta(TileZone pZone, MetaTypeAsset pAsset, int pZoneOption)

@@ -2,6 +2,7 @@ using System;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.SpiritVeins;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using NeoModLoader.api.attributes;
@@ -44,6 +45,18 @@ public static class CultivationSettlementService
         if (actor == null || resource?.WithdrawUpTo == null || requestedWakan <= 0f || resourcePerWakan <= 0f ||
             !actor.HasCultisys<Xian>()) return default;
 
+        if (ReferenceEquals(resource, CultivationResources.WorldWakan))
+        {
+            int resolvedX = tileX >= 0 ? tileX : actor.Base.current_tile?.x ?? -1;
+            int resolvedY = tileY >= 0 ? tileY : actor.Base.current_tile?.y ?? -1;
+            int tileId = WorldWakanService.GetTileId(resolvedX, resolvedY);
+            if (actor.HasElementRoot())
+            {
+                SpiritVeinManager manager = WorldboxGame.I?.SpiritVeins;
+                requestedWakan *= 1f + (manager?.GetElementMatchBonus(tileId, actor.GetElementRoot()) ?? 0f);
+            }
+        }
+
         ref Xian xian = ref actor.GetCultisys<Xian>();
         float maximum = Mathf.Max(0f, actor.Base.stats[BaseStatses.MaxWakan.id]);
         float outputCapacity = Mathf.Max(0f, maximum - xian.wakan);
@@ -68,13 +81,22 @@ public static class CultivationSettlementService
 
     /// <summary>按地块灵气浓度执行一次不计入修炼方式实践的自然吸收。</summary>
     [Hotfixable]
-    public static float AbsorbAmbientWakan(ActorExtend actor, float multiplier)
+    public static float AbsorbAmbientWakan(
+        ActorExtend actor,
+        float multiplier,
+        float targetMaximum = -1f)
     {
         if (actor?.Base?.current_tile == null || multiplier <= 0f) return 0f;
         Vector2Int position = actor.Base.current_tile.pos;
         var resourceContext = new CultivationResourceContext(actor, position.x, position.y);
         float available = CultivationResources.WorldWakan.GetAvailable(in resourceContext);
-        float requested = Mathf.Log10(available + 1f) * multiplier;
+        float current = actor.GetCultisys<Xian>().wakan;
+        float maximum = targetMaximum > 0f
+            ? Mathf.Min(targetMaximum, actor.Base.stats[BaseStatses.MaxWakan.id])
+            : actor.Base.stats[BaseStatses.MaxWakan.id];
+        float requested = Mathf.Min(
+            Mathf.Max(0f, maximum - current),
+            Mathf.Log10(available + 1f) * multiplier);
         return ConvertToWakan(actor, CultivationResources.WorldWakan, requested, 1f,
             position.x, position.y).WakanGained;
     }

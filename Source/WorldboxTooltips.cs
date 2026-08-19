@@ -34,6 +34,8 @@ public partial class WorldboxGame
         public static TooltipAsset ListGeoRegion { get; private set; }
         [CloneSource("tooltip_meta_list_kingdoms")]
         public static TooltipAsset ListSect { get; private set; }
+        [CloneSource("tooltip_meta_list_kingdoms")]
+        public static TooltipAsset ListSpiritVein { get; private set; }
         public static TooltipAsset RawTip { get; private set; }
         [CloneSource("tip"), AssetId("Cultiway.WanfaSkill")]
         public static TooltipAsset Skill { get; private set; }
@@ -47,6 +49,7 @@ public partial class WorldboxGame
             {
                 MetaTypeExtend.GeoRegion => ListGeoRegion,
                 MetaTypeExtend.Sect => ListSect,
+                MetaTypeExtend.SpiritVein => ListSpiritVein,
                 _ => null,
             };
         }
@@ -69,6 +72,9 @@ public partial class WorldboxGame
 
             ListGeoRegion.callback = (TooltipShowAction)Delegate.Combine((TooltipShowAction)AssetManager.tooltips.showNormal, (TooltipShowAction)ShowGeoRegionMetaListInfo);
             ListSect.callback = (TooltipShowAction)Delegate.Combine((TooltipShowAction)AssetManager.tooltips.showNormal, (TooltipShowAction)ShowSectMetaListInfo);
+            ListSpiritVein.callback = (TooltipShowAction)Delegate.Combine(
+                (TooltipShowAction)AssetManager.tooltips.showNormal,
+                (TooltipShowAction)ShowSpiritVeinMetaListInfo);
 
             Book.callback += ShowCustomBookReadAction;
             
@@ -121,6 +127,15 @@ public partial class WorldboxGame
             AssetManager.tooltips.setIconValue(tooltip, "i_destroyed", memberCount);
             AssetManager.tooltips.setIconSprite(tooltip, "i_total", MetaTypes.Sect.icon_list);
             AssetManager.tooltips.setIconSprite(tooltip, "i_destroyed", "iconPopulation");
+        }
+
+        private void ShowSpiritVeinMetaListInfo(Tooltip tooltip, string type, TooltipData data)
+        {
+            int groundCount = I?.SpiritVeins?.Grounds.Count ?? 0;
+            AssetManager.tooltips.setIconValue(tooltip, "i_total", I?.SpiritVeins?.Count ?? 0);
+            AssetManager.tooltips.setIconValue(tooltip, "i_destroyed", groundCount);
+            AssetManager.tooltips.setIconSprite(tooltip, "i_total", MetaTypes.SpiritVein.icon_list);
+            AssetManager.tooltips.setIconSprite(tooltip, "i_destroyed", "iconCityZones");
         }
 
         private void ShowGeoRegion(Tooltip tooltip, string type, TooltipData data)

@@ -21,5 +21,6 @@ public enum MetaTypeExtend
     Special,
     Army,
     Sect,
-    GeoRegion
+    GeoRegion,
+    SpiritVein
 }

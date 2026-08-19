@@ -187,6 +187,7 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
             iconPath: "cultiway/icons/sect_traits/secluded_mountain_gate",
             foundingWeight: 45,
             wakanWeight: 1.2f,
+            spiritVeinWeight: 1.3f,
             terrainWeight: 1.35f,
             cityDistanceWeight: 1.15f,
             buildSpaceWeight: 0.85f,
@@ -197,6 +198,7 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
             iconPath: "cultiway/icons/sect_traits/city_attached_branch",
             foundingWeight: 15,
             wakanWeight: 0.8f,
+            spiritVeinWeight: 0.5f,
             terrainWeight: 0.55f,
             cityDistanceWeight: 1f,
             buildSpaceWeight: 1.15f,
@@ -209,6 +211,7 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
             iconPath: "cultiway/icons/sect_traits/resource_seeking_gate",
             foundingWeight: 30,
             wakanWeight: 1.7f,
+            spiritVeinWeight: 2f,
             terrainWeight: 0.8f,
             cityDistanceWeight: 0.65f,
             buildSpaceWeight: 1f,
@@ -219,6 +222,7 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
             iconPath: "cultiway/icons/sect_traits/territorial_gate",
             foundingWeight: 10,
             wakanWeight: 1f,
+            spiritVeinWeight: 0.9f,
             terrainWeight: 1f,
             cityDistanceWeight: 0.85f,
             buildSpaceWeight: 1.35f,
@@ -405,6 +409,7 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
         string iconPath,
         int foundingWeight,
         float wakanWeight,
+        float spiritVeinWeight,
         float terrainWeight,
         float cityDistanceWeight,
         float buildSpaceWeight,
@@ -423,6 +428,7 @@ public class SectTraits : ExtendLibrary<SectTrait, SectTraits>
         trait.allowCityResidenceZones = allowCityZones;
         trait.preferCityProximity = preferCityProximity;
         trait.residenceWakanScoreWeight = wakanWeight;
+        trait.residenceSpiritVeinScoreWeight = spiritVeinWeight;
         trait.residenceTerrainScoreWeight = terrainWeight;
         trait.residenceCityDistanceScoreWeight = cityDistanceWeight;
         trait.residenceBuildSpaceScoreWeight = buildSpaceWeight;

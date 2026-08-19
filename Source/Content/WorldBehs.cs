@@ -1,28 +1,26 @@
-using System.Collections.Generic;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Friflo.Engine.ECS;
 using NeoModLoader.api.attributes;
-using UnityEngine;
 
 namespace Cultiway.Content;
 
+/// <summary>记录当前世界处于灵气涨潮还是落潮，以及距离下次切换的时间。</summary>
 public struct WakanTideStatus : IComponent
 {
-    public float            switch_timer;
-    public bool             rise;
-    public int              next_zone_id;
-    public List<Vector2Int> action_positions;
+    public float switch_timer;
+    public bool rise;
 }
+
 public class WorldBehs : ExtendLibrary<WorldBehaviourAsset, WorldBehs>
 {
-    public static WorldBehaviourAsset WakanTide   { get; private set; }
-    public static WorldBehaviourAsset WakanSpread { get; private set; }
+    public static WorldBehaviourAsset WakanTide { get; private set; }
 
     protected override bool AutoRegisterAssets() => false;
+
     protected override void OnInit()
     {
-        WakanTide = Add(new WorldBehaviourAsset()
+        WakanTide = Add(new WorldBehaviourAsset
         {
             id = nameof(WakanTide),
             interval = 1f,
@@ -33,75 +31,31 @@ public class WorldBehs : ExtendLibrary<WorldBehaviourAsset, WorldBehs>
 
     protected override WorldBehaviourAsset Add(WorldBehaviourAsset asset)
     {
-        var res = base.Add(asset);
-        res.manager = new WorldBehaviour(res);
-        return res;
+        WorldBehaviourAsset result = base.Add(asset);
+        result.manager = new WorldBehaviour(result);
+        return result;
     }
 
+    /// <summary>潮汐只切换世界倍率，具体灵气来源由灵脉月度结算负责。</summary>
     [Hotfixable]
     private static void UpdateWakanTide()
     {
-        var record_e = ModClass.I.WorldRecord.E;
-        if (!record_e.HasComponent<WakanTideStatus>())
+        Entity worldRecord = ModClass.I.WorldRecord.E;
+        if (!worldRecord.HasComponent<WakanTideStatus>())
         {
-            var positions = new List<Vector2Int>();
-            var len = Randy.randomInt(1, (int)Mathf.Sqrt(Config.ZONE_AMOUNT_X * Config.ZONE_AMOUNT_Y));
-            for (int i = 0; i < len; i++)
-            {
-                positions.Add(new Vector2Int(Randy.randomInt(0, MapBox.width), Randy.randomInt(0, MapBox.height)));
-            }
-
-            record_e.AddComponent(new WakanTideStatus()
+            worldRecord.AddComponent(new WakanTideStatus
             {
                 switch_timer = 500 * 12 * TimeScales.SecPerMonth,
-                rise = true,
-                action_positions = positions
+                rise = true
             });
         }
 
-        ref var status = ref record_e.GetComponent<WakanTideStatus>();
+        ref WakanTideStatus status = ref worldRecord.GetComponent<WakanTideStatus>();
         status.switch_timer -= WakanTide.interval;
-        if (status.switch_timer < 0)
+        while (status.switch_timer < 0f)
         {
             status.switch_timer += 500 * 12 * TimeScales.SecPerMonth;
             status.rise = !status.rise;
-            if (status.rise)
-            {
-                var positions = status.action_positions;
-                positions.Clear();
-                var len = Randy.randomInt(1, (int)Mathf.Sqrt(Config.ZONE_AMOUNT_X * Config.ZONE_AMOUNT_Y));
-                for (int i = 0; i < len; i++)
-                {
-                    positions.Add(new Vector2Int(Randy.randomInt(0, MapBox.width),
-                        Randy.randomInt(0,                          MapBox.height)));
-                }
-            }
-            else
-            {
-                status.next_zone_id = 0;
-            }
-        }
-
-        if (status.rise)
-        {
-            var positions = status.action_positions;
-            for (int i = 0; i < positions.Count; i++)
-            {
-                var pos = positions[i];
-                WakanMap.I.map[pos.x, pos.y] = Mathf.Clamp(WakanMap.I.map[pos.x, pos.y] * 1.01f + 10, 0, 1e8f);
-            }
-        }
-        else
-        {
-            var zone = World.world.zone_calculator.zones[status.next_zone_id];
-            for (int i = 0; i < zone.tiles.Length; i++)
-            {
-                var pos = zone.tiles[i].pos;
-                WakanMap.I.map[pos.x, pos.y] = Mathf.Clamp(WakanMap.I.map[pos.x, pos.y] * 0.99f - 1, 0, 1e8f);
-            }
-
-            status.next_zone_id = (status.next_zone_id + 1) % (Config.ZONE_AMOUNT_X * Config.ZONE_AMOUNT_Y);
         }
     }
-
 }

@@ -17,6 +17,9 @@ internal static class PatchMetaTypeExtensions
             case MetaTypeExtend.GeoRegion:
                 __result = WorldboxGame.MetaTypes.GeoRegion.id;
                 return false;
+            case MetaTypeExtend.SpiritVein:
+                __result = WorldboxGame.MetaTypes.SpiritVein.id;
+                return false;
         }
         return true;
     }

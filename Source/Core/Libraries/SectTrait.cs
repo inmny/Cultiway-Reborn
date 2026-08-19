@@ -36,6 +36,11 @@ public class SectTrait : BaseTrait<SectTrait>
     public float residenceWakanScoreWeight = 1f;
 
     /// <summary>
+    /// 灵脉长期供灵评分权重。
+    /// </summary>
+    public float residenceSpiritVeinScoreWeight = 1f;
+
+    /// <summary>
     /// 地形评分权重。
     /// </summary>
     public float residenceTerrainScoreWeight = 1f;

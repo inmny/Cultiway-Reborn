@@ -30,11 +30,10 @@ public class RestoreWakanSystem : QuerySystem<Xian, ActorBinder>
             if (a.isRekt()) return;
             var max_wakan = a.stats[BaseStatses.MaxWakan.id] * XianSetting.WakanRestoreLimit;
             if (xian.wakan >= max_wakan) return;
-            Vector2Int tile_pos = a.current_tile.pos;
-            var to_take = Mathf.Log10(WakanMap.I.map[tile_pos.x, tile_pos.y] + 1);
-            to_take = Mathf.Min(max_wakan - xian.wakan, WakanMap.I.map[tile_pos.x, tile_pos.y], to_take * a.stats[BaseStatses.WakanRegen.id]);
-            float actual = WakanResourceService.Gain(a.GetExtend(), ref xian, to_take);
-            WakanMap.I.map[tile_pos.x, tile_pos.y] -= actual;
+            CultivationSettlementService.AbsorbAmbientWakan(
+                a.GetExtend(),
+                a.stats[BaseStatses.WakanRegen.id],
+                max_wakan);
         }));
     }
 }

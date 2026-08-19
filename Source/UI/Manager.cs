@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Cultiway.Const;
+using Cultiway.Content.UI.SpiritVeins;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Logging;
@@ -165,6 +166,7 @@ public class Manager
         {
             MetaTypeExtend.GeoRegion => GeoRegionListElement.Prefab.gameObject,
             MetaTypeExtend.Sect => SectListElement.Prefab.gameObject,
+            MetaTypeExtend.SpiritVein => SpiritVeinListElement.Prefab.gameObject,
             _ => throw new NotSupportedException($"未注册列表元素预制体: {meta_type}")
         };
     }
@@ -821,7 +823,9 @@ public class Manager
         SelectedGeoRegionTab.Init();
         GeoRegionListComponent.Init();
         SectListComponent.Init();
+        SpiritVeinListComponent.Init();
         InsertButtonForMeta(MetaTypeExtend.GeoRegion);
         InsertButtonForMeta(MetaTypeExtend.Sect);
+        InsertButtonForMeta(MetaTypeExtend.SpiritVein);
     }
 }

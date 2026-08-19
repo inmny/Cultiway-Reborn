@@ -9,6 +9,7 @@ using Cultiway.Content.Artifacts;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.KnightCombat;
 using Cultiway.Content.Sects;
+using Cultiway.Content.SpiritVeins;
 using Cultiway.Content.Systems.Logic;
 using Cultiway.Content.Systems.Render;
 using Cultiway.Core;
@@ -26,6 +27,7 @@ internal class Manager
     public void Init()
     {
         Libraries.Manager.Init();
+        SpiritVeinSettings.Load();
         FlyerPathFinder.UseGenerator(new PassthroughPathGenerator());
 
         var ns = GetType().Namespace;
@@ -66,10 +68,13 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new FlyCancelSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactVehicleFlightSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactVehiclePassengerSystem());
+        ModClass.I.LogicRestoreStatusSystemGroup.Add(new SpiritVeinMonthlySystem());
         ModClass.I.LogicRestoreStatusSystemGroup.Add(new RestoreWakanSystem());
         ModClass.I.LogicRestoreStatusSystemGroup.Add(new RestoreMagicResourceSystem());
         ModClass.I.LogicRestoreStatusSystemGroup.Add(new KnightAcquisitionSystem());
         ModClass.I.GeneralLogicSystems.Add(new WakanSpreadSystem());
+        ModClass.I.GeneralLogicSystems.Add(new DirtyWakanSpreadSystem());
+        ModClass.I.GeneralLogicSystems.Add(new WorldWakanDisplaySystem());
         ModClass.I.GeneralLogicSystems.Add(new TrainTrackRepairSystem());
         ModClass.I.GeneralLogicSystems.Add(new TrainTransportSystem());
         ModClass.I.GeneralLogicSystems.Add(new TeleportArraySystem());
@@ -99,10 +104,13 @@ internal class Manager
         ModClass.I.GeneralRenderSystems.Add(new RealmAuraRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmElementParticleRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new RealmIndicatorRenderSystem());
+        ModClass.I.GeneralRenderSystems.Add(new SpiritVeinWorldSignSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactManifestationSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactSectManifestationSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactWorldRenderSystem());
         ModClass.I.GeneralRenderSystems.Add(new ArtifactAbilityVisualSystem());
+        ModClass.I.LogicEventProcessSystemGroup.Add(new GeoRegionsReadyGenerateSpiritVeinsEventSystem());
+        ModClass.I.LogicEventProcessSystemGroup.Add(new StableTerrainChangesSpiritVeinEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookGeneratedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new CultibookImprovedEventSystem());
         ModClass.I.LogicEventProcessSystemGroup.Add(new MagicSpellCastCompletedEventSystem());

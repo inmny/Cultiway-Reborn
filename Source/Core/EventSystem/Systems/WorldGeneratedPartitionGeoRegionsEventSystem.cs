@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.GeoLib.Components;
 using Cultiway.Core.GeoRegions;
@@ -346,7 +347,13 @@ public class WorldGeneratedPartitionGeoRegionsEventSystem :
             membership.Revision);
         ReplayTerrainMutations(current);
         ModClass.I.CustomMapModeManager?.SetAllDirty();
-        ModClass.I.TileExtendManager.CompleteWorldInitialization(current.Tiles);
+        EventSystemHub.Publish(new GeoRegionsReadyEvent
+        {
+            WorldSeedId = current.WorldSeedId,
+            Width = current.Width,
+            Height = current.Height,
+            MembershipRevision = membership.Revision
+        });
         current.Cancellation.Dispose();
         work = null;
         lastFailure = null;

@@ -59,34 +59,32 @@ public sealed class CultivationResources
     private static float GetWorldWakan(in CultivationResourceContext context)
     {
         ResolveTile(in context, out int x, out int y);
-        return Mathf.Max(0f, WakanMap.I.map[x, y]);
+        return WorldWakanService.GetClean(WorldWakanService.GetTileId(x, y));
     }
 
     /// <summary>从指定地块扣除洁净灵气。</summary>
     private static float WithdrawWorldWakan(in CultivationResourceContext context, float requestedAmount)
     {
         ResolveTile(in context, out int x, out int y);
-        float current = Mathf.Max(0f, WakanMap.I.map[x, y]);
-        float actual = Mathf.Min(current, Mathf.Max(0f, requestedAmount));
-        WakanMap.I.map[x, y] = current - actual;
-        return actual;
+        return WorldWakanService.WithdrawClean(
+            WorldWakanService.GetTileId(x, y),
+            requestedAmount);
     }
 
     /// <summary>读取指定地块当前浊气。</summary>
     private static float GetTileDirtyWakan(in CultivationResourceContext context)
     {
         ResolveTile(in context, out int x, out int y);
-        return Mathf.Max(0f, DirtyWakanMap.I.map[x, y]);
+        return WorldWakanService.GetDirty(WorldWakanService.GetTileId(x, y));
     }
 
     /// <summary>从指定地块扣除浊气。</summary>
     private static float WithdrawTileDirtyWakan(in CultivationResourceContext context, float requestedAmount)
     {
         ResolveTile(in context, out int x, out int y);
-        float current = Mathf.Max(0f, DirtyWakanMap.I.map[x, y]);
-        float actual = Mathf.Min(current, Mathf.Max(0f, requestedAmount));
-        DirtyWakanMap.I.map[x, y] = current - actual;
-        return actual;
+        return WorldWakanService.WithdrawDirty(
+            WorldWakanService.GetTileId(x, y),
+            requestedAmount);
     }
 
     /// <summary>读取角色当前暂存的个人浊气。</summary>
