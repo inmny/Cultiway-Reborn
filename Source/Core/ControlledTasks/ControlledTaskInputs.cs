@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Cultiway.Core.ControlledTasks;
 
@@ -7,6 +8,13 @@ public enum ControlledTaskParameterMode
 {
     SingleChoice,
     MultipleChoice,
+}
+
+public enum ControlledTaskParameterLayout
+{
+    List,
+    CompactList,
+    ItemGrid,
 }
 
 public sealed class ControlledTaskParameterDefinition
@@ -18,6 +26,7 @@ public sealed class ControlledTaskParameterDefinition
     public int MaxSelected { get; }
     public string NameLocaleKey { get; }
     public string DescriptionLocaleKey { get; }
+    public ControlledTaskParameterLayout Layout { get; }
 
     public ControlledTaskParameterDefinition(
         string key,
@@ -26,7 +35,8 @@ public sealed class ControlledTaskParameterDefinition
         int minSelected,
         int maxSelected,
         string nameLocaleKey,
-        string descriptionLocaleKey)
+        string descriptionLocaleKey,
+        ControlledTaskParameterLayout layout = ControlledTaskParameterLayout.List)
     {
         if (string.IsNullOrEmpty(key)) throw new ArgumentException("Parameter key is required.", nameof(key));
         if (minSelected < 0) throw new ArgumentOutOfRangeException(nameof(minSelected));
@@ -42,6 +52,7 @@ public sealed class ControlledTaskParameterDefinition
         MaxSelected = maxSelected;
         NameLocaleKey = nameLocaleKey ?? string.Empty;
         DescriptionLocaleKey = descriptionLocaleKey ?? string.Empty;
+        Layout = layout;
     }
 }
 
@@ -51,6 +62,8 @@ public sealed class ControlledTaskOption
     public string Label { get; }
     public string Summary { get; }
     public string IconPath { get; }
+    public Sprite IconSprite { get; }
+    public int SpecialItemId { get; }
     public string SearchText { get; }
     public bool Enabled { get; }
     public string ReasonLocaleKey { get; }
@@ -62,13 +75,17 @@ public sealed class ControlledTaskOption
         string iconPath = null,
         string searchText = null,
         bool enabled = true,
-        string reasonLocaleKey = null)
+        string reasonLocaleKey = null,
+        Sprite iconSprite = null,
+        int specialItemId = 0)
     {
         if (string.IsNullOrEmpty(key)) throw new ArgumentException("Option key is required.", nameof(key));
         Key = key;
         Label = label ?? string.Empty;
         Summary = summary ?? string.Empty;
         IconPath = iconPath ?? string.Empty;
+        IconSprite = iconSprite;
+        SpecialItemId = specialItemId;
         SearchText = string.IsNullOrEmpty(searchText) ? Label : searchText;
         Enabled = enabled;
         ReasonLocaleKey = reasonLocaleKey ?? string.Empty;

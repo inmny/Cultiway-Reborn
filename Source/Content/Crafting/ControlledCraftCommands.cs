@@ -11,6 +11,7 @@ using Cultiway.Core.ControlledTasks;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
+using UnityEngine;
 
 namespace Cultiway.Content.Crafting;
 
@@ -58,7 +59,8 @@ internal sealed class ElixirCraftCommandConfigurator : IControlledTaskCommandCon
                 1,
                 1,
                 "Cultiway.ControlledTask.Parameter.Recipe",
-                "Cultiway.ControlledTask.Parameter.Recipe.Description"),
+                "Cultiway.ControlledTask.Parameter.Recipe.Description",
+                ControlledTaskParameterLayout.CompactList),
         };
 
     public IReadOnlyList<ControlledTaskParameterDefinition> Parameters => ParameterDefinitions;
@@ -129,7 +131,8 @@ internal sealed class ArtifactCraftCommandConfigurator : IControlledTaskCommandC
                 1,
                 int.MaxValue,
                 "Cultiway.ControlledTask.Parameter.Materials",
-                "Cultiway.ControlledTask.Parameter.Materials.Description"),
+                "Cultiway.ControlledTask.Parameter.Materials.Description",
+                ControlledTaskParameterLayout.ItemGrid),
         };
 
     public IReadOnlyList<ControlledTaskParameterDefinition> Parameters => ParameterDefinitions;
@@ -149,11 +152,15 @@ internal sealed class ArtifactCraftCommandConfigurator : IControlledTaskCommandC
             string summary = item.TryGetComponent(out ItemLevel level)
                 ? string.Format("Cultiway.ControlledTask.Parameter.ItemLevel".Localize(), level.Stage, level.Level)
                 : string.Empty;
+            Sprite icon = item.TryGetComponent(out SpecialItem specialItem)
+                ? specialItem.GetSprite()
+                : null;
             result.Add(new ControlledTaskOption(
                 "entity:" + item.Id,
                 label,
                 summary,
-                "ui/icons/iconArtifact"));
+                iconSprite: icon,
+                specialItemId: item.Id));
         }
         return result;
     }

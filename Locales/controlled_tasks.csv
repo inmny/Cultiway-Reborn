@@ -110,6 +110,7 @@ Cultiway.ControlledTask.UI.SearchOptions,搜索选项
 Cultiway.ControlledTask.UI.PreviousParameter,上一步
 Cultiway.ControlledTask.UI.NextParameter,下一步
 Cultiway.ControlledTask.UI.ParameterNoneSelected,尚未选择
+Cultiway.ControlledTask.UI.SelectedCount,已选 {0} 件
 Cultiway.ControlledTask.UI.ElixirDiscoveryPreview,预计丹方：{0} · {1} 份材料
 Cultiway.ControlledTask.Target.Parameters,参数选择
 Cultiway.ControlledTask.Parameter.Source,抄录内容
