@@ -14,6 +14,7 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
 {
     private const float PanelWidth = 318f;
     private const float PanelHeight = 276f;
+    private const float CommandSlotWidth = 135f;
     private const float RefreshInterval = 0.2f;
 
     private static ControlledTaskCommandLibrary CommandLibrary => ModClass.L.ControlledTaskCommandLibrary;
@@ -88,6 +89,9 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
             return true;
         if (instance.parameterPicker != null && instance.parameterPicker.IsVisible &&
             ContainsPointer(instance.parameterPicker.Root))
+            return true;
+        if (instance.panelOpen && instance.commandPane?.ScrollbarMask != null &&
+            ContainsPointer(instance.commandPane.ScrollbarMask.GetComponent<RectTransform>()))
             return true;
         return instance.panelOpen && instance.panelRect != null && ContainsPointer(instance.panelRect);
     }
@@ -207,7 +211,7 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
         BuildHeader(panel.Content);
         BuildCategories(panel.Content);
         BuildSearch(panel.Content);
-        BuildCommandGrid(panel.Content);
+        BuildCommandGrid(panel.Content, panel.Root);
         BuildDetails(panel.Content);
         parameterPicker = new ControlledTaskParameterPicker(
             transform,
@@ -302,10 +306,11 @@ internal sealed class ControlledTaskCommandPalette : MonoBehaviour
         });
     }
 
-    private void BuildCommandGrid(Transform parent)
+    private void BuildCommandGrid(Transform parent, RectTransform scrollbarTarget)
     {
         commandPane = UiScrollPane.CreateGrid(parent, "Commands", 306f, 112f, 2,
-            new Vector2(145f, 28f), new Vector2(3f, 3f));
+            new Vector2(CommandSlotWidth, 28f), new Vector2(3f, 3f));
+        commandPane.AttachOriginalScrollbar(UiResources.GetOriginalScrollbarTemplate(), scrollbarTarget);
         AnchorTop(commandPane.Root, -84f);
         ControlledTaskCommandSlot template = ControlledTaskCommandSlot.CreateTemplate(commandPane.Content);
         template.gameObject.SetActive(false);
