@@ -3,6 +3,16 @@ hotkey_cultiway_control_cast_skill,释放主动能力
 hotkey_cultiway_control_cycle_skill,切换主动能力
 hotkey_cultiway_control_issue_task,下达角色任务
 hotkey_cultiway_control_toggle_flight,切换飞行
+hotkey_cultiway_control_select_skill_1,选择主动能力 1
+hotkey_cultiway_control_select_skill_2,选择主动能力 2
+hotkey_cultiway_control_select_skill_3,选择主动能力 3
+hotkey_cultiway_control_select_skill_4,选择主动能力 4
+hotkey_cultiway_control_select_skill_5,选择主动能力 5
+hotkey_cultiway_control_select_skill_6,选择主动能力 6
+hotkey_cultiway_control_select_skill_7,选择主动能力 7
+hotkey_cultiway_control_select_skill_8,选择主动能力 8
+hotkey_cultiway_control_select_skill_9,选择主动能力 9
+hotkey_cultiway_control_select_skill_10,选择主动能力 10
 cultiway_control_action_cast_skill,能力
 cultiway_control_action_cast_skill_hint,长按选敌 / 滚轮缩放 / 右键取消
 cultiway_control_action_cycle_skill,切换
@@ -16,6 +26,13 @@ cultiway_control_action_flight_off_description,关闭操控飞行
 cultiway_control_ability_bar_format,当前能力 {0}/{1} · {2}
 cultiway_control_ability_tooltip_summary,目标：{0} · 形态：{1} · {2}
 cultiway_control_ability_tooltip_detail,施放：{0} · 点击选择 · {1} 释放 · {2} 切换
+cultiway_control_ability_tooltip_status,状态：{0}
+cultiway_control_ability_tooltip_shortcut,快捷选择：{0}
+cultiway_control_ability_state_ready,可释放
+cultiway_control_ability_state_cooldown,冷却 {0} 秒
+cultiway_control_ability_state_resource,资源不足
+cultiway_control_ability_state_active,能力正在运转
+cultiway_control_ability_state_unavailable,当前不可用
 cultiway_control_ability_unknown,未知能力
 cultiway_control_ability_relation_hostile,敌方
 cultiway_control_ability_relation_friendly,友方
