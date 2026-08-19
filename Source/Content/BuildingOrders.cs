@@ -5,17 +5,23 @@ namespace Cultiway.Content;
 
 public class BuildingOrders : ExtendLibrary<CityBuildOrderAsset, BuildingOrders>
 {
+    public const string OrderHouse6 = "order_house_6";
+
     public static CityBuildOrderAsset Classic { get; private set; }
+    public static CityBuildOrderAsset EasternHuman { get; private set; }
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
-        InitClassic();
-        
+        InitClassic(Classic);
+        Classic.prepareForAssetGeneration();
+        InitClassic(EasternHuman);
+        AddEasternHumanHouseUpgrades();
+        EasternHuman.prepareForAssetGeneration();
     }
 
-    private void InitClassic()
+    private void InitClassic(CityBuildOrderAsset asset)
     {
-        t = Classic;
+        t = asset;
         addBuilding(S_BuildOrder.order_bonfire, 1);
         addBuilding(S_BuildOrder.order_stockpile, 1);
         addBuilding(S_BuildOrder.order_house_0, pCheckHouseLimit: true);
@@ -69,7 +75,15 @@ public class BuildingOrders : ExtendLibrary<CityBuildOrderAsset, BuildingOrders>
         b.requirements_orders = [S_BuildOrder.order_hall_0, S_BuildOrder.order_barracks];
         
         
-        Classic.prepareForAssetGeneration();
+    }
+
+    private void AddEasternHumanHouseUpgrades()
+    {
+        t = EasternHuman;
+        addUpgrade(S_BuildOrder.order_house_5);
+        b.requirements_orders = [S_BuildOrder.order_hall_2, S_BuildOrder.order_house_4];
+        addUpgrade(OrderHouse6);
+        b.requirements_orders = [S_BuildOrder.order_hall_2, S_BuildOrder.order_house_5];
     }
     private void addUpgrade(string pID, int pLimitType = 0, int pPop = 0, int pBuildings = 0, bool pCheckFullVillage = false, bool pZonesCheck = false, int pMinZones = 0)
     {

@@ -23,7 +23,7 @@ public partial class Actors
                     .RemoveCultureTrait(S_CultureTrait.city_layout_pebbles)
                     .RemoveCultureTrait(S_CultureTrait.city_layout_stone_garden)
                     .AddCultureTrait(CultureTraits.HallHearth);
-        EasternHuman.build_order_template_id = BuildingOrders.Classic.id;
+        EasternHuman.build_order_template_id = BuildingOrders.EasternHuman.id;
         EasternHuman.architecture_id = Architectures.EasternHuman.id;
         EasternHuman.kingdom_id_wild = KingdomAssets.NoMadsEasternHuman.id;
         EasternHuman.kingdom_id_civilization = KingdomAssets.EasternHuman.id;
