@@ -28,6 +28,7 @@ public partial class WorldboxGame
 
         public static NameplateAsset Sect {get; private set;}
         public static NameplateAsset GeoRegion { get; private set; }
+        public static NameplateAsset SpiritVein { get; private set; }
         protected override bool AutoRegisterAssets() => false;
         protected override void OnInit()
         {
@@ -51,7 +52,20 @@ public partial class WorldboxGame
                 map_mode = MetaTypeExtend.GeoRegion.Back(),
                 action_main = new NameplateBase(ActionGeoRegion)
             });
+            SpiritVein = Add(new NameplateAsset
+            {
+                id = "plate_spirit_vein",
+                path_sprite = "ui/nameplates/nameplate_culture",
+                map_mode = MetaTypeExtend.SpiritVein.Back(),
+                action_main = new NameplateBase(ActionSpiritVein)
+            });
         }
+
+        /// <summary>灵脉由独立地图绘制器显示，不额外生成原版文字名称牌。</summary>
+        private static void ActionSpiritVein(NameplateManager manager, NameplateAsset asset)
+        {
+        }
+
         private static void ActionSect(NameplateManager manager, NameplateAsset asset)
         {
             int current = 0;
