@@ -23,6 +23,9 @@ public readonly struct SkillCastStep
     public readonly bool TrackTarget;
     public readonly float Delay;
     public readonly float InitialAngleOffsetDegrees;
+    /// <summary>无施法者序列中本步骤技能实体的出生坐标。</summary>
+    public readonly Vector3 SourcePos;
+    public readonly bool HasSourcePosition;
 
     public SkillCastStep(BaseSimObject target, float delay, float initialAngleOffsetDegrees = 0f)
     {
@@ -31,6 +34,8 @@ public readonly struct SkillCastStep
         TrackTarget = true;
         Delay = delay;
         InitialAngleOffsetDegrees = initialAngleOffsetDegrees;
+        SourcePos = default;
+        HasSourcePosition = false;
     }
 
     public SkillCastStep(Vector3 targetPos, float delay, float initialAngleOffsetDegrees = 0f)
@@ -40,6 +45,27 @@ public readonly struct SkillCastStep
         TrackTarget = false;
         Delay = delay;
         InitialAngleOffsetDegrees = initialAngleOffsetDegrees;
+        SourcePos = default;
+        HasSourcePosition = false;
+    }
+
+    private SkillCastStep(Vector3 sourcePos, BaseSimObject target, Vector3 targetPos, bool trackTarget,
+        float delay, float initialAngleOffsetDegrees)
+    {
+        Target = target;
+        TargetPos = targetPos;
+        TrackTarget = trackTarget;
+        Delay = delay;
+        InitialAngleOffsetDegrees = initialAngleOffsetDegrees;
+        SourcePos = sourcePos;
+        HasSourcePosition = true;
+    }
+
+    /// <summary>创建从指定世界坐标生成的无施法者序列步骤。</summary>
+    public static SkillCastStep FromSource(Vector3 sourcePos, BaseSimObject target, Vector3 targetPos,
+        float delay, bool trackTarget = false, float initialAngleOffsetDegrees = 0f)
+    {
+        return new SkillCastStep(sourcePos, target, targetPos, trackTarget, delay, initialAngleOffsetDegrees);
     }
 }
 
