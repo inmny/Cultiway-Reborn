@@ -1,5 +1,7 @@
 # 仓库指南
 
+无论在什么地方，都要使用通俗语言，尽量少用专业术语和英文缩写
+
 ## 项目结构与模块组织
 
 核心玩法逻辑位于 `Source/`，主要子系统按职责拆分到 `Core/`（核心系统架构）、`Patch/`（核心 Harmony 补丁）、`UI/`（核心UI）、`Utils/`（通用工具） 和 `LocaleKeys/`， `Source/Content/`下面有类似的架构但主要辅助于玩法内容。资源和数据表从 `Content/` 与 `GameResources/` 发布，本地化文本位于 `Locales/`。`Scripts/` 存放数据转换和平衡性辅助脚本，编译后的程序集输出到 `bin/<Configuration>/net48/`。
@@ -9,7 +11,6 @@
 ## 构建、测试与开发命令
 
 - `dotnet build Cultiway.csproj -c Debug`：还原对本地 WorldBox 安装目录的引用，并将调试 DLL 输出到 `bin/Debug/net48/`。
-- `python Scripts/csv2json.py Tables/<file>.csv`：将表格源文件转换为 `Content/` 下消费的 JSON 格式。
 - 测试通过运行本地 WorldBox (../worldbox.exe) 进行，模组加载器会自动编译并加载mod。
 
 ## 编码规则

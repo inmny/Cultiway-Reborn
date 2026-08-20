@@ -212,6 +212,31 @@ internal sealed class WeaponControlAbilityProvider : IActiveAbilityProvider, ISo
             SkillUseTargetRelation.Hostile);
     }
 
+    public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
+    {
+        if (!IsValidHandle(handle) || !WeaponControlRules.IsEligibleCultivator(caster) ||
+            !WeaponControlRules.TryResolveWeapon(caster, out _, out _, out _))
+        {
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
+        }
+        if (WeaponControlRuntimeService.IsCasting(caster))
+        {
+            return new ActiveAbilityControlState(
+                ActiveAbilityControlBlockReason.Unavailable,
+                SkillCooldownService.GetRemaining(caster, skillContainer),
+                true);
+        }
+
+        float cooldown = SkillCooldownService.GetRemaining(caster, skillContainer);
+        if (cooldown > 0f)
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Cooldown, cooldown);
+        if (!SkillCastCost.CanPayStep(caster, skillContainer))
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.InsufficientResource);
+        return caster.Base.isFlying()
+            ? new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable)
+            : ActiveAbilityControlState.Ready;
+    }
+
     /// <summary>检查境界、当前武器、飞行状态、技能冷却与至少一发灵气。</summary>
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {

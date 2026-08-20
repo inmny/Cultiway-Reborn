@@ -341,7 +341,8 @@ internal static class CoreFormationEffectHandlers
             owner.Base.current_tile != null)
         {
             Vector2Int tile = owner.Base.current_tile.pos;
-            float available = Mathf.Max(0f, WakanMap.I.map[tile.x, tile.y]);
+            int tileId = WorldWakanService.GetTileId(tile.x, tile.y);
+            float available = WorldWakanService.GetClean(tileId);
             float currentReserve = hasReserve ? state.value : 0f;
             float taken = Mathf.Min(cap - currentReserve, available, 4f * effect.Potency * evt.DeltaTime);
             if (taken <= 0f) return;
@@ -350,8 +351,8 @@ internal static class CoreFormationEffectHandlers
                 status = CoreFormationStateService.GetOrCreate(owner, effect, out state);
                 if (status.IsNull) return;
             }
-            WakanMap.I.map[tile.x, tile.y] -= taken;
-            state.value += taken;
+            float actualTaken = WorldWakanService.WithdrawClean(tileId, taken);
+            state.value += actualTaken;
             CoreFormationStateService.Save(status, state);
         }
         else if (xian.wakan < maxWakan * 0.3f && hasReserve && state.value > 0f)

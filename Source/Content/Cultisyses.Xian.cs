@@ -173,6 +173,18 @@ public partial class Cultisyses
                 string.Format("Cultiway.CultisysTooltip.Format.Yuanying".Localize(), yuanying.GetName(),
                     yuanying.GetQuality().GetName(), yuanying.strength)));
         }
+        if (BalefulWindTribulationSkillService.TryGetProgress(
+                actor,
+                out int wavesSurvived,
+                out int totalWaves))
+        {
+            lines.Add(CultisysDisplayLine.CreateProgress(
+                "Cultiway.CultisysTooltip.Xian.BalefulWindTribulation",
+                wavesSurvived,
+                totalWaves,
+                "cultiway/icons/element_root/entropy",
+                "#7E57C2"));
+        }
     }
 
     /// <summary>把组合快照中的属性系数按当前金丹或元婴强度写入角色属性。</summary>
@@ -226,7 +238,7 @@ public partial class Cultisyses
     }
 
     /// <summary>
-    ///     声明仙道前三个已实现境界的进阶图。后续境界尚无规则，因此不会生成空过渡。
+    ///     声明仙道从炼气到化神的完整进阶图；化神后的境界尚无规则，不生成空过渡。
     /// </summary>
     private static CultisysProgressionProfile<Xian> CreateXianProgressionProfile()
     {
@@ -354,10 +366,33 @@ public partial class Cultisyses
         refineYuanying.Rewards.Add(ApplyYuanyingRefinementReward);
         refineYuanying.FailureEffects.Add(ApplySmallBreakthroughFailure);
 
+        var ascendHuashen = new ProgressionTransitionAsset<Xian>(
+            BalefulWindTribulationStage.TransitionId, ProgressionKind.Major, XianLevels.Yuanying,
+            XianLevels.Huashen)
+        {
+            IsApproaching = IsXianApproachingBreakthrough,
+            ResolveNatural = ResolveSuccess,
+            ResolveGrant = ResolveSuccess,
+            Challenge = new BalefulWindTribulationStage()
+        };
+        ascendHuashen.Requirements.Add(RequireFullWakan);
+        ascendHuashen.Requirements.Add(RequireYuanying);
+        ascendHuashen.Requirements.Add(RequireNinefoldYuanying);
+        ascendHuashen.SuccessCosts.Add(ApplyHuashenCost);
+        ascendHuashen.Transformations.Add(ApplyHuashenTransformation);
+
         var yuanyingRealm = new RealmProgressionAsset<Xian>(XianLevels.Yuanying);
         yuanyingRealm.Transitions.Add(refineYuanying);
+        yuanyingRealm.Transitions.Add(ascendHuashen);
+        yuanyingRealm.SelectForQuery = SelectYuanyingTransition;
+        yuanyingRealm.SelectForNaturalAttempt = SelectYuanyingTransition;
+        yuanyingRealm.SelectForMajorGrant = SelectYuanyingTransition;
         yuanyingRealm.SynchronizationEffects.Add(NormalizeYuanyingRealm);
         profile.AddRealm(yuanyingRealm);
+
+        var huashenRealm = new RealmProgressionAsset<Xian>(XianLevels.Huashen);
+        huashenRealm.SynchronizationEffects.Add(NormalizeHuashenRealm);
+        profile.AddRealm(huashenRealm);
 
         return profile;
     }
@@ -423,6 +458,7 @@ public partial class Cultisyses
         TransferFoundation(source, target);
         TransferJindan(source, target);
         TransferYuanying(source, target);
+        BalefulWindTribulationSkillService.Cleanup(target);
     }
 
     private void LoadStatsForXian()

@@ -58,6 +58,13 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
             targetRelation: useProfile.TargetRelation);
     }
 
+    public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
+    {
+        return TryResolve(caster, handle, out _)
+            ? ActiveAbilityControlState.Ready
+            : new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
+    }
+
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         if (!TryResolve(caster, handle, out SkillPayload payload)) return false;

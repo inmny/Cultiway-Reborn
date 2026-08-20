@@ -6,6 +6,8 @@ namespace Cultiway.Core.SkillLibV3.Components;
 public struct SkillCastSequence : IComponent
 {
     public ActorExtend Caster;
+    /// <summary>为 true 时，Caster 仅作为序列生命周期关联对象，生成的技能没有来源对象。</summary>
+    public bool Sourceless;
     public Entity SkillContainer;
     public SkillCastStep[] Steps;
     public Kingdom AttackKingdom;

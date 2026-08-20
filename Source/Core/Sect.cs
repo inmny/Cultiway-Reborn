@@ -747,6 +747,11 @@ public class Sect : MetaObjectWithTraits<SectData, SectTrait>, IHasInventory
         return _residence_strategy?.residenceWakanScoreWeight ?? 1f;
     }
 
+    public float GetResidenceSpiritVeinScoreWeight()
+    {
+        return _residence_strategy?.residenceSpiritVeinScoreWeight ?? 1f;
+    }
+
     public float GetResidenceTerrainScoreWeight()
     {
         return _residence_strategy?.residenceTerrainScoreWeight ?? 1f;

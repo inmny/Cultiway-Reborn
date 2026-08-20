@@ -29,6 +29,8 @@ internal sealed class SubWorldWorldView
         renderRoot.Add(new SubWorldRenderPrepareSystem(runtime.Grid, renderState));
         renderRoot.Add(new SubWorldOverviewRenderSystem(
             runtime.InstanceId, runtime.Grid, renderState, root.transform));
+        renderRoot.Add(new SubWorldBuildingOverviewRenderSystem(
+            runtime.InstanceId, runtime.Grid, renderState, root.transform));
         renderRoot.Add(new SubWorldTerrainRenderSystem(runtime.Grid, renderState, root.transform));
         renderRoot.Add(new SubWorldWallRenderSystem(runtime.Grid, runtime.Seed, renderState, root.transform));
         renderRoot.Add(new SubWorldBuildingRenderSystem(renderState, root.transform));

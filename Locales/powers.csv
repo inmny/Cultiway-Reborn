@@ -28,3 +28,5 @@ baibao_grant,赠宝
 baibao_grant_description,将百宝阁中已选择的法宝制造为独立实体并赠给命中的生物。
 cultiway_strategic_kingdom_layer,自然王国地图
 cultiway_strategic_kingdom_layer_description,以半透明色块、自然国界和国名显示王国领土。
+spirit_vein_layer,望气图
+spirit_vein_layer_description,切换灵脉、灵气分布和两者叠加显示。

@@ -1,3 +1,5 @@
+using Cultiway.Content.CreatureCompositions.Libraries;
+
 namespace Cultiway.Content.Libraries;
 
 public class Manager
@@ -17,6 +19,11 @@ public class Manager
     public static SectNameAtomLibrary SectNameAtomLibrary { get; } = new();
     public static KnightStyleLibrary KnightStyleLibrary { get; } = new();
     public static KnightTechniqueLibrary KnightTechniqueLibrary { get; } = new();
+    public static CreatureBodyPlanLibrary CreatureBodyPlanLibrary { get; } = new();
+    public static CreatureBodySlotLibrary CreatureBodySlotLibrary { get; } = new();
+    public static CreatureMorphLibrary CreatureMorphLibrary { get; } = new();
+    public static CreatureOrganLibrary CreatureOrganLibrary { get; } = new();
+    public static CreatureOrganRankLibrary CreatureOrganRankLibrary { get; } = new();
 
     /// <summary>将内容层资产库注册到 WorldBox 资产管理器，并完成统一后初始化。</summary>
     internal static void Init()
@@ -36,6 +43,11 @@ public class Manager
         AssetManager._instance.add(SectNameAtomLibrary, "sect_name_atoms");
         AssetManager._instance.add(KnightStyleLibrary, "knight_styles");
         AssetManager._instance.add(KnightTechniqueLibrary, "knight_techniques");
+        AssetManager._instance.add(CreatureBodyPlanLibrary, "creature_body_plans");
+        AssetManager._instance.add(CreatureBodySlotLibrary, "creature_body_slots");
+        AssetManager._instance.add(CreatureMorphLibrary, "creature_morphs");
+        AssetManager._instance.add(CreatureOrganLibrary, "creature_organs");
+        AssetManager._instance.add(CreatureOrganRankLibrary, "creature_organ_ranks");
         
         PostInit();
     }
@@ -57,5 +69,10 @@ public class Manager
         SectNameAtomLibrary.post_init();
         KnightStyleLibrary.post_init();
         KnightTechniqueLibrary.post_init();
+        CreatureBodyPlanLibrary.post_init();
+        CreatureBodySlotLibrary.post_init();
+        CreatureMorphLibrary.post_init();
+        CreatureOrganLibrary.post_init();
+        CreatureOrganRankLibrary.post_init();
     }
 }

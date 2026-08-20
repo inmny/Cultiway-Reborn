@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using Cultiway.Const;
+using Cultiway.Content.SpiritVeins;
 using Cultiway.Core.EventSystem.Systems;
 using Cultiway.Core.Performance;
 using HarmonyLib;
@@ -154,7 +155,8 @@ internal static class PatchFramePriorityScheduler
     private static bool IsWorldInitializationPending()
     {
         return ModClass.I?.TileExtendManager?.IsWorldInitializationPending == true ||
-               WorldGeneratedPartitionGeoRegionsEventSystem.BlocksSimulation;
+               WorldGeneratedPartitionGeoRegionsEventSystem.BlocksSimulation ||
+               GeoRegionsReadyGenerateSpiritVeinsEventSystem.BlocksSimulation;
     }
 
     [HarmonyPrefix]

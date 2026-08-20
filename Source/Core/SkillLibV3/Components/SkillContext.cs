@@ -36,6 +36,13 @@ public struct SkillContext : IComponent
     public void BindSource(BaseSimObject source)
     {
         SourceObj = source;
+        if (source == null)
+        {
+            SourceId = -1L;
+            SourceKingdom = null;
+            return;
+        }
+
         SourceId = source.getID();
         SourceKingdom = source.kingdom;
     }

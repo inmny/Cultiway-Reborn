@@ -42,6 +42,18 @@ public static class ActiveAbilityService
         return ResolveProvider(handle).Describe(caster, handle);
     }
 
+    public static ActiveAbilityControlState ResolveControlState(
+        ActorExtend caster,
+        ActiveAbilityHandle handle)
+    {
+        if (caster == null || caster.Base.isRekt() || IsSilenced(caster) ||
+            !TryResolveProvider(handle, out IActiveAbilityProvider provider))
+        {
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
+        }
+        return provider.ResolveControlState(caster, handle);
+    }
+
     public static ActiveAbilityChannel GetChannels(ActorExtend caster, ActiveAbilityHandle handle)
     {
         return TryResolveProvider(handle, out IActiveAbilityProvider provider)

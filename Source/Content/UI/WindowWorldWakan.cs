@@ -46,14 +46,16 @@ public class WindowWorldWakan : AbstractWindow<WindowWorldWakan>
     {
         _line_pool.Clear();
         
-        AddLineValue("世界灵气总量", $"{WakanMap.I.Sum():g2}");
-        AddLineValue("世界灵气均值", $"{(int)WakanMap.I.Avg()}");
-        AddLineValue("世界灵气最大值", $"{(int)WakanMap.I.Max()}");
-        AddLineValue("世界灵气最小值", $"{(int)WakanMap.I.Min()}");
-        AddLineValue("世界浊气总量", $"{DirtyWakanMap.I.Sum():g2}");
-        AddLineValue("世界浊气均值", $"{(int)DirtyWakanMap.I.Avg()}");
-        AddLineValue("世界浊气最大值", $"{(int)DirtyWakanMap.I.Max()}");
-        AddLineValue("世界浊气最小值", $"{(int)DirtyWakanMap.I.Min()}");
+        WorldWakanStatistics clean = WorldWakanService.GetCleanStatistics();
+        WorldWakanStatistics dirty = WorldWakanService.GetDirtyStatistics();
+        AddLineValue("世界灵气总量", $"{clean.Sum:g2}");
+        AddLineValue("世界灵气均值", $"{(int)clean.Average}");
+        AddLineValue("世界灵气最大值", $"{(int)clean.Maximum}");
+        AddLineValue("世界灵气最小值", $"{(int)clean.Minimum}");
+        AddLineValue("世界浊气总量", $"{dirty.Sum:g2}");
+        AddLineValue("世界浊气均值", $"{(int)dirty.Average}");
+        AddLineValue("世界浊气最大值", $"{(int)dirty.Maximum}");
+        AddLineValue("世界浊气最小值", $"{(int)dirty.Minimum}");
 
         var record_e = ModClass.I.WorldRecord.E;
         if (record_e.HasComponent<WakanTideStatus>())

@@ -8,6 +8,7 @@ using Cultiway.Const;
 using Cultiway.Content;
 using Cultiway.Content.Artifacts.Baibao;
 using Cultiway.Content.Components;
+using Cultiway.Content.SpiritVeins;
 using Cultiway.Content.SubWorlds;
 using Cultiway.Core;
 using Cultiway.Core.Components;
@@ -150,7 +151,8 @@ namespace Cultiway
                 }
                 bool initializationPending =
                     TileExtendManager.IsWorldInitializationPending ||
-                    WorldGeneratedPartitionGeoRegionsEventSystem.BlocksSimulation;
+                    WorldGeneratedPartitionGeoRegionsEventSystem.BlocksSimulation ||
+                    GeoRegionsReadyGenerateSpiritVeinsEventSystem.BlocksSimulation;
                 if (!Game.IsPaused())
                 {
                     time_for_log_perf += Time.deltaTime;

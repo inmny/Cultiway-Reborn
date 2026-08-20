@@ -2,6 +2,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Cultiway.Const;
+using Cultiway.Core.EventSystem;
+using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.GeoRegions.Partitioning;
 using Cultiway.Core.Libraries;
 using Cultiway.Core.Performance;
@@ -252,6 +254,7 @@ internal static class GeoRegionRepartitionCoordinator
                 dirtyTileIds,
                 batch.CopyObservations());
             Chronicle.Commit(batch);
+            PublishCommittedTerrainChanges(batch, baselineTerrainSnapshot.Revision);
             lastFailure = null;
             return false;
         }
@@ -348,6 +351,7 @@ internal static class GeoRegionRepartitionCoordinator
             baselineTerrainSnapshot = current.NextTerrain;
             baselinePartitionResult = result;
             baselineRules = current.Rules;
+            PublishCommittedTerrainChanges(current.Batch, current.NextTerrain.Revision);
             repartitionWork = null;
             lastFailure = null;
             current.Cancellation.Dispose();
@@ -379,6 +383,7 @@ internal static class GeoRegionRepartitionCoordinator
         baselineTerrainSnapshot = current.NextTerrain;
         baselinePartitionResult = result;
         baselineRules = current.Rules;
+        PublishCommittedTerrainChanges(current.Batch, current.NextTerrain.Revision);
         repartitionWork = null;
         lastFailure = null;
         current.Cancellation.Dispose();
@@ -386,6 +391,22 @@ internal static class GeoRegionRepartitionCoordinator
         RedirectSelectedRegion(reconciliation);
         manager.ApplyRuntimeChangeSet(reconciliation.ChangeSet);
         ModClass.I.CustomMapModeManager?.OnGeoRegionMembershipReplaced(reconciliation.ChangeSet);
+    }
+
+    /// <summary>把已经正式采用的地形变化作为纯数据消息发送给内容系统。</summary>
+    private static void PublishCommittedTerrainChanges(
+        GeoRegionTerrainChronicleBatch batch,
+        int terrainRevision)
+    {
+        if (batch == null || batch.Count == 0) return;
+        EventSystemHub.Publish(new StableTerrainChangesCommittedEvent(
+            batch.WorldSeedId,
+            baselineTerrainSnapshot?.Width ?? MapBox.width,
+            baselineTerrainSnapshot?.Height ?? MapBox.height,
+            terrainRevision,
+            batch.TopologyGeneration,
+            batch.Lane == GeoRegionRepartitionLane.Topology,
+            batch.TileIds));
     }
 
     /// <summary>

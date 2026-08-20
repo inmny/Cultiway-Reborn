@@ -1,6 +1,7 @@
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.UI.Components;
+using Cultiway.Content.UI.SpiritVeins;
 using Cultiway.Utils.Extension;
 using strings;
 
@@ -10,8 +11,11 @@ public partial class WorldboxGame
 {
     public class ListWindows : ExtendLibrary<ListWindowAsset, ListWindows>
     {
+        public const string SpiritVeinListId = "Cultiway.SpiritVeinList";
+
         public static ListWindowAsset GeoRegionList { get; private set; }
         public static ListWindowAsset SectList { get; private set; }
+        public static ListWindowAsset SpiritVeinList { get; private set; }
 
         protected override bool AutoRegisterAssets() => true;
         protected override void OnInit()
@@ -27,6 +31,12 @@ public partial class WorldboxGame
             SectList.art_path = "cultiway/illustrations/art_geo_regions";
             SectList.icon_path = "cultiway/icons/iconSectList";
             SectList.set_list_component = t => t.AddComponent<SectListComponent>();
+
+            SpiritVeinList.meta_type = MetaTypeExtend.SpiritVein.Back();
+            SpiritVeinList.no_items_locale = "list_empty_spirit_veins";
+            SpiritVeinList.art_path = "cultiway/illustrations/art_geo_regions";
+            SpiritVeinList.icon_path = "cultiway/icons/iconSpiritVein";
+            SpiritVeinList.set_list_component = t => t.AddComponent<SpiritVeinListComponent>();
         }
         protected override void PostInit(ListWindowAsset asset)
         {

@@ -219,7 +219,9 @@ internal static class PatchActor
         if (!__instance.isAlive()) return;
         ActorExtend dead_ae = __instance.GetExtend();
         var tile_pos = __instance.current_tile.pos;
-        DirtyWakanMap.I.map[tile_pos.x, tile_pos.y] += CultivationResources.DeathDirtyWakanYield;
+        WorldWakanService.AddDirty(
+            WorldWakanService.GetTileId(tile_pos.x, tile_pos.y),
+            CultivationResources.DeathDirtyWakanYield);
         
         if (!dead_ae.HasCultisys<Xian>()) return;
         if (!dead_ae.HasComponent<XianBase>()) return;

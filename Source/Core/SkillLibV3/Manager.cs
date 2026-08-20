@@ -224,6 +224,55 @@ public class Manager
         return true;
     }
 
+    /// <summary>
+    /// 启动由世界规则驱动的无施法者技能序列。owner 只负责序列失效判断，
+    /// 所有步骤生成的技能上下文均不绑定来源，也不消耗 owner 的资源。
+    /// </summary>
+    public Entity StartSourcelessSkillSequence(
+        ActorExtend owner,
+        Entity skill_container,
+        SkillCastPlan plan,
+        float strength,
+        float power_level,
+        Kingdom attack_kingdom = null,
+        SkillCastRuntimeData runtime_data = default,
+        SkillCastSequenceOptions options = null)
+    {
+        if (owner?.Base == null || owner.Base.isRekt() || skill_container.IsNull ||
+            plan == null || plan.Steps.Count == 0) return default;
+
+        var startContext = new SkillCastSequenceStartContext(
+            owner,
+            skill_container,
+            plan,
+            strength,
+            power_level,
+            SkillCastFundingSource.Prepaid,
+            runtime_data);
+        if (options?.Hooks != null && !options.Hooks.CanStart(startContext)) return default;
+
+        Entity sequenceEntity = World.CreateEntity(new SkillCastSequence
+        {
+            Caster = owner,
+            Sourceless = true,
+            SkillContainer = skill_container,
+            Steps = plan.Steps.ToArray(),
+            AttackKingdom = attack_kingdom,
+            FundingSource = SkillCastFundingSource.Prepaid,
+            Strength = strength,
+            PowerLevel = power_level,
+            RuntimeData = runtime_data,
+            MaxEmitPerTick = Math.Max(1, options?.MaxEmitPerTick ?? 8),
+            Options = options,
+        });
+        sequenceEntity.AddRelation(new SkillMasterRelation
+        {
+            SkillContainer = skill_container
+        });
+        options?.Hooks?.OnStarted(startContext);
+        return sequenceEntity;
+    }
+
     /// <summary>跨线程队列持有的一次不可变标准施法请求。</summary>
     private readonly struct QueuedSkillCast
     {
@@ -274,8 +323,25 @@ public class Manager
         float strength, float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f,
         Kingdom attack_kingdom = null, SkillCastRuntimeData runtime_data = default)
     {
+        return SpawnSkillFromPosition(skill_container, source, source.GetSimPos(), target, target_pos, strength, delay,
+            power_level, initial_angle_offset_degrees, attack_kingdom, runtime_data);
+    }
+
+    /// <summary>从给定世界坐标生成没有施法者的技能实体。</summary>
+    public Entity SpawnSourcelessSkill(Entity skill_container, Vector3 source_pos, BaseSimObject target,
+        Vector3 target_pos, float strength, float power_level, float delay = 0f,
+        float initial_angle_offset_degrees = 0f, Kingdom attack_kingdom = null,
+        SkillCastRuntimeData runtime_data = default)
+    {
+        return SpawnSkillFromPosition(skill_container, null, source_pos, target, target_pos, strength, delay,
+            power_level, initial_angle_offset_degrees, attack_kingdom, runtime_data);
+    }
+
+    private Entity SpawnSkillFromPosition(Entity skill_container, BaseSimObject source, Vector3 source_pos,
+        BaseSimObject target, Vector3 target_pos, float strength, float delay, float? power_level,
+        float initial_angle_offset_degrees, Kingdom attack_kingdom, SkillCastRuntimeData runtime_data)
+    {
         ref var container = ref skill_container.GetComponent<SkillContainer>();
-        var source_pos = source.GetSimPos();
 
         var base_dir = target_pos - source_pos;
         if (base_dir.sqrMagnitude < 0.0001f)
@@ -302,7 +368,7 @@ public class Manager
             ? source.a.GetExtend().GetPowerLevel()
             : 0f);
         context.BindSource(source);
-        context.TargetObj = target.isRekt() ? null : target;
+        context.TargetObj = target == null || target.isRekt() ? null : target;
         context.AttackKingdom = attack_kingdom;
         context.RuntimeData = runtime_data;
         ref var skill_entity = ref data.Get<SkillEntity>();

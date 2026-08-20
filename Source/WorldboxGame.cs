@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Abstract;
 using Cultiway.AbstractGame;
+using Cultiway.Content.SpiritVeins;
 using Cultiway.Core;
 using Cultiway.Utils;
 using NeoModLoader.api.attributes;
@@ -64,6 +65,7 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
 
         Sects = AddMetaMainManager(new SectManager());
         GeoRegions = AddMetaMainManager(new GeoRegionManager());
+        SpiritVeins = AddMetaOtherManager(new SpiritVeinManager());
     }
 
     public T AddMetaMainManager<T>(T manager) where T : BaseSystemManager
@@ -84,13 +86,16 @@ public partial class WorldboxGame : AGame<WorldTile, TerraformOptions, BaseSimOb
     public Font CurrentFont => Cultiway.UI.UiTheme.Current.Font;
     public Sect SelectedSect;
     public GeoRegion SelectedGeoRegion;
+    public SpiritVein SelectedSpiritVein;
     public SectManager Sects;
     public GeoRegionManager GeoRegions;
+    public SpiritVeinManager SpiritVeins;
 
     internal void ClearWorldReferences()
     {
         SelectedSect = null;
         SelectedGeoRegion = null;
+        SelectedSpiritVein = null;
     }
 
     public override float GetLogicDeltaTime()

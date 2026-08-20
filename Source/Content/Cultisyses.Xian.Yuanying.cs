@@ -16,7 +16,7 @@ namespace Cultiway.Content;
 /// <summary>仙道元婴境界的结婴、奖励、同步与传承规则。</summary>
 public partial class Cultisyses
 {
-    private const int MaximumYuanyingStage = 9;
+    internal const int MaximumYuanyingStage = 9;
 
     /// <summary>将元婴精炼层数映射到元婴境界的细分排序区间。</summary>
     private static float GetYuanyingDetailedLevel(ActorExtend actor)

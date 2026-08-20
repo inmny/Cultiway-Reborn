@@ -65,6 +65,29 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
             profile.activation_mode);
     }
 
+    public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
+    {
+        if (!TryResolve(caster, handle, out ResolvedAbility resolved))
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
+
+        ArtifactAbilityExecutionContext context = new(caster.E, handle.Source, resolved.Relation.state);
+        float cooldown = ArtifactAbilityLifecycle.GetCooldownRemaining(resolved.Runtime);
+        if (resolved.Runtime.activity_kind != ArtifactAbilityActivityKind.None)
+        {
+            return new ActiveAbilityControlState(
+                ActiveAbilityControlBlockReason.Unavailable,
+                cooldown,
+                true);
+        }
+        if (cooldown > 0f)
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Cooldown, cooldown);
+        if (!ArtifactAbilityLifecycle.CanPayActivationCost(resolved.Asset, context, resolved.Ability))
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.InsufficientResource);
+        return resolved.Asset.CanPrepareActive(context, resolved.Ability, resolved.Runtime, null)
+            ? ActiveAbilityControlState.Ready
+            : new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
+    }
+
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         if (!TryResolve(caster, handle, out ResolvedAbility resolved)) return false;

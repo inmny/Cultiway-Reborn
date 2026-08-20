@@ -46,6 +46,34 @@ public static class WorldLogUtils
         worldLog.add();
     }
 
+    public static void LogBalefulWindTribulationStarted(Actor actor)
+    {
+        AddCultivationActorLog(WorldLogs.LogBalefulWindTribulationStarted, actor);
+    }
+
+    public static void LogBalefulWindTribulationSurvived(Actor actor)
+    {
+        AddCultivationActorLog(WorldLogs.LogBalefulWindTribulationSurvived, actor);
+    }
+
+    public static void LogBalefulWindTribulationFailed(Actor actor)
+    {
+        AddCultivationActorLog(WorldLogs.LogBalefulWindTribulationFailed, actor);
+    }
+
+    private static void AddCultivationActorLog(WorldLogAsset asset, Actor actor)
+    {
+        if (asset == null || actor == null) return;
+        var worldLog = new WorldLogMessage(asset, actor.getName())
+        {
+            unit = actor,
+            location = actor.current_position
+        };
+        if (actor.kingdom?.getColor() != null)
+            worldLog.color_special1 = actor.kingdom.getColor().getColorText();
+        worldLog.add();
+    }
+
     public static void LogYuanyingEscape(Actor actor)
     {
         AddPossessionLog(WorldLogs.LogYuanyingEscape, actor, actor?.getName(), null);

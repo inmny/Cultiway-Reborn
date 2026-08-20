@@ -62,6 +62,21 @@ internal sealed class CoreFormationActiveAbilityProvider : IActiveAbilityProvide
             active.Profile.activation_mode);
     }
 
+    public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
+    {
+        if (!TryResolve(caster, handle, out ResolvedActive active))
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
+
+        float cooldown = SkillCooldownService.GetRemaining(caster, active.Profile.SkillContainer);
+        if (cooldown > 0f)
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Cooldown, cooldown);
+
+        SkillCastPlan plan = CreatePlan(caster, active.Profile, null, caster.Base.GetSimPos());
+        if (!SkillCastCost.CanPay(caster, active.Profile.SkillContainer, plan))
+            return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.InsufficientResource);
+        return ActiveAbilityControlState.Ready;
+    }
+
     /// <summary>检查冷却、固定灵气消耗和定义提供的战斗环境条件。</summary>
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {

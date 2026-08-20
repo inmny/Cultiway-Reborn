@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Const;
 using Cultiway.Core;
 using Cultiway.Core.Libraries;
+using Cultiway.Content.SpiritVeins;
 using Cultiway.Debug;
 using Cultiway.Utils.Extension;
 using UnityEngine;
@@ -14,6 +15,7 @@ public sealed class SectResidencePlan
     public readonly List<TileZone> Zones = new();
     public float TotalScore;
     public float WakanScore;
+    public float SpiritVeinScore;
     public float TerrainScore;
     public float CityDistanceScore;
     public float BuildSpaceScore;
@@ -113,7 +115,7 @@ public static class SectResidencePlanner
         WorldboxGame.I?.Sects?.setDirtyResidenceZones();
         SectVerifyLog.Log(
             "ResidenceSetup",
-            $"sect={SectVerifyLog.Sect(sect)} founder={SectVerifyLog.Actor(founder)} trait={plan.ResidenceStrategy?.id ?? "none"} tile={plan.Tile.x},{plan.Tile.y} zone={plan.Tile.zone?.id ?? -1} zones={plan.Zones.Count} score={plan.TotalScore:F1} wakan={plan.WakanScore:F1} terrain={plan.TerrainScore:F1} city={plan.CityDistanceScore:F1} build={plan.BuildSpaceScore:F1} name={sect.data.ResidenceName}");
+            $"sect={SectVerifyLog.Sect(sect)} founder={SectVerifyLog.Actor(founder)} trait={plan.ResidenceStrategy?.id ?? "none"} tile={plan.Tile.x},{plan.Tile.y} zone={plan.Tile.zone?.id ?? -1} zones={plan.Zones.Count} score={plan.TotalScore:F1} wakan={plan.WakanScore:F1} vein={plan.SpiritVeinScore:F1} terrain={plan.TerrainScore:F1} city={plan.CityDistanceScore:F1} build={plan.BuildSpaceScore:F1} name={sect.data.ResidenceName}");
     }
 
     public static List<TileZone> GetResidenceZones(Sect sect)
@@ -178,11 +180,13 @@ public static class SectResidencePlanner
         if (plan.BuildSiteCount < SectConst.ResidenceMinBuildSites) return null;
 
         plan.WakanScore = EvaluateWakan(plan.Zones) * GetWakanScoreWeight(sect, strategy);
+        plan.SpiritVeinScore = EvaluateSpiritVeins(plan.Zones) * GetSpiritVeinScoreWeight(sect, strategy);
         plan.TerrainScore = EvaluateTerrain(center, plan) * GetTerrainScoreWeight(sect, strategy);
         plan.CityDistanceScore = EvaluateCityDistance(plan.Tile, sect, strategy) * GetCityDistanceScoreWeight(sect, strategy);
         plan.BuildSpaceScore = Mathf.Min(plan.BuildSiteCount, 6) * 10f * GetBuildSpaceScoreWeight(sect, strategy);
         plan.SectDistanceScore = EvaluateSectDistance(plan.Tile) * GetSectDistanceScoreWeight(sect, strategy);
         plan.TotalScore = plan.WakanScore
+                          + plan.SpiritVeinScore
                           + plan.TerrainScore
                           + plan.CityDistanceScore
                           + plan.BuildSpaceScore
@@ -233,6 +237,7 @@ public static class SectResidencePlanner
 
     private static WorldTile FindResidenceCenterTile(TileZone zone)
     {
+        SpiritVeinManager manager = WorldboxGame.I?.SpiritVeins;
         WorldTile best = zone.centerTile;
         float bestScore = float.MinValue;
         for (int i = 0; i < zone.tiles.Length; i++)
@@ -240,7 +245,8 @@ public static class SectResidencePlanner
             WorldTile tile = zone.tiles[i];
             if (tile == null || !tile.Type.ground) continue;
 
-            float score = GetWakan(tile) - GetDirtyWakan(tile) * 0.25f;
+            float score = GetWakan(tile) - GetDirtyWakan(tile) * 0.25f +
+                          (manager?.GetLongTermSupplyScore(tile.data.tile_id) ?? 0f) * 24f;
             if (score > bestScore)
             {
                 bestScore = score;
@@ -333,6 +339,30 @@ public static class SectResidencePlanner
         return (avgWakan - SectConst.ResidenceWakanScale) / 8f
                + (peak - SectConst.ResidenceWakanScale) / 20f
                - (avgDirty - SectConst.ResidenceDirtyWakanScale) / 12f;
+    }
+
+    private static float EvaluateSpiritVeins(List<TileZone> zones)
+    {
+        SpiritVeinManager manager = WorldboxGame.I?.SpiritVeins;
+        float total = 0f;
+        float peak = 0f;
+        int count = 0;
+        for (int i = 0; i < zones.Count; i++)
+        {
+            TileZone zone = zones[i];
+            for (int j = 0; j < zone.tiles.Length; j++)
+            {
+                WorldTile tile = zone.tiles[j];
+                if (tile?.data == null) continue;
+                float score = manager?.GetLongTermSupplyScore(tile.data.tile_id) ?? 0f;
+                total += score;
+                peak = Mathf.Max(peak, score);
+                count++;
+            }
+        }
+
+        if (count == 0) return 0f;
+        return total / count * 18f + peak * 8f;
     }
 
     private static float EvaluateTerrain(TileZone center, SectResidencePlan plan)
@@ -447,12 +477,12 @@ public static class SectResidencePlanner
 
     private static float GetWakan(WorldTile tile)
     {
-        return WakanMap.I.map[tile.x, tile.y];
+        return WorldWakanService.GetClean(WorldWakanService.GetTileId(tile.x, tile.y));
     }
 
     private static float GetDirtyWakan(WorldTile tile)
     {
-        return DirtyWakanMap.I.map[tile.x, tile.y];
+        return WorldWakanService.GetDirty(WorldWakanService.GetTileId(tile.x, tile.y));
     }
 
     private static void AddLegacyResidenceZones(List<TileZone> zones, Sect sect)
@@ -496,6 +526,11 @@ public static class SectResidencePlanner
     private static float GetWakanScoreWeight(Sect sect, SectTrait strategy)
     {
         return strategy?.residenceWakanScoreWeight ?? sect?.GetResidenceWakanScoreWeight() ?? 1f;
+    }
+
+    private static float GetSpiritVeinScoreWeight(Sect sect, SectTrait strategy)
+    {
+        return strategy?.residenceSpiritVeinScoreWeight ?? sect?.GetResidenceSpiritVeinScoreWeight() ?? 1f;
     }
 
     private static float GetTerrainScoreWeight(Sect sect, SectTrait strategy)

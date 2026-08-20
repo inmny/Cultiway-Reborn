@@ -86,7 +86,11 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 _spawnRequests.Add(new SpawnSkillRequest
                 {
                     SkillContainer = sequence.SkillContainer,
-                    Source = sequence.Caster.Base,
+                    Sourceless = sequence.Sourceless,
+                    Source = sequence.Sourceless ? null : sequence.Caster.Base,
+                    SourcePos = step.HasSourcePosition
+                        ? step.SourcePos
+                        : sequence.Caster.Base.GetSimPos(),
                     Target = step.Target,
                     TargetPos = step.TrackTarget ? step.Target.GetSimPos() : step.TargetPos,
                     Strength = sequence.Strength,
@@ -101,7 +105,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
 
             if (!ended && sequence.NextIndex >= sequence.Steps.Length)
             {
-                if (sequence.EmittedCount > 0)
+                if (sequence.EmittedCount > 0 && !sequence.Sourceless)
                 {
                     _completedRequests.Add(new SkillCastCompletedRequest
                     {
@@ -133,9 +137,23 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         }
         foreach (var request in _spawnRequests)
         {
-            if (request.SkillContainer.IsNull
-            || request.Source.isRekt()
-            ) continue;
+            if (request.SkillContainer.IsNull ||
+                !request.Sourceless && request.Source.isRekt()) continue;
+
+            if (request.Sourceless)
+            {
+                ModClass.I.SkillV3.SpawnSourcelessSkill(
+                    request.SkillContainer,
+                    request.SourcePos,
+                    request.Target,
+                    request.TargetPos,
+                    request.Strength,
+                    request.PowerLevel,
+                    initial_angle_offset_degrees: request.InitialAngleOffsetDegrees,
+                    attack_kingdom: request.AttackKingdom,
+                    runtime_data: request.RuntimeData);
+                continue;
+            }
 
             ModClass.I.SkillV3.SpawnSkill(request.SkillContainer, request.Source, request.Target, request.TargetPos,
                 request.Strength, power_level: request.PowerLevel,
@@ -179,7 +197,9 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
     private struct SpawnSkillRequest
     {
         public Entity SkillContainer;
+        public bool Sourceless;
         public BaseSimObject Source;
+        public UnityEngine.Vector3 SourcePos;
         public BaseSimObject Target;
         public UnityEngine.Vector3 TargetPos;
         public float Strength;
