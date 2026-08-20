@@ -50,8 +50,6 @@ public partial class Cultisyses
     {
         CompleteNinefoldYuanying(actor, cultisys, ref component, payload);
         BalefulWindTribulationSkillService.Cleanup(actor);
-        if (actor.HasComponent<BalefulWindTribulation>())
-            actor.E.RemoveComponent<BalefulWindTribulation>();
         actor.MarkSemanticProfileDirty();
     }
 
@@ -82,8 +80,6 @@ public partial class Cultisyses
         NormalizeYuanyingRealm(actor, cultisys, ref component, payload);
         CompleteNinefoldYuanying(actor, cultisys, ref component, payload);
         BalefulWindTribulationSkillService.Cleanup(actor);
-        if (actor.HasComponent<BalefulWindTribulation>())
-            actor.E.RemoveComponent<BalefulWindTribulation>();
         actor.MarkSemanticProfileDirty();
         CoreFormationEffectResolver.Synchronize(actor);
     }

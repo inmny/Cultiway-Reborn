@@ -173,12 +173,15 @@ public partial class Cultisyses
                 string.Format("Cultiway.CultisysTooltip.Format.Yuanying".Localize(), yuanying.GetName(),
                     yuanying.GetQuality().GetName(), yuanying.strength)));
         }
-        if (actor.TryGetComponent(out BalefulWindTribulation tribulation))
+        if (BalefulWindTribulationSkillService.TryGetProgress(
+                actor,
+                out int wavesSurvived,
+                out int totalWaves))
         {
             lines.Add(CultisysDisplayLine.CreateProgress(
                 "Cultiway.CultisysTooltip.Xian.BalefulWindTribulation",
-                tribulation.waves_survived,
-                BalefulWindTribulation.TotalWaves,
+                wavesSurvived,
+                totalWaves,
                 "cultiway/icons/element_root/entropy",
                 "#7E57C2"));
         }
@@ -456,8 +459,6 @@ public partial class Cultisyses
         TransferJindan(source, target);
         TransferYuanying(source, target);
         BalefulWindTribulationSkillService.Cleanup(target);
-        if (target.HasComponent<BalefulWindTribulation>())
-            target.E.RemoveComponent<BalefulWindTribulation>();
     }
 
     private void LoadStatsForXian()

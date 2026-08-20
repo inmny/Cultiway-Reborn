@@ -22,31 +22,23 @@ internal sealed class BalefulWindTribulationStage : IProgressionStage
             return ProgressionGateResult.Blocked("xian.baleful_wind_actor_invalid");
 
         string workOrderId = GetWorkOrderId(actor);
-        if (!actor.TryGetComponent(out BalefulWindTribulation tribulation))
-            return ProgressionGateResult.NeedsStart("xian.baleful_wind_not_started", workOrderId);
-        return tribulation.IsPassed
-            ? ProgressionGateResult.Satisfied
-            : ProgressionGateResult.InProgress("xian.baleful_wind_in_progress", workOrderId);
+        if (BalefulWindTribulationSkillService.IsPassed(actor))
+            return ProgressionGateResult.Satisfied;
+        return BalefulWindTribulationSkillService.IsInProgress(actor)
+            ? ProgressionGateResult.InProgress("xian.baleful_wind_in_progress", workOrderId)
+            : ProgressionGateResult.NeedsStart("xian.baleful_wind_not_started", workOrderId);
     }
 
     public void Start(ProgressionStageContext context)
     {
         ActorExtend actor = context.Actor;
         if (actor?.Base == null || !actor.Base.isAlive() ||
-            actor.HasComponent<BalefulWindTribulation>()) return;
+            BalefulWindTribulationSkillService.IsInProgress(actor) ||
+            BalefulWindTribulationSkillService.IsPassed(actor)) return;
         if (!IsEligibleRealm(actor)) return;
 
-        double now = World.world.getCurWorldTime();
-        actor.AddComponent(new BalefulWindTribulation
-        {
-            waves_survived = 0,
-            active_wave = 0,
-            started_at = now,
-            next_wave_at = now + BalefulWindTribulation.InitialDelay,
-            outcome = BalefulWindTribulationOutcome.InProgress
-        });
+        if (!BalefulWindTribulationSkillService.Start(actor)) return;
         WorldLogUtils.LogBalefulWindTribulationStarted(actor.Base);
-        BalefulWindTribulationSkillService.SpawnCenter(actor.Base);
     }
 
     private static bool IsEligibleRealm(ActorExtend actor)

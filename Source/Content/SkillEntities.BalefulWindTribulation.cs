@@ -40,7 +40,7 @@ public partial class SkillEntities
             .WithAppearance(
                 "cultiway/effect/tornado/1/appearance",
                 SkillEntityAnimationSettings.Inherit.WithFrameRate(16f),
-                SkillAnimationGameplayFlags.Movement)
+                SkillAnimationGameplayFlags.Movement | SkillAnimationGameplayFlags.TravelEffects)
             .WithDissipation(
                 "cultiway/effect/tornado/1/dissipation",
                 SkillEntityAnimationSettings.Inherit.WithFrameRate(16f));
@@ -59,9 +59,9 @@ public partial class SkillEntities
             .SetupCommonPrefab(centerAnimation, true)
             .SetupVisualRotation(VisualRotation.FixedUpright())
             .SetupImpactProfile(centerImpact, default)
-            .SetupDefaultTraj(SkillTrajectories.FieldFollowTarget)
+            .SetupDefaultTraj(SkillTrajectories.FieldAtTarget)
             .SetupUseProfile(SkillUseProfileLibrary.CasterSelf)
-            .AcceptTrajectoryDomains(SkillTrajectoryDomain.MobileField)
+            .AcceptTrajectoryDomains(SkillTrajectoryDomain.StationaryField)
             .SetDealsBaseDamage(false);
 
         var waveAnimation = SkillEntityAnimation.Create(
@@ -91,9 +91,10 @@ public partial class SkillEntities
                     Actor = true,
                     ExplicitTargetOnly = true
                 })
-            .SetupDefaultTraj(SkillTrajectories.TowardsTarget)
+            .SetupDefaultTraj(SkillTrajectories.TowardsPosition)
             .SetupUseProfile(SkillUseProfileLibrary.EnemyObjectOrPoint)
-            .AcceptTrajectoryDomains(SkillTrajectoryDomain.FlyingBody);
+            .AcceptTrajectoryDomains(SkillTrajectoryDomain.FlyingBody)
+            .SetDealsBaseDamage(false);
         BalefulWindTribulationWave.OnObjCollision = BalefulWindTribulationSkillService.ResolveWaveImpact;
     }
 }
