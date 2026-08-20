@@ -6,6 +6,7 @@ using ai.behaviours;
 using Cultiway.Content;
 using HarmonyLib;
 using strings;
+using UnityEngine;
 
 namespace Cultiway.Patch;
 
@@ -19,6 +20,49 @@ namespace Cultiway.Patch;
 /// </summary>
 internal static class PatchCityBehBuild
 {
+    [HarmonyTranspiler, HarmonyPatch(typeof(CityBehBuild), nameof(CityBehBuild.buildTick))]
+    private static IEnumerable<CodeInstruction> buildTick_house_upgrade_transpiler(IEnumerable<CodeInstruction> codes)
+    {
+        var list = codes.ToList();
+        MethodInfo getBuildingList = AccessTools.Method(typeof(City), nameof(City.getBuildingListOfID));
+        MethodInfo selector = AccessTools.Method(typeof(PatchCityBehBuild), nameof(SelectBuildingForUpgrade));
+
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (!list[i].Calls(getBuildingList)) continue;
+            for (int j = i + 1; j < list.Count; j++)
+            {
+                if (list[j].operand is not MethodInfo method || method.Name != "GetRandom") continue;
+                list.Insert(j, new CodeInstruction(OpCodes.Ldarg_0));
+                list[j + 1].opcode = OpCodes.Call;
+                list[j + 1].operand = selector;
+                return list;
+            }
+        }
+
+        ModClass.LogWarningConcurrent("[CityBuild] transpiler: 未找到民房升级随机选择点，中心优先升级未生效");
+        return list;
+    }
+
+    private static Building SelectBuildingForUpgrade(List<Building> buildings, City city)
+    {
+        if (buildings == null || buildings.Count == 0) return null;
+        if (buildings[0]?.asset?.type != S_BuildingType.type_house) return buildings.GetRandom();
+
+        Building selected = null;
+        float selectedDistance = float.MaxValue;
+        foreach (Building building in buildings)
+        {
+            if (!PatchBuilding.CanClearUpgradeFootprint(building)) continue;
+            Vector2 position = building.current_tile.pos;
+            float distance = (position - city.city_center).sqrMagnitude;
+            if (distance >= selectedDistance) continue;
+            selected = building;
+            selectedDistance = distance;
+        }
+        return selected;
+    }
+
     [HarmonyPrefix, HarmonyPatch(typeof(City), nameof(City.hasSpecialTownPlans))]
     private static bool hasSpecialTownPlans_prefix(City __instance, ref bool __result)
     {

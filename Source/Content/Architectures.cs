@@ -87,6 +87,7 @@ public class Architectures : ExtendLibrary<ArchitectureAsset, Architectures>
         else if (asset == EasternHuman)
         {
             asset.addBuildingOrderKey(BuildingOrders.OrderHouse6, $"house_{EasternHuman.id}_6");
+            asset.addBuildingOrderKey(BuildingOrders.OrderHall3, $"hall_{EasternHuman.id}_3");
         }
     }
 }

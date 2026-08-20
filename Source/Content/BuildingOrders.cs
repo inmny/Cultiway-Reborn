@@ -6,6 +6,7 @@ namespace Cultiway.Content;
 public class BuildingOrders : ExtendLibrary<CityBuildOrderAsset, BuildingOrders>
 {
     public const string OrderHouse6 = "order_house_6";
+    public const string OrderHall3 = "order_hall_3";
 
     public static CityBuildOrderAsset Classic { get; private set; }
     public static CityBuildOrderAsset EasternHuman { get; private set; }
@@ -80,10 +81,12 @@ public class BuildingOrders : ExtendLibrary<CityBuildOrderAsset, BuildingOrders>
     private void AddEasternHumanHouseUpgrades()
     {
         t = EasternHuman;
+        addUpgrade(S_BuildOrder.order_hall_2, 0, 200, 30);
+        b.requirements_orders = [S_BuildOrder.order_house_5];
         addUpgrade(S_BuildOrder.order_house_5);
-        b.requirements_orders = [S_BuildOrder.order_hall_2, S_BuildOrder.order_house_4];
+        b.requirements_orders = [OrderHall3, S_BuildOrder.order_house_4];
         addUpgrade(OrderHouse6);
-        b.requirements_orders = [S_BuildOrder.order_hall_2, S_BuildOrder.order_house_5];
+        b.requirements_orders = [OrderHall3, S_BuildOrder.order_house_5];
     }
     private void addUpgrade(string pID, int pLimitType = 0, int pPop = 0, int pBuildings = 0, bool pCheckFullVillage = false, bool pZonesCheck = false, int pMinZones = 0)
     {
