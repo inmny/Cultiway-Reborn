@@ -20,6 +20,11 @@ namespace Cultiway.Patch;
 /// </summary>
 internal static class PatchCityBehBuild
 {
+    private static City hallHearthPlacementCity;
+    private static BuildingAsset hallHearthPlacementAsset;
+    private static int hallHearthMinimumPlacementTier = -1;
+    private static WallShapeHelper.WallComputationContext hallHearthWallContext;
+
     [HarmonyTranspiler, HarmonyPatch(typeof(CityBehBuild), nameof(CityBehBuild.buildTick))]
     private static IEnumerable<CodeInstruction> buildTick_house_upgrade_transpiler(IEnumerable<CodeInstruction> codes)
     {
@@ -49,11 +54,30 @@ internal static class PatchCityBehBuild
         if (buildings == null || buildings.Count == 0) return null;
         if (buildings[0]?.asset?.type != S_BuildingType.type_house) return buildings.GetRandom();
 
+        BuildingAsset targetAsset = buildings[0].asset?.upgrade_to == null
+            ? null
+            : AssetManager.buildings.get(buildings[0].asset.upgrade_to);
+        int minimumTier = 2;
+        var wallContext = WallShapeHelper.CreateContext(city);
+        if (targetAsset != null
+            && Plots.GetHallHearthPlacementTier(city, targetAsset, city?.getTile(), wallContext) >= 0)
+        {
+            foreach (Building building in buildings)
+            {
+                if (!PatchBuilding.CanClearUpgradeFootprint(building)) continue;
+                int tier = Plots.GetHallHearthPlacementTier(city, targetAsset, building.current_tile, wallContext);
+                if (tier >= 0 && tier < minimumTier) minimumTier = tier;
+            }
+        }
+
         Building selected = null;
         float selectedDistance = float.MaxValue;
         foreach (Building building in buildings)
         {
             if (!PatchBuilding.CanClearUpgradeFootprint(building)) continue;
+            if (targetAsset != null
+                && Plots.GetHallHearthPlacementTier(city, targetAsset, building.current_tile, wallContext) != minimumTier)
+                continue;
             Vector2 position = building.current_tile.pos;
             float distance = (position - city.city_center).sqrMagnitude;
             if (distance >= selectedDistance) continue;
@@ -70,6 +94,126 @@ internal static class PatchCityBehBuild
                                || !__instance.culture.hasTrait(CultureTraits.HallHearthId)) return true;
         __result = false;
         return false;
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(CityBehBuild), nameof(CityBehBuild.isGoodTileForBuilding))]
+    private static void isGoodTileForBuilding_hall_hearth_postfix(
+        WorldTile pTile, BuildingAsset pAsset, City pCity, ref bool __result)
+    {
+        if (!__result || pCity == null || pAsset == null || pTile == null) return;
+        int tier = Plots.GetHallHearthPlacementTier(pCity, pAsset, pTile, hallHearthWallContext);
+        if (tier < 0) return;
+        if (hallHearthMinimumPlacementTier >= 0
+            && pCity == hallHearthPlacementCity && pAsset == hallHearthPlacementAsset)
+            __result = tier == hallHearthMinimumPlacementTier;
+    }
+
+    [HarmonyPrefix, HarmonyPatch(typeof(CityBehBuild), nameof(CityBehBuild.tryToBuild))]
+    private static void tryToBuild_hall_hearth_prefix(City pCity, BuildingAsset pBuildingAsset)
+    {
+        hallHearthPlacementCity = pCity;
+        hallHearthPlacementAsset = pBuildingAsset;
+        hallHearthMinimumPlacementTier = -1;
+        hallHearthWallContext = WallShapeHelper.CreateContext(pCity);
+        if (Plots.GetHallHearthPlacementTier(pCity, pBuildingAsset, pCity?.getTile(), hallHearthWallContext) < 0)
+            return;
+
+        var possibleZones = new List<TileZone>();
+        CityBehBuild.fillPossibleZones(pBuildingAsset, pCity, possibleZones);
+        hallHearthMinimumPlacementTier = FindMinimumPlacementTier(possibleZones, pBuildingAsset, pCity);
+
+        if (!pBuildingAsset.build_prefer_replace_house) return;
+        foreach (Building building in pCity.buildings)
+        {
+            if (building.asset.priority > pBuildingAsset.priority || !building.asset.hasHousingSlots()) continue;
+            WorldTile tile = building.current_tile;
+            if (!tile.canBuildOn(pBuildingAsset)
+                || !BehaviourActionBase<City>.world.buildings.canBuildFrom(tile, pBuildingAsset, pCity)) continue;
+            int tier = Plots.GetHallHearthPlacementTier(pCity, pBuildingAsset, tile, hallHearthWallContext);
+            if (tier >= 0 && tier < hallHearthMinimumPlacementTier)
+                hallHearthMinimumPlacementTier = tier;
+        }
+    }
+
+    [HarmonyPrefix, HarmonyPatch(typeof(CityBehBuild), nameof(CityBehBuild.tryToBuildInZones))]
+    private static bool tryToBuildInZones_hall_hearth_prefix(
+        List<TileZone> pList, BuildingAsset pBuildingAsset, City pCity,
+        bool pForceCenterZone, ref WorldTile __result)
+    {
+        if (pCity != hallHearthPlacementCity || pBuildingAsset != hallHearthPlacementAsset)
+            return true;
+
+        int unrestricted = Plots.GetHallHearthPlacementTier(
+            pCity, pBuildingAsset, pCity?.getTile(), hallHearthWallContext);
+        if (unrestricted < 0) return true;
+
+        IEnumerable<TileZone> placementZones = pForceCenterZone ? pList : pCity.zones;
+        int minimumTier = FindMinimumPlacementTier(placementZones, pBuildingAsset, pCity);
+        hallHearthMinimumPlacementTier = minimumTier;
+        if (minimumTier < 0) return true;
+
+        WorldTile center = GetClusteringCenter(pCity, false);
+        WorldTile selected = null;
+        int selectedDistance = int.MaxValue;
+        foreach (TileZone zone in placementZones)
+        {
+            IEnumerable<WorldTile> candidates = pForceCenterZone ? new[] { zone.centerTile } : zone.tiles;
+            foreach (WorldTile candidate in candidates)
+            {
+                if (candidate == null || !candidate.canBuildOn(pBuildingAsset)
+                    || !BehaviourActionBase<City>.world.buildings.canBuildFrom(candidate, pBuildingAsset, pCity)) continue;
+
+                int tier = Plots.GetHallHearthPlacementTier(
+                    pCity, pBuildingAsset, candidate, hallHearthWallContext);
+                if (tier != minimumTier) continue;
+                int distance = center == null ? 0 : Toolbox.SquaredDistTile(center, candidate);
+                if (distance >= selectedDistance) continue;
+                selected = candidate;
+                selectedDistance = distance;
+            }
+        }
+
+        __result = selected;
+        return false;
+    }
+
+    private static int FindMinimumPlacementTier(
+        IEnumerable<TileZone> zones, BuildingAsset buildingAsset, City city)
+    {
+        int minimumTier = 2;
+        foreach (TileZone zone in zones)
+        {
+            foreach (WorldTile candidate in zone.tiles)
+            {
+                if (!candidate.canBuildOn(buildingAsset)
+                    || !BehaviourActionBase<City>.world.buildings.canBuildFrom(candidate, buildingAsset, city)) continue;
+                int candidateTier = Plots.GetHallHearthPlacementTier(
+                    city, buildingAsset, candidate, hallHearthWallContext);
+                if (candidateTier < 0) return -1;
+                if (candidateTier < minimumTier) minimumTier = candidateTier;
+            }
+        }
+        return minimumTier;
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(CityBehBuild), nameof(CityBehBuild.tryToBuild))]
+    private static void tryToBuild_hall_hearth_postfix()
+    {
+        hallHearthPlacementCity = null;
+        hallHearthPlacementAsset = null;
+        hallHearthMinimumPlacementTier = -1;
+        hallHearthWallContext = null;
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(CityBehBuild), nameof(CityBehBuild.getOnHouseTile))]
+    private static void getOnHouseTile_hall_hearth_postfix(
+        BuildingAsset pAsset, City pCity, ref WorldTile __result)
+    {
+        if (__result == null || hallHearthMinimumPlacementTier < 0
+            || pCity != hallHearthPlacementCity || pAsset != hallHearthPlacementAsset) return;
+
+        int tier = Plots.GetHallHearthPlacementTier(pCity, pAsset, __result, hallHearthWallContext);
+        if (tier != hallHearthMinimumPlacementTier) __result = null;
     }
 
     /// <summary>

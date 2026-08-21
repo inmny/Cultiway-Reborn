@@ -799,6 +799,45 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         return city != null && city.hasCulture() && city.culture.hasTrait(CultureTraits.HallHearthId);
     }
 
+    /// <summary>返回厅火之邑建筑候选位置的层级：0=内墙，1=外墙，2=墙外，-1=不受限制。</summary>
+    internal static int GetHallHearthPlacementTier(
+        City city, BuildingAsset asset, WorldTile tile, WallShapeHelper.WallComputationContext context = null)
+    {
+        if (!HasHallHearth(city) || asset == null || tile == null) return -1;
+        if (asset.docks || asset.type == "type_mine" || asset.type == "type_barracks"
+            || asset.needs_farms_ground || asset.type == "type_crops") return -1;
+
+        var inner = GetInnerBounds(city);
+        if (inner == null) return -1;
+        var outer = GetOuterBounds(city);
+        int stage = GetWallStage(city);
+        int innerWidth = stage >= WALL_STAGE_BOTH ? 2 : 1;
+        int outerWidth = stage >= WALL_STAGE_FORTRESS ? 2 : 1;
+        context ??= WallShapeHelper.CreateContext(city);
+
+        int startX = tile.x - asset.fundament.left;
+        int startY = tile.y - asset.fundament.bottom;
+        int width = asset.fundament.left + asset.fundament.right + 1;
+        int height = asset.fundament.bottom + asset.fundament.top + 1;
+        bool inInner = true;
+        bool inOuter = outer != null;
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                int currentX = startX + x;
+                int currentY = startY + y;
+                if (!WallShapeHelper.IsInsideWall(inner.Value, innerWidth, context, currentX, currentY))
+                    inInner = false;
+                if (outer != null
+                    && !WallShapeHelper.IsInsideWall(outer.Value, outerWidth, context, currentX, currentY))
+                    inOuter = false;
+            }
+        }
+        if (inInner) return 0;
+        return inOuter ? 1 : 2;
+    }
+
     /// <summary>内墙与外墙是否都基本完好（现存比例均 ≥ 阈值）。用记录的（固定）bounds 检测——
     /// 即城墙实际所在的位置(内墙=GetInnerBounds，外墙=GetOuterBounds)。
     /// 注意不能用动态的 OuterBounds()：城市会持续扩张，动态 bounds 会越来越大、

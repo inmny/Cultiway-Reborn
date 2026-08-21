@@ -28,6 +28,7 @@ public static class WallShapeHelper
         internal readonly City City;
         internal readonly HashSet<long> CoreLand;
         internal readonly Dictionary<RingKey, List<WorldTile>> Rings = new();
+        internal readonly Dictionary<RingKey, HashSet<long>> Interiors = new();
 
         internal WallComputationContext(City city)
         {
@@ -217,12 +218,26 @@ public static class WallShapeHelper
         }
 
         context.Rings[ringKey] = new List<WorldTile>(result);
+        context.Interiors[ringKey] = new HashSet<long>(remaining);
         if (carvePassages)
         {
             CarveLandGates(result, b, context.City);
             CarveDockPassages(result, context.City, width);
         }
         return result;
+    }
+
+    /// <summary>地块是否位于按城市实际领土轮廓生成的城墙内部，不包含墙体本身。</summary>
+    public static bool IsInsideWall(Bounds bounds, int width, WallComputationContext context, int x, int y)
+    {
+        if (context == null) return false;
+        var key = new RingKey(bounds, width);
+        if (!context.Interiors.TryGetValue(key, out var interior))
+        {
+            ComputeWallRing(bounds, width, context, false);
+            if (!context.Interiors.TryGetValue(key, out interior)) return false;
+        }
+        return interior.Contains(TileKey(x, y));
     }
 
     /// <summary>补齐仅对角相接的墙段，避免单位从两个墙角之间斜向穿过。</summary>
