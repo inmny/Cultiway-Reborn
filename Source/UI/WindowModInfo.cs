@@ -21,12 +21,13 @@ public class WindowModInfo : TabbedWindow
     [
         new OverviewPage(),
         new CultivationPage(),
+        new CoreFormationPage(),
         new SectPage(),
         new SkillPage(),
         new ItemsPage(),
+        new ArtifactPage(),
         new WorldPage(),
         new WarhammerPage(),
-        new AIGCPage(),
     ];
 
     internal static void Init()

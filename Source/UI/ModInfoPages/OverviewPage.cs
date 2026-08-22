@@ -15,7 +15,7 @@ public sealed class OverviewPage : ModInfoPage
         Transform hero = CreateCard(root, "Overview Hero", width, 7, 7, 6, 6, 3f);
         AddText(hero, "Title", "修真之路 / Cultiway", 9, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);
         AddText(hero, "Body",
-            "以下完全由AI生成的介绍，后续再人工撰写。把 WorldBox 的文明演化扩展成修真生态：修士成长、宗门传承、世界灵气和特殊资源共同改变长期世界。",
+            "把 WorldBox 的文明演化扩展成修真生态：修士成长、宗门传承、世界灵气和特殊资源共同改变长期世界。",
             6, FontStyle.Normal, TextAnchor.UpperLeft, PrimaryTextColor);
         AddProgress(hero, "进度条", 0.5f, width - 12f, WarnColor);
 
@@ -28,11 +28,15 @@ public sealed class OverviewPage : ModInfoPage
         AddText(focus, "Title", "核心循环", 8, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);
         Transform row1 = AddTwoColumnRow(focus, "Loop Row 1", width - 12f);
         AddMiniCard(row1, "Cultivation", "cultiway/icons/iconCultivation", "修士成长", "灵根、境界、功法、突破", 99f);
-        AddMiniCard(row1, "World", "cultiway/icons/iconWakan", "世界灵气", "扩散、吸收、区域差异", 99f);
+        AddMiniCard(row1, "Daoguo", "cultiway/icons/iconMagic", "本命道果", "突破凝果、谱系传承", 99f);
 
         Transform row2 = AddTwoColumnRow(focus, "Loop Row 2", width - 12f);
         AddMiniCard(row2, "Sect", "cultiway/icons/iconSect", "宗门组织", "职位、藏经阁、门派任务", 99f);
-        AddMiniCard(row2, "Items", "cultiway/icons/iconWriting", "特殊资源", "书籍、丹方、法术、器物", 99f);
+        AddMiniCard(row2, "Artifact", "cultiway/icons/artifact_atoms/sword_edge", "法宝百珍", "器形、材质、器灵、御器", 99f);
+
+        Transform row3 = AddTwoColumnRow(focus, "Loop Row 3", width - 12f);
+        AddMiniCard(row3, "World", "cultiway/icons/iconWakan", "世界灵气", "灵气扩散、龙脉流转", 99f);
+        AddMiniCard(row3, "Items", "cultiway/icons/iconWriting", "特殊资源", "书籍、丹方、法术、器物", 99f);
 
         Transform current = CreateCard(root, "Current Goals", width, 7, 7, 5, 5, 2f);
         AddText(current, "Title", "当前定位", 8, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);

@@ -150,15 +150,19 @@ Cultiway.SourcelessDamage.AttackType.Smile,微笑
 Cultiway.UI.WindowModInfo.Tab.Overview,概览
 Cultiway.UI.WindowModInfo.Tab.Overview Description,查看模组定位、核心循环和当前目标
 Cultiway.UI.WindowModInfo.Tab.Cultivation,修真炼气
-Cultiway.UI.WindowModInfo.Tab.Cultivation Description,灵根、境界、功法、金丹九转
+Cultiway.UI.WindowModInfo.Tab.Cultivation Description,灵根、五境、功法、化神
+Cultiway.UI.WindowModInfo.Tab.CoreFormation,本命道果
+Cultiway.UI.WindowModInfo.Tab.CoreFormation Description,突破凝果、诸气赋形、谱系传承
 Cultiway.UI.WindowModInfo.Tab.Sect,宗门传承
 Cultiway.UI.WindowModInfo.Tab.Sect Description,开宗立派、驻地策略、藏经阁、师徒
 Cultiway.UI.WindowModInfo.Tab.Skill,法术御剑
 Cultiway.UI.WindowModInfo.Tab.Skill Description,元素、弹道、附魔、附身操控
 Cultiway.UI.WindowModInfo.Tab.Items,丹器符药
-Cultiway.UI.WindowModInfo.Tab.Items Description,功法、丹方、术法、丹药、符箓、材料
+Cultiway.UI.WindowModInfo.Tab.Items Description,功法、丹方、术法、丹药、符箓、卷轴、材料
+Cultiway.UI.WindowModInfo.Tab.Artifact,法宝百珍
+Cultiway.UI.WindowModInfo.Tab.Artifact Description,器形材质、法宝神通、器灵御器、百宝阁
 Cultiway.UI.WindowModInfo.Tab.World,大千世界
-Cultiway.UI.WindowModInfo.Tab.World Description,百族争锋、地理演化、灵气地图、交通
+Cultiway.UI.WindowModInfo.Tab.World Description,百族争锋、地理演化、龙脉灵气、交通
 Cultiway.WorldAgeClock.Tooltip.Title,世界时间换算
 Cultiway.WorldAgeClock.Tooltip.RealToGame,现实 1 秒 ≈ 游戏 {0}
 Cultiway.WorldAgeClock.Tooltip.GameToReal,游戏 1 年 ≈ 现实 {0}
@@ -187,8 +191,6 @@ Cultiway.Benchmark.Pathfinding.Note,说明
 Cultiway.Benchmark.Pathfinding.WorkerNote,后台时间为各工作线程耗时之和
 Cultiway.UI.WindowModInfo.Tab.Warhammer,混沌降临
 Cultiway.UI.WindowModInfo.Tab.Warhammer Description,战锤四神、魔神化、魔塔、秩序阵营
-Cultiway.UI.WindowModInfo.Tab.AIGC,AI 演化
-Cultiway.UI.WindowModInfo.Tab.AIGC Description,大模型生成功法丹药法术，配置 API 即用
 Cultiway.UI.WindowRealmNames Title,境界名称
 Cultiway.UI.WindowRealmNames Title Description,设置各修炼体系的境界显示名称
 Cultiway.UI.WindowRealmNames Description,这些名称保存到独立配置文件，不占用模组设置。编辑后会实时保存，默认按钮会按本地文本恢复当前页。
