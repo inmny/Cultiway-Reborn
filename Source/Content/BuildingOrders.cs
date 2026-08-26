@@ -16,7 +16,7 @@ public class BuildingOrders : ExtendLibrary<CityBuildOrderAsset, BuildingOrders>
         InitClassic(Classic);
         Classic.prepareForAssetGeneration();
         InitClassic(EasternHuman);
-        AddEasternHumanHouseUpgrades();
+        AddEasternHumanAdvancedBuildings();
         EasternHuman.prepareForAssetGeneration();
     }
 
@@ -78,7 +78,7 @@ public class BuildingOrders : ExtendLibrary<CityBuildOrderAsset, BuildingOrders>
         
     }
 
-    private void AddEasternHumanHouseUpgrades()
+    private void AddEasternHumanAdvancedBuildings()
     {
         t = EasternHuman;
         addUpgrade(S_BuildOrder.order_hall_2, 0, 200, 30);
@@ -87,6 +87,10 @@ public class BuildingOrders : ExtendLibrary<CityBuildOrderAsset, BuildingOrders>
         b.requirements_orders = [OrderHall3, S_BuildOrder.order_house_4];
         addUpgrade(OrderHouse6);
         b.requirements_orders = [OrderHall3, S_BuildOrder.order_house_5];
+        addBuilding(S_BuildOrder.order_library, 1, 50, 15);
+        b.requirements_types = [S_BuildingType.type_bonfire, S_BuildingType.type_hall];
+        addBuilding(S_BuildOrder.order_market, 1, 60, 15);
+        b.requirements_types = [S_BuildingType.type_bonfire, S_BuildingType.type_hall];
     }
     private void addUpgrade(string pID, int pLimitType = 0, int pPop = 0, int pBuildings = 0, bool pCheckFullVillage = false, bool pZonesCheck = false, int pMinZones = 0)
     {

@@ -281,6 +281,8 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
             (SB.docks_human, false) => (5, 5),
             (SB.barracks_human, false) => (9, 5),
             (SB.temple_human, false) => (5, 4),
+            (SB.library_human, false) => (5, 4),
+            (SB.market_human, false) => (7, 5),
             (SB.windmill_human_0, false) => (4, 3),
             (SB.windmill_human_1, false) => (4, 3),
             (SB.tent_human, false) => (3, 3),
@@ -340,10 +342,16 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         }
         CloneList(
             SB.watch_tower_human, SB.fishing_docks_human, SB.docks_human, SB.barracks_human, SB.temple_human, 
+            SB.library_human, SB.market_human,
             SB.windmill_human_0, SB.windmill_human_1, 
             SB.tent_human, SB.house_human_0, SB.house_human_1, SB.house_human_2, SB.house_human_3, SB.house_human_4, SB.house_human_5, 
             SB.hall_human_0, SB.hall_human_1, SB.hall_human_2
         );
+
+        AssetManager.buildings.get($"library_{Actors.EasternHuman.id}").sprite_path =
+            $"buildings/civ_main/{Actors.EasternHuman.id}/library_Cultiway.EasternHuman";
+        AssetManager.buildings.get($"market_{Actors.EasternHuman.id}").sprite_path =
+            $"buildings/civ_main/{Actors.EasternHuman.id}/market_Cultiway.EasternHuman";
 
         string house5Id = $"house_{Actors.EasternHuman.id}_5";
         string house6Id = $"house_{Actors.EasternHuman.id}_6";

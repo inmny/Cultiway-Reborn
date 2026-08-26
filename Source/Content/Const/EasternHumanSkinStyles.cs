@@ -20,6 +20,7 @@ namespace Cultiway.Content.Const
             "yuan",     // 元
             "ming",     // 明
             "qing",     // 清
+            "modern",   // 现代
             "fusang",   // 扶桑
             "chaoxian"  // 朝鲜
         };

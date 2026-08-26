@@ -57,17 +57,17 @@ internal static class PatchCityBehBuild
         BuildingAsset targetAsset = buildings[0].asset?.upgrade_to == null
             ? null
             : AssetManager.buildings.get(buildings[0].asset.upgrade_to);
-        int minimumTier = 2;
         var wallContext = WallShapeHelper.CreateContext(city);
-        if (targetAsset != null
-            && Plots.GetHallHearthPlacementTier(city, targetAsset, city?.getTile(), wallContext) >= 0)
+        if (targetAsset == null
+            || Plots.GetHallHearthPlacementTier(city, targetAsset, city?.getTile(), wallContext) < 0)
+            return buildings.GetRandom();
+
+        int minimumTier = 2;
+        foreach (Building building in buildings)
         {
-            foreach (Building building in buildings)
-            {
-                if (!PatchBuilding.CanClearUpgradeFootprint(building)) continue;
-                int tier = Plots.GetHallHearthPlacementTier(city, targetAsset, building.current_tile, wallContext);
-                if (tier >= 0 && tier < minimumTier) minimumTier = tier;
-            }
+            if (!PatchBuilding.CanClearUpgradeFootprint(building)) continue;
+            int tier = Plots.GetHallHearthPlacementTier(city, targetAsset, building.current_tile, wallContext);
+            if (tier >= 0 && tier < minimumTier) minimumTier = tier;
         }
 
         Building selected = null;
@@ -75,8 +75,7 @@ internal static class PatchCityBehBuild
         foreach (Building building in buildings)
         {
             if (!PatchBuilding.CanClearUpgradeFootprint(building)) continue;
-            if (targetAsset != null
-                && Plots.GetHallHearthPlacementTier(city, targetAsset, building.current_tile, wallContext) != minimumTier)
+            if (Plots.GetHallHearthPlacementTier(city, targetAsset, building.current_tile, wallContext) != minimumTier)
                 continue;
             Vector2 position = building.current_tile.pos;
             float distance = (position - city.city_center).sqrMagnitude;
