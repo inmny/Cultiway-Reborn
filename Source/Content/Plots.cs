@@ -538,17 +538,19 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         plot.requires_diplomacy    = false;
         plot.money_cost            = 40;
 
-        // 可行：有城 + 规模达标 + 可推进阶段(未满 或 已满但被摧毁) + 没有同类 plot 在跑
+        // 可行：有城 + 规模达标 + 大厅等级达标 + 可推进阶段(未满 或 已满但被摧毁) + 没有同类 plot 在跑
         plot.check_is_possible = a => a.hasCity()
                                      && HasHallHearth(a.city)
                                      && a.city.zones.Count >= WALL_MIN_ZONES
+                                     && HasRequiredHallLevel(a.city)
                                      && CanAdvanceWallStage(a.city)
                                      && !World.world.plots.isPlotTypeAlreadyRunning(a, plot);
         plot.check_can_be_forced   = plot.check_is_possible;
         plot.check_should_continue = a => a.hasCity()
-                                         && HasHallHearth(a.city)
-                                         && a.city.zones.Count >= WALL_MIN_ZONES
-                                         && CanAdvanceWallStage(a.city);
+                                          && HasHallHearth(a.city)
+                                          && a.city.zones.Count >= WALL_MIN_ZONES
+                                          && HasRequiredHallLevel(a.city)
+                                          && CanAdvanceWallStage(a.city);
 
         plot.action = a =>
         {
@@ -799,6 +801,23 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         return city != null && city.hasCulture() && city.culture.hasTrait(CultureTraits.HallHearthId);
     }
 
+    /// <summary>按当前城墙阶段返回本次发起所需的大厅等级。</summary>
+    private static bool HasRequiredHallLevel(City city)
+    {
+        if (city == null) return false;
+        Building hall = city.getBuildingOfType("type_hall");
+        if (hall?.asset == null) return false;
+        int requiredLevel = GetWallStage(city) switch
+        {
+            WALL_STAGE_NONE => 0,
+            WALL_STAGE_INNER => 1,
+            WALL_STAGE_BOTH => 2,
+            WALL_STAGE_FORTRESS => 2,
+            _ => int.MaxValue
+        };
+        return hall.asset.upgrade_level >= requiredLevel;
+    }
+
     /// <summary>返回厅火之邑建筑候选位置的层级：0=内墙，1=外墙，2=墙外，-1=不受限制。</summary>
     internal static int GetHallHearthPlacementTier(
         City city, BuildingAsset asset, WorldTile tile, WallShapeHelper.WallComputationContext context = null)
@@ -882,11 +901,9 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
     }
 
     /// <summary>
-    /// 人类与东方人族城墙修筑调度。城市拥有村庄大厅(type_hall)且城墙未满 3 阶时，按节奏强制发起
-    /// 「修筑城墙」谋划：首次(木墙)在大厅出现后立即发起，此后每 <see cref="WALL_SCHEDULE_INTERVAL_YEARS"/>
-    /// 年一次，直到满 3 阶(FORTRESS = 完成 3 次谋划)。第二、三次(石墙/要塞)仅首都发起。
-    /// 与原版 AI 自主发动并存(AI 可在间隔内额外发动)，本调度只保证「至少每 N 年」一次。
-    /// 发起成功才推进下次调度年份；发起失败(缺领袖/规模不足/同类 plot 在跑)则不推进，下次城市更新再试。
+    /// 人类与东方人族城墙修筑调度。大厅 0、1、2 级分别允许第一、二、三次修筑，
+    /// 且两次修筑至少间隔 <see cref="WALL_SCHEDULE_INTERVAL_YEARS"/> 年。
+    /// 第二、三次(石墙/要塞)仅首都发起。发起失败时，下次城市更新继续尝试。
     /// </summary>
     public static void TryScheduleHumanWall(City city)
     {
@@ -905,6 +922,7 @@ public class Plots : ExtendLibrary<PlotAsset, Plots>
         if (stage >= WALL_STAGE_FORTRESS) return;
         // 第二、三次谋划(stage 1→2、2→3，即石墙/要塞)仅首都发起；首次(stage 0→1，木墙)任意人类城市均可
         if (stage >= WALL_STAGE_INNER && !city.isCapitalCity()) return;
+        if (!HasRequiredHallLevel(city)) return;
 
         Actor initiator = city.leader;
         if (initiator == null || initiator.isRekt()) return;

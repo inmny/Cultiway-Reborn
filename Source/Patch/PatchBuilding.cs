@@ -5,6 +5,7 @@ using System.Reflection.Emit;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Content;
+using Cultiway.Content.Const;
 using Cultiway.Core.BuildingComponents;
 using Cultiway.Utils.Extension;
 using HarmonyLib;
@@ -19,6 +20,18 @@ internal static class PatchBuilding
     private const int UpgradePriorityHouse = 3;
     private const int UpgradePriorityFunctional = 4;
     private const int UpgradePriorityHall = 5;
+
+    /// <summary>东方人族大厅只有在所属文化选择现代风格后，才能从第 3 级升到第 4 级（内部编号 2→3）。</summary>
+    [HarmonyPrefix, HarmonyPatch(typeof(Building), nameof(Building.canBeUpgraded))]
+    private static bool canBeUpgraded_eastern_hall_modern_prefix(Building __instance, ref bool __result)
+    {
+        string hall2Id = $"hall_{Actors.EasternHuman.id}_2";
+        if (__instance?.asset?.id != hall2Id) return true;
+        if (EasternHumanSkinStyles.IsSelected(__instance.city?.culture, "modern")) return true;
+
+        __result = false;
+        return false;
+    }
 
     /// <summary>让建筑命中与单位命中共享当前原版攻击的临时伤害倍率。</summary>
     [HarmonyPrefix, HarmonyPatch(typeof(Building), nameof(Building.getHit))]

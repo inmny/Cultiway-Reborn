@@ -75,6 +75,14 @@ namespace Cultiway.Content.Const
             return next_key;
         }
 
+        /// <summary>判断文化当前是否选择了指定服饰风格。</summary>
+        public static bool IsSelected(Culture culture, string key)
+        {
+            if (culture == null || !_keyToIndex.TryGetValue(key, out int expectedIndex)) return false;
+            culture.data.get(ContentCultureDataKeys.SkinID_int, out int currentIndex, -1);
+            return currentIndex == expectedIndex;
+        }
+
         public static string StyleNameLocaleKey(string key) => "eastern_human_skin_" + key;
     }
 }
