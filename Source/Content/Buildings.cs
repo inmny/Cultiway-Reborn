@@ -373,7 +373,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         house6.upgrade_to = house7Id;
         house6.can_be_upgraded = true;
         house6.cost = new ConstructionCost(0, 25, 3, 15);
-        house6.setHousingSlots(8);
+        house6.setHousingSlots(50);
         house6.loot_generation = 7;
         house6.housing_happiness = 12;
         house6.base_stats["health"] = 450f;
@@ -384,7 +384,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         house7.upgrade_to = string.Empty;
         house7.can_be_upgraded = false;
         house7.cost = new ConstructionCost(0, 30, 4, 20);
-        house7.setHousingSlots(9);
+        house7.setHousingSlots(1500);
         house7.loot_generation = 8;
         house7.housing_happiness = 13;
         house7.base_stats["health"] = 500f;
@@ -398,7 +398,7 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         hall3.upgrade_to = string.Empty;
         hall3.can_be_upgraded = false;
         hall3.cost = new ConstructionCost(0, 20, 2, 200);
-        hall3.setHousingSlots(16);
+        hall3.setHousingSlots(500);
         hall3.loot_generation = 15;
         hall3.housing_happiness = 25;
         hall3.base_stats["health"] = 800f;
