@@ -1,0 +1,82 @@
+key,cz
+Cultiway.Yao,妖修
+Cultiway.Yao.Bloodline.jiaolong,蛟龙
+Cultiway.Yao.Bloodline.moon_fox,月狐
+Cultiway.Yao.Bloodline.golden_crow,金乌
+Cultiway.Yao.Bloodline.none,无血脉
+Cultiway.Yao.CorePattern.water,水行妖丹
+Cultiway.Yao.CorePattern.poison,毒行妖丹
+Cultiway.Yao.CorePattern.fire,火行妖丹
+Cultiway.Yao.CorePattern.earth,厚土妖丹
+Cultiway.Yao.CorePattern.water.SkillDetail,妖丹神通：水幕与寒息，受妖力与冷却限制
+Cultiway.Yao.CorePattern.poison.SkillDetail,妖丹神通：毒雾与腐蚀，受妖力与冷却限制
+Cultiway.Yao.CorePattern.fire.SkillDetail,妖丹神通：炎息与爆燃，受妖力与冷却限制
+Cultiway.Yao.CorePattern.earth.SkillDetail,妖丹神通：护体与震击，受妖力与冷却限制
+Cultiway.CultisysTooltip.Resource.YaoPower,妖力
+Cultiway.CultisysTooltip.Yao.BodyStability,身体稳定度
+Cultiway.CultisysTooltip.Yao.Capacity,额外器官容量
+Cultiway.CultisysTooltip.Yao.Core,妖丹
+Cultiway.CultisysTooltip.Format.YaoCore,{0}·品质{1}·裂痕{2}
+MaxYaoPower,妖力上限
+YaoPowerRegen,妖力恢复
+Cultiway.SkillCastResource.YaoPower.Description,妖兽施放神通消耗的妖力
+Cultiway.YaoPage.Title,妖兽
+Cultiway.YaoPage.NotYao,尚未启灵的凡兽
+Cultiway.CreatureOrgan.yao.fang.basic,兽牙
+Cultiway.YaoPage.Summary,妖修境界：{0}　妖力：{1}　稳定度：{2}　额外容量：{3}
+Cultiway.YaoPage.BodyHeader,当前形态器官：
+Cultiway.YaoPage.BodyEmpty,真身还没有长出任何器官
+Cultiway.YaoPage.BloodlineEmpty,没有携带已知血脉
+Cultiway.YaoPage.BloodlineFormat,主血脉：{0}（纯度{1}）　隐性：{2}　基因代数：{3}
+Cultiway.YaoPage.DigestionFormat,消化队列：{0}/{1} 格占用
+Cultiway.YaoPage.CoreFormat,妖丹：{0}　品质{1}　裂痕{2}
+Cultiway.CreatureOrgan.yao.scale.basic,基础鳞片
+Cultiway.CreatureOrgan.yao.venom.fang,毒牙
+Cultiway.CreatureOrgan.yao.spirit.sense,灵觉
+Cultiway.CreatureOrgan.yao.lung.aquatic,水息肺
+Cultiway.CreatureOrgan.yao.venom.gland.enhanced,强化毒腺
+Cultiway.CreatureOrgan.yao.scale.fine,细鳞甲
+Cultiway.CreatureOrgan.yao.regen.low,低阶再生
+Cultiway.CreatureOrgan.yao.scale.jiaolong,蛟鳞
+Cultiway.CreatureOrgan.yao.lung.cloud,行云肺
+Cultiway.CreatureOrgan.yao.horn.thunder,雷角
+Cultiway.CreatureOrgan.yao.eye.dragon,龙瞳
+Cultiway.CreatureOrgan.yao.fur.moonlight,月华皮毛
+Cultiway.CreatureOrgan.yao.crown.tails,尾冠
+Cultiway.CreatureOrgan.yao.eye.illusion,幻梦灵瞳
+Cultiway.CreatureOrgan.yao.gland.foxfire,狐火腺
+Cultiway.CreatureOrgan.yao.vent.truefire,真火灵窍
+Cultiway.CreatureOrgan.yao.feather.fire,火羽
+Cultiway.CreatureOrgan.yao.heart.nirvana,涅槃心
+Cultiway.CreatureOrgan.yao.shell.black,玄甲
+Cultiway.CreatureOrgan.yao.lung.darkwater,玄水肺
+Cultiway.CreatureOrgan.yao.tail.snake,蛇尾
+Cultiway.CreatureOrgan.yao.spirit.mountaineer,镇岳灵窍
+Cultiway.CreatureOrgan.yao.mouth.abyss,深渊巨口
+Cultiway.CreatureOrgan.yao.stomach.devour,吞天胃
+Cultiway.CreatureOrgan.yao.spirit.consume,吞噬灵窍
+Cultiway.CreatureOrgan.yao.stomach.void,虚空胃
+Cultiway.CreatureOrgan.yao.wing.fupeng,扶摇翼
+Cultiway.CreatureOrgan.yao.spirit.windwater,风水灵窍
+Cultiway.CreatureOrgan.yao.eye.insight,洞察灵瞳
+Cultiway.CreatureOrgan.yao.horn.evilspotter,辨邪角
+Cultiway.CreatureOrgan.yao.spirit.memory,记忆灵窍
+Cultiway.CreatureOrgan.yao.wing.fierce,凶翼
+Cultiway.CreatureOrgan.yao.claw.windrift,裂风爪
+Cultiway.CreatureOrgan.yao.heart.warbeast,噬战心
+Cultiway.WorldLog.YaoAwakened,$actor$ 在灵气中睁开了双眼，正式启灵
+Cultiway.WorldLog.YaoQuenchedBlood,$actor$ 完成第 $value$ 次淬血，器官表达更加清晰
+Cultiway.WorldLog.YaoOrganDigested,$actor$ 炼化器官成功，长出了新的 $value$
+Cultiway.WorldLog.YaoOrganRejected,$actor$ 炼化 $value$ 失败，出现排异与虚弱
+Cultiway.WorldLog.YaoCoreCondensed,$actor$ 在雷火中凝成 $value$
+Cultiway.WorldLog.YaoCoreCracked,$actor$ 的妖丹出现裂痕
+Cultiway.WorldLog.YaoTribulationStarted,劫云聚集在 $actor$ 头顶，妖丹天劫开始了
+Cultiway.WorldLog.YaoTribulationSucceeded,$actor$ 渡过妖丹天劫，妖丹正式成形
+Cultiway.WorldLog.YaoTribulationRetreated,$actor$ 未能扛住劫力，退劫而走
+Cultiway.WorldLog.YaoHumanTransformation,$actor$ 渡过化形劫，褪去兽形化为人身
+Cultiway.WorldLog.YaoAtavism,$actor$ 返祖显现了 $value$
+Cultiway.WorldLog.YaoSolidified,$actor$ 把 $value$ 炼入血脉，后代将有机会继承
+Cultiway.WorldLog.YaoNirvanaStarted,$actor$ 受到致命重伤，化为涅槃体等待重生
+Cultiway.WorldLog.YaoNirvanaReborn,$actor$ 从灰烬中原地重生
+Cultiway.WorldLog.YaoTailLife,$actor$ 以一条尾命代死，侥幸活了下来
+Cultiway.WorldLog.YaoBirthResolved,$actor$ 出生，血脉为 $value$

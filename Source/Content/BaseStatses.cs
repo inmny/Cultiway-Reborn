@@ -19,6 +19,10 @@ public class BaseStatses : ExtendLibrary<BaseStatAsset, BaseStatses>
     [AssetId(nameof(SpiritRegen))] public static BaseStatAsset SpiritRegen { get; private set; }
     /// <summary>骑士的斗气上限（突破资源）。</summary>
     [AssetId(nameof(MaxVigor))] public static BaseStatAsset MaxVigor { get; private set; }
+    /// <summary>妖兽的妖力上限。</summary>
+    [AssetId(nameof(MaxYaoPower))] public static BaseStatAsset MaxYaoPower { get; private set; }
+    /// <summary>妖兽每月自然恢复的妖力。</summary>
+    [AssetId(nameof(YaoPowerRegen))] public static BaseStatAsset YaoPowerRegen { get; private set; }
     /// <summary>骑士的闪避几率（自定义 stat；WorldBox 无原生闪避数值）。</summary>
     [AssetId(nameof(KnightEvasion))] public static BaseStatAsset KnightEvasion { get; private set; }
     /// <summary>单位抵消外力与攻击击退效果的内部抗性。</summary>

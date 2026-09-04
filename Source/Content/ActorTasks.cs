@@ -10,7 +10,7 @@ using Cultiway.Core.Combat.Tactical;
 
 namespace Cultiway.Content;
 
-public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
+public partial class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
 {
     public static BehaviourTaskActor DailyXianCultivate        { get; private set; }
     public static BehaviourTaskActor DailyPlantXianCultivate   { get; private set; }
@@ -79,6 +79,7 @@ public class ActorTasks : ExtendLibrary<BehaviourTaskActor, ActorTasks>
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
+        InitYaoTasks();
         YuanyingPossession.addBeh(new BehYuanyingPossession());
         YuanyingPossession.setIcon("cultiway/icons/achievements/nascent_soul_formed");
 

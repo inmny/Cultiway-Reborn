@@ -1,5 +1,6 @@
 using Cultiway.Abstract;
 using Cultiway.Content.Components;
+using Cultiway.Content.YaoBeasts;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
@@ -16,6 +17,8 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
     public static SkillCastResourceAsset Wakan { get; private set; }
     public static SkillCastResourceAsset Mana { get; private set; }
     public static SkillCastResourceAsset Vigor { get; private set; }
+    /// <summary>妖兽的妖力施法资源通道。</summary>
+    public static SkillCastResourceAsset YaoPower { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
     protected override string Prefix() => "Cultiway.SkillCastResource";
@@ -30,6 +33,8 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
             .ConfigureItemLevelDisplay(FormatManaItemLevel);
         Vigor.Configure(HasVigor, ReadVigor, WriteVigor, QuoteVigor)
             .ConfigureEditor("Cultiway.SkillCastResource.Vigor.Description", "cultiway/icons/iconKnight", 20);
+        YaoPower.Configure(HasYaoPower, ReadYaoPower, WriteYaoPower, QuoteYaoPower)
+            .ConfigureEditor("Cultiway.SkillCastResource.YaoPower.Description", "cultiway/icons/iconCultivation", 30);
     }
 
     private static bool HasWakan(ActorExtend caster)
@@ -90,6 +95,27 @@ public sealed class SkillCastResources : ExtendLibrary<SkillCastResourceAsset, S
     }
 
     private static float QuoteVigor(ActorExtend caster, Entity skill, float demand)
+    {
+        return Mathf.Max(0f, demand);
+    }
+
+    private static bool HasYaoPower(ActorExtend caster)
+    {
+        return caster.HasCultisys<Yao>();
+    }
+
+    private static float ReadYaoPower(ActorExtend caster)
+    {
+        return caster.GetCultisys<Yao>().yao_power;
+    }
+
+    private static void WriteYaoPower(ActorExtend caster, float amount)
+    {
+        ref Yao yao = ref caster.GetCultisys<Yao>();
+        YaoResourceService.Set(caster, ref yao, amount);
+    }
+
+    private static float QuoteYaoPower(ActorExtend caster, Entity skill, float demand)
     {
         return Mathf.Max(0f, demand);
     }

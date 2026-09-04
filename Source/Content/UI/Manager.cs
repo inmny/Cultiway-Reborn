@@ -70,6 +70,8 @@ public class Manager : ICanInit
         WindowNewCreatureInfo.RegisterPage(nameof(YuanshenPage),
             a => ResolveDisplayActor(a).GetExtend().HasComponent<Yuanshen>(),
             YuanshenPage.Setup, YuanshenPage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(YaoPage), a => a.GetExtend().HasCultisys<Yao>(),
+            YaoPage.Setup, YaoPage.Show, _ => "Cultiway.YaoPage.Title".Localize());
         WindowNewCreatureInfo.RegisterPage(nameof(CultibookPage), a=>a.GetExtend().HasCultibook(), CultibookPage.Setup, CultibookPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(ElixirPage), a=> a.GetExtend().HasMaster<ElixirAsset>(), ElixirPage.Setup, ElixirPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(SectPage), a=> a.GetExtend().sect !=null, SectPage.Setup, SectPage.Show);

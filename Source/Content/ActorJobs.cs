@@ -10,7 +10,7 @@ using Cultiway.Utils.Extension;
 namespace Cultiway.Content;
 
 [Dependency(typeof(ActorTasks), typeof(SectAffairs), typeof(CoordinationActivities))]
-public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
+public partial class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
 {
     public static ActorJob XianCultivator      { get; private set; }
     public static ActorJob PlantXianCultivator { get; private set; }
@@ -60,6 +60,7 @@ public class ActorJobs : ExtendLibrary<ActorJob, ActorJobs>
     protected override string Prefix() => "Cultiway.ActorJob";
     protected override void OnInit()
     {
+        InitYaoJobs();
         XianCultivator.addTask(ActorTasks.SwitchCultibook.id);
         XianCultivator.addCondition(new CondCanSwitchCultibook());
         XianCultivator.addTask(ActorTasks.DailyXianCultivate.id);
