@@ -58,11 +58,15 @@ Cultiway.CoreFormation.Page.Jindan.NextEvolution,下一次演化：{0}转
 Cultiway.CoreFormation.Page.Yuanying.Title,元婴：{0}
 Cultiway.CoreFormation.Page.Yuanying.Strength,元婴强度：{0}
 Cultiway.CoreFormation.Page.Yuanying.Lineage,金丹谱系：{0}
+Cultiway.CoreFormation.Page.Yuanshen.Title,元神：{0}
+Cultiway.CoreFormation.Page.Yuanshen.Strength,元神强度：{0}
+Cultiway.CoreFormation.Page.Yuanshen.Lineage,元婴谱系：{0}
 Cultiway.CoreFormation.Page.Atoms,构成：{0}
 Cultiway.CoreFormation.Page.Elements,元素：{0}
 Cultiway.CoreFormation.Page.Skill,代表法术：{0}
 Cultiway.CoreFormation.Label.Jindan,金丹
 Cultiway.CoreFormation.Label.Yuanying,元婴
+Cultiway.CoreFormation.Label.Yuanshen,元神
 Cultiway.RealmPage.Foundation.Name,筑基
 Cultiway.RealmPage.Foundation.Forming,仙基尚未定型
 Cultiway.RealmPage.Foundation.Progress,仙基熬炼 {0}/{1}
@@ -92,6 +96,8 @@ Cultiway.RealmPage.Jindan.EvolutionComplete,演化完成
 Cultiway.RealmPage.Yuanying.Summary,强度 {0}
 Cultiway.RealmPage.Yuanying.Lineage,金丹谱系
 Cultiway.RealmPage.Yuanying.LineageEmpty,无
+Cultiway.RealmPage.Yuanshen.Summary,{0}层 · 强度 {1}
+Cultiway.RealmPage.Yuanshen.Lineage,元婴谱系
 Cultiway.RealmPage.Elements,元素构成
 Cultiway.RealmPage.Atoms,核心构成
 Cultiway.RealmPage.Atom.Inherited,谱系继承
