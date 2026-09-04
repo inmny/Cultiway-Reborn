@@ -1261,10 +1261,9 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
             rotation.value = RotateDirection(baseDir, Randy.randomFloat(-angleVariance, angleVariance));
         }
 
-        if (skillEntity.HasComponent<Velocity>() && speedVariance > 0f)
+        if (skillEntity.TryGetComponent(out MotionParams spawnMotion) && speedVariance > 0f)
         {
-            ref var velocity = ref skillEntity.GetComponent<Velocity>();
-            velocity.Value *= Mathf.Max(0.1f, 1f + Randy.randomFloat(-speedVariance, speedVariance));
+            spawnMotion.Velocity *= Mathf.Max(0.1f, 1f + Randy.randomFloat(-speedVariance, speedVariance));
         }
     }
 
@@ -1572,16 +1571,10 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         var multiplier = Mathf.Clamp(1f + haste.SpeedMultiplier, 0.1f, 10f);
         if (multiplier <= 0f) return;
 
-        if (skillEntity.HasComponent<Velocity>())
+        if (skillEntity.TryGetComponent(out MotionParams hasteMotion))
         {
-            ref var velocity = ref skillEntity.GetComponent<Velocity>();
-            velocity.Value *= multiplier;
-        }
-
-        if (skillEntity.HasComponent<TurnRate>())
-        {
-            ref var turnRate = ref skillEntity.GetComponent<TurnRate>();
-            turnRate.Value *= multiplier;
+            hasteMotion.Velocity *= multiplier;
+            hasteMotion.TurnRate *= multiplier;
         }
     }
 

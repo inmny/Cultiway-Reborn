@@ -554,21 +554,14 @@ public class Manager
         Vector3 targetPos)
     {
         var distance = Vector2.Distance(new Vector2(sourcePos.x, sourcePos.y), new Vector2(targetPos.x, targetPos.y));
-        var velocity = new Velocity
+        SetOrAdd(entity, new MotionParams
         {
-            Value = profile.ResolveSpeed(distance)
-        };
-        SetOrAdd(entity, velocity);
-        SetOrAdd(entity, new TurnRate
-        {
-            Value = profile.TurnRate
-        });
-        SetOrAdd(entity, new SkillVelocityRamp
-        {
-            StartMultiplier = profile.LaunchMultiplier,
-            EndMultiplier = profile.CruiseMultiplier,
+            Velocity = profile.ResolveSpeed(distance),
+            TurnRate = profile.TurnRate,
+            RampStart = profile.LaunchMultiplier,
+            RampEnd = profile.CruiseMultiplier,
             RampDuration = profile.RampDuration,
-            Elapsed = 0f
+            HasRamp = true
         });
 
         ref var controller = ref entity.GetComponent<AnimController>();
@@ -595,7 +588,7 @@ public class Manager
             return;
         }
 
-        var speed = entity.GetComponent<Velocity>().Value;
+        var speed = entity.GetComponent<MotionParams>().Velocity;
         var afterimage = profile.ResolveAfterimage(speed);
         if (entity.HasComponent<AnimAfterimage>())
         {
