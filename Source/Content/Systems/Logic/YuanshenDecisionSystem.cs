@@ -11,7 +11,7 @@ using UnityEngine;
 namespace Cultiway.Content.Systems.Logic;
 
 /// <summary>人物级元神决策系统：按优先级统一裁决心神份额的自动使用，不寻找目标。</summary>
-public sealed class YuanshenDecisionSystem : QuerySystem<ActorBinder, Yuanshen, YuanshenDecisionRuntime>
+public sealed class YuanshenDecisionSystem : QuerySystem<ActorBinder, Yuanshen, YuanshenRuntimeState>
 {
     /// <summary>离开人物查询后执行的本轮决策人物。</summary>
     private readonly List<ActorExtend> actors = new();
@@ -33,7 +33,7 @@ public sealed class YuanshenDecisionSystem : QuerySystem<ActorBinder, Yuanshen, 
         Query.ForEachEntity((
             ref ActorBinder binder,
             ref Yuanshen _,
-            ref YuanshenDecisionRuntime runtime,
+            ref YuanshenRuntimeState runtime,
             Entity __) =>
         {
             Actor actor = binder.Actor;
@@ -68,8 +68,8 @@ public sealed class YuanshenDecisionSystem : QuerySystem<ActorBinder, Yuanshen, 
     private void ExecuteCombatTasks(ActorExtend actor, Actor owner)
     {
         BaseSimObject targetObject = owner.attack_target;
-        ref YuanshenDecisionRuntime decisionRuntime = ref actor.GetComponent<YuanshenDecisionRuntime>();
-        decisionRuntime.combat_target_id = targetObject.isActor() ? targetObject.a.data.id : 0L;
+        ref YuanshenRuntimeState decisionRuntime = ref actor.GetComponent<YuanshenRuntimeState>();
+        decisionRuntime.decision_combat_target_id = targetObject.isActor() ? targetObject.a.data.id : 0L;
         Vector2 targetPosition = targetObject.current_position;
         locked.Clear();
         YuanshenNodeLockService.CollectLocks(owner, locked);
@@ -194,11 +194,11 @@ public sealed class YuanshenDecisionSystem : QuerySystem<ActorBinder, Yuanshen, 
     /// <param name="actor">拥有元神的人物。</param>
     private static void EndCombatTasks(ActorExtend actor)
     {
-        if (actor.TryGetComponent(out YuanshenDecisionRuntime current) && current.combat_target_id == 0L &&
+        if (actor.TryGetComponent(out YuanshenRuntimeState current) && current.decision_combat_target_id == 0L &&
             YuanshenThoughtService.CountThoughts(actor) == 0 &&
             YuanshenAdvancedNodeService.CountRole(actor, YuanshenNodeRole.DharmaForm) == 0) return;
-        ref YuanshenDecisionRuntime runtime = ref actor.GetComponent<YuanshenDecisionRuntime>();
-        runtime.combat_target_id = 0L;
+        ref YuanshenRuntimeState runtime = ref actor.GetComponent<YuanshenRuntimeState>();
+        runtime.decision_combat_target_id = 0L;
         YuanshenThoughtService.RequestAllThoughtsReturn(actor);
         YuanshenAdvancedNodeService.RequestRoleReturn(actor, YuanshenNodeRole.DharmaForm);
     }
@@ -215,8 +215,8 @@ public sealed class YuanshenDecisionSystem : QuerySystem<ActorBinder, Yuanshen, 
         {
             YuanshenNodeHandle candidate = runtime.thought_nodes[i];
             if (!YuanshenNodeLockService.TryResolve(candidate, out Entity node) ||
-                !node.TryGetComponent(out YuanshenNodeIdentity identity) ||
-                identity.role != YuanshenNodeRole.Thought) continue;
+                !node.TryGetComponent(out YuanshenNodeState state) ||
+                state.role != YuanshenNodeRole.Thought) continue;
             handle = candidate;
             return true;
         }

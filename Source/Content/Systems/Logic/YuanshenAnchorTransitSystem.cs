@@ -94,15 +94,14 @@ public sealed class YuanshenAnchorTransitSystem : BaseSystem, IWorldStateClearab
     /// <param name="now">当前世界时间。</param>
     private void CollectNodeTransits(double now)
     {
-        ModClass.I.W.Query<YuanshenNodeIdentity, YuanshenNodeIntegrity, YuanshenAnchorTransitState>()
+        ModClass.I.W.Query<YuanshenNodeState, YuanshenAnchorTransitState>()
             .ForEachEntity((
-                ref YuanshenNodeIdentity identity,
-                ref YuanshenNodeIntegrity integrity,
+                ref YuanshenNodeState state,
                 ref YuanshenAnchorTransitState transit,
                 Entity node) =>
             {
                 if (node.Tags.Has<TagRecycle>()) return;
-                Actor ownerBase = World.world?.units?.get(identity.owner_actor_id);
+                Actor ownerBase = World.world?.units?.get(state.owner_actor_id);
                 if (ownerBase == null || ownerBase.isRekt() || !ownerBase.isAlive())
                 {
                     invalidNodes.Add(node);
@@ -116,7 +115,7 @@ public sealed class YuanshenAnchorTransitSystem : BaseSystem, IWorldStateClearab
                                         YuanshenAnchorNetworkService.TryGetUsableAuthorized(
                                             owner, transit.destination, out _, out _);
                 if (!sourceValid || !destinationValid ||
-                    integrity.current + 0.001f < transit.starting_integrity)
+                    state.integrity_current + 0.001f < transit.starting_integrity)
                     interruptedTransits.Add(new TransitRequest(owner, node, transit));
                 else if (transit.completes_at <= now)
                     completedTransits.Add(new TransitRequest(owner, node, transit));
@@ -154,14 +153,14 @@ public sealed class YuanshenAnchorTransitSystem : BaseSystem, IWorldStateClearab
     /// <summary>收集正在归返且驻留于锚点的节点，改为从设施锚点开始归返引导。</summary>
     private void CollectResidenceReturns()
     {
-        ModClass.I.W.Query<YuanshenNodeIdentity, YuanshenAnchorResidence>().ForEachEntity((
-            ref YuanshenNodeIdentity identity,
+        ModClass.I.W.Query<YuanshenNodeState, YuanshenAnchorResidence>().ForEachEntity((
+            ref YuanshenNodeState state,
             ref YuanshenAnchorResidence residence,
             Entity node) =>
         {
             if (node.Tags.Has<TagRecycle>() || node.HasComponent<YuanshenAnchorTransitState>() ||
-                identity.action != YuanshenNodeAction.Returning) return;
-            Actor ownerBase = World.world?.units?.get(identity.owner_actor_id);
+                state.action != YuanshenNodeAction.Returning) return;
+            Actor ownerBase = World.world?.units?.get(state.owner_actor_id);
             if (ownerBase == null || ownerBase.isRekt() || !ownerBase.isAlive())
             {
                 invalidNodes.Add(node);

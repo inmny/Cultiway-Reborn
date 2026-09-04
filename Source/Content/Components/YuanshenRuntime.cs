@@ -111,6 +111,18 @@ public struct YuanshenRuntimeState : IComponent
     /// <summary>当前活动法相、化身和显圣投影的稳定句柄。</summary>
     public List<YuanshenNodeHandle> advanced_nodes;
 
+    /// <summary>玩家或决策当前聚焦的元神节点；失效句柄视为没有聚焦。</summary>
+    public YuanshenNodeHandle focused_node;
+
+    /// <summary>下一次可以使用基础神念攻击的世界时间。</summary>
+    public double soul_strike_ready_at;
+
+    /// <summary>距离下一次元神决策的秒数。</summary>
+    public float think_cooldown;
+
+    /// <summary>最近一次由决策明确选定的战斗目标编号。</summary>
+    public long decision_combat_target_id;
+
     /// <summary>命魂当前是否由有效临时人物承载。</summary>
     public readonly bool IsOutside => soul_carrier_actor_id > 0L;
 
@@ -185,8 +197,8 @@ public struct YuanshenSoulCarrierState : IComponent
         : 0f;
 }
 
-/// <summary>所有元神地图节点共用的稳定身份、角色和运行状态。</summary>
-public struct YuanshenNodeIdentity : IComponent
+/// <summary>一枚元神节点的稳定身份、角色、移动、完整度与牵引状态。</summary>
+public struct YuanshenNodeState : IComponent
 {
     /// <summary>节点所属人物的稳定编号。</summary>
     public long owner_actor_id;
@@ -208,6 +220,45 @@ public struct YuanshenNodeIdentity : IComponent
 
     /// <summary>节点当前移动状态。</summary>
     public YuanshenNodeAction action;
+
+    /// <summary>当前地面移动目标。</summary>
+    public Vector2 move_target;
+
+    /// <summary>每秒移动的世界格数。</summary>
+    public float move_speed;
+
+    /// <summary>创建节点时冻结的完整度上限。</summary>
+    public float integrity_maximum;
+
+    /// <summary>节点当前剩余完整度。</summary>
+    public float integrity_current;
+
+    /// <summary>创建节点时划入的初始心神份额。</summary>
+    public float allocated_share;
+
+    /// <summary>已经因完整度损失转入创伤锁定的份额。</summary>
+    public float locked_share;
+
+    /// <summary>当前牵引状态。</summary>
+    public YuanshenTetherCondition tether_condition;
+
+    /// <summary>近期切割与压制累计的干扰秒数。</summary>
+    public float tether_interference_seconds;
+
+    /// <summary>最近一次增加牵引干扰的世界时间。</summary>
+    public double tether_last_interference_at;
+
+    /// <summary>当前完整度比例。</summary>
+    public readonly float IntegrityRatio => integrity_maximum > 0f
+        ? Mathf.Clamp01(integrity_current / integrity_maximum)
+        : 0f;
+
+    /// <summary>取当前状态的稳定节点句柄。</summary>
+    /// <returns>包含全部稳定身份字段的句柄。</returns>
+    public readonly YuanshenNodeHandle GetHandle()
+    {
+        return new YuanshenNodeHandle(in this);
+    }
 }
 
 /// <summary>节点当前任务类型。</summary>
@@ -269,48 +320,6 @@ public struct YuanshenNodeTask : IComponent
     public double expires_at;
 }
 
-/// <summary>命魂载体的明确移动目标与速度。</summary>
-public struct YuanshenNodeMotion : IComponent
-{
-    /// <summary>当前地面目标坐标。</summary>
-    public Vector2 target;
-
-    /// <summary>每秒移动的世界格数。</summary>
-    public float speed;
-}
-
-/// <summary>元神节点当前结构完整度。</summary>
-public struct YuanshenNodeIntegrity : IComponent
-{
-    /// <summary>创建节点时冻结的完整度上限。</summary>
-    public float maximum;
-
-    /// <summary>节点当前剩余完整度。</summary>
-    public float current;
-
-    /// <summary>创建节点时划入的初始心神份额。</summary>
-    public float allocated_share;
-
-    /// <summary>已经因完整度损失转入创伤锁定的份额。</summary>
-    public float locked_share;
-
-    /// <summary>当前完整度比例。</summary>
-    public readonly float Ratio => maximum > 0f ? Mathf.Clamp01(current / maximum) : 0f;
-}
-
-/// <summary>命魂载体当前牵引干扰与持续时间。</summary>
-public struct YuanshenTetherState : IComponent
-{
-    /// <summary>当前牵引状态。</summary>
-    public YuanshenTetherCondition condition;
-
-    /// <summary>近期切割与压制累计的干扰秒数。</summary>
-    public float interference_seconds;
-
-    /// <summary>最近一次增加干扰的世界时间。</summary>
-    public double last_interference_at;
-}
-
 /// <summary>法器当前由哪一道元神节点远程控制。</summary>
 public struct ArtifactYuanshenControl : IComponent
 {
@@ -319,30 +328,6 @@ public struct ArtifactYuanshenControl : IComponent
 
     /// <summary>提供法器世界起点的元神节点句柄。</summary>
     public YuanshenNodeHandle node;
-}
-
-/// <summary>人物可以聚焦的当前元神节点。</summary>
-public struct YuanshenFocusState : IComponent
-{
-    /// <summary>当前聚焦节点的稳定句柄。</summary>
-    public YuanshenNodeHandle handle;
-}
-
-/// <summary>元神人物级决策的有界节流状态。</summary>
-public struct YuanshenDecisionRuntime : IComponent
-{
-    /// <summary>距离下一次元神决策的秒数。</summary>
-    public float think_cooldown;
-
-    /// <summary>最近一次由决策明确选定的战斗目标编号。</summary>
-    public long combat_target_id;
-}
-
-/// <summary>基础神念攻击的人物侧冷却。</summary>
-public struct YuanshenSoulAbilityRuntime : IComponent
-{
-    /// <summary>下一次可以使用基础神念攻击的世界时间。</summary>
-    public double strike_ready_at;
 }
 
 /// <summary>可以跨帧保存并稳定失效的元神节点目标句柄。</summary>
@@ -360,14 +345,14 @@ public readonly struct YuanshenNodeHandle : IEquatable<YuanshenNodeHandle>
     /// <summary>节点生成代次。</summary>
     public readonly int Generation;
 
-    /// <summary>从一枚当前节点身份创建稳定句柄。</summary>
-    /// <param name="identity">当前节点身份。</param>
-    public YuanshenNodeHandle(in YuanshenNodeIdentity identity)
+    /// <summary>从一枚当前节点状态创建稳定句柄。</summary>
+    /// <param name="state">当前节点状态。</param>
+    public YuanshenNodeHandle(in YuanshenNodeState state)
     {
-        OwnerActorId = identity.owner_actor_id;
-        SessionId = identity.session_id;
-        LogicalId = identity.logical_id;
-        Generation = identity.generation;
+        OwnerActorId = state.owner_actor_id;
+        SessionId = state.session_id;
+        LogicalId = state.logical_id;
+        Generation = state.generation;
     }
 
     /// <summary>判断两个句柄的全部稳定字段是否相同。</summary>

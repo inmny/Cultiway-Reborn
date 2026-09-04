@@ -73,7 +73,7 @@ public static class YuanshenNodeCastingService
             !caster.TryGetComponent(out Yuanshen yuanshen) || yuanshen.stage < 4 ||
             !YuanshenThoughtService.TryGetFocused(caster, out YuanshenNodeHandle handle, out Vector2 position) ||
             !YuanshenNodeLockService.TryResolve(handle, out Entity node) ||
-            !node.TryGetComponent(out YuanshenNodeIntegrity integrity) || integrity.Ratio < 0.35f ||
+            !node.TryGetComponent(out YuanshenNodeState state) || state.IntegrityRatio < 0.35f ||
             !AllowsSkillFromNode(skill, node))
             return null;
         DivineSenseBudget budget = DivineSenseBudgetService.Resolve(caster);

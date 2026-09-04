@@ -126,8 +126,8 @@ public static class DivineSenseBudgetService
         {
             if (!YuanshenNodeLockService.TryResolve(runtime.advanced_nodes[i], out var node)) continue;
             threads++;
-            if (!node.TryGetComponent(out YuanshenNodeIdentity identity)) continue;
-            float nodeRatio = identity.role switch
+            if (!node.TryGetComponent(out YuanshenNodeState state)) continue;
+            float nodeRatio = state.role switch
             {
                 YuanshenNodeRole.DharmaForm => 0.35f,
                 YuanshenNodeRole.Avatar => 0.25f,

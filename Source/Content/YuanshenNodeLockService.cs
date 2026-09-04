@@ -41,16 +41,16 @@ public static class YuanshenNodeLockService
     /// <param name="node">刚创建的元神节点。</param>
     public static void RegisterNode(Entity node)
     {
-        if (node.IsNull || !node.TryGetComponent(out YuanshenNodeIdentity identity)) return;
-        Nodes[new YuanshenNodeHandle(in identity)] = node;
+        if (node.IsNull || !node.TryGetComponent(out YuanshenNodeState state)) return;
+        Nodes[state.GetHandle()] = node;
     }
 
     /// <summary>节点归返或击破后移除稳定解析关系。</summary>
     /// <param name="node">即将失效的元神节点。</param>
     public static void UnregisterNode(Entity node)
     {
-        if (node.IsNull || !node.TryGetComponent(out YuanshenNodeIdentity identity)) return;
-        Nodes.Remove(new YuanshenNodeHandle(in identity));
+        if (node.IsNull || !node.TryGetComponent(out YuanshenNodeState state)) return;
+        Nodes.Remove(state.GetHandle());
     }
 
     /// <summary>每次使用稳定句柄时重新校验全部身份字段。</summary>
@@ -62,8 +62,8 @@ public static class YuanshenNodeLockService
         node = default;
         if (!Nodes.TryGetValue(handle, out Entity candidate) || candidate.IsNull ||
             candidate.Tags.Has<TagRecycle>() ||
-            !candidate.TryGetComponent(out YuanshenNodeIdentity identity) ||
-            new YuanshenNodeHandle(in identity) != handle)
+            !candidate.TryGetComponent(out YuanshenNodeState state) ||
+            state.GetHandle() != handle)
         {
             Nodes.Remove(handle);
             return false;

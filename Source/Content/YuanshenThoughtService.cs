@@ -40,9 +40,9 @@ public static class YuanshenThoughtService
         runtime.generation = runtime.generation == int.MaxValue ? 1 : Mathf.Max(0, runtime.generation) + 1;
         int logicalId = Mathf.Max(2, runtime.next_logical_id++);
         Entity node = CreateThoughtNode(actor, runtime.session_id, logicalId, runtime.generation, DefaultShare, origin, target);
-        YuanshenNodeIdentity identity = node.GetComponent<YuanshenNodeIdentity>();
+        YuanshenNodeState state = node.GetComponent<YuanshenNodeState>();
         runtime.thought_nodes ??= new List<YuanshenNodeHandle>(3);
-        runtime.thought_nodes.Add(new YuanshenNodeHandle(in identity));
+        runtime.thought_nodes.Add(state.GetHandle());
         runtime.main_soul_share -= DefaultShare;
         WakanResourceService.Spend(actor, ref xian, cost);
         YuanshenTravelService.NotifyMindStateChanged(actor);
@@ -58,10 +58,9 @@ public static class YuanshenThoughtService
     {
         if (!TryResolveOwnedNode(actor, handle, out Entity node) ||
             !YuanshenTravelService.IsWithinTether(actor, target)) return false;
-        ref YuanshenNodeIdentity identity = ref node.GetComponent<YuanshenNodeIdentity>();
-        identity.action = YuanshenNodeAction.Moving;
-        ref YuanshenNodeMotion motion = ref node.GetComponent<YuanshenNodeMotion>();
-        motion.target = target;
+        ref YuanshenNodeState state = ref node.GetComponent<YuanshenNodeState>();
+        state.action = YuanshenNodeAction.Moving;
+        state.move_target = target;
         ref YuanshenNodeTask task = ref node.GetComponent<YuanshenNodeTask>();
         task = new YuanshenNodeTask
         {
@@ -159,20 +158,20 @@ public static class YuanshenThoughtService
     public static bool RequestReturn(ActorExtend actor, YuanshenNodeHandle handle)
     {
         if (!TryResolveOwnedNode(actor, handle, out Entity node) ||
-            !node.TryGetComponent(out YuanshenNodeIdentity _))
+            !node.TryGetComponent(out YuanshenNodeState _))
             return false;
-        ref YuanshenNodeIdentity mutableIdentity = ref node.GetComponent<YuanshenNodeIdentity>();
+        ref YuanshenNodeState mutableState = ref node.GetComponent<YuanshenNodeState>();
         ref YuanshenNodeTask task = ref node.GetComponent<YuanshenNodeTask>();
-        SetReturning(ref mutableIdentity, ref task);
+        SetReturning(ref mutableState, ref task);
         return true;
     }
 
-    /// <summary>把节点身份与任务同步切换为归返状态。</summary>
-    /// <param name="identity">需要修改的节点身份。</param>
+    /// <summary>把节点状态与任务同步切换为归返状态。</summary>
+    /// <param name="state">需要修改的节点状态。</param>
     /// <param name="task">需要修改的节点任务。</param>
-    internal static void SetReturning(ref YuanshenNodeIdentity identity, ref YuanshenNodeTask task)
+    internal static void SetReturning(ref YuanshenNodeState state, ref YuanshenNodeTask task)
     {
-        identity.action = YuanshenNodeAction.Returning;
+        state.action = YuanshenNodeAction.Returning;
         task.kind = YuanshenNodeTaskKind.Return;
         task.started_at = ResolveNow();
     }
@@ -198,20 +197,20 @@ public static class YuanshenThoughtService
     public static bool CompleteReturn(ActorExtend actor, Entity node)
     {
         if (actor == null || node.IsNull ||
-            !node.TryGetComponent(out YuanshenNodeIdentity identity) ||
-            identity.owner_actor_id != actor.Base.data.id ||
+            !node.TryGetComponent(out YuanshenNodeState state) ||
+            state.owner_actor_id != actor.Base.data.id ||
             !actor.TryGetComponent(out YuanshenRuntimeState current) ||
-            current.session_id != identity.session_id)
+            current.session_id != state.session_id)
             return false;
 
         ref YuanshenRuntimeState runtime = ref actor.GetComponent<YuanshenRuntimeState>();
-        runtime.main_soul_share += Mathf.Max(0f, identity.mind_share);
-        YuanshenNodeHandle handle = new(in identity);
+        runtime.main_soul_share += Mathf.Max(0f, state.mind_share);
+        YuanshenNodeHandle handle = state.GetHandle();
         ArtifactYuanshenControlService.ReleaseNodeArtifact(actor, handle);
         RemoveHandle(runtime.thought_nodes, handle);
         RemoveHandle(runtime.advanced_nodes, handle);
-        if (actor.TryGetComponent(out YuanshenFocusState focus) && focus.handle == handle)
-            actor.E.RemoveComponent<YuanshenFocusState>();
+        if (runtime.focused_node == handle)
+            runtime.focused_node = default;
         YuanshenAnchorNetworkService.ReleaseResidence(node);
         YuanshenNodeLockService.UnregisterNode(node);
         if (!node.Tags.Has<TagRecycle>()) node.AddTag<TagRecycle>();
@@ -226,7 +225,8 @@ public static class YuanshenThoughtService
     public static bool TryFocus(ActorExtend actor, YuanshenNodeHandle handle)
     {
         if (!TryResolveOwnedNode(actor, handle, out _)) return false;
-        actor.GetOrAddComponent<YuanshenFocusState>() = new YuanshenFocusState { handle = handle };
+        ref YuanshenRuntimeState runtime = ref actor.GetOrAddComponent<YuanshenRuntimeState>();
+        runtime.focused_node = handle;
         return true;
     }
 
@@ -242,14 +242,14 @@ public static class YuanshenThoughtService
     {
         handle = default;
         position = default;
-        if (actor == null || !actor.TryGetComponent(out YuanshenFocusState focus)) return false;
-        if (!TryResolveOwnedNode(actor, focus.handle, out Entity node) ||
+        if (actor == null || !actor.TryGetComponent(out YuanshenRuntimeState runtime)) return false;
+        if (!TryResolveOwnedNode(actor, runtime.focused_node, out Entity node) ||
             !node.TryGetComponent(out Position nodePosition))
         {
-            actor.E.RemoveComponent<YuanshenFocusState>();
+            runtime.focused_node = default;
             return false;
         }
-        handle = focus.handle;
+        handle = runtime.focused_node;
         position = nodePosition.v2;
         return true;
     }
@@ -289,12 +289,12 @@ public static class YuanshenThoughtService
         void ConsiderNode(Entity node)
         {
             if (node.IsNull || node.Tags.Has<TagRecycle>() ||
-                !node.TryGetComponent(out YuanshenNodeIdentity identity) ||
-                identity.owner_actor_id != actor.Base.data.id ||
+                !node.TryGetComponent(out YuanshenNodeState state) ||
+                state.owner_actor_id != actor.Base.data.id ||
                 !node.TryGetComponent(out Position position)) return;
             float distance = Vector2.Distance(point, position.v2);
             if (distance > bestDistance) return;
-            YuanshenNodeHandle candidate = new(in identity);
+            YuanshenNodeHandle candidate = state.GetHandle();
             if (found && Mathf.Approximately(distance, bestDistance) &&
                 candidate.LogicalId >= best.LogicalId) return;
             found = true;
@@ -368,7 +368,7 @@ public static class YuanshenThoughtService
         if (sprite == null) throw new InvalidOperationException("缺少普通分念可用贴图。");
         float integrity = YuanshenTravelService.ResolveIntegrityMaximum(actor, share);
         Entity node = ModClass.I.W.CreateEntity(
-            new YuanshenNodeIdentity
+            new YuanshenNodeState
             {
                 owner_actor_id = actor.Base.data.id,
                 session_id = sessionId,
@@ -376,23 +376,21 @@ public static class YuanshenThoughtService
                 generation = generation,
                 role = YuanshenNodeRole.Thought,
                 mind_share = share,
-                action = YuanshenNodeAction.Moving
+                action = YuanshenNodeAction.Moving,
+                move_target = target,
+                move_speed = YuanshenTravelService.NodeMoveSpeed * 0.9f,
+                integrity_maximum = integrity,
+                integrity_current = integrity,
+                allocated_share = share,
+                locked_share = 0f,
+                tether_condition = YuanshenTetherCondition.Stable
             },
-            new YuanshenNodeMotion { target = target, speed = YuanshenTravelService.NodeMoveSpeed * 0.9f },
             new YuanshenNodeTask
             {
                 kind = YuanshenNodeTaskKind.Move,
                 point = target,
                 started_at = ResolveNow()
             },
-            new YuanshenNodeIntegrity
-            {
-                maximum = integrity,
-                current = integrity,
-                allocated_share = share,
-                locked_share = 0f
-            },
-            new YuanshenTetherState { condition = YuanshenTetherCondition.Stable },
             new Position(origin.x, origin.y, 0.3f),
             new Scale(0.24f),
             new AnimData { frames = [sprite] },

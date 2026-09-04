@@ -32,8 +32,8 @@ public static class YuanshenNodeCombatService
     /// <returns>当前剩余秒数。</returns>
     public static float GetSoulStrikeCooldownRemaining(ActorExtend attacker)
     {
-        if (attacker == null || !attacker.TryGetComponent(out YuanshenSoulAbilityRuntime runtime)) return 0f;
-        return Mathf.Max(0f, (float)(runtime.strike_ready_at - ResolveNow()));
+        if (attacker == null || !attacker.TryGetComponent(out YuanshenRuntimeState runtime)) return 0f;
+        return Mathf.Max(0f, (float)(runtime.soul_strike_ready_at - ResolveNow()));
     }
 
     /// <summary>检查原人物是否能支付一次基础神念攻击。</summary>
@@ -70,8 +70,8 @@ public static class YuanshenNodeCombatService
     {
         if (!CanSoulStrike(attacker, target) ||
             !WakanResourceService.TrySpendMaximumRatio(attacker, BasicStrikeWakanRatio)) return false;
-        ref YuanshenSoulAbilityRuntime runtime = ref attacker.GetOrAddComponent<YuanshenSoulAbilityRuntime>();
-        runtime.strike_ready_at = ResolveNow() + BasicStrikeCooldown;
+        ref YuanshenRuntimeState runtime = ref attacker.GetOrAddComponent<YuanshenRuntimeState>();
+        runtime.soul_strike_ready_at = ResolveNow() + BasicStrikeCooldown;
         float sourceStrength = attacker.TryGetComponent(out Yuanshen yuanshen)
             ? Mathf.Max(0.5f, yuanshen.strength)
             : 0.5f;
@@ -95,16 +95,16 @@ public static class YuanshenNodeCombatService
             !YuanshenNodeLockService.HasLock(attacker.Base, target))
             return false;
 
-        ref YuanshenSoulAbilityRuntime runtime = ref attacker.GetOrAddComponent<YuanshenSoulAbilityRuntime>();
+        ref YuanshenRuntimeState runtime = ref attacker.GetOrAddComponent<YuanshenRuntimeState>();
         double now = ResolveNow();
-        if (runtime.strike_ready_at > now || !WakanResourceService.TrySpendMaximumRatio(attacker, BasicStrikeWakanRatio)) return false;
+        if (runtime.soul_strike_ready_at > now || !WakanResourceService.TrySpendMaximumRatio(attacker, BasicStrikeWakanRatio)) return false;
 
-        runtime.strike_ready_at = now + BasicStrikeCooldown;
-        ref YuanshenNodeIntegrity integrity = ref targetNode.GetComponent<YuanshenNodeIntegrity>();
+        runtime.soul_strike_ready_at = now + BasicStrikeCooldown;
+        ref YuanshenNodeState targetState = ref targetNode.GetComponent<YuanshenNodeState>();
         float sourceStrength = attacker.TryGetComponent(out Yuanshen yuanshen)
             ? Mathf.Max(0.25f, yuanshen.strength)
             : 0.25f;
-        float damage = integrity.maximum * Mathf.Clamp(0.08f + sourceStrength * 0.01f, 0.08f, 0.2f);
+        float damage = targetState.integrity_maximum * Mathf.Clamp(0.08f + sourceStrength * 0.01f, 0.08f, 0.2f);
         return ApplyNodeHit(attacker, target, damage, false, true);
     }
 
@@ -123,14 +123,13 @@ public static class YuanshenNodeCombatService
         bool requireLock)
     {
         if (rawDamage <= 0f || !YuanshenNodeLockService.TryResolve(target, out Entity node) ||
-            !node.TryGetComponent(out YuanshenNodeIntegrity currentIntegrity) ||
-            !node.TryGetComponent(out YuanshenNodeIdentity currentIdentity) ||
-            currentIdentity.action == YuanshenNodeAction.Broken ||
+            !node.TryGetComponent(out YuanshenNodeState state) ||
+            state.action == YuanshenNodeAction.Broken ||
             requireLock && (attacker == null ||
                 !YuanshenNodeLockService.HasLock(attacker.Base, target)))
             return false;
 
-        Actor ownerBase = World.world?.units?.get(currentIdentity.owner_actor_id);
+        Actor ownerBase = World.world?.units?.get(state.owner_actor_id);
         if (ownerBase == null || ownerBase.isRekt())
         {
             YuanshenTravelService.RecycleInvalidNode(node);
@@ -139,31 +138,28 @@ public static class YuanshenNodeCombatService
         ActorExtend owner = ownerBase.GetExtend();
         float defenseSense = Mathf.Max(0f, ownerBase.stats[nameof(WorldboxGame.BaseStats.DivineSense)]);
         float damage = Mathf.Max(0.1f, rawDamage / (1f + defenseSense * 0.004f));
-        float before = currentIntegrity.current;
+        float before = state.integrity_current;
 
-        ref YuanshenNodeIntegrity integrity = ref node.GetComponent<YuanshenNodeIntegrity>();
-        integrity.current = Mathf.Max(0f, integrity.current - damage);
-        float actualDamage = before - integrity.current;
+        state.integrity_current = Mathf.Max(0f, state.integrity_current - damage);
+        float actualDamage = before - state.integrity_current;
         if (actualDamage <= 0f) return false;
 
-        float intendedLocked = integrity.allocated_share * (1f - integrity.Ratio);
-        float newlyLocked = Mathf.Max(0f, intendedLocked - integrity.locked_share);
+        float intendedLocked = state.allocated_share * (1f - state.IntegrityRatio);
+        float newlyLocked = Mathf.Max(0f, intendedLocked - state.locked_share);
         if (newlyLocked > 0f)
         {
-            integrity.locked_share += newlyLocked;
-            ref YuanshenNodeIdentity identity = ref node.GetComponent<YuanshenNodeIdentity>();
-            identity.mind_share = Mathf.Max(0f, identity.mind_share - newlyLocked);
+            state.locked_share += newlyLocked;
+            state.mind_share = Mathf.Max(0f, state.mind_share - newlyLocked);
             LockInjuryShare(owner, newlyLocked);
         }
 
-        ref YuanshenTetherState tether = ref node.GetComponent<YuanshenTetherState>();
-        tether.interference_seconds += cutsTether ? 1.25f : 0.35f;
-        tether.last_interference_at = ResolveNow();
-        tether.condition = ResolveTetherCondition(tether.interference_seconds);
+        state.tether_interference_seconds += cutsTether ? 1.25f : 0.35f;
+        state.tether_last_interference_at = ResolveNow();
+        state.tether_condition = ResolveTetherCondition(state.tether_interference_seconds);
         LockCounterparty(attacker, ownerBase, node);
 
-        if (integrity.current > 0f) return true;
-        ResolveBrokenNode(attacker, owner, node, target, ref tether);
+        if (state.integrity_current > 0f) return true;
+        ResolveBrokenNode(owner, node);
         return true;
     }
 
@@ -182,18 +178,12 @@ public static class YuanshenNodeCombatService
         YuanshenTravelService.NotifyMindStateChanged(owner);
     }
 
-    /// <summary>节点击破后根据角色与牵引状态选择归返、反噬或真死。</summary>
-    /// <param name="attacker">本次攻击归属人物。</param>
+    /// <summary>节点击破后立即消散，剩余份额全部转为创伤锁定。</summary>
     /// <param name="owner">节点所属人物。</param>
     /// <param name="node">刚被击破的节点实体。</param>
-    /// <param name="handle">刚被击破的稳定句柄。</param>
-    /// <param name="tether">节点当前牵引状态。</param>
     private static void ResolveBrokenNode(
-        ActorExtend attacker,
         ActorExtend owner,
-        Entity node,
-        YuanshenNodeHandle handle,
-        ref YuanshenTetherState tether)
+        Entity node)
     {
         YuanshenAdvancedNodeService.Disperse(owner, node, 1f);
     }
@@ -205,8 +195,8 @@ public static class YuanshenNodeCombatService
     private static void LockCounterparty(ActorExtend attacker, Actor targetOwner, Entity targetNode)
     {
         if (attacker == null || attacker.Base == null || attacker.Base.isRekt()) return;
-        if (targetNode.TryGetComponent(out YuanshenNodeIdentity targetIdentity))
-            YuanshenNodeLockService.GrantLock(attacker.Base, new YuanshenNodeHandle(in targetIdentity));
+        if (targetNode.TryGetComponent(out YuanshenNodeState targetState))
+            YuanshenNodeLockService.GrantLock(attacker.Base, targetState.GetHandle());
     }
 
     /// <summary>检查人物是否具备元神魂系能力的基本条件。</summary>

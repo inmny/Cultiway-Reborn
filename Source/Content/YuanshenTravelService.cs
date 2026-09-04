@@ -247,9 +247,9 @@ public static class YuanshenTravelService
     public static void RecycleInvalidNode(Friflo.Engine.ECS.Entity node)
     {
         if (node.IsNull) return;
-        if (node.TryGetComponent(out YuanshenNodeIdentity identity))
+        if (node.TryGetComponent(out YuanshenNodeState state))
         {
-            Actor owner = World.world?.units?.get(identity.owner_actor_id);
+            Actor owner = World.world?.units?.get(state.owner_actor_id);
             if (owner != null && !owner.isRekt())
             {
                 YuanshenAdvancedNodeService.Disperse(owner.GetExtend(), node, 1f);
@@ -711,8 +711,8 @@ public static class YuanshenTravelService
         for (int i = 0; i < handles.Count && remaining > 0f; i++)
         {
             if (!YuanshenNodeLockService.TryResolve(handles[i], out Friflo.Engine.ECS.Entity node) ||
-                !node.TryGetComponent(out YuanshenNodeIdentity identity)) continue;
-            float amount = Mathf.Min(Mathf.Max(0f, identity.mind_share), remaining);
+                !node.TryGetComponent(out YuanshenNodeState state)) continue;
+            float amount = Mathf.Min(Mathf.Max(0f, state.mind_share), remaining);
             if (amount <= 0f) continue;
             LockNodeShare(node, amount);
             remaining -= amount;
@@ -737,17 +737,14 @@ public static class YuanshenTravelService
     /// <summary>把地图节点的一部分可用份额同步转为完整度锁伤。</summary>
     private static void LockNodeShare(Friflo.Engine.ECS.Entity node, float amount)
     {
-        if (node.IsNull || amount <= 0f || !node.HasComponent<YuanshenNodeIdentity>()) return;
-        ref YuanshenNodeIdentity identity = ref node.GetComponent<YuanshenNodeIdentity>();
-        amount = Mathf.Min(Mathf.Max(0f, identity.mind_share), amount);
-        identity.mind_share -= amount;
-        if (!node.HasComponent<YuanshenNodeIntegrity>()) return;
-        ref YuanshenNodeIntegrity integrity = ref node.GetComponent<YuanshenNodeIntegrity>();
-        integrity.locked_share += amount;
-        float loss = integrity.allocated_share > 0f
-            ? integrity.maximum * amount / integrity.allocated_share
+        if (node.IsNull || amount <= 0f || !node.TryGetComponent(out YuanshenNodeState state)) return;
+        amount = Mathf.Min(Mathf.Max(0f, state.mind_share), amount);
+        state.mind_share -= amount;
+        state.locked_share += amount;
+        float loss = state.allocated_share > 0f
+            ? state.integrity_maximum * amount / state.allocated_share
             : 0f;
-        integrity.current = Mathf.Max(0f, integrity.current - loss);
+        state.integrity_current = Mathf.Max(0f, state.integrity_current - loss);
     }
 
     /// <summary>统计一组句柄中仍然有效的节点数量。</summary>
@@ -769,8 +766,8 @@ public static class YuanshenTravelService
         for (int i = 0; i < handles.Count; i++)
         {
             if (!YuanshenNodeLockService.TryResolve(handles[i], out Friflo.Engine.ECS.Entity node) ||
-                !node.TryGetComponent(out YuanshenNodeIdentity identity)) continue;
-            allocated += Mathf.Max(0f, identity.mind_share);
+                !node.TryGetComponent(out YuanshenNodeState state)) continue;
+            allocated += Mathf.Max(0f, state.mind_share);
         }
     }
 

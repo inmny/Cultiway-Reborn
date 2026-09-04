@@ -27,14 +27,14 @@ public readonly struct YuanshenAnchorHandle : IEquatable<YuanshenAnchorHandle>
     /// <summary>发起设立并承担反噬的人物编号。</summary>
     public readonly long OwnerActorId;
 
-    /// <summary>从锚点身份创建稳定句柄。</summary>
+    /// <summary>从锚点状态创建稳定句柄。</summary>
     /// <param name="entityId">锚点实体编号。</param>
-    /// <param name="identity">锚点身份。</param>
-    public YuanshenAnchorHandle(int entityId, in YuanshenAnchorIdentity identity)
+    /// <param name="state">锚点状态。</param>
+    public YuanshenAnchorHandle(int entityId, in YuanshenAnchorState state)
     {
         EntityId = entityId;
-        Generation = identity.generation;
-        OwnerActorId = identity.owner_actor_id;
+        Generation = state.generation;
+        OwnerActorId = state.owner_actor_id;
     }
 
     /// <summary>判断两枚句柄是否完全相同。</summary>
@@ -67,8 +67,8 @@ public readonly struct YuanshenAnchorHandle : IEquatable<YuanshenAnchorHandle>
     public bool IsValid => EntityId > 0 && Generation > 0 && OwnerActorId > 0L;
 }
 
-/// <summary>元神设施锚点的稳定归属和物质载体。</summary>
-public struct YuanshenAnchorIdentity : IComponent
+/// <summary>一处设施锚点的完整状态：稳定归属、物质容量、香火愿力和有界双向连接。</summary>
+public struct YuanshenAnchorState : IComponent
 {
     /// <summary>发起设立并承担反噬的人物编号。</summary>
     public long owner_actor_id;
@@ -87,11 +87,7 @@ public struct YuanshenAnchorIdentity : IComponent
 
     /// <summary>锚点设立世界时间。</summary>
     public double established_at;
-}
 
-/// <summary>锚点的容量与香火愿力状态。</summary>
-public struct YuanshenAnchorState : IComponent
-{
     /// <summary>当前已经承担的心神份额。</summary>
     public float current_load;
 
@@ -110,13 +106,8 @@ public struct YuanshenAnchorState : IComponent
     /// <summary>最近一次观察到的建筑生命值。</summary>
     public float last_building_health;
 
-}
-
-/// <summary>一处锚点已经明确建立的有界双向连接。</summary>
-public struct YuanshenAnchorLinks : IComponent
-{
     /// <summary>与本锚点直接连通的其他设施句柄。</summary>
-    public List<YuanshenAnchorHandle> handles;
+    public List<YuanshenAnchorHandle> link_handles;
 }
 
 /// <summary>一名人物持有的有界设施锚点网络和点选状态。</summary>

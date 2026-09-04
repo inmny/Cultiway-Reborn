@@ -189,7 +189,6 @@ public partial class Cultisyses
     /// <param name="actor">需要检查元神成果的人物。</param>
     private static void EnsureYuanshenFormation(ActorExtend actor)
     {
-        actor.GetOrAddComponent<YuanshenDecisionRuntime>();
         if (actor.TryGetComponent(out Yuanshen current) &&
             current.formation.IsValid && current.formation.realm == CoreFormationRealm.Yuanshen)
         {

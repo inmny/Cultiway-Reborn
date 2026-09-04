@@ -200,7 +200,7 @@ public static class YuanshenAdvancedNodeService
         {
             YuanshenNodeHandle handle = runtime.advanced_nodes[i];
             if (!YuanshenNodeLockService.TryResolve(handle, out Entity node) ||
-                !node.TryGetComponent(out YuanshenNodeIdentity identity) || identity.role != role) continue;
+                !node.TryGetComponent(out YuanshenNodeState identity) || identity.role != role) continue;
             AssignEngage(node, target);
             return true;
         }
@@ -217,7 +217,7 @@ public static class YuanshenAdvancedNodeService
             !actor.Base.canAttackTarget(target) ||
             !YuanshenThoughtService.TryGetFocused(actor, out YuanshenNodeHandle handle, out _) ||
             !YuanshenNodeLockService.TryResolve(handle, out Entity node) ||
-            !node.TryGetComponent(out YuanshenNodeIdentity identity) ||
+            !node.TryGetComponent(out YuanshenNodeState identity) ||
             identity.role is not (YuanshenNodeRole.DharmaForm or YuanshenNodeRole.Avatar)) return false;
         AssignEngage(node, target);
         return true;
@@ -234,9 +234,9 @@ public static class YuanshenAdvancedNodeService
             return TryStartBodilessTransit(actor, point);
         if (!YuanshenNodeLockService.TryResolve(focused, out Entity node) ||
             node.HasComponent<YuanshenAnchorTransitState>() ||
-            !node.TryGetComponent(out YuanshenNodeIdentity identity) ||
+            !node.TryGetComponent(out YuanshenNodeState identity) ||
             identity.role == YuanshenNodeRole.Manifestation ||
-            !node.TryGetComponent(out YuanshenNodeIntegrity integrity) || integrity.Ratio < 0.5f ||
+            identity.IntegrityRatio < 0.5f ||
             !YuanshenAnchorNetworkService.TryGetAuthorizedAtPoint(actor, point,
                 out YuanshenAnchorHandle destination, out Entity destinationEntity) ||
             !destinationEntity.TryGetComponent(out Position destinationPosition) ||
@@ -253,11 +253,11 @@ public static class YuanshenAdvancedNodeService
             source = source,
             destination = destination,
             completes_at = Now + duration,
-            starting_integrity = integrity.current
+            starting_integrity = identity.integrity_current
         };
         if (node.HasComponent<YuanshenAnchorTransitState>()) node.GetComponent<YuanshenAnchorTransitState>() = transit;
         else node.AddComponent(transit);
-        ref YuanshenNodeIdentity mutableIdentity = ref node.GetComponent<YuanshenNodeIdentity>();
+        ref YuanshenNodeState mutableIdentity = ref node.GetComponent<YuanshenNodeState>();
         mutableIdentity.action = YuanshenNodeAction.Idle;
         ref YuanshenNodeTask task = ref node.GetComponent<YuanshenNodeTask>();
         task = new YuanshenNodeTask
@@ -342,12 +342,11 @@ public static class YuanshenAdvancedNodeService
     public static bool TryStartRootReturn(ActorExtend actor, Entity node)
     {
         if (actor == null || node.IsNull || node.HasComponent<YuanshenAnchorTransitState>() ||
-            !node.TryGetComponent(out YuanshenNodeIdentity identity) ||
+            !node.TryGetComponent(out YuanshenNodeState identity) ||
             identity.owner_actor_id != actor.Base.data.id ||
             !node.TryGetComponent(out YuanshenAnchorResidence residence) ||
             !YuanshenAnchorNetworkService.TryGetUsableAuthorized(actor, residence.anchor, out _, out _) ||
             !node.TryGetComponent(out Position position) ||
-            !node.TryGetComponent(out YuanshenNodeIntegrity integrity) ||
             !TryResolveRootPosition(actor, identity.role, out Vector2 rootPosition)) return false;
         double duration = Math.Max(1d, Vector2.Distance(position.v2, rootPosition) / 100d);
         node.AddComponent(new YuanshenAnchorTransitState
@@ -356,9 +355,9 @@ public static class YuanshenAdvancedNodeService
             destination = default,
             completes_at = Now + duration,
             return_to_root = true,
-            starting_integrity = integrity.current
+            starting_integrity = identity.integrity_current
         });
-        ref YuanshenNodeIdentity mutableIdentity = ref node.GetComponent<YuanshenNodeIdentity>();
+        ref YuanshenNodeState mutableIdentity = ref node.GetComponent<YuanshenNodeState>();
         mutableIdentity.action = YuanshenNodeAction.Idle;
         ref YuanshenNodeTask task = ref node.GetComponent<YuanshenNodeTask>();
         task = new YuanshenNodeTask
@@ -380,7 +379,7 @@ public static class YuanshenAdvancedNodeService
         Entity node,
         in YuanshenAnchorTransitState transit)
     {
-        if (actor == null || node.IsNull || !node.TryGetComponent(out YuanshenNodeIdentity identity) ||
+        if (actor == null || node.IsNull || !node.TryGetComponent(out YuanshenNodeState identity) ||
             identity.owner_actor_id != actor.Base.data.id) return false;
         if (transit.return_to_root)
         {
@@ -395,7 +394,7 @@ public static class YuanshenAdvancedNodeService
         ref Position position = ref node.GetComponent<Position>();
         position.v2 = destination;
         node.RemoveComponent<YuanshenAnchorTransitState>();
-        ref YuanshenNodeIdentity mutableIdentity = ref node.GetComponent<YuanshenNodeIdentity>();
+        ref YuanshenNodeState mutableIdentity = ref node.GetComponent<YuanshenNodeState>();
         mutableIdentity.action = YuanshenNodeAction.Idle;
         ref YuanshenNodeTask task = ref node.GetComponent<YuanshenNodeTask>();
         task = new YuanshenNodeTask
@@ -423,16 +422,16 @@ public static class YuanshenAdvancedNodeService
             node.GetComponent<Position>().v2 = source;
                 YuanshenAnchorNetworkService.TrySetResidence(node, transit.source);
         }
-        else if (node.TryGetComponent(out YuanshenNodeIdentity currentIdentity) &&
+        else if (node.TryGetComponent(out YuanshenNodeState currentIdentity) &&
                  TryResolveRootPosition(actor, currentIdentity.role, out Vector2 root))
         {
         YuanshenAnchorNetworkService.ReleaseResidence(node);
             node.GetComponent<Position>().v2 = root;
             }
         if (node.HasComponent<YuanshenAnchorTransitState>()) node.RemoveComponent<YuanshenAnchorTransitState>();
-        if (node.HasComponent<YuanshenNodeIdentity>())
+        if (node.HasComponent<YuanshenNodeState>())
         {
-            ref YuanshenNodeIdentity identity = ref node.GetComponent<YuanshenNodeIdentity>();
+            ref YuanshenNodeState identity = ref node.GetComponent<YuanshenNodeState>();
             identity.action = YuanshenNodeAction.Idle;
         }
         if (node.HasComponent<YuanshenNodeTask>())
@@ -457,7 +456,7 @@ public static class YuanshenAdvancedNodeService
         {
             YuanshenNodeHandle handle = runtime.advanced_nodes[i];
             if (!YuanshenNodeLockService.TryResolve(handle, out Entity node) ||
-                !node.TryGetComponent(out YuanshenNodeIdentity identity) || identity.role != role) continue;
+                !node.TryGetComponent(out YuanshenNodeState identity) || identity.role != role) continue;
             changed |= YuanshenThoughtService.RequestReturn(actor, handle);
         }
         return changed;
@@ -474,7 +473,7 @@ public static class YuanshenAdvancedNodeService
         int count = 0;
         for (var i = 0; i < runtime.advanced_nodes.Count; i++)
             if (YuanshenNodeLockService.TryResolve(runtime.advanced_nodes[i], out Entity node) &&
-                node.TryGetComponent(out YuanshenNodeIdentity identity) && identity.role == role) count++;
+                node.TryGetComponent(out YuanshenNodeState identity) && identity.role == role) count++;
         return count;
     }
 
@@ -484,7 +483,7 @@ public static class YuanshenAdvancedNodeService
     /// <param name="lockRatio">当前可用份额转为创伤的比例。</param>
     public static void Disperse(ActorExtend actor, Entity node, float lockRatio)
     {
-        if (actor == null || node.IsNull || !node.TryGetComponent(out YuanshenNodeIdentity identity) ||
+        if (actor == null || node.IsNull || !node.TryGetComponent(out YuanshenNodeState identity) ||
             identity.owner_actor_id != actor.Base.data.id) return;
         float remaining = Mathf.Max(0f, identity.mind_share);
         float locked = remaining * Mathf.Clamp01(lockRatio);
@@ -495,8 +494,8 @@ public static class YuanshenAdvancedNodeService
         ArtifactYuanshenControlService.ReleaseNodeArtifact(actor, handle);
         RemoveHandle(runtime.advanced_nodes, handle);
         RemoveHandle(runtime.thought_nodes, handle);
-        if (actor.TryGetComponent(out YuanshenFocusState focus) && focus.handle == handle)
-            actor.E.RemoveComponent<YuanshenFocusState>();
+        if (runtime.focused_node == handle)
+            runtime.focused_node = default;
         YuanshenAnchorNetworkService.ReleaseResidence(node);
         YuanshenNodeLockService.UnregisterNode(node);
         if (!node.Tags.Has<TagRecycle>()) node.AddTag<TagRecycle>();
@@ -604,7 +603,7 @@ public static class YuanshenAdvancedNodeService
         tint.a = role == YuanshenNodeRole.Avatar ? 0.86f : role == YuanshenNodeRole.Manifestation ? 0.52f : 0.72f;
         bool moving = Vector2.Distance(origin, target) > YuanshenTravelService.ReturnCompletionDistance;
         Entity node = ModClass.I.W.CreateEntity(
-            new YuanshenNodeIdentity
+            new YuanshenNodeState
             {
                 owner_actor_id = actor.Base.data.id,
                 session_id = runtime.session_id,
@@ -612,12 +611,13 @@ public static class YuanshenAdvancedNodeService
                 generation = runtime.generation,
                 role = role,
                 mind_share = share,
-                action = moving ? YuanshenNodeAction.Moving : YuanshenNodeAction.Idle
-            },
-            new YuanshenNodeMotion
-            {
-                target = target,
-                speed = YuanshenTravelService.NodeMoveSpeed * (role == YuanshenNodeRole.DharmaForm ? 0.75f : 0.9f)
+                action = moving ? YuanshenNodeAction.Moving : YuanshenNodeAction.Idle,
+                move_target = target,
+                move_speed = YuanshenTravelService.NodeMoveSpeed * (role == YuanshenNodeRole.DharmaForm ? 0.75f : 0.9f),
+                integrity_maximum = integrity,
+                integrity_current = integrity,
+                allocated_share = share,
+                tether_condition = YuanshenTetherCondition.Stable
             },
             new YuanshenNodeTask
             {
@@ -625,13 +625,6 @@ public static class YuanshenAdvancedNodeService
                 point = target,
                 started_at = Now
             },
-            new YuanshenNodeIntegrity
-            {
-                maximum = integrity,
-                current = integrity,
-                allocated_share = share
-            },
-            new YuanshenTetherState { condition = YuanshenTetherCondition.Stable },
             new YuanshenAdvancedNodeState
             {
                 expires_at = expiresAt,
@@ -645,9 +638,9 @@ public static class YuanshenAdvancedNodeService
             new AnimData { frames = [sprite] });
         node.AddComponent(new AnimBindRenderer());
         node.AddComponent(new AnimTint(tint));
-        YuanshenNodeIdentity identity = node.GetComponent<YuanshenNodeIdentity>();
+        YuanshenNodeState identity = node.GetComponent<YuanshenNodeState>();
         runtime.advanced_nodes ??= new List<YuanshenNodeHandle>(3);
-        runtime.advanced_nodes.Add(new YuanshenNodeHandle(in identity));
+        runtime.advanced_nodes.Add(identity.GetHandle());
         runtime.main_soul_share -= share;
         YuanshenNodeLockService.RegisterNode(node);
         YuanshenTravelService.NotifyMindStateChanged(actor);
@@ -667,14 +660,14 @@ public static class YuanshenAdvancedNodeService
             point = target.current_position,
             started_at = Now
         };
-        ref YuanshenNodeIdentity identity = ref node.GetComponent<YuanshenNodeIdentity>();
+        ref YuanshenNodeState identity = ref node.GetComponent<YuanshenNodeState>();
         identity.action = YuanshenNodeAction.Idle;
     }
 
     /// <summary>创建后把技能和后续命令聚焦到高阶节点。</summary>
     private static void FocusNode(ActorExtend actor, Entity node)
     {
-        if (node.TryGetComponent(out YuanshenNodeIdentity identity))
+        if (node.TryGetComponent(out YuanshenNodeState identity))
             YuanshenThoughtService.TryFocus(actor, new YuanshenNodeHandle(in identity));
     }
 
@@ -746,13 +739,12 @@ public static class YuanshenAdvancedNodeService
     /// <summary>锁定节点当前剩余份额的一部分但不摧毁节点。</summary>
     private static void LockAdditionalShare(ActorExtend actor, Entity node, float ratio)
     {
-        if (actor == null || node.IsNull || !node.TryGetComponent(out YuanshenNodeIdentity current)) return;
+        if (actor == null || node.IsNull || !node.TryGetComponent(out YuanshenNodeState current)) return;
         float amount = Mathf.Min(current.mind_share, current.mind_share * Mathf.Clamp01(ratio));
         if (amount <= 0f) return;
-        ref YuanshenNodeIdentity identity = ref node.GetComponent<YuanshenNodeIdentity>();
+        ref YuanshenNodeState identity = ref node.GetComponent<YuanshenNodeState>();
         identity.mind_share -= amount;
-        ref YuanshenNodeIntegrity integrity = ref node.GetComponent<YuanshenNodeIntegrity>();
-        integrity.locked_share += amount;
+        identity.locked_share += amount;
         ref YuanshenRuntimeState runtime = ref actor.GetOrAddComponent<YuanshenRuntimeState>();
         runtime.injury_locked_share = Mathf.Clamp(runtime.injury_locked_share + amount, 0f, 100f);
         CombatStatusEffects.ApplyStatus(

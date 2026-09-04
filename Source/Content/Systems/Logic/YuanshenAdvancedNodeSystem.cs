@@ -32,16 +32,15 @@ public sealed class YuanshenAdvancedNodeSystem : BaseSystem, IWorldStateClearabl
         float deltaTime = Mathf.Max(0f, Tick.deltaTime);
         double now = World.world?.getCurWorldTime() ?? 0d;
 
-        ModClass.I.W.Query<YuanshenNodeIdentity, YuanshenAdvancedNodeState, YuanshenNodeIntegrity, Position>()
+        ModClass.I.W.Query<YuanshenNodeState, YuanshenAdvancedNodeState, Position>()
             .ForEachEntity((
-                ref YuanshenNodeIdentity identity,
+                ref YuanshenNodeState state,
                 ref YuanshenAdvancedNodeState advanced,
-                ref YuanshenNodeIntegrity integrity,
                 ref Position position,
                 Entity node) =>
             {
                 if (node.Tags.Has<TagRecycle>()) return;
-                Actor ownerBase = World.world?.units?.get(identity.owner_actor_id);
+                Actor ownerBase = World.world?.units?.get(state.owner_actor_id);
                 if (ownerBase == null || ownerBase.isRekt() || !ownerBase.isAlive())
                 {
                     invalidNodes.Add(node);
@@ -57,11 +56,11 @@ public sealed class YuanshenAdvancedNodeSystem : BaseSystem, IWorldStateClearabl
                     !YuanshenAnchorNetworkService.TryGetUsableAuthorized(
                         owner, advanced.anchor, out _, out _))
                 {
-                    float ratio = ResolveAnchorBacklash(identity.role);
+                    float ratio = ResolveAnchorBacklash(state.role);
                     dispersals.Add(new DisperseRequest(owner, node, ratio));
                     return;
                 }
-                if (identity.action == YuanshenNodeAction.Returning) return;
+                if (state.action == YuanshenNodeAction.Returning) return;
                 if (advanced.expires_at > 0d && advanced.expires_at <= now)
                 {
                     returns.Add(new NodeRequest(owner, node));
@@ -84,15 +83,15 @@ public sealed class YuanshenAdvancedNodeSystem : BaseSystem, IWorldStateClearabl
                     returns.Add(new NodeRequest(owner, node));
                     return;
                 }
-                if (identity.role is YuanshenNodeRole.DharmaForm or YuanshenNodeRole.Avatar)
+                if (state.role is YuanshenNodeRole.DharmaForm or YuanshenNodeRole.Avatar)
                     UpdateExplicitCombat(owner, node, ref advanced, position.v2, deltaTime);
             });
 
         for (var i = 0; i < returns.Count; i++)
         {
             NodeRequest request = returns[i];
-            if (!request.Node.IsNull && request.Node.TryGetComponent(out YuanshenNodeIdentity identity))
-                YuanshenThoughtService.RequestReturn(request.Actor, new YuanshenNodeHandle(in identity));
+            if (!request.Node.IsNull && request.Node.TryGetComponent(out YuanshenNodeState state))
+                YuanshenThoughtService.RequestReturn(request.Actor, new YuanshenNodeHandle(in state));
         }
         for (var i = 0; i < dispersals.Count; i++)
         {
@@ -137,11 +136,11 @@ public sealed class YuanshenAdvancedNodeSystem : BaseSystem, IWorldStateClearabl
         if (advanced.attack_elapsed < 2f ||
             Vector2.Distance(position, target.current_position) > YuanshenAdvancedNodeService.EngageRange) return;
         advanced.attack_elapsed = 0f;
-        YuanshenNodeIdentity identity = node.GetComponent<YuanshenNodeIdentity>();
+        YuanshenNodeState state = node.GetComponent<YuanshenNodeState>();
         Yuanshen yuanshen = owner.GetComponent<Yuanshen>();
         float maximumSoul = Mathf.Max(1f, owner.Base.stats[WorldboxGame.BaseStats.MaxSoul.id]);
         float divineSense = Mathf.Max(0f, owner.Base.stats[nameof(WorldboxGame.BaseStats.DivineSense)]);
-        float roleScale = identity.role == YuanshenNodeRole.DharmaForm ? 1.4f : 0.75f;
+        float roleScale = state.role == YuanshenNodeRole.DharmaForm ? 1.4f : 0.75f;
         float pathScale = 1f;
         if (node.TryGetComponent(out YuanshenDharmaAppearance appearance))
         {
@@ -153,7 +152,7 @@ public sealed class YuanshenAdvancedNodeSystem : BaseSystem, IWorldStateClearabl
                     * roleScale * pathScale;
         float damage = Mathf.Clamp(raw, 1f, Mathf.Max(1f, target.getMaxHealth() * 0.12f));
         SoulDamageService.Deal(owner.Base, target, damage);
-        YuanshenNodeLockService.GrantLock(target, new YuanshenNodeHandle(in identity));
+        YuanshenNodeLockService.GrantLock(target, new YuanshenNodeHandle(in state));
     }
 
     /// <summary>按节点角色支付维持灵气，香火只降低对应显圣的一部分消耗。</summary>
