@@ -424,5 +424,6 @@ Scripts/**/*.png
 !.geminiignore
 !.gitignore
 !.gitattribute
+!.agents
 !Source/Debug
 Content/PreparedLLMResults/*
