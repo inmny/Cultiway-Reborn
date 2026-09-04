@@ -24,6 +24,8 @@ public class Manager
     public static CreatureMorphLibrary CreatureMorphLibrary { get; } = new();
     public static CreatureOrganLibrary CreatureOrganLibrary { get; } = new();
     public static CreatureOrganRankLibrary CreatureOrganRankLibrary { get; } = new();
+    public static CreatureVisualRigLibrary CreatureVisualRigLibrary { get; } = new();
+    public static CreatureVisualLayerLibrary CreatureVisualLayerLibrary { get; } = new();
 
     /// <summary>将内容层资产库注册到 WorldBox 资产管理器，并完成统一后初始化。</summary>
     internal static void Init()
@@ -48,7 +50,9 @@ public class Manager
         AssetManager._instance.add(CreatureMorphLibrary, "creature_morphs");
         AssetManager._instance.add(CreatureOrganLibrary, "creature_organs");
         AssetManager._instance.add(CreatureOrganRankLibrary, "creature_organ_ranks");
-        
+        AssetManager._instance.add(CreatureVisualRigLibrary, "creature_visual_rigs");
+        AssetManager._instance.add(CreatureVisualLayerLibrary, "creature_visual_layers");
+
         PostInit();
     }
 
@@ -74,5 +78,7 @@ public class Manager
         CreatureMorphLibrary.post_init();
         CreatureOrganLibrary.post_init();
         CreatureOrganRankLibrary.post_init();
+        CreatureVisualRigLibrary.post_init();
+        CreatureVisualLayerLibrary.post_init();
     }
 }
