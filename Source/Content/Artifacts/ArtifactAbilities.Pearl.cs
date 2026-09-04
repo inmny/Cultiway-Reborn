@@ -117,9 +117,10 @@ public partial class ArtifactAbilities
         ref ArtifactAbilityRuntimeEntry runtime,
         ArtifactIncomingDamageEvent evt)
     {
-        float shield = runtime.GetNumber(ShieldCurrent);
+        float sharedShield = runtime.GetNumber(ShieldCurrent);
+        float shield = Mathf.Min(sharedShield, ability.GetNumber(ShieldCapacity) * context.effect_scale);
         float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield);
-        runtime.SetNumber(ShieldCurrent, shield);
+        runtime.SetNumber(ShieldCurrent, Mathf.Max(0f, sharedShield - absorbed));
         ArtifactAbilityVisuals.Emit(
             context,
             ability,
@@ -227,7 +228,7 @@ public partial class ArtifactAbilities
         ArtifactAbilityLifecycle.BeginTimedActivity(
             ref runtime,
             point,
-            point - (Vector3)Controller(context).current_position);
+            point - ControllerPosition(context));
         return true;
     }
 
@@ -308,7 +309,7 @@ public partial class ArtifactAbilities
         int counted = Mathf.Min(evt.EmittedCount, ability.GetInteger(EffectCount));
         float restored = CombatResourceEffects.RestoreWakan(
             Controller(context),
-            ability.GetNumber(ResonanceRestore) * Mathf.Sqrt(counted));
+            ability.GetNumber(ResonanceRestore) * Mathf.Sqrt(counted) * context.effect_scale);
         ArtifactAbilityVisuals.Emit(
             context,
             ability,

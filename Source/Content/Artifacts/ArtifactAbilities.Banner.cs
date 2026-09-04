@@ -32,6 +32,7 @@ public partial class ArtifactAbilities
         MyriadSoulBannerArray.SetSemantics(
             ArtifactSemantics.Delivery.Deployment,
             ArtifactSemantics.Delivery.Field,
+            ArtifactSemantics.Element.Neg,
             ArtifactSemantics.Theme.Soul);
         MyriadSoulBannerArray.exclusivity = ArtifactAbilityExclusivity.SoulField;
         MyriadSoulBannerArray.manifestation_cost = 1.45f;
@@ -132,7 +133,9 @@ public partial class ArtifactAbilities
                 target,
                 SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
                 SoulComposition);
-            CombatResourceEffects.DrainWakan(target, ability.GetNumber(DrainAmount));
+            CombatResourceEffects.DrainWakan(
+                target,
+                ability.GetNumber(DrainAmount) * context.effect_scale);
             CombatStatusEffects.ApplyStatus(
                 target,
                 StatusEffects.Weaken,
@@ -340,7 +343,7 @@ public partial class ArtifactAbilities
         float stored = ArtifactStorageOperations.Store(
             ref storage,
             ArtifactStorageOperations.SoulEssence,
-            ability.GetNumber(StorePerTrigger));
+            ability.GetNumber(StorePerTrigger) * context.effect_scale);
         if (stored > 0f)
         {
             ArtifactAbilityVisuals.Emit(

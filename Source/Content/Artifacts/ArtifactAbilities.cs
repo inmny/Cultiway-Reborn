@@ -214,8 +214,14 @@ public partial class ArtifactAbilities : ExtendLibrary<ArtifactAbilityAsset, Art
             context.artifact.HasComponent<SkillExecutionBodyLease>()) return false;
 
         Actor controller = context.controller.GetComponent<ActorBinder>().Actor;
+        Actor carrier = context.ResolveCarrierActor();
         float range = ability.GetNumber(AttackRange) + target.Object.stats[S.size];
-        return Toolbox.SquaredDistVec2Float(controller.current_position, target.Object.current_position) <=
+        Vector3 origin = carrier != controller
+            ? carrier.GetSimPos()
+            : ArtifactYuanshenControlService.ResolveOrigin(controller, context.artifact);
+        return Toolbox.SquaredDistVec2Float(
+                   origin,
+                   target.Object.current_position) <=
                range * range;
     }
 

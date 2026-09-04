@@ -81,12 +81,13 @@ public partial class ArtifactAbilities
     {
         Actor controller = Controller(context);
         Actor attacker = evt.Attacker.a;
-        float reflected = evt.Damage * ability.GetNumber(ReflectRatio);
+        float baseReflected = evt.Damage * ability.GetNumber(ReflectRatio);
+        float reflected = baseReflected * context.effect_scale;
         evt.Damage -= reflected;
         CombatDamageEffects.DealRetaliationDamage(
             controller,
             attacker,
-            reflected,
+            baseReflected,
             evt.DamageComposition,
             evt.IgnoreDamageReduction);
         ArtifactAbilityVisuals.Emit(
@@ -296,7 +297,9 @@ public partial class ArtifactAbilities
     {
         Actor controller = Controller(context);
         Actor victim = target.Object.a;
-        float drained = CombatResourceEffects.DrainWakan(victim, ability.GetNumber(DrainAmount));
+        float drained = CombatResourceEffects.DrainWakan(
+            victim,
+            ability.GetNumber(DrainAmount) * context.effect_scale);
         CombatResourceEffects.RestoreWakan(controller, drained * ability.GetNumber(RestoreRatio));
         float duration = ability.GetNumber(StatusDuration);
         CombatStatusEffects.ApplyStatus(victim, StatusEffects.Daze, duration, controller);

@@ -54,14 +54,14 @@ public static class ArtifactAbilityVisuals
         ArtifactAbilityVisualProfile profile = asset?.visual;
         if (profile == null || !profile.TryGetSignal(channel, out ArtifactAbilityVisualSignal signal)) return;
 
-        Vector3 resolvedPosition = position ?? ResolveSnapshotPosition(execution.controller, execution.artifact);
+        Vector3 resolvedPosition = position ?? ResolveSnapshotPosition(execution.carrier, execution.artifact);
         if (direction.sqrMagnitude < 0.0001f && target != null && !target.isRekt())
         {
             direction = target.GetSimPos() - resolvedPosition;
         }
 
         ArtifactAbilityVisualContext context = new(
-            execution.controller,
+            execution.carrier,
             execution.artifact,
             asset,
             ability,
@@ -88,14 +88,20 @@ public static class ArtifactAbilityVisuals
         ArtifactAbilityRuntime ownerRuntime,
         string channel)
     {
+        Entity visualController = ownerRuntime.controller;
+        if (runtime.activity_carrier_actor_id > 0L)
+        {
+            Actor carrier = World.world?.units?.get(runtime.activity_carrier_actor_id);
+            if (carrier != null && !carrier.isRekt()) visualController = carrier.GetExtend().E;
+        }
         Vector3 position = runtime.has_activity_position
             ? runtime.activity_position
-            : ResolveSnapshotPosition(ownerRuntime.controller, artifact);
+            : ResolveSnapshotPosition(visualController, artifact);
         Vector3 direction = runtime.has_activity_direction
             ? runtime.activity_direction
             : default;
         return new ArtifactAbilityVisualContext(
-            ownerRuntime.controller,
+            visualController,
             artifact,
             asset,
             ability,

@@ -12,6 +12,11 @@ public static class CombatResourceEffects
     public static void RestoreHealth(Actor target, float amount)
     {
         if (target == null || target.isRekt() || amount <= 0f) return;
+        if (target.GetExtend().HasComponent<YuanshenSoulCarrierState>())
+        {
+            YuanshenTravelService.RestoreSoulCarrierIntegrity(target, amount);
+            return;
+        }
         target.restoreHealth(Mathf.Max(1, Mathf.RoundToInt(amount)));
     }
 

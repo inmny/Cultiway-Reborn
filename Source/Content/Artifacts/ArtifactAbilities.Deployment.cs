@@ -124,7 +124,9 @@ public partial class ArtifactAbilities
         Actor controller = context.controller.GetComponent<ActorBinder>().Actor;
         Vector3 position = target.Object?.GetSimPos() ?? target.Position;
         float range = ability.GetNumber(AttackRange);
-        return Toolbox.SquaredDistVec2Float(controller.current_position, position) <= range * range;
+        return Toolbox.SquaredDistVec2Float(
+                   ArtifactYuanshenControlService.ResolveOrigin(controller, context.artifact),
+                   position) <= range * range;
     }
 
     private static bool DeploySuppressionField(

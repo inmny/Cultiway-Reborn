@@ -1,6 +1,7 @@
 using Cultiway.Content.Events;
 using Cultiway.Core;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 
@@ -29,6 +30,10 @@ internal static class ArtifactAbilityRuntimeBridge
         ref float damage,
         ref bool ignoreDamageReduction)
     {
+        SkillCasterContext context = SkillCasterContextService.Resolve(self);
+        if (context.IsValid && context.Kind == SkillCarrierKind.Soul && damageComposition.neg <= 0f) return;
+        ActorExtend controller = context.IsValid ? context.Owner : self;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(in context);
         ArtifactIncomingDamageEvent evt = new()
         {
             Attacker = attacker,
@@ -38,7 +43,7 @@ internal static class ArtifactAbilityRuntimeBridge
             IgnoreDamageReduction = ignoreDamageReduction,
             IsRetaliation = CombatDamageEffects.IsResolvingReaction,
         };
-        ArtifactAbilityDispatcher.Dispatch(self.E, evt);
+        ArtifactAbilityDispatcher.Dispatch(controller.E, evt);
         damageComposition = evt.DamageComposition;
         attackType = evt.AttackType;
         damage = evt.Damage;
@@ -52,16 +57,26 @@ internal static class ArtifactAbilityRuntimeBridge
         ElementComposition composition,
         AttackType attackType)
     {
-        ArtifactAbilityDispatcher.Dispatch(target.E, new ArtifactDamageTakenEvent
+        SkillCasterContext targetContext = SkillCasterContextService.Resolve(target);
+        ActorExtend targetController = targetContext.IsValid ? targetContext.Owner : target;
+        using (SkillCasterContextService.Enter(in targetContext))
         {
-            Attacker = attacker,
-            Damage = damage,
-            DamageComposition = composition,
-            AttackType = attackType,
-        });
+            ArtifactAbilityDispatcher.Dispatch(targetController.E, new ArtifactDamageTakenEvent
+            {
+                Attacker = attacker,
+                Damage = damage,
+                DamageComposition = composition,
+                AttackType = attackType,
+            });
+        }
 
         if (attacker == null || attacker.isRekt() || !attacker.isActor() || attacker.a == target.Base) return;
-        ArtifactAbilityDispatcher.Dispatch(attacker.a.GetExtend().E, new ArtifactDamageDealtEvent
+        ActorExtend attackerRequested = attacker.a.GetExtend();
+        SkillCasterContext attackerContext = SkillCasterContextService.Resolve(attackerRequested);
+        ActorExtend attackerController = attackerContext.IsValid ? attackerContext.Owner : attackerRequested;
+        using SkillCasterContextService.Scope attackerScope =
+            SkillCasterContextService.Enter(in attackerContext);
+        ArtifactAbilityDispatcher.Dispatch(attackerController.E, new ArtifactDamageDealtEvent
         {
             Target = target.Base,
             Damage = damage,
@@ -72,7 +87,11 @@ internal static class ArtifactAbilityRuntimeBridge
 
     private static void Killed(ActorExtend killer, Actor victim, Kingdom victimKingdom)
     {
-        ArtifactAbilityDispatcher.Dispatch(killer.E, new ArtifactKillEvent
+        if (killer == null) return;
+        SkillCasterContext context = SkillCasterContextService.Resolve(killer);
+        ActorExtend controller = context.IsValid ? context.Owner : killer;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(in context);
+        ArtifactAbilityDispatcher.Dispatch(controller.E, new ArtifactKillEvent
         {
             Victim = victim,
             VictimKingdom = victimKingdom,

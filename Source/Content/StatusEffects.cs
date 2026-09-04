@@ -34,6 +34,7 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
     public static StatusEffectAsset HasteBlessing { get; private set; }
     public static StatusEffectAsset YuanyingEscape { get; private set; }
     public static StatusEffectAsset BodyDisharmony { get; private set; }
+    public static StatusEffectAsset BodyReconstructionWeakness { get; private set; }
     public static StatusEffectAsset SoulTrauma { get; private set; }
     private const float BurnTickInterval = 1f;
     private const float PoisonTickInterval = 1f;
@@ -182,6 +183,18 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             .SetStats(CreateBodyDisharmonyStats())
             .EnableParticle(new Color(0.65f, 0.45f, 0.85f), 1, 0.2f)
             .Build();
+        BodyReconstructionWeakness = StatusEffectAsset.StartBuild(nameof(BodyReconstructionWeakness))
+            .SetNegative()
+            .SetIconPath("cultiway/icons/artifact_atoms/spirit_gathering_pattern")
+            .SetDuration(Cultiway.Const.TimeScales.SecPerYear)
+            .SetStats(new BaseStats
+            {
+                [S.multiplier_speed] = -0.35f,
+                [S.multiplier_damage] = -0.35f,
+                [WorldboxGame.BaseStats.StatsToModStats[WorldboxGame.BaseStats.MaxSoul.id]] = -0.2f
+            })
+            .EnableParticle(new Color(0.55f, 0.85f, 0.8f), 1, 0.2f)
+            .Build();
         SoulTrauma = StatusEffectAsset.StartBuild(nameof(SoulTrauma))
             .SetNegative()
             .SetIconPath("cultiway/icons/artifact_atoms/soul_crystal")
@@ -248,7 +261,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             if (actor == null || !actor.isAlive()) continue;
             ref var statusComp = ref statusEntity.GetComponent<StatusComponent>();
             CombatDamageEffects.DealReactionDamage(statusComp.Source, actor, damage, tickState.Element,
-                attackerPowerLevel: statusComp.SourcePowerLevel);
+                attackerPowerLevel: statusComp.SourcePowerLevel,
+                attackType: AttackType.Poison);
         }
     }
 
@@ -266,7 +280,8 @@ public class StatusEffects : ExtendLibrary<StatusEffectAsset, StatusEffects>
             if (actor == null || !actor.isAlive()) continue;
             ref var statusComp = ref statusEntity.GetComponent<StatusComponent>();
             CombatDamageEffects.DealReactionDamage(statusComp.Source, actor, damage, tickState.Element,
-                attackerPowerLevel: statusComp.SourcePowerLevel);
+                attackerPowerLevel: statusComp.SourcePowerLevel,
+                attackType: AttackType.Fire);
         }
     }
 

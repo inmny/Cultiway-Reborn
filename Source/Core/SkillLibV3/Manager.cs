@@ -26,6 +26,7 @@ namespace Cultiway.Core.SkillLibV3;
 public class Manager
 {
     private readonly ConcurrentQueue<QueuedSkillCast> queuedSkillCasts = new();
+    private readonly System.Collections.Generic.Dictionary<SkillCastReservationKey, Entity> activeSkillCasts = new();
     
     public WorldboxGame Game { get; private set; }
 
@@ -98,10 +99,11 @@ public class Manager
         SkillCastRuntimeData runtimeData = default,
         SkillCastSequenceOptions options = null)
     {
-        if (caster?.Base == null || caster.Base.isRekt() || skillContainer.IsNull ||
+        SkillCasterContext casterContext = SkillCasterContextService.Resolve(caster);
+        if (!casterContext.IsValid || skillContainer.IsNull ||
             plan == null || plan.Steps.Count == 0) return false;
         queuedSkillCasts.Enqueue(new QueuedSkillCast(
-            caster,
+            casterContext,
             skillContainer,
             plan,
             strength,
@@ -127,7 +129,9 @@ public class Manager
                 request.FundingSource,
                 request.AttackKingdom,
                 request.RuntimeData,
-                request.Options);
+                request.Options,
+                request.Context.Carrier,
+                request.Context);
         }
     }
 
@@ -137,6 +141,7 @@ public class Manager
         while (queuedSkillCasts.TryDequeue(out _))
         {
         }
+        activeSkillCasts.Clear();
     }
 
     public Entity SpawnAnim(string path, Vector3 pos, Vector3 rot, float scale = 0.1f, Color? tint = null,
@@ -183,12 +188,31 @@ public class Manager
     public bool StartSkillSequence(ActorExtend caster, Entity skill_container, SkillCastPlan plan, float strength,
         float? power_level = null, SkillCastFundingSource funding_source = SkillCastFundingSource.CasterResources,
         Kingdom attack_kingdom = null, SkillCastRuntimeData runtime_data = default,
-        SkillCastSequenceOptions options = null)
+        SkillCastSequenceOptions options = null, ActorExtend carrier = null,
+        SkillCasterContext? frozen_context = null)
     {
         if (caster == null || plan == null || plan.Steps.Count == 0) return false;
-        float resolvedPowerLevel = power_level ?? caster.GetPowerLevel();
+        SkillCasterContext resolvedContext = frozen_context ?? SkillCasterContextService.Resolve(caster);
+        if (carrier != null)
+        {
+            resolvedContext = new SkillCasterContext(
+                resolvedContext.Owner,
+                carrier,
+                resolvedContext.EffectScale,
+                resolvedContext.Kind,
+                resolvedContext.HasPhysicalBody);
+        }
+        if (!resolvedContext.IsValid) return false;
+        using SkillCasterContextService.Scope contextScope =
+            SkillCasterContextService.Enter(in resolvedContext);
+        ActorExtend owner = resolvedContext.Owner;
+        ActorExtend spatialCarrier = resolvedContext.Carrier;
+        var reservationKey = new SkillCastReservationKey(owner, skill_container);
+        if (!reservationKey.IsValid || IsSkillReserved(reservationKey)) return false;
+        float resolvedPowerLevel = power_level ?? owner.GetPowerLevel();
+        runtime_data.EffectScale = runtime_data.ResolveEffectScale() * resolvedContext.EffectScale;
         var startContext = new SkillCastSequenceStartContext(
-            caster,
+            owner,
             skill_container,
             plan,
             strength,
@@ -199,13 +223,15 @@ public class Manager
 
         SkillCastPaymentTiming paymentTiming = options?.PaymentTiming ?? SkillCastPaymentTiming.Upfront;
         bool canStart = paymentTiming == SkillCastPaymentTiming.PerEmission
-            ? SkillCastCost.CanPayStep(caster, skill_container, funding_source)
-            : SkillCastCost.TryPay(caster, skill_container, plan, funding_source);
+            ? SkillCastCost.CanPayStep(owner, skill_container, funding_source)
+            : SkillCastCost.TryPay(owner, skill_container, plan, funding_source);
         if (!canStart) return false;
 
         var sequence_entity = World.CreateEntity(new SkillCastSequence()
         {
-            Caster = caster,
+            Caster = owner,
+            CasterContext = resolvedContext,
+            Carrier = spatialCarrier,
             SkillContainer = skill_container,
             Steps = plan.Steps.ToArray(),
             AttackKingdom = attack_kingdom,
@@ -220,6 +246,7 @@ public class Manager
         {
             SkillContainer = skill_container
         });
+        activeSkillCasts[reservationKey] = sequence_entity;
         options?.Hooks?.OnStarted(startContext);
         return true;
     }
@@ -273,10 +300,59 @@ public class Manager
         return sequenceEntity;
     }
 
+    /// <summary>检查技能占用，并在关联序列已意外失效时清除旧占用。</summary>
+    private bool IsSkillReserved(SkillCastReservationKey key)
+    {
+        if (!activeSkillCasts.TryGetValue(key, out Entity sequence)) return false;
+        if (sequence.IsAvailable() && sequence.HasComponent<SkillCastSequence>()) return true;
+        activeSkillCasts.Remove(key);
+        return false;
+    }
+
+    /// <summary>释放一条已经结束的标准技能序列所持有的共享占用。</summary>
+    internal void ReleaseSkillReservation(ActorExtend owner, Entity skillContainer)
+    {
+        activeSkillCasts.Remove(new SkillCastReservationKey(owner, skillContainer));
+    }
+
+    /// <summary>同一原人物与同一技能容器在释放期间使用的唯一键。</summary>
+    private readonly struct SkillCastReservationKey : IEquatable<SkillCastReservationKey>
+    {
+        private readonly long ownerActorId;
+        private readonly int skillEntityId;
+
+        internal SkillCastReservationKey(ActorExtend owner, Entity skillContainer)
+        {
+            ownerActorId = owner?.Base?.data?.id ?? 0L;
+            skillEntityId = skillContainer.IsNull ? 0 : skillContainer.Id;
+        }
+
+        internal bool IsValid => ownerActorId > 0L && skillEntityId > 0;
+
+        public bool Equals(SkillCastReservationKey other)
+        {
+            return ownerActorId == other.ownerActorId && skillEntityId == other.skillEntityId;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is SkillCastReservationKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return ((int)(ownerActorId ^ (ownerActorId >> 32)) * 397) ^ skillEntityId;
+            }
+        }
+    }
+
     /// <summary>跨线程队列持有的一次不可变标准施法请求。</summary>
     private readonly struct QueuedSkillCast
     {
-        public readonly ActorExtend Caster;
+        public readonly SkillCasterContext Context;
+        public ActorExtend Caster => Context.Owner;
         public readonly Entity SkillContainer;
         public readonly SkillCastPlan Plan;
         public readonly float Strength;
@@ -288,7 +364,7 @@ public class Manager
 
         /// <summary>保存启动施法序列所需的完整参数。</summary>
         public QueuedSkillCast(
-            ActorExtend caster,
+            SkillCasterContext context,
             Entity skillContainer,
             SkillCastPlan plan,
             float strength,
@@ -298,7 +374,7 @@ public class Manager
             SkillCastRuntimeData runtimeData,
             SkillCastSequenceOptions options)
         {
-            Caster = caster;
+            Context = context;
             SkillContainer = skillContainer;
             Plan = plan;
             Strength = strength;
@@ -314,17 +390,70 @@ public class Manager
         float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f,
         SkillCastRuntimeData runtime_data = default)
     {
-        var target_pos = target.isRekt() ? source.GetSimPos() + Vector3.right : target.GetSimPos();
-        return SpawnSkill(skill_container, source, target, target_pos, strength, delay, power_level,
+        BaseSimObject spatialSource = ResolveSpatialSource(source);
+        var target_pos = target == null || target.isRekt()
+            ? spatialSource.GetSimPos() + Vector3.right
+            : target.GetSimPos();
+        return SpawnSkill(skill_container, source, spatialSource, target, target_pos, strength, delay, power_level,
             initial_angle_offset_degrees, runtime_data: runtime_data);
+    }
+
+    public Entity SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject spatial_source,
+        BaseSimObject target, Vector3 target_pos, float strength, float delay = 0f, float? power_level = null,
+        float initial_angle_offset_degrees = 0f, Kingdom attack_kingdom = null,
+        SkillCastRuntimeData runtime_data = default)
+    {
+        return SpawnSkillFromPosition(skill_container, source, spatial_source, spatial_source.GetSimPos(), target,
+            target_pos, strength, delay, power_level, initial_angle_offset_degrees, attack_kingdom, runtime_data);
     }
 
     public Entity SpawnSkill(Entity skill_container, BaseSimObject source, BaseSimObject target, Vector3 target_pos,
         float strength, float delay = 0f, float? power_level = null, float initial_angle_offset_degrees = 0f,
         Kingdom attack_kingdom = null, SkillCastRuntimeData runtime_data = default)
     {
-        return SpawnSkillFromPosition(skill_container, source, source.GetSimPos(), target, target_pos, strength, delay,
-            power_level, initial_angle_offset_degrees, attack_kingdom, runtime_data);
+        BaseSimObject spatialSource = ResolveSpatialSource(source);
+        return SpawnSkillFromPosition(skill_container, source, spatialSource, spatialSource.GetSimPos(), target,
+            target_pos, strength, delay, power_level, initial_angle_offset_degrees, attack_kingdom, runtime_data);
+    }
+
+    /// <summary>保留施法者归属，但从指定世界坐标生成技能实体。</summary>
+    /// <param name="skillContainer">技能容器。</param>
+    /// <param name="source">资源、冷却、关系和击杀归属人物。</param>
+    /// <param name="sourcePosition">技能实体出生坐标。</param>
+    /// <param name="target">对象目标；可为空。</param>
+    /// <param name="targetPosition">目标世界坐标。</param>
+    /// <param name="strength">技能强度。</param>
+    /// <param name="powerLevel">攻击功率层级。</param>
+    /// <param name="initialAngleOffsetDegrees">初始方向偏角。</param>
+    /// <param name="attackKingdom">本次攻击使用的阵营。</param>
+    /// <param name="runtimeData">本次施法运行参数。</param>
+    /// <returns>新建技能实体。</returns>
+    public Entity SpawnSkillAtPosition(
+        Entity skillContainer,
+        BaseSimObject source,
+        Vector3 sourcePosition,
+        BaseSimObject target,
+        Vector3 targetPosition,
+        float strength,
+        float powerLevel,
+        float initialAngleOffsetDegrees = 0f,
+        Kingdom attackKingdom = null,
+        SkillCastRuntimeData runtimeData = default,
+        BaseSimObject spatialSource = null)
+    {
+        return SpawnSkillFromPosition(
+            skillContainer,
+            source,
+            spatialSource,
+            sourcePosition,
+            target,
+            targetPosition,
+            strength,
+            0f,
+            powerLevel,
+            initialAngleOffsetDegrees,
+            attackKingdom,
+            runtimeData);
     }
 
     /// <summary>从给定世界坐标生成没有施法者的技能实体。</summary>
@@ -333,13 +462,14 @@ public class Manager
         float initial_angle_offset_degrees = 0f, Kingdom attack_kingdom = null,
         SkillCastRuntimeData runtime_data = default)
     {
-        return SpawnSkillFromPosition(skill_container, null, source_pos, target, target_pos, strength, delay,
+        return SpawnSkillFromPosition(skill_container, null, null, source_pos, target, target_pos, strength, delay,
             power_level, initial_angle_offset_degrees, attack_kingdom, runtime_data);
     }
 
-    private Entity SpawnSkillFromPosition(Entity skill_container, BaseSimObject source, Vector3 source_pos,
-        BaseSimObject target, Vector3 target_pos, float strength, float delay, float? power_level,
-        float initial_angle_offset_degrees, Kingdom attack_kingdom, SkillCastRuntimeData runtime_data)
+    private Entity SpawnSkillFromPosition(Entity skill_container, BaseSimObject source,
+        BaseSimObject spatial_source, Vector3 source_pos, BaseSimObject target, Vector3 target_pos, float strength,
+        float delay, float? power_level, float initial_angle_offset_degrees, Kingdom attack_kingdom,
+        SkillCastRuntimeData runtime_data)
     {
         ref var container = ref skill_container.GetComponent<SkillContainer>();
 
@@ -367,7 +497,7 @@ public class Manager
         context.PowerLevel = power_level ?? ((source?.isActor() ?? false) && !source.isRekt()
             ? source.a.GetExtend().GetPowerLevel()
             : 0f);
-        context.BindSource(source);
+        context.BindSource(source, spatial_source);
         context.TargetObj = target == null || target.isRekt() ? null : target;
         context.AttackKingdom = attack_kingdom;
         context.RuntimeData = runtime_data;
@@ -517,6 +647,15 @@ public class Manager
             groundFxState.LastX = sourcePos.x;
             groundFxState.LastY = sourcePos.y;
         }
+    }
+
+    /// <summary>在当前能力调用中解析真实空间载体。</summary>
+    private static BaseSimObject ResolveSpatialSource(BaseSimObject source)
+    {
+        if (source?.isActor() == true && !source.isRekt() &&
+            SkillCasterContextService.TryGetCurrent(source.a.GetExtend(), out SkillCasterContext context))
+            return context.Carrier.Base;
+        return source;
     }
 
     private static Vector3 ApplyInitialAngleOffset(Vector3 base_dir, float angle_degrees)

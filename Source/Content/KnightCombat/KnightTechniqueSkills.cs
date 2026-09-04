@@ -155,6 +155,7 @@ public sealed class KnightTechniqueSkills : ICanInit
                  : SkillUseProfileLibrary.EnemyObjectOrPoint)
              .AcceptTrajectoryDomains(SkillTrajectoryDomain.Melee)
             .SetupVisualRotation(VisualRotation.FollowRotation())
+            .RequireCarrier(SkillCarrierRequirement.PhysicalBody)
             .AllowLearning();
         asset.PrefabEntity.AddComponent(new AnimRuntimeFrames());
         asset.PrefabEntity.AddComponent(new AnimAfterimageOverride());

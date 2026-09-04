@@ -1,4 +1,5 @@
 using Cultiway.Content.Artifacts;
+using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
@@ -85,6 +86,28 @@ public partial class ArtifactAbilities
         return context.controller.GetComponent<ActorBinder>().Actor;
     }
 
+    /// <summary>读取法器当前由实际人物载体或远程分念提供的能力起点。</summary>
+    private static Vector3 ControllerPosition(ArtifactAbilityExecutionContext context)
+    {
+        Actor controller = Controller(context);
+        Actor carrier = context.ResolveCarrierActor();
+        return carrier != controller
+            ? carrier.GetSimPos()
+            : ArtifactYuanshenControlService.ResolveOrigin(controller, context.artifact);
+    }
+
+    /// <summary>把自疗结算到当前实际人物载体；临时命魂改为恢复完整度。</summary>
+    private static float RestoreCarrierHealth(ArtifactAbilityExecutionContext context, float amount)
+    {
+        Actor carrier = context.ResolveCarrierActor();
+        if (carrier == null || carrier.isRekt()) return 0f;
+        if (carrier.GetExtend().HasComponent<YuanshenSoulCarrierState>())
+            return YuanshenTravelService.RestoreSoulCarrierIntegrity(carrier, amount);
+        float before = carrier.data.health;
+        CombatResourceEffects.RestoreHealth(carrier, amount);
+        return Mathf.Max(0f, carrier.data.health - before);
+    }
+
     private static float ScaledCooldown(ArtifactAbilityComposeContext context, float baseCooldown, float minimum)
     {
         return Mathf.Max(minimum, baseCooldown / Mathf.Max(0.5f, context.scales.Efficiency));
@@ -120,7 +143,7 @@ public partial class ArtifactAbilities
     {
         if (!CanPrepareFreeBody(context, ability, default, target.Object)) return false;
         float range = ability.GetNumber(AttackRange);
-        return Toolbox.SquaredDistVec2Float(Controller(context).current_position, TargetPosition(target)) <=
+        return Toolbox.SquaredDistVec2Float(ControllerPosition(context), TargetPosition(target)) <=
                range * range;
     }
 
@@ -135,7 +158,7 @@ public partial class ArtifactAbilities
         Actor victim = target.Object.a;
         if (!SkillTargetRelationResolver.IsHostile(controller, victim)) return false;
         float range = ability.GetNumber(AttackRange) + victim.stats[strings.S.size];
-        return Toolbox.SquaredDistVec2Float(controller.current_position, victim.current_position) <= range * range;
+        return Toolbox.SquaredDistVec2Float(ControllerPosition(context), victim.current_position) <= range * range;
     }
 
     private static bool BeginTimedActivity(
@@ -174,7 +197,7 @@ public partial class ArtifactAbilities
     {
         float range = ability.GetNumber(AttackRange);
         return Toolbox.SquaredDistVec2Float(
-                   Controller(context).current_position,
+                   ControllerPosition(context),
                    TargetPosition(target)) <= range * range;
     }
 
@@ -182,7 +205,7 @@ public partial class ArtifactAbilities
         ArtifactAbilityExecutionContext context,
         in ActiveAbilityTarget target)
     {
-        Vector2 direction = (Vector2)TargetPosition(target) - Controller(context).current_position;
+        Vector2 direction = (Vector2)TargetPosition(target) - (Vector2)ControllerPosition(context);
         return direction.sqrMagnitude < 0.0001f ? Vector2.up : direction.normalized;
     }
 

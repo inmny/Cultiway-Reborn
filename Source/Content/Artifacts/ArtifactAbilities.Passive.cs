@@ -4,6 +4,7 @@ using Cultiway.Content.Libraries;
 using Cultiway.Content.Semantics;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using NeoModLoader.General;
 using strings;
@@ -65,11 +66,11 @@ public partial class ArtifactAbilities
         MirrorInsight.ConfigureLifecycle(new ArtifactAbilityLifecycleProfile
         {
             stats_minimum_state = ArtifactControlState.Operating,
-            ContributeStats = (_, ability, _, stats) =>
+            ContributeStats = (context, ability, _, stats) =>
             {
-                stats[S.accuracy] += ability.GetNumber(AccuracyBonus);
-                stats[S.critical_chance] += ability.GetNumber(CriticalBonus);
-                stats[S.damage_range] += ability.GetNumber(DamageRangeBonus);
+                stats[S.accuracy] += ability.GetNumber(AccuracyBonus) * context.effect_scale;
+                stats[S.critical_chance] += ability.GetNumber(CriticalBonus) * context.effect_scale;
+                stats[S.damage_range] += ability.GetNumber(DamageRangeBonus) * context.effect_scale;
             },
         });
     }
@@ -144,10 +145,10 @@ public partial class ArtifactAbilities
         SpiritReservoir.ConfigureLifecycle(new ArtifactAbilityLifecycleProfile
         {
             stats_minimum_state = ArtifactControlState.Operating,
-            ContributeStats = (_, ability, _, stats) =>
+            ContributeStats = (context, ability, _, stats) =>
             {
-                stats[BaseStatses.MaxWakan.id] += ability.GetNumber(WakanCapacity);
-                stats[BaseStatses.WakanRegen.id] += ability.GetNumber(WakanRegen);
+                stats[BaseStatses.MaxWakan.id] += ability.GetNumber(WakanCapacity) * context.effect_scale;
+                stats[BaseStatses.WakanRegen.id] += ability.GetNumber(WakanRegen) * context.effect_scale;
             },
         });
     }
@@ -158,8 +159,15 @@ public partial class ArtifactAbilities
         ref ArtifactAbilityRuntimeEntry _,
         float __)
     {
-        Actor actor = context.controller.GetComponent<ActorBinder>().Actor;
-        actor.restoreHealth(Mathf.Max(1, Mathf.RoundToInt(ability.GetNumber(HealPerTick))));
+        Actor actor = context.ResolveCarrierActor();
+        if (actor == null || actor.isRekt()) return;
+        float amount = ability.GetNumber(HealPerTick) * context.effect_scale;
+        if (actor.GetExtend().HasComponent<YuanshenSoulCarrierState>())
+        {
+            RestoreCarrierHealth(context, amount);
+            return;
+        }
+        actor.restoreHealth(Mathf.Max(1, Mathf.RoundToInt(amount)));
     }
 
     private static bool CanRestoreControllerHealth(
@@ -167,8 +175,8 @@ public partial class ArtifactAbilities
         ArtifactAbilityInstance _,
         ArtifactAbilityRuntimeEntry __)
     {
-        Actor actor = context.controller.GetComponent<ActorBinder>().Actor;
-        return actor.data.health < actor.stats[S.health];
+        Actor actor = context.ResolveCarrierActor();
+        return actor != null && !actor.isRekt() && actor.data.health < actor.stats[S.health];
     }
 
     private static bool UseWakan(

@@ -127,7 +127,7 @@ public partial class ArtifactAbilities
         ArtifactSpiritService.AddExperience(
             context.artifact,
             Mathf.Sqrt(Mathf.Max(0f, evt.Damage)) * 0.018f * growth,
-            0.001f * growth);
+            0.001f * growth * context.effect_scale);
     }
 
     private static void GrowSpiritFromKill(
@@ -137,7 +137,10 @@ public partial class ArtifactAbilities
         ArtifactKillEvent _)
     {
         float growth = ability.GetNumber(SpiritGrowthMultiplier);
-        ArtifactSpiritService.AddExperience(context.artifact, 1.5f * growth, 0.06f * growth);
+        ArtifactSpiritService.AddExperience(
+            context.artifact,
+            1.5f * growth * context.effect_scale,
+            0.06f * growth * context.effect_scale);
         ArtifactAbilityVisuals.Emit(context, ability, runtime, "spirit_growth", intensity: growth);
     }
 
@@ -150,8 +153,8 @@ public partial class ArtifactAbilities
         float growth = ability.GetNumber(SpiritGrowthMultiplier);
         ArtifactSpiritService.AddExperience(
             context.artifact,
-            Mathf.Max(1, evt.EmittedCount) * 0.12f * growth,
-            0.008f * growth);
+            Mathf.Max(1, evt.EmittedCount) * 0.12f * growth * context.effect_scale,
+            0.008f * growth * context.effect_scale);
         ArtifactAbilityVisuals.Emit(context, ability, runtime, "spirit_growth", intensity: growth * 0.7f);
     }
 

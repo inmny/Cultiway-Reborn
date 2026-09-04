@@ -11,6 +11,8 @@ public struct SkillContext : IComponent
     public float Strength;
     public float PowerLevel;
     public BaseSimObject SourceObj;
+    /// <summary>技能实际出现、移动和处理自身效果的空间载体。</summary>
+    public BaseSimObject SpatialSourceObj;
     /// <summary>技能创建时记录的来源对象 ID，不受来源对象后续销毁影响。</summary>
     public long SourceId;
     /// <summary>技能创建时记录的来源阵营，不受来源对象后续销毁或转属影响。</summary>
@@ -31,11 +33,12 @@ public struct SkillContext : IComponent
     }
 
     /// <summary>
-    /// 绑定技能来源，并同时保存需要跨越来源对象生命周期使用的稳定信息。
+    /// 绑定技能归属和空间载体；未指定空间载体时沿用归属对象。
     /// </summary>
-    public void BindSource(BaseSimObject source)
+    public void BindSource(BaseSimObject source, BaseSimObject spatialSource = null)
     {
         SourceObj = source;
+        SpatialSourceObj = spatialSource ?? source;
         if (source == null)
         {
             SourceId = -1L;
@@ -45,6 +48,12 @@ public struct SkillContext : IComponent
 
         SourceId = source.getID();
         SourceKingdom = source.kingdom;
+    }
+
+    /// <summary>返回本次技能实际使用的位置和自身效果的空间载体。</summary>
+    public readonly BaseSimObject ResolveSpatialSource()
+    {
+        return SpatialSourceObj ?? SourceObj;
     }
 
     /// <summary>

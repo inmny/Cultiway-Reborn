@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Cultiway.Abstract;
+using Cultiway.Content;
 using Cultiway.Const;
 using Cultiway.Core.Combat;
 using Cultiway.Core.Combat.Tactical;
@@ -46,7 +47,9 @@ public partial class ActorExtend
     [Hotfixable]
     public bool TryToAttack(BaseSimObject target, Action kill_action = null, float bonus_area_effect = 0, bool do_checks = true)
     {
-        if (CombatWorldService.ShouldExecuteImmediateAttack(Base, target))
+        SkillCasterContext carrierContext = SkillCasterContextService.Resolve(this);
+        bool soulCarrier = carrierContext.IsValid && carrierContext.Kind == SkillCarrierKind.Soul;
+        if (!soulCarrier && CombatWorldService.ShouldExecuteImmediateAttack(Base, target))
         {
             return CombatWorldService.TryExecuteImmediate(
                 this,
@@ -71,12 +74,13 @@ public partial class ActorExtend
         CombatActionAsset basic_attack_action = null;
         
         using var attack_action_pool = new ListPool<CombatActionAsset>();
-        // 加入普攻
-        if (do_checks ? CanUseMeleeAttackAtCurrentDistance(target) : actor.hasMeleeAttack())
+        // 魂体没有拳脚、武器或肉身弹丸动作。
+        if (!soulCarrier && (do_checks ? CanUseMeleeAttackAtCurrentDistance(target) : actor.hasMeleeAttack()))
         {
             basic_attack_action = WorldboxGame.CombatActions.AttackMelee;
         }
-        else if (do_checks ? CanUseRangeAttackAtCurrentDistance(target) : actor.hasRangeAttack())
+        else if (!soulCarrier &&
+                 (do_checks ? CanUseRangeAttackAtCurrentDistance(target) : actor.hasRangeAttack()))
         {
             basic_attack_action = WorldboxGame.CombatActions.AttackRange;
         }
@@ -178,7 +182,7 @@ public partial class ActorExtend
     /// <returns>近战、远程武器、原版法术或统一主动能力中任一项可用时返回 true。</returns>
     public bool CanUseCombatActionAtCurrentDistance(BaseSimObject target)
     {
-        if (target.isRekt()) return false;
+        if (target.isRekt() || !YuanshenTravelService.CanTargetSoulCarrier(Base, target)) return false;
         return CanUsePhysicalAttackAtCurrentDistance(target) || CanUseMagicActionAtCurrentDistance(target);
     }
 
@@ -189,7 +193,7 @@ public partial class ActorExtend
     /// <returns>已经能物理攻击，或可通过施法范围/可接近路径处理目标时返回 true。</returns>
     public bool CanKeepCombatTarget(BaseSimObject target)
     {
-        if (target.isRekt()) return false;
+        if (target.isRekt() || !YuanshenTravelService.CanTargetSoulCarrier(Base, target)) return false;
         return CanUsePhysicalAttackAtCurrentDistance(target) || CanKeepMagicCombatTarget(target);
     }
 
@@ -227,6 +231,8 @@ public partial class ActorExtend
     /// </summary>
     private bool CanUsePhysicalAttackAtCurrentDistance(BaseSimObject target)
     {
+        SkillCasterContext context = SkillCasterContextService.Resolve(this);
+        if (context.IsValid && context.Kind == SkillCarrierKind.Soul) return false;
         return CanUseMeleeAttackAtCurrentDistance(target) || CanUseRangeAttackAtCurrentDistance(target);
     }
 
@@ -555,11 +561,17 @@ public partial class ActorExtend
         {
             action_on_be_attacked?.Invoke(this, attacker, damage);
         }
-        if (attacker != null && !attacker.isRekt() && attacker.isActor())
+        BaseSimObject attributionAttacker = ResolveAttributionAttacker(attacker);
+        if (attributionAttacker != null && !attributionAttacker.isRekt() && attributionAttacker.isActor())
         {
             var damage_before_vanilla_special = damage;
-            Base.checkSpecialAttackLogic(attacker.a, attack_type_for_vanilla, damage, out var final_damage);
-            AchievementLibrary.clone_wars.checkBySignal(new ValueTuple<Actor, Actor>(Base, attacker.a));
+            Base.checkSpecialAttackLogic(
+                attributionAttacker.a,
+                attack_type_for_vanilla,
+                damage,
+                out var final_damage);
+            AchievementLibrary.clone_wars.checkBySignal(
+                new ValueTuple<Actor, Actor>(Base, attributionAttacker.a));
             damage = Math.Min(damage, final_damage);
             if (damage_debug != null)
             {
@@ -591,7 +603,39 @@ public partial class ActorExtend
         {
             OnDamageResolved(attacker, damage, damage_composition, attack_type_for_vanilla);
         }
-        PatchActor.getHit_snapshot(Base, damage, pFlash: damage >= 1, pAttackType: attack_type_for_vanilla, pAttacker: attacker, pSkipIfShake: false, pCheckDamageReduction: false);
+        PatchActor.getHit_snapshot(
+            Base,
+            damage,
+            pFlash: damage >= 1,
+            pAttackType: attack_type_for_vanilla,
+            pAttacker: attributionAttacker,
+            pSkipIfShake: false,
+            pCheckDamageReduction: false);
+        RestoreSpatialRetaliationTarget(attacker, attributionAttacker);
+    }
+
+    /// <summary>把临时命魂攻击的原版关系、成就和死亡归属解析到唯一身份所有者。</summary>
+    private static BaseSimObject ResolveAttributionAttacker(BaseSimObject attacker)
+    {
+        if (attacker?.isActor() != true || attacker.isRekt() ||
+            !attacker.a.TryGetExtend(out ActorExtend carrier)) return attacker;
+        SkillCasterContext context = SkillCasterContextService.Resolve(carrier);
+        return context.IsValid && context.Kind == SkillCarrierKind.Soul && context.Carrier == carrier &&
+               context.Owner?.Base != null && !context.Owner.Base.isRekt()
+            ? context.Owner.Base
+            : attacker;
+    }
+
+    /// <summary>原版关系归属本体后，仍让受击者就近追击实际施法的临时命魂。</summary>
+    private void RestoreSpatialRetaliationTarget(
+        BaseSimObject spatialAttacker,
+        BaseSimObject attributionAttacker)
+    {
+        if (spatialAttacker == null || spatialAttacker == attributionAttacker || spatialAttacker.isRekt() ||
+            !Base.isAlive() || Base.attack_target != attributionAttacker ||
+            Base.shouldIgnoreTarget(spatialAttacker) ||
+            !Base.canAttackTarget(spatialAttacker, pCheckForFactions: false)) return;
+        Base.setAttackTarget(spatialAttacker);
     }
 
     private float GetDamageReductionPassRatio(ref ElementComposition damage_composition,

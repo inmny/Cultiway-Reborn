@@ -2,6 +2,7 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -131,11 +132,15 @@ public static partial class ArtifactAbilityLifecycle
         ArtifactAbilityEndReason reason)
     {
         Entity controller = runtime.controller;
-        ArtifactAbilityExecutionContext context = new(controller, artifact, runtime.control_state);
         for (int i = 0; i < abilitySet.abilities.Length; i++)
         {
             ArtifactAbilityInstance ability = abilitySet.abilities[i];
             ArtifactAbilityAsset asset = Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
+            ArtifactAbilityExecutionContext context = ArtifactAbilityLifecycle.CreateActivityContext(
+                controller,
+                artifact,
+                runtime.control_state,
+                in runtime.abilities[i]);
             if (runtime.abilities[i].activity_kind != ArtifactAbilityActivityKind.None)
             {
                 EndActivity(asset, context, ability, ref runtime.abilities[i], reason, true);
@@ -157,11 +162,15 @@ public static partial class ArtifactAbilityLifecycle
     {
         ArtifactControlState previousState = runtime.control_state;
         runtime.control_state = state;
-        ArtifactAbilityExecutionContext context = new(controller, artifact, state);
         for (int i = 0; i < abilitySet.abilities.Length; i++)
         {
             ArtifactAbilityInstance ability = abilitySet.abilities[i];
             ArtifactAbilityAsset asset = Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
+            ArtifactAbilityExecutionContext context = ArtifactAbilityLifecycle.CreateActivityContext(
+                controller,
+                artifact,
+                state,
+                in runtime.abilities[i]);
             ArtifactAbilityLifecycleProfile profile = asset.lifecycle;
             profile.OnControlStateChanged?.Invoke(context, ability, ref runtime.abilities[i], previousState);
             if (profile.interrupt_activity_on_state_loss &&
@@ -264,6 +273,8 @@ public static partial class ArtifactAbilityLifecycle
         }
         if (profile.OnTick != null)
         {
+            SkillCasterContext carrierContext = ArtifactAbilityLifecycle.ResolveSkillContext(context);
+            using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(in carrierContext);
             profile.OnTick(context, ability, ref runtime, profile.tick_interval);
             ArtifactAbilityVisuals.Emit(
                 context,
@@ -350,6 +361,8 @@ public static partial class ArtifactAbilityLifecycle
         runtime.has_activity_position = false;
         runtime.has_activity_direction = false;
         asset.lifecycle.OnActivityEnded?.Invoke(context, ability, ref runtime, reason);
+        runtime.activity_carrier_actor_id = 0L;
+        runtime.activity_effect_scale = 0f;
         ArtifactAbilityVisuals.Emit(
             context,
             ability,

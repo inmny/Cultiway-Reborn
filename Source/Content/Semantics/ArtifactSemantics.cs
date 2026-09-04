@@ -12,6 +12,8 @@ public static class ArtifactSemantics
     {
         /// <summary>表示法器能力具有火焰或灼热属性。</summary>
         public static SemanticAsset Fire => SkillSemantics.Element.Fire;
+        /// <summary>表示法器能力具有阴性或负向能量。</summary>
+        public static SemanticAsset Neg => SkillSemantics.Element.Neg;
         /// <summary>表示法器能力具有风或气流属性。</summary>
         public static SemanticAsset Wind => SkillSemantics.Element.Wind;
     }

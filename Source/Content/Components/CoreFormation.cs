@@ -18,7 +18,10 @@ public enum CoreFormationRealm : byte
     Jindan,
 
     /// <summary>元婴实例。</summary>
-    Yuanying
+    Yuanying,
+
+    /// <summary>元婴九转后蜕变的元神实例。</summary>
+    Yuanshen
 }
 
 /// <summary>一个组合原子在角色实例中的固化状态。</summary>
@@ -77,7 +80,7 @@ public struct CoreFormationSnapshot
     /// <summary>由组合签名和原子词干确定的规范名称。</summary>
     public string canonical_name;
 
-    /// <summary>贯穿真气、仙基、金丹与元婴的短命名词干。</summary>
+    /// <summary>贯穿真气、仙基、金丹、元婴与元神的短命名词干。</summary>
     public string lineage_stem;
 
     /// <summary>名称与品阶是否已经在本境界成果完成时永久定型。</summary>

@@ -40,8 +40,12 @@ internal static class CombatActionService
             preferredAlly,
             threatRatio,
             nearbyAllies);
+        SkillCasterContext carrierContext = SkillCasterContextService.Resolve(caster);
+        bool soulCarrier = carrierContext.IsValid && carrierContext.Kind == SkillCarrierKind.Soul;
         for (int i = 0; i < Providers.Count; i++)
         {
+            if (soulCarrier && Providers[i] is PhysicalCombatActionProvider or AdvancedCombatActionProvider)
+                continue;
             Providers[i].Collect(context, output);
         }
         for (int i = 0; i < output.Count; i++)

@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using Cultiway.Const;
+using Cultiway.Content;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
 using Cultiway.Core.Combat.Tactical;
 using Cultiway.Core.Pathfinding;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -93,36 +94,6 @@ internal static class PatchActor
         if (!__result) return;
         if (!__instance._has_status_sleeping) return;
         __result = !__instance.getActorAsset().GetExtend<ActorAssetExtend>().sleep_standing_up;
-    }
-    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.addStatusEffect))]
-    private static bool addStatusEffect_prefix(Actor __instance, StatusAsset pStatusAsset, ref float pOverrideTimer,
-        ref bool __result)
-    {
-        if (pStatusAsset.affects_mind && __instance.hasTag("strong_mind"))
-        {
-            __result = false;
-            return false;
-        }
-
-        if (!pStatusAsset.GetExtend<StatusAssetExtend>().negative)
-        {
-            return true;
-        }
-        var ae = __instance.GetExtend();
-
-        var level = ae.GetPowerLevel();
-        if (level == 0f) return true;
-        var time = Mathf.Log(pStatusAsset.duration, Mathf.Pow(DamageCalcHyperParameters.PowerBase, level));
-
-        if (time < 1f)
-        {
-            __result = false;
-            return false;
-        }
-
-        pOverrideTimer = time;
-
-        return true;
     }
     /// <summary>让 Core 控制标签同时约束原版法术入口。</summary>
     [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.canUseSpells))]
@@ -290,6 +261,13 @@ internal static class PatchActor
     private static void b3_findEnemyTarget_postfix(Actor __instance, bool __state)
     {
         if (!__state) return;
+        if (__instance.has_attack_target &&
+            !YuanshenTravelService.CanTargetSoulCarrier(__instance, __instance.attack_target))
+        {
+            BaseSimObject rejected = __instance.attack_target;
+            __instance.clearAttackTarget();
+            if (rejected != null && !rejected.isRekt()) __instance.ignoreTarget(rejected);
+        }
         ApplyEnemySearchBackoff(__instance);
     }
 
@@ -473,9 +451,38 @@ internal static class PatchActor
         WorldboxGame.I.GeoRegions.SetDirtyUnitsForTileChange(__instance.current_tile, pTile);
     }
 
-    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.newKillAction))]
-    private static void newKillAction_postfix(Actor __instance, Actor pDeadUnit, Kingdom pPrevKingdom)
+    /// <summary>临时命魂完成击杀时，把原版战利品、关系和击杀记录全部交给唯一身份所有者。</summary>
+    [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.newKillAction))]
+    private static bool newKillAction_prefix(
+        Actor __instance,
+        Actor pDeadUnit,
+        Kingdom pPrevKingdom,
+        AttackType pAttackType,
+        out bool __state)
     {
+        __state = false;
+        if (__instance == null || __instance.isRekt() ||
+            !__instance.TryGetExtend(out ActorExtend carrier)) return true;
+        SkillCasterContext context = SkillCasterContextService.Resolve(carrier);
+        if (!context.IsValid || context.Kind != SkillCarrierKind.Soul || context.Carrier != carrier ||
+            context.Owner?.Base == null || context.Owner.Base == __instance || context.Owner.Base.isRekt())
+            return true;
+
+        __state = true;
+        Actor owner = context.Owner.Base;
+        if (pDeadUnit != null && !pDeadUnit.isRekt()) pDeadUnit.attackedBy = owner;
+        owner.newKillAction(pDeadUnit, pPrevKingdom, pAttackType);
+        return false;
+    }
+
+    [HarmonyPostfix, HarmonyPatch(typeof(Actor), nameof(Actor.newKillAction))]
+    private static void newKillAction_postfix(
+        Actor __instance,
+        Actor pDeadUnit,
+        Kingdom pPrevKingdom,
+        bool __state)
+    {
+        if (__state) return;
         __instance.GetExtend().NewKillAction(pDeadUnit, pPrevKingdom);
     }
     [HarmonyPrefix, HarmonyPatch(typeof(Actor), nameof(Actor.die))]

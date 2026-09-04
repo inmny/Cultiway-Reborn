@@ -39,6 +39,7 @@ internal static class ArtifactSpatialAttackLauncher
         out Entity execution)
     {
         Actor controller = context.controller.GetComponent<ActorBinder>().Actor;
+        Actor spatialController = context.ResolveCarrierActor();
         Entity artifact = context.artifact;
         ArtifactShapeAsset shape = (ArtifactShapeAsset)artifact.GetComponent<ItemShape>().Type;
         bool initialized = ArtifactManifestationTools.EnsureWorldComponents(
@@ -48,13 +49,13 @@ internal static class ArtifactSpatialAttackLauncher
 
         ref ArtifactManifestation manifestation = ref artifact.GetComponent<ArtifactManifestation>();
         manifestation.control_state = context.control_state;
-        manifestation.visible = controller.is_visible;
+        manifestation.visible = spatialController.is_visible;
         manifestation.flip_x = false;
         ArtifactManifestationTools.ApplyActiveWorldSize(artifact, controller);
         if (initialized)
         {
             artifact.GetComponent<Position>().value =
-                controller.cur_transform_position + Vector3.up * actorScale * 0.55f;
+                spatialController.cur_transform_position + Vector3.up * actorScale * 0.55f;
         }
 
         Vector2 direction = request.target.current_position - artifact.GetComponent<Position>().v2;
@@ -62,12 +63,13 @@ internal static class ArtifactSpatialAttackLauncher
 
         execution = ArtifactSkillExecutions.FlyingSword.NewEntity();
         ref SkillContext skillContext = ref execution.GetComponent<SkillContext>();
-        skillContext.BindSource(controller);
+        skillContext.BindSource(controller, spatialController);
         skillContext.TargetObj = request.target;
         skillContext.TargetPos = request.target.GetSimPos();
         skillContext.TargetDir = direction.normalized;
         skillContext.AttackKingdom = request.attack_kingdom;
         skillContext.Strength = request.strength;
+        skillContext.RuntimeData.EffectScale = context.effect_scale;
         skillContext.PowerLevel = controller.GetExtend().GetPowerLevel();
 
         execution.GetComponent<Position>().value = artifact.GetComponent<Position>().value;

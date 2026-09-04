@@ -1,7 +1,9 @@
+using Cultiway.Content.Components;
 using Cultiway.Core;
 using Cultiway.Core.Combat;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Utils.Extension;
 using UnityEngine;
 
@@ -21,23 +23,50 @@ public static class CombatDamageEffects
         ElementComposition composition,
         bool ignoreDamageReduction = false,
         float? attackerPowerLevel = null,
-        DamageOrigin damageOrigin = DamageOrigin.Primary)
+        DamageOrigin damageOrigin = DamageOrigin.Primary,
+        AttackType attackType = AttackType.Other)
     {
         if (damage <= 0f || target == null || target.isRekt()) return;
+        ActorExtend powerOwner = null;
+        BaseSimObject eventSource = source;
+        if (source?.isActor() == true && !source.isRekt())
+        {
+            ActorExtend sourceExtend = source.a.GetExtend();
+            bool hasContext = SkillCasterContextService.TryGetCurrent(
+                sourceExtend,
+                out SkillCasterContext context);
+            if (!hasContext && sourceExtend.HasComponent<YuanshenSoulCarrierState>())
+            {
+                context = SkillCasterContextService.Resolve(sourceExtend);
+                hasContext = context.IsValid;
+            }
+            if (hasContext)
+            {
+                damage *= context.EffectScale;
+                powerOwner = context.Owner;
+                if (context.Carrier?.Base != null && !context.Carrier.Base.isRekt())
+                    eventSource = context.Carrier.Base;
+            }
+            else
+            {
+                powerOwner = sourceExtend;
+            }
+        }
         float powerLevel = attackerPowerLevel ??
-                           (source != null && source.isActor() && !source.isRekt()
-                               ? source.a.GetExtend().GetPowerLevel()
+                           (powerOwner != null
+                               ? powerOwner.GetPowerLevel()
                                : 0f);
         var evt = new GetHitEvent
         {
             TargetID = target.data.id,
             Damage = damage,
             Element = composition,
+            AttackType = attackType,
             AttackerPowerLevel = powerLevel,
             IgnoreDamageReduction = ignoreDamageReduction,
             DamageOrigin = damageOrigin,
         };
-        evt.BindAttacker(source);
+        evt.BindAttacker(eventSource);
         EventSystemHub.Publish(evt);
     }
 
@@ -49,11 +78,13 @@ public static class CombatDamageEffects
         float damage,
         ElementComposition composition,
         bool ignoreDamageReduction = false,
-        DamageOrigin damageOrigin = DamageOrigin.Primary)
+        DamageOrigin damageOrigin = DamageOrigin.Primary,
+        AttackType attackType = AttackType.Other)
     {
         CombatTargeting.ForEachHostile(source, center, radius, target =>
             DealDamage(source, target, damage, composition, ignoreDamageReduction,
-                damageOrigin: damageOrigin));
+                damageOrigin: damageOrigin,
+                attackType: attackType));
     }
 
     /// <summary>在递归截断标记内通过标准受击入口结算一次二次反应伤害。</summary>
@@ -63,10 +94,11 @@ public static class CombatDamageEffects
         float damage,
         ElementComposition composition,
         bool ignoreDamageReduction = false,
-        float? attackerPowerLevel = null)
+        float? attackerPowerLevel = null,
+        AttackType attackType = AttackType.Other)
     {
         DealDamage(source, target, damage, composition, ignoreDamageReduction, attackerPowerLevel,
-            DamageOrigin.Reaction);
+            DamageOrigin.Reaction, attackType);
     }
 
     /// <summary>在递归截断标记内对范围内的所有敌对单位结算二次反应伤害。</summary>
@@ -76,10 +108,11 @@ public static class CombatDamageEffects
         float radius,
         float damage,
         ElementComposition composition,
-        bool ignoreDamageReduction = false)
+        bool ignoreDamageReduction = false,
+        AttackType attackType = AttackType.Other)
     {
         DealAreaDamage(source, center, radius, damage, composition, ignoreDamageReduction,
-            DamageOrigin.Reaction);
+            DamageOrigin.Reaction, attackType);
     }
 
     /// <summary>兼容既有反击调用的语义化别名。</summary>
@@ -88,9 +121,11 @@ public static class CombatDamageEffects
         Actor target,
         float damage,
         ElementComposition composition,
-        bool ignoreDamageReduction = false)
+        bool ignoreDamageReduction = false,
+        AttackType attackType = AttackType.Other)
     {
-        DealReactionDamage(source, target, damage, composition, ignoreDamageReduction);
+        DealReactionDamage(source, target, damage, composition, ignoreDamageReduction,
+            attackType: attackType);
     }
 
     /// <summary>用护盾池吸收最终伤害，并返回本次实际吸收值。</summary>

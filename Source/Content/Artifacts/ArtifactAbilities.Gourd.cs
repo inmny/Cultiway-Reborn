@@ -152,14 +152,18 @@ public partial class ArtifactAbilities
                 target,
                 SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier),
                 MaterialComposition(context));
-            float drained = CombatResourceEffects.DrainWakan(target, ability.GetNumber(DrainAmount));
-            absorbedPower += Mathf.Max(drained, ability.GetNumber(StorePerTrigger));
+            float drained = CombatResourceEffects.DrainWakan(
+                target,
+                ability.GetNumber(DrainAmount) * context.effect_scale);
+            absorbedPower += Mathf.Max(
+                drained,
+                ability.GetNumber(StorePerTrigger) * context.effect_scale);
             lastTarget = target;
             CombatForceEffects.ApplyRadialForce(
                 controller,
                 target,
                 center,
-                ability.GetNumber(ForceStrength),
+                ability.GetNumber(ForceStrength) * context.effect_scale,
                 pull: true);
         });
         if (absorbedPower <= 0f) return;
@@ -264,7 +268,7 @@ public partial class ArtifactAbilities
             float moved = ArtifactStorageOperations.Store(
                 ref storage,
                 ArtifactStorageOperations.Wakan,
-                Mathf.Min(available, ability.GetNumber(StorePerTrigger)));
+                Mathf.Min(available, ability.GetNumber(StorePerTrigger) * context.effect_scale));
             WakanResourceService.Spend(controller, ref xian, moved);
             return;
         }
@@ -273,7 +277,7 @@ public partial class ArtifactAbilities
         float taken = ArtifactStorageOperations.Take(
             ref storage,
             ArtifactStorageOperations.Wakan,
-            Mathf.Min(required, ability.GetNumber(ReleasePerTick)));
+            Mathf.Min(required, ability.GetNumber(ReleasePerTick) * context.effect_scale));
         float restored = CombatResourceEffects.RestoreWakan(controller.Base, taken);
         if (restored < taken)
         {
@@ -357,7 +361,7 @@ public partial class ArtifactAbilities
         ActiveAbilityUseOrigin _)
     {
         Actor controller = Controller(context);
-        Vector2 center = controller.current_position;
+        Vector2 center = ControllerPosition(context);
         Vector2 direction = DirectionToTarget(context, target);
         ref ArtifactStorageState storage = ref context.artifact.GetComponent<ArtifactStorageState>();
         float stored = ArtifactStorageOperations.Take(

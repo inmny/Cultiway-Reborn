@@ -66,6 +66,9 @@ public partial class WorldboxGame
         /// <summary>单位能够容纳的最大魂量。</summary>
         [AssetId(nameof(MaxSoul))] public static BaseStatAsset MaxSoul { get; private set; }
 
+        /// <summary>单位每次神魂恢复结算能够稳定的魂量。</summary>
+        [AssetId(nameof(SoulRegen))] public static BaseStatAsset SoulRegen { get; private set; }
+
         /// <summary>单位能够容纳的最大气运。</summary>
         [AssetId(nameof(MaxQiyun))] public static BaseStatAsset MaxQiyun { get; private set; }
 

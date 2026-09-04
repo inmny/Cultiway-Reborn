@@ -381,6 +381,41 @@ public static class CoreFormationComposer
         return snapshot;
     }
 
+    /// <summary>将九转时已经显化的元婴成果确定性重建为零层元神。</summary>
+    /// <param name="yuanying">已经完成九转并正式定型的元婴快照。</param>
+    /// <returns>继承强度、品阶、元素和已显化原子的元神快照。</returns>
+    public static CoreFormationSnapshot ComposeYuanshen(CoreFormationSnapshot yuanying)
+    {
+        if (!yuanying.IsFinalized || yuanying.realm != CoreFormationRealm.Yuanying || yuanying.refinement < 9)
+            throw new ArgumentException("形成元神需要已经完成九转的正式元婴。", nameof(yuanying));
+
+        List<CoreFormationAtomState> atoms = CopyActiveAtoms(yuanying, 9);
+        var snapshot = new CoreFormationSnapshot
+        {
+            version = CoreFormationSnapshot.CurrentVersion,
+            realm = CoreFormationRealm.Yuanshen,
+            lineage_stem = yuanying.lineage_stem,
+            finalized = true,
+            source_signature = yuanying.signature,
+            source_name = yuanying.canonical_name,
+            source_refinement = 9,
+            source_quality_score = yuanying.quality_score,
+            quality = yuanying.quality,
+            quality_score = yuanying.quality_score,
+            strength = yuanying.strength,
+            refinement = 0,
+            composition = yuanying.composition,
+            element_semantics = yuanying.element_semantics == null
+                ? []
+                : (SemanticContribution[])yuanying.element_semantics.Clone(),
+            atoms = atoms.ToArray(),
+            stats = [],
+            semantics = []
+        };
+        RebuildDerived(ref snapshot, 0);
+        return snapshot;
+    }
+
     /// <summary>处理跨越的三、六、九转节点并重建名称、属性、语义与法术亲和。</summary>
     public static bool EvolveJindan(ref CoreFormationSnapshot snapshot, int previousStage, int currentStage)
     {
@@ -427,6 +462,23 @@ public static class CoreFormationComposer
             changed = true;
         }
 
+        if (changed) RebuildDerived(ref snapshot, currentStage);
+        return changed;
+    }
+
+    /// <summary>处理元神跨越的三、六、九层节点，只强化已经继承的原子。</summary>
+    public static bool EvolveYuanshen(ref CoreFormationSnapshot snapshot, int previousStage, int currentStage)
+    {
+        if (!snapshot.IsFinalized || snapshot.realm != CoreFormationRealm.Yuanshen) return false;
+        snapshot.refinement = Mathf.Clamp(Mathf.Max(snapshot.refinement, currentStage), 0, 9);
+        bool changed = currentStage > previousStage;
+        for (var i = 0; i < AwakeningStages.Length; i++)
+        {
+            int stage = AwakeningStages[i];
+            if (previousStage >= stage || currentStage < stage) continue;
+            StrengthenPrimaryAtom(ref snapshot);
+        }
+        if (previousStage < 9 && currentStage >= 9) StrengthenAllActiveAtoms(ref snapshot, currentStage);
         if (changed) RebuildDerived(ref snapshot, currentStage);
         return changed;
     }
@@ -669,7 +721,9 @@ public static class CoreFormationComposer
             CoreFormationRealm.QiRefinement => CoreFormationRealmMask.QiRefinement,
             CoreFormationRealm.Foundation => CoreFormationRealmMask.Foundation,
             CoreFormationRealm.Jindan => CoreFormationRealmMask.Jindan,
-            _ => CoreFormationRealmMask.Yuanying
+            CoreFormationRealm.Yuanying => CoreFormationRealmMask.Yuanying,
+            CoreFormationRealm.Yuanshen => CoreFormationRealmMask.Yuanshen,
+            _ => throw new ArgumentOutOfRangeException(nameof(context.Realm), context.Realm, "未知核心形成境界。")
         };
         return Manager.CoreFormationAtomLibrary.All
             .Where(atom => atom.category == category && (atom.realms & realmMask) != 0)
@@ -800,7 +854,9 @@ public static class CoreFormationComposer
             CoreFormationRealm.QiRefinement => 0.35f,
             CoreFormationRealm.Foundation => 0.60f,
             CoreFormationRealm.Jindan => 1f,
-            _ => 1.25f
+            CoreFormationRealm.Yuanying => 1.25f,
+            CoreFormationRealm.Yuanshen => 1.5f,
+            _ => throw new ArgumentOutOfRangeException(nameof(snapshot.realm), snapshot.realm, "未知核心形成境界。")
         };
         Dictionary<string, float> stats = new(StringComparer.Ordinal)
         {
@@ -855,7 +911,9 @@ public static class CoreFormationComposer
             CoreFormationRealm.QiRefinement => CultivationSemantics.Realm.QiRefinement,
             CoreFormationRealm.Foundation => CultivationSemantics.Realm.Foundation,
             CoreFormationRealm.Jindan => CultivationSemantics.Realm.Jindan,
-            _ => CultivationSemantics.Realm.Yuanying
+            CoreFormationRealm.Yuanying => CultivationSemantics.Realm.Yuanying,
+            CoreFormationRealm.Yuanshen => CultivationSemantics.Realm.Yuanshen,
+            _ => throw new ArgumentOutOfRangeException(nameof(snapshot.realm), snapshot.realm, "未知核心形成境界。")
         };
         var builder = new SemanticDescriptorBuilder()
             .Add(realmSemantic)
@@ -1042,6 +1100,9 @@ internal static class CoreFormationNameComposer
                 NamingRuleUtils.NormalizeName(identity + structure + "仙基"), 6);
         }
         if (snapshot.realm == CoreFormationRealm.Yuanying) return identity + "元婴";
+        if (snapshot.realm == CoreFormationRealm.Yuanshen) return identity + "元神";
+        if (snapshot.realm != CoreFormationRealm.Jindan)
+            throw new ArgumentOutOfRangeException(nameof(snapshot.realm), snapshot.realm, "未知核心形成境界。");
 
         int seed = NamingRuleUtils.StableHash(snapshot.signature);
         string prefix = snapshot.quality.Stage >= 3

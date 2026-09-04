@@ -3,6 +3,7 @@ using System.Globalization;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Core;
+using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
@@ -15,6 +16,7 @@ using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Utils;
 using Cultiway.Core.SkillLibV3.Visuals;
 using Cultiway.Core.Semantics;
+using Cultiway.Content.Components;
 using Cultiway.Content.Components.Skill;
 using Cultiway.Utils;
 using Cultiway.Utils.Extension;
@@ -1161,17 +1163,19 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         if (!skillEntity.TryGetComponent(out SkillContext context)) return;
 
         var duration = Mathf.Clamp(slow.Duration, 0f, 999f);
-        var strength = Mathf.Clamp(slow.Strength, 0f, 1f);
+        var strength = Mathf.Clamp(slow.Strength * context.EffectScale, 0f, 1f);
         if (duration <= 0f || strength <= 0f) return;
 
+        var actorExtend = target.a.GetExtend();
         var status = StatusEffects.Slow.NewEntity();
         SetStatusDuration(status, duration);
+        SetStatusSource(status, context.SourceObj, context.PowerLevel);
         ModClass.I.CommandBuffer.AddComponent(status.Id, new StatusStatsMultiplier
         {
             Value = strength
         });
-        SetStatusSource(status, context.SourceObj, context.PowerLevel);
-        target.a.GetExtend().AddSharedStatus(status);
+        if (!actorExtend.AddSharedStatus(status))
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(status.Id);
     }
 
     // 击中单位时附加冰冻状态
@@ -1184,13 +1188,15 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         if (container.IsNull || !container.TryGetComponent(out FreezeModifier freeze)) return;
         if (!skillEntity.TryGetComponent(out SkillContext context)) return;
 
-        var duration = Mathf.Clamp(freeze.Duration, 0f, 999f);
+        var duration = Mathf.Clamp(freeze.Duration * context.EffectScale, 0f, 999f);
         if (duration <= 0f) return;
 
         var status = StatusEffects.Freeze.NewEntity();
         SetStatusDuration(status, duration);
         SetStatusSource(status, context.SourceObj, context.PowerLevel);
-        target.a.GetExtend().AddSharedStatus(status);
+        ActorExtend actorExtend = target.a.GetExtend();
+        if (!actorExtend.AddSharedStatus(status))
+            ModClass.I.CommandBuffer.AddTag<TagRecycle>(status.Id);
     }
 
     // 击中单位时施加短暂硬直
@@ -1199,11 +1205,12 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         if (!target.isActor()) return;
         if (!TryGetModifierContext<DazeModifier>(skillEntity, out var daze, out var context, out _)) return;
 
-        var duration = Mathf.Clamp(daze.Duration, 0f, 10f);
+        var duration = Mathf.Clamp(daze.Duration * context.EffectScale, 0f, 10f);
         if (duration <= 0f) return;
 
-        ApplyTimedStatus(target.a.GetExtend(), StatusEffects.Daze, duration, context.SourceObj, context.PowerLevel);
-        target.a.makeWait(duration);
+        float appliedDuration = ApplyTimedStatus(
+            target.a.GetExtend(), StatusEffects.Daze, duration, context.SourceObj, context.PowerLevel);
+        if (appliedDuration > 0f) target.a.makeWait(appliedDuration);
     }
 
     // 构建阶段降低伤害，命中时把部分伤害转为施法者回复
@@ -1221,12 +1228,15 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
     private static void ApplyMercyEffect(Entity skillEntity, BaseSimObject target)
     {
         if (!TryGetModifierContext<MercyModifier>(skillEntity, out var mercy, out var context, out _)) return;
-        if (context.SourceObj.isRekt() || !context.SourceObj.isActor()) return;
+        Actor carrier = ResolveSpatialActor(in context);
+        if (carrier == null) return;
 
-        var heal = Mathf.RoundToInt(Mathf.Max(0f, context.Strength * Mathf.Clamp(mercy.HealRatio, 0f, 5f)));
+        var heal = Mathf.RoundToInt(Mathf.Max(
+            0f,
+            context.Strength * Mathf.Clamp(mercy.HealRatio, 0f, 5f) * context.EffectScale));
         if (heal <= 0) return;
 
-        context.SourceObj.a.restoreHealth(heal);
+        RestoreSpatialHealth(carrier, heal);
     }
 
     // 构建阶段让法术的伤害、初始角度和速度产生随机波动
@@ -1263,10 +1273,10 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
     {
         if (!target.isActor()) return;
         if (!TryGetModifierContext<SwapModifier>(skillEntity, out var swap, out var context, out _)) return;
-        if (!Randy.randomChance(Mathf.Clamp01(swap.Chance))) return;
-        if (context.SourceObj.isRekt() || !context.SourceObj.isActor()) return;
+        if (!Randy.randomChance(Mathf.Clamp01(swap.Chance * context.EffectScale))) return;
+        Actor sourceActor = ResolveSpatialActor(in context);
+        if (sourceActor == null) return;
 
-        var sourceActor = context.SourceObj.a;
         var targetActor = target.a;
         if (sourceActor.current_tile == null || targetActor.current_tile == null) return;
         if (sourceActor.current_tile == targetActor.current_tile) return;
@@ -1296,16 +1306,20 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         switch (Randy.randomInt(0, 6))
         {
             case 0:
-                ApplyTimedStatus(target.a.GetExtend(), StatusEffects.Daze, 0.25f + power * 0.15f,
+                float dazeDuration = ApplyTimedStatus(
+                    target.a.GetExtend(), StatusEffects.Daze,
+                    (0.25f + power * 0.15f) * context.EffectScale,
                     context.SourceObj, context.PowerLevel);
-                target.a.makeWait(0.25f + power * 0.15f);
+                if (dazeDuration > 0f) target.a.makeWait(dazeDuration);
                 break;
             case 1:
-                ApplyDamageOverTime(target, StatusEffects.Burn, 2f + power, context.Strength * (0.08f + power * 0.03f),
+                ApplyDamageOverTime(target, StatusEffects.Burn, 2f + power,
+                    context.Strength * (0.08f + power * 0.03f) * context.EffectScale,
                     ElementComposition.Static.Fire, context.SourceObj, context.PowerLevel);
                 break;
             case 2:
-                ApplyDamageOverTime(target, StatusEffects.Poison, 3f + power, context.Strength * (0.06f + power * 0.025f),
+                ApplyDamageOverTime(target, StatusEffects.Poison, 3f + power,
+                    context.Strength * (0.06f + power * 0.025f) * context.EffectScale,
                     ElementComposition.Static.Poison, context.SourceObj, context.PowerLevel);
                 break;
             case 3:
@@ -1313,10 +1327,15 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
                 break;
             case 4:
                 ApplyStatDebuff(target, StatusEffects.ArmorBreak, 2f + power * 0.4f, 0f,
-                    Mathf.Clamp01(0.08f + power * 0.03f), context.SourceObj, context.PowerLevel);
+                    Mathf.Clamp01((0.08f + power * 0.03f) * context.EffectScale), context.SourceObj, context.PowerLevel);
                 break;
             case 5:
-                ApplyKnockbackForce(skillEntity, target, context, 1f + power * 0.4f, 0.4f + power * 0.2f);
+                ApplyKnockbackForce(
+                    skillEntity,
+                    target,
+                    context,
+                    (1f + power * 0.4f) * context.EffectScale,
+                    (0.4f + power * 0.2f) * context.EffectScale);
                 break;
         }
     }
@@ -1336,7 +1355,8 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         var burnRatio = Mathf.Clamp(burnout.BurnDamageRatio, 0f, 10f);
         if (duration <= 0f || burnRatio <= 0f) return;
 
-        ApplyDamageOverTime(target, StatusEffects.Burn, duration, context.Strength * burnRatio,
+        ApplyDamageOverTime(target, StatusEffects.Burn, duration,
+            context.Strength * burnRatio * context.EffectScale,
             ElementComposition.Static.Fire, context.SourceObj, context.PowerLevel);
     }
 
@@ -1358,7 +1378,7 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         if (!TryGetModifierContext<SilenceModifier>(skillEntity, out var silence, out var context, out _)) return;
 
         var duration = Mathf.Clamp(silence.Duration, 0f, 999f);
-        var reduction = Mathf.Clamp01(silence.DamageReduction);
+        var reduction = Mathf.Clamp01(silence.DamageReduction * context.EffectScale);
         if (duration <= 0f || reduction <= 0f) return;
 
         ApplyStatDebuff(target, StatusEffects.Silence, duration, reduction, 0f, context.SourceObj, context.PowerLevel);
@@ -1371,7 +1391,7 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         if (!TryGetModifierContext<DeathSentenceModifier>(skillEntity, out var sentence, out var context, out _))
             return;
 
-        var duration = 3f;
+        var duration = 3f * context.EffectScale;
         ApplyTimedStatus(target.a.GetExtend(), StatusEffects.DeathSentence, duration, context.SourceObj,
             context.PowerLevel);
 
@@ -1400,29 +1420,32 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
 
         var element = new ElementComposition(pos: 0.35f, neg: 0.35f, entropy: 0.3f, normalize: true);
         var trialDamage = Mathf.Max(0f, context.Strength * Mathf.Clamp(trial.DamageRatio, 0f, 20f));
-        if (trialDamage <= 0f) return;
+        float scaledTrialDamage = trialDamage * context.EffectScale;
+        if (scaledTrialDamage <= 0f) return;
 
-        var likelyKills = target.isActor() && target.a.getHealth() <= trialDamage;
+        var likelyKills = target.isActor() && target.a.getHealth() <= scaledTrialDamage;
         DealDamage(target, trialDamage, element, context);
 
-        if (context.SourceObj.isRekt() || !context.SourceObj.isActor()) return;
+        Actor carrier = ResolveSpatialActor(in context);
+        if (carrier == null) return;
 
         if (likelyKills)
         {
-            var heal = Mathf.RoundToInt(trialDamage * Mathf.Clamp(trial.HealRatio, 0f, 10f));
-            if (heal > 0) context.SourceObj.a.restoreHealth(heal);
+            var heal = Mathf.RoundToInt(scaledTrialDamage * Mathf.Clamp(trial.HealRatio, 0f, 10f));
+            if (heal > 0) RestoreSpatialHealth(carrier, heal);
             return;
         }
 
-        var backlash = trialDamage * Mathf.Clamp(trial.BacklashRatio, 0f, 10f);
+        var backlash = scaledTrialDamage * Mathf.Clamp(trial.BacklashRatio, 0f, 10f);
         if (backlash <= 0f) return;
 
-        SkillGroundFx.OnImpact(context.SourceObj.GetSimPos(), skill.VfxElement, 0, isArea: false, sourceObj: target);
+        SkillGroundFx.OnImpact(carrier.GetSimPos(), skill.VfxElement, 0, isArea: false, sourceObj: target);
         var evt = new GetHitEvent
         {
-            TargetID = context.SourceObj.a.data.id,
+            TargetID = carrier.data.id,
             Damage = backlash,
             Element = element,
+            AttackType = AttackType.Other,
             AttackerPowerLevel = context.PowerLevel
         };
         evt.BindAttacker(target);
@@ -1439,12 +1462,12 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         if (duration <= 0f) return;
 
         var actorExtend = target.a.GetExtend();
-        var status = GetOrCreateStatus(actorExtend, StatusEffects.EternalCurse, context.SourceObj, context.PowerLevel,
-            out var isNewStatus);
-        SetStatusDuration(status, duration);
-        if (isNewStatus && !actorExtend.AddSharedStatus(status)) return;
+        Entity status = GetOrCreateStatus(actorExtend, StatusEffects.EternalCurse, out bool isNewStatus);
+        if (!TryApplyStatusDuration(
+                actorExtend, status, StatusEffects.EternalCurse, duration,
+                context.SourceObj, context.PowerLevel, isNewStatus, out _)) return;
 
-        var totalDamage = context.Strength * Mathf.Clamp(curse.DamageRatio, 0f, 20f);
+        var totalDamage = context.Strength * Mathf.Clamp(curse.DamageRatio, 0f, 20f) * context.EffectScale;
         if (totalDamage > 0f)
         {
             ApplyDamageTickState(ref status, totalDamage / duration,
@@ -1452,7 +1475,7 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
                 context.PowerLevel);
         }
 
-        var debuffRatio = Mathf.Clamp01(curse.DebuffRatio);
+        var debuffRatio = Mathf.Clamp01(curse.DebuffRatio * context.EffectScale);
         if (debuffRatio <= 0f) return;
 
         var stats = PrepareOverwriteStats(status);
@@ -1576,7 +1599,7 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         var damageRatio = Mathf.Clamp(burn.DamageRatio, 0f, 1f);
         if (duration <= 0f || damageRatio <= 0f) return;
 
-        var totalDamage = Mathf.Max(0f, context.Strength * damageRatio);
+        var totalDamage = Mathf.Max(0f, context.Strength * damageRatio * context.EffectScale);
         if (totalDamage <= 0f) return;
         var element = ElementComposition.Static.Fire;
         var dps = duration > 0f ? totalDamage / duration : 0f;
@@ -1594,20 +1617,12 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
             }
         }
 
-        if (burnStatus.IsNull)
-        {
-            burnStatus = StatusEffects.Burn.NewEntity();
-            SetStatusDuration(burnStatus, duration);
-            SetStatusSource(burnStatus, context.SourceObj, context.PowerLevel);
-            ApplyDamageTickState(ref burnStatus, dps, element, context.SourceObj, context.PowerLevel);
-            actorExtend.AddSharedStatus(burnStatus);
-        }
-        else
-        {
-            SetStatusDuration(burnStatus, duration);
-            SetStatusSource(burnStatus, context.SourceObj, context.PowerLevel);
-            ApplyDamageTickState(ref burnStatus, dps, element, context.SourceObj, context.PowerLevel);
-        }
+        bool isNewStatus = burnStatus.IsNull;
+        if (isNewStatus) burnStatus = StatusEffects.Burn.NewEntity();
+        if (!TryApplyStatusDuration(
+                actorExtend, burnStatus, StatusEffects.Burn, duration,
+                context.SourceObj, context.PowerLevel, isNewStatus, out _)) return;
+        ApplyDamageTickState(ref burnStatus, dps, element, context.SourceObj, context.PowerLevel);
     }
 
     // 击中单位时附加中毒效果
@@ -1638,23 +1653,24 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
             }
         }
 
-        var totalDamage = Mathf.Max(0f, context.Strength * damageRatio);
+        var totalDamage = Mathf.Max(0f, context.Strength * damageRatio * context.EffectScale);
         if (totalDamage <= 0f) return;
         var element = ElementComposition.Static.Poison;
         var damagePerSecond = duration > 0f ? totalDamage / duration : 0f;
         if (damagePerSecond <= 0f) return;
         if (poisonStatuses.Count >= maxStacks)
         {
-            RefreshExistingPoison(duration, damagePerSecond, element, context.SourceObj, context.PowerLevel,
-                poisonStatuses);
+            RefreshExistingPoison(
+                actorExtend, duration, damagePerSecond, element,
+                context.SourceObj, context.PowerLevel, poisonStatuses);
             return;
         }
 
-        var status = StatusEffects.Poison.NewEntity();
-        SetStatusDuration(status, duration);
-        SetStatusSource(status, context.SourceObj, context.PowerLevel);
+        Entity status = StatusEffects.Poison.NewEntity();
+        if (!TryApplyStatusDuration(
+                actorExtend, status, StatusEffects.Poison, duration,
+                context.SourceObj, context.PowerLevel, true, out _)) return;
         ApplyDamageTickState(ref status, damagePerSecond, element, context.SourceObj, context.PowerLevel);
-        actorExtend.AddSharedStatus(status);
     }
 
     private static void ApplyDamageTickState(ref Entity status, float dps, ElementComposition element,
@@ -1666,8 +1682,22 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         SetStatusSource(status, source, sourcePowerLevel);
     }
 
-    private static void RefreshExistingPoison(float duration, float dps, ElementComposition element,
-        BaseSimObject source, float? sourcePowerLevel, List<Entity> poisonStatuses)
+    /// <summary>刷新同一来源最早加入的中毒层，并重新结算战力等级压制。</summary>
+    /// <param name="actorExtend">承受中毒的目标。</param>
+    /// <param name="duration">压制前持续时间。</param>
+    /// <param name="dps">每秒伤害。</param>
+    /// <param name="element">伤害元素构成。</param>
+    /// <param name="source">中毒来源。</param>
+    /// <param name="sourcePowerLevel">施加中毒时固定的来源战力等级。</param>
+    /// <param name="poisonStatuses">同一来源已有的中毒层。</param>
+    private static void RefreshExistingPoison(
+        ActorExtend actorExtend,
+        float duration,
+        float dps,
+        ElementComposition element,
+        BaseSimObject source,
+        float? sourcePowerLevel,
+        List<Entity> poisonStatuses)
     {
         Entity targetStatus = default;
         float minTimer = float.MaxValue;
@@ -1681,12 +1711,11 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
             }
         }
 
-        if (targetStatus.IsNull)
-        {
-            return;
-        }
+        if (targetStatus.IsNull ||
+            !TryApplyStatusDuration(
+                actorExtend, targetStatus, StatusEffects.Poison, duration,
+                source, sourcePowerLevel, false, out _)) return;
 
-        SetStatusDuration(targetStatus, duration);
         ApplyDamageTickState(ref targetStatus, dps, element, source, sourcePowerLevel);
     }
 
@@ -1700,8 +1729,8 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         if (container.IsNull || !container.TryGetComponent(out KnockbackModifier knockback)) return;
         if (!skillEntity.TryGetComponent(out SkillContext context)) return;
 
-        var distance = Mathf.Clamp(knockback.Distance, 0f, 10f);
-        var height = Mathf.Clamp(knockback.Height, 0f, 5f);
+        var distance = Mathf.Clamp(knockback.Distance * context.EffectScale, 0f, 10f);
+        var height = Mathf.Clamp(knockback.Height * context.EffectScale, 0f, 5f);
         if (distance <= 0f && height <= 0f) return;
 
         ApplyKnockbackForce(skillEntity, target, context, distance, height);
@@ -1753,16 +1782,16 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         var duration = Mathf.Clamp(weaken.Duration, 0f, 999f);
         if (duration <= 0f) return;
 
-        var attackReduction = Mathf.Clamp01(weaken.AttackReduction);
+        var attackReduction = Mathf.Clamp01(weaken.AttackReduction * context.EffectScale);
 
         var attackDelta = attackReduction > 0f ? Mathf.Max(0f, target.stats[S.damage]) * attackReduction : 0f;
         if (attackDelta <= 0f) return;
 
         var actorExtend = target.a.GetExtend();
-        var status = GetOrCreateStatus(actorExtend, StatusEffects.Weaken, context.SourceObj, context.PowerLevel,
-            out var isNewStatus);
-        SetStatusDuration(status, duration);
-        if (isNewStatus && !actorExtend.AddSharedStatus(status)) return;
+        Entity status = GetOrCreateStatus(actorExtend, StatusEffects.Weaken, out bool isNewStatus);
+        if (!TryApplyStatusDuration(
+                actorExtend, status, StatusEffects.Weaken, duration,
+                context.SourceObj, context.PowerLevel, isNewStatus, out _)) return;
 
         var stats = PrepareOverwriteStats(status);
         if (attackDelta > 0f)
@@ -1784,15 +1813,15 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         var duration = Mathf.Clamp(armorBreak.Duration, 0f, 999f);
         if (duration <= 0f) return;
 
-        var reductionRatio = Mathf.Clamp01(armorBreak.ArmorReduction);
+        var reductionRatio = Mathf.Clamp01(armorBreak.ArmorReduction * context.EffectScale);
         var armorDelta = reductionRatio > 0f ? Mathf.Max(0f, target.stats[S.armor]) * reductionRatio : 0f;
         if (armorDelta <= 0f) return;
 
         var actorExtend = target.a.GetExtend();
-        var status = GetOrCreateStatus(actorExtend, StatusEffects.ArmorBreak, context.SourceObj, context.PowerLevel,
-            out var isNewStatus);
-        SetStatusDuration(status, duration);
-        if (isNewStatus && !actorExtend.AddSharedStatus(status)) return;
+        Entity status = GetOrCreateStatus(actorExtend, StatusEffects.ArmorBreak, out bool isNewStatus);
+        if (!TryApplyStatusDuration(
+                actorExtend, status, StatusEffects.ArmorBreak, duration,
+                context.SourceObj, context.PowerLevel, isNewStatus, out _)) return;
 
         var stats = PrepareOverwriteStats(status);
         stats[S.armor] = -armorDelta;
@@ -1805,13 +1834,13 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         var container = skill.SkillContainer;
         if (container.IsNull || !container.TryGetComponent(out GravityModifier gravity)) return;
 
-        var radius = SkillEffectRadius.Resolve(skillEntity, Mathf.Clamp(gravity.Radius, 0.5f, 10f));
-        var strength = Mathf.Clamp(gravity.Strength, 0f, 10f);
-        if (radius <= 0f || strength <= 0f) return;
-
         var data = skillEntity.Data;
         ref var skillPos = ref data.Get<Position>();
         ref var context = ref data.Get<SkillContext>();
+        var radius = SkillEffectRadius.Resolve(skillEntity, Mathf.Clamp(gravity.Radius, 0.5f, 10f));
+        var strength = Mathf.Clamp(gravity.Strength * context.EffectScale, 0f, 10f);
+        if (radius <= 0f || strength <= 0f) return;
+
         var attacker = context.SourceObj;
 
         // 对范围内的敌人施加引力
@@ -1869,6 +1898,8 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         SkillContext context, bool ignoreDamageReduction = false)
     {
         if (target.isRekt() || damage <= 0f) return;
+        damage *= context.EffectScale;
+        if (damage <= 0f) return;
 
         if (target.isActor())
         {
@@ -1877,10 +1908,13 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
                 TargetID = target.a.data.id,
                 Damage = damage,
                 Element = element,
+                AttackType = AttackType.Other,
                 AttackerPowerLevel = context.PowerLevel,
                 IgnoreDamageReduction = ignoreDamageReduction
             };
-            evt.BindAttacker(context.SourceObj, context.SourceId);
+            BaseSimObject attacker = context.ResolveSpatialSource();
+            if (attacker == null || attacker.isRekt()) attacker = context.SourceObj;
+            evt.BindAttacker(attacker);
             EventSystemHub.Publish(evt);
         }
         else
@@ -1889,14 +1923,44 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         }
     }
 
-    private static bool ApplyTimedStatus(ActorExtend actorExtend, StatusEffectAsset effect, float duration,
+    /// <summary>返回技能实际占据空间并承受自身效果的人物。</summary>
+    private static Actor ResolveSpatialActor(in SkillContext context)
+    {
+        BaseSimObject spatial = context.ResolveSpatialSource();
+        if (spatial?.isActor() == true && !spatial.isRekt()) return spatial.a;
+        return context.SourceObj?.isActor() == true && !context.SourceObj.isRekt()
+            ? context.SourceObj.a
+            : null;
+    }
+
+    /// <summary>把技能自身治疗写到实际载体；临时命魂恢复完整度而非本体生命。</summary>
+    private static void RestoreSpatialHealth(Actor carrier, float amount)
+    {
+        if (carrier == null || carrier.isRekt() || amount <= 0f) return;
+        if (carrier.GetExtend().HasComponent<YuanshenSoulCarrierState>())
+            YuanshenTravelService.RestoreSoulCarrierIntegrity(carrier, amount);
+        else
+            carrier.restoreHealth(Mathf.RoundToInt(amount));
+    }
+
+    /// <summary>施加或刷新一个定时状态，并返回经过战力等级压制后的实际持续时间。</summary>
+    /// <param name="actorExtend">承受状态的目标。</param>
+    /// <param name="effect">状态类型。</param>
+    /// <param name="duration">压制前持续时间。</param>
+    /// <param name="source">状态来源。</param>
+    /// <param name="sourcePowerLevel">施加状态时固定的来源战力等级。</param>
+    /// <returns>状态成功施加时返回实际持续时间，否则返回零。</returns>
+    private static float ApplyTimedStatus(ActorExtend actorExtend, StatusEffectAsset effect, float duration,
         BaseSimObject source, float? sourcePowerLevel)
     {
-        if (actorExtend == null || duration <= 0f) return false;
+        if (actorExtend == null || duration <= 0f) return 0f;
 
-        var status = GetOrCreateStatus(actorExtend, effect, source, sourcePowerLevel, out var isNewStatus);
-        SetStatusDuration(status, duration);
-        return !isNewStatus || actorExtend.AddSharedStatus(status);
+        Entity status = GetOrCreateStatus(actorExtend, effect, out bool isNewStatus);
+        return TryApplyStatusDuration(
+            actorExtend, status, effect, duration, source, sourcePowerLevel, isNewStatus,
+            out float appliedDuration)
+            ? appliedDuration
+            : 0f;
     }
 
     private static void ApplyDamageOverTime(BaseSimObject target, StatusEffectAsset effect, float duration,
@@ -1906,9 +1970,9 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         if (duration <= 0f || totalDamage <= 0f) return;
 
         var actorExtend = target.a.GetExtend();
-        var status = GetOrCreateStatus(actorExtend, effect, source, sourcePowerLevel, out var isNewStatus);
-        SetStatusDuration(status, duration);
-        if (isNewStatus && !actorExtend.AddSharedStatus(status)) return;
+        Entity status = GetOrCreateStatus(actorExtend, effect, out bool isNewStatus);
+        if (!TryApplyStatusDuration(
+                actorExtend, status, effect, duration, source, sourcePowerLevel, isNewStatus, out _)) return;
 
         ApplyDamageTickState(ref status, totalDamage / duration, element, source, sourcePowerLevel);
     }
@@ -1920,9 +1984,9 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         if (duration <= 0f) return;
 
         var actorExtend = target.a.GetExtend();
-        var status = GetOrCreateStatus(actorExtend, effect, source, sourcePowerLevel, out var isNewStatus);
-        SetStatusDuration(status, duration);
-        if (isNewStatus && !actorExtend.AddSharedStatus(status)) return;
+        Entity status = GetOrCreateStatus(actorExtend, effect, out bool isNewStatus);
+        if (!TryApplyStatusDuration(
+                actorExtend, status, effect, duration, source, sourcePowerLevel, isNewStatus, out _)) return;
 
         var stats = PrepareOverwriteStats(status);
         if (attackReduction > 0f)
@@ -1935,6 +1999,50 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         }
     }
 
+    /// <summary>写入状态持续时间，并让首次施加和刷新使用同一套战力等级压制。</summary>
+    /// <param name="actorExtend">承受状态的目标。</param>
+    /// <param name="status">准备写入的状态实体。</param>
+    /// <param name="effect">状态类型。</param>
+    /// <param name="duration">压制前持续时间。</param>
+    /// <param name="source">状态来源。</param>
+    /// <param name="sourcePowerLevel">施加状态时固定的来源战力等级。</param>
+    /// <param name="isNewStatus">当前状态是否尚未加入目标。</param>
+    /// <param name="appliedDuration">返回实际写入的持续时间。</param>
+    /// <returns>状态成功施加或刷新时返回真。</returns>
+    private static bool TryApplyStatusDuration(
+        ActorExtend actorExtend,
+        Entity status,
+        StatusEffectAsset effect,
+        float duration,
+        BaseSimObject source,
+        float? sourcePowerLevel,
+        bool isNewStatus,
+        out float appliedDuration)
+    {
+        appliedDuration = 0f;
+        if (isNewStatus)
+        {
+            SetStatusSource(status, source, sourcePowerLevel);
+            SetStatusDuration(status, duration);
+            if (!actorExtend.AddSharedStatus(status))
+            {
+                ModClass.I.CommandBuffer.AddTag<TagRecycle>(status.Id);
+                return false;
+            }
+            appliedDuration = status.GetComponent<AliveTimeLimit>().value;
+            return true;
+        }
+
+        if (!StatusEffectSuppression.TryResolveDuration(
+                actorExtend, effect, duration, source, sourcePowerLevel, out appliedDuration)) return false;
+        SetStatusSource(status, source, sourcePowerLevel);
+        SetStatusDuration(status, appliedDuration);
+        return true;
+    }
+
+    /// <summary>重置状态持续时间及其已流逝时间。</summary>
+    /// <param name="status">需要重置的状态实体。</param>
+    /// <param name="duration">需要写入的持续时间。</param>
     private static void SetStatusDuration(Entity status, float duration)
     {
         ref var timeLimit = ref status.GetComponent<AliveTimeLimit>();
@@ -1945,24 +2053,26 @@ public partial class SkillModifiers : ExtendLibrary<SkillModifierAsset, SkillMod
         timer.value = 0f;
     }
 
-    private static Entity GetOrCreateStatus(ActorExtend actorExtend, StatusEffectAsset effect,
-        BaseSimObject source, float? sourcePowerLevel, out bool isNewStatus)
+    /// <summary>取得目标现有的同类状态，或者创建一个尚未加入目标的新状态。</summary>
+    /// <param name="actorExtend">承受状态的目标。</param>
+    /// <param name="effect">状态类型。</param>
+    /// <param name="isNewStatus">返回状态是否为新建实体。</param>
+    /// <returns>现有或新建的状态实体。</returns>
+    private static Entity GetOrCreateStatus(
+        ActorExtend actorExtend,
+        StatusEffectAsset effect,
+        out bool isNewStatus)
     {
         foreach (var status in actorExtend.GetStatuses())
         {
             if (status.IsNull || !status.TryGetComponent(out StatusComponent statusComponent)) continue;
-            if (statusComponent.Type == effect)
-            {
-                SetStatusSource(status, source, sourcePowerLevel);
-                isNewStatus = false;
-                return status;
-            }
+            if (statusComponent.Type != effect) continue;
+            isNewStatus = false;
+            return status;
         }
 
-        var newStatus = effect.NewEntity();
-        SetStatusSource(newStatus, source, sourcePowerLevel);
         isNewStatus = true;
-        return newStatus;
+        return effect.NewEntity();
     }
 
     private static void SetStatusSource(Entity status, BaseSimObject source, float? sourcePowerLevel)

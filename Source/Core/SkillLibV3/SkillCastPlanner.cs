@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Core.SkillLibV3.Modifiers;
 using Cultiway.Core.SkillLibV3.Usage;
@@ -71,6 +73,65 @@ public readonly struct SkillCastStep
 
 public static class SkillCastPlanner
 {
+    /// <summary>内容系统可注册的施法许可校验器。</summary>
+    private static Func<ActorExtend, Entity, bool> castValidator;
+
+    /// <summary>内容系统可注册的技能出生位置解析器。</summary>
+    private static Func<ActorExtend, Entity, Vector3?> sourcePositionResolver;
+
+    /// <summary>注册一个在计划生成前执行的施法许可校验器。</summary>
+    /// <param name="validator">返回假时禁止本次技能释放。</param>
+    public static void RegisterCastValidator(Func<ActorExtend, Entity, bool> validator)
+    {
+        castValidator += validator;
+    }
+
+    /// <summary>执行全部已注册许可校验，任一拒绝即禁止施法。</summary>
+    /// <param name="caster">技能归属人物。</param>
+    /// <param name="skill">准备释放的技能。</param>
+    /// <returns>没有校验器拒绝时返回真。</returns>
+    public static bool CanCast(ActorExtend caster, Entity skill)
+    {
+        if (castValidator == null) return true;
+        Delegate[] validators = castValidator.GetInvocationList();
+        for (var i = 0; i < validators.Length; i++)
+            if (!((Func<ActorExtend, Entity, bool>)validators[i])(caster, skill)) return false;
+        return true;
+    }
+
+    /// <summary>注册一个在不改变施法者归属的前提下改写技能出生位置的解析器。</summary>
+    /// <param name="resolver">返回世界坐标表示改写；返回空表示继续使用人物位置。</param>
+    public static void RegisterSourcePositionResolver(Func<ActorExtend, Entity, Vector3?> resolver)
+    {
+        sourcePositionResolver += resolver;
+    }
+
+    /// <summary>按注册顺序取得第一个明确的技能出生位置。</summary>
+    /// <param name="caster">技能归属人物。</param>
+    /// <param name="skill">准备释放的技能。</param>
+    /// <param name="position">返回出生位置。</param>
+    /// <returns>内容系统提供了有效位置时返回真。</returns>
+    public static bool TryResolveSourcePosition(ActorExtend caster, Entity skill, out Vector3 position)
+    {
+        position = default;
+        if (caster == null) return false;
+        if (SkillCasterContextService.TryGetCurrent(caster, out SkillCasterContext context) &&
+            context.Carrier != caster)
+        {
+            return false;
+        }
+        if (sourcePositionResolver == null) return false;
+        Delegate[] resolvers = sourcePositionResolver.GetInvocationList();
+        for (var i = 0; i < resolvers.Length; i++)
+        {
+            Vector3? candidate = ((Func<ActorExtend, Entity, Vector3?>)resolvers[i])(caster, skill);
+            if (!candidate.HasValue) continue;
+            position = candidate.Value;
+            return true;
+        }
+        return false;
+    }
+
     private const float DelayStep = 0.04f;
     private const float MinDelayStep = 0.01f;
     private const float MinSalvoAngleOffset = 3f;
@@ -82,9 +143,9 @@ public static class SkillCastPlanner
         int maxStepCount = int.MaxValue, IReadOnlyList<BaseSimObject> explicitTargets = null,
         bool explicitTargetsOnly = false)
     {
-        if (maxStepCount <= 0) return SkillCastPlan.Empty;
-        if (caster == null || caster.Base.isRekt()) return SkillCastPlan.Empty;
-        if (primaryTarget.isRekt()) return SkillCastPlan.Empty;
+        if (maxStepCount <= 0 || caster == null || caster.Base.isRekt() ||
+            !CanCast(caster, skill)) return SkillCastPlan.Empty;
+        if (primaryTarget == null || primaryTarget.isRekt()) return SkillCastPlan.Empty;
         if (!skill.HasComponent<SkillContainer>()) return SkillCastPlan.Empty;
 
         var plan = new SkillCastPlan();
@@ -99,7 +160,9 @@ public static class SkillCastPlanner
         {
             var target = i == 0 ? primaryTarget : SelectTarget(primaryTarget, targets, repeatBias, spreadBias);
             var angleOffset = GetSalvoAngleOffset(i, target == primaryTarget);
-            plan.Steps.Add(new SkillCastStep(target, i * delayStep, angleOffset));
+            plan.Steps.Add(TryResolveSourcePosition(caster, skill, out Vector3 sourcePosition)
+                ? SkillCastStep.FromSource(sourcePosition, target, target.GetSimPos(), i * delayStep, true, angleOffset)
+                : new SkillCastStep(target, i * delayStep, angleOffset));
         }
 
         return plan;
@@ -108,8 +171,8 @@ public static class SkillCastPlanner
     public static SkillCastPlan CreatePointPlan(ActorExtend caster, Entity skill, Vector3 targetPos,
         int maxStepCount = int.MaxValue)
     {
-        if (maxStepCount <= 0) return SkillCastPlan.Empty;
-        if (caster == null || caster.Base.isRekt()) return SkillCastPlan.Empty;
+        if (maxStepCount <= 0 || caster == null || caster.Base.isRekt() ||
+            !CanCast(caster, skill)) return SkillCastPlan.Empty;
         if (!skill.HasComponent<SkillContainer>()) return SkillCastPlan.Empty;
 
         var plan = new SkillCastPlan();
@@ -119,7 +182,9 @@ public static class SkillCastPlanner
         for (var i = 0; i < castCount; i++)
         {
             var angleOffset = GetSalvoAngleOffset(i, true);
-            plan.Steps.Add(new SkillCastStep(targetPos, i * delayStep, angleOffset));
+            plan.Steps.Add(TryResolveSourcePosition(caster, skill, out Vector3 sourcePosition)
+                ? SkillCastStep.FromSource(sourcePosition, null, targetPos, i * delayStep, false, angleOffset)
+                : new SkillCastStep(targetPos, i * delayStep, angleOffset));
         }
 
         return plan;

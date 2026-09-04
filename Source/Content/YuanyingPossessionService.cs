@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Const;
+using Cultiway.Content.Combat;
 using Cultiway.Content.Components;
 using Cultiway.Content.Const;
 using Cultiway.Core;
@@ -145,8 +146,11 @@ public static class YuanyingPossessionService
         SoulContestResult contest = SoulContestResolver.Resolve(sourceExtend, target.GetExtend());
         if (!Randy.randomChance(contest.SuccessChance))
         {
-            target.addStatusEffect(StatusEffects.SoulTrauma.id,
-                YuanyingPossessionRules.SoulTraumaDuration, pColorEffect: false);
+            CombatStatusEffects.ApplyStatus(
+                target,
+                StatusEffects.SoulTrauma,
+                YuanyingPossessionRules.SoulTraumaDuration,
+                source);
             WorldLogUtils.LogYuanyingPossessionFailure(source, target);
             TerminateSoul(source, "contest_failed");
             return false;
@@ -244,8 +248,10 @@ public static class YuanyingPossessionService
         if (Mathf.Floor(damage) < actor.data.health) return;
         if (attackType is AttackType.Divine or AttackType.Metamorphosis) return;
         if (!HasRequiredRuntimeAssets() || World.world == null || World.world.subspecies == null) return;
-        if (actorExtend.HasComponent<YuanyingSoulState>()
-            || actor.hasStatus(StatusEffects.BodyDisharmony.id)) return;
+        if (actorExtend.HasComponent<YuanyingSoulState>() ||
+            CombatStatusEffects.HasStatus(actor, StatusEffects.BodyDisharmony)) return;
+        if (actorExtend.TryGetComponent(out Xian cultivation) &&
+            cultivation.CurrLevel >= XianLevels.Huashen) return;
 
         YuanyingSeed seed = ResolveEscapeSeed(actorExtend);
         if (!seed.IsValid) return;
@@ -278,8 +284,11 @@ public static class YuanyingPossessionService
                 channel_started_at = 0d,
                 target_actor_id = -1L
             });
-            actor.addStatusEffect(StatusEffects.YuanyingEscape.id,
-                YuanyingPossessionRules.SoulLifetime, pColorEffect: false);
+            CombatStatusEffects.ApplyStatus(
+                actor,
+                StatusEffects.YuanyingEscape,
+                YuanyingPossessionRules.SoulLifetime,
+                actor);
             actorExtend.MarkCultiwayStatsDirty(false);
             CoreFormationEffectResolver.Synchronize(actorExtend);
             actor.setStatsDirty();
@@ -393,9 +402,12 @@ public static class YuanyingPossessionService
             source.setHealth(Mathf.Max(1, Mathf.RoundToInt(source.getMaxHealth()
                                                            * YuanyingPossessionRules.NewBodyHealthRatio)));
 
-            source.addStatusEffect(StatusEffects.BodyDisharmony.id,
-                YuanyingPossessionRules.BodyDisharmonyDuration, pColorEffect: false);
-            source.finishStatusEffect(StatusEffects.YuanyingEscape.id);
+            CombatStatusEffects.ApplyStatus(
+                source,
+                StatusEffects.BodyDisharmony,
+                YuanyingPossessionRules.BodyDisharmonyDuration,
+                source);
+            CombatStatusEffects.RemoveStatus(source, StatusEffects.YuanyingEscape);
             source.beh_actor_target = null;
             source.clearAttackTarget();
             source.clearTileTarget();

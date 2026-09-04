@@ -17,21 +17,6 @@ namespace Cultiway.Content.Artifacts;
 public static class ArtifactLoadoutPlanner
 {
     /// <summary>
-    /// 自动装备时为准备负荷预留的神识比例，避免自动选择占满全部容量。
-    /// </summary>
-    private const float AutomaticPreparedCapacityRatio = 0.8f;
-
-    /// <summary>
-    /// 自动模式允许用于运转法器的神识比例。
-    /// </summary>
-    private const float AutomaticOperatingCapacityRatio = 0.8f;
-
-    /// <summary>
-    /// 强制运转模式允许达到的神识负荷比例，超过完整容量的部分会形成超载。
-    /// </summary>
-    private const float ForcedOperatingCapacityRatio = 1.3f;
-
-    /// <summary>
     /// 刷新角色的整套法器配置和运行状态。
     /// </summary>
     /// <param name="actor">需要调度法器的角色扩展。</param>
@@ -39,7 +24,7 @@ public static class ArtifactLoadoutPlanner
     /// <param name="elapsedSeconds">距上次周期调度经过的秒数，用于推进祭炼熟练度。</param>
     public static void Refresh(ActorExtend actor, bool manageAutomaticEquipment, float elapsedSeconds)
     {
-        float capacity = actor.Base.stats[nameof(WorldboxGame.BaseStats.DivineSense)];
+        DivineSenseBudget budget = DivineSenseBudgetService.Resolve(actor);
         bool inCombat = IsCombatContext(actor.Base);
         Dictionary<int, EquippedArtifactRelation> existing = ReadRelations(actor.E);
         bool semanticProfileChanged = RemoveUnavailableRelations(actor.E, existing);
@@ -50,7 +35,7 @@ public static class ArtifactLoadoutPlanner
         if (manageAutomaticEquipment)
         {
             HashSet<int> desired = ManageAutomaticEquipment(
-                actor, candidates, existing, capacity, out bool equipmentChanged);
+                actor, candidates, existing, budget, out bool equipmentChanged);
             semanticProfileChanged |= equipmentChanged;
             candidates.RemoveAll(candidate => !desired.Contains(candidate.Item.Id));
         }
@@ -59,7 +44,7 @@ public static class ArtifactLoadoutPlanner
             candidates.RemoveAll(candidate => !candidate.HasRelation);
         }
 
-        semanticProfileChanged |= Schedule(actor, candidates, capacity, inCombat, elapsedSeconds);
+        semanticProfileChanged |= Schedule(actor, candidates, budget, inCombat, elapsedSeconds);
         if (semanticProfileChanged) actor.MarkSemanticProfileDirty();
     }
 
@@ -127,7 +112,7 @@ public static class ArtifactLoadoutPlanner
         ActorExtend actor,
         List<Candidate> candidates,
         Dictionary<int, EquippedArtifactRelation> existing,
-        float capacity,
+        DivineSenseBudget budget,
         out bool changed)
     {
         changed = false;
@@ -145,10 +130,10 @@ public static class ArtifactLoadoutPlanner
             usedPreparedLoad += candidate.PreparedLoad;
         }
         // 自动选择只使用部分神识容量，并按当前场景下的候选评分依次填充。
-        float targetPreparedLoad = capacity * AutomaticPreparedCapacityRatio;
+        float targetPreparedLoad = budget.AutomaticPreparedLimit;
         for (int i = 0; i < candidates.Count; i++)
         {
-            TrySelect(candidates[i], desired, ref usedPreparedLoad, targetPreparedLoad, capacity);
+            TrySelect(candidates[i], desired, ref usedPreparedLoad, targetPreparedLoad, budget.PreparedHardLimit);
         }
 
         // 移除不再属于本轮选择结果的自动装备关系。
@@ -187,7 +172,7 @@ public static class ArtifactLoadoutPlanner
     private static bool Schedule(
         ActorExtend actor,
         List<Candidate> candidates,
-        float capacity,
+        DivineSenseBudget budget,
         bool inCombat,
         float elapsedSeconds)
     {
@@ -204,7 +189,7 @@ public static class ArtifactLoadoutPlanner
         }
 
         // 分念限制控制同时运转的法器数量，神识负荷限制同时维持的总复杂度。
-        int threadCapacity = ArtifactControlRules.GetThreadCapacity(capacity);
+        int threadCapacity = budget.AvailableArtifactThreads;
         int usedThreads = 0;
         float usedPreparedLoad = 0f;
         float usedOperatingLoad = 0f;
@@ -218,7 +203,7 @@ public static class ArtifactLoadoutPlanner
             if (candidate.Mode != ArtifactEquipMode.ForcedOperating) continue;
             if (usedThreads + candidate.ThreadCost > threadCapacity) continue;
             float nextLoad = usedTotalLoad + candidate.OperatingLoad;
-            if (capacity <= 0f || nextLoad > capacity * ForcedOperatingCapacityRatio) continue;
+            if (budget.TotalLoadCapacity <= 0f || nextLoad > budget.ForcedOperatingLimit) continue;
 
             ref EquippedArtifactRelation relation = ref actor.E
                 .GetRelation<EquippedArtifactRelation, Entity>(candidate.Item);
@@ -230,7 +215,7 @@ public static class ArtifactLoadoutPlanner
         }
 
         // 自动法器仅在用途适合当前场景时运转，通常保留一部分神识余量。
-        float automaticLimit = capacity * AutomaticOperatingCapacityRatio;
+        float automaticLimit = budget.AutomaticOperatingLimit;
         for (int i = 0; i < candidates.Count; i++)
         {
             Candidate candidate = candidates[i];
@@ -240,7 +225,8 @@ public static class ArtifactLoadoutPlanner
 
             float nextLoad = usedTotalLoad + candidate.OperatingLoad;
             bool firstOperatingArtifact = operating.Count == 0;
-            if (nextLoad > automaticLimit && !(firstOperatingArtifact && nextLoad <= capacity)) continue;
+            if (nextLoad > automaticLimit &&
+                !(firstOperatingArtifact && nextLoad <= budget.PreparedHardLimit)) continue;
 
             ref EquippedArtifactRelation relation = ref actor.E
                 .GetRelation<EquippedArtifactRelation, Entity>(candidate.Item);
@@ -257,7 +243,7 @@ public static class ArtifactLoadoutPlanner
             Candidate candidate = candidates[i];
             if (operating.Contains(candidate.Item.Id)) continue;
             float nextLoad = usedTotalLoad + candidate.PreparedLoad;
-            if (nextLoad > capacity) continue;
+            if (nextLoad > budget.PreparedHardLimit) continue;
 
             ref EquippedArtifactRelation relation = ref actor.E
                 .GetRelation<EquippedArtifactRelation, Entity>(candidate.Item);
@@ -267,7 +253,7 @@ public static class ArtifactLoadoutPlanner
         }
 
         // 强制运转可能令总负荷超过容量，此时所有正在运转的法器统一标记为超载。
-        if (usedTotalLoad > capacity)
+        if (usedTotalLoad + budget.ReservedLoad > budget.TotalLoadCapacity)
         {
             for (int i = 0; i < candidates.Count; i++)
             {
@@ -293,7 +279,7 @@ public static class ArtifactLoadoutPlanner
         }
 
         // 保存本轮汇总结果，供角色页面和 Tooltip 直接展示。
-        ref ArtifactLoadoutState state = ref actor.E.GetComponent<ArtifactLoadoutState>();
+        ref ArtifactLoadoutState state = ref actor.GetOrAddComponent<ArtifactLoadoutState>();
         state.prepared_load = usedPreparedLoad;
         state.operating_load = usedOperatingLoad;
         state.used_threads = usedThreads;
@@ -395,12 +381,12 @@ public static class ArtifactLoadoutPlanner
         HashSet<int> desired,
         ref float usedPreparedLoad,
         float targetPreparedLoad,
-        float capacity)
+        float hardPreparedLimit)
     {
         if (desired.Contains(candidate.Item.Id)) return true;
         float nextLoad = usedPreparedLoad + candidate.PreparedLoad;
         bool fitsTarget = nextLoad <= targetPreparedLoad;
-        bool fitsAsOnlyChoice = desired.Count == 0 && nextLoad <= capacity;
+        bool fitsAsOnlyChoice = desired.Count == 0 && nextLoad <= hardPreparedLimit;
         if (!fitsTarget && !fitsAsOnlyChoice) return false;
 
         desired.Add(candidate.Item.Id);

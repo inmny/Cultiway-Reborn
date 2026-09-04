@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 
 namespace Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -29,50 +30,63 @@ public static class ActiveAbilityService
     public static void Collect(ActorExtend caster, ICollection<ActiveAbilityHandle> output)
     {
         output.Clear();
-        if (caster == null || caster.Base.isRekt()) return;
-
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid) return;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
         for (int i = 0; i < Providers.Count; i++)
         {
-            Providers[i].Collect(caster, output);
+            Providers[i].Collect(context.Owner, output);
         }
     }
 
     public static ActiveAbilityDescriptor Describe(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        return ResolveProvider(handle).Describe(caster, handle);
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid) return default;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
+        return ResolveProvider(handle).Describe(context.Owner, handle);
     }
 
     public static ActiveAbilityControlState ResolveControlState(
         ActorExtend caster,
         ActiveAbilityHandle handle)
     {
-        if (caster == null || caster.Base.isRekt() || IsSilenced(caster) ||
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || !IsAllowedForCarrier(in context, handle) || IsSilenced(in context) ||
             !TryResolveProvider(handle, out IActiveAbilityProvider provider))
         {
             return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
         }
-        return provider.ResolveControlState(caster, handle);
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
+        return provider.ResolveControlState(context.Owner, handle);
     }
 
     public static ActiveAbilityChannel GetChannels(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        return TryResolveProvider(handle, out IActiveAbilityProvider provider)
-            ? provider.GetChannels(caster, handle)
-            : ActiveAbilityChannel.None;
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || !IsAllowedForCarrier(in context, handle) ||
+            !TryResolveProvider(handle, out IActiveAbilityProvider provider))
+            return ActiveAbilityChannel.None;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
+        return provider.GetChannels(context.Owner, handle);
     }
 
     public static bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
-        return !IsSilenced(caster) &&
-               TryResolveProvider(handle, out IActiveAbilityProvider provider) &&
-               provider.CanPrepare(caster, handle, target);
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || !IsAllowedForCarrier(in context, handle) || IsSilenced(in context) ||
+            !TryResolveProvider(handle, out IActiveAbilityProvider provider)) return false;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
+        return provider.CanPrepare(context.Owner, handle, target);
     }
 
     public static bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
     {
-        return !IsSilenced(caster) &&
-               TryResolveProvider(handle, out IActiveAbilityProvider provider) &&
-               provider.CanUse(caster, handle, target);
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || !IsAllowedForCarrier(in context, handle) || IsSilenced(in context) ||
+            !TryResolveProvider(handle, out IActiveAbilityProvider provider)) return false;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
+        return provider.CanUse(context.Owner, handle, target);
     }
 
     public static bool TryUse(
@@ -81,24 +95,30 @@ public static class ActiveAbilityService
         in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin)
     {
-        if (IsSilenced(caster)) return false;
-        if (!TryResolveProvider(handle, out IActiveAbilityProvider provider)) return false;
-        if (!provider.CanUse(caster, handle, target)) return false;
-        return provider.TryUse(caster, handle, target, origin);
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || !IsAllowedForCarrier(in context, handle) || IsSilenced(in context) ||
+            !TryResolveProvider(handle, out IActiveAbilityProvider provider)) return false;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
+        if (!provider.CanUse(context.Owner, handle, target)) return false;
+        return provider.TryUse(context.Owner, handle, target, origin);
     }
 
     public static float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target = null)
     {
-        return TryResolveProvider(handle, out IActiveAbilityProvider provider)
-            ? Math.Max(0f, provider.ResolveRange(caster, handle, target))
-            : 0f;
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || !IsAllowedForCarrier(in context, handle) ||
+            !TryResolveProvider(handle, out IActiveAbilityProvider provider)) return 0f;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
+        return Math.Max(0f, provider.ResolveRange(context.Owner, handle, target));
     }
 
     public static float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        return TryResolveProvider(handle, out IActiveAbilityProvider provider)
-            ? Math.Max(0f, provider.ResolveEffectRadius(caster, handle))
-            : 0f;
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || !IsAllowedForCarrier(in context, handle) ||
+            !TryResolveProvider(handle, out IActiveAbilityProvider provider)) return 0f;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
+        return Math.Max(0f, provider.ResolveEffectRadius(context.Owner, handle));
     }
 
     public static int CollectAiCandidates(
@@ -107,30 +127,35 @@ public static class ActiveAbilityService
         IList<ActiveAbilityHandle> output,
         IList<int> weights)
     {
-        if (IsSilenced(caster))
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || IsSilenced(in context))
         {
             output.Clear();
             weights.Clear();
             return 0;
         }
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
         Collect(caster, output);
         weights.Clear();
         int totalWeight = 0;
         int writeIndex = 0;
         int collectedCount = output.Count;
-        var useTarget = new ActiveAbilityTarget(target, target?.GetSimPos() ?? caster.Base.GetSimPos());
+        var useTarget = new ActiveAbilityTarget(
+            target,
+            target?.GetSimPos() ?? context.Carrier.Base.GetSimPos());
         for (int i = 0; i < collectedCount; i++)
         {
             ActiveAbilityHandle handle = output[i];
             IActiveAbilityProvider provider = ResolveProvider(handle);
-            if ((provider.GetChannels(caster, handle) & ActiveAbilityChannel.Combat) == 0 ||
-                !provider.CanPrepare(caster, handle, target))
+            if (!IsAllowedForCarrier(in context, handle) ||
+                (provider.GetChannels(context.Owner, handle) & ActiveAbilityChannel.Combat) == 0 ||
+                !provider.CanPrepare(context.Owner, handle, target))
             {
                 continue;
             }
 
-            int weight = provider.CanUse(caster, handle, useTarget)
-                ? Math.Max(0, provider.ResolveAiWeight(caster, handle, target))
+            int weight = provider.CanUse(context.Owner, handle, useTarget)
+                ? Math.Max(0, provider.ResolveAiWeight(context.Owner, handle, target))
                 : 0;
             if (weight <= 0) continue;
 
@@ -155,9 +180,11 @@ public static class ActiveAbilityService
         ActiveAbilityHandle handle,
         BaseSimObject target)
     {
-        return TryResolveProvider(handle, out IActiveAbilityProvider provider)
-            ? provider.ResolveTacticalProfile(caster, handle, target)
-            : default;
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || !IsAllowedForCarrier(in context, handle) ||
+            !TryResolveProvider(handle, out IActiveAbilityProvider provider)) return default;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
+        return provider.ResolveTacticalProfile(context.Owner, handle, target);
     }
 
     /// <summary>返回 Provider 为指定战斗上下文声明的基础 AI 权重。</summary>
@@ -166,9 +193,11 @@ public static class ActiveAbilityService
         ActiveAbilityHandle handle,
         BaseSimObject target)
     {
-        return TryResolveProvider(handle, out IActiveAbilityProvider provider)
-            ? Math.Max(0, provider.ResolveAiWeight(caster, handle, target))
-            : 0;
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || !IsAllowedForCarrier(in context, handle) ||
+            !TryResolveProvider(handle, out IActiveAbilityProvider provider)) return 0;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
+        return Math.Max(0, provider.ResolveAiWeight(context.Owner, handle, target));
     }
 
     /// <summary>请求能力提供者按自身结构化效果选择收益最高的友方目标。</summary>
@@ -178,10 +207,12 @@ public static class ActiveAbilityService
         IReadOnlyList<Actor> nearbyAllies,
         out BaseSimObject target)
     {
-        if (TryResolveProvider(handle, out IActiveAbilityProvider provider) &&
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (context.IsValid && TryResolveProvider(handle, out IActiveAbilityProvider provider) &&
             provider is IActiveAbilityTargetAdvisor advisor)
         {
-            return advisor.TryResolvePreferredTarget(caster, handle, nearbyAllies, out target);
+            using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
+            return advisor.TryResolvePreferredTarget(context.Owner, handle, nearbyAllies, out target);
         }
         target = null;
         return false;
@@ -223,22 +254,27 @@ public static class ActiveAbilityService
 
     public static bool HasPreparedCombatAbility(ActorExtend caster, BaseSimObject target)
     {
-        if (IsSilenced(caster)) return false;
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || IsSilenced(in context)) return false;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
         using var handles = new ListPool<ActiveAbilityHandle>();
         Collect(caster, handles);
         for (int i = 0; i < handles.Count; i++)
         {
             ActiveAbilityHandle handle = handles[i];
             IActiveAbilityProvider provider = ResolveProvider(handle);
-            if ((provider.GetChannels(caster, handle) & ActiveAbilityChannel.Combat) != 0 &&
-                provider.CanPrepare(caster, handle, target)) return true;
+            if (IsAllowedForCarrier(in context, handle) &&
+                (provider.GetChannels(context.Owner, handle) & ActiveAbilityChannel.Combat) != 0 &&
+                provider.CanPrepare(context.Owner, handle, target)) return true;
         }
         return false;
     }
 
     public static int CountPreparedCombatAbilities(ActorExtend caster, BaseSimObject target)
     {
-        if (IsSilenced(caster)) return 0;
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || IsSilenced(in context)) return 0;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
         using var handles = new ListPool<ActiveAbilityHandle>();
         Collect(caster, handles);
         int count = 0;
@@ -246,8 +282,9 @@ public static class ActiveAbilityService
         {
             ActiveAbilityHandle handle = handles[i];
             IActiveAbilityProvider provider = ResolveProvider(handle);
-            if ((provider.GetChannels(caster, handle) & ActiveAbilityChannel.Combat) != 0 &&
-                provider.CanPrepare(caster, handle, target)) count++;
+            if (IsAllowedForCarrier(in context, handle) &&
+                (provider.GetChannels(context.Owner, handle) & ActiveAbilityChannel.Combat) != 0 &&
+                provider.CanPrepare(context.Owner, handle, target)) count++;
         }
         return count;
     }
@@ -257,7 +294,9 @@ public static class ActiveAbilityService
     /// </summary>
     public static float ResolveMaxPreparedCombatRange(ActorExtend caster, BaseSimObject target)
     {
-        if (IsSilenced(caster)) return 0f;
+        SkillCasterContext context = SkillCasterContextService.Resolve(caster);
+        if (!context.IsValid || IsSilenced(in context)) return 0f;
+        using SkillCasterContextService.Scope scope = SkillCasterContextService.Enter(caster);
         using var handles = new ListPool<ActiveAbilityHandle>();
         Collect(caster, handles);
         float range = 0f;
@@ -265,10 +304,11 @@ public static class ActiveAbilityService
         {
             ActiveAbilityHandle handle = handles[i];
             IActiveAbilityProvider provider = ResolveProvider(handle);
-            if ((provider.GetChannels(caster, handle) & ActiveAbilityChannel.Combat) == 0 ||
-                !provider.CanPrepare(caster, handle, target)) continue;
+            if (!IsAllowedForCarrier(in context, handle) ||
+                (provider.GetChannels(context.Owner, handle) & ActiveAbilityChannel.Combat) == 0 ||
+                !provider.CanPrepare(context.Owner, handle, target)) continue;
 
-            range = Math.Max(range, provider.ResolveRange(caster, handle, target));
+            range = Math.Max(range, provider.ResolveRange(context.Owner, handle, target));
         }
         return Math.Max(0f, range);
     }
@@ -295,8 +335,27 @@ public static class ActiveAbilityService
         return false;
     }
 
-    private static bool IsSilenced(ActorExtend caster)
+    /// <summary>按技能资产声明判断当前人物载体是否具备执行条件。</summary>
+    private static bool IsAllowedForCarrier(
+        in SkillCasterContext context,
+        ActiveAbilityHandle handle)
     {
-        return caster.Base.stats.hasTag(ActorControlTags.Silenced);
+        if (context.EffectScale <= 0f) return false;
+        if (handle.Source.IsNull || !handle.Source.TryGetComponent(out SkillContainer container) ||
+            container.Asset == null) return true;
+        return container.Asset.CarrierRequirement switch
+        {
+            SkillCarrierRequirement.General => true,
+            SkillCarrierRequirement.PhysicalBody =>
+                context.Kind == SkillCarrierKind.Physical && context.HasPhysicalBody,
+            SkillCarrierRequirement.Soul => context.Kind == SkillCarrierKind.Soul,
+            _ => false,
+        };
+    }
+
+    private static bool IsSilenced(in SkillCasterContext context)
+    {
+        return context.Owner.Base.stats.hasTag(ActorControlTags.Silenced) ||
+               context.Carrier.Base.stats.hasTag(ActorControlTags.Silenced);
     }
 }

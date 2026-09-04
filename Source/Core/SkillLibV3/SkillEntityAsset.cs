@@ -22,6 +22,19 @@ public enum SkillEntityType
     Support,
     Utility,
 }
+
+/// <summary>技能可以由哪一种人物载体执行。</summary>
+public enum SkillCarrierRequirement : byte
+{
+    /// <summary>物质肉身与魂体都能执行。</summary>
+    General,
+
+    /// <summary>必须由仍有物质肉身的人物本体执行。</summary>
+    PhysicalBody,
+
+    /// <summary>必须由魂体或无身元神执行。</summary>
+    Soul,
+}
 public delegate bool OnObjCollision(ref SkillContext context, Entity skill_container, Entity skill_entity, BaseSimObject target);
 public class SkillEntityAsset : Asset
 {
@@ -51,6 +64,8 @@ public class SkillEntityAsset : Asset
     public EntityStore World => ModClass.I.SkillV3.World;
     public OnObjCollision OnObjCollision;
     public SkillEntityType Type;
+    /// <summary>技能执行所需的人物载体；默认身魂皆可。</summary>
+    public SkillCarrierRequirement CarrierRequirement { get; private set; }
     public SkillImpactProfileAsset ImpactProfile { get; private set; }
     public SkillImpactTuning ImpactTuning { get; } = new();
     public SkillUseProfileAsset UseProfile { get; private set; }
@@ -84,6 +99,13 @@ public class SkillEntityAsset : Asset
         if (!IsAnimationIndexValid(animationIndex)) return null;
         Sprite[] frames = GetAnimation(animationIndex).Runtime.Frames;
         return frames.Length > 0 ? frames[0] : null;
+    }
+
+    /// <summary>声明技能只能由指定类型的人物载体执行。</summary>
+    public SkillEntityAsset RequireCarrier(SkillCarrierRequirement requirement)
+    {
+        CarrierRequirement = requirement;
+        return this;
     }
 
     /// <summary>设置每个施放步骤在词条和范围修正之前的基础资源需求。</summary>

@@ -162,7 +162,7 @@ public partial class ArtifactAbilities
                 controller,
                 target,
                 position,
-                ability.GetNumber(ForceStrength),
+                ability.GetNumber(ForceStrength) * context.effect_scale,
                 pull: false);
         });
         ArtifactAbilityVisuals.Emit(
@@ -284,7 +284,9 @@ public partial class ArtifactAbilities
                 StatusEffects.Silence,
                 ability.GetNumber(StatusDuration),
                 controller);
-            CombatResourceEffects.DrainWakan(target, ability.GetNumber(DrainAmount));
+            CombatResourceEffects.DrainWakan(
+                target,
+                ability.GetNumber(DrainAmount) * context.effect_scale);
         });
     }
 
@@ -360,7 +362,9 @@ public partial class ArtifactAbilities
         float duration = ability.GetNumber(StatusDuration);
         CombatStatusEffects.ApplyStatus(victim, StatusEffects.Slow, duration, S.multiplier_speed, -strength, controller);
         CombatStatusEffects.ApplyStatus(victim, StatusEffects.Weaken, duration, S.multiplier_damage, -strength, controller);
-        CombatResourceEffects.DrainWakan(victim, ability.GetNumber(DrainAmount));
+        CombatResourceEffects.DrainWakan(
+            victim,
+            ability.GetNumber(DrainAmount) * context.effect_scale);
         ArtifactAbilityVisuals.Emit(
             context,
             ability,

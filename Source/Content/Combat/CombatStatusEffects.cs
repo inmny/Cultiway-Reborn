@@ -1,8 +1,10 @@
 using System;
 using Cultiway.Content.Components;
 using Cultiway.Core;
+using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
@@ -171,15 +173,19 @@ public static class CombatStatusEffects
         float statValue,
         Actor source)
     {
-        ApplyConfiguredStatus(target, effect, source,
-            status => ConfigureStatus(status, duration, statId, statValue, source));
+        float scale = ResolveCurrentCarrierScale(source);
+        statValue *= scale;
+        ApplyConfiguredStatus(target, effect, duration, source,
+            (status, resolvedDuration) =>
+                ConfigureStatus(status, resolvedDuration, statId, statValue, source));
     }
 
     /// <summary>施加只使用状态资产固有属性的共享状态。</summary>
     public static void ApplyStatus(Actor target, StatusEffectAsset effect, float duration, Actor source)
     {
-        ApplyConfiguredStatus(target, effect, source,
-            status => ConfigureStatusHeader(status, duration, source), effect?.stats);
+        duration *= ResolveCurrentCarrierScale(source);
+        ApplyConfiguredStatus(target, effect, duration, source,
+            (status, resolvedDuration) => ConfigureStatusHeader(status, resolvedDuration, source), effect?.stats);
     }
 
     /// <summary>
@@ -193,9 +199,10 @@ public static class CombatStatusEffects
         Actor source,
         Action<Entity> configure)
     {
-        return ApplyConfiguredStatus(target, effect, source, status =>
+        duration *= ResolveCurrentCarrierScale(source);
+        return ApplyConfiguredStatus(target, effect, duration, source, (status, resolvedDuration) =>
         {
-            ConfigureStatusHeader(status, duration, source);
+            ConfigureStatusHeader(status, resolvedDuration, source);
             configure?.Invoke(status);
         }, effect?.stats);
     }
@@ -209,9 +216,11 @@ public static class CombatStatusEffects
         ElementComposition element,
         Actor source)
     {
-        ApplyConfiguredStatus(target, effect, source, status =>
+        float scale = ResolveCurrentCarrierScale(source);
+        tickValue *= scale;
+        ApplyConfiguredStatus(target, effect, duration, source, (status, resolvedDuration) =>
         {
-            ConfigureStatusHeader(status, duration, source);
+            ConfigureStatusHeader(status, resolvedDuration, source);
             ref StatusTickState tick = ref status.GetComponent<StatusTickState>();
             tick.Value = tickValue;
             tick.Element = element;
@@ -281,8 +290,9 @@ public static class CombatStatusEffects
     private static Entity ApplyConfiguredStatus(
         Actor target,
         StatusEffectAsset effect,
+        float duration,
         Actor source,
-        Action<Entity> configure,
+        Action<Entity, float> configure,
         BaseStats defaultStats = null)
     {
         if (target == null || target.isRekt() || effect == null || source == null || source.isRekt()) return default;
@@ -293,7 +303,9 @@ public static class CombatStatusEffects
             Entity status = relations[i].status;
             StatusComponent component = status.GetComponent<StatusComponent>();
             if (component.Type != effect || component.Source != source) continue;
-            configure(status);
+            if (!StatusEffectSuppression.TryResolveDuration(
+                    targetExtend, effect, duration, source, null, out float resolvedDuration)) return default;
+            configure(status, resolvedDuration);
             if (defaultStats != null && status.TryGetComponent(out StatusOverwriteStats overwrite))
             {
                 overwrite.stats ??= new BaseStats();
@@ -306,7 +318,7 @@ public static class CombatStatusEffects
         }
 
         Entity created = effect.NewEntity();
-        configure(created);
+        configure(created, duration);
         if (targetExtend.AddSharedStatus(created)) return created;
         ModClass.I.CommandBuffer.AddTag<TagRecycle>(created.Id);
         return default;
@@ -326,7 +338,9 @@ public static class CombatStatusEffects
         if (TryGetStrongestStatus(target, effect, out Entity status, out float currentPotency))
         {
             if (currentPotency > potency + 0.0001f) return false;
-            ConfigureStatusHeader(status, duration, source);
+            if (!StatusEffectSuppression.TryResolveDuration(
+                    target.GetExtend(), effect, duration, source, null, out float resolvedDuration)) return false;
+            ConfigureStatusHeader(status, resolvedDuration, source);
             status.GetComponent<StatusPotency>().Value = potency;
             configure?.Invoke(status);
             target.setStatsDirty();
@@ -410,6 +424,21 @@ public static class CombatStatusEffects
             status.AddComponent(new StatusOverwriteStats { stats = stats });
         }
         stats[statId] = statValue;
+    }
+
+    /// <summary>读取当前主动能力载体的线性心神倍率。</summary>
+    private static float ResolveCurrentCarrierScale(Actor source)
+    {
+        if (source == null || source.isRekt()) return 1f;
+        ActorExtend sourceExtend = source.GetExtend();
+        if (SkillCasterContextService.TryGetCurrent(sourceExtend, out SkillCasterContext context))
+            return context.EffectScale;
+        if (sourceExtend.HasComponent<YuanshenSoulCarrierState>())
+        {
+            context = SkillCasterContextService.Resolve(sourceExtend);
+            if (context.IsValid) return context.EffectScale;
+        }
+        return 1f;
     }
 
     /// <summary>重置共享状态的持续时间、来源与来源功率等级。</summary>

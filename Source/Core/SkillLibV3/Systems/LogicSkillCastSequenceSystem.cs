@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cultiway.Core.Components;
 using Cultiway.Core.EventSystem;
 using Cultiway.Core.EventSystem.Events;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Components;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
@@ -88,9 +89,13 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                     SkillContainer = sequence.SkillContainer,
                     Sourceless = sequence.Sourceless,
                     Source = sequence.Sourceless ? null : sequence.Caster.Base,
+                    SpatialSource = sequence.Sourceless
+                        ? null
+                        : (sequence.Carrier ?? sequence.Caster).Base,
                     SourcePos = step.HasSourcePosition
                         ? step.SourcePos
-                        : sequence.Caster.Base.GetSimPos(),
+                        : (sequence.Carrier ?? sequence.Caster).Base.GetSimPos(),
+                    HasSourcePosition = step.HasSourcePosition,
                     Target = step.Target,
                     TargetPos = step.TrackTarget ? step.Target.GetSimPos() : step.TargetPos,
                     Strength = sequence.Strength,
@@ -114,6 +119,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                         EmittedCount = sequence.EmittedCount,
                         FundingSource = sequence.FundingSource,
                         RuntimeData = sequence.RuntimeData,
+                        CasterContext = sequence.CasterContext,
                     });
                 }
                 QueueEnd(ref sequence, SkillCastSequenceEndReason.Completed);
@@ -124,6 +130,8 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         foreach (var request in _completedRequests)
         {
             if (request.Caster?.Base == null || request.Caster.Base.isRekt()) continue;
+            using SkillCasterContextService.Scope scope =
+                SkillCasterContextService.Enter(in request.CasterContext);
             EventSystemHub.TryPublish(new SkillCastCompletedEvent(
                 request.Caster,
                 request.SkillContainer,
@@ -155,8 +163,24 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
                 continue;
             }
 
-            ModClass.I.SkillV3.SpawnSkill(request.SkillContainer, request.Source, request.Target, request.TargetPos,
-                request.Strength, power_level: request.PowerLevel,
+            if (request.HasSourcePosition)
+            {
+                ModClass.I.SkillV3.SpawnSkillAtPosition(
+                    request.SkillContainer,
+                    request.Source,
+                    request.SourcePos,
+                    request.Target,
+                    request.TargetPos,
+                    request.Strength,
+                    request.PowerLevel,
+                    request.InitialAngleOffsetDegrees,
+                    request.AttackKingdom,
+                    request.RuntimeData,
+                    request.SpatialSource);
+                continue;
+            }
+            ModClass.I.SkillV3.SpawnSkill(request.SkillContainer, request.Source, request.SpatialSource,
+                request.Target, request.TargetPos, request.Strength, power_level: request.PowerLevel,
                 initial_angle_offset_degrees: request.InitialAngleOffsetDegrees,
                 attack_kingdom: request.AttackKingdom,
                 runtime_data: request.RuntimeData);
@@ -172,6 +196,7 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
     /// <summary>缓存一次序列结束通知，延迟到 ECS 查询和实体生成阶段之后执行。</summary>
     private void QueueEnd(ref SkillCastSequence sequence, SkillCastSequenceEndReason reason)
     {
+        ModClass.I.SkillV3.ReleaseSkillReservation(sequence.Caster, sequence.SkillContainer);
         if (sequence.Options?.Hooks == null) return;
         _endRequests.Add(new SkillCastSequenceEndRequest
         {
@@ -190,6 +215,8 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
     {
         if (sequence.Caster == null) return false;
         if (sequence.Caster.Base == null || sequence.Caster.Base.isRekt()) return false;
+        ActorExtend carrier = sequence.Carrier ?? sequence.Caster;
+        if (carrier.Base == null || carrier.Base.isRekt()) return false;
         if (sequence.SkillContainer.IsNull) return false;
         return sequence.Steps != null && sequence.Steps.Length > 0;
     }
@@ -199,7 +226,9 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         public Entity SkillContainer;
         public bool Sourceless;
         public BaseSimObject Source;
+        public BaseSimObject SpatialSource;
         public UnityEngine.Vector3 SourcePos;
+        public bool HasSourcePosition;
         public BaseSimObject Target;
         public UnityEngine.Vector3 TargetPos;
         public float Strength;
@@ -216,6 +245,8 @@ public class LogicSkillCastSequenceSystem : QuerySystem<SkillCastSequence>
         public int EmittedCount;
         public SkillCastFundingSource FundingSource;
         public SkillCastRuntimeData RuntimeData;
+        /// <summary>完成回调需要恢复的冻结载体上下文。</summary>
+        public SkillCasterContext CasterContext;
     }
 
     /// <summary>离开查询后执行的内容侧序列结束通知。</summary>
