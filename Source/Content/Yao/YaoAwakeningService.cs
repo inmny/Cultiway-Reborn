@@ -114,4 +114,33 @@ public static class YaoAwakeningService
         YaoWorldLog.Awakened(actor, actor.Base.asset.id);
         return true;
     }
+
+    /// <summary>
+    ///     启灵雨直接启灵：不做物种过滤，也不要求启灵积累。
+    ///     先建立真身再接入体系，真身失败时不残留半套妖修。
+    /// </summary>
+    public static bool TryAwakenByRain(ActorExtend actor)
+    {
+        if (actor?.Base == null || actor.Base.isRekt()) return false;
+        if (actor.HasCultisys<Yao>() || actor.HasCultisys<Xian>() ||
+            actor.HasCultisys<Knight>() || actor.HasCultisys<Magic>())
+            return false;
+
+        if (!YaoContent.YaoSpeciesTemplates.TryCreateAdaptedTrueForm(actor.Base.asset.id, actor))
+        {
+            ModClass.LogError($"启灵雨：物种 {actor.Base.asset.id} 建立真身失败");
+            return false;
+        }
+
+        actor.NewCultisys(Cultisyses.Yao);
+
+        // 雨中启灵同样表达潜伏血脉，命中血脉的动物不会浪费这次机会。
+        if (actor.E.TryGetComponent(out YaoGenome genome) && !string.IsNullOrEmpty(genome.PrimaryBloodlineId))
+        {
+            YaoBloodlineService.ExpressAtAwakening(actor, ref genome);
+        }
+
+        YaoWorldLog.Awakened(actor, actor.Base.asset.id);
+        return true;
+    }
 }

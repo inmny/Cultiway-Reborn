@@ -390,27 +390,6 @@ public sealed class YaoContent : ICanInit
         /// <summary>登记全部可启灵物种的模板；肉食物种额外获得兽牙。</summary>
         internal static void Initialize()
         {
-            YaoOrganRecord Scales(string slot = null) => new()
-            {
-                SlotId = slot ?? YaoContent.Slots.Surface,
-                OrganId = "yao.scale.basic",
-                Rank = 1,
-                Origin = YaoOrganOrigin.Innate,
-            };
-            YaoOrganRecord Sense() => new()
-            {
-                SlotId = YaoContent.Slots.Head,
-                OrganId = "yao.spirit.sense",
-                Rank = 1,
-                Origin = YaoOrganOrigin.Innate,
-            };
-            YaoOrganRecord Fang() => new()
-            {
-                SlotId = YaoContent.Slots.Head,
-                OrganId = "yao.fang.basic",
-                Rank = 1,
-                Origin = YaoOrganOrigin.Innate,
-            };
 
             // 蛇形：保留毒牙特色。
             Register("snake", "yao.serpentine", "yao.serpentine.awakened",
@@ -437,6 +416,64 @@ public sealed class YaoContent : ICanInit
 
             // 龙形单位直接使用龙形真身。
             Register("dragon", "yao.dragon", "yao.dragon.base", Scales(), Fang(), Sense());
+        }
+
+        private static YaoOrganRecord Scales() => new()
+        {
+            SlotId = YaoContent.Slots.Surface,
+            OrganId = "yao.scale.basic",
+            Rank = 1,
+            Origin = YaoOrganOrigin.Innate,
+        };
+
+        private static YaoOrganRecord Sense() => new()
+        {
+            SlotId = YaoContent.Slots.Head,
+            OrganId = "yao.spirit.sense",
+            Rank = 1,
+            Origin = YaoOrganOrigin.Innate,
+        };
+
+        private static YaoOrganRecord Fang() => new()
+        {
+            SlotId = YaoContent.Slots.Head,
+            OrganId = "yao.fang.basic",
+            Rank = 1,
+            Origin = YaoOrganOrigin.Innate,
+        };
+
+        /// <summary>
+        ///     启灵雨不做物种过滤：已登记的物种走登记模板；
+        ///     未登记的物种动态补一具通用兽形固定形态（复用该物种自己的动画资产）。
+        /// </summary>
+        public static bool TryCreateAdaptedTrueForm(string speciesId, ActorExtend actor)
+        {
+            if (TryGet(speciesId, out string bodyPlan, out string morph, out YaoOrganRecord[] organs))
+                return YaoFormPlanService.TryCreateTrueForm(actor, bodyPlan, morph, organs);
+
+            string adaptedMorphId = $"yao.adapted.{speciesId}";
+            if (Content.Libraries.Manager.CreatureMorphLibrary.get(adaptedMorphId) == null)
+            {
+                ActorAsset asset = AssetManager.actor_library.get(speciesId);
+                if (asset == null) return false;
+
+                Content.Libraries.Manager.CreatureMorphLibrary.add(new CreatureMorphAsset
+                {
+                    id = adaptedMorphId,
+                    BodyPlanId = "yao.quadruped",
+                    ActorAssetId = speciesId,
+                    LocomotionKind = asset.flying
+                        ? CreatureLocomotionKind.Flying
+                        : CreatureLocomotionKind.Ground,
+                    LockedSlots = Array.Empty<string>(),
+                    AddedSlotCapacity = Array.Empty<CreatureSlotCapacityChange>(),
+                    BaseComplexityModifier = 0,
+                    VisualRigId = null,
+                    Tags = new[] { "beast", "quadruped", "awakened" },
+                });
+            }
+
+            return YaoFormPlanService.TryCreateTrueForm(actor, "yao.quadruped", adaptedMorphId, Scales(), Sense());
         }
     }
 

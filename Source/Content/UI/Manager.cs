@@ -5,6 +5,7 @@ using Cultiway.Content.Artifacts.Baibao;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.YaoBeasts;
 using Cultiway.Content.Sects;
 using Cultiway.Content.UI.CreatureInfoPages;
 using Cultiway.Content.Utils;
@@ -248,6 +249,16 @@ public class Manager : ICanInit
             WorldboxGame.GodPowers.UpgradeRain.id, SpriteTextureLoader.getSprite(DiliujiangIcon));
         Cultiway.UI.Manager.AddButtonPair(TabButtonType.WORLD, PowerTabSections.WorldPavilionsAndRains, 300,
             WorldboxGame.GodPowers.UpgradeRain.id, configButton, UpgradeRainButton);
+    }
+
+    /// <summary>初始化启灵雨按钮，加入世界页的雨水区。</summary>
+    public void InitYaoAwakeningRain()
+    {
+        YaoBeasts.YaoAwakeningRainService.Initialize();
+        Cultiway.UI.Manager.AddButton(TabButtonType.WORLD, PowerTabSections.WorldPavilionsAndRains, 500,
+            WorldboxGame.GodPowers.YaoAwakeningRain.id,
+            PowerButtonCreator.CreateGodPowerButton(WorldboxGame.GodPowers.YaoAwakeningRain.id,
+                SpriteTextureLoader.getSprite("cultiway/icons/world_tools/iconYaoAwakeningRain")));
     }
 
     /// <summary>初始化灵根雨配置窗口，并在世界页加入成对的配置和投放按钮。</summary>
