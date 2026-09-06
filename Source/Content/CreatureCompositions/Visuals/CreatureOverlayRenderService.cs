@@ -21,7 +21,11 @@ public static class CreatureOverlayRenderService
         output.Clear();
         if (compiled.VisualLayers.Count == 0) return false;
 
-        CreatureVisualRigAsset rig = Content.Libraries.Manager.CreatureVisualRigLibrary.get(compiled.Morph.VisualRigId);
+        // 形态可以没有专属骨架（如启灵雨的适应形态），此时图层不做骨架过滤。
+        string morphRigId = compiled.Morph.VisualRigId;
+        CreatureVisualRigAsset rig = string.IsNullOrEmpty(morphRigId)
+            ? null
+            : Content.Libraries.Manager.CreatureVisualRigLibrary.get(morphRigId);
         string rigId = rig != null && rig.SupportsActor(actorAssetId) ? rig.id : null;
 
         foreach (CompiledCreatureVisualLayer channelLayer in compiled.VisualLayers)

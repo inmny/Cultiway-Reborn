@@ -71,8 +71,11 @@ public sealed class CreatureOverlayRenderSystem : QuerySystem<ActorBinder, Creat
             if (!CreatureOverlayRenderService.TryResolveLayers(compiled, actor.asset.id, resolvedLayers))
                 return;
 
-            CreatureVisualRigAsset rig =
-                Content.Libraries.Manager.CreatureVisualRigLibrary.get(compiled.Morph.VisualRigId);
+            // 形态可以没有专属骨架（如启灵雨的适应形态），此时锚点回落到原点。
+            string morphRigId = compiled.Morph.VisualRigId;
+            CreatureVisualRigAsset rig = string.IsNullOrEmpty(morphRigId)
+                ? null
+                : Content.Libraries.Manager.CreatureVisualRigLibrary.get(morphRigId);
             float actorScale = Mathf.Max(actor.stats[S.scale], 0.05f);
             bool lookingLeft = actor.is_looking_left;
             float side = lookingLeft ? -1f : 1f;
