@@ -19,6 +19,8 @@ public sealed class YaoPage : MonoBehaviour
     private Text bloodlineText;
     private Text digestionText;
 
+    private static Actor _editorActor;
+
     /// <summary>用纵向布局创建详情页，文本自上而下排列，不做手工定位。</summary>
     public static void Setup(CreatureInfoPage page)
     {
@@ -27,24 +29,30 @@ public sealed class YaoPage : MonoBehaviour
             page.transform, "Yao Content", false,
             XianRealmPagePresentation.PageWidth, XianRealmPagePresentation.PageHeight, 4f);
 
+        var editOrgans = UiElements.CreateIconTextButton(
+            root.transform, "EditOrgans", UiIcons.Edit,
+            "Cultiway.YaoOrganEditor.Open".Localize(), 110f, 22f, OpenOrganEditor);
+        UiTooltip.Set(editOrgans.gameObject, "Cultiway.YaoOrganEditor.Open",
+            "Cultiway.YaoOrganEditor.Tooltip.Open");
+
         component.summary = UiElements.CreateText(
             root.transform, "YaoSummary", string.Empty,
-            XianRealmPagePresentation.PageWidth, 32f, 7, TextAnchor.UpperLeft);
+            XianRealmPagePresentation.PageWidth, 30f, 7, TextAnchor.UpperLeft);
         component.summary.verticalOverflow = VerticalWrapMode.Overflow;
 
         component.bodyText = UiElements.CreateText(
             root.transform, "YaoBody", string.Empty,
-            XianRealmPagePresentation.PageWidth, 76f, 6, TextAnchor.UpperLeft);
+            XianRealmPagePresentation.PageWidth, 64f, 6, TextAnchor.UpperLeft);
         component.bodyText.verticalOverflow = VerticalWrapMode.Overflow;
 
         component.bloodlineText = UiElements.CreateText(
             root.transform, "YaoBloodline", string.Empty,
-            XianRealmPagePresentation.PageWidth, 42f, 6, TextAnchor.UpperLeft);
+            XianRealmPagePresentation.PageWidth, 38f, 6, TextAnchor.UpperLeft);
         component.bloodlineText.verticalOverflow = VerticalWrapMode.Overflow;
 
         component.digestionText = UiElements.CreateText(
             root.transform, "YaoDigestion", string.Empty,
-            XianRealmPagePresentation.PageWidth, 42f, 6, TextAnchor.UpperLeft);
+            XianRealmPagePresentation.PageWidth, 34f, 6, TextAnchor.UpperLeft);
         component.digestionText.verticalOverflow = VerticalWrapMode.Overflow;
     }
 
@@ -53,6 +61,7 @@ public sealed class YaoPage : MonoBehaviour
     public static void Show(CreatureInfoPage page, Actor actor)
     {
         YaoPage component = page.GetComponent<YaoPage>();
+        _editorActor = actor;
         ActorExtend extend = actor.GetExtend();
         if (!extend.HasCultisys<Yao>())
         {
@@ -142,6 +151,13 @@ public sealed class YaoPage : MonoBehaviour
         }
 
         return text.ToString();
+    }
+
+    /// <summary>打开当前妖兽的器官编辑窗口。</summary>
+    private static void OpenOrganEditor()
+    {
+        if (_editorActor == null || _editorActor.isRekt()) return;
+        WindowYaoOrganEditor.Open(_editorActor);
     }
 
     private static string YaoOrganName(string organId)

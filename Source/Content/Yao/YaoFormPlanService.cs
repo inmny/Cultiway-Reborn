@@ -137,6 +137,61 @@ public static class YaoFormPlanService
         return ExpressActiveForm(actor);
     }
 
+    /// <summary>用编辑后的完整器官列表覆盖指定形态；共用身体规则不允许时保持原样。</summary>
+    public static bool TrySetOrgans(ActorExtend actor, string formId, YaoOrganRecord[] organs)
+    {
+        if (!actor.E.TryGetComponent(out YaoBody body)) return false;
+        if (!body.TryGetForm(formId, out YaoFormRecord form)) return false;
+        if (organs == null) return false;
+
+        if (!CreaturePhenotypeCompiler.TryGetOrCompile(
+                CreatePlan(WithOrgans(form, organs)), out _))
+            return false;
+
+        CommitOrgans(actor, ref body, formId, organs);
+        return ExpressActiveForm(actor);
+    }
+
+    /// <summary>
+    ///     按共用身体定义快速判断一个器官能否放进指定形态的指定身体位置；
+    ///     只检查类别、标签、前置与冲突，槽位余量和复杂度容量由编译器最终把关。
+    /// </summary>
+    /// <param name="organId">要放入的器官编号。</param>
+    /// <param name="slotId">目标身体位置编号。</param>
+    /// <param name="form">目标形态。</param>
+    /// <param name="effectiveOrgans">假设写入之后的全部器官，用于前置与冲突检查。</param>
+    public static bool IsOrganAllowedInForm(
+        string organId, string slotId, YaoFormRecord form, YaoOrganRecord[] effectiveOrgans)
+    {
+        CreatureCompositions.Libraries.CreatureOrganAsset asset =
+            Content.Libraries.Manager.CreatureOrganLibrary.get(organId);
+        CreatureCompositions.Libraries.CreatureBodyPlanAsset bodyPlan =
+            Content.Libraries.Manager.CreatureBodyPlanLibrary.get(form.BodyPlanId);
+        CreatureCompositions.Libraries.CreatureMorphAsset morph =
+            Content.Libraries.Manager.CreatureMorphLibrary.get(form.MorphId);
+        CreatureCompositions.Libraries.CreatureBodySlotAsset slot =
+            Content.Libraries.Manager.CreatureBodySlotLibrary.get(slotId);
+        if (asset == null || bodyPlan == null || morph == null || slot == null) return false;
+        if (asset.RankIds == null || asset.RankIds.Length == 0) return false;
+        if ((slot.AcceptedCategoryMask & asset.Category) != asset.Category) return false;
+        if (!MatchesTags(asset.AllowedBodyPlanTags, bodyPlan.Tags)) return false;
+        if (!MatchesTags(asset.AllowedMorphTags, morph.Tags)) return false;
+
+        var present = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+        foreach (YaoOrganRecord organ in effectiveOrgans) present.Add(organ.OrganId);
+        foreach (string prerequisite in asset.PrerequisiteOrganIds ?? Array.Empty<string>())
+        {
+            if (!string.IsNullOrWhiteSpace(prerequisite) && !present.Contains(prerequisite)) return false;
+        }
+
+        foreach (string conflict in asset.ConflictOrganIds ?? Array.Empty<string>())
+        {
+            if (!string.IsNullOrWhiteSpace(conflict) && present.Contains(conflict)) return false;
+        }
+
+        return true;
+    }
+
     /// <summary>切换活动形态；尊重冷却与封锁，切换后立即表达新形态。</summary>
     public static bool TrySwitchForm(ActorExtend actor, string formId)
     {

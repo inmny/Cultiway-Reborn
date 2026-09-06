@@ -80,3 +80,41 @@ Cultiway.WorldLog.YaoNirvanaStarted,$actor$ 受到致命重伤，化为涅槃体
 Cultiway.WorldLog.YaoNirvanaReborn,$actor$ 从灰烬中原地重生
 Cultiway.WorldLog.YaoTailLife,$actor$ 以一条尾命代死，侥幸活了下来
 Cultiway.WorldLog.YaoBirthResolved,$actor$ 出生，血脉为 $value$
+Cultiway.UI.WindowYaoOrganEditor Title,妖兽器官
+Cultiway.YaoOrganEditor.Open,器官编辑
+Cultiway.YaoOrganEditor.Tooltip.Open,打开器官编辑窗口，直接调整这只妖兽的器官
+Cultiway.YaoOrganEditor.Format.Target,{0} · {1}
+Cultiway.YaoOrganEditor.Format.Capacity,器官容量 {0}/{1}
+Cultiway.YaoOrganEditor.Format.Detail,{0}级 · {1} · 耗{2}
+Cultiway.YaoOrganEditor.Form.TrueForm,真身
+Cultiway.YaoOrganEditor.Form.HumanForm,人形
+Cultiway.YaoOrganEditor.Form.AlternateTrueForm,第二真身
+Cultiway.YaoOrganEditor.Form.ActiveMark,（当前）
+Cultiway.YaoOrganEditor.Action.Form,切换形态
+Cultiway.YaoOrganEditor.Tooltip.Form,选择要查看和编辑的形态
+Cultiway.YaoOrganEditor.Slot.Empty,空位
+Cultiway.YaoOrganEditor.Pick.Title,选择器官
+Cultiway.YaoOrganEditor.Action.Pick,更换器官
+Cultiway.YaoOrganEditor.Tooltip.Pick,选择一个适合这个身体位置的器官
+Cultiway.YaoOrganEditor.Action.Remove,移除器官
+Cultiway.YaoOrganEditor.Tooltip.Remove,把这个器官从身上移除
+Cultiway.YaoOrganEditor.Action.RankUp,提升等级
+Cultiway.YaoOrganEditor.Tooltip.RankUp,提升到器官声明的下一个可用等级
+Cultiway.YaoOrganEditor.Action.RankDown,降低等级
+Cultiway.YaoOrganEditor.Tooltip.RankDown,降回器官声明的上一个可用等级
+Cultiway.YaoOrganEditor.Tip.Rejected,身体无法承载这次改动
+Cultiway.YaoOrganEditor.Origin.Innate,先天
+Cultiway.YaoOrganEditor.Origin.Inherited,遗传
+Cultiway.YaoOrganEditor.Origin.BloodlineExpressed,血脉显化
+Cultiway.YaoOrganEditor.Origin.Digested,炼化
+Cultiway.YaoOrganEditor.Origin.Solidified,固血
+Cultiway.YaoOrganEditor.Origin.Atavistic,返祖
+Cultiway.YaoOrganEditor.Origin.GodEdited,神改
+Cultiway.CreatureBodySlot.yao.slot.surface,表被
+Cultiway.CreatureBodySlot.yao.slot.head,头颅
+Cultiway.CreatureBodySlot.yao.slot.breath,吐息腺
+Cultiway.CreatureBodySlot.yao.slot.limbs,四肢
+Cultiway.CreatureBodySlot.yao.slot.metabolism,代谢
+Cultiway.CreatureBodySlot.yao.slot.spirit,灵窍
+Cultiway.CreatureBodySlot.yao.slot.tail,尾脊
+Cultiway.CreatureBodySlot.yao.slot.heart,心窍

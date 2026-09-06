@@ -40,7 +40,10 @@ public enum YaoOrganOrigin : byte
     Solidified,
 
     /// <summary>返祖显现的器官。</summary>
-    Atavistic
+    Atavistic,
+
+    /// <summary>被神力直接改写的器官。</summary>
+    GodEdited
 }
 
 /// <summary>妖兽的形态类别。</summary>

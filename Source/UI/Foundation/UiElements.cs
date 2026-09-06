@@ -178,6 +178,16 @@ internal static class UiElements
         button.GetComponentInChildren<Text>().text = value;
     }
 
+    /// <summary>重新绑定按钮的点击回调、Tooltip 与可用状态；供池化条目在每次绑定时调用。</summary>
+    public static void SetButtonBinding(Button button, Action action, string tooltipTitleKey,
+        string tooltipDescriptionKey, bool interactable = true)
+    {
+        button.interactable = interactable;
+        button.onClick.RemoveAllListeners();
+        if (action != null) button.onClick.AddListener(action.Invoke);
+        UiTooltip.Set(button.gameObject, tooltipTitleKey, tooltipDescriptionKey);
+    }
+
     public static InputField CreateInput(Transform parent, string name, string value, string placeholder,
         float width, float height)
     {

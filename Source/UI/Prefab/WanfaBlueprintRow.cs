@@ -79,22 +79,15 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
         _icon.sprite = entity?.ResolveIcon(blueprint.AnimationIndex);
         UiTooltip.Set(_icon.gameObject, () => SkillTooltip.Show(_icon.gameObject, blueprint));
         SetFavoriteButton(blueprint.Favorite, favorite);
-        SetButton(_up, moveUp, "Cultiway.Wanfa.UI.Action.MoveUp", "Cultiway.Wanfa.UI.Tooltip.MoveUp", allowMove);
-        SetButton(_down, moveDown, "Cultiway.Wanfa.UI.Action.MoveDown", "Cultiway.Wanfa.UI.Tooltip.MoveDown",
+        UiElements.SetButtonBinding(_up, moveUp, "Cultiway.Wanfa.UI.Action.MoveUp", "Cultiway.Wanfa.UI.Tooltip.MoveUp",
             allowMove);
-        SetButton(_edit, edit, "Cultiway.Wanfa.UI.Action.Edit", "Cultiway.Wanfa.UI.Tooltip.Edit");
-        SetButton(_copy, copy, "Cultiway.Wanfa.UI.Action.Copy", "Cultiway.Wanfa.UI.Tooltip.Copy");
-        SetButton(_delete, delete, "Cultiway.Wanfa.UI.Action.Delete", "Cultiway.Wanfa.UI.Tooltip.Delete");
+        UiElements.SetButtonBinding(_down, moveDown, "Cultiway.Wanfa.UI.Action.MoveDown",
+            "Cultiway.Wanfa.UI.Tooltip.MoveDown", allowMove);
+        UiElements.SetButtonBinding(_edit, edit, "Cultiway.Wanfa.UI.Action.Edit", "Cultiway.Wanfa.UI.Tooltip.Edit");
+        UiElements.SetButtonBinding(_copy, copy, "Cultiway.Wanfa.UI.Action.Copy", "Cultiway.Wanfa.UI.Tooltip.Copy");
+        UiElements.SetButtonBinding(_delete, delete, "Cultiway.Wanfa.UI.Action.Delete",
+            "Cultiway.Wanfa.UI.Tooltip.Delete");
         SetSelectionButton(selected, select, validation.IsCompatible);
-    }
-
-    private static void SetButton(Button button, Action action, string titleKey, string descriptionKey,
-        bool interactable = true)
-    {
-        button.interactable = interactable;
-        button.onClick.RemoveAllListeners();
-        button.onClick.AddListener(action.Invoke);
-        UiTooltip.Set(button.gameObject, titleKey, descriptionKey);
     }
 
     private void SetFavoriteButton(bool selected, Action action)
@@ -102,26 +95,22 @@ public sealed class WanfaBlueprintRow : APrefabPreview<WanfaBlueprintRow>
         _favoriteIcon.color = selected
             ? ColorStyleLibrary.m.favorite_selected
             : ColorStyleLibrary.m.favorite_not_selected;
-        _favorite.onClick.RemoveAllListeners();
-        _favorite.onClick.AddListener(action.Invoke);
-        UiTooltip.Set(_favorite.gameObject,
+        UiElements.SetButtonBinding(_favorite, action,
             selected ? "Cultiway.Wanfa.UI.Action.Unfavorite" : "Cultiway.Wanfa.UI.Action.Favorite",
             selected ? "Cultiway.Wanfa.UI.Tooltip.Unfavorite" : "Cultiway.Wanfa.UI.Tooltip.Favorite");
     }
 
     private void SetSelectionButton(bool selected, Action action, bool interactable)
     {
-        _select.interactable = interactable;
-        _select.onClick.RemoveAllListeners();
-        _select.onClick.AddListener(action.Invoke);
         UiStateStyle.SetSelected(_select, selected);
         _selectMarker.gameObject.SetActive(selected);
         _select.transform.Find("Icon").GetComponent<Image>().color = Color.white;
-        UiTooltip.Set(_select.gameObject,
+        UiElements.SetButtonBinding(_select, action,
             selected ? "Cultiway.Wanfa.UI.Action.Selected" : "Cultiway.Wanfa.UI.Action.Select",
             selected
                 ? "Cultiway.Wanfa.UI.Tooltip.DeselectForGrant"
-                : "Cultiway.Wanfa.UI.Tooltip.SelectForGrant");
+                : "Cultiway.Wanfa.UI.Tooltip.SelectForGrant",
+            interactable);
     }
 
     private static void _init()
