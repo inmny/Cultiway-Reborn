@@ -51,6 +51,14 @@ namespace Cultiway.Content
         [CloneSource("grass_low"),  AssetId("Rice_low")]        public static TopTileType RiceLow { get; private set; }
         [CloneSource("grass_high"), AssetId("Titans_high")]     public static TopTileType TitansHigh { get; private set; }
         [CloneSource("grass_low"),  AssetId("Titans_low")]      public static TopTileType TitansLow { get; private set; }
+        [CloneSource("grass_high"), AssetId("Nurgle_high")]     public static TopTileType NurgleHigh { get; private set; }
+        [CloneSource("grass_low"),  AssetId("Nurgle_low")]      public static TopTileType NurgleLow { get; private set; }
+        [CloneSource("grass_high"), AssetId("Khorne_high")]     public static TopTileType KhorneHigh { get; private set; }
+        [CloneSource("grass_low"),  AssetId("Khorne_low")]      public static TopTileType KhorneLow { get; private set; }
+        [CloneSource("grass_high"), AssetId("Tzeentch_high")]   public static TopTileType TzeentchHigh { get; private set; }
+        [CloneSource("grass_low"),  AssetId("Tzeentch_low")]    public static TopTileType TzeentchLow { get; private set; }
+        [CloneSource("grass_high"), AssetId("Slaanesh_high")]   public static TopTileType SlaaneshHigh { get; private set; }
+        [CloneSource("grass_low"),  AssetId("Slaanesh_low")]    public static TopTileType SlaaneshLow { get; private set; }
 
         protected override void OnInit()
         {
@@ -144,6 +152,64 @@ namespace Cultiway.Content
             TitansHigh.biome_id = "biome_titans";
             TitansHigh.color_hex = null;
             TitansHigh.setDrawLayer(TileZIndexes.nothing);
+
+            NurgleLow.biome_id = "biome_nurgle";
+            NurgleLow.color_hex = null;
+            NurgleLow.setDrawLayer(TileZIndexes.nothing);
+            NurgleHigh.biome_id = "biome_nurgle";
+            NurgleHigh.color_hex = null;
+            NurgleHigh.setDrawLayer(TileZIndexes.nothing);
+
+            KhorneLow.biome_id = "biome_khorne";
+            KhorneLow.color_hex = null;
+            KhorneLow.setDrawLayer(TileZIndexes.nothing);
+            KhorneHigh.biome_id = "biome_khorne";
+            KhorneHigh.color_hex = null;
+            KhorneHigh.setDrawLayer(TileZIndexes.nothing);
+
+            TzeentchLow.biome_id = "biome_tzeentch";
+            TzeentchLow.color_hex = null;
+            TzeentchLow.setDrawLayer(TileZIndexes.nothing);
+            TzeentchHigh.biome_id = "biome_tzeentch";
+            TzeentchHigh.color_hex = null;
+            TzeentchHigh.setDrawLayer(TileZIndexes.nothing);
+
+            SlaaneshLow.biome_id = "biome_slaanesh";
+            SlaaneshLow.color_hex = null;
+            SlaaneshLow.setDrawLayer(TileZIndexes.nothing);
+            SlaaneshHigh.biome_id = "biome_slaanesh";
+            SlaaneshHigh.color_hex = null;
+            SlaaneshHigh.setDrawLayer(TileZIndexes.nothing);
+
+            // 纳垢群系：腐烂之地免疫酸蚀（wasteland 顶地块不会被酸雨/酸液降解，见 MapAction.checkAcidTerraform）
+            NurgleHigh.wasteland = true;
+            NurgleLow.wasteland = true;
+
+            // 恐虐/奸奇群系：地狱火与魔焰之地不可燃烧
+            //（burnable=false 时普通火无法点燃；即使被火雨等强制点燃也不掉血、不烧毁，仅短暂特效）
+            KhorneHigh.can_be_set_on_fire = false;
+            KhorneHigh.burnable = false;
+            KhorneHigh.can_be_set_on_fire_by_burning_feet = false;
+            KhorneLow.can_be_set_on_fire = false;
+            KhorneLow.burnable = false;
+            KhorneLow.can_be_set_on_fire_by_burning_feet = false;
+            TzeentchHigh.can_be_set_on_fire = false;
+            TzeentchHigh.burnable = false;
+            TzeentchHigh.can_be_set_on_fire_by_burning_feet = false;
+            TzeentchLow.can_be_set_on_fire = false;
+            TzeentchLow.burnable = false;
+            TzeentchLow.can_be_set_on_fire_by_burning_feet = false;
+
+            // 四神群系地皮标记为 creep 地块：BuildingCreepWorker 踩到本群系 creep 地块时会
+            // 走向外扩而不是原地重复转化（与原版 tumor_low/tumor_high 一致，见 BuildingCreepWorker.canPlaceWorkerOn）
+            NurgleLow.creep = true;
+            NurgleHigh.creep = true;
+            KhorneLow.creep = true;
+            KhorneHigh.creep = true;
+            TzeentchLow.creep = true;
+            TzeentchHigh.creep = true;
+            SlaaneshLow.creep = true;
+            SlaaneshHigh.creep = true;
 
 
             BuildRuntimeTileAtlas();

@@ -54,6 +54,14 @@ public class Drops : ExtendLibrary<DropAsset, Drops>
     public static DropAsset SeedsRice { get; private set; }
     [CloneSource(DropsLibrary.TEMPLATE_BIOME_SEEDS), AssetId("seeds_titans")]
     public static DropAsset SeedsTitans { get; private set; }
+    [CloneSource(DropsLibrary.TEMPLATE_BIOME_SEEDS), AssetId("seeds_nurgle")]
+    public static DropAsset SeedsNurgle { get; private set; }
+    [CloneSource(DropsLibrary.TEMPLATE_BIOME_SEEDS), AssetId("seeds_khorne")]
+    public static DropAsset SeedsKhorne { get; private set; }
+    [CloneSource(DropsLibrary.TEMPLATE_BIOME_SEEDS), AssetId("seeds_tzeentch")]
+    public static DropAsset SeedsTzeentch { get; private set; }
+    [CloneSource(DropsLibrary.TEMPLATE_BIOME_SEEDS), AssetId("seeds_slaanesh")]
+    public static DropAsset SeedsSlaanesh { get; private set; }
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
@@ -91,6 +99,10 @@ public class Drops : ExtendLibrary<DropAsset, Drops>
         SetupBiomeSeed(SeedsOak,        "Oak");
         SetupBiomeSeed(SeedsRice,       "Rice");
         SetupBiomeSeed(SeedsTitans,     "Titans");
+        SetupBiomeSeed(SeedsNurgle,     "Nurgle");
+        SetupBiomeSeed(SeedsKhorne,     "Khorne");
+        SetupBiomeSeed(SeedsTzeentch,   "Tzeentch");
+        SetupBiomeSeed(SeedsSlaanesh,   "Slaanesh");
     }
 
     private static void SetupBiomeSeed(DropAsset drop, string biome)

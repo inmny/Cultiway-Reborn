@@ -24,6 +24,10 @@ public class Biomes : ExtendLibrary<BiomeAsset, Biomes>
     [CloneSource("biome_grass"), AssetId("biome_oak")]        public static BiomeAsset Oak { get; private set; }
     [CloneSource("biome_grass"), AssetId("biome_rice")]       public static BiomeAsset Rice { get; private set; }
     [CloneSource("biome_grass"), AssetId("biome_titans")]     public static BiomeAsset Titans { get; private set; }
+    [CloneSource("biome_grass"), AssetId("biome_nurgle")]     public static BiomeAsset Nurgle { get; private set; }
+    [CloneSource("biome_grass"), AssetId("biome_khorne")]     public static BiomeAsset Khorne { get; private set; }
+    [CloneSource("biome_grass"), AssetId("biome_tzeentch")]   public static BiomeAsset Tzeentch { get; private set; }
+    [CloneSource("biome_grass"), AssetId("biome_slaanesh")]   public static BiomeAsset Slaanesh { get; private set; }
 
     protected override bool AutoRegisterAssets() => true;
 
@@ -41,12 +45,26 @@ public class Biomes : ExtendLibrary<BiomeAsset, Biomes>
         Setup(Oak,        "Oak",        "Oak_high",        "Oak_low",        pot, "Oak_tree",        "Oak");
         Setup(Rice,       "Rice",       "Rice_high",       "Rice_low",       pot, "Rice_tree",       "Rice");
         Setup(Titans,     "Titans",     "Titans_high",     "Titans_low",     pot, "Titans_tree",     "Titans");
+        Setup(Nurgle,     "Nurgle",     "Nurgle_high",     "Nurgle_low",     0, "Nurgle_tree",     "Nurgle");
+        Setup(Khorne,     "Khorne",     "Khorne_high",     "Khorne_low",     0, "Khorne_tree",     "Khorne");
+        Setup(Tzeentch,   "Tzeentch",   "Tzeentch_high",   "Tzeentch_low",   0, "Tzeentch_tree",   "Tzeentch");
+        Setup(Slaanesh,   "Slaanesh",   "Slaanesh_high",   "Slaanesh_low",   0, "Slaanesh_tree",   "Slaanesh");
 
         // Guarantee mapgen inclusion: manually pool each biome so MapGenerator.generateBiomes
         // can pick them even if vanilla BiomeLibrary.linkAssets already ran before mod init.
+        // 四神群系除外：不进入建图群系池（只能由恶魔塔扩张产生，见 Buildings.FantasyCreaature）。
         EnsurePooled(Bamboo); EnsurePooled(Candle); EnsurePooled(Cemetery); EnsurePooled(Coral);
         EnsurePooled(Dark);   EnsurePooled(Fern);   EnsurePooled(FleshBlood);
         EnsurePooled(Knowledge); EnsurePooled(Oak); EnsurePooled(Rice); EnsurePooled(Titans);
+
+        // 四神群系可被动蔓延，扩张强度高于所有群系（原版默认 6、部分 5），
+        // 在超越生长法则下必然压过其他群系；无恶魔塔时仅剩被动蔓延，有塔时由 creep 系统快速扩张。
+        BiomeAsset[] chaos_biomes = { Nurgle, Khorne, Tzeentch, Slaanesh };
+        foreach (BiomeAsset chaos_biome in chaos_biomes)
+        {
+            chaos_biome.spread_biome = true;
+            chaos_biome.grow_strength = 20;
+        }
 
         SetupSpawns();
         SetupExclusions();
@@ -56,7 +74,7 @@ public class Biomes : ExtendLibrary<BiomeAsset, Biomes>
     private static void SetupExclusions()
     {
         // 不生成灌木：烛火/墓园/血肉/巨灵/珊瑚/水稻
-        BiomeAsset[] no_bushes = { Candle, Cemetery, FleshBlood, Titans, Coral, Rice };
+        BiomeAsset[] no_bushes = { Candle, Cemetery, FleshBlood, Titans, Coral, Rice, Nurgle, Khorne, Tzeentch, Slaanesh };
         foreach (BiomeAsset b in no_bushes)
         {
             b.pot_bushes_spawn = null;
@@ -93,6 +111,18 @@ public class Biomes : ExtendLibrary<BiomeAsset, Biomes>
         Fern.addUnit(Actors.Diplodocus.id);               // 梁龙
         Fern.addUnit(Actors.Pterodactyl.id);              // 翼龙
         Fern.addUnit(Actors.Velociraptor.id);             // 迅猛龙
+        // 纳垢恶魔
+        Nurgle.addUnit(Actors.NurgleDiseaseCarrier.id);   // 病疫使者
+        Nurgle.addUnit(Actors.NurgleSpirit.id);           // 纳垢妖精
+        // 恐虐魔军
+        Khorne.addUnit(Actors.BloodletterKhorne.id);      // 放血鬼
+        Khorne.addUnit(Actors.FleshHoundKhorne.id);       // 血肉猎犬
+        // 奸奇魔军
+        Tzeentch.addUnit(Actors.PinkHorrorTzeentch.id);   // 粉色惧妖
+        Tzeentch.addUnit(Actors.BlueHorrorTzeentch.id);   // 蓝色惧妖
+        // 色孽魔军
+        Slaanesh.addUnit(Actors.Daemonette.id);           // 欲魔
+        Slaanesh.addUnit(Actors.SlaaneshSeeker.id);       // 寻觅者
     }
 
     private static void EnsurePooled(BiomeAsset asset)

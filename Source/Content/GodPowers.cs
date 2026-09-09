@@ -78,6 +78,10 @@ public class GodPowers : ExtendLibrary<GodPower, GodPowers>
         AddBiomePower(Drops.SeedsOak,        "Oak",        "oak_seeds");
         AddBiomePower(Drops.SeedsRice,       "Rice",       "rice_seeds");
         AddBiomePower(Drops.SeedsTitans,     "Titans",     "titans_seeds");
+        AddBiomePower(Drops.SeedsNurgle,     "Nurgle",     "nurgle_seeds");
+        AddBiomePower(Drops.SeedsKhorne,     "Khorne",     "khorne_seeds");
+        AddBiomePower(Drops.SeedsTzeentch,   "Tzeentch",   "tzeentch_seeds");
+        AddBiomePower(Drops.SeedsSlaanesh,   "Slaanesh",   "slaanesh_seeds");
     }
 
     private void AddBiomePower(DropAsset seed, string biomeIcon, string localeName)
