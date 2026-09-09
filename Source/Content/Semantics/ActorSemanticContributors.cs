@@ -174,7 +174,10 @@ internal sealed class XianAchievementContributor : IActorSemanticContributor
             CoreFormationRealm.QiRefinement => 0.55f,
             CoreFormationRealm.Foundation => 0.75f,
             CoreFormationRealm.Jindan => 1f,
-            _ => 1.25f
+            CoreFormationRealm.Yuanying => 1.25f,
+            CoreFormationRealm.Yuanshen => 1.5f,
+            _ => throw new ArgumentOutOfRangeException(nameof(current.Snapshot.realm), current.Snapshot.realm,
+                "未知核心形成境界。")
         };
         float multiplier = realmScale +
                            Mathf.Log(1f + Mathf.Max(0f, current.Strength), 2f) * 0.25f +

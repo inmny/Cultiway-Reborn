@@ -64,6 +64,11 @@ internal class Manager
         CombatWorldService.Initialize();
         CultibookRequestService.Initialize();
         BalefulWindTribulationSkillService.Initialize();
+        YuanshenTravelService.Initialize();
+        YuanshenLifecycleService.Initialize();
+        YuanshenNodeCastingService.Initialize();
+        YuanshenAnchorNetworkService.Initialize();
+        YuanshenNodeLockService.Initialize();
 
         new Patch.Manager().Init();
         ModClass.I.GeneralLogicSystems.Add(new FlyCancelSystem());
@@ -81,6 +86,16 @@ internal class Manager
         ModClass.I.GeneralLogicSystems.Add(new TeleportArraySystem());
         ModClass.I.GeneralLogicSystems.Add(new CraftInterruptionSystem(ModClass.I.W));
         ModClass.I.GeneralLogicSystems.Add(new CityDistributeItemsSystem());
+        ModClass.I.GeneralLogicSystems.Add(new YuanshenSoulCarrierSystem());
+        ModClass.I.GeneralLogicSystems.Add(new YuanshenNodeMovementSystem());
+        ModClass.I.GeneralLogicSystems.Add(new YuanshenNodeTaskSystem());
+        ModClass.I.GeneralLogicSystems.Add(new YuanshenMindRecoverySystem());
+        ModClass.I.GeneralLogicSystems.Add(new YuanshenBodyRecoverySystem());
+        ModClass.I.GeneralLogicSystems.Add(new YuanshenAnchorValidationSystem());
+        ModClass.I.GeneralLogicSystems.Add(new YuanshenAdvancedNodeSystem());
+        ModClass.I.GeneralLogicSystems.Add(new YuanshenAnchorTransitSystem());
+        ModClass.I.GeneralLogicSystems.Add(new YuanshenAvatarPreparationSystem());
+        ModClass.I.GeneralLogicSystems.Add(new YuanshenDecisionSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactEquipmentSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactAbilityLifecycleSystem());
         ModClass.I.GeneralLogicSystems.Add(new ArtifactSectInstallationSystem());
@@ -98,6 +113,11 @@ internal class Manager
         ArtifactAbilityRuntimeBridge.Init();
         CoreFormationSkillBridge.Init();
         ActiveAbilityService.Register(new CoreFormationActiveAbilityProvider());
+        ActiveAbilityService.Register(new YuanshenTravelActiveAbilityProvider());
+        ActiveAbilityService.Register(new YuanshenSoulActiveAbilityProvider());
+        ActiveAbilityService.Register(new YuanshenThoughtActiveAbilityProvider());
+        ActiveAbilityService.Register(new YuanshenBodyRecoveryActiveAbilityProvider());
+        ActiveAbilityService.Register(new YuanshenAdvancedActiveAbilityProvider());
         ModClass.I.GeneralLogicSystems.Add(new CoreFormationEffectSystem());
         ModClass.I.GeneralLogicSystems.Add(new KnightTechniqueMovementSystem());
         ModClass.I.GeneralLogicSystems.Add(new KnightTechniqueStatusSystem());

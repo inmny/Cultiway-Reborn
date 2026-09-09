@@ -33,6 +33,7 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
                 ArtifactAbilityInstance ability = abilitySet.abilities[j];
                 ArtifactAbilityAsset asset = Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
                 if (asset?.active_use == null ||
+                    !YuanshenNodeCastingService.CanUseArtifactFromFocusedNode(caster, asset.use_profile) ||
                     !ArtifactAbilityLifecycle.MeetsState(
                         relation.state,
                         asset.lifecycle.active_minimum_state)) continue;
@@ -67,7 +68,8 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
 
     public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        if (!TryResolve(caster, handle, out ResolvedAbility resolved))
+        if (!TryResolve(caster, handle, out ResolvedAbility resolved) ||
+            !YuanshenNodeCastingService.CanUseArtifactFromFocusedNode(caster, resolved.Asset.use_profile))
             return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
 
         ArtifactAbilityExecutionContext context = new(caster.E, handle.Source, resolved.Relation.state);
@@ -90,7 +92,8 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
 
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
-        if (!TryResolve(caster, handle, out ResolvedAbility resolved)) return false;
+        if (!TryResolve(caster, handle, out ResolvedAbility resolved) ||
+            !YuanshenNodeCastingService.CanUseArtifactFromFocusedNode(caster, resolved.Asset.use_profile)) return false;
         ArtifactAbilityExecutionContext context = new(caster.E, handle.Source, resolved.Relation.state);
         return resolved.Asset.CanPrepareActive(
             context,
@@ -101,7 +104,8 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
 
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
     {
-        if (!TryResolve(caster, handle, out ResolvedAbility resolved)) return false;
+        if (!TryResolve(caster, handle, out ResolvedAbility resolved) ||
+            !YuanshenNodeCastingService.CanUseArtifactFromFocusedNode(caster, resolved.Asset.use_profile)) return false;
         ArtifactAbilityExecutionContext context = new(caster.E, handle.Source, resolved.Relation.state);
         return resolved.Asset.CanUseActive(
             context,
@@ -123,7 +127,8 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
         ActiveAbilityHandle handle,
         BaseSimObject target)
     {
-        if (!TryResolve(caster, handle, out ResolvedAbility resolved))
+        if (!TryResolve(caster, handle, out ResolvedAbility resolved) ||
+            !YuanshenNodeCastingService.CanUseArtifactFromFocusedNode(caster, resolved.Asset.use_profile))
             return new ActiveAbilityTacticalProfile(0f, 0f, 0f, 0f, 0f, 0f, 1f);
 
         ArtifactUseProfile use = resolved.Asset.use_profile;
@@ -151,14 +156,16 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
 
     public float ResolveRange(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
-        if (!TryResolve(caster, handle, out ResolvedAbility resolved)) return 0f;
+        if (!TryResolve(caster, handle, out ResolvedAbility resolved) ||
+            !YuanshenNodeCastingService.CanUseArtifactFromFocusedNode(caster, resolved.Asset.use_profile)) return 0f;
         ArtifactAbilityExecutionContext context = new(caster.E, handle.Source, resolved.Relation.state);
         return resolved.Asset.active_use.ResolveRange?.Invoke(context, resolved.Ability) ?? 0f;
     }
 
     public float ResolveEffectRadius(ActorExtend caster, ActiveAbilityHandle handle)
     {
-        if (!TryResolve(caster, handle, out ResolvedAbility resolved)) return 0f;
+        if (!TryResolve(caster, handle, out ResolvedAbility resolved) ||
+            !YuanshenNodeCastingService.CanUseArtifactFromFocusedNode(caster, resolved.Asset.use_profile)) return 0f;
         ArtifactAbilityExecutionContext context = new(caster.E, handle.Source, resolved.Relation.state);
         return resolved.Asset.active_use.ResolveEffectRadius?.Invoke(context, resolved.Ability) ?? 0f;
     }
@@ -169,7 +176,8 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
         in ActiveAbilityTarget target,
         ActiveAbilityUseOrigin origin)
     {
-        if (!TryResolve(caster, handle, out ResolvedAbility resolved)) return false;
+        if (!TryResolve(caster, handle, out ResolvedAbility resolved) ||
+            !YuanshenNodeCastingService.CanUseArtifactFromFocusedNode(caster, resolved.Asset.use_profile)) return false;
 
         ArtifactAbilityRuntime runtime = handle.Source.GetComponent<ArtifactAbilityRuntime>();
         ArtifactAbilityExecutionContext context = new(caster.E, handle.Source, resolved.Relation.state);
@@ -179,6 +187,21 @@ internal sealed class ArtifactActiveAbilityProvider : IActiveAbilityProvider
             ref runtime.abilities[resolved.AbilityIndex],
             target,
             origin);
+        if (used)
+        {
+            ref ArtifactAbilityRuntimeEntry entry = ref runtime.abilities[resolved.AbilityIndex];
+            if (entry.activity_kind != ArtifactAbilityActivityKind.None)
+            {
+                Actor carrier = context.ResolveCarrierActor();
+                entry.activity_carrier_actor_id = carrier == null ? 0L : carrier.data.id;
+                entry.activity_effect_scale = context.effect_scale;
+            }
+            else
+            {
+                entry.activity_carrier_actor_id = 0L;
+                entry.activity_effect_scale = 0f;
+            }
+        }
         handle.Source.GetComponent<ArtifactAbilityRuntime>() = runtime;
         return used;
     }

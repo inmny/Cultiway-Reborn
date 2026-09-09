@@ -85,6 +85,9 @@ internal readonly struct CoreFormationPageModel
     public readonly float Strength;
     public readonly int Stage;
     public readonly string Lineage;
+
+    /// <summary>当前境界需要替代通用标题摘要的运行状态；空值沿用通用摘要。</summary>
+    public readonly string SummaryOverride;
     public readonly int NextEvolutionStage;
     public readonly RealmEmblemPresentation Emblem;
     public readonly bool IsCurrent;
@@ -97,7 +100,8 @@ internal readonly struct CoreFormationPageModel
         float strength,
         int stage,
         string lineage,
-        int nextEvolutionStage)
+        int nextEvolutionStage,
+        string summaryOverride = null)
     {
         Actor = actor;
         Realm = realm;
@@ -106,6 +110,7 @@ internal readonly struct CoreFormationPageModel
         Strength = strength;
         Stage = stage;
         Lineage = lineage;
+        SummaryOverride = summaryOverride;
         NextEvolutionStage = nextEvolutionStage;
 
         Color fallback = realm switch
@@ -113,7 +118,9 @@ internal readonly struct CoreFormationPageModel
             CoreFormationRealm.QiRefinement => XianRealmPagePresentation.QiRefinementPrimary,
             CoreFormationRealm.Foundation => XianRealmPagePresentation.FoundationPrimary,
             CoreFormationRealm.Jindan => XianRealmPagePresentation.JindanPrimary,
-            _ => XianRealmPagePresentation.YuanyingPrimary
+            CoreFormationRealm.Yuanying => XianRealmPagePresentation.YuanyingPrimary,
+            CoreFormationRealm.Yuanshen => XianRealmPagePresentation.YuanshenPrimary,
+            _ => throw new ArgumentOutOfRangeException(nameof(realm), realm, "未知核心形成境界。")
         };
         (Color primary, Color secondary) = formation.IsValid
             ? XianRealmPagePresentation.ResolveCompositionColors(formation.composition, fallback)
@@ -126,7 +133,9 @@ internal readonly struct CoreFormationPageModel
             CoreFormationRealm.QiRefinement => "qi_refinement",
             CoreFormationRealm.Foundation => "foundation",
             CoreFormationRealm.Jindan => "jindan",
-            _ => "yuanying"
+            CoreFormationRealm.Yuanying => "yuanying",
+            CoreFormationRealm.Yuanshen => "yuanying",
+            _ => throw new ArgumentOutOfRangeException(nameof(realm), realm, "未知核心形成境界。")
         };
         Emblem = new RealmEmblemPresentation(emblem, primary, secondary);
         int currentLevel = actor.GetCultisys<Xian>().CurrLevel;
@@ -135,7 +144,9 @@ internal readonly struct CoreFormationPageModel
             CoreFormationRealm.QiRefinement => currentLevel == Cultiway.Content.Const.XianLevels.QiRefinement,
             CoreFormationRealm.Foundation => currentLevel == Cultiway.Content.Const.XianLevels.XianBase,
             CoreFormationRealm.Jindan => currentLevel == Cultiway.Content.Const.XianLevels.Jindan,
-            _ => currentLevel >= Cultiway.Content.Const.XianLevels.Yuanying
+            CoreFormationRealm.Yuanying => currentLevel == Cultiway.Content.Const.XianLevels.Yuanying,
+            CoreFormationRealm.Yuanshen => currentLevel >= Cultiway.Content.Const.XianLevels.Huashen,
+            _ => false
         };
     }
 }
@@ -167,6 +178,7 @@ internal static class XianRealmPagePresentation
     public static readonly Color FoundationSecondary = new(0.9f, 0.95f, 1f, 1f);
     public static readonly Color JindanPrimary = new(1f, 0.78f, 0.15f, 1f);
     public static readonly Color YuanyingPrimary = new(0.66f, 0.52f, 0.94f, 1f);
+    public static readonly Color YuanshenPrimary = new(0.25f, 0.82f, 0.72f, 1f);
 
     public static readonly Color[] ThreeFlowerColors =
     {
@@ -233,7 +245,9 @@ internal static class XianRealmPagePresentation
             CoreFormationRealm.QiRefinement => QiRefinementPrimary,
             CoreFormationRealm.Foundation => FoundationSecondary,
             CoreFormationRealm.Jindan => JindanPrimary,
-            _ => YuanyingPrimary
+            CoreFormationRealm.Yuanying => YuanyingPrimary,
+            CoreFormationRealm.Yuanshen => YuanshenPrimary,
+            _ => throw new ArgumentOutOfRangeException(nameof(realm), realm, "未知核心形成境界。")
         };
     }
 
@@ -245,6 +259,7 @@ internal static class XianRealmPagePresentation
             CoreFormationRealm.Foundation => QiRefinementPrimary,
             CoreFormationRealm.Jindan => FoundationSecondary,
             CoreFormationRealm.Yuanying => JindanPrimary,
+            CoreFormationRealm.Yuanshen => YuanyingPrimary,
             _ => FoundationPrimary
         };
     }

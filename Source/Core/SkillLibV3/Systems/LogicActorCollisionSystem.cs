@@ -32,7 +32,7 @@ public class LogicActorCollisionSystem : QuerySystem<SkillContext, SkillEntity, 
         {
             if (entity.TryGetComponent(out SkillExecution execution) && execution.end_requested) return;
             if (!config.Enabled || (!config.Actor && !config.Building)) return;
-            if (entity.TryGetComponent(out CollisionHeightGate heightGate) && pos.z > heightGate.MaxHeight) return;
+            if (entity.TryGetComponent(out MotionParams motion) && motion.HasHeightGate && pos.z > motion.HeightGateMax) return;
 
             var radius = SkillEffectRadius.Resolve(entity, collider.Radius);
             var curr = pos.v2;

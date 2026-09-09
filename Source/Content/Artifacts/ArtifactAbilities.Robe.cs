@@ -107,9 +107,10 @@ public partial class ArtifactAbilities
         ref ArtifactAbilityRuntimeEntry runtime,
         ArtifactIncomingDamageEvent evt)
     {
-        float shield = runtime.GetNumber(ShieldCurrent);
+        float sharedShield = runtime.GetNumber(ShieldCurrent);
+        float shield = Mathf.Min(sharedShield, ability.GetNumber(ShieldCapacity) * context.effect_scale);
         float absorbed = CombatDamageEffects.AbsorbDamage(ref evt.Damage, ref shield);
-        runtime.SetNumber(ShieldCurrent, shield);
+        runtime.SetNumber(ShieldCurrent, Mathf.Max(0f, sharedShield - absorbed));
         ArtifactAbilityVisuals.Emit(
             context,
             ability,
@@ -173,19 +174,24 @@ public partial class ArtifactAbilities
             ResolveMaintenanceCost = (_, ability) => ability.GetNumber(MaintenanceCost),
             Resource = UseWakan,
             OnActivityEnded = EndHeavenlyConcealment,
-            ContributeStats = (_, ability, runtime, stats) =>
+            ContributeStats = (context, ability, runtime, stats) =>
             {
-                if (runtime.activity_kind != ArtifactAbilityActivityKind.None)
+                if (runtime.activity_kind != ArtifactAbilityActivityKind.None &&
+                    ArtifactAbilityLifecycle.IsActivityCarrier(context, in runtime))
                 {
-                    stats[S.speed] += ability.GetNumber(SpeedBonus);
+                    stats[S.speed] += ability.GetNumber(SpeedBonus) * context.effect_scale;
                 }
             },
         });
         HeavenlyConcealment.Handle<ArtifactIncomingDamageEvent>(
-            (_, _, runtime, evt) => runtime.activity_kind != ArtifactAbilityActivityKind.None && evt.Damage > 0f,
+            (context, _, runtime, evt) => runtime.activity_kind != ArtifactAbilityActivityKind.None &&
+                                            ArtifactAbilityLifecycle.IsActivityCarrier(context, in runtime) &&
+                                            evt.Damage > 0f,
             ApplyHeavenlyConcealmentReduction);
         HeavenlyConcealment.Handle<ArtifactDamageDealtEvent>(
-            (_, _, runtime, evt) => runtime.activity_kind != ArtifactAbilityActivityKind.None && evt.Damage > 0f,
+            (context, _, runtime, evt) => runtime.activity_kind != ArtifactAbilityActivityKind.None &&
+                                            ArtifactAbilityLifecycle.IsActivityCarrier(context, in runtime) &&
+                                            evt.Damage > 0f,
             BreakHeavenlyConcealment);
         HeavenlyConcealment.Activate(new ArtifactActiveAbilityProfile
         {
@@ -204,9 +210,10 @@ public partial class ArtifactAbilities
         in ActiveAbilityTarget _,
         ActiveAbilityUseOrigin __)
     {
+        Actor carrier = context.ResolveCarrierActor();
         Actor controller = Controller(context);
         CombatStatusEffects.ApplyStatus(
-            controller,
+            carrier,
             StatusEffects.Concealed,
             ability.GetNumber(EffectDuration),
             controller);
@@ -226,11 +233,12 @@ public partial class ArtifactAbilities
     private static void EndHeavenlyConcealment(
         ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance _,
-        ref ArtifactAbilityRuntimeEntry __,
+        ref ArtifactAbilityRuntimeEntry runtime,
         ArtifactAbilityEndReason ___)
     {
         Actor controller = Controller(context);
-        CombatStatusEffects.RemoveStatus(controller, StatusEffects.Concealed, controller);
+        Actor carrier = ArtifactAbilityLifecycle.ResolveActivityCarrier(context, in runtime);
+        CombatStatusEffects.RemoveStatus(carrier, StatusEffects.Concealed, controller);
     }
 
     private static void ApplyHeavenlyConcealmentReduction(
@@ -239,7 +247,7 @@ public partial class ArtifactAbilities
         ref ArtifactAbilityRuntimeEntry runtime,
         ArtifactIncomingDamageEvent evt)
     {
-        float reduction = ability.GetNumber(DamageReduction);
+        float reduction = ability.GetNumber(DamageReduction) * context.effect_scale;
         evt.Damage *= 1f - reduction;
         ArtifactAbilityVisuals.Emit(
             context,
@@ -308,19 +316,20 @@ public partial class ArtifactAbilities
     {
         Actor controller = Controller(context);
         Actor attacker = evt.Attacker.a;
-        float diverted = evt.Damage * ability.GetNumber(DamageReduction);
+        float baseDiverted = evt.Damage * ability.GetNumber(DamageReduction);
+        float diverted = baseDiverted * context.effect_scale;
         evt.Damage -= diverted;
         CombatDamageEffects.DealRetaliationDamage(
             controller,
             attacker,
-            diverted,
+            baseDiverted,
             evt.DamageComposition,
             evt.IgnoreDamageReduction);
         CombatForceEffects.ApplyRadialForce(
             controller,
             attacker,
-            controller.current_position,
-            ability.GetNumber(ForceStrength),
+            ArtifactYuanshenControlService.ResolveOrigin(controller, context.artifact),
+            ability.GetNumber(ForceStrength) * context.effect_scale,
             pull: false);
         ArtifactAbilityVisuals.Emit(
             context,

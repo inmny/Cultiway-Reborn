@@ -113,7 +113,7 @@ public partial class ArtifactAbilities
         Entity execution = ArtifactSkillExecutions.SwordArray.NewEntity();
         ref SkillContext skillContext = ref execution.GetComponent<SkillContext>();
         skillContext.BindSource(controller);
-        skillContext.TargetPos = controller.GetSimPos();
+        skillContext.TargetPos = ArtifactYuanshenControlService.ResolveOrigin(controller, context.artifact);
         skillContext.TargetDir = Vector2.up;
         skillContext.AttackKingdom = target.AttackKingdom;
         skillContext.Strength = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier);
@@ -213,7 +213,9 @@ public partial class ArtifactAbilities
         Actor attacker = evt.Attacker.a;
         float forceStrength = ability.GetNumber(ForceStrength);
         float flightSpeed = 24f + forceStrength * 4f;
-        float targetDistance = Vector2.Distance(controller.current_position, attacker.current_position);
+        float targetDistance = Vector2.Distance(
+            ArtifactYuanshenControlService.ResolveOrigin(controller, context.artifact),
+            attacker.current_position);
         if (!ArtifactSpatialAttackLauncher.TryLaunch(
                 context,
                 new ArtifactSpatialAttackLaunchRequest
@@ -225,7 +227,7 @@ public partial class ArtifactAbilities
                     turn_rate = 540f + forceStrength * 40f,
                     control_range = Mathf.Max(6f, targetDistance + attacker.stats[S.size] + 2f),
                     pierce_distance = 1.2f + forceStrength * 0.35f,
-                    impact_force = forceStrength,
+                    impact_force = forceStrength * context.effect_scale,
                     trail_tint = ArtifactAbilityVisuals.ResolveTheme(
                         context.artifact,
                         ReturningBladeGuard.visual).glow,
@@ -233,7 +235,8 @@ public partial class ArtifactAbilities
                 out Entity execution)) return;
 
         float originalDamage = evt.Damage;
-        evt.Damage *= 1f - ability.GetNumber(DamageReduction);
+        float effectiveReduction = ability.GetNumber(DamageReduction) * context.effect_scale;
+        evt.Damage *= 1f - effectiveReduction;
         ArtifactAbilityLifecycle.BindExecution(ref runtime, execution);
         ArtifactAbilityVisuals.Emit(
             context,

@@ -36,6 +36,7 @@ public partial class Actors : ExtendLibrary<ActorAsset, Actors>
         SetupConstraintSpirit();
         SetupFantasyCreatures();
         SetupYuanyingSoul();
+        SetupBodilessYuanshen();
         ConfigureSourceSemantics();
     }
 

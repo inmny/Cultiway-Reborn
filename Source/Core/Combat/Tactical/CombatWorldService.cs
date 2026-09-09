@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using ai;
+using Cultiway.Content;
 using Cultiway.Const;
 using Cultiway.Core.Performance;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
@@ -2734,6 +2735,7 @@ public static class CombatWorldService
         return !actor.isRekt() &&
                !target.isRekt() &&
                target != actor &&
+               YuanshenTravelService.CanTargetSoulCarrier(actor, target) &&
                actor.canAttackTarget(
                    target,
                    pCheckForFactions: true,

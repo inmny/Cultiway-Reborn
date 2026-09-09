@@ -1,5 +1,6 @@
 using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
+using Cultiway.Core.Combat;
 using Cultiway.Core.Components;
 using Cultiway.Core.Libraries;
 using Cultiway.Utils.Extension;
@@ -129,11 +130,15 @@ internal static class KnightTechniqueStatuses
     {
         if (Combat.CombatStatusEffects.TryGetStatus(target, effect, null, out Entity status))
         {
+            float sourcePowerLevel = source.GetExtend().GetPowerLevel();
+            if (!StatusEffectSuppression.TryResolveDuration(
+                    target.GetExtend(), effect, duration, source, sourcePowerLevel,
+                    out float resolvedDuration)) return;
             status.GetComponent<AliveTimer>().value = 0f;
-            status.GetComponent<AliveTimeLimit>().value = duration;
+            status.GetComponent<AliveTimeLimit>().value = resolvedDuration;
             ref StatusComponent component = ref status.GetComponent<StatusComponent>();
             component.Source = source;
-            component.SourcePowerLevel = source.GetExtend().GetPowerLevel();
+            component.SourcePowerLevel = sourcePowerLevel;
             target.setStatsDirty();
             return;
         }

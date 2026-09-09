@@ -1,5 +1,6 @@
 using System;
 using Friflo.Engine.ECS;
+using Friflo.Json.Fliox;
 using UnityEngine;
 
 namespace Cultiway.Content.Components;
@@ -177,6 +178,14 @@ public struct ArtifactAbilityRuntimeEntry
 
     /// <summary>当前持续活动如何占用法器本体。</summary>
     public ArtifactAbilityActivityKind activity_kind;
+
+    /// <summary>持续活动实际保护或作用的临时人物编号；只存在于当前运行时。</summary>
+    [Ignore]
+    public long activity_carrier_actor_id;
+
+    /// <summary>持续活动启动时冻结的心神效果倍率；只存在于当前运行时。</summary>
+    [Ignore]
+    public float activity_effect_scale;
 
     /// <summary>由能力启动并与法器本体绑定的短时技能执行会话。</summary>
     public Entity active_execution;

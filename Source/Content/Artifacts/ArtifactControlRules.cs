@@ -75,6 +75,20 @@ public static class ArtifactControlRules
         attunement = new ArtifactAttunement { owner_actor_id = ownerActorId };
     }
     
+    /// <summary>设置一件已经祭炼法器的本命绑定状态。</summary>
+    /// <param name="artifact">需要修改的法器。</param>
+    /// <param name="ownerActorId">预期祭炼者编号。</param>
+    /// <param name="lifeBound">是否完成本命绑定。</param>
+    /// <returns>祭炼归属有效并完成设置时返回真。</returns>
+    public static bool SetLifeBound(Entity artifact, long ownerActorId, bool lifeBound)
+    {
+        if (artifact.IsNull || !artifact.TryGetComponent(out ArtifactAttunement current) ||
+            current.owner_actor_id != ownerActorId) return false;
+        ref ArtifactAttunement attunement = ref artifact.GetComponent<ArtifactAttunement>();
+        attunement.life_bound = lifeBound;
+        return true;
+    }
+
     /// <summary>
     /// 设置法器是否能够自动装备
     /// </summary>

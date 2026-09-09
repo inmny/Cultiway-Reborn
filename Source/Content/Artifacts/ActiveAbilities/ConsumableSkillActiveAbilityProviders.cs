@@ -177,6 +177,14 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
                !payload.Skill.IsNull && payload.Skill.HasComponent<SkillContainer>();
     }
 
+    /// <summary>读取当前主动能力实际使用的人物载体位置。</summary>
+    protected static Vector3 ResolveCastOrigin(ActorExtend caster)
+    {
+        return SkillCasterContextService.TryGetCurrent(caster, out SkillCasterContext context)
+            ? context.Carrier.Base.GetSimPos()
+            : caster.Base.GetSimPos();
+    }
+
     private static bool ContainsItem(ActorExtend caster, Entity expected)
     {
         foreach (Entity item in caster.GetItems())
@@ -197,9 +205,10 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
         if (stepLimit <= 0) return false;
         SkillUseProfileAsset useProfile = skill.GetComponent<SkillContainer>().Asset.UseProfile;
 
+        Vector3 castOrigin = ResolveCastOrigin(caster);
         if (useProfile.Placement == SkillUsePlacement.CasterSelf)
         {
-            plan = SkillCastPlanner.CreatePointPlan(caster, skill, caster.Base.GetSimPos(), stepLimit);
+            plan = SkillCastPlanner.CreatePointPlan(caster, skill, castOrigin, stepLimit);
         }
         else if (target.Object != null && !target.Object.isRekt())
         {
@@ -209,7 +218,7 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
                     target.Object)) return false;
             float range = caster.GetSkillCastRange(target.Object) * useProfile.RangeMultiplier +
                           target.Object.stats[strings.S.size];
-            if (Toolbox.SquaredDistVec2Float(caster.Base.current_position, target.Object.current_position) >
+            if (Toolbox.SquaredDistVec2Float(castOrigin, target.Object.current_position) >
                 range * range) return false;
             plan = SkillCastPlanner.CreatePlan(
                 caster,
@@ -224,7 +233,7 @@ internal abstract class ConsumableSkillActiveAbilityProvider : IActiveAbilityPro
             if (useProfile.TargetRelation is SkillUseTargetRelation.Friendly or SkillUseTargetRelation.Self)
                 return false;
             float range = caster.GetSkillCastRange(null) * useProfile.RangeMultiplier;
-            if (Toolbox.SquaredDistVec2Float(caster.Base.current_position, target.Position) > range * range)
+            if (Toolbox.SquaredDistVec2Float(castOrigin, target.Position) > range * range)
                 return false;
             plan = SkillCastPlanner.CreatePointPlan(caster, skill, target.Position, stepLimit);
         }
@@ -303,9 +312,12 @@ internal sealed class TalismanActiveAbilityProvider : ConsumableSkillActiveAbili
         in ActiveAbilityTarget target,
         float strength)
     {
-        Vector3 direction = (target.Object?.GetSimPos() ?? target.Position) - caster.Base.GetSimPos();
+        Actor visualCarrier = SkillCasterContextService.TryGetCurrent(caster, out SkillCasterContext context)
+            ? context.Carrier.Base
+            : caster.Base;
+        Vector3 direction = (target.Object?.GetSimPos() ?? target.Position) - visualCarrier.GetSimPos();
         TalismanVfxManager.QueueActivation(
-            caster.Base,
+            visualCarrier,
             item,
             payload.Skill,
             direction,

@@ -64,6 +64,8 @@ public class ArtifactManifestationSystem : QuerySystem<ActorBinder, ArtifactLoad
                             time),
                         vehicle)
                     : default;
+                if (followsOwner && ArtifactYuanshenControlService.TryResolveOrigin(actor, artifact, out Vector3 remoteOrigin))
+                    pose.position += remoteOrigin - actor.GetSimPos();
                 float activeWorldSize = active
                     ? ArtifactManifestationTools.ResolveActiveWorldSize(artifact, actor)
                     : 0f;

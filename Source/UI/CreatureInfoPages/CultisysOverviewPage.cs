@@ -1,5 +1,6 @@
 using Cultiway.Abstract;
 using Cultiway.Core;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.Progression;
 using Cultiway.UI.Prefab;
 using Cultiway.Utils.Extension;
@@ -34,7 +35,9 @@ public sealed class CultisysOverviewPage : MonoBehaviour
     [Hotfixable]
     public static void Show(CreatureInfoPage page, Actor actor)
     {
-        page.GetComponent<CultisysOverviewPage>().Refresh(actor.GetExtend());
+        SkillCasterContext context = SkillCasterContextService.Resolve(actor.GetExtend());
+        page.GetComponent<CultisysOverviewPage>().Refresh(
+            context.IsValid ? context.Owner : actor.GetExtend());
     }
 
     private void Refresh(ActorExtend actor)

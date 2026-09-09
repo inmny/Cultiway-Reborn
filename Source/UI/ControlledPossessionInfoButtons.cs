@@ -1,4 +1,4 @@
-using strings;
+using Cultiway.Utils.Extension;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,6 +21,13 @@ internal sealed class ControlledPossessionInfoButtons : MonoBehaviour
     private RectTransform cancelButtonRect;
     private CanvasGroup canvasGroup;
     private Canvas canvas;
+
+    /// <summary>打开原版人物资料的图标按钮。</summary>
+    private Button originalInfoButton;
+
+    /// <summary>打开修炼详细资料的图标按钮。</summary>
+    private Button cultiwayInfoButton;
+
     private PossessionUI boundUi;
     private bool visible;
 
@@ -57,6 +64,20 @@ internal sealed class ControlledPossessionInfoButtons : MonoBehaviour
         SetVisible(false);
     }
 
+    /// <summary>等待模组语言表完成加载后再解析悬停文本。</summary>
+    private void Start()
+    {
+        if (originalInfoButton != null)
+            UiTooltip.Set(originalInfoButton.gameObject,
+                LMTools.GetOrFallback(OriginalTitleKey, "原版人物信息"),
+                LMTools.GetOrFallback(OriginalDescriptionKey, "查看当前受控角色的原版人物资料。"));
+        if (cultiwayInfoButton != null)
+            UiTooltip.Set(cultiwayInfoButton.gameObject,
+                LMTools.GetOrFallback(CultiwayTitleKey, "修炼详细信息"),
+                LMTools.GetOrFallback(CultiwayDescriptionKey,
+                    "查看当前受控角色的灵根、修炼体系、法术、功法和法宝。"));
+    }
+
     private void Update()
     {
         if (ScrollWindow.isWindowActive() || ControlledPossessionInputGate.BlocksPossessionActions ||
@@ -81,15 +102,13 @@ internal sealed class ControlledPossessionInfoButtons : MonoBehaviour
         layout.childForceExpandHeight = false;
         layout.spacing = metrics.SpacingSm;
 
-        Button original = UiElements.CreateIconButton(transform, "OriginalInfo", UiIcons.Info,
+        originalInfoButton = UiElements.CreateIconButton(transform, "OriginalInfo", UiIcons.Info,
             metrics.ControlLarge, metrics.ControlLarge, OpenOriginalInfo, metrics.SpacingXs);
-        original.navigation = new Navigation { mode = Navigation.Mode.None };
-        UiTooltip.Set(original.gameObject, OriginalTitleKey.Localize(), OriginalDescriptionKey.Localize());
+        originalInfoButton.navigation = new Navigation { mode = Navigation.Mode.None };
 
-        Button cultiway = UiElements.CreateIconButton(transform, "CultiwayInfo", CultiwayInfoIcon,
+        cultiwayInfoButton = UiElements.CreateIconButton(transform, "CultiwayInfo", CultiwayInfoIcon,
             metrics.ControlLarge, metrics.ControlLarge, OpenCultiwayInfo, metrics.SpacingXs);
-        cultiway.navigation = new Navigation { mode = Navigation.Mode.None };
-        UiTooltip.Set(cultiway.gameObject, CultiwayTitleKey.Localize(), CultiwayDescriptionKey.Localize());
+        cultiwayInfoButton.navigation = new Navigation { mode = Navigation.Mode.None };
     }
 
     private bool EnsureBound()

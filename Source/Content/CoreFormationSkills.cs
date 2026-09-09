@@ -322,6 +322,8 @@ internal sealed class CoreFormationSkills : ICanInit
             .SetupVisualRotation(fixedUpright
                 ? VisualRotation.FixedUpright()
                 : VisualRotation.FollowRotation());
+        if (id is "BodyCounter" or "PrimalBodyCounter" or "PrimalBody")
+            asset.RequireCarrier(SkillCarrierRequirement.PhysicalBody);
         ModClass.I.SkillV3.SkillLib.add(asset);
 
         Entity container = new SkillContainerBuilder(asset).Build(SkillContainerBuildMode.SourceGranted);

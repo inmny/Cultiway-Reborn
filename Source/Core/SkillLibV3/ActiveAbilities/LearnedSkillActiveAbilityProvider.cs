@@ -9,6 +9,7 @@ using Cultiway.Utils;
 using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using strings;
+using UnityEngine;
 
 namespace Cultiway.Core.SkillLibV3.ActiveAbilities;
 
@@ -61,7 +62,8 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
     public ActiveAbilityControlState ResolveControlState(ActorExtend caster, ActiveAbilityHandle handle)
     {
         Entity skill = handle.Source;
-        if (skill.IsNull || !skill.HasComponent<SkillContainer>())
+        if (skill.IsNull || !skill.HasComponent<SkillContainer>() ||
+            !SkillCastPlanner.CanCast(caster, skill))
             return new ActiveAbilityControlState(ActiveAbilityControlBlockReason.Unavailable);
         return SkillCastCost.CanPayStep(caster, skill)
             ? ActiveAbilityControlState.Ready
@@ -71,7 +73,8 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
     public bool CanPrepare(ActorExtend caster, ActiveAbilityHandle handle, BaseSimObject target)
     {
         Entity skill = handle.Source;
-        if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
+        if (skill.IsNull || !skill.HasComponent<SkillContainer>() ||
+            !SkillCastPlanner.CanCast(caster, skill)) return false;
         SkillUseProfileAsset useProfile = skill.GetComponent<SkillContainer>().Asset.UseProfile;
         if (useProfile.Placement == SkillUsePlacement.CasterSelf)
         {
@@ -87,13 +90,15 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
     public bool CanUse(ActorExtend caster, ActiveAbilityHandle handle, in ActiveAbilityTarget target)
     {
         Entity skill = handle.Source;
-        if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
+        if (skill.IsNull || !skill.HasComponent<SkillContainer>() ||
+            !SkillCastPlanner.CanCast(caster, skill)) return false;
         SkillUseProfileAsset useProfile = skill.GetComponent<SkillContainer>().Asset.UseProfile;
         if (useProfile.Placement == SkillUsePlacement.CasterSelf)
         {
             int selfStepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill);
+            Vector3 selfOrigin = ResolveCastOrigin(caster, skill);
             SkillCastPlan selfPlan = SkillCastPlanner.CreatePointPlan(
-                caster, skill, caster.Base.GetSimPos(), selfStepLimit);
+                caster, skill, selfOrigin, selfStepLimit);
             return SkillCastCost.CanPay(caster, skill, selfPlan);
         }
         if (target.Object != null && !target.Object.isRekt())
@@ -103,7 +108,8 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
                     caster.Base,
                     target.Object)) return false;
             float targetRange = ResolveRange(caster, handle, target.Object) + target.Object.stats[strings.S.size];
-            if (Toolbox.SquaredDistVec2Float(caster.Base.current_position, target.Object.current_position) >
+            Vector3 castOrigin = ResolveCastOrigin(caster, skill);
+            if (Toolbox.SquaredDistVec2Float(castOrigin, target.Object.current_position) >
                 targetRange * targetRange) return false;
             int targetStepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill);
             SkillCastPlan targetPlan = SkillCastPlanner.CreatePlan(
@@ -120,7 +126,7 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
             return false;
 
         float range = ResolveRange(caster, handle, null);
-        if (Toolbox.SquaredDistVec2Float(caster.Base.current_position, target.Position) > range * range) return false;
+        if (Toolbox.SquaredDistVec2Float(ResolveCastOrigin(caster, skill), target.Position) > range * range) return false;
         int stepLimit = SkillCastCost.GetAffordableStepLimit(caster, skill);
         SkillCastPlan plan = SkillCastPlanner.CreatePointPlan(caster, skill, target.Position, stepLimit);
         if (!SkillCastCost.CanPay(caster, skill, plan)) return false;
@@ -186,7 +192,8 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
     {
         target = null;
         Entity skill = handle.Source;
-        if (skill.IsNull || !skill.HasComponent<SkillContainer>()) return false;
+        if (skill.IsNull || !skill.HasComponent<SkillContainer>() ||
+            !SkillCastPlanner.CanCast(caster, skill)) return false;
         SkillUseProfileAsset profile = skill.GetComponent<SkillContainer>().Asset.UseProfile;
         if (profile.TargetRelation != SkillUseTargetRelation.Friendly) return false;
 
@@ -197,6 +204,22 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
             ResolveEffectRadius(caster, handle),
             profile.TargetMode == ActiveAbilityTargetMode.Area,
             out target);
+    }
+
+    /// <summary>读取内容系统提供的节点施法位置，否则使用人物本体位置。</summary>
+    /// <param name="caster">技能归属人物。</param>
+    /// <param name="skill">准备释放的技能。</param>
+    /// <returns>本次技能实际出生位置。</returns>
+    private static Vector3 ResolveCastOrigin(ActorExtend caster, Entity skill)
+    {
+        if (SkillCasterContextService.TryGetCurrent(caster, out SkillCasterContext context) &&
+            context.Carrier != caster)
+        {
+            return context.Carrier.Base.GetSimPos();
+        }
+        return SkillCastPlanner.TryResolveSourcePosition(caster, skill, out Vector3 position)
+            ? position
+            : caster.Base.GetSimPos();
     }
 
     public bool TryUse(
@@ -211,7 +234,7 @@ internal sealed class LearnedSkillActiveAbilityProvider : IActiveAbilityProvider
         SkillUseProfileAsset useProfile = skill.GetComponent<SkillContainer>().Asset.UseProfile;
         if (useProfile.Placement == SkillUsePlacement.CasterSelf)
         {
-            plan = SkillCastPlanner.CreatePointPlan(caster, skill, caster.Base.GetSimPos(), stepLimit);
+            plan = SkillCastPlanner.CreatePointPlan(caster, skill, ResolveCastOrigin(caster, skill), stepLimit);
         }
         else if (target.Object != null && !target.Object.isRekt())
         {

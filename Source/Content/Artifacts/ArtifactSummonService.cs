@@ -27,6 +27,7 @@ public static class ArtifactSummonService
         float duration,
         float strength)
     {
+        strength *= context.effect_scale;
         WorldTile tile = World.world.GetTile(Mathf.FloorToInt(position.x), Mathf.FloorToInt(position.y));
         if (tile == null) return 0;
 

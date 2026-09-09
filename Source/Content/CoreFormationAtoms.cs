@@ -185,51 +185,51 @@ public sealed class CoreFormationAtoms : ExtendLibrary<CoreFormationAtomAsset, C
             Stats((S.multiplier_health, 0.12f), (S.multiplier_damage, 0.12f)), 2f);
 
         Set(ManifestInfant, "infant", "cultiway/ui/realm_pages/yuanying_base",
-            CoreFormationAtomCategory.Manifestation, CoreFormationRealmMask.Yuanying,
+            CoreFormationAtomCategory.Manifestation, CoreFormationRealmMask.Yuanying | CoreFormationRealmMask.Yuanshen,
             ["灵胎", "玄胎", "道胎"], _ => 1f,
             Descriptor(CultivationSemantics.Theme.Spirit, CultivationSemantics.Realm.Yuanying), []);
         Set(ManifestSwordEmbryo, "sword_embryo", "cultiway/icons/artifact_atoms/sword_edge",
             CoreFormationAtomCategory.Manifestation,
-            CoreFormationRealmMask.Yuanying, ["剑胎", "剑魂", "剑魄"],
+            CoreFormationRealmMask.Yuanying | CoreFormationRealmMask.Yuanshen, ["剑胎", "剑魂", "剑魄"],
             context => context.SemanticScore(CultivationSemantics.Path.Sword) * 8f,
             Descriptor(CultivationSemantics.Path.Sword, CultivationSemantics.Form.Blade),
             Stats((S.multiplier_damage, 0.18f)), 1f);
         Set(ManifestDragonAspect, "dragon_aspect", "ui/icons/iconDragon",
             CoreFormationAtomCategory.Manifestation,
-            CoreFormationRealmMask.Yuanying, ["龙相", "龙魂", "苍龙"], context => context.IsDragonSource ? 9f : 0f,
+            CoreFormationRealmMask.Yuanying | CoreFormationRealmMask.Yuanshen, ["龙相", "龙魂", "苍龙"], context => context.IsDragonSource ? 9f : 0f,
             Descriptor(CultivationSemantics.Theme.Dragon, CultivationSemantics.Effect.Transformation),
             Stats((S.multiplier_health, 0.15f), (S.armor, 2f)), 1f);
         Set(ManifestSpiritPlatform, "spirit_platform",
             "cultiway/icons/artifact_atoms/spirit_awakening_script",
             CoreFormationAtomCategory.Manifestation,
-            CoreFormationRealmMask.Yuanying, ["灵台", "神魂", "天心"],
+            CoreFormationRealmMask.Yuanying | CoreFormationRealmMask.Yuanshen, ["灵台", "神魂", "天心"],
             context => 1f + context.ShenRatio * 4f +
                        context.SemanticScore(CultivationSemantics.Resource.Spirituality) * 3f,
             Descriptor(CultivationSemantics.Theme.Soul, CultivationSemantics.Resource.Spirituality),
             Stats((BaseStatses.MaxWakan.id, 16f), (S.multiplier_crit, 0.08f)), 3f);
         Set(ManifestPrimalBody, "primal_body", "cultiway/icons/artifact_atoms/vitality_robe",
             CoreFormationAtomCategory.Manifestation,
-            CoreFormationRealmMask.Yuanying, ["真身", "法身", "道躯"],
+            CoreFormationRealmMask.Yuanying | CoreFormationRealmMask.Yuanshen, ["真身", "法身", "道躯"],
             context => 1f + context.JingRatio * 4f + context.SemanticScore(CultivationSemantics.Form.Body) * 3f,
             Descriptor(CultivationSemantics.Form.Body, CultivationSemantics.Effect.Transformation),
             Stats((S.multiplier_health, 0.2f), (S.armor, 2.5f)), 3f);
 
         Set(TransformFivePhase, "five_phase", "cultiway/icons/artifact_atoms/element_pearl",
             CoreFormationAtomCategory.Transformation,
-            CoreFormationRealmMask.Yuanying, ["五气", "混元", "五相"],
+            CoreFormationRealmMask.Yuanying | CoreFormationRealmMask.Yuanshen, ["五气", "混元", "五相"],
             context => context.FivePhaseBalance * 6f,
             Descriptor(CultivationSemantics.Theme.Elemental, CultivationSemantics.Effect.Resonance), [], 2.2f);
         Set(TransformPureYang, "pure_yang", "cultiway/icons/element_root/pos",
             CoreFormationAtomCategory.Transformation,
-            CoreFormationRealmMask.Yuanying, ["阳神", "曜魂", "纯阳"], context => context.Composition.pos * 8f,
+            CoreFormationRealmMask.Yuanying | CoreFormationRealmMask.Yuanshen, ["阳神", "曜魂", "纯阳"], context => context.Composition.pos * 8f,
             Descriptor(SkillSemantics.Element.Pos, CultivationSemantics.Theme.Soul), [], 2.2f);
         Set(TransformMysteriousYin, "mysterious_yin", "cultiway/icons/element_root/neg",
             CoreFormationAtomCategory.Transformation,
-            CoreFormationRealmMask.Yuanying, ["阴神", "玄魂", "太阴"], context => context.Composition.neg * 8f,
+            CoreFormationRealmMask.Yuanying | CoreFormationRealmMask.Yuanshen, ["阴神", "玄魂", "太阴"], context => context.Composition.neg * 8f,
             Descriptor(SkillSemantics.Element.Neg, CultivationSemantics.Theme.Soul), [], 2.2f);
         Set(TransformChaos, "chaos_rebirth", "cultiway/icons/element_root/entropy",
             CoreFormationAtomCategory.Transformation,
-            CoreFormationRealmMask.Yuanying, ["混沌", "归墟", "玄变"], context => context.Composition.entropy * 8f,
+            CoreFormationRealmMask.Yuanying | CoreFormationRealmMask.Yuanshen, ["混沌", "归墟", "玄变"], context => context.Composition.entropy * 8f,
             Descriptor(SkillSemantics.Element.Entropy, CultivationSemantics.Effect.Transformation), [], 2.2f);
 
         ConfigureEffects();

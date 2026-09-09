@@ -39,7 +39,7 @@ public partial class Cultisyses
                 GetQiRefinementDetailedLevel,
                 GetFoundationDetailedLevel,
                 GetJindanDetailedLevel,
-                GetYuanyingDetailedLevel, null, null, null, null,
+                GetYuanyingDetailedLevel, GetHuashenDetailedLevel, null, null, null,
                 null, null,
                 null, null, null, null, null, null, null, null,
                 null, null,
@@ -61,6 +61,8 @@ public partial class Cultisyses
             stats.mergeStats(Xian.LevelAccumBaseStats[curr_level]);
             if (CoreFormationEffectResolver.TryGetFormation(ae, out var achievement))
                 MergeCoreFormationStats(stats, achievement.Snapshot, achievement.Strength);
+            if (ae.TryGetComponent(out Yuanshen currentYuanshen))
+                stats[WorldboxGame.BaseStats.SoulRegen.id] += 1f + currentYuanshen.stage * 0.5f;
 
             // 仅主修功法提供属性加成
             var mainCultibook = ae.GetMainCultibook();
@@ -106,6 +108,12 @@ public partial class Cultisyses
             {
                 ref Yuanying yuanying = ref a.GetComponent<Yuanying>();
                 sb.AppendLine($"元婴: {yuanying.GetName()}");
+            }
+
+            if (a.HasComponent<Yuanshen>())
+            {
+                ref Yuanshen yuanshen = ref a.GetComponent<Yuanshen>();
+                sb.AppendLine($"元神: {yuanshen.GetName()}");
             }
         });
     }
@@ -172,6 +180,14 @@ public partial class Cultisyses
                 "Cultiway.CultisysTooltip.Xian.Yuanying",
                 string.Format("Cultiway.CultisysTooltip.Format.Yuanying".Localize(), yuanying.GetName(),
                     yuanying.GetQuality().GetName(), yuanying.strength)));
+        }
+        if (actor.HasComponent<Yuanshen>())
+        {
+            ref var yuanshen = ref actor.GetComponent<Yuanshen>();
+            lines.Add(new CultisysDisplayLine(
+                "Cultiway.CultisysTooltip.Xian.Yuanshen",
+                string.Format("Cultiway.CultisysTooltip.Format.Yuanshen".Localize(), yuanshen.GetName(),
+                    yuanshen.GetQuality().GetName(), yuanshen.stage, yuanshen.strength)));
         }
         if (BalefulWindTribulationSkillService.TryGetProgress(
                 actor,
@@ -390,7 +406,24 @@ public partial class Cultisyses
         yuanyingRealm.SynchronizationEffects.Add(NormalizeYuanyingRealm);
         profile.AddRealm(yuanyingRealm);
 
+        var refineYuanshen = new ProgressionTransitionAsset<Xian>(
+            "xian.refine_yuanshen", ProgressionKind.Minor, XianLevels.Huashen, XianLevels.Huashen)
+        {
+            IsApproaching = IsYuanshenRefinementApproaching,
+            ResolveNatural = ResolveYuanshenRefinement,
+            ResolveGrant = ResolveGrantedYuanshenRefinement
+        };
+        refineYuanshen.Requirements.Add(RequireFullWakan);
+        refineYuanshen.Requirements.Add(RequireYuanshen);
+        refineYuanshen.SuccessCosts.Add(ApplyYuanshenRefinementCost);
+        refineYuanshen.Transformations.Add(ApplyYuanshenRefinement);
+        refineYuanshen.FailureEffects.Add(ApplyYuanshenRefinementFailure);
+
         var huashenRealm = new RealmProgressionAsset<Xian>(XianLevels.Huashen);
+        huashenRealm.Transitions.Add(refineYuanshen);
+        huashenRealm.SelectForQuery = SelectHuashenTransition;
+        huashenRealm.SelectForNaturalAttempt = SelectHuashenTransition;
+        huashenRealm.SelectForMajorGrant = SelectHuashenTransition;
         huashenRealm.SynchronizationEffects.Add(NormalizeHuashenRealm);
         profile.AddRealm(huashenRealm);
 
@@ -458,6 +491,7 @@ public partial class Cultisyses
         TransferFoundation(source, target);
         TransferJindan(source, target);
         TransferYuanying(source, target);
+        TransferYuanshen(source, target);
         BalefulWindTribulationSkillService.Cleanup(target);
     }
 

@@ -83,6 +83,29 @@ public static class WakanResourceService
         return spent;
     }
 
+    /// <summary>仅在现有灵气足以完整支付时提交指定消耗。</summary>
+    /// <param name="actor">资源支付者。</param>
+    /// <param name="amount">需要完整支付的灵气数值。</param>
+    /// <returns>人物有效且灵气足够时返回真。</returns>
+    public static bool TrySpend(ActorExtend actor, float amount)
+    {
+        if (actor?.Base == null || amount < 0f || !actor.HasCultisys<Xian>()) return false;
+        ref Xian xian = ref actor.GetCultisys<Xian>();
+        if (xian.wakan + 0.001f < amount) return false;
+        Spend(actor, ref xian, amount);
+        return true;
+    }
+
+    /// <summary>仅在现有灵气足以支付上限的指定比例时提交消耗。</summary>
+    /// <param name="actor">资源支付者。</param>
+    /// <param name="maximumRatio">人物灵气上限的支付比例。</param>
+    /// <returns>人物有效且灵气足够时返回真。</returns>
+    public static bool TrySpendMaximumRatio(ActorExtend actor, float maximumRatio)
+    {
+        return actor?.Base != null && maximumRatio >= 0f &&
+               TrySpend(actor, ResolveMaximum(actor) * maximumRatio);
+    }
+
     /// <summary>按角色当前灵气上限把灵气设置为指定数值。</summary>
     public static void Set(ActorExtend actor, ref Xian xian, float amount)
     {

@@ -325,7 +325,7 @@ public partial class ArtifactAbilities
         ArtifactAbilityLifecycle.BeginTimedActivity(
             ref runtime,
             point,
-            point - (Vector3)Controller(context).current_position);
+            point - ControllerPosition(context));
         return true;
     }
 

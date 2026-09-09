@@ -319,11 +319,13 @@ public class InventoryPage : MonoBehaviour, IWorldBoundCreatureInfoPage
     }
 
     /// <summary>
-    /// 按分类、装备状态、品阶和实体 ID 形成确定性顺序。
+    /// 按分类、装备状态、品阶和实体 ID 形成确定性顺序，未分类物品排在最后。
     /// </summary>
     private static int CompareEntries(InventoryEntry left, InventoryEntry right)
     {
-        int result = left.Category.order.CompareTo(right.Category.order);
+        int leftOrder = left.Category?.order ?? int.MaxValue;
+        int rightOrder = right.Category?.order ?? int.MaxValue;
+        int result = leftOrder.CompareTo(rightOrder);
         if (result != 0) return result;
 
         result = right.Equipped.CompareTo(left.Equipped);
@@ -343,6 +345,7 @@ public class InventoryPage : MonoBehaviour, IWorldBoundCreatureInfoPage
         for (int i = 0; i < entries.Count; i++)
         {
             SpecialItemCategoryAsset category = entries[i].Category;
+            if (category == null) continue;
             counts.TryGetValue(category, out int count);
             counts[category] = count + 1;
         }

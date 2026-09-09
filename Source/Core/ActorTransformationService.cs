@@ -5,6 +5,30 @@ using UnityEngine;
 
 namespace Cultiway.Core;
 
+/// <summary>一次原地转换的明确选项，解决旧出生特性累积的问题。</summary>
+public struct ActorTransformationOptions
+{
+    /// <summary>转换后是否应用目标亚种的出生特性；组合身体驱动的形态切换必须关闭，避免特性反复累积。</summary>
+    public bool ApplyTargetBirthTraits;
+
+    /// <summary>转换后是否重新检查角色可获得修炼体系；妖兽切换形态必须关闭，避免化形后意外接入其他体系。</summary>
+    public bool RecheckCultisyses;
+
+    /// <summary>游戏其他系统调用的默认行为：应用出生特性并重新检查修炼体系。</summary>
+    public static ActorTransformationOptions Default => new()
+    {
+        ApplyTargetBirthTraits = true,
+        RecheckCultisyses = true,
+    };
+
+    /// <summary>共用身体驱动的形态切换：不重放出生特性、不重新检查修炼体系。</summary>
+    public static ActorTransformationOptions MorphSwitch => new()
+    {
+        ApplyTargetBirthTraits = false,
+        RecheckCultisyses = false,
+    };
+}
+
 /// <summary>
 ///     在保留角色实体、原版数据和模组扩展数据的前提下，更换角色的生物形态。
 /// </summary>
@@ -15,6 +39,15 @@ public static class ActorTransformationService
     /// </summary>
     public static Actor TransformInPlace(Actor actor, ActorAsset targetAsset)
     {
+        return TransformInPlace(actor, targetAsset, ActorTransformationOptions.Default);
+    }
+
+    /// <summary>
+    ///     按明确选项把现有角色原地转换为目标生物。角色身份、关系、物品和全部扩展组件不会迁移或重建。
+    ///     共用层自身不授予任何形态特性，因此没有需要登记的旧来源。
+    /// </summary>
+    public static Actor TransformInPlace(Actor actor, ActorAsset targetAsset, in ActorTransformationOptions options)
+    {
         if (actor == null || actor.isRekt() || targetAsset == null) return null;
 
         var resources = ResourceRatios.Capture(actor);
@@ -22,7 +55,7 @@ public static class ActorTransformationService
 
         actor.setAsset(targetAsset);
         actor.setSubspecies(targetSubspecies);
-        ApplyTargetBirthTraits(actor, targetSubspecies);
+        if (options.ApplyTargetBirthTraits) ApplyTargetBirthTraits(actor, targetSubspecies);
 
         actor.data.head = -1;
         if (targetSubspecies.hasPhenotype()) actor.generatePhenotypeAndShade();
@@ -38,7 +71,7 @@ public static class ActorTransformationService
             {
                 actorExtend.AddComponent(ElementRoot.Roll());
             }
-            Cultisyses.RecheckAvailableCultisyses(actorExtend);
+            if (options.RecheckCultisyses) Cultisyses.RecheckAvailableCultisyses(actorExtend);
             actorExtend.MarkCultiwayStatsDirty(false);
             actorExtend.MarkCultiwaySkillCacheDirty(false);
         }

@@ -321,47 +321,23 @@ public partial class ActorExtend : ExtendComponent<Actor>, IHasInventory, IHasSt
         InventoryLifecycle.NotifyAfterItemExtracted(this, item);
     }
 
+    /// <summary>把共享状态加入人物，并在首次加入时结算负面状态的战力等级压制。</summary>
+    /// <param name="item">准备加入的共享状态实体。</param>
+    /// <returns>状态成功加入时返回真。</returns>
     public bool AddSharedStatus(Entity item)
     {
-        // 检查是否是负面状态
-        if (item.TryGetComponent(out StatusComponent statusComponent))
+        if (item.TryGetComponent(out StatusComponent status) &&
+            item.TryGetComponent(out AliveTimeLimit timeLimit))
         {
-            var statusAsset = statusComponent.Type;
-            if (statusAsset != null && statusAsset.GetExtend<StatusAssetExtend>().negative)
-            {
-                // 如果有施加方信息，计算powerlevel差距并调整状态时长
-                var source = statusComponent.Source;
-                var sourcePowerLevel = statusComponent.SourcePowerLevel;
-                if (!sourcePowerLevel.HasValue && source != null && source.isActor())
-                {
-                    sourcePowerLevel = source.a.GetExtend().GetPowerLevel();
-                }
-                if (sourcePowerLevel.HasValue)
-                {
-                    var targetPowerLevel = GetPowerLevel();
-                    var powerLevelDiff = sourcePowerLevel.Value - targetPowerLevel;
-
-                    // 如果目标powerlevel更高，减少状态时长
-                    // 差距越大，减少越多（使用对数衰减）
-                    if (powerLevelDiff < 0)
-                    {
-                        var reductionFactor = Mathf.Exp(powerLevelDiff * 0.1f); // 每差1级，效果减少约10%
-                        if (item.TryGetComponent(out AliveTimeLimit timeLimit))
-                        {
-                            var originalDuration = timeLimit.value;
-                            var adjustedDuration = originalDuration * reductionFactor;
-                            
-                            // 如果调整后的时长过短（小于0.1秒），则不添加状态
-                            if (adjustedDuration < 0.1f)
-                            {
-                                return false;
-                            }
-                            
-                            timeLimit.value = adjustedDuration;
-                        }
-                    }
-                }
-            }
+            if (!StatusEffectSuppression.TryResolveDuration(
+                    this,
+                    status.Type,
+                    timeLimit.value,
+                    status.Source,
+                    status.SourcePowerLevel,
+                    out float duration))
+                return false;
+            item.GetComponent<AliveTimeLimit>().value = duration;
         }
 
         e.AddRelation(new StatusRelation { status = item });

@@ -349,10 +349,13 @@ public static class SkillEffectResolver
         in SkillEffectContext context,
         BaseSimObject target)
     {
-        if (target == null || target.isRekt() ||
+        BaseSimObject relationSource = effect.TargetRelation == SkillEffectTargetRelation.Self
+            ? context.Cast.ResolveSpatialSource()
+            : context.Cast.SourceObj;
+        if (target == null || target.isRekt() || relationSource == null || relationSource.isRekt() ||
             !SkillTargetRelationResolver.Matches(
                 effect.TargetRelation,
-                context.Cast.SourceObj,
+                relationSource,
                 target,
                 context.Cast.ResolveAttackKingdom())) return default;
         var evaluation = new SkillEffectEvaluationContext(
@@ -437,7 +440,8 @@ public static class SkillEffectResolver
         if (source == null || source.isRekt()) yield break;
         if (relation == SkillEffectTargetRelation.Self)
         {
-            yield return source;
+            BaseSimObject spatialSource = context.Cast.ResolveSpatialSource();
+            if (spatialSource != null && !spatialSource.isRekt()) yield return spatialSource;
             yield break;
         }
         WorldTile center = World.world.GetTile(

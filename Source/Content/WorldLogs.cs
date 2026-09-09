@@ -22,6 +22,24 @@ public class WorldLogs : ExtendLibrary<WorldLogAsset, WorldLogs>
     public static WorldLogAsset LogYuanyingPossessionSuccess { get; private set; }
     public static WorldLogAsset LogYuanyingPossessionFailure { get; private set; }
 
+    // ===== 妖兽玩法日志 =====
+    public static WorldLogAsset LogYaoAwakened { get; private set; }
+    public static WorldLogAsset LogYaoQuenchedBlood { get; private set; }
+    public static WorldLogAsset LogYaoOrganDigested { get; private set; }
+    public static WorldLogAsset LogYaoOrganRejected { get; private set; }
+    public static WorldLogAsset LogYaoCoreCondensed { get; private set; }
+    public static WorldLogAsset LogYaoCoreCracked { get; private set; }
+    public static WorldLogAsset LogYaoTribulationStarted { get; private set; }
+    public static WorldLogAsset LogYaoTribulationSucceeded { get; private set; }
+    public static WorldLogAsset LogYaoTribulationRetreated { get; private set; }
+    public static WorldLogAsset LogYaoHumanTransformation { get; private set; }
+    public static WorldLogAsset LogYaoAtavism { get; private set; }
+    public static WorldLogAsset LogYaoSolidified { get; private set; }
+    public static WorldLogAsset LogYaoNirvanaStarted { get; private set; }
+    public static WorldLogAsset LogYaoNirvanaReborn { get; private set; }
+    public static WorldLogAsset LogYaoTailLife { get; private set; }
+    public static WorldLogAsset LogYaoBirthResolved { get; private set; }
+
     protected override bool AutoRegisterAssets() => true;
     protected override void OnInit()
     {
@@ -67,6 +85,37 @@ public class WorldLogs : ExtendLibrary<WorldLogAsset, WorldLogs>
             Toolbox.color_log_good);
         SetupPossessionLog(LogYuanyingPossessionFailure, "Cultiway.WorldLog.YuanyingPossessionFailure",
             Toolbox.color_log_warning);
+
+        // 妖兽日志：主体 + 结果的固定两段式文本。
+        SetupYaoLog(LogYaoAwakened, "Cultiway.WorldLog.YaoAwakened", Toolbox.color_log_good, "cultiway/icons/iconCultivation");
+        SetupYaoLog(LogYaoQuenchedBlood, "Cultiway.WorldLog.YaoQuenchedBlood", Toolbox.color_log_good, "cultiway/icons/iconCultivation");
+        SetupYaoLog(LogYaoOrganDigested, "Cultiway.WorldLog.YaoOrganDigested", Toolbox.color_log_good, "cultiway/icons/iconCultivation");
+        SetupYaoLog(LogYaoOrganRejected, "Cultiway.WorldLog.YaoOrganRejected", Toolbox.color_log_warning, "cultiway/icons/iconCultivation");
+        SetupYaoLog(LogYaoCoreCondensed, "Cultiway.WorldLog.YaoCoreCondensed", Toolbox.color_log_good, "cultiway/icons/achievements/nascent_soul_formed");
+        SetupYaoLog(LogYaoCoreCracked, "Cultiway.WorldLog.YaoCoreCracked", Toolbox.color_log_warning, "cultiway/icons/achievements/nascent_soul_formed");
+        SetupYaoLog(LogYaoTribulationStarted, "Cultiway.WorldLog.YaoTribulationStarted", Toolbox.color_log_warning, "cultiway/icons/element_root/entropy");
+        SetupYaoLog(LogYaoTribulationSucceeded, "Cultiway.WorldLog.YaoTribulationSucceeded", Toolbox.color_log_good, "cultiway/icons/element_root/entropy");
+        SetupYaoLog(LogYaoTribulationRetreated, "Cultiway.WorldLog.YaoTribulationRetreated", Toolbox.color_log_warning, "cultiway/icons/element_root/entropy");
+        SetupYaoLog(LogYaoHumanTransformation, "Cultiway.WorldLog.YaoHumanTransformation", Toolbox.color_log_good, "cultiway/icons/iconCultivation");
+        SetupYaoLog(LogYaoAtavism, "Cultiway.WorldLog.YaoAtavism", Toolbox.color_log_good, "cultiway/icons/iconCultivation");
+        SetupYaoLog(LogYaoSolidified, "Cultiway.WorldLog.YaoSolidified", Toolbox.color_log_good, "cultiway/icons/iconCultivation");
+        SetupYaoLog(LogYaoNirvanaStarted, "Cultiway.WorldLog.YaoNirvanaStarted", Toolbox.color_log_warning, "cultiway/icons/iconCultivation");
+        SetupYaoLog(LogYaoNirvanaReborn, "Cultiway.WorldLog.YaoNirvanaReborn", Toolbox.color_log_good, "cultiway/icons/iconCultivation");
+        SetupYaoLog(LogYaoTailLife, "Cultiway.WorldLog.YaoTailLife", Toolbox.color_log_good, "cultiway/icons/iconCultivation");
+        SetupYaoLog(LogYaoBirthResolved, "Cultiway.WorldLog.YaoBirthResolved", Toolbox.color_log_good, "cultiway/icons/iconCultivation");
+    }
+
+    private static void SetupYaoLog(WorldLogAsset asset, string localeId, UnityEngine.Color color, string iconPath)
+    {
+        asset.locale_id = localeId;
+        asset.path_icon = iconPath;
+        asset.color = color;
+        asset.group = HistoryGroups.Cultivations.id;
+        asset.text_replacer = (WorldLogMessage message, ref string text) =>
+        {
+            AssetManager.world_log_library.updateText(ref text, message, "$actor$", 1);
+            AssetManager.world_log_library.updateText(ref text, message, "$value$", 2);
+        };
     }
 
     private static void SetupCultivationActorLog(WorldLogAsset asset, string localeId, UnityEngine.Color color)

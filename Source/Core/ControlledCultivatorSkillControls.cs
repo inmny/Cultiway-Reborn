@@ -86,6 +86,14 @@ internal static class ControlledCultivatorSkillControls
         return true;
     }
 
+    /// <summary>让本体与临时魂体共享同一项玩家能力选择。</summary>
+    private static long ResolveSelectionOwnerId(Actor actor)
+    {
+        if (actor == null) return 0L;
+        SkillCasterContext context = SkillCasterContextService.Resolve(actor.GetExtend());
+        return context.IsValid ? context.Owner.Base.data.id : actor.data.id;
+    }
+
     private static bool TryCycleAttackAbility(Actor actor, int direction, out ActiveAbilityHandle ability)
     {
         ability = default;
@@ -94,7 +102,7 @@ internal static class ControlledCultivatorSkillControls
         if (selectedIndex < 0) return false;
 
         int next = Mod(selectedIndex + Math.Sign(direction == 0 ? 1 : direction), candidates.Count);
-        SelectedAbilities[actor.data.id] = candidates[next];
+        SelectedAbilities[ResolveSelectionOwnerId(actor)] = candidates[next];
         ability = candidates[next];
         return true;
     }
@@ -127,7 +135,8 @@ internal static class ControlledCultivatorSkillControls
         if (actor == null || actor.isRekt() ||
             !TryCollectAvailableAttackAbilities(actor.GetExtend(), candidates)) return -1;
 
-        if (SelectedAbilities.TryGetValue(actor.data.id, out ActiveAbilityHandle selected))
+        long selectionOwnerId = ResolveSelectionOwnerId(actor);
+        if (SelectedAbilities.TryGetValue(selectionOwnerId, out ActiveAbilityHandle selected))
         {
             for (int i = 0; i < candidates.Count; i++)
             {
@@ -136,7 +145,7 @@ internal static class ControlledCultivatorSkillControls
         }
         else
         {
-            SelectedAbilities[actor.data.id] = candidates[0];
+            SelectedAbilities[selectionOwnerId] = candidates[0];
         }
         return 0;
     }
@@ -151,7 +160,7 @@ internal static class ControlledCultivatorSkillControls
         for (int i = 0; i < candidates.Count; i++)
         {
             if (candidates[i] != ability) continue;
-            SelectedAbilities[actor.data.id] = ability;
+            SelectedAbilities[ResolveSelectionOwnerId(actor)] = ability;
             return true;
         }
         return false;
@@ -165,7 +174,7 @@ internal static class ControlledCultivatorSkillControls
         using var candidates = new ListPool<ActiveAbilityHandle>();
         if (CollectSelectableAbilities(actor, candidates) < 0 || index >= candidates.Count) return false;
         ActiveAbilityHandle ability = candidates[index];
-        SelectedAbilities[actor.data.id] = ability;
+        SelectedAbilities[ResolveSelectionOwnerId(actor)] = ability;
         ShowTip($"当前能力：{GetAbilityName(actor.GetExtend(), ability)}");
         return true;
     }
@@ -226,11 +235,12 @@ internal static class ControlledCultivatorSkillControls
         return (int)SkillEntityType.Attack;
     }
 
-    private static bool CanUseSkillControlsNow(Actor actor)
+    private static bool CanUseAbilityControlsNow(Actor actor, ActiveAbilityChannel channels)
     {
         if (!GeneralSettings.EnableSkillSystems) return false;
         if (actor == null || !actor.isAlive()) return false;
         if (actor.asset.skip_fight_logic || actor.is_unconscious) return false;
+        if ((channels & ActiveAbilityChannel.World) != 0) return true;
         if (!actor.isAttackReady()) return false;
         if (actor.isInWaterAndCantAttack()) return false;
         return actor.isAttackPossible();
@@ -239,10 +249,11 @@ internal static class ControlledCultivatorSkillControls
     private static bool TryCastSelectedSkill(Actor actor, BaseSimObject target, Vector3 targetPos,
         Kingdom attackKingdom, SkillTargetSelectionArea selectionArea)
     {
-        if (!CanUseSkillControlsNow(actor)) return false;
         if (!TryGetSelectedAttackAbility(actor, out ActiveAbilityHandle ability)) return false;
-
         var caster = actor.GetExtend();
+        ActiveAbilityChannel channels = ActiveAbilityService.GetChannels(caster, ability);
+        if (!CanUseAbilityControlsNow(actor, channels)) return false;
+
         ActiveAbilityDescriptor descriptor = ActiveAbilityService.Describe(caster, ability);
         var manualTargets = selectionArea.Active
             ? CollectManualTargets(actor, selectionArea, attackKingdom)
@@ -277,6 +288,7 @@ internal static class ControlledCultivatorSkillControls
         if (!ActiveAbilityService.TryUse(caster, ability, abilityTarget, ActiveAbilityUseOrigin.Player)) return false;
 
         var aimPos = useTrackedTarget ? target.GetSimPos() : clampedTargetPos;
+        if ((channels & ActiveAbilityChannel.Combat) == 0) return true;
         actor.startAttackCooldown();
         actor.punchTargetAnimation(aimPos, true, actor.hasRangeAttack());
         actor.lookTowardsPosition(aimPos);

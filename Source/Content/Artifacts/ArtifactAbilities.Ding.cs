@@ -154,6 +154,7 @@ public partial class ArtifactAbilities
         DevouringReturn.SetSemantics(
             ArtifactSemantics.Delivery.Deployment,
             ArtifactSemantics.Delivery.Field,
+            ArtifactSemantics.Element.Neg,
             ArtifactSemantics.Effect.Devouring,
             ArtifactSemantics.Effect.Recovery);
         DevouringReturn.exclusivity = ArtifactAbilityExclusivity.DevouringField;
@@ -262,16 +263,18 @@ public partial class ArtifactAbilities
         {
             float damage = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier);
             CombatDamageEffects.DealDamage(controller, target, damage, SoulComposition);
-            totalRecovery += damage * ability.GetNumber(RestoreRatio);
-            totalWakan += CombatResourceEffects.DrainWakan(target, ability.GetNumber(DrainAmount));
+            totalRecovery += damage * ability.GetNumber(RestoreRatio) * context.effect_scale;
+            totalWakan += CombatResourceEffects.DrainWakan(
+                target,
+                ability.GetNumber(DrainAmount) * context.effect_scale);
             CombatForceEffects.ApplyRadialForce(
                 controller,
                 target,
                 position,
-                ability.GetNumber(ForceStrength),
+                ability.GetNumber(ForceStrength) * context.effect_scale,
                 pull: true);
         });
-        CombatResourceEffects.RestoreHealth(controller, totalRecovery);
+        RestoreCarrierHealth(context, totalRecovery);
         CombatResourceEffects.RestoreWakan(controller, totalWakan * ability.GetNumber(RestoreRatio));
     }
 

@@ -26,11 +26,18 @@ public sealed class WorldPage : ModInfoPage
         Transform r2 = AddTwoColumnRow(races, "Race Row 2", width - 12f);
         AddMiniCard(r2, "Chaos", "cultiway/icons/iconTab", "混沌恶魔", "恐虐·色孽·奸奇·纳垢四神眷族", 99f);
         AddMiniCard(r2, "Empire", "cultiway/icons/iconTab", "帝国秩序", "泰拉帝皇·阿斯塔特·帝皇禁卫", 99f);
+        AddBullet(races, "斯卡文鼠人随杀戮层层蜕变，十三阶方成大器。");
 
         Transform geo = CreateCard(root, "Geo Evolve", width, 6, 6, 5, 5, 2f);
         AddText(geo, "Title", "地理演化", 8, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);
         AddBullet(geo, "世界自动划分为地区、地貌、陆块、半岛、海峡、群岛六层。");
         AddBullet(geo, "地形随时间侵蚀与反侵蚀，唯有城墙岿然不动。");
+
+        Transform veins = CreateCard(root, "Spirit Veins", width, 6, 6, 5, 5, 3f);
+        AddText(veins, "Title", "龙脉风水", 8, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);
+        AddText(veins, "Body",
+            "大地之下有龙脉蜿蜒——支龙、脉节、结穴地、灵眼，逐月吐纳流转。开启灵脉地图，天下龙脉与灵气浓淡尽收眼底。",
+            6, FontStyle.Normal, TextAnchor.UpperLeft, PrimaryTextColor);
 
         Transform wakan = CreateCard(root, "Wakan Map", width, 6, 6, 5, 5, 3f);
         AddText(wakan, "Title", "灵气地图", 8, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);

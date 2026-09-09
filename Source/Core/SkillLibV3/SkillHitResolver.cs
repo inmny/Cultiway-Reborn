@@ -191,7 +191,8 @@ public static class SkillHitResolver
     {
         var visited = new HashSet<long>();
         BaseSimObject current = firstTarget;
-        Vector2 previousPosition = context.SourceObj.GetSimPos();
+        BaseSimObject spatialSource = context.ResolveSpatialSource();
+        Vector2 previousPosition = spatialSource?.GetSimPos() ?? skillEntity.GetComponent<Position>().value;
         float damageMultiplier = profile.DamageMultiplier * asset.ImpactTuning.DamageMultiplier;
         float jumpRadius = SkillEffectRadius.Resolve(skillEntity, profile.JumpRadius);
         for (int i = 0; i < profile.MaxTargets && current != null && !current.isRekt(); i++)
@@ -255,7 +256,8 @@ public static class SkillHitResolver
     {
         float damage = context.Strength * context.EffectScale * damageMultiplier;
         if (!asset.DealsBaseDamage || damage <= 0f) return;
-        var attacker = context.SourceObj;
+        BaseSimObject attacker = context.ResolveSpatialSource();
+        if (attacker == null || attacker.isRekt()) attacker = context.SourceObj;
         if (target.isActor())
         {
             var evt = new GetHitEvent
@@ -263,15 +265,16 @@ public static class SkillHitResolver
                 TargetID = target.a.data.id,
                 Damage = damage,
                 Element = context.ResolveElement(asset.Element),
+                AttackType = AttackType.Other,
                 AttackerPowerLevel = context.PowerLevel,
                 DamageOrigin = context.RuntimeData.DamageOrigin,
             };
-            evt.BindAttacker(attacker, context.SourceId);
+            evt.BindAttacker(attacker);
             EventSystemHub.Publish(evt);
             return;
         }
 
-        target.b.getHit(damage, pAttacker: attacker);
+        target.b.getHit(damage, pAttacker: context.SourceObj);
     }
 
     private static long GetTargetKey(BaseSimObject target)

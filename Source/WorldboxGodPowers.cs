@@ -9,6 +9,7 @@ public partial class WorldboxGame
         public static GodPower WanfaGrant { get; private set; }
         public static GodPower UpgradeRain { get; private set; }
         public static GodPower ElementRootRain { get; private set; }
+        public static GodPower YaoAwakeningRain { get; private set; }
         public static GodPower BaibaoArchive { get; private set; }
         public static GodPower BaibaoGrant { get; private set; }
 
@@ -19,6 +20,7 @@ public partial class WorldboxGame
             SetupWorldToolPower(WanfaGrant, "wanfa_grant", true);
             SetupWorldToolPower(UpgradeRain, "upgrade_rain", true);
             SetupWorldToolPower(ElementRootRain, "element_root_rain", true);
+            SetupWorldToolPower(YaoAwakeningRain, "yao_awakening_rain", true);
             SetupWorldToolPower(BaibaoArchive, "baibao_archive", false);
             SetupWorldToolPower(BaibaoGrant, "baibao_grant", true);
         }

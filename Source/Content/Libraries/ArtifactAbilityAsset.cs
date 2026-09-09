@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cultiway.Content.Artifacts;
 using Cultiway.Content.Components;
+using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.Semantics;
 using Cultiway.Utils.Extension;
@@ -53,7 +54,15 @@ public sealed class ArtifactAbilityComposeContext
 /// </summary>
 public readonly struct ArtifactAbilityExecutionContext
 {
+    /// <summary>资源、装备、冷却和归属所属的人物实体。</summary>
     public readonly Entity controller;
+
+    /// <summary>实际提供世界位置和自身目标的人物实体。</summary>
+    public readonly Entity carrier;
+
+    /// <summary>当前载体的线性心神效果倍率。</summary>
+    public readonly float effect_scale;
+
     public readonly Entity artifact;
     public readonly ArtifactControlState control_state;
 
@@ -63,8 +72,48 @@ public readonly struct ArtifactAbilityExecutionContext
         ArtifactControlState controlState)
     {
         this.controller = controller;
+        carrier = controller;
+        effect_scale = 1f;
+        if (!controller.IsNull && controller.TryGetComponent(out ActorBinder binder))
+        {
+            if (SkillCasterContextService.TryGetCurrent(binder.AE, out SkillCasterContext current))
+            {
+                carrier = current.Carrier.E;
+                effect_scale = current.EffectScale;
+            }
+            else
+            {
+                SkillCasterContext resolved = SkillCasterContextService.Resolve(binder.AE);
+                if (resolved.IsValid)
+                {
+                    carrier = resolved.Carrier.E;
+                    effect_scale = resolved.EffectScale;
+                }
+            }
+        }
         this.artifact = artifact;
         control_state = controlState;
+    }
+
+    public ArtifactAbilityExecutionContext(
+        Entity controller,
+        Entity artifact,
+        ArtifactControlState controlState,
+        long carrierActorId,
+        float effectScale)
+        : this(controller, artifact, controlState)
+    {
+        Actor carrierActor = carrierActorId > 0L ? World.world?.units?.get(carrierActorId) : null;
+        if (carrierActor != null && !carrierActor.isRekt()) carrier = carrierActor.GetExtend().E;
+        effect_scale = Mathf.Max(0f, effectScale);
+    }
+
+    /// <summary>返回当前能力实际使用的空间人物。</summary>
+    public Actor ResolveCarrierActor()
+    {
+        if (!carrier.IsNull && carrier.TryGetComponent(out ActorBinder binder) &&
+            binder.Actor != null && !binder.Actor.isRekt()) return binder.Actor;
+        return controller.GetComponent<ActorBinder>().Actor;
     }
 }
 

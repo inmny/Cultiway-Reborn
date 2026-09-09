@@ -95,7 +95,7 @@ public partial class ArtifactAbilities
         ActiveAbilityUseOrigin _)
     {
         Actor controller = Controller(context);
-        Vector2 center = controller.current_position;
+        Vector2 center = ControllerPosition(context);
         Vector2 direction = DirectionToTarget(context, target);
         CombatTargeting.ForEachActorInSector(
             controller,
@@ -115,7 +115,7 @@ public partial class ArtifactAbilities
                     controller,
                     victim,
                     center,
-                    ability.GetNumber(ForceStrength),
+                    ability.GetNumber(ForceStrength) * context.effect_scale,
                     pull: false);
             });
         ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime, center, direction);
@@ -192,7 +192,7 @@ public partial class ArtifactAbilities
         ActiveAbilityUseOrigin _)
     {
         Actor controller = Controller(context);
-        Vector2 center = controller.current_position;
+        Vector2 center = ControllerPosition(context);
         Vector2 direction = DirectionToTarget(context, target);
         float damage = SkillContext.DefaultStrength * ability.GetNumber(DamageMultiplier);
         ElementComposition fire = new(fire: 1f);
@@ -288,7 +288,7 @@ public partial class ArtifactAbilities
         ActiveAbilityUseOrigin _)
     {
         Actor controller = Controller(context);
-        Vector2 center = controller.current_position;
+        Vector2 center = ControllerPosition(context);
         Vector2 direction = DirectionToTarget(context, target);
         int maxCount = ability.GetInteger(EffectCount);
         int changed = 0;

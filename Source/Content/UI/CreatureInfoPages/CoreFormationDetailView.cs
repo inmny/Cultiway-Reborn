@@ -51,12 +51,16 @@ internal sealed class CoreFormationDetailView : MonoBehaviour
             "Cultiway.RealmPage.CoreFormation.Quality".Localize(),
             model.Formation.IsFinalized ? model.Formation.quality.GetName() : "--");
         string strength = XianRealmPagePresentation.FormatNumber(model.Strength);
-        string summary = model.Realm switch
+        string summary = !string.IsNullOrEmpty(model.SummaryOverride)
+            ? model.SummaryOverride
+            : model.Realm switch
         {
             CoreFormationRealm.QiRefinement => string.Format(
                 "Cultiway.RealmPage.QiRefinement.Summary".Localize(), model.Stage, strength),
             CoreFormationRealm.Jindan => string.Format(
                 "Cultiway.RealmPage.Jindan.Summary".Localize(), model.Stage, strength),
+            CoreFormationRealm.Yuanshen => string.Format(
+                "Cultiway.RealmPage.Yuanshen.Summary".Localize(), model.Stage, strength),
             _ => string.Format("Cultiway.RealmPage.Yuanying.Summary".Localize(), strength)
         };
         if (!model.IsCurrent)

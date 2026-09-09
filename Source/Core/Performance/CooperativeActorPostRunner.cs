@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Cultiway.Content;
 using Cultiway.Core.Combat.Tactical;
 using Cultiway.Const;
 using Cultiway.Patch;
@@ -820,8 +821,15 @@ internal sealed class CooperativeActorPostRunner : ICooperativeBatchPostRunner<B
                 return;
             }
 
+            if (result != null && !result.isRekt() &&
+                !YuanshenTravelService.CanTargetSoulCarrier(actor, result))
+            {
+                actor.ignoreTarget(result);
+            }
+
             if (result != null &&
                 (result.isRekt() ||
+                 !YuanshenTravelService.CanTargetSoulCarrier(actor, result) ||
                  !actor.canAttackTarget(
                      result,
                      pCheckForFactions: true,

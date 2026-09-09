@@ -30,6 +30,7 @@ public partial class ArtifactAbilities
         SoulShakingChime.SetSemantics(
             ArtifactSemantics.Theme.Sound,
             ArtifactSemantics.Theme.Soul,
+            ArtifactSemantics.Element.Neg,
             ArtifactSemantics.Effect.Impact,
             ArtifactSemantics.Effect.Control);
         SoulShakingChime.exclusivity = ArtifactAbilityExclusivity.SoundBurst;
@@ -96,7 +97,7 @@ public partial class ArtifactAbilities
         ActiveAbilityUseOrigin __)
     {
         Actor controller = Controller(context);
-        Vector2 center = controller.current_position;
+        Vector2 center = ControllerPosition(context);
         CombatTargeting.ForEachHostile(controller, center, ability.GetNumber(EffectRadius), target =>
         {
             CombatDamageEffects.DealDamage(
@@ -109,7 +110,7 @@ public partial class ArtifactAbilities
                 controller,
                 target,
                 center,
-                ability.GetNumber(ForceStrength),
+                ability.GetNumber(ForceStrength) * context.effect_scale,
                 pull: false);
         });
         ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime);
@@ -185,16 +186,17 @@ public partial class ArtifactAbilities
         int count = ability.GetInteger(EffectCount);
         float radius = ability.GetNumber(EffectRadius);
         int changed = 0;
-        CombatTargeting.ForEachFriendly(controller, controller.current_position, radius, target =>
+        Vector2 center = ControllerPosition(context);
+        CombatTargeting.ForEachFriendly(controller, center, radius, target =>
             changed += CombatStatusEffects.CleanseNegativeStatuses(target, count));
-        CombatTargeting.ForEachHostile(controller, controller.current_position, radius, target =>
+        CombatTargeting.ForEachHostile(controller, center, radius, target =>
             changed += CombatStatusEffects.DispelPositiveStatuses(target, count));
         ArtifactAbilityVisuals.Emit(
             context,
             ability,
             runtime,
             ArtifactVisualChannels.Cleanse,
-            controller.current_position,
+            center,
             intensity: Mathf.Max(1f, changed));
         ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime);
         return true;
@@ -260,7 +262,8 @@ public partial class ArtifactAbilities
             OnActivityEnded = EndGoldenBellBarrier,
         });
         GoldenBellBarrier.Handle<ArtifactIncomingDamageEvent>(
-            (_, _, runtime, evt) => runtime.activity_kind != ArtifactAbilityActivityKind.None &&
+            (context, _, runtime, evt) => ArtifactAbilityLifecycle.IsActivityCarrier(context, in runtime) &&
+                                     runtime.activity_kind != ArtifactAbilityActivityKind.None &&
                                     runtime.GetNumber(ShieldCurrent) > 0f && evt.Damage > 0f,
             AbsorbWithGoldenBellBarrier);
         GoldenBellBarrier.Activate(new ArtifactActiveAbilityProfile
@@ -274,13 +277,13 @@ public partial class ArtifactAbilities
     }
 
     private static bool RaiseGoldenBellBarrier(
-        ArtifactAbilityExecutionContext _,
+        ArtifactAbilityExecutionContext context,
         ArtifactAbilityInstance ability,
         ref ArtifactAbilityRuntimeEntry runtime,
         in ActiveAbilityTarget __,
         ActiveAbilityUseOrigin ___)
     {
-        runtime.SetNumber(ShieldCurrent, ability.GetNumber(ShieldCapacity));
+        runtime.SetNumber(ShieldCurrent, ability.GetNumber(ShieldCapacity) * context.effect_scale);
         ArtifactAbilityLifecycle.BeginTimedActivity(ref runtime);
         return true;
     }

@@ -2,6 +2,8 @@ using Cultiway.Content.Components;
 using Cultiway.Content.Libraries;
 using Cultiway.Core;
 using Cultiway.Core.Components;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
+using Cultiway.Utils.Extension;
 using Friflo.Engine.ECS;
 using UnityEngine;
 
@@ -13,6 +15,65 @@ namespace Cultiway.Content.Artifacts;
 /// </summary>
 public static partial class ArtifactAbilityLifecycle
 {
+    /// <summary>按活动运行时快照创建后续帧使用的法器上下文。</summary>
+    internal static ArtifactAbilityExecutionContext CreateActivityContext(
+        Entity controller,
+        Entity artifact,
+        ArtifactControlState state,
+        in ArtifactAbilityRuntimeEntry runtime)
+    {
+        return runtime.activity_carrier_actor_id > 0L
+            ? new ArtifactAbilityExecutionContext(
+                controller,
+                artifact,
+                state,
+                runtime.activity_carrier_actor_id,
+                runtime.activity_effect_scale)
+            : new ArtifactAbilityExecutionContext(controller, artifact, state);
+    }
+
+    /// <summary>把法器上下文转换成后续回调使用的载体上下文。</summary>
+    internal static SkillCasterContext ResolveSkillContext(ArtifactAbilityExecutionContext context)
+    {
+        if (context.controller.IsNull || !context.controller.TryGetComponent(out ActorBinder binder))
+            return default;
+        ActorExtend owner = binder.AE;
+        Actor carrier = context.ResolveCarrierActor();
+        ActorExtend carrierExtend = carrier?.GetExtend() ?? owner;
+        SkillCasterContext resolved = SkillCasterContextService.Resolve(carrierExtend);
+        return new SkillCasterContext(
+            owner,
+            carrierExtend,
+            context.effect_scale,
+            resolved.IsValid ? resolved.Kind : SkillCarrierKind.Physical,
+            resolved.IsValid && resolved.Kind == SkillCarrierKind.Soul
+                ? resolved.HasPhysicalBody
+                : true);
+    }
+
+    /// <summary>解析持续法器活动当前实际绑定的战斗人物。</summary>
+    internal static Actor ResolveActivityCarrier(
+        ArtifactAbilityExecutionContext context,
+        in ArtifactAbilityRuntimeEntry runtime)
+    {
+        if (runtime.activity_carrier_actor_id > 0L)
+        {
+            Actor carrier = World.world?.units?.get(runtime.activity_carrier_actor_id);
+            if (carrier != null && !carrier.isRekt()) return carrier;
+        }
+        return context.ResolveCarrierActor();
+    }
+
+    /// <summary>判断持续法器活动是否作用于当前受处理的战斗人物。</summary>
+    internal static bool IsActivityCarrier(
+        ArtifactAbilityExecutionContext context,
+        in ArtifactAbilityRuntimeEntry runtime)
+    {
+        Actor carrier = ResolveActivityCarrier(context, in runtime);
+        Actor current = context.ResolveCarrierActor();
+        return carrier != null && current != null && carrier == current;
+    }
+
     /// <summary>
     /// 判断当前控制状态是否达到能力要求的最低层级。
     /// </summary>
@@ -181,10 +242,11 @@ public static partial class ArtifactAbilityLifecycle
 
             ArtifactAbilityInstance ability = abilitySet.abilities[i];
             ArtifactAbilityAsset asset = Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
-            ArtifactAbilityExecutionContext context = new(
+            ArtifactAbilityExecutionContext context = CreateActivityContext(
                 runtime.controller,
                 artifact,
-                runtime.control_state);
+                runtime.control_state,
+                in runtime.abilities[i]);
             EndActivity(asset, context, ability, ref runtime.abilities[i], ArtifactAbilityEndReason.Recalled, true);
             artifact.GetComponent<ArtifactAbilityRuntime>() = runtime;
             return true;
@@ -203,7 +265,6 @@ public static partial class ArtifactAbilityLifecycle
             Entity artifact = relations[i].artifact;
             ArtifactAbilitySet abilitySet = artifact.GetComponent<ArtifactAbilitySet>();
             ArtifactAbilityRuntime runtime = artifact.GetComponent<ArtifactAbilityRuntime>();
-            ArtifactAbilityExecutionContext context = new(controller, artifact, relations[i].state);
             for (int j = 0; j < abilitySet.abilities.Length; j++)
             {
                 if (runtime.abilities[j].activity_kind == ArtifactAbilityActivityKind.None) continue;
@@ -211,7 +272,7 @@ public static partial class ArtifactAbilityLifecycle
                 ArtifactAbilityAsset asset = Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
                 EndActivity(
                     asset,
-                    context,
+                    CreateActivityContext(controller, artifact, relations[i].state, in runtime.abilities[j]),
                     ability,
                     ref runtime.abilities[j],
                     ArtifactAbilityEndReason.ControllerLost,
@@ -250,12 +311,16 @@ public static partial class ArtifactAbilityLifecycle
             ChangeControlState(controller, artifact, state, abilitySet, ref runtime);
         }
 
-        ArtifactAbilityExecutionContext context = new(controller, artifact, state);
         double now = Now;
         for (int i = 0; i < abilitySet.abilities.Length; i++)
         {
             ArtifactAbilityInstance ability = abilitySet.abilities[i];
             ArtifactAbilityAsset asset = Libraries.Manager.ArtifactAbilityLibrary.get(ability.ability_id);
+            ArtifactAbilityExecutionContext context = CreateActivityContext(
+                controller,
+                artifact,
+                state,
+                in runtime.abilities[i]);
             Advance(asset, context, ability, ref runtime.abilities[i], now);
         }
         artifact.GetComponent<ArtifactAbilityRuntime>() = runtime;
@@ -270,7 +335,6 @@ public static partial class ArtifactAbilityLifecycle
             Entity artifact = relation.artifact;
             ArtifactAbilitySet abilitySet = artifact.GetComponent<ArtifactAbilitySet>();
             ArtifactAbilityRuntime runtime = artifact.GetComponent<ArtifactAbilityRuntime>();
-            ArtifactAbilityExecutionContext context = new(controller.E, artifact, relation.state);
             for (int j = 0; j < abilitySet.abilities.Length; j++)
             {
                 ArtifactAbilityInstance ability = abilitySet.abilities[j];
@@ -278,6 +342,11 @@ public static partial class ArtifactAbilityLifecycle
                 ArtifactAbilityLifecycleProfile profile = asset.lifecycle;
                 if (profile.ContributeStats == null ||
                     !MeetsState(relation.state, profile.stats_minimum_state)) continue;
+                ArtifactAbilityExecutionContext context = CreateActivityContext(
+                    controller.E,
+                    artifact,
+                    relation.state,
+                    in runtime.abilities[j]);
                 profile.ContributeStats(context, ability, runtime.abilities[j], stats);
             }
         }

@@ -44,8 +44,16 @@ public static class CoreFormationEffectResolver
         }
 
         int level = actor.GetCultisys<Xian>().CurrLevel;
-        if (level >= XianLevels.Yuanying &&
-            actor.TryGetComponent(out Yuanying yuanying) && yuanying.formation.IsValid)
+        if (level >= XianLevels.Huashen &&
+            actor.TryGetComponent(out Yuanshen yuanshen) &&
+            yuanshen.formation.IsValid && yuanshen.formation.realm == CoreFormationRealm.Yuanshen)
+        {
+            source = new FormationSource(yuanshen.formation, yuanshen.stage, yuanshen.strength);
+            return true;
+        }
+        if (level == XianLevels.Yuanying &&
+            actor.TryGetComponent(out Yuanying yuanying) &&
+            yuanying.formation.IsValid && yuanying.formation.realm == CoreFormationRealm.Yuanying)
         {
             source = new FormationSource(yuanying.formation, yuanying.stage, yuanying.strength);
             return true;
@@ -250,7 +258,10 @@ public static class CoreFormationEffectResolver
             CoreFormationRealm.QiRefinement => 0.55f,
             CoreFormationRealm.Foundation => 0.75f,
             CoreFormationRealm.Jindan => 1f,
-            _ => 1.25f
+            CoreFormationRealm.Yuanying => 1.25f,
+            CoreFormationRealm.Yuanshen => 1.5f,
+            _ => throw new ArgumentOutOfRangeException(nameof(source.Snapshot.realm), source.Snapshot.realm,
+                "未知核心形成境界。")
         };
         float strength = 1f + 0.12f * Mathf.Log(1f + Mathf.Clamp(source.Strength, 0f, 31f), 2f);
         float reference = Mathf.Max(0.01f, definition.reference_weight);

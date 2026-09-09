@@ -76,7 +76,7 @@ public partial class ArtifactAbilities
         ref ArtifactAbilityRuntimeEntry runtime,
         ArtifactIncomingDamageEvent evt)
     {
-        float reduction = ability.GetNumber(DamageReduction);
+        float reduction = ability.GetNumber(DamageReduction) * context.effect_scale;
         evt.Damage *= 1f - reduction;
         Actor defender = context.controller.GetComponent<ActorBinder>().Actor;
         Vector3 direction = evt.Attacker != null && !evt.Attacker.isRekt()

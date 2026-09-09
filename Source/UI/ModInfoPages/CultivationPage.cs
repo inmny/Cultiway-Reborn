@@ -15,7 +15,7 @@ public sealed class CultivationPage : ModInfoPage
         Transform hero = CreateCard(root, "Cultivation Hero", width, 7, 7, 6, 6, 3f);
         AddText(hero, "Title", "修真炼气", 9, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);
         AddText(hero, "Body",
-            "修士在天地灵气中积淀修为，依次走过炼气、筑基、金丹、元婴四大关隘。每一次突破都是一场渡劫——成了得道，败了也能歪打正着，强化一门法术。",
+            "修士在天地灵气中积淀修为，依次走过炼气、筑基、金丹、元婴、化神五重关隘。每一次突破都是一场渡劫——成了得道，败了也能歪打正着，强化一门法术。",
             6, FontStyle.Normal, TextAnchor.UpperLeft, PrimaryTextColor);
 
         Transform er = CreateCard(root, "Element Root", width, 6, 6, 5, 5, 4f);
@@ -24,6 +24,7 @@ public sealed class CultivationPage : ModInfoPage
         AddMiniCard(erRow, "Five", "cultiway/icons/iconTab", "五行灵根", "金·木·水·火·土", 99f);
         AddMiniCard(erRow, "YinYang", "cultiway/icons/iconTab", "阴阳灵根", "阴·阳", 99f);
         AddBullet(er, "灵根决定元素亲和与修炼效率；多数人五行杂糅、灵根平庸，极少数天才是单一强灵根——由天生决定，强求不来。");
+        AddBullet(er, "五行相合者可身兼两行，是为双灵根；风、冰、雷、毒则是灵根中的异种，百中无一。");
         AddBullet(er, "灵根并非人族专属，草木禽兽亦能修仙。");
 
         Transform methods = CreateCard(root, "Cultivate Methods", width, 6, 6, 5, 5, 4f);
@@ -42,5 +43,19 @@ public sealed class CultivationPage : ModInfoPage
             6, FontStyle.Normal, TextAnchor.UpperLeft, PrimaryTextColor);
         AddMiniCard(jindan, "JindanTypes", "cultiway/icons/iconTab", "金丹品相",
             "普通·金煌·剑煌·青木·寒霜·烈火·润土·凝元·幻影·恶龙", width - 12f);
+
+        Transform huashen = CreateCard(root, "Huashen", width, 6, 6, 5, 5, 3f);
+        AddText(huashen, "Title", "化神", 8, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);
+        AddText(huashen, "Body",
+            "元婴之上是化神。元神九转蕴养，每转一重都要渡煞风劫——风煞蚀体，一重更比一重烈。元神大成者可出窍神游、夺舍重修，肉身于彼不过一具皮囊。",
+            6, FontStyle.Normal, TextAnchor.UpperLeft, PrimaryTextColor);
+
+        Transform daoguo = CreateCard(root, "Daoguo Hint", width, 6, 6, 5, 5, 3f);
+        AddText(daoguo, "Title", "本命道果", 8, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);
+        AddText(daoguo, "Body",
+            "每一次大境界突破，修士都会将毕生所修凝成一件本命道果——真气、仙基、金丹、元婴、元神皆各成其果，还可传于后人。",
+            6, FontStyle.Normal, TextAnchor.UpperLeft, PrimaryTextColor);
+        Transform badge = CreatePlainGroup(daoguo, "Badge", width - 12f, true, 3f, TextAnchor.MiddleLeft);
+        AddBadge(badge, "详见本命道果", 76f, WarnColor);
     }
 }

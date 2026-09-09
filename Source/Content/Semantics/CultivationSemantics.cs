@@ -225,6 +225,8 @@ public sealed class CultivationSemantics : ExtendLibrary<SemanticAsset, Cultivat
         public static SemanticAsset Jindan { get; internal set; }
         /// <summary>表示修士已经孕育元婴的境界或实体。</summary>
         public static SemanticAsset Yuanying { get; internal set; }
+        /// <summary>表示九转元婴已经蜕变为元神的境界或实体。</summary>
+        public static SemanticAsset Yuanshen { get; internal set; }
     }
 
     /// <summary>修炼方法、道路或长期发展倾向。</summary>
@@ -348,6 +350,7 @@ public sealed class CultivationSemantics : ExtendLibrary<SemanticAsset, Cultivat
             implications: [Role.Cultivation]);
         Realm.Jindan = New("realm.jindan", "realm", "jindan", implications: [Role.Cultivation]);
         Realm.Yuanying = New("realm.yuanying", "realm", "yuanying", implications: [Role.Cultivation]);
+        Realm.Yuanshen = New("realm.yuanshen", "realm", "yuanshen", implications: [Role.Cultivation]);
         Path.Meditation = New("path.meditation", "path", "meditation_path", implications: [Role.Cultivation]);
         Path.BattleCultivation = New("path.battle_cultivation", "path", "battle_cultivation_path",
             implications: [Role.Cultivation]);

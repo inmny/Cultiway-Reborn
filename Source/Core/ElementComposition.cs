@@ -24,6 +24,10 @@ public struct ElementComposition
         public static readonly ElementComposition Water = new(water: 1f, normalize: true);
         public static readonly ElementComposition Fire = new(fire: 1f, normalize: true);
         public static readonly ElementComposition Earth = new(earth: 1f, normalize: true);
+
+        /// <summary>纯阴属性伤害构成，魂系攻击统一使用此值。</summary>
+        public static readonly ElementComposition Neg = new(neg: 1f, normalize: true);
+
         public static readonly ElementComposition IronWood =
             new(iron: 0.5f, wood: 0.5f, normalize: true);
         public static readonly ElementComposition IronWater =

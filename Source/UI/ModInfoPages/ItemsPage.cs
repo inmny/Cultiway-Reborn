@@ -15,7 +15,7 @@ public sealed class ItemsPage : ModInfoPage
         Transform hero = CreateCard(root, "Items Hero", width, 7, 7, 6, 6, 3f);
         AddText(hero, "Title", "丹器符药", 9, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);
         AddText(hero, "Body",
-            "修真之士随身之物，分材、丹、符、器、阵、傀六大类。从龙鳞晶石到九转金丹，皆是修行路上的资粮与杀器。",
+            "修真之士随身之物，分材、丹、符、卷轴、法宝五大类。从龙鳞晶石到九转金丹，皆是修行路上的资粮与杀器。",
             6, FontStyle.Normal, TextAnchor.UpperLeft, PrimaryTextColor);
 
         Transform books = CreateCard(root, "Books", width, 6, 6, 5, 5, 4f);
@@ -31,7 +31,6 @@ public sealed class ItemsPage : ModInfoPage
         AddBullet(elixir, "开灵丹：诱导灵根诞生");
         AddBullet(elixir, "补气丹：恢复灵力");
         AddBullet(elixir, "悟道丹：临时大幅提升悟性");
-        AddBullet(elixir, "开启 AI 后，同样材料能炼出药效各异、由 AI 命名的无数种丹药。");
 
         Transform ingredient = CreateCard(root, "Ingredients", width, 6, 6, 5, 5, 3f);
         AddText(ingredient, "Title", "材料器形", 8, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);
@@ -40,9 +39,17 @@ public sealed class ItemsPage : ModInfoPage
             6, FontStyle.Normal, TextAnchor.UpperLeft, PrimaryTextColor);
 
         Transform talisman = CreateCard(root, "Talisman", width, 6, 6, 5, 5, 3f);
-        AddText(talisman, "Title", "符箓", 8, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);
+        AddText(talisman, "Title", "符箓卷轴", 8, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);
         AddText(talisman, "Body",
-            "符箓是一次性法术的载体，战斗中自动取用。它不耗修士自身灵力，是关键时刻的保命底牌。",
+            "符箓与卷轴都是一次性法术的载体，战斗中自动取用。它不耗修士自身灵力，是关键时刻的保命底牌。",
             6, FontStyle.Normal, TextAnchor.UpperLeft, PrimaryTextColor);
+
+        Transform artifact = CreateCard(root, "Artifact Hint", width, 6, 6, 5, 5, 3f);
+        AddText(artifact, "Title", "法宝", 8, FontStyle.Bold, TextAnchor.MiddleLeft, AccentTextColor);
+        AddText(artifact, "Body",
+            "第五类「法宝」是修士的随身道器——剑印袍镜鼎幡钟葫扇塔珠，器形、材质、饰纹相合，各成气象。",
+            6, FontStyle.Normal, TextAnchor.UpperLeft, PrimaryTextColor);
+        Transform badge = CreatePlainGroup(artifact, "Badge", width - 12f, true, 3f, TextAnchor.MiddleLeft);
+        AddBadge(badge, "详见法宝百珍", 70f, WarnColor);
     }
 }

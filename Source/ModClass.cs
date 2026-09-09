@@ -532,6 +532,7 @@ namespace Cultiway
             Content.UI.Manager.Instance.InitBaibao(Baibao);
             Content.UI.Manager.Instance.InitUpgradeRain();
             Content.UI.Manager.Instance.InitElementRootRain();
+            Content.UI.Manager.Instance.InitYaoAwakeningRain();
 
             GeneralLogicSystems.Add(new StructuralChangeSystem());
             GeneralLogicSystems.Add(LogicPrepareRecycleSystemGroup);

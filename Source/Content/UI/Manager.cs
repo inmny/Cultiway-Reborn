@@ -5,12 +5,14 @@ using Cultiway.Content.Artifacts.Baibao;
 using Cultiway.Content.Components;
 using Cultiway.Content.Extensions;
 using Cultiway.Content.Libraries;
+using Cultiway.Content.YaoBeasts;
 using Cultiway.Content.Sects;
 using Cultiway.Content.UI.CreatureInfoPages;
 using Cultiway.Content.Utils;
 using Cultiway.Core;
 using Cultiway.Core.Components;
 using Cultiway.Core.SkillLibV3;
+using Cultiway.Core.SkillLibV3.ActiveAbilities;
 using Cultiway.Core.SkillLibV3.Wanfa;
 using Cultiway.Core.WorldTools;
 using Cultiway.Patch;
@@ -54,7 +56,7 @@ public class Manager : ICanInit
         Instance = this;
         PatchMapBox.RegisterActionOnClearWorld(WindowNewCreatureInfo.ClearWorldState);
         WindowNewCreatureInfo.RegisterPage(nameof(CultisysOverviewPage),
-            a => Cultisyses.HasAnyCultisys(a.GetExtend()),
+            a => Cultisyses.HasAnyCultisys(ResolveDisplayActor(a).GetExtend()),
             CultisysOverviewPage.Setup, CultisysOverviewPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(QiRefinementPage),
             a => a.GetExtend().HasComponent<QiRefinementState>(),
@@ -66,6 +68,13 @@ public class Manager : ICanInit
         WindowNewCreatureInfo.RegisterPage(nameof(YuanyingPage),
             a => a.GetExtend().HasComponent<Yuanying>() || a.GetExtend().HasComponent<YuanyingSeed>(),
             YuanyingPage.Setup, YuanyingPage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(YuanshenPage),
+            a => ResolveDisplayActor(a).GetExtend().HasComponent<Yuanshen>(),
+            YuanshenPage.Setup, YuanshenPage.Show);
+        WindowNewCreatureInfo.RegisterPage(nameof(YaoPage), a => a.GetExtend().HasCultisys<Yao>(),
+            YaoPage.Setup, YaoPage.Show, _ => "Cultiway.YaoPage.Title".Localize());
+        PatchMapBox.RegisterActionOnClearWorld(WindowYaoOrganEditor.ClearWorldState);
+        WindowYaoOrganEditor.CreateAndInit(WindowYaoOrganEditor.Id, WindowYaoOrganEditor.WindowSize);
         WindowNewCreatureInfo.RegisterPage(nameof(CultibookPage), a=>a.GetExtend().HasCultibook(), CultibookPage.Setup, CultibookPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(ElixirPage), a=> a.GetExtend().HasMaster<ElixirAsset>(), ElixirPage.Setup, ElixirPage.Show);
         WindowNewCreatureInfo.RegisterPage(nameof(SectPage), a=> a.GetExtend().sect !=null, SectPage.Setup, SectPage.Show);
@@ -76,7 +85,7 @@ public class Manager : ICanInit
             a => !a.asset.force_hide_stamina,
             ReadStaminaPanelValue);
         CharacterPanelExtensions.RegisterProgressBar("cultiway_wakan",
-            a => a.GetExtend().HasCultisys<Xian>(),
+            a => ResolveDisplayActor(a).GetExtend().HasCultisys<Xian>(),
             ReadWakanPanelValue);
         CharacterPanelExtensions.RegisterProgressBar("cultiway_spirit",
             a => a.GetExtend().HasCultisys<Magic>(),
@@ -244,6 +253,16 @@ public class Manager : ICanInit
             WorldboxGame.GodPowers.UpgradeRain.id, configButton, UpgradeRainButton);
     }
 
+    /// <summary>初始化启灵雨按钮，加入世界页的雨水区。</summary>
+    public void InitYaoAwakeningRain()
+    {
+        YaoBeasts.YaoAwakeningRainService.Initialize();
+        Cultiway.UI.Manager.AddButton(TabButtonType.WORLD, PowerTabSections.WorldPavilionsAndRains, 500,
+            WorldboxGame.GodPowers.YaoAwakeningRain.id,
+            PowerButtonCreator.CreateGodPowerButton(WorldboxGame.GodPowers.YaoAwakeningRain.id,
+                SpriteTextureLoader.getSprite("cultiway/icons/world_tools/iconYaoAwakeningRain")));
+    }
+
     /// <summary>初始化灵根雨配置窗口，并在世界页加入成对的配置和投放按钮。</summary>
     public void InitElementRootRain()
     {
@@ -331,6 +350,14 @@ public class Manager : ICanInit
         }
     }
 
+    /// <summary>临时命魂人物的修炼和资源展示始终读取唯一原人物。</summary>
+    private static Actor ResolveDisplayActor(Actor actor)
+    {
+        if (actor == null || actor.isRekt()) return actor;
+        SkillCasterContext context = SkillCasterContextService.Resolve(actor.GetExtend());
+        return context.IsValid ? context.Owner.Base : actor;
+    }
+
     private static CharacterPanelProgressBarState ReadStaminaPanelValue(Actor actor)
     {
         float max = Mathf.Max(0f, actor.getMaxStamina());
@@ -349,6 +376,7 @@ public class Manager : ICanInit
 
     private static CharacterPanelProgressBarState ReadWakanPanelValue(Actor actor)
     {
+        actor = ResolveDisplayActor(actor);
         var ae = actor.GetExtend();
         ref var xian = ref ae.GetCultisys<Xian>();
         float current = Mathf.Max(0f, xian.wakan);
