@@ -174,6 +174,9 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.GreatUncleanOneBellRinger, 1, 7, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.GreatUncleanOneRainFather, 1, 7, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.NurgleSpirit, 35, 2, 2);
+        // 塔周生成对应群系：与原版肿瘤建筑相同的 creep 扩张配置（2 名 worker、每 0.1 秒一步、单程 5 步）
+        NurgleTower.transform_tiles_to_top_tiles = "Nurgle_low";
+        SetGrowBiomeAround(NurgleTower, "biome_nurgle");
         SlaaneshTower.tower = false;
         SlaaneshTower.spawn_units_asset = null;
         SlaaneshTower.spawn_units = false;
@@ -186,6 +189,8 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.KeeperSecrets, 1, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.KeeperSecretsNakari, 1, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedKeeperSecrets, 1, 4, 1);
+        SlaaneshTower.transform_tiles_to_top_tiles = "Slaanesh_low";
+        SetGrowBiomeAround(SlaaneshTower, "biome_slaanesh");
         TzeentchTower.tower = false;
         TzeentchTower.spawn_units_asset = null;
         TzeentchTower.spawn_units = false;
@@ -198,6 +203,8 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.LordChange, 1, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.KairosFateweaver, 1, 4, 1)
                    .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedLordChange, 1, 4, 1);
+        TzeentchTower.transform_tiles_to_top_tiles = "Tzeentch_low";
+        SetGrowBiomeAround(TzeentchTower, "biome_tzeentch");
         KhorneTower.tower = false;
         KhorneTower.spawn_units_asset = null;
         KhorneTower.spawn_units = false;
@@ -209,7 +216,9 @@ public partial class Buildings
                    .AddAdvancedSpawnerDistributedConfig(Actors.BloodletterKhorne, 32, 2, 2)
                    .AddAdvancedSpawnerDistributedConfig(Actors.Bloodthirster, 1, 4, 1)
                     .AddAdvancedSpawnerDistributedConfig(Actors.AnggrathUnbound, 1, 4, 1)
-                    .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedBloodthirster, 1, 4, 1);
+                     .AddAdvancedSpawnerDistributedConfig(Actors.ExaltedBloodthirster, 1, 4, 1);
+        KhorneTower.transform_tiles_to_top_tiles = "Khorne_low";
+        SetGrowBiomeAround(KhorneTower, "biome_khorne");
         SkavenBlight.tower = false;
         SkavenBlight.spawn_units_asset = null;
         SkavenBlight.spawn_units = false;
@@ -227,5 +236,17 @@ public partial class Buildings
         {
             b.base_stats["health"] = 10000f;
         }
+    }
+
+    /// <summary>与原版肿瘤建筑相同的群系扩张配置：creep worker 把周边地块逐步转为对应群系。
+    /// RandomNeighbourAll = 任意方向随机游走扩张（同原版生物质建筑 biomass）。</summary>
+    private static void SetGrowBiomeAround(BuildingAsset tower, string biome_id)
+    {
+        tower.grow_creep = true;
+        tower.grow_creep_type = biome_id;
+        tower.grow_creep_steps_max = 8;
+        tower.grow_creep_workers = 2;
+        tower.grow_creep_step_interval = 0.1f;
+        tower.grow_creep_movement_type = CreepWorkerMovementType.RandomNeighbourAll;
     }
 }

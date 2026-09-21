@@ -40,6 +40,10 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     [CloneSource("tree_green_1"), AssetId("Oak_tree")]        public static BuildingAsset OakTree { get; private set; }
     [CloneSource("tree_green_1"), AssetId("Rice_tree")]       public static BuildingAsset RiceTree { get; private set; }
     [CloneSource("tree_green_1"), AssetId("Titans_tree")]     public static BuildingAsset TitansTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Nurgle_tree")]     public static BuildingAsset NurgleTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Khorne_tree")]     public static BuildingAsset KhorneTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Tzeentch_tree")]   public static BuildingAsset TzeentchTree { get; private set; }
+    [CloneSource("tree_green_1"), AssetId("Slaanesh_tree")]   public static BuildingAsset SlaaneshTree { get; private set; }
 
     // ---- Biome-dedicated small flora (花草). Cloned from $flora_small$; SetupPlant repoints
     // main_path to buildings/<id> so NML loads GameResources/buildings/<Biome> (main_/mini_).
@@ -55,6 +59,10 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
     [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Oak")]        public static BuildingAsset OakPlant { get; private set; }
     [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Rice")]       public static BuildingAsset RicePlant { get; private set; }
     [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Titans")]     public static BuildingAsset TitansPlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Nurgle")]     public static BuildingAsset NurglePlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Khorne")]     public static BuildingAsset KhornePlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Tzeentch")]   public static BuildingAsset TzeentchPlant { get; private set; }
+    [CloneSource(BuildingLibrary.TEMPLATE_FLORA_SMALL), AssetId("Slaanesh")]   public static BuildingAsset SlaaneshPlant { get; private set; }
 
     [CloneSource(SB.hall_human_0)]
     public static BuildingAsset SectHall { get; private set; }
@@ -93,6 +101,10 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         SetupTree(OakTree, "biome_oak");
         SetupTree(RiceTree, "biome_rice");
         SetupTree(TitansTree, "biome_titans", wobble: false);
+        SetupTree(NurgleTree, "biome_nurgle", wobble: false);
+        SetupTree(KhorneTree, "biome_khorne", wobble: false);
+        SetupTree(TzeentchTree, "biome_tzeentch", wobble: false);
+        SetupTree(SlaaneshTree, "biome_slaanesh", wobble: false);
 
         // 部分树木的资源产出。pNewList:true 替换继承自 tree_green_1 的默认产出。
         CemeteryTree.addResource("stone", 1, pNewList: true);
@@ -147,6 +159,10 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         SetupPlant(OakPlant);
         SetupPlant(RicePlant);
         SetupPlant(TitansPlant);
+        SetupPlant(NurglePlant);
+        SetupPlant(KhornePlant);
+        SetupPlant(TzeentchPlant);
+        SetupPlant(SlaaneshPlant);
     }
 
     private static void SetupPlant(BuildingAsset plant)

@@ -299,6 +299,9 @@ public partial class Actors
                 .AddTrait(S_Trait.evil)
                 .AddTrait(S_Trait.deceitful)
                 .AddTrait(S_Trait.greedy)
+                .AddTrait(S_Trait.acid_touch)//酸性接触
+                .AddTrait(S_Trait.acid_blood)//蚀骨之血
+                .AddTrait(S_Trait.acid_proof)//耐酸
                 .Stats(S.damage, 8 + level * 4)
                 .Stats(S.speed, 14 + level)
                 .Stats(S.health, 70 + level * level * 15)
@@ -1713,8 +1716,7 @@ public partial class Actors
             .AddTrait(S_Trait.blessed)//祝福
             .AddTrait(S_Trait.contagious)//传染
             .AddTrait(S_Trait.acid_blood)//酸血
-            .AddTrait(S_Trait.acid_proof)//酸性
-            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddTrait(S_Trait.acid_proof)//耐酸
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
@@ -1737,8 +1739,7 @@ public partial class Actors
             .AddTrait(S_Trait.blessed)//祝福
             .AddTrait(S_Trait.contagious)//传染
             .AddTrait(S_Trait.acid_blood)//酸血
-            .AddTrait(S_Trait.acid_proof)//酸性
-            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddTrait(S_Trait.acid_proof)//耐酸
             .AddTrait(S_Trait.immortal)//不死
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
             .Stats(S.damage, 10)//伤害
@@ -1761,8 +1762,7 @@ public partial class Actors
             .AddTrait(S_Trait.blessed)//祝福
             .AddTrait(S_Trait.contagious)//传染
             .AddTrait(S_Trait.acid_blood)//酸血
-            .AddTrait(S_Trait.acid_proof)//酸性
-            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddTrait(S_Trait.acid_proof)//耐酸
             .AddTrait(S_Trait.immortal)//不死
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
@@ -1789,8 +1789,7 @@ public partial class Actors
             .AddTrait(S_Trait.plague)//瘟疫
             .AddTrait(S_Trait.blessed)//祝福
             .AddTrait(S_Trait.acid_blood)//酸血
-            .AddTrait(S_Trait.acid_proof)//酸性
-            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddTrait(S_Trait.acid_proof)//耐酸
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_hematophagy)//hematophagy
             .AddSubspeciesTrait(S_SubspeciesTrait.hovering)//悬浮
@@ -1816,8 +1815,7 @@ public partial class Actors
             .AddTrait(S_Trait.contagious)//传染
             .AddTrait(S_Trait.blessed)//祝福
             .AddTrait(S_Trait.acid_blood)//酸血
-            .AddTrait(S_Trait.acid_proof)//酸性
-            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddTrait(S_Trait.acid_proof)//耐酸
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
             .AddSubspeciesTrait(S_SubspeciesTrait.reproduction_soulborne)// Soulborne reproduction
@@ -1844,8 +1842,7 @@ public partial class Actors
             .AddTrait(S_Trait.contagious)//传染
             .AddTrait(S_Trait.blessed)//祝福
             .AddTrait(S_Trait.acid_blood)//酸血
-            .AddTrait(S_Trait.acid_proof)//酸性
-            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddTrait(S_Trait.acid_proof)//耐酸
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
@@ -1872,8 +1869,7 @@ public partial class Actors
             .AddTrait(S_Trait.contagious)//传染
             .AddTrait(S_Trait.blessed)//祝福
             .AddTrait(S_Trait.acid_blood)//酸血
-            .AddTrait(S_Trait.acid_proof)//酸性
-            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddTrait(S_Trait.acid_proof)//耐酸
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
             .AddSubspeciesTrait(S_SubspeciesTrait.diet_omnivore)//eat_omnivore
@@ -1903,8 +1899,7 @@ public partial class Actors
             .AddTrait(S_Trait.healing_aura)//回合治疗
             .AddTrait(S_Trait.blessed)//祝福
             .AddTrait(S_Trait.acid_blood)//酸血
-            .AddTrait(S_Trait.acid_proof)//酸性
-            .AddTrait(S_Trait.acid_touch)//酸性
+            .AddTrait(S_Trait.acid_proof)//耐酸
             .AddJob(ActorJobs.SpawnedUnit)//召唤单位
             .AddSubspeciesTrait(S_SubspeciesTrait.stomach)//胃
             .AddSubspeciesTrait(S_SubspeciesTrait.big_stomach)//大胃
