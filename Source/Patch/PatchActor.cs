@@ -502,7 +502,11 @@ internal static class PatchActor
             return;
         }
         var ae = __instance.GetExtend();
-        PathFinder.Instance.Cleanup(__instance.data.id);
+        // 主菜单世界还没有寻路器，清理时不能假定它已就绪
+        if (PathFinder.Instance != null)
+        {
+            PathFinder.Instance.Cleanup(__instance.data.id);
+        }
         CombatWorldService.RemoveActor(__instance);
         ae.Dispose();
     }

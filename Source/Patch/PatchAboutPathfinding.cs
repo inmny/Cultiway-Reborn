@@ -601,6 +601,8 @@ namespace Cultiway.Patch
         {
             if (__instance.data == null) return;
             CalibrationStates.TryRemove(__instance.data.id, out _);
+            // 主菜单世界还没有寻路器，清理时不能假定它已就绪
+            if (PathFinder.Instance == null) return;
             lock (PathFinder.ActorSyncLock)
             {
                 PathFinder.Instance.Cancel(__instance);
