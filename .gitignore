@@ -428,3 +428,6 @@ Scripts/**/*.png
 !.agents/skills/debug
 !Source/Debug
 Content/PreparedLLMResults/*
+
+# .gitattributes 需要被跟踪（统一行尾策略）
+!.gitattributes
