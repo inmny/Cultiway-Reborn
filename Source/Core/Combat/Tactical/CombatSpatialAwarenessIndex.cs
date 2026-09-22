@@ -362,7 +362,7 @@ internal static class CombatSpatialAwarenessIndex
     /// <summary>将世界距离换算为需要访问的区块坐标半径。</summary>
     private static int ResolveChunkRange(float radius)
     {
-        return Math.Max(1, UnityEngine.Mathf.CeilToInt(radius / ChunkSize));
+        return Math.Max(1, CombatNumeric.CeilToInt(radius / ChunkSize));
     }
 
     /// <summary>空间索引中的信号快照及其发布时战斗群组。</summary>

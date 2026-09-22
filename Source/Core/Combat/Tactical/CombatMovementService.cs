@@ -149,7 +149,9 @@ internal static class CombatMovementService
         double now)
     {
         float duration = Mathf.Clamp(actor.attack_timer * 0.2f, 0.05f, 0.12f);
-        runtime.MovementPausedUntil = Math.Max(runtime.MovementPausedUntil, now + duration);
+        runtime.MovementPausedUntil = Math.Max(
+            runtime.MovementPausedUntil,
+            now + CombatNumeric.ToDouble(duration));
     }
 
     /// <summary>标记现有移动订单不可继续复用，但让角色在新计划提交前沿旧路径移动。</summary>
@@ -184,7 +186,7 @@ internal static class CombatMovementService
     {
         runtime.MovementPausedUntil = Math.Max(
             runtime.MovementPausedUntil,
-            now + Mathf.Max(0.05f, actor.attack_timer));
+            now + CombatNumeric.ToDouble(Mathf.Max(0.05f, actor.attack_timer)));
     }
 
     /// <summary>
@@ -356,7 +358,7 @@ internal static class CombatMovementService
             min = 0.7f;
             spread = 0.3f;
         }
-        return min + StableRoll(actor.getID(), targetId) * spread;
+        return CombatNumeric.ToDouble(min + StableRoll(actor.getID(), targetId) * spread);
     }
 
     private static Vector2 ResolveFallbackDirection(long actorId, long targetId)

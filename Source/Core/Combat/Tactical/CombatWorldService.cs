@@ -82,6 +82,9 @@ public static class CombatWorldService
         PatchMapBox.RegisterActionOnClearWorld(ClearWorldState);
         ActorActivityPresentationRegistry.Register(TryResolveTaskPresentation, 1000);
         RegisterGroupProvider(ArmyCombatGroupProvider.Instance, int.MinValue);
+        // 在模组加载阶段把整条战术链预先编译，避免游戏内首次调用时触发
+        // Unity Mono 机器码生成的编译断言（详见 TacticalCompileWarmup 注释）。
+        TacticalCompileWarmup.Run();
     }
 
     /// <summary>注册一个来源无关战术群组提供者；高优先级提供者先解析角色。</summary>
@@ -1536,7 +1539,7 @@ public static class CombatWorldService
         if (cap <= 0 || actor.current_tile == null || actor.kingdom == null) return;
         float radiusSquared = TacticalCombatSettings.LocalCombatRadius *
                               TacticalCombatSettings.LocalCombatRadius;
-        int chunkRange = Mathf.CeilToInt(
+        int chunkRange = CombatNumeric.CeilToInt(
             TacticalCombatSettings.LocalCombatRadius / MapChunkTileSize);
         MapChunk origin = actor.current_tile.chunk;
         long kingdomId = actor.kingdom.id;
@@ -1972,8 +1975,8 @@ public static class CombatWorldService
         AddPositionCandidate(
             actor,
             World.world.GetTile(
-                Mathf.RoundToInt(interpose.x),
-                Mathf.RoundToInt(interpose.y)),
+                CombatNumeric.RoundToInt(interpose.x),
+                CombatNumeric.RoundToInt(interpose.y)),
             CombatPositionRole.Interpose,
             threat,
             allies,
@@ -1997,8 +2000,8 @@ public static class CombatWorldService
         float radius = baseRadius + ring * 1.25f;
         Vector2 position = center + Toolbox.rotateVector(Vector2.right, angle) * radius;
         return World.world.GetTile(
-            Mathf.RoundToInt(position.x),
-            Mathf.RoundToInt(position.y));
+            CombatNumeric.RoundToInt(position.x),
+            CombatNumeric.RoundToInt(position.y));
     }
 
     /// <summary>生成只依赖角色 ID 的稳定编队散列。</summary>
@@ -2059,8 +2062,8 @@ public static class CombatWorldService
                 AddPositionCandidate(
                     actor,
                     World.world.GetTile(
-                        Mathf.RoundToInt(position.x),
-                        Mathf.RoundToInt(position.y)),
+                        CombatNumeric.RoundToInt(position.x),
+                        CombatNumeric.RoundToInt(position.y)),
                     CombatPositionRole.Tactical,
                     primary,
                     allies,
@@ -2107,7 +2110,7 @@ public static class CombatWorldService
             Vector2 position = actor.current_position + direction * distance;
             AddPositionCandidate(
                 actor,
-                World.world.GetTile(Mathf.RoundToInt(position.x), Mathf.RoundToInt(position.y)),
+                World.world.GetTile(CombatNumeric.RoundToInt(position.x), CombatNumeric.RoundToInt(position.y)),
                 CombatPositionRole.Safe,
                 primary,
                 allies,
@@ -2345,7 +2348,7 @@ public static class CombatWorldService
         int reportCount = armyRuntime.OutcomeReports.Count;
         int requiredReports = Math.Min(
             8,
-            Math.Max(2, Mathf.CeilToInt(Mathf.Max(engaged, reportCount) * 0.35f)));
+            Math.Max(2, CombatNumeric.CeilToInt(Mathf.Max(engaged, reportCount) * 0.35f)));
         int unfavorableReports = 0;
         foreach (CombatOutcomeReport report in armyRuntime.OutcomeReports.Values)
         {
@@ -2353,7 +2356,7 @@ public static class CombatWorldService
                 unfavorableReports++;
         }
         bool consensus = reportCount >= requiredReports &&
-                         unfavorableReports >= Mathf.CeilToInt(
+                         unfavorableReports >= CombatNumeric.CeilToInt(
                              reportCount * TacticalCombatSettings.ArmyRoutConsensusRatio);
         bool routePressure = !armyRuntime.Routed &&
                              casualties >= TacticalCombatSettings.ArmyRoutMinimumCasualtyRatio &&
@@ -2531,7 +2534,7 @@ public static class CombatWorldService
         float timeout = highFidelity
             ? TacticalCombatSettings.NoProgressHighFidelitySeconds
             : TacticalCombatSettings.NoProgressLowFidelitySeconds;
-        if (now - runtime.LastProgressAt < timeout) return;
+        if (now - runtime.LastProgressAt < CombatNumeric.ToDouble(timeout)) return;
         runtime.TargetPathFailures++;
         runtime.LastProgressAt = now;
         if (runtime.TargetPathFailures >= 3)
@@ -2869,7 +2872,7 @@ public static class CombatWorldService
         {
             long hash = actor.getID() * 73856093L ^ revision * 19349663L;
             float roll = (hash & 0xFFFF) / 65535f;
-            return Mathf.Lerp(min, max, roll);
+            return CombatNumeric.ToDouble(Mathf.Lerp(min, max, roll));
         }
     }
 
@@ -2886,7 +2889,7 @@ public static class CombatWorldService
         {
             long hash = actor.getID() * 83492791L ^ revision * 2971215073L;
             float roll = (hash & 0xFFFF) / 65535f;
-            return Mathf.Lerp(min, max, roll);
+            return CombatNumeric.ToDouble(Mathf.Lerp(min, max, roll));
         }
     }
 
@@ -2977,8 +2980,9 @@ public static class CombatWorldService
         int counter)
     {
         if (startedAt == 0L) return;
-        double seconds = (Stopwatch.GetTimestamp() - startedAt) /
-                         (double)Stopwatch.Frequency;
+        double seconds = CombatNumeric.TicksToSeconds(
+            Stopwatch.GetTimestamp() - startedAt,
+            Stopwatch.Frequency);
         SimulationTickBenchmark.RecordCombatPlanningDetailMetric(id, seconds, counter);
     }
 

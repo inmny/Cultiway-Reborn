@@ -336,7 +336,7 @@ internal sealed class VanillaSpellCombatActionProvider : ICombatActionProvider
                         WorldboxGame.CombatActions.CastVanillaSpell.cost_stamina),
                     0f,
                     reliability,
-                    Mathf.Max(1, Mathf.RoundToInt(
+                    Mathf.Max(1, CombatNumeric.RoundToInt(
                         WorldboxGame.CombatActions.CastVanillaSpell.rate * reliability)),
                     CombatActionMovementMode.Mobile,
                     self
@@ -703,7 +703,9 @@ internal sealed class AdvancedCombatActionProvider : ICombatActionProvider
                         action.cost_stamina),
                     action.cooldown,
                     Mathf.Clamp01(action.chance + action.chance * actor.stats[S.skill_combat]),
-                    Mathf.Max(1, Mathf.RoundToInt(action.chance * 10f)),
+                    // 不用 Mathf.RoundToInt：其内部是 (int)Math.Round((double)f)，会把 float→double
+                    // 转换内联进本方法的编译单元，触发 Unity Mono 的机器码生成断言（本崩溃的元凶）。
+                    Mathf.Max(1, (int)(action.chance * 10f + 0.5f)),
                     mobility || rangedPool
                         ? CombatActionMovementMode.Mobile
                         : CombatActionMovementMode.BriefStop,
