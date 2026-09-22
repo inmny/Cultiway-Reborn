@@ -180,6 +180,8 @@ public static class YuanshenLifecycleService
             };
             if (actor.HasComponent<YuanyingSeed>()) actor.E.RemoveComponent<YuanyingSeed>();
             if (actor.HasComponent<YuanyingSoulState>()) actor.E.RemoveComponent<YuanyingSoulState>();
+            // 记住肉身时代的种族，供元神王国的城市名牌解析横幅背景。
+            YuanshenOriginBannerStore.Record(body.getID(), body.asset?.id);
             body.setAsset(Actors.BodilessYuanshen);
             body.setSubspecies(soulSubspecies);
             body.data.head = -1;

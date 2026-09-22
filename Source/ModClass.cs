@@ -451,6 +451,7 @@ namespace Cultiway
             Persistence = new ModSaveManager(new GlobalFileSaveStorage(
                 Path.Combine(Application.persistentDataPath, "Cultiway")));
             Core.Combat.SourcelessDamageLevels.Initialize(Persistence);
+            Content.YuanshenOriginBannerStore.Initialize(Persistence);
             Try.Start(() =>
             {
                 W = new EntityStore()
