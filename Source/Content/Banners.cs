@@ -36,6 +36,18 @@ public class Banners : ICanInit
     private static Dictionary<ElementType, List<string>> appended = new Dictionary<ElementType, List<string>>();
     private static void Postfix(KingdomBannerLibrary __instance, BannerAsset __result)
     {
+        // 原版对未设置 banner_id 的种族（如本模组的元神等克隆模板种族）会生成空 id 的
+        // 横幅资产，其背景列表为空；城市名牌每帧渲染时原版守卫只防超界不防空列表，
+        // 导致 ArgumentOutOfRangeException 刷屏。这里回落到人类横幅的背景列表。
+        if (string.IsNullOrEmpty(__result.id))
+        {
+            var mainAsset = AssetManager.kingdom_banners_library.main;
+            if (mainAsset != null && mainAsset.backgrounds is { Count: > 0 })
+            {
+                __result.backgrounds = mainAsset.backgrounds;
+            }
+        }
+
         if (appended.TryGetValue(ElementType.Icon, out var icons))
         {
             __result.icons?.AddRange(icons);
