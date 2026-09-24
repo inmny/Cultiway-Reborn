@@ -83,6 +83,12 @@ namespace Cultiway.Content.Const
             return currentIndex == expectedIndex;
         }
 
+        /// <summary>将皮肤索引解析为风格 key（如 tang/song），未知索引返回 false。</summary>
+        public static bool TryGetKey(int index, out string key)
+        {
+            return _indexToKey.TryGetValue(index, out key);
+        }
+
         public static string StyleNameLocaleKey(string key) => "eastern_human_skin_" + key;
     }
 }

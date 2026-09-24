@@ -5,6 +5,7 @@ using System.Reflection;
 using Cultiway.Abstract;
 using Cultiway.Const;
 using Cultiway.Content.Attributes;
+using Cultiway.Content.Const;
 using Cultiway.Content.Extensions;
 using Cultiway.Core.Libraries;
 using NeoModLoader.General.Game.extensions;
@@ -435,6 +436,16 @@ public partial class Buildings : ExtendLibrary<BuildingAsset, Buildings>
         AssetManager.buildings.get($"windmill_{Races.Ming.id}_1").fundament = new BuildingFundament(2,  2, 2,  0);
         AssetManager.buildings.get($"watch_tower_{Races.Ming.id}").fundament = new BuildingFundament(2, 2, 3,  0);
         */
+
+        // 文化皮肤 → 建筑风格：渲染取帧时按所属文化当前皮肤返回风格变体贴图（缺图回落通用贴图），
+        // 变体贴图位于 GameResources/cultiway/building_skins/<风格>/<建筑id>/，见 EasternHumanBuildingSkinSprites。
+        foreach (BuildingAsset building_asset in AssetManager.buildings.list)
+        {
+            if (building_asset.main_path == $"buildings/civ_main/{Actors.EasternHuman.id}/")
+            {
+                building_asset.get_override_sprites_main = EasternHumanBuildingSkinSprites.OverrideMain;
+            }
+        }
     }
 
     private void SetupGuiBuildings()
