@@ -7,7 +7,22 @@ namespace Cultiway.Core.Visuals;
 /// <summary>世界空间程序化视觉共享的材质资源。</summary>
 internal static class WorldVisualResources
 {
-    private const string ShaderBundleRelativePath = "Content/AssetBundles/cultiway_shaders";
+    /// <summary>按运行平台选择 Shader Bundle 文件名，与资源工程打包脚本的输出一一对应。</summary>
+    private static string ShaderBundleRelativePath
+    {
+        get
+        {
+            string bundleName = Application.platform switch
+            {
+                RuntimePlatform.WindowsPlayer or RuntimePlatform.WindowsEditor => "cultiway_shaders_windows",
+                RuntimePlatform.LinuxPlayer or RuntimePlatform.LinuxEditor => "cultiway_shaders_linux",
+                RuntimePlatform.OSXPlayer or RuntimePlatform.OSXEditor => "cultiway_shaders_osx",
+                _ => throw new InvalidOperationException(
+                    $"Cultiway Shader Bundle 不支持的平台: {Application.platform}"),
+            };
+            return $"Content/AssetBundles/{bundleName}";
+        }
+    }
     private const string WeaponSweepShaderAssetPath = "Assets/Cultiway/Shaders/WeaponSweep.shader";
     private const string WeaponThrustShaderAssetPath = "Assets/Cultiway/Shaders/WeaponThrust.shader";
     private static Material transparentSpriteMaterial;
